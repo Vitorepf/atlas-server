@@ -4,8 +4,8 @@ namespace App\Services\Engineering;
 
 use App\Models\AtlasEngineeringBlueprint;
 use App\Models\AtlasTask;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class EngineeringBlueprintSnapshotService
 {
@@ -119,7 +119,7 @@ class EngineeringBlueprintSnapshotService
 
     private function available(): bool
     {
-        return Schema::hasTable('atlas_engineering_blueprints');
+        return DatabaseTableAvailability::has('atlas_engineering_blueprints');
     }
 
     /**

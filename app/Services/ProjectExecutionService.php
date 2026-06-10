@@ -8,10 +8,10 @@ use App\Models\AtlasProjectEvent;
 use App\Models\AtlasProjectStep;
 use App\Models\AtlasTask;
 use App\Models\Capture;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\ProjectExecutionHealth;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -84,7 +84,7 @@ class ProjectExecutionService
         string $source = 'project',
     ): AtlasTask {
         $plan = $plan ?: $this->inferPlan($capture, $data, $project->title);
-        if (Schema::hasTable('atlas_project_steps') && $project->steps()->count() === 0) {
+        if (DatabaseTableAvailability::has('atlas_project_steps') && $project->steps()->count() === 0) {
             $this->ensureProjectPlan($project, $plan, false, $source);
             $project->refresh();
         }
@@ -208,7 +208,7 @@ class ProjectExecutionService
      */
     public function ensureProjectPlan(AtlasProject $project, array $plan = [], bool $replace = false, string $source = 'project'): Collection
     {
-        if (! Schema::hasTable('atlas_project_steps')) {
+        if (! DatabaseTableAvailability::has('atlas_project_steps')) {
             return collect();
         }
 
@@ -272,7 +272,7 @@ class ProjectExecutionService
 
     public function advanceAfterTaskCompletion(AtlasTask $task, string $source = 'tasks.complete', array $completion = []): ?AtlasTask
     {
-        if (! $task->project_id || ! $task->project_step_id || ! Schema::hasTable('atlas_project_steps')) {
+        if (! $task->project_id || ! $task->project_step_id || ! DatabaseTableAvailability::has('atlas_project_steps')) {
             return null;
         }
 
@@ -409,7 +409,7 @@ class ProjectExecutionService
         }
 
         $blocker = null;
-        if (is_string($data['blocker_id'] ?? null) && Schema::hasTable('atlas_project_blockers')) {
+        if (is_string($data['blocker_id'] ?? null) && DatabaseTableAvailability::has('atlas_project_blockers')) {
             $blocker = AtlasProjectBlocker::query()
                 ->where('project_id', $project->id)
                 ->whereKey($data['blocker_id'])
@@ -666,7 +666,7 @@ class ProjectExecutionService
             'pending' => 0,
             'blocked' => 0,
         ];
-        if (Schema::hasTable('atlas_project_steps')) {
+        if (DatabaseTableAvailability::has('atlas_project_steps')) {
             foreach ($project->steps()->get(['status']) as $step) {
                 $status = (string) $step->status;
                 $stepCounts['total']++;
@@ -676,7 +676,7 @@ class ProjectExecutionService
             }
         }
 
-        $openTaskCount = Schema::hasTable('atlas_tasks')
+        $openTaskCount = DatabaseTableAvailability::has('atlas_tasks')
             ? $project->tasks()
                 ->whereIn('status', ['open', 'next', 'waiting'])
                 ->whereNull('completed_at')
@@ -1191,7 +1191,7 @@ class ProjectExecutionService
             }
         }
 
-        if ($task->project_step_id && Schema::hasTable('atlas_project_steps')) {
+        if ($task->project_step_id && DatabaseTableAvailability::has('atlas_project_steps')) {
             $step = AtlasProjectStep::query()->find($task->project_step_id);
             if ($step) {
                 $stepMetadata = is_array($step->metadata) ? $step->metadata : [];
@@ -1356,7 +1356,7 @@ class ProjectExecutionService
      */
     public function recordEvent(AtlasProject $project, string $eventType, array $payload = [], string $source = 'app'): ?AtlasProjectEvent
     {
-        if (! Schema::hasTable('atlas_project_events')) {
+        if (! DatabaseTableAvailability::has('atlas_project_events')) {
             return null;
         }
 
@@ -1679,7 +1679,7 @@ class ProjectExecutionService
 
     private function moveOpenProjectTasks(AtlasProject $project, string $status): int
     {
-        if (! Schema::hasTable('atlas_tasks')) {
+        if (! DatabaseTableAvailability::has('atlas_tasks')) {
             return 0;
         }
 
@@ -1741,7 +1741,7 @@ class ProjectExecutionService
 
     private function currentStepForProject(AtlasProject $project): ?AtlasProjectStep
     {
-        if (! Schema::hasTable('atlas_project_steps')) {
+        if (! DatabaseTableAvailability::has('atlas_project_steps')) {
             return null;
         }
 

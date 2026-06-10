@@ -3,8 +3,8 @@
 namespace App\Services\Engineering\CodeGraph;
 
 use App\Models\AiCodebaseWorldModel;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -133,7 +133,7 @@ class CodeGraphSymbolBuilder
 
     private function workspaceColumn(string $table): bool
     {
-        return $this->workspaceColumnCache[$table] ??= Schema::hasColumn($table, 'workspace_id');
+        return $this->workspaceColumnCache[$table] ??= DatabaseTableAvailability::hasColumn($table, 'workspace_id');
     }
 
     /**

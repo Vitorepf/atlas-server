@@ -4,9 +4,9 @@ namespace App\Services\Ai\Kernel\Architecture;
 
 use App\Models\AtlasStrategyRivalsCase;
 use App\Models\AtlasStrategyRivalsReview;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 
 class AtlasRivalsStrategyReadModel
 {
@@ -133,8 +133,10 @@ class AtlasRivalsStrategyReadModel
 
     private function available(): bool
     {
-        return Schema::hasTable('atlas_strategy_rivals_cases')
-            && Schema::hasTable('atlas_strategy_rivals_reviews');
+        return DatabaseTableAvailability::missing([
+            'atlas_strategy_rivals_cases',
+            'atlas_strategy_rivals_reviews',
+        ]) === [];
     }
 
     /**

@@ -6,7 +6,7 @@ use App\Models\AiYoutubeIngestion;
 use App\Models\TranscriptionJob;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\ExecutableFinder;
 
@@ -28,7 +28,7 @@ class HealthController extends Controller
             'failed' => 0,
         ];
 
-        if ($dbConnected && Schema::hasTable('transcription_jobs')) {
+        if ($dbConnected && DatabaseTableAvailability::has('transcription_jobs')) {
             $counts = TranscriptionJob::query()
                 ->selectRaw('status, count(*) as aggregate')
                 ->whereIn('status', array_keys($transcriptionJobs))
@@ -130,7 +130,7 @@ class HealthController extends Controller
         ];
         $recent = [];
 
-        if ($dbConnected && Schema::hasTable('ai_youtube_ingestions')) {
+        if ($dbConnected && DatabaseTableAvailability::has('ai_youtube_ingestions')) {
             $counts = AiYoutubeIngestion::query()
                 ->selectRaw('status, count(*) as aggregate')
                 ->groupBy('status')

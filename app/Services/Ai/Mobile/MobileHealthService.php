@@ -5,7 +5,7 @@ namespace App\Services\Ai\Mobile;
 use App\Models\AiInboxItem;
 use App\Models\AtlasMobileDevice;
 use App\Models\MobilePushDelivery;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class MobileHealthService
 {
@@ -16,9 +16,9 @@ class MobileHealthService
      */
     public function snapshot(string $userId): array
     {
-        $hasDeliveries = Schema::hasTable('mobile_push_deliveries');
-        $hasInbox = Schema::hasTable('ai_inbox_items');
-        $hasDevices = Schema::hasTable('atlas_mobile_devices');
+        $hasDeliveries = DatabaseTableAvailability::has('mobile_push_deliveries');
+        $hasInbox = DatabaseTableAvailability::has('ai_inbox_items');
+        $hasDevices = DatabaseTableAvailability::has('atlas_mobile_devices');
 
         $now = now();
         $since = $now->copy()->subDay();

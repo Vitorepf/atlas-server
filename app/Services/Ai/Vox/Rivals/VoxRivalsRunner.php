@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Services\Ai\Vox\Rivals;
 
 use App\Models\AtlasVoxRivalsCase;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Vox\VoxEvidenceService;
 use App\Services\Ai\Vox\VoxSchema;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use RuntimeException;
@@ -89,7 +89,7 @@ final class VoxRivalsRunner
     public function isStoragePresent(): bool
     {
         try {
-            return Schema::hasTable(self::TABLE);
+            return DatabaseTableAvailability::has(self::TABLE);
         } catch (\Throwable) {
             // DB connection itself is down — treat as setup pending so the
             // doctor surfaces a clear next action instead of crashing.

@@ -4,7 +4,7 @@ namespace App\Services\Tools;
 
 use App\Models\AtlasToolPolicy;
 use App\Models\AtlasToolRun;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AtlasToolAuthorityPolicyService
 {
@@ -223,7 +223,7 @@ class AtlasToolAuthorityPolicyService
 
     private function overrideFor(string $group, ?string $workspaceHash): ?AtlasToolPolicy
     {
-        if (! Schema::hasTable('atlas_tool_policies')) {
+        if (! DatabaseTableAvailability::has('atlas_tool_policies')) {
             return null;
         }
 
@@ -357,7 +357,7 @@ class AtlasToolAuthorityPolicyService
 
     private function ensureTables(): void
     {
-        if (! Schema::hasTable('atlas_tool_policies')) {
+        if (! DatabaseTableAvailability::has('atlas_tool_policies')) {
             throw new \RuntimeException('Tool runtime tables are not migrated.');
         }
     }

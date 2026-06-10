@@ -6,7 +6,7 @@ use App\Models\AiTrace;
 use App\Models\AtlasEngineeringEvidence;
 use App\Models\AtlasTask;
 use App\Models\AtlasTaskEvent;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class EngineeringRunArtifactService
@@ -94,7 +94,7 @@ class EngineeringRunArtifactService
 
         $task->forceFill(['metadata' => $metadata])->save();
 
-        if (Schema::hasTable('atlas_task_events')) {
+        if (DatabaseTableAvailability::has('atlas_task_events')) {
             AtlasTaskEvent::query()->create([
                 'task_id' => $task->id,
                 'event_type' => 'engineering_dev_run_completed',
@@ -140,7 +140,7 @@ class EngineeringRunArtifactService
         $task->forceFill(['metadata' => $metadata])->save();
         $this->persistEvidenceRecord($task, $entry, $data);
 
-        if (Schema::hasTable('atlas_task_events')) {
+        if (DatabaseTableAvailability::has('atlas_task_events')) {
             AtlasTaskEvent::query()->create([
                 'task_id' => $task->id,
                 'event_type' => 'engineering_evidence_recorded',
@@ -225,7 +225,7 @@ class EngineeringRunArtifactService
      */
     public function persistTraceArtifact(?string $traceId, array $artifact): void
     {
-        if (! $traceId || ! Schema::hasTable('ai_traces')) {
+        if (! $traceId || ! DatabaseTableAvailability::has('ai_traces')) {
             return;
         }
 
@@ -516,7 +516,7 @@ class EngineeringRunArtifactService
             ->values();
 
         $tableEntries = collect();
-        if ($task->exists && Schema::hasTable('atlas_engineering_evidence')) {
+        if ($task->exists && DatabaseTableAvailability::has('atlas_engineering_evidence')) {
             $tableEntries = AtlasEngineeringEvidence::query()
                 ->where('task_id', $task->id)
                 ->latest('recorded_at')
@@ -541,7 +541,7 @@ class EngineeringRunArtifactService
      */
     private function persistEvidenceRecord(AtlasTask $task, array $entry, array $data): void
     {
-        if (! Schema::hasTable('atlas_engineering_evidence')) {
+        if (! DatabaseTableAvailability::has('atlas_engineering_evidence')) {
             return;
         }
 

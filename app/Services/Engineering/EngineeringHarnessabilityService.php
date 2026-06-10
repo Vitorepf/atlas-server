@@ -6,9 +6,9 @@ use App\Models\AtlasEngineeringBenchmarkResult;
 use App\Models\AtlasEngineeringHarnessabilityCalibration;
 use App\Models\AtlasEngineeringRun;
 use App\Services\Ai\Runtime\WorkspaceProfiler;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 
 class EngineeringHarnessabilityService
 {
@@ -120,7 +120,7 @@ class EngineeringHarnessabilityService
             'recommendations' => $recommendations,
         ];
 
-        if (Schema::hasTable('atlas_engineering_harnessability_calibrations')) {
+        if (DatabaseTableAvailability::has('atlas_engineering_harnessability_calibrations')) {
             AtlasEngineeringHarnessabilityCalibration::query()->create([
                 'sample_limit' => $limit,
                 'sample_count' => $signals->count(),
@@ -148,7 +148,7 @@ class EngineeringHarnessabilityService
      */
     public function latestCalibration(): ?array
     {
-        if (! Schema::hasTable('atlas_engineering_harnessability_calibrations')) {
+        if (! DatabaseTableAvailability::has('atlas_engineering_harnessability_calibrations')) {
             return null;
         }
 
@@ -242,8 +242,10 @@ class EngineeringHarnessabilityService
     {
         if (
             $runs->isEmpty()
-            || ! Schema::hasTable('atlas_engineering_benchmark_results')
-            || ! Schema::hasTable('atlas_engineering_benchmark_runs')
+            || ! DatabaseTableAvailability::all([
+                'atlas_engineering_benchmark_results',
+                'atlas_engineering_benchmark_runs',
+            ])
         ) {
             return [];
         }

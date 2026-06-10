@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Voice;
 
+use App\Services\Ai\Support\JsonFileStore;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 
@@ -695,7 +696,7 @@ final class AtlasVoiceRuntimeCertificationService
             'runtime' => $runtime,
             'base_url' => $baseUrl,
         ]);
-        file_put_contents($bootstrapPath, json_encode($bootstrap, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        JsonFileStore::write($bootstrapPath, $bootstrap, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         file_put_contents($envPath, implode("\n", [
             'ATLAS_BASE_URL='.$baseUrl,
             'ATLAS_TOKEN=preflight-token',
@@ -785,7 +786,7 @@ final class AtlasVoiceRuntimeCertificationService
             'runtime' => $runtime,
             'base_url' => $baseUrl,
         ]);
-        file_put_contents($bootstrapPath, json_encode($bootstrap, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        JsonFileStore::write($bootstrapPath, $bootstrap, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         file_put_contents($envPath, implode("\n", [
             'ATLAS_BASE_URL='.$baseUrl,
             'ATLAS_TOKEN=worker-start-token',
@@ -838,7 +839,7 @@ final class AtlasVoiceRuntimeCertificationService
             'runtime' => $runtime,
             'base_url' => $baseUrl,
         ]);
-        file_put_contents($bootstrapPath, json_encode($bootstrap, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        JsonFileStore::write($bootstrapPath, $bootstrap, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         file_put_contents($envPath, implode("\n", [
             'ATLAS_BASE_URL='.$baseUrl,
             'ATLAS_TOKEN=product-loop-token',
@@ -903,7 +904,7 @@ final class AtlasVoiceRuntimeCertificationService
             'runtime' => $runtime,
             'base_url' => $baseUrl,
         ]);
-        file_put_contents($bootstrapPath, json_encode($bootstrap, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        JsonFileStore::write($bootstrapPath, $bootstrap, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
         try {
             return $this->sanitize($this->runPython([

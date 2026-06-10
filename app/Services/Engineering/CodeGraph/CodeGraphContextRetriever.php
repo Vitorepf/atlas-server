@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering\CodeGraph;
 
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -178,7 +178,7 @@ class CodeGraphContextRetriever
     private function rankedCandidates(string $workspaceId, array $terms): array
     {
         try {
-            if (! Schema::hasTable('atlas_engineering_code_symbols')) {
+            if (! DatabaseTableAvailability::has('atlas_engineering_code_symbols')) {
                 return [];
             }
 
@@ -194,7 +194,7 @@ class CodeGraphContextRetriever
 
             // Scope to the workspace only when the read-model is W-1-keyed; on a pre-W-1
             // table (no column) every row is implicitly the primary workspace.
-            if (Schema::hasColumn('atlas_engineering_code_symbols', 'workspace_id')) {
+            if (DatabaseTableAvailability::hasColumn('atlas_engineering_code_symbols', 'workspace_id')) {
                 $query->where('workspace_id', $workspaceId);
             }
 

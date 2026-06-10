@@ -16,7 +16,7 @@ use App\Services\Ai\Telemetry\AiTelemetryWindowInput;
 use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AiTelemetryMetricsController extends Controller
 {
@@ -36,7 +36,7 @@ class AiTelemetryMetricsController extends Controller
         $since = now()->subHours($hours);
         $recomputed = null;
 
-        if ((bool) ($data['recompute'] ?? false) && Schema::hasTable('ai_trace_metric_summaries')) {
+        if ((bool) ($data['recompute'] ?? false) && DatabaseTableAvailability::has('ai_trace_metric_summaries')) {
             $recomputed = $aggregator->recomputeWindow($since);
         }
 
@@ -63,7 +63,7 @@ class AiTelemetryMetricsController extends Controller
         $since = now()->subHours($hours);
         $recomputed = null;
 
-        if ((bool) ($data['recompute'] ?? false) && Schema::hasTable('ai_trace_metric_summaries')) {
+        if ((bool) ($data['recompute'] ?? false) && DatabaseTableAvailability::has('ai_trace_metric_summaries')) {
             $recomputed = $aggregator->recomputeWindow($since);
         }
 
@@ -79,7 +79,7 @@ class AiTelemetryMetricsController extends Controller
 
     public function summaries(Request $request, AiTelemetryWindowInput $telemetryWindow): JsonResponse
     {
-        if (! Schema::hasTable('ai_trace_metric_summaries')) {
+        if (! DatabaseTableAvailability::has('ai_trace_metric_summaries')) {
             return response()->json([
                 'summaries' => [],
                 'available' => false,
@@ -116,7 +116,7 @@ class AiTelemetryMetricsController extends Controller
 
     public function costRates(Request $request, AiProviderCostRateService $rates, AiTelemetryWindowInput $telemetryWindow): JsonResponse
     {
-        if (! Schema::hasTable('ai_provider_cost_rates')) {
+        if (! DatabaseTableAvailability::has('ai_provider_cost_rates')) {
             return response()->json([
                 'rates' => [],
                 'available' => false,
@@ -154,7 +154,7 @@ class AiTelemetryMetricsController extends Controller
 
     public function missingCostRates(Request $request, AiProviderCostRateService $rates, AiTelemetryWindowInput $telemetryWindow): JsonResponse
     {
-        if (! Schema::hasTable('ai_trace_metric_summaries') || ! Schema::hasTable('ai_provider_cost_rates')) {
+        if (! DatabaseTableAvailability::has('ai_trace_metric_summaries') || ! DatabaseTableAvailability::has('ai_provider_cost_rates')) {
             return response()->json([
                 'available' => false,
                 'missing_rates' => [],
@@ -218,7 +218,7 @@ class AiTelemetryMetricsController extends Controller
 
     public function outcomes(Request $request, AiTelemetryWindowInput $telemetryWindow): JsonResponse
     {
-        if (! Schema::hasTable('ai_outcome_links')) {
+        if (! DatabaseTableAvailability::has('ai_outcome_links')) {
             return response()->json([
                 'outcomes' => [],
                 'available' => false,
@@ -274,7 +274,7 @@ class AiTelemetryMetricsController extends Controller
             'source' => 'api',
         ]);
 
-        if ($outcome?->trace_id && Schema::hasTable('ai_trace_metric_summaries')) {
+        if ($outcome?->trace_id && DatabaseTableAvailability::has('ai_trace_metric_summaries')) {
             $aggregator->recomputeTrace($outcome->trace_id);
         }
 

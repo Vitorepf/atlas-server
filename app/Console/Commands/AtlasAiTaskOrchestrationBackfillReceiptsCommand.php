@@ -8,7 +8,7 @@ use App\Services\Ai\Kernel\Evidence\KernelReplayReportInput;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AtlasAiTaskOrchestrationBackfillReceiptsCommand extends Command
 {
@@ -26,7 +26,7 @@ class AtlasAiTaskOrchestrationBackfillReceiptsCommand extends Command
         $since = now()->subHours($hours);
         $until = now();
 
-        if (! Schema::hasTable('atlas_tasks') || ! Schema::hasTable('atlas_task_events')) {
+        if (! DatabaseTableAvailability::has('atlas_tasks') || ! DatabaseTableAvailability::has('atlas_task_events')) {
             return $this->render([
                 'status' => 'storage_unavailable',
                 'hours' => $hours,
@@ -35,8 +35,8 @@ class AtlasAiTaskOrchestrationBackfillReceiptsCommand extends Command
                     'available' => false,
                     'schema_version' => 'atlas.task_orchestration_backfill_receipts.v1',
                     'tables' => [
-                        'atlas_tasks' => Schema::hasTable('atlas_tasks'),
-                        'atlas_task_events' => Schema::hasTable('atlas_task_events'),
+                        'atlas_tasks' => DatabaseTableAvailability::has('atlas_tasks'),
+                        'atlas_task_events' => DatabaseTableAvailability::has('atlas_task_events'),
                     ],
                     'writes' => false,
                 ],

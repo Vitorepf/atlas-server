@@ -25,7 +25,7 @@ use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGat
 use App\Support\AtlasSecurity;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
 /**
@@ -415,11 +415,11 @@ final class RunController extends Controller
 
     private function compoundingTablesReady(): bool
     {
-        return Schema::hasTable('ai_run_outcomes')
-            && Schema::hasTable('ai_learning_candidates')
-            && Schema::hasTable('ai_compounding_memories')
-            && Schema::hasTable('ai_rag_feedback_events')
-            && Schema::hasTable('ai_temporal_certifications');
+        return DatabaseTableAvailability::has('ai_run_outcomes')
+            && DatabaseTableAvailability::has('ai_learning_candidates')
+            && DatabaseTableAvailability::has('ai_compounding_memories')
+            && DatabaseTableAvailability::has('ai_rag_feedback_events')
+            && DatabaseTableAvailability::has('ai_temporal_certifications');
     }
 
     /**

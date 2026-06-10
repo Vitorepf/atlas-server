@@ -6,12 +6,11 @@ namespace App\Services\Ai\Patamar4;
 
 use App\Services\Ai\Gateway\AtlasGatewayPreflightService;
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Services\Ai\Teos\AtlasTeosI4CounterfactualTreeService;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use App\Services\Ai\Support\AppendOnlyJsonlStore;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Atlas Nightly Counterfactuals Service — Patamar 4 background ensaios.

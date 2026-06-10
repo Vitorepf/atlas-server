@@ -6,8 +6,8 @@ use App\Models\AiInboxItem;
 use App\Models\AiThread;
 use App\Models\AiTrace;
 use App\Services\Ai\AiGatewayService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\AuditLogService;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 class DiscussionBootstrapper
@@ -232,7 +232,7 @@ class DiscussionBootstrapper
             'ai_context_snapshots',
             'ai_provider_handoffs',
         ] as $table) {
-            if (! Schema::hasTable($table)) {
+            if (! DatabaseTableAvailability::has($table)) {
                 return false;
             }
         }

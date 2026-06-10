@@ -10,7 +10,7 @@ use App\Models\AiTrace;
 use App\Services\Ai\AtlasForge\AtlasObraDeterministicReplayService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 /**
  * Atlas Obra Replay HTTP read model (AP-705 wiring).
@@ -30,7 +30,7 @@ final class AtlasObraReplayController extends Controller
 
     public function show(Request $request, AiTrace $trace): JsonResponse
     {
-        if (! Schema::hasTable('ai_stream_events')) {
+        if (! DatabaseTableAvailability::has('ai_stream_events')) {
             return response()->json([
                 'message' => 'ai_stream_events table is not available in this environment.',
                 'code' => 'stream_events_unavailable',

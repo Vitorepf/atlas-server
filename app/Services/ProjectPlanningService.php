@@ -7,10 +7,10 @@ use App\Models\AtlasProjectPlanProposal;
 use App\Models\AtlasTask;
 use App\Models\Capture;
 use App\Models\CaptureLink;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class ProjectPlanningService
@@ -421,7 +421,7 @@ class ProjectPlanningService
         AtlasProjectPlanProposal $proposal,
     ): void {
         $link = null;
-        if (Schema::hasTable('capture_links')) {
+        if (DatabaseTableAvailability::has('capture_links')) {
             $link = CaptureLink::query()->updateOrCreate([
                 'capture_id' => $capture->id,
                 'target_type' => 'project',

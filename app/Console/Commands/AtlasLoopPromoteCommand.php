@@ -5,7 +5,7 @@ namespace App\Console\Commands;
 use App\Models\AtlasLoopProposal;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProposalPromotionGate;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 /**
  * Govern-promote a certified loop proposal to a NEW BRANCH (never main). Requires
@@ -25,7 +25,7 @@ class AtlasLoopPromoteCommand extends Command
 
     public function handle(AtlasLoopProposalPromotionGate $gate): int
     {
-        if (! Schema::hasTable('atlas_loop_proposals')) {
+        if (! DatabaseTableAvailability::has('atlas_loop_proposals')) {
             $this->warn('Table atlas_loop_proposals unavailable — nothing to promote.');
 
             return self::SUCCESS;

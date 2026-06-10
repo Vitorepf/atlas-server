@@ -23,10 +23,10 @@ use App\Services\Ai\Hermes\HermesScheduleAdapter;
 use App\Services\Ai\Hermes\HermesSkillProvisioner;
 use App\Services\Ai\Hermes\ManagedHermesHome;
 use App\Services\Ai\Skills\Governance\HermesSkillProvisionGate;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\AtlasSecurity;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class HermesCliProvider implements AiProvider
@@ -873,7 +873,7 @@ class HermesCliProvider implements AiProvider
     /**
      * Operator-approved, installable Atlas skills, shaped into the $promotedSkills
      * records {@see HermesSkillProvisioner::provision()} expects. Mirrors
-     * {@see approvedCapabilityIds()}: Schema-guarded, fail-closed to [] when the
+     * {@see approvedCapabilityIds()}: storage-guarded, fail-closed to [] when the
      * table is absent. The provisioner + gate re-verify promotion on each record,
      * so this query is only the candidate source, never the authority.
      *
@@ -881,7 +881,7 @@ class HermesCliProvider implements AiProvider
      */
     private function promotedSkillRecords(): array
     {
-        if (! Schema::hasTable('hermes_skill_candidates')) {
+        if (! DatabaseTableAvailability::has('hermes_skill_candidates')) {
             return [];
         }
 
@@ -1019,7 +1019,7 @@ class HermesCliProvider implements AiProvider
      */
     private function approvedCapabilityIds(): array
     {
-        if (! Schema::hasTable('hermes_capability_candidates')) {
+        if (! DatabaseTableAvailability::has('hermes_capability_candidates')) {
             return [];
         }
 

@@ -7,9 +7,8 @@ namespace App\Services\Engineering\CodeGraph;
 use App\Models\AiCodebaseWorldModel;
 use App\Models\AiCodebaseWorldModelEdge;
 use App\Models\AiCodebaseWorldModelNode;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
-use Throwable;
 
 /**
  * Atlas-as-language-server: a MINIMAL but real LSP surface over the AP-811 code
@@ -464,12 +463,10 @@ class CodeGraphLanguageServer
 
     private function tablesReady(): bool
     {
-        try {
-            return Schema::hasTable('ai_codebase_world_models')
-                && Schema::hasTable('ai_codebase_world_model_nodes')
-                && Schema::hasTable('ai_codebase_world_model_edges');
-        } catch (Throwable) {
-            return false;
-        }
+        return DatabaseTableAvailability::all([
+            'ai_codebase_world_models',
+            'ai_codebase_world_model_nodes',
+            'ai_codebase_world_model_edges',
+        ]);
     }
 }

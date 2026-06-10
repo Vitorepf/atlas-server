@@ -4,7 +4,7 @@ namespace App\Services\Ai\Mobile;
 
 use App\Models\AiInboxItem;
 use App\Models\AiJob;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class JobResultInboxEmitter
@@ -17,7 +17,7 @@ class JobResultInboxEmitter
 
     public function emitIfImportant(AiJob $job, ?string $finalStatus = null): ?AiInboxItem
     {
-        if (! Schema::hasTable('ai_inbox_items') || ! Schema::hasTable('ai_context_bundles')) {
+        if (DatabaseTableAvailability::missing(['ai_inbox_items', 'ai_context_bundles']) !== []) {
             return null;
         }
 

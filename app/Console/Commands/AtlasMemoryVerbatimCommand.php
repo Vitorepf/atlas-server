@@ -6,7 +6,7 @@ use App\Models\AtlasVerbatimMemory;
 use App\Services\Ai\AtlasVerbatimMemoryService;
 use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class AtlasMemoryVerbatimCommand extends Command
@@ -54,7 +54,7 @@ class AtlasMemoryVerbatimCommand extends Command
     {
         $this->memoryInput = $input;
 
-        if (! Schema::hasTable('atlas_verbatim_memories')) {
+        if (! DatabaseTableAvailability::has('atlas_verbatim_memories')) {
             $this->error('Tabela atlas_verbatim_memories ainda nao existe. Rode migrations.');
 
             return self::FAILURE;

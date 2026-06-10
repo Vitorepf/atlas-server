@@ -14,10 +14,10 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDevForgeRe
 use App\Services\Ai\SoftwareCompanyStewardship\PortfolioStewardship\PortfolioStewardshipHealthModelService;
 use App\Services\Ai\SoftwareCompanyStewardship\SelfExpanding\SelfExpandingSoftwareCompanyService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * AP-740 · Stewardship outcomes bridge.
@@ -259,7 +259,7 @@ final class StewardshipOutcomeEvidenceBridgeService implements \App\Services\Ai\
      */
     private function recordEvidenceItem(array $item, string $operatorId): array
     {
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return array_merge($item, ['ledger_status' => 'skipped_missing_atlas_ledger_events_table']);
         }
 

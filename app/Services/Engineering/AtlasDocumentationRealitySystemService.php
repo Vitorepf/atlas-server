@@ -7,11 +7,11 @@ namespace App\Services\Engineering;
 use App\Models\AtlasEngineeringCodeSymbol;
 use App\Services\Ai\Aaeos\AtlasAaeosImplementationEvidenceResolver;
 use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 
 class AtlasDocumentationRealitySystemService
 {
@@ -1406,7 +1406,7 @@ class AtlasDocumentationRealitySystemService
      */
     private function codeIndexHealthy(): bool
     {
-        if (! Schema::hasTable('atlas_engineering_code_symbols')) {
+        if (! DatabaseTableAvailability::has('atlas_engineering_code_symbols')) {
             return false;
         }
 

@@ -8,7 +8,7 @@ use App\Models\HermesCapabilityCandidate;
 use App\Services\Ai\Hermes\HermesCapabilityProbe;
 use App\Services\Ai\Hermes\HermesCapabilityRegistry;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 /**
@@ -115,7 +115,7 @@ class AtlasHermesCapabilitiesCommand extends Command
 
     private function handleCandidates(): int
     {
-        if (! Schema::hasTable('hermes_capability_candidates')) {
+        if (! DatabaseTableAvailability::has('hermes_capability_candidates')) {
             if ($this->wantsJson()) {
                 $this->printJson([
                     'action' => 'candidates',

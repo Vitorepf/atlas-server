@@ -6,7 +6,7 @@ use App\Models\AiDomainManifest;
 use App\Models\AiDomainRuntimeRecord;
 use App\Services\Ai\DomainRuntime\DomainRuntimeRecordService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class EnterpriseFlowFixtureActionRuntimeService
@@ -7994,7 +7994,7 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     private function persistInternalRuntimeRecord(array $company, array $payload): ?array
     {
-        if (! Schema::hasTable('ai_domain_manifests') || ! Schema::hasTable('ai_domain_runtime_records')) {
+        if (! $this->runtimePersistenceTablesAvailable()) {
             return null;
         }
 
@@ -8151,7 +8151,7 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     private function runtimeRecordsForCompany(string $companyId): array
     {
-        if (! Schema::hasTable('ai_domain_runtime_records')) {
+        if (! $this->runtimeRecordsTableAvailable()) {
             return [];
         }
 
@@ -8744,5 +8744,15 @@ class EnterpriseFlowFixtureActionRuntimeService
         }
 
         return 0;
+    }
+
+    private function runtimePersistenceTablesAvailable(): bool
+    {
+        return DatabaseTableAvailability::all(['ai_domain_manifests', 'ai_domain_runtime_records']);
+    }
+
+    private function runtimeRecordsTableAvailable(): bool
+    {
+        return DatabaseTableAvailability::has('ai_domain_runtime_records');
     }
 }

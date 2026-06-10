@@ -16,7 +16,7 @@ use App\Services\ProjectExecutionService;
 use App\Support\ProjectExecutionHealth;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Validation\Rule;
 
 class AtlasProjectController extends Controller
@@ -484,7 +484,7 @@ class AtlasProjectController extends Controller
      */
     private function projectRelations(): array
     {
-        return Schema::hasTable('atlas_project_blockers')
+        return DatabaseTableAvailability::has('atlas_project_blockers')
             ? ['activeNextTask', 'currentStep', 'openBlockers']
             : ['activeNextTask', 'currentStep'];
     }

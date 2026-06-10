@@ -12,8 +12,8 @@ use App\Services\Ai\Kernel\Failure\FailureHandlerRegistry;
 use App\Services\Ai\Kernel\Repair\RepairDecision;
 use App\Services\Ai\Kernel\Repair\RepairResult;
 use App\Services\Ai\Kernel\Slo\KernelSloAssessment;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -35,7 +35,7 @@ class AtlasEvidenceLedger
         array $payload,
         array $context = [],
     ): ?AtlasLedgerEvent {
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return null;
         }
 
@@ -74,13 +74,13 @@ class AtlasEvidenceLedger
             'occurred_at' => $occurredAt,
         ];
 
-        if (Schema::hasColumn('atlas_ledger_events', 'scope_type')) {
+        if (DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_type')) {
             $row['scope_type'] = $scopeType;
         }
-        if (Schema::hasColumn('atlas_ledger_events', 'scope_id')) {
+        if (DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_id')) {
             $row['scope_id'] = $scopeId;
         }
-        if (Schema::hasColumn('atlas_ledger_events', 'event_hash')) {
+        if (DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'event_hash')) {
             $row['event_hash'] = self::computeEventHash([
                 'event_id' => $eventId,
                 'event_type' => $type->value,
@@ -124,9 +124,9 @@ class AtlasEvidenceLedger
      */
     public function eventsForScope(string $scopeType, string $scopeId, int $limit = 100): array
     {
-        if (! Schema::hasTable('atlas_ledger_events')
-            || ! Schema::hasColumn('atlas_ledger_events', 'scope_type')
-            || ! Schema::hasColumn('atlas_ledger_events', 'scope_id')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')
+            || ! DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_type')
+            || ! DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_id')) {
             return [];
         }
 
@@ -147,7 +147,7 @@ class AtlasEvidenceLedger
      */
     public function eventsForCorrelation(string $correlationId, int $limit = 100): array
     {
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return [];
         }
 
@@ -839,7 +839,7 @@ class AtlasEvidenceLedger
      */
     public function eventsForEnvelope(string $envelopeId): array
     {
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return [];
         }
 

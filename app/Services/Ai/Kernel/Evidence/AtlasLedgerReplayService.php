@@ -5,9 +5,9 @@ namespace App\Services\Ai\Kernel\Evidence;
 use App\Models\AiInboxItem;
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptHash;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 
 class AtlasLedgerReplayService
 {
@@ -149,7 +149,7 @@ class AtlasLedgerReplayService
         $until ??= now();
         $filters = $this->normalizedKernelPipelineFilters($filters);
 
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return [
                 'available' => false,
                 'window' => [
@@ -221,7 +221,7 @@ class AtlasLedgerReplayService
         $until ??= now();
         $filters = $this->normalizedRepairFilters($filters);
 
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return [
                 'available' => false,
                 'window' => [
@@ -273,7 +273,7 @@ class AtlasLedgerReplayService
     {
         $until ??= now();
 
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return [
                 'available' => false,
                 'window' => [
@@ -304,7 +304,7 @@ class AtlasLedgerReplayService
             ->unique()
             ->values()
             ->all());
-        $inboxHydrationAvailable = Schema::hasTable('ai_inbox_items');
+        $inboxHydrationAvailable = DatabaseTableAvailability::has('ai_inbox_items');
         $events = $events
             ->map(fn (array $event): array => $this->withSelfImprovementInboxItems($event, $inboxItemsById, $inboxHydrationAvailable))
             ->values();
@@ -334,7 +334,7 @@ class AtlasLedgerReplayService
         $until ??= now();
         $filters = $this->normalizedInboxActionFilters($filters);
 
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return [
                 'available' => false,
                 'window' => [
@@ -385,7 +385,7 @@ class AtlasLedgerReplayService
         $until ??= now();
         $filters = $this->normalizedAgentBehaviorFilters($filters);
 
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return [
                 'available' => false,
                 'window' => [
@@ -452,7 +452,7 @@ class AtlasLedgerReplayService
         $until ??= now();
         $filters = $this->normalizedDimensionFilters($filters);
 
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return [
                 'available' => false,
                 'window' => [
@@ -1119,7 +1119,7 @@ class AtlasLedgerReplayService
             ->values()
             ->all();
 
-        if ($ids === [] || ! Schema::hasTable('ai_inbox_items')) {
+        if ($ids === [] || ! DatabaseTableAvailability::has('ai_inbox_items')) {
             return [];
         }
 
@@ -1226,7 +1226,7 @@ class AtlasLedgerReplayService
             'emitted_count' => $events->sum(fn (array $event): int => (int) ($event['emitted_count'] ?? 0)),
             'emitted_inbox_item_ids' => $emittedInboxItemIds,
             'emitted_inbox_items' => $emittedInboxItems,
-            'emitted_inbox_item_hydration_available' => Schema::hasTable('ai_inbox_items'),
+            'emitted_inbox_item_hydration_available' => DatabaseTableAvailability::has('ai_inbox_items'),
             'emitted_inbox_item_missing_ids' => $missingInboxItemIds,
             'latest_health_status' => is_array($latest) ? ($latest['health_status'] ?? null) : null,
             'latest_scheduler_status' => is_array($latest) ? ($latest['scheduler_status'] ?? null) : null,

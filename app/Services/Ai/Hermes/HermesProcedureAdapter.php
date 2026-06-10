@@ -5,7 +5,7 @@ namespace App\Services\Ai\Hermes;
 use App\Models\AiJob;
 use App\Models\HermesProcedureCandidate;
 use App\Services\Ai\Skills\Governance\SkillPackPromotionGate;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class HermesProcedureAdapter
@@ -53,7 +53,7 @@ class HermesProcedureAdapter
             return $this->withReceiptHash($receipt);
         }
 
-        if (! Schema::hasTable('hermes_procedure_candidates')) {
+        if (! DatabaseTableAvailability::has('hermes_procedure_candidates')) {
             $receipt['status'] = 'procedure_gate_unavailable';
             $receipt['skipped_count'] = count($candidates);
             $receipt['skipped_candidates'] = $this->skippedCandidates($candidates, 'hermes_procedure_candidates_table_missing');

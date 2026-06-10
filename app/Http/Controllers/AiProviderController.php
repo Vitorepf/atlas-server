@@ -14,7 +14,7 @@ use App\Services\Ai\AiRuntimeBudgetService;
 use App\Services\Ai\AtlasAiRuntimeSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class AiProviderController extends Controller
@@ -367,7 +367,7 @@ class AiProviderController extends Controller
 
     private function usagePayload(int $hours): array
     {
-        if (! Schema::hasTable('ai_trace_metric_summaries')) {
+        if (! DatabaseTableAvailability::has('ai_trace_metric_summaries')) {
             return [
                 'available' => false,
                 'window_hours' => $hours,

@@ -8,6 +8,7 @@ use App\Services\Ai\Programming\ProgrammingActionManifestFactory;
 use App\Services\Ai\Programming\ProgrammingActionManifestStore;
 use App\Services\Ai\Search\SessionSearchService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\Support\JsonFileStore;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -679,7 +680,7 @@ class AiToolRuntime
             return ToolResult::failure($invocation, 'checkpoint_not_found', "Checkpoint invalido: {$checkpoint}.");
         }
 
-        $metadata = json_decode(File::get($metadataPath), true);
+        $metadata = JsonFileStore::readArray($metadataPath);
         if (! is_array($metadata)) {
             return ToolResult::failure($invocation, 'checkpoint_invalid', 'checkpoint.json invalido.');
         }
@@ -956,8 +957,7 @@ class AiToolRuntime
             }
         }
 
-        File::ensureDirectoryExists($dir);
-        File::put($dir.'/checkpoint.json', json_encode($metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        JsonFileStore::write($dir.'/checkpoint.json', $metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
         return $dir;
     }

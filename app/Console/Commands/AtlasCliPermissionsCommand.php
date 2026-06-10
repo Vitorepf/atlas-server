@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\AiPermissionSession;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class AtlasCliPermissionsCommand extends Command
@@ -25,7 +25,7 @@ class AtlasCliPermissionsCommand extends Command
 
     public function handle(): int
     {
-        if (! Schema::hasTable('ai_permission_sessions')) {
+        if (! DatabaseTableAvailability::has('ai_permission_sessions')) {
             $this->error('Tabela ai_permission_sessions ainda nao existe. Rode migrations.');
 
             return self::FAILURE;

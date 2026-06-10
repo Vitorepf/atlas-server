@@ -21,7 +21,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AiObservabilityController extends Controller
 {
@@ -112,7 +112,7 @@ class AiObservabilityController extends Controller
 
     private function quality($since): array
     {
-        if (! Schema::hasTable('ai_quality_evaluations')) {
+        if (! DatabaseTableAvailability::has('ai_quality_evaluations')) {
             return ['available' => false];
         }
 
@@ -147,7 +147,7 @@ class AiObservabilityController extends Controller
 
     private function actions(): array
     {
-        if (! Schema::hasTable('ai_quality_actions')) {
+        if (! DatabaseTableAvailability::has('ai_quality_actions')) {
             return ['available' => false];
         }
 

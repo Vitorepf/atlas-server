@@ -6,8 +6,8 @@ namespace App\Services\Engineering;
 
 use App\Models\AiOutcomeLink;
 use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * L2-O1 — Outcome-Grounded Truth (first increment): the OUTCOME-GROUNDING SCORER.
@@ -154,7 +154,7 @@ class AtlasDocumentationRealityOutcomeGroundingService
         // Can we see outcomes at all? If the link table is absent, we CANNOT observe
         // any world outcome — so every implemented doc is honestly no-signal, and we
         // say so explicitly. We never invent a signal to fill the void.
-        $sourceAvailable = Schema::hasTable(self::OUTCOME_TABLE);
+        $sourceAvailable = DatabaseTableAvailability::has(self::OUTCOME_TABLE);
 
         $grades = [];
         $outcomeGrounded = 0;

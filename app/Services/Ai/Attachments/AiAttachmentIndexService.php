@@ -5,10 +5,10 @@ namespace App\Services\Ai\Attachments;
 use App\Models\AiAttachmentIndexEntry;
 use App\Models\AiJob;
 use App\Models\AiTrace;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Semantic\EmbeddingService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class AiAttachmentIndexService
 {
@@ -16,7 +16,7 @@ class AiAttachmentIndexService
 
     public function indexTrace(AiTrace $trace): int
     {
-        if (! Schema::hasTable('ai_attachment_index_entries')) {
+        if (! DatabaseTableAvailability::has('ai_attachment_index_entries')) {
             return 0;
         }
 
@@ -41,7 +41,7 @@ class AiAttachmentIndexService
      */
     public function search(string $query, ?string $threadId = null, int $limit = 8): Collection
     {
-        if (! Schema::hasTable('ai_attachment_index_entries')) {
+        if (! DatabaseTableAvailability::has('ai_attachment_index_entries')) {
             return collect();
         }
 

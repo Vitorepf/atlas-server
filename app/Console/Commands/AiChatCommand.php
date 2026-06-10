@@ -43,12 +43,13 @@ use App\Services\Ai\Programming\ProgrammingIterationPolicy;
 use App\Services\Ai\Programming\ProgrammingSurfaceContractFactory;
 use App\Services\Ai\Skills\SkillBundleStore;
 use App\Services\Ai\Skills\SkillDiscoveryService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\Support\JsonFileStore;
 use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
 use App\Support\TerminalMarkdownRenderer;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Symfony\Component\Console\Exception\RuntimeException as ConsoleRuntimeException;
 use Symfony\Component\Console\Formatter\OutputFormatter;
@@ -1057,7 +1058,7 @@ class AiChatCommand extends Command
 
     private function activeTrace(?string $threadId, string $workspace): ?AiTrace
     {
-        if (! Schema::hasTable('ai_traces') || ! Schema::hasTable('ai_threads')) {
+        if (! DatabaseTableAvailability::has('ai_traces') || ! DatabaseTableAvailability::has('ai_threads')) {
             return null;
         }
 
@@ -1084,7 +1085,7 @@ class AiChatCommand extends Command
             ]),
         ]);
 
-        if (Schema::hasTable('ai_jobs')) {
+        if (DatabaseTableAvailability::has('ai_jobs')) {
             $trace->jobs()->whereIn('status', ['queued', 'processing'])->update([
                 'status' => 'cancelled',
                 'finished_at' => now(),
@@ -3307,7 +3308,7 @@ class AiChatCommand extends Command
 
     private function printThreads(string $workspace): void
     {
-        if (! Schema::hasTable('ai_threads')) {
+        if (! DatabaseTableAvailability::has('ai_threads')) {
             if ((bool) $this->option('json')) {
                 $this->line(json_encode([
                     'ok' => false,
@@ -3448,13 +3449,7 @@ class AiChatCommand extends Command
     private function onboardingData(): array
     {
         $path = $this->onboardingPath();
-        if (! File::exists($path)) {
-            return [];
-        }
-
-        $decoded = json_decode((string) File::get($path), true);
-
-        return is_array($decoded) ? $decoded : [];
+        return JsonFileStore::readArray($path) ?? [];
     }
 
     /**
@@ -3463,8 +3458,7 @@ class AiChatCommand extends Command
     private function writeOnboardingData(array $data): void
     {
         $path = $this->onboardingPath();
-        File::ensureDirectoryExists(dirname($path));
-        File::put($path, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
+        JsonFileStore::writeLine($path, $data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
     private function onboardingPath(): string
@@ -4145,7 +4139,7 @@ class AiChatCommand extends Command
             'metadata' => $metadata,
         ];
 
-        if (Schema::hasTable('ai_traces')) {
+        if (DatabaseTableAvailability::has('ai_traces')) {
             return AiTrace::query()->create($attributes);
         }
 
@@ -4798,16 +4792,16 @@ class AiChatCommand extends Command
     {
         $relations = ['thread', 'session'];
 
-        if (Schema::hasTable('ai_jobs')) {
+        if (DatabaseTableAvailability::has('ai_jobs')) {
             $relations[] = 'job';
             $relations[] = 'jobs';
         }
 
-        if (Schema::hasTable('ai_quality_evaluations')) {
+        if (DatabaseTableAvailability::has('ai_quality_evaluations')) {
             $relations[] = 'qualityEvaluation';
         }
 
-        if (Schema::hasTable('ai_quality_actions')) {
+        if (DatabaseTableAvailability::has('ai_quality_actions')) {
             $relations[] = 'qualityActions.remediationTrace';
         }
 

@@ -10,7 +10,7 @@ use App\Models\SemanticNoteActivation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class AuditSuggestionController extends Controller
@@ -19,28 +19,28 @@ class AuditSuggestionController extends Controller
     {
         $limit = max(3, min(30, (int) $request->integer('limit', 12)));
 
-        $proposals = Schema::hasTable('semantic_curation_proposals')
+        $proposals = DatabaseTableAvailability::has('semantic_curation_proposals')
             ? SemanticCurationProposal::query()
                 ->orderByDesc('created_at')
                 ->limit($limit)
                 ->get()
             : collect();
         $captures = $this->capturesFor($proposals);
-        $activations = Schema::hasTable('semantic_note_activations')
+        $activations = DatabaseTableAvailability::has('semantic_note_activations')
             ? SemanticNoteActivation::query()
                 ->with('note')
                 ->orderByDesc('created_at')
                 ->limit($limit)
                 ->get()
             : collect();
-        $traces = Schema::hasTable('ai_traces')
+        $traces = DatabaseTableAvailability::has('ai_traces')
             ? AiTrace::query()
                 ->with('job')
                 ->orderByDesc('created_at')
                 ->limit($limit)
                 ->get()
             : collect();
-        $auditEvents = Schema::hasTable('audit_events')
+        $auditEvents = DatabaseTableAvailability::has('audit_events')
             ? AuditEvent::query()->orderByDesc('occurred_at')->limit($limit)->get()
             : collect();
 
@@ -98,7 +98,7 @@ class AuditSuggestionController extends Controller
             ->filter(fn (mixed $id): bool => is_string($id) && $id !== '')
             ->values();
 
-        if ($ids->isEmpty() || ! Schema::hasTable('captures')) {
+        if ($ids->isEmpty() || ! DatabaseTableAvailability::has('captures')) {
             return collect();
         }
 

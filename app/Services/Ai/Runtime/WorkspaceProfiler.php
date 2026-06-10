@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Runtime;
 
+use App\Services\Ai\Support\JsonFileStore;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
@@ -15,7 +16,7 @@ class WorkspaceProfiler
         $ttl = (int) config('atlas.ai.runtime.profile_cache_ttl_seconds', 300);
 
         if (! $refresh && File::exists($cachePath) && File::lastModified($cachePath) >= time() - $ttl) {
-            $cached = json_decode(File::get($cachePath), true);
+            $cached = JsonFileStore::readArray($cachePath);
             if (is_array($cached)) {
                 return $this->fromArray($cached);
             }
@@ -48,8 +49,7 @@ class WorkspaceProfiler
             ],
         );
 
-        File::ensureDirectoryExists(dirname($cachePath));
-        File::put($cachePath, json_encode($profile->toArray(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        JsonFileStore::write($cachePath, $profile->toArray(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
         return $profile;
     }
@@ -261,13 +261,7 @@ class WorkspaceProfiler
      */
     private function jsonFile(string $path): array
     {
-        if (! File::exists($path)) {
-            return [];
-        }
-
-        $decoded = json_decode(File::get($path), true);
-
-        return is_array($decoded) ? $decoded : [];
+        return JsonFileStore::readArray($path) ?? [];
     }
 
     private function run(array $command, string $cwd, int $timeout = 5): string

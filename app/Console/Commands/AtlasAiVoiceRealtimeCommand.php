@@ -9,6 +9,7 @@ use App\Services\Ai\Voice\AtlasVoiceRealtimeService;
 use App\Services\Ai\Voice\AtlasVoiceRivalsRunner;
 use App\Services\Ai\Voice\AtlasVoiceRuntimeCertificationService;
 use App\Services\Ai\Voice\AtlasVoiceRuntimeEventNormalizer;
+use App\Services\Ai\Support\JsonFileStore;
 use Illuminate\Console\Command;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
@@ -447,7 +448,7 @@ class AtlasAiVoiceRealtimeCommand extends Command
             'runtime' => (string) $this->option('runtime'),
             'base_url' => (string) ($this->option('base-url') ?: 'http://atlas.test'),
         ]);
-        file_put_contents($bootstrapPath, json_encode($bootstrap, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        JsonFileStore::write($bootstrapPath, $bootstrap, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
         $process = new Process([
             $this->pythonBinary(),
@@ -507,7 +508,7 @@ class AtlasAiVoiceRealtimeCommand extends Command
             ];
         }
 
-        file_put_contents($bootstrapPath, json_encode($bootstrap, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        JsonFileStore::write($bootstrapPath, $bootstrap, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         file_put_contents($envPath, implode("\n", [
             'ATLAS_BASE_URL='.$baseUrl,
             'ATLAS_TOKEN=preflight-token',
@@ -584,7 +585,7 @@ class AtlasAiVoiceRealtimeCommand extends Command
             ];
         }
 
-        file_put_contents($bootstrapPath, json_encode($bootstrap, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        JsonFileStore::write($bootstrapPath, $bootstrap, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         file_put_contents($envPath, implode("\n", [
             'ATLAS_BASE_URL='.$baseUrl,
             'ATLAS_TOKEN=activation-token',
@@ -1029,7 +1030,7 @@ class AtlasAiVoiceRealtimeCommand extends Command
             ];
         }
 
-        file_put_contents($bootstrapPath, json_encode($bootstrap, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        JsonFileStore::write($bootstrapPath, $bootstrap, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         file_put_contents($envPath, implode("\n", [
             'ATLAS_BASE_URL='.$baseUrl,
             'ATLAS_TOKEN='.$token,
@@ -1114,7 +1115,7 @@ class AtlasAiVoiceRealtimeCommand extends Command
             'runtime' => (string) $this->option('runtime'),
             'base_url' => (string) ($this->option('base-url') ?: 'http://atlas.test'),
         ]);
-        file_put_contents($bootstrapPath, json_encode($bootstrap, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        JsonFileStore::write($bootstrapPath, $bootstrap, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
         $process = new Process([
             $this->pythonBinary(),

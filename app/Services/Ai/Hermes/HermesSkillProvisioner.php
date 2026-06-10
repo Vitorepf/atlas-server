@@ -5,8 +5,8 @@ namespace App\Services\Ai\Hermes;
 use App\Models\HermesSkillCandidate;
 use App\Services\Ai\Skills\Governance\HermesSkillProvisionGate;
 use App\Services\Ai\Skills\Governance\SkillPackPromotionGate;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Filesystem\Filesystem;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -223,7 +223,7 @@ class HermesSkillProvisioner
             return $this->withReceiptHash($receipt);
         }
 
-        if (! Schema::hasTable('hermes_skill_candidates')) {
+        if (! DatabaseTableAvailability::has('hermes_skill_candidates')) {
             $receipt['status'] = 'capability_gate_unavailable';
             $receipt['skipped_count'] = count($entries);
             $receipt['skipped'] = $this->skippedHub($entries, 'hermes_skill_candidates_table_missing');

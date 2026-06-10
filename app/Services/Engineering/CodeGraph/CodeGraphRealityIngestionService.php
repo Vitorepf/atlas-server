@@ -2,8 +2,8 @@
 
 namespace App\Services\Engineering\CodeGraph;
 
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -154,7 +154,7 @@ class CodeGraphRealityIngestionService
     private function gatherDocs(array &$nodes, array &$edges, array &$stats, int $budget): void
     {
         $this->readSource('docs', $stats, function () use (&$nodes, &$edges, &$stats, $budget): void {
-            if (! Schema::hasTable('atlas_engineering_knowledge_items')) {
+            if (! DatabaseTableAvailability::has('atlas_engineering_knowledge_items')) {
                 $stats['sources_skipped']++;
 
                 return;
@@ -215,7 +215,7 @@ class CodeGraphRealityIngestionService
     private function gatherMemory(array &$nodes, array &$stats, int $budget): void
     {
         $this->readSource('memory', $stats, function () use (&$nodes, &$stats, $budget): void {
-            if (! Schema::hasTable('atlas_memory_entries')) {
+            if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
                 $stats['sources_skipped']++;
 
                 return;
@@ -262,7 +262,7 @@ class CodeGraphRealityIngestionService
     private function gatherEvidence(array &$nodes, array &$stats, int $budget): void
     {
         $this->readSource('evidence', $stats, function () use (&$nodes, &$stats, $budget): void {
-            if (! Schema::hasTable('atlas_ledger_events')) {
+            if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
                 $stats['sources_skipped']++;
 
                 return;
@@ -270,9 +270,9 @@ class CodeGraphRealityIngestionService
             $stats['sources_read']++;
 
             // The canonical PK is event_id; tolerate an `id` variant too.
-            $idColumn = Schema::hasColumn('atlas_ledger_events', 'event_id')
+            $idColumn = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'event_id')
                 ? 'event_id'
-                : (Schema::hasColumn('atlas_ledger_events', 'id') ? 'id' : null);
+                : (DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'id') ? 'id' : null);
             if ($idColumn === null) {
                 $stats['sources_skipped']++;
 
@@ -280,7 +280,7 @@ class CodeGraphRealityIngestionService
             }
 
             $select = [$idColumn];
-            if (Schema::hasColumn('atlas_ledger_events', 'event_type')) {
+            if (DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'event_type')) {
                 $select[] = 'event_type';
             }
 

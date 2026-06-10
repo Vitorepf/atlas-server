@@ -14,7 +14,7 @@ use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 /**
  * AP-741 · Self-Expanding -> Domain Runtime Creation Gate handoff.
@@ -292,7 +292,7 @@ final class SelfExpandingDomainRuntimeCreationHandoffService
      */
     private function domainRegistryCheck(string $candidate): array
     {
-        if (! Schema::hasTable('ai_domain_manifests')) {
+        if (! DatabaseTableAvailability::has('ai_domain_manifests')) {
             return [
                 'status' => 'not_checked_missing_ai_domain_manifests_table',
                 'exists' => false,

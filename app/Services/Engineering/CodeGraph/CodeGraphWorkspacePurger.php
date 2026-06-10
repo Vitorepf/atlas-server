@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering\CodeGraph;
 
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -48,8 +48,8 @@ use Throwable;
  *   - Transactional integrity: all deletes for one purge run inside a single DB
  *     transaction, so the graph is reclaimed atomically (a workspace is never left
  *     half-purged — either the whole graph goes or none of it does).
- *   - Each relational table is guarded with Schema::hasTable AND
- *     Schema::hasColumn('workspace_id') so the purger is safe to run before/after the W-1
+ *   - Each relational table is availability-guarded with a workspace_id column check, so
+ *     the purger is safe to run before/after the W-1
  *     migration, or against a partial schema, without ever erroring on a missing table or
  *     a not-yet-keyed table. World-model tables are likewise table-guarded.
  *   - Never throws. Any unexpected failure rolls the transaction back (so a partial purge
@@ -151,7 +151,7 @@ class CodeGraphWorkspacePurger
         $deleted = [];
 
         foreach (self::KEYED_TABLES as $table) {
-            if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'workspace_id')) {
+            if (! DatabaseTableAvailability::hasColumn($table, 'workspace_id')) {
                 // Table absent or not yet workspace-keyed (pre-W-1): nothing to purge here.
                 continue;
             }
@@ -173,7 +173,7 @@ class CodeGraphWorkspacePurger
      */
     private function purgeWorldModels(string $workspaceId): int
     {
-        if (! Schema::hasTable(self::WORLD_MODELS_TABLE)) {
+        if (! DatabaseTableAvailability::has(self::WORLD_MODELS_TABLE)) {
             return 0;
         }
 
@@ -192,10 +192,10 @@ class CodeGraphWorkspacePurger
         // Children first (guarded), then the parent models — chunk the IN list so a very
         // large per-workspace graph never builds an unbounded single statement.
         foreach (array_chunk($modelIds, 500) as $chunk) {
-            if (Schema::hasTable(self::WORLD_MODEL_NODES_TABLE)) {
+            if (DatabaseTableAvailability::has(self::WORLD_MODEL_NODES_TABLE)) {
                 DB::table(self::WORLD_MODEL_NODES_TABLE)->whereIn('world_model_id', $chunk)->delete();
             }
-            if (Schema::hasTable(self::WORLD_MODEL_EDGES_TABLE)) {
+            if (DatabaseTableAvailability::has(self::WORLD_MODEL_EDGES_TABLE)) {
                 DB::table(self::WORLD_MODEL_EDGES_TABLE)->whereIn('world_model_id', $chunk)->delete();
             }
         }

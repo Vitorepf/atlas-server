@@ -3,7 +3,7 @@
 namespace App\Services\Ai\Skills;
 
 use App\Services\Ai\Runtime\AiToolRuntime;
-use App\Support\AtlasSecurity;
+use App\Services\Ai\Support\JsonFileStore;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\ExecutableFinder;
@@ -93,8 +93,7 @@ class SkillDiscoveryService
             'approved_at' => now()->toJSON(),
         ];
 
-        File::ensureDirectoryExists(dirname($this->trustedProjectsPath()));
-        File::put($this->trustedProjectsPath(), json_encode($trusted, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
+        JsonFileStore::writeLine($this->trustedProjectsPath(), $trusted, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
     /**
@@ -297,11 +296,7 @@ class SkillDiscoveryService
     private function trustedProjects(): array
     {
         $path = $this->trustedProjectsPath();
-        if (! File::isFile($path)) {
-            return [];
-        }
-
-        $decoded = json_decode(AtlasSecurity::redactString(File::get($path)), true);
+        $decoded = JsonFileStore::readArray($path);
 
         return is_array($decoded) ? array_values(array_filter($decoded, 'is_array')) : [];
     }

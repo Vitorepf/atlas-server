@@ -9,8 +9,8 @@ use App\Services\Engineering\AtlasCodeIntelligenceAutomaticGateService;
 use App\Services\Engineering\AtlasCodeRealityUsageIntelligenceService;
 use App\Services\Engineering\AtlasDocumentationRealitySystemService;
 use App\Services\Engineering\EngineeringKnowledgeBaseService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use SplFileInfo;
 
@@ -443,7 +443,7 @@ class AtlasFeaturePlacementService
      */
     private function authorityGraphOwnerPaths(array $placement, string $text, int $minConfidence = 80): array
     {
-        if (! Schema::hasTable('atlas_docs_authority_graph')) {
+        if (! DatabaseTableAvailability::has('atlas_docs_authority_graph')) {
             return [];
         }
 
@@ -479,7 +479,7 @@ class AtlasFeaturePlacementService
      */
     private function authorityGraphCandidates(array $terms): array
     {
-        if ($terms === [] || ! Schema::hasTable('atlas_docs_authority_graph')) {
+        if ($terms === [] || ! DatabaseTableAvailability::has('atlas_docs_authority_graph')) {
             return [];
         }
 
@@ -574,7 +574,7 @@ class AtlasFeaturePlacementService
      */
     private function kbCandidates(array $terms): array
     {
-        if ($terms === [] || ! Schema::hasTable('atlas_engineering_knowledge_items')) {
+        if ($terms === [] || ! DatabaseTableAvailability::has('atlas_engineering_knowledge_items')) {
             return [];
         }
 

@@ -6,10 +6,10 @@ namespace App\Services\Ai\Vox\Audit;
 
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Vox\Metrics\VoxMetricsService;
 use App\Services\Ai\Vox\VoxSchema;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Atlas Vox V3 hardening audit.
@@ -164,7 +164,7 @@ final class VoxV3HardeningAuditService
     /** @param array<string,mixed> $snapshot */
     private function checkNoRawAudioPersisted(array $snapshot): array
     {
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return self::unknown(
                 name: 'no_raw_audio_persisted',
                 source: self::SOURCE_LEDGER,
@@ -187,7 +187,7 @@ final class VoxV3HardeningAuditService
     /** @param array<string,mixed> $snapshot */
     private function checkNoConfirmationBypass(array $snapshot): array
     {
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return self::unknown(
                 name: 'no_confirmation_bypass',
                 source: self::SOURCE_LEDGER,
@@ -210,7 +210,7 @@ final class VoxV3HardeningAuditService
     /** @param array<string,mixed> $snapshot */
     private function checkNoDestructiveActionWithoutReceipt(array $snapshot): array
     {
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return self::unknown(
                 name: 'no_destructive_action_without_receipt',
                 source: self::SOURCE_LEDGER,
@@ -482,7 +482,7 @@ final class VoxV3HardeningAuditService
      */
     private function checkConfirmationTokenNotInLedger(): array
     {
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return self::unknown(
                 name: 'confirmation_token_not_in_ledger',
                 source: self::SOURCE_LEDGER,
@@ -660,7 +660,7 @@ final class VoxV3HardeningAuditService
      */
     private function checkTerminalProposeCommandExecutedFalse(): array
     {
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return self::unknown(
                 name: 'terminal_propose_command_executed_false',
                 source: self::SOURCE_LEDGER,
@@ -747,7 +747,7 @@ final class VoxV3HardeningAuditService
 
         // 3. Ledger — check that no cert pack / review event flipped the
         //    v4_unlock_allowed / v4_unlocked_by_review flag to true.
-        $tableMissing = ! Schema::hasTable('atlas_ledger_events');
+        $tableMissing = ! DatabaseTableAvailability::has('atlas_ledger_events');
         if (! $tableMissing) {
             $allowedFlips = AtlasLedgerEvent::query()
                 ->where('event_type', LedgerEventType::VoxV3CertificationPackCreated->value)

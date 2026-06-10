@@ -7,7 +7,7 @@ use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\AiMemoryDeltaProposer;
 use App\Services\Ai\AtlasMemoryDeltaPromotionService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use RuntimeException;
@@ -32,7 +32,7 @@ class AtlasCliMemoryCommand extends Command
 
     public function handle(AiMemoryDeltaProposer $proposer, AtlasMemoryDeltaPromotionService $promoter): int
     {
-        if (! Schema::hasTable('ai_memory_deltas')) {
+        if (! DatabaseTableAvailability::has('ai_memory_deltas')) {
             $this->error('Tabela ai_memory_deltas ainda nao existe. Rode migrations.');
 
             return self::FAILURE;

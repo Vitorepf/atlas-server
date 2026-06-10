@@ -10,7 +10,7 @@ use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsRunPathResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AtlasAiHyperflowRivalsBatteryService
 {
@@ -463,12 +463,14 @@ class AtlasAiHyperflowRivalsBatteryService
 
     private function compoundingTablesReady(): bool
     {
-        return Schema::hasTable('ai_run_outcomes')
-            && Schema::hasTable('ai_learning_candidates')
-            && Schema::hasTable('ai_compounding_memories')
-            && Schema::hasTable('ai_rag_feedback_events')
-            && Schema::hasTable('ai_benchmark_cases')
-            && Schema::hasTable('ai_temporal_certifications');
+        return DatabaseTableAvailability::all([
+            'ai_run_outcomes',
+            'ai_learning_candidates',
+            'ai_compounding_memories',
+            'ai_rag_feedback_events',
+            'ai_benchmark_cases',
+            'ai_temporal_certifications',
+        ]);
     }
 
     /**
@@ -1973,9 +1975,11 @@ class AtlasAiHyperflowRivalsBatteryService
 
     private function tablesReady(): bool
     {
-        return Schema::hasTable('atlas_engineering_benchmark_suites')
-            && Schema::hasTable('atlas_engineering_benchmark_cases')
-            && Schema::hasTable('atlas_engineering_benchmark_runs')
-            && Schema::hasTable('atlas_engineering_benchmark_results');
+        return DatabaseTableAvailability::all([
+            'atlas_engineering_benchmark_suites',
+            'atlas_engineering_benchmark_cases',
+            'atlas_engineering_benchmark_runs',
+            'atlas_engineering_benchmark_results',
+        ]);
     }
 }

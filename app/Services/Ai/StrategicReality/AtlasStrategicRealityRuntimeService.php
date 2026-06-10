@@ -15,9 +15,9 @@ use App\Models\AtlasStrategicAssumption;
 use App\Models\AtlasStrategicDecision;
 use App\Models\AtlasStrategicSimulation;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 final class AtlasStrategicRealityRuntimeService
@@ -128,7 +128,7 @@ final class AtlasStrategicRealityRuntimeService
         $decisionPayload['decision_hash'] = MissionCanonicalHash::sha256($decisionPayload);
 
         $decision = null;
-        if (Schema::hasTable('atlas_strategic_decisions')) {
+        if (DatabaseTableAvailability::has('atlas_strategic_decisions')) {
             $decision = AtlasStrategicDecision::query()->create($decisionPayload);
         }
 
@@ -266,7 +266,7 @@ final class AtlasStrategicRealityRuntimeService
             ];
             $payload['entity_hash'] = MissionCanonicalHash::sha256($payload);
             $record = null;
-            if (Schema::hasTable('atlas_reality_entities')) {
+            if (DatabaseTableAvailability::has('atlas_reality_entities')) {
                 $record = AtlasRealityEntity::query()->updateOrCreate(['entity_key' => $payload['entity_key']], $payload);
             }
             $records[] = [
@@ -288,7 +288,7 @@ final class AtlasStrategicRealityRuntimeService
      */
     private function recordRelationship(?string $sourceId, ?string $targetId, string $type, array $evidenceRefs): void
     {
-        if (! Schema::hasTable('atlas_reality_relationships')) {
+        if (! DatabaseTableAvailability::has('atlas_reality_relationships')) {
             return;
         }
         $payload = [
@@ -373,7 +373,7 @@ final class AtlasStrategicRealityRuntimeService
             'metadata' => ['question_hash' => MissionCanonicalHash::sha256(['question' => $question])],
         ];
         $payload['opportunity_hash'] = MissionCanonicalHash::sha256($payload);
-        $record = Schema::hasTable('atlas_opportunity_signals') ? AtlasOpportunitySignal::query()->create($payload) : null;
+        $record = DatabaseTableAvailability::has('atlas_opportunity_signals') ? AtlasOpportunitySignal::query()->create($payload) : null;
 
         return [
             'schema_version' => self::OPPORTUNITY_SCHEMA,
@@ -404,7 +404,7 @@ final class AtlasStrategicRealityRuntimeService
             'metadata' => ['question_hash' => MissionCanonicalHash::sha256(['question' => $question])],
         ];
         $payload['risk_hash'] = MissionCanonicalHash::sha256($payload);
-        $record = Schema::hasTable('atlas_risk_signals') ? AtlasRiskSignal::query()->create($payload) : null;
+        $record = DatabaseTableAvailability::has('atlas_risk_signals') ? AtlasRiskSignal::query()->create($payload) : null;
 
         return [
             'schema_version' => self::RISK_SCHEMA,
@@ -441,7 +441,7 @@ final class AtlasStrategicRealityRuntimeService
                 'review_at' => CarbonImmutable::now()->addDays(7),
             ];
             $payload['assumption_hash'] = MissionCanonicalHash::sha256($payload);
-            $record = Schema::hasTable('atlas_strategic_assumptions') ? AtlasStrategicAssumption::query()->create($payload) : null;
+            $record = DatabaseTableAvailability::has('atlas_strategic_assumptions') ? AtlasStrategicAssumption::query()->create($payload) : null;
             $records[] = [
                 'schema_version' => self::ASSUMPTION_SCHEMA,
                 'assumption_id' => $record?->id,
@@ -526,7 +526,7 @@ final class AtlasStrategicRealityRuntimeService
             'evidence_refs' => $evidenceRefs,
         ];
         $payload['ranking_hash'] = MissionCanonicalHash::sha256($payload);
-        $record = Schema::hasTable('atlas_priority_rankings') ? AtlasPriorityRanking::query()->create($payload) : null;
+        $record = DatabaseTableAvailability::has('atlas_priority_rankings') ? AtlasPriorityRanking::query()->create($payload) : null;
 
         return [
             'schema_version' => self::PRIORITY_SCHEMA,
@@ -560,7 +560,7 @@ final class AtlasStrategicRealityRuntimeService
             'evidence_refs' => $evidenceRefs,
         ];
         $payload['allocation_hash'] = MissionCanonicalHash::sha256($payload);
-        $record = Schema::hasTable('atlas_resource_allocation_plans') ? AtlasResourceAllocationPlan::query()->create($payload) : null;
+        $record = DatabaseTableAvailability::has('atlas_resource_allocation_plans') ? AtlasResourceAllocationPlan::query()->create($payload) : null;
 
         return [
             'schema_version' => self::RESOURCE_SCHEMA,
@@ -592,7 +592,7 @@ final class AtlasStrategicRealityRuntimeService
             'evidence_refs' => $evidenceRefs,
         ];
         $payload['simulation_hash'] = MissionCanonicalHash::sha256($payload);
-        $record = Schema::hasTable('atlas_strategic_simulations') ? AtlasStrategicSimulation::query()->create($payload) : null;
+        $record = DatabaseTableAvailability::has('atlas_strategic_simulations') ? AtlasStrategicSimulation::query()->create($payload) : null;
 
         return [
             'schema_version' => self::SIMULATION_SCHEMA,
@@ -684,7 +684,7 @@ final class AtlasStrategicRealityRuntimeService
             'evidence_refs' => $evidenceRefs,
         ];
         $payload['briefing_hash'] = MissionCanonicalHash::sha256($payload);
-        $record = Schema::hasTable('atlas_executive_briefings') ? AtlasExecutiveBriefing::query()->create($payload) : null;
+        $record = DatabaseTableAvailability::has('atlas_executive_briefings') ? AtlasExecutiveBriefing::query()->create($payload) : null;
 
         return [
             'schema_version' => self::BRIEFING_SCHEMA,
@@ -739,7 +739,7 @@ final class AtlasStrategicRealityRuntimeService
      */
     private function queryWindow(string $model, string $table, CarbonImmutable $since): Collection
     {
-        if (! Schema::hasTable($table)) {
+        if (! DatabaseTableAvailability::has($table)) {
             return collect();
         }
 

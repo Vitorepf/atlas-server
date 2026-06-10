@@ -14,7 +14,7 @@ use App\Services\Ai\Mobile\MobilePushService;
 use App\Services\Ai\Mobile\MobileReliabilityMonitor;
 use App\Services\AuditLogService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class AtlasCliMobileCommand extends Command
@@ -44,7 +44,7 @@ class AtlasCliMobileCommand extends Command
         MobileReliabilityMonitor $reliability,
         AuditLogService $audit,
     ): int {
-        if (! Schema::hasTable('atlas_mobile_devices') || ! Schema::hasTable('mobile_pairing_codes')) {
+        if (! DatabaseTableAvailability::has('atlas_mobile_devices') || ! DatabaseTableAvailability::has('mobile_pairing_codes')) {
             $this->error('Tabelas mobile ainda nao existem. Rode migrations.');
 
             return self::FAILURE;
@@ -286,7 +286,7 @@ class AtlasCliMobileCommand extends Command
 
     private function hasRecentReplayPushDryRunReceipt(): bool
     {
-        if (! Schema::hasTable('audit_events')) {
+        if (! DatabaseTableAvailability::has('audit_events')) {
             return false;
         }
 

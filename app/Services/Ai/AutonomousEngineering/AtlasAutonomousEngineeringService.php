@@ -18,9 +18,9 @@ use App\Services\Ai\Compounding\AtlasCompoundingMemoryService;
 use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
 use App\Services\Ai\Router\AtlasAiRouterDecision;
 use App\Services\Ai\Router\AtlasAiRouterService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AtlasAutonomousEngineeringService
@@ -219,7 +219,7 @@ class AtlasAutonomousEngineeringService
             AiCodebaseWorldModelNode::query()->create([
                 'world_model_id' => $model->id,
                 'node_id' => $nodeId,
-                'node_type' => str_starts_with($path, 'docs/') ? 'doc' : (str_starts_with($path, 'tests/') ? 'test' : 'module'),
+                'node_type' => $this->nodeTypeForFile($path),
                 'path' => $path,
                 'flow_id' => $this->flowForPath($path),
                 'capabilities' => $this->capabilitiesForPath($path),
@@ -347,7 +347,7 @@ class AtlasAutonomousEngineeringService
 
     public function createExecutionPlan(AiAutonomousEngineeringGoal $goal, AiAutonomousWorkCycle $cycle, AiCodebaseWorldModel $model, AiMandatoryRagGate $gate, AtlasAiRouterDecision $decision, string $promotionTarget): AiExecutionPlan
     {
-        $memories = Schema::hasTable('ai_compounding_memories')
+        $memories = DatabaseTableAvailability::has('ai_compounding_memories')
             ? app(AtlasCompoundingMemoryService::class)->approvedForFlow($decision->flowId)
             : [];
         $targetFlow = $promotionTarget === 'atlas_forge' ? 'atlas_forge' : $decision->flowId;
@@ -509,14 +509,14 @@ class AtlasAutonomousEngineeringService
                 'repair_failures' => $this->groupCounts('ai_repair_loops', 'failure_class'),
                 'delegations' => $this->groupCounts('ai_autonomous_engineering_goals', 'promotion_target'),
                 'average_context_sufficiency' => $this->average('ai_mandatory_rag_gates', 'context_sufficiency'),
-                'false_claims_blocked' => Schema::hasTable('ai_rivals_shadow_runs')
+                'false_claims_blocked' => DatabaseTableAvailability::has('ai_rivals_shadow_runs')
                     ? AiRivalsShadowRun::query()->where('false_claim_blocked', true)->count()
                     : 0,
             ],
-            'latest_goal' => Schema::hasTable('ai_autonomous_engineering_goals')
+            'latest_goal' => DatabaseTableAvailability::has('ai_autonomous_engineering_goals')
                 ? AiAutonomousEngineeringGoal::query()->latest()->first()?->toArray()
                 : null,
-            'events' => Schema::hasTable('ai_engineering_control_plane_events')
+            'events' => DatabaseTableAvailability::has('ai_engineering_control_plane_events')
                 ? AiEngineeringControlPlaneEvent::query()->latest()->limit(10)->get()->toArray()
                 : [],
             'writes' => false,
@@ -531,11 +531,11 @@ class AtlasAutonomousEngineeringService
             $this->check('persistence_tables', $this->tablesReady()),
             $this->check('goal_exists', $latestGoal !== null),
             $this->check('world_model_exists', $this->count('ai_codebase_world_models') > 0),
-            $this->check('rag_gate_passed', Schema::hasTable('ai_mandatory_rag_gates') && AiMandatoryRagGate::query()->where('status', 'passed')->exists()),
-            $this->check('execution_plan_ready', Schema::hasTable('ai_execution_plans') && AiExecutionPlan::query()->where('status', 'ready')->exists()),
-            $this->check('step_has_evidence', Schema::hasTable('ai_autonomous_work_steps') && AiAutonomousWorkStep::query()->whereNotNull('evidence_refs')->exists()),
+            $this->check('rag_gate_passed', DatabaseTableAvailability::has('ai_mandatory_rag_gates') && AiMandatoryRagGate::query()->where('status', 'passed')->exists()),
+            $this->check('execution_plan_ready', DatabaseTableAvailability::has('ai_execution_plans') && AiExecutionPlan::query()->where('status', 'ready')->exists()),
+            $this->check('step_has_evidence', DatabaseTableAvailability::has('ai_autonomous_work_steps') && AiAutonomousWorkStep::query()->whereNotNull('evidence_refs')->exists()),
             $this->check('compounding_outcome_recorded', $latestGoal?->outcome_receipt_hash !== null),
-            $this->check('rivals_false_claim_blocked', Schema::hasTable('ai_rivals_shadow_runs') && AiRivalsShadowRun::query()->where('false_claim_blocked', true)->exists()),
+            $this->check('rivals_false_claim_blocked', DatabaseTableAvailability::has('ai_rivals_shadow_runs') && AiRivalsShadowRun::query()->where('false_claim_blocked', true)->exists()),
         ];
         $blockers = array_values(array_map(
             fn (array $check): string => $check['id'],
@@ -615,7 +615,7 @@ class AtlasAutonomousEngineeringService
      */
     public function queryWorldModel(string $key, string $value): array
     {
-        if (! Schema::hasTable('ai_codebase_world_model_nodes')) {
+        if (! DatabaseTableAvailability::has('ai_codebase_world_model_nodes')) {
             return [];
         }
 
@@ -851,7 +851,7 @@ class AtlasAutonomousEngineeringService
 
     private function count(string $table): int
     {
-        return Schema::hasTable($table) ? DB::table($table)->count() : 0;
+        return DatabaseTableAvailability::has($table) ? DB::table($table)->count() : 0;
     }
 
     /**
@@ -859,7 +859,7 @@ class AtlasAutonomousEngineeringService
      */
     private function groupCounts(string $table, string $column): array
     {
-        if (! Schema::hasTable($table)) {
+        if (! DatabaseTableAvailability::has($table)) {
             return [];
         }
 
@@ -873,7 +873,7 @@ class AtlasAutonomousEngineeringService
 
     private function average(string $table, string $column): ?float
     {
-        if (! Schema::hasTable($table) || DB::table($table)->count() === 0) {
+        if (! DatabaseTableAvailability::has($table) || DB::table($table)->count() === 0) {
             return null;
         }
 
@@ -896,7 +896,7 @@ class AtlasAutonomousEngineeringService
             'ai_rivals_shadow_runs',
             'ai_autonomous_engineering_certifications',
         ] as $table) {
-            if (! Schema::hasTable($table)) {
+            if (! DatabaseTableAvailability::has($table)) {
                 return false;
             }
         }
@@ -914,7 +914,7 @@ class AtlasAutonomousEngineeringService
             'ai_benchmark_cases',
             'ai_temporal_certifications',
         ] as $table) {
-            if (! Schema::hasTable($table)) {
+            if (! DatabaseTableAvailability::has($table)) {
                 return false;
             }
         }

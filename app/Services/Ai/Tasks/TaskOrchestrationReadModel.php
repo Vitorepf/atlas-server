@@ -4,9 +4,9 @@ namespace App\Services\Ai\Tasks;
 
 use App\Models\AtlasTask;
 use App\Models\AtlasTaskEvent;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 
 class TaskOrchestrationReadModel
 {
@@ -67,8 +67,8 @@ class TaskOrchestrationReadModel
     private function tables(): array
     {
         return [
-            'atlas_tasks' => Schema::hasTable('atlas_tasks'),
-            'atlas_task_events' => Schema::hasTable('atlas_task_events'),
+            'atlas_tasks' => DatabaseTableAvailability::has('atlas_tasks'),
+            'atlas_task_events' => DatabaseTableAvailability::has('atlas_task_events'),
         ];
     }
 

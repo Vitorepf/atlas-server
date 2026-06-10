@@ -7,10 +7,10 @@ use App\Models\AtlasHostStatus;
 use App\Models\AtlasMaintenanceWindow;
 use App\Models\AtlasPowerEvent;
 use App\Models\AtlasPowerSession;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 
@@ -41,7 +41,7 @@ class MacAgentService
      */
     public function status(bool $refresh = true): array
     {
-        if (! Schema::hasTable('atlas_power_sessions') || ! Schema::hasTable('atlas_host_status')) {
+        if (! DatabaseTableAvailability::all(['atlas_power_sessions', 'atlas_host_status'])) {
             $macAgent = $this->macAgentSupervisorStatus();
             $powerHelper = $this->powerHelperStatus();
             $caffeinateRuntime = $this->caffeinateRuntimeStatus();
@@ -61,7 +61,7 @@ class MacAgentService
             ];
         }
 
-        if ($refresh && Schema::hasTable('atlas_host_status') && $this->isDarwinRuntime()) {
+        if ($refresh && DatabaseTableAvailability::has('atlas_host_status') && $this->isDarwinRuntime()) {
             $this->heartbeat();
         } elseif ($this->isDarwinRuntime()) {
             $this->reconcileActiveSessions();
@@ -369,7 +369,7 @@ class MacAgentService
 
     public function heartbeat(bool $reconcile = true): AtlasHostStatus
     {
-        if (! Schema::hasTable('atlas_host_status') || ! Schema::hasTable('atlas_power_sessions')) {
+        if (! DatabaseTableAvailability::all(['atlas_host_status', 'atlas_power_sessions'])) {
             return new AtlasHostStatus([
                 'host_key' => self::HOST_KEY,
                 'status' => 'not_installed',
@@ -382,7 +382,7 @@ class MacAgentService
 
         $battery = $this->batteryState();
         $activeSessions = $this->activeSessionsQuery()->count();
-        $activeJobs = Schema::hasTable('ai_jobs')
+        $activeJobs = DatabaseTableAvailability::has('ai_jobs')
             ? DB::table('ai_jobs')->where('status', 'processing')->count()
             : 0;
 
@@ -427,7 +427,7 @@ class MacAgentService
         ?AiJob $job = null,
         array $metadata = [],
     ): AtlasPowerSession {
-        if (! Schema::hasTable('atlas_power_sessions')) {
+        if (! DatabaseTableAvailability::has('atlas_power_sessions')) {
             return new AtlasPowerSession([
                 'id' => (string) Str::uuid(),
                 'host_key' => self::HOST_KEY,
@@ -477,7 +477,7 @@ class MacAgentService
 
     public function stopSession(AtlasPowerSession|string $session, string $reason = 'manual_stop'): ?AtlasPowerSession
     {
-        if (! Schema::hasTable('atlas_power_sessions')) {
+        if (! DatabaseTableAvailability::has('atlas_power_sessions')) {
             return $session instanceof AtlasPowerSession ? $session : null;
         }
 
@@ -745,7 +745,7 @@ class MacAgentService
      */
     public function reconcileActiveSessions(): array
     {
-        if (! Schema::hasTable('atlas_power_sessions')) {
+        if (! DatabaseTableAvailability::has('atlas_power_sessions')) {
             return ['checked' => 0, 'restarted' => 0, 'failed' => 0, 'skipped' => 0];
         }
 
@@ -817,7 +817,7 @@ class MacAgentService
      */
     public function expireSessionsDetailed(): array
     {
-        if (! Schema::hasTable('atlas_power_sessions')) {
+        if (! DatabaseTableAvailability::has('atlas_power_sessions')) {
             return ['count' => 0, 'maintenance_expired' => 0, 'sessions' => []];
         }
 
@@ -883,7 +883,7 @@ class MacAgentService
     public function sleepAfterIdle(string $reason, int $minIdleSeconds = self::DEFAULT_SLEEP_AFTER_IDLE_SECONDS): bool
     {
         $activeJobs = $this->activeAiJobsCount();
-        $activeSessions = Schema::hasTable('atlas_power_sessions') ? $this->activeSessionsQuery()->count() : 0;
+        $activeSessions = DatabaseTableAvailability::has('atlas_power_sessions') ? $this->activeSessionsQuery()->count() : 0;
         $idleSeconds = $this->userIdleSeconds();
 
         if ($activeJobs > 0 || $activeSessions > 0 || $idleSeconds === null || $idleSeconds < $minIdleSeconds) {
@@ -1006,7 +1006,7 @@ class MacAgentService
      */
     public function startDueMaintenanceWindows(): array
     {
-        if (! Schema::hasTable('atlas_maintenance_windows') || ! Schema::hasTable('atlas_power_sessions')) {
+        if (! DatabaseTableAvailability::all(['atlas_maintenance_windows', 'atlas_power_sessions'])) {
             return [];
         }
 
@@ -1051,7 +1051,7 @@ class MacAgentService
      */
     public function recentEvents(int $limit = 20): array
     {
-        if (! Schema::hasTable('atlas_power_events')) {
+        if (! DatabaseTableAvailability::has('atlas_power_events')) {
             return [];
         }
 
@@ -1067,7 +1067,7 @@ class MacAgentService
 
     public function event(string $type, string $severity, ?string $message = null, array $metadata = [], ?AtlasPowerSession $session = null, ?AiJob $job = null): AtlasPowerEvent
     {
-        if (! Schema::hasTable('atlas_power_events')) {
+        if (! DatabaseTableAvailability::has('atlas_power_events')) {
             return new AtlasPowerEvent([
                 'host_key' => self::HOST_KEY,
                 'event_type' => $type,
@@ -1134,7 +1134,7 @@ class MacAgentService
 
     private function activeAiJobsCount(): int
     {
-        return Schema::hasTable('ai_jobs')
+        return DatabaseTableAvailability::has('ai_jobs')
             ? DB::table('ai_jobs')->where('status', 'processing')->count()
             : 0;
     }
@@ -1265,7 +1265,7 @@ class MacAgentService
      */
     private function activeCaffeinateLabels(): array
     {
-        if (! Schema::hasTable('atlas_power_sessions')) {
+        if (! DatabaseTableAvailability::has('atlas_power_sessions')) {
             return [];
         }
 
@@ -1336,7 +1336,7 @@ class MacAgentService
 
     private function hasPendingHostEvent(string $pendingType, string $consumedType): bool
     {
-        if (! Schema::hasTable('atlas_power_events')) {
+        if (! DatabaseTableAvailability::has('atlas_power_events')) {
             return false;
         }
 
@@ -1411,7 +1411,7 @@ class MacAgentService
 
     private function latestPowerHelperEvent(?string $type = null): ?AtlasPowerEvent
     {
-        if (! Schema::hasTable('atlas_power_events')) {
+        if (! DatabaseTableAvailability::has('atlas_power_events')) {
             return null;
         }
 
@@ -1596,7 +1596,7 @@ class MacAgentService
 
     private function nextWakeMetadata(): ?string
     {
-        if (! Schema::hasTable('atlas_maintenance_windows')) {
+        if (! DatabaseTableAvailability::has('atlas_maintenance_windows')) {
             return null;
         }
 
@@ -1614,7 +1614,7 @@ class MacAgentService
 
     private function hasConfirmedAtlasWake(): bool
     {
-        if (! Schema::hasTable('atlas_maintenance_windows')) {
+        if (! DatabaseTableAvailability::has('atlas_maintenance_windows')) {
             return false;
         }
 

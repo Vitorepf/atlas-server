@@ -12,7 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -173,7 +173,7 @@ class InboxController extends Controller
     {
         $limit = array_key_exists('limit', $data) ? $data['limit'] : 80;
         $query = Capture::query();
-        if (Schema::hasTable('capture_links')) {
+        if (DatabaseTableAvailability::has('capture_links')) {
             $query->with('links');
         }
 

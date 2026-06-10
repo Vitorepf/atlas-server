@@ -5,7 +5,7 @@ namespace App\Console\Commands;
 use App\Models\OperatorProfileItem;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 /**
  * The operator's undo handle for everything Atlas learned about them — list what is
@@ -26,7 +26,7 @@ class AtlasOperatorProfileCommand extends Command
 
     public function handle(): int
     {
-        if (! Schema::hasTable('operator_profile_items')) {
+        if (! DatabaseTableAvailability::has('operator_profile_items')) {
             $this->warn('operator_profile_items table unavailable.');
 
             return self::SUCCESS;

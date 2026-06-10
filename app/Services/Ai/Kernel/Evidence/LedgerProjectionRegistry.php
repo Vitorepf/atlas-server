@@ -5,9 +5,9 @@ namespace App\Services\Ai\Kernel\Evidence;
 use App\Models\AiTrace;
 use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasToolRun;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 final class LedgerProjectionRegistry
 {
@@ -89,12 +89,12 @@ final class LedgerProjectionRegistry
                 $model = (string) $projection['model'];
                 $sourceEvents = (array) $projection['source_events'];
                 $missingEvents = array_values(array_diff($sourceEvents, $events));
-                $tableExists = Schema::hasTable($table);
+                $tableExists = DatabaseTableAvailability::has($table);
                 $requiredColumns = (array) $projection['required_columns'];
                 $missingColumns = $tableExists
                     ? array_values(array_filter(
                         $requiredColumns,
-                        fn (string $column): bool => ! Schema::hasColumn($table, $column),
+                        fn (string $column): bool => ! DatabaseTableAvailability::hasColumn($table, $column),
                     ))
                     : [];
 
@@ -163,7 +163,7 @@ final class LedgerProjectionRegistry
      */
     public function driftReport(): array
     {
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return [
                 'schema_version' => 'atlas.ledger_projection_drift.v1',
                 'available' => false,
@@ -278,7 +278,7 @@ final class LedgerProjectionRegistry
         $sourceEventCount = (clone $sourceQuery)->count();
         $latestSourceEvent = $this->parseTimestamp((clone $sourceQuery)->max('occurred_at'));
 
-        if (! Schema::hasTable($table)) {
+        if (! DatabaseTableAvailability::has($table)) {
             return [
                 'id' => $projection['id'],
                 'table' => $table,
@@ -338,11 +338,11 @@ final class LedgerProjectionRegistry
 
     private function projectionTimestampColumn(string $table): ?string
     {
-        if (Schema::hasColumn($table, 'updated_at')) {
+        if (DatabaseTableAvailability::hasColumn($table, 'updated_at')) {
             return 'updated_at';
         }
 
-        if (Schema::hasColumn($table, 'created_at')) {
+        if (DatabaseTableAvailability::hasColumn($table, 'created_at')) {
             return 'created_at';
         }
 

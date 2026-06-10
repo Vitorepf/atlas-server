@@ -6,7 +6,7 @@ use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\AtlasMemoryPrivacyService;
 use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class AtlasMemoryPrivacyCommand extends Command
@@ -43,7 +43,7 @@ class AtlasMemoryPrivacyCommand extends Command
     {
         $this->memoryInput = $input;
 
-        if (! Schema::hasTable('atlas_memory_entries')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
             $this->error('Tabela atlas_memory_entries ainda nao existe. Rode migrations.');
 
             return self::FAILURE;

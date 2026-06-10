@@ -6,7 +6,7 @@ use App\Services\Ai\Telemetry\AiTelemetryScorecardService;
 use App\Services\Ai\Telemetry\AiTelemetryWindowInput;
 use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AiTelemetryRollupCommand extends Command
 {
@@ -19,7 +19,7 @@ class AiTelemetryRollupCommand extends Command
 
     public function handle(AiTraceMetricAggregator $aggregator, AiTelemetryScorecardService $scorecards, AiTelemetryWindowInput $telemetryWindow): int
     {
-        if (! Schema::hasTable('ai_trace_metric_summaries')) {
+        if (! DatabaseTableAvailability::has('ai_trace_metric_summaries')) {
             $this->error('ai_trace_metric_summaries table is missing. Run php artisan migrate.');
 
             return self::FAILURE;

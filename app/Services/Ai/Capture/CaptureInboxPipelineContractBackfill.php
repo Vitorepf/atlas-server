@@ -2,10 +2,10 @@
 
 namespace App\Services\Ai\Capture;
 
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class CaptureInboxPipelineContractBackfill
 {
@@ -15,7 +15,7 @@ class CaptureInboxPipelineContractBackfill
     public function run(int $hours, bool $write): array
     {
         $since = CarbonImmutable::now()->subHours($hours);
-        if (! Schema::hasTable('captures')) {
+        if (! DatabaseTableAvailability::has('captures')) {
             return [
                 'schema_version' => 'atlas.capture_inbox_pipeline_contract_backfill.v1',
                 'status' => 'storage_unavailable',
@@ -28,7 +28,7 @@ class CaptureInboxPipelineContractBackfill
             ];
         }
 
-        $proposalsByCaptureId = Schema::hasTable('semantic_curation_proposals')
+        $proposalsByCaptureId = DatabaseTableAvailability::has('semantic_curation_proposals')
             ? $this->proposalsByCaptureId($since)
             : collect();
         $repairs = $this->captures($since)

@@ -9,7 +9,7 @@ use App\Models\AtlasVerbatimMemory;
 use App\Services\Ai\Memory\AtlasMemorySemanticIndexer;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 /**
  * R1 — backfill REAL embeddings for existing Atlas Memory Core rows
@@ -72,7 +72,7 @@ class AtlasMemoryEmbedBackfillCommand extends Command
      */
     private function backfillEntries(AtlasMemorySemanticIndexer $indexer, bool $reembedAll, int $limit): array
     {
-        if (! Schema::hasTable('atlas_memory_entries') || ! Schema::hasColumn('atlas_memory_entries', 'embedding')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entries') || ! DatabaseTableAvailability::hasColumn('atlas_memory_entries', 'embedding')) {
             return ['status' => 'skipped', 'reason' => 'table or embedding column missing'];
         }
 
@@ -98,7 +98,7 @@ class AtlasMemoryEmbedBackfillCommand extends Command
      */
     private function backfillVerbatim(AtlasMemorySemanticIndexer $indexer, bool $reembedAll, int $limit): array
     {
-        if (! Schema::hasTable('atlas_verbatim_memories') || ! Schema::hasColumn('atlas_verbatim_memories', 'embedding')) {
+        if (! DatabaseTableAvailability::has('atlas_verbatim_memories') || ! DatabaseTableAvailability::hasColumn('atlas_verbatim_memories', 'embedding')) {
             return ['status' => 'skipped', 'reason' => 'table or embedding column missing'];
         }
 

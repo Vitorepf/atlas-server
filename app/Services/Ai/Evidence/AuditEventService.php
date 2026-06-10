@@ -3,7 +3,7 @@
 namespace App\Services\Ai\Evidence;
 
 use App\Models\AiAuditEvent;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class AuditEventService
@@ -102,16 +102,16 @@ class AuditEventService
             'mission_id' => $missionId,
         ];
 
-        if (Schema::hasColumn('ai_audit_events', 'scope_type')) {
+        if (DatabaseTableAvailability::hasColumn('ai_audit_events', 'scope_type')) {
             $row['scope_type'] = $scopeType;
         }
-        if (Schema::hasColumn('ai_audit_events', 'scope_id')) {
+        if (DatabaseTableAvailability::hasColumn('ai_audit_events', 'scope_id')) {
             $row['scope_id'] = $scopeId;
         }
-        if (Schema::hasColumn('ai_audit_events', 'correlation_id')) {
+        if (DatabaseTableAvailability::hasColumn('ai_audit_events', 'correlation_id')) {
             $row['correlation_id'] = $correlationId;
         }
-        if (Schema::hasColumn('ai_audit_events', 'causation_id')) {
+        if (DatabaseTableAvailability::hasColumn('ai_audit_events', 'causation_id')) {
             $row['causation_id'] = $causationId;
         }
 

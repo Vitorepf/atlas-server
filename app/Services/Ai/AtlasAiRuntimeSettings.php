@@ -3,7 +3,7 @@
 namespace App\Services\Ai;
 
 use App\Models\AtlasAiRuntimeSetting;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AtlasAiRuntimeSettings
 {
@@ -96,7 +96,7 @@ class AtlasAiRuntimeSettings
      */
     public function update(array $patch, ?string $updatedBy = null): array
     {
-        if (! Schema::hasTable('atlas_ai_runtime_settings')) {
+        if (! DatabaseTableAvailability::has('atlas_ai_runtime_settings')) {
             throw new \RuntimeException('Tabela atlas_ai_runtime_settings ainda nao existe. Rode as migrations.');
         }
 
@@ -125,7 +125,7 @@ class AtlasAiRuntimeSettings
 
     private function row(): ?AtlasAiRuntimeSetting
     {
-        if (! Schema::hasTable('atlas_ai_runtime_settings')) {
+        if (! DatabaseTableAvailability::has('atlas_ai_runtime_settings')) {
             return null;
         }
 

@@ -7,7 +7,7 @@ use App\Models\AiLearningProposal;
 use App\Services\Ai\Compounding\AtlasCaptureQualityGate;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 /**
  * Dry-run the capture quality gate over recent learning candidates and report how much
@@ -28,7 +28,7 @@ class AtlasAiCaptureQualityAuditCommand extends Command
         $since = now()->subDays($days);
         $surfaces = [];
 
-        if (Schema::hasTable('ai_learning_proposals')) {
+        if (DatabaseTableAvailability::has('ai_learning_proposals')) {
             $surfaces['ai_learning_proposals'] = $this->audit(
                 AiLearningProposal::query()->where('created_at', '>=', $since)->get(),
                 $gate,
@@ -39,7 +39,7 @@ class AtlasAiCaptureQualityAuditCommand extends Command
                 ],
             );
         }
-        if (Schema::hasTable('ai_compounding_memories')) {
+        if (DatabaseTableAvailability::has('ai_compounding_memories')) {
             $surfaces['ai_compounding_memories'] = $this->audit(
                 AiCompoundingMemory::query()->where('created_at', '>=', $since)->get(),
                 $gate,

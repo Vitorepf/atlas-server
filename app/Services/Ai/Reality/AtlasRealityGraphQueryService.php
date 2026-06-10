@@ -8,8 +8,8 @@ use App\Models\AtlasAurgEdge;
 use App\Models\AtlasAurgNode;
 use App\Services\Ai\Memory\AtlasMemoryVectorSearchService;
 use App\Services\Ai\RuntimeBoundary\GraphRankRuntimeClient;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -795,11 +795,7 @@ class AtlasRealityGraphQueryService
 
     private function storeReady(): bool
     {
-        try {
-            return Schema::hasTable('atlas_aurg_nodes') && Schema::hasTable('atlas_aurg_edges');
-        } catch (Throwable) {
-            return false;
-        }
+        return DatabaseTableAvailability::all(['atlas_aurg_nodes', 'atlas_aurg_edges']);
     }
 
     private function cap(string $key, int $default): int

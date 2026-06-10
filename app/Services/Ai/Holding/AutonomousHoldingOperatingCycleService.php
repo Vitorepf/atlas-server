@@ -8,9 +8,9 @@ use App\Models\AiHoldingEnterpriseFlowOperationsRunbook;
 use App\Services\Ai\DomainRuntime\DomainManifestRegistryService;
 use App\Services\Ai\DomainRuntime\DomainRuntimeRecordService;
 use App\Services\Ai\DomainRuntime\DomainSeedManifests;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 
@@ -1124,7 +1124,7 @@ class AutonomousHoldingOperatingCycleService
      */
     private function flowOperationsRunbookEvidence(string $domainId, string $date, array $flows): array
     {
-        if (! Schema::hasTable('ai_holding_enterprise_flow_operations_runbooks')) {
+        if (! $this->flowOperationsRunbooksTableAvailable()) {
             return [];
         }
 
@@ -1200,7 +1200,7 @@ class AutonomousHoldingOperatingCycleService
      */
     private function businessExecutionRuntimeRecordsByFlow(string $domainId): array
     {
-        if (! Schema::hasTable('ai_domain_runtime_records')) {
+        if (! $this->domainRuntimeRecordsTableAvailable()) {
             return [];
         }
 
@@ -1240,7 +1240,7 @@ class AutonomousHoldingOperatingCycleService
      */
     private function flowOperationsRunbookFlowIds(string $domainId): array
     {
-        if (! Schema::hasTable('ai_holding_enterprise_flow_operations_runbooks')) {
+        if (! $this->flowOperationsRunbooksTableAvailable()) {
             return [];
         }
 
@@ -1725,5 +1725,15 @@ class AutonomousHoldingOperatingCycleService
                 'status' => 'recorded',
             ],
         ];
+    }
+
+    private function domainRuntimeRecordsTableAvailable(): bool
+    {
+        return DatabaseTableAvailability::has('ai_domain_runtime_records');
+    }
+
+    private function flowOperationsRunbooksTableAvailable(): bool
+    {
+        return DatabaseTableAvailability::has('ai_holding_enterprise_flow_operations_runbooks');
     }
 }

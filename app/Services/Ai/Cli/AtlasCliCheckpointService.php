@@ -5,6 +5,7 @@ namespace App\Services\Ai\Cli;
 use App\Services\Ai\Runtime\AiToolRuntime;
 use App\Services\Ai\Runtime\ToolInvocation;
 use App\Services\Ai\Runtime\ToolResult;
+use App\Services\Ai\Support\JsonFileStore;
 use Illuminate\Support\Facades\File;
 
 class AtlasCliCheckpointService
@@ -128,7 +129,7 @@ class AtlasCliCheckpointService
             return null;
         }
 
-        $decoded = json_decode(File::get($metadataPath), true);
+        $decoded = JsonFileStore::readArray($metadataPath);
         if (! is_array($decoded)) {
             return null;
         }

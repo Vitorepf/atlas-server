@@ -4,7 +4,7 @@ namespace App\Support;
 
 use App\Models\AtlasProject;
 use App\Models\AtlasProjectBlocker;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class ProjectExecutionHealth
 {
@@ -74,7 +74,7 @@ class ProjectExecutionHealth
             return $project->openBlockers->count();
         }
 
-        if (! Schema::hasTable('atlas_project_blockers')) {
+        if (! DatabaseTableAvailability::has('atlas_project_blockers')) {
             return 0;
         }
 

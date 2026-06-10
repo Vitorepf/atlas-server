@@ -4,10 +4,10 @@ namespace App\Services\Ai;
 
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Memory\MemoryQueryInput;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\AtlasSecurity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 
 class AtlasMemoryPrivacyService
 {
@@ -81,7 +81,7 @@ class AtlasMemoryPrivacyService
      */
     public function scan(array $filters = [], int $limit = 200, bool $dryRun = true): array
     {
-        if (! Schema::hasTable('atlas_memory_entries')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
             return ['scanned' => 0, 'updated' => 0, 'entries' => []];
         }
 
@@ -273,7 +273,7 @@ class AtlasMemoryPrivacyService
             'external_ai_allowed' => $externalAiAllowed,
             'redaction_status' => $redactionStatus,
         ] as $column => $value) {
-            if (Schema::hasColumn('atlas_memory_entries', $column)) {
+            if (DatabaseTableAvailability::hasColumn('atlas_memory_entries', $column)) {
                 $payload[$column] = $value;
             }
         }
@@ -286,7 +286,7 @@ class AtlasMemoryPrivacyService
      */
     private function privacyReviewedTimestamp(): array
     {
-        return Schema::hasColumn('atlas_memory_entries', 'privacy_reviewed_at')
+        return DatabaseTableAvailability::hasColumn('atlas_memory_entries', 'privacy_reviewed_at')
             ? ['privacy_reviewed_at' => now()]
             : [];
     }

@@ -12,7 +12,7 @@ use App\Services\Ai\Kernel\Repair\RepairRequestFactory;
 use App\Services\Ai\Kernel\Repair\RepairStrategy;
 use App\Services\Ai\Programming\ProgrammingExecutionRequest;
 use App\Services\Ai\Programming\ProgrammingExecutionResult;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class EngineeringHarnessExecutionService
@@ -26,7 +26,7 @@ class EngineeringHarnessExecutionService
 
     public function execute(ProgrammingExecutionRequest $request): ProgrammingExecutionResult
     {
-        if (! Schema::hasTable('atlas_tasks')) {
+        if (! DatabaseTableAvailability::has('atlas_tasks')) {
             $harnessOptions = $this->effectiveHarnessOptions($request);
 
             return ProgrammingExecutionResult::fromArray($this->withKernelRepairDecision($request, [

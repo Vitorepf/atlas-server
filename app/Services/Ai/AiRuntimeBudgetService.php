@@ -3,7 +3,7 @@
 namespace App\Services\Ai;
 
 use App\Models\AiTraceMetricSummary;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AiRuntimeBudgetService
 {
@@ -29,7 +29,7 @@ class AiRuntimeBudgetService
         $warn = $this->positiveInt($budget['warn_visible_tokens'] ?? null);
 
         return [
-            'available' => Schema::hasTable('ai_trace_metric_summaries'),
+            'available' => DatabaseTableAvailability::has('ai_trace_metric_summaries'),
             'enabled' => (bool) ($budget['enabled'] ?? false),
             'mode' => (string) ($budget['mode'] ?? 'block'),
             'window_hours' => $windowHours,
@@ -55,7 +55,7 @@ class AiRuntimeBudgetService
             return;
         }
 
-        if (! Schema::hasTable('ai_trace_metric_summaries')) {
+        if (! DatabaseTableAvailability::has('ai_trace_metric_summaries')) {
             return;
         }
 
@@ -107,7 +107,7 @@ class AiRuntimeBudgetService
      */
     private function usage(?string $provider, ?string $model, int $windowHours): array
     {
-        if (! Schema::hasTable('ai_trace_metric_summaries')) {
+        if (! DatabaseTableAvailability::has('ai_trace_metric_summaries')) {
             return [
                 'visible_tokens' => 0,
                 'total_tokens' => 0,

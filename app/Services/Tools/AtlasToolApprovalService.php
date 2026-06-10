@@ -3,8 +3,8 @@
 namespace App\Services\Tools;
 
 use App\Models\AtlasToolPolicy;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Schema;
 
 class AtlasToolApprovalService
 {
@@ -140,7 +140,7 @@ class AtlasToolApprovalService
 
     private function ensureTables(): void
     {
-        if (! Schema::hasTable('atlas_tool_policies')) {
+        if (! DatabaseTableAvailability::has('atlas_tool_policies')) {
             throw new \RuntimeException('Tool runtime tables are not migrated.');
         }
     }

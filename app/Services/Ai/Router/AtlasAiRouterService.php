@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Router;
 
 use App\Services\Ai\Compounding\AtlasCompoundingMemoryService;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 final class AtlasAiRouterService
@@ -197,7 +197,7 @@ final class AtlasAiRouterService
      */
     private function approvedCompoundingMemories(string $flowId): array
     {
-        if (! Schema::hasTable('ai_compounding_memories')) {
+        if (! DatabaseTableAvailability::has('ai_compounding_memories')) {
             return [];
         }
 

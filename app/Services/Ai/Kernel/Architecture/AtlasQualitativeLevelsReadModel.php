@@ -4,9 +4,9 @@ namespace App\Services\Ai\Kernel\Architecture;
 
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Kernel\Domain\AtlasAiDomainCatalogService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Engineering\EngineeringDocumentationHealthService;
 use Carbon\CarbonInterface;
-use Illuminate\Support\Facades\Schema;
 
 class AtlasQualitativeLevelsReadModel
 {
@@ -130,7 +130,7 @@ class AtlasQualitativeLevelsReadModel
      */
     private function ledgerSignals(CarbonInterface $since, CarbonInterface $until): array
     {
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return [
                 'available' => false,
                 'event_count' => 0,

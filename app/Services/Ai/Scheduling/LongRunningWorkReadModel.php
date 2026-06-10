@@ -3,9 +3,9 @@
 namespace App\Services\Ai\Scheduling;
 
 use App\Models\AiScheduledTask;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 
 class LongRunningWorkReadModel
 {
@@ -18,7 +18,7 @@ class LongRunningWorkReadModel
     {
         $since ??= now()->subHours(24);
         $until ??= now();
-        $tableExists = Schema::hasTable('ai_scheduled_tasks');
+        $tableExists = DatabaseTableAvailability::has('ai_scheduled_tasks');
 
         if (! $tableExists) {
             return [

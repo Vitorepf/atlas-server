@@ -5,8 +5,8 @@ namespace App\Services\Ai\Hermes;
 use App\Models\AiMemoryDelta;
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\AtlasMemoryDeltaPromotionService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -70,7 +70,7 @@ class HermesMemoryReviewGate
             'status' => 'no_candidates',
         ];
 
-        if (! Schema::hasTable('ai_memory_deltas')) {
+        if (! DatabaseTableAvailability::has('ai_memory_deltas')) {
             $receipt['status'] = 'memory_gate_unavailable';
 
             return $this->withReceiptHash($receipt);
@@ -363,7 +363,7 @@ class HermesMemoryReviewGate
             return $promotedSibling->id;
         }
 
-        if (Schema::hasTable('atlas_memory_entries')) {
+        if (DatabaseTableAvailability::has('atlas_memory_entries')) {
             $promotedDeltaIds = AiMemoryDelta::query()
                 ->where('status', 'promoted')
                 ->where('claim', $delta->claim)

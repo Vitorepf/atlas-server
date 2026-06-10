@@ -17,6 +17,7 @@ use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Mission\AiGatewayMissionBridge;
 use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Telemetry\AiTelemetryCollector;
 use App\Services\Ai\ValueObjects\AiThreadResolution;
 use App\Services\AuditLogService;
@@ -24,7 +25,6 @@ use App\Services\CapturePrivacyService;
 use App\Support\AiAttachmentPayload;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -773,7 +773,7 @@ class AiGatewayService
      */
     private function recordTelemetry(string $eventName, AiTrace $trace, ?AiJob $job = null, array $overrides = []): void
     {
-        if (! Schema::hasTable('ai_telemetry_events')) {
+        if (! DatabaseTableAvailability::has('ai_telemetry_events')) {
             return;
         }
 
@@ -809,19 +809,19 @@ class AiGatewayService
     {
         $relations = ['thread', 'session', 'job', 'jobs'];
 
-        if (Schema::hasTable('ai_quality_evaluations')) {
+        if (DatabaseTableAvailability::has('ai_quality_evaluations')) {
             $relations[] = 'qualityEvaluation';
         }
 
-        if (Schema::hasTable('ai_quality_actions')) {
+        if (DatabaseTableAvailability::has('ai_quality_actions')) {
             $relations[] = 'qualityActions';
         }
 
-        if (Schema::hasTable('ai_router_decisions')) {
+        if (DatabaseTableAvailability::has('ai_router_decisions')) {
             $relations[] = 'routerDecision';
         }
 
-        if (Schema::hasTable('ai_decisions')) {
+        if (DatabaseTableAvailability::has('ai_decisions')) {
             $relations[] = 'atlasDecision';
         }
 
@@ -858,7 +858,7 @@ class AiGatewayService
         $routerDecision = $this->recordRouterDecision($trace, $options, $provider);
         $this->recordSpecialistFlowExecution($trace, $routerDecision, $options);
 
-        if (! Schema::hasTable('ai_decisions')) {
+        if (! DatabaseTableAvailability::has('ai_decisions')) {
             return;
         }
 
@@ -919,7 +919,7 @@ class AiGatewayService
 
     private function recordRouterDecision(AiTrace $trace, array $options, string $provider): ?AiRouterDecision
     {
-        if (! Schema::hasTable('ai_router_decisions')) {
+        if (! DatabaseTableAvailability::has('ai_router_decisions')) {
             return null;
         }
 
@@ -979,7 +979,7 @@ class AiGatewayService
         ];
 
         foreach ($columns as $column => $value) {
-            if (Schema::hasColumn('ai_router_decisions', $column)) {
+            if (DatabaseTableAvailability::hasColumn('ai_router_decisions', $column)) {
                 $base[$column] = $value;
             }
         }
@@ -989,7 +989,7 @@ class AiGatewayService
 
     private function recordSpecialistFlowExecution(AiTrace $trace, ?AiRouterDecision $routerDecision, array $options): ?AiSpecialistFlowExecution
     {
-        if (! Schema::hasTable('ai_specialist_flow_executions')) {
+        if (! DatabaseTableAvailability::has('ai_specialist_flow_executions')) {
             return null;
         }
 
@@ -1023,7 +1023,7 @@ class AiGatewayService
 
         $filtered = [];
         foreach ($values as $column => $value) {
-            if (Schema::hasColumn('ai_specialist_flow_executions', $column)) {
+            if (DatabaseTableAvailability::hasColumn('ai_specialist_flow_executions', $column)) {
                 $filtered[$column] = $value;
             }
         }
@@ -1095,11 +1095,13 @@ class AiGatewayService
 
     private function compoundingTablesReady(): bool
     {
-        return Schema::hasTable('ai_run_outcomes')
-            && Schema::hasTable('ai_learning_candidates')
-            && Schema::hasTable('ai_compounding_memories')
-            && Schema::hasTable('ai_rag_feedback_events')
-            && Schema::hasTable('ai_temporal_certifications');
+        return DatabaseTableAvailability::all([
+            'ai_run_outcomes',
+            'ai_learning_candidates',
+            'ai_compounding_memories',
+            'ai_rag_feedback_events',
+            'ai_temporal_certifications',
+        ]);
     }
 
     private function boundedString(mixed $value, int $max): ?string

@@ -31,6 +31,7 @@ use App\Services\Ai\Mobile\JobResultInboxEmitter;
 use App\Services\Ai\Policy\PermissionGateService;
 use App\Services\Ai\Programming\AtlasProgrammingOrchestrator;
 use App\Services\Ai\Programming\ProgrammingIterationPolicy;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Telemetry\AiTelemetryCollector;
 use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
 use App\Services\AuditLogService;
@@ -39,7 +40,6 @@ use App\Services\Semantic\CaptureSemanticClarifier;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AiWorker
@@ -519,12 +519,13 @@ class AiWorker
         if (! is_array($kernel) || empty($kernel['mission_id'])) {
             return;
         }
-        if (! Schema::hasTable('ai_missions')
-            || ! Schema::hasTable('ai_mission_evidence_refs')
-            || ! Schema::hasTable('ai_mission_certifications')
-            || ! Schema::hasTable('ai_certifications')
-            || ! Schema::hasTable('ai_evidence_packs')
-        ) {
+        if (! DatabaseTableAvailability::all([
+            'ai_missions',
+            'ai_mission_evidence_refs',
+            'ai_mission_certifications',
+            'ai_certifications',
+            'ai_evidence_packs',
+        ])) {
             return;
         }
 
@@ -633,7 +634,7 @@ class AiWorker
         if (! is_array($kernel) || empty($kernel['mission_id'])) {
             return;
         }
-        if (! Schema::hasTable('ai_permission_gates') || ! Schema::hasTable('ai_policy_profiles')) {
+        if (! DatabaseTableAvailability::all(['ai_permission_gates', 'ai_policy_profiles'])) {
             return;
         }
 
@@ -2554,7 +2555,7 @@ class AiWorker
      */
     private function recordTelemetry(string $eventName, AiJob $job, ?AiJobAttempt $attempt = null, array $overrides = []): void
     {
-        if (! Schema::hasTable('ai_telemetry_events')) {
+        if (! DatabaseTableAvailability::has('ai_telemetry_events')) {
             return;
         }
 
@@ -2591,7 +2592,7 @@ class AiWorker
 
     private function recomputeTraceMetrics(?AiTrace $trace): void
     {
-        if (! $trace || ! Schema::hasTable('ai_trace_metric_summaries')) {
+        if (! $trace || ! DatabaseTableAvailability::has('ai_trace_metric_summaries')) {
             return;
         }
 
@@ -2885,7 +2886,7 @@ TEXT);
 
     private function completeRemediationActions(AiTrace $trace): void
     {
-        if (! Schema::hasTable('ai_quality_actions')) {
+        if (! DatabaseTableAvailability::has('ai_quality_actions')) {
             return;
         }
 

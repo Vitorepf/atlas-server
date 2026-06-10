@@ -6,9 +6,9 @@ namespace App\Services\Engineering;
 
 use App\Models\AtlasEngineeringCodeSymbol;
 use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Semantic\FrontmatterParser;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 use LogicException;
 
 /**
@@ -198,7 +198,7 @@ class AtlasDocumentationRealityCodeContractProposerService
      */
     private function indexHealthy(): bool
     {
-        if (! Schema::hasTable('atlas_engineering_code_symbols')) {
+        if (! DatabaseTableAvailability::has('atlas_engineering_code_symbols')) {
             return true;
         }
 

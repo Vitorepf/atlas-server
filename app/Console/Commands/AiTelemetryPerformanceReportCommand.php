@@ -6,7 +6,7 @@ use App\Services\Ai\Telemetry\AiTelemetryPerformanceReportService;
 use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AiTelemetryPerformanceReportCommand extends Command
 {
@@ -25,7 +25,7 @@ class AiTelemetryPerformanceReportCommand extends Command
 
     public function handle(AiTelemetryPerformanceReportService $reports, AiTraceMetricAggregator $aggregator): int
     {
-        if (! Schema::hasTable('ai_trace_metric_summaries')) {
+        if (! DatabaseTableAvailability::has('ai_trace_metric_summaries')) {
             $this->error('ai_trace_metric_summaries table is missing. Run php artisan migrate.');
 
             return self::FAILURE;

@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AtlasHybridMemoryRetrievalService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class AtlasMemoryRecallCommand extends Command
@@ -30,7 +30,7 @@ class AtlasMemoryRecallCommand extends Command
 
     public function handle(AtlasHybridMemoryRetrievalService $retrieval): int
     {
-        if (! Schema::hasTable('atlas_memory_entries') && ! Schema::hasTable('atlas_verbatim_memories') && ! Schema::hasTable('semantic_notes')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entries') && ! DatabaseTableAvailability::has('atlas_verbatim_memories') && ! DatabaseTableAvailability::has('semantic_notes')) {
             $this->error('Nenhuma tabela de memoria esta disponivel. Rode migrations.');
 
             return self::FAILURE;

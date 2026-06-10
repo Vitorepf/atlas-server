@@ -4,7 +4,7 @@ namespace App\Services\Ai\Hermes;
 
 use App\Models\HermesCapabilityCandidate;
 use App\Models\HermesCapabilityManifest;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 /**
@@ -56,7 +56,7 @@ class HermesCapabilityRegistry
             'status' => 'capability_registry_unavailable',
         ];
 
-        if (! Schema::hasTable('hermes_capability_manifests') || ! Schema::hasTable('hermes_capability_candidates')) {
+        if (! DatabaseTableAvailability::all(['hermes_capability_manifests', 'hermes_capability_candidates'])) {
             return $this->withReceiptHash($receipt);
         }
 
@@ -178,7 +178,7 @@ class HermesCapabilityRegistry
             'duplicate_candidate_ids' => [],
         ];
 
-        if (! Schema::hasTable('hermes_capability_candidates')) {
+        if (! DatabaseTableAvailability::has('hermes_capability_candidates')) {
             return $result;
         }
 
@@ -243,7 +243,7 @@ class HermesCapabilityRegistry
      */
     public function latestManifest(): ?array
     {
-        if (! Schema::hasTable('hermes_capability_manifests')) {
+        if (! DatabaseTableAvailability::has('hermes_capability_manifests')) {
             return null;
         }
 

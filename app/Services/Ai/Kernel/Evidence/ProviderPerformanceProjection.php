@@ -3,9 +3,9 @@
 namespace App\Services\Ai\Kernel\Evidence;
 
 use App\Models\AtlasLedgerEvent;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 
 class ProviderPerformanceProjection
 {
@@ -18,7 +18,7 @@ class ProviderPerformanceProjection
         $until ??= now();
         $filters = $this->normalizedFilters($filters);
 
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return [
                 'available' => false,
                 'schema_version' => ProviderUsagePayload::SCHEMA_VERSION,

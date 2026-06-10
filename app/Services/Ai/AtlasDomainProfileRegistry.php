@@ -5,7 +5,7 @@ namespace App\Services\Ai;
 use App\Models\AiDomainProfile;
 use App\Models\AiFlowProfile;
 use App\Services\Ai\Finance\AtlasFinanceDomainContract;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
 class AtlasDomainProfileRegistry
@@ -50,7 +50,7 @@ class AtlasDomainProfileRegistry
      */
     private function catalogFromDatabase(): ?array
     {
-        if (! Schema::hasTable('ai_domain_profiles') || ! Schema::hasTable('ai_flow_profiles')) {
+        if (! DatabaseTableAvailability::all(['ai_domain_profiles', 'ai_flow_profiles'])) {
             return null;
         }
 
@@ -84,7 +84,7 @@ class AtlasDomainProfileRegistry
      */
     private function resolveFromDatabase(string $profileId): ?array
     {
-        if (! Schema::hasTable('ai_domain_profiles') || ! Schema::hasTable('ai_flow_profiles')) {
+        if (! DatabaseTableAvailability::all(['ai_domain_profiles', 'ai_flow_profiles'])) {
             return null;
         }
 

@@ -6,10 +6,10 @@ namespace App\Services\Ai\Reality;
 
 use App\Models\AtlasAurgEdge;
 use App\Models\AtlasAurgNode;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -254,10 +254,6 @@ class AtlasRealityGraphStatusService
 
     private function tableExists(string $table): bool
     {
-        try {
-            return Schema::hasTable($table);
-        } catch (Throwable) {
-            return false;
-        }
+        return DatabaseTableAvailability::has($table);
     }
 }

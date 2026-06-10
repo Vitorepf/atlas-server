@@ -12,7 +12,7 @@ use App\Models\AtlasProject;
 use App\Services\Ai\Programming\AtlasForgeGovernedPromotionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 /**
@@ -408,8 +408,8 @@ final class AtlasCodeForgeReviewController extends Controller
 
         $evidenceId = $historyEntry['evidence_id'] ?? null;
         if (! $evidenceId
-            || ! Schema::hasTable('atlas_engineering_evidence')
-            || ! Schema::hasColumn('atlas_engineering_evidence', 'metadata')
+            || ! DatabaseTableAvailability::has('atlas_engineering_evidence')
+            || ! DatabaseTableAvailability::hasColumn('atlas_engineering_evidence', 'metadata')
         ) {
             return null;
         }
@@ -428,7 +428,7 @@ final class AtlasCodeForgeReviewController extends Controller
      */
     private function persistEvidence(AtlasProject $project, array $review): ?AtlasEngineeringEvidence
     {
-        if (! Schema::hasTable('atlas_engineering_evidence')) {
+        if (! DatabaseTableAvailability::has('atlas_engineering_evidence')) {
             return null;
         }
 
@@ -461,7 +461,7 @@ final class AtlasCodeForgeReviewController extends Controller
     private function onlyExistingColumns(string $table, array $values): array
     {
         return collect($values)
-            ->filter(fn (mixed $_, string $column): bool => Schema::hasColumn($table, $column))
+            ->filter(fn (mixed $_, string $column): bool => DatabaseTableAvailability::hasColumn($table, $column))
             ->all();
     }
 }

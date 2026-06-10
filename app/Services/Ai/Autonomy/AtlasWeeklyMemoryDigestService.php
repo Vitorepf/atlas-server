@@ -18,7 +18,7 @@ use App\Models\SemanticNote;
 use App\Models\SemanticNoteActivation;
 use App\Services\Ai\AtlasDecide\AtlasConductorRoutingMemory;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
 /**
@@ -501,10 +501,6 @@ final class AtlasWeeklyMemoryDigestService
 
     private function tableReady(string $table): bool
     {
-        try {
-            return Schema::hasTable($table);
-        } catch (Throwable) {
-            return false;
-        }
+        return DatabaseTableAvailability::has($table);
     }
 }

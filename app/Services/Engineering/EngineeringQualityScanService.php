@@ -3,12 +3,12 @@
 namespace App\Services\Engineering;
 
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Tools\AtlasToolEvidenceStore;
 use App\Services\Tools\AtlasToolResultNormalizer;
 use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\ExecutableFinder;
 use Symfony\Component\Process\Process;
@@ -712,7 +712,7 @@ class EngineeringQualityScanService
      */
     private function recordToolRuntimeEvidence(string $workspace, string $artifactRoot, array $payload, array $context = []): void
     {
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! DatabaseTableAvailability::has('atlas_tool_runs')) {
             return;
         }
 

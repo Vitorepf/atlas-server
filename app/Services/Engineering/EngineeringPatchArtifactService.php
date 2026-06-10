@@ -5,9 +5,9 @@ namespace App\Services\Engineering;
 use App\Models\AtlasEngineeringPatchArtifact;
 use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasEngineeringRunAttempt;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 
@@ -22,7 +22,7 @@ class EngineeringPatchArtifactService
         string $workspace,
         array $metadata = [],
     ): ?AtlasEngineeringPatchArtifact {
-        if (! Schema::hasTable('atlas_engineering_patch_artifacts')) {
+        if (! DatabaseTableAvailability::has('atlas_engineering_patch_artifacts')) {
             return null;
         }
 

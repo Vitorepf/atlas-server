@@ -2,10 +2,10 @@
 
 namespace App\Services\Ai\Capture;
 
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class CaptureInboxPipelineReadModel
 {
@@ -22,10 +22,7 @@ class CaptureInboxPipelineReadModel
             'ai_inbox_items',
             'capture_links',
         ];
-        $missingTables = array_values(array_filter(
-            $requiredTables,
-            fn (string $table): bool => ! Schema::hasTable($table),
-        ));
+        $missingTables = DatabaseTableAvailability::missing($requiredTables);
 
         if (in_array('captures', $missingTables, true)) {
             return [
@@ -45,16 +42,16 @@ class CaptureInboxPipelineReadModel
         }
 
         $captures = $this->recentCaptures($since);
-        $proposals = Schema::hasTable('semantic_curation_proposals')
+        $proposals = DatabaseTableAvailability::has('semantic_curation_proposals')
             ? $this->recentProposals($since)
             : collect();
-        $memoryDeltas = Schema::hasTable('ai_memory_deltas')
+        $memoryDeltas = DatabaseTableAvailability::has('ai_memory_deltas')
             ? $this->recentMemoryDeltas($since)
             : collect();
-        $inboxItems = Schema::hasTable('ai_inbox_items')
+        $inboxItems = DatabaseTableAvailability::has('ai_inbox_items')
             ? $this->recentInboxItems($since)
             : collect();
-        $captureLinks = Schema::hasTable('capture_links')
+        $captureLinks = DatabaseTableAvailability::has('capture_links')
             ? $this->recentCaptureLinks($since)
             : collect();
 

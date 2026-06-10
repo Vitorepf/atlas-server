@@ -2,8 +2,8 @@
 
 namespace App\Services\Ai\ControlPlane;
 
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 class AtlasControlPlaneRouterService
@@ -100,7 +100,7 @@ class AtlasControlPlaneRouterService
         $tables = [];
         $present = 0;
         foreach (self::POSSIBLE_TABLES as $table) {
-            $exists = Schema::hasTable($table);
+            $exists = DatabaseTableAvailability::has($table);
             $tables[$table] = $exists;
             if ($exists) {
                 $present++;
@@ -123,7 +123,7 @@ class AtlasControlPlaneRouterService
 
     private function safeCount(string $table): ?int
     {
-        if (! Schema::hasTable($table)) {
+        if (! DatabaseTableAvailability::has($table)) {
             return null;
         }
         try {
@@ -217,7 +217,7 @@ class AtlasControlPlaneRouterService
      */
     private function buildSection(string $table, string $groupBy, int $limit, array $recentColumns): array
     {
-        if (! Schema::hasTable($table)) {
+        if (! DatabaseTableAvailability::has($table)) {
             return ['status' => AtlasControlPlaneStatus::MISSING, 'detail' => "table {$table} not present"];
         }
 
@@ -266,7 +266,7 @@ class AtlasControlPlaneRouterService
     private function safeRecent(string $table, int $limit, array $columns): array
     {
         try {
-            $existing = array_filter($columns, static fn (string $c): bool => Schema::hasColumn($table, $c));
+            $existing = array_filter($columns, static fn (string $c): bool => DatabaseTableAvailability::hasColumn($table, $c));
             if ($existing === []) {
                 return [];
             }

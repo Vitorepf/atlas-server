@@ -6,8 +6,8 @@ use App\Models\AiProviderHealthSnapshot;
 use App\Models\AtlasInitiativeRun;
 use App\Models\DigitalActivitySnapshot;
 use App\Models\HealthSnapshot;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 
 class InsightWatcherService
 {
@@ -70,7 +70,7 @@ class InsightWatcherService
      */
     private function healthCandidates(): array
     {
-        if (! Schema::hasTable('health_snapshots')) {
+        if (! DatabaseTableAvailability::has('health_snapshots')) {
             return [];
         }
 
@@ -161,7 +161,7 @@ class InsightWatcherService
      */
     private function digitalCandidates(): array
     {
-        if (! Schema::hasTable('digital_activity_snapshots')) {
+        if (! DatabaseTableAvailability::has('digital_activity_snapshots')) {
             return [];
         }
 
@@ -240,7 +240,7 @@ class InsightWatcherService
      */
     private function providerHealthCandidates(): array
     {
-        if (! Schema::hasTable('ai_provider_health_snapshots')) {
+        if (! DatabaseTableAvailability::has('ai_provider_health_snapshots')) {
             return [];
         }
 
@@ -323,7 +323,7 @@ class InsightWatcherService
 
     private function startRun(bool $dryRun): ?AtlasInitiativeRun
     {
-        if (! Schema::hasTable('atlas_initiative_runs')) {
+        if (! DatabaseTableAvailability::has('atlas_initiative_runs')) {
             return null;
         }
 

@@ -6,7 +6,7 @@ use App\Models\AiScheduledTask;
 use App\Services\Ai\Scheduling\AtlasCliSchedulerService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -34,7 +34,7 @@ class AtlasCliScheduleCommand extends Command
 
     public function handle(AtlasCliSchedulerService $scheduler): int
     {
-        if (! Schema::hasTable('ai_scheduled_tasks')) {
+        if (! DatabaseTableAvailability::has('ai_scheduled_tasks')) {
             return $this->printPayload([
                 'ok' => false,
                 'error' => 'Tabela ai_scheduled_tasks ainda nao existe. Rode migrations.',

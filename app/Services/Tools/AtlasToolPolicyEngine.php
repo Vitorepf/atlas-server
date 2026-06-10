@@ -4,8 +4,8 @@ namespace App\Services\Tools;
 
 use App\Models\AtlasToolDefinition;
 use App\Models\AtlasToolPolicy;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Schema;
 
 class AtlasToolPolicyEngine
 {
@@ -103,7 +103,7 @@ class AtlasToolPolicyEngine
 
     private function policyFor(string $toolSlug, array $context): ?AtlasToolPolicy
     {
-        if (! Schema::hasTable('atlas_tool_policies')) {
+        if (! DatabaseTableAvailability::has('atlas_tool_policies')) {
             return null;
         }
 

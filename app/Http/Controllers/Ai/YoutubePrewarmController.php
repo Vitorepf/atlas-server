@@ -11,7 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 /**
  * YouTube prewarm — paste-time background ingestion.
@@ -124,7 +124,7 @@ class YoutubePrewarmController extends Controller
             return response()->json(['error' => 'invalid_video_id'], 422);
         }
 
-        if (! Schema::hasTable('ai_youtube_ingestions')) {
+        if (! DatabaseTableAvailability::has('ai_youtube_ingestions')) {
             return response()->json(['error' => 'ingestion_disabled'], 503);
         }
 
@@ -256,7 +256,7 @@ class YoutubePrewarmController extends Controller
      */
     private function existingFreshIngestion(string $videoId): ?array
     {
-        if (! Schema::hasTable('ai_youtube_ingestions')) {
+        if (! DatabaseTableAvailability::has('ai_youtube_ingestions')) {
             return null;
         }
 
@@ -290,7 +290,7 @@ class YoutubePrewarmController extends Controller
      */
     private function snapshotFromDb(string $videoId): array
     {
-        if (Schema::hasTable('ai_youtube_ingestions')) {
+        if (DatabaseTableAvailability::has('ai_youtube_ingestions')) {
             $record = AiYoutubeIngestion::query()->where('video_id', $videoId)->first();
             if ($record) {
                 $projected = $this->projection->projectFromRecord($record);

@@ -10,7 +10,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusCycleRecor
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousLoopReceiptIntegrityService;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 /**
  * Foundry AP-A Verifier.
@@ -560,7 +560,7 @@ final class FoundryEvidenceVerifierService
 
     /**
      * Resolve ledger rows via input-override seam first, else the real ledger.
-     * Schema::hasTable guard replicated so a missing migration degrades gracefully.
+     * DatabaseTableAvailability guard replicated so a missing migration degrades gracefully.
      *
      * @param  array<string,mixed>  $anchor
      * @param  array<string,mixed>  $input
@@ -572,7 +572,7 @@ final class FoundryEvidenceVerifierService
             return array_values(array_filter($input['ledger_events'], 'is_array'));
         }
 
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return [];
         }
 

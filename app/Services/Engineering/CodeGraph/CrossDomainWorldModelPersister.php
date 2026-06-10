@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace App\Services\Engineering\CodeGraph;
 
 use App\Models\AiCodebaseWorldModel;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
-use Throwable;
 
 /**
  * M-8 Cross-Domain Graph world-model persistence (AP-814, Fase-3).
@@ -26,8 +25,8 @@ use Throwable;
  * world-model space — it never touches the symbol/module models that already live
  * there (different scope, different model_id).
  *
- * Pure write-of-given-data: deterministic, no provider, no python. Guarded by
- * Schema::hasTable and FAIL-OPEN — if the world-model tables are absent it returns a
+ * Pure write-of-given-data: deterministic, no provider, no python. Availability-guarded
+ * and FAIL-OPEN — if the world-model tables are absent it returns a
  * zero-count result instead of throwing, so an environment without the autonomous
  * engineering migrations degrades quietly rather than fatally.
  */
@@ -221,13 +220,11 @@ final class CrossDomainWorldModelPersister
 
     private function hasWorldModelTables(): bool
     {
-        try {
-            return Schema::hasTable(self::MODELS_TABLE)
-                && Schema::hasTable(self::NODES_TABLE)
-                && Schema::hasTable(self::EDGES_TABLE);
-        } catch (Throwable) {
-            return false;
-        }
+        return DatabaseTableAvailability::all([
+            self::MODELS_TABLE,
+            self::NODES_TABLE,
+            self::EDGES_TABLE,
+        ]);
     }
 
     /**

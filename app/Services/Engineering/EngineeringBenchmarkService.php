@@ -10,10 +10,10 @@ use App\Models\AtlasEngineeringBenchmarkSuite;
 use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasTask;
 use App\Services\Ai\FairClaudePolicy;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Throwable;
@@ -5332,7 +5332,7 @@ class EngineeringBenchmarkService
      */
     private function telemetryMetricsFor(Collection $traceIds): array
     {
-        if ($traceIds->isEmpty() || ! Schema::hasTable('ai_trace_metric_summaries')) {
+        if ($traceIds->isEmpty() || ! DatabaseTableAvailability::has('ai_trace_metric_summaries')) {
             return [
                 'total_tokens' => null,
                 'cost_microusd' => null,

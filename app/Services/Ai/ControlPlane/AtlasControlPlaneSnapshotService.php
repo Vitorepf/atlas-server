@@ -2,7 +2,7 @@
 
 namespace App\Services\Ai\ControlPlane;
 
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
 class AtlasControlPlaneSnapshotService
@@ -188,7 +188,7 @@ class AtlasControlPlaneSnapshotService
     private function approvalsSummary(): array
     {
         $model = '\\App\\Models\\AiApprovalRequest';
-        if (! Schema::hasTable('ai_approval_requests') || ! class_exists($model)) {
+        if (! DatabaseTableAvailability::has('ai_approval_requests') || ! class_exists($model)) {
             return ['status' => AtlasControlPlaneStatus::MISSING, 'total' => 0];
         }
 
@@ -216,7 +216,7 @@ class AtlasControlPlaneSnapshotService
     private function operatorApprovalsSummary(): array
     {
         $model = '\\App\\Models\\AiOperatorApproval';
-        if (! Schema::hasTable('ai_operator_approvals') || ! class_exists($model)) {
+        if (! DatabaseTableAvailability::has('ai_operator_approvals') || ! class_exists($model)) {
             return ['status' => AtlasControlPlaneStatus::MISSING, 'total' => 0];
         }
 
@@ -290,7 +290,7 @@ class AtlasControlPlaneSnapshotService
         $events = [];
 
         $auditModel = '\\App\\Models\\AiAuditEvent';
-        if (Schema::hasTable('ai_audit_events') && class_exists($auditModel)) {
+        if (DatabaseTableAvailability::has('ai_audit_events') && class_exists($auditModel)) {
             try {
                 foreach ($auditModel::query()->orderByDesc('created_at')->limit($limit)->get() as $e) {
                     $events[] = [
@@ -307,7 +307,7 @@ class AtlasControlPlaneSnapshotService
         }
 
         $missionEventModel = '\\App\\Models\\AiMissionEvent';
-        if (Schema::hasTable('ai_mission_events') && class_exists($missionEventModel)) {
+        if (DatabaseTableAvailability::has('ai_mission_events') && class_exists($missionEventModel)) {
             try {
                 foreach ($missionEventModel::query()->orderByDesc('created_at')->limit($limit)->get() as $e) {
                     $events[] = [
@@ -336,7 +336,7 @@ class AtlasControlPlaneSnapshotService
      */
     private function safeStatusGroup(string $modelClass, string $table): array
     {
-        if (! Schema::hasTable($table) || ! class_exists($modelClass)) {
+        if (! DatabaseTableAvailability::has($table) || ! class_exists($modelClass)) {
             return ['status' => AtlasControlPlaneStatus::MISSING, 'total' => 0];
         }
         try {

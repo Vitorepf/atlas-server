@@ -4,10 +4,10 @@ namespace App\Services\Semantic;
 
 use App\Models\SemanticNote;
 use App\Services\Ai\AtlasMemorySourcePrivacyPolicy;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\Metadata;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class SemanticNoteIndexer
@@ -123,7 +123,7 @@ class SemanticNoteIndexer
                 }
             }
 
-            if (Schema::hasColumn('semantic_notes', 'embedding')) {
+            if (DatabaseTableAvailability::hasColumn('semantic_notes', 'embedding')) {
                 DB::update('UPDATE semantic_notes SET embedding = ?::vector WHERE id = ?', [$embedding, $existing->id]);
             }
         });

@@ -10,10 +10,10 @@ use App\Models\AiTestResult;
 use App\Models\AtlasDevOutcomeMemory;
 use App\Models\AtlasEngineeringTestRun;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
 use App\Services\AtlasCode\GitWorkspaceInspector;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Atlas Workspace Intelligence System runtime.
@@ -1159,7 +1159,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             }
         }
 
-        if (Schema::hasTable('atlas_dev_outcome_memories') && Schema::hasTable('atlas_dev_task_packets')) {
+        if (DatabaseTableAvailability::all(['atlas_dev_outcome_memories', 'atlas_dev_task_packets'])) {
             $devOutcomes = AtlasDevOutcomeMemory::query()
                 ->with('taskPacket')
                 ->whereHas('taskPacket', function ($query) use ($workspaceSlug): void {
@@ -1202,7 +1202,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             }
         }
 
-        if (Schema::hasTable('ai_forge_outcome_memories') && Schema::hasTable('ai_forge_work_packets') && Schema::hasTable('ai_forge_intakes')) {
+        if (DatabaseTableAvailability::all(['ai_forge_outcome_memories', 'ai_forge_work_packets', 'ai_forge_intakes'])) {
             $forgeOutcomes = AiForgeOutcomeMemory::query()
                 ->latest()
                 ->limit(80)
@@ -1250,7 +1250,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             }
         }
 
-        if (Schema::hasTable('atlas_engineering_test_runs') && Schema::hasTable('atlas_engineering_runs')) {
+        if (DatabaseTableAvailability::all(['atlas_engineering_test_runs', 'atlas_engineering_runs'])) {
             $workspaceNames = array_values(array_unique(array_filter([
                 $workspaceSlug,
                 isset($profile['name']) && is_string($profile['name']) ? (string) $profile['name'] : null,
@@ -1286,7 +1286,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             }
         }
 
-        if (Schema::hasTable('ai_test_results')) {
+        if (DatabaseTableAvailability::has('ai_test_results')) {
             $testResults = AiTestResult::query()
                 ->whereNotNull('command')
                 ->latest()

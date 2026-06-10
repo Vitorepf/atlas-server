@@ -6,7 +6,7 @@ use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\AtlasMemoryRegistryService;
 use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class AtlasMemoryListCommand extends Command
@@ -30,7 +30,7 @@ class AtlasMemoryListCommand extends Command
 
     public function handle(AtlasMemoryRegistryService $memory, MemoryQueryInput $input): int
     {
-        if (! Schema::hasTable('atlas_memory_entries')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
             $this->error('Tabela atlas_memory_entries ainda nao existe. Rode migrations.');
 
             return self::FAILURE;

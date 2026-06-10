@@ -11,9 +11,9 @@ use App\Models\AiSessionState;
 use App\Models\AiThread;
 use App\Models\AtlasLongHorizonCompactionReceipt;
 use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
@@ -248,7 +248,7 @@ class AiCompactionService
         $openActionCount = 0;
         $failedEvaluationCount = 0;
 
-        if (Schema::hasTable('ai_quality_evaluations')) {
+        if (DatabaseTableAvailability::has('ai_quality_evaluations')) {
             $recent = AiQualityEvaluation::query()
                 ->where('thread_id', $thread->id)
                 ->latest('created_at')
@@ -272,7 +272,7 @@ class AiCompactionService
                 ->count();
         }
 
-        if (Schema::hasTable('ai_quality_actions')) {
+        if (DatabaseTableAvailability::has('ai_quality_actions')) {
             $openActionCount = AiQualityAction::query()
                 ->where('thread_id', $thread->id)
                 ->whereIn('status', ['queued', 'running', 'blocked', 'failed'])

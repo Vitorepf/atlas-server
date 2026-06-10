@@ -9,9 +9,9 @@ use App\Models\AiOperatorApproval;
 use App\Models\AiWorkOrder;
 use App\Services\Ai\OperatorApproval\OperatorApprovalCanon;
 use App\Services\Ai\OperatorApproval\OperatorApprovalGateService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -527,7 +527,7 @@ class MissionFollowThroughService
         string $flow,
         string $action,
     ): ?MissionFollowThroughResult {
-        if (! Schema::hasTable('ai_operator_approvals')) {
+        if (! DatabaseTableAvailability::has('ai_operator_approvals')) {
             return null; // compatibility mode: gate inert when persistence is absent.
         }
 
@@ -622,7 +622,7 @@ class MissionFollowThroughService
         AiMission $mission,
         string $statusBefore,
     ): ?MissionFollowThroughResult {
-        if (! Schema::hasTable('ai_operator_approvals')) {
+        if (! DatabaseTableAvailability::has('ai_operator_approvals')) {
             return $this->noopAwaitingHuman($cycleId, $mission, $statusBefore);
         }
 
@@ -934,7 +934,7 @@ class MissionFollowThroughService
 
         $selectionSummary = $this->selector->summary($mission);
 
-        $pendingApprovals = Schema::hasTable('ai_operator_approvals')
+        $pendingApprovals = DatabaseTableAvailability::has('ai_operator_approvals')
             ? AiOperatorApproval::query()
                 ->where('mission_id', $mission->id)
                 ->where('status', OperatorApprovalCanon::STATUS_PENDING)

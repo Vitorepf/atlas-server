@@ -3,10 +3,11 @@
 namespace App\Console\Commands;
 
 use App\Http\Resources\AiProviderCostRateResource;
+use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\Support\JsonFileStore;
 use App\Services\Ai\Telemetry\AiProviderCostRateService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 
 class AiTelemetryCostRatesCommand extends Command
 {
@@ -33,7 +34,7 @@ class AiTelemetryCostRatesCommand extends Command
 
     public function handle(AiProviderCostRateService $rates): int
     {
-        if (! Schema::hasTable('ai_provider_cost_rates')) {
+        if (! DatabaseTableAvailability::has('ai_provider_cost_rates')) {
             if ((bool) $this->option('json')) {
                 $this->line(json_encode([
                     'ok' => false,
@@ -92,8 +93,7 @@ class AiTelemetryCostRatesCommand extends Command
 
             if ($this->option('write-template')) {
                 $templatePath = $this->pathOption('write-template');
-                File::ensureDirectoryExists(dirname($templatePath));
-                File::put($templatePath, json_encode($this->templatePayload($missingRates ?? []), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+                JsonFileStore::writeLine($templatePath, $this->templatePayload($missingRates ?? []), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             }
         } catch (\Throwable $exception) {
             return $this->renderError($exception);

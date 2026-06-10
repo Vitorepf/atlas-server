@@ -4,9 +4,9 @@ namespace App\Services\Ai\Mobile;
 
 use App\Models\AiInboxItem;
 use App\Models\AiTraceMetricSummary;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 
 final class AiInboxHumanPresentation
 {
@@ -191,7 +191,8 @@ final class AiInboxHumanPresentation
     private function currentCostOverlay(array $report): array
     {
         $reportDate = (string) ($report['report_date'] ?? $report['date'] ?? '');
-        if ($reportDate === '' || ! Schema::hasTable('ai_trace_metric_summaries') || ! Schema::hasTable('ai_traces')) {
+        if ($reportDate === ''
+            || DatabaseTableAvailability::missing(['ai_trace_metric_summaries', 'ai_traces']) !== []) {
             return [];
         }
 

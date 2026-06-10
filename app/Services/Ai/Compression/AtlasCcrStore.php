@@ -7,7 +7,7 @@ namespace App\Services\Ai\Compression;
 use App\Models\AtlasCcrOriginal;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
 /**
@@ -161,11 +161,7 @@ final class AtlasCcrStore
 
     private function tableExists(): bool
     {
-        try {
-            return Schema::hasTable('atlas_ccr_originals');
-        } catch (Throwable) {
-            return false;
-        }
+        return DatabaseTableAvailability::has('atlas_ccr_originals');
     }
 
     /**

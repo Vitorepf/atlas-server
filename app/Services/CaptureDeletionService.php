@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\Models\Capture;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 class CaptureDeletionService
@@ -98,7 +98,7 @@ class CaptureDeletionService
      */
     private function idsContaining(string $table, array $columns, array $needles): array
     {
-        if ($needles === [] || ! Schema::hasTable($table) || ! Schema::hasColumn($table, 'id')) {
+        if ($needles === [] || ! DatabaseTableAvailability::hasColumn($table, 'id')) {
             return [];
         }
 
@@ -107,7 +107,7 @@ class CaptureDeletionService
 
         $query->where(function ($where) use ($table, $columns, $needles, &$matched): void {
             foreach ($columns as $column) {
-                if (! Schema::hasColumn($table, $column)) {
+                if (! DatabaseTableAvailability::hasColumn($table, $column)) {
                     continue;
                 }
 
@@ -134,7 +134,7 @@ class CaptureDeletionService
      */
     private function deleteMatching(string $table, array $columns): int
     {
-        if (! Schema::hasTable($table)) {
+        if (! DatabaseTableAvailability::has($table)) {
             return 0;
         }
 
@@ -143,7 +143,7 @@ class CaptureDeletionService
 
         $query->where(function ($where) use ($table, $columns, &$matched): void {
             foreach ($columns as $column => $values) {
-                if ($values === [] || ! Schema::hasColumn($table, $column)) {
+                if ($values === [] || ! DatabaseTableAvailability::hasColumn($table, $column)) {
                     continue;
                 }
 
@@ -171,12 +171,12 @@ class CaptureDeletionService
      */
     private function nullMatching(string $table, string $column, array $values): int
     {
-        if ($values === [] || ! Schema::hasTable($table) || ! Schema::hasColumn($table, $column)) {
+        if ($values === [] || ! DatabaseTableAvailability::hasColumn($table, $column)) {
             return 0;
         }
 
         $update = [$column => null];
-        if (Schema::hasColumn($table, 'updated_at')) {
+        if (DatabaseTableAvailability::hasColumn($table, 'updated_at')) {
             $update['updated_at'] = now();
         }
 

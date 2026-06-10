@@ -3,7 +3,7 @@
 namespace App\Services\Ai\Knowledge;
 
 use App\Models\AtlasKnowledgeSourcePacket;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 /**
@@ -330,11 +330,7 @@ class AtlasKnowledgeSourcePacketRegistryService
 
     private function tableExists(): bool
     {
-        try {
-            return Schema::hasTable('atlas_knowledge_source_packets');
-        } catch (\Throwable) {
-            return false;
-        }
+        return DatabaseTableAvailability::has('atlas_knowledge_source_packets');
     }
 
     private function normalizePrivacyStatus(mixed $value): string

@@ -3,9 +3,9 @@
 namespace App\Services\Semantic;
 
 use App\Models\SemanticNote;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class SemanticSearchService
 {
@@ -37,7 +37,7 @@ class SemanticSearchService
      */
     private function vectorSearch(string $query, array $filters, int $limit): Collection
     {
-        if (! Schema::hasTable('semantic_notes') || DB::getDriverName() !== 'pgsql') {
+        if (! DatabaseTableAvailability::has('semantic_notes') || DB::getDriverName() !== 'pgsql') {
             return collect();
         }
 
@@ -62,7 +62,7 @@ class SemanticSearchService
      */
     public function metadataSearch(array $filters = [], int $limit = 50): Collection
     {
-        if (! Schema::hasTable('semantic_notes')) {
+        if (! DatabaseTableAvailability::has('semantic_notes')) {
             return collect();
         }
 
@@ -80,7 +80,7 @@ class SemanticSearchService
      */
     public function lexicalSearch(string $query, array $filters = [], int $limit = 10): Collection
     {
-        if (! Schema::hasTable('semantic_notes')) {
+        if (! DatabaseTableAvailability::has('semantic_notes')) {
             return collect();
         }
 

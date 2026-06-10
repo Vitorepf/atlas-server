@@ -9,10 +9,10 @@ use App\Services\Ai\AiMemoryDeltaProposer;
 use App\Services\Semantic\ActivationEngine;
 use App\Services\Semantic\CaptureSemanticClarifier;
 use App\Services\Semantic\CurationProposalService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\Metadata;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -955,7 +955,7 @@ class CaptureService
             ];
         }
 
-        if (! Schema::hasTable('capture_links')) {
+        if (! DatabaseTableAvailability::has('capture_links')) {
             return [
                 'destination' => null,
                 'target_type' => null,
@@ -1021,7 +1021,7 @@ class CaptureService
 
     private function withDestinationLinks(Capture $capture): Capture
     {
-        if (Schema::hasTable('capture_links')) {
+        if (DatabaseTableAvailability::has('capture_links')) {
             $capture->load('links');
         }
 

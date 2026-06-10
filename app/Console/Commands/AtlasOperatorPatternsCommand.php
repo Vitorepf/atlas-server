@@ -6,7 +6,7 @@ use App\Services\Ai\OperatorIntelligence\OperatorInitiativeBridge;
 use App\Services\Ai\OperatorIntelligence\OperatorPatternDetector;
 use App\Services\Ai\OperatorIntelligence\OperatorSkillProposalBridge;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 /**
  * "Atlas notices you repeat X → it prepares for you." Detects genuine recurring operator
@@ -31,7 +31,7 @@ class AtlasOperatorPatternsCommand extends Command
         OperatorInitiativeBridge $initiative,
         OperatorSkillProposalBridge $skills,
     ): int {
-        if (! Schema::hasTable('operator_pattern_detections')) {
+        if (! DatabaseTableAvailability::has('operator_pattern_detections')) {
             $this->warn('operator_pattern_detections table unavailable.');
 
             return self::SUCCESS;

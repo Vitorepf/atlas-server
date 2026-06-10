@@ -8,10 +8,10 @@ use App\Services\Ai\Search\SessionSearchService;
 use App\Services\Ai\Skills\SkillBundleStore;
 use App\Services\Ai\Skills\SkillDiscoveryService;
 use App\Services\Ai\Skills\SkillManifest;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\ValueObjects\AiPromptExecutionPlan as AiExecutionPlan;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AiPromptBuilder
@@ -1335,7 +1335,7 @@ TXT;
 
     private function sessionSearchSection(string $input, array $options): string
     {
-        if (! Schema::hasTable('ai_messages') || ! Schema::hasTable('ai_threads')) {
+        if (! DatabaseTableAvailability::all(['ai_messages', 'ai_threads'])) {
             return '';
         }
 

@@ -3,7 +3,7 @@
 namespace App\Services\Ai\Mobile;
 
 use App\Models\AtlasInitiativeRun;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -218,7 +218,7 @@ class AutoImprovementProposalScanner
 
     private function startRun(string $workspace, bool $emit, int $limit): ?AtlasInitiativeRun
     {
-        if (! Schema::hasTable('atlas_initiative_runs')) {
+        if (! DatabaseTableAvailability::has('atlas_initiative_runs')) {
             return null;
         }
 

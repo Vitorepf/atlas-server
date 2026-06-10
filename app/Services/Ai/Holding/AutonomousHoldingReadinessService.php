@@ -5,9 +5,9 @@ namespace App\Services\Ai\Holding;
 use App\Models\AiDomainRuntimeRecord;
 use App\Services\Ai\DomainRuntime\DomainRuntimeRecordService;
 use App\Services\Ai\DomainRuntime\DomainSeedManifests;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Schema;
 
 class AutonomousHoldingReadinessService
 {
@@ -1184,7 +1184,7 @@ class AutonomousHoldingReadinessService
 
     private function observedOperatingDays(string $domainId): int
     {
-        if (! Schema::hasTable('ai_domain_runtime_records')) {
+        if (! $this->domainRuntimeRecordsTableAvailable()) {
             return 0;
         }
 
@@ -1203,7 +1203,7 @@ class AutonomousHoldingReadinessService
      */
     private function latestRoutineRuns(string $domainId): array
     {
-        if (! Schema::hasTable('ai_domain_runtime_records')) {
+        if (! $this->domainRuntimeRecordsTableAvailable()) {
             return [];
         }
 
@@ -1224,7 +1224,7 @@ class AutonomousHoldingReadinessService
      */
     private function latestObservedMetrics(string $domainId): array
     {
-        if (! Schema::hasTable('ai_domain_runtime_records')) {
+        if (! $this->domainRuntimeRecordsTableAvailable()) {
             return [];
         }
 
@@ -1245,7 +1245,7 @@ class AutonomousHoldingReadinessService
      */
     private function latestOperatingPacketFlowProfiles(string $domainId): array
     {
-        if (! Schema::hasTable('ai_domain_runtime_records')) {
+        if (! $this->domainRuntimeRecordsTableAvailable()) {
             return [];
         }
 
@@ -1266,7 +1266,7 @@ class AutonomousHoldingReadinessService
      */
     private function latestFunctionExecutions(string $domainId): array
     {
-        if (! Schema::hasTable('ai_domain_runtime_records')) {
+        if (! $this->domainRuntimeRecordsTableAvailable()) {
             return [];
         }
 
@@ -1287,7 +1287,7 @@ class AutonomousHoldingReadinessService
      */
     private function latestAgentAssignments(string $domainId): array
     {
-        if (! Schema::hasTable('ai_domain_runtime_records')) {
+        if (! $this->domainRuntimeRecordsTableAvailable()) {
             return [];
         }
 
@@ -1308,7 +1308,7 @@ class AutonomousHoldingReadinessService
      */
     private function latestAgentOperationalScorecards(string $domainId): array
     {
-        if (! Schema::hasTable('ai_domain_runtime_records')) {
+        if (! $this->domainRuntimeRecordsTableAvailable()) {
             return [];
         }
 
@@ -1329,7 +1329,7 @@ class AutonomousHoldingReadinessService
      */
     private function latestFlowExecutions(string $domainId): array
     {
-        if (! Schema::hasTable('ai_domain_runtime_records')) {
+        if (! $this->domainRuntimeRecordsTableAvailable()) {
             return [];
         }
 
@@ -1350,7 +1350,7 @@ class AutonomousHoldingReadinessService
      */
     private function latestWorkProducts(string $domainId): array
     {
-        if (! Schema::hasTable('ai_domain_runtime_records')) {
+        if (! $this->domainRuntimeRecordsTableAvailable()) {
             return [];
         }
 
@@ -1371,7 +1371,7 @@ class AutonomousHoldingReadinessService
      */
     private function latestRecurringJobs(string $domainId): array
     {
-        if (! Schema::hasTable('ai_domain_runtime_records')) {
+        if (! $this->domainRuntimeRecordsTableAvailable()) {
             return [];
         }
 
@@ -1392,7 +1392,7 @@ class AutonomousHoldingReadinessService
      */
     private function latestIntegrationProbes(string $domainId): array
     {
-        if (! Schema::hasTable('ai_domain_runtime_records')) {
+        if (! $this->domainRuntimeRecordsTableAvailable()) {
             return [];
         }
 
@@ -1413,7 +1413,7 @@ class AutonomousHoldingReadinessService
      */
     private function latestFlowOperationsRunbooks(string $domainId): array
     {
-        if (! Schema::hasTable('ai_domain_runtime_records')) {
+        if (! $this->domainRuntimeRecordsTableAvailable()) {
             return [];
         }
 
@@ -1434,7 +1434,7 @@ class AutonomousHoldingReadinessService
      */
     private function latestEnterpriseFlowActionRuntimeRecords(string $domainId): array
     {
-        if (! Schema::hasTable('ai_domain_runtime_records')) {
+        if (! $this->domainRuntimeRecordsTableAvailable()) {
             return [];
         }
 
@@ -1540,6 +1540,11 @@ class AutonomousHoldingReadinessService
             DomainSeedManifests::STAGE_AUTONOMOUS_ENTERPRISE_UNIT => 'limited_autonomy_enterprise_unit',
             default => 'unknown',
         };
+    }
+
+    private function domainRuntimeRecordsTableAvailable(): bool
+    {
+        return DatabaseTableAvailability::has('ai_domain_runtime_records');
     }
 
     private function targetGap(int $stage, bool $hasObservedHistoryWindow): string

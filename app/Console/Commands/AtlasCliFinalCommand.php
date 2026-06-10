@@ -7,7 +7,7 @@ use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Symfony\Component\Process\Process;
 
 class AtlasCliFinalCommand extends Command
@@ -114,7 +114,7 @@ class AtlasCliFinalCommand extends Command
      */
     private function tableCommandBlock(array $tables, array $commands): array
     {
-        $missingTables = array_values(array_filter($tables, fn (string $table): bool => ! Schema::hasTable($table)));
+        $missingTables = array_values(array_filter($tables, fn (string $table): bool => ! DatabaseTableAvailability::has($table)));
         $command = $this->commandBlock($commands);
 
         return $this->block($missingTables === [] && $command['status'] === 'passed', 'Tabelas e comandos do bloco existem.', [

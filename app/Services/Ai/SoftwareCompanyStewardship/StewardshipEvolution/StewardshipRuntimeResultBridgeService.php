@@ -14,10 +14,10 @@ use App\Services\Ai\SoftwareCompanyStewardship\PortfolioStewardship\PortfolioSte
 use App\Services\Ai\SoftwareCompanyStewardship\ProductMode\ProductModeRuntimeResultEventService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * AP-765 · Evidence / Product Mode runtime result bridge.
@@ -560,7 +560,7 @@ final class StewardshipRuntimeResultBridgeService implements StewardshipRuntimeR
      */
     private function emitInbox(array $inboxItem, array $result, array $loopRefs): array
     {
-        if (! Schema::hasTable('ai_inbox_items') || ! Schema::hasTable('ai_context_bundles')) {
+        if (DatabaseTableAvailability::missing(['ai_inbox_items', 'ai_context_bundles']) !== []) {
             return [null, 'skipped_missing_inbox_tables'];
         }
 
@@ -761,7 +761,7 @@ final class StewardshipRuntimeResultBridgeService implements StewardshipRuntimeR
         if (! $record) {
             return 'projected';
         }
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return 'skipped_missing_atlas_ledger_events_table';
         }
 

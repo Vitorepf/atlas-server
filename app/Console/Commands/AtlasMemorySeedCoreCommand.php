@@ -5,7 +5,7 @@ namespace App\Console\Commands;
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\AtlasMemoryRegistryService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AtlasMemorySeedCoreCommand extends Command
 {
@@ -16,7 +16,7 @@ class AtlasMemorySeedCoreCommand extends Command
 
     public function handle(AtlasMemoryRegistryService $memory): int
     {
-        if (! Schema::hasTable('atlas_memory_entries')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
             $this->error('Tabela atlas_memory_entries ainda nao existe. Rode migrations.');
 
             return self::FAILURE;
@@ -144,7 +144,7 @@ class AtlasMemorySeedCoreCommand extends Command
                 'memory_type' => 'decision',
                 'title' => 'Migrations: nunca INSERT INTO migrations manualmente',
                 'summary' => 'Migrations devem ser idempotentes; nunca carimbar manualmente o registro.',
-                'body' => "Nunca INSERT INTO migrations manualmente. Nunca editar a tabela migrations pra pular uma migration que conflita com schema existente.\n\nSe uma migration conflita com schema vivo, a migration vira idempotente:\n- Schema::create → guardar com if (! Schema::hasTable(...))\n- Schema::table adicionando coluna → guardar com if (! Schema::hasColumn(...))\n- CREATE INDEX → usar IF NOT EXISTS\n- ADD CONSTRAINT → checar pg_constraint antes\n- CREATE TRIGGER → DROP TRIGGER IF EXISTS antes\n\nA tabela migrations é log de execução do Laravel, não ferramenta de configuração. Carimbar manualmente cria drift silencioso: o Laravel acredita que rodou, o DDL não rodou, e a próxima migration que dependa daquele schema quebra em produção sem aviso.\n\nIncidente 2026-05-01: 49 migrations carimbadas Ran, 23 tabelas faltando, 14 tabelas legado órfãs. Resolvido com nuke + migrate from zero.",
+                'body' => "Nunca INSERT INTO migrations manualmente. Nunca editar a tabela migrations pra pular uma migration que conflita com schema existente.\n\nSe uma migration conflita com schema vivo, a migration vira idempotente:\n- Schema::create → guardar com if (! DatabaseTableAvailability::has(...))\n- Schema::table adicionando coluna → guardar com if (! DatabaseTableAvailability::hasColumn(...))\n- CREATE INDEX → usar IF NOT EXISTS\n- ADD CONSTRAINT → checar pg_constraint antes\n- CREATE TRIGGER → DROP TRIGGER IF EXISTS antes\n\nA tabela migrations é log de execução do Laravel, não ferramenta de configuração. Carimbar manualmente cria drift silencioso: o Laravel acredita que rodou, o DDL não rodou, e a próxima migration que dependa daquele schema quebra em produção sem aviso.\n\nIncidente 2026-05-01: 49 migrations carimbadas Ran, 23 tabelas faltando, 14 tabelas legado órfãs. Resolvido com nuke + migrate from zero.",
                 'importance' => 9,
                 'priority' => 89,
                 'confidence' => 1.0,

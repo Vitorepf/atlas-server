@@ -7,9 +7,9 @@ namespace App\Services\Ai\Vox\Metrics;
 use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasVoxRivalsCase;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Vox\VoxSchema;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Reads two derived sources to compute Atlas Vox usage + safety + quality
@@ -98,7 +98,7 @@ class VoxMetricsService
             VoxSchema::MODE_INTENT_COMPILE => 0,
             VoxSchema::MODE_GOVERNED_EXECUTE => 0,
         ];
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return ['total_sessions' => 0, 'sessions_by_mode' => $byMode];
         }
 
@@ -150,7 +150,7 @@ class VoxMetricsService
             'governed_execute_blocked_count' => 0,
             'dictionary_correction_count' => 0,
         ];
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return $zero;
         }
 
@@ -259,7 +259,7 @@ class VoxMetricsService
             VoxSchema::MODE_GOVERNED_EXECUTE => 0,
         ];
 
-        if (! Schema::hasTable('atlas_vox_rivals_cases')) {
+        if (! DatabaseTableAvailability::has('atlas_vox_rivals_cases')) {
             return [
                 'cases_total' => 0,
                 'vox_wins' => 0,
@@ -340,7 +340,7 @@ class VoxMetricsService
      */
     private function usageWindow(): array
     {
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return [
                 'real_usage_days' => 0,
                 'average_sessions_per_day' => 0.0,

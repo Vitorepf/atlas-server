@@ -6,7 +6,7 @@ namespace App\Services\Engineering;
 
 use App\Models\AtlasEngineeringCodeSymbol;
 use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 /**
  * L1-P2 — Generative / Self-Healing (first increment): the RECONCILIATION REPAIR
@@ -126,7 +126,7 @@ class AtlasDocumentationRealityRepairProposerService
      */
     private function indexHealthy(): bool
     {
-        if (! Schema::hasTable('atlas_engineering_code_symbols')) {
+        if (! DatabaseTableAvailability::has('atlas_engineering_code_symbols')) {
             return true;
         }
 

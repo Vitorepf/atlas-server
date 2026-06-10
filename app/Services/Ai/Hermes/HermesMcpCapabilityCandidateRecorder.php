@@ -4,7 +4,7 @@ namespace App\Services\Ai\Hermes;
 
 use App\Models\AiJob;
 use App\Models\HermesMcpCapabilityCandidate;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 /**
@@ -26,7 +26,7 @@ class HermesMcpCapabilityCandidateRecorder
      */
     public function record(array $serverDescriptor, AiJob $job, array $mission, array $invocation): ?HermesMcpCapabilityCandidate
     {
-        if (! Schema::hasTable('hermes_mcp_capability_candidates')) {
+        if (! DatabaseTableAvailability::has('hermes_mcp_capability_candidates')) {
             return null;
         }
 

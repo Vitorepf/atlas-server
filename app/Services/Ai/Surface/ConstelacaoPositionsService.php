@@ -9,8 +9,8 @@ use App\Services\Ai\Context\LocalRagReadinessService;
 use App\Services\Ai\Kernel\Architecture\AtlasRuntimeLanguageBoundaryReportService;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class ConstelacaoPositionsService
@@ -140,7 +140,7 @@ class ConstelacaoPositionsService
      */
     private function semanticNotes(int $limit, ?string $domain): EloquentCollection
     {
-        if ($limit <= 0 || ! Schema::hasTable('semantic_notes')) {
+        if ($limit <= 0 || ! DatabaseTableAvailability::has('semantic_notes')) {
             return new EloquentCollection;
         }
 
@@ -160,7 +160,7 @@ class ConstelacaoPositionsService
      */
     private function captures(int $limit, ?string $domain): EloquentCollection
     {
-        if ($limit <= 0 || ! Schema::hasTable('captures')) {
+        if ($limit <= 0 || ! DatabaseTableAvailability::has('captures')) {
             return new EloquentCollection;
         }
 

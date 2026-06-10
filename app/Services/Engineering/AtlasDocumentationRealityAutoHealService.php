@@ -6,8 +6,8 @@ namespace App\Services\Engineering;
 
 use App\Models\AtlasEngineeringCodeSymbol;
 use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
-use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -566,7 +566,7 @@ final class AtlasDocumentationRealityAutoHealService
      */
     private function indexHealthy(): bool
     {
-        if (! Schema::hasTable('atlas_engineering_code_symbols')) {
+        if (! DatabaseTableAvailability::has('atlas_engineering_code_symbols')) {
             return true;
         }
 

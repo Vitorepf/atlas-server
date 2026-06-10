@@ -8,7 +8,7 @@ use App\Models\AiQualityEvaluation;
 use App\Models\AiThread;
 use App\Models\AiTrace;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AiDoctorCommand extends Command
 {
@@ -65,7 +65,7 @@ class AiDoctorCommand extends Command
 
     private function quality($since): array
     {
-        if (! Schema::hasTable('ai_quality_evaluations')) {
+        if (! DatabaseTableAvailability::has('ai_quality_evaluations')) {
             return ['available' => false];
         }
 
@@ -83,7 +83,7 @@ class AiDoctorCommand extends Command
 
     private function actions(): array
     {
-        if (! Schema::hasTable('ai_quality_actions')) {
+        if (! DatabaseTableAvailability::has('ai_quality_actions')) {
             return ['available' => false];
         }
 

@@ -5,7 +5,7 @@ namespace App\Services\Engineering;
 use App\Models\AtlasEngineeringReviewFinding;
 use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasTask;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class EngineeringReviewService
@@ -108,7 +108,7 @@ class EngineeringReviewService
 
     private function latestOrSyntheticRun(AtlasTask $task): AtlasEngineeringRun
     {
-        if (Schema::hasTable('atlas_engineering_runs')) {
+        if (DatabaseTableAvailability::has('atlas_engineering_runs')) {
             $latest = AtlasEngineeringRun::query()
                 ->where('task_id', $task->id)
                 ->latest('created_at')

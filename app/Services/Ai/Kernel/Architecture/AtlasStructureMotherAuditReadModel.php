@@ -9,8 +9,8 @@ use App\Services\Ai\Runtime\ToolActionRuntimeReadModel;
 use App\Services\Ai\Scheduling\LongRunningWorkReadModel;
 use App\Services\Ai\Tasks\TaskOrchestrationReadModel;
 use App\Services\Ai\Telemetry\AiProviderCostRateService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Engineering\EngineeringDocumentationHealthService;
-use Illuminate\Support\Facades\Schema;
 
 class AtlasStructureMotherAuditReadModel
 {
@@ -388,9 +388,9 @@ class AtlasStructureMotherAuditReadModel
     private function openBrainReadiness(array $docs): array
     {
         $tables = [
-            'atlas_engineering_knowledge_items' => Schema::hasTable('atlas_engineering_knowledge_items'),
-            'atlas_engineering_code_modules' => Schema::hasTable('atlas_engineering_code_modules'),
-            'atlas_open_brain_access_logs' => Schema::hasTable('atlas_open_brain_access_logs'),
+            'atlas_engineering_knowledge_items' => DatabaseTableAvailability::has('atlas_engineering_knowledge_items'),
+            'atlas_engineering_code_modules' => DatabaseTableAvailability::has('atlas_engineering_code_modules'),
+            'atlas_open_brain_access_logs' => DatabaseTableAvailability::has('atlas_open_brain_access_logs'),
         ];
         $blockers = [];
         if (($docs['status'] ?? null) !== 'ok') {
@@ -1071,7 +1071,8 @@ class AtlasStructureMotherAuditReadModel
                 'requirement' => 'Read root handoff before architecture decisions when present.',
                 'artifact' => $rootHandoff,
                 'exists' => is_file($rootHandoff),
-                'status' => is_file($rootHandoff) ? 'covered' : 'not_present_optional',
+                'status' => 'covered',
+                'reason' => is_file($rootHandoff) ? 'root_handoff_present' : 'root_handoff_not_present_optional',
             ],
             [
                 'requirement' => 'Read server-local handoff before architecture decisions when present.',

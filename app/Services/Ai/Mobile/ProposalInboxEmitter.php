@@ -3,7 +3,7 @@
 namespace App\Services\Ai\Mobile;
 
 use App\Models\AiInboxItem;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class ProposalInboxEmitter
@@ -18,7 +18,7 @@ class ProposalInboxEmitter
      */
     public function emit(array $data): ?AiInboxItem
     {
-        if (! Schema::hasTable('ai_context_bundles') || ! Schema::hasTable('ai_inbox_items')) {
+        if (DatabaseTableAvailability::missing(['ai_context_bundles', 'ai_inbox_items']) !== []) {
             return null;
         }
 

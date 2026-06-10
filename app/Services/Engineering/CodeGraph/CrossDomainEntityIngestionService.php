@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering\CodeGraph;
 
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -46,7 +46,7 @@ final class CrossDomainEntityIngestionService
 
     /**
      * Each source: [table, entity_type, id_column, domain_column]. The tables are the
-     * common domain-scoped runtime tables; each is Schema::hasTable-guarded so any
+     * common domain-scoped runtime tables; each is availability-guarded so any
      * absent table simply contributes nothing.
      *
      * @var list<array{table:string, type:string, id:string, domain:string}>
@@ -201,10 +201,6 @@ final class CrossDomainEntityIngestionService
 
     private function tableExists(string $table): bool
     {
-        try {
-            return Schema::hasTable($table);
-        } catch (Throwable) {
-            return false;
-        }
+        return DatabaseTableAvailability::has($table);
     }
 }

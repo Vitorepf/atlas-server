@@ -66,12 +66,12 @@ use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
 use App\Services\Ai\SelfConstruction\AgentMergeReviewPacketBuilder;
 use App\Services\Ai\SelfConstruction\AgentRuntimeRegistryHandoffProtocolBuilder;
 use App\Services\Ai\SelfConstruction\AgentValidationGateDryRunEvaluator;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceArtifactShadowExecutionService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceRuntimeService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -312,7 +312,7 @@ class AtlasAiControlPlaneService
     private function tracesSection(CarbonImmutable $since): array
     {
         $empty = ['total' => 0, 'by_status' => [], 'by_provider' => [], 'by_flow' => [], 'ids' => []];
-        if (! Schema::hasTable('ai_traces')) {
+        if (! DatabaseTableAvailability::has('ai_traces')) {
             return $empty;
         }
 
@@ -364,7 +364,7 @@ class AtlasAiControlPlaneService
             'recent' => [],
             'blockers' => [],
         ];
-        if (! Schema::hasTable('atlas_persistent_context_packs')) {
+        if (! DatabaseTableAvailability::has('atlas_persistent_context_packs')) {
             return $empty;
         }
 
@@ -466,7 +466,7 @@ class AtlasAiControlPlaneService
             'blockers' => [],
         ];
 
-        if (! Schema::hasTable('atlas_workspace_runtime_projection_snapshots')) {
+        if (! DatabaseTableAvailability::has('atlas_workspace_runtime_projection_snapshots')) {
             return $empty;
         }
 
@@ -652,7 +652,7 @@ class AtlasAiControlPlaneService
             'blockers' => [],
             'workspace_ids' => [],
         ];
-        if (! Schema::hasTable('atlas_workspace_artifact_graph_snapshots')) {
+        if (! DatabaseTableAvailability::has('atlas_workspace_artifact_graph_snapshots')) {
             return $section;
         }
 
@@ -853,7 +853,7 @@ class AtlasAiControlPlaneService
      */
     private function flowsSection(CarbonImmutable $since, array $traceIds): array
     {
-        if (! Schema::hasTable('ai_traces')) {
+        if (! DatabaseTableAvailability::has('ai_traces')) {
             return [];
         }
 
@@ -916,7 +916,7 @@ class AtlasAiControlPlaneService
      */
     private function recentTraces(CarbonImmutable $since): array
     {
-        if (! Schema::hasTable('ai_traces')) {
+        if (! DatabaseTableAvailability::has('ai_traces')) {
             return [];
         }
 
@@ -946,7 +946,7 @@ class AtlasAiControlPlaneService
      */
     private function failures(CarbonImmutable $since): array
     {
-        if (! Schema::hasTable('ai_traces')) {
+        if (! DatabaseTableAvailability::has('ai_traces')) {
             return [];
         }
 
@@ -984,7 +984,7 @@ class AtlasAiControlPlaneService
     private function handoffs(CarbonImmutable $since, array $traceIds): array
     {
         $devHandoffs = [];
-        if (Schema::hasTable('ai_traces') && $traceIds !== []) {
+        if (DatabaseTableAvailability::has('ai_traces') && $traceIds !== []) {
             try {
                 $traces = AiTrace::query()
                     ->whereIn('id', $traceIds)
@@ -1001,7 +1001,7 @@ class AtlasAiControlPlaneService
         }
 
         $forgeHandoffs = [];
-        if (Schema::hasTable('ai_real_execution_forge_handoffs')) {
+        if (DatabaseTableAvailability::has('ai_real_execution_forge_handoffs')) {
             try {
                 $rows = AiRealExecutionForgeHandoff::query()
                     ->where('created_at', '>=', $since)
@@ -1040,7 +1040,7 @@ class AtlasAiControlPlaneService
     private function receipts(CarbonImmutable $since): array
     {
         $empty = ['status' => 'missing', 'total' => 0, 'by_type' => [], 'recent_hashes' => []];
-        if (! Schema::hasTable('ai_atlas_decision_receipts')) {
+        if (! DatabaseTableAvailability::has('ai_atlas_decision_receipts')) {
             return $empty;
         }
 
@@ -1085,7 +1085,7 @@ class AtlasAiControlPlaneService
         $richInputJobs = 0;
         $sourceManifestRefs = 0;
 
-        if (Schema::hasTable('ai_jobs') && $traceIds !== []) {
+        if (DatabaseTableAvailability::has('ai_jobs') && $traceIds !== []) {
             try {
                 $jobs = AiJob::query()
                     ->whereIn('trace_id', $traceIds)
@@ -1108,7 +1108,7 @@ class AtlasAiControlPlaneService
         }
 
         $evidencePackCount = 0;
-        if (Schema::hasTable('ai_evidence_packs')) {
+        if (DatabaseTableAvailability::has('ai_evidence_packs')) {
             try {
                 $evidencePackCount = (int) AiEvidencePack::query()
                     ->where('created_at', '>=', $since)
@@ -1133,7 +1133,7 @@ class AtlasAiControlPlaneService
     private function quality(CarbonImmutable $since, array $traceIds): array
     {
         $empty = ['status' => 'missing', 'total' => 0, 'by_status' => [], 'actions' => ['total' => 0, 'by_status' => []], 'needs_review_recent' => []];
-        if (! Schema::hasTable('ai_quality_evaluations')) {
+        if (! DatabaseTableAvailability::has('ai_quality_evaluations')) {
             return $empty;
         }
 
@@ -1169,7 +1169,7 @@ class AtlasAiControlPlaneService
             }
 
             $actions = ['total' => 0, 'by_status' => []];
-            if (Schema::hasTable('ai_quality_actions')) {
+            if (DatabaseTableAvailability::has('ai_quality_actions')) {
                 try {
                     $actionRows = AiQualityAction::query()
                         ->where('created_at', '>=', $since)
@@ -1204,7 +1204,7 @@ class AtlasAiControlPlaneService
     private function providerDecisions(CarbonImmutable $since): array
     {
         $empty = ['status' => 'missing', 'total' => 0, 'by_primary_domain' => [], 'by_routing_mode' => []];
-        if (! Schema::hasTable('ai_atlas_router_decisions')) {
+        if (! DatabaseTableAvailability::has('ai_atlas_router_decisions')) {
             return $empty;
         }
 
@@ -1265,7 +1265,7 @@ class AtlasAiControlPlaneService
             'recent' => [],
         ];
 
-        if (! Schema::hasTable('ai_traces') || $traceIds === []) {
+        if (! DatabaseTableAvailability::has('ai_traces') || $traceIds === []) {
             return $empty;
         }
 
@@ -1362,7 +1362,7 @@ class AtlasAiControlPlaneService
         $blockers = [];
 
         // 1. Failed traces without an error_message (silent failure).
-        if (Schema::hasTable('ai_traces')) {
+        if (DatabaseTableAvailability::has('ai_traces')) {
             try {
                 $silentFailures = AiTrace::query()
                     ->where('created_at', '>=', $since)
@@ -1389,7 +1389,7 @@ class AtlasAiControlPlaneService
         }
 
         // 2. Dispatch with persisted blockers list.
-        if (Schema::hasTable('ai_atlas_runtime_dispatches')) {
+        if (DatabaseTableAvailability::has('ai_atlas_runtime_dispatches')) {
             try {
                 $dispatches = AiAtlasRuntimeDispatch::query()
                     ->where('created_at', '>=', $since)
@@ -1423,7 +1423,7 @@ class AtlasAiControlPlaneService
         }
 
         // 3. Quality evaluations with status=failed (hard blockers).
-        if (Schema::hasTable('ai_quality_evaluations')) {
+        if (DatabaseTableAvailability::has('ai_quality_evaluations')) {
             try {
                 $rows = AiQualityEvaluation::query()
                     ->where('created_at', '>=', $since)
@@ -1448,7 +1448,7 @@ class AtlasAiControlPlaneService
         }
 
         // 4. Forge handoff with status != succeeded after window age.
-        if (Schema::hasTable('ai_real_execution_forge_handoffs')) {
+        if (DatabaseTableAvailability::has('ai_real_execution_forge_handoffs')) {
             try {
                 $stale = AiRealExecutionForgeHandoff::query()
                     ->where('created_at', '>=', $since)
@@ -1474,7 +1474,7 @@ class AtlasAiControlPlaneService
         }
 
         // 5. ACIE/ACOL runtime blockers persisted in Hyperflow metadata.
-        if (Schema::hasTable('ai_traces') && $traceIds !== []) {
+        if (DatabaseTableAvailability::has('ai_traces') && $traceIds !== []) {
             try {
                 $traces = AiTrace::query()
                     ->whereIn('id', $traceIds)
@@ -1598,7 +1598,7 @@ class AtlasAiControlPlaneService
             'last_decided_at' => null,
         ];
 
-        if (! Schema::hasTable('ai_operator_approvals')) {
+        if (! DatabaseTableAvailability::has('ai_operator_approvals')) {
             return $empty;
         }
 
@@ -1708,16 +1708,16 @@ class AtlasAiControlPlaneService
             'recent_blockers' => [],
             'recent_judgments' => [],
         ];
-        if (! Schema::hasTable('atlas_aemor_execution_episodes')) {
+        if (! DatabaseTableAvailability::has('atlas_aemor_execution_episodes')) {
             return $empty;
         }
 
         try {
             $episodes = AtlasAemorExecutionEpisode::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'status', 'scope_type', 'scope_id', 'flow_id', 'episode_hash', 'created_at']);
-            $outcomes = Schema::hasTable('atlas_aemor_outcomes')
+            $outcomes = DatabaseTableAvailability::has('atlas_aemor_outcomes')
                 ? AtlasAemorOutcome::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'episode_id', 'status', 'failure_signature', 'outcome_hash', 'created_at'])
                 : collect();
-            $judgments = Schema::hasTable('atlas_aemor_judgment_reports')
+            $judgments = DatabaseTableAvailability::has('atlas_aemor_judgment_reports')
                 ? AtlasAemorJudgmentReport::query()->where('created_at', '>=', $since)->latest()->limit(self::RECENT_LIMIT)->get(['id', 'episode_id', 'outcome_id', 'status', 'quality_score', 'judgment_hash', 'created_at'])
                 : collect();
         } catch (Throwable) {
@@ -1732,8 +1732,8 @@ class AtlasAiControlPlaneService
                 'succeeded' => $outcomes->where('status', 'succeeded')->count(),
                 'failed' => $outcomes->where('status', 'failed')->count(),
                 'blocked' => $outcomes->where('status', 'blocked')->count(),
-                'learning_signals' => Schema::hasTable('atlas_aemor_learning_signals') ? AtlasAemorLearningSignal::query()->where('created_at', '>=', $since)->count() : 0,
-                'memory_candidates' => Schema::hasTable('atlas_aemor_memory_candidates') ? AtlasAemorMemoryCandidate::query()->where('created_at', '>=', $since)->count() : 0,
+                'learning_signals' => DatabaseTableAvailability::has('atlas_aemor_learning_signals') ? AtlasAemorLearningSignal::query()->where('created_at', '>=', $since)->count() : 0,
+                'memory_candidates' => DatabaseTableAvailability::has('atlas_aemor_memory_candidates') ? AtlasAemorMemoryCandidate::query()->where('created_at', '>=', $since)->count() : 0,
                 'judgment_reports' => $judgments->count(),
             ],
             'recent_blockers' => $outcomes
@@ -1787,22 +1787,22 @@ class AtlasAiControlPlaneService
             'recent_decisions' => [],
             'recent_evolution_events' => [],
         ];
-        if (! Schema::hasTable('atlas_intelligence_factory_capabilities')) {
+        if (! DatabaseTableAvailability::has('atlas_intelligence_factory_capabilities')) {
             return $empty;
         }
 
         try {
             $capabilities = AtlasIntelligenceFactoryCapability::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'status', 'capability_key', 'capability_type', 'domain', 'flow_id', 'certification_hash', 'created_at']);
-            $gaps = Schema::hasTable('atlas_intelligence_factory_gaps')
+            $gaps = DatabaseTableAvailability::has('atlas_intelligence_factory_gaps')
                 ? AtlasIntelligenceFactoryGap::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'status', 'gap_type', 'severity', 'gap_hash', 'created_at'])
                 : collect();
-            $decisions = Schema::hasTable('atlas_intelligence_factory_decisions')
+            $decisions = DatabaseTableAvailability::has('atlas_intelligence_factory_decisions')
                 ? AtlasIntelligenceFactoryDecision::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'decision', 'status', 'decision_hash', 'created_at'])
                 : collect();
-            $simulations = Schema::hasTable('atlas_intelligence_factory_simulations')
+            $simulations = DatabaseTableAvailability::has('atlas_intelligence_factory_simulations')
                 ? AtlasIntelligenceFactorySimulation::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'status', 'mode', 'simulation_hash', 'created_at'])
                 : collect();
-            $evolutionEvents = Schema::hasTable('atlas_intelligence_factory_evolution_events')
+            $evolutionEvents = DatabaseTableAvailability::has('atlas_intelligence_factory_evolution_events')
                 ? AtlasIntelligenceFactoryEvolutionEvent::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'capability_id', 'source_type', 'event_type', 'status', 'event_hash', 'created_at'])
                 : collect();
         } catch (Throwable) {
@@ -1871,12 +1871,12 @@ class AtlasAiControlPlaneService
             'recent_decisions' => [],
             'recent_risks' => [],
         ];
-        if (! Schema::hasTable('atlas_strategic_decisions')) {
+        if (! DatabaseTableAvailability::has('atlas_strategic_decisions')) {
             return $empty;
         }
 
         try {
-            $entities = Schema::hasTable('atlas_reality_entities')
+            $entities = DatabaseTableAvailability::has('atlas_reality_entities')
                 ? AtlasRealityEntity::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'entity_type', 'entity_hash', 'created_at'])
                 : collect();
             $decisions = AtlasStrategicDecision::query()
@@ -1884,13 +1884,13 @@ class AtlasAiControlPlaneService
                 ->latest()
                 ->limit(200)
                 ->get(['id', 'status', 'question_hash', 'recommended_action', 'confidence', 'decision_hash', 'created_at']);
-            $opportunities = Schema::hasTable('atlas_opportunity_signals')
+            $opportunities = DatabaseTableAvailability::has('atlas_opportunity_signals')
                 ? AtlasOpportunitySignal::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'status', 'opportunity_type', 'opportunity_hash', 'created_at'])
                 : collect();
-            $risks = Schema::hasTable('atlas_risk_signals')
+            $risks = DatabaseTableAvailability::has('atlas_risk_signals')
                 ? AtlasRiskSignal::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'risk_type', 'severity', 'risk_hash', 'created_at'])
                 : collect();
-            $briefings = Schema::hasTable('atlas_executive_briefings')
+            $briefings = DatabaseTableAvailability::has('atlas_executive_briefings')
                 ? AtlasExecutiveBriefing::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'status', 'briefing_hash', 'created_at'])
                 : collect();
         } catch (Throwable) {
@@ -1953,7 +1953,7 @@ class AtlasAiControlPlaneService
             'by_flow' => [],
             'recent_decisions' => [],
         ];
-        if (! Schema::hasTable('atlas_runtime_efficiency_decisions')) {
+        if (! DatabaseTableAvailability::has('atlas_runtime_efficiency_decisions')) {
             return $empty;
         }
 
@@ -1963,7 +1963,7 @@ class AtlasAiControlPlaneService
                 ->latest()
                 ->limit(200)
                 ->get(['id', 'status', 'domain', 'flow_id', 'path', 'prompt_hash', 'context_budget_tokens', 'decision_hash', 'created_at']);
-            $outcomes = Schema::hasTable('atlas_runtime_efficiency_outcomes')
+            $outcomes = DatabaseTableAvailability::has('atlas_runtime_efficiency_outcomes')
                 ? AtlasRuntimeEfficiencyOutcome::query()->where('created_at', '>=', $since)->limit(200)->get(['id'])
                 : collect();
         } catch (Throwable) {
@@ -2031,7 +2031,7 @@ class AtlasAiControlPlaneService
             'recent_workcells' => [],
             'recent_patterns' => [],
         ];
-        if (! Schema::hasTable('atlas_agentic_workcells')) {
+        if (! DatabaseTableAvailability::has('atlas_agentic_workcells')) {
             return $empty;
         }
 
@@ -2041,10 +2041,10 @@ class AtlasAiControlPlaneService
                 ->latest()
                 ->limit(200)
                 ->get(['id', 'status', 'domain', 'flow_id', 'topology', 'maturity_level', 'objective_hash', 'workcell_hash', 'created_at']);
-            $outcomes = Schema::hasTable('atlas_agentic_workcell_outcomes')
+            $outcomes = DatabaseTableAvailability::has('atlas_agentic_workcell_outcomes')
                 ? AtlasAgenticWorkcellOutcome::query()->where('created_at', '>=', $since)->limit(200)->get(['id', 'quality_score', 'coordination_roi_score'])
                 : collect();
-            $patterns = Schema::hasTable('atlas_agentic_workcell_org_patterns')
+            $patterns = DatabaseTableAvailability::has('atlas_agentic_workcell_org_patterns')
                 ? AtlasAgenticWorkcellOrgPattern::query()->where('created_at', '>=', $since)->latest()->limit(50)->get(['id', 'status', 'flow_id', 'topology', 'pattern_hash'])
                 : collect();
         } catch (Throwable) {
@@ -2109,7 +2109,7 @@ class AtlasAiControlPlaneService
             'by_flow' => [],
             'recent_executions' => [],
         ];
-        if (! Schema::hasTable('atlas_aweos_executions')) {
+        if (! DatabaseTableAvailability::has('atlas_aweos_executions')) {
             return $empty;
         }
 
@@ -2119,7 +2119,7 @@ class AtlasAiControlPlaneService
                 ->latest()
                 ->limit(200)
                 ->get(['id', 'status', 'maturity_level', 'domain', 'flow_id', 'objective_hash', 'execution_hash', 'strategic_next_action', 'created_at']);
-            $outcomes = Schema::hasTable('atlas_aweos_certified_outcomes')
+            $outcomes = DatabaseTableAvailability::has('atlas_aweos_certified_outcomes')
                 ? AtlasAweosCertifiedOutcome::query()->where('created_at', '>=', $since)->latest()->limit(100)->get(['id', 'status', 'certification_level', 'outcome_hash'])
                 : collect();
         } catch (Throwable) {
@@ -2174,7 +2174,7 @@ class AtlasAiControlPlaneService
             'by_flow' => [],
             'recent_executions' => [],
         ];
-        if (! Schema::hasTable('atlas_aver_executions')) {
+        if (! DatabaseTableAvailability::has('atlas_aver_executions')) {
             return $empty;
         }
 
@@ -2184,7 +2184,7 @@ class AtlasAiControlPlaneService
                 ->latest()
                 ->limit(200)
                 ->get(['id', 'status', 'maturity_level', 'domain', 'flow_id', 'objective_hash', 'execution_hash', 'aweos_execution_id', 'created_at']);
-            $certifications = Schema::hasTable('atlas_aver_certified_executions')
+            $certifications = DatabaseTableAvailability::has('atlas_aver_certified_executions')
                 ? AtlasAverCertifiedExecution::query()->where('created_at', '>=', $since)->latest()->limit(100)->get(['id', 'status', 'certification_level', 'certification_hash'])
                 : collect();
         } catch (Throwable) {
@@ -2237,12 +2237,12 @@ class AtlasAiControlPlaneService
             'recent_cycles' => [],
             'recent_decisions' => [],
         ];
-        if (! Schema::hasTable('atlas_aael_portfolio_cycles')) {
+        if (! DatabaseTableAvailability::has('atlas_aael_portfolio_cycles')) {
             return $empty;
         }
 
         try {
-            $opportunities = Schema::hasTable('atlas_aael_opportunities')
+            $opportunities = DatabaseTableAvailability::has('atlas_aael_opportunities')
                 ? AtlasAaelOpportunity::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'status', 'opportunity_type', 'risk_level', 'priority_score', 'opportunity_hash'])
                 : collect();
             $cycles = AtlasAaelPortfolioCycle::query()
@@ -2250,13 +2250,13 @@ class AtlasAiControlPlaneService
                 ->latest()
                 ->limit(100)
                 ->get(['id', 'status', 'portfolio_snapshot', 'cycle_hash', 'created_at']);
-            $experiments = Schema::hasTable('atlas_aael_evolution_experiments')
+            $experiments = DatabaseTableAvailability::has('atlas_aael_evolution_experiments')
                 ? AtlasAaelEvolutionExperiment::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'status', 'lane', 'experiment_hash'])
                 : collect();
-            $decisions = Schema::hasTable('atlas_aael_promotion_decisions')
+            $decisions = DatabaseTableAvailability::has('atlas_aael_promotion_decisions')
                 ? AtlasAaelPromotionDecision::query()->where('created_at', '>=', $since)->latest()->limit(200)->get(['id', 'status', 'trust_level', 'decision_hash', 'created_at'])
                 : collect();
-            $audits = Schema::hasTable('atlas_aael_audit_reports')
+            $audits = DatabaseTableAvailability::has('atlas_aael_audit_reports')
                 ? AtlasAaelAuditReport::query()->where('created_at', '>=', $since)->latest()->limit(100)->get(['id', 'status', 'audit_hash'])
                 : collect();
         } catch (Throwable) {
@@ -2314,7 +2314,7 @@ class AtlasAiControlPlaneService
             'recent_scenarios' => [],
             'recent_certifications' => [],
         ];
-        if (! Schema::hasTable('atlas_aars_scenarios')) {
+        if (! DatabaseTableAvailability::has('atlas_aars_scenarios')) {
             return $empty;
         }
 
@@ -2324,13 +2324,13 @@ class AtlasAiControlPlaneService
                 ->latest()
                 ->limit(100)
                 ->get(['id', 'status', 'domain', 'flow_id', 'scenario_type', 'objective_hash', 'scenario_hash', 'created_at']);
-            $simulations = Schema::hasTable('atlas_aars_simulations')
+            $simulations = DatabaseTableAvailability::has('atlas_aars_simulations')
                 ? AtlasAarsSimulation::query()->where('created_at', '>=', $since)->latest()->limit(100)->get(['id', 'status', 'mode', 'simulation_hash'])
                 : collect();
-            $risks = Schema::hasTable('atlas_aars_risk_projections')
+            $risks = DatabaseTableAvailability::has('atlas_aars_risk_projections')
                 ? AtlasAarsRiskProjection::query()->where('created_at', '>=', $since)->latest()->limit(100)->get(['id', 'status', 'risk_level', 'risk_hash'])
                 : collect();
-            $certifications = Schema::hasTable('atlas_aars_certifications')
+            $certifications = DatabaseTableAvailability::has('atlas_aars_certifications')
                 ? AtlasAarsCertification::query()->where('created_at', '>=', $since)->latest()->limit(100)->get(['id', 'status', 'certification_hash', 'created_at'])
                 : collect();
         } catch (Throwable) {
@@ -2381,10 +2381,10 @@ class AtlasAiControlPlaneService
     private function swarmCompany(CarbonImmutable $since): array
     {
         $tables = [
-            'engagements' => Schema::hasTable('ai_engineering_company_engagements'),
-            'role_runs' => Schema::hasTable('ai_engineering_company_role_runs'),
-            'release_packs' => Schema::hasTable('ai_engineering_company_release_packs'),
-            'certifications' => Schema::hasTable('ai_engineering_company_certifications'),
+            'engagements' => DatabaseTableAvailability::has('ai_engineering_company_engagements'),
+            'role_runs' => DatabaseTableAvailability::has('ai_engineering_company_role_runs'),
+            'release_packs' => DatabaseTableAvailability::has('ai_engineering_company_release_packs'),
+            'certifications' => DatabaseTableAvailability::has('ai_engineering_company_certifications'),
         ];
         $agentRuntimeClasses = [
             'scheduler' => class_exists(AgentControlPlaneTaskQueueOrchestrator::class),
@@ -2468,10 +2468,10 @@ class AtlasAiControlPlaneService
     private function externalExecution(CarbonImmutable $since): array
     {
         $tables = [
-            'mandates' => Schema::hasTable('ai_holding_external_action_mandates'),
-            'work_orders' => Schema::hasTable('ai_holding_external_cutover_work_orders'),
-            'work_items' => Schema::hasTable('ai_holding_external_cutover_work_items'),
-            'runtime_invocations' => Schema::hasTable('ai_holding_external_cutover_runtime_invocations'),
+            'mandates' => DatabaseTableAvailability::has('ai_holding_external_action_mandates'),
+            'work_orders' => DatabaseTableAvailability::has('ai_holding_external_cutover_work_orders'),
+            'work_items' => DatabaseTableAvailability::has('ai_holding_external_cutover_work_items'),
+            'runtime_invocations' => DatabaseTableAvailability::has('ai_holding_external_cutover_runtime_invocations'),
         ];
         $empty = [
             'status' => in_array(false, $tables, true) ? 'missing' : 'ready',
@@ -2856,7 +2856,7 @@ class AtlasAiControlPlaneService
      */
     private function evidenceCountsByTraceIds(array $traceIds): array
     {
-        if (! Schema::hasTable('ai_jobs') || $traceIds === []) {
+        if (! DatabaseTableAvailability::has('ai_jobs') || $traceIds === []) {
             return [];
         }
         try {
@@ -2883,7 +2883,7 @@ class AtlasAiControlPlaneService
      */
     private function handoffCountsByTraceIds(array $traceIds): array
     {
-        if (! Schema::hasTable('ai_traces') || $traceIds === []) {
+        if (! DatabaseTableAvailability::has('ai_traces') || $traceIds === []) {
             return [];
         }
 
@@ -2911,7 +2911,7 @@ class AtlasAiControlPlaneService
      */
     private function qualityByTraceIds(array $traceIds): array
     {
-        if (! Schema::hasTable('ai_quality_evaluations') || $traceIds === []) {
+        if (! DatabaseTableAvailability::has('ai_quality_evaluations') || $traceIds === []) {
             return [];
         }
 

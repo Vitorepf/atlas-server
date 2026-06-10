@@ -14,7 +14,7 @@ use App\Services\Ai\RealExecution\AtlasRealEngineeringExecutionKernelService;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketBuilder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AtlasRealEngineeringCompanyRuntimeService
 {
@@ -423,7 +423,7 @@ class AtlasRealEngineeringCompanyRuntimeService
 
     public function certify(?AiEngineeringCompanyEngagement $engagement = null): AiEngineeringCompanyCertification
     {
-        $engagement ??= Schema::hasTable('ai_engineering_company_engagements')
+        $engagement ??= DatabaseTableAvailability::has('ai_engineering_company_engagements')
             ? $this->latestQuery(AiEngineeringCompanyEngagement::query())->first()
             : null;
         $checks = [
@@ -534,7 +534,7 @@ class AtlasRealEngineeringCompanyRuntimeService
                 'qa_statuses' => $this->groupCounts('ai_engineering_company_qa_runs', 'status'),
                 'release_statuses' => $this->groupCounts('ai_engineering_company_release_packs', 'status'),
             ],
-            'latest_engagement' => Schema::hasTable('ai_engineering_company_engagements')
+            'latest_engagement' => DatabaseTableAvailability::has('ai_engineering_company_engagements')
                 ? $this->latestQuery(AiEngineeringCompanyEngagement::query())->first()?->toArray()
                 : null,
             'writes' => false,
@@ -543,7 +543,7 @@ class AtlasRealEngineeringCompanyRuntimeService
 
     private function tablesReady(): bool
     {
-        foreach ([
+        return DatabaseTableAvailability::all([
             'ai_engineering_company_engagements',
             'ai_engineering_company_cycles',
             'ai_engineering_company_role_runs',
@@ -552,13 +552,7 @@ class AtlasRealEngineeringCompanyRuntimeService
             'ai_engineering_company_release_packs',
             'ai_engineering_company_benchmarks',
             'ai_engineering_company_certifications',
-        ] as $table) {
-            if (! Schema::hasTable($table)) {
-                return false;
-            }
-        }
-
-        return true;
+        ]);
     }
 
     private function allRolesHaveAgentTaskPackets(AiEngineeringCompanyEngagement $engagement): bool
@@ -648,7 +642,7 @@ class AtlasRealEngineeringCompanyRuntimeService
 
     private function count(string $table): int
     {
-        return Schema::hasTable($table) ? DB::table($table)->count() : 0;
+        return DatabaseTableAvailability::has($table) ? DB::table($table)->count() : 0;
     }
 
     /**
@@ -656,7 +650,7 @@ class AtlasRealEngineeringCompanyRuntimeService
      */
     private function groupCounts(string $table, string $column): array
     {
-        if (! Schema::hasTable($table)) {
+        if (! DatabaseTableAvailability::has($table)) {
             return [];
         }
 

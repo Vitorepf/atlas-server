@@ -7,7 +7,7 @@ use App\Services\Ai\AiQualityEvaluator;
 use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
 /**
@@ -49,7 +49,7 @@ class AiQualityBackfillCommand extends Command
 
     public function handle(AiQualityEvaluator $evaluator, AiTraceMetricAggregator $aggregator): int
     {
-        if (! Schema::hasTable('ai_quality_evaluations') || ! Schema::hasTable('ai_traces')) {
+        if (! DatabaseTableAvailability::has('ai_quality_evaluations') || ! DatabaseTableAvailability::has('ai_traces')) {
             $this->error('Required tables missing. Run php artisan migrate.');
 
             return self::FAILURE;
@@ -90,7 +90,7 @@ class AiQualityBackfillCommand extends Command
 
                     $evaluated++;
 
-                    if ($recompute && Schema::hasTable('ai_trace_metric_summaries')) {
+                    if ($recompute && DatabaseTableAvailability::has('ai_trace_metric_summaries')) {
                         $aggregator->recomputeTrace($trace->id);
                         $recomputed++;
                     }

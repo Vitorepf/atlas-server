@@ -5,7 +5,7 @@ namespace App\Services\Ai\Hermes;
 use App\Models\AiJob;
 use App\Models\AiScheduledTask;
 use App\Services\Ai\Scheduling\ScheduleParser;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -57,7 +57,7 @@ class HermesScheduleAdapter
             return $this->withReceiptHash($receipt);
         }
 
-        if (! Schema::hasTable('ai_scheduled_tasks')) {
+        if (! DatabaseTableAvailability::has('ai_scheduled_tasks')) {
             $receipt['status'] = 'schedule_gate_unavailable';
             $receipt['skipped_count'] = count($candidates);
             $receipt['skipped_candidates'] = $this->skippedCandidates($candidates, 'ai_scheduled_tasks_table_missing');

@@ -6,7 +6,7 @@ namespace App\Services\Ai\DualCore;
 
 use App\Models\AiDualCoreRouteDecision;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
 /**
@@ -57,7 +57,7 @@ final class ForgeIntakeRouteDecisionRecorder
         if ($route === '') {
             $route = DualCoreRouteDecisionCanon::ROUTE_FORGE;
         }
-        if (! Schema::hasTable('ai_dual_core_route_decisions')) {
+        if (! DatabaseTableAvailability::has('ai_dual_core_route_decisions')) {
             Log::warning('atlas.dual_core.forge_intake_recorder.table_missing', [
                 'http_route' => $httpRoutePath,
                 'project_id' => $projectId,

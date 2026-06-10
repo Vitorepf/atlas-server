@@ -5,7 +5,7 @@ namespace App\Services\Ai\Voice;
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 final class AtlasVoiceRivalsRunner
 {
@@ -28,7 +28,7 @@ final class AtlasVoiceRivalsRunner
         $since = now()->subHours($hours);
         $until = now();
 
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return [
                 'schema_version' => self::SCHEMA_VERSION,
                 'available' => false,

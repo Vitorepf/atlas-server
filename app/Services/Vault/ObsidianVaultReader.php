@@ -27,9 +27,9 @@ final class ObsidianVaultReader
         }
 
         $index = [];
-        foreach ($this->walkMd($root) as $absolutePath) {
-            $content = @file_get_contents($absolutePath);
-            if ($content === false) {
+        foreach (MarkdownVaultFiles::walk($root, skipObsidianInternals: true) as $absolutePath) {
+            $content = MarkdownVaultFiles::read($absolutePath);
+            if ($content === null) {
                 continue;
             }
             $parsed = $this->parser->parse($content);
@@ -47,7 +47,7 @@ final class ObsidianVaultReader
                 'path' => $absolutePath,
                 'relative_path' => $this->relativeToVault($absolutePath, $root),
                 'frontmatter' => $fm,
-                'mtime' => @filemtime($absolutePath) ?: 0,
+                'mtime' => MarkdownVaultFiles::modifiedAt($absolutePath),
                 'exists' => true,
             ];
         }
@@ -65,8 +65,8 @@ final class ObsidianVaultReader
             return null;
         }
         $entry = $index[$graphId];
-        $content = @file_get_contents($entry['path']);
-        if ($content === false) {
+        $content = MarkdownVaultFiles::read($entry['path']);
+        if ($content === null) {
             return null;
         }
         $parsed = $this->parser->parse($content);
@@ -78,29 +78,6 @@ final class ObsidianVaultReader
             'relative_path' => $entry['relative_path'],
             'mtime' => $entry['mtime'],
         ];
-    }
-
-    /** @return \Generator<int, string> */
-    private function walkMd(string $dir): \Generator
-    {
-        $rii = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::SELF_FIRST
-        );
-        foreach ($rii as $file) {
-            if (! $file->isFile()) {
-                continue;
-            }
-            if (strtolower($file->getExtension()) !== 'md') {
-                continue;
-            }
-            $name = $file->getFilename();
-            // skip dotfiles + Obsidian internals
-            if (str_starts_with($name, '.') || str_contains($file->getPathname(), '/.obsidian/')) {
-                continue;
-            }
-            yield $file->getPathname();
-        }
     }
 
     private function relativeToVault(string $absolutePath, string $root): string

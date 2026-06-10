@@ -5,9 +5,9 @@ namespace App\Services\Ai;
 use App\Models\AiQualityAction;
 use App\Models\AiQualityEvaluation;
 use App\Models\AiTrace;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\AuditLogService;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AiQualityActionService
@@ -24,7 +24,7 @@ class AiQualityActionService
      */
     public function planFor(AiTrace $trace, AiQualityEvaluation $evaluation, bool $autoRun = true): Collection
     {
-        if (! Schema::hasTable('ai_quality_actions')) {
+        if (! DatabaseTableAvailability::has('ai_quality_actions')) {
             return collect();
         }
 

@@ -5,7 +5,7 @@ namespace App\Console\Commands;
 use App\Models\AtlasDevRunCertification;
 use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevRunCertificationService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AtlasDevRunCertifyCommand extends Command
 {
@@ -18,7 +18,7 @@ class AtlasDevRunCertifyCommand extends Command
 
     public function handle(): int
     {
-        if (! Schema::hasTable('atlas_dev_run_certifications')) {
+        if (! DatabaseTableAvailability::has('atlas_dev_run_certifications')) {
             $payload = $this->missingPayload('Atlas Dev run certification table is not migrated.');
 
             if ((bool) $this->option('json')) {

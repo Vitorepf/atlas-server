@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering;
 
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Finder\SplFileInfo;
 use Throwable;
 
@@ -230,7 +230,7 @@ final class AtlasSystemStructureService
     private function resolveSource(): string
     {
         try {
-            if (Schema::hasTable(self::SYMBOLS_TABLE)) {
+            if (DatabaseTableAvailability::has(self::SYMBOLS_TABLE)) {
                 $hasRows = DB::table(self::SYMBOLS_TABLE)
                     ->where('status', 'active')
                     ->whereNull('archived_at')
@@ -264,7 +264,7 @@ final class AtlasSystemStructureService
 
         if ($requested === 'index') {
             try {
-                if (Schema::hasTable(self::SYMBOLS_TABLE)
+                if (DatabaseTableAvailability::has(self::SYMBOLS_TABLE)
                     && DB::table(self::SYMBOLS_TABLE)->where('status', 'active')->whereNull('archived_at')->limit(1)->exists()) {
                     return 'index';
                 }
@@ -412,7 +412,7 @@ final class AtlasSystemStructureService
      */
     private function dependencyPairsFromIndex(): array
     {
-        if (! Schema::hasTable(self::SNAPSHOTS_TABLE)) {
+        if (! DatabaseTableAvailability::has(self::SNAPSHOTS_TABLE)) {
             return [];
         }
 

@@ -9,11 +9,11 @@ use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasEngineeringRunAttempt;
 use App\Models\AtlasTask;
 use App\Services\Ai\Runtime\WorkspaceProfiler;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\AtlasPhpBinary;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class EngineeringControlRegistryService
@@ -227,7 +227,7 @@ class EngineeringControlRegistryService
      */
     public function persistControls(array $controls): Collection
     {
-        if (! Schema::hasTable('atlas_engineering_controls')) {
+        if (! DatabaseTableAvailability::has('atlas_engineering_controls')) {
             return collect();
         }
 
@@ -251,7 +251,7 @@ class EngineeringControlRegistryService
         int $durationMs = 0,
         array $metadata = [],
     ): ?AtlasEngineeringControlResult {
-        if (! Schema::hasTable('atlas_engineering_control_results')) {
+        if (! DatabaseTableAvailability::has('atlas_engineering_control_results')) {
             return null;
         }
 
@@ -274,11 +274,11 @@ class EngineeringControlRegistryService
             'metadata' => $metadata,
         ];
 
-        if (Schema::hasColumn('atlas_engineering_control_results', 'control_definition_hash')) {
+        if (DatabaseTableAvailability::hasColumn('atlas_engineering_control_results', 'control_definition_hash')) {
             $payload['control_definition_hash'] = $controlModel?->definition_hash;
         }
 
-        if (Schema::hasColumn('atlas_engineering_control_results', 'control_version')) {
+        if (DatabaseTableAvailability::hasColumn('atlas_engineering_control_results', 'control_version')) {
             $payload['control_version'] = $controlModel?->version;
         }
 
@@ -290,7 +290,7 @@ class EngineeringControlRegistryService
      */
     private function modelFor(array $control): ?AtlasEngineeringControl
     {
-        if (! Schema::hasTable('atlas_engineering_controls')) {
+        if (! DatabaseTableAvailability::has('atlas_engineering_controls')) {
             return null;
         }
 
@@ -314,7 +314,7 @@ class EngineeringControlRegistryService
 
         return DB::transaction(function () use ($control, $definition, $hash, $slug, $now): AtlasEngineeringControl {
             $revision = null;
-            if (Schema::hasTable('atlas_engineering_control_revisions')) {
+            if (DatabaseTableAvailability::has('atlas_engineering_control_revisions')) {
                 $revision = AtlasEngineeringControlRevision::query()
                     ->where('slug', $slug)
                     ->where('definition_hash', $hash)
@@ -356,15 +356,15 @@ class EngineeringControlRegistryService
                 'metadata' => $this->normalizeDefinitionValue($control['metadata'] ?? []),
             ];
 
-            if (Schema::hasColumn('atlas_engineering_controls', 'definition_hash')) {
+            if (DatabaseTableAvailability::hasColumn('atlas_engineering_controls', 'definition_hash')) {
                 $payload['definition_hash'] = $hash;
             }
 
-            if (Schema::hasColumn('atlas_engineering_controls', 'version')) {
+            if (DatabaseTableAvailability::hasColumn('atlas_engineering_controls', 'version')) {
                 $payload['version'] = $revision?->version ?? 1;
             }
 
-            if (Schema::hasColumn('atlas_engineering_controls', 'versioned_at')) {
+            if (DatabaseTableAvailability::hasColumn('atlas_engineering_controls', 'versioned_at')) {
                 $payload['versioned_at'] = $now;
             }
 

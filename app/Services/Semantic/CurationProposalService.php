@@ -9,10 +9,10 @@ use App\Models\SemanticNote;
 use App\Services\Ai\AiMemoryDeltaProposer;
 use App\Services\Ai\AtlasMemoryDeltaPromotionService;
 use App\Services\Ai\AtlasVerbatimMemoryService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\AuditLogService;
 use App\Services\CaptureDestinationService;
 use App\Support\Metadata;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class CurationProposalService
@@ -423,7 +423,7 @@ class CurationProposalService
 
     private function deltaForProposal(SemanticCurationProposal $proposal, ?Capture $capture): ?AiMemoryDelta
     {
-        if (! Schema::hasTable('ai_memory_deltas')) {
+        if (! DatabaseTableAvailability::has('ai_memory_deltas')) {
             return null;
         }
 

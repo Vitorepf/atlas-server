@@ -3,10 +3,10 @@
 namespace App\Services\Engineering;
 
 use App\Models\AtlasEngineeringKnowledgeItem;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use RuntimeException;
 use SplFileInfo;
@@ -103,7 +103,7 @@ class EngineeringKnowledgeBaseService
      */
     public function catalog(array $filters = [], int $limit = 50): array
     {
-        if (! Schema::hasTable('atlas_engineering_knowledge_items')) {
+        if (! DatabaseTableAvailability::has('atlas_engineering_knowledge_items')) {
             return [
                 'summary' => $this->summary(),
                 'items' => [],
@@ -128,7 +128,7 @@ class EngineeringKnowledgeBaseService
      */
     public function summary(): array
     {
-        $tableExists = Schema::hasTable('atlas_engineering_knowledge_items');
+        $tableExists = DatabaseTableAvailability::has('atlas_engineering_knowledge_items');
         $docsRoot = $this->docsRoot();
         if (! $tableExists) {
             return [
@@ -174,7 +174,7 @@ class EngineeringKnowledgeBaseService
      */
     public function find(string $idOrSlug): ?array
     {
-        if (! Schema::hasTable('atlas_engineering_knowledge_items')) {
+        if (! DatabaseTableAvailability::has('atlas_engineering_knowledge_items')) {
             return null;
         }
 
@@ -197,7 +197,7 @@ class EngineeringKnowledgeBaseService
      */
     public function contextRefs(array $context = [], int $limit = 8): array
     {
-        if (! Schema::hasTable('atlas_engineering_knowledge_items')) {
+        if (! DatabaseTableAvailability::has('atlas_engineering_knowledge_items')) {
             return [];
         }
 
@@ -239,7 +239,7 @@ class EngineeringKnowledgeBaseService
 
     private function ensureTable(): void
     {
-        if (! Schema::hasTable('atlas_engineering_knowledge_items')) {
+        if (! DatabaseTableAvailability::has('atlas_engineering_knowledge_items')) {
             throw new RuntimeException('Tabela atlas_engineering_knowledge_items ainda nao existe. Rode migrations.');
         }
     }

@@ -3,8 +3,8 @@
 namespace App\Services\Ai\Kernel\Evidence;
 
 use App\Models\AtlasLedgerEvent;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 final class LedgerProjectionWorker
 {
@@ -19,7 +19,7 @@ final class LedgerProjectionWorker
      */
     public function project(int $limit = 500, ?int $hours = null, bool $dryRun = false): array
     {
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return [
                 'schema_version' => self::SCHEMA_VERSION,
                 'available' => false,
@@ -92,7 +92,7 @@ final class LedgerProjectionWorker
         $id = (string) $projection['id'];
         $table = (string) $projection['table'];
 
-        if (! Schema::hasTable($table)) {
+        if (! DatabaseTableAvailability::has($table)) {
             return $this->result($id, $event, false, 'projection_table_missing');
         }
 
@@ -235,7 +235,7 @@ final class LedgerProjectionWorker
     {
         return array_filter(
             $values,
-            fn (string $column): bool => Schema::hasColumn($table, $column),
+            fn (string $column): bool => DatabaseTableAvailability::hasColumn($table, $column),
             ARRAY_FILTER_USE_KEY,
         );
     }

@@ -4,8 +4,8 @@ namespace App\Services\Ai\Mobile;
 
 use App\Models\AiInboxItem;
 use App\Models\AiQualityEvaluation;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Schema;
 
 class SelfDiagnosticEmitter
 {
@@ -89,9 +89,11 @@ class SelfDiagnosticEmitter
 
     private function tablesReady(): bool
     {
-        return Schema::hasTable('ai_quality_evaluations')
-            && Schema::hasTable('ai_context_bundles')
-            && Schema::hasTable('ai_inbox_items');
+        return DatabaseTableAvailability::missing([
+            'ai_quality_evaluations',
+            'ai_context_bundles',
+            'ai_inbox_items',
+        ]) === [];
     }
 
     /**

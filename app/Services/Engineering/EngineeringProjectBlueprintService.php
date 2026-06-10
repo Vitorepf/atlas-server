@@ -4,8 +4,8 @@ namespace App\Services\Engineering;
 
 use App\Models\AtlasEngineeringProjectBlueprint;
 use App\Models\AtlasProject;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class EngineeringProjectBlueprintService
@@ -42,7 +42,7 @@ class EngineeringProjectBlueprintService
     {
         $prepared = $this->prepare($project, $options);
 
-        if (! Schema::hasTable('atlas_engineering_project_blueprints')) {
+        if (! DatabaseTableAvailability::has('atlas_engineering_project_blueprints')) {
             return [
                 ...$prepared,
                 'record' => null,
@@ -175,7 +175,7 @@ class EngineeringProjectBlueprintService
 
     public function latest(AtlasProject $project, ?string $status = null): ?AtlasEngineeringProjectBlueprint
     {
-        if (! Schema::hasTable('atlas_engineering_project_blueprints')) {
+        if (! DatabaseTableAvailability::has('atlas_engineering_project_blueprints')) {
             return null;
         }
 
@@ -229,7 +229,7 @@ class EngineeringProjectBlueprintService
 
     private function resolveRecord(AtlasProject $project, mixed $version): ?AtlasEngineeringProjectBlueprint
     {
-        if (! Schema::hasTable('atlas_engineering_project_blueprints')) {
+        if (! DatabaseTableAvailability::has('atlas_engineering_project_blueprints')) {
             return null;
         }
 

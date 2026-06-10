@@ -14,7 +14,8 @@ use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Kernel\Slo\KernelSloTargets;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\Support\JsonFileStore;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
@@ -714,7 +715,7 @@ final class AtlasVoiceRealtimeService
             LedgerEventType::VoiceTurnPlayed->value,
         ];
 
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return [
                 'schema_version' => 'atlas.voice.readiness.v1',
                 'available' => false,
@@ -1599,7 +1600,7 @@ final class AtlasVoiceRealtimeService
             'runtime' => $payload['runtime'] ?? 'livekit_agents_sdk',
             'base_url' => $payload['base_url'] ?? 'http://atlas.test',
         ]);
-        file_put_contents($bootstrapPath, json_encode($bootstrap, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        JsonFileStore::write($bootstrapPath, $bootstrap, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
         $process = new Process([
             $this->configuredVoicePythonBinary(),
@@ -1706,7 +1707,7 @@ final class AtlasVoiceRealtimeService
             'runtime' => $runtime,
             'base_url' => $baseUrl,
         ]);
-        file_put_contents($bootstrapPath, json_encode($bootstrap, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        JsonFileStore::write($bootstrapPath, $bootstrap, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         file_put_contents($envPath, implode("\n", [
             'ATLAS_BASE_URL='.$baseUrl,
             'ATLAS_TOKEN='.$token,
@@ -2287,7 +2288,7 @@ final class AtlasVoiceRealtimeService
      */
     private function hasAcceptedKernelTurn(array $session, string $turnId): bool
     {
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return false;
         }
 

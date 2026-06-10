@@ -13,7 +13,7 @@ use App\Models\AiHoldingExternalActionMandate;
 use App\Models\AiOperatorApproval;
 use App\Models\AtlasToolRun;
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class ExternalActionMandateRegistryService
 {
@@ -5744,7 +5744,7 @@ class ExternalActionMandateRegistryService
         $acceptance = $this->enterpriseCompanyWorkProductAcceptanceEvidenceStatus($wantedCompany);
         $acceptanceByCompany = $this->companyRowsById($acceptance);
 
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! $this->toolRunsTableAvailable()) {
             return [
                 'ok' => false,
                 'schema' => self::ENTERPRISE_COMPANY_WORK_PRODUCT_RUNTIME_REGISTER_SCHEMA,
@@ -5941,7 +5941,7 @@ class ExternalActionMandateRegistryService
         $acceptance = $this->enterpriseCompanyWorkProductAcceptanceEvidenceStatus($wantedCompany);
         $acceptanceByCompany = $this->companyRowsById($acceptance);
 
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! $this->toolRunsTableAvailable()) {
             return [
                 'ok' => false,
                 'schema' => self::ENTERPRISE_COMPANY_WORK_PRODUCT_RUNTIME_STATUS_SCHEMA,
@@ -6113,7 +6113,7 @@ class ExternalActionMandateRegistryService
     {
         $wantedCompany = $companyId !== null && trim($companyId) !== '' ? trim($companyId) : null;
 
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! $this->toolRunsTableAvailable()) {
             return [
                 'ok' => false,
                 'schema' => self::ENTERPRISE_COMPANY_OPERATING_BLUEPRINT_RUNTIME_REGISTER_SCHEMA,
@@ -6301,7 +6301,7 @@ class ExternalActionMandateRegistryService
     {
         $wantedCompany = $companyId !== null && trim($companyId) !== '' ? trim($companyId) : null;
 
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! $this->toolRunsTableAvailable()) {
             return [
                 'ok' => false,
                 'schema' => self::ENTERPRISE_COMPANY_OPERATING_BLUEPRINT_RUNTIME_STATUS_SCHEMA,
@@ -6469,7 +6469,7 @@ class ExternalActionMandateRegistryService
     {
         $wantedCompany = $companyId !== null && trim($companyId) !== '' ? trim($companyId) : null;
 
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! $this->toolRunsTableAvailable()) {
             return [
                 'ok' => false,
                 'schema' => self::ENTERPRISE_COMPANY_BUSINESS_RUNTIME_PERSISTENCE_REGISTER_SCHEMA,
@@ -6716,7 +6716,7 @@ class ExternalActionMandateRegistryService
             $statusByLayerAndCompany[$layerId] = $this->companyRowsById((array) $statusPayload);
         }
 
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! $this->toolRunsTableAvailable()) {
             return [
                 'ok' => false,
                 'schema' => self::ENTERPRISE_COMPANY_BUSINESS_RUNTIME_PERSISTENCE_STATUS_SCHEMA,
@@ -6888,7 +6888,7 @@ class ExternalActionMandateRegistryService
     {
         $wantedCompany = $companyId !== null && trim($companyId) !== '' ? trim($companyId) : null;
 
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! $this->toolRunsTableAvailable()) {
             return [
                 'ok' => false,
                 'schema' => self::ENTERPRISE_COMPANY_CAPABILITY_RUNTIME_MESH_REGISTER_SCHEMA,
@@ -7102,7 +7102,7 @@ class ExternalActionMandateRegistryService
     {
         $wantedCompany = $companyId !== null && trim($companyId) !== '' ? trim($companyId) : null;
 
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! $this->toolRunsTableAvailable()) {
             return [
                 'ok' => false,
                 'schema' => self::ENTERPRISE_COMPANY_CAPABILITY_RUNTIME_MESH_STATUS_SCHEMA,
@@ -7282,7 +7282,7 @@ class ExternalActionMandateRegistryService
     {
         $wantedCompany = $companyId !== null && trim($companyId) !== '' ? trim($companyId) : null;
 
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! $this->toolRunsTableAvailable()) {
             return [
                 'ok' => false,
                 'schema' => self::ENTERPRISE_COMPANY_SUPERVISED_CONNECTOR_EXECUTION_REGISTER_SCHEMA,
@@ -7516,7 +7516,7 @@ class ExternalActionMandateRegistryService
         $capabilityRuntime = $this->enterpriseCompanyCapabilityRuntimeMeshStatus($wantedCompany);
         $capabilityByCompany = $this->companyRowsById($capabilityRuntime);
 
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! $this->toolRunsTableAvailable()) {
             return [
                 'ok' => false,
                 'schema' => self::ENTERPRISE_COMPANY_SUPERVISED_CONNECTOR_EXECUTION_STATUS_SCHEMA,
@@ -7690,7 +7690,7 @@ class ExternalActionMandateRegistryService
         $supervisedExecution = $this->enterpriseCompanySupervisedConnectorExecutionStatus($wantedCompany);
         $supervisedByCompany = $this->companyRowsById($supervisedExecution);
 
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! $this->toolRunsTableAvailable()) {
             return [
                 'ok' => false,
                 'schema' => self::ENTERPRISE_COMPANY_EXTERNAL_TOOL_ACTIVATION_WORK_ORDER_REGISTER_SCHEMA,
@@ -7907,7 +7907,7 @@ class ExternalActionMandateRegistryService
         $supervisedExecution = $this->enterpriseCompanySupervisedConnectorExecutionStatus($wantedCompany);
         $supervisedByCompany = $this->companyRowsById($supervisedExecution);
 
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! $this->toolRunsTableAvailable()) {
             return [
                 'ok' => false,
                 'schema' => self::ENTERPRISE_COMPANY_EXTERNAL_TOOL_ACTIVATION_WORK_ORDER_STATUS_SCHEMA,
@@ -8087,7 +8087,7 @@ class ExternalActionMandateRegistryService
         $workOrders = $this->enterpriseCompanyExternalToolActivationWorkOrderStatus($wantedCompany);
         $workOrdersByCompany = $this->companyRowsById($workOrders);
 
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! $this->toolRunsTableAvailable()) {
             return [
                 'ok' => false,
                 'schema' => self::ENTERPRISE_COMPANY_EXTERNAL_TOOL_ACTIVATION_PACKET_REGISTER_SCHEMA,
@@ -8313,7 +8313,7 @@ class ExternalActionMandateRegistryService
         $workOrders = $this->enterpriseCompanyExternalToolActivationWorkOrderStatus($wantedCompany);
         $workOrdersByCompany = $this->companyRowsById($workOrders);
 
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! $this->toolRunsTableAvailable()) {
             return [
                 'ok' => false,
                 'schema' => self::ENTERPRISE_COMPANY_EXTERNAL_TOOL_ACTIVATION_PACKET_STATUS_SCHEMA,
@@ -8498,7 +8498,7 @@ class ExternalActionMandateRegistryService
         $activationPackets = $this->enterpriseCompanyExternalToolActivationPacketStatus($wantedCompany);
         $activationPacketsByCompany = $this->companyRowsById($activationPackets);
 
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! $this->toolRunsTableAvailable()) {
             return [
                 'ok' => false,
                 'schema' => self::ENTERPRISE_COMPANY_VERTICAL_TOOL_OPERATING_RUNTIME_REGISTER_SCHEMA,
@@ -8710,7 +8710,7 @@ class ExternalActionMandateRegistryService
         $activationPackets = $this->enterpriseCompanyExternalToolActivationPacketStatus($wantedCompany);
         $activationPacketsByCompany = $this->companyRowsById($activationPackets);
 
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! $this->toolRunsTableAvailable()) {
             return [
                 'ok' => false,
                 'schema' => self::ENTERPRISE_COMPANY_VERTICAL_TOOL_OPERATING_RUNTIME_STATUS_SCHEMA,
@@ -8888,7 +8888,7 @@ class ExternalActionMandateRegistryService
         $verticalRuntime = $this->enterpriseCompanyVerticalToolOperatingRuntimeStatus($wantedCompany);
         $verticalRuntimeByCompany = $this->companyRowsById($verticalRuntime);
 
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! $this->toolRunsTableAvailable()) {
             return [
                 'ok' => false,
                 'schema' => self::ENTERPRISE_COMPANY_BUSINESS_EXECUTION_CONTROL_PLANE_REGISTER_SCHEMA,
@@ -9116,7 +9116,7 @@ class ExternalActionMandateRegistryService
         $verticalRuntime = $this->enterpriseCompanyVerticalToolOperatingRuntimeStatus($wantedCompany);
         $verticalRuntimeByCompany = $this->companyRowsById($verticalRuntime);
 
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! $this->toolRunsTableAvailable()) {
             return [
                 'ok' => false,
                 'schema' => self::ENTERPRISE_COMPANY_BUSINESS_EXECUTION_CONTROL_PLANE_STATUS_SCHEMA,
@@ -14210,7 +14210,7 @@ class ExternalActionMandateRegistryService
         $agentOperations = $this->enterpriseCompanyAgentOperationsPackStatus($wantedCompany);
         $agentOperationsByCompany = $this->companyRowsById($agentOperations);
 
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! $this->toolRunsTableAvailable()) {
             return [
                 'ok' => false,
                 'schema' => self::ENTERPRISE_COMPANY_AGENT_WORKFORCE_RUNTIME_REGISTER_SCHEMA,
@@ -14418,7 +14418,7 @@ class ExternalActionMandateRegistryService
         $agentOperations = $this->enterpriseCompanyAgentOperationsPackStatus($wantedCompany);
         $agentOperationsByCompany = $this->companyRowsById($agentOperations);
 
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! $this->toolRunsTableAvailable()) {
             return [
                 'ok' => false,
                 'schema' => self::ENTERPRISE_COMPANY_AGENT_WORKFORCE_RUNTIME_STATUS_SCHEMA,
@@ -15188,7 +15188,7 @@ class ExternalActionMandateRegistryService
         $wantedCompany = $companyId !== null && trim($companyId) !== '' ? trim($companyId) : null;
         $ledgerStatus = $this->enterpriseCompanyFlowToolExecutionLedgerStatus($wantedCompany);
 
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! $this->toolRunsTableAvailable()) {
             return [
                 'ok' => false,
                 'schema' => self::ENTERPRISE_COMPANY_FLOW_TOOL_EXECUTION_RUNTIME_REGISTER_SCHEMA,
@@ -15349,7 +15349,7 @@ class ExternalActionMandateRegistryService
         $wantedCompany = $companyId !== null && trim($companyId) !== '' ? trim($companyId) : null;
         $ledgerStatus = $this->enterpriseCompanyFlowToolExecutionLedgerStatus($wantedCompany);
 
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! $this->toolRunsTableAvailable()) {
             return [
                 'ok' => false,
                 'schema' => self::ENTERPRISE_COMPANY_FLOW_TOOL_EXECUTION_RUNTIME_STATUS_SCHEMA,
@@ -15497,7 +15497,7 @@ class ExternalActionMandateRegistryService
         $wantedCompany = $companyId !== null && trim($companyId) !== '' ? trim($companyId) : null;
         $liveRead = $this->liveReadConnectorReadinessStatus($wantedCompany);
 
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! $this->toolRunsTableAvailable()) {
             return [
                 'ok' => false,
                 'schema' => self::ENTERPRISE_COMPANY_DOMAIN_ADAPTER_EXECUTION_ENVELOPE_REGISTER_SCHEMA,
@@ -15682,7 +15682,7 @@ class ExternalActionMandateRegistryService
         $wantedCompany = $companyId !== null && trim($companyId) !== '' ? trim($companyId) : null;
         $liveRead = $this->liveReadConnectorReadinessStatus($wantedCompany);
 
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! $this->toolRunsTableAvailable()) {
             return [
                 'ok' => false,
                 'schema' => self::ENTERPRISE_COMPANY_DOMAIN_ADAPTER_EXECUTION_ENVELOPE_STATUS_SCHEMA,
@@ -22954,6 +22954,11 @@ class ExternalActionMandateRegistryService
                 ], $preflightChecks)) === 7,
             ],
         ];
+    }
+
+    private function toolRunsTableAvailable(): bool
+    {
+        return DatabaseTableAvailability::has('atlas_tool_runs');
     }
 
     /**

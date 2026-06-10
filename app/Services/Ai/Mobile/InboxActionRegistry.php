@@ -13,12 +13,12 @@ use App\Services\Ai\Kernel\Decision\DecisionReceiptHash;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Kernel\Evidence\LedgerProjectionWorker;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Telemetry\AiProviderCostRateService;
 use App\Services\Ai\Telemetry\Engine\RecommendationLifecycleService;
 use App\Services\AuditLogService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -300,7 +300,7 @@ class InboxActionRegistry
      */
     private function discuss(AiInboxItem $item): array
     {
-        if (! Schema::hasTable('ai_threads') || ! Schema::hasTable('ai_messages')) {
+        if (DatabaseTableAvailability::missing(['ai_threads', 'ai_messages']) !== []) {
             throw ValidationException::withMessages(['action' => 'Tabelas de threads ainda nao existem.']);
         }
 

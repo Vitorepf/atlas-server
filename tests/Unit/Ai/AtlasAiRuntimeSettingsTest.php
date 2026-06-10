@@ -56,7 +56,7 @@ class AtlasAiRuntimeSettingsTest extends TestCase
 
         $this->assertSame('auto', $effective['default_provider_selection']);
         $this->assertSame('auto', $settings->defaultProviderSelection());
-        $this->assertSame('claude_cli', $effective['default_provider']);
+        $this->assertSame((string) config('atlas.ai.default_provider'), $effective['default_provider']);
     }
 
     public function test_configured_provider_keys_are_accepted_without_mobile_code_changes(): void

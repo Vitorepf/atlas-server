@@ -8,7 +8,7 @@ use App\Models\AiRouterDecision;
 use App\Services\Ai\AiProviderResult;
 use App\Services\Ai\Kernel\Decision\ComputeEffortPolicy;
 use App\Services\Ai\Telemetry\AiCostEstimator;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class ProviderUsagePayload
 {
@@ -353,7 +353,7 @@ class ProviderUsagePayload
 
     private function routerDecision(AiJob $job): ?AiRouterDecision
     {
-        if (! $job->trace_id || ! Schema::hasTable('ai_router_decisions')) {
+        if (! $job->trace_id || ! DatabaseTableAvailability::has('ai_router_decisions')) {
             return null;
         }
 

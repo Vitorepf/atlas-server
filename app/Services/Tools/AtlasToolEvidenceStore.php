@@ -8,10 +8,10 @@ use App\Models\AtlasToolFinding;
 use App\Models\AtlasToolRun;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 
 class AtlasToolEvidenceStore
 {
@@ -103,10 +103,12 @@ class AtlasToolEvidenceStore
 
     private function evidenceTablesAvailable(): bool
     {
-        return Schema::hasTable('atlas_tool_definitions')
-            && Schema::hasTable('atlas_tool_runs')
-            && Schema::hasTable('atlas_tool_artifacts')
-            && Schema::hasTable('atlas_tool_findings');
+        return DatabaseTableAvailability::all([
+            'atlas_tool_definitions',
+            'atlas_tool_runs',
+            'atlas_tool_artifacts',
+            'atlas_tool_findings',
+        ]);
     }
 
     /**

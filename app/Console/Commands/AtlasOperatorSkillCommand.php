@@ -6,7 +6,7 @@ use App\Models\OperatorSkillProposal;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 /**
  * The operator's gate over auto-built skills — and the ONLY writer of the live skill vault.
@@ -27,7 +27,7 @@ class AtlasOperatorSkillCommand extends Command
 
     public function handle(): int
     {
-        if (! Schema::hasTable('operator_skill_proposals')) {
+        if (! DatabaseTableAvailability::has('operator_skill_proposals')) {
             $this->warn('operator_skill_proposals table unavailable.');
 
             return self::SUCCESS;

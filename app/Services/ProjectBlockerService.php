@@ -7,8 +7,8 @@ use App\Models\AtlasProjectBlocker;
 use App\Models\AtlasProjectEvent;
 use App\Models\AtlasProjectStep;
 use App\Models\AtlasTask;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class ProjectBlockerService
@@ -19,7 +19,7 @@ class ProjectBlockerService
 
     public function openForTask(AtlasTask $task, array $data = [], string $source = 'tasks.blocked'): ?AtlasProjectBlocker
     {
-        if (! Schema::hasTable('atlas_project_blockers') || ! $task->project_id) {
+        if (! DatabaseTableAvailability::has('atlas_project_blockers') || ! $task->project_id) {
             return null;
         }
 
@@ -39,7 +39,7 @@ class ProjectBlockerService
         array $data = [],
         string $source = 'projects.step.block',
     ): ?AtlasProjectBlocker {
-        if (! Schema::hasTable('atlas_project_blockers')) {
+        if (! DatabaseTableAvailability::has('atlas_project_blockers')) {
             return null;
         }
         if ($step->project_id !== $project->id) {
@@ -260,7 +260,7 @@ class ProjectBlockerService
 
     public function cancelOpenForProject(AtlasProject $project, string $reason, string $source = 'projects.status'): int
     {
-        if (! Schema::hasTable('atlas_project_blockers')) {
+        if (! DatabaseTableAvailability::has('atlas_project_blockers')) {
             return 0;
         }
 
@@ -418,7 +418,7 @@ class ProjectBlockerService
 
     private function recordProjectEvent(?AtlasProject $project, string $eventType, array $payload, string $source): ?AtlasProjectEvent
     {
-        if (! $project || ! Schema::hasTable('atlas_project_events')) {
+        if (! $project || ! DatabaseTableAvailability::has('atlas_project_events')) {
             return null;
         }
 
@@ -433,19 +433,19 @@ class ProjectBlockerService
 
     private function hasOpenProjectBlocker(AtlasProject $project): bool
     {
-        return Schema::hasTable('atlas_project_blockers')
+        return DatabaseTableAvailability::has('atlas_project_blockers')
             && AtlasProjectBlocker::query()->where('project_id', $project->id)->where('status', 'open')->exists();
     }
 
     private function hasOpenTaskBlocker(AtlasTask $task): bool
     {
-        return Schema::hasTable('atlas_project_blockers')
+        return DatabaseTableAvailability::has('atlas_project_blockers')
             && AtlasProjectBlocker::query()->where('task_id', $task->id)->where('status', 'open')->exists();
     }
 
     private function hasOpenStepBlocker(AtlasProjectStep $step): bool
     {
-        return Schema::hasTable('atlas_project_blockers')
+        return DatabaseTableAvailability::has('atlas_project_blockers')
             && AtlasProjectBlocker::query()->where('project_step_id', $step->id)->where('status', 'open')->exists();
     }
 

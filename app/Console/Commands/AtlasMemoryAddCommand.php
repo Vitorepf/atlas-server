@@ -5,7 +5,7 @@ namespace App\Console\Commands;
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\AtlasMemoryRegistryService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AtlasMemoryAddCommand extends Command
 {
@@ -39,7 +39,7 @@ class AtlasMemoryAddCommand extends Command
 
     public function handle(AtlasMemoryRegistryService $memory): int
     {
-        if (! Schema::hasTable('atlas_memory_entries')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
             $this->error('Tabela atlas_memory_entries ainda nao existe. Rode migrations.');
 
             return self::FAILURE;

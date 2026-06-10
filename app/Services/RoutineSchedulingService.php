@@ -5,8 +5,8 @@ namespace App\Services;
 use App\Models\AtlasRoutine;
 use App\Models\AtlasRoutineEvent;
 use App\Models\AtlasTask;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class RoutineSchedulingService
@@ -178,7 +178,7 @@ class RoutineSchedulingService
 
     public function recordCompletionFromTask(AtlasTask $task, string $source = 'tasks.complete'): ?AtlasRoutine
     {
-        if (! $task->routine_id || ! Schema::hasTable('atlas_routines')) {
+        if (! $task->routine_id || ! DatabaseTableAvailability::has('atlas_routines')) {
             return null;
         }
 
@@ -273,7 +273,7 @@ class RoutineSchedulingService
      */
     public function recordEvent(AtlasRoutine $routine, string $eventType, array $payload = [], string $source = 'app'): ?AtlasRoutineEvent
     {
-        if (! Schema::hasTable('atlas_routine_events')) {
+        if (! DatabaseTableAvailability::has('atlas_routine_events')) {
             return null;
         }
 

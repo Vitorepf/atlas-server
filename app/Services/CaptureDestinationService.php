@@ -8,7 +8,7 @@ use App\Models\Capture;
 use App\Models\CaptureLink;
 use App\Models\SemanticCurationProposal;
 use App\Models\SemanticNote;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Validation\ValidationException;
 
 class CaptureDestinationService
@@ -353,7 +353,7 @@ class CaptureDestinationService
         }
         $project->save();
 
-        if (Schema::hasColumn('atlas_tasks', 'project_id')) {
+        if (DatabaseTableAvailability::hasColumn('atlas_tasks', 'project_id')) {
             AtlasTask::query()
                 ->where('project_id', $project->id)
                 ->whereIn('status', ['open', 'next', 'waiting'])
@@ -445,7 +445,7 @@ class CaptureDestinationService
 
     private function link(Capture $capture, string $targetType, ?string $targetId, ?string $targetTitle, array $metadata): ?CaptureLink
     {
-        if (! Schema::hasTable('capture_links')) {
+        if (! DatabaseTableAvailability::has('capture_links')) {
             return null;
         }
 
@@ -484,7 +484,7 @@ class CaptureDestinationService
     private function standaloneTaskForCapture(Capture $capture): AtlasTask
     {
         $query = AtlasTask::query()->where('source_capture_id', $capture->id);
-        if (Schema::hasColumn('atlas_tasks', 'project_id')) {
+        if (DatabaseTableAvailability::hasColumn('atlas_tasks', 'project_id')) {
             $query->whereNull('project_id');
         }
 

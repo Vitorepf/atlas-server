@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\AtlasMemoryEntry;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 /**
  * The operator's "prune from the Sunday digest" handle: ARCHIVE a memory entry the
@@ -23,7 +23,7 @@ class AtlasAiMemoryForgetCommand extends Command
 
     public function handle(): int
     {
-        if (! Schema::hasTable('atlas_memory_entries')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
             $this->warn('Table atlas_memory_entries unavailable — nothing to do.');
 
             return self::SUCCESS;

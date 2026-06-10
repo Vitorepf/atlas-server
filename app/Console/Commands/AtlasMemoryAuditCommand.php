@@ -5,7 +5,7 @@ namespace App\Console\Commands;
 use App\Models\AiTrace;
 use App\Services\Ai\AtlasMemoryUsageService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class AtlasMemoryAuditCommand extends Command
@@ -18,7 +18,7 @@ class AtlasMemoryAuditCommand extends Command
 
     public function handle(AtlasMemoryUsageService $usages): int
     {
-        if (! Schema::hasTable('atlas_memory_entry_usages')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entry_usages')) {
             $this->error('Tabela atlas_memory_entry_usages ainda nao existe. Rode migrations.');
 
             return self::FAILURE;

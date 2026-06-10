@@ -7,7 +7,7 @@ use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AtlasAiLedgerBackfillTracesCommand extends Command
 {
@@ -25,14 +25,14 @@ class AtlasAiLedgerBackfillTracesCommand extends Command
         $limit = max(1, min(500, (int) $this->option('limit')));
         $dryRun = (bool) $this->option('dry-run');
 
-        if (! Schema::hasTable('ai_traces') || ! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('ai_traces') || ! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return $this->render([
                 'status' => 'unavailable',
                 'schema_version' => 'atlas.ledger_trace_backfill.v1',
                 'available' => false,
                 'missing_tables' => array_values(array_filter([
-                    Schema::hasTable('ai_traces') ? null : 'ai_traces',
-                    Schema::hasTable('atlas_ledger_events') ? null : 'atlas_ledger_events',
+                    DatabaseTableAvailability::has('ai_traces') ? null : 'ai_traces',
+                    DatabaseTableAvailability::has('atlas_ledger_events') ? null : 'atlas_ledger_events',
                 ])),
                 'dry_run' => $dryRun,
                 'hours' => $hours,

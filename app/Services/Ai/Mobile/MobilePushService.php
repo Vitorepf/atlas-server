@@ -6,11 +6,11 @@ use App\Jobs\SendMobilePushJob;
 use App\Models\AiInboxItem;
 use App\Models\AtlasMobileDevice;
 use App\Models\MobilePushDelivery;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\AuditLogService;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 use Throwable;
 
@@ -649,10 +649,10 @@ class MobilePushService
      */
     private function missingPushTables(): array
     {
-        return array_values(array_filter([
-            Schema::hasTable('atlas_mobile_devices') ? null : 'atlas_mobile_devices',
-            Schema::hasTable('mobile_push_deliveries') ? null : 'mobile_push_deliveries',
-        ]));
+        return DatabaseTableAvailability::missing([
+            'atlas_mobile_devices',
+            'mobile_push_deliveries',
+        ]);
     }
 
     private function createDelivery(AtlasMobileDevice $device, AiInboxItem $item, string $status, array $payload): MobilePushDelivery

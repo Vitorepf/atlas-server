@@ -3,8 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Services\Ai\OperatorIntelligence\AtlasProjectStackLearner;
+use App\Services\Ai\Support\JsonFileStore;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\File;
 
 /**
  * "Atlas learns your projects, fast." Reads a project's real manifests + docs and records
@@ -67,10 +67,9 @@ class AtlasLearnProjectCommand extends Command
     private function persist(array $knowledge): string
     {
         $dir = storage_path('app/atlas/project-knowledge');
-        File::ensureDirectoryExists($dir);
         $slug = preg_replace('/[^a-z0-9_-]+/i', '-', (string) $knowledge['project_name']) ?: 'project';
         $path = $dir.'/'.strtolower($slug).'.json';
-        File::put($path, (string) json_encode($knowledge, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        JsonFileStore::write($path, $knowledge, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
         return $path;
     }

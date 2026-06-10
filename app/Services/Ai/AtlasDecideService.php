@@ -15,8 +15,8 @@ use App\Services\Ai\Programming\AtlasForgeProviderTopologyService;
 use App\Services\Ai\Provider\Drivers\ProviderDriverRegistry;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\ForgeLiveDecideReceiptPort;
 use App\Services\Ai\Surface\SurfaceAdapterRegistry;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\ValueObjects\OperationalDecision;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
@@ -960,7 +960,7 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
             return;
         }
 
-        if (! Schema::hasTable('atlas_projects')) {
+        if (! DatabaseTableAvailability::has('atlas_projects')) {
             return;
         }
 

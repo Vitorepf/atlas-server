@@ -5,7 +5,7 @@ namespace App\Console\Commands;
 use App\Models\AiLearningProposal;
 use App\Services\Ai\Compounding\AtlasLearningProposalApplier;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 /**
  * Apply (or reverse) an APPROVED learning proposal to runtime behaviour — the last
@@ -23,7 +23,7 @@ class AtlasApplyLearningCommand extends Command
 
     public function handle(AtlasLearningProposalApplier $applier): int
     {
-        if (! Schema::hasTable('ai_learning_proposals')) {
+        if (! DatabaseTableAvailability::has('ai_learning_proposals')) {
             $this->warn('Table ai_learning_proposals unavailable — nothing to apply.');
 
             return self::SUCCESS;

@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Services\Ai\Vox\Dogfood;
 
 use App\Models\AtlasVoxDogfoodSession;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Vox\VoxEvidenceService;
 use App\Services\Ai\Vox\VoxSchema;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
@@ -324,7 +324,7 @@ class VoxDogfoodService
     public function report(): array
     {
         $now = CarbonImmutable::now('UTC');
-        if (! Schema::hasTable('atlas_vox_dogfood_sessions')) {
+        if (! DatabaseTableAvailability::has('atlas_vox_dogfood_sessions')) {
             return $this->emptyReport($now);
         }
 

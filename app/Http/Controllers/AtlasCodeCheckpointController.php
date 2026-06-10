@@ -16,7 +16,7 @@ use App\Models\AtlasEngineeringEvidence;
 use App\Models\AtlasProject;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 /**
@@ -183,7 +183,7 @@ final class AtlasCodeCheckpointController extends Controller
      */
     private function persistEvidence(AtlasProject $project, array $checkpoint): ?AtlasEngineeringEvidence
     {
-        if (! Schema::hasTable('atlas_engineering_evidence')) {
+        if (! DatabaseTableAvailability::has('atlas_engineering_evidence')) {
             return null;
         }
 
@@ -216,7 +216,7 @@ final class AtlasCodeCheckpointController extends Controller
     private function onlyExistingColumns(string $table, array $values): array
     {
         return collect($values)
-            ->filter(fn (mixed $_, string $column): bool => Schema::hasColumn($table, $column))
+            ->filter(fn (mixed $_, string $column): bool => DatabaseTableAvailability::hasColumn($table, $column))
             ->all();
     }
 }

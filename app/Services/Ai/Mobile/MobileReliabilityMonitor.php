@@ -5,12 +5,12 @@ namespace App\Services\Ai\Mobile;
 use App\Models\AiInboxItem;
 use App\Models\AiJob;
 use App\Models\MobilePushDelivery;
-use App\Services\AuditLogService;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
+use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\AuditLogService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 class MobileReliabilityMonitor
@@ -164,7 +164,7 @@ class MobileReliabilityMonitor
             return $this->checkResult('performance_report_fresh', 'healthy', 'Emissao mobile do relatorio de performance desabilitada.', ['skipped' => true]);
         }
 
-        if (! Schema::hasTable('ai_inbox_items')) {
+        if (! DatabaseTableAvailability::has('ai_inbox_items')) {
             return $this->checkResult('performance_report_fresh', 'warning', 'Tabela de Inbox ausente para validar entrega do relatorio.', ['skipped' => true]);
         }
 
@@ -250,7 +250,7 @@ class MobileReliabilityMonitor
      */
     private function pushDegradedCheck(): array
     {
-        if (! Schema::hasTable('mobile_push_deliveries')) {
+        if (! DatabaseTableAvailability::has('mobile_push_deliveries')) {
             return $this->checkResult('push_degraded', 'healthy', 'Tabela de push ainda nao existe.', ['skipped' => true]);
         }
 
@@ -336,7 +336,7 @@ class MobileReliabilityMonitor
      */
     private function jobsSilentCheck(): array
     {
-        if (! Schema::hasTable('ai_jobs')) {
+        if (! DatabaseTableAvailability::has('ai_jobs')) {
             return $this->checkResult('jobs_silent', 'healthy', 'Tabela de jobs ainda nao existe.', ['skipped' => true]);
         }
 

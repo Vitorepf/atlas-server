@@ -7,7 +7,7 @@ use App\Models\OperatorLearningSignal;
 use App\Services\Ai\OperatorIntelligence\OperatorComprehensionExtractor;
 use App\Services\Ai\OperatorIntelligence\OperatorSignalCaptureService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 /**
  * The BATCH surface for the comprehension extractor — the smart place to run the LLM
@@ -37,7 +37,7 @@ class AtlasOperatorComprehendCommand extends Command
             return self::SUCCESS;
         }
         foreach (['ai_traces', 'operator_learning_signals'] as $t) {
-            if (! Schema::hasTable($t)) {
+            if (! DatabaseTableAvailability::has($t)) {
                 $this->warn('Table '.$t.' unavailable — nothing to do.');
 
                 return self::SUCCESS;
@@ -139,7 +139,7 @@ class AtlasOperatorComprehendCommand extends Command
     private function recentlyCaptured(string $operatorId, array $signal): bool
     {
         $taxonomy = (string) ($signal['taxonomy_item_id'] ?? '');
-        if ($taxonomy === '' || ! Schema::hasTable('operator_learning_signals')) {
+        if ($taxonomy === '' || ! DatabaseTableAvailability::has('operator_learning_signals')) {
             return false;
         }
 

@@ -7,7 +7,7 @@ namespace App\Http\Controllers;
 use App\Services\Ai\AtlasOpenBrainMcpService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -99,7 +99,7 @@ final class AtlasCodeBootController extends Controller
         // Best-effort: introspect ai_provider_health or similar without coupling.
         $available = 0;
         $degraded = 0;
-        if (Schema::hasTable('ai_provider_health')) {
+        if (DatabaseTableAvailability::has('ai_provider_health')) {
             try {
                 $available = (int) DB::table('ai_provider_health')->where('status', 'available')->count();
                 $degraded = (int) DB::table('ai_provider_health')->whereIn('status', ['degraded', 'rate_limited'])->count();
@@ -160,14 +160,14 @@ final class AtlasCodeBootController extends Controller
         $connection = (string) config('queue.default', 'database');
         $pending = 0;
         $failed = 0;
-        if (Schema::hasTable('jobs')) {
+        if (DatabaseTableAvailability::has('jobs')) {
             try {
                 $pending = (int) DB::table('jobs')->count();
             } catch (\Throwable) {
                 $pending = 0;
             }
         }
-        if (Schema::hasTable('failed_jobs')) {
+        if (DatabaseTableAvailability::has('failed_jobs')) {
             try {
                 $failed = (int) DB::table('failed_jobs')->count();
             } catch (\Throwable) {

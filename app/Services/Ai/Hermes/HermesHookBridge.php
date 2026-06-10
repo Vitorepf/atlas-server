@@ -4,9 +4,9 @@ namespace App\Services\Ai\Hermes;
 
 use App\Models\AiJob;
 use App\Models\HermesHookRegistration;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\AtlasSecurity;
 use Illuminate\Filesystem\Filesystem;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Symfony\Component\Yaml\Yaml;
 
@@ -210,7 +210,7 @@ class HermesHookBridge
 
         $this->stripManagedBlock($hermesHome);
 
-        if ($traceId !== null && Schema::hasTable('hermes_hook_registrations')) {
+        if ($traceId !== null && DatabaseTableAvailability::has('hermes_hook_registrations')) {
             HermesHookRegistration::query()
                 ->where('trace_id', $traceId)
                 ->where('active', true)
@@ -402,7 +402,7 @@ class HermesHookBridge
         string $hermesHome,
         string $receiptHash,
     ): void {
-        if (! Schema::hasTable('hermes_hook_registrations')) {
+        if (! DatabaseTableAvailability::has('hermes_hook_registrations')) {
             return;
         }
 

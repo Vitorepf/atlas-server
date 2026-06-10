@@ -6,7 +6,7 @@ use App\Services\Ai\Mobile\MobileReliabilityMonitor;
 use App\Services\Ai\Scheduling\AtlasCliSchedulerService;
 use App\Services\Ai\Scheduling\AtlasSchedulerInput;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AtlasSchedulerTickCommand extends Command
 {
@@ -20,7 +20,7 @@ class AtlasSchedulerTickCommand extends Command
 
     public function handle(AtlasCliSchedulerService $scheduler, AtlasSchedulerInput $input): int
     {
-        if (! Schema::hasTable('ai_scheduled_tasks')) {
+        if (! DatabaseTableAvailability::has('ai_scheduled_tasks')) {
             return $this->printPayload([
                 'ok' => false,
                 'error' => 'Tabela ai_scheduled_tasks ainda nao existe. Rode migrations.',

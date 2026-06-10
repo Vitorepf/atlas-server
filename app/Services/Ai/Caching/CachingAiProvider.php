@@ -421,7 +421,7 @@ final class CachingAiProvider implements AiProvider
 
     private function persistOutcomes(): bool
     {
-        // recordOutcome itself Schema::hasTable-guards every write, so even when
+        // recordOutcome itself table-availability-guards every write, so even when
         // persistence is requested it no-ops safely without the migration.
         return (bool) ($this->config['record_outcomes'] ?? true);
     }

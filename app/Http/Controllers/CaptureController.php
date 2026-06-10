@@ -13,7 +13,7 @@ use App\Services\CaptureDeletionService;
 use App\Services\CaptureService;
 use App\Services\Semantic\CurationProposalService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -26,7 +26,7 @@ class CaptureController extends Controller
         $since = $data['since'] ?? null;
 
         $query = Capture::query();
-        if (Schema::hasTable('capture_links')) {
+        if (DatabaseTableAvailability::has('capture_links')) {
             $query->with('links');
         }
 
@@ -183,7 +183,7 @@ class CaptureController extends Controller
 
     private function withDestinationLinks(Capture $capture): Capture
     {
-        if (Schema::hasTable('capture_links')) {
+        if (DatabaseTableAvailability::has('capture_links')) {
             $capture->load('links');
         }
 

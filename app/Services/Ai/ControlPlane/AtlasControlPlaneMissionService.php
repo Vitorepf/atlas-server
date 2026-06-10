@@ -4,7 +4,7 @@ namespace App\Services\Ai\ControlPlane;
 
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
 class AtlasControlPlaneMissionService
@@ -98,7 +98,7 @@ class AtlasControlPlaneMissionService
     public function snapshot(string $uuidOrId): ?array
     {
         $missionModel = '\\App\\Models\\AiMission';
-        if (! class_exists($missionModel) || ! Schema::hasTable('ai_missions')) {
+        if (! class_exists($missionModel) || ! DatabaseTableAvailability::has('ai_missions')) {
             return [
                 'component' => self::COMPONENT,
                 'status' => AtlasControlPlaneStatus::MISSING,
@@ -154,7 +154,7 @@ class AtlasControlPlaneMissionService
         $tables = [];
         $present = 0;
         foreach (self::REQUIRED_TABLES as $table) {
-            $exists = Schema::hasTable($table);
+            $exists = DatabaseTableAvailability::has($table);
             $tables[$table] = $exists;
             if ($exists) {
                 $present++;

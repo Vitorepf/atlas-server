@@ -2,6 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
+use App\Services\Ai\Support\JsonFileStore;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -65,7 +67,7 @@ class AtlasEngineeringVisualBaselineCommand extends Command
             ? collect(File::files($root))
                 ->filter(fn ($file): bool => $file->getExtension() === 'json')
                 ->map(function ($file): ?array {
-                    $decoded = json_decode(File::get($file->getPathname()), true);
+                    $decoded = JsonFileStore::readArray($file->getPathname());
 
                     return is_array($decoded) ? array_merge($decoded, [
                         'baseline_file' => $file->getFilename(),
@@ -100,7 +102,7 @@ class AtlasEngineeringVisualBaselineCommand extends Command
             ];
         }
 
-        $manifest = json_decode(File::get($manifestPath), true);
+        $manifest = JsonFileStore::readArray($manifestPath);
         if (! is_array($manifest)) {
             return [
                 'status' => 'failed',
@@ -121,7 +123,7 @@ class AtlasEngineeringVisualBaselineCommand extends Command
             $routePath = (string) $route['route'];
             $bodyHash = (string) $route['body_hash'];
             $baselinePath = $root.'/'.$this->routeSlug($routePath).'.json';
-            $previous = File::isFile($baselinePath) ? json_decode(File::get($baselinePath), true) : null;
+            $previous = JsonFileStore::readArray($baselinePath);
             $previousHash = is_array($previous) ? (string) ($previous['body_hash'] ?? '') : null;
             $screenshotHash = is_string(data_get($route, 'screenshot.sha256')) ? (string) data_get($route, 'screenshot.sha256') : null;
             $previousScreenshotHash = is_array($previous) ? (string) ($previous['screenshot_sha256'] ?? '') : null;
@@ -151,8 +153,7 @@ class AtlasEngineeringVisualBaselineCommand extends Command
             ];
 
             if (! $dryRun) {
-                File::ensureDirectoryExists($root);
-                File::put($baselinePath, json_encode($baseline, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+                JsonFileStore::write($baselinePath, $baseline, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
                 if ($screenshotArtifact !== null) {
                     $sourceScreenshot = $this->manifestArtifactPath($manifestPath, (string) ($manifest['artifact_dir'] ?? null), $screenshotArtifact);
                     if ($sourceScreenshot !== null && File::isFile($sourceScreenshot)) {
@@ -241,8 +242,7 @@ class AtlasEngineeringVisualBaselineCommand extends Command
      */
     private function appendAuditEvent(string $root, array $event): void
     {
-        File::ensureDirectoryExists($root);
-        File::append($this->historyPath($root), json_encode($event, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        AppendOnlyJsonlStore::appendUsingFilePutContents($this->historyPath($root), $event, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
     /**

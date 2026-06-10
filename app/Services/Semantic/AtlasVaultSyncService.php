@@ -6,11 +6,11 @@ use App\Models\AtlasVaultSyncItem;
 use App\Models\SemanticCurationProposal;
 use App\Models\SemanticNote;
 use App\Services\Ai\AtlasMemorySourcePrivacyPolicy;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\AuditLogService;
 use App\Support\Metadata;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -286,7 +286,7 @@ class AtlasVaultSyncService
      */
     public function queueSummary(): array
     {
-        if (! Schema::hasTable('atlas_vault_sync_items')) {
+        if (! DatabaseTableAvailability::has('atlas_vault_sync_items')) {
             return [
                 'migrated' => false,
                 'total' => 0,
@@ -627,7 +627,7 @@ class AtlasVaultSyncService
 
     private function recordItem(array $attributes): ?AtlasVaultSyncItem
     {
-        if (! Schema::hasTable('atlas_vault_sync_items')) {
+        if (! DatabaseTableAvailability::has('atlas_vault_sync_items')) {
             return null;
         }
 
@@ -647,7 +647,7 @@ class AtlasVaultSyncService
      */
     private function syncItems(): Builder
     {
-        if (! Schema::hasTable('atlas_vault_sync_items')) {
+        if (! DatabaseTableAvailability::has('atlas_vault_sync_items')) {
             throw new RuntimeException('atlas_vault_sync_items table is not migrated.');
         }
 

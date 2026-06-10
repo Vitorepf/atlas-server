@@ -1,0 +1,47 @@
+{
+  "$comment": "Atlas Open Brain Gateway (AOBG) hooks — the brain reaches Claude Code through four seams. UserPromptSubmit (N1.F4) injects the unified context pack for the operator's PROMPT; PreToolUse (N2.F2) is the SENTINEL — it checks a proposed Edit/Write BEFORE it lands and warns (advisory, default) or — only when the operator armed atlas.aobg.guard.block_enabled AND the violation is highest-confidence — denies; PostToolUse (N2.F1) injects the brain-delta for the FILE the engine just touched; Stop (N2.F3) is STRUCTURAL capture — when the session ENDS it distils the transcript (touched files + outcome + explicit learnings) and feeds the brain via the governed write-back (provider-safe node, never a merge; learnings land pending_review, never auto-applied) so the session feeds the brain AUTOMATICALLY, not voluntarily. All are best-effort, provider-bound, read-only-to-the-provider, fail-OPEN (a brain outage degrades the hint / never blocks or stalls a session) and cost-free (local DB only, zero provider spend; capture distils deterministically with no LLM call). The guard is advisory-by-default: a false block bricks the session, so block is OPT-IN. ASYMMETRY (honest): these rich hooks (incl. PreToolUse deny + Stop capture) are a Claude-Code capability; Codex/Cursor reach the same brain only via the MCP-tool/CLI subset in .mcp.json (callable, not auto-fired, cannot deny a tool call or auto-capture at session end).",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-ctx.sh"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-pretooluse-guard.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Read|Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-postedit-context.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-session-capture.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

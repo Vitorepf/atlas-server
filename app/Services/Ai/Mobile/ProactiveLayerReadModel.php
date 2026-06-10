@@ -6,9 +6,9 @@ use App\Models\AiInboxItem;
 use App\Models\AtlasInitiativeRun;
 use App\Models\AtlasMobileDevice;
 use App\Models\MobilePushDelivery;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 
 class ProactiveLayerReadModel
 {
@@ -79,10 +79,10 @@ class ProactiveLayerReadModel
     private function tables(): array
     {
         return [
-            'atlas_initiative_runs' => Schema::hasTable('atlas_initiative_runs'),
-            'ai_inbox_items' => Schema::hasTable('ai_inbox_items'),
-            'atlas_mobile_devices' => Schema::hasTable('atlas_mobile_devices'),
-            'mobile_push_deliveries' => Schema::hasTable('mobile_push_deliveries'),
+            'atlas_initiative_runs' => DatabaseTableAvailability::has('atlas_initiative_runs'),
+            'ai_inbox_items' => DatabaseTableAvailability::has('ai_inbox_items'),
+            'atlas_mobile_devices' => DatabaseTableAvailability::has('atlas_mobile_devices'),
+            'mobile_push_deliveries' => DatabaseTableAvailability::has('mobile_push_deliveries'),
         ];
     }
 

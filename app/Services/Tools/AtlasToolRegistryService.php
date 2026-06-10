@@ -4,9 +4,9 @@ namespace App\Services\Tools;
 
 use App\Models\AtlasToolDefinition;
 use App\Models\AtlasToolInstallation;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Process\ExecutableFinder;
 use Symfony\Component\Process\Process;
 
@@ -16,7 +16,7 @@ class AtlasToolRegistryService
 
     public function syncSeedDefinitions(): int
     {
-        if (! Schema::hasTable('atlas_tool_definitions')) {
+        if (! DatabaseTableAvailability::has('atlas_tool_definitions')) {
             return 0;
         }
 
@@ -140,7 +140,7 @@ class AtlasToolRegistryService
             'install_hint' => $this->installHint($definition->slug),
         ];
 
-        if (Schema::hasTable('atlas_tool_installations')) {
+        if (DatabaseTableAvailability::has('atlas_tool_installations')) {
             AtlasToolInstallation::query()->updateOrCreate(
                 [
                     'tool_definition_id' => $definition->id,
@@ -252,12 +252,12 @@ class AtlasToolRegistryService
      */
     private function definitionForSchema(array $definition): array
     {
-        if (! Schema::hasTable('atlas_tool_definitions')) {
+        if (! DatabaseTableAvailability::has('atlas_tool_definitions')) {
             return $definition;
         }
 
         return collect($definition)
-            ->filter(fn (mixed $_, string $column): bool => $column === 'slug' || Schema::hasColumn('atlas_tool_definitions', $column))
+            ->filter(fn (mixed $_, string $column): bool => $column === 'slug' || DatabaseTableAvailability::hasColumn('atlas_tool_definitions', $column))
             ->all();
     }
 

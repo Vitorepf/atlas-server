@@ -10,7 +10,7 @@ use App\Services\Engineering\CodeGraph\CodeGraphSymbolBuilder;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceModelResolver;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 /**
@@ -142,7 +142,7 @@ class AtlasCodeGraphBuildCommand extends Command
         $workspaceId = $this->resolvedWorkspaceId() ?? app(CodeGraphWorkspaceIdentity::class)->default();
         $modules = AtlasEngineeringCodeModule::query()
             ->whereNotNull('root_path')
-            ->when(Schema::hasColumn('atlas_engineering_code_modules', 'workspace_id'), fn ($q) => $q->where('workspace_id', $workspaceId))
+            ->when(DatabaseTableAvailability::hasColumn('atlas_engineering_code_modules', 'workspace_id'), fn ($q) => $q->where('workspace_id', $workspaceId))
             ->get(['slug', 'root_path']);
 
         if ($modules->isEmpty()) {

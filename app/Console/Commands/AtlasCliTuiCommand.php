@@ -8,7 +8,7 @@ use App\Models\AiTrace;
 use App\Services\Ai\Cli\AtlasCliDashboardService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class AtlasCliTuiCommand extends Command
@@ -275,7 +275,7 @@ class AtlasCliTuiCommand extends Command
     private function permissionsPanel(string $workspace): array
     {
         $lines = [$this->title('5 Permissoes')];
-        if (! Schema::hasTable('ai_permission_sessions')) {
+        if (! DatabaseTableAvailability::has('ai_permission_sessions')) {
             return [...$lines, 'Tabela ai_permission_sessions indisponivel. Rode migrations.'];
         }
 
@@ -306,7 +306,7 @@ class AtlasCliTuiCommand extends Command
     private function memoryPanel(): array
     {
         $lines = [$this->title('6 Memoria')];
-        if (! Schema::hasTable('ai_memory_deltas')) {
+        if (! DatabaseTableAvailability::has('ai_memory_deltas')) {
             return [...$lines, 'Tabela ai_memory_deltas indisponivel. Rode migrations.'];
         }
 
@@ -336,7 +336,7 @@ class AtlasCliTuiCommand extends Command
     private function tracesPanel(): array
     {
         $lines = [$this->title('7 Traces')];
-        if (! Schema::hasTable('ai_traces')) {
+        if (! DatabaseTableAvailability::has('ai_traces')) {
             return [...$lines, 'Tabela ai_traces indisponivel.'];
         }
 
@@ -358,7 +358,7 @@ class AtlasCliTuiCommand extends Command
 
     private function approveWriteSession(string $workspace): string
     {
-        if (! Schema::hasTable('ai_permission_sessions')) {
+        if (! DatabaseTableAvailability::has('ai_permission_sessions')) {
             return 'Nao foi possivel aprovar: tabela ai_permission_sessions indisponivel.';
         }
 
@@ -378,7 +378,7 @@ class AtlasCliTuiCommand extends Command
 
     private function revokePermissionSessions(string $workspace): string
     {
-        if (! Schema::hasTable('ai_permission_sessions')) {
+        if (! DatabaseTableAvailability::has('ai_permission_sessions')) {
             return 'Nada revogado: tabela ai_permission_sessions indisponivel.';
         }
 

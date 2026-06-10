@@ -15,7 +15,7 @@ use App\Services\Ai\Programming\AtlasForgeLiveExecutionService;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -582,7 +582,7 @@ final class AtlasCodeForgeExecutionController extends Controller
 
     private function governedTaskContractForProject(AtlasProject $project, string $executionStatus): ?array
     {
-        if (! Schema::hasTable('atlas_programming_work_items')) {
+        if (! DatabaseTableAvailability::has('atlas_programming_work_items')) {
             return null;
         }
 
@@ -674,7 +674,7 @@ final class AtlasCodeForgeExecutionController extends Controller
      */
     private function persistRun(AtlasProject $project, array $report, array $snapshot): ?AtlasEngineeringRun
     {
-        if (! Schema::hasTable('atlas_engineering_runs')) {
+        if (! DatabaseTableAvailability::has('atlas_engineering_runs')) {
             return null;
         }
 
@@ -726,7 +726,7 @@ final class AtlasCodeForgeExecutionController extends Controller
         array $snapshot,
         mixed $runId,
     ): ?AtlasEngineeringEvidence {
-        if (! Schema::hasTable('atlas_engineering_evidence')) {
+        if (! DatabaseTableAvailability::has('atlas_engineering_evidence')) {
             return null;
         }
 
@@ -1006,8 +1006,8 @@ final class AtlasCodeForgeExecutionController extends Controller
 
         $evidenceId = $historyEntry['evidence_id'] ?? null;
         if (! $evidenceId
-            || ! Schema::hasTable('atlas_engineering_evidence')
-            || ! Schema::hasColumn('atlas_engineering_evidence', 'metadata')
+            || ! DatabaseTableAvailability::has('atlas_engineering_evidence')
+            || ! DatabaseTableAvailability::hasColumn('atlas_engineering_evidence', 'metadata')
         ) {
             return null;
         }
@@ -1661,7 +1661,7 @@ final class AtlasCodeForgeExecutionController extends Controller
     private function onlyExistingColumns(string $table, array $values): array
     {
         return collect($values)
-            ->filter(fn (mixed $_, string $column): bool => Schema::hasColumn($table, $column))
+            ->filter(fn (mixed $_, string $column): bool => DatabaseTableAvailability::hasColumn($table, $column))
             ->all();
     }
 

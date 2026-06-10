@@ -30,9 +30,9 @@ final class RepoVaultReader
         }
 
         $index = [];
-        foreach ($this->walkMd($root) as $absolutePath) {
-            $content = @file_get_contents($absolutePath);
-            if ($content === false) {
+        foreach (MarkdownVaultFiles::walk($root) as $absolutePath) {
+            $content = MarkdownVaultFiles::read($absolutePath);
+            if ($content === null) {
                 continue;
             }
             $parsed = $this->parser->parse($content);
@@ -44,7 +44,7 @@ final class RepoVaultReader
                 'path' => $absolutePath,
                 'relative_path' => $this->relativeToBase($absolutePath),
                 'frontmatter' => $parsed['frontmatter'],
-                'mtime' => @filemtime($absolutePath) ?: 0,
+                'mtime' => MarkdownVaultFiles::modifiedAt($absolutePath),
                 'exists' => true,
             ];
 
@@ -74,8 +74,8 @@ final class RepoVaultReader
             return null;
         }
         $entry = $index[$graphId];
-        $content = @file_get_contents($entry['path']);
-        if ($content === false) {
+        $content = MarkdownVaultFiles::read($entry['path']);
+        if ($content === null) {
             return null;
         }
         $parsed = $this->parser->parse($content);
@@ -87,20 +87,6 @@ final class RepoVaultReader
             'relative_path' => $entry['relative_path'],
             'mtime' => $entry['mtime'],
         ];
-    }
-
-    /** @return \Generator<int, string> */
-    private function walkMd(string $dir): \Generator
-    {
-        $rii = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::SELF_FIRST
-        );
-        foreach ($rii as $file) {
-            if ($file->isFile() && strtolower($file->getExtension()) === 'md') {
-                yield $file->getPathname();
-            }
-        }
     }
 
     private function relativeToBase(string $absolutePath): string

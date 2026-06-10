@@ -13,12 +13,12 @@ use App\Services\Ai\Runtime\AiToolRuntime;
 use App\Services\Ai\Runtime\ToolInvocation;
 use App\Services\Ai\Runtime\WorkspaceProfile;
 use App\Services\Ai\Runtime\WorkspaceProfiler;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Tools\AtlasToolEvidenceStore;
 use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class EngineeringTestMatrixService
@@ -46,7 +46,7 @@ class EngineeringTestMatrixService
         bool $autoTest = false,
         array $options = [],
     ): Collection {
-        if (! Schema::hasTable('atlas_engineering_test_cases')) {
+        if (! DatabaseTableAvailability::has('atlas_engineering_test_cases')) {
             return collect();
         }
 
@@ -148,7 +148,7 @@ class EngineeringTestMatrixService
         bool $approved = true,
         array $options = [],
     ): Collection {
-        if (! Schema::hasTable('atlas_engineering_test_runs')) {
+        if (! DatabaseTableAvailability::has('atlas_engineering_test_runs')) {
             return collect();
         }
 
@@ -458,7 +458,7 @@ class EngineeringTestMatrixService
      */
     private function recordVisualSmokeToolEvidence(AtlasEngineeringRun $run, string $workspace, array $artifactResult, array $caseMetadata): void
     {
-        if (! is_array($caseMetadata['visual_e2e'] ?? null) || ! Schema::hasTable('atlas_tool_runs')) {
+        if (! is_array($caseMetadata['visual_e2e'] ?? null) || ! DatabaseTableAvailability::has('atlas_tool_runs')) {
             return;
         }
 
@@ -528,7 +528,7 @@ class EngineeringTestMatrixService
      */
     private function recordQualityScanToolEvidence(AtlasEngineeringRun $run, string $workspace, ?array $qualityScanResult): void
     {
-        if ($qualityScanResult === null || ! Schema::hasTable('atlas_tool_runs')) {
+        if ($qualityScanResult === null || ! DatabaseTableAvailability::has('atlas_tool_runs')) {
             return;
         }
 
@@ -1056,7 +1056,7 @@ class EngineeringTestMatrixService
 
     private function controlForSlug(mixed $slug): ?AtlasEngineeringControl
     {
-        if (! is_string($slug) || $slug === '' || ! Schema::hasTable('atlas_engineering_controls')) {
+        if (! is_string($slug) || $slug === '' || ! DatabaseTableAvailability::has('atlas_engineering_controls')) {
             return null;
         }
 

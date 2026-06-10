@@ -6,7 +6,7 @@ use App\Console\Commands\Support\AtlasCliLimitInput;
 use App\Models\AiToolEvent;
 use App\Models\AiTrace;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class AtlasCliTraceCommand extends Command
@@ -225,7 +225,7 @@ class AtlasCliTraceCommand extends Command
      */
     private function toolEvents(AiTrace $trace): array
     {
-        if (! Schema::hasTable('ai_tool_events')) {
+        if (! DatabaseTableAvailability::has('ai_tool_events')) {
             return [];
         }
 

@@ -7,7 +7,7 @@ use App\Services\Ai\Telemetry\AiTelemetryPerformanceReportService;
 use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AiReportEngineRunCommand extends Command
 {
@@ -33,7 +33,7 @@ class AiReportEngineRunCommand extends Command
             return $this->replay(trim($replay));
         }
 
-        if (! Schema::hasTable('ai_trace_metric_summaries')) {
+        if (! DatabaseTableAvailability::has('ai_trace_metric_summaries')) {
             $this->error('ai_trace_metric_summaries table is missing. Run php artisan migrate.');
 
             return self::FAILURE;
@@ -100,7 +100,7 @@ class AiReportEngineRunCommand extends Command
 
     private function replay(string $runId): int
     {
-        if (! Schema::hasTable('ai_performance_report_runs')) {
+        if (! DatabaseTableAvailability::has('ai_performance_report_runs')) {
             $this->error('ai_performance_report_runs table is missing. Run php artisan migrate.');
 
             return self::FAILURE;

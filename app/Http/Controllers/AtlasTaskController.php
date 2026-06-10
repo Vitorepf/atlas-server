@@ -23,7 +23,7 @@ use App\Services\TaskPlanningService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -133,7 +133,7 @@ class AtlasTaskController extends Controller
         $metadata = is_array($task->metadata) ? $task->metadata : [];
         $evidenceHistory = $artifacts->evidenceHistory($task);
         $harnessRuns = [];
-        if (Schema::hasTable('atlas_engineering_runs')) {
+        if (DatabaseTableAvailability::has('atlas_engineering_runs')) {
             $harnessRuns = AtlasEngineeringRun::query()
                 ->where('task_id', $task->id)
                 ->with(['attempts', 'patchArtifacts', 'controlResults', 'testRuns', 'reviewFindings'])
@@ -145,7 +145,7 @@ class AtlasTaskController extends Controller
                 ->all();
         }
         $benchmarkCases = [];
-        if (Schema::hasTable('atlas_engineering_benchmark_cases')) {
+        if (DatabaseTableAvailability::has('atlas_engineering_benchmark_cases')) {
             $benchmarkCases = AtlasEngineeringBenchmarkCase::query()
                 ->where('task_id', $task->id)
                 ->with('suite')
@@ -168,7 +168,7 @@ class AtlasTaskController extends Controller
                 ->all();
         }
         $benchmarkResults = [];
-        if (Schema::hasTable('atlas_engineering_benchmark_results')) {
+        if (DatabaseTableAvailability::has('atlas_engineering_benchmark_results')) {
             $benchmarkResults = AtlasEngineeringBenchmarkResult::query()
                 ->where('task_id', $task->id)
                 ->with(['benchmarkRun', 'benchmarkCase.suite'])
@@ -194,7 +194,7 @@ class AtlasTaskController extends Controller
         }
 
         $events = [];
-        if (Schema::hasTable('atlas_task_events')) {
+        if (DatabaseTableAvailability::has('atlas_task_events')) {
             $events = AtlasTaskEventResource::collection(
                 $task->events()
                     ->whereIn('event_type', ['engineering_dev_run_completed', 'engineering_evidence_recorded'])

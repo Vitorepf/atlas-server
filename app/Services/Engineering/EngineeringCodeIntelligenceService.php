@@ -6,6 +6,7 @@ use App\Models\AtlasEngineeringCodeModule;
 use App\Models\AtlasEngineeringCodeSymbol;
 use App\Models\AtlasEngineeringDocLink;
 use App\Models\AtlasEngineeringKnowledgeItem;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use App\Services\Tools\AtlasToolEvidenceStore;
 use Illuminate\Database\Eloquent\Builder;
@@ -13,7 +14,6 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use PhpParser\Node;
 use PhpParser\Node\Expr\ClassConstFetch;
@@ -72,7 +72,7 @@ class EngineeringCodeIntelligenceService
      */
     private function workspaceKeyed(string $table = 'atlas_engineering_code_symbols'): bool
     {
-        return $this->workspaceColumnCache[$table] ??= Schema::hasColumn($table, 'workspace_id');
+        return $this->workspaceColumnCache[$table] ??= DatabaseTableAvailability::hasColumn($table, 'workspace_id');
     }
 
     /**
@@ -1189,8 +1189,8 @@ class EngineeringCodeIntelligenceService
     {
         return $this->snapshotMtimeSupported ??= (
             $this->fileSnapshotsTableExists()
-            && Schema::hasColumn('atlas_engineering_code_file_snapshots', 'mtime')
-            && Schema::hasColumn('atlas_engineering_code_file_snapshots', 'file_hash')
+            && DatabaseTableAvailability::hasColumn('atlas_engineering_code_file_snapshots', 'mtime')
+            && DatabaseTableAvailability::hasColumn('atlas_engineering_code_file_snapshots', 'file_hash')
         );
     }
 
@@ -1292,7 +1292,7 @@ class EngineeringCodeIntelligenceService
 
     private function fileSnapshotsTableExists(): bool
     {
-        return Schema::hasTable('atlas_engineering_code_file_snapshots');
+        return DatabaseTableAvailability::has('atlas_engineering_code_file_snapshots');
     }
 
     /**
@@ -2602,7 +2602,7 @@ class EngineeringCodeIntelligenceService
 
     private function syncDocLinks(string $workspace, bool $prune): int
     {
-        if (! Schema::hasTable('atlas_engineering_knowledge_items')) {
+        if (! DatabaseTableAvailability::has('atlas_engineering_knowledge_items')) {
             return 0;
         }
 
@@ -3367,9 +3367,11 @@ class EngineeringCodeIntelligenceService
 
     private function tablesExist(): bool
     {
-        return Schema::hasTable('atlas_engineering_code_modules')
-            && Schema::hasTable('atlas_engineering_code_symbols')
-            && Schema::hasTable('atlas_engineering_doc_links');
+        return DatabaseTableAvailability::all([
+            'atlas_engineering_code_modules',
+            'atlas_engineering_code_symbols',
+            'atlas_engineering_doc_links',
+        ]);
     }
 
     private function workspace(mixed $workspace): string

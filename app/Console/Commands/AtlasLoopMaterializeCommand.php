@@ -5,7 +5,7 @@ namespace App\Console\Commands;
 use App\Models\AtlasLoopProposal;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProposalMaterializer;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 /**
  * Materialize a certified loop proposal's diff into an isolated workspace so the
@@ -23,7 +23,7 @@ class AtlasLoopMaterializeCommand extends Command
 
     public function handle(AtlasLoopProposalMaterializer $materializer): int
     {
-        if (! Schema::hasTable('atlas_loop_proposals')) {
+        if (! DatabaseTableAvailability::has('atlas_loop_proposals')) {
             $this->warn('Table atlas_loop_proposals unavailable — nothing to materialize.');
 
             return self::SUCCESS;

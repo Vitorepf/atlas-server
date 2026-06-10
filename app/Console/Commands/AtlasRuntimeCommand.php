@@ -10,7 +10,7 @@ use App\Services\Ai\Runtime\ToolResult;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspacePathResolverService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class AtlasRuntimeCommand extends Command
@@ -305,7 +305,7 @@ class AtlasRuntimeCommand extends Command
     private function rememberApprovalIfRequested(ToolInvocation $invocation): void
     {
         $duration = $this->option('remember');
-        if (! is_string($duration) || $duration === '' || ! Schema::hasTable('ai_permission_sessions')) {
+        if (! is_string($duration) || $duration === '' || ! DatabaseTableAvailability::has('ai_permission_sessions')) {
             return;
         }
 

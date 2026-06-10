@@ -14,12 +14,12 @@ use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspacePathResolverService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Tools\AtlasToolGateService;
 use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
@@ -1544,7 +1544,7 @@ class EngineeringHarnessRunnerService
     private function providerRunsFromTrace(array $providerRun): Collection
     {
         $traceId = $this->uuidOrNull($this->providerTraceId($providerRun));
-        if ($traceId === null || ! Schema::hasTable('ai_traces') || ! Schema::hasTable('ai_jobs')) {
+        if ($traceId === null || ! DatabaseTableAvailability::all(['ai_traces', 'ai_jobs'])) {
             return collect();
         }
 

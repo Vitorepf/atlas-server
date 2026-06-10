@@ -12,7 +12,7 @@ use App\Models\AtlasOpenBrainAccessLog;
 use App\Services\Ai\AtlasOpenBrainMcpService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 /**
  * Atlas Code · MCP pill status contract.
@@ -94,7 +94,7 @@ final class AtlasCodeMcpStatusController extends Controller
 
     private function docsIndexed(): int
     {
-        if (! Schema::hasTable('engineering_knowledge_documents')) {
+        if (! DatabaseTableAvailability::has('engineering_knowledge_documents')) {
             return 0;
         }
         try {
@@ -106,7 +106,7 @@ final class AtlasCodeMcpStatusController extends Controller
 
     private function symbolsIndexed(): int
     {
-        if (! Schema::hasTable('engineering_code_symbols')) {
+        if (! DatabaseTableAvailability::has('engineering_code_symbols')) {
             return 0;
         }
         try {
@@ -121,7 +121,7 @@ final class AtlasCodeMcpStatusController extends Controller
      */
     private function lastCall(): ?array
     {
-        if (! Schema::hasTable('atlas_open_brain_access_logs')) {
+        if (! DatabaseTableAvailability::has('atlas_open_brain_access_logs')) {
             return null;
         }
         try {

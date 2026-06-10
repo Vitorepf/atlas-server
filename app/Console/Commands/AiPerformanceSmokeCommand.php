@@ -8,7 +8,7 @@ use App\Services\Ai\Telemetry\AiTelemetryPerformanceReportService;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
 class AiPerformanceSmokeCommand extends Command
@@ -38,7 +38,7 @@ class AiPerformanceSmokeCommand extends Command
         try {
             $requiredTables = $this->requiredTables();
             $tables = collect($requiredTables)
-                ->mapWithKeys(fn (string $table): array => [$table => Schema::hasTable($table)])
+                ->mapWithKeys(fn (string $table): array => [$table => DatabaseTableAvailability::has($table)])
                 ->all();
         } catch (Throwable $e) {
             return $this->outputPayload([
@@ -141,7 +141,7 @@ class AiPerformanceSmokeCommand extends Command
             }
         }
 
-        $dueRecommendations = Schema::hasTable('ai_performance_recommendations')
+        $dueRecommendations = DatabaseTableAvailability::has('ai_performance_recommendations')
             ? AiPerformanceRecommendation::query()
                 ->where('state', 'applied')
                 ->whereNotNull('measurement_due_at')
@@ -250,7 +250,7 @@ class AiPerformanceSmokeCommand extends Command
     private function safeTableCount(string $table): int
     {
         try {
-            return Schema::hasTable($table) ? (int) DB::table($table)->count() : 0;
+            return DatabaseTableAvailability::has($table) ? (int) DB::table($table)->count() : 0;
         } catch (Throwable) {
             return -1;
         }

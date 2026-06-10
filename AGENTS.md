@@ -76,6 +76,8 @@ Quando NÃO houver MCP, o mesmo cérebro está na CLI: `bin/atlas open-brain mcp
 
 **Write-back (registrar o que você fez) é GOVERNADO:** sua saída é entrada NÃO-CONFIÁVEL para o cérebro. Use `atlas_record_outcome` (AOBG N1.F2) para registrar arquivos tocados / ref de mission / resultado. Ele passa pelo capture quality gate + provider-safety, grava sempre em BRANCH, **NUNCA faz merge para main** e **NUNCA auto-promove** — vira proposta para revisão humana. Não tente burlar o gate nem escrever direto na memória.
 
+**Cérebro ATIVO que SEGUE a tarefa (AOBG N2.F1):** além da porta de entrada por prompt, o cérebro intervém DURANTE a sessão. `php artisan atlas:aobg:file-context "<path>" --json` (ou o tool MCP equivalente) devolve o brain-delta de UM arquivo: decisões/missions (paths AURG) que tocam o módulo dele, memórias provider-safe que o referenciam e quem o consome (vizinhos do code-graph). Mesmas garantias do pack N1 (provider-bound, multi-projeto auto-escopado, honesto top-K, read-only, fail-open, custo zero). **Assimetria honesta (não "paridade"):** no Claude Code o hook `PostToolUse` (`.claude/hooks/atlas-postedit-context.sh`) dispara isto automaticamente ao abrir/editar um arquivo — "este arquivo é governado pela decisão X; mission Y aqui falhou por Z; consumido por W". Codex/Cursor NÃO têm esses hooks ricos: vocês alcançam o MESMO cérebro só pelo subconjunto de tools MCP (chamável sob demanda, não auto-disparado). Chame o tool ao começar a mexer num arquivo desconhecido.
+
 ### Atlas Self-Construction OS
 
 Quando a tarefa do usuário for continuar a implementação do Atlas Self-Construction OS, especialmente para trabalho paralelo entre várias sessões Codex, a primeira ação operacional deve ser reivindicar um pacote governado:

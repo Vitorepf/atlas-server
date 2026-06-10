@@ -9,10 +9,10 @@ use App\Models\AtlasEngineeringCodeSymbol;
 use App\Models\AtlasSoftwareTwinSnapshot;
 use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
 use App\Services\Ai\Aaeos\AtlasDocsAuthorityGraphService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 use SplFileInfo;
 
 // Intentionally NOT final: this read-only predictive service is designed to be
@@ -244,7 +244,7 @@ class AtlasSoftwareTwinRuntimeService
         // Capability/governs overlap needs the authority-graph read model. If it is
         // unbuilt we cannot prove "no overlap" — fail SAFE (degraded) rather than
         // report a false clean.
-        $graphReady = Schema::hasTable('atlas_docs_authority_graph')
+        $graphReady = DatabaseTableAvailability::has('atlas_docs_authority_graph')
             && AtlasDocsAuthorityGraph::query()->limit(1)->exists();
         $degraded = $needles !== [] && ! $graphReady;
 
@@ -356,7 +356,7 @@ class AtlasSoftwareTwinRuntimeService
                 'symbol_collisions' => [],
             ];
         }
-        if (! Schema::hasTable('atlas_engineering_code_symbols')) {
+        if (! DatabaseTableAvailability::has('atlas_engineering_code_symbols')) {
             // Fail-SAFE: the symbol index is a read model built by a separate sync
             // step. If it is absent we CANNOT prove the symbol is new, so we never
             // claim "clean" — the verdict degrades to needs_review.
@@ -698,7 +698,7 @@ class AtlasSoftwareTwinRuntimeService
         ];
         $payload['snapshot_hash'] = MissionCanonicalHash::sha256($payload);
 
-        if (Schema::hasTable('atlas_software_twin_snapshots')) {
+        if (DatabaseTableAvailability::has('atlas_software_twin_snapshots')) {
             $record = AtlasSoftwareTwinSnapshot::query()->create($payload);
             $payload['snapshot_id'] = (string) $record->id;
             $payload['writes'] = true;

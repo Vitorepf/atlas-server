@@ -10,7 +10,7 @@ use App\Services\Ai\Compounding\AtlasLearningProposalApplier;
 use App\Services\Ai\Compounding\AtlasLearningProposalService;
 use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
 use App\Services\Ai\Policy\PolicyCanon;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
 /**
@@ -226,10 +226,6 @@ final class AtlasAutonomousLearningApplier
 
     private function tableReady(string $table): bool
     {
-        try {
-            return Schema::hasTable($table);
-        } catch (Throwable) {
-            return false;
-        }
+        return DatabaseTableAvailability::has($table);
     }
 }

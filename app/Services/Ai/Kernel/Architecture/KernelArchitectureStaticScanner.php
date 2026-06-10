@@ -5709,7 +5709,7 @@ class KernelArchitectureStaticScanner
         foreach ([
             "'emitted_inbox_item_hydration_available' => \$hydrationAvailable",
             "'emitted_inbox_item_missing_ids' => \$missingIds",
-            "'emitted_inbox_item_hydration_available' => Schema::hasTable('ai_inbox_items')",
+            "'emitted_inbox_item_hydration_available' => DatabaseTableAvailability::has('ai_inbox_items')",
             "'emitted_inbox_item_missing_ids' => \$missingInboxItemIds",
         ] as $token) {
             if (! str_contains($replay, $token)) {

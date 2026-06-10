@@ -3,7 +3,7 @@
 namespace App\Services\Ai\ControlPlane;
 
 use Illuminate\Contracts\Container\Container;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
 class AtlasControlPlaneEvidenceService
@@ -137,7 +137,7 @@ class AtlasControlPlaneEvidenceService
         $tables = [];
         $present = 0;
         foreach (self::REQUIRED_TABLES as $table) {
-            $exists = Schema::hasTable($table);
+            $exists = DatabaseTableAvailability::has($table);
             $tables[$table] = $exists;
             if ($exists) {
                 $present++;

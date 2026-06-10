@@ -9,9 +9,9 @@ use App\Models\Capture;
 use App\Models\Checkin;
 use App\Models\DigitalActivitySnapshot;
 use App\Models\HealthSnapshot;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 
 class TaskPlanningService
 {
@@ -383,7 +383,7 @@ class TaskPlanningService
      */
     public function recordEvent(AtlasTask $task, string $eventType, array $payload = [], string $source = 'app'): ?AtlasTaskEvent
     {
-        if (! Schema::hasTable('atlas_task_events')) {
+        if (! DatabaseTableAvailability::has('atlas_task_events')) {
             return null;
         }
 
@@ -501,7 +501,7 @@ class TaskPlanningService
         CarbonImmutable $end,
         array $item,
     ): ?AtlasCalendarBlock {
-        if (! Schema::hasTable('atlas_calendar_blocks')) {
+        if (! DatabaseTableAvailability::has('atlas_calendar_blocks')) {
             return null;
         }
 
@@ -601,19 +601,19 @@ class TaskPlanningService
         $start = $date->startOfDay()->setTimezone('UTC');
         $end = $date->endOfDay()->setTimezone('UTC');
 
-        $checkin = Schema::hasTable('checkins')
+        $checkin = DatabaseTableAvailability::has('checkins')
             ? Checkin::query()
                 ->whereBetween('recorded_at', [$start, $end])
                 ->latest('recorded_at')
                 ->first()
             : null;
-        $health = Schema::hasTable('health_snapshots')
+        $health = DatabaseTableAvailability::has('health_snapshots')
             ? HealthSnapshot::query()
                 ->whereDate('snapshot_date', $date->toDateString())
                 ->orderByDesc('computed_at')
                 ->first()
             : null;
-        $digital = Schema::hasTable('digital_activity_snapshots')
+        $digital = DatabaseTableAvailability::has('digital_activity_snapshots')
             ? DigitalActivitySnapshot::query()
                 ->whereDate('snapshot_date', $date->toDateString())
                 ->orderByDesc('computed_at')
@@ -645,7 +645,7 @@ class TaskPlanningService
      */
     private function blocksForDate(CarbonImmutable $date, string $timezone): array
     {
-        if (! Schema::hasTable('atlas_calendar_blocks')) {
+        if (! DatabaseTableAvailability::has('atlas_calendar_blocks')) {
             return [];
         }
 
@@ -972,7 +972,7 @@ class TaskPlanningService
      */
     private function taskAgendaRelations(): array
     {
-        return Schema::hasTable('atlas_project_blockers')
+        return DatabaseTableAvailability::has('atlas_project_blockers')
             ? ['project.openBlockers', 'projectStep', 'routine']
             : ['project', 'projectStep', 'routine'];
     }

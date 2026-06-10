@@ -4,7 +4,7 @@ namespace App\Services\Ai\Hermes;
 
 use App\Models\AiJob;
 use App\Models\AiMemoryDelta;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class HermesMemoryAdapter
@@ -51,7 +51,7 @@ class HermesMemoryAdapter
             return $this->withReceiptHash($receipt);
         }
 
-        if (! Schema::hasTable('ai_memory_deltas')) {
+        if (! DatabaseTableAvailability::has('ai_memory_deltas')) {
             $receipt['status'] = 'memory_gate_unavailable';
             $receipt['skipped_count'] = count($candidates);
             $receipt['skipped_candidates'] = $this->skippedCandidates($candidates, 'ai_memory_deltas_table_missing');

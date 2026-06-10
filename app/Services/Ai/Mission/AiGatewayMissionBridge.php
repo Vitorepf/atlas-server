@@ -3,9 +3,9 @@
 namespace App\Services\Ai\Mission;
 
 use App\Models\AiMission;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -66,13 +66,7 @@ class AiGatewayMissionBridge
 
     public function tablesAvailable(): bool
     {
-        foreach (self::REQUIRED_TABLES as $table) {
-            if (! Schema::hasTable($table)) {
-                return false;
-            }
-        }
-
-        return true;
+        return DatabaseTableAvailability::all(self::REQUIRED_TABLES);
     }
 
     /**

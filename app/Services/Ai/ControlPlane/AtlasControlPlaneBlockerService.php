@@ -2,7 +2,7 @@
 
 namespace App\Services\Ai\ControlPlane;
 
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
 /**
@@ -62,7 +62,7 @@ class AtlasControlPlaneBlockerService
     private function evidenceBlockers(int $limit): array
     {
         $model = '\\App\\Models\\AiBlocker';
-        if (! Schema::hasTable('ai_blockers') || ! class_exists($model)) {
+        if (! DatabaseTableAvailability::has('ai_blockers') || ! class_exists($model)) {
             return ['status' => AtlasControlPlaneStatus::MISSING, 'count' => 0, 'critical' => 0, 'recent' => []];
         }
         try {
@@ -101,7 +101,7 @@ class AtlasControlPlaneBlockerService
     private function missionBlockers(int $limit): array
     {
         $model = '\\App\\Models\\AiMission';
-        if (! Schema::hasTable('ai_missions') || ! class_exists($model)) {
+        if (! DatabaseTableAvailability::has('ai_missions') || ! class_exists($model)) {
             return ['status' => AtlasControlPlaneStatus::MISSING, 'count' => 0, 'critical' => 0, 'recent' => []];
         }
         try {
@@ -140,7 +140,7 @@ class AtlasControlPlaneBlockerService
     private function approvalRequests(int $limit): array
     {
         $model = '\\App\\Models\\AiApprovalRequest';
-        if (! Schema::hasTable('ai_approval_requests') || ! class_exists($model)) {
+        if (! DatabaseTableAvailability::has('ai_approval_requests') || ! class_exists($model)) {
             return ['status' => AtlasControlPlaneStatus::MISSING, 'count' => 0, 'critical' => 0, 'recent' => []];
         }
         try {
@@ -177,7 +177,7 @@ class AtlasControlPlaneBlockerService
     private function handoffBlockers(int $limit): array
     {
         $model = '\\App\\Models\\AiDomainHandoff';
-        if (! Schema::hasTable('ai_domain_handoffs') || ! class_exists($model)) {
+        if (! DatabaseTableAvailability::has('ai_domain_handoffs') || ! class_exists($model)) {
             return ['status' => AtlasControlPlaneStatus::MISSING, 'count' => 0, 'critical' => 0, 'recent' => []];
         }
         try {

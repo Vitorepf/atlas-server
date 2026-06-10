@@ -11,9 +11,9 @@ use App\Models\AtlasIntelligenceFactoryEvolutionEvent;
 use App\Models\AtlasIntelligenceFactoryGap;
 use App\Models\AtlasIntelligenceFactorySimulation;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 final class AtlasIntelligenceFactoryRuntimeService
@@ -97,7 +97,7 @@ final class AtlasIntelligenceFactoryRuntimeService
         $payload['gap_hash'] = MissionCanonicalHash::sha256($payload);
 
         $record = null;
-        if (Schema::hasTable('atlas_intelligence_factory_gaps')) {
+        if (DatabaseTableAvailability::has('atlas_intelligence_factory_gaps')) {
             $record = AtlasIntelligenceFactoryGap::query()->create($payload);
         }
 
@@ -151,7 +151,7 @@ final class AtlasIntelligenceFactoryRuntimeService
         $payload['decision_hash'] = MissionCanonicalHash::sha256($payload);
 
         $record = null;
-        if (Schema::hasTable('atlas_intelligence_factory_decisions')) {
+        if (DatabaseTableAvailability::has('atlas_intelligence_factory_decisions')) {
             $record = AtlasIntelligenceFactoryDecision::query()->create($payload);
         }
         $usage = $this->recordCapabilityUsage($selected, $record, $payload, $input);
@@ -206,7 +206,7 @@ final class AtlasIntelligenceFactoryRuntimeService
         $payload['simulation_hash'] = MissionCanonicalHash::sha256($payload);
 
         $record = null;
-        if (Schema::hasTable('atlas_intelligence_factory_simulations')) {
+        if (DatabaseTableAvailability::has('atlas_intelligence_factory_simulations')) {
             $record = AtlasIntelligenceFactorySimulation::query()->create($payload);
         }
 
@@ -255,7 +255,7 @@ final class AtlasIntelligenceFactoryRuntimeService
         $payload['capability_hash'] = MissionCanonicalHash::sha256($payload);
 
         $record = null;
-        if (Schema::hasTable('atlas_intelligence_factory_capabilities')) {
+        if (DatabaseTableAvailability::has('atlas_intelligence_factory_capabilities')) {
             $record = AtlasIntelligenceFactoryCapability::query()->updateOrCreate(
                 ['capability_key' => $key],
                 $payload
@@ -329,10 +329,10 @@ final class AtlasIntelligenceFactoryRuntimeService
     public function controlPlane(int $hours = 24): array
     {
         $since = CarbonImmutable::now()->subHours(max(1, $hours));
-        $capabilities = Schema::hasTable('atlas_intelligence_factory_capabilities') ? AtlasIntelligenceFactoryCapability::query()->where('created_at', '>=', $since)->latest()->limit(50)->get() : collect();
-        $gaps = Schema::hasTable('atlas_intelligence_factory_gaps') ? AtlasIntelligenceFactoryGap::query()->where('created_at', '>=', $since)->latest()->limit(50)->get() : collect();
-        $decisions = Schema::hasTable('atlas_intelligence_factory_decisions') ? AtlasIntelligenceFactoryDecision::query()->where('created_at', '>=', $since)->latest()->limit(50)->get() : collect();
-        $simulations = Schema::hasTable('atlas_intelligence_factory_simulations') ? AtlasIntelligenceFactorySimulation::query()->where('created_at', '>=', $since)->latest()->limit(50)->get() : collect();
+        $capabilities = DatabaseTableAvailability::has('atlas_intelligence_factory_capabilities') ? AtlasIntelligenceFactoryCapability::query()->where('created_at', '>=', $since)->latest()->limit(50)->get() : collect();
+        $gaps = DatabaseTableAvailability::has('atlas_intelligence_factory_gaps') ? AtlasIntelligenceFactoryGap::query()->where('created_at', '>=', $since)->latest()->limit(50)->get() : collect();
+        $decisions = DatabaseTableAvailability::has('atlas_intelligence_factory_decisions') ? AtlasIntelligenceFactoryDecision::query()->where('created_at', '>=', $since)->latest()->limit(50)->get() : collect();
+        $simulations = DatabaseTableAvailability::has('atlas_intelligence_factory_simulations') ? AtlasIntelligenceFactorySimulation::query()->where('created_at', '>=', $since)->latest()->limit(50)->get() : collect();
 
         $payload = [
             'schema_version' => 'atlas.intelligence_factory.control_plane.v1',
@@ -371,7 +371,7 @@ final class AtlasIntelligenceFactoryRuntimeService
      */
     public function marketplace(int $limit = 50): array
     {
-        if (! Schema::hasTable('atlas_intelligence_factory_capabilities')) {
+        if (! DatabaseTableAvailability::has('atlas_intelligence_factory_capabilities')) {
             return [];
         }
 
@@ -416,7 +416,7 @@ final class AtlasIntelligenceFactoryRuntimeService
         ];
         $payload['event_hash'] = MissionCanonicalHash::sha256($payload);
         $record = null;
-        if (Schema::hasTable('atlas_intelligence_factory_evolution_events')) {
+        if (DatabaseTableAvailability::has('atlas_intelligence_factory_evolution_events')) {
             $record = AtlasIntelligenceFactoryEvolutionEvent::query()->create($payload);
         }
 
@@ -442,7 +442,7 @@ final class AtlasIntelligenceFactoryRuntimeService
         if (($decisionPayload['decision'] ?? null) !== 'use') {
             return ['event_id' => null, 'event_hash' => null];
         }
-        if (! Schema::hasTable('atlas_intelligence_factory_evolution_events')) {
+        if (! DatabaseTableAvailability::has('atlas_intelligence_factory_evolution_events')) {
             return ['event_id' => null, 'event_hash' => null];
         }
 
@@ -631,7 +631,7 @@ final class AtlasIntelligenceFactoryRuntimeService
      */
     private function matchingCapabilities(string $gapType, ?string $domain, ?string $flowId): Collection
     {
-        if (! Schema::hasTable('atlas_intelligence_factory_capabilities')) {
+        if (! DatabaseTableAvailability::has('atlas_intelligence_factory_capabilities')) {
             return collect();
         }
 
@@ -691,7 +691,7 @@ final class AtlasIntelligenceFactoryRuntimeService
 
     private function capability(?string $id): ?AtlasIntelligenceFactoryCapability
     {
-        if ($id === null || ! Schema::hasTable('atlas_intelligence_factory_capabilities')) {
+        if ($id === null || ! DatabaseTableAvailability::has('atlas_intelligence_factory_capabilities')) {
             return null;
         }
 

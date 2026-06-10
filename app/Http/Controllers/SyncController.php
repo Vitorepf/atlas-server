@@ -26,7 +26,7 @@ use App\Services\BitaculaService;
 use App\Services\CaptureService;
 use App\Support\Metadata;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class SyncController extends Controller
 {
@@ -205,7 +205,7 @@ class SyncController extends Controller
         }
 
         $capturesToDownloadQuery = Capture::withTrashed();
-        if (Schema::hasTable('capture_links')) {
+        if (DatabaseTableAvailability::has('capture_links')) {
             $capturesToDownloadQuery->with('links');
         }
 

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Engineering;
 
 use App\Models\AtlasDevFailureCapsule;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 /**
  * L1-P3 — Self-Immunizing Antibody (L7), first increment: the ANTIBODY PROPOSER.
@@ -75,7 +75,7 @@ class AtlasDocumentationRealityAntibodyProposerService
         // Degrade-SAFE: without a real escaped-failure substrate there is nothing to
         // immunise against. Inventing a failure would manufacture a fake antibody and
         // a fake gate-to-be — the opposite of the doc rule. So withhold and degrade.
-        if (! Schema::hasTable('atlas_dev_failure_capsules')) {
+        if (! DatabaseTableAvailability::has('atlas_dev_failure_capsules')) {
             return $this->degradedEnvelope('no_failure_capsules');
         }
 

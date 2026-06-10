@@ -12,7 +12,7 @@ use App\Services\Ai\IntelligenceFactory\AtlasIntelligenceFactoryRuntimeService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Product\AtlasAiAssistedExecutionQualityService;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 final class AtlasAutonomousEvolutionLoopService
@@ -88,7 +88,7 @@ final class AtlasAutonomousEvolutionLoopService
         $cyclePayload['cycle_hash'] = MissionCanonicalHash::sha256($cyclePayload);
 
         $cycleRecord = null;
-        if (Schema::hasTable('atlas_aael_portfolio_cycles')) {
+        if (DatabaseTableAvailability::has('atlas_aael_portfolio_cycles')) {
             $cycleRecord = AtlasAaelPortfolioCycle::query()->create($cyclePayload);
         }
 
@@ -165,7 +165,7 @@ final class AtlasAutonomousEvolutionLoopService
             $payload['opportunity_hash'] = MissionCanonicalHash::sha256($payload);
 
             $record = null;
-            if (Schema::hasTable('atlas_aael_opportunities')) {
+            if (DatabaseTableAvailability::has('atlas_aael_opportunities')) {
                 $record = AtlasAaelOpportunity::query()->create($payload);
             }
             $opportunities[] = [
@@ -430,7 +430,7 @@ final class AtlasAutonomousEvolutionLoopService
         $payload['experiment_hash'] = MissionCanonicalHash::sha256($payload);
 
         $record = null;
-        if (Schema::hasTable('atlas_aael_evolution_experiments') && $cycleId !== null) {
+        if (DatabaseTableAvailability::has('atlas_aael_evolution_experiments') && $cycleId !== null) {
             $record = AtlasAaelEvolutionExperiment::query()->create($payload);
         }
 
@@ -495,7 +495,7 @@ final class AtlasAutonomousEvolutionLoopService
         $payload['decision_hash'] = MissionCanonicalHash::sha256($payload);
 
         $record = null;
-        if (Schema::hasTable('atlas_aael_promotion_decisions') && $cycleId !== null) {
+        if (DatabaseTableAvailability::has('atlas_aael_promotion_decisions') && $cycleId !== null) {
             $record = AtlasAaelPromotionDecision::query()->create($payload);
         }
 
@@ -548,7 +548,7 @@ final class AtlasAutonomousEvolutionLoopService
         $payload['audit_hash'] = MissionCanonicalHash::sha256($payload);
 
         $record = null;
-        if (Schema::hasTable('atlas_aael_audit_reports')) {
+        if (DatabaseTableAvailability::has('atlas_aael_audit_reports')) {
             $record = AtlasAaelAuditReport::query()->create($payload);
         }
 
@@ -808,7 +808,7 @@ final class AtlasAutonomousEvolutionLoopService
 
     private function countSince(string $table, CarbonImmutable $since): int
     {
-        if (! Schema::hasTable($table)) {
+        if (! DatabaseTableAvailability::has($table)) {
             return 0;
         }
 
@@ -817,7 +817,7 @@ final class AtlasAutonomousEvolutionLoopService
 
     private function countWhereSince(string $table, string $column, string $value, CarbonImmutable $since): int
     {
-        if (! Schema::hasTable($table)) {
+        if (! DatabaseTableAvailability::has($table)) {
             return 0;
         }
 
@@ -829,7 +829,7 @@ final class AtlasAutonomousEvolutionLoopService
      */
     private function recentCycles(CarbonImmutable $since): array
     {
-        if (! Schema::hasTable('atlas_aael_portfolio_cycles')) {
+        if (! DatabaseTableAvailability::has('atlas_aael_portfolio_cycles')) {
             return [];
         }
 

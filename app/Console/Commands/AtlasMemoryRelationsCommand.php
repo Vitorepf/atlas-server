@@ -6,7 +6,7 @@ use App\Models\AtlasMemoryEntryRelation;
 use App\Services\Ai\AtlasMemoryGovernanceService;
 use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class AtlasMemoryRelationsCommand extends Command
@@ -37,7 +37,7 @@ class AtlasMemoryRelationsCommand extends Command
     {
         $this->memoryInput = $input;
 
-        if (! Schema::hasTable('atlas_memory_entry_relations')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entry_relations')) {
             $this->error('Tabela atlas_memory_entry_relations ainda nao existe. Rode migrations.');
 
             return self::FAILURE;

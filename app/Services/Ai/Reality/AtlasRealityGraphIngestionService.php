@@ -12,10 +12,10 @@ use App\Models\AtlasRealityRelationship;
 use App\Models\AtlasVerbatimMemory;
 use App\Services\Ai\AtlasMemoryPrivacyService;
 use App\Services\Ai\CrossDomain\AtlasCrossDomainMeshService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -181,7 +181,7 @@ class AtlasRealityGraphIngestionService
         if ($this->tableExists('atlas_memory_entries')) {
             $limit = $this->cap('memory_limit', 500);
             $query = AtlasMemoryEntry::query()->active();
-            if (Schema::hasColumn('atlas_memory_entries', 'superseded_by_id')) {
+            if (DatabaseTableAvailability::hasColumn('atlas_memory_entries', 'superseded_by_id')) {
                 $query->whereNull('superseded_by_id');
             }
             $entries = $query->latest('recorded_at')->limit($limit)->get();
@@ -321,7 +321,7 @@ class AtlasRealityGraphIngestionService
         if ((string) $entry->status !== 'active' || $entry->archived_at !== null) {
             return false;
         }
-        if (Schema::hasColumn('atlas_memory_entries', 'superseded_by_id') && $entry->superseded_by_id !== null) {
+        if (DatabaseTableAvailability::hasColumn('atlas_memory_entries', 'superseded_by_id') && $entry->superseded_by_id !== null) {
             return false;
         }
 
@@ -762,7 +762,7 @@ class AtlasRealityGraphIngestionService
             return ['nodes' => $nodes, 'edges' => $edges];
         }
 
-        $hasWorkspace = Schema::hasColumn('atlas_engineering_code_modules', 'workspace_id');
+        $hasWorkspace = DatabaseTableAvailability::hasColumn('atlas_engineering_code_modules', 'workspace_id');
         $defaultWorkspace = (string) config('atlas.code_graph.default_workspace_id', 'atlas-server');
         $perWorkspace = $this->cap('modules_per_workspace', 300);
 
@@ -1704,10 +1704,6 @@ class AtlasRealityGraphIngestionService
 
     private function tableExists(string $table): bool
     {
-        try {
-            return Schema::hasTable($table);
-        } catch (Throwable) {
-            return false;
-        }
+        return DatabaseTableAvailability::has($table);
     }
 }

@@ -9,7 +9,7 @@ use App\Services\Ai\Mobile\AiCriticalInboxReviewReadModel;
 use App\Services\Ai\Mobile\AtlasInboxService;
 use App\Services\Ai\Mobile\InboxActionRegistry;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class AtlasCliInboxCommand extends Command
@@ -49,7 +49,7 @@ class AtlasCliInboxCommand extends Command
 
     public function handle(AtlasInboxService $inbox, InboxActionRegistry $actions): int
     {
-        if (! Schema::hasTable('ai_inbox_items')) {
+        if (! DatabaseTableAvailability::has('ai_inbox_items')) {
             $this->error('Tabela ai_inbox_items ainda nao existe. Rode migrations.');
 
             return self::FAILURE;

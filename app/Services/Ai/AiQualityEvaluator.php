@@ -6,8 +6,8 @@ use App\Models\AiQualityEvaluation;
 use App\Models\AiTrace;
 use App\Services\Ai\Kernel\Behavior\AgentBehaviorQualityGate;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\AuditLogService;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AiQualityEvaluator
@@ -22,7 +22,7 @@ class AiQualityEvaluator
 
     public function evaluateTrace(AiTrace $trace): ?AiQualityEvaluation
     {
-        if (! Schema::hasTable('ai_quality_evaluations')) {
+        if (! DatabaseTableAvailability::has('ai_quality_evaluations')) {
             return null;
         }
 

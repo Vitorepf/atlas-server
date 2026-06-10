@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\Support\JsonFileStore;
 use App\Support\AtlasSecurity;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
@@ -122,13 +123,13 @@ class AtlasEngineeringVisualDriverCommand extends Command
             return;
         }
 
-        File::put($packageJson, json_encode([
+        JsonFileStore::writeLine($packageJson, [
             'private' => true,
             'name' => 'atlas-engineering-playwright-runtime',
             'version' => '1.0.0',
             'description' => 'Atlas-managed Playwright runtime for engineering visual smoke.',
             'license' => 'UNLICENSED',
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     }
 
     /**

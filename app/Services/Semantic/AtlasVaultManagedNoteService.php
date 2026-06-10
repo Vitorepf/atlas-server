@@ -2,6 +2,7 @@
 
 namespace App\Services\Semantic;
 
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Semantic\ValueObjects\AtlasVaultNote;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -463,7 +464,7 @@ class AtlasVaultManagedNoteService
         }
 
         try {
-            if (! \Illuminate\Support\Facades\Schema::hasTable('semantic_notes')) {
+            if (! DatabaseTableAvailability::has('semantic_notes')) {
                 return null;
             }
 

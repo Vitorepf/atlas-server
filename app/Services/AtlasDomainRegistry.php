@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\Models\AtlasDomain;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AtlasDomainRegistry
@@ -14,7 +14,7 @@ class AtlasDomainRegistry
      */
     public function all(bool $activeOnly = true): Collection
     {
-        if (Schema::hasTable('atlas_domains')) {
+        if (DatabaseTableAvailability::has('atlas_domains')) {
             $this->syncConfiguredDefaults();
 
             $query = AtlasDomain::query()->orderBy('sort_order')->orderBy('label');
@@ -102,7 +102,7 @@ class AtlasDomainRegistry
 
     public function syncConfiguredDefaults(): void
     {
-        if (! Schema::hasTable('atlas_domains')) {
+        if (! DatabaseTableAvailability::has('atlas_domains')) {
             return;
         }
 

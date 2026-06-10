@@ -1854,6 +1854,103 @@ return [
             'max_evidence_refs' => (int) env('ATLAS_AOBG_WB_MAX_EVIDENCE_REFS', 25),
             'max_state_keys' => (int) env('ATLAS_AOBG_WB_MAX_STATE_KEYS', 50),
         ],
+
+        // N2.F1 — the ACTIVE brain: context that FOLLOWS the task (PostToolUse).
+        // `atlas:aobg:file-context` returns what the brain KNOWS about a file the
+        // engine just touched (decisions/memories/missions/AURG paths/code
+        // neighbors). It runs on the operator's interactive hook path, so every
+        // knob here is a PERF + COST floor: read-only local DB, fail-OPEN to
+        // empty, hard query caps so a slow/broken hook can never stall a session.
+        'file_context' => [
+            // Total char budget for the assembled file-context brief (tighter than
+            // the prompt pack — it is a per-file delta, not a whole-task pack).
+            'budget_chars' => (int) env('ATLAS_AOBG_FC_BUDGET_CHARS', 3500),
+            // Per-source caps — bound the rows each section presents (and the SQL
+            // candidate window), so the queries stay fast on the hot path.
+            'max_neighbors' => (int) env('ATLAS_AOBG_FC_MAX_NEIGHBORS', 12),
+            'max_memory' => (int) env('ATLAS_AOBG_FC_MAX_MEMORY', 6),
+            'max_paths' => (int) env('ATLAS_AOBG_FC_MAX_PATHS', 8),
+            // Wall-clock soft budget (ms) the COMMAND self-reports against — the
+            // hook itself enforces a hard `timeout` so a runaway can never block.
+            'soft_budget_ms' => (int) env('ATLAS_AOBG_FC_SOFT_BUDGET_MS', 1500),
+        ],
+
+        // N2.F2 — the SENTINEL: the brain checks a proposed edit BEFORE it lands
+        // (PreToolUse guardrails). `atlas:aobg:guard` evaluates a proposed
+        // Edit/Write against the brain and returns {decision, reasons, evidence}.
+        //
+        // SAFETY-FIRST (non-negotiable): a guard that BLOCKS edits is high-stakes
+        // — a false positive bricks the operator's session. So the DEFAULT
+        // decision is `warn` (advisory: inject a heads-up, NEVER block). Hard
+        // `block` is OPT-IN via `block_enabled` (default FALSE) AND limited to the
+        // highest-confidence violations only (a sensitive/secret/cyber-class path
+        // touch, or an EXACT registered-decision contradiction). Everything else,
+        // and ANY error/timeout, FAILS OPEN to `allow` — the brain can never block
+        // a session by accident. Read-only, local DB only, ZERO provider spend.
+        'guard' => [
+            // OPT-IN hard block. OFF ⇒ the guard can only ever return allow|warn;
+            // a normal edit is NEVER blocked. Flipping it ON lets the guard return
+            // `block` for the highest-confidence violations ONLY (see above).
+            'block_enabled' => (bool) env('ATLAS_AOBG_GUARD_BLOCK_ENABLED', false),
+            // Per-source caps — bound the rows each check inspects (and the SQL
+            // candidate window) so the guard stays fast on the interactive path.
+            'max_decisions' => (int) env('ATLAS_AOBG_GUARD_MAX_DECISIONS', 8),
+            'max_duplicates' => (int) env('ATLAS_AOBG_GUARD_MAX_DUPLICATES', 8),
+            'max_reasons' => (int) env('ATLAS_AOBG_GUARD_MAX_REASONS', 12),
+            // Total char budget for the assembled warning the hook injects.
+            'budget_chars' => (int) env('ATLAS_AOBG_GUARD_BUDGET_CHARS', 2500),
+            // Wall-clock soft budget (ms) the COMMAND self-reports against — the
+            // hook enforces a hard `timeout` so a runaway can never stall a session.
+            'soft_budget_ms' => (int) env('ATLAS_AOBG_GUARD_SOFT_BUDGET_MS', 1500),
+        ],
+
+        // N2.F3 — STRUCTURAL capture: the session feeds the brain AUTOMATICALLY (not
+        // voluntarily). `atlas:aobg:capture-session` distils a session transcript
+        // (touched files + outcome + EXPLICIT, file-cited learnings) and feeds them
+        // through the GOVERNED write-back — a provider-safe mission/evidence node
+        // (never a merge) + `proposed` learnings awaiting human review (the capture
+        // quality gate rejects noise; nothing auto-applies). It runs on a Stop/
+        // SessionEnd hook, so every knob is a PERF + COST + ANTI-NOISE floor:
+        // deterministic distill (NO provider/LLM call), local DB only, fail-OPEN —
+        // capture can never block or stall session end. The hard guarantees
+        // (provider-safety, never-merge, never-auto-promote) are STRUCTURAL in the
+        // write-back, not config-tunable; these are only size/anti-noise bounds.
+        'session_capture' => [
+            // Max touched files recorded on the one mission node for a session (a
+            // sprawling session is still ONE node; this just bounds the cited paths).
+            'max_files' => (int) env('ATLAS_AOBG_SC_MAX_FILES', 50),
+            // Max EXPLICIT learnings fed as `proposed` from a single session (anti-
+            // flood: a runaway session can't mint unbounded review-queue items).
+            'max_learnings' => (int) env('ATLAS_AOBG_SC_MAX_LEARNINGS', 10),
+            // Per-learning summary char cap (oversized is trimmed, not rejected — the
+            // citation is the load-bearing part; the gate judges substance).
+            'max_learning_chars' => (int) env('ATLAS_AOBG_SC_MAX_LEARNING_CHARS', 600),
+            // Transcript read bounds — a pathological transcript can never blow the
+            // hot-path budget. Read at most this many bytes / lines, then distil.
+            'max_transcript_bytes' => (int) env('ATLAS_AOBG_SC_MAX_TRANSCRIPT_BYTES', 8000000),
+            'max_transcript_lines' => (int) env('ATLAS_AOBG_SC_MAX_TRANSCRIPT_LINES', 20000),
+        ],
+
+        // N2.F4 — the BLACKBOARD: multiple engines coordinate THROUGH the brain. A
+        // small, expiring table of CLAIMS of work ("codex is editing fileX") that
+        // Claude Code AND Codex (both speak MCP) read + write so they step around
+        // each other instead of stomping the same target. The F2 guard reads it to
+        // surface a cross-engine claim as an ADVISORY warn (never a block). Local DB
+        // only, ZERO provider spend. Knobs are size/TTL floors only — coordination is
+        // metadata, never a gate.
+        'blackboard' => [
+            // Default claim TTL (seconds). A claim auto-expires after this so a
+            // crashed engine's claim never blocks coordination forever. Per-claim ttl
+            // overrides it; this is the fallback + the upper clamp.
+            'default_ttl_seconds' => (int) env('ATLAS_AOBG_BB_DEFAULT_TTL_SECONDS', 3600),
+            // Hard ceiling on any requested ttl (anti-runaway: an engine cannot claim
+            // a target for a week).
+            'max_ttl_seconds' => (int) env('ATLAS_AOBG_BB_MAX_TTL_SECONDS', 86400),
+            // Max active claims listed for a workspace (the status read window).
+            'max_active' => (int) env('ATLAS_AOBG_BB_MAX_ACTIVE', 200),
+            // Char cap on the target label (a path/task-ref is short; this bounds it).
+            'max_target_chars' => (int) env('ATLAS_AOBG_BB_MAX_TARGET_CHARS', 500),
+        ],
     ],
 
     /*
@@ -1963,6 +2060,36 @@ return [
         // decision (accepted / rejected / needs_review / blocked). No silent action. Null
         // => the storage default (storage/app/atlas-self-construct-receipts.jsonl).
         'receipt_log_path' => env('ATLAS_SELF_CONSTRUCTION_RECEIPT_LOG_PATH'),
+    ],
+
+    // Polymarket 5-minute BTC Up/Down SHADOW runtime — no orders, no keys, no money.
+    // Records what the deterministic strategy WOULD do against live public data and
+    // scores calibration (Brier/EV). Live execution is a separate operator-gated obra.
+    'finance_poly_shadow' => [
+        'symbol' => env('ATLAS_POLY_SHADOW_SYMBOL', 'BTCUSDT'),
+        'virtual_bankroll' => (float) env('ATLAS_POLY_SHADOW_BANKROLL', 200.0),
+        'min_edge' => (float) env('ATLAS_POLY_SHADOW_MIN_EDGE', 0.04),
+        'entry_min_sec' => (int) env('ATLAS_POLY_SHADOW_ENTRY_MIN_SEC', 15),
+        'entry_max_sec' => (int) env('ATLAS_POLY_SHADOW_ENTRY_MAX_SEC', 180),
+        'risk_pct' => (float) env('ATLAS_POLY_SHADOW_RISK_PCT', 0.05),
+        'daily_halt_pct' => (float) env('ATLAS_POLY_SHADOW_DAILY_HALT_PCT', 0.10),
+        // Polymarket taker fee for these fast markets; fee/share = rate*min(p,1-p).
+        // Conservative default 0.0 — set from live market metadata before any live phase.
+        'taker_fee_rate' => (float) env('ATLAS_POLY_SHADOW_TAKER_FEE_RATE', 0.0),
+        'ewma_lambda' => (float) env('ATLAS_POLY_SHADOW_EWMA_LAMBDA', 0.97),
+        'jump_z' => (float) env('ATLAS_POLY_SHADOW_JUMP_Z', 5.0),
+        'jump_hold_sec' => (float) env('ATLAS_POLY_SHADOW_JUMP_HOLD_SEC', 60.0),
+        'jump_sigma_mult' => (float) env('ATLAS_POLY_SHADOW_JUMP_SIGMA_MULT', 2.0),
+    ],
+
+    // Sum-of-legs inconsistency scanner over Polymarket multi-outcome (negRisk)
+    // events. SHADOW ONLY: detects and records deviations from the no-arbitrage
+    // band; never places orders.
+    'finance_poly_arb' => [
+        // Gamma-cached sums within this distance of 1.0 get live CLOB verification.
+        'pre_filter_margin' => (float) env('ATLAS_POLY_ARB_PRE_FILTER_MARGIN', 0.02),
+        'fee_per_set' => (float) env('ATLAS_POLY_ARB_FEE_PER_SET', 0.0),
+        'max_clob_verifications' => (int) env('ATLAS_POLY_ARB_MAX_CLOB_VERIFICATIONS', 12),
     ],
 
     'cross_domain_graph' => [

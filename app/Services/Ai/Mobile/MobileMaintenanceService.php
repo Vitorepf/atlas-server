@@ -7,9 +7,9 @@ use App\Models\AiInboxItem;
 use App\Models\MobilePairingCode;
 use App\Models\MobilePushDelivery;
 use App\Services\AuditLogService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class MobileMaintenanceService
 {
@@ -24,7 +24,7 @@ class MobileMaintenanceService
      */
     public function expireStale(bool $dryRun = false): array
     {
-        if (! Schema::hasTable('ai_inbox_items')) {
+        if (! DatabaseTableAvailability::has('ai_inbox_items')) {
             return ['transitioned' => 0, 'dry_run' => $dryRun];
         }
 
@@ -120,7 +120,7 @@ class MobileMaintenanceService
 
     private function cleanPairingCodes(Carbon $now, int $afterDays, bool $dryRun): int
     {
-        if (! Schema::hasTable('mobile_pairing_codes')) {
+        if (! DatabaseTableAvailability::has('mobile_pairing_codes')) {
             return 0;
         }
 
@@ -148,7 +148,7 @@ class MobileMaintenanceService
 
     private function cleanInboxItems(Carbon $now, int $afterDays, bool $dryRun): int
     {
-        if (! Schema::hasTable('ai_inbox_items')) {
+        if (! DatabaseTableAvailability::has('ai_inbox_items')) {
             return 0;
         }
 
@@ -181,7 +181,7 @@ class MobileMaintenanceService
 
     private function cleanOrphanBundles(Carbon $now, int $afterDays, bool $dryRun): int
     {
-        if (! Schema::hasTable('ai_context_bundles')) {
+        if (! DatabaseTableAvailability::has('ai_context_bundles')) {
             return 0;
         }
 
@@ -195,7 +195,7 @@ class MobileMaintenanceService
                     ->where('expires_at', '<', $cutoff);
             });
 
-        if (Schema::hasTable('ai_inbox_items')) {
+        if (DatabaseTableAvailability::has('ai_inbox_items')) {
             $query->whereNotExists(function ($sub): void {
                 $sub
                     ->select(DB::raw(1))
@@ -215,7 +215,7 @@ class MobileMaintenanceService
 
     private function cleanPushDeliveries(Carbon $now, int $afterDays, bool $dryRun): int
     {
-        if (! Schema::hasTable('mobile_push_deliveries')) {
+        if (! DatabaseTableAvailability::has('mobile_push_deliveries')) {
             return 0;
         }
 

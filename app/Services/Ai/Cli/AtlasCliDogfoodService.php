@@ -8,6 +8,7 @@ use App\Models\AiThread;
 use App\Models\AiTrace;
 use App\Services\Ai\AtlasAiRuntimeSettings;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\Support\JsonFileStore;
 use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Carbon;
@@ -303,8 +304,7 @@ class AtlasCliDogfoodService
         $data = $this->read();
         $data['events'][] = $event;
 
-        File::ensureDirectoryExists(dirname($this->path()));
-        File::put($this->path(), json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        JsonFileStore::writeLine($this->path(), $data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
         return $data;
     }
@@ -314,11 +314,7 @@ class AtlasCliDogfoodService
      */
     private function read(): array
     {
-        if (! File::exists($this->path())) {
-            return ['version' => 1, 'events' => []];
-        }
-
-        $decoded = json_decode(File::get($this->path()), true);
+        $decoded = JsonFileStore::readArray($this->path()) ?? [];
 
         return [
             'version' => 1,

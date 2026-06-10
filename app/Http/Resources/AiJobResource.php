@@ -3,12 +3,12 @@
 namespace App\Http\Resources;
 
 use App\Models\AiYoutubeIngestion;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\YoutubeCanonicalProjection;
 use App\Support\AiAttachmentPayload;
 use App\Support\Metadata;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\Schema;
 
 class AiJobResource extends JsonResource
 {
@@ -99,7 +99,7 @@ class AiJobResource extends JsonResource
             return $payload;
         }
 
-        if (! Schema::hasTable('ai_youtube_ingestions')) {
+        if (! DatabaseTableAvailability::has('ai_youtube_ingestions')) {
             return $payload;
         }
 

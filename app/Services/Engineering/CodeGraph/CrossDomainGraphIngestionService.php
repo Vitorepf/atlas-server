@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Engineering\CodeGraph;
 
 use App\Services\Ai\CrossDomain\AtlasCrossDomainMeshService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -302,10 +302,6 @@ final class CrossDomainGraphIngestionService
 
     private function tableExists(string $table): bool
     {
-        try {
-            return Schema::hasTable($table);
-        } catch (Throwable) {
-            return false;
-        }
+        return DatabaseTableAvailability::has($table);
     }
 }

@@ -2,7 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Evidence;
 
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class KernelLedgerEnvelopeReportService
 {
@@ -25,7 +25,7 @@ class KernelLedgerEnvelopeReportService
             'kernel' => $includeKernel,
         ];
 
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return [
                 'envelope_id' => $envelopeId,
                 'status' => 'ledger_table_missing',

@@ -9,8 +9,8 @@ use App\Models\AtlasTask;
 use App\Models\AtlasToolRun;
 use App\Services\Ai\AtlasMemoryRegistryService;
 use App\Services\Ai\Runtime\WorkspaceProfiler;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Tools\AtlasToolEvidenceQueryService;
-use Illuminate\Support\Facades\Schema;
 
 class EngineeringContextPackService
 {
@@ -134,7 +134,7 @@ class EngineeringContextPackService
         $hash = $this->hash($payload);
         $payload['hash'] = $hash;
 
-        if ($run && Schema::hasTable('atlas_engineering_context_packs')) {
+        if ($run && DatabaseTableAvailability::has('atlas_engineering_context_packs')) {
             $pack = AtlasEngineeringContextPack::query()->create([
                 'engineering_run_id' => $run->id,
                 'task_id' => $task->id,

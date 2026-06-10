@@ -7,7 +7,7 @@ use App\Services\Ai\Scheduling\LongRunningWorkReadModel;
 use App\Services\Ai\Scheduling\ScheduleParser;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AtlasAiLongRunningWorkDeclareBaselineCommand extends Command
 {
@@ -22,7 +22,7 @@ class AtlasAiLongRunningWorkDeclareBaselineCommand extends Command
 
     public function handle(ScheduleParser $parser, LongRunningWorkReadModel $readModel): int
     {
-        if (! Schema::hasTable('ai_scheduled_tasks')) {
+        if (! DatabaseTableAvailability::has('ai_scheduled_tasks')) {
             return $this->render([
                 'ok' => false,
                 'status' => 'storage_unavailable',

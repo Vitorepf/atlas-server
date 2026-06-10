@@ -4,10 +4,10 @@ namespace App\Services\Ai;
 
 use App\Jobs\ProcessYouTubeIngestionJob;
 use App\Models\AiYoutubeIngestion;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\WhisperTranscriber;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\ExecutableFinder;
 use Symfony\Component\Process\Process;
@@ -269,7 +269,7 @@ class YouTubeKnowledgeIngestionService
 
     public function markBackgroundIngestionFailed(string $url, Throwable $exception): void
     {
-        if (! Schema::hasTable('ai_youtube_ingestions')) {
+        if (! DatabaseTableAvailability::has('ai_youtube_ingestions')) {
             return;
         }
 
@@ -468,7 +468,7 @@ class YouTubeKnowledgeIngestionService
      */
     private function storedVideoResult(string $url, float $startedAt, bool $allowProcessing): ?array
     {
-        if (! Schema::hasTable('ai_youtube_ingestions')) {
+        if (! DatabaseTableAvailability::has('ai_youtube_ingestions')) {
             return null;
         }
 
@@ -664,7 +664,7 @@ class YouTubeKnowledgeIngestionService
      */
     private function persistVideoResult(array $result): void
     {
-        if (! Schema::hasTable('ai_youtube_ingestions')) {
+        if (! DatabaseTableAvailability::has('ai_youtube_ingestions')) {
             return;
         }
 

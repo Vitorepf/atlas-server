@@ -7,13 +7,13 @@ namespace App\Services\Ai\Cartography;
 use App\Models\AtlasEngineeringKnowledgeItem;
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Engineering\EngineeringKnowledgeBaseService;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 use SplFileInfo;
 
 /**
@@ -130,12 +130,7 @@ final class CartographyTruthGuardService
 
         $canonical = $this->scanCanonicalDocs($docsRoot);
 
-        $kbReachable = false;
-        try {
-            $kbReachable = Schema::hasTable('atlas_engineering_knowledge_items');
-        } catch (\Throwable $e) {
-            $kbReachable = false;
-        }
+        $kbReachable = DatabaseTableAvailability::has('atlas_engineering_knowledge_items');
         if (! $kbReachable) {
             return $this->persist($this->envelope(
                 startedAt: $startedAt,

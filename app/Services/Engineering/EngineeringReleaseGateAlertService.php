@@ -5,7 +5,7 @@ namespace App\Services\Engineering;
 use App\Models\AiInboxItem;
 use App\Models\AtlasEngineeringBenchmarkRun;
 use App\Services\Ai\Mobile\AtlasInboxService;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class EngineeringReleaseGateAlertService
@@ -16,7 +16,7 @@ class EngineeringReleaseGateAlertService
 
     public function emitIfNeeded(AtlasEngineeringBenchmarkRun $run): ?AiInboxItem
     {
-        if (! Schema::hasTable('ai_inbox_items')) {
+        if (! DatabaseTableAvailability::has('ai_inbox_items')) {
             return null;
         }
 

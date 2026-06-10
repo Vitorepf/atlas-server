@@ -8,7 +8,7 @@ use App\Services\Ai\ConversationOps\AtlasConversationOperationsService;
 use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
 final class AtlasContextOperationsRuntimeService
@@ -179,7 +179,7 @@ final class AtlasContextOperationsRuntimeService
             return $this->skippedCompaction('not_required_for_flow');
         }
 
-        if (! Schema::hasTable('atlas_long_horizon_compaction_receipts')) {
+        if (! DatabaseTableAvailability::has('atlas_long_horizon_compaction_receipts')) {
             return $this->skippedCompaction('long_horizon_compaction_table_unavailable');
         }
 

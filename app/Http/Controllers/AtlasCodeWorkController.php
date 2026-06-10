@@ -33,7 +33,7 @@ use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
 /**
@@ -842,8 +842,8 @@ final class AtlasCodeWorkController extends Controller
             return $metadataSnapshot;
         }
 
-        if (! Schema::hasTable('atlas_engineering_evidence')
-            || ! Schema::hasColumn('atlas_engineering_evidence', 'project_id')
+        if (! DatabaseTableAvailability::has('atlas_engineering_evidence')
+            || ! DatabaseTableAvailability::hasColumn('atlas_engineering_evidence', 'project_id')
         ) {
             return null;
         }
@@ -851,11 +851,11 @@ final class AtlasCodeWorkController extends Controller
         $query = AtlasEngineeringEvidence::query()
             ->where('project_id', $project->getKey());
 
-        if (Schema::hasColumn('atlas_engineering_evidence', 'evidence_type')) {
+        if (DatabaseTableAvailability::hasColumn('atlas_engineering_evidence', 'evidence_type')) {
             $query->where('evidence_type', 'forge_live_execution');
         }
 
-        if (Schema::hasColumn('atlas_engineering_evidence', 'recorded_at')) {
+        if (DatabaseTableAvailability::hasColumn('atlas_engineering_evidence', 'recorded_at')) {
             $query->orderByDesc('recorded_at');
         }
         $evidence = $query->orderByDesc('created_at')->first();
@@ -924,8 +924,8 @@ final class AtlasCodeWorkController extends Controller
      */
     private function forgeLiveExecutionHistoryFromEvidence(AtlasProject $project): Collection
     {
-        if (! Schema::hasTable('atlas_engineering_evidence')
-            || ! Schema::hasColumn('atlas_engineering_evidence', 'project_id')
+        if (! DatabaseTableAvailability::has('atlas_engineering_evidence')
+            || ! DatabaseTableAvailability::hasColumn('atlas_engineering_evidence', 'project_id')
         ) {
             return collect();
         }
@@ -933,11 +933,11 @@ final class AtlasCodeWorkController extends Controller
         $query = AtlasEngineeringEvidence::query()
             ->where('project_id', $project->getKey());
 
-        if (Schema::hasColumn('atlas_engineering_evidence', 'evidence_type')) {
+        if (DatabaseTableAvailability::hasColumn('atlas_engineering_evidence', 'evidence_type')) {
             $query->where('evidence_type', 'forge_live_execution');
         }
 
-        if (Schema::hasColumn('atlas_engineering_evidence', 'recorded_at')) {
+        if (DatabaseTableAvailability::hasColumn('atlas_engineering_evidence', 'recorded_at')) {
             $query->orderByDesc('recorded_at');
         }
 
@@ -1423,7 +1423,7 @@ final class AtlasCodeWorkController extends Controller
      */
     private function programmingGovernanceForWork(AtlasProject $project): ?array
     {
-        if (! Schema::hasTable('atlas_programming_work_items')) {
+        if (! DatabaseTableAvailability::has('atlas_programming_work_items')) {
             return null;
         }
 
@@ -1555,7 +1555,7 @@ final class AtlasCodeWorkController extends Controller
      */
     private function programmingGateRunsForWorkItem(AtlasProgrammingWorkItem $workItem): array
     {
-        if (! Schema::hasTable('atlas_programming_gate_runs')) {
+        if (! DatabaseTableAvailability::has('atlas_programming_gate_runs')) {
             return [];
         }
 
@@ -1580,7 +1580,7 @@ final class AtlasCodeWorkController extends Controller
      */
     private function programmingReviewsForWorkItem(AtlasProgrammingWorkItem $workItem): array
     {
-        if (! Schema::hasTable('atlas_programming_reviews')) {
+        if (! DatabaseTableAvailability::has('atlas_programming_reviews')) {
             return [];
         }
 

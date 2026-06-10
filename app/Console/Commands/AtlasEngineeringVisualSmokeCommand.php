@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\Support\JsonFileStore;
 use App\Services\Tools\AtlasToolEvidenceStore;
 use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
@@ -129,7 +130,7 @@ class AtlasEngineeringVisualSmokeCommand extends Command
             ],
         ];
 
-        File::put($artifactRoot.'/manifest.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        JsonFileStore::write($artifactRoot.'/manifest.json', $manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         $this->recordToolRuntimeEvidence($toolEvidence, $workspace, $artifactRoot, $manifest);
 
         if ((bool) $this->option('json')) {
@@ -478,7 +479,7 @@ class AtlasEngineeringVisualSmokeCommand extends Command
             $headers = $response->headers();
             $bodyHash = hash('sha256', $body);
             File::put($artifactRoot.'/routes/'.$slug.'.html', $body);
-            File::put($artifactRoot.'/routes/'.$slug.'.headers.json', json_encode($headers, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            JsonFileStore::write($artifactRoot.'/routes/'.$slug.'.headers.json', $headers, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
             return [
                 'route' => $routePath,
@@ -853,7 +854,7 @@ JS);
             'baseline_image_hash' => hash('sha256', $baselineImage),
             'strict' => $mode === 'strict',
         ];
-        $baseline = File::isFile($baselinePath) ? json_decode(File::get($baselinePath), true) : null;
+        $baseline = JsonFileStore::readArray($baselinePath);
         $previousHash = is_array($baseline) ? (string) ($baseline['screenshot_sha256'] ?? '') : '';
 
         if ($previousHash === '' || ! File::isFile($baselineImage)) {
@@ -867,7 +868,7 @@ JS);
                 'workspace_hash' => hash('sha256', $workspace),
                 'created_at' => is_array($baseline) ? ($baseline['created_at'] ?? now()->toJSON()) : now()->toJSON(),
             ]);
-            File::put($baselinePath, json_encode($nextBaseline, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            JsonFileStore::write($baselinePath, $nextBaseline, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
             return array_merge($base, [
                 'status' => 'first_baseline',
@@ -977,12 +978,11 @@ JS);
             'baseline_root_hash' => hash('sha256', $root),
         ];
         if (! File::isFile($path)) {
-            File::ensureDirectoryExists($root);
-            File::put($path, json_encode([
+            JsonFileStore::write($path, [
                 'route' => $route,
                 'body_hash' => $bodyHash,
                 'created_at' => now()->toJSON(),
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
             return array_merge($base, [
                 'status' => 'first_baseline',
@@ -990,7 +990,7 @@ JS);
             ]);
         }
 
-        $baseline = json_decode(File::get($path), true);
+        $baseline = JsonFileStore::readArray($path);
         $previous = is_array($baseline) ? (string) ($baseline['body_hash'] ?? '') : '';
 
         return array_merge($base, [
@@ -1031,13 +1031,7 @@ JS);
      */
     private function jsonFile(string $path): array
     {
-        if (! File::isFile($path)) {
-            return [];
-        }
-
-        $decoded = json_decode(File::get($path), true);
-
-        return is_array($decoded) ? $decoded : [];
+        return JsonFileStore::readArray($path) ?? [];
     }
 
     private function packageManager(string $workspace): string

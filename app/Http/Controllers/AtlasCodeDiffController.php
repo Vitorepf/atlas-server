@@ -16,7 +16,7 @@ use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspacePathResolverService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 /**
@@ -84,7 +84,7 @@ class AtlasCodeDiffController extends Controller
         // the intent in the ledger but mark `patch_known=false` honestly.
         $patchArtifact = null;
         $patchKnown = false;
-        if (Schema::hasTable('atlas_engineering_patch_artifacts')) {
+        if (DatabaseTableAvailability::has('atlas_engineering_patch_artifacts')) {
             try {
                 $patchArtifact = AtlasEngineeringPatchArtifact::query()->find($patch);
                 $patchKnown = (bool) $patchArtifact;
@@ -98,7 +98,7 @@ class AtlasCodeDiffController extends Controller
         $project = null;
         if (is_string($projectId) && $projectId !== '') {
             $project = AtlasProject::query()->find($projectId);
-        } elseif ($patchArtifact && Schema::hasTable('atlas_engineering_runs')) {
+        } elseif ($patchArtifact && DatabaseTableAvailability::has('atlas_engineering_runs')) {
             // Try to inherit project from the patch's existing run, if any.
             $existingRunId = $patchArtifact->run_id ?? null;
             if ($existingRunId) {
@@ -112,7 +112,7 @@ class AtlasCodeDiffController extends Controller
         // Create a real engineering run row. Schema mirrors the existing
         // pipeline; status=`queued` so any downstream worker can pick it up.
         $run = null;
-        if (Schema::hasTable('atlas_engineering_runs')) {
+        if (DatabaseTableAvailability::has('atlas_engineering_runs')) {
             try {
                 $run = AtlasEngineeringRun::query()->create([
                     'task_id' => null,

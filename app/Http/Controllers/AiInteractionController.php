@@ -29,7 +29,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -532,7 +532,7 @@ class AiInteractionController extends Controller
         $timeoutSeconds = min(max((int) $request->query('timeout', 120), 5), 600);
 
         return response()->stream(function () use ($trace, $after, $timeoutSeconds): void {
-            if (! Schema::hasTable('ai_stream_events')) {
+            if (! DatabaseTableAvailability::has('ai_stream_events')) {
                 $this->sendSse('error', [
                     'error' => 'stream_events_unavailable',
                     'message' => 'ai_stream_events table is not available.',
@@ -1204,42 +1204,42 @@ class AiInteractionController extends Controller
 
     private function toolEventsAvailable(): bool
     {
-        return Schema::hasTable('ai_tool_events');
+        return DatabaseTableAvailability::has('ai_tool_events');
     }
 
     private function metricSummaryAvailable(): bool
     {
-        return Schema::hasTable('ai_trace_metric_summaries');
+        return DatabaseTableAvailability::has('ai_trace_metric_summaries');
     }
 
     private function routerDecisionsAvailable(): bool
     {
-        return Schema::hasTable('ai_router_decisions');
+        return DatabaseTableAvailability::has('ai_router_decisions');
     }
 
     private function atlasDecisionsAvailable(): bool
     {
-        return Schema::hasTable('ai_decisions');
+        return DatabaseTableAvailability::has('ai_decisions');
     }
 
     private function specialistFlowExecutionsAvailable(): bool
     {
-        return Schema::hasTable('ai_specialist_flow_executions');
+        return DatabaseTableAvailability::has('ai_specialist_flow_executions');
     }
 
     private function qualityEvaluationsAvailable(): bool
     {
-        return Schema::hasTable('ai_quality_evaluations');
+        return DatabaseTableAvailability::has('ai_quality_evaluations');
     }
 
     private function qualityActionsAvailable(): bool
     {
-        return Schema::hasTable('ai_quality_actions');
+        return DatabaseTableAvailability::has('ai_quality_actions');
     }
 
     private function streamEventsAvailable(): bool
     {
-        return Schema::hasTable('ai_stream_events');
+        return DatabaseTableAvailability::has('ai_stream_events');
     }
 
     /**
@@ -1344,7 +1344,7 @@ class AiInteractionController extends Controller
                 ],
             ]);
 
-            if (Schema::hasTable('ai_trace_metric_summaries')) {
+            if (DatabaseTableAvailability::has('ai_trace_metric_summaries')) {
                 $aggregator->recomputeTrace($trace->id);
             }
         } catch (\Throwable $exception) {

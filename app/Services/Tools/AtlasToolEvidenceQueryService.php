@@ -3,9 +3,9 @@
 namespace App\Services\Tools;
 
 use App\Models\AtlasToolRun;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\AtlasSecurity;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\Schema;
 
 class AtlasToolEvidenceQueryService
 {
@@ -15,7 +15,7 @@ class AtlasToolEvidenceQueryService
      */
     public function recent(array $filters = []): Collection
     {
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! DatabaseTableAvailability::has('atlas_tool_runs')) {
             return new Collection;
         }
 
@@ -65,7 +65,7 @@ class AtlasToolEvidenceQueryService
      */
     public function findRun(string $runId, array $filters = []): ?AtlasToolRun
     {
-        if (! Schema::hasTable('atlas_tool_runs')) {
+        if (! DatabaseTableAvailability::has('atlas_tool_runs')) {
             return null;
         }
 

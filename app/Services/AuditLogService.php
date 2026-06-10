@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\AuditEvent;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -24,7 +24,7 @@ class AuditLogService
 
     public function record(string $eventType, array $payload): ?AuditEvent
     {
-        if (! Schema::hasTable('audit_events')) {
+        if (! DatabaseTableAvailability::has('audit_events')) {
             return null;
         }
 

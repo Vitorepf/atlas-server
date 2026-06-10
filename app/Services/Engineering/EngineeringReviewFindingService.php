@@ -5,8 +5,8 @@ namespace App\Services\Engineering;
 use App\Models\AtlasEngineeringReviewFinding;
 use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasEngineeringRunAttempt;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class EngineeringReviewFindingService
@@ -16,7 +16,7 @@ class EngineeringReviewFindingService
      */
     public function record(AtlasEngineeringRun $run, array $data): ?AtlasEngineeringReviewFinding
     {
-        if (! Schema::hasTable('atlas_engineering_review_findings')) {
+        if (! DatabaseTableAvailability::has('atlas_engineering_review_findings')) {
             return null;
         }
 
@@ -48,7 +48,7 @@ class EngineeringReviewFindingService
         ];
 
         foreach (['confidence', 'category', 'recommendation'] as $column) {
-            if (! Schema::hasColumn('atlas_engineering_review_findings', $column)) {
+            if (! DatabaseTableAvailability::hasColumn('atlas_engineering_review_findings', $column)) {
                 unset($payload[$column]);
             }
         }
@@ -103,7 +103,7 @@ class EngineeringReviewFindingService
 
     private function attemptForRun(AtlasEngineeringRun $run, mixed $attemptId): ?AtlasEngineeringRunAttempt
     {
-        if (! Schema::hasTable('atlas_engineering_run_attempts')) {
+        if (! DatabaseTableAvailability::has('atlas_engineering_run_attempts')) {
             return null;
         }
 

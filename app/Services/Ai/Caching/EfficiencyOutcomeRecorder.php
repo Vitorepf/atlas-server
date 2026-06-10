@@ -12,7 +12,7 @@ use App\Services\Ai\RuntimeEfficiency\AtlasRuntimeEfficiencyGovernorService;
  * The production binding is the canonical, final
  * {@see AtlasRuntimeEfficiencyGovernorService}
  * (whose {@see AtlasRuntimeEfficiencyGovernorService::recordOutcome()}
- * already has this exact shape and Schema::hasTable-guards its own writes).
+ * already has this exact shape and table-availability-guards its own writes).
  * Depending on this narrow interface — rather than the concrete final class —
  * lets the cache record its costSaved / cost-guard outcomes through the SAME
  * proven ledger while remaining unit-testable with an in-memory spy. It adds no

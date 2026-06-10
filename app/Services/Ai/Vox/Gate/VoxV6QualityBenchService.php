@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Vox\Gate;
 
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Vox\Dogfood\VoxDogfoodService;
 use App\Services\Ai\Vox\Interlocutor\VoxInterlocutorPolicy;
 use App\Services\Ai\Vox\Routing\VoxAutoModeRouter;
 use App\Services\Ai\Vox\VoxCompiler;
 use App\Services\Ai\Vox\VoxSchema;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -390,7 +390,7 @@ final class VoxV6QualityBenchService
      */
     private function dogfoodEnvironment(): array
     {
-        $tablePresent = Schema::hasTable('atlas_vox_dogfood_sessions');
+        $tablePresent = DatabaseTableAvailability::has('atlas_vox_dogfood_sessions');
         $reportOk = false;
         $sessionsTotal = 0;
         if ($tablePresent) {

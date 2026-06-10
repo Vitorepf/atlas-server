@@ -8,12 +8,12 @@ use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceArtifactIntelligenceRepo
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceArtifactWorkroomService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceRuntimeService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceRuntimeProjectionRepository;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 
 final class AtlasUniversalRealityCartographyService
 {
@@ -198,7 +198,7 @@ final class AtlasUniversalRealityCartographyService
     private function codeIndexSignature(): ?string
     {
         try {
-            if (! Schema::hasTable('atlas_engineering_code_symbols')) {
+            if (! DatabaseTableAvailability::has('atlas_engineering_code_symbols')) {
                 return null;
             }
             $row = DB::table('atlas_engineering_code_symbols')
