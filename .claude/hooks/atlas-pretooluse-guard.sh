@@ -100,12 +100,23 @@ DIFF="$(printf '%s' "$EVENT" | jq -r '
 ' 2>/dev/null || true)"
 
 # Anchor to the project root the harness hands us; fall back to the hook's own repo.
-# This cwd is what scopes the guard's workspace (multi-project: ANY repo, auto-scoped).
+# WORKSPACE_DIR is the codebase Claude is operating on. ATLAS_SERVER_DIR is where
+# Artisan lives. They are the same for atlas-server, but intentionally differ when
+# Claude opens the umbrella /Users/vitorepf/develop/Atlas workspace.
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-}"
 if [ -z "$PROJECT_DIR" ]; then
     PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." 2>/dev/null && pwd)"
 fi
-cd "$PROJECT_DIR" 2>/dev/null || exit 0
+WORKSPACE_DIR="$PROJECT_DIR"
+ATLAS_SERVER_DIR="$PROJECT_DIR"
+if [ ! -f "$ATLAS_SERVER_DIR/artisan" ] && [ -f "$PROJECT_DIR/atlas-server/artisan" ]; then
+    ATLAS_SERVER_DIR="$PROJECT_DIR/atlas-server"
+fi
+if [ ! -f "$ATLAS_SERVER_DIR/artisan" ]; then
+    ATLAS_SERVER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." 2>/dev/null && pwd)"
+fi
+[ -f "$ATLAS_SERVER_DIR/artisan" ] || exit 0
+cd "$ATLAS_SERVER_DIR" 2>/dev/null || exit 0
 
 # Assemble the artisan args. The diff is passed only when present (a long diff is
 # fine — it is a local CLI arg, never a provider prompt).
@@ -117,7 +128,7 @@ BLOCK_ARG=""
 # contract (exit 0 + allow on any fault). `timeout` is optional. The artisan
 # argv is built as an array so an empty $DIFF / $BLOCK_ARG simply drops the flag
 # (no unquoted-word-split surprises).
-GUARD_ARGS=(artisan atlas:aobg:guard "$RAW_PATH" --budget="$ATLAS_AOBG_GUARD_BUDGET" --json)
+GUARD_ARGS=(artisan atlas:aobg:guard "$RAW_PATH" --workspace="$WORKSPACE_DIR" --budget="$ATLAS_AOBG_GUARD_BUDGET" --json)
 [ -n "$DIFF" ] && GUARD_ARGS+=(--diff="$DIFF")
 [ -n "$ATLAS_AOBG_GUARD_ENGINE" ] && GUARD_ARGS+=(--engine="$ATLAS_AOBG_GUARD_ENGINE")
 [ -n "$BLOCK_ARG" ] && GUARD_ARGS+=("$BLOCK_ARG")

@@ -361,13 +361,6 @@ final class AtlasUnifiedRealityGraphService
      */
     private function stringList(mixed $value): array
     {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(
-            static fn (mixed $item): string => is_scalar($item) ? trim((string) $item) : '',
-            $value,
-        )));
+        return AtlasContextStringListNormalizer::uniqueTrimmedStrings($value);
     }
 }

@@ -37,6 +37,7 @@ class AiMission extends Model
         return [
             'definition_of_done' => 'array',
             'secondary_domains' => 'array',
+            'proactive_origin' => 'array',
             'completed_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',

@@ -310,6 +310,7 @@ final class StrategyLoopOperationalAuditTest extends TestCase
             'do_not_start_in_parallel' => true,
             'feature_sets' => [
                 StrategyFeatureSetProfile::PRICE_ONLY => $priceOnly,
+                'ohlcv_regime_index_v1' => $featureProfiler->describe('ohlcv_regime_index_v1'),
             ],
             'feature_set_activation_roadmap' => $featureProfiler->activationRoadmap(),
             'deferred_feature_set_backlog' => $featureProfiler->deferredBacklog(),

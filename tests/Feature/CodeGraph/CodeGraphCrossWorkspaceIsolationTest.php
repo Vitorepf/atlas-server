@@ -216,6 +216,63 @@ final class CodeGraphCrossWorkspaceIsolationTest extends TestCase
         $this->assertSame(0, $this->activeDocLinkCount('fixture-workspace-b'), 'B should have archived its own stale doc-link');
     }
 
+    public function test_primary_doc_link_sync_ignores_modules_and_symbols_owned_by_other_workspaces(): void
+    {
+        $now = now();
+        $foreignWorkspaceId = 'atlas';
+        $foreignModuleId = (string) Str::uuid();
+        $foreignSymbolId = (string) Str::uuid();
+
+        DB::table('atlas_engineering_code_modules')->insert([
+            'id' => $foreignModuleId,
+            'workspace_id' => $foreignWorkspaceId,
+            'slug' => 'atlas_server_application_services',
+            'name' => 'Foreign Application Services',
+            'layer' => 'service',
+            'root_path' => 'app/Foreign',
+            'primary_language' => 'php',
+            'status' => 'active',
+            'docs_status' => 'undocumented',
+            'source_hash' => hash('sha256', 'foreign-module'),
+            'tags_json' => '[]',
+            'related_docs_json' => '[]',
+            'related_tests_json' => '[]',
+            'metadata' => '{}',
+            'indexed_at' => $now,
+            'archived_at' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        DB::table('atlas_engineering_code_symbols')->insert([
+            'id' => $foreignSymbolId,
+            'workspace_id' => $foreignWorkspaceId,
+            'module_id' => $foreignModuleId,
+            'symbol_type' => 'class',
+            'symbol_name' => 'ForeignOnly',
+            'file_path' => 'app/Foreign/Only.php',
+            'language' => 'php',
+            'status' => 'active',
+            'docs_status' => 'undocumented',
+            'source_hash' => hash('sha256', 'foreign-symbol'),
+            'related_doc_ids_json' => '[]',
+            'metadata' => '{}',
+            'indexed_at' => $now,
+            'archived_at' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        DB::table('atlas_engineering_knowledge_items')->insert($this->knowledgeItemRow('app/Foreign/Only.php'));
+
+        $service = app(EngineeringCodeIntelligenceService::class);
+        $ref = new ReflectionClass($service);
+        $ref->getProperty('workspaceId')->setValue($service, self::WORKSPACE_A);
+        $syncDocLinks = $ref->getMethod('syncDocLinks');
+        $syncDocLinks->setAccessible(true);
+
+        $this->assertSame(0, $syncDocLinks->invoke($service, base_path(), false));
+        $this->assertSame(0, DB::table('atlas_engineering_doc_links')->where('workspace_id', self::WORKSPACE_A)->count());
+    }
+
     // --- seeding helpers ---------------------------------------------------
 
     /**

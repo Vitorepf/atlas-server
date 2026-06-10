@@ -37,7 +37,7 @@ final class ArbAllocator
      * @param  list<array{event_slug: string, kind: string, legs: list<array{token: string, question?: string}>, persistence_seconds: int, rank_profit_usd?: float}>  $candidates
      * @return array{processed: int, dispatched: int, blocked: string|null, results: list<array<string, mixed>>}
      */
-    public function allocate(string $mode, string $sessionId, array $candidates, ?int $maxDispatch = null): array
+    public function allocate(string $mode, string $sessionId, array $candidates, ?int $maxDispatch = null, ?float $deadlineAt = null): array
     {
         // Rank by value desc — the operator's "priorize as melhores" — but the small
         // ones are NOT dropped; they are simply served after the larger ones while
@@ -52,6 +52,10 @@ final class ArbAllocator
 
         foreach ($candidates as $c) {
             if (count($results) >= $cap) {
+                break;
+            }
+            if ($deadlineAt !== null && microtime(true) >= $deadlineAt) {
+                $blocked = 'candidate_time_budget_exceeded';
                 break;
             }
 
@@ -78,7 +82,12 @@ final class ArbAllocator
             if ($kind === 'long_sum_under') {
                 $plan = $this->longPlanner->plan($slug, $kind, $c['legs'], $persist, $remaining);
                 if (! $plan instanceof BasketPlan) {
-                    $results[] = ['event_slug' => $slug, 'kind' => $kind, 'status' => 'unplannable'];
+                    $results[] = [
+                        'event_slug' => $slug,
+                        'kind' => $kind,
+                        'status' => 'unplannable',
+                        'status_reason' => 'long_planner_returned_null',
+                    ];
 
                     continue;
                 }
@@ -92,7 +101,12 @@ final class ArbAllocator
                 }
                 $plan = $this->shortPlanner->plan($slug, $c['legs'], $persist, $remaining);
                 if (! $plan instanceof ShortBasketPlan) {
-                    $results[] = ['event_slug' => $slug, 'kind' => $kind, 'status' => 'unplannable'];
+                    $results[] = [
+                        'event_slug' => $slug,
+                        'kind' => $kind,
+                        'status' => 'unplannable',
+                        'status_reason' => 'short_planner_returned_null',
+                    ];
 
                     continue;
                 }

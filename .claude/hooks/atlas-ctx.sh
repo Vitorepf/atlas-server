@@ -56,16 +56,27 @@ PROMPT="$(printf '%s' "$EVENT" | jq -r '.prompt // empty' 2>/dev/null || true)"
 [ -n "$PROMPT" ] || exit 0
 
 # Anchor to the project root the harness hands us; fall back to the hook's own repo.
-# This cwd is what scopes the pack's workspace (multi-project: ANY repo, auto-scoped).
+# WORKSPACE_DIR is the codebase Claude is operating on. ATLAS_SERVER_DIR is where
+# Artisan lives. They are the same for atlas-server, but intentionally differ when
+# Claude opens the umbrella /Users/vitorepf/develop/Atlas workspace.
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-}"
 if [ -z "$PROJECT_DIR" ]; then
     PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." 2>/dev/null && pwd)"
 fi
-cd "$PROJECT_DIR" 2>/dev/null || exit 0
+WORKSPACE_DIR="$PROJECT_DIR"
+ATLAS_SERVER_DIR="$PROJECT_DIR"
+if [ ! -f "$ATLAS_SERVER_DIR/artisan" ] && [ -f "$PROJECT_DIR/atlas-server/artisan" ]; then
+    ATLAS_SERVER_DIR="$PROJECT_DIR/atlas-server"
+fi
+if [ ! -f "$ATLAS_SERVER_DIR/artisan" ]; then
+    ATLAS_SERVER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." 2>/dev/null && pwd)"
+fi
+[ -f "$ATLAS_SERVER_DIR/artisan" ] || exit 0
+cd "$ATLAS_SERVER_DIR" 2>/dev/null || exit 0
 
 # Run the proven unified retrieval. Capture stdout only; swallow stderr/non-zero (never
 # block). The command is fail-safe by contract (exit 0 + honest-empty pack on any fault).
-PACK_JSON="$(php artisan atlas:context-pack "$PROMPT" --budget="$ATLAS_AOBG_HOOK_BUDGET" --json 2>/dev/null || true)"
+PACK_JSON="$(php artisan atlas:context-pack "$PROMPT" --workspace="$WORKSPACE_DIR" --budget="$ATLAS_AOBG_HOOK_BUDGET" --json 2>/dev/null || true)"
 [ -n "$PACK_JSON" ] || exit 0
 
 # Only inject when the pack actually carries SOMETHING — the sum of the three section

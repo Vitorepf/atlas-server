@@ -188,8 +188,8 @@ class EngineeringDocumentationAuthorityAuditService
         }
 
         return array_values(array_filter(array_map(function (array $items, string $key): ?array {
-            $paths = array_values(array_unique(array_column($items, 'path')));
-            $owners = array_values(array_unique(array_filter(array_column($items, 'owner'))));
+            $paths = $this->uniqueColumnStrings($items, 'path', filterEmpty: false);
+            $owners = $this->uniqueColumnStrings($items, 'owner');
             if (count($paths) < 2) {
                 return null;
             }
@@ -218,14 +218,8 @@ class EngineeringDocumentationAuthorityAuditService
      */
     private function isDeclaredGraphFamily(array $items): bool
     {
-        $graphIds = array_values(array_unique(array_filter(array_map(
-            static fn (array $item): string => (string) ($item['graph_id'] ?? ''),
-            $items,
-        ))));
-        $graphParents = array_values(array_unique(array_filter(array_map(
-            static fn (array $item): string => (string) ($item['graph_parent'] ?? ''),
-            $items,
-        ))));
+        $graphIds = $this->uniqueColumnStrings($items, 'graph_id');
+        $graphParents = $this->uniqueColumnStrings($items, 'graph_parent');
 
         if ($graphIds === [] || $graphParents === []) {
             return false;
@@ -290,7 +284,7 @@ class EngineeringDocumentationAuthorityAuditService
     {
         $duplicates = [];
         foreach ($groups as $key => $items) {
-            $paths = array_values(array_unique(array_column($items, 'path')));
+            $paths = $this->uniqueColumnStrings($items, 'path', filterEmpty: false);
             if (count($paths) < 2) {
                 continue;
             }
@@ -299,14 +293,32 @@ class EngineeringDocumentationAuthorityAuditService
                 'key' => $key,
                 'doc_count' => count($paths),
                 'paths' => $paths,
-                'owners' => array_values(array_unique(array_filter(array_column($items, 'owner')))),
-                'titles' => array_values(array_unique(array_filter(array_column($items, 'title')))),
+                'owners' => $this->uniqueColumnStrings($items, 'owner'),
+                'titles' => $this->uniqueColumnStrings($items, 'title'),
             ];
         }
 
         usort($duplicates, static fn (array $a, array $b): int => $b['doc_count'] <=> $a['doc_count']);
 
         return $duplicates;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $items
+     * @return array<int,string>
+     */
+    private function uniqueColumnStrings(array $items, string $field, bool $filterEmpty = true): array
+    {
+        $values = array_map(
+            static fn (array $item): string => (string) ($item[$field] ?? ''),
+            $items,
+        );
+
+        if ($filterEmpty) {
+            $values = array_filter($values, static fn (string $value): bool => $value !== '');
+        }
+
+        return array_values(array_unique($values));
     }
 
     /**

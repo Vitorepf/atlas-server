@@ -2250,6 +2250,24 @@ return [
         ],
     ],
 
+    // Executor LIVE de Binance spot (Fase B) — o ÚNICO caminho que envia ordem real.
+    // Fail-closed em camadas: ordem real exige live_enabled=true E ATLAS_SPOT_EXEC_ARMED
+    // E --confirm no comando E kill-switch ausente E caps respeitados. Default: tudo OFF.
+    // Chaves lidas do env por NOME (nunca logadas); a chave Binance NÃO tem permissão
+    // de saque e está restrita por IP — blast radius = saldo spot, nada mais.
+    'finance_spot_exec' => [
+        'live_enabled' => (bool) env('ATLAS_SPOT_EXEC_LIVE_ENABLED', false),
+        'armed_env' => 'ATLAS_SPOT_EXEC_ARMED',          // precisa ser literalmente "true" no env
+        'api_key_env' => 'ATLAS_BINANCE_API_KEY',
+        'api_secret_env' => 'ATLAS_BINANCE_API_SECRET',
+        'allowed_symbols' => ['BTCUSDT', 'ETHUSDT'],     // foco do operador: só BTC/ETH
+        'max_order_usd' => (float) env('ATLAS_SPOT_EXEC_MAX_ORDER_USD', 10.0),
+        'daily_cap_usd' => (float) env('ATLAS_SPOT_EXEC_DAILY_CAP_USD', 20.0),
+        'kill_switch_path' => env('ATLAS_SPOT_EXEC_KILL_SWITCH_PATH', storage_path('atlas/finance/spot-exec/STOP')),
+        'ledger_dir' => storage_path('atlas/finance/spot-exec'),
+        'recv_window_ms' => 5000,
+    ],
+
     'cross_domain_graph' => [
         'enabled' => (bool) env('ATLAS_CROSS_DOMAIN_GRAPH_ENABLED', false),
         'max_domains' => (int) env('ATLAS_CROSS_DOMAIN_GRAPH_MAX_DOMAINS', 100),

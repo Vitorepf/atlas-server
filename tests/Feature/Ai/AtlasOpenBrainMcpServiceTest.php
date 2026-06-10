@@ -12,10 +12,12 @@ use App\Models\AtlasMemoryEntryRelation;
 use App\Models\AtlasTask;
 use App\Models\AtlasTaskEvent;
 use App\Services\Ai\AtlasOpenBrainMcpService;
+use App\Services\Ai\AtlasProviderProjectionService;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptHash;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Kernel\Evidence\ProviderUsagePayload;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Tests\Concerns\CreatesAtlasEngineeringCodeTables;
@@ -514,18 +516,24 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
     public function test_architecture_readiness_tool_exposes_preimplementation_snapshot(): void
     {
         $service = $this->app->make(AtlasOpenBrainMcpService::class);
-        $response = $service->handleJsonRpc([
-            'jsonrpc' => '2.0',
-            'id' => 766,
-            'method' => 'tools/call',
-            'params' => [
-                'name' => 'atlas_architecture_readiness',
-                'arguments' => [
-                    'workspace' => base_path(),
-                    'owner' => 'kernel_architecture',
+        $workspace = $this->workspaceWithFreshProviderProjections();
+
+        try {
+            $response = $service->handleJsonRpc([
+                'jsonrpc' => '2.0',
+                'id' => 766,
+                'method' => 'tools/call',
+                'params' => [
+                    'name' => 'atlas_architecture_readiness',
+                    'arguments' => [
+                        'workspace' => $workspace,
+                        'owner' => 'kernel_architecture',
+                    ],
                 ],
-            ],
-        ]);
+            ]);
+        } finally {
+            File::deleteDirectory($workspace);
+        }
 
         $structured = $response['result']['structuredContent'];
 
@@ -782,16 +790,24 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
     public function test_governance_tools_expose_session_bootstrap_feature_placement_and_split_plan(): void
     {
         $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $workspace = $this->workspaceWithFreshProviderProjections();
 
-        $bootstrap = $service->handleJsonRpc([
-            'jsonrpc' => '2.0',
-            'id' => 767,
-            'method' => 'tools/call',
-            'params' => [
-                'name' => 'atlas_session_bootstrap',
-                'arguments' => ['task' => 'voice realtime no mobile'],
-            ],
-        ])['result']['structuredContent'];
+        try {
+            $bootstrap = $service->handleJsonRpc([
+                'jsonrpc' => '2.0',
+                'id' => 767,
+                'method' => 'tools/call',
+                'params' => [
+                    'name' => 'atlas_session_bootstrap',
+                    'arguments' => [
+                        'task' => 'voice realtime no mobile',
+                        'workspace' => $workspace,
+                    ],
+                ],
+            ])['result']['structuredContent'];
+        } finally {
+            File::deleteDirectory($workspace);
+        }
 
         $this->assertTrue($bootstrap['ok']);
         $this->assertSame('atlas_session_bootstrap', $bootstrap['tool']);
@@ -3083,5 +3099,19 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         Schema::dropIfExists('atlas_aobg_blackboard');
         $migration = require database_path('migrations/2026_06_10_120000_create_atlas_aobg_blackboard_table.php');
         $migration->up();
+    }
+
+    private function workspaceWithFreshProviderProjections(): string
+    {
+        $workspace = sys_get_temp_dir().'/atlas_mcp_projection_'.str_replace('-', '', (string) Str::uuid());
+        mkdir($workspace, 0777, true);
+
+        $projection = $this->app->make(AtlasProviderProjectionService::class);
+        foreach (['claude', 'agents'] as $target) {
+            $result = $projection->write($target, ['workspace' => $workspace], ['workspace' => $workspace]);
+            $this->assertTrue((bool) ($result['written'] ?? false));
+        }
+
+        return $workspace;
     }
 }

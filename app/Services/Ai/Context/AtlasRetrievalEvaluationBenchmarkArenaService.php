@@ -151,10 +151,7 @@ final class AtlasRetrievalEvaluationBenchmarkArenaService
     private function normalizeCase(array $case, int $index, string $risk): array
     {
         $query = trim((string) ($case['query'] ?? $case['objective'] ?? 'atlas retrieval evaluation case'));
-        $requiredSources = array_values(array_unique(array_filter(array_map(
-            static fn (mixed $source): string => is_scalar($source) ? trim((string) $source) : '',
-            (array) ($case['required_sources'] ?? ['doc']),
-        ))));
+        $requiredSources = AtlasContextStringListNormalizer::uniqueTrimmedStrings($case['required_sources'] ?? ['doc']);
         $requiredSources = $requiredSources === [] ? ['doc'] : $requiredSources;
 
         $normalized = [
@@ -165,10 +162,7 @@ final class AtlasRetrievalEvaluationBenchmarkArenaService
             'task_type' => trim((string) ($case['task_type'] ?? 'direct')),
             'risk_level' => $this->risk((string) ($case['risk_level'] ?? $risk)),
             'required_sources' => $requiredSources,
-            'forbidden_sources' => array_values(array_unique(array_filter(array_map(
-                static fn (mixed $source): string => is_scalar($source) ? trim((string) $source) : '',
-                (array) ($case['forbidden_sources'] ?? []),
-            )))),
+            'forbidden_sources' => AtlasContextStringListNormalizer::uniqueTrimmedStrings($case['forbidden_sources'] ?? []),
             'expected_outcome' => $this->outcome((string) ($case['expected_outcome'] ?? 'passed')),
             'max_refs' => max(count($requiredSources), min(20, (int) ($case['max_refs'] ?? 8))),
         ];
@@ -250,10 +244,10 @@ final class AtlasRetrievalEvaluationBenchmarkArenaService
      */
     private function sourceTypeCoverage(array $selectedItems, array $requiredSources): array
     {
-        $selectedTypes = array_values(array_unique(array_filter(array_map(
-            static fn (array $item): string => (string) ($item['source_type'] ?? ''),
+        $selectedTypes = AtlasContextStringListNormalizer::uniqueMappedStrings(
             $selectedItems,
-        ))));
+            static fn (mixed $item): mixed => is_array($item) ? ($item['source_type'] ?? null) : null,
+        );
 
         return collect($requiredSources)
             ->mapWithKeys(static fn (string $source): array => [$source => in_array($source, $selectedTypes, true)])

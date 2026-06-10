@@ -211,6 +211,7 @@ Finance is now centrally registered as a first-class Atlas AI domain.
 - Finance Company Runtime upgrade (2026-05-18) registers manifest `finance` no Domain Runtime com 7 capabilities (research_desk, valuation, portfolio_review, risk_review, compliance, reporting, paper_trading_simulation) sob `app/Services/Ai/Finance/Kernel/`. Bridges seguros para Mission/Domain Runtime/Policy/Evidence; live trading hard-blocked por FinanceDomainCanon::liveTradingBlocked() e FinanceComplianceService::assertNotLiveTrade.
 - Comando `atlas:ai:finance-domain --action=readiness|smoke|control-plane` valida invariantes (live_trading_blocked_default=true, broker_execution_allowed=false, auto_rebalance_allowed=false) e roda smoke E2E research→valuation→portfolio→risk→compliance→paper-trading→reporting.
 - Comando `atlas:ai:finance-domain --action=enterprise-analysis --json` entrega o pacote institucional inspirado no padrao Claude for Financial Services: interface unificada de dados, conectores read-only/governados, source links, audit trail de modelos, due diligence de data room, portfolio monitoring, compliance automation e investment committee memo. Continua sem live trading, broker execution, auto rebalance ou money movement.
+- Polymarket sum-of-legs arbitrage vive apenas como scanner/executor shadow/sim sob `app/Services/Ai/Finance/PolymarketShadow` e `app/Services/Ai/Finance/PolymarketExec`. `atlas:finance:poly-arb scan|run` alimenta o lifecycle com livros reais e limites explícitos de timeout/orçamento/pernas; `atlas:finance:poly-exec monitor|status|qualify` usa livros reais para auditoria de loop, escreve/agrega JSONL local, aplica limites de leitura pública/candidato/pernas, exige lifecycle `last_seen_at` recente e declara `real_money_touched=false`; live permanece hard-blocked por `FinanceDomainCanon::liveTradingBlocked()`.
 
 Implemented files:
 
@@ -222,6 +223,9 @@ Implemented files:
 - `app/Services/Ai/Finance/AtlasFinanceRuntime.php`
 - `app/Services/Ai/Finance/AtlasFinanceSafetyPolicy.php`
 - `app/Services/Ai/Finance/Kernel/FinanceEnterpriseAnalysisService.php`
+- `app/Console/Commands/AtlasFinancePolyExecCommand.php`
+- `app/Services/Ai/Finance/PolymarketExec`
+- `app/Services/Ai/Finance/PolymarketShadow`
 - `database/migrations/2026_05_05_080000_expand_finance_domain_contract.php`
 
 Validation:

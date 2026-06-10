@@ -96,6 +96,47 @@ final class AtlasCodeIntelligenceAutomaticGateServiceTest extends TestCase
         $this->assertFalse(data_get($payload, 'claim_policy.stale_index_allowed'));
     }
 
+    public function test_primary_workspace_warns_when_doc_links_are_empty(): void
+    {
+        $summary = $this->readySummary();
+        $summary['doc_link_count'] = 0;
+
+        $readiness = $this->readyReadiness();
+        $readiness['summary']['doc_link_count'] = 0;
+
+        $service = new AtlasCodeIntelligenceAutomaticGateService($this->fakeCodeIntelligence(
+            summary: $summary,
+            readiness: $readiness,
+        ));
+
+        $payload = $service->evaluate(['strict_freshness' => true]);
+
+        $this->assertSame('watch', $payload['status']);
+        $this->assertContains('doc_links_empty', $payload['warnings']);
+    }
+
+    public function test_non_primary_workspace_allows_empty_doc_links_when_readiness_is_fresh(): void
+    {
+        $summary = $this->readySummary();
+        $summary['doc_link_count'] = 0;
+
+        $readiness = $this->readyReadiness();
+        $readiness['summary']['doc_link_count'] = 0;
+
+        $service = new AtlasCodeIntelligenceAutomaticGateService($this->fakeCodeIntelligence(
+            summary: $summary,
+            readiness: $readiness,
+        ));
+
+        $payload = $service->evaluate([
+            'workspace' => sys_get_temp_dir().'/atlas-umbrella-fixture',
+            'strict_freshness' => true,
+        ]);
+
+        $this->assertSame('ready', $payload['status']);
+        $this->assertNotContains('doc_links_empty', $payload['warnings']);
+    }
+
     public function test_artisan_code_gate_emits_canonical_json(): void
     {
         $this->app->instance(EngineeringCodeIntelligenceService::class, $this->fakeCodeIntelligence(

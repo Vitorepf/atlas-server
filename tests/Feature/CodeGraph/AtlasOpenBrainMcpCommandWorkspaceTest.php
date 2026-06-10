@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\CodeGraph;
 
 use Illuminate\Support\Facades\Artisan;
+use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 /**
@@ -61,5 +62,137 @@ final class AtlasOpenBrainMcpCommandWorkspaceTest extends TestCase
         $this->assertSame(realpath($explicit) ?: $explicit, $payload['workspace']);
         // A non-primary path gets its OWN resolved id (never the primary default).
         $this->assertNotSame('atlas-server', $payload['workspace_id']);
+    }
+
+    public function test_stdio_accepts_content_length_framed_json_rpc(): void
+    {
+        $body = json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 1,
+            'method' => 'tools/list',
+            'params' => [],
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $this->assertIsString($body);
+
+        $process = new Process([PHP_BINARY, base_path('artisan'), 'atlas:open-brain:mcp'], base_path());
+        $process->setInput('Content-Length: '.strlen($body)."\r\n\r\n".$body);
+        $process->setTimeout(15);
+        $process->run();
+
+        $this->assertSame(0, $process->getExitCode(), $process->getErrorOutput());
+
+        $output = $process->getOutput();
+        $this->assertStringStartsWith('Content-Length: ', $output);
+        $parts = explode("\r\n\r\n", $output, 2);
+        $this->assertCount(2, $parts);
+        $decoded = json_decode($parts[1], true);
+
+        $this->assertIsArray($decoded);
+        $this->assertSame(1, $decoded['id'] ?? null);
+        $this->assertNotEmpty($decoded['result']['tools'] ?? []);
+    }
+
+    public function test_stdio_ignores_json_rpc_notifications_without_responses(): void
+    {
+        $body = json_encode([
+            'jsonrpc' => '2.0',
+            'method' => 'initialized',
+            'params' => [],
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $this->assertIsString($body);
+
+        $process = new Process([PHP_BINARY, base_path('artisan'), 'atlas:open-brain:mcp'], base_path());
+        $process->setInput('Content-Length: '.strlen($body)."\r\n\r\n".$body);
+        $process->setTimeout(15);
+        $process->run();
+
+        $this->assertSame(0, $process->getExitCode(), $process->getErrorOutput());
+        $this->assertSame('', $process->getOutput());
+    }
+
+    public function test_stdio_accepts_json_rpc_batch_requests(): void
+    {
+        $body = json_encode([
+            [
+                'jsonrpc' => '2.0',
+                'id' => 1,
+                'method' => 'ping',
+                'params' => [],
+            ],
+            [
+                'jsonrpc' => '2.0',
+                'method' => 'initialized',
+                'params' => [],
+            ],
+            [
+                'jsonrpc' => '2.0',
+                'id' => 2,
+                'method' => 'tools/list',
+                'params' => [],
+            ],
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $this->assertIsString($body);
+
+        $process = new Process([PHP_BINARY, base_path('artisan'), 'atlas:open-brain:mcp'], base_path());
+        $process->setInput('Content-Length: '.strlen($body)."\r\n\r\n".$body);
+        $process->setTimeout(15);
+        $process->run();
+
+        $this->assertSame(0, $process->getExitCode(), $process->getErrorOutput());
+
+        $output = $process->getOutput();
+        $this->assertStringStartsWith('Content-Length: ', $output);
+        $parts = explode("\r\n\r\n", $output, 2);
+        $this->assertCount(2, $parts);
+        $decoded = json_decode($parts[1], true);
+
+        $this->assertIsArray($decoded);
+        $this->assertCount(2, $decoded);
+        $this->assertSame([1, 2], array_column($decoded, 'id'));
+        $this->assertNotEmpty($decoded[1]['result']['tools'] ?? []);
+    }
+
+    public function test_context_pack_tool_defaults_to_process_workspace_when_argument_is_omitted(): void
+    {
+        $explicit = sys_get_temp_dir();
+        $body = json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 7,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_context_pack',
+                'arguments' => [
+                    'task' => 'workspace default propagation',
+                    'budget' => 300,
+                ],
+            ],
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $this->assertIsString($body);
+
+        $process = new Process([
+            PHP_BINARY,
+            base_path('artisan'),
+            'atlas:open-brain:mcp',
+            '--workspace='.$explicit,
+            '--once='.$body,
+        ], base_path());
+        $process->setTimeout(20);
+        $process->run();
+
+        $this->assertSame(0, $process->getExitCode(), $process->getErrorOutput());
+
+        $decoded = json_decode(trim($process->getOutput()), true);
+        $this->assertIsArray($decoded);
+
+        $text = data_get($decoded, 'result.content.0.text');
+        $this->assertIsString($text);
+        $payload = json_decode($text, true);
+        $this->assertIsArray($payload);
+
+        $this->assertTrue($payload['ok'] ?? false);
+        $this->assertSame(
+            app(\App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity::class)->resolveWorkspaceOrId($explicit),
+            data_get($payload, 'pack.workspace'),
+        );
     }
 }

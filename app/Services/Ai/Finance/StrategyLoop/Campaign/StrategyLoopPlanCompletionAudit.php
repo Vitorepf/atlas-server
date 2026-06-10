@@ -323,9 +323,21 @@ final class StrategyLoopPlanCompletionAudit
             }
         }
 
+        // FONTE ÚNICA: ativo/deferred derivado do profile (fim do whack-a-mole por ativação).
+        $profiler = new StrategyFeatureSetProfile;
+        foreach ($profiler->activeFeatureSetIds() as $activeId) {
+            if ((bool) data_get($featureRoadmap, $activeId.'.allowed_now', false) !== true) {
+                return false;
+            }
+        }
+        foreach ($profiler->deferredFeatureSetIds() as $deferredId) {
+            if ((bool) data_get($featureRoadmap, $deferredId.'.allowed_now', true) !== false) {
+                return false;
+            }
+        }
+
         return isset($deferredIntervals['5m'], $deferredIntervals['15m'], $deferredIntervals['1mo'])
             && (int) data_get($featureRoadmap, StrategyFeatureSetProfile::PRICE_ONLY.'.activation_priority', 999) === 0
-            && (bool) data_get($featureRoadmap, 'ohlcv_regime_index_v1.allowed_now', true) === false
             && (int) data_get($featureRoadmap, 'ohlcv_regime_index_v1.activation_priority', 999) < (int) data_get($featureRoadmap, 'derivatives_funding_oi_v1.activation_priority', 999)
             && (int) data_get($featureRoadmap, 'derivatives_funding_oi_v1.activation_priority', 999) < (int) data_get($featureRoadmap, 'cross_asset_context_v1.activation_priority', 999)
             && (int) data_get($featureRoadmap, 'news_sentiment_v1.activation_priority', 0) > (int) data_get($featureRoadmap, 'onchain_flow_v1.activation_priority', 999)

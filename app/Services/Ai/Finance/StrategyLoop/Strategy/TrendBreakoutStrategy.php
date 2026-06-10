@@ -138,7 +138,14 @@ final class TrendBreakoutStrategy implements StrategyRunner
             }
         }
 
-        return new StrategyResult($equity, $returns, $trades, count($trades));
+        return new StrategyResult(
+            $equity,
+            $returns,
+            $trades,
+            count($trades),
+            $inPos ? ['entry_idx' => $entryIdx, 'entry_price' => $entryPrice] : null,
+            is_array($pending) ? (string) $pending[0] : $pending,
+        );
     }
 
     /**

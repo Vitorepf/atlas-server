@@ -120,6 +120,40 @@ final class EngineeringCodeIntelligenceSymbolDriftWorkspaceScopeTest extends Tes
         $this->assertArrayNotHasKey('foreign/OutOfScope.php', $snapshots);
     }
 
+    public function test_doc_link_health_is_scoped_to_current_workspace(): void
+    {
+        $workspaceId = 'atlas';
+        $foreignWorkspaceId = app(CodeGraphWorkspaceIdentity::class)->default();
+
+        $this->insertDocLink($foreignWorkspaceId, 'docs/foreign.md', 'foreign/Missing.php', 'foreign-doc-link');
+        $this->insertDocLink($workspaceId, 'docs/current.md', 'current/Missing.php', 'current-doc-link');
+
+        $service = app(EngineeringCodeIntelligenceService::class);
+        $reflection = new ReflectionClass($service);
+        $reflection->getProperty('workspaceId')->setValue($service, $workspaceId);
+
+        $payload = $reflection->getMethod('docLinkHealth')->invoke($service, base_path(), 10);
+
+        $this->assertSame(1, $payload['counts']['current']);
+        $this->assertSame(1, $payload['counts']['missing_targets']);
+        $this->assertSame('current/Missing.php', $payload['missing_targets'][0]['target_path']);
+    }
+
+    public function test_documentation_warnings_only_apply_to_primary_workspace(): void
+    {
+        $service = app(EngineeringCodeIntelligenceService::class);
+        $reflection = new ReflectionClass($service);
+        $workspaceId = $reflection->getProperty('workspaceId');
+        $warnings = $reflection->getMethod('documentationWarnings');
+        $summary = ['docs_status' => ['undocumented' => 2]];
+
+        $workspaceId->setValue($service, app(CodeGraphWorkspaceIdentity::class)->default());
+        $this->assertSame(['undocumented_modules_present'], $warnings->invoke($service, $summary));
+
+        $workspaceId->setValue($service, 'atlas');
+        $this->assertSame([], $warnings->invoke($service, $summary));
+    }
+
     /**
      * @param  array<string,mixed>  $symbol
      */

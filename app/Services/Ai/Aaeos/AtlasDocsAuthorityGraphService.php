@@ -154,12 +154,21 @@ class AtlasDocsAuthorityGraphService
      */
     private function needleVariants(string $normalized): array
     {
-        return array_values(array_unique(array_filter([
+        return $this->uniqueNonEmptyStrings([
             $normalized,
             str_replace(' ', '-', $normalized),
             str_replace(' ', '_', $normalized),
             str_replace(['-', '_'], ' ', $normalized),
-        ])));
+        ]);
+    }
+
+    /**
+     * @param  array<int,string>  $values
+     * @return array<int,string>
+     */
+    private function uniqueNonEmptyStrings(array $values): array
+    {
+        return array_values(array_unique(array_filter($values)));
     }
 
     /**

@@ -94,6 +94,24 @@ class AtlasOpenBrainMcpService
      */
     public function handleJsonRpc(array $request): ?array
     {
+        if ($this->isBatchRequest($request)) {
+            $responses = [];
+            foreach ($request as $item) {
+                if (! is_array($item)) {
+                    $responses[] = $this->error(null, -32600, 'Invalid JSON-RPC request.');
+
+                    continue;
+                }
+
+                $response = $this->handleJsonRpc($item);
+                if ($response !== null) {
+                    $responses[] = $response;
+                }
+            }
+
+            return $responses === [] ? null : $responses;
+        }
+
         $id = $request['id'] ?? null;
         $method = is_string($request['method'] ?? null) ? (string) $request['method'] : null;
 
@@ -101,7 +119,7 @@ class AtlasOpenBrainMcpService
             return $this->error($id, -32600, 'Invalid JSON-RPC request.');
         }
 
-        if (! array_key_exists('id', $request) && str_starts_with($method, 'notifications/')) {
+        if (! array_key_exists('id', $request)) {
             return null;
         }
 
@@ -112,6 +130,17 @@ class AtlasOpenBrainMcpService
             'tools/call' => $this->callTool($id, $request),
             default => $this->error($id, -32601, "Method [{$method}] not found."),
         };
+    }
+
+    /**
+     * JSON-RPC batch requests are arrays of request objects. They are uncommon for MCP
+     * stdio clients, but accepting them keeps the local server protocol-tolerant.
+     *
+     * @param  array<mixed>  $request
+     */
+    private function isBatchRequest(array $request): bool
+    {
+        return array_is_list($request);
     }
 
     /**
@@ -902,7 +931,7 @@ class AtlasOpenBrainMcpService
                     'type' => 'object',
                     'properties' => [
                         'task' => ['type' => 'string', 'description' => 'Tarefa/pergunta natural que guia o recall.'],
-                        'workspace' => ['type' => 'string', 'description' => 'Path OU id do workspace a escopar (default: primário atlas-server).'],
+                        'workspace' => ['type' => 'string', 'description' => 'Path OU id do workspace a escopar (default: workspace configurado no processo MCP; atlas-server só quando nenhum workspace foi configurado).'],
                         'budget' => ['type' => 'integer', 'description' => 'Budget total de chars do pack (default config atlas.aobg.budget_chars).'],
                     ],
                     'required' => ['task'],
@@ -2645,7 +2674,7 @@ class AtlasOpenBrainMcpService
     {
         $tool = 'atlas_aurg_query';
         $query = $this->string($arguments['query'] ?? null);
-        if ($query === null || trim($query) === '') {
+        if ($query === null) {
             return ['ok' => false, 'tool' => $tool, 'error' => 'query_required'];
         }
         if (! (bool) config('atlas.aurg.enabled', true)) {
@@ -2692,12 +2721,12 @@ class AtlasOpenBrainMcpService
     {
         $tool = 'atlas_context_pack';
         $task = $this->string($arguments['task'] ?? null);
-        if ($task === null || trim($task) === '') {
+        if ($task === null) {
             return ['ok' => false, 'tool' => $tool, 'error' => 'task_required'];
         }
 
         $opts = [];
-        $workspace = $this->string($arguments['workspace'] ?? null);
+        $workspace = $this->workspace($arguments['workspace'] ?? null);
         if ($workspace !== null) {
             $opts['workspace'] = $workspace;
         }

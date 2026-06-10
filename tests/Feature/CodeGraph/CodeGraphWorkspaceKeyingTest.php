@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature\CodeGraph;
 
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
+use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -175,5 +177,71 @@ final class CodeGraphWorkspaceKeyingTest extends TestCase
             'resolution must be deterministic',
         );
         $this->assertMatchesRegularExpression('/^[a-z0-9._-]+$/', $external);
+    }
+
+    public function test_umbrella_workspace_indexes_nested_git_repositories_when_root_has_docs(): void
+    {
+        $this->runW1Migration();
+
+        $root = sys_get_temp_dir().'/ap815_umbrella_'.substr(md5(uniqid('', true)), 0, 8);
+        File::makeDirectory($root.'/docs/engineering-knowledge-base', 0777, true, true);
+        File::put($root.'/docs/engineering-knowledge-base/root.md', "# Root Doc\n\nThe umbrella has docs.\n");
+        File::makeDirectory($root.'/atlas-server/.git', 0777, true, true);
+        File::makeDirectory($root.'/atlas-server/app/Services', 0777, true, true);
+        File::put($root.'/atlas-server/app/Services/FooService.php', "<?php\nnamespace App\\Services;\nclass FooService { public function run(): void {} }\n");
+        File::makeDirectory($root.'/atlas-server/routes', 0777, true, true);
+        File::put($root.'/atlas-server/routes/api.php', "<?php\nuse Illuminate\\Support\\Facades\\Route;\nRoute::get('/foo', [\\App\\Http\\Controllers\\FooController::class, 'index']);\n");
+        File::makeDirectory($root.'/atlas-server/tests/Feature', 0777, true, true);
+        File::put($root.'/atlas-server/tests/Feature/FooTest.php', "<?php\nnamespace Tests\\Feature;\nclass FooTest { public function test_foo_route_works(): void {} }\n");
+        File::makeDirectory($root.'/atlas-desktop/.git', 0777, true, true);
+        File::makeDirectory($root.'/atlas-desktop/apps/desktop/src', 0777, true, true);
+        File::put($root.'/atlas-desktop/apps/desktop/src/App.ts', "export class DesktopApp { run() { return true; } }\n");
+
+        try {
+            $payload = app(EngineeringCodeIntelligenceService::class)->index([
+                'workspace' => $root,
+                'prune' => true,
+            ]);
+            $workspaceId = app(CodeGraphWorkspaceIdentity::class)->resolve($root);
+
+            $this->assertTrue($payload['ok']);
+            $this->assertGreaterThanOrEqual(3, (int) data_get($payload, 'summary.file_count'));
+            $this->assertSame(1, (int) data_get($payload, 'summary.route_count'));
+            $this->assertSame(1, (int) data_get($payload, 'summary.test_count'));
+            $this->assertDatabaseHas('atlas_engineering_code_symbols', [
+                'workspace_id' => $workspaceId,
+                'symbol_type' => 'file',
+                'file_path' => 'atlas-server/app/Services/FooService.php',
+            ]);
+            $this->assertDatabaseHas('atlas_engineering_code_symbols', [
+                'workspace_id' => $workspaceId,
+                'symbol_type' => 'file',
+                'file_path' => 'atlas-desktop/apps/desktop/src/App.ts',
+            ]);
+            $this->assertDatabaseHas('atlas_engineering_code_symbols', [
+                'workspace_id' => $workspaceId,
+                'symbol_type' => 'route',
+                'file_path' => 'atlas-server/routes/api.php',
+            ]);
+            $this->assertDatabaseHas('atlas_engineering_code_symbols', [
+                'workspace_id' => $workspaceId,
+                'symbol_type' => 'test_method',
+                'file_path' => 'atlas-server/tests/Feature/FooTest.php',
+            ]);
+            $this->assertDatabaseHas('atlas_engineering_code_modules', [
+                'workspace_id' => $workspaceId,
+                'slug' => 'atlas_server_api_routes',
+                'root_path' => 'atlas-server/routes',
+                'route_count' => 1,
+            ]);
+            $this->assertDatabaseHas('atlas_engineering_code_modules', [
+                'workspace_id' => $workspaceId,
+                'slug' => 'atlas_server_test_suite',
+                'root_path' => 'atlas-server/tests',
+                'test_count' => 1,
+            ]);
+        } finally {
+            File::deleteDirectory($root);
+        }
     }
 }

@@ -193,10 +193,7 @@ final class AtlasSystemStructureService
                 'source' => $structure['source'] ?? 'unknown',
                 'area' => $needle,
                 'found' => false,
-                'known_areas' => array_values(array_filter(array_map(
-                    static fn (array $node): ?string => ($node['kind'] ?? null) === 'area' ? (string) ($node['real_path'] ?? '') : null,
-                    $nodes,
-                ))),
+                'known_areas' => $this->knownAreas($nodes),
                 'writes' => false,
             ];
         }
@@ -235,6 +232,18 @@ final class AtlasSystemStructureService
             ], $subsystems),
             'writes' => false,
         ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $nodes
+     * @return array<int,string>
+     */
+    private function knownAreas(array $nodes): array
+    {
+        return array_values(array_filter(array_map(
+            static fn (array $node): ?string => ($node['kind'] ?? null) === 'area' ? (string) ($node['real_path'] ?? '') : null,
+            $nodes,
+        )));
     }
 
     /**

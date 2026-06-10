@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Engineering;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\File;
 use Throwable;
@@ -153,7 +154,7 @@ final class AtlasCodeIntelligenceAutomaticGateService
             $blockers = $this->blockers($summary, $readiness, $strictFreshness, $maxAgeMinutes, $consumerMatrix);
         }
 
-        $warnings = $this->warnings($summary, $readiness, $refresh);
+        $warnings = $this->warnings($summary, $readiness, $refresh, $this->docLinksRequiredForWorkspace($workspace));
         $status = $blockers === [] ? ($warnings === [] ? 'ready' : 'watch') : 'blocked';
 
         $payload = [
@@ -331,7 +332,7 @@ final class AtlasCodeIntelligenceAutomaticGateService
             }
         }
 
-        return array_values(array_unique(array_filter($blockers)));
+        return EngineeringStringListNormalizer::uniqueNonEmptyStrings($blockers);
     }
 
     /**
@@ -340,11 +341,11 @@ final class AtlasCodeIntelligenceAutomaticGateService
      * @param  array<string,mixed>  $refresh
      * @return list<string>
      */
-    private function warnings(array $summary, ?array $readiness, array $refresh): array
+    private function warnings(array $summary, ?array $readiness, array $refresh, bool $docLinksRequired): array
     {
         $warnings = [];
 
-        if ((int) ($summary['doc_link_count'] ?? 0) <= 0) {
+        if ($docLinksRequired && (int) ($summary['doc_link_count'] ?? 0) <= 0) {
             $warnings[] = 'doc_links_empty';
         }
 
@@ -360,7 +361,18 @@ final class AtlasCodeIntelligenceAutomaticGateService
             $warnings[] = 'auto_refresh_failed';
         }
 
-        return array_values(array_unique($warnings));
+        return EngineeringStringListNormalizer::uniqueNonEmptyStrings($warnings);
+    }
+
+    private function docLinksRequiredForWorkspace(string $workspace): bool
+    {
+        try {
+            $identity = app(CodeGraphWorkspaceIdentity::class);
+
+            return $identity->resolve($workspace) === $identity->default();
+        } catch (Throwable) {
+            return true;
+        }
     }
 
     /**

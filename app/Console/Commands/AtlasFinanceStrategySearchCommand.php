@@ -23,10 +23,15 @@ use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyScenarioRegistry;
 use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyTimeframeProfile;
 use App\Services\Ai\Finance\StrategyLoop\Metrics\HonestMetrics;
 use App\Services\Ai\Finance\StrategyLoop\MarketDataCache;
+use App\Services\Ai\Finance\StrategyLoop\FundingTape;
+use App\Services\Ai\Finance\StrategyLoop\Strategy\FundingExtremeStrategy;
 use App\Services\Ai\Finance\StrategyLoop\Strategy\MeanReversionStrategy;
 use App\Services\Ai\Finance\StrategyLoop\Strategy\MomentumStrategy;
+use App\Services\Ai\Finance\StrategyLoop\Strategy\RegimeAdaptiveStrategy;
 use App\Services\Ai\Finance\StrategyLoop\Strategy\StrategyRunner;
 use App\Services\Ai\Finance\StrategyLoop\Strategy\TrendBreakoutStrategy;
+use App\Services\Ai\Finance\StrategyLoop\Strategy\TrendPullbackStrategy;
+use App\Services\Ai\Finance\StrategyLoop\Strategy\VolumeBreakoutStrategy;
 use App\Services\Ai\Finance\StrategyLoop\TradingHonestyGate;
 use Illuminate\Console\Command;
 
@@ -48,7 +53,10 @@ use Illuminate\Console\Command;
  */
 final class AtlasFinanceStrategySearchCommand extends Command
 {
-    private const SUPPORTED_FAMILIES = ['trend-breakout-v1', 'mean-reversion-v1', 'momentum-v1'];
+    private const SUPPORTED_FAMILIES = ['trend-breakout-v1', 'mean-reversion-v1', 'momentum-v1', 'volume-breakout-v1', 'pullback-trend-v1', 'regime-adaptive-v1', 'funding-extreme-v1'];
+
+    /** @var list<array{0:int,1:float}> fita congelada de funding (família funding-extreme-v1) */
+    private array $fundingTapeEvents = [];
 
     protected $signature = 'atlas:finance:strategy-search
         {--symbol=BTCUSDT}
@@ -135,6 +143,17 @@ final class AtlasFinanceStrategySearchCommand extends Command
             $this->error('unsupported strategy family '.$family.'; implemented families: '.implode(', ', self::SUPPORTED_FAMILIES));
 
             return self::FAILURE;
+        }
+        if ($family === 'funding-extreme-v1') {
+            // Fail-closed: sem a fita congelada de funding não há sinal — recusa em vez
+            // de rodar uma campanha silenciosamente vazia.
+            $tape = FundingTape::default();
+            if (! $tape->has($symbol)) {
+                $this->error('funding tape missing for '.$symbol.' ('.$tape->path($symbol).'); run storage/atlas/finance/fetch-funding-history.sh first');
+
+                return self::FAILURE;
+            }
+            $this->fundingTapeEvents = $tape->load($symbol);
         }
         $workerId = (string) $this->option('worker-id');
         $this->feeBps = max(0.0, (float) $this->option('fee-bps'));
@@ -799,6 +818,10 @@ final class AtlasFinanceStrategySearchCommand extends Command
         return match ($family) {
             'mean-reversion-v1' => new MeanReversionStrategy,
             'momentum-v1' => new MomentumStrategy,
+            'volume-breakout-v1' => new VolumeBreakoutStrategy,
+            'pullback-trend-v1' => new TrendPullbackStrategy,
+            'regime-adaptive-v1' => new RegimeAdaptiveStrategy,
+            'funding-extreme-v1' => new FundingExtremeStrategy($this->fundingTapeEvents),
             default => new TrendBreakoutStrategy,
         };
     }
@@ -811,6 +834,18 @@ final class AtlasFinanceStrategySearchCommand extends Command
         }
         if ($family === 'momentum-v1') {
             return $this->randomMomentumParams($island);
+        }
+        if ($family === 'volume-breakout-v1') {
+            return $this->randomVolumeBreakoutParams($island);
+        }
+        if ($family === 'pullback-trend-v1') {
+            return $this->randomTrendPullbackParams($island);
+        }
+        if ($family === 'regime-adaptive-v1') {
+            return $this->randomRegimeAdaptiveParams($island);
+        }
+        if ($family === 'funding-extreme-v1') {
+            return $this->randomFundingExtremeParams($island);
         }
 
         return $this->randomTrendBreakoutParams($island);
@@ -844,6 +879,18 @@ final class AtlasFinanceStrategySearchCommand extends Command
         if ($family === 'momentum-v1') {
             return $this->mutateMomentumParams($base, $island);
         }
+        if ($family === 'volume-breakout-v1') {
+            return $this->mutateVolumeBreakoutParams($base, $island);
+        }
+        if ($family === 'pullback-trend-v1') {
+            return $this->mutateTrendPullbackParams($base, $island);
+        }
+        if ($family === 'regime-adaptive-v1') {
+            return $this->mutateRegimeAdaptiveParams($base, $island);
+        }
+        if ($family === 'funding-extreme-v1') {
+            return $this->mutateFundingExtremeParams($base, $island);
+        }
 
         return $this->mutateTrendBreakoutParams($base, $island);
     }
@@ -865,6 +912,260 @@ final class AtlasFinanceStrategySearchCommand extends Command
         ];
 
         return $this->shapeParamsForIsland($params, $island);
+    }
+
+    /** @return array<string,float|int> */
+    private function randomVolumeBreakoutParams(string $island = 'robustness'): array
+    {
+        $params = [
+            'regime_period' => $this->chance(0.30) ? 0 : $this->randInt(20, 300),
+            'entry_lookback' => $this->randInt(5, 100),
+            'exit_lookback' => $this->chance(0.30) ? 0 : $this->randInt(5, 100),
+            'atr_period' => $this->randInt(5, 50),
+            'atr_mult' => $this->randFloat(1.0, 8.0),
+            'vol_sma_period' => $this->randInt(5, 60),
+            'vol_mult' => $this->randFloat(1.0, 4.0),
+            'risk_pct' => $this->randFloat(0.05, 0.5),
+            'min_hold_bars' => $this->randInt(0, 20),
+        ];
+
+        return $this->shapeParamsForIsland($params, $island);
+    }
+
+    /**
+     * @param  array<string,mixed>  $base
+     * @return array<string,float|int>
+     */
+    private function mutateVolumeBreakoutParams(array $base, string $island = 'robustness'): array
+    {
+        $params = [
+            'regime_period' => $this->chance(0.15) ? ($this->chance(0.5) ? 0 : $this->randInt(20, 300)) : $this->jitterInt((int) ($base['regime_period'] ?? 100), 0, 300, 30),
+            'entry_lookback' => $this->jitterInt((int) ($base['entry_lookback'] ?? 20), 5, 100, 10),
+            'exit_lookback' => $this->chance(0.15) ? 0 : $this->jitterInt((int) ($base['exit_lookback'] ?? 10), 5, 100, 10),
+            'atr_period' => $this->jitterInt((int) ($base['atr_period'] ?? 14), 5, 50, 6),
+            'atr_mult' => $this->jitterFloat((float) ($base['atr_mult'] ?? 3.0), 1.0, 8.0, 1.0),
+            'vol_sma_period' => $this->jitterInt((int) ($base['vol_sma_period'] ?? 20), 5, 60, 8),
+            'vol_mult' => $this->jitterFloat((float) ($base['vol_mult'] ?? 1.5), 1.0, 4.0, 0.4),
+            'risk_pct' => $this->jitterFloat((float) ($base['risk_pct'] ?? 0.2), 0.05, 0.5, 0.08),
+            'min_hold_bars' => $this->jitterInt((int) ($base['min_hold_bars'] ?? 3), 0, 20, 4),
+        ];
+
+        return $this->shapeParamsForIsland($params, $island);
+    }
+
+    /** @return array<string,float|int> */
+    private function randomTrendPullbackParams(string $island = 'robustness'): array
+    {
+        $params = [
+            'trend_period' => $this->randInt(30, 300),
+            'pullback_period' => $this->randInt(5, 60),
+            'pullback_atr' => $this->randFloat(0.5, 4.0),
+            'atr_period' => $this->randInt(5, 50),
+            'atr_mult' => $this->randFloat(1.0, 8.0),
+            'max_hold_bars' => $this->randInt(3, 60),
+            'risk_pct' => $this->randFloat(0.05, 0.5),
+            'min_hold_bars' => $this->randInt(0, 10),
+        ];
+
+        return $this->shapeTrendPullbackParamsForIsland($params, $island);
+    }
+
+    /**
+     * @param  array<string,mixed>  $base
+     * @return array<string,float|int>
+     */
+    private function mutateTrendPullbackParams(array $base, string $island = 'robustness'): array
+    {
+        $params = [
+            'trend_period' => $this->jitterInt((int) ($base['trend_period'] ?? 100), 30, 300, 30),
+            'pullback_period' => $this->jitterInt((int) ($base['pullback_period'] ?? 20), 5, 60, 8),
+            'pullback_atr' => $this->jitterFloat((float) ($base['pullback_atr'] ?? 1.5), 0.5, 4.0, 0.4),
+            'atr_period' => $this->jitterInt((int) ($base['atr_period'] ?? 14), 5, 50, 6),
+            'atr_mult' => $this->jitterFloat((float) ($base['atr_mult'] ?? 3.0), 1.0, 8.0, 1.0),
+            'max_hold_bars' => $this->jitterInt((int) ($base['max_hold_bars'] ?? 20), 3, 60, 8),
+            'risk_pct' => $this->jitterFloat((float) ($base['risk_pct'] ?? 0.2), 0.05, 0.5, 0.08),
+            'min_hold_bars' => $this->jitterInt((int) ($base['min_hold_bars'] ?? 0), 0, 10, 3),
+        ];
+
+        return $this->shapeTrendPullbackParamsForIsland($params, $island);
+    }
+
+    /**
+     * Pullback params have their own shape (no entry/exit lookback) — the generic
+     * shaper would invent keys the engine ignores and silently distort the islands.
+     *
+     * @param  array<string,float|int>  $params
+     * @return array<string,float|int>
+     */
+    private function shapeTrendPullbackParamsForIsland(array $params, string $island): array
+    {
+        if ($island === 'conservative') {
+            $params['trend_period'] = max(100, (int) $params['trend_period']);
+            $params['pullback_atr'] = max(1.5, (float) $params['pullback_atr']);
+            $params['atr_mult'] = max(2.5, (float) $params['atr_mult']);
+            $params['risk_pct'] = min(0.18, (float) $params['risk_pct']);
+            $params['min_hold_bars'] = max(3, (int) $params['min_hold_bars']);
+        } elseif ($island === 'aggressive') {
+            $params['trend_period'] = min(120, (int) $params['trend_period']);
+            $params['pullback_atr'] = min(2.0, (float) $params['pullback_atr']);
+            $params['atr_mult'] = min(4.5, (float) $params['atr_mult']);
+            $params['risk_pct'] = max(0.12, min(0.5, (float) $params['risk_pct']));
+            $params['max_hold_bars'] = min(25, (int) $params['max_hold_bars']);
+        } else {
+            $params['risk_pct'] = min(0.28, max(0.08, (float) $params['risk_pct']));
+            $params['atr_mult'] = min(6.0, max(1.5, (float) $params['atr_mult']));
+        }
+
+        return $params;
+    }
+
+    /** @return array<string,float|int> */
+    private function randomRegimeAdaptiveParams(string $island = 'robustness'): array
+    {
+        $params = [
+            'er_period' => $this->randInt(5, 40),
+            'er_entry' => $this->randFloat(0.25, 0.75),
+            'er_exit' => $this->randFloat(0.05, 0.50),
+            'trend_period' => $this->randInt(30, 300),
+            'vol_period' => $this->randInt(10, 60),
+            'vol_rank_window' => $this->randInt(50, 250),
+            'vol_cap' => $this->randFloat(0.5, 1.0),
+            'chop_mode' => $this->chance(0.5) ? 1 : 0,
+            'z_lookback' => $this->randInt(8, 60),
+            'entry_z' => $this->randFloat(0.5, 3.0),
+            'exit_z' => $this->randFloat(-0.25, 0.75),
+            'atr_period' => $this->randInt(5, 50),
+            'atr_mult' => $this->randFloat(1.0, 8.0),
+            'max_hold_bars' => $this->randInt(5, 60),
+            'risk_pct' => $this->randFloat(0.05, 0.5),
+            'min_hold_bars' => $this->randInt(0, 10),
+        ];
+
+        return $this->shapeRegimeAdaptiveParamsForIsland($params, $island);
+    }
+
+    /**
+     * @param  array<string,mixed>  $base
+     * @return array<string,float|int>
+     */
+    private function mutateRegimeAdaptiveParams(array $base, string $island = 'robustness'): array
+    {
+        $params = [
+            'er_period' => $this->jitterInt((int) ($base['er_period'] ?? 10), 5, 40, 5),
+            'er_entry' => $this->jitterFloat((float) ($base['er_entry'] ?? 0.45), 0.25, 0.75, 0.08),
+            'er_exit' => $this->jitterFloat((float) ($base['er_exit'] ?? 0.20), 0.05, 0.50, 0.06),
+            'trend_period' => $this->jitterInt((int) ($base['trend_period'] ?? 100), 30, 300, 30),
+            'vol_period' => $this->jitterInt((int) ($base['vol_period'] ?? 20), 10, 60, 8),
+            'vol_rank_window' => $this->jitterInt((int) ($base['vol_rank_window'] ?? 100), 50, 250, 25),
+            'vol_cap' => $this->jitterFloat((float) ($base['vol_cap'] ?? 0.8), 0.5, 1.0, 0.08),
+            'chop_mode' => $this->chance(0.15) ? (((int) ($base['chop_mode'] ?? 0)) === 1 ? 0 : 1) : (int) ($base['chop_mode'] ?? 0),
+            'z_lookback' => $this->jitterInt((int) ($base['z_lookback'] ?? 20), 8, 60, 8),
+            'entry_z' => $this->jitterFloat((float) ($base['entry_z'] ?? 1.5), 0.5, 3.0, 0.3),
+            'exit_z' => $this->jitterFloat((float) ($base['exit_z'] ?? 0.0), -0.25, 0.75, 0.2),
+            'atr_period' => $this->jitterInt((int) ($base['atr_period'] ?? 14), 5, 50, 6),
+            'atr_mult' => $this->jitterFloat((float) ($base['atr_mult'] ?? 3.0), 1.0, 8.0, 1.0),
+            'max_hold_bars' => $this->jitterInt((int) ($base['max_hold_bars'] ?? 30), 5, 60, 8),
+            'risk_pct' => $this->jitterFloat((float) ($base['risk_pct'] ?? 0.2), 0.05, 0.5, 0.08),
+            'min_hold_bars' => $this->jitterInt((int) ($base['min_hold_bars'] ?? 0), 0, 10, 3),
+        ];
+
+        return $this->shapeRegimeAdaptiveParamsForIsland($params, $island);
+    }
+
+    /**
+     * Regime params têm forma própria (ER/vol/z) — o shaper genérico inventaria
+     * chaves de lookback que o engine ignora e distorceria as ilhas em silêncio.
+     *
+     * @param  array<string,float|int>  $params
+     * @return array<string,float|int>
+     */
+    private function shapeRegimeAdaptiveParamsForIsland(array $params, string $island): array
+    {
+        if ($island === 'conservative') {
+            $params['er_entry'] = max(0.50, (float) $params['er_entry']);
+            $params['chop_mode'] = 0;                                  // conservador: chop = flat
+            $params['atr_mult'] = max(2.5, (float) $params['atr_mult']);
+            $params['risk_pct'] = min(0.18, (float) $params['risk_pct']);
+            $params['min_hold_bars'] = max(3, (int) $params['min_hold_bars']);
+        } elseif ($island === 'aggressive') {
+            $params['er_entry'] = min(0.50, (float) $params['er_entry']);
+            $params['chop_mode'] = 1;                                  // agressivo: opera o chop também
+            $params['atr_mult'] = min(4.5, (float) $params['atr_mult']);
+            $params['risk_pct'] = max(0.12, min(0.5, (float) $params['risk_pct']));
+            $params['max_hold_bars'] = min(30, (int) $params['max_hold_bars']);
+        } else {
+            $params['risk_pct'] = min(0.28, max(0.08, (float) $params['risk_pct']));
+            $params['atr_mult'] = min(6.0, max(1.5, (float) $params['atr_mult']));
+        }
+
+        return $params;
+    }
+
+    /** @return array<string,float|int> */
+    private function randomFundingExtremeParams(string $island = 'robustness'): array
+    {
+        $params = [
+            'fund_window' => $this->randInt(1, 21),
+            'entry_bps' => $this->randFloat(0.5, 15.0),
+            'exit_bps' => $this->randFloat(-2.0, 3.0),
+            'regime_period' => $this->chance(0.5) ? 0 : $this->randInt(20, 300),
+            'atr_period' => $this->randInt(5, 50),
+            'atr_mult' => $this->randFloat(1.0, 8.0),
+            'max_hold_bars' => $this->randInt(3, 60),
+            'risk_pct' => $this->randFloat(0.05, 0.5),
+            'min_hold_bars' => $this->randInt(0, 10),
+        ];
+
+        return $this->shapeFundingExtremeParamsForIsland($params, $island);
+    }
+
+    /**
+     * @param  array<string,mixed>  $base
+     * @return array<string,float|int>
+     */
+    private function mutateFundingExtremeParams(array $base, string $island = 'robustness'): array
+    {
+        $params = [
+            'fund_window' => $this->jitterInt((int) ($base['fund_window'] ?? 6), 1, 21, 3),
+            'entry_bps' => $this->jitterFloat((float) ($base['entry_bps'] ?? 3.0), 0.5, 15.0, 1.5),
+            'exit_bps' => $this->jitterFloat((float) ($base['exit_bps'] ?? 0.0), -2.0, 3.0, 0.5),
+            'regime_period' => $this->chance(0.15) ? ($this->chance(0.5) ? 0 : $this->randInt(20, 300)) : $this->jitterInt((int) ($base['regime_period'] ?? 0), 0, 300, 30),
+            'atr_period' => $this->jitterInt((int) ($base['atr_period'] ?? 14), 5, 50, 6),
+            'atr_mult' => $this->jitterFloat((float) ($base['atr_mult'] ?? 3.0), 1.0, 8.0, 1.0),
+            'max_hold_bars' => $this->jitterInt((int) ($base['max_hold_bars'] ?? 20), 3, 60, 8),
+            'risk_pct' => $this->jitterFloat((float) ($base['risk_pct'] ?? 0.2), 0.05, 0.5, 0.08),
+            'min_hold_bars' => $this->jitterInt((int) ($base['min_hold_bars'] ?? 0), 0, 10, 3),
+        ];
+
+        return $this->shapeFundingExtremeParamsForIsland($params, $island);
+    }
+
+    /**
+     * Params de funding têm forma própria (janela de eventos + limiares em bps) — o
+     * shaper genérico inventaria chaves de lookback que o engine ignora.
+     *
+     * @param  array<string,float|int>  $params
+     * @return array<string,float|int>
+     */
+    private function shapeFundingExtremeParamsForIsland(array $params, string $island): array
+    {
+        if ($island === 'conservative') {
+            $params['entry_bps'] = max(3.0, (float) $params['entry_bps']);   // só extremos de verdade
+            $params['fund_window'] = max(3, (int) $params['fund_window']);   // média, não 1 print
+            $params['atr_mult'] = max(2.5, (float) $params['atr_mult']);
+            $params['risk_pct'] = min(0.18, (float) $params['risk_pct']);
+            $params['min_hold_bars'] = max(3, (int) $params['min_hold_bars']);
+        } elseif ($island === 'aggressive') {
+            $params['entry_bps'] = min(5.0, (float) $params['entry_bps']);
+            $params['atr_mult'] = min(4.5, (float) $params['atr_mult']);
+            $params['risk_pct'] = max(0.12, min(0.5, (float) $params['risk_pct']));
+            $params['max_hold_bars'] = min(25, (int) $params['max_hold_bars']);
+        } else {
+            $params['risk_pct'] = min(0.28, max(0.08, (float) $params['risk_pct']));
+            $params['atr_mult'] = min(6.0, max(1.5, (float) $params['atr_mult']));
+        }
+
+        return $params;
     }
 
     /** @return array<string,float|int> */

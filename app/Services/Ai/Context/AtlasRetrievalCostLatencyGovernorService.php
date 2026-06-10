@@ -123,10 +123,7 @@ final class AtlasRetrievalCostLatencyGovernorService
      */
     private function requiredSources(array $input, string $risk): array
     {
-        $sources = array_values(array_unique(array_filter(array_map(
-            static fn (mixed $source): string => is_scalar($source) ? trim((string) $source) : '',
-            (array) ($input['required_sources'] ?? []),
-        ))));
+        $sources = AtlasContextStringListNormalizer::uniqueTrimmedStrings($input['required_sources'] ?? []);
 
         if ($sources !== []) {
             return $sources;

@@ -24,11 +24,15 @@ use Illuminate\Support\Str;
 final class AtlasFinancePolyArbCommand extends Command
 {
     protected $signature = 'atlas:finance:poly-arb
-        {action=scan : scan|run|report}
+        {action=scan : scan|run|report|turnover|fillcheck}
         {--pages=4 : Gamma pages per pass (volume-ordered)}
         {--per-page=50 : Events per page}
         {--minutes=60 : Loop duration for run}
         {--interval=120 : Seconds between passes in run mode}
+        {--market-read-timeout=5 : Max seconds for each public Polymarket Gamma/CLOB read}
+        {--scan-time-budget=120 : Max seconds spent in each full scan pass}
+        {--hot-watch-time-budget=20 : Max seconds spent in each hot-watch refresh pass}
+        {--max-legs-per-candidate=12 : Skip baskets with too many outcome legs for bounded shadow/live readiness}
         {--min-profit=0.002 : Minimum locked profit per $1 set to RECORD (census floor — see everything; the gas-aware net-positive floor that decides what to EXECUTE lives in the executor, not here)}
         {--json : Emit JSON}';
 
@@ -233,13 +237,29 @@ final class AtlasFinancePolyArbCommand extends Command
         $minProfit = max(0.0, (float) $this->option('min-profit'));
         $interval = max(30, (int) $this->option('interval'));
         $deadline = microtime(true) + max(1, (int) $this->option('minutes')) * 60;
+        $marketReadTimeout = $this->boundedIntOption('market-read-timeout', 1, 30);
+        $scanTimeBudget = $this->boundedIntOption('scan-time-budget', 1, 900);
+        $hotWatchTimeBudget = $this->boundedIntOption('hot-watch-time-budget', 1, 300);
+        $maxLegsPerCandidate = $this->boundedIntOption('max-legs-per-candidate', 3, 100);
 
         $scanner = new PolymarketArbScanner;
         $passes = 0;
         $totalSignals = 0;
+        $budgetExhaustedPasses = 0;
+        $passSummaries = [];
 
-        $this->info(sprintf('[poly-arb] session=%s mode=%s pages=%d (SHADOW — detection only, no orders)',
-            $sessionId, $once ? 'scan' : 'run', $pages));
+        if (! $this->option('json')) {
+            $this->info(sprintf(
+                '[poly-arb] session=%s mode=%s pages=%d timeout=%ds scan_budget=%ds hot_budget=%ds max_legs=%d (SHADOW — detection only, no orders)',
+                $sessionId,
+                $once ? 'scan' : 'run',
+                $pages,
+                $marketReadTimeout,
+                $scanTimeBudget,
+                $hotWatchTimeBudget,
+                $maxLegsPerCandidate,
+            ));
+        }
 
         do {
             $passStart = microtime(true);
@@ -252,15 +272,24 @@ final class AtlasFinancePolyArbCommand extends Command
                     minProfitPerSet: $minProfit,
                     feePerSet: (float) ($config['fee_per_set'] ?? 0.0),
                     maxClobVerifications: (int) ($config['max_clob_verifications'] ?? 12),
-                    onProgress: fn (string $stage, array $progress) => $this->emitScanProgress($stage, $progress),
+                    marketReadTimeoutSeconds: $marketReadTimeout,
+                    scanTimeBudgetSeconds: $scanTimeBudget,
+                    maxLegsPerCandidate: $maxLegsPerCandidate,
+                    onProgress: $this->option('json') ? null : fn (string $stage, array $progress) => $this->emitScanProgress($stage, $progress),
                 );
             } catch (\Throwable $e) {
-                $this->warn('[poly-arb] pass error (continuing): '.$e->getMessage());
+                if (! $this->option('json')) {
+                    $this->warn('[poly-arb] pass error (continuing): '.$e->getMessage());
+                }
                 $result = null;
             }
 
             if ($result !== null) {
                 $passes++;
+                if ((bool) ($result['budget_exhausted'] ?? false)) {
+                    $budgetExhaustedPasses++;
+                }
+
                 DB::table('atlas_poly_arb_scans')->insert([
                     'session_id' => $sessionId,
                     'scanned_events' => $result['scanned_events'],
@@ -293,18 +322,39 @@ final class AtlasFinancePolyArbCommand extends Command
                         'updated_at' => now(),
                     ]);
                     $totalSignals++;
-                    $this->info(sprintf('[poly-arb] SIGNAL %s %s sum=%.4f profit/set=%.4f depth=%.1f sets (~$%.2f locked) %s',
-                        $signal['kind'], $signal['event_slug'], $signal['sum'],
-                        $signal['profit_per_set'], $signal['sets'], $signal['profit_usd'],
-                        $signal['execution_class']));
+                    if (! $this->option('json')) {
+                        $this->info(sprintf('[poly-arb] SIGNAL %s %s sum=%.4f profit/set=%.4f depth=%.1f sets (~$%.2f locked) %s',
+                            $signal['kind'], $signal['event_slug'], $signal['sum'],
+                            $signal['profit_per_set'], $signal['sets'], $signal['profit_usd'],
+                            $signal['execution_class']));
+                    }
                 }
 
-                $this->line(sprintf('[poly-arb] pass#%d scanned=%d eligible=%d shortlisted=%d verified=%d signals=%d best_long_sum=%s best_short_sum=%s (%.1fs)',
-                    $passes, $result['scanned_events'], $result['eligible_events'], $result['shortlisted'],
-                    $result['verified'], count($result['signals']),
-                    $result['best_long_sum'] !== null ? sprintf('%.4f', $result['best_long_sum']) : 'n/a',
-                    $result['best_short_sum'] !== null ? sprintf('%.4f', $result['best_short_sum']) : 'n/a',
-                    microtime(true) - $passStart));
+                $duration = microtime(true) - $passStart;
+                $passSummaries[] = [
+                    'pass' => $passes,
+                    'scanned' => $result['scanned_events'],
+                    'eligible' => $result['eligible_events'],
+                    'shortlisted' => $result['shortlisted'],
+                    'verified' => $result['verified'],
+                    'signals' => count($result['signals']),
+                    'budget_exhausted' => (bool) ($result['budget_exhausted'] ?? false),
+                    'skipped_too_many_legs' => (int) ($result['skipped_too_many_legs'] ?? 0),
+                    'best_long_sum' => $result['best_long_sum'],
+                    'best_short_sum' => $result['best_short_sum'],
+                    'duration_seconds' => round($duration, 2),
+                ];
+
+                if (! $this->option('json')) {
+                    $this->line(sprintf('[poly-arb] pass#%d scanned=%d eligible=%d shortlisted=%d verified=%d signals=%d budget_exhausted=%s skipped_too_many_legs=%d best_long_sum=%s best_short_sum=%s (%.1fs)',
+                        $passes, $result['scanned_events'], $result['eligible_events'], $result['shortlisted'],
+                        $result['verified'], count($result['signals']),
+                        ((bool) ($result['budget_exhausted'] ?? false)) ? 'yes' : 'no',
+                        (int) ($result['skipped_too_many_legs'] ?? 0),
+                        $result['best_long_sum'] !== null ? sprintf('%.4f', $result['best_long_sum']) : 'n/a',
+                        $result['best_short_sum'] !== null ? sprintf('%.4f', $result['best_short_sum']) : 'n/a',
+                        $duration));
+                }
             }
 
             if ($once) {
@@ -319,9 +369,17 @@ final class AtlasFinancePolyArbCommand extends Command
             $sweepAt = $passStart + $interval;
             while (microtime(true) < min($sweepAt, $deadline)) {
                 try {
-                    $this->hotWatch($scanner, $minProfit, (float) ($config['fee_per_set'] ?? 0.0));
+                    $this->hotWatch(
+                        $scanner,
+                        $minProfit,
+                        (float) ($config['fee_per_set'] ?? 0.0),
+                        $marketReadTimeout,
+                        $hotWatchTimeBudget,
+                    );
                 } catch (\Throwable $e) {
-                    $this->warn('[poly-arb] hot-watch error (continuing): '.$e->getMessage());
+                    if (! $this->option('json')) {
+                        $this->warn('[poly-arb] hot-watch error (continuing): '.$e->getMessage());
+                    }
                 }
                 $pause = (int) min(15, max(1, min($sweepAt, $deadline) - microtime(true)));
                 if ($pause > 0) {
@@ -336,12 +394,36 @@ final class AtlasFinancePolyArbCommand extends Command
             'session_id' => $sessionId,
             'passes' => $passes,
             'signals' => $totalSignals,
+            'budget_exhausted_passes' => $budgetExhaustedPasses,
         ], [
             'scope_type' => 'finance_poly_arb',
             'scope_id' => $sessionId,
         ]);
 
-        $this->info(sprintf('[poly-arb] session %s complete: %d pass(es), %d signal(s).', $sessionId, $passes, $totalSignals));
+        $summary = [
+            'schema_version' => 'atlas.finance.poly_arb.scan.v1',
+            'session_id' => $sessionId,
+            'mode' => $once ? 'scan' : 'run',
+            'shadow_only' => true,
+            'real_money_touched' => false,
+            'passes' => $passes,
+            'signals' => $totalSignals,
+            'budget_exhausted_passes' => $budgetExhaustedPasses,
+            'market_read_timeout_seconds' => $marketReadTimeout,
+            'scan_time_budget_seconds' => $scanTimeBudget,
+            'hot_watch_time_budget_seconds' => $hotWatchTimeBudget,
+            'max_legs_per_candidate' => $maxLegsPerCandidate,
+            'pass_summaries' => $passSummaries,
+        ];
+
+        if ($this->option('json')) {
+            $this->line((string) json_encode($summary, JSON_PRETTY_PRINT));
+
+            return self::SUCCESS;
+        }
+
+        $this->info(sprintf('[poly-arb] session %s complete: %d pass(es), %d signal(s), %d budget-exhausted pass(es).',
+            $sessionId, $passes, $totalSignals, $budgetExhaustedPasses));
 
         return self::SUCCESS;
     }
@@ -528,8 +610,9 @@ final class AtlasFinancePolyArbCommand extends Command
      * clears the floor simply stops advancing last_seen_at — its TTL is then
      * (last_seen_at - first_seen_at), measured at ~15s resolution.
      */
-    private function hotWatch(PolymarketArbScanner $scanner, float $minProfit, float $fee): void
+    private function hotWatch(PolymarketArbScanner $scanner, float $minProfit, float $fee, int $marketReadTimeoutSeconds, int $hotWatchTimeBudgetSeconds): void
     {
+        $deadlineAt = microtime(true) + max(1, $hotWatchTimeBudgetSeconds);
         $hot = DB::table('atlas_poly_arb_opportunities')
             ->where('dead_book', false)
             ->where('last_seen_at', '>=', now()->subMinutes(15))
@@ -548,7 +631,18 @@ final class AtlasFinancePolyArbCommand extends Command
                 continue;
             }
 
-            $fresh = $scanner->verifyKnownOpportunity($legs, (string) $opportunity->kind, $fee, $minProfit);
+            if (microtime(true) >= $deadlineAt) {
+                break;
+            }
+
+            $fresh = $scanner->verifyKnownOpportunity(
+                $legs,
+                (string) $opportunity->kind,
+                $fee,
+                $minProfit,
+                $marketReadTimeoutSeconds,
+                $deadlineAt,
+            );
             if ($fresh === null) {
                 continue; // gone or unreadable: lifecycle stops advancing => TTL recorded
             }
@@ -650,5 +744,12 @@ final class AtlasFinancePolyArbCommand extends Command
             'k' => $number * 1024,
             default => (int) $value,
         };
+    }
+
+    private function boundedIntOption(string $name, int $min, int $max): int
+    {
+        $raw = (int) $this->option($name);
+
+        return max($min, min($max, $raw));
     }
 }

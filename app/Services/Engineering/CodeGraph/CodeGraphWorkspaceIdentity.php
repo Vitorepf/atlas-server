@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering\CodeGraph;
 
+use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
+use Throwable;
+
 /**
  * AP-815 · W-1 / W-7 — Stable workspace identity for the code graph.
  *
@@ -11,15 +14,19 @@ namespace App\Services\Engineering\CodeGraph;
  * code-intelligence read-model (so a second project never collides with the primary
  * atlas-server graph). Identity rules, in order:
  *
- *   1. The primary workspace (the running app, base_path()) is ALWAYS the configured
+ *   1. A path covered by a registered Atlas Code workspace profile resolves to that
+ *      profile slug (`atlas` for the umbrella, `atlas-server` for the backend, etc.).
+ *   2. The primary workspace (the running app, base_path()) falls back to the configured
  *      default ('atlas-server') — path-independent across machines.
- *   2. Any other path → its git-remote slug ("owner-repo", machine-independent and
+ *   3. Any other path → its git-remote slug ("owner-repo", machine-independent and
  *      stable across clones) when a remote is readable.
- *   3. Fallback → directory basename + a short path hash (deterministic, collision-safe).
+ *   4. Fallback → directory basename + a short path hash (deterministic, collision-safe).
  *
- * Pure of DB + clock. The only side effect is a best-effort read of `<path>/.git/config`
- * (cached per path). This is [php] by the runtime-language boundary: identity/orchestration,
- * not heavy data.
+ * Read-only and fail-safe: the resolver may consult the Atlas Code workspace profile
+ * registry when the Laravel container is available, and otherwise falls back to the
+ * deterministic path rules. The only filesystem side effect is a best-effort read of
+ * `<path>/.git/config` (cached per path). This is [php] by the runtime-language boundary:
+ * identity/orchestration, not heavy data.
  */
 class CodeGraphWorkspaceIdentity
 {
@@ -45,7 +52,16 @@ class CodeGraphWorkspaceIdentity
     {
         $canonical = $this->canonicalPath($path);
 
-        if ($canonical === '' || $this->isPrimaryWorkspace($canonical)) {
+        if ($canonical === '') {
+            return $this->default();
+        }
+
+        $profileSlug = $this->registeredProfileSlugForPath($canonical);
+        if ($profileSlug !== null) {
+            return $profileSlug;
+        }
+
+        if ($this->isPrimaryWorkspace($canonical)) {
             return $this->default();
         }
 
@@ -163,6 +179,22 @@ class CodeGraphWorkspaceIdentity
         $hash = substr(hash('sha256', $path), 0, 8);
 
         return "{$base}-{$hash}";
+    }
+
+    private function registeredProfileSlugForPath(string $path): ?string
+    {
+        try {
+            if (! function_exists('app')) {
+                return null;
+            }
+
+            $profile = app(AtlasCodeWorkspaceProfileService::class)->findByReference($path);
+            $slug = is_array($profile) ? trim((string) ($profile['slug'] ?? '')) : '';
+
+            return $slug !== '' ? $this->normalizeWorkspaceId($slug) : null;
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     private function gitRemoteSlug(string $path): ?string

@@ -153,6 +153,7 @@ final class ArbAllocatorTest extends TestCase
         $this->assertSame(1, $out['processed']);
         $this->assertSame(0, $out['dispatched']);
         $this->assertSame('unplannable', $out['results'][0]['status']);
+        $this->assertSame('long_planner_returned_null', $out['results'][0]['status_reason']);
     }
 
     public function test_daily_budget_stops_dispatch_when_exhausted(): void

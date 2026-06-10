@@ -53,7 +53,7 @@ Regra curta: docs canônicos no repo são a fonte autoral; Postgres/Code Intelli
 
 **Não confiar** em memória do treino, em `grep` cego no código, ou na seção `Provider-Safe Memory` acima — ela é foto fixa que envelhece. Atlas é a fonte viva.
 
-**Por que essa regra é imperativa, não descritiva:** o `Operating Contract` acima diz "use Atlas as canonical context", mas em sessões longas o modelo esquece e cai no atalho do grep. Resultado: implementação que ignora decisão já tomada, vira refator depois. Atlas indexa ~22 docs, ~8.700 símbolos, decisões auditadas — pular consulta = reinventar contexto que já existe. Custo de chamada: ~1s. Custo de divergir: horas.
+**Por que essa regra é imperativa, não descritiva:** o `Operating Contract` acima diz "use Atlas as canonical context", mas em sessões longas o modelo esquece e cai no atalho do grep. Resultado: implementação que ignora decisão já tomada, vira refator depois. Atlas mantém docs, código, memória e decisões auditadas em read models vivos — consulte o status/context pack em vez de confiar em números congelados nesta projeção. Custo de chamada: ~1s. Custo de divergir: horas.
 
 **Exceções legítimas** (não precisa consultar):
 - Renomear variável dentro de uma função

@@ -85,16 +85,42 @@ final class AtlasCodeWorkspaceProfileService
             return null;
         }
 
+        $match = null;
         foreach ($this->listProfiles() as $profile) {
             foreach (['workspace_path', 'repo_root'] as $key) {
                 $candidate = $this->normalizePath((string) ($profile[$key] ?? ''));
                 if ($candidate !== null && $candidate === $needle) {
-                    return $profile;
+                    $match = $profile;
                 }
             }
         }
 
-        return null;
+        return $match;
+    }
+
+    /**
+     * Resolve a workspace reference supplied by CLIs, MCP tools or runtime gates.
+     *
+     * Accepts the canonical Atlas Code profile slug, an exact registered path,
+     * or a path inside a registered workspace. It deliberately does NOT treat a
+     * Code Graph id such as `atlas-server` as an Atlas Code profile unless that
+     * profile is registered: the umbrella `atlas` workspace and the server-only
+     * code graph scope are related but not identical.
+     *
+     * @return array<string,mixed>|null
+     */
+    public function findByReference(?string $workspace): ?array
+    {
+        $needle = is_string($workspace) && trim($workspace) !== ''
+            ? trim($workspace)
+            : $this->defaultSlug();
+
+        $direct = $this->findBySlug($needle) ?? $this->findByPath($needle);
+        if ($direct !== null) {
+            return $direct;
+        }
+
+        return $this->findContainingPath($needle);
     }
 
     public function defaultSlug(): string
@@ -111,6 +137,36 @@ final class AtlasCodeWorkspaceProfileService
         }
 
         return $configured;
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    public function findContainingPath(string $path): ?array
+    {
+        $needle = $this->normalizePath($path);
+        if ($needle === null) {
+            return null;
+        }
+
+        $best = null;
+        $bestLength = -1;
+        foreach ($this->listProfiles() as $profile) {
+            foreach (['workspace_path', 'repo_root'] as $key) {
+                $root = $this->normalizePath((string) ($profile[$key] ?? ''));
+                if ($root === null || ($needle !== $root && ! str_starts_with($needle, $root.DIRECTORY_SEPARATOR))) {
+                    continue;
+                }
+
+                $length = strlen($root);
+                if ($length >= $bestLength) {
+                    $best = $profile;
+                    $bestLength = $length;
+                }
+            }
+        }
+
+        return $best;
     }
 
     public function resolveActiveSlug(?string $requested): ?string
@@ -239,6 +295,7 @@ final class AtlasCodeWorkspaceProfileService
                 ? (string) $raw['dev_server_command']
                 : null,
             'critical_areas' => $this->stringList($raw['critical_areas'] ?? []),
+            'code_index_roots' => $this->stringList($raw['code_index_roots'] ?? []),
             'docs_status' => (string) ($raw['docs_status'] ?? 'unknown'),
             'default_risk' => $defaultRisk,
             'deployment_notes' => (string) ($raw['deployment_notes'] ?? ''),

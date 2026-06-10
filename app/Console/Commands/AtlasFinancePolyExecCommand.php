@@ -19,6 +19,9 @@ use App\Services\Ai\Finance\PolymarketExec\PolyExecConfig;
 use App\Services\Ai\Finance\PolymarketExec\PolyExecGate;
 use App\Services\Ai\Finance\PolymarketExec\ShortBasketPlanner;
 use App\Services\Ai\Finance\PolymarketExec\SimulatedPolyExecClient;
+use App\Services\Ai\Finance\PolymarketShadow\PolymarketArbScanner;
+use App\Services\Ai\Finance\PolymarketShadow\PolymarketPinnedHttp;
+use App\Services\Ai\Finance\PolymarketShadow\PolymarketShadowFeed;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -30,6 +33,8 @@ use Illuminate\Support\Str;
  *
  *   preflight  show config, gate state, account readiness, kill-switch. No action.
  *   plan       build the basket plan for live opportunities + gate verdict. No action.
+ *   status     read the latest monitor JSONL heartbeat. No action.
+ *   qualify    aggregate monitor logs into an explicit real-money readiness verdict.
  *   run        execute one bounded pass. mode=sim signs NOTHING; mode=live signs
  *              NOTHING while FinanceDomainCanon::liveTradingBlocked() is true.
  *   monitor    repeat bounded sim passes against real books; live monitor is refused.
@@ -41,16 +46,31 @@ use Illuminate\Support\Str;
 final class AtlasFinancePolyExecCommand extends Command
 {
     protected $signature = 'atlas:finance:poly-exec
-        {action=preflight : preflight|plan|run|monitor}
+        {action=preflight : preflight|plan|status|qualify|run|monitor}
         {--mode=sim : sim|live}
         {--kind=both : both|long|short — which arb direction(s) to run}
         {--max-cesta= : per-basket cap USD (overrides config)}
         {--daily-cap= : daily budget USD (overrides config)}
         {--max-concurrent= : max simultaneous baskets (overrides config)}
         {--max-candidates= : max lifecycle candidates to process in run/monitor or show in plan}
+        {--market-read-timeout=5 : max seconds for each public Polymarket book/metadata read}
+        {--candidate-time-budget=75 : max seconds spent evaluating candidates per plan/run/monitor cycle}
+        {--max-legs-per-candidate=12 : skip baskets with too many outcome legs for bounded shadow/live readiness}
+        {--max-signal-age-seconds=900 : skip lifecycle opportunities not refreshed within this TTL}
         {--cycles=3 : monitor cycles (sim only)}
         {--interval=30 : seconds between monitor cycles}
+        {--scan-before-cycle : monitor only: refresh the poly-arb lifecycle with a bounded shadow scan before each exec cycle}
+        {--scan-pages=4 : monitor scan-before-cycle Gamma pages per scan}
+        {--scan-per-page=50 : monitor scan-before-cycle events per Gamma page}
+        {--scan-time-budget=120 : monitor scan-before-cycle max seconds per scan}
+        {--scan-min-profit=0.002 : monitor scan-before-cycle minimum profit per set to record}
+        {--scan-max-clob-verifications= : monitor scan-before-cycle max shortlist candidates to verify; defaults to finance_poly_arb config}
         {--slow-cycle-seconds=45 : mark monitor cycles slower than this as degraded}
+        {--monitor-log-dir= : write monitor JSONL audit logs here (default: storage/app/atlas-finance/poly-exec-monitor)}
+        {--qualification-min-cycles=12 : minimum monitor cycles required before real-money qualification}
+        {--qualification-min-executed=1 : minimum simulated executions required in monitor logs}
+        {--qualification-max-slow-ratio=0.05 : maximum accepted slow-cycle ratio}
+        {--qualification-lookback-logs=20 : monitor JSONL files to aggregate for qualification}
         {--event-slug= : target one specific opportunity instead of the best}
         {--confirm : required only after Finance policy explicitly allows live mode}
         {--json : Emit JSON}';
@@ -71,9 +91,11 @@ final class AtlasFinancePolyExecCommand extends Command
         return match ((string) $this->argument('action')) {
             'preflight' => $this->preflight($cfg, $mode),
             'plan' => $this->plan($cfg, $mode),
+            'status' => $this->status($mode),
+            'qualify' => $this->qualify($cfg, $mode),
             'run' => $this->runExec($cfg, $mode),
             'monitor' => $this->monitor($cfg, $mode),
-            default => $this->fail2('Unknown action. Use: preflight | plan | run | monitor'),
+            default => $this->fail2('Unknown action. Use: preflight | plan | status | qualify | run | monitor'),
         };
     }
 
@@ -103,12 +125,17 @@ final class AtlasFinancePolyExecCommand extends Command
                 'min_net_edge_per_set' => $cfg->minNetEdgePerSet,
                 'max_resolution_hours' => $cfg->maxResolutionHours,
                 'slippage_bps' => $cfg->slippageBps,
+                'market_read_timeout_seconds' => $this->marketReadTimeout(),
+                'candidate_time_budget_seconds' => $this->candidateTimeBudget(),
+                'max_legs_per_candidate' => $this->maxLegsPerCandidate(),
+                'max_signal_age_seconds' => $this->maxSignalAgeSeconds(),
             ],
             'short' => [
                 'enabled' => $cfg->shortEnabled,
                 'est_mint_gas_usd' => $cfg->estMintGasUsd,
                 'est_merge_gas_usd' => $cfg->estMergeGasUsd,
                 'merge_on_no_sell' => $cfg->shortMergeOnNoSell,
+                'max_resolution_hours' => $cfg->shortMaxResolutionHours,
                 // Live short minting needs an EOA holding USDC.e; a proxy/magic wallet
                 // routes funds through a proxy contract and is fail-closed on-chain.
                 'live_onchain_ready' => $mode === 'live' && $cfg->liveEnabled && $shortFailures === [],
@@ -139,6 +166,9 @@ final class AtlasFinancePolyExecCommand extends Command
         $this->line(sprintf('caps: basket=$%.2f daily=$%.2f concurrent=%d depth>=%.1fx persist>=%ds edge>=%.4f resolve<=%.0fh slip=%dbps',
             $cfg->maxBasketUsd, $cfg->dailyCapUsd, $cfg->maxConcurrentBaskets, $cfg->minDepthMultiple,
             $cfg->minPersistenceSeconds, $cfg->minNetEdgePerSet, $cfg->maxResolutionHours, $cfg->slippageBps));
+        $this->line(sprintf('readiness bounds: market_read_timeout=%ds candidate_budget=%ds max_legs=%d',
+            $this->marketReadTimeout(), $this->candidateTimeBudget(), $this->maxLegsPerCandidate()));
+        $this->line(sprintf('lifecycle freshness: max_signal_age=%ds', $this->maxSignalAgeSeconds()));
         $this->line(sprintf('deployed today: $%.2f  runtime gate: %s', $gate->deployedToday($mode),
             $runtime->allowed ? 'OPEN' : 'BLOCKED ('.$runtime->blockingReasons().')'));
         $a = $identity->readiness();
@@ -163,12 +193,20 @@ final class AtlasFinancePolyExecCommand extends Command
         $candidates = array_slice($candidates, 0, $this->candidateLimit($this->option('event-slug') ? 1 : 8));
 
         $gate = new PolyExecGate($cfg);
-        $longPlanner = new BasketPlanner($cfg);
-        $shortPlanner = new ShortBasketPlanner($cfg);
+        $bookSource = $this->realBookSource($this->marketReadTimeout());
+        $eventMetaSource = $this->eventMetaSource($this->marketReadTimeout());
+        $longPlanner = new BasketPlanner($cfg, $bookSource, $eventMetaSource);
+        $shortPlanner = new ShortBasketPlanner($cfg, $bookSource, $eventMetaSource);
         $remaining = max(0.0, $cfg->dailyCapUsd - $gate->deployedToday($mode));
+        $deadlineAt = microtime(true) + $this->candidateTimeBudget();
+        $budgetExhausted = false;
 
         $plans = [];
         foreach ($candidates as $c) {
+            if ($this->candidateBudgetExceeded($deadlineAt)) {
+                $budgetExhausted = true;
+                break;
+            }
             $plan = $c['kind'] === 'short_sum_over'
                 ? $shortPlanner->plan($c['event_slug'], $c['legs'], $c['persistence_seconds'], $remaining)
                 : $longPlanner->plan($c['event_slug'], $c['kind'], $c['legs'], $c['persistence_seconds'], $remaining);
@@ -177,7 +215,10 @@ final class AtlasFinancePolyExecCommand extends Command
 
                 continue;
             }
-            $opp = $gate->checkOpportunity($plan->toGateInput(), $mode);
+            $resolutionCeiling = $plan->kind === 'short_sum_over'
+                ? $cfg->shortMaxResolutionHours
+                : null;
+            $opp = $gate->checkOpportunity($plan->toGateInput(), $mode, $resolutionCeiling);
             $plans[] = [
                 'event_slug' => $plan->eventSlug,
                 'kind' => $plan->kind,
@@ -188,7 +229,207 @@ final class AtlasFinancePolyExecCommand extends Command
             ];
         }
 
-        return $this->emit(['action' => 'plan', 'mode' => $mode, 'kinds' => $kinds, 'daily_remaining_usd' => round($remaining, 2), 'plans' => $plans]);
+        return $this->emit([
+            'action' => 'plan',
+            'mode' => $mode,
+            'kinds' => $kinds,
+            'daily_remaining_usd' => round($remaining, 2),
+            'candidate_time_budget_seconds' => $this->candidateTimeBudget(),
+            'max_signal_age_seconds' => $this->maxSignalAgeSeconds(),
+            'candidate_budget_exhausted' => $budgetExhausted,
+            'plans' => $plans,
+        ]);
+    }
+
+    private function status(string $mode): int
+    {
+        $dir = $this->monitorLogDir(create: false);
+        $latest = $this->latestMonitorLogPath($dir);
+        $safety = $this->monitorSafety();
+
+        if ($latest === null) {
+            return $this->emit([
+                'action' => 'status',
+                'mode' => $mode,
+                'safety' => $safety,
+                'monitor_log_dir' => $dir,
+                'latest_log_path' => null,
+                'note' => 'no monitor audit log found yet',
+            ]);
+        }
+
+        $events = $this->readMonitorLog($latest);
+        $summary = $this->lastMonitorEvent($events, 'summary');
+        $cycle = $this->lastMonitorEvent($events, 'cycle');
+        $start = $this->lastMonitorEvent($events, 'start');
+
+        $payload = [
+            'action' => 'status',
+            'mode' => $mode,
+            'safety' => $safety,
+            'monitor_log_dir' => $dir,
+            'latest_log_path' => $latest,
+            'latest_session_id' => (string) ($summary['session_id'] ?? $cycle['session_id'] ?? $start['session_id'] ?? ''),
+            'latest_event_at' => (string) ($summary['created_at'] ?? $cycle['created_at'] ?? $start['created_at'] ?? ''),
+            'cycles_recorded' => count(array_filter($events, fn (array $event): bool => ($event['event'] ?? null) === 'cycle')),
+            'latest_cycle' => $cycle,
+            'latest_summary' => $summary,
+        ];
+
+        if (! $this->option('json')) {
+            $statuses = is_array($cycle['statuses'] ?? null) ? json_encode($cycle['statuses']) : '{}';
+            $this->line(sprintf('[poly-exec] status log=%s session=%s cycles=%d latest_cycle=%s executed_total=%s statuses=%s safety=shadow',
+                $latest,
+                $payload['latest_session_id'] !== '' ? $payload['latest_session_id'] : '-',
+                $payload['cycles_recorded'],
+                (string) ($cycle['cycle'] ?? '-'),
+                (string) ($summary['executed_total'] ?? '-'),
+                $statuses ?: '{}',
+            ));
+        }
+
+        return $this->emit($payload);
+    }
+
+    private function qualify(PolyExecConfig $cfg, string $mode): int
+    {
+        $dir = $this->monitorLogDir(create: false);
+        $lookback = max(1, min(200, (int) $this->option('qualification-lookback-logs')));
+        $minCycles = max(1, (int) $this->option('qualification-min-cycles'));
+        $minExecuted = max(0, (int) $this->option('qualification-min-executed'));
+        $maxSlowRatio = max(0.0, min(1.0, (float) $this->option('qualification-max-slow-ratio')));
+        $paths = $this->monitorLogPaths($dir, $lookback);
+        $observed = $this->aggregateMonitorLogs($paths);
+
+        $gate = new PolyExecGate($cfg);
+        $identity = PolyAccountIdentity::detect();
+        $account = $identity->readiness();
+        $liveRuntime = $gate->checkRuntimeCaps('live');
+        $shortFailures = $this->liveShortReadinessFailures($cfg, $identity);
+        $needsShort = in_array('short_sum_over', $this->kindsFor(), true);
+        $slowRatio = $observed['cycles_observed'] > 0
+            ? round($observed['slow_cycles'] / $observed['cycles_observed'], 4)
+            : 1.0;
+
+        $checks = [
+            [
+                'name' => 'monitor_logs_present',
+                'ok' => $observed['logs_considered'] > 0,
+                'reason' => $observed['logs_considered'] > 0
+                    ? 'monitor JSONL found'
+                    : 'no monitor JSONL found; run monitor first',
+            ],
+            [
+                'name' => 'shadow_cycles_min',
+                'ok' => $observed['cycles_observed'] >= $minCycles,
+                'reason' => sprintf('observed=%d required>=%d', $observed['cycles_observed'], $minCycles),
+            ],
+            [
+                'name' => 'shadow_executed_min',
+                'ok' => $observed['executed_total'] >= $minExecuted,
+                'reason' => sprintf('observed=%d required>=%d', $observed['executed_total'], $minExecuted),
+            ],
+            [
+                'name' => 'slow_cycle_ratio',
+                'ok' => $observed['cycles_observed'] > 0 && $slowRatio <= $maxSlowRatio,
+                'reason' => sprintf('observed=%.4f max=%.4f slow=%d cycles=%d',
+                    $slowRatio, $maxSlowRatio, $observed['slow_cycles'], $observed['cycles_observed']),
+            ],
+            [
+                'name' => 'scan_before_cycle_evidence',
+                'ok' => $observed['scan_cycles'] > 0,
+                'reason' => sprintf('observed=%d skipped=%d', $observed['scan_cycles'], $observed['scan_skipped_cycles']),
+            ],
+            [
+                'name' => 'scan_budget_exhaustion',
+                'ok' => $observed['scan_cycles'] > 0 && $observed['scan_budget_exhausted_cycles'] === 0,
+                'reason' => sprintf('exhausted=%d scan_cycles=%d verified=%d signals=%d',
+                    $observed['scan_budget_exhausted_cycles'],
+                    $observed['scan_cycles'],
+                    $observed['scan_verified'],
+                    $observed['scan_signals'],
+                ),
+            ],
+            [
+                'name' => 'finance_policy_allows_live',
+                'ok' => ! FinanceDomainCanon::liveTradingBlocked(),
+                'reason' => FinanceDomainCanon::liveTradingBlocked()
+                    ? 'Atlas Finance canonical policy blocks live market execution'
+                    : 'Atlas Finance canonical policy allows live market execution',
+            ],
+            [
+                'name' => 'live_flag_enabled',
+                'ok' => $cfg->liveEnabled,
+                'reason' => $cfg->liveEnabled ? 'live flag enabled' : 'ATLAS_POLY_EXEC_LIVE_ENABLED is false',
+            ],
+            [
+                'name' => 'account_ready',
+                'ok' => (bool) ($account['ready'] ?? false),
+                'reason' => (bool) ($account['ready'] ?? false)
+                    ? 'account credentials present'
+                    : 'missing ['.implode(',', array_map('strval', $account['missing'] ?? [])).']',
+            ],
+            [
+                'name' => 'runtime_caps_live',
+                'ok' => $liveRuntime->allowed,
+                'reason' => $liveRuntime->allowed ? 'live runtime caps open' : $liveRuntime->blockingReasons(),
+            ],
+            [
+                'name' => 'short_onchain_ready_if_needed',
+                'ok' => ! $needsShort || $shortFailures === [],
+                'reason' => ! $needsShort
+                    ? 'short side not requested'
+                    : ($shortFailures === [] ? 'short on-chain path ready' : implode(',', $shortFailures)),
+            ],
+        ];
+        $failed = array_values(array_map(
+            fn (array $check): string => (string) $check['name'],
+            array_filter($checks, fn (array $check): bool => ! (bool) ($check['ok'] ?? false)),
+        ));
+        $qualified = $failed === [];
+
+        $payload = [
+            'action' => 'qualify',
+            'mode_requested' => $mode,
+            'kinds' => $this->kindsFor(),
+            'decision' => $qualified ? 'qualified' : 'not_qualified',
+            'qualified_for_real_money' => $qualified,
+            'real_money_test_possible_now' => $qualified,
+            'safety' => $this->monitorSafety(),
+            'thresholds' => [
+                'min_cycles' => $minCycles,
+                'min_executed' => $minExecuted,
+                'max_slow_ratio' => $maxSlowRatio,
+                'lookback_logs' => $lookback,
+            ],
+            'monitor_log_dir' => $dir,
+            'observed' => $observed + ['slow_ratio' => $slowRatio],
+            'live_preflight' => [
+                'finance_policy_live_blocked' => FinanceDomainCanon::liveTradingBlocked(),
+                'live_enabled' => $cfg->liveEnabled,
+                'account_ready' => (bool) ($account['ready'] ?? false),
+                'account_missing' => array_values(array_map('strval', $account['missing'] ?? [])),
+                'runtime_allowed' => $liveRuntime->allowed,
+                'runtime_checks' => $liveRuntime->checks,
+                'short_live_blockers' => $needsShort ? $shortFailures : [],
+            ],
+            'checks' => $checks,
+            'failed_checks' => $failed,
+            'next_required_evidence' => $this->qualificationNextEvidence($failed, $minCycles, $minExecuted),
+        ];
+
+        if (! $this->option('json')) {
+            $line = sprintf('[poly-exec] qualify decision=%s cycles=%d executed=%d slow_ratio=%.4f failed=[%s]',
+                $payload['decision'],
+                $observed['cycles_observed'],
+                $observed['executed_total'],
+                $slowRatio,
+                implode(',', $failed),
+            );
+            $qualified ? $this->info($line) : $this->warn($line);
+        }
+
+        return $this->emit($payload);
     }
 
     private function runExec(PolyExecConfig $cfg, string $mode): int
@@ -219,14 +460,16 @@ final class AtlasFinancePolyExecCommand extends Command
             }
         }
 
-        [$exec, $onChain] = $this->makeClients($cfg, $mode);
+        $bookSource = $this->realBookSource($this->marketReadTimeout());
+        $eventMetaSource = $this->eventMetaSource($this->marketReadTimeout());
+        [$exec, $onChain] = $this->makeClients($cfg, $mode, $bookSource);
         $allocator = new ArbAllocator(
             $cfg,
             $gate,
-            new BasketPlanner($cfg),
-            new ShortBasketPlanner($cfg),
-            new BasketStateMachine($cfg, $exec, $gate, null, null, $onChain),
-            new MintSellStateMachine($cfg, $exec, $onChain, $gate),
+            new BasketPlanner($cfg, $bookSource, $eventMetaSource),
+            new ShortBasketPlanner($cfg, $bookSource, $eventMetaSource),
+            new BasketStateMachine($cfg, $exec, $gate, $bookSource, null, $onChain),
+            new MintSellStateMachine($cfg, $exec, $onChain, $gate, $bookSource),
         );
         $sessionId = (string) Str::ulid();
 
@@ -236,7 +479,7 @@ final class AtlasFinancePolyExecCommand extends Command
             $sessionId, $mode, implode('+', $kinds), count($candidates),
             $mode === 'sim' ? '(SIM — real books, no signing/minting)' : '(LIVE — policy-open venue path)'));
 
-        $out = $allocator->allocate($mode, $sessionId, $candidates);
+        $out = $allocator->allocate($mode, $sessionId, $candidates, null, microtime(true) + $this->candidateTimeBudget());
 
         foreach ($out['results'] as $summary) {
             $this->line(sprintf('[poly-exec] %s %s %s -> %s pnl=$%.2f%s',
@@ -261,15 +504,17 @@ final class AtlasFinancePolyExecCommand extends Command
             return $this->fail2('MONITOR refused: monitor is sim-only; use preflight/plan for live readiness.');
         }
 
-        [$exec, $onChain] = $this->makeClients($cfg, 'sim');
+        $bookSource = $this->realBookSource($this->marketReadTimeout());
+        $eventMetaSource = $this->eventMetaSource($this->marketReadTimeout());
+        [$exec, $onChain] = $this->makeClients($cfg, 'sim', $bookSource);
         $gate = new PolyExecGate($cfg);
         $allocator = new ArbAllocator(
             $cfg,
             $gate,
-            new BasketPlanner($cfg),
-            new ShortBasketPlanner($cfg),
-            new BasketStateMachine($cfg, $exec, $gate, null, null, $onChain),
-            new MintSellStateMachine($cfg, $exec, $onChain, $gate),
+            new BasketPlanner($cfg, $bookSource, $eventMetaSource),
+            new ShortBasketPlanner($cfg, $bookSource, $eventMetaSource),
+            new BasketStateMachine($cfg, $exec, $gate, $bookSource, null, $onChain),
+            new MintSellStateMachine($cfg, $exec, $onChain, $gate, $bookSource),
         );
 
         $sessionId = (string) Str::ulid();
@@ -278,19 +523,68 @@ final class AtlasFinancePolyExecCommand extends Command
         $interval = max(0, min(3600, (int) $this->option('interval')));
         $maxCandidates = $this->candidateLimit(8);
         $slowCycleSeconds = max(1, min(3600, (int) $this->option('slow-cycle-seconds')));
+        $marketReadTimeout = $this->marketReadTimeout();
+        $candidateTimeBudget = $this->candidateTimeBudget();
+        $maxSignalAgeSeconds = $this->maxSignalAgeSeconds();
+        $scanBeforeCycle = (bool) $this->option('scan-before-cycle');
+        $scanOptions = $this->monitorScanOptions();
+        $safety = $this->monitorSafety();
+        $logPath = $this->monitorLogPath($sessionId);
         $cycleReports = [];
 
-        $this->info(sprintf('[poly-exec] monitor=%s mode=sim cycles=%d interval=%ds max_candidates=%d slow_cycle>%ds (real books, no signing/minting)',
-            $sessionId, $cycles, $interval, $maxCandidates, $slowCycleSeconds));
+        $this->info(sprintf('[poly-exec] monitor=%s mode=sim cycles=%d interval=%ds max_candidates=%d slow_cycle>%ds market_read_timeout=%ds candidate_budget=%ds max_signal_age=%ds scan_before_cycle=%s (real books, no signing/minting)',
+            $sessionId, $cycles, $interval, $maxCandidates, $slowCycleSeconds, $marketReadTimeout, $candidateTimeBudget, $maxSignalAgeSeconds, $scanBeforeCycle ? 'yes' : 'no'));
+        $this->line('[poly-exec] monitor audit log: '.$logPath);
+        $this->appendMonitorLog($logPath, [
+            'event' => 'start',
+            'session_id' => $sessionId,
+            'mode' => 'sim',
+            'kinds' => $kinds,
+            'cycles_requested' => $cycles,
+            'interval_seconds' => $interval,
+            'max_candidates' => $maxCandidates,
+            'slow_cycle_seconds' => $slowCycleSeconds,
+            'market_read_timeout_seconds' => $marketReadTimeout,
+            'candidate_time_budget_seconds' => $candidateTimeBudget,
+            'max_signal_age_seconds' => $maxSignalAgeSeconds,
+            'scan_before_cycle' => $scanBeforeCycle,
+            'scan_options' => $scanOptions,
+            'safety' => $safety,
+            'created_at' => now()->toIso8601String(),
+        ]);
 
         for ($cycle = 1; $cycle <= $cycles; $cycle++) {
             $cycleStarted = microtime(true);
+            $scanReport = null;
+            if ($scanBeforeCycle) {
+                $scanReport = $this->runMonitorScanCycle($sessionId, $cycle, $marketReadTimeout, $scanOptions);
+                $this->appendMonitorLog($logPath, $scanReport + [
+                    'event' => 'scan',
+                    'session_id' => $sessionId,
+                    'cycle' => $cycle,
+                    'created_at' => now()->toIso8601String(),
+                ]);
+                $this->line(sprintf('[poly-exec] monitor scan#%d scanned=%d eligible=%d shortlisted=%d verified=%d signals=%d budget_exhausted=%s skipped_too_many_legs=%d (%.2fs)%s',
+                    $cycle,
+                    (int) ($scanReport['scanned'] ?? 0),
+                    (int) ($scanReport['eligible'] ?? 0),
+                    (int) ($scanReport['shortlisted'] ?? 0),
+                    (int) ($scanReport['verified'] ?? 0),
+                    (int) ($scanReport['signals'] ?? 0),
+                    ((bool) ($scanReport['budget_exhausted'] ?? false)) ? 'yes' : 'no',
+                    (int) ($scanReport['skipped_too_many_legs'] ?? 0),
+                    (float) ($scanReport['duration_seconds'] ?? 0.0),
+                    ($scanReport['skipped'] ?? false) ? ' SKIPPED: '.(string) ($scanReport['skip_reason'] ?? 'unknown') : ''
+                ));
+            }
+
             $candidates = $this->selectCandidates($cfg, $kinds, $maxCandidates);
-            $out = $allocator->allocate('sim', $sessionId.'-'.$cycle, $candidates, $maxCandidates);
+            $out = $allocator->allocate('sim', $sessionId.'-'.$cycle, $candidates, $maxCandidates, microtime(true) + $candidateTimeBudget);
             $statuses = array_count_values(array_map(
                 fn (array $result): string => (string) ($result['status'] ?? 'unknown'),
                 $out['results'],
             ));
+            $resultSamples = $this->monitorResultSamples($out['results']);
             $report = [
                 'cycle' => $cycle,
                 'candidates' => count($candidates),
@@ -299,13 +593,21 @@ final class AtlasFinancePolyExecCommand extends Command
                 'executed' => $this->executedCount($out['results']),
                 'blocked' => $out['blocked'],
                 'statuses' => $statuses,
+                'reason_counts' => $this->monitorReasonCounts($resultSamples),
+                'result_samples' => $resultSamples,
+                'scan' => $scanReport,
                 'duration_seconds' => round(microtime(true) - $cycleStarted, 2),
             ];
             $report['slow'] = $report['duration_seconds'] > $slowCycleSeconds;
             $cycleReports[] = $report;
-            $this->line(sprintf('[poly-exec] monitor cycle#%d candidates=%d processed=%d dispatched=%d executed=%d statuses=%s (%.2fs)%s',
+            $this->appendMonitorLog($logPath, $report + [
+                'event' => 'cycle',
+                'session_id' => $sessionId,
+                'created_at' => now()->toIso8601String(),
+            ]);
+            $this->line(sprintf('[poly-exec] monitor cycle#%d candidates=%d processed=%d dispatched=%d executed=%d statuses=%s reasons=%s (%.2fs)%s',
                 $report['cycle'], $report['candidates'], $report['processed'], $report['dispatched'],
-                $report['executed'], json_encode($report['statuses']), $report['duration_seconds'],
+                $report['executed'], json_encode($report['statuses']), json_encode($report['reason_counts']), $report['duration_seconds'],
                 $report['slow'] ? ' SLOW' : ''));
 
             if ($cycle < $cycles && $interval > 0) {
@@ -313,26 +615,552 @@ final class AtlasFinancePolyExecCommand extends Command
             }
         }
 
-        return $this->emit([
+        $summary = [
             'action' => 'monitor',
             'mode' => 'sim',
-            'safety' => [
-                'shadow_only' => true,
-                'real_money_touched' => false,
-                'signing' => false,
-                'minting' => false,
-                'live_policy_blocked' => FinanceDomainCanon::liveTradingBlocked(),
-            ],
+            'safety' => $safety,
             'kinds' => $kinds,
             'session_id' => $sessionId,
+            'monitor_log_path' => $logPath,
             'cycles_requested' => $cycles,
             'interval_seconds' => $interval,
             'max_candidates' => $maxCandidates,
             'slow_cycle_seconds' => $slowCycleSeconds,
+            'market_read_timeout_seconds' => $marketReadTimeout,
+            'candidate_time_budget_seconds' => $candidateTimeBudget,
+            'max_signal_age_seconds' => $maxSignalAgeSeconds,
+            'scan_before_cycle' => $scanBeforeCycle,
+            'scan_options' => $scanOptions,
             'cycles' => $cycleReports,
             'slow_cycles' => count(array_filter($cycleReports, fn (array $report): bool => (bool) ($report['slow'] ?? false))),
             'executed_total' => array_sum(array_column($cycleReports, 'executed')),
+        ];
+        $this->appendMonitorLog($logPath, $summary + [
+            'event' => 'summary',
+            'created_at' => now()->toIso8601String(),
         ]);
+
+        return $this->emit($summary);
+    }
+
+    /**
+     * @return array{pages: int, per_page: int, time_budget_seconds: int, min_profit_per_set: float, max_clob_verifications: int}
+     */
+    private function monitorScanOptions(): array
+    {
+        $arbConfig = (array) config('atlas.finance_poly_arb', []);
+        $maxVerify = $this->intOpt('scan-max-clob-verifications');
+
+        return [
+            'pages' => max(1, min(20, (int) $this->option('scan-pages'))),
+            'per_page' => max(10, min(100, (int) $this->option('scan-per-page'))),
+            'time_budget_seconds' => max(1, min(900, (int) $this->option('scan-time-budget'))),
+            'min_profit_per_set' => max(0.0, (float) $this->option('scan-min-profit')),
+            'max_clob_verifications' => max(1, min(200, (int) ($maxVerify ?? ($arbConfig['max_clob_verifications'] ?? 12)))),
+        ];
+    }
+
+    /**
+     * @param  array{pages: int, per_page: int, time_budget_seconds: int, min_profit_per_set: float, max_clob_verifications: int}  $scanOptions
+     * @return array<string, mixed>
+     */
+    private function runMonitorScanCycle(string $sessionId, int $cycle, int $marketReadTimeout, array $scanOptions): array
+    {
+        $started = microtime(true);
+        if (! $this->polyArbLifecycleTablesReady()) {
+            return [
+                'skipped' => true,
+                'skip_reason' => 'poly_arb_lifecycle_tables_missing',
+                'scanned' => 0,
+                'eligible' => 0,
+                'shortlisted' => 0,
+                'verified' => 0,
+                'signals' => 0,
+                'budget_exhausted' => false,
+                'skipped_too_many_legs' => 0,
+                'duration_seconds' => round(microtime(true) - $started, 2),
+            ];
+        }
+
+        $arbConfig = (array) config('atlas.finance_poly_arb', []);
+        $scanner = new PolymarketArbScanner;
+        $scanSessionId = $sessionId.'-scan-'.$cycle;
+
+        $result = $scanner->scanOnce(
+            pages: $scanOptions['pages'],
+            perPage: $scanOptions['per_page'],
+            preFilterMargin: (float) ($arbConfig['pre_filter_margin'] ?? 0.02),
+            minProfitPerSet: $scanOptions['min_profit_per_set'],
+            feePerSet: (float) ($arbConfig['fee_per_set'] ?? 0.0),
+            maxClobVerifications: $scanOptions['max_clob_verifications'],
+            marketReadTimeoutSeconds: $marketReadTimeout,
+            scanTimeBudgetSeconds: $scanOptions['time_budget_seconds'],
+            maxLegsPerCandidate: $this->maxLegsPerCandidate(),
+        );
+
+        $this->recordPolyArbScan($scanSessionId, $result);
+
+        return [
+            'skipped' => false,
+            'scan_session_id' => $scanSessionId,
+            'scanned' => (int) $result['scanned_events'],
+            'eligible' => (int) $result['eligible_events'],
+            'shortlisted' => (int) $result['shortlisted'],
+            'verified' => (int) $result['verified'],
+            'signals' => count($result['signals']),
+            'budget_exhausted' => (bool) ($result['budget_exhausted'] ?? false),
+            'skipped_too_many_legs' => (int) ($result['skipped_too_many_legs'] ?? 0),
+            'best_long_sum' => $result['best_long_sum'],
+            'best_short_sum' => $result['best_short_sum'],
+            'duration_seconds' => round(microtime(true) - $started, 2),
+        ];
+    }
+
+    private function polyArbLifecycleTablesReady(): bool
+    {
+        $schema = DB::getSchemaBuilder();
+
+        return $schema->hasTable('atlas_poly_arb_scans')
+            && $schema->hasTable('atlas_poly_arb_signals')
+            && $schema->hasTable('atlas_poly_arb_opportunities')
+            && $schema->hasColumn('atlas_poly_arb_opportunities', 'volume_24hr')
+            && $schema->hasColumn('atlas_poly_arb_opportunities', 'dead_book');
+    }
+
+    /**
+     * @param  array{
+     *     scanned_events: int, eligible_events: int, shortlisted: int, verified: int,
+     *     signals: list<array<string, mixed>>, best_long_sum: float|null, best_short_sum: float|null
+     * }  $result
+     */
+    private function recordPolyArbScan(string $scanSessionId, array $result): void
+    {
+        DB::table('atlas_poly_arb_scans')->insert([
+            'session_id' => $scanSessionId,
+            'scanned_events' => $result['scanned_events'],
+            'eligible_events' => $result['eligible_events'],
+            'shortlisted' => $result['shortlisted'],
+            'verified' => $result['verified'],
+            'signals_found' => count($result['signals']),
+            'best_long_sum' => $result['best_long_sum'],
+            'best_short_sum' => $result['best_short_sum'],
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        foreach ($result['signals'] as $signal) {
+            $this->upsertPolyArbOpportunity($signal);
+            DB::table('atlas_poly_arb_signals')->insert([
+                'session_id' => $scanSessionId,
+                'event_slug' => $signal['event_slug'],
+                'event_title' => mb_substr((string) $signal['event_title'], 0, 300),
+                'kind' => $signal['kind'],
+                'execution_class' => $signal['execution_class'],
+                'n_legs' => $signal['n_legs'],
+                'sum' => $signal['sum'],
+                'profit_per_set' => $signal['profit_per_set'],
+                'sets' => $signal['sets'],
+                'profit_usd' => $signal['profit_usd'],
+                'cost_usd' => $signal['cost_usd'],
+                'legs' => json_encode($signal['legs']),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $signal
+     */
+    private function upsertPolyArbOpportunity(array $signal): void
+    {
+        $volume = isset($signal['volume_24hr']) ? (float) $signal['volume_24hr'] : null;
+        $activity = [
+            'volume_24hr' => $volume,
+            'liquidity' => $signal['liquidity'] ?? null,
+            'dead_book' => $volume === null
+                || $volume < (float) config('atlas.finance_poly_arb.min_volume_24hr', 50.0),
+        ];
+
+        $existing = DB::table('atlas_poly_arb_opportunities')
+            ->where('event_slug', $signal['event_slug'])
+            ->where('kind', $signal['kind'])
+            ->first();
+
+        if ($existing === null) {
+            DB::table('atlas_poly_arb_opportunities')->insert($activity + [
+                'event_slug' => $signal['event_slug'],
+                'kind' => $signal['kind'],
+                'event_title' => mb_substr((string) $signal['event_title'], 0, 300),
+                'execution_class' => $signal['execution_class'],
+                'first_seen_at' => now(),
+                'last_seen_at' => now(),
+                'observations' => 1,
+                'last_sum' => $signal['sum'],
+                'last_profit_per_set' => $signal['profit_per_set'],
+                'last_sets' => $signal['sets'],
+                'last_profit_usd' => $signal['profit_usd'],
+                'max_sets' => $signal['sets'],
+                'max_profit_usd' => $signal['profit_usd'],
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            return;
+        }
+
+        DB::table('atlas_poly_arb_opportunities')->where('id', $existing->id)->update($activity + [
+            'last_seen_at' => now(),
+            'observations' => (int) $existing->observations + 1,
+            'last_sum' => $signal['sum'],
+            'last_profit_per_set' => $signal['profit_per_set'],
+            'last_sets' => $signal['sets'],
+            'last_profit_usd' => $signal['profit_usd'],
+            'max_sets' => max((float) $existing->max_sets, (float) $signal['sets']),
+            'max_profit_usd' => max((float) $existing->max_profit_usd, (float) $signal['profit_usd']),
+            'updated_at' => now(),
+        ]);
+    }
+
+    /**
+     * @return array{shadow_only: true, real_money_touched: false, signing: false, minting: false, live_policy_blocked: bool}
+     */
+    private function monitorSafety(): array
+    {
+        return [
+            'shadow_only' => true,
+            'real_money_touched' => false,
+            'signing' => false,
+            'minting' => false,
+            'live_policy_blocked' => FinanceDomainCanon::liveTradingBlocked(),
+        ];
+    }
+
+    private function monitorLogPath(string $sessionId): string
+    {
+        return $this->monitorLogDir(create: true).DIRECTORY_SEPARATOR.$sessionId.'.jsonl';
+    }
+
+    private function monitorLogDir(bool $create): string
+    {
+        $dir = trim((string) ($this->option('monitor-log-dir') ?? ''));
+        if ($dir === '') {
+            $dir = storage_path('app/atlas-finance/poly-exec-monitor');
+        }
+        $dir = rtrim($dir, DIRECTORY_SEPARATOR);
+        if ($create && ! is_dir($dir) && ! mkdir($dir, 0775, true) && ! is_dir($dir)) {
+            throw new \RuntimeException('Unable to create monitor log directory: '.$dir);
+        }
+
+        return $dir;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function appendMonitorLog(string $path, array $payload): void
+    {
+        $encoded = json_encode($payload + ['schema_version' => 'atlas.finance.poly_exec.monitor_log.v1'], JSON_UNESCAPED_SLASHES);
+        if ($encoded === false || file_put_contents($path, $encoded.PHP_EOL, FILE_APPEND | LOCK_EX) === false) {
+            throw new \RuntimeException('Unable to append monitor log: '.$path);
+        }
+    }
+
+    private function latestMonitorLogPath(string $dir): ?string
+    {
+        if (! is_dir($dir)) {
+            return null;
+        }
+
+        $paths = glob($dir.DIRECTORY_SEPARATOR.'*.jsonl') ?: [];
+        if ($paths === []) {
+            return null;
+        }
+        usort($paths, static fn (string $a, string $b): int => (filemtime($b) ?: 0) <=> (filemtime($a) ?: 0));
+
+        return $paths[0];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function monitorLogPaths(string $dir, int $limit): array
+    {
+        if (! is_dir($dir)) {
+            return [];
+        }
+
+        $paths = glob($dir.DIRECTORY_SEPARATOR.'*.jsonl') ?: [];
+        usort($paths, static fn (string $a, string $b): int => (filemtime($b) ?: 0) <=> (filemtime($a) ?: 0));
+
+        return array_values(array_slice($paths, 0, max(1, $limit)));
+    }
+
+    /**
+     * @param  list<string>  $paths
+     * @return array<string, mixed>
+     */
+    private function aggregateMonitorLogs(array $paths): array
+    {
+        $durations = [];
+        $scanDurations = [];
+        $aggregate = [
+            'logs_considered' => count($paths),
+            'latest_log_path' => $paths[0] ?? null,
+            'sessions' => [],
+            'cycles_observed' => 0,
+            'candidates' => 0,
+            'processed' => 0,
+            'dispatched' => 0,
+            'executed_total' => 0,
+            'blocked' => 0,
+            'slow_cycles' => 0,
+            'scan_cycles' => 0,
+            'scan_skipped_cycles' => 0,
+            'scan_budget_exhausted_cycles' => 0,
+            'scan_verified' => 0,
+            'scan_signals' => 0,
+            'statuses' => [],
+            'reason_counts' => [],
+        ];
+
+        foreach ($paths as $path) {
+            $events = $this->readMonitorLog($path);
+            $summary = $this->lastMonitorEvent($events, 'summary');
+            $start = $this->lastMonitorEvent($events, 'start');
+            $cycles = array_values(array_filter(
+                $events,
+                fn (array $event): bool => ($event['event'] ?? null) === 'cycle',
+            ));
+            $aggregate['sessions'][] = [
+                'session_id' => (string) ($summary['session_id'] ?? $start['session_id'] ?? ''),
+                'log_path' => $path,
+                'cycles_recorded' => count($cycles),
+                'executed_total' => (int) ($summary['executed_total'] ?? array_sum(array_map(
+                    fn (array $cycle): int => (int) ($cycle['executed'] ?? 0),
+                    $cycles,
+                ))),
+                'created_at' => (string) ($summary['created_at'] ?? $start['created_at'] ?? ''),
+            ];
+
+            foreach ($cycles as $cycle) {
+                $aggregate['cycles_observed']++;
+                $aggregate['candidates'] += (int) ($cycle['candidates'] ?? 0);
+                $aggregate['processed'] += (int) ($cycle['processed'] ?? 0);
+                $aggregate['dispatched'] += (int) ($cycle['dispatched'] ?? 0);
+                $aggregate['executed_total'] += (int) ($cycle['executed'] ?? 0);
+                $aggregate['blocked'] += (int) ($cycle['blocked'] ?? 0);
+                if ((bool) ($cycle['slow'] ?? false)) {
+                    $aggregate['slow_cycles']++;
+                }
+                if (isset($cycle['duration_seconds']) && is_numeric($cycle['duration_seconds'])) {
+                    $durations[] = (float) $cycle['duration_seconds'];
+                }
+                $scan = $cycle['scan'] ?? null;
+                if (is_array($scan)) {
+                    if ((bool) ($scan['skipped'] ?? false)) {
+                        $aggregate['scan_skipped_cycles']++;
+                    } else {
+                        $aggregate['scan_cycles']++;
+                        $aggregate['scan_verified'] += (int) ($scan['verified'] ?? 0);
+                        $aggregate['scan_signals'] += (int) ($scan['signals'] ?? 0);
+                        if ((bool) ($scan['budget_exhausted'] ?? false)) {
+                            $aggregate['scan_budget_exhausted_cycles']++;
+                        }
+                        if (isset($scan['duration_seconds']) && is_numeric($scan['duration_seconds'])) {
+                            $scanDurations[] = (float) $scan['duration_seconds'];
+                        }
+                    }
+                }
+                $this->addCounterMap($aggregate['statuses'], $cycle['statuses'] ?? []);
+                $this->addCounterMap($aggregate['reason_counts'], $cycle['reason_counts'] ?? []);
+            }
+        }
+        ksort($aggregate['statuses']);
+        ksort($aggregate['reason_counts']);
+        $aggregate['cycle_duration_seconds'] = $this->durationStats($durations);
+        $aggregate['scan_duration_seconds'] = $this->durationStats($scanDurations);
+
+        return $aggregate;
+    }
+
+    /**
+     * @param  list<float>  $durations
+     * @return array{count: int, avg: float|null, p95: float|null, max: float|null}
+     */
+    private function durationStats(array $durations): array
+    {
+        $durations = array_values(array_filter($durations, fn (float $value): bool => is_finite($value) && $value >= 0.0));
+        sort($durations);
+        $count = count($durations);
+        if ($count === 0) {
+            return ['count' => 0, 'avg' => null, 'p95' => null, 'max' => null];
+        }
+
+        $p95Index = min($count - 1, (int) ceil($count * 0.95) - 1);
+
+        return [
+            'count' => $count,
+            'avg' => round(array_sum($durations) / $count, 2),
+            'p95' => round($durations[$p95Index], 2),
+            'max' => round($durations[$count - 1], 2),
+        ];
+    }
+
+    /**
+     * @param  array<string, int>  $target
+     */
+    private function addCounterMap(array &$target, mixed $counts): void
+    {
+        if (! is_array($counts)) {
+            return;
+        }
+
+        foreach ($counts as $key => $value) {
+            $name = (string) $key;
+            if ($name === '') {
+                continue;
+            }
+            $target[$name] = (int) ($target[$name] ?? 0) + (int) $value;
+        }
+    }
+
+    /**
+     * @param  list<string>  $failed
+     * @return list<string>
+     */
+    private function qualificationNextEvidence(array $failed, int $minCycles, int $minExecuted): array
+    {
+        $items = [];
+        if (array_intersect($failed, ['monitor_logs_present', 'shadow_cycles_min', 'shadow_executed_min']) !== []) {
+            $items[] = sprintf('Run monitor long enough to capture at least %d cycles and %d successful simulated executions against real books.',
+                $minCycles, $minExecuted);
+        }
+        if (in_array('slow_cycle_ratio', $failed, true)) {
+            $items[] = 'Reduce slow monitor cycles before relying on the executor for time-sensitive fills.';
+        }
+        if (in_array('scan_before_cycle_evidence', $failed, true)) {
+            $items[] = 'Run monitor with --scan-before-cycle so qualification proves discovery plus execution against fresh real books.';
+        }
+        if (in_array('scan_budget_exhaustion', $failed, true)) {
+            $items[] = 'Tune scan coverage, CLOB verification count, timeouts, or candidate pruning until monitor scan budget_exhausted=0 throughout the qualification window.';
+        }
+        if (in_array('finance_policy_allows_live', $failed, true)) {
+            $items[] = 'Change the canonical Finance policy through governance before any live market execution.';
+        }
+        if (in_array('live_flag_enabled', $failed, true)) {
+            $items[] = 'Enable the explicit live flag only after policy approval and dry-run evidence are complete.';
+        }
+        if (in_array('account_ready', $failed, true)) {
+            $items[] = 'Configure the live Polymarket account credentials and re-run preflight.';
+        }
+        if (in_array('runtime_caps_live', $failed, true)) {
+            $items[] = 'Clear live runtime blockers reported by preflight.';
+        }
+        if (in_array('short_onchain_ready_if_needed', $failed, true)) {
+            $items[] = 'Verify the EOA/Polygon/NegRisk mint-merge path before any short-side live test.';
+        }
+
+        return array_values(array_unique($items));
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function readMonitorLog(string $path): array
+    {
+        $lines = is_file($path) ? (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: []) : [];
+        $events = [];
+        foreach ($lines as $line) {
+            $decoded = json_decode($line, true);
+            if (is_array($decoded)) {
+                $events[] = $decoded;
+            }
+        }
+
+        return $events;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $results
+     * @return list<array<string, mixed>>
+     */
+    private function monitorResultSamples(array $results): array
+    {
+        return array_map(function (array $result): array {
+            $basketId = (string) ($result['basket_id'] ?? '');
+            $failed = is_array($result['failed'] ?? null) ? array_values($result['failed']) : [];
+            if ($failed === [] && $basketId !== '') {
+                $failed = $this->latestGateFailures($basketId);
+            }
+
+            return array_filter([
+                'event_slug' => (string) ($result['event_slug'] ?? ''),
+                'kind' => (string) ($result['kind'] ?? ''),
+                'basket_id' => $basketId !== '' ? $basketId : null,
+                'status' => (string) ($result['status'] ?? 'unknown'),
+                'status_reason' => isset($result['status_reason']) ? (string) $result['status_reason'] : null,
+                'failed' => $failed !== [] ? $failed : null,
+                'error' => isset($result['error']) && $result['error'] !== null ? (string) $result['error'] : null,
+                'realized_pnl_usd' => isset($result['realized_pnl_usd']) ? (float) $result['realized_pnl_usd'] : null,
+                'est_profit_usd' => isset($result['est_profit_usd']) ? (float) $result['est_profit_usd'] : null,
+            ], static fn ($value): bool => $value !== null && $value !== '');
+        }, array_slice($results, 0, 25));
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $samples
+     * @return array<string, int>
+     */
+    private function monitorReasonCounts(array $samples): array
+    {
+        $counts = [];
+        foreach ($samples as $sample) {
+            $reasons = is_array($sample['failed'] ?? null) && $sample['failed'] !== []
+                ? $sample['failed']
+                : [(string) ($sample['status_reason'] ?? $sample['status'] ?? 'unknown')];
+            foreach ($reasons as $reason) {
+                $reason = (string) $reason;
+                if ($reason === '') {
+                    continue;
+                }
+                $counts[$reason] = ($counts[$reason] ?? 0) + 1;
+            }
+        }
+        ksort($counts);
+
+        return $counts;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function latestGateFailures(string $basketId): array
+    {
+        $detail = DB::table('atlas_poly_exec_events')
+            ->where('basket_id', $basketId)
+            ->where('kind', 'gate_block')
+            ->orderByDesc('seq')
+            ->value('detail');
+        $decoded = is_string($detail) ? json_decode($detail, true) : null;
+        $failed = is_array($decoded) && is_array($decoded['failed'] ?? null) ? $decoded['failed'] : [];
+
+        return array_values(array_map('strval', $failed));
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $events
+     * @return array<string, mixed>
+     */
+    private function lastMonitorEvent(array $events, string $kind): array
+    {
+        for ($i = count($events) - 1; $i >= 0; $i--) {
+            if (($events[$i]['event'] ?? null) === $kind) {
+                return $events[$i];
+            }
+        }
+
+        return [];
     }
 
     /** @return list<string> */
@@ -405,7 +1233,7 @@ final class AtlasFinancePolyExecCommand extends Command
     /**
      * @return array{0: PolyExecClient, 1: PolyOnChainClient}
      */
-    private function makeClients(PolyExecConfig $cfg, string $mode): array
+    private function makeClients(PolyExecConfig $cfg, string $mode, ?callable $bookSource = null): array
     {
         if ($mode === 'live') {
             $identity = PolyAccountIdentity::detect();
@@ -417,7 +1245,7 @@ final class AtlasFinancePolyExecCommand extends Command
         // Sim: pair the on-chain client to the exec client so a mint credits the
         // shares the exec client then sells (and a merge burns them), keeping the
         // simulated position exact for reconciliation.
-        $exec = new SimulatedPolyExecClient;
+        $exec = new SimulatedPolyExecClient($bookSource);
         $onChain = new SimulatedPolyOnChainClient(
             mintGasUsd: $cfg->estMintGasUsd,
             mergeGasUsd: $cfg->estMergeGasUsd,
@@ -426,6 +1254,63 @@ final class AtlasFinancePolyExecCommand extends Command
         );
 
         return [$exec, $onChain];
+    }
+
+    private function marketReadTimeout(): int
+    {
+        $raw = $this->intOpt('market-read-timeout');
+
+        return max(1, min(30, $raw ?? 5));
+    }
+
+    private function candidateTimeBudget(): int
+    {
+        $raw = $this->intOpt('candidate-time-budget');
+
+        return max(1, min(3600, $raw ?? 75));
+    }
+
+    private function candidateBudgetExceeded(float $deadlineAt): bool
+    {
+        return microtime(true) >= $deadlineAt;
+    }
+
+    private function maxLegsPerCandidate(): int
+    {
+        $raw = $this->intOpt('max-legs-per-candidate');
+
+        return max(2, min(200, $raw ?? 12));
+    }
+
+    private function maxSignalAgeSeconds(): int
+    {
+        $raw = $this->intOpt('max-signal-age-seconds');
+
+        return max(1, min(86400, $raw ?? 900));
+    }
+
+    /**
+     * @return callable(string): ?array{asks: list<array{price: float, size: float}>, bids: list<array{price: float, size: float}>}
+     */
+    private function realBookSource(int $timeoutSeconds): callable
+    {
+        $feed = new PolymarketShadowFeed;
+
+        return fn (string $token): ?array => $feed->bookLevels($token, $timeoutSeconds);
+    }
+
+    /**
+     * @return callable(string): ?array<string, mixed>
+     */
+    private function eventMetaSource(int $timeoutSeconds): callable
+    {
+        $http = new PolymarketPinnedHttp;
+
+        return function (string $slug) use ($http, $timeoutSeconds): ?array {
+            $events = $http->getJson('https://gamma-api.polymarket.com/events?slug='.urlencode($slug), $timeoutSeconds);
+
+            return is_array($events) ? ($events[0] ?? null) : null;
+        };
     }
 
     /**
@@ -446,6 +1331,7 @@ final class AtlasFinancePolyExecCommand extends Command
         $q = DB::table('atlas_poly_arb_opportunities')
             ->whereIn('kind', $kinds)
             ->where('dead_book', false)
+            ->where('last_seen_at', '>=', Carbon::now()->subSeconds($this->maxSignalAgeSeconds()))
             ->whereNotNull('volume_24hr')
             ->where('volume_24hr', '>=', (float) config('atlas.finance_poly_arb.min_volume_24hr', 50.0));
         if ($slug = $this->option('event-slug')) {
@@ -477,6 +1363,9 @@ final class AtlasFinancePolyExecCommand extends Command
             // Long needs >=2 sellable; short needs the full outcome set (>=3) to mint.
             $minLegs = $row->kind === 'short_sum_over' ? 3 : 2;
             if (count($norm) < $minLegs) {
+                continue;
+            }
+            if (count($norm) > $this->maxLegsPerCandidate()) {
                 continue;
             }
 

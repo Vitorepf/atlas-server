@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Artisan;
 final class AtlasFinanceStrategyCampaignRunnerCommand extends Command
 {
     protected $signature = 'atlas:finance:strategy-campaign-runner
-        {--family=roadmap : roadmap|trend-breakout-v1|mean-reversion-v1|momentum-v1}
+        {--family=roadmap : roadmap|trend-breakout-v1|mean-reversion-v1|momentum-v1|volume-breakout-v1|pullback-trend-v1|regime-adaptive-v1|funding-extreme-v1}
         {--symbol= : Focus roadmap selection to one market symbol, e.g. BTCUSDT}
         {--interval= : Focus roadmap selection to one timeframe, e.g. 1d}
         {--campaign-id= : Override campaign id for the selected scenario}

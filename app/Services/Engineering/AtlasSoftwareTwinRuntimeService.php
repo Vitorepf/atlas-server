@@ -236,10 +236,10 @@ class AtlasSoftwareTwinRuntimeService
         $slug = trim((string) ($proposed['slug'] ?? ''));
         $collisions = $this->graphIdCollisions($graphId, $slug);
 
-        $needles = array_values(array_unique(array_filter(array_map(
-            static fn ($value): string => trim((string) $value),
-            array_merge((array) ($proposed['capabilities'] ?? []), (array) ($proposed['governs'] ?? [])),
-        ))));
+        $needles = $this->mergedUniqueStrings(
+            (array) ($proposed['capabilities'] ?? []),
+            (array) ($proposed['governs'] ?? []),
+        );
 
         // Capability/governs overlap needs the authority-graph read model. If it is
         // unbuilt we cannot prove "no overlap" — fail SAFE (degraded) rather than
@@ -447,14 +447,11 @@ class AtlasSoftwareTwinRuntimeService
      */
     private function predictOwner(array $proposed): ?array
     {
-        $needles = array_values(array_unique(array_filter(array_map(
-            static fn ($value): string => trim((string) $value),
-            array_merge(
-                (array) ($proposed['governs'] ?? []),
-                (array) ($proposed['capabilities'] ?? []),
-                array_filter([(string) ($proposed['owner'] ?? '')]),
-            ),
-        ))));
+        $needles = $this->mergedUniqueStrings(
+            (array) ($proposed['governs'] ?? []),
+            (array) ($proposed['capabilities'] ?? []),
+            [(string) ($proposed['owner'] ?? '')],
+        );
 
         $weak = null;
         foreach ($needles as $needle) {
@@ -485,11 +482,11 @@ class AtlasSoftwareTwinRuntimeService
      */
     private function locateBest(string $needle): array
     {
-        $variants = array_values(array_unique(array_filter([
+        $variants = $this->uniqueStrings([
             $needle,
             strtolower(str_replace([' ', '-'], '_', $needle)),
             strtolower(str_replace([' ', '_'], '-', $needle)),
-        ], static fn (string $v): bool => trim($v) !== '')));
+        ]);
 
         $best = ['resolved' => false, 'confidence' => 0];
         foreach ($variants as $variant) {
@@ -635,7 +632,7 @@ class AtlasSoftwareTwinRuntimeService
             'task' => trim($task),
             'target' => trim($target),
             'provider_safe' => true,
-            'minimal_sources' => array_values(array_unique(array_merge(
+            'minimal_sources' => $this->mergedUniqueStrings(
                 (array) ($contextPack['minimal_sources'] ?? []),
                 [
                     'docs/engineering-knowledge-base/code-intelligence.md',
@@ -643,12 +640,12 @@ class AtlasSoftwareTwinRuntimeService
                     'docs/engineering-knowledge-base/atlas-verified-execution-runtime.md',
                 ],
                 $impact !== null ? (array) data_get($impact, 'impact.owner_docs', []) : [],
-            ))),
+            ),
             'required_tests' => $impact !== null ? (array) data_get($impact, 'impact.required_tests', []) : [],
-            'required_gates' => array_values(array_unique(array_merge(
+            'required_gates' => $this->mergedUniqueStrings(
                 (array) ($contextPack['required_commands'] ?? []),
                 $impact !== null ? (array) data_get($impact, 'impact.required_gates', []) : [],
-            ))),
+            ),
             'do_not_claim' => [
                 'ASTR_complete_without_runtime_tests',
                 'AVEOR_complete_without_boundary_and_proof_plan',
@@ -858,6 +855,27 @@ class AtlasSoftwareTwinRuntimeService
         }
 
         return 'low';
+    }
+
+    /**
+     * @param  array<int,mixed>  ...$groups
+     * @return array<int,string>
+     */
+    private function mergedUniqueStrings(array ...$groups): array
+    {
+        return $this->uniqueStrings(array_merge(...$groups));
+    }
+
+    /**
+     * @param  array<int,mixed>  $values
+     * @return array<int,string>
+     */
+    private function uniqueStrings(array $values): array
+    {
+        return array_values(array_unique(array_filter(array_map(
+            static fn (mixed $value): string => trim((string) $value),
+            $values,
+        ), static fn (string $value): bool => $value !== '')));
     }
 
     /**

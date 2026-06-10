@@ -337,8 +337,8 @@ final class AtlasRetrievalFeedbackLoopService
                 $persisted instanceof AiRagFeedbackEvent ? 'rag_feedback:'.$persisted->feedback_hash : null,
             ])),
             'proposed_state' => [
-                'repromote_source_types' => array_values(array_unique(array_map(static fn (array $item): string => (string) $item['source_type'], $missed))),
-                'demote_noise_source_hashes' => array_values(array_unique(array_filter(array_map(static fn (array $item): string => (string) $item['source_ref_hash'], $noise)))),
+                'repromote_source_types' => $this->itemStringColumn($missed, 'source_type'),
+                'demote_noise_source_hashes' => $this->itemStringColumn($noise, 'source_ref_hash'),
                 'minimum_context_roi' => 0.70,
             ],
         ];
@@ -351,7 +351,7 @@ final class AtlasRetrievalFeedbackLoopService
      */
     private function sourceUtility(array $items, array $noise): array
     {
-        $noiseHashes = array_values(array_filter(array_map(static fn (array $item): string => (string) ($item['source_ref_hash'] ?? ''), $noise)));
+        $noiseHashes = $this->itemStringColumn($noise, 'source_ref_hash');
         $utility = [];
 
         foreach ($items as $item) {
@@ -363,6 +363,18 @@ final class AtlasRetrievalFeedbackLoopService
         }
 
         return $utility;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $items
+     * @return array<int,string>
+     */
+    private function itemStringColumn(array $items, string $key): array
+    {
+        return AtlasContextStringListNormalizer::uniqueMappedStrings(
+            $items,
+            static fn (mixed $item): mixed => is_array($item) ? ($item[$key] ?? null) : null,
+        );
     }
 
     /**

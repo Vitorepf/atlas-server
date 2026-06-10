@@ -15,6 +15,7 @@ use App\Services\Ai\Finance\PolymarketExec\SimulatedPolyExecClient;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Tests\Concerns\CreatesPolyExecTables;
 use Tests\TestCase;
@@ -156,8 +157,125 @@ final class PolyExecShadowSimTest extends TestCase
         $this->assertStringContainsString('"candidates": 0', Artisan::output());
     }
 
+    public function test_command_plan_skips_stale_lifecycle_opportunities(): void
+    {
+        $this->createLegacyArbOpportunityTable();
+        DB::table('atlas_poly_arb_opportunities')->insert([
+            'event_slug' => 'stale-but-large',
+            'kind' => 'long_sum_under',
+            'event_title' => 'Stale But Large',
+            'execution_class' => 'simple_buy_all_legs',
+            'first_seen_at' => now()->subHours(2),
+            'last_seen_at' => now()->subHour(),
+            'observations' => 10,
+            'last_sum' => 0.95,
+            'last_profit_per_set' => 0.05,
+            'last_sets' => 100,
+            'last_profit_usd' => 5,
+            'max_sets' => 100,
+            'max_profit_usd' => 5,
+            'volume_24hr' => 500,
+            'liquidity' => 5000,
+            'dead_book' => false,
+            'created_at' => now()->subHours(2),
+            'updated_at' => now()->subHour(),
+        ]);
+
+        $exit = Artisan::call('atlas:finance:poly-exec', [
+            'action' => 'plan',
+            '--mode' => 'sim',
+            '--kind' => 'long',
+            '--max-signal-age-seconds' => 60,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('"candidates": 0', Artisan::output());
+    }
+
+    public function test_command_plan_uses_short_resolution_ceiling_for_short_baskets(): void
+    {
+        $this->createLegacyArbLifecycleTables();
+        $legs = [
+            ['token' => 'A', 'question' => 'Outcome A'],
+            ['token' => 'B', 'question' => 'Outcome B'],
+            ['token' => 'C', 'question' => 'Outcome C'],
+        ];
+
+        DB::table('atlas_poly_arb_opportunities')->insert([
+            'event_slug' => 'short-far-but-bank-now',
+            'kind' => 'short_sum_over',
+            'event_title' => 'Short Far But Bank Now',
+            'execution_class' => 'requires_minting_full_set',
+            'first_seen_at' => now()->subMinutes(20),
+            'last_seen_at' => now(),
+            'observations' => 3,
+            'last_sum' => 1.20,
+            'last_profit_per_set' => 0.20,
+            'last_sets' => 100,
+            'last_profit_usd' => 20,
+            'max_sets' => 100,
+            'max_profit_usd' => 20,
+            'volume_24hr' => 500,
+            'liquidity' => 5000,
+            'dead_book' => false,
+            'created_at' => now()->subMinutes(20),
+            'updated_at' => now(),
+        ]);
+        DB::table('atlas_poly_arb_signals')->insert([
+            'session_id' => 'test',
+            'event_slug' => 'short-far-but-bank-now',
+            'event_title' => 'Short Far But Bank Now',
+            'kind' => 'short_sum_over',
+            'execution_class' => 'requires_minting_full_set',
+            'n_legs' => 3,
+            'sum' => 1.20,
+            'profit_per_set' => 0.20,
+            'sets' => 100,
+            'profit_usd' => 20,
+            'cost_usd' => 100,
+            'legs' => json_encode($legs),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        Http::fake([
+            'https://1.1.1.1/*' => Http::response([
+                'Answer' => [['data' => '104.18.34.205']],
+            ], 200),
+            'https://gamma-api.polymarket.com/events*' => Http::response([
+                [
+                    'negRisk' => true,
+                    'negRiskMarketID' => '0xcondition',
+                    'slug' => 'short-far-but-bank-now',
+                    'title' => 'Short Far But Bank Now',
+                    'endDate' => now()->addHours(200)->toIso8601String(),
+                    'markets' => [],
+                ],
+            ], 200),
+            'https://clob.polymarket.com/book*' => Http::response([
+                'asks' => [['price' => '0.42', 'size' => '1000']],
+                'bids' => [['price' => '0.40', 'size' => '1000']],
+            ], 200),
+        ]);
+
+        $exit = Artisan::call('atlas:finance:poly-exec', [
+            'action' => 'plan',
+            '--mode' => 'sim',
+            '--kind' => 'short',
+            '--event-slug' => 'short-far-but-bank-now',
+            '--json' => true,
+        ]);
+
+        $out = Artisan::output();
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('"gate_allowed": true', $out);
+        $this->assertStringNotContainsString('"resolution_horizon"', $out);
+    }
+
     public function test_command_monitor_sim_runs_bounded_cycle_without_candidates(): void
     {
+        $logDir = sys_get_temp_dir().'/atlas-poly-monitor-log-'.uniqid();
         $exit = Artisan::call('atlas:finance:poly-exec', [
             'action' => 'monitor',
             '--mode' => 'sim',
@@ -165,6 +283,9 @@ final class PolyExecShadowSimTest extends TestCase
             '--interval' => 0,
             '--max-candidates' => 2,
             '--slow-cycle-seconds' => 1,
+            '--market-read-timeout' => 2,
+            '--candidate-time-budget' => 3,
+            '--monitor-log-dir' => $logDir,
             '--json' => true,
         ]);
 
@@ -176,7 +297,93 @@ final class PolyExecShadowSimTest extends TestCase
         $this->assertStringContainsString('"real_money_touched": false', $out);
         $this->assertStringContainsString('"live_policy_blocked": true', $out);
         $this->assertStringContainsString('"slow_cycle_seconds": 1', $out);
+        $this->assertStringContainsString('"market_read_timeout_seconds": 2', $out);
+        $this->assertStringContainsString('"candidate_time_budget_seconds": 3', $out);
+        $this->assertStringContainsString('"max_signal_age_seconds": 900', $out);
         $this->assertStringContainsString('"slow_cycles": 0', $out);
+        $this->assertStringContainsString('"monitor_log_path"', $out);
+        $this->assertStringContainsString('"reason_counts": []', $out);
+        $this->assertStringContainsString('"result_samples": []', $out);
+
+        $logs = glob($logDir.'/*.jsonl') ?: [];
+        $this->assertCount(1, $logs);
+        $lines = file($logs[0], FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+        $this->assertCount(3, $lines);
+        $events = array_map(fn (string $line): ?string => json_decode($line, true)['event'] ?? null, $lines);
+        $this->assertSame(['start', 'cycle', 'summary'], $events);
+    }
+
+    public function test_command_monitor_can_refresh_lifecycle_with_bounded_shadow_scan(): void
+    {
+        $this->createLegacyArbLifecycleTables();
+
+        $gammaCalls = 0;
+        Http::fake([
+            'https://1.1.1.1/*' => Http::response([
+                'Answer' => [['data' => '104.18.34.205']],
+            ], 200),
+            'https://gamma-api.polymarket.com/events*' => function () use (&$gammaCalls) {
+                if ($gammaCalls++ === 0) {
+                    usleep(1_200_000);
+                }
+
+                return Http::response([
+                    [
+                        'negRisk' => true,
+                        'negRiskMarketID' => '0xcondition',
+                        'slug' => 'scan-cycle-short',
+                        'title' => 'Scan Cycle Short',
+                        'endDate' => now()->addHours(24)->toIso8601String(),
+                        'volume24hr' => 1234.56,
+                        'liquidity' => 9876.54,
+                        'markets' => [
+                            $this->arbMarket('A', 'Will A win?', 0.40),
+                            $this->arbMarket('B', 'Will B win?', 0.40),
+                            $this->arbMarket('C', 'Will C win?', 0.40),
+                        ],
+                    ],
+                ], 200);
+            },
+            'https://clob.polymarket.com/book*' => Http::response([
+                'asks' => [['price' => '0.45', 'size' => '100']],
+                'bids' => [['price' => '0.40', 'size' => '100']],
+            ], 200),
+        ]);
+
+        $logDir = sys_get_temp_dir().'/atlas-poly-monitor-scan-log-'.uniqid();
+        $exit = Artisan::call('atlas:finance:poly-exec', [
+            'action' => 'monitor',
+            '--mode' => 'sim',
+            '--cycles' => 1,
+            '--interval' => 0,
+            '--max-candidates' => 2,
+            '--market-read-timeout' => 2,
+            '--candidate-time-budget' => 1,
+            '--scan-before-cycle' => true,
+            '--scan-pages' => 1,
+            '--scan-per-page' => 10,
+            '--scan-time-budget' => 10,
+            '--scan-max-clob-verifications' => 1,
+            '--event-slug' => 'scan-cycle-short',
+            '--monitor-log-dir' => $logDir,
+            '--json' => true,
+        ]);
+
+        $out = Artisan::output();
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('"scan_before_cycle": true', $out);
+        $this->assertStringContainsString('"signals": 1', $out);
+        $this->assertStringContainsString('"processed": 1', $out);
+        $this->assertStringNotContainsString('"blocked": "candidate_time_budget_exceeded"', $out);
+        $this->assertSame(1, DB::table('atlas_poly_arb_scans')->count());
+        $this->assertSame(1, DB::table('atlas_poly_arb_signals')->count());
+        $this->assertSame(1, DB::table('atlas_poly_arb_opportunities')->count());
+
+        $logs = glob($logDir.'/*.jsonl') ?: [];
+        $this->assertCount(1, $logs);
+        $lines = file($logs[0], FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+        $events = array_map(fn (string $line): ?string => json_decode($line, true)['event'] ?? null, $lines);
+        $this->assertSame(['start', 'scan', 'cycle', 'summary'], $events);
     }
 
     public function test_command_monitor_live_is_refused(): void
@@ -184,6 +391,155 @@ final class PolyExecShadowSimTest extends TestCase
         $this->artisan('atlas:finance:poly-exec', ['action' => 'monitor', '--mode' => 'live'])
             ->expectsOutputToContain('MONITOR refused: monitor is sim-only')
             ->assertExitCode(1);
+    }
+
+    public function test_command_status_reports_latest_monitor_heartbeat_without_touching_money(): void
+    {
+        $logDir = sys_get_temp_dir().'/atlas-poly-monitor-status-'.uniqid();
+
+        $monitorExit = Artisan::call('atlas:finance:poly-exec', [
+            'action' => 'monitor',
+            '--mode' => 'sim',
+            '--cycles' => 1,
+            '--interval' => 0,
+            '--max-candidates' => 2,
+            '--monitor-log-dir' => $logDir,
+            '--json' => true,
+        ]);
+        $this->assertSame(0, $monitorExit);
+
+        $statusExit = Artisan::call('atlas:finance:poly-exec', [
+            'action' => 'status',
+            '--mode' => 'sim',
+            '--monitor-log-dir' => $logDir,
+            '--json' => true,
+        ]);
+
+        $out = Artisan::output();
+        $this->assertSame(0, $statusExit);
+        $this->assertStringContainsString('"action": "status"', $out);
+        $this->assertStringContainsString('"latest_log_path"', $out);
+        $this->assertStringContainsString('"cycles_recorded": 1', $out);
+        $this->assertStringContainsString('"latest_cycle"', $out);
+        $this->assertStringContainsString('"latest_summary"', $out);
+        $this->assertStringContainsString('"reason_counts": []', $out);
+        $this->assertStringContainsString('"result_samples": []', $out);
+        $this->assertStringContainsString('"real_money_touched": false', $out);
+        $this->assertStringContainsString('"live_policy_blocked": true', $out);
+    }
+
+    public function test_command_qualify_reports_not_ready_from_shadow_logs_without_touching_money(): void
+    {
+        $logDir = sys_get_temp_dir().'/atlas-poly-monitor-qualify-'.uniqid();
+
+        $monitorExit = Artisan::call('atlas:finance:poly-exec', [
+            'action' => 'monitor',
+            '--mode' => 'sim',
+            '--cycles' => 1,
+            '--interval' => 0,
+            '--max-candidates' => 2,
+            '--monitor-log-dir' => $logDir,
+            '--json' => true,
+        ]);
+        $this->assertSame(0, $monitorExit);
+
+        $qualifyExit = Artisan::call('atlas:finance:poly-exec', [
+            'action' => 'qualify',
+            '--mode' => 'sim',
+            '--monitor-log-dir' => $logDir,
+            '--qualification-min-cycles' => 2,
+            '--qualification-min-executed' => 1,
+            '--json' => true,
+        ]);
+
+        $out = Artisan::output();
+        $this->assertSame(0, $qualifyExit);
+        $this->assertStringContainsString('"action": "qualify"', $out);
+        $this->assertStringContainsString('"decision": "not_qualified"', $out);
+        $this->assertStringContainsString('"qualified_for_real_money": false', $out);
+        $this->assertStringContainsString('"real_money_test_possible_now": false', $out);
+        $this->assertStringContainsString('"real_money_touched": false', $out);
+        $this->assertStringContainsString('"live_policy_blocked": true', $out);
+        $this->assertStringContainsString('"logs_considered": 1', $out);
+        $this->assertStringContainsString('"cycles_observed": 1', $out);
+        $this->assertStringContainsString('"cycle_duration_seconds"', $out);
+        $this->assertStringContainsString('"shadow_cycles_min"', $out);
+        $this->assertStringContainsString('"shadow_executed_min"', $out);
+        $this->assertStringContainsString('"scan_before_cycle_evidence"', $out);
+        $this->assertStringContainsString('"finance_policy_allows_live"', $out);
+    }
+
+    public function test_command_qualify_fails_when_monitor_scan_budget_is_exhausted(): void
+    {
+        $logDir = sys_get_temp_dir().'/atlas-poly-monitor-budget-'.uniqid();
+        mkdir($logDir, 0775, true);
+        $path = $logDir.'/budget-exhausted.jsonl';
+
+        $rows = [
+            [
+                'event' => 'start',
+                'session_id' => 'budget-exhausted',
+                'created_at' => now()->toIso8601String(),
+                'schema_version' => 'atlas.finance.poly_exec.monitor_log.v1',
+            ],
+            [
+                'event' => 'cycle',
+                'session_id' => 'budget-exhausted',
+                'cycle' => 1,
+                'candidates' => 1,
+                'processed' => 1,
+                'dispatched' => 1,
+                'executed' => 0,
+                'blocked' => null,
+                'statuses' => ['gated' => 1],
+                'reason_counts' => ['net_edge' => 1],
+                'scan' => [
+                    'skipped' => false,
+                    'scanned' => 200,
+                    'eligible' => 35,
+                    'shortlisted' => 30,
+                    'verified' => 23,
+                    'signals' => 5,
+                    'budget_exhausted' => true,
+                    'skipped_too_many_legs' => 25,
+                    'duration_seconds' => 180.87,
+                ],
+                'duration_seconds' => 228.0,
+                'slow' => false,
+                'created_at' => now()->toIso8601String(),
+                'schema_version' => 'atlas.finance.poly_exec.monitor_log.v1',
+            ],
+            [
+                'event' => 'summary',
+                'session_id' => 'budget-exhausted',
+                'executed_total' => 0,
+                'created_at' => now()->toIso8601String(),
+                'schema_version' => 'atlas.finance.poly_exec.monitor_log.v1',
+            ],
+        ];
+
+        foreach ($rows as $row) {
+            file_put_contents($path, json_encode($row, JSON_UNESCAPED_SLASHES).PHP_EOL, FILE_APPEND | LOCK_EX);
+        }
+
+        $exit = Artisan::call('atlas:finance:poly-exec', [
+            'action' => 'qualify',
+            '--mode' => 'sim',
+            '--monitor-log-dir' => $logDir,
+            '--qualification-min-cycles' => 1,
+            '--qualification-min-executed' => 0,
+            '--qualification-max-slow-ratio' => 1,
+            '--json' => true,
+        ]);
+
+        $out = Artisan::output();
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('"decision": "not_qualified"', $out);
+        $this->assertStringContainsString('"scan_cycles": 1', $out);
+        $this->assertStringContainsString('"scan_budget_exhausted_cycles": 1', $out);
+        $this->assertStringContainsString('"scan_duration_seconds"', $out);
+        $this->assertStringContainsString('"scan_budget_exhaustion"', $out);
+        $this->assertStringContainsString('budget_exhausted=0', $out);
     }
 
     public function test_command_run_live_is_refused_by_finance_policy(): void
@@ -307,5 +663,58 @@ final class PolyExecShadowSimTest extends TestCase
             $table->boolean('dead_book')->default(false);
             $table->timestamps();
         });
+    }
+
+    private function createLegacyArbLifecycleTables(): void
+    {
+        Schema::dropIfExists('atlas_poly_arb_signals');
+        Schema::dropIfExists('atlas_poly_arb_scans');
+        $this->createLegacyArbOpportunityTable();
+
+        Schema::create('atlas_poly_arb_signals', function (Blueprint $table): void {
+            $table->id();
+            $table->string('session_id', 40)->nullable()->index();
+            $table->string('event_slug', 180)->index();
+            $table->string('event_title', 300)->nullable();
+            $table->string('kind', 30)->index();
+            $table->string('execution_class', 40);
+            $table->unsignedInteger('n_legs');
+            $table->decimal('sum', 10, 6);
+            $table->decimal('profit_per_set', 10, 6);
+            $table->decimal('sets', 14, 4);
+            $table->decimal('profit_usd', 12, 4);
+            $table->decimal('cost_usd', 14, 4);
+            $table->json('legs');
+            $table->timestamps();
+        });
+
+        Schema::create('atlas_poly_arb_scans', function (Blueprint $table): void {
+            $table->id();
+            $table->string('session_id', 40)->nullable()->index();
+            $table->unsignedInteger('scanned_events');
+            $table->unsignedInteger('eligible_events');
+            $table->unsignedInteger('shortlisted');
+            $table->unsignedInteger('verified');
+            $table->unsignedInteger('signals_found');
+            $table->decimal('best_long_sum', 10, 6)->nullable();
+            $table->decimal('best_short_sum', 10, 6)->nullable();
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function arbMarket(string $token, string $question, float $bid): array
+    {
+        return [
+            'closed' => false,
+            'active' => true,
+            'clobTokenIds' => [$token, $token.'-no'],
+            'outcomes' => ['Yes', 'No'],
+            'bestAsk' => 0.45,
+            'bestBid' => $bid,
+            'question' => $question,
+        ];
     }
 }

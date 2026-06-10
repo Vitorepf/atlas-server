@@ -81,6 +81,17 @@ class CodeGraphWorkspaceIdentityResolveOrIdTest extends TestCase
         $this->assertSame($identity->resolve($tmp), $identity->resolveWorkspaceOrId($tmp));
     }
 
+    public function test_registered_atlas_workspace_paths_resolve_to_profile_slugs(): void
+    {
+        $identity = $this->identity();
+        $atlasRoot = dirname(base_path());
+
+        $this->assertSame('atlas', $identity->resolve($atlasRoot));
+        $this->assertSame('atlas', $identity->resolveWorkspaceOrId($atlasRoot));
+        $this->assertSame('atlas-server', $identity->resolve(base_path()));
+        $this->assertSame('atlas-server', $identity->resolveWorkspaceOrId(base_path()));
+    }
+
     public function test_empty_or_null_input_resolves_to_the_default(): void
     {
         $identity = $this->identity();

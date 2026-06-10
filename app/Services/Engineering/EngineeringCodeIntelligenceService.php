@@ -6,6 +6,7 @@ use App\Models\AtlasEngineeringCodeModule;
 use App\Models\AtlasEngineeringCodeSymbol;
 use App\Models\AtlasEngineeringDocLink;
 use App\Models\AtlasEngineeringKnowledgeItem;
+use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use App\Services\Tools\AtlasToolEvidenceStore;
@@ -15,6 +16,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use Illuminate\Database\QueryException;
 use PhpParser\Node;
 use PhpParser\Node\Expr\ClassConstFetch;
 use PhpParser\Node\Name;
@@ -48,8 +50,11 @@ class EngineeringCodeIntelligenceService
      * v2: anchor class/interface/trait/enum extraction to a real declaration at
      *     line start, so docblock prose ("each class carries...") and anonymous
      *     classes ("new class extends Migration") no longer mint phantom symbols.
+     * v4: split umbrella-workspace stored paths from sub-repo analysis paths, so
+     *     Atlas root indexes atlas-server/routes and atlas-server/tests as real
+     *     Laravel routes/tests while preserving their umbrella file paths.
      */
-    private const EXTRACTOR_VERSION = 3;
+    private const EXTRACTOR_VERSION = 4;
 
     /**
      * Detailed symbol set diffs require a PHP hash index of scan keys. On the primary
@@ -58,6 +63,12 @@ class EngineeringCodeIntelligenceService
      * and let `code-gate --auto-refresh` repair the index without an OOM.
      */
     private const DETAILED_SYMBOL_DRIFT_SCAN_LIMIT = 25000;
+
+    private const SYMBOL_UPSERT_MAX_ROWS = 200;
+
+    private const SNAPSHOT_UPSERT_MAX_ROWS = 100;
+
+    private const DB_UPSERT_MAX_BYTES = 4_000_000;
 
     /** @var array<string,string|null> */
     private array $docLinkTargetHashCache = [];
@@ -325,10 +336,7 @@ class EngineeringCodeIntelligenceService
             $warnings[] = 'audit_performance_slow';
         }
 
-        $undocumented = (int) data_get($summary, 'docs_status.undocumented', 0);
-        if ($undocumented > 0) {
-            $warnings[] = 'undocumented_modules_present';
-        }
+        $warnings = array_merge($warnings, $this->documentationWarnings($summary));
 
         $status = $criticalFailures === [] ? 'ready' : 'blocked';
 
@@ -360,6 +368,30 @@ class EngineeringCodeIntelligenceService
             'duration_ms' => $this->elapsedMs($startedAt),
             'generated_at' => now()->toJSON(),
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $summary
+     * @return list<string>
+     */
+    private function documentationWarnings(array $summary): array
+    {
+        if (! $this->docLinksRequiredForCurrentWorkspace()) {
+            return [];
+        }
+
+        return (int) data_get($summary, 'docs_status.undocumented', 0) > 0
+            ? ['undocumented_modules_present']
+            : [];
+    }
+
+    private function docLinksRequiredForCurrentWorkspace(): bool
+    {
+        try {
+            return $this->workspaceId === app(CodeGraphWorkspaceIdentity::class)->default();
+        } catch (Throwable) {
+            return true;
+        }
     }
 
     /**
@@ -897,12 +929,18 @@ class EngineeringCodeIntelligenceService
         $cacheMisses = 0;
         $treeSitterEnabled = $this->treeSitterEnabled();
         $treeSitterDeferred = [];
+        $analysisPrefixes = $this->workspaceAnalysisPrefixes($workspace);
 
         foreach ($files as $path) {
             $relativePath = $this->relativePath($path, $workspace);
-            $module = $this->moduleForPath($relativePath);
+            $analysisPath = $this->analysisPathForRelativePath($relativePath, $analysisPrefixes);
+            $module = $this->qualifyModuleForAnalysisPath(
+                $this->moduleForPath($analysisPath),
+                $relativePath,
+                $analysisPath,
+            );
             $modules[$module['slug']] ??= $this->emptyModule($module);
-            $language = $this->languageForPath($relativePath);
+            $language = $this->languageForPath($analysisPath);
             $snapshot = $snapshots[$relativePath] ?? null;
             unset($snapshots[$relativePath]);
 
@@ -939,6 +977,15 @@ class EngineeringCodeIntelligenceService
             ];
             $modules[$module['slug']]['languages'][$language] = ($modules[$module['slug']]['languages'][$language] ?? 0) + 1;
 
+            $fileMetadata = [
+                'file_hash' => $fileHash,
+                'extension' => pathinfo($relativePath, PATHINFO_EXTENSION),
+            ];
+            if ($analysisPath !== $relativePath) {
+                $fileMetadata['analysis_path'] = $analysisPath;
+                $fileMetadata['analysis_prefix'] = $this->analysisPrefixForRelativePath($relativePath, $analysisPath);
+            }
+
             $fileSymbol = $this->symbol([
                 'module_slug' => $module['slug'],
                 'symbol_type' => 'file',
@@ -947,10 +994,7 @@ class EngineeringCodeIntelligenceService
                 'line_start' => 1,
                 'language' => $language,
                 'signature' => $relativePath,
-                'metadata' => [
-                    'file_hash' => $fileHash,
-                    'extension' => pathinfo($relativePath, PATHINFO_EXTENSION),
-                ],
+                'metadata' => $fileMetadata,
             ]);
             if ($collectSymbolRows) {
                 $symbols[] = $fileSymbol;
@@ -981,14 +1025,19 @@ class EngineeringCodeIntelligenceService
                 $parsedSymbols = $this->normalizeCachedSymbols($this->snapshotSymbols($cached), $module['slug']);
                 $relations = $this->normalizeCachedRelations($this->snapshotRelations($cached), $module['slug'], $relativePath);
                 $cacheHits++;
-            } elseif ($treeSitterEnabled && $this->treeSitterLanguage($relativePath) !== null) {
+            } elseif ($treeSitterEnabled && $this->treeSitterLanguage($analysisPath) !== null) {
                 // AP-815 A1: defer non-PHP source files to one batched tree-sitter pass
                 // below (real AST symbols replace the JS/TS regex + add other languages).
-                $relations = $this->parseFileRelations($relativePath, (string) $content, $module['slug']);
+                $relations = $this->withIndexedRelationPaths(
+                    $this->parseFileRelations($analysisPath, (string) $content, $module['slug']),
+                    $relativePath,
+                    $analysisPath,
+                );
                 $treeSitterDeferred[$relativePath] = [
                     'content' => (string) $content,
                     'module_slug' => $module['slug'],
                     'language' => $language,
+                    'analysis_path' => $analysisPath,
                     'snapshot_key' => $snapshotKey,
                     'length' => $fileSize,
                     'file_hash' => $fileHash,
@@ -998,8 +1047,16 @@ class EngineeringCodeIntelligenceService
                 $parsedSymbols = [];
                 $cacheMisses++;
             } else {
-                $parsedSymbols = $this->parseFileSymbols($relativePath, (string) $content, $module['slug']);
-                $relations = $this->parseFileRelations($relativePath, (string) $content, $module['slug']);
+                $parsedSymbols = $this->withIndexedSymbolPaths(
+                    $this->parseFileSymbols($analysisPath, (string) $content, $module['slug']),
+                    $relativePath,
+                    $analysisPath,
+                );
+                $relations = $this->withIndexedRelationPaths(
+                    $this->parseFileRelations($analysisPath, (string) $content, $module['slug']),
+                    $relativePath,
+                    $analysisPath,
+                );
                 $fileSnapshots[] = $this->fileSnapshotRow($relativePath, $module['slug'], $language, $snapshotKey, $fileSize, $fileHash, $mtime, $parsedSymbols, $relations);
                 $cacheMisses++;
             }
@@ -1026,15 +1083,17 @@ class EngineeringCodeIntelligenceService
             foreach ($treeSitterDeferred as $deferredPath => $deferred) {
                 $batch[] = [
                     'path' => $deferredPath,
-                    'language' => (string) $this->treeSitterLanguage($deferredPath),
+                    'language' => (string) $this->treeSitterLanguage((string) $deferred['analysis_path']),
                     'content' => $deferred['content'],
                 ];
             }
             $extracted = app(\App\Services\Engineering\CodeGraph\CodeGraphTreeSitterExtractor::class)->extract($batch);
             foreach ($treeSitterDeferred as $deferredPath => $deferred) {
+                $analysisPath = (string) $deferred['analysis_path'];
                 $parsedSymbols = isset($extracted[$deferredPath])
                     ? $this->mapTreeSitterSymbols($extracted[$deferredPath], $deferredPath, $deferred['module_slug'])
-                    : $this->parseFileSymbols($deferredPath, $deferred['content'], $deferred['module_slug']);
+                    : $this->parseFileSymbols($analysisPath, $deferred['content'], $deferred['module_slug']);
+                $parsedSymbols = $this->withIndexedSymbolPaths($parsedSymbols, $deferredPath, $analysisPath);
                 foreach ($parsedSymbols as $symbol) {
                     if ($collectSymbolRows) {
                         $symbols[] = $symbol;
@@ -1307,6 +1366,7 @@ class EngineeringCodeIntelligenceService
         $indexedAt = now()->startOfSecond();
         $keyed = $this->workspaceKeyed('atlas_engineering_code_file_snapshots');
         $batch = [];
+        $batchBytes = 0;
         foreach ($rows as $row) {
             $entry = [
                 'id' => (string) Str::uuid(),
@@ -1331,12 +1391,16 @@ class EngineeringCodeIntelligenceService
             if ($keyed) {
                 $entry['workspace_id'] = $this->workspaceId;
             }
-            $batch[] = $entry;
 
-            if (count($batch) >= 500) {
+            $entryBytes = $this->estimatedRowBytes($entry);
+            if ($batch !== [] && (count($batch) >= self::SNAPSHOT_UPSERT_MAX_ROWS || $batchBytes + $entryBytes > self::DB_UPSERT_MAX_BYTES)) {
                 $this->upsertFileSnapshotRows($batch);
                 $batch = [];
+                $batchBytes = 0;
             }
+
+            $batch[] = $entry;
+            $batchBytes += $entryBytes;
         }
 
         if ($batch !== []) {
@@ -1648,8 +1712,13 @@ class EngineeringCodeIntelligenceService
      */
     private function docLinkHealth(string $workspace, int $limit): array
     {
-        $links = DB::table('atlas_engineering_doc_links')
-            ->whereNull('archived_at')
+        $linkQuery = DB::table('atlas_engineering_doc_links')
+            ->whereNull('archived_at');
+        if ($this->workspaceKeyed('atlas_engineering_doc_links')) {
+            $linkQuery->where('workspace_id', $this->workspaceId);
+        }
+
+        $links = $linkQuery
             ->select(['id', 'status', 'canonical_path', 'target_path', 'target_hash', 'link_type', 'indexed_at'])
             ->orderBy('id')
             ->cursor();
@@ -1897,10 +1966,32 @@ class EngineeringCodeIntelligenceService
             'scripts',
         ];
 
-        $reject = static fn (SplFileInfo $file): bool => str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'vendor'.DIRECTORY_SEPARATOR)
-            || str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'node_modules'.DIRECTORY_SEPARATOR)
-            || str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'dist'.DIRECTORY_SEPARATOR)
-            || str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'build'.DIRECTORY_SEPARATOR);
+        $reject = static function (SplFileInfo $file): bool {
+            $path = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $file->getPathname());
+            foreach ([
+                '.git',
+                '.next',
+                '.turbo',
+                '.expo',
+                '.gradle',
+                '.dart_tool',
+                'build',
+                'coverage',
+                'DerivedData',
+                'dist',
+                'node_modules',
+                'Pods',
+                'storage',
+                'target',
+                'vendor',
+            ] as $segment) {
+                if (str_contains($path, DIRECTORY_SEPARATOR.$segment.DIRECTORY_SEPARATOR)) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
 
         $collect = fn (array $dirs): array => collect($dirs)
             ->filter(fn (string $root): bool => File::isDirectory($root))
@@ -1912,11 +2003,25 @@ class EngineeringCodeIntelligenceService
             ->values()
             ->all();
 
-        $files = $collect(
-            collect($roots)
-                ->map(fn (string $root): string => $workspace.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $root))
-                ->all()
-        );
+        $scanRoots = $this->workspaceScanRoots($workspace);
+        $files = [];
+        foreach ($scanRoots as $index => $scanRoot) {
+            $rootFiles = $collect(
+                collect($roots)
+                    ->map(fn (string $root): string => $scanRoot.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $root))
+                    ->all()
+            );
+
+            // A nested repo may keep source under non-standard paths (for example
+            // apps/desktop/src). Fall back to scanning that repo root only for nested
+            // repos, keeping the umbrella root on explicit roots to avoid sweeping every
+            // dependency/cache folder in a broad workspace.
+            if ($rootFiles === [] && $index > 0 && File::isDirectory($scanRoot)) {
+                $rootFiles = $collect([$scanRoot]);
+            }
+
+            $files = array_merge($files, $rootFiles);
+        }
 
         // AP-815 W-2: cross-project fallback — a repo laid out differently from atlas-server
         // (no app/src/routes/... roots) still gets indexed by scanning the workspace root
@@ -1926,7 +2031,249 @@ class EngineeringCodeIntelligenceService
             $files = $collect([$workspace]);
         }
 
-        return $files;
+        return collect($files)->unique()->sort()->values()->all();
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function workspaceScanRoots(string $workspace): array
+    {
+        $root = $this->canonicalDirectory($workspace);
+        if ($root === null) {
+            return [$workspace];
+        }
+
+        $configured = $this->configuredWorkspaceScanRoots($root);
+        if ($configured !== null) {
+            return $configured;
+        }
+
+        return collect([$root])
+            ->merge($this->nestedGitRepositories($root))
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int,string>|null
+     */
+    private function configuredWorkspaceScanRoots(string $workspace): ?array
+    {
+        try {
+            if (! function_exists('app')) {
+                return null;
+            }
+
+            $profile = app(AtlasCodeWorkspaceProfileService::class)->findByReference($workspace);
+            $configured = is_array($profile) ? (array) ($profile['code_index_roots'] ?? []) : [];
+            if ($configured === []) {
+                return null;
+            }
+
+            $base = $this->canonicalDirectory((string) ($profile['workspace_path'] ?? '')) ?? $workspace;
+            $roots = [];
+            foreach ($configured as $entry) {
+                if (! is_string($entry) || trim($entry) === '') {
+                    continue;
+                }
+
+                $entry = trim($entry);
+                $path = $entry === '.'
+                    ? $base
+                    : $base.DIRECTORY_SEPARATOR.str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $entry);
+                $canonical = $this->canonicalDirectory($path);
+                if ($canonical !== null) {
+                    $roots[] = $canonical;
+                }
+            }
+
+            return $roots !== [] ? array_values(array_unique($roots)) : null;
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function nestedGitRepositories(string $workspace, int $maxDepth = 4): array
+    {
+        $repos = [];
+        $queue = [[$workspace, 0]];
+        $skip = [
+            '.git' => true,
+            '.next' => true,
+            '.turbo' => true,
+            '.expo' => true,
+            '.gradle' => true,
+            '.dart_tool' => true,
+            'build' => true,
+            'coverage' => true,
+            'DerivedData' => true,
+            'dist' => true,
+            'node_modules' => true,
+            'Pods' => true,
+            'storage' => true,
+            'target' => true,
+            'vendor' => true,
+        ];
+
+        while ($queue !== []) {
+            [$dir, $depth] = array_shift($queue);
+            if ($depth >= $maxDepth) {
+                continue;
+            }
+
+            foreach (File::directories($dir) as $child) {
+                $name = basename($child);
+                if (isset($skip[$name])) {
+                    continue;
+                }
+
+                if (File::isDirectory($child.DIRECTORY_SEPARATOR.'.git') || File::isFile($child.DIRECTORY_SEPARATOR.'.git')) {
+                    $canonical = $this->canonicalDirectory($child);
+                    if ($canonical !== null) {
+                        $repos[] = $canonical;
+                    }
+
+                    continue;
+                }
+
+                $queue[] = [$child, $depth + 1];
+            }
+        }
+
+        sort($repos);
+
+        return array_values(array_unique($repos));
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function workspaceAnalysisPrefixes(string $workspace): array
+    {
+        $root = $this->canonicalDirectory($workspace);
+        if ($root === null) {
+            return [];
+        }
+
+        return collect($this->workspaceScanRoots($workspace))
+            ->map(fn (string $scanRoot): ?string => $this->canonicalDirectory($scanRoot))
+            ->filter(fn (?string $scanRoot): bool => is_string($scanRoot) && $scanRoot !== $root && str_starts_with($scanRoot, $root.DIRECTORY_SEPARATOR))
+            ->map(fn (string $scanRoot): string => str_replace(DIRECTORY_SEPARATOR, '/', substr($scanRoot, strlen($root) + 1)))
+            ->filter(fn (string $prefix): bool => $prefix !== '')
+            ->unique()
+            ->sortByDesc(fn (string $prefix): int => strlen($prefix))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Use sub-repo-local paths for parsing/classification while keeping the umbrella path
+     * as the persisted identity.
+     *
+     * @param  array<int,string>  $prefixes
+     */
+    private function analysisPathForRelativePath(string $relativePath, array $prefixes): string
+    {
+        foreach ($prefixes as $prefix) {
+            if ($relativePath === $prefix) {
+                return basename($relativePath);
+            }
+
+            if (str_starts_with($relativePath, $prefix.'/')) {
+                $analysisPath = substr($relativePath, strlen($prefix) + 1);
+
+                return $analysisPath !== '' ? $analysisPath : basename($relativePath);
+            }
+        }
+
+        return $relativePath;
+    }
+
+    private function analysisPrefixForRelativePath(string $relativePath, string $analysisPath): ?string
+    {
+        if ($analysisPath === '' || $analysisPath === $relativePath) {
+            return null;
+        }
+
+        if (str_ends_with($relativePath, '/'.$analysisPath)) {
+            $prefix = substr($relativePath, 0, -strlen('/'.$analysisPath));
+
+            return $prefix !== '' ? $prefix : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $module
+     * @return array<string,mixed>
+     */
+    private function qualifyModuleForAnalysisPath(array $module, string $relativePath, string $analysisPath): array
+    {
+        $prefix = $this->analysisPrefixForRelativePath($relativePath, $analysisPath);
+        if ($prefix === null) {
+            return $module;
+        }
+
+        $prefixSlug = Str::slug($prefix, '_');
+        if ($prefixSlug === '') {
+            return $module;
+        }
+
+        $rootPath = trim((string) ($module['root_path'] ?? ''), '/');
+        $prefixName = (string) Str::of($prefix)
+            ->replace(['/', '-', '_'], ' ')
+            ->title();
+
+        $module['slug'] = $this->qualifyModuleSlug($prefixSlug, (string) ($module['slug'] ?? 'workspace_misc'));
+        $module['name'] = trim($prefixName.' '.(string) ($module['name'] ?? 'Module'));
+        $module['root_path'] = trim($prefix.'/'.($rootPath !== '' ? $rootPath : dirname($analysisPath)), '/');
+        $module['tags'] = array_values(array_unique(array_merge(
+            is_array($module['tags'] ?? null) ? $module['tags'] : [],
+            array_filter(explode('/', $prefix)),
+        )));
+
+        return $module;
+    }
+
+    private function qualifyTargetModuleForAnalysisPath(mixed $moduleSlug, string $relativePath, string $analysisPath): mixed
+    {
+        if (! is_string($moduleSlug) || $moduleSlug === '' || $moduleSlug === 'external_package') {
+            return $moduleSlug;
+        }
+
+        $prefix = $this->analysisPrefixForRelativePath($relativePath, $analysisPath);
+        if ($prefix === null) {
+            return $moduleSlug;
+        }
+
+        $prefixSlug = Str::slug($prefix, '_');
+        if ($prefixSlug === '' || str_starts_with($moduleSlug, $prefixSlug.'_')) {
+            return $moduleSlug;
+        }
+
+        return $this->qualifyModuleSlug($prefixSlug, $moduleSlug);
+    }
+
+    private function qualifyModuleSlug(string $prefixSlug, string $moduleSlug): string
+    {
+        return Str::slug($prefixSlug.'_'.$moduleSlug, '_');
+    }
+
+    private function canonicalDirectory(string $path): ?string
+    {
+        if (! File::isDirectory($path)) {
+            return null;
+        }
+
+        $real = realpath($path);
+
+        return rtrim($real !== false ? $real : $path, DIRECTORY_SEPARATOR);
     }
 
     /**
@@ -2002,6 +2349,78 @@ class EngineeringCodeIntelligenceService
         }
 
         return $symbols;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $symbols
+     * @return array<int,array<string,mixed>>
+     */
+    private function withIndexedSymbolPaths(array $symbols, string $relativePath, string $analysisPath): array
+    {
+        if ($analysisPath === $relativePath) {
+            return $symbols;
+        }
+
+        $prefix = $this->analysisPrefixForRelativePath($relativePath, $analysisPath);
+
+        return collect($symbols)
+            ->map(function (array $symbol) use ($relativePath, $analysisPath, $prefix): array {
+                if (! array_key_exists('file_path', $symbol) || blank($symbol['file_path']) || $symbol['file_path'] === $analysisPath) {
+                    $symbol['file_path'] = $relativePath;
+                }
+
+                $metadata = is_array($symbol['metadata'] ?? null) ? $symbol['metadata'] : [];
+                $metadata['analysis_path'] = $analysisPath;
+                if ($prefix !== null) {
+                    $metadata['analysis_prefix'] = $prefix;
+                }
+                $symbol['metadata'] = $metadata;
+
+                return $symbol;
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array{dependencies:array<int,array<string,mixed>>,symbol_references:array<int,array<string,mixed>>,test_targets:array<int,array<string,mixed>>}  $relations
+     * @return array{dependencies:array<int,array<string,mixed>>,symbol_references:array<int,array<string,mixed>>,test_targets:array<int,array<string,mixed>>}
+     */
+    private function withIndexedRelationPaths(array $relations, string $relativePath, string $analysisPath): array
+    {
+        if ($analysisPath === $relativePath) {
+            return $relations;
+        }
+
+        $rewriteRows = function (mixed $rows) use ($relativePath, $analysisPath): array {
+            return collect(is_array($rows) ? $rows : [])
+                ->filter(fn (mixed $row): bool => is_array($row))
+                ->map(function (array $row) use ($relativePath, $analysisPath): array {
+                    if (! array_key_exists('file_path', $row) || blank($row['file_path']) || $row['file_path'] === $analysisPath) {
+                        $row['file_path'] = $relativePath;
+                    }
+
+                    if (array_key_exists('test_path', $row) && ($row['test_path'] === $analysisPath || blank($row['test_path']))) {
+                        $row['test_path'] = $relativePath;
+                    }
+
+                    foreach (['to_module', 'target_module'] as $field) {
+                        if (array_key_exists($field, $row)) {
+                            $row[$field] = $this->qualifyTargetModuleForAnalysisPath($row[$field], $relativePath, $analysisPath);
+                        }
+                    }
+
+                    return $row;
+                })
+                ->values()
+                ->all();
+        };
+
+        return [
+            'dependencies' => $rewriteRows($relations['dependencies'] ?? []),
+            'symbol_references' => $rewriteRows($relations['symbol_references'] ?? []),
+            'test_targets' => $rewriteRows($relations['test_targets'] ?? []),
+        ];
     }
 
     private function parseFileSymbols(string $relativePath, string $content, string $moduleSlug): array
@@ -2716,6 +3135,7 @@ class EngineeringCodeIntelligenceService
         $now = now();
         $keyedSymbols = $this->workspaceKeyed('atlas_engineering_code_symbols');
         $rows = [];
+        $rowBytes = 0;
         foreach ($symbolRows as $row) {
             $moduleSlug = (string) ($row['module_slug'] ?? '');
             unset($row['module_slug']);
@@ -2731,13 +3151,17 @@ class EngineeringCodeIntelligenceService
             $row['related_doc_ids_json'] = $this->json((array) ($row['related_doc_ids_json'] ?? []));
             $row['created_at'] = $now;
             $row['updated_at'] = $now;
-            $rows[] = $row;
-            $count++;
 
-            if (count($rows) >= 1000) {
+            $estimatedBytes = $this->estimatedRowBytes($row);
+            if ($rows !== [] && (count($rows) >= self::SYMBOL_UPSERT_MAX_ROWS || $rowBytes + $estimatedBytes > self::DB_UPSERT_MAX_BYTES)) {
                 $this->upsertSymbolRows($rows);
                 $rows = [];
+                $rowBytes = 0;
             }
+
+            $rows[] = $row;
+            $rowBytes += $estimatedBytes;
+            $count++;
         }
 
         if ($rows !== []) {
@@ -2839,9 +3263,11 @@ class EngineeringCodeIntelligenceService
                 'capabilities_json',
                 'tags_json',
             ]);
-        $modules = AtlasEngineeringCodeModule::query()
-            ->active()
-            ->get(['id', 'slug', 'root_path']);
+        $moduleQuery = AtlasEngineeringCodeModule::query()->active();
+        if ($this->workspaceKeyed('atlas_engineering_code_modules')) {
+            $moduleQuery->where('workspace_id', $this->workspaceId);
+        }
+        $modules = $moduleQuery->get(['id', 'slug', 'root_path']);
         $count = 0;
         $docLinkRows = [];
         $this->docLinkTargetHashCache = [];
@@ -2858,10 +3284,14 @@ class EngineeringCodeIntelligenceService
             ->values();
         $symbolsByPath = [];
         foreach ($allPaths->chunk(1000) as $pathChunk) {
-            DB::table('atlas_engineering_code_symbols')
+            $symbolQuery = DB::table('atlas_engineering_code_symbols')
                 ->where('status', 'active')
                 ->whereNull('archived_at')
-                ->whereIn('file_path', $pathChunk->all())
+                ->whereIn('file_path', $pathChunk->all());
+            if ($this->workspaceKeyed('atlas_engineering_code_symbols')) {
+                $symbolQuery->where('workspace_id', $this->workspaceId);
+            }
+            $symbolQuery
                 ->select(['id', 'symbol_name', 'symbol_type', 'file_path'])
                 ->orderBy('id')
                 ->each(function (object $symbol) use (&$symbolsByPath): void {
@@ -3056,11 +3486,16 @@ class EngineeringCodeIntelligenceService
     {
         $moduleDocs = [];
 
-        foreach (DB::table('atlas_engineering_doc_links')
-            ->select(['module_id', 'canonical_path', 'doc_hash'])
+        $docLinkQuery = DB::table('atlas_engineering_doc_links')
             ->whereNotNull('module_id')
             ->whereNull('archived_at')
-            ->where('status', 'current')
+            ->where('status', 'current');
+        if ($this->workspaceKeyed('atlas_engineering_doc_links')) {
+            $docLinkQuery->where('workspace_id', $this->workspaceId);
+        }
+
+        foreach ($docLinkQuery
+            ->select(['module_id', 'canonical_path', 'doc_hash'])
             ->orderBy('module_id')
             ->cursor() as $link) {
             $moduleId = (string) $link->module_id;
@@ -3086,10 +3521,15 @@ class EngineeringCodeIntelligenceService
         $documentedModuleIds = [];
         $now = now();
 
-        DB::table('atlas_engineering_code_modules')
-            ->select(['id', 'docs_status', 'docs_hash', 'related_docs_json'])
+        $moduleQuery = DB::table('atlas_engineering_code_modules')
             ->where('status', 'active')
-            ->whereNull('archived_at')
+            ->whereNull('archived_at');
+        if ($this->workspaceKeyed('atlas_engineering_code_modules')) {
+            $moduleQuery->where('workspace_id', $this->workspaceId);
+        }
+
+        $moduleQuery
+            ->select(['id', 'docs_status', 'docs_hash', 'related_docs_json'])
             ->orderBy('id')
             ->chunkById(200, function ($modules) use ($moduleDocs, &$documentedModuleIds, $now): void {
                 foreach ($modules as $module) {
@@ -3134,14 +3574,24 @@ class EngineeringCodeIntelligenceService
         $baseQuery = DB::table('atlas_engineering_code_symbols')
             ->where('status', 'active')
             ->whereNull('archived_at');
-        $directDocSymbolIds = fn () => DB::table('atlas_engineering_doc_links')
-            ->select('symbol_id')
-            ->whereNotNull('symbol_id')
-            ->whereNull('archived_at')
-            ->where('status', 'current');
+        if ($this->workspaceKeyed('atlas_engineering_code_symbols')) {
+            $baseQuery->where('workspace_id', $this->workspaceId);
+        }
+        $directDocSymbolIds = function () {
+            $query = DB::table('atlas_engineering_doc_links')
+                ->select('symbol_id')
+                ->whereNotNull('symbol_id')
+                ->whereNull('archived_at')
+                ->where('status', 'current');
+            if ($this->workspaceKeyed('atlas_engineering_doc_links')) {
+                $query->where('workspace_id', $this->workspaceId);
+            }
+
+            return $query;
+        };
 
         if ($documentedModuleIds !== []) {
-            (clone $baseQuery)
+            $this->withDeadlockRetry(fn () => (clone $baseQuery)
                 ->whereIn('module_id', $documentedModuleIds)
                 ->whereNotIn('id', $directDocSymbolIds())
                 ->where('docs_status', '!=', 'module_documented')
@@ -3149,9 +3599,9 @@ class EngineeringCodeIntelligenceService
                     'docs_status' => 'module_documented',
                     'related_doc_ids_json' => $this->json([]),
                     'updated_at' => $now,
-                ]);
+                ]));
 
-            (clone $baseQuery)
+            $this->withDeadlockRetry(fn () => (clone $baseQuery)
                 ->where(function ($query) use ($documentedModuleIds): void {
                     $query
                         ->whereNull('module_id')
@@ -3163,27 +3613,32 @@ class EngineeringCodeIntelligenceService
                     'docs_status' => 'undocumented',
                     'related_doc_ids_json' => $this->json([]),
                     'updated_at' => $now,
-                ]);
+                ]));
         } else {
-            (clone $baseQuery)
+            $this->withDeadlockRetry(fn () => (clone $baseQuery)
                 ->whereNotIn('id', $directDocSymbolIds())
                 ->where('docs_status', '!=', 'undocumented')
                 ->update([
                     'docs_status' => 'undocumented',
                     'related_doc_ids_json' => $this->json([]),
                     'updated_at' => $now,
-                ]);
+                ]));
         }
 
         $rows = [];
         $currentSymbolId = null;
         $currentDocIds = [];
 
-        foreach (DB::table('atlas_engineering_doc_links')
-            ->select(['symbol_id', 'knowledge_item_id'])
+        $docLinkQuery = DB::table('atlas_engineering_doc_links')
             ->whereNotNull('symbol_id')
             ->whereNull('archived_at')
-            ->where('status', 'current')
+            ->where('status', 'current');
+        if ($this->workspaceKeyed('atlas_engineering_doc_links')) {
+            $docLinkQuery->where('workspace_id', $this->workspaceId);
+        }
+
+        foreach ($docLinkQuery
+            ->select(['symbol_id', 'knowledge_item_id'])
             ->orderBy('symbol_id')
             ->cursor() as $link) {
             $symbolId = (string) $link->symbol_id;
@@ -3236,14 +3691,47 @@ class EngineeringCodeIntelligenceService
         collect($rows)
             ->groupBy(fn (array $row): string => (string) $row['related_doc_ids_json'])
             ->each(function (Collection $group): void {
-                DB::table('atlas_engineering_code_symbols')
-                    ->whereIn('id', $group->pluck('id')->all())
-                    ->update([
+                $this->withDeadlockRetry(function () use ($group): void {
+                    $query = DB::table('atlas_engineering_code_symbols')
+                        ->whereIn('id', $group->pluck('id')->all());
+                    if ($this->workspaceKeyed('atlas_engineering_code_symbols')) {
+                        $query->where('workspace_id', $this->workspaceId);
+                    }
+
+                    $query->update([
                         'docs_status' => 'documented',
                         'related_doc_ids_json' => (string) $group->first()['related_doc_ids_json'],
                         'updated_at' => $group->first()['updated_at'],
                     ]);
+                });
             });
+    }
+
+    private function withDeadlockRetry(callable $operation): void
+    {
+        $attempt = 0;
+        while (true) {
+            try {
+                $operation();
+
+                return;
+            } catch (QueryException $e) {
+                $attempt++;
+                if ($attempt >= 3 || ! $this->isDeadlock($e)) {
+                    throw $e;
+                }
+
+                usleep(50_000 * $attempt);
+            }
+        }
+    }
+
+    private function isDeadlock(QueryException $e): bool
+    {
+        $code = (string) $e->getCode();
+
+        return $code === '40P01'
+            || str_contains(strtolower($e->getMessage()), 'deadlock detected');
     }
 
     /**
@@ -3252,6 +3740,16 @@ class EngineeringCodeIntelligenceService
     private function json(array $value): string
     {
         return json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '[]';
+    }
+
+    /**
+     * @param  array<string,mixed>  $row
+     */
+    private function estimatedRowBytes(array $row): int
+    {
+        $encoded = json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        return is_string($encoded) ? strlen($encoded) : strlen(serialize($row));
     }
 
     /**
@@ -3683,6 +4181,18 @@ class EngineeringCodeIntelligenceService
     private function workspace(mixed $workspace): string
     {
         $workspace = is_scalar($workspace) && trim((string) $workspace) !== '' ? trim((string) $workspace) : base_path();
+        try {
+            if (function_exists('app')) {
+                $profile = app(AtlasCodeWorkspaceProfileService::class)->findByReference($workspace);
+                $profilePath = is_array($profile) ? trim((string) ($profile['workspace_path'] ?? '')) : '';
+                if ($profilePath !== '' && File::isDirectory($profilePath)) {
+                    $workspace = $profilePath;
+                }
+            }
+        } catch (Throwable) {
+            // Keep the original path/id fallback below.
+        }
+
         $real = realpath($workspace);
 
         return $real !== false ? $real : $workspace;

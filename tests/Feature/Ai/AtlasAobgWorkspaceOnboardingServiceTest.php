@@ -78,6 +78,21 @@ final class AtlasAobgWorkspaceOnboardingServiceTest extends TestCase
         $this->assertStringContainsString('index-code', $statusB['onboard_command']);
     }
 
+    public function test_registered_atlas_slug_uses_profile_path_and_scope(): void
+    {
+        $this->seedCodeSymbol('AtlasUmbrellaSymbol', 'atlas');
+
+        $status = $this->service()->status(['workspace' => 'atlas']);
+
+        $this->assertSame('atlas', $status['workspace_id']);
+        $this->assertSame(realpath(dirname(base_path())), $status['workspace_path']);
+        $this->assertTrue($status['indexed']);
+        $this->assertSame(1, $status['symbols']);
+        $this->assertFalse($status['needs_onboarding']);
+        $this->assertStringContainsString('index-code', $status['onboard_command']);
+        $this->assertStringContainsString((string) realpath(dirname(base_path())), $status['onboard_command']);
+    }
+
     public function test_unindexed_cwd_reports_needs_onboarding_and_auto_onboard_off_does_not_run_index(): void
     {
         config()->set('atlas.aobg.auto_onboard', false);

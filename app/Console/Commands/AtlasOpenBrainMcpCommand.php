@@ -59,24 +59,83 @@ class AtlasOpenBrainMcpCommand extends Command
             return self::FAILURE;
         }
 
-        while (($line = fgets($stdin)) !== false) {
-            $line = trim($line);
-            if ($line === '') {
+        while (($message = $this->readMessage($stdin)) !== null) {
+            [$raw, $framed] = $message;
+            $raw = trim($raw);
+            if ($raw === '') {
                 continue;
             }
 
-            $request = json_decode($line, true);
+            $request = json_decode($raw, true);
             $response = is_array($request)
                 ? $mcp->handleJsonRpc($request)
                 : $this->jsonRpcError(null, -32700, 'Parse error.');
 
             if ($response !== null) {
-                fwrite($stdout, $this->encode($response)."\n");
-                fflush($stdout);
+                $this->writeResponse($stdout, $response, $framed);
             }
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @param  resource  $stdin
+     * @return array{0:string,1:bool}|null
+     */
+    private function readMessage($stdin): ?array
+    {
+        $line = fgets($stdin);
+        if ($line === false) {
+            return null;
+        }
+
+        $line = rtrim($line, "\r\n");
+        if (! preg_match('/^Content-Length:\s*(\d+)\s*$/i', $line, $match)) {
+            return [$line, false];
+        }
+
+        $length = (int) $match[1];
+        while (($header = fgets($stdin)) !== false) {
+            $header = rtrim($header, "\r\n");
+            if ($header === '') {
+                break;
+            }
+
+            if (preg_match('/^Content-Length:\s*(\d+)\s*$/i', $header, $headerMatch)) {
+                $length = (int) $headerMatch[1];
+            }
+        }
+
+        $body = '';
+        while (strlen($body) < $length && ! feof($stdin)) {
+            $chunk = fread($stdin, $length - strlen($body));
+            if ($chunk === false || $chunk === '') {
+                break;
+            }
+
+            $body .= $chunk;
+        }
+
+        return [$body, true];
+    }
+
+    /**
+     * @param  resource  $stdout
+     * @param  array<string,mixed>  $response
+     */
+    private function writeResponse($stdout, array $response, bool $framed): void
+    {
+        $encoded = $this->encode($response);
+        if ($framed) {
+            fwrite($stdout, 'Content-Length: '.strlen($encoded)."\r\n\r\n".$encoded);
+            fflush($stdout);
+
+            return;
+        }
+
+        fwrite($stdout, $encoded."\n");
+        fflush($stdout);
     }
 
     private function describe(): int

@@ -693,6 +693,26 @@ final class AtlasWorkspaceIntelligenceRuntimeServiceTest extends TestCase
             ->assertJsonPath('claim_policy.invokes_provider', false);
     }
 
+    public function test_atlas_server_path_resolves_to_server_workspace(): void
+    {
+        $report = app(AtlasWorkspaceIntelligenceRuntimeService::class)->certify(
+            workspace: base_path(),
+            task: 'auditar contexto a partir do atlas-server',
+        );
+        $slugReport = app(AtlasWorkspaceIntelligenceRuntimeService::class)->certify(
+            workspace: 'atlas-server',
+            task: 'auditar contexto a partir do atlas-server',
+        );
+
+        $this->assertSame('ready', $report['status']);
+        $this->assertSame('ready', $report['workspace']['status']);
+        $this->assertSame('atlas-server', $report['workspace']['workspace_id']);
+        $this->assertSame([], $report['workspace']['blockers']);
+        $this->assertFalse($report['claim_policy']['raw_conversation_used_as_prompt']);
+        $this->assertSame('ready', $slugReport['status']);
+        $this->assertSame('atlas-server', $slugReport['workspace']['workspace_id']);
+    }
+
     public function test_unknown_workspace_blocks_without_fabricating_context(): void
     {
         $report = app(AtlasWorkspaceIntelligenceRuntimeService::class)->certify(

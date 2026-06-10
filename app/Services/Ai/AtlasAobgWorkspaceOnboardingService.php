@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai;
 
+use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use Illuminate\Support\Facades\DB;
@@ -337,13 +338,48 @@ class AtlasAobgWorkspaceOnboardingService
      */
     private function resolvePath(array $opts): ?string
     {
-        foreach (['workspace', 'cwd'] as $key) {
-            $value = $this->stringOpt($opts, $key);
-            if ($value !== null && (str_contains($value, '/') || is_dir($value))) {
-                $real = realpath($value);
-
-                return $real !== false ? $real : $value;
+        $workspace = $this->stringOpt($opts, 'workspace');
+        if ($workspace !== null) {
+            $path = $this->pathLikeValue($workspace) ?? $this->pathFromWorkspaceProfile($workspace);
+            if ($path !== null) {
+                return $path;
             }
+        }
+
+        $cwd = $this->stringOpt($opts, 'cwd');
+
+        return $cwd !== null ? $this->pathLikeValue($cwd) : null;
+    }
+
+    private function pathLikeValue(string $value): ?string
+    {
+        if (! str_contains($value, '/') && ! is_dir($value)) {
+            return null;
+        }
+
+        $real = realpath($value);
+
+        return $real !== false ? $real : $value;
+    }
+
+    private function pathFromWorkspaceProfile(string $workspace): ?string
+    {
+        try {
+            if (! function_exists('app')) {
+                return null;
+            }
+
+            $profile = app(AtlasCodeWorkspaceProfileService::class)->findByReference($workspace);
+            foreach (['workspace_path', 'repo_root'] as $key) {
+                $path = is_array($profile) ? trim((string) ($profile[$key] ?? '')) : '';
+                if ($path === '') {
+                    continue;
+                }
+
+                return $this->pathLikeValue($path) ?? $path;
+            }
+        } catch (Throwable) {
+            return null;
         }
 
         return null;

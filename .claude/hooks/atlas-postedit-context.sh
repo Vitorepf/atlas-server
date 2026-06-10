@@ -89,12 +89,23 @@ RAW_PATH="$(printf '%s' "$EVENT" | jq -r '
 [ -n "$RAW_PATH" ] || exit 0
 
 # Anchor to the project root the harness hands us; fall back to the hook's own repo.
-# This cwd is what scopes the delta's workspace (multi-project: ANY repo, auto-scoped).
+# WORKSPACE_DIR is the codebase Claude is operating on. ATLAS_SERVER_DIR is where
+# Artisan lives. They are the same for atlas-server, but intentionally differ when
+# Claude opens the umbrella /Users/vitorepf/develop/Atlas workspace.
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-}"
 if [ -z "$PROJECT_DIR" ]; then
     PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." 2>/dev/null && pwd)"
 fi
-cd "$PROJECT_DIR" 2>/dev/null || exit 0
+WORKSPACE_DIR="$PROJECT_DIR"
+ATLAS_SERVER_DIR="$PROJECT_DIR"
+if [ ! -f "$ATLAS_SERVER_DIR/artisan" ] && [ -f "$PROJECT_DIR/atlas-server/artisan" ]; then
+    ATLAS_SERVER_DIR="$PROJECT_DIR/atlas-server"
+fi
+if [ ! -f "$ATLAS_SERVER_DIR/artisan" ]; then
+    ATLAS_SERVER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." 2>/dev/null && pwd)"
+fi
+[ -f "$ATLAS_SERVER_DIR/artisan" ] || exit 0
+cd "$ATLAS_SERVER_DIR" 2>/dev/null || exit 0
 
 # Run the proven file-context retrieval under a HARD timeout. Capture stdout only;
 # swallow stderr/non-zero (never block). The command is fail-safe by contract (exit
@@ -102,17 +113,17 @@ cd "$PROJECT_DIR" 2>/dev/null || exit 0
 # command directly (the command is still read-only + fail-safe, just unbounded).
 if command -v timeout >/dev/null 2>&1; then
     DELTA_JSON="$(timeout "${ATLAS_AOBG_FC_HOOK_TIMEOUT}s" \
-        php artisan atlas:aobg:file-context "$RAW_PATH" --budget="$ATLAS_AOBG_FC_HOOK_BUDGET" --json 2>/dev/null || true)"
+        php artisan atlas:aobg:file-context "$RAW_PATH" --workspace="$WORKSPACE_DIR" --budget="$ATLAS_AOBG_FC_HOOK_BUDGET" --json 2>/dev/null || true)"
 elif command -v gtimeout >/dev/null 2>&1; then
     DELTA_JSON="$(gtimeout "${ATLAS_AOBG_FC_HOOK_TIMEOUT}s" \
-        php artisan atlas:aobg:file-context "$RAW_PATH" --budget="$ATLAS_AOBG_FC_HOOK_BUDGET" --json 2>/dev/null || true)"
+        php artisan atlas:aobg:file-context "$RAW_PATH" --workspace="$WORKSPACE_DIR" --budget="$ATLAS_AOBG_FC_HOOK_BUDGET" --json 2>/dev/null || true)"
 elif command -v perl >/dev/null 2>&1; then
     # macOS has no timeout/gtimeout — perl alarm gives the wall-clock ceiling so this
     # post-action hook can never stall the interactive path with no bound.
     DELTA_JSON="$(perl -e 'alarm shift; exec @ARGV' "$ATLAS_AOBG_FC_HOOK_TIMEOUT" \
-        php artisan atlas:aobg:file-context "$RAW_PATH" --budget="$ATLAS_AOBG_FC_HOOK_BUDGET" --json 2>/dev/null || true)"
+        php artisan atlas:aobg:file-context "$RAW_PATH" --workspace="$WORKSPACE_DIR" --budget="$ATLAS_AOBG_FC_HOOK_BUDGET" --json 2>/dev/null || true)"
 else
-    DELTA_JSON="$(php artisan atlas:aobg:file-context "$RAW_PATH" --budget="$ATLAS_AOBG_FC_HOOK_BUDGET" --json 2>/dev/null || true)"
+    DELTA_JSON="$(php artisan atlas:aobg:file-context "$RAW_PATH" --workspace="$WORKSPACE_DIR" --budget="$ATLAS_AOBG_FC_HOOK_BUDGET" --json 2>/dev/null || true)"
 fi
 [ -n "$DELTA_JSON" ] || exit 0
 

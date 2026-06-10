@@ -388,6 +388,38 @@ final class StrategyScenarioRegistryTest extends TestCase
         $this->assertArrayNotHasKey('latest_campaign_id', $next);
     }
 
+    public function test_stored_registry_from_before_a_family_existed_gains_its_roadmap_entries(): void
+    {
+        // Cria o arquivo, depois o "envelhece": remove as famílias novas como se tivesse
+        // sido persistido antes delas existirem (o caso real de produção).
+        $registry = new StrategyScenarioRegistry($this->path);
+        $registry->recordReport([
+            'campaign_id' => 'btc-bootstrap',
+            'symbol' => 'BTCUSDT',
+            'interval' => '1d',
+            'strategy_family' => 'trend-breakout-v1',
+            'verdict' => 'INCONCLUSIVE',
+            'summary' => ['rounds' => 1],
+        ]);
+        $raw = json_decode((string) file_get_contents($this->path), true);
+        $drop = static fn (array $rows, string $key): array => array_values(array_filter(
+            $rows,
+            static fn ($row): bool => ! in_array((string) ($row[$key] ?? ''), ['volume-breakout-v1', 'pullback-trend-v1'], true),
+        ));
+        $raw['strategy_families'] = $drop((array) $raw['strategy_families'], 'family');
+        $raw['sequential_roadmap'] = $drop((array) $raw['sequential_roadmap'], 'strategy_family');
+        file_put_contents($this->path, json_encode($raw));
+
+        $reloaded = (new StrategyScenarioRegistry($this->path))->load();
+
+        $families = array_column((array) $reloaded['strategy_families'], 'family');
+        $this->assertContains('volume-breakout-v1', $families, 'merge must re-add new families to old registries');
+        $this->assertContains('pullback-trend-v1', $families);
+        $roadmapFamilies = array_column((array) $reloaded['sequential_roadmap'], 'strategy_family');
+        $this->assertContains('volume-breakout-v1', $roadmapFamilies, 'roadmap must gain the new family scenarios');
+        $this->assertContains('pullback-trend-v1', $roadmapFamilies);
+    }
+
     public function test_zero_candidate_holdout_exhaustion_advances_family_when_no_fresh_generation_remains(): void
     {
         $registry = new StrategyScenarioRegistry($this->path);

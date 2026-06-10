@@ -227,11 +227,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
      */
     private function resolveProfile(?string $workspace): ?array
     {
-        $slug = is_string($workspace) && trim($workspace) !== ''
-            ? trim($workspace)
-            : $this->profiles->defaultSlug();
-
-        return $this->profiles->findBySlug($slug) ?? $this->profiles->findByPath($slug);
+        return $this->profiles->findByReference($workspace);
     }
 
     /**
@@ -401,16 +397,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             static fn (string $file): bool => ! str_starts_with($file, '/'),
         ));
         $preview = array_slice($files, 0, 20);
-        $topLevelAreas = array_values(array_unique(array_filter(array_map(
-            static function (string $file): string {
-                $normalized = str_replace('\\', '/', $file);
-                $first = explode('/', $normalized, 2)[0] ?? '';
-
-                return trim($first);
-            },
-            $files,
-        ))));
-        sort($topLevelAreas);
+        $topLevelAreas = $this->topLevelAreas($files);
 
         $criticalAreasTouched = $this->criticalAreasTouched(
             $files,
@@ -497,7 +484,28 @@ final class AtlasWorkspaceIntelligenceRuntimeService
 
         sort($repos);
 
-        return array_slice(array_values(array_unique($repos)), 0, 12);
+        return $this->limitedProviderSafeStringList($repos, 12);
+    }
+
+    /**
+     * @param  array<int,string>  $files
+     * @return array<int,string>
+     */
+    private function topLevelAreas(array $files): array
+    {
+        $areas = array_map(
+            static function (string $file): string {
+                $normalized = str_replace('\\', '/', $file);
+                $first = explode('/', $normalized, 2)[0] ?? '';
+
+                return trim($first);
+            },
+            $files,
+        );
+        $areas = $this->providerSafeStringList($areas);
+        sort($areas);
+
+        return $areas;
     }
 
     /**
@@ -827,10 +835,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             if ($repoKey === '') {
                 continue;
             }
-            $stack = array_values(array_unique(array_filter(
-                (array) ($repository['stack'] ?? []),
-                'is_string',
-            )));
+            $stack = $this->providerSafeStringList($repository['stack'] ?? []);
             sort($stack);
             $index[$repoKey] = $stack;
         }
@@ -870,7 +875,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             }
         }
 
-        return array_slice(array_values(array_unique(array_filter($stacks, 'is_string'))), 0, 12);
+        return $this->limitedProviderSafeStringList($stacks, 12);
     }
 
     /**
@@ -2336,10 +2341,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
      */
     private function rankCommandsByOutcome(array $commands, array $outcomeIndex, array $areas = []): array
     {
-        $commands = array_values(array_unique(array_filter(array_map(
-            static fn (mixed $command): string => trim((string) $command),
-            $commands,
-        ), static fn (string $command): bool => $command !== '')));
+        $commands = $this->listNormalizer->uniqueStrings($commands);
         $positions = array_flip($commands);
 
         $areaKeys = array_values(array_unique(array_filter(array_map(
@@ -4007,6 +4009,14 @@ final class AtlasWorkspaceIntelligenceRuntimeService
     private function providerSafeStringList(mixed $values): array
     {
         return $this->listNormalizer->uniqueSingleLineStrings($values);
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function limitedProviderSafeStringList(mixed $values, int $limit): array
+    {
+        return array_slice($this->providerSafeStringList($values), 0, $limit);
     }
 
     /**

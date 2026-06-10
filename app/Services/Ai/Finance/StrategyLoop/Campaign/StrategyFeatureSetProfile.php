@@ -39,17 +39,34 @@ final class StrategyFeatureSetProfile
                 'suitable_timeframes' => ['1d', '4h'],
                 'activation_decision' => 'active_default',
             ],
-            'ohlcv_regime_index_v1' => $this->deferred(
-                'derived_price_index',
-                ['market_data_sha256', 'derived_feature_code_hash', 'feature_window_policy'],
-                ['pre_register_feature_family', 'prove_no_future_window_leakage', 'compare_against_price_only_baseline'],
-                1,
-                'first_future_candidate',
-                'regime_volatility_liquidity_context_from_existing_ohlcv',
-                'low',
-                'medium',
-                ['1d', '4h'],
-            ),
+            // ATIVADO 2026-06-10 (operador): era o priority-1 do backlog. Cada requisito
+            // de ativação tem evidência executável registrada em activation_evidence.
+            'ohlcv_regime_index_v1' => [
+                'status' => 'active',
+                'active_in_default_search' => true,
+                'allowed_now' => true,
+                'input_families' => ['derived_price_index'],
+                'source_manifest_requirements' => ['market_data_sha256', 'derived_feature_code_hash', 'feature_window_policy'],
+                'candidate_access_policy' => 'candidate_may_read_derived_regime_features_only_cannot_modify_data_costs_or_harness',
+                'activation_requirements' => ['pre_register_feature_family', 'prove_no_future_window_leakage', 'compare_against_price_only_baseline'],
+                'activation_evidence' => [
+                    'pre_register_feature_family' => 'features fixas pré-registradas: kaufman_efficiency_ratio + realized_vol_percentile (RegimeAdaptiveStrategy, família regime-adaptive-v1)',
+                    'prove_no_future_window_leakage' => 'RegimeAdaptiveStrategyLookAheadTest::test_no_lookahead_prefix_invariance',
+                    'compare_against_price_only_baseline' => 'scenario key inclui feature_set_id: campanhas regime rodam separadas; cenários price_only seguem como grupo de controle',
+                    'activated_at' => '2026-06-10',
+                    'activated_by' => 'operator',
+                ],
+                'derived_feature_code_hash' => $this->regimeFeatureCodeHash(),
+                'feature_window_policy' => 'all_feature_windows_end_at_decision_bar_t_and_vol_rank_history_is_itself_causal',
+                'ap_required_for_activation' => false,
+                'activation_priority' => 1,
+                'activation_phase' => 'active_regime_index',
+                'research_value' => 'regime_volatility_liquidity_context_from_existing_ohlcv',
+                'data_risk' => 'low',
+                'lookahead_risk' => 'medium',
+                'suitable_timeframes' => ['1d', '4h'],
+                'activation_decision' => 'activated_2026_06_10_operator_requirements_implemented',
+            ],
             'cross_asset_context_v1' => $this->deferred(
                 'cross_market_context',
                 ['primary_market_data_sha256', 'context_market_data_sha256', 'timestamp_alignment_policy'],
@@ -61,17 +78,37 @@ final class StrategyFeatureSetProfile
                 'high',
                 ['1d', '4h'],
             ),
-            'derivatives_funding_oi_v1' => $this->deferred(
-                'crypto_derivatives_context',
-                ['funding_source_hash', 'open_interest_source_hash', 'publish_time_policy'],
-                ['AP_contract_for_derivatives_data', 'funding_timestamp_policy', 'survivorship_and_exchange_coverage_controls'],
-                2,
-                'crypto_native_context_after_price_regimes',
-                'funding_open_interest_basis_and_crowding_context',
-                'medium',
-                'high',
-                ['1d', '4h'],
-            ),
+            // ATIVADO 2026-06-10 (operador, salto 3) — escopo FUNDING-ONLY: a Binance só
+            // mantém ~30d de histórico de open interest, então OI permanece adiado DENTRO
+            // do set até existir fonte com histórico profundo auditável.
+            'derivatives_funding_oi_v1' => [
+                'status' => 'active',
+                'active_in_default_search' => true,
+                'allowed_now' => true,
+                'input_families' => ['crypto_derivatives_context'],
+                'scope' => 'funding_only_open_interest_deferred_no_deep_history_source',
+                'source_manifest_requirements' => ['funding_source_hash', 'publish_time_policy'],
+                'candidate_access_policy' => 'candidate_may_read_funding_features_only_cannot_modify_data_costs_or_harness',
+                'activation_requirements' => ['AP_contract_for_derivatives_data', 'funding_timestamp_policy', 'survivorship_and_exchange_coverage_controls'],
+                'activation_evidence' => [
+                    'AP_contract_for_derivatives_data' => 'este profile + família funding-extreme-v1 (FundingExtremeStrategy) definem o contrato: fita congelada injetada, candidato nunca toca dados',
+                    'funding_timestamp_policy' => 'FundingExtremeStrategyLookAheadTest::test_no_lookahead_prefix_invariance_truncating_funding_tape (evento conhecível só a partir de funding_time)',
+                    'survivorship_and_exchange_coverage_controls' => 'universo fixo BTC/ETH/SOL perp USDT da Binance (mesmos símbolos do baseline de preço; sem seleção pós-fato); dumps mensais públicos data.binance.vision',
+                    'open_interest' => 'DEFERRED: Binance não publica histórico profundo de OI (~30d) — ativar OI exige nova fonte + nova evidência',
+                    'activated_at' => '2026-06-10',
+                    'activated_by' => 'operator',
+                ],
+                'funding_source_hash' => $this->fundingSourceHashes(),
+                'publish_time_policy' => 'funding_event_knowable_at_funding_time_strategy_reads_only_events_with_funding_time_lte_decision_bar_close',
+                'ap_required_for_activation' => false,
+                'activation_priority' => 2,
+                'activation_phase' => 'active_funding_context',
+                'research_value' => 'funding_open_interest_basis_and_crowding_context',
+                'data_risk' => 'medium',
+                'lookahead_risk' => 'high',
+                'suitable_timeframes' => ['1d', '4h'],
+                'activation_decision' => 'activated_2026_06_10_operator_funding_only_requirements_implemented',
+            ],
             'onchain_flow_v1' => $this->deferred(
                 'onchain_context',
                 ['onchain_source_hash', 'entity_mapping_policy', 'publish_time_policy'],
@@ -135,19 +172,38 @@ final class StrategyFeatureSetProfile
         ] + $profile;
     }
 
+    /**
+     * Fonte única da verdade sobre quais feature sets estão ATIVOS. Auditorias e
+     * registry derivam daqui — nunca hardcodar ids ativos/deferred fora do profile.
+     *
+     * @return list<string>
+     */
+    public function activeFeatureSetIds(): array
+    {
+        return [
+            self::PRICE_ONLY,
+            'ohlcv_regime_index_v1',
+            'derivatives_funding_oi_v1',
+        ];
+    }
+
+    /** @return list<string> */
+    public function deferredFeatureSetIds(): array
+    {
+        return [
+            'cross_asset_context_v1',
+            'orderbook_microstructure_v1',
+            'onchain_flow_v1',
+            'news_sentiment_v1',
+        ];
+    }
+
     /** @return list<array<string,mixed>> */
     public function deferredBacklog(): array
     {
         return array_map(
             fn (string $id): array => $this->describe($id),
-            [
-                'ohlcv_regime_index_v1',
-                'derivatives_funding_oi_v1',
-                'cross_asset_context_v1',
-                'orderbook_microstructure_v1',
-                'onchain_flow_v1',
-                'news_sentiment_v1',
-            ],
+            $this->deferredFeatureSetIds(),
         );
     }
 
@@ -155,7 +211,7 @@ final class StrategyFeatureSetProfile
     public function activationRoadmap(): array
     {
         $roadmap = [
-            $this->describe(self::PRICE_ONLY),
+            ...array_map(fn (string $id): array => $this->describe($id), $this->activeFeatureSetIds()),
             ...$this->deferredBacklog(),
         ];
         usort(
@@ -164,6 +220,36 @@ final class StrategyFeatureSetProfile
         );
 
         return $roadmap;
+    }
+
+    /**
+     * Manifest requirement `derived_feature_code_hash`: hash do arquivo-fonte que
+     * computa as features de regime. Muda o código => muda o hash => o manifest da
+     * campanha denuncia. Fail-closed: arquivo ausente vira um valor não-hash.
+     */
+    /**
+     * Manifest requirement `funding_source_hash`: sha256 por símbolo da fita congelada
+     * de funding. Fail-closed: fita ausente vira um valor não-hash visível no manifest.
+     *
+     * @return array<string,string>
+     */
+    private function fundingSourceHashes(): array
+    {
+        $tape = \App\Services\Ai\Finance\StrategyLoop\FundingTape::default();
+        $out = [];
+        foreach (['BTCUSDT', 'ETHUSDT', 'SOLUSDT'] as $symbol) {
+            $out[$symbol] = $tape->sha256($symbol);
+        }
+
+        return $out;
+    }
+
+    private function regimeFeatureCodeHash(): string
+    {
+        $path = (new \ReflectionClass(\App\Services\Ai\Finance\StrategyLoop\Strategy\RegimeAdaptiveStrategy::class))->getFileName();
+        $hash = is_string($path) && is_file($path) ? hash_file('sha256', $path) : false;
+
+        return $hash !== false ? $hash : 'feature_code_file_missing';
     }
 
     public function normalize(string $featureSetId): string

@@ -24,10 +24,9 @@ final class StrategyLoopOperationalAudit
         $campaign = $this->findCampaign($dryRun, $campaignId);
         $registry = StrategyScenarioRegistry::default($dryRun)->load();
         $holdouts = $this->readJson($this->holdoutRegistryPath($dryRun));
-        $ledgerRows = is_array($campaign) ? $this->readLedgerRows((string) ($campaign['_ledger_path'] ?? '')) : [];
-        $researchEvidenceRows = $this->readLedgerRows($this->researchEvidenceLedgerPath($dryRun));
         $terminalReports = $this->readTerminalReports($dryRun, $campaignId ?? (is_array($campaign) ? (string) ($campaign['campaign_id'] ?? '') : null));
-        $latestRow = $ledgerRows !== [] ? $ledgerRows[count($ledgerRows) - 1] : null;
+        $latestRow = is_array($campaign) ? $this->latestLedgerRow((string) ($campaign['_ledger_path'] ?? '')) : null;
+        $researchEvidence = $this->auditResearchEvidenceLedger($this->researchEvidenceLedgerPath($dryRun), $terminalReports);
         $executionSurface = (new StrategyNoExecutionSurfaceAudit)->scanDefault();
         $checks = [];
 
@@ -78,7 +77,7 @@ final class StrategyLoopOperationalAudit
         $checks[] = $this->check('scenario_knowledge_matrix_present', $this->scenarioKnowledgeMatrixPresent((array) ($registry['scenario_knowledge_matrix'] ?? [])), 'registry compares strategy families per exact symbol/timeframe/feature-set without emitting trade signals');
         $checks[] = $this->check(
             'research_evidence_ledger_records_terminal_reports',
-            $this->terminalReportsHaveResearchEvidence($terminalReports, $researchEvidenceRows),
+            (bool) $researchEvidence['terminal_reports_have_evidence'],
             $terminalReports === [] ? 'no terminal reports to reconcile yet' : 'terminal reports are recorded in the governed research evidence ledger',
             ['terminal_reports' => count($terminalReports)],
         );
@@ -90,9 +89,9 @@ final class StrategyLoopOperationalAudit
         );
         $checks[] = $this->check(
             'research_evidence_propose_only_surface',
-            $this->researchEvidenceIsProposeOnly($researchEvidenceRows),
-            $researchEvidenceRows === [] ? 'no research evidence rows yet' : 'research evidence is propose-only and forbids live trading',
-            ['evidence_rows' => count($researchEvidenceRows)],
+            (bool) $researchEvidence['propose_only'],
+            (int) $researchEvidence['row_count'] === 0 ? 'no research evidence rows yet' : 'research evidence is propose-only and forbids live trading',
+            ['evidence_rows' => (int) $researchEvidence['row_count']],
         );
         $checks[] = $this->check(
             'code_no_execution_surface',
@@ -112,7 +111,7 @@ final class StrategyLoopOperationalAudit
             $checks[] = $this->check('confirmation_holdout_reserved_or_governed', in_array((string) ($confirmation['status'] ?? ''), [StrategyCampaignStore::HOLDOUT_RESERVED, StrategyCampaignStore::HOLDOUT_ACTIVE, StrategyCampaignStore::HOLDOUT_EXHAUSTED], true), 'confirmation holdout has governed status');
         }
 
-        $checks[] = $this->check('ledger_exists', $ledgerRows !== [], 'campaign ledger has at least one row');
+        $checks[] = $this->check('ledger_exists', is_array($latestRow), 'campaign ledger has at least one row');
         if (is_array($campaign) && is_array($latestRow)) {
             $checks[] = $this->check('ledger_matches_campaign', (string) ($latestRow['campaign_id'] ?? '') === (string) ($campaign['campaign_id'] ?? '') && (string) ($latestRow['strategy_family'] ?? '') === (string) ($campaign['strategy_family'] ?? ''), 'latest ledger row matches campaign and family');
             $checks[] = $this->check('ledger_never_merges', (bool) ($latestRow['merged_to_main'] ?? false) === false, 'latest row did not merge to main');
@@ -386,14 +385,14 @@ final class StrategyLoopOperationalAudit
     /**
      * @param array<string,mixed> $featureSet
      */
-    private function featureSetIsGoverned(array $featureSet): bool
+    private function featureSetIsGoverned(array $featureSet, string $expectedId = StrategyFeatureSetProfile::PRICE_ONLY): bool
     {
         if ($featureSet === []) {
             return false;
         }
 
         return (string) ($featureSet['schema_version'] ?? '') === 'atlas.finance.strategy_feature_set.v1'
-            && (string) ($featureSet['feature_set_id'] ?? '') === StrategyFeatureSetProfile::PRICE_ONLY
+            && (string) ($featureSet['feature_set_id'] ?? '') === $expectedId
             && (bool) ($featureSet['allowed_now'] ?? false) === true
             && (string) ($featureSet['lookahead_policy'] ?? '') === 'every_feature_value_must_be_available_at_or_before_the_bar_decision_time'
             && (string) ($featureSet['execution_surface'] ?? '') === 'forbidden'
@@ -426,12 +425,15 @@ final class StrategyLoopOperationalAudit
      */
     private function featureSetPolicyPresent(array $registry): bool
     {
+        // FONTE ÚNICA: o profile decide o que é ativo vs deferred. Hardcodar ids aqui
+        // quebrava a auditoria a cada ativação legítima (lição dos saltos 2 e 3).
+        $profiler = new StrategyFeatureSetProfile;
         $featureSets = (array) ($registry['feature_sets'] ?? []);
-        $priceOnly = is_array($featureSets[StrategyFeatureSetProfile::PRICE_ONLY] ?? null)
-            ? $featureSets[StrategyFeatureSetProfile::PRICE_ONLY]
-            : [];
-        if (! $this->featureSetIsGoverned($priceOnly)) {
-            return false;
+        foreach ($profiler->activeFeatureSetIds() as $activeId) {
+            $set = is_array($featureSets[$activeId] ?? null) ? $featureSets[$activeId] : [];
+            if (! $this->featureSetIsGoverned($set, $activeId)) {
+                return false;
+            }
         }
 
         $deferred = array_values(array_filter((array) ($registry['deferred_feature_set_backlog'] ?? []), 'is_array'));
@@ -449,6 +451,12 @@ final class StrategyLoopOperationalAudit
                 return false;
             }
         }
+        // Nenhum set ATIVO pode continuar listado como deferred (anti-stale).
+        foreach ($profiler->activeFeatureSetIds() as $activeId) {
+            if (isset($deferredIds[$activeId])) {
+                return false;
+            }
+        }
         $roadmap = array_values(array_filter((array) ($registry['feature_set_activation_roadmap'] ?? []), 'is_array'));
         $roadmapById = [];
         foreach ($roadmap as $entry) {
@@ -460,6 +468,7 @@ final class StrategyLoopOperationalAudit
         if ((string) data_get($roadmapById, 'news_sentiment_v1.activation_phase', '') !== 'late_experimental_only') {
             return false;
         }
+        // Prioridades preservadas mesmo após ativação (a ordem do roadmap é histórica).
         if ((int) data_get($roadmapById, 'ohlcv_regime_index_v1.activation_priority', 999) >= (int) data_get($roadmapById, 'derivatives_funding_oi_v1.activation_priority', 999)) {
             return false;
         }
@@ -467,52 +476,9 @@ final class StrategyLoopOperationalAudit
             return false;
         }
 
-        return isset(
-            $deferredIds['ohlcv_regime_index_v1'],
-            $deferredIds['cross_asset_context_v1'],
-            $deferredIds['derivatives_funding_oi_v1'],
-            $deferredIds['onchain_flow_v1'],
-            $deferredIds['news_sentiment_v1'],
-            $deferredIds['orderbook_microstructure_v1'],
-        );
-    }
-
-    /**
-     * @param  list<array<string,mixed>>  $terminalReports
-     * @param  list<array<string,mixed>>  $evidenceRows
-     */
-    private function terminalReportsHaveResearchEvidence(array $terminalReports, array $evidenceRows): bool
-    {
-        if ($terminalReports === []) {
-            return true;
-        }
-
-        foreach ($terminalReports as $report) {
-            $campaignId = (string) ($report['campaign_id'] ?? '');
-            $verdict = (string) ($report['verdict'] ?? '');
-            if ($campaignId === '' || $verdict === '') {
-                return false;
-            }
-
-            $matched = false;
-            foreach ($evidenceRows as $row) {
-                if ((string) ($row['campaign_id'] ?? '') !== $campaignId || (string) ($row['verdict'] ?? '') !== $verdict) {
-                    continue;
-                }
-                if ((string) ($row['schema_version'] ?? '') !== 'atlas.finance.strategy_research_evidence.v1') {
-                    return false;
-                }
-                $expectedKind = str_starts_with($verdict, 'NULL_')
-                    ? 'negative_finding'
-                    : ($verdict === 'CERTIFIED' ? 'positive_candidate' : 'inconclusive');
-                if ((string) ($row['knowledge_kind'] ?? '') !== $expectedKind) {
-                    return false;
-                }
-                $matched = true;
-                break;
-            }
-
-            if (! $matched) {
+        // Todo set ainda não ativado (segundo o profile) segue obrigatoriamente deferred.
+        foreach ($profiler->deferredFeatureSetIds() as $deferredId) {
+            if (! isset($deferredIds[$deferredId])) {
                 return false;
             }
         }
@@ -564,36 +530,92 @@ final class StrategyLoopOperationalAudit
         return true;
     }
 
-    /** @param list<array<string,mixed>> $evidenceRows */
-    private function researchEvidenceIsProposeOnly(array $evidenceRows): bool
+    /**
+     * @param  list<array<string,mixed>>  $terminalReports
+     * @return array{row_count: int, propose_only: bool, terminal_reports_have_evidence: bool}
+     */
+    private function auditResearchEvidenceLedger(string $path, array $terminalReports): array
     {
-        foreach ($evidenceRows as $row) {
-            if ((string) ($row['schema_version'] ?? '') !== 'atlas.finance.strategy_research_evidence.v1') {
-                return false;
+        $expected = [];
+        $terminalReportsHaveEvidence = true;
+        foreach ($terminalReports as $report) {
+            $campaignId = (string) ($report['campaign_id'] ?? '');
+            $verdict = (string) ($report['verdict'] ?? '');
+            if ($campaignId === '' || $verdict === '') {
+                $terminalReportsHaveEvidence = false;
+                continue;
             }
-            if ((bool) ($row['propose_only'] ?? false) !== true || (string) ($row['live_trading'] ?? '') !== 'forbidden') {
-                return false;
+            $expected[$campaignId.'|'.$verdict] = str_starts_with($verdict, 'NULL_')
+                ? 'negative_finding'
+                : ($verdict === 'CERTIFIED' ? 'positive_candidate' : 'inconclusive');
+        }
+
+        $matched = [];
+        $rowCount = 0;
+        $proposeOnly = true;
+        foreach ($this->streamLedgerRows($path) as $row) {
+            $rowCount++;
+            $schemaOk = (string) ($row['schema_version'] ?? '') === 'atlas.finance.strategy_research_evidence.v1';
+            $proposeOk = (bool) ($row['propose_only'] ?? false) === true
+                && (string) ($row['live_trading'] ?? '') === 'forbidden';
+            if (! $schemaOk || ! $proposeOk) {
+                $proposeOnly = false;
+            }
+
+            $key = (string) ($row['campaign_id'] ?? '').'|'.(string) ($row['verdict'] ?? '');
+            if (! array_key_exists($key, $expected)) {
+                continue;
+            }
+            if (! $schemaOk || (string) ($row['knowledge_kind'] ?? '') !== $expected[$key]) {
+                $terminalReportsHaveEvidence = false;
+                continue;
+            }
+            $matched[$key] = true;
+        }
+
+        foreach (array_keys($expected) as $key) {
+            if (! isset($matched[$key])) {
+                $terminalReportsHaveEvidence = false;
+                break;
             }
         }
 
-        return true;
+        return [
+            'row_count' => $rowCount,
+            'propose_only' => $proposeOnly,
+            'terminal_reports_have_evidence' => $terminalReportsHaveEvidence,
+        ];
     }
 
-    /** @return list<array<string,mixed>> */
-    private function readLedgerRows(string $path): array
+    /** @return array<string,mixed>|null */
+    private function latestLedgerRow(string $path): ?array
     {
-        if (! is_file($path)) {
-            return [];
-        }
-        $rows = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $rows[] = $decoded;
-            }
+        $latest = null;
+        foreach ($this->streamLedgerRows($path) as $row) {
+            $latest = $row;
         }
 
-        return $rows;
+        return $latest;
+    }
+
+    /** @return \Generator<int, array<string,mixed>> */
+    private function streamLedgerRows(string $path): \Generator
+    {
+        if (! is_file($path)) {
+            return;
+        }
+
+        $file = new \SplFileObject($path, 'r');
+        while (! $file->eof()) {
+            $line = trim((string) $file->fgets());
+            if ($line === '') {
+                continue;
+            }
+            $decoded = json_decode($line, true);
+            if (is_array($decoded)) {
+                yield $decoded;
+            }
+        }
     }
 
     /** @return list<array<string,mixed>> */

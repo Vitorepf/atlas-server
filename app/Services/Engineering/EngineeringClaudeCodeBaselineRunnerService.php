@@ -97,7 +97,7 @@ class EngineeringClaudeCodeBaselineRunnerService
             'deterministic_gates_passed' => $deterministicGatesPassed,
             'pass_without_human' => $deterministicGatesPassed,
             'human_intervention_count' => 0,
-            'blocking_reasons' => array_values(array_unique(array_filter($blockingReasons))),
+            'blocking_reasons' => EngineeringStringListNormalizer::uniqueNonEmptyStrings($blockingReasons),
             'exit_code' => $result->exitCode,
             'duration_ms' => $result->durationMs,
             'output_hash' => hash('sha256', $result->output),

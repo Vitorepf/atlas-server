@@ -267,14 +267,7 @@ final class AtlasGraphRetrievalNetworkService
      */
     private function cleanList(mixed $value): array
     {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_unique(array_filter(array_map(
-            static fn (mixed $item): string => is_scalar($item) ? strtolower(trim((string) $item)) : '',
-            $value,
-        ))));
+        return AtlasContextStringListNormalizer::uniqueTrimmedStrings($value, lowercase: true);
     }
 
     private function riskForRanker(string $risk): string

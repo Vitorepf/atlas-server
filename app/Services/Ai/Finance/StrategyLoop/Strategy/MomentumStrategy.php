@@ -107,7 +107,14 @@ final class MomentumStrategy implements StrategyRunner
             }
         }
 
-        return new StrategyResult($equity, $returns, $trades, count($trades));
+        return new StrategyResult(
+            $equity,
+            $returns,
+            $trades,
+            count($trades),
+            $units > 0.0 ? ['entry_idx' => $entryIdx, 'entry_price' => $entryPrice] : null,
+            is_array($pending) ? (string) $pending[0] : $pending,
+        );
     }
 
     /**

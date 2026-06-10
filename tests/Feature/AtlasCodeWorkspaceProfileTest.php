@@ -91,6 +91,17 @@ class AtlasCodeWorkspaceProfileTest extends TestCase
         $this->assertSame('atlas', $profile['slug']);
     }
 
+    public function test_workspace_profile_reference_resolves_atlas_server_path_to_server_workspace(): void
+    {
+        $profile = app(AtlasCodeWorkspaceProfileService::class)->findByReference(base_path());
+        $slugProfile = app(AtlasCodeWorkspaceProfileService::class)->findByReference('atlas-server');
+
+        $this->assertIsArray($profile);
+        $this->assertSame('atlas-server', $profile['slug']);
+        $this->assertIsArray($slugProfile);
+        $this->assertSame('atlas-server', $slugProfile['slug']);
+    }
+
     public function test_workspace_registry_includes_persisted_profiles(): void
     {
         $this->createWorkspaceProfilesTable();

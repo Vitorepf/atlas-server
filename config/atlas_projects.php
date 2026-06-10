@@ -56,12 +56,52 @@ return [
                 'atlas-desktop/apps/desktop/src/surfaces',
                 'docs/engineering-knowledge-base',
             ],
+            'code_index_roots' => [
+                '.',
+                'atlas-server',
+                'atlas-desktop',
+                'atlas-desktop/apps/desktop',
+                'atlas-desktop/crates',
+                'atlas-desktop/packages',
+                'atlas-app',
+            ],
             'docs_status' => 'canonical',
             'default_risk' => 'medium',
             'deployment_notes' => 'Atlas é o próprio repositório onde Atlas Code roda. Self-modifying — mudanças em produção exigem evidência.',
             // Surfaces que este Projeto/Workspace habilita. Meta 5 expõe
             // este campo para que a UI possa esconder tabs incompatíveis
             // (ex: projeto sem docs canônicas → cartografia indisponível).
+            'surfaces_enabled' => ['atlas_ai', 'cartografia', 'code', 'atencao'],
+        ],
+        [
+            'id' => 'atlas-server',
+            'slug' => 'atlas-server',
+            'name' => 'Atlas Server',
+            'kind' => 'service_repo',
+            'workspace_path' => env('ATLAS_PROJECT_ATLAS_SERVER_PATH', base_path()),
+            'repo_root' => env('ATLAS_PROJECT_ATLAS_SERVER_REPO', base_path()),
+            'production_status' => 'development',
+            'stack_summary' => 'Laravel 12 + PHP 8.4 + Postgres backend · Atlas AI, AOBG, MCP, memory, RAG and code graph runtime.',
+            'commands' => [
+                'install' => 'composer install',
+                'tinker' => '/opt/homebrew/bin/php artisan tinker',
+            ],
+            'test_commands' => [
+                '/opt/homebrew/bin/php artisan test',
+                '/opt/homebrew/bin/php artisan atlas:engineering:knowledge code-readiness --json',
+            ],
+            'build_commands' => [],
+            'dev_server_command' => '/opt/homebrew/bin/php artisan serve',
+            'critical_areas' => [
+                'app/Services/Ai',
+                'app/Http/Controllers',
+                'app/Console/Commands',
+                'docs/engineering-knowledge-base',
+                'tests',
+            ],
+            'docs_status' => 'canonical',
+            'default_risk' => 'medium',
+            'deployment_notes' => 'Atlas Server é o backend e cérebro local. Escopo específico para sessões abertas diretamente em atlas-server.',
             'surfaces_enabled' => ['atlas_ai', 'cartografia', 'code', 'atencao'],
         ],
         [

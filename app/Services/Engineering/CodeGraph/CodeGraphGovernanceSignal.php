@@ -2,6 +2,7 @@
 
 namespace App\Services\Engineering\CodeGraph;
 
+use App\Services\Engineering\EngineeringStringListNormalizer;
 use Carbon\CarbonImmutable;
 use Throwable;
 
@@ -77,7 +78,7 @@ class CodeGraphGovernanceSignal
             $blockers[] = $blocker;
         }
 
-        $blockers = array_values(array_unique(array_filter($blockers)));
+        $blockers = EngineeringStringListNormalizer::uniqueNonEmptyStrings($blockers);
 
         return [
             'status' => $blockers === [] ? self::STATUS_READY : self::STATUS_BLOCKED,

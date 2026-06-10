@@ -160,10 +160,22 @@ final class StrategyLoopScientificReadinessAudit
             $byId[(string) ($entry['feature_set_id'] ?? '')] = $entry;
         }
 
+        // FONTE ÚNICA: ativo/deferred vem do profile (hardcodar ids quebrava a auditoria
+        // a cada ativação legítima). Todo ativo => allowed; todo deferred => bloqueado+AP.
+        $profiler = new StrategyFeatureSetProfile;
+        foreach ($profiler->activeFeatureSetIds() as $activeId) {
+            if ((bool) data_get($byId, $activeId.'.allowed_now', false) !== true) {
+                return false;
+            }
+        }
+        foreach ($profiler->deferredFeatureSetIds() as $deferredId) {
+            if ((bool) data_get($byId, $deferredId.'.allowed_now', true) !== false
+                || (bool) data_get($byId, $deferredId.'.ap_required_for_activation', false) !== true) {
+                return false;
+            }
+        }
+
         return (int) data_get($byId, StrategyFeatureSetProfile::PRICE_ONLY.'.activation_priority', 999) === 0
-            && (bool) data_get($byId, 'ohlcv_regime_index_v1.allowed_now', true) === false
-            && (bool) data_get($byId, 'derivatives_funding_oi_v1.ap_required_for_activation', false) === true
-            && (int) data_get($byId, 'derivatives_funding_oi_v1.activation_priority', 999) < (int) data_get($byId, 'news_sentiment_v1.activation_priority', 0)
             && (string) data_get($byId, 'news_sentiment_v1.activation_phase', '') === 'late_experimental_only';
     }
 

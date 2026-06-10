@@ -22,9 +22,7 @@ final class AtlasWorkspacePathResolverService
         }
 
         $requested = trim($requested);
-        $profile = $this->profiles->findBySlug($requested)
-            ?? $this->profiles->findByPath($requested)
-            ?? $this->findProfileContainingPath($requested);
+        $profile = $this->profiles->findByReference($requested);
 
         if ($profile === null) {
             return ['status' => 'blocked', 'reason' => 'workspace_not_registered'];
@@ -44,20 +42,6 @@ final class AtlasWorkspacePathResolverService
             'workspace_path' => $workspacePath,
             'profile' => $profile,
         ];
-    }
-
-    /**
-     * @return array<string,mixed>|null
-     */
-    private function findProfileContainingPath(string $path): ?array
-    {
-        foreach ($this->profiles->listProfiles() as $profile) {
-            if ($this->pathInsideProfile($path, $profile)) {
-                return $profile;
-            }
-        }
-
-        return null;
     }
 
     /**

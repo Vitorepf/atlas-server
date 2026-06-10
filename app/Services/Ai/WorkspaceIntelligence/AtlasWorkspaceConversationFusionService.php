@@ -157,11 +157,7 @@ final class AtlasWorkspaceConversationFusionService
      */
     private function resolveProfile(?string $workspace): ?array
     {
-        $needle = is_string($workspace) && trim($workspace) !== ''
-            ? trim($workspace)
-            : $this->profiles->defaultSlug();
-
-        return $this->profiles->findBySlug($needle) ?? $this->profiles->findByPath($needle);
+        return $this->profiles->findByReference($workspace);
     }
 
     /**

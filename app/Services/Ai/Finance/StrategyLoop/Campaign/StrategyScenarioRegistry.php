@@ -256,6 +256,14 @@ final class StrategyScenarioRegistry
             ['family' => 'trend-breakout-v1', 'priority' => 1, 'hypothesis' => 'trend_continuation_or_breakout_edge_after_costs'],
             ['family' => 'mean-reversion-v1', 'priority' => 2, 'hypothesis' => 'short_term_reversion_edge_after_costs'],
             ['family' => 'momentum-v1', 'priority' => 3, 'hypothesis' => 'directional_momentum_edge_after_costs'],
+            ['family' => 'volume-breakout-v1', 'priority' => 4, 'hypothesis' => 'breakout_confirmed_by_abnormal_participation_edge_after_costs'],
+            ['family' => 'pullback-trend-v1', 'priority' => 5, 'hypothesis' => 'dip_entry_inside_uptrend_resumption_edge_after_costs'],
+            // Primeira família fora do price_only: consome o feature set governado
+            // ohlcv_regime_index_v1 (cenários separados = comparação limpa com o baseline).
+            ['family' => 'regime-adaptive-v1', 'priority' => 6, 'hypothesis' => 'regime_conditional_behavior_edge_after_costs', 'feature_set_id' => 'ohlcv_regime_index_v1'],
+            // Informação de POSICIONAMENTO (salto 3): fita de funding dos perps lida em
+            // publish-time; opera SPOT apenas — derivativos são lidos, nunca negociados.
+            ['family' => 'funding-extreme-v1', 'priority' => 7, 'hypothesis' => 'crowded_short_funding_squeeze_edge_after_costs', 'feature_set_id' => 'derivatives_funding_oi_v1'],
         ];
         $markets = [
             ['symbol' => 'BTCUSDT', 'interval' => '1d', 'priority' => 1],
@@ -268,19 +276,22 @@ final class StrategyScenarioRegistry
         foreach ($markets as $market) {
             foreach ($families as $family) {
                 $timeframeProfile = $profiler->describe((string) $market['interval']);
+                $familyFeatureSet = isset($family['feature_set_id'])
+                    ? $featureProfiler->describe((string) $family['feature_set_id'])
+                    : $priceOnly;
                 $roadmap[] = [
                     'symbol' => $market['symbol'],
                     'interval' => $market['interval'],
                     'timeframe_profile' => $timeframeProfile,
                     'strategy_family' => $family['family'],
-                    'feature_set' => $priceOnly,
+                    'feature_set' => $familyFeatureSet,
                     'priority' => ((int) $market['priority'] * 10) + (int) $family['priority'],
                     'research_rationale' => $this->researchRationale(
                         (string) $market['symbol'],
                         (string) $market['interval'],
                         (string) $family['family'],
                         $timeframeProfile,
-                        $priceOnly,
+                        $familyFeatureSet,
                         (string) $family['hypothesis'],
                     ),
                 ];
@@ -323,7 +334,10 @@ final class StrategyScenarioRegistry
                 'created_at' => gmdate('c'),
                 'updated_at' => gmdate('c'),
                 'strategy_families' => $families,
-                'feature_sets' => [StrategyFeatureSetProfile::PRICE_ONLY => $priceOnly],
+                'feature_sets' => array_combine(
+                    $featureProfiler->activeFeatureSetIds(),
+                    array_map(fn (string $id): array => $featureProfiler->describe($id), $featureProfiler->activeFeatureSetIds()),
+                ),
                 'feature_set_activation_roadmap' => $featureProfiler->activationRoadmap(),
                 'deferred_feature_set_backlog' => $featureProfiler->deferredBacklog(),
                 'timeframe_profiles' => $timeframeProfiles,
@@ -458,6 +472,44 @@ final class StrategyScenarioRegistry
         return null;
     }
 
+    /**
+     * União por identidade: linhas armazenadas vencem; defaults cuja chave não existe
+     * são anexados. Linhas sem chave são preservadas como estão (nunca descartar dado).
+     *
+     * @param  list<array<string,mixed>>  $stored
+     * @param  list<array<string,mixed>>  $defaults
+     * @param  callable(array<string,mixed>):string  $keyFn
+     * @return list<array<string,mixed>>
+     */
+    private function mergeRowsByKey(array $stored, array $defaults, callable $keyFn): array
+    {
+        $out = [];
+        $seen = [];
+        foreach ($stored as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $key = $keyFn($row);
+            if ($key !== '') {
+                $seen[$key] = true;
+            }
+            $out[] = $row;
+        }
+        foreach ($defaults as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $key = $keyFn($row);
+            if ($key === '' || isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $out[] = $row;
+        }
+
+        return $out;
+    }
+
     /** @param array<string,mixed> $registry */
     private function normalizeRegistry(array $registry): array
     {
@@ -481,6 +533,28 @@ final class StrategyScenarioRegistry
         if (! is_array($registry['strategy_families'] ?? null) || $registry['strategy_families'] === []) {
             $registry['strategy_families'] = $default['strategy_families'];
         }
+        // Governança de feature sets é PROJEÇÃO do StrategyFeatureSetProfile, não estado
+        // acumulado: sempre refrescar dos defaults, senão um registry persistido antes de
+        // uma ativação continua afirmando "deferred" para um set já ativo (stale class).
+        $registry['feature_sets'] = $default['feature_sets'];
+        $registry['feature_set_activation_roadmap'] = $default['feature_set_activation_roadmap'];
+        $registry['deferred_feature_set_backlog'] = $default['deferred_feature_set_backlog'];
+        // Um registry persistido antes de uma família nova existir nunca a veria: o `+=`
+        // acima só preenche chaves AUSENTES. Merge por identidade (stored vence; defaults
+        // inéditos são anexados) para que famílias/cenários novos cheguem ao roadmap vivo.
+        $registry['strategy_families'] = $this->mergeRowsByKey(
+            (array) $registry['strategy_families'],
+            (array) $default['strategy_families'],
+            static fn (array $row): string => (string) ($row['family'] ?? ''),
+        );
+        $registry['sequential_roadmap'] = $this->mergeRowsByKey(
+            (array) $registry['sequential_roadmap'],
+            (array) $default['sequential_roadmap'],
+            static fn (array $row): string => strtoupper((string) ($row['symbol'] ?? ''))
+                .'|'.(string) ($row['interval'] ?? '')
+                .'|'.(string) ($row['strategy_family'] ?? '')
+                .'|'.(string) (($row['feature_set']['feature_set_id'] ?? '') !== '' ? $row['feature_set']['feature_set_id'] : StrategyFeatureSetProfile::PRICE_ONLY),
+        );
         if (! $this->featureRowsHaveActivationPriority((array) ($registry['deferred_feature_set_backlog'] ?? []))) {
             $registry['deferred_feature_set_backlog'] = $default['deferred_feature_set_backlog'];
         }

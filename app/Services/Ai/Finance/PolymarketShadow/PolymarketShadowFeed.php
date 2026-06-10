@@ -188,9 +188,9 @@ final class PolymarketShadowFeed
      *
      * @return array{asks: list<array{price: float, size: float}>, bids: list<array{price: float, size: float}>}|null
      */
-    public function bookLevels(string $tokenId): ?array
+    public function bookLevels(string $tokenId, int $timeoutSeconds = 10): ?array
     {
-        $book = $this->http->getJson(self::CLOB_BASE.'/book?token_id='.$tokenId);
+        $book = $this->http->getJson(self::CLOB_BASE.'/book?token_id='.$tokenId, $timeoutSeconds);
         if (! is_array($book)) {
             return null;
         }

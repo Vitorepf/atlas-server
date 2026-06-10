@@ -36,7 +36,7 @@ class CodeGraphReviewContextAssembler
         $blast = $this->blastRadius($changed, $incoming, $depth);
 
         // Rank: changed nodes first (highest relevance to the review), then blast-radius.
-        $rankedIds = array_values(array_unique(array_merge($changed, $blast)));
+        $rankedIds = $this->rankedIds($changed, $blast);
         $ranked = array_map(fn (string $id): array => $this->node($id, $nodeMeta), $rankedIds);
 
         $pack = $this->assembler->assemble($ranked, $tokenBudget, $opts);
@@ -54,6 +54,16 @@ class CodeGraphReviewContextAssembler
                 'depth' => $depth,
             ],
         ];
+    }
+
+    /**
+     * @param  array<int,string>  $changed
+     * @param  array<int,string>  $blast
+     * @return array<int,string>
+     */
+    private function rankedIds(array $changed, array $blast): array
+    {
+        return array_values(array_unique(array_merge($changed, $blast)));
     }
 
     /**

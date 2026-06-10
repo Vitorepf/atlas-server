@@ -55,6 +55,15 @@ Schedule::command('atlas:aurg:ingest --prune --json')
     ->when(static fn (): bool => (bool) config('atlas.aurg.enabled', true)
         && (bool) config('atlas.aurg.schedule_enabled', true));
 
+// Venture Foundry weekly strategist cadence — Monday morning, the business-week
+// opener (NOT Sunday: the Sunday digest stays the only Sunday schedule). Reviews
+// every active venture (gates + trajectory + memo); deterministic by default —
+// the provider-backed opinion only joins when cycle_analyze is flipped on.
+Schedule::command('atlas:venture review-cycle --json')
+    ->weeklyOn(1, '06:30')
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas_venture_foundry.weekly_review_enabled', true));
+
 // NOTE: the Sunday digest (the ONLY weekly notification) is scheduled ONCE in
 // bootstrap/app.php (weeklyOn(0, …), timezone-aware, gated by atlas.ai.weekly_memory_digest.enabled).
 // Do NOT add a second Sunday schedule here — one report, one time.
