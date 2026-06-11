@@ -2,17 +2,24 @@
 
 declare(strict_types=1);
 
+use App\Services\Engineering\AtlasAutonomousChangeOrchestratorService;
 use App\Services\Engineering\AtlasSoftwareTwinRuntimeService;
 use App\Services\Engineering\AtlasSoftwareTwinVerifiedEvolutionCertificationService;
 use App\Services\Engineering\AtlasVerifiedEvolutionRuntimeService;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Tests\Concerns\CreatesAtlasEngineeringCodeTables;
 use Tests\Concerns\CreatesAemorTables;
+use Tests\Concerns\CreatesAverTables;
 use Tests\Concerns\CreatesSoftwareTwinTables;
 use Tests\TestCase;
 
 final class AtlasSoftwareTwinVerifiedEvolutionRuntimeServiceTest extends TestCase
 {
+    use CreatesAtlasEngineeringCodeTables;
     use CreatesAemorTables;
+    use CreatesAverTables;
     use CreatesSoftwareTwinTables;
 
     protected function setUp(): void
@@ -20,12 +27,16 @@ final class AtlasSoftwareTwinVerifiedEvolutionRuntimeServiceTest extends TestCas
         parent::setUp();
 
         $this->createSoftwareTwinTables();
+        $this->createAtlasEngineeringCodeTables();
         $this->createAemorTables();
+        $this->createAverTables();
     }
 
     protected function tearDown(): void
     {
+        $this->dropAverTables();
         $this->dropAemorTables();
+        $this->dropAtlasEngineeringCodeTables();
         $this->dropSoftwareTwinTables();
 
         parent::tearDown();
@@ -61,6 +72,330 @@ final class AtlasSoftwareTwinVerifiedEvolutionRuntimeServiceTest extends TestCas
         $this->assertContains('tests/Feature/Engineering/AtlasSoftwareTwinVerifiedEvolutionRuntimeServiceTest.php', data_get($payload, 'impact.required_tests'));
         $this->assertContains('docs/engineering-knowledge-base/atlas-software-twin-verified-evolution-runtime.md', data_get($payload, 'impact.owner_docs'));
         $this->assertContains('php artisan atlas:aver:certify --json --strict', data_get($payload, 'impact.required_gates'));
+    }
+
+    public function test_software_twin_impact_selects_bounded_impact_graphrag_context_from_code_graph(): void
+    {
+        $moduleId = (string) Str::uuid();
+        $targetSymbolId = (string) Str::uuid();
+        $now = now();
+
+        DB::table('atlas_engineering_code_modules')->insert([
+            'id' => $moduleId,
+            'slug' => 'engineering-verified-evolution',
+            'name' => 'Engineering Verified Evolution',
+            'layer' => 'engineering',
+            'root_path' => 'app/Services/Engineering',
+            'primary_language' => 'php',
+            'status' => 'active',
+            'owner' => 'engineering',
+            'description' => 'Verified evolution runtime fixture.',
+            'docs_status' => 'documented',
+            'file_count' => 3,
+            'symbol_count' => 4,
+            'route_count' => 1,
+            'command_count' => 1,
+            'migration_count' => 0,
+            'test_count' => 1,
+            'source_hash' => hash('sha256', 'module'),
+            'docs_hash' => hash('sha256', 'docs'),
+            'tags_json' => json_encode(['verified-evolution']),
+            'related_docs_json' => json_encode(['docs/engineering-knowledge-base/impact-graphrag-fixture.md']),
+            'related_tests_json' => json_encode(['tests/Feature/Engineering/ImpactGraphRagFixtureTest.php']),
+            'metadata' => $this->encodeJson([]),
+            'indexed_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('atlas_engineering_code_symbols')->insert([
+            $this->codeSymbolRow([
+                'id' => $targetSymbolId,
+                'module_id' => $moduleId,
+                'symbol_type' => 'class',
+                'symbol_name' => 'App\\Services\\Engineering\\AtlasVerifiedEvolutionRuntimeService',
+                'file_path' => 'app/Services/Engineering/AtlasVerifiedEvolutionRuntimeService.php',
+                'line_start' => 20,
+                'line_end' => 460,
+                'signature' => 'class AtlasVerifiedEvolutionRuntimeService',
+                'namespace' => 'App\\Services\\Engineering',
+                'source_hash' => hash('sha256', 'target-symbol'),
+                'visibility' => 'public',
+            ], $now),
+            $this->codeSymbolRow([
+                'module_id' => $moduleId,
+                'symbol_type' => 'route',
+                'symbol_name' => 'GET /api/atlas/verified-evolution/proof-plan',
+                'file_path' => 'routes/api.php',
+                'line_start' => 42,
+                'line_end' => 42,
+                'signature' => 'Route::get(...)',
+                'source_hash' => hash('sha256', 'route-symbol'),
+            ], $now),
+            $this->codeSymbolRow([
+                'module_id' => $moduleId,
+                'symbol_type' => 'test_method',
+                'symbol_name' => 'test_verified_evolution_impact_graphrag_fixture',
+                'file_path' => 'tests/Feature/Engineering/ImpactGraphRagFixtureTest.php',
+                'line_start' => 12,
+                'line_end' => 30,
+                'signature' => 'public function test_verified_evolution_impact_graphrag_fixture(): void',
+                'visibility' => 'public',
+                'source_hash' => hash('sha256', 'test-symbol'),
+            ], $now),
+        ]);
+
+        DB::table('atlas_engineering_doc_links')->insert([
+            'id' => (string) Str::uuid(),
+            'knowledge_item_id' => null,
+            'module_id' => $moduleId,
+            'symbol_id' => $targetSymbolId,
+            'link_type' => 'owner_doc',
+            'status' => 'current',
+            'canonical_path' => 'docs/engineering-knowledge-base/impact-graphrag-fixture.md',
+            'target_path' => 'app/Services/Engineering/AtlasVerifiedEvolutionRuntimeService.php',
+            'doc_hash' => hash('sha256', 'doc'),
+            'target_hash' => hash('sha256', 'target'),
+            'link_hash' => hash('sha256', 'doc-link'),
+                'metadata' => $this->encodeJson([]),
+            'indexed_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $payload = app(AtlasSoftwareTwinRuntimeService::class)
+            ->impact('app/Services/Engineering/AtlasVerifiedEvolutionRuntimeService.php');
+
+        $graph = data_get($payload, 'impact.impact_graphrag');
+
+        $this->assertSame(AtlasSoftwareTwinRuntimeService::IMPACT_GRAPHRAG_SCHEMA_VERSION, data_get($graph, 'schema_version'));
+        $this->assertSame('ready', data_get($graph, 'status'));
+        $this->assertTrue(data_get($graph, 'provider_safe'));
+        $this->assertTrue(data_get($graph, 'bounded'));
+        $this->assertSame('high', data_get($graph, 'confidence.label'));
+        $this->assertContains('docs/engineering-knowledge-base/impact-graphrag-fixture.md', data_get($graph, 'selected_context.owner_docs'));
+        $this->assertContains('tests/Feature/Engineering/ImpactGraphRagFixtureTest.php', data_get($graph, 'selected_context.required_tests'));
+        $this->assertContains('app/Services/Engineering/AtlasVerifiedEvolutionRuntimeService.php', data_get($graph, 'selected_context.read_first'));
+        $this->assertContains('must_verify_with_test', array_column(data_get($graph, 'causal_paths'), 'kind'));
+        $this->assertContains('may_affect_runtime_entrypoint', array_column(data_get($graph, 'causal_paths'), 'kind'));
+
+        $proof = app(AtlasVerifiedEvolutionRuntimeService::class)->proofPlan(
+            'verificar contexto causal GraphRAG',
+            'app/Services/Engineering/AtlasVerifiedEvolutionRuntimeService.php'
+        );
+        $this->assertSame('ready', data_get($proof, 'proof_plan.causal_verification.graph_status'));
+        $this->assertSame('high', data_get($proof, 'proof_plan.causal_verification.confidence.label'));
+        $this->assertContains('causal_paths_reviewed', data_get($proof, 'proof_plan.completion_requires'));
+        $this->assertContains('must_verify_with_test', array_column(data_get($proof, 'proof_plan.causal_verification.causal_paths'), 'kind'));
+
+        $execution = app(AtlasVerifiedEvolutionRuntimeService::class)->executionContract(
+            'preparar AVER com contexto causal GraphRAG',
+            'app/Services/Engineering/AtlasVerifiedEvolutionRuntimeService.php'
+        );
+        $this->assertSame('ready', data_get($execution, 'execution_contract.aver_plan_input.verification_plan.causal_verification.graph_status'));
+        $this->assertContains(
+            'docs/engineering-knowledge-base/impact-graphrag-fixture.md',
+            data_get($execution, 'execution_contract.aver_plan_input.evidence_refs')
+        );
+    }
+
+    public function test_autonomous_change_orchestrator_composes_causal_verified_execution_and_repair_plan(): void
+    {
+        $this->seedImpactGraphRagFixture();
+
+        $payload = app(AtlasAutonomousChangeOrchestratorService::class)->plan(
+            'orquestrar mudanca causal verificada em AVEOR',
+            'app/Services/Engineering/AtlasVerifiedEvolutionRuntimeService.php',
+            [
+                'changed_files' => ['app/Services/Engineering/AtlasVerifiedEvolutionRuntimeService.php'],
+                'max_repair_attempts' => 2,
+                'business_context' => [
+                    'north_star_metric' => 'verified_change_success_rate',
+                    'metrics' => ['verified_change_success_rate' => 0.93],
+                    'observed_revenue_usd' => 25000,
+                    'target_revenue_usd' => 100000,
+                    'priority_score' => 88,
+                ],
+                'include_contracts' => true,
+            ],
+        );
+
+        $this->assertSame(AtlasAutonomousChangeOrchestratorService::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame('ready', $payload['status']);
+        $this->assertFalse(data_get($payload, 'orchestrator.mutation_authorized'));
+        $this->assertTrue(data_get($payload, 'orchestrator.requires_aver_for_execution'));
+        $this->assertCount(5, $payload['multi_step_plan']);
+        $this->assertContains('verified_execution', array_column($payload['multi_step_plan'], 'name'));
+        $this->assertContains('repairer', array_column($payload['multi_agent_schedule'], 'agent_role'));
+        $this->assertSame('ready', data_get($payload, 'causal_verification.graph_status'));
+        $this->assertSame('high', data_get($payload, 'causal_verification.confidence.label'));
+        $this->assertSame(2, data_get($payload, 'repair_strategy.max_attempts'));
+        $this->assertSame('atlas.autonomous_change_orchestrator.product_business_twin.v1', data_get($payload, 'product_business_twin.schema_version'));
+        $this->assertSame('verified_change_success_rate', data_get($payload, 'product_business_twin.business_twin.business_model.metrics.north_star_metric'));
+        $this->assertSame(25000.0, data_get($payload, 'product_business_twin.business_twin.business_model.revenue.observed_revenue_usd'));
+        $this->assertSame('critical', data_get($payload, 'product_business_twin.business_twin.business_model.priority.band'));
+        $this->assertSame('ready', data_get($payload, 'contracts.aver_plan.status'));
+        $this->assertSame('ready', data_get($payload, 'contracts.aver_plan.verification_plan.causal_verification.graph_status'));
+        $this->assertContains(
+            'docs/engineering-knowledge-base/impact-graphrag-fixture.md',
+            data_get($payload, 'contracts.aver_plan.evidence_refs')
+        );
+
+        $compact = app(AtlasAutonomousChangeOrchestratorService::class)->plan(
+            'orquestrar mudanca causal verificada em AVEOR',
+            'app/Services/Engineering/AtlasVerifiedEvolutionRuntimeService.php',
+        );
+        $this->assertSame('summary', data_get($compact, 'contracts.detail_level'));
+        $this->assertTrue(data_get($compact, 'contracts.full_contracts_deferred'));
+        $this->assertSame(
+            'required_tests_deferred_until_execution_or_repair',
+            data_get($compact, 'multi_step_plan.2.inputs.1')
+        );
+        $this->assertDatabaseCount('atlas_aver_executions', 2);
+
+        $exit = Artisan::call('atlas:autonomous-change-orchestrator', [
+            'action' => 'plan',
+            '--objective' => 'orquestrar mudanca causal verificada em AVEOR',
+            '--target' => 'app/Services/Engineering/AtlasVerifiedEvolutionRuntimeService.php',
+            '--changed-file' => ['app/Services/Engineering/AtlasVerifiedEvolutionRuntimeService.php'],
+            '--json' => true,
+            '--strict' => true,
+        ]);
+        $cliPayload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(AtlasAutonomousChangeOrchestratorService::SCHEMA_VERSION, $cliPayload['schema_version']);
+        $this->assertSame('ready', $cliPayload['status']);
+        $this->assertSame('summary', data_get($cliPayload, 'contracts.detail_level'));
+        $this->assertTrue(data_get($cliPayload, 'contracts.full_contracts_deferred'));
+    }
+
+    private function seedImpactGraphRagFixture(): void
+    {
+        $moduleId = (string) Str::uuid();
+        $targetSymbolId = (string) Str::uuid();
+        $now = now();
+
+        DB::table('atlas_engineering_code_modules')->insert([
+            'id' => $moduleId,
+            'slug' => 'engineering-verified-evolution',
+            'name' => 'Engineering Verified Evolution',
+            'layer' => 'engineering',
+            'root_path' => 'app/Services/Engineering',
+            'primary_language' => 'php',
+            'status' => 'active',
+            'owner' => 'engineering',
+            'description' => 'Verified evolution runtime fixture.',
+            'docs_status' => 'documented',
+            'file_count' => 3,
+            'symbol_count' => 4,
+            'route_count' => 1,
+            'command_count' => 1,
+            'migration_count' => 0,
+            'test_count' => 1,
+            'source_hash' => hash('sha256', 'module'),
+            'docs_hash' => hash('sha256', 'docs'),
+            'tags_json' => $this->encodeJson(['verified-evolution']),
+            'related_docs_json' => $this->encodeJson(['docs/engineering-knowledge-base/impact-graphrag-fixture.md']),
+            'related_tests_json' => $this->encodeJson(['tests/Feature/Engineering/ImpactGraphRagFixtureTest.php']),
+            'metadata' => $this->encodeJson([]),
+            'indexed_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('atlas_engineering_code_symbols')->insert([
+            $this->codeSymbolRow([
+                'id' => $targetSymbolId,
+                'module_id' => $moduleId,
+                'symbol_type' => 'class',
+                'symbol_name' => 'App\\Services\\Engineering\\AtlasVerifiedEvolutionRuntimeService',
+                'file_path' => 'app/Services/Engineering/AtlasVerifiedEvolutionRuntimeService.php',
+                'line_start' => 20,
+                'line_end' => 460,
+                'signature' => 'class AtlasVerifiedEvolutionRuntimeService',
+                'namespace' => 'App\\Services\\Engineering',
+                'source_hash' => hash('sha256', 'target-symbol'),
+                'visibility' => 'public',
+            ], $now),
+            $this->codeSymbolRow([
+                'module_id' => $moduleId,
+                'symbol_type' => 'route',
+                'symbol_name' => 'GET /api/atlas/verified-evolution/proof-plan',
+                'file_path' => 'routes/api.php',
+                'line_start' => 42,
+                'line_end' => 42,
+                'signature' => 'Route::get(...)',
+                'source_hash' => hash('sha256', 'route-symbol'),
+            ], $now),
+            $this->codeSymbolRow([
+                'module_id' => $moduleId,
+                'symbol_type' => 'test_method',
+                'symbol_name' => 'test_verified_evolution_impact_graphrag_fixture',
+                'file_path' => 'tests/Feature/Engineering/ImpactGraphRagFixtureTest.php',
+                'line_start' => 12,
+                'line_end' => 30,
+                'signature' => 'public function test_verified_evolution_impact_graphrag_fixture(): void',
+                'visibility' => 'public',
+                'source_hash' => hash('sha256', 'test-symbol'),
+            ], $now),
+        ]);
+
+        DB::table('atlas_engineering_doc_links')->insert([
+            'id' => (string) Str::uuid(),
+            'knowledge_item_id' => null,
+            'module_id' => $moduleId,
+            'symbol_id' => $targetSymbolId,
+            'link_type' => 'owner_doc',
+            'status' => 'current',
+            'canonical_path' => 'docs/engineering-knowledge-base/impact-graphrag-fixture.md',
+            'target_path' => 'app/Services/Engineering/AtlasVerifiedEvolutionRuntimeService.php',
+            'doc_hash' => hash('sha256', 'doc'),
+            'target_hash' => hash('sha256', 'target'),
+            'link_hash' => hash('sha256', 'doc-link'),
+            'metadata' => $this->encodeJson([]),
+            'indexed_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $overrides
+     * @return array<string,mixed>
+     */
+    private function codeSymbolRow(array $overrides, mixed $now): array
+    {
+        return array_merge([
+            'id' => (string) Str::uuid(),
+            'module_id' => null,
+            'symbol_type' => 'class',
+            'symbol_name' => '',
+            'file_path' => '',
+            'line_start' => 1,
+            'line_end' => 1,
+            'language' => 'php',
+            'signature' => '',
+            'namespace' => null,
+            'parent_symbol' => null,
+            'visibility' => null,
+            'status' => 'active',
+            'docs_status' => 'documented',
+            'source_hash' => hash('sha256', 'symbol'),
+            'related_doc_ids_json' => $this->encodeJson([]),
+            'metadata' => $this->encodeJson([]),
+            'indexed_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ], $overrides);
+    }
+
+    /**
+     * @param  array<int|string,mixed>  $value
+     */
+    private function encodeJson(array $value): string
+    {
+        return (string) json_encode($value);
     }
 
     public function test_software_twin_snapshot_persists_living_system_twin(): void

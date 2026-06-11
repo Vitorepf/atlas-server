@@ -187,7 +187,7 @@ class EngineeringPatchArtifactService
             $flags[] = 'large_diff_surface';
         }
 
-        return array_values(array_unique($flags));
+        return EngineeringStringListNormalizer::uniqueNonEmptyStrings($flags);
     }
 
     /**

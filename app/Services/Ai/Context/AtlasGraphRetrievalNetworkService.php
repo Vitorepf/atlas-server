@@ -259,7 +259,7 @@ final class AtlasGraphRetrievalNetworkService
             $terms[] = $term;
         }
 
-        return array_values(array_slice(array_unique($terms), 0, 20));
+        return array_slice(AtlasContextStringListNormalizer::uniqueTrimmedStrings($terms), 0, 20);
     }
 
     /**

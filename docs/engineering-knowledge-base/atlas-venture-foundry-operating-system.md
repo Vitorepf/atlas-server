@@ -23,6 +23,12 @@ capabilities:
   - weekly_review_cadence
   - research_domain_handoff
   - execution_bridge_draft_missions
+  - workspace_comprehension
+  - business_rule_mining
+  - problem_map
+  - improvement_scanner
+  - audience_usage_profile
+  - documentation_generation
 decisions:
   - O Venture Foundry e a camada de criacao e gestao de empresas DO OPERADOR; ele consome o Strategy Domain (Venture Studio) e nao o substitui.
   - Estagio de venture nunca e auto-declarado; toda recomendacao vem de gates avaliados sobre registros persistidos (artefatos ligados, regras ativas, metricas observadas).
@@ -44,6 +50,13 @@ related_paths:
   - app/Services/Ai/VentureFoundry/VentureStrategistService.php
   - app/Services/Ai/VentureFoundry/VentureTrajectoryService.php
   - app/Services/Ai/VentureFoundry/VentureStrategistAnalysisService.php
+  - app/Services/Ai/VentureFoundry/Comprehension/VentureComprehensionService.php
+  - app/Services/Ai/VentureFoundry/Comprehension/WorkspaceReader.php
+  - app/Services/Ai/VentureFoundry/Comprehension/Capabilities/VentureBusinessRuleMinerService.php
+  - app/Services/Ai/VentureFoundry/Comprehension/Capabilities/VentureProblemMapService.php
+  - app/Services/Ai/VentureFoundry/Comprehension/Capabilities/VentureImprovementScannerService.php
+  - app/Services/Ai/VentureFoundry/Comprehension/Capabilities/VentureAudienceUsageProfileService.php
+  - app/Services/Ai/VentureFoundry/Comprehension/Capabilities/VentureDocumentationGeneratorService.php
   - app/Services/Ai/VentureFoundry/VentureResearchHandoffService.php
   - app/Services/Ai/VentureFoundry/VentureExecutionBridgeService.php
   - app/Console/Commands/AtlasVentureFoundryCommand.php
@@ -168,6 +181,22 @@ estrategica recorrente.
 - `atlas.ai.venture.review_cycle.v1` - cadencia semanal: revisa toda venture
   ativa cujo ultimo review e mais velho que cycle_min_interval_days; nunca
   aplica estagio; reporta reviewed/skipped.
+- `atlas.ai.venture.comprehension_report.v1` - o degrau 0: compreensao total do
+  workspace real da venture. `atlas:venture comprehend --venture=<id>` roda 5
+  capacidades deterministicas-first sobre o repo via `WorkspaceReader` (leitor
+  read-only, scoped, exclui vendor/node_modules, cita path+linha, memory-safe em
+  repo grande): (1) business_rule mining (precos, trial, comissao, validacao,
+  authz, constantes - numero usado como threshold/multiplicador NUNCA vira preco);
+  (2) problem map (secret/dangerous_code/debt/debug/swallowed_error/large_file/
+  test_gap, severidade-ranked - secret so dispara em token inequivoco OU literal
+  de alta entropia fora de teste/template, nao em mensagem de validacao);
+  (3) improvement scanner (leverage = impacto/esforco); (4) audience_usage
+  (planos/locales/integracoes/entidades de schema + blind spots HONESTOS do que o
+  codigo nao revela); (5) documentation generator (doc canonico da empresa com
+  frontmatter de cartografia, fecha docs_status incomplete). `--promote-rules`
+  promove regras minadas de alta confianca (>=0.8) ao canon oficial versionado;
+  `--write-docs=<dir>` escreve o doc gerado em disco (nunca no repo alvo por
+  default).
 
 ## Escada de Crescimento (S0 -> S5)
 

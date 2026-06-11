@@ -273,7 +273,8 @@ final class StrategyScenarioRegistry
         $markets = [
             ['symbol' => 'BTCUSDT', 'interval' => '1d', 'priority' => 1],
             ['symbol' => 'ETHUSDT', 'interval' => '1d', 'priority' => 2],
-            ['symbol' => 'SOLUSDT', 'interval' => '1d', 'priority' => 3],
+            // SOLUSDT removido do roadmap ATIVO por ordem do operador (2026-06-11):
+            // foco é BTC e no máximo ETH; a fila é o gargalo e SOL a atrasava.
             ['symbol' => 'BTCUSDT', 'interval' => '4h', 'priority' => 4],
             ['symbol' => 'ETHUSDT', 'interval' => '4h', 'priority' => 5],
         ];

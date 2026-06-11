@@ -19,7 +19,7 @@ use Illuminate\Console\Command;
 class AtlasVentureFoundryCommand extends Command
 {
     protected $signature = 'atlas:venture
-        {action : idea-register|idea-list|ideate-from-radar|ideate-generate|promote|venture-list|venture-show|link|rule-add|rule-list|metric-record|ladder|strategist-review|review-cycle|research-handoff|bridge-execution|status}
+        {action : idea-register|idea-list|ideate-from-radar|ideate-generate|promote|venture-list|venture-show|link|rule-add|rule-list|metric-record|ladder|strategist-review|review-cycle|comprehend|comprehension-report|comprehension-findings|research-handoff|bridge-execution|status}
         {--analyze : Include the provider-backed strategic opinion (explicit spend)}
         {--brief= : Operator brief for governed generative ideation (ideate-generate)}
         {--count= : Max ideas to generate (ideate-generate)}
@@ -52,6 +52,12 @@ class AtlasVentureFoundryCommand extends Command
         {--unit= : Metric unit (metric-record)}
         {--currency= : Metric currency (metric-record)}
         {--apply : Apply recommended stage on strategist-review}
+        {--only= : Comma-separated capability subset for comprehend (business_rule,problem,improvement,audience_usage,documentation)}
+        {--promote-rules : Promote high-confidence mined rules into the venture rule canon (comprehend)}
+        {--write-docs= : Absolute base dir to write generated canonical docs to disk (comprehend)}
+        {--capability= : Filter findings by capability (comprehension-findings)}
+        {--severity= : Filter findings by severity (comprehension-findings)}
+        {--limit=30 : Max findings to list (comprehension-findings)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Venture Foundry: criação e gestão de empresas — ideação, regras de negócio, métricas e estratégia até o alvo de 100M USD.';
@@ -65,6 +71,7 @@ class AtlasVentureFoundryCommand extends Command
         VentureIdeaGenerationService $generation,
         VentureResearchHandoffService $research,
         VentureExecutionBridgeService $bridge,
+        \App\Services\Ai\VentureFoundry\Comprehension\VentureComprehensionService $comprehension,
     ): int {
         $action = (string) $this->argument('action');
 
@@ -84,6 +91,9 @@ class AtlasVentureFoundryCommand extends Command
                 'ladder' => $this->renderLadder($ladder),
                 'strategist-review' => $this->strategistReview($registry, $strategist),
                 'review-cycle' => $this->output_($strategist->reviewCycle($this->option('analyze') ? true : null)),
+                'comprehend' => $this->comprehend($registry, $comprehension),
+                'comprehension-report' => $this->comprehensionReport($registry),
+                'comprehension-findings' => $this->comprehensionFindings($registry),
                 'research-handoff' => $this->researchHandoff($registry, $ladder, $research),
                 'bridge-execution' => $this->bridgeExecution($registry, $bridge),
                 'status' => $this->sectorStatus(),
@@ -128,6 +138,83 @@ class AtlasVentureFoundryCommand extends Command
         return $this->output_([
             'created' => count($created),
             'ideas' => array_map(fn ($idea) => $idea->only(['idea_id', 'title', 'score', 'status']), $created),
+        ]);
+    }
+
+    private function comprehend(VentureRegistryService $registry, \App\Services\Ai\VentureFoundry\Comprehension\VentureComprehensionService $comprehension): int
+    {
+        $venture = $registry->resolve($this->requireVentureOption());
+
+        $only = [];
+        if (is_string($this->option('only')) && $this->option('only') !== '') {
+            $only = array_values(array_filter(array_map('trim', explode(',', (string) $this->option('only')))));
+        }
+
+        $report = $comprehension->run($venture, array_filter([
+            'only' => $only,
+            'promote_rules' => (bool) $this->option('promote-rules'),
+            'write_docs_to' => $this->option('write-docs') ?: null,
+        ], fn ($v) => $v !== null && $v !== [] && $v !== false));
+
+        return $this->output_($report);
+    }
+
+    private function comprehensionReport(VentureRegistryService $registry): int
+    {
+        $venture = $registry->resolve($this->requireVentureOption());
+        $run = \App\Models\AiVentureComprehensionRun::query()
+            ->where('venture_id', $venture->id)
+            ->orderByDesc('created_at')
+            ->first();
+
+        if ($run === null) {
+            return $this->failReport("Nenhuma comprehension run para a venture [{$venture->venture_id}]. Rode: atlas:venture comprehend --venture={$venture->venture_id}");
+        }
+
+        return $this->output_([
+            'venture_id' => $venture->venture_id,
+            'run_uuid' => $run->uuid,
+            'status' => $run->status,
+            'workspace_path' => $run->workspace_path,
+            'repo_roots' => $run->repo_roots,
+            'files_scanned' => $run->files_scanned,
+            'findings_total' => $run->findings_total,
+            'summary' => $run->summary,
+            'completed_at' => $run->completed_at?->toIso8601String(),
+        ]);
+    }
+
+    private function comprehensionFindings(VentureRegistryService $registry): int
+    {
+        $venture = $registry->resolve($this->requireVentureOption());
+        $run = \App\Models\AiVentureComprehensionRun::query()
+            ->where('venture_id', $venture->id)
+            ->orderByDesc('created_at')
+            ->first();
+
+        if ($run === null) {
+            return $this->failReport("Nenhuma comprehension run para a venture [{$venture->venture_id}].");
+        }
+
+        $query = \App\Models\AiVentureComprehensionFinding::query()->where('run_id', $run->id);
+        if (is_string($this->option('capability')) && $this->option('capability') !== '') {
+            $query->where('capability', $this->option('capability'));
+        }
+        if (is_string($this->option('severity')) && $this->option('severity') !== '') {
+            $query->where('severity', $this->option('severity'));
+        }
+
+        $findings = $query
+            ->orderByRaw("CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END")
+            ->orderByDesc('leverage_score')
+            ->limit(max(1, (int) $this->option('limit')))
+            ->get(['capability', 'kind', 'category', 'title', 'severity', 'leverage_score', 'confidence', 'evidence_path', 'evidence_line', 'recommendation']);
+
+        return $this->output_([
+            'venture_id' => $venture->venture_id,
+            'run_uuid' => $run->uuid,
+            'count' => $findings->count(),
+            'findings' => $findings->toArray(),
         ]);
     }
 

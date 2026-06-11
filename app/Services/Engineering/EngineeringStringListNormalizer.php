@@ -40,6 +40,26 @@ final class EngineeringStringListNormalizer
     }
 
     /**
+     * @param  array<int|string,mixed>  $values
+     * @return array<int,string>
+     */
+    public static function uniqueNonEmptyStringValues(array $values, bool $lowercase = false): array
+    {
+        return array_values(array_unique(array_filter(array_map(
+            static function (mixed $value) use ($lowercase): string {
+                if (! is_string($value)) {
+                    return '';
+                }
+
+                $string = trim($value);
+
+                return $lowercase ? strtolower($string) : $string;
+            },
+            $values,
+        ), static fn (string $value): bool => $value !== '')));
+    }
+
+    /**
      * @return array<int,string>
      */
     public static function uniqueBulletListStrings(mixed $value): array

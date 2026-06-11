@@ -41,6 +41,14 @@ final class EngineeringStringListNormalizerTest extends TestCase
         );
     }
 
+    public function test_unique_non_empty_string_values_ignores_non_strings(): void
+    {
+        $this->assertSame(
+            ['atlas-kernel', 'local', '0'],
+            EngineeringStringListNormalizer::uniqueNonEmptyStringValues([' Atlas-Kernel ', 123, false, 'local', 'atlas-kernel', ' 0 '], lowercase: true),
+        );
+    }
+
     public function test_unique_bullet_list_strings_splits_text_and_trims_bullets(): void
     {
         $this->assertSame(

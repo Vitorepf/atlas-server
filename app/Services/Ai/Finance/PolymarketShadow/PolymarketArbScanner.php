@@ -48,6 +48,7 @@ final class PolymarketArbScanner
         ?float $scanTimeBudgetSeconds = null,
         ?int $maxLegsPerCandidate = null,
         ?callable $onProgress = null,
+        ?callable $onSignal = null,
     ): array {
         $scanned = 0;
         $eligible = 0;
@@ -155,7 +156,7 @@ final class PolymarketArbScanner
             if ($candidate['long_eligible']) {
                 $long = ArbMath::longBasketDepth($levels['asks'], $feePerSet, $minProfitPerSet);
                 if ($long !== null) {
-                    $signals[] = [
+                    $signal = [
                         'kind' => 'long_sum_under',
                         'execution_class' => 'simple_buy_all_legs',
                         'n_legs' => count($candidate['legs']),
@@ -170,12 +171,16 @@ final class PolymarketArbScanner
                         'liquidity' => $candidate['liquidity'],
                         'legs' => $levels['detail'],
                     ];
+                    $signals[] = $signal;
+                    if ($onSignal !== null) {
+                        $onSignal($signal);
+                    }
                 }
             }
 
             $short = ArbMath::shortBasketDepth($levels['bids'], $feePerSet, $minProfitPerSet);
             if ($short !== null) {
-                $signals[] = [
+                $signal = [
                     'kind' => 'short_sum_over',
                     'execution_class' => 'requires_minting_full_set',
                     'n_legs' => count($candidate['legs']),
@@ -190,6 +195,10 @@ final class PolymarketArbScanner
                     'liquidity' => $candidate['liquidity'],
                     'legs' => $levels['detail'],
                 ];
+                $signals[] = $signal;
+                if ($onSignal !== null) {
+                    $onSignal($signal);
+                }
             }
         }
 

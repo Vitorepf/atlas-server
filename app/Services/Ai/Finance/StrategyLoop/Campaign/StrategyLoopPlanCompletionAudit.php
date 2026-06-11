@@ -58,7 +58,7 @@ final class StrategyLoopPlanCompletionAudit
             $this->check(
                 'crypto_roadmap_is_sequential_and_scenario_specific',
                 $this->cryptoRoadmapReady($registry),
-                'roadmap covers BTC/ETH/SOL daily and BTC/ETH 4h across families, one scenario at a time',
+                'roadmap covers BTC/ETH daily and 4h (SOL removed by operator) across families, one scenario at a time',
             ),
             $this->check(
                 'focused_campaign_continuation_uses_fresh_holdout_generations',
@@ -269,10 +269,11 @@ final class StrategyLoopPlanCompletionAudit
         if ((bool) ($registry['do_not_start_in_parallel'] ?? false) !== true) {
             return false;
         }
+        // SOL removido por ordem do operador (2026-06-11): foco BTC e no máximo ETH;
+        // a fila sequencial é o gargalo e cenários SOL atrasavam BTC-4h/ETH-4h.
         $requiredMarkets = [
             'BTCUSDT-1d',
             'ETHUSDT-1d',
-            'SOLUSDT-1d',
             'BTCUSDT-4h',
             'ETHUSDT-4h',
         ];

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Finance\PolymarketExec;
 
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The capital allocator (greedy knapsack) across BOTH arb directions.
@@ -80,6 +81,14 @@ final class ArbAllocator
             $basketId = $this->basketId($slug, $kind, $mode, (string) ($c['attempt_key'] ?? ''));
             $processed++;
 
+            $terminalReplay = $this->terminalReplaySummary($basketId, $kind);
+            if ($terminalReplay !== null) {
+                $dispatched++;
+                $results[] = $terminalReplay;
+
+                continue;
+            }
+
             if ($kind === 'long_sum_under') {
                 $plan = $this->longPlanner->plan($slug, $kind, $c['legs'], $persist, $remaining);
                 if (! $plan instanceof BasketPlan) {
@@ -119,6 +128,32 @@ final class ArbAllocator
         }
 
         return ['processed' => $processed, 'dispatched' => $dispatched, 'blocked' => $blocked, 'results' => $results];
+    }
+
+    /**
+     * Terminal baskets are idempotent replays. Detect them before planning so a
+     * 15s hot-watch does not re-read live books for baskets that can no longer
+     * change state.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function terminalReplaySummary(string $basketId, string $kind): ?array
+    {
+        $status = (string) DB::table('atlas_poly_exec_baskets')
+            ->where('basket_id', $basketId)
+            ->value('status');
+        if ($status === '') {
+            return null;
+        }
+
+        $terminal = in_array($status, ['filled', 'unwound', 'halted', 'gated', 'failed', 'settled'], true);
+        if (! $terminal) {
+            return null;
+        }
+
+        return $kind === 'short_sum_over'
+            ? $this->shortMachine->summary($basketId, true)
+            : $this->longMachine->summary($basketId, true);
     }
 
     /**

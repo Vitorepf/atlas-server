@@ -554,6 +554,9 @@ class AtlasAiAssistedExecutionQualityService
             || $this->containsAny($request, ['tela', 'ui', 'ux', 'frontend', 'mobile', 'desktop', 'layout', 'visual', 'produto', 'saas', 'ecommerce', 'empresa']);
         $isApi = $this->containsAny($request, ['api', 'endpoint', 'payload', 'webhook', 'contract', 'integra']);
         $reviewRefs = $this->stringList($input['review_refs'] ?? []);
+        if ($reviewRefs === [] && (bool) ($input['operator_approved'] ?? false)) {
+            $reviewRefs = ['operator_approval://risk-review'];
+        }
         $acceptanceCriteria = $this->stringList($input['acceptance_criteria'] ?? []);
         if ($acceptanceCriteria === []) {
             $acceptanceCriteria = [

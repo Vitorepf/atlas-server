@@ -86,9 +86,18 @@ class AtlasAutonomousProductDeliveryRuntimeService
             'surface_id' => $this->string($input['surface_id'] ?? null) ?? 'atlas_ai',
             'route' => $route,
             'risk_band' => $this->riskBand($truth),
+            'operator_approved' => (bool) ($input['operator_approved'] ?? false),
             'context_refs' => $this->list($input['context_refs'] ?? []),
             'acceptance_criteria' => $this->list(data_get($truth, 'acceptance_universe.must_work', [])),
             'suggested_tests' => $this->testsFromTruth($truth),
+            'contract_refs' => array_merge(
+                $this->list(data_get($truth, 'contract_map.apis', [])),
+                $this->list(data_get($truth, 'contract_map.events', [])),
+                $this->list(data_get($truth, 'contract_map.data_shapes', [])),
+            ),
+            'review_refs' => (bool) ($input['operator_approved'] ?? false) ? ['operator_or_senior_review'] : [],
+            'evidence_refs' => $this->list($input['evidence_refs'] ?? data_get($input, 'evidence.tests', [])),
+            'ux_expectations' => $this->list($input['ux_expectations'] ?? []),
         ]);
 
         $delivery = [
@@ -123,6 +132,7 @@ class AtlasAutonomousProductDeliveryRuntimeService
             'product_truth' => $truth,
             'delivery_contract' => $delivery,
             'patch_manifest' => $input['patch_manifest'] ?? [],
+            'business_context' => is_array($input['business_context'] ?? null) ? $input['business_context'] : [],
         ]);
         $delivery['proof_preview'] = $this->proofRuntime->challenge([
             'product_truth' => $truth,
@@ -185,11 +195,11 @@ class AtlasAutonomousProductDeliveryRuntimeService
         if (($truth['status'] ?? null) !== 'ready') {
             return 'needs_product_truth';
         }
-        if (($assisted['status'] ?? null) !== 'ready_for_assisted_execution') {
-            return 'needs_context';
-        }
         if (($doctrineGate['status'] ?? null) !== 'passed') {
             return 'blocked_by_aedpds_gate';
+        }
+        if (($assisted['status'] ?? null) !== 'ready_for_assisted_execution') {
+            return 'needs_context';
         }
 
         return 'ready_for_delivery';

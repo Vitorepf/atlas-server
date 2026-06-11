@@ -472,7 +472,10 @@ class EngineeringDockerHarnessService
      */
     private function healthcheckPlan(array $options): array
     {
-        $services = $this->stringList($options['docker_healthcheck_services'] ?? $options['docker_healthcheck_service'] ?? config('atlas.engineering.docker.healthcheck_services', []));
+        $configuredServices = $options['docker_healthcheck_services']
+            ?? $options['docker_healthcheck_service']
+            ?? config('atlas.engineering.docker.healthcheck_services', []);
+        $services = EngineeringStringListNormalizer::uniqueCommaSeparatedStrings($configuredServices);
 
         return [
             'services' => $services,
@@ -486,7 +489,10 @@ class EngineeringDockerHarnessService
      */
     private function artifactPlan(array $options): array
     {
-        $paths = $this->stringList($options['docker_artifact_paths'] ?? $options['docker_artifact_path'] ?? config('atlas.engineering.docker.artifact_paths', []));
+        $configuredPaths = $options['docker_artifact_paths']
+            ?? $options['docker_artifact_path']
+            ?? config('atlas.engineering.docker.artifact_paths', []);
+        $paths = EngineeringStringListNormalizer::uniqueCommaSeparatedStrings($configuredPaths);
 
         return [
             'paths' => $paths,
@@ -659,14 +665,6 @@ class EngineeringDockerHarnessService
                 'stderr' => AtlasSecurity::redactString($exception->getMessage()),
             ];
         }
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return EngineeringStringListNormalizer::uniqueCommaSeparatedStrings($value);
     }
 
     private function nonEmptyString(mixed $value): ?string

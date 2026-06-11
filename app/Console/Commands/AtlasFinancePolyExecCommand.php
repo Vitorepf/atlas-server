@@ -104,12 +104,16 @@ final class AtlasFinancePolyExecCommand extends Command
     {
         $gate = new PolyExecGate($cfg);
         $identity = PolyAccountIdentity::detect();
-        $runtime = $gate->checkRuntimeCaps($mode);
+        $simScope = $mode === 'sim' ? $this->simScope() : null;
+        $ledgerMode = $mode === 'sim' ? $this->simLedgerMode($simScope) : $mode;
+        $runtime = $gate->checkRuntimeCaps($ledgerMode);
         $shortFailures = $this->liveShortReadinessFailures($cfg, $identity);
 
         $report = [
             'schema_version' => 'atlas.finance.poly_exec.preflight.v1',
             'mode' => $mode,
+            'sim_scope' => $simScope,
+            'sim_ledger_mode' => $mode === 'sim' ? $ledgerMode : null,
             'live_enabled' => $cfg->liveEnabled,
             'finance_policy' => [
                 'live_trading_blocked' => FinanceDomainCanon::liveTradingBlocked(),
@@ -147,7 +151,7 @@ final class AtlasFinancePolyExecCommand extends Command
             ],
             'long_realize_method' => $cfg->longRealizeMethod,
             'runtime_caps' => ['allowed' => $runtime->allowed, 'checks' => $runtime->checks],
-            'deployed_today_usd' => $gate->deployedToday($mode),
+            'deployed_today_usd' => $gate->deployedToday($ledgerMode),
             'account' => $identity->readiness(),
             'live_ready' => $mode === 'live'
                 && ! FinanceDomainCanon::liveTradingBlocked()
@@ -170,7 +174,10 @@ final class AtlasFinancePolyExecCommand extends Command
         $this->line(sprintf('readiness bounds: market_read_timeout=%ds candidate_budget=%ds max_legs=%d',
             $this->marketReadTimeout(), $this->candidateTimeBudget(), $this->maxLegsPerCandidate()));
         $this->line(sprintf('lifecycle freshness: max_signal_age=%ds', $this->maxSignalAgeSeconds()));
-        $this->line(sprintf('deployed today: $%.2f  runtime gate: %s', $gate->deployedToday($mode),
+        if ($mode === 'sim' && $simScope !== null) {
+            $this->line(sprintf('sim scope: %s ledger=%s', $simScope, $ledgerMode));
+        }
+        $this->line(sprintf('deployed today: $%.2f  runtime gate: %s', $gate->deployedToday($ledgerMode),
             $runtime->allowed ? 'OPEN' : 'BLOCKED ('.$runtime->blockingReasons().')'));
         $a = $identity->readiness();
         $this->line(sprintf('account: kind=%s sig_type=%d ready=%s missing=[%s]',
@@ -759,9 +766,10 @@ final class AtlasFinancePolyExecCommand extends Command
             marketReadTimeoutSeconds: $marketReadTimeout,
             scanTimeBudgetSeconds: $scanOptions['time_budget_seconds'],
             maxLegsPerCandidate: $this->maxLegsPerCandidate(),
+            onSignal: fn (array $signal) => $this->recordPolyArbSignal($scanSessionId, $signal),
         );
 
-        $this->recordPolyArbScan($scanSessionId, $result);
+        $this->recordPolyArbScan($scanSessionId, $result, recordSignals: false);
 
         return [
             'skipped' => false,
@@ -796,7 +804,7 @@ final class AtlasFinancePolyExecCommand extends Command
      *     signals: list<array<string, mixed>>, best_long_sum: float|null, best_short_sum: float|null
      * }  $result
      */
-    private function recordPolyArbScan(string $scanSessionId, array $result): void
+    private function recordPolyArbScan(string $scanSessionId, array $result, bool $recordSignals = true): void
     {
         DB::table('atlas_poly_arb_scans')->insert([
             'session_id' => $scanSessionId,
@@ -811,25 +819,37 @@ final class AtlasFinancePolyExecCommand extends Command
             'updated_at' => now(),
         ]);
 
-        foreach ($result['signals'] as $signal) {
-            $this->upsertPolyArbOpportunity($signal);
-            DB::table('atlas_poly_arb_signals')->insert([
-                'session_id' => $scanSessionId,
-                'event_slug' => $signal['event_slug'],
-                'event_title' => mb_substr((string) $signal['event_title'], 0, 300),
-                'kind' => $signal['kind'],
-                'execution_class' => $signal['execution_class'],
-                'n_legs' => $signal['n_legs'],
-                'sum' => $signal['sum'],
-                'profit_per_set' => $signal['profit_per_set'],
-                'sets' => $signal['sets'],
-                'profit_usd' => $signal['profit_usd'],
-                'cost_usd' => $signal['cost_usd'],
-                'legs' => json_encode($signal['legs']),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+        if (! $recordSignals) {
+            return;
         }
+
+        foreach ($result['signals'] as $signal) {
+            $this->recordPolyArbSignal($scanSessionId, $signal);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $signal
+     */
+    private function recordPolyArbSignal(string $scanSessionId, array $signal): void
+    {
+        $this->upsertPolyArbOpportunity($signal);
+        DB::table('atlas_poly_arb_signals')->insert([
+            'session_id' => $scanSessionId,
+            'event_slug' => $signal['event_slug'],
+            'event_title' => mb_substr((string) $signal['event_title'], 0, 300),
+            'kind' => $signal['kind'],
+            'execution_class' => $signal['execution_class'],
+            'n_legs' => $signal['n_legs'],
+            'sum' => $signal['sum'],
+            'profit_per_set' => $signal['profit_per_set'],
+            'sets' => $signal['sets'],
+            'profit_usd' => $signal['profit_usd'],
+            'cost_usd' => $signal['cost_usd'],
+            'legs' => json_encode($signal['legs']),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
     /**

@@ -60,6 +60,52 @@ final class PolymarketArbScannerTest extends TestCase
         $this->assertContains('verify', $progressStages);
     }
 
+    public function test_scan_streams_verified_signals_to_callback(): void
+    {
+        Http::fake([
+            'https://1.1.1.1/*' => Http::response([
+                'Answer' => [['data' => '104.18.34.205']],
+            ], 200),
+            'https://gamma-api.polymarket.com/events*' => Http::response([
+                [
+                    'negRisk' => true,
+                    'slug' => 'streamed-short-event',
+                    'title' => 'Streamed Short Event',
+                    'volume24hr' => 100.0,
+                    'liquidity' => 500.0,
+                    'markets' => [
+                        $this->market('A', 'Will A win?', 0.40),
+                        $this->market('B', 'Will B win?', 0.40),
+                        $this->market('C', 'Will C win?', 0.40),
+                    ],
+                ],
+            ], 200),
+            'https://clob.polymarket.com/book*' => Http::response([
+                'asks' => [['price' => '0.45', 'size' => '100']],
+                'bids' => [['price' => '0.40', 'size' => '100']],
+            ], 200),
+        ]);
+
+        $streamed = [];
+        $result = (new PolymarketArbScanner)->scanOnce(
+            pages: 1,
+            perPage: 50,
+            preFilterMargin: 0.02,
+            minProfitPerSet: 0.005,
+            feePerSet: 0.0,
+            maxClobVerifications: 12,
+            onSignal: function (array $signal) use (&$streamed): void {
+                $streamed[] = $signal;
+            },
+        );
+
+        $this->assertCount(1, $result['signals']);
+        $this->assertCount(1, $streamed);
+        $this->assertSame($result['signals'][0]['event_slug'], $streamed[0]['event_slug']);
+        $this->assertSame('streamed-short-event', $streamed[0]['event_slug']);
+        $this->assertSame('short_sum_over', $streamed[0]['kind']);
+    }
+
     public function test_scan_skips_candidates_with_too_many_legs_before_clob_reads(): void
     {
         Http::fake([

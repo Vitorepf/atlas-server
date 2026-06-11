@@ -73,10 +73,18 @@ class EngineeringQualityScanService
         File::ensureDirectoryExists($artifactRoot);
 
         $targets = $this->changedTargets($workspace, $changedOnly);
+        $includeCategories = EngineeringStringListNormalizer::uniqueCommaSeparatedStrings(
+            $options['include_categories'] ?? [],
+            lowercase: true,
+        );
+        $includeTools = EngineeringStringListNormalizer::uniqueCommaSeparatedStrings(
+            $options['include_tools'] ?? [],
+            lowercase: true,
+        );
         $plans = $this->filterPlans(
             $this->plans($workspace, $profile, $targets, $changedOnly),
-            $this->stringList($options['include_categories'] ?? []),
-            $this->stringList($options['include_tools'] ?? []),
+            $includeCategories,
+            $includeTools,
         );
         $tools = [];
         $findings = [];
@@ -112,8 +120,8 @@ class EngineeringQualityScanService
             'changed_only' => $changedOnly,
             'targets' => $targets,
             'scope' => [
-                'include_categories' => $this->stringList($options['include_categories'] ?? []),
-                'include_tools' => $this->stringList($options['include_tools'] ?? []),
+                'include_categories' => $includeCategories,
+                'include_tools' => $includeTools,
             ],
             'summary' => $summary,
             'tools' => $tools,
@@ -682,14 +690,6 @@ class EngineeringQualityScanService
         $value = trim((string) $value);
 
         return $value !== '' ? $value : null;
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return EngineeringStringListNormalizer::uniqueCommaSeparatedStrings($value, lowercase: true);
     }
 
     /**

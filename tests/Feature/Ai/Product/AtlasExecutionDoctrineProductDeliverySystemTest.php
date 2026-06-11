@@ -144,6 +144,14 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $simulation = app(AtlasProductTwinSimulationService::class)->simulate([
             'product_truth' => $plan['product_truth'],
             'delivery_contract' => $plan,
+            'business_context' => [
+                'north_star_metric' => 'paid_checkout_completion_rate',
+                'metrics' => ['paid_checkout_completion_rate' => 0.82],
+                'observed_revenue_usd' => 12500,
+                'target_revenue_usd' => 100000,
+                'revenue_model' => 'transactional',
+                'priority_score' => 91,
+            ],
             'patch_manifest' => [
                 'operations' => [[
                     'path' => 'app/Services/Ai/Product/FakeCheckout.php',
@@ -158,6 +166,12 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $this->assertSame('atlas_forge', $simulation['route_fit']['expected_route']);
         $this->assertTrue($simulation['route_fit']['matches']);
         $this->assertSame('high', data_get($simulation, 'risk_forecast.risk_band'));
+        $this->assertSame('atlas.product_business_twin.v1', data_get($simulation, 'business_twin.schema_version'));
+        $this->assertContains('buyer', data_get($simulation, 'business_twin.user_model.primary_actors'));
+        $this->assertSame('paid_checkout_completion_rate', data_get($simulation, 'business_twin.business_model.metrics.north_star_metric'));
+        $this->assertSame(12500.0, data_get($simulation, 'business_twin.business_model.revenue.observed_revenue_usd'));
+        $this->assertSame('critical', data_get($simulation, 'business_twin.business_model.priority.band'));
+        $this->assertContains('payment', data_get($simulation, 'business_twin.user_model.served_objects'));
         $this->assertContains('contract tests', data_get($simulation, 'predicted_impact.tests.focused_tests'));
         $this->assertContains('webhook_event_contract', data_get($simulation, 'predicted_impact.contracts.events'));
         $this->assertTrue(data_get($simulation, 'patch_candidate_analysis.proposal_gate_required'));

@@ -133,6 +133,47 @@ final class ArbAllocatorTest extends TestCase
         $this->assertNotSame($first['results'][0]['basket_id'], $freshScope['results'][0]['basket_id']);
     }
 
+    public function test_terminal_replay_skips_planning_book_reads(): void
+    {
+        $cfg = $this->cfg(['dailyCapUsd' => 25.0]);
+        $candidate = [array_values(array_filter(
+            $this->candidates(),
+            fn (array $candidate): bool => $candidate['event_slug'] === 'long-evt',
+        ))[0]];
+        $candidate[0]['attempt_key'] = 'scan-1';
+
+        $first = $this->allocator($cfg, 'window-fast-replay')->allocate('sim', 'sess-a1', $candidate);
+        $this->assertSame('filled', $first['results'][0]['status']);
+
+        $book = function (): ?array {
+            $this->fail('terminal replay should not read the book or planner');
+        };
+        $meta = fn (string $s): array => ['endDate' => now()->addDay()->toIso8601String(), 'negRisk' => true, 'negRiskMarketID' => 'cond-'.$s];
+        $exec = new SimulatedPolyExecClient($book);
+        $onChain = new SimulatedPolyOnChainClient(
+            mintGasUsd: 0.05, mergeGasUsd: 0.05,
+            onMint: fn (array $t, float $s) => $exec->creditMinted($t, $s),
+            onMerge: fn (array $t, float $s) => $exec->debitMerged($t, $s),
+        );
+        $gate = new PolyExecGate($cfg);
+        $allocator = new ArbAllocator(
+            $cfg, $gate,
+            new BasketPlanner($cfg, $book, $meta),
+            new ShortBasketPlanner($cfg, $book, $meta),
+            new BasketStateMachine($cfg, $exec, $gate, $book, null, $onChain),
+            new MintSellStateMachine($cfg, $exec, $onChain, $gate, $book),
+            'window-fast-replay',
+        );
+
+        $sameScope = $allocator->allocate('sim', 'sess-a2', $candidate);
+
+        $this->assertSame(1, $sameScope['processed']);
+        $this->assertSame(1, $sameScope['dispatched']);
+        $this->assertSame('filled', $sameScope['results'][0]['status']);
+        $this->assertTrue($sameScope['results'][0]['idempotent_replay']);
+        $this->assertSame($first['results'][0]['basket_id'], $sameScope['results'][0]['basket_id']);
+    }
+
     public function test_does_not_pre_filter_a_pennies_sized_opportunity(): void
     {
         // P* bids ~0.335*3 = 1.005 -> ~半 cent/set edge; still net-positive past gas -> taken.

@@ -27,9 +27,18 @@ class WorkspaceReader
         'json', 'yaml', 'yml', 'env', 'md', 'sql', 'blade.php', 'css', 'scss',
     ];
 
+    /** Filename suffixes skipped even when the extension matches (generated/minified). */
+    public const SKIP_SUFFIXES = [
+        '.min.js', '.min.css', '.bundle.js', '.map', '.lock',
+        'composer.lock', 'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml',
+    ];
+
+    /** Bound the per-file line cache so scanning a huge repo cannot exhaust memory. */
+    private const MAX_LINE_CACHE = 96;
+
     private readonly string $root;
 
-    /** @var array<string,list<string>> cache of file lines by relative path */
+    /** @var array<string,list<string>> bounded cache of file lines by relative path */
     private array $lineCache = [];
 
     /** @var list<string>|null cache of the scannable file list */
@@ -122,6 +131,9 @@ class WorkspaceReader
                 continue;
             }
             $lower = strtolower($rel);
+            if ($this->isSkippedFile($lower)) {
+                continue;
+            }
             foreach ($extensions as $ext) {
                 if (str_ends_with($lower, '.'.$ext)) {
                     $out[] = $rel;
@@ -131,6 +143,17 @@ class WorkspaceReader
         }
 
         return $out;
+    }
+
+    private function isSkippedFile(string $lowerRel): bool
+    {
+        foreach (self::SKIP_SUFFIXES as $suffix) {
+            if (str_ends_with($lowerRel, $suffix)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -167,8 +190,16 @@ class WorkspaceReader
         }
         $content = $this->read($relativePath);
         $lines = $content === null ? [] : preg_split('/\r\n|\r|\n/', $content);
+        $lines = is_array($lines) ? $lines : [];
 
-        return $this->lineCache[$relativePath] = is_array($lines) ? $lines : [];
+        // Bounded cache: evict the oldest entry so scanning a huge repo cannot
+        // accumulate every file's line array in memory.
+        if (count($this->lineCache) >= self::MAX_LINE_CACHE) {
+            array_shift($this->lineCache);
+        }
+        $this->lineCache[$relativePath] = $lines;
+
+        return $lines;
     }
 
     /**
@@ -182,7 +213,18 @@ class WorkspaceReader
     {
         $matches = [];
         foreach ($this->files($extensions, $underRelative) as $rel) {
-            foreach ($this->lines($rel) as $i => $text) {
+            // Read each file once WITHOUT populating the bounded line cache; the
+            // per-file lines array is transient (freed each iteration), so
+            // grepping a large repo stays flat in memory regardless of repo size.
+            $content = $this->read($rel);
+            if ($content === null) {
+                continue;
+            }
+            $fileLines = preg_split('/\r\n|\r|\n/', $content);
+            if (! is_array($fileLines)) {
+                continue;
+            }
+            foreach ($fileLines as $i => $text) {
                 if (@preg_match($pattern, $text) === 1) {
                     $matches[] = ['path' => $rel, 'line' => $i + 1, 'text' => trim($text)];
                     if (count($matches) >= $maxMatches) {
@@ -190,6 +232,7 @@ class WorkspaceReader
                     }
                 }
             }
+            unset($fileLines);
         }
 
         return $matches;

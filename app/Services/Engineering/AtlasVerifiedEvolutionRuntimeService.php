@@ -71,6 +71,9 @@ final class AtlasVerifiedEvolutionRuntimeService
         $ownerDocs = (array) data_get($impact, 'impact.owner_docs', []);
         $requiredTests = (array) data_get($impact, 'impact.required_tests', []);
         $risk = (string) data_get($impact, 'impact.risk_level', 'high');
+        $impactGraph = (array) data_get($impact, 'impact.impact_graphrag', []);
+        $causalPaths = (array) data_get($impactGraph, 'causal_paths', []);
+        $graphReadFirst = (array) data_get($impactGraph, 'selected_context.read_first', []);
         $blockers = (array) ($intent['blockers'] ?? []);
         if ($targetPath === null) {
             $blockers[] = ['reason' => 'target_not_found_for_boundary', 'target' => trim($target)];
@@ -88,10 +91,10 @@ final class AtlasVerifiedEvolutionRuntimeService
                 'schema_version' => self::BOUNDARY_SCHEMA_VERSION,
                 'status' => $blockers === [] ? 'ready' : 'review_required',
                 'allowed_write_paths' => $targetPath !== null ? [$targetPath] : [],
-                'read_first' => array_values(array_unique(array_merge([
+                'read_first' => EngineeringStringListNormalizer::uniqueNonEmptyStrings(array_merge([
                     'docs/engineering-knowledge-base/atlas-software-twin-verified-evolution-runtime.md',
                     'docs/engineering-knowledge-base/atlas-verified-execution-runtime.md',
-                ], $ownerDocs))),
+                ], $graphReadFirst, $ownerDocs)),
                 'do_not_touch_paths' => [
                     '.env',
                     'vendor/',
@@ -103,6 +106,16 @@ final class AtlasVerifiedEvolutionRuntimeService
                 'required_tests' => $requiredTests,
                 'required_gates' => (array) data_get($impact, 'impact.required_gates', []),
                 'risk_level' => $risk,
+                'causal_context' => [
+                    'schema_version' => data_get($impactGraph, 'schema_version'),
+                    'status' => data_get($impactGraph, 'status', 'degraded'),
+                    'confidence' => data_get($impactGraph, 'confidence', ['score' => 0, 'label' => 'none']),
+                    'selection_policy' => data_get($impactGraph, 'selection_policy'),
+                    'causal_paths' => $causalPaths,
+                    'read_first' => $graphReadFirst,
+                    'provider_safe' => (bool) data_get($impactGraph, 'provider_safe', true),
+                    'bounded' => (bool) data_get($impactGraph, 'bounded', true),
+                ],
                 'mutation_policy' => [
                     'direct_mutation_authorized' => false,
                     'execution_must_go_through_aver' => true,
@@ -127,6 +140,8 @@ final class AtlasVerifiedEvolutionRuntimeService
         $boundary = $this->boundaryContract($objective, $target);
         $contract = (array) ($boundary['boundary_contract'] ?? []);
         $tests = (array) ($contract['required_tests'] ?? []);
+        $causalContext = (array) ($contract['causal_context'] ?? []);
+        $causalPaths = (array) ($causalContext['causal_paths'] ?? []);
         $blockers = [];
         if (($boundary['status'] ?? null) === 'blocked') {
             $blockers = (array) ($boundary['blockers'] ?? []);
@@ -143,7 +158,7 @@ final class AtlasVerifiedEvolutionRuntimeService
             'proof_plan' => [
                 'schema_version' => self::PROOF_PLAN_SCHEMA_VERSION,
                 'required_tests' => $tests,
-                'required_gates' => array_values(array_unique(array_merge(
+                'required_gates' => EngineeringStringListNormalizer::uniqueNonEmptyStrings(array_merge(
                     (array) ($contract['required_gates'] ?? []),
                     [
                         'git diff --check',
@@ -151,7 +166,7 @@ final class AtlasVerifiedEvolutionRuntimeService
                         'php artisan atlas:software-twin quality-score --json',
                         'php artisan atlas:verified-evolution quality-score --target="'.trim($target).'" --objective="<objective>" --json',
                     ]
-                ))),
+                )),
                 'aver_bridge' => [
                     'required' => true,
                     'plan_command' => 'php artisan atlas:aver plan --objective="<objective>" --json',
@@ -161,8 +176,22 @@ final class AtlasVerifiedEvolutionRuntimeService
                     'required' => true,
                     'outcome_learning_required' => true,
                 ],
+                'causal_verification' => [
+                    'required' => true,
+                    'graph_status' => (string) ($causalContext['status'] ?? 'degraded'),
+                    'confidence' => $causalContext['confidence'] ?? ['score' => 0, 'label' => 'none'],
+                    'causal_paths' => $causalPaths,
+                    'read_first' => (array) ($causalContext['read_first'] ?? []),
+                    'completion_requires_review_of' => [
+                        'affected_entrypoints',
+                        'owner_docs',
+                        'required_tests',
+                        'scope_drift',
+                    ],
+                ],
                 'completion_requires' => [
                     'boundary_contract_reviewed',
+                    'causal_paths_reviewed',
                     'allowed_write_paths_respected',
                     'tests_green_or_blocker_declared',
                     'docs_health_green',
@@ -205,14 +234,15 @@ final class AtlasVerifiedEvolutionRuntimeService
                     'target' => trim($target),
                     'allowed_write_paths' => (array) ($contract['allowed_write_paths'] ?? []),
                     'read_first' => (array) ($contract['read_first'] ?? []),
-                    'evidence_refs' => array_values(array_unique(array_merge(
+                    'evidence_refs' => EngineeringStringListNormalizer::uniqueNonEmptyStrings(array_merge(
                         (array) ($contract['read_first'] ?? []),
                         (array) ($proofPlan['required_tests'] ?? []),
                         (array) ($proofPlan['required_gates'] ?? [])
-                    ))),
+                    )),
                     'verification_plan' => [
                         'required_tests' => (array) ($proofPlan['required_tests'] ?? []),
                         'required_gates' => (array) ($proofPlan['required_gates'] ?? []),
+                        'causal_verification' => (array) ($proofPlan['causal_verification'] ?? []),
                     ],
                     'rollback_plan' => [
                         'policy' => 'stop_and_report_before_reverting_user_changes',
@@ -309,12 +339,12 @@ final class AtlasVerifiedEvolutionRuntimeService
                     'outside_boundary_count' => count($outside),
                 ],
                 'expected_safe_files' => (array) data_get($boundary, 'boundary_contract.allowed_write_paths', []),
-                'changed_files' => array_values(array_filter(array_map(static fn (mixed $path): string => trim((string) $path), $changedFiles))),
-                'must_run' => array_values(array_unique(array_merge(
+                'changed_files' => EngineeringStringListNormalizer::uniqueNonEmptyStrings($changedFiles),
+                'must_run' => EngineeringStringListNormalizer::uniqueNonEmptyStrings(array_merge(
                     (array) data_get($impact, 'impact.required_tests', []),
                     (array) data_get($impact, 'impact.required_gates', []),
                     ['git diff --check']
-                ))),
+                )),
                 'recommendation' => $blockers === [] ? 'proceed_to_aver_plan' : 'stop_before_patch',
             ],
             'blockers' => $blockers,

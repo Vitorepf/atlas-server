@@ -18,6 +18,7 @@ capabilities:
   - verified_evolution_runtime
   - agent_change_safety
   - patch_simulation
+  - impact_graphrag
   - context_boundary_contract
   - execution_learning
 decisions:
@@ -272,7 +273,7 @@ ASTR responde:
 | # | Bloco | Saida |
 |---:|---|---|
 | 1 | Software Twin Graph | grafo unico de codigo, docs, testes, runtime e evidence |
-| 2 | Causal Dependency Model | relacoes causais alem de import/caller |
+| 2 | Impact GraphRAG | contexto causal bounded/local via Code Intelligence, sem engine paralela |
 | 3 | Runtime Usage Lens | diferenca entre existe, usado, shadow, estacionado e morto |
 | 4 | Feature Lineage Tracker | origem doc->prompt->patch->teste->runtime |
 | 5 | Ownership & Boundary Resolver | dono real, camada e area permitida |
@@ -404,7 +405,7 @@ Meta tecnica: reduzir a maior parte dos erros de IA causados por contexto
 incompleto, arquivo errado, duplicacao, escopo aberto, teste ausente e claims
 sem prova. Nao prometer 100%; sempre declarar confidence e evidence.
 
-## Regras Para IA
+## Regras para IA
 
 1. Nunca tratar ASTR como autorizacao para patch; ASTR e read-only por padrao.
 2. Nunca tratar AVEOR como executor direto; AVEOR prepara boundary, proof plan e contrato para AVER.

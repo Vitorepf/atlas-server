@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering\CodeGraph;
 
+use App\Services\Engineering\EngineeringStringListNormalizer;
+
 /**
  * AP-815 · I-3 — diff/PR → review-context assembler.
  *
@@ -63,7 +65,7 @@ class CodeGraphReviewContextAssembler
      */
     private function rankedIds(array $changed, array $blast): array
     {
-        return array_values(array_unique(array_merge($changed, $blast)));
+        return EngineeringStringListNormalizer::uniqueNonEmptyStrings([...$changed, ...$blast]);
     }
 
     /**
@@ -155,14 +157,7 @@ class CodeGraphReviewContextAssembler
      */
     private function cleanIds(array $ids): array
     {
-        $out = [];
-        foreach ($ids as $id) {
-            if (is_scalar($id) && trim((string) $id) !== '') {
-                $out[trim((string) $id)] = true;
-            }
-        }
-
-        return array_keys($out);
+        return EngineeringStringListNormalizer::uniqueNonEmptyStrings($ids);
     }
 
     /**

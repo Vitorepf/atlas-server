@@ -134,7 +134,7 @@ class AtlasExecutionDoctrineRuntimeService
         if ($signals['missing_context']) {
             $blockers[] = 'missing_minimum_context';
         }
-        if ($signals['security'] && ! $this->bool($input['senior_review_present'] ?? $input['review_present'] ?? false)) {
+        if ($signals['sensitive_security_change'] && ! $this->bool($input['senior_review_present'] ?? $input['review_present'] ?? false)) {
             $blockers[] = 'sensitive_change_requires_senior_review';
         }
 
@@ -195,6 +195,7 @@ class AtlasExecutionDoctrineRuntimeService
             'api' => $this->bool($input['api_involved'] ?? false) || $this->hasAny($lower, ['api', 'endpoint', 'payload', 'schema', 'webhook', 'contract', 'integra']),
             'database' => $this->bool($input['database_involved'] ?? false) || $this->hasAny($lower, ['migration', 'migrate', 'banco', 'database', 'db', 'query', 'schema', 'sql']),
             'security' => $this->bool($input['security_involved'] ?? false) || $this->hasAny($lower, ['auth', 'login', 'permission', 'permiss', 'security', 'segurança', 'billing', 'pagamento', 'payment', 'provider', 'runtime crítico', 'runtime critico']),
+            'sensitive_security_change' => $this->sensitiveSecurityChange($lower, $input),
             'performance' => $this->bool($input['performance_involved'] ?? false) || $this->hasAny($lower, ['performance', 'latência', 'latencia', 'throughput', 'custo', 'cost', 'token', 'cache', 'lento']),
             'documentation' => $this->bool($input['docs_involved'] ?? false) || $this->hasAny($lower, ['documentação', 'documentacao', 'docs', 'canon', 'cartografia', 'governance', 'governança']),
             'architecture' => $this->bool($input['architecture_involved'] ?? false) || $this->hasAny($lower, ['arquitetura', 'architecture', 'refactor', 'múltiplos módulos', 'multiplos modulos', 'multiple modules']),
@@ -228,6 +229,58 @@ class AtlasExecutionDoctrineRuntimeService
             $this->hasAny($lower, ['saas', 'ecommerce', 'empresa', 'produto complexo']) => 'product',
             default => 'feature',
         };
+    }
+
+    /**
+     * Visual/login-surface bugs still deserve security lenses, but they should
+     * not become blocked security mutations unless the request touches auth
+     * mechanics, credentials, permissions, billing, providers, or runtime trust.
+     *
+     * @param  array<string,mixed>  $input
+     */
+    private function sensitiveSecurityChange(string $lower, array $input): bool
+    {
+        if ($this->bool($input['sensitive_security_change'] ?? $input['sensitive_change'] ?? $input['senior_review_required'] ?? false)) {
+            return true;
+        }
+
+        $visualLoginSurface = $this->hasAny($lower, ['tela de login', 'login screen'])
+            && $this->hasAny($lower, ['tela', 'visual', 'layout', 'ui', 'ux', 'frontend']);
+
+        $sensitiveTerms = [
+            'auth flow',
+            'autenticação',
+            'autenticacao',
+            'permission',
+            'permiss',
+            'credential',
+            'credencial',
+            'senha',
+            'password',
+            'token',
+            'session',
+            'sessão',
+            'sessao',
+            'oauth',
+            '2fa',
+            'mfa',
+            'jwt',
+            'csrf',
+            'xss',
+            'billing',
+            'pagamento',
+            'payment',
+            'provider',
+            'webhook',
+            'runtime crítico',
+            'runtime critico',
+        ];
+
+        if ($visualLoginSurface && ! $this->hasAny($lower, $sensitiveTerms)) {
+            return false;
+        }
+
+        return $this->hasAny($lower, $sensitiveTerms);
     }
 
     /**

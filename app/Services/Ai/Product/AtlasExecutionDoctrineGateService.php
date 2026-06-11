@@ -92,9 +92,16 @@ class AtlasExecutionDoctrineGateService
             $warnings[] = 'risk_review_not_attached';
             $next[] = 'attach_risk_or_senior_review_before_sensitive_execution';
         }
+        $sensitiveSecurityChange = (bool) data_get($doctrine, 'signals.sensitive_security_change', false)
+            || in_array('sensitive_change_requires_senior_review', $blockers, true);
         if (in_array('security_driven', $drivers, true) && $provided['review'] === []) {
-            $blockers[] = 'missing_senior_review_for_sensitive_change';
-            $next[] = 'attach_senior_security_or_runtime_review';
+            if ($sensitiveSecurityChange) {
+                $blockers[] = 'missing_senior_review_for_sensitive_change';
+                $next[] = 'attach_senior_security_or_runtime_review';
+            } else {
+                $warnings[] = 'security_review_not_attached';
+                $next[] = 'attach_senior_security_or_runtime_review_if_scope_touches_auth_state';
+            }
         }
         if (in_array('sensitive_change_requires_senior_review', $blockers, true)) {
             $next[] = 'attach_senior_security_or_runtime_review';

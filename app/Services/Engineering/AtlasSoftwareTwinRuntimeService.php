@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Engineering;
 
 use App\Models\AtlasDocsAuthorityGraph;
+use App\Models\AtlasEngineeringCodeModule;
+use App\Models\AtlasEngineeringDocLink;
 use App\Models\AtlasEngineeringCodeSymbol;
 use App\Models\AtlasSoftwareTwinSnapshot;
 use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
@@ -25,6 +27,8 @@ class AtlasSoftwareTwinRuntimeService
 
     public const IMPACT_SCHEMA_VERSION = 'atlas.software_twin.impact.v1';
 
+    public const IMPACT_GRAPHRAG_SCHEMA_VERSION = 'atlas.impact_graphrag.v1';
+
     public const CONTEXT_SCHEMA_VERSION = 'atlas.software_twin.context_envelope.v1';
 
     public const QUALITY_SCHEMA_VERSION = 'atlas.software_twin.quality_score.v1';
@@ -41,6 +45,15 @@ class AtlasSoftwareTwinRuntimeService
      * duplication on a vague keyword).
      */
     private const OWNER_CONFIDENCE_FLOOR = 80;
+
+    private const IMPACT_GRAPH_LIMITS = [
+        'target_symbols' => 12,
+        'modules' => 8,
+        'doc_links' => 12,
+        'entrypoints' => 12,
+        'tests' => 12,
+        'causal_paths' => 12,
+    ];
 
     /**
      * @var array<int,string>
@@ -122,6 +135,15 @@ class AtlasSoftwareTwinRuntimeService
         $edges = (array) data_get($reachability, 'edges', []);
         $ownerDocs = (array) data_get($reality, 'usage_map.owner_docs', data_get($reality, 'evidence.owner_docs', []));
         $tests = (array) data_get($reality, 'usage_map.tests', data_get($reality, 'evidence.tests', []));
+        $impactGraphRag = $this->impactGraphRag($target, $targetPath, $reachability, $ownerDocs, $tests);
+        $ownerDocs = $this->mergedUniqueStrings(
+            $ownerDocs,
+            (array) data_get($impactGraphRag, 'selected_context.owner_docs', []),
+        );
+        $tests = $this->mergedUniqueStrings(
+            $tests,
+            (array) data_get($impactGraphRag, 'selected_context.required_tests', []),
+        );
         $riskLevel = $this->riskLevel($classification, $reachability, $tests, $ownerDocs);
 
         return $this->envelope([
@@ -137,6 +159,7 @@ class AtlasSoftwareTwinRuntimeService
                 'affected_edges' => array_slice($edges, 0, 20),
                 'owner_docs' => array_slice($ownerDocs, 0, 12),
                 'required_tests' => array_slice($tests, 0, 12),
+                'impact_graphrag' => $impactGraphRag,
                 'required_gates' => [
                     'php artisan atlas:code-reality reachability --target="'.$target.'" --json',
                     'php artisan atlas:software-twin impact --target="'.$target.'" --json',
@@ -146,6 +169,371 @@ class AtlasSoftwareTwinRuntimeService
             ],
             'blockers' => $targetPath === null ? [['reason' => 'target_not_found', 'target' => $target]] : [],
         ]);
+    }
+
+    /**
+     * Build a bounded, provider-safe Impact GraphRAG read model over the existing
+     * Code Intelligence graph. This is intentionally not a heavy graph/embedding
+     * engine in Laravel; it selects compact causal context from indexed symbols,
+     * modules and doc links so verified evolution can reason about blast radius
+     * without flooding the provider.
+     *
+     * @param  array<string,mixed>  $reachability
+     * @param  array<int,string>  $ownerDocs
+     * @param  array<int,string>  $tests
+     * @return array<string,mixed>
+     */
+    private function impactGraphRag(string $target, ?string $targetPath, array $reachability, array $ownerDocs, array $tests): array
+    {
+        if (! $this->codeGraphTablesReady()) {
+            return [
+                'schema_version' => self::IMPACT_GRAPHRAG_SCHEMA_VERSION,
+                'status' => 'degraded',
+                'reason' => 'code_intelligence_graph_unavailable',
+                'provider_safe' => true,
+                'bounded' => true,
+                'selected_context' => [
+                    'default_policy' => 'minimal_target_first_degraded_graph',
+                    'owner_docs' => array_slice($ownerDocs, 0, self::IMPACT_GRAPH_LIMITS['doc_links']),
+                    'required_tests' => array_slice($tests, 0, self::IMPACT_GRAPH_LIMITS['tests']),
+                    'read_first' => array_values(array_filter([$targetPath])),
+                    'expand_when_needed' => [
+                        'tests' => [
+                            'reason' => 'Code Intelligence graph is unavailable; load tests only if verification or repair needs them.',
+                            'count' => count($tests),
+                            'refs' => array_slice($tests, 0, self::IMPACT_GRAPH_LIMITS['tests']),
+                        ],
+                        'docs' => [
+                            'reason' => 'Code Intelligence graph is unavailable; load docs only if ownership or policy is unclear.',
+                            'count' => count($ownerDocs),
+                            'refs' => array_slice($ownerDocs, 0, self::IMPACT_GRAPH_LIMITS['doc_links']),
+                        ],
+                    ],
+                ],
+                'causal_paths' => [],
+                'confidence' => ['score' => 0, 'label' => 'none'],
+                'limits' => self::IMPACT_GRAPH_LIMITS,
+            ];
+        }
+
+        $targetSymbols = $this->targetSymbols($target, $targetPath);
+        $symbolIds = $this->pluckUnique($targetSymbols, 'id');
+        $moduleIds = $this->pluckUnique($targetSymbols, 'module_id');
+        $modules = $this->impactModules($moduleIds);
+        $docLinks = $this->impactDocLinks($moduleIds, $symbolIds, $targetPath);
+        $entrypoints = $this->impactSymbols($moduleIds, $symbolIds, ['route', 'api_resource', 'cli_command', 'migration_table'], $targetPath);
+        $graphTests = $this->impactSymbols($moduleIds, $symbolIds, ['test_method'], $targetPath);
+
+        $moduleDocs = $this->moduleRelatedStrings($modules, 'related_docs');
+        $moduleTests = $this->moduleRelatedStrings($modules, 'related_tests');
+        $graphOwnerDocs = $this->mergedUniqueStrings(array_column($docLinks, 'canonical_path'), $moduleDocs, $ownerDocs);
+        $graphRequiredTests = $this->mergedUniqueStrings(array_column($graphTests, 'file_path'), $moduleTests, $tests);
+        $readFirst = $this->mergedUniqueStrings(
+            [$targetPath ?? ''],
+            array_slice($graphOwnerDocs, 0, 8),
+            array_column($entrypoints, 'file_path'),
+        );
+        $causalPaths = $this->impactCausalPaths($targetPath ?? $target, $modules, $docLinks, $entrypoints, $graphTests);
+
+        return [
+            'schema_version' => self::IMPACT_GRAPHRAG_SCHEMA_VERSION,
+            'status' => $targetSymbols === [] ? 'degraded' : 'ready',
+            'reason' => $targetSymbols === [] ? 'target_not_found_in_code_graph_index' : 'bounded_code_graph_context_selected',
+            'provider_safe' => true,
+            'bounded' => true,
+            'selection_policy' => 'target_symbols_then_module_doc_test_entrypoint_neighborhood',
+            'target_symbols' => array_slice($targetSymbols, 0, self::IMPACT_GRAPH_LIMITS['target_symbols']),
+            'modules' => array_slice($modules, 0, self::IMPACT_GRAPH_LIMITS['modules']),
+            'entrypoints' => array_slice($entrypoints, 0, self::IMPACT_GRAPH_LIMITS['entrypoints']),
+            'selected_context' => [
+                'default_policy' => 'minimal_target_docs_entrypoints_first',
+                'owner_docs' => array_slice($graphOwnerDocs, 0, self::IMPACT_GRAPH_LIMITS['doc_links']),
+                'required_tests' => array_slice($graphRequiredTests, 0, self::IMPACT_GRAPH_LIMITS['tests']),
+                'read_first' => array_slice($readFirst, 0, 18),
+                'expand_when_needed' => [
+                    'tests' => [
+                        'reason' => 'Only load test files when planning verification, repairing a failed run, or changing a tested contract.',
+                        'count' => count($graphRequiredTests),
+                        'refs' => array_slice($graphRequiredTests, 0, self::IMPACT_GRAPH_LIMITS['tests']),
+                    ],
+                    'docs' => [
+                        'reason' => 'Only load full owner docs when the compact context leaves ownership, policy, or architecture unclear.',
+                        'count' => count($graphOwnerDocs),
+                        'refs' => array_slice($graphOwnerDocs, 0, self::IMPACT_GRAPH_LIMITS['doc_links']),
+                    ],
+                    'entrypoints' => [
+                        'reason' => 'Only load entrypoints when the change crosses a runtime, route, CLI, migration, or API boundary.',
+                        'count' => count($entrypoints),
+                        'refs' => array_slice(array_column($entrypoints, 'file_path'), 0, self::IMPACT_GRAPH_LIMITS['entrypoints']),
+                    ],
+                ],
+            ],
+            'causal_paths' => array_slice($causalPaths, 0, self::IMPACT_GRAPH_LIMITS['causal_paths']),
+            'confidence' => $this->impactGraphConfidence($targetSymbols, $modules, $docLinks, $graphTests, $entrypoints, $reachability),
+            'limits' => self::IMPACT_GRAPH_LIMITS,
+        ];
+    }
+
+    private function codeGraphTablesReady(): bool
+    {
+        return DatabaseTableAvailability::has('atlas_engineering_code_symbols')
+            && DatabaseTableAvailability::has('atlas_engineering_code_modules')
+            && DatabaseTableAvailability::has('atlas_engineering_doc_links');
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function targetSymbols(string $target, ?string $targetPath): array
+    {
+        $needle = trim($target);
+
+        return AtlasEngineeringCodeSymbol::query()
+            ->active()
+            ->where(function ($query) use ($needle, $targetPath): void {
+                if ($targetPath !== null) {
+                    $query->where('file_path', $targetPath);
+                }
+                if ($needle !== '') {
+                    $query->orWhere('symbol_name', 'like', '%'.$needle.'%')
+                        ->orWhere('file_path', 'like', '%'.$needle.'%');
+                }
+            })
+            ->orderBy('file_path')
+            ->orderBy('line_start')
+            ->limit(self::IMPACT_GRAPH_LIMITS['target_symbols'])
+            ->get(['id', 'module_id', 'symbol_type', 'symbol_name', 'file_path', 'line_start', 'language'])
+            ->map(fn (AtlasEngineeringCodeSymbol $symbol): array => $this->symbolImpactPayload($symbol))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<int,string>  $moduleIds
+     * @return array<int,array<string,mixed>>
+     */
+    private function impactModules(array $moduleIds): array
+    {
+        if ($moduleIds === []) {
+            return [];
+        }
+
+        return AtlasEngineeringCodeModule::query()
+            ->active()
+            ->whereIn('id', $moduleIds)
+            ->orderByDesc('symbol_count')
+            ->limit(self::IMPACT_GRAPH_LIMITS['modules'])
+            ->get(['id', 'slug', 'name', 'layer', 'root_path', 'owner', 'docs_status', 'route_count', 'command_count', 'migration_count', 'test_count', 'related_docs_json', 'related_tests_json'])
+            ->map(fn (AtlasEngineeringCodeModule $module): array => [
+                'id' => (string) $module->id,
+                'slug' => (string) $module->slug,
+                'name' => (string) $module->name,
+                'layer' => (string) $module->layer,
+                'root_path' => $module->root_path,
+                'owner' => $module->owner,
+                'docs_status' => (string) $module->docs_status,
+                'route_count' => (int) $module->route_count,
+                'command_count' => (int) $module->command_count,
+                'migration_count' => (int) $module->migration_count,
+                'test_count' => (int) $module->test_count,
+                'related_docs' => array_slice($this->mergedUniqueStrings((array) ($module->related_docs_json ?? [])), 0, 8),
+                'related_tests' => array_slice($this->mergedUniqueStrings((array) ($module->related_tests_json ?? [])), 0, 8),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<int,string>  $moduleIds
+     * @param  array<int,string>  $symbolIds
+     * @return array<int,array<string,mixed>>
+     */
+    private function impactDocLinks(array $moduleIds, array $symbolIds, ?string $targetPath): array
+    {
+        if ($moduleIds === [] && $symbolIds === [] && $targetPath === null) {
+            return [];
+        }
+
+        return AtlasEngineeringDocLink::query()
+            ->active()
+            ->where(function ($query) use ($moduleIds, $symbolIds, $targetPath): void {
+                if ($moduleIds !== []) {
+                    $query->orWhereIn('module_id', $moduleIds);
+                }
+                if ($symbolIds !== []) {
+                    $query->orWhereIn('symbol_id', $symbolIds);
+                }
+                if ($targetPath !== null) {
+                    $query->orWhere('target_path', $targetPath);
+                }
+            })
+            ->orderBy('canonical_path')
+            ->limit(60)
+            ->get(['id', 'module_id', 'symbol_id', 'link_type', 'canonical_path', 'target_path'])
+            ->map(fn (AtlasEngineeringDocLink $link): array => [
+                'id' => (string) $link->id,
+                'module_id' => $link->module_id,
+                'symbol_id' => $link->symbol_id,
+                'link_type' => (string) $link->link_type,
+                'canonical_path' => (string) $link->canonical_path,
+                'target_path' => $link->target_path,
+            ])
+            ->sortBy(fn (array $link): string => sprintf('%02d:%s', $this->docLinkImpactRank($link, $symbolIds, $targetPath), (string) ($link['canonical_path'] ?? '')))
+            ->take(self::IMPACT_GRAPH_LIMITS['doc_links'])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<string,mixed>  $link
+     * @param  array<int,string>  $symbolIds
+     */
+    private function docLinkImpactRank(array $link, array $symbolIds, ?string $targetPath): int
+    {
+        if ($targetPath !== null && (string) ($link['target_path'] ?? '') === $targetPath) {
+            return 0;
+        }
+        if (in_array((string) ($link['symbol_id'] ?? ''), $symbolIds, true)) {
+            return 1;
+        }
+        if (in_array((string) ($link['link_type'] ?? ''), ['owner_doc', 'governs', 'canonical_owner'], true)) {
+            return 2;
+        }
+
+        return 3;
+    }
+
+    /**
+     * @param  array<int,string>  $moduleIds
+     * @param  array<int,string>  $excludeSymbolIds
+     * @param  array<int,string>  $types
+     * @return array<int,array<string,mixed>>
+     */
+    private function impactSymbols(array $moduleIds, array $excludeSymbolIds, array $types, ?string $targetPath): array
+    {
+        $directory = $targetPath !== null ? $this->pathDirectory($targetPath) : null;
+        if ($moduleIds === [] && $directory === null) {
+            return [];
+        }
+
+        return AtlasEngineeringCodeSymbol::query()
+            ->active()
+            ->whereIn('symbol_type', $types)
+            ->when($excludeSymbolIds !== [], fn ($query) => $query->whereNotIn('id', $excludeSymbolIds))
+            ->where(function ($query) use ($moduleIds, $directory): void {
+                if ($moduleIds !== []) {
+                    $query->orWhereIn('module_id', $moduleIds);
+                }
+                if ($directory !== null) {
+                    $query->orWhere('file_path', 'like', $directory.'%');
+                }
+            })
+            ->orderBy('file_path')
+            ->orderBy('line_start')
+            ->limit(in_array('test_method', $types, true) ? self::IMPACT_GRAPH_LIMITS['tests'] : self::IMPACT_GRAPH_LIMITS['entrypoints'])
+            ->get(['id', 'module_id', 'symbol_type', 'symbol_name', 'file_path', 'line_start', 'language'])
+            ->map(fn (AtlasEngineeringCodeSymbol $symbol): array => $this->symbolImpactPayload($symbol))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $modules
+     * @param  array<int,array<string,mixed>>  $docLinks
+     * @param  array<int,array<string,mixed>>  $entrypoints
+     * @param  array<int,array<string,mixed>>  $tests
+     * @return array<int,array<string,string>>
+     */
+    private function impactCausalPaths(string $target, array $modules, array $docLinks, array $entrypoints, array $tests): array
+    {
+        $paths = [];
+        foreach ($modules as $module) {
+            $moduleName = (string) ($module['slug'] ?? $module['name'] ?? 'module');
+            $paths[] = ['from' => $target, 'via' => $moduleName, 'to' => 'module_surface', 'kind' => 'owns_or_contains_target'];
+        }
+        foreach ($docLinks as $link) {
+            $paths[] = ['from' => $target, 'via' => (string) ($link['link_type'] ?? 'doc_link'), 'to' => (string) ($link['canonical_path'] ?? ''), 'kind' => 'requires_owner_doc_context'];
+        }
+        foreach ($entrypoints as $entrypoint) {
+            $paths[] = ['from' => $target, 'via' => (string) ($entrypoint['symbol_type'] ?? 'entrypoint'), 'to' => (string) ($entrypoint['file_path'] ?? ''), 'kind' => 'may_affect_runtime_entrypoint'];
+        }
+        foreach ($tests as $test) {
+            $paths[] = ['from' => $target, 'via' => 'verification', 'to' => (string) ($test['file_path'] ?? ''), 'kind' => 'must_verify_with_test'];
+        }
+
+        return $paths;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $targetSymbols
+     * @param  array<int,array<string,mixed>>  $modules
+     * @param  array<int,array<string,mixed>>  $docLinks
+     * @param  array<int,array<string,mixed>>  $tests
+     * @param  array<int,array<string,mixed>>  $entrypoints
+     * @param  array<string,mixed>  $reachability
+     * @return array<string,mixed>
+     */
+    private function impactGraphConfidence(array $targetSymbols, array $modules, array $docLinks, array $tests, array $entrypoints, array $reachability): array
+    {
+        $score = 0;
+        $score += $targetSymbols !== [] ? 30 : 0;
+        $score += $modules !== [] ? 15 : 0;
+        $score += $docLinks !== [] ? 20 : 0;
+        $score += $tests !== [] ? 15 : 0;
+        $score += $entrypoints !== [] ? 10 : 0;
+        $score += data_get($reachability, 'status') === 'reachable' ? 10 : 0;
+
+        return [
+            'score' => $score,
+            'label' => $score >= 75 ? 'high' : ($score >= 45 ? 'medium' : 'low'),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function symbolImpactPayload(AtlasEngineeringCodeSymbol $symbol): array
+    {
+        return [
+            'id' => (string) $symbol->id,
+            'module_id' => $symbol->module_id,
+            'symbol_type' => (string) $symbol->symbol_type,
+            'symbol_name' => (string) $symbol->symbol_name,
+            'file_path' => (string) $symbol->file_path,
+            'line_start' => $symbol->line_start,
+            'language' => $symbol->language,
+        ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $rows
+     * @return array<int,string>
+     */
+    private function pluckUnique(array $rows, string $key): array
+    {
+        return $this->mergedUniqueStrings(array_map(
+            static fn (array $row): string => (string) ($row[$key] ?? ''),
+            $rows,
+        ));
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $modules
+     * @return array<int,string>
+     */
+    private function moduleRelatedStrings(array $modules, string $key): array
+    {
+        return $this->mergedUniqueStrings(...array_map(
+            static fn (array $module): array => (array) ($module[$key] ?? []),
+            $modules,
+        ));
+    }
+
+    private function pathDirectory(string $path): ?string
+    {
+        $directory = trim(str_replace('\\', '/', dirname($path)), '.');
+
+        return $directory === '' ? null : $directory.'/';
     }
 
     /**
@@ -205,8 +593,8 @@ class AtlasSoftwareTwinRuntimeService
                 'symbol_name' => isset($proposed['symbol_name']) ? (string) $proposed['symbol_name'] : null,
                 'owner' => isset($proposed['owner']) ? (string) $proposed['owner'] : null,
                 'implementation_state' => isset($proposed['implementation_state']) ? (string) $proposed['implementation_state'] : null,
-                'capabilities' => array_values(array_map('strval', (array) ($proposed['capabilities'] ?? []))),
-                'governs' => array_values(array_map('strval', (array) ($proposed['governs'] ?? []))),
+                'capabilities' => $this->mergedUniqueStrings((array) ($proposed['capabilities'] ?? [])),
+                'governs' => $this->mergedUniqueStrings((array) ($proposed['governs'] ?? [])),
             ],
             'prediction' => [
                 'verdict' => $verdict,

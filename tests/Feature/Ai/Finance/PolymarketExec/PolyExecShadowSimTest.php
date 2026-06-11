@@ -114,6 +114,41 @@ final class PolyExecShadowSimTest extends TestCase
             ->assertExitCode(0);
     }
 
+    public function test_command_preflight_uses_sim_scope_for_runtime_budget(): void
+    {
+        DB::table('atlas_poly_exec_daily')->insert([
+            'trade_date' => now()->toDateString(),
+            'mode' => 'sim',
+            'deployed_usd' => 25.0,
+            'realized_pnl_usd' => 0.0,
+            'halted' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $scope = 'fresh preflight';
+        $ledgerMode = 's'.substr(hash('sha256', 'fresh-preflight'), 0, 7);
+
+        $exit = Artisan::call('atlas:finance:poly-exec', [
+            'action' => 'preflight',
+            '--mode' => 'sim',
+            '--daily-cap' => 16.66,
+            '--sim-scope' => $scope,
+            '--json' => true,
+        ]);
+
+        $out = Artisan::output();
+        $payload = json_decode($out, true);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('fresh-preflight', $payload['sim_scope']);
+        $this->assertSame($ledgerMode, $payload['sim_ledger_mode']);
+        $this->assertSame(0.0, (float) $payload['deployed_today_usd']);
+        $this->assertTrue((bool) $payload['runtime_caps']['allowed']);
+        $dailyBudget = collect($payload['runtime_caps']['checks'])->firstWhere('name', 'daily_budget');
+        $this->assertSame('deployed=$0.00 cap=$16.66 remaining=$16.66', $dailyBudget['reason']);
+    }
+
     public function test_command_run_sim_is_a_clean_noop_with_no_candidates(): void
     {
         // Empty lifecycle -> nothing to execute; must exit cleanly, not error.

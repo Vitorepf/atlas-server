@@ -54,6 +54,7 @@ class AtlasProductTwinSimulationService
                 'ui' => $this->uiImpact($truth),
                 'operations' => $this->operationalImpact($truth, $requiredLenses),
             ],
+            'business_twin' => $this->businessTwin($truth, $input),
             'risk_forecast' => [
                 'risk_band' => $this->riskBand($truth, $requiredLenses),
                 'risk_factors' => $this->riskFactors($truth, $requiredLenses, $operations),
@@ -76,6 +77,170 @@ class AtlasProductTwinSimulationService
         $payload['simulation_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>  $truth
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function businessTwin(array $truth, array $input): array
+    {
+        $context = is_array($input['business_context'] ?? null) ? $input['business_context'] : [];
+        $actors = $this->list(data_get($truth, 'business_domain.actors', []));
+        $objects = $this->list(data_get($truth, 'business_domain.objects', []));
+        $rules = $this->list(data_get($truth, 'business_domain.rules', []));
+        $metrics = $this->metrics($truth, $context);
+        $revenue = $this->revenue($truth, $context);
+        $risks = $this->riskFactors($truth, $this->list(data_get($truth, 'execution_lenses.required', [])), []);
+        $priority = $this->priority($truth, $metrics, $revenue, $risks, $context);
+
+        return [
+            'schema_version' => 'atlas.product_business_twin.v1',
+            'status' => ($truth['status'] ?? null) === 'ready' ? 'ready' : 'needs_product_truth',
+            'user_model' => [
+                'primary_actors' => $actors,
+                'served_objects' => $objects,
+                'user_promises' => $this->list(data_get($truth, 'acceptance_universe.must_work', [])),
+                'must_not_break' => $this->list(data_get($truth, 'acceptance_universe.must_not_break', [])),
+            ],
+            'business_model' => [
+                'rules' => $rules,
+                'revenue' => $revenue,
+                'metrics' => $metrics,
+                'priority' => $priority,
+            ],
+            'decision_model' => [
+                'risk_factors' => $risks,
+                'priority_score' => $priority['score'],
+                'priority_band' => $priority['band'],
+                'recommended_route' => (string) data_get($truth, 'execution_decomposition.route', 'atlas_dev'),
+                'blocks_completion_without' => array_values(array_unique(array_merge(
+                    $this->list(data_get($truth, 'missing_truth', [])),
+                    $metrics['missing'],
+                    $revenue['missing'],
+                ))),
+            ],
+            'claim_policy' => [
+                'provider_invoked' => false,
+                'uses_observed_or_declared_business_context' => true,
+                'does_not_claim_unobserved_revenue' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $truth
+     * @param  array<string,mixed>  $context
+     * @return array<string,mixed>
+     */
+    private function metrics(array $truth, array $context): array
+    {
+        $declared = [];
+        foreach ((array) ($context['metrics'] ?? []) as $key => $value) {
+            if (! is_scalar($key) || (! is_scalar($value) && $value !== null)) {
+                continue;
+            }
+            $metric = trim((string) $key);
+            if ($metric !== '') {
+                $declared[$metric] = $value;
+            }
+        }
+
+        $northStar = is_scalar($context['north_star_metric'] ?? null)
+            ? trim((string) $context['north_star_metric'])
+            : null;
+        if ($northStar === '' || $northStar === null) {
+            $northStar = in_array('payment', $this->list(data_get($truth, 'business_domain.objects', [])), true)
+                ? 'successful_paid_checkout_rate'
+                : 'task_success_rate';
+        }
+
+        return [
+            'north_star_metric' => $northStar,
+            'declared_metrics' => $declared,
+            'required_metrics' => array_values(array_unique([$northStar, 'activation_or_task_success', 'regression_rate'])),
+            'missing' => $declared === [] ? ['observed_product_metrics'] : [],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $truth
+     * @param  array<string,mixed>  $context
+     * @return array<string,mixed>
+     */
+    private function revenue(array $truth, array $context): array
+    {
+        $observed = is_numeric($context['observed_revenue_usd'] ?? null)
+            ? (float) $context['observed_revenue_usd']
+            : null;
+        $target = is_numeric($context['target_revenue_usd'] ?? null)
+            ? (float) $context['target_revenue_usd']
+            : null;
+        $hasPaymentObject = in_array('payment', $this->list(data_get($truth, 'business_domain.objects', [])), true);
+
+        return [
+            'model' => is_scalar($context['revenue_model'] ?? null) ? trim((string) $context['revenue_model']) : ($hasPaymentObject ? 'transactional' : 'unknown'),
+            'observed_revenue_usd' => $observed,
+            'target_revenue_usd' => $target,
+            'revenue_sensitive_change' => $hasPaymentObject || $observed !== null || $target !== null,
+            'missing' => $observed === null ? ['observed_revenue'] : [],
+            'claim_policy' => [
+                'synthetic_revenue_forbidden' => true,
+                'observed_revenue_required_for_growth_claims' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $truth
+     * @param  array<string,mixed>  $metrics
+     * @param  array<string,mixed>  $revenue
+     * @param  list<string>  $risks
+     * @param  array<string,mixed>  $context
+     * @return array{score:int,band:string,drivers:list<string>}
+     */
+    private function priority(array $truth, array $metrics, array $revenue, array $risks, array $context): array
+    {
+        if (is_numeric($context['priority_score'] ?? null)) {
+            $score = max(0, min(100, (int) $context['priority_score']));
+
+            return [
+                'score' => $score,
+                'band' => $score >= 80 ? 'critical' : ($score >= 60 ? 'high' : ($score >= 35 ? 'medium' : 'low')),
+                'drivers' => ['operator_declared_priority'],
+            ];
+        }
+
+        $drivers = [];
+        $score = 35;
+        if (($truth['status'] ?? null) === 'ready') {
+            $score += 10;
+            $drivers[] = 'product_truth_ready';
+        }
+        if (($revenue['revenue_sensitive_change'] ?? false) === true) {
+            $score += 20;
+            $drivers[] = 'revenue_sensitive';
+        }
+        if (($metrics['missing'] ?? []) === []) {
+            $score += 10;
+            $drivers[] = 'metrics_observed';
+        }
+        if (in_array('security_or_permission_regression', $risks, true)) {
+            $score += 15;
+            $drivers[] = 'security_or_permission_risk';
+        }
+        if ((string) data_get($truth, 'product_intent.complexity') === 'high') {
+            $score += 10;
+            $drivers[] = 'high_complexity';
+        }
+        $score = min(100, $score);
+
+        return [
+            'score' => $score,
+            'band' => $score >= 80 ? 'critical' : ($score >= 60 ? 'high' : ($score >= 35 ? 'medium' : 'low')),
+            'drivers' => array_values(array_unique($drivers)),
+        ];
     }
 
     /**

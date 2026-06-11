@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Aaeos;
 
 use App\Models\AtlasDocsAuthorityGraph;
+use App\Services\Engineering\EngineeringStringListNormalizer;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -154,21 +155,12 @@ class AtlasDocsAuthorityGraphService
      */
     private function needleVariants(string $normalized): array
     {
-        return $this->uniqueNonEmptyStrings([
+        return EngineeringStringListNormalizer::uniqueTruthyStringValues([
             $normalized,
             str_replace(' ', '-', $normalized),
             str_replace(' ', '_', $normalized),
             str_replace(['-', '_'], ' ', $normalized),
         ]);
-    }
-
-    /**
-     * @param  array<int,string>  $values
-     * @return array<int,string>
-     */
-    private function uniqueNonEmptyStrings(array $values): array
-    {
-        return array_values(array_unique(array_filter($values)));
     }
 
     /**

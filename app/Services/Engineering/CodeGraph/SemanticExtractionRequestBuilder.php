@@ -2,6 +2,8 @@
 
 namespace App\Services\Engineering\CodeGraph;
 
+use App\Services\Engineering\EngineeringStringListNormalizer;
+
 /**
  * Builds the governed, provider-agnostic request that asks the Atlas brain to run
  * a *semantic* code-graph extraction pass (AP-812) over a set of files — the layer
@@ -172,7 +174,7 @@ class SemanticExtractionRequestBuilder
             }
         }
 
-        return array_values(array_unique($markers));
+        return EngineeringStringListNormalizer::uniqueNonEmptyStrings($markers);
     }
 
     /**

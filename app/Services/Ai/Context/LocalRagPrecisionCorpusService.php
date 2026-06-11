@@ -531,7 +531,7 @@ class LocalRagPrecisionCorpusService
         $normalised = $this->normalise($text);
         $parts = preg_split('/[^a-z0-9]+/', $normalised, -1, PREG_SPLIT_NO_EMPTY);
 
-        return array_values(array_unique(is_array($parts) ? $parts : []));
+        return AtlasContextStringListNormalizer::uniqueTrimmedStrings($parts);
     }
 
     private function normalise(string $text): string

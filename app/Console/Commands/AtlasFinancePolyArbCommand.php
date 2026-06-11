@@ -263,6 +263,9 @@ final class AtlasFinancePolyArbCommand extends Command
 
         do {
             $passStart = microtime(true);
+            $passScanTimeBudget = $once
+                ? $scanTimeBudget
+                : max(1, (int) min($scanTimeBudget, max(0.0, ceil($deadline - $passStart))));
 
             try {
                 $result = $scanner->scanOnce(
@@ -273,9 +276,13 @@ final class AtlasFinancePolyArbCommand extends Command
                     feePerSet: (float) ($config['fee_per_set'] ?? 0.0),
                     maxClobVerifications: (int) ($config['max_clob_verifications'] ?? 12),
                     marketReadTimeoutSeconds: $marketReadTimeout,
-                    scanTimeBudgetSeconds: $scanTimeBudget,
+                    scanTimeBudgetSeconds: $passScanTimeBudget,
                     maxLegsPerCandidate: $maxLegsPerCandidate,
                     onProgress: $this->option('json') ? null : fn (string $stage, array $progress) => $this->emitScanProgress($stage, $progress),
+                    onSignal: function (array $signal) use ($sessionId, &$totalSignals): void {
+                        $this->recordSignal($sessionId, $signal, ! $this->option('json'));
+                        $totalSignals++;
+                    },
                 );
             } catch (\Throwable $e) {
                 if (! $this->option('json')) {
@@ -303,33 +310,6 @@ final class AtlasFinancePolyArbCommand extends Command
                     'updated_at' => now(),
                 ]);
 
-                foreach ($result['signals'] as $signal) {
-                    $this->upsertOpportunity($signal);
-                    DB::table('atlas_poly_arb_signals')->insert([
-                        'session_id' => $sessionId,
-                        'event_slug' => $signal['event_slug'],
-                        'event_title' => mb_substr((string) $signal['event_title'], 0, 300),
-                        'kind' => $signal['kind'],
-                        'execution_class' => $signal['execution_class'],
-                        'n_legs' => $signal['n_legs'],
-                        'sum' => $signal['sum'],
-                        'profit_per_set' => $signal['profit_per_set'],
-                        'sets' => $signal['sets'],
-                        'profit_usd' => $signal['profit_usd'],
-                        'cost_usd' => $signal['cost_usd'],
-                        'legs' => json_encode($signal['legs']),
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-                    $totalSignals++;
-                    if (! $this->option('json')) {
-                        $this->info(sprintf('[poly-arb] SIGNAL %s %s sum=%.4f profit/set=%.4f depth=%.1f sets (~$%.2f locked) %s',
-                            $signal['kind'], $signal['event_slug'], $signal['sum'],
-                            $signal['profit_per_set'], $signal['sets'], $signal['profit_usd'],
-                            $signal['execution_class']));
-                    }
-                }
-
                 $duration = microtime(true) - $passStart;
                 $passSummaries[] = [
                     'pass' => $passes,
@@ -339,6 +319,7 @@ final class AtlasFinancePolyArbCommand extends Command
                     'verified' => $result['verified'],
                     'signals' => count($result['signals']),
                     'budget_exhausted' => (bool) ($result['budget_exhausted'] ?? false),
+                    'scan_time_budget_seconds' => $passScanTimeBudget,
                     'skipped_too_many_legs' => (int) ($result['skipped_too_many_legs'] ?? 0),
                     'best_long_sum' => $result['best_long_sum'],
                     'best_short_sum' => $result['best_short_sum'],
@@ -426,6 +407,37 @@ final class AtlasFinancePolyArbCommand extends Command
             $sessionId, $passes, $totalSignals, $budgetExhaustedPasses));
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @param  array<string, mixed>  $signal
+     */
+    private function recordSignal(string $sessionId, array $signal, bool $announce): void
+    {
+        $this->upsertOpportunity($signal);
+        DB::table('atlas_poly_arb_signals')->insert([
+            'session_id' => $sessionId,
+            'event_slug' => $signal['event_slug'],
+            'event_title' => mb_substr((string) $signal['event_title'], 0, 300),
+            'kind' => $signal['kind'],
+            'execution_class' => $signal['execution_class'],
+            'n_legs' => $signal['n_legs'],
+            'sum' => $signal['sum'],
+            'profit_per_set' => $signal['profit_per_set'],
+            'sets' => $signal['sets'],
+            'profit_usd' => $signal['profit_usd'],
+            'cost_usd' => $signal['cost_usd'],
+            'legs' => json_encode($signal['legs']),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        if ($announce) {
+            $this->info(sprintf('[poly-arb] SIGNAL %s %s sum=%.4f profit/set=%.4f depth=%.1f sets (~$%.2f locked) %s',
+                $signal['kind'], $signal['event_slug'], $signal['sum'],
+                $signal['profit_per_set'], $signal['sets'], $signal['profit_usd'],
+                $signal['execution_class']));
+        }
     }
 
     private function report(): int

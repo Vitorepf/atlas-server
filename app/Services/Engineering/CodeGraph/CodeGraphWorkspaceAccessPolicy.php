@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering\CodeGraph;
 
+use App\Services\Engineering\EngineeringStringListNormalizer;
+
 /**
  * AP-815 · G-7 — Per-workspace sovereignty access policy for the code graph.
  *
@@ -213,7 +215,7 @@ class CodeGraphWorkspaceAccessPolicy
 
         $extraNormalized = is_array($extra) ? $this->normalizeList($extra) : [];
 
-        return array_values(array_unique(array_merge($base, $extraNormalized)));
+        return EngineeringStringListNormalizer::uniqueNonEmptyStrings([...$base, ...$extraNormalized]);
     }
 
     /**
@@ -224,18 +226,7 @@ class CodeGraphWorkspaceAccessPolicy
      */
     private function normalizeList(array $values): array
     {
-        $out = [];
-        foreach ($values as $value) {
-            if (! is_string($value)) {
-                continue;
-            }
-            $norm = $this->normalize($value);
-            if ($norm !== '') {
-                $out[] = $norm;
-            }
-        }
-
-        return array_values(array_unique($out));
+        return EngineeringStringListNormalizer::uniqueNonEmptyStringValues($values, lowercase: true);
     }
 
     /**
