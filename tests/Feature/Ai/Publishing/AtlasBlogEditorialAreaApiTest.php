@@ -49,9 +49,18 @@ final class AtlasBlogEditorialAreaApiTest extends TestCase
         $response->assertJsonPath('planner.summary.with_operating_state', true);
         $response->assertJsonPath('planner.summary.with_review_queue', true);
         $response->assertJsonPath('planner.summary.with_candidate_suggestions', true);
+        $response->assertJsonPath('planner.summary.with_writing_packet', true);
         $response->assertJsonPath('planner.operating_state.schema_version', 'atlas.blog_editorial_operating_state.v1');
         $response->assertJsonPath('planner.operating_state.next_post.slug', 'por-que-estou-construindo-o-atlas');
         $response->assertJsonPath('planner.operating_state.publication_frontier.next_sequence_order', 2);
+        $response->assertJsonPath('planner.writing_packet.schema_version', 'atlas.blog_editorial_writing_packet.v1');
+        $response->assertJsonPath('planner.writing_packet.post.slug', 'por-que-estou-construindo-o-atlas');
+        $response->assertJsonPath('planner.writing_packet.draft_seed.schema_version', 'atlas.blog_editorial_private_draft_seed.v1');
+        $response->assertJsonPath('planner.writing_packet.draft_seed.post_slug', 'por-que-estou-construindo-o-atlas');
+        $response->assertJsonPath('planner.writing_packet.guardrails.publishes_content', false);
+        $response->assertJsonPath('planner.writing_packet.guardrails.writes_draft', false);
+        $response->assertJsonPath('planner.writing_packet.draft_seed.guardrails.publishes_content', false);
+        $response->assertJsonPath('planner.writing_packet.draft_seed.guardrails.writes_draft', false);
         $response->assertJsonPath('planner.graph_rag_readiness.schema_version', 'atlas.blog_editorial_graph_rag_readiness.v1');
         $response->assertJsonPath('planner.guardrails.publishes_content', false);
     }

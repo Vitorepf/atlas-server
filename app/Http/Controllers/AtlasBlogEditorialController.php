@@ -19,6 +19,7 @@ final class AtlasBlogEditorialController extends Controller
             'candidate_limit' => ['nullable', 'integer', 'min:1', 'max:30'],
             'graph_context_limit' => ['nullable', 'integer', 'min:1', 'max:12'],
             'graph_world_model_id' => ['nullable', 'string', 'max:120'],
+            'include_writing_packet' => ['nullable', 'boolean'],
             'include_graph_context' => ['nullable', 'boolean'],
             'include_graph_candidates' => ['nullable', 'boolean'],
         ]);
@@ -37,6 +38,7 @@ final class AtlasBlogEditorialController extends Controller
             'coverage_map' => true,
             'operations' => true,
             'operating_state' => true,
+            'writing_packet' => (bool) ($data['include_writing_packet'] ?? true),
             'editorial_radar' => true,
             'graph_rag_readiness' => true,
             'suggest_candidates' => true,

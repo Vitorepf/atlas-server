@@ -188,7 +188,12 @@ final class BlogEditorialPlannerService
                 ? $this->contextService()->coverageMap($posts, $publishedSlugs)
                 : null,
             'operations_packet' => $withOperations
-                ? $this->contextService()->operationsPacket($posts, $publishedSlugs, $publishedPosts, is_array($nextReady) ? $nextReady : null, $blocked, $contextLimit, $candidateLimit, $executeOpenBrain, $reviewQueueState)
+                ? $this->contextService()->operationsPacket($posts, $publishedSlugs, $publishedPosts, is_array($nextReady) ? $nextReady : null, $blocked, $contextLimit, $candidateLimit, $executeOpenBrain, $reviewQueueState, [
+                    'cadence' => (string) ($backlog['cadence'] ?? ''),
+                    'publishing_days' => array_values((array) ($backlog['publishing_days'] ?? [])),
+                    'buffer_days' => array_values((array) ($backlog['buffer_days'] ?? [])),
+                    'rule' => (string) ($backlog['rule'] ?? ''),
+                ])
                 : null,
             'operating_state' => $withOperatingState
                 ? $this->contextService()->operatingState($posts, $publishedSlugs, $publishedPosts, is_array($nextReady) ? $nextReady : null, $blocked, $reviewQueueState, $candidateLimit)

@@ -30,6 +30,9 @@ capabilities:
   - governed_writing_packet
   - editorial_concept_progression_map
   - daily_editorial_operations_packet
+  - read_only_publishing_plan
+  - read_only_editorial_topic_ledger
+  - read_only_editorial_roadmap
   - open_brain_editorial_context_handoff
   - audited_open_brain_editorial_context_execution
   - graph_rag_readiness_preflight
@@ -132,7 +135,7 @@ versions: []
 version_note:
 next_actions:
   - Evoluir P1 para context-pack hints sem escrever memoria.
-  - Evoluir pacote de escrita para seed privado revisavel, ainda sem artigo completo automatico.
+  - Evoluir draft seed privado para geracao de rascunho revisavel sob aprovacao humana.
   - Manter promocao de candidatos append-only ate existir reordenacao segura.
 ---
 # Atlas Blog Editorial Planning System
@@ -201,6 +204,8 @@ Saida P1:
   candidatos e readiness sem escrita, promocao, reordenacao ou publicacao;
 - Atlas Desktop surface `blog_editorial` (`Blog`, atalho `Cmd+9`) consome
   somente `GET /blog/editorial/state`, renderiza proximo texto, fronteira,
+  operacao diaria, postura de fontes, readiness graph/RAG, checklist de escrita,
+  sinais bounded do Codebase World Model, candidatos de grafo revisaveis,
   semanas, candidatos, fila e guardrails, e nunca publica, reordena ou aceita
   candidato;
 - `editorial_radar` quando `--editorial-radar` for usado, agregando estado
@@ -223,10 +228,23 @@ Saida P1:
 - `concept_progression_map` dentro do `writing_packet`, separando termos ja
   introduzidos, termos atuais permitidos, prerequisitos conceituais e termos
   futuros que nao devem ser tratados como conhecimento previo do leitor;
-- `operations_packet` quando `--operations` for usado, agregando proxima acao,
+  - `operations_packet` quando `--operations` for usado, agregando proxima acao,
   foco diario, writing packet, riscos do arquivo publico, bloqueios, snapshots
   de fonte/cobertura, fila de revisao, handoff Open Brain e candidatos para
   revisao;
+- `publishing_plan` dentro de `operations_packet`, com slots de publicacao
+  derivados da ordem do backlog, dias configurados, status, etapa do pipeline,
+  acao humana esperada e regra explicita de que um post por dia depende de seed
+  privado, rascunho revisado e aprovacao humana;
+- `topic_ledger` dentro de `operations_packet`, com mapa read-only dos assuntos
+  planejados, publicados, candidatos e em revisao, indicando cobertura,
+  lacunas de fundacao e proxima acao segura sem reordenar backlog ou promover
+  candidatos sozinho;
+- `editorial_roadmap` dentro de `operations_packet`, agrupando a ordem do
+  backlog em fases da jornada do leitor (`fundacao`, `problema_contexto`,
+  `local_privacidade`, `memoria_conhecimento`, `agentes_governanca`,
+  `arquitetura_operacao`, `expansao`) para explicar por que cada assunto vem
+  antes/depois sem substituir a fila cronologica;
 - `open_brain_handoff` dentro de `operations_packet` e `writing_packet`, com
   objetivo, comando `atlas:open-brain:context`, payload provider-safe e
   guardrails que mantem invocacao automatica, graph/RAG, Python e publicacao
@@ -279,6 +297,8 @@ operating-state -> aggregate compact area state for Atlas UI/agents
 
 area-state-api -> expose operating-state/source/coverage/radar via atlas.token
                -> support Atlas UI and agents without terminal coupling
+               -> render operations packet, source posture and writing brief as read-only cockpit
+               -> render bounded graph context and graph-derived candidates as review signals
                -> no acceptance, promotion, reorder, draft write or publication
 
 writing-packet -> choose next ready post, or explicit planned slug
@@ -289,6 +309,8 @@ writing-packet -> choose next ready post, or explicit planned slug
 
 operations -> aggregate next action, writing packet, archive risks and blockers
            -> show source/coverage snapshot, review queue state and candidate feed
+           -> derive publishing plan slots from backlog order and cadence
+           -> derive editorial roadmap phases from slots and topic ledger
            -> include audited Open Brain handoff for the next post
            -> optionally include Open Brain execution summary
            -> daily read-only operator packet
@@ -323,6 +345,10 @@ promote-candidate -> read accepted review queue item -> emit backlog YAML snippe
 - Cada pacote de escrita deve proteger a progressao do leitor: usar conceitos
   ja introduzidos, explicar a camada atual e evitar detalhes que pertencem a
   posts futuros.
+- Trate calendario como slot operacional; a ordem conceitual manda mais que a
+  data. Um post por dia so e seguro quando o slot atual esta pronto.
+- Trate `editorial_roadmap` como explicacao da jornada, nao como autoridade para
+  reordenar, pular fase ou promover candidato automaticamente.
 - Use `--editorial-radar` para decidir onde alimentar a lista; ele nao muda
   backlog, nao aceita candidatos e nao publica.
 - Use `--editorial-golden-set` para provar que a sequencia ainda ensina do raso
@@ -355,12 +381,23 @@ Permitido em P1:
 - golden set editorial read-only para validar fixtures de sequencia antes de P2;
 - contexto editorial via World Model bounded, com receipt e sem poder de escrita;
 - candidatos revisaveis para alimentar backlog futuro;
-- pacote privado de escrita para o proximo post ou slug planejado explicito;
+- pacote privado de escrita para o proximo post ou slug planejado explicito,
+  exposto na Blog surface como pergunta, promessa, outline, obrigatorios e
+  limites conceituais;
+- draft seed privado dentro do pacote de escrita, com tese, abertura, secoes,
+  fechamento e checklist de revisao, sem escrever arquivo e sem gerar artigo
+  completo;
 - mapa de progressao conceitual dentro do pacote privado de escrita;
 - contexto do arquivo publico dentro do pacote de escrita, para linkar posts
   antigos, detectar risco de repeticao e decidir rewrite deliberadamente;
 - pacote operacional diario read-only, para orientar o proximo trabalho sem
   abrir permissao de escrita, draft ou publicacao;
+- plano de publicacao read-only dentro do pacote operacional, derivado da
+  cadencia e da ordem do backlog, com status de slot, etapa do pipeline e acao
+  humana esperada;
+- roadmap editorial read-only dentro do pacote operacional, derivado dos slots
+  e do ledger de assuntos, para mostrar a jornada raso -> profundo e a fase
+  ativa sem criar uma segunda fila;
 - handoff auditavel para `atlas:open-brain:context`, sem invocacao automatica;
 - execucao auditada opcional de Open Brain, retornando resumo seguro e refs
   resumidas, nunca o context pack bruto;
@@ -384,6 +421,8 @@ Tambem proibido em P1:
 - gerar artigo completo automaticamente a partir do pacote de escrita;
 - tratar `open_brain_context` como texto pronto para publicar;
 - escrever arquivo de draft a partir do pacote de escrita;
+- usar calendario ou cadencia para pular prerequisito;
+- usar roadmap como fonte canonica alternativa ao backlog;
 - escrever no backlog sem aprovacao explicita;
 - promover candidato direto para calendario principal sem passar pela fila de
   revisao;
@@ -438,5 +477,5 @@ como problema de banco de dados. Se faltarem, esses textos entram antes.
 
 1. P1: evoluir promocao append-only para reordenacao segura quando necessario.
 2. P1: evoluir refs para context-pack hints sem escrever memoria.
-3. P1: evoluir pacote de escrita para seed privado revisavel, ainda sem artigo completo automatico.
+3. P1: evoluir draft seed privado para rascunho revisavel sob aprovacao humana.
 4. P2: revisar AP-817 antes de qualquer graph/RAG.
