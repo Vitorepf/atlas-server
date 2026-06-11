@@ -35,6 +35,7 @@ capabilities:
   - read_only_editorial_roadmap
   - read_only_editorial_dependency_matrix
   - read_only_backlog_intake
+  - read_only_atlas_signal_mesh
   - open_brain_editorial_context_handoff
   - audited_open_brain_editorial_context_execution
   - graph_rag_readiness_preflight
@@ -254,6 +255,10 @@ Saida P1:
 - `backlog_intake` dentro de `operations_packet`, com recomendacoes read-only
   para alimentar a fila: aceitar em revisao, segurar por duplicata, segurar ate
   a escada de dependencias estar clara ou revisar para promocao append-only;
+- `atlas_signal_mesh` dentro de `operations_packet`, consolidando backlog,
+  arquivo publico, Engineering Knowledge, Code Intelligence, Open Brain,
+  vector retrieval indireto, grafo bounded, fila, feed e intake em uma malha de
+  sinais read-only com autoridade, status e proxima acao;
 - `open_brain_handoff` dentro de `operations_packet` e `writing_packet`, com
   objetivo, comando `atlas:open-brain:context`, payload provider-safe e
   guardrails que mantem invocacao automatica, graph/RAG, Python e publicacao
@@ -365,6 +370,9 @@ promote-candidate -> read accepted review queue item -> emit backlog YAML snippe
 - Trate `backlog_intake` como triagem, nao como escrita: ele pode recomendar
   entrada na fila de revisao, bloqueio ou promocao append-only, mas nao deve
   alterar backlog, publicar, reordenar ou aprovar candidato sem humano.
+- Trate `atlas_signal_mesh` como painel de controle dos sinais do Atlas: ela
+  coordena fontes existentes, mas nao cria memoria, grafo, RAG, fila paralela,
+  reordenacao automatica ou autoridade de publicacao.
 - Use `--editorial-radar` para decidir onde alimentar a lista; ele nao muda
   backlog, nao aceita candidatos e nao publica.
 - Use `--editorial-golden-set` para provar que a sequencia ainda ensina do raso

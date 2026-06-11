@@ -63,7 +63,7 @@ P1 may enrich the plan with existing Atlas context:
 3. privacy/sensitivity review prompts;
 4. "covered vs missing" signals from public posts and Atlas docs;
 5. reviewable backlog candidates derived from existing KB/code read-models or bounded graph evidence;
-6. read-only source, review-queue, coverage, operating-state, radar, golden-set, bounded graph-context/candidate, writing and daily operations packets;
+6. read-only source, review-queue, coverage, operating-state, radar, golden-set, bounded graph-context/candidate, signal-mesh, writing and daily operations packets;
 7. public archive reconciliation for bridges, duplicate risks and prior artifacts;
 8. Open Brain handoff/execution packets for audited context export.
 9. graph/RAG readiness preflight without invoking graph or Python.
@@ -152,6 +152,10 @@ P1 is acceptable when:
   `operations_packet` with next action, daily focus, writing packet, public
   archive risks, blockers, review queue, source/coverage snapshots, candidate feed and
   `open_brain_handoff` while keeping all write/publish/graph guardrails false;
+- `operations_packet.atlas_signal_mesh` consolidates Atlas editorial signals
+  across backlog, public archive, canonical docs, code intelligence, Open Brain,
+  indirect vector readiness, bounded graph posture, review queue, candidate feed
+  and intake without writing or granting publication/reorder authority;
 - `atlas:blog:editorial-plan --writing-packet --json` returns
   `writing_packet` for the next ready post with
   `generates_full_article=false`, `writes_draft=false` and

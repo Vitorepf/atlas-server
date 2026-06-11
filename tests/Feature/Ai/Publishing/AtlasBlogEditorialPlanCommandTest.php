@@ -1035,6 +1035,15 @@ JS);
         $this->assertFalse(data_get($payload, 'operations_packet.backlog_intake.guardrails.writes_backlog'));
         $this->assertFalse(data_get($payload, 'operations_packet.backlog_intake.guardrails.writes_review_queue'));
         $this->assertFalse(data_get($payload, 'operations_packet.backlog_intake.guardrails.promotes_candidate'));
+        $this->assertSame('atlas.blog_editorial_signal_mesh.v1', data_get($payload, 'operations_packet.atlas_signal_mesh.schema_version'));
+        $this->assertSame('read_only_atlas_signal_mesh_p1', data_get($payload, 'operations_packet.atlas_signal_mesh.mode'));
+        $this->assertGreaterThanOrEqual(8, data_get($payload, 'operations_packet.atlas_signal_mesh.summary.source_count'));
+        $this->assertSame('future_governed', data_get($payload, 'operations_packet.atlas_signal_mesh.summary.graph_posture'));
+        $this->assertSame('write_foundation_or_current_unlocked_post_before_deep_candidates', data_get($payload, 'operations_packet.atlas_signal_mesh.summary.next_safe_action'));
+        $this->assertSame('primary_public_sequence', data_get($payload, 'operations_packet.atlas_signal_mesh.sources.0.authority'));
+        $this->assertFalse(data_get($payload, 'operations_packet.atlas_signal_mesh.guardrails.writes_backlog'));
+        $this->assertFalse(data_get($payload, 'operations_packet.atlas_signal_mesh.guardrails.publishes_content'));
+        $this->assertFalse(data_get($payload, 'operations_packet.atlas_signal_mesh.guardrails.uses_graph_rag'));
         $this->assertSame('future_governed', data_get($payload, 'operations_packet.source_snapshot.graph_retrieval_status'));
         $this->assertSame('atlas.blog_editorial_open_brain_handoff.v1', data_get($payload, 'operations_packet.open_brain_handoff.schema_version'));
         $this->assertSame('o-que-e-o-atlas', data_get($payload, 'operations_packet.open_brain_handoff.payload.post.slug'));
@@ -1050,6 +1059,7 @@ JS);
         $this->assertTrue(data_get($payload, 'operations_packet.guardrails.generates_editorial_roadmap'));
         $this->assertTrue(data_get($payload, 'operations_packet.guardrails.generates_editorial_dependency_matrix'));
         $this->assertTrue(data_get($payload, 'operations_packet.guardrails.generates_backlog_intake'));
+        $this->assertTrue(data_get($payload, 'operations_packet.guardrails.generates_atlas_signal_mesh'));
         $this->assertFalse(data_get($payload, 'operations_packet.guardrails.uses_graph_rag'));
     }
 

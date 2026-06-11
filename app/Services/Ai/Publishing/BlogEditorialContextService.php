@@ -1046,6 +1046,7 @@ final class BlogEditorialContextService
         $editorialRoadmap = $this->editorialRoadmap($publishingPlan, $topicLedger);
         $editorialDependencyMatrix = $this->editorialDependencyMatrix($posts, $publishedSlugs, $publishingPlan, $editorialRoadmap);
         $backlogIntake = $this->backlogIntake($posts, $publishedSlugs, $candidateFeed, $reviewQueueState, $editorialDependencyMatrix);
+        $atlasSignalMesh = $this->atlasSignalMesh($sourceMap, $coverageMap, $candidateFeed, $reviewQueueState, $editorialRoadmap, $editorialDependencyMatrix, $backlogIntake, $openBrainHandoff);
 
         return [
             'schema_version' => 'atlas.blog_editorial_operations_packet.v1',
@@ -1082,6 +1083,7 @@ final class BlogEditorialContextService
             'editorial_roadmap' => $editorialRoadmap,
             'editorial_dependency_matrix' => $editorialDependencyMatrix,
             'backlog_intake' => $backlogIntake,
+            'atlas_signal_mesh' => $atlasSignalMesh,
             'public_archive_risks' => [
                 'duplicate_risk_count' => (int) ($publicArchiveContext['duplicate_risk_count'] ?? 0),
                 'linkable_artifact_count' => (int) ($publicArchiveContext['linkable_artifact_count'] ?? 0),
@@ -1138,6 +1140,7 @@ final class BlogEditorialContextService
                 'generates_editorial_roadmap' => true,
                 'generates_editorial_dependency_matrix' => true,
                 'generates_backlog_intake' => true,
+                'generates_atlas_signal_mesh' => true,
                 'uses_graph_rag' => false,
                 'uses_python_runtime' => false,
                 'creates_parallel_memory_store' => false,
@@ -2381,6 +2384,182 @@ final class BlogEditorialContextService
             'recommended_action' => $recommendedAction,
             'reason' => $this->backlogIntakeReason($candidate, $recommendedAction, $afterSlug),
             'promotion_rule' => 'Aceitar na fila de revisao primeiro; promover para backlog principal so com aprovacao humana.',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $sourceMap
+     * @param  array<string,mixed>  $coverageMap
+     * @param  array<string,mixed>  $candidateFeed
+     * @param  array<string,mixed>  $reviewQueueState
+     * @param  array<string,mixed>  $editorialRoadmap
+     * @param  array<string,mixed>  $dependencyMatrix
+     * @param  array<string,mixed>  $backlogIntake
+     * @param  array<string,mixed>|null  $openBrainHandoff
+     * @return array<string,mixed>
+     */
+    private function atlasSignalMesh(array $sourceMap, array $coverageMap, array $candidateFeed, array $reviewQueueState, array $editorialRoadmap, array $dependencyMatrix, array $backlogIntake, ?array $openBrainHandoff): array
+    {
+        $sources = (array) ($sourceMap['sources'] ?? []);
+        $rows = [
+            $this->atlasSignalMeshRow(
+                'site_backlog',
+                'Backlog publico',
+                (string) data_get($sources, 'site_backlog.status', 'unknown'),
+                'primary_public_sequence',
+                'Define ordem, prerequisitos e a curva do leitor.',
+                (int) data_get($sourceMap, 'archive_state.planned_posts', 0),
+                'preserve_sequence'
+            ),
+            $this->atlasSignalMeshRow(
+                'public_site_archive',
+                'Arquivo publicado',
+                (string) data_get($sources, 'public_site_archive.status', 'unknown'),
+                'published_truth',
+                'Prova o que o leitor ja pode ter visto publicamente.',
+                (int) data_get($sourceMap, 'archive_state.public_archive_posts', 0),
+                'reconcile_before_drafting'
+            ),
+            $this->atlasSignalMeshRow(
+                'engineering_knowledge',
+                'Docs canonicos',
+                (string) data_get($sources, 'engineering_knowledge.status', 'unknown'),
+                'canonical_reference',
+                'Explica decisoes e conceitos do Atlas sem virar memoria paralela.',
+                (int) data_get($sources, 'engineering_knowledge.row_count', 0),
+                'use_as_evidence'
+            ),
+            $this->atlasSignalMeshRow(
+                'code_intelligence',
+                'Code Intelligence',
+                (string) data_get($sources, 'code_intelligence.status', 'unknown'),
+                'code_reality_reference',
+                'Mostra o que existe no codigo antes de transformar em narrativa.',
+                (int) data_get($sources, 'code_intelligence.module_count', 0) + (int) data_get($sources, 'code_intelligence.symbol_count', 0),
+                'cross_check_claims'
+            ),
+            $this->atlasSignalMeshRow(
+                'open_brain_context_pack',
+                'Open Brain',
+                (string) data_get($sources, 'open_brain_context_pack.status', 'unknown'),
+                'provider_safe_context',
+                'Prepara contexto auditavel para escrita sem vazar detalhes internos.',
+                $openBrainHandoff !== null ? 1 : 0,
+                $openBrainHandoff !== null ? 'execute_only_when_requested' : 'wait_for_target_post'
+            ),
+            $this->atlasSignalMeshRow(
+                'vector_retrieval',
+                'Vector retrieval',
+                (string) data_get($sources, 'vector_retrieval.status', 'unknown'),
+                'semantic_reference',
+                'Pode informar similaridade via Open Brain, sem chamada direta nesta fase.',
+                (int) data_get($coverageMap, 'summary.foundation_planned', 0),
+                'keep_indirect_until_promoted'
+            ),
+            $this->atlasSignalMeshRow(
+                'bounded_graph_context',
+                'Grafo bounded',
+                (string) data_get($sources, 'graph_retrieval.status', 'unknown'),
+                'relationship_reference',
+                'Sinais de dependencia e relacao ficam bounded ate P2 ser promovido.',
+                (int) data_get($dependencyMatrix, 'summary.post_count', 0),
+                'use_dependency_matrix_now'
+            ),
+            $this->atlasSignalMeshRow(
+                'review_queue',
+                'Fila de revisao',
+                (string) data_get($reviewQueueState, 'status', 'missing'),
+                'human_review_buffer',
+                'Segura candidatos antes de qualquer promocao append-only.',
+                (int) data_get($reviewQueueState, 'candidate_count', 0),
+                (int) data_get($reviewQueueState, 'candidate_count', 0) > 0 ? 'review_or_promote' : 'accept_only_good_candidates'
+            ),
+            $this->atlasSignalMeshRow(
+                'candidate_feed',
+                'Feed de candidatos',
+                (string) ($candidateFeed['status'] ?? 'unknown'),
+                'idea_supply',
+                'Sugere assuntos a partir dos read-models, sem alterar a lista.',
+                (int) ($candidateFeed['candidate_count'] ?? 0),
+                'triage_through_backlog_intake'
+            ),
+            $this->atlasSignalMeshRow(
+                'reader_journey',
+                'Jornada do leitor',
+                (string) ($editorialRoadmap['status'] ?? 'unknown'),
+                'sequence_explanation',
+                'Converte ordem cronologica em fases compreensiveis.',
+                (int) data_get($editorialRoadmap, 'summary.phase_count', 0),
+                'protect_foundation_before_depth'
+            ),
+            $this->atlasSignalMeshRow(
+                'backlog_intake',
+                'Intake da lista',
+                (string) ($backlogIntake['status'] ?? 'unknown'),
+                'candidate_triage',
+                'Decide se cada sinal deve entrar em revisao, esperar ou ser descartado.',
+                (int) data_get($backlogIntake, 'summary.item_count', 0),
+                'follow_recommended_action'
+            ),
+        ];
+
+        $readyRows = array_values(array_filter($rows, fn (array $row): bool => in_array((string) ($row['status'] ?? ''), ['ready', 'available_contract', 'available_through_open_brain'], true)));
+        $blockedRows = array_values(array_filter($rows, fn (array $row): bool => in_array((string) ($row['status'] ?? ''), ['future_governed', 'blocked', 'unavailable', 'missing'], true)));
+
+        return [
+            'schema_version' => 'atlas.blog_editorial_signal_mesh.v1',
+            'mode' => 'read_only_atlas_signal_mesh_p1',
+            'status' => 'ready',
+            'summary' => [
+                'source_count' => count($rows),
+                'ready_source_count' => count($readyRows),
+                'blocked_or_future_source_count' => count($blockedRows),
+                'candidate_signal_count' => (int) ($candidateFeed['candidate_count'] ?? 0),
+                'review_queue_count' => (int) data_get($reviewQueueState, 'candidate_count', 0),
+                'intake_hold_count' => (int) data_get($backlogIntake, 'summary.hold_count', 0),
+                'dependency_ladder_blocked' => (bool) data_get($backlogIntake, 'summary.dependency_ladder_blocked', false),
+                'graph_posture' => (string) data_get($sources, 'graph_retrieval.status', 'unknown'),
+                'next_safe_action' => (bool) data_get($backlogIntake, 'summary.dependency_ladder_blocked', false)
+                    ? 'write_foundation_or_current_unlocked_post_before_deep_candidates'
+                    : 'review_intake_candidates_without_reordering',
+            ],
+            'sources' => $rows,
+            'rules' => [
+                'A malha organiza sinais; ela nao cria uma nova memoria editorial.',
+                'Backlog publico continua sendo autoridade de ordem.',
+                'Graph/RAG global permanece bloqueado ate P2; sinais bounded so informam revisao.',
+                'Toda entrada na lista passa por review queue e promocao humana.',
+            ],
+            'guardrails' => [
+                'read_only' => true,
+                'writes_backlog' => false,
+                'writes_review_queue' => false,
+                'publishes_content' => false,
+                'reorders_posts' => false,
+                'uses_graph_rag' => false,
+                'uses_python_runtime' => false,
+                'creates_parallel_memory_store' => false,
+                'requires_human_approval_to_promote' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function atlasSignalMeshRow(string $id, string $label, string $status, string $authority, string $role, int $signalCount, string $nextAction): array
+    {
+        return [
+            'id' => $id,
+            'label' => $label,
+            'status' => $status,
+            'authority' => $authority,
+            'role' => $role,
+            'signal_count' => max(0, $signalCount),
+            'can_suggest' => in_array($id, ['engineering_knowledge', 'code_intelligence', 'candidate_feed', 'bounded_graph_context', 'backlog_intake'], true),
+            'can_write' => false,
+            'can_publish' => false,
+            'next_action' => $nextAction,
         ];
     }
 
