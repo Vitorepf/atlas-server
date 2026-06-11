@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\ForgeRivals;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
+
 /**
  * Atlas Forge Rivals · Evidence Policy.
  *
@@ -137,8 +139,8 @@ final class AtlasForgeRivalsEvidencePolicy
             $required[] = 'scorecard';
         }
 
-        $required = array_values(array_unique($required));
-        $optional = array_values(array_unique($optional));
+        $required = AiStringListNormalizer::uniqueStrings($required);
+        $optional = AiStringListNormalizer::uniqueStrings($optional);
 
         $policy = [];
         foreach ($required as $key) {

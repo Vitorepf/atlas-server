@@ -498,6 +498,16 @@ class AtlasOpenBrainWriteBackService
         return $clean;
     }
 
+    private function string(mixed $value): ?string
+    {
+        if (! is_scalar($value)) {
+            return null;
+        }
+        $value = trim((string) $value);
+
+        return $value !== '' ? $value : null;
+    }
+
     /**
      * A bounded associative payload — caps the key count (untrusted structured state
      * cannot be unbounded). Over-cap is trimmed (state is detail, not the load-bearing
@@ -514,13 +524,4 @@ class AtlasOpenBrainWriteBackService
         return array_slice($value, 0, max(0, $maxKeys), true);
     }
 
-    private function string(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
-    }
 }

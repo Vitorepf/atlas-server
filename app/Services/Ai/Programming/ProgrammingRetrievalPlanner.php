@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Support\Str;
 
 class ProgrammingRetrievalPlanner
@@ -81,7 +82,7 @@ class ProgrammingRetrievalPlanner
         foreach ((array) ($gapCritic['missing_sources'] ?? []) as $missingSource) {
             $missing[] = $missingSource.'_unavailable_in_professional_context_pack';
         }
-        $missing = array_values(array_unique($missing));
+        $missing = AiStringListNormalizer::uniqueStrings($missing);
         $status = $missing === [] ? 'ready' : ($strict ? 'failed_closed' : 'degraded');
         $retrievalReceiptId = hash('sha256', $planId.'|agentic_rag|'.$canonicalFlow);
         $professionalPlan = $this->professionalPlan(
@@ -177,7 +178,7 @@ class ProgrammingRetrievalPlanner
             $sources[] = 'asset_provenance';
         }
 
-        return array_values(array_unique($sources));
+        return AiStringListNormalizer::uniqueStrings($sources);
     }
 
     /**

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+
 /**
  * Evidence Ledger admission + append-only + retention contract.
  *
@@ -131,7 +133,7 @@ final class AtlasEvidenceLedgerContractService
             return $this->admitVerdict(self::VERDICT_REJECT, 'empty_event', null, []);
         }
 
-        $kind = $this->stringOrNull($event['kind'] ?? null);
+        $kind = AtlasAaeosValueNormalizer::stringOrNull($event['kind'] ?? null);
 
         // Rule 1 — schema/kind: an event without a canonical kind is "log solto
         // sem schema" and is rejected.
@@ -201,7 +203,7 @@ final class AtlasEvidenceLedgerContractService
         }
 
         $targetsExisting = (bool) ($context['targets_existing'] ?? true);
-        $policy = $this->stringOrNull($context['policy'] ?? null);
+        $policy = AtlasAaeosValueNormalizer::stringOrNull($context['policy'] ?? null);
 
         // A mutation that does not touch recorded history is effectively a new
         // write; treat it as an append.
@@ -339,16 +341,6 @@ final class AtlasEvidenceLedgerContractService
         }
 
         return false;
-    }
-
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $trimmed = trim($value);
-
-        return $trimmed !== '' ? $trimmed : null;
     }
 
     private function floatOrNull(mixed $value): ?float

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Atlas AI Multi-Agent Research Roles — runtime.
  *
@@ -236,8 +238,8 @@ final class AtlasMultiAgentResearchRolesService
      */
     public function assessAntiDuplication(array $trace): array
     {
-        $declared = $this->stringList($trace['declared_searched'] ?? []);
-        $reissued = $this->stringList($trace['reissued_searches'] ?? []);
+        $declared = AtlasAaeosStringListNormalizer::stringsFromArtifactRefs($trace['declared_searched'] ?? []);
+        $reissued = AtlasAaeosStringListNormalizer::stringsFromArtifactRefs($trace['reissued_searches'] ?? []);
 
         // A1: a re-issued query that was already declared searched is a duplicate.
         $duplicateSearches = array_values(array_unique(array_intersect($reissued, $declared)));
@@ -252,7 +254,7 @@ final class AtlasMultiAgentResearchRolesService
             if ($role === self::ROLE_SOURCE_SCOUT) {
                 continue;
             }
-            $list = $this->stringList($sources);
+            $list = AtlasAaeosStringListNormalizer::stringsFromArtifactRefs($sources);
             if ($list !== []) {
                 $nonScoutNew[$role] = $list;
             }
@@ -261,8 +263,8 @@ final class AtlasMultiAgentResearchRolesService
         $a2Ok = $nonScoutNew === [] && $scoutSupportVerdicts === 0;
 
         // A3: Synthesis Writer cannot cite sources absent from artifacts.
-        $artifactSources = $this->stringList($trace['artifact_sources'] ?? []);
-        $writerCited = $this->stringList($trace['writer_cited_sources'] ?? []);
+        $artifactSources = AtlasAaeosStringListNormalizer::stringsFromArtifactRefs($trace['artifact_sources'] ?? []);
+        $writerCited = AtlasAaeosStringListNormalizer::stringsFromArtifactRefs($trace['writer_cited_sources'] ?? []);
         $invented = array_values(array_unique(array_diff($writerCited, $artifactSources)));
         sort($invented);
         $a3Ok = $invented === [];
@@ -327,7 +329,7 @@ final class AtlasMultiAgentResearchRolesService
      */
     public function assessPromotion(array $activeRoles, bool $critical): array
     {
-        $active = array_values(array_unique($this->stringList($activeRoles)));
+        $active = array_values(array_unique(AtlasAaeosStringListNormalizer::stringsFromArtifactRefs($activeRoles)));
         $missing = array_values(array_diff(self::CRITICAL_QUORUM, $active));
         sort($missing);
         $quorumMet = $missing === [];
@@ -395,7 +397,7 @@ final class AtlasMultiAgentResearchRolesService
     public function assess(array $run): array
     {
         $critical = (bool) ($run['critical'] ?? false);
-        $activeRoles = $this->stringList($run['active_roles'] ?? []);
+        $activeRoles = AtlasAaeosStringListNormalizer::stringsFromArtifactRefs($run['active_roles'] ?? []);
         $artifactsByRole = is_array($run['artifacts_by_role'] ?? null) ? $run['artifacts_by_role'] : [];
         $trace = is_array($run['trace'] ?? null) ? $run['trace'] : [];
 
@@ -464,31 +466,4 @@ final class AtlasMultiAgentResearchRolesService
         ];
     }
 
-    /**
-     * Coerce a mixed value into a clean list of non-empty strings.
-     *
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item)) {
-                $item = trim($item);
-                if ($item !== '') {
-                    $out[] = $item;
-                }
-            } elseif (is_array($item)) {
-                $kind = $item['kind'] ?? ($item['type'] ?? ($item['id'] ?? ($item['name'] ?? null)));
-                if (is_string($kind) && trim($kind) !== '') {
-                    $out[] = trim($kind);
-                }
-            }
-        }
-
-        return array_values($out);
-    }
 }

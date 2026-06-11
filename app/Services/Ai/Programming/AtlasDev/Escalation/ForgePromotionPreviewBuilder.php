@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\AtlasDev\Escalation;
 
 use App\Services\Ai\Programming\AtlasDev\Schemas\EscalationDecision;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use App\Services\AtlasCode\DevToForgePromotionService;
 use InvalidArgumentException;
 
@@ -66,16 +67,8 @@ final class ForgePromotionPreviewBuilder
         if (trim($intentSummary) === '') {
             throw new InvalidArgumentException('ForgePromotionPreviewBuilder: intent_summary must not be empty.');
         }
-        foreach ($changedFiles as $i => $f) {
-            if (! is_string($f) || $f === '') {
-                throw new InvalidArgumentException("ForgePromotionPreviewBuilder.changed_files[{$i}] must be a non-empty string.");
-            }
-        }
-        foreach ($contextRefs as $i => $r) {
-            if (! is_string($r) || $r === '') {
-                throw new InvalidArgumentException("ForgePromotionPreviewBuilder.context_refs[{$i}] must be a non-empty string.");
-            }
-        }
+        AtlasDevStringListNormalizer::requireNonEmptyStrings($changedFiles, 'ForgePromotionPreviewBuilder.changed_files');
+        AtlasDevStringListNormalizer::requireNonEmptyStrings($contextRefs, 'ForgePromotionPreviewBuilder.context_refs');
 
         $targetTier = match ($decision->target) {
             EscalationDecision::TARGET_FORGE => 'forge_obra',

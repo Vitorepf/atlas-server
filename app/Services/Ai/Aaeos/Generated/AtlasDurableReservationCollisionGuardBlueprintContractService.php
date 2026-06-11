@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Atlas Self-Construction Durable Reservation Collision Guard BLUEPRINT Contract
  * — pure, deterministic, READ-ONLY surface.
@@ -296,8 +298,8 @@ final class AtlasDurableReservationCollisionGuardBlueprintContractService
     public function evaluate(array $input = []): array
     {
         $candidateId = $this->str($input['candidate_packet_id'] ?? null);
-        $allowed = $this->stringList($input['candidate_allowed_files'] ?? null);
-        $hotScope = $this->stringList($input['hot_forbidden_scopes'] ?? null);
+        $allowed = AtlasAaeosStringListNormalizer::nonEmptyStrings($input['candidate_allowed_files'] ?? null);
+        $hotScope = AtlasAaeosStringListNormalizer::nonEmptyStrings($input['hot_forbidden_scopes'] ?? null);
 
         $candidateHash = $this->str($input['candidate_packet_hash'] ?? null);
         $assignedHash = $this->str($input['assigned_packet_hash'] ?? null);
@@ -314,7 +316,7 @@ final class AtlasDurableReservationCollisionGuardBlueprintContractService
         $conflictingReservationIds = [];
         $ownerConflict = false;
         foreach ($this->reservations($input['active_reservations'] ?? null) as $reservation) {
-            $changed = $this->stringList($reservation['changed_files'] ?? null);
+            $changed = AtlasAaeosStringListNormalizer::nonEmptyStrings($reservation['changed_files'] ?? null);
             $hit = array_values(array_intersect($allowed, $changed));
             if ($hit === []) {
                 continue;
@@ -527,27 +529,6 @@ final class AtlasDurableReservationCollisionGuardBlueprintContractService
     private function str(mixed $value): ?string
     {
         return is_string($value) && $value !== '' ? $value : null;
-    }
-
-    /**
-     * Normalise a value into a list of non-empty strings.
-     *
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item) && $item !== '') {
-                $out[] = $item;
-            }
-        }
-
-        return $out;
     }
 
     /**

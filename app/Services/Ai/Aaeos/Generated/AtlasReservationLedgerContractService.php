@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Atlas Self-Construction Reservation Ledger Contract — pure, deterministic,
  * READ-ONLY decider for the durable local packet reservation ledger.
@@ -227,8 +229,8 @@ final class AtlasReservationLedgerContractService
     public function evaluateClaim(array $input = []): array
     {
         $candidateId = is_string($input['candidate_packet_id'] ?? null) ? $input['candidate_packet_id'] : null;
-        $allowed = $this->stringList($input['allowed_files'] ?? null);
-        $hotScopes = $this->stringList($input['hot_scopes'] ?? null) ?: self::DEFAULT_HOT_SCOPES;
+        $allowed = AtlasAaeosStringListNormalizer::nonEmptyStrings($input['allowed_files'] ?? null);
+        $hotScopes = AtlasAaeosStringListNormalizer::nonEmptyStrings($input['hot_scopes'] ?? null) ?: self::DEFAULT_HOT_SCOPES;
 
         $packetHash = is_string($input['packet_hash'] ?? null) ? $input['packet_hash'] : null;
         $splitHash = is_string($input['split_hash'] ?? null) ? $input['split_hash'] : null;
@@ -263,7 +265,7 @@ final class AtlasReservationLedgerContractService
             if (! $this->isActive($row)) {
                 continue;
             }
-            $hit = array_values(array_intersect($allowed, $this->stringList($row['allowed_files'] ?? null)));
+            $hit = array_values(array_intersect($allowed, AtlasAaeosStringListNormalizer::nonEmptyStrings($row['allowed_files'] ?? null)));
             foreach ($hit as $file) {
                 $overlapping[] = $file;
             }
@@ -466,24 +468,4 @@ final class AtlasReservationLedgerContractService
         return array_values(array_unique($matches));
     }
 
-    /**
-     * Normalise a value into a list of non-empty strings.
-     *
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item) && $item !== '') {
-                $out[] = $item;
-            }
-        }
-
-        return array_values($out);
-    }
 }

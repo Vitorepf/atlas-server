@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Atlas AI Cognitive Runtime Schemas And Packets — pure, deterministic schema
  * guard for the four cognitive-runtime packet types.
@@ -315,7 +317,7 @@ final class AtlasCognitiveRuntimeSchemasAndPacketsService
         }
 
         $isBlocked = str_starts_with($status, 'blocked_');
-        $blockedReasons = $this->stringList($packet['blocked_reasons'] ?? []);
+        $blockedReasons = AtlasAaeosStringListNormalizer::nonBlankStrings($packet['blocked_reasons'] ?? []);
         if ($statusKnown && $isBlocked && $blockedReasons === []) {
             $errors[] = 'blocked_status_requires_blocked_reasons';
         }
@@ -551,26 +553,4 @@ final class AtlasCognitiveRuntimeSchemasAndPacketsService
         return true;
     }
 
-    /**
-     * Normalize a list to non-empty strings.
-     *
-     * @param mixed $value
-     *
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = $item;
-            }
-        }
-
-        return $out;
-    }
 }

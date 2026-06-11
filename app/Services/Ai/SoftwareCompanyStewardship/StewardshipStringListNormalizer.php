@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
+
 final class StewardshipStringListNormalizer
 {
     /**
@@ -12,7 +14,7 @@ final class StewardshipStringListNormalizer
      */
     public static function uniqueStrings(array $values): array
     {
-        return array_values(array_unique($values));
+        return AiStringListNormalizer::uniqueStrings($values);
     }
 
     /**
@@ -21,7 +23,7 @@ final class StewardshipStringListNormalizer
      */
     public static function uniqueMergedStrings(array ...$values): array
     {
-        return self::uniqueStrings(array_merge(...$values));
+        return AiStringListNormalizer::uniqueMergedStrings(...$values);
     }
 
     /**
@@ -29,14 +31,7 @@ final class StewardshipStringListNormalizer
      */
     public static function nonEmptyStrings(mixed $value): array
     {
-        $strings = [];
-        foreach ((array) $value as $item) {
-            if (is_string($item) && $item !== '') {
-                $strings[] = $item;
-            }
-        }
-
-        return $strings;
+        return AiStringListNormalizer::nonEmptyStrings($value);
     }
 
     /**
@@ -44,7 +39,7 @@ final class StewardshipStringListNormalizer
      */
     public static function uniqueNonEmptyStrings(mixed $value): array
     {
-        return self::uniqueStrings(self::nonEmptyStrings($value));
+        return AiStringListNormalizer::uniqueNonEmptyStrings($value);
     }
 
     /**
@@ -52,14 +47,7 @@ final class StewardshipStringListNormalizer
      */
     public static function trimmedStrings(mixed $value): array
     {
-        $strings = [];
-        foreach ((array) $value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $strings[] = trim($item);
-            }
-        }
-
-        return $strings;
+        return AiStringListNormalizer::trimmedStrings((array) $value);
     }
 
     /**
@@ -67,7 +55,7 @@ final class StewardshipStringListNormalizer
      */
     public static function trimmedUniqueStrings(mixed $value): array
     {
-        return self::uniqueStrings(self::trimmedStrings($value));
+        return AiStringListNormalizer::uniqueTrimmedStrings((array) $value);
     }
 
     /**

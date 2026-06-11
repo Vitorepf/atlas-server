@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Repair;
 
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
+
 final class FailureFingerprintDedupScorer
 {
     private const DUPLICATE_THRESHOLD = 0.85;
@@ -148,19 +150,7 @@ final class FailureFingerprintDedupScorer
             return [];
         }
 
-        $items = [];
-
-        foreach ($value as $item) {
-            if (is_string($item)) {
-                $trimmed = trim($item);
-
-                if ($trimmed !== '') {
-                    $items[] = $trimmed;
-                }
-            }
-        }
-
-        return $items;
+        return AtlasDevStringListNormalizer::trimmedStrings($value);
     }
 
     private function clamp(float $value): float

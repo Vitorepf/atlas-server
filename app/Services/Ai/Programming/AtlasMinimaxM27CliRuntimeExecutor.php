@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -79,7 +80,7 @@ class AtlasMinimaxM27CliRuntimeExecutor
             $blockers[] = self::BLOCKER_MODEL_NOT_M3;
         }
 
-        $blockers = array_values(array_unique($blockers));
+        $blockers = AiStringListNormalizer::uniqueStrings($blockers);
 
         return [
             'schema_version' => 'atlas.provider.minimax_m27_cli.status.v1',
@@ -121,10 +122,10 @@ class AtlasMinimaxM27CliRuntimeExecutor
     public function plan(array $manifest): array
     {
         $config = $this->configured();
-        $blockers = array_values(array_unique(array_merge(
+        $blockers = AiStringListNormalizer::uniqueMergedStrings(
             (array) ($config['blockers'] ?? []),
             $this->manifestBlockers($manifest),
-        )));
+        );
 
         return [
             'schema_version' => 'atlas.provider.minimax_m27_cli.invocation_request.v1',
@@ -239,7 +240,7 @@ class AtlasMinimaxM27CliRuntimeExecutor
                 'provider' => AtlasForgeMinimaxM27CliInvocationDriver::PROVIDER,
             ],
             'failure_type' => $blockers[0] ?? null,
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => AiStringListNormalizer::uniqueStrings($blockers),
             'note' => (string) ($adapterPayload['note'] ?? 'MiniMax M3 CLI adapter finished under Atlas governance.'),
         ];
     }
@@ -420,7 +421,7 @@ class AtlasMinimaxM27CliRuntimeExecutor
             $blockers[] = self::BLOCKER_MODEL_NOT_M3;
         }
 
-        return array_values(array_unique($blockers));
+        return AiStringListNormalizer::uniqueStrings($blockers);
     }
 
     /**
@@ -507,7 +508,7 @@ class AtlasMinimaxM27CliRuntimeExecutor
             'performance_signal' => $this->performanceSignal($manifest, self::STATUS_BLOCKED, 0, $blockers),
             'classification' => null,
             'failure_type' => null,
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => AiStringListNormalizer::uniqueStrings($blockers),
             'note' => $note,
         ];
     }
@@ -533,7 +534,7 @@ class AtlasMinimaxM27CliRuntimeExecutor
             'completion_claim_promoted' => false,
             'routing_effect' => 'none',
             'advisory_only' => true,
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => AiStringListNormalizer::uniqueStrings($blockers),
         ];
     }
 

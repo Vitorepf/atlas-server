@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\MinimaxFirst;
 
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
+
 /**
  * Compiles ultra-minimal, pre-structured context for MiniMax.
  *
@@ -167,8 +169,9 @@ PROMPT;
 
         $lines[] = '';
         $lines[] = 'HARD SCOPE:';
-        $lines[] = '- Allowed files: ' . ($this->stringList($finding['allowed_files'] ?? []) !== []
-            ? implode(', ', $this->stringList($finding['allowed_files']))
+        $findingAllowedFiles = AtlasDevStringListNormalizer::uniqueRecursiveTrimmedStrings($finding['allowed_files'] ?? []);
+        $lines[] = '- Allowed files: ' . ($findingAllowedFiles !== []
+            ? implode(', ', $findingAllowedFiles)
             : 'the files listed in FILES TO MODIFY below');
         $lines[] = '- Preserve existing tests and product methods unless the anchored task explicitly requires changing that member.';
         $lines[] = '- Prefer the smallest semantic diff that proves the target behavior.';
@@ -196,7 +199,10 @@ PROMPT;
             'finding_slice_plan.acceptance',
             'finding_slice_plan.acceptance_criteria',
         ] as $path) {
-            $criteria = array_merge($criteria, $this->stringList($this->nestedValue($finding, $path)));
+            $criteria = array_merge(
+                $criteria,
+                AtlasDevStringListNormalizer::uniqueRecursiveTrimmedStrings($this->nestedValue($finding, $path)),
+            );
         }
 
         foreach (['detail', 'description'] as $key) {
@@ -206,7 +212,7 @@ PROMPT;
             }
         }
 
-        return array_values(array_unique(array_filter($criteria, static fn (string $line): bool => $line !== '')));
+        return AtlasDevStringListNormalizer::uniqueTrimmedStrings($criteria);
     }
 
     /**
@@ -288,29 +294,6 @@ PROMPT;
         }
 
         return $value;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (is_string($value)) {
-            $value = trim($value);
-
-            return $value === '' ? [] : [$value];
-        }
-
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $strings = [];
-        foreach ($value as $item) {
-            $strings = array_merge($strings, $this->stringList($item));
-        }
-
-        return array_values(array_unique($strings));
     }
 
     private function buildFilesContext(array $allowedFiles, string $repoRoot): string

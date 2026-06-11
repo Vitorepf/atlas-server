@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Repair\Contracts;
 
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use InvalidArgumentException;
 
 /**
@@ -65,11 +66,10 @@ final class RepairAttemptOutcome
         if ($this->diffSizeLines < 0) {
             throw new InvalidArgumentException('RepairAttemptOutcome.diff_size_lines must be non-negative.');
         }
-        foreach ($this->changedFiles as $i => $f) {
-            if (! is_string($f) || $f === '') {
-                throw new InvalidArgumentException("RepairAttemptOutcome.changed_files[{$i}] must be a non-empty string.");
-            }
-        }
+        AtlasDevStringListNormalizer::requireNonEmptyStrings(
+            $this->changedFiles,
+            'RepairAttemptOutcome.changed_files',
+        );
     }
 
     public static function passed(?string $diffHash, array $changedFiles, int $diffSizeLines): self

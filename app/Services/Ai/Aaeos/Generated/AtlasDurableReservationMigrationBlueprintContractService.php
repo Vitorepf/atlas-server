@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Atlas Self-Construction Durable Reservation Migration Blueprint Contract
  * — pure, deterministic, READ-ONLY surface.
@@ -368,7 +370,7 @@ final class AtlasDurableReservationMigrationBlueprintContractService
             $reasons[] = self::REASON_TABLE_NAME_DRIFT;
         }
 
-        $proposedColumns = $this->stringList($proposed['columns'] ?? []);
+        $proposedColumns = AtlasAaeosStringListNormalizer::strings($proposed['columns'] ?? []);
         $proposedIndexes = is_array($proposed['indexes'] ?? null) ? $proposed['indexes'] : [];
 
         $missingColumns = [];
@@ -527,25 +529,4 @@ final class AtlasDurableReservationMigrationBlueprintContractService
         ];
     }
 
-    /**
-     * Coerce a value into a list of strings (defensive against malformed input).
-     *
-     * @param mixed $value
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item)) {
-                $out[] = $item;
-            }
-        }
-
-        return $out;
-    }
 }

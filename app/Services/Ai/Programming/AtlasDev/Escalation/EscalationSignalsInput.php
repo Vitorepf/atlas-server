@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Escalation;
 
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use InvalidArgumentException;
 
 /**
@@ -49,18 +50,14 @@ final class EscalationSignalsInput
                 throw new InvalidArgumentException("EscalationSignalsInput.{$name} must be non-negative.");
             }
         }
-        foreach ($this->riskKeywords as $i => $k) {
-            if (! is_string($k) || $k === '') {
-                throw new InvalidArgumentException("EscalationSignalsInput.risk_keywords[{$i}] must be a non-empty string.");
-            }
-        }
-        foreach ($this->loopEscalationSignalDelta as $i => $s) {
-            if (! is_string($s) || $s === '') {
-                throw new InvalidArgumentException(
-                    "EscalationSignalsInput.loop_escalation_signal_delta[{$i}] must be a non-empty string."
-                );
-            }
-        }
+        AtlasDevStringListNormalizer::requireNonEmptyStrings(
+            $this->riskKeywords,
+            'EscalationSignalsInput.risk_keywords',
+        );
+        AtlasDevStringListNormalizer::requireNonEmptyStrings(
+            $this->loopEscalationSignalDelta,
+            'EscalationSignalsInput.loop_escalation_signal_delta',
+        );
     }
 
     public function riskIndex(): int

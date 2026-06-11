@@ -18,6 +18,7 @@ use App\Services\Ai\ProgrammingRuntime\ControlPlane\ProgrammingRuntimeControlPla
 use App\Services\Ai\ProgrammingRuntime\ProgrammingRuntimeReadinessCanon;
 use App\Services\Ai\ProgrammingRuntime\ProgrammingRuntimeReadinessService;
 use App\Services\Ai\ProgrammingRuntime\Telemetry\ProgrammingRuntimeTelemetryAggregator;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -1329,7 +1330,7 @@ class ProgrammingConsoleService
             }
         }
 
-        return array_values(array_unique($refs));
+        return AiStringListNormalizer::uniqueStrings($refs);
     }
 
     /**

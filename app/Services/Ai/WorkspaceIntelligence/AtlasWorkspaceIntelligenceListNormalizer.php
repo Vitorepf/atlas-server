@@ -4,19 +4,26 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\WorkspaceIntelligence;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
+
 final class AtlasWorkspaceIntelligenceListNormalizer
 {
     /**
      * @param  mixed  $values
      * @return list<string>
      */
+    public function stringsFromArrayCast(mixed $values): array
+    {
+        return AiStringListNormalizer::stringsFromArrayCast($values);
+    }
+
+    /**
+     * @param  mixed  $values
+     * @return list<string>
+     */
     public function uniqueStrings(mixed $values): array
     {
-        if (! is_array($values)) {
-            return [];
-        }
-
-        return $this->uniqueMappedStrings($values, static fn (mixed $value): string => trim((string) $value));
+        return AiStringListNormalizer::uniqueTrimmedScalarValues($values);
     }
 
     /**
@@ -25,10 +32,7 @@ final class AtlasWorkspaceIntelligenceListNormalizer
      */
     public function uniqueMappedStrings(array $values, callable $map): array
     {
-        return array_values(array_unique(array_filter(
-            array_map(static fn (mixed $value): string => trim((string) $map($value)), $values),
-            static fn (string $value): bool => $value !== '',
-        )));
+        return AiStringListNormalizer::uniqueMappedStrings($values, $map);
     }
 
     /**
@@ -37,14 +41,7 @@ final class AtlasWorkspaceIntelligenceListNormalizer
      */
     public function uniqueStringValues(mixed $values): array
     {
-        if (! is_array($values)) {
-            return [];
-        }
-
-        return $this->uniqueMappedStrings(
-            $values,
-            static fn (mixed $value): string => is_string($value) ? $value : '',
-        );
+        return AiStringListNormalizer::uniqueTrimmedStrings($values);
     }
 
     /**
@@ -53,9 +50,6 @@ final class AtlasWorkspaceIntelligenceListNormalizer
      */
     public function uniqueSingleLineStrings(mixed $values): array
     {
-        return array_values(array_filter(
-            $this->uniqueStrings($values),
-            static fn (string $value): bool => ! str_contains($value, "\n"),
-        ));
+        return AiStringListNormalizer::uniqueSingleLineStrings($values);
     }
 }

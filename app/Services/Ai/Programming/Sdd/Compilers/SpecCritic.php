@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Programming\Sdd\Compilers;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
+
 /**
  * Standalone Spec Critic. Reviews a compiled spec for ambiguity, missing
  * fields, vague language and untestable acceptance criteria.
@@ -108,7 +110,7 @@ class SpecCritic
             };
         }
 
-        return array_values(array_unique($questions));
+        return AiStringListNormalizer::uniqueStrings($questions);
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\Framework\AtlasLoopFrameworkMaterializer;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use PhpParser\Node;
 use PhpParser\NodeFinder;
 use PhpParser\ParserFactory;
@@ -78,13 +79,13 @@ final class AtlasLoopIntentVerifierFactory
             'revert_recheck' => true,
             'timeout_seconds' => $timeout,
         ];
-        $sealedHoldouts = array_values(array_unique(array_merge(
-            $this->stringList($payload['sealed_holdout_commands'] ?? []),
+        $sealedHoldouts = AiStringListNormalizer::uniqueMergedStrings(
+            AiStringListNormalizer::trimmedStrings($payload['sealed_holdout_commands'] ?? []),
             [
                 'php -l '.escapeshellarg($target),
                 'php -r '.escapeshellarg("require 'vendor/autoload.php'; exit(class_exists(".var_export($class, true).") ? 0 : 1);"),
             ],
-        )));
+        );
 
         $compiledPayload = array_merge($payload, [
             'materializer' => 'framework',
@@ -125,10 +126,10 @@ final class AtlasLoopIntentVerifierFactory
             if (($packet['red_preflight']['status'] ?? null) !== 'red') {
                 $packet['status'] = 'blocked';
                 $packet['ready'] = false;
-                $packet['blockers'] = array_values(array_unique(array_merge(
+                $packet['blockers'] = AiStringListNormalizer::uniqueMergedStrings(
                     $blockers,
                     ['compiled_verifier_not_red_on_baseline'],
-                )));
+                );
             }
         }
 
@@ -136,10 +137,10 @@ final class AtlasLoopIntentVerifierFactory
         if (! (bool) data_get($packet, 'verifier_refuters.met_required', true) || (int) data_get($packet, 'verifier_refuters.refuted', 0) > 0) {
             $packet['status'] = 'blocked';
             $packet['ready'] = false;
-            $packet['blockers'] = array_values(array_unique(array_merge(
+            $packet['blockers'] = AiStringListNormalizer::uniqueMergedStrings(
                 (array) ($packet['blockers'] ?? []),
                 ['verifier_refuted_or_missing_required_refuter'],
-            )));
+            );
         }
 
         return $packet;
@@ -211,7 +212,7 @@ final class AtlasLoopIntentVerifierFactory
             }
         }
 
-        return array_values(array_unique($blockers));
+        return AiStringListNormalizer::uniqueStrings($blockers);
     }
 
     /**
@@ -368,7 +369,7 @@ final class AtlasLoopIntentVerifierFactory
         if ($type === 'db_state') {
             $table = trim((string) ($atom['table'] ?? ''));
             $trigger = is_array($atom['trigger'] ?? null) ? $this->normalizeEventTrigger($atom['trigger']) : null;
-            $setupSql = $this->stringList($atom['setup_sql'] ?? []);
+            $setupSql = AiStringListNormalizer::trimmedStrings($atom['setup_sql'] ?? []);
             $where = $this->normalizeWhere($atom['where'] ?? []);
             $operator = $this->normalizeCountOperator((string) ($atom['count_operator'] ?? '>='));
             if (! $this->isSafeSqlIdentifier($table) || $trigger === null || $setupSql === []) {
@@ -950,7 +951,7 @@ final class AtlasLoopIntentVerifierFactory
      */
     private function dbStateAssertionLines(int $index, array $atom): array
     {
-        $setupSql = var_export($this->stringList($atom['setup_sql'] ?? []), true);
+        $setupSql = var_export(AiStringListNormalizer::trimmedStrings($atom['setup_sql'] ?? []), true);
         $table = var_export((string) ($atom['table'] ?? ''), true);
         $where = var_export(is_array($atom['where'] ?? null) ? $atom['where'] : [], true);
         $expected = (int) ($atom['expected_count'] ?? 1);
@@ -1081,12 +1082,12 @@ final class AtlasLoopIntentVerifierFactory
      */
     private function allowedFiles(array $payload, string $target): array
     {
-        $files = $this->stringList($payload['allowed_files'] ?? []);
+        $files = AiStringListNormalizer::trimmedStrings($payload['allowed_files'] ?? []);
         if ($files === []) {
             $files = [$target];
         }
 
-        return array_values(array_unique($files));
+        return AiStringListNormalizer::uniqueStrings($files);
     }
 
     /**
@@ -1100,7 +1101,7 @@ final class AtlasLoopIntentVerifierFactory
             $workspace = (string) ($task['base_workspace'] ?? '');
             $results = [];
             $allGreen = true;
-            foreach ($this->stringList(data_get($compiledPayload, 'acceptance.commands', [])) as $command) {
+            foreach (AiStringListNormalizer::trimmedStrings(data_get($compiledPayload, 'acceptance.commands', [])) as $command) {
                 $result = $this->runCommand($command, $workspace, (int) data_get($compiledPayload, 'acceptance.timeout_seconds', 120));
                 $results[] = $result;
                 if (! (bool) ($result['passed'] ?? false)) {
@@ -1133,10 +1134,10 @@ final class AtlasLoopIntentVerifierFactory
      */
     private function runVerifierRefuters(string $repoRoot, array $packet, array $payload): array
     {
-        $commands = array_values(array_unique(array_merge(
-            $this->stringList($payload['verifier_refuter_commands'] ?? []),
-            $this->stringList($payload['spec_refuter_commands'] ?? []),
-        )));
+        $commands = AiStringListNormalizer::uniqueMergedStrings(
+            AiStringListNormalizer::trimmedStrings($payload['verifier_refuter_commands'] ?? []),
+            AiStringListNormalizer::trimmedStrings($payload['spec_refuter_commands'] ?? []),
+        );
         $required = $this->requiredRefuters($payload, count($commands));
         $timeout = max(1, (int) ($payload['verifier_refuter_timeout_seconds'] ?? 120));
         $packetPath = tempnam(sys_get_temp_dir(), 'atlas-intent-verifier-');
@@ -1231,18 +1232,6 @@ final class AtlasLoopIntentVerifierFactory
             'stdout' => $this->excerpt($process->getOutput()),
             'stderr' => $this->excerpt($process->getErrorOutput()),
         ];
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return array_values(array_filter(array_map(
-            static fn (mixed $v): string => is_string($v) ? trim($v) : '',
-            is_array($value) ? $value : [],
-        ), static fn (string $v): bool => $v !== ''));
     }
 
     private function defaultTestPath(string $target, string $intent, array $atoms): string

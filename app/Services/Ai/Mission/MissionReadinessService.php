@@ -13,11 +13,14 @@ use Illuminate\Contracts\Container\Container;
 
 class MissionReadinessService
 {
-    private const REQUIRED_TABLES = [
+    private const REQUIRED_KERNEL_RUNTIME_TABLES = [
         'ai_missions',
         'ai_objectives',
         'ai_work_orders',
         'ai_mission_events',
+    ];
+
+    private const REQUIRED_CERTIFICATION_TABLES = [
         'ai_mission_evidence_refs',
         'ai_mission_certifications',
     ];
@@ -55,13 +58,36 @@ class MissionReadinessService
     public function __construct(private readonly Container $container) {}
 
     /**
+     * Tables the HTTP gateway bridge needs before it can safely record a
+     * mission envelope without forcing the legacy path to depend on the full
+     * certification layer.
+     *
+     * @return list<string>
+     */
+    public static function requiredKernelRuntimeTables(): array
+    {
+        return self::REQUIRED_KERNEL_RUNTIME_TABLES;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function requiredTables(): array
+    {
+        return [
+            ...self::REQUIRED_KERNEL_RUNTIME_TABLES,
+            ...self::REQUIRED_CERTIFICATION_TABLES,
+        ];
+    }
+
+    /**
      * @return array<string,mixed>
      */
     public function report(): array
     {
         $checks = [];
 
-        foreach (self::REQUIRED_TABLES as $table) {
+        foreach (self::requiredTables() as $table) {
             $exists = DatabaseTableAvailability::has($table);
             $checks[] = [
                 'name' => "table:{$table}",

@@ -102,7 +102,7 @@ class AtlasAobgWorkspaceOnboardingService
      *   - cwd: caller's working directory (the external tool's project dir).
      * @return array{
      *   schema:string, workspace_id:string, workspace_path:?string, indexed:bool,
-     *   symbols:int, last_index:?string, needs_onboarding:bool, auto_onboard:bool,
+     *   symbols:int, last_index:?string, needs_onboarding:bool, needs_reindex:bool, auto_onboard:bool,
      *   onboard_command:string, activation_command:string, generated_at:string
      * }
      */
@@ -113,6 +113,8 @@ class AtlasAobgWorkspaceOnboardingService
         $counts = $this->symbolCounts($workspaceId);
 
         $indexed = $counts['symbols'] > 0;
+        $freshness = $this->freshnessStatus($workspacePath, $workspaceId, $counts['last_index']);
+        $needsReindex = $indexed && ($freshness['status'] ?? null) === 'stale';
 
         return [
             'schema' => self::SCHEMA,
@@ -122,6 +124,9 @@ class AtlasAobgWorkspaceOnboardingService
             'symbols' => $counts['symbols'],
             'last_index' => $counts['last_index'],
             'needs_onboarding' => ! $indexed,
+            'needs_reindex' => $needsReindex,
+            'freshness_status' => $freshness['status'],
+            'freshness' => $freshness,
             'auto_onboard' => $this->autoOnboardEnabled(),
             'onboard_command' => $this->offeredCommand($workspacePath),
             'activation_command' => $this->activationCommand($workspacePath),
@@ -143,7 +148,7 @@ class AtlasAobgWorkspaceOnboardingService
         $status = $this->status($opts);
         $autoOnboard = $this->autoOnboardEnabled();
         $force = (bool) ($opts['force'] ?? false);
-        $needsRun = $status['needs_onboarding'] || $force;
+        $needsRun = $status['needs_onboarding'] || $status['needs_reindex'] || $force;
 
         // Default contract: report + offer. The index is NEVER run unless the opt-in flag
         // is ON — a heavy index of an arbitrary repo is an operator decision, not implicit.
@@ -237,7 +242,9 @@ class AtlasAobgWorkspaceOnboardingService
         );
 
         $force = (bool) ($opts['force'] ?? false);
-        $shouldIndex = (bool) ($before['needs_onboarding'] ?? false) || $force;
+        $shouldIndex = (bool) ($before['needs_onboarding'] ?? false)
+            || (bool) ($before['needs_reindex'] ?? false)
+            || $force;
         $run = ['ok' => true, 'reason' => 'index_not_needed'];
         if ($shouldIndex) {
             try {
@@ -394,6 +401,8 @@ class AtlasAobgWorkspaceOnboardingService
             'indexed' => (bool) ($status['indexed'] ?? false),
             'needs_onboarding' => (bool) ($status['needs_onboarding'] ?? true),
             'last_index' => $status['last_index'] ?? null,
+            'freshness_status' => $status['freshness_status'] ?? 'unknown',
+            'needs_reindex' => (bool) ($status['needs_reindex'] ?? false),
             'profile' => $profile === null ? null : [
                 'slug' => $profile['slug'] ?? null,
                 'name' => $profile['name'] ?? null,
@@ -767,10 +776,15 @@ class AtlasAobgWorkspaceOnboardingService
         $score += (int) ($inventory['file_count'] ?? 0) > 0 || (int) ($inventory['symbol_count'] ?? 0) > 0 ? 0.1 : 0.0;
         $score += (int) ($inventory['doc_link_count'] ?? 0) > 0 ? 0.1 : 0.0;
         $score += is_string($workspacePath) && is_dir($workspacePath) ? 0.1 : 0.0;
+        if (($status['needs_reindex'] ?? false) === true) {
+            $score = min($score, 0.59);
+        }
 
         return [
             'score' => round(min(1.0, $score), 2),
             'label' => $score >= 0.85 ? 'strong' : ($score >= 0.6 ? 'usable' : 'thin'),
+            'freshness_status' => $status['freshness_status'] ?? 'unknown',
+            'needs_reindex' => (bool) ($status['needs_reindex'] ?? false),
             'note' => 'Score mede prontidao do mapa local; zero routes/migrations pode ser normal para apps sem backend Laravel.',
         ];
     }
@@ -838,6 +852,146 @@ class AtlasAobgWorkspaceOnboardingService
             if ($value !== null && $value !== '') {
                 return (string) $value;
             }
+        }
+
+        return null;
+    }
+
+    /**
+     * Provider-safe, bounded freshness check for the already-known file snapshot set.
+     *
+     * It does not crawl the whole repo. It samples the scoped snapshot read-model and
+     * compares current file mtimes with the mtime captured at index time.
+     *
+     * @return array<string,mixed>
+     */
+    private function freshnessStatus(?string $workspacePath, string $workspaceId, ?string $lastIndex): array
+    {
+        $base = [
+            'schema' => 'atlas.aobg.workspace_freshness.v1',
+            'status' => 'unknown',
+            'reason' => null,
+            'last_index' => $lastIndex,
+            'checked_files' => 0,
+            'changed_files' => [],
+            'missing_files' => [],
+            'sample_limit' => 300,
+            'source_policy' => [
+                'file_content_read' => false,
+                'raw_diff_returned' => false,
+                'bounded_snapshot_sample' => true,
+            ],
+        ];
+
+        if (! is_string($workspacePath) || $workspacePath === '' || ! is_dir($workspacePath)) {
+            $base['reason'] = 'workspace_path_unavailable';
+
+            return $base;
+        }
+        if ($lastIndex === null) {
+            $base['reason'] = 'last_index_missing';
+
+            return $base;
+        }
+        if (! Schema::hasTable(self::FILE_SNAPSHOTS_TABLE) || ! Schema::hasColumn(self::FILE_SNAPSHOTS_TABLE, 'file_path')) {
+            $base['reason'] = 'file_snapshot_table_unavailable';
+
+            return $base;
+        }
+
+        try {
+            $query = $this->activeQuery(self::FILE_SNAPSHOTS_TABLE, $workspaceId)
+                ->select(array_values(array_filter([
+                    'file_path',
+                    Schema::hasColumn(self::FILE_SNAPSHOTS_TABLE, 'mtime') ? 'mtime' : null,
+                    Schema::hasColumn(self::FILE_SNAPSHOTS_TABLE, 'indexed_at') ? 'indexed_at' : null,
+                ])))
+                ->limit((int) $base['sample_limit']);
+
+            if (Schema::hasColumn(self::FILE_SNAPSHOTS_TABLE, 'indexed_at')) {
+                $query->orderByDesc('indexed_at');
+            }
+
+            $rows = $query->get();
+            if ($rows->isEmpty()) {
+                $base['reason'] = 'file_snapshots_empty';
+
+                return $base;
+            }
+
+            $lastIndexTs = strtotime($lastIndex) ?: null;
+            foreach ($rows as $row) {
+                $relative = trim((string) ($row->file_path ?? ''));
+                if ($relative === '') {
+                    continue;
+                }
+
+                $path = $this->snapshotAbsolutePath($workspacePath, $relative);
+                $base['checked_files']++;
+                if (! is_file($path)) {
+                    if (count($base['missing_files']) < 8) {
+                        $base['missing_files'][] = $relative;
+                    }
+                    continue;
+                }
+
+                clearstatcache(false, $path);
+                $currentMtime = filemtime($path);
+                if (! is_int($currentMtime)) {
+                    continue;
+                }
+
+                $storedMtime = $this->intFromMixed($row->mtime ?? null);
+                $indexedTs = isset($row->indexed_at) && $row->indexed_at !== null
+                    ? (strtotime((string) $row->indexed_at) ?: $lastIndexTs)
+                    : $lastIndexTs;
+                $baseline = $storedMtime !== null && $storedMtime > 0 ? $storedMtime : $indexedTs;
+                if ($baseline !== null && $currentMtime > $baseline) {
+                    if (count($base['changed_files']) < 8) {
+                        $base['changed_files'][] = [
+                            'path' => $relative,
+                            'mtime' => $currentMtime,
+                            'indexed_mtime' => $baseline,
+                        ];
+                    }
+                }
+            }
+
+            if ($base['changed_files'] !== [] || $base['missing_files'] !== []) {
+                $base['status'] = 'stale';
+                $base['reason'] = $base['changed_files'] !== [] ? 'known_snapshot_changed' : 'known_snapshot_missing';
+
+                return $base;
+            }
+
+            $base['status'] = 'fresh';
+            $base['reason'] = 'known_snapshots_match';
+
+            return $base;
+        } catch (Throwable $e) {
+            $base['reason'] = 'freshness_check_failed';
+            $base['exception'] = class_basename($e);
+
+            return $base;
+        }
+    }
+
+    private function snapshotAbsolutePath(string $workspacePath, string $filePath): string
+    {
+        if (str_starts_with($filePath, DIRECTORY_SEPARATOR)) {
+            return $filePath;
+        }
+
+        return rtrim($workspacePath, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$filePath;
+    }
+
+    private function intFromMixed(mixed $value): ?int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+        if (is_string($value) && ctype_digit($value)) {
+            return (int) $value;
         }
 
         return null;

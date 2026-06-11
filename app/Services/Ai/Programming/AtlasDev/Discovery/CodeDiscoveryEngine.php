@@ -11,6 +11,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Components\CodeCandidate;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ContextRef;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\MissingRef;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Support\CanonicalHasher;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use Throwable;
 
 /**
@@ -275,14 +276,11 @@ final class CodeDiscoveryEngine
             }
         }
 
-        $symbols = array_values(array_filter(
-            array_unique($symbols),
+        $symbols = AtlasDevStringListNormalizer::uniqueSortedStrings(array_values(array_filter(
+            $symbols,
             static fn (string $token): bool => mb_strlen($token) >= 3,
-        ));
-
-        sort($symbols, SORT_STRING);
-        $paths = array_values(array_unique($paths));
-        sort($paths, SORT_STRING);
+        )));
+        $paths = AtlasDevStringListNormalizer::uniqueSortedStrings($paths);
 
         return [
             'symbols' => $symbols,

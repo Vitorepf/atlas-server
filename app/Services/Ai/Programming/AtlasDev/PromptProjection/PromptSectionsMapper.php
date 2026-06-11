@@ -11,6 +11,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Components\PromptSections;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\MiniProgrammingSpec;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OpenBrainProgrammingProjection;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 
 /**
  * Maps the validated upstream artifacts into the 13 prompt sections required by
@@ -126,7 +127,7 @@ final class PromptSectionsMapper
             $refs[] = $this->contextRefToString($ref);
         }
 
-        return $this->dedupeList($refs);
+        return AtlasDevStringListNormalizer::uniqueStrings($refs);
     }
 
     private function contextRefToString(ContextRef $ref): string
@@ -160,7 +161,7 @@ final class PromptSectionsMapper
             }
         }
 
-        return $this->dedupeList($tests);
+        return AtlasDevStringListNormalizer::uniqueStrings($tests);
     }
 
     /**
@@ -215,7 +216,7 @@ final class PromptSectionsMapper
             }
         }
 
-        return $this->dedupeList($conditions);
+        return AtlasDevStringListNormalizer::uniqueStrings($conditions);
     }
 
     /**
@@ -224,37 +225,6 @@ final class PromptSectionsMapper
      */
     private function normaliseList(array $items): array
     {
-        $clean = [];
-        foreach ($items as $item) {
-            if (! is_string($item)) {
-                continue;
-            }
-            $trimmed = trim($item);
-            if ($trimmed === '') {
-                continue;
-            }
-            $clean[] = $trimmed;
-        }
-
-        return $this->dedupeList($clean);
-    }
-
-    /**
-     * @param  list<string>  $items
-     * @return list<string>
-     */
-    private function dedupeList(array $items): array
-    {
-        $seen = [];
-        $result = [];
-        foreach ($items as $item) {
-            if (isset($seen[$item])) {
-                continue;
-            }
-            $seen[$item] = true;
-            $result[] = $item;
-        }
-
-        return $result;
+        return AtlasDevStringListNormalizer::uniqueTrimmedStrings($items);
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Symfony\Component\Process\Process;
 
 /**
@@ -86,10 +87,10 @@ class AtlasForgeCursorCliInvocationDriver extends AtlasForgeBaseCliInvocationDri
     public function plan(array $request): array
     {
         $plan = parent::plan($request);
-        $blockers = array_values(array_unique(array_merge(
+        $blockers = AiStringListNormalizer::uniqueMergedStrings(
             (array) ($plan['blockers'] ?? []),
             $this->manifestBlockers($request),
-        )));
+        );
 
         $plan['blockers'] = $blockers;
         $plan['plan_safe'] = $blockers === [];
@@ -142,11 +143,11 @@ class AtlasForgeCursorCliInvocationDriver extends AtlasForgeBaseCliInvocationDri
             $scopeBlockers[] = 'cursor_cli_scope_violation';
         }
 
-        $blockers = array_values(array_unique(array_merge((array) ($result['blockers'] ?? []), $scopeBlockers)));
-        $changedFiles = array_values(array_unique(array_merge(
+        $blockers = AiStringListNormalizer::uniqueMergedStrings((array) ($result['blockers'] ?? []), $scopeBlockers);
+        $changedFiles = AiStringListNormalizer::uniqueMergedStrings(
             $allowedChanged,
             array_values(array_filter($gitChanged, fn (string $path): bool => $this->allowedMatch($path, $allowed))),
-        )));
+        );
         sort($changedFiles);
 
         $result['changed_files'] = $changedFiles;
@@ -223,10 +224,10 @@ class AtlasForgeCursorCliInvocationDriver extends AtlasForgeBaseCliInvocationDri
         $candidates = (array) ($config['binary_candidates'] ?? []);
         array_unshift($candidates, (string) ($config['binary'] ?? 'cursor-agent'));
 
-        return array_values(array_unique(array_filter(array_map(
-            fn (mixed $candidate): string => is_string($candidate) ? trim($candidate) : '',
+        return AiStringListNormalizer::uniqueMappedStrings(
             $candidates,
-        ), fn (string $candidate): bool => $candidate !== '')));
+            fn (mixed $candidate): string => is_string($candidate) ? trim($candidate) : '',
+        );
     }
 
     /** @return list<string> */
@@ -389,7 +390,7 @@ class AtlasForgeCursorCliInvocationDriver extends AtlasForgeBaseCliInvocationDri
             $blockers[] = 'cursor_cli_force_mode_forbidden';
         }
 
-        return array_values(array_unique($blockers));
+        return AiStringListNormalizer::uniqueStrings($blockers);
     }
 
     /**
@@ -565,7 +566,7 @@ class AtlasForgeCursorCliInvocationDriver extends AtlasForgeBaseCliInvocationDri
             'scope_violations' => [],
             'classification' => null,
             'failure_type' => null,
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => AiStringListNormalizer::uniqueStrings($blockers),
             'note' => $note,
         ];
     }

@@ -23,6 +23,7 @@ use App\Services\Ai\Hermes\HermesScheduleAdapter;
 use App\Services\Ai\Hermes\HermesSkillProvisioner;
 use App\Services\Ai\Hermes\ManagedHermesHome;
 use App\Services\Ai\Skills\Governance\HermesSkillProvisionGate;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\AtlasSecurity;
 use Illuminate\Filesystem\Filesystem;
@@ -557,7 +558,7 @@ class HermesCliProvider implements AiProvider
             $args[] = '--yolo';
         }
 
-        return array_values(array_unique($args));
+        return AiStringListNormalizer::uniqueStrings($args);
     }
 
     /**
@@ -805,9 +806,7 @@ class HermesCliProvider implements AiProvider
             return array_values($args);
         }
 
-        $existing = array_filter(array_map('trim', explode(',', (string) $args[$index + 1])), fn (string $t): bool => $t !== '');
-        $existing[] = $toolset;
-        $args[(int) $index + 1] = implode(',', array_values(array_unique($existing)));
+        $args[(int) $index + 1] = implode(',', AiStringListNormalizer::csvOrArray((string) $args[$index + 1].','.$toolset));
 
         return array_values($args);
     }
@@ -907,18 +906,7 @@ class HermesCliProvider implements AiProvider
     {
         $value = data_get($job->payload, 'hermes.skills') ?: ($provider['skills'] ?? null);
 
-        if (is_array($value)) {
-            $items = $value;
-        } elseif (is_string($value) && trim($value) !== '') {
-            $items = preg_split('/\s*,\s*/', trim($value)) ?: [];
-        } else {
-            $items = [];
-        }
-
-        return array_values(array_unique(array_filter(array_map(
-            fn (mixed $item): ?string => is_string($item) && trim($item) !== '' ? trim($item) : null,
-            $items,
-        ))));
+        return AiStringListNormalizer::csvOrArray($value);
     }
 
     /**
@@ -994,11 +982,11 @@ class HermesCliProvider implements AiProvider
         $policy = is_array($policy) ? $policy : [];
         $enabled = (bool) ($policy['enabled'] ?? false);
 
-        $allow = array_values(array_unique(array_merge(
+        $allow = AiStringListNormalizer::uniqueMergedTrimmedStrings(
             is_array($policy['allow'] ?? null) ? array_values(array_filter($policy['allow'], 'is_string')) : [],
             $this->csvCapabilityIds(data_get($job->payload, 'hermes.capability_allow')),
             $enabled ? $this->approvedCapabilityIds() : [],
-        )));
+        );
 
         return [
             'enabled' => $enabled,
@@ -1052,18 +1040,7 @@ class HermesCliProvider implements AiProvider
      */
     private function csvCapabilityIds(mixed $value): array
     {
-        if (is_array($value)) {
-            $items = $value;
-        } elseif (is_string($value) && trim($value) !== '') {
-            $items = preg_split('/\s*,\s*/', trim($value)) ?: [];
-        } else {
-            $items = [];
-        }
-
-        return array_values(array_unique(array_filter(array_map(
-            fn (mixed $item): ?string => is_string($item) && trim($item) !== '' ? trim($item) : null,
-            $items,
-        ))));
+        return AiStringListNormalizer::csvOrArray($value);
     }
 
     private function attachmentPath(mixed $path): ?string

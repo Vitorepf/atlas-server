@@ -9,6 +9,8 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Components\GitState;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\Preflight;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\SurfaceContext;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Support\CanonicalHasher;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevTextMatcher;
 
 /**
  * Surface-agnostic intake normalizer.
@@ -258,12 +260,12 @@ class IntakeNormalizer
         $tokens = $this->countTokens($normalized);
         $haystack = strtolower($normalized."\n".implode("\n", array_map(static fn ($c): string => (string) $c, $userConstraints)));
 
-        $hasReferenceMarker = $this->containsAny($haystack, [
+        $hasReferenceMarker = AtlasDevTextMatcher::containsAny($haystack, [
             '.php', '.ts', '.tsx', '.js', '.jsx', '.md',
             'storage/', 'app/', 'tests/', 'docs/', 'config/',
         ]);
         $hasQuestionWord = $this->startsWithAny($normalized, ['explique ', 'explain ', 'o que ', 'what ', 'onde ', 'where ', 'por que ', 'why ']);
-        $hasActionVerb = $this->containsAny($haystack, [
+        $hasActionVerb = AtlasDevTextMatcher::containsAny($haystack, [
             'corrija', 'corrigir', 'fix', 'ajuste', 'remova', 'remove',
             'adicione', 'adicionar', 'add ', 'crie', 'create', 'rename',
             'refator', 'refactor', 'extract', 'extraia',
@@ -290,23 +292,6 @@ class IntakeNormalizer
         $parts = preg_split('/\s+/u', $normalized) ?: [];
 
         return count(array_filter($parts, static fn ($p): bool => $p !== ''));
-    }
-
-    /**
-     * @param  list<string>  $needles
-     */
-    private function containsAny(string $haystack, array $needles): bool
-    {
-        foreach ($needles as $needle) {
-            if ($needle === '') {
-                continue;
-            }
-            if (str_contains($haystack, $needle)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**
@@ -368,18 +353,6 @@ class IntakeNormalizer
      */
     private function normaliseConstraints(array $constraints): array
     {
-        $clean = [];
-        foreach ($constraints as $constraint) {
-            if (! is_string($constraint)) {
-                continue;
-            }
-            $trimmed = trim($constraint);
-            if ($trimmed === '') {
-                continue;
-            }
-            $clean[] = $trimmed;
-        }
-
-        return array_values(array_unique($clean));
+        return AtlasDevStringListNormalizer::uniqueTrimmedStrings($constraints);
     }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+
 /**
  * Atlas Documentation Reality Block Upgrade Map (ADR-BUM) decider.
  *
@@ -174,7 +176,7 @@ class AtlasDocumentationRealityBlockUpgradeMapService
      */
     public function classifyBlock(array $contract): array
     {
-        $block = $this->stringOrNull($contract['block'] ?? null) ?? 'unnamed_block';
+        $block = AtlasAaeosValueNormalizer::stringOrNull($contract['block'] ?? null) ?? 'unnamed_block';
 
         $declared = [];
         $missingFields = [];
@@ -355,13 +357,4 @@ class AtlasDocumentationRealityBlockUpgradeMapService
         return (bool) $value;
     }
 
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $trimmed = trim($value);
-
-        return $trimmed === '' ? null : $trimmed;
-    }
 }

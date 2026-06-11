@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Cores;
 
+use App\Services\Ai\Aaeos\Support\AtlasAaeosArrayFieldReader;
+
 final class SegmentImportanceRanker
 {
     private const SCHEMA_VERSION = 'atlas.aaeos.segment_importance_ranking.v1';
@@ -175,7 +177,7 @@ final class SegmentImportanceRanker
         $scored = [];
 
         foreach (array_values($maybeDiscard) as $row) {
-            $kind = $this->stringField($row, 'kind');
+            $kind = AtlasAaeosArrayFieldReader::stringField($row, 'kind');
             $recencyRank = $this->intField($row, 'recency_rank');
             $hasEvidenceRef = $this->boolField($row, 'has_evidence_ref');
             $linksDecisionOrBlocker = $this->boolField($row, 'links_decision_or_blocker');
@@ -197,7 +199,7 @@ final class SegmentImportanceRanker
             $score = round($base + $dedupPenalty, 4);
 
             $scored[] = [
-                'id' => $this->stringField($row, 'id'),
+                'id' => AtlasAaeosArrayFieldReader::stringField($row, 'id'),
                 'kind' => $kind,
                 'recency_rank' => $recencyRank,
                 'token_estimate' => max($this->intField($row, 'token_estimate'), 0),
@@ -255,24 +257,6 @@ final class SegmentImportanceRanker
         }
 
         return strcmp($a['id'], $b['id']);
-    }
-
-    /**
-     * @param  array<string,mixed>  $row
-     */
-    private function stringField(array $row, string $key): string
-    {
-        $value = $row[$key] ?? '';
-
-        if (is_string($value)) {
-            return $value;
-        }
-
-        if (is_int($value) || is_float($value)) {
-            return (string) $value;
-        }
-
-        return '';
     }
 
     /**

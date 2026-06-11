@@ -7,6 +7,7 @@ namespace App\Services\Ai\Memory;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasVerbatimMemory;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Semantic\EmbeddingService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -69,7 +70,7 @@ class AtlasMemoryVectorSearchService
     private function score(Builder $builder, string $table, string $query, array $ids): array
     {
         $query = trim($query);
-        $ids = array_values(array_unique(array_filter($ids, static fn (mixed $id): bool => is_string($id) && $id !== '')));
+        $ids = AiStringListNormalizer::uniqueNonEmptyStrings($ids);
 
         if ($query === '' || $ids === [] || ! $this->available()) {
             return [];

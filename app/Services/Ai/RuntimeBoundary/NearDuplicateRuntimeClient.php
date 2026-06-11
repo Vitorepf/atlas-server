@@ -83,18 +83,12 @@ final class NearDuplicateRuntimeClient
      */
     private function run(array $manifest): array
     {
-        $result = $this->runtime->run($manifest);
-
-        // Boundary enforcement: a result is only accepted if it proves real,
-        // in-Python numpy near-duplicate work. This is where a PHP fake would be
-        // rejected.
-        PythonBoundaryReceiptGuard::assertReal(
-            $result,
+        return PythonBoundaryReceiptGuard::runReal(
+            $this->runtime,
+            $manifest,
             ['near_duplicate_in_python', 'real_jaccard'],
             ['fabricated'],
             'near_duplicate returned a non-real-engine boundary receipt — refusing (anti-fake guard).',
         );
-
-        return $result;
     }
 }

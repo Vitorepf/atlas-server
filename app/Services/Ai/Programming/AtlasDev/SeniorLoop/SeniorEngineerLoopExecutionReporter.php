@@ -16,6 +16,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ObservedSignals;
 use App\Services\Ai\Programming\AtlasDev\Schemas\FastPathErrorLedgerEntry;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ScopeGuardReceipt;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use App\Services\Ai\Programming\AtlasDev\Telemetry\ErrorLedgerWriter;
 
 final class SeniorEngineerLoopExecutionReporter
@@ -166,7 +167,7 @@ final class SeniorEngineerLoopExecutionReporter
             $blockers[] = 'completion_blocked';
         }
 
-        return array_values(array_unique($blockers));
+        return AtlasDevStringListNormalizer::uniqueTrimmedStrings($blockers);
     }
 
     /**
@@ -351,6 +352,6 @@ final class SeniorEngineerLoopExecutionReporter
             $signals[] = 'run_completed_without_learning_error';
         }
 
-        return array_values(array_unique($signals));
+        return AtlasDevStringListNormalizer::uniqueTrimmedStrings($signals);
     }
 }

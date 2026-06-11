@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Mission;
 
+use App\Services\Ai\Mission\Support\MissionPromptTokenizer;
+use App\Services\Ai\Support\AiStringListNormalizer;
+
 /**
  * Infers directed producer-before-consumer dependency edges between mission
  * objectives.
@@ -161,29 +164,11 @@ final class ObjectiveDependencyEdgeInferer
 
             $normalized[] = [
                 'id' => $id,
-                'tokens' => $this->tokenize($title),
+                'tokens' => MissionPromptTokenizer::semanticWords($title),
             ];
         }
 
         return $normalized;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function tokenize(string $text): array
-    {
-        $lower = mb_strtolower($text, 'UTF-8');
-        $parts = preg_split('/[^\p{L}\p{N}]+/u', $lower) ?: [];
-
-        $tokens = [];
-        foreach ($parts as $part) {
-            if ($part !== '') {
-                $tokens[] = $part;
-            }
-        }
-
-        return $tokens;
     }
 
     /**
@@ -254,14 +239,7 @@ final class ObjectiveDependencyEdgeInferer
      */
     private function producerVerbs(): array
     {
-        $verbs = [];
-        foreach (self::RULES as $rule) {
-            if (! in_array($rule[0], $verbs, true)) {
-                $verbs[] = $rule[0];
-            }
-        }
-
-        return $verbs;
+        return AiStringListNormalizer::uniqueStrings(array_column(self::RULES, 0));
     }
 
     /**
@@ -269,13 +247,6 @@ final class ObjectiveDependencyEdgeInferer
      */
     private function consumerVerbs(): array
     {
-        $verbs = [];
-        foreach (self::RULES as $rule) {
-            if (! in_array($rule[1], $verbs, true)) {
-                $verbs[] = $rule[1];
-            }
-        }
-
-        return $verbs;
+        return AiStringListNormalizer::uniqueStrings(array_column(self::RULES, 1));
     }
 }

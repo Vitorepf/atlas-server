@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Pipeline;
 
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
+
 /**
  * Turns a large, multi-layer slice into an ordered tree of atomic FIRST steps.
  *
@@ -215,14 +217,6 @@ final class AtomicSemanticDecomposer
      */
     private function dedupe(array $paths): array
     {
-        $clean = [];
-        foreach ($paths as $path) {
-            $trimmed = trim($path);
-            if ($trimmed !== '') {
-                $clean[] = $trimmed;
-            }
-        }
-
-        return array_values(array_unique($clean));
+        return AtlasDevStringListNormalizer::uniqueTrimmedStrings($paths);
     }
 }

@@ -6,6 +6,7 @@ namespace App\Services\Ai\Programming\AtlasDev\Provider;
 
 use App\Services\Ai\Programming\AtlasDev\Schemas\Support\CanonicalHasher;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Support\CanonicalJson;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use InvalidArgumentException;
 
 /**
@@ -57,16 +58,8 @@ final class DiffParseResult
                 'DiffParseResult.mode must be one of ['.implode(',', self::ALLOWED_MODES)."], got '{$this->mode}'."
             );
         }
-        foreach ($this->changedFiles as $i => $file) {
-            if (! is_string($file) || $file === '') {
-                throw new InvalidArgumentException("DiffParseResult.changed_files[{$i}] must be a non-empty string.");
-            }
-        }
-        foreach ($this->errors as $i => $err) {
-            if (! is_string($err) || $err === '') {
-                throw new InvalidArgumentException("DiffParseResult.errors[{$i}] must be a non-empty string.");
-            }
-        }
+        AtlasDevStringListNormalizer::requireNonEmptyStrings($this->changedFiles, 'DiffParseResult.changed_files');
+        AtlasDevStringListNormalizer::requireNonEmptyStrings($this->errors, 'DiffParseResult.errors');
         if ($this->mode === self::MODE_PATCH && ($this->diff === null || $this->diff === '')) {
             throw new InvalidArgumentException('DiffParseResult: MODE_PATCH requires non-empty diff.');
         }

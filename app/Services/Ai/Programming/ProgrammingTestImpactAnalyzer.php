@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Support\Facades\File;
 
 class ProgrammingTestImpactAnalyzer
@@ -13,7 +14,10 @@ class ProgrammingTestImpactAnalyzer
      */
     public function analyze(array $changedFiles, array $codeGraph = [], string $risk = 'medium'): array
     {
-        $related = array_values(array_unique(array_filter((array) data_get($codeGraph, 'related_tests', []), 'is_string')));
+        $related = AiStringListNormalizer::uniqueStrings(array_values(array_filter(
+            (array) data_get($codeGraph, 'related_tests', []),
+            'is_string',
+        )));
         $selected = $related;
         foreach ($changedFiles as $file) {
             if (! is_string($file)) {
@@ -26,7 +30,7 @@ class ProgrammingTestImpactAnalyzer
                 $selected[] = $candidate;
             }
         }
-        $selected = array_values(array_unique($selected));
+        $selected = AiStringListNormalizer::uniqueStrings($selected);
         $selectedExisting = array_values(array_filter(
             $selected,
             fn (string $test): bool => File::exists(base_path($test)),
@@ -97,6 +101,6 @@ class ProgrammingTestImpactAnalyzer
             $commands[] = 'npm run test:engineering';
         }
 
-        return array_values(array_unique($commands));
+        return AiStringListNormalizer::uniqueStrings($commands);
     }
 }

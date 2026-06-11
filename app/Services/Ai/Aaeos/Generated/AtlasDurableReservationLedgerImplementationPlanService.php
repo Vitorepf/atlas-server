@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Atlas Self-Construction Durable Reservation Ledger Implementation Plan — pure,
  * deterministic, READ-ONLY decider that encodes the implementation PLAN doc as
@@ -312,8 +314,8 @@ final class AtlasDurableReservationLedgerImplementationPlanService
     public function evaluateClaim(array $input = []): array
     {
         $candidateId = is_string($input['candidate_packet_id'] ?? null) ? $input['candidate_packet_id'] : null;
-        $allowed = $this->stringList($input['allowed_files'] ?? null);
-        $hotScopes = $this->stringList($input['hot_scopes'] ?? null) ?: self::DEFAULT_HOT_SCOPES;
+        $allowed = AtlasAaeosStringListNormalizer::nonEmptyArrayStrings($input['allowed_files'] ?? null);
+        $hotScopes = AtlasAaeosStringListNormalizer::nonEmptyArrayStrings($input['hot_scopes'] ?? null) ?: self::DEFAULT_HOT_SCOPES;
 
         $packetHash = is_string($input['packet_hash'] ?? null) ? $input['packet_hash'] : null;
         $splitHash = is_string($input['split_hash'] ?? null) ? $input['split_hash'] : null;
@@ -360,7 +362,7 @@ final class AtlasDurableReservationLedgerImplementationPlanService
                 if (! $this->isActive($row)) {
                     continue;
                 }
-                foreach (array_intersect($allowed, $this->stringList($row['allowed_files'] ?? null)) as $file) {
+                foreach (array_intersect($allowed, AtlasAaeosStringListNormalizer::nonEmptyArrayStrings($row['allowed_files'] ?? null)) as $file) {
                     $overlapping[] = $file;
                 }
             }
@@ -423,7 +425,10 @@ final class AtlasDurableReservationLedgerImplementationPlanService
         } elseif ($this->hashChanged($row['packet_hash'] ?? null, $current['packet_hash'] ?? null)) {
             $accepted = false;
             $reason = 'packet_hash_changed';
-        } elseif ($this->stringList($row['allowed_files'] ?? null) !== $this->stringList($current['allowed_files'] ?? null)) {
+        } elseif (
+            AtlasAaeosStringListNormalizer::nonEmptyArrayStrings($row['allowed_files'] ?? null)
+            !== AtlasAaeosStringListNormalizer::nonEmptyArrayStrings($current['allowed_files'] ?? null)
+        ) {
             $accepted = false;
             $reason = 'allowed_files_changed';
         }
@@ -686,23 +691,4 @@ final class AtlasDurableReservationLedgerImplementationPlanService
         return array_values(array_unique($hits));
     }
 
-    /**
-     * Coerce a value into a clean list of non-empty strings.
-     *
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item) && $item !== '') {
-                $out[] = $item;
-            }
-        }
-
-        return array_values($out);
-    }
 }

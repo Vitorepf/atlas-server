@@ -6,6 +6,7 @@ namespace App\Services\Ai\Programming\AtlasDev\Intelligence;
 
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\EvidenceRef;
 use App\Services\Ai\Programming\AtlasDev\Schemas\PatchIntelligenceReceipt;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use InvalidArgumentException;
 
 /**
@@ -49,16 +50,8 @@ final class TestSelectionInput
         if ($this->fileExists !== null && ! is_callable($this->fileExists)) {
             throw new InvalidArgumentException('TestSelectionInput.fileExists must be callable when provided.');
         }
-        foreach ($this->changedFiles as $i => $file) {
-            if (! is_string($file) || $file === '') {
-                throw new InvalidArgumentException("changed_files[{$i}] must be a non-empty string.");
-            }
-        }
-        foreach ($this->expectedTests as $i => $test) {
-            if (! is_string($test) || $test === '') {
-                throw new InvalidArgumentException("expected_tests[{$i}] must be a non-empty string.");
-            }
-        }
+        AtlasDevStringListNormalizer::requireNonEmptyStrings($this->changedFiles, 'changed_files');
+        AtlasDevStringListNormalizer::requireNonEmptyStrings($this->expectedTests, 'expected_tests');
         foreach ($this->evidenceRefs as $i => $ref) {
             if (! $ref instanceof EvidenceRef) {
                 throw new InvalidArgumentException("evidence_refs[{$i}] must be EvidenceRef.");

@@ -8,6 +8,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as Op
 use App\Services\Ai\Programming\AtlasDev\Schemas\CompactSdd;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ContextRetrievalPlan;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Support\CanonicalHasher;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 
 /**
  * Deterministic doc tier selector for the Atlas Dev fast path.
@@ -118,7 +119,7 @@ final class DocContextTierSelector
         $mode = $compactSdd->mode;
         $workspaceResolved = $envelope->preflight->workspaceResolved;
         $surfaceId = $envelope->surfaceId;
-        $declared = array_values(array_unique($compactSdd->docTiersRequired));
+        $declared = AtlasDevStringListNormalizer::uniqueStrings($compactSdd->docTiersRequired);
 
         $tiers = [];
 
@@ -156,7 +157,7 @@ final class DocContextTierSelector
             }
         }
 
-        return $this->orderTiers(array_values(array_unique($tiers)));
+        return $this->orderTiers(AtlasDevStringListNormalizer::uniqueStrings($tiers));
     }
 
     /**
@@ -179,7 +180,7 @@ final class DocContextTierSelector
             $required[] = 'doc://engineering-knowledge-base/atlas-forge-operating-system.md';
         }
 
-        return array_values(array_unique($required));
+        return AtlasDevStringListNormalizer::uniqueStrings($required);
     }
 
     /**
@@ -202,7 +203,7 @@ final class DocContextTierSelector
             $optional[] = 'doc://engineering-knowledge-base/atlas-forge-operating-system.md#obras';
         }
 
-        return array_values(array_unique($optional));
+        return AtlasDevStringListNormalizer::uniqueStrings($optional);
     }
 
     private function resolveOpenBrainMode(OperationEnvelope $envelope, CompactSdd $compactSdd): string

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Mobile app-onboarding product-proof gate evaluator.
  *
@@ -99,9 +101,9 @@ final class AtlasProgrammingFrontendProductProofMobileAppOnboardingService
      */
     public function evaluate(array $demo): array
     {
-        $viewports = $this->normalizeList($demo['viewports'] ?? []);
-        $evidence = $this->normalizeList($demo['evidence'] ?? []);
-        $states = $this->normalizeList($demo['states'] ?? []);
+        $viewports = AtlasAaeosStringListNormalizer::uniqueLowerTrimmedStrings($demo['viewports'] ?? []);
+        $evidence = AtlasAaeosStringListNormalizer::uniqueLowerTrimmedStrings($demo['evidence'] ?? []);
+        $states = AtlasAaeosStringListNormalizer::uniqueLowerTrimmedStrings($demo['states'] ?? []);
         $a11yReason = $this->normalizeString($demo['a11y_reason'] ?? null);
 
         $claimsPublished = (bool) ($demo['claims_published'] ?? false);
@@ -273,26 +275,6 @@ final class AtlasProgrammingFrontendProductProofMobileAppOnboardingService
         }
 
         return $map;
-    }
-
-    /**
-     * @param mixed $value
-     * @return list<string>
-     */
-    private function normalizeList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $clean = [];
-        foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $clean[] = strtolower(trim($item));
-            }
-        }
-
-        return array_values(array_unique($clean));
     }
 
     private function normalizeString(mixed $value): ?string

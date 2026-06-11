@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Runtime;
 
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use App\Services\Ai\Support\JsonFileStore;
 use Illuminate\Support\Facades\File;
 
@@ -137,7 +138,7 @@ final class AtlasDevDesktopEfficiencyEvidenceService
             ];
         }
 
-        $coveredTaskKinds = array_values(array_unique($coveredTaskKinds));
+        $coveredTaskKinds = AtlasDevStringListNormalizer::uniqueTrimmedStrings($coveredTaskKinds);
         sort($coveredTaskKinds);
         $missingTaskKinds = array_values(array_diff(self::REQUIRED_TASK_KINDS, $coveredTaskKinds));
         if ($missingTaskKinds !== []) {
@@ -159,7 +160,7 @@ final class AtlasDevDesktopEfficiencyEvidenceService
             $findings[] = 'measured_multiplier_below_10';
         }
 
-        $findings = array_values(array_unique($findings));
+        $findings = AtlasDevStringListNormalizer::uniqueTrimmedStrings($findings);
 
         return [
             'schema_version' => self::EVIDENCE_SCHEMA_VERSION,
@@ -505,7 +506,7 @@ final class AtlasDevDesktopEfficiencyEvidenceService
             'case_count' => count($cases),
             'source_count' => count(self::REQUIRED_TASK_KINDS) * 3,
             'cases_written' => true,
-            'blocking_findings' => array_values(array_unique($blockers)),
+            'blocking_findings' => AtlasDevStringListNormalizer::uniqueTrimmedStrings($blockers),
         ];
     }
 
@@ -699,10 +700,10 @@ final class AtlasDevDesktopEfficiencyEvidenceService
         }
 
         return [
-            'refs' => array_values(array_unique($refs)),
-            'written_refs' => array_values(array_unique($writtenRefs)),
-            'refreshed_refs' => array_values(array_unique($refreshedRefs)),
-            'preserved_refs' => array_values(array_unique($preservedRefs)),
+            'refs' => AtlasDevStringListNormalizer::uniqueTrimmedStrings($refs),
+            'written_refs' => AtlasDevStringListNormalizer::uniqueTrimmedStrings($writtenRefs),
+            'refreshed_refs' => AtlasDevStringListNormalizer::uniqueTrimmedStrings($refreshedRefs),
+            'preserved_refs' => AtlasDevStringListNormalizer::uniqueTrimmedStrings($preservedRefs),
         ];
     }
 
@@ -941,7 +942,7 @@ final class AtlasDevDesktopEfficiencyEvidenceService
             $blockers[] = 'run_ref_invalid_payload';
         }
 
-        return array_values(array_unique($blockers));
+        return AtlasDevStringListNormalizer::uniqueTrimmedStrings($blockers);
     }
 
     private function rawRunRefMatches(string $receiptsRoot, string $runRef, string $caseId, string $taskKind, string $participant): bool
@@ -1116,6 +1117,6 @@ final class AtlasDevDesktopEfficiencyEvidenceService
             $refs[] = $ref;
         }
 
-        return array_values(array_unique($refs));
+        return AtlasDevStringListNormalizer::uniqueTrimmedStrings($refs);
     }
 }

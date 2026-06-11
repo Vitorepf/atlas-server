@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Programming\Frontend;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 final class AtlasFrontendWorkOrderService
 {
@@ -60,21 +61,21 @@ final class AtlasFrontendWorkOrderService
             'work_packets' => $packets,
             'required_next_actions' => $status === 'ready'
                 ? $this->readyNextActions($packets)
-                : array_values(array_unique(array_merge(
+                : AiStringListNormalizer::uniqueMergedStrings(
                     (array) ($gauntlet['required_next_actions'] ?? []),
                     (array) ($controlPlane['required_next_actions'] ?? []),
-                ))),
+                ),
             'claim_policy' => [
                 'work_order_is_not_completion_evidence' => true,
                 'completion_requires_run_certification_and_handoff' => true,
                 'premium_claim_requires_all_packets_evidenced' => true,
                 'world_best_claim_allowed' => false,
             ],
-            'blockers' => $status === 'ready' ? [] : array_values(array_unique(array_merge(
+            'blockers' => $status === 'ready' ? [] : AiStringListNormalizer::uniqueMergedStrings(
                 $this->phaseBlockers($gauntlet),
                 (array) ($controlPlane['blockers'] ?? []),
-            ))),
-            'warnings' => array_values(array_unique((array) ($controlPlane['warnings'] ?? []))),
+            ),
+            'warnings' => AiStringListNormalizer::uniqueStrings((array) ($controlPlane['warnings'] ?? [])),
         ];
         $payload['work_order_hash'] = MissionCanonicalHash::sha256($payload);
 
@@ -141,10 +142,10 @@ final class AtlasFrontendWorkOrderService
      */
     private function contextRepairPackets(array $gauntlet, array $controlPlane): array
     {
-        $actions = array_values(array_unique(array_merge(
+        $actions = AiStringListNormalizer::uniqueMergedStrings(
             (array) ($gauntlet['required_next_actions'] ?? []),
             (array) ($controlPlane['required_next_actions'] ?? []),
-        )));
+        );
 
         return [
             [

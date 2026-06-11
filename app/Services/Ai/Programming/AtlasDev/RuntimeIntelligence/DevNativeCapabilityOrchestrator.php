@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 
 class DevNativeCapabilityOrchestrator
 {
@@ -32,7 +33,7 @@ class DevNativeCapabilityOrchestrator
         $contextGate = $signals['context_gate'] ?? [];
         $outcome = is_array($signals['outcome'] ?? null) ? $signals['outcome'] : [];
         $failure = is_array($signals['failure'] ?? null) ? $signals['failure'] : [];
-        $changedFiles = $this->stringList($signals['changed_files'] ?? $outcome['changed_files'] ?? $failure['changed_files'] ?? []);
+        $changedFiles = AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($signals['changed_files'] ?? $outcome['changed_files'] ?? $failure['changed_files'] ?? []);
 
         $decisions = [
             'test_impact' => $this->testImpact($packet),
@@ -95,7 +96,7 @@ class DevNativeCapabilityOrchestrator
      */
     private function testImpact(array $packet): array
     {
-        $focused = $this->stringList($packet['suggested_tests'] ?? []);
+        $focused = AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($packet['suggested_tests'] ?? []);
         $risk = (string) ($packet['risk_band'] ?? 'medium');
         $fallback = $risk === 'critical' || $risk === 'high'
             ? ['php artisan test --filter=AtlasDev|Programming|RouterRuntime']
@@ -124,14 +125,14 @@ class DevNativeCapabilityOrchestrator
         $risk = (string) ($packet['risk_band'] ?? 'medium');
         $sensitive = $this->sensitiveReasons($packet, $changedFiles);
         $required = in_array($risk, ['high', 'critical'], true) || $sensitive !== [];
-        $hasEvidence = $this->stringList($signals['senior_review_evidence'] ?? []) !== [];
+        $hasEvidence = AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($signals['senior_review_evidence'] ?? []) !== [];
 
         return [
             'schema_version' => 'atlas.dev.senior_review.v1',
             'status' => ! $required ? 'not_required' : ($hasEvidence ? 'ready' : 'needs_review'),
             'required' => $required,
             'sensitive_reasons' => $sensitive,
-            'evidence_refs' => $this->stringList($signals['senior_review_evidence'] ?? []),
+            'evidence_refs' => AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($signals['senior_review_evidence'] ?? []),
             'reason' => $required ? 'Sensitive or high-risk Dev task requires senior review evidence.' : 'Risk does not require senior review.',
         ];
     }
@@ -144,7 +145,7 @@ class DevNativeCapabilityOrchestrator
      */
     private function delegationRoute(array $packet, array $signals, array $contextGate): array
     {
-        $expectedFiles = $this->stringList($packet['expected_files'] ?? []);
+        $expectedFiles = AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($packet['expected_files'] ?? []);
         $risk = (string) ($packet['risk_band'] ?? 'medium');
         $repeatFailures = (int) ($signals['repeat_failures'] ?? 0);
         $contextBlocked = ($contextGate['provider_safe'] ?? true) === false;
@@ -179,8 +180,8 @@ class DevNativeCapabilityOrchestrator
     private function promptProjectionGuard(array $packet, array $contextGate): array
     {
         $providerSafe = (bool) ($contextGate['provider_safe'] ?? false);
-        $hasScope = $this->stringList($packet['allowed_files'] ?? []) !== [] || $this->stringList($packet['expected_files'] ?? []) !== [];
-        $hasDone = $this->stringList($packet['acceptance_criteria'] ?? []) !== [];
+        $hasScope = AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($packet['allowed_files'] ?? []) !== [] || AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($packet['expected_files'] ?? []) !== [];
+        $hasDone = AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($packet['acceptance_criteria'] ?? []) !== [];
 
         return [
             'schema_version' => 'atlas.dev.prompt_projection_guard.v1',
@@ -188,10 +189,10 @@ class DevNativeCapabilityOrchestrator
             'provider_safe' => $providerSafe,
             'redaction_required' => true,
             'scope_required' => true,
-            'allowed_files' => $this->stringList($packet['allowed_files'] ?? []),
-            'forbidden_files' => $this->stringList($packet['forbidden_files'] ?? []),
+            'allowed_files' => AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($packet['allowed_files'] ?? []),
+            'forbidden_files' => AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($packet['forbidden_files'] ?? []),
             'non_goals' => ['Do not expand scope beyond the DevTaskPacket.', 'Do not modify Forge unless escalation explicitly requires it.'],
-            'done_criteria' => $this->stringList($packet['acceptance_criteria'] ?? []),
+            'done_criteria' => AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($packet['acceptance_criteria'] ?? []),
             'reason' => 'Provider/subagent prompt must be scoped, redacted and evidence-driven.',
         ];
     }
@@ -203,10 +204,10 @@ class DevNativeCapabilityOrchestrator
      */
     private function scopeGuard(array $packet, array $changedFiles): array
     {
-        $allowed = $this->stringList($packet['allowed_files'] ?? []);
-        $expected = $this->stringList($packet['expected_files'] ?? []);
-        $forbidden = $this->stringList($packet['forbidden_files'] ?? []);
-        $permitted = array_values(array_unique(array_merge($allowed, $expected)));
+        $allowed = AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($packet['allowed_files'] ?? []);
+        $expected = AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($packet['expected_files'] ?? []);
+        $forbidden = AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($packet['forbidden_files'] ?? []);
+        $permitted = AtlasDevStringListNormalizer::uniqueMergedStrings($allowed, $expected);
         $violations = [];
 
         foreach ($changedFiles as $file) {
@@ -236,8 +237,8 @@ class DevNativeCapabilityOrchestrator
      */
     private function simulation(array $packet, array $changedFiles): array
     {
-        $expected = $this->stringList($packet['expected_files'] ?? []);
-        $likelyFiles = array_values(array_unique(array_merge($expected, $changedFiles)));
+        $expected = AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($packet['expected_files'] ?? []);
+        $likelyFiles = AtlasDevStringListNormalizer::uniqueMergedStrings($expected, $changedFiles);
         $risk = (string) ($packet['risk_band'] ?? 'medium');
         $docs = array_values(array_filter($likelyFiles, static fn (string $file): bool => str_starts_with($file, 'docs/')));
 
@@ -250,7 +251,7 @@ class DevNativeCapabilityOrchestrator
                 'requires_docs_update' => $docs !== [],
             ],
             'likely_files' => $likelyFiles,
-            'affected_tests' => $this->stringList($packet['suggested_tests'] ?? []),
+            'affected_tests' => AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($packet['suggested_tests'] ?? []),
             'conflict_risk' => count($likelyFiles) > 6 || in_array($risk, ['high', 'critical'], true) ? 'elevated' : 'normal',
             'docs_to_update' => $docs,
             'reason' => 'Pre-execution simulation predicts files, tests, docs and conflict risk.',
@@ -266,8 +267,8 @@ class DevNativeCapabilityOrchestrator
     private function completionGate(array $packet, array $signals, array $changedFiles): array
     {
         $outcome = is_array($signals['outcome'] ?? null) ? $signals['outcome'] : [];
-        $evidence = $this->stringList($outcome['evidence_kinds'] ?? $signals['evidence_kinds'] ?? []);
-        $tests = $this->stringList($outcome['selected_tests'] ?? $packet['suggested_tests'] ?? []);
+        $evidence = AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($outcome['evidence_kinds'] ?? $signals['evidence_kinds'] ?? []);
+        $tests = AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($outcome['selected_tests'] ?? $packet['suggested_tests'] ?? []);
         $diffClean = (bool) ($signals['diff_clean'] ?? false);
         $scopeStatus = (string) ($signals['scope_status'] ?? 'unknown');
         $outcomeStatus = (string) ($outcome['outcome_status'] ?? 'unknown');
@@ -323,9 +324,9 @@ class DevNativeCapabilityOrchestrator
      */
     private function forgeEscalationPolicy(array $packet, array $signals, array $contextGate): array
     {
-        $expected = $this->stringList($packet['expected_files'] ?? []);
+        $expected = AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($packet['expected_files'] ?? []);
         $risk = (string) ($packet['risk_band'] ?? 'medium');
-        $domains = $this->stringList($signals['domains'] ?? []);
+        $domains = AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($signals['domains'] ?? []);
         $reasons = [];
 
         if (($contextGate['provider_safe'] ?? true) === false) {
@@ -363,8 +364,8 @@ class DevNativeCapabilityOrchestrator
     {
         $haystack = strtolower(implode("\n", array_merge(
             $changedFiles,
-            $this->stringList($packet['expected_files'] ?? []),
-            $this->stringList($packet['context_refs'] ?? []),
+            AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($packet['expected_files'] ?? []),
+            AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($packet['context_refs'] ?? []),
             [(string) ($packet['objective'] ?? '')],
         )));
 
@@ -387,22 +388,7 @@ class DevNativeCapabilityOrchestrator
             }
         }
 
-        return array_values(array_unique($reasons));
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_unique(array_filter(array_map(
-            static fn (mixed $item): ?string => is_scalar($item) ? trim((string) $item) : null,
-            $value,
-        ), static fn (?string $item): bool => $item !== null && $item !== '')));
+        return AtlasDevStringListNormalizer::uniqueMergedStrings($reasons);
     }
 
     /**

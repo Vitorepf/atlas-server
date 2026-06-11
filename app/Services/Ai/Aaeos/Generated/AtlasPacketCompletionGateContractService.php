@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Self-Construction Packet Completion Gate — pure, deterministic completion decider.
  *
@@ -118,7 +120,7 @@ final class AtlasPacketCompletionGateContractService
         $gateStatuses = $this->pairs($input['required_gate_statuses'] ?? [], 'id', 'status');
         $evidenceStatuses = $this->pairs($input['required_evidence_statuses'] ?? [], 'id', 'status');
         $externalBlockers = $this->externalBlockers($input['external_blockers'] ?? []);
-        $upstreamReasons = $this->stringList($input['blocking_reasons'] ?? []);
+        $upstreamReasons = AtlasAaeosStringListNormalizer::trimmedStrings($input['blocking_reasons'] ?? []);
 
         // ---- Gather blocking reasons (these define whether the report is truly clean) ----
         $blockingReasons = [];
@@ -285,26 +287,6 @@ final class AtlasPacketCompletionGateContractService
             }
             $right = isset($row[$rightKey]) && is_string($row[$rightKey]) ? trim($row[$rightKey]) : '';
             $out[] = [$leftKey => $left, $rightKey => $right];
-        }
-
-        return $out;
-    }
-
-    /**
-     * @param mixed $raw
-     * @return list<string>
-     */
-    private function stringList(mixed $raw): array
-    {
-        if (! is_array($raw)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($raw as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
         }
 
         return $out;

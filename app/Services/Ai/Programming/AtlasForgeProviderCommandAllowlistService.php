@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
+
 /**
  * Atlas Forge Provider Command Allowlist.
  *
@@ -104,7 +106,7 @@ class AtlasForgeProviderCommandAllowlistService
             $blockers[] = self::BLOCKER_SHELL_METACHARACTER;
         }
 
-        $blockers = array_values(array_unique($blockers));
+        $blockers = AiStringListNormalizer::uniqueStrings($blockers);
 
         return [
             'schema_version' => self::SCHEMA_VERSION,

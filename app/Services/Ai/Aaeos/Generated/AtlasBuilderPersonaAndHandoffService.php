@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+
 /**
  * Self-Construction Builder Persona And Handoff — pure, deterministic certifier.
  *
@@ -224,7 +227,7 @@ final class AtlasBuilderPersonaAndHandoffService
         $violations = $this->handoffViolations($handoff);
 
         // ---- Tone Of Work scan ----------------------------------------------
-        $summaryText = $this->stringOrNull($input['summary'] ?? null) ?? '';
+        $summaryText = AtlasAaeosValueNormalizer::stringOrNull($input['summary'] ?? null) ?? '';
         $bannedPhrases = $this->scanTone($summaryText);
         $toneClean = $bannedPhrases === [];
         if (! $toneClean) {
@@ -312,22 +315,22 @@ final class AtlasBuilderPersonaAndHandoffService
         // Claim without evidence: maturity advanced but no evidence listed.
         $before = $this->numeric($handoff['maturity_before'] ?? null);
         $after = $this->numeric($handoff['maturity_after'] ?? null);
-        $evidence = $this->listOfStrings($handoff['evidence'] ?? []);
+        $evidence = AtlasAaeosStringListNormalizer::uniqueTrimmedStrings($handoff['evidence'] ?? []);
         if ($before !== null && $after !== null && $after > $before && $evidence === []) {
             $violations[] = 'maturity_claim_without_evidence';
         }
 
         // Contradiction: the same gate id appears in both passed and failed.
-        $passed = $this->listOfStrings($handoff['gates_passed'] ?? []);
-        $failed = $this->listOfStrings($handoff['gates_failed'] ?? []);
+        $passed = AtlasAaeosStringListNormalizer::uniqueTrimmedStrings($handoff['gates_passed'] ?? []);
+        $failed = AtlasAaeosStringListNormalizer::uniqueTrimmedStrings($handoff['gates_failed'] ?? []);
         $overlap = array_values(array_intersect($passed, $failed));
         if ($overlap !== []) {
             $violations[] = 'gate_reported_passed_and_failed:'.implode(',', $overlap);
         }
 
         // Constraints not preserved: high residual risk with no do_not_touch.
-        $risk = $this->stringOrNull($handoff['residual_risk'] ?? null);
-        $doNotTouch = $this->listOfStrings($handoff['do_not_touch'] ?? []);
+        $risk = AtlasAaeosValueNormalizer::stringOrNull($handoff['residual_risk'] ?? null);
+        $doNotTouch = AtlasAaeosStringListNormalizer::uniqueTrimmedStrings($handoff['do_not_touch'] ?? []);
         if ($risk === self::HIGH_RISK && $doNotTouch === []) {
             $violations[] = 'high_risk_without_do_not_touch_boundary';
         }
@@ -409,16 +412,6 @@ final class AtlasBuilderPersonaAndHandoffService
         return true;
     }
 
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $trimmed = trim($value);
-
-        return $trimmed === '' ? null : $trimmed;
-    }
-
     private function numeric(mixed $value): ?float
     {
         if (is_int($value) || is_float($value)) {
@@ -437,26 +430,6 @@ final class AtlasBuilderPersonaAndHandoffService
     private function mapOrEmpty(mixed $value): array
     {
         return is_array($value) ? $value : [];
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function listOfStrings(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($value as $item) {
-            $str = $this->stringOrNull($item);
-            if ($str !== null) {
-                $out[] = $str;
-            }
-        }
-
-        return array_values(array_unique($out));
     }
 
     /**

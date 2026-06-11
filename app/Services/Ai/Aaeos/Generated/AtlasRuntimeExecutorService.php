@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+
 /**
  * Runtime Executor kernel gear.
  *
@@ -117,9 +120,9 @@ final class AtlasRuntimeExecutorService
      */
     public function decide(?array $receipt, array $request): array
     {
-        $files = $this->stringList($request['files'] ?? []);
-        $commands = $this->stringList($request['commands'] ?? []);
-        $evidenceRef = $this->stringOrNull($request['evidence_ref'] ?? null);
+        $files = AtlasAaeosStringListNormalizer::trimmedStrings($request['files'] ?? []);
+        $commands = AtlasAaeosStringListNormalizer::trimmedStrings($request['commands'] ?? []);
+        $evidenceRef = AtlasAaeosValueNormalizer::stringOrNull($request['evidence_ref'] ?? null);
 
         // Rule 0 — no authorized receipt: "Receipt autoriza." Nothing runs without it.
         if ($receipt === null || $receipt === [] || ($receipt['active'] ?? true) === false) {
@@ -164,7 +167,7 @@ final class AtlasRuntimeExecutorService
 
         // Rule 3 — manual commands must not escape the receipt: a command the
         // receipt did not sanction is "comando manual escapar do receipt".
-        $allowedCommands = $this->stringList($receipt['allowed_commands'] ?? []);
+        $allowedCommands = AtlasAaeosStringListNormalizer::trimmedStrings($receipt['allowed_commands'] ?? []);
         $escapingCommands = array_values(array_filter(
             $commands,
             fn (string $cmd): bool => ! in_array($cmd, $allowedCommands, true),
@@ -396,39 +399,7 @@ final class AtlasRuntimeExecutorService
      */
     private function patternList(mixed $values): array
     {
-        if (! is_array($values)) {
-            return [];
-        }
-
-        return array_values(array_unique(array_filter(
-            array_map(static fn (mixed $v): string => is_string($v) ? trim($v) : '', $values),
-            static fn (string $v): bool => $v !== '',
-        )));
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $values): array
-    {
-        if (! is_array($values)) {
-            return [];
-        }
-
-        return array_values(array_filter(
-            array_map(static fn (mixed $v): string => is_string($v) ? trim($v) : '', $values),
-            static fn (string $v): bool => $v !== '',
-        ));
-    }
-
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $trimmed = trim($value);
-
-        return $trimmed !== '' ? $trimmed : null;
+        return AtlasAaeosStringListNormalizer::uniqueTrimmedStrings($values);
     }
 
     /**

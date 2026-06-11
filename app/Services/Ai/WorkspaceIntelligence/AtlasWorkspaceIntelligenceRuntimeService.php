@@ -1232,7 +1232,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 if ($packet === null) {
                     continue;
                 }
-                $changedFiles = array_values(array_filter((array) ($packet->expected_files ?? []), 'is_string'));
+                $changedFiles = $this->listNormalizer->stringsFromArrayCast($packet->expected_files ?? []);
                 $contextRefs = (array) ($packet->intake?->context_refs ?? []);
                 $policyRefs = $this->executionPolicyRefs($contextRefs);
                 foreach (array_values((array) ($packet->suggested_tests ?? [])) as $command) {
@@ -1274,11 +1274,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
 
             foreach ($engineeringRuns as $testRun) {
                 $metadata = (array) ($testRun->metadata ?? []);
-                $changedFiles = array_values(array_filter(array_merge(
-                    (array) ($metadata['changed_files'] ?? []),
-                    (array) ($metadata['expected_files'] ?? []),
-                    (array) ($metadata['files'] ?? []),
-                ), 'is_string'));
+                $changedFiles = $this->changedFilesFromCommandMetadata($metadata);
                 $this->recordCommandOutcome(
                     $stats,
                     (string) $testRun->command,
@@ -1309,11 +1305,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 if ($resultWorkspace === '' && $workspaceSlug !== '') {
                     continue;
                 }
-                $changedFiles = array_values(array_filter(array_merge(
-                    (array) ($metadata['changed_files'] ?? []),
-                    (array) ($metadata['expected_files'] ?? []),
-                    (array) ($metadata['files'] ?? []),
-                ), 'is_string'));
+                $changedFiles = $this->changedFilesFromCommandMetadata($metadata);
                 $durationMs = $this->durationMsFromMetadata($metadata);
                 $this->recordCommandOutcome(
                     $stats,
@@ -1654,6 +1646,19 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             + (int) $stats[$command]['performance_score']
             + ((int) $stats[$command]['performance_score'] < 0 ? 0 : (int) $stats[$command]['recency_score']);
         $stats[$command]['confidence'] = round(min(0.95, (int) $stats[$command]['total_count'] / 5), 2);
+    }
+
+    /**
+     * @param  array<string,mixed>  $metadata
+     * @return list<string>
+     */
+    private function changedFilesFromCommandMetadata(array $metadata): array
+    {
+        return array_values(array_filter(array_merge(
+            (array) ($metadata['changed_files'] ?? []),
+            (array) ($metadata['expected_files'] ?? []),
+            (array) ($metadata['files'] ?? []),
+        ), 'is_string'));
     }
 
     /**

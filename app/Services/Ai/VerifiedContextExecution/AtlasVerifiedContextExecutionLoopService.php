@@ -10,6 +10,7 @@ use App\Services\Ai\Context\AtlasTokenEconomyRuntimeService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\RuntimeEfficiency\AtlasLocalVerificationEngineService;
 use App\Services\Ai\RuntimeEfficiency\AtlasQualityPreservingEfficiencySystemService;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\File;
 
@@ -58,8 +59,8 @@ final class AtlasVerifiedContextExecutionLoopService
             'expected_prefix_hash' => (string) ($input['expected_prefix_hash'] ?? ''),
             'cache_fresh' => (bool) ($input['cache_fresh'] ?? true),
             'cache_poisoned' => (bool) ($input['cache_poisoned'] ?? false),
-            'changed_file_refs' => $this->stringList($input['changed_files'] ?? []),
-            'evidence_refs' => $this->stringList($input['evidence_refs'] ?? []),
+            'changed_file_refs' => AiStringListNormalizer::stringsFromArrayCast($input['changed_files'] ?? []),
+            'evidence_refs' => AiStringListNormalizer::stringsFromArrayCast($input['evidence_refs'] ?? []),
             'nodes' => $input['nodes'] ?? null,
         ]);
         $token = $this->tokenEconomy->optimize([
@@ -77,9 +78,9 @@ final class AtlasVerifiedContextExecutionLoopService
         $local = $this->localVerification->run([
             'flow_id' => $flowId,
             'risk_level' => $risk,
-            'changed_files' => $this->stringList($input['changed_files'] ?? []),
-            'allowed_files' => $this->stringList($input['allowed_files'] ?? []),
-            'forbidden_files' => $this->stringList($input['forbidden_files'] ?? []),
+            'changed_files' => AiStringListNormalizer::stringsFromArrayCast($input['changed_files'] ?? []),
+            'allowed_files' => AiStringListNormalizer::stringsFromArrayCast($input['allowed_files'] ?? []),
+            'forbidden_files' => AiStringListNormalizer::stringsFromArrayCast($input['forbidden_files'] ?? []),
             'code_graph' => is_array($input['code_graph'] ?? null) ? $input['code_graph'] : [],
             'command' => (string) ($input['command'] ?? ''),
             'exit_code' => $input['exit_code'] ?? null,
@@ -297,7 +298,7 @@ final class AtlasVerifiedContextExecutionLoopService
             (string) ($token['token_economy_hash'] ?? ''),
             (string) ($local['local_verification_hash'] ?? ''),
             (string) ($repair['repair_strategy_hash'] ?? ''),
-            ...$this->stringList($input['evidence_refs'] ?? []),
+            ...AiStringListNormalizer::stringsFromArrayCast($input['evidence_refs'] ?? []),
         ]));
         $payload = [
             'schema_version' => self::OUTCOME_CANDIDATE_SCHEMA,
@@ -438,11 +439,4 @@ final class AtlasVerifiedContextExecutionLoopService
         ];
     }
 
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return array_values(array_filter((array) $value, 'is_string'));
-    }
 }

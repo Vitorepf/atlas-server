@@ -11,6 +11,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ContextRef;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ContextRetrievalPlan;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OpenBrainProgrammingProjection;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Support\CanonicalHasher;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use Throwable;
 
 /**
@@ -256,7 +257,7 @@ final class OpenBrainProjectionAdapter
 
         sort($missing, SORT_STRING);
 
-        return array_values(array_unique($missing));
+        return AtlasDevStringListNormalizer::uniqueStrings($missing);
     }
 
     /**
@@ -285,11 +286,11 @@ final class OpenBrainProjectionAdapter
         $base = $this->slugFromSource($source);
         $unversioned = (string) preg_replace('/-v\d+$/', '', $base);
 
-        return array_values(array_unique(array_filter([
+        return AtlasDevStringListNormalizer::uniqueStrings(array_filter([
             strtolower($source),
             strtolower($base),
             strtolower($unversioned),
-        ], static fn (string $s): bool => $s !== '')));
+        ], static fn (string $s): bool => $s !== ''));
     }
 
     private function slugFromSource(string $source): string

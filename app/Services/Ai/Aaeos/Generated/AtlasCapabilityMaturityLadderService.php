@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+
 /**
  * Atlas Self-Construction Capability Maturity Ladder decider.
  *
@@ -102,7 +104,7 @@ class AtlasCapabilityMaturityLadderService
      */
     public function classify(array $descriptor): array
     {
-        $capability = $this->stringOrNull($descriptor['capability'] ?? null) ?? 'unnamed_capability';
+        $capability = AtlasAaeosValueNormalizer::stringOrNull($descriptor['capability'] ?? null) ?? 'unnamed_capability';
         $proofsIn = is_array($descriptor['proofs'] ?? null) ? $descriptor['proofs'] : [];
 
         $checklist = [];
@@ -201,13 +203,4 @@ class AtlasCapabilityMaturityLadderService
         ];
     }
 
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $trimmed = trim($value);
-
-        return $trimmed === '' ? null : $trimmed;
-    }
 }

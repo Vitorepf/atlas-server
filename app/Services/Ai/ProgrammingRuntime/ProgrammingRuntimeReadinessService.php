@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\ProgrammingRuntime;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Carbon\CarbonImmutable;
 
 /**
@@ -517,7 +518,7 @@ class ProgrammingRuntimeReadinessService
             'KernelIntegrationE2E',
         );
 
-        $all = array_values(array_unique(array_merge($matches, $kernelE2eCandidates)));
+        $all = AiStringListNormalizer::uniqueMergedStrings($matches, $kernelE2eCandidates);
 
         if ($all === []) {
             return $this->blocked(

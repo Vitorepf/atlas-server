@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Closure;
 use Symfony\Component\Process\Process;
 
@@ -243,7 +244,7 @@ final class AtlasUnifiedLoopSupervisorService
             'php_workers' => $workers,
             'restart_recommended' => $restartRecommended,
             'restart_command' => $restartCommand,
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => AiStringListNormalizer::uniqueStrings($blockers),
             'claim_policy' => [
                 'read_only' => true,
                 'runs_provider' => false,

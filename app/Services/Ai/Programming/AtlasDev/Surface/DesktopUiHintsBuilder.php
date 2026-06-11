@@ -13,6 +13,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\ContextRetrievalPlan;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\MiniProgrammingSpec;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OpenBrainProgrammingProjection;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 
 /**
  * Desktop-only hints projection.
@@ -108,10 +109,10 @@ final class DesktopUiHintsBuilder
                 'likely_files' => array_map(static fn (CodeCandidate $c): array => $c->toCanonicalArray(), $discovery->likelyFiles),
                 'missing_refs' => array_map(static fn (MissingRef $m): array => $m->toCanonicalArray(), $discovery->missingRefs),
             ],
-            'missing_sources' => array_values(array_unique(array_merge(
+            'missing_sources' => AtlasDevStringListNormalizer::uniqueMergedStrings(
                 $contextPlan->missingSources,
                 $projection->missingSources,
-            ))),
+            ),
             'truncation' => $projection->truncation,
         ];
     }

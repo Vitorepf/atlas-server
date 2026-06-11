@@ -8,6 +8,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Components\DebugRepairCandidate
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\DebugSuspectedCause;
 use App\Services\Ai\Programming\AtlasDev\Schemas\DebugReceipt;
 use App\Services\Ai\Programming\AtlasDev\Schemas\FastPathErrorLedgerEntry;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use Illuminate\Support\Str;
 
 /**
@@ -55,14 +56,14 @@ final class DebugIntelligenceService
         $failingTest = $this->nullableTrim($input, 'failing_test');
         $command = $this->nullableTrim($input, 'command');
         $exitCode = isset($input['exit_code']) ? (int) $input['exit_code'] : null;
-        $changedFiles = $this->normaliseStringList($input['changed_files'] ?? []);
-        $priorFailureSignatures = $this->normaliseStringList($input['prior_failure_signatures'] ?? []);
+        $changedFiles = AtlasDevStringListNormalizer::trimmedStrings($input['changed_files'] ?? []);
+        $priorFailureSignatures = AtlasDevStringListNormalizer::trimmedStrings($input['prior_failure_signatures'] ?? []);
         $attemptIndex = isset($input['attempt_index']) ? max(0, (int) $input['attempt_index']) : 0;
         $attemptBudget = isset($input['attempt_budget']) ? max(1, (int) $input['attempt_budget']) : 3;
         $diffSizeLines = isset($input['diff_size_lines']) ? max(0, (int) $input['diff_size_lines']) : 0;
         $priorDiffSizeLines = isset($input['prior_diff_size_lines']) ? max(0, (int) $input['prior_diff_size_lines']) : 0;
-        $evidenceRefs = $this->normaliseStringList($input['evidence_refs'] ?? []);
-        $validationCommands = $this->normaliseStringList($input['validation_commands'] ?? []);
+        $evidenceRefs = AtlasDevStringListNormalizer::trimmedStrings($input['evidence_refs'] ?? []);
+        $validationCommands = AtlasDevStringListNormalizer::trimmedStrings($input['validation_commands'] ?? []);
         $createdAt = (string) ($input['created_at'] ?? now()->toIso8601String());
         $receiptId = (string) ($input['receipt_id'] ?? 'dbg_'.Str::uuid());
 
@@ -401,7 +402,7 @@ final class DebugIntelligenceService
             $stops[] = DebugReceipt::STOP_AMBIGUOUS_CAUSES;
         }
 
-        return array_values(array_unique($stops));
+        return AtlasDevStringListNormalizer::uniqueTrimmedStrings($stops);
     }
 
     /**
@@ -606,21 +607,4 @@ final class DebugIntelligenceService
         return $trimmed === '' ? null : $trimmed;
     }
 
-    /**
-     * @return list<string>
-     */
-    private function normaliseStringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
-        }
-
-        return array_values($out);
-    }
 }

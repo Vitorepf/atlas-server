@@ -16,6 +16,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Components\VerificationPlan;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\MiniProgrammingSpec;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OpenBrainProgrammingProjection;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use InvalidArgumentException;
 
 /**
@@ -479,7 +480,7 @@ class SpecComposer
             $tiers[] = 'forge';
         }
 
-        return array_values(array_unique($tiers));
+        return AtlasDevStringListNormalizer::uniqueTrimmedStrings($tiers);
     }
 
     private function resolveProfile(OperationEnvelope $envelope, TaskClassification $classification): string
@@ -584,7 +585,7 @@ class SpecComposer
             $files[] = $this->relativise($envelope->workspace, $candidate->path);
         }
 
-        return array_values(array_unique(array_filter($files, static fn (string $p): bool => $p !== '')));
+        return AtlasDevStringListNormalizer::uniqueTrimmedStrings($files);
     }
 
     /**
@@ -609,7 +610,7 @@ class SpecComposer
             }
         }
 
-        return array_values(array_unique($files));
+        return AtlasDevStringListNormalizer::uniqueTrimmedStrings($files);
     }
 
     /**
@@ -636,7 +637,7 @@ class SpecComposer
             static fn (string $g): bool => ! str_contains(strtolower($g), '.env'),
         );
 
-        return array_values(array_unique(array_merge($base, $extra, $clean)));
+        return AtlasDevStringListNormalizer::uniqueTrimmedStrings(array_merge($base, $extra, $clean));
     }
 
     /**
@@ -648,9 +649,7 @@ class SpecComposer
         foreach ($discovery->likelyFiles as $candidate) {
             $paths[] = $candidate->path;
         }
-        sort($paths, SORT_STRING);
-
-        return array_values(array_unique($paths));
+        return AtlasDevStringListNormalizer::uniqueSortedStrings($paths);
     }
 
     /**
@@ -752,7 +751,7 @@ class SpecComposer
             }
         }
 
-        return array_values(array_unique($commands));
+        return AtlasDevStringListNormalizer::uniqueTrimmedStrings($commands);
     }
 
     /**
@@ -779,7 +778,7 @@ class SpecComposer
             }
         }
 
-        return array_values(array_unique($commands));
+        return AtlasDevStringListNormalizer::uniqueTrimmedStrings($commands);
     }
 
     private function testRefToPath(string $ref): ?string

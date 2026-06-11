@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+
 /**
  * Atlas Mission Control Cockpit — operator gesture + decision-receipt gate.
  *
@@ -181,7 +183,7 @@ final class AtlasMissionControlCockpitSurfaceService
         }
 
         // Rule 1 — "agente nunca emite gesture": only the human operator acts.
-        $actorKind = $this->stringOrNull($context['actor_kind'] ?? null) ?? 'operator';
+        $actorKind = AtlasAaeosValueNormalizer::stringOrNull($context['actor_kind'] ?? null) ?? 'operator';
         if ($actorKind !== 'operator') {
             return $this->verdict(self::VERDICT_BLOCK, 'agent_cannot_emit_gesture', $gesture, [
                 'actor_kind' => $actorKind,
@@ -190,7 +192,7 @@ final class AtlasMissionControlCockpitSurfaceService
 
         // Rule 2 — a signed receipt that this gesture tries to revoke: never.
         // "Operator Decision Receipt assinado nunca e revogado; correcao gera novo receipt."
-        $revokes = $this->stringOrNull($context['revokes_receipt_id'] ?? null);
+        $revokes = AtlasAaeosValueNormalizer::stringOrNull($context['revokes_receipt_id'] ?? null);
         if ($revokes !== null) {
             return $this->verdict(self::VERDICT_BLOCK, 'receipt_revocation_forbidden', $gesture, [
                 'revokes_receipt_id' => $revokes,
@@ -198,7 +200,7 @@ final class AtlasMissionControlCockpitSurfaceService
         }
 
         // Rule 3 — surface capability: Mobile may only carry its subset.
-        $surface = $this->stringOrNull($context['surface'] ?? null) ?? self::SURFACE_DESKTOP;
+        $surface = AtlasAaeosValueNormalizer::stringOrNull($context['surface'] ?? null) ?? self::SURFACE_DESKTOP;
         if ($surface === self::SURFACE_MOBILE && ! in_array($gesture, self::MOBILE_ALLOWED_GESTURES, true)) {
             return $this->verdict(self::VERDICT_BLOCK, 'gesture_not_available_on_surface', $gesture, [
                 'surface' => $surface,
@@ -225,20 +227,20 @@ final class AtlasMissionControlCockpitSurfaceService
         if (($receipt['schema'] ?? null) !== self::RECEIPT_SCHEMA) {
             return $this->verdict(self::VERDICT_BLOCK, 'wrong_receipt_schema', $gesture, [
                 'expected' => self::RECEIPT_SCHEMA,
-                'got' => $this->stringOrNull($receipt['schema'] ?? null),
+                'got' => AtlasAaeosValueNormalizer::stringOrNull($receipt['schema'] ?? null),
             ]);
         }
 
         // Rule 7 — the receipt's gesture must match the gesture being authorized.
-        if ($this->stringOrNull($receipt['gesture'] ?? null) !== $gesture) {
+        if (AtlasAaeosValueNormalizer::stringOrNull($receipt['gesture'] ?? null) !== $gesture) {
             return $this->verdict(self::VERDICT_BLOCK, 'receipt_gesture_mismatch', $gesture, [
-                'receipt_gesture' => $this->stringOrNull($receipt['gesture'] ?? null),
+                'receipt_gesture' => AtlasAaeosValueNormalizer::stringOrNull($receipt['gesture'] ?? null),
             ]);
         }
 
         // Rule 8 — target kind must be the canonical kind for this gesture.
         $targetKind = is_array($receipt['target'] ?? null)
-            ? $this->stringOrNull($receipt['target']['kind'] ?? null)
+            ? AtlasAaeosValueNormalizer::stringOrNull($receipt['target']['kind'] ?? null)
             : null;
         if ($targetKind !== self::GESTURE_TARGET_KIND[$gesture]) {
             return $this->verdict(self::VERDICT_BLOCK, 'wrong_target_kind', $gesture, [
@@ -273,7 +275,7 @@ final class AtlasMissionControlCockpitSurfaceService
         return $this->verdict(self::VERDICT_AUTHORIZE, 'gesture_authorized', $gesture, [
             'surface' => $surface,
             'target_kind' => $targetKind,
-            'receipt_id' => $this->stringOrNull($receipt['receipt_id'] ?? null),
+            'receipt_id' => AtlasAaeosValueNormalizer::stringOrNull($receipt['receipt_id'] ?? null),
             'evidence_count' => count($this->hashList($receipt['evidence_hashes_seen'] ?? [])),
         ]);
     }
@@ -314,7 +316,7 @@ final class AtlasMissionControlCockpitSurfaceService
                 'reason' => 'wrong_receipt_schema',
             ];
         }
-        $gesture = $this->stringOrNull($receipt['gesture'] ?? null);
+        $gesture = AtlasAaeosValueNormalizer::stringOrNull($receipt['gesture'] ?? null);
         if ($gesture === null || ! in_array($gesture, self::GESTURES, true)) {
             return [
                 'schema' => self::SCHEMA,
@@ -387,7 +389,7 @@ final class AtlasMissionControlCockpitSurfaceService
 
             case self::GESTURE_PROMOTE_LADDER:
                 // "autonomy.next_eligible verde".
-                return $this->stringOrNull($context['autonomy_next_eligible'] ?? null) !== null
+                return AtlasAaeosValueNormalizer::stringOrNull($context['autonomy_next_eligible'] ?? null) !== null
                     ? null
                     : 'autonomy_next_not_eligible';
 
@@ -425,7 +427,7 @@ final class AtlasMissionControlCockpitSurfaceService
             'evidence_intact' => (bool) ($context['evidence_intact'] ?? false),
             'handoff_pack_ready' => (bool) ($context['handoff_pack_ready'] ?? false),
             'pending_receipt' => (bool) ($context['pending_receipt'] ?? false),
-            'autonomy_next_eligible' => $this->stringOrNull($context['autonomy_next_eligible'] ?? null),
+            'autonomy_next_eligible' => AtlasAaeosValueNormalizer::stringOrNull($context['autonomy_next_eligible'] ?? null),
         ];
     }
 
@@ -470,7 +472,7 @@ final class AtlasMissionControlCockpitSurfaceService
     private function signatureList(array $receipt): array
     {
         $out = [];
-        $primary = $this->stringOrNull($receipt['operator_signature'] ?? null);
+        $primary = AtlasAaeosValueNormalizer::stringOrNull($receipt['operator_signature'] ?? null);
         if ($primary !== null) {
             $out[] = $primary;
         }
@@ -478,7 +480,7 @@ final class AtlasMissionControlCockpitSurfaceService
             $extra = $receipt[$key] ?? null;
             if (is_array($extra)) {
                 foreach ($extra as $sig) {
-                    $s = $this->stringOrNull($sig);
+                    $s = AtlasAaeosValueNormalizer::stringOrNull($sig);
                     if ($s !== null) {
                         $out[] = $s;
                     }
@@ -531,14 +533,14 @@ final class AtlasMissionControlCockpitSurfaceService
         }
 
         return array_values(array_filter(
-            array_map(fn (mixed $v): ?string => $this->stringOrNull($v), $values),
+            array_map(fn (mixed $v): ?string => AtlasAaeosValueNormalizer::stringOrNull($v), $values),
             static fn (?string $v): bool => $v !== null,
         ));
     }
 
     private function levelInt(mixed $value): ?int
     {
-        $s = $this->stringOrNull($value);
+        $s = AtlasAaeosValueNormalizer::stringOrNull($value);
         if ($s === null) {
             return null;
         }
@@ -548,16 +550,6 @@ final class AtlasMissionControlCockpitSurfaceService
         }
 
         return (int) $digits;
-    }
-
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $trimmed = trim($value);
-
-        return $trimmed !== '' ? $trimmed : null;
     }
 
     /**

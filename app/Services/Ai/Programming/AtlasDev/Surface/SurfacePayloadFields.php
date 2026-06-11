@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\AtlasDev\Surface;
 
 use App\Services\Ai\Programming\AtlasDev\Pipeline\IntakeNormalizer;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 
 /**
  * Shared, byte-identical helpers used by every concrete
@@ -48,17 +49,6 @@ trait SurfacePayloadFields
      */
     private function stringListField(array $payload, string $key): array
     {
-        $value = $payload[$key] ?? [];
-        if (! is_array($value)) {
-            return [];
-        }
-        $out = [];
-        foreach ($value as $entry) {
-            if (is_string($entry) && trim($entry) !== '') {
-                $out[] = trim($entry);
-            }
-        }
-
-        return $out;
+        return AtlasDevStringListNormalizer::trimmedStrings($payload[$key] ?? []);
     }
 }

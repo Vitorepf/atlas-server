@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev;
 
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevPathPatternMatcher;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
+
 /**
  * Atlas Dev Scope Guard (AP-701 / Patamar A3).
  *
@@ -69,7 +72,7 @@ final class AtlasDevScopeGuardService
         $reasonPerDenied = [];
 
         foreach ($proposedWrites as $path) {
-            if ($this->matchesAny($path, $forbiddenFiles)) {
+            if (AtlasDevPathPatternMatcher::matchesAny($path, $forbiddenFiles)) {
                 $deniedWrites[] = $path;
                 $reasonPerDenied[$path] = self::REASON_EXPLICITLY_FORBIDDEN;
 
@@ -81,7 +84,7 @@ final class AtlasDevScopeGuardService
 
                 continue;
             }
-            if (! $this->matchesAny($path, $allowedFiles)) {
+            if (! AtlasDevPathPatternMatcher::matchesAny($path, $allowedFiles)) {
                 $deniedWrites[] = $path;
                 $reasonPerDenied[$path] = self::REASON_NOT_IN_ALLOWED;
 
@@ -150,41 +153,6 @@ final class AtlasDevScopeGuardService
     }
 
     /**
-     * @param  list<string>  $patterns
-     */
-    private function matchesAny(string $path, array $patterns): bool
-    {
-        foreach ($patterns as $pattern) {
-            if ($this->matches($path, $pattern)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private function matches(string $path, string $pattern): bool
-    {
-        if ($path === $pattern) {
-            return true;
-        }
-        // `dir/**` matches any path that begins with `dir/`.
-        if (str_ends_with($pattern, '/**')) {
-            $prefix = substr($pattern, 0, -3);
-
-            return str_starts_with($path, $prefix.'/');
-        }
-        // `dir/*` matches any path that begins with `dir/` AND has no
-        // further `/` after the prefix. We support the common case
-        // `dir/*.php` lazily by using fnmatch.
-        if (str_contains($pattern, '*') || str_contains($pattern, '?')) {
-            return fnmatch($pattern, $path);
-        }
-
-        return false;
-    }
-
-    /**
      * @param  list<string>  $list
      * @return list<string>
      */
@@ -202,6 +170,6 @@ final class AtlasDevScopeGuardService
             $clean[] = $item;
         }
 
-        return array_values(array_unique($clean));
+        return AtlasDevStringListNormalizer::uniqueTrimmedStrings($clean);
     }
 }

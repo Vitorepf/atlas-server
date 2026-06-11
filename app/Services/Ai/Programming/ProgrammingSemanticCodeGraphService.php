@@ -5,6 +5,7 @@ namespace App\Services\Ai\Programming;
 use App\Models\AtlasEngineeringCodeModule;
 use App\Models\AtlasEngineeringCodeSymbol;
 use App\Models\AtlasEngineeringDocLink;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -86,8 +87,8 @@ class ProgrammingSemanticCodeGraphService
             'edge_count' => count($edges),
             'nodes' => array_slice($nodes, 0, 40),
             'edges' => array_slice($edges, 0, 60),
-            'related_tests' => array_values(array_unique($tests)),
-            'related_docs' => array_values(array_unique($docs)),
+            'related_tests' => AiStringListNormalizer::uniqueStrings($tests),
+            'related_docs' => AiStringListNormalizer::uniqueStrings($docs),
             'source' => 'filesystem_scan',
             'complete' => $nodes !== [],
         ];
@@ -243,8 +244,8 @@ class ProgrammingSemanticCodeGraphService
             'edge_count' => count($edges),
             'nodes' => array_slice($nodes, 0, 60),
             'edges' => array_slice($edges, 0, 80),
-            'related_tests' => array_values(array_unique($tests)),
-            'related_docs' => array_values(array_unique($docs)),
+            'related_tests' => AiStringListNormalizer::uniqueStrings($tests),
+            'related_docs' => AiStringListNormalizer::uniqueStrings($docs),
             'source' => 'engineering_code_intelligence',
             'complete' => $nodes !== [],
         ];
@@ -277,7 +278,7 @@ class ProgrammingSemanticCodeGraphService
             array_unshift($words, $flow);
         }
 
-        return array_values(array_unique($words ?: ['programming']));
+        return AiStringListNormalizer::uniqueStrings($words ?: ['programming']);
     }
 
     /**
@@ -359,7 +360,7 @@ class ProgrammingSemanticCodeGraphService
         $content = File::get($file);
         preg_match_all('/(?:class|interface|trait|enum|function)\s+([A-Za-z_][A-Za-z0-9_]*)/', $content, $matches);
 
-        return array_values(array_unique(array_slice($matches[1] ?? [], 0, 12)));
+        return AiStringListNormalizer::uniqueStrings(array_slice($matches[1] ?? [], 0, 12));
     }
 
     /**
@@ -385,7 +386,7 @@ class ProgrammingSemanticCodeGraphService
             }
         }
 
-        return array_values(array_unique(array_slice($dependencies, 0, 20)));
+        return AiStringListNormalizer::uniqueStrings(array_slice($dependencies, 0, 20));
     }
 
     /**
@@ -403,7 +404,7 @@ class ProgrammingSemanticCodeGraphService
             }
         }
 
-        return array_values(array_unique(array_slice($dependencies, 0, 20)));
+        return AiStringListNormalizer::uniqueStrings(array_slice($dependencies, 0, 20));
     }
 
     /**

@@ -6,6 +6,8 @@ namespace App\Services\Ai\Programming\AtlasDev\Pipeline;
 
 use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\CodeDiscoveryManifest;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevTextMatcher;
 
 /**
  * Deterministic R0..R5 risk scorer.
@@ -73,7 +75,7 @@ class RiskLevelScorer
         $kind = $classification->taskKind;
         $haystack = $this->buildHaystack($envelope);
 
-        if ($this->containsAny($haystack, self::MULTIAGENT_TOKENS) && $kind === TaskClassification::KIND_RISKY) {
+        if (AtlasDevTextMatcher::containsAny($haystack, self::MULTIAGENT_TOKENS) && $kind === TaskClassification::KIND_RISKY) {
             return self::R5;
         }
 
@@ -98,7 +100,7 @@ class RiskLevelScorer
         }
 
         // patch / repair → file-count drives the level.
-        if ($this->containsAny($haystack, self::TYPO_TOKENS)) {
+        if (AtlasDevTextMatcher::containsAny($haystack, self::TYPO_TOKENS)) {
             $preliminary = self::R1;
         } else {
             $preliminary = self::R2;
@@ -212,23 +214,7 @@ class RiskLevelScorer
             }
         }
 
-        return array_values(array_unique($files));
+        return AtlasDevStringListNormalizer::uniqueTrimmedStrings($files);
     }
 
-    /**
-     * @param  list<string>  $needles
-     */
-    private function containsAny(string $haystack, array $needles): bool
-    {
-        foreach ($needles as $needle) {
-            if ($needle === '') {
-                continue;
-            }
-            if (str_contains($haystack, $needle)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
 }

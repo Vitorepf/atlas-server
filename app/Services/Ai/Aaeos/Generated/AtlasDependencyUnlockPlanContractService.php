@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Self-Construction Dependency Unlock Plan — pure, deterministic, read-only planner.
  *
@@ -246,7 +248,7 @@ final class AtlasDependencyUnlockPlanContractService
             $out[] = [
                 'id' => $id,
                 'lane' => $lane,
-                'dependencies' => $this->stringList($row['dependencies'] ?? []),
+                'dependencies' => AtlasAaeosStringListNormalizer::uniqueTrimmedStrings($row['dependencies'] ?? []),
                 'withheld' => (bool) ($row['withheld'] ?? false),
             ];
         }
@@ -334,31 +336,11 @@ final class AtlasDependencyUnlockPlanContractService
     private function stringSet(mixed $raw): array
     {
         $out = [];
-        foreach ($this->stringList($raw) as $value) {
+        foreach (AtlasAaeosStringListNormalizer::uniqueTrimmedStrings($raw) as $value) {
             $out[$value] = true;
         }
 
         return $out;
-    }
-
-    /**
-     * @param mixed $raw
-     * @return list<string>
-     */
-    private function stringList(mixed $raw): array
-    {
-        if (! is_array($raw)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($raw as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
-        }
-
-        return array_values(array_unique($out));
     }
 
     /**

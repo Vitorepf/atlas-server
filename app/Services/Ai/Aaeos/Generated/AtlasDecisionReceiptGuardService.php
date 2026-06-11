@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+
 /**
  * Decision Receipt execution-boundary guard.
  *
@@ -115,14 +118,14 @@ final class AtlasDecisionReceiptGuardService
         // Rule 2 — expiry: a receipt is a contract before runtime, not forever.
         if ($this->isExpired($receipt, $context)) {
             return $this->verdict(self::VERDICT_STOP, 'receipt_expired', $target, [
-                'expires_at' => $this->stringOrNull($receipt['expires_at'] ?? null),
+                'expires_at' => AtlasAaeosValueNormalizer::stringOrNull($receipt['expires_at'] ?? null),
             ]);
         }
 
         // Rule 3 — signature when applicable: never trust a signature that does
         // not validate the real payload.
         if ((bool) ($receipt['requires_signature'] ?? false)) {
-            $signature = $this->stringOrNull($receipt['signature'] ?? null);
+            $signature = AtlasAaeosValueNormalizer::stringOrNull($receipt['signature'] ?? null);
             $signatureValid = (bool) ($receipt['signature_valid'] ?? false);
             if ($signature === null || ! $signatureValid) {
                 return $this->verdict(self::VERDICT_STOP, 'signature_invalid', $target, [
@@ -227,7 +230,7 @@ final class AtlasDecisionReceiptGuardService
      */
     private function isExpired(array $receipt, array $context): bool
     {
-        $expiresAt = $this->stringOrNull($receipt['expires_at'] ?? null);
+        $expiresAt = AtlasAaeosValueNormalizer::stringOrNull($receipt['expires_at'] ?? null);
         if ($expiresAt === null) {
             return false;
         }
@@ -235,7 +238,7 @@ final class AtlasDecisionReceiptGuardService
         if ($expiry === false) {
             return false;
         }
-        $nowRaw = $this->stringOrNull($context['now'] ?? null);
+        $nowRaw = AtlasAaeosValueNormalizer::stringOrNull($context['now'] ?? null);
         $now = $nowRaw !== null ? strtotime($nowRaw) : false;
         if ($now === false) {
             $now = time();
@@ -356,24 +359,7 @@ final class AtlasDecisionReceiptGuardService
      */
     private function patternList(mixed $values): array
     {
-        if (! is_array($values)) {
-            return [];
-        }
-
-        return array_values(array_unique(array_filter(
-            array_map(static fn (mixed $v): string => is_string($v) ? trim($v) : '', $values),
-            static fn (string $v): bool => $v !== '',
-        )));
-    }
-
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $trimmed = trim($value);
-
-        return $trimmed !== '' ? $trimmed : null;
+        return AtlasAaeosStringListNormalizer::uniqueTrimmedStrings($values);
     }
 
     /**

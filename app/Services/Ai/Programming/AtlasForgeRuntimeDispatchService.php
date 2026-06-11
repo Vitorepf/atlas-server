@@ -6,6 +6,7 @@ namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProject;
 use App\Services\Ai\AtlasDecideService;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceHandoffPackService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use Illuminate\Support\Str;
@@ -498,7 +499,7 @@ class AtlasForgeRuntimeDispatchService
         ?array $artifactAgentPacket = null,
         array $artifactAgentPacketBlockers = [],
     ): array {
-        $blockers = array_values(array_unique($blockers));
+        $blockers = AiStringListNormalizer::uniqueStrings($blockers);
         $decisionReceiptId = $topology !== null ? $this->stringOrNull($topology['decision_receipt_id'] ?? null) : null;
         $decisionReceiptHash = $topology !== null ? $this->stringOrNull($topology['decision_receipt_hash'] ?? null) : null;
         $decisionSource = $topology !== null ? $this->stringOrNull($topology['decision_source'] ?? null) : null;
@@ -700,7 +701,7 @@ class AtlasForgeRuntimeDispatchService
             $blockers[] = 'artifact_agent_packet_body_included';
         }
 
-        return array_values(array_unique($blockers));
+        return AiStringListNormalizer::uniqueStrings($blockers);
     }
 
     /**
@@ -716,31 +717,16 @@ class AtlasForgeRuntimeDispatchService
             'route_target' => $this->stringOrNull($packet['route_target'] ?? null),
             'artifact_type' => $this->stringOrNull($packet['artifact_type'] ?? null),
             'artifact_hash' => $this->stringOrNull($packet['artifact_hash'] ?? null),
-            'allowed_paths' => $this->stringList($packet['allowed_paths'] ?? []),
-            'forbidden_paths' => $this->stringList($packet['forbidden_paths'] ?? []),
-            'must_keep' => $this->stringList($packet['must_keep'] ?? []),
-            'context_refs' => $this->stringList($packet['context_refs'] ?? []),
-            'test_plan' => $this->stringList($packet['test_plan'] ?? []),
-            'done_when' => $this->stringList($packet['done_when'] ?? []),
+            'allowed_paths' => AiStringListNormalizer::uniqueTrimmedStrings($packet['allowed_paths'] ?? []),
+            'forbidden_paths' => AiStringListNormalizer::uniqueTrimmedStrings($packet['forbidden_paths'] ?? []),
+            'must_keep' => AiStringListNormalizer::uniqueTrimmedStrings($packet['must_keep'] ?? []),
+            'context_refs' => AiStringListNormalizer::uniqueTrimmedStrings($packet['context_refs'] ?? []),
+            'test_plan' => AiStringListNormalizer::uniqueTrimmedStrings($packet['test_plan'] ?? []),
+            'done_when' => AiStringListNormalizer::uniqueTrimmedStrings($packet['done_when'] ?? []),
             'redaction' => $this->stringOrNull($packet['redaction'] ?? null) ?? 'provider_safe',
             'raw_conversation_included' => false,
             'artifact_body_included' => false,
         ];
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_unique(array_filter(array_map(
-            fn (mixed $item): ?string => $this->stringOrNull($item),
-            $value,
-        ))));
     }
 
     private function stringOrNull(mixed $value): ?string

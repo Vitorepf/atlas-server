@@ -5,6 +5,7 @@ namespace App\Services\Ai\RouterRuntime;
 use App\Models\AiAtlasIntentClassification;
 use App\Models\AiAtlasRouterDecision;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Support\Str;
 
 class DomainRouterService
@@ -108,7 +109,7 @@ class DomainRouterService
             $secondary[] = 'strategy';
         }
 
-        return array_values(array_unique($secondary));
+        return AiStringListNormalizer::uniqueStrings($secondary);
     }
 
     /**

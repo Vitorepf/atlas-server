@@ -8,6 +8,7 @@ use App\Models\AiProviderHealthSnapshot;
 use App\Models\AiWorkerEvent;
 use App\Models\AtlasProject;
 use App\Services\Ai\AtlasAiRuntimeSettings;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -153,7 +154,7 @@ class AtlasForgeProviderCapacityService
             'degraded_count' => $degradedCount,
             'unavailable_count' => $unavailableCount,
             'unknown_count' => $unknownCount,
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => AiStringListNormalizer::uniqueStrings($blockers),
             'runtime_dispatch_allowed' => $availableCount > 0
                 && ! in_array('provider_capacity_exhausted', $blockers, true),
             'next_action' => $this->resolveNextAction(

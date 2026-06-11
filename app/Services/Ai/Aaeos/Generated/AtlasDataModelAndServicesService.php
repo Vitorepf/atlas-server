@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Atlas SDD Data Model & Services integrity service.
  *
@@ -243,7 +245,7 @@ final class AtlasDataModelAndServicesService
         }
 
         // P2 — direct write to code outside receipt scope.
-        $outside = $this->stringList($execution['files_outside_scope'] ?? []);
+        $outside = AtlasAaeosStringListNormalizer::trimmedStringOrIntValues($execution['files_outside_scope'] ?? []);
         if ($outside !== []) {
             $violated[] = 'write_outside_receipt_scope';
         }
@@ -318,7 +320,7 @@ final class AtlasDataModelAndServicesService
     public function validatePipelineShape(array $stages): array
     {
         $canonical = array_keys(self::SERVICE_BOUNDARIES);
-        $declared = $this->stringList($stages);
+        $declared = AtlasAaeosStringListNormalizer::trimmedStringOrIntValues($stages);
 
         $missing = array_values(array_diff($canonical, $declared));
         $unknown = array_values(array_diff($declared, $canonical));
@@ -369,7 +371,7 @@ final class AtlasDataModelAndServicesService
         }
 
         if ($field === 'assumption_ids') {
-            return $this->stringList($value) !== [];
+            return AtlasAaeosStringListNormalizer::trimmedStringOrIntValues($value) !== [];
         }
 
         if (is_string($value)) {
@@ -385,21 +387,4 @@ final class AtlasDataModelAndServicesService
         return false;
     }
 
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $values): array
-    {
-        if (! is_array($values)) {
-            return [];
-        }
-
-        return array_values(array_filter(
-            array_map(
-                static fn (mixed $v): string => is_string($v) ? trim($v) : (is_int($v) ? (string) $v : ''),
-                $values,
-            ),
-            static fn (string $v): bool => $v !== '',
-        ));
-    }
 }

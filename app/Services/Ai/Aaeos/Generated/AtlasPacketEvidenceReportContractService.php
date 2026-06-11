@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+
 /**
  * Self-Construction Packet Evidence Report — pure, deterministic completion decider.
  *
@@ -95,28 +98,28 @@ final class AtlasPacketEvidenceReportContractService
      */
     public function report(array $input = []): array
     {
-        $selectedPacketId = $this->stringOrNull($input['selected_packet_id'] ?? null);
-        $reportId = $this->stringOrNull($input['report_id'] ?? null) ?? 'EVIDENCE-REPORT-PACKET-0001';
+        $selectedPacketId = AtlasAaeosValueNormalizer::stringOrNull($input['selected_packet_id'] ?? null);
+        $reportId = AtlasAaeosValueNormalizer::stringOrNull($input['report_id'] ?? null) ?? 'EVIDENCE-REPORT-PACKET-0001';
 
         $packetExists = $selectedPacketId !== null && ($input['selected_packet_exists'] ?? true) !== false;
         $runbookExists = (bool) ($input['runbook_exists'] ?? false);
         $assignmentExists = (bool) ($input['assignment_preview_exists'] ?? false);
 
-        $scopeStatus = $this->stringOrNull($input['scope_validator_status'] ?? null) ?? 'unknown';
+        $scopeStatus = AtlasAaeosValueNormalizer::stringOrNull($input['scope_validator_status'] ?? null) ?? 'unknown';
         $scopePassed = $scopeStatus === 'pass';
         $scopeBlocked = $scopeStatus === 'blocked';
 
         $gateResults = $this->evaluateGates($this->listOfMaps($input['required_gates'] ?? []));
         $evidenceResults = $this->evaluateEvidence(
-            $this->listOfStrings($input['required_evidence'] ?? []),
-            $this->listOfStrings($input['present_evidence'] ?? []),
+            AtlasAaeosStringListNormalizer::uniqueTrimmedStrings($input['required_evidence'] ?? []),
+            AtlasAaeosStringListNormalizer::uniqueTrimmedStrings($input['present_evidence'] ?? []),
         );
 
         $ownedFiles = $this->classifyOwnedFiles($this->listOfMaps($input['packet_owned_files'] ?? []));
         $externalBlockers = $this->listOfMaps($input['external_blockers'] ?? []);
         $hasExternalBlockers = $externalBlockers !== [];
 
-        $residualRisk = $this->stringOrNull($input['residual_risk'] ?? null) ?? self::RISK_LOW;
+        $residualRisk = AtlasAaeosValueNormalizer::stringOrNull($input['residual_risk'] ?? null) ?? self::RISK_LOW;
         $riskAccepted = (bool) ($input['residual_risk_accepted_by_review'] ?? false);
         $riskOk = $residualRisk === self::RISK_LOW || $riskAccepted;
 
@@ -227,12 +230,12 @@ final class AtlasPacketEvidenceReportContractService
     {
         $results = [];
         foreach ($gates as $gate) {
-            $id = $this->stringOrNull($gate['id'] ?? null);
+            $id = AtlasAaeosValueNormalizer::stringOrNull($gate['id'] ?? null);
             if ($id === null) {
                 continue;
             }
 
-            $raw = $this->stringOrNull($gate['status'] ?? null);
+            $raw = AtlasAaeosValueNormalizer::stringOrNull($gate['status'] ?? null);
             $status = match ($raw) {
                 self::GATE_PASS => self::GATE_PASS,
                 self::GATE_FAIL => self::GATE_FAIL,
@@ -281,9 +284,9 @@ final class AtlasPacketEvidenceReportContractService
     {
         $unsafePaths = [];
         foreach ($files as $file) {
-            $classification = $this->stringOrNull($file['classification'] ?? null);
+            $classification = AtlasAaeosValueNormalizer::stringOrNull($file['classification'] ?? null);
             if ($classification !== null && in_array($classification, self::UNSAFE_OWNED_CLASSIFICATIONS, true)) {
-                $path = $this->stringOrNull($file['path'] ?? null);
+                $path = AtlasAaeosValueNormalizer::stringOrNull($file['path'] ?? null);
                 $unsafePaths[] = $path ?? $classification;
             }
         }
@@ -335,37 +338,6 @@ final class AtlasPacketEvidenceReportContractService
         }
 
         return true;
-    }
-
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-
-        $trimmed = trim($value);
-
-        return $trimmed === '' ? null : $trimmed;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function listOfStrings(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($value as $item) {
-            $str = $this->stringOrNull($item);
-            if ($str !== null) {
-                $out[] = $str;
-            }
-        }
-
-        return array_values(array_unique($out));
     }
 
     /**

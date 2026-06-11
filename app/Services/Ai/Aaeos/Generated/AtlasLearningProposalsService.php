@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Atlas Learning Proposals — pure decision runtime.
  *
@@ -121,7 +123,7 @@ final class AtlasLearningProposalsService
     public function evaluate(array $signal): array
     {
         $kind = $this->normalizeKind($signal['kind'] ?? null);
-        $evidence = $this->stringList($signal['evidence_refs'] ?? []);
+        $evidence = AtlasAaeosStringListNormalizer::trimmedScalarValues($signal['evidence_refs'] ?? []);
         $sampleSize = max(0, (int) ($signal['sample_size'] ?? 0));
         $effect = $this->clamp01((float) ($signal['effect_size'] ?? 0.0));
         $summary = $this->string($signal['summary'] ?? null) ?? 'unspecified learning signal';
@@ -385,26 +387,6 @@ final class AtlasLearningProposalsService
             'retrieval', 'retrieval_hints' => 'retrieval_hint',
             default => null,
         };
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($value as $item) {
-            $s = $this->string($item);
-            if ($s !== null) {
-                $out[] = $s;
-            }
-        }
-
-        return array_values($out);
     }
 
     private function string(mixed $value): ?string

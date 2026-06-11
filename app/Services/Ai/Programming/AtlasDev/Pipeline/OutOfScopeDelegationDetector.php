@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\AtlasDev\Pipeline;
 
 use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevTextMatcher;
 
 /**
  * Detects intents that fall outside Atlas Dev's charter and suggests which
@@ -89,7 +90,7 @@ class OutOfScopeDelegationDetector
 
         // Forge always wins: multi-system Obras must not run on the fast path,
         // even when the operator is sitting inside a workspace.
-        if ($this->containsAny($haystack, self::FORGE_PHRASES)) {
+        if (AtlasDevTextMatcher::containsAny($haystack, self::FORGE_PHRASES)) {
             return new DelegationSuggestion(
                 suggestedFlow: DelegationSuggestion::FLOW_FORGE,
                 reason: 'multi_system_or_obra_intent',
@@ -103,28 +104,28 @@ class OutOfScopeDelegationDetector
             return null;
         }
 
-        if ($this->containsAny($haystack, self::DEBUG_PHRASES)) {
+        if (AtlasDevTextMatcher::containsAny($haystack, self::DEBUG_PHRASES)) {
             return new DelegationSuggestion(
                 suggestedFlow: DelegationSuggestion::FLOW_DEBUG,
                 reason: 'logs_or_trace_without_code_target',
             );
         }
 
-        if ($this->containsAny($haystack, self::CONVERSATION_PHRASES) && ! $classification->writeImplied) {
+        if (AtlasDevTextMatcher::containsAny($haystack, self::CONVERSATION_PHRASES) && ! $classification->writeImplied) {
             return new DelegationSuggestion(
                 suggestedFlow: DelegationSuggestion::FLOW_CONVERSATION,
                 reason: 'free_form_exploration_chat',
             );
         }
 
-        if ($this->containsAny($haystack, self::RESEARCH_PHRASES) && ! $classification->writeImplied) {
+        if (AtlasDevTextMatcher::containsAny($haystack, self::RESEARCH_PHRASES) && ! $classification->writeImplied) {
             return new DelegationSuggestion(
                 suggestedFlow: DelegationSuggestion::FLOW_RESEARCH,
                 reason: 'conceptual_question_without_workspace_target',
             );
         }
 
-        if ($this->containsAny($haystack, self::EXPLAIN_ONLY_PHRASES) && ! $classification->writeImplied) {
+        if (AtlasDevTextMatcher::containsAny($haystack, self::EXPLAIN_ONLY_PHRASES) && ! $classification->writeImplied) {
             return new DelegationSuggestion(
                 suggestedFlow: DelegationSuggestion::FLOW_EXPLAIN,
                 reason: 'explanation_only_without_patch_target',
@@ -146,20 +147,4 @@ class OutOfScopeDelegationDetector
         return strtolower(implode("\n", $parts));
     }
 
-    /**
-     * @param  list<string>  $needles
-     */
-    private function containsAny(string $haystack, array $needles): bool
-    {
-        foreach ($needles as $needle) {
-            if ($needle === '') {
-                continue;
-            }
-            if (str_contains($haystack, $needle)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
 }

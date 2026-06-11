@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\AtlasDev\MinimaxFirst;
 
 use App\Services\Ai\Programming\AtlasMinimaxM27CliRuntimeExecutor;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use Symfony\Component\Process\Process;
 
 /**
@@ -387,7 +388,7 @@ final class AtlasMinimaxFirstWorkerService
      */
     private function providerDiffQualityGate(string $worktree, array $changedFiles, array $allowedFiles, array $finding): array
     {
-        $changedFiles = array_values(array_unique(array_filter($changedFiles, 'is_string')));
+        $changedFiles = AtlasDevStringListNormalizer::uniqueTrimmedStrings($changedFiles);
         if ($changedFiles === []) {
             return [
                 'schema_version' => 'atlas.dev.minimax_first.provider_diff_quality_gate.v1',
@@ -516,20 +517,20 @@ final class AtlasMinimaxFirstWorkerService
             }
         }
 
-        $reasons = array_values(array_unique($reasons));
+        $reasons = AtlasDevStringListNormalizer::uniqueTrimmedStrings($reasons);
         $passed = $reasons === [];
 
         return [
             'schema_version' => 'atlas.dev.minimax_first.provider_diff_quality_gate.v1',
             'passed' => $passed,
-            'blockers' => $passed ? [] : array_values(array_unique([self::PROVIDER_DIFF_QUALITY_BLOCKER, ...$reasons])),
+            'blockers' => $passed ? [] : AtlasDevStringListNormalizer::uniqueTrimmedStrings([self::PROVIDER_DIFF_QUALITY_BLOCKER, ...$reasons]),
             'reason' => $passed ? 'diff_quality_acceptable' : $reasons[0],
             'changed_files' => $changedFiles,
             'allowed_files' => $allowedFiles,
             'stats' => $stats,
             'summary' => [
-                'product_changed_files' => array_values(array_unique($productChanged)),
-                'test_changed_files' => array_values(array_unique($testChangedFiles)),
+                'product_changed_files' => AtlasDevStringListNormalizer::uniqueTrimmedStrings($productChanged),
+                'test_changed_files' => AtlasDevStringListNormalizer::uniqueTrimmedStrings($testChangedFiles),
                 'test_changed' => $testChanged,
                 'test_insertions' => $testInsertions,
                 'test_deletions' => $testDeletions,
@@ -615,14 +616,17 @@ final class AtlasMinimaxFirstWorkerService
             'finding_slice_plan.acceptance',
             'finding_slice_plan.acceptance_criteria',
         ] as $path) {
-            $criteria = array_merge($criteria, $this->stringList(data_get($finding, $path, [])));
+            $criteria = array_merge(
+                $criteria,
+                AtlasDevStringListNormalizer::uniqueRecursiveTrimmedStrings(data_get($finding, $path, [])),
+            );
         }
 
         $schemaLiterals = [];
         $requiredKeys = [];
         $sourceCriteria = [];
 
-        foreach (array_values(array_unique($criteria)) as $criterion) {
+        foreach (AtlasDevStringListNormalizer::uniqueTrimmedStrings($criteria) as $criterion) {
             if (! preg_match('/\bReturn\s+schema_version\b/i', $criterion)
                 && ! preg_match('/\bschema_version\s+`?[a-z][a-z0-9._-]*\.v\d+`?/i', $criterion)) {
                 continue;
@@ -658,9 +662,9 @@ final class AtlasMinimaxFirstWorkerService
         }
 
         return [
-            'schema_literals' => array_values(array_unique($schemaLiterals)),
-            'required_keys' => array_values(array_unique($requiredKeys)),
-            'source_criteria' => array_values(array_unique($sourceCriteria)),
+            'schema_literals' => AtlasDevStringListNormalizer::uniqueTrimmedStrings($schemaLiterals),
+            'required_keys' => AtlasDevStringListNormalizer::uniqueTrimmedStrings($requiredKeys),
+            'source_criteria' => AtlasDevStringListNormalizer::uniqueTrimmedStrings($sourceCriteria),
         ];
     }
 
@@ -673,10 +677,10 @@ final class AtlasMinimaxFirstWorkerService
     {
         $schemaLiterals = array_values((array) ($contract['schema_literals'] ?? []));
         $requiredKeys = array_values((array) ($contract['required_keys'] ?? []));
-        $checkedFiles = array_values(array_unique(array_filter(
+        $checkedFiles = AtlasDevStringListNormalizer::uniqueTrimmedStrings(array_filter(
             $productChanged,
             fn (string $file): bool => ! $this->isTestFile($file) && ! $this->isDocumentationFile($file),
-        )));
+        ));
 
         $content = '';
         foreach ($checkedFiles as $file) {
@@ -703,8 +707,8 @@ final class AtlasMinimaxFirstWorkerService
         return [
             'required_schema_literals' => $schemaLiterals,
             'required_return_keys' => $requiredKeys,
-            'missing_schema_literals' => array_values(array_unique($missingSchemaLiterals)),
-            'missing_return_keys' => array_values(array_unique($missingKeys)),
+            'missing_schema_literals' => AtlasDevStringListNormalizer::uniqueTrimmedStrings($missingSchemaLiterals),
+            'missing_return_keys' => AtlasDevStringListNormalizer::uniqueTrimmedStrings($missingKeys),
             'checked_product_files' => $checkedFiles,
             'source_criteria' => array_values((array) ($contract['source_criteria'] ?? [])),
         ];
@@ -751,27 +755,6 @@ final class AtlasMinimaxFirstWorkerService
             'true',
             'version',
         ], true);
-    }
-
-    /** @return list<string> */
-    private function stringList(mixed $value): array
-    {
-        if (is_string($value)) {
-            $value = trim($value);
-
-            return $value === '' ? [] : [$value];
-        }
-
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $strings = [];
-        foreach ($value as $item) {
-            $strings = array_merge($strings, $this->stringList($item));
-        }
-
-        return array_values(array_unique($strings));
     }
 
     /**
@@ -912,10 +895,10 @@ final class AtlasMinimaxFirstWorkerService
         }
 
         return [
-            'semantic_changed_files' => array_values(array_unique($semanticChanged)),
-            'product_semantic_changed_files' => array_values(array_unique($productSemanticChanged)),
-            'test_semantic_changed_files' => array_values(array_unique($testSemanticChanged)),
-            'comment_or_whitespace_only_files' => array_values(array_unique($commentOrWhitespaceOnly)),
+            'semantic_changed_files' => AtlasDevStringListNormalizer::uniqueTrimmedStrings($semanticChanged),
+            'product_semantic_changed_files' => AtlasDevStringListNormalizer::uniqueTrimmedStrings($productSemanticChanged),
+            'test_semantic_changed_files' => AtlasDevStringListNormalizer::uniqueTrimmedStrings($testSemanticChanged),
+            'comment_or_whitespace_only_files' => AtlasDevStringListNormalizer::uniqueTrimmedStrings($commentOrWhitespaceOnly),
         ];
     }
 
@@ -1002,11 +985,11 @@ final class AtlasMinimaxFirstWorkerService
      */
     private function productChangedFiles(array $files): array
     {
-        return array_values(array_unique(array_filter(
+        return AtlasDevStringListNormalizer::uniqueTrimmedStrings(array_filter(
             $files,
             static fn (string $file): bool => ! str_starts_with($file, '.atlas/')
                 && $file !== '.atlas'
-        )));
+        ));
     }
 
     private function findingRequiresTestUpdate(array $finding): bool

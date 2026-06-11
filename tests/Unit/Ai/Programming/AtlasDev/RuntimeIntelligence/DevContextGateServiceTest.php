@@ -100,6 +100,46 @@ final class DevContextGateServiceTest extends TestCase
         $this->assertTrue($result['provider_safe']);
     }
 
+    public function test_deferred_verification_handles_satisfy_plan_without_dumping_tests_first(): void
+    {
+        $result = $this->service->evaluate([
+            'objective' => 'Improve provider context retrieval',
+            'task_class' => 'feature',
+            'risk_band' => 'medium',
+            'allowed_files' => ['app/Services/Ai/ContextIntelligence/AtlasContextIntelligenceService.php'],
+            'verification_handles' => ['expand:tests:context-intelligence', 'expand:command:atlas:context-intelligence:certify'],
+            'expansion_handles' => ['expand:docs:atlas-context-intelligence-engine', 'expand:graph:context-intelligence'],
+            'initial_context_kinds' => ['objective', 'owner_doc_ref', 'file_refs'],
+            'initial_context_chars' => 4200,
+        ]);
+
+        $this->assertSame(DevContextGateService::STATUS_PASSED, $result['status']);
+        $this->assertTrue($result['provider_safe']);
+        $this->assertSame([], $result['missing']);
+        $this->assertTrue($result['context_delivery_policy']['expansion_handles_present']);
+        $this->assertTrue($result['context_delivery_policy']['verification_content_deferred']);
+        $this->assertSame('minimal_provider_safe', $result['context_delivery_policy']['initial_context_contract']);
+    }
+
+    public function test_initial_context_with_full_tests_or_docs_is_not_provider_safe(): void
+    {
+        $result = $this->service->evaluate([
+            'objective' => 'Implement scoped context fix',
+            'task_class' => 'feature',
+            'risk_band' => 'medium',
+            'allowed_files' => ['app/Services/Ai/ContextIntelligence/AtlasContextIntelligenceService.php'],
+            'verification_handles' => ['expand:tests:context-intelligence'],
+            'initial_context_kinds' => ['objective', 'tests', 'full_doc'],
+            'initial_context_chars' => 18000,
+            'max_initial_context_chars' => 8000,
+        ]);
+
+        $this->assertSame(DevContextGateService::STATUS_NEEDS_REVIEW, $result['status']);
+        $this->assertFalse($result['provider_safe']);
+        $this->assertContains('initial_context_too_large', $result['missing']);
+        $this->assertContains('initial_context_contains_deferred_material', $result['missing']);
+    }
+
     public function test_placeholder_objective_is_not_provider_safe(): void
     {
         $result = $this->service->evaluate([

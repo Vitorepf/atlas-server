@@ -8,6 +8,7 @@ use App\Models\AtlasLoopTask;
 use App\Services\Ai\AutonomousEvolution\Framework\AtlasLoopFrameworkMaterializer;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopRunPersister;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -126,7 +127,7 @@ final class AtlasLoopTaskGrinder
         }
 
         return trim((string) ($payload['materializer'] ?? '')) === 'framework'
-            && $this->stringList(data_get($payload, 'acceptance.commands', [])) === [];
+            && AiStringListNormalizer::trimmedStrings(data_get($payload, 'acceptance.commands', [])) === [];
     }
 
     /**
@@ -163,18 +164,18 @@ final class AtlasLoopTaskGrinder
             'target_relative_path' => (string) ($packet['target_relative_path'] ?? ''),
             'target_class' => (string) ($packet['target_class'] ?? ''),
             'verification_atom_count' => count((array) ($packet['verification_atoms'] ?? [])),
-            'verification_atom_types' => array_values(array_unique(array_filter(array_map(
-                static fn (mixed $atom): string => is_array($atom) ? (string) ($atom['type'] ?? '') : '',
+            'verification_atom_types' => AiStringListNormalizer::uniqueMappedStrings(
                 (array) ($packet['verification_atoms'] ?? []),
-            ), static fn (string $type): bool => $type !== ''))),
+                static fn (mixed $atom): string => is_array($atom) ? (string) ($atom['type'] ?? '') : '',
+            ),
             'blockers' => array_values((array) ($packet['blockers'] ?? [])),
             'red_preflight' => is_array($packet['red_preflight'] ?? null) ? $packet['red_preflight'] : null,
             'verifier_refuters' => is_array($packet['verifier_refuters'] ?? null) ? $packet['verifier_refuters'] : null,
             'acceptance' => is_array($packet['acceptance'] ?? null)
                 ? [
-                    'commands' => $this->stringList(data_get($packet, 'acceptance.commands', [])),
-                    'allowed_globs' => $this->stringList(data_get($packet, 'acceptance.allowed_globs', [])),
-                    'frozen_globs' => $this->stringList(data_get($packet, 'acceptance.frozen_globs', [])),
+                    'commands' => AiStringListNormalizer::trimmedStrings(data_get($packet, 'acceptance.commands', [])),
+                    'allowed_globs' => AiStringListNormalizer::trimmedStrings(data_get($packet, 'acceptance.allowed_globs', [])),
+                    'frozen_globs' => AiStringListNormalizer::trimmedStrings(data_get($packet, 'acceptance.frozen_globs', [])),
                     'metric_kind' => (string) data_get($packet, 'acceptance.metric_kind', ''),
                     'revert_recheck' => (bool) data_get($packet, 'acceptance.revert_recheck', false),
                 ]
@@ -334,14 +335,12 @@ final class AtlasLoopTaskGrinder
     {
         $commands = [];
         foreach (['sealed_holdout_commands', 'wide_holdout_commands', 'final_holdout_commands'] as $key) {
-            foreach (is_array($payload[$key] ?? null) ? $payload[$key] : [] as $command) {
-                if (is_string($command) && trim($command) !== '') {
-                    $commands[] = trim($command);
-                }
+            foreach (AiStringListNormalizer::trimmedStrings($payload[$key] ?? []) as $command) {
+                $commands[] = $command;
             }
         }
 
-        return array_values(array_unique($commands));
+        return AiStringListNormalizer::uniqueStrings($commands);
     }
 
     /**
@@ -352,14 +351,12 @@ final class AtlasLoopTaskGrinder
     {
         $commands = [];
         foreach (['semantic_refuter_commands', 'provider_refuter_commands', 'refuter_commands'] as $key) {
-            foreach (is_array($payload[$key] ?? null) ? $payload[$key] : [] as $command) {
-                if (is_string($command) && trim($command) !== '') {
-                    $commands[] = trim($command);
-                }
+            foreach (AiStringListNormalizer::trimmedStrings($payload[$key] ?? []) as $command) {
+                $commands[] = $command;
             }
         }
 
-        return array_values(array_unique($commands));
+        return AiStringListNormalizer::uniqueStrings($commands);
     }
 
     /**
@@ -385,26 +382,12 @@ final class AtlasLoopTaskGrinder
     {
         $files = [];
         foreach ([$payload['allowed_files'] ?? [], $explorerTask['allowed_files'] ?? []] as $source) {
-            foreach (is_array($source) ? $source : [] as $file) {
-                if (is_string($file) && trim($file) !== '') {
-                    $files[] = trim($file);
-                }
+            foreach (AiStringListNormalizer::trimmedStrings($source) as $file) {
+                $files[] = $file;
             }
         }
 
-        return array_values(array_unique($files));
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return array_values(array_filter(array_map(
-            static fn (mixed $v): string => is_string($v) ? trim($v) : '',
-            is_array($value) ? $value : [],
-        ), static fn (string $v): bool => $v !== ''));
+        return AiStringListNormalizer::uniqueStrings($files);
     }
 
     /**

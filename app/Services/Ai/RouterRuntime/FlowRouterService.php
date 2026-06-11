@@ -5,6 +5,7 @@ namespace App\Services\Ai\RouterRuntime;
 use App\Models\AiAtlasFlowRoute;
 use App\Models\AiAtlasIntentClassification;
 use App\Models\AiAtlasRouterDecision;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Support\Str;
 
 class FlowRouterService
@@ -64,7 +65,7 @@ class FlowRouterService
             $caps[] = 'review.audit';
         }
 
-        return array_values(array_unique($caps));
+        return AiStringListNormalizer::uniqueStrings($caps);
     }
 
     /**
@@ -86,7 +87,7 @@ class FlowRouterService
             $gates[] = 'blocked.gate';
         }
 
-        return array_values(array_unique($gates));
+        return AiStringListNormalizer::uniqueStrings($gates);
     }
 
     /**
@@ -105,7 +106,7 @@ class FlowRouterService
             $fallbacks[] = 'atlas_explain';
         }
 
-        return array_values(array_unique($fallbacks));
+        return AiStringListNormalizer::uniqueStrings($fallbacks);
     }
 
     private function flowProfile(string $domain): string

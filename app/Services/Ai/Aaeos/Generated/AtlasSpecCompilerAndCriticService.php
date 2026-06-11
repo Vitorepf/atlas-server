@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Atlas SDD Spec Compiler And Critic.
  *
@@ -164,7 +166,7 @@ final class AtlasSpecCompilerAndCriticService
         $id = $this->normalizeString($assumption['id'] ?? null);
         $text = $this->normalizeString($assumption['text'] ?? null);
         $confidence = $this->clampConfidence($assumption['confidence'] ?? null);
-        $evidence = $this->normalizeList($assumption['evidence'] ?? null);
+        $evidence = AtlasAaeosStringListNormalizer::trimmedStrings($assumption['evidence'] ?? null);
         $flaggedBlocking = ($assumption['blocking'] ?? false) === true;
 
         $schemaIssues = [];
@@ -312,16 +314,16 @@ final class AtlasSpecCompilerAndCriticService
         $critic = (array) ($input['critic'] ?? []);
         $ledger = (array) ($input['ledger'] ?? []);
 
-        $policyFindings = $this->stringList($critic['policy_findings'] ?? []);
-        $spikeFindings = $this->stringList($critic['spike_findings'] ?? []);
-        $contextFindings = $this->stringList($critic['context_findings'] ?? []);
+        $policyFindings = AtlasAaeosStringListNormalizer::nonEmptyStrings($critic['policy_findings'] ?? []);
+        $spikeFindings = AtlasAaeosStringListNormalizer::nonEmptyStrings($critic['spike_findings'] ?? []);
+        $contextFindings = AtlasAaeosStringListNormalizer::nonEmptyStrings($critic['context_findings'] ?? []);
 
         $incomplete = array_key_exists('complete', $compiler)
             ? $compiler['complete'] !== true
             : false;
-        $missingFields = $this->stringList($compiler['missing_fields'] ?? []);
+        $missingFields = AtlasAaeosStringListNormalizer::nonEmptyStrings($compiler['missing_fields'] ?? []);
 
-        $blockingAssumptions = $this->stringList($ledger['blocking_assumption_ids'] ?? []);
+        $blockingAssumptions = AtlasAaeosStringListNormalizer::nonEmptyStrings($ledger['blocking_assumption_ids'] ?? []);
         $hasBlockingAssumption = ($ledger['has_blocking_assumption'] ?? false) === true
             || $blockingAssumptions !== [];
 
@@ -445,39 +447,4 @@ final class AtlasSpecCompilerAndCriticService
         return $f;
     }
 
-    /**
-     * @return list<string>
-     */
-    private function normalizeList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-        $clean = [];
-        foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $clean[] = trim($item);
-            }
-        }
-
-        return array_values($clean);
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-        $clean = [];
-        foreach ($value as $item) {
-            if (is_string($item) && $item !== '') {
-                $clean[] = $item;
-            }
-        }
-
-        return array_values($clean);
-    }
 }

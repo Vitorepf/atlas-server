@@ -129,6 +129,26 @@ final class AtlasRuntimeExecutorTest extends TestCase
         $this->assertSame(['rm -rf build'], $d['detail']['escaping_commands']);
     }
 
+    public function test_runtime_lists_normalize_without_changing_contract(): void
+    {
+        $d = $this->service->decide(
+            $this->receipt([
+                'allowed_scope' => [' app/Services/** ', 'app/Services/**', '', null],
+                'forbidden_scope' => [],
+                'allowed_commands' => [' php artisan test --filter WidgetServiceTest '],
+            ]),
+            $this->request([
+                'files' => [' app/Services/Example/WidgetService.php '],
+                'commands' => [' php artisan test --filter WidgetServiceTest '],
+            ]),
+        );
+
+        $this->assertSame('execute', $d['verdict']);
+        $this->assertSame(['app/Services/**'], $d['detail']['allowed_scope']);
+        $this->assertSame(['app/Services/Example/WidgetService.php'], $d['detail']['files']);
+        $this->assertSame(['php artisan test --filter WidgetServiceTest'], $d['detail']['commands']);
+    }
+
     /** Risk "terminal parecer real mas nao registrar evidence" — a run with no evidence ref is refused. */
     public function test_execution_without_evidence_reference_refuses(): void
     {

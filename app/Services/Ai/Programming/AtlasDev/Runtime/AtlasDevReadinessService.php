@@ -8,6 +8,7 @@ use App\Services\Ai\Programming\AtlasDev\Gate\AtlasDevVerificationCommandRunnerC
 use App\Services\Ai\Programming\AtlasDev\Gate\SymfonyProcessCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliGateway;
 use App\Services\Ai\Programming\AtlasDev\Provider\SymfonyClaudeCliGateway;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\Route;
 use Symfony\Component\Process\Process;
@@ -15,6 +16,24 @@ use Throwable;
 
 final class AtlasDevReadinessService
 {
+    private const REQUIRED_HTTP_ROUTES = [
+        'atlas-dev.readiness',
+        'atlas-dev.plan',
+        'atlas-dev.run',
+        'atlas-dev.runs.index',
+        'atlas-dev.runs.cancel',
+        'atlas-dev.runs.show',
+        'atlas-dev.runs.stream',
+    ];
+
+    /**
+     * @return list<string>
+     */
+    public static function requiredHttpRoutes(): array
+    {
+        return self::REQUIRED_HTTP_ROUTES;
+    }
+
     /**
      * @return array{
      *   schema_version:string,
@@ -153,15 +172,7 @@ final class AtlasDevReadinessService
      */
     private function checkRoutes(): array
     {
-        $required = [
-            'atlas-dev.readiness',
-            'atlas-dev.plan',
-            'atlas-dev.run',
-            'atlas-dev.runs.index',
-            'atlas-dev.runs.cancel',
-            'atlas-dev.runs.show',
-            'atlas-dev.runs.stream',
-        ];
+        $required = self::requiredHttpRoutes();
         $missing = array_values(array_filter($required, static fn (string $route): bool => ! Route::has($route)));
 
         return [
@@ -235,7 +246,7 @@ final class AtlasDevReadinessService
         }
 
         $args = config('atlas.ai.providers.claude_cli.args', []);
-        $args = is_array($args) ? array_values(array_filter($args, 'is_string')) : [];
+        $args = AtlasDevStringListNormalizer::strings($args);
         if (! $this->providerToolsAreReadOnly($args)) {
             $missing[] = 'claude_cli read-only tools';
         }
@@ -285,10 +296,7 @@ final class AtlasDevReadinessService
             }
 
             $allowed = (string) ($args[$index + 1] ?? '');
-            $tools = array_values(array_filter(
-                preg_split('/[\s,]+/', $allowed) ?: [],
-                static fn (string $tool): bool => $tool !== '',
-            ));
+            $tools = AtlasDevStringListNormalizer::nonEmptyStrings(preg_split('/[\s,]+/', $allowed) ?: []);
 
             return $tools === ['Read'];
         }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
+
 /**
  * Antigravity SDK governed provider driver.
  *
@@ -68,7 +70,7 @@ class AtlasForgeAntigravitySdkInvocationDriver implements AtlasForgeProviderInvo
             'allowlist_passed' => true,
             'allowlist_blockers' => [],
             'config_blockers' => array_values(array_filter((array) ($this->configured()['blockers'] ?? []), 'is_string')),
-            'blockers' => array_values(array_unique((array) ($plan['blockers'] ?? []))),
+            'blockers' => AiStringListNormalizer::uniqueStrings((array) ($plan['blockers'] ?? [])),
             'plan_safe' => (bool) ($plan['plan_safe'] ?? false),
             'provider_called' => false,
             'external_provider_call' => false,
@@ -111,7 +113,7 @@ class AtlasForgeAntigravitySdkInvocationDriver implements AtlasForgeProviderInvo
             'performance_signal' => $result['performance_signal'] ?? null,
             'classification' => $result['classification'] ?? null,
             'failure_type' => $result['failure_type'] ?? null,
-            'blockers' => array_values(array_unique((array) ($result['blockers'] ?? []))),
+            'blockers' => AiStringListNormalizer::uniqueStrings((array) ($result['blockers'] ?? [])),
             'note' => (string) ($result['note'] ?? 'Antigravity SDK driver finished.'),
         ];
     }

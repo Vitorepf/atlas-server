@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Atlas SDD Spec Graph & Traceability — pure, deterministic enforcement of the
  * four concrete contracts the doc states for turning "Markdown alone" into an
@@ -201,7 +203,7 @@ final class AtlasSpecGraphAndTraceabilityService
      */
     public function validateChain(array $path): array
     {
-        $clean = $this->stringList($path);
+        $clean = AtlasAaeosStringListNormalizer::trimmedStringOrIntValues($path);
         $unknown = array_values(array_filter(
             $clean,
             static fn (string $n): bool => ! in_array($n, self::GRAPH_CHAIN, true),
@@ -474,21 +476,4 @@ final class AtlasSpecGraphAndTraceabilityService
         return false;
     }
 
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $values): array
-    {
-        if (! is_array($values)) {
-            return [];
-        }
-
-        return array_values(array_filter(
-            array_map(
-                static fn (mixed $v): string => is_string($v) ? trim($v) : (is_int($v) ? (string) $v : ''),
-                $values,
-            ),
-            static fn (string $v): bool => $v !== '',
-        ));
-    }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Atlas Dev Flow Map And Product Options v1 · Parte 7 — two deciders for the
  * documented "Fatia 7" entry gate and the "Regra Final".
@@ -313,7 +315,7 @@ final class AtlasDevFlowMapProductOptionsV1Part07Service
      */
     private function missingMetrics(array $readiness): array
     {
-        $registered = $this->stringList($readiness['metrics_registered_set'] ?? null);
+        $registered = AtlasAaeosStringListNormalizer::trimmedStrings($readiness['metrics_registered_set'] ?? null);
         $normalized = array_map(static fn (string $m): string => strtolower($m), $registered);
 
         $missing = [];
@@ -334,7 +336,7 @@ final class AtlasDevFlowMapProductOptionsV1Part07Service
      */
     private function missingBaselines(array $readiness): array
     {
-        $run = $this->stringList($readiness['baselines_run_set'] ?? null);
+        $run = AtlasAaeosStringListNormalizer::trimmedStrings($readiness['baselines_run_set'] ?? null);
         $normalized = array_map(static fn (string $b): string => strtolower($b), $run);
 
         $missing = [];
@@ -355,26 +357,6 @@ final class AtlasDevFlowMapProductOptionsV1Part07Service
     private function boolFlag(array $payload, string $key): bool
     {
         return ($payload[$key] ?? null) === true;
-    }
-
-    /**
-     * Coerce a payload field into a clean list of non-empty trimmed strings.
-     *
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
-        }
-
-        return $out;
     }
 
     /**

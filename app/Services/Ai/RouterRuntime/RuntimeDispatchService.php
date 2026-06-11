@@ -7,6 +7,7 @@ use App\Models\AiAtlasIntentClassification;
 use App\Models\AiAtlasRouterDecision;
 use App\Models\AiAtlasRuntimeDispatch;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Support\Str;
 
 class RuntimeDispatchService
@@ -86,7 +87,7 @@ class RuntimeDispatchService
             }
         }
 
-        return array_values(array_unique($blockers));
+        return AiStringListNormalizer::uniqueStrings($blockers);
     }
 
     /**

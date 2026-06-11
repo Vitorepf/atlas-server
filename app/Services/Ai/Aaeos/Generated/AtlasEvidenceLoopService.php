@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
+
 /**
  * Evidence Loop signal-governance decider.
  *
@@ -147,7 +149,7 @@ final class AtlasEvidenceLoopService
             $r[] = 'success_inferred_without_gate_or_outcome';
         }
 
-        return array_values(array_unique($r));
+        return AiStringListNormalizer::uniqueStrings($r);
     }
 
     /**
@@ -173,7 +175,7 @@ final class AtlasEvidenceLoopService
             $q[] = 'incomplete_evidence';
         }
 
-        return array_values(array_unique($q));
+        return AiStringListNormalizer::uniqueStrings($q);
     }
 
     /**

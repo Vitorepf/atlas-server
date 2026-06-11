@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\MinimaxFirst;
 
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 
@@ -123,7 +124,7 @@ final class AtlasCodexPlannerService
             $parts[] = $packetObjective;
         }
 
-        return implode(' ', array_values(array_unique($parts)));
+        return implode(' ', AtlasDevStringListNormalizer::uniqueTrimmedStrings($parts));
     }
 
     private function anchorSummary(array $finding): string

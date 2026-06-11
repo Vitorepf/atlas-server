@@ -9,6 +9,26 @@ use RuntimeException;
 final class PythonBoundaryReceiptGuard
 {
     /**
+     * @param  array<string,mixed>  $manifest
+     * @param  list<string>  $requiredTrue
+     * @param  list<string>  $requiredFalse
+     * @return array<string,mixed>
+     */
+    public static function runReal(
+        PythonManifestRuntimeClient $runtime,
+        array $manifest,
+        array $requiredTrue,
+        array $requiredFalse,
+        string $message,
+    ): array {
+        $result = $runtime->run($manifest);
+
+        self::assertReal($result, $requiredTrue, $requiredFalse, $message);
+
+        return $result;
+    }
+
+    /**
      * @param  array<string,mixed>  $result
      * @param  list<string>  $requiredTrue
      * @param  list<string>  $requiredFalse

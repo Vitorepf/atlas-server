@@ -228,10 +228,13 @@ class VentureQuestionEngine
             return $this->blockedInternal($question, 'A venture não tem ideia ligada com problema/ICP/dor.', 'Registrar a ideia (problema, ICP, dor) da empresa.');
         }
 
+        // Honest: an idea text states the CLAIMED problem — it is not proof the
+        // problem is real, frequent and painful. That validation needs users
+        // (external data), so this stays PARTIAL until validated.
         return [
-            'status' => AiVentureQuestionAnswer::STATUS_ANSWERED,
-            'answer' => sprintf('Problema: %s | ICP: %s | Dor: %s', $idea->problem, $idea->icp, $idea->pain),
-            'confidence' => 0.7,
+            'status' => AiVentureQuestionAnswer::STATUS_PARTIAL,
+            'answer' => sprintf('Problema reivindicado: %s | ICP: %s | Dor: %s. Declarado, ainda NÃO validado com usuários/evidência.', $idea->problem, $idea->icp, $idea->pain),
+            'confidence' => 0.5,
             'evidence_kind' => 'inferred',
             'evidence_refs' => [['kind' => 'idea', 'id' => $idea->idea_id]],
             'recommendation' => $question['decision_trigger'],

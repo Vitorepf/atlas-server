@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Research;
 
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ResearchFinding;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ResearchOpenQuestion;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ResearchSource;
@@ -62,8 +63,14 @@ class DevResearchPlannerService
         $sources = $this->buildSources((array) ($input['sources'] ?? []));
         $findings = $this->buildFindings((array) ($input['findings'] ?? []), count($sources));
         $openQuestions = $this->buildOpenQuestions((array) ($input['open_questions'] ?? []));
-        $evidenceRefs = $this->stringList((array) ($input['evidence_refs'] ?? []), 'evidence_refs');
-        $blockerReasons = $this->stringList((array) ($input['blocker_reasons'] ?? []), 'blocker_reasons');
+        $evidenceRefs = AtlasDevStringListNormalizer::requireNonBlankStrings(
+            (array) ($input['evidence_refs'] ?? []),
+            'evidence_refs',
+        );
+        $blockerReasons = AtlasDevStringListNormalizer::requireNonBlankStrings(
+            (array) ($input['blocker_reasons'] ?? []),
+            'blocker_reasons',
+        );
 
         $statusHint = isset($input['status_hint']) && is_string($input['status_hint'])
             ? (string) $input['status_hint']
@@ -237,23 +244,6 @@ class DevResearchPlannerService
                     ? $entry['suggested_next_step']
                     : null,
             );
-        }
-
-        return $out;
-    }
-
-    /**
-     * @param  list<mixed>  $raw
-     * @return list<string>
-     */
-    private function stringList(array $raw, string $field): array
-    {
-        $out = [];
-        foreach ($raw as $i => $v) {
-            if (! is_string($v) || trim($v) === '') {
-                throw new InvalidArgumentException("{$field}[{$i}] must be a non-empty string.");
-            }
-            $out[] = $v;
         }
 
         return $out;

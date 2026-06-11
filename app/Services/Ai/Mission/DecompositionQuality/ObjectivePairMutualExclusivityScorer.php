@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Mission\DecompositionQuality;
 
+use App\Services\Ai\Mission\Support\MissionPromptTokenizer;
+use App\Services\Ai\Support\AiStringListNormalizer;
+
 final class ObjectivePairMutualExclusivityScorer
 {
     private const SCHEMA_VERSION = 'atlas.aaeos.objective_pair_exclusivity.v1';
@@ -98,7 +101,7 @@ final class ObjectivePairMutualExclusivityScorer
         $shared = array_values(array_intersect($termsA, $termsB));
         sort($shared);
 
-        $union = array_values(array_unique(array_merge($termsA, $termsB)));
+        $union = AiStringListNormalizer::uniqueMergedTrimmedStrings($termsA, $termsB);
 
         $unionCount = count($union);
         $overlapCount = count($shared);
@@ -126,15 +129,9 @@ final class ObjectivePairMutualExclusivityScorer
         $title = isset($objective['title']) ? (string) $objective['title'] : '';
         $description = isset($objective['description']) ? (string) $objective['description'] : '';
 
-        $raw = preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($title.' '.$description), -1, PREG_SPLIT_NO_EMPTY);
-
-        if ($raw === false) {
-            return [];
-        }
-
         $kept = [];
 
-        foreach ($raw as $word) {
+        foreach (MissionPromptTokenizer::semanticWords($title.' '.$description) as $word) {
             if (mb_strlen($word) < self::MIN_TERM_LENGTH) {
                 continue;
             }

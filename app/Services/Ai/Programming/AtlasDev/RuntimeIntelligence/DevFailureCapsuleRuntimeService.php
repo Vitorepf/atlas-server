@@ -5,6 +5,7 @@ namespace App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence;
 use App\Models\AtlasDevFailureCapsule;
 use App\Models\AtlasDevTaskPacket;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 
 class DevFailureCapsuleRuntimeService
 {
@@ -27,7 +28,7 @@ class DevFailureCapsuleRuntimeService
             'failing_gate' => $this->string($input['failing_gate'] ?? null) ?? 'unknown',
             'failure_class' => $failureClass,
             'error_excerpt' => $this->truncate((string) ($input['error_excerpt'] ?? $input['error'] ?? ''), 1200),
-            'changed_files' => $this->stringList($input['changed_files'] ?? []),
+            'changed_files' => AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($input['changed_files'] ?? []),
             'suggested_repair' => $this->string($input['suggested_repair'] ?? null) ?? $this->defaultRepair($failureClass),
             'retry_budget' => max(0, min(3, (int) ($input['retry_budget'] ?? 1))),
             'escalate_to_forge' => (bool) ($input['escalate_to_forge'] ?? in_array($failureClass, ['scope_violation', 'architecture_risk'], true)),
@@ -91,21 +92,6 @@ class DevFailureCapsuleRuntimeService
             'test_failure' => 'use failure capsule to repair the minimal failing behavior and rerun selected tests',
             default => 'inspect failure capsule, add missing evidence and retry once',
         };
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_unique(array_filter(array_map(
-            fn (mixed $item): ?string => $this->string($item),
-            $value,
-        ))));
     }
 
     private function truncate(string $value, int $limit): string

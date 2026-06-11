@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * System-Graph `capabilities` module gear.
  *
@@ -209,7 +211,7 @@ final class AtlasSystemGraphCapabilitiesService
         // Rule 3 — execute outside policy is forbidden ("Proibido: executar fora
         // de policy"). Default-closed: a capability the policy did not grant is
         // never authorized. An empty allow-list grants nothing.
-        $granted = $this->stringList($policy['allowed_capabilities'] ?? []);
+        $granted = AtlasAaeosStringListNormalizer::trimmedStrings($policy['allowed_capabilities'] ?? []);
         if (! in_array($id, $granted, true)) {
             return $this->deny('not_in_policy', $id, $classification);
         }
@@ -383,22 +385,4 @@ final class AtlasSystemGraphCapabilitiesService
         return is_string($value) ? trim($value) : '';
     }
 
-    /**
-     * @param mixed $value
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
-        }
-
-        return array_values($out);
-    }
 }

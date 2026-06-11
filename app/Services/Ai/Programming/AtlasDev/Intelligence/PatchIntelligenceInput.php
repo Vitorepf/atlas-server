@@ -7,6 +7,7 @@ namespace App\Services\Ai\Programming\AtlasDev\Intelligence;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\EvidenceRef;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ScopeFileDiff;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ScopePreExistingChange;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use InvalidArgumentException;
 
 /**
@@ -39,11 +40,7 @@ final class PatchIntelligenceInput
         if ($this->taskContractHash === '') {
             throw new InvalidArgumentException('PatchIntelligenceInput.task_contract_hash must not be empty.');
         }
-        foreach ($this->expectedFiles as $i => $file) {
-            if (! is_string($file) || $file === '') {
-                throw new InvalidArgumentException("expected_files[{$i}] must be a non-empty string.");
-            }
-        }
+        AtlasDevStringListNormalizer::requireNonEmptyStrings($this->expectedFiles, 'expected_files');
         foreach ($this->changedFiles as $i => $diff) {
             if (! $diff instanceof ScopeFileDiff) {
                 throw new InvalidArgumentException("changed_files[{$i}] must be ScopeFileDiff.");

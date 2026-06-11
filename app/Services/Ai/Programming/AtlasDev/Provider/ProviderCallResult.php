@@ -7,6 +7,7 @@ namespace App\Services\Ai\Programming\AtlasDev\Provider;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Contracts\AtlasDevSchemaContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Support\CanonicalHasher;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Support\CanonicalJson;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use InvalidArgumentException;
 
 /**
@@ -59,11 +60,7 @@ final class ProviderCallResult implements AtlasDevSchemaContract
         if ($this->tokensOut !== null && $this->tokensOut < 0) {
             throw new InvalidArgumentException('ProviderCallResult.tokens_out must be null or non-negative.');
         }
-        foreach ($this->errors as $i => $err) {
-            if (! is_string($err) || $err === '') {
-                throw new InvalidArgumentException("ProviderCallResult.errors[{$i}] must be a non-empty string.");
-            }
-        }
+        AtlasDevStringListNormalizer::requireNonEmptyStrings($this->errors, 'ProviderCallResult.errors');
     }
 
     public function ok(): bool

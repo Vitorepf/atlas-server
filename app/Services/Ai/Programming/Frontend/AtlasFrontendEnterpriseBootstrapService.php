@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Programming\Frontend;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Support\Facades\File;
 use RuntimeException;
 
@@ -49,22 +50,22 @@ final class AtlasFrontendEnterpriseBootstrapService
             'surface' => $surface,
         ]);
 
-        $blockers = array_values(array_unique(array_merge(
+        $blockers = AiStringListNormalizer::uniqueMergedStrings(
             (array) ($writeResult['blockers'] ?? []),
             $this->prefixedBlockers('dossier', (array) ($dossier['blockers'] ?? [])),
             $this->prefixedBlockers('repo', (array) ($intake['blockers'] ?? [])),
             $this->prefixedBlockers('gauntlet', (array) ($gauntlet['blockers'] ?? [])),
             $this->prefixedBlockers('work_order', (array) ($workOrder['blockers'] ?? [])),
             (array) ($blueprint['blockers'] ?? []),
-        )));
-        $warnings = array_values(array_unique(array_merge(
+        );
+        $warnings = AiStringListNormalizer::uniqueMergedStrings(
             (array) ($writeResult['warnings'] ?? []),
             $this->prefixedBlockers('dossier', (array) ($dossier['warnings'] ?? [])),
             $this->prefixedBlockers('repo', (array) ($intake['warnings'] ?? [])),
             $this->prefixedBlockers('gauntlet', (array) ($gauntlet['warnings'] ?? [])),
             $this->prefixedBlockers('work_order', (array) ($workOrder['warnings'] ?? [])),
             (array) ($blueprint['warnings'] ?? []),
-        )));
+        );
         $ready = $blockers === []
             && ($dossier['status'] ?? null) === 'ready'
             && ($intake['status'] ?? null) === 'ready'
@@ -231,7 +232,7 @@ final class AtlasFrontendEnterpriseBootstrapService
         array_push($actions, ...array_values(array_filter((array) ($gauntlet['required_next_actions'] ?? []), 'is_string')));
         array_push($actions, ...array_values(array_filter((array) ($workOrder['required_next_actions'] ?? []), 'is_string')));
 
-        return array_values(array_unique($actions));
+        return AiStringListNormalizer::uniqueStrings($actions);
     }
 
     /**

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Atlas Antigravity CLI (`agy`) governed-terminal policy classifier.
  *
@@ -267,8 +269,8 @@ final class AtlasAntigravityCliGovernedTerminalExecutorService
      */
     public function referenceEnvelope(array $snapshot = []): array
     {
-        $flagsSeen = $this->normalizeStringList($snapshot['flags_seen'] ?? []);
-        $modelsObserved = $this->normalizeStringList($snapshot['models_observed'] ?? []);
+        $flagsSeen = AtlasAaeosStringListNormalizer::lowerTrimmedStrings($snapshot['flags_seen'] ?? []);
+        $modelsObserved = AtlasAaeosStringListNormalizer::lowerTrimmedStrings($snapshot['models_observed'] ?? []);
 
         $sandboxSupported = $this->containsNormalized($flagsSeen, '--sandbox');
 
@@ -371,27 +373,7 @@ final class AtlasAntigravityCliGovernedTerminalExecutorService
      */
     private function normalizeTokens(mixed $tokens): array
     {
-        if (! is_array($tokens)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($tokens as $token) {
-            if (is_string($token) && trim($token) !== '') {
-                $out[] = $this->normalizeToken($token);
-            }
-        }
-
-        return array_values($out);
-    }
-
-    /**
-     * @param mixed $list
-     * @return list<string>
-     */
-    private function normalizeStringList(mixed $list): array
-    {
-        return $this->normalizeTokens($list);
+        return AtlasAaeosStringListNormalizer::lowerTrimmedStrings($tokens);
     }
 
     private function normalizeToken(string $token): string

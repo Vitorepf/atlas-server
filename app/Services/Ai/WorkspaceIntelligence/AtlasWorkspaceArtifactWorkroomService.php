@@ -8,6 +8,13 @@ final class AtlasWorkspaceArtifactWorkroomService
 {
     public const SCHEMA_VERSION = 'atlas.workspace_artifact_workroom.v1';
 
+    private readonly AtlasWorkspaceIntelligenceListNormalizer $listNormalizer;
+
+    public function __construct(?AtlasWorkspaceIntelligenceListNormalizer $listNormalizer = null)
+    {
+        $this->listNormalizer = $listNormalizer ?? new AtlasWorkspaceIntelligenceListNormalizer();
+    }
+
     /**
      * @param  array<string,mixed>  $report
      * @param  array<string,mixed>|null  $awairOverride
@@ -42,7 +49,7 @@ final class AtlasWorkspaceArtifactWorkroomService
         $workspace = (array) ($report['workspace'] ?? []);
         $workspaceId = (string) ($workspace['workspace_id'] ?? data_get($awair, 'workspace_id', 'unknown'));
         $artifactType = (string) ($selected['artifact_type'] ?? 'unknown');
-        $sourceHashes = array_values(array_filter((array) ($selected['source_hashes'] ?? []), 'is_string'));
+        $sourceHashes = $this->listNormalizer->stringsFromArrayCast($selected['source_hashes'] ?? []);
         $consumer = (string) ($graphNode['consumer'] ?? $this->defaultConsumerFor($artifactType));
         $route = $this->routeFor($artifactType, $consumer, $awair);
         $timeline = $this->timelineFor($awair, $artifactHash, $artifactType);

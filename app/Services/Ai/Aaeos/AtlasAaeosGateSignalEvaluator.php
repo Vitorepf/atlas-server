@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
+
 /**
  * Per-phase gate-signal evaluator for the AAEOS runbook phases.
  *
@@ -67,7 +69,7 @@ final class AtlasAaeosGateSignalEvaluator
     {
         $resolvedTarget = $this->stringOrNull($disambiguationFeatures['resolved_target'] ?? null);
         $scopeBounded = ($disambiguationFeatures['scope_bounded'] ?? false) === true;
-        $ambiguityTokens = $this->stringList($disambiguationFeatures['ambiguity_tokens'] ?? []);
+        $ambiguityTokens = AiStringListNormalizer::strings($disambiguationFeatures['ambiguity_tokens'] ?? []);
         $missingCount = $this->missingAnswersCount($disambiguationFeatures['missing_answers'] ?? []);
 
         $ambiguityCount = count($ambiguityTokens);
@@ -109,7 +111,7 @@ final class AtlasAaeosGateSignalEvaluator
      */
     public function evaluateSpecPackAcceptanceCriteria(array $specPack): array
     {
-        $raw = $this->stringList($specPack['acceptance_criteria'] ?? []);
+        $raw = AiStringListNormalizer::strings($specPack['acceptance_criteria'] ?? []);
 
         $distinct = [];
         $blankCount = 0;
@@ -318,25 +320,6 @@ final class AtlasAaeosGateSignalEvaluator
         }
 
         return trim($value) === '' ? null : $value;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($value as $entry) {
-            if (is_string($entry)) {
-                $out[] = $entry;
-            }
-        }
-
-        return $out;
     }
 
     /**

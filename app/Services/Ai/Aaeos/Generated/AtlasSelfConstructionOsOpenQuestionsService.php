@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Runtime for the Atlas Self-Construction OS Open Questions v1 doc.
  *
@@ -175,8 +177,8 @@ final class AtlasSelfConstructionOsOpenQuestionsService
         $authorRole = strtolower(trim((string) ($submission['author_role'] ?? '')));
         $authoredByOperator = $authorRole === self::CLOSING_AUTHOR_ROLE;
 
-        $evidence = $this->normalizeList($submission['evidence'] ?? []);
-        $proposed = $this->normalizeList($submission['proposed_evidence'] ?? []);
+        $evidence = AtlasAaeosStringListNormalizer::trimmedStrings($submission['evidence'] ?? []);
+        $proposed = AtlasAaeosStringListNormalizer::trimmedStrings($submission['proposed_evidence'] ?? []);
 
         // Human-only close rule: all three conditions required.
         $closed = $hasAnswer && $authoredByOperator && $evidence !== [];
@@ -311,23 +313,4 @@ final class AtlasSelfConstructionOsOpenQuestionsService
         return $upper;
     }
 
-    /**
-     * @param  mixed  $value
-     * @return array<int, string>
-     */
-    private function normalizeList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
-        }
-
-        return array_values($out);
-    }
 }

@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Programming\Frontend;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\JsonFileStore;
 use Illuminate\Support\Facades\File;
 
@@ -42,17 +43,17 @@ final class AtlasFrontendCompanyRepoOnboardingService
             ])
             : $this->readOnlyProofPilotProjection($bootstrap, $frontendApp);
 
-        $blockers = array_values(array_unique(array_merge(
+        $blockers = AiStringListNormalizer::uniqueMergedStrings(
             $write ? $this->prefix('skill_install', (array) ($skillInstall['blockers'] ?? [])) : [],
             $this->prefix('bootstrap', (array) ($bootstrap['blockers'] ?? [])),
             $write ? $this->prefix('proof_pilot', (array) ($proofPilot['blockers'] ?? [])) : [],
-        )));
-        $warnings = array_values(array_unique(array_merge(
+        );
+        $warnings = AiStringListNormalizer::uniqueMergedStrings(
             $this->prefix('skill_install', (array) ($skillInstall['warnings'] ?? [])),
             $this->prefix('bootstrap', (array) ($bootstrap['warnings'] ?? [])),
             $this->prefix('proof_pilot', (array) ($proofPilot['warnings'] ?? [])),
             ['onboarding_is_not_delivery_evidence'],
-        )));
+        );
 
         $workspaceExists = $workspace !== '' && File::isDirectory($workspace);
         $skillInstalled = ($skillInstall['status'] ?? null) === 'installed';
@@ -215,7 +216,7 @@ final class AtlasFrontendCompanyRepoOnboardingService
         array_push($actions, ...array_values(array_filter((array) ($bootstrap['required_next_actions'] ?? []), 'is_string')));
         array_push($actions, ...array_values(array_filter((array) ($proofPilot['required_next_actions'] ?? []), 'is_string')));
 
-        return array_values(array_unique($actions));
+        return AiStringListNormalizer::uniqueStrings($actions);
     }
 
 }

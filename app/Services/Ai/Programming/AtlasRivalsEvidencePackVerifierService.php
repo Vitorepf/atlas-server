@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
+
 /**
  * Rivals Evidence Pack Verifier v1.
  *
@@ -93,7 +95,7 @@ class AtlasRivalsEvidencePackVerifierService
             }
         }
 
-        $blockers = array_values(array_unique($blockers));
+        $blockers = AiStringListNormalizer::uniqueStrings($blockers);
         $status = $blockers === [] ? 'passed' : 'blocked';
         if ($mode === self::MODE_REAL_RUN && in_array('invalid_missing_evidence_for_real_run', $blockers, true)) {
             $status = 'invalid_missing_evidence';
@@ -137,7 +139,7 @@ class AtlasRivalsEvidencePackVerifierService
             }
         }
 
-        return array_values(array_unique($missing));
+        return AiStringListNormalizer::uniqueStrings($missing);
     }
 
     /**

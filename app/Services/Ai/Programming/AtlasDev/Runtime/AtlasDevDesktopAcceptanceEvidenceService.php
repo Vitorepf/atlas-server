@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Runtime;
 
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use App\Services\Ai\Support\JsonFileStore;
 use Carbon\CarbonImmutable;
 use Throwable;
@@ -46,7 +47,7 @@ final class AtlasDevDesktopAcceptanceEvidenceService
             }
         }
 
-        $blockers = array_values(array_unique($blockers));
+        $blockers = AtlasDevStringListNormalizer::uniqueTrimmedStrings($blockers);
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
@@ -201,7 +202,7 @@ final class AtlasDevDesktopAcceptanceEvidenceService
             $blockers[] = 'desktop_acceptance_verification_receipt_missing';
         }
 
-        return array_values(array_unique($blockers));
+        return AtlasDevStringListNormalizer::uniqueTrimmedStrings($blockers);
     }
 
     private function isRecent(string $recordedAt, int $maxAgeHours): bool

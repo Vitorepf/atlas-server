@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Cores;
 
+use App\Services\Ai\Aaeos\Support\AtlasAaeosArrayFieldReader;
+
 final class MemoryRecallRanker
 {
     private const SCHEMA_VERSION = 'atlas.aaeos.memory_recall_ranking.v1';
@@ -43,7 +45,7 @@ final class MemoryRecallRanker
 
             if (isset($keptByDedupKey[$dedupKey])) {
                 $deduplicated[] = [
-                    'id' => $this->stringField($candidate, 'id'),
+                    'id' => AtlasAaeosArrayFieldReader::stringField($candidate, 'id'),
                     'kept_id' => $keptByDedupKey[$dedupKey],
                     'dedup_key' => $dedupKey,
                 ];
@@ -51,7 +53,7 @@ final class MemoryRecallRanker
                 continue;
             }
 
-            $keptByDedupKey[$dedupKey] = $this->stringField($candidate, 'id');
+            $keptByDedupKey[$dedupKey] = AtlasAaeosArrayFieldReader::stringField($candidate, 'id');
             $ranked[] = $candidate;
         }
 
@@ -134,7 +136,7 @@ final class MemoryRecallRanker
      */
     private function scopeRank(array $candidate): int
     {
-        $scope = $this->stringField($candidate, 'scope');
+        $scope = AtlasAaeosArrayFieldReader::stringField($candidate, 'scope');
 
         return self::SCOPE_RANK[$scope] ?? self::SCOPE_RANK_OTHER;
     }
@@ -146,8 +148,8 @@ final class MemoryRecallRanker
      */
     private function decisionRank(array $candidate): int
     {
-        $isAcceptedDecision = $this->stringField($candidate, 'kind') === 'decision'
-            && $this->stringField($candidate, 'decision_status') === 'accepted';
+        $isAcceptedDecision = AtlasAaeosArrayFieldReader::stringField($candidate, 'kind') === 'decision'
+            && AtlasAaeosArrayFieldReader::stringField($candidate, 'decision_status') === 'accepted';
 
         return $isAcceptedDecision ? 0 : 1;
     }
@@ -159,7 +161,7 @@ final class MemoryRecallRanker
      */
     private function canonicalRank(array $candidate): int
     {
-        $docStatus = $this->stringField($candidate, 'doc_status');
+        $docStatus = AtlasAaeosArrayFieldReader::stringField($candidate, 'doc_status');
 
         if ($docStatus === 'canonical') {
             return 0;
@@ -208,8 +210,8 @@ final class MemoryRecallRanker
      */
     private function tiebreak(array $candidate): string
     {
-        $id = $this->stringField($candidate, 'id');
-        $sourceRef = $this->stringField($candidate, 'source_ref');
+        $id = AtlasAaeosArrayFieldReader::stringField($candidate, 'id');
+        $sourceRef = AtlasAaeosArrayFieldReader::stringField($candidate, 'source_ref');
 
         return sha1($id.'/'.$sourceRef);
     }
@@ -221,7 +223,7 @@ final class MemoryRecallRanker
      */
     private function dedupKey(array $candidate): string
     {
-        return $this->stringField($candidate, 'kind').'|'.$this->stringField($candidate, 'source_ref');
+        return AtlasAaeosArrayFieldReader::stringField($candidate, 'kind').'|'.AtlasAaeosArrayFieldReader::stringField($candidate, 'source_ref');
     }
 
     /**
@@ -247,7 +249,7 @@ final class MemoryRecallRanker
      */
     private function reason(array $candidate, array $key): string
     {
-        $parts = ['scope='.$this->stringField($candidate, 'scope').'(#'.$key['scope_rank'].')'];
+        $parts = ['scope='.AtlasAaeosArrayFieldReader::stringField($candidate, 'scope').'(#'.$key['scope_rank'].')'];
 
         if ($key['decision_rank'] === 0) {
             $parts[] = 'accepted_decision';
@@ -275,24 +277,6 @@ final class MemoryRecallRanker
         }
 
         return rtrim(rtrim(sprintf('%.6f', $score), '0'), '.');
-    }
-
-    /**
-     * @param  array<string,mixed>  $candidate
-     */
-    private function stringField(array $candidate, string $key): string
-    {
-        $value = $candidate[$key] ?? '';
-
-        if (is_string($value)) {
-            return $value;
-        }
-
-        if (is_int($value) || is_float($value)) {
-            return (string) $value;
-        }
-
-        return '';
     }
 
     /**

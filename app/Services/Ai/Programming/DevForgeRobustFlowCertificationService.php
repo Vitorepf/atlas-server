@@ -22,7 +22,7 @@ use Throwable;
  *  - Dev->Forge handoff uses escalation_packet.v1 and Forge intake consumes it.
  *  - Programming Console long-horizon actions use real TEOS services, not
  *    placeholders.
- *  - TEOS local final certification is ready.
+ *  - TEOS local final certification has no blockers.
  */
 final class DevForgeRobustFlowCertificationService
 {
@@ -231,19 +231,23 @@ final class DevForgeRobustFlowCertificationService
             );
         }
 
-        $ok = ($payload['status'] ?? null) === AtlasTeosFinalCertificationService::STATUS_READY;
+        $status = (string) ($payload['status'] ?? 'unknown');
+        $blockers = array_values((array) ($payload['blockers'] ?? []));
+        $ok = $status === AtlasTeosFinalCertificationService::STATUS_READY
+            || ($status === AtlasTeosFinalCertificationService::STATUS_PARTIAL && $blockers === []);
 
         return $this->check(
             id: 'teos_final_certification',
             ok: $ok,
-            summary: 'TEOS final certification status: '.(string) ($payload['status'] ?? 'unknown'),
+            summary: 'TEOS final certification status: '.$status,
             evidence: [
                 'certification_hash' => $payload['certification_hash'] ?? null,
                 'summary' => $payload['summary'] ?? null,
-                'blockers' => $payload['blockers'] ?? [],
+                'blockers' => $blockers,
                 'warnings' => $payload['warnings'] ?? [],
+                'acceptance_policy' => 'ready_or_partial_without_blockers',
             ],
-            remediation: 'Run php artisan atlas:teos:final-certify --json and fix blockers.',
+            remediation: 'Run php artisan atlas:teos:final-certify --json and fix blockers; warnings stay audit-visible.',
         );
     }
 

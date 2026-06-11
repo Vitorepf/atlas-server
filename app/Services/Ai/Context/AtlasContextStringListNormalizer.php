@@ -4,8 +4,18 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Context;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
+
 final class AtlasContextStringListNormalizer
 {
+    /**
+     * @return array<int,string>
+     */
+    public static function stringsFromArrayCast(mixed $value): array
+    {
+        return AiStringListNormalizer::stringsFromArrayCast($value);
+    }
+
     /**
      * @return array<int,string>
      */
@@ -13,7 +23,11 @@ final class AtlasContextStringListNormalizer
     {
         $values = is_array($value) ? $value : [];
 
-        return self::uniqueMappedStrings($values, static fn (mixed $item): mixed => $item, $lowercase);
+        return AiStringListNormalizer::uniqueMappedScalarStrings(
+            $values,
+            static fn (mixed $item): mixed => $item,
+            $lowercase,
+        );
     }
 
     /**
@@ -22,22 +36,6 @@ final class AtlasContextStringListNormalizer
      */
     public static function uniqueMappedStrings(array $values, callable $map, bool $lowercase = false): array
     {
-        $strings = [];
-
-        foreach ($values as $value) {
-            $mapped = $map($value);
-            if (! is_scalar($mapped)) {
-                continue;
-            }
-
-            $string = trim((string) $mapped);
-            if ($string === '') {
-                continue;
-            }
-
-            $strings[] = $lowercase ? strtolower($string) : $string;
-        }
-
-        return array_values(array_unique($strings));
+        return AiStringListNormalizer::uniqueMappedScalarStrings($values, $map, $lowercase);
     }
 }

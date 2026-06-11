@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Programming Frontend — Impeccable Build / Test / Release Teardown runtime.
  *
@@ -141,7 +143,10 @@ final class AtlasProgrammingFrontendImpeccableBuildTestReleaseService
         // build stale regardless of the caller's build_fresh claim (Regra 2 feeds
         // Regra 4): if any dependent was not rebuilt, the build is not fresh.
         if ((bool) ($state['detector_rules_changed'] ?? false)) {
-            $rebuilt = array_values(array_intersect(self::DETECTOR_DEPENDENTS, $this->stringList($state['rebuilt'] ?? [])));
+            $rebuilt = array_values(array_intersect(
+                self::DETECTOR_DEPENDENTS,
+                AtlasAaeosStringListNormalizer::uniqueNonEmptyStrings($state['rebuilt'] ?? []),
+            ));
             if (count($rebuilt) < count(self::DETECTOR_DEPENDENTS)) {
                 $buildFresh = false;
             }
@@ -196,7 +201,7 @@ final class AtlasProgrammingFrontendImpeccableBuildTestReleaseService
     {
         $changed = (bool) ($state['detector_rules_changed'] ?? false);
         $mustRebuild = $changed ? self::DETECTOR_DEPENDENTS : [];
-        $alreadyRebuilt = $this->stringList($state['rebuilt'] ?? []);
+        $alreadyRebuilt = AtlasAaeosStringListNormalizer::uniqueNonEmptyStrings($state['rebuilt'] ?? []);
         $pending = array_values(array_diff($mustRebuild, $alreadyRebuilt));
 
         return [
@@ -282,7 +287,7 @@ final class AtlasProgrammingFrontendImpeccableBuildTestReleaseService
      */
     public function buildPipeline(array $freshStages = []): array
     {
-        $claimed = array_fill_keys($this->stringList($freshStages), true);
+        $claimed = array_fill_keys(AtlasAaeosStringListNormalizer::uniqueNonEmptyStrings($freshStages), true);
         $resolved = [];
         $upstreamFresh = true;
 
@@ -357,28 +362,9 @@ final class AtlasProgrammingFrontendImpeccableBuildTestReleaseService
             'rebuild_propagation' => $rebuild,
             'live_script' => $live,
             'source_guard' => $source,
-            'pipeline' => $this->buildPipeline($this->stringList($state['fresh_stages'] ?? [])),
+            'pipeline' => $this->buildPipeline(AtlasAaeosStringListNormalizer::uniqueNonEmptyStrings($state['fresh_stages'] ?? [])),
             'test_matrix' => $this->testMatrix(),
         ];
     }
 
-    /**
-     * @param mixed $value
-     * @return array<int, string>
-     */
-    private function stringList($value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item) && $item !== '') {
-                $out[] = $item;
-            }
-        }
-
-        return array_values(array_unique($out));
-    }
 }

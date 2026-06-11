@@ -103,15 +103,7 @@ final class AtlasDevDesktopCertificationService
      */
     private function httpSurfaceStage(): array
     {
-        $required = [
-            'atlas-dev.readiness',
-            'atlas-dev.plan',
-            'atlas-dev.run',
-            'atlas-dev.runs.index',
-            'atlas-dev.runs.cancel',
-            'atlas-dev.runs.show',
-            'atlas-dev.runs.stream',
-        ];
+        $required = AtlasDevReadinessService::requiredHttpRoutes();
         $missing = array_values(array_filter($required, static fn (string $route): bool => ! Route::has($route)));
 
         return [

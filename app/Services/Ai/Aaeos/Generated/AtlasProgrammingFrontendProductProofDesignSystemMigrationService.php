@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Design-system-migration product-proof gate evaluator.
  *
@@ -111,9 +113,9 @@ final class AtlasProgrammingFrontendProductProofDesignSystemMigrationService
      */
     public function evaluate(array $demo): array
     {
-        $viewports = $this->normalizeList($demo['viewports'] ?? []);
-        $evidence = $this->normalizeList($demo['evidence'] ?? []);
-        $flowSteps = $this->normalizeList($demo['flow_steps'] ?? []);
+        $viewports = AtlasAaeosStringListNormalizer::uniqueLowerTrimmedStrings($demo['viewports'] ?? []);
+        $evidence = AtlasAaeosStringListNormalizer::uniqueLowerTrimmedStrings($demo['evidence'] ?? []);
+        $flowSteps = AtlasAaeosStringListNormalizer::uniqueLowerTrimmedStrings($demo['flow_steps'] ?? []);
 
         $claimsComplete = (bool) ($demo['claims_migration_complete'] ?? false);
         $completionFlags = [
@@ -305,23 +307,4 @@ final class AtlasProgrammingFrontendProductProofDesignSystemMigrationService
         return $map;
     }
 
-    /**
-     * @param mixed $value
-     * @return list<string>
-     */
-    private function normalizeList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $clean = [];
-        foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $clean[] = strtolower(trim($item));
-            }
-        }
-
-        return array_values(array_unique($clean));
-    }
 }

@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Programming\Sdd\Compilers;
 
 use App\Services\Ai\Programming\Sdd\Pipeline\ContextPack;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 /**
  * Compiles a Plan from an approved spec + ContextPack.
@@ -19,7 +20,9 @@ class PlanCompiler
      */
     public function compile(array $spec, ContextPack $context): array
     {
-        $likely = $this->stringList($spec['likely_files'] ?? []);
+        $likely = AiStringListNormalizer::nonBlankStrings(
+            is_array($spec['likely_files'] ?? []) ? $spec['likely_files'] : [],
+        );
         $stack = $context->stack;
 
         $plan = [
@@ -56,7 +59,7 @@ class PlanCompiler
             $forbidden[] = 'database/migrations/*';
         }
 
-        return array_values(array_unique(array_diff($forbidden, $likely)));
+        return AiStringListNormalizer::uniqueStrings(array_diff($forbidden, $likely));
     }
 
     /**
@@ -97,7 +100,9 @@ class PlanCompiler
             'stack' => $stack,
             'expected_behavior' => (string) ($spec['expected_behavior'] ?? ''),
             'inputs_outputs' => (string) ($spec['inputs_outputs'] ?? ''),
-            'risks' => $this->stringList($spec['risks'] ?? []),
+            'risks' => AiStringListNormalizer::nonBlankStrings(
+                is_array($spec['risks'] ?? []) ? $spec['risks'] : [],
+            ),
         ];
     }
 
@@ -108,7 +113,10 @@ class PlanCompiler
     private function resolveTestPlan(array $spec): array
     {
         $tests = [];
-        foreach ($this->stringList($spec['tests'] ?? []) as $test) {
+        $tests = AiStringListNormalizer::nonBlankStrings(
+            is_array($spec['tests'] ?? []) ? $spec['tests'] : [],
+        );
+        foreach ($tests as $test) {
             $tests[] = [
                 'kind' => str_contains(strtolower($test), 'phpunit') ? 'phpunit' : 'cli_check',
                 'command' => $test,
@@ -126,22 +134,9 @@ class PlanCompiler
     {
         return [
             'description' => (string) ($spec['rollback'] ?? 'Revert commit and rerun the validation suite.'),
-            'evidence_required' => $this->stringList($spec['evidence_required'] ?? []),
+            'evidence_required' => AiStringListNormalizer::nonBlankStrings(
+                is_array($spec['evidence_required'] ?? []) ? $spec['evidence_required'] : [],
+            ),
         ];
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(
-            $value,
-            static fn ($v): bool => is_string($v) && trim($v) !== '',
-        ));
     }
 }

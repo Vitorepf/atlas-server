@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering\CodeGraph;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -157,7 +158,7 @@ class CodeGraphContextRetriever
         $budget = max(0, $budget);
 
         $terms = $this->extractTermsForQuery($query, $changedFiles);
-        $ranked = $terms === [] ? [] : $this->rankedCandidates($workspaceId, $terms);
+        $ranked = $terms === [] ? [] : $this->rankedCandidates($workspaceId, $terms, $changedFiles);
 
         return $this->assembler->assemble($ranked, $budget);
     }
@@ -253,9 +254,10 @@ class CodeGraphContextRetriever
      * fault yields an empty list rather than an exception (recall is best-effort).
      *
      * @param  array<int,string>  $terms
+     * @param  array<int,string>  $changedFiles
      * @return array<int,array<string,mixed>> ranked pack candidates
      */
-    private function rankedCandidates(string $workspaceId, array $terms): array
+    private function rankedCandidates(string $workspaceId, array $terms, array $changedFiles = []): array
     {
         try {
             if (! DatabaseTableAvailability::has('atlas_engineering_code_symbols')) {
@@ -266,6 +268,7 @@ class CodeGraphContextRetriever
             $seenRows = [];
             $hasWorkspaceId = DatabaseTableAvailability::hasColumn('atlas_engineering_code_symbols', 'workspace_id');
             $includeTests = $this->shouldIncludeTests($terms);
+            $scopedFiles = $this->scopeFiles($changedFiles);
 
             foreach ($terms as $term) {
                 // Escape LIKE wildcards in the term so a literal '%'/'_' in a
@@ -280,6 +283,9 @@ class CodeGraphContextRetriever
                             ->orWhere('file_path', 'like', $like)
                             ->orWhere('signature', 'like', $like);
                     });
+                if ($scopedFiles !== []) {
+                    $query->whereIn('file_path', $scopedFiles);
+                }
                 if (! $includeTests) {
                     $query
                         ->where('symbol_type', '!=', 'test_method')
@@ -359,6 +365,15 @@ class CodeGraphContextRetriever
         unset($candidate);
 
         return $candidates;
+    }
+
+    /**
+     * @param  array<int,string>  $changedFiles
+     * @return array<int,string>
+     */
+    private function scopeFiles(array $changedFiles): array
+    {
+        return AiStringListNormalizer::uniqueTrimmedStrings($changedFiles);
     }
 
     /**

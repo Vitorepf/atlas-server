@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Atlas Forge Obra Enterprise Loop Upgrade — pure, deterministic gate engine for
  * the Forge enterprise loop documented in
@@ -147,7 +149,7 @@ final class AtlasForgeObraEnterpriseLoopUpgradeService
         }
 
         // Required evidence for the audit itself must be declared.
-        $requiredEvidence = $this->stringList($obra['required_evidence'] ?? []);
+        $requiredEvidence = AtlasAaeosStringListNormalizer::trimmedStrings($obra['required_evidence'] ?? []);
         if ($requiredEvidence === []) {
             $blockers[] = ['reason' => 'required_evidence_undeclared'];
         }
@@ -197,7 +199,7 @@ final class AtlasForgeObraEnterpriseLoopUpgradeService
         );
         $fallbackFailed = (bool) ($failure['fallback_failed'] ?? false);
         $needsHuman = (bool) ($failure['needs_human'] ?? false);
-        $evidence = $this->stringList($failure['evidence'] ?? []);
+        $evidence = AtlasAaeosStringListNormalizer::trimmedStrings($failure['evidence'] ?? []);
 
         $reasons = [];
         $exhausted = $attempt >= $maxAttempts;
@@ -286,9 +288,9 @@ final class AtlasForgeObraEnterpriseLoopUpgradeService
 
         // Obra-scale receipt: phases, providers and packets are mandatory
         // (forge-not-dev-copy). A receipt without them is not an Obra receipt.
-        $phases = $this->stringList($obra['phases'] ?? []);
-        $providerRefs = $this->stringList($obra['provider_decision_refs'] ?? []);
-        $packetRefs = $this->stringList($obra['work_packet_refs'] ?? []);
+        $phases = AtlasAaeosStringListNormalizer::trimmedStrings($obra['phases'] ?? []);
+        $providerRefs = AtlasAaeosStringListNormalizer::trimmedStrings($obra['provider_decision_refs'] ?? []);
+        $packetRefs = AtlasAaeosStringListNormalizer::trimmedStrings($obra['work_packet_refs'] ?? []);
         if ($phases === [] || $providerRefs === [] || $packetRefs === []) {
             $blockers[] = [
                 'reason' => 'not_obra_scale',
@@ -301,11 +303,11 @@ final class AtlasForgeObraEnterpriseLoopUpgradeService
         }
 
         // Open blockers / incident capsules can never be hidden under a claim.
-        $openBlockers = $this->stringList($obra['open_blockers'] ?? []);
+        $openBlockers = AtlasAaeosStringListNormalizer::trimmedStrings($obra['open_blockers'] ?? []);
         foreach ($openBlockers as $open) {
             $blockers[] = ['reason' => 'open_blocker', 'ref' => $open];
         }
-        $openCapsules = $this->stringList($obra['open_incident_capsules'] ?? []);
+        $openCapsules = AtlasAaeosStringListNormalizer::trimmedStrings($obra['open_incident_capsules'] ?? []);
         foreach ($openCapsules as $capsule) {
             $blockers[] = ['reason' => 'open_incident_capsule', 'ref' => $capsule];
         }
@@ -313,7 +315,7 @@ final class AtlasForgeObraEnterpriseLoopUpgradeService
         $releaseDecision = $blockers === [] ? self::RELEASE_PROMOTE : self::RELEASE_HOLD;
 
         // Learning proposals are NEVER auto-applied — always routed to curator.
-        $learningProposals = $this->stringList($obra['learning_proposals'] ?? []);
+        $learningProposals = AtlasAaeosStringListNormalizer::trimmedStrings($obra['learning_proposals'] ?? []);
         $learningRouting = [];
         foreach ($learningProposals as $proposal) {
             $learningRouting[] = [
@@ -361,26 +363,6 @@ final class AtlasForgeObraEnterpriseLoopUpgradeService
         }
 
         return $default;
-    }
-
-    /**
-     * @param mixed $value
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $clean = [];
-        foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $clean[] = trim($item);
-            }
-        }
-
-        return array_values($clean);
     }
 
     private function positiveInt(mixed $value, int $default): int

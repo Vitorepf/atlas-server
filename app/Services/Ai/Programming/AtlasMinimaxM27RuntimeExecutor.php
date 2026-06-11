@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Support\Facades\Http;
 use Throwable;
 
@@ -122,7 +123,7 @@ class AtlasMinimaxM27RuntimeExecutor
             $blockers[] = self::BLOCKER_HIGHSPEED_NOT_AUTHORIZED;
         }
 
-        $blockers = array_values(array_unique($blockers));
+        $blockers = AiStringListNormalizer::uniqueStrings($blockers);
         $configured = $blockers === [];
 
         return [
@@ -168,10 +169,10 @@ class AtlasMinimaxM27RuntimeExecutor
     public function plan(array $manifest): array
     {
         $config = $this->configured();
-        $blockers = array_values(array_unique(array_merge(
+        $blockers = AiStringListNormalizer::uniqueMergedStrings(
             (array) ($config['blockers'] ?? []),
             $this->manifestBlockers($manifest),
-        )));
+        );
 
         return [
             'schema_version' => 'atlas.provider.minimax_m27.invocation_request.v1',
@@ -527,7 +528,7 @@ class AtlasMinimaxM27RuntimeExecutor
             'performance_signal' => null,
             'classification' => null,
             'failure_type' => null,
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => AiStringListNormalizer::uniqueStrings($blockers),
             'note' => $note,
         ];
     }

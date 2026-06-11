@@ -4,6 +4,7 @@ namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasLongHorizonContinuationPack;
 use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class ProgrammingResumeService
@@ -183,8 +184,8 @@ class ProgrammingResumeService
         }
         $scopeId = $this->stringOrNull($context['scope_id'] ?? null) ?? ($parentPlanId ?: $planId);
 
-        $missingRequiredRefs = $this->stringList($context['missing_required_refs'] ?? []);
-        $staleRefs = $this->stringList($context['stale_refs'] ?? []);
+        $missingRequiredRefs = AiStringListNormalizer::uniqueTrimmedScalarValues($context['missing_required_refs'] ?? []);
+        $staleRefs = AiStringListNormalizer::uniqueTrimmedScalarValues($context['stale_refs'] ?? []);
 
         $existing = $this->resolveExistingPack($scopeType, $scopeId);
 
@@ -336,25 +337,4 @@ class ProgrammingResumeService
         return $value === '' ? null : $value;
     }
 
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $list = [];
-        foreach ($value as $item) {
-            if (is_scalar($item)) {
-                $item = trim((string) $item);
-                if ($item !== '') {
-                    $list[] = $item;
-                }
-            }
-        }
-
-        return array_values(array_unique($list));
-    }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Live-mode repair-loop product-proof gate evaluator.
  *
@@ -96,8 +98,8 @@ final class AtlasProgrammingFrontendProductProofLiveModeRepairLoopService
     public function evaluate(array $run): array
     {
         $viewport = $this->normalizeString($run['viewport'] ?? null);
-        $completedStages = $this->normalizeList($run['completed_stages'] ?? []);
-        $evidence = $this->normalizeList($run['evidence'] ?? []);
+        $completedStages = AtlasAaeosStringListNormalizer::lowerTrimmedStrings($run['completed_stages'] ?? []);
+        $evidence = AtlasAaeosStringListNormalizer::lowerTrimmedStrings($run['evidence'] ?? []);
 
         $claimsParity = (bool) ($run['claims_live_mode_parity'] ?? false);
         $externalReplayPresent = (bool) ($run['external_replay_present'] ?? false);
@@ -275,26 +277,6 @@ final class AtlasProgrammingFrontendProductProofLiveModeRepairLoopService
         }
 
         return null;
-    }
-
-    /**
-     * @param mixed $value
-     * @return list<string>
-     */
-    private function normalizeList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $clean = [];
-        foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $clean[] = strtolower(trim($item));
-            }
-        }
-
-        return array_values($clean);
     }
 
     private function normalizeString(mixed $value): ?string

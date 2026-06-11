@@ -19,6 +19,7 @@ use App\Services\Ai\Mission\MissionModeService;
 use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
 use App\Services\Ai\RuntimeEfficiency\AtlasRuntimeEfficiencyGovernorService;
 use App\Services\Ai\StrategicReality\AtlasStrategicRealityRuntimeService;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
@@ -670,7 +671,7 @@ class AtlasHyperflowEntryService
      */
     private function strategicRealityEvidenceRefs(array $payload, array $envelope): array
     {
-        return array_values(array_unique(array_filter([
+        return AiStringListNormalizer::uniqueStrings(array_values(array_filter([
             ...array_values(array_filter((array) data_get($payload, 'evidence_refs', []), 'is_string')),
             ...array_values(array_filter((array) data_get($payload, 'context_refs', []), 'is_string')),
             data_get($envelope, 'decision_receipt.router_decision_receipt.receipt_hash'),
@@ -1044,7 +1045,7 @@ class AtlasHyperflowEntryService
                 $contextRefs[] = 'rich_input:'.$kind.':'.$id;
             }
         }
-        $contextRefs = array_values(array_unique($contextRefs));
+        $contextRefs = AiStringListNormalizer::uniqueStrings($contextRefs);
 
         $evidenceRefs = array_values(array_filter([
             'receipt:router_decision:'.(string) data_get($envelope, 'router_decision.receipt_hash', ''),

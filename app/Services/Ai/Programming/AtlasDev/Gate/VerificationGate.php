@@ -10,6 +10,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Components\GateOutcome;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\TestRun;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ScopeGuardReceipt;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 
 /**
  * Runs the LightTaskContract.validation_commands list and packages the result.
@@ -133,7 +134,7 @@ final class VerificationGate
             ),
         ];
 
-        $honestyFlags = array_values(array_unique($honestyFlags));
+        $honestyFlags = AtlasDevStringListNormalizer::uniqueTrimmedStrings($honestyFlags);
 
         return new VerificationGateResult(
             tests: $tests,
@@ -165,7 +166,10 @@ final class VerificationGate
                 tests: [],
                 gates: [$gate],
                 aggregateStatus: VerificationGateResult::STATUS_PASSED,
-                honestyFlags: array_values(array_unique([...$honestyFlags, 'no_tests_explicit_reason:'.trim($reason)])),
+                honestyFlags: AtlasDevStringListNormalizer::uniqueTrimmedStrings([
+                    ...$honestyFlags,
+                    'no_tests_explicit_reason:'.trim($reason),
+                ]),
                 evidenceRefs: [],
                 profile: self::PROFILE_GENERIC_NO_TEST,
             );
@@ -184,7 +188,10 @@ final class VerificationGate
             tests: [],
             gates: [$gate],
             aggregateStatus: VerificationGateResult::STATUS_NEEDS_REVIEW,
-            honestyFlags: array_values(array_unique([...$honestyFlags, 'test_skipped_no_reason'])),
+            honestyFlags: AtlasDevStringListNormalizer::uniqueTrimmedStrings([
+                ...$honestyFlags,
+                'test_skipped_no_reason',
+            ]),
             evidenceRefs: [],
             profile: self::PROFILE_GENERIC_NO_TEST,
         );

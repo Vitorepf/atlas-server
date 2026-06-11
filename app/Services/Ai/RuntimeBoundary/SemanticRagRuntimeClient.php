@@ -95,17 +95,12 @@ final class SemanticRagRuntimeClient implements SemanticRetrievalRuntime
      */
     private function run(array $manifest): array
     {
-        $result = $this->runtime->run($manifest);
-
-        // Boundary enforcement: a result is only accepted if it proves real, in-Python,
-        // non-fabricated embeddings. This is where a fake would be rejected.
-        PythonBoundaryReceiptGuard::assertReal(
-            $result,
+        return PythonBoundaryReceiptGuard::runReal(
+            $this->runtime,
+            $manifest,
             ['real_embeddings', 'embeddings_engine_in_python'],
             ['fabricated_vectors'],
             'semantic_rag returned a non-real-embedding boundary receipt — refusing (anti-fake guard).',
         );
-
-        return $result;
     }
 }

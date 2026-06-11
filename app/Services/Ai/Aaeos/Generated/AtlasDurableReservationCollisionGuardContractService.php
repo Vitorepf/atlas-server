@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Atlas Self-Construction Durable Reservation Collision Guard Contract — pure,
  * deterministic, READ-ONLY surface.
@@ -180,13 +182,13 @@ final class AtlasDurableReservationCollisionGuardContractService
     {
         $candidateId = is_string($input['candidate_packet_id'] ?? null) ? $input['candidate_packet_id'] : null;
 
-        $allowed = $this->stringList($input['candidate_allowed_files'] ?? null);
-        $forbidden = $this->stringList($input['candidate_forbidden_files'] ?? null);
+        $allowed = AtlasAaeosStringListNormalizer::nonEmptyStrings($input['candidate_allowed_files'] ?? null);
+        $forbidden = AtlasAaeosStringListNormalizer::nonEmptyStrings($input['candidate_forbidden_files'] ?? null);
         $candidateFiles = array_values(array_unique(array_merge($allowed, $forbidden)));
 
-        $hotScope = $this->stringList($input['hot_forbidden_scope'] ?? null);
-        $candidateDeps = $this->stringList($input['candidate_dependency_ids'] ?? null);
-        $completedDeps = $this->stringList($input['completed_dependency_ids'] ?? null);
+        $hotScope = AtlasAaeosStringListNormalizer::nonEmptyStrings($input['hot_forbidden_scope'] ?? null);
+        $candidateDeps = AtlasAaeosStringListNormalizer::nonEmptyStrings($input['candidate_dependency_ids'] ?? null);
+        $completedDeps = AtlasAaeosStringListNormalizer::nonEmptyStrings($input['completed_dependency_ids'] ?? null);
 
         $currentSession = is_string($input['current_session_id'] ?? null) ? $input['current_session_id'] : null;
         $candidateHash = is_string($input['candidate_packet_hash'] ?? null) ? $input['candidate_packet_hash'] : null;
@@ -207,7 +209,7 @@ final class AtlasDurableReservationCollisionGuardContractService
                 $activeReservationIds[] = $resId;
             }
 
-            $changed = $this->stringList($reservation['changed_files'] ?? null);
+            $changed = AtlasAaeosStringListNormalizer::nonEmptyStrings($reservation['changed_files'] ?? null);
             $hit = array_values(array_intersect($candidateFiles, $changed));
             if ($hit === []) {
                 continue;
@@ -350,27 +352,6 @@ final class AtlasDurableReservationCollisionGuardContractService
         }
 
         return $violations;
-    }
-
-    /**
-     * Normalise a value into a list of non-empty strings.
-     *
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item) && $item !== '') {
-                $out[] = $item;
-            }
-        }
-
-        return $out;
     }
 
     /**

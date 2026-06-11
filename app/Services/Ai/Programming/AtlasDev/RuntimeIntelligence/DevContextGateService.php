@@ -45,6 +45,11 @@ class DevContextGateService
         $allowedFiles = $this->list($packet['allowed_files'] ?? []);
         $suggestedTests = $this->list($packet['suggested_tests'] ?? []);
         $requiredEvidence = $this->list($packet['required_evidence'] ?? []);
+        $verificationHandles = $this->list($packet['verification_handles'] ?? []);
+        $expansionHandles = $this->list($packet['expansion_handles'] ?? []);
+        $initialContextKinds = $this->list($packet['initial_context_kinds'] ?? []);
+        $initialContextChars = $this->intValue($packet['initial_context_chars'] ?? null);
+        $maxInitialContextChars = $this->intValue($packet['max_initial_context_chars'] ?? null) ?? 12000;
         $acceptance = $this->list($packet['acceptance_criteria'] ?? []);
 
         if ($objective === '' || $objective === 'Atlas Dev task') {
@@ -58,10 +63,15 @@ class DevContextGateService
                 $remediation[] = 'attach owner docs, expected files or allowed file scope';
             }
 
-            if ($suggestedTests === [] && $requiredEvidence === []) {
+            if ($suggestedTests === [] && $requiredEvidence === [] && $verificationHandles === [] && $expansionHandles === []) {
                 $missing[] = 'verification_plan';
-                $remediation[] = 'declare suggested tests or required evidence';
+                $remediation[] = 'declare suggested tests, required evidence or deferred verification handles';
             }
+        }
+
+        foreach ($this->initialContextViolations($initialContextKinds, $initialContextChars, $maxInitialContextChars) as $violation) {
+            $missing[] = $violation['id'];
+            $remediation[] = $violation['remediation'];
         }
 
         if (in_array($risk, ['high', 'critical'], true)) {
@@ -88,6 +98,18 @@ class DevContextGateService
             'provider_safe' => $status === self::STATUS_PASSED,
             'missing' => $missing,
             'remediation' => $remediation,
+            'context_delivery_policy' => [
+                'initial_context_contract' => 'minimal_provider_safe',
+                'max_initial_context_chars' => $maxInitialContextChars,
+                'initial_context_chars' => $initialContextChars,
+                'expansion_handles_present' => $expansionHandles !== [] || $verificationHandles !== [],
+                'verification_content_deferred' => $verificationHandles !== [] && $suggestedTests === [] && $requiredEvidence === [],
+                'deferred_material' => [
+                    'tests' => $verificationHandles !== [] || $suggestedTests !== [],
+                    'docs' => $expansionHandles !== [] || $realContextRefs !== [],
+                    'code_graph' => $expansionHandles !== [],
+                ],
+            ],
         ];
         $payload['context_gate_hash'] = MissionCanonicalHash::sha256($payload);
 
@@ -120,5 +142,53 @@ class DevContextGateService
     private function list(mixed $value): array
     {
         return is_array($value) ? array_values(array_filter($value, 'is_string')) : [];
+    }
+
+    /**
+     * @return list<array{id:string,remediation:string}>
+     */
+    private function initialContextViolations(array $initialContextKinds, ?int $initialContextChars, int $maxInitialContextChars): array
+    {
+        $violations = [];
+        $deferredKinds = [
+            'docs',
+            'documentation_dump',
+            'full_doc',
+            'full_docs',
+            'test_files',
+            'test_output',
+            'tests',
+            'full_test_output',
+            'code_graph_full_dump',
+        ];
+
+        if ($initialContextChars !== null && $initialContextChars > $maxInitialContextChars) {
+            $violations[] = [
+                'id' => 'initial_context_too_large',
+                'remediation' => 'shrink the first provider packet and expose expansion handles for docs, tests or code graph',
+            ];
+        }
+
+        if (array_intersect($initialContextKinds, $deferredKinds) !== []) {
+            $violations[] = [
+                'id' => 'initial_context_contains_deferred_material',
+                'remediation' => 'move tests, full docs and full graph dumps behind explicit expansion handles',
+            ];
+        }
+
+        return $violations;
+    }
+
+    private function intValue(mixed $value): ?int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (is_string($value) && ctype_digit($value)) {
+            return (int) $value;
+        }
+
+        return null;
     }
 }

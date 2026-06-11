@@ -72,7 +72,10 @@ final class AtlasDecisionReceiptGuardTest extends TestCase
     /** Rule 4/5 — target inside allowed scope and outside forbidden scope proceeds. */
     public function test_target_inside_allowed_scope_proceeds(): void
     {
-        $d = $this->service->decide($this->completeReceipt(), 'app/Services/Billing/InvoiceService.php');
+        $d = $this->service->decide($this->completeReceipt([
+            'allowed_scope' => [' app/Services/** ', 'app/Services/**', '', null],
+            'forbidden_scope' => [' app/Services/**/Secrets/** ', 'app/Services/**/Secrets/**'],
+        ]), 'app/Services/Billing/InvoiceService.php');
 
         $this->assertSame('proceed', $d['verdict']);
         $this->assertTrue($d['allowed']);

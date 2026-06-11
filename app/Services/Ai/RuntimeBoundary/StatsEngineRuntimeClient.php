@@ -207,17 +207,12 @@ final class StatsEngineRuntimeClient
      */
     private function run(array $manifest): array
     {
-        $result = $this->runtime->run($manifest);
-
-        // Boundary enforcement: a result is only accepted if it proves real,
-        // in-Python numpy stats. This is where a PHP fake would be rejected.
-        PythonBoundaryReceiptGuard::assertReal(
-            $result,
+        return PythonBoundaryReceiptGuard::runReal(
+            $this->runtime,
+            $manifest,
             ['stats_engine_in_python', 'real_stats'],
             ['fabricated'],
             'stats_engine returned a non-real-stats boundary receipt — refusing (anti-fake guard).',
         );
-
-        return $result;
     }
 }

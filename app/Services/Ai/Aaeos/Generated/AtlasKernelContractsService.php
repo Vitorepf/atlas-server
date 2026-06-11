@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Atlas AI Kernel Contracts decider.
  *
@@ -296,9 +298,9 @@ final class AtlasKernelContractsService
         }
 
         // Quality gates: lower layer must keep every hard gate; it may add, not drop.
-        $kernelGates = $this->stringList($kernel['quality_gates'] ?? []);
+        $kernelGates = AtlasAaeosStringListNormalizer::nonBlankStrings($kernel['quality_gates'] ?? []);
         if ($kernelGates !== [] && array_key_exists('quality_gates', $override)) {
-            $overrideGates = $this->stringList($override['quality_gates']);
+            $overrideGates = AtlasAaeosStringListNormalizer::nonBlankStrings($override['quality_gates']);
             foreach ($kernelGates as $gate) {
                 if (! in_array($gate, $overrideGates, true)) {
                     $violations[] = 'drops_required_gate:' . $gate;
@@ -308,9 +310,9 @@ final class AtlasKernelContractsService
 
         // Provider allowlist: lower layer cannot introduce a provider the Kernel
         // does not permit.
-        $kernelProviders = $this->stringList($kernel['provider_allowlist'] ?? []);
+        $kernelProviders = AtlasAaeosStringListNormalizer::nonBlankStrings($kernel['provider_allowlist'] ?? []);
         if ($kernelProviders !== [] && array_key_exists('provider_allowlist', $override)) {
-            foreach ($this->stringList($override['provider_allowlist']) as $provider) {
+            foreach (AtlasAaeosStringListNormalizer::nonBlankStrings($override['provider_allowlist']) as $provider) {
                 if (! in_array($provider, $kernelProviders, true)) {
                     $violations[] = 'provider_outside_kernel_allowlist:' . $provider;
                 }
@@ -385,22 +387,4 @@ final class AtlasKernelContractsService
         return strtolower(trim($value));
     }
 
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = $item;
-            }
-        }
-
-        return array_values($out);
-    }
 }

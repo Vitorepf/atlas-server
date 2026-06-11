@@ -6,6 +6,7 @@ namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasEngineeringHonestyGate;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AdversarialProofPanelService;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 
@@ -32,8 +33,8 @@ final class AtlasLoopSemanticImplementationCertifier
      */
     public function certify(string $workspace, array $targetAcceptance, array $options = []): array
     {
-        $sealedHoldouts = $this->stringList($options['sealed_holdout_commands'] ?? []);
-        $allowedFiles = $this->stringList($options['allowed_files'] ?? []);
+        $sealedHoldouts = AiStringListNormalizer::trimmedStrings($options['sealed_holdout_commands'] ?? []);
+        $allowedFiles = AiStringListNormalizer::trimmedStrings($options['allowed_files'] ?? []);
         $objective = trim((string) ($options['objective'] ?? ''));
         $refuterCommands = $this->refuterCommands($options);
         $requiredRefuters = $this->requiredRefuters($options, count($refuterCommands));
@@ -116,12 +117,12 @@ final class AtlasLoopSemanticImplementationCertifier
     {
         $commands = [];
         foreach (['semantic_refuter_commands', 'provider_refuter_commands', 'refuter_commands'] as $key) {
-            foreach ($this->stringList($options[$key] ?? []) as $command) {
+            foreach (AiStringListNormalizer::trimmedStrings($options[$key] ?? []) as $command) {
                 $commands[] = $command;
             }
         }
 
-        return array_values(array_unique($commands));
+        return AiStringListNormalizer::uniqueStrings($commands);
     }
 
     /**
@@ -154,14 +155,13 @@ final class AtlasLoopSemanticImplementationCertifier
         array $changedFiles,
         array $changedFileContents,
     ): array {
-        $commands = array_values(array_unique(array_merge(
-            $this->stringList($targetAcceptance['commands'] ?? []),
+        $commands = AiStringListNormalizer::uniqueTrimmedStrings(array_merge(
+            AiStringListNormalizer::trimmedStrings($targetAcceptance['commands'] ?? []),
             array_map(
                 static fn (array $r): string => (string) ($r['command'] ?? ''),
                 is_array(data_get($deterministicGate, 'report.sealed_holdout_results')) ? data_get($deterministicGate, 'report.sealed_holdout_results') : [],
             ),
-        )));
-        $commands = array_values(array_filter($commands, static fn (string $c): bool => trim($c) !== ''));
+        ));
 
         return [
             'cycle_id' => hash('sha256', $workspace.'|'.$objective.'|'.implode('|', $changedFiles)),
@@ -288,7 +288,7 @@ final class AtlasLoopSemanticImplementationCertifier
             }
         }
 
-        return array_values(array_unique($reasons));
+        return AiStringListNormalizer::uniqueStrings($reasons);
     }
 
     /**
@@ -353,23 +353,11 @@ final class AtlasLoopSemanticImplementationCertifier
     private function redactedAcceptance(array $acceptance): array
     {
         return [
-            'commands' => $this->stringList($acceptance['commands'] ?? []),
-            'allowed_globs' => $this->stringList($acceptance['allowed_globs'] ?? []),
-            'frozen_globs' => $this->stringList($acceptance['frozen_globs'] ?? []),
+            'commands' => AiStringListNormalizer::trimmedStrings($acceptance['commands'] ?? []),
+            'allowed_globs' => AiStringListNormalizer::trimmedStrings($acceptance['allowed_globs'] ?? []),
+            'frozen_globs' => AiStringListNormalizer::trimmedStrings($acceptance['frozen_globs'] ?? []),
             'metric_kind' => (string) ($acceptance['metric_kind'] ?? ''),
         ];
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return array_values(array_filter(array_map(
-            static fn (mixed $v): string => is_string($v) ? trim($v) : '',
-            is_array($value) ? $value : [],
-        ), static fn (string $v): bool => $v !== ''));
     }
 
     private function writeJson(string $path, array $payload): void

@@ -258,6 +258,27 @@ risco, long-horizon ou multi-arquivo, ACIE deve operar em modo completo.
 - Nunca ignore freshness gate em retomada longa.
 - Nunca rode benchmark ou rivals dentro de ACIE sem autorizacao explicita.
 - Nunca promova uma conclusao externa sem evidence refs.
+
+## Provider Context Staging Policy
+
+O pacote inicial entregue a Atlas Dev, Forge, Codex, Claude Code ou outro
+provider deve ser minimo, provider-safe e expansivel. O primeiro pacote deve
+conter objetivo, escopo, owner refs, arquivos provaveis, riscos e handles de
+expansao; nao deve despejar testes completos, docs completas ou dumps integrais
+de grafo quando um ponteiro auditavel resolve.
+
+Contrato operacional:
+
+1. `initial_context_contract=minimal_provider_safe`.
+2. `verification_handles` satisfazem plano de verificacao sem exigir conteudo
+   completo de testes no primeiro pacote.
+3. `expansion_handles` apontam para docs, testes, code graph, migrations,
+   rotas e evidencia sob demanda.
+4. `initial_context_chars` acima do budget ou `initial_context_kinds` contendo
+   testes/docs/grafo completos deve bloquear ou exigir review antes de chamar
+   provider.
+5. O provider pode navegar para o contexto completo no proximo passo, mas o
+   Atlas nao paga o custo cognitivo antes de haver necessidade real.
 - Nunca reimplemente TEOS; use os contratos TEOS quando o problema for temporal/long-horizon.
 - Nunca reimplemente Atlas Dev/Forge; ACIE prepara contexto para eles.
 - Quando houver incerteza, retorne `blocked`, `read_only`, `ask_human` ou `needs_retrieval`.

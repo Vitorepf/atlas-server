@@ -8,6 +8,7 @@ use App\Models\AiJob;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\AiProviderResult;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -258,7 +259,7 @@ class AtlasForgeHermesCliInvocationDriver implements AtlasForgeProviderInvocatio
             'schema_version' => 'atlas.forge.provider_driver_result.v1',
             'provider' => self::PROVIDER,
             'model' => $model,
-            'argv' => $this->stringList($result->command),
+            'argv' => AiStringListNormalizer::trimmedStrings($result->command),
             'cwd' => $cwd,
             'configured' => true,
             'changed_files' => $changedFiles,
@@ -300,7 +301,7 @@ class AtlasForgeHermesCliInvocationDriver implements AtlasForgeProviderInvocatio
         ] as $path) {
             $candidate = data_get($metadata, $path);
             if (is_array($candidate)) {
-                $list = $this->stringList($candidate);
+                $list = AiStringListNormalizer::trimmedStrings($candidate);
                 if ($list !== []) {
                     return $list;
                 }
@@ -366,18 +367,6 @@ class AtlasForgeHermesCliInvocationDriver implements AtlasForgeProviderInvocatio
         }
 
         return null;
-    }
-
-    /**
-     * @param  array<mixed>  $values
-     * @return list<string>
-     */
-    private function stringList(array $values): array
-    {
-        return array_values(array_filter(array_map(
-            static fn (mixed $value): string => is_string($value) ? trim($value) : '',
-            $values,
-        ), static fn (string $value): bool => $value !== ''));
     }
 
     private function excerpt(string $value, int $maxLength): string

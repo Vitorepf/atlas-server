@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Provider;
 
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use App\Support\AtlasSecurity;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use InvalidArgumentException;
@@ -84,7 +85,7 @@ final class SymfonyClaudeCliGateway implements ClaudeCliGateway
         $provider = (array) $this->config->get('atlas.ai.providers.claude_cli', []);
         $binary = (string) ($provider['binary'] ?? 'claude');
         $args = $provider['args'] ?? ['-p', '--output-format', 'stream-json', '--verbose', '--no-session-persistence'];
-        $args = is_array($args) ? array_values(array_filter($args, 'is_string')) : [];
+        $args = AtlasDevStringListNormalizer::strings($args);
 
         if (! in_array('-p', $args, true) && ! in_array('--print', $args, true)) {
             array_unshift($args, '-p');

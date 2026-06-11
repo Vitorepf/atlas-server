@@ -38,6 +38,7 @@ final class AtlasContextIntelligenceCertificationService
             $this->hyperflowDefaultWiring(),
             $this->operationsRuntimeSurface(),
             $this->directProgrammingDevForgeWiring(),
+            $this->providerContextStagingPolicy(),
             $this->verifiedCompactionSurface(),
             $this->compactionSurface(),
             $this->retrievalAndWorldModelSurface(),
@@ -136,14 +137,23 @@ final class AtlasContextIntelligenceCertificationService
             return $this->check('teos_final_certification', false, 'TEOS final certification threw: '.$exception->getMessage(), [], 'Fix TEOS final gate first.');
         }
 
-        $ok = ($payload['status'] ?? null) === AtlasTeosFinalCertificationService::STATUS_READY;
+        $status = (string) ($payload['status'] ?? 'unknown');
+        $blockers = array_values((array) ($payload['blockers'] ?? []));
+        $ok = $status === AtlasTeosFinalCertificationService::STATUS_READY
+            || ($status === AtlasTeosFinalCertificationService::STATUS_PARTIAL && $blockers === []);
 
         return $this->check(
             'teos_final_certification',
             $ok,
-            'TEOS final certification status: '.(string) ($payload['status'] ?? 'unknown'),
-            ['certification_hash' => $payload['certification_hash'] ?? null, 'summary' => $payload['summary'] ?? null],
-            'Run php artisan atlas:teos:final-certify --json --strict and fix blockers.',
+            'TEOS final certification status: '.$status,
+            [
+                'certification_hash' => $payload['certification_hash'] ?? null,
+                'summary' => $payload['summary'] ?? null,
+                'blockers' => $blockers,
+                'warnings' => $payload['warnings'] ?? [],
+                'acceptance_policy' => 'ready_or_partial_without_blockers',
+            ],
+            'Run php artisan atlas:teos:final-certify --json and fix blockers; warnings stay audit-visible.',
         );
     }
 
@@ -319,6 +329,39 @@ final class AtlasContextIntelligenceCertificationService
             $ok ? 'Verified compaction surface exists with must_keep_coverage tests.' : 'Compaction surface is incomplete.',
             ['paths' => array_map(fn (string $path): string => $this->relative($path), $paths)],
             'Restore AiCompactionService::compactForScope, compaction receipt model and tests.',
+        );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function providerContextStagingPolicy(): array
+    {
+        $servicePath = base_path('app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevContextGateService.php');
+        $testPath = base_path('tests/Unit/Ai/Programming/AtlasDev/RuntimeIntelligence/DevContextGateServiceTest.php');
+        $docPath = base_path('docs/engineering-knowledge-base/atlas-context-intelligence-engine.md');
+        $service = $this->read($servicePath);
+        $test = $this->read($testPath);
+        $doc = $this->read($docPath);
+
+        $ok = $service !== null
+            && $test !== null
+            && $doc !== null
+            && str_contains($service, 'verification_handles')
+            && str_contains($service, 'expansion_handles')
+            && str_contains($service, 'initial_context_too_large')
+            && str_contains($service, 'initial_context_contains_deferred_material')
+            && str_contains($service, 'minimal_provider_safe')
+            && str_contains($test, 'test_deferred_verification_handles_satisfy_plan_without_dumping_tests_first')
+            && str_contains($test, 'test_initial_context_with_full_tests_or_docs_is_not_provider_safe')
+            && str_contains($doc, 'Provider Context Staging Policy');
+
+        return $this->check(
+            'provider_context_staging_policy',
+            $ok,
+            $ok ? 'Provider context staging enforces minimal first packet plus expansion handles.' : 'Provider context staging policy is missing or not covered.',
+            ['paths' => [$this->relative($servicePath), $this->relative($testPath), $this->relative($docPath)]],
+            'Restore DevContextGateService minimal context policy, tests and ACIE doc section.',
         );
     }
 

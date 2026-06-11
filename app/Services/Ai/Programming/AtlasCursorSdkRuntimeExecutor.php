@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -68,7 +69,7 @@ class AtlasCursorSdkRuntimeExecutor
             $blockers[] = 'cursor_sdk_auth_required';
         }
 
-        $blockers = array_values(array_unique($blockers));
+        $blockers = AiStringListNormalizer::uniqueStrings($blockers);
 
         return [
             'schema_version' => 'atlas.provider.cursor_sdk.status.v1',
@@ -112,10 +113,10 @@ class AtlasCursorSdkRuntimeExecutor
     public function plan(array $manifest): array
     {
         $config = $this->configured();
-        $blockers = array_values(array_unique(array_merge(
+        $blockers = AiStringListNormalizer::uniqueMergedStrings(
             (array) ($config['blockers'] ?? []),
             $this->manifestBlockers($manifest),
-        )));
+        );
 
         return [
             'schema_version' => 'atlas.provider.cursor_sdk.invocation_request.v1',
@@ -232,7 +233,7 @@ class AtlasCursorSdkRuntimeExecutor
                 'provider' => AtlasForgeCursorSdkInvocationDriver::PROVIDER,
             ],
             'failure_type' => $blockers[0] ?? null,
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => AiStringListNormalizer::uniqueStrings($blockers),
             'note' => (string) ($adapterPayload['note'] ?? 'Cursor SDK adapter finished under Atlas governance.'),
         ];
     }
@@ -321,7 +322,7 @@ class AtlasCursorSdkRuntimeExecutor
             $blockers[] = 'cursor_sdk_allowed_files_required';
         }
 
-        return array_values(array_unique($blockers));
+        return AiStringListNormalizer::uniqueStrings($blockers);
     }
 
     /**
@@ -369,7 +370,7 @@ class AtlasCursorSdkRuntimeExecutor
             'performance_signal' => $this->performanceSignal($manifest, self::STATUS_BLOCKED, 0, $blockers),
             'classification' => null,
             'failure_type' => null,
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => AiStringListNormalizer::uniqueStrings($blockers),
             'note' => $note,
         ];
     }
@@ -395,7 +396,7 @@ class AtlasCursorSdkRuntimeExecutor
             'completion_claim_promoted' => false,
             'routing_effect' => 'none',
             'advisory_only' => true,
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => AiStringListNormalizer::uniqueStrings($blockers),
         ];
     }
 

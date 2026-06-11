@@ -36,6 +36,7 @@ final class AtlasAobgWorkspaceOnboardingServiceTest extends TestCase
 
         $this->createCodeSymbolsTable();
         $this->createDocLinksTable();
+        $this->createFileSnapshotsTable();
         $this->createWorkspaceProfilesTable();
         config()->set('atlas.aobg.auto_onboard', false);
         config()->set('atlas.ai.workdir', base_path());
@@ -49,6 +50,7 @@ final class AtlasAobgWorkspaceOnboardingServiceTest extends TestCase
     {
         Schema::dropIfExists('atlas_engineering_code_symbols');
         Schema::dropIfExists('atlas_engineering_doc_links');
+        Schema::dropIfExists('atlas_engineering_code_file_snapshots');
         Schema::dropIfExists('atlas_workspace_profiles');
         parent::tearDown();
     }
@@ -433,6 +435,52 @@ final class AtlasAobgWorkspaceOnboardingServiceTest extends TestCase
         $this->deleteTree($two);
     }
 
+    public function test_activate_reindexes_workspace_when_known_snapshot_is_stale(): void
+    {
+        $identity = $this->app->make(CodeGraphWorkspaceIdentity::class);
+        $workspacePath = sys_get_temp_dir().'/aobg-stale-'.Str::random(6);
+        $filePath = $workspacePath.'/app/Foo.php';
+        @mkdir(dirname($filePath), 0777, true);
+        file_put_contents($filePath, '<?php class Foo {}');
+        touch($filePath, time() - 3600);
+        clearstatcache(false, $filePath);
+
+        $workspaceId = $identity->resolve($workspacePath);
+        $indexedMtime = filemtime($filePath);
+        $this->seedCodeSymbol('Foo', $workspaceId, ['file_path' => 'app/Foo.php', 'indexed_at' => now()->subHour()]);
+        $this->seedFileSnapshot($workspaceId, 'app/Foo.php', is_int($indexedMtime) ? $indexedMtime : time() - 3600);
+
+        file_put_contents($filePath, '<?php class Foo { public function changed() {} }');
+        touch($filePath, time());
+        clearstatcache(false, $filePath);
+
+        $calledWith = null;
+        $service = $this->service()->setIndexRunner(function (string $path, string $wsId) use (&$calledWith, $filePath): array {
+            $calledWith = ['path' => $path, 'workspace_id' => $wsId];
+            DB::table('atlas_engineering_code_file_snapshots')
+                ->where('workspace_id', $wsId)
+                ->where('file_path', 'app/Foo.php')
+                ->update(['mtime' => filemtime($filePath), 'indexed_at' => now(), 'updated_at' => now()]);
+
+            return ['ok' => true, 'reason' => 'indexed', 'exit_code' => 0];
+        });
+
+        $status = $service->status(['workspace' => $workspacePath]);
+        $result = $service->activate(['workspace' => $workspacePath]);
+
+        $this->assertTrue($status['indexed']);
+        $this->assertFalse($status['needs_onboarding']);
+        $this->assertTrue($status['needs_reindex']);
+        $this->assertSame('stale', $status['freshness_status']);
+        $this->assertNotNull($calledWith);
+        $this->assertSame($workspaceId, $calledWith['workspace_id']);
+        $this->assertTrue($result['triggered_index']);
+        $this->assertFalse($result['status']['needs_reindex']);
+        $this->assertSame('fresh', $result['status']['freshness_status']);
+
+        $this->deleteTree($workspacePath);
+    }
+
     public function test_already_indexed_workspace_does_not_re_run_index(): void
     {
         config()->set('atlas.aobg.auto_onboard', true);
@@ -630,6 +678,28 @@ final class AtlasAobgWorkspaceOnboardingServiceTest extends TestCase
         });
     }
 
+    private function createFileSnapshotsTable(): void
+    {
+        Schema::dropIfExists('atlas_engineering_code_file_snapshots');
+        Schema::create('atlas_engineering_code_file_snapshots', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('workspace_id', 160)->default('atlas-server')->index();
+            $table->string('file_path', 500)->index();
+            $table->string('module_slug', 160)->default('app')->index();
+            $table->string('language', 40)->nullable()->index();
+            $table->string('source_hash', 64)->index();
+            $table->unsignedBigInteger('file_size')->default(0);
+            $table->unsignedBigInteger('mtime')->nullable();
+            $table->string('file_hash', 64)->nullable();
+            $table->json('symbols_json')->default('[]');
+            $table->json('relations_json')->default('{}');
+            $table->string('status', 32)->default('active')->index();
+            $table->timestamp('indexed_at')->nullable()->index();
+            $table->timestamp('archived_at')->nullable()->index();
+            $table->timestamps();
+        });
+    }
+
     private function createWorkspaceProfilesTable(): void
     {
         Schema::dropIfExists('atlas_workspace_profiles');
@@ -692,6 +762,28 @@ final class AtlasAobgWorkspaceOnboardingServiceTest extends TestCase
             'archived_at' => null,
             'created_at' => now(),
             'updated_at' => now(),
+        ], $overrides));
+    }
+
+    private function seedFileSnapshot(string $workspaceId, string $filePath, int $mtime, array $overrides = []): void
+    {
+        DB::table('atlas_engineering_code_file_snapshots')->insert(array_merge([
+            'id' => (string) Str::uuid(),
+            'workspace_id' => $workspaceId,
+            'file_path' => $filePath,
+            'module_slug' => 'app',
+            'language' => 'php',
+            'source_hash' => hash('sha256', $workspaceId.$filePath),
+            'file_size' => 1,
+            'mtime' => $mtime,
+            'file_hash' => hash('sha256', $workspaceId.$filePath.'file'),
+            'symbols_json' => '[]',
+            'relations_json' => '{}',
+            'status' => 'active',
+            'indexed_at' => now()->subHour(),
+            'archived_at' => null,
+            'created_at' => now()->subHour(),
+            'updated_at' => now()->subHour(),
         ], $overrides));
     }
 

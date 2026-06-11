@@ -7,6 +7,7 @@ namespace App\Services\Ai\Programming\AtlasDev\SeniorLoop;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Contracts\AtlasDevSchemaContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Support\CanonicalHasher;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Support\CanonicalJson;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use InvalidArgumentException;
 
 final class SeniorEngineerLoopAudit implements AtlasDevSchemaContract
@@ -47,11 +48,7 @@ final class SeniorEngineerLoopAudit implements AtlasDevSchemaContract
                 throw new InvalidArgumentException('SeniorEngineerLoopAudit.capabilities must be a string=>bool map.');
             }
         }
-        foreach ($this->blockers as $i => $blocker) {
-            if (! is_string($blocker) || $blocker === '') {
-                throw new InvalidArgumentException("SeniorEngineerLoopAudit.blockers[{$i}] must be a non-empty string.");
-            }
-        }
+        AtlasDevStringListNormalizer::requireNonEmptyStrings($this->blockers, 'SeniorEngineerLoopAudit.blockers');
     }
 
     public function withHash(): self

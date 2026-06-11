@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Atlas Output Renderer — pure, deterministic presentation of a Kernel result
  * onto a surface, WITHOUT altering operational truth.
@@ -130,8 +132,8 @@ final class AtlasOutputRendererService
         // from a read of this; it is never written back.
         $canonical = $this->canonicalOf($result);
 
-        $failures = $this->stringList($result['failures'] ?? []);
-        $warnings = $this->stringList($result['warnings'] ?? []);
+        $failures = AtlasAaeosStringListNormalizer::trimmedStrings($result['failures'] ?? []);
+        $warnings = AtlasAaeosStringListNormalizer::trimmedStrings($result['warnings'] ?? []);
 
         // Riscos / Proibido: a result may TRY to suppress a warning for
         // aesthetics. We detect the attempt, flag it, and render anyway.
@@ -243,8 +245,8 @@ final class AtlasOutputRendererService
         $panelKinds = $this->renderedPanelKinds($rendered);
 
         // (b) any failure/warning in the source must appear in a risk panel.
-        $sourceFailures = $this->stringList($source['failures'] ?? []);
-        $sourceWarnings = $this->stringList($source['warnings'] ?? []);
+        $sourceFailures = AtlasAaeosStringListNormalizer::trimmedStrings($source['failures'] ?? []);
+        $sourceWarnings = AtlasAaeosStringListNormalizer::trimmedStrings($source['warnings'] ?? []);
         if (($sourceFailures !== [] || $sourceWarnings !== []) && ! in_array('risk', $panelKinds, true)) {
             $violations[] = [
                 'invariant' => self::INV_NO_RISK_SUPPRESSION,
@@ -394,7 +396,7 @@ final class AtlasOutputRendererService
             return [];
         }
 
-        return $this->stringList($rendered['presentation']['panel_kinds']);
+        return AtlasAaeosStringListNormalizer::trimmedStrings($rendered['presentation']['panel_kinds']);
     }
 
     /**
@@ -446,23 +448,4 @@ final class AtlasOutputRendererService
         return $trimmed === '' ? null : $trimmed;
     }
 
-    /**
-     * @param  mixed  $value
-     * @return array<int,string>
-     */
-    private function stringList($value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
-        }
-
-        return array_values($out);
-    }
 }

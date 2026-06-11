@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
+
 class ProgrammingPatchVerifier
 {
     /**
@@ -55,7 +57,7 @@ class ProgrammingPatchVerifier
                 $risks[] = 'write_action_without_rollback';
             }
         }
-        $manifestChangedFiles = array_values(array_unique($manifestChangedFiles));
+        $manifestChangedFiles = AiStringListNormalizer::uniqueStrings($manifestChangedFiles);
         if ($changedFiles !== [] && $manifestChangedFiles === []) {
             $risks[] = 'changed_files_not_covered_by_action_manifest';
         }
@@ -88,8 +90,8 @@ class ProgrammingPatchVerifier
             'manifest_count' => count($manifests),
             'manifest_covered_files' => $manifestChangedFiles,
             'uncovered_changed_files' => $uncoveredChangedFiles ?? [],
-            'risk_reasons' => array_values(array_unique($risks)),
-            'blocking_reasons' => array_values(array_unique($blocking)),
+            'risk_reasons' => AiStringListNormalizer::uniqueStrings($risks),
+            'blocking_reasons' => AiStringListNormalizer::uniqueStrings($blocking),
             'next_action' => $blocking === [] ? 'continue' : 'repair_or_human_review',
             'completion_claim_allowed' => $blocking === [],
         ];

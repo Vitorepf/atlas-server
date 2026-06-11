@@ -8,6 +8,9 @@ use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\RepairPolicy;
 use App\Services\Ai\Programming\AtlasDev\Schemas\EscalationPacket;
 use App\Services\Ai\Programming\AtlasDev\Schemas\FailureCapsule;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevRiskNormalizer;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevValueNormalizer;
 use App\Services\Ai\Programming\ProgrammingRepairExecutor;
 use App\Services\Ai\Programming\ProgrammingTestImpactAnalyzer;
 
@@ -72,15 +75,15 @@ final class DevRepairLoopService
     {
         $runId = (string) ($input['run_id'] ?? '');
         $taskContractHash = (string) ($input['task_contract_hash'] ?? '');
-        $riskLevel = $this->normalizeRiskLevel((string) ($input['risk_level'] ?? 'R2'));
+        $riskLevel = AtlasDevRiskNormalizer::riskLevelCode((string) ($input['risk_level'] ?? 'R2'));
         $attemptCount = max(0, (int) ($input['attempt_count'] ?? 0));
         $contractMaxAttempts = max(0, (int) ($input['max_attempts'] ?? 2));
         $attemptsAllowed = $this->limits->attemptsAllowed($riskLevel, $contractMaxAttempts);
 
         $failurePacket = is_array($input['failure_packet'] ?? null) ? $input['failure_packet'] : [];
         $previousCapsule = $this->buildPreviousCapsule($input['previous_capsule'] ?? null);
-        $changedFiles = $this->normalizeStringList($input['changed_files'] ?? []);
-        $previousChangedFiles = $this->normalizeStringList($input['previous_changed_files'] ?? []);
+        $changedFiles = AtlasDevStringListNormalizer::trimmedStrings($input['changed_files'] ?? []);
+        $previousChangedFiles = AtlasDevStringListNormalizer::trimmedStrings($input['previous_changed_files'] ?? []);
 
         $attemptOutcomeStatus = is_string($input['attempt_outcome'] ?? null)
             ? strtolower(trim((string) $input['attempt_outcome']))
@@ -207,12 +210,12 @@ final class DevRepairLoopService
             taskContractHash: $taskContractHash !== '' ? $taskContractHash : 'unknown-contract',
             attemptIndex: max(0, $attemptCount),
             gate: (string) ($failurePacket['gate'] ?? 'verification_gate'),
-            command: $this->stringOrNull($failurePacket['command'] ?? null),
+            command: AtlasDevValueNormalizer::stringOrNull($failurePacket['command'] ?? null),
             exitCode: isset($failurePacket['exit_code']) ? (int) $failurePacket['exit_code'] : null,
             primaryErrorRaw: (string) ($failurePacket['primary_error_excerpt'] ?? $failurePacket['primary_error'] ?? $failurePacket['error'] ?? ''),
-            fullErrorLogPath: $this->stringOrNull($failurePacket['full_error_log_path'] ?? null),
-            failingTest: $this->stringOrNull($failurePacket['failing_test'] ?? null),
-            diffHash: $this->stringOrNull($failurePacket['diff_hash'] ?? null),
+            fullErrorLogPath: AtlasDevValueNormalizer::stringOrNull($failurePacket['full_error_log_path'] ?? null),
+            failingTest: AtlasDevValueNormalizer::stringOrNull($failurePacket['failing_test'] ?? null),
+            diffHash: AtlasDevValueNormalizer::stringOrNull($failurePacket['diff_hash'] ?? null),
             changedFiles: $changedFiles,
             previousCapsule: $previousCapsule,
             policy: $policy,
@@ -254,7 +257,7 @@ final class DevRepairLoopService
             $reasons[] = 'failing_test_signals_missing_anchor';
         }
 
-        $reasons = array_values(array_unique($reasons));
+        $reasons = AtlasDevStringListNormalizer::uniqueTrimmedStrings($reasons);
 
         return [
             'schema_version' => 'atlas.programming.context_retrieval_decision.v1',
@@ -280,7 +283,7 @@ final class DevRepairLoopService
         $impact = $this->testImpact->analyze(
             changedFiles: $changedFiles,
             codeGraph: $codeGraph,
-            risk: $this->riskWordFor($riskLevel),
+            risk: AtlasDevRiskNormalizer::riskWordForLevel($riskLevel),
         );
 
         $commands = (array) ($impact['recommended_commands'] ?? []);
@@ -463,16 +466,16 @@ final class DevRepairLoopService
                 scopeAssessment: $this->scopeAssessmentFromCapsule($capsule),
                 riskAssessment: 'Dev repair loop classified failure as '.$classification.' at risk '.$riskLevel.'.',
                 ambiguityAssessment: 'See failure_capsule.gate + classification mode.',
-                currentDevFindings: $this->stringListOrEmpty($input['current_dev_findings'] ?? []),
-                completedDevActions: $this->stringListOrEmpty($input['completed_dev_actions'] ?? []),
-                incompleteDevActions: $this->stringListOrEmpty($input['incomplete_dev_actions'] ?? []),
+                currentDevFindings: AtlasDevStringListNormalizer::trimmedStrings($input['current_dev_findings'] ?? []),
+                completedDevActions: AtlasDevStringListNormalizer::trimmedStrings($input['completed_dev_actions'] ?? []),
+                incompleteDevActions: AtlasDevStringListNormalizer::trimmedStrings($input['incomplete_dev_actions'] ?? []),
                 recommendedForgeMode: $this->forgeModeFor($riskLevel),
                 suggestedWorkPackets: $this->suggestedWorkPacketsFromCapsule($capsule, $classification),
                 definitionOfDone: ['repair_resolution_completed_under_forge_governance'],
                 requiredEvidence: ['plan', 'failure_capsules', 'verification_receipt'],
                 evidenceRefs: EscalationPacket::emptyEvidenceRefs(),
                 contextRefs: $capsule->changedFiles,
-                contextPackHash: $this->stringOrNull(data_get($input, 'retrieval_plan.professional_context_pack.context_pack_hash')),
+                contextPackHash: AtlasDevValueNormalizer::stringOrNull(data_get($input, 'retrieval_plan.professional_context_pack.context_pack_hash')),
                 constraints: ['preserve_existing_test_signal'],
                 nonGoals: ['rewrite_scope_outside_failure_neighborhood'],
                 createdAt: now()->toIso8601String(),
@@ -512,7 +515,7 @@ final class DevRepairLoopService
                 default => null,
             };
         }
-        $triggers = array_values(array_unique(array_filter($triggers, static fn ($t): bool => is_string($t) && $t !== '')));
+        $triggers = AtlasDevStringListNormalizer::uniqueTrimmedStrings($triggers);
         if ($triggers === []) {
             $triggers[] = EscalationPacket::TRIGGER_OPERATOR_REQUESTED;
         }
@@ -575,11 +578,11 @@ final class DevRepairLoopService
     private function evidenceRefsFromInput(array $input): array
     {
         $refs = [];
-        $runId = $this->stringOrNull($input['run_id'] ?? null);
+        $runId = AtlasDevValueNormalizer::stringOrNull($input['run_id'] ?? null);
         if ($runId !== null) {
             $refs[] = 'dev_repair_run:'.$runId;
         }
-        $contextPackHash = $this->stringOrNull(data_get($input, 'retrieval_plan.professional_context_pack.context_pack_hash'));
+        $contextPackHash = AtlasDevValueNormalizer::stringOrNull(data_get($input, 'retrieval_plan.professional_context_pack.context_pack_hash'));
         if ($contextPackHash !== null) {
             $refs[] = 'context_pack:'.$contextPackHash;
         }
@@ -605,15 +608,15 @@ final class DevRepairLoopService
             taskContractHash: (string) ($value['task_contract_hash'] ?? 'unknown-contract'),
             attemptIndex: max(0, (int) ($value['attempt_index'] ?? 0)),
             gate: (string) ($value['gate'] ?? 'verification_gate'),
-            command: $this->stringOrNull($value['command'] ?? null),
+            command: AtlasDevValueNormalizer::stringOrNull($value['command'] ?? null),
             exitCode: isset($value['exit_code']) ? (int) $value['exit_code'] : null,
             primaryErrorExcerpt: (string) ($value['primary_error_excerpt'] ?? 'previous failure'),
-            fullErrorLogPath: $this->stringOrNull($value['full_error_log_path'] ?? null),
-            failingTest: $this->stringOrNull($value['failing_test'] ?? null),
-            diffHash: $this->stringOrNull($value['diff_hash'] ?? null),
-            changedFiles: $this->normalizeStringList($value['changed_files'] ?? []),
+            fullErrorLogPath: AtlasDevValueNormalizer::stringOrNull($value['full_error_log_path'] ?? null),
+            failingTest: AtlasDevValueNormalizer::stringOrNull($value['failing_test'] ?? null),
+            diffHash: AtlasDevValueNormalizer::stringOrNull($value['diff_hash'] ?? null),
+            changedFiles: AtlasDevStringListNormalizer::trimmedStrings($value['changed_files'] ?? []),
             decision: (string) ($value['decision'] ?? FailureCapsule::DECISION_RETRY),
-            escalationSignalDelta: $this->normalizeStringList($value['escalation_signal_delta'] ?? []),
+            escalationSignalDelta: AtlasDevStringListNormalizer::trimmedStrings($value['escalation_signal_delta'] ?? []),
         );
     }
 
@@ -638,57 +641,4 @@ final class DevRepairLoopService
         return $capsule->toCanonicalArray();
     }
 
-    private function normalizeRiskLevel(string $raw): string
-    {
-        $candidate = strtoupper(trim($raw));
-        if (preg_match('/^R[0-5]$/', $candidate) === 1) {
-            return $candidate;
-        }
-
-        return 'R2';
-    }
-
-    private function riskWordFor(string $riskLevel): string
-    {
-        return match ($riskLevel) {
-            'R0', 'R1' => 'low',
-            'R2' => 'medium',
-            'R3' => 'high',
-            'R4', 'R5' => 'critical',
-            default => 'medium',
-        };
-    }
-
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function normalizeStringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(
-            array_map(static fn ($v): ?string => is_string($v) ? trim($v) : null, $value),
-            static fn (?string $v): bool => $v !== null && $v !== '',
-        ));
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringListOrEmpty(mixed $value): array
-    {
-        return $this->normalizeStringList($value);
-    }
 }

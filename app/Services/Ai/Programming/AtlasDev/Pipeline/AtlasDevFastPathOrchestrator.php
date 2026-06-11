@@ -13,6 +13,7 @@ use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\ProviderPromptBuilder;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Contracts\AtlasDevSchemaContract;
 use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopAuditor;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 
 /**
  * Atlas Dev fast-path orchestrator — plan-only entry point.
@@ -104,14 +105,14 @@ class AtlasDevFastPathOrchestrator
         if ($gate->isBlocked()) {
             $routing = new RoutingDecision(
                 kind: RoutingDecision::BLOCKED,
-                reasons: array_values(array_unique(array_merge(
+                reasons: AtlasDevStringListNormalizer::uniqueTrimmedStrings(array_merge(
                     $routing->reasons,
                     ['mandatory_rag_gate:'.$gate->reason],
-                ))),
-                blockers: array_values(array_unique(array_merge(
+                )),
+                blockers: AtlasDevStringListNormalizer::uniqueTrimmedStrings(array_merge(
                     $routing->blockers,
                     $gate->blockers,
-                ))),
+                )),
                 delegation: $routing->delegation,
             );
         }

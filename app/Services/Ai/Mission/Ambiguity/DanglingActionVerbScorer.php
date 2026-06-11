@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Mission\Ambiguity;
 
+use App\Services\Ai\Mission\Support\MissionPromptTokenizer;
+
 final class DanglingActionVerbScorer
 {
     /**
@@ -38,7 +40,7 @@ final class DanglingActionVerbScorer
 
     public function danglingScore(string $rawPrompt): float
     {
-        $tokens = $this->tokenize($rawPrompt);
+        $tokens = MissionPromptTokenizer::promptWords($rawPrompt);
 
         if ($tokens === []) {
             return self::SCORE_GROUNDED;
@@ -68,29 +70,4 @@ final class DanglingActionVerbScorer
         return in_array($token, self::LEADING_ACTION_VERBS, true);
     }
 
-    /**
-     * @return list<string>
-     */
-    private function tokenize(string $rawPrompt): array
-    {
-        $normalized = strtolower(trim($rawPrompt));
-
-        if ($normalized === '') {
-            return [];
-        }
-
-        $rawTokens = preg_split('/\s+/', $normalized) ?: [];
-
-        $tokens = [];
-
-        foreach ($rawTokens as $rawToken) {
-            $token = trim($rawToken, " \t\n\r\0\x0B.,;:!?\"'()[]{}");
-
-            if ($token !== '') {
-                $tokens[] = $token;
-            }
-        }
-
-        return $tokens;
-    }
 }

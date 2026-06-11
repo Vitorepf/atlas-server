@@ -227,6 +227,130 @@ class AtlasVentureFoundryCommand extends Command
         ]);
     }
 
+    private function assess(VentureRegistryService $registry, \App\Services\Ai\VentureFoundry\Assessment\VentureAssessmentService $assessment): int
+    {
+        $venture = $registry->resolve($this->requireVentureOption());
+
+        return $this->output_($assessment->run($venture));
+    }
+
+    private function assessmentReport(VentureRegistryService $registry): int
+    {
+        $venture = $registry->resolve($this->requireVentureOption());
+        $run = \App\Models\AiVentureAssessmentRun::query()
+            ->where('venture_id', $venture->id)
+            ->orderByDesc('created_at')
+            ->first();
+
+        if ($run === null) {
+            return $this->failReport("Nenhum assessment para a venture [{$venture->venture_id}]. Rode: atlas:venture assess --venture={$venture->venture_id}");
+        }
+
+        return $this->output_([
+            'venture_id' => $venture->venture_id,
+            'run_uuid' => $run->uuid,
+            'stage' => $run->stage,
+            'questions_total' => $run->questions_total,
+            'data_readiness_pct' => $run->data_readiness_pct,
+            'by_status' => $run->summary['by_status'] ?? [],
+            'focus' => $run->focus,
+            'data_gaps' => $run->data_gaps,
+            'completed_at' => $run->completed_at?->toIso8601String(),
+        ]);
+    }
+
+    private function questions(VentureRegistryService $registry): int
+    {
+        $venture = $registry->resolve($this->requireVentureOption());
+        $run = \App\Models\AiVentureAssessmentRun::query()
+            ->where('venture_id', $venture->id)
+            ->orderByDesc('created_at')
+            ->first();
+        if ($run === null) {
+            return $this->failReport("Nenhum assessment para [{$venture->venture_id}]. Rode: atlas:venture assess --venture={$venture->venture_id}");
+        }
+
+        $query = \App\Models\AiVentureQuestionAnswer::query()->where('run_id', $run->id);
+        if (is_string($this->option('dimension-filter')) && $this->option('dimension-filter') !== '') {
+            $query->where('dimension', $this->option('dimension-filter'));
+        }
+        if (is_string($this->option('status-filter')) && $this->option('status-filter') !== '') {
+            $query->where('status', $this->option('status-filter'));
+        }
+
+        $answers = $query
+            ->orderByDesc('priority_score')
+            ->limit(max(1, (int) $this->option('limit')))
+            ->get(['question_id', 'dimension', 'question_text', 'status', 'answer', 'confidence', 'data_kind', 'external_source', 'recommendation', 'priority_score']);
+
+        return $this->output_([
+            'venture_id' => $venture->venture_id,
+            'run_uuid' => $run->uuid,
+            'count' => $answers->count(),
+            'answers' => $answers->toArray(),
+        ]);
+    }
+
+    private function focus(VentureRegistryService $registry): int
+    {
+        $venture = $registry->resolve($this->requireVentureOption());
+        $run = \App\Models\AiVentureAssessmentRun::query()
+            ->where('venture_id', $venture->id)
+            ->orderByDesc('created_at')
+            ->first();
+        if ($run === null) {
+            return $this->failReport("Nenhum assessment para [{$venture->venture_id}]. Rode: atlas:venture assess --venture={$venture->venture_id}");
+        }
+
+        return $this->output_([
+            'venture_id' => $venture->venture_id,
+            'stage' => $run->stage,
+            'focus' => $run->focus,
+        ]);
+    }
+
+    private function dataReadiness(VentureRegistryService $registry): int
+    {
+        $venture = $registry->resolve($this->requireVentureOption());
+        $run = \App\Models\AiVentureAssessmentRun::query()
+            ->where('venture_id', $venture->id)
+            ->orderByDesc('created_at')
+            ->first();
+        if ($run === null) {
+            return $this->failReport("Nenhum assessment para [{$venture->venture_id}]. Rode: atlas:venture assess --venture={$venture->venture_id}");
+        }
+
+        return $this->output_([
+            'venture_id' => $venture->venture_id,
+            'data_readiness_pct' => $run->data_readiness_pct,
+            'by_status' => $run->summary['by_status'] ?? [],
+            'data_gaps' => $run->data_gaps,
+            'note' => 'Cada fonte em data_gaps, ao ser conectada, torna N perguntas respondíveis — o caminho para autonomia.',
+        ]);
+    }
+
+    private function questionCatalog(): int
+    {
+        $catalog = new \App\Services\Ai\VentureFoundry\Assessment\VentureQuestionCatalog;
+        $all = $catalog->all();
+
+        return $this->output_([
+            'schema_version' => 'atlas.ai.venture.question_catalog.v1',
+            'total_questions' => count($all),
+            'dimensions' => \App\Services\Ai\VentureFoundry\Assessment\VentureQuestionCatalog::DIMENSION_LABELS,
+            'external_sources' => \App\Services\Ai\VentureFoundry\Assessment\VentureQuestionCatalog::EXTERNAL_SOURCES,
+            'questions' => array_map(fn ($q) => [
+                'id' => $q['id'],
+                'dimension' => $q['dimension'],
+                'stages' => $q['stages'],
+                'severity_if_blind' => $q['severity_if_blind'],
+                'question' => $q['question'],
+                'data_kind' => $q['data_kind'],
+                'external_source' => $q['external_source'],
+            ], $all),
+        ]);
+    }
+
     private function ideateGenerate(VentureIdeaGenerationService $generation): int
     {
         $brief = (string) $this->option('brief');

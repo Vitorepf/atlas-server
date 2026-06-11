@@ -7,6 +7,7 @@ namespace App\Services\Ai\Programming\AtlasDev\Schemas;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Contracts\AtlasDevSchemaContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Support\CanonicalHasher;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Support\CanonicalJson;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use InvalidArgumentException;
 
 /**
@@ -101,16 +102,8 @@ final class PlanVisible implements AtlasDevSchemaContract
                 'PlanVisible.target_files must contain at least one file. An empty plan defeats Plan Visible.'
             );
         }
-        foreach ($this->targetFiles as $i => $file) {
-            if (! is_string($file) || $file === '') {
-                throw new InvalidArgumentException("target_files[{$i}] must be a non-empty string.");
-            }
-        }
-        foreach ($this->testsToRun as $i => $test) {
-            if (! is_string($test) || $test === '') {
-                throw new InvalidArgumentException("tests_to_run[{$i}] must be a non-empty string.");
-            }
-        }
+        AtlasDevStringListNormalizer::requireNonEmptyStrings($this->targetFiles, 'target_files');
+        AtlasDevStringListNormalizer::requireNonEmptyStrings($this->testsToRun, 'tests_to_run');
         if (trim($this->proposedDiffSummary) === '') {
             throw new InvalidArgumentException(
                 'PlanVisible.proposed_diff_summary must not be empty. An empty summary defeats operator review.'

@@ -70,9 +70,29 @@ final class DevForgeRobustFlowCertificationServiceTest extends TestCase
         $this->assertTrue($payload['claim_policy']['benchmark_not_run']);
     }
 
+    public function test_accepts_teos_partial_when_there_are_no_blockers(): void
+    {
+        $this->bindTeosFinalCertification(
+            AtlasTeosFinalCertificationService::STATUS_PARTIAL,
+            blockers: [],
+            warnings: [['id' => 'obra_review']],
+        );
+
+        $payload = app(DevForgeRobustFlowCertificationService::class)->certify();
+        $check = collect($payload['checks'])->firstWhere('id', 'teos_final_certification');
+
+        $this->assertSame(DevForgeRobustFlowCertificationService::STATUS_PASSED, $payload['status']);
+        $this->assertSame('pass', $check['status'] ?? null);
+        $this->assertSame('ready_or_partial_without_blockers', $check['evidence']['acceptance_policy'] ?? null);
+        $this->assertSame([['id' => 'obra_review']], $check['evidence']['warnings'] ?? null);
+    }
+
     public function test_blocks_when_teos_final_certification_is_not_ready(): void
     {
-        $this->bindTeosFinalCertification(AtlasTeosFinalCertificationService::STATUS_BLOCKED);
+        $this->bindTeosFinalCertification(
+            AtlasTeosFinalCertificationService::STATUS_BLOCKED,
+            blockers: [['id' => 'fake_blocker']],
+        );
 
         $payload = app(DevForgeRobustFlowCertificationService::class)->certify();
 
@@ -80,21 +100,26 @@ final class DevForgeRobustFlowCertificationServiceTest extends TestCase
         $this->assertSame('fail', collect($payload['checks'])->firstWhere('id', 'teos_final_certification')['status'] ?? null);
     }
 
-    private function bindTeosFinalCertification(string $status): void
+    /**
+     * @param  list<array<string,mixed>>|null  $blockers
+     * @param  list<array<string,mixed>>  $warnings
+     */
+    private function bindTeosFinalCertification(string $status, ?array $blockers = null, array $warnings = []): void
     {
         /** @var AtlasTeosFinalCertificationService&MockInterface $mock */
         $mock = Mockery::mock(AtlasTeosFinalCertificationService::class);
+        $blockers ??= $status === AtlasTeosFinalCertificationService::STATUS_READY ? [] : [['id' => 'fake_blocker']];
         $mock->shouldReceive('certify')->andReturn([
             'status' => $status,
             'certification_hash' => 'sha256:test-teos-final',
             'summary' => [
                 'total' => 6,
                 'pass' => $status === AtlasTeosFinalCertificationService::STATUS_READY ? 6 : 5,
-                'warn' => 0,
-                'fail' => $status === AtlasTeosFinalCertificationService::STATUS_READY ? 0 : 1,
+                'warn' => count($warnings),
+                'fail' => count($blockers),
             ],
-            'blockers' => $status === AtlasTeosFinalCertificationService::STATUS_READY ? [] : [['id' => 'fake_blocker']],
-            'warnings' => [],
+            'blockers' => $blockers,
+            'warnings' => $warnings,
         ]);
 
         $this->instance(AtlasTeosFinalCertificationService::class, $mock);

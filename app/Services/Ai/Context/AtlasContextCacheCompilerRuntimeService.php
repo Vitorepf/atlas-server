@@ -123,7 +123,7 @@ final class AtlasContextCacheCompilerRuntimeService
             'must_keep' => (bool) ($node['must_keep'] ?? $zone !== 'task_delta_zone'),
             'freshness' => (string) ($node['freshness'] ?? 'fresh'),
             'redaction_status' => 'hashed',
-            'depends_on' => array_values(array_filter((array) ($node['depends_on'] ?? []), 'is_string')),
+            'depends_on' => AtlasContextStringListNormalizer::stringsFromArrayCast($node['depends_on'] ?? []),
             'cacheable' => in_array($zone, self::CACHEABLE_ZONES, true),
         ];
         $nodePayload['node_hash'] = MissionCanonicalHash::sha256($nodePayload);
@@ -211,8 +211,8 @@ final class AtlasContextCacheCompilerRuntimeService
             'context_pack_hash' => (string) $merklePack['context_pack_hash'],
             'cacheable_prefix_hash' => (string) $merklePack['cacheable_prefix_hash'],
             'delta_node_hashes' => array_values(array_map(static fn (array $node): string => (string) $node['node_hash'], $taskNodes)),
-            'changed_file_refs' => array_values(array_filter((array) ($input['changed_file_refs'] ?? []), 'is_string')),
-            'evidence_refs' => array_values(array_filter((array) ($input['evidence_refs'] ?? []), 'is_string')),
+            'changed_file_refs' => AtlasContextStringListNormalizer::stringsFromArrayCast($input['changed_file_refs'] ?? []),
+            'evidence_refs' => AtlasContextStringListNormalizer::stringsFromArrayCast($input['evidence_refs'] ?? []),
             'raw_text_exposed' => false,
         ];
         $receipt['delta_hash'] = MissionCanonicalHash::sha256($receipt);

@@ -3,6 +3,7 @@
 namespace App\Services\Ai;
 
 use App\Services\Ai\Programming\ProgrammingIterationPolicy;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 class AtlasAiPolicyService
 {
@@ -182,12 +183,10 @@ class AtlasAiPolicyService
         foreach (self::PROVIDERS as $provider) {
             $catalog = data_get($providers, "{$provider}.models");
             if (is_array($catalog)) {
-                $models[$provider] = array_values(array_unique(array_filter(array_map(
-                    fn (mixed $entry): ?string => is_array($entry) && is_string($entry['model'] ?? null) && trim($entry['model']) !== ''
-                        ? trim($entry['model'])
-                        : null,
+                $models[$provider] = AiStringListNormalizer::uniqueTrimmedStrings(array_map(
+                    fn (mixed $entry): mixed => is_array($entry) ? ($entry['model'] ?? null) : null,
                     $catalog,
-                ))));
+                ));
 
                 continue;
             }
@@ -243,14 +242,14 @@ class AtlasAiPolicyService
         $defaultProvider = in_array($defaultProvider, self::PROVIDERS, true) ? $defaultProvider : 'hermes_cli';
 
         if ($profileId === 'programming.forge') {
-            return array_values(array_unique([$defaultProvider, 'codex_cli', 'minimax_m27_cli', 'claude_cli', 'gemini_cli', 'hermes_cli']));
+            return AiStringListNormalizer::uniqueStrings([$defaultProvider, 'codex_cli', 'minimax_m27_cli', 'claude_cli', 'gemini_cli', 'hermes_cli']);
         }
 
         if (str_starts_with($profileId, 'programming.')) {
-            return array_values(array_unique([$defaultProvider, 'codex_cli', 'minimax_m27_cli', 'claude_cli', 'gemini_cli', 'hermes_cli']));
+            return AiStringListNormalizer::uniqueStrings([$defaultProvider, 'codex_cli', 'minimax_m27_cli', 'claude_cli', 'gemini_cli', 'hermes_cli']);
         }
 
-        return array_values(array_unique([$defaultProvider, 'hermes_cli', 'minimax_m27_cli', 'claude_cli', 'codex_cli', 'gemini_cli']));
+        return AiStringListNormalizer::uniqueStrings([$defaultProvider, 'hermes_cli', 'minimax_m27_cli', 'claude_cli', 'codex_cli', 'gemini_cli']);
     }
 
     /**
@@ -279,7 +278,7 @@ class AtlasAiPolicyService
             $gates[] = 'background_safety_gate';
         }
 
-        return array_values(array_unique($gates));
+        return AiStringListNormalizer::uniqueStrings($gates);
     }
 
     /**

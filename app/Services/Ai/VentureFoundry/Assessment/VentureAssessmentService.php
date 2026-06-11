@@ -103,13 +103,29 @@ class VentureAssessmentService
         ];
     }
 
+    /**
+     * Pick the comprehension snapshot the assessment reads. A partial run
+     * (e.g. `comprehend --only=business_rule`) would blind the risk/health
+     * dimensions and let an existential leak go unscored — so prefer the most
+     * recent COMPLETE run that covered the `problem` capability; only fall back
+     * to the latest completed run when no full snapshot exists.
+     */
     private function latestComprehension(AiVenture $venture): ?AiVentureComprehensionRun
     {
-        return AiVentureComprehensionRun::query()
+        $completed = AiVentureComprehensionRun::query()
             ->where('venture_id', $venture->id)
             ->where('status', 'completed')
             ->orderByDesc('created_at')
-            ->first();
+            ->get();
+
+        foreach ($completed as $run) {
+            $caps = is_array($run->capabilities_run) ? $run->capabilities_run : [];
+            if (in_array('problem', $caps, true)) {
+                return $run;
+            }
+        }
+
+        return $completed->first();
     }
 
     /**

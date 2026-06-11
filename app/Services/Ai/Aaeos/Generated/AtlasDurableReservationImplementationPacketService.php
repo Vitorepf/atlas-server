@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Atlas Self-Construction Durable Reservation IMPLEMENTATION PACKET — pure,
  * deterministic, READ-ONLY decider that encodes the implementation-packet doc as
@@ -215,7 +217,7 @@ final class AtlasDurableReservationImplementationPacketService
      */
     public function nextStep(array $completedSteps): array
     {
-        $completed = $this->stringList($completedSteps);
+        $completed = AtlasAaeosStringListNormalizer::nonEmptyStrings($completedSteps);
 
         $next = null;
         $inOrder = [];
@@ -326,7 +328,7 @@ final class AtlasDurableReservationImplementationPacketService
      */
     public function checkHardLimits(array $intent = []): array
     {
-        $touched = $this->stringList($intent['touched_files'] ?? null);
+        $touched = AtlasAaeosStringListNormalizer::nonEmptyStrings($intent['touched_files'] ?? null);
 
         $violated = null;
         $reason = null;
@@ -423,14 +425,14 @@ final class AtlasDurableReservationImplementationPacketService
         $approved = ($state['approval_signed'] ?? false) === true;
         $preflight = ($state['preflight_passed'] ?? false) === true;
 
-        $order = $this->nextStep($this->stringList($state['completed_steps'] ?? null));
+        $order = $this->nextStep(AtlasAaeosStringListNormalizer::nonEmptyStrings($state['completed_steps'] ?? null));
         $gates = $this->gatesSatisfied(is_array($state['gate_results'] ?? null) ? $state['gate_results'] : []);
 
         // Hard limits are evaluated against the build intent. The approval/preflight
         // facts feed limit #4 (storage without approval).
         $limits = $this->checkHardLimits([
             'wants_dispatch' => (bool) ($state['wants_dispatch'] ?? false),
-            'touched_files' => $this->stringList($state['touched_files'] ?? null),
+            'touched_files' => AtlasAaeosStringListNormalizer::nonEmptyStrings($state['touched_files'] ?? null),
             'wants_completion' => (bool) ($state['wants_completion'] ?? false),
             'packet_completion_gate_passed' => (bool) ($state['packet_completion_gate_passed'] ?? false),
             'wants_storage_or_migration' => (bool) ($state['wants_storage_or_migration'] ?? false),
@@ -553,24 +555,4 @@ final class AtlasDurableReservationImplementationPacketService
         return $violations;
     }
 
-    /**
-     * Normalise a mixed value to a clean list of non-empty strings.
-     *
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item) && $item !== '') {
-                $out[] = $item;
-            }
-        }
-
-        return array_values($out);
-    }
 }

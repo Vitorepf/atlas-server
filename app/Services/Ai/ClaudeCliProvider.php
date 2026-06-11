@@ -4,6 +4,7 @@ namespace App\Services\Ai;
 
 use App\Models\AiJob;
 use App\Services\Ai\Concerns\RunsCliProcesses;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Support\Facades\File;
 
 class ClaudeCliProvider implements AiProvider
@@ -302,7 +303,7 @@ class ClaudeCliProvider implements AiProvider
             }
         }
 
-        return array_values(array_unique($values));
+        return AiStringListNormalizer::uniqueStrings($values);
     }
 
     private function extractTextFromClaudePayload(array $payload): string

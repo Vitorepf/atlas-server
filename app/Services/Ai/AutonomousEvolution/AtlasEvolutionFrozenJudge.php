@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Symfony\Component\Process\Process;
 
 /**
@@ -49,9 +50,9 @@ final class AtlasEvolutionFrozenJudge
      */
     public function score(string $workspace, array $acceptance): array
     {
-        $commands = $this->stringList($acceptance['commands'] ?? []);
-        $allowedGlobs = $this->stringList($acceptance['allowed_globs'] ?? ['**']);
-        $frozenGlobs = $this->stringList($acceptance['frozen_globs'] ?? []);
+        $commands = AiStringListNormalizer::trimmedStrings($acceptance['commands'] ?? []);
+        $allowedGlobs = AiStringListNormalizer::trimmedStrings($acceptance['allowed_globs'] ?? ['**']);
+        $frozenGlobs = AiStringListNormalizer::trimmedStrings($acceptance['frozen_globs'] ?? []);
         $metricKind = (string) ($acceptance['metric_kind'] ?? self::METRIC_GATE);
         $metricPattern = isset($acceptance['metric_pattern']) ? (string) $acceptance['metric_pattern'] : null;
         $timeout = max(1, (int) ($acceptance['timeout_seconds'] ?? 600));
@@ -327,18 +328,6 @@ final class AtlasEvolutionFrozenJudge
     }
 
     /**
-     * @param  array<int,mixed>  $values
-     * @return list<string>
-     */
-    private function stringList(array $values): array
-    {
-        return array_values(array_filter(array_map(
-            static fn (mixed $v): string => is_string($v) ? trim($v) : '',
-            $values,
-        ), static fn (string $v): bool => $v !== ''));
-    }
-
-    /**
      * @param  array<string,mixed>  $details
      * @param  array<string,mixed>  $acceptance
      * @return array<string,mixed>
@@ -354,9 +343,9 @@ final class AtlasEvolutionFrozenJudge
             'metric_finite' => is_finite($metric),
             'details' => $details,
             'acceptance_hash' => hash('sha256', json_encode([
-                'commands' => $this->stringList($acceptance['commands'] ?? []),
-                'allowed_globs' => $this->stringList($acceptance['allowed_globs'] ?? ['**']),
-                'frozen_globs' => $this->stringList($acceptance['frozen_globs'] ?? []),
+                'commands' => AiStringListNormalizer::trimmedStrings($acceptance['commands'] ?? []),
+                'allowed_globs' => AiStringListNormalizer::trimmedStrings($acceptance['allowed_globs'] ?? ['**']),
+                'frozen_globs' => AiStringListNormalizer::trimmedStrings($acceptance['frozen_globs'] ?? []),
                 'metric_kind' => (string) ($acceptance['metric_kind'] ?? self::METRIC_GATE),
             ], JSON_THROW_ON_ERROR)),
         ];

@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Aaeos;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
+
 /**
  * Runtime for the AAEOS Department Contract — the registry the canonical doc
  * names (AtlasAaeosDepartmentRegistryService) to enforce that every department
@@ -172,7 +174,7 @@ class AtlasAaeosDepartmentRegistryService
      */
     private function uniqueStrings(array $values): array
     {
-        return array_values(array_unique($values));
+        return AiStringListNormalizer::uniqueStrings($values);
     }
 
     /**

@@ -8,6 +8,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as Op
 use App\Services\Ai\Programming\AtlasDev\Schemas\CodeDiscoveryManifest;
 use App\Services\Ai\Programming\AtlasDev\Schemas\CompactSdd;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Support\CanonicalHasher;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 
 /**
  * Atlas Dev Superiority Runtime — specialist flow router.
@@ -103,12 +104,15 @@ final class SpecialistFlowRouter
         $ambiguous = $path === SpecialistFlowDecision::PATH_ASK_CLARIFICATION;
         $escalate = $flow === SpecialistFlowDecision::FLOW_FORGE_ESCALATION;
 
+        $matchedSignals = AtlasDevStringListNormalizer::uniqueTrimmedStrings($signals);
+        $reasons = AtlasDevStringListNormalizer::uniqueTrimmedStrings($reasons);
+
         $payload = [
             'ambiguous' => $ambiguous,
             'escalate_to_forge' => $escalate,
-            'matched_signals' => array_values(array_unique($signals)),
+            'matched_signals' => $matchedSignals,
             'path' => $path,
-            'reasons' => array_values(array_unique($reasons)),
+            'reasons' => $reasons,
             'risk_level' => $compactSdd->riskLevel,
             'run_id' => $envelope->runId,
             'specialist_flow' => $flow,
@@ -124,8 +128,8 @@ final class SpecialistFlowRouter
             path: $path,
             escalateToForge: $escalate,
             ambiguous: $ambiguous,
-            reasons: array_values(array_unique($reasons)),
-            matchedSignals: array_values(array_unique($signals)),
+            reasons: $reasons,
+            matchedSignals: $matchedSignals,
             taskKind: $classification->taskKind,
             riskLevel: $compactSdd->riskLevel,
             decisionHash: $hash,

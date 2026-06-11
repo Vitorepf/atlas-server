@@ -6,6 +6,7 @@ namespace App\Services\Ai\Programming\AtlasDev\Intelligence;
 
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ReviewFinding;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ReviewReceipt;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use Illuminate\Support\Str;
 
 /**
@@ -62,13 +63,13 @@ final class ReviewIntelligenceService
     public function analyse(array $input): ReviewReceipt
     {
         $runId = $this->stringOrThrow($input, 'run_id');
-        $changedFiles = $this->normaliseStringList($input['changed_files'] ?? []);
+        $changedFiles = AtlasDevStringListNormalizer::trimmedStrings($input['changed_files'] ?? []);
         $diffChunks = $this->normaliseDiffChunks($input['diff_chunks'] ?? []);
-        $testPaths = $this->normaliseStringList($input['test_paths'] ?? []);
-        $allowedFiles = $this->normaliseStringList($input['allowed_files'] ?? []);
-        $forbiddenFiles = $this->normaliseStringList($input['forbidden_files'] ?? []);
+        $testPaths = AtlasDevStringListNormalizer::trimmedStrings($input['test_paths'] ?? []);
+        $allowedFiles = AtlasDevStringListNormalizer::trimmedStrings($input['allowed_files'] ?? []);
+        $forbiddenFiles = AtlasDevStringListNormalizer::trimmedStrings($input['forbidden_files'] ?? []);
         $riskRules = $this->normaliseRiskRules($input['risk_rules'] ?? []);
-        $evidenceRefs = $this->normaliseStringList($input['evidence_refs'] ?? []);
+        $evidenceRefs = AtlasDevStringListNormalizer::trimmedStrings($input['evidence_refs'] ?? []);
         $createdAt = (string) ($input['created_at'] ?? now()->toIso8601String());
         $receiptId = (string) ($input['receipt_id'] ?? 'rev_'.Str::uuid());
 
@@ -166,10 +167,10 @@ final class ReviewIntelligenceService
             $changedFiles,
             static fn (string $f): bool => ! self::looksLikeTestFile($f) && self::looksLikeCodeFile($f),
         ));
-        $tests = array_values(array_unique(array_merge(
+        $tests = AtlasDevStringListNormalizer::uniqueMergedStrings(
             $testPaths,
             array_filter($changedFiles, self::looksLikeTestFile(...)),
-        )));
+        );
         $missing = [];
         foreach ($codeFiles as $file) {
             if (! self::hasMatchingTest($file, $tests)) {
@@ -540,24 +541,6 @@ final class ReviewIntelligenceService
         }
 
         return $input[$key];
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function normaliseStringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
-        }
-
-        return array_values($out);
     }
 
     /**

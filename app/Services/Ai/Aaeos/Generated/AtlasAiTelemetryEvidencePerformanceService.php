@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+
 /**
  * Pure, deterministic decider for the consolidated telemetry / evidence /
  * performance contract.
@@ -413,8 +415,8 @@ final class AtlasAiTelemetryEvidencePerformanceService
      */
     private function isLedgerProjection(array $trace): bool
     {
-        $schemaVersion = $this->stringOrNull($trace['schema_version'] ?? null);
-        $projectionId = $this->stringOrNull($trace['projection_id'] ?? null);
+        $schemaVersion = AtlasAaeosValueNormalizer::stringOrNull($trace['schema_version'] ?? null);
+        $projectionId = AtlasAaeosValueNormalizer::stringOrNull($trace['projection_id'] ?? null);
 
         return $schemaVersion === self::PROJECTION_SCHEMA_VERSION
             && $projectionId === self::PROJECTION_ID;
@@ -425,8 +427,8 @@ final class AtlasAiTelemetryEvidencePerformanceService
      */
     private function hasProviderIdentity(array $trace): bool
     {
-        return $this->stringOrNull($trace['provider'] ?? null) !== null
-            || $this->stringOrNull($trace['model'] ?? null) !== null;
+        return AtlasAaeosValueNormalizer::stringOrNull($trace['provider'] ?? null) !== null
+            || AtlasAaeosValueNormalizer::stringOrNull($trace['model'] ?? null) !== null;
     }
 
     private function normalizeStatus(string $status): string
@@ -436,13 +438,4 @@ final class AtlasAiTelemetryEvidencePerformanceService
         return array_key_exists($normalized, self::STATUS_RANK) ? $normalized : self::STATUS_OK;
     }
 
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $trimmed = trim($value);
-
-        return $trimmed !== '' ? $trimmed : null;
-    }
 }

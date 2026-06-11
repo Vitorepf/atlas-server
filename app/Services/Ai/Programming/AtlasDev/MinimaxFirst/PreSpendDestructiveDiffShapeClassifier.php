@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\MinimaxFirst;
 
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
+
 final class PreSpendDestructiveDiffShapeClassifier
 {
     /**
@@ -53,7 +55,7 @@ final class PreSpendDestructiveDiffShapeClassifier
             $reasons[] = 'large_test_deletion';
         }
 
-        $reasons = array_values(array_unique($reasons));
+        $reasons = AtlasDevStringListNormalizer::uniqueTrimmedStrings($reasons);
         $decision = $reasons === [] ? 'accept' : 'reject_destructive_or_filler';
 
         return [

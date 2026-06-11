@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming;
 
 use App\Services\Ai\Kernel\Decision\ComputeEffortPolicy;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 /**
  * Base implementation shared by the governed CLI provider drivers
@@ -105,7 +106,7 @@ abstract class AtlasForgeBaseCliInvocationDriver implements AtlasForgeProviderIn
             'allowlist_passed' => (bool) $allowlist['allowed'],
             'allowlist_blockers' => array_values((array) $allowlist['blockers']),
             'config_blockers' => array_values((array) $config['blockers']),
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => AiStringListNormalizer::uniqueStrings($blockers),
             'plan_safe' => $blockers === [],
             'provider_called' => false,
             'external_provider_call' => false,
@@ -124,10 +125,10 @@ abstract class AtlasForgeBaseCliInvocationDriver implements AtlasForgeProviderIn
         if (! (bool) $config['configured']) {
             return $this->blocked(
                 $request,
-                blockers: array_values(array_unique(array_merge(
+                blockers: AiStringListNormalizer::uniqueMergedStrings(
                     ['provider_driver_not_configured'],
                     (array) $config['blockers'],
-                ))),
+                ),
                 note: 'Driver '.$this->provider().' nao esta configurado neste host. Mantido fail-closed.',
             );
         }
@@ -414,7 +415,7 @@ abstract class AtlasForgeBaseCliInvocationDriver implements AtlasForgeProviderIn
             'process_status' => AtlasForgeProviderProcessRunner::STATUS_BLOCKED,
             'classification' => null,
             'failure_type' => null,
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => AiStringListNormalizer::uniqueStrings($blockers),
             'note' => $note,
         ];
     }

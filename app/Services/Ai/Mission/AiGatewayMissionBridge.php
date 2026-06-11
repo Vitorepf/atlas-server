@@ -45,13 +45,6 @@ class AiGatewayMissionBridge
 
     public const ENVELOPE_SOURCE = 'ai_gateway.enqueue_interaction';
 
-    private const REQUIRED_TABLES = [
-        'ai_missions',
-        'ai_objectives',
-        'ai_work_orders',
-        'ai_mission_events',
-    ];
-
     public function __construct(private readonly Container $container) {}
 
     public function enabled(): bool
@@ -66,7 +59,7 @@ class AiGatewayMissionBridge
 
     public function tablesAvailable(): bool
     {
-        return DatabaseTableAvailability::all(self::REQUIRED_TABLES);
+        return DatabaseTableAvailability::all(MissionReadinessService::requiredKernelRuntimeTables());
     }
 
     /**
@@ -91,7 +84,7 @@ class AiGatewayMissionBridge
             // by environment state, not by config alone.
             Log::warning('atlas.ai_gateway.mission_bridge.skipped_missing_tables', [
                 'enabled' => true,
-                'required_tables' => self::REQUIRED_TABLES,
+                'required_tables' => MissionReadinessService::requiredKernelRuntimeTables(),
             ]);
 
             return null;

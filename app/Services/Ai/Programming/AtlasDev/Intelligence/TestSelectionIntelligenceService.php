@@ -7,6 +7,7 @@ namespace App\Services\Ai\Programming\AtlasDev\Intelligence;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\FocusedTestCommand;
 use App\Services\Ai\Programming\AtlasDev\Schemas\PatchIntelligenceReceipt;
 use App\Services\Ai\Programming\AtlasDev\Schemas\TestSelectionReceipt;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 
 /**
  * Produces a TestSelectionReceipt: explicit, focused test commands tied to
@@ -33,8 +34,8 @@ final class TestSelectionIntelligenceService
 {
     public function select(TestSelectionInput $input): TestSelectionReceipt
     {
-        $changed = array_values(array_unique($input->changedFiles));
-        $expected = array_values(array_unique($input->expectedTests));
+        $changed = AtlasDevStringListNormalizer::uniqueTrimmedStrings($input->changedFiles);
+        $expected = AtlasDevStringListNormalizer::uniqueTrimmedStrings($input->expectedTests);
         $fileExists = $input->fileExists ?? static fn (string $path): bool => is_file($path);
 
         /** @var list<FocusedTestCommand> $commands */

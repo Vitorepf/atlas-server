@@ -6,6 +6,8 @@ namespace App\Services\Ai\Programming\AtlasDev\PlanVisible;
 
 use App\Models\AtlasProgrammingWorkItem;
 use App\Services\Ai\Programming\AtlasDev\Schemas\PlanVisible;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevRiskNormalizer;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use InvalidArgumentException;
 
 /**
@@ -79,7 +81,7 @@ final class AtlasDevPlanProjectionService
         $targetFiles = $this->validateStringList($proposal['target_files'] ?? [], 'target_files');
         $testsToRun = $this->validateStringList($proposal['tests_to_run'] ?? [], 'tests_to_run');
         $summary = (string) ($proposal['proposed_diff_summary'] ?? '');
-        $riskBand = $this->normalizeRiskBand($proposal['risk_band'] ?? $defaultRiskBand);
+        $riskBand = AtlasDevRiskNormalizer::planVisibleRiskBand($proposal['risk_band'] ?? $defaultRiskBand);
 
         return PlanVisible::issue(
             runId: $runId,
@@ -122,36 +124,7 @@ final class AtlasDevPlanProjectionService
             throw new InvalidArgumentException("AtlasDevPlanProjectionService: {$fieldName} must be an array.");
         }
 
-        $clean = [];
-        foreach (array_values($list) as $i => $value) {
-            if (! is_string($value) || $value === '') {
-                throw new InvalidArgumentException(
-                    "AtlasDevPlanProjectionService: {$fieldName}[{$i}] must be a non-empty string."
-                );
-            }
-            $clean[] = $value;
-        }
-
-        return $clean;
+        return AtlasDevStringListNormalizer::requireNonEmptyStrings(array_values($list), $fieldName);
     }
 
-    /**
-     * Map work item `risk_level` (high|medium|low|critical|unknown)
-     * to PlanVisible `risk_band` (high|medium|low).
-     *
-     * Atlas Dev intentionally collapses `critical` into `high` for the
-     * plan view — operator already saw the upstream risk classification;
-     * the plan band exists to drive the approval gate, not to re-classify.
-     */
-    private function normalizeRiskBand(string $raw): string
-    {
-        $value = strtolower(trim($raw));
-
-        return match ($value) {
-            'high', 'critical' => PlanVisible::RISK_BAND_HIGH,
-            'medium' => PlanVisible::RISK_BAND_MEDIUM,
-            'low' => PlanVisible::RISK_BAND_LOW,
-            default => PlanVisible::RISK_BAND_MEDIUM,
-        };
-    }
 }

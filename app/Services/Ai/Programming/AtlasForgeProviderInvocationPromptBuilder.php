@@ -6,6 +6,7 @@ namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProgrammingWorkItem;
 use App\Models\AtlasProject;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Engineering\CodeGraph\CodeGraphContextRetriever;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
@@ -318,20 +319,7 @@ class AtlasForgeProviderInvocationPromptBuilder
      */
     private function normalizeStringList(mixed $value): array
     {
-        if (! is_array($value)) {
-            return [];
-        }
-        $result = [];
-        foreach ($value as $entry) {
-            if (is_string($entry)) {
-                $entry = trim($entry);
-                if ($entry !== '') {
-                    $result[] = $entry;
-                }
-            }
-        }
-
-        return array_values(array_unique($result));
+        return AiStringListNormalizer::uniqueTrimmedStrings($value);
     }
 
     private function resolveWorkItem(AtlasProject $project): ?AtlasProgrammingWorkItem

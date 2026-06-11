@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Atlas Domain Expansion Spec decider.
  *
@@ -207,11 +209,11 @@ final class AtlasDomainExpansionSpecService
      */
     public function checklist(array $proposal): array
     {
-        $intents = $this->stringList($proposal['intents_supported'] ?? []);
-        $depts = $this->stringList($proposal['departments_touched'] ?? []);
-        $skills = $this->stringList($proposal['skills_required'] ?? []);
-        $evidence = $this->stringList($proposal['evidence_required'] ?? []);
-        $gates = $this->stringList($proposal['gates'] ?? []);
+        $intents = AtlasAaeosStringListNormalizer::trimmedStrings($proposal['intents_supported'] ?? []);
+        $depts = AtlasAaeosStringListNormalizer::trimmedStrings($proposal['departments_touched'] ?? []);
+        $skills = AtlasAaeosStringListNormalizer::trimmedStrings($proposal['skills_required'] ?? []);
+        $evidence = AtlasAaeosStringListNormalizer::trimmedStrings($proposal['evidence_required'] ?? []);
+        $gates = AtlasAaeosStringListNormalizer::trimmedStrings($proposal['gates'] ?? []);
         $dataSources = is_array($proposal['data_sources'] ?? null) ? $proposal['data_sources'] : [];
         $scope = trim((string) ($proposal['scope'] ?? ''));
         $overlap = (bool) ($proposal['scope_overlaps_existing'] ?? false);
@@ -319,7 +321,7 @@ final class AtlasDomainExpansionSpecService
     public function crossDept(array $proposal): array
     {
         $kind = strtolower(trim((string) ($proposal['kind'] ?? '')));
-        $declared = array_map('strtolower', $this->stringList($proposal['departments_touched'] ?? []));
+        $declared = array_map('strtolower', AtlasAaeosStringListNormalizer::trimmedStrings($proposal['departments_touched'] ?? []));
 
         $required = self::CROSS_DEPT_MATRIX[$kind] ?? [];
         $missing = array_values(array_diff($required, $declared));
@@ -347,8 +349,8 @@ final class AtlasDomainExpansionSpecService
         $sovereignty = (string) ($proposal['sovereignty_class'] ?? '');
         $required = in_array($sovereignty, self::SECURITY_GATED_SOVEREIGNTY, true);
 
-        $depts = array_map('strtolower', $this->stringList($proposal['departments_touched'] ?? []));
-        $gates = array_map('strtolower', $this->stringList($proposal['gates'] ?? []));
+        $depts = array_map('strtolower', AtlasAaeosStringListNormalizer::trimmedStrings($proposal['departments_touched'] ?? []));
+        $gates = array_map('strtolower', AtlasAaeosStringListNormalizer::trimmedStrings($proposal['gates'] ?? []));
 
         // The extra gate is satisfied when Security is an explicit department AND
         // a security-flavoured gate is declared (e.g. secret_scan, sandbox_only).
@@ -477,26 +479,6 @@ final class AtlasDomainExpansionSpecService
     private function check(bool $ok, string $reason): array
     {
         return ['ok' => $ok, 'reason' => $reason];
-    }
-
-    /**
-     * @param mixed $value
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
-        }
-
-        return array_values($out);
     }
 
     /**

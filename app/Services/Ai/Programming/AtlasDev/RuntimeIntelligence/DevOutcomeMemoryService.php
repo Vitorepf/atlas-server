@@ -6,6 +6,7 @@ use App\Models\AtlasDevFailureCapsule;
 use App\Models\AtlasDevOutcomeMemory;
 use App\Models\AtlasDevTaskPacket;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 
 class DevOutcomeMemoryService
 {
@@ -18,9 +19,9 @@ class DevOutcomeMemoryService
     public function build(array $input, array $packet, ?array $failureCapsule = null): array
     {
         $status = $this->normalizeStatus((string) ($input['outcome_status'] ?? $input['status'] ?? ($failureCapsule ? 'failed' : 'success')));
-        $evidence = $this->stringList($input['evidence_kinds'] ?? $input['evidence'] ?? []);
-        $selectedTests = $this->stringList($input['selected_tests'] ?? $packet['suggested_tests'] ?? []);
-        $changedFiles = $this->stringList($input['changed_files'] ?? $failureCapsule['changed_files'] ?? []);
+        $evidence = AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($input['evidence_kinds'] ?? $input['evidence'] ?? []);
+        $selectedTests = AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($input['selected_tests'] ?? $packet['suggested_tests'] ?? []);
+        $changedFiles = AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($input['changed_files'] ?? $failureCapsule['changed_files'] ?? []);
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -99,21 +100,7 @@ class DevOutcomeMemoryService
             $items[] = 'missing_evidence_on_outcome';
         }
 
-        return array_values(array_unique($items));
+        return AtlasDevStringListNormalizer::uniqueMergedStrings($items);
     }
 
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_unique(array_filter(array_map(
-            static fn (mixed $item): ?string => is_scalar($item) && trim((string) $item) !== '' ? trim((string) $item) : null,
-            $value,
-        ))));
-    }
 }

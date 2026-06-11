@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Atlas Self-Construction Packet Queue — pure, deterministic queue decider.
  *
@@ -545,18 +547,7 @@ final class AtlasPacketQueueContractService
      */
     private function strList($list): array
     {
-        if (! is_array($list)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($list as $v) {
-            if (is_string($v) && trim($v) !== '') {
-                $out[] = trim($v);
-            }
-        }
-
-        return array_values(array_unique($out));
+        return AtlasAaeosStringListNormalizer::uniqueTrimmedStrings($list);
     }
 
     /**

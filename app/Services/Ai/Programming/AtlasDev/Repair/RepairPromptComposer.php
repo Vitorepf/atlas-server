@@ -11,6 +11,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Support\CanonicalHasher;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Support\CanonicalJson;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use InvalidArgumentException;
 
 /**
@@ -199,10 +200,7 @@ final class RepairPromptComposer
      */
     private function mergeUnique(array $a, array $b): array
     {
-        $merged = array_values(array_unique([...$a, ...$b]));
-        sort($merged, SORT_STRING);
-
-        return $merged;
+        return AtlasDevStringListNormalizer::uniqueSortedStrings($a, $b);
     }
 
     private function hashProjection(ProviderPromptProjection $projection): string

@@ -9,6 +9,7 @@ use App\Services\Ai\Programming\AtlasDev\Repair\Contracts\RepairAttemptOutcome;
 use App\Services\Ai\Programming\AtlasDev\Schemas\FailureCapsule;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use InvalidArgumentException;
 
 /**
@@ -180,9 +181,6 @@ final class RepairOrchestrator
      */
     private function mergeSignals(array $a, array $b): array
     {
-        $merged = array_values(array_unique([...$a, ...$b]));
-        sort($merged, SORT_STRING);
-
-        return $merged;
+        return AtlasDevStringListNormalizer::uniqueSortedStrings($a, $b);
     }
 }

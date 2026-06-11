@@ -5,6 +5,7 @@ namespace App\Services\Ai;
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Provider\ProviderProjectionInput;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -489,7 +490,7 @@ class AtlasProviderProjectionService
             $actions[] = 'Resolver drift fora do bloco manual antes de gravar: atlas memory projection inspect --target='.($manualDrift === ['claude', 'agents'] ? 'all' : implode(',', $manualDrift)).$workspaceOption.' --json';
         }
 
-        return array_values(array_unique($actions));
+        return AiStringListNormalizer::uniqueStrings($actions);
     }
 
     /**
@@ -551,7 +552,7 @@ class AtlasProviderProjectionService
             $actions[] = 'Revisar drift fora do bloco manual antes de gravar: atlas memory projection inspect --target='.($manualDrift === ['claude', 'agents'] ? 'all' : implode(',', $manualDrift)).$workspaceOption.' --json';
         }
 
-        return array_values(array_unique($actions));
+        return AiStringListNormalizer::uniqueStrings($actions);
     }
 
     /**
@@ -871,10 +872,7 @@ class AtlasProviderProjectionService
     {
         $pattern = '/'.preg_quote(self::AOBG_MANAGED_START, '/').'.*?'.preg_quote(self::AOBG_MANAGED_END, '/').'/s';
         if (preg_match_all($pattern, $content, $matches) !== false && ($matches[0] ?? []) !== []) {
-            return implode("\n\n", array_values(array_unique(array_map(
-                fn (string $block): string => trim($block),
-                $matches[0],
-            ))));
+            return implode("\n\n", AiStringListNormalizer::uniqueTrimmedStrings($matches[0]));
         }
 
         return '';

@@ -4,6 +4,8 @@ namespace App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence;
 
 use App\Models\AtlasDevTaskPacket;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevRiskNormalizer;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use App\Services\Ai\Product\AtlasExecutionDoctrineGateService;
 use App\Services\Ai\Product\AtlasExecutionDoctrineRuntimeService;
 use Illuminate\Support\Str;
@@ -24,9 +26,16 @@ class DevTaskPacketRuntimeService
     {
         $runId = $this->string($input['run_id'] ?? null) ?? 'dev-run-'.Str::uuid()->toString();
         $taskId = $this->string($input['task_id'] ?? null) ?? 'dev-task-'.substr(MissionCanonicalHash::sha256($input), 0, 12);
-        $riskBand = $this->normalizeRisk($this->string($input['risk_band'] ?? $input['risk'] ?? null));
+        $riskBand = AtlasDevRiskNormalizer::runtimeRiskBand($this->string($input['risk_band'] ?? $input['risk'] ?? null));
         $taskClass = $this->normalizeTaskClass($this->string($input['task_class'] ?? $input['task'] ?? null), $riskBand);
         $objective = $this->string($input['objective'] ?? $input['intent'] ?? null) ?? 'Atlas Dev task';
+        $expectedFiles = AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($input['expected_files'] ?? []);
+        $contextRefs = AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($input['context_refs'] ?? []);
+        $allowedFiles = AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($input['allowed_files'] ?? []);
+        $reviewRefs = AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($input['review_refs'] ?? []);
+        $suggestedTests = AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($input['suggested_tests'] ?? $input['tests'] ?? []);
+        $acceptanceCriteria = AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($input['acceptance_criteria'] ?? []);
+        $requiredEvidence = AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($input['required_evidence'] ?? []);
         $doctrine = $this->aedpds->select([
             'task' => $objective,
             'surface' => 'atlas_dev',
@@ -34,22 +43,20 @@ class DevTaskPacketRuntimeService
             'task_type' => $taskClass,
             'risk_level' => $riskBand,
             'code_changes_requested' => ! in_array($taskClass, ['trivial', 'read_only', 'review'], true),
-            'files' => $this->stringList($input['expected_files'] ?? []),
-            'missing_context' => $this->stringList($input['context_refs'] ?? []) === []
-                && $this->stringList($input['expected_files'] ?? []) === []
-                && $this->stringList($input['allowed_files'] ?? []) === [],
-            'senior_review_present' => $this->stringList($input['review_refs'] ?? []) !== [],
+            'files' => $expectedFiles,
+            'missing_context' => $contextRefs === [] && $expectedFiles === [] && $allowedFiles === [],
+            'senior_review_present' => $reviewRefs !== [],
         ]);
         $gate = $this->aedpdsGate->evaluate([
             'doctrine' => $doctrine,
-            'acceptance_criteria' => $this->stringList($input['acceptance_criteria'] ?? []),
-            'context_refs' => $this->stringList($input['context_refs'] ?? []),
-            'tests' => $this->stringList($input['suggested_tests'] ?? $input['tests'] ?? []),
-            'contracts' => $this->stringList($input['contracts'] ?? $input['contract_refs'] ?? []),
-            'docs' => $this->stringList($input['canonical_docs'] ?? []),
-            'review' => $this->stringList($input['review_refs'] ?? []),
-            'evidence' => $this->stringList($input['required_evidence'] ?? []),
-            'ux_expectations' => $this->stringList($input['ux_expectations'] ?? []),
+            'acceptance_criteria' => $acceptanceCriteria,
+            'context_refs' => $contextRefs,
+            'tests' => $suggestedTests,
+            'contracts' => AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($input['contracts'] ?? $input['contract_refs'] ?? []),
+            'docs' => AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($input['canonical_docs'] ?? []),
+            'review' => $reviewRefs,
+            'evidence' => $requiredEvidence,
+            'ux_expectations' => AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($input['ux_expectations'] ?? []),
         ]);
 
         $payload = [
@@ -60,13 +67,13 @@ class DevTaskPacketRuntimeService
             'task_class' => $taskClass,
             'risk_band' => $riskBand,
             'workspace_slug' => $this->string($input['workspace_slug'] ?? $input['workspace'] ?? null),
-            'allowed_files' => $this->stringList($input['allowed_files'] ?? []),
-            'forbidden_files' => $this->stringList($input['forbidden_files'] ?? []),
-            'context_refs' => $this->mergeStrings($this->stringList($input['context_refs'] ?? []), $this->prefix('aedpds_context:', $doctrine['required_context'] ?? [])),
-            'expected_files' => $this->stringList($input['expected_files'] ?? []),
-            'suggested_tests' => $this->mergeStrings($this->stringList($input['suggested_tests'] ?? $input['tests'] ?? []), $this->prefix('aedpds_test:', $doctrine['required_tests'] ?? [])),
-            'acceptance_criteria' => $this->mergeStrings($this->stringList($input['acceptance_criteria'] ?? []), in_array('atdd', (array) ($doctrine['selected_primary_drivers'] ?? []), true) ? ['aedpds_acceptance_required'] : []),
-            'required_evidence' => $this->mergeStrings($this->stringList($input['required_evidence'] ?? []), $this->prefix('aedpds_evidence:', $doctrine['required_evidence'] ?? [])),
+            'allowed_files' => $allowedFiles,
+            'forbidden_files' => AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($input['forbidden_files'] ?? []),
+            'context_refs' => $this->mergeStrings($contextRefs, $this->prefix('aedpds_context:', $doctrine['required_context'] ?? [])),
+            'expected_files' => $expectedFiles,
+            'suggested_tests' => $this->mergeStrings($suggestedTests, $this->prefix('aedpds_test:', $doctrine['required_tests'] ?? [])),
+            'acceptance_criteria' => $this->mergeStrings($acceptanceCriteria, in_array('atdd', (array) ($doctrine['selected_primary_drivers'] ?? []), true) ? ['aedpds_acceptance_required'] : []),
+            'required_evidence' => $this->mergeStrings($requiredEvidence, $this->prefix('aedpds_evidence:', $doctrine['required_evidence'] ?? [])),
             'source' => $this->string($input['source'] ?? null) ?? 'atlas_dev_runtime_intelligence',
             'aedpds' => [
                 'doctrine' => $doctrine,
@@ -108,17 +115,6 @@ class DevTaskPacketRuntimeService
         );
     }
 
-    private function normalizeRisk(?string $risk): string
-    {
-        return match ($risk) {
-            'low', 'medium', 'high', 'critical' => $risk,
-            'p0', 'danger' => 'critical',
-            'p1', 'major' => 'high',
-            'p2' => 'medium',
-            default => 'medium',
-        };
-    }
-
     private function normalizeTaskClass(?string $taskClass, string $riskBand): string
     {
         if (in_array($taskClass, ['trivial', 'read_only', 'patch', 'debug', 'review', 'repair', 'feature'], true)) {
@@ -129,28 +125,13 @@ class DevTaskPacketRuntimeService
     }
 
     /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_unique(array_filter(array_map(
-            fn (mixed $item): ?string => $this->string($item),
-            $value,
-        ))));
-    }
-
-    /**
      * @param  list<string>  $left
      * @param  list<string>  $right
      * @return list<string>
      */
     private function mergeStrings(array $left, array $right): array
     {
-        return array_values(array_unique(array_merge($left, $right)));
+        return AtlasDevStringListNormalizer::uniqueMergedStrings($left, $right);
     }
 
     /**

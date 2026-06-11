@@ -4,6 +4,7 @@ namespace App\Services\Ai\Mission;
 
 use App\Models\AiMission;
 use App\Models\AiObjective;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
@@ -84,8 +85,9 @@ class ObjectiveDecomposerService
             return $bullets;
         }
 
-        $parts = preg_split('/\s*;\s*|\s+e tambem\s+|\s+e também\s+|\s+alem disso\s+|\s+além disso\s+/u', $prompt) ?: [];
-        $parts = array_values(array_filter(array_map('trim', $parts), static fn ($p) => $p !== ''));
+        $parts = AiStringListNormalizer::trimmedStrings(
+            preg_split('/\s*;\s*|\s+e tambem\s+|\s+e também\s+|\s+alem disso\s+|\s+além disso\s+/u', $prompt) ?: []
+        );
 
         if (count($parts) >= 2) {
             return $parts;

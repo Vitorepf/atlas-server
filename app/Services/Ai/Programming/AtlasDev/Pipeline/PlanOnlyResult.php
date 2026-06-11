@@ -13,6 +13,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\MiniProgrammingSpec;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OpenBrainProgrammingProjection;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
 use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopAudit;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 
 /**
  * Result of {@see AtlasDevFastPathOrchestrator::planOnly()}.
@@ -324,7 +325,7 @@ final class PlanOnlyResult
             'quantos', 'quantas', 'the', 'usa', 'using',
         ];
 
-        return array_values(array_unique(array_filter(
+        return AtlasDevStringListNormalizer::uniqueStrings(array_values(array_filter(
             $tokens,
             static fn (string $token): bool => strlen($token) >= 3 && ! in_array($token, $stop, true),
         )));

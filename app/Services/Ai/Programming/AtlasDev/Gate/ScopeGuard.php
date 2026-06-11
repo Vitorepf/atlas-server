@@ -14,6 +14,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ScopePreExistingChan
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ScopeViolation;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ScopeGuardReceipt;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevPathPatternMatcher;
 
 /**
  * Compares observed diff against the LightTaskContract scope contract and
@@ -65,7 +66,7 @@ final class ScopeGuard
 
         // 1. forbidden_files (strongest, fails immediately even if also allowed)
         foreach ($changedFiles as $path) {
-            if ($this->matchesAny($path, $taskContract->forbiddenFiles)) {
+            if (AtlasDevPathPatternMatcher::matchesAny($path, $taskContract->forbiddenFiles)) {
                 $violations[] = new ScopeViolation(
                     kind: ScopeViolation::KIND_FORBIDDEN_TOUCH,
                     path: $path,
@@ -76,10 +77,10 @@ final class ScopeGuard
 
         // 2. watched + unexpected (only when not already forbidden)
         foreach ($changedFiles as $path) {
-            if ($this->matchesAny($path, $taskContract->forbiddenFiles)) {
+            if (AtlasDevPathPatternMatcher::matchesAny($path, $taskContract->forbiddenFiles)) {
                 continue;
             }
-            if ($this->matchesAny($path, $taskContract->watchedFiles)) {
+            if (AtlasDevPathPatternMatcher::matchesAny($path, $taskContract->watchedFiles)) {
                 $violations[] = new ScopeViolation(
                     kind: ScopeViolation::KIND_WATCHED_TOUCH,
                     path: $path,
@@ -88,7 +89,7 @@ final class ScopeGuard
 
                 continue;
             }
-            if (! $this->matchesAny($path, $taskContract->allowedFiles)) {
+            if (! AtlasDevPathPatternMatcher::matchesAny($path, $taskContract->allowedFiles)) {
                 $violations[] = new ScopeViolation(
                     kind: ScopeViolation::KIND_UNEXPECTED_TOUCH,
                     path: $path,
@@ -212,26 +213,6 @@ final class ScopeGuard
         }
 
         return ['added' => $added, 'removed' => $removed];
-    }
-
-    /**
-     * @param  list<string>  $patterns
-     */
-    private function matchesAny(string $file, array $patterns): bool
-    {
-        foreach ($patterns as $pattern) {
-            if ($pattern === $file) {
-                return true;
-            }
-            if (str_contains($pattern, '*') && fnmatch($pattern, $file, FNM_NOESCAPE)) {
-                return true;
-            }
-            if (str_ends_with($pattern, '/') && str_starts_with($file, $pattern)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**

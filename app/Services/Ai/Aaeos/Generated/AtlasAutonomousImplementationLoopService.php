@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
+
 /**
  * Self-Construction Autonomous Implementation Loop — pure, deterministic loop
  * governor.
@@ -440,7 +442,7 @@ final class AtlasAutonomousImplementationLoopService
             }
         }
 
-        return array_values(array_unique($clean));
+        return AiStringListNormalizer::uniqueStrings($clean);
     }
 
     private function normalizeStageName(mixed $stage): ?string

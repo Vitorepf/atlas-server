@@ -8,6 +8,8 @@ use App\Models\AtlasDevRunIndex;
 use App\Models\AtlasLongHorizonContinuationPack;
 use App\Models\AtlasProgrammingStageReceipt;
 use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use InvalidArgumentException;
 
@@ -70,7 +72,7 @@ final class DevContinuationPackBuilder
         ));
         $humanDecisions = array_values((array) ($options['human_decisions_required'] ?? []));
 
-        $contextPackHash = $this->stringOrNull($options['context_pack_hash'] ?? null);
+        $contextPackHash = AtlasDevValueNormalizer::stringOrNull($options['context_pack_hash'] ?? null);
         $confidence = $this->floatInRangeOrNull($options['confidence'] ?? null);
         $staleAfter = $options['stale_after'] ?? now()->addDays(7);
 
@@ -228,7 +230,7 @@ final class DevContinuationPackBuilder
             }
         }
 
-        return array_values(array_unique($refs));
+        return AtlasDevStringListNormalizer::uniqueStrings($refs);
     }
 
     /**
@@ -380,19 +382,9 @@ final class DevContinuationPackBuilder
             : AtlasLongHorizonCanon::SCOPE_TYPE_DEV_SESSION;
     }
 
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
-    }
-
     private function stringOrFallback(mixed $value, string $fallback): string
     {
-        $string = $this->stringOrNull($value);
+        $string = AtlasDevValueNormalizer::stringOrNull($value);
 
         return $string ?? $fallback;
     }

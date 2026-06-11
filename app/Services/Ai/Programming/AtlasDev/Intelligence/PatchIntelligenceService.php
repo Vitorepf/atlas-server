@@ -8,6 +8,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Components\BlastRadius;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ScopeFileDiff;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ScopePreExistingChange;
 use App\Services\Ai\Programming\AtlasDev\Schemas\PatchIntelligenceReceipt;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 
 /**
  * Produces a PatchIntelligenceReceipt from a PatchIntelligenceInput.
@@ -99,10 +100,7 @@ final class PatchIntelligenceService
      */
     private function normalizeExpected(array $expectedFiles): array
     {
-        return array_values(array_unique(array_filter(
-            $expectedFiles,
-            static fn (string $f): bool => $f !== '',
-        )));
+        return AtlasDevStringListNormalizer::uniqueTrimmedStrings($expectedFiles);
     }
 
     /**
@@ -130,8 +128,7 @@ final class PatchIntelligenceService
             $removed += $diff->removed;
             $dirs[] = $this->topLevelDir($diff->path);
         }
-        sort($dirs);
-        $dirs = array_values(array_unique($dirs));
+        $dirs = AtlasDevStringListNormalizer::uniqueSortedStrings($dirs);
 
         return new BlastRadius(
             fileCount: count($diffs),

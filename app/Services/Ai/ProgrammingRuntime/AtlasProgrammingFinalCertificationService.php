@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\ProgrammingRuntime;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Carbon\CarbonImmutable;
 
 /**
@@ -881,7 +882,7 @@ class AtlasProgrammingFinalCertificationService
             }
         }
 
-        return array_values(array_unique($refs));
+        return AiStringListNormalizer::uniqueStrings($refs);
     }
 
     /**

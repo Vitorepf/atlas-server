@@ -6,6 +6,7 @@ namespace App\Services\Ai\Programming\AtlasDev\Escalation;
 
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\EscalationSignals;
 use App\Services\Ai\Programming\AtlasDev\Schemas\EscalationDecision;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 
 /**
  * Turns a deterministic escalation score into either a `forge` decision,
@@ -109,9 +110,6 @@ final class EscalationDecisionEngine
                 : 'obra_candidate_threshold_reached';
         }
 
-        $reasons = array_values(array_unique($reasons));
-        sort($reasons, SORT_STRING);
-
-        return $reasons;
+        return AtlasDevStringListNormalizer::uniqueSortedStrings($reasons);
     }
 }

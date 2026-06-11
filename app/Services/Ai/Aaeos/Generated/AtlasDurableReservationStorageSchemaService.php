@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Atlas Self-Construction Durable Reservation STORAGE SCHEMA — pure,
  * deterministic, READ-ONLY decider that encodes the storage-schema contract doc
@@ -312,7 +314,7 @@ final class AtlasDurableReservationStorageSchemaService
      */
     public function migrationFieldsPresent(array $proposedColumns): array
     {
-        $columns = $this->stringList($proposedColumns);
+        $columns = AtlasAaeosStringListNormalizer::nonEmptyArrayStrings($proposedColumns);
         $missing = [];
         $satisfied = [];
 
@@ -405,8 +407,8 @@ final class AtlasDurableReservationStorageSchemaService
     public function evaluateClaim(array $input = []): array
     {
         $candidateId = is_string($input['candidate_packet_id'] ?? null) ? $input['candidate_packet_id'] : null;
-        $allowed = $this->stringList($input['allowed_files'] ?? null);
-        $hotScopes = $this->stringList($input['hot_scopes'] ?? null) ?: self::DEFAULT_HOT_SCOPES;
+        $allowed = AtlasAaeosStringListNormalizer::nonEmptyArrayStrings($input['allowed_files'] ?? null);
+        $hotScopes = AtlasAaeosStringListNormalizer::nonEmptyArrayStrings($input['hot_scopes'] ?? null) ?: self::DEFAULT_HOT_SCOPES;
         $projection = is_array($input['projection'] ?? null) ? $input['projection'] : [];
 
         $violated = null;
@@ -427,7 +429,7 @@ final class AtlasDurableReservationStorageSchemaService
                 if (! is_array($row) || ! $this->isActive($row)) {
                     continue;
                 }
-                $rowFiles = $this->stringList($row['allowed_files'] ?? null);
+                $rowFiles = AtlasAaeosStringListNormalizer::nonEmptyArrayStrings($row['allowed_files'] ?? null);
                 $hits = array_values(array_intersect($allowed, $rowFiles));
                 if ($hits !== []) {
                     $overlapping = $hits;
@@ -587,7 +589,7 @@ final class AtlasDurableReservationStorageSchemaService
                 if (! is_array($row) || ! $this->isActive($row)) {
                     continue;
                 }
-                foreach ($this->stringList($row['allowed_files'] ?? null) as $file) {
+                foreach (AtlasAaeosStringListNormalizer::nonEmptyArrayStrings($row['allowed_files'] ?? null) as $file) {
                     if (isset($seenFiles[$file])) {
                         $violated = self::INV_FILE_OVERLAP_BLOCKS;
                         $reason = 'overlapping_allowed_files_in_projection';
@@ -621,7 +623,7 @@ final class AtlasDurableReservationStorageSchemaService
                 if (! is_array($row) || ! $this->isActive($row)) {
                     continue;
                 }
-                foreach ($this->stringList($row['allowed_files'] ?? null) as $file) {
+                foreach (AtlasAaeosStringListNormalizer::nonEmptyArrayStrings($row['allowed_files'] ?? null) as $file) {
                     foreach (self::DEFAULT_HOT_SCOPES as $scope) {
                         if ($scope !== '' && str_starts_with($file, $scope)) {
                             $violated = self::INV_HOT_SCOPE_NEVER;
@@ -786,24 +788,4 @@ final class AtlasDurableReservationStorageSchemaService
         return $ts <= ($nowTs ?? time());
     }
 
-    /**
-     * Normalise a mixed value to a clean list of non-empty strings.
-     *
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item) && $item !== '') {
-                $out[] = $item;
-            }
-        }
-
-        return array_values($out);
-    }
 }

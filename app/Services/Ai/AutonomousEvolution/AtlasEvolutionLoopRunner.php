@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
+
 /**
  * The LOOP RUNNER — the governed autoresearch loop over a queue of tasks.
  *
@@ -86,10 +88,10 @@ final class AtlasEvolutionLoopRunner
     {
         $attempts = is_array($exploration['attempts'] ?? null) ? $exploration['attempts'] : [];
         $rejected = array_filter($attempts, static fn (array $a): bool => ! (bool) ($a['verdict']['passed'] ?? false));
-        $reasons = array_values(array_unique(array_filter(array_map(
-            static fn (array $a): string => (string) ($a['verdict']['details']['reason'] ?? ''),
+        $reasons = AiStringListNormalizer::uniqueMappedStrings(
             $rejected,
-        ), static fn (string $r): bool => $r !== '')));
+            static fn (array $a): string => (string) ($a['verdict']['details']['reason'] ?? ''),
+        );
 
         return [
             'objective' => (string) ($exploration['objective'] ?? ''),

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Framework;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -115,8 +116,8 @@ final class AtlasLoopFrameworkMaterializer
             'materializer' => 'framework',
             'scenario_clone_mode' => 'worktree', // the explorer clones per-scenario worktrees, not cp -R + git init
             'acceptance' => array_merge($acceptance, ['revert_recheck' => true]), // anti-fake on for framework targets
-            'allowed_files' => $this->stringList($payload['allowed_files'] ?? [$targetRel]),
-            'validation_commands' => $this->stringList($payload['validation_commands'] ?? []),
+            'allowed_files' => AiStringListNormalizer::trimmedStrings($payload['allowed_files'] ?? [$targetRel]),
+            'validation_commands' => AiStringListNormalizer::trimmedStrings($payload['validation_commands'] ?? []),
         ];
         $provider = trim((string) ($payload['provider'] ?? ''));
         if ($provider !== '') {
@@ -315,14 +316,4 @@ final class AtlasLoopFrameworkMaterializer
         return implode('/', $segments);
     }
 
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return array_values(array_filter(array_map(
-            static fn (mixed $v): string => is_string($v) ? trim($v) : '',
-            is_array($value) ? $value : [],
-        ), static fn (string $v): bool => $v !== ''));
-    }
 }

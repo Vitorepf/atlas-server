@@ -7,6 +7,7 @@ namespace App\Services\Ai\Programming;
 use App\Models\AtlasProject;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 use Throwable;
@@ -301,7 +302,7 @@ class AtlasForgeProviderInvocationService
             }
         }
 
-        $blockers = array_values(array_unique($blockers));
+        $blockers = AiStringListNormalizer::uniqueStrings($blockers);
         $prompt = $this->promptBuilder->build($project, $dispatchPlan, [
             'role' => $role,
         ]);
@@ -461,7 +462,7 @@ class AtlasForgeProviderInvocationService
             maxOutputChars: $maxOutputChars,
             prompt: $prompt,
         );
-        $invocation['blockers'] = array_values(array_unique($blockers));
+        $invocation['blockers'] = AiStringListNormalizer::uniqueStrings($blockers);
         $invocation['next_action'] = $this->nextActionForBlockers($invocation['blockers'], $mode);
 
         $receipt = $this->buildReceipt($invocation);
@@ -585,7 +586,7 @@ class AtlasForgeProviderInvocationService
             $invocation['exit_code'] = null;
             $invocation['failure_type'] = 'driver_threw_exception';
             $invocation['stderr_hash'] = hash('sha256', $e->getMessage());
-            $invocation['blockers'] = array_values(array_unique(array_merge($invocation['blockers'] ?? [], ['driver_threw_exception'])));
+            $invocation['blockers'] = AiStringListNormalizer::uniqueMergedStrings($invocation['blockers'] ?? [], ['driver_threw_exception']);
             $invocation['next_action'] = 'inspect_driver_error_then_retry';
             $invocation['note'] = 'Driver threw an exception. Provider was not invoked successfully.';
             $receipt = $this->buildReceipt($invocation);
@@ -625,13 +626,13 @@ class AtlasForgeProviderInvocationService
         if ($timedOut) {
             $invocation['status'] = self::STATUS_TIMED_OUT;
             $invocation['failure_type'] = 'timeout';
-            $invocation['blockers'] = array_values(array_unique(array_merge($invocation['blockers'] ?? [], ['timeout'])));
+            $invocation['blockers'] = AiStringListNormalizer::uniqueMergedStrings($invocation['blockers'] ?? [], ['timeout']);
             $invocation['next_action'] = 'increase_timeout_or_split_task';
             $this->recordEvent(self::EVENT_SUBTYPE_TIMED_OUT, $invocation, $project);
         } elseif ($driverBlocker !== null || (is_int($exitCode) && $exitCode !== 0)) {
             $invocation['status'] = self::STATUS_FAILED;
             $invocation['failure_type'] = $driverBlocker ?? 'non_zero_exit';
-            $invocation['blockers'] = array_values(array_unique(array_merge($invocation['blockers'] ?? [], [$invocation['failure_type']])));
+            $invocation['blockers'] = AiStringListNormalizer::uniqueMergedStrings($invocation['blockers'] ?? [], [$invocation['failure_type']]);
             $invocation['next_action'] = 'inspect_failure_then_retry_or_repair';
             $this->recordEvent(self::EVENT_SUBTYPE_FAILED, $invocation, $project);
         } elseif (! $providerCalled && $invocation['changed_files'] !== []) {
@@ -640,7 +641,7 @@ class AtlasForgeProviderInvocationService
             // executed provider result — exit 0 alone is not proof of authorship.
             $invocation['status'] = self::STATUS_FAILED;
             $invocation['failure_type'] = 'unattributed_diff';
-            $invocation['blockers'] = array_values(array_unique(array_merge($invocation['blockers'] ?? [], ['unattributed_diff'])));
+            $invocation['blockers'] = AiStringListNormalizer::uniqueMergedStrings($invocation['blockers'] ?? [], ['unattributed_diff']);
             $invocation['next_action'] = 'reject_unattributed_diff_no_provider_proof';
             $invocation['note'] = 'Changed files reported with provider_called=false: unattributed diff, not a real provider execution. Rejected by provider-proof law.';
             $this->recordEvent(self::EVENT_SUBTYPE_FAILED, $invocation, $project);

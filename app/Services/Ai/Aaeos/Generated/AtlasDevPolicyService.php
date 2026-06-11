@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Atlas Dev Policy — pure, deterministic invariant compliance decider.
  *
@@ -313,7 +315,7 @@ final class AtlasDevPolicyService
         if ((int) ($e['recurrent_failures'] ?? 0) >= self::RECURRENT_FAILURE_THRESHOLD) {
             $signals[] = 'recurrent_failure';
         }
-        $keywords = $this->stringList($e['keywords'] ?? []);
+        $keywords = AtlasAaeosStringListNormalizer::trimmedStrings($e['keywords'] ?? []);
         if (array_intersect($this->lower($keywords), self::SENSITIVE_KEYWORDS) !== []) {
             $signals[] = 'sensitive_keyword';
         }
@@ -372,7 +374,7 @@ final class AtlasDevPolicyService
     {
         $kind = $this->str($action['kind'] ?? null) ?? 'unspecified';
         $path = $this->str($action['target_path'] ?? null) ?? '';
-        $strings = $this->lower($this->stringList($action['contains_strings'] ?? []));
+        $strings = $this->lower(AtlasAaeosStringListNormalizer::trimmedStrings($action['contains_strings'] ?? []));
         $inAtlasDev = str_contains($path, 'AtlasDev/') || str_contains($path, 'Programming/AtlasDev');
 
         if ($inAtlasDev) {
@@ -546,7 +548,7 @@ final class AtlasDevPolicyService
             return null; // claiming needs_review / unverified is allowed as-is
         }
 
-        $honesty = $this->stringList($run['honesty_flags'] ?? []);
+        $honesty = AtlasAaeosStringListNormalizer::trimmedStrings($run['honesty_flags'] ?? []);
         $current = $this->str($run['current_state'] ?? null) ?? self::COMPLETION_UNVERIFIED;
 
         // P7.1 — unverified never becomes passed.
@@ -618,24 +620,6 @@ final class AtlasDevPolicyService
         }
 
         return null;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $v): array
-    {
-        if (! is_array($v)) {
-            return [];
-        }
-        $out = [];
-        foreach ($v as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
-        }
-
-        return array_values($out);
     }
 
     /**

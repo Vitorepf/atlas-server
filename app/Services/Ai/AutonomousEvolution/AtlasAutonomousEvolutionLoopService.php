@@ -11,8 +11,9 @@ use App\Services\Ai\AutonomousWorkExecution\AtlasAutonomousWorkExecutionService;
 use App\Services\Ai\IntelligenceFactory\AtlasIntelligenceFactoryRuntimeService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Product\AtlasAiAssistedExecutionQualityService;
-use Carbon\CarbonImmutable;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\Support\AiStringListNormalizer;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 
 final class AtlasAutonomousEvolutionLoopService
@@ -387,7 +388,7 @@ final class AtlasAutonomousEvolutionLoopService
             'flow_id' => $opportunity['flow_id'],
             'surface_id' => 'atlas_evolution_command',
             'workspace' => $workspace,
-            'evidence_refs' => array_values(array_unique([...$evidenceRefs, 'aael:evolution_experiment'])),
+            'evidence_refs' => AiStringListNormalizer::uniqueMergedStrings($evidenceRefs, ['aael:evolution_experiment']),
         ]) ?? ['status' => 'unavailable'];
         $assistedExecution = $this->assistedExecutionBridge($opportunity, $workspace, $evidenceRefs, $input);
 
@@ -577,7 +578,7 @@ final class AtlasAutonomousEvolutionLoopService
     {
         $service = $this->assistedExecutionQuality ?? app(AtlasAiAssistedExecutionQualityService::class);
         $route = (string) ($opportunity['flow_id'] ?? 'atlas_dev');
-        $requiredEvidence = array_values(array_unique([...$evidenceRefs, 'aael:assisted_execution_bridge']));
+        $requiredEvidence = AiStringListNormalizer::uniqueMergedStrings($evidenceRefs, ['aael:assisted_execution_bridge']);
         $envelope = $service->buildEnvelope([
             'human_request' => (string) ($opportunity['objective'] ?? 'AAEL evolution opportunity'),
             'workspace' => $workspace,
@@ -608,10 +609,10 @@ final class AtlasAutonomousEvolutionLoopService
             'persist' => false,
         ]);
 
-        $blockers = array_values(array_unique(array_filter(array_merge(
+        $blockers = AiStringListNormalizer::uniqueMergedStrings(
             $this->blockerIds(is_array($envelope['blockers'] ?? null) ? $envelope['blockers'] : []),
             $this->blockerIds(is_array($feedback['blockers'] ?? null) ? $feedback['blockers'] : []),
-        ))));
+        );
 
         $payload = [
             'schema_version' => self::ASSISTED_EXECUTION_BRIDGE_SCHEMA,
@@ -855,11 +856,7 @@ final class AtlasAutonomousEvolutionLoopService
      */
     private function stringList(mixed $value): array
     {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_unique(array_filter(array_map(fn (mixed $item): string => trim((string) $item), $value), fn (string $item): bool => $item !== '')));
+        return AiStringListNormalizer::uniqueTrimmedScalarValues($value);
     }
 
     private function stringValue(mixed $value): ?string

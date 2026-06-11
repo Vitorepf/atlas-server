@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Gate;
 
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevPathPatternMatcher;
+
 /**
  * Classifies whether a scope contract can be satisfied at all, by checking the
- * declared allowed files against the forbidden patterns using the SAME matching
- * semantics as ScopeGuard (mirrored inline, never imported), so a glob/prefix
+ * declared allowed files against the forbidden patterns using the SAME shared
+ * matching semantics as ScopeGuard, so a glob/prefix
  * forbidden rule that swallows every allowed target is caught before execution
  * instead of producing a silent false-negative (allow-list looks fine, but every
  * write is actually blocked).
@@ -34,7 +36,7 @@ final class ScopeContractFeasibilityClassifier
 
         $dead = [];
         foreach ($liveAllowed as $file) {
-            if ($this->matchesAny($file, $forbiddenFiles)) {
+            if (AtlasDevPathPatternMatcher::matchesAny($file, $forbiddenFiles)) {
                 $dead[] = $file;
             }
         }
@@ -105,25 +107,4 @@ final class ScopeContractFeasibilityClassifier
         ];
     }
 
-    /**
-     * Mirrors ScopeGuard::matchesAny exactly. Do not import or call ScopeGuard.
-     *
-     * @param  list<string>  $patterns
-     */
-    private function matchesAny(string $file, array $patterns): bool
-    {
-        foreach ($patterns as $pattern) {
-            if ($pattern === $file) {
-                return true;
-            }
-            if (str_contains($pattern, '*') && fnmatch($pattern, $file, FNM_NOESCAPE)) {
-                return true;
-            }
-            if (str_ends_with($pattern, '/') && str_starts_with($file, $pattern)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
 }

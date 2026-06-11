@@ -164,17 +164,12 @@ final class HonestMetricsRuntimeClient
      */
     private function run(array $manifest): array
     {
-        $result = $this->runtime->run($manifest);
-
-        // Boundary enforcement: a result is only accepted if it proves real,
-        // in-Python numpy metrics. This is where a PHP fake would be rejected.
-        PythonBoundaryReceiptGuard::assertReal(
-            $result,
+        return PythonBoundaryReceiptGuard::runReal(
+            $this->runtime,
+            $manifest,
             ['honest_metrics_in_python', 'real_metrics'],
             ['fabricated'],
             'honest_metrics returned a non-real-metrics boundary receipt — refusing (anti-fake guard).',
         );
-
-        return $result;
     }
 }

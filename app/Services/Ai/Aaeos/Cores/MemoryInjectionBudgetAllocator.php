@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Cores;
 
+use App\Services\Ai\Aaeos\Support\AtlasAaeosArrayFieldReader;
+
 final class MemoryInjectionBudgetAllocator
 {
     private const SCHEMA_VERSION = 'atlas.aaeos.memory_injection_budget_allocation.v1';
@@ -61,7 +63,7 @@ final class MemoryInjectionBudgetAllocator
         $rank = 0;
 
         foreach ($ordered as $item) {
-            $ref = $this->stringField($item, 'ref');
+            $ref = AtlasAaeosArrayFieldReader::stringField($item, 'ref');
             $priority = $this->priorityField($item);
             $estimated = $this->estimatedChars($item);
 
@@ -165,7 +167,7 @@ final class MemoryInjectionBudgetAllocator
             return $estimatedA <=> $estimatedB;
         }
 
-        return strcmp($this->stringField($a, 'ref'), $this->stringField($b, 'ref'));
+        return strcmp(AtlasAaeosArrayFieldReader::stringField($a, 'ref'), AtlasAaeosArrayFieldReader::stringField($b, 'ref'));
     }
 
     /**
@@ -206,21 +208,4 @@ final class MemoryInjectionBudgetAllocator
         return max(0, (int) $value);
     }
 
-    /**
-     * @param  array<string,mixed>  $item
-     */
-    private function stringField(array $item, string $key): string
-    {
-        $value = $item[$key] ?? '';
-
-        if (is_string($value)) {
-            return $value;
-        }
-
-        if (is_int($value) || is_float($value)) {
-            return (string) $value;
-        }
-
-        return '';
-    }
 }

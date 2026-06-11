@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+
 /**
  * Atlas Desktop surface-root guard: macOS install guardrail + desktop
  * parent-resolution + anti-mock contract validator.
@@ -402,12 +404,12 @@ final class AtlasDesktopService
                 continue;
             }
 
-            $id = $this->stringOrNull($node['id'] ?? $node['graph_id'] ?? null);
+            $id = AtlasAaeosValueNormalizer::stringOrNull($node['id'] ?? $node['graph_id'] ?? null);
             if ($id === null) {
                 continue;
             }
 
-            $parent = $this->stringOrNull($node['parent'] ?? $node['graph_parent'] ?? null);
+            $parent = AtlasAaeosValueNormalizer::stringOrNull($node['parent'] ?? $node['graph_parent'] ?? null);
 
             $status = $node['status'] ?? $node['graph_status'] ?? 'active';
             $active = is_string($status)
@@ -424,14 +426,4 @@ final class AtlasDesktopService
         return array_values($clean);
     }
 
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-
-        $trimmed = trim($value);
-
-        return $trimmed === '' ? null : $trimmed;
-    }
 }

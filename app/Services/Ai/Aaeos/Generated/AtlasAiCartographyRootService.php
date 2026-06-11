@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+
 /**
  * Atlas AI cartography-root parent-resolution / orphan validator.
  *
@@ -240,13 +242,13 @@ final class AtlasAiCartographyRootService
                 continue;
             }
 
-            $id = $this->stringOrNull($node['id'] ?? $node['graph_id'] ?? null);
+            $id = AtlasAaeosValueNormalizer::stringOrNull($node['id'] ?? $node['graph_id'] ?? null);
             if ($id === null) {
                 // A node with no id cannot participate in resolution; skip it.
                 continue;
             }
 
-            $parent = $this->stringOrNull($node['parent'] ?? $node['graph_parent'] ?? null);
+            $parent = AtlasAaeosValueNormalizer::stringOrNull($node['parent'] ?? $node['graph_parent'] ?? null);
 
             $status = $node['status'] ?? $node['graph_status'] ?? 'active';
             $active = is_string($status)
@@ -263,14 +265,4 @@ final class AtlasAiCartographyRootService
         return array_values($clean);
     }
 
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-
-        $trimmed = trim($value);
-
-        return $trimmed === '' ? null : $trimmed;
-    }
 }
