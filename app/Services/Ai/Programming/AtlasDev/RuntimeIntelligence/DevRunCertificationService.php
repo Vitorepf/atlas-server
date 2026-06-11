@@ -197,12 +197,7 @@ class DevRunCertificationService
      */
     private function decisionKinds(array $decisions): array
     {
-        return array_values(array_unique(array_filter(array_map(
-            static fn (mixed $decision): ?string => $decision instanceof AtlasDevDecisionMaterialization
-                ? $decision->decision_kind
-                : (is_array($decision) && is_scalar($decision['decision_kind'] ?? null) ? (string) $decision['decision_kind'] : null),
-            $decisions,
-        ))));
+        return array_values(array_unique($this->decisionFieldValues($decisions, 'decision_kind')));
     }
 
     /**
@@ -211,11 +206,31 @@ class DevRunCertificationService
      */
     private function decisionHashes(array $decisions): array
     {
+        return $this->decisionFieldValues($decisions, 'decision_hash');
+    }
+
+    /**
+     * @param  array<int,AtlasDevDecisionMaterialization|array<string,mixed>>  $decisions
+     * @return list<string>
+     */
+    private function decisionFieldValues(array $decisions, string $field): array
+    {
         return array_values(array_filter(array_map(
-            static fn (mixed $decision): ?string => $decision instanceof AtlasDevDecisionMaterialization
-                ? $decision->decision_hash
-                : (is_array($decision) && is_scalar($decision['decision_hash'] ?? null) ? (string) $decision['decision_hash'] : null),
+            fn (mixed $decision): ?string => $this->decisionFieldValue($decision, $field),
             $decisions,
         )));
+    }
+
+    private function decisionFieldValue(mixed $decision, string $field): ?string
+    {
+        if ($decision instanceof AtlasDevDecisionMaterialization) {
+            $value = $decision->{$field} ?? null;
+
+            return $value === null ? null : (string) $value;
+        }
+
+        return is_array($decision) && is_scalar($decision[$field] ?? null)
+            ? (string) $decision[$field]
+            : null;
     }
 }

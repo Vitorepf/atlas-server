@@ -22,7 +22,7 @@ use Throwable;
  * oráculo. O baseline é selado em arquivo com o suite_hash; um baseline de
  * outra versão da suite é REJEITADO na comparação (anti-gaming).
  */
-final class AtlasHarnessFrozenSuite
+class AtlasHarnessFrozenSuite
 {
     public const SCHEMA_VERSION = 'atlas.cognitive.harness_frozen_suite.v1';
 
@@ -113,6 +113,21 @@ final class AtlasHarnessFrozenSuite
             'harness_config_never_auto_applies' => function (): bool {
                 return app(\App\Services\Ai\Compounding\AtlasLearningProposalApplier::class)
                     ->supportsAutoApply('harness_config') === false;
+            },
+            // Surface v2 — o espaço de busca de instruções é FINITO e fechado.
+            'instruction_surface_accepts_declared_variant' => function (): bool {
+                $s = app(AtlasHarnessInstructionSurface::class);
+                $space = $s->searchSpace('worker.tool_error_recovery');
+
+                return $space !== [] && $s->validate('worker.tool_error_recovery', $space[0])['valid'] === true;
+            },
+            'instruction_surface_rejects_freeform_text' => function (): bool {
+                return app(AtlasHarnessInstructionSurface::class)
+                    ->validate('worker.tool_error_recovery', 'texto arbitrário fora da biblioteca declarada')['valid'] === false;
+            },
+            'instruction_surface_rejects_unknown_section' => function (): bool {
+                return app(AtlasHarnessInstructionSurface::class)
+                    ->validate('signal_pipeline.bridge_mappings', 'x')['valid'] === false;
             },
             'plan_gate_rejects_cyclic_dag' => function (): bool {
                 $gate = app(\App\Services\Ai\AtlasDecide\AtlasConductorPlanGate::class);

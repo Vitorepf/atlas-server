@@ -5,6 +5,7 @@ namespace App\Services\Ai\Kernel\Evidence;
 use App\Models\AiInboxItem;
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptHash;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -647,10 +648,9 @@ class AtlasLedgerReplayService
             'status' => $status,
             'strategy' => is_scalar($strategy) ? (string) $strategy : null,
             'next_attempt' => (int) data_get($decision, 'next_attempt', 0),
-            'reasons' => array_values(array_filter(array_map(
-                fn (mixed $reason): ?string => is_scalar($reason) ? trim((string) $reason) : null,
+            'reasons' => AiStringListNormalizer::truthyTrimmedScalarValues(
                 (array) data_get($decision, 'reasons', data_get($event, 'payload.reasons', [])),
-            ))),
+            ),
             'failure_domain' => (string) data_get($event, 'payload.failure_classification.failure_domain', data_get($event, 'payload.request.failure_classification.failure_domain', 'unknown')),
             'repair_executed' => (bool) data_get($event, 'payload.repair_executed', false),
             'attempt' => data_get($event, 'payload.attempt'),
@@ -1776,10 +1776,9 @@ class AtlasLedgerReplayService
             'domain' => data_get($event, 'payload.routing.domain'),
             'flow' => data_get($event, 'payload.routing.flow'),
             'runtime' => data_get($event, 'payload.routing.runtime'),
-            'violations' => array_values(array_filter(array_map(
-                fn (mixed $violation): ?string => is_scalar($violation) ? trim((string) $violation) : null,
+            'violations' => AiStringListNormalizer::truthyTrimmedScalarValues(
                 (array) data_get($event, 'payload.violations', []),
-            ))),
+            ),
         ];
     }
 

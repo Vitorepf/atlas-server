@@ -6,6 +6,7 @@ namespace App\Services\Ai\Programming\AtlasDev\Surface;
 
 use App\Services\Ai\Programming\AtlasDev\Pipeline\IntakeNormalizer;
 use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevValueNormalizer;
 
 /**
  * Shared, byte-identical helpers used by every concrete
@@ -42,12 +43,7 @@ trait SurfacePayloadFields
      */
     private function stringField(array $payload, string $key): string
     {
-        $value = $payload[$key] ?? '';
-        if (! is_string($value)) {
-            return '';
-        }
-
-        return trim($value);
+        return AtlasDevValueNormalizer::stringOrNull($payload[$key] ?? null) ?? '';
     }
 
     /**
@@ -98,9 +94,9 @@ trait SurfacePayloadFields
     private function appendRouterFlowHints(array $hints, array $payload): array
     {
         foreach (['flow_origin', 'command_intent'] as $key) {
-            $value = $payload[$key] ?? null;
-            if (is_string($value) && trim($value) !== '') {
-                $hints[$key] = trim($value);
+            $value = AtlasDevValueNormalizer::stringOrNull($payload[$key] ?? null);
+            if ($value !== null) {
+                $hints[$key] = $value;
             }
         }
 
@@ -116,9 +112,9 @@ trait SurfacePayloadFields
     {
         $hints = [];
         foreach ($keys as $key) {
-            $value = $payload[$key] ?? null;
-            if (is_string($value) && trim($value) !== '') {
-                $hints[$key] = trim($value);
+            $value = AtlasDevValueNormalizer::stringOrNull($payload[$key] ?? null);
+            if ($value !== null) {
+                $hints[$key] = $value;
             }
         }
 

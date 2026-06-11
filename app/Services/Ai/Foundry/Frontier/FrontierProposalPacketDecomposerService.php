@@ -79,8 +79,8 @@ final class FrontierProposalPacketDecomposerService
         $label = trim((string) ($packet['label'] ?? ''));
         $delivery = trim((string) ($packet['delivery'] ?? ''));
         $objective = trim((string) ($packet['objective'] ?? ''));
-        $acceptance = $this->stringList($packet['acceptance_criteria'] ?? []);
-        $tests = $this->stringList($packet['tests_required'] ?? []);
+        $acceptance = AiStringListNormalizer::trimmedStrings($packet['acceptance_criteria'] ?? []);
+        $tests = AiStringListNormalizer::trimmedStrings($packet['tests_required'] ?? []);
         $ownerCandidate = strtolower(trim((string) ($packet['owner_candidate'] ?? '')));
 
         $affectedFiles = array_values(array_filter(
@@ -119,11 +119,4 @@ final class FrontierProposalPacketDecomposerService
         return $this->slicePlanner->plan($input);
     }
 
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return AiStringListNormalizer::trimmedStrings($value);
-    }
 }

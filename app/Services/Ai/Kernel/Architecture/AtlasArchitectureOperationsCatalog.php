@@ -1083,13 +1083,22 @@ final class AtlasArchitectureOperationsCatalog
             'schema_version' => 'atlas.architecture_operations.v1',
             'section' => $this->sectionKey(),
             'command_count' => count($commands),
-            'operation_ids' => array_values(array_filter(array_map(
-                fn (array $command): ?string => is_string($command['id'] ?? null) ? $command['id'] : null,
-                $commands,
-            ))),
+            'operation_ids' => $this->operationIds($commands),
             'filters' => $filters,
             'commands' => $commands,
         ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $commands
+     * @return array<int,string>
+     */
+    public function operationIds(array $commands): array
+    {
+        return array_values(array_filter(array_map(
+            fn (array $command): ?string => is_string($command['id'] ?? null) ? $command['id'] : null,
+            $commands,
+        )));
     }
 
     /**

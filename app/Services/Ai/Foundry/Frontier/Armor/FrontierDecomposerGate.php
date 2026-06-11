@@ -6,6 +6,7 @@ namespace App\Services\Ai\Foundry\Frontier\Armor;
 
 use App\Services\Ai\Foundry\Frontier\FrontierProposalPacketDecomposerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\FindingSlicePlannerService;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 /**
  * Foundry AP-C · Frontier Adversarial Armor · Stage I7 (Decomposer).
@@ -186,8 +187,8 @@ final class FrontierDecomposerGate
 
         // An empty delivery is the canonical empty-contract case.
         if ($delivery === '') {
-            return self::stringList($packet['acceptance_criteria'] ?? []) === []
-                && self::stringList($packet['tests_required'] ?? []) === [];
+            return AiStringListNormalizer::trimmedStrings($packet['acceptance_criteria'] ?? []) === []
+                && AiStringListNormalizer::trimmedStrings($packet['tests_required'] ?? []) === [];
         }
 
         if (! self::matchesScaffoldMarker($delivery)) {
@@ -198,8 +199,8 @@ final class FrontierDecomposerGate
         // Scaffold delivery: require at least one GENUINE (non-marker) acceptance
         // or test line. Marker-matching lines (e.g. "it compiles") are trivial and
         // do NOT rescue the packet — they bypass the no-scaffold gate otherwise.
-        $acceptance = self::stringList($packet['acceptance_criteria'] ?? []);
-        $tests = self::stringList($packet['tests_required'] ?? []);
+        $acceptance = AiStringListNormalizer::trimmedStrings($packet['acceptance_criteria'] ?? []);
+        $tests = AiStringListNormalizer::trimmedStrings($packet['tests_required'] ?? []);
 
         foreach ([...$acceptance, ...$tests] as $line) {
             if (! self::matchesScaffoldMarker(strtolower($line))) {
@@ -256,18 +257,4 @@ final class FrontierDecomposerGate
         ];
     }
 
-    /**
-     * @return list<string>
-     */
-    private static function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(
-            static fn (mixed $item): string => is_string($item) ? trim($item) : '',
-            $value,
-        ), static fn (string $item): bool => $item !== ''));
-    }
 }

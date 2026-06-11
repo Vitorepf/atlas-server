@@ -33,6 +33,14 @@ final class AtlasAaeosStringListNormalizerTest extends TestCase
         );
     }
 
+    public function test_non_blank_string_or_int_values_preserves_raw_source_ids(): void
+    {
+        $this->assertSame(
+            [' alpha ', '42', '0'],
+            AtlasAaeosStringListNormalizer::nonBlankStringOrIntValues([' alpha ', 42, true, false, ' ', ['nested'], 4.2, '0']),
+        );
+    }
+
     public function test_strings_preserves_raw_string_only_contract(): void
     {
         $this->assertSame(

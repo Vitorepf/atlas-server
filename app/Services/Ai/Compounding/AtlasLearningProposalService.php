@@ -39,6 +39,9 @@ class AtlasLearningProposalService
         // AP-819 Obra B: edit na Atlas Harness Surface v1 (allowlist+bounds no
         // applier/surface). NUNCA auto-aplica — apply só operator-approved.
         'harness_config',
+        // AP-819 Surface v2: troca de seção de instrução por variante DECLARADA
+        // (espaço de busca finito; validate rejeita texto fora da biblioteca).
+        'harness_instruction',
     ];
 
     /**

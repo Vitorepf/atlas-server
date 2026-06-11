@@ -2,7 +2,7 @@
 
 namespace App\Services\Ai\Hermes;
 
-use Illuminate\Support\Str;
+use App\Services\Ai\Hermes\Support\HermesStringListNormalizer;
 
 /**
  * Resolves an Atlas capability REQUEST against the probed Hermes manifest and
@@ -145,10 +145,10 @@ class HermesCapabilityInvocationBuilder
      */
     private function resolve(array $requestedIds, array $manifest, array $policy, string $permissionMode): array
     {
-        $allow = $this->stringList($policy['allow'] ?? null);
+        $allow = HermesStringListNormalizer::invocationValues($policy['allow'] ?? null, 200);
         $allowByMode = is_array($policy['allow_by_mode'] ?? null) ? $policy['allow_by_mode'] : [];
-        $confirmedConfigIds = $this->stringList($policy['config_confirmed'] ?? null);
-        $allowedPaths = $this->stringList($policy['allowed_paths'] ?? null);
+        $confirmedConfigIds = HermesStringListNormalizer::invocationValues($policy['config_confirmed'] ?? null, 200);
+        $allowedPaths = HermesStringListNormalizer::invocationValues($policy['allowed_paths'] ?? null, 200);
 
         $resolved = [];
         $dropped = [];
@@ -298,7 +298,7 @@ class HermesCapabilityInvocationBuilder
     {
         $ids = $missionCapabilities['requested_capability_ids'] ?? null;
 
-        return $this->stringList($ids);
+        return HermesStringListNormalizer::invocationValues($ids, 200);
     }
 
     /**
@@ -312,7 +312,7 @@ class HermesCapabilityInvocationBuilder
         $modesNamingId = [];
         foreach ($allowByMode as $mode => $ids) {
             $modeName = is_string($mode) ? $mode : (string) $mode;
-            if (in_array($id, $this->stringList($ids), true)) {
+            if (in_array($id, HermesStringListNormalizer::invocationValues($ids, 200), true)) {
                 $modesNamingId[] = $modeName;
             }
         }
@@ -441,18 +441,4 @@ class HermesCapabilityInvocationBuilder
             ->all();
     }
 
-    /**
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value): array
-    {
-        $items = is_array($value) ? $value : (is_string($value) ? preg_split('/\s*,\s*/', $value) ?: [] : []);
-
-        return collect($items)
-            ->map(fn (mixed $item): string => is_string($item) ? trim($item) : (is_numeric($item) ? (string) $item : ''))
-            ->filter(fn (string $item): bool => $item !== '')
-            ->map(fn (string $item): string => Str::limit($item, 200, ''))
-            ->values()
-            ->all();
-    }
 }

@@ -15,7 +15,7 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('arquitetura_mae', $catalog->sectionKey());
         $this->assertSame('atlas.architecture_operations.v1', $summary['schema_version']);
         $this->assertSame('arquitetura_mae', $summary['section']);
-        $this->assertSame(101, $summary['command_count']);
+        $this->assertSame(104, $summary['command_count']);
         $this->assertSame($catalog->commands(), $summary['commands']);
         $this->assertSame([
             'architecture_operations',
@@ -27,8 +27,11 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
             'documentation_split_plan',
             'documentation_reality_score',
             'documentation_reality_acceptance_matrix',
+            'documentation_enforcement',
             'code_reality_anti_duplicate',
             'code_reality_reality_audit',
+            'code_reality_global_duplication_audit',
+            'code_reality_status_drift_audit',
             'code_reality_reachability',
             'code_reality_deletion_preflight',
             'universal_reality_cartography_navigation_slice',
@@ -345,6 +348,21 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('ap201_runtime_language_boundary_contract', data_get($commandsById, 'runtime_language_boundary.scan_id'));
     }
 
+    public function test_operation_ids_normalize_command_ids_consistently(): void
+    {
+        $catalog = app(AtlasArchitectureOperationsCatalog::class);
+
+        $this->assertSame([
+            'architecture_operations',
+            'feature_placement',
+        ], $catalog->operationIds([
+            ['id' => 'architecture_operations'],
+            ['id' => null],
+            ['id' => 'feature_placement'],
+            ['id' => 42],
+        ]));
+    }
+
     public function test_catalog_filters_architecture_operations_by_id_and_kind(): void
     {
         $catalog = app(AtlasArchitectureOperationsCatalog::class);
@@ -362,7 +380,7 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('php artisan atlas:ai:provider-performance --hours=24 --json', data_get($byId, 'commands.0.command'));
 
         $this->assertSame(['section' => 'arquitetura_mae'], $bySection['filters']);
-        $this->assertSame(101, $bySection['command_count']);
+        $this->assertSame(104, $bySection['command_count']);
         $this->assertContains('architecture_operations', $bySection['operation_ids']);
         $this->assertSame(['section' => 'legacy'], $byUnknownSection['filters']);
         $this->assertSame(0, $byUnknownSection['command_count']);
@@ -407,14 +425,17 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame(['session_bootstrap'], $byBootstrap['operation_ids']);
 
         $byGovernanceGate = $catalog->summary(['kind' => 'governance_gate']);
-        $this->assertSame(24, $byGovernanceGate['command_count']);
+        $this->assertSame(27, $byGovernanceGate['command_count']);
         $this->assertSame([
             'feature_placement',
             'documentation_split_plan',
             'documentation_reality_score',
             'documentation_reality_acceptance_matrix',
+            'documentation_enforcement',
             'code_reality_anti_duplicate',
             'code_reality_reality_audit',
+            'code_reality_global_duplication_audit',
+            'code_reality_status_drift_audit',
             'code_reality_reachability',
             'code_reality_deletion_preflight',
             'universal_reality_cartography_navigation_slice',

@@ -19,18 +19,19 @@ use Illuminate\Console\Command;
 class AtlasHarnessCommand extends Command
 {
     protected $signature = 'atlas:harness
-        {action=surface : surface|propose|suite|reverse}
+        {action=surface : surface|propose|suite|reverse|autopilot}
         {key? : Surface key for reverse mode}
         {--baseline : Seal the frozen-suite baseline (suite mode)}
         {--limit=5 : Max alerts considered (propose mode)}
         {--json : Print machine-readable JSON}';
 
-    protected $description = 'AP-819 Obra B — Atlas Harness Surface v1: surface, cluster→proposal bridge, frozen suite, reverse.';
+    protected $description = 'AP-819 — Atlas Harness Surface v1: surface, cluster→proposal bridge, frozen suite, reverse, autopilot (math-gated).';
 
     public function handle(
         AtlasHarnessSurface $surface,
         AtlasHarnessProposalBridge $bridge,
         AtlasHarnessFrozenSuite $suite,
+        \App\Services\Ai\Cognitive\Harness\AtlasHarnessAutopilot $autopilot,
     ): int {
         $action = trim((string) $this->argument('action')) ?: 'surface';
 
@@ -40,12 +41,14 @@ class AtlasHarnessCommand extends Command
             'suite' => $this->option('baseline')
                 ? ['sealed' => true, 'baseline' => $suite->sealBaseline()]
                 : ['evaluation' => $suite->evaluate(), 'promotion' => $suite->promotionVerdict()],
-            'reverse' => $surface->reverseOverride(trim((string) ($this->argument('key') ?? ''))),
+            'reverse' => $this->reverseAny($surface, trim((string) ($this->argument('key') ?? ''))),
+            // monitor PRIMEIRO (fecha experimentos vencidos), depois aplica o próximo.
+            'autopilot' => ['monitor' => $autopilot->monitor(), 'apply' => $autopilot->run()],
             default => null,
         };
 
         if ($payload === null) {
-            $this->error('Ação inválida. Use: surface|propose|suite|reverse');
+            $this->error('Ação inválida. Use: surface|propose|suite|reverse|autopilot');
 
             return self::FAILURE;
         }
@@ -53,6 +56,24 @@ class AtlasHarnessCommand extends Command
         $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Reverse despachado pelo TIPO da chave: botão de config OU seção de instrução.
+     *
+     * @return array<string,mixed>
+     */
+    private function reverseAny(AtlasHarnessSurface $surface, string $key): array
+    {
+        if (isset($surface->sections()[$key])) {
+            return $surface->reverseOverride($key);
+        }
+        $instructions = app(\App\Services\Ai\Cognitive\Harness\AtlasHarnessInstructionSurface::class);
+        if (isset($instructions->sections()[$key])) {
+            return $instructions->reverseOverride($key);
+        }
+
+        return ['reversed' => false, 'reason' => 'key_not_in_any_harness_surface', 'key' => $key];
     }
 
     /**
@@ -65,10 +86,23 @@ class AtlasHarnessCommand extends Command
             $sections[$key] = $section + ['current_value' => $surface->currentValue($key)];
         }
 
+        $instructions = app(\App\Services\Ai\Cognitive\Harness\AtlasHarnessInstructionSurface::class);
+        $instructionSections = [];
+        foreach ($instructions->sections() as $name => $declared) {
+            $instructionSections[$name] = [
+                'purpose' => $declared['purpose'],
+                'current_text' => $instructions->text($name),
+                'is_default' => $instructions->text($name) === $declared['default'],
+                'search_space_size' => count($instructions->searchSpace($name)),
+            ];
+        }
+
         return [
             'schema_version' => AtlasHarnessSurface::SCHEMA_VERSION,
             'sections' => $sections,
+            'instruction_sections' => $instructionSections,
             'active_overrides' => $surface->readOverrides(),
+            'active_instruction_overrides' => $instructions->readOverrides(),
             'overrides_path' => $surface->overridesPath(),
         ];
     }

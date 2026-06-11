@@ -39,6 +39,19 @@ Schedule::command('queue:work database-long --queue=missions --stop-when-empty -
     ->runInBackground()
     ->when(static fn (): bool => (bool) config('atlas.mission.http_delivery_enabled', false));
 
+// AP-819 AUTOPILOT — o loop Self-Harness completo, diário: ponte gera propostas
+// dos clusters (propose), depois o autopilot fecha experimentos vencidos
+// (monitor: confirma ou auto-reverte pelo outcome cru) e aplica o próximo edit
+// sob os 3 gates matemáticos. 1 edit/dia no máximo, tudo receitado.
+Schedule::command('atlas:harness propose --json')
+    ->dailyAt('07:00')
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.ai.harness_autopilot.enabled', false));
+Schedule::command('atlas:harness autopilot --json')
+    ->dailyAt('07:10')
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.ai.harness_autopilot.enabled', false));
+
 // AP-819 F1 — auto-feed do cérebro de falhas: colhe falhas reais de runtime
 // (ai_job_attempts failed/timeout + ledger OPERATION_FAILED) para o corpus
 // failure_signatures. Observe-only (escreve só corpus + alertas ≥3); idempotente

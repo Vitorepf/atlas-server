@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\ForgeRivals;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
+
 /**
  * Atlas Forge Rivals · Provider Model Registry v1.
  *
@@ -401,17 +403,9 @@ final class AtlasForgeRivalsProviderModelRegistryService
      */
     private function aliases(array $defaults, string $configKey): array
     {
-        $configured = config($configKey);
-        if (is_string($configured)) {
-            $configured = array_values(array_filter(array_map('trim', explode(',', $configured))));
-        }
-
-        return array_values(array_unique(array_merge(
+        return AiStringListNormalizer::uniqueMergedStrings(
             $defaults,
-            array_values(array_filter(
-                array_map(static fn (mixed $alias): string => is_string($alias) ? trim($alias) : '', (array) $configured),
-                static fn (string $alias): bool => $alias !== '',
-            )),
-        )));
+            AiStringListNormalizer::uniqueCommaSeparatedStrings(config($configKey)),
+        );
     }
 }

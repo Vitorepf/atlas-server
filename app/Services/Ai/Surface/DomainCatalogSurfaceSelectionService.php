@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Surface;
 
 use App\Services\Ai\Kernel\Domain\AtlasAiDomainCatalogService;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 class DomainCatalogSurfaceSelectionService
 {
@@ -392,7 +393,7 @@ class DomainCatalogSurfaceSelectionService
      */
     private function surfaceSupportError(string $domainId, string $flowId, array $surfaceHints): ?array
     {
-        $supportedDomains = $this->stringList($surfaceHints['supported_domain_ids'] ?? null);
+        $supportedDomains = AiStringListNormalizer::trimmedStrings($surfaceHints['supported_domain_ids'] ?? null);
         if ($supportedDomains !== [] && ! in_array($domainId, $supportedDomains, true)) {
             return [
                 'code' => 'surface_domain_not_supported',
@@ -400,7 +401,7 @@ class DomainCatalogSurfaceSelectionService
             ];
         }
 
-        $supportedFlows = $this->stringList($surfaceHints['supported_flow_ids'] ?? null);
+        $supportedFlows = AiStringListNormalizer::trimmedStrings($surfaceHints['supported_flow_ids'] ?? null);
         if ($supportedFlows !== [] && ! in_array($flowId, $supportedFlows, true)) {
             return [
                 'code' => 'surface_flow_not_supported',
@@ -437,22 +438,6 @@ class DomainCatalogSurfaceSelectionService
                 'registered' => true,
                 'supported_capabilities' => $adapter->supportedCapabilities(),
             ];
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return collect($value)
-            ->filter(fn (mixed $item): bool => is_string($item) && trim($item) !== '')
-            ->map(fn (string $item): string => trim($item))
-            ->values()
-            ->all();
     }
 
     private function string(mixed $value): ?string

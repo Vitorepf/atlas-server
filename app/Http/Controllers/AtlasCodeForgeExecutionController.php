@@ -13,6 +13,7 @@ use App\Services\Ai\DualCore\ForgeIntakeRouteDecisionRecorder;
 use App\Services\Ai\Programming\AtlasForgeGovernedExecutionService;
 use App\Services\Ai\Programming\AtlasForgeLiveExecutionService;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Services\Ai\Support\DatabaseTableAvailability;
@@ -1406,11 +1407,11 @@ final class AtlasCodeForgeExecutionController extends Controller
         }
 
         $changedFiles = $this->changedFilesFromGovernedExecution($governedExecution);
-        $allowed = $this->stringList($taskContract['allowed_files'] ?? []);
-        $forbidden = $this->stringList($taskContract['forbidden_files'] ?? []);
+        $allowed = AiStringListNormalizer::stringsFromArrayCast($taskContract['allowed_files'] ?? []);
+        $forbidden = AiStringListNormalizer::stringsFromArrayCast($taskContract['forbidden_files'] ?? []);
         $verifierReport = (array) data_get(collect((array) ($governedExecution['stages'] ?? []))->firstWhere('name', 'patch_verifier'), 'report', []);
-        $verifierBlocking = $this->stringList($verifierReport['blocking_reasons'] ?? []);
-        $governedBlockers = $this->stringList($governedExecution['remaining_blockers'] ?? []);
+        $verifierBlocking = AiStringListNormalizer::stringsFromArrayCast($verifierReport['blocking_reasons'] ?? []);
+        $governedBlockers = AiStringListNormalizer::stringsFromArrayCast($governedExecution['remaining_blockers'] ?? []);
 
         $files = collect($changedFiles)
             ->map(function (string $path) use ($allowed, $forbidden): array {
@@ -1487,9 +1488,9 @@ final class AtlasCodeForgeExecutionController extends Controller
         $verifierReport = (array) data_get($stages->firstWhere('name', 'patch_verifier'), 'report', []);
 
         $changedFiles = $this->changedFilesFromReport($report);
-        $manifestCovered = $this->stringList($verifierReport['manifest_covered_files'] ?? $actionManifest['changed_files'] ?? []);
-        $uncovered = $this->stringList($verifierReport['uncovered_changed_files'] ?? []);
-        $verifierBlocking = $this->stringList($verifierReport['blocking_reasons'] ?? []);
+        $manifestCovered = AiStringListNormalizer::stringsFromArrayCast($verifierReport['manifest_covered_files'] ?? $actionManifest['changed_files'] ?? []);
+        $uncovered = AiStringListNormalizer::stringsFromArrayCast($verifierReport['uncovered_changed_files'] ?? []);
+        $verifierBlocking = AiStringListNormalizer::stringsFromArrayCast($verifierReport['blocking_reasons'] ?? []);
 
         $files = collect($changedFiles)
             ->map(function (string $path) use ($manifestCovered, $uncovered): array {
@@ -1624,14 +1625,6 @@ final class AtlasCodeForgeExecutionController extends Controller
             ->filter(fn (array $ref): bool => $ref['path'] !== '')
             ->values()
             ->all();
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return array_values(array_filter((array) $value, 'is_string'));
     }
 
     /**

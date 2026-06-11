@@ -383,24 +383,6 @@ final class AtlasCodeWorkspaceProfileService
     }
 
     /**
-     * @return array<int, string>
-     */
-    private function stringList(mixed $raw): array
-    {
-        if (! is_array($raw)) {
-            return [];
-        }
-        $out = [];
-        foreach ($raw as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
-        }
-
-        return array_values($out);
-    }
-
-    /**
      * @return array<string, string>
      */
     private function stringMap(mixed $raw): array

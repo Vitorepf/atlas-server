@@ -55,6 +55,28 @@ final class AtlasAaeosStringListNormalizer
      * @param  mixed  $values
      * @return list<string>
      */
+    public static function nonBlankStringOrIntValues(mixed $values): array
+    {
+        if (! is_array($values)) {
+            return [];
+        }
+
+        $strings = [];
+        foreach ($values as $value) {
+            if (is_string($value) && trim($value) !== '') {
+                $strings[] = $value;
+            } elseif (is_int($value)) {
+                $strings[] = (string) $value;
+            }
+        }
+
+        return $strings;
+    }
+
+    /**
+     * @param  mixed  $values
+     * @return list<string>
+     */
     public static function strings(mixed $values): array
     {
         return AiStringListNormalizer::strings($values);

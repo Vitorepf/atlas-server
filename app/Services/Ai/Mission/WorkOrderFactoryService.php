@@ -5,6 +5,7 @@ namespace App\Services\Ai\Mission;
 use App\Models\AiMission;
 use App\Models\AiObjective;
 use App\Models\AiWorkOrder;
+use App\Services\Ai\Mission\Support\MissionSuccessCriteriaNormalizer;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
@@ -89,9 +90,7 @@ class WorkOrderFactoryService
 
     private function buildInstructions(AiObjective $objective): string
     {
-        $criteria = collect((array) $objective->success_criteria)
-            ->map(static fn ($criterion) => is_array($criterion) ? (string) ($criterion['description'] ?? '') : (string) $criterion)
-            ->filter(static fn (string $line) => $line !== '')
+        $criteria = collect(MissionSuccessCriteriaNormalizer::descriptions($objective->success_criteria))
             ->map(static fn (string $line) => '- '.$line)
             ->implode("\n");
 

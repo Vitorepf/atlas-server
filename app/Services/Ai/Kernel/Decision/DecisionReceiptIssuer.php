@@ -33,8 +33,8 @@ class DecisionReceiptIssuer
         $risk = $this->validRisk($decision['risk'] ?? 'medium');
         $providerSelection = $this->providerSelection($decision['provider_selection'] ?? []);
         $budgets = DecisionBudgets::fromArray(is_array($decision['budgets'] ?? null) ? $decision['budgets'] : []);
-        $requiredGates = $this->stringList($decision['required_gates'] ?? []);
-        $requiredEvidence = $this->stringList($decision['required_evidence'] ?? ['summary']);
+        $requiredGates = AiStringListNormalizer::uniqueTrimmedCastItemsToStrings($decision['required_gates'] ?? []);
+        $requiredEvidence = AiStringListNormalizer::uniqueTrimmedCastItemsToStrings($decision['required_evidence'] ?? ['summary']);
         $repairPolicy = DecisionRepairPolicy::fromArray(is_array($decision['repair_policy'] ?? null) ? $decision['repair_policy'] : ['enabled' => false, 'max_attempts' => 0]);
         $metadata = is_array($decision['metadata'] ?? null) ? $decision['metadata'] : [];
         $metadata['envelope_input_hash'] = $metadata['envelope_input_hash'] ?? $envelope->input->inputHash;
@@ -126,7 +126,7 @@ class DecisionReceiptIssuer
         $selection = [
             'primary' => $this->string($selection['primary'] ?? 'auto') ?: 'auto',
             'model' => $this->string($selection['model'] ?? 'selected-by-decide') ?: 'selected-by-decide',
-            'fallbacks' => $this->stringList($selection['fallbacks'] ?? []),
+            'fallbacks' => AiStringListNormalizer::uniqueTrimmedCastItemsToStrings($selection['fallbacks'] ?? []),
             'selection_mode' => $this->validModelSelectionMode($selection['selection_mode'] ?? 'auto_best_allowed'),
             'selection_reason' => $this->string($selection['selection_reason'] ?? ''),
             'selection_explanation' => is_array($selection['selection_explanation'] ?? null) ? $selection['selection_explanation'] : null,
@@ -162,14 +162,6 @@ class DecisionReceiptIssuer
         $string = $this->string($value);
 
         return $string !== '' ? $string : null;
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function stringList(mixed $values): array
-    {
-        return AiStringListNormalizer::uniqueTrimmedCastItemsToStrings($values);
     }
 
     /**

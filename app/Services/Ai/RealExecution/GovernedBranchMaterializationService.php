@@ -48,12 +48,7 @@ final class GovernedBranchMaterializationService
         $diff = (string) ($input['diff_text'] ?? '');
         // AP: files = [{path, content}] written straight into the worktree so git computes
         // modify-vs-new — existing-file fixes work where a new-file-only diff cannot.
-        $inputFiles = [];
-        foreach ((array) ($input['files'] ?? []) as $f) {
-            if (is_array($f) && is_string($f['path'] ?? null) && ($f['path'] ?? '') !== '' && is_string($f['content'] ?? null)) {
-                $inputFiles[] = ['path' => (string) $f['path'], 'content' => (string) $f['content']];
-            }
-        }
+        $inputFiles = $this->fileChanges($input['files'] ?? []);
         $repo = rtrim((string) ($input['repo_dir'] ?? base_path()), '/');
         $baseRef = trim((string) ($input['base_ref'] ?? 'HEAD')) ?: 'HEAD';
         $measureCmd = isset($input['measure_cmd']) ? trim((string) $input['measure_cmd']) : '';
@@ -101,15 +96,9 @@ final class GovernedBranchMaterializationService
             // Write the change into the worktree: prefer explicit files (git computes
             // modify-vs-new, so existing-file fixes work); else apply the unified diff.
             if ($inputFiles !== []) {
-                foreach ($inputFiles as $f) {
-                    $abs = $worktree.'/'.ltrim($f['path'], '/');
-                    if (str_contains($abs, '/../') || ! str_starts_with($abs, $worktree.'/')) {
-                        return $this->cleanupAndRefuse($repo, $worktree, $branch, 'unsafe_file_path', $id, ['path' => $f['path']]);
-                    }
-                    @mkdir(dirname($abs), 0o755, true);
-                    if (@file_put_contents($abs, $f['content']) === false) {
-                        return $this->cleanupAndRefuse($repo, $worktree, $branch, 'file_write_failed', $id, ['path' => $f['path']]);
-                    }
+                $write = $this->writeFilesToWorktree($worktree, $inputFiles);
+                if (! (bool) ($write['ok'] ?? false)) {
+                    return $this->cleanupAndRefuse($repo, $worktree, $branch, (string) $write['reason'], $id, $this->pathExtra($write));
                 }
             } else {
                 $patch = $worktree.'/.atlas-materialize.patch';
@@ -124,7 +113,7 @@ final class GovernedBranchMaterializationService
             // Commit to the branch (so it is a real, mergeable ref).
             $this->git($worktree, ['add', '-A']);
             [$changedOk, $changed] = $this->git($worktree, ['diff', '--cached', '--name-only']);
-            $files = $changedOk ? array_values(array_filter(array_map('trim', explode("\n", $changed)))) : [];
+            $files = $changedOk ? $this->changedFileList($changed) : [];
             [$okCommit] = $this->git($worktree, [
                 '-c', 'user.email=materialize@atlas', '-c', 'user.name=atlas',
                 'commit', '-q', '-m', 'atlas materialize '.$id, '--no-gpg-sign',
@@ -282,12 +271,7 @@ final class GovernedBranchMaterializationService
         $certified = (bool) ($input['certified'] ?? false);
         $gateReceipt = trim((string) ($input['gate_receipt'] ?? ''));
 
-        $files = [];
-        foreach ((array) ($input['files'] ?? []) as $f) {
-            if (is_array($f) && is_string($f['path'] ?? null) && ($f['path'] ?? '') !== '' && is_string($f['content'] ?? null)) {
-                $files[] = ['path' => (string) $f['path'], 'content' => (string) $f['content']];
-            }
-        }
+        $files = $this->fileChanges($input['files'] ?? []);
 
         // --- Gate: certified + a real gate credential (same floor as materialize). ---
         if (! $certified) {
@@ -305,20 +289,18 @@ final class GovernedBranchMaterializationService
         }
 
         try {
-            foreach ($files as $f) {
-                $abs = $worktree.'/'.ltrim($f['path'], '/');
-                if (str_contains($abs, '/../') || ! str_starts_with($abs, $worktree.'/')) {
-                    return ['applied' => false, 'reason' => 'unsafe_file_path', 'step_id' => $stepId, 'path' => $f['path']];
-                }
-                @mkdir(dirname($abs), 0o755, true);
-                if (@file_put_contents($abs, $f['content']) === false) {
-                    return ['applied' => false, 'reason' => 'file_write_failed', 'step_id' => $stepId, 'path' => $f['path']];
-                }
+            $write = $this->writeFilesToWorktree($worktree, $files);
+            if (! (bool) ($write['ok'] ?? false)) {
+                return array_merge([
+                    'applied' => false,
+                    'reason' => (string) $write['reason'],
+                    'step_id' => $stepId,
+                ], $this->pathExtra($write));
             }
 
             $this->git($worktree, ['add', '-A']);
             [$changedOk, $changed] = $this->git($worktree, ['diff', '--cached', '--name-only']);
-            $changedFiles = $changedOk ? array_values(array_filter(array_map('trim', explode("\n", $changed)))) : [];
+            $changedFiles = $changedOk ? $this->changedFileList($changed) : [];
             if ($changedFiles === []) {
                 // The step's files were byte-identical to the prior state — nothing to commit.
                 return ['applied' => false, 'reason' => 'no_change_after_write', 'step_id' => $stepId];
@@ -519,6 +501,61 @@ final class GovernedBranchMaterializationService
         [$ok, $out] = $this->git($repo, ['rev-parse', '--abbrev-ref', 'HEAD']);
 
         return $ok ? (trim($out) ?: 'main') : 'main';
+    }
+
+    /**
+     * @return list<array{path:string,content:string}>
+     */
+    private function fileChanges(mixed $files): array
+    {
+        $changes = [];
+        foreach ((array) $files as $file) {
+            if (is_array($file) && is_string($file['path'] ?? null) && ($file['path'] ?? '') !== '' && is_string($file['content'] ?? null)) {
+                $changes[] = ['path' => (string) $file['path'], 'content' => (string) $file['content']];
+            }
+        }
+
+        return $changes;
+    }
+
+    /**
+     * @param  list<array{path:string,content:string}>  $files
+     * @return array{ok:bool,reason?:string,path?:string}
+     */
+    private function writeFilesToWorktree(string $worktree, array $files): array
+    {
+        foreach ($files as $file) {
+            $abs = $worktree.'/'.ltrim($file['path'], '/');
+            if (str_contains($abs, '/../') || ! str_starts_with($abs, $worktree.'/')) {
+                return ['ok' => false, 'reason' => 'unsafe_file_path', 'path' => $file['path']];
+            }
+
+            @mkdir(dirname($abs), 0o755, true);
+            if (@file_put_contents($abs, $file['content']) === false) {
+                return ['ok' => false, 'reason' => 'file_write_failed', 'path' => $file['path']];
+            }
+        }
+
+        return ['ok' => true];
+    }
+
+    /**
+     * Preserves the legacy git output parser, including PHP array_filter truthiness.
+     *
+     * @return list<string>
+     */
+    private function changedFileList(string $changed): array
+    {
+        return array_values(array_filter(array_map('trim', explode("\n", $changed))));
+    }
+
+    /**
+     * @param  array<string,mixed>  $result
+     * @return array<string,string>
+     */
+    private function pathExtra(array $result): array
+    {
+        return is_string($result['path'] ?? null) ? ['path' => $result['path']] : [];
     }
 
     private function sanitizeId(string $id): string

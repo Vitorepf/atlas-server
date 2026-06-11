@@ -565,6 +565,9 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     // G7 — ponte síncrona texto→resultado (mesmo pipeline create + worker, inline).
     Route::post('/ai/interactions/sync', [\App\Http\Controllers\AtlasChatSyncController::class, 'store']);
 
+    // AP-819 — painel do Self-Harness para o app (transparência do autopilot).
+    Route::get('/ai/harness', [\App\Http\Controllers\AtlasHarnessStatusController::class, 'show']);
+
     // G3 — mission request→exec→cert via HTTP: enfileira a cadeia completa do
     // AtlasMissionService (certificação + branch, nunca main) e expõe polling.
     Route::post('/ai/missions', [\App\Http\Controllers\AtlasMissionDeliveryController::class, 'store']);

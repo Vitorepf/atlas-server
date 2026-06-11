@@ -60,6 +60,9 @@
         <!-- AP-819 F1: failure auto feed is activated in dev/prod .env; tests opt in
              explicitly (config set or force flag) so suites never harvest implicitly. -->
         <env name="ATLAS_FAILURE_AUTO_FEED_ENABLED" value="false"/>
+        <!-- AP-819 autopilot is activated in dev/prod .env; tests opt in explicitly
+             via config set so suites never approve/apply/reverse implicitly. -->
+        <env name="ATLAS_HARNESS_AUTOPILOT_ENABLED" value="false"/>
         <!-- G2: the cost guard soft warn is activated in dev/prod .env (3.0 units),
              but tests stay deterministic on the historical 0/0 default so provider
              identity assertions are unaffected (guard tests set config explicitly). -->

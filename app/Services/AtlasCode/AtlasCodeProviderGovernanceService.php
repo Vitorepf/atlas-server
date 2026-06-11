@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\AtlasCode;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
+
 /**
  * Atlas Code Provider Governance · configurable policy read-model.
  *
@@ -363,18 +365,4 @@ final class AtlasCodeProviderGovernanceService
         return false;
     }
 
-    /**
-     * @return array<int, string>
-     */
-    private function stringList(array $raw): array
-    {
-        $out = [];
-        foreach ($raw as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
-        }
-
-        return array_values($out);
-    }
 }

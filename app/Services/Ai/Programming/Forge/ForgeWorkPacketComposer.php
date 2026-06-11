@@ -143,12 +143,7 @@ final class ForgeWorkPacketComposer
             return [];
         }
 
-        $parts = preg_split('/(?:\n+|\.\s+|;\s*|\s+e\s+tambem\s+|\s+depois\s+|\s+por\s+fim\s+|\s+\+\s+)/iu', $prompt) ?: [$prompt];
-        $parts = array_values(array_filter(array_map('trim', $parts), static fn (string $p): bool => $p !== '' && mb_strlen($p) >= 4));
-
-        if ($parts === []) {
-            $parts = [$prompt];
-        }
+        $parts = $this->promptParts($prompt);
 
         $packets = [];
         foreach (array_slice($parts, 0, 6) as $index => $part) {
@@ -170,6 +165,17 @@ final class ForgeWorkPacketComposer
         }
 
         return $packets;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function promptParts(string $prompt): array
+    {
+        $parts = preg_split('/(?:\n+|\.\s+|;\s*|\s+e\s+tambem\s+|\s+depois\s+|\s+por\s+fim\s+|\s+\+\s+)/iu', $prompt) ?: [$prompt];
+        $parts = array_values(array_filter(array_map('trim', $parts), static fn (string $p): bool => $p !== '' && mb_strlen($p) >= 4));
+
+        return $parts === [] ? [$prompt] : $parts;
     }
 
     private function normalizeRiskBand(string $band): string

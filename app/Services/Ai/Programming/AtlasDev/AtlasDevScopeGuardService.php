@@ -51,9 +51,9 @@ final class AtlasDevScopeGuardService
      */
     public function evaluate(array $proposedWrites, array $allowedFiles, array $forbiddenFiles): array
     {
-        $proposedWrites = $this->normalize($proposedWrites);
-        $allowedFiles = $this->normalize($allowedFiles);
-        $forbiddenFiles = $this->normalize($forbiddenFiles);
+        $proposedWrites = AtlasDevStringListNormalizer::uniqueTrimmedStrings($proposedWrites);
+        $allowedFiles = AtlasDevStringListNormalizer::uniqueTrimmedStrings($allowedFiles);
+        $forbiddenFiles = AtlasDevStringListNormalizer::uniqueTrimmedStrings($forbiddenFiles);
 
         // Empty proposed writes is allowed by definition (no-op).
         if ($proposedWrites === []) {
@@ -152,24 +152,4 @@ final class AtlasDevScopeGuardService
         return 'sha256:'.hash('sha256', json_encode($material, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
     }
 
-    /**
-     * @param  list<string>  $list
-     * @return list<string>
-     */
-    private function normalize(array $list): array
-    {
-        $clean = [];
-        foreach ($list as $item) {
-            if (! is_string($item)) {
-                continue;
-            }
-            $item = trim($item);
-            if ($item === '') {
-                continue;
-            }
-            $clean[] = $item;
-        }
-
-        return AtlasDevStringListNormalizer::uniqueTrimmedStrings($clean);
-    }
 }

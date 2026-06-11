@@ -204,3 +204,23 @@ Prova viva: baseline selado 1.0/1.0; a ponte criou 2 propostas REAIS
 9 testes (G1 estrutural + roundtrip + regra dupla + anti-tamper provados).
 
 **Obra C:** segue fora de escopo (inalterado).
+
+**AUTOPILOT (2026-06-11, diretiva do operador "automático, com base matemática"):**
+\`AtlasHarnessAutopilot\` fecha o loop SEM aprovação manual por edit — 3 gates:
+(1) bounds da surface por construção; (2) não-regressão dupla na suite congelada
+ANTES e DEPOIS do apply, regressão ⇒ reverse imediato; (3) recorrência do cluster
+no outcome CRU após a janela de observação (7d), sem melhora estrita ⇒ auto-reverse.
+1 edit/run, 1 experimento/chave, proposta tentada nunca re-tenta; recibos no ledger;
+painel para o app em GET /ai/harness. A red line de §6 foi ATUALIZADA pelo operador:
+pré-aprovação humana → transparência + reversão automática matemática (o desenho de
+adoção do próprio paper). supportsAutoApply(harness_config) permanece false — o
+autopilot é o único caminho automático e carrega os gates.
+
+**SURFACE v2 (2026-06-11, goal "completo e ultra poderoso"):** seções de INSTRUÇÃO
+evoluíveis — a outra metade do mecanismo do paper. \`AtlasHarnessInstructionSurface\`
+com 3 seções declaradas e espaço de busca FINITO (default + variantes curadas;
+texto fora da biblioteca é rejeitado por validate() — evolução = busca discreta
+auditada, nunca texto livre). Fio real via AiPromptBuilder (toda chamada de
+provider carrega o texto vivo). Kind \`harness_instruction\` (apply+reverse), ponte
+mapeia clusters comportamentais → próxima variante, autopilot processa config E
+instrução sob os mesmos 3 gates. Suite v2 = 17 probes, baseline re-selado.

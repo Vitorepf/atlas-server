@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Mission\Ambiguity;
 
+use App\Services\Ai\Mission\Support\MissionPromptTokenizer;
+
 final class PromptStructuralSparsityScorer
 {
     private const PENALTY_SINGLE_WORD = 0.6;
@@ -41,13 +43,7 @@ final class PromptStructuralSparsityScorer
 
     private function tokenCount(string $trimmed): int
     {
-        if ($trimmed === '') {
-            return 0;
-        }
-
-        $tokens = preg_split('/\s+/', $trimmed, -1, PREG_SPLIT_NO_EMPTY);
-
-        return $tokens === false ? 0 : count($tokens);
+        return count(MissionPromptTokenizer::whitespaceTokens($trimmed));
     }
 
     private function hasTrailingEllipsis(string $trimmed): bool

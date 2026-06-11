@@ -34,7 +34,7 @@ final class AtlasSkillEvolutionRuntimeService
         $objective = $this->stringValue($input['objective'] ?? $input['summary'] ?? null) ?? 'Improve Atlas skill behavior from verified outcome.';
         $domain = $this->stringValue($input['domain'] ?? null) ?? 'programming';
         $flowId = $this->stringValue($input['flow_id'] ?? null) ?? 'atlas_dev';
-        $evidenceRefs = $this->stringList($input['evidence_refs'] ?? []);
+        $evidenceRefs = AiStringListNormalizer::trimmedScalarValuesFromArrayCast($input['evidence_refs'] ?? []);
         $existing = $this->matchingSkill($workspace, $objective, $domain, $flowId);
         $skillName = $existing?->name ?? $this->skillName($objective, $domain, $flowId);
         $draft = $this->draftSkillMarkdown($skillName, $objective, $domain, $flowId, $evidenceRefs, $existing);
@@ -303,14 +303,6 @@ MD;
         }
 
         return $matches[1];
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return AiStringListNormalizer::trimmedScalarValuesFromArrayCast($value);
     }
 
     private function stringValue(mixed $value): ?string

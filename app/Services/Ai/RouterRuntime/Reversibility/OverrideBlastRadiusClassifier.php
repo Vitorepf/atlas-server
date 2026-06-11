@@ -20,9 +20,9 @@ final class OverrideBlastRadiusClassifier
     public function classify(array $override): array
     {
         $scope = is_string($override['scope'] ?? null) ? $override['scope'] : '';
-        $modules = $this->stringList($override['affected_modules'] ?? null);
+        $modules = AiStringListNormalizer::strings($override['affected_modules'] ?? null);
         $primary = is_string($override['primary_domain'] ?? null) ? $override['primary_domain'] : '';
-        $secondary = $this->stringList($override['secondary_domains'] ?? null);
+        $secondary = AiStringListNormalizer::strings($override['secondary_domains'] ?? null);
 
         $moduleCount = count($modules);
         $secondarySpread = $this->hasSecondarySpread($secondary, $primary);
@@ -91,11 +91,4 @@ final class OverrideBlastRadiusClassifier
         return false;
     }
 
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return AiStringListNormalizer::strings($value);
-    }
 }

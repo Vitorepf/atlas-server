@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Research Self-Improvement Schemas And Packets decider.
  *
@@ -99,7 +101,7 @@ final class AtlasSchemasAndPacketsService
      */
     public function gatePromotionBySourceJudgment(array $researchPacket, array $sourceJudgments): array
     {
-        $sourceIds = $this->stringList($researchPacket['source_ids'] ?? []);
+        $sourceIds = AtlasAaeosStringListNormalizer::nonBlankStringOrIntValues($researchPacket['source_ids'] ?? []);
         $haveJudgments = $this->nonEmptyJudgments($sourceJudgments);
 
         $hasJudgment = $sourceIds !== [] && $haveJudgments;
@@ -435,31 +437,6 @@ final class AtlasSchemasAndPacketsService
         usort($valid, fn (array $a, array $b): int => $this->normalizeTier($a['tier'] ?? null) <=> $this->normalizeTier($b['tier'] ?? null));
 
         return $valid[0];
-    }
-
-    /**
-     * Normalize a `source_ids`-style list to a list of non-empty strings.
-     *
-     * @param mixed $value
-     *
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = $item;
-            } elseif (is_int($item)) {
-                $out[] = (string) $item;
-            }
-        }
-
-        return $out;
     }
 
     /**

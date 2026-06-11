@@ -96,6 +96,7 @@ class AiPromptBuilder
             $this->contextPackPromptSection($contextPack, $openBrainInjection),
             $executionPlan->toPromptSection(),
             $this->atlasModeInstructions($options),
+            $this->harnessInstructionSection(),
             $this->specialistFlowInstructions($options),
             $this->permissionInstructions($options),
             $this->workflowInstructions($options),
@@ -783,6 +784,21 @@ Sua função é produzir a versão final que o Atlas deveria entregar ao operado
 TXT,
             default => '',
         };
+    }
+
+    /**
+     * AP-819 Surface v2 — as seções de instrução AUTO-EVOLUÍDAS do harness
+     * (espaço de busca finito + auditado; o autopilot só troca por variantes
+     * declaradas, julgado pela suite congelada + recorrência crua). Fail-open:
+     * qualquer erro aqui nunca derruba a montagem do prompt.
+     */
+    private function harnessInstructionSection(): ?string
+    {
+        try {
+            return app(\App\Services\Ai\Cognitive\Harness\AtlasHarnessInstructionSurface::class)->promptSection();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     private function atlasModeInstructions(array $options): string

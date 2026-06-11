@@ -83,18 +83,10 @@ class AtlasForgeCodexCliInvocationDriver extends AtlasForgeBaseCliInvocationDriv
             $argv[] = '--sandbox';
             $argv[] = $sandbox;
         }
-        $effort = app(\App\Services\Ai\Kernel\Decision\ComputeEffortPolicy::class)->contract(
-            requested: $request['compute_effort'] ?? data_get($request, 'compute_effort_contract.atlas_level'),
-            provider: $this->provider(),
-            context: [
-                'flow' => 'programming.atlas_dev',
-                'task' => is_string($request['prompt'] ?? null) ? (string) $request['prompt'] : null,
-            ],
-        );
-        $mapping = is_array($effort['provider_mapping'] ?? null) ? $effort['provider_mapping'] : [];
-        if (is_string($mapping['value'] ?? null) && $mapping['value'] !== '') {
+        $effort = $this->computeEffortProviderValue($request, 'programming.atlas_dev');
+        if ($effort !== null) {
             $argv[] = '-c';
-            $argv[] = 'model_reasoning_effort="'.((string) $mapping['value']).'"';
+            $argv[] = 'model_reasoning_effort="'.$effort.'"';
         }
         if (! in_array('-', $argv, true)) {
             $argv[] = '-';

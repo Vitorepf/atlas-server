@@ -41,10 +41,10 @@ final readonly class CapabilityManifest
             title: self::string($manifest['title'] ?? $id),
             owner: self::string($manifest['owner'] ?? 'atlas.core'),
             description: self::string($manifest['description'] ?? ''),
-            requiredSurfaces: self::stringList($manifest['required_surfaces'] ?? []),
-            optionalSurfaces: self::stringList($manifest['optional_surfaces'] ?? []),
+            requiredSurfaces: AiStringListNormalizer::uniqueTrimmedCastItemsToStrings($manifest['required_surfaces'] ?? []),
+            optionalSurfaces: AiStringListNormalizer::uniqueTrimmedCastItemsToStrings($manifest['optional_surfaces'] ?? []),
             notSupported: self::notSupported($manifest['not_supported'] ?? []),
-            testSuite: self::stringList($manifest['test_suite'] ?? []),
+            testSuite: AiStringListNormalizer::uniqueTrimmedCastItemsToStrings($manifest['test_suite'] ?? []),
             raw: $manifest,
         );
     }
@@ -63,14 +63,6 @@ final readonly class CapabilityManifest
     private static function string(mixed $value): string
     {
         return trim((string) $value);
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private static function stringList(mixed $values): array
-    {
-        return AiStringListNormalizer::uniqueTrimmedCastItemsToStrings($values);
     }
 
     /**

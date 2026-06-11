@@ -15,6 +15,7 @@ use App\Services\Ai\Programming\Governance\ProgrammingSpecCompiler;
 use App\Services\Ai\Programming\Sdd\Compilers\PlanCompiler;
 use App\Services\Ai\Programming\Sdd\Compilers\TaskCompiler;
 use App\Services\Ai\Programming\Sdd\Pipeline\ContextPack;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -268,7 +269,7 @@ final class AtlasCodeProgrammingWorkItemController extends Controller
             'acceptance_criteria' => 'completion_criteria',
             'evidence_required' => 'evidence_required',
         ] as $inputKey => $specKey) {
-            $value = $this->stringList($data[$inputKey] ?? []);
+            $value = AiStringListNormalizer::trimmedStringsFromArrayCast($data[$inputKey] ?? []);
             if ($value !== []) {
                 $spec[$specKey] = $value;
             }
@@ -283,7 +284,7 @@ final class AtlasCodeProgrammingWorkItemController extends Controller
      */
     private function specScopeBlockers(array $spec): array
     {
-        $likely = $this->stringList($spec['likely_files'] ?? []);
+        $likely = AiStringListNormalizer::trimmedStringsFromArrayCast($spec['likely_files'] ?? []);
         if ($likely === []) {
             return ['likely_files_required'];
         }
@@ -294,7 +295,7 @@ final class AtlasCodeProgrammingWorkItemController extends Controller
             return ['likely_files_must_be_explicit'];
         }
 
-        $tests = $this->stringList($spec['tests'] ?? []);
+        $tests = AiStringListNormalizer::trimmedStringsFromArrayCast($spec['tests'] ?? []);
         if ($tests === []) {
             return ['validation_commands_required'];
         }
@@ -315,7 +316,7 @@ final class AtlasCodeProgrammingWorkItemController extends Controller
             $workItem->risk_level === 'high' || $workItem->risk_level === 'critical'
                 ? 'atlas.risk.high.v1'
                 : 'atlas.risk.standard.v1',
-        ], $this->stringList($data['context_packages'] ?? []))));
+        ], AiStringListNormalizer::trimmedStringsFromArrayCast($data['context_packages'] ?? []))));
 
         $payload = [
             'schema_version' => 'atlas.code.programming_spec_plan_context.v1',
@@ -323,8 +324,8 @@ final class AtlasCodeProgrammingWorkItemController extends Controller
             'work_item_id' => (string) $workItem->id,
             'work_item_code' => (string) $workItem->code,
             'spec_hash' => $workItem->spec_hash,
-            'likely_files' => $this->stringList($spec['likely_files'] ?? []),
-            'validation_commands' => $this->stringList($spec['tests'] ?? []),
+            'likely_files' => AiStringListNormalizer::trimmedStringsFromArrayCast($spec['likely_files'] ?? []),
+            'validation_commands' => AiStringListNormalizer::trimmedStringsFromArrayCast($spec['tests'] ?? []),
             'source_authority' => 'AtlasCodeProgrammingWorkItemController::compileSpecPlan',
         ];
         $digest = hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
@@ -351,7 +352,7 @@ final class AtlasCodeProgrammingWorkItemController extends Controller
         AtlasProgrammingWorkItem $workItem,
         array $data,
     ): array {
-        $validationCommands = $this->stringList($data['validation_commands'] ?? []);
+        $validationCommands = AiStringListNormalizer::trimmedStringsFromArrayCast($data['validation_commands'] ?? []);
         if ($validationCommands === []) {
             $validationCommands = collect((array) ($plan['test_plan'] ?? []))
                 ->map(fn (mixed $entry): ?string => is_array($entry) && is_string($entry['command'] ?? null)
@@ -362,23 +363,23 @@ final class AtlasCodeProgrammingWorkItemController extends Controller
                 ->all();
         }
 
-        $acceptance = $this->stringList($data['acceptance_criteria'] ?? []);
+        $acceptance = AiStringListNormalizer::trimmedStringsFromArrayCast($data['acceptance_criteria'] ?? []);
         if ($acceptance === []) {
-            $acceptance = $this->stringList($spec['completion_criteria'] ?? []);
+            $acceptance = AiStringListNormalizer::trimmedStringsFromArrayCast($spec['completion_criteria'] ?? []);
         }
-        $evidenceRequired = $this->stringList($data['evidence_required'] ?? []);
+        $evidenceRequired = AiStringListNormalizer::trimmedStringsFromArrayCast($data['evidence_required'] ?? []);
         if ($evidenceRequired === []) {
-            $evidenceRequired = $this->stringList($spec['evidence_required'] ?? []);
+            $evidenceRequired = AiStringListNormalizer::trimmedStringsFromArrayCast($spec['evidence_required'] ?? []);
         }
 
-        $docsRequired = collect($this->stringList($spec['likely_files'] ?? []))
+        $docsRequired = collect(AiStringListNormalizer::trimmedStringsFromArrayCast($spec['likely_files'] ?? []))
             ->filter(fn (string $file): bool => str_starts_with($file, 'docs/'))
             ->values()
             ->all();
 
         return collect($compiledTasks)
             ->map(function (array $task, int $index) use ($validationCommands, $acceptance, $evidenceRequired, $docsRequired, $spec, $workItem): array {
-                $allowed = $this->stringList($task['allowed_files'] ?? []);
+                $allowed = AiStringListNormalizer::trimmedStringsFromArrayCast($task['allowed_files'] ?? []);
                 $isTestTask = (string) ($task['type'] ?? '') === 'test';
 
                 return [
@@ -387,12 +388,12 @@ final class AtlasCodeProgrammingWorkItemController extends Controller
                     'objective' => (string) ($spec['objective'] ?? $workItem->intent_text),
                     'owner' => $task['type'] ?? $workItem->owner ?? 'atlas-code',
                     'allowed_files' => $allowed,
-                    'forbidden_files' => $this->stringList($task['forbidden_files'] ?? []),
+                    'forbidden_files' => AiStringListNormalizer::trimmedStringsFromArrayCast($task['forbidden_files'] ?? []),
                     'expected_files' => $allowed,
-                    'dependencies' => $this->stringList($task['depends_on'] ?? []),
+                    'dependencies' => AiStringListNormalizer::trimmedStringsFromArrayCast($task['depends_on'] ?? []),
                     'risk_level' => (string) $workItem->risk_level,
                     'validation_commands' => $isTestTask
-                        ? $this->stringList(data_get($task, 'metadata.commands', []))
+                        ? AiStringListNormalizer::trimmedStringsFromArrayCast(data_get($task, 'metadata.commands', []))
                         : $validationCommands,
                     'acceptance_criteria' => $acceptance,
                     'rollback' => (string) ($spec['rollback'] ?? data_get($plan, 'rollback_plan.description', 'Revert and re-run validation.')),
@@ -417,17 +418,6 @@ final class AtlasCodeProgrammingWorkItemController extends Controller
         $workItem->forceFill(['gaps_json' => $gaps])->save();
 
         return $workItem->refresh();
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return array_values(array_filter(
-            array_map(static fn (mixed $item): string => is_string($item) ? trim($item) : '', (array) $value),
-            static fn (string $item): bool => $item !== '',
-        ));
     }
 
     private function intentFor(AtlasProject $project, ?string $explicit): string

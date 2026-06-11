@@ -6,6 +6,7 @@ use App\Models\AtlasToolRun;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Support\Collection;
 
 class AtlasToolGateService
@@ -56,11 +57,11 @@ class AtlasToolGateService
         $allRuns = $this->evidence->recent($filters);
         $latestPerTool = (bool) ($options['latest_per_tool'] ?? false);
         $runs = $latestPerTool ? $this->latestRunsPerTool($allRuns) : $allRuns;
-        $failStatuses = $this->stringList($options['fail_statuses'] ?? []);
+        $failStatuses = AiStringListNormalizer::uniqueCommaSeparatedStrings($options['fail_statuses'] ?? []);
         if ($failStatuses === []) {
             $failStatuses = ['failed', 'timeout', 'requires_approval', 'denied'];
         }
-        $requiredTools = $this->stringList($options['required_tools'] ?? []);
+        $requiredTools = AiStringListNormalizer::uniqueCommaSeparatedStrings($options['required_tools'] ?? []);
         $requireEvidence = (bool) ($options['require_evidence'] ?? false);
         $waiverAwareFailedRuns = (bool) ($options['waiver_aware_failed_runs'] ?? false);
         $maxAgeMinutes = $this->positiveInteger($options['max_age_minutes'] ?? null);
@@ -409,22 +410,6 @@ class AtlasToolGateService
                 ->count(),
             'artifact_count' => $run->artifacts->count(),
         ];
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value): array
-    {
-        $values = is_array($value) ? $value : [$value];
-
-        return collect($values)
-            ->flatMap(fn (mixed $item): array => is_string($item) ? explode(',', $item) : [])
-            ->map(fn (string $item): string => trim($item))
-            ->filter(fn (string $item): bool => $item !== '')
-            ->unique()
-            ->values()
-            ->all();
     }
 
     private function positiveInteger(mixed $value): ?int

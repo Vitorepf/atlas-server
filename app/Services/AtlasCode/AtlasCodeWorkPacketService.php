@@ -6,6 +6,7 @@ namespace App\Services\AtlasCode;
 
 use App\Models\AtlasCodeWorkPacket;
 use App\Models\AtlasProject;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -514,24 +515,6 @@ MD;
             'packet_md_path' => isset($packet['packet_md_path']) && $packet['packet_md_path'] !== '' ? (string) $packet['packet_md_path'] : null,
             'prompt_hash' => isset($packet['prompt_hash']) && $packet['prompt_hash'] !== '' ? (string) $packet['prompt_hash'] : null,
         ];
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private function stringList(mixed $raw): array
-    {
-        if (! is_array($raw)) {
-            return [];
-        }
-        $out = [];
-        foreach ($raw as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
-        }
-
-        return array_values($out);
     }
 
     private function safeSegment(string $value): string

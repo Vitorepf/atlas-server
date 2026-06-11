@@ -16,17 +16,9 @@ final class MissionPromptTokenizer
      */
     public static function promptWords(string $rawPrompt): array
     {
-        $normalized = strtolower(trim($rawPrompt));
-
-        if ($normalized === '') {
-            return [];
-        }
-
-        $rawTokens = preg_split('/\s+/', $normalized) ?: [];
-
         $tokens = [];
 
-        foreach ($rawTokens as $rawToken) {
+        foreach (self::whitespaceTokens(strtolower($rawPrompt)) as $rawToken) {
             $token = trim($rawToken, " \t\n\r\0\x0B.,;:!?\"'()[]{}");
 
             if ($token !== '') {
@@ -35,6 +27,24 @@ final class MissionPromptTokenizer
         }
 
         return $tokens;
+    }
+
+    /**
+     * Split text on whitespace only, preserving token casing and punctuation.
+     *
+     * @return list<string>
+     */
+    public static function whitespaceTokens(string $text): array
+    {
+        $text = trim($text);
+
+        if ($text === '') {
+            return [];
+        }
+
+        $tokens = preg_split('/\s+/', $text, -1, PREG_SPLIT_NO_EMPTY);
+
+        return $tokens === false ? [] : array_values($tokens);
     }
 
     /**

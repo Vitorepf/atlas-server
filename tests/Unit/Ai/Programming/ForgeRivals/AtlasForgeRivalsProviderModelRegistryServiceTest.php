@@ -67,4 +67,22 @@ final class AtlasForgeRivalsProviderModelRegistryServiceTest extends TestCase
     {
         $this->assertSame([], $this->registry->aliasesForProvider('not_a_provider'));
     }
+
+    public function test_configured_aliases_accept_csv_and_array_values(): void
+    {
+        config()->set('atlas.ai.providers.cursor_cli.aliases', ' lab, default, cursor-lab ');
+        config()->set('atlas.ai.providers.cursor_cli.composer_2_5_aliases', ['composer-plus, composer_2_5', 42, 'composer-plus']);
+
+        $cursorAliases = $this->registry->aliasesForProvider('cursor');
+        $composerAliases = $this->registry->aliasesForProvider('composer');
+
+        $this->assertContains('lab', $cursorAliases);
+        $this->assertContains('cursor-lab', $cursorAliases);
+        $this->assertSame(1, count(array_keys($cursorAliases, 'default', true)));
+
+        $this->assertContains('composer-plus', $composerAliases);
+        $this->assertContains('composer_2_5', $composerAliases);
+        $this->assertNotContains('42', $composerAliases);
+        $this->assertSame(1, count(array_keys($composerAliases, 'composer-plus', true)));
+    }
 }

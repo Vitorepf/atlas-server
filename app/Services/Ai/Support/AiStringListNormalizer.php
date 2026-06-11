@@ -189,6 +189,16 @@ final class AiStringListNormalizer
     }
 
     /**
+     * Preserves PHP array_filter truthiness semantics after casting every array item.
+     *
+     * @return array<int,string>
+     */
+    public static function truthyTrimmedCastItemsToStrings(mixed $value): array
+    {
+        return array_values(array_filter(self::trimmedCastItemsToStrings($value)));
+    }
+
+    /**
      * @return array<int,string>
      */
     public static function uniqueTrimmedCastItemsToStrings(mixed $value): array
@@ -203,6 +213,19 @@ final class AiStringListNormalizer
     {
         return array_values(array_filter(
             array_map(static fn (mixed $item): string => trim((string) $item), (array) $value),
+            static fn (string $item): bool => $item !== '',
+        ));
+    }
+
+    /**
+     * Preserves legacy helpers that treat scalar input as one list item.
+     *
+     * @return array<int,string>
+     */
+    public static function trimmedCastValueList(mixed $value): array
+    {
+        return array_values(array_filter(
+            array_map(static fn (mixed $item): string => trim((string) $item), is_array($value) ? $value : [$value]),
             static fn (string $item): bool => $item !== '',
         ));
     }
@@ -327,6 +350,31 @@ final class AiStringListNormalizer
     }
 
     /**
+     * Accepts a scalar string or an array of scalar values, trims, lowercases,
+     * drops blanks, and preserves caller order including duplicates.
+     *
+     * @return array<int,string>
+     */
+    public static function lowerTrimmedScalarValues(mixed $value): array
+    {
+        $values = is_string($value) ? [$value] : (is_array($value) ? $value : []);
+        $strings = [];
+
+        foreach ($values as $item) {
+            if (! is_scalar($item)) {
+                continue;
+            }
+
+            $item = strtolower(trim((string) $item));
+            if ($item !== '') {
+                $strings[] = $item;
+            }
+        }
+
+        return $strings;
+    }
+
+    /**
      * Preserves PHP array_filter truthiness semantics used by older list helpers.
      *
      * @return array<int,string>
@@ -388,6 +436,17 @@ final class AiStringListNormalizer
      */
     public static function uniqueTruthyMappedScalarStrings(array $values, callable $map, bool $lowercase = false): array
     {
+        return self::uniqueStrings(self::truthyMappedScalarStrings($values, $map, $lowercase));
+    }
+
+    /**
+     * Preserves PHP array_filter truthiness semantics for mapped scalar values.
+     *
+     * @param  array<int,mixed>  $values
+     * @return array<int,string>
+     */
+    public static function truthyMappedScalarStrings(array $values, callable $map, bool $lowercase = false): array
+    {
         $strings = [];
         foreach ($values as $value) {
             $mapped = $map($value);
@@ -403,7 +462,7 @@ final class AiStringListNormalizer
             $strings[] = $lowercase ? strtolower($string) : $string;
         }
 
-        return self::uniqueStrings($strings);
+        return $strings;
     }
 
     /**
@@ -427,6 +486,33 @@ final class AiStringListNormalizer
         }
 
         return self::uniqueTrimmedStrings($value);
+    }
+
+    /**
+     * Preserves legacy tool filter semantics: accept a scalar string or an array
+     * of strings, split each string on commas, trim, drop blanks, and dedupe.
+     *
+     * @return array<int,string>
+     */
+    public static function uniqueCommaSeparatedStrings(mixed $value): array
+    {
+        $values = is_array($value) ? $value : [$value];
+        $strings = [];
+
+        foreach ($values as $item) {
+            if (! is_string($item)) {
+                continue;
+            }
+
+            foreach (explode(',', $item) as $part) {
+                $part = trim($part);
+                if ($part !== '') {
+                    $strings[] = $part;
+                }
+            }
+        }
+
+        return self::uniqueStrings($strings);
     }
 
     /**

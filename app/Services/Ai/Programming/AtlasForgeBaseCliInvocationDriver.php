@@ -292,22 +292,14 @@ abstract class AtlasForgeBaseCliInvocationDriver implements AtlasForgeProviderIn
             $argv[] = '--model';
             $argv[] = $model;
         }
-        $effort = app(ComputeEffortPolicy::class)->contract(
-            requested: $request['compute_effort'] ?? data_get($request, 'compute_effort_contract.atlas_level'),
-            provider: $this->provider(),
-            context: [
-                'flow' => 'programming.forge',
-                'task' => is_string($request['prompt'] ?? null) ? (string) $request['prompt'] : null,
-            ],
-        );
-        $mapping = is_array($effort['provider_mapping'] ?? null) ? $effort['provider_mapping'] : [];
-        if ($this->provider() === 'claude_cli' && is_string($mapping['value'] ?? null) && $mapping['value'] !== '') {
+        $effort = $this->computeEffortProviderValue($request, 'programming.forge');
+        if ($this->provider() === 'claude_cli' && $effort !== null) {
             $argv[] = '--effort';
-            $argv[] = (string) $mapping['value'];
+            $argv[] = $effort;
         }
-        if ($this->provider() === 'codex_cli' && is_string($mapping['value'] ?? null) && $mapping['value'] !== '') {
+        if ($this->provider() === 'codex_cli' && $effort !== null) {
             $argv[] = '-c';
-            $argv[] = 'model_reasoning_effort="'.((string) $mapping['value']).'"';
+            $argv[] = 'model_reasoning_effort="'.$effort.'"';
         }
         // The prompt is fed through stdin. The CLI typically supports a
         // `--prompt-stdin` toggle, but the safest cross-CLI convention is to
@@ -316,6 +308,24 @@ abstract class AtlasForgeBaseCliInvocationDriver implements AtlasForgeProviderIn
         $argv[] = '--non-interactive';
 
         return array_values(array_filter($argv, static fn (string $v): bool => $v !== ''));
+    }
+
+    /**
+     * @param  array<string,mixed>  $request
+     */
+    protected function computeEffortProviderValue(array $request, string $flow): ?string
+    {
+        $effort = app(ComputeEffortPolicy::class)->contract(
+            requested: $request['compute_effort'] ?? data_get($request, 'compute_effort_contract.atlas_level'),
+            provider: $this->provider(),
+            context: [
+                'flow' => $flow,
+                'task' => is_string($request['prompt'] ?? null) ? (string) $request['prompt'] : null,
+            ],
+        );
+        $mapping = is_array($effort['provider_mapping'] ?? null) ? $effort['provider_mapping'] : [];
+
+        return is_string($mapping['value'] ?? null) && $mapping['value'] !== '' ? (string) $mapping['value'] : null;
     }
 
     protected function resolveBinaryPath(): ?string

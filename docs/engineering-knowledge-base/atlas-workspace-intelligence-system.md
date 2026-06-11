@@ -330,8 +330,28 @@ AOBG workspace map:
 - `detail=summary` e o padrao: inventario, readiness, freshness, projection e
   handles, sem amostras de rotas/comandos/migrations/testes/entrypoints.
 - `detail=samples` inclui exemplos bounded por `limit` quando o provider pedir.
+- `aobg workspace map-all` e MCP `atlas_workspace_fleet_map` entregam o mapa
+  compacto de todos os workspaces configurados: readiness agregado, contadores
+  por workspace, blockers/warnings e handles de expansao; nao indexam e nao
+  retornam samples por padrao.
+- Fleet map serve para escolher Atlas raiz vs Atlas Server vs Blackink/apps
+  filhos antes de gastar contexto; detalhes de testes, rotas e entrypoints devem
+  ser pedidos no proximo passo com `aobg workspace map --detail=samples` do
+  workspace escolhido.
+- O payload expoe prontidao em dois niveis: `workspace_readiness` contem o
+  objeto auditavel completo, e os atalhos top-level `readiness_status`,
+  `safe_for_initial_context`, `safe_for_implementation`, `readiness_blockers` e
+  `readiness_warnings` existem para consumidores MCP/CLI simples nao precisarem
+  navegar estrutura aninhada antes de decidir se podem implementar.
+- O payload tambem expoe `freshness` bounded com `reason`, `checked_files`,
+  `changed_files` e `missing_files` para explicar stale sem retornar conteudo
+  bruto nem diff.
 - snapshot stale => `workspace_readiness.status=limited`,
   `safe_for_implementation=false` e `next_actions` com reindex/activation.
+- `aobg workspace activate` so pode retornar sucesso operacional quando o status
+  final estiver indexado e sem `needs_reindex`; se o index runner retorna ok mas
+  o snapshot segue stale, a action deve ser `activation_index_still_stale` com
+  `ok=false`.
 
 Conversas longas:
 

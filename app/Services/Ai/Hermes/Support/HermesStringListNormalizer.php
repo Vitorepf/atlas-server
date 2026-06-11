@@ -43,6 +43,28 @@ final class HermesStringListNormalizer
     }
 
     /**
+     * Normalizes capability invocation policy fields. This contract is stricter
+     * than result packets: scalar strings may be CSV, scalar numbers are ignored,
+     * array numbers are accepted, "0" is kept, and duplicates are preserved.
+     *
+     * @return array<int,string>
+     */
+    public static function invocationValues(mixed $value, int $itemLimit): array
+    {
+        $items = is_array($value) ? $value : (is_string($value) ? preg_split('/\s*,\s*/', $value) ?: [] : []);
+        $strings = [];
+
+        foreach ($items as $item) {
+            $string = self::string($item, $itemLimit);
+            if ($string !== null) {
+                $strings[] = $string;
+            }
+        }
+
+        return $strings;
+    }
+
+    /**
      * Normalizes array-only Hermes configuration lists.
      *
      * @return array<int,string>

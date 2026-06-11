@@ -1126,6 +1126,20 @@ class AtlasOpenBrainMcpService
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
             [
+                'name' => 'atlas_workspace_fleet_map',
+                'title' => 'Atlas Workspace Fleet Map (AOBG configured workspaces)',
+                'description' => 'AOBG workspace fleet map: leitura compacta e provider-safe de TODOS os workspaces configurados no Atlas Code registry. Retorna readiness agregado, contadores por workspace, blockers/warnings e handles de expansão; não retorna samples por padrão e nunca reindexa. Use quando o provider precisa escolher entre Atlas raiz, Atlas Server, Blackink, apps filhos ou verificar se a frota está pronta antes de implementar.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'limit' => ['type' => 'integer', 'description' => 'Limite usado nos handles de expansão por workspace (default 12, teto 50).'],
+                        'detail' => ['type' => 'string', 'description' => 'summary (default). Fleet sempre defere samples para atlas_workspace_map de um workspace específico.'],
+                    ],
+                    'required' => [],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
                 'name' => 'atlas_workspace_activate',
                 'title' => 'Atlas Workspace Activate (AOBG auto-bootstrap)',
                 'description' => 'AOBG workspace activation: explicit local bootstrap for a folder the provider just opened. It registers/binds the workspace in AWIS, merges provider bootstrap files (.mcp.json, .claude/settings.json, AGENTS.md, CLAUDE.md), and runs the existing AWIS-gated CodeGraph index when the workspace is not indexed yet (or force=true). Local filesystem + DB only, zero provider spend. Use when atlas_workspace_status returns needs_onboarding=true or at session start for a new workspace.',
@@ -1290,6 +1304,7 @@ class AtlasOpenBrainMcpService
                 'atlas_propose_learning' => $this->toolResponse($id, $this->proposeLearning($arguments)),
                 'atlas_workspace_status' => $this->toolResponse($id, $this->workspaceStatus($arguments)),
                 'atlas_workspace_map' => $this->toolResponse($id, $this->workspaceMap($arguments)),
+                'atlas_workspace_fleet_map' => $this->toolResponse($id, $this->workspaceFleetMap($arguments)),
                 'atlas_workspace_activate' => $this->toolResponse($id, $this->workspaceActivate($arguments)),
                 'atlas_claim_task' => $this->toolResponse($id, $this->claimTask($arguments)),
                 'atlas_blackboard_status' => $this->toolResponse($id, $this->blackboardStatus($arguments)),
@@ -3263,6 +3278,30 @@ class AtlasOpenBrainMcpService
         }
 
         return ['tool' => $tool] + $this->workspaceOnboarding->map($opts);
+    }
+
+    /**
+     * AOBG workspace fleet map: compact readiness inventory for every configured
+     * workspace. Read-only; does not reindex and defers samples to atlas_workspace_map.
+     *
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function workspaceFleetMap(array $arguments): array
+    {
+        $tool = 'atlas_workspace_fleet_map';
+
+        $opts = [];
+        $limit = $this->positiveInt($arguments['limit'] ?? null);
+        if ($limit !== null) {
+            $opts['limit'] = $limit;
+        }
+        $detail = $this->string($arguments['detail'] ?? null);
+        if ($detail !== null) {
+            $opts['detail'] = $detail;
+        }
+
+        return ['tool' => $tool] + $this->workspaceOnboarding->mapAll($opts);
     }
 
     /**

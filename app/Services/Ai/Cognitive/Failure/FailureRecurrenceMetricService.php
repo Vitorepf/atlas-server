@@ -117,6 +117,47 @@ class FailureRecurrenceMetricService
     }
 
     /**
+     * Conta ocorrências CRUAS de um cluster em [from, to) — re-classifica
+     * deterministicamente cada attempt do range e compara signature_key.
+     * Base do auto-reverse do autopilot (G3: caminho ineditável por candidato).
+     */
+    public function clusterCountBetween(string $signatureKey, \Carbon\CarbonInterface $from, \Carbon\CarbonInterface $to): int
+    {
+        if (! DatabaseTableAvailability::all(['ai_job_attempts'])) {
+            return 0;
+        }
+
+        $rows = DB::table('ai_job_attempts')
+            ->whereIn('status', self::FAILURE_STATUSES)
+            ->where('created_at', '>=', $from)
+            ->where('created_at', '<', $to)
+            ->orderBy('created_at')
+            ->limit(self::MAX_ROWS)
+            ->get();
+
+        $count = 0;
+        foreach ($rows as $row) {
+            $signature = $this->classifier->classify([
+                'envelope_id' => 'autopilot_probe:'.$row->id,
+                'event_type' => 'ai_job_attempt_'.$row->status,
+                'domain' => (string) config('atlas.ai.failure_auto_feed.domain', 'engineering'),
+                'message' => trim((string) ($row->error_message ?? '')) !== ''
+                    ? (string) $row->error_message
+                    : sprintf('ai job attempt %s (provider %s)', (string) $row->status, (string) ($row->provider ?? 'unknown')),
+                'error_class' => $row->error_code ?? null,
+                'status_code' => $row->exit_code ?? null,
+                'provider' => $row->provider ?? null,
+                'model' => $row->model ?? null,
+            ]);
+            if ((string) $signature['signature_key'] === $signatureKey) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
      * @return array<string,mixed>
      */
     private function totals(\Carbon\CarbonInterface $currentStart, \Carbon\CarbonInterface $previousStart, ?string $provider): array

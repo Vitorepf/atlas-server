@@ -4,6 +4,7 @@ namespace App\Services\Ai\Kernel\Repair;
 
 use App\Services\Ai\Kernel\Failure\FailureClassification;
 use App\Services\Ai\Kernel\Failure\FailureDomain;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 final readonly class RepairRequest
 {
@@ -36,13 +37,13 @@ final readonly class RepairRequest
             failure: new FailureClassification(
                 domain: $domain,
                 source: RepairPayloadNormalizer::string($failure['source'] ?? null, 'repair_request'),
-                signals: self::stringList($failure['signals'] ?? []),
+                signals: AiStringListNormalizer::trimmedStrings($failure['signals'] ?? []),
                 confidence: RepairPayloadNormalizer::boundedFloat($failure['confidence'] ?? null, 1.0, 0.0, 1.0),
                 metadata: is_array($failure['metadata'] ?? null) ? $failure['metadata'] : [],
             ),
             policy: RepairPolicy::fromArray(is_array($payload['policy'] ?? null) ? $payload['policy'] : $payload),
             currentAttempt: (int) ($payload['current_attempt'] ?? 0),
-            evidenceRefs: self::stringList($payload['evidence_refs'] ?? []),
+            evidenceRefs: AiStringListNormalizer::trimmedStrings($payload['evidence_refs'] ?? []),
             dryRun: RepairPayloadNormalizer::boolean($payload['dry_run'] ?? true),
             metadata: is_array($payload['metadata'] ?? null) ? $payload['metadata'] : [],
         );
@@ -66,21 +67,4 @@ final readonly class RepairRequest
         ];
     }
 
-    /**
-     * @return array<int,string>
-     */
-    private static function stringList(mixed $values): array
-    {
-        if (! is_array($values)) {
-            return [];
-        }
-
-        return array_values(array_filter(
-            array_map(
-                fn (mixed $value): ?string => is_string($value) ? trim($value) : null,
-                $values,
-            ),
-            fn (?string $value): bool => $value !== null && $value !== '',
-        ));
-    }
 }

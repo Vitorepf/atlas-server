@@ -435,6 +435,100 @@ final class AtlasAobgWorkspaceOnboardingServiceTest extends TestCase
         $this->deleteTree($two);
     }
 
+    public function test_workspace_fleet_map_summarizes_configured_workspaces_for_mcp_and_cli(): void
+    {
+        config()->set('atlas_projects.profiles', []);
+
+        $readyPath = sys_get_temp_dir().'/aobg-fleet-ready-'.Str::random(6);
+        $stalePath = sys_get_temp_dir().'/aobg-fleet-stale-'.Str::random(6);
+        $missingPath = sys_get_temp_dir().'/aobg-fleet-missing-'.Str::random(6);
+        @mkdir($readyPath, 0777, true);
+        @mkdir($stalePath.'/app', 0777, true);
+        $canonicalReady = realpath($readyPath) ?: $readyPath;
+        $canonicalStale = realpath($stalePath) ?: $stalePath;
+
+        $this->insertWorkspaceProfile([
+            'slug' => 'fleet-ready',
+            'name' => 'Fleet Ready',
+            'workspace_path' => $canonicalReady,
+            'repo_root' => $canonicalReady,
+            'source' => 'operator',
+        ]);
+        $this->insertWorkspaceProfile([
+            'slug' => 'fleet-stale',
+            'name' => 'Fleet Stale',
+            'workspace_path' => $canonicalStale,
+            'repo_root' => $canonicalStale,
+            'source' => 'operator',
+        ]);
+        $this->insertWorkspaceProfile([
+            'slug' => 'fleet-missing',
+            'name' => 'Fleet Missing',
+            'workspace_path' => $missingPath,
+            'repo_root' => $missingPath,
+            'source' => 'operator',
+        ]);
+
+        $filePath = $stalePath.'/app/Foo.php';
+        file_put_contents($filePath, '<?php class Foo {}');
+        touch($filePath, time() - 3600);
+        clearstatcache(false, $filePath);
+        $indexedMtime = filemtime($filePath);
+
+        $this->seedCodeSymbol('ReadySymbol', 'fleet-ready');
+        $this->seedCodeSymbol('StaleSymbol', 'fleet-stale', ['file_path' => 'app/Foo.php', 'indexed_at' => now()->subHour()]);
+        $this->seedFileSnapshot('fleet-stale', 'app/Foo.php', is_int($indexedMtime) ? $indexedMtime : time() - 3600);
+        file_put_contents($filePath, '<?php class Foo { public function changed() {} }');
+        touch($filePath, time());
+        clearstatcache(false, $filePath);
+
+        $result = $this->service()->mapAll(['limit' => 4]);
+        $rows = array_column($result['workspaces'], null, 'profile_slug');
+        $mcp = $this->app->make(AtlasOpenBrainMcpService::class);
+        $list = $mcp->handleJsonRpc(['jsonrpc' => '2.0', 'id' => 20, 'method' => 'tools/list', 'params' => []]);
+        $mcpFleet = $mcp->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 21, 'method' => 'tools/call',
+            'params' => ['name' => 'atlas_workspace_fleet_map', 'arguments' => ['limit' => 4]],
+        ])['result']['structuredContent'];
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame('atlas.aobg.workspace_fleet_map.v1', $result['fleet_schema']);
+        $this->assertTrue($result['read_only']);
+        $this->assertTrue($result['provider_safe']);
+        $this->assertSame('blocked', $result['readiness_status']);
+        $this->assertFalse($result['safe_for_initial_context']);
+        $this->assertFalse($result['safe_for_implementation']);
+        $this->assertSame(3, $result['summary']['total_profiles']);
+        $this->assertSame(2, $result['summary']['existing_path']);
+        $this->assertSame(1, $result['summary']['missing_path']);
+        $this->assertSame(1, $result['summary']['ready']);
+        $this->assertSame(1, $result['summary']['limited']);
+        $this->assertSame(1, $result['summary']['blocked']);
+        $this->assertSame(1, $result['summary']['needs_reindex']);
+        $this->assertSame(2, $result['summary']['symbol_count']);
+        $this->assertFalse($result['sample_policy']['included']);
+        $this->assertSame('fleet_map_defers_workspace_samples', $result['sample_policy']['reason']);
+        $this->assertContains('workspace_path_missing', $result['readiness_blockers']);
+        $this->assertContains('workspace_index_stale', $result['readiness_warnings']);
+        $this->assertSame('ready', $rows['fleet-ready']['readiness_status']);
+        $this->assertSame('limited', $rows['fleet-stale']['readiness_status']);
+        $this->assertContains('workspace_index_stale', $rows['fleet-stale']['readiness_warnings']);
+        $this->assertSame('known_snapshot_changed', $rows['fleet-stale']['freshness_reason']);
+        $this->assertSame('app/Foo.php', $rows['fleet-stale']['freshness_changed_files'][0]['path']);
+        $this->assertSame('blocked', $rows['fleet-missing']['readiness_status']);
+        $this->assertContains('workspace_path_missing', $rows['fleet-missing']['readiness_blockers']);
+        $this->assertContains('atlas_workspace_fleet_map', array_column($list['result']['tools'], 'name'));
+        $this->assertSame('atlas_workspace_fleet_map', $mcpFleet['tool']);
+        $this->assertSame(3, $mcpFleet['summary']['total_profiles']);
+        $this->assertSame('blocked', $mcpFleet['readiness_status']);
+
+        $this->artisan('atlas:aobg:workspace', ['action' => 'map-all', '--json' => true])
+            ->assertSuccessful();
+
+        $this->deleteTree($readyPath);
+        $this->deleteTree($stalePath);
+    }
+
     public function test_activate_reindexes_workspace_when_known_snapshot_is_stale(): void
     {
         $identity = $this->app->make(CodeGraphWorkspaceIdentity::class);
@@ -477,6 +571,43 @@ final class AtlasAobgWorkspaceOnboardingServiceTest extends TestCase
         $this->assertTrue($result['triggered_index']);
         $this->assertFalse($result['status']['needs_reindex']);
         $this->assertSame('fresh', $result['status']['freshness_status']);
+
+        $this->deleteTree($workspacePath);
+    }
+
+    public function test_activate_reports_not_ok_when_index_runner_succeeds_but_workspace_remains_stale(): void
+    {
+        $identity = $this->app->make(CodeGraphWorkspaceIdentity::class);
+        $workspacePath = sys_get_temp_dir().'/aobg-still-stale-'.Str::random(6);
+        $filePath = $workspacePath.'/app/Foo.php';
+        @mkdir(dirname($filePath), 0777, true);
+        file_put_contents($filePath, '<?php class Foo {}');
+        touch($filePath, time() - 3600);
+        clearstatcache(false, $filePath);
+
+        $workspaceId = $identity->resolve($workspacePath);
+        $indexedMtime = filemtime($filePath);
+        $this->seedCodeSymbol('Foo', $workspaceId, ['file_path' => 'app/Foo.php', 'indexed_at' => now()->subHour()]);
+        $this->seedFileSnapshot($workspaceId, 'app/Foo.php', is_int($indexedMtime) ? $indexedMtime : time() - 3600);
+
+        file_put_contents($filePath, '<?php class Foo { public function changed() {} }');
+        touch($filePath, time());
+        clearstatcache(false, $filePath);
+
+        $service = $this->service()->setIndexRunner(static fn (): array => [
+            'ok' => true,
+            'reason' => 'runner_reported_success_without_refreshing_snapshot',
+            'exit_code' => 0,
+        ]);
+
+        $result = $service->activate(['workspace' => $workspacePath]);
+
+        $this->assertFalse($result['ok']);
+        $this->assertSame('activation_index_still_stale', $result['action']);
+        $this->assertTrue($result['triggered_index']);
+        $this->assertTrue($result['index']['ok']);
+        $this->assertTrue($result['status']['needs_reindex']);
+        $this->assertSame('stale', $result['status']['freshness_status']);
 
         $this->deleteTree($workspacePath);
     }
@@ -602,6 +733,11 @@ final class AtlasAobgWorkspaceOnboardingServiceTest extends TestCase
         $this->assertSame([], $summaryMap['examples']['tests']);
         $this->assertSame('ready', $summaryMap['workspace_readiness']['status']);
         $this->assertTrue($summaryMap['workspace_readiness']['safe_for_implementation']);
+        $this->assertSame('ready', $summaryMap['readiness_status']);
+        $this->assertTrue($summaryMap['safe_for_initial_context']);
+        $this->assertTrue($summaryMap['safe_for_implementation']);
+        $this->assertSame([], $summaryMap['readiness_blockers']);
+        $this->assertSame([], $summaryMap['readiness_warnings']);
         $this->assertStringContainsString('--detail=samples', $summaryMap['sample_policy']['request_samples']);
 
         $this->assertTrue($map['ok']);
@@ -650,10 +786,17 @@ final class AtlasAobgWorkspaceOnboardingServiceTest extends TestCase
 
         $this->assertSame('summary', $map['detail']);
         $this->assertSame('stale', $map['freshness_status']);
+        $this->assertSame('known_snapshot_changed', $map['freshness']['reason']);
+        $this->assertSame('app/Foo.php', $map['freshness']['changed_files'][0]['path']);
         $this->assertTrue($map['needs_reindex']);
         $this->assertSame('limited', $map['workspace_readiness']['status']);
         $this->assertFalse($map['workspace_readiness']['safe_for_implementation']);
         $this->assertContains('workspace_index_stale', $map['workspace_readiness']['warnings']);
+        $this->assertSame('limited', $map['readiness_status']);
+        $this->assertTrue($map['safe_for_initial_context']);
+        $this->assertFalse($map['safe_for_implementation']);
+        $this->assertSame([], $map['readiness_blockers']);
+        $this->assertContains('workspace_index_stale', $map['readiness_warnings']);
         $this->assertNotEmpty(array_filter(
             $map['next_actions'],
             static fn (string $action): bool => str_contains($action, 'index-code'),

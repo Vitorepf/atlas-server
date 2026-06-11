@@ -12,6 +12,7 @@ use App\Services\Ai\Kernel\Failure\FailureHandlerRegistry;
 use App\Services\Ai\Kernel\Repair\RepairDecision;
 use App\Services\Ai\Kernel\Repair\RepairResult;
 use App\Services\Ai\Kernel\Slo\KernelSloAssessment;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
@@ -346,16 +347,13 @@ class AtlasEvidenceLedger
     private function kernelPipelineStageOrder(array $plan): array
     {
         if (is_array($plan['stage_order'] ?? null)) {
-            return array_values(array_filter(array_map(
-                fn (mixed $stage): ?string => is_scalar($stage) ? trim((string) $stage) : null,
-                $plan['stage_order'],
-            )));
+            return AiStringListNormalizer::truthyTrimmedScalarValues($plan['stage_order']);
         }
 
-        return array_values(array_filter(array_map(
-            fn (mixed $stage): ?string => is_scalar(data_get($stage, 'stage')) ? trim((string) data_get($stage, 'stage')) : null,
+        return AiStringListNormalizer::truthyMappedScalarStrings(
             (array) ($plan['stages'] ?? $plan['stage_results'] ?? []),
-        )));
+            static fn (mixed $stage): mixed => data_get($stage, 'stage'),
+        );
     }
 
     /**

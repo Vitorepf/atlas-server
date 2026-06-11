@@ -1429,7 +1429,7 @@ final class Reliable24hLoopRunnerService
         $rollupAfter = $rollupBefore;
         if (($validation['passed'] ?? null) === true) {
             $validation['evidence_refs'] = AreaFocusStringListNormalizer::uniqueMergedStringValues(
-                $this->stringList($validation['evidence_refs'] ?? []),
+                AreaFocusStringListNormalizer::coercedTrimmedUniqueStringOrNumberValues($validation['evidence_refs'] ?? []),
                 ['existing_delivery_commit:'.(string) ($existing['commit_hash'] ?? '')],
             );
             $rollupAfter = $tracker->recordSupervisedExistingDelivery([
@@ -1617,7 +1617,7 @@ final class Reliable24hLoopRunnerService
      */
     private function planBacklogTrackedExistingDelivery(array $slice, string $repoRoot): array
     {
-        $allowedFiles = $this->stringList($slice['allowed_files'] ?? []);
+        $allowedFiles = AreaFocusStringListNormalizer::coercedTrimmedUniqueStringOrNumberValues($slice['allowed_files'] ?? []);
         if ($allowedFiles === []) {
             return ['eligible' => false, 'blockers' => ['supervised_existing_delivery_allowed_files_missing']];
         }
@@ -1802,10 +1802,10 @@ final class Reliable24hLoopRunnerService
      */
     private function planBacklogValidationCommands(array $slice): array
     {
-        $commands = $this->stringList($slice['validation_commands'] ?? []);
+        $commands = AreaFocusStringListNormalizer::coercedTrimmedUniqueStringOrNumberValues($slice['validation_commands'] ?? []);
         foreach ((array) ($slice['executable_slices'] ?? []) as $executableSlice) {
             if (is_array($executableSlice)) {
-                $commands = array_merge($commands, $this->stringList($executableSlice['validation_commands'] ?? []));
+                $commands = array_merge($commands, AreaFocusStringListNormalizer::coercedTrimmedUniqueStringOrNumberValues($executableSlice['validation_commands'] ?? []));
             }
         }
 
@@ -1935,7 +1935,7 @@ final class Reliable24hLoopRunnerService
     private function cycleReplaysRehabilitatedPlanSlice(array $cycle, string $findingKey): bool
     {
         $planBacklog = is_array($cycle['plan_backlog'] ?? null) ? $cycle['plan_backlog'] : [];
-        foreach ($this->stringList($planBacklog['selection_skip_rehabilitated_keys'] ?? []) as $key) {
+        foreach (AreaFocusStringListNormalizer::coercedTrimmedUniqueStringOrNumberValues($planBacklog['selection_skip_rehabilitated_keys'] ?? []) as $key) {
             if ($key === $findingKey) {
                 return true;
             }
@@ -1957,7 +1957,7 @@ final class Reliable24hLoopRunnerService
         $planBacklog = is_array($cycle['plan_backlog'] ?? null) ? $cycle['plan_backlog'] : [];
 
         return (string) ($planBacklog['selection_kind'] ?? '') === 'provider_proof_reconciliation'
-            && in_array($findingKey, $this->stringList([
+            && in_array($findingKey, AreaFocusStringListNormalizer::coercedTrimmedUniqueStringOrNumberValues([
                 $planBacklog['slice_id'] ?? '',
                 $planBacklog['finding_id'] ?? '',
                 data_get($cycle, 'selected_finding.finding_id', ''),
@@ -1976,7 +1976,7 @@ final class Reliable24hLoopRunnerService
         $planBacklog = is_array($cycle['plan_backlog'] ?? null) ? $cycle['plan_backlog'] : [];
 
         return (string) ($planBacklog['selection_kind'] ?? '') === 'supervised_existing_delivery'
-            && in_array($findingKey, $this->stringList([
+            && in_array($findingKey, AreaFocusStringListNormalizer::coercedTrimmedUniqueStringOrNumberValues([
                 $planBacklog['slice_id'] ?? '',
                 $planBacklog['finding_id'] ?? '',
                 data_get($cycle, 'selected_finding.finding_id', ''),
@@ -1993,7 +1993,7 @@ final class Reliable24hLoopRunnerService
      */
     private function planBacklogDocs(array $input, string $areaId, string $focus): array
     {
-        $explicit = $this->stringList($input['plan_backlog_docs'] ?? []);
+        $explicit = AreaFocusStringListNormalizer::coercedTrimmedUniqueStringOrNumberValues($input['plan_backlog_docs'] ?? []);
         if ($explicit !== []) {
             return $explicit;
         }
@@ -2710,7 +2710,7 @@ final class Reliable24hLoopRunnerService
             $keys = [];
             $recordQuarantined = (bool) ($record['quarantined'] ?? false);
             if ($this->ledgerRecordLocksFindingAcrossRuns($record) || $recordQuarantined) {
-                $keys = array_merge([$this->str($record['finding_key'] ?? '')], $this->stringList($record['finding_keys'] ?? []));
+                $keys = array_merge([$this->str($record['finding_key'] ?? '')], AreaFocusStringListNormalizer::coercedTrimmedUniqueStringOrNumberValues($record['finding_keys'] ?? []));
             }
             foreach ($keys as $key) {
                 if ($key === '') {
@@ -3862,18 +3862,12 @@ final class Reliable24hLoopRunnerService
 
         return AreaFocusStringListNormalizer::uniqueStringValues(array_filter(array_merge(
             [$fallback],
-            $this->stringList([
+            AreaFocusStringListNormalizer::coercedTrimmedUniqueStringOrNumberValues([
                 $finding['finding_id'] ?? '',
                 $finding['finding_hash'] ?? '',
                 $finding['title'] ?? '',
             ]),
         ), static fn (string $value): bool => $value !== ''));
-    }
-
-    /** @return list<string> */
-    private function stringList(mixed $values): array
-    {
-        return AreaFocusStringListNormalizer::coercedTrimmedUniqueStringOrNumberValues($values);
     }
 
     private function key(string $areaId, string $focus): string

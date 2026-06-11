@@ -44,7 +44,7 @@ class AtlasRivalsStrategyCaseRegistrar
                     'context_summary' => $this->nullableString($input['context_summary'] ?? null),
                     'horizon_days' => $horizonDays,
                     'source_hash' => $sourceHash,
-                    'tags_json' => $this->stringList($input['tags'] ?? []),
+                    'tags_json' => AiStringListNormalizer::uniqueTruthyTrimmedCastValues($input['tags'] ?? []),
                     'metrics_json' => is_array($input['metrics'] ?? null) ? $input['metrics'] : [],
                     'metadata' => [
                         'schema_version' => self::SCHEMA_VERSION,
@@ -123,14 +123,6 @@ class AtlasRivalsStrategyCaseRegistrar
             ->sort()
             ->values()
             ->all();
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return AiStringListNormalizer::uniqueTruthyTrimmedCastValues($value);
     }
 
     private function string(mixed $value): string

@@ -195,10 +195,7 @@ class AtlasFeaturePlacementService
         return [
             'schema_version' => $summary['schema_version'] ?? 'atlas.architecture_operations.v1',
             'section' => $summary['section'] ?? 'arquitetura_mae',
-            'operation_ids' => array_values(array_filter(array_map(
-                fn (array $command): ?string => is_string($command['id'] ?? null) ? $command['id'] : null,
-                $commands,
-            ))),
+            'operation_ids' => $this->operations->operationIds($commands),
             'command_count' => count($commands),
             'commands' => $commands,
             'owner_layer_operations' => [

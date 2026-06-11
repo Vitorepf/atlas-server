@@ -22,6 +22,14 @@ final class MissionPromptTokenizerTest extends TestCase
         $this->assertSame([], MissionPromptTokenizer::promptWords(" \t\n "));
     }
 
+    public function test_whitespace_tokens_preserves_case_and_punctuation(): void
+    {
+        $this->assertSame(
+            ['Deploy...', 'agora!'],
+            MissionPromptTokenizer::whitespaceTokens("  Deploy... \t agora!  "),
+        );
+    }
+
     public function test_semantic_words_split_on_punctuation_and_keep_unicode_letters_and_numbers(): void
     {
         $this->assertSame(

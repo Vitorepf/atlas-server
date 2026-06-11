@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Skills;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
@@ -41,7 +42,7 @@ class SkillManifest
      */
     public function requiresTools(): array
     {
-        return $this->stringList(data_get($this->metadata, 'atlas.requires_tools', []));
+        return AiStringListNormalizer::lowerTrimmedScalarValues(data_get($this->metadata, 'atlas.requires_tools', []));
     }
 
     /**
@@ -49,7 +50,7 @@ class SkillManifest
      */
     public function fallbackForTools(): array
     {
-        return $this->stringList(data_get($this->metadata, 'atlas.fallback_for_tools', []));
+        return AiStringListNormalizer::lowerTrimmedScalarValues(data_get($this->metadata, 'atlas.fallback_for_tools', []));
     }
 
     /**
@@ -57,7 +58,7 @@ class SkillManifest
      */
     public function platforms(): array
     {
-        $platforms = $this->stringList(data_get($this->metadata, 'atlas.platforms', ['macos', 'linux']));
+        $platforms = AiStringListNormalizer::lowerTrimmedScalarValues(data_get($this->metadata, 'atlas.platforms', ['macos', 'linux']));
 
         return $platforms === [] ? ['macos', 'linux'] : $platforms;
     }
@@ -119,20 +120,4 @@ class SkillManifest
         ];
     }
 
-    /**
-     * @param  mixed  $value
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (is_string($value)) {
-            $value = [$value];
-        }
-
-        return collect(is_array($value) ? $value : [])
-            ->filter(fn (mixed $item): bool => is_scalar($item) && trim((string) $item) !== '')
-            ->map(fn (mixed $item): string => Str::of((string) $item)->lower()->trim()->value())
-            ->values()
-            ->all();
-    }
 }

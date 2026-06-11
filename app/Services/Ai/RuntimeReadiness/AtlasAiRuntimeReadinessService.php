@@ -234,11 +234,11 @@ class AtlasAiRuntimeReadinessService
             ]);
 
             $blockers = array_values(array_filter(array_merge(
-                $this->stringList(array_map(
+                AiStringListNormalizer::trimmedScalarValues(array_map(
                     static fn (array $blocker): string => (string) ($blocker['id'] ?? 'unknown_blocker'),
                     is_array($envelope['blockers'] ?? null) ? $envelope['blockers'] : [],
                 )),
-                $this->stringList(array_map(
+                AiStringListNormalizer::trimmedScalarValues(array_map(
                     static fn (array $blocker): string => (string) ($blocker['id'] ?? 'unknown_feedback_blocker'),
                     is_array($feedback['blockers'] ?? null) ? $feedback['blockers'] : [],
                 )),
@@ -250,7 +250,7 @@ class AtlasAiRuntimeReadinessService
                 'route_target' => data_get($envelope, 'route.target'),
                 'flow_id' => data_get($envelope, 'route.flow_id'),
                 'doctrine_gate_status' => data_get($envelope, 'aedpds.gate.status'),
-                'selected_drivers' => $this->stringList(data_get($envelope, 'aedpds.doctrine.selected_primary_drivers', [])),
+                'selected_drivers' => AiStringListNormalizer::trimmedScalarValues(data_get($envelope, 'aedpds.doctrine.selected_primary_drivers', [])),
                 'context_memory_status' => data_get($envelope, 'aucri_acmf.status'),
                 'context_must_keep_coverage' => data_get($envelope, 'aucri_acmf.working_set.must_keep_coverage'),
                 'areg_status' => data_get($envelope, 'areg.status'),
@@ -385,14 +385,6 @@ class AtlasAiRuntimeReadinessService
         } catch (Throwable) {
             return null;
         }
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return AiStringListNormalizer::trimmedScalarValues($value);
     }
 
     /* ============================================================ */

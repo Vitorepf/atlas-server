@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
+
 class AtlasEffectivePolicyComposer
 {
     private const POLICY_FAMILIES = [
@@ -264,7 +266,7 @@ class AtlasEffectivePolicyComposer
 
         return [
             'scope' => $scope,
-            'recall' => $this->stringList(data_get($policy, 'recall', $scope === 'deep' ? ['thread', 'project', 'semantic', 'decisions'] : ['thread', 'project'])),
+            'recall' => AiStringListNormalizer::trimmedCastValueList(data_get($policy, 'recall', $scope === 'deep' ? ['thread', 'project', 'semantic', 'decisions'] : ['thread', 'project'])),
             'record_decisions' => (bool) data_get($policy, 'record_decisions', $scope !== 'thread'),
             'privacy_gate' => (string) data_get($policy, 'privacy_gate', 'provider_safe'),
             'source' => $policy !== [] ? 'profile_policy' : 'derived_default',
@@ -284,7 +286,7 @@ class AtlasEffectivePolicyComposer
 
         return [
             'mode' => $mode,
-            'required_bundles' => $this->stringList(data_get($policy, 'required_bundles', $this->defaultSkillBundles($domain, $flow))),
+            'required_bundles' => AiStringListNormalizer::trimmedCastValueList(data_get($policy, 'required_bundles', $this->defaultSkillBundles($domain, $flow))),
             'allow_multi_skill' => (bool) data_get($policy, 'allow_multi_skill', $mode !== 'minimal'),
             'require_skill_trace' => (bool) data_get($policy, 'require_skill_trace', $mode !== 'minimal'),
             'source' => $policy !== [] ? 'profile_policy' : 'derived_default',
@@ -338,8 +340,8 @@ class AtlasEffectivePolicyComposer
     private function gateContract(array $policy, array $gatePolicy): array
     {
         $required = array_values(array_unique([
-            ...$this->stringList($policy['required_gates'] ?? []),
-            ...$this->stringList(data_get($gatePolicy, 'required_gates', [])),
+            ...AiStringListNormalizer::trimmedCastValueList($policy['required_gates'] ?? []),
+            ...AiStringListNormalizer::trimmedCastValueList(data_get($gatePolicy, 'required_gates', [])),
         ]));
         $minimum = $this->text(data_get($gatePolicy, 'minimum_gate'), data_get($gatePolicy, 'preset'))
             ?? ((bool) data_get($policy, 'execution_policy.quality_required', false) ? 'strict' : 'standard');
@@ -457,7 +459,7 @@ class AtlasEffectivePolicyComposer
                     continue;
                 }
 
-                $policy['allowed_models'][$provider] = $this->stringList($models);
+                $policy['allowed_models'][$provider] = AiStringListNormalizer::trimmedCastValueList($models);
             }
         }
 
@@ -596,19 +598,6 @@ class AtlasEffectivePolicyComposer
         }
 
         return null;
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value): array
-    {
-        $items = is_array($value) ? $value : [$value];
-
-        return array_values(array_filter(array_map(
-            fn (mixed $item): string => trim((string) $item),
-            $items,
-        ), fn (string $item): bool => $item !== ''));
     }
 
     /**

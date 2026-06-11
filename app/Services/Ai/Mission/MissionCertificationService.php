@@ -8,6 +8,7 @@ use App\Models\AiMissionEvent;
 use App\Models\AiMissionEvidenceRef;
 use App\Models\AiObjective;
 use App\Models\AiWorkOrder;
+use App\Services\Ai\Mission\Support\MissionSuccessCriteriaNormalizer;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -723,21 +724,7 @@ class MissionCertificationService
      */
     private static function nonEmptyCriteria(mixed $criteria): Collection
     {
-        return collect((array) $criteria)
-            ->filter(static fn (mixed $item): bool => self::isNonEmptyCriterion($item))
-            ->values();
-    }
-
-    private static function isNonEmptyCriterion(mixed $item): bool
-    {
-        if (is_string($item)) {
-            return trim($item) !== '';
-        }
-        if (is_array($item)) {
-            return trim((string) ($item['description'] ?? '')) !== '';
-        }
-
-        return false;
+        return collect(MissionSuccessCriteriaNormalizer::descriptions($criteria))->values();
     }
 
     private static function isValidSha256(string $hash): bool

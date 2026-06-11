@@ -4,6 +4,7 @@ namespace App\Services\Tools;
 
 use App\Models\AtlasToolRun;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Support\AtlasSecurity;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -30,7 +31,7 @@ class AtlasToolEvidenceQueryService
         }
 
         foreach (['tool_slug', 'surface', 'status', 'policy_decision', 'run_context_type', 'run_context_id'] as $field) {
-            $values = $this->stringValues($filters[$field] ?? null);
+            $values = AiStringListNormalizer::uniqueCommaSeparatedStrings($filters[$field] ?? null);
             if (count($values) === 1) {
                 $query->where($field, $values[0]);
             } elseif ($values !== []) {
@@ -39,7 +40,7 @@ class AtlasToolEvidenceQueryService
         }
 
         foreach (['recipe', 'recipe_category', 'recipe_recommended_surface'] as $field) {
-            $values = $this->stringValues($filters[$field] ?? null);
+            $values = AiStringListNormalizer::uniqueCommaSeparatedStrings($filters[$field] ?? null);
             if (count($values) === 1) {
                 $query->where("metadata_json->{$field}", $values[0]);
             } elseif ($values !== []) {
@@ -219,22 +220,6 @@ class AtlasToolEvidenceQueryService
         }
 
         return hash('sha256', realpath($workspace) ?: $workspace);
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function stringValues(mixed $value): array
-    {
-        $values = is_array($value) ? $value : [$value];
-
-        return collect($values)
-            ->flatMap(fn (mixed $item): array => is_string($item) ? explode(',', $item) : [])
-            ->map(fn (string $item): string => trim($item))
-            ->filter(fn (string $item): bool => $item !== '')
-            ->unique()
-            ->values()
-            ->all();
     }
 
     private function exportFilePath(mixed $path, mixed $workspace): ?string

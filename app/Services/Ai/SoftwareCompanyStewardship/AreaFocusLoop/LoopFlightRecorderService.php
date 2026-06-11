@@ -132,7 +132,7 @@ final class LoopFlightRecorderService
         $cycle = is_array($input['cycle'] ?? null) ? $input['cycle'] : $input;
 
         $outcome = $this->normalizeOutcome((string) ($cycle['outcome'] ?? ($cycle['cycle_outcome'] ?? '')));
-        $blockers = $this->stringList($cycle['blockers'] ?? ($cycle['blocker'] ?? []));
+        $blockers = AreaFocusStringListNormalizer::trimmedStringsOrScalarString($cycle['blockers'] ?? ($cycle['blocker'] ?? []));
         $blockerReason = trim((string) ($cycle['blocker_reason'] ?? ($cycle['blocker'] ?? '')));
 
         // The bound causal chain — every external fact comes through the seam.
@@ -142,7 +142,7 @@ final class LoopFlightRecorderService
             'packet_ref' => $this->refString($cycle['packet_ref'] ?? ($cycle['packet_id'] ?? null)),
             'provider_ref' => $this->refString($cycle['provider_ref'] ?? ($cycle['session_ref'] ?? null)),
             'diff_summary' => $this->diffSummary($cycle),
-            'validation_commands' => $this->stringList($cycle['validation_commands'] ?? ($cycle['validations'] ?? [])),
+            'validation_commands' => AreaFocusStringListNormalizer::trimmedStringsOrScalarString($cycle['validation_commands'] ?? ($cycle['validations'] ?? [])),
             'judge_verdict' => $this->refString($cycle['judge_verdict'] ?? null),
             'merge_governor_result' => $this->mergeGovernorResult($cycle),
             'post_cycle_audit_ref' => $this->refString($cycle['post_cycle_audit_ref'] ?? ($cycle['audit_ref'] ?? null)),
@@ -348,7 +348,7 @@ final class LoopFlightRecorderService
             'chain' => $chain,
             'blocker_reason' => $found['blocker_reason'] ?? null,
             'retry_policy' => $found['retry_policy'] ?? null,
-            'blockers' => $this->stringList($found['blockers'] ?? []),
+            'blockers' => AreaFocusStringListNormalizer::trimmedStringsOrScalarString($found['blockers'] ?? []),
             'claim_policy' => [
                 'read_only' => true,
                 'runs_provider' => false,
@@ -403,7 +403,7 @@ final class LoopFlightRecorderService
         if ($recordCommit !== '' && ($recordCommit === $commit || str_starts_with($recordCommit, $commit) || str_starts_with($commit, $recordCommit))) {
             return true;
         }
-        foreach ($this->stringList($diff['commits'] ?? []) as $c) {
+        foreach (AreaFocusStringListNormalizer::trimmedStringsOrScalarString($diff['commits'] ?? []) as $c) {
             if ($c === $commit || str_starts_with($c, $commit) || str_starts_with($commit, $c)) {
                 return true;
             }
@@ -440,14 +440,14 @@ final class LoopFlightRecorderService
             return [];
         }
 
-        $files = $this->stringList($diff['files'] ?? []);
+        $files = AreaFocusStringListNormalizer::trimmedStringsOrScalarString($diff['files'] ?? []);
         $summary = [
             'files' => $files,
             'files_changed' => (int) ($diff['files_changed'] ?? count($files)),
             'insertions' => (int) ($diff['insertions'] ?? 0),
             'deletions' => (int) ($diff['deletions'] ?? 0),
             'commit' => trim((string) ($diff['commit'] ?? '')),
-            'commits' => $this->stringList($diff['commits'] ?? []),
+            'commits' => AreaFocusStringListNormalizer::trimmedStringsOrScalarString($diff['commits'] ?? []),
             'sandbox_only' => (bool) ($diff['sandbox_only'] ?? false),
         ];
         $summary['hash'] = MissionCanonicalHash::sha256([
@@ -615,14 +615,6 @@ final class LoopFlightRecorderService
         $value = trim((string) $value);
 
         return $value !== '' ? $value : $fallback;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return AreaFocusStringListNormalizer::trimmedStringsOrScalarString($value);
     }
 
     /**

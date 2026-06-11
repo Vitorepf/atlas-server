@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Kernel\Pipeline;
 
 use App\Models\AiJob;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 class KernelPipelineRuntimeGuard
 {
@@ -139,10 +140,7 @@ class KernelPipelineRuntimeGuard
      */
     private function violation(array $errors, ?array $plan, ?array $contract): array
     {
-        $errors = array_values(array_filter(array_map(
-            fn (mixed $error): string => trim((string) $error),
-            $errors,
-        )));
+        $errors = AiStringListNormalizer::truthyTrimmedCastItemsToStrings($errors);
 
         return [
             'schema_version' => 1,

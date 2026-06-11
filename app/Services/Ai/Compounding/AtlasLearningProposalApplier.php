@@ -65,10 +65,11 @@ final class AtlasLearningProposalApplier
         $kind = (string) $proposal->kind;
         $change = match (true) {
             $kind === 'routing' => $this->applyRouting($proposal),
-            // AP-819 Obra B: harness_config NUNCA entra em MEMORY_ENTRY_KINDS —
-            // supportsAutoApply() fica false por construção (degrau mais friccionado
-            // do trust-ladder: só apply operator-approved, jamais autônomo).
+            // AP-819 Obra B/v2: kinds de harness NUNCA entram em MEMORY_ENTRY_KINDS —
+            // supportsAutoApply() fica false por construção; o ÚNICO caminho
+            // automático é o AtlasHarnessAutopilot, que carrega os 3 gates próprios.
             $kind === 'harness_config' => $this->applyHarnessConfig($proposal),
+            $kind === 'harness_instruction' => $this->applyHarnessInstruction($proposal),
             $this->supportsAutoApply($kind) => $this->applyAsMemoryEntry($proposal),
             default => null,
         };
@@ -77,6 +78,7 @@ final class AtlasLearningProposalApplier
             return $this->refuse(match (true) {
                 $kind === 'routing' => 'routing_proposed_state_incomplete',
                 $kind === 'harness_config' => 'harness_config_rejected_by_surface',
+                $kind === 'harness_instruction' => 'harness_instruction_rejected_by_surface',
                 $this->supportsAutoApply($kind) => 'memory_state_incomplete_or_sensitive',
                 default => 'kind_applier_pending:'.$kind,
             });
@@ -119,6 +121,14 @@ final class AtlasLearningProposalApplier
                 return $this->refuse('harness_config_reverse_failed:'.(string) $result['reason']);
             }
             $change = ['key' => $result['key'], 'restored' => $result['restored']];
+        } elseif ($kind === 'harness_instruction') {
+            $ps = is_array($proposal->proposed_state) ? $proposal->proposed_state : [];
+            $result = app(\App\Services\Ai\Cognitive\Harness\AtlasHarnessInstructionSurface::class)
+                ->reverseOverride((string) ($ps['key'] ?? ''));
+            if (! $result['reversed']) {
+                return $this->refuse('harness_instruction_reverse_failed:'.(string) $result['reason']);
+            }
+            $change = ['section' => $result['section'], 'restored_text_sha' => hash('sha256', (string) $result['restored'])];
         } elseif ($this->supportsAutoApply($kind)) {
             // Archive (never hard-delete) the memory entries this proposal materialized.
             $archived = AtlasMemoryEntry::query()
@@ -186,6 +196,36 @@ final class AtlasLearningProposalApplier
             'value' => $result['value'],
             'previous' => $result['previous'],
             'reverse_handle' => 'php artisan atlas:harness reverse '.$result['key'],
+        ];
+    }
+
+    /**
+     * AP-819 Surface v2 — aplica uma troca de seção de INSTRUÇÃO. A superfície
+     * só aceita texto do espaço de busca declarado (default + variantes curadas);
+     * texto fora da biblioteca ⇒ null ⇒ refuse, por construção.
+     *
+     * @return array<string,mixed>|null
+     */
+    private function applyHarnessInstruction(AiLearningProposal $proposal): ?array
+    {
+        $ps = is_array($proposal->proposed_state) ? $proposal->proposed_state : [];
+        $section = trim((string) ($ps['key'] ?? ''));
+        $text = $ps['text'] ?? null;
+        if ($section === '' || ! is_string($text)) {
+            return null;
+        }
+
+        $result = app(\App\Services\Ai\Cognitive\Harness\AtlasHarnessInstructionSurface::class)
+            ->applyOverride($section, $text, (string) $proposal->getKey());
+        if (! $result['applied']) {
+            return null;
+        }
+
+        return [
+            'section' => $result['section'],
+            'text_sha' => hash('sha256', $text),
+            'previous_text_sha' => hash('sha256', (string) $result['previous']),
+            'reverse_handle' => 'php artisan atlas:harness reverse '.$result['section'],
         ];
     }
 

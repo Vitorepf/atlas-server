@@ -707,6 +707,23 @@ return [
             'promote_to_source_enabled' => (bool) env('ATLAS_SELF_CONSTRUCTION_PROMOTE_ENABLED', false),
         ],
 
+        // G5 — governed promotion of a certified loop proposal to a NEW BRANCH
+        // (never main; merge stays the operator's git/PR act). Declared HERE under
+        // atlas.ai.loop because AtlasLoopProposalPromotionGate reads this exact
+        // path (the runtime atlas.loop block at the root is the campaign engine's).
+        'loop' => [
+            'merge_to_source_enabled' => (bool) env('ATLAS_LOOP_MERGE_TO_SOURCE_ENABLED', false),
+        ],
+
+        // AP-819 AUTOPILOT — diretiva do operador 2026-06-11: evolução do harness
+        // AUTOMÁTICA, gated por matemática (surface bounds + não-regressão dupla na
+        // suite congelada + recorrência no outcome cru com auto-reverse). 1 edit por
+        // run, 1 experimento por chave, tudo receitado e visível em GET /ai/harness.
+        'harness_autopilot' => [
+            'enabled' => (bool) env('ATLAS_HARNESS_AUTOPILOT_ENABLED', false),
+            'observation_days' => (int) env('ATLAS_HARNESS_AUTOPILOT_OBSERVATION_DAYS', 7),
+        ],
+
         // G7 — ponte síncrona texto→resultado: POST /ai/interactions/sync roda o
         // pipeline de criação + a execução do worker INLINE no request (mesmos
         // trilhos provados; zero máquina nova). Gasto só quando o operador posta.
@@ -1433,12 +1450,6 @@ return [
         'max_seconds_per_scenario' => max(30, (int) env('ATLAS_LOOP_MAX_SECONDS_PER_SCENARIO', 600)),
         // The loop NEVER merges to main: it accumulates certified-for-review proposals.
         'propose_only' => (bool) env('ATLAS_LOOP_PROPOSE_ONLY', true),
-
-        // G5 — governed promotion of a certified proposal to a NEW BRANCH (never
-        // main; merge stays the operator's git/PR act). Read by
-        // AtlasLoopProposalPromotionGate; default OFF, plus explicit per-call
-        // operator approval is ALWAYS required even when enabled.
-        'merge_to_source_enabled' => (bool) env('ATLAS_LOOP_MERGE_TO_SOURCE_ENABLED', false),
 
         // The 24h CAMPAIGN runtime — the durable supervisor around the per-task engine.
         // It self-feeds (discovery + generator refill the queue), grinds in parallel

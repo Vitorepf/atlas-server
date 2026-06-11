@@ -263,6 +263,7 @@ class AtlasAobgWorkspaceOnboardingService
             ($profile['ok'] ?? false) !== true => 'activation_profile_blocked',
             ($bootstrap['ok'] ?? false) !== true => 'activation_bootstrap_incomplete',
             ($run['ok'] ?? false) !== true => 'activation_index_failed',
+            $shouldIndex && (bool) ($after['needs_reindex'] ?? false) => 'activation_index_still_stale',
             $shouldIndex && (bool) ($after['indexed'] ?? false) => 'activated',
             $shouldIndex => 'activated_no_symbols',
             default => 'activated_already_indexed',
@@ -374,6 +375,150 @@ class AtlasAobgWorkspaceOnboardingService
     }
 
     /**
+     * Read-only fleet map for every configured local workspace.
+     *
+     * This is the compact "are the project folders actually brain-ready?" audit that
+     * Atlas, Codex and Claude Code can call before choosing a specific workspace. It
+     * never indexes and never returns raw file content; it aggregates the same per-
+     * workspace readiness used by {@see map()} into a bounded provider-safe table.
+     *
+     * @param  array<string,mixed>  $opts
+     * @return array<string,mixed>
+     */
+    public function mapAll(array $opts = []): array
+    {
+        $limit = $this->boundedLimit($opts['limit'] ?? null, 12, 50);
+        $detail = $this->mapDetail($opts['detail'] ?? null);
+        $results = [];
+        $blockers = [];
+        $warnings = [];
+        $summary = [
+            'total_profiles' => 0,
+            'existing_path' => 0,
+            'missing_path' => 0,
+            'ready' => 0,
+            'limited' => 0,
+            'blocked' => 0,
+            'needs_onboarding' => 0,
+            'needs_reindex' => 0,
+            'safe_for_initial_context' => 0,
+            'safe_for_implementation' => 0,
+            'symbol_count' => 0,
+            'module_count' => 0,
+            'file_count' => 0,
+            'doc_link_count' => 0,
+            'route_count' => 0,
+            'command_count' => 0,
+            'migration_count' => 0,
+            'test_count' => 0,
+        ];
+
+        foreach ($this->workspaceProfiles->listProfiles() as $profile) {
+            if (($profile['status'] ?? 'active') !== 'active') {
+                continue;
+            }
+
+            $summary['total_profiles']++;
+            $workspacePath = $this->profilePath($profile);
+            if ($workspacePath === null || ! is_dir($workspacePath)) {
+                $summary['missing_path']++;
+                $row = $this->missingWorkspaceFleetRow($profile, $workspacePath);
+            } else {
+                $summary['existing_path']++;
+                try {
+                    $row = $this->workspaceFleetRow(
+                        $this->map([
+                            'workspace' => rtrim(realpath($workspacePath) ?: $workspacePath, DIRECTORY_SEPARATOR),
+                            'limit' => $limit,
+                            'detail' => self::MAP_DETAIL_SUMMARY,
+                        ]),
+                        $profile,
+                    );
+                } catch (Throwable $e) {
+                    $row = [
+                        'workspace_id' => $this->stringFromArray($profile, ['slug']),
+                        'profile_slug' => $this->stringFromArray($profile, ['slug']),
+                        'name' => $this->stringFromArray($profile, ['name']),
+                        'kind' => $this->stringFromArray($profile, ['kind']),
+                        'workspace_path' => $workspacePath,
+                        'path_exists' => true,
+                        'readiness_status' => 'blocked',
+                        'safe_for_initial_context' => false,
+                        'safe_for_implementation' => false,
+                        'readiness_blockers' => ['workspace_map_failed'],
+                        'readiness_warnings' => [],
+                        'exception' => class_basename($e),
+                        'next_actions' => [$this->workspaceMapCommand($workspacePath, $limit, self::MAP_DETAIL_SUMMARY)],
+                    ];
+                }
+            }
+
+            $readiness = (string) ($row['readiness_status'] ?? 'blocked');
+            if (! in_array($readiness, ['ready', 'limited', 'blocked'], true)) {
+                $readiness = 'blocked';
+                $row['readiness_status'] = $readiness;
+            }
+            $summary[$readiness]++;
+            $summary['needs_onboarding'] += (bool) ($row['needs_onboarding'] ?? false) ? 1 : 0;
+            $summary['needs_reindex'] += (bool) ($row['needs_reindex'] ?? false) ? 1 : 0;
+            $summary['safe_for_initial_context'] += (bool) ($row['safe_for_initial_context'] ?? false) ? 1 : 0;
+            $summary['safe_for_implementation'] += (bool) ($row['safe_for_implementation'] ?? false) ? 1 : 0;
+
+            foreach (['symbol_count', 'module_count', 'file_count', 'doc_link_count', 'route_count', 'command_count', 'migration_count', 'test_count'] as $metric) {
+                $summary[$metric] += (int) ($row[$metric] ?? 0);
+            }
+            foreach ((array) ($row['readiness_blockers'] ?? []) as $blocker) {
+                if (is_string($blocker) && $blocker !== '') {
+                    $blockers[] = $blocker;
+                }
+            }
+            foreach ((array) ($row['readiness_warnings'] ?? []) as $warning) {
+                if (is_string($warning) && $warning !== '') {
+                    $warnings[] = $warning;
+                }
+            }
+
+            $results[] = $row;
+        }
+
+        if ($summary['total_profiles'] === 0) {
+            $blockers[] = 'workspace_registry_empty';
+        }
+
+        $blockers = array_values(array_unique($blockers));
+        $warnings = array_values(array_unique($warnings));
+        $readiness = $summary['total_profiles'] === 0 || $summary['blocked'] > 0
+            ? 'blocked'
+            : ($summary['limited'] > 0 ? 'limited' : 'ready');
+
+        return [
+            'ok' => true,
+            'schema' => self::SCHEMA,
+            'fleet_schema' => 'atlas.aobg.workspace_fleet_map.v1',
+            'action' => 'map_all',
+            'read_only' => true,
+            'provider_safe' => true,
+            'detail' => $detail,
+            'summary' => $summary,
+            'readiness_status' => $readiness,
+            'safe_for_initial_context' => $readiness !== 'blocked',
+            'safe_for_implementation' => $readiness === 'ready',
+            'readiness_blockers' => $blockers,
+            'readiness_warnings' => $warnings,
+            'workspaces' => $results,
+            'sample_policy' => [
+                'included' => false,
+                'reason' => 'fleet_map_defers_workspace_samples',
+                'deferred_sections' => ['modules', 'path_regions', 'examples'],
+                'request_samples' => 'atlas aobg workspace map --workspace=<workspace> --detail=samples --limit='.$limit.' --json',
+                'requested_detail' => $detail,
+            ],
+            'next_actions' => $this->fleetNextActions($summary, $blockers, $warnings, $limit),
+            'generated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
      * Compact, provider-safe map of what the Atlas brain knows about one workspace.
      *
      * This is intentionally read-only and bounded: it uses the already-built Code
@@ -411,8 +556,14 @@ class AtlasAobgWorkspaceOnboardingService
             'needs_onboarding' => (bool) ($status['needs_onboarding'] ?? true),
             'last_index' => $status['last_index'] ?? null,
             'freshness_status' => $status['freshness_status'] ?? 'unknown',
+            'freshness' => $status['freshness'] ?? null,
             'needs_reindex' => (bool) ($status['needs_reindex'] ?? false),
             'workspace_readiness' => $readiness,
+            'readiness_status' => (string) ($readiness['status'] ?? 'unknown'),
+            'safe_for_initial_context' => (bool) ($readiness['safe_for_initial_context'] ?? false),
+            'safe_for_implementation' => (bool) ($readiness['safe_for_implementation'] ?? false),
+            'readiness_blockers' => array_values((array) ($readiness['blockers'] ?? [])),
+            'readiness_warnings' => array_values((array) ($readiness['warnings'] ?? [])),
             'profile' => $profile === null ? null : [
                 'slug' => $profile['slug'] ?? null,
                 'name' => $profile['name'] ?? null,
@@ -460,6 +611,116 @@ class AtlasAobgWorkspaceOnboardingService
     // ------------------------------------------------------------------
     // internals
     // ------------------------------------------------------------------
+
+    /**
+     * @param  array<string,mixed>  $profile
+     * @param  string|null  $workspacePath
+     * @return array<string,mixed>
+     */
+    private function missingWorkspaceFleetRow(array $profile, ?string $workspacePath): array
+    {
+        $slug = $this->stringFromArray($profile, ['slug']);
+
+        return [
+            'workspace_id' => $slug,
+            'profile_slug' => $slug,
+            'name' => $this->stringFromArray($profile, ['name']),
+            'kind' => $this->stringFromArray($profile, ['kind']),
+            'workspace_path' => $workspacePath,
+            'path_exists' => false,
+            'readiness_status' => 'blocked',
+            'safe_for_initial_context' => false,
+            'safe_for_implementation' => false,
+            'readiness_blockers' => ['workspace_path_missing'],
+            'readiness_warnings' => [],
+            'indexed' => false,
+            'needs_onboarding' => true,
+            'needs_reindex' => false,
+            'freshness_status' => 'unknown',
+            'symbol_count' => 0,
+            'module_count' => 0,
+            'file_count' => 0,
+            'doc_link_count' => 0,
+            'route_count' => 0,
+            'command_count' => 0,
+            'migration_count' => 0,
+            'test_count' => 0,
+            'provider_projection_status' => 'unknown',
+            'quality_label' => 'blocked',
+            'next_actions' => [
+                'Fix the workspace profile path, then run '.base_path('bin/atlas').' aobg workspace activate-all --json',
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $map
+     * @param  array<string,mixed>  $profile
+     * @return array<string,mixed>
+     */
+    private function workspaceFleetRow(array $map, array $profile): array
+    {
+        $inventory = (array) ($map['inventory'] ?? []);
+
+        return [
+            'workspace_id' => $map['workspace_id'] ?? $this->stringFromArray($profile, ['slug']),
+            'profile_slug' => $this->stringFromArray($profile, ['slug']),
+            'name' => $this->stringFromArray($profile, ['name']),
+            'kind' => $this->stringFromArray($profile, ['kind']),
+            'workspace_path' => $map['workspace_path'] ?? $this->profilePath($profile),
+            'path_exists' => true,
+            'readiness_status' => (string) ($map['readiness_status'] ?? 'blocked'),
+            'safe_for_initial_context' => (bool) ($map['safe_for_initial_context'] ?? false),
+            'safe_for_implementation' => (bool) ($map['safe_for_implementation'] ?? false),
+            'readiness_blockers' => array_values((array) ($map['readiness_blockers'] ?? [])),
+            'readiness_warnings' => array_values((array) ($map['readiness_warnings'] ?? [])),
+            'indexed' => (bool) ($map['indexed'] ?? false),
+            'needs_onboarding' => (bool) ($map['needs_onboarding'] ?? true),
+            'needs_reindex' => (bool) ($map['needs_reindex'] ?? false),
+            'freshness_status' => (string) ($map['freshness_status'] ?? 'unknown'),
+            'freshness_reason' => (string) data_get($map, 'freshness.reason', ''),
+            'freshness_checked_files' => (int) data_get($map, 'freshness.checked_files', 0),
+            'freshness_changed_files' => array_values((array) data_get($map, 'freshness.changed_files', [])),
+            'freshness_missing_files' => array_values((array) data_get($map, 'freshness.missing_files', [])),
+            'last_index' => $map['last_index'] ?? null,
+            'symbol_count' => (int) ($inventory['symbol_count'] ?? 0),
+            'module_count' => (int) ($inventory['module_count'] ?? 0),
+            'file_count' => (int) ($inventory['file_count'] ?? 0),
+            'doc_link_count' => (int) ($inventory['doc_link_count'] ?? 0),
+            'route_count' => (int) ($inventory['route_count'] ?? 0),
+            'command_count' => (int) ($inventory['command_count'] ?? 0),
+            'migration_count' => (int) ($inventory['migration_count'] ?? 0),
+            'test_count' => (int) ($inventory['test_count'] ?? 0),
+            'provider_projection_status' => (string) data_get($map, 'provider_projection.status', 'unknown'),
+            'quality_label' => (string) data_get($map, 'quality.label', 'unknown'),
+            'next_actions' => array_slice(array_values((array) ($map['next_actions'] ?? [])), 0, 4),
+        ];
+    }
+
+    /**
+     * @param  array<string,int>  $summary
+     * @param  array<int,string>  $blockers
+     * @param  array<int,string>  $warnings
+     * @return array<int,string>
+     */
+    private function fleetNextActions(array $summary, array $blockers, array $warnings, int $limit): array
+    {
+        $actions = [];
+        if (($summary['total_profiles'] ?? 0) === 0) {
+            $actions[] = 'atlas workspace-intelligence register --workspace=<slug> --path=<path> --json';
+        }
+        if (in_array('workspace_path_missing', $blockers, true)) {
+            $actions[] = 'atlas workspace-intelligence list --json';
+        }
+        if (($summary['needs_onboarding'] ?? 0) > 0 || ($summary['needs_reindex'] ?? 0) > 0 || $warnings !== []) {
+            $actions[] = base_path('bin/atlas').' aobg workspace activate-all --json';
+        }
+
+        $actions[] = 'atlas aobg workspace map-all --detail=summary --limit='.$limit.' --json';
+        $actions[] = 'atlas aobg workspace map --workspace=<workspace> --detail=samples --limit='.$limit.' --json';
+
+        return array_values(array_unique($actions));
+    }
 
     /**
      * @return array<string,mixed>
@@ -1201,7 +1462,10 @@ class AtlasAobgWorkspaceOnboardingService
     ): array {
         $ok = ($profile['ok'] ?? false) === true
             && ($bootstrap === null || ($bootstrap['ok'] ?? false) === true)
-            && ($run === null || ($run['ok'] ?? false) === true);
+            && ($run === null || ($run['ok'] ?? false) === true)
+            && in_array($action, ['activated', 'activated_already_indexed'], true)
+            && (bool) ($status['indexed'] ?? false)
+            && ! (bool) ($status['needs_reindex'] ?? false);
 
         $envelope = [
             'ok' => $ok,

@@ -89,6 +89,30 @@ final class AtlasForgeCodexCliInvocationDriverTest extends TestCase
         $this->assertFalse($plan['provider_tokens_spent']);
     }
 
+    public function test_plan_uses_configured_exec_args_and_compute_effort_without_provider_call(): void
+    {
+        config()->set('atlas.ai.providers.codex_cli.args', [' exec ', '', 42, '--skip-git-repo-check']);
+
+        $plan = $this->driver()->plan([
+            'model' => 'gpt-5.5',
+            'compute_effort' => 'quick',
+            'prompt' => 'corrija o teste',
+        ]);
+
+        $argv = $plan['argv_preview'];
+        $this->assertContains('exec', $argv);
+        $this->assertContains('--skip-git-repo-check', $argv);
+        $this->assertNotContains('', $argv);
+        $this->assertNotContains('42', $argv);
+        $this->assertContains('-c', $argv);
+        $this->assertNotSame([], array_values(array_filter(
+            $argv,
+            static fn (string $arg): bool => str_starts_with($arg, 'model_reasoning_effort="'),
+        )));
+        $this->assertSame('-', $argv[array_key_last($argv)]);
+        $this->assertFalse($plan['provider_called']);
+    }
+
     public function test_configured_status_schema_includes_codex_contract_fields(): void
     {
         $driver = $this->driver();

@@ -55,6 +55,51 @@ class AtlasHarnessObraBTest extends TestCase
         $this->assertTrue($this->surface->validate('runtime_control.timeout_seconds', 300)['valid']);
     }
 
+    public function test_expanded_surface_validates_new_knobs_and_keeps_signal_pipeline_out(): void
+    {
+        // Expansão 1: os 5 botões novos validam dentro dos bounds.
+        $this->assertTrue($this->surface->validate('loop_control.max_scenarios_per_task', 16)['valid']);
+        $this->assertTrue($this->surface->validate('loop_control.search_patience', 5)['valid']);
+        $this->assertTrue($this->surface->validate('loop_control.max_seconds_per_scenario', 900)['valid']);
+        $this->assertTrue($this->surface->validate('cache_control.response_cache_ttl_seconds', 7200)['valid']);
+        $this->assertTrue($this->surface->validate('runtime_control.sync_bridge_max_execution_seconds', 600)['valid']);
+        $this->assertFalse($this->surface->validate('loop_control.max_scenarios_per_task', 999)['valid']);
+
+        // G1 anti-gaming: a janela de coleta do PRÓPRIO SINAL nunca é editável.
+        $this->assertFalse($this->surface->validate('observability.failure_feed_window_hours', 48)['valid']);
+        foreach ($this->surface->sections() as $section) {
+            $this->assertStringNotContainsString('failure_auto_feed', $section['config_path']);
+        }
+    }
+
+    public function test_expanded_bridge_maps_rate_limit_turn_limit_and_crash_clusters(): void
+    {
+        config([
+            'atlas.ai.retry_delay_seconds' => 300,
+            'atlas.ai.providers.hermes_cli.max_turns' => 90,
+            'atlas.ai.max_attempts' => 1,
+        ]);
+        $bridge = new AtlasHarnessProposalBridge(
+            $this->createStub(\App\Services\Ai\Cognitive\Failure\FailureSignatureRepository::class),
+            $this->surface,
+        );
+        $map = new \ReflectionMethod($bridge, 'mapClusterToSurface');
+
+        $rate = $map->invoke($bridge, ['signature_key' => 'fsig_rate_limit_exceeded_429', 'domain' => 'engineering']);
+        $this->assertSame('runtime_control.retry_delay_seconds', $rate['key']);
+        $this->assertSame(600, $rate['proposed']);
+
+        $turns = $map->invoke($bridge, ['signature_key' => 'fsig_hermes_max_turns_hit', 'domain' => 'engineering']);
+        $this->assertSame('provider_policy.hermes_max_turns', $turns['key']);
+        $this->assertSame(120, $turns['proposed']);
+
+        $crash = $map->invoke($bridge, ['signature_key' => 'fsig_provider_exception_crash', 'domain' => 'engineering']);
+        $this->assertSame('runtime_control.max_attempts', $crash['key']);
+        $this->assertSame(2, $crash['proposed'], '+1 incremental, não multiplicador');
+
+        $this->assertNull($map->invoke($bridge, ['signature_key' => 'fsig_unknown_weirdness', 'domain' => 'engineering']));
+    }
+
     // ---------- applier: apply + reverse (never-irreversible) ----------
 
     public function test_harness_config_apply_and_reverse_roundtrip_changes_and_restores_config(): void

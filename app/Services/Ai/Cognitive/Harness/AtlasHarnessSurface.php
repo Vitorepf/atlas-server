@@ -62,6 +62,39 @@ final class AtlasHarnessSurface
             'max' => 120,
             'description' => 'Turnos máximos de uma sessão Hermes CLI.',
         ],
+        // Expansão 1 (diretiva 2026-06-11). NOTA G1: a janela de coleta de falhas
+        // (failure_auto_feed.window_hours) fica DELIBERADAMENTE fora — o autopilot
+        // nunca pode editar o próprio sinal que o julga.
+        'runtime_control.sync_bridge_max_execution_seconds' => [
+            'config_path' => 'atlas.ai.sync_bridge.max_execution_seconds',
+            'min' => 60,
+            'max' => 900,
+            'description' => 'Teto (s) da execução inline da ponte síncrona do chat.',
+        ],
+        'loop_control.max_scenarios_per_task' => [
+            'config_path' => 'atlas.loop.max_scenarios_per_task',
+            'min' => 1,
+            'max' => 24,
+            'description' => 'Cenários máximos que o Evolution Loop explora por tarefa.',
+        ],
+        'loop_control.search_patience' => [
+            'config_path' => 'atlas.loop.search_patience',
+            'min' => 1,
+            'max' => 10,
+            'description' => 'Cenários consecutivos sem melhora antes do loop convergir.',
+        ],
+        'loop_control.max_seconds_per_scenario' => [
+            'config_path' => 'atlas.loop.max_seconds_per_scenario',
+            'min' => 60,
+            'max' => 1200,
+            'description' => 'Orçamento (s) por cenário do Evolution Loop.',
+        ],
+        'cache_control.response_cache_ttl_seconds' => [
+            'config_path' => 'atlas.ai.cache.ttl_seconds',
+            'min' => 60,
+            'max' => 86400,
+            'description' => 'TTL (s) do cache de respostas determinísticas.',
+        ],
     ];
 
     private ?string $overridesPathOverride = null;

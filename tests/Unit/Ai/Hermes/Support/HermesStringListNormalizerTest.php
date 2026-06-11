@@ -40,6 +40,18 @@ class HermesStringListNormalizerTest extends TestCase
         $this->assertSame(['0'], HermesStringListNormalizer::resultPacketBounded(['0'], 10, 20));
     }
 
+    public function test_invocation_values_preserve_policy_field_semantics(): void
+    {
+        $this->assertSame(
+            ['alpha', '0', '123', 'alpha'],
+            HermesStringListNormalizer::invocationValues([' alpha ', '0', 123, '', 'alpha'], 20),
+        );
+
+        $this->assertSame(['alpha', 'beta'], HermesStringListNormalizer::invocationValues(' alpha, beta ', 20));
+        $this->assertSame([], HermesStringListNormalizer::invocationValues(123, 20));
+        $this->assertSame(['alph'], HermesStringListNormalizer::invocationValues([' alpha-long '], 4));
+    }
+
     public function test_applies_limit_item_limit_and_dedupe(): void
     {
         $this->assertSame(

@@ -15,6 +15,7 @@ use Illuminate\Console\Command;
  *   atlas:aobg:workspace onboard --cwd=/path/to/project --json
  *   atlas:aobg:workspace activate --cwd=/path/to/project --json
  *   atlas:aobg:workspace activate-all --json
+ *   atlas:aobg:workspace map-all      --json
  *   atlas:aobg:workspace map      --workspace=/path/to/project --json
  *
  * `status` (default) answers HONESTLY what the brain knows about THIS project
@@ -24,6 +25,7 @@ use Illuminate\Console\Command;
  * a heavy index of an arbitrary repo is an operator decision, never implicit.
  * `activate` is that explicit decision: bind AWIS, write provider bootstrap, then index.
  * `activate-all` applies that explicit activation to every registered local workspace.
+ * `map-all` is the read-only fleet audit for all configured local workspaces.
  * `map` reads the bounded Code Intelligence inventory for one workspace.
  *
  * Always exits 0 — needs_onboarding / offer_only is a normal, audited answer, not a
@@ -34,7 +36,7 @@ class AtlasAobgWorkspaceCommand extends Command
     public const SCHEMA = 'atlas.aobg.workspace_command.v1';
 
     protected $signature = 'atlas:aobg:workspace
-        {action=status : status (default), onboard, activate, activate-all, or map}
+        {action=status : status (default), onboard, activate, activate-all, map-all, or map}
         {--cwd= : Caller working directory (the project dir) — resolved to a workspace id}
         {--workspace= : Workspace path or id (wins over cwd; defaults to the primary atlas-server)}
         {--force : For onboard/activate: re-run the index even when already indexed}
@@ -56,6 +58,11 @@ class AtlasAobgWorkspaceCommand extends Command
             $opts['force'] = (bool) $this->option('force');
             $result = $service->activateAll($opts);
             $status = (array) ($result['status'] ?? []);
+        } elseif (in_array($action, ['map-all', 'map_all', 'fleet', 'audit'], true)) {
+            $opts['limit'] = $this->option('limit');
+            $opts['detail'] = $this->stringOpt('detail') ?? 'summary';
+            $result = $service->mapAll($opts);
+            $status = $result;
         } elseif ($action === 'activate') {
             $opts['force'] = (bool) $this->option('force');
             $result = $service->activate($opts);
@@ -76,6 +83,17 @@ class AtlasAobgWorkspaceCommand extends Command
 
         if ((bool) $this->option('json')) {
             $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            return self::SUCCESS;
+        }
+
+        if (in_array($action, ['map-all', 'map_all', 'fleet', 'audit'], true)) {
+            $summary = (array) ($result['summary'] ?? []);
+            $this->components->twoColumnDetail('fleet', (string) ($result['readiness_status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('workspaces', (string) ($summary['total_profiles'] ?? 0));
+            $this->components->twoColumnDetail('ready', (string) ($summary['ready'] ?? 0));
+            $this->components->twoColumnDetail('limited', (string) ($summary['limited'] ?? 0));
+            $this->components->twoColumnDetail('blocked', (string) ($summary['blocked'] ?? 0));
 
             return self::SUCCESS;
         }
