@@ -6,6 +6,7 @@ use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
 use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 class MarketingDraftService
 {
@@ -27,9 +28,9 @@ class MarketingDraftService
         $offer = $this->string($input['offer'] ?? '');
         $audience = $this->string($input['audience'] ?? $input['icp'] ?? '');
         $brandVoice = $this->string($input['brand_voice'] ?? '');
-        $claims = $this->list($input['claims'] ?? []);
-        $channels = $this->list($input['channels'] ?? []);
-        $constraints = $this->list($input['constraints'] ?? []);
+        $claims = AiStringListNormalizer::uniqueTruthyTrimmedCastValues($input['claims'] ?? []);
+        $channels = AiStringListNormalizer::uniqueTruthyTrimmedCastValues($input['channels'] ?? []);
+        $constraints = AiStringListNormalizer::uniqueTruthyTrimmedCastValues($input['constraints'] ?? []);
         $businessContext = $this->string($input['business_context'] ?? $input['product_context'] ?? '');
 
         return [
@@ -249,16 +250,4 @@ class MarketingDraftService
         return trim((string) $value);
     }
 
-    /**
-     * @return array<int,string>
-     */
-    private function list(mixed $value): array
-    {
-        return collect((array) $value)
-            ->map(fn (mixed $item): string => $this->string($item))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
-    }
 }

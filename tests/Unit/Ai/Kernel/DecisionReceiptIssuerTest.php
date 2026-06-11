@@ -3,6 +3,7 @@
 namespace Tests\Unit\Ai\Kernel;
 
 use App\Services\Ai\Kernel\Decision\DecisionReceipt;
+use App\Services\Ai\Kernel\Decision\DecisionReceiptHash;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
 use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
 use Carbon\CarbonImmutable;
@@ -112,5 +113,77 @@ class DecisionReceiptIssuerTest extends TestCase
 
         $this->assertSame($first->inputsHash, $second->inputsHash);
         $this->assertSame($first->receiptHash, $second->receiptHash);
+    }
+
+    public function test_intermediate_receipt_links_to_parent_with_step_index_and_chained_hash(): void
+    {
+        $envelope = app(OperationEnvelopeFactory::class)->create(['text' => 'missao com passos']);
+        $issuer = app(DecisionReceiptIssuer::class);
+        $parent = $issuer->issue($envelope, ['receipt_id' => 'mission-root']);
+
+        $child = $issuer->issueIntermediate($envelope, $parent, 3, [
+            'receipt_id' => 'mission-step-3',
+            // Adversarial: a caller-supplied linkage must NEVER win over the real parent.
+            'parent_receipt_id' => 'spoofed-parent',
+            'parent_chain_hash' => 'spoofed-chain',
+            'metadata' => ['parent_chain_hash' => 'spoofed-metadata-chain'],
+        ]);
+
+        $this->assertSame($parent->receiptId, $child->parentReceiptId);
+        $this->assertSame($parent->chainHash, $child->metadata['parent_chain_hash']);
+        $this->assertSame(3, $child->metadata['mission_step_index']);
+        $this->assertTrue($child->metadata['intermediate']);
+        $this->assertNotSame($parent->chainHash, $child->chainHash);
+        // Verifiable link, computed by issue()'s existing path (never reimplemented):
+        // child.chainHash = hash(parent.chainHash + child.receiptHash).
+        $this->assertSame(DecisionReceiptHash::hash([
+            'parent_chain_hash' => $parent->chainHash,
+            'receipt_hash' => $child->receiptHash,
+        ]), $child->chainHash);
+    }
+
+    public function test_two_intermediate_steps_chain_sequentially(): void
+    {
+        // Design choice (matches the DTO): a receipt carries ONE parentReceiptId, so the
+        // mission chain is SEQUENTIAL — step1's parent is the mission root and step2's
+        // parent is step1 — giving one verifiable hash chain root→step1→step2 instead of
+        // a flat star around the root.
+        $envelope = app(OperationEnvelopeFactory::class)->create(['text' => 'missao com dois passos']);
+        $issuer = app(DecisionReceiptIssuer::class);
+        $mission = $issuer->issue($envelope, ['receipt_id' => 'mission-root']);
+
+        $step1 = $issuer->issueIntermediate($envelope, $mission, 0, ['receipt_id' => 'step-0']);
+        $step2 = $issuer->issueIntermediate($envelope, $step1, 1, ['receipt_id' => 'step-1']);
+
+        $this->assertSame($mission->receiptId, $step1->parentReceiptId);
+        $this->assertSame($step1->receiptId, $step2->parentReceiptId);
+        $this->assertSame(0, $step1->metadata['mission_step_index']);
+        $this->assertSame(1, $step2->metadata['mission_step_index']);
+        // Each link is independently verifiable from its predecessor.
+        $this->assertSame(DecisionReceiptHash::hash([
+            'parent_chain_hash' => $mission->chainHash,
+            'receipt_hash' => $step1->receiptHash,
+        ]), $step1->chainHash);
+        $this->assertSame(DecisionReceiptHash::hash([
+            'parent_chain_hash' => $step1->chainHash,
+            'receipt_hash' => $step2->receiptHash,
+        ]), $step2->chainHash);
+        $this->assertCount(3, array_unique([$mission->chainHash, $step1->chainHash, $step2->chainHash]));
+    }
+
+    public function test_issue_without_parent_is_unchanged_by_intermediate_support(): void
+    {
+        $envelope = app(OperationEnvelopeFactory::class)->create(['text' => 'decisao sem pai']);
+        $receipt = app(DecisionReceiptIssuer::class)->issue($envelope, ['receipt_id' => 'standalone']);
+
+        $this->assertNull($receipt->parentReceiptId);
+        $this->assertArrayNotHasKey('parent_chain_hash', $receipt->metadata);
+        $this->assertArrayNotHasKey('mission_step_index', $receipt->metadata);
+        $this->assertArrayNotHasKey('intermediate', $receipt->metadata);
+        // The root chain hash is still the unparented link hash(null + receiptHash).
+        $this->assertSame(DecisionReceiptHash::hash([
+            'parent_chain_hash' => null,
+            'receipt_hash' => $receipt->receiptHash,
+        ]), $receipt->chainHash);
     }
 }

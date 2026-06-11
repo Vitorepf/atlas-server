@@ -47,6 +47,8 @@ final class AtlasOpenBrainContextExpansionService
 
         if (in_array($handle['source_type'], self::RANKING_SOURCE_TYPES, true)) {
             $payload = $this->rankingExpansion($handle, $objective, $domain, $risk, $taskType, $maxRefs);
+        } elseif ($handle['source_type'] === 'test_symbols') {
+            $payload = $this->testSymbolExpansion($handle, $objective, $workspace, $taskType, $maxRefs, $budget);
         } elseif ($handle['source_type'] === 'canonical_doc') {
             $payload = $this->canonicalDocExpansion($handle, $objective, $workspace, $budget);
         } else {
@@ -168,6 +170,43 @@ final class AtlasOpenBrainContextExpansionService
     }
 
     /**
+     * @return array<string,mixed>
+     */
+    private function testSymbolExpansion(array $handle, string $objective, ?string $workspace, string $taskType, int $maxRefs, int $budget): array
+    {
+        $query = trim($objective.' tests coverage validation');
+        $pack = $this->contextPacks->packFor($query, array_filter([
+            'workspace' => $workspace,
+            'budget' => $budget,
+            'task_type' => $taskType !== '' ? $taskType : 'test',
+            'include_auxiliary_code_symbols' => true,
+        ], static fn (mixed $value): bool => $value !== null && $value !== ''));
+
+        $symbols = collect((array) ($pack['code_graph'] ?? []))
+            ->filter(static fn (mixed $item): bool => is_array($item) && (string) ($item['symbol_type'] ?? '') === 'test_method')
+            ->map(fn (array $item): array => $this->providerSafeCodeSymbol($item))
+            ->values()
+            ->take($maxRefs)
+            ->all();
+
+        return [
+            'status' => $symbols !== [] ? 'ready' : 'degraded',
+            'mode' => 'code_graph_test_symbol_expansion',
+            'expansion' => [
+                'source_type' => 'test_symbols',
+                'selected_symbols' => $symbols,
+                'selected_symbol_count' => count($symbols),
+                'context_pack_hash' => (string) ($pack['context_pack_hash'] ?? ''),
+                'counts' => (array) ($pack['counts'] ?? []),
+                'recommended_next_action' => $symbols !== []
+                    ? 'Use these test symbols as targeted pointers, then request file-context only for tests you will touch or run.'
+                    : 'Request a broader code-intelligence expansion or search tests directly; no provider-safe test symbol matched.',
+            ],
+            'warnings' => $symbols !== [] ? [] : ['requested_test_symbols_not_found'],
+        ];
+    }
+
+    /**
      * @param  array<int,array<string,mixed>>  $refs
      * @return array<int,array<string,mixed>>
      */
@@ -210,6 +249,21 @@ final class AtlasOpenBrainContextExpansionService
     }
 
     /**
+     * @param  array<string,mixed>  $item
+     * @return array<string,mixed>
+     */
+    private function providerSafeCodeSymbol(array $item): array
+    {
+        return array_filter([
+            'id' => $this->scalarString($item['id'] ?? null),
+            'symbol_type' => $this->scalarString($item['symbol_type'] ?? null),
+            'file_path' => $this->scalarString($item['file_path'] ?? null),
+            'signature' => $this->scalarString($item['signature'] ?? null),
+            'tokens' => isset($item['tokens']) ? (int) $item['tokens'] : null,
+        ], static fn (mixed $value): bool => $value !== null && $value !== '' && $value !== []);
+    }
+
+    /**
      * @return array<string,mixed>
      */
     private function unsupported(array $handle, string $objective, ?string $workspace, string $reason): array
@@ -224,7 +278,7 @@ final class AtlasOpenBrainContextExpansionService
                 'source_type' => (string) ($handle['source_type'] ?? ''),
                 'selected_refs' => [],
                 'excluded_refs' => [],
-                'recommended_next_action' => 'Request a supported source type: evidence_replay, code_intelligence, memory_signals, vector_retrieval or canonical_doc.',
+                'recommended_next_action' => 'Request a supported source type: evidence_replay, code_intelligence, memory_signals, vector_retrieval, test_symbols or canonical_doc.',
             ],
             'warnings' => [$reason],
             'policy' => $this->policy(),
@@ -309,6 +363,17 @@ final class AtlasOpenBrainContextExpansionService
                 .'; excluded_refs='.(int) ($expansion['excluded_ref_count'] ?? 0)
                 .'; required_source_covered='.(($expansion['required_source_covered'] ?? false) ? 'true' : 'false');
         }
+        if (isset($expansion['selected_symbol_count'])) {
+            $lines[] = '- selected_symbols: '.(int) $expansion['selected_symbol_count'];
+            foreach (array_slice((array) ($expansion['selected_symbols'] ?? []), 0, 6) as $symbol) {
+                if (! is_array($symbol)) {
+                    continue;
+                }
+                $lines[] = '- '.(string) ($symbol['id'] ?? '')
+                    .' ['.(string) ($symbol['file_path'] ?? 'n/a').']'
+                    .' type='.(string) ($symbol['symbol_type'] ?? 'n/a');
+            }
+        }
         if (is_string($expansion['recommended_next_action'] ?? null)) {
             $lines[] = '- next: '.$expansion['recommended_next_action'];
         }
@@ -340,7 +405,13 @@ final class AtlasOpenBrainContextExpansionService
 
     private function normalizeSourceType(string $value): string
     {
-        return str_replace('-', '_', strtolower(trim($value)));
+        $value = str_replace('-', '_', strtolower(trim($value)));
+
+        return match ($value) {
+            'test', 'tests', 'test_method', 'test_methods' => 'test_symbols',
+            'doc', 'docs', 'doc_heading', 'doc_headings', 'doc_symbols' => 'canonical_doc',
+            default => $value,
+        };
     }
 
     private function scalarString(mixed $value, string $default = ''): string

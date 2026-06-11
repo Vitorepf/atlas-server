@@ -196,25 +196,6 @@ final class AtlasApiInteractionAdapter implements AtlasDevSurfaceAdapter
      */
     private function extractSurfaceHints(array $payload): array
     {
-        $hints = [];
-        // Generic API vocabulary (third parties + Router). Composer keys are
-        // optional; most API callers won't send them.
-        foreach (['thread_id', 'conversation_id', 'composer_mode', 'composer_task', 'provider_choice', 'previous_run_id'] as $key) {
-            $value = $payload[$key] ?? null;
-            if (is_string($value) && trim($value) !== '') {
-                $hints[$key] = trim($value);
-            }
-        }
-        if (isset($payload['operator_explicit']) && is_bool($payload['operator_explicit'])) {
-            $hints['operator_explicit'] = $payload['operator_explicit'];
-        }
-        if (isset($payload['flow_origin']) && is_string($payload['flow_origin']) && trim($payload['flow_origin']) !== '') {
-            $hints['flow_origin'] = trim($payload['flow_origin']);
-        }
-        if (isset($payload['command_intent']) && is_string($payload['command_intent']) && trim($payload['command_intent']) !== '') {
-            $hints['command_intent'] = trim($payload['command_intent']);
-        }
-
-        return $hints;
+        return $this->commonSurfaceHints($payload);
     }
 }

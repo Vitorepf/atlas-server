@@ -140,6 +140,12 @@ class FailureSignatureClassifier
             'event_type' => (string) data_get($payload, 'event_type', 'unknown'),
             'status_code' => data_get($payload, 'status_code', data_get($payload, 'error.status_code')),
             'error_class' => data_get($payload, 'error_class', data_get($payload, 'throwable_class')),
+            // AP-819 F1: provider/tool projetados na assinatura (aditivo; NÃO entram
+            // no signature_key — ver FailureSimilarityComputer::signatureKey — então
+            // não fragmentam clusters existentes).
+            'provider' => $this->nullableString(data_get($payload, 'provider', data_get($payload, 'metadata.provider')), 64),
+            'tool' => $this->nullableString(data_get($payload, 'tool', data_get($payload, 'tool_name', data_get($payload, 'metadata.tool'))), 64),
+            'model' => $this->nullableString(data_get($payload, 'model'), 64),
             'message_hash' => substr(hash('sha256', $this->contextSummary($payload)), 0, 16),
             'classification' => $classification->toArray(),
         ];

@@ -6,6 +6,7 @@ use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
 use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 class QaReviewService
 {
@@ -26,10 +27,10 @@ class QaReviewService
         $subject = $this->string($input['subject'] ?? $input['target'] ?? '');
         $scope = $this->string($input['scope'] ?? '');
         $changeSummary = $this->string($input['change_summary'] ?? $input['summary'] ?? '');
-        $acceptanceCriteria = $this->list($input['acceptance_criteria'] ?? $input['criteria'] ?? []);
-        $evidenceRefs = $this->list($input['evidence_refs'] ?? $input['evidence'] ?? []);
+        $acceptanceCriteria = AiStringListNormalizer::trimmedCastValues($input['acceptance_criteria'] ?? $input['criteria'] ?? []);
+        $evidenceRefs = AiStringListNormalizer::trimmedCastValues($input['evidence_refs'] ?? $input['evidence'] ?? []);
         $riskClass = $this->string($input['risk_class'] ?? 'medium');
-        $constraints = $this->list($input['constraints'] ?? []);
+        $constraints = AiStringListNormalizer::trimmedCastValues($input['constraints'] ?? []);
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
@@ -273,20 +274,4 @@ class QaReviewService
         return trim((string) $value);
     }
 
-    /**
-     * @return array<int,string>
-     */
-    private function list(mixed $value): array
-    {
-        if (is_array($value)) {
-            return array_values(array_filter(array_map(
-                fn (mixed $item): string => trim((string) $item),
-                $value
-            ), fn (string $item): bool => $item !== ''));
-        }
-
-        $string = $this->string($value);
-
-        return $string === '' ? [] : [$string];
-    }
 }

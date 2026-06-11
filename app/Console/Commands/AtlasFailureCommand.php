@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\Ai\Cognitive\Failure\BayesianFailureTracker;
+use App\Services\Ai\Cognitive\Failure\FailureRecurrenceMetricService;
 use App\Services\Ai\Cognitive\Failure\FailureRepetitionAlerter;
 use App\Services\Ai\Cognitive\Failure\FailureSignatureRepository;
 use Illuminate\Console\Command;
@@ -10,10 +11,11 @@ use Illuminate\Console\Command;
 class AtlasFailureCommand extends Command
 {
     protected $signature = 'atlas:failure
-        {action=recent : record|recent|diversity|signature|alerts|ack|review}
+        {action=recent : record|recent|diversity|signature|alerts|ack|review|recurrence}
         {subject? : Message, signature id, alert id, or review subject}
         {--domain=programming : Domain for record/recent/diversity}
         {--days=14 : Window in days}
+        {--provider= : Provider filter for recurrence mode}
         {--message= : Failure message for record mode}
         {--status=open : Alert status for alerts mode: open|acknowledged|resolved|suppressed|all}
         {--reflection= : Operator reflection for ack mode}
@@ -25,6 +27,7 @@ class AtlasFailureCommand extends Command
         FailureSignatureRepository $signatures,
         FailureRepetitionAlerter $alerter,
         BayesianFailureTracker $tracker,
+        FailureRecurrenceMetricService $recurrence,
     ): int {
         $action = trim((string) $this->argument('action')) ?: 'recent';
         $subject = trim((string) ($this->argument('subject') ?? ''));
@@ -61,10 +64,12 @@ class AtlasFailureCommand extends Command
                 'alert' => $signatures->acknowledge((int) $subject, $this->stringOption('reflection') ?: ''),
             ], $subject !== '' ? self::SUCCESS : self::FAILURE),
             'review' => $this->review($signatures, $tracker, $domain, $days),
+            // AP-819 F3 — recorrência no outcome cru (ai_job_attempts), não no corpus.
+            'recurrence' => $this->render($recurrence->compute($days, $this->stringOption('provider') ?: null)),
             default => $this->render([
                 'schema_version' => 'atlas.cognitive.failure_cli.v1',
                 'status' => 'invalid_action',
-                'supported_actions' => ['record', 'recent', 'diversity', 'signature', 'alerts', 'ack', 'review'],
+                'supported_actions' => ['record', 'recent', 'diversity', 'signature', 'alerts', 'ack', 'review', 'recurrence'],
             ], self::FAILURE),
         };
     }

@@ -12,6 +12,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusInboxServi
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOperatorDecisionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusSelfConstructionAdmissionBridgeService;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 /**
  * AFEF AP-D Promotion — I4 No Self-Canonization.
@@ -307,7 +308,7 @@ final class FoundryOperatorPromotionBacklogCompilerService
             'title' => (string) ($item['title'] ?? ''),
             'detail' => (string) ($item['rationale'] ?? ($item['detail'] ?? '')),
             'severity' => (string) ($item['risk_level'] ?? ($item['risk'] ?? 'medium')),
-            'affected_files' => $this->stringList($item['affected_files'] ?? $this->specSeedAffectedFiles($item)),
+            'affected_files' => AiStringListNormalizer::uniqueNonEmptyArrayStrings($item['affected_files'] ?? $this->specSeedAffectedFiles($item)),
             'spec_seed' => $this->trustedSpecSeed($item),
         ];
     }
@@ -325,7 +326,7 @@ final class FoundryOperatorPromotionBacklogCompilerService
     {
         $severity = (string) ($item['risk_level'] ?? ($item['risk'] ?? 'medium'));
         $detail = (string) ($item['rationale'] ?? ($item['detail'] ?? ''));
-        $affected = $this->stringList($item['affected_files'] ?? $this->specSeedAffectedFiles($item));
+        $affected = AiStringListNormalizer::uniqueNonEmptyArrayStrings($item['affected_files'] ?? $this->specSeedAffectedFiles($item));
 
         return [
             'schema_version' => self::PROMOTED_FINDING_SCHEMA,
@@ -339,7 +340,7 @@ final class FoundryOperatorPromotionBacklogCompilerService
             'risk_level' => $severity,
             'owner_candidate' => 'atlas_dev',
             'affected_files' => $affected !== [] ? $affected : ['app/Services/Ai/Foundry/Frontier/Promotion/.afef_promoted'],
-            'evidence_refs' => $this->stringList($item['evidence_refs'] ?? []),
+            'evidence_refs' => AiStringListNormalizer::uniqueNonEmptyArrayStrings($item['evidence_refs'] ?? []),
             'spec_seed' => $this->trustedSpecSeed($item),
             'origin_type' => self::ORIGIN,
         ];
@@ -378,7 +379,7 @@ final class FoundryOperatorPromotionBacklogCompilerService
     {
         $seed = is_array($item['spec_seed'] ?? null) ? $item['spec_seed'] : [];
 
-        return $this->stringList($seed['affected_files'] ?? []);
+        return AiStringListNormalizer::uniqueNonEmptyArrayStrings($seed['affected_files'] ?? []);
     }
 
     /**
@@ -559,23 +560,4 @@ final class FoundryOperatorPromotionBacklogCompilerService
         ];
     }
 
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($value as $entry) {
-            if (is_string($entry) && $entry !== '') {
-                $out[] = $entry;
-            }
-        }
-
-        return array_values(array_unique($out));
-    }
 }

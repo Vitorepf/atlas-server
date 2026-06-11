@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\AtlasDev\Provider;
 
 use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevProcessEnvironment;
 use App\Support\AtlasSecurity;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use InvalidArgumentException;
@@ -144,63 +145,7 @@ final class SymfonyClaudeCliGateway implements ClaudeCliGateway
             }
         }
 
-        return new Process($argv, $cwd, $this->providerEnv(), null, (float) $timeoutSeconds);
-    }
-
-    /**
-     * Claude Code stores operator auth and session metadata under HOME. Some
-     * PHP runtimes (notably built-in server / FPM pools launched from stripped
-     * service managers) do not pass the same env as the interactive shell, so
-     * make the provider env explicit while still inheriting everything else.
-     *
-     * @return array<string, string>
-     */
-    private function providerEnv(): array
-    {
-        $env = [];
-
-        $home = getenv('HOME');
-        if (! is_string($home) || trim($home) === '') {
-            $home = $_SERVER['HOME'] ?? $_ENV['HOME'] ?? null;
-        }
-        if ((! is_string($home) || trim($home) === '') && function_exists('posix_getpwuid')) {
-            $user = posix_getpwuid(posix_getuid());
-            if (is_array($user) && is_string($user['dir'] ?? null)) {
-                $home = $user['dir'];
-            }
-        }
-        if (is_string($home) && trim($home) !== '') {
-            $home = rtrim($home, '/');
-            $env['HOME'] = $home;
-
-            $claudeConfigDir = getenv('CLAUDE_CONFIG_DIR');
-            if (! is_string($claudeConfigDir) || trim($claudeConfigDir) === '') {
-                $claudeConfigDir = $_SERVER['CLAUDE_CONFIG_DIR'] ?? $_ENV['CLAUDE_CONFIG_DIR'] ?? null;
-            }
-            if (is_string($claudeConfigDir) && trim($claudeConfigDir) !== '') {
-                $env['CLAUDE_CONFIG_DIR'] = $claudeConfigDir;
-            }
-        }
-
-        $path = getenv('PATH');
-        if (! is_string($path) || trim($path) === '') {
-            $path = $_SERVER['PATH'] ?? $_ENV['PATH'] ?? null;
-        }
-        if (is_string($path) && trim($path) !== '') {
-            $env['PATH'] = $path;
-        }
-
-        foreach (['USER', 'LOGNAME'] as $key) {
-            $value = getenv($key);
-            if (! is_string($value) || trim($value) === '') {
-                $value = $_SERVER[$key] ?? $_ENV[$key] ?? null;
-            }
-            if (is_string($value) && trim($value) !== '') {
-                $env[$key] = $value;
-            }
-        }
-
-        return $env;
+        return new Process($argv, $cwd, AtlasDevProcessEnvironment::claudeProviderEnv(), null, (float) $timeoutSeconds);
     }
 
     private function extractAssistantText(string $stdout): string

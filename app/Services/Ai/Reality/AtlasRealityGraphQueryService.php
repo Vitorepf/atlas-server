@@ -89,7 +89,7 @@ class AtlasRealityGraphQueryService
     private const HARD_MAX_SEEDS = 16;
 
     /** Bounded multi-term tokenisation of the query. */
-    private const MAX_QUERY_TERMS = 8;
+    private const MAX_QUERY_TERMS = 12;
 
     /** Lexical SQL candidate window = seed cap × this (re-scored in PHP). */
     private const LEXICAL_CANDIDATE_FACTOR = 5;
@@ -170,6 +170,7 @@ class AtlasRealityGraphQueryService
         // 4) RANKING — Python networkx via the boundary, or HONEST unranked.
         // ------------------------------------------------------------------
         [$orderedIds, $rankScores, $ranking] = $this->rank($traversal, $terms);
+        $paths = $this->orderPaths($paths, $orderedIds);
 
         $nodes = [];
         foreach ($orderedIds as $nodeId) {
@@ -296,25 +297,34 @@ class AtlasRealityGraphQueryService
 
         $scored = [];
         foreach ($candidates as $node) {
-            $haystack = mb_strtolower(
-                (string) $node->label.' '
-                .(json_encode($node->meta ?? [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: ''),
-            );
+            $labelHaystack = mb_strtolower((string) $node->label);
+            $metaHaystack = mb_strtolower((string) (json_encode($node->meta ?? [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: ''));
+            $haystack = $labelHaystack.' '.$metaHaystack;
             $matched = [];
+            $labelMatched = [];
             foreach ($terms as $term) {
                 if (str_contains($haystack, $term)) {
                     $matched[] = $term;
+                }
+                if (str_contains($labelHaystack, $term)) {
+                    $labelMatched[] = $term;
                 }
             }
             // Cite-or-omit: a SQL wildcard artifact with zero literal hits is dropped.
             if ($matched === []) {
                 continue;
             }
-            $scored[] = ['node' => $node, 'matched' => $matched];
+            $quality = $this->lexicalSeedQuality($node, $labelMatched, $providerBound);
+            if ($quality === null) {
+                continue;
+            }
+            $scored[] = ['node' => $node, 'matched' => $matched, 'label_matched' => $labelMatched, 'quality' => $quality];
         }
 
         usort($scored, static function (array $a, array $b): int {
             return count($b['matched']) <=> count($a['matched'])
+                ?: count($b['label_matched']) <=> count($a['label_matched'])
+                ?: ((int) $b['quality'] <=> (int) $a['quality'])
                 ?: strcmp((string) $a['node']->id, (string) $b['node']->id);
         });
 
@@ -325,6 +335,7 @@ class AtlasRealityGraphQueryService
                 'node_id' => (string) $entry['node']->id,
                 'via' => self::SEED_VIA_LEXICAL,
                 'matched_terms' => $entry['matched'],
+                'matched_label_terms' => $entry['label_matched'],
                 'label' => (string) $entry['node']->label,
                 'source_kind' => (string) $entry['node']->source_kind,
                 'kind' => (string) $entry['node']->kind,
@@ -579,6 +590,26 @@ class AtlasRealityGraphQueryService
         return $paths;
     }
 
+    /**
+     * @param  list<array<string,mixed>>  $paths
+     * @param  list<string>  $orderedIds
+     * @return list<array<string,mixed>>
+     */
+    private function orderPaths(array $paths, array $orderedIds): array
+    {
+        $position = array_flip($orderedIds);
+        usort($paths, static function (array $a, array $b) use ($position): int {
+            $aTarget = (string) ($a['target'] ?? '');
+            $bTarget = (string) ($b['target'] ?? '');
+
+            return ($position[$aTarget] ?? PHP_INT_MAX) <=> ($position[$bTarget] ?? PHP_INT_MAX)
+                ?: ((int) ($a['depth'] ?? 0) <=> (int) ($b['depth'] ?? 0))
+                ?: strcmp($aTarget, $bTarget);
+        });
+
+        return array_values($paths);
+    }
+
     // ------------------------------------------------------------------
     // Ranking (Python boundary or honest unranked)
     // ------------------------------------------------------------------
@@ -611,7 +642,7 @@ class AtlasRealityGraphQueryService
                 'node_type' => (string) $node->kind,
                 // Label as the textual surface the runtime matches the query
                 // terms against (it lowercases the haystack itself).
-                'path' => (string) $node->label,
+                'path' => $this->rankTextSurface($node),
                 'flow_id' => null,
                 // Deterministic seed anchor: the runtime's capability_overlap
                 // boost fires exactly for the seeds (target_capabilities below).
@@ -773,9 +804,10 @@ class AtlasRealityGraphQueryService
     // ------------------------------------------------------------------
 
     /**
-     * Lowercased whitespace terms (>=2 chars), bounded. No accent folding —
-     * lexical match is literal by design (deterministic); semantics belong to
-     * the vector seeds.
+     * Lowercased lexical terms (>=2 chars), bounded. Keeps the original token
+     * and also expands separators, so provider-bound terms such as
+     * "reality_graph" and "provider-bound" can recall graph/provider nodes
+     * without forcing the caller to phrase queries like the DB labels.
      *
      * @return list<string>
      */
@@ -784,13 +816,115 @@ class AtlasRealityGraphQueryService
         $tokens = preg_split('/\s+/u', mb_strtolower(trim($query))) ?: [];
         $terms = [];
         foreach ($tokens as $token) {
-            $token = trim($token);
-            if ($token !== '' && mb_strlen($token) >= 2 && ! in_array($token, $terms, true)) {
-                $terms[] = $token;
+            $token = trim($token, " \t\n\r\0\x0B.,:;()[]{}<>\"'");
+            foreach (array_merge([$token], preg_split('/[^\p{L}\p{N}]+/u', $token) ?: []) as $candidate) {
+                $candidate = trim((string) $candidate);
+                if ($candidate !== '' && mb_strlen($candidate) >= 2 && ! in_array($candidate, $terms, true)) {
+                    $terms[] = $candidate;
+                }
             }
         }
 
         return array_slice($terms, 0, self::MAX_QUERY_TERMS);
+    }
+
+    /**
+     * Provider-bound graph packs are initial context, not an audit log. Mission
+     * outcome evidence is still available through local/unbounded query and the
+     * mission-history surface; it should not win the first seed slots by matching
+     * broad metadata such as "mission" or a touched path.
+     *
+     * @param  list<string>  $labelMatched
+     */
+    private function lexicalSeedQuality(AtlasAurgNode $node, array $labelMatched, bool $providerBound): ?int
+    {
+        $sourceKind = (string) $node->source_kind;
+        $kind = (string) $node->kind;
+
+        if (! $providerBound) {
+            return $this->lexicalSourcePriority($sourceKind, $kind);
+        }
+
+        if ($this->isGenericProviderSeedNode($node)) {
+            return null;
+        }
+
+        if ($sourceKind === 'mission') {
+            if ($kind === 'evidence') {
+                return null;
+            }
+            if ($labelMatched === []) {
+                return null;
+            }
+        }
+
+        if ($sourceKind === 'evidence' && $labelMatched === []) {
+            return null;
+        }
+
+        return $this->lexicalSourcePriority($sourceKind, $kind);
+    }
+
+    private function lexicalSourcePriority(string $sourceKind, string $kind): int
+    {
+        if ($sourceKind === 'memory') {
+            return 90;
+        }
+        if ($sourceKind === 'code') {
+            return 80;
+        }
+        if (in_array($sourceKind, ['doc', 'docs', 'documentation'], true)) {
+            return 75;
+        }
+        if ($sourceKind === 'domain') {
+            return 55;
+        }
+        if ($sourceKind === 'evidence') {
+            return 45;
+        }
+        if ($sourceKind === 'mission' && $kind === 'mission') {
+            return 35;
+        }
+        if ($sourceKind === 'mission') {
+            return 20;
+        }
+
+        return 10;
+    }
+
+    private function isGenericProviderSeedNode(AtlasAurgNode $node): bool
+    {
+        $label = mb_strtolower(trim((string) $node->label));
+        $label = (string) preg_replace('/\s+/u', ' ', $label);
+
+        return in_array($label, [
+            'mission_outcome',
+            'mission outcome',
+            '[request interrupted by user for tool use]',
+            'request interrupted by user for tool use',
+        ], true) || str_starts_with($label, '[request interrupted');
+    }
+
+    private function rankTextSurface(AtlasAurgNode $node): string
+    {
+        $parts = [
+            (string) $node->label,
+            (string) $node->source_id,
+        ];
+
+        foreach ((array) ($node->meta ?? []) as $value) {
+            if (is_scalar($value)) {
+                $parts[] = (string) $value;
+            } elseif (is_array($value)) {
+                foreach ($value as $inner) {
+                    if (is_scalar($inner)) {
+                        $parts[] = (string) $inner;
+                    }
+                }
+            }
+        }
+
+        return mb_substr(implode(' ', array_filter($parts, static fn (string $part): bool => trim($part) !== '')), 0, 2000);
     }
 
     private function storeReady(): bool

@@ -21,6 +21,7 @@ use App\Services\Ai\RuntimeEfficiency\AtlasRuntimeEfficiencyGovernorService;
 use App\Services\Ai\StrategicReality\AtlasStrategicRealityRuntimeService;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\VerifiedExecution\AtlasVerifiedExecutionRuntimeService;
 use Throwable;
 
 /**
@@ -264,8 +265,8 @@ class AtlasHyperflowEntryService
                 'domain' => $this->stringValue(data_get($payload, 'routing_domain')) ?? $this->stringValue(data_get($payload, 'atlas_mode')),
                 'flow_id' => $this->stringValue(data_get($payload, 'flow_id')) ?? $this->stringValue(data_get($payload, 'routing_task')),
                 'provider' => $this->stringValue($data['provider'] ?? null) ?? $this->stringValue(data_get($payload, 'provider')),
-                'context_refs' => array_values(array_filter((array) data_get($payload, 'context_refs', []), 'is_string')),
-                'evidence_refs' => array_values(array_filter((array) data_get($payload, 'evidence_refs', []), 'is_string')),
+                'context_refs' => $this->payloadStringList($payload, 'context_refs'),
+                'evidence_refs' => $this->payloadStringList($payload, 'evidence_refs'),
                 'trace_id' => $data['trace_id'] ?? null,
                 'mission_id' => $data['mission_id'] ?? null,
                 'rich_input_summary' => data_get($payload, 'rich_input_payload.summary'),
@@ -311,8 +312,8 @@ class AtlasHyperflowEntryService
                 'surface_id' => $this->stringValue(data_get($payload, 'surface_id')) ?? $this->stringValue(data_get($payload, 'app_surface')),
                 'domain' => $this->stringValue(data_get($payload, 'routing_domain')) ?? $this->stringValue(data_get($payload, 'atlas_mode')),
                 'flow_id' => $this->stringValue(data_get($payload, 'flow_id')) ?? $this->stringValue(data_get($payload, 'routing_task')),
-                'context_refs' => array_values(array_filter((array) data_get($payload, 'context_refs', []), 'is_string')),
-                'evidence_refs' => array_values(array_filter((array) data_get($payload, 'evidence_refs', []), 'is_string')),
+                'context_refs' => $this->payloadStringList($payload, 'context_refs'),
+                'evidence_refs' => $this->payloadStringList($payload, 'evidence_refs'),
                 'areg_decision_hash' => $runtimeEfficiencyDecision['decision_hash'] ?? null,
                 'source' => 'hyperflow_entry',
             ]);
@@ -362,9 +363,28 @@ class AtlasHyperflowEntryService
             return [
                 'schema_version' => AtlasAutonomousWorkExecutionService::EXECUTION_SCHEMA,
                 'status' => 'deferred',
+                'maturity_level' => AtlasAutonomousWorkExecutionService::LEVEL_MAX,
                 'mode' => 'deferred_interactive_request',
                 'surface_id' => $surfaceId,
                 'deferred_reason' => 'interactive_request_must_enqueue_before_heavy_aweos_bootstrap',
+                'verified_execution' => [
+                    'schema_version' => AtlasVerifiedExecutionRuntimeService::EXECUTION_SCHEMA,
+                    'status' => 'deferred',
+                    'maturity_level' => AtlasVerifiedExecutionRuntimeService::LEVEL_MAX,
+                    'mode' => 'deferred_interactive_request',
+                    'surface_id' => $surfaceId,
+                    'deferred_reason' => 'interactive_request_must_enqueue_before_heavy_aweos_bootstrap',
+                    'claim_policy' => [
+                        'executes_only_after_safety_gate' => true,
+                        'provider_invoked_directly' => false,
+                        'external_side_effects_blocked_by_default' => true,
+                        'destructive_commands_blocked' => true,
+                        'raw_stdout_not_persisted' => true,
+                        'completion_requires_diff_command_test_evidence' => true,
+                        'never_reverts_unrelated_user_changes' => true,
+                        'benchmark_not_run' => true,
+                    ],
+                ],
                 'claim_policy' => [
                     'provider_invoked_directly' => false,
                     'external_execution_performed_directly' => false,
@@ -381,8 +401,8 @@ class AtlasHyperflowEntryService
                 'surface_id' => $this->stringValue(data_get($payload, 'surface_id')) ?? $this->stringValue(data_get($payload, 'app_surface')),
                 'domain' => $this->stringValue(data_get($payload, 'routing_domain')) ?? $this->stringValue(data_get($payload, 'atlas_mode')),
                 'flow_id' => $this->stringValue(data_get($payload, 'flow_id')) ?? $this->stringValue(data_get($payload, 'routing_task')),
-                'context_refs' => array_values(array_filter((array) data_get($payload, 'context_refs', []), 'is_string')),
-                'evidence_refs' => array_values(array_filter((array) data_get($payload, 'evidence_refs', []), 'is_string')),
+                'context_refs' => $this->payloadStringList($payload, 'context_refs'),
+                'evidence_refs' => $this->payloadStringList($payload, 'evidence_refs'),
                 'source' => 'hyperflow_entry',
             ]);
         } catch (Throwable $exception) {
@@ -672,8 +692,8 @@ class AtlasHyperflowEntryService
     private function strategicRealityEvidenceRefs(array $payload, array $envelope): array
     {
         return AiStringListNormalizer::uniqueStrings(array_values(array_filter([
-            ...array_values(array_filter((array) data_get($payload, 'evidence_refs', []), 'is_string')),
-            ...array_values(array_filter((array) data_get($payload, 'context_refs', []), 'is_string')),
+            ...$this->payloadStringList($payload, 'evidence_refs'),
+            ...$this->payloadStringList($payload, 'context_refs'),
             data_get($envelope, 'decision_receipt.router_decision_receipt.receipt_hash'),
             data_get($envelope, 'decision_receipt.runtime_dispatch_receipt.receipt_hash'),
             data_get($envelope, 'persistent_context.persistent_context_hash'),
@@ -828,11 +848,13 @@ class AtlasHyperflowEntryService
                 'surface_id' => $surfaceId,
                 'prompt_hash' => hash('sha256', $rawInput),
             ];
+            $persistentContextHash = hash('sha256', json_encode($hashPayload, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
 
             return [
                 ...$hashPayload,
-                'persistent_context_hash' => hash('sha256', json_encode($hashPayload, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)),
+                'persistent_context_hash' => $persistentContextHash,
                 'deferred_reason' => 'desktop_interaction_must_enqueue_before_heavy_context_bootstrap',
+                'provider_handoff' => $this->deferredPersistentContextHandoff($data, $payload, $rawInput, $persistentContextHash),
                 'claim_policy' => [
                     'provider_calls_made' => false,
                     'writes' => false,
@@ -850,7 +872,7 @@ class AtlasHyperflowEntryService
                 'provider' => $this->stringValue($data['provider'] ?? null) ?? $this->stringValue(data_get($payload, 'provider')),
                 'source_type' => $this->stringValue($data['source_type'] ?? null) ?? self::SOURCE_GATEWAY,
                 'payload' => $payload,
-                'evidence_refs' => array_values(array_filter((array) data_get($payload, 'evidence_refs', []), 'is_string')),
+                'evidence_refs' => $this->payloadStringList($payload, 'evidence_refs'),
             ]);
         } catch (Throwable $exception) {
             return [
@@ -872,6 +894,49 @@ class AtlasHyperflowEntryService
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return list<string>
+     */
+    private function payloadStringList(array $payload, string $key): array
+    {
+        return AiStringListNormalizer::stringsFromArrayCast(data_get($payload, $key, []));
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function deferredPersistentContextHandoff(array $data, array $payload, string $rawInput, string $persistentContextHash): array
+    {
+        return [
+            'schema_version' => 'atlas.persistent_context.provider_handoff.v1',
+            'provider' => $this->stringValue($data['provider'] ?? null) ?? $this->stringValue(data_get($payload, 'provider')) ?? 'auto',
+            'prompt_hash' => hash('sha256', $rawInput),
+            'context_pack_hash' => $persistentContextHash,
+            'must_know_ledger_hash' => $persistentContextHash,
+            'sufficiency_status' => 'deferred',
+            'read_first' => [],
+            'required_before_execution' => [
+                'rebuild_persistent_context_from_queued_trace',
+                'read_context_pack',
+                'preserve_must_know_ledger',
+                'return_evidence_refs',
+                'do_not_invent_source_refs',
+            ],
+            'aemor_risk_prediction' => [
+                'status' => 'deferred',
+                'reason' => 'interactive_request_must_enqueue_before_heavy_context_bootstrap',
+            ],
+            'intelligence_factory' => [
+                'status' => 'deferred',
+                'reason' => 'interactive_request_must_enqueue_before_heavy_context_bootstrap',
+            ],
+            'execution_allowed' => false,
+        ];
     }
 
     /**
@@ -1036,7 +1101,7 @@ class AtlasHyperflowEntryService
         AiAtlasRouterDecision $routerDecision,
         AiAtlasFlowRoute $flowRoute,
     ): array {
-        $contextRefs = array_values(array_filter((array) data_get($payload, 'context_refs', []), 'is_string'));
+        $contextRefs = $this->payloadStringList($payload, 'context_refs');
         $sourceManifest = array_values((array) data_get($payload, 'rich_input_payload.source_manifest', []));
         foreach ($sourceManifest as $index => $source) {
             if (is_array($source)) {

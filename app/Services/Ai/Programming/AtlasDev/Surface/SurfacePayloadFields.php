@@ -12,11 +12,9 @@ use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
  * {@see AtlasDevSurfaceAdapter} to pluck primitives out of a surface-native
  * payload before handing them to {@see IntakeNormalizer}.
  *
- * The trait is intentionally narrow: only the two helpers that were duplicated
- * verbatim across all four adapters (`stringField` and `stringListField`). The
- * `extractSurfaceHints` helper stays per-adapter because each surface has its
- * own native vocabulary (e.g. Desktop carries `attachments`/`policy_hints`,
- * CLI accepts a flat key list, App is intentionally compact).
+ * The trait is intentionally narrow: only helpers duplicated verbatim across
+ * all four adapters live here. Surface-specific hint vocabulary (e.g. Desktop
+ * `attachments`/`policy_hints`) stays inside the concrete adapter.
  *
  * Trait scope is also a boundary: nothing here imports core (Schemas/Pipeline)
  * or third-party namespaces. Adapters get the helpers for free and keep their
@@ -24,6 +22,18 @@ use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
  */
 trait SurfacePayloadFields
 {
+    /**
+     * @var list<string>
+     */
+    private const COMMON_SURFACE_HINT_KEYS = [
+        'thread_id',
+        'conversation_id',
+        'composer_mode',
+        'composer_task',
+        'provider_choice',
+        'previous_run_id',
+    ];
+
     /**
      * Read a string field from the payload, trimming whitespace. Anything
      * non-string (null, int, bool, array) collapses to ''.
@@ -50,5 +60,68 @@ trait SurfacePayloadFields
     private function stringListField(array $payload, string $key): array
     {
         return AtlasDevStringListNormalizer::trimmedStrings($payload[$key] ?? []);
+    }
+
+    /**
+     * Extract the shared surface hint vocabulary used by CLI, Desktop, App,
+     * and API surfaces. Router flow metadata is appended by
+     * {@see appendRouterFlowHints()} so adapters can insert native extras
+     * before it when that preserves their wire intent.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function baseSurfaceHints(array $payload): array
+    {
+        $hints = $this->stringSurfaceHints($payload, self::COMMON_SURFACE_HINT_KEYS);
+        if (isset($payload['operator_explicit']) && is_bool($payload['operator_explicit'])) {
+            $hints['operator_explicit'] = $payload['operator_explicit'];
+        }
+
+        return $hints;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function commonSurfaceHints(array $payload): array
+    {
+        return $this->appendRouterFlowHints($this->baseSurfaceHints($payload), $payload);
+    }
+
+    /**
+     * @param  array<string, mixed>  $hints
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function appendRouterFlowHints(array $hints, array $payload): array
+    {
+        foreach (['flow_origin', 'command_intent'] as $key) {
+            $value = $payload[$key] ?? null;
+            if (is_string($value) && trim($value) !== '') {
+                $hints[$key] = trim($value);
+            }
+        }
+
+        return $hints;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  list<string>  $keys
+     * @return array<string, string>
+     */
+    private function stringSurfaceHints(array $payload, array $keys): array
+    {
+        $hints = [];
+        foreach ($keys as $key) {
+            $value = $payload[$key] ?? null;
+            if (is_string($value) && trim($value) !== '') {
+                $hints[$key] = trim($value);
+            }
+        }
+
+        return $hints;
     }
 }

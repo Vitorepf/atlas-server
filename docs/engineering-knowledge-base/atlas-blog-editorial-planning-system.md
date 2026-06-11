@@ -34,6 +34,7 @@ capabilities:
   - read_only_editorial_topic_ledger
   - read_only_editorial_roadmap
   - read_only_editorial_dependency_matrix
+  - read_only_backlog_intake
   - open_brain_editorial_context_handoff
   - audited_open_brain_editorial_context_execution
   - graph_rag_readiness_preflight
@@ -250,6 +251,9 @@ Saida P1:
   read-only por post: fase, nivel de profundidade, prerequisitos explicitos,
   prerequisitos faltantes, termos que o texto pode introduzir, termos ja
   disponiveis e assuntos futuros que nao devem ser exigidos do leitor;
+- `backlog_intake` dentro de `operations_packet`, com recomendacoes read-only
+  para alimentar a fila: aceitar em revisao, segurar por duplicata, segurar ate
+  a escada de dependencias estar clara ou revisar para promocao append-only;
 - `open_brain_handoff` dentro de `operations_packet` e `writing_packet`, com
   objetivo, comando `atlas:open-brain:context`, payload provider-safe e
   guardrails que mantem invocacao automatica, graph/RAG, Python e publicacao
@@ -358,6 +362,9 @@ promote-candidate -> read accepted review queue item -> emit backlog YAML snippe
   antes de escrever um post, confirme que seus prerequisitos estao publicados ou
   explicados na propria camada; se faltar base, escreva primeiro o texto
   introdutor.
+- Trate `backlog_intake` como triagem, nao como escrita: ele pode recomendar
+  entrada na fila de revisao, bloqueio ou promocao append-only, mas nao deve
+  alterar backlog, publicar, reordenar ou aprovar candidato sem humano.
 - Use `--editorial-radar` para decidir onde alimentar a lista; ele nao muda
   backlog, nao aceita candidatos e nao publica.
 - Use `--editorial-golden-set` para provar que a sequencia ainda ensina do raso

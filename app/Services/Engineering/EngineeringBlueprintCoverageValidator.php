@@ -19,7 +19,7 @@ class EngineeringBlueprintCoverageValidator
         $scenarios = $this->arrayList($blueprint['scenarios'] ?? []);
         $phasePlan = $this->arrayList($blueprint['phase_plan'] ?? []);
         $scenarioAcceptanceRefs = collect($scenarios)
-            ->flatMap(fn (array $scenario): array => $this->stringList($scenario['acceptance_refs'] ?? []))
+            ->flatMap(fn (array $scenario): array => EngineeringStringListNormalizer::nonEmptyScalarStrings($scenario['acceptance_refs'] ?? []))
             ->unique()
             ->values()
             ->all();
@@ -38,8 +38,8 @@ class EngineeringBlueprintCoverageValidator
 
         foreach ($this->arrayList($inventory['screens'] ?? []) as $screen) {
             $id = $this->id($screen, 'screen');
-            $states = $this->stringList($screen['states'] ?? []);
-            $requirements = $this->stringList($screen['visual_requirements'] ?? []);
+            $states = EngineeringStringListNormalizer::nonEmptyScalarStrings($screen['states'] ?? []);
+            $requirements = EngineeringStringListNormalizer::nonEmptyScalarStrings($screen['visual_requirements'] ?? []);
             if (! $this->containsAll($states, ['loading', 'ready', 'error'])) {
                 $errors[] = $this->issue('screen_required_states_missing', "Tela {$id} precisa cobrir loading, ready e error.", 'inventory.screens');
             }
@@ -57,7 +57,7 @@ class EngineeringBlueprintCoverageValidator
 
         foreach ($this->arrayList($inventory['api_surfaces'] ?? []) as $api) {
             $id = $this->id($api, 'api');
-            if ($this->stringList($api['failure_modes'] ?? []) === []) {
+            if (EngineeringStringListNormalizer::nonEmptyScalarStrings($api['failure_modes'] ?? []) === []) {
                 $errors[] = $this->issue('api_failure_modes_missing', "API {$id} precisa declarar failure path.", 'inventory.api_surfaces');
             }
         }
@@ -75,10 +75,10 @@ class EngineeringBlueprintCoverageValidator
 
         foreach ($scenarios as $scenario) {
             $id = $this->id($scenario, 'scenario');
-            if ($this->stringList($scenario['acceptance_refs'] ?? []) === []) {
+            if (EngineeringStringListNormalizer::nonEmptyScalarStrings($scenario['acceptance_refs'] ?? []) === []) {
                 $errors[] = $this->issue('scenario_acceptance_missing', "Scenario {$id} precisa referenciar acceptance criterion.", 'scenarios');
             }
-            if ($this->stringList($scenario['evidence_required'] ?? []) === []) {
+            if (EngineeringStringListNormalizer::nonEmptyScalarStrings($scenario['evidence_required'] ?? []) === []) {
                 $warnings[] = $this->issue('scenario_evidence_missing', "Scenario {$id} nao declara evidence_required.", 'scenarios');
             }
         }
@@ -94,7 +94,7 @@ class EngineeringBlueprintCoverageValidator
                 if ($acceptance === []) {
                     $errors[] = $this->issue('task_acceptance_missing', "Task {$taskId} precisa de acceptance criteria.", 'phase_plan');
                 }
-                if ($this->stringList($task['definition_of_done'] ?? []) === []) {
+                if (EngineeringStringListNormalizer::nonEmptyScalarStrings($task['definition_of_done'] ?? []) === []) {
                     $errors[] = $this->issue('task_dod_missing', "Task {$taskId} precisa de definition_of_done.", 'phase_plan');
                 }
                 foreach ($acceptance as $criterion) {
@@ -166,22 +166,6 @@ class EngineeringBlueprintCoverageValidator
     {
         return collect(is_array($value) ? $value : [])
             ->filter(fn (mixed $item): bool => is_array($item))
-            ->values()
-            ->all();
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            $value = [$value];
-        }
-
-        return collect($value)
-            ->filter(fn (mixed $item): bool => is_scalar($item) && trim((string) $item) !== '')
-            ->map(fn (mixed $item): string => trim((string) $item))
             ->values()
             ->all();
     }

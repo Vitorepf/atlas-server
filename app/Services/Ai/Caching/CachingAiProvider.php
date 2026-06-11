@@ -129,15 +129,21 @@ final class CachingAiProvider implements AiProvider
 
     public function runStreaming(AiJob $job, string $prompt, ?callable $onEvent = null): AiProviderResult
     {
-        // Streaming is the hard-excluded, never-cached path. Straight pass-through
-        // (callback included) so the stream is observationally untouched.
+        // Streaming is the hard-excluded, never-cached path — but it still SPENDS,
+        // so the cost guard runs before it (G2: guard uniforme em toda chamada
+        // real; no-op quando thresholds = 0, o default histórico).
+        $this->enforceCostGuard($job, $prompt);
+
         return $this->inner->runStreaming($job, $prompt, $onEvent);
     }
 
     public function run(AiJob $job, string $prompt): AiProviderResult
     {
         if (! $this->cacheEnabled()) {
-            // Globally disabled ⇒ pure pass-through, byte-identical to inner.
+            // Cache globally disabled ⇒ pass-through SEM cache, mas o cost guard
+            // continua valendo (G2: guard desacoplado do cache; no-op em 0/0).
+            $this->enforceCostGuard($job, $prompt);
+
             return $this->inner->run($job, $prompt);
         }
 

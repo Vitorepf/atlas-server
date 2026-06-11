@@ -36,6 +36,9 @@ class AtlasLearningProposalService
         'retrieval_hint',
         'memory',
         'failure_pattern',
+        // AP-819 Obra B: edit na Atlas Harness Surface v1 (allowlist+bounds no
+        // applier/surface). NUNCA auto-aplica — apply só operator-approved.
+        'harness_config',
     ];
 
     /**

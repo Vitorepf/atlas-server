@@ -18,6 +18,7 @@ use App\Services\Ai\Product\AtlasAiProductCertificationService;
 use App\Services\Ai\RouterRuntime\AtlasDesktopHyperflowIntegrationCertificationService;
 use App\Services\Ai\RouterRuntime\AtlasHyperflowSpecialistFlowsReadinessService;
 use App\Services\Ai\RouterRuntime\RouterRuntimeReadinessService;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Database\Eloquent\Builder;
@@ -391,14 +392,7 @@ class AtlasAiRuntimeReadinessService
      */
     private function stringList(mixed $value): array
     {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(
-            static fn (mixed $item): string => is_scalar($item) ? trim((string) $item) : '',
-            $value,
-        ), static fn (string $item): bool => $item !== ''));
+        return AiStringListNormalizer::trimmedScalarValues($value);
     }
 
     /* ============================================================ */

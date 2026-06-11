@@ -622,11 +622,7 @@ final class LoopFlightRecorderService
      */
     private function stringList(mixed $value): array
     {
-        if (is_string($value)) {
-            $value = $value === '' ? [] : [$value];
-        }
-
-        return AreaFocusStringListNormalizer::trimmedStrings($value);
+        return AreaFocusStringListNormalizer::trimmedStringsOrScalarString($value);
     }
 
     /**

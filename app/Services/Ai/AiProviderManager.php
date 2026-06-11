@@ -187,7 +187,17 @@ class AiProviderManager
         }
 
         $config = function_exists('config') ? config('atlas.ai.cache', []) : [];
-        if (! is_array($config) || ($config['enabled'] ?? false) !== true) {
+        if (! is_array($config)) {
+            return $instance;
+        }
+        // G2 — o cost guard NÃO depende mais do cache: o wrapper também é aplicado
+        // quando só o guard está configurado (soft/hard > 0 em cache.cost_guard,
+        // o MESMO array que CachingAiProvider::guardThresholds() lê). Com
+        // cache.enabled false o wrapper é pass-through + guard (nunca lê/escreve
+        // cache), então o default (0/0 + cache off) segue byte-idêntico ao inner.
+        $guard = is_array($config['cost_guard'] ?? null) ? $config['cost_guard'] : [];
+        $guardConfigured = ((float) ($guard['soft_units'] ?? 0)) > 0.0 || ((float) ($guard['hard_units'] ?? 0)) > 0.0;
+        if (($config['enabled'] ?? false) !== true && ! $guardConfigured) {
             return $instance;
         }
 

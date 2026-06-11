@@ -13,7 +13,6 @@ use App\Models\AiThread;
 use App\Models\AiTrace;
 use App\Models\Capture;
 use App\Services\Ai\Cli\AtlasFileAttachmentService;
-use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Mission\AiGatewayMissionBridge;
 use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
@@ -1032,76 +1031,15 @@ class AiGatewayService
             'trace_id' => $trace->id,
         ], $filtered);
 
-        $this->recordCompoundingFlowSignal($trace, $record, $execution);
+        // T1.2 (2026-06-11): o antigo recordCompoundingFlowSignal foi REMOVIDO na fonte.
+        // Ele fabricava, a CADA interação, um learning signal boilerplate com métricas
+        // constantes (flow_quality 80 / confidence 78 / context_sufficiency 70) que
+        // promovia uma routing_memory meta-stub por turno — a fábrica dos 96% de ruído
+        // medidos pelo atlas:ai:capture-quality-audit. A execução real do specialist
+        // flow continua registrada acima (AiSpecialistFlowExecution); o compounding é
+        // alimentado pelos caminhos REAIS (conductor learn→recall, bridge-evidence).
 
         return $record;
-    }
-
-    /**
-     * @param  array<string,mixed>  $execution
-     */
-    private function recordCompoundingFlowSignal(AiTrace $trace, AiSpecialistFlowExecution $record, array $execution): void
-    {
-        if (! $this->compoundingTablesReady()) {
-            return;
-        }
-
-        $flowId = (string) ($record->flow_id ?: data_get($execution, 'flow_id', 'atlas_conversation'));
-        $runtimeReceiptId = (string) ($record->runtime_receipt_id ?: 'trace:'.$trace->id);
-        $evidenceRefs = array_values(array_filter([
-            'trace:'.$trace->id,
-            $runtimeReceiptId !== '' ? 'runtime_receipt:'.$runtimeReceiptId : null,
-            $record->runtime_contract_hash ? 'runtime_contract:'.$record->runtime_contract_hash : null,
-        ]));
-
-        try {
-            app(AtlasCompoundingRuntimeService::class)->recordExecution([
-                'run_id' => 'trace:'.$trace->id.':'.$flowId,
-                'trace_id' => $trace->id,
-                'flow_id' => $flowId,
-                'outcome_status' => $record->status === 'delegated' ? 'delegated' : 'ready_for_provider',
-                'source_type' => 'specialist_flow_execution',
-                'flow_quality' => 80,
-                'retrieval_quality' => 60,
-                'execution_quality' => $record->status === 'delegated' ? 75 : 70,
-                'evidence_quality' => 82,
-                'learning_required' => true,
-                'evidence_refs' => $evidenceRefs,
-                'learning_signal' => [
-                    'claim' => 'Specialist flow '.$flowId.' emitted a learning signal contract for future routing, retrieval and execution evaluation.',
-                    'memory_type' => (string) data_get($execution, 'learning_signal_contract.candidate_memory_type', 'routing_memory'),
-                    'scope' => 'atlas-server',
-                    'confidence' => 78,
-                    'flow_id' => $flowId,
-                    'evidence_refs' => $evidenceRefs,
-                ],
-                'rag_feedback' => [
-                    'retrieval_receipt_id' => $runtimeReceiptId,
-                    'included_sources' => count((array) $record->audit_checks),
-                    'used_sources' => count((array) $record->completion_checks),
-                    'noise_sources' => 0,
-                    'missed_required_sources' => [],
-                    'context_sufficiency' => 70,
-                    'post_execution_utility' => 70,
-                    'source_utility' => [
-                        'specialist_flow_execution' => 'learning_signal_contract',
-                    ],
-                ],
-            ]);
-        } catch (\Throwable) {
-            // Compounding must never block the primary AI interaction path.
-        }
-    }
-
-    private function compoundingTablesReady(): bool
-    {
-        return DatabaseTableAvailability::all([
-            'ai_run_outcomes',
-            'ai_learning_candidates',
-            'ai_compounding_memories',
-            'ai_rag_feedback_events',
-            'ai_temporal_certifications',
-        ]);
     }
 
     private function boundedString(mixed $value, int $max): ?string

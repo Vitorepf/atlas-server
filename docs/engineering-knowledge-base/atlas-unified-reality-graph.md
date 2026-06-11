@@ -21,8 +21,12 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-world-model.md
   - docs/engineering-knowledge-base/atlas-semantic-graph.md
   - docs/engineering-knowledge-base/atlas-strategic-reality-engine.md
+  - app/Services/Ai/Reality/AtlasRealityGraphQueryService.php
+  - app/Services/Ai/AtlasOpenBrainContextPackService.php
   - app/Services/Ai/Context/AtlasUnifiedRealityGraphService.php
   - app/Console/Commands/AtlasUnifiedRealityGraphCommand.php
+  - app/Console/Commands/AtlasAurgQueryCommand.php
+  - tests/Feature/Reality/AtlasAurgQueryTest.php
   - tests/Feature/Ai/Context/UnifiedRealityGraphTest.php
 doc_schema: atlas_canonical_module_doc.v1
 macro_layer: true
@@ -57,13 +61,19 @@ unlocks: [reality_aware_context, strategic_graph_decision]
 governs: [reality_graph, world_context]
 evidence:
   - docs/engineering-knowledge-base/atlas-unified-reality-graph.md
+  - app/Services/Ai/Reality/AtlasRealityGraphQueryService.php
+  - app/Services/Ai/AtlasOpenBrainContextPackService.php
   - app/Services/Ai/Context/AtlasUnifiedRealityGraphService.php
   - app/Console/Commands/AtlasUnifiedRealityGraphCommand.php
+  - tests/Feature/Reality/AtlasAurgQueryTest.php
   - tests/Feature/Ai/Context/UnifiedRealityGraphTest.php
 evidence_refs:
   - symbol: AtlasUnifiedRealityGraphService
+  - symbol: AtlasRealityGraphQueryService
   - command: atlas:context:reality-graph
+  - command: atlas:aurg:query
   - test: UnifiedRealityGraphTest
+  - test: AtlasAurgQueryTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test tests/Feature/Ai/Context/UnifiedRealityGraphTest.php"
@@ -115,6 +125,23 @@ atlas_reality_entities + atlas_reality_relationships -> AURG snapshot -> AGRN/AS
 4. Emitir sources e quality gate.
 5. Gerar snapshot.
 6. Servir AGRN/ASRE/AARS.
+
+## Provider-Bound Query
+
+`AtlasRealityGraphQueryService` serves the bounded F2 query used by
+`atlas:aurg:query`, AOBG and MCP provider surfaces. In provider-bound mode:
+
+- seed and traversal admission remain structural: only `provider_safe=true` and
+  `sensitive=false` nodes are admitted;
+- lexical query terms expand separator forms such as `reality_graph` and
+  `provider-bound` into `reality`, `graph`, `provider` and `bound`;
+- generic mission outcome evidence (`mission_outcome`,
+  `[Request interrupted by user for tool use]`) is not allowed to occupy initial
+  provider seeds by matching broad metadata;
+- mission nodes can still seed when their own label matches the task;
+- AOBG initial packs omit same-layer reality paths and only surface cross-layer
+  paths. Same-layer mission/evidence history remains available through local
+  AURG query and mission-history/audit surfaces.
 
 ## Regras para IA
 

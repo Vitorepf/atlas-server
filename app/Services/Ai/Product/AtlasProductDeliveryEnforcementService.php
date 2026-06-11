@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Product;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 class AtlasProductDeliveryEnforcementService
 {
@@ -77,7 +78,7 @@ class AtlasProductDeliveryEnforcementService
      */
     private function highRisk(array $delivery): bool
     {
-        $required = $this->list(data_get($delivery, 'product_truth.execution_lenses.required', []));
+        $required = AiStringListNormalizer::trimmedScalarValues(data_get($delivery, 'product_truth.execution_lenses.required', []));
 
         return data_get($delivery, 'proof_requirements.apfpr_required') === true
             || array_intersect($required, ['security_driven', 'performance_driven', 'add']) !== [];
@@ -91,18 +92,4 @@ class AtlasProductDeliveryEnforcementService
         return ['id' => $id, 'severity' => $severity, 'message' => $message];
     }
 
-    /**
-     * @return list<string>
-     */
-    private function list(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(
-            static fn (mixed $item): ?string => is_scalar($item) && trim((string) $item) !== '' ? trim((string) $item) : null,
-            $value,
-        )));
-    }
 }

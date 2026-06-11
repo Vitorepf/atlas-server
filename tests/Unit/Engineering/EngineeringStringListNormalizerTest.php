@@ -63,6 +63,15 @@ final class EngineeringStringListNormalizerTest extends TestCase
         );
     }
 
+    public function test_non_empty_scalar_strings_preserves_duplicates_and_accepts_single_scalar(): void
+    {
+        $this->assertSame(
+            ['0', 'ready', 'ready', '5'],
+            EngineeringStringListNormalizer::nonEmptyScalarStrings([' 0 ', '', ['nested'], false, 'ready', 'ready', 5]),
+        );
+        $this->assertSame(['capability'], EngineeringStringListNormalizer::nonEmptyScalarStrings(' capability '));
+    }
+
     public function test_unique_non_empty_string_values_ignores_non_strings(): void
     {
         $this->assertSame(

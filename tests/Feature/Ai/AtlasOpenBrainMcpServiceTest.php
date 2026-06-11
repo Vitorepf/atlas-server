@@ -246,6 +246,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertSame(AtlasOpenBrainMcpService::SERVER_VERSION, data_get($structured, 'server.version'));
         $this->assertSame(AtlasOpenBrainMcpService::RUNTIME_SCHEMA, data_get($structured, 'runtime.schema_version'));
         $this->assertContains('context_delivery_policy', data_get($structured, 'runtime.feature_flags'));
+        $this->assertContains('context_pack_runtime_fingerprint', data_get($structured, 'runtime.feature_flags'));
         $this->assertContains('mcp_runtime_self_check', data_get($structured, 'runtime.feature_flags'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($structured, 'runtime.runtime_fingerprint'));
         $this->assertContains('atlas_aurg_query', array_column($structured['tools'], 'name'));
@@ -296,6 +297,8 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertSame('string', data_get($contextPackTool, 'inputSchema.properties.domain.type'));
         $this->assertSame('array', data_get($contextPackTool, 'inputSchema.properties.changed_files.type'));
         $this->assertSame('integer', data_get($contextPackTool, 'inputSchema.properties.feedback_window_hours.type'));
+        $workspaceMapTool = collect($structured['tools'])->firstWhere('name', 'atlas_workspace_map');
+        $this->assertSame('string', data_get($workspaceMapTool, 'inputSchema.properties.detail.type'));
         $contextFeedbackTool = collect($structured['tools'])->firstWhere('name', 'atlas_context_feedback');
         $this->assertSame('string', data_get($contextFeedbackTool, 'inputSchema.properties.flow_id.type'));
     }
@@ -316,6 +319,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertSame(AtlasOpenBrainMcpService::SERVER_VERSION, data_get($baseline, 'runtime.server_version'));
         $this->assertContains('context_feedback_metrics', data_get($baseline, 'runtime.feature_flags'));
         $this->assertContains('context_delivery_policy', data_get($baseline, 'runtime.feature_flags'));
+        $this->assertContains('context_pack_runtime_fingerprint', data_get($baseline, 'runtime.feature_flags'));
         $this->assertContains('mcp_runtime_self_check', data_get($baseline, 'runtime.feature_flags'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($baseline, 'runtime.runtime_fingerprint'));
         $this->assertFalse(data_get($baseline, 'runtime.raw_prompt_exposed'));

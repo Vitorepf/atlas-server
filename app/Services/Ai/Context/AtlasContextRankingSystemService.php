@@ -156,25 +156,39 @@ final class AtlasContextRankingSystemService
             'ref' => (string) ($candidate['source_ref'] ?? $candidate['candidate_id'] ?? ''),
             'score' => (float) ($candidate['score_hint'] ?? 0.5),
             'reason' => (string) ($candidate['reason'] ?? 'candidate'),
-            // HONESTY CONTRACT (runtime_language_boundary canon): a `semantic_candidate` is NOT
-            // backed by real embeddings. It is produced by AtlasHybridRetrievalInfrastructureService::
-            // candidatesFromAsef() from AtlasSemanticEmbeddingFoundationService::candidateSet()
-            // (mode `manifest_without_external_embedding`, `embedding_generated => false`,
-            // `embedding_status => candidate_manifest_only`): a chunked manifest of the objective
-            // carrying a STATIC score_hint of 0.60 — no vector, no cosine, not even a token-overlap
-            // score (its only lexical artifact, `lexical_signature`, is never carried here or ranked).
-            // Real embeddings live ONLY behind App\Services\Ai\RuntimeBoundary\SemanticRagRuntimeClient
-            // and App\Services\Semantic\EmbeddingService (Python semantic_rag + pgvector), which this
-            // path does not invoke. The canon forbids labelling a non-embedding manifest "semantic"
-            // or "vector", so the channel is named for what it actually is — and it deliberately does
-            // NOT reuse `lexical_token_overlap` (that label would wrongly trigger the reranker's +0.22
-            // lexical bonus at ProgrammingProfessionalReranker::score()).
-            'retrieval_channel' => ($candidate['source_type'] ?? null) === 'semantic_candidate'
-                ? 'manifest_pending_embedding'
-                : 'aucri_hybrid_retrieval',
+            // HONESTY CONTRACT (runtime_language_boundary canon): a `semantic_candidate` is only
+            // called semantic when it actually IS. Two branches, decided upstream by
+            // AtlasHybridRetrievalInfrastructureService::applyLocalSemanticScores():
+            //   - `local_semantic_vector`: the candidate's score_hint is a REAL cosine score from
+            //     the LOCAL Python semantic_rag runtime (SemanticRetrievalRuntime / real local
+            //     embeddings, no provider, no external store). Marked by
+            //     `score_origin => local_semantic_vector` stamped only when real scores were used.
+            //     This channel legitimately qualifies for the reranker's +0.22 semantic-channel
+            //     bonus at ProgrammingProfessionalReranker::score().
+            //   - `manifest_pending_embedding`: the honest placeholder. The candidate is a chunked
+            //     manifest of the objective from AtlasSemanticEmbeddingFoundationService::
+            //     candidateSet() (mode `manifest_without_external_embedding`) carrying the STATIC
+            //     score_hint of 0.60 — no vector, no cosine. The canon forbids labelling it
+            //     "semantic"/"vector", and it deliberately does NOT reuse `lexical_token_overlap`
+            //     (that label would wrongly trigger the reranker's +0.22 lexical bonus).
+            'retrieval_channel' => self::retrievalChannel($candidate),
             'privacy' => (bool) ($candidate['provider_safe'] ?? false) ? 'provider_safe' : 'provider_unsafe',
             'freshness' => self::freshnessLabel((string) ($candidate['status'] ?? 'unknown')),
         ], $candidates));
+    }
+
+    /**
+     * @param  array<string,mixed>  $candidate
+     */
+    private static function retrievalChannel(array $candidate): string
+    {
+        if (($candidate['source_type'] ?? null) !== 'semantic_candidate') {
+            return 'aucri_hybrid_retrieval';
+        }
+
+        return ($candidate['score_origin'] ?? null) === 'local_semantic_vector'
+            ? 'local_semantic_vector'
+            : 'manifest_pending_embedding';
     }
 
     /**

@@ -65,15 +65,15 @@ final class PromptSectionsMapper
             taskContractRef: $this->buildRef('task-contract', $taskContractHash),
             contextRefs: $this->buildContextRefs($projection, $discoveryHash, $projectionHash),
             codeDiscoveryRef: $this->buildRef('code-discovery', $discoveryHash),
-            allowedFiles: $this->normaliseList($taskContract->allowedFiles),
-            forbiddenFiles: $this->normaliseList($taskContract->forbiddenFiles),
+            allowedFiles: AtlasDevStringListNormalizer::uniqueTrimmedStrings($taskContract->allowedFiles),
+            forbiddenFiles: AtlasDevStringListNormalizer::uniqueTrimmedStrings($taskContract->forbiddenFiles),
             expectedTests: $this->buildExpectedTests($miniSpec),
             acceptanceCriteria: $this->buildAcceptanceCriteria($miniSpec),
             stopConditions: $this->buildStopConditions($miniSpec),
-            escalationConditions: $this->normaliseList($taskContract->escalationOn),
+            escalationConditions: AtlasDevStringListNormalizer::uniqueTrimmedStrings($taskContract->escalationOn),
             outputContract: self::OUTPUT_CONTRACT_CLAUSES,
             providerSafe: true,
-            nonGoals: $this->normaliseList($miniSpec->nonGoals),
+            nonGoals: AtlasDevStringListNormalizer::uniqueTrimmedStrings($miniSpec->nonGoals),
         );
     }
 
@@ -217,14 +217,5 @@ final class PromptSectionsMapper
         }
 
         return AtlasDevStringListNormalizer::uniqueStrings($conditions);
-    }
-
-    /**
-     * @param  list<mixed>  $items
-     * @return list<string>
-     */
-    private function normaliseList(array $items): array
-    {
-        return AtlasDevStringListNormalizer::uniqueTrimmedStrings($items);
     }
 }

@@ -197,6 +197,19 @@ final class AreaFocusStringListNormalizerTest extends TestCase
         $this->assertSame([], AreaFocusStringListNormalizer::trimmedStrings(null));
     }
 
+    public function test_trimmed_strings_or_scalar_string_accepts_one_scalar_string(): void
+    {
+        $this->assertSame(
+            ['alpha'],
+            AreaFocusStringListNormalizer::trimmedStringsOrScalarString(' alpha ')
+        );
+        $this->assertSame([], AreaFocusStringListNormalizer::trimmedStringsOrScalarString(''));
+        $this->assertSame(
+            ['alpha', 'beta'],
+            AreaFocusStringListNormalizer::trimmedStringsOrScalarString([' alpha ', 42, 'beta'])
+        );
+    }
+
     public function test_trimmed_lines_splits_trims_and_drops_blank_lines(): void
     {
         $this->assertSame(
@@ -323,6 +336,26 @@ final class AreaFocusStringListNormalizerTest extends TestCase
     {
         $this->assertSame([], AreaFocusStringListNormalizer::trimmedUniqueStringOrNumberValues('alpha'));
         $this->assertSame([], AreaFocusStringListNormalizer::trimmedUniqueStringOrNumberValues(null));
+    }
+
+    public function test_coerced_trimmed_unique_string_or_number_values_accepts_scalar_or_list_ids(): void
+    {
+        $this->assertSame(
+            ['alpha'],
+            AreaFocusStringListNormalizer::coercedTrimmedUniqueStringOrNumberValues(' alpha ')
+        );
+        $this->assertSame(
+            ['10', '9', '0', '4.2'],
+            AreaFocusStringListNormalizer::coercedTrimmedUniqueStringOrNumberValues([
+                '10',
+                ' 9 ',
+                10,
+                0,
+                false,
+                4.2,
+                ['nested'],
+            ])
+        );
     }
 
     public function test_normalized_unique_sorted_ids_dedupes_and_sorts_as_strings(): void

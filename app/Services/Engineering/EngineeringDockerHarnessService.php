@@ -4,6 +4,7 @@ namespace App\Services\Engineering;
 
 use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasEngineeringTestRun;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -391,8 +392,8 @@ class EngineeringDockerHarnessService
      */
     private function cachePlan(string $workspace, array $options): array
     {
-        $mode = $this->nonEmptyString($options['docker_cache'] ?? null)
-            ?: $this->nonEmptyString(config('atlas.engineering.docker.cache.mode'))
+        $mode = AiValueNormalizer::trimmedScalarStringOrNull($options['docker_cache'] ?? null)
+            ?: AiValueNormalizer::trimmedScalarStringOrNull(config('atlas.engineering.docker.cache.mode'))
             ?: 'auto';
         if (! in_array($mode, ['auto', 'off'], true)) {
             $mode = 'auto';
@@ -508,8 +509,8 @@ class EngineeringDockerHarnessService
      */
     private function networkPlan(array $profile, array $options): array
     {
-        $mode = $this->nonEmptyString($options['docker_network'] ?? null)
-            ?: $this->nonEmptyString(config('atlas.engineering.docker.network'))
+        $mode = AiValueNormalizer::trimmedScalarStringOrNull($options['docker_network'] ?? null)
+            ?: AiValueNormalizer::trimmedScalarStringOrNull(config('atlas.engineering.docker.network'))
             ?: 'profile';
         if (! in_array($mode, ['profile', 'none', 'bridge'], true)) {
             $mode = 'profile';
@@ -665,17 +666,6 @@ class EngineeringDockerHarnessService
                 'stderr' => AtlasSecurity::redactString($exception->getMessage()),
             ];
         }
-    }
-
-    private function nonEmptyString(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value === '' ? null : $value;
     }
 
     private function dockerInput(): EngineeringDockerHarnessInput

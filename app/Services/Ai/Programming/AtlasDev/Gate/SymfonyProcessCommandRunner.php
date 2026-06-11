@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Gate;
 
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevProcessEnvironment;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 
@@ -47,7 +48,7 @@ final class SymfonyProcessCommandRunner implements AtlasDevVerificationCommandRu
         $process = Process::fromShellCommandline(
             command: $command,
             cwd: $workspace,
-            env: $this->processEnv(),
+            env: AtlasDevProcessEnvironment::verificationCommandEnv(),
             input: null,
             timeout: max(1, $timeoutSeconds),
         );
@@ -70,22 +71,4 @@ final class SymfonyProcessCommandRunner implements AtlasDevVerificationCommandRu
         );
     }
 
-    /**
-     * @return array<string, string>
-     */
-    private function processEnv(): array
-    {
-        $env = [];
-        foreach (['HOME', 'PATH', 'USER', 'LOGNAME'] as $key) {
-            $value = getenv($key);
-            if (! is_string($value) || trim($value) === '') {
-                $value = $_SERVER[$key] ?? $_ENV[$key] ?? null;
-            }
-            if (is_string($value) && trim($value) !== '') {
-                $env[$key] = $value;
-            }
-        }
-
-        return $env;
-    }
 }

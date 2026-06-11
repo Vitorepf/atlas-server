@@ -243,17 +243,7 @@ class MissionCertificationService
      */
     private function checkDodHasCriteria(array $dod): array
     {
-        $criteria = collect((array) ($dod['criteria'] ?? []))
-            ->filter(static function ($item): bool {
-                if (is_string($item)) {
-                    return trim($item) !== '';
-                }
-                if (is_array($item)) {
-                    return trim((string) ($item['description'] ?? '')) !== '';
-                }
-
-                return false;
-            })->values();
+        $criteria = self::nonEmptyCriteria($dod['criteria'] ?? []);
 
         $count = $criteria->count();
 
@@ -309,17 +299,7 @@ class MissionCertificationService
         }
 
         $offenders = $objectives->filter(static function (AiObjective $objective): bool {
-            $criteria = collect((array) $objective->success_criteria)
-                ->filter(static function ($criterion): bool {
-                    if (is_string($criterion)) {
-                        return trim($criterion) !== '';
-                    }
-                    if (is_array($criterion)) {
-                        return trim((string) ($criterion['description'] ?? '')) !== '';
-                    }
-
-                    return false;
-                });
+            $criteria = self::nonEmptyCriteria($objective->success_criteria);
 
             return $criteria->isEmpty();
         });
@@ -533,17 +513,7 @@ class MissionCertificationService
      */
     private function checkDodCriteriaCoveredByEvidence(array $dod, Collection $evidence): array
     {
-        $criteria = collect((array) ($dod['criteria'] ?? []))
-            ->filter(static function ($item): bool {
-                if (is_string($item)) {
-                    return trim($item) !== '';
-                }
-                if (is_array($item)) {
-                    return trim((string) ($item['description'] ?? '')) !== '';
-                }
-
-                return false;
-            });
+        $criteria = self::nonEmptyCriteria($dod['criteria'] ?? []);
 
         $criteriaCount = $criteria->count();
         $evidenceCount = $evidence->count();
@@ -746,6 +716,28 @@ class MissionCertificationService
             )),
             'detail' => $detail ?? $message,
         ];
+    }
+
+    /**
+     * @return Collection<int,mixed>
+     */
+    private static function nonEmptyCriteria(mixed $criteria): Collection
+    {
+        return collect((array) $criteria)
+            ->filter(static fn (mixed $item): bool => self::isNonEmptyCriterion($item))
+            ->values();
+    }
+
+    private static function isNonEmptyCriterion(mixed $item): bool
+    {
+        if (is_string($item)) {
+            return trim($item) !== '';
+        }
+        if (is_array($item)) {
+            return trim((string) ($item['description'] ?? '')) !== '';
+        }
+
+        return false;
     }
 
     private static function isValidSha256(string $hash): bool

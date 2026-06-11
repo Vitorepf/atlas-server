@@ -1,6 +1,6 @@
 ---
 title: AP-819 Self-Harness — Harness que aprende com as próprias falhas (failure-cluster → harness-surface edits, governado)
-status: proposed
+status: implemented
 owner: atlas-ai / learning / kernel-failure
 line_limit: 240
 related_paths:
@@ -187,3 +187,20 @@ validada por não-regressão dupla em suite congelada. Obra B re-desenhada para 
 mecanismo real (risco menor, mapeia no `AtlasLearningProposalApplier` existente);
 edits de fonte viraram Obra C fora de escopo. G1/G2 recalibrados estruturalmente.
 A disciplina anti-over-claim é parte do contrato deste AP.
+
+## 12. Status de implementação (2026-06-11, /goal do operador = autorização)
+
+**Obra A SHIPPED+LIVE:** \`FailureAutoFeedHarvester\` (+\`atlas:failure:auto-feed\`,
+schedule horário, flag ON) e F3 \`atlas:failure recurrence\` (outcome cru, G3).
+Prova viva: 17 falhas reais colhidas, 11 alertas, clusters reais (decision_expired
+8×). provider/tool em canonical_features (aditivo). 9 testes.
+
+**Obra B SHIPPED+LIVE:** \`AtlasHarnessSurface\` v1 (5 seções, bounds, overlay boot),
+kind \`harness_config\` no applier (apply+reverse; NUNCA auto-apply — red line),
+\`AtlasHarnessProposalBridge\` (propose-only) e \`AtlasHarnessFrozenSuite\` (14 probes,
+split fixo, regra Δin≥0∧Δho≥0∧max>0, suite_hash anti-tamper). Cmd \`atlas:harness\`.
+Prova viva: baseline selado 1.0/1.0; a ponte criou 2 propostas REAIS
+(receipt_ttl 7200→14400) dos clusters da F1 — aguardando aprovação do operador.
+9 testes (G1 estrutural + roundtrip + regra dupla + anti-tamper provados).
+
+**Obra C:** segue fora de escopo (inalterado).

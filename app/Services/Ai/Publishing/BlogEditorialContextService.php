@@ -1045,6 +1045,7 @@ final class BlogEditorialContextService
         $topicLedger = $this->topicLedger($posts, $publishedSlugs, $publishedPosts, $candidateFeed, $reviewQueueState, $coverageMap, $sourceMap);
         $editorialRoadmap = $this->editorialRoadmap($publishingPlan, $topicLedger);
         $editorialDependencyMatrix = $this->editorialDependencyMatrix($posts, $publishedSlugs, $publishingPlan, $editorialRoadmap);
+        $backlogIntake = $this->backlogIntake($posts, $publishedSlugs, $candidateFeed, $reviewQueueState, $editorialDependencyMatrix);
 
         return [
             'schema_version' => 'atlas.blog_editorial_operations_packet.v1',
@@ -1080,6 +1081,7 @@ final class BlogEditorialContextService
             'topic_ledger' => $topicLedger,
             'editorial_roadmap' => $editorialRoadmap,
             'editorial_dependency_matrix' => $editorialDependencyMatrix,
+            'backlog_intake' => $backlogIntake,
             'public_archive_risks' => [
                 'duplicate_risk_count' => (int) ($publicArchiveContext['duplicate_risk_count'] ?? 0),
                 'linkable_artifact_count' => (int) ($publicArchiveContext['linkable_artifact_count'] ?? 0),
@@ -1135,6 +1137,7 @@ final class BlogEditorialContextService
                 'generates_topic_ledger' => true,
                 'generates_editorial_roadmap' => true,
                 'generates_editorial_dependency_matrix' => true,
+                'generates_backlog_intake' => true,
                 'uses_graph_rag' => false,
                 'uses_python_runtime' => false,
                 'creates_parallel_memory_store' => false,
@@ -2266,6 +2269,152 @@ final class BlogEditorialContextService
         return $question !== ''
             ? 'Pertence a '.$label.' porque responde: '.$question
             : 'Pertence a '.$label.' e deve preservar a progressao do leitor.';
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $posts
+     * @param  array<int,string>  $publishedSlugs
+     * @param  array<string,mixed>  $candidateFeed
+     * @param  array<string,mixed>  $reviewQueueState
+     * @param  array<string,mixed>  $dependencyMatrix
+     * @return array<string,mixed>
+     */
+    private function backlogIntake(array $posts, array $publishedSlugs, array $candidateFeed, array $reviewQueueState, array $dependencyMatrix): array
+    {
+        $publishedSet = array_fill_keys($publishedSlugs, true);
+        $seen = [];
+        $items = [];
+        $blockedLadder = (int) data_get($dependencyMatrix, 'summary.blocked_post_count', 0) > 0;
+
+        $appendCandidate = function (array $candidate, string $lane) use (&$items, &$seen, $posts, $publishedSet, $blockedLadder): void {
+            $slug = (string) ($candidate['slug'] ?? '');
+            if ($slug === '' || isset($seen[$slug])) {
+                return;
+            }
+
+            $seen[$slug] = true;
+            $items[] = $this->backlogIntakeItem($candidate, $lane, $posts, $publishedSet, $blockedLadder);
+        };
+
+        foreach ((array) data_get($reviewQueueState, 'candidates', []) as $candidate) {
+            if (is_array($candidate)) {
+                $appendCandidate($candidate, 'review_queue');
+            }
+        }
+
+        foreach ((array) ($candidateFeed['candidates'] ?? []) as $candidate) {
+            if (is_array($candidate)) {
+                $appendCandidate($candidate, 'candidate_feed');
+            }
+        }
+
+        $items = array_slice($items, 0, 12);
+
+        return [
+            'schema_version' => 'atlas.blog_editorial_backlog_intake.v1',
+            'mode' => 'read_only_candidate_intake_p1',
+            'status' => 'ready',
+            'summary' => [
+                'item_count' => count($items),
+                'review_queue_items' => count(array_filter($items, fn (array $item): bool => (string) ($item['lane'] ?? '') === 'review_queue')),
+                'candidate_feed_items' => count(array_filter($items, fn (array $item): bool => (string) ($item['lane'] ?? '') === 'candidate_feed')),
+                'ready_for_review_count' => count(array_filter($items, fn (array $item): bool => (string) ($item['recommended_action'] ?? '') === 'accept_into_review_queue')),
+                'hold_count' => count(array_filter($items, fn (array $item): bool => str_starts_with((string) ($item['recommended_action'] ?? ''), 'hold'))),
+                'dependency_ladder_blocked' => $blockedLadder,
+            ],
+            'items' => $items,
+            'rules' => [
+                'Intake alimenta a lista de revisao; ele nao escreve backlog principal.',
+                'Candidatos profundos esperam a escada atual destravar antes de promocao.',
+                'Toda promocao continua append-only, com Vitor aprovando posicao e prerequisitos.',
+            ],
+            'guardrails' => [
+                'read_only' => true,
+                'writes_backlog' => false,
+                'writes_review_queue' => false,
+                'promotes_candidate' => false,
+                'publishes_content' => false,
+                'reorders_posts' => false,
+                'uses_graph_rag' => false,
+                'uses_python_runtime' => false,
+                'requires_human_approval_to_promote' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $candidate
+     * @param  array<int,array<string,mixed>>  $posts
+     * @param  array<string,bool>  $publishedSet
+     * @return array<string,mixed>
+     */
+    private function backlogIntakeItem(array $candidate, string $lane, array $posts, array $publishedSet, bool $blockedLadder): array
+    {
+        $afterSlug = (string) ($candidate['suggested_after_slug'] ?? '');
+        if ($afterSlug === '') {
+            $afterSlug = $this->lastPostSlug($posts);
+        }
+
+        $after = $this->plannedPostBySlug($posts, $afterSlug);
+        $depth = $this->editorialDepthFromLevel((string) ($candidate['complexity_level'] ?? ''));
+        $isQueued = $lane === 'review_queue';
+        $duplicateReason = (string) ($candidate['duplicate_reason'] ?? '');
+        $blockedByDepth = $blockedLadder && $depth >= 3;
+        $recommendedAction = $this->backlogIntakeAction($isQueued, $duplicateReason, $blockedByDepth);
+
+        return [
+            'lane' => $lane,
+            'slug' => (string) ($candidate['slug'] ?? ''),
+            'title' => (string) ($candidate['title'] ?? ''),
+            'source_type' => (string) ($candidate['source_type'] ?? ''),
+            'source_ref' => (string) ($candidate['source_ref'] ?? ''),
+            'collection' => (string) ($candidate['collection'] ?? ''),
+            'series' => (string) ($candidate['series'] ?? ''),
+            'complexity_level' => (string) ($candidate['complexity_level'] ?? ''),
+            'depth' => $depth,
+            'topics' => array_slice(array_values(array_filter((array) ($candidate['topics'] ?? []), 'is_string')), 0, 10),
+            'suggested_after_slug' => $afterSlug !== '' ? $afterSlug : null,
+            'suggested_after_order' => is_array($after) ? (int) ($after['order'] ?? 0) : null,
+            'suggested_prerequisites' => array_values(array_filter([
+                $afterSlug !== '' && ! isset($publishedSet[$afterSlug]) ? $afterSlug : null,
+            ])),
+            'recommended_action' => $recommendedAction,
+            'reason' => $this->backlogIntakeReason($candidate, $recommendedAction, $afterSlug),
+            'promotion_rule' => 'Aceitar na fila de revisao primeiro; promover para backlog principal so com aprovacao humana.',
+        ];
+    }
+
+    private function backlogIntakeAction(bool $isQueued, string $duplicateReason, bool $blockedByDepth): string
+    {
+        if ($duplicateReason !== '') {
+            return 'hold_duplicate';
+        }
+        if ($blockedByDepth) {
+            return 'hold_until_dependency_ladder_clears';
+        }
+        if ($isQueued) {
+            return 'review_for_append_only_promotion';
+        }
+
+        return 'accept_into_review_queue';
+    }
+
+    /**
+     * @param  array<string,mixed>  $candidate
+     */
+    private function backlogIntakeReason(array $candidate, string $recommendedAction, string $afterSlug): string
+    {
+        if ($recommendedAction === 'hold_duplicate') {
+            return 'Ja existe no backlog, publicado ou repetido na fila de revisao.';
+        }
+        if ($recommendedAction === 'hold_until_dependency_ladder_clears') {
+            return 'Tema profundo demais para entrar enquanto a escada atual ainda tem prerequisitos pendentes.';
+        }
+
+        $why = trim((string) ($candidate['why'] ?? ''));
+        $placement = $afterSlug !== '' ? ' Posicao sugerida: depois de '.$afterSlug.'.' : '';
+
+        return ($why !== '' ? $why : 'Sinal existente do Atlas ainda nao representado na lista publica.').$placement;
     }
 
     /**

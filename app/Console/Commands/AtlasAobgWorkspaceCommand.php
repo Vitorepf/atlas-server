@@ -39,6 +39,7 @@ class AtlasAobgWorkspaceCommand extends Command
         {--workspace= : Workspace path or id (wins over cwd; defaults to the primary atlas-server)}
         {--force : For onboard/activate: re-run the index even when already indexed}
         {--limit=12 : For map: maximum sample rows per section}
+        {--detail=summary : For map: summary (default, no samples) or samples}
         {--json : Output the result envelope as JSON}';
 
     protected $description = 'AOBG N1.F3: multi-project workspace status/onboarding/activation — does the brain know THIS project?';
@@ -61,6 +62,7 @@ class AtlasAobgWorkspaceCommand extends Command
             $status = (array) ($result['status'] ?? []);
         } elseif ($action === 'map') {
             $opts['limit'] = $this->option('limit');
+            $opts['detail'] = $this->stringOpt('detail') ?? 'summary';
             $result = $service->map($opts);
             $status = $result;
         } elseif ($action === 'onboard') {

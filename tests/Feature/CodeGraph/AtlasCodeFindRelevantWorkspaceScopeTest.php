@@ -84,15 +84,15 @@ final class AtlasCodeFindRelevantWorkspaceScopeTest extends TestCase
     }
 
     /**
-     * Insert one active class symbol. Pass $workspace = null for the pre-W-1 schema (the
-     * column does not exist, so the key is omitted). source_hash is derived from the file
-     * so two same-named rows never collide on the (symbol_type, source_hash) unique.
+     * Insert one active symbol (class by default). Pass $workspace = null for the pre-W-1
+     * schema (the column does not exist, so the key is omitted). source_hash is derived from
+     * the file so two same-named rows never collide on the (symbol_type, source_hash) unique.
      */
-    private function insertSymbol(?string $workspace, string $name, string $file): void
+    private function insertSymbol(?string $workspace, string $name, string $file, string $type = 'class'): void
     {
         $row = [
             'id' => (string) Str::uuid(),
-            'symbol_type' => 'class',
+            'symbol_type' => $type,
             'symbol_name' => $name,
             'file_path' => $file,
             'language' => 'php',
@@ -164,6 +164,95 @@ final class AtlasCodeFindRelevantWorkspaceScopeTest extends TestCase
         $this->assertSame($foreignId, $foreign['workspace_id']);
         $this->assertSame(1, $foreign['count']);
         $this->assertSame('pkg/PaymentGateway.php', $foreign['symbols'][0]['file_path']);
+
+        @rmdir($foreignPath);
+    }
+
+    /**
+     * Seed the SAME matchable symbol (of one type) in atlas-server and a real resolved
+     * foreign workspace, returning [foreignPath, foreignId]. Mirrors the proof shape of
+     * {@see test_code_find_is_scoped_to_the_resolved_workspace} for the W-3 sibling tools.
+     *
+     * @return array{0:string,1:string}
+     */
+    private function seedTwoWorkspaces(string $name, string $type): array
+    {
+        $identity = app(CodeGraphWorkspaceIdentity::class);
+        $foreignPath = sys_get_temp_dir().'/atlas-code-find-foreign-ws-'.uniqid();
+        @mkdir($foreignPath, 0777, true);
+        $foreignId = $identity->resolve($foreignPath);
+
+        $this->assertNotSame('atlas-server', $foreignId, 'a foreign path must get its own workspace id');
+
+        $this->insertSymbol('atlas-server', $name, 'app/Shared/Primary.php', $type);
+        $this->insertSymbol($foreignId, $name, 'pkg/Foreign.php', $type);
+
+        return [$foreignPath, $foreignId];
+    }
+
+    public function test_route_info_is_scoped_to_the_resolved_workspace(): void
+    {
+        $this->bootTables(true);
+        [$foreignPath, $foreignId] = $this->seedTwoWorkspaces('GET /api/billing/invoices', 'route');
+
+        // Default (no workspace arg) → primary atlas-server: only its route surfaces.
+        $primary = $this->callTool('atlas_route_info', ['path' => 'billing']);
+        $this->assertTrue($primary['ok']);
+        $this->assertSame('atlas-server', $primary['workspace_id']);
+        $this->assertSame(1, $primary['count'], 'only the atlas-server route is in scope by default');
+        $this->assertSame('app/Shared/Primary.php', $primary['routes'][0]['file_path']);
+
+        // Explicit foreign workspace path → it sees ONLY its own route (isolation both ways).
+        $foreign = $this->callTool('atlas_route_info', ['path' => 'billing', 'workspace' => $foreignPath]);
+        $this->assertTrue($foreign['ok']);
+        $this->assertSame($foreignId, $foreign['workspace_id']);
+        $this->assertSame(1, $foreign['count']);
+        $this->assertSame('pkg/Foreign.php', $foreign['routes'][0]['file_path']);
+
+        @rmdir($foreignPath);
+    }
+
+    public function test_test_for_is_scoped_to_the_resolved_workspace(): void
+    {
+        $this->bootTables(true);
+        [$foreignPath, $foreignId] = $this->seedTwoWorkspaces('test_billing_creates_invoice', 'test_method');
+
+        $primary = $this->callTool('atlas_test_for', ['target' => 'billing']);
+        $this->assertTrue($primary['ok']);
+        $this->assertSame('atlas-server', $primary['workspace_id']);
+        $this->assertSame(1, $primary['count'], 'only the atlas-server test is in scope by default');
+        $this->assertSame('app/Shared/Primary.php', $primary['tests'][0]['file_path']);
+
+        $foreign = $this->callTool('atlas_test_for', ['target' => 'billing', 'workspace' => $foreignPath]);
+        $this->assertTrue($foreign['ok']);
+        $this->assertSame($foreignId, $foreign['workspace_id']);
+        $this->assertSame(1, $foreign['count']);
+        $this->assertSame('pkg/Foreign.php', $foreign['tests'][0]['file_path']);
+
+        @rmdir($foreignPath);
+    }
+
+    public function test_context_for_code_symbols_are_scoped_to_the_resolved_workspace(): void
+    {
+        $this->bootTables(true);
+        [$foreignPath, $foreignId] = $this->seedTwoWorkspaces('App\\Shared\\PaymentGateway', 'class');
+
+        // The memory + docs legs fail-soft here (their tables are not booted); the proof
+        // targets the CODE leg, which previously queried symbols across all workspaces.
+        $primary = $this->callTool('atlas_context_for', ['task_description' => 'PaymentGateway']);
+        $this->assertTrue($primary['ok']);
+        $this->assertSame('atlas-server', $primary['workspace_id']);
+        $this->assertSame(1, $primary['code']['count'], 'only the atlas-server symbol is in scope by default');
+        $this->assertSame('app/Shared/Primary.php', $primary['code']['symbols'][0]['file_path']);
+
+        $foreign = $this->callTool('atlas_context_for', [
+            'task_description' => 'PaymentGateway',
+            'workspace' => $foreignPath,
+        ]);
+        $this->assertTrue($foreign['ok']);
+        $this->assertSame($foreignId, $foreign['workspace_id']);
+        $this->assertSame(1, $foreign['code']['count']);
+        $this->assertSame('pkg/Foreign.php', $foreign['code']['symbols'][0]['file_path']);
 
         @rmdir($foreignPath);
     }

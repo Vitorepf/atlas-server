@@ -3873,15 +3873,7 @@ final class Reliable24hLoopRunnerService
     /** @return list<string> */
     private function stringList(mixed $values): array
     {
-        $out = [];
-        foreach ((array) $values as $value) {
-            $text = $this->str($value);
-            if ($text !== '') {
-                $out[] = $text;
-            }
-        }
-
-        return AreaFocusStringListNormalizer::uniqueStringValues($out);
+        return AreaFocusStringListNormalizer::coercedTrimmedUniqueStringOrNumberValues($values);
     }
 
     private function key(string $areaId, string $focus): string

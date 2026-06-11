@@ -62,6 +62,38 @@ final class AtlasDevStringListNormalizerTest extends TestCase
         AtlasDevStringListNormalizer::requireNonEmptyStrings(['ok', ''], 'payload.files');
     }
 
+    public function test_require_non_empty_string_array_rejects_non_arrays_with_owner_context(): void
+    {
+        $this->assertSame(
+            ['app/Foo.php', '   '],
+            AtlasDevStringListNormalizer::requireNonEmptyStringArray(
+                ['first' => 'app/Foo.php', 'space' => '   '],
+                'target_files',
+                'AtlasDevPlanProjectionService'
+            )
+        );
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('AtlasDevPlanProjectionService: target_files must be an array.');
+
+        AtlasDevStringListNormalizer::requireNonEmptyStringArray(
+            'not-an-array',
+            'target_files',
+            'AtlasDevPlanProjectionService'
+        );
+    }
+
+    public function test_real_strings_without_generated_prefix_preserves_certification_semantics(): void
+    {
+        $this->assertSame(
+            ['real', ' real ', '0', 'real'],
+            AtlasDevStringListNormalizer::realStringsWithoutGeneratedPrefix(
+                ['real', 'aedpds_context:auto', '', 42, ' real ', '0', 'real'],
+                'aedpds_context:'
+            )
+        );
+    }
+
     public function test_trimmed_strings_preserves_order_and_duplicates(): void
     {
         $this->assertSame(

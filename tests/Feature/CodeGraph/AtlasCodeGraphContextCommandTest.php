@@ -152,6 +152,29 @@ final class AtlasCodeGraphContextCommandTest extends TestCase
         $this->assertLessThanOrEqual((int) $out['budget'], (int) $out['estimated_tokens']);
     }
 
+    public function test_snake_case_query_recalls_camel_case_symbol(): void
+    {
+        $this->symbol(
+            'atlas-server',
+            'method',
+            'App\\Services\\Ai\\Kernel\\Architecture\\AtlasFeaturePlacementService::duplicateReview',
+            'app/Services/Ai/Kernel/Architecture/AtlasFeaturePlacementService.php',
+            'private function duplicateReview(array $placement, array $owners, array $duplicates): array',
+        );
+
+        $out = $this->callCtx([
+            'query' => 'duplicate_review strict gate',
+            '--budget' => 4000,
+        ])['json'];
+
+        $ids = array_map(static fn (array $n): string => (string) ($n['id'] ?? ''), $out['pack']['included']);
+
+        $this->assertContains(
+            'sym:App\\Services\\Ai\\Kernel\\Architecture\\AtlasFeaturePlacementService::duplicateReview',
+            $ids,
+        );
+    }
+
     public function test_non_matching_query_returns_an_empty_pack_at_exit_zero(): void
     {
         $this->symbol('atlas-server', 'class', 'App\\Services\\Alpha', 'app/Services/Alpha.php');

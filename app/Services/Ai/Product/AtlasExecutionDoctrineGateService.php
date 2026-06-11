@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Product;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 class AtlasExecutionDoctrineGateService
 {
@@ -23,21 +24,21 @@ class AtlasExecutionDoctrineGateService
             : $this->runtime->select($input);
 
         $provided = [
-            'acceptance' => $this->list($input['acceptance_criteria'] ?? $input['acceptance'] ?? []),
-            'context' => $this->list($input['context_refs'] ?? $input['context'] ?? []),
-            'tests' => $this->list($input['tests'] ?? $input['suggested_tests'] ?? []),
-            'contracts' => $this->list($input['contracts'] ?? $input['contract_refs'] ?? []),
-            'docs' => $this->list($input['docs'] ?? $input['canonical_docs'] ?? []),
-            'review' => $this->list($input['review'] ?? $input['review_refs'] ?? []),
-            'evidence' => $this->list($input['evidence'] ?? $input['evidence_refs'] ?? []),
-            'ux' => $this->list($input['ux_expectations'] ?? $input['prototype_refs'] ?? []),
+            'acceptance' => AiStringListNormalizer::trimmedScalarValues($input['acceptance_criteria'] ?? $input['acceptance'] ?? []),
+            'context' => AiStringListNormalizer::trimmedScalarValues($input['context_refs'] ?? $input['context'] ?? []),
+            'tests' => AiStringListNormalizer::trimmedScalarValues($input['tests'] ?? $input['suggested_tests'] ?? []),
+            'contracts' => AiStringListNormalizer::trimmedScalarValues($input['contracts'] ?? $input['contract_refs'] ?? []),
+            'docs' => AiStringListNormalizer::trimmedScalarValues($input['docs'] ?? $input['canonical_docs'] ?? []),
+            'review' => AiStringListNormalizer::trimmedScalarValues($input['review'] ?? $input['review_refs'] ?? []),
+            'evidence' => AiStringListNormalizer::trimmedScalarValues($input['evidence'] ?? $input['evidence_refs'] ?? []),
+            'ux' => AiStringListNormalizer::trimmedScalarValues($input['ux_expectations'] ?? $input['prototype_refs'] ?? []),
         ];
 
-        $blockers = $this->list($doctrine['blockers'] ?? []);
+        $blockers = AiStringListNormalizer::trimmedScalarValues($doctrine['blockers'] ?? []);
         $warnings = [];
         $next = [];
-        $drivers = $this->list($doctrine['selected_primary_drivers'] ?? []);
-        $secondaryDrivers = $this->list($doctrine['selected_secondary_drivers'] ?? []);
+        $drivers = AiStringListNormalizer::trimmedScalarValues($doctrine['selected_primary_drivers'] ?? []);
+        $secondaryDrivers = AiStringListNormalizer::trimmedScalarValues($doctrine['selected_secondary_drivers'] ?? []);
         $allDrivers = array_values(array_unique(array_merge($drivers, $secondaryDrivers)));
 
         if ($provided['review'] !== []) {
@@ -52,7 +53,7 @@ class AtlasExecutionDoctrineGateService
             $blockers[] = 'missing_selected_driver';
             $next[] = 'run_aedpds_selector';
         }
-        if ($this->list($doctrine['required_context'] ?? []) !== [] && $provided['context'] === []) {
+        if (AiStringListNormalizer::trimmedScalarValues($doctrine['required_context'] ?? []) !== [] && $provided['context'] === []) {
             $blockers[] = 'missing_minimum_context_ref';
             $next[] = 'attach_owner_doc_or_relevant_context_ref';
         }
@@ -125,7 +126,7 @@ class AtlasExecutionDoctrineGateService
             'allowed_to_execute' => $status !== 'blocked',
             'doctrine_hash' => $doctrine['certification_hash'] ?? null,
             'selected_drivers' => $drivers,
-            'required_gates' => $this->list($doctrine['required_gates'] ?? []),
+            'required_gates' => AiStringListNormalizer::trimmedScalarValues($doctrine['required_gates'] ?? []),
             'blockers' => $blockers,
             'warnings' => $warnings,
             'required_next_actions' => array_values(array_unique($next)),
@@ -141,14 +142,4 @@ class AtlasExecutionDoctrineGateService
         return $payload;
     }
 
-    /**
-     * @return list<string>
-     */
-    private function list(mixed $value): array
-    {
-        return is_array($value) ? array_values(array_filter(array_map(
-            static fn (mixed $item): ?string => is_scalar($item) ? trim((string) $item) : null,
-            $value,
-        ), static fn (?string $item): bool => $item !== null && $item !== '')) : [];
-    }
 }

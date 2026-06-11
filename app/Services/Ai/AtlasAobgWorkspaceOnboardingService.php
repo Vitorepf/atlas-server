@@ -60,6 +60,10 @@ class AtlasAobgWorkspaceOnboardingService
 
     private const MANAGED_BLOCK_END = '<!-- atlas:aobg:auto-bootstrap:end -->';
 
+    private const MAP_DETAIL_SUMMARY = 'summary';
+
+    private const MAP_DETAIL_SAMPLES = 'samples';
+
     /**
      * The default index command offered for onboarding a workspace. It is the AWIS-gated
      * code-intelligence indexer; it requires a resolvable `--workspace`. We surface the
@@ -386,8 +390,12 @@ class AtlasAobgWorkspaceOnboardingService
         $workspaceId = (string) ($status['workspace_id'] ?? $this->resolveWorkspaceId($opts));
         $workspacePath = is_string($status['workspace_path'] ?? null) ? (string) $status['workspace_path'] : null;
         $limit = $this->boundedLimit($opts['limit'] ?? null, 12, 50);
+        $detail = $this->mapDetail($opts['detail'] ?? null);
+        $includeSamples = $detail === self::MAP_DETAIL_SAMPLES;
         $profile = $this->workspaceProfiles->findByReference($workspacePath ?? $workspaceId);
         $inventory = $this->workspaceInventory($workspaceId);
+        $providerProjection = $this->providerProjectionStatus($workspacePath);
+        $readiness = $this->workspaceReadiness($status, $inventory, $providerProjection);
 
         return [
             'ok' => true,
@@ -396,6 +404,7 @@ class AtlasAobgWorkspaceOnboardingService
             'action' => 'map',
             'read_only' => true,
             'provider_safe' => true,
+            'detail' => $detail,
             'workspace_id' => $workspaceId,
             'workspace_path' => $workspacePath,
             'indexed' => (bool) ($status['indexed'] ?? false),
@@ -403,6 +412,7 @@ class AtlasAobgWorkspaceOnboardingService
             'last_index' => $status['last_index'] ?? null,
             'freshness_status' => $status['freshness_status'] ?? 'unknown',
             'needs_reindex' => (bool) ($status['needs_reindex'] ?? false),
+            'workspace_readiness' => $readiness,
             'profile' => $profile === null ? null : [
                 'slug' => $profile['slug'] ?? null,
                 'name' => $profile['name'] ?? null,
@@ -419,21 +429,29 @@ class AtlasAobgWorkspaceOnboardingService
                 'surfaces_enabled' => $profile['surfaces_enabled'] ?? [],
             ],
             'inventory' => $inventory,
-            'modules' => $this->topModules($workspaceId, $limit),
-            'path_regions' => $this->pathRegions($workspaceId, $limit),
-            'examples' => [
+            'modules' => $includeSamples ? $this->topModules($workspaceId, $limit) : [],
+            'path_regions' => $includeSamples ? $this->pathRegions($workspaceId, $limit) : [],
+            'examples' => $includeSamples ? [
                 'routes' => $this->sampleSymbols($workspaceId, ['route', 'api_resource'], $limit),
                 'commands' => $this->sampleSymbols($workspaceId, ['cli_command'], $limit),
                 'migrations' => $this->sampleSymbols($workspaceId, ['migration_table'], $limit),
                 'tests' => $this->sampleSymbols($workspaceId, ['test_method'], $limit),
                 'entrypoints' => $this->sampleSymbols($workspaceId, ['class', 'function'], min($limit, 10)),
+            ] : [
+                'routes' => [],
+                'commands' => [],
+                'migrations' => [],
+                'tests' => [],
+                'entrypoints' => [],
             ],
-            'provider_projection' => $this->providerProjectionStatus($workspacePath),
-            'next_actions' => array_values(array_filter([
-                (bool) ($status['needs_onboarding'] ?? true) ? (string) ($status['activation_command'] ?? '') : null,
-                'atlas open-brain context "<task>" --workspace='.($workspacePath ?? $workspaceId).' --json',
-                'atlas aobg workspace map --workspace='.($workspacePath ?? $workspaceId).' --json',
-            ])),
+            'sample_policy' => [
+                'included' => $includeSamples,
+                'reason' => $includeSamples ? 'requested_detail_samples' : 'summary_default_defers_samples',
+                'deferred_sections' => $includeSamples ? [] : ['modules', 'path_regions', 'examples'],
+                'request_samples' => $this->workspaceMapCommand($workspacePath ?? $workspaceId, $limit, self::MAP_DETAIL_SAMPLES),
+            ],
+            'provider_projection' => $providerProjection,
+            'next_actions' => $this->workspaceNextActions($status, $readiness, $workspacePath ?? $workspaceId, $limit),
             'quality' => $this->mapQuality($status, $inventory, $workspacePath),
             'generated_at' => now()->toJSON(),
         ];
@@ -787,6 +805,115 @@ class AtlasAobgWorkspaceOnboardingService
             'needs_reindex' => (bool) ($status['needs_reindex'] ?? false),
             'note' => 'Score mede prontidao do mapa local; zero routes/migrations pode ser normal para apps sem backend Laravel.',
         ];
+    }
+
+    private function mapDetail(mixed $value): string
+    {
+        $detail = is_string($value) ? strtolower(trim($value)) : '';
+
+        return $detail === self::MAP_DETAIL_SAMPLES ? self::MAP_DETAIL_SAMPLES : self::MAP_DETAIL_SUMMARY;
+    }
+
+    /**
+     * @param  array<string,mixed>  $status
+     * @param  array<string,mixed>  $inventory
+     * @param  array<string,mixed>  $providerProjection
+     * @return array<string,mixed>
+     */
+    private function workspaceReadiness(array $status, array $inventory, array $providerProjection): array
+    {
+        $blockers = [];
+        $warnings = [];
+
+        if ((bool) ($status['needs_onboarding'] ?? true)) {
+            $blockers[] = 'workspace_not_indexed';
+        }
+        if ((bool) ($status['needs_reindex'] ?? false)) {
+            $warnings[] = 'workspace_index_stale';
+        }
+        if ((int) ($inventory['symbol_count'] ?? 0) <= 0) {
+            $blockers[] = 'code_symbols_empty';
+        }
+        if ((int) ($providerProjection['manual_drift'] ?? 0) > 0) {
+            $warnings[] = 'provider_projection_manual_drift';
+        }
+        if ((int) ($providerProjection['stale'] ?? 0) > 0) {
+            $warnings[] = 'provider_projection_stale';
+        }
+        if ((int) ($providerProjection['unmanaged'] ?? 0) > 0) {
+            $warnings[] = 'provider_projection_unmanaged';
+        }
+
+        $readiness = $blockers !== []
+            ? 'blocked'
+            : ($warnings !== [] ? 'limited' : 'ready');
+
+        return [
+            'schema' => 'atlas.aobg.workspace_readiness.v1',
+            'status' => $readiness,
+            'safe_for_initial_context' => $blockers === [],
+            'safe_for_implementation' => $readiness === 'ready',
+            'blockers' => array_values(array_unique($blockers)),
+            'warnings' => array_values(array_unique($warnings)),
+            'required_before_implementation' => $readiness === 'ready' ? [] : array_values(array_filter([
+                in_array('workspace_not_indexed', $blockers, true) || in_array('code_symbols_empty', $blockers, true)
+                    ? (string) ($status['activation_command'] ?? '')
+                    : null,
+                in_array('workspace_index_stale', $warnings, true)
+                    ? (string) ($status['onboard_command'] ?? '')
+                    : null,
+                ((int) ($providerProjection['stale'] ?? 0) > 0 || (int) ($providerProjection['manual_drift'] ?? 0) > 0)
+                    ? 'php artisan atlas:memory:projection write --target=all --workspace='.(string) ($status['workspace_path'] ?? $status['workspace_id'] ?? '<workspace>').' --yes --json'
+                    : null,
+            ])),
+            'policy' => [
+                'read_only' => true,
+                'provider_safe' => true,
+                'raw_file_content_read' => false,
+                'raw_diff_returned' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $status
+     * @param  array<string,mixed>  $readiness
+     * @return array<int,string>
+     */
+    private function workspaceNextActions(array $status, array $readiness, string $workspaceRef, int $limit): array
+    {
+        $actions = [];
+        if ((bool) ($status['needs_onboarding'] ?? true)) {
+            $actions[] = (string) ($status['activation_command'] ?? '');
+        } elseif ((bool) ($status['needs_reindex'] ?? false)) {
+            $actions[] = (string) ($status['onboard_command'] ?? '');
+        }
+
+        foreach ((array) ($readiness['required_before_implementation'] ?? []) as $required) {
+            if (is_string($required) && $required !== '') {
+                $actions[] = $required;
+            }
+        }
+
+        $actions[] = 'atlas open-brain context "<task>" --workspace='.$this->commandWorkspaceArg($workspaceRef).' --json';
+        $actions[] = $this->workspaceMapCommand($workspaceRef, $limit, self::MAP_DETAIL_SAMPLES);
+
+        return array_values(array_unique(array_filter($actions, static fn (string $action): bool => trim($action) !== '')));
+    }
+
+    private function workspaceMapCommand(string $workspaceRef, int $limit, string $detail): string
+    {
+        return 'atlas aobg workspace map --workspace='.$this->commandWorkspaceArg($workspaceRef)
+            .' --detail='.$detail
+            .' --limit='.$limit
+            .' --json';
+    }
+
+    private function commandWorkspaceArg(string $workspaceRef): string
+    {
+        return preg_match('/\s/', $workspaceRef) === 1
+            ? '"'.str_replace('"', '\\"', $workspaceRef).'"'
+            : $workspaceRef;
     }
 
     private function boundedLimit(mixed $value, int $default, int $max): int

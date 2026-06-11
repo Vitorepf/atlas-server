@@ -67,6 +67,17 @@ final class EngineeringStringListNormalizer
     }
 
     /**
+     * @return array<int,string>
+     */
+    public static function nonEmptyScalarStrings(mixed $value): array
+    {
+        return array_values(array_filter(array_map(
+            static fn (mixed $item): string => is_scalar($item) ? trim((string) $item) : '',
+            is_array($value) ? $value : [$value],
+        ), static fn (string $item): bool => $item !== ''));
+    }
+
+    /**
      * @param  array<int|string,mixed>  $values
      * @return array<int,string>
      */

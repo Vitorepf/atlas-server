@@ -112,6 +112,25 @@ final class AtlasSemanticEmbeddingFoundationService
     }
 
     /**
+     * Deterministic chunk_hash => chunk-text map for a source text — exactly the
+     * chunks candidateSet() manifests (same chunker, same sha256 chunk_hash).
+     * Lets a governed LOCAL scorer (AHRI local semantic scoring through
+     * App\Services\Ai\RuntimeBoundary\SemanticRetrievalRuntime) recover the chunk
+     * texts to embed WITHOUT raw text ever entering a manifest/report payload.
+     *
+     * @return array<string,string>
+     */
+    public function chunkTextsByHash(string $text): array
+    {
+        $map = [];
+        foreach ($this->chunkText(trim($text)) as $chunkText) {
+            $map[MissionCanonicalHash::sha256($chunkText)] = $chunkText;
+        }
+
+        return $map;
+    }
+
+    /**
      * @return array<string,mixed>
      */
     public function readiness(): array

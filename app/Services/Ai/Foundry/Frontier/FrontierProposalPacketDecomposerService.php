@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Foundry\Frontier;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\FindingSlicePlannerService;
 
 /**
@@ -123,13 +124,6 @@ final class FrontierProposalPacketDecomposerService
      */
     private function stringList(mixed $value): array
     {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(
-            static fn (mixed $item): string => is_string($item) ? trim($item) : '',
-            $value,
-        ), static fn (string $item): bool => $item !== ''));
+        return AiStringListNormalizer::trimmedStrings($value);
     }
 }

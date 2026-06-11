@@ -6,6 +6,7 @@ use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
 use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 class WritingDraftService
 {
@@ -26,8 +27,8 @@ class WritingDraftService
         $goal = $this->string($input['goal'] ?? $input['brief'] ?? '');
         $audience = $this->string($input['audience'] ?? '');
         $voice = $this->string($input['voice'] ?? $input['tone'] ?? '');
-        $sourceMaterial = $this->list($input['source_material'] ?? $input['sources'] ?? []);
-        $constraints = $this->list($input['constraints'] ?? []);
+        $sourceMaterial = AiStringListNormalizer::uniqueTruthyTrimmedCastValues($input['source_material'] ?? $input['sources'] ?? []);
+        $constraints = AiStringListNormalizer::uniqueTruthyTrimmedCastValues($input['constraints'] ?? []);
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
@@ -242,16 +243,4 @@ class WritingDraftService
         return trim((string) $value);
     }
 
-    /**
-     * @return array<int,string>
-     */
-    private function list(mixed $value): array
-    {
-        return collect((array) $value)
-            ->map(fn (mixed $item): string => $this->string($item))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
-    }
 }

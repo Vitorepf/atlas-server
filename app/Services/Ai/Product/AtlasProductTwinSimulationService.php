@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Product;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 class AtlasProductTwinSimulationService
 {
@@ -19,9 +20,9 @@ class AtlasProductTwinSimulationService
         $patchManifest = is_array($input['patch_manifest'] ?? null) ? $input['patch_manifest'] : [];
         $route = (string) data_get($delivery, 'route', data_get($truth, 'execution_decomposition.route', 'atlas_dev'));
         $expectedRoute = (string) data_get($truth, 'execution_decomposition.route', $route);
-        $requiredLenses = $this->list(data_get($truth, 'execution_lenses.required', []));
+        $requiredLenses = AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'execution_lenses.required', []));
         $tests = $this->tests($truth, $delivery);
-        $allowedFiles = $this->list(data_get($delivery, 'delivery_plan.scope_guard.allowed_files', []));
+        $allowedFiles = AiStringListNormalizer::trimmedScalarValues(data_get($delivery, 'delivery_plan.scope_guard.allowed_files', []));
         $operations = $this->operations($patchManifest['operations'] ?? []);
         $touchedFiles = array_values(array_unique(array_map(
             static fn (array $operation): string => $operation['path'],
@@ -39,11 +40,11 @@ class AtlasProductTwinSimulationService
                 'matches' => $route === $expectedRoute,
             ],
             'predicted_impact' => [
-                'domain_objects' => $this->list(data_get($truth, 'business_domain.objects', [])),
+                'domain_objects' => AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'business_domain.objects', [])),
                 'contracts' => [
-                    'apis' => $this->list(data_get($truth, 'contract_map.apis', [])),
-                    'events' => $this->list(data_get($truth, 'contract_map.events', [])),
-                    'data_shapes' => $this->list(data_get($truth, 'contract_map.data_shapes', [])),
+                    'apis' => AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'contract_map.apis', [])),
+                    'events' => AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'contract_map.events', [])),
+                    'data_shapes' => AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'contract_map.data_shapes', [])),
                 ],
                 'files' => [
                     'allowed_files' => $allowedFiles,
@@ -87,12 +88,12 @@ class AtlasProductTwinSimulationService
     private function businessTwin(array $truth, array $input): array
     {
         $context = is_array($input['business_context'] ?? null) ? $input['business_context'] : [];
-        $actors = $this->list(data_get($truth, 'business_domain.actors', []));
-        $objects = $this->list(data_get($truth, 'business_domain.objects', []));
-        $rules = $this->list(data_get($truth, 'business_domain.rules', []));
+        $actors = AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'business_domain.actors', []));
+        $objects = AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'business_domain.objects', []));
+        $rules = AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'business_domain.rules', []));
         $metrics = $this->metrics($truth, $context);
         $revenue = $this->revenue($truth, $context);
-        $risks = $this->riskFactors($truth, $this->list(data_get($truth, 'execution_lenses.required', [])), []);
+        $risks = $this->riskFactors($truth, AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'execution_lenses.required', [])), []);
         $priority = $this->priority($truth, $metrics, $revenue, $risks, $context);
 
         return [
@@ -101,8 +102,8 @@ class AtlasProductTwinSimulationService
             'user_model' => [
                 'primary_actors' => $actors,
                 'served_objects' => $objects,
-                'user_promises' => $this->list(data_get($truth, 'acceptance_universe.must_work', [])),
-                'must_not_break' => $this->list(data_get($truth, 'acceptance_universe.must_not_break', [])),
+                'user_promises' => AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'acceptance_universe.must_work', [])),
+                'must_not_break' => AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'acceptance_universe.must_not_break', [])),
             ],
             'business_model' => [
                 'rules' => $rules,
@@ -116,7 +117,7 @@ class AtlasProductTwinSimulationService
                 'priority_band' => $priority['band'],
                 'recommended_route' => (string) data_get($truth, 'execution_decomposition.route', 'atlas_dev'),
                 'blocks_completion_without' => array_values(array_unique(array_merge(
-                    $this->list(data_get($truth, 'missing_truth', [])),
+                    AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'missing_truth', [])),
                     $metrics['missing'],
                     $revenue['missing'],
                 ))),
@@ -151,7 +152,7 @@ class AtlasProductTwinSimulationService
             ? trim((string) $context['north_star_metric'])
             : null;
         if ($northStar === '' || $northStar === null) {
-            $northStar = in_array('payment', $this->list(data_get($truth, 'business_domain.objects', [])), true)
+            $northStar = in_array('payment', AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'business_domain.objects', [])), true)
                 ? 'successful_paid_checkout_rate'
                 : 'task_success_rate';
         }
@@ -177,7 +178,7 @@ class AtlasProductTwinSimulationService
         $target = is_numeric($context['target_revenue_usd'] ?? null)
             ? (float) $context['target_revenue_usd']
             : null;
-        $hasPaymentObject = in_array('payment', $this->list(data_get($truth, 'business_domain.objects', [])), true);
+        $hasPaymentObject = in_array('payment', AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'business_domain.objects', [])), true);
 
         return [
             'model' => is_scalar($context['revenue_model'] ?? null) ? trim((string) $context['revenue_model']) : ($hasPaymentObject ? 'transactional' : 'unknown'),
@@ -263,9 +264,9 @@ class AtlasProductTwinSimulationService
      */
     private function tests(array $truth, array $delivery): array
     {
-        $focused = $this->list(data_get($delivery, 'delivery_plan.tests', []));
+        $focused = AiStringListNormalizer::trimmedScalarValues(data_get($delivery, 'delivery_plan.tests', []));
         if ($focused === []) {
-            $focused = $this->list(data_get($truth, 'proof_plan.tests', []));
+            $focused = AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'proof_plan.tests', []));
         }
 
         return [
@@ -280,7 +281,7 @@ class AtlasProductTwinSimulationService
      */
     private function uiImpact(array $truth): array
     {
-        $lenses = $this->list(data_get($truth, 'execution_lenses.required', []));
+        $lenses = AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'execution_lenses.required', []));
 
         return array_intersect($lenses, ['ux_driven', 'pdd', 'bdd']) !== []
             ? ['visual_acceptance_required', 'mobile_desktop_surface_check']
@@ -323,7 +324,7 @@ class AtlasProductTwinSimulationService
      */
     private function riskFactors(array $truth, array $requiredLenses, array $operations): array
     {
-        $factors = $this->list(data_get($truth, 'architecture_constraints.risks', []));
+        $factors = AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'architecture_constraints.risks', []));
         if (array_intersect($requiredLenses, ['cdd', 'api_first']) !== []) {
             $factors[] = 'contract_drift';
         }
@@ -388,18 +389,4 @@ class AtlasProductTwinSimulationService
         return $clean;
     }
 
-    /**
-     * @return list<string>
-     */
-    private function list(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(
-            static fn (mixed $item): ?string => is_scalar($item) ? trim((string) $item) : null,
-            $value,
-        ), static fn (?string $item): bool => $item !== null && $item !== ''));
-    }
 }

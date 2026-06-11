@@ -4,6 +4,7 @@ namespace App\Services\Ai\Product;
 
 use App\Models\AtlasProductDeliveryRuntimeReceipt;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
@@ -21,7 +22,7 @@ class AtlasProductDeliveryRiskGovernorService
     public function evaluate(array $delivery, array $proof = [], array $simulation = [], array $options = []): array
     {
         $route = (string) ($delivery['route'] ?? 'unknown');
-        $lenses = $this->list(data_get($delivery, 'product_truth.execution_lenses.required', []));
+        $lenses = AiStringListNormalizer::trimmedScalarValues(data_get($delivery, 'product_truth.execution_lenses.required', []));
         $runtimeSignals = $this->runtimeSignals($options);
         $riskFactors = $this->riskFactors($delivery, $proof, $simulation, $options, $lenses, $runtimeSignals);
         $riskScore = $this->riskScore($route, $riskFactors, $proof, $simulation);
@@ -77,8 +78,8 @@ class AtlasProductDeliveryRiskGovernorService
         return [
             'status' => (string) data_get($delivery, 'aedpds.gate.status', 'unknown'),
             'hash' => (string) data_get($delivery, 'aedpds.gate.hash', ''),
-            'warnings' => $this->list(data_get($delivery, 'aedpds.gate.warnings', [])),
-            'blockers' => $this->list(data_get($delivery, 'aedpds.gate.blockers', [])),
+            'warnings' => AiStringListNormalizer::trimmedScalarValues(data_get($delivery, 'aedpds.gate.warnings', [])),
+            'blockers' => AiStringListNormalizer::trimmedScalarValues(data_get($delivery, 'aedpds.gate.blockers', [])),
         ];
     }
 
@@ -107,10 +108,10 @@ class AtlasProductDeliveryRiskGovernorService
         if (data_get($delivery, 'aedpds.gate.status') !== 'passed') {
             $factors[] = 'aedpds_gate_not_passed';
         }
-        if ($this->list($proof['critical_blockers'] ?? []) !== []) {
+        if (AiStringListNormalizer::trimmedScalarValues($proof['critical_blockers'] ?? []) !== []) {
             $factors[] = 'critical_proof_blockers';
         }
-        if ($this->list(data_get($simulation, 'risk_forecast.blockers', [])) !== []) {
+        if (AiStringListNormalizer::trimmedScalarValues(data_get($simulation, 'risk_forecast.blockers', [])) !== []) {
             $factors[] = 'simulation_blocked';
         }
         if ((bool) ($options['provider_patch'] ?? false)) {
@@ -450,18 +451,4 @@ class AtlasProductDeliveryRiskGovernorService
         return (bool) ($options['operator_approved'] ?? false);
     }
 
-    /**
-     * @return list<string>
-     */
-    private function list(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(
-            static fn (mixed $item): ?string => is_scalar($item) ? trim((string) $item) : null,
-            $value,
-        ), static fn (?string $item): bool => $item !== null && $item !== ''));
-    }
 }

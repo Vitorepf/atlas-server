@@ -6,6 +6,7 @@ use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
 use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 class GeneralAnswerService
 {
@@ -24,9 +25,9 @@ class GeneralAnswerService
     public function packet(string $flow, array $input): array
     {
         $question = $this->string($input['question'] ?? $input['text'] ?? $input['prompt'] ?? '');
-        $context = $this->list($input['context'] ?? []);
-        $attachments = $this->list($input['attachments'] ?? []);
-        $constraints = $this->list($input['constraints'] ?? []);
+        $context = AiStringListNormalizer::trimmedCastValues($input['context'] ?? []);
+        $attachments = AiStringListNormalizer::trimmedCastValues($input['attachments'] ?? []);
+        $constraints = AiStringListNormalizer::trimmedCastValues($input['constraints'] ?? []);
         $desiredOutput = $this->string($input['desired_output'] ?? 'answer');
         $suspectedDomain = $this->suspectedDomain($question, $context);
 
@@ -236,20 +237,4 @@ class GeneralAnswerService
         return trim((string) $value);
     }
 
-    /**
-     * @return array<int,string>
-     */
-    private function list(mixed $value): array
-    {
-        if (is_array($value)) {
-            return array_values(array_filter(array_map(
-                fn (mixed $item): string => trim((string) $item),
-                $value
-            ), fn (string $item): bool => $item !== ''));
-        }
-
-        $string = $this->string($value);
-
-        return $string === '' ? [] : [$string];
-    }
 }

@@ -10,6 +10,7 @@ use App\Services\Ai\Programming\AtlasDev\Repair\FailureSignatureHasher;
 use App\Services\Ai\Programming\AtlasDev\Repair\RepairAttemptLimits;
 use App\Services\Ai\Programming\ProgrammingRepairExecutor;
 use App\Services\Ai\Programming\ProgrammingTestImpactAnalyzer;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 class AtlasAutonomousProductDeliveryRuntimeService
 {
@@ -62,22 +63,22 @@ class AtlasAutonomousProductDeliveryRuntimeService
             'code_changes_requested' => true,
             'missing_context' => ($truth['status'] ?? null) !== 'ready',
             'senior_review_present' => (bool) ($input['operator_approved'] ?? false),
-            'context_refs' => $this->list($input['context_refs'] ?? []),
+            'context_refs' => AiStringListNormalizer::trimmedScalarValues($input['context_refs'] ?? []),
         ]);
         $doctrineGate = $this->executionDoctrineGate->evaluate([
             'doctrine' => $doctrine,
-            'acceptance_criteria' => $this->list(data_get($truth, 'acceptance_universe.must_work', [])),
-            'context_refs' => $this->list($input['context_refs'] ?? []),
+            'acceptance_criteria' => AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'acceptance_universe.must_work', [])),
+            'context_refs' => AiStringListNormalizer::trimmedScalarValues($input['context_refs'] ?? []),
             'tests' => $this->testsFromTruth($truth),
             'contracts' => array_merge(
-                $this->list(data_get($truth, 'contract_map.apis', [])),
-                $this->list(data_get($truth, 'contract_map.events', [])),
-                $this->list(data_get($truth, 'contract_map.data_shapes', [])),
+                AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'contract_map.apis', [])),
+                AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'contract_map.events', [])),
+                AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'contract_map.data_shapes', [])),
             ),
-            'docs' => $this->list($input['canonical_docs'] ?? []),
+            'docs' => AiStringListNormalizer::trimmedScalarValues($input['canonical_docs'] ?? []),
             'review' => (bool) ($input['operator_approved'] ?? false) ? ['operator_or_senior_review'] : [],
-            'evidence' => $this->list($input['evidence_refs'] ?? data_get($input, 'evidence.tests', [])),
-            'ux_expectations' => $this->list($input['ux_expectations'] ?? []),
+            'evidence' => AiStringListNormalizer::trimmedScalarValues($input['evidence_refs'] ?? data_get($input, 'evidence.tests', [])),
+            'ux_expectations' => AiStringListNormalizer::trimmedScalarValues($input['ux_expectations'] ?? []),
         ]);
 
         $assisted = $this->assistedExecution->buildEnvelope([
@@ -87,17 +88,17 @@ class AtlasAutonomousProductDeliveryRuntimeService
             'route' => $route,
             'risk_band' => $this->riskBand($truth),
             'operator_approved' => (bool) ($input['operator_approved'] ?? false),
-            'context_refs' => $this->list($input['context_refs'] ?? []),
-            'acceptance_criteria' => $this->list(data_get($truth, 'acceptance_universe.must_work', [])),
+            'context_refs' => AiStringListNormalizer::trimmedScalarValues($input['context_refs'] ?? []),
+            'acceptance_criteria' => AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'acceptance_universe.must_work', [])),
             'suggested_tests' => $this->testsFromTruth($truth),
             'contract_refs' => array_merge(
-                $this->list(data_get($truth, 'contract_map.apis', [])),
-                $this->list(data_get($truth, 'contract_map.events', [])),
-                $this->list(data_get($truth, 'contract_map.data_shapes', [])),
+                AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'contract_map.apis', [])),
+                AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'contract_map.events', [])),
+                AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'contract_map.data_shapes', [])),
             ),
             'review_refs' => (bool) ($input['operator_approved'] ?? false) ? ['operator_or_senior_review'] : [],
-            'evidence_refs' => $this->list($input['evidence_refs'] ?? data_get($input, 'evidence.tests', [])),
-            'ux_expectations' => $this->list($input['ux_expectations'] ?? []),
+            'evidence_refs' => AiStringListNormalizer::trimmedScalarValues($input['evidence_refs'] ?? data_get($input, 'evidence.tests', [])),
+            'ux_expectations' => AiStringListNormalizer::trimmedScalarValues($input['ux_expectations'] ?? []),
         ]);
 
         $delivery = [
@@ -170,13 +171,13 @@ class AtlasAutonomousProductDeliveryRuntimeService
 
         return [
             'execution_unit' => $route === 'atlas_forge' ? 'forge_obra' : 'dev_task',
-            'required_lenses' => $this->list(data_get($truth, 'execution_lenses.required', [])),
-            'blocked_if_missing' => $this->list(data_get($truth, 'execution_lenses.blocked_if_missing', [])),
+            'required_lenses' => AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'execution_lenses.required', [])),
+            'blocked_if_missing' => AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'execution_lenses.blocked_if_missing', [])),
             'tests' => $this->testsFromTruth($truth),
-            'acceptance' => $this->list(data_get($truth, 'acceptance_universe.must_work', [])),
+            'acceptance' => AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'acceptance_universe.must_work', [])),
             'scope_guard' => [
-                'allowed_files' => $this->list(data_get($assisted, 'execution_contract.allowed_files', [])),
-                'forbidden_files' => $this->list(data_get($assisted, 'execution_contract.forbidden_files', [])),
+                'allowed_files' => AiStringListNormalizer::trimmedScalarValues(data_get($assisted, 'execution_contract.allowed_files', [])),
+                'forbidden_files' => AiStringListNormalizer::trimmedScalarValues(data_get($assisted, 'execution_contract.forbidden_files', [])),
             ],
             'repair_policy' => [
                 'failure_capsule_required' => true,
@@ -210,7 +211,7 @@ class AtlasAutonomousProductDeliveryRuntimeService
      */
     private function riskBand(array $truth): string
     {
-        $required = $this->list(data_get($truth, 'execution_lenses.required', []));
+        $required = AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'execution_lenses.required', []));
 
         return array_intersect($required, ['security_driven', 'add', 'performance_driven']) !== []
             ? 'high'
@@ -223,7 +224,7 @@ class AtlasAutonomousProductDeliveryRuntimeService
      */
     private function testsFromTruth(array $truth): array
     {
-        $tests = $this->list(data_get($truth, 'proof_plan.tests', []));
+        $tests = AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'proof_plan.tests', []));
         if ($tests === []) {
             return ['focused_tests'];
         }
@@ -236,21 +237,6 @@ class AtlasAutonomousProductDeliveryRuntimeService
             },
             $tests,
         );
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function list(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(
-            static fn (mixed $item): ?string => is_scalar($item) ? trim((string) $item) : null,
-            $value,
-        ), static fn (?string $item): bool => $item !== null && $item !== ''));
     }
 
     private function string(mixed $value): ?string

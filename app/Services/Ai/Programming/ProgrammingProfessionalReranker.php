@@ -94,6 +94,10 @@ class ProgrammingProfessionalReranker
         $bonus = in_array($source, $requiredSources, true) ? 0.12 : 0.0;
         $bonus += $source === 'stage_receipts' && in_array($flow, ['programming.repair', 'programming.forge'], true) ? 0.08 : 0.0;
         $bonus += (($ref['retrieval_channel'] ?? null) === 'lexical_token_overlap') ? 0.22 : 0.0;
+        // Genuinely-semantic channel: real cosine scores from the LOCAL semantic_rag
+        // runtime (stamped upstream only when real embeddings were used). The manifest
+        // placeholder channel `manifest_pending_embedding` NEVER earns this bonus.
+        $bonus += (($ref['retrieval_channel'] ?? null) === 'local_semantic_vector') ? 0.22 : 0.0;
         $bonus += (($ref['retrieval_channel'] ?? null) === 'professional_companion_expansion') ? 0.18 : 0.0;
         $bonus += (($ref['retrieval_channel'] ?? null) === 'audited_empty_source') ? 0.35 : 0.0;
         $bonus += $this->programmingRelevanceBoost($path);

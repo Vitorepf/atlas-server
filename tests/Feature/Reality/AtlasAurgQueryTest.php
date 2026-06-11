@@ -185,6 +185,96 @@ final class AtlasAurgQueryTest extends TestCase
         $this->assertSame([], $unsafeSeedQuery['nodes']);
     }
 
+    public function test_provider_bound_seeds_skip_generic_mission_outcome_noise(): void
+    {
+        $noisyEvidence = 'mission:evidence:generic-provider-noise';
+        $noisyMission = 'mission:mission:generic-provider-noise';
+        $noisyModule = 'code:module:atlas-server/provider_noise';
+        $meaningfulMission = 'mission:mission:aobg-provider-context';
+
+        foreach ([
+            [
+                'id' => $noisyEvidence,
+                'kind' => 'evidence',
+                'source_kind' => 'mission',
+                'source_id' => 'generic-provider-noise',
+                'label' => 'mission_outcome',
+                'provider_safe' => true,
+                'sensitive' => false,
+                'meta' => ['status' => 'blocked', 'summary' => 'aobg mission provider-bound reality_graph'],
+            ],
+            [
+                'id' => $noisyMission,
+                'kind' => 'mission',
+                'source_kind' => 'mission',
+                'source_id' => 'generic-provider-noise',
+                'label' => '[Request interrupted by user for tool use]',
+                'provider_safe' => true,
+                'sensitive' => false,
+                'meta' => ['touched_paths' => ['app/Services/Ai/Reality/Noise.php']],
+            ],
+            [
+                'id' => $noisyModule,
+                'kind' => 'module',
+                'source_kind' => 'code',
+                'source_id' => 'atlas-server/provider_noise',
+                'label' => 'Provider Noise',
+                'workspace_id' => 'atlas-server',
+                'provider_safe' => true,
+                'sensitive' => false,
+                'meta' => ['slug' => 'provider_noise', 'root_path' => 'app/Services/Ai/Noise'],
+            ],
+            [
+                'id' => $meaningfulMission,
+                'kind' => 'mission',
+                'source_kind' => 'mission',
+                'source_id' => 'aobg-provider-context',
+                'label' => 'AOBG provider-bound reality_graph context mission',
+                'provider_safe' => true,
+                'sensitive' => false,
+                'meta' => ['touched_paths' => ['app/Services/Ai/Reality/AtlasRealityGraphQueryService.php']],
+            ],
+        ] as $node) {
+            AtlasAurgNode::query()->create($node + ['content_hash' => hash('sha256', $node['id'])]);
+        }
+
+        foreach ([
+            [$noisyEvidence, $noisyMission, 'generated', 'mission_outcome'],
+            [$noisyMission, $noisyModule, 'references', 'mission_outcome'],
+            [$meaningfulMission, self::C1, 'references', 'mission_outcome'],
+        ] as [$from, $to, $kind, $source]) {
+            AtlasAurgEdge::query()->create([
+                'from_node_id' => $from,
+                'to_node_id' => $to,
+                'kind' => $kind,
+                'source' => $source,
+                'confidence' => 0.7,
+                'meta' => [],
+            ]);
+        }
+
+        $result = $this->service()->query('aobg provider-bound reality_graph mission context', [
+            'provider_bound' => true,
+            'depth' => 2,
+        ]);
+
+        $this->assertContains('reality', $result['terms']);
+        $this->assertContains('graph', $result['terms']);
+        $this->assertContains('provider', $result['terms']);
+        $this->assertContains('bound', $result['terms']);
+
+        $seedIds = array_column($result['seeds'], 'node_id');
+        $this->assertNotContains($noisyEvidence, $seedIds);
+        $this->assertNotContains($noisyMission, $seedIds);
+        $this->assertContains($meaningfulMission, $seedIds);
+
+        $pathSeeds = array_column($result['paths'], 'seed');
+        $pathTargets = array_column($result['paths'], 'target');
+        $this->assertNotContains($noisyEvidence, $pathSeeds);
+        $this->assertNotContains($noisyModule, $pathTargets);
+        $this->assertContains(self::C1, $pathTargets);
+    }
+
     public function test_lexical_seeding_is_per_term_deterministic_and_capped(): void
     {
         // Multi-term: each term recalls a DIFFERENT layer's node (K2 OR-across-terms).

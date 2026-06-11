@@ -72,6 +72,7 @@ class AtlasOpenBrainMcpService
         'context_feedback_tool',
         'context_feedback_metrics',
         'context_delivery_policy',
+        'context_pack_runtime_fingerprint',
         'open_brain_prompt_metrics',
         'workspace_activation',
         'blackboard_coordination',
@@ -882,6 +883,7 @@ class AtlasOpenBrainMcpService
                     'type' => 'object',
                     'properties' => [
                         'path' => ['type' => 'string', 'description' => 'Path ou parte do path da rota a buscar (ex: "memory", "/api/atlas").'],
+                        'workspace' => ['type' => 'string', 'description' => 'Workspace local.'],
                         'limit' => ['type' => 'integer', 'description' => 'Max rotas retornadas (default 20).'],
                     ],
                     'required' => ['path'],
@@ -896,6 +898,7 @@ class AtlasOpenBrainMcpService
                     'type' => 'object',
                     'properties' => [
                         'target' => ['type' => 'string', 'description' => 'Nome do símbolo, classe, ou conceito a procurar nos testes.'],
+                        'workspace' => ['type' => 'string', 'description' => 'Workspace local.'],
                         'limit' => ['type' => 'integer', 'description' => 'Max testes retornados (default 20).'],
                     ],
                     'required' => ['target'],
@@ -1116,6 +1119,7 @@ class AtlasOpenBrainMcpService
                         'cwd' => ['type' => 'string', 'description' => 'Working directory do chamador (a pasta do projeto da IA externa) — resolvido a um workspace id.'],
                         'workspace' => ['type' => 'string', 'description' => 'Path OU id do workspace a mapear (vence sobre cwd; default: primário atlas-server).'],
                         'limit' => ['type' => 'integer', 'description' => 'Máximo de amostras por seção (default 12, teto 50).'],
+                        'detail' => ['type' => 'string', 'description' => 'summary (default, só inventário/readiness/handles) ou samples (inclui amostras de rotas, commands, migrations, testes e entrypoints).'],
                     ],
                     'required' => [],
                 ],
@@ -3253,6 +3257,10 @@ class AtlasOpenBrainMcpService
         if ($limit !== null) {
             $opts['limit'] = $limit;
         }
+        $detail = $this->string($arguments['detail'] ?? null);
+        if ($detail !== null) {
+            $opts['detail'] = $detail;
+        }
 
         return ['tool' => $tool] + $this->workspaceOnboarding->map($opts);
     }
@@ -3621,13 +3629,20 @@ class AtlasOpenBrainMcpService
         }
 
         $limit = $this->mcpInput->codeLimit($arguments['limit'] ?? null);
-        $result = $this->code->symbols(['q' => $path, 'symbol_type' => 'route'], $limit);
+        // AP-815 W-3 — same default-safe scoping as codeFindRelevant(): resolve the workspace
+        // to its stable id and thread it into symbols(); the filter only applies when the
+        // W-1 workspace_id column exists, so a pre-W-1 read-model keeps global behaviour.
+        $workspacePath = $this->workspace($arguments['workspace'] ?? null);
+        $workspaceId = app(CodeGraphWorkspaceIdentity::class)->resolve($workspacePath);
+        $result = $this->code->symbols(['q' => $path, 'symbol_type' => 'route', 'workspace_id' => $workspaceId], $limit);
         $routes = $result['symbols'] ?? [];
 
         return [
             'ok' => true,
             'tool' => 'atlas_route_info',
             'path' => $path,
+            'workspace' => $workspacePath,
+            'workspace_id' => $workspaceId,
             'routes' => $routes,
             'count' => count($routes),
             'generated_at' => now()->toJSON(),
@@ -3646,13 +3661,18 @@ class AtlasOpenBrainMcpService
         }
 
         $limit = $this->mcpInput->codeLimit($arguments['limit'] ?? null);
-        $result = $this->code->symbols(['q' => $target, 'symbol_type' => 'test_method'], $limit);
+        // AP-815 W-3 — same default-safe scoping as codeFindRelevant() (see routeInfo()).
+        $workspacePath = $this->workspace($arguments['workspace'] ?? null);
+        $workspaceId = app(CodeGraphWorkspaceIdentity::class)->resolve($workspacePath);
+        $result = $this->code->symbols(['q' => $target, 'symbol_type' => 'test_method', 'workspace_id' => $workspaceId], $limit);
         $tests = $result['symbols'] ?? [];
 
         return [
             'ok' => true,
             'tool' => 'atlas_test_for',
             'target' => $target,
+            'workspace' => $workspacePath,
+            'workspace_id' => $workspaceId,
             'tests' => $tests,
             'count' => count($tests),
             'generated_at' => now()->toJSON(),
@@ -3672,13 +3692,16 @@ class AtlasOpenBrainMcpService
 
         $workspace = $this->workspace($arguments['workspace'] ?? null);
         $context = $workspace !== null ? ['workspace' => $workspace] : [];
+        // AP-815 W-3 — same default-safe scoping as codeFindRelevant() for the code leg
+        // (memory recall is already workspace-scoped via $context above).
+        $workspaceId = app(CodeGraphWorkspaceIdentity::class)->resolve($workspace);
 
         $memoryLimit = $this->mcpInput->contextMemoryLimit($arguments['memory_limit'] ?? null);
         $codeLimit = $this->mcpInput->contextCodeLimit($arguments['code_limit'] ?? null);
         $docsLimit = $this->mcpInput->contextDocsLimit($arguments['docs_limit'] ?? null);
 
         $memory = $this->recall->recall($task, $context, [], ['limit' => $memoryLimit]);
-        $code = $this->code->symbols(['q' => $task], $codeLimit);
+        $code = $this->code->symbols(['q' => $task, 'workspace_id' => $workspaceId], $codeLimit);
         $docs = $this->knowledge->catalog(['q' => $task, 'status' => 'active'], $docsLimit);
 
         $memoryEntries = $memory['recall'] ?? [];
@@ -3690,6 +3713,7 @@ class AtlasOpenBrainMcpService
             'tool' => 'atlas_context_for',
             'task_description' => $task,
             'workspace' => $workspace,
+            'workspace_id' => $workspaceId,
             'memory' => [
                 'entries' => $memoryEntries,
                 'count' => count($memoryEntries),

@@ -14,6 +14,7 @@ use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Kernel\Gates\PedagogyMatchesStageGate;
 use App\Services\Ai\Kernel\Gates\WorkedExampleAppropriateForStageGate;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 class LearningPlanService
 {
@@ -44,8 +45,8 @@ class LearningPlanService
         $currentLevel = $this->string($input['current_level'] ?? 'unknown');
         $targetLevel = $this->string($input['target_level'] ?? '');
         $timeBudget = $this->string($input['time_budget'] ?? '');
-        $resources = $this->list($input['resources'] ?? []);
-        $constraints = $this->list($input['constraints'] ?? []);
+        $resources = AiStringListNormalizer::uniqueTruthyTrimmedCastValues($input['resources'] ?? []);
+        $constraints = AiStringListNormalizer::uniqueTruthyTrimmedCastValues($input['constraints'] ?? []);
         $dreyfus = $this->dreyfus->resolve([
             ...$input,
             'domain' => $input['domain'] ?? 'learning',
@@ -410,16 +411,4 @@ class LearningPlanService
         return trim((string) $value);
     }
 
-    /**
-     * @return array<int,string>
-     */
-    private function list(mixed $value): array
-    {
-        return collect((array) $value)
-            ->map(fn (mixed $item): string => $this->string($item))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
-    }
 }

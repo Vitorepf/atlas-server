@@ -92,6 +92,34 @@ class DecisionReceiptIssuer
         );
     }
 
+    /**
+     * G8 — per-step INTERMEDIATE receipt inside a mission/loop.
+     *
+     * Forces the parent linkage (parent_receipt_id + parent_chain_hash come from the
+     * PARENT receipt, never from the caller's $decision) and stamps the step metadata,
+     * then delegates to issue() verbatim — so the verifiable chain link
+     * child.chainHash = hash(parent.chainHash + child.receiptHash) is the one issue()
+     * already computes, never reimplemented here. The envelope is the parent's
+     * operation envelope (a receipt does not carry it, so the caller passes it back).
+     *
+     * @param  array<string,mixed>  $decision
+     */
+    public function issueIntermediate(OperationEnvelope $envelope, DecisionReceipt $parent, int $stepIndex, array $decision): DecisionReceipt
+    {
+        $decision['parent_receipt_id'] = $parent->receiptId;
+        $decision['parent_chain_hash'] = $parent->chainHash;
+
+        $metadata = is_array($decision['metadata'] ?? null) ? $decision['metadata'] : [];
+        $metadata['mission_step_index'] = $stepIndex;
+        $metadata['intermediate'] = true;
+        // issue() only fills parent_chain_hash into metadata when absent; force the
+        // parent's real value so a caller-supplied stale hash can never win.
+        $metadata['parent_chain_hash'] = $parent->chainHash;
+        $decision['metadata'] = $metadata;
+
+        return $this->issue($envelope, $decision);
+    }
+
     private function providerSelection(mixed $selection): DecisionProviderSelection
     {
         $selection = is_array($selection) ? $selection : [];

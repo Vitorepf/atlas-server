@@ -47,5 +47,23 @@
         <!-- AP-813: compression layer is activated in dev/prod .env, but tests stay
              deterministic with it OFF (per-test config()->set turns it on where needed). -->
         <env name="ATLAS_COMPRESSION_LAYER_ENABLED" value="false"/>
+        <!-- AUCRI local semantic scoring is ON in dev/prod (real cosine scores via
+             the local semantic_rag runtime when its venv exists), but tests stay
+             deterministic/hermetic with it OFF — the venv exists on this machine,
+             so without this the AUCRI feature suite would spawn real Python.
+             Per-test config()->set + a bound fake runtime turn it on where needed. -->
+        <env name="ATLAS_AUCRI_LOCAL_SEMANTIC_SCORING" value="false"/>
+        <!-- T1.2: capture quality gate is ENFORCE in dev/prod .env, but tests stay
+             deterministic on the historical default (per-test config()->set turns
+             enforce on where the gate itself is under test). -->
+        <env name="ATLAS_CAPTURE_QUALITY_MODE" value="observe"/>
+        <!-- AP-819 F1: failure auto feed is activated in dev/prod .env; tests opt in
+             explicitly (config set or force flag) so suites never harvest implicitly. -->
+        <env name="ATLAS_FAILURE_AUTO_FEED_ENABLED" value="false"/>
+        <!-- G2: the cost guard soft warn is activated in dev/prod .env (3.0 units),
+             but tests stay deterministic on the historical 0/0 default so provider
+             identity assertions are unaffected (guard tests set config explicitly). -->
+        <env name="ATLAS_AI_CALL_COST_GUARD_SOFT_UNITS" value="0"/>
+        <env name="ATLAS_AI_CALL_COST_GUARD_HARD_UNITS" value="0"/>
     </php>
 </phpunit>

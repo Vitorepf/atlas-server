@@ -6,6 +6,12 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "8765", "--directory", "/Users/vitorepf/develop/Atlas/atlas-server/public"],
       "port": 8765
+    },
+    {
+      "name": "blackink-front",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "/Users/vitorepf/develop/blackink/nivor-front-end", "run", "start"],
+      "port": 8080
     }
   ]
 }

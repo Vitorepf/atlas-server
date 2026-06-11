@@ -1024,6 +1024,17 @@ JS);
         $this->assertGreaterThanOrEqual(1, count((array) data_get($payload, 'operations_packet.editorial_dependency_matrix.rows.0.reader_contract.must_introduce', [])));
         $this->assertFalse(data_get($payload, 'operations_packet.editorial_dependency_matrix.guardrails.reorders_posts'));
         $this->assertFalse(data_get($payload, 'operations_packet.editorial_dependency_matrix.guardrails.publishes_content'));
+        $this->assertSame('atlas.blog_editorial_backlog_intake.v1', data_get($payload, 'operations_packet.backlog_intake.schema_version'));
+        $this->assertSame('read_only_candidate_intake_p1', data_get($payload, 'operations_packet.backlog_intake.mode'));
+        $this->assertGreaterThanOrEqual(1, data_get($payload, 'operations_packet.backlog_intake.summary.item_count'));
+        $this->assertTrue(data_get($payload, 'operations_packet.backlog_intake.summary.dependency_ladder_blocked'));
+        $this->assertContains(
+            data_get($payload, 'operations_packet.backlog_intake.items.0.recommended_action'),
+            ['accept_into_review_queue', 'hold_until_dependency_ladder_clears', 'review_for_append_only_promotion', 'hold_duplicate'],
+        );
+        $this->assertFalse(data_get($payload, 'operations_packet.backlog_intake.guardrails.writes_backlog'));
+        $this->assertFalse(data_get($payload, 'operations_packet.backlog_intake.guardrails.writes_review_queue'));
+        $this->assertFalse(data_get($payload, 'operations_packet.backlog_intake.guardrails.promotes_candidate'));
         $this->assertSame('future_governed', data_get($payload, 'operations_packet.source_snapshot.graph_retrieval_status'));
         $this->assertSame('atlas.blog_editorial_open_brain_handoff.v1', data_get($payload, 'operations_packet.open_brain_handoff.schema_version'));
         $this->assertSame('o-que-e-o-atlas', data_get($payload, 'operations_packet.open_brain_handoff.payload.post.slug'));
@@ -1038,6 +1049,7 @@ JS);
         $this->assertTrue(data_get($payload, 'operations_packet.guardrails.generates_topic_ledger'));
         $this->assertTrue(data_get($payload, 'operations_packet.guardrails.generates_editorial_roadmap'));
         $this->assertTrue(data_get($payload, 'operations_packet.guardrails.generates_editorial_dependency_matrix'));
+        $this->assertTrue(data_get($payload, 'operations_packet.guardrails.generates_backlog_intake'));
         $this->assertFalse(data_get($payload, 'operations_packet.guardrails.uses_graph_rag'));
     }
 

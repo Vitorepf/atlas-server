@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Product;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 class AtlasProductFalsificationProofRuntimeService
 {
@@ -78,7 +79,7 @@ class AtlasProductFalsificationProofRuntimeService
      */
     private function requirementBlockers(array $truth): array
     {
-        $rules = $this->list(data_get($truth, 'business_domain.rules', []));
+        $rules = AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'business_domain.rules', []));
         if ($rules === []) {
             return [$this->blocker('missing_business_rules', 'critical', 'Product truth has no business rules.')];
         }
@@ -92,8 +93,8 @@ class AtlasProductFalsificationProofRuntimeService
      */
     private function acceptanceBlockers(array $truth): array
     {
-        $mustWork = $this->list(data_get($truth, 'acceptance_universe.must_work', []));
-        $mustNotBreak = $this->list(data_get($truth, 'acceptance_universe.must_not_break', []));
+        $mustWork = AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'acceptance_universe.must_work', []));
+        $mustNotBreak = AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'acceptance_universe.must_not_break', []));
         if ($mustWork === [] || $mustNotBreak === []) {
             return [$this->blocker('missing_acceptance_universe', 'critical', 'Acceptance must include must_work and must_not_break.')];
         }
@@ -107,14 +108,14 @@ class AtlasProductFalsificationProofRuntimeService
      */
     private function contractBlockers(array $truth): array
     {
-        $blocked = $this->list(data_get($truth, 'execution_lenses.blocked_if_missing', []));
+        $blocked = AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'execution_lenses.blocked_if_missing', []));
         if (! in_array('contract', $blocked, true)) {
             return [];
         }
 
-        $apis = $this->list(data_get($truth, 'contract_map.apis', []));
-        $events = $this->list(data_get($truth, 'contract_map.events', []));
-        $shapes = $this->list(data_get($truth, 'contract_map.data_shapes', []));
+        $apis = AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'contract_map.apis', []));
+        $events = AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'contract_map.events', []));
+        $shapes = AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'contract_map.data_shapes', []));
         if ($apis === [] && $events === [] && $shapes === []) {
             return [$this->blocker('missing_contract_map', 'critical', 'Required contract lens has no API/event/data shape.')];
         }
@@ -129,12 +130,12 @@ class AtlasProductFalsificationProofRuntimeService
      */
     private function securityBlockers(array $truth, array $evidence): array
     {
-        $required = $this->list(data_get($truth, 'execution_lenses.required', []));
+        $required = AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'execution_lenses.required', []));
         if (! in_array('security_driven', $required, true)) {
             return [];
         }
 
-        $securityEvidence = $this->list($evidence['security'] ?? []);
+        $securityEvidence = AiStringListNormalizer::trimmedScalarValues($evidence['security'] ?? []);
         if ($securityEvidence === []) {
             return [$this->blocker('missing_security_evidence', 'critical', 'Security-driven delivery requires security evidence.')];
         }
@@ -149,12 +150,12 @@ class AtlasProductFalsificationProofRuntimeService
      */
     private function testBlockers(array $truth, array $evidence): array
     {
-        $tests = $this->list($evidence['tests'] ?? []);
+        $tests = AiStringListNormalizer::trimmedScalarValues($evidence['tests'] ?? []);
         if ($tests === []) {
             return [$this->blocker('missing_test_evidence', 'critical', 'Delivery has no test evidence or skip_reason.')];
         }
 
-        $requiredTests = $this->list(data_get($truth, 'proof_plan.tests', []));
+        $requiredTests = AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'proof_plan.tests', []));
         if (in_array('contract_tests', $requiredTests, true) && ! $this->containsNeedle($tests, 'contract')) {
             return [$this->blocker('missing_contract_test_evidence', 'critical', 'Contract lens requires contract test evidence.')];
         }
@@ -180,10 +181,10 @@ class AtlasProductFalsificationProofRuntimeService
         if ($truth === []) {
             $blockers[] = $this->blocker('missing_product_truth', 'critical', 'APFPR requires a Product Truth Contract.');
         }
-        if ($this->list($evidence['acceptance_mapping'] ?? []) === []) {
+        if (AiStringListNormalizer::trimmedScalarValues($evidence['acceptance_mapping'] ?? []) === []) {
             $blockers[] = $this->blocker('missing_acceptance_mapping', 'critical', 'Evidence must map tests/diff to acceptance.');
         }
-        if ($this->list($evidence['outcome'] ?? []) === []) {
+        if (AiStringListNormalizer::trimmedScalarValues($evidence['outcome'] ?? []) === []) {
             $blockers[] = $this->blocker('missing_outcome_evidence', 'warn', 'Outcome memory evidence is missing.');
         }
 
@@ -196,7 +197,7 @@ class AtlasProductFalsificationProofRuntimeService
      */
     private function humanAssumptionBlockers(array $truth): array
     {
-        $questions = $this->list(data_get($truth, 'human_questions.minimum_required', []));
+        $questions = AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'human_questions.minimum_required', []));
         if (($truth['status'] ?? null) === 'needs_context' && $questions !== []) {
             return [$this->blocker('unresolved_human_questions', 'critical', 'Product truth still needs human answers.')];
         }
@@ -211,7 +212,7 @@ class AtlasProductFalsificationProofRuntimeService
     private function counterexamples(array $truth): array
     {
         $examples = [];
-        $objects = $this->list(data_get($truth, 'business_domain.objects', []));
+        $objects = AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'business_domain.objects', []));
         if (in_array('payment', $objects, true)) {
             $examples[] = ['id' => 'payment_webhook_replay', 'question' => 'Does a replayed webhook mutate the same order twice?'];
             $examples[] = ['id' => 'payment_declined_checkout', 'question' => 'Does checkout fail safely when payment is declined?'];
@@ -279,21 +280,6 @@ class AtlasProductFalsificationProofRuntimeService
     private function array(mixed $value): array
     {
         return is_array($value) ? $value : [];
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function list(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(
-            static fn (mixed $item): ?string => is_scalar($item) ? trim((string) $item) : null,
-            $value,
-        ), static fn (?string $item): bool => $item !== null && $item !== ''));
     }
 
     /**

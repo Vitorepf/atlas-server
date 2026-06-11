@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Services\Ai\Context;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\RuntimeBoundary\SemanticRetrievalRuntime;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use Illuminate\Support\Carbon;
+use Throwable;
 
 /**
  * AUCRI readiness CHECK — not the prompt's retrieval engine (R4 PART B).
@@ -29,6 +31,7 @@ final class AtlasHybridRetrievalInfrastructureService
     public function __construct(
         private readonly ContextRetrievalRouter $router,
         private readonly AtlasSemanticEmbeddingFoundationService $semanticFoundation,
+        private readonly SemanticRetrievalRuntime $semanticRuntime,
     ) {}
 
     /**
@@ -67,7 +70,7 @@ final class AtlasHybridRetrievalInfrastructureService
 
         $candidates = $this->dedupeCandidates(array_merge(
             $this->candidatesFromPlan($plan),
-            $this->candidatesFromAsef($asef),
+            $this->applyLocalSemanticScores($this->candidatesFromAsef($asef), $objective),
             $this->candidatesFromContextRefs((array) ($input['context_refs'] ?? [])),
         ));
         $misses = $this->misses($plan, $asef);
@@ -168,12 +171,98 @@ final class AtlasHybridRetrievalInfrastructureService
                 'provider_safe' => (bool) ($chunk['provider_safe'] ?? false),
                 'privacy_class' => (string) ($chunk['privacy_class'] ?? 'normal'),
                 'authority_level' => (string) ($chunk['authority_level'] ?? 'source_observed'),
+                // Static MANIFEST PLACEHOLDER score. When the local semantic_rag
+                // runtime is available, applyLocalSemanticScores() replaces it
+                // with a REAL cosine score and stamps score_origin=local_semantic_vector.
                 'score_hint' => 0.60,
                 'status' => (string) ($chunk['embedding_status'] ?? 'candidate_manifest_only'),
                 'chunk_hash' => (string) ($chunk['chunk_hash'] ?? ''),
                 'token_estimate' => (int) ($chunk['token_estimate'] ?? 0),
             ];
         }, (array) data_get($asef, 'candidate_set.chunks', [])));
+    }
+
+    /**
+     * Score the ASEF manifest chunks with REAL cosine similarity from the LOCAL
+     * Python semantic_rag runtime ({@see SemanticRetrievalRuntime}) — one batched
+     * retrieve() per report, never one call per candidate. Scored candidates get
+     * `score_hint` = real cosine (clamped [0,1]) and `score_origin` =
+     * `local_semantic_vector`, which is what lets the ranking layer relabel the
+     * retrieval channel honestly.
+     *
+     * HONEST DEGRADE: when the flag is off, the runtime is unavailable, the
+     * runtime errors, or a chunk text cannot be recovered, candidates pass
+     * through UNTOUCHED (static 0.60 placeholder, no `score_origin` stamp) so the
+     * channel stays `manifest_pending_embedding`. No fabricated vectors, no
+     * lexical stand-in — per the runtime_language_boundary canon. The chunk text
+     * goes only TO the local runtime; it never enters this report's payload.
+     *
+     * @param  array<int,array<string,mixed>>  $candidates
+     * @return array<int,array<string,mixed>>
+     */
+    private function applyLocalSemanticScores(array $candidates, string $objective): array
+    {
+        if ($candidates === [] || $objective === '') {
+            return $candidates;
+        }
+
+        if (! (bool) config('atlas.aucri.local_semantic_scoring', true)) {
+            return $candidates;
+        }
+
+        if (! $this->semanticRuntime->available()) {
+            return $candidates;
+        }
+
+        $chunkTexts = $this->semanticFoundation->chunkTextsByHash($objective);
+        $documents = [];
+        foreach ($candidates as $candidate) {
+            $chunkHash = (string) ($candidate['chunk_hash'] ?? '');
+            if ($chunkHash !== '' && isset($chunkTexts[$chunkHash])) {
+                $documents[$chunkHash] = ['id' => $chunkHash, 'text' => $chunkTexts[$chunkHash]];
+            }
+        }
+
+        if ($documents === []) {
+            return $candidates;
+        }
+
+        try {
+            $result = $this->semanticRuntime->retrieve(
+                documents: array_values($documents),
+                query: $objective,
+                k: count($documents),
+            );
+        } catch (Throwable) {
+            return $candidates;
+        }
+
+        $scores = [];
+        foreach ((array) ($result['matches'] ?? []) as $match) {
+            if (! is_array($match)) {
+                continue;
+            }
+            $id = (string) ($match['id'] ?? '');
+            if ($id !== '' && is_numeric($match['score'] ?? null)) {
+                $scores[$id] = round(max(0.0, min(1.0, (float) $match['score'])), 4);
+            }
+        }
+
+        if ($scores === []) {
+            return $candidates;
+        }
+
+        return array_values(array_map(static function (array $candidate) use ($scores): array {
+            $chunkHash = (string) ($candidate['chunk_hash'] ?? '');
+            if ($chunkHash === '' || ! array_key_exists($chunkHash, $scores)) {
+                return $candidate;
+            }
+
+            $candidate['score_hint'] = $scores[$chunkHash];
+            $candidate['score_origin'] = 'local_semantic_vector';
+
+            return $candidate;
+        }, $candidates));
     }
 
     /**

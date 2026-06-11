@@ -139,6 +139,8 @@ Every export must include:
 - provider-safe summaries;
 - truncation/budget metadata;
 - audit hash or trace id;
+- provider-safe runtime identity/fingerprint when the export is an AOBG
+  context pack;
 - generated timestamp.
 
 Context pack exports from API, CLI and MCP must expose `safety` as
@@ -156,6 +158,22 @@ Memory recall surfaces must also expose safety summary counts:
 - `raw_content_persisted_count`, which must stay `0` for provider-safe recall;
 - audit trails that preserve `redacted_hash` while declaring
   `raw_content_persisted=false`.
+
+AOBG `atlas_context_pack` exports must include
+`provenance.aobg_runtime` with `atlas.aobg.context_pack.runtime.v1`,
+provider-visible feature flags and a 64-char runtime fingerprint. If a native
+MCP client receives a context pack without this runtime block, or without an
+expected feature flag, treat the MCP process as stale: run `atlas_mcp_self_check`,
+restart the provider client, or use the CLI fallback
+`php artisan atlas:context-pack "<task>" --workspace="<path>" --json`.
+
+AOBG initial packs may also include
+`provenance.code_graph.initial_delivery_policy`. For normal implementation
+tasks, this policy defers test/doc-heavy code symbols from `tests/` and `docs/`
+to on-demand handles instead of placing them in the first prompt. MCP consumers
+must treat `deferred_source_types` as known-but-not-loaded context and call
+`atlas_context_expand` with handles such as `expand:test_symbols` or
+`recheck:canonical_doc` before touching those areas.
 
 ## Supported Surfaces
 

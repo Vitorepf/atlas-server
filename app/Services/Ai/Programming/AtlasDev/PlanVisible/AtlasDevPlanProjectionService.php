@@ -78,8 +78,16 @@ final class AtlasDevPlanProjectionService
             );
         }
 
-        $targetFiles = $this->validateStringList($proposal['target_files'] ?? [], 'target_files');
-        $testsToRun = $this->validateStringList($proposal['tests_to_run'] ?? [], 'tests_to_run');
+        $targetFiles = AtlasDevStringListNormalizer::requireNonEmptyStringArray(
+            $proposal['target_files'] ?? [],
+            'target_files',
+            'AtlasDevPlanProjectionService'
+        );
+        $testsToRun = AtlasDevStringListNormalizer::requireNonEmptyStringArray(
+            $proposal['tests_to_run'] ?? [],
+            'tests_to_run',
+            'AtlasDevPlanProjectionService'
+        );
         $summary = (string) ($proposal['proposed_diff_summary'] ?? '');
         $riskBand = AtlasDevRiskNormalizer::planVisibleRiskBand($proposal['risk_band'] ?? $defaultRiskBand);
 
@@ -113,18 +121,4 @@ final class AtlasDevPlanProjectionService
 
         return PlanVisible::fromArray($payload);
     }
-
-    /**
-     * @param  mixed  $list
-     * @return list<string>
-     */
-    private function validateStringList($list, string $fieldName): array
-    {
-        if (! is_array($list)) {
-            throw new InvalidArgumentException("AtlasDevPlanProjectionService: {$fieldName} must be an array.");
-        }
-
-        return AtlasDevStringListNormalizer::requireNonEmptyStrings(array_values($list), $fieldName);
-    }
-
 }

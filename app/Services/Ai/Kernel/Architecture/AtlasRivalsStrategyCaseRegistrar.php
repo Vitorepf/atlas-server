@@ -4,6 +4,7 @@ namespace App\Services\Ai\Kernel\Architecture;
 
 use App\Models\AtlasStrategyRivalsCase;
 use App\Models\AtlasStrategyRivalsReview;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -129,12 +130,7 @@ class AtlasRivalsStrategyCaseRegistrar
      */
     private function stringList(mixed $value): array
     {
-        return collect((array) $value)
-            ->map(fn (mixed $item): string => $this->string($item))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
+        return AiStringListNormalizer::uniqueTruthyTrimmedCastValues($value);
     }
 
     private function string(mixed $value): string

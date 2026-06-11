@@ -6,6 +6,7 @@ use App\Models\AtlasProductDeliveryOutcomeMemory;
 use App\Services\Ai\Aemor\AtlasAemorJudgmentService;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AtlasProductDeliveryOutcomeMemoryService
@@ -29,22 +30,22 @@ class AtlasProductDeliveryOutcomeMemoryService
             'route' => (string) ($delivery['route'] ?? data_get($proof, 'target.route', 'unknown')),
             'outcome_status' => $status,
             'evidence_kinds' => $this->evidenceKinds($evidence),
-            'required_repairs' => $this->list($proof['required_repairs'] ?? []),
+            'required_repairs' => AiStringListNormalizer::trimmedScalarValues($proof['required_repairs'] ?? []),
             'learning_candidates' => $this->learningCandidates($delivery, $proof, $status, $evidence),
             'delivery_summary' => [
                 'schema_version' => $delivery['schema_version'] ?? null,
                 'status' => $delivery['status'] ?? null,
                 'route' => $delivery['route'] ?? null,
                 'execution_unit' => data_get($delivery, 'delivery_plan.execution_unit'),
-                'required_lenses' => $this->list(data_get($delivery, 'delivery_plan.required_lenses', [])),
+                'required_lenses' => AiStringListNormalizer::trimmedScalarValues(data_get($delivery, 'delivery_plan.required_lenses', [])),
                 'risk_band' => data_get($delivery, 'assisted_execution.execution_contract.risk_band'),
                 'apfpr_required' => data_get($delivery, 'proof_requirements.apfpr_required') === true,
                 'aedpds_gate_status' => data_get($delivery, 'aedpds.gate.status'),
                 'aedpds_gate_hash' => data_get($delivery, 'aedpds.gate.hash'),
-                'aedpds_selected_drivers' => $this->list(data_get($delivery, 'aedpds.doctrine.selected_primary_drivers', [])),
-                'aedpds_required_gates' => $this->list(data_get($delivery, 'aedpds.gate.required_gates', [])),
-                'aedpds_warnings' => $this->list(data_get($delivery, 'aedpds.gate.warnings', [])),
-                'aedpds_blockers' => $this->list(data_get($delivery, 'aedpds.gate.blockers', [])),
+                'aedpds_selected_drivers' => AiStringListNormalizer::trimmedScalarValues(data_get($delivery, 'aedpds.doctrine.selected_primary_drivers', [])),
+                'aedpds_required_gates' => AiStringListNormalizer::trimmedScalarValues(data_get($delivery, 'aedpds.gate.required_gates', [])),
+                'aedpds_warnings' => AiStringListNormalizer::trimmedScalarValues(data_get($delivery, 'aedpds.gate.warnings', [])),
+                'aedpds_blockers' => AiStringListNormalizer::trimmedScalarValues(data_get($delivery, 'aedpds.gate.blockers', [])),
             ],
             'proof_summary' => [
                 'schema_version' => $proof['schema_version'] ?? null,
@@ -166,12 +167,12 @@ class AtlasProductDeliveryOutcomeMemoryService
                 'evidence_kinds_count' => count((array) ($outcomeMemory['evidence_kinds'] ?? [])),
                 'required_repairs_count' => count((array) ($outcomeMemory['required_repairs'] ?? [])),
                 'human_review_required' => (bool) ($outcomeMemory['human_review_required'] ?? false),
-                'tests_passed' => in_array('tests', $this->list($outcomeMemory['evidence_kinds'] ?? []), true),
-                'attribution_reviewed' => $this->list($outcomeMemory['evidence_kinds'] ?? []) !== [],
+                'tests_passed' => in_array('tests', AiStringListNormalizer::trimmedScalarValues($outcomeMemory['evidence_kinds'] ?? []), true),
+                'attribution_reviewed' => AiStringListNormalizer::trimmedScalarValues($outcomeMemory['evidence_kinds'] ?? []) !== [],
             ],
             'blockers' => $status === 'succeeded' ? [] : array_map(
                 static fn (string $repair): array => ['id' => $repair, 'reason' => 'AEDPDS required repair.'],
-                $this->list($outcomeMemory['required_repairs'] ?? []),
+                AiStringListNormalizer::trimmedScalarValues($outcomeMemory['required_repairs'] ?? []),
             ),
             'evidence_refs' => $evidenceRefs,
         ]);
@@ -244,7 +245,7 @@ class AtlasProductDeliveryOutcomeMemoryService
         if ($this->highRisk($delivery)) {
             $items[] = 'high_risk_product_delivery_requires_apfpr';
         }
-        foreach ($this->list($proof['required_repairs'] ?? []) as $repair) {
+        foreach (AiStringListNormalizer::trimmedScalarValues($proof['required_repairs'] ?? []) as $repair) {
             $items[] = 'repair:'.$repair;
         }
         if ($this->evidenceKinds($evidence) === []) {
@@ -259,7 +260,7 @@ class AtlasProductDeliveryOutcomeMemoryService
      */
     private function highRisk(array $delivery): bool
     {
-        $required = $this->list(data_get($delivery, 'product_truth.execution_lenses.required', []));
+        $required = AiStringListNormalizer::trimmedScalarValues(data_get($delivery, 'product_truth.execution_lenses.required', []));
 
         return data_get($delivery, 'proof_requirements.apfpr_required') === true
             || array_intersect($required, ['security_driven', 'performance_driven', 'add']) !== [];
@@ -289,7 +290,7 @@ class AtlasProductDeliveryOutcomeMemoryService
             ! empty($outcomeMemory['proof_hash']) ? 'proof_hash:'.$outcomeMemory['proof_hash'] : null,
         ], array_map(
             static fn (string $kind): string => 'evidence_kind:'.$kind,
-            $this->list($outcomeMemory['evidence_kinds'] ?? []),
+            AiStringListNormalizer::trimmedScalarValues($outcomeMemory['evidence_kinds'] ?? []),
         )))));
     }
 
@@ -313,18 +314,4 @@ class AtlasProductDeliveryOutcomeMemoryService
         return "AEDPDS {$route} delivery closed with {$status} outcome; reuse evidence kinds, repairs, and risk policy before similar product delivery.";
     }
 
-    /**
-     * @return list<string>
-     */
-    private function list(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(
-            static fn (mixed $item): ?string => is_scalar($item) && trim((string) $item) !== '' ? trim((string) $item) : null,
-            $value,
-        )));
-    }
 }

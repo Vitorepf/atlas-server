@@ -29,7 +29,12 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md
   - docs/engineering-knowledge-base/context-pack.md
   - docs/engineering-knowledge-base/code-intelligence.md
+  - docs/engineering-knowledge-base/atlas-unified-reality-graph.md
   - docs/engineering-knowledge-base/open-brain-context-injection.md
+  - app/Services/Ai/AtlasOpenBrainContextPackService.php
+  - app/Services/Ai/Reality/AtlasRealityGraphQueryService.php
+  - tests/Feature/Ai/AtlasOpenBrainContextPackServiceTest.php
+  - tests/Feature/Reality/AtlasAurgQueryTest.php
 doc_schema: atlas_canonical_module_doc.v1
 
 graph_id: atlas-ai-memory-retrieval-and-context
@@ -79,9 +84,15 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/memory/retrieval-and-context.md
+  - app/Services/Ai/AtlasOpenBrainContextPackService.php
+  - app/Services/Ai/Reality/AtlasRealityGraphQueryService.php
 
 evidence_refs:
   - symbol: EngineeringContextPackService
+  - symbol: AtlasOpenBrainContextPackService
+  - symbol: AtlasRealityGraphQueryService
+  - test: AtlasOpenBrainContextPackServiceTest
+  - test: AtlasAurgQueryTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 
@@ -161,6 +172,34 @@ authority ranking or contradiction checks.
 - Verbatim snippets use redacted text and injection scanning.
 - Code Intelligence refs point to paths/symbols/tests instead of dumping files.
 - If budget is exceeded, drop lowest priority refs and report truncation.
+
+## Initial Context Pack Source Rules
+
+AOBG initial packs are optimized for the first provider turn: smallest useful
+causal context, then expansion handles when more is needed.
+
+- Code graph and memory may be present as compact top-K refs under their own
+  budgets.
+- Reality graph paths in the initial AOBG pack must be cross-layer. Same-layer
+  mission/evidence paths are omitted from the first pack and counted in
+  provenance as `same_layer_paths_omitted`.
+- Provider-bound AURG lexical seeds expand separator terms (`code_graph`,
+  `reality_graph`, `provider-bound`) but do not promote generic mission outcome
+  evidence (`mission_outcome`, interrupted-request labels) from metadata-only
+  matches.
+- Initial AOBG packs expose `provenance.aobg_runtime` as structured metadata,
+  not rendered prose. Providers use its feature flags and runtime fingerprint
+  to detect stale MCP processes without adding extra prompt context.
+- Initial AOBG code graph delivery is implementation-symbols-first. Symbols
+  from `tests/` or `docs/`, plus auxiliary symbol types such as `test_method`
+  and `doc_heading`, are deferred for normal `dev` tasks and reported under
+  `provenance.code_graph.initial_delivery_policy`. They are not lost: providers
+  must use `expand:test_symbols`, `recheck:canonical_doc` or focused file reads
+  when the task actually needs test/doc context. Explicit test/doc tasks may opt
+  into initial auxiliary symbols.
+- Mission history remains available through local/AURG/mission-history audit
+  surfaces; it is not dumped into initial implementation context unless the task
+  explicitly asks for mission audit/history.
 
 ## Lineage, Freshness And Audit
 

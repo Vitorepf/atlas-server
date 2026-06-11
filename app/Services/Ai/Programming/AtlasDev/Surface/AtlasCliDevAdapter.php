@@ -111,19 +111,6 @@ final class AtlasCliDevAdapter implements AtlasDevSurfaceAdapter
      */
     private function extractSurfaceHints(array $payload): array
     {
-        $hints = [];
-        foreach (
-            ['thread_id', 'conversation_id', 'composer_mode', 'composer_task', 'provider_choice', 'previous_run_id', 'flow_origin', 'command_intent'] as $key
-        ) {
-            $value = $payload[$key] ?? null;
-            if (is_string($value) && trim($value) !== '') {
-                $hints[$key] = trim($value);
-            }
-        }
-        if (isset($payload['operator_explicit']) && is_bool($payload['operator_explicit'])) {
-            $hints['operator_explicit'] = $payload['operator_explicit'];
-        }
-
-        return $hints;
+        return $this->commonSurfaceHints($payload);
     }
 }

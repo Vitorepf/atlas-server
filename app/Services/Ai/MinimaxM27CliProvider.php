@@ -5,6 +5,7 @@ namespace App\Services\Ai;
 use App\Models\AiJob;
 use App\Services\Ai\Concerns\RunsCliProcesses;
 use App\Services\Ai\Programming\AtlasMinimaxM27CliRuntimeExecutor;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Support\AtlasSecurity;
 
 class MinimaxM27CliProvider implements AiProvider
@@ -111,7 +112,7 @@ class MinimaxM27CliProvider implements AiProvider
             'scope_contract' => [
                 'permission_mode' => 'read',
                 'allowed_files' => $this->allowedFiles($job),
-                'forbidden_files' => $this->stringList(data_get($payload, 'tool_permissions.forbidden_files', [])),
+                'forbidden_files' => AiStringListNormalizer::trimmedStrings(data_get($payload, 'tool_permissions.forbidden_files', [])),
                 'provider_is_executor_only' => true,
                 'atlas_is_sovereign' => true,
             ],
@@ -134,27 +135,12 @@ class MinimaxM27CliProvider implements AiProvider
     {
         $payload = is_array($job->payload) ? $job->payload : [];
         $files = array_values(array_unique(array_merge(
-            $this->stringList(data_get($payload, 'tool_permissions.allowed_files', [])),
-            $this->stringList($payload['expected_files'] ?? []),
-            $this->stringList($payload['context_refs'] ?? []),
+            AiStringListNormalizer::trimmedStrings(data_get($payload, 'tool_permissions.allowed_files', [])),
+            AiStringListNormalizer::trimmedStrings($payload['expected_files'] ?? []),
+            AiStringListNormalizer::trimmedStrings($payload['context_refs'] ?? []),
         )));
 
         return $files !== [] ? $files : ['.'];
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(
-            fn (mixed $item): ?string => is_string($item) && trim($item) !== '' ? trim($item) : null,
-            $value,
-        )));
     }
 
     private function firstString(mixed ...$values): string

@@ -325,6 +325,14 @@ Index-code:
 - grava `workspace_id`, `root_hash`, `index_hash` e `indexed_at`;
 - se stale, Dev/Forge entram em modo limitado.
 
+AOBG workspace map:
+
+- `detail=summary` e o padrao: inventario, readiness, freshness, projection e
+  handles, sem amostras de rotas/comandos/migrations/testes/entrypoints.
+- `detail=samples` inclui exemplos bounded por `limit` quando o provider pedir.
+- snapshot stale => `workspace_readiness.status=limited`,
+  `safe_for_implementation=false` e `next_actions` com reindex/activation.
+
 Conversas longas:
 
 Conversas grandes entram como `raw_conversation_archive`; AWIS segmenta por meta,
@@ -505,8 +513,6 @@ Intelligence Loop fecha e `atlas:workspace-intelligence certify --json --strict`
 fica verde.
 
 ## Proximas Acoes
-Proxima melhoria: criar UI de selecao individual de artifact e expor outcome
-AEMOR no Control Plane. O escopo atual ja cobre Cartografia workspace scope,
-Desktop workspace scope, stale replay, merge cross-workspace fail-closed,
-inspect do `conversation_fusion_pack`, AWAOL workroom, timeline persistida,
-Dev/Forge agent packet, ponte AEMOR e modal/inspector humano dos packs.
+Proxima melhoria: UI de selecao individual de artifact e outcome AEMOR no
+Control Plane; o escopo atual ja cobre workspace scope, stale replay, AWAOL,
+agent packet, ponte AEMOR e inspector humano dos packs.

@@ -13,6 +13,7 @@ use App\Models\AtlasAemorOutcome;
 use App\Services\Ai\IntelligenceFactory\AtlasIntelligenceFactoryRuntimeService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Skills\AtlasSkillEvolutionRuntimeService;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
@@ -40,7 +41,7 @@ final class AtlasAemorRuntimeService
         $objective = $this->stringValue($input['objective'] ?? $input['prompt'] ?? $input['input_text'] ?? null) ?? 'AEMOR execution episode';
         $scopeType = $this->stringValue($input['scope_type'] ?? null) ?? 'workspace';
         $scopeId = $this->stringValue($input['scope_id'] ?? null) ?? $this->workspaceScopeId($this->stringValue($input['workspace'] ?? null) ?? base_path());
-        $evidenceRefs = $this->stringList($input['evidence_refs'] ?? []);
+        $evidenceRefs = AiStringListNormalizer::trimmedScalarValuesFromArrayCast($input['evidence_refs'] ?? []);
         $payload = [
             'schema_version' => self::EPISODE_SCHEMA,
             'status' => 'open',
@@ -105,7 +106,7 @@ final class AtlasAemorRuntimeService
         }
 
         $payload = is_array($input['payload'] ?? null) ? $input['payload'] : [];
-        $evidenceRefs = $this->stringList($input['evidence_refs'] ?? data_get($payload, 'evidence_refs', []));
+        $evidenceRefs = AiStringListNormalizer::trimmedScalarValuesFromArrayCast($input['evidence_refs'] ?? data_get($payload, 'evidence_refs', []));
         $event = [
             'episode_id' => $episode->id,
             'schema_version' => self::EVENT_SCHEMA,
@@ -142,7 +143,7 @@ final class AtlasAemorRuntimeService
             return $this->blocked(self::OUTCOME_SCHEMA, 'missing_episode', 'AEMOR outcome requires an existing episode.');
         }
 
-        $evidenceRefs = $this->stringList($input['evidence_refs'] ?? []);
+        $evidenceRefs = AiStringListNormalizer::trimmedScalarValuesFromArrayCast($input['evidence_refs'] ?? []);
         $status = $this->stringValue($input['status'] ?? null) ?? ($evidenceRefs === [] ? 'blocked' : 'succeeded');
         $outcome = [
             'episode_id' => $episode->id,
@@ -196,7 +197,7 @@ final class AtlasAemorRuntimeService
             return $this->blocked(self::LEARNING_SIGNAL_SCHEMA, 'missing_outcome', 'AEMOR distillation requires a closed outcome.');
         }
 
-        $evidenceRefs = $this->stringList($input['evidence_refs'] ?? $outcome->evidence_refs ?? []);
+        $evidenceRefs = AiStringListNormalizer::trimmedScalarValuesFromArrayCast($input['evidence_refs'] ?? $outcome->evidence_refs ?? []);
         $claim = $this->stringValue($input['claim'] ?? null) ?? $outcome->summary;
         $gate = $this->promotionGate($outcome, $evidenceRefs);
         $signal = [
@@ -603,17 +604,6 @@ final class AtlasAemorRuntimeService
         unset($payload['response_text'], $payload['operator_input'], $payload['raw_text'], $payload['content']);
 
         return $payload;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return array_values(array_filter(array_map(
-            static fn (mixed $item): ?string => is_scalar($item) && trim((string) $item) !== '' ? trim((string) $item) : null,
-            (array) $value
-        )));
     }
 
     /**

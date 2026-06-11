@@ -30,6 +30,24 @@ Schedule::command('queue:work database-long --queue=folder-intel --stop-when-emp
     ->runInBackground()
     ->when(static fn (): bool => (bool) config('atlas.code_folder_intelligence.auto_assemble', false));
 
+// G3 — drena a fila de mission deliveries HTTP (mesmo trilho do folder-intel:
+// sem worker residente; o schedule:run dispara um worker stop-when-empty).
+// Gated pela mesma flag do endpoint; withoutOverlapping evita dois drenos.
+Schedule::command('queue:work database-long --queue=missions --stop-when-empty --max-time=1500 --timeout=1500 --tries=1')
+    ->everyMinute()
+    ->withoutOverlapping(30)
+    ->runInBackground()
+    ->when(static fn (): bool => (bool) config('atlas.mission.http_delivery_enabled', false));
+
+// AP-819 F1 — auto-feed do cérebro de falhas: colhe falhas reais de runtime
+// (ai_job_attempts failed/timeout + ledger OPERATION_FAILED) para o corpus
+// failure_signatures. Observe-only (escreve só corpus + alertas ≥3); idempotente
+// por envelope_id, então rodar de hora em hora é seguro. Gated default-OFF.
+Schedule::command('atlas:failure:auto-feed --json')
+    ->hourly()
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.ai.failure_auto_feed.enabled', false));
+
 // Hermes Capability Registry drift capture: probe the local Hermes daily and persist the manifest +
 // quarantined CapabilityCandidates (read-only; never enables a capability). Gated off by default so it
 // runs only when the operator opts in — this is the "Atlas auto-detects Hermes changes" heartbeat.

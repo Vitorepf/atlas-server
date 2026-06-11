@@ -143,6 +143,8 @@ class CodeGraphContextRetriever
      *   takes an int and clamps the negative tail only.
      * @param  array<int,string>  $changedFiles  optional file paths the task touches;
      *   tokenised into additional keyword terms to bias retrieval toward those files.
+     * @param  array<string,mixed>  $assemblyOptions  optional packer controls passed to
+     *   {@see CodeGraphContextPackAssembler::assemble()}.
      * @return array{
      *   included: array<int,mixed>,
      *   excluded: array<int,mixed>,
@@ -153,9 +155,9 @@ class CodeGraphContextRetriever
      * }
      *   the same shape `atlas:ctx` returns (the E-3 assembler output).
      */
-    public function packFor(string $query, string $workspaceId, int $budget = self::DEFAULT_BUDGET, array $changedFiles = []): array
+    public function packFor(string $query, string $workspaceId, int $budget = self::DEFAULT_BUDGET, array $changedFiles = [], array $assemblyOptions = []): array
     {
-        return $this->packForWorkspaces($query, [$workspaceId], $budget, $changedFiles);
+        return $this->packForWorkspaces($query, [$workspaceId], $budget, $changedFiles, $assemblyOptions);
     }
 
     /**
@@ -170,9 +172,10 @@ class CodeGraphContextRetriever
      * @param  array<int,string>  $workspaceIds  already-resolved workspace ids;
      *   blank entries are dropped; an empty effective list yields an empty pack.
      * @param  array<int,string>  $changedFiles
+     * @param  array<string,mixed>  $assemblyOptions
      * @return array{included: array<int,mixed>, excluded: array<int,mixed>, estimated_tokens: int, budget: int, truncated: bool, count: int}
      */
-    public function packForWorkspaces(string $query, array $workspaceIds, int $budget = self::DEFAULT_BUDGET, array $changedFiles = []): array
+    public function packForWorkspaces(string $query, array $workspaceIds, int $budget = self::DEFAULT_BUDGET, array $changedFiles = [], array $assemblyOptions = []): array
     {
         $budget = max(0, $budget);
 
@@ -187,7 +190,7 @@ class CodeGraphContextRetriever
         $terms = $ids === [] ? [] : $this->extractTermsForQuery($query, $changedFiles);
         $ranked = $terms === [] ? [] : $this->rankedCandidates($ids, $terms, $changedFiles);
 
-        return $this->assembler->assemble($ranked, $budget);
+        return $this->assembler->assemble($ranked, $budget, $assemblyOptions);
     }
 
     /**
@@ -232,16 +235,24 @@ class CodeGraphContextRetriever
 
         $terms = [];
         foreach ($matches[0] as $token) {
-            $normalized = strtolower(trim((string) $token, " \t\n\r\0\x0B._-"));
-            if (mb_strlen($normalized) < self::MIN_TERM_LENGTH) {
-                continue;
+            $candidateTerms = [(string) $token];
+            $identifierTerms = preg_split('/\s+/', $this->tokenizeIdentifier((string) $token)) ?: [];
+            foreach ($identifierTerms as $identifierTerm) {
+                $candidateTerms[] = $identifierTerm;
             }
-            if (isset(self::STOP_TERMS[$normalized])) {
-                continue;
+
+            foreach ($candidateTerms as $candidateTerm) {
+                $normalized = strtolower(trim((string) $candidateTerm, " \t\n\r\0\x0B._-"));
+                if (mb_strlen($normalized) < self::MIN_TERM_LENGTH) {
+                    continue;
+                }
+                if (isset(self::STOP_TERMS[$normalized])) {
+                    continue;
+                }
+                // Dedup, first-seen order preserved (the term set drives an OR LIKE; order
+                // is irrelevant to the SQL but a stable set keeps the reported meta stable).
+                $terms[$normalized] = true;
             }
-            // Dedup, first-seen order preserved (the term set drives an OR LIKE; order
-            // is irrelevant to the SQL but a stable set keeps the reported meta stable).
-            $terms[$normalized] = true;
         }
 
         // array_keys() casts a purely-numeric string key (e.g. "12345") back to an int;

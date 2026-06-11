@@ -124,6 +124,12 @@ final class AiStringListNormalizerTest extends TestCase
         $this->assertSame(['alpha', '42', '1'], AiStringListNormalizer::trimmedCastValues([' alpha ', 42, true, false, ' ']));
     }
 
+    public function test_unique_truthy_trimmed_cast_values_preserves_collect_filter_semantics(): void
+    {
+        $this->assertSame(['alpha'], AiStringListNormalizer::uniqueTruthyTrimmedCastValues(' alpha '));
+        $this->assertSame(['alpha', '42', '1'], AiStringListNormalizer::uniqueTruthyTrimmedCastValues([' alpha ', '0', 42, true, false, 'alpha', ' ']));
+    }
+
     public function test_unique_recursive_trimmed_strings_flattens_nested_arrays(): void
     {
         $this->assertSame(
@@ -153,6 +159,15 @@ final class AiStringListNormalizerTest extends TestCase
         );
     }
 
+    public function test_unique_non_empty_array_strings_preserves_array_only_raw_contract(): void
+    {
+        $this->assertSame(
+            [' alpha ', ' ', '0', 'beta'],
+            AiStringListNormalizer::uniqueNonEmptyArrayStrings([' alpha ', '', ' ', null, 42, '0', 'beta', ' alpha '])
+        );
+        $this->assertSame([], AiStringListNormalizer::uniqueNonEmptyArrayStrings('alpha'));
+    }
+
     public function test_non_blank_strings_filter_whitespace_but_preserve_raw_values(): void
     {
         $this->assertSame(
@@ -166,6 +181,15 @@ final class AiStringListNormalizerTest extends TestCase
         $this->assertSame(
             ['alpha', '42', '4.2'],
             AiStringListNormalizer::uniqueTrimmedScalarValues([' alpha ', 42, false, ' ', ['nested'], 4.2, 'alpha'])
+        );
+    }
+
+    public function test_trimmed_scalar_values_from_array_cast_accepts_scalar_and_ignores_nested_values(): void
+    {
+        $this->assertSame(['alpha'], AiStringListNormalizer::trimmedScalarValuesFromArrayCast(' alpha '));
+        $this->assertSame(
+            ['alpha', '42', '1', 'alpha'],
+            AiStringListNormalizer::trimmedScalarValuesFromArrayCast([' alpha ', 42, true, false, ['nested'], 'alpha', ' '])
         );
     }
 

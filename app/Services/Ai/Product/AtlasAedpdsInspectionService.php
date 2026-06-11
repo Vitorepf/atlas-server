@@ -122,9 +122,8 @@ class AtlasAedpdsInspectionService
         $checks = [
             'doctrine_doc_present' => $this->passed('doctrine_doc', $inspect),
             'docs_health_green' => ($docsHealth['status'] ?? null) === 'ok'
-                && (int) data_get($docsHealth, 'summary.oversized_count', 0) === 0
-                && (int) data_get($docsHealth, 'summary.frontmatter_violation_count', 0) === 0
-                && (int) data_get($docsHealth, 'summary.canonical_module_violation_count', 0) === 0,
+                && (int) data_get($docsHealth, 'summary.blocking_count', 0) === 0
+                && (int) data_get($docsHealth, 'summary.required_missing_count', 0) === 0,
             'driver_registry_present' => count(AtlasExecutionDoctrineRuntimeService::DRIVERS) >= 20,
             'selector_service_present' => $this->passed('selector_service', $inspect),
             'gate_service_present' => $this->passed('gate_service', $inspect),

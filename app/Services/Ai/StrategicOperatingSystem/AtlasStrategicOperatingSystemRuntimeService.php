@@ -12,6 +12,7 @@ use App\Models\AtlasProductDeliveryOutcomeMemory;
 use App\Models\AtlasProductDeliveryRuntimeReceipt;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Product\AtlasProductDeliveryProviderMemoryFeedService;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\VerifiedExecution\AtlasVerifiedExecutionRuntimeService;
 
@@ -105,15 +106,15 @@ final class AtlasStrategicOperatingSystemRuntimeService
             'status' => $status,
             'mode' => 'reality_signal_read_model',
             'coverage' => [
-                'logs' => count($this->list($input['logs'] ?? [])),
-                'incidents' => count($this->list($input['incidents'] ?? [])),
-                'regressions' => count($this->list($input['regressions'] ?? [])),
+                'logs' => count(AiStringListNormalizer::trimmedScalarValuesFromArrayCast($input['logs'] ?? [])),
+                'incidents' => count(AiStringListNormalizer::trimmedScalarValuesFromArrayCast($input['incidents'] ?? [])),
+                'regressions' => count(AiStringListNormalizer::trimmedScalarValuesFromArrayCast($input['regressions'] ?? [])),
                 'product_metrics' => count($this->assoc($input['metrics'] ?? [])),
                 'revenue' => $this->number($input['revenue_usd'] ?? $input['observed_revenue_usd'] ?? null),
                 'costs' => $this->number($input['cost_usd'] ?? $input['observed_cost_usd'] ?? null),
                 'runtime_receipts' => count($receipts),
                 'outcomes' => count($outcomes),
-                'feedback_items' => count($this->list($input['human_feedback'] ?? [])),
+                'feedback_items' => count(AiStringListNormalizer::trimmedScalarValuesFromArrayCast($input['human_feedback'] ?? [])),
             ],
             'nodes' => array_slice($nodes, 0, 80),
             'edges' => array_slice($edges, 0, 120),
@@ -148,7 +149,7 @@ final class AtlasStrategicOperatingSystemRuntimeService
             'objective' => 'Validate product/strategy experiment before mutation',
             'workspace' => (string) ($input['workspace'] ?? base_path()),
             'flow_id' => 'strategy_experiment',
-            'expected_files' => $this->list($input['allowed_files'] ?? []),
+            'expected_files' => AiStringListNormalizer::trimmedScalarValuesFromArrayCast($input['allowed_files'] ?? []),
             'evidence_refs' => [
                 $feedback['feedback_graph_hash'] ?? '',
                 'atlas.runtime_feedback_graph',
@@ -515,19 +516,19 @@ final class AtlasStrategicOperatingSystemRuntimeService
     private function manualSignals(array $input): array
     {
         $signals = [];
-        foreach ($this->list($input['logs'] ?? []) as $index => $log) {
+        foreach (AiStringListNormalizer::trimmedScalarValuesFromArrayCast($input['logs'] ?? []) as $index => $log) {
             $signals[] = ['id' => 'log:'.$index, 'type' => 'log', 'status' => 'observed', 'summary' => $log];
         }
-        foreach ($this->list($input['incidents'] ?? []) as $index => $incident) {
+        foreach (AiStringListNormalizer::trimmedScalarValuesFromArrayCast($input['incidents'] ?? []) as $index => $incident) {
             $signals[] = ['id' => 'incident:'.$index, 'type' => 'incident', 'status' => 'observed', 'summary' => $incident];
         }
-        foreach ($this->list($input['regressions'] ?? []) as $index => $regression) {
+        foreach (AiStringListNormalizer::trimmedScalarValuesFromArrayCast($input['regressions'] ?? []) as $index => $regression) {
             $signals[] = ['id' => 'regression:'.$index, 'type' => 'regression', 'status' => 'observed', 'summary' => $regression];
         }
         foreach ($this->assoc($input['metrics'] ?? []) as $name => $value) {
             $signals[] = ['id' => 'metric:'.$name, 'type' => 'product_metric', 'status' => 'observed', 'name' => $name, 'value' => $value];
         }
-        foreach ($this->list($input['human_feedback'] ?? []) as $index => $feedback) {
+        foreach (AiStringListNormalizer::trimmedScalarValuesFromArrayCast($input['human_feedback'] ?? []) as $index => $feedback) {
             $signals[] = ['id' => 'human_feedback:'.$index, 'type' => 'human_feedback', 'status' => 'observed', 'summary' => $feedback];
         }
         foreach (['revenue_usd', 'cost_usd'] as $key) {
@@ -635,7 +636,7 @@ final class AtlasStrategicOperatingSystemRuntimeService
             'incident_pressure' => (bool) data_get($feedback, 'risk_signals.incident_pressure', false),
             'flake_pressure' => (bool) data_get($feedback, 'risk_signals.flake_pressure', false),
             'cost_pressure' => (bool) data_get($feedback, 'risk_signals.cost_pressure', false),
-            'manual_debt_items' => $this->list($input['debt'] ?? []),
+            'manual_debt_items' => AiStringListNormalizer::trimmedScalarValuesFromArrayCast($input['debt'] ?? []),
         ];
     }
 
@@ -855,21 +856,6 @@ final class AtlasStrategicOperatingSystemRuntimeService
     private function check(string $id, bool $passed): array
     {
         return ['id' => $id, 'status' => $passed ? 'passed' : 'failed'];
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function list(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return is_scalar($value) && trim((string) $value) !== '' ? [trim((string) $value)] : [];
-        }
-
-        return array_values(array_filter(array_map(
-            static fn (mixed $item): ?string => is_scalar($item) ? trim((string) $item) : null,
-            $value,
-        ), static fn (?string $item): bool => $item !== null && $item !== ''));
     }
 
     /**

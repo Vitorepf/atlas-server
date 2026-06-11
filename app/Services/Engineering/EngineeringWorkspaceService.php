@@ -4,6 +4,7 @@ namespace App\Services\Engineering;
 
 use App\Models\AtlasEngineeringPatchArtifact;
 use App\Models\AtlasEngineeringRun;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -135,7 +136,7 @@ class EngineeringWorkspaceService
         $targetRoot = storage_path('app/engineering-worktrees');
         File::ensureDirectoryExists($targetRoot);
 
-        $selectedHead = $this->nonEmptyString($head) ?: (is_string($base['head']) && $base['head'] !== '' ? $base['head'] : 'HEAD');
+        $selectedHead = AiValueNormalizer::trimmedScalarStringOrNull($head) ?: (is_string($base['head']) && $base['head'] !== '' ? $base['head'] : 'HEAD');
         $worktreePath = $targetRoot.'/'.$base['pair_label'].'-'.substr(hash('sha256', implode('|', [
             $workspace,
             $selectedHead,
@@ -359,8 +360,8 @@ class EngineeringWorkspaceService
             : ['exit_code' => 1, 'stdout' => '', 'stderr' => 'docker unavailable'];
         $composeFile = $composeFiles[0] ?? null;
         $service = $this->dockerService($workspace, $composeFile, $options);
-        $image = $this->nonEmptyString($options['docker_image'] ?? null)
-            ?: $this->nonEmptyString(config('atlas.engineering.docker.default_image'))
+        $image = AiValueNormalizer::trimmedScalarStringOrNull($options['docker_image'] ?? null)
+            ?: AiValueNormalizer::trimmedScalarStringOrNull(config('atlas.engineering.docker.default_image'))
             ?: 'atlas-harness-'.substr(hash('sha256', $workspace), 0, 12);
         $runtime = match (true) {
             $composeFile !== null && $service !== null => 'compose',
@@ -386,8 +387,8 @@ class EngineeringWorkspaceService
             'devcontainer' => $devcontainer,
             'service' => $service,
             'image' => $image,
-            'container_workdir' => $this->nonEmptyString($options['docker_workdir'] ?? null)
-                ?: $this->nonEmptyString(config('atlas.engineering.docker.workdir'))
+            'container_workdir' => AiValueNormalizer::trimmedScalarStringOrNull($options['docker_workdir'] ?? null)
+                ?: AiValueNormalizer::trimmedScalarStringOrNull(config('atlas.engineering.docker.workdir'))
                 ?: '/workspace',
             'unusable_reason' => $this->dockerUnusableReason($profileFound, $runtime, $dockerAvailable, $composeAvailable, $service),
         ];
@@ -400,8 +401,8 @@ class EngineeringWorkspaceService
      */
     private function dockerService(string $workspace, ?string $composeFile, array $options): ?string
     {
-        $configured = $this->nonEmptyString($options['docker_service'] ?? null)
-            ?: $this->nonEmptyString(config('atlas.engineering.docker.default_service'));
+        $configured = AiValueNormalizer::trimmedScalarStringOrNull($options['docker_service'] ?? null)
+            ?: AiValueNormalizer::trimmedScalarStringOrNull(config('atlas.engineering.docker.default_service'));
         if ($configured) {
             return $configured;
         }
@@ -557,20 +558,9 @@ class EngineeringWorkspaceService
 
     private function normalizedSandbox(mixed $value): string
     {
-        $sandbox = $this->nonEmptyString($value) ?: 'workspace';
+        $sandbox = AiValueNormalizer::trimmedScalarStringOrNull($value) ?: 'workspace';
 
         return in_array($sandbox, ['workspace', 'worktree', 'docker'], true) ? $sandbox : 'workspace';
-    }
-
-    private function nonEmptyString(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value === '' ? null : $value;
     }
 
     private function worktreeLabel(string $label): string

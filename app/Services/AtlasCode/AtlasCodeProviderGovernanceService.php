@@ -62,11 +62,11 @@ final class AtlasCodeProviderGovernanceService
         $hardBlockAfter = $this->normaliseDate((string) config('atlas_code_provider_governance.hard_block_after', ''));
         $hardBlockReached = $this->isPastDate($hardBlockAfter);
         $overrideRequired = (bool) config('atlas_code_provider_governance.operator_override_required', true);
-        $overrideLabels = $this->stringList((array) config('atlas_code_provider_governance.operator_override_labels', []));
+        $overrideLabels = AiStringListNormalizer::trimmedStrings((array) config('atlas_code_provider_governance.operator_override_labels', []));
         $providers = (array) config('atlas_code_provider_governance.providers', []);
         $bootstrap = (array) config('atlas_code_provider_governance.bootstrap_role_assignments', []);
-        $modes = $this->stringList((array) config('atlas_code_provider_governance.allowed_invocation_modes', []));
-        $labels = $this->stringList((array) config('atlas_code_provider_governance.allowed_labels', self::CANONICAL_LABELS));
+        $modes = AiStringListNormalizer::trimmedStrings((array) config('atlas_code_provider_governance.allowed_invocation_modes', []));
+        $labels = AiStringListNormalizer::trimmedStrings((array) config('atlas_code_provider_governance.allowed_labels', self::CANONICAL_LABELS));
 
         // Derived booleans — what is actually permitted right now.
         $effectivePolicy = $hardBlockReached && $policy !== 'blocked' ? 'interactive_only' : $policy;

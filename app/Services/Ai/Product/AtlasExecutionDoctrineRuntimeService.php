@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Product;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 class AtlasExecutionDoctrineRuntimeService
 {
@@ -184,8 +185,8 @@ class AtlasExecutionDoctrineRuntimeService
      */
     private function signals(string $lower, array $input, string $taskType): array
     {
-        $files = $this->list($input['files'] ?? $input['expected_files'] ?? []);
-        $domains = $this->list($input['domains'] ?? []);
+        $files = AiStringListNormalizer::truthyTrimmedScalarValues($input['files'] ?? $input['expected_files'] ?? []);
+        $domains = AiStringListNormalizer::truthyTrimmedScalarValues($input['domains'] ?? []);
 
         return [
             'bug' => $taskType === 'bug',
@@ -248,6 +249,7 @@ class AtlasExecutionDoctrineRuntimeService
             && $this->hasAny($lower, ['tela', 'visual', 'layout', 'ui', 'ux', 'frontend']);
 
         $sensitiveTerms = [
+            'auth',
             'auth flow',
             'autenticação',
             'autenticacao',
@@ -462,17 +464,6 @@ class AtlasExecutionDoctrineRuntimeService
     private function bool(mixed $value): bool
     {
         return filter_var($value, FILTER_VALIDATE_BOOL);
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function list(mixed $value): array
-    {
-        return is_array($value) ? array_values(array_filter(array_map(
-            fn (mixed $item): ?string => $this->string($item),
-            $value,
-        ))) : [];
     }
 
     /**

@@ -193,6 +193,17 @@ return [
         'independent_precision_corpus_path' => env('ATLAS_LOCAL_RAG_PRECISION_CORPUS_PATH'),
     ],
 
+    'aucri' => [
+        // AUCRI `semantic_candidate` scoring: when the LOCAL Python semantic_rag
+        // runtime is available, AHRI scores the ASEF manifest chunks with REAL
+        // cosine similarity (one batched retrieve() per report) and the ranking
+        // channel becomes `local_semantic_vector`. When the runtime is
+        // unavailable, errors, or this flag is off, the static manifest
+        // placeholder (score_hint 0.60, channel `manifest_pending_embedding`)
+        // passes through UNTOUCHED — honest degrade, never a fabricated score.
+        'local_semantic_scoring' => (bool) env('ATLAS_AUCRI_LOCAL_SEMANTIC_SCORING', true),
+    ],
+
     'domains' => [
         'defaults' => [
             [
@@ -674,6 +685,34 @@ return [
         'capture_quality_gate' => [
             'mode' => env('ATLAS_CAPTURE_QUALITY_MODE', 'observe'),
             'min_score' => (int) env('ATLAS_CAPTURE_QUALITY_MIN_SCORE', 20),
+        ],
+
+        // AP-819 Obra A (F1) — auto-feed do cérebro de falhas. Harvester lê falhas
+        // REAIS de runtime (ai_job_attempts failed/timeout + ledger OPERATION_FAILED)
+        // e alimenta failure_signatures via o classificador existente, preservando o
+        // pipeline recurrence→alert. Observe-only: escreve SÓ no corpus de falhas;
+        // nenhuma proposta/mutação downstream. Idempotente por envelope_id.
+        'failure_auto_feed' => [
+            'enabled' => (bool) env('ATLAS_FAILURE_AUTO_FEED_ENABLED', false),
+            'window_hours' => (int) env('ATLAS_FAILURE_AUTO_FEED_WINDOW_HOURS', 24),
+            'max_per_run' => (int) env('ATLAS_FAILURE_AUTO_FEED_MAX_PER_RUN', 200),
+            'domain' => env('ATLAS_FAILURE_AUTO_FEED_DOMAIN', 'engineering'),
+        ],
+
+        // G4 — governed promotion of a STAGED self-construction scaffold to a NEW
+        // git branch (worktree-isolated; never main, never the operator's working
+        // tree). Default OFF; explicit per-call operator approval is ALWAYS
+        // required even when enabled. Read by AtlasSelfConstructionPromotionExecutorService.
+        'self_construction' => [
+            'promote_to_source_enabled' => (bool) env('ATLAS_SELF_CONSTRUCTION_PROMOTE_ENABLED', false),
+        ],
+
+        // G7 — ponte síncrona texto→resultado: POST /ai/interactions/sync roda o
+        // pipeline de criação + a execução do worker INLINE no request (mesmos
+        // trilhos provados; zero máquina nova). Gasto só quando o operador posta.
+        'sync_bridge' => [
+            'enabled' => (bool) env('ATLAS_AI_SYNC_BRIDGE_ENABLED', false),
+            'max_execution_seconds' => (int) env('ATLAS_AI_SYNC_BRIDGE_MAX_EXECUTION_SECONDS', 420),
         ],
 
         // POST /ai/interactions runs the synchronous create pipeline (router +
@@ -1395,6 +1434,12 @@ return [
         // The loop NEVER merges to main: it accumulates certified-for-review proposals.
         'propose_only' => (bool) env('ATLAS_LOOP_PROPOSE_ONLY', true),
 
+        // G5 — governed promotion of a certified proposal to a NEW BRANCH (never
+        // main; merge stays the operator's git/PR act). Read by
+        // AtlasLoopProposalPromotionGate; default OFF, plus explicit per-call
+        // operator approval is ALWAYS required even when enabled.
+        'merge_to_source_enabled' => (bool) env('ATLAS_LOOP_MERGE_TO_SOURCE_ENABLED', false),
+
         // The 24h CAMPAIGN runtime — the durable supervisor around the per-task engine.
         // It self-feeds (discovery + generator refill the queue), grinds in parallel
         // workers, persists proposals, loops back, and survives crashes via leases.
@@ -2024,6 +2069,11 @@ return [
         // it only appends to the append-only tick log, never touches main, and is
         // fail-open (a tick failure never breaks the delivery). Off ⇒ no tick.
         'record_temporal_enabled' => (bool) env('ATLAS_MISSION_RECORD_TEMPORAL_ENABLED', true),
+        // G3 — HTTP/Job wire: POST /ai/missions enfileira uma mission delivery
+        // (AtlasMissionService::run em background via queue database-long) com
+        // registro durável p/ polling em GET /ai/missions/{id}. Default OFF —
+        // uma mission gasta provider; ligar = decisão operacional (.env).
+        'http_delivery_enabled' => (bool) env('ATLAS_MISSION_HTTP_DELIVERY_ENABLED', false),
     ],
 
     /*

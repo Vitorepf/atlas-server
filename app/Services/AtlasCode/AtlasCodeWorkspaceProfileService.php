@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\AtlasCode;
 
 use App\Models\AtlasWorkspaceProfile;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use Throwable;
@@ -212,14 +213,14 @@ final class AtlasCodeWorkspaceProfileService
             'production_status' => $this->optionalString($attributes, 'production_status', 'development'),
             'stack_summary' => $this->optionalString($attributes, 'stack_summary', ''),
             'commands' => $this->stringMap($attributes['commands'] ?? []),
-            'test_commands' => $this->stringList($attributes['test_commands'] ?? []),
-            'build_commands' => $this->stringList($attributes['build_commands'] ?? []),
+            'test_commands' => AiStringListNormalizer::trimmedStrings($attributes['test_commands'] ?? []),
+            'build_commands' => AiStringListNormalizer::trimmedStrings($attributes['build_commands'] ?? []),
             'dev_server_command' => $this->optionalString($attributes, 'dev_server_command', null),
-            'critical_areas' => $this->stringList($attributes['critical_areas'] ?? []),
+            'critical_areas' => AiStringListNormalizer::trimmedStrings($attributes['critical_areas'] ?? []),
             'docs_status' => $this->optionalString($attributes, 'docs_status', 'unknown'),
             'default_risk' => $this->optionalString($attributes, 'default_risk', 'medium'),
             'deployment_notes' => $this->optionalString($attributes, 'deployment_notes', ''),
-            'surfaces_enabled' => $this->stringList($attributes['surfaces_enabled'] ?? ['atlas_ai', 'cartografia', 'code', 'atencao']),
+            'surfaces_enabled' => AiStringListNormalizer::trimmedStrings($attributes['surfaces_enabled'] ?? ['atlas_ai', 'cartografia', 'code', 'atencao']),
             'source' => $this->optionalString($attributes, 'source', 'operator'),
             'status' => $this->optionalString($attributes, 'status', 'active'),
         ];
@@ -297,19 +298,19 @@ final class AtlasCodeWorkspaceProfileService
             'production_status' => $productionStatus,
             'stack_summary' => (string) ($raw['stack_summary'] ?? ''),
             'commands' => $this->stringMap($raw['commands'] ?? []),
-            'test_commands' => $this->stringList($raw['test_commands'] ?? []),
-            'build_commands' => $this->stringList($raw['build_commands'] ?? []),
+            'test_commands' => AiStringListNormalizer::trimmedStrings($raw['test_commands'] ?? []),
+            'build_commands' => AiStringListNormalizer::trimmedStrings($raw['build_commands'] ?? []),
             'dev_server_command' => isset($raw['dev_server_command']) && $raw['dev_server_command'] !== ''
                 ? (string) $raw['dev_server_command']
                 : null,
-            'critical_areas' => $this->stringList($raw['critical_areas'] ?? []),
-            'code_index_roots' => $this->stringList($raw['code_index_roots'] ?? []),
+            'critical_areas' => AiStringListNormalizer::trimmedStrings($raw['critical_areas'] ?? []),
+            'code_index_roots' => AiStringListNormalizer::trimmedStrings($raw['code_index_roots'] ?? []),
             'docs_status' => (string) ($raw['docs_status'] ?? 'unknown'),
             'default_risk' => $defaultRisk,
             'deployment_notes' => (string) ($raw['deployment_notes'] ?? ''),
             // Surfaces habilitadas para este Projeto. Default = todas, para
             // preservar retro-compatibilidade quando o profile não declara.
-            'surfaces_enabled' => $this->stringList($raw['surfaces_enabled'] ?? ['atlas_ai', 'cartografia', 'code', 'atencao']),
+            'surfaces_enabled' => AiStringListNormalizer::trimmedStrings($raw['surfaces_enabled'] ?? ['atlas_ai', 'cartografia', 'code', 'atencao']),
             'source' => (string) ($raw['source'] ?? 'config'),
             'status' => (string) ($raw['status'] ?? 'active'),
             'safety' => [

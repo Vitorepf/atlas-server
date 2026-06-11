@@ -11,6 +11,7 @@ use App\Models\AtlasDevTaskPacket;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Product\AtlasExecutionDoctrineGateService;
 use App\Services\Ai\Product\AtlasExecutionDoctrineRuntimeService;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 
 class DevRunCertificationService
 {
@@ -35,6 +36,22 @@ class DevRunCertificationService
         array $decisionMaterializations = [],
     ): array {
         $decisionKinds = $this->decisionKinds($decisionMaterializations);
+        $realAcceptanceCriteria = AtlasDevStringListNormalizer::realStringsWithoutGeneratedPrefix(
+            $taskPacket->acceptance_criteria,
+            'aedpds_'
+        );
+        $realContextRefs = AtlasDevStringListNormalizer::realStringsWithoutGeneratedPrefix(
+            $taskPacket->context_refs,
+            'aedpds_context:'
+        );
+        $realTests = AtlasDevStringListNormalizer::realStringsWithoutGeneratedPrefix(
+            $taskPacket->suggested_tests,
+            'aedpds_test:'
+        );
+        $realEvidence = AtlasDevStringListNormalizer::realStringsWithoutGeneratedPrefix(
+            $taskPacket->required_evidence,
+            'aedpds_evidence:'
+        );
         $doctrine = $this->aedpds->select([
             'task' => $taskPacket->objective,
             'surface' => 'atlas_dev',
@@ -42,16 +59,16 @@ class DevRunCertificationService
             'task_type' => $taskPacket->task_class,
             'risk_level' => $taskPacket->risk_band,
             'code_changes_requested' => ! in_array($taskPacket->task_class, ['trivial', 'read_only', 'review'], true),
-            'missing_context' => ! $this->hasAny($this->realList($taskPacket->context_refs, 'aedpds_context:'))
+            'missing_context' => ! $this->hasAny($realContextRefs)
                 && ! $this->hasAny($taskPacket->expected_files)
                 && ! $this->hasAny($taskPacket->allowed_files),
         ]);
         $aedpdsGate = $this->aedpdsGate->evaluate([
             'doctrine' => $doctrine,
-            'acceptance_criteria' => $this->realList($taskPacket->acceptance_criteria, 'aedpds_'),
-            'context_refs' => $this->realList($taskPacket->context_refs, 'aedpds_context:'),
-            'tests' => $this->realList($taskPacket->suggested_tests, 'aedpds_test:'),
-            'evidence' => $this->realList($taskPacket->required_evidence, 'aedpds_evidence:'),
+            'acceptance_criteria' => $realAcceptanceCriteria,
+            'context_refs' => $realContextRefs,
+            'tests' => $realTests,
+            'evidence' => $realEvidence,
         ]);
         $aedpdsChecks = [
             $this->check('aedpds_doctrine_selected', $doctrine['selected_primary_drivers'] !== [], 'AEDPDS selected delivery drivers'),
@@ -172,21 +189,6 @@ class DevRunCertificationService
     private function hasAny(mixed $value): bool
     {
         return is_array($value) && array_values($value) !== [];
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function realList(mixed $value, string $generatedPrefix): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(
-            $value,
-            static fn (mixed $item): bool => is_string($item) && $item !== '' && ! str_starts_with($item, $generatedPrefix),
-        ));
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Product;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 class AtlasProductDeliveryMultiStepRepairPlannerService
 {
@@ -70,8 +71,8 @@ class AtlasProductDeliveryMultiStepRepairPlannerService
         return [
             'status' => (string) data_get($delivery, 'aedpds.gate.status', 'unknown'),
             'hash' => (string) data_get($delivery, 'aedpds.gate.hash', ''),
-            'warnings' => $this->list(data_get($delivery, 'aedpds.gate.warnings', [])),
-            'blockers' => $this->list(data_get($delivery, 'aedpds.gate.blockers', [])),
+            'warnings' => AiStringListNormalizer::trimmedScalarValues(data_get($delivery, 'aedpds.gate.warnings', [])),
+            'blockers' => AiStringListNormalizer::trimmedScalarValues(data_get($delivery, 'aedpds.gate.blockers', [])),
         ];
     }
 
@@ -83,8 +84,8 @@ class AtlasProductDeliveryMultiStepRepairPlannerService
      */
     private function steps(array $delivery, array $proof, array $repairBridge, string $route, string $riskBand): array
     {
-        $tests = $this->list(data_get($delivery, 'delivery_plan.tests', []));
-        $requiredEvidence = $this->list(data_get($repairBridge, 'repair.required_evidence', []));
+        $tests = AiStringListNormalizer::trimmedScalarValues(data_get($delivery, 'delivery_plan.tests', []));
+        $requiredEvidence = AiStringListNormalizer::trimmedScalarValues(data_get($repairBridge, 'repair.required_evidence', []));
 
         return [
             [
@@ -197,25 +198,10 @@ class AtlasProductDeliveryMultiStepRepairPlannerService
 
     private function riskBand(array $delivery): string
     {
-        $lenses = $this->list(data_get($delivery, 'delivery_plan.required_lenses', []));
+        $lenses = AiStringListNormalizer::trimmedScalarValues(data_get($delivery, 'delivery_plan.required_lenses', []));
 
         return array_intersect($lenses, ['security_driven', 'add', 'performance_driven']) !== []
             ? 'high'
             : 'standard';
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function list(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(
-            static fn (mixed $item): ?string => is_scalar($item) ? trim((string) $item) : null,
-            $value,
-        ), static fn (?string $item): bool => $item !== null && $item !== ''));
     }
 }

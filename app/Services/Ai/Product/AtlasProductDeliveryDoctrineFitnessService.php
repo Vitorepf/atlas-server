@@ -4,6 +4,7 @@ namespace App\Services\Ai\Product;
 
 use App\Models\AtlasProductDeliveryOutcomeMemory;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AtlasProductDeliveryDoctrineFitnessService
@@ -74,10 +75,10 @@ class AtlasProductDeliveryDoctrineFitnessService
             $route = $this->key((string) $record->route);
             $groups[$route] ??= $this->baseGroup($route);
             $this->countOutcome($groups[$route], $record);
-            foreach ($this->list($record->evidence_kinds) as $kind) {
+            foreach (AiStringListNormalizer::trimmedScalarValues($record->evidence_kinds) as $kind) {
                 $groups[$route]['evidence_kinds'][$kind] = true;
             }
-            foreach ($this->list($record->required_repairs) as $repair) {
+            foreach (AiStringListNormalizer::trimmedScalarValues($record->required_repairs) as $repair) {
                 $groups[$route]['required_repairs'][$repair] = true;
             }
         }
@@ -147,7 +148,7 @@ class AtlasProductDeliveryDoctrineFitnessService
     {
         $groups = [];
         foreach ($records as $record) {
-            foreach ($this->list($record->evidence_kinds) as $kind) {
+            foreach (AiStringListNormalizer::trimmedScalarValues($record->evidence_kinds) as $kind) {
                 $kind = $this->key($kind);
                 $groups[$kind] ??= [
                     'evidence_kind' => $kind,
@@ -190,7 +191,7 @@ class AtlasProductDeliveryDoctrineFitnessService
     {
         $groups = [];
         foreach ($records as $record) {
-            foreach ($this->list($record->required_repairs) as $repair) {
+            foreach (AiStringListNormalizer::trimmedScalarValues($record->required_repairs) as $repair) {
                 $repair = $this->key($repair);
                 $groups[$repair] ??= [
                     'repair' => $repair,
@@ -387,24 +388,9 @@ class AtlasProductDeliveryDoctrineFitnessService
      */
     private function lenses(AtlasProductDeliveryOutcomeMemory $record): array
     {
-        $lenses = $this->list(data_get($record->delivery_summary, 'required_lenses', []));
+        $lenses = AiStringListNormalizer::trimmedScalarValues(data_get($record->delivery_summary, 'required_lenses', []));
 
         return $lenses === [] ? ['unknown_lens'] : $lenses;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function list(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(
-            static fn (mixed $item): ?string => is_scalar($item) ? trim((string) $item) : null,
-            $value,
-        ), static fn (?string $item): bool => $item !== null && $item !== ''));
     }
 
     private function key(string $value): string

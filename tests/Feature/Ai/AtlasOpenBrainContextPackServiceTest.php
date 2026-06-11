@@ -8,6 +8,7 @@ use App\Models\AtlasAurgEdge;
 use App\Models\AtlasAurgNode;
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Compounding\AtlasRagFeedbackService;
+use App\Services\Ai\AtlasOpenBrainContextExpansionService;
 use App\Services\Ai\AtlasOpenBrainContextPackService;
 use App\Services\Ai\AtlasOpenBrainMcpService;
 use App\Services\Engineering\CodeGraph\CodeGraphContextRetriever;
@@ -86,6 +87,22 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertSame(AtlasOpenBrainContextPackService::SCHEMA, $pack['schema']);
         $this->assertTrue($pack['provider_bound']);
         $this->assertSame('curated top-K (not exhaustive)', $pack['honesty']);
+        $this->assertSame(
+            AtlasOpenBrainContextPackService::RUNTIME_SCHEMA,
+            data_get($pack, 'provenance.aobg_runtime.schema_version'),
+        );
+        $this->assertContains(
+            'initial_reality_cross_layer_only',
+            data_get($pack, 'provenance.aobg_runtime.feature_flags'),
+        );
+        $this->assertMatchesRegularExpression(
+            '/^[a-f0-9]{64}$/',
+            data_get($pack, 'provenance.aobg_runtime.runtime_fingerprint'),
+        );
+        $this->assertSame(
+            'context_pack_runtime_missing_or_mcp_process_stale',
+            data_get($pack, 'provenance.aobg_runtime.stale_detection.if_missing'),
+        );
 
         // All three sections present + recorded in provenance.
         $this->assertNotEmpty($pack['code_graph'], 'code-graph section should be populated');
@@ -269,6 +286,40 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertGreaterThan(count($tight['code_graph']), count($generous['code_graph']));
     }
 
+    public function test_code_graph_initial_pack_fills_past_oversized_top_candidate(): void
+    {
+        $this->seedCodeRow(
+            'class',
+            'EmbeddingDecisionGateOversizedRuntimeWithVeryLongName',
+            'app/Services/Ai/Memory/EmbeddingDecisionGateOversizedRuntimeWithVeryLongName.php',
+            'class EmbeddingDecisionGateOversizedRuntimeWithVeryLongName { '.str_repeat('public function oversizedGate(): void {} ', 4000).' }',
+        );
+        $this->seedCodeRow(
+            'method',
+            'App\\Services\\Ai\\Kernel\\Architecture\\AtlasFeaturePlacementService::duplicateReview',
+            'app/Services/Ai/Kernel/Architecture/AtlasFeaturePlacementService.php',
+            'private function duplicateReview(array $placement, array $owners, array $duplicates): array',
+        );
+
+        $pack = $this->service()->packFor('embedding_decision duplicate_review gate', [
+            'budget' => 1000,
+            'code_budget' => 1000,
+            'memory_budget' => 0,
+        ]);
+        $ids = array_column($pack['code_graph'], 'id');
+
+        $this->assertContains(
+            'sym:App\\Services\\Ai\\Kernel\\Architecture\\AtlasFeaturePlacementService::duplicateReview',
+            $ids,
+        );
+        $this->assertNotContains(
+            'sym:EmbeddingDecisionGateOversizedRuntimeWithVeryLongName',
+            $ids,
+        );
+        $this->assertTrue(data_get($pack, 'provenance.code_graph.truncated'));
+        $this->assertTrue(data_get($pack, 'provenance.code_graph.assembly_fill_gaps'));
+    }
+
     public function test_each_source_degrades_to_honest_empty_independently(): void
     {
         // No code symbols, no AURG nodes, no memory matching → all honest empty,
@@ -291,6 +342,52 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertSame('', $blank['task']);
         $this->assertSame([], $blank['code_graph']);
         $this->assertSame([], $blank['memory']);
+    }
+
+    public function test_initial_pack_omits_same_layer_reality_graph_paths(): void
+    {
+        $mission = 'mission:mission:aobg-same-layer';
+        $evidence = 'mission:evidence:aobg-same-layer';
+
+        foreach ([
+            [
+                'id' => $mission,
+                'kind' => 'mission',
+                'source_kind' => 'mission',
+                'source_id' => 'aobg-same-layer',
+                'label' => 'AOBG same-layer provider context mission',
+                'provider_safe' => true,
+                'sensitive' => false,
+                'meta' => ['provider' => 'codex'],
+            ],
+            [
+                'id' => $evidence,
+                'kind' => 'evidence',
+                'source_kind' => 'mission',
+                'source_id' => 'aobg-same-layer',
+                'label' => 'mission_outcome',
+                'provider_safe' => true,
+                'sensitive' => false,
+                'meta' => ['status' => 'passed'],
+            ],
+        ] as $node) {
+            AtlasAurgNode::query()->create($node + ['content_hash' => hash('sha256', $node['id'])]);
+        }
+        AtlasAurgEdge::query()->create([
+            'from_node_id' => $mission,
+            'to_node_id' => $evidence,
+            'kind' => 'generated',
+            'source' => 'mission_outcome',
+            'confidence' => 1.0,
+            'meta' => [],
+        ]);
+
+        $pack = $this->service()->packFor('aobg provider context mission');
+
+        $this->assertSame([], $pack['reality_graph_paths']);
+        $this->assertNotContains('reality_graph', $pack['provenance']['sources_present']);
+        $this->assertSame(1, data_get($pack, 'provenance.reality_graph.raw_paths'));
+        $this->assertSame(1, data_get($pack, 'provenance.reality_graph.same_layer_paths_omitted'));
     }
 
     public function test_workspace_scoping_never_leaks_another_workspace(): void
@@ -347,6 +444,18 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertTrue($structured['provider_bound']);
         $this->assertTrue($structured['pack']['provider_bound']);
         $this->assertNotEmpty($structured['pack']['reality_graph_paths']);
+        $this->assertSame(
+            AtlasOpenBrainContextPackService::RUNTIME_SCHEMA,
+            data_get($structured, 'pack.provenance.aobg_runtime.schema_version'),
+        );
+        $this->assertContains(
+            'same_layer_path_omission_provenance',
+            data_get($structured, 'pack.provenance.aobg_runtime.feature_flags'),
+        );
+        $this->assertMatchesRegularExpression(
+            '/^[a-f0-9]{64}$/',
+            data_get($structured, 'pack.provenance.aobg_runtime.runtime_fingerprint'),
+        );
 
         // The sensitive domain never rides the MCP (provider-bound) output.
         $pathNodeIds = [];
@@ -408,6 +517,117 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
             'app/Console/Commands/AtlasOpenBrainMcpCommand.php',
             'app/Console/Commands/AtlasAobgCaptureSessionCommand.php',
         ]);
+    }
+
+    public function test_initial_context_pack_defers_test_symbols_for_dev_task_even_when_query_mentions_tests(): void
+    {
+        $this->seedCodeRow(
+            'test_method',
+            'Tests\\Feature\\Ai\\AtlasOpenBrainContextPackServiceTest::test_aobg_context_pack_defers_tests',
+            'tests/Feature/Ai/AtlasOpenBrainContextPackServiceTest.php',
+            'public function test_aobg_context_pack_defers_tests(): void',
+        );
+        $this->seedCodeRow(
+            'class',
+            'Tests\\Feature\\Ai\\AtlasOpenBrainContextPackServiceTest',
+            'tests/Feature/Ai/AtlasOpenBrainContextPackServiceTest.php',
+            'final class AtlasOpenBrainContextPackServiceTest extends TestCase',
+        );
+        $this->seedCodeRow(
+            'method',
+            'App\\Services\\Ai\\AtlasOpenBrainContextPackService::packFor',
+            'app/Services/Ai/AtlasOpenBrainContextPackService.php',
+            'public function packFor(string $task, array $opts = []): array',
+        );
+
+        $pack = $this->service()->packFor(
+            'Implementar AOBG context pack para deferir testes docs sob demanda',
+            ['task_type' => 'dev', 'budget' => 4000],
+        );
+
+        $types = array_column($pack['code_graph'], 'symbol_type');
+        $this->assertContains('method', $types);
+        $this->assertNotContains('test_method', $types);
+        foreach (array_column($pack['code_graph'], 'file_path') as $path) {
+            $this->assertFalse(str_starts_with((string) $path, 'tests/'), (string) $path);
+        }
+        $this->assertSame(
+            'auxiliary_symbols_deferred',
+            data_get($pack, 'provenance.code_graph.initial_delivery_policy.mode'),
+        );
+        $this->assertSame(
+            1,
+            data_get($pack, 'provenance.code_graph.initial_delivery_policy.deferred_symbol_counts.test_method'),
+        );
+        $this->assertContains('defer_auxiliary_code_symbols', data_get($pack, 'context_delivery_policy.actions'));
+        $this->assertContains('test_symbols', data_get($pack, 'context_delivery_policy.deferred_source_types'));
+        $this->assertContains('expand:test_symbols', data_get($pack, 'context_delivery_policy.on_demand_handles'));
+        $this->assertSame(
+            1,
+            data_get($pack, 'provenance.code_graph.initial_delivery_policy.deferred_symbol_counts.class'),
+        );
+        $this->assertStringContainsString('deferred_code_symbols: count=2 sources=test_symbols', $pack['markdown']);
+    }
+
+    public function test_initial_context_pack_keeps_test_symbols_for_explicit_test_task(): void
+    {
+        $this->seedCodeRow(
+            'test_method',
+            'Tests\\Feature\\Ai\\AtlasOpenBrainContextPackServiceTest::test_aobg_context_pack_explicit_tests',
+            'tests/Feature/Ai/AtlasOpenBrainContextPackServiceTest.php',
+            'public function test_aobg_context_pack_explicit_tests(): void',
+        );
+        $this->seedCodeRow(
+            'method',
+            'App\\Services\\Ai\\AtlasOpenBrainContextPackService::packFor',
+            'app/Services/Ai/AtlasOpenBrainContextPackService.php',
+            'public function packFor(string $task, array $opts = []): array',
+        );
+
+        $pack = $this->service()->packFor(
+            'listar testes do AOBG context pack',
+            ['task_type' => 'test', 'budget' => 4000],
+        );
+
+        $this->assertContains('test_method', array_column($pack['code_graph'], 'symbol_type'));
+        $this->assertSame(
+            'auxiliary_symbols_included_by_intent',
+            data_get($pack, 'provenance.code_graph.initial_delivery_policy.mode'),
+        );
+        $this->assertSame(0, data_get($pack, 'provenance.code_graph.initial_delivery_policy.deferred_count'));
+    }
+
+    public function test_expand_test_symbols_handle_returns_deferred_test_symbol_pointers(): void
+    {
+        $this->seedCodeRow(
+            'test_method',
+            'Tests\\Feature\\Ai\\AtlasOpenBrainContextPackServiceTest::test_aobg_context_pack_expands_tests',
+            'tests/Feature/Ai/AtlasOpenBrainContextPackServiceTest.php',
+            'public function test_aobg_context_pack_expands_tests(): void',
+        );
+        $this->seedCodeRow(
+            'method',
+            'App\\Services\\Ai\\AtlasOpenBrainContextPackService::packFor',
+            'app/Services/Ai/AtlasOpenBrainContextPackService.php',
+            'public function packFor(string $task, array $opts = []): array',
+        );
+
+        $payload = app(AtlasOpenBrainContextExpansionService::class)->expand([
+            'handle' => 'expand:test_symbols',
+            'objective' => 'AOBG context pack',
+            'workspace' => 'atlas-server',
+            'task_type' => 'dev',
+            'max_refs' => 4,
+            'budget' => 4000,
+        ]);
+
+        $this->assertSame('ready', $payload['status']);
+        $this->assertSame('code_graph_test_symbol_expansion', $payload['mode']);
+        $this->assertSame('test_symbols', data_get($payload, 'handle.source_type'));
+        $this->assertSame(1, data_get($payload, 'expansion.selected_symbol_count'));
+        $this->assertSame('test_method', data_get($payload, 'expansion.selected_symbols.0.symbol_type'));
+        $this->assertFalse(data_get($payload, 'policy.raw_tests_dumped'));
+        $this->assertFalse(data_get($payload, 'policy.providers_invoked'));
     }
 
     public function test_context_pack_uses_recent_feedback_to_shrink_initial_budget_and_offer_expansion_handles(): void

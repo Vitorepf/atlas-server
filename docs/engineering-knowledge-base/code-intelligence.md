@@ -158,6 +158,22 @@ lembranca de conversa. Para isso, o contexto de engenharia deve conter:
 - testes relacionados;
 - links atuais entre docs e implementacao.
 
+## Recall Para Providers
+
+O retriever compartilhado (`CodeGraphContextRetriever`) deve aceitar linguagem
+de provider e linguagem de codigo no mesmo pedido. Tokens de query em
+`snake_case`, kebab-case, path ou CamelCase sao expandidos para termos de
+identificador antes do `LIKE` e do ranking. Assim `duplicate_review` consegue
+achar `duplicateReview`, e paths/tarefas nomeadas por docs ou payload JSON nao
+perdem simbolos PHP reais.
+
+O AOBG inicial usa o assembler com `fill_gaps=true`: se o primeiro candidato
+ranqueado for grande demais para o budget, o pack continua varrendo candidatos
+menores que cabem. Isso preserva o budget e evita `code_graph=[]` quando existe
+um simbolo relevante pequeno logo depois. O `atlas:ctx` CLI permanece prefixado
+por padrao para caracterizacao deterministica; o AOBG expõe
+`provenance.code_graph.assembly_fill_gaps=true`.
+
 ## Tabelas
 
 | Tabela | Funcao |

@@ -2,6 +2,7 @@
 
 namespace App\Services\Engineering;
 
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
@@ -27,14 +28,14 @@ class EngineeringProviderRuntimeService
         }
 
         $composeFile = $this->composeFile($options);
-        $service = $this->nonEmptyString($options['provider_docker_service'] ?? null)
-            ?: $this->nonEmptyString(config('atlas.engineering.provider_runtime.docker.service'))
+        $service = AiValueNormalizer::trimmedScalarStringOrNull($options['provider_docker_service'] ?? null)
+            ?: AiValueNormalizer::trimmedScalarStringOrNull(config('atlas.engineering.provider_runtime.docker.service'))
             ?: 'backend';
-        $appDir = $this->nonEmptyString($options['provider_docker_app_dir'] ?? null)
-            ?: $this->nonEmptyString(config('atlas.engineering.provider_runtime.docker.app_dir'))
+        $appDir = AiValueNormalizer::trimmedScalarStringOrNull($options['provider_docker_app_dir'] ?? null)
+            ?: AiValueNormalizer::trimmedScalarStringOrNull(config('atlas.engineering.provider_runtime.docker.app_dir'))
             ?: '/app';
-        $workspaceDir = $this->nonEmptyString($options['provider_docker_workspace_dir'] ?? null)
-            ?: $this->nonEmptyString(config('atlas.engineering.provider_runtime.docker.workspace_dir'))
+        $workspaceDir = AiValueNormalizer::trimmedScalarStringOrNull($options['provider_docker_workspace_dir'] ?? null)
+            ?: AiValueNormalizer::trimmedScalarStringOrNull(config('atlas.engineering.provider_runtime.docker.workspace_dir'))
             ?: '/workspace';
 
         $dockerAvailable = $this->process(['docker', '--version'], base_path(), 5);
@@ -160,8 +161,8 @@ class EngineeringProviderRuntimeService
      */
     private function composeFile(array $options): ?string
     {
-        $configured = $this->nonEmptyString($options['provider_docker_compose_file'] ?? null)
-            ?: $this->nonEmptyString(config('atlas.engineering.provider_runtime.docker.compose_file'));
+        $configured = AiValueNormalizer::trimmedScalarStringOrNull($options['provider_docker_compose_file'] ?? null)
+            ?: AiValueNormalizer::trimmedScalarStringOrNull(config('atlas.engineering.provider_runtime.docker.compose_file'));
         if ($configured === null) {
             return null;
         }
@@ -236,19 +237,9 @@ class EngineeringProviderRuntimeService
 
     private function normalizeRuntime(mixed $value): string
     {
-        $runtime = $this->nonEmptyString($value) ?: 'host';
+        $runtime = AiValueNormalizer::trimmedScalarStringOrNull($value) ?: 'host';
 
         return in_array($runtime, ['host', 'docker', 'auto'], true) ? $runtime : 'host';
     }
 
-    private function nonEmptyString(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value === '' ? null : $value;
-    }
 }

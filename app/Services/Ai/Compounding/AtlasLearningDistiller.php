@@ -20,10 +20,27 @@ class AtlasLearningDistiller
         $confidence = $this->score($signals['confidence'] ?? null, $outcome->evidence_quality);
         $decision = $evidenceRefs === [] ? 'hold' : ($confidence >= 70 ? 'promote' : 'hold');
 
+        // Capture quality gate no CHOKEPOINT da memória (T1.2): TODO produtor de
+        // recordExecution passa por aqui antes de virar memória. enforce ⇒ claim
+        // boilerplate/fixture/contentless NUNCA promove (held_low_quality);
+        // observe ⇒ só anota. Fecha na estrutura o buraco da semana de 96% ruído.
+        $gate = app(AtlasCaptureQualityGate::class)->assess([
+            'kind' => 'compounding_memory',
+            'claim' => $claim,
+            'content' => $this->array($signals),
+        ]);
+        $mode = (string) config('atlas.ai.capture_quality_gate.mode', 'observe');
+        $heldByGate = $mode === 'enforce' && $gate['admit'] === false;
+        if ($heldByGate) {
+            $decision = 'hold';
+        }
+
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'run_outcome_id' => $outcome->id,
-            'status' => $decision === 'promote' ? 'ready_for_promotion' : 'held_for_evidence',
+            'status' => $decision === 'promote'
+                ? 'ready_for_promotion'
+                : ($heldByGate ? 'held_low_quality' : 'held_for_evidence'),
             'decision' => $decision,
             'memory_type' => $this->string($signals['memory_type'] ?? null) ?? $this->memoryTypeFor($outcome->flow_id),
             'scope' => $this->string($signals['scope'] ?? null) ?? 'global',
@@ -34,6 +51,12 @@ class AtlasLearningDistiller
             'payload' => [
                 'signals' => $signals,
                 'outcome_hash' => $outcome->outcome_hash,
+                'capture_quality' => $mode === 'off' ? null : [
+                    'admit' => $gate['admit'],
+                    'reason' => $gate['reason'],
+                    'score' => $gate['quality_score'],
+                    'mode' => $mode,
+                ],
             ],
             'decided_at' => now(),
         ];

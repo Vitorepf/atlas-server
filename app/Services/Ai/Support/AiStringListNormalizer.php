@@ -109,6 +109,19 @@ final class AiStringListNormalizer
     }
 
     /**
+     * Array-only legacy helper: preserve raw string values, drop only '', then dedupe.
+     *
+     * @return array<int,string>
+     */
+    public static function uniqueNonEmptyArrayStrings(mixed $value): array
+    {
+        return self::uniqueStrings(array_values(array_filter(
+            self::strings($value),
+            static fn (string $item): bool => $item !== '',
+        )));
+    }
+
+    /**
      * @return array<int,string>
      */
     public static function trimmedStrings(mixed $value): array
@@ -195,6 +208,16 @@ final class AiStringListNormalizer
     }
 
     /**
+     * Preserves legacy collect((array) $value)->map(trim cast)->filter()->unique() semantics.
+     *
+     * @return array<int,string>
+     */
+    public static function uniqueTruthyTrimmedCastValues(mixed $value): array
+    {
+        return self::uniqueStrings(array_values(array_filter(self::trimmedCastValues($value))));
+    }
+
+    /**
      * @return array<int,string>
      */
     public static function uniqueTrimmedStrings(mixed $value): array
@@ -262,6 +285,26 @@ final class AiStringListNormalizer
 
         $strings = [];
         foreach ($value as $item) {
+            if (! is_scalar($item)) {
+                continue;
+            }
+
+            $item = trim((string) $item);
+            if ($item !== '') {
+                $strings[] = $item;
+            }
+        }
+
+        return $strings;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public static function trimmedScalarValuesFromArrayCast(mixed $value): array
+    {
+        $strings = [];
+        foreach ((array) $value as $item) {
             if (! is_scalar($item)) {
                 continue;
             }

@@ -733,7 +733,7 @@ final class AtlasRuntimeEfficiencyGovernorService implements EfficiencyOutcomeRe
         }
 
         return [
-            'checks' => array_values(array_unique($checks)),
+            'checks' => AiStringListNormalizer::uniqueStrings($checks),
             'minimum_evidence_refs' => $path === self::PATH_FAST ? 0 : 1,
             'completion_allowed_without_evidence' => $path === self::PATH_FAST,
             'verification_hash' => MissionCanonicalHash::sha256([$domain, $flowId, $path, $risk, $checks, $input['trace_id'] ?? null]),

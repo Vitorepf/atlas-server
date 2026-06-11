@@ -410,26 +410,19 @@ class AtlasForgeCursorCliInvocationDriver extends AtlasForgeBaseCliInvocationDri
     /** @param array<string,mixed> $request @return list<string> */
     private function allowedFiles(array $request): array
     {
-        return $this->stringList(data_get($request, 'prompt.scope_contract.allowed_files', []));
+        return AiStringListNormalizer::uniqueMappedStrings(
+            data_get($request, 'prompt.scope_contract.allowed_files', []),
+            fn (mixed $item): string => is_string($item) ? $this->normalizeRel($item) : '',
+        );
     }
 
     /** @param array<string,mixed> $request @return list<string> */
     private function forbiddenFiles(array $request): array
     {
-        return $this->stringList(data_get($request, 'prompt.scope_contract.forbidden_files', []));
-    }
-
-    /** @return list<string> */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(
+        return AiStringListNormalizer::uniqueMappedStrings(
+            data_get($request, 'prompt.scope_contract.forbidden_files', []),
             fn (mixed $item): string => is_string($item) ? $this->normalizeRel($item) : '',
-            $value,
-        ), fn (string $item): bool => $item !== ''));
+        );
     }
 
     /**

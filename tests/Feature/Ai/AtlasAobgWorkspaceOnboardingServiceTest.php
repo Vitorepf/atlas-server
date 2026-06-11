@@ -587,16 +587,27 @@ final class AtlasAobgWorkspaceOnboardingServiceTest extends TestCase
         $this->seedDocLink($workspaceId, 'symbol_path', ['status' => 'archived']);
         $this->seedDocLink('other-workspace', 'symbol_path');
 
-        $map = $this->service()->map(['workspace' => $workspacePath, 'limit' => 5]);
+        $summaryMap = $this->service()->map(['workspace' => $workspacePath, 'limit' => 5]);
+        $map = $this->service()->map(['workspace' => $workspacePath, 'limit' => 5, 'detail' => 'samples']);
         $mcp = $this->app->make(AtlasOpenBrainMcpService::class);
         $list = $mcp->handleJsonRpc(['jsonrpc' => '2.0', 'id' => 10, 'method' => 'tools/list', 'params' => []]);
         $mcpMap = $mcp->handleJsonRpc([
             'jsonrpc' => '2.0', 'id' => 11, 'method' => 'tools/call',
-            'params' => ['name' => 'atlas_workspace_map', 'arguments' => ['workspace' => $workspacePath, 'limit' => 5]],
+            'params' => ['name' => 'atlas_workspace_map', 'arguments' => ['workspace' => $workspacePath, 'limit' => 5, 'detail' => 'samples']],
         ])['result']['structuredContent'];
+
+        $this->assertTrue($summaryMap['ok']);
+        $this->assertSame('summary', $summaryMap['detail']);
+        $this->assertFalse($summaryMap['sample_policy']['included']);
+        $this->assertSame([], $summaryMap['examples']['tests']);
+        $this->assertSame('ready', $summaryMap['workspace_readiness']['status']);
+        $this->assertTrue($summaryMap['workspace_readiness']['safe_for_implementation']);
+        $this->assertStringContainsString('--detail=samples', $summaryMap['sample_policy']['request_samples']);
 
         $this->assertTrue($map['ok']);
         $this->assertSame('atlas.aobg.workspace_map.v1', $map['map_schema']);
+        $this->assertSame('samples', $map['detail']);
+        $this->assertTrue($map['sample_policy']['included']);
         $this->assertSame($workspaceId, $map['workspace_id']);
         $this->assertSame(4, $map['inventory']['symbol_count']);
         $this->assertSame(1, $map['inventory']['route_count']);
@@ -609,7 +620,44 @@ final class AtlasAobgWorkspaceOnboardingServiceTest extends TestCase
         $this->assertSame('users', $map['examples']['migrations'][0]['metadata']['table']);
         $this->assertContains('atlas_workspace_map', array_column($list['result']['tools'], 'name'));
         $this->assertSame(1, $mcpMap['inventory']['route_count']);
+        $this->assertSame('samples', $mcpMap['detail']);
+        $this->assertTrue($mcpMap['sample_policy']['included']);
         $this->assertSame('atlas_workspace_map', $mcpMap['tool']);
+
+        $this->deleteTree($workspacePath);
+    }
+
+    public function test_workspace_map_marks_stale_index_limited_and_recommends_reindex(): void
+    {
+        $identity = $this->app->make(CodeGraphWorkspaceIdentity::class);
+        $workspacePath = sys_get_temp_dir().'/aobg-map-stale-'.Str::random(6);
+        $filePath = $workspacePath.'/app/Foo.php';
+        @mkdir(dirname($filePath), 0777, true);
+        file_put_contents($filePath, '<?php class Foo {}');
+        touch($filePath, time() - 3600);
+        clearstatcache(false, $filePath);
+
+        $workspaceId = $identity->resolve($workspacePath);
+        $indexedMtime = filemtime($filePath);
+        $this->seedCodeSymbol('Foo', $workspaceId, ['file_path' => 'app/Foo.php', 'indexed_at' => now()->subHour()]);
+        $this->seedFileSnapshot($workspaceId, 'app/Foo.php', is_int($indexedMtime) ? $indexedMtime : time() - 3600);
+
+        file_put_contents($filePath, '<?php class Foo { public function changed() {} }');
+        touch($filePath, time());
+        clearstatcache(false, $filePath);
+
+        $map = $this->service()->map(['workspace' => $workspacePath]);
+
+        $this->assertSame('summary', $map['detail']);
+        $this->assertSame('stale', $map['freshness_status']);
+        $this->assertTrue($map['needs_reindex']);
+        $this->assertSame('limited', $map['workspace_readiness']['status']);
+        $this->assertFalse($map['workspace_readiness']['safe_for_implementation']);
+        $this->assertContains('workspace_index_stale', $map['workspace_readiness']['warnings']);
+        $this->assertNotEmpty(array_filter(
+            $map['next_actions'],
+            static fn (string $action): bool => str_contains($action, 'index-code'),
+        ));
 
         $this->deleteTree($workspacePath);
     }

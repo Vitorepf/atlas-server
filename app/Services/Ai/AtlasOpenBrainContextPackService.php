@@ -63,6 +63,37 @@ class AtlasOpenBrainContextPackService
 
     public const CONTEXT_FEEDBACK_REQUEST_SCHEMA = 'atlas.aobg.context_feedback_request.v1';
 
+    public const RUNTIME_SCHEMA = 'atlas.aobg.context_pack.runtime.v1';
+
+    public const RUNTIME_VERSION = 'aobg-context-pack-runtime-v3';
+
+    /**
+     * Provider-visible flags that let external MCP clients detect whether the
+     * context-pack process is recent enough for the current AOBG behavior.
+     */
+    public const RUNTIME_FEATURE_FLAGS = [
+        'code_graph_fill_gaps',
+        'context_delivery_policy',
+        'context_feedback_request',
+        'initial_auxiliary_code_symbol_deferral',
+        'initial_reality_cross_layer_only',
+        'provider_bound_mission_seed_filter',
+        'same_layer_path_omission_provenance',
+        'separator_term_expansion',
+        'test_symbol_on_demand_expansion',
+    ];
+
+    /**
+     * Code-graph symbol types that are useful, but usually too noisy for the
+     * first implementation brief. They remain available through explicit pulls.
+     *
+     * @var array<string,string>
+     */
+    private const AUXILIARY_CODE_SOURCE_TYPES = [
+        'test_method' => 'test_symbols',
+        'doc_heading' => 'canonical_doc',
+    ];
+
     /**
      * Honest self-label carried in the pack so a consumer never reads it as an
      * exhaustive dump of the brain — it is the smallest useful curated slice.
@@ -127,10 +158,14 @@ class AtlasOpenBrainContextPackService
 
         // Each section is built INDEPENDENTLY and fail-safe: any one degrading to
         // empty never blocks the others (honest empty, never fabricated).
-        $code = $this->codeSection($task, $workspaceId, $codeBudget, $changedFiles);
+        $code = $this->codeSection($task, $workspaceId, $codeBudget, $changedFiles, $opts);
         $reality = $this->realitySection($task);
         $memorySection = $this->memorySection($task, $workspaceId, $memoryBudget);
         $reality = $this->applyRealitySourceSelection($reality, $sourceSelectionPolicy);
+        $contextDeliveryPolicy = $this->mergeInitialCodeGraphDeliveryPolicy(
+            $contextDeliveryPolicy,
+            (array) data_get($code, 'provenance.initial_delivery_policy', []),
+        );
 
         // FINAL TOTAL-BUDGET CEILING (anti-over-claim): the per-source sub-budgets
         // bound their OWN slices, but the code retriever budgets on signature tokens
@@ -164,6 +199,7 @@ class AtlasOpenBrainContextPackService
             'memory' => $memorySection['items'],
             'context_delivery_policy' => $contextDeliveryPolicy,
             'provenance' => [
+                'aobg_runtime' => self::runtimeProfile(),
                 'sources_present' => $sourcesPresent,
                 'code_graph' => $code['provenance'],
                 'reality_graph' => $reality['provenance'],
@@ -189,6 +225,50 @@ class AtlasOpenBrainContextPackService
         $pack['markdown'] = $this->renderMarkdown($pack);
 
         return $pack;
+    }
+
+    /**
+     * Provider-safe context-pack runtime identity for MCP stale-session checks.
+     *
+     * @return array<string,mixed>
+     */
+    public static function runtimeProfile(): array
+    {
+        $features = self::RUNTIME_FEATURE_FLAGS;
+        sort($features);
+
+        return [
+            'schema_version' => self::RUNTIME_SCHEMA,
+            'component' => self::class,
+            'runtime_version' => self::RUNTIME_VERSION,
+            'feature_flags' => $features,
+            'runtime_fingerprint' => self::runtimeFingerprint($features),
+            'stale_detection' => [
+                'if_missing' => 'context_pack_runtime_missing_or_mcp_process_stale',
+                'if_feature_missing' => 'restart_provider_client_or_use_cli_fallback',
+                'required_probe' => 'atlas_mcp_self_check',
+                'cli_fallback' => 'php artisan atlas:context-pack "<task>" --workspace="<path>" --json',
+            ],
+            'policy' => [
+                'provider_safe' => true,
+                'raw_prompt_exposed' => false,
+                'raw_conversation_exposed' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<int,string>  $features
+     */
+    private static function runtimeFingerprint(array $features): string
+    {
+        sort($features);
+
+        return hash('sha256', (string) json_encode([
+            'schema_version' => self::RUNTIME_SCHEMA,
+            'runtime_version' => self::RUNTIME_VERSION,
+            'feature_flags' => $features,
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     /**
@@ -836,7 +916,7 @@ class AtlasOpenBrainContextPackService
      * @param  array<int,string>  $changedFiles
      * @return array{present:bool, items:array<int,array<string,mixed>>, chars:int, provenance:array<string,mixed>}
      */
-    private function codeSection(string $task, string $workspaceId, int $budgetChars, array $changedFiles): array
+    private function codeSection(string $task, string $workspaceId, int $budgetChars, array $changedFiles, array $opts = []): array
     {
         $empty = [
             'present' => false,
@@ -855,9 +935,10 @@ class AtlasOpenBrainContextPackService
             // escopo agregado: grafo do umbrella + grafos próprios dos membros.
             // Flag OFF (default) → packFor single-workspace byte-idêntico.
             $workspaceScope = $this->umbrellaContextScope($workspaceId);
+            $assemblyOptions = ['fill_gaps' => true];
             $pack = count($workspaceScope) > 1
-                ? $this->codeGraph->packForWorkspaces($task, $workspaceScope, $tokenBudget, $changedFiles)
-                : $this->codeGraph->packFor($task, $workspaceId, $tokenBudget, $changedFiles);
+                ? $this->codeGraph->packForWorkspaces($task, $workspaceScope, $tokenBudget, $changedFiles, $assemblyOptions)
+                : $this->codeGraph->packFor($task, $workspaceId, $tokenBudget, $changedFiles, $assemblyOptions);
         } catch (Throwable) {
             return $empty; // best-effort recall, never a gate
         }
@@ -880,6 +961,9 @@ class AtlasOpenBrainContextPackService
             $chars += strlen($item['id'].$item['file_path'].$signature);
             $items[] = $item;
         }
+        $delivery = $this->initialCodeGraphDeliveryPolicy($task, $items, $opts);
+        $items = $delivery['items'];
+        $chars = $this->codeItemsChars($items);
 
         return [
             'present' => $items !== [],
@@ -896,9 +980,281 @@ class AtlasOpenBrainContextPackService
                 'token_budget' => (int) ($pack['budget'] ?? 0),
                 'estimated_tokens' => (int) ($pack['estimated_tokens'] ?? 0),
                 'truncated' => (bool) ($pack['truncated'] ?? false),
+                'assembly_fill_gaps' => true,
                 'note' => self::HONESTY_LABEL,
-            ]),
+            ], $delivery['provenance']),
         ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $items
+     * @param  array<string,mixed>  $opts
+     * @return array{items:array<int,array<string,mixed>>, provenance:array<string,mixed>}
+     */
+    private function initialCodeGraphDeliveryPolicy(string $task, array $items, array $opts): array
+    {
+        $base = [
+            'schema_version' => 'atlas.aobg.initial_code_graph_delivery_policy.v1',
+            'mode' => 'implementation_symbols_first',
+            'original_count' => count($items),
+            'retained_count' => count($items),
+            'deferred_count' => 0,
+            'deferred_symbol_counts' => [],
+            'deferred_source_types' => [],
+            'deferred_on_demand_handles' => [],
+            'explicit_auxiliary_intent' => false,
+            'guardrails' => [
+                'min_top_item_when_auxiliary_only' => true,
+                'raw_test_bodies_exposed' => false,
+                'raw_docs_dumped' => false,
+                'provider_safe_only' => true,
+            ],
+        ];
+
+        if ($items === []) {
+            return ['items' => [], 'provenance' => ['initial_delivery_policy' => array_merge($base, ['mode' => 'empty'])]];
+        }
+
+        $explicitAuxiliaryIntent = $this->shouldIncludeAuxiliaryCodeSymbolsInitially($task, $opts);
+        if ($explicitAuxiliaryIntent) {
+            return [
+                'items' => $items,
+                'provenance' => [
+                    'initial_delivery_policy' => array_merge($base, [
+                        'mode' => 'auxiliary_symbols_included_by_intent',
+                        'explicit_auxiliary_intent' => true,
+                    ]),
+                ],
+            ];
+        }
+
+        $retained = [];
+        $deferred = [];
+        foreach ($items as $item) {
+            if ($this->auxiliaryCodeSourceType($item) !== null) {
+                $deferred[] = $item;
+
+                continue;
+            }
+            $retained[] = $item;
+        }
+
+        if ($deferred === []) {
+            return ['items' => $items, 'provenance' => ['initial_delivery_policy' => $base]];
+        }
+
+        $keptAuxiliaryTopItem = null;
+        if ($retained === []) {
+            $keptAuxiliaryTopItem = array_shift($deferred);
+            if (is_array($keptAuxiliaryTopItem)) {
+                $retained[] = $keptAuxiliaryTopItem;
+            }
+        }
+
+        $counts = [];
+        $sourceTypes = [];
+        $handles = [];
+        foreach ($deferred as $item) {
+            $symbolType = (string) ($item['symbol_type'] ?? '');
+            $sourceType = $this->auxiliaryCodeSourceType($item);
+            if ($sourceType === null) {
+                continue;
+            }
+            $countKey = $symbolType !== '' ? $symbolType : $sourceType;
+            $counts[$countKey] = ($counts[$countKey] ?? 0) + 1;
+            $sourceTypes[] = $sourceType;
+            $handles[] = $this->auxiliaryCodeHandle($sourceType);
+        }
+
+        return [
+            'items' => array_values($retained),
+            'provenance' => [
+                'initial_delivery_policy' => array_merge($base, [
+                    'mode' => $counts === [] ? 'auxiliary_only_min_top_item' : 'auxiliary_symbols_deferred',
+                    'retained_count' => count($retained),
+                    'deferred_count' => array_sum($counts),
+                    'deferred_symbol_counts' => $counts,
+                    'deferred_source_types' => $this->uniqueStrings($sourceTypes),
+                    'deferred_on_demand_handles' => $this->uniqueStrings($handles),
+                    'kept_auxiliary_top_item_type' => is_array($keptAuxiliaryTopItem)
+                        ? (string) ($keptAuxiliaryTopItem['symbol_type'] ?? '')
+                        : null,
+                ]),
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $item
+     */
+    private function auxiliaryCodeSourceType(array $item): ?string
+    {
+        $symbolType = (string) ($item['symbol_type'] ?? '');
+        if (isset(self::AUXILIARY_CODE_SOURCE_TYPES[$symbolType])) {
+            return self::AUXILIARY_CODE_SOURCE_TYPES[$symbolType];
+        }
+
+        $filePath = strtolower((string) ($item['file_path'] ?? ''));
+        if ($filePath === '') {
+            return null;
+        }
+        if (str_starts_with($filePath, 'tests/') || str_contains($filePath, '/tests/')) {
+            return 'test_symbols';
+        }
+        if (str_starts_with($filePath, 'docs/') || str_contains($filePath, '/docs/')) {
+            return 'canonical_doc';
+        }
+
+        return null;
+    }
+
+    private function auxiliaryCodeHandle(string $sourceType): string
+    {
+        return match ($sourceType) {
+            'test_symbols' => 'expand:test_symbols',
+            'canonical_doc' => 'recheck:canonical_doc',
+            default => 'expand:code_intelligence',
+        };
+    }
+
+    /**
+     * @param  array<string,mixed>  $policy
+     * @param  array<string,mixed>  $initialPolicy
+     * @return array<string,mixed>
+     */
+    private function mergeInitialCodeGraphDeliveryPolicy(array $policy, array $initialPolicy): array
+    {
+        $deferredCount = (int) ($initialPolicy['deferred_count'] ?? 0);
+        if ($deferredCount <= 0) {
+            return $policy;
+        }
+
+        $handles = $this->stringList($initialPolicy['deferred_on_demand_handles'] ?? []);
+        $sourceTypes = $this->stringList($initialPolicy['deferred_source_types'] ?? []);
+        if ($handles === [] && $sourceTypes === []) {
+            return $policy;
+        }
+
+        $actions = $this->uniqueStrings(array_merge(
+            $this->stringList($policy['actions'] ?? []),
+            ['defer_auxiliary_code_symbols'],
+        ));
+        $policy['actions'] = $actions !== [] ? $actions : ['defer_auxiliary_code_symbols'];
+        $policy['status'] = 'active';
+
+        $mode = (string) ($policy['delivery_mode'] ?? 'standard_minimal_top_k');
+        if (! str_starts_with($mode, 'feedback_')) {
+            $policy['delivery_mode'] = 'initial_code_symbols_first_expand_on_demand';
+        }
+
+        $source = (string) ($policy['source'] ?? 'none');
+        $policy['source'] = in_array($source, ['none', 'no_recent_feedback', 'no_flow_feedback'], true)
+            ? 'initial_code_graph_delivery_policy'
+            : (str_contains($source, 'initial_code_graph_delivery_policy')
+                ? $source
+                : $source.'+initial_code_graph_delivery_policy');
+
+        $policy['deferred_source_types'] = $this->uniqueStrings(array_merge(
+            $this->stringList($policy['deferred_source_types'] ?? []),
+            $sourceTypes,
+        ));
+        $policy['expand_source_types'] = $this->uniqueStrings(array_merge(
+            $this->stringList($policy['expand_source_types'] ?? []),
+            $sourceTypes,
+        ));
+        $policy['on_demand_handles'] = $this->uniqueStrings(array_merge(
+            $this->stringList($policy['on_demand_handles'] ?? []),
+            $handles,
+        ));
+        $policy['initial_code_graph_delivery_policy'] = [
+            'schema_version' => (string) ($initialPolicy['schema_version'] ?? 'atlas.aobg.initial_code_graph_delivery_policy.v1'),
+            'mode' => (string) ($initialPolicy['mode'] ?? 'auxiliary_symbols_deferred'),
+            'original_count' => (int) ($initialPolicy['original_count'] ?? 0),
+            'retained_count' => (int) ($initialPolicy['retained_count'] ?? 0),
+            'deferred_count' => $deferredCount,
+            'deferred_symbol_counts' => (array) ($initialPolicy['deferred_symbol_counts'] ?? []),
+            'deferred_source_types' => $sourceTypes,
+            'deferred_on_demand_handles' => $handles,
+        ];
+        $policy['quality_gate_hint'] = 'expand_deferred_auxiliary_code_symbols_when_task_requires_them';
+
+        if (is_array($policy['policy'] ?? null)) {
+            $policy['policy']['requires_provider_pull_for_expansion'] = true;
+            $policy['policy']['source_expansion_auto_applied'] = false;
+        }
+
+        return $policy;
+    }
+
+    /**
+     * @param  array<string,mixed>  $opts
+     */
+    private function shouldIncludeAuxiliaryCodeSymbolsInitially(string $task, array $opts): bool
+    {
+        if ($this->boolOpt($opts, 'include_auxiliary_code_symbols', false)) {
+            return true;
+        }
+
+        $taskType = strtolower((string) ($this->stringOpt($opts, 'task_type') ?? ''));
+        if (in_array($taskType, ['test', 'tests', 'qa', 'coverage'], true)) {
+            return true;
+        }
+
+        foreach ($this->stringList($opts['changed_files'] ?? []) as $path) {
+            $path = strtolower($path);
+            if (str_starts_with($path, 'tests/') || str_contains($path, '/tests/')) {
+                return true;
+            }
+            if (str_starts_with($path, 'docs/') || str_contains($path, '/docs/')) {
+                return true;
+            }
+        }
+
+        $text = $this->normalizedIntentText($task);
+        foreach ([
+            'defer',
+            'deferir',
+            'adiar',
+            'sob demanda',
+            'on demand',
+            'expandir sob demanda',
+            'nao trazer testes',
+            'nao trazer docs',
+            'sem testes no inicial',
+            'sem docs no inicial',
+        ] as $deferTerm) {
+            if (str_contains($text, $deferTerm)) {
+                return false;
+            }
+        }
+
+        foreach ([
+            '/\b(find|list|listar|quais|which|mapear|impact|impacto|rodar|run|corrigir|fix|failing|falhando)\b.*\b(test|tests|teste|testes|spec|coverage|cobertura)\b/',
+            '/\b(test|tests|teste|testes|coverage|cobertura)\b.*\b(impact|impacto|falhando|failing|rodar|run|corrigir|fix|listar|list)\b/',
+            '/\b(find|list|listar|ler|read|quais|which|auditar|review|revisar|mapear)\b.*\b(doc|docs|documentacao|canonical doc)\b/',
+        ] as $pattern) {
+            if (preg_match($pattern, $text) === 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function normalizedIntentText(string $value): string
+    {
+        $value = mb_strtolower($value);
+        $value = strtr($value, [
+            'á' => 'a', 'à' => 'a', 'ã' => 'a', 'â' => 'a',
+            'é' => 'e', 'ê' => 'e',
+            'í' => 'i',
+            'ó' => 'o', 'õ' => 'o', 'ô' => 'o',
+            'ú' => 'u',
+            'ç' => 'c',
+            'ñ' => 'n',
+        ]);
+
+        return preg_replace('/\s+/', ' ', trim($value)) ?: '';
     }
 
     /**
@@ -943,8 +1299,16 @@ class AtlasOpenBrainContextPackService
 
         $paths = [];
         $chars = 0;
+        $rawPathCount = 0;
+        $sameLayerPathCount = 0;
         foreach ((array) ($result['paths'] ?? []) as $path) {
             if (! is_array($path)) {
+                continue;
+            }
+            $rawPathCount++;
+            if (! (bool) ($path['cross_layer'] ?? false)) {
+                $sameLayerPathCount++;
+
                 continue;
             }
             $nodeIds = array_map('strval', (array) ($path['nodes'] ?? []));
@@ -977,6 +1341,8 @@ class AtlasOpenBrainContextPackService
                 'ranking' => (string) ($result['ranking'] ?? ''),
                 'seeds' => count((array) ($result['seeds'] ?? [])),
                 'nodes' => count((array) ($result['nodes'] ?? [])),
+                'raw_paths' => $rawPathCount,
+                'same_layer_paths_omitted' => $sameLayerPathCount,
                 'cross_layer_paths' => (int) data_get($result, 'counts.cross_layer_paths', 0),
                 'note' => self::HONESTY_LABEL,
             ],
@@ -1286,6 +1652,15 @@ class AtlasOpenBrainContextPackService
                 (float) ($multipliers['memory'] ?? 1.0),
             );
         }
+        $initialCodePolicy = (array) ($policy['initial_code_graph_delivery_policy'] ?? []);
+        if ((int) ($initialCodePolicy['deferred_count'] ?? 0) > 0) {
+            $deferredTypes = $this->stringList($initialCodePolicy['deferred_source_types'] ?? []);
+            $lines[] = sprintf(
+                '- deferred_code_symbols: count=%d sources=%s',
+                (int) ($initialCodePolicy['deferred_count'] ?? 0),
+                $deferredTypes !== [] ? implode(',', $deferredTypes) : 'n/a',
+            );
+        }
         $lines[] = '';
 
         $feedback = (array) ($pack['context_feedback_request'] ?? []);
@@ -1457,6 +1832,31 @@ class AtlasOpenBrainContextPackService
         }
 
         return max(0, $default);
+    }
+
+    /**
+     * @param  array<string,mixed>  $opts
+     */
+    private function boolOpt(array $opts, string $key, bool $default): bool
+    {
+        $raw = $opts[$key] ?? null;
+        if (is_bool($raw)) {
+            return $raw;
+        }
+        if (is_int($raw)) {
+            return $raw !== 0;
+        }
+        if (is_string($raw)) {
+            $normalized = strtolower(trim($raw));
+            if (in_array($normalized, ['1', 'true', 'yes', 'on'], true)) {
+                return true;
+            }
+            if (in_array($normalized, ['0', 'false', 'no', 'off'], true)) {
+                return false;
+            }
+        }
+
+        return $default;
     }
 
     /**

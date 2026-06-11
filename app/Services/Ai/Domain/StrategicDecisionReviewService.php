@@ -7,6 +7,7 @@ use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
 use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 class StrategicDecisionReviewService
 {
@@ -29,9 +30,9 @@ class StrategicDecisionReviewService
         $decision = $this->string($input['decision'] ?? null);
         $impact = $this->impact($input['impact'] ?? null);
         $horizonDays = max(1, min(3650, (int) ($input['horizon_days'] ?? 90)));
-        $options = $this->list($input['options'] ?? []);
-        $values = $this->list($input['values'] ?? []);
-        $constraints = $this->list($input['constraints'] ?? []);
+        $options = AiStringListNormalizer::uniqueTruthyTrimmedCastValues($input['options'] ?? []);
+        $values = AiStringListNormalizer::uniqueTruthyTrimmedCastValues($input['values'] ?? []);
+        $constraints = AiStringListNormalizer::uniqueTruthyTrimmedCastValues($input['constraints'] ?? []);
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
@@ -224,9 +225,9 @@ class StrategicDecisionReviewService
     {
         $title = $this->string($packet['title'] ?? 'strategic decision');
         $decision = $this->string(data_get($packet, 'decision_frame.decision', ''));
-        $options = $this->list(data_get($packet, 'decision_frame.options', []));
-        $values = $this->list(data_get($packet, 'values_alignment.values', []));
-        $constraints = $this->list(data_get($packet, 'decision_frame.constraints', []));
+        $options = AiStringListNormalizer::uniqueTruthyTrimmedCastValues(data_get($packet, 'decision_frame.options', []));
+        $values = AiStringListNormalizer::uniqueTruthyTrimmedCastValues(data_get($packet, 'values_alignment.values', []));
+        $constraints = AiStringListNormalizer::uniqueTruthyTrimmedCastValues(data_get($packet, 'decision_frame.constraints', []));
         $horizonDays = (int) data_get($packet, 'decision_frame.horizon_days', 90);
 
         $registration = $this->rivalsRegistrar->register([
@@ -293,19 +294,6 @@ class StrategicDecisionReviewService
         $impact = strtolower($this->string($value));
 
         return in_array($impact, ['low', 'medium', 'high', 'critical'], true) ? $impact : 'medium';
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function list(mixed $value): array
-    {
-        return collect((array) $value)
-            ->map(fn (mixed $item): string => $this->string($item))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
     }
 
     /**

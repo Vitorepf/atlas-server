@@ -843,5 +843,14 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         JsonResource::withoutWrapping();
+
+        // AP-819 Obra B — overlay da Harness Surface: reaplica overrides de
+        // harness_config APROVADOS (allowlist+bounds revalidados a cada boot;
+        // entrada inválida é ignorada). Fail-open: erro aqui nunca derruba o boot.
+        try {
+            app(\App\Services\Ai\Cognitive\Harness\AtlasHarnessSurface::class)->bootOverlay();
+        } catch (\Throwable) {
+            // o config base do .env segue valendo.
+        }
     }
 }

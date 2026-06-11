@@ -2,8 +2,9 @@
 
 namespace App\Services\Engineering;
 
-use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use App\Services\Tools\AtlasToolEvidenceStore;
 use App\Services\Tools\AtlasToolResultNormalizer;
 use App\Support\AtlasPhpBinary;
@@ -34,8 +35,8 @@ class EngineeringQualityScanService
         $timeout = max(10, (int) ($options['timeout'] ?? 300));
         $changedOnly = (bool) ($options['changed_only'] ?? false);
         $startedAt = hrtime(true);
-        $runContextType = $this->nullableString($options['run_context_type'] ?? null);
-        $runContextId = $this->nullableString($options['run_context_id'] ?? null);
+        $runContextType = AiValueNormalizer::trimmedScalarStringOrNull($options['run_context_type'] ?? null);
+        $runContextId = AiValueNormalizer::trimmedScalarStringOrNull($options['run_context_id'] ?? null);
         $awisExecutionGate = $this->workspaceGate->gate(
             workspace: $workspace,
             mode: 'tool',
@@ -679,17 +680,6 @@ class EngineeringQualityScanService
     private function stripAnsi(string $value): string
     {
         return preg_replace('/\x1B(?:[@-Z\\\\-_]|\[[0-?]*[ -\/]*[@-~])/', '', $value) ?? $value;
-    }
-
-    private function nullableString(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
     }
 
     /**

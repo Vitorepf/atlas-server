@@ -118,10 +118,10 @@ class EngineeringDocumentationAuthorityAuditService
                     'product_name' => $this->scalar($frontmatter['product_name'] ?? null),
                     'runtime_acronym' => $this->scalar($frontmatter['runtime_acronym'] ?? null),
                     'technical_runtime' => $this->scalar($frontmatter['technical_runtime'] ?? null),
-                    'capabilities' => $this->stringList($frontmatter['capabilities'] ?? []),
-                    'repo_paths' => $this->stringList($frontmatter['repo_paths'] ?? []),
-                    'related_paths' => $this->stringList($frontmatter['related_paths'] ?? []),
-                    'evidence' => $this->stringList($frontmatter['evidence'] ?? []),
+                    'capabilities' => EngineeringStringListNormalizer::nonEmptyScalarStrings($frontmatter['capabilities'] ?? []),
+                    'repo_paths' => EngineeringStringListNormalizer::nonEmptyScalarStrings($frontmatter['repo_paths'] ?? []),
+                    'related_paths' => EngineeringStringListNormalizer::nonEmptyScalarStrings($frontmatter['related_paths'] ?? []),
+                    'evidence' => EngineeringStringListNormalizer::nonEmptyScalarStrings($frontmatter['evidence'] ?? []),
                     'summary' => $this->scalar($frontmatter['summary'] ?? null),
                 ];
             })
@@ -374,17 +374,6 @@ class EngineeringDocumentationAuthorityAuditService
             'missing' => $gap['missing'],
             'required_action' => 'fill_owner_repo_paths_evidence_summary_or_demote_doc',
         ], array_slice($ownerGaps, 0, 25)));
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return array_values(array_filter(array_map(
-            fn (mixed $item): string => $this->scalar($item),
-            is_array($value) ? $value : [$value],
-        )));
     }
 
     private function scalar(mixed $value): string

@@ -154,6 +154,21 @@ final class AreaFocusStringListNormalizer
     }
 
     /**
+     * Normalize operator/runtime string lists while preserving the legacy
+     * flight-recorder contract where one scalar string is a one-item list.
+     *
+     * @return list<string>
+     */
+    public static function trimmedStringsOrScalarString(mixed $value): array
+    {
+        if (is_string($value)) {
+            $value = $value === '' ? [] : [$value];
+        }
+
+        return self::trimmedStrings($value);
+    }
+
+    /**
      * Split command output or text blocks into trimmed, non-empty lines.
      *
      * @return list<string>
@@ -249,6 +264,26 @@ final class AreaFocusStringListNormalizer
 
         $strings = [];
         foreach ($value as $item) {
+            $candidate = self::normalizedId($item);
+
+            if ($candidate !== '') {
+                $strings[] = $candidate;
+            }
+        }
+
+        return array_values(array_unique($strings));
+    }
+
+    /**
+     * Preserve legacy `(array)` coercion for runner internals that accept one
+     * scalar id or a list of string/number ids.
+     *
+     * @return list<string>
+     */
+    public static function coercedTrimmedUniqueStringOrNumberValues(mixed $value): array
+    {
+        $strings = [];
+        foreach ((array) $value as $item) {
             $candidate = self::normalizedId($item);
 
             if ($candidate !== '') {

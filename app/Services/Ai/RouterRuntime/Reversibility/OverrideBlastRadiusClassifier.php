@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\RouterRuntime\Reversibility;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
+
 final class OverrideBlastRadiusClassifier
 {
     private const SCHEMA_VERSION = 'atlas.router.override_blast_radius.v1';
@@ -94,10 +96,6 @@ final class OverrideBlastRadiusClassifier
      */
     private function stringList(mixed $value): array
     {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter($value, 'is_string'));
+        return AiStringListNormalizer::strings($value);
     }
 }

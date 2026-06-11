@@ -6,6 +6,7 @@ use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
 use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 class HealthReviewService
 {
@@ -25,9 +26,9 @@ class HealthReviewService
     {
         $topic = $this->string($input['topic'] ?? $input['subject'] ?? '');
         $goal = $this->string($input['goal'] ?? '');
-        $signals = $this->list($input['signals'] ?? []);
-        $constraints = $this->list($input['constraints'] ?? []);
-        $evidenceRefs = $this->list($input['evidence_refs'] ?? $input['evidence'] ?? []);
+        $signals = AiStringListNormalizer::trimmedCastValues($input['signals'] ?? []);
+        $constraints = AiStringListNormalizer::trimmedCastValues($input['constraints'] ?? []);
+        $evidenceRefs = AiStringListNormalizer::trimmedCastValues($input['evidence_refs'] ?? $input['evidence'] ?? []);
         $riskFlags = $this->riskFlags($input['risk_flags'] ?? [], $topic, $signals);
 
         return [
@@ -249,7 +250,7 @@ class HealthReviewService
      */
     private function riskFlags(mixed $value, string $topic, array $signals): array
     {
-        $flags = $this->list($value);
+        $flags = AiStringListNormalizer::trimmedCastValues($value);
         $haystack = strtolower($topic.' '.implode(' ', $signals));
 
         foreach (['chest pain', 'suicide', 'fainting', 'severe pain', 'shortness of breath', 'emergency'] as $flag) {
@@ -266,20 +267,4 @@ class HealthReviewService
         return trim((string) $value);
     }
 
-    /**
-     * @return array<int,string>
-     */
-    private function list(mixed $value): array
-    {
-        if (is_array($value)) {
-            return array_values(array_filter(array_map(
-                fn (mixed $item): string => trim((string) $item),
-                $value
-            ), fn (string $item): bool => $item !== ''));
-        }
-
-        $string = $this->string($value);
-
-        return $string === '' ? [] : [$string];
-    }
 }

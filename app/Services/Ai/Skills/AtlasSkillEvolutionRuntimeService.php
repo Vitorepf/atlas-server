@@ -6,6 +6,7 @@ namespace App\Services\Ai\Skills;
 
 use App\Services\Ai\IntelligenceFactory\AtlasIntelligenceFactoryRuntimeService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
@@ -309,10 +310,7 @@ MD;
      */
     private function stringList(mixed $value): array
     {
-        return array_values(array_filter(array_map(
-            static fn (mixed $item): ?string => is_scalar($item) && trim((string) $item) !== '' ? trim((string) $item) : null,
-            (array) $value
-        )));
+        return AiStringListNormalizer::trimmedScalarValuesFromArrayCast($value);
     }
 
     private function stringValue(mixed $value): ?string
