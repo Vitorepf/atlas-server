@@ -2405,6 +2405,34 @@ class AtlasMemoryRegistryTest extends TestCase
             $this->assertFalse(data_get($inspect, 'projections.0.manual_drift'));
             $this->assertFalse(data_get($inspect, 'projections.0.stale'));
 
+            $aobgBlock = AtlasProviderProjectionService::AOBG_MANAGED_START."\n"
+                .'## Atlas Open Brain Gateway'."\n"
+                .'- This workspace is activated as `atlas_projection_fixture`.'."\n"
+                .AtlasProviderProjectionService::AOBG_MANAGED_END;
+            file_put_contents($path, "\n\n".$aobgBlock."\n", FILE_APPEND);
+
+            Artisan::call('atlas:memory:projection', [
+                'action' => 'inspect',
+                '--target' => 'claude',
+                '--workspace' => $workspace,
+                '--max-lines' => 28,
+                '--json' => true,
+            ]);
+            $aobgInspect = json_decode(Artisan::output(), true);
+
+            $this->assertFalse(data_get($aobgInspect, 'projections.0.manual_drift'));
+            $this->assertFalse(data_get($aobgInspect, 'projections.0.stale'));
+
+            Artisan::call('atlas:memory:projection', [
+                'action' => 'write',
+                '--target' => 'claude',
+                '--workspace' => $workspace,
+                '--max-lines' => 28,
+                '--json' => true,
+            ]);
+
+            $this->assertStringContainsString($aobgBlock, (string) file_get_contents($path));
+
             file_put_contents($path, "\nmanual edit", FILE_APPEND);
 
             Artisan::call('atlas:memory:projection', [

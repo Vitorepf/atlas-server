@@ -92,7 +92,7 @@ final class AtlasCodeRealityUsageIntelligenceService
         $entrypoints = $this->entrypoints($needle, $basename);
         if (is_string($targetPath) && str_starts_with($targetPath, 'app/Console/Commands/')) {
             $entrypoints[] = $targetPath;
-            $entrypoints = array_values(array_unique($entrypoints));
+            $entrypoints = $this->uniqueStrings($entrypoints);
             sort($entrypoints);
         }
         $reachability = $this->reachabilityEnvelope($targetPath, $references, $ownerDocs, $tests, $entrypoints);
@@ -904,10 +904,10 @@ final class AtlasCodeRealityUsageIntelligenceService
      */
     private function statusDriftInventory(array $docs, array $code): array
     {
-        $commandSignatures = array_values(array_unique(array_map(
+        $commandSignatures = $this->uniqueStrings(array_map(
             static fn (array $command): string => (string) ($command['signature'] ?? ''),
             (array) ($code['artisan_commands'] ?? [])
-        )));
+        ));
         $reviewItems = [];
         $statusCounts = [];
         $plannedOrFutureWithExistingCode = 0;
@@ -1359,13 +1359,13 @@ final class AtlasCodeRealityUsageIntelligenceService
     private function docImplementationEvidence(string $content, array $commandSignatures): array
     {
         preg_match_all('/\b(?:app|routes|config|database|tests)\/[A-Za-z0-9_\/.\-]+/', $content, $pathMatches);
-        $pathRefs = array_values(array_unique($pathMatches[0] ?? []));
+        $pathRefs = $this->uniqueStrings($pathMatches[0] ?? []);
         $existingPathRefs = array_values(array_filter(
             $pathRefs,
             static fn (string $path): bool => File::exists(base_path($path))
         ));
         preg_match_all('/php artisan\s+([a-z0-9:._-]+)/i', $content, $commandMatches);
-        $commandRefs = array_values(array_unique($commandMatches[1] ?? []));
+        $commandRefs = $this->uniqueStrings($commandMatches[1] ?? []);
         $existingCommandRefs = array_values(array_intersect($commandRefs, $commandSignatures));
         $testRefs = array_values(array_filter(
             $existingPathRefs,
@@ -1454,7 +1454,7 @@ final class AtlasCodeRealityUsageIntelligenceService
                 if (count($subareas[$subarea]['samples']) < 8) {
                     $subareas[$subarea]['samples'][] = [
                         'path' => $path,
-                        'signals' => array_values(array_unique($legacyByPath[$path])),
+                        'signals' => $this->uniqueStrings($legacyByPath[$path]),
                     ];
                 }
             }
@@ -1468,7 +1468,7 @@ final class AtlasCodeRealityUsageIntelligenceService
                     if (count($topics[$topic]['samples']) < 8) {
                         $topics[$topic]['samples'][] = [
                             'path' => $path,
-                            'signals' => array_values(array_unique($legacyByPath[$path])),
+                            'signals' => $this->uniqueStrings($legacyByPath[$path]),
                         ];
                     }
                 }
@@ -3860,7 +3860,7 @@ final class AtlasCodeRealityUsageIntelligenceService
             'claim_policy' => $resolved
                 ? 'resolved_boundary_inventory_prevents_parallel_runtime_creation_without_counting_as_cleanup'
                 : 'cleanup_queue_prioritizes_boundary_or_rename_review_not_dead_code_claims',
-            'next_commands' => array_values(array_unique($nextCommands)),
+            'next_commands' => $this->uniqueStrings($nextCommands),
         ];
     }
 
@@ -3924,7 +3924,7 @@ final class AtlasCodeRealityUsageIntelligenceService
                 continue;
             }
 
-            $targets = array_values(array_unique(array_filter([
+            $targets = $this->uniqueStrings([
                 (string) ($contract['owner_runtime'] ?? ''),
                 (string) ($contract['adapter_or_consumer'] ?? ''),
                 (string) ($contract['supporting_runtime'] ?? ''),
@@ -3932,7 +3932,7 @@ final class AtlasCodeRealityUsageIntelligenceService
                 (string) ($contract['control_plane_runtime'] ?? ''),
                 (string) ($contract['selection_runtime'] ?? ''),
                 (string) ($contract['review_runtime'] ?? ''),
-            ])));
+            ], filterEmpty: true);
             $nextCommands = [
                 'php artisan atlas:code-reality global-duplication-audit --json',
                 'php artisan atlas:documentation:enforce --task="<task>" --feature="programming.frontend" --strict --json',
@@ -3967,7 +3967,7 @@ final class AtlasCodeRealityUsageIntelligenceService
                 'delete_allowed' => false,
                 'new_flow_allowed_without_owner_decision' => false,
                 'claim_policy' => 'frontend_cleanup_queue_is_boundary_review_not_dead_code_or_delivery_proof',
-                'next_commands' => array_values(array_unique($nextCommands)),
+                'next_commands' => $this->uniqueStrings($nextCommands),
             ];
         }
 
@@ -5119,11 +5119,7 @@ final class AtlasCodeRealityUsageIntelligenceService
             $items,
         );
 
-        if ($filterEmpty) {
-            $values = array_filter($values);
-        }
-
-        return array_values(array_unique($values));
+        return $this->uniqueStrings($values, filterEmpty: $filterEmpty);
     }
 
     /**
@@ -5258,7 +5254,7 @@ final class AtlasCodeRealityUsageIntelligenceService
         }
         sort($matches);
 
-        return array_values(array_unique($matches));
+        return $this->uniqueStrings($matches);
     }
 
     private function readSmallFile(string $path): ?string
@@ -5492,12 +5488,12 @@ final class AtlasCodeRealityUsageIntelligenceService
      */
     private function scanFor(string $needle, string $basename, array $roots): array
     {
-        $terms = array_values(array_filter(array_unique([
+        $terms = $this->uniqueStrings([
             $needle,
             $basename,
             pathinfo($basename, PATHINFO_FILENAME),
             class_basename($needle),
-        ]), static fn (string $term): bool => $term !== ''));
+        ], filterEmpty: true);
         if ($terms === []) {
             return [];
         }
@@ -5522,7 +5518,7 @@ final class AtlasCodeRealityUsageIntelligenceService
 
         sort($matches);
 
-        return array_values(array_unique($matches));
+        return $this->uniqueStrings($matches);
     }
 
     /**

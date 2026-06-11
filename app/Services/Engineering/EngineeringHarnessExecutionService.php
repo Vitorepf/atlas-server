@@ -396,10 +396,7 @@ class EngineeringHarnessExecutionService
      */
     private function kernelRepairSignals(array $result): array
     {
-        $signals = array_values(array_filter(array_map(
-            fn (mixed $value): ?string => is_string($value) && trim($value) !== '' ? trim($value) : null,
-            (array) ($result['blocking_failures'] ?? []),
-        )));
+        $signals = EngineeringStringListNormalizer::uniqueTruthyStringValues((array) ($result['blocking_failures'] ?? []));
 
         $status = (string) ($result['status'] ?? '');
         if ($status !== '') {
@@ -411,7 +408,7 @@ class EngineeringHarnessExecutionService
             $signals[] = 'run_decision:'.trim($runDecision);
         }
 
-        return array_values(array_unique($signals));
+        return EngineeringStringListNormalizer::uniqueTruthyStringValues($signals);
     }
 
     /**
@@ -436,10 +433,7 @@ class EngineeringHarnessExecutionService
             $refs[] = 'atlas_task:'.$task->id;
         }
 
-        return array_values(array_unique(array_filter(array_map(
-            fn (mixed $ref): ?string => is_string($ref) && trim($ref) !== '' ? trim($ref) : null,
-            $refs,
-        ))));
+        return EngineeringStringListNormalizer::uniqueTruthyStringValues($refs);
     }
 
     /**

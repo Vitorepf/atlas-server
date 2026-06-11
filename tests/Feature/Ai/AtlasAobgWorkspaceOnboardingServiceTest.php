@@ -6,6 +6,7 @@ namespace Tests\Feature\Ai;
 
 use App\Services\Ai\AtlasAobgWorkspaceOnboardingService;
 use App\Services\Ai\AtlasOpenBrainMcpService;
+use App\Services\Ai\AtlasProviderProjectionService;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -34,6 +35,7 @@ final class AtlasAobgWorkspaceOnboardingServiceTest extends TestCase
         parent::setUp();
 
         $this->createCodeSymbolsTable();
+        $this->createDocLinksTable();
         $this->createWorkspaceProfilesTable();
         config()->set('atlas.aobg.auto_onboard', false);
         config()->set('atlas.ai.workdir', base_path());
@@ -46,6 +48,7 @@ final class AtlasAobgWorkspaceOnboardingServiceTest extends TestCase
     protected function tearDown(): void
     {
         Schema::dropIfExists('atlas_engineering_code_symbols');
+        Schema::dropIfExists('atlas_engineering_doc_links');
         Schema::dropIfExists('atlas_workspace_profiles');
         parent::tearDown();
     }
@@ -201,8 +204,49 @@ final class AtlasAobgWorkspaceOnboardingServiceTest extends TestCase
         $this->assertFileExists($workspacePath.'/.claude/settings.json');
         $this->assertFileExists($workspacePath.'/AGENTS.md');
         $this->assertFileExists($workspacePath.'/CLAUDE.md');
+        $this->assertStringContainsString('atlas_provider_projection_v1', (string) file_get_contents($workspacePath.'/AGENTS.md'));
         $this->assertStringContainsString('Atlas Open Brain Gateway', (string) file_get_contents($workspacePath.'/AGENTS.md'));
         $this->assertSame('provider_bootstrap_ready', $result['provider_bootstrap']['reason']);
+
+        $this->deleteTree($workspacePath);
+    }
+
+    public function test_activate_adopts_provider_projection_and_preserves_human_notes(): void
+    {
+        $workspacePath = sys_get_temp_dir().'/aobg-human-notes-'.Str::random(6);
+        @mkdir($workspacePath, 0777, true);
+        file_put_contents(
+            $workspacePath.'/AGENTS.md',
+            "# AGENTS.md — product notes\n\n"
+            ."Human rule that must survive activation.\n\n"
+            .AtlasProviderProjectionService::AOBG_MANAGED_START."\n"
+            ."## Atlas Open Brain Gateway\n"
+            ."- Old activation block.\n"
+            .AtlasProviderProjectionService::AOBG_MANAGED_END."\n",
+        );
+
+        $service = $this->service()->setIndexRunner(function (string $path, string $wsId): array {
+            $this->seedCodeSymbol('HumanNotesActivatedSymbol', $wsId);
+
+            return ['ok' => true, 'reason' => 'indexed', 'exit_code' => 0];
+        });
+
+        $result = $service->activate(['workspace' => $workspacePath]);
+        $contents = (string) file_get_contents($workspacePath.'/AGENTS.md');
+        $projectionStatus = $this->app->make(AtlasProviderProjectionService::class)->status('all', [
+            'workspace' => $workspacePath,
+        ], [
+            'workspace' => $workspacePath,
+        ]);
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame('provider_bootstrap_ready', $result['provider_bootstrap']['reason']);
+        $this->assertSame('adopted', $result['provider_bootstrap']['files']['agents']['projection']['action']);
+        $this->assertStringContainsString('atlas_provider_projection_v1', $contents);
+        $this->assertStringContainsString('Human rule that must survive activation.', $contents);
+        $this->assertSame(1, substr_count($contents, AtlasProviderProjectionService::AOBG_MANAGED_START));
+        $this->assertSame('passed', $projectionStatus['status']);
+        $this->assertSame(2, $projectionStatus['summary']['ready']);
 
         $this->deleteTree($workspacePath);
     }
@@ -459,6 +503,69 @@ final class AtlasAobgWorkspaceOnboardingServiceTest extends TestCase
         $this->assertSame(0, $unindexed['result']['structuredContent']['symbols']);
     }
 
+    public function test_workspace_map_reports_routes_migrations_tests_and_commands(): void
+    {
+        $identity = $this->app->make(CodeGraphWorkspaceIdentity::class);
+        $workspacePath = sys_get_temp_dir().'/aobg-map-'.Str::random(6);
+        @mkdir($workspacePath, 0777, true);
+        $workspaceId = $identity->resolve($workspacePath);
+
+        $this->seedCodeSymbol('GET api/users', $workspaceId, [
+            'symbol_type' => 'route',
+            'file_path' => 'routes/api.php',
+            'signature' => "Route::get('/users', [UserController::class, 'index']);",
+            'metadata' => ['http_method' => 'GET', 'uri' => 'api/users', 'controller' => 'UserController', 'method' => 'index'],
+        ]);
+        $this->seedCodeSymbol('atlas:test', $workspaceId, [
+            'symbol_type' => 'cli_command',
+            'file_path' => 'app/Console/Commands/TestCommand.php',
+            'signature' => 'atlas:test {--json}',
+            'metadata' => ['command_signature' => 'atlas:test {--json}'],
+        ]);
+        $this->seedCodeSymbol('create:users', $workspaceId, [
+            'symbol_type' => 'migration_table',
+            'file_path' => 'database/migrations/2026_01_01_000000_create_users_table.php',
+            'signature' => "Schema::create('users')",
+            'metadata' => ['operation' => 'create', 'table' => 'users'],
+        ]);
+        $this->seedCodeSymbol('UserTest::test_user_can_login', $workspaceId, [
+            'symbol_type' => 'test_method',
+            'file_path' => 'tests/Feature/UserTest.php',
+            'signature' => 'public function test_user_can_login(): void',
+            'metadata' => ['method' => 'test_user_can_login'],
+        ]);
+        $this->seedDocLink($workspaceId, 'module_path');
+        $this->seedDocLink($workspaceId, 'symbol_path');
+        $this->seedDocLink($workspaceId, 'symbol_path', ['status' => 'archived']);
+        $this->seedDocLink('other-workspace', 'symbol_path');
+
+        $map = $this->service()->map(['workspace' => $workspacePath, 'limit' => 5]);
+        $mcp = $this->app->make(AtlasOpenBrainMcpService::class);
+        $list = $mcp->handleJsonRpc(['jsonrpc' => '2.0', 'id' => 10, 'method' => 'tools/list', 'params' => []]);
+        $mcpMap = $mcp->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 11, 'method' => 'tools/call',
+            'params' => ['name' => 'atlas_workspace_map', 'arguments' => ['workspace' => $workspacePath, 'limit' => 5]],
+        ])['result']['structuredContent'];
+
+        $this->assertTrue($map['ok']);
+        $this->assertSame('atlas.aobg.workspace_map.v1', $map['map_schema']);
+        $this->assertSame($workspaceId, $map['workspace_id']);
+        $this->assertSame(4, $map['inventory']['symbol_count']);
+        $this->assertSame(1, $map['inventory']['route_count']);
+        $this->assertSame(1, $map['inventory']['command_count']);
+        $this->assertSame(1, $map['inventory']['migration_count']);
+        $this->assertSame(1, $map['inventory']['test_count']);
+        $this->assertSame(2, $map['inventory']['doc_link_count']);
+        $this->assertSame(['module_path' => 1, 'symbol_path' => 1], $map['inventory']['doc_link_types']);
+        $this->assertSame('GET api/users', $map['examples']['routes'][0]['name']);
+        $this->assertSame('users', $map['examples']['migrations'][0]['metadata']['table']);
+        $this->assertContains('atlas_workspace_map', array_column($list['result']['tools'], 'name'));
+        $this->assertSame(1, $mcpMap['inventory']['route_count']);
+        $this->assertSame('atlas_workspace_map', $mcpMap['tool']);
+
+        $this->deleteTree($workspacePath);
+    }
+
     public function test_cli_command_runs_status_and_onboard_json(): void
     {
         $identity = $this->app->make(CodeGraphWorkspaceIdentity::class);
@@ -510,6 +617,19 @@ final class AtlasAobgWorkspaceOnboardingServiceTest extends TestCase
         });
     }
 
+    private function createDocLinksTable(): void
+    {
+        Schema::dropIfExists('atlas_engineering_doc_links');
+        Schema::create('atlas_engineering_doc_links', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('workspace_id', 160)->default('atlas-server')->index();
+            $table->string('link_type', 80)->index();
+            $table->string('status', 32)->default('current')->index();
+            $table->timestamp('archived_at')->nullable();
+            $table->timestamps();
+        });
+    }
+
     private function createWorkspaceProfilesTable(): void
     {
         Schema::dropIfExists('atlas_workspace_profiles');
@@ -537,9 +657,9 @@ final class AtlasAobgWorkspaceOnboardingServiceTest extends TestCase
         });
     }
 
-    private function seedCodeSymbol(string $name, string $workspaceId): void
+    private function seedCodeSymbol(string $name, string $workspaceId, array $overrides = []): void
     {
-        DB::table('atlas_engineering_code_symbols')->insert([
+        DB::table('atlas_engineering_code_symbols')->insert(array_merge([
             'id' => (string) Str::uuid(),
             'symbol_type' => 'class',
             'symbol_name' => $name,
@@ -554,7 +674,25 @@ final class AtlasAobgWorkspaceOnboardingServiceTest extends TestCase
             'metadata' => '{}',
             'created_at' => now(),
             'updated_at' => now(),
-        ]);
+        ], array_merge($overrides, [
+            'metadata' => json_encode($overrides['metadata'] ?? [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+        ])));
+    }
+
+    /**
+     * @param  array<string,mixed>  $overrides
+     */
+    private function seedDocLink(string $workspaceId, string $linkType, array $overrides = []): void
+    {
+        DB::table('atlas_engineering_doc_links')->insert(array_merge([
+            'id' => (string) Str::uuid(),
+            'workspace_id' => $workspaceId,
+            'link_type' => $linkType,
+            'status' => 'current',
+            'archived_at' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], $overrides));
     }
 
     /**

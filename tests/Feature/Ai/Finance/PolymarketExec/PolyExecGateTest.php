@@ -146,6 +146,17 @@ final class PolyExecGateTest extends TestCase
         $this->assertNotContains('depth_multiple', $decision->failedNames());
     }
 
+    public function test_net_edge_boundary_tolerates_floating_point_noise(): void
+    {
+        $gate = new PolyExecGate($this->cfg());
+
+        $decision = $gate->checkOpportunity($this->goodOpportunity([
+            'net_edge_per_set' => 0.009999,
+        ]), 'sim');
+
+        $this->assertNotContains('net_edge', $decision->failedNames());
+    }
+
     public function test_each_quality_dimension_blocks_independently(): void
     {
         $gate = new PolyExecGate($this->cfg());

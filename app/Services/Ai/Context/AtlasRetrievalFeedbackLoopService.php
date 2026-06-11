@@ -412,7 +412,10 @@ final class AtlasRetrievalFeedbackLoopService
 
         return [
             'schema_version' => 'atlas.aucri.next_retrieval_hint.v1',
-            'should_repromote_sources' => array_values(array_unique(array_map(static fn (array $item): string => (string) $item['source_type'], $missed))),
+            'should_repromote_sources' => AtlasContextStringListNormalizer::uniqueMappedStrings(
+                $missed,
+                static fn (mixed $item): mixed => is_array($item) ? ($item['source_type'] ?? null) : null,
+            ),
             'should_demote_count' => count($noise),
             'min_context_roi_target' => 0.70,
             'advisory' => true,

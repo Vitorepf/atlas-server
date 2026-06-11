@@ -78,7 +78,7 @@ final class PolyExecGate
     {
         $checks = [];
 
-        $checks[] = $this->check('net_edge', $o['net_edge_per_set'] >= $this->cfg->minNetEdgePerSet,
+        $checks[] = $this->check('net_edge', $o['net_edge_per_set'] + 1e-5 >= $this->cfg->minNetEdgePerSet,
             sprintf('net_edge/set=%.4f floor=%.4f', $o['net_edge_per_set'], $this->cfg->minNetEdgePerSet));
 
         $needDepth = $o['target_sets'] * $this->cfg->minDepthMultiple;

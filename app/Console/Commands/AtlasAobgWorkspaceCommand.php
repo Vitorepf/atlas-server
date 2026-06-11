@@ -15,6 +15,7 @@ use Illuminate\Console\Command;
  *   atlas:aobg:workspace onboard --cwd=/path/to/project --json
  *   atlas:aobg:workspace activate --cwd=/path/to/project --json
  *   atlas:aobg:workspace activate-all --json
+ *   atlas:aobg:workspace map      --workspace=/path/to/project --json
  *
  * `status` (default) answers HONESTLY what the brain knows about THIS project
  * ({workspace_id, indexed, symbols, last_index, needs_onboarding}) — read-only, local
@@ -23,6 +24,7 @@ use Illuminate\Console\Command;
  * a heavy index of an arbitrary repo is an operator decision, never implicit.
  * `activate` is that explicit decision: bind AWIS, write provider bootstrap, then index.
  * `activate-all` applies that explicit activation to every registered local workspace.
+ * `map` reads the bounded Code Intelligence inventory for one workspace.
  *
  * Always exits 0 — needs_onboarding / offer_only is a normal, audited answer, not a
  * command failure.
@@ -32,10 +34,11 @@ class AtlasAobgWorkspaceCommand extends Command
     public const SCHEMA = 'atlas.aobg.workspace_command.v1';
 
     protected $signature = 'atlas:aobg:workspace
-        {action=status : status (default), onboard, activate, or activate-all}
+        {action=status : status (default), onboard, activate, activate-all, or map}
         {--cwd= : Caller working directory (the project dir) — resolved to a workspace id}
         {--workspace= : Workspace path or id (wins over cwd; defaults to the primary atlas-server)}
         {--force : For onboard/activate: re-run the index even when already indexed}
+        {--limit=12 : For map: maximum sample rows per section}
         {--json : Output the result envelope as JSON}';
 
     protected $description = 'AOBG N1.F3: multi-project workspace status/onboarding/activation — does the brain know THIS project?';
@@ -56,6 +59,10 @@ class AtlasAobgWorkspaceCommand extends Command
             $opts['force'] = (bool) $this->option('force');
             $result = $service->activate($opts);
             $status = (array) ($result['status'] ?? []);
+        } elseif ($action === 'map') {
+            $opts['limit'] = $this->option('limit');
+            $result = $service->map($opts);
+            $status = $result;
         } elseif ($action === 'onboard') {
             $opts['force'] = (bool) $this->option('force');
             $result = $service->onboard($opts);
@@ -90,6 +97,15 @@ class AtlasAobgWorkspaceCommand extends Command
 
         if (($status['needs_onboarding'] ?? false) === true) {
             $this->warn('offer: '.(string) ($status['onboard_command'] ?? 'n/a'));
+        }
+        if ($action === 'map') {
+            $inventory = (array) ($result['inventory'] ?? []);
+            $this->components->twoColumnDetail('modules', (string) ($inventory['module_count'] ?? 0));
+            $this->components->twoColumnDetail('symbols', (string) ($inventory['symbol_count'] ?? 0));
+            $this->components->twoColumnDetail('routes', (string) ($inventory['route_count'] ?? 0));
+            $this->components->twoColumnDetail('commands', (string) ($inventory['command_count'] ?? 0));
+            $this->components->twoColumnDetail('migrations', (string) ($inventory['migration_count'] ?? 0));
+            $this->components->twoColumnDetail('tests', (string) ($inventory['test_count'] ?? 0));
         }
 
         return self::SUCCESS;

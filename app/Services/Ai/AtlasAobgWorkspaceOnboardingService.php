@@ -50,6 +50,12 @@ class AtlasAobgWorkspaceOnboardingService
     /** The W-1 code-intelligence read-model the gateway scopes its status to. */
     private const SYMBOLS_TABLE = 'atlas_engineering_code_symbols';
 
+    private const MODULES_TABLE = 'atlas_engineering_code_modules';
+
+    private const DOC_LINKS_TABLE = 'atlas_engineering_doc_links';
+
+    private const FILE_SNAPSHOTS_TABLE = 'atlas_engineering_code_file_snapshots';
+
     private const MANAGED_BLOCK_START = '<!-- atlas:aobg:auto-bootstrap:start -->';
 
     private const MANAGED_BLOCK_END = '<!-- atlas:aobg:auto-bootstrap:end -->';
@@ -73,6 +79,7 @@ class AtlasAobgWorkspaceOnboardingService
     public function __construct(
         private readonly CodeGraphWorkspaceIdentity $workspaceIdentity,
         private readonly AtlasCodeWorkspaceProfileService $workspaceProfiles,
+        private readonly AtlasProviderProjectionService $providerProjection,
     ) {}
 
     /**
@@ -355,9 +362,427 @@ class AtlasAobgWorkspaceOnboardingService
         return $envelope;
     }
 
+    /**
+     * Compact, provider-safe map of what the Atlas brain knows about one workspace.
+     *
+     * This is intentionally read-only and bounded: it uses the already-built Code
+     * Intelligence read-model instead of triggering an index, and returns counts +
+     * representative samples so external providers can orient before asking for a
+     * focused context pack.
+     *
+     * @param  array<string,mixed>  $opts
+     * @return array<string,mixed>
+     */
+    public function map(array $opts = []): array
+    {
+        $status = $this->status($opts);
+        $workspaceId = (string) ($status['workspace_id'] ?? $this->resolveWorkspaceId($opts));
+        $workspacePath = is_string($status['workspace_path'] ?? null) ? (string) $status['workspace_path'] : null;
+        $limit = $this->boundedLimit($opts['limit'] ?? null, 12, 50);
+        $profile = $this->workspaceProfiles->findByReference($workspacePath ?? $workspaceId);
+        $inventory = $this->workspaceInventory($workspaceId);
+
+        return [
+            'ok' => true,
+            'schema' => self::SCHEMA,
+            'map_schema' => 'atlas.aobg.workspace_map.v1',
+            'action' => 'map',
+            'read_only' => true,
+            'provider_safe' => true,
+            'workspace_id' => $workspaceId,
+            'workspace_path' => $workspacePath,
+            'indexed' => (bool) ($status['indexed'] ?? false),
+            'needs_onboarding' => (bool) ($status['needs_onboarding'] ?? true),
+            'last_index' => $status['last_index'] ?? null,
+            'profile' => $profile === null ? null : [
+                'slug' => $profile['slug'] ?? null,
+                'name' => $profile['name'] ?? null,
+                'kind' => $profile['kind'] ?? null,
+                'production_status' => $profile['production_status'] ?? null,
+                'stack_summary' => $profile['stack_summary'] ?? null,
+                'docs_status' => $profile['docs_status'] ?? null,
+                'default_risk' => $profile['default_risk'] ?? null,
+                'safety' => $profile['safety'] ?? null,
+                'commands' => $profile['commands'] ?? [],
+                'test_commands' => $profile['test_commands'] ?? [],
+                'build_commands' => $profile['build_commands'] ?? [],
+                'critical_areas' => $profile['critical_areas'] ?? [],
+                'surfaces_enabled' => $profile['surfaces_enabled'] ?? [],
+            ],
+            'inventory' => $inventory,
+            'modules' => $this->topModules($workspaceId, $limit),
+            'path_regions' => $this->pathRegions($workspaceId, $limit),
+            'examples' => [
+                'routes' => $this->sampleSymbols($workspaceId, ['route', 'api_resource'], $limit),
+                'commands' => $this->sampleSymbols($workspaceId, ['cli_command'], $limit),
+                'migrations' => $this->sampleSymbols($workspaceId, ['migration_table'], $limit),
+                'tests' => $this->sampleSymbols($workspaceId, ['test_method'], $limit),
+                'entrypoints' => $this->sampleSymbols($workspaceId, ['class', 'function'], min($limit, 10)),
+            ],
+            'provider_projection' => $this->providerProjectionStatus($workspacePath),
+            'next_actions' => array_values(array_filter([
+                (bool) ($status['needs_onboarding'] ?? true) ? (string) ($status['activation_command'] ?? '') : null,
+                'atlas open-brain context "<task>" --workspace='.($workspacePath ?? $workspaceId).' --json',
+                'atlas aobg workspace map --workspace='.($workspacePath ?? $workspaceId).' --json',
+            ])),
+            'quality' => $this->mapQuality($status, $inventory, $workspacePath),
+            'generated_at' => now()->toJSON(),
+        ];
+    }
+
     // ------------------------------------------------------------------
     // internals
     // ------------------------------------------------------------------
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function workspaceInventory(string $workspaceId): array
+    {
+        $symbolTypes = $this->groupedCount(self::SYMBOLS_TABLE, 'symbol_type', $workspaceId);
+        $modules = $this->countRows(self::MODULES_TABLE, $workspaceId);
+        $symbols = array_sum($symbolTypes);
+        $docLinks = $this->countRows(self::DOC_LINKS_TABLE, $workspaceId, ['status' => 'current']);
+        $files = $this->countRows(self::FILE_SNAPSHOTS_TABLE, $workspaceId);
+
+        return [
+            'status' => $symbols > 0 ? 'ready' : 'empty',
+            'tables' => [
+                'modules' => Schema::hasTable(self::MODULES_TABLE),
+                'symbols' => Schema::hasTable(self::SYMBOLS_TABLE),
+                'doc_links' => Schema::hasTable(self::DOC_LINKS_TABLE),
+                'file_snapshots' => Schema::hasTable(self::FILE_SNAPSHOTS_TABLE),
+            ],
+            'module_count' => $modules,
+            'symbol_count' => $symbols,
+            'file_count' => $files,
+            'doc_link_count' => $docLinks,
+            'route_count' => (int) (($symbolTypes['route'] ?? 0) + ($symbolTypes['api_resource'] ?? 0)),
+            'command_count' => (int) ($symbolTypes['cli_command'] ?? 0),
+            'migration_count' => (int) ($symbolTypes['migration_table'] ?? 0),
+            'test_count' => (int) ($symbolTypes['test_method'] ?? 0),
+            'symbol_types' => $symbolTypes,
+            'languages' => $this->groupedCount(self::SYMBOLS_TABLE, 'language', $workspaceId),
+            'layers' => $this->groupedCount(self::MODULES_TABLE, 'layer', $workspaceId),
+            'docs_status' => $this->groupedCount(self::MODULES_TABLE, 'docs_status', $workspaceId),
+            'doc_link_types' => $this->groupedCount(self::DOC_LINKS_TABLE, 'link_type', $workspaceId),
+        ];
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function topModules(string $workspaceId, int $limit): array
+    {
+        try {
+            if (! Schema::hasTable(self::MODULES_TABLE)) {
+                return [];
+            }
+
+            $query = $this->activeQuery(self::MODULES_TABLE, $workspaceId);
+            $select = [];
+            foreach (['slug', 'name', 'layer', 'root_path', 'primary_language', 'docs_status', 'file_count', 'symbol_count', 'route_count', 'command_count', 'migration_count', 'test_count', 'related_docs_json', 'related_tests_json', 'indexed_at'] as $column) {
+                if (Schema::hasColumn(self::MODULES_TABLE, $column)) {
+                    $select[] = $column;
+                }
+            }
+            if ($select === []) {
+                return [];
+            }
+
+            if (Schema::hasColumn(self::MODULES_TABLE, 'symbol_count')) {
+                $query->orderByDesc('symbol_count');
+            }
+            if (Schema::hasColumn(self::MODULES_TABLE, 'slug')) {
+                $query->orderBy('slug');
+            }
+
+            return $query
+                ->select($select)
+                ->limit($limit)
+                ->get()
+                ->map(fn (object $row): array => [
+                    'slug' => $row->slug ?? null,
+                    'name' => $row->name ?? null,
+                    'layer' => $row->layer ?? null,
+                    'root_path' => $row->root_path ?? null,
+                    'primary_language' => $row->primary_language ?? null,
+                    'docs_status' => $row->docs_status ?? null,
+                    'file_count' => (int) ($row->file_count ?? 0),
+                    'symbol_count' => (int) ($row->symbol_count ?? 0),
+                    'route_count' => (int) ($row->route_count ?? 0),
+                    'command_count' => (int) ($row->command_count ?? 0),
+                    'migration_count' => (int) ($row->migration_count ?? 0),
+                    'test_count' => (int) ($row->test_count ?? 0),
+                    'related_docs' => array_slice($this->jsonList($row->related_docs_json ?? []), 0, 12),
+                    'related_tests' => array_slice($this->jsonList($row->related_tests_json ?? []), 0, 12),
+                    'indexed_at' => $row->indexed_at ?? null,
+                ])
+                ->values()
+                ->all();
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @param  array<int,string>  $types
+     * @return array<int,array<string,mixed>>
+     */
+    private function sampleSymbols(string $workspaceId, array $types, int $limit): array
+    {
+        try {
+            if (! Schema::hasTable(self::SYMBOLS_TABLE)) {
+                return [];
+            }
+
+            $query = $this->activeQuery(self::SYMBOLS_TABLE, $workspaceId, 'symbols')
+                ->whereIn('symbols.symbol_type', $types);
+            $select = [];
+            foreach (['symbol_type', 'symbol_name', 'file_path', 'line_start', 'language', 'signature', 'metadata'] as $column) {
+                if (Schema::hasColumn(self::SYMBOLS_TABLE, $column)) {
+                    $select[] = 'symbols.'.$column;
+                }
+            }
+            if ($select === []) {
+                return [];
+            }
+
+            if (Schema::hasTable(self::MODULES_TABLE) && Schema::hasColumn(self::SYMBOLS_TABLE, 'module_id') && Schema::hasColumn(self::MODULES_TABLE, 'id')) {
+                $query->leftJoin(self::MODULES_TABLE.' as modules', 'modules.id', '=', 'symbols.module_id');
+                if (Schema::hasColumn(self::MODULES_TABLE, 'slug')) {
+                    $select[] = 'modules.slug as module_slug';
+                }
+            }
+
+            $query->orderBy('symbols.file_path');
+            if (Schema::hasColumn(self::SYMBOLS_TABLE, 'line_start')) {
+                $query->orderBy('symbols.line_start');
+            }
+
+            return $query
+                ->select($select)
+                ->limit($limit)
+                ->get()
+                ->map(fn (object $row): array => $this->symbolSamplePayload($row))
+                ->values()
+                ->all();
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function pathRegions(string $workspaceId, int $limit): array
+    {
+        try {
+            if (! Schema::hasTable(self::SYMBOLS_TABLE) || ! Schema::hasColumn(self::SYMBOLS_TABLE, 'file_path')) {
+                return [];
+            }
+
+            $rows = $this->activeQuery(self::SYMBOLS_TABLE, $workspaceId)
+                ->select('file_path')
+                ->selectRaw('count(*) as aggregate')
+                ->groupBy('file_path')
+                ->orderByDesc('aggregate')
+                ->limit(1000)
+                ->get();
+
+            $regions = [];
+            foreach ($rows as $row) {
+                $region = $this->pathRegion((string) ($row->file_path ?? ''));
+                if ($region === '') {
+                    continue;
+                }
+                $regions[$region] ??= ['region' => $region, 'file_count' => 0, 'symbol_count' => 0, 'sample_files' => []];
+                $regions[$region]['file_count']++;
+                $regions[$region]['symbol_count'] += (int) ($row->aggregate ?? 0);
+                if (count($regions[$region]['sample_files']) < 4) {
+                    $regions[$region]['sample_files'][] = (string) $row->file_path;
+                }
+            }
+
+            usort($regions, static fn (array $a, array $b): int => ($b['symbol_count'] <=> $a['symbol_count']) ?: strcmp($a['region'], $b['region']));
+
+            return array_slice(array_values($regions), 0, $limit);
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @param  array<string,string>  $equals
+     */
+    private function countRows(string $table, string $workspaceId, array $equals = []): int
+    {
+        try {
+            if (! Schema::hasTable($table)) {
+                return 0;
+            }
+
+            $query = $this->activeQuery($table, $workspaceId);
+            foreach ($equals as $column => $value) {
+                if (Schema::hasColumn($table, $column)) {
+                    $query->where($column, $value);
+                }
+            }
+
+            return (int) $query->count();
+        } catch (Throwable) {
+            return 0;
+        }
+    }
+
+    /**
+     * @return array<string,int>
+     */
+    private function groupedCount(string $table, string $column, string $workspaceId): array
+    {
+        try {
+            if (! Schema::hasTable($table) || ! Schema::hasColumn($table, $column)) {
+                return [];
+            }
+
+            return $this->activeQuery($table, $workspaceId)
+                ->select($column)
+                ->selectRaw('count(*) as aggregate')
+                ->groupBy($column)
+                ->orderBy($column)
+                ->get()
+                ->mapWithKeys(fn (object $row): array => [
+                    ((string) ($row->{$column} ?? 'unknown')) ?: 'unknown' => (int) ($row->aggregate ?? 0),
+                ])
+                ->all();
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @return \Illuminate\Database\Query\Builder
+     */
+    private function activeQuery(string $table, string $workspaceId, ?string $alias = null)
+    {
+        $query = DB::table($alias === null ? $table : $table.' as '.$alias);
+        $prefix = $alias === null ? '' : $alias.'.';
+
+        if (Schema::hasColumn($table, 'status')) {
+            $query->where($prefix.'status', $table === self::DOC_LINKS_TABLE ? 'current' : 'active');
+        }
+        if (Schema::hasColumn($table, 'archived_at')) {
+            $query->whereNull($prefix.'archived_at');
+        }
+        if (Schema::hasColumn($table, 'workspace_id')) {
+            $query->where($prefix.'workspace_id', $workspaceId);
+        }
+
+        return $query;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function symbolSamplePayload(object $row): array
+    {
+        $metadata = $this->jsonMap($row->metadata ?? []);
+
+        return [
+            'type' => $row->symbol_type ?? null,
+            'name' => $row->symbol_name ?? null,
+            'module' => $row->module_slug ?? null,
+            'path' => $row->file_path ?? null,
+            'line' => isset($row->line_start) ? (int) $row->line_start : null,
+            'language' => $row->language ?? null,
+            'signature' => $this->shortText($row->signature ?? null, 180),
+            'metadata' => $this->compactMetadata(array_intersect_key($metadata, array_flip([
+                'http_method',
+                'uri',
+                'target',
+                'controller',
+                'method',
+                'command_signature',
+                'operation',
+                'table',
+                'classification',
+            ]))),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $metadata
+     * @return array<string,mixed>
+     */
+    private function compactMetadata(array $metadata): array
+    {
+        $compact = [];
+        foreach ($metadata as $key => $value) {
+            if (is_scalar($value) || $value === null) {
+                $compact[$key] = $this->shortText($value, 180);
+            } elseif (is_array($value)) {
+                $compact[$key] = $this->shortText(json_encode(array_slice($value, 0, 6), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), 180);
+            }
+        }
+
+        return $compact;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function providerProjectionStatus(?string $workspacePath): array
+    {
+        if (! is_string($workspacePath) || $workspacePath === '') {
+            return ['status' => 'unknown', 'reason' => 'workspace_path_missing'];
+        }
+
+        try {
+            $status = $this->providerProjection->status('all', ['workspace' => $workspacePath], ['workspace' => $workspacePath]);
+
+            return [
+                'status' => $status['status'] ?? 'unknown',
+                'ready' => (int) data_get($status, 'summary.ready', 0),
+                'total' => (int) data_get($status, 'summary.total', 0),
+                'manual_drift' => (int) data_get($status, 'summary.manual_drift', 0),
+                'stale' => (int) data_get($status, 'summary.stale', 0),
+                'unmanaged' => (int) data_get($status, 'summary.unmanaged', 0),
+            ];
+        } catch (Throwable $e) {
+            return ['status' => 'unknown', 'exception' => class_basename($e)];
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $status
+     * @param  array<string,mixed>  $inventory
+     * @return array<string,mixed>
+     */
+    private function mapQuality(array $status, array $inventory, ?string $workspacePath): array
+    {
+        $score = 0.0;
+        $score += (bool) ($status['indexed'] ?? false) ? 0.35 : 0.0;
+        $score += (int) ($inventory['symbol_count'] ?? 0) > 0 ? 0.2 : 0.0;
+        $score += (int) ($inventory['module_count'] ?? 0) > 0 ? 0.15 : 0.0;
+        $score += (int) ($inventory['file_count'] ?? 0) > 0 || (int) ($inventory['symbol_count'] ?? 0) > 0 ? 0.1 : 0.0;
+        $score += (int) ($inventory['doc_link_count'] ?? 0) > 0 ? 0.1 : 0.0;
+        $score += is_string($workspacePath) && is_dir($workspacePath) ? 0.1 : 0.0;
+
+        return [
+            'score' => round(min(1.0, $score), 2),
+            'label' => $score >= 0.85 ? 'strong' : ($score >= 0.6 ? 'usable' : 'thin'),
+            'note' => 'Score mede prontidao do mapa local; zero routes/migrations pode ser normal para apps sem backend Laravel.',
+        ];
+    }
+
+    private function boundedLimit(mixed $value, int $default, int $max): int
+    {
+        if (! is_numeric($value)) {
+            return $default;
+        }
+
+        return max(1, min($max, (int) $value));
+    }
 
     /**
      * Symbol count + last index timestamp scoped to the resolved workspace_id ONLY.
@@ -1055,7 +1480,79 @@ class AtlasAobgWorkspaceOnboardingService
             $this->writeTextFile($path, $contents);
         }
 
-        return ['ok' => true, 'path' => $path, 'action' => $action];
+        $projection = $this->ensureProviderProjection($workspacePath, $filename);
+
+        return [
+            'ok' => ($projection['ok'] ?? false) === true,
+            'path' => $path,
+            'action' => $action,
+            'projection' => $projection,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function ensureProviderProjection(string $workspacePath, string $filename): array
+    {
+        $target = $filename === 'AGENTS.md' ? 'agents' : 'claude';
+        $context = ['workspace' => $workspacePath];
+        $options = ['workspace' => $workspacePath];
+
+        try {
+            $inspection = $this->providerProjection->inspect($target, $context, $options);
+            if (($inspection['managed'] ?? false) !== true) {
+                $result = $this->providerProjection->adopt($target, $context, $options);
+
+                return [
+                    'ok' => ($result['written'] ?? false) === true,
+                    'action' => 'adopted',
+                    'target' => $target,
+                    'path' => $result['path'] ?? $workspacePath.DIRECTORY_SEPARATOR.$filename,
+                    'written' => (bool) ($result['written'] ?? false),
+                    'reason' => $result['error'] ?? null,
+                ];
+            }
+
+            if (($inspection['manual_drift'] ?? false) === true) {
+                return [
+                    'ok' => false,
+                    'action' => 'blocked_manual_drift',
+                    'target' => $target,
+                    'path' => $inspection['path'] ?? $workspacePath.DIRECTORY_SEPARATOR.$filename,
+                    'reason' => $inspection['reason'] ?? 'checksum_mismatch',
+                ];
+            }
+
+            if (($inspection['stale'] ?? false) === true) {
+                $result = $this->providerProjection->write($target, $context, $options);
+
+                return [
+                    'ok' => ($result['written'] ?? false) === true,
+                    'action' => 'updated',
+                    'target' => $target,
+                    'path' => $result['path'] ?? $workspacePath.DIRECTORY_SEPARATOR.$filename,
+                    'written' => (bool) ($result['written'] ?? false),
+                    'reason' => $result['error'] ?? null,
+                ];
+            }
+
+            return [
+                'ok' => true,
+                'action' => 'ready',
+                'target' => $target,
+                'path' => $inspection['path'] ?? $workspacePath.DIRECTORY_SEPARATOR.$filename,
+                'written' => false,
+            ];
+        } catch (Throwable $e) {
+            return [
+                'ok' => false,
+                'action' => 'projection_exception',
+                'target' => $target,
+                'path' => $workspacePath.DIRECTORY_SEPARATOR.$filename,
+                'exception' => class_basename($e),
+            ];
+        }
     }
 
     private function providerBootstrapBlock(string $workspaceId, string $workspacePath, string $filename): string
@@ -1083,6 +1580,79 @@ class AtlasAobgWorkspaceOnboardingService
             File::ensureDirectoryExists($directory);
         }
         File::put($path, $contents);
+    }
+
+    private function pathRegion(string $path): string
+    {
+        $path = trim(str_replace('\\', '/', $path), '/');
+        if ($path === '') {
+            return '';
+        }
+
+        $segments = array_values(array_filter(explode('/', $path), static fn (string $segment): bool => $segment !== ''));
+        if (count($segments) <= 1) {
+            return $segments[0] ?? '';
+        }
+
+        if (in_array($segments[0], ['routes', 'config', 'tests'], true)) {
+            return $segments[0];
+        }
+        if ($segments[0] === 'database' && ($segments[1] ?? '') === 'migrations') {
+            return 'database/migrations';
+        }
+
+        return $segments[0].'/'.$segments[1];
+    }
+
+    /**
+     * @return array<int,mixed>
+     */
+    private function jsonList(mixed $value): array
+    {
+        $decoded = $this->jsonValue($value);
+
+        return array_is_list($decoded) ? $decoded : [];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function jsonMap(mixed $value): array
+    {
+        $decoded = $this->jsonValue($value);
+
+        return is_array($decoded) && ! array_is_list($decoded) ? $decoded : [];
+    }
+
+    /**
+     * @return array<mixed>|mixed
+     */
+    private function jsonValue(mixed $value): mixed
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+        if (! is_string($value) || trim($value) === '') {
+            return [];
+        }
+
+        $decoded = json_decode($value, true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    private function shortText(mixed $value, int $limit): ?string
+    {
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $text = trim(preg_replace('/\s+/', ' ', (string) $value) ?? (string) $value);
+        if ($text === '') {
+            return null;
+        }
+
+        return mb_strlen($text) > $limit ? mb_substr($text, 0, max(1, $limit - 3)).'...' : $text;
     }
 
     /**

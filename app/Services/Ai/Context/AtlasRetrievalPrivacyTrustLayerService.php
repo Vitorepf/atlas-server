@@ -340,7 +340,7 @@ final class AtlasRetrievalPrivacyTrustLayerService
             $reasons[] = 'irreversible_risk_requires_local_or_operator_review';
         }
 
-        return array_values(array_unique($reasons));
+        return AtlasContextStringListNormalizer::uniqueTrimmedStrings($reasons);
     }
 
     /**

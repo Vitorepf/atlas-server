@@ -15,6 +15,13 @@ final class SimulatedPolyExecClientTest extends TestCase
         return new SimulatedPolyExecClient(fn (string $t): ?array => $books[$t] ?? null);
     }
 
+    public function test_sim_client_can_use_scoped_ledger_mode(): void
+    {
+        $client = new SimulatedPolyExecClient(fn (string $t): ?array => null, null, 's1234567');
+
+        $this->assertSame('s1234567', $client->mode());
+    }
+
     public function test_buy_consumes_only_levels_at_or_below_limit_as_vwap(): void
     {
         $client = $this->client([

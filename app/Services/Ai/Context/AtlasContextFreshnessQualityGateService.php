@@ -286,8 +286,8 @@ final class AtlasContextFreshnessQualityGateService
                 'degraded' => 'refresh_retrieval',
                 default => 'block_execution',
             },
-            'blocking_reasons' => array_values(array_unique($blockingReasons)),
-            'warnings' => array_values(array_unique($warnings)),
+            'blocking_reasons' => AtlasContextStringListNormalizer::uniqueTrimmedStrings($blockingReasons),
+            'warnings' => AtlasContextStringListNormalizer::uniqueTrimmedStrings($warnings),
             'required_source_coverage' => $coverage,
             'fail_closed' => $this->isHighRisk($risk) || $blockingReasons !== [],
             'remediation' => match ($status) {

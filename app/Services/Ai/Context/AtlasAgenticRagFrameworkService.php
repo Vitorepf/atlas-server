@@ -173,7 +173,7 @@ final class AtlasAgenticRagFrameworkService
             $sources[] = 'evidence_replay';
         }
 
-        return array_values(array_unique($sources));
+        return AtlasContextStringListNormalizer::uniqueTrimmedStrings($sources);
     }
 
     /**
@@ -189,7 +189,7 @@ final class AtlasAgenticRagFrameworkService
             $sources[] = 'graph_retrieval';
         }
 
-        return array_values(array_unique($sources));
+        return AtlasContextStringListNormalizer::uniqueTrimmedStrings($sources);
     }
 
     /**

@@ -29,7 +29,7 @@ decisions:
   - Recomendacao e promocao sao atos separados; o estagio so muda com strategist-review --apply explicito.
   - Geracao de ideias por provider existe SOMENTE como batch governado (ideate-generate) com schema fail-closed e cite-or-omit para market size; nunca inline, nunca auto-promove.
   - Projecao de trajetoria e deterministica e fica BLOCKED sem ARR observado; nenhuma claim financeira sintetica.
-  - A ponte de execucao cria missoes DRAFT com autonomy=suggest (lifecycle so permite draft->planned por ato do operador); idempotente por review e capped.
+  - A ponte de execucao cria missoes DRAFT com autonomy=suggest (o operador promove rascunho para trabalho planejado); idempotente por review e capped.
   - O parecer estrategico qualitativo (LLM) e grounded fail-closed; movimento estrategico que nao cita fact ids do estado persistido e DESCARTADO; falha do provider nunca bloqueia a review deterministica.
   - Cadencia semanal roda segunda 06:30 (domingo continua exclusivo do digest); deterministica por default, analise LLM no ciclo so com cycle_analyze ligado.
 maintenance:

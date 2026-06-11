@@ -998,6 +998,21 @@ class AtlasOpenBrainMcpService
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
             [
+                'name' => 'atlas_workspace_map',
+                'title' => 'Atlas Workspace Map (AOBG project inventory)',
+                'description' => 'AOBG workspace map: leitura compacta e provider-safe do que o cérebro sabe sobre UM workspace. Resolve `cwd`/`workspace`, confirma index/provider projection, e retorna inventário de módulos, símbolos, linguagens, camadas, regiões de path e amostras de rotas, commands, migrations e testes. Read-only, bounded, só DB local, zero provider spend; não reindexa. Use no começo de uma sessão para entender a topologia do projeto antes do `atlas_context_pack` focado.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'cwd' => ['type' => 'string', 'description' => 'Working directory do chamador (a pasta do projeto da IA externa) — resolvido a um workspace id.'],
+                        'workspace' => ['type' => 'string', 'description' => 'Path OU id do workspace a mapear (vence sobre cwd; default: primário atlas-server).'],
+                        'limit' => ['type' => 'integer', 'description' => 'Máximo de amostras por seção (default 12, teto 50).'],
+                    ],
+                    'required' => [],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
                 'name' => 'atlas_workspace_activate',
                 'title' => 'Atlas Workspace Activate (AOBG auto-bootstrap)',
                 'description' => 'AOBG workspace activation: explicit local bootstrap for a folder the provider just opened. It registers/binds the workspace in AWIS, merges provider bootstrap files (.mcp.json, .claude/settings.json, AGENTS.md, CLAUDE.md), and runs the existing AWIS-gated CodeGraph index when the workspace is not indexed yet (or force=true). Local filesystem + DB only, zero provider spend. Use when atlas_workspace_status returns needs_onboarding=true or at session start for a new workspace.',
@@ -1158,6 +1173,7 @@ class AtlasOpenBrainMcpService
                 'atlas_record_outcome' => $this->toolResponse($id, $this->recordOutcome($arguments)),
                 'atlas_propose_learning' => $this->toolResponse($id, $this->proposeLearning($arguments)),
                 'atlas_workspace_status' => $this->toolResponse($id, $this->workspaceStatus($arguments)),
+                'atlas_workspace_map' => $this->toolResponse($id, $this->workspaceMap($arguments)),
                 'atlas_workspace_activate' => $this->toolResponse($id, $this->workspaceActivate($arguments)),
                 'atlas_claim_task' => $this->toolResponse($id, $this->claimTask($arguments)),
                 'atlas_blackboard_status' => $this->toolResponse($id, $this->blackboardStatus($arguments)),
@@ -2835,6 +2851,39 @@ class AtlasOpenBrainMcpService
         $status = $this->workspaceOnboarding->status($opts);
 
         return ['ok' => true, 'tool' => $tool] + $status;
+    }
+
+    /**
+     * AOBG workspace map: bounded inventory of the already-indexed Code Intelligence
+     * read-model for one workspace. Read-only; does not reindex.
+     *
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function workspaceMap(array $arguments): array
+    {
+        $tool = 'atlas_workspace_map';
+
+        $opts = [];
+        $cwd = $this->string($arguments['cwd'] ?? null);
+        if ($cwd !== null) {
+            $opts['cwd'] = $cwd;
+        }
+        $workspace = $this->string($arguments['workspace'] ?? null);
+        if ($workspace !== null) {
+            $opts['workspace'] = $workspace;
+        } elseif ($cwd === null) {
+            $defaultWorkspace = $this->workspace(null);
+            if ($defaultWorkspace !== null) {
+                $opts['workspace'] = $defaultWorkspace;
+            }
+        }
+        $limit = $this->positiveInt($arguments['limit'] ?? null);
+        if ($limit !== null) {
+            $opts['limit'] = $limit;
+        }
+
+        return ['tool' => $tool] + $this->workspaceOnboarding->map($opts);
     }
 
     /**

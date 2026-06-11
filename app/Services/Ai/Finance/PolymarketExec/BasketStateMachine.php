@@ -433,7 +433,7 @@ final class BasketStateMachine
         if ($sum >= 1.0) {
             return ['ok' => false, 'reason' => 'sum_no_longer_under_1', 'fresh_sum' => $sum, 'fresh_depth' => $depth, 'net_edge' => $netEdge];
         }
-        if ($netEdge < $this->cfg->minNetEdgePerSet) {
+        if ($netEdge + 1e-5 < $this->cfg->minNetEdgePerSet) {
             return ['ok' => false, 'reason' => 'edge_collapsed', 'fresh_sum' => $sum, 'fresh_depth' => $depth, 'net_edge' => $netEdge];
         }
         if ($depth < $needDepth) {

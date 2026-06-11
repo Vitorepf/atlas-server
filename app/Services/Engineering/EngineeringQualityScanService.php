@@ -689,21 +689,7 @@ class EngineeringQualityScanService
      */
     private function stringList(mixed $value): array
     {
-        if (is_string($value)) {
-            $value = explode(',', $value);
-        }
-
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return collect($value)
-            ->filter(fn (mixed $item): bool => is_scalar($item))
-            ->map(fn (mixed $item): string => strtolower(trim((string) $item)))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
+        return EngineeringStringListNormalizer::uniqueCommaSeparatedStrings($value, lowercase: true);
     }
 
     /**

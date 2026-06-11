@@ -482,7 +482,7 @@ class AtlasSoftwareTwinRuntimeService
      */
     private function locateBest(string $needle): array
     {
-        $variants = $this->uniqueStrings([
+        $variants = EngineeringStringListNormalizer::uniqueNonEmptyStrings([
             $needle,
             strtolower(str_replace([' ', '-'], '_', $needle)),
             strtolower(str_replace([' ', '_'], '-', $needle)),
@@ -863,19 +863,7 @@ class AtlasSoftwareTwinRuntimeService
      */
     private function mergedUniqueStrings(array ...$groups): array
     {
-        return $this->uniqueStrings(array_merge(...$groups));
-    }
-
-    /**
-     * @param  array<int,mixed>  $values
-     * @return array<int,string>
-     */
-    private function uniqueStrings(array $values): array
-    {
-        return array_values(array_unique(array_filter(array_map(
-            static fn (mixed $value): string => trim((string) $value),
-            $values,
-        ), static fn (string $value): bool => $value !== '')));
+        return EngineeringStringListNormalizer::uniqueNonEmptyStrings(array_merge(...$groups));
     }
 
     /**

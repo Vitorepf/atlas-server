@@ -293,11 +293,11 @@ class EngineeringKnowledgeBaseService
             'content_hash' => $contentHash,
             'summary' => $this->summaryText($frontmatter, $body),
             'body_excerpt' => Str::limit($this->plainText($body), 2600, ''),
-            'tags_json' => $this->stringList($frontmatter['tags'] ?? []),
-            'related_paths_json' => $this->stringList($frontmatter['related_paths'] ?? []),
-            'capabilities_json' => $this->stringList($frontmatter['capabilities'] ?? []),
-            'decisions_json' => $this->stringList($frontmatter['decisions'] ?? []),
-            'maintenance_json' => $this->stringList($frontmatter['maintenance'] ?? []),
+            'tags_json' => EngineeringStringListNormalizer::uniqueNonEmptyScalarStrings($frontmatter['tags'] ?? []),
+            'related_paths_json' => EngineeringStringListNormalizer::uniqueNonEmptyScalarStrings($frontmatter['related_paths'] ?? []),
+            'capabilities_json' => EngineeringStringListNormalizer::uniqueNonEmptyScalarStrings($frontmatter['capabilities'] ?? []),
+            'decisions_json' => EngineeringStringListNormalizer::uniqueNonEmptyScalarStrings($frontmatter['decisions'] ?? []),
+            'maintenance_json' => EngineeringStringListNormalizer::uniqueNonEmptyScalarStrings($frontmatter['maintenance'] ?? []),
             'metadata' => [
                 'frontmatter_errors' => array_values((array) ($parsed['errors'] ?? [])),
                 'type' => $frontmatter['type'] ?? 'engineering_knowledge',
@@ -370,19 +370,6 @@ class EngineeringKnowledgeBaseService
         $text = preg_replace('/\s+/', ' ', $text) ?? $text;
 
         return trim($text);
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return collect((array) $value)
-            ->filter(fn (mixed $item): bool => is_scalar($item) && trim((string) $item) !== '')
-            ->map(fn (mixed $item): string => trim((string) $item))
-            ->unique()
-            ->values()
-            ->all();
     }
 
     private function status(string $status): string

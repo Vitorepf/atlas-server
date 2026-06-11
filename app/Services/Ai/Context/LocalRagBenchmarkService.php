@@ -139,7 +139,9 @@ class LocalRagBenchmarkService
                 'reason' => 'Este benchmark prova corpus controlado, governanca do router, privacy boundary sintetico e contrato LOCAL_RAG_* do Evidence Ledger; Graph RAG/Python ainda exige review humano/Curator antes de mudar policy.',
                 'completed_prerequisites' => $completedPrerequisites,
                 'remaining_prerequisites' => $remainingPrerequisites,
-                'required_before_promotion' => array_values(array_unique(array_merge($completedPrerequisites, $remainingPrerequisites))),
+                'required_before_promotion' => AtlasContextStringListNormalizer::uniqueTrimmedStrings(
+                    array_merge($completedPrerequisites, $remainingPrerequisites),
+                ),
             ],
             'guardrails' => [
                 'kernel_decides' => true,

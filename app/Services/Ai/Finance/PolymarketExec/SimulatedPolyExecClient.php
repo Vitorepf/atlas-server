@@ -30,15 +30,18 @@ final class SimulatedPolyExecClient implements PolyExecClient
     /**
      * @param  null|callable(string): ?array{asks: list<array{price: float, size: float}>, bids: list<array{price: float, size: float}>}  $bookSource
      */
-    public function __construct(?callable $bookSource = null, ?PolymarketShadowFeed $feed = null)
-    {
+    public function __construct(
+        ?callable $bookSource = null,
+        ?PolymarketShadowFeed $feed = null,
+        private readonly string $mode = 'sim',
+    ) {
         $feed ??= new PolymarketShadowFeed;
         $this->bookSource = $bookSource ?? fn (string $token): ?array => $feed->bookLevels($token);
     }
 
     public function mode(): string
     {
-        return 'sim';
+        return $this->mode;
     }
 
     public function buyLimit(string $token, float $limitPrice, float $size): FillResult

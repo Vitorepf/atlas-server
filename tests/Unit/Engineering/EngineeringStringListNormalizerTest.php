@@ -1,0 +1,75 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Engineering;
+
+use App\Services\Engineering\EngineeringStringListNormalizer;
+use Tests\TestCase;
+
+final class EngineeringStringListNormalizerTest extends TestCase
+{
+    public function test_unique_non_empty_strings_preserves_stringified_semantics(): void
+    {
+        $this->assertSame(
+            ['0', 'ready'],
+            EngineeringStringListNormalizer::uniqueNonEmptyStrings(['0', '', 0, 'ready', 'ready']),
+        );
+    }
+
+    public function test_unique_truthy_string_values_preserves_legacy_filtering(): void
+    {
+        $this->assertSame(
+            ['ready'],
+            EngineeringStringListNormalizer::uniqueTruthyStringValues([' 0 ', '', 0, false, 'ready', 'ready']),
+        );
+    }
+
+    public function test_unique_non_empty_scalar_strings_ignores_non_scalars(): void
+    {
+        $this->assertSame(
+            ['0', 'ready', '5'],
+            EngineeringStringListNormalizer::uniqueNonEmptyScalarStrings([' 0 ', '', ['nested'], false, 'ready', 'ready', 5]),
+        );
+    }
+
+    public function test_unique_non_empty_scalar_strings_accepts_single_scalar(): void
+    {
+        $this->assertSame(
+            ['capability'],
+            EngineeringStringListNormalizer::uniqueNonEmptyScalarStrings(' capability '),
+        );
+    }
+
+    public function test_unique_bullet_list_strings_splits_text_and_trims_bullets(): void
+    {
+        $this->assertSame(
+            ['api', 'app', '0'],
+            EngineeringStringListNormalizer::uniqueBulletListStrings("- api\n- app\napi\n- 0"),
+        );
+    }
+
+    public function test_unique_bullet_list_strings_accepts_arrays(): void
+    {
+        $this->assertSame(
+            ['api', 'app'],
+            EngineeringStringListNormalizer::uniqueBulletListStrings(['- api', ['nested'], ' app ', 'api']),
+        );
+    }
+
+    public function test_unique_comma_separated_strings_preserves_case_by_default(): void
+    {
+        $this->assertSame(
+            ['API', 'web', '0'],
+            EngineeringStringListNormalizer::uniqueCommaSeparatedStrings(' API,web,,API, 0 '),
+        );
+    }
+
+    public function test_unique_comma_separated_strings_can_lowercase_values(): void
+    {
+        $this->assertSame(
+            ['api', 'web'],
+            EngineeringStringListNormalizer::uniqueCommaSeparatedStrings([' API ', 'web', 'api', ['nested']], lowercase: true),
+        );
+    }
+}

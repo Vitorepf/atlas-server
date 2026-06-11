@@ -24,7 +24,10 @@ final class AtlasAucriTokenQualityCanarySetService
             'generated_at' => Carbon::now()->toIso8601String(),
             'summary' => [
                 'total_cases' => count($cases),
-                'domains' => array_values(array_unique(array_column($cases, 'domain'))),
+                'domains' => AtlasContextStringListNormalizer::uniqueMappedStrings(
+                    $cases,
+                    static fn (mixed $case): mixed => is_array($case) ? ($case['domain'] ?? null) : null,
+                ),
                 'quality_floor' => [
                     'must_keep_coverage' => 1.0,
                     'evidence_coverage_regression_allowed' => false,

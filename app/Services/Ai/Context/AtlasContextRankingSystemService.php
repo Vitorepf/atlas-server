@@ -109,8 +109,8 @@ final class AtlasContextRankingSystemService
     private function graphRanking(array $requiredSources, string $domain, string $taskType, string $risk, int $maxRefs): array
     {
         $query = WorldModelRankingQuery::fromArray([
-            'textual_seeds' => array_values(array_unique(array_filter([$domain, $taskType]))),
-            'target_capabilities' => array_values(array_unique($requiredSources)),
+            'textual_seeds' => AtlasContextStringListNormalizer::uniqueTrimmedStrings([$domain, $taskType]),
+            'target_capabilities' => AtlasContextStringListNormalizer::uniqueTrimmedStrings($requiredSources),
             'target_flows' => [$this->flow($domain, $taskType)],
             'task_risk_level' => in_array($risk, ['high', 'irreversible'], true) ? 'high' : 'low',
             'boost_docs' => true,

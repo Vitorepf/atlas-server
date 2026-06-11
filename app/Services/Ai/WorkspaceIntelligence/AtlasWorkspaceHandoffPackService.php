@@ -23,6 +23,7 @@ final class AtlasWorkspaceHandoffPackService implements \App\Services\Ai\Softwar
         private readonly AtlasWorkspaceConversationFusionService $conversationFusion,
         private readonly HandoffArtifactGapDetector $artifactGapDetector = new HandoffArtifactGapDetector,
         private readonly HandoffCompletenessScorer $completenessScorer = new HandoffCompletenessScorer,
+        private readonly AtlasWorkspaceIntelligenceListNormalizer $listNormalizer = new AtlasWorkspaceIntelligenceListNormalizer,
     ) {}
 
     /**
@@ -265,7 +266,7 @@ final class AtlasWorkspaceHandoffPackService implements \App\Services\Ai\Softwar
                 'workspace_hash' => $workspaceReport['workspace_hash'] ?? null,
                 'readiness_status' => $workspaceReport['readiness_status'] ?? 'blocked',
             ],
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => $this->listNormalizer->uniqueStrings($blockers),
             'claim_policy' => [
                 'read_only' => true,
                 'invokes_provider' => false,

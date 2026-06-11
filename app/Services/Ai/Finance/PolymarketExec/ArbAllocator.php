@@ -31,10 +31,11 @@ final class ArbAllocator
         private readonly ShortBasketPlanner $shortPlanner,
         private readonly BasketStateMachine $longMachine,
         private readonly MintSellStateMachine $shortMachine,
+        private readonly ?string $idempotencyScope = null,
     ) {}
 
     /**
-     * @param  list<array{event_slug: string, kind: string, legs: list<array{token: string, question?: string}>, persistence_seconds: int, rank_profit_usd?: float}>  $candidates
+     * @param  list<array{event_slug: string, kind: string, legs: list<array{token: string, question?: string}>, persistence_seconds: int, rank_profit_usd?: float, attempt_key?: string}>  $candidates
      * @return array{processed: int, dispatched: int, blocked: string|null, results: list<array<string, mixed>>}
      */
     public function allocate(string $mode, string $sessionId, array $candidates, ?int $maxDispatch = null, ?float $deadlineAt = null): array
@@ -76,7 +77,7 @@ final class ArbAllocator
             $kind = (string) $c['kind'];
             $slug = (string) $c['event_slug'];
             $persist = (int) ($c['persistence_seconds'] ?? 0);
-            $basketId = $this->basketId($slug, $kind, $mode);
+            $basketId = $this->basketId($slug, $kind, $mode, (string) ($c['attempt_key'] ?? ''));
             $processed++;
 
             if ($kind === 'long_sum_under') {
@@ -120,11 +121,21 @@ final class ArbAllocator
         return ['processed' => $processed, 'dispatched' => $dispatched, 'blocked' => $blocked, 'results' => $results];
     }
 
-    /** Deterministic id: at most one basket per (event, kind, mode, day) — idempotent. */
-    private function basketId(string $eventSlug, string $kind, string $mode): string
+    /**
+     * Deterministic id: at most one basket per (event, kind, mode, day) in live.
+     * Sim may add an explicit operator scope so fresh shadow windows can be
+     * measured without polluting, or being polluted by, earlier same-day tests.
+     */
+    private function basketId(string $eventSlug, string $kind, string $mode, string $attemptKey = ''): string
     {
         $prefix = $kind === 'short_sum_over' ? 'exs' : 'exl';
+        $scope = $mode !== 'live' && $this->idempotencyScope !== null && $this->idempotencyScope !== ''
+            ? '|scope:'.$this->idempotencyScope
+            : '';
+        $attempt = $mode !== 'live' && $attemptKey !== ''
+            ? '|attempt:'.$attemptKey
+            : '';
 
-        return $prefix.'-'.substr(hash('sha256', $eventSlug.'|'.$kind.'|'.$mode.'|'.Carbon::now()->toDateString()), 0, 28);
+        return $prefix.'-'.substr(hash('sha256', $eventSlug.'|'.$kind.'|'.$mode.'|'.Carbon::now()->toDateString().$scope.$attempt), 0, 28);
     }
 }

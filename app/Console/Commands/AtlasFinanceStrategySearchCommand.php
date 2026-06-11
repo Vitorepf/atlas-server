@@ -113,6 +113,9 @@ final class AtlasFinanceStrategySearchCommand extends Command
 
     public function handle(): int
     {
+        // Piso raise-only: campanha de 1000 rounds acumula elite/report e MORREU de OOM
+        // ao escrever o relatório final (SOL-1d, 2026-06-11) — o registry ficou órfão.
+        $this->raiseMemoryFloor('1024M');
         @mkdir(storage_path('atlas/finance'), 0o755, true);
         $lockHandle = fopen(storage_path('atlas/finance/strategy-search.lock'), 'c');
         if ($lockHandle === false || ! flock($lockHandle, LOCK_EX | LOCK_NB)) {
@@ -811,6 +814,28 @@ final class AtlasFinanceStrategySearchCommand extends Command
         $hex = substr(hash('sha256', $campaignId.'|'.$signature.'|confirmation'), 0, 8);
 
         return max(1, (int) (hexdec($hex) % 2_147_483_647));
+    }
+
+    private function raiseMemoryFloor(string $floor): void
+    {
+        $current = (string) ini_get('memory_limit');
+        $currentBytes = $current === '-1' ? PHP_INT_MAX : $this->memoryToBytes($current);
+        if ($currentBytes < $this->memoryToBytes($floor)) {
+            ini_set('memory_limit', $floor);
+        }
+    }
+
+    private function memoryToBytes(string $value): int
+    {
+        $value = trim($value);
+        $number = (int) $value;
+
+        return match (strtolower(substr($value, -1))) {
+            'g' => $number * 1024 ** 3,
+            'm' => $number * 1024 ** 2,
+            'k' => $number * 1024,
+            default => (int) $value,
+        };
     }
 
     private function strategyForFamily(string $family): StrategyRunner

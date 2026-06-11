@@ -534,7 +534,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             }
         }
 
-        return array_values(array_unique($touched));
+        return $this->listNormalizer->uniqueStrings($touched);
     }
 
     /**
@@ -689,7 +689,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
 
         sort($directories);
 
-        return array_values(array_unique($directories));
+        return $this->listNormalizer->uniqueStrings($directories);
     }
 
     private function hasWorkspaceManifest(string $path): bool
@@ -785,14 +785,14 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             }
         }
 
-        $manifestFiles = array_values(array_unique($manifestFiles));
+        $manifestFiles = $this->listNormalizer->uniqueStrings($manifestFiles);
         if ($manifestFiles === []) {
             return null;
         }
 
-        $stack = array_values(array_unique($stack));
+        $stack = $this->listNormalizer->uniqueStrings($stack);
         sort($stack);
-        $scriptNames = array_values(array_unique($scriptNames));
+        $scriptNames = $this->listNormalizer->uniqueStrings($scriptNames);
         sort($scriptNames);
 
         return [
@@ -801,7 +801,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             'stack' => $stack,
             'package_manager' => $packageManager,
             'script_names' => array_slice($scriptNames, 0, 20),
-            'command_hints' => array_values(array_unique($commandHints)),
+            'command_hints' => $this->listNormalizer->uniqueStrings($commandHints),
         ];
     }
 
@@ -942,7 +942,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             $focusedRepositories[] = [
                 'repo_key' => $repoKey,
                 'score' => $score,
-                'reasons' => array_values(array_unique($reasons)),
+                'reasons' => $this->listNormalizer->uniqueStrings($reasons),
                 'stack' => $stack,
                 'command_hints' => array_slice(array_values((array) ($repository['command_hints'] ?? [])), 0, 6),
             ];
@@ -952,11 +952,11 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             ?: ((string) $left['repo_key'] <=> (string) $right['repo_key']));
         $focusedRepositories = array_slice($focusedRepositories, 0, 4);
 
-        $focusedAreas = array_values(array_unique(array_filter(array_merge(
+        $focusedAreas = $this->listNormalizer->uniqueStringValues(array_merge(
             $criticalTouched,
             array_slice($criticalAreas, 0, $criticalTouched === [] ? 4 : 2),
             array_values((array) data_get($changeMemory, 'top_level_areas', [])),
-        ), 'is_string')));
+        ));
 
         $focusedCommands = [];
         foreach ($focusedRepositories as $repository) {
@@ -966,10 +966,10 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 }
             }
         }
-        $focusedCommands = array_values(array_unique(array_merge(
+        $focusedCommands = $this->listNormalizer->uniqueStringValues(array_merge(
             $focusedCommands,
             array_values((array) ($profile['test_commands'] ?? [])),
-        )));
+        ));
         $focusedCommands = $this->rankCommandsByOutcome(
             $focusedCommands,
             (array) data_get($twin, 'test_command_intelligence.outcome_memory.command_outcome_index', []),
@@ -1022,17 +1022,17 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         $path = (string) ($profile['workspace_path'] ?? '');
         $exists = (bool) ($profile['workspace_path_exists'] ?? false);
         $repositoryInventory = $this->workspaceRepositoryInventory($profile);
-        $stack = array_values(array_unique(array_merge(
+        $stack = $this->listNormalizer->uniqueStringValues(array_merge(
             $this->detectStack($path, (string) ($profile['stack_summary'] ?? '')),
             array_values((array) data_get($repositoryInventory, 'stack', [])),
-        )));
+        ));
         $docs = $this->ownerDocs($path);
-        $commands = array_values(array_filter(array_merge(
+        $commands = $this->listNormalizer->uniqueStringValues(array_merge(
             array_values((array) ($profile['commands'] ?? [])),
             (array) ($profile['test_commands'] ?? []),
             (array) ($profile['build_commands'] ?? []),
             (array) data_get($repositoryInventory, 'command_hints', []),
-        ), 'is_string'));
+        ));
 
         $genome = [
             'schema_version' => 'atlas.workspace_genome.v1',
@@ -1180,14 +1180,14 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 ->get();
 
             foreach ($devOutcomes as $outcome) {
-                $commands = array_values(array_unique(array_filter(array_merge(
+                $commands = $this->listNormalizer->uniqueStringValues(array_merge(
                     (array) ($outcome->selected_tests ?? []),
                     (array) ($outcome->taskPacket?->suggested_tests ?? []),
-                ), 'is_string')));
-                $changedFiles = array_values(array_unique(array_filter(array_merge(
+                ));
+                $changedFiles = $this->listNormalizer->uniqueStringValues(array_merge(
                     (array) ($outcome->changed_files ?? []),
                     (array) ($outcome->taskPacket?->expected_files ?? []),
-                ), 'is_string')));
+                ));
                 $contextRefs = (array) ($outcome->taskPacket?->context_refs ?? []);
                 $policyRefs = $this->executionPolicyRefs($contextRefs);
                 foreach ($commands as $command) {
@@ -1217,10 +1217,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 ->latest()
                 ->limit(80)
                 ->get();
-            $packetIds = array_values(array_unique(array_filter(
-                $forgeOutcomes->pluck('work_packet_id')->all(),
-                'is_string',
-            )));
+            $packetIds = $this->listNormalizer->uniqueStringValues($forgeOutcomes->pluck('work_packet_id')->all());
             $packets = AiForgeWorkPacket::query()
                 ->with('intake')
                 ->whereIn('id', $packetIds)
@@ -1261,10 +1258,10 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         }
 
         if (DatabaseTableAvailability::all(['atlas_engineering_test_runs', 'atlas_engineering_runs'])) {
-            $workspaceNames = array_values(array_unique(array_filter([
+            $workspaceNames = $this->listNormalizer->uniqueStringValues([
                 $workspaceSlug,
                 isset($profile['name']) && is_string($profile['name']) ? (string) $profile['name'] : null,
-            ], 'is_string')));
+            ]);
             $engineeringRuns = AtlasEngineeringTestRun::query()
                 ->with('run')
                 ->whereNotNull('command')
@@ -1627,7 +1624,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 $areas[] = $area;
             }
         }
-        foreach (array_values(array_unique($areas)) as $area) {
+        foreach ($this->listNormalizer->uniqueStrings($areas) as $area) {
             $stats[$command]['area_affinity'][$area] = (int) ($stats[$command]['area_affinity'][$area] ?? 0) + max($polarity, 1);
             if ($durationMs !== null && $durationMs > 0) {
                 $this->recordPerformanceProfile($stats[$command]['area_performance'], $area, $durationMs);
@@ -1635,7 +1632,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         }
         arsort($stats[$command]['area_affinity']);
         $stats[$command]['area_affinity'] = array_slice($stats[$command]['area_affinity'], 0, 12, true);
-        foreach (array_values(array_unique(array_filter($stacks, 'is_string'))) as $stack) {
+        foreach ($this->listNormalizer->uniqueStringValues($stacks) as $stack) {
             $stack = trim($stack);
             if ($stack === '') {
                 continue;
@@ -2000,7 +1997,8 @@ final class AtlasWorkspaceIntelligenceRuntimeService
     {
         $commandHash = hash('sha256', $command);
 
-        return array_values(array_unique(array_filter(array_map(
+        return $this->listNormalizer->uniqueMappedStrings(
+            $refs,
             static function (mixed $ref) use ($commandHash): string {
                 $ref = trim((string) $ref);
                 if (preg_match('/^(area|stack):[a-f0-9]{64}$/', $ref) === 1) {
@@ -2012,8 +2010,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
 
                 return $matches[1] === $commandHash ? $matches[2].':'.$matches[3] : '';
             },
-            $refs,
-        ), static fn (string $ref): bool => $ref !== '')));
+        );
     }
 
     /**
@@ -2070,7 +2067,8 @@ final class AtlasWorkspaceIntelligenceRuntimeService
      */
     private function validationTierRefs(array $refs): array
     {
-        return array_values(array_unique(array_filter(array_map(
+        return $this->listNormalizer->uniqueMappedStrings(
+            $refs,
             static function (mixed $ref): string {
                 $ref = trim((string) $ref);
                 if (preg_match('/^tier:(instant|standard|deep)$/', $ref) === 1) {
@@ -2082,8 +2080,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
 
                 return 'tier:'.$matches[1];
             },
-            $refs,
-        ), static fn (string $ref): bool => $ref !== '')));
+        );
     }
 
     /**
@@ -2204,7 +2201,8 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         $cachePrefix = 'awis_cache:'.$canonicalPrefix.':';
         $canonicalPattern = '/^'.preg_quote($canonicalPrefix, '/').':[a-f0-9]{64}$/';
 
-        return array_values(array_unique(array_filter(array_map(
+        return $this->listNormalizer->uniqueMappedStrings(
+            $refs,
             static function (mixed $ref) use ($cachePrefix, $canonicalPattern, $canonicalPrefix): string {
                 $ref = trim((string) $ref);
                 if (preg_match($canonicalPattern, $ref) === 1) {
@@ -2218,8 +2216,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
 
                 return preg_match('/^[a-f0-9]{64}$/', $hash) === 1 ? $canonicalPrefix.':'.$hash : '';
             },
-            $refs,
-        ), static fn (string $ref): bool => $ref !== '')));
+        );
     }
 
     /**
@@ -2344,10 +2341,10 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         $commands = $this->listNormalizer->uniqueStrings($commands);
         $positions = array_flip($commands);
 
-        $areaKeys = array_values(array_unique(array_filter(array_map(
-            fn (mixed $area): ?string => $this->areaKey($area),
+        $areaKeys = $this->listNormalizer->uniqueMappedStrings(
             $areas,
-        ))));
+            fn (mixed $area): ?string => $this->areaKey($area),
+        );
 
         usort($commands, function (string $left, string $right) use ($outcomeIndex, $positions, $areaKeys): int {
             $leftStats = (array) ($outcomeIndex[$left] ?? []);
@@ -2432,8 +2429,8 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         $truthPack = [
             'workspace_id' => $profile['slug'] ?? null,
             'current_goal' => null,
-            'active_decisions' => array_values(array_unique($decisions)),
-            'open_blockers' => array_values(array_unique($blockers)),
+            'active_decisions' => $this->listNormalizer->uniqueStrings($decisions),
+            'open_blockers' => $this->listNormalizer->uniqueStrings($blockers),
             'canonical_sources' => [
                 'docs/engineering-knowledge-base/atlas-workspace-intelligence-system.md',
                 'docs/engineering-knowledge-base/atlas-continuity-intelligence-os.md',
@@ -2454,7 +2451,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 'access_mode' => 'audit_only',
             ],
             'segmentation_map' => $segments,
-            'decision_ledger' => array_values(array_unique($decisions)),
+            'decision_ledger' => $this->listNormalizer->uniqueStrings($decisions),
             'conflict_report' => [],
             'current_truth_pack' => $truthPack,
             'task_context_pack_policy' => [
@@ -2510,7 +2507,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             'workspace_id' => $workspaceId,
             'task_hash' => trim($task) !== '' ? hash('sha256', trim($task)) : null,
             'startup_packet' => [
-                'load_first' => array_values(array_unique(array_filter(array_merge([
+                'load_first' => $this->listNormalizer->uniqueStringValues(array_merge([
                     'workspace_binding',
                     'workspace_live_execution_memory',
                     'repository_inventory',
@@ -2520,7 +2517,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                     'context_pack',
                     'test_plan',
                     'workspace_runbook',
-                ]), 'is_string'))),
+                ])),
                 'use_as_summary' => [
                     'reusable_workspace_state',
                     'focused_repositories_and_areas',
@@ -3093,10 +3090,10 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             (array) data_get($repositoryInventory, 'repositories', []),
             'is_array',
         ));
-        $focusedRepoKeys = array_values(array_unique(array_filter(array_map(
-            static fn (mixed $repo): string => is_array($repo) ? (string) ($repo['repo_key'] ?? '') : '',
+        $focusedRepoKeys = $this->listNormalizer->uniqueMappedStrings(
             $focusedRepositories,
-        ), static fn (string $repoKey): bool => $repoKey !== '')));
+            static fn (mixed $repo): string => is_array($repo) ? (string) ($repo['repo_key'] ?? '') : '',
+        );
         $focusedManifestRefs = [];
         foreach ($repositories as $repository) {
             $repoKey = (string) ($repository['repo_key'] ?? '');
@@ -3110,12 +3107,12 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 'script_names' => array_slice(array_values((array) ($repository['script_names'] ?? [])), 0, 12),
             ];
         }
-        $artifactHashes = array_values(array_filter(array_map(
-            static fn (mixed $artifact): string => is_array($artifact) ? (string) ($artifact['artifact_hash'] ?? '') : '',
+        $artifactHashes = $this->listNormalizer->uniqueMappedStrings(
             (array) data_get($artifactFabric, 'artifacts', []),
-        )));
+            static fn (mixed $artifact): string => is_array($artifact) ? (string) ($artifact['artifact_hash'] ?? '') : '',
+        );
         $ownerDocs = array_values((array) data_get($twin, 'living_code_map.owner_docs', []));
-        $loadOrder = array_values(array_unique(array_filter(array_merge([
+        $loadOrder = $this->listNormalizer->uniqueStringValues(array_merge([
             'workspace_binding',
             'workspace_live_execution_memory',
             'repository_inventory',
@@ -3125,7 +3122,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             'artifact_graph',
             'contract_certification',
             'workspace_runbook',
-        ]), 'is_string')));
+        ]));
 
         $readinessInputs = [
             data_get($workspaceReport, 'readiness_status') === 'ready',
@@ -3229,7 +3226,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 ), 0, 10),
                 'outcome_ranked_commands' => array_slice($outcomeRankedCommands, 0, 12),
                 'area_ranked_commands' => array_slice($this->rankCommandsByOutcome(
-                    array_values(array_unique(array_merge($focusedCommands, $outcomeRankedCommands))),
+                    $this->listNormalizer->uniqueStringValues(array_merge($focusedCommands, $outcomeRankedCommands)),
                     $outcomeIndex,
                     $focusedAreas,
                 ), 0, 12),
@@ -3371,11 +3368,11 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         array $workspaceWorkingSet,
         array $outcomeCommandMemory,
     ): array {
-        $changedAreas = array_slice(array_values(array_unique(array_filter(array_merge(
+        $changedAreas = array_slice($this->listNormalizer->uniqueStringValues(array_merge(
             $this->providerSafeStringList(data_get($changeMemory, 'critical_areas_touched', [])),
             $this->providerSafeStringList(data_get($changeMemory, 'changed_areas', [])),
             $this->providerSafeStringList(data_get($focusMap, 'focused_areas', [])),
-        )))), 0, 12);
+        )), 0, 12);
         $hotAreas = $this->providerSafeStringList(data_get($workspaceWorkingSet, 'hot_areas', []));
         $hotOverlap = array_values(array_intersect($hotAreas, $changedAreas));
 
@@ -3529,26 +3526,25 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             static fn (mixed $profile): string => is_array($profile) ? (string) ($profile['key'] ?? '') : '',
             (array) data_get($outcomeCommandMemory, 'area_performance_index.profiles', []),
         ), static fn (string $key): bool => $key !== ''));
-        $hotAreas = array_slice(array_values(array_unique(array_filter(array_merge(
-            array_map(static fn (mixed $area): string => is_string($area) ? $area : (is_array($area) ? (string) ($area['key'] ?? '') : ''), $focusedAreas),
-            (array) data_get($changeMemory, 'critical_areas_touched', []),
-            $areaProfileKeys,
-        ), static fn (string $area): bool => trim($area) !== ''))), 0, 8);
+        $hotAreas = array_slice($this->listNormalizer->uniqueMappedStrings(
+            array_merge($focusedAreas, (array) data_get($changeMemory, 'critical_areas_touched', []), $areaProfileKeys),
+            static fn (mixed $area): string => is_string($area) ? $area : (is_array($area) ? (string) ($area['key'] ?? '') : ''),
+        ), 0, 8);
 
         $stackProfileKeys = array_values(array_filter(array_map(
             static fn (mixed $profile): string => is_array($profile) ? (string) ($profile['key'] ?? '') : '',
             (array) data_get($outcomeCommandMemory, 'stack_performance_index.profiles', []),
         ), static fn (string $key): bool => $key !== ''));
-        $hotStacks = array_slice(array_values(array_unique(array_filter(array_merge(
+        $hotStacks = array_slice($this->listNormalizer->uniqueStringValues(array_merge(
             (array) data_get($repositoryInventory, 'stack', []),
             $stackProfileKeys,
-        ), 'is_string'))), 0, 12);
+        )), 0, 12);
 
-        $hotCommands = array_slice($this->rankCommandsByOutcome(array_values(array_unique(array_merge(
-            array_values(array_filter($focusedCommands, 'is_string')),
+        $hotCommands = array_slice($this->rankCommandsByOutcome($this->listNormalizer->uniqueStringValues(array_merge(
+            $focusedCommands,
             (array) data_get($outcomeCommandMemory, 'performance_histogram.fast_commands', []),
             (array) data_get($outcomeCommandMemory, 'ranked_commands', []),
-        ))), (array) data_get($outcomeCommandMemory, 'command_outcome_index', []), $hotAreas), 0, 10);
+        )), (array) data_get($outcomeCommandMemory, 'command_outcome_index', []), $hotAreas), 0, 10);
 
         $cacheRefs = array_values(array_filter([
             data_get($repositoryInventory, 'inventory_hash') !== null ? 'awis_cache:repository_inventory:'.data_get($repositoryInventory, 'inventory_hash') : null,
@@ -3567,7 +3563,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             'hot_areas' => $hotAreas,
             'hot_stacks' => $hotStacks,
             'hot_commands' => $hotCommands,
-            'hot_context_units' => array_slice(array_values(array_unique(array_filter($contextUnits, 'is_string'))), 0, 10),
+            'hot_context_units' => array_slice($this->listNormalizer->uniqueStringValues($contextUnits), 0, 10),
             'cache_refs' => array_slice($cacheRefs, 0, 12),
             'prewarm_plan' => [
                 'load_cache_refs_first' => true,
@@ -3646,15 +3642,15 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             (array) ($contextLoadingPlan['outcome_ranked_commands'] ?? []),
             (array) ($contextLoadingPlan['command_hints'] ?? []),
         ));
-        $blocked = array_values(array_unique(array_merge($avoidCommands, $slowCommands)));
-        $deferred = array_values(array_unique(array_merge(
+        $blocked = $this->listNormalizer->uniqueStringValues(array_merge($avoidCommands, $slowCommands));
+        $deferred = $this->listNormalizer->uniqueStringValues(array_merge(
             $heavyCommands,
             $slowCommands,
             $flakyCommands,
-        )));
+        ));
 
         $preferred = array_values(array_filter(
-            array_values(array_unique(array_merge($fastCommands, $rankedCandidates))),
+            $this->listNormalizer->uniqueStringValues(array_merge($fastCommands, $rankedCandidates)),
             static fn (string $command): bool => ! in_array($command, $blocked, true)
                 && ($fastCommands === [] || in_array($command, $fastCommands, true)),
         ));
@@ -3732,9 +3728,9 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             'policy_feedback' => [
                 'enabled' => true,
                 'observed_policy_count' => count($policyProfiles),
-                'effective_policy_refs' => array_slice(array_values(array_unique($effectivePolicyRefs)), 0, 6),
-                'mixed_policy_refs' => array_slice(array_values(array_unique($mixedPolicyRefs)), 0, 6),
-                'failing_policy_refs' => array_slice(array_values(array_unique($failingPolicyRefs)), 0, 6),
+                'effective_policy_refs' => array_slice($this->listNormalizer->uniqueStrings($effectivePolicyRefs), 0, 6),
+                'mixed_policy_refs' => array_slice($this->listNormalizer->uniqueStrings($mixedPolicyRefs), 0, 6),
+                'failing_policy_refs' => array_slice($this->listNormalizer->uniqueStrings($failingPolicyRefs), 0, 6),
                 'next_adjustment' => $nextAdjustment,
                 'standard_command_limit' => $standardCommandLimit,
                 'raw_logs_returned' => false,
@@ -3838,7 +3834,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             $routeRef = $routeKind.':'.hash('sha256', $key);
             $feedbackEffectiveness = $routeFeedback[$routeRef] ?? null;
             if (in_array($feedbackEffectiveness, ['mixed', 'failing'], true)) {
-                $deferredCommands = array_values(array_unique(array_merge($deferredCommands, $preferredCommands)));
+                $deferredCommands = $this->listNormalizer->uniqueStringValues(array_merge($deferredCommands, $preferredCommands));
                 $preferredCommands = [];
             }
             $routeMode = $preferredCommands !== []
@@ -4025,7 +4021,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
      */
     private function appendUniqueLimited(mixed $existing, array $items, int $limit): array
     {
-        return array_slice(array_values(array_unique(array_merge((array) $existing, $items))), 0, $limit);
+        return array_slice($this->listNormalizer->uniqueStrings(array_merge((array) $existing, $items)), 0, $limit);
     }
 
     /**
@@ -4223,7 +4219,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         data_set($nextSessionBrain, 'context_loading_plan.cache_keys.workspace_learning_snapshot_hash', $snapshotHash);
         $refreshTriggers = array_values((array) data_get($nextSessionBrain, 'context_loading_plan.refresh_triggers', []));
         $refreshTriggers[] = 'workspace_learning_snapshot_hash_changed';
-        data_set($nextSessionBrain, 'context_loading_plan.refresh_triggers', array_values(array_unique($refreshTriggers)));
+        data_set($nextSessionBrain, 'context_loading_plan.refresh_triggers', $this->listNormalizer->uniqueStringValues($refreshTriggers));
 
         unset($nextSessionBrain['brain_hash']);
         $nextSessionBrain['brain_hash'] = MissionCanonicalHash::sha256($nextSessionBrain);
@@ -4821,10 +4817,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
      */
     private function fileNeedleMatches(string $path, array $needles): array
     {
-        $needles = array_values(array_unique(array_filter(
-            array_map(static fn (string $needle): string => $needle, $needles),
-            static fn (string $needle): bool => $needle !== '',
-        )));
+        $needles = $this->listNormalizer->uniqueStrings($needles);
         if ($needles === [] || ! is_file($path)) {
             return [];
         }

@@ -666,20 +666,7 @@ class EngineeringDockerHarnessService
      */
     private function stringList(mixed $value): array
     {
-        if (is_string($value)) {
-            $value = explode(',', $value);
-        }
-
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return collect($value)
-            ->filter(fn (mixed $item): bool => is_scalar($item) && trim((string) $item) !== '')
-            ->map(fn (mixed $item): string => trim((string) $item))
-            ->unique()
-            ->values()
-            ->all();
+        return EngineeringStringListNormalizer::uniqueCommaSeparatedStrings($value);
     }
 
     private function nonEmptyString(mixed $value): ?string

@@ -286,6 +286,7 @@ final class PolyExecShadowSimTest extends TestCase
             '--market-read-timeout' => 2,
             '--candidate-time-budget' => 3,
             '--monitor-log-dir' => $logDir,
+            '--sim-scope' => 'fresh test!',
             '--json' => true,
         ]);
 
@@ -299,6 +300,8 @@ final class PolyExecShadowSimTest extends TestCase
         $this->assertStringContainsString('"slow_cycle_seconds": 1', $out);
         $this->assertStringContainsString('"market_read_timeout_seconds": 2', $out);
         $this->assertStringContainsString('"candidate_time_budget_seconds": 3', $out);
+        $this->assertStringContainsString('"sim_scope": "fresh-test"', $out);
+        $this->assertStringContainsString('"sim_ledger_mode": "s'.substr(hash('sha256', 'fresh-test'), 0, 7).'"', $out);
         $this->assertStringContainsString('"max_signal_age_seconds": 900', $out);
         $this->assertStringContainsString('"slow_cycles": 0', $out);
         $this->assertStringContainsString('"monitor_log_path"', $out);
@@ -311,6 +314,56 @@ final class PolyExecShadowSimTest extends TestCase
         $this->assertCount(3, $lines);
         $events = array_map(fn (string $line): ?string => json_decode($line, true)['event'] ?? null, $lines);
         $this->assertSame(['start', 'cycle', 'summary'], $events);
+        $start = json_decode($lines[0], true);
+        $summary = json_decode($lines[2], true);
+        $this->assertSame('fresh-test', $start['sim_scope']);
+        $this->assertSame('fresh-test', $summary['sim_scope']);
+        $this->assertSame('s'.substr(hash('sha256', 'fresh-test'), 0, 7), $start['sim_ledger_mode']);
+        $this->assertSame('s'.substr(hash('sha256', 'fresh-test'), 0, 7), $summary['sim_ledger_mode']);
+    }
+
+    public function test_command_monitor_preserves_broad_scan_page_request(): void
+    {
+        $this->createLegacyArbLifecycleTables();
+
+        Http::fake([
+            'https://1.1.1.1/*' => Http::response([
+                'Answer' => [['data' => '104.18.34.205']],
+            ], 200),
+            'https://gamma-api.polymarket.com/events*' => Http::response([], 200),
+            'https://clob.polymarket.com/book*' => Http::response([
+                'asks' => [],
+                'bids' => [],
+            ], 200),
+        ]);
+
+        $logDir = sys_get_temp_dir().'/atlas-poly-monitor-broad-scan-log-'.uniqid();
+        $exit = Artisan::call('atlas:finance:poly-exec', [
+            'action' => 'monitor',
+            '--mode' => 'sim',
+            '--cycles' => 1,
+            '--interval' => 0,
+            '--max-candidates' => 1,
+            '--market-read-timeout' => 2,
+            '--candidate-time-budget' => 1,
+            '--scan-before-cycle' => true,
+            '--scan-pages' => 40,
+            '--scan-per-page' => 50,
+            '--scan-time-budget' => 1,
+            '--scan-max-clob-verifications' => 1,
+            '--monitor-log-dir' => $logDir,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+
+        $logs = glob($logDir.'/*.jsonl') ?: [];
+        $this->assertCount(1, $logs);
+        $lines = file($logs[0], FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+        $start = json_decode($lines[0], true);
+
+        $this->assertSame(40, $start['scan_options']['pages']);
+        $this->assertSame(50, $start['scan_options']['per_page']);
     }
 
     public function test_command_monitor_can_refresh_lifecycle_with_bounded_shadow_scan(): void
@@ -723,6 +776,8 @@ final class PolyExecShadowSimTest extends TestCase
             [
                 'event' => 'start',
                 'session_id' => 'replay',
+                'sim_scope' => 'window-a',
+                'sim_ledger_mode' => 's'.substr(hash('sha256', 'window-a'), 0, 7),
                 'scan_before_cycle' => true,
                 'scan_options' => ['pages' => 6, 'per_page' => 50],
                 'created_at' => now()->toIso8601String(),
@@ -779,6 +834,8 @@ final class PolyExecShadowSimTest extends TestCase
                 'session_id' => 'replay',
                 'executed_total' => 1,
                 'idempotent_replays_total' => 1,
+                'sim_scope' => 'window-a',
+                'sim_ledger_mode' => 's'.substr(hash('sha256', 'window-a'), 0, 7),
                 'created_at' => now()->toIso8601String(),
                 'schema_version' => 'atlas.finance.poly_exec.monitor_log.v1',
             ],
@@ -802,6 +859,10 @@ final class PolyExecShadowSimTest extends TestCase
         $this->assertSame(0, $exit);
         $this->assertStringContainsString('"executed_total": 1', $out);
         $this->assertStringContainsString('"idempotent_replays": 1', $out);
+        $this->assertStringContainsString('"sim_scopes": [', $out);
+        $this->assertStringContainsString('"window-a"', $out);
+        $this->assertStringContainsString('"sim_ledger_modes": [', $out);
+        $this->assertStringContainsString('"s'.substr(hash('sha256', 'window-a'), 0, 7).'"', $out);
         $this->assertStringContainsString('"unsafe_terminal_total": 1', $out);
         $this->assertStringContainsString('"idempotent_replay_statuses": {', $out);
     }

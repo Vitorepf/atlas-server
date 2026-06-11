@@ -67,6 +67,7 @@ final class AtlasFinancePolyExecCommand extends Command
         {--scan-max-clob-verifications= : monitor scan-before-cycle max shortlist candidates to verify; defaults to finance_poly_arb config}
         {--slow-cycle-seconds=45 : mark monitor cycles slower than this as degraded}
         {--monitor-log-dir= : write monitor JSONL audit logs here (default: storage/app/atlas-finance/poly-exec-monitor)}
+        {--sim-scope= : sim-only idempotency namespace for a fresh shadow/monitor qualification window}
         {--qualification-min-cycles=12 : minimum monitor cycles required before real-money qualification}
         {--qualification-min-executed=1 : minimum simulated executions required in monitor logs}
         {--qualification-max-slow-ratio=0.05 : maximum accepted slow-cycle ratio}
@@ -197,7 +198,9 @@ final class AtlasFinancePolyExecCommand extends Command
         $eventMetaSource = $this->eventMetaSource($this->marketReadTimeout());
         $longPlanner = new BasketPlanner($cfg, $bookSource, $eventMetaSource);
         $shortPlanner = new ShortBasketPlanner($cfg, $bookSource, $eventMetaSource);
-        $remaining = max(0.0, $cfg->dailyCapUsd - $gate->deployedToday($mode));
+        $simScope = $mode === 'sim' ? $this->simScope() : null;
+        $ledgerMode = $mode === 'sim' ? $this->simLedgerMode($simScope) : $mode;
+        $remaining = max(0.0, $cfg->dailyCapUsd - $gate->deployedToday($ledgerMode));
         $deadlineAt = microtime(true) + $this->candidateTimeBudget();
         $budgetExhausted = false;
 
@@ -218,7 +221,7 @@ final class AtlasFinancePolyExecCommand extends Command
             $resolutionCeiling = $plan->kind === 'short_sum_over'
                 ? $cfg->shortMaxResolutionHours
                 : null;
-            $opp = $gate->checkOpportunity($plan->toGateInput(), $mode, $resolutionCeiling);
+            $opp = $gate->checkOpportunity($plan->toGateInput(), $ledgerMode, $resolutionCeiling);
             $plans[] = [
                 'event_slug' => $plan->eventSlug,
                 'kind' => $plan->kind,
@@ -233,6 +236,8 @@ final class AtlasFinancePolyExecCommand extends Command
             'action' => 'plan',
             'mode' => $mode,
             'kinds' => $kinds,
+            'sim_scope' => $simScope,
+            'sim_ledger_mode' => $mode === 'sim' ? $ledgerMode : null,
             'daily_remaining_usd' => round($remaining, 2),
             'candidate_time_budget_seconds' => $this->candidateTimeBudget(),
             'max_signal_age_seconds' => $this->maxSignalAgeSeconds(),
@@ -491,7 +496,9 @@ final class AtlasFinancePolyExecCommand extends Command
 
         $bookSource = $this->realBookSource($this->marketReadTimeout());
         $eventMetaSource = $this->eventMetaSource($this->marketReadTimeout());
-        [$exec, $onChain] = $this->makeClients($cfg, $mode, $bookSource);
+        $simScope = $mode === 'sim' ? $this->simScope() : null;
+        $simLedgerMode = $mode === 'sim' ? $this->simLedgerMode($simScope) : null;
+        [$exec, $onChain] = $this->makeClients($cfg, $mode, $bookSource, $simLedgerMode);
         $allocator = new ArbAllocator(
             $cfg,
             $gate,
@@ -499,6 +506,7 @@ final class AtlasFinancePolyExecCommand extends Command
             new ShortBasketPlanner($cfg, $bookSource, $eventMetaSource),
             new BasketStateMachine($cfg, $exec, $gate, $bookSource, null, $onChain),
             new MintSellStateMachine($cfg, $exec, $onChain, $gate, $bookSource),
+            $simScope,
         );
         $sessionId = (string) Str::ulid();
 
@@ -508,7 +516,8 @@ final class AtlasFinancePolyExecCommand extends Command
             $sessionId, $mode, implode('+', $kinds), count($candidates),
             $mode === 'sim' ? '(SIM — real books, no signing/minting)' : '(LIVE — policy-open venue path)'));
 
-        $out = $allocator->allocate($mode, $sessionId, $candidates, null, microtime(true) + $this->candidateTimeBudget());
+        $allocatorMode = $mode === 'sim' ? (string) $simLedgerMode : $mode;
+        $out = $allocator->allocate($allocatorMode, $sessionId, $candidates, null, microtime(true) + $this->candidateTimeBudget());
 
         foreach ($out['results'] as $summary) {
             $this->line(sprintf('[poly-exec] %s %s %s -> %s pnl=$%.2f%s',
@@ -519,6 +528,8 @@ final class AtlasFinancePolyExecCommand extends Command
 
         return $this->emit([
             'action' => 'run', 'mode' => $mode, 'kinds' => $kinds, 'session_id' => $sessionId,
+            'sim_scope' => $simScope,
+            'sim_ledger_mode' => $simLedgerMode,
             'processed' => $out['processed'] ?? count($out['results']),
             'dispatched' => $out['dispatched'],
             'executed' => $this->executedCount($out['results']),
@@ -535,7 +546,9 @@ final class AtlasFinancePolyExecCommand extends Command
 
         $bookSource = $this->realBookSource($this->marketReadTimeout());
         $eventMetaSource = $this->eventMetaSource($this->marketReadTimeout());
-        [$exec, $onChain] = $this->makeClients($cfg, 'sim', $bookSource);
+        $simScope = $this->simScope();
+        $simLedgerMode = $this->simLedgerMode($simScope);
+        [$exec, $onChain] = $this->makeClients($cfg, 'sim', $bookSource, $simLedgerMode);
         $gate = new PolyExecGate($cfg);
         $allocator = new ArbAllocator(
             $cfg,
@@ -544,6 +557,7 @@ final class AtlasFinancePolyExecCommand extends Command
             new ShortBasketPlanner($cfg, $bookSource, $eventMetaSource),
             new BasketStateMachine($cfg, $exec, $gate, $bookSource, null, $onChain),
             new MintSellStateMachine($cfg, $exec, $onChain, $gate, $bookSource),
+            $simScope,
         );
 
         $sessionId = (string) Str::ulid();
@@ -568,6 +582,8 @@ final class AtlasFinancePolyExecCommand extends Command
             'event' => 'start',
             'session_id' => $sessionId,
             'mode' => 'sim',
+            'sim_scope' => $simScope,
+            'sim_ledger_mode' => $simLedgerMode,
             'kinds' => $kinds,
             'cycles_requested' => $cycles,
             'interval_seconds' => $interval,
@@ -608,7 +624,7 @@ final class AtlasFinancePolyExecCommand extends Command
             }
 
             $candidates = $this->selectCandidates($cfg, $kinds, $maxCandidates);
-            $out = $allocator->allocate('sim', $sessionId.'-'.$cycle, $candidates, $maxCandidates, microtime(true) + $candidateTimeBudget);
+            $out = $allocator->allocate($simLedgerMode, $sessionId.'-'.$cycle, $candidates, $maxCandidates, microtime(true) + $candidateTimeBudget);
             $freshResults = array_values(array_filter(
                 $out['results'],
                 fn (array $result): bool => ! (bool) ($result['idempotent_replay'] ?? false),
@@ -665,6 +681,8 @@ final class AtlasFinancePolyExecCommand extends Command
             'safety' => $safety,
             'kinds' => $kinds,
             'session_id' => $sessionId,
+            'sim_scope' => $simScope,
+            'sim_ledger_mode' => $simLedgerMode,
             'monitor_log_path' => $logPath,
             'cycles_requested' => $cycles,
             'interval_seconds' => $interval,
@@ -697,7 +715,7 @@ final class AtlasFinancePolyExecCommand extends Command
         $maxVerify = $this->intOpt('scan-max-clob-verifications');
 
         return [
-            'pages' => max(1, min(20, (int) $this->option('scan-pages'))),
+            'pages' => max(1, min(50, (int) $this->option('scan-pages'))),
             'per_page' => max(10, min(100, (int) $this->option('scan-per-page'))),
             'time_budget_seconds' => max(1, min(900, (int) $this->option('scan-time-budget'))),
             'min_profit_per_set' => max(0.0, (float) $this->option('scan-min-profit')),
@@ -881,6 +899,31 @@ final class AtlasFinancePolyExecCommand extends Command
         ];
     }
 
+    private function simScope(): ?string
+    {
+        $raw = trim((string) ($this->option('sim-scope') ?? ''));
+        if ($raw === '') {
+            return null;
+        }
+
+        $scope = preg_replace('/[^A-Za-z0-9._:-]+/', '-', $raw) ?? '';
+        $scope = trim($scope, '-._:');
+        if ($scope === '') {
+            return null;
+        }
+
+        return mb_substr($scope, 0, 80);
+    }
+
+    private function simLedgerMode(?string $simScope): string
+    {
+        if ($simScope === null || $simScope === '') {
+            return 'sim';
+        }
+
+        return 's'.substr(hash('sha256', $simScope), 0, 7);
+    }
+
     private function monitorLogPath(string $sessionId): string
     {
         return $this->monitorLogDir(create: true).DIRECTORY_SEPARATOR.$sessionId.'.jsonl';
@@ -953,6 +996,8 @@ final class AtlasFinancePolyExecCommand extends Command
             'logs_considered' => count($paths),
             'latest_log_path' => $paths[0] ?? null,
             'sessions' => [],
+            'sim_scopes' => [],
+            'sim_ledger_modes' => [],
             'cycles_observed' => 0,
             'candidates' => 0,
             'processed' => 0,
@@ -980,6 +1025,14 @@ final class AtlasFinancePolyExecCommand extends Command
             $events = $this->readMonitorLog($path);
             $summary = $this->lastMonitorEvent($events, 'summary');
             $start = $this->lastMonitorEvent($events, 'start');
+            $simScope = (string) ($summary['sim_scope'] ?? $start['sim_scope'] ?? '');
+            $simLedgerMode = (string) ($summary['sim_ledger_mode'] ?? $start['sim_ledger_mode'] ?? '');
+            if ($simScope !== '') {
+                $aggregate['sim_scopes'][] = $simScope;
+            }
+            if ($simLedgerMode !== '') {
+                $aggregate['sim_ledger_modes'][] = $simLedgerMode;
+            }
             $scanExpectedEvents = $this->scanExpectedEvents($start);
             if ($scanExpectedEvents > 0) {
                 $aggregate['scan_expected_events'] = max((int) $aggregate['scan_expected_events'], $scanExpectedEvents);
@@ -991,6 +1044,8 @@ final class AtlasFinancePolyExecCommand extends Command
             $aggregate['sessions'][] = [
                 'session_id' => (string) ($summary['session_id'] ?? $start['session_id'] ?? ''),
                 'log_path' => $path,
+                'sim_scope' => $simScope !== '' ? $simScope : null,
+                'sim_ledger_mode' => $simLedgerMode !== '' ? $simLedgerMode : null,
                 'cycles_recorded' => count($cycles),
                 'executed_total' => (int) ($summary['executed_total'] ?? array_sum(array_map(
                     fn (array $cycle): int => (int) ($cycle['executed'] ?? 0),
@@ -1051,6 +1106,8 @@ final class AtlasFinancePolyExecCommand extends Command
                 $this->addCounterMap($aggregate['reason_counts'], $cycle['reason_counts'] ?? []);
             }
         }
+        $aggregate['sim_scopes'] = array_values(array_unique(array_map('strval', $aggregate['sim_scopes'])));
+        $aggregate['sim_ledger_modes'] = array_values(array_unique(array_map('strval', $aggregate['sim_ledger_modes'])));
         ksort($aggregate['statuses']);
         ksort($aggregate['idempotent_replay_statuses']);
         ksort($aggregate['reason_counts']);
@@ -1350,7 +1407,7 @@ final class AtlasFinancePolyExecCommand extends Command
     /**
      * @return array{0: PolyExecClient, 1: PolyOnChainClient}
      */
-    private function makeClients(PolyExecConfig $cfg, string $mode, ?callable $bookSource = null): array
+    private function makeClients(PolyExecConfig $cfg, string $mode, ?callable $bookSource = null, ?string $simLedgerMode = null): array
     {
         if ($mode === 'live') {
             $identity = PolyAccountIdentity::detect();
@@ -1362,12 +1419,14 @@ final class AtlasFinancePolyExecCommand extends Command
         // Sim: pair the on-chain client to the exec client so a mint credits the
         // shares the exec client then sells (and a merge burns them), keeping the
         // simulated position exact for reconciliation.
-        $exec = new SimulatedPolyExecClient($bookSource);
+        $simMode = $simLedgerMode !== null && $simLedgerMode !== '' ? $simLedgerMode : 'sim';
+        $exec = new SimulatedPolyExecClient($bookSource, null, $simMode);
         $onChain = new SimulatedPolyOnChainClient(
             mintGasUsd: $cfg->estMintGasUsd,
             mergeGasUsd: $cfg->estMergeGasUsd,
             onMint: fn (array $tokens, float $sets) => $exec->creditMinted($tokens, $sets),
             onMerge: fn (array $tokens, float $sets) => $exec->debitMerged($tokens, $sets),
+            mode: $simMode,
         );
 
         return [$exec, $onChain];
@@ -1437,7 +1496,7 @@ final class AtlasFinancePolyExecCommand extends Command
      * freeroll. rank_profit_usd lets the allocator order by value.
      *
      * @param  list<string>  $kinds
-     * @return list<array{event_slug: string, kind: string, legs: list<array{token: string, question: string}>, persistence_seconds: int, rank_profit_usd: float}>
+     * @return list<array{event_slug: string, kind: string, legs: list<array{token: string, question: string}>, persistence_seconds: int, rank_profit_usd: float, attempt_key: string}>
      */
     private function selectCandidates(PolyExecConfig $cfg, array $kinds, ?int $limit = null): array
     {
@@ -1463,9 +1522,10 @@ final class AtlasFinancePolyExecCommand extends Command
                 continue; // not persisted long enough (the gate would block it anyway)
             }
 
-            $legsJson = DB::table('atlas_poly_arb_signals')
+            $signal = DB::table('atlas_poly_arb_signals')
                 ->where('event_slug', $row->event_slug)->where('kind', $row->kind)
-                ->orderByDesc('id')->value('legs');
+                ->orderByDesc('id')->first(['id', 'legs', 'updated_at', 'created_at']);
+            $legsJson = $signal !== null ? $signal->legs : null;
             $legs = is_string($legsJson) ? json_decode($legsJson, true) : null;
             if (! is_array($legs) || $legs === []) {
                 continue;
@@ -1492,6 +1552,11 @@ final class AtlasFinancePolyExecCommand extends Command
                 'legs' => $norm,
                 'persistence_seconds' => (int) $age,
                 'rank_profit_usd' => (float) ($row->max_profit_usd ?? 0.0),
+                'attempt_key' => implode(':', array_filter([
+                    (string) ($signal->id ?? ''),
+                    (string) ($signal->updated_at ?? $signal->created_at ?? ''),
+                    (string) ($row->updated_at ?? $row->last_seen_at ?? ''),
+                ], static fn (string $part): bool => $part !== '')),
             ];
         }
 

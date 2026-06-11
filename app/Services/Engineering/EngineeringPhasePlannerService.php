@@ -166,15 +166,6 @@ class EngineeringPhasePlannerService
      */
     private function stringList(mixed $value): array
     {
-        if (! is_array($value)) {
-            $value = preg_split('/\r?\n|- /', (string) $value) ?: [];
-        }
-
-        return collect($value)
-            ->filter(fn (mixed $item): bool => is_scalar($item) && trim((string) $item, " \t\n\r\0\x0B-") !== '')
-            ->map(fn (mixed $item): string => trim((string) $item, " \t\n\r\0\x0B-"))
-            ->unique()
-            ->values()
-            ->all();
+        return EngineeringStringListNormalizer::uniqueBulletListStrings($value);
     }
 }

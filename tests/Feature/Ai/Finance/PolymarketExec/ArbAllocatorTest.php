@@ -53,7 +53,7 @@ final class ArbAllocatorTest extends TestCase
         };
     }
 
-    private function allocator(PolyExecConfig $cfg): ArbAllocator
+    private function allocator(PolyExecConfig $cfg, ?string $idempotencyScope = null): ArbAllocator
     {
         $book = $this->book();
         $meta = fn (string $s): array => ['endDate' => now()->addDay()->toIso8601String(), 'negRisk' => true, 'negRiskMarketID' => 'cond-'.$s];
@@ -71,6 +71,7 @@ final class ArbAllocatorTest extends TestCase
             new ShortBasketPlanner($cfg, $book, $meta),
             new BasketStateMachine($cfg, $exec, $gate, $book, null, $onChain),
             new MintSellStateMachine($cfg, $exec, $onChain, $gate, $book),
+            $idempotencyScope,
         );
     }
 
@@ -102,6 +103,34 @@ final class ArbAllocatorTest extends TestCase
         }
         // The same bankroll served multiple baskets in one pass (the short recycle).
         $this->assertSame(3, DB::table('atlas_poly_exec_baskets')->where('status', '!=', 'gated')->count());
+    }
+
+    public function test_sim_idempotency_scope_allows_fresh_shadow_windows_without_double_running_same_scope(): void
+    {
+        $cfg = $this->cfg(['dailyCapUsd' => 25.0]);
+        $candidate = [array_values(array_filter(
+            $this->candidates(),
+            fn (array $candidate): bool => $candidate['event_slug'] === 'long-evt',
+        ))[0]];
+        $candidate[0]['attempt_key'] = 'scan-1';
+        $candidateNextTick = $candidate;
+        $candidateNextTick[0]['attempt_key'] = 'scan-2';
+
+        $first = $this->allocator($cfg, 'window-a')->allocate('sim', 'sess-a1', $candidate);
+        $sameScope = $this->allocator($cfg, 'window-a')->allocate('sim', 'sess-a2', $candidate);
+        $sameScopeNewAttempt = $this->allocator($cfg, 'window-a')->allocate('sim', 'sess-a3', $candidateNextTick);
+        $freshScope = $this->allocator($cfg, 'window-b')->allocate('sim', 'sess-b1', $candidate);
+
+        $this->assertSame('filled', $first['results'][0]['status']);
+        $this->assertSame('filled', $sameScope['results'][0]['status']);
+        $this->assertTrue($sameScope['results'][0]['idempotent_replay']);
+        $this->assertSame($first['results'][0]['basket_id'], $sameScope['results'][0]['basket_id']);
+        $this->assertSame('filled', $sameScopeNewAttempt['results'][0]['status']);
+        $this->assertArrayNotHasKey('idempotent_replay', $sameScopeNewAttempt['results'][0]);
+        $this->assertNotSame($first['results'][0]['basket_id'], $sameScopeNewAttempt['results'][0]['basket_id']);
+        $this->assertSame('filled', $freshScope['results'][0]['status']);
+        $this->assertArrayNotHasKey('idempotent_replay', $freshScope['results'][0]);
+        $this->assertNotSame($first['results'][0]['basket_id'], $freshScope['results'][0]['basket_id']);
     }
 
     public function test_does_not_pre_filter_a_pennies_sized_opportunity(): void

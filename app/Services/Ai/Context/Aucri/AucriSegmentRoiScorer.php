@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Context\Aucri;
 
+use App\Services\Ai\Context\AtlasContextStringListNormalizer;
+
 final class AucriSegmentRoiScorer
 {
     private const SCHEMA_VERSION = 'atlas.aucri.segment_roi_scoring.v1';
@@ -122,7 +124,7 @@ final class AucriSegmentRoiScorer
             'kept_must_keep' => array_values($keptMustKeep),
             'total_tokens' => $totalTokens,
             'retained_tokens' => $retainedTokens,
-            'reasons' => array_values(array_unique($reasons)),
+            'reasons' => AtlasContextStringListNormalizer::uniqueTrimmedStrings($reasons),
         ];
     }
 

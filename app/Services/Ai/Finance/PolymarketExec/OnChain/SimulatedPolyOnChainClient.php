@@ -26,11 +26,12 @@ final class SimulatedPolyOnChainClient implements PolyOnChainClient
         /** Optional sink: credit/debit minted shares into a paired SimulatedPolyExecClient. */
         private readonly mixed $onMint = null,
         private readonly mixed $onMerge = null,
+        private readonly string $mode = 'sim',
     ) {}
 
     public function mode(): string
     {
-        return 'sim';
+        return $this->mode;
     }
 
     public function splitFullSet(string $conditionId, array $tokenIds, float $sets, bool $negRisk): TxResult

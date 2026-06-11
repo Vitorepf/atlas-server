@@ -171,6 +171,6 @@ class EngineeringRunScoringService
             $reasons[] = 'Attempt final nao completou: #'.$latestAttempt->attempt_number.' status '.$latestAttempt->status;
         }
 
-        return array_values(array_unique($reasons));
+        return EngineeringStringListNormalizer::uniqueNonEmptyStrings($reasons);
     }
 }
