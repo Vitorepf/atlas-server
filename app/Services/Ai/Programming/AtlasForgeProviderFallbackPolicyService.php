@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProject;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -127,16 +128,16 @@ class AtlasForgeProviderFallbackPolicyService
     public function classify(array $failure, array $topology): array
     {
         $failureType = $this->normalizeFailureType($failure['type'] ?? null);
-        $failedRole = $this->stringOrNull($failure['role'] ?? null);
-        $failedProvider = $this->stringOrNull($failure['provider'] ?? null);
-        $failedModel = $this->stringOrNull($failure['model'] ?? null);
-        $reason = $this->stringOrNull($failure['reason'] ?? null);
-        $occurredAt = $this->stringOrNull($failure['occurred_at'] ?? null) ?? now()->toIso8601String();
-        $eventId = $this->stringOrNull($failure['event_id'] ?? null) ?? (string) Str::ulid();
+        $failedRole = AiValueNormalizer::trimmedStringOrNull($failure['role'] ?? null);
+        $failedProvider = AiValueNormalizer::trimmedStringOrNull($failure['provider'] ?? null);
+        $failedModel = AiValueNormalizer::trimmedStringOrNull($failure['model'] ?? null);
+        $reason = AiValueNormalizer::trimmedStringOrNull($failure['reason'] ?? null);
+        $occurredAt = AiValueNormalizer::trimmedStringOrNull($failure['occurred_at'] ?? null) ?? now()->toIso8601String();
+        $eventId = AiValueNormalizer::trimmedStringOrNull($failure['event_id'] ?? null) ?? (string) Str::ulid();
 
-        $topologyId = $this->stringOrNull(data_get($topology, 'provider_topology_id'));
-        $obraId = $this->stringOrNull(data_get($topology, 'obra_id'));
-        $strategy = $this->stringOrNull(data_get($topology, 'strategy'));
+        $topologyId = AiValueNormalizer::trimmedStringOrNull(data_get($topology, 'provider_topology_id'));
+        $obraId = AiValueNormalizer::trimmedStringOrNull(data_get($topology, 'obra_id'));
+        $strategy = AiValueNormalizer::trimmedStringOrNull(data_get($topology, 'strategy'));
         $fallbackChain = $this->normalizeFallbackChain($topology['fallback_chain'] ?? []);
         $roles = $this->normalizeRoles($topology['roles'] ?? []);
 
@@ -172,7 +173,7 @@ class AtlasForgeProviderFallbackPolicyService
             $blocker = self::BLOCKER_CAPACITY_EXHAUSTED;
         }
 
-        $capacitySnapshotId = $this->stringOrNull(data_get($topology, 'capacity_snapshot_id'));
+        $capacitySnapshotId = AiValueNormalizer::trimmedStringOrNull(data_get($topology, 'capacity_snapshot_id'));
         [$providerStatusBefore, $providerStatusAfter] = $this->resolveProviderStatusTransition(
             $failedProvider,
             $action,
@@ -401,7 +402,7 @@ class AtlasForgeProviderFallbackPolicyService
      */
     private function normalizeFailureType(mixed $value): string
     {
-        $value = $this->stringOrNull($value);
+        $value = AiValueNormalizer::trimmedStringOrNull($value);
         if ($value === null) {
             return self::FAILURE_PROVIDER_ERROR;
         }
@@ -423,9 +424,9 @@ class AtlasForgeProviderFallbackPolicyService
             if (! is_array($entry)) {
                 return null;
             }
-            $role = $this->stringOrNull($entry['role'] ?? null);
-            $provider = $this->stringOrNull($entry['provider'] ?? null);
-            $model = $this->stringOrNull($entry['model'] ?? null);
+            $role = AiValueNormalizer::trimmedStringOrNull($entry['role'] ?? null);
+            $provider = AiValueNormalizer::trimmedStringOrNull($entry['provider'] ?? null);
+            $model = AiValueNormalizer::trimmedStringOrNull($entry['model'] ?? null);
             $order = (int) ($entry['order'] ?? 0);
             $capable = ! array_key_exists('capable', $entry) || (bool) $entry['capable'];
             if ($role === null && $provider === null && $model === null) {
@@ -456,13 +457,13 @@ class AtlasForgeProviderFallbackPolicyService
             if (! is_array($entry)) {
                 return null;
             }
-            $role = $this->stringOrNull($entry['role'] ?? null);
+            $role = AiValueNormalizer::trimmedStringOrNull($entry['role'] ?? null);
             if ($role === null) {
                 return null;
             }
-            $provider = $this->stringOrNull($entry['provider'] ?? null);
-            $model = $this->stringOrNull($entry['model'] ?? null);
-            $status = $this->stringOrNull($entry['status'] ?? null) ?? 'available';
+            $provider = AiValueNormalizer::trimmedStringOrNull($entry['provider'] ?? null);
+            $model = AiValueNormalizer::trimmedStringOrNull($entry['model'] ?? null);
+            $status = AiValueNormalizer::trimmedStringOrNull($entry['status'] ?? null) ?? 'available';
 
             return [
                 'role' => $role,
@@ -542,16 +543,5 @@ class AtlasForgeProviderFallbackPolicyService
         }
 
         return null;
-    }
-
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
     }
 }

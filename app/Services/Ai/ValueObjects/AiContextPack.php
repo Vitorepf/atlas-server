@@ -136,6 +136,7 @@ class AiContextPack
         $latestHandoff = data_get($continuity, 'latest_provider_handoff');
         $rankedRecall = data_get($this->data, 'memory.recall', []);
         $retrievalPlan = data_get($this->data, 'retrieval', []);
+        $contextDeliveryPolicy = data_get($this->data, 'context_delivery_policy', []);
         $registryMemory = data_get($this->data, 'memory.registry', []);
         $verbatimMemory = data_get($this->data, 'memory.verbatim', []);
         $memory = data_get($this->data, 'memory.semantic', []);
@@ -270,6 +271,31 @@ class AiContextPack
                     .'; limit='.($source['limit'] ?? 'n/a')
                     .'; required='.(($source['required'] ?? false) ? 'true' : 'false');
             }
+        }
+
+        if (is_array($contextDeliveryPolicy) && ($contextDeliveryPolicy['status'] ?? null) === 'active') {
+            $lines[] = '';
+            $lines[] = '## Context Delivery Policy';
+            $lines[] = '- schema: '.($contextDeliveryPolicy['schema_version'] ?? 'atlas.token_economy.context_delivery_policy.v1');
+            $lines[] = '- mode: '.($contextDeliveryPolicy['delivery_mode'] ?? 'unknown')
+                .'; source='.($contextDeliveryPolicy['source'] ?? 'unknown')
+                .'; advisory=true';
+            $lines[] = '- initial: tokens='.(int) ($contextDeliveryPolicy['initial_context_token_budget'] ?? 0)
+                .'; ref_limit='.(int) ($contextDeliveryPolicy['initial_ref_limit'] ?? 0)
+                .'; expansion_reserve='.(int) ($contextDeliveryPolicy['expansion_token_reserve'] ?? 0);
+            foreach ([
+                'initial_source_types' => 'initial_sources',
+                'deferred_source_types' => 'deferred_sources',
+                'guarded_required_source_types' => 'guarded_required_sources',
+                'expansion_triggers' => 'expansion_triggers',
+            ] as $key => $label) {
+                $values = array_values(array_filter((array) ($contextDeliveryPolicy[$key] ?? []), 'is_scalar'));
+                if ($values !== []) {
+                    $lines[] = '- '.$label.': '.implode(', ', array_slice(array_map('strval', $values), 0, 12));
+                }
+            }
+            $lines[] = '- quality_gate_hint: '.($contextDeliveryPolicy['quality_gate_hint'] ?? 'feedback_guided_staging_allowed');
+            $lines[] = '- policy: provider_safe_only=true; raw_text_exposed=false; providers_invoked=false; writes=false';
         }
 
         if (! empty($rankedRecall)) {

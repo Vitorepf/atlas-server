@@ -32,8 +32,8 @@ final class AtlasForgeRivalsDryRunService
         $preset = trim((string) ($input['preset'] ?? 'smoke'));
         $caseSet = trim((string) ($input['case_set'] ?? ''));
         $explicitCase = trim((string) ($input['case'] ?? ''));
-        $atlasModel = $this->normalizeModel((string) ($input['atlas_model'] ?? $input['model'] ?? 'claude_sonnet'));
-        $rivalModel = $this->normalizeModel((string) ($input['rival'] ?? $input['baseline_model'] ?? $atlasModel));
+        $atlasModel = AtlasForgeRivalsInputNormalizer::trimmedModelAlias((string) ($input['atlas_model'] ?? $input['model'] ?? 'claude_sonnet'));
+        $rivalModel = AtlasForgeRivalsInputNormalizer::trimmedModelAlias((string) ($input['rival'] ?? $input['baseline_model'] ?? $atlasModel));
         [$workspace, $baselineWorkspace] = $this->resolveWorktrees($input);
         $blockers = [];
         $cases = [];
@@ -168,17 +168,6 @@ final class AtlasForgeRivalsDryRunService
             'owner_of_model_routing' => 'atlas_decide',
             'routing_effect' => 'none',
         ];
-    }
-
-    private function normalizeModel(string $model): string
-    {
-        $model = trim($model);
-
-        return match ($model) {
-            'sonnet' => 'claude_sonnet',
-            'opus' => 'claude_opus',
-            default => $model,
-        };
     }
 
     private function presetCaseSet(string $preset): ?string

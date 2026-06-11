@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\ForgeRivals;
 
 use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -578,10 +579,7 @@ MD;
      */
     private function stringList(mixed $value): array
     {
-        return array_values(array_filter(
-            array_map(static fn ($entry): string => trim((string) $entry), (array) $value),
-            static fn (string $entry): bool => $entry !== '',
-        ));
+        return AiStringListNormalizer::trimmedCastValues($value);
     }
 
     private function escapePhpString(string $value): string

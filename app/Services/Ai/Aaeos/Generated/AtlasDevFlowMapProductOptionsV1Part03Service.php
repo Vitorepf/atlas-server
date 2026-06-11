@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+
 /**
  * Atlas Dev Flow Map And Product Options v1 · Parte 3 — pure, deterministic
  * decider for the CLOSED, CONSOLIDATED slice of the flow/product map doc.
@@ -308,8 +310,6 @@ final class AtlasDevFlowMapProductOptionsV1Part03Service
      */
     private function normalizeRisk(mixed $risk): string
     {
-        $value = strtoupper(is_string($risk) ? trim($risk) : '');
-
-        return in_array($value, ['R0', 'R1', 'R2', 'R3', 'R4', 'R5'], true) ? $value : 'R0';
+        return AtlasAaeosValueNormalizer::riskCodeR0ToR5($risk, 'R0');
     }
 }

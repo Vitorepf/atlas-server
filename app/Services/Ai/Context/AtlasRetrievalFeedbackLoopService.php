@@ -18,11 +18,17 @@ final class AtlasRetrievalFeedbackLoopService
 
     public const CONTEXT_ROI_SCHEMA = 'atlas.aucri.context_roi.v1';
 
+    public const CONTEXT_REF_ATTRIBUTION_SCHEMA = 'atlas.aucri.context_ref_attribution.v1';
+
+    public const NEXT_CONTEXT_POLICY_SCHEMA = 'atlas.aucri.next_context_policy.v1';
+
     public const MISSED_REF_SCHEMA = 'atlas.aucri.missed_ref_candidate.v1';
 
     public const NOISE_REF_SCHEMA = 'atlas.aucri.noise_ref_candidate.v1';
 
     public const LEARNING_CANDIDATE_SCHEMA = 'atlas.aucri.retrieval_learning_candidate.v1';
+
+    private const MAX_CONTEXT_ATTRIBUTION_REFS = 32;
 
     public function __construct(
         private readonly AtlasContextFreshnessQualityGateService $freshnessQualityGate,
@@ -42,18 +48,34 @@ final class AtlasRetrievalFeedbackLoopService
         $coverage = (array) data_get($gate, 'context_quality_gate.required_source_coverage', []);
         $missed = $this->missedRefCandidates($coverage, (array) ($input['missed_required_sources'] ?? []));
         $noise = $this->noiseRefCandidates($selected, (array) ($input['noise_ref_hashes'] ?? []), $outcomeStatus);
-        $usedCount = $this->usedCount($selected, (array) ($input['used_ref_hashes'] ?? []), $outcomeStatus);
-        $roi = $this->contextRoi($selected, $usedCount, count($noise), count($missed), $gate, $outcomeStatus, $input);
+        $contextRefAttribution = $this->contextRefAttribution($selected, $missed, $noise, $outcomeStatus, $input);
+        $usedCount = (int) $contextRefAttribution['used_count'];
+        $noiseCount = max(count($noise), (int) $contextRefAttribution['noise_count']);
+        $roi = $this->contextRoi(
+            $selected,
+            $usedCount,
+            $noiseCount,
+            count($missed),
+            $gate,
+            $outcomeStatus,
+            $input,
+            (int) $contextRefAttribution['delivered_count'],
+        );
+        $nextContextPolicy = $this->nextContextPolicy($contextRefAttribution, $roi);
         $feedbackEvent = $this->feedbackEvent($gate, $roi, $missed, $noise, $outcomeStatus, $input);
-        $persisted = $record ? $this->persistFeedback($feedbackEvent, $roi, $missed, $noise, $outcomeStatus, $input) : null;
-        $learningCandidate = $this->learningCandidate($feedbackEvent, $roi, $missed, $noise, $persisted);
+        $persisted = $record
+            ? $this->persistFeedback($feedbackEvent, $roi, $missed, $noise, $contextRefAttribution, $nextContextPolicy, $outcomeStatus, $input)
+            : null;
+        $learningCandidate = $this->learningCandidate($feedbackEvent, $roi, $missed, $noise, $contextRefAttribution, $nextContextPolicy, $persisted);
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
-            'status' => $this->status($gate, $roi, $missed, $noise, $outcomeStatus),
+            'status' => $this->status($gate, $roi, $missed, $noise, $contextRefAttribution, $outcomeStatus),
             'generated_at' => Carbon::now()->toIso8601String(),
             'feedback_event' => $feedbackEvent,
             'context_roi' => $roi,
+            'context_ref_attribution' => $contextRefAttribution,
+            'next_context_policy' => $nextContextPolicy,
             'missed_ref_candidates' => $missed,
             'noise_ref_candidates' => $noise,
             'learning_candidate' => $learningCandidate,
@@ -162,28 +184,6 @@ final class AtlasRetrievalFeedbackLoopService
 
     /**
      * @param  array<int,array<string,mixed>>  $selected
-     * @param  array<int,mixed>  $usedRefHashes
-     */
-    private function usedCount(array $selected, array $usedRefHashes, string $outcomeStatus): int
-    {
-        $used = array_values(array_filter(array_map(
-            static fn (mixed $hash): string => is_scalar($hash) ? trim((string) $hash) : '',
-            $usedRefHashes,
-        )));
-
-        if ($used !== []) {
-            return count(array_filter($selected, static fn (array $item): bool => in_array((string) ($item['source_ref_hash'] ?? ''), $used, true)));
-        }
-
-        if ($outcomeStatus === 'passed') {
-            return count($selected);
-        }
-
-        return max(0, (int) floor(count($selected) / 2));
-    }
-
-    /**
-     * @param  array<int,array<string,mixed>>  $selected
      * @param  array<int,array<string,mixed>>  $missed
      * @param  array<string,mixed>  $gate
      * @param  array<string,mixed>  $input
@@ -197,8 +197,9 @@ final class AtlasRetrievalFeedbackLoopService
         array $gate,
         string $outcomeStatus,
         array $input,
+        ?int $includedCount = null,
     ): array {
-        $included = count($selected);
+        $included = $includedCount ?? count($selected);
         $sufficiency = match ((string) data_get($gate, 'status', 'blocked')) {
             'passed' => 92,
             'degraded' => 62,
@@ -276,6 +277,8 @@ final class AtlasRetrievalFeedbackLoopService
         array $roi,
         array $missed,
         array $noise,
+        array $contextRefAttribution,
+        array $nextContextPolicy,
         string $outcomeStatus,
         array $input,
     ): ?AiRagFeedbackEvent {
@@ -296,12 +299,14 @@ final class AtlasRetrievalFeedbackLoopService
             'source_utility' => $feedbackEvent['source_utility'],
             'outcome_status' => $outcomeStatus,
             'failure_reason' => $feedbackEvent['failure_reason'],
-            'next_retrieval_hint' => $this->nextRetrievalHint($missed, $noise, $roi),
+            'next_retrieval_hint' => $this->nextRetrievalHint($missed, $noise, $roi, $nextContextPolicy),
             'run_outcome_id' => is_scalar($input['run_outcome_id'] ?? null) ? (string) $input['run_outcome_id'] : null,
             'payload' => [
                 'schema_version' => self::SCHEMA_VERSION,
                 'freshness_quality_gate_hash' => $feedbackEvent['freshness_quality_gate_hash'],
                 'context_roi' => $roi,
+                'context_ref_attribution' => $contextRefAttribution,
+                'next_context_policy' => $nextContextPolicy,
                 'missed_count' => count($missed),
                 'noise_count' => count($noise),
                 'raw_text_exposed' => false,
@@ -314,13 +319,23 @@ final class AtlasRetrievalFeedbackLoopService
      * @param  array<string,mixed>  $roi
      * @param  array<int,array<string,mixed>>  $missed
      * @param  array<int,array<string,mixed>>  $noise
+     * @param  array<string,mixed>  $contextRefAttribution
+     * @param  array<string,mixed>  $nextContextPolicy
      * @return array<string,mixed>
      */
-    private function learningCandidate(array $feedbackEvent, array $roi, array $missed, array $noise, ?AiRagFeedbackEvent $persisted): array
-    {
+    private function learningCandidate(
+        array $feedbackEvent,
+        array $roi,
+        array $missed,
+        array $noise,
+        array $contextRefAttribution,
+        array $nextContextPolicy,
+        ?AiRagFeedbackEvent $persisted,
+    ): array {
         $reasons = array_values(array_filter([
             $missed !== [] ? 'missed_required_sources' : null,
-            $noise !== [] ? 'noise_context_detected' : null,
+            ((int) ($contextRefAttribution['noise_count'] ?? 0)) > 0 ? 'noise_context_detected' : null,
+            ((float) ($contextRefAttribution['waste_ratio'] ?? 0.0)) >= 0.40 ? 'context_waste_detected' : null,
             (float) ($roi['roi_score'] ?? 0.0) < 0.50 ? 'low_context_roi' : null,
             ($feedbackEvent['outcome_status'] ?? 'unknown') !== 'passed' ? 'non_passing_outcome' : null,
         ]));
@@ -339,6 +354,9 @@ final class AtlasRetrievalFeedbackLoopService
             'proposed_state' => [
                 'repromote_source_types' => $this->itemStringColumn($missed, 'source_type'),
                 'demote_noise_source_hashes' => $this->itemStringColumn($noise, 'source_ref_hash'),
+                'demote_context_refs' => (array) ($nextContextPolicy['demote_context_refs'] ?? []),
+                'next_context_actions' => (array) ($nextContextPolicy['actions'] ?? []),
+                'next_initial_budget_multiplier' => (float) ($nextContextPolicy['next_initial_budget_multiplier'] ?? 1.0),
                 'minimum_context_roi' => 0.70,
             ],
         ];
@@ -404,9 +422,9 @@ final class AtlasRetrievalFeedbackLoopService
      * @param  array<string,mixed>  $roi
      * @return array<string,mixed>|null
      */
-    private function nextRetrievalHint(array $missed, array $noise, array $roi): ?array
+    private function nextRetrievalHint(array $missed, array $noise, array $roi, array $nextContextPolicy): ?array
     {
-        if ($missed === [] && $noise === [] && (float) ($roi['roi_score'] ?? 1.0) >= 0.70) {
+        if ($missed === [] && $noise === [] && (float) ($roi['roi_score'] ?? 1.0) >= 0.70 && ($nextContextPolicy['actions'] ?? []) === ['keep_current_pack']) {
             return null;
         }
 
@@ -417,6 +435,9 @@ final class AtlasRetrievalFeedbackLoopService
                 static fn (mixed $item): mixed => is_array($item) ? ($item['source_type'] ?? null) : null,
             ),
             'should_demote_count' => count($noise),
+            'context_policy_actions' => (array) ($nextContextPolicy['actions'] ?? []),
+            'next_initial_budget_multiplier' => (float) ($nextContextPolicy['next_initial_budget_multiplier'] ?? 1.0),
+            'defer_sections' => (array) ($nextContextPolicy['defer_sections'] ?? []),
             'min_context_roi_target' => 0.70,
             'advisory' => true,
             'auto_apply' => false,
@@ -427,14 +448,21 @@ final class AtlasRetrievalFeedbackLoopService
      * @param  array<int,array<string,mixed>>  $missed
      * @param  array<int,array<string,mixed>>  $noise
      * @param  array<string,mixed>  $gate
+     * @param  array<string,mixed>  $contextRefAttribution
      */
-    private function status(array $gate, array $roi, array $missed, array $noise, string $outcomeStatus): string
+    private function status(array $gate, array $roi, array $missed, array $noise, array $contextRefAttribution, string $outcomeStatus): string
     {
         if ((string) ($gate['status'] ?? 'blocked') === 'blocked' || $missed !== []) {
             return 'needs_review';
         }
 
-        if ($noise !== [] || (float) ($roi['roi_score'] ?? 0.0) < 0.50 || $outcomeStatus !== 'passed') {
+        if (
+            $noise !== []
+            || ((int) ($contextRefAttribution['noise_count'] ?? 0)) > 0
+            || ((float) ($contextRefAttribution['waste_ratio'] ?? 0.0)) >= 0.40
+            || (float) ($roi['roi_score'] ?? 0.0) < 0.50
+            || $outcomeStatus !== 'passed'
+        ) {
             return 'learning_candidate';
         }
 
@@ -464,5 +492,377 @@ final class AtlasRetrievalFeedbackLoopService
             'failed', 'blocked', 'error' => 'failed',
             default => 'unknown',
         };
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $selected
+     * @param  array<int,array<string,mixed>>  $missed
+     * @param  array<int,array<string,mixed>>  $noise
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function contextRefAttribution(array $selected, array $missed, array $noise, string $outcomeStatus, array $input): array
+    {
+        $delivered = [];
+        foreach ($selected as $item) {
+            $entry = $this->selectedContextRefEntry($item);
+            if ($entry !== null) {
+                $delivered[$entry['key']] = $entry;
+            }
+        }
+
+        foreach ($this->inputContextRefEntries($input['delivered_context_refs'] ?? [], 'explicit_delivered') as $entry) {
+            $delivered[$entry['key']] = $entry;
+        }
+
+        $usedSignals = $this->inputContextRefEntries($input['used_context_refs'] ?? [], 'explicit_used');
+        foreach ($usedSignals as $entry) {
+            $delivered[$entry['key']] ??= $entry;
+        }
+
+        $noiseEntries = [];
+        foreach ($noise as $item) {
+            $entry = $this->candidateContextRefEntry($item, 'noise_candidate');
+            if ($entry !== null) {
+                $noiseEntries[$entry['key']] = $entry;
+                $delivered[$entry['key']] ??= $entry;
+            }
+        }
+
+        foreach ($this->inputContextRefEntries($input['noise_context_refs'] ?? [], 'explicit_noise') as $entry) {
+            $noiseEntries[$entry['key']] = $entry;
+            $delivered[$entry['key']] ??= $entry;
+        }
+
+        $usedHashes = $this->scalarStringList($input['used_ref_hashes'] ?? []);
+        $usedKeys = [];
+        $hasExplicitUseSignal = $usedSignals !== [] || $usedHashes !== [];
+        if ($hasExplicitUseSignal) {
+            foreach ($usedSignals as $entry) {
+                $usedKeys[$entry['key']] = true;
+            }
+
+            foreach ($delivered as $key => $entry) {
+                if (in_array((string) ($entry['ref_hash'] ?? ''), $usedHashes, true)) {
+                    $usedKeys[$key] = true;
+                }
+            }
+            $usageBasis = 'explicit_used_refs';
+        } elseif ($outcomeStatus === 'passed') {
+            foreach ($delivered as $key => $entry) {
+                if (! array_key_exists($key, $noiseEntries)) {
+                    $usedKeys[$key] = true;
+                }
+            }
+            $usageBasis = 'passed_outcome_inferred_all_non_noise';
+        } else {
+            $nonNoiseKeys = array_values(array_filter(
+                array_keys($delivered),
+                static fn (string $key): bool => ! array_key_exists($key, $noiseEntries),
+            ));
+            foreach (array_slice($nonNoiseKeys, 0, max(0, (int) floor(count($nonNoiseKeys) / 2))) as $key) {
+                $usedKeys[$key] = true;
+            }
+            $usageBasis = 'non_passing_outcome_inferred_partial';
+        }
+
+        $used = [];
+        $unused = [];
+        foreach ($delivered as $key => $entry) {
+            if (array_key_exists($key, $noiseEntries)) {
+                continue;
+            }
+
+            if (array_key_exists($key, $usedKeys)) {
+                $used[$key] = $entry;
+            } else {
+                $unused[$key] = $entry;
+            }
+        }
+
+        $deliveredCount = count($delivered);
+        $usedCount = count($used);
+        $noiseCount = count($noiseEntries);
+        $unusedCount = count($unused);
+        $wasteRatio = $deliveredCount === 0 ? 0.0 : ($unusedCount + $noiseCount) / $deliveredCount;
+        $useRatio = $deliveredCount === 0 ? 0.0 : $usedCount / $deliveredCount;
+
+        return [
+            'schema_version' => self::CONTEXT_REF_ATTRIBUTION_SCHEMA,
+            'delivered_count' => $deliveredCount,
+            'used_count' => $usedCount,
+            'unused_count' => $unusedCount,
+            'noise_count' => $noiseCount,
+            'missed_count' => count($missed),
+            'use_ratio' => round($useRatio, 4),
+            'waste_ratio' => round($wasteRatio, 4),
+            'usage_basis' => $usageBasis,
+            'missing_source_types' => $this->itemStringColumn($missed, 'source_type'),
+            'delivered_refs' => $this->publicContextRefs($delivered),
+            'used_refs' => $this->publicContextRefs($used),
+            'unused_refs' => $this->publicContextRefs($unused),
+            'noise_refs' => $this->publicContextRefs($noiseEntries),
+            'source_policy' => [
+                'ref_contract' => 'provider_safe_ref_or_hash_only',
+                'raw_text_exposed' => false,
+                'max_refs' => self::MAX_CONTEXT_ATTRIBUTION_REFS,
+                'auto_apply' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $contextRefAttribution
+     * @param  array<string,mixed>  $roi
+     * @return array<string,mixed>
+     */
+    private function nextContextPolicy(array $contextRefAttribution, array $roi): array
+    {
+        $actions = [];
+        $missingSourceTypes = (array) ($contextRefAttribution['missing_source_types'] ?? []);
+        $noiseRefs = (array) ($contextRefAttribution['noise_refs'] ?? []);
+        $unusedRefs = (array) ($contextRefAttribution['unused_refs'] ?? []);
+        $wasteRatio = (float) ($contextRefAttribution['waste_ratio'] ?? 0.0);
+
+        if ($missingSourceTypes !== []) {
+            $actions[] = 'expand_missing_source_types';
+        }
+
+        if ($noiseRefs !== []) {
+            $actions[] = 'demote_noise_context_refs';
+        }
+
+        if ($wasteRatio >= 0.40) {
+            $actions[] = 'shrink_initial_context';
+        }
+
+        if ((float) ($roi['roi_score'] ?? 1.0) < 0.50) {
+            $actions[] = 'review_context_pack';
+        }
+
+        if ($actions === []) {
+            $actions[] = 'keep_current_pack';
+        }
+
+        $nextInitialBudgetMultiplier = match (true) {
+            in_array('shrink_initial_context', $actions, true) && in_array('expand_missing_source_types', $actions, true) => 0.85,
+            in_array('shrink_initial_context', $actions, true) => 0.75,
+            in_array('expand_missing_source_types', $actions, true) => 1.10,
+            default => 1.00,
+        };
+
+        return [
+            'schema_version' => self::NEXT_CONTEXT_POLICY_SCHEMA,
+            'initial_context_contract' => 'minimal_provider_safe_top_k',
+            'expansion_contract' => 'on_demand_by_source_type_and_ref_handle',
+            'actions' => array_values(array_unique($actions)),
+            'recommended_action' => $actions[0],
+            'next_initial_budget_multiplier' => $nextInitialBudgetMultiplier,
+            'expand_source_types' => $missingSourceTypes,
+            'demote_context_refs' => $this->contextRefLabels($noiseRefs),
+            'defer_sections' => $this->deferSections(array_merge($unusedRefs, $noiseRefs)),
+            'minimum_context_roi_target' => 0.70,
+            'provider_safe' => true,
+            'auto_apply' => false,
+            'requires_review' => $actions !== ['keep_current_pack'],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $item
+     * @return array<string,mixed>|null
+     */
+    private function selectedContextRefEntry(array $item): ?array
+    {
+        return $this->contextRefEntry(
+            (string) (($item['source_ref_hash'] ?? '') ?: ($item['candidate_hash'] ?? '')),
+            (string) ($item['source_type'] ?? 'unknown'),
+            'retrieval_selected',
+            (string) ($item['source_ref_hash'] ?? ''),
+            [
+                'candidate_hash' => (string) ($item['candidate_hash'] ?? ''),
+                'status' => (string) ($item['status'] ?? 'unknown'),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string,mixed>  $item
+     * @return array<string,mixed>|null
+     */
+    private function candidateContextRefEntry(array $item, string $basis): ?array
+    {
+        return $this->contextRefEntry(
+            (string) (($item['source_ref_hash'] ?? '') ?: ($item['candidate_hash'] ?? '')),
+            (string) ($item['source_type'] ?? 'unknown'),
+            $basis,
+            (string) ($item['source_ref_hash'] ?? ''),
+            [
+                'candidate_hash' => (string) ($item['candidate_hash'] ?? ''),
+                'reason' => (string) ($item['reason'] ?? ''),
+            ],
+        );
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function inputContextRefEntries(mixed $value, string $basis): array
+    {
+        $items = is_array($value) ? $value : [];
+        $entries = [];
+        foreach ($items as $item) {
+            if (is_scalar($item)) {
+                $entry = $this->contextRefEntry((string) $item, $this->inferredSourceType((string) $item), $basis);
+            } elseif (is_array($item)) {
+                $rawRef = (string) ($item['ref'] ?? $item['source_ref'] ?? $item['path'] ?? $item['id'] ?? $item['source_ref_hash'] ?? $item['ref_hash'] ?? '');
+                $entry = $this->contextRefEntry(
+                    $rawRef,
+                    (string) ($item['source_type'] ?? $this->inferredSourceType($rawRef)),
+                    $basis,
+                    (string) ($item['source_ref_hash'] ?? $item['ref_hash'] ?? ''),
+                    ['reason' => (string) ($item['reason'] ?? '')],
+                );
+            } else {
+                $entry = null;
+            }
+
+            if ($entry !== null) {
+                $entries[$entry['key']] = $entry;
+            }
+        }
+
+        return array_values($entries);
+    }
+
+    /**
+     * @param  array<string,mixed>  $extra
+     * @return array<string,mixed>|null
+     */
+    private function contextRefEntry(string $rawRef, string $sourceType, string $basis, string $sourceRefHash = '', array $extra = []): ?array
+    {
+        $rawRef = trim($rawRef);
+        $sourceRefHash = trim($sourceRefHash);
+        if ($rawRef === '' && $sourceRefHash === '') {
+            return null;
+        }
+
+        $refHash = $sourceRefHash !== '' ? $sourceRefHash : MissionCanonicalHash::sha256($rawRef);
+        $ref = $rawRef !== '' ? $this->providerSafeContextRef($rawRef) : 'hash:'.substr($refHash, 0, 24);
+        $entry = [
+            'key' => $sourceType.'|'.$refHash.'|'.$ref,
+            'ref' => $ref,
+            'ref_hash' => $refHash,
+            'source_type' => $sourceType !== '' ? $sourceType : 'unknown',
+            'basis' => $basis,
+        ];
+
+        foreach ($extra as $key => $value) {
+            if (is_scalar($value) && trim((string) $value) !== '') {
+                $entry[$key] = trim((string) $value);
+            }
+        }
+
+        return $entry;
+    }
+
+    private function providerSafeContextRef(string $rawRef): string
+    {
+        $rawRef = trim($rawRef);
+        if ($rawRef === '') {
+            return '';
+        }
+
+        if (strlen($rawRef) > 160 || ! preg_match('/^[A-Za-z0-9_.:\/#@=\-]+$/', $rawRef)) {
+            return 'hash:'.substr(MissionCanonicalHash::sha256($rawRef), 0, 24);
+        }
+
+        return $rawRef;
+    }
+
+    private function inferredSourceType(string $ref): string
+    {
+        $ref = strtolower(trim($ref));
+        if ($ref === '') {
+            return 'unknown';
+        }
+
+        if (str_contains($ref, ':')) {
+            return strtok($ref, ':') ?: 'unknown';
+        }
+
+        return match (true) {
+            str_contains($ref, 'test') => 'test',
+            str_contains($ref, 'migration') => 'migration',
+            str_contains($ref, 'doc') || str_contains($ref, '.md') => 'doc',
+            str_contains($ref, 'route') => 'route',
+            str_contains($ref, 'graph') => 'graph',
+            default => 'context_ref',
+        };
+    }
+
+    /**
+     * @param  array<string,array<string,mixed>>  $refs
+     * @return array<int,array<string,mixed>>
+     */
+    private function publicContextRefs(array $refs): array
+    {
+        return array_values(array_map(static function (array $entry): array {
+            unset($entry['key']);
+
+            return $entry;
+        }, array_slice($refs, 0, self::MAX_CONTEXT_ATTRIBUTION_REFS)));
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $refs
+     * @return array<int,string>
+     */
+    private function contextRefLabels(array $refs): array
+    {
+        return AtlasContextStringListNormalizer::uniqueMappedStrings(
+            $refs,
+            static fn (mixed $item): mixed => is_array($item) ? ($item['ref'] ?? null) : null,
+        );
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $refs
+     * @return array<int,string>
+     */
+    private function deferSections(array $refs): array
+    {
+        $sections = [];
+        foreach ($refs as $ref) {
+            $label = strtolower((string) ($ref['ref'] ?? '').' '.(string) ($ref['source_type'] ?? ''));
+            if (str_contains($label, 'test')) {
+                $sections[] = 'tests';
+            }
+            if (str_contains($label, 'doc') || str_contains($label, '.md')) {
+                $sections[] = 'docs';
+            }
+            if (str_contains($label, 'graph')) {
+                $sections[] = 'graph';
+            }
+            if (str_contains($label, 'migration')) {
+                $sections[] = 'migrations';
+            }
+            if (str_contains($label, 'route')) {
+                $sections[] = 'routes';
+            }
+        }
+
+        return array_values(array_unique($sections));
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scalarStringList(mixed $value): array
+    {
+        return AtlasContextStringListNormalizer::uniqueMappedStrings(
+            is_array($value) ? $value : [],
+            static fn (mixed $item): mixed => is_scalar($item) ? trim((string) $item) : null,
+        );
     }
 }

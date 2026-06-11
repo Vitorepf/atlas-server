@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Runtime for the Atlas Self-Construction OS Risk Register v1 doc.
  *
@@ -392,7 +394,7 @@ final class AtlasSelfConstructionOsRiskRegisterService
             }
         }
 
-        $hasSignedRelease = $this->normalizeList($signedReleases) !== [];
+        $hasSignedRelease = AtlasAaeosStringListNormalizer::trimmedStrings($signedReleases) !== [];
 
         // A true flag is a violation only when no signed release authorizes it.
         $firingFlags = $hasSignedRelease ? [] : $trueFlags;
@@ -560,23 +562,4 @@ final class AtlasSelfConstructionOsRiskRegisterService
         return false;
     }
 
-    /**
-     * @param  mixed  $value
-     * @return array<int, string>
-     */
-    private function normalizeList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
-        }
-
-        return array_values($out);
-    }
 }

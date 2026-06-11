@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+
 /**
  * Deterministic admission gate for the Atlas Code Multi-Project Claude ONE-SHOT
  * implementation prompt.
@@ -268,9 +270,7 @@ final class AtlasCodeMultiProjectClaudeOneShotPromptService
 
     private function normalizeRisk(string $risk): string
     {
-        $risk = strtolower(trim($risk));
-
-        return in_array($risk, ['low', 'medium', 'high'], true) ? $risk : 'medium';
+        return AtlasAaeosValueNormalizer::lowMediumHighRisk($risk);
     }
 
     private function maxRisk(string $a, string $b): string

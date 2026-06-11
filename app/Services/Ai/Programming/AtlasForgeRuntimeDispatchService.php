@@ -7,6 +7,7 @@ namespace App\Services\Ai\Programming;
 use App\Models\AtlasProject;
 use App\Services\Ai\AtlasDecideService;
 use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceHandoffPackService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use Illuminate\Support\Str;
@@ -146,13 +147,13 @@ class AtlasForgeRuntimeDispatchService
     public function dispatch(array $options = []): array
     {
         $obraId = self::normalizeObraIdInput($options['obra_id'] ?? null);
-        $requestedRole = $this->stringOrNull($options['role'] ?? null) ?? AtlasForgeProviderTopologyService::ROLE_PRIMARY_BUILDER;
-        $simulateFailure = $this->stringOrNull($options['simulate_provider_failure'] ?? null);
+        $requestedRole = AiValueNormalizer::trimmedStringOrNull($options['role'] ?? null) ?? AtlasForgeProviderTopologyService::ROLE_PRIMARY_BUILDER;
+        $simulateFailure = AiValueNormalizer::trimmedStringOrNull($options['simulate_provider_failure'] ?? null);
         $createChildReceipt = (bool) ($options['create_child_receipt'] ?? false);
-        $fastPathRunId = $this->stringOrNull($options['fast_path_run_id'] ?? null);
-        $executionMode = $this->stringOrNull($options['execution_mode'] ?? null) ?? 'prepare_dispatch_plan';
+        $fastPathRunId = AiValueNormalizer::trimmedStringOrNull($options['fast_path_run_id'] ?? null);
+        $executionMode = AiValueNormalizer::trimmedStringOrNull($options['execution_mode'] ?? null) ?? 'prepare_dispatch_plan';
 
-        $dispatchId = $this->stringOrNull($options['dispatch_id'] ?? null) ?? 'dispatch_'.(string) Str::ulid();
+        $dispatchId = AiValueNormalizer::trimmedStringOrNull($options['dispatch_id'] ?? null) ?? 'dispatch_'.(string) Str::ulid();
         $generatedAt = now()->toIso8601String();
         $blockers = [];
         $childReceiptId = null;
@@ -225,11 +226,11 @@ class AtlasForgeRuntimeDispatchService
             'fast_path_run_id' => $fastPathRunId,
         ]);
 
-        $decisionSource = $this->stringOrNull($topology['decision_source'] ?? null);
-        $decisionReceiptId = $this->stringOrNull($topology['decision_receipt_id'] ?? null);
-        $decisionReceiptHash = $this->stringOrNull($topology['decision_receipt_hash'] ?? null);
+        $decisionSource = AiValueNormalizer::trimmedStringOrNull($topology['decision_source'] ?? null);
+        $decisionReceiptId = AiValueNormalizer::trimmedStringOrNull($topology['decision_receipt_id'] ?? null);
+        $decisionReceiptHash = AiValueNormalizer::trimmedStringOrNull($topology['decision_receipt_hash'] ?? null);
         $runtimeDispatchAllowed = (bool) ($topology['runtime_dispatch_allowed'] ?? false);
-        $providerTopologyId = $this->stringOrNull($topology['provider_topology_id'] ?? null);
+        $providerTopologyId = AiValueNormalizer::trimmedStringOrNull($topology['provider_topology_id'] ?? null);
 
         // Honest checks before considering simulate_provider_failure.
         if ($decisionSource === null || $decisionSource === 'static_policy') {
@@ -271,8 +272,8 @@ class AtlasForgeRuntimeDispatchService
                 topology: $topology,
             );
             $event = $classification['event'] ?? [];
-            $fallbackEventId = $this->stringOrNull($event['event_id'] ?? null);
-            $fallbackFailureType = $this->stringOrNull($event['failure_type'] ?? null);
+            $fallbackEventId = AiValueNormalizer::trimmedStringOrNull($event['event_id'] ?? null);
+            $fallbackFailureType = AiValueNormalizer::trimmedStringOrNull($event['failure_type'] ?? null);
 
             $action = (string) ($classification['action'] ?? '');
             if ($action === AtlasForgeProviderFallbackPolicyService::ACTION_BLOCK) {
@@ -296,10 +297,10 @@ class AtlasForgeRuntimeDispatchService
                     // After child receipt persists, the topology was rewritten; reload.
                     $topology = $this->topology->topology(['obra_id' => $obraId, 'fast_path_run_id' => $fastPathRunId]);
                     $runtimeDispatchAllowed = (bool) ($topology['runtime_dispatch_allowed'] ?? false);
-                    $decisionReceiptId = $this->stringOrNull($topology['decision_receipt_id'] ?? null);
-                    $decisionReceiptHash = $this->stringOrNull($topology['decision_receipt_hash'] ?? null);
-                    $decisionSource = $this->stringOrNull($topology['decision_source'] ?? null);
-                    $providerTopologyId = $this->stringOrNull($topology['provider_topology_id'] ?? null);
+                    $decisionReceiptId = AiValueNormalizer::trimmedStringOrNull($topology['decision_receipt_id'] ?? null);
+                    $decisionReceiptHash = AiValueNormalizer::trimmedStringOrNull($topology['decision_receipt_hash'] ?? null);
+                    $decisionSource = AiValueNormalizer::trimmedStringOrNull($topology['decision_source'] ?? null);
+                    $providerTopologyId = AiValueNormalizer::trimmedStringOrNull($topology['provider_topology_id'] ?? null);
 
                     // Reroute may have repositioned the requested role; the dispatcher
                     // promotes the selected fallback as the new effective role.
@@ -500,10 +501,10 @@ class AtlasForgeRuntimeDispatchService
         array $artifactAgentPacketBlockers = [],
     ): array {
         $blockers = AiStringListNormalizer::uniqueStrings($blockers);
-        $decisionReceiptId = $topology !== null ? $this->stringOrNull($topology['decision_receipt_id'] ?? null) : null;
-        $decisionReceiptHash = $topology !== null ? $this->stringOrNull($topology['decision_receipt_hash'] ?? null) : null;
-        $decisionSource = $topology !== null ? $this->stringOrNull($topology['decision_source'] ?? null) : null;
-        $providerTopologyId = $topology !== null ? $this->stringOrNull($topology['provider_topology_id'] ?? null) : null;
+        $decisionReceiptId = $topology !== null ? AiValueNormalizer::trimmedStringOrNull($topology['decision_receipt_id'] ?? null) : null;
+        $decisionReceiptHash = $topology !== null ? AiValueNormalizer::trimmedStringOrNull($topology['decision_receipt_hash'] ?? null) : null;
+        $decisionSource = $topology !== null ? AiValueNormalizer::trimmedStringOrNull($topology['decision_source'] ?? null) : null;
+        $providerTopologyId = $topology !== null ? AiValueNormalizer::trimmedStringOrNull($topology['provider_topology_id'] ?? null) : null;
         $qualityGates = $topology !== null && is_array($topology['quality_gates'] ?? null)
             ? array_values((array) $topology['quality_gates'])
             : [];
@@ -624,9 +625,9 @@ class AtlasForgeRuntimeDispatchService
     private function gateWorkspaceExecution(AtlasProject $project, string $requestedRole): array
     {
         $metadata = is_array($project->metadata) ? $project->metadata : [];
-        $workspace = $this->stringOrNull(data_get($metadata, 'workspace_slug'))
-            ?? $this->stringOrNull(data_get($metadata, 'workspace_id'))
-            ?? $this->stringOrNull(data_get($metadata, 'workspace_path'));
+        $workspace = AiValueNormalizer::trimmedStringOrNull(data_get($metadata, 'workspace_slug'))
+            ?? AiValueNormalizer::trimmedStringOrNull(data_get($metadata, 'workspace_id'))
+            ?? AiValueNormalizer::trimmedStringOrNull(data_get($metadata, 'workspace_path'));
 
         $gate = $this->workspaceExecutionGate ?? app(AtlasWorkspaceIntelligenceExecutionGateService::class);
 
@@ -643,9 +644,9 @@ class AtlasForgeRuntimeDispatchService
     private function workspaceHandoffPack(AtlasProject $project, string $requestedRole): array
     {
         $metadata = is_array($project->metadata) ? $project->metadata : [];
-        $workspace = $this->stringOrNull(data_get($metadata, 'workspace_slug'))
-            ?? $this->stringOrNull(data_get($metadata, 'workspace_id'))
-            ?? $this->stringOrNull(data_get($metadata, 'workspace_path'));
+        $workspace = AiValueNormalizer::trimmedStringOrNull(data_get($metadata, 'workspace_slug'))
+            ?? AiValueNormalizer::trimmedStringOrNull(data_get($metadata, 'workspace_id'))
+            ?? AiValueNormalizer::trimmedStringOrNull(data_get($metadata, 'workspace_path'));
 
         $handoff = $this->workspaceHandoffPack ?? app(AtlasWorkspaceHandoffPackService::class);
 
@@ -683,15 +684,15 @@ class AtlasForgeRuntimeDispatchService
         }
 
         $metadata = is_array($project->metadata) ? $project->metadata : [];
-        $workspace = $this->stringOrNull(data_get($metadata, 'workspace_slug'))
-            ?? $this->stringOrNull(data_get($metadata, 'workspace_id'))
-            ?? $this->stringOrNull(data_get($metadata, 'workspace_path'));
+        $workspace = AiValueNormalizer::trimmedStringOrNull(data_get($metadata, 'workspace_slug'))
+            ?? AiValueNormalizer::trimmedStringOrNull(data_get($metadata, 'workspace_id'))
+            ?? AiValueNormalizer::trimmedStringOrNull(data_get($metadata, 'workspace_path'));
         $blockers = [];
 
-        if ($this->stringOrNull($packet['workspace_id'] ?? null) !== $workspace) {
+        if (AiValueNormalizer::trimmedStringOrNull($packet['workspace_id'] ?? null) !== $workspace) {
             $blockers[] = 'artifact_agent_packet_workspace_mismatch';
         }
-        if ($this->stringOrNull($packet['route_target'] ?? null) !== 'forge') {
+        if (AiValueNormalizer::trimmedStringOrNull($packet['route_target'] ?? null) !== 'forge') {
             $blockers[] = 'artifact_agent_packet_route_not_forge';
         }
         if ((bool) ($packet['raw_conversation_included'] ?? true) !== false) {
@@ -712,31 +713,20 @@ class AtlasForgeRuntimeDispatchService
     {
         return [
             'schema_version' => 'atlas.workspace_artifact_agent_packet.v1',
-            'workspace_id' => $this->stringOrNull($packet['workspace_id'] ?? null),
-            'consumer' => $this->stringOrNull($packet['consumer'] ?? null),
-            'route_target' => $this->stringOrNull($packet['route_target'] ?? null),
-            'artifact_type' => $this->stringOrNull($packet['artifact_type'] ?? null),
-            'artifact_hash' => $this->stringOrNull($packet['artifact_hash'] ?? null),
+            'workspace_id' => AiValueNormalizer::trimmedStringOrNull($packet['workspace_id'] ?? null),
+            'consumer' => AiValueNormalizer::trimmedStringOrNull($packet['consumer'] ?? null),
+            'route_target' => AiValueNormalizer::trimmedStringOrNull($packet['route_target'] ?? null),
+            'artifact_type' => AiValueNormalizer::trimmedStringOrNull($packet['artifact_type'] ?? null),
+            'artifact_hash' => AiValueNormalizer::trimmedStringOrNull($packet['artifact_hash'] ?? null),
             'allowed_paths' => AiStringListNormalizer::uniqueTrimmedStrings($packet['allowed_paths'] ?? []),
             'forbidden_paths' => AiStringListNormalizer::uniqueTrimmedStrings($packet['forbidden_paths'] ?? []),
             'must_keep' => AiStringListNormalizer::uniqueTrimmedStrings($packet['must_keep'] ?? []),
             'context_refs' => AiStringListNormalizer::uniqueTrimmedStrings($packet['context_refs'] ?? []),
             'test_plan' => AiStringListNormalizer::uniqueTrimmedStrings($packet['test_plan'] ?? []),
             'done_when' => AiStringListNormalizer::uniqueTrimmedStrings($packet['done_when'] ?? []),
-            'redaction' => $this->stringOrNull($packet['redaction'] ?? null) ?? 'provider_safe',
+            'redaction' => AiValueNormalizer::trimmedStringOrNull($packet['redaction'] ?? null) ?? 'provider_safe',
             'raw_conversation_included' => false,
             'artifact_body_included' => false,
         ];
-    }
-
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
     }
 }

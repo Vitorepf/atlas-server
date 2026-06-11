@@ -49,6 +49,7 @@ use App\Console\Commands\AtlasStrategicOperatingSystemCommand;
 use App\Console\Commands\AtlasAiWeeklyMemoryDigestCommand;
 use App\Console\Commands\AtlasApplyLearningCommand;
 use App\Console\Commands\AtlasBridgeEvidenceCommand;
+use App\Console\Commands\AtlasBlogEditorialPlanCommand;
 use App\Console\Commands\AtlasCliBootstrapCommand;
 use App\Console\Commands\AtlasCliCheckpointCommand;
 use App\Console\Commands\AtlasCliCompareCommand;
@@ -257,6 +258,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasAiWeeklyMemoryDigestCommand::class,
         AtlasApplyLearningCommand::class,
         AtlasBridgeEvidenceCommand::class,
+        AtlasBlogEditorialPlanCommand::class,
         AtlasCliBootstrapCommand::class,
         AtlasCliCheckpointCommand::class,
         AtlasCliCompareCommand::class,

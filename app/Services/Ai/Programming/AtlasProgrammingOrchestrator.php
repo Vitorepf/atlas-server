@@ -16,6 +16,7 @@ use App\Services\Ai\Programming\Frontend\AtlasFrontendExecutionGateService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendExecutionRunbookService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendProviderInstructionPacketService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendSelectedWorkspaceService;
+use App\Services\Ai\Support\AiTextMatcher;
 use App\Services\Engineering\EngineeringHarnessExecutionService;
 use Illuminate\Support\Str;
 use Throwable;
@@ -1154,13 +1155,7 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
      */
     private function containsAny(string $text, array $needles): bool
     {
-        foreach ($needles as $needle) {
-            if (str_contains($text, $needle)) {
-                return true;
-            }
-        }
-
-        return false;
+        return AiTextMatcher::containsAnyNeedle($text, $needles);
     }
 
     /**

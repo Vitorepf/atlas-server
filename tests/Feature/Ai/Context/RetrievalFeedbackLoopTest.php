@@ -40,12 +40,18 @@ final class RetrievalFeedbackLoopTest extends TestCase
         $this->assertSame('recorded', $payload['status']);
         $this->assertSame(AtlasRetrievalFeedbackLoopService::FEEDBACK_EVENT_SCHEMA, data_get($payload, 'feedback_event.schema_version'));
         $this->assertSame(AtlasRetrievalFeedbackLoopService::CONTEXT_ROI_SCHEMA, data_get($payload, 'context_roi.schema_version'));
+        $this->assertSame(AtlasRetrievalFeedbackLoopService::CONTEXT_REF_ATTRIBUTION_SCHEMA, data_get($payload, 'context_ref_attribution.schema_version'));
+        $this->assertSame(AtlasRetrievalFeedbackLoopService::NEXT_CONTEXT_POLICY_SCHEMA, data_get($payload, 'next_context_policy.schema_version'));
         $this->assertSame('strong', data_get($payload, 'context_roi.quality_band'));
+        $this->assertSame(['keep_current_pack'], data_get($payload, 'next_context_policy.actions'));
         $this->assertSame('none', data_get($payload, 'learning_candidate.status'));
         $this->assertTrue(data_get($payload, 'persistence.persisted'));
         $this->assertFalse(data_get($payload, 'learning_candidate.auto_apply'));
         $this->assertFalse(data_get($payload, 'policy.auto_promote_learning'));
         $this->assertSame(1, AiRagFeedbackEvent::query()->count());
+        $event = AiRagFeedbackEvent::query()->firstOrFail();
+        $this->assertSame(AtlasRetrievalFeedbackLoopService::CONTEXT_REF_ATTRIBUTION_SCHEMA, data_get($event->payload, 'payload.context_ref_attribution.schema_version'));
+        $this->assertSame(AtlasRetrievalFeedbackLoopService::NEXT_CONTEXT_POLICY_SCHEMA, data_get($event->payload, 'payload.next_context_policy.schema_version'));
         $this->assertStringNotContainsString('corrigir bug no repo', json_encode($payload, JSON_THROW_ON_ERROR));
     }
 
@@ -108,6 +114,43 @@ final class RetrievalFeedbackLoopTest extends TestCase
         $this->assertFalse(data_get($payload, 'claims.writes'));
     }
 
+    public function test_context_ref_attribution_drives_next_context_policy_without_raw_text(): void
+    {
+        $payload = app(AtlasRetrievalFeedbackLoopService::class)->capture([
+            'objective' => 'debug repo with noisy initial context and missing schema signal',
+            'task_type' => 'debug',
+            'domain' => 'developer',
+            'risk_level' => 'low',
+            'outcome_status' => 'partial',
+            'delivered_context_refs' => [
+                'doc:owner-context',
+                'test:full-suite-dump',
+                'graph:impact-map',
+            ],
+            'used_context_refs' => ['doc:owner-context'],
+            'noise_context_refs' => ['test:full-suite-dump'],
+            'missed_required_sources' => [['source_type' => 'migration', 'reason' => 'missing_schema_context']],
+            'post_execution_utility' => 45,
+            'max_refs' => 1,
+        ]);
+
+        $this->assertSame(AtlasRetrievalFeedbackLoopService::CONTEXT_REF_ATTRIBUTION_SCHEMA, data_get($payload, 'context_ref_attribution.schema_version'));
+        $this->assertGreaterThanOrEqual(3, data_get($payload, 'context_ref_attribution.delivered_count'));
+        $this->assertGreaterThanOrEqual(1, data_get($payload, 'context_ref_attribution.used_count'));
+        $this->assertGreaterThanOrEqual(1, data_get($payload, 'context_ref_attribution.unused_count'));
+        $this->assertGreaterThanOrEqual(1, data_get($payload, 'context_ref_attribution.noise_count'));
+        $this->assertContains('migration', data_get($payload, 'context_ref_attribution.missing_source_types'));
+
+        $this->assertContains('expand_missing_source_types', data_get($payload, 'next_context_policy.actions'));
+        $this->assertContains('demote_noise_context_refs', data_get($payload, 'next_context_policy.actions'));
+        $this->assertContains('shrink_initial_context', data_get($payload, 'next_context_policy.actions'));
+        $this->assertContains('tests', data_get($payload, 'next_context_policy.defer_sections'));
+        $this->assertSame('provider_safe_ref_or_hash_only', data_get($payload, 'context_ref_attribution.source_policy.ref_contract'));
+        $this->assertFalse(data_get($payload, 'next_context_policy.auto_apply'));
+        $this->assertContains('context_waste_detected', data_get($payload, 'learning_candidate.reasons'));
+        $this->assertStringNotContainsString('missing schema signal', json_encode($payload, JSON_THROW_ON_ERROR));
+    }
+
     public function test_command_emits_json_without_recording_by_default(): void
     {
         $exit = Artisan::call('atlas:context:retrieval-feedback', [
@@ -123,6 +166,29 @@ final class RetrievalFeedbackLoopTest extends TestCase
         $this->assertSame(AtlasRetrievalFeedbackLoopService::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertFalse(data_get($payload, 'persistence.requested'));
         $this->assertFalse(data_get($payload, 'persistence.persisted'));
+    }
+
+    public function test_command_accepts_provider_safe_ref_feedback_signals(): void
+    {
+        $exit = Artisan::call('atlas:context:retrieval-feedback', [
+            '--query' => 'debug repo with noisy initial pack',
+            '--task-type' => 'debug',
+            '--domain' => 'developer',
+            '--outcome' => 'partial',
+            '--delivered-ref' => ['doc:owner-context', 'test:full-suite-dump'],
+            '--used-ref' => ['doc:owner-context'],
+            '--noise-ref' => ['test:full-suite-dump'],
+            '--missed-source' => ['migration'],
+            '--utility' => '42',
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertContains('expand_missing_source_types', data_get($payload, 'next_context_policy.actions'));
+        $this->assertContains('demote_noise_context_refs', data_get($payload, 'next_context_policy.actions'));
+        $this->assertSame(42, data_get($payload, 'context_roi.post_execution_utility'));
+        $this->assertFalse(data_get($payload, 'claims.writes'));
     }
 
     private function bootCompoundingSchema(): void

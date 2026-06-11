@@ -5,6 +5,7 @@ namespace App\Services\Ai\Programming\Forge\Intelligence;
 use App\Models\AiForgeIntake;
 use App\Models\AiForgeWorkPacket;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 final class ForgeWorkPacketIntelligenceRuntimeService
 {
@@ -16,10 +17,10 @@ final class ForgeWorkPacketIntelligenceRuntimeService
     public function analyze(AiForgeWorkPacket $packet, ?AiForgeIntake $intake = null): array
     {
         $intake ??= $packet->intake;
-        $expectedFiles = $this->strings($packet->expected_files ?? []);
-        $suggestedTests = $this->strings($packet->suggested_tests ?? []);
-        $contextRefs = $this->strings($intake?->context_refs ?? []);
-        $evidenceRefs = $this->strings($intake?->evidence_refs ?? []);
+        $expectedFiles = AiStringListNormalizer::trimmedStrings($packet->expected_files ?? []);
+        $suggestedTests = AiStringListNormalizer::trimmedStrings($packet->suggested_tests ?? []);
+        $contextRefs = AiStringListNormalizer::trimmedStrings($intake?->context_refs ?? []);
+        $evidenceRefs = AiStringListNormalizer::trimmedStrings($intake?->evidence_refs ?? []);
         $objective = strtolower((string) $packet->objective.' '.(string) $packet->scope);
 
         $likelyFiles = $expectedFiles;
@@ -30,7 +31,7 @@ final class ForgeWorkPacketIntelligenceRuntimeService
         $ownerDocs = $this->ownerDocs($likelyFiles, $contextRefs);
         $riskSignals = array_values(array_filter([
             $packet->risk_band !== null ? 'risk_band:'.$packet->risk_band : null,
-            $packet->risks !== null && $this->strings($packet->risks) !== [] ? 'declared_risks' : null,
+            $packet->risks !== null && AiStringListNormalizer::trimmedStrings($packet->risks) !== [] ? 'declared_risks' : null,
             str_contains($objective, 'migration') || str_contains($objective, 'migrar') ? 'migration' : null,
             str_contains($objective, 'provider') ? 'provider_runtime' : null,
             str_contains($objective, 'billing') || str_contains($objective, 'pagamento') ? 'business_critical' : null,
@@ -55,25 +56,13 @@ final class ForgeWorkPacketIntelligenceRuntimeService
             'context_refs' => $contextRefs,
             'evidence_refs' => $evidenceRefs,
             'risk_signals' => $riskSignals,
-            'dependency_count' => count($this->strings($packet->dependencies ?? [])),
-            'acceptance_count' => count($this->strings($packet->acceptance_criteria ?? [])),
-            'required_evidence_kinds' => $this->strings($packet->required_evidence ?? []),
+            'dependency_count' => count(AiStringListNormalizer::trimmedStrings($packet->dependencies ?? [])),
+            'acceptance_count' => count(AiStringListNormalizer::trimmedStrings($packet->acceptance_criteria ?? [])),
+            'required_evidence_kinds' => AiStringListNormalizer::trimmedStrings($packet->required_evidence ?? []),
         ];
         $payload['intelligence_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
-    }
-
-    /**
-     * @param  array<int|string,mixed>  $values
-     * @return list<string>
-     */
-    private function strings(array $values): array
-    {
-        return array_values(array_filter(array_map(
-            static fn ($value): string => is_string($value) ? trim($value) : '',
-            $values,
-        ), static fn (string $value): bool => $value !== ''));
     }
 
     /**

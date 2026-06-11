@@ -5,6 +5,7 @@ namespace App\Services\Ai\Programming\Forge\Intelligence;
 use App\Models\AiForgeIntake;
 use App\Models\AiForgeWorkPacket;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 final class ForgeTestImpactRuntimeService
 {
@@ -17,7 +18,7 @@ final class ForgeTestImpactRuntimeService
     public function select(AiForgeWorkPacket $packet, ?AiForgeIntake $intake, array $intelligence): array
     {
         $commands = [];
-        foreach ($this->strings($packet->suggested_tests ?? []) as $test) {
+        foreach (AiStringListNormalizer::trimmedStrings($packet->suggested_tests ?? []) as $test) {
             $commands[] = [
                 'command' => str_starts_with($test, 'php ') || str_contains($test, ' artisan ')
                     ? $test
@@ -27,7 +28,7 @@ final class ForgeTestImpactRuntimeService
             ];
         }
 
-        foreach ($this->strings($packet->expected_files ?? []) as $file) {
+        foreach (AiStringListNormalizer::trimmedStrings($packet->expected_files ?? []) as $file) {
             if (str_starts_with($file, 'tests/')) {
                 $commands[] = [
                     'command' => 'php artisan test '.$file,
@@ -75,15 +76,4 @@ final class ForgeTestImpactRuntimeService
         return $payload;
     }
 
-    /**
-     * @param  array<int|string,mixed>  $values
-     * @return list<string>
-     */
-    private function strings(array $values): array
-    {
-        return array_values(array_filter(array_map(
-            static fn ($value): string => is_string($value) ? trim($value) : '',
-            $values,
-        ), static fn (string $value): bool => $value !== ''));
-    }
 }

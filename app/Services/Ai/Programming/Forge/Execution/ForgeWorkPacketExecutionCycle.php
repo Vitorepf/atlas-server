@@ -9,6 +9,7 @@ use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\Forge\ForgeIntakeCanon;
 use App\Services\Ai\Programming\Forge\ForgeLongHorizonStateCanon;
 use App\Services\Ai\Programming\Forge\ForgeLongHorizonStateService;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
@@ -100,7 +101,7 @@ class ForgeWorkPacketExecutionCycle
         $providedEvidence = $this->normalizeEvidenceList($options['provided_evidence_refs'] ?? []);
         $allowReal = (bool) ($options['allow_real'] ?? false);
         $failureSignal = (bool) ($options['failure_signal'] ?? false);
-        $failureReason = $this->stringOrNull($options['failure_reason'] ?? null);
+        $failureReason = AiValueNormalizer::trimmedStringOrNull($options['failure_reason'] ?? null);
         $hint = strtolower((string) ($options['execution_mode_hint'] ?? 'auto'));
 
         [$executionMode, $modeReason] = $this->resolveExecutionMode(
@@ -797,16 +798,6 @@ class ForgeWorkPacketExecutionCycle
         }
 
         return 'fwpec_'.(string) Str::uuid();
-    }
-
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $trim = trim($value);
-
-        return $trim === '' ? null : $trim;
     }
 
     /**

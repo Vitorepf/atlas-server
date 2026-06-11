@@ -433,9 +433,7 @@ final class AtlasAiTelemetryEvidencePerformanceService
 
     private function normalizeStatus(string $status): string
     {
-        $normalized = strtolower(trim($status));
-
-        return array_key_exists($normalized, self::STATUS_RANK) ? $normalized : self::STATUS_OK;
+        return AtlasAaeosValueNormalizer::lowercaseAllowed($status, array_keys(self::STATUS_RANK), self::STATUS_OK);
     }
 
 }

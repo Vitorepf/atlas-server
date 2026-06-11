@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Atlas AI Spec Operating System gate.
  *
@@ -209,7 +211,7 @@ final class AtlasAiSpecOperatingSystemService
      */
     public function validateFlowOrder(array $trace): array
     {
-        $stages = $this->normalizeList($trace);
+        $stages = AtlasAaeosStringListNormalizer::lowerTrimmedStrings($trace);
 
         $unknown = [];
         $outOfOrder = [];
@@ -354,22 +356,4 @@ final class AtlasAiSpecOperatingSystemService
         return strtolower(trim($value));
     }
 
-    /**
-     * @param mixed $value
-     * @return list<string>
-     */
-    private function normalizeList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-        $clean = [];
-        foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $clean[] = strtolower(trim($item));
-            }
-        }
-
-        return array_values($clean);
-    }
 }

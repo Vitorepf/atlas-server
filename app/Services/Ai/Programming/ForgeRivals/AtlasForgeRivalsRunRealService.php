@@ -9,6 +9,7 @@ use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopExecutor;
 use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
 use App\Services\Ai\Programming\ForgeRivals\Schema\AtlasForgeRivalsSchemaContractService;
 use App\Services\Ai\Programming\WorkspaceHygieneService;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\JsonFileStore;
 use App\Services\AtlasCode\AtlasCodeProviderGovernanceService;
 use DateTimeImmutable;
@@ -4051,11 +4052,7 @@ TEXT;
      */
     private function stringList($value): array
     {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_map(static fn ($item): string => (string) $item, $value));
+        return AiStringListNormalizer::castItemsToStrings($value);
     }
 
     /**

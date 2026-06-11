@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\ForgeRivals;
 
 use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\JsonFileStore;
 
 /**
@@ -2452,14 +2453,7 @@ final class AtlasForgeRivalsMatrixReportService
      */
     private function stringList(mixed $value): array
     {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(
-            static fn (mixed $item): string => trim((string) $item),
-            $value,
-        ), static fn (string $item): bool => $item !== ''));
+        return AiStringListNormalizer::trimmedCastItemsToStrings($value);
     }
 
     /**

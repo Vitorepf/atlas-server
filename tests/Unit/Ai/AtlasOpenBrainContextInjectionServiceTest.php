@@ -4,6 +4,8 @@ namespace Tests\Unit\Ai;
 
 use App\Services\Ai\AtlasHybridMemoryRetrievalService;
 use App\Services\Ai\AtlasMemoryQualityService;
+use App\Services\Ai\AiContextPackBuilder;
+use App\Services\Ai\AtlasOpenBrainService;
 use App\Services\Ai\AtlasOpenBrainContextInjectionService;
 use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use App\Services\Ai\ValueObjects\AiContextPack;
@@ -750,6 +752,104 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
         $this->assertNotContains('retrieval_required_source_unavailable', $result['warnings']);
     }
 
+    public function test_context_delivery_policy_reaches_prompt_summary_and_expansion_refs(): void
+    {
+        $result = $this->service->inject(
+            'implementar feature com contexto minimo',
+            $this->task('dev'),
+            $this->pack(),
+            ['payload' => [
+                'atlas_workflow_mode' => 'dev',
+                'context_delivery_policy' => $this->contextDeliveryPolicyFixture(),
+            ]],
+        );
+
+        $this->assertSame('staged_minimal_targeted_expansion', data_get($result, 'summary.context_delivery_policy.delivery_mode'));
+        $this->assertSame(3600, data_get($result, 'summary.context_delivery_policy.initial_context_token_budget'));
+        $this->assertSame(1700, data_get($result, 'summary.context_delivery_policy.expansion_token_reserve'));
+        $this->assertSame(2, data_get($result, 'summary.context_delivery_policy.expansion_handle_count'));
+        $this->assertSame(2, data_get($result, 'summary.context_expansion_handles'));
+        $this->assertContains('context_delivery_required_source_recheck', $result['warnings']);
+        $this->assertContains('Expand guarded required sources before implementation.', $result['next_actions']);
+        $this->assertContains('Use context expansion handles before dumping full docs, tests or graph output.', $result['next_actions']);
+
+        $this->assertStringContainsString('## Context Delivery Policy', $result['prompt_section'] ?? '');
+        $this->assertStringContainsString('mode: staged_minimal_targeted_expansion', $result['prompt_section'] ?? '');
+        $this->assertStringContainsString('initial_sources: vector_retrieval', $result['prompt_section'] ?? '');
+        $this->assertStringContainsString('deferred_sources: evidence_replay', $result['prompt_section'] ?? '');
+        $this->assertStringContainsString('guarded_required_sources: canonical_doc', $result['prompt_section'] ?? '');
+        $this->assertStringContainsString('raw_text_exposed=false', $result['prompt_section'] ?? '');
+        $this->assertStringNotContainsString('DO_NOT_LEAK_RAW_TEXT', $result['prompt_section'] ?? '');
+
+        $refTypes = collect($result['context_refs'])->pluck('type')->all();
+        $refIds = collect($result['context_refs'])->pluck('id')->all();
+        $this->assertContains('atlas_context_expansion_handle', $refTypes);
+        $this->assertContains('atlas_context_required_recheck', $refTypes);
+        $this->assertContains('expand:evidence_replay', $refIds);
+        $this->assertContains('recheck:canonical_doc', $refIds);
+    }
+
+    public function test_inactive_context_delivery_policy_is_byte_identical_noop(): void
+    {
+        $pack = $this->pack();
+        $task = $this->task('dev');
+        $basePayload = ['payload' => ['atlas_workflow_mode' => 'dev']];
+        $inactivePayload = ['payload' => [
+            'atlas_workflow_mode' => 'dev',
+            'context_delivery_policy' => [
+                'schema_version' => 'atlas.token_economy.context_delivery_policy.v1',
+                'status' => 'inactive',
+                'delivery_mode' => 'standard_compiled_pack',
+            ],
+        ]];
+
+        $base = $this->service->inject('implementar feature X', $task, $pack, $basePayload);
+        $inactive = $this->service->inject('implementar feature X', $task, $pack, $inactivePayload);
+
+        $this->assertSame($base['prompt_section'], $inactive['prompt_section']);
+        $this->assertSame($base['context_pack_hash'], $inactive['context_pack_hash']);
+        $this->assertArrayNotHasKey('context_delivery_policy', $inactive['summary']);
+    }
+
+    public function test_open_brain_service_exports_context_delivery_policy_summary_and_prompt(): void
+    {
+        $policy = $this->contextDeliveryPolicyFixture();
+        $builder = new class($policy) extends AiContextPackBuilder
+        {
+            /** @param array<string,mixed> $policy */
+            public function __construct(private array $policy) {}
+
+            public function build(string $input, AiTaskRequest $task, array $options = []): AiContextPack
+            {
+                return new AiContextPack([
+                    'task' => [
+                        'type' => 'dev',
+                        'desired_mode' => 'dev',
+                        'risk_level' => 'low',
+                        'domain' => 'developer',
+                        'objective' => $input,
+                    ],
+                    'surface' => ['kind' => 'mcp', 'workspace' => base_path()],
+                    'context_delivery_policy' => $this->policy,
+                    'memory' => ['semantic' => []],
+                    'constraints' => [],
+                ], []);
+            }
+        };
+
+        $result = (new AtlasOpenBrainService($builder))->contextPack([
+            'objective' => 'exportar contexto minimo',
+            'task_type' => 'dev',
+            'desired_mode' => 'dev',
+            'include_prompt' => true,
+        ], 'mcp');
+
+        $this->assertSame('staged_minimal_targeted_expansion', data_get($result, 'summary.context_delivery_policy.delivery_mode'));
+        $this->assertSame(1700, data_get($result, 'summary.context_delivery_policy.expansion_token_reserve'));
+        $this->assertStringContainsString('## Context Delivery Policy', $result['prompt_section'] ?? '');
+        $this->assertStringContainsString('deferred_sources: evidence_replay', $result['prompt_section'] ?? '');
+    }
+
     public function test_required_open_brain_fails_closed_when_required_retrieval_source_is_unavailable(): void
     {
         $result = $this->service->inject(
@@ -1268,6 +1368,36 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
     }
 
     // --- helpers ---
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function contextDeliveryPolicyFixture(): array
+    {
+        return [
+            'schema_version' => 'atlas.token_economy.context_delivery_policy.v1',
+            'status' => 'active',
+            'source' => 'input_feedback_hint',
+            'delivery_mode' => 'staged_minimal_targeted_expansion',
+            'reason' => 'feedback_changed_selected_context_set',
+            'initial_context_token_budget' => 3600,
+            'expansion_token_reserve' => 1700,
+            'initial_ref_limit' => 5,
+            'initial_source_types' => ['vector_retrieval'],
+            'deferred_source_types' => ['evidence_replay'],
+            'guarded_required_source_types' => ['canonical_doc'],
+            'expansion_triggers' => ['provider_requests_more_context', 'deferred_source_requested'],
+            'quality_gate_hint' => 'required_source_recheck_before_implementation',
+            'raw_text' => 'DO_NOT_LEAK_RAW_TEXT',
+            'policy' => [
+                'provider_safe_only' => true,
+                'raw_text_exposed' => false,
+                'providers_invoked' => false,
+                'writes' => false,
+                'auto_apply_learning' => false,
+            ],
+        ];
+    }
 
     /**
      * Build the service with a SPY {@see CodeGraphContextRetriever} that records each

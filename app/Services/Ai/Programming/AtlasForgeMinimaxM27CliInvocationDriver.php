@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * MiniMax M3 CLI governed provider driver.
  *
@@ -119,8 +121,8 @@ class AtlasForgeMinimaxM27CliInvocationDriver implements AtlasForgeProviderInvoc
         $prompt = is_array($request['prompt'] ?? null) ? $request['prompt'] : [];
         $allowedFiles = array_values(array_filter((array) data_get($prompt, 'scope_contract.allowed_files', []), 'is_string'));
         $forbiddenFiles = array_values(array_filter((array) data_get($prompt, 'scope_contract.forbidden_files', []), 'is_string'));
-        $workspacePath = $this->stringOrNull($request['cwd'] ?? null)
-            ?? $this->stringOrNull(data_get($request, 'workspace.path'));
+        $workspacePath = AiValueNormalizer::trimmedStringOrNull($request['cwd'] ?? null)
+            ?? AiValueNormalizer::trimmedStringOrNull(data_get($request, 'workspace.path'));
 
         return [
             'schema_version' => 'atlas.provider.minimax_m27_cli.invocation_request.v1',
@@ -154,15 +156,5 @@ class AtlasForgeMinimaxM27CliInvocationDriver implements AtlasForgeProviderInvoc
                 'paygo_enabled' => false,
             ],
         ];
-    }
-
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
     }
 }

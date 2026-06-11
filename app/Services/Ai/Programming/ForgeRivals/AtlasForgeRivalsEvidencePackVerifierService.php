@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\ForgeRivals;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\JsonFileStore;
 
 /**
@@ -100,15 +101,7 @@ final class AtlasForgeRivalsEvidencePackVerifierService
      */
     public static function normalizeMode(?string $mode): string
     {
-        $mode = is_string($mode) ? strtolower(trim($mode)) : '';
-
-        return match ($mode) {
-            self::MODE_DRY_RUN, 'dryrun', 'plan_only' => self::MODE_DRY_RUN,
-            self::MODE_FAKE_RUN, 'local_fake', 'fake' => self::MODE_FAKE_RUN,
-            self::MODE_REAL_RUN, 'real', 'fair', 'full_power' => self::MODE_REAL_RUN,
-            self::MODE_REPLAY, 'integrity', 'check' => self::MODE_REPLAY,
-            default => self::MODE_REPLAY,
-        };
+        return AtlasForgeRivalsInputNormalizer::evidenceVerificationMode($mode);
     }
 
     /**
@@ -713,10 +706,6 @@ final class AtlasForgeRivalsEvidencePackVerifierService
      */
     private function stringList(mixed $value): array
     {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_map(static fn ($v): string => (string) $v, $value));
+        return AiStringListNormalizer::castItemsToStrings($value);
     }
 }

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+
 /**
  * Atlas Context Pack Contract — pure, deterministic enforcement of the contract
  * a context pack ref-set must satisfy before it can hydrate a provider prompt.
@@ -126,7 +129,7 @@ final class AtlasContextPackContractService
         }
 
         $maxRefs = $this->resolveMaxRefs($input['max_refs'] ?? self::DEFAULT_MAX_REFS);
-        $taskTags = $this->normalizeTags($input['task_tags'] ?? []);
+        $taskTags = AtlasAaeosStringListNormalizer::uniqueTrimmedStrings($input['task_tags'] ?? []);
         $riskLevel = $this->normalizeRisk($input['risk_level'] ?? 'low');
 
         $candidates = is_array($input['knowledge_refs'] ?? null)
@@ -341,31 +344,9 @@ final class AtlasContextPackContractService
         return $n < 0 ? 0 : $n;
     }
 
-    /**
-     * @param mixed $tags
-     * @return list<string>
-     */
-    private function normalizeTags(mixed $tags): array
-    {
-        if (! is_array($tags)) {
-            return [];
-        }
-
-        $clean = [];
-        foreach ($tags as $tag) {
-            if (is_string($tag) && trim($tag) !== '') {
-                $clean[] = trim($tag);
-            }
-        }
-
-        return array_values(array_unique($clean));
-    }
-
     private function normalizeRisk(mixed $risk): string
     {
-        $key = is_string($risk) ? strtolower(trim($risk)) : '';
-
-        return in_array($key, ['low', 'medium', 'high', 'critical'], true) ? $key : 'low';
+        return AtlasAaeosValueNormalizer::lowercaseAllowed($risk, ['low', 'medium', 'high', 'critical'], 'low');
     }
 
     private function fieldPresent(mixed $value): bool

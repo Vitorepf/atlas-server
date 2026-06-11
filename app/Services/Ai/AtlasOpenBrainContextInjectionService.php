@@ -176,7 +176,9 @@ class AtlasOpenBrainContextInjectionService
         // pre-wiring behaviour.
         $realityGraphRefs = $this->realityGraphRefs($input);
         $operatorRefs = $this->operatorContextRefs($operatorContext);
-        $contextRefs = $this->mergeRefs($contextPack->contextRefs(), $knowledgeRefs, $codeRefs, $codeGraphRefs, $memoryRecallRefs, $realityGraphRefs, $operatorRefs);
+        $contextDeliveryPolicy = $this->contextDeliveryPolicy($payload, $pack);
+        $contextDeliveryRefs = $contextDeliveryPolicy !== null ? $this->contextDeliveryRefs($contextDeliveryPolicy) : [];
+        $contextRefs = $this->mergeRefs($contextPack->contextRefs(), $knowledgeRefs, $codeRefs, $codeGraphRefs, $memoryRecallRefs, $realityGraphRefs, $operatorRefs, $contextDeliveryRefs);
         $hashPayload = [
             'context_pack' => $this->stableContextPackForHash($pack),
             'knowledge_refs' => $knowledgeRefs,
@@ -203,8 +205,14 @@ class AtlasOpenBrainContextInjectionService
         if ($realityGraphRefs !== []) {
             $hashPayload['reality_graph_refs'] = $this->stableRealityGraphForHash($realityGraphRefs);
         }
+        if ($contextDeliveryPolicy !== null) {
+            $hashPayload['context_delivery_policy'] = $this->stableContextDeliveryPolicyForHash($contextDeliveryPolicy);
+        }
         $contextPackHash = hash('sha256', json_encode($hashPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
         $summary = $this->summary($contextRefs, $knowledgeRefs, $codeRefs, $policy, $pack);
+        if ($contextDeliveryPolicy !== null) {
+            $summary['context_delivery_policy'] = $this->contextDeliveryPolicySummary($contextDeliveryPolicy);
+        }
         if ($memoryQuality !== null) {
             $summary['memory_quality'] = $memoryQualitySummary;
         }
@@ -236,6 +244,7 @@ class AtlasOpenBrainContextInjectionService
             ...$this->selfReflectionWarnings($selfReflection),
             ...$this->retrievalPlanWarnings((array) ($summary['retrieval_plan'] ?? [])),
             ...$this->operatorContextWarnings($operatorContext),
+            ...$this->contextDeliveryPolicyWarnings($contextDeliveryPolicy),
         ]));
 
         $promptSection = $this->promptSection(
@@ -250,6 +259,7 @@ class AtlasOpenBrainContextInjectionService
             codeGraphRefs: $codeGraphRefs,
             memoryRecallRefs: $memoryRecallRefs,
             realityGraphRefs: $realityGraphRefs,
+            contextDeliveryPolicy: $contextDeliveryPolicy,
             warnings: $warnings,
         );
 
@@ -868,6 +878,214 @@ class AtlasOpenBrainContextInjectionService
     }
 
     /**
+     * Consume a context delivery policy already computed by ATER/ACRS. Open Brain never
+     * computes this policy itself; it only projects the provider-safe subset into the
+     * prompt so external providers receive a small first packet plus expansion handles.
+     *
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $pack
+     * @return array<string,mixed>|null
+     */
+    private function contextDeliveryPolicy(array $payload, array $pack): ?array
+    {
+        foreach ([
+            data_get($payload, 'context_delivery_policy'),
+            data_get($payload, 'open_brain.context_delivery_policy'),
+            data_get($payload, 'token_economy.context_delivery_policy'),
+            data_get($pack, 'context_delivery_policy'),
+            data_get($pack, 'token_economy.context_delivery_policy'),
+        ] as $candidate) {
+            if (! is_array($candidate)) {
+                continue;
+            }
+
+            $policy = $this->providerSafeContextDeliveryPolicy($candidate);
+            if ($policy !== null) {
+                return $policy;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $policy
+     * @return array<string,mixed>|null
+     */
+    private function providerSafeContextDeliveryPolicy(array $policy): ?array
+    {
+        if ((string) ($policy['status'] ?? '') !== 'active') {
+            return null;
+        }
+
+        if (data_get($policy, 'policy.raw_text_exposed') === true || data_get($policy, 'policy.provider_safe_only') === false) {
+            return null;
+        }
+
+        return [
+            'schema_version' => $this->stringValue($policy['schema_version'] ?? null, 'atlas.token_economy.context_delivery_policy.v1'),
+            'status' => 'active',
+            'source' => $this->stringValue($policy['source'] ?? null, 'unknown'),
+            'delivery_mode' => $this->stringValue($policy['delivery_mode'] ?? null, 'standard_compiled_pack'),
+            'reason' => $this->stringValue($policy['reason'] ?? null, 'context_delivery_policy_active'),
+            'initial_context_token_budget' => max(0, (int) ($policy['initial_context_token_budget'] ?? 0)),
+            'expansion_token_reserve' => max(0, (int) ($policy['expansion_token_reserve'] ?? 0)),
+            'initial_ref_limit' => max(0, (int) ($policy['initial_ref_limit'] ?? 0)),
+            'initial_source_types' => $this->stringList($policy['initial_source_types'] ?? []),
+            'deferred_source_types' => $this->stringList($policy['deferred_source_types'] ?? []),
+            'guarded_required_source_types' => $this->stringList($policy['guarded_required_source_types'] ?? []),
+            'expansion_triggers' => $this->stringList($policy['expansion_triggers'] ?? []),
+            'quality_gate_hint' => $this->stringValue($policy['quality_gate_hint'] ?? null, 'feedback_guided_staging_allowed'),
+            'advisory_only' => true,
+            'policy' => [
+                'provider_safe_only' => true,
+                'raw_text_exposed' => false,
+                'providers_invoked' => false,
+                'writes' => false,
+                'auto_apply_learning' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $policy
+     * @return array<int,array<string,mixed>>
+     */
+    private function contextDeliveryRefs(array $policy): array
+    {
+        $refs = [];
+        foreach ((array) ($policy['initial_source_types'] ?? []) as $sourceType) {
+            $refs[] = [
+                'type' => 'atlas_context_initial_source',
+                'id' => 'initial:'.$sourceType,
+                'source_type' => $sourceType,
+                'reason' => 'context_delivery_initial_source',
+                'provider_safe' => true,
+            ];
+        }
+        foreach ((array) ($policy['deferred_source_types'] ?? []) as $sourceType) {
+            $refs[] = [
+                'type' => 'atlas_context_expansion_handle',
+                'id' => 'expand:'.$sourceType,
+                'source_type' => $sourceType,
+                'reason' => 'context_delivery_deferred_source',
+                'provider_safe' => true,
+            ];
+        }
+        foreach ((array) ($policy['guarded_required_source_types'] ?? []) as $sourceType) {
+            $refs[] = [
+                'type' => 'atlas_context_required_recheck',
+                'id' => 'recheck:'.$sourceType,
+                'source_type' => $sourceType,
+                'reason' => 'context_delivery_required_source_recheck',
+                'provider_safe' => true,
+            ];
+        }
+
+        return $this->mergeRefs($refs);
+    }
+
+    /**
+     * @param  array<string,mixed>  $policy
+     * @return array<string,mixed>
+     */
+    private function contextDeliveryPolicySummary(array $policy): array
+    {
+        return [
+            'schema_version' => (string) ($policy['schema_version'] ?? 'atlas.token_economy.context_delivery_policy.v1'),
+            'status' => 'active',
+            'delivery_mode' => (string) ($policy['delivery_mode'] ?? 'standard_compiled_pack'),
+            'source' => (string) ($policy['source'] ?? 'unknown'),
+            'initial_context_token_budget' => (int) ($policy['initial_context_token_budget'] ?? 0),
+            'expansion_token_reserve' => (int) ($policy['expansion_token_reserve'] ?? 0),
+            'initial_ref_limit' => (int) ($policy['initial_ref_limit'] ?? 0),
+            'initial_source_types' => (array) ($policy['initial_source_types'] ?? []),
+            'deferred_source_types' => (array) ($policy['deferred_source_types'] ?? []),
+            'guarded_required_source_types' => (array) ($policy['guarded_required_source_types'] ?? []),
+            'expansion_handle_count' => count((array) ($policy['deferred_source_types'] ?? [])) + count((array) ($policy['guarded_required_source_types'] ?? [])),
+            'quality_gate_hint' => (string) ($policy['quality_gate_hint'] ?? 'feedback_guided_staging_allowed'),
+            'advisory_only' => true,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $policy
+     * @return array<string,mixed>
+     */
+    private function stableContextDeliveryPolicyForHash(array $policy): array
+    {
+        return [
+            'schema_version' => (string) ($policy['schema_version'] ?? ''),
+            'source' => (string) ($policy['source'] ?? ''),
+            'delivery_mode' => (string) ($policy['delivery_mode'] ?? ''),
+            'initial_context_token_budget' => (int) ($policy['initial_context_token_budget'] ?? 0),
+            'expansion_token_reserve' => (int) ($policy['expansion_token_reserve'] ?? 0),
+            'initial_ref_limit' => (int) ($policy['initial_ref_limit'] ?? 0),
+            'initial_source_types' => $this->sortedStrings((array) ($policy['initial_source_types'] ?? [])),
+            'deferred_source_types' => $this->sortedStrings((array) ($policy['deferred_source_types'] ?? [])),
+            'guarded_required_source_types' => $this->sortedStrings((array) ($policy['guarded_required_source_types'] ?? [])),
+            'expansion_triggers' => $this->sortedStrings((array) ($policy['expansion_triggers'] ?? [])),
+            'quality_gate_hint' => (string) ($policy['quality_gate_hint'] ?? ''),
+        ];
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function contextDeliveryPolicyWarnings(?array $policy): array
+    {
+        if ($policy === null) {
+            return [];
+        }
+
+        return (array) ($policy['guarded_required_source_types'] ?? []) !== []
+            ? ['context_delivery_required_source_recheck']
+            : [];
+    }
+
+    private function stringValue(mixed $value, string $default = ''): string
+    {
+        return is_scalar($value) && trim((string) $value) !== '' ? trim((string) $value) : $default;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function stringList(mixed $value): array
+    {
+        if (is_scalar($value)) {
+            $value = [$value];
+        }
+
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return collect($value)
+            ->filter(fn (mixed $item): bool => is_scalar($item) && trim((string) $item) !== '')
+            ->map(fn (mixed $item): string => trim((string) $item))
+            ->unique()
+            ->values()
+            ->take(24)
+            ->all();
+    }
+
+    /**
+     * @param  array<int,string>  $strings
+     * @return array<int,string>
+     */
+    private function sortedStrings(array $strings): array
+    {
+        return collect($strings)
+            ->filter(fn (mixed $item): bool => is_scalar($item) && trim((string) $item) !== '')
+            ->map(fn (mixed $item): string => trim((string) $item))
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+    }
+
+    /**
      * @param  array<string,mixed>  $payload
      * @param  array<string,mixed>  $policy
      * @param  array<string,mixed>  $options
@@ -1250,6 +1468,7 @@ class AtlasOpenBrainContextInjectionService
             'memory_recall_refs' => $refs->where('type', 'atlas_memory_recall')->count(),
             'reality_graph_refs' => $refs->where('type', 'atlas_reality_path')->count(),
             'operator_profile_refs' => $refs->where('type', 'operator_profile_item')->count(),
+            'context_expansion_handles' => $refs->whereIn('type', ['atlas_context_expansion_handle', 'atlas_context_required_recheck'])->count(),
             'knowledge_refs' => count($knowledgeRefs),
             'code_refs' => count($codeRefs),
             'budget_chars' => (int) $policy['budget_chars'],
@@ -1549,6 +1768,7 @@ class AtlasOpenBrainContextInjectionService
      * @param  array<int,array<string,mixed>>  $codeGraphRefs
      * @param  array<int,array<string,mixed>>  $memoryRecallRefs
      * @param  array<int,array<string,mixed>>  $realityGraphRefs
+     * @param  array<string,mixed>|null  $contextDeliveryPolicy
      * @param  array<int,string>  $warnings
      */
     private function promptSection(
@@ -1563,6 +1783,7 @@ class AtlasOpenBrainContextInjectionService
         array $codeGraphRefs,
         array $memoryRecallRefs,
         array $realityGraphRefs,
+        ?array $contextDeliveryPolicy,
         array $warnings,
     ): string {
         $lines = [
@@ -1586,6 +1807,13 @@ class AtlasOpenBrainContextInjectionService
 
         if ($warnings !== []) {
             $lines[] = '- warnings: '.implode(', ', $warnings);
+        }
+
+        if ($contextDeliveryPolicy !== null) {
+            $lines[] = '- context_delivery: mode='.($contextDeliveryPolicy['delivery_mode'] ?? 'unknown')
+                .'; initial_tokens='.(int) ($contextDeliveryPolicy['initial_context_token_budget'] ?? 0)
+                .'; expansion_reserve='.(int) ($contextDeliveryPolicy['expansion_token_reserve'] ?? 0)
+                .'; handles='.(int) data_get($summary, 'context_delivery_policy.expansion_handle_count', 0);
         }
 
         if ($memoryQuality !== null) {
@@ -1667,6 +1895,32 @@ class AtlasOpenBrainContextInjectionService
             $lines[] = '- history: prior_runs='.(int) ($programming['prior_run_count'] ?? 0)
                 .'; previous_traces='.(int) ($programming['previous_trace_count'] ?? 0)
                 .'; prior_decisions='.(int) ($programming['prior_decision_count'] ?? 0);
+        }
+
+        if ($contextDeliveryPolicy !== null) {
+            $lines[] = '';
+            $lines[] = '## Context Delivery Policy';
+            $lines[] = '- schema: '.($contextDeliveryPolicy['schema_version'] ?? 'unknown');
+            $lines[] = '- mode: '.($contextDeliveryPolicy['delivery_mode'] ?? 'unknown')
+                .'; status=active'
+                .'; source='.($contextDeliveryPolicy['source'] ?? 'unknown')
+                .'; advisory=true';
+            $lines[] = '- initial: tokens='.(int) ($contextDeliveryPolicy['initial_context_token_budget'] ?? 0)
+                .'; ref_limit='.(int) ($contextDeliveryPolicy['initial_ref_limit'] ?? 0)
+                .'; expansion_reserve='.(int) ($contextDeliveryPolicy['expansion_token_reserve'] ?? 0);
+            foreach ([
+                'initial_source_types' => 'initial_sources',
+                'deferred_source_types' => 'deferred_sources',
+                'guarded_required_source_types' => 'guarded_required_sources',
+                'expansion_triggers' => 'expansion_triggers',
+            ] as $key => $label) {
+                $values = array_values((array) ($contextDeliveryPolicy[$key] ?? []));
+                if ($values !== []) {
+                    $lines[] = '- '.$label.': '.implode(', ', array_slice($values, 0, 12));
+                }
+            }
+            $lines[] = '- quality_gate_hint: '.($contextDeliveryPolicy['quality_gate_hint'] ?? 'feedback_guided_staging_allowed');
+            $lines[] = '- policy: provider_safe_only=true; raw_text_exposed=false; providers_invoked=false; writes=false';
         }
 
         if (is_array($summary['operator_context'] ?? null)) {
@@ -1909,6 +2163,12 @@ class AtlasOpenBrainContextInjectionService
         }
         if (in_array('open_brain_audit_table_missing', $warnings, true)) {
             $actions[] = 'Run migrations before requiring Open Brain injection.';
+        }
+        if (in_array('context_delivery_required_source_recheck', $warnings, true)) {
+            $actions[] = 'Expand guarded required sources before implementation.';
+        }
+        if ((int) data_get($summary, 'context_delivery_policy.expansion_token_reserve', 0) > 0) {
+            $actions[] = 'Use context expansion handles before dumping full docs, tests or graph output.';
         }
 
         return array_values(array_unique($actions));

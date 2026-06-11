@@ -8,6 +8,7 @@ use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
 use App\Services\Ai\Programming\AtlasDev\Schemas\EscalationPacket;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 use Throwable;
@@ -697,14 +698,7 @@ class ForgeIntakeService
      */
     private function stringList(mixed $value): array
     {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_unique(array_filter(array_map(
-            fn (mixed $item): ?string => $this->stringOrNull($item),
-            $value,
-        ))));
+        return AiStringListNormalizer::uniqueTrimmedStrings($value);
     }
 
     /**

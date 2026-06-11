@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProject;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * Atlas Code Forge Fast Path · Run Status Service (v2).
@@ -64,8 +65,8 @@ class AtlasCodeForgeFastPathStatusService
             ];
         }
 
-        $executionId = $this->stringOrNull($run['execution_id'] ?? null);
-        $historyId = $this->stringOrNull($run['history_id'] ?? null);
+        $executionId = AiValueNormalizer::trimmedStringOrNull($run['execution_id'] ?? null);
+        $historyId = AiValueNormalizer::trimmedStringOrNull($run['history_id'] ?? null);
 
         $async = $executionId !== null ? $this->findAsyncExecution($metadata, $executionId) : null;
         $forgeLive = $this->forgeLiveForRun($metadata, $run, $async);
@@ -200,13 +201,13 @@ class AtlasCodeForgeFastPathStatusService
      */
     private function forgeLiveMatchesRun(array $forgeLive, array $run, ?array $async): bool
     {
-        $runObraId = $this->stringOrNull($run['obra_id'] ?? null);
-        $forgeObraId = $this->stringOrNull($forgeLive['obra_id'] ?? null);
+        $runObraId = AiValueNormalizer::trimmedStringOrNull($run['obra_id'] ?? null);
+        $forgeObraId = AiValueNormalizer::trimmedStringOrNull($forgeLive['obra_id'] ?? null);
         if ($runObraId !== null && $forgeObraId !== null && $runObraId !== $forgeObraId) {
             return false;
         }
 
-        $historyId = $this->stringOrNull($run['history_id'] ?? null);
+        $historyId = AiValueNormalizer::trimmedStringOrNull($run['history_id'] ?? null);
         if ($historyId !== null) {
             if ((string) ($forgeLive['history_id'] ?? '') === $historyId) {
                 return true;
@@ -216,12 +217,12 @@ class AtlasCodeForgeFastPathStatusService
             }
         }
 
-        $asyncRunId = $async !== null ? $this->stringOrNull($async['run_id'] ?? null) : null;
+        $asyncRunId = $async !== null ? AiValueNormalizer::trimmedStringOrNull($async['run_id'] ?? null) : null;
         if ($asyncRunId !== null && (string) ($forgeLive['run_id'] ?? '') === $asyncRunId) {
             return true;
         }
 
-        $asyncEvidenceId = $async !== null ? $this->stringOrNull($async['evidence_id'] ?? null) : null;
+        $asyncEvidenceId = $async !== null ? AiValueNormalizer::trimmedStringOrNull($async['evidence_id'] ?? null) : null;
         if ($asyncEvidenceId !== null && (string) ($forgeLive['evidence_id'] ?? '') === $asyncEvidenceId) {
             return true;
         }
@@ -506,15 +507,5 @@ class AtlasCodeForgeFastPathStatusService
         }
 
         return $commands;
-    }
-
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
     }
 }

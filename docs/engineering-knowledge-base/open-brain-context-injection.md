@@ -17,10 +17,12 @@ capabilities:
   - app_ai_context_injection
   - provider_safe_recall
   - audited_context_pack
+  - context_delivery_policy_projection
 decisions:
   - Open Brain context injection is Core runtime behavior, not a manual workbench step.
   - Surfaces declare intent and policy; atlas-server composes, audits and injects context.
   - Automatic context must be provider-safe, budgeted, traceable, deduplicated and reversible.
+  - When ATER/ACRS provides a context delivery policy, Open Brain must project the minimal initial packet and expansion handles instead of dumping full docs, tests or graph output.
   - Projection apply, MCP write tools, remote sync, ChromaDB and external embeddings stay outside this flow until a dedicated AP promotes them.
 maintenance:
   - Read this file before changing atlas dev, atlas continue, atlas chat, AiPromptBuilder, AiGatewayService or AtlasAiSheet.
@@ -33,6 +35,7 @@ related_paths:
   - docs/engineering-knowledge-base/archive/source-material/open-brain-context-injection-full-2026-05-08.md
   - app/Services/Ai/AtlasOpenBrainService.php
   - app/Services/Ai/AiContextPackBuilder.php
+  - app/Services/Ai/ValueObjects/AiContextPack.php
   - app/Services/Ai/AiPromptBuilder.php
   - app/Services/Ai/AiGatewayService.php
   - app/Console/Commands/AtlasCliDevCommand.php
@@ -94,10 +97,14 @@ evidence:
   - docs/engineering-knowledge-base/open-brain-context-injection.md
 evidence_refs:
   - symbol: AtlasOpenBrainService
+  - symbol: AtlasOpenBrainContextInjectionService
+  - symbol: AiContextPack
   - command: atlas:open-brain:context
+  - test: AtlasOpenBrainContextInjectionServiceTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
+  - "php artisan test tests/Unit/Ai/AtlasOpenBrainContextInjectionServiceTest.php"
 
 requires_evidence: true
 
@@ -200,6 +207,9 @@ Supported hints:
 - `refresh`: rebuild context instead of reusing recent safe context.
 - `require`: convert unavailable context into `failed_closed`.
 - `provider_safe_only`: always `true` for automatic injection.
+- `context_delivery_policy`: optional provider-safe policy computed by ATER/ACRS
+  with initial token budget, expansion reserve, initial/deferred source types and
+  guarded required-source recheck handles.
 
 ## Injection Request
 
@@ -288,6 +298,16 @@ plan/review/patch/test/repair stage contract, selected files, prior runs,
 previous traces and prior decisions. This is the automatic bridge from Memory,
 Open Brain, Code Intelligence and engineering history into dev/debug/review/
 repair without relying on chat-session memory.
+
+When `context_delivery_policy.status=active`, Open Brain also emits
+`summary.context_delivery_policy`, synthetic provider-safe refs for
+`expand:<source_type>` and `recheck:<source_type>`, and a compact
+`## Context Delivery Policy` prompt block. This block is advisory and
+provider-safe: it carries source types, token budgets, expansion reserve,
+quality-gate hint and policy claims, never raw docs/tests/graph dumps or raw
+feedback text. Inactive or provider-unsafe policies are ignored so legacy
+prompt/hash behavior remains unchanged.
+
 The code intelligence slice is expected to include AST-backed PHP relations
 when available (`php_use_ast`, `class_constant_ast`,
 `test_symbol_reference_ast`), plus dependency edges, symbol references,
@@ -325,6 +345,8 @@ preferred compact contract for attached ledger/envelope evidence.
 - ChromaDB, external vector search or new embedding stores without AP approval.
 - Remote multiuser sync/SSE as part of this injection profile.
 - Automatic projection apply from context usage alone.
+- Treating `context_delivery_policy` as permission to remove must-keep evidence;
+  guarded required sources must be expanded/rechecked before implementation.
 
 ## Validation
 
@@ -333,6 +355,7 @@ or Open Brain runtime integration:
 
 ```bash
 php artisan test tests/Unit/Ai tests/Feature/Ai
+php artisan test tests/Unit/Ai/AtlasOpenBrainContextInjectionServiceTest.php
 php artisan atlas:ai:architecture-validate --json
 atlas engineering knowledge docs-health
 atlas engineering knowledge sync --prune

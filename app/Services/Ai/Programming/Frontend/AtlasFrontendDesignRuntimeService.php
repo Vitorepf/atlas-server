@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Programming\Frontend;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiTextMatcher;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
@@ -1361,13 +1362,7 @@ final class AtlasFrontendDesignRuntimeService
 
     private function containsAny(string $haystack, array $needles): bool
     {
-        foreach ($needles as $needle) {
-            if (str_contains($haystack, Str::ascii(strtolower((string) $needle)))) {
-                return true;
-            }
-        }
-
-        return false;
+        return AiTextMatcher::containsAnyAsciiLowerNeedle($haystack, $needles);
     }
 
     /**

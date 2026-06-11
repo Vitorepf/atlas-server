@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+
 /**
  * Deterministic work-router for the Atlas Code Multi-Project Workspace OS.
  *
@@ -338,9 +340,7 @@ final class AtlasCodeMultiProjectWorkspaceOsService
 
     private function normalizeRisk(string $risk): string
     {
-        $risk = strtolower(trim($risk));
-
-        return in_array($risk, ['low', 'medium', 'high'], true) ? $risk : 'medium';
+        return AtlasAaeosValueNormalizer::lowMediumHighRisk($risk);
     }
 
     private function maxRisk(string $a, string $b): string

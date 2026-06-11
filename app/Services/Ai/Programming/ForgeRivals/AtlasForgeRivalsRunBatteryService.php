@@ -69,11 +69,11 @@ final class AtlasForgeRivalsRunBatteryService
     public function run(array $input): array
     {
         $rawMode = trim((string) ($input['mode'] ?? ''));
-        $mode = $this->normalizeMode($rawMode);
+        $mode = AtlasForgeRivalsInputNormalizer::batteryMode($rawMode);
         $rawAtlasModel = trim((string) ($input['atlas_model'] ?? 'claude_sonnet'));
         $rawRivalModel = trim((string) ($input['rival'] ?? $rawAtlasModel));
-        $atlasModel = $this->normalizeModel($rawAtlasModel);
-        $rivalModel = $this->normalizeModel($rawRivalModel);
+        $atlasModel = AtlasForgeRivalsInputNormalizer::lowercaseModelAlias($rawAtlasModel);
+        $rivalModel = AtlasForgeRivalsInputNormalizer::lowercaseModelAlias($rawRivalModel);
         $preset = trim((string) ($input['preset'] ?? AtlasForgeRivalsCasesRegistry::PRESET_QUICK));
         $promptMode = $this->normalizePromptMode((string) ($input['prompt_mode'] ?? ''));
         $case = trim((string) ($input['case'] ?? ''));
@@ -813,15 +813,6 @@ final class AtlasForgeRivalsRunBatteryService
         ];
     }
 
-    private function normalizeMode(string $mode): string
-    {
-        return match (strtolower($mode)) {
-            'power', 'full-power' => AtlasForgeRivalsModeRegistry::MODE_FULL_POWER,
-            '' => AtlasForgeRivalsModeRegistry::MODE_FAIR,
-            default => strtolower($mode),
-        };
-    }
-
     private function normalizePromptMode(string $mode): string
     {
         return match (strtolower(trim($mode))) {
@@ -830,15 +821,6 @@ final class AtlasForgeRivalsRunBatteryService
             'messy', 'messy_real', 'messy-real' => 'messy-real',
             'enterprise', 'enterprise_change', 'enterprise-change' => 'enterprise-change',
             default => strtolower(trim($mode)),
-        };
-    }
-
-    private function normalizeModel(string $model): string
-    {
-        return match (strtolower($model)) {
-            'sonnet' => AtlasForgeRivalsModelMatrix::MODEL_CLAUDE_SONNET,
-            'opus' => AtlasForgeRivalsModelMatrix::MODEL_CLAUDE_OPUS,
-            default => strtolower($model),
         };
     }
 

@@ -3,8 +3,8 @@ id: atlas-token-economy-runtime
 type: engineering_knowledge
 title: Atlas Token Economy Runtime
 status: active
-implementation_state: partial_runtime_with_future_scope
-blocker: Provider selection ainda e advisory ate promocao governada; runtime ATER read-only ja emite budgets, compression/reuse/local receipts e quality gate.
+implementation_state: partial_runtime_with_feedback_guided_context_delivery
+blocker: Provider selection ainda e advisory ate promocao governada; runtime ATER read-only ja emite budgets, compression/reuse/local receipts, context delivery policy e quality gate.
 category: intelligence-runtime
 priority: 98
 summary: Doc filha AUCRI para reduzir tokens de entrada e saida sem reduzir evidencia, must-keep, sufficiency, qualidade ou completude.
@@ -114,10 +114,12 @@ ATER tambem retroalimenta ACOP e AREBA com metricas de economia e qualidade.
 - `atlas.token_economy.reuse_receipt.v1`
 - `atlas.token_economy.local_prereasoning.v1`
 - `atlas.token_economy.quality_check.v1`
+- `atlas.token_economy.context_delivery_policy.v1`
 
 Campos minimos: `flow_id`, `risk_level`, `provider`, `input_tokens_before`,
 `input_tokens_after`, `output_budget`, `must_keep_coverage`, `loss_score`,
-`quality_gate_status`, `savings_estimate`, `receipt_hash`.
+`quality_gate_status`, `savings_estimate`, `initial_context_token_budget`,
+`expansion_token_reserve`, `receipt_hash`.
 
 ## Fluxo
 
@@ -126,9 +128,12 @@ Campos minimos: `flow_id`, `risk_level`, `provider`, `input_tokens_before`,
 3. Reusar context pack/compiled pack se hash e freshness permitirem.
 4. Executar pre-reasoning local para diff, contagem, parsing e validacao.
 5. Aplicar semantic compression com must_keep_coverage = 1.0.
-6. Escolher provider/modelo pelo menor custo seguro.
-7. Definir output contract curto ou completo.
-8. Rodar quality token check e bloquear se houver perda critica.
+6. Se ACRS enviou `feedback_impact_report`, gerar politica de entrega:
+   pacote inicial minimo, fontes iniciais, fontes diferidas e gatilhos de
+   expansao sob demanda.
+7. Escolher provider/modelo pelo menor custo seguro.
+8. Definir output contract curto ou completo.
+9. Rodar quality token check e bloquear se houver perda critica.
 
 ## Regras para IA
 
@@ -137,6 +142,10 @@ Campos minimos: `flow_id`, `risk_level`, `provider`, `input_tokens_before`,
 - Nao pedir relatorio longo quando resposta curta resolve.
 - Nao chamar provider frontier para triagem local simples.
 - Nao reusar contexto stale.
+- Nao despejar testes, docs longos ou grafo completo no primeiro pacote quando
+  `context_delivery_policy` consegue expor handles de expansao.
+- Se feedback perder fonte obrigatoria, tratar como recheck guardado antes de
+  implementacao, nao como permissao para sumir com evidencia.
 
 ## Escopo de Implementacao
 
@@ -150,6 +159,9 @@ Sub-blocos cobertos pelo runtime read-only:
 - ATDR: Atlas Token Delta Runtime.
 - APMS: Atlas Provider Model Selector.
 - AQTC: Atlas Quality Token Check.
+- ACDP: Atlas Context Delivery Policy, que transforma impacto before/after do
+  ACRS em budget inicial, reserva de expansao, fontes iniciais/diferidas e
+  triggers provider-safe.
 
 `LocalPrereasoningPolicy` e o unico dono das regras de ALPR. O runtime ATER usa
 essa politica para montar o receipt `atlas.token_economy.local_prereasoning.v1`,
@@ -171,10 +183,14 @@ Evidencia atual:
 - `atlas:context:token-economy:input --input='<json>' --json` como alias de
   compatibilidade, sem competir pelo comando canonico;
 - receipt com tokens antes/depois;
+- `context_delivery_policy` com `initial_context_token_budget` e
+  `expansion_token_reserve` quando recebe `feedback_impact_report` do ACRS;
 - must_keep_coverage = 1.0;
 - loss_score abaixo do limite;
 - teste que bloqueia compressao que remove DoD/blocker/decision;
 - teste que escolhe provider barato somente quando risk permite.
+- teste que prova staging minimo com feedback ativo e recheck guardado quando
+  uma fonte obrigatoria e perdida.
 
 ## Riscos
 
@@ -197,3 +213,5 @@ risks, decisions e evidence refs.
 3. Integrar primeiro com Atlas Dev e Forge.
 4. Promover provider selection somente com AP/receipt.
 5. Manter fixtures de must-keep e provider risk verdes.
+6. Fazer Open Brain/ACCR consumir `context_delivery_policy` para entregar
+   handles de expansao sob demanda fora do runtime read-only.

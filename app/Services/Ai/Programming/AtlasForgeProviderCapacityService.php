@@ -9,6 +9,7 @@ use App\Models\AiWorkerEvent;
 use App\Models\AtlasProject;
 use App\Services\Ai\AtlasAiRuntimeSettings;
 use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -84,8 +85,8 @@ class AtlasForgeProviderCapacityService
      */
     public function snapshot(array $options = []): array
     {
-        $obraId = $this->stringOrNull($options['obra_id'] ?? null);
-        $workspace = $this->stringOrNull($options['workspace'] ?? null) ?? base_path();
+        $obraId = AiValueNormalizer::trimmedStringOrNull($options['obra_id'] ?? null);
+        $workspace = AiValueNormalizer::trimmedStringOrNull($options['workspace'] ?? null) ?? base_path();
         $now = $this->resolveNow($options['now'] ?? null);
 
         $project = $obraId !== null ? $this->resolveObra($obraId) : null;
@@ -372,7 +373,7 @@ class AtlasForgeProviderCapacityService
             return false;
         }
 
-        $binary = $this->stringOrNull($config['binary'] ?? null);
+        $binary = AiValueNormalizer::trimmedStringOrNull($config['binary'] ?? null);
         if ($binary === null) {
             return false;
         }
@@ -812,15 +813,5 @@ class AtlasForgeProviderCapacityService
         }
 
         return Carbon::now();
-    }
-
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
     }
 }

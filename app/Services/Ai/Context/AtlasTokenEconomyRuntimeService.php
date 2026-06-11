@@ -21,6 +21,8 @@ final class AtlasTokenEconomyRuntimeService
 
     public const QUALITY_CHECK_SCHEMA = 'atlas.token_economy.quality_check.v1';
 
+    public const CONTEXT_DELIVERY_POLICY_SCHEMA = 'atlas.token_economy.context_delivery_policy.v1';
+
     private readonly ContextWindowMustKeepBudgetAllocator $mustKeepAllocator;
 
     private readonly RecallContextBudgetSplitScorer $recallSplitScorer;
@@ -49,7 +51,8 @@ final class AtlasTokenEconomyRuntimeService
         $reuse = $this->reuseReceipt($input, $compiled);
         $local = $this->localPrereasoning($input);
         $compression = $this->compressionReceipt($compiledAfter, $risk, $reuse, $local, $input);
-        $budget = $this->budget($compiled, $compression, $risk, $provider);
+        $contextDeliveryPolicy = $this->contextDeliveryPolicy($input, $compiled, $compression, $risk);
+        $budget = $this->budget($compiled, $compression, $risk, $provider, $contextDeliveryPolicy);
         $providerSelection = $this->providerSelection($risk, $provider, (int) $compression['input_tokens_after'], $local);
         $quality = $this->qualityCheck($compression, $compiled, $input);
         $status = (string) $quality['quality_gate_status'] === 'passed' ? 'ready' : 'blocked';
@@ -60,6 +63,7 @@ final class AtlasTokenEconomyRuntimeService
             'generated_at' => Carbon::now()->toIso8601String(),
             'budget' => $budget,
             'compression_receipt' => $compression,
+            'context_delivery_policy' => $contextDeliveryPolicy,
             'reuse_receipt' => $reuse,
             'local_prereasoning' => $local,
             'provider_model_selection' => $providerSelection,
@@ -163,7 +167,7 @@ final class AtlasTokenEconomyRuntimeService
      * @param  array<string,mixed>  $compression
      * @return array<string,mixed>
      */
-    private function budget(array $compiled, array $compression, string $risk, string $provider): array
+    private function budget(array $compiled, array $compression, string $risk, string $provider, array $contextDeliveryPolicy): array
     {
         $outputBudget = match ($risk) {
             'low' => 900,
@@ -181,10 +185,103 @@ final class AtlasTokenEconomyRuntimeService
             'input_tokens_after' => (int) $compression['input_tokens_after'],
             'output_budget' => $outputBudget,
             'savings_estimate' => (int) $compression['savings_estimate'],
+            'context_delivery_mode' => (string) ($contextDeliveryPolicy['delivery_mode'] ?? 'standard_compiled_pack'),
+            'initial_context_token_budget' => (int) ($contextDeliveryPolicy['initial_context_token_budget'] ?? $compression['input_tokens_after']),
+            'expansion_token_reserve' => (int) ($contextDeliveryPolicy['expansion_token_reserve'] ?? 0),
         ];
         $budget['receipt_hash'] = MissionCanonicalHash::sha256($budget);
 
         return $budget;
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @param  array<string,mixed>  $compiled
+     * @param  array<string,mixed>  $compression
+     * @return array<string,mixed>
+     */
+    private function contextDeliveryPolicy(array $input, array $compiled, array $compression, string $risk): array
+    {
+        $impact = $this->feedbackImpactReportInput($input);
+        $tokensAfter = max(0, (int) ($compression['input_tokens_after'] ?? 0));
+        $impactActive = (string) ($impact['status'] ?? 'inactive') === 'active';
+
+        if (! $impactActive) {
+            $policy = [
+                'schema_version' => self::CONTEXT_DELIVERY_POLICY_SCHEMA,
+                'status' => 'inactive',
+                'source' => 'none',
+                'delivery_mode' => 'standard_compiled_pack',
+                'reason' => 'no_active_feedback_impact_report',
+                'compiled_hash' => (string) data_get($compiled, 'compiled_pack.compiled_hash', ''),
+                'input_tokens_after_compression' => $tokensAfter,
+                'initial_context_token_budget' => $tokensAfter,
+                'expansion_token_reserve' => 0,
+                'initial_token_multiplier' => 1.0,
+                'initial_ref_limit' => $this->initialRefLimit($risk, false, false),
+                'initial_source_types' => [],
+                'deferred_source_types' => [],
+                'guarded_required_source_types' => [],
+                'expansion_triggers' => [
+                    'provider_requests_more_context',
+                    'quality_gate_blocks',
+                ],
+                'quality_gate_hint' => 'standard_quality_gate',
+                'advisory_only' => true,
+                'policy' => $this->contextDeliveryPolicyClaims(),
+            ];
+            $policy['receipt_hash'] = MissionCanonicalHash::sha256($policy);
+
+            return $policy;
+        }
+
+        $newlySelectedSources = $this->sourceTypesFromRefs(data_get($impact, 'newly_selected_refs', []));
+        $promotedSources = $this->sourceTypesFromRefs(data_get($impact, 'promoted_refs', []));
+        $droppedSources = $this->sourceTypesFromRefs(data_get($impact, 'dropped_refs', []));
+        $demotedSources = $this->sourceTypesFromRefs(data_get($impact, 'demoted_refs', []));
+        $gainedRequired = $this->stringList(data_get($impact, 'coverage_delta.gained_required_sources', []));
+        $lostRequired = $this->stringList(data_get($impact, 'coverage_delta.lost_required_sources', []));
+        $rankChangeCount = max(0, (int) ($impact['rank_position_change_count'] ?? 0));
+        $selectedSetChanged = (bool) ($impact['selected_set_changed'] ?? false);
+        $hasRequiredCoverageChange = $gainedRequired !== [] || $lostRequired !== [];
+        $hasLostRequired = $lostRequired !== [];
+        $deliveryMode = $this->deliveryMode($hasLostRequired, $hasRequiredCoverageChange, $selectedSetChanged, $rankChangeCount);
+        $multiplier = $this->initialTokenMultiplier($deliveryMode, $risk);
+        $initialBudget = min($tokensAfter, (int) round($tokensAfter * $multiplier));
+        $reserve = max(0, $tokensAfter - $initialBudget);
+        $initialSources = $this->uniqueStrings(array_merge($newlySelectedSources, $promotedSources, $gainedRequired));
+        $deferredSources = $this->uniqueStrings(array_merge($droppedSources, $demotedSources));
+
+        $policy = [
+            'schema_version' => self::CONTEXT_DELIVERY_POLICY_SCHEMA,
+            'status' => 'active',
+            'source' => (string) ($impact['source'] ?? 'unknown'),
+            'delivery_mode' => $deliveryMode,
+            'reason' => $this->deliveryReason($deliveryMode),
+            'compiled_hash' => (string) data_get($compiled, 'compiled_pack.compiled_hash', ''),
+            'feedback_impact_hash' => MissionCanonicalHash::sha256($this->providerSafeImpactProjection($impact)),
+            'input_tokens_after_compression' => $tokensAfter,
+            'initial_context_token_budget' => $initialBudget,
+            'expansion_token_reserve' => $reserve,
+            'initial_token_multiplier' => $multiplier,
+            'initial_ref_limit' => $this->initialRefLimit($risk, $selectedSetChanged, $hasLostRequired),
+            'selected_set_changed' => $selectedSetChanged,
+            'rank_position_change_count' => $rankChangeCount,
+            'initial_source_types' => $initialSources,
+            'deferred_source_types' => $deferredSources,
+            'guarded_required_source_types' => $lostRequired,
+            'coverage_delta' => [
+                'gained_required_sources' => $gainedRequired,
+                'lost_required_sources' => $lostRequired,
+            ],
+            'expansion_triggers' => $this->expansionTriggers($hasLostRequired, $hasRequiredCoverageChange, $deferredSources),
+            'quality_gate_hint' => $hasLostRequired ? 'required_source_recheck_before_implementation' : 'feedback_guided_staging_allowed',
+            'advisory_only' => true,
+            'policy' => $this->contextDeliveryPolicyClaims(),
+        ];
+        $policy['receipt_hash'] = MissionCanonicalHash::sha256($policy);
+
+        return $policy;
     }
 
     /**
@@ -275,6 +372,203 @@ final class AtlasTokenEconomyRuntimeService
         $receipt['receipt_hash'] = MissionCanonicalHash::sha256($receipt);
 
         return $receipt;
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function feedbackImpactReportInput(array $input): array
+    {
+        foreach ([
+            'feedback_impact_report',
+            'ranking_feedback_impact',
+            'acrs_feedback_impact_report',
+        ] as $key) {
+            if (is_array($input[$key] ?? null)) {
+                return (array) $input[$key];
+            }
+        }
+
+        $nested = data_get($input, 'rerank_result.feedback_impact_report');
+
+        return is_array($nested) ? $nested : [];
+    }
+
+    private function deliveryMode(bool $hasLostRequired, bool $hasRequiredCoverageChange, bool $selectedSetChanged, int $rankChangeCount): string
+    {
+        return match (true) {
+            $hasLostRequired => 'guarded_required_source_recheck',
+            $hasRequiredCoverageChange || $selectedSetChanged => 'staged_minimal_targeted_expansion',
+            $rankChangeCount > 0 => 'compact_rank_adjusted',
+            default => 'compact_stable',
+        };
+    }
+
+    private function deliveryReason(string $deliveryMode): string
+    {
+        return match ($deliveryMode) {
+            'guarded_required_source_recheck' => 'feedback_changed_required_source_coverage',
+            'staged_minimal_targeted_expansion' => 'feedback_changed_selected_context_set',
+            'compact_rank_adjusted' => 'feedback_changed_rank_order_only',
+            default => 'feedback_active_without_material_context_change',
+        };
+    }
+
+    private function initialTokenMultiplier(string $deliveryMode, string $risk): float
+    {
+        $base = match ($deliveryMode) {
+            'guarded_required_source_recheck' => 0.86,
+            'staged_minimal_targeted_expansion' => 0.68,
+            'compact_rank_adjusted' => 0.58,
+            'compact_stable' => 0.52,
+            default => 1.0,
+        };
+        $riskFloor = match ($risk) {
+            'irreversible' => 0.92,
+            'high' => 0.82,
+            'medium' => 0.64,
+            default => 0.50,
+        };
+
+        return round(max($base, $riskFloor), 2);
+    }
+
+    private function initialRefLimit(string $risk, bool $selectedSetChanged, bool $hasLostRequired): int
+    {
+        $base = match ($risk) {
+            'irreversible' => 10,
+            'high' => 8,
+            'medium' => 6,
+            default => 4,
+        };
+
+        if ($hasLostRequired) {
+            return min(12, $base + 2);
+        }
+
+        if ($selectedSetChanged) {
+            return min(12, $base + 1);
+        }
+
+        return $base;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function expansionTriggers(bool $hasLostRequired, bool $hasRequiredCoverageChange, array $deferredSources): array
+    {
+        $triggers = [
+            'provider_requests_more_context',
+            'quality_gate_blocks',
+            'implementation_target_uncertain',
+        ];
+
+        if ($hasRequiredCoverageChange) {
+            $triggers[] = 'required_source_coverage_changed';
+        }
+
+        if ($hasLostRequired) {
+            $triggers[] = 'required_source_recheck_before_implementation';
+        }
+
+        if ($deferredSources !== []) {
+            $triggers[] = 'deferred_source_requested';
+        }
+
+        return $this->uniqueStrings($triggers);
+    }
+
+    /**
+     * @param  mixed  $refs
+     * @return array<int,string>
+     */
+    private function sourceTypesFromRefs(mixed $refs): array
+    {
+        if (! is_array($refs)) {
+            return [];
+        }
+
+        $sourceTypes = [];
+        foreach ($refs as $ref) {
+            if (! is_array($ref)) {
+                continue;
+            }
+
+            $sourceTypes[] = (string) ($ref['source_type'] ?? '');
+        }
+
+        return $this->uniqueStrings($sourceTypes);
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function stringList(mixed $value): array
+    {
+        if (is_scalar($value)) {
+            return $this->uniqueStrings([(string) $value]);
+        }
+
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $strings = [];
+        foreach ($value as $item) {
+            if (is_scalar($item)) {
+                $strings[] = (string) $item;
+            }
+        }
+
+        return $this->uniqueStrings($strings);
+    }
+
+    /**
+     * @param  array<int,string>  $strings
+     * @return array<int,string>
+     */
+    private function uniqueStrings(array $strings): array
+    {
+        return AtlasContextStringListNormalizer::uniqueTrimmedStrings($strings);
+    }
+
+    /**
+     * @param  array<string,mixed>  $impact
+     * @return array<string,mixed>
+     */
+    private function providerSafeImpactProjection(array $impact): array
+    {
+        return [
+            'status' => (string) ($impact['status'] ?? 'unknown'),
+            'source' => (string) ($impact['source'] ?? 'unknown'),
+            'selected_set_changed' => (bool) ($impact['selected_set_changed'] ?? false),
+            'rank_position_change_count' => max(0, (int) ($impact['rank_position_change_count'] ?? 0)),
+            'score_delta_total_abs' => round((float) ($impact['score_delta_total_abs'] ?? 0.0), 4),
+            'newly_selected_sources' => $this->sourceTypesFromRefs(data_get($impact, 'newly_selected_refs', [])),
+            'dropped_sources' => $this->sourceTypesFromRefs(data_get($impact, 'dropped_refs', [])),
+            'promoted_sources' => $this->sourceTypesFromRefs(data_get($impact, 'promoted_refs', [])),
+            'demoted_sources' => $this->sourceTypesFromRefs(data_get($impact, 'demoted_refs', [])),
+            'coverage_delta' => [
+                'gained_required_sources' => $this->stringList(data_get($impact, 'coverage_delta.gained_required_sources', [])),
+                'lost_required_sources' => $this->stringList(data_get($impact, 'coverage_delta.lost_required_sources', [])),
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,bool>
+     */
+    private function contextDeliveryPolicyClaims(): array
+    {
+        return [
+            'provider_safe_only' => true,
+            'raw_text_exposed' => false,
+            'providers_invoked' => false,
+            'writes' => false,
+            'auto_apply_learning' => false,
+        ];
     }
 
     /**

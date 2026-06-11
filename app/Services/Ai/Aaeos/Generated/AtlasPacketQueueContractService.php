@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Aaeos\Generated;
 
 use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
 
 /**
  * Atlas Self-Construction Packet Queue — pure, deterministic queue decider.
@@ -524,16 +525,12 @@ final class AtlasPacketQueueContractService
 
     private function normalizeRisk(mixed $risk): string
     {
-        $r = is_string($risk) ? strtolower(trim($risk)) : '';
-
-        return in_array($r, ['none', 'low', 'medium', 'high'], true) ? $r : 'medium';
+        return AtlasAaeosValueNormalizer::lowercaseAllowed($risk, ['none', 'low', 'medium', 'high'], 'medium');
     }
 
     private function normalizeProvider(mixed $provider): string
     {
-        $p = is_string($provider) ? strtolower(trim($provider)) : '';
-
-        return in_array($p, ['codex', 'claude', 'gemini', 'local_agent', 'generic'], true) ? $p : 'generic';
+        return AtlasAaeosValueNormalizer::lowercaseAllowed($provider, ['codex', 'claude', 'gemini', 'local_agent', 'generic'], 'generic');
     }
 
     private function str(mixed $value, string $default): string

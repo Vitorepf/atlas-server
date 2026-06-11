@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
 use App\Services\Ai\Policy\PolicyCanon;
 
 /**
@@ -284,9 +285,7 @@ final class AtlasPolicyProfileService
 
     private function normalizeRisk(string $risk): string
     {
-        $risk = strtolower(trim($risk));
-
-        return in_array($risk, PolicyCanon::RISK_LEVELS, true) ? $risk : PolicyCanon::RISK_LOW;
+        return AtlasAaeosValueNormalizer::lowercaseAllowed($risk, PolicyCanon::RISK_LEVELS, PolicyCanon::RISK_LOW);
     }
 
     /**

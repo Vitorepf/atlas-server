@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Aaeos\Generated;
 
 use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
 
 /**
  * System-Graph `capabilities` module gear.
@@ -357,12 +358,7 @@ final class AtlasSystemGraphCapabilitiesService
      */
     private function normalizeRisk(mixed $risk): string
     {
-        if (! is_string($risk)) {
-            return 'high';
-        }
-        $risk = strtolower(trim($risk));
-
-        return in_array($risk, self::RISK_TIERS, true) ? $risk : 'high';
+        return AtlasAaeosValueNormalizer::lowercaseAllowed($risk, self::RISK_TIERS, 'high');
     }
 
     private function isEmptyValue(mixed $value): bool

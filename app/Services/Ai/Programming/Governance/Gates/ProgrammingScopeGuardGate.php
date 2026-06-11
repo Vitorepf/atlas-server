@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Programming\Governance\Gates;
 
 use App\Models\AtlasProgrammingWorkItem;
+use App\Services\Ai\Support\AiPathMatcher;
 use Throwable;
 
 /**
@@ -154,20 +155,6 @@ class ProgrammingScopeGuardGate implements ProgrammingGateContract
      */
     private function matchesAny(string $file, array $patterns): bool
     {
-        foreach ($patterns as $pattern) {
-            if ($pattern === $file) {
-                return true;
-            }
-            // Glob-style matching for `app/Foo/*.php`, `app/**`, etc.
-            if (str_contains($pattern, '*') && fnmatch($pattern, $file, FNM_NOESCAPE)) {
-                return true;
-            }
-            // Treat trailing slash patterns as directory prefix: `app/Foo/`.
-            if (str_ends_with($pattern, '/') && str_starts_with($file, $pattern)) {
-                return true;
-            }
-        }
-
-        return false;
+        return AiPathMatcher::matchesAnyExactStarGlobOrDirectoryPrefix($file, $patterns);
     }
 }

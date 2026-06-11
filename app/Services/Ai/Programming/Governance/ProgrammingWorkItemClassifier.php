@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Programming\Governance;
 
+use App\Services\Ai\Support\AiTextMatcher;
 use Illuminate\Support\Str;
 
 /**
@@ -159,13 +160,7 @@ class ProgrammingWorkItemClassifier
      */
     private function containsAny(string $haystack, array $needles): bool
     {
-        foreach ($needles as $needle) {
-            if (str_contains($haystack, $needle)) {
-                return true;
-            }
-        }
-
-        return false;
+        return AiTextMatcher::containsAnyNeedle($haystack, $needles);
     }
 
     /**

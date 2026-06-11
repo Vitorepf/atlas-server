@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Atlas Self-Construction Structural Contract Gate — pure, deterministic
  * documentation-first gate that decides whether a structural subsystem may
@@ -521,7 +523,7 @@ final class AtlasStructuralContractGateService
      */
     private function intersectKnown(mixed $values, array $known): array
     {
-        $list = $this->normalizeList($values);
+        $list = AtlasAaeosStringListNormalizer::uniqueTrimmedStrings($values);
 
         return array_values(array_filter(
             $known,
@@ -542,26 +544,6 @@ final class AtlasStructuralContractGateService
             $required,
             static fn (string $field): bool => ! in_array($field, $have, true),
         ));
-    }
-
-    /**
-     * @param mixed $value
-     * @return list<string>
-     */
-    private function normalizeList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
-        }
-
-        return array_values(array_unique($out));
     }
 
     private function str(mixed $value): string

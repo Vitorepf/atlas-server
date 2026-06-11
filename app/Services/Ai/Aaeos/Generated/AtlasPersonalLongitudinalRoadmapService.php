@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+
 /**
  * Atlas Personal Longitudinal Intelligence Roadmap — runtime.
  *
@@ -431,8 +433,6 @@ final class AtlasPersonalLongitudinalRoadmapService
 
     private function normalizeMode(string $mode): string
     {
-        $key = strtolower(trim($mode));
-
-        return $key === self::MODE_AUTO_APPLY ? self::MODE_AUTO_APPLY : self::MODE_PROPOSE;
+        return AtlasAaeosValueNormalizer::lowercaseAllowed($mode, [self::MODE_AUTO_APPLY], self::MODE_PROPOSE);
     }
 }

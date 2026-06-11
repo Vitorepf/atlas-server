@@ -8,6 +8,7 @@ use App\Models\AtlasProject;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 use Throwable;
@@ -174,17 +175,17 @@ class AtlasForgeProviderInvocationService
     public function invoke(array $options = []): array
     {
         $obraId = self::normalizeObraIdInput($options['obra_id'] ?? null);
-        $role = $this->stringOrNull($options['role'] ?? null) ?? AtlasForgeProviderTopologyService::ROLE_PRIMARY_BUILDER;
-        $modeRaw = $this->stringOrNull($options['mode'] ?? null) ?? self::MODE_DRY_RUN;
+        $role = AiValueNormalizer::trimmedStringOrNull($options['role'] ?? null) ?? AtlasForgeProviderTopologyService::ROLE_PRIMARY_BUILDER;
+        $modeRaw = AiValueNormalizer::trimmedStringOrNull($options['mode'] ?? null) ?? self::MODE_DRY_RUN;
         $mode = in_array($modeRaw, [self::MODE_DRY_RUN, self::MODE_EXECUTE], true) ? $modeRaw : self::MODE_DRY_RUN;
         $confirmProviderCall = (bool) ($options['confirm_provider_call'] ?? false);
         $confirmBudget = (bool) ($options['confirm_budget'] ?? false);
         $confirmRuntimeDispatch = (bool) ($options['confirm_runtime_dispatch'] ?? false);
         $timeout = (int) ($options['timeout_seconds'] ?? 120);
         $maxOutputChars = (int) ($options['max_output_chars'] ?? 12000);
-        $dispatchIdOption = $this->stringOrNull($options['dispatch_id'] ?? null);
+        $dispatchIdOption = AiValueNormalizer::trimmedStringOrNull($options['dispatch_id'] ?? null);
 
-        $invocationId = $this->stringOrNull($options['invocation_id'] ?? null) ?? 'invoke_'.(string) Str::ulid();
+        $invocationId = AiValueNormalizer::trimmedStringOrNull($options['invocation_id'] ?? null) ?? 'invoke_'.(string) Str::ulid();
         $generatedAt = now()->toIso8601String();
         $blockers = [];
 
@@ -278,8 +279,8 @@ class AtlasForgeProviderInvocationService
             }
         }
 
-        $provider = $dispatchPlan !== null ? $this->stringOrNull($dispatchPlan['provider'] ?? null) : null;
-        $model = $dispatchPlan !== null ? $this->stringOrNull($dispatchPlan['model'] ?? null) : null;
+        $provider = $dispatchPlan !== null ? AiValueNormalizer::trimmedStringOrNull($dispatchPlan['provider'] ?? null) : null;
+        $model = $dispatchPlan !== null ? AiValueNormalizer::trimmedStringOrNull($dispatchPlan['model'] ?? null) : null;
 
         // Execute-mode gates.
         if ($mode === self::MODE_EXECUTE) {
@@ -337,7 +338,7 @@ class AtlasForgeProviderInvocationService
             'dispatch_id' => $dispatchPlan['dispatch_id'] ?? null,
             'decision_receipt_id' => $dispatchPlan['decision_receipt_id'] ?? null,
             'decision_receipt_hash' => $dispatchPlan['decision_receipt_hash'] ?? null,
-            'cwd' => $this->stringOrNull(data_get($project->metadata, 'workspace_path')),
+            'cwd' => AiValueNormalizer::trimmedStringOrNull(data_get($project->metadata, 'workspace_path')),
             'timeout_seconds' => $timeout,
             'max_output_chars' => $maxOutputChars,
         ]);
@@ -575,7 +576,7 @@ class AtlasForgeProviderInvocationService
                 'dispatch_id' => $dispatchPlan['dispatch_id'] ?? null,
                 'decision_receipt_id' => $dispatchPlan['decision_receipt_id'] ?? null,
                 'decision_receipt_hash' => $dispatchPlan['decision_receipt_hash'] ?? null,
-                'cwd' => $this->stringOrNull(data_get($project->metadata, 'workspace_path')),
+                'cwd' => AiValueNormalizer::trimmedStringOrNull(data_get($project->metadata, 'workspace_path')),
                 'timeout_seconds' => $timeout,
                 'max_output_chars' => $maxOutputChars,
             ]);
@@ -602,13 +603,13 @@ class AtlasForgeProviderInvocationService
         $providerCalled = (bool) ($result['provider_called'] ?? false);
         $externalProviderCall = (bool) ($result['external_provider_call'] ?? false);
         $spendsTokens = (bool) ($result['spends_provider_tokens'] ?? false);
-        $stdoutHash = $this->stringOrNull($result['stdout_hash'] ?? null) ?? hash('sha256', (string) ($result['stdout'] ?? ''));
-        $stderrHash = $this->stringOrNull($result['stderr_hash'] ?? null) ?? hash('sha256', (string) ($result['stderr'] ?? ''));
-        $outputExcerpt = $this->stringOrNull($result['output_excerpt'] ?? null);
+        $stdoutHash = AiValueNormalizer::trimmedStringOrNull($result['stdout_hash'] ?? null) ?? hash('sha256', (string) ($result['stdout'] ?? ''));
+        $stderrHash = AiValueNormalizer::trimmedStringOrNull($result['stderr_hash'] ?? null) ?? hash('sha256', (string) ($result['stderr'] ?? ''));
+        $outputExcerpt = AiValueNormalizer::trimmedStringOrNull($result['output_excerpt'] ?? null);
 
         // Honor declared timeout: if duration exceeded budget, mark timed_out.
         $timedOut = $duration > ($timeout * 1000);
-        $driverBlocker = $this->stringOrNull($result['blocker'] ?? null);
+        $driverBlocker = AiValueNormalizer::trimmedStringOrNull($result['blocker'] ?? null);
 
         $invocation['provider_called'] = $providerCalled;
         $invocation['external_provider_call'] = $externalProviderCall;
@@ -618,7 +619,7 @@ class AtlasForgeProviderInvocationService
         $invocation['stdout_hash'] = $stdoutHash;
         $invocation['stderr_hash'] = $stderrHash;
         $invocation['output_excerpt'] = $outputExcerpt;
-        $invocation['driver_result_note'] = $this->stringOrNull($result['note'] ?? null);
+        $invocation['driver_result_note'] = AiValueNormalizer::trimmedStringOrNull($result['note'] ?? null);
         $invocation['changed_files'] = is_array($result['changed_files'] ?? null) ? array_values($result['changed_files']) : [];
         $invocation['artifacts'] = is_array($result['artifacts'] ?? null) ? array_values($result['artifacts']) : [];
         $invocation['provider_performance_signal'] = is_array($result['performance_signal'] ?? null) ? $result['performance_signal'] : null;
@@ -688,11 +689,11 @@ class AtlasForgeProviderInvocationService
         ?array $prompt,
     ): array {
         $providerCallsExternal = $this->driverRouter->callsExternalProvider($provider);
-        $decisionSource = $dispatchPlan !== null ? $this->stringOrNull($dispatchPlan['decision_source'] ?? null) : null;
-        $decisionReceiptId = $dispatchPlan !== null ? $this->stringOrNull($dispatchPlan['decision_receipt_id'] ?? null) : null;
-        $decisionReceiptHash = $dispatchPlan !== null ? $this->stringOrNull($dispatchPlan['decision_receipt_hash'] ?? null) : null;
-        $providerTopologyId = $dispatchPlan !== null ? $this->stringOrNull($dispatchPlan['provider_topology_id'] ?? null) : null;
-        $dispatchId = $dispatchPlan !== null ? $this->stringOrNull($dispatchPlan['dispatch_id'] ?? null) : null;
+        $decisionSource = $dispatchPlan !== null ? AiValueNormalizer::trimmedStringOrNull($dispatchPlan['decision_source'] ?? null) : null;
+        $decisionReceiptId = $dispatchPlan !== null ? AiValueNormalizer::trimmedStringOrNull($dispatchPlan['decision_receipt_id'] ?? null) : null;
+        $decisionReceiptHash = $dispatchPlan !== null ? AiValueNormalizer::trimmedStringOrNull($dispatchPlan['decision_receipt_hash'] ?? null) : null;
+        $providerTopologyId = $dispatchPlan !== null ? AiValueNormalizer::trimmedStringOrNull($dispatchPlan['provider_topology_id'] ?? null) : null;
+        $dispatchId = $dispatchPlan !== null ? AiValueNormalizer::trimmedStringOrNull($dispatchPlan['dispatch_id'] ?? null) : null;
         $runtimeDispatchAllowed = $dispatchPlan !== null && (bool) ($dispatchPlan['runtime_dispatch_allowed'] ?? false);
         $workspaceExecutionGate = $dispatchPlan !== null && is_array($dispatchPlan['workspace_execution_gate'] ?? null)
             ? $dispatchPlan['workspace_execution_gate']
@@ -919,15 +920,5 @@ class AtlasForgeProviderInvocationService
             in_array(self::BLOCKER_MODE_INVALID, $blockers, true) => 'use_mode_dry_run_or_execute',
             default => $mode === self::MODE_EXECUTE ? 'resolve_remaining_blockers' : 'review_invocation_plan',
         };
-    }
-
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
     }
 }

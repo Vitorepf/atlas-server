@@ -133,8 +133,9 @@ class AiContextPackBuilder
         $verbatimItems = $this->verbatimMemoryItems($verbatimRecall, $options);
         $semanticItems = $this->semanticMemory($notes);
         $recallItems = $this->memoryComposer->compose($registryItems, $verbatimItems, $semanticItems, $options);
+        $contextDeliveryPolicy = $this->contextDeliveryPolicy($payload);
 
-        $pack = new AiContextPack([
+        $packData = [
             'schema_version' => 1,
             'task' => [
                 'type' => $taskData['task_type'],
@@ -207,7 +208,12 @@ class AiContextPackBuilder
             ],
             'excluded_context' => $this->excludedContext($options),
             'open_questions' => $this->openQuestions($notes, $options),
-        ], $contextRefs);
+        ];
+        if ($contextDeliveryPolicy !== null) {
+            $packData['context_delivery_policy'] = $contextDeliveryPolicy;
+        }
+
+        $pack = new AiContextPack($packData, $contextRefs);
 
         // Atlas Cognition Operating System — Absorcao 1 (Integer ID Mapping).
         // Phase 1: persiste mapping internal_id -> real_uuid por context_pack_id.
@@ -523,6 +529,96 @@ class AiContextPackBuilder
                 'do_not_use_when' => $delta->do_not_use_when,
             ])
             ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>|null
+     */
+    private function contextDeliveryPolicy(array $payload): ?array
+    {
+        foreach ([
+            data_get($payload, 'context_delivery_policy'),
+            data_get($payload, 'open_brain.context_delivery_policy'),
+            data_get($payload, 'token_economy.context_delivery_policy'),
+        ] as $candidate) {
+            if (! is_array($candidate)) {
+                continue;
+            }
+
+            $policy = $this->providerSafeContextDeliveryPolicy($candidate);
+            if ($policy !== null) {
+                return $policy;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $policy
+     * @return array<string,mixed>|null
+     */
+    private function providerSafeContextDeliveryPolicy(array $policy): ?array
+    {
+        if ((string) ($policy['status'] ?? '') !== 'active') {
+            return null;
+        }
+
+        if (data_get($policy, 'policy.raw_text_exposed') === true || data_get($policy, 'policy.provider_safe_only') === false) {
+            return null;
+        }
+
+        return [
+            'schema_version' => $this->scalarString($policy['schema_version'] ?? null, 'atlas.token_economy.context_delivery_policy.v1'),
+            'status' => 'active',
+            'source' => $this->scalarString($policy['source'] ?? null, 'unknown'),
+            'delivery_mode' => $this->scalarString($policy['delivery_mode'] ?? null, 'standard_compiled_pack'),
+            'reason' => $this->scalarString($policy['reason'] ?? null, 'context_delivery_policy_active'),
+            'initial_context_token_budget' => max(0, (int) ($policy['initial_context_token_budget'] ?? 0)),
+            'expansion_token_reserve' => max(0, (int) ($policy['expansion_token_reserve'] ?? 0)),
+            'initial_ref_limit' => max(0, (int) ($policy['initial_ref_limit'] ?? 0)),
+            'initial_source_types' => $this->scalarStringList($policy['initial_source_types'] ?? []),
+            'deferred_source_types' => $this->scalarStringList($policy['deferred_source_types'] ?? []),
+            'guarded_required_source_types' => $this->scalarStringList($policy['guarded_required_source_types'] ?? []),
+            'expansion_triggers' => $this->scalarStringList($policy['expansion_triggers'] ?? []),
+            'quality_gate_hint' => $this->scalarString($policy['quality_gate_hint'] ?? null, 'feedback_guided_staging_allowed'),
+            'advisory_only' => true,
+            'policy' => [
+                'provider_safe_only' => true,
+                'raw_text_exposed' => false,
+                'providers_invoked' => false,
+                'writes' => false,
+                'auto_apply_learning' => false,
+            ],
+        ];
+    }
+
+    private function scalarString(mixed $value, string $default = ''): string
+    {
+        return is_scalar($value) && trim((string) $value) !== '' ? trim((string) $value) : $default;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function scalarStringList(mixed $value): array
+    {
+        if (is_scalar($value)) {
+            $value = [$value];
+        }
+
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return collect($value)
+            ->filter(fn (mixed $item): bool => is_scalar($item) && trim((string) $item) !== '')
+            ->map(fn (mixed $item): string => trim((string) $item))
+            ->unique()
+            ->values()
+            ->take(24)
             ->all();
     }
 

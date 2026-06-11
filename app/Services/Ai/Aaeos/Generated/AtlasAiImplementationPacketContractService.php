@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+
 /**
  * Atlas Self-Construction · AI Implementation Packet Contract — pure,
  * deterministic admission validator for the universal work packet that lets
@@ -467,13 +469,10 @@ final class AtlasAiImplementationPacketContractService
 
     private function normalizeStatus(mixed $v): string
     {
-        $s = $this->str($v);
-        $set = [
+        return AtlasAaeosValueNormalizer::trimmedAllowed($v, [
             self::STATUS_AVAILABLE, self::STATUS_CLAIMED, self::STATUS_BLOCKED,
             self::STATUS_COMPLETED, self::STATUS_STALE,
-        ];
-
-        return ($s !== null && in_array($s, $set, true)) ? $s : self::STATUS_AVAILABLE;
+        ], self::STATUS_AVAILABLE);
     }
 
     private function providerProfile(array $packet): ?string

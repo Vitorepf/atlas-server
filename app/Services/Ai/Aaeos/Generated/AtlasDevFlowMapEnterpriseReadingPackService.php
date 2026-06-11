@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+
 /**
  * Atlas Dev Flow Map And Product Options v1 · Parte 2 — pure, deterministic
  * decider for the "Pacote De Leitura Enterprise" contract.
@@ -375,10 +377,7 @@ final class AtlasDevFlowMapEnterpriseReadingPackService
 
     private function normalizeRisk(mixed $value): string
     {
-        $risk = strtoupper(is_string($value) ? trim($value) : '');
-        $known = ['R0', 'R1', 'R2', 'R3', 'R4', 'R5'];
-
-        return in_array($risk, $known, true) ? $risk : 'R1';
+        return AtlasAaeosValueNormalizer::riskCodeR0ToR5($value, 'R1');
     }
 
     private function riskAtLeast(string $level, string $threshold): bool

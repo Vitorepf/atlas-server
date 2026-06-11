@@ -8,6 +8,8 @@ use App\Models\AtlasProgrammingWorkItem;
 use App\Models\AtlasProject;
 use App\Services\Ai\Programming\Governance\ProgrammingEvidenceLedger;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
+use App\Services\Ai\Support\AiPathMatcher;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -127,7 +129,7 @@ class AtlasForgeGovernedExecutionService
                 'name' => 'target_file_resolution',
                 'status' => 'blocked',
                 'blocker' => 'no_existing_allowed_file_in_workspace',
-                'allowed_files' => $this->strings($task['allowed_files'] ?? []),
+                'allowed_files' => AiStringListNormalizer::trimmedStringsFromArrayCast($task['allowed_files'] ?? []),
                 'workspace_hash' => hash('sha256', $workspace),
             ];
             $blockers[] = 'no_existing_allowed_file_in_workspace';
@@ -150,7 +152,7 @@ class AtlasForgeGovernedExecutionService
         if (($patchStage['status'] ?? null) !== 'passed') {
             $blockers[] = (string) ($patchStage['blocker'] ?? 'patch_dry_run_failed');
         }
-        $changedFiles = $this->strings($patchStage['changed_files'] ?? []);
+        $changedFiles = AiStringListNormalizer::trimmedStringsFromArrayCast($patchStage['changed_files'] ?? []);
 
         $manifestStage = $this->stageActionManifest($executionId, $changedFiles, (string) ($patchStage['diff_path'] ?? ''), $sandbox);
         $stages[] = $manifestStage;
@@ -158,7 +160,7 @@ class AtlasForgeGovernedExecutionService
 
         $testImpactStage = $this->stageTestImpact($changedFiles, $task);
         $stages[] = $testImpactStage;
-        $validationCommands = $this->strings(data_get($testImpactStage, 'test_impact.recommended_commands', []));
+        $validationCommands = AiStringListNormalizer::trimmedStringsFromArrayCast(data_get($testImpactStage, 'test_impact.recommended_commands', []));
 
         $validationStage = $this->stageValidationRun($workspace, $task, $validationCommands);
         $stages[] = $validationStage;
@@ -210,7 +212,7 @@ class AtlasForgeGovernedExecutionService
             $blockers,
             $changedFiles,
             $stageReceiptIds,
-            $this->strings(data_get($governanceStage, 'governance_feedback.gate_summary.blocking_failures', [])),
+            AiStringListNormalizer::trimmedStringsFromArrayCast(data_get($governanceStage, 'governance_feedback.gate_summary.blocking_failures', [])),
             $sandbox,
             is_array($governanceStage['receipt'] ?? null) ? (array) $governanceStage['receipt'] : null,
             is_array($governanceStage['governance_feedback'] ?? null) ? (array) $governanceStage['governance_feedback'] : null,
@@ -250,7 +252,7 @@ class AtlasForgeGovernedExecutionService
             ];
         }
 
-        $allowed = $this->strings($task['allowed_files'] ?? []);
+        $allowed = AiStringListNormalizer::trimmedStringsFromArrayCast($task['allowed_files'] ?? []);
 
         return [
             'name' => 'task_contract',
@@ -258,8 +260,8 @@ class AtlasForgeGovernedExecutionService
             'blocker' => $allowed === [] ? 'allowed_files_required' : null,
             'task_id' => (string) ($task['task_id'] ?? $task['id'] ?? 'task'),
             'allowed_files' => $allowed,
-            'forbidden_files' => $this->strings($task['forbidden_files'] ?? []),
-            'validation_commands' => $this->strings($task['validation_commands'] ?? []),
+            'forbidden_files' => AiStringListNormalizer::trimmedStringsFromArrayCast($task['forbidden_files'] ?? []),
+            'validation_commands' => AiStringListNormalizer::trimmedStringsFromArrayCast($task['validation_commands'] ?? []),
         ];
     }
 
@@ -452,9 +454,9 @@ class AtlasForgeGovernedExecutionService
      */
     private function stageTestImpact(array $changedFiles, array $task): array
     {
-        $commands = $this->strings($task['validation_commands'] ?? []);
+        $commands = AiStringListNormalizer::trimmedStringsFromArrayCast($task['validation_commands'] ?? []);
         $impact = $this->testImpactAnalyzer->analyze($changedFiles, [
-            'related_tests' => $this->strings($task['related_tests'] ?? []),
+            'related_tests' => AiStringListNormalizer::trimmedStringsFromArrayCast($task['related_tests'] ?? []),
         ], (string) ($task['risk_level'] ?? 'medium'));
         if ($commands !== []) {
             $impact['recommended_commands'] = $commands;
@@ -508,7 +510,7 @@ class AtlasForgeGovernedExecutionService
                 'stderr_hash' => hash('sha256', $stderr),
                 'stdout_excerpt' => substr($stdout, 0, 200),
                 'stderr_excerpt' => substr($stderr, 0, 200),
-                'task_validation_commands' => $this->strings($task['validation_commands'] ?? []),
+                'task_validation_commands' => AiStringListNormalizer::trimmedStringsFromArrayCast($task['validation_commands'] ?? []),
             ],
         ];
     }
@@ -782,7 +784,7 @@ class AtlasForgeGovernedExecutionService
             }
         }
 
-        $withFiles = $tasks->first(fn (array $task): bool => $this->strings($task['allowed_files'] ?? []) !== []);
+        $withFiles = $tasks->first(fn (array $task): bool => AiStringListNormalizer::trimmedStringsFromArrayCast($task['allowed_files'] ?? []) !== []);
 
         return is_array($withFiles) ? $withFiles : null;
     }
@@ -792,8 +794,8 @@ class AtlasForgeGovernedExecutionService
      */
     private function firstExistingAllowedFile(string $workspace, array $task): ?string
     {
-        $forbidden = $this->strings($task['forbidden_files'] ?? []);
-        foreach ($this->strings($task['allowed_files'] ?? []) as $file) {
+        $forbidden = AiStringListNormalizer::trimmedStringsFromArrayCast($task['forbidden_files'] ?? []);
+        foreach (AiStringListNormalizer::trimmedStringsFromArrayCast($task['allowed_files'] ?? []) as $file) {
             if (! $this->relativePathIsSafe($file) || $this->matchesAny($file, $forbidden)) {
                 continue;
             }
@@ -885,33 +887,10 @@ class AtlasForgeGovernedExecutionService
     }
 
     /**
-     * @return list<string>
-     */
-    private function strings(mixed $value): array
-    {
-        return array_values(array_filter(
-            array_map(static fn (mixed $item): string => is_string($item) ? trim($item) : '', (array) $value),
-            static fn (string $item): bool => $item !== '',
-        ));
-    }
-
-    /**
      * @param  list<string>  $patterns
      */
     private function matchesAny(string $file, array $patterns): bool
     {
-        foreach ($patterns as $pattern) {
-            if ($pattern === $file) {
-                return true;
-            }
-            if (str_contains($pattern, '*') && fnmatch($pattern, $file, FNM_NOESCAPE)) {
-                return true;
-            }
-            if (str_ends_with($pattern, '/') && str_starts_with($file, $pattern)) {
-                return true;
-            }
-        }
-
-        return false;
+        return AiPathMatcher::matchesAnyExactStarGlobOrDirectoryPrefix($file, $patterns);
     }
 }

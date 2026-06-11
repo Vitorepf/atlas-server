@@ -8,6 +8,7 @@ use App\Models\AtlasProgrammingWorkItem;
 use App\Models\AtlasProject;
 use App\Services\Ai\Product\AtlasExecutionDoctrineGateService;
 use App\Services\Ai\Product\AtlasExecutionDoctrineRuntimeService;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Support\Str;
 
 /**
@@ -301,10 +302,7 @@ class AtlasCodeForgeWorkIntakeService
      */
     private function stringList(mixed $value): array
     {
-        return array_values(array_filter(
-            array_map(static fn (mixed $item): string => is_string($item) ? trim($item) : '', (array) $value),
-            static fn (string $item): bool => $item !== '',
-        ));
+        return AiStringListNormalizer::trimmedStringsFromArrayCast($value);
     }
 
     private function stringOrNull(mixed $value): ?string

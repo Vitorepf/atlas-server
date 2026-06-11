@@ -14,6 +14,8 @@ use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
 use App\Services\Ai\Programming\Governance\ProgrammingSpecCompiler;
 use App\Services\Ai\Programming\Sdd\Compilers\PlanCompiler;
 use App\Services\Ai\Programming\Sdd\Compilers\TaskCompiler;
+use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -54,12 +56,7 @@ class AtlasCodeForgeFastPathService
 
     public static function normalizeObraIdInput(mixed $value): ?string
     {
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
+        return AiValueNormalizer::trimmedStringOrNull($value);
     }
 
     public static function normalizeModeInput(mixed $mode): string
@@ -124,14 +121,14 @@ class AtlasCodeForgeFastPathService
     {
         $obraIdInput = self::normalizeObraIdInput($options['obra_id'] ?? null);
         $mode = self::normalizeModeInput($options['mode'] ?? self::MODE_EXECUTE_ASYNC);
-        $intent = $this->stringOrNull($options['intent'] ?? null);
-        $operatorId = $this->stringOrNull($options['operator_id'] ?? null) ?? 'atlas-code-local-operator';
+        $intent = AiValueNormalizer::trimmedStringOrNull($options['intent'] ?? null);
+        $operatorId = AiValueNormalizer::trimmedStringOrNull($options['operator_id'] ?? null) ?? 'atlas-code-local-operator';
         $autoCreateWorkItem = (bool) ($options['auto_create_work_item'] ?? true);
         $autoCompileSpecPlan = (bool) ($options['auto_compile_spec_plan'] ?? true);
         $startExecution = (bool) ($options['start_execution'] ?? true);
         $createCheckpoint = (bool) ($options['create_checkpoint'] ?? false);
 
-        $fastPathRunId = $this->stringOrNull($options['fast_path_run_id'] ?? null) ?? (string) Str::ulid();
+        $fastPathRunId = AiValueNormalizer::trimmedStringOrNull($options['fast_path_run_id'] ?? null) ?? (string) Str::ulid();
         $startedAt = now()->toIso8601String();
 
         $stages = [];
@@ -382,9 +379,9 @@ class AtlasCodeForgeFastPathService
     {
         $metadata = is_array($project->metadata) ? $project->metadata : [];
         $domain = (string) ($project->domain ?? '');
-        $workspaceSlug = $this->stringOrNull(data_get($metadata, 'workspace_slug'))
-            ?? $this->stringOrNull(data_get($metadata, 'workspace_id'));
-        $workspacePath = $this->stringOrNull(data_get($metadata, 'workspace_path'));
+        $workspaceSlug = AiValueNormalizer::trimmedStringOrNull(data_get($metadata, 'workspace_slug'))
+            ?? AiValueNormalizer::trimmedStringOrNull(data_get($metadata, 'workspace_id'));
+        $workspacePath = AiValueNormalizer::trimmedStringOrNull(data_get($metadata, 'workspace_path'));
         $workspaceRequest = $workspaceSlug ?? $workspacePath;
         $allowedDomains = ['', 'atlas', 'programming'];
 
@@ -1006,7 +1003,7 @@ class AtlasCodeForgeFastPathService
             return $workItem;
         }
 
-        $objective = $this->stringOrNull(data_get($intake, 'objective'));
+        $objective = AiValueNormalizer::trimmedStringOrNull(data_get($intake, 'objective'));
         if ($objective === null) {
             return $workItem;
         }
@@ -1014,18 +1011,18 @@ class AtlasCodeForgeFastPathService
         $workItemMetadata = is_array($workItem->metadata_json) ? $workItem->metadata_json : [];
         $workItemMetadata['atlas_code_forge_work_intake'] = [
             'schema_version' => 'atlas.code.forge_work_intake_projection.v1',
-            'intake_id' => $this->stringOrNull(data_get($intake, 'intake_id')),
-            'business_rule' => $this->stringOrNull(data_get($intake, 'business_rule')),
+            'intake_id' => AiValueNormalizer::trimmedStringOrNull(data_get($intake, 'intake_id')),
+            'business_rule' => AiValueNormalizer::trimmedStringOrNull(data_get($intake, 'business_rule')),
             'scope_in' => $this->stringList(data_get($intake, 'scope_in', [])),
             'scope_out' => $this->stringList(data_get($intake, 'scope_out', [])),
             'acceptance_criteria' => $this->stringList(data_get($intake, 'acceptance_criteria', [])),
             'canonical_docs' => $this->stringList(data_get($intake, 'canonical_docs', [])),
-            'operator_notes' => $this->stringOrNull(data_get($intake, 'operator_notes')),
+            'operator_notes' => AiValueNormalizer::trimmedStringOrNull(data_get($intake, 'operator_notes')),
             'source_authority' => 'AtlasCodeForgeWorkIntakeService::save',
             'projected_at' => now()->toIso8601String(),
         ];
 
-        $riskLevel = $this->stringOrNull(data_get($intake, 'risk_level')) ?? (string) $workItem->risk_level;
+        $riskLevel = AiValueNormalizer::trimmedStringOrNull(data_get($intake, 'risk_level')) ?? (string) $workItem->risk_level;
 
         $workItem->forceFill([
             'intent_text' => $objective,
@@ -1074,7 +1071,7 @@ class AtlasCodeForgeFastPathService
                 continue;
             }
             if ($key === 'project' && is_array($value)) {
-                $sanitized['project_id'] = $this->stringOrNull(data_get($value, 'id'));
+                $sanitized['project_id'] = AiValueNormalizer::trimmedStringOrNull(data_get($value, 'id'));
                 $sanitized['project_title'] = $this->truncateString((string) data_get($value, 'title', ''), 160);
                 continue;
             }
@@ -1085,11 +1082,11 @@ class AtlasCodeForgeFastPathService
             }
             if ($key === 'work_item' && is_array($value)) {
                 $sanitized['work_item'] = [
-                    'id' => $this->stringOrNull(data_get($value, 'id')),
-                    'code' => $this->stringOrNull(data_get($value, 'code')),
-                    'status' => $this->stringOrNull(data_get($value, 'status')),
-                    'current_stage' => $this->stringOrNull(data_get($value, 'current_stage')),
-                    'risk_level' => $this->stringOrNull(data_get($value, 'risk_level')),
+                    'id' => AiValueNormalizer::trimmedStringOrNull(data_get($value, 'id')),
+                    'code' => AiValueNormalizer::trimmedStringOrNull(data_get($value, 'code')),
+                    'status' => AiValueNormalizer::trimmedStringOrNull(data_get($value, 'status')),
+                    'current_stage' => AiValueNormalizer::trimmedStringOrNull(data_get($value, 'current_stage')),
+                    'risk_level' => AiValueNormalizer::trimmedStringOrNull(data_get($value, 'risk_level')),
                     'spec_hash' => data_get($value, 'spec_hash'),
                     'plan_hash' => data_get($value, 'plan_hash'),
                     'task_count' => count((array) data_get($value, 'tasks_json', [])),
@@ -1181,26 +1178,13 @@ class AtlasCodeForgeFastPathService
             : $value;
     }
 
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
-    }
-
     /**
      * @param  mixed  $value
      * @return list<string>
      */
     private function stringList(mixed $value): array
     {
-        return array_values(array_filter(
-            array_map(static fn (mixed $item): string => is_string($item) ? trim($item) : '', (array) $value),
-            static fn (string $item): bool => $item !== '',
-        ));
+        return AiStringListNormalizer::trimmedStringsFromArrayCast($value);
     }
 
     private function intentFromProject(AtlasProject $project): ?string
@@ -1217,7 +1201,7 @@ class AtlasCodeForgeFastPathService
     private function resolveExistingWorkItem(AtlasProject $project): ?AtlasProgrammingWorkItem
     {
         $metadata = is_array($project->metadata) ? $project->metadata : [];
-        $id = $this->stringOrNull(data_get($metadata, 'programming_work_item_id'));
+        $id = AiValueNormalizer::trimmedStringOrNull(data_get($metadata, 'programming_work_item_id'));
         if ($id !== null) {
             $item = AtlasProgrammingWorkItem::query()->whereKey($id)->first();
             if ($item !== null) {
@@ -1225,7 +1209,7 @@ class AtlasCodeForgeFastPathService
             }
         }
 
-        $code = $this->stringOrNull(data_get($metadata, 'programming_work_item_code'));
+        $code = AiValueNormalizer::trimmedStringOrNull(data_get($metadata, 'programming_work_item_code'));
         if ($code !== null) {
             $item = AtlasProgrammingWorkItem::query()->where('code', $code)->first();
             if ($item !== null) {

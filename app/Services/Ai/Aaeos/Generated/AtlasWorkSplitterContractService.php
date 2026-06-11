@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+
 /**
  * Atlas Self-Construction Work Splitter — pure, deterministic packet splitter.
  *
@@ -549,9 +551,7 @@ final class AtlasWorkSplitterContractService
 
     private function normalizeRiskPolicy(mixed $policy): string
     {
-        $p = is_string($policy) ? strtolower(trim($policy)) : '';
-
-        return in_array($p, ['conservative', 'balanced'], true) ? $p : 'conservative';
+        return AtlasAaeosValueNormalizer::lowercaseAllowed($policy, ['conservative', 'balanced'], 'conservative');
     }
 
     private function normalizeMaxPackets(mixed $max): int

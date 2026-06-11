@@ -3,11 +3,11 @@ id: atlas-context-ranking-system
 type: engineering_knowledge
 title: Atlas Context Ranking System
 status: building
-implementation_state: building_read_only_explainable_ranking_runtime
-blocker: ACRS possui runtime read-only sobre AARF/AHRI com scoring explicavel; ainda falta persistir ranking receipts e integrar ACFQ/ARFL.
+implementation_state: building_read_only_explainable_ranking_runtime_with_feedback_impact_report
+blocker: ACRS possui runtime read-only sobre AARF/AHRI com scoring explicavel, hints ARFL opt-in e before/after impact report; ainda falta persistir ranking receipts e tornar consumo ACOP/AREBA governado.
 category: intelligence-runtime
 priority: 98
-summary: Doc filha AUCRI para ranking de contexto por relevancia, autoridade, freshness, graph distance, outcome history, risco e intencao.
+summary: Doc filha AUCRI para ranking de contexto por relevancia, autoridade, freshness, graph distance, outcome feedback, risco e intencao.
 tags: [atlas-ai, aucri, acrs, reranking, context-ranking]
 capabilities: [context_ranking, authority_scoring, graph_distance, outcome_aware_ranking]
 decisions:
@@ -96,20 +96,28 @@ AHRI candidates -> ACRS rerank -> ACFQ gate -> context pack
 - `atlas.aucri.rerank_result.v1`
 - `atlas.aucri.context_score.v1`
 - `atlas.aucri.excluded_ref.v1`
+- `atlas.aucri.feedback_impact_report.v1`
 
 ## Fluxo
 
 1. Receber candidatos normalizados.
-2. Calcular semantic, lexical, authority, graph, freshness e outcome scores.
-3. Deduplicar por papel.
-4. Excluir ruido.
-5. Emitir reasons e hash.
+2. Calcular semantic, professional rerank, authority, graph, freshness e privacy.
+3. Aplicar feedback hint ARFL opt-in quando `flow_id` ou `feedback_hint_input` existir.
+4. Comparar baseline sem feedback contra ranking com feedback.
+5. Deduplicar por papel.
+6. Excluir ruido.
+7. Emitir reasons, impact report e hash.
 
 ## Regras para IA
 
 - Nao incluir ref sem reason.
 - Nao esconder excluded refs relevantes.
 - Nao otimizar apenas similarity.
+- Nao aplicar feedback de outcome sem limite: delta ARFL e pequeno, explicavel,
+  provider-safe e nao promove memoria/policy automaticamente.
+- Sem `flow_id` ou `feedback_hint_input`, o ranking nao busca feedback persistido.
+- Todo feedback ativo deve expor impacto before/after: refs promovidas,
+  refs rebaixadas, mudanca de selecao e coverage delta.
 
 ## Escopo de Implementacao
 
@@ -118,6 +126,12 @@ Runtime atual:
 - `AtlasContextRankingSystemService::rank()` consome AARF/AHRI.
 - Reaproveita `ProgrammingProfessionalReranker` como baseline deterministico.
 - Consulta `WorldModelGraphRanker` quando o grafo estiver disponivel.
+- Consome hints ARFL por `flow_id` ou `feedback_hint_input`: `repromote_source_types`,
+  `demote_source_types`, `demote_source_hashes` e `demote_context_refs`.
+- Explica o efeito via `score_components.feedback_hint_delta` e reasons
+  `feedback_repromote_*` / `feedback_demote_*`.
+- Emite `feedback_impact_report` com baseline sem feedback, ranking com feedback,
+  mudancas de rank, `newly_selected_refs`, `dropped_refs` e coverage delta.
 - Emite `selected_refs`, `excluded_refs`, score components, reasons e hash.
 - `atlas:context:rank` expoe a surface CLI read-only.
 
@@ -130,7 +144,8 @@ AHRI, AARF, AEMOR/ARFL, WorldModelGraphRanker.
 ## Evidencias
 
 Ranking com scores, reasons, excluded refs e deterministic hash. Evidencia
-local atual: comando `atlas:context:rank` e `ContextRankingSystemTest`.
+local atual: comando `atlas:context:rank`, `ContextRankingSystemTest` e teste de
+retorno ARFL por `flow_id` com impact report before/after.
 
 ## Riscos
 
@@ -144,5 +159,5 @@ Doc canonico recente pode ganhar de memoria antiga semanticamente parecida.
 ## Proximas Acoes
 
 1. Integrar ACFQ para bloquear refs stale/contraditorias.
-2. Integrar ARFL/AEMOR para outcome-aware ranking.
+2. Persistir ranking receipts para ACOP/AREBA comparar antes/depois.
 3. Criar golden set de ranking em AREBA.

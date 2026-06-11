@@ -17,6 +17,7 @@ use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsProviderPerformanceL
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsReplayService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsRunPathResolver;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsTrustedSignalGateService;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\JsonFileStore;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -1236,11 +1237,7 @@ final class AtlasForgeRivalsDeepSweResultIngestService
      */
     private function stringList(mixed $value): array
     {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_map(static fn (mixed $v): string => (string) $v, $value));
+        return AiStringListNormalizer::castItemsToStrings($value);
     }
 
     /**

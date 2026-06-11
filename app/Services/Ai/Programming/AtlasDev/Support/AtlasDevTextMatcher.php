@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Support;
 
+use App\Services\Ai\Support\AiTextMatcher;
+
 final class AtlasDevTextMatcher
 {
     /**
@@ -11,16 +13,6 @@ final class AtlasDevTextMatcher
      */
     public static function containsAny(string $haystack, array $needles): bool
     {
-        foreach ($needles as $needle) {
-            if ($needle === '') {
-                continue;
-            }
-
-            if (str_contains($haystack, $needle)) {
-                return true;
-            }
-        }
-
-        return false;
+        return AiTextMatcher::containsAnyNonEmptyNeedle($haystack, $needles);
     }
 }

@@ -6,6 +6,7 @@ namespace App\Services\Ai\Programming;
 
 use App\Http\Controllers\AtlasCodeForgeReviewController;
 use App\Models\AtlasProject;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Throwable;
@@ -301,8 +302,8 @@ class AtlasCodeForgeReviewCompletionService
      */
     private function decide(AtlasProject $project, array $packet, string $decision, array $options): array
     {
-        $reviewer = $this->stringOrNull($options['reviewer'] ?? null) ?? 'atlas-code-local-operator';
-        $reason = $this->stringOrNull($options['reason'] ?? null) ?? sprintf('forge_review_%s', $decision);
+        $reviewer = AiValueNormalizer::trimmedStringOrNull($options['reviewer'] ?? null) ?? 'atlas-code-local-operator';
+        $reason = AiValueNormalizer::trimmedStringOrNull($options['reason'] ?? null) ?? sprintf('forge_review_%s', $decision);
 
         $request = Request::create('/_review/store', 'POST', [
             'decision' => $decision,
@@ -377,8 +378,8 @@ class AtlasCodeForgeReviewCompletionService
     {
         $project->refresh();
         $metadata = is_array($project->metadata) ? $project->metadata : [];
-        $reviewer = $this->stringOrNull($options['reviewer'] ?? null) ?? 'atlas-code-local-operator';
-        $reason = $this->stringOrNull($options['reason'] ?? null) ?? sprintf('forge_review_%s', $decision);
+        $reviewer = AiValueNormalizer::trimmedStringOrNull($options['reviewer'] ?? null) ?? 'atlas-code-local-operator';
+        $reason = AiValueNormalizer::trimmedStringOrNull($options['reason'] ?? null) ?? sprintf('forge_review_%s', $decision);
 
         $entry = [
             'schema_version' => 'atlas.code.forge_review_decision_audit.v1',
@@ -569,15 +570,5 @@ class AtlasCodeForgeReviewCompletionService
             'next_action' => 'inspect_blocker',
             'external_provider_call' => false,
         ];
-    }
-
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
     }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * MiniMax M3 HTTP API governed provider driver.
  *
@@ -121,8 +123,8 @@ class AtlasForgeMinimaxM27InvocationDriver implements AtlasForgeProviderInvocati
     private function manifest(array $request): array
     {
         $prompt = is_array($request['prompt'] ?? null) ? $request['prompt'] : [];
-        $workspacePath = $this->stringOrNull($request['cwd'] ?? null)
-            ?? $this->stringOrNull(data_get($request, 'workspace.path'));
+        $workspacePath = AiValueNormalizer::trimmedStringOrNull($request['cwd'] ?? null)
+            ?? AiValueNormalizer::trimmedStringOrNull(data_get($request, 'workspace.path'));
 
         return [
             'schema_version' => 'atlas.provider.minimax_m27.invocation_request.v1',
@@ -156,15 +158,5 @@ class AtlasForgeMinimaxM27InvocationDriver implements AtlasForgeProviderInvocati
                 'paygo_enabled' => false,
             ],
         ];
-    }
-
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
     }
 }

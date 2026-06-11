@@ -57,6 +57,9 @@ class AtlasOpenBrainService
             'semantic_count' => count((array) data_get($contextPack, 'memory.semantic', [])),
             'provider_safe' => true,
         ];
+        if (is_array($contextPack['context_delivery_policy'] ?? null)) {
+            $summary['context_delivery_policy'] = $this->contextDeliveryPolicySummary((array) $contextPack['context_delivery_policy']);
+        }
         $auditTableExists = Schema::hasTable('atlas_open_brain_access_logs');
         $safety = $this->safetySummary($summary, $auditTableExists, $auditTableExists ? $hash : null);
 
@@ -155,6 +158,27 @@ class AtlasOpenBrainService
             'registry_count' => (int) ($summary['registry_count'] ?? 0),
             'verbatim_count' => (int) ($summary['verbatim_count'] ?? 0),
             'semantic_count' => (int) ($summary['semantic_count'] ?? 0),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $policy
+     * @return array<string,mixed>
+     */
+    private function contextDeliveryPolicySummary(array $policy): array
+    {
+        return [
+            'schema_version' => (string) ($policy['schema_version'] ?? 'atlas.token_economy.context_delivery_policy.v1'),
+            'status' => (string) ($policy['status'] ?? 'unknown'),
+            'delivery_mode' => (string) ($policy['delivery_mode'] ?? 'unknown'),
+            'initial_context_token_budget' => (int) ($policy['initial_context_token_budget'] ?? 0),
+            'expansion_token_reserve' => (int) ($policy['expansion_token_reserve'] ?? 0),
+            'initial_ref_limit' => (int) ($policy['initial_ref_limit'] ?? 0),
+            'initial_source_types' => array_values((array) ($policy['initial_source_types'] ?? [])),
+            'deferred_source_types' => array_values((array) ($policy['deferred_source_types'] ?? [])),
+            'guarded_required_source_types' => array_values((array) ($policy['guarded_required_source_types'] ?? [])),
+            'quality_gate_hint' => (string) ($policy['quality_gate_hint'] ?? 'feedback_guided_staging_allowed'),
+            'advisory_only' => true,
         ];
     }
 

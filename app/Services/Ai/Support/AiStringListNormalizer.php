@@ -135,6 +135,26 @@ final class AiStringListNormalizer
     /**
      * @return array<int,string>
      */
+    public static function trimmedStringsFromArrayCast(mixed $value): array
+    {
+        $strings = [];
+        foreach ((array) $value as $item) {
+            if (! is_string($item)) {
+                continue;
+            }
+
+            $item = trim($item);
+            if ($item !== '') {
+                $strings[] = $item;
+            }
+        }
+
+        return $strings;
+    }
+
+    /**
+     * @return array<int,string>
+     */
     public static function castItemsToStrings(mixed $value): array
     {
         if (! is_array($value)) {
@@ -151,6 +171,17 @@ final class AiStringListNormalizer
     {
         return array_values(array_filter(
             array_map(static fn (mixed $item): string => trim((string) $item), self::arrayItems($value)),
+            static fn (string $item): bool => $item !== '',
+        ));
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public static function trimmedCastValues(mixed $value): array
+    {
+        return array_values(array_filter(
+            array_map(static fn (mixed $item): string => trim((string) $item), (array) $value),
             static fn (string $item): bool => $item !== '',
         ));
     }

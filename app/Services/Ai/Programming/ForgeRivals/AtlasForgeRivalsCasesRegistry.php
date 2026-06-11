@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\ForgeRivals;
 
 use App\Services\Ai\Programming\AtlasForgeNativeRivalsCaseManifestService;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use RuntimeException;
 
 /**
@@ -175,10 +176,6 @@ final class AtlasForgeRivalsCasesRegistry
      */
     private function stringList($value): array
     {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_map(static fn ($v): string => (string) $v, $value));
+        return AiStringListNormalizer::castItemsToStrings($value);
     }
 }

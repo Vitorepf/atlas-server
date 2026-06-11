@@ -38,8 +38,8 @@ final class AtlasForgeRivalsPreflightService
     public function preflight(array $input): array
     {
         $mode = trim((string) ($input['mode'] ?? AtlasForgeRivalsModeRegistry::MODE_DIAGNOSTIC));
-        $atlasModel = $this->normalizeModel((string) ($input['atlas_model'] ?? $input['model'] ?? 'claude_sonnet'));
-        $rivalModel = $this->normalizeModel((string) ($input['rival'] ?? $input['baseline_model'] ?? $atlasModel));
+        $atlasModel = AtlasForgeRivalsInputNormalizer::trimmedModelAlias((string) ($input['atlas_model'] ?? $input['model'] ?? 'claude_sonnet'));
+        $rivalModel = AtlasForgeRivalsInputNormalizer::trimmedModelAlias((string) ($input['rival'] ?? $input['baseline_model'] ?? $atlasModel));
         $preset = trim((string) ($input['preset'] ?? 'smoke'));
         $caseSet = trim((string) ($input['case_set'] ?? ''));
         $explicitCase = trim((string) ($input['case'] ?? ''));
@@ -250,17 +250,6 @@ final class AtlasForgeRivalsPreflightService
             'auto_only_valid_in_full_power_mode' => false,
             'reason' => 'provider_arena_contracts_resolve_models_before_preflight',
         ];
-    }
-
-    private function normalizeModel(string $model): string
-    {
-        $model = trim($model);
-
-        return match ($model) {
-            'sonnet' => 'claude_sonnet',
-            'opus' => 'claude_opus',
-            default => $model,
-        };
     }
 
     private function presetCaseSet(string $preset): ?string

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming;
 
 use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * Antigravity SDK governed provider driver.
@@ -127,8 +128,8 @@ class AtlasForgeAntigravitySdkInvocationDriver implements AtlasForgeProviderInvo
         $prompt = is_array($request['prompt'] ?? null) ? $request['prompt'] : [];
         $allowedFiles = array_values(array_filter((array) data_get($prompt, 'scope_contract.allowed_files', []), 'is_string'));
         $forbiddenFiles = array_values(array_filter((array) data_get($prompt, 'scope_contract.forbidden_files', []), 'is_string'));
-        $workspacePath = $this->stringOrNull($request['cwd'] ?? null)
-            ?? $this->stringOrNull(data_get($request, 'workspace.path'));
+        $workspacePath = AiValueNormalizer::trimmedStringOrNull($request['cwd'] ?? null)
+            ?? AiValueNormalizer::trimmedStringOrNull(data_get($request, 'workspace.path'));
 
         return [
             'schema_version' => 'atlas.provider.antigravity_sdk.invocation_request.v1',
@@ -159,15 +160,5 @@ class AtlasForgeAntigravitySdkInvocationDriver implements AtlasForgeProviderInvo
                 'completion_claim_allowed' => false,
             ],
         ];
-    }
-
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
     }
 }

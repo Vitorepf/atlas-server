@@ -60,7 +60,7 @@ final class AtlasForgeRivalsArenaRunService
     public function run(array $input): array
     {
         $rawMode = trim((string) ($input['mode'] ?? ''));
-        $mode = $this->normalizeMode($rawMode);
+        $mode = AtlasForgeRivalsInputNormalizer::arenaMode($rawMode);
         $taskCategory = strtolower(trim((string) ($input['task_category'] ?? '')));
         $confirmations = (array) ($input['confirmations'] ?? []);
         $preset = trim((string) ($input['preset'] ?? 'quick'));
@@ -1075,17 +1075,6 @@ final class AtlasForgeRivalsArenaRunService
             'next_command' => $hint,
             'note' => 'Provider Arena v2 halted before declaring a winner. No score is claimable until evidence, replay and matrix gates pass.',
         ];
-    }
-
-    private function normalizeMode(string $mode): string
-    {
-        return match (strtolower($mode)) {
-            'power', 'full-power' => AtlasForgeRivalsModeRegistry::MODE_FULL_POWER,
-            'provider-arena', 'arena' => AtlasForgeRivalsModeRegistry::MODE_PROVIDER_ARENA,
-            'provider-pure', 'pure' => AtlasForgeRivalsModeRegistry::MODE_PROVIDER_PURE,
-            '' => AtlasForgeRivalsModeRegistry::MODE_PROVIDER_ARENA,
-            default => strtolower($mode),
-        };
     }
 
     private function canonicalModel(string $model): string

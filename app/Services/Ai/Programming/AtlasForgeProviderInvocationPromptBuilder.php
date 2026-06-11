@@ -7,6 +7,7 @@ namespace App\Services\Ai\Programming;
 use App\Models\AtlasProgrammingWorkItem;
 use App\Models\AtlasProject;
 use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Engineering\CodeGraph\CodeGraphContextRetriever;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
@@ -72,7 +73,7 @@ class AtlasForgeProviderInvocationPromptBuilder
         $dispatchId = (string) ($dispatchPlan['dispatch_id'] ?? '');
 
         $workItem = $this->resolveWorkItem($project);
-        $intent = $this->stringOrNull(
+        $intent = AiValueNormalizer::trimmedStringOrNull(
             $workItem?->intent_text
             ?? data_get($metadata, 'intent')
             ?? $project->goal
@@ -140,9 +141,9 @@ class AtlasForgeProviderInvocationPromptBuilder
                 'work_item_id' => $workItem?->id,
                 'spec_hash' => $workItem?->spec_hash,
                 'plan_hash' => $workItem?->plan_hash,
-                'goal' => $this->stringOrNull($project->goal),
-                'desired_outcome' => $this->stringOrNull($project->desired_outcome),
-                'definition_of_done' => $this->stringOrNull($project->definition_of_done),
+                'goal' => AiValueNormalizer::trimmedStringOrNull($project->goal),
+                'desired_outcome' => AiValueNormalizer::trimmedStringOrNull($project->desired_outcome),
+                'definition_of_done' => AiValueNormalizer::trimmedStringOrNull($project->definition_of_done),
                 'acceptance_criteria' => $acceptanceCriteria,
             ],
             'scope_contract' => [
@@ -302,7 +303,7 @@ class AtlasForgeProviderInvocationPromptBuilder
         }
 
         try {
-            $path = $this->stringOrNull(data_get($metadata, 'workspace_path'));
+            $path = AiValueNormalizer::trimmedStringOrNull(data_get($metadata, 'workspace_path'));
 
             return $path !== null ? $identity->resolve($path) : $identity->default();
         } catch (Throwable) {
@@ -332,7 +333,7 @@ class AtlasForgeProviderInvocationPromptBuilder
 
         try {
             $metadata = is_array($project->metadata) ? $project->metadata : [];
-            $id = $this->stringOrNull(data_get($metadata, 'programming_work_item_id'));
+            $id = AiValueNormalizer::trimmedStringOrNull(data_get($metadata, 'programming_work_item_id'));
             if ($id !== null) {
                 $item = AtlasProgrammingWorkItem::query()->whereKey($id)->first();
                 if ($item !== null) {
@@ -347,15 +348,5 @@ class AtlasForgeProviderInvocationPromptBuilder
         } catch (\Throwable) {
             return null;
         }
-    }
-
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
     }
 }

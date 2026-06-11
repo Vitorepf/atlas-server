@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+
 /**
  * Atlas AI Cyber Remediation Patterns — pure, deterministic remediation router.
  *
@@ -414,7 +416,7 @@ final class AtlasCyberSecurityRemediationPatternsService
         }
 
         $required = self::PATTERNS[$patternId]['variants'];
-        $covered = $this->normalizeList($coveredVariants);
+        $covered = AtlasAaeosStringListNormalizer::uniqueLowerTrimmedStrings($coveredVariants);
 
         return array_values(array_filter(
             $required,
@@ -480,7 +482,7 @@ final class AtlasCyberSecurityRemediationPatternsService
         }
 
         // Every taxonomy variant must appear in the Negative PoC.
-        $missing = $this->missingVariants($patternId, $this->normalizeList($patch['covered_variants'] ?? []));
+        $missing = $this->missingVariants($patternId, AtlasAaeosStringListNormalizer::uniqueLowerTrimmedStrings($patch['covered_variants'] ?? []));
         if ($missing !== []) {
             $blockers[] = $this->blocker(
                 'uncovered_variants',
@@ -501,7 +503,7 @@ final class AtlasCyberSecurityRemediationPatternsService
         }
 
         // No documented anti-fix may be applied.
-        $appliedAntiFixes = $this->normalizeList($patch['applied_anti_fixes'] ?? []);
+        $appliedAntiFixes = AtlasAaeosStringListNormalizer::uniqueLowerTrimmedStrings($patch['applied_anti_fixes'] ?? []);
         if ($appliedAntiFixes !== []) {
             $blockers[] = $this->blocker(
                 'anti_fix_applied',
@@ -667,23 +669,4 @@ final class AtlasCyberSecurityRemediationPatternsService
         };
     }
 
-    /**
-     * @param mixed $list
-     * @return list<string>
-     */
-    private function normalizeList(mixed $list): array
-    {
-        if (! is_array($list)) {
-            return [];
-        }
-
-        $clean = [];
-        foreach ($list as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $clean[] = strtolower(trim($item));
-            }
-        }
-
-        return array_values(array_unique($clean));
-    }
 }
