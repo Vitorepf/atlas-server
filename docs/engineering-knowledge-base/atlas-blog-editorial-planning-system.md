@@ -38,6 +38,7 @@ capabilities:
   - read_only_atlas_signal_mesh
   - read_only_public_knowledge_map
   - read_only_agent_operating_queue
+  - read_only_agent_handoff_packet
   - open_brain_editorial_context_handoff
   - audited_open_brain_editorial_context_execution
   - graph_rag_readiness_preflight
@@ -270,6 +271,10 @@ Saida P1:
   partir do plano, matriz de dependencias, intake, mapa publico e signal mesh,
   sem escrever rascunho, publicar, reordenar, promover candidato ou usar
   graph/RAG;
+- `agent_handoff_packet` dentro de `operations_packet`, convertendo a lane atual
+  em um brief de execucao para Atlas/Claude/Codex: missao, refs obrigatorias,
+  contrato publico do leitor, evidencias, prompt seed e checklist de seguranca,
+  ainda sem escrever, publicar, reordenar ou usar graph/RAG;
 - `open_brain_handoff` dentro de `operations_packet` e `writing_packet`, com
   objetivo, comando `atlas:open-brain:context`, payload provider-safe e
   guardrails que mantem invocacao automatica, graph/RAG, Python e publicacao
@@ -392,6 +397,9 @@ promote-candidate -> read accepted review queue item -> emit backlog YAML snippe
   qualquer escrita: `write_now` e a unica preparacao imediata, `prepare_next`
   espera aprovacao do texto atual, `review` exige humano e `hold` nao pode virar
   texto profundo ate os prerequisitos aparecerem publicamente.
+- Trate `agent_handoff_packet` como o pacote minimo para passar uma tarefa entre
+  Atlas, Claude e Codex: ele explica o que fazer, quais refs ler e quais
+  fronteiras respeitar, mas nao autoriza geracao/publicacao automatica.
 - Use `--editorial-radar` para decidir onde alimentar a lista; ele nao muda
   backlog, nao aceita candidatos e nao publica.
 - Use `--editorial-golden-set` para provar que a sequencia ainda ensina do raso

@@ -1066,6 +1066,19 @@ JS);
         $this->assertFalse(data_get($payload, 'operations_packet.agent_operating_queue.guardrails.writes_backlog'));
         $this->assertFalse(data_get($payload, 'operations_packet.agent_operating_queue.guardrails.publishes_content'));
         $this->assertFalse(data_get($payload, 'operations_packet.agent_operating_queue.guardrails.uses_graph_rag'));
+        $this->assertSame('atlas.blog_editorial_agent_handoff_packet.v1', data_get($payload, 'operations_packet.agent_handoff_packet.schema_version'));
+        $this->assertSame('read_only_agent_execution_brief_p1', data_get($payload, 'operations_packet.agent_handoff_packet.mode'));
+        $this->assertSame('o-que-e-o-atlas', data_get($payload, 'operations_packet.agent_handoff_packet.mission.current_slug'));
+        $this->assertSame('blog_editorial_operator', data_get($payload, 'operations_packet.agent_handoff_packet.mission.agent_role'));
+        $this->assertSame('pt-BR', data_get($payload, 'operations_packet.agent_handoff_packet.mission.language'));
+        $this->assertSame('operations_packet.agent_operating_queue', data_get($payload, 'operations_packet.agent_handoff_packet.read_before_work.0.ref'));
+        $this->assertContains('building-atlas', data_get($payload, 'operations_packet.agent_handoff_packet.current_reader_contract.must_not_assume_yet'));
+        $this->assertSame('atlas.blog_editorial_writing_packet.v1', data_get($payload, 'operations_packet.agent_handoff_packet.evidence_bundle.writing_packet_schema'));
+        $this->assertSame('future_governed', data_get($payload, 'operations_packet.agent_handoff_packet.evidence_bundle.source_posture.graph_posture'));
+        $this->assertStringContainsString('atlas:open-brain:context', data_get($payload, 'operations_packet.agent_handoff_packet.evidence_bundle.open_brain_command'));
+        $this->assertFalse(data_get($payload, 'operations_packet.agent_handoff_packet.guardrails.writes_draft'));
+        $this->assertFalse(data_get($payload, 'operations_packet.agent_handoff_packet.guardrails.publishes_content'));
+        $this->assertFalse(data_get($payload, 'operations_packet.agent_handoff_packet.guardrails.uses_graph_rag'));
         $this->assertSame('future_governed', data_get($payload, 'operations_packet.source_snapshot.graph_retrieval_status'));
         $this->assertSame('atlas.blog_editorial_open_brain_handoff.v1', data_get($payload, 'operations_packet.open_brain_handoff.schema_version'));
         $this->assertSame('o-que-e-o-atlas', data_get($payload, 'operations_packet.open_brain_handoff.payload.post.slug'));
@@ -1084,6 +1097,7 @@ JS);
         $this->assertTrue(data_get($payload, 'operations_packet.guardrails.generates_atlas_signal_mesh'));
         $this->assertTrue(data_get($payload, 'operations_packet.guardrails.generates_public_knowledge_map'));
         $this->assertTrue(data_get($payload, 'operations_packet.guardrails.generates_agent_operating_queue'));
+        $this->assertTrue(data_get($payload, 'operations_packet.guardrails.generates_agent_handoff_packet'));
         $this->assertFalse(data_get($payload, 'operations_packet.guardrails.uses_graph_rag'));
     }
 

@@ -1049,6 +1049,7 @@ final class BlogEditorialContextService
         $atlasSignalMesh = $this->atlasSignalMesh($sourceMap, $coverageMap, $candidateFeed, $reviewQueueState, $editorialRoadmap, $editorialDependencyMatrix, $backlogIntake, $openBrainHandoff);
         $publicKnowledgeMap = $this->publicKnowledgeMap($posts, $sourceMap, $topicLedger, $editorialDependencyMatrix);
         $agentOperatingQueue = $this->agentOperatingQueue($publishingPlan, $editorialDependencyMatrix, $backlogIntake, $publicKnowledgeMap, $atlasSignalMesh);
+        $agentHandoffPacket = $this->agentHandoffPacket($agentOperatingQueue, $writingPacket, $publicKnowledgeMap, $editorialDependencyMatrix, $atlasSignalMesh, $openBrainHandoff);
 
         return [
             'schema_version' => 'atlas.blog_editorial_operations_packet.v1',
@@ -1088,6 +1089,7 @@ final class BlogEditorialContextService
             'atlas_signal_mesh' => $atlasSignalMesh,
             'public_knowledge_map' => $publicKnowledgeMap,
             'agent_operating_queue' => $agentOperatingQueue,
+            'agent_handoff_packet' => $agentHandoffPacket,
             'public_archive_risks' => [
                 'duplicate_risk_count' => (int) ($publicArchiveContext['duplicate_risk_count'] ?? 0),
                 'linkable_artifact_count' => (int) ($publicArchiveContext['linkable_artifact_count'] ?? 0),
@@ -1147,6 +1149,7 @@ final class BlogEditorialContextService
                 'generates_atlas_signal_mesh' => true,
                 'generates_public_knowledge_map' => true,
                 'generates_agent_operating_queue' => true,
+                'generates_agent_handoff_packet' => true,
                 'uses_graph_rag' => false,
                 'uses_python_runtime' => false,
                 'creates_parallel_memory_store' => false,
@@ -2833,6 +2836,123 @@ final class BlogEditorialContextService
             'can_write_draft' => false,
             'can_publish' => false,
             'can_reorder' => false,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $agentOperatingQueue
+     * @param  array<string,mixed>|null  $writingPacket
+     * @param  array<string,mixed>  $publicKnowledgeMap
+     * @param  array<string,mixed>  $dependencyMatrix
+     * @param  array<string,mixed>  $atlasSignalMesh
+     * @param  array<string,mixed>|null  $openBrainHandoff
+     * @return array<string,mixed>
+     */
+    private function agentHandoffPacket(array $agentOperatingQueue, ?array $writingPacket, array $publicKnowledgeMap, array $dependencyMatrix, array $atlasSignalMesh, ?array $openBrainHandoff): array
+    {
+        $currentItem = (array) data_get($agentOperatingQueue, 'lanes.write_now.0', []);
+        if ($currentItem === []) {
+            $currentItem = (array) data_get($agentOperatingQueue, 'items.0', []);
+        }
+
+        $currentSlug = (string) ($currentItem['slug'] ?? data_get($writingPacket, 'post.slug', ''));
+        $currentTitle = (string) ($currentItem['title'] ?? data_get($writingPacket, 'post.title', $currentSlug));
+        $dependencyRow = collect((array) ($dependencyMatrix['rows'] ?? []))
+            ->first(fn (array $row): bool => (string) ($row['slug'] ?? '') === $currentSlug);
+
+        return [
+            'schema_version' => 'atlas.blog_editorial_agent_handoff_packet.v1',
+            'mode' => 'read_only_agent_execution_brief_p1',
+            'status' => $currentSlug !== '' ? 'ready' : 'waiting_for_unlocked_post',
+            'mission' => [
+                'agent_role' => 'blog_editorial_operator',
+                'intent' => $currentSlug !== ''
+                    ? 'prepare_the_current_unlocked_blog_work_without_publishing'
+                    : 'review_editorial_blockers_before_any_writing',
+                'current_slug' => $currentSlug !== '' ? $currentSlug : null,
+                'current_title' => $currentTitle !== '' ? $currentTitle : null,
+                'lane' => (string) ($currentItem['lane'] ?? 'review'),
+                'action' => (string) ($currentItem['action'] ?? data_get($agentOperatingQueue, 'summary.next_action', 'review_context')),
+                'language' => (string) data_get($writingPacket, 'writing_brief.language', 'pt-BR'),
+                'human_gate' => true,
+            ],
+            'read_before_work' => [
+                [
+                    'ref' => 'operations_packet.agent_operating_queue',
+                    'why' => 'Decide lane, action and what must stay held.',
+                ],
+                [
+                    'ref' => 'operations_packet.public_knowledge_map',
+                    'why' => 'Know what the public reader may already assume.',
+                ],
+                [
+                    'ref' => 'operations_packet.editorial_dependency_matrix',
+                    'why' => 'Confirm prerequisites and depth before writing.',
+                ],
+                [
+                    'ref' => 'operations_packet.writing_packet',
+                    'why' => 'Use only the private seed and writing brief, never as automatic publication.',
+                ],
+                [
+                    'ref' => 'operations_packet.open_brain_handoff',
+                    'why' => 'Request fresh provider-safe context when deeper Atlas context is needed.',
+                ],
+            ],
+            'current_reader_contract' => [
+                'can_assume' => array_slice((array) data_get($publicKnowledgeMap, 'reader_contract.can_assume', []), 0, 12),
+                'must_introduce_now' => array_slice((array) data_get($publicKnowledgeMap, 'reader_contract.must_introduce_now', []), 0, 12),
+                'must_not_assume_yet' => array_slice((array) data_get($publicKnowledgeMap, 'reader_contract.must_not_assume_yet', []), 0, 12),
+                'dependency_missing_prerequisites' => is_array($dependencyRow)
+                    ? array_values((array) data_get($dependencyRow, 'depends_on.missing_prerequisites', []))
+                    : [],
+                'rule' => (string) data_get($publicKnowledgeMap, 'reader_contract.rule', ''),
+            ],
+            'evidence_bundle' => [
+                'writing_packet_schema' => (string) data_get($writingPacket, 'schema_version', ''),
+                'concept_progression_schema' => (string) data_get($writingPacket, 'concept_progression_map.schema_version', ''),
+                'draft_seed_schema' => (string) data_get($writingPacket, 'draft_seed.schema_version', ''),
+                'source_posture' => [
+                    'graph_posture' => (string) data_get($atlasSignalMesh, 'summary.graph_posture', 'future_governed'),
+                    'next_safe_action' => (string) data_get($atlasSignalMesh, 'summary.next_safe_action', ''),
+                    'source_count' => (int) data_get($atlasSignalMesh, 'summary.source_count', 0),
+                ],
+                'open_brain_command' => (string) data_get($openBrainHandoff, 'command', ''),
+                'open_brain_invoked_by_this_command' => (bool) data_get($openBrainHandoff, 'invoked_by_this_command', false),
+            ],
+            'execution_checklist' => [
+                'Start from the current lane only.',
+                'Use Portuguese as the canonical original language.',
+                'Introduce missing concepts before advanced claims.',
+                'Keep English as optional translation, not the default source.',
+                'Remove sensitive paths, prompts, traces and tokens.',
+                'Return draft/recommendation for Vitor review; do not publish.',
+            ],
+            'agent_prompt_seed' => [
+                'system_intent' => 'Voce esta ajudando Vitor Freire a operar o blog pessoal dele com ordem editorial, memoria publica do leitor e aprovacao humana.',
+                'task' => $currentSlug !== ''
+                    ? 'Prepare o proximo trabalho editorial para '.$currentTitle.' usando apenas os refs listados e respeitando a ordem do backlog.'
+                    : 'Explique por que nenhum texto esta liberado e quais bloqueios precisam ser resolvidos.',
+                'forbidden' => [
+                    'publicar automaticamente',
+                    'reordenar backlog',
+                    'promover candidato sem humano',
+                    'assumir assunto nao publicado',
+                    'usar graph/RAG fora do contrato P2',
+                ],
+            ],
+            'guardrails' => [
+                'read_only' => true,
+                'writes_backlog' => false,
+                'writes_review_queue' => false,
+                'writes_draft' => false,
+                'publishes_content' => false,
+                'reorders_posts' => false,
+                'uses_graph_rag' => false,
+                'uses_python_runtime' => false,
+                'creates_parallel_memory_store' => false,
+                'requires_human_approval_to_write' => true,
+                'requires_human_approval_to_publish' => true,
+            ],
         ];
     }
 

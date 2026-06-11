@@ -166,6 +166,9 @@ P1 is acceptable when:
   what can be prepared now, prepared later, reviewed by a human or held behind
   prerequisites, without writing drafts, publishing, reordering, promoting
   candidates or invoking graph/RAG;
+- `operations_packet.agent_handoff_packet` reports the current AI handoff brief:
+  mission, required refs, reader contract, evidence bundle, prompt seed and
+  safety checklist, without granting write/publish/reorder or graph/RAG power;
 - `atlas:blog:editorial-plan --writing-packet --json` returns
   `writing_packet` for the next ready post with
   `generates_full_article=false`, `writes_draft=false` and
