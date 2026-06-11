@@ -261,11 +261,11 @@ final class LaneExecutionContractService
     {
         $role = (string) ($lane['role'] ?? '');
         $writeAuthority = $lane['write_authority'] ?? $this->canonicalAuthority($role);
-        $allowedActions = $this->stringList($lane['allowed_actions'] ?? []) ?: $this->defaultAllowedActions($role);
-        $forbiddenActions = $this->stringList($lane['forbidden_actions'] ?? []) ?: $this->defaultForbiddenActions($role);
+        $allowedActions = StewardshipStringListNormalizer::arrayTrimmedStrings($lane['allowed_actions'] ?? []) ?: $this->defaultAllowedActions($role);
+        $forbiddenActions = StewardshipStringListNormalizer::arrayTrimmedStrings($lane['forbidden_actions'] ?? []) ?: $this->defaultForbiddenActions($role);
         $outputSchema = trim((string) ($lane['output_schema'] ?? $lane['output_contract'] ?? ''))
             ?: $this->defaultOutputSchema($role);
-        $inputContextRefs = $this->stringList($lane['input_context_refs'] ?? $lane['input_refs'] ?? [])
+        $inputContextRefs = StewardshipStringListNormalizer::arrayTrimmedStrings($lane['input_context_refs'] ?? $lane['input_refs'] ?? [])
             ?: $this->defaultInputContextRefs($role);
 
         $laneResult = is_array(($context['lane_results'] ?? [])[$role] ?? null)
@@ -273,7 +273,7 @@ final class LaneExecutionContractService
             : [];
         $status = trim((string) ($laneResult['status'] ?? $lane['status'] ?? ''))
             ?: (($context['mode'] ?? '') === MultiAgentLaneOrchestratorService::MODE_EXECUTION_READY ? 'ready' : 'planned');
-        $blockers = $this->stringList($laneResult['blockers'] ?? $lane['blockers'] ?? []);
+        $blockers = StewardshipStringListNormalizer::arrayTrimmedStrings($laneResult['blockers'] ?? $lane['blockers'] ?? []);
 
         $contract = [
             'lane_contract_schema' => self::LANE_CONTRACT_SCHEMA,
@@ -343,7 +343,7 @@ final class LaneExecutionContractService
         foreach ($lanes as $lane) {
             $role = (string) ($lane['role'] ?? '');
             $authority = $lane['write_authority'] ?? null;
-            $allowedActions = $this->stringList($lane['allowed_actions'] ?? []);
+            $allowedActions = StewardshipStringListNormalizer::arrayTrimmedStrings($lane['allowed_actions'] ?? []);
 
             // No lane may request a globally forbidden action.
             $forbiddenRequested = array_values(array_intersect($allowedActions, MultiAgentLaneOrchestratorService::GLOBAL_FORBIDDEN_ACTIONS));
@@ -564,7 +564,7 @@ final class LaneExecutionContractService
         $sliceId = (string) ($slice['slice_id'] ?? $slice['task_id'] ?? $slice['id'] ?? 'work_unit');
         $seed = hash('sha256', MissionCanonicalHash::canonicalJson([
             'slice_id' => $sliceId,
-            'allowed_files' => $this->stringList($slice['allowed_files'] ?? []),
+            'allowed_files' => StewardshipStringListNormalizer::arrayTrimmedStrings($slice['allowed_files'] ?? []),
             'mode' => $mode,
             'with_repair' => $withRepair,
         ]));
@@ -857,7 +857,7 @@ final class LaneExecutionContractService
 
         // The implementer additionally carries the slice's own evidence obligations.
         if ($role === MultiAgentLaneOrchestratorService::ROLE_IMPLEMENTER) {
-            $sliceObligations = $this->stringList(data_get($context, 'owner_runtime_result.evidence_obligations', []));
+            $sliceObligations = StewardshipStringListNormalizer::arrayTrimmedStrings(data_get($context, 'owner_runtime_result.evidence_obligations', []));
             $base = StewardshipStringListNormalizer::uniqueMergedStrings($base, $sliceObligations);
         }
 
@@ -994,29 +994,6 @@ final class LaneExecutionContractService
             'parallel_runtime_created' => false,
             'sandcastle_clone' => false,
         ];
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item)) {
-                $trimmed = trim($item);
-                if ($trimmed !== '') {
-                    $out[] = $trimmed;
-                }
-            }
-        }
-
-        return array_values($out);
     }
 
     private function now(): string

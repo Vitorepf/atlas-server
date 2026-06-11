@@ -10,6 +10,8 @@ use App\Models\AtlasAgenticWorkcellOrgPattern;
 use App\Models\AtlasAgenticWorkcellOutcome;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\RuntimeEfficiency\AtlasRuntimeEfficiencyGovernorService;
+use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -68,11 +70,11 @@ final class AtlasAgenticWorkcellRuntimeService
     public function design(array $input): array
     {
         $objective = $this->objective($input);
-        $domain = $this->normalizeDomain($this->stringValue($input['domain'] ?? null) ?? $this->classifyDomain($objective));
-        $flowId = $this->stringValue($input['flow_id'] ?? null) ?? $this->flowForDomain($domain, $input);
-        $surfaceId = $this->stringValue($input['surface_id'] ?? null) ?? 'atlas_ai';
-        $evidenceRefs = $this->stringList($input['evidence_refs'] ?? []);
-        $contextRefs = $this->stringList($input['context_refs'] ?? []);
+        $domain = $this->normalizeDomain(AiValueNormalizer::trimmedScalarStringOrNull($input['domain'] ?? null) ?? $this->classifyDomain($objective));
+        $flowId = AiValueNormalizer::trimmedScalarStringOrNull($input['flow_id'] ?? null) ?? $this->flowForDomain($domain, $input);
+        $surfaceId = AiValueNormalizer::trimmedScalarStringOrNull($input['surface_id'] ?? null) ?? 'atlas_ai';
+        $evidenceRefs = AiStringListNormalizer::trimmedScalarValues($input['evidence_refs'] ?? []);
+        $contextRefs = AiStringListNormalizer::trimmedScalarValues($input['context_refs'] ?? []);
         $aregDecision = $this->aregDecision($objective, $domain, $flowId, $surfaceId, $evidenceRefs, $contextRefs, $input);
         $complexity = (int) ($aregDecision['complexity_score'] ?? $this->complexityScore($objective, $domain));
         $risk = (int) ($aregDecision['risk_score'] ?? $this->riskScore($objective, $domain, $evidenceRefs, $input));
@@ -141,10 +143,10 @@ final class AtlasAgenticWorkcellRuntimeService
         $payload = [
             'workcell_id' => $workcell->id,
             'schema_version' => self::EVENT_SCHEMA,
-            'event_type' => $this->stringValue($input['event_type'] ?? null) ?? 'workcell_observation',
-            'status' => $this->stringValue($input['status'] ?? null) ?? 'observed',
+            'event_type' => AiValueNormalizer::trimmedScalarStringOrNull($input['event_type'] ?? null) ?? 'workcell_observation',
+            'status' => AiValueNormalizer::trimmedScalarStringOrNull($input['status'] ?? null) ?? 'observed',
             'payload' => $this->sanitizePayload(is_array($input['payload'] ?? null) ? $input['payload'] : []),
-            'evidence_refs' => $this->stringList($input['evidence_refs'] ?? []),
+            'evidence_refs' => AiStringListNormalizer::trimmedScalarValues($input['evidence_refs'] ?? []),
         ];
         $payload['event_hash'] = MissionCanonicalHash::sha256($payload);
         $record = AtlasAgenticWorkcellEvent::query()->create($payload);
@@ -168,11 +170,11 @@ final class AtlasAgenticWorkcellRuntimeService
         if (! $workcell instanceof AtlasAgenticWorkcell) {
             return $this->blocked(self::OUTCOME_SCHEMA, 'missing_workcell', 'AAWR outcome requires an existing workcell.');
         }
-        $evidenceRefs = $this->stringList($input['evidence_refs'] ?? []);
+        $evidenceRefs = AiStringListNormalizer::trimmedScalarValues($input['evidence_refs'] ?? []);
         $qualityScore = $this->numericOrNull($input['quality_score'] ?? null);
         $roiScore = $this->numericOrNull($input['coordination_roi_score'] ?? null);
         $signals = is_array($input['signals'] ?? null) ? $input['signals'] : [];
-        $status = $evidenceRefs === [] ? self::STATUS_BLOCKED : ($this->stringValue($input['status'] ?? null) ?? self::STATUS_READY);
+        $status = $evidenceRefs === [] ? self::STATUS_BLOCKED : (AiValueNormalizer::trimmedScalarStringOrNull($input['status'] ?? null) ?? self::STATUS_READY);
         $payload = [
             'workcell_id' => $workcell->id,
             'schema_version' => self::OUTCOME_SCHEMA,
@@ -274,7 +276,7 @@ final class AtlasAgenticWorkcellRuntimeService
 
     private function objective(array $input): string
     {
-        return $this->stringValue($input['objective'] ?? $input['prompt'] ?? $input['input_text'] ?? null) ?? 'AAWR workcell objective';
+        return AiValueNormalizer::trimmedScalarStringOrNull($input['objective'] ?? $input['prompt'] ?? $input['input_text'] ?? null) ?? 'AAWR workcell objective';
     }
 
     private function normalizeDomain(string $domain): string
@@ -302,7 +304,7 @@ final class AtlasAgenticWorkcellRuntimeService
 
     private function flowForDomain(string $domain, array $input): string
     {
-        $task = $this->stringValue($input['task'] ?? null);
+        $task = AiValueNormalizer::trimmedScalarStringOrNull($input['task'] ?? null);
         if ($domain === 'programming') {
             return match ($task) {
                 'forge' => 'atlas_forge',
@@ -372,7 +374,7 @@ final class AtlasAgenticWorkcellRuntimeService
 
     private function chooseTopology(string $objective, string $domain, string $flowId, int $complexity, int $risk, array $input, array $aregDecision): string
     {
-        $forced = $this->stringValue($input['topology'] ?? null);
+        $forced = AiValueNormalizer::trimmedScalarStringOrNull($input['topology'] ?? null);
         if ($forced !== null && in_array($forced, self::TOPOLOGIES, true)) {
             return $forced;
         }
@@ -884,7 +886,7 @@ final class AtlasAgenticWorkcellRuntimeService
 
     private function workcell(mixed $id): ?AtlasAgenticWorkcell
     {
-        $id = $this->stringValue($id);
+        $id = AiValueNormalizer::trimmedScalarStringOrNull($id);
         if ($id === null || ! DatabaseTableAvailability::has('atlas_agentic_workcells')) {
             return null;
         }
@@ -916,28 +918,6 @@ final class AtlasAgenticWorkcellRuntimeService
             ],
             'claim_policy' => $this->claimPolicy(),
         ];
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return collect(is_array($value) ? $value : [])
-            ->filter(fn (mixed $item): bool => is_scalar($item) && trim((string) $item) !== '')
-            ->map(fn (mixed $item): string => trim((string) $item))
-            ->values()
-            ->all();
-    }
-
-    private function stringValue(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-        $value = trim((string) $value);
-
-        return $value === '' ? null : $value;
     }
 
     private function numericOrNull(mixed $value): ?float

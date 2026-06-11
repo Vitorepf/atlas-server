@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\AtlasProgrammingWorkItem;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Programming\AtlasDev\PlanVisible\AtlasDevPlanApprovalGate;
 use App\Services\Ai\Programming\AtlasDev\PlanVisible\AtlasDevPlanProjectionService;
 use App\Services\Ai\Programming\AtlasDev\PlanVisible\AtlasDevPlanTelemetry;
@@ -99,8 +100,8 @@ class AtlasCliDevPlanCommand extends Command
         AtlasProgrammingWorkItem $workItem,
         bool $json,
     ): int {
-        $targetFiles = $this->stringList('target-files');
-        $tests = $this->stringList('tests');
+        $targetFiles = AiStringListNormalizer::nonEmptyStrings($this->option('target-files'));
+        $tests = AiStringListNormalizer::nonEmptyStrings($this->option('tests'));
         $summary = (string) ($this->option('summary') ?? '');
         $riskBand = (string) ($this->option('risk-band') ?? $workItem->risk_level ?? 'medium');
 
@@ -212,22 +213,6 @@ class AtlasCliDevPlanCommand extends Command
         ];
         $meta['plan_revisions'] = $revisions;
         $workItem->metadata_json = $meta;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(string $option): array
-    {
-        $raw = (array) ($this->option($option) ?? []);
-        $clean = [];
-        foreach ($raw as $value) {
-            if (is_string($value) && $value !== '') {
-                $clean[] = $value;
-            }
-        }
-
-        return $clean;
     }
 
     private function failWith(bool $json, string $error, string $message): int

@@ -211,6 +211,7 @@ provider-safe memory, seed or promote reviewed memory before applying.
 ./bin/atlas open-brain expand-context recheck:canonical_doc "continue implementation" --workspace=/Users/vitorepf/develop/Atlas/atlas-server --json
 ./bin/atlas open-brain mcp --describe --json
 ./bin/atlas open-brain mcp --once='{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+/opt/homebrew/bin/php artisan atlas:open-brain:mcp --once='{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"atlas_mcp_self_check","arguments":{}}}'
 ```
 
 Rules:
@@ -219,6 +220,13 @@ Rules:
 - `include_prompt` defaults to compact mode and defers memory bodies/semantic excerpts to expansion handles;
 - prompt exports persist only `summary.prompt` metrics (`atlas.open_brain.prompt_metrics.v1`), never the rendered prompt text;
 - `atlas_memory_maintenance_status` exposes `open_brain_prompt_metrics` aggregates for compact/full usage, token savings and prompt-persistence regressions;
+- `atlas_memory_maintenance_status` also exposes `context_feedback_metrics` from `ai_rag_feedback_events` so provider context ROI, waste, missing sources and noisy refs become visible health signals;
+- `atlas_context_pack` emits `context_delivery_policy`; pass `flow_id` or `domain` + `task_type`, `changed_files`, `feedback_window_hours` and optional source sub-budgets to get flow-specific policy instead of generic recent feedback;
+- repeated low-ROI/waste feedback may shrink the bounded initial context budget, but expansion and demotion remain provider-safe handles;
+- provider-safe ref attribution can also tune the next initial source mix by `code`/`graph`/`memory`; keep raw text out and use expansion handles for anything deferred;
+- readiness-only feedback without ROI/source attribution is counted as non-actionable; collect post-execution ROI before shrinking context budgets;
+- every `atlas_context_pack` includes `context_pack_hash` and `context_feedback_request`; after execution, providers should call `atlas_context_feedback` with the template refs, used/noise/missed refs, outcome and utility, without raw logs or source text;
+- `atlas_mcp_self_check` exposes provider-safe runtime fingerprint, feature flags and tool count; missing feature flags or fingerprint mismatch against a fresh CLI probe means restart the provider MCP client/session;
 - Self-Improvement emits provider-safe findings when prompt metrics show low savings, full-mode dominance or prompt-persistence regressions;
 - `atlas_context_feedback` lets external providers return provider-safe context ROI signals (`used_refs`, `noise_refs`, `missed_sources`) after execution; it is proposal-only and persists only when `record=true`;
 - MCP writes are non-destructive and gated; destructive tools and automatic policy promotion require future AP;

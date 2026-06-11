@@ -178,6 +178,14 @@ final class AiStringListNormalizer
     /**
      * @return array<int,string>
      */
+    public static function uniqueTrimmedCastItemsToStrings(mixed $value): array
+    {
+        return self::uniqueStrings(self::trimmedCastItemsToStrings($value));
+    }
+
+    /**
+     * @return array<int,string>
+     */
     public static function trimmedCastValues(mixed $value): array
     {
         return array_values(array_filter(
@@ -192,6 +200,32 @@ final class AiStringListNormalizer
     public static function uniqueTrimmedStrings(mixed $value): array
     {
         return self::uniqueStrings(self::trimmedStrings($value));
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public static function uniqueTrimmedStringsFromArrayCast(mixed $value): array
+    {
+        return self::uniqueStrings(self::trimmedStringsFromArrayCast($value));
+    }
+
+    /**
+     * Preserves PHP array_filter truthiness semantics used by older string-only list helpers.
+     *
+     * @return array<int,string>
+     */
+    public static function truthyTrimmedStrings(mixed $value): array
+    {
+        return array_values(array_filter(self::trimmedStrings($value)));
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public static function uniqueTruthyTrimmedStrings(mixed $value): array
+    {
+        return self::uniqueStrings(self::truthyTrimmedStrings($value));
     }
 
     /**
@@ -250,6 +284,24 @@ final class AiStringListNormalizer
     }
 
     /**
+     * Preserves PHP array_filter truthiness semantics used by older list helpers.
+     *
+     * @return array<int,string>
+     */
+    public static function truthyTrimmedScalarValues(mixed $value): array
+    {
+        return array_values(array_filter(self::trimmedScalarValues($value)));
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public static function uniqueTruthyTrimmedScalarValues(mixed $value): array
+    {
+        return self::uniqueStrings(self::truthyTrimmedScalarValues($value));
+    }
+
+    /**
      * @param  array<int,mixed>  $values
      * @return array<int,string>
      */
@@ -276,6 +328,32 @@ final class AiStringListNormalizer
 
             $string = trim((string) $mapped);
             if ($string === '') {
+                continue;
+            }
+
+            $strings[] = $lowercase ? strtolower($string) : $string;
+        }
+
+        return self::uniqueStrings($strings);
+    }
+
+    /**
+     * Preserves array_filter truthiness semantics for mapped scalar values.
+     *
+     * @param  array<int,mixed>  $values
+     * @return array<int,string>
+     */
+    public static function uniqueTruthyMappedScalarStrings(array $values, callable $map, bool $lowercase = false): array
+    {
+        $strings = [];
+        foreach ($values as $value) {
+            $mapped = $map($value);
+            if (! is_scalar($mapped)) {
+                continue;
+            }
+
+            $string = trim((string) $mapped);
+            if (! $string) {
                 continue;
             }
 

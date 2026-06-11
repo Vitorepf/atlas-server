@@ -12,6 +12,7 @@ use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\ProgrammingPatchVerifier;
 use App\Services\Ai\Programming\ProgrammingRepairExecutor;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Engineering\AtlasVerifiedEvolutionRuntimeService as AtlasVerifiedEvolutionRuntime;
 use Illuminate\Support\Collection;
@@ -66,7 +67,7 @@ final class AtlasVerifiedExecutionRuntimeService
         $workspace = $this->workspace($input['workspace'] ?? null);
         $objectiveHash = MissionCanonicalHash::sha256($objective);
         $workspaceHash = $workspace !== null ? MissionCanonicalHash::sha256($workspace) : null;
-        $evidenceRefs = $this->stringList($input['evidence_refs'] ?? []);
+        $evidenceRefs = AiStringListNormalizer::uniqueTrimmedStringsFromArrayCast($input['evidence_refs'] ?? []);
         $flowId = (string) ($input['flow_id'] ?? 'atlas_dev');
         $domain = (string) ($input['domain'] ?? 'programming');
         $executionContract = $this->executionContract($objectiveHash, $workspaceHash, $flowId, $input);
@@ -136,9 +137,9 @@ final class AtlasVerifiedExecutionRuntimeService
             'domain' => (string) ($planInput['domain'] ?? 'programming'),
             'flow_id' => (string) ($planInput['flow_id'] ?? 'atlas_dev'),
             'surface_id' => (string) ($planInput['surface_id'] ?? 'atlas_ai'),
-            'expected_files' => $this->stringList($planInput['allowed_write_paths'] ?? []),
-            'expected_commands' => $this->stringList(data_get($planInput, 'verification_plan.required_gates', [])),
-            'evidence_refs' => $this->stringList($planInput['evidence_refs'] ?? []),
+            'expected_files' => AiStringListNormalizer::uniqueTrimmedStringsFromArrayCast($planInput['allowed_write_paths'] ?? []),
+            'expected_commands' => AiStringListNormalizer::uniqueTrimmedStringsFromArrayCast(data_get($planInput, 'verification_plan.required_gates', [])),
+            'evidence_refs' => AiStringListNormalizer::uniqueTrimmedStringsFromArrayCast($planInput['evidence_refs'] ?? []),
             'causal_verification' => (array) data_get($planInput, 'verification_plan.causal_verification', []),
             'verified_evolution_contract' => $verifiedEvolutionContract,
             'verified_evolution_contract_hash' => MissionCanonicalHash::sha256($verifiedEvolutionContract),
@@ -155,7 +156,7 @@ final class AtlasVerifiedExecutionRuntimeService
         $execution = $this->execution($input['execution_id'] ?? null);
         $command = trim((string) ($input['command'] ?? ''));
         $cwd = $this->workspace($input['cwd'] ?? null) ?? base_path();
-        $evidenceRefs = $this->stringList($input['evidence_refs'] ?? []);
+        $evidenceRefs = AiStringListNormalizer::uniqueTrimmedStringsFromArrayCast($input['evidence_refs'] ?? []);
         $safetyGate = $this->safetyGateForCommand($command, $cwd);
 
         $result = [
@@ -204,9 +205,9 @@ final class AtlasVerifiedExecutionRuntimeService
     public function verifyDiff(array $input): array
     {
         $execution = $this->execution($input['execution_id'] ?? null);
-        $changedFiles = $this->stringList($input['changed_files'] ?? []);
+        $changedFiles = AiStringListNormalizer::uniqueTrimmedStringsFromArrayCast($input['changed_files'] ?? []);
         $actionManifests = array_values((array) ($input['action_manifests'] ?? []));
-        $evidenceRefs = $this->stringList($input['evidence_refs'] ?? []);
+        $evidenceRefs = AiStringListNormalizer::uniqueTrimmedStringsFromArrayCast($input['evidence_refs'] ?? []);
         $report = $this->patchVerifier->verify([
             'changed_files' => $changedFiles,
             'tests' => (array) ($input['tests'] ?? []),
@@ -251,7 +252,7 @@ final class AtlasVerifiedExecutionRuntimeService
     {
         $commandLedger = $this->runCommand($input);
         $execution = $this->execution($input['execution_id'] ?? null);
-        $evidenceRefs = $this->stringList($input['evidence_refs'] ?? []);
+        $evidenceRefs = AiStringListNormalizer::uniqueTrimmedStringsFromArrayCast($input['evidence_refs'] ?? []);
         $status = ($commandLedger['status'] ?? null) === self::STATUS_PASSED ? self::STATUS_PASSED : self::STATUS_FAILED;
         if (($commandLedger['status'] ?? null) === self::STATUS_BLOCKED) {
             $status = self::STATUS_BLOCKED;
@@ -308,7 +309,7 @@ final class AtlasVerifiedExecutionRuntimeService
             'attempt' => $attempt,
             'failure_packet' => $failurePacket,
             'repair_plan' => $plan,
-            'evidence_refs' => $this->stringList($input['evidence_refs'] ?? []),
+            'evidence_refs' => AiStringListNormalizer::uniqueTrimmedStringsFromArrayCast($input['evidence_refs'] ?? []),
         ];
         $payload['repair_hash'] = MissionCanonicalHash::sha256($payload);
 
@@ -408,7 +409,7 @@ final class AtlasVerifiedExecutionRuntimeService
     public function certify(array $input): array
     {
         $execution = $this->execution($input['execution_id'] ?? null);
-        $evidenceRefs = $this->stringList($input['evidence_refs'] ?? []);
+        $evidenceRefs = AiStringListNormalizer::uniqueTrimmedStringsFromArrayCast($input['evidence_refs'] ?? []);
         if (! $execution instanceof AtlasAverExecution) {
             return $this->blockedCertification(null, 'missing_execution', $evidenceRefs);
         }
@@ -547,8 +548,8 @@ final class AtlasVerifiedExecutionRuntimeService
             'source_verified_evolution_contract_hash' => $input['verified_evolution_contract_hash'] ?? null,
             'source_verified_evolution_schema' => $verifiedEvolutionContract['schema_version'] ?? null,
             'source_verified_evolution_status' => $verifiedEvolutionContract['status'] ?? null,
-            'allowed_write_paths' => $this->stringList(data_get($verifiedEvolutionContract, 'execution_contract.aver_plan_input.allowed_write_paths', [])),
-            'read_first' => $this->stringList(data_get($verifiedEvolutionContract, 'execution_contract.aver_plan_input.read_first', [])),
+            'allowed_write_paths' => AiStringListNormalizer::uniqueTrimmedStringsFromArrayCast(data_get($verifiedEvolutionContract, 'execution_contract.aver_plan_input.allowed_write_paths', [])),
+            'read_first' => AiStringListNormalizer::uniqueTrimmedStringsFromArrayCast(data_get($verifiedEvolutionContract, 'execution_contract.aver_plan_input.read_first', [])),
             'requires_command_ledger' => true,
             'requires_diff_ledger' => true,
             'requires_test_ledger' => true,
@@ -566,7 +567,7 @@ final class AtlasVerifiedExecutionRuntimeService
         return [
             'schema_version' => 'atlas.aver.patch_plan.v1',
             'objective_hash' => $objectiveHash,
-            'expected_files' => $this->stringList($input['expected_files'] ?? []),
+            'expected_files' => AiStringListNormalizer::uniqueTrimmedStringsFromArrayCast($input['expected_files'] ?? []),
             'max_changed_files_without_review' => 12,
             'semantic_diff_required' => true,
             'patch_verifier_required' => true,
@@ -580,7 +581,7 @@ final class AtlasVerifiedExecutionRuntimeService
     private function safetyGateForPlan(array $input): array
     {
         $external = (bool) ($input['external_side_effect_requested'] ?? false);
-        $verifiedEvolutionBlockers = $this->stringList($input['verified_evolution_blockers'] ?? []);
+        $verifiedEvolutionBlockers = AiStringListNormalizer::uniqueTrimmedStringsFromArrayCast($input['verified_evolution_blockers'] ?? []);
         $blockers = $external ? ['external_side_effect_requested'] : [];
         $blockers = array_values(array_unique(array_merge($blockers, $verifiedEvolutionBlockers)));
 
@@ -632,7 +633,7 @@ final class AtlasVerifiedExecutionRuntimeService
         return [
             'schema_version' => 'atlas.aver.verification_plan.v1',
             'flow_id' => $flowId,
-            'expected_commands' => $this->stringList($input['expected_commands'] ?? ['focused_tests', 'diff_review']),
+            'expected_commands' => AiStringListNormalizer::uniqueTrimmedStringsFromArrayCast($input['expected_commands'] ?? ['focused_tests', 'diff_review']),
             'causal_verification' => (array) ($input['causal_verification'] ?? []),
             'requires_green_command_ledger' => true,
             'requires_green_test_ledger' => true,
@@ -772,19 +773,6 @@ final class AtlasVerifiedExecutionRuntimeService
         $workspace = trim((string) $workspace);
 
         return $workspace !== '' ? $workspace : null;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return collect((array) $value)
-            ->filter(fn (mixed $item): bool => is_string($item) && trim($item) !== '')
-            ->map(fn (string $item): string => trim($item))
-            ->unique()
-            ->values()
-            ->all();
     }
 
     private function uuidOrNull(mixed $value): ?string

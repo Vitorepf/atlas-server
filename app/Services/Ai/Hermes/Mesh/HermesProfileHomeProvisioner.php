@@ -4,6 +4,7 @@ namespace App\Services\Ai\Hermes\Mesh;
 
 use App\Services\Ai\Hermes\HermesLearningHomeLinker;
 use App\Services\Ai\Hermes\ManagedHermesHome;
+use App\Services\Ai\Hermes\Support\HermesStringListNormalizer;
 use Illuminate\Filesystem\Filesystem;
 
 /**
@@ -34,8 +35,8 @@ class HermesProfileHomeProvisioner
      */
     public function provision(string $role, array $profile, ?string $traceId = null): ?string
     {
-        $toolsets = $this->stringList($profile['toolsets'] ?? null);
-        $skills = $this->stringList($profile['skills'] ?? null);
+        $toolsets = HermesStringListNormalizer::arrayUnique($profile['toolsets'] ?? null, PHP_INT_MAX);
+        $skills = HermesStringListNormalizer::arrayUnique($profile['skills'] ?? null, PHP_INT_MAX);
         $provider = $this->string($profile['provider'] ?? null);
         $model = $this->string($profile['model'] ?? null);
 
@@ -104,26 +105,6 @@ class HermesProfileHomeProvisioner
         $seed = trim($role).($trace !== null ? '-'.$trace : '');
 
         return trim($seed) !== '' ? $seed : 'no_role';
-    }
-
-    /**
-     * @return string[]
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($value as $item) {
-            $s = $this->string($item);
-            if ($s !== null) {
-                $out[] = $s;
-            }
-        }
-
-        return array_values(array_unique($out));
     }
 
     private function string(mixed $value): ?string

@@ -40,6 +40,46 @@ final class AiStringListNormalizerTest extends TestCase
         );
     }
 
+    public function test_unique_trimmed_strings_from_array_cast_accepts_scalar_string(): void
+    {
+        $this->assertSame(
+            ['alpha', 'beta'],
+            AiStringListNormalizer::uniqueTrimmedStringsFromArrayCast([' alpha ', 'beta', 'alpha', 42, ' '])
+        );
+
+        $this->assertSame(['alpha'], AiStringListNormalizer::uniqueTrimmedStringsFromArrayCast(' alpha '));
+        $this->assertSame([], AiStringListNormalizer::uniqueTrimmedStringsFromArrayCast(42));
+    }
+
+    public function test_truthy_trimmed_strings_preserves_legacy_string_only_array_filter_semantics(): void
+    {
+        $this->assertSame(
+            ['alpha', 'beta'],
+            AiStringListNormalizer::truthyTrimmedStrings([' alpha ', 42, false, ' ', ['nested'], '0', 'beta'])
+        );
+        $this->assertSame(
+            ['alpha', 'beta'],
+            AiStringListNormalizer::uniqueTruthyTrimmedStrings([' alpha ', '0', 'alpha', 42, 'beta'])
+        );
+    }
+
+    public function test_unique_truthy_mapped_scalar_strings_preserves_array_filter_semantics(): void
+    {
+        $this->assertSame(
+            ['alpha', 'beta'],
+            AiStringListNormalizer::uniqueTruthyMappedScalarStrings(
+                [
+                    ['kind' => ' alpha '],
+                    ['kind' => '0'],
+                    ['kind' => 'beta'],
+                    ['kind' => 'alpha'],
+                    ['kind' => null],
+                ],
+                static fn (mixed $item): mixed => is_array($item) ? ($item['kind'] ?? '') : '',
+            ),
+        );
+    }
+
     public function test_cast_items_to_strings_preserves_legacy_array_map_cast_semantics(): void
     {
         $this->assertSame(
@@ -65,6 +105,16 @@ final class AiStringListNormalizerTest extends TestCase
         );
 
         $this->assertSame([], AiStringListNormalizer::trimmedCastItemsToStrings('alpha'));
+    }
+
+    public function test_unique_trimmed_cast_items_to_strings_deduplicates_after_casting(): void
+    {
+        $this->assertSame(
+            ['alpha', '42', '1'],
+            AiStringListNormalizer::uniqueTrimmedCastItemsToStrings([' alpha ', '42', 42, true, false, '1', ' '])
+        );
+
+        $this->assertSame([], AiStringListNormalizer::uniqueTrimmedCastItemsToStrings('alpha'));
     }
 
     public function test_trimmed_cast_values_accepts_scalar_values_through_array_cast(): void
@@ -116,6 +166,18 @@ final class AiStringListNormalizerTest extends TestCase
         $this->assertSame(
             ['alpha', '42', '4.2'],
             AiStringListNormalizer::uniqueTrimmedScalarValues([' alpha ', 42, false, ' ', ['nested'], 4.2, 'alpha'])
+        );
+    }
+
+    public function test_truthy_trimmed_scalar_values_preserves_legacy_array_filter_semantics(): void
+    {
+        $this->assertSame(
+            ['alpha', '42', '1'],
+            AiStringListNormalizer::truthyTrimmedScalarValues([' alpha ', 42, false, ' ', ['nested'], true, '0'])
+        );
+        $this->assertSame(
+            ['alpha', '42'],
+            AiStringListNormalizer::uniqueTruthyTrimmedScalarValues([' alpha ', 42, '0', 'alpha'])
         );
     }
 

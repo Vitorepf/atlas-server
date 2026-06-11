@@ -4,6 +4,7 @@ namespace App\Services\Ai\Hermes\Mesh;
 
 use App\Models\AiJob;
 use App\Services\Ai\Hermes\HermesAdapterReceipt;
+use App\Services\Ai\Hermes\Support\HermesStringListNormalizer;
 use Illuminate\Support\Str;
 
 /**
@@ -167,7 +168,7 @@ class HermesExecutiveMeshPlanner
                 'assigned_worktree' => ($subtask['worktree'] ?? false) === true,
                 'checkpoints' => $this->checkpointsFor($subtask),
                 'requested_toolsets' => $this->toolsetList($subtask['toolsets'] ?? null),
-                'success_criteria_count' => count($this->stringList($subtask['success_criteria'] ?? null)),
+                'success_criteria_count' => count(HermesStringListNormalizer::arrayItems($subtask['success_criteria'] ?? null, 2000, dropFalsyStrings: true)),
             ];
         }
 
@@ -214,31 +215,8 @@ class HermesExecutiveMeshPlanner
      */
     private function toolsetList(mixed $value): array
     {
-        $items = is_array($value)
-            ? $value
-            : (is_string($value) ? (preg_split('/\s*,\s*/', $value) ?: []) : []);
-
-        return collect($items)
-            ->map(fn (mixed $item): ?string => $this->string($item, 120))
-            ->filter()
+        return collect(HermesStringListNormalizer::csv($value, 120))
             ->reject(fn (string $toolset): bool => in_array($toolset, self::LEAF_BLOCKED_TOOLSETS, true))
-            ->unique()
-            ->values()
-            ->all();
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return collect($value)
-            ->map(fn (mixed $item): ?string => $this->string($item, 2000))
-            ->filter()
             ->values()
             ->all();
     }

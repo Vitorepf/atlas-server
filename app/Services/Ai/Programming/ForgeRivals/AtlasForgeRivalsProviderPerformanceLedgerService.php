@@ -995,7 +995,7 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
             $blockers[] = 'scorecard_replay_passes_required';
         }
 
-        foreach ($this->stringList($evidencePack['missing_evidence'] ?? []) as $key) {
+        foreach (AiStringListNormalizer::castItemsToStrings($evidencePack['missing_evidence'] ?? []) as $key) {
             $blockers[] = 'evidence_pack_missing_evidence:'.$key;
         }
 
@@ -1041,7 +1041,7 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
             ? ($scorecard['atlas_score'] ?? null)
             : ($scorecard['rival_score'] ?? null);
         $winner = $scorecard['winner'] ?? null;
-        $hardFailures = $this->stringList($scorecard['hard_failures'] ?? []);
+        $hardFailures = AiStringListNormalizer::castItemsToStrings($scorecard['hard_failures'] ?? []);
         $isInvalid = $hardFailures !== [] || $score === null;
         $isTie = $winner === 'human_review_required_tie';
 
@@ -1093,7 +1093,7 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
         $tokensUsed = (int) ($receipt['tokens_used'] ?? 0);
         $costEstimate = $this->coerceFloat($receipt['token_cost'] ?? null);
         $testsPassed = (int) ($receipt['test_exit_code'] ?? -1) === 0;
-        $scopeViolations = count($this->stringList($receipt['out_of_scope_files'] ?? []));
+        $scopeViolations = count(AiStringListNormalizer::castItemsToStrings($receipt['out_of_scope_files'] ?? []));
         $interventionCount = (int) ($receipt['intervention_count'] ?? 0);
         $replayPassed = (bool) ($scorecard['replay_passes'] ?? false);
 
@@ -1464,7 +1464,7 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
         $difficulty = trim((string) ($input['difficulty'] ?? $input['difficulty_level'] ?? ''));
         $runFamily = trim((string) ($input['run_family'] ?? ''));
         $promptMode = trim((string) ($input['prompt_mode'] ?? $input['human_prompt_mode'] ?? ''));
-        $runIds = $this->stringList($input['run_ids'] ?? []);
+        $runIds = AiStringListNormalizer::castItemsToStrings($input['run_ids'] ?? []);
 
         return [
             'task_category' => $taskCategory === '' ? null : strtolower($taskCategory),
@@ -2155,11 +2155,6 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
         }
 
         return null;
-    }
-
-    private function stringList(mixed $value): array
-    {
-        return AiStringListNormalizer::castItemsToStrings($value);
     }
 
     /**

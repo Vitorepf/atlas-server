@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Hermes\Acp;
 
 use App\Services\Ai\Hermes\HermesAdapterReceipt;
+use App\Services\Ai\Hermes\Support\HermesStringListNormalizer;
 use App\Support\AtlasSecurity;
 use Throwable;
 
@@ -59,8 +60,8 @@ class HermesAcpPermissionGate
         $options = $this->options($params);
         $toolCall = $this->toolCall($params);
         $paths = $this->candidatePaths($toolCall);
-        $allowedPaths = $this->stringList($missionScope['allowed_paths'] ?? null);
-        $forbiddenPaths = $this->stringList($missionScope['forbidden_paths'] ?? null);
+        $allowedPaths = HermesStringListNormalizer::csv($missionScope['allowed_paths'] ?? null, 4000);
+        $forbiddenPaths = HermesStringListNormalizer::csv($missionScope['forbidden_paths'] ?? null, 4000);
 
         $receipt = [
             'schema_version' => 'atlas.hermes.acp_permission_decision.v1',
@@ -395,21 +396,6 @@ class HermesAcpPermissionGate
         }
 
         return $this->string($id, 190);
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value): array
-    {
-        $items = is_array($value) ? $value : (is_string($value) ? (preg_split('/\s*,\s*/', $value) ?: []) : []);
-
-        return collect($items)
-            ->map(fn (mixed $item): ?string => $this->string($item, 4000))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
     }
 
     private function string(mixed $value, int $limit): ?string

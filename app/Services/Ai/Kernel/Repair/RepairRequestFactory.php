@@ -4,6 +4,7 @@ namespace App\Services\Ai\Kernel\Repair;
 
 use App\Services\Ai\Kernel\Decision\DecisionRepairPolicy;
 use App\Services\Ai\Kernel\Failure\FailureClassification;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 final class RepairRequestFactory
 {
@@ -27,7 +28,7 @@ final class RepairRequestFactory
             failure: $failure,
             policy: $this->normalizePolicy($policy),
             currentAttempt: $currentAttempt,
-            evidenceRefs: $this->stringList($evidenceRefs),
+            evidenceRefs: AiStringListNormalizer::trimmedStrings($evidenceRefs),
             dryRun: $dryRun,
             metadata: $metadata,
         );
@@ -74,18 +75,4 @@ final class RepairRequestFactory
         return RepairPolicy::fromArray($policy);
     }
 
-    /**
-     * @param  array<int,mixed>  $values
-     * @return array<int,string>
-     */
-    private function stringList(array $values): array
-    {
-        return array_values(array_filter(
-            array_map(
-                fn (mixed $value): ?string => is_string($value) ? trim($value) : null,
-                $values,
-            ),
-            fn (?string $value): bool => $value !== null && $value !== '',
-        ));
-    }
 }

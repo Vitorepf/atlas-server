@@ -4,6 +4,7 @@ namespace App\Services\Ai\Hermes;
 
 use App\Models\AiJob;
 use App\Services\Ai\AiProviderResult;
+use App\Services\Ai\Hermes\Support\HermesStringListNormalizer;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
@@ -181,8 +182,8 @@ class HermesResultPacketFactory
                     'candidate_id' => 'hermes_procedure_candidate_'.substr(hash('sha256', $name.'|'.$purpose.'|'.count($candidates)), 0, 16),
                     'name' => $name,
                     'purpose' => $purpose,
-                    'steps' => $this->stringList($item['steps'] ?? null, 12, 700),
-                    'required_tools' => $this->stringList($item['required_tools'] ?? null, 12, 120),
+                    'steps' => HermesStringListNormalizer::resultPacketBounded($item['steps'] ?? null, 12, 700),
+                    'required_tools' => HermesStringListNormalizer::resultPacketBounded($item['required_tools'] ?? null, 12, 120),
                     'risk_level' => $riskLevel,
                     'duplicate_check_required' => true,
                     'source' => 'hermes_session',
@@ -230,7 +231,7 @@ class HermesResultPacketFactory
                     'trigger' => $trigger,
                     'cadence' => $this->string($item['cadence'] ?? null, 160),
                     'objective' => $objective,
-                    'stop_conditions' => $this->stringList($item['stop_conditions'] ?? null, 8, 500),
+                    'stop_conditions' => HermesStringListNormalizer::resultPacketBounded($item['stop_conditions'] ?? null, 8, 500),
                     'evidence_required' => true,
                     'idempotency_required' => true,
                     'source' => 'hermes_session',
@@ -323,30 +324,6 @@ class HermesResultPacketFactory
         }
 
         return $evidence;
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value, int $limit, int $itemLimit): array
-    {
-        if (is_array($value)) {
-            $items = $value;
-        } elseif (is_string($value) || is_numeric($value)) {
-            $items = preg_split('/\s*,\s*/', (string) $value) ?: [];
-        } else {
-            $items = [];
-        }
-
-        $strings = [];
-        foreach (array_slice($items, 0, $limit) as $item) {
-            $string = $this->string($item, $itemLimit);
-            if ($string !== null) {
-                $strings[] = $string;
-            }
-        }
-
-        return array_values(array_unique($strings));
     }
 
     private function resultId(AiJob $job, AiProviderResult $result, array $mission): string

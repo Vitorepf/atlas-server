@@ -62,23 +62,22 @@ P1 may enrich the plan with existing Atlas context:
 2. owner-doc hints for technical subjects;
 3. privacy/sensitivity review prompts;
 4. "covered vs missing" signals from public posts and Atlas docs;
-5. reviewable backlog candidates derived from existing KB/code read-models;
-6. read-only source, coverage, writing and daily operations packets;
-7. public archive reconciliation that compares published site metadata against
-   the planned backlog and marks external posts as bridge candidates, duplicate
-   risks or prior artifacts;
+5. reviewable backlog candidates derived from existing KB/code read-models or bounded graph evidence;
+6. read-only source, review-queue, coverage, operating-state, radar, golden-set, bounded graph-context/candidate, writing and daily operations packets;
+7. public archive reconciliation for bridges, duplicate risks and prior artifacts;
 8. Open Brain handoff/execution packets for audited context export.
+9. graph/RAG readiness preflight without invoking graph or Python.
 
 P1 stays kernel-first. It may read Engineering Knowledge, Code Intelligence and
-audited Open Brain context, but presents them as editorial references, not
-generated facts ready for publication.
-Candidate backlog items are review packets. They do not become part of the
+audited Open Brain context, but only as editorial references, not publication facts.
+Candidate backlog items are review packets. Graph-derived candidates require
+`--editorial-graph-candidates` before acceptance. They do not become part of the
 publication sequence until Vitor accepts them and explicitly promotes them.
-Writing packets are private preparation packets. They may assemble sequence
-position, prerequisite state, candidate references, outline hints, reader
-promise, prior public archive artifacts, duplicate/rewrite risk, safety prompts
-and "avoid for now" topics. They must not generate a complete article, create a
-draft file, publish content or bypass the backlog sequence.
+Writing packets are private preparation packets. They may assemble sequence,
+prerequisites, concept progression, refs, outline hints, reader promise, public
+archive artifacts, duplicate/rewrite risk, safety prompts and "avoid for now"
+topics. They must not generate a complete article, draft, publish content or
+bypass the backlog sequence.
 Published posts that are outside the current planned backlog are not promoted
 to ordered prerequisites automatically. They may inform a planned post as prior
 public evidence, but Vitor must decide whether to link, rewrite or keep them as
@@ -122,8 +121,7 @@ tool or script may call the runtime directly.
 
 P0 is acceptable when:
 
-- `atlas:blog:editorial-plan --json` returns schema
-  `atlas.blog_editorial_planner.v1`;
+- `atlas:blog:editorial-plan --json` returns `atlas.blog_editorial_planner.v1`;
 - the command is read-only;
 - backlog order is validated;
 - prerequisites cannot point forward;
@@ -136,36 +134,38 @@ P1 is acceptable when:
   `read_only_governed_p1`;
 - refs are sourced only from existing Atlas read-models;
 - per-post context keeps `uses_graph_rag=false` and `uses_python_runtime=false`;
-- `atlas:blog:editorial-plan --suggest-candidates --json` returns
-  `backlog_candidates` with `writes_backlog=false`;
-- `atlas:blog:editorial-plan --source-map --json` returns `source_map` with
-  backlog, public archive, Engineering Knowledge, Code Intelligence, Open
-  Brain, vector retrieval and graph retrieval status, while keeping
-  `graph_retrieval.status=future_governed` until P2 is explicitly promoted;
+- `atlas:blog:editorial-plan --suggest-candidates --json` returns `backlog_candidates` with `writes_backlog=false`; `--review-queue` reads accepted candidates and dedupes suggestions;
+- `atlas:blog:editorial-plan --source-map --json` returns source readiness and
+  keeps `graph_retrieval.status=future_governed` until P2 is promoted;
 - `source_map.archive_reconciliation` reports planned published posts,
   external published posts, external coverage by kind/collection and bridge
   candidates matched to planned posts without changing prerequisites;
 - `atlas:blog:editorial-plan --coverage-map --json` returns foundation
   coverage, topic index, depth warnings and safe next arcs;
+- `atlas:blog:editorial-plan --operating-state --json` returns the compact read-only state for the future Atlas blog area;
+- `atlas:blog:editorial-plan --editorial-radar --json` returns lanes, gaps, review-queue state, insertion windows, candidates and source readiness;
+- `atlas:blog:editorial-plan --editorial-golden-set --json` returns passing sequence fixtures before P2 graph/RAG removes the foundation blocker;
+- `atlas:blog:editorial-plan --editorial-graph-context --json` returns bounded World Model evidence, and `--editorial-graph-candidates` returns review-only candidates with no write/reorder/publish power;
+- `atlas:blog:editorial-plan --graph-rag-readiness --json` returns P2
+  readiness while keeping graph/Python invocation off;
 - `atlas:blog:editorial-plan --operations --json` returns
   `operations_packet` with next action, daily focus, writing packet, public
-  archive risks, blockers, source/coverage snapshots, candidate feed and
+  archive risks, blockers, review queue, source/coverage snapshots, candidate feed and
   `open_brain_handoff` while keeping all write/publish/graph guardrails false;
 - `atlas:blog:editorial-plan --writing-packet --json` returns
   `writing_packet` for the next ready post with
   `generates_full_article=false`, `writes_draft=false` and
   `publishes_content=false`;
-- `writing_packet.open_brain_handoff` returns an audited context export
-  contract with `invoked_by_this_command=false`;
+- `writing_packet.concept_progression_map` separates introduced, current,
+  allowed and future terms so deep ideas are not assumed too early;
+- `writing_packet.open_brain_handoff` returns audited context export contract;
 - `atlas:blog:editorial-plan --writing-packet --execute-open-brain --json`
-  returns `mode=audited_context_execution_p1` and safe
-  `writing_packet.open_brain_context`; it must not return the raw context pack;
+  returns safe `writing_packet.open_brain_context`, not the raw context pack;
 - `writing_packet.public_archive_context` reports planned matches and prior
   public artifacts so the writer can link, rewrite or avoid repetition;
 - `atlas:blog:editorial-plan --writing-packet --writing-slug=<slug> --json`
   prepares a planned post by slug without writing files or changing schedule;
-- `atlas:blog:editorial-plan --accept-candidate=<slug> --json` previews a
-  review queue entry without writing;
+- `atlas:blog:editorial-plan --editorial-graph-candidates --accept-candidate=<slug> --json` can preview a bounded graph candidate review queue entry without writing;
 - `atlas:blog:editorial-plan --accept-candidate=<slug> --write --json` writes
   only the review queue and keeps `writes_main_backlog=false`;
 - `atlas:blog:editorial-plan --promote-candidate=<slug> --json` previews the
@@ -177,5 +177,4 @@ P1 is acceptable when:
 ## Promotion Rule
 
 Moving beyond P0 requires explicit review of this AP and the runtime boundary.
-Graph/RAG enrichment is an extension of Atlas Open Brain and Code Intelligence,
-not a new editorial brain.
+Graph/RAG extends Open Brain and Code Intelligence, not a new editorial brain.

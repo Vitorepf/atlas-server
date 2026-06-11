@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Ai;
 
+use App\Models\AiRagFeedbackEvent;
 use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Engineering\CodeGraph\CodeGraphContextRetriever;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use Throwable;
@@ -57,6 +59,10 @@ class AtlasOpenBrainContextPackService
 {
     public const SCHEMA = 'atlas.aobg.context_pack.v1';
 
+    public const CONTEXT_DELIVERY_POLICY_SCHEMA = 'atlas.aobg.context_delivery_policy.v1';
+
+    public const CONTEXT_FEEDBACK_REQUEST_SCHEMA = 'atlas.aobg.context_feedback_request.v1';
+
     /**
      * Honest self-label carried in the pack so a consumer never reads it as an
      * exhaustive dump of the brain — it is the smallest useful curated slice.
@@ -88,10 +94,24 @@ class AtlasOpenBrainContextPackService
         $task = trim($task);
 
         $workspaceId = $this->resolveWorkspaceId($opts);
-        $totalBudget = $this->intOpt($opts, 'budget', (int) config('atlas.aobg.budget_chars', 6000));
+        $requestedTotalBudget = $this->intOpt($opts, 'budget', (int) config('atlas.aobg.budget_chars', 6000));
+        $totalBudget = $requestedTotalBudget;
         $codeBudget = $this->intOpt($opts, 'code_budget', (int) config('atlas.aobg.code_budget_chars', 2500));
         $memoryBudget = $this->intOpt($opts, 'memory_budget', (int) config('atlas.aobg.memory_budget_chars', 2000));
         $changedFiles = $this->stringList($opts['changed_files'] ?? []);
+        $contextDeliveryPolicy = $this->contextDeliveryPolicy($opts);
+        $budgetMultiplier = (float) ($contextDeliveryPolicy['initial_context_budget_multiplier'] ?? 1.0);
+        if ((bool) ($contextDeliveryPolicy['applied_to_initial_budget'] ?? false) && $budgetMultiplier > 0 && $budgetMultiplier < 1.0) {
+            $totalBudget = $this->scaledBudget($totalBudget, $budgetMultiplier);
+            $codeBudget = $this->scaledBudget($codeBudget, $budgetMultiplier);
+            $memoryBudget = $this->scaledBudget($memoryBudget, $budgetMultiplier);
+        }
+        $sourceSelectionPolicy = (array) ($contextDeliveryPolicy['source_selection_policy'] ?? []);
+        if ((bool) ($sourceSelectionPolicy['applied_to_initial_pack'] ?? false)) {
+            $sourceMultipliers = (array) ($sourceSelectionPolicy['budget_multipliers'] ?? []);
+            $codeBudget = $this->scaledBudget($codeBudget, $this->floatMapValue($sourceMultipliers, 'code', 1.0));
+            $memoryBudget = $this->scaledBudget($memoryBudget, $this->floatMapValue($sourceMultipliers, 'memory', 1.0));
+        }
 
         // The total budget is a real CEILING over the text sub-budgets (code +
         // memory; the reality graph is path-shaped, not char-budgeted at source).
@@ -110,6 +130,7 @@ class AtlasOpenBrainContextPackService
         $code = $this->codeSection($task, $workspaceId, $codeBudget, $changedFiles);
         $reality = $this->realitySection($task);
         $memorySection = $this->memorySection($task, $workspaceId, $memoryBudget);
+        $reality = $this->applyRealitySourceSelection($reality, $sourceSelectionPolicy);
 
         // FINAL TOTAL-BUDGET CEILING (anti-over-claim): the per-source sub-budgets
         // bound their OWN slices, but the code retriever budgets on signature tokens
@@ -141,6 +162,7 @@ class AtlasOpenBrainContextPackService
             'code_graph' => $code['items'],
             'reality_graph_paths' => $reality['paths'],
             'memory' => $memorySection['items'],
+            'context_delivery_policy' => $contextDeliveryPolicy,
             'provenance' => [
                 'sources_present' => $sourcesPresent,
                 'code_graph' => $code['provenance'],
@@ -148,6 +170,7 @@ class AtlasOpenBrainContextPackService
                 'memory' => $memorySection['provenance'],
             ],
             'budget' => [
+                'requested_total_chars' => $requestedTotalBudget,
                 'total_chars' => $totalBudget,
                 'code_budget_chars' => $codeBudget,
                 'memory_budget_chars' => $memoryBudget,
@@ -158,9 +181,11 @@ class AtlasOpenBrainContextPackService
                 'reality_graph_paths' => count($reality['paths']),
                 'memory' => count($memorySection['items']),
             ],
-            'generated_at' => now()->toJSON(),
         ];
 
+        $pack['context_pack_hash'] = $this->contextPackHash($pack);
+        $pack['context_feedback_request'] = $this->contextFeedbackRequest($pack, $opts);
+        $pack['generated_at'] = now()->toJSON();
         $pack['markdown'] = $this->renderMarkdown($pack);
 
         return $pack;
@@ -228,6 +253,495 @@ class AtlasOpenBrainContextPackService
         return [$code, $reality, $memory];
     }
 
+    private function scaledBudget(int $budget, float $multiplier): int
+    {
+        if ($budget <= 0) {
+            return $budget;
+        }
+
+        return max(1, min($budget, (int) floor($budget * $multiplier)));
+    }
+
+    /**
+     * @param  array<string,mixed>  $values
+     */
+    private function floatMapValue(array $values, string $key, float $default): float
+    {
+        $value = $values[$key] ?? null;
+        if (! is_numeric($value)) {
+            return $default;
+        }
+
+        return max(0.1, min(1.0, (float) $value));
+    }
+
+    /**
+     * Build the compact delivery policy that tells external providers how much
+     * context was loaded now and which source types should be expanded later.
+     *
+     * The only automatic effect here is a bounded initial budget shrink when
+     * repeated provider-safe feedback shows low ROI or waste. Ref demotion and
+     * source expansion remain explicit, provider-safe handles.
+     *
+     * @param  array<string,mixed>  $opts
+     * @return array<string,mixed>
+     */
+    private function contextDeliveryPolicy(array $opts): array
+    {
+        $windowHours = max(1, min(720, $this->intOpt($opts, 'feedback_window_hours', 168)));
+        $flowId = $this->contextFeedbackFlowId($opts);
+        $base = [
+            'schema_version' => self::CONTEXT_DELIVERY_POLICY_SCHEMA,
+            'status' => 'inactive',
+            'delivery_mode' => 'standard_minimal_top_k',
+            'source' => 'none',
+            'flow_id' => $flowId,
+            'window_hours' => $windowHours,
+            'initial_context_budget_multiplier' => 1.0,
+            'applied_to_initial_budget' => false,
+            'actions' => ['keep_current_pack'],
+            'expand_source_types' => [],
+            'deferred_source_types' => [],
+            'demote_context_refs' => [],
+            'on_demand_handles' => $this->expansionHandles([]),
+            'source_selection_policy' => $this->sourceSelectionPolicy([], 0),
+            'evidence' => [
+                'feedback_event_count' => 0,
+                'latest_feedback_hashes' => [],
+            ],
+            'quality_gate_hint' => 'feedback_not_available_for_initial_pack',
+            'policy' => $this->contextDeliveryPolicySafety(false),
+        ];
+
+        if (! DatabaseTableAvailability::has('ai_rag_feedback_events')) {
+            return $base + [
+                'status' => 'unavailable',
+                'reason' => 'feedback_table_missing',
+            ];
+        }
+
+        try {
+            $query = AiRagFeedbackEvent::query()
+                ->where('created_at', '>=', now()->subHours($windowHours))
+                ->latest('created_at')
+                ->limit(20);
+
+            if ($flowId !== null) {
+                $query->where('flow_id', $flowId);
+            }
+
+            /** @var \Illuminate\Support\Collection<int,AiRagFeedbackEvent> $events */
+            $events = $query->get();
+        } catch (Throwable) {
+            return $base + [
+                'status' => 'unavailable',
+                'reason' => 'feedback_read_failed',
+            ];
+        }
+
+        if ($events->isEmpty()) {
+            return $base + [
+                'status' => 'no_data',
+                'source' => $flowId !== null ? 'no_flow_feedback' : 'no_recent_feedback',
+                'reason' => 'no_context_feedback_events',
+                'quality_gate_hint' => 'record_atlas_context_feedback_after_provider_runs',
+            ];
+        }
+
+        $roiScores = [];
+        $useRatios = [];
+        $wasteRatios = [];
+        $sufficiencyScores = [];
+        $utilityScores = [];
+        $lowRoiCount = 0;
+        $wasteCount = 0;
+        $noiseCount = 0;
+        $missedCount = 0;
+        $nonPassingCount = 0;
+        $actionableFeedbackCount = 0;
+        $nonActionableFeedbackCount = 0;
+        $missingRoiSignalCount = 0;
+        $actions = [];
+        $expandSourceTypes = [];
+        $deferSections = [];
+        $demoteContextRefs = [];
+        $feedbackHashes = [];
+        $sourceTypeStats = [];
+
+        foreach ($events as $event) {
+            $payload = is_array($event->payload) ? $event->payload : [];
+            $roi = (array) (data_get($payload, 'context_roi') ?: data_get($payload, 'payload.context_roi', []));
+            $attribution = (array) (data_get($payload, 'context_ref_attribution') ?: data_get($payload, 'payload.context_ref_attribution', []));
+            $nextPolicy = (array) (data_get($payload, 'next_context_policy') ?: data_get($payload, 'payload.next_context_policy', []));
+            $missed = $this->stringList($event->missed_required_sources ?? []);
+            $hasRoiSignal = $roi !== [] || $attribution !== [];
+            $hasPolicySignal = $nextPolicy !== [];
+            if ($hasRoiSignal || $hasPolicySignal || $missed !== [] || (int) $event->noise_sources > 0) {
+                $actionableFeedbackCount++;
+            } else {
+                $nonActionableFeedbackCount++;
+            }
+            if (! $hasRoiSignal) {
+                $missingRoiSignalCount++;
+            }
+
+            $roiScore = $this->nullableFloat(data_get($roi, 'roi_score'));
+            if ($roiScore !== null) {
+                $roiScores[] = $roiScore;
+                if ($roiScore < 0.50) {
+                    $lowRoiCount++;
+                }
+            }
+
+            $useRatio = $this->nullableFloat(data_get($attribution, 'use_ratio', data_get($roi, 'use_ratio')));
+            if ($useRatio !== null) {
+                $useRatios[] = $useRatio;
+            }
+
+            $wasteRatio = $this->nullableFloat(data_get($attribution, 'waste_ratio'));
+            if ($wasteRatio !== null) {
+                $wasteRatios[] = $wasteRatio;
+                if ($wasteRatio >= 0.40) {
+                    $wasteCount++;
+                }
+            }
+
+            $sufficiency = $this->nullableFloat(data_get($roi, 'context_sufficiency', $event->context_sufficiency));
+            if ($sufficiency !== null) {
+                $sufficiencyScores[] = $sufficiency;
+            }
+
+            $utility = $this->nullableFloat(data_get($roi, 'post_execution_utility', $event->post_execution_utility));
+            if ($utility !== null) {
+                $utilityScores[] = $utility;
+            }
+
+            $noiseCount += max((int) $event->noise_sources, (int) data_get($attribution, 'noise_count', 0));
+            $missedCount += count($missed);
+            $expandSourceTypes = array_merge(
+                $expandSourceTypes,
+                $missed,
+                $this->stringList(data_get($attribution, 'missing_source_types', [])),
+                $this->stringList(data_get($nextPolicy, 'expand_source_types', [])),
+            );
+
+            if ($this->isNonPassingContextOutcome((string) $event->outcome_status)) {
+                $nonPassingCount++;
+            }
+
+            $actions = array_merge($actions, $this->stringList(data_get($nextPolicy, 'actions', [])));
+            $deferSections = array_merge($deferSections, $this->stringList(data_get($nextPolicy, 'defer_sections', [])));
+            $demoteContextRefs = array_merge($demoteContextRefs, $this->stringList(data_get($nextPolicy, 'demote_context_refs', [])));
+            $sourceTypeStats = $this->mergeSourceTypeStats($sourceTypeStats, $attribution);
+            if ((string) $event->feedback_hash !== '') {
+                $feedbackHashes[] = (string) $event->feedback_hash;
+            }
+        }
+
+        $observedCount = $events->count();
+        $avgRoi = $this->average($roiScores);
+        $avgUseRatio = $this->average($useRatios);
+        $avgWasteRatio = $this->average($wasteRatios);
+        $expandSourceTypes = $this->uniqueStrings($expandSourceTypes);
+        $deferSections = $this->uniqueStrings($deferSections);
+        $demoteContextRefs = $this->uniqueStrings($demoteContextRefs);
+        $sourceSelectionPolicy = $this->sourceSelectionPolicy($sourceTypeStats, $actionableFeedbackCount);
+
+        if ($expandSourceTypes !== []) {
+            $actions[] = 'expand_missing_source_types';
+        }
+        if ($demoteContextRefs !== [] || $noiseCount > 0) {
+            $actions[] = 'demote_noise_context_refs';
+        }
+        if ((bool) ($sourceSelectionPolicy['applied_to_initial_pack'] ?? false)) {
+            $actions[] = 'adjust_initial_source_mix';
+        }
+        if ($wasteCount > 0 || (count($useRatios) >= 2 && $avgUseRatio < 0.50) || $lowRoiCount >= 2) {
+            $actions[] = 'shrink_initial_context';
+        }
+        if ($lowRoiCount > 0 || $nonPassingCount > 0) {
+            $actions[] = 'review_context_pack';
+        }
+
+        $actions = $this->uniqueStrings($actions);
+        if ($actions === []) {
+            $actions = ['keep_current_pack'];
+        }
+
+        $shouldShrink = in_array('shrink_initial_context', $actions, true);
+        $shouldExpand = in_array('expand_missing_source_types', $actions, true);
+        $multiplier = match (true) {
+            $shouldShrink && $shouldExpand => 0.85,
+            $shouldShrink => 0.75,
+            default => 1.0,
+        };
+        $applied = $multiplier < 1.0 && $observedCount >= 2;
+
+        return [
+            'schema_version' => self::CONTEXT_DELIVERY_POLICY_SCHEMA,
+            'status' => $actions === ['keep_current_pack'] ? 'observed' : 'active',
+            'delivery_mode' => match (true) {
+                $applied => 'feedback_shrunk_initial_expand_on_demand',
+                $shouldExpand => 'feedback_targeted_expansion_handles',
+                $actions !== ['keep_current_pack'] => 'feedback_advisory_review',
+                default => 'standard_minimal_top_k',
+            },
+            'source' => $flowId !== null ? 'latest_flow_feedback' : 'recent_context_feedback',
+            'flow_id' => $flowId,
+            'window_hours' => $windowHours,
+            'initial_context_budget_multiplier' => $multiplier,
+            'applied_to_initial_budget' => $applied,
+            'actions' => $actions,
+            'expand_source_types' => $expandSourceTypes,
+            'deferred_source_types' => $this->uniqueStrings(array_merge($expandSourceTypes, $deferSections)),
+            'demote_context_refs' => array_slice($demoteContextRefs, 0, 12),
+            'on_demand_handles' => $this->expansionHandles($expandSourceTypes),
+            'source_selection_policy' => $sourceSelectionPolicy,
+            'evidence' => [
+                'feedback_event_count' => $observedCount,
+                'latest_feedback_hashes' => array_slice($feedbackHashes, 0, 5),
+                'low_roi_count' => $lowRoiCount,
+                'waste_count' => $wasteCount,
+                'noise_count' => $noiseCount,
+                'missed_required_source_count' => $missedCount,
+                'non_passing_count' => $nonPassingCount,
+                'actionable_feedback_count' => $actionableFeedbackCount,
+                'non_actionable_feedback_count' => $nonActionableFeedbackCount,
+                'missing_roi_signal_count' => $missingRoiSignalCount,
+                'averages' => [
+                    'roi_score' => round($avgRoi, 4),
+                    'use_ratio' => round($avgUseRatio, 4),
+                    'waste_ratio' => round($avgWasteRatio, 4),
+                    'context_sufficiency' => round($this->average($sufficiencyScores), 2),
+                    'post_execution_utility' => round($this->average($utilityScores), 2),
+                ],
+            ],
+            'quality_gate_hint' => $shouldExpand
+                ? 'expand_missing_source_types_before_implementation'
+                : ($applied ? 'budget_shrunk_by_feedback_keep_expansion_available' : ($actionableFeedbackCount === 0 ? 'feedback_observed_but_not_actionable_for_budget' : 'feedback_review_before_context_expansion')),
+            'policy' => $this->contextDeliveryPolicySafety($applied),
+        ];
+    }
+
+    /**
+     * @param  array<string,array<string,int>>  $stats
+     * @return array<string,mixed>
+     */
+    private function sourceSelectionPolicy(array $stats, int $actionableFeedbackCount): array
+    {
+        $multipliers = [
+            'code' => 1.0,
+            'graph' => 1.0,
+            'memory' => 1.0,
+        ];
+        $sourceTypes = [];
+        $actions = [];
+
+        foreach (['code', 'graph', 'memory'] as $type) {
+            $row = $stats[$type] ?? ['delivered' => 0, 'used' => 0, 'unused' => 0, 'noise' => 0];
+            $delivered = max(0, (int) ($row['delivered'] ?? 0));
+            $used = max(0, (int) ($row['used'] ?? 0));
+            $unused = max(0, (int) ($row['unused'] ?? 0));
+            $noise = max(0, (int) ($row['noise'] ?? 0));
+            $waste = $unused + $noise;
+            $useRatio = $delivered > 0 ? round($used / $delivered, 4) : 0.0;
+            $wasteRatio = $delivered > 0 ? round($waste / $delivered, 4) : 0.0;
+
+            $multiplier = 1.0;
+            $action = 'keep';
+            if ($actionableFeedbackCount > 0 && $delivered >= 2 && ($noise > 0 || ($used === 0 && $wasteRatio >= 0.50))) {
+                $multiplier = 0.70;
+                $action = 'reduce_initial_share';
+            } elseif ($actionableFeedbackCount > 0 && $delivered >= 2 && $wasteRatio >= 0.40 && $useRatio < 0.50) {
+                $multiplier = 0.85;
+                $action = 'trim_initial_share';
+            } elseif ($actionableFeedbackCount > 0 && $delivered >= 2 && $useRatio >= 0.50 && $wasteRatio < 0.40) {
+                $action = 'preserve_initial_share';
+            }
+
+            $multipliers[$type] = $multiplier;
+            if ($action !== 'keep') {
+                $actions[] = $action.':'.$type;
+            }
+            $sourceTypes[$type] = [
+                'delivered' => $delivered,
+                'used' => $used,
+                'unused' => $unused,
+                'noise' => $noise,
+                'use_ratio' => $useRatio,
+                'waste_ratio' => $wasteRatio,
+                'action' => $action,
+                'budget_multiplier' => $multiplier,
+            ];
+        }
+
+        $applied = min($multipliers) < 1.0;
+
+        return [
+            'schema_version' => 'atlas.aobg.source_selection_policy.v1',
+            'status' => $applied ? 'active' : ($actionableFeedbackCount > 0 ? 'observed' : 'inactive'),
+            'applied_to_initial_pack' => $applied,
+            'actions' => $actions !== [] ? $actions : ['keep_source_mix'],
+            'budget_multipliers' => $multipliers,
+            'source_types' => $sourceTypes,
+            'guardrails' => [
+                'min_top_item_per_present_source' => true,
+                'expansion_handles_remain_available' => true,
+                'raw_text_exposed' => false,
+                'auto_apply_scope' => $applied ? 'bounded_source_mix_only' : 'none',
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,array<string,int>>  $stats
+     * @param  array<string,mixed>  $attribution
+     * @return array<string,array<string,int>>
+     */
+    private function mergeSourceTypeStats(array $stats, array $attribution): array
+    {
+        foreach ([
+            'delivered_refs' => 'delivered',
+            'used_refs' => 'used',
+            'unused_refs' => 'unused',
+            'noise_refs' => 'noise',
+        ] as $key => $bucket) {
+            foreach ((array) ($attribution[$key] ?? []) as $ref) {
+                if (! is_array($ref)) {
+                    continue;
+                }
+                $type = $this->normalizedInitialSourceType((string) ($ref['source_type'] ?? $ref['ref'] ?? ''));
+                if ($type === null) {
+                    continue;
+                }
+                $stats[$type] ??= ['delivered' => 0, 'used' => 0, 'unused' => 0, 'noise' => 0];
+                $stats[$type][$bucket] = ($stats[$type][$bucket] ?? 0) + 1;
+            }
+        }
+
+        return $stats;
+    }
+
+    private function normalizedInitialSourceType(string $value): ?string
+    {
+        $value = strtolower(trim($value));
+        if ($value === '') {
+            return null;
+        }
+        if (str_contains($value, ':')) {
+            $value = strtok($value, ':') ?: $value;
+        }
+
+        return match ($value) {
+            'code', 'symbol', 'route', 'migration', 'test' => 'code',
+            'graph', 'reality_graph', 'aurg' => 'graph',
+            'memory', 'semantic', 'decision', 'technical_context' => 'memory',
+            default => null,
+        };
+    }
+
+    private function isNonPassingContextOutcome(string $status): bool
+    {
+        $status = strtolower(trim($status));
+        if ($status === '' || in_array($status, ['passed', 'success', 'succeeded', 'ok', 'ready', 'completed'], true)) {
+            return false;
+        }
+
+        if (in_array($status, ['ready_for_provider', 'unknown', 'observed', 'no_data'], true)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  array<string,mixed>  $opts
+     */
+    private function contextFeedbackFlowId(array $opts): ?string
+    {
+        $explicit = $this->stringOpt($opts, 'flow_id');
+        if ($explicit !== null) {
+            return $explicit;
+        }
+
+        $domain = $this->stringOpt($opts, 'domain');
+        $taskType = $this->stringOpt($opts, 'task_type');
+        if ($domain !== null && $taskType !== null) {
+            return $domain.'.'.$taskType;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<int,string>  $sourceTypes
+     * @return array<int,string>
+     */
+    private function expansionHandles(array $sourceTypes): array
+    {
+        $types = $this->uniqueStrings(array_merge($sourceTypes, [
+            'code_intelligence',
+            'memory_signals',
+            'evidence_replay',
+            'canonical_doc',
+        ]));
+
+        return array_values(array_map(
+            static fn (string $sourceType): string => $sourceType === 'canonical_doc'
+                ? 'recheck:canonical_doc'
+                : 'expand:'.$sourceType,
+            $types,
+        ));
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function contextDeliveryPolicySafety(bool $budgetApplied): array
+    {
+        return [
+            'provider_safe_only' => true,
+            'raw_text_exposed' => false,
+            'providers_invoked' => false,
+            'writes' => false,
+            'auto_apply_scope' => $budgetApplied ? 'bounded_initial_budget_only' : 'none',
+            'ref_demotion_auto_applied' => false,
+            'source_expansion_auto_applied' => false,
+            'requires_provider_pull_for_expansion' => true,
+        ];
+    }
+
+    /**
+     * @param  array<int,float>  $values
+     */
+    private function average(array $values): float
+    {
+        $values = array_values(array_filter($values, static fn (float $value): bool => is_finite($value)));
+
+        return $values === [] ? 0.0 : array_sum($values) / count($values);
+    }
+
+    private function nullableFloat(mixed $value): ?float
+    {
+        if (! is_numeric($value)) {
+            return null;
+        }
+
+        return (float) $value;
+    }
+
+    /**
+     * @param  array<int,string>  $values
+     * @return array<int,string>
+     */
+    private function uniqueStrings(array $values): array
+    {
+        return array_values(array_unique(array_values(array_filter(array_map(
+            static fn (mixed $value): string => is_scalar($value) ? trim((string) $value) : '',
+            $values,
+        ), static fn (string $value): bool => $value !== ''))));
+    }
+
     /**
      * @param  array<int,array<string,mixed>>  $items
      */
@@ -280,6 +794,41 @@ class AtlasOpenBrainContextPackService
     // ------------------------------------------------------------------
 
     /**
+     * @param  array{present:bool, paths:array<int,array<string,mixed>>, chars:int, provenance:array<string,mixed>}  $reality
+     * @param  array<string,mixed>  $sourceSelectionPolicy
+     * @return array{present:bool, paths:array<int,array<string,mixed>>, chars:int, provenance:array<string,mixed>}
+     */
+    private function applyRealitySourceSelection(array $reality, array $sourceSelectionPolicy): array
+    {
+        if (! (bool) ($sourceSelectionPolicy['applied_to_initial_pack'] ?? false)) {
+            return $reality;
+        }
+
+        $multiplier = $this->floatMapValue((array) ($sourceSelectionPolicy['budget_multipliers'] ?? []), 'graph', 1.0);
+        $paths = (array) ($reality['paths'] ?? []);
+        if ($multiplier >= 1.0 || count($paths) <= 1) {
+            return $reality;
+        }
+
+        $originalCount = count($paths);
+        $limit = max(1, (int) floor($originalCount * $multiplier));
+        if ($limit >= $originalCount) {
+            return $reality;
+        }
+
+        $reality['paths'] = array_slice($paths, 0, $limit);
+        $reality['chars'] = $this->realityPathsChars($reality['paths']);
+        $reality['present'] = $reality['paths'] !== [];
+        $reality['provenance'] = array_merge((array) ($reality['provenance'] ?? []), [
+            'source_selection_applied' => 'graph',
+            'source_selection_multiplier' => $multiplier,
+            'source_selection_original_count' => $originalCount,
+        ]);
+
+        return $reality;
+    }
+
+    /**
      * Code-graph section via the proven BM25 + E-3 retriever (workspace-scoped).
      * The retriever's token budget is char-budget / ~4 (its ~4-chars-per-token
      * convention) so the section respects the supplied char sub-budget.
@@ -302,7 +851,13 @@ class AtlasOpenBrainContextPackService
 
         try {
             $tokenBudget = (int) max(0, (int) floor($budgetChars / 4));
-            $pack = $this->codeGraph->packFor($task, $workspaceId, $tokenBudget, $changedFiles);
+            // AP-818 F2.5 — workspace ativo = guarda-chuva (flag ON) → recall no
+            // escopo agregado: grafo do umbrella + grafos próprios dos membros.
+            // Flag OFF (default) → packFor single-workspace byte-idêntico.
+            $workspaceScope = $this->umbrellaContextScope($workspaceId);
+            $pack = count($workspaceScope) > 1
+                ? $this->codeGraph->packForWorkspaces($task, $workspaceScope, $tokenBudget, $changedFiles)
+                : $this->codeGraph->packFor($task, $workspaceId, $tokenBudget, $changedFiles);
         } catch (Throwable) {
             return $empty; // best-effort recall, never a gate
         }
@@ -330,14 +885,19 @@ class AtlasOpenBrainContextPackService
             'present' => $items !== [],
             'items' => $items,
             'chars' => $chars,
-            'provenance' => [
+            'provenance' => array_merge([
                 'retriever' => CodeGraphContextRetriever::SCHEMA,
                 'workspace_id' => $workspaceId,
+            ], count($workspaceScope) > 1 ? [
+                // F2.5: só aparece quando o escopo umbrella expandiu — flag OFF
+                // mantém a proveniência byte-idêntica ao formato provado.
+                'workspace_scope' => $workspaceScope,
+            ] : [], [
                 'token_budget' => (int) ($pack['budget'] ?? 0),
                 'estimated_tokens' => (int) ($pack['estimated_tokens'] ?? 0),
                 'truncated' => (bool) ($pack['truncated'] ?? false),
                 'note' => self::HONESTY_LABEL,
-            ],
+            ]),
         ];
     }
 
@@ -500,8 +1060,187 @@ class AtlasOpenBrainContextPackService
     }
 
     // ------------------------------------------------------------------
-    // Rendering + helpers
+    // Feedback request, rendering + helpers
     // ------------------------------------------------------------------
+
+    /**
+     * @param  array<string,mixed>  $pack
+     */
+    private function contextPackHash(array $pack): string
+    {
+        return hash('sha256', (string) json_encode(
+            $this->canonicalize($pack),
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+        ));
+    }
+
+    /**
+     * @param  array<string,mixed>  $pack
+     * @param  array<string,mixed>  $opts
+     * @return array<string,mixed>
+     */
+    private function contextFeedbackRequest(array $pack, array $opts): array
+    {
+        $flow = $this->contextFeedbackRequestFlow($opts);
+        $deliveredRefs = $this->deliveredContextRefs($pack);
+
+        return [
+            'schema_version' => self::CONTEXT_FEEDBACK_REQUEST_SCHEMA,
+            'status' => 'requested',
+            'mode' => 'post_execution_provider_safe_roi',
+            'tool' => 'atlas_context_feedback',
+            'timing' => 'after_execution',
+            'context_pack_hash' => (string) ($pack['context_pack_hash'] ?? ''),
+            'retrieval_receipt_id' => (string) ($pack['context_pack_hash'] ?? ''),
+            'flow_id' => $flow['flow_id'],
+            'domain' => $flow['domain'],
+            'task_type' => $flow['task_type'],
+            'delivered_context_refs' => $deliveredRefs,
+            'delivered_ref_count' => count($deliveredRefs),
+            'source_types' => $this->feedbackSourceTypes($deliveredRefs),
+            'arguments_template' => [
+                'objective' => (string) ($pack['task'] ?? ''),
+                'workspace' => (string) ($pack['workspace'] ?? ''),
+                'flow_id' => $flow['flow_id'],
+                'domain' => $flow['domain'],
+                'task_type' => $flow['task_type'],
+                'outcome_status' => 'passed|partial|failed|blocked',
+                'context_pack_hash' => (string) ($pack['context_pack_hash'] ?? ''),
+                'retrieval_receipt_id' => (string) ($pack['context_pack_hash'] ?? ''),
+                'delivered_context_refs' => $deliveredRefs,
+                'used_context_refs' => [],
+                'noise_context_refs' => [],
+                'missed_required_sources' => [],
+                'post_execution_utility' => '0-100',
+                'record' => true,
+            ],
+            'required_after_execution' => [
+                'outcome_status',
+                'used_context_refs',
+                'post_execution_utility',
+            ],
+            'optional_after_execution' => [
+                'noise_context_refs',
+                'missed_required_sources',
+                'run_outcome_id',
+            ],
+            'policy' => [
+                'provider_safe_only' => true,
+                'raw_text_exposed' => false,
+                'raw_logs_allowed' => false,
+                'providers_invoked' => false,
+                'writes_only_when_record_true' => true,
+                'auto_promote_learning' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $opts
+     * @return array{flow_id:string,domain:string,task_type:string}
+     */
+    private function contextFeedbackRequestFlow(array $opts): array
+    {
+        $explicitFlow = $this->stringOpt($opts, 'flow_id');
+        $domain = $this->stringOpt($opts, 'domain');
+        $taskType = $this->stringOpt($opts, 'task_type');
+
+        if ($explicitFlow !== null && str_contains($explicitFlow, '.')) {
+            [$flowDomain, $flowTaskType] = array_pad(explode('.', $explicitFlow, 2), 2, null);
+            $domain ??= is_string($flowDomain) && trim($flowDomain) !== '' ? trim($flowDomain) : null;
+            $taskType ??= is_string($flowTaskType) && trim($flowTaskType) !== '' ? trim($flowTaskType) : null;
+        }
+
+        $domain ??= 'atlas';
+        $taskType ??= 'dev';
+
+        return [
+            'flow_id' => $explicitFlow ?? $domain.'.'.$taskType,
+            'domain' => $domain,
+            'task_type' => $taskType,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $pack
+     * @return array<int,string>
+     */
+    private function deliveredContextRefs(array $pack): array
+    {
+        $refs = [];
+
+        foreach ((array) ($pack['code_graph'] ?? []) as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+            $refs[] = $this->hashedContextRef('code', [
+                'id' => (string) ($item['id'] ?? ''),
+                'file_path' => (string) ($item['file_path'] ?? ''),
+                'symbol_type' => (string) ($item['symbol_type'] ?? ''),
+            ]);
+        }
+
+        foreach ((array) ($pack['reality_graph_paths'] ?? []) as $path) {
+            if (! is_array($path)) {
+                continue;
+            }
+            $refs[] = $this->hashedContextRef('graph', [
+                'source' => (string) ($path['source'] ?? ''),
+                'target' => (string) ($path['target'] ?? ''),
+                'hops' => $this->normalizeHops($path['hops'] ?? []),
+            ]);
+        }
+
+        foreach ((array) ($pack['memory'] ?? []) as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+            $contentHash = (string) ($item['content_hash'] ?? '');
+            $refs[] = $contentHash !== ''
+                ? 'memory:'.substr(hash('sha256', $contentHash), 0, 32)
+                : $this->hashedContextRef('memory', [
+                    'type' => (string) ($item['type'] ?? ''),
+                    'title' => (string) ($item['title'] ?? ''),
+                ]);
+        }
+
+        return array_slice($this->uniqueStrings($refs), 0, 32);
+    }
+
+    /**
+     * @param  array<int,string>  $refs
+     * @return array<int,string>
+     */
+    private function feedbackSourceTypes(array $refs): array
+    {
+        return $this->uniqueStrings(array_map(
+            static fn (string $ref): string => str_contains($ref, ':') ? strstr($ref, ':', true) ?: 'unknown' : 'unknown',
+            $refs,
+        ));
+    }
+
+    private function hashedContextRef(string $type, mixed $payload): string
+    {
+        return $type.':'.substr(hash('sha256', (string) json_encode(
+            $this->canonicalize($payload),
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+        )), 0, 32);
+    }
+
+    private function canonicalize(mixed $value): mixed
+    {
+        if (! is_array($value)) {
+            return $value;
+        }
+
+        if (array_is_list($value)) {
+            return array_map(fn (mixed $item): mixed => $this->canonicalize($item), $value);
+        }
+
+        ksort($value);
+
+        return array_map(fn (mixed $item): mixed => $this->canonicalize($item), $value);
+    }
 
     /**
      * Render the pack as a compact, human/agent-readable markdown brief — the
@@ -522,6 +1261,48 @@ class AtlasOpenBrainContextPackService
             self::HONESTY_LABEL,
         );
         $lines[] = '';
+
+        $policy = (array) ($pack['context_delivery_policy'] ?? []);
+        $lines[] = '## Context delivery policy';
+        $lines[] = sprintf(
+            '- mode=%s status=%s actions=%s budget_multiplier=%.2f applied=%s',
+            (string) ($policy['delivery_mode'] ?? 'standard_minimal_top_k'),
+            (string) ($policy['status'] ?? 'inactive'),
+            implode(',', $this->stringList($policy['actions'] ?? [])) ?: 'keep_current_pack',
+            (float) ($policy['initial_context_budget_multiplier'] ?? 1.0),
+            (bool) ($policy['applied_to_initial_budget'] ?? false) ? 'yes' : 'no',
+        );
+        $handles = $this->stringList($policy['on_demand_handles'] ?? []);
+        if ($handles !== []) {
+            $lines[] = '- expand_on_demand: '.implode(', ', array_slice($handles, 0, 8));
+        }
+        $sourceSelection = (array) ($policy['source_selection_policy'] ?? []);
+        if ((bool) ($sourceSelection['applied_to_initial_pack'] ?? false)) {
+            $multipliers = (array) ($sourceSelection['budget_multipliers'] ?? []);
+            $lines[] = sprintf(
+                '- source_mix: code=%.2f graph=%.2f memory=%.2f',
+                (float) ($multipliers['code'] ?? 1.0),
+                (float) ($multipliers['graph'] ?? 1.0),
+                (float) ($multipliers['memory'] ?? 1.0),
+            );
+        }
+        $lines[] = '';
+
+        $feedback = (array) ($pack['context_feedback_request'] ?? []);
+        if ($feedback !== []) {
+            $lines[] = '## Context feedback request';
+            $lines[] = sprintf(
+                '- after_execution: call %s with context_pack_hash=%s flow=%s record=true',
+                (string) ($feedback['tool'] ?? 'atlas_context_feedback'),
+                substr((string) ($feedback['context_pack_hash'] ?? ''), 0, 16),
+                (string) ($feedback['flow_id'] ?? ''),
+            );
+            $lines[] = sprintf(
+                '- report used/noise/missed refs from %d delivered refs; no raw logs or source text',
+                (int) ($feedback['delivered_ref_count'] ?? 0),
+            );
+            $lines[] = '';
+        }
 
         // 1) code-graph
         $lines[] = '## Code graph (symbols)';
@@ -582,6 +1363,29 @@ class AtlasOpenBrainContextPackService
         }
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * AP-818 F2.5 — the retrieval scope for the active workspace. Flag
+     * `atlas.code_folder_intelligence.umbrella_context` OFF (default) keeps the
+     * proven single-workspace behaviour; ON expands an umbrella workspace to
+     * [umbrella graph + every member with its own graph] via the folder
+     * intelligence service. Fail-safe: any error degrades to single scope.
+     *
+     * @return array<int,string>
+     */
+    private function umbrellaContextScope(string $workspaceId): array
+    {
+        if (! (bool) config('atlas.code_folder_intelligence.umbrella_context', false)) {
+            return [$workspaceId];
+        }
+
+        try {
+            return app(\App\Services\AtlasCode\WorkspaceFolderIntelligenceService::class)
+                ->contextScopeIds($workspaceId);
+        } catch (Throwable) {
+            return [$workspaceId];
+        }
     }
 
     /**

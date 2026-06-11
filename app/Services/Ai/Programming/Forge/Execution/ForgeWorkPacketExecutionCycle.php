@@ -9,6 +9,7 @@ use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\Forge\ForgeIntakeCanon;
 use App\Services\Ai\Programming\Forge\ForgeLongHorizonStateCanon;
 use App\Services\Ai\Programming\Forge\ForgeLongHorizonStateService;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -747,18 +748,10 @@ class ForgeWorkPacketExecutionCycle
      */
     private function evidenceKinds(array $evidenceRefs): array
     {
-        $kinds = [];
-        foreach ($evidenceRefs as $ref) {
-            if (! is_array($ref)) {
-                continue;
-            }
-            $kind = $ref['kind'] ?? null;
-            if (is_string($kind) && $kind !== '') {
-                $kinds[] = $kind;
-            }
-        }
-
-        return array_values(array_unique($kinds));
+        return AiStringListNormalizer::uniqueMappedScalarStrings(
+            $evidenceRefs,
+            static fn (mixed $ref): mixed => is_array($ref) && is_string($ref['kind'] ?? null) ? $ref['kind'] : null,
+        );
     }
 
     /**

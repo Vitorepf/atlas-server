@@ -54,7 +54,7 @@ final class AtlasAutonomousEvolutionLoopService
     {
         $surfaceId = $this->stringValue($input['surface_id'] ?? null) ?? 'atlas_evolution_command';
         $workspace = $this->stringValue($input['workspace'] ?? null) ?? base_path();
-        $evidenceRefs = $this->stringList($input['evidence_refs'] ?? []);
+        $evidenceRefs = AiStringListNormalizer::uniqueTrimmedScalarValues($input['evidence_refs'] ?? []);
         $opportunities = $this->observeOpportunities($input);
         $selectionPolicy = $this->selectionPolicy($input);
         $autonomyBudget = $this->autonomyBudget($input);
@@ -130,7 +130,7 @@ final class AtlasAutonomousEvolutionLoopService
                 'source_type' => $this->stringValue($input['source_type'] ?? null) ?? 'operator_goal',
                 'domain' => $this->stringValue($input['domain'] ?? null) ?? 'programming',
                 'flow_id' => $this->stringValue($input['flow_id'] ?? null) ?? 'atlas_forge',
-                'signals' => $this->stringList($input['signals'] ?? ['operator_requested_evolution', 'requires_evidence', 'reuse_existing_runtimes']),
+                'signals' => AiStringListNormalizer::uniqueTrimmedScalarValues($input['signals'] ?? ['operator_requested_evolution', 'requires_evidence', 'reuse_existing_runtimes']),
             ]];
         }
 
@@ -158,10 +158,10 @@ final class AtlasAutonomousEvolutionLoopService
                 'strategic_alignment_score' => $alignment,
                 'objective_hash' => MissionCanonicalHash::sha256(['objective' => $objective]),
                 'objective' => $objective,
-                'signals' => $this->stringList($item['signals'] ?? []),
+                'signals' => AiStringListNormalizer::uniqueTrimmedScalarValues($item['signals'] ?? []),
                 'roi_model' => $roi,
-                'dependencies' => $this->stringList($item['dependencies'] ?? []),
-                'evidence_refs' => $this->stringList($item['evidence_refs'] ?? $input['evidence_refs'] ?? []),
+                'dependencies' => AiStringListNormalizer::uniqueTrimmedScalarValues($item['dependencies'] ?? []),
+                'evidence_refs' => AiStringListNormalizer::uniqueTrimmedScalarValues($item['evidence_refs'] ?? $input['evidence_refs'] ?? []),
             ];
             $payload['opportunity_hash'] = MissionCanonicalHash::sha256($payload);
 
@@ -584,11 +584,11 @@ final class AtlasAutonomousEvolutionLoopService
             'workspace' => $workspace,
             'surface_id' => 'atlas_evolution_command',
             'route' => str_contains($route, 'forge') ? 'atlas_forge' : 'atlas_dev',
-            'context_refs' => $this->stringList($input['context_refs'] ?? [
+            'context_refs' => AiStringListNormalizer::uniqueTrimmedScalarValues($input['context_refs'] ?? [
                 'docs/engineering-knowledge-base/atlas-autonomous-evolution-loop.md',
                 'docs/engineering-knowledge-base/atlas-ai-assisted-execution-quality.md',
             ]),
-            'expected_files' => $this->stringList($opportunity['dependencies'] ?? []),
+            'expected_files' => AiStringListNormalizer::uniqueTrimmedScalarValues($opportunity['dependencies'] ?? []),
             'acceptance_criteria' => [
                 'AAEL opportunity has AEDPDS doctrine and gate status.',
                 'AAEL experiment has AREG path and AEMOR feedback contract.',
@@ -598,7 +598,7 @@ final class AtlasAutonomousEvolutionLoopService
             'required_evidence' => $requiredEvidence,
             'risk_band' => $opportunity['risk_level'] ?? 'medium',
             'review_refs' => in_array(($opportunity['risk_level'] ?? 'medium'), ['high', 'critical'], true)
-                ? $this->stringList($input['review_refs'] ?? [])
+                ? AiStringListNormalizer::uniqueTrimmedScalarValues($input['review_refs'] ?? [])
                 : ['aael:low_risk_auto_review_policy'],
         ]);
         $feedback = $service->recordOutcomeFeedback($envelope, [
@@ -622,7 +622,7 @@ final class AtlasAutonomousEvolutionLoopService
             'route_target' => data_get($envelope, 'route.target'),
             'flow_id' => data_get($envelope, 'route.flow_id'),
             'aedpds_gate_status' => data_get($envelope, 'aedpds.gate.status'),
-            'selected_drivers' => $this->stringList(data_get($envelope, 'aedpds.doctrine.selected_primary_drivers', [])),
+            'selected_drivers' => AiStringListNormalizer::uniqueTrimmedScalarValues(data_get($envelope, 'aedpds.doctrine.selected_primary_drivers', [])),
             'context_memory_status' => data_get($envelope, 'aucri_acmf.status'),
             'areg_path' => data_get($envelope, 'areg.path'),
             'outcome_feedback_status' => data_get($feedback, 'status'),
@@ -849,14 +849,6 @@ final class AtlasAutonomousEvolutionLoopService
             ])
             ->values()
             ->all();
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return AiStringListNormalizer::uniqueTrimmedScalarValues($value);
     }
 
     private function stringValue(mixed $value): ?string

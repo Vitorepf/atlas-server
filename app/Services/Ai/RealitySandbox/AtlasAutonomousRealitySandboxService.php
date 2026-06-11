@@ -11,6 +11,8 @@ use App\Services\Ai\AutonomousEvolution\AtlasAutonomousEvolutionLoopService;
 use App\Services\Ai\IntelligenceFactory\AtlasIntelligenceFactoryRuntimeService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\StrategicReality\AtlasStrategicRealityRuntimeService;
+use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -87,9 +89,9 @@ final class AtlasAutonomousRealitySandboxService
     public function createScenario(array $input): array
     {
         $objective = $this->objective($input);
-        $evidenceRefs = $this->stringList($input['evidence_refs'] ?? []);
-        $domain = $this->stringValue($input['domain'] ?? null) ?? $this->classifyDomain($objective);
-        $flowId = $this->stringValue($input['flow_id'] ?? null) ?? $this->flowFor($domain);
+        $evidenceRefs = AiStringListNormalizer::truthyTrimmedScalarValues($input['evidence_refs'] ?? []);
+        $domain = AiValueNormalizer::trimmedScalarStringOrNull($input['domain'] ?? null) ?? $this->classifyDomain($objective);
+        $flowId = AiValueNormalizer::trimmedScalarStringOrNull($input['flow_id'] ?? null) ?? $this->flowFor($domain);
         $worldState = $this->worldState($input, $domain, $flowId);
         $assumptions = $this->assumptions($input, $objective, $domain);
         $constraints = $this->constraints($input, $objective);
@@ -97,11 +99,11 @@ final class AtlasAutonomousRealitySandboxService
         $payload = [
             'schema_version' => self::SCENARIO_SCHEMA,
             'status' => $evidenceRefs === [] ? self::STATUS_WATCH : self::STATUS_READY,
-            'surface_id' => $this->stringValue($input['surface_id'] ?? null) ?? 'atlas_simulation_chamber',
+            'surface_id' => AiValueNormalizer::trimmedScalarStringOrNull($input['surface_id'] ?? null) ?? 'atlas_simulation_chamber',
             'domain' => $domain,
             'flow_id' => $flowId,
             'scenario_type' => $this->scenarioType($objective, $domain),
-            'scope_hash' => MissionCanonicalHash::sha256($this->stringValue($input['scope_id'] ?? $input['workspace'] ?? null) ?? 'atlas'),
+            'scope_hash' => MissionCanonicalHash::sha256(AiValueNormalizer::trimmedScalarStringOrNull($input['scope_id'] ?? $input['workspace'] ?? null) ?? 'atlas'),
             'objective_hash' => MissionCanonicalHash::sha256($objective),
             'objective' => $objective,
             'world_state' => $worldState,
@@ -127,7 +129,7 @@ final class AtlasAutonomousRealitySandboxService
     public function simulate(array $scenario, array $input = []): array
     {
         $objective = (string) ($scenario['objective'] ?? $this->objective($input));
-        $evidenceRefs = $this->stringList($scenario['evidence_refs'] ?? $input['evidence_refs'] ?? []);
+        $evidenceRefs = AiStringListNormalizer::truthyTrimmedScalarValues($scenario['evidence_refs'] ?? $input['evidence_refs'] ?? []);
         $options = $this->options($objective, $scenario, $input);
         $predictedOutcomes = $this->predictedOutcomes($options, $scenario);
         $impactModel = $this->impactModel($options, $predictedOutcomes, $scenario);
@@ -139,7 +141,7 @@ final class AtlasAutonomousRealitySandboxService
             'scenario_id' => $this->uuidOrNull($scenario['scenario_id'] ?? null),
             'schema_version' => self::SIMULATION_SCHEMA,
             'status' => $status,
-            'mode' => $this->stringValue($input['mode'] ?? null) ?? 'dry_run_reality_twin',
+            'mode' => AiValueNormalizer::trimmedScalarStringOrNull($input['mode'] ?? null) ?? 'dry_run_reality_twin',
             'options' => $options,
             'predicted_outcomes' => $predictedOutcomes,
             'impact_model' => $impactModel,
@@ -178,7 +180,7 @@ final class AtlasAutonomousRealitySandboxService
             'alternatives' => $alternatives,
             'delta_analysis' => $deltaAnalysis,
             'decision_effects' => $decisionEffects,
-            'evidence_refs' => $this->stringList($simulation['evidence_refs'] ?? $input['evidence_refs'] ?? []),
+            'evidence_refs' => AiStringListNormalizer::truthyTrimmedScalarValues($simulation['evidence_refs'] ?? $input['evidence_refs'] ?? []),
         ];
         $payload['counterfactual_hash'] = MissionCanonicalHash::sha256($this->hashable($payload));
 
@@ -209,7 +211,7 @@ final class AtlasAutonomousRealitySandboxService
             'mitigations' => $this->mitigations($risks),
             'rollback_requirements' => $this->rollbackRequirements($risks),
             'operator_gates' => $this->operatorGates($risks),
-            'evidence_refs' => $this->stringList($simulation['evidence_refs'] ?? $input['evidence_refs'] ?? []),
+            'evidence_refs' => AiStringListNormalizer::truthyTrimmedScalarValues($simulation['evidence_refs'] ?? $input['evidence_refs'] ?? []),
         ];
         $payload['risk_hash'] = MissionCanonicalHash::sha256($this->hashable($payload));
 
@@ -236,7 +238,7 @@ final class AtlasAutonomousRealitySandboxService
             $this->check('risk_projection_present', filled($risk['risk_hash'] ?? null), [$risk['risk_hash'] ?? null]),
             $this->check('no_external_execution', $this->claimPolicy()['external_execution_performed'] === false, []),
             $this->check('no_provider_invocation', $this->claimPolicy()['provider_invoked'] === false, []),
-            $this->check('evidence_refs_present', $this->stringList($simulation['evidence_refs'] ?? []) !== [], $this->stringList($simulation['evidence_refs'] ?? []), severity: 'warn'),
+            $this->check('evidence_refs_present', AiStringListNormalizer::truthyTrimmedScalarValues($simulation['evidence_refs'] ?? []) !== [], AiStringListNormalizer::truthyTrimmedScalarValues($simulation['evidence_refs'] ?? []), severity: 'warn'),
             $this->check('high_risk_requires_operator_gate', ($risk['risk_level'] ?? null) !== 'high' || $this->operatorGates((array) ($risk['risks'] ?? [])) !== [], []),
         ];
         $failedCritical = collect($checks)->contains(fn (array $check): bool => $check['status'] === 'fail' && $check['severity'] === 'critical');
@@ -255,7 +257,7 @@ final class AtlasAutonomousRealitySandboxService
             'checks' => $checks,
             'promotion_gate' => $promotionGate,
             'claim_policy' => $this->claimPolicy(),
-            'evidence_refs' => $this->stringList($simulation['evidence_refs'] ?? $input['evidence_refs'] ?? []),
+            'evidence_refs' => AiStringListNormalizer::truthyTrimmedScalarValues($simulation['evidence_refs'] ?? $input['evidence_refs'] ?? []),
         ];
         $payload['certification_hash'] = MissionCanonicalHash::sha256($this->hashable($payload));
 
@@ -406,7 +408,7 @@ final class AtlasAutonomousRealitySandboxService
                 'aseif_status' => is_array($factory) ? ($factory['status'] ?? 'available') : 'unavailable',
                 'aael_status' => is_array($aael) ? ($aael['status'] ?? 'available') : 'unavailable',
             ],
-            'known_constraints' => $this->stringList($input['constraints'] ?? []),
+            'known_constraints' => AiStringListNormalizer::truthyTrimmedScalarValues($input['constraints'] ?? []),
             'operator_supplied_context_hash' => MissionCanonicalHash::sha256($input['context'] ?? []),
         ];
     }
@@ -440,7 +442,7 @@ final class AtlasAutonomousRealitySandboxService
      */
     private function assumptions(array $input, string $objective, string $domain): array
     {
-        $items = $this->stringList($input['assumptions'] ?? []);
+        $items = AiStringListNormalizer::truthyTrimmedScalarValues($input['assumptions'] ?? []);
         if ($items === []) {
             $items = [
                 'available evidence is incomplete until validated by runtime receipts',
@@ -469,7 +471,7 @@ final class AtlasAutonomousRealitySandboxService
             'no_benchmark_claim' => true,
             'preserve_user_data' => true,
             'high_risk_requires_operator' => $this->isHighRisk($objective),
-            'operator_constraints' => $this->stringList($input['constraints'] ?? []),
+            'operator_constraints' => AiStringListNormalizer::truthyTrimmedScalarValues($input['constraints'] ?? []),
         ];
     }
 
@@ -560,7 +562,7 @@ final class AtlasAutonomousRealitySandboxService
      */
     private function uncertainty(array $scenario, array $input): array
     {
-        $evidenceRefs = $this->stringList($scenario['evidence_refs'] ?? $input['evidence_refs'] ?? []);
+        $evidenceRefs = AiStringListNormalizer::truthyTrimmedScalarValues($scenario['evidence_refs'] ?? $input['evidence_refs'] ?? []);
         $assumptions = is_array($scenario['assumptions'] ?? null) ? $scenario['assumptions'] : [];
 
         return [
@@ -769,31 +771,9 @@ final class AtlasAutonomousRealitySandboxService
         return $model::query()->where('created_at', '>=', $since)->latest()->limit(200)->get();
     }
 
-    private function stringValue(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-        $string = trim((string) $value);
-
-        return $string === '' ? null : $string;
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(fn (mixed $item): ?string => $this->stringValue($item), $value)));
-    }
-
     private function uuidOrNull(mixed $value): ?string
     {
-        $string = $this->stringValue($value);
+        $string = AiValueNormalizer::trimmedScalarStringOrNull($value);
 
         return $string !== null && Str::isUuid($string) ? $string : null;
     }

@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Product;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 class AtlasProductDeliveryPatchRequestContractService
 {
@@ -18,8 +19,8 @@ class AtlasProductDeliveryPatchRequestContractService
     public function build(array $delivery, array $proof, array $repairBridge, array $options = []): array
     {
         $target = $this->target($options['target'] ?? null);
-        $allowedFiles = $this->stringList(data_get($delivery, 'delivery_plan.scope_guard.allowed_files', []));
-        $forbiddenFiles = $this->stringList(data_get($delivery, 'delivery_plan.scope_guard.forbidden_files', []));
+        $allowedFiles = AiStringListNormalizer::truthyTrimmedScalarValues(data_get($delivery, 'delivery_plan.scope_guard.allowed_files', []));
+        $forbiddenFiles = AiStringListNormalizer::truthyTrimmedScalarValues(data_get($delivery, 'delivery_plan.scope_guard.forbidden_files', []));
         $blockers = $this->blockerIds($proof);
         if (($delivery['status'] ?? null) !== 'ready_for_delivery') {
             $blockers[] = 'delivery_contract_not_ready';
@@ -27,7 +28,7 @@ class AtlasProductDeliveryPatchRequestContractService
         if (data_get($delivery, 'aedpds.gate.status') !== 'passed') {
             $blockers[] = 'aedpds_gate_not_passed';
         }
-        $requiredRepairs = $this->stringList($proof['required_repairs'] ?? []);
+        $requiredRepairs = AiStringListNormalizer::truthyTrimmedScalarValues($proof['required_repairs'] ?? []);
         $requiredEvidence = $this->requiredEvidence($delivery, $proof, $repairBridge);
         $risk = $this->risk($delivery);
         $status = in_array('delivery_contract_not_ready', $blockers, true)
@@ -50,7 +51,7 @@ class AtlasProductDeliveryPatchRequestContractService
                 'proof_status' => (string) ($proof['status'] ?? 'unknown'),
                 'critical_blockers' => $blockers,
                 'required_repairs' => $requiredRepairs,
-                'counterexamples' => $this->stringList($proof['counterexamples'] ?? []),
+                'counterexamples' => AiStringListNormalizer::truthyTrimmedScalarValues($proof['counterexamples'] ?? []),
             ],
             'scope_contract' => [
                 'allowed_files' => $allowedFiles,
@@ -61,8 +62,8 @@ class AtlasProductDeliveryPatchRequestContractService
                 ]),
             ],
             'acceptance_contract' => [
-                'must_work' => $this->stringList(data_get($delivery, 'delivery_plan.acceptance', [])),
-                'tests' => $this->stringList(data_get($delivery, 'delivery_plan.tests', [])),
+                'must_work' => AiStringListNormalizer::truthyTrimmedScalarValues(data_get($delivery, 'delivery_plan.acceptance', [])),
+                'tests' => AiStringListNormalizer::truthyTrimmedScalarValues(data_get($delivery, 'delivery_plan.tests', [])),
                 'required_evidence' => $requiredEvidence,
             ],
             'prompt_projection' => $this->promptProjection($delivery, $target, $blockers, $requiredRepairs, $allowedFiles, $forbiddenFiles, $requiredEvidence),
@@ -103,8 +104,8 @@ class AtlasProductDeliveryPatchRequestContractService
         return [
             'status' => (string) data_get($delivery, 'aedpds.gate.status', 'unknown'),
             'hash' => (string) data_get($delivery, 'aedpds.gate.hash', ''),
-            'warnings' => $this->stringList(data_get($delivery, 'aedpds.gate.warnings', [])),
-            'blockers' => $this->stringList(data_get($delivery, 'aedpds.gate.blockers', [])),
+            'warnings' => AiStringListNormalizer::truthyTrimmedScalarValues(data_get($delivery, 'aedpds.gate.warnings', [])),
+            'blockers' => AiStringListNormalizer::truthyTrimmedScalarValues(data_get($delivery, 'aedpds.gate.blockers', [])),
         ];
     }
 
@@ -113,7 +114,7 @@ class AtlasProductDeliveryPatchRequestContractService
      */
     private function risk(array $delivery): array
     {
-        $lenses = $this->stringList(data_get($delivery, 'delivery_plan.required_lenses', []));
+        $lenses = AiStringListNormalizer::truthyTrimmedScalarValues(data_get($delivery, 'delivery_plan.required_lenses', []));
         $highRisk = array_values(array_intersect($lenses, ['security_driven', 'add', 'performance_driven']));
 
         return [
@@ -140,9 +141,9 @@ class AtlasProductDeliveryPatchRequestContractService
      */
     private function requiredEvidence(array $delivery, array $proof, array $repairBridge): array
     {
-        $fromRepair = $this->stringList(data_get($repairBridge, 'repair.required_evidence', []));
-        $fromProof = $this->stringList($proof['required_repairs'] ?? []);
-        $tests = $this->stringList(data_get($delivery, 'delivery_plan.tests', []));
+        $fromRepair = AiStringListNormalizer::truthyTrimmedScalarValues(data_get($repairBridge, 'repair.required_evidence', []));
+        $fromProof = AiStringListNormalizer::truthyTrimmedScalarValues($proof['required_repairs'] ?? []);
+        $tests = AiStringListNormalizer::truthyTrimmedScalarValues(data_get($delivery, 'delivery_plan.tests', []));
 
         return array_values(array_unique(array_filter(array_merge(
             $fromRepair,
@@ -195,18 +196,4 @@ class AtlasProductDeliveryPatchRequestContractService
         return in_array($target, ['provider', 'subagent', 'human', 'forge_workcell'], true) ? $target : 'provider';
     }
 
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(
-            static fn (mixed $item): ?string => is_scalar($item) && trim((string) $item) !== '' ? trim((string) $item) : null,
-            $value,
-        )));
-    }
 }

@@ -39,6 +39,45 @@ final class AtlasAaeosValueNormalizer
         return self::stringOrNull($value) !== null;
     }
 
+    /**
+     * @return list<string>
+     */
+    public static function trimmedStringList(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($value as $item) {
+            if (is_string($item) && trim($item) !== '') {
+                $out[] = trim($item);
+            }
+        }
+
+        return array_values($out);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function uniqueTrimmedStringList(mixed $value): array
+    {
+        return array_values(array_unique(self::trimmedStringList($value)));
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function castStringList(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_map(static fn (mixed $item): string => (string) $item, $value));
+    }
+
     public static function riskCodeR0ToR5(mixed $value, string $fallback): string
     {
         $risk = strtoupper(is_string($value) ? trim($value) : '');

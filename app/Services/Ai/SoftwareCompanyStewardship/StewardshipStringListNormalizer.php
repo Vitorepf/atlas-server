@@ -51,6 +51,17 @@ final class StewardshipStringListNormalizer
     }
 
     /**
+     * Array-only variant used by legacy planner helpers that rejected scalar
+     * strings instead of casting them into one-item lists.
+     *
+     * @return list<string>
+     */
+    public static function arrayTrimmedStrings(mixed $value): array
+    {
+        return AiStringListNormalizer::trimmedStrings($value);
+    }
+
+    /**
      * @return list<string>
      */
     public static function trimmedUniqueStrings(mixed $value): array

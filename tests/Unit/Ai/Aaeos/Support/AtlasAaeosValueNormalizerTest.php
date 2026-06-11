@@ -34,6 +34,23 @@ final class AtlasAaeosValueNormalizerTest extends TestCase
         $this->assertFalse(AtlasAaeosValueNormalizer::isNonBlankString(42));
     }
 
+    public function test_trimmed_string_list_keeps_non_empty_trimmed_strings_only(): void
+    {
+        $this->assertSame(['alpha', 'beta'], AtlasAaeosValueNormalizer::trimmedStringList([' alpha ', 42, '', ' beta ']));
+        $this->assertSame([], AtlasAaeosValueNormalizer::trimmedStringList(' alpha '));
+    }
+
+    public function test_unique_trimmed_string_list_deduplicates_after_trimming(): void
+    {
+        $this->assertSame(['alpha', 'beta'], AtlasAaeosValueNormalizer::uniqueTrimmedStringList([' alpha ', 'alpha', ' beta ', 42]));
+    }
+
+    public function test_cast_string_list_preserves_array_shape_and_casts_items(): void
+    {
+        $this->assertSame([' alpha ', '42', '', ''], AtlasAaeosValueNormalizer::castStringList([' alpha ', 42, null, false]));
+        $this->assertSame([], AtlasAaeosValueNormalizer::castStringList('alpha'));
+    }
+
     public function test_risk_code_r0_to_r5_uses_configurable_fallback(): void
     {
         $this->assertSame('R4', AtlasAaeosValueNormalizer::riskCodeR0ToR5(' r4 ', 'R1'));

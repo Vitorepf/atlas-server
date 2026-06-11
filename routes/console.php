@@ -18,6 +18,18 @@ Schedule::command(sprintf(
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas.software_company_stewardship.native_obra_runner.enabled', false));
 
+// AP-818 F2.1 — drena a fila folder-intel (assembly de inteligência on-link).
+// Não há worker queue:work residente; o launchd scheduler (schedule:run a cada
+// 60s) é o trilho. runInBackground: um assembly de minutos não pode segurar o
+// schedule:run; withoutOverlapping: nunca dois drenos simultâneos (o lock W-10
+// ainda protege workspace a workspace). stop-when-empty: o processo morre com
+// a fila seca — zero custo residente.
+Schedule::command('queue:work database-long --queue=folder-intel --stop-when-empty --max-time=1500 --timeout=1500 --tries=1')
+    ->everyMinute()
+    ->withoutOverlapping(30)
+    ->runInBackground()
+    ->when(static fn (): bool => (bool) config('atlas.code_folder_intelligence.auto_assemble', false));
+
 // Hermes Capability Registry drift capture: probe the local Hermes daily and persist the manifest +
 // quarantined CapabilityCandidates (read-only; never enables a capability). Gated off by default so it
 // runs only when the operator opts in — this is the "Atlas auto-detects Hermes changes" heartbeat.

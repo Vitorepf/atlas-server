@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Hermes;
 
+use App\Services\Ai\Hermes\Support\HermesStringListNormalizer;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Support\AtlasSecurity;
@@ -158,9 +159,9 @@ class HermesHookSink
             return null;
         }
 
-        $allowedTools = $this->stringList($scopeSource['allowed_tools'] ?? null);
-        $forbiddenPaths = $this->stringList($scopeSource['forbidden_paths'] ?? null);
-        $allowedPaths = $this->stringList($scopeSource['allowed_paths'] ?? null);
+        $allowedTools = HermesStringListNormalizer::csv($scopeSource['allowed_tools'] ?? null, 4000);
+        $forbiddenPaths = HermesStringListNormalizer::csv($scopeSource['forbidden_paths'] ?? null, 4000);
+        $allowedPaths = HermesStringListNormalizer::csv($scopeSource['allowed_paths'] ?? null, 4000);
 
         if ($allowedTools === [] && $allowedPaths === []) {
             // A scope with no positive grants is not a usable scope => fail-closed.
@@ -356,21 +357,6 @@ class HermesHookSink
         } catch (Throwable) {
             return false;
         }
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value): array
-    {
-        $items = is_array($value) ? $value : (is_string($value) ? preg_split('/\s*,\s*/', $value) ?: [] : []);
-
-        return collect($items)
-            ->map(fn (mixed $item): ?string => $this->string($item, 4000))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
     }
 
     private function string(mixed $value, int $limit): ?string

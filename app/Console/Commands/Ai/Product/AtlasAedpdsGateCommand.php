@@ -3,6 +3,7 @@
 namespace App\Console\Commands\Ai\Product;
 
 use App\Services\Ai\Product\AtlasExecutionDoctrineGateService;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Console\Command;
 
 class AtlasAedpdsGateCommand extends Command
@@ -33,14 +34,14 @@ class AtlasAedpdsGateCommand extends Command
             'surface' => (string) $this->option('surface'),
             'workspace' => $this->option('workspace'),
             'code_changes_requested' => ! (bool) $this->option('no-code'),
-            'acceptance_criteria' => $this->stringList($this->option('acceptance')),
-            'context_refs' => $this->stringList($this->option('context')),
-            'tests' => $this->stringList($this->option('test')),
-            'contracts' => $this->stringList($this->option('contract')),
-            'docs' => $this->stringList($this->option('doc')),
-            'review' => $this->stringList($this->option('review')),
-            'evidence' => $this->stringList($this->option('evidence')),
-            'ux_expectations' => $this->stringList($this->option('ux')),
+            'acceptance_criteria' => AiStringListNormalizer::trimmedScalarValues($this->option('acceptance')),
+            'context_refs' => AiStringListNormalizer::trimmedScalarValues($this->option('context')),
+            'tests' => AiStringListNormalizer::trimmedScalarValues($this->option('test')),
+            'contracts' => AiStringListNormalizer::trimmedScalarValues($this->option('contract')),
+            'docs' => AiStringListNormalizer::trimmedScalarValues($this->option('doc')),
+            'review' => AiStringListNormalizer::trimmedScalarValues($this->option('review')),
+            'evidence' => AiStringListNormalizer::trimmedScalarValues($this->option('evidence')),
+            'ux_expectations' => AiStringListNormalizer::trimmedScalarValues($this->option('ux')),
         ]);
         $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
@@ -49,18 +50,4 @@ class AtlasAedpdsGateCommand extends Command
             : self::SUCCESS;
     }
 
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(
-            array_map(static fn (mixed $item): string => is_scalar($item) ? trim((string) $item) : '', $value),
-            static fn (string $item): bool => $item !== '',
-        ));
-    }
 }

@@ -12,6 +12,7 @@ class AtlasOpenBrainMcpCommand extends Command
         {--workspace= : Default workspace for MCP tool calls}
         {--once= : Handle one JSON-RPC request and exit}
         {--describe : Print local MCP client configuration}
+        {--health : Print provider-safe MCP runtime fingerprint and stale-session probe}
         {--json : Print machine-readable JSON for --describe}';
 
     protected $description = 'Serve Atlas Open Brain tools over local MCP stdio.';
@@ -20,8 +21,8 @@ class AtlasOpenBrainMcpCommand extends Command
     {
         $this->configureWorkspace();
 
-        if ((bool) $this->option('describe')) {
-            return $this->describe();
+        if ((bool) $this->option('describe') || (bool) $this->option('health')) {
+            return $this->describe($mcp);
         }
 
         $once = $this->option('once');
@@ -138,9 +139,10 @@ class AtlasOpenBrainMcpCommand extends Command
         fflush($stdout);
     }
 
-    private function describe(): int
+    private function describe(AtlasOpenBrainMcpService $mcp): int
     {
         $command = base_path('bin/atlas');
+        $runtime = $mcp->runtimeProfile();
         $payload = [
             'server' => 'atlas-open-brain',
             'transport' => 'stdio',
@@ -148,12 +150,23 @@ class AtlasOpenBrainMcpCommand extends Command
             'args' => ['open-brain', 'mcp'],
             'workspace' => config('atlas.ai.workdir') ?: base_path(),
             'workspace_id' => $this->resolvedWorkspaceId(),
+            'runtime' => $runtime,
             'tools' => [
                 'atlas_memory_recall',
                 'atlas_open_brain_context_pack',
                 'atlas_context_expand',
+                'atlas_context_feedback',
                 'atlas_memory_maintenance_status',
+                'atlas_mcp_self_check',
                 'atlas_code_find_relevant',
+            ],
+            'self_check_once' => [
+                'command' => '/opt/homebrew/bin/php',
+                'args' => [
+                    'artisan',
+                    'atlas:open-brain:mcp',
+                    '--once={"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"atlas_mcp_self_check","arguments":{"expected_fingerprint":"'.$runtime['runtime_fingerprint'].'"}}}',
+                ],
             ],
             'claude_desktop_config' => [
                 'mcpServers' => [
@@ -176,9 +189,14 @@ class AtlasOpenBrainMcpCommand extends Command
         $this->components->twoColumnDetail('args', 'open-brain mcp');
         $this->components->twoColumnDetail('workspace', (string) $payload['workspace']);
         $this->components->twoColumnDetail('workspace_id', (string) $payload['workspace_id']);
+        $this->components->twoColumnDetail('server_version', (string) data_get($runtime, 'server_version'));
+        $this->components->twoColumnDetail('runtime_fingerprint', (string) data_get($runtime, 'runtime_fingerprint'));
         $this->line('');
         $this->line('Claude/Codex MCP config:');
         $this->line($this->encode($payload['claude_desktop_config']));
+        $this->line('');
+        $this->line('Fresh self-check probe:');
+        $this->line('/opt/homebrew/bin/php artisan atlas:open-brain:mcp --once=\'{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"atlas_mcp_self_check","arguments":{"expected_fingerprint":"'.data_get($runtime, 'runtime_fingerprint').'"}}}\'');
 
         return self::SUCCESS;
     }

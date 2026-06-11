@@ -15,6 +15,8 @@ use App\Models\AtlasStrategicAssumption;
 use App\Models\AtlasStrategicDecision;
 use App\Models\AtlasStrategicSimulation;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -49,8 +51,8 @@ final class AtlasStrategicRealityRuntimeService
     public function scan(array $input): array
     {
         $question = $this->question($input);
-        $domain = $this->stringValue($input['domain'] ?? null) ?? $this->classifyDomain($question);
-        $evidenceRefs = $this->stringList($input['evidence_refs'] ?? []);
+        $domain = AiValueNormalizer::trimmedStringOrNull($input['domain'] ?? null) ?? $this->classifyDomain($question);
+        $evidenceRefs = AiStringListNormalizer::uniqueTruthyTrimmedStrings($input['evidence_refs'] ?? []);
         $entities = $this->seedEntities($input, $domain, $evidenceRefs);
         $opportunity = $this->recordOpportunity($question, $domain, $evidenceRefs);
         $risk = $this->recordRisk($question, $evidenceRefs);
@@ -82,8 +84,8 @@ final class AtlasStrategicRealityRuntimeService
     public function decide(array $input): array
     {
         $question = $this->question($input);
-        $domain = $this->stringValue($input['domain'] ?? null) ?? $this->classifyDomain($question);
-        $evidenceRefs = $this->stringList($input['evidence_refs'] ?? []);
+        $domain = AiValueNormalizer::trimmedStringOrNull($input['domain'] ?? null) ?? $this->classifyDomain($question);
+        $evidenceRefs = AiStringListNormalizer::uniqueTruthyTrimmedStrings($input['evidence_refs'] ?? []);
         $freshness = $this->freshness($input, $evidenceRefs);
         $contextSignals = $this->contextSignals($input);
         $entities = $this->seedEntities($input, $domain, $evidenceRefs);
@@ -227,7 +229,7 @@ final class AtlasStrategicRealityRuntimeService
      */
     private function question(array $input): string
     {
-        return $this->stringValue($input['question'] ?? $input['objective'] ?? $input['prompt'] ?? null) ?? 'Qual e a melhor proxima acao?';
+        return AiValueNormalizer::trimmedStringOrNull($input['question'] ?? $input['objective'] ?? $input['prompt'] ?? null) ?? 'Qual e a melhor proxima acao?';
     }
 
     /**
@@ -248,21 +250,21 @@ final class AtlasStrategicRealityRuntimeService
             if (! is_array($raw)) {
                 continue;
             }
-            $type = $this->stringValue($raw['type'] ?? null) ?? 'reality_item';
-            $name = $this->stringValue($raw['name'] ?? null) ?? $type;
+            $type = AiValueNormalizer::trimmedStringOrNull($raw['type'] ?? null) ?? 'reality_item';
+            $name = AiValueNormalizer::trimmedStringOrNull($raw['name'] ?? null) ?? $type;
             $payload = [
                 'schema_version' => self::ENTITY_SCHEMA,
                 'status' => 'active',
                 'entity_key' => Str::slug($type.'-'.$name),
                 'entity_type' => $type,
                 'name' => $name,
-                'authority_level' => $this->stringValue($raw['authority_level'] ?? null) ?? 'operator_declared',
-                'freshness_status' => $this->stringValue($raw['freshness_status'] ?? null) ?? ($evidenceRefs === [] ? 'weak' : 'current'),
+                'authority_level' => AiValueNormalizer::trimmedStringOrNull($raw['authority_level'] ?? null) ?? 'operator_declared',
+                'freshness_status' => AiValueNormalizer::trimmedStringOrNull($raw['freshness_status'] ?? null) ?? ($evidenceRefs === [] ? 'weak' : 'current'),
                 'observed_at' => CarbonImmutable::now(),
                 'valid_until' => CarbonImmutable::now()->addDays(14),
                 'attributes' => is_array($raw['attributes'] ?? null) ? $raw['attributes'] : [],
-                'evidence_refs' => $this->stringList($raw['evidence_refs'] ?? $evidenceRefs),
-                'source_refs' => $this->stringList($raw['source_refs'] ?? []),
+                'evidence_refs' => AiStringListNormalizer::uniqueTruthyTrimmedStrings($raw['evidence_refs'] ?? $evidenceRefs),
+                'source_refs' => AiStringListNormalizer::uniqueTruthyTrimmedStrings($raw['source_refs'] ?? []),
             ];
             $payload['entity_hash'] = MissionCanonicalHash::sha256($payload);
             $record = null;
@@ -313,24 +315,24 @@ final class AtlasStrategicRealityRuntimeService
     {
         $candidates = [
             'persistent_context' => [
-                'schema_version' => $this->stringValue(data_get($input, 'context_signals.persistent_context.schema_version') ?? data_get($input, 'persistent_context.schema_version')),
-                'status' => $this->stringValue(data_get($input, 'context_signals.persistent_context.status') ?? data_get($input, 'persistent_context.status')),
-                'hash' => $this->stringValue(data_get($input, 'context_signals.persistent_context.persistent_context_hash') ?? data_get($input, 'persistent_context.persistent_context_hash')),
+                'schema_version' => AiValueNormalizer::trimmedStringOrNull(data_get($input, 'context_signals.persistent_context.schema_version') ?? data_get($input, 'persistent_context.schema_version')),
+                'status' => AiValueNormalizer::trimmedStringOrNull(data_get($input, 'context_signals.persistent_context.status') ?? data_get($input, 'persistent_context.status')),
+                'hash' => AiValueNormalizer::trimmedStringOrNull(data_get($input, 'context_signals.persistent_context.persistent_context_hash') ?? data_get($input, 'persistent_context.persistent_context_hash')),
             ],
             'aemor' => [
-                'schema_version' => $this->stringValue(data_get($input, 'context_signals.aemor.schema_version') ?? data_get($input, 'aemor_episode.schema_version')),
-                'status' => $this->stringValue(data_get($input, 'context_signals.aemor.status') ?? data_get($input, 'aemor_episode.status')),
-                'hash' => $this->stringValue(data_get($input, 'context_signals.aemor.episode_hash') ?? data_get($input, 'aemor_episode.episode_hash')),
+                'schema_version' => AiValueNormalizer::trimmedStringOrNull(data_get($input, 'context_signals.aemor.schema_version') ?? data_get($input, 'aemor_episode.schema_version')),
+                'status' => AiValueNormalizer::trimmedStringOrNull(data_get($input, 'context_signals.aemor.status') ?? data_get($input, 'aemor_episode.status')),
+                'hash' => AiValueNormalizer::trimmedStringOrNull(data_get($input, 'context_signals.aemor.episode_hash') ?? data_get($input, 'aemor_episode.episode_hash')),
             ],
             'intelligence_factory' => [
-                'schema_version' => $this->stringValue(data_get($input, 'context_signals.intelligence_factory.schema_version') ?? data_get($input, 'intelligence_factory.schema_version')),
-                'status' => $this->stringValue(data_get($input, 'context_signals.intelligence_factory.status') ?? data_get($input, 'intelligence_factory.status')),
-                'hash' => $this->stringValue(data_get($input, 'context_signals.intelligence_factory.advice_hash') ?? data_get($input, 'intelligence_factory.advice_hash')),
+                'schema_version' => AiValueNormalizer::trimmedStringOrNull(data_get($input, 'context_signals.intelligence_factory.schema_version') ?? data_get($input, 'intelligence_factory.schema_version')),
+                'status' => AiValueNormalizer::trimmedStringOrNull(data_get($input, 'context_signals.intelligence_factory.status') ?? data_get($input, 'intelligence_factory.status')),
+                'hash' => AiValueNormalizer::trimmedStringOrNull(data_get($input, 'context_signals.intelligence_factory.advice_hash') ?? data_get($input, 'intelligence_factory.advice_hash')),
             ],
             'context_operations' => [
-                'schema_version' => $this->stringValue(data_get($input, 'context_signals.context_operations.schema_version') ?? data_get($input, 'context_operations.schema_version')),
-                'status' => $this->stringValue(data_get($input, 'context_signals.context_operations.status') ?? data_get($input, 'context_operations.status')),
-                'hash' => $this->stringValue(data_get($input, 'context_signals.context_operations.context_operations_hash') ?? data_get($input, 'context_operations.context_operations_hash')),
+                'schema_version' => AiValueNormalizer::trimmedStringOrNull(data_get($input, 'context_signals.context_operations.schema_version') ?? data_get($input, 'context_operations.schema_version')),
+                'status' => AiValueNormalizer::trimmedStringOrNull(data_get($input, 'context_signals.context_operations.status') ?? data_get($input, 'context_operations.status')),
+                'hash' => AiValueNormalizer::trimmedStringOrNull(data_get($input, 'context_signals.context_operations.context_operations_hash') ?? data_get($input, 'context_operations.context_operations_hash')),
             ],
         ];
 
@@ -701,7 +703,7 @@ final class AtlasStrategicRealityRuntimeService
      */
     private function freshness(array $input, array $evidenceRefs): array
     {
-        $observedAt = $this->stringValue($input['observed_at'] ?? null);
+        $observedAt = AiValueNormalizer::trimmedStringOrNull($input['observed_at'] ?? null);
         $stale = (bool) ($input['stale'] ?? false);
         $status = $stale || $evidenceRefs === [] ? 'blocked' : 'current';
 
@@ -746,27 +748,4 @@ final class AtlasStrategicRealityRuntimeService
         return $model::query()->where('created_at', '>=', $since)->latest()->limit(200)->get();
     }
 
-    private function stringValue(mixed $value): ?string
-    {
-        if (is_string($value) && trim($value) !== '') {
-            return trim($value);
-        }
-
-        return null;
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_unique(array_filter(array_map(
-            fn (mixed $item): ?string => $this->stringValue($item),
-            $value
-        ))));
-    }
 }

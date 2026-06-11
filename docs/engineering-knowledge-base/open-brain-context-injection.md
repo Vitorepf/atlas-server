@@ -18,6 +18,7 @@ capabilities:
   - provider_safe_recall
   - audited_context_pack
   - context_delivery_policy_projection
+  - context_feedback_request_projection
   - context_expansion_handle_resolution
 decisions:
   - Open Brain context injection is Core runtime behavior, not a manual workbench step.
@@ -106,7 +107,9 @@ evidence_refs:
   - symbol: AiContextPack
   - command: atlas:open-brain:context
   - command: atlas:open-brain:expand-context
+  - command: atlas:open-brain:mcp
   - mcp_tool: atlas_context_expand
+  - mcp_tool: atlas_mcp_self_check
   - test: AtlasOpenBrainContextInjectionServiceTest
   - test: AtlasOpenBrainContextExpansionServiceTest
 
@@ -335,13 +338,28 @@ turns staged context delivery into provider behavior: use the small first packet
 then expand exact source types before code changes or before requesting broad
 docs/tests/graph dumps.
 
-After execution, external providers can close the loop with
-`atlas_context_feedback`. The tool accepts only provider-safe refs and source
-types (`delivered_context_refs`, `used_context_refs`, `noise_context_refs`,
-`missed_required_sources`, outcome and utility score), then returns AUCRI
-context ROI, ref attribution and the next context policy. It does not accept
-raw failure narratives, never auto-applies learning, and persists feedback only
-when `record=true`.
+External providers must also detect stale native MCP sessions. A fresh
+`atlas:open-brain:mcp --describe --json` and MCP `atlas_mcp_self_check` expose
+`runtime_fingerprint`, `server_version`, feature flags and tool count. If the
+native provider session lacks `atlas_mcp_self_check`, omits required feature
+flags such as `context_delivery_policy`/`context_feedback_metrics`, or differs
+from the fresh CLI fingerprint, restart the provider MCP client/session and use
+the CLI `--once` fallback until the native tools are re-registered.
+
+After execution, external providers close the loop with `atlas_context_feedback`:
+provider-safe delivered/used/noise refs, missed source types, outcome and utility
+only; no raw failure narratives, no auto-promotion, persistence only with
+`record=true`. `atlas_memory_maintenance_status` exposes the aggregate as
+`context_feedback_metrics`.
+
+`atlas_context_pack` carries `context_delivery_policy`, `context_pack_hash` and
+`context_feedback_request`. Pass `flow_id` or `domain` + `task_type`,
+`changed_files`, `feedback_window_hours` and sub-budgets for flow-specific
+policy; repeated low-ROI/waste may shrink only the bounded initial budget and
+adjust the initial `code`/`graph`/`memory` source mix by provider-safe ref ROI.
+Readiness-only feedback without ROI/source attribution is non-actionable.
+Providers should fill the request template after execution with used/noise/missed
+refs and utility, never raw logs or source text.
 
 For external context exports, `include_prompt=true` defaults to compact prompt
 mode. Compact mode keeps the ranked recall index, summaries, source counts and

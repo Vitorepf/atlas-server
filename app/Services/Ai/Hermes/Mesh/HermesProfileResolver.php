@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Hermes\Mesh;
 
 use App\Services\Ai\Hermes\HermesAdapterReceipt;
+use App\Services\Ai\Hermes\Support\HermesStringListNormalizer;
 use Illuminate\Support\Str;
 
 /**
@@ -60,13 +61,13 @@ class HermesProfileResolver
             $model = null;
             $skills = [];
         } else {
-            $configuredToolsets = $this->stringList($rawProfile['toolsets'] ?? null, 120);
+            $configuredToolsets = HermesStringListNormalizer::arrayUnique($rawProfile['toolsets'] ?? null, 120, dropFalsyStrings: true);
             if ($configuredToolsets === []) {
                 $configuredToolsets = self::MINIMAL_READ_TOOLSETS;
             }
             $provider = $this->string($rawProfile['provider'] ?? null, 190);
             $model = $this->string($rawProfile['model'] ?? null, 190);
-            $skills = $this->stringList($rawProfile['skills'] ?? null, 190);
+            $skills = HermesStringListNormalizer::arrayUnique($rawProfile['skills'] ?? null, 190, dropFalsyStrings: true);
         }
 
         $resolvedToolsets = $this->filterToolsets($configuredToolsets, $capabilityManifest);
@@ -166,23 +167,6 @@ class HermesProfileResolver
         }
 
         return false;
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value, int $limit): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return collect($value)
-            ->map(fn (mixed $item): ?string => $this->string($item, $limit))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
     }
 
     private function string(mixed $value, int $limit): ?string

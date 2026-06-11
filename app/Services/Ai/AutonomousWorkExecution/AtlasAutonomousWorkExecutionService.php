@@ -12,6 +12,8 @@ use App\Services\Ai\AgenticWorkcell\AtlasAgenticWorkcellRuntimeService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
 use App\Services\Ai\RuntimeEfficiency\AtlasRuntimeEfficiencyGovernorService;
+use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\VerifiedExecution\AtlasVerifiedExecutionRuntimeService;
 use App\Services\Engineering\AtlasVerifiedEvolutionRuntimeService;
@@ -61,12 +63,12 @@ final class AtlasAutonomousWorkExecutionService
     public function run(array $input): array
     {
         $objective = $this->objective($input);
-        $surfaceId = $this->stringValue($input['surface_id'] ?? null) ?? 'atlas_ai';
-        $domain = $this->normalizeDomain($this->stringValue($input['domain'] ?? null) ?? $this->classifyDomain($objective));
-        $flowId = $this->stringValue($input['flow_id'] ?? null) ?? $this->flowForDomain($domain, $input);
-        $workspace = $this->stringValue($input['workspace'] ?? null) ?? base_path();
-        $evidenceRefs = $this->stringList($input['evidence_refs'] ?? []);
-        $contextRefs = $this->stringList($input['context_refs'] ?? []);
+        $surfaceId = AiValueNormalizer::trimmedStringOrNull($input['surface_id'] ?? null) ?? 'atlas_ai';
+        $domain = $this->normalizeDomain(AiValueNormalizer::trimmedStringOrNull($input['domain'] ?? null) ?? $this->classifyDomain($objective));
+        $flowId = AiValueNormalizer::trimmedStringOrNull($input['flow_id'] ?? null) ?? $this->flowForDomain($domain, $input);
+        $workspace = AiValueNormalizer::trimmedStringOrNull($input['workspace'] ?? null) ?? base_path();
+        $evidenceRefs = AiStringListNormalizer::stringsFromArrayCast($input['evidence_refs'] ?? []);
+        $contextRefs = AiStringListNormalizer::stringsFromArrayCast($input['context_refs'] ?? []);
 
         $apcr = $this->buildPersistentContext($objective, $surfaceId, $domain, $flowId, $workspace, $evidenceRefs, $input);
         $areg = $this->buildRuntimeEfficiency($objective, $surfaceId, $domain, $flowId, $evidenceRefs, $contextRefs, $apcr, $input);
@@ -93,7 +95,7 @@ final class AtlasAutonomousWorkExecutionService
             'objective' => $objective,
             'mission_id' => $this->uuidOrNull($input['mission_id'] ?? null),
             'persistent_context_pack_id' => $this->uuidOrNull($apcr['persistent_context_pack_id'] ?? null),
-            'persistent_context_hash' => $this->stringValue($apcr['persistent_context_hash'] ?? null),
+            'persistent_context_hash' => AiValueNormalizer::trimmedStringOrNull($apcr['persistent_context_hash'] ?? null),
             'runtime_efficiency_decision_id' => $this->uuidOrNull($areg['decision_id'] ?? null),
             'workcell_id' => $this->uuidOrNull($aawr['workcell_id'] ?? null),
             'aemor_episode_id' => $this->uuidOrNull($aemorEpisode['episode_id'] ?? null),
@@ -155,10 +157,10 @@ final class AtlasAutonomousWorkExecutionService
         $payload = [
             'execution_id' => $execution->id,
             'schema_version' => self::EVENT_SCHEMA,
-            'event_type' => $this->stringValue($input['event_type'] ?? null) ?? 'observation',
-            'status' => $this->stringValue($input['status'] ?? null) ?? 'observed',
+            'event_type' => AiValueNormalizer::trimmedStringOrNull($input['event_type'] ?? null) ?? 'observation',
+            'status' => AiValueNormalizer::trimmedStringOrNull($input['status'] ?? null) ?? 'observed',
             'payload' => $this->sanitizePayload(is_array($input['payload'] ?? null) ? $input['payload'] : []),
-            'evidence_refs' => $this->stringList($input['evidence_refs'] ?? []),
+            'evidence_refs' => AiStringListNormalizer::stringsFromArrayCast($input['evidence_refs'] ?? []),
         ];
         $payload['event_hash'] = MissionCanonicalHash::sha256($payload);
         $record = AtlasAweosEvent::query()->create($payload);
@@ -183,8 +185,8 @@ final class AtlasAutonomousWorkExecutionService
             return $this->blocked(self::CERTIFIED_OUTCOME_SCHEMA, 'missing_execution', 'AWEOS outcome certification requires an existing execution.');
         }
 
-        $evidenceRefs = $this->stringList($input['evidence_refs'] ?? []);
-        $claim = $this->stringValue($input['claim'] ?? null) ?? 'AWEOS execution outcome certified.';
+        $evidenceRefs = AiStringListNormalizer::stringsFromArrayCast($input['evidence_refs'] ?? []);
+        $claim = AiValueNormalizer::trimmedStringOrNull($input['claim'] ?? null) ?? 'AWEOS execution outcome certified.';
         $commandLedger = is_array($input['command_ledger'] ?? null) ? $input['command_ledger'] : [];
         $testImpact = is_array($input['test_impact'] ?? null) ? $input['test_impact'] : [];
         $qualityScore = $this->numericOrNull($input['quality_score'] ?? null) ?? ($evidenceRefs === [] ? 0.0 : 0.82);
@@ -333,8 +335,8 @@ final class AtlasAutonomousWorkExecutionService
                 'flow_id' => $flowId,
                 'workspace' => $workspace,
                 'evidence_refs' => $evidenceRefs,
-                'scope_type' => $this->stringValue($input['scope_type'] ?? null) ?? 'workspace',
-                'scope_id' => $this->stringValue($input['scope_id'] ?? null),
+                'scope_type' => AiValueNormalizer::trimmedStringOrNull($input['scope_type'] ?? null) ?? 'workspace',
+                'scope_id' => AiValueNormalizer::trimmedStringOrNull($input['scope_id'] ?? null),
                 'source_type' => 'aweos',
             ]);
         } catch (Throwable $exception) {
@@ -359,7 +361,7 @@ final class AtlasAutonomousWorkExecutionService
                 'evidence_refs' => $evidenceRefs,
                 'context_refs' => array_values(array_unique([
                     ...$contextRefs,
-                    ...array_filter([$this->stringValue($apcr['context_pack_hash'] ?? null)]),
+                    ...array_filter([AiValueNormalizer::trimmedStringOrNull($apcr['context_pack_hash'] ?? null)]),
                 ])),
                 'source' => 'aweos',
             ]);
@@ -407,7 +409,7 @@ final class AtlasAutonomousWorkExecutionService
                 'domain' => $domain,
                 'flow_id' => $flowId,
                 'workspace' => $workspace,
-                'persistent_context_hash' => $this->stringValue($apcr['persistent_context_hash'] ?? null),
+                'persistent_context_hash' => AiValueNormalizer::trimmedStringOrNull($apcr['persistent_context_hash'] ?? null),
                 'apcr_pack_id' => $this->uuidOrNull($apcr['persistent_context_pack_id'] ?? null),
                 'evidence_refs' => $evidenceRefs,
                 'source' => 'aweos',
@@ -426,8 +428,8 @@ final class AtlasAutonomousWorkExecutionService
         try {
             $runtime = $this->verifiedExecution ?? app(AtlasVerifiedExecutionRuntimeService::class);
             $verifiedEvolution = $this->verifiedEvolution ?? app(AtlasVerifiedEvolutionRuntimeService::class);
-            $expectedFiles = $this->stringList($input['expected_files'] ?? []);
-            $target = $this->stringValue($input['target'] ?? null) ?? ($expectedFiles[0] ?? null);
+            $expectedFiles = AiStringListNormalizer::stringsFromArrayCast($input['expected_files'] ?? []);
+            $target = AiValueNormalizer::trimmedStringOrNull($input['target'] ?? null) ?? ($expectedFiles[0] ?? null);
             if ($target !== null) {
                 $contract = $verifiedEvolution->executionContract($objective, $target);
                 $payload = $runtime->planFromVerifiedEvolutionContract($contract, [
@@ -459,7 +461,7 @@ final class AtlasAutonomousWorkExecutionService
                 'workspace' => $workspace,
                 'aweos_execution_id' => $execution?->id,
                 'expected_files' => $expectedFiles,
-                'expected_commands' => $this->stringList($input['expected_tests'] ?? $this->defaultTests($domain)),
+                'expected_commands' => AiStringListNormalizer::stringsFromArrayCast($input['expected_tests'] ?? $this->defaultTests($domain)),
                 'evidence_refs' => array_values(array_unique([
                     ...$evidenceRefs,
                     ...array_filter([$execution?->execution_hash]),
@@ -490,8 +492,8 @@ final class AtlasAutonomousWorkExecutionService
             'status' => $risk >= 9 ? self::STATUS_BLOCKED : self::STATUS_READY,
             'runtime_target' => $this->runtimeTarget($domain, $flowId),
             'objective_hash' => MissionCanonicalHash::sha256(['objective' => $objective]),
-            'expected_files' => $this->stringList($input['expected_files'] ?? []),
-            'expected_tests' => $this->stringList($input['expected_tests'] ?? $this->defaultTests($domain)),
+            'expected_files' => AiStringListNormalizer::stringsFromArrayCast($input['expected_files'] ?? []),
+            'expected_tests' => AiStringListNormalizer::stringsFromArrayCast($input['expected_tests'] ?? $this->defaultTests($domain)),
             'rollback_strategy' => [
                 'requires_clean_diff_review' => true,
                 'requires_command_ledger' => true,
@@ -864,23 +866,6 @@ final class AtlasAutonomousWorkExecutionService
     private function normalizeDomain(string $domain): string
     {
         return Str::of($domain)->lower()->replace([' ', '-'], '_')->toString();
-    }
-
-    /**
-     * @param  mixed  $value
-     */
-    private function stringValue($value): ?string
-    {
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList($value): array
-    {
-        return array_values(array_filter((array) $value, 'is_string'));
     }
 
     /**

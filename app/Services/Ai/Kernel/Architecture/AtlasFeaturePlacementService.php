@@ -35,6 +35,7 @@ class AtlasFeaturePlacementService
         $placement = $this->placement($text);
         $owners = $this->ownerDocs($placement, $text);
         $duplicates = $this->duplicateCandidates($feature, $owners);
+        $duplicateReview = $this->duplicateReview($placement, $owners, $duplicates);
         $documentationReality = $this->documentationRealityGate($feature);
         $codeIntelligenceGate = $this->codeIntelligenceGate->evaluate([
             'mode' => 'summary',
@@ -43,8 +44,8 @@ class AtlasFeaturePlacementService
             'run_context_type' => 'feature_placement',
         ]);
         $kb = $this->knowledge->summary();
-        $risks = $this->risks($placement, $duplicates, $kb);
-        $blockedWhen = $this->blockedWhen($placement, $owners, $duplicates, $kb);
+        $risks = $this->risks($placement, $duplicates, $kb, $duplicateReview);
+        $blockedWhen = $this->blockedWhen($placement, $owners, $duplicateReview, $kb);
 
         return [
             'schema_version' => 'atlas.feature_placement.v1',
@@ -54,6 +55,7 @@ class AtlasFeaturePlacementService
             'gate_status' => $this->gateStatus($blockedWhen, $duplicates, $risks),
             'owner_docs' => $owners,
             'duplicate_candidates' => $duplicates,
+            'duplicate_review' => $duplicateReview,
             'documentation_reality_gate' => $documentationReality,
             'code_intelligence_automatic_gate' => $codeIntelligenceGate,
             'code_reality_anti_duplicate' => $documentationReality['acrui_anti_duplicate'],
@@ -366,6 +368,10 @@ class AtlasFeaturePlacementService
             'provider_evolution' => 'docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md',
         ];
         $paths[] = $map[(string) $placement['layer']] ?? 'docs/engineering-knowledge-base/atlas-ai-master-architecture.md';
+        if (($placement['layer'] ?? null) === 'documentation_governance'
+            && Str::contains($text, ['enforcement', 'documentation:enforce', 'bootstrap', 'session-bootstrap', 'place-feature', 'provider bootstrap', 'probe'])) {
+            $paths[] = 'docs/engineering-knowledge-base/atlas-documentation-enforcement-runtime.md';
+        }
 
         $domain = (string) $placement['domain'];
         if ($domain !== 'general') {
@@ -497,6 +503,7 @@ class AtlasFeaturePlacementService
                         'source' => 'authority_graph',
                         'score' => (int) ($result['confidence'] ?? 0),
                         'basis' => (string) ($result['owner_basis'] ?? ''),
+                        'matched_terms' => [$term],
                     ];
                 }
             }
@@ -559,9 +566,13 @@ class AtlasFeaturePlacementService
             ->map(function (SplFileInfo $file) use ($terms): array {
                 $path = str_replace(base_path().'/', '', $file->getPathname());
                 $body = Str::lower((string) File::get($file->getPathname()));
-                $score = collect($terms)->sum(fn (string $term): int => substr_count($body, $term));
+                $matchedTerms = collect($terms)
+                    ->filter(fn (string $term): bool => substr_count($body, $term) > 0)
+                    ->values()
+                    ->all();
+                $score = collect($matchedTerms)->sum(fn (string $term): int => substr_count($body, $term));
 
-                return ['source' => 'repo_docs', 'path' => $path, 'score' => $score];
+                return ['source' => 'repo_docs', 'path' => $path, 'score' => $score, 'matched_terms' => $matchedTerms];
             })
             ->filter(fn (array $candidate): bool => (int) $candidate['score'] > 0)
             ->values()
@@ -589,7 +600,11 @@ class AtlasFeaturePlacementService
                     implode(' ', (array) $item->tags_json),
                     implode(' ', (array) $item->capabilities_json),
                 ]));
-                $score = collect($terms)->sum(fn (string $term): int => substr_count($haystack, $term));
+                $matchedTerms = collect($terms)
+                    ->filter(fn (string $term): bool => substr_count($haystack, $term) > 0)
+                    ->values()
+                    ->all();
+                $score = collect($matchedTerms)->sum(fn (string $term): int => substr_count($haystack, $term));
 
                 return [
                     'source' => 'postgres_kb',
@@ -597,6 +612,7 @@ class AtlasFeaturePlacementService
                     'slug' => $item->slug,
                     'title' => $item->title,
                     'score' => $score,
+                    'matched_terms' => $matchedTerms,
                     'indexed_at' => $item->indexed_at?->toJSON(),
                 ];
             })
@@ -651,15 +667,122 @@ class AtlasFeaturePlacementService
 
     /**
      * @param  array<string,mixed>  $placement
+     * @param  array<int,array<string,string>>  $owners
+     * @param  array<int,array<string,mixed>>  $duplicates
+     * @return array<string,mixed>
+     */
+    private function duplicateReview(array $placement, array $owners, array $duplicates): array
+    {
+        $ownerPaths = collect($owners)
+            ->pluck('path')
+            ->filter(fn (mixed $path): bool => is_string($path) && $path !== '')
+            ->values()
+            ->all();
+
+        $classified = collect($duplicates)
+            ->map(function (array $candidate) use ($ownerPaths): array {
+                $classification = $this->duplicateCandidateClassification($candidate, $ownerPaths);
+
+                return [
+                    ...$candidate,
+                    'classification' => $classification,
+                    'hard_blocking' => $classification === 'blocking_collision',
+                ];
+            })
+            ->values();
+
+        $blocking = $classified
+            ->filter(fn (array $candidate): bool => (bool) ($candidate['hard_blocking'] ?? false))
+            ->values();
+        $reuse = $classified
+            ->reject(fn (array $candidate): bool => (bool) ($candidate['hard_blocking'] ?? false))
+            ->values();
+
+        return [
+            'schema_version' => 'atlas.feature_placement.duplicate_review.v1',
+            'status' => $blocking->isNotEmpty()
+                ? 'blocking_collision'
+                : ($classified->isNotEmpty() ? 'reuse_review' : 'clear'),
+            'policy' => [
+                'high_overlap_threshold' => 25,
+                'hard_block_requires_specific_non_owner_collision' => true,
+                'archived_source_material_is_context_not_blocker' => true,
+                'owner_docs_are_reuse_context_not_blocker' => true,
+            ],
+            'owner_layer' => $placement['layer'] ?? 'unknown',
+            'blocking_candidate_count' => $blocking->count(),
+            'reuse_context_candidate_count' => $reuse->count(),
+            'blocking_candidates' => $blocking->take(5)->values()->all(),
+            'reuse_context_candidates' => $reuse->take(5)->values()->all(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $candidate
+     * @param  array<int,string>  $ownerPaths
+     */
+    private function duplicateCandidateClassification(array $candidate, array $ownerPaths): string
+    {
+        $path = (string) ($candidate['path'] ?? '');
+        $source = (string) ($candidate['source'] ?? '');
+        $score = (int) ($candidate['score'] ?? 0);
+        $matchedTermCount = collect((array) ($candidate['matched_terms'] ?? []))
+            ->filter(fn (mixed $term): bool => is_string($term) && strlen($term) >= 4)
+            ->unique()
+            ->count();
+
+        if ($score < 25) {
+            return 'low_overlap_advisory';
+        }
+
+        if (in_array($path, $ownerPaths, true)) {
+            return 'owner_context_reuse';
+        }
+
+        if ($this->isHistoricalOrSourceMaterialPath($path)) {
+            return 'historical_context_only';
+        }
+
+        if ($source === 'authority_graph') {
+            return 'authority_owner_context';
+        }
+
+        if (in_array($source, ['repo_docs', 'postgres_kb'], true)) {
+            return 'existing_doc_context_reuse';
+        }
+
+        if ($matchedTermCount >= 3) {
+            return 'blocking_collision';
+        }
+
+        return 'reuse_review_required';
+    }
+
+    private function isHistoricalOrSourceMaterialPath(string $path): bool
+    {
+        return Str::contains($path, [
+            '/archive/',
+            'archive/',
+            '/source-material/',
+            'source-material/',
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $placement
      * @param  array<int,array<string,mixed>>  $duplicates
      * @param  array<string,mixed>  $kb
+     * @param  array<string,mixed>  $duplicateReview
      * @return array<int,string>
      */
-    private function risks(array $placement, array $duplicates, array $kb): array
+    private function risks(array $placement, array $duplicates, array $kb, array $duplicateReview): array
     {
         $risks = [];
         if ($duplicates !== []) {
             $risks[] = 'possible_existing_capability_or_doc_overlap_review_duplicate_candidates_first';
+        }
+        if (($duplicateReview['status'] ?? null) === 'reuse_review') {
+            $risks[] = 'existing_context_overlap_requires_reuse_not_new_parallel_capability';
         }
         if (($kb['status'] ?? null) !== 'ready') {
             $risks[] = 'postgres_kb_not_ready_run_sync_before_trusting_context_pack';
@@ -856,11 +979,11 @@ class AtlasFeaturePlacementService
     /**
      * @param  array<string,mixed>  $placement
      * @param  array<int,array<string,string>>  $owners
-     * @param  array<int,array<string,mixed>>  $duplicates
+     * @param  array<string,mixed>  $duplicateReview
      * @param  array<string,mixed>  $kb
      * @return array<int,string>
      */
-    private function blockedWhen(array $placement, array $owners, array $duplicates, array $kb): array
+    private function blockedWhen(array $placement, array $owners, array $duplicateReview, array $kb): array
     {
         $blocked = [];
         if (collect($owners)->contains(fn (array $doc): bool => ($doc['exists'] ?? 'no') !== 'yes')) {
@@ -872,7 +995,7 @@ class AtlasFeaturePlacementService
         if (($placement['requires_ap'] ?? false) === true) {
             $blocked[] = 'new_or_future_capability_requires_ap_contract_first';
         }
-        if (collect($duplicates)->contains(fn (array $candidate): bool => (int) ($candidate['score'] ?? 0) >= 25)) {
+        if ((int) ($duplicateReview['blocking_candidate_count'] ?? 0) > 0) {
             $blocked[] = 'high_overlap_duplicate_candidate_requires_reuse_or_explicit_supersede_decision';
         }
 

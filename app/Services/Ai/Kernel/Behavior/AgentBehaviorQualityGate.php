@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Kernel\Behavior;
 
 use App\Services\Ai\Kernel\Provider\AgentBehaviorContract;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Support\Str;
 
 final readonly class AgentBehaviorQualityGate
@@ -47,8 +48,8 @@ final readonly class AgentBehaviorQualityGate
             );
         }
 
-        $changedFiles = $this->stringList($input['changed_files'] ?? []);
-        $allowedPaths = $this->stringList($input['allowed_paths'] ?? []);
+        $changedFiles = AiStringListNormalizer::trimmedStringsFromArrayCast($input['changed_files'] ?? []);
+        $allowedPaths = AiStringListNormalizer::trimmedStringsFromArrayCast($input['allowed_paths'] ?? []);
         $outsideScope = $this->outsideAllowedPaths($changedFiles, $allowedPaths);
 
         if ($outsideScope !== []) {
@@ -160,18 +161,6 @@ final readonly class AgentBehaviorQualityGate
                 ],
             ],
         ];
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return collect((array) $value)
-            ->filter(fn (mixed $item): bool => is_string($item) && trim($item) !== '')
-            ->map(fn (string $item): string => trim($item))
-            ->values()
-            ->all();
     }
 
     private function normalize(string $text): string

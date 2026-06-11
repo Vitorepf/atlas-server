@@ -9,6 +9,7 @@ use App\Services\Ai\Kernel\Repair\AtlasRepairOrchestrator;
 use App\Services\Ai\Kernel\Repair\RepairPolicy;
 use App\Services\Ai\Kernel\Repair\RepairRequest;
 use App\Services\Ai\Kernel\Repair\RepairStrategy;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Console\Command;
 
 class AtlasAiRepairCommand extends Command
@@ -37,7 +38,7 @@ class AtlasAiRepairCommand extends Command
             failure: new FailureClassification(
                 domain: FailureDomain::tryFrom((string) $this->option('failure')) ?? FailureDomain::Unknown,
                 source: (string) $this->option('source'),
-                signals: $this->stringList((array) $this->option('signal')),
+                signals: AiStringListNormalizer::nonEmptyStrings($this->option('signal')),
                 metadata: [
                     'surface' => 'atlas_cli',
                     'command' => 'atlas:ai:repair',
@@ -49,7 +50,7 @@ class AtlasAiRepairCommand extends Command
                 allowedStrategies: $this->strategies(),
             ),
             currentAttempt: max(0, (int) $this->option('attempt')),
-            evidenceRefs: $this->stringList((array) $this->option('evidence')),
+            evidenceRefs: AiStringListNormalizer::nonEmptyStrings($this->option('evidence')),
             dryRun: true,
             metadata: [
                 'surface' => 'atlas_cli',
@@ -127,23 +128,11 @@ class AtlasAiRepairCommand extends Command
     }
 
     /**
-     * @param  array<int,mixed>  $values
-     * @return array<int,string>
-     */
-    private function stringList(array $values): array
-    {
-        return array_values(array_filter(
-            array_map(fn (mixed $value): ?string => is_string($value) && $value !== '' ? $value : null, $values),
-            fn (?string $value): bool => $value !== null,
-        ));
-    }
-
-    /**
      * @return array<int,string>
      */
     private function strategies(): array
     {
-        $strategies = $this->stringList((array) $this->option('strategy'));
+        $strategies = AiStringListNormalizer::nonEmptyStrings($this->option('strategy'));
 
         if ($strategies === []) {
             return RepairStrategy::values();

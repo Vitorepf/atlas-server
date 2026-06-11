@@ -378,7 +378,7 @@ final class LaneProviderRoutingService
      */
     private function qualifies(array $providerFacts, string $tier): bool
     {
-        $caps = $this->stringList($providerFacts['capabilities'] ?? []);
+        $caps = StewardshipStringListNormalizer::arrayTrimmedStrings($providerFacts['capabilities'] ?? []);
         if ($caps === []) {
             // Unknown capabilities: trust the tier policy ordering.
             return true;
@@ -405,7 +405,7 @@ final class LaneProviderRoutingService
      */
     private function firstModel(array $providerFacts): ?string
     {
-        $models = $this->stringList($providerFacts['models'] ?? []);
+        $models = StewardshipStringListNormalizer::arrayTrimmedStrings($providerFacts['models'] ?? []);
 
         return $models[0] ?? null;
     }
@@ -462,21 +462,4 @@ final class LaneProviderRoutingService
         return $lanes;
     }
 
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
-        }
-
-        return array_values($out);
-    }
 }

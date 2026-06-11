@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Hermes;
 
 use App\Services\Ai\AtlasAiPolicyService;
+use App\Services\Ai\Hermes\Support\HermesStringListNormalizer;
 use App\Services\CapturePrivacyService;
 
 /**
@@ -207,7 +208,7 @@ class HermesRuntimeRouter
     {
         $tasks = config('atlas.ai.hermes_runtime_router.compatible_tasks', ['ops', 'gateway', 'long_running', 'tool_heavy', 'research']);
 
-        return $this->stringList($tasks, ['ops', 'gateway', 'long_running', 'tool_heavy', 'research']);
+        return HermesStringListNormalizer::lowerArrayOrDefault($tasks, ['ops', 'gateway', 'long_running', 'tool_heavy', 'research']);
     }
 
     /**
@@ -217,27 +218,7 @@ class HermesRuntimeRouter
     {
         $domains = config('atlas.ai.hermes_runtime_router.compatible_domains', []);
 
-        return $this->stringList($domains, []);
-    }
-
-    /**
-     * @param  array<int,string>  $fallback
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value, array $fallback): array
-    {
-        if (! is_array($value)) {
-            return $fallback;
-        }
-
-        $list = collect($value)
-            ->map(fn (mixed $item): ?string => is_string($item) && trim($item) !== '' ? strtolower(trim($item)) : null)
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
-
-        return $list === [] ? $fallback : $list;
+        return HermesStringListNormalizer::lowerArrayOrDefault($domains, []);
     }
 
     private function reason(

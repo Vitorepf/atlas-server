@@ -280,9 +280,9 @@ final class StewardshipRuntimeResultBridgeService implements StewardshipRuntimeR
     private function evidenceCheck(array $result): array
     {
         $pack = is_array($result['evidence_pack'] ?? null) ? $result['evidence_pack'] : [];
-        $tests = $this->stringList($result['tests'] ?? $result['tests_run'] ?? data_get($pack, 'tests', data_get($pack, 'tests_run', [])));
+        $tests = StewardshipStringListNormalizer::trimmedUniqueStrings($result['tests'] ?? $result['tests_run'] ?? data_get($pack, 'tests', data_get($pack, 'tests_run', [])));
         $testResults = $this->normalizeTestResults($result['test_results'] ?? data_get($pack, 'test_results', []));
-        $validation = $this->stringList($result['validation_commands'] ?? data_get($pack, 'validation_commands', []));
+        $validation = StewardshipStringListNormalizer::trimmedUniqueStrings($result['validation_commands'] ?? data_get($pack, 'validation_commands', []));
         $summary = trim((string) ($result['summary'] ?? data_get($pack, 'summary', '')));
         $missing = [];
 
@@ -343,11 +343,11 @@ final class StewardshipRuntimeResultBridgeService implements StewardshipRuntimeR
     private function buildEvidencePack(string $areaId, string $owner, array $loopRefs, array $result, string $status): array
     {
         $pack = is_array($result['evidence_pack'] ?? null) ? $result['evidence_pack'] : [];
-        $changedFiles = $this->stringList($result['changed_files'] ?? data_get($pack, 'changed_files', []));
-        $tests = $this->stringList($result['tests'] ?? $result['tests_run'] ?? data_get($pack, 'tests', data_get($pack, 'tests_run', [])));
+        $changedFiles = StewardshipStringListNormalizer::trimmedUniqueStrings($result['changed_files'] ?? data_get($pack, 'changed_files', []));
+        $tests = StewardshipStringListNormalizer::trimmedUniqueStrings($result['tests'] ?? $result['tests_run'] ?? data_get($pack, 'tests', data_get($pack, 'tests_run', [])));
         $testResults = $this->normalizeTestResults($result['test_results'] ?? data_get($pack, 'test_results', []));
-        $validation = $this->stringList($result['validation_commands'] ?? data_get($pack, 'validation_commands', []));
-        $risks = $this->stringList($result['risks'] ?? data_get($pack, 'risks', []));
+        $validation = StewardshipStringListNormalizer::trimmedUniqueStrings($result['validation_commands'] ?? data_get($pack, 'validation_commands', []));
+        $risks = StewardshipStringListNormalizer::trimmedUniqueStrings($result['risks'] ?? data_get($pack, 'risks', []));
         $summary = trim((string) ($result['summary'] ?? data_get($pack, 'summary', '')));
         $rollback = trim((string) ($result['rollback'] ?? $result['rollback_instruction'] ?? $result['cleanup'] ?? data_get($pack, 'rollback', '')));
         if ($rollback === '') {
@@ -437,8 +437,8 @@ final class StewardshipRuntimeResultBridgeService implements StewardshipRuntimeR
         $kind = trim((string) ($result['finding_kind'] ?? ''));
         $detail = trim((string) ($result['finding_detail'] ?? ''));
         $summary = trim((string) ($result['summary'] ?? data_get($result, 'evidence_pack.summary', '')));
-        $changed = $this->stringList($result['changed_files'] ?? data_get($result, 'evidence_pack.changed_files', []));
-        $tests = $this->stringList($result['tests'] ?? $result['tests_run'] ?? data_get($result, 'evidence_pack.tests', []));
+        $changed = StewardshipStringListNormalizer::trimmedUniqueStrings($result['changed_files'] ?? data_get($result, 'evidence_pack.changed_files', []));
+        $tests = StewardshipStringListNormalizer::trimmedUniqueStrings($result['tests'] ?? $result['tests_run'] ?? data_get($result, 'evidence_pack.tests', []));
         $branch = trim((string) ($loopRefs['branch_ref'] ?? ''));
         $commit = trim((string) ($result['commit_hash'] ?? data_get($result, 'evidence_pack.commit_hash', '')));
 
@@ -504,8 +504,8 @@ final class StewardshipRuntimeResultBridgeService implements StewardshipRuntimeR
     {
         $content = $this->buildInboxContent($result, $loopRefs, $owner, $areaId, $status, $evidencePackId);
         $summary = trim((string) ($result['summary'] ?? data_get($result, 'evidence_pack.summary', '')));
-        $changedFileCount = count($this->stringList($result['changed_files'] ?? data_get($result, 'evidence_pack.changed_files', [])));
-        $testCount = count($this->stringList($result['tests'] ?? $result['tests_run'] ?? data_get($result, 'evidence_pack.tests', [])));
+        $changedFileCount = count(StewardshipStringListNormalizer::trimmedUniqueStrings($result['changed_files'] ?? data_get($result, 'evidence_pack.changed_files', [])));
+        $testCount = count(StewardshipStringListNormalizer::trimmedUniqueStrings($result['tests'] ?? $result['tests_run'] ?? data_get($result, 'evidence_pack.tests', [])));
         $hasPatch = $loopRefs['branch_ref'] !== '' || $loopRefs['worktree_ref'] !== '' || $loopRefs['sandbox_id'] !== '';
 
         $actions = [
@@ -565,7 +565,7 @@ final class StewardshipRuntimeResultBridgeService implements StewardshipRuntimeR
         }
 
         $payload = is_array($inboxItem['payload'] ?? null) ? $inboxItem['payload'] : [];
-        $changedFiles = $this->stringList($result['changed_files'] ?? data_get($result, 'evidence_pack.changed_files', []));
+        $changedFiles = StewardshipStringListNormalizer::trimmedUniqueStrings($result['changed_files'] ?? data_get($result, 'evidence_pack.changed_files', []));
         // AP-765 inbox richness: real, mutually-distinct content (composed in
         // buildInboxContent) — finding/problem/solution/worth_it are NEVER generic
         // boilerplate. Passing `finding` is what breaks the body's finding->problem
@@ -646,8 +646,8 @@ final class StewardshipRuntimeResultBridgeService implements StewardshipRuntimeR
             'result' => [
                 'status' => $status,
                 'summary' => $this->shortSummary(trim((string) ($result['summary'] ?? '')), $status, $owner),
-                'changed_file_count' => count($this->stringList($result['changed_files'] ?? data_get($result, 'evidence_pack.changed_files', []))),
-                'test_count' => count($this->stringList($result['tests'] ?? $result['tests_run'] ?? data_get($result, 'evidence_pack.tests', []))),
+                'changed_file_count' => count(StewardshipStringListNormalizer::trimmedUniqueStrings($result['changed_files'] ?? data_get($result, 'evidence_pack.changed_files', []))),
+                'test_count' => count(StewardshipStringListNormalizer::trimmedUniqueStrings($result['tests'] ?? $result['tests_run'] ?? data_get($result, 'evidence_pack.tests', []))),
             ],
             'evidence' => [
                 'evidence_pack_id' => $evidencePackId,
@@ -1010,15 +1010,6 @@ final class StewardshipRuntimeResultBridgeService implements StewardshipRuntimeR
         }
 
         return $out;
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return StewardshipStringListNormalizer::trimmedUniqueStrings($value);
     }
 
     private function str(mixed $value): string

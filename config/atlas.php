@@ -1689,6 +1689,37 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Folder Intelligence Fase 2 (AP-818) — workspace nasce inteligente
+    |--------------------------------------------------------------------------
+    |
+    | Gatilho on-link: ao vincular uma pasta num Projeto do Atlas Code, o
+    | assembly de inteligência (index Code Intelligence + symbol graph; por
+    | filho quando guarda-chuva) roda ENFILEIRADO — nunca inline no HTTP nem
+    | em fluxo de chat. v2_enabled libera o schema v2 do retrato
+    | (intelligence_status + workspace_id + amostras reais do read-model);
+    | OFF = payload v1 byte-compatível. Flags default OFF; o operador liga
+    | após a fatia provada (DoD AP-818).
+    |
+    */
+
+    'code_folder_intelligence' => [
+        'v2_enabled' => (bool) env('ATLAS_FOLDER_INTEL_V2', false),
+        'auto_assemble' => (bool) env('ATLAS_FOLDER_INTEL_AUTO_ASSEMBLE', false),
+        // Janela em que um índice existente é considerado fresco o bastante
+        // para o re-link virar no-op (W-9 aplicado na admissão do assembly).
+        'fresh_minutes' => (int) env('ATLAS_FOLDER_INTEL_FRESH_MINUTES', 30),
+        // F2.5 — context packs (AOBG/MCP) pedem contexto no escopo do
+        // guarda-chuva ativo: grafo agregado + grafos próprios dos membros.
+        // OFF = retrieval single-workspace byte-idêntico ao atlas:ctx provado.
+        'umbrella_context' => (bool) env('ATLAS_FOLDER_INTEL_UMBRELLA_CONTEXT', false),
+        // F2.4 — re-rank semântico final por embeddings REAIS (semantic_rag,
+        // fastembed local, receipt guard anti-fake). Default OFF; promoção de
+        // runtime exige review humano (runtime_promotion_policy.v1).
+        'semantic_rerank' => (bool) env('ATLAS_FOLDER_INTEL_SEMANTIC_RERANK', false),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Atlas Compression Layer (AP-813)
     |--------------------------------------------------------------------------
     |

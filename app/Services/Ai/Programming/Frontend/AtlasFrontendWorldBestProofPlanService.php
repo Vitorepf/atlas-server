@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Programming\Frontend;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 final class AtlasFrontendWorldBestProofPlanService
 {
@@ -14,7 +15,7 @@ final class AtlasFrontendWorldBestProofPlanService
      */
     public function plan(array $input = []): array
     {
-        $rivalEvidence = $this->nullableString($input['rival_evidence'] ?? null);
+        $rivalEvidence = AiValueNormalizer::trimmedStringOrNull($input['rival_evidence'] ?? null);
         $replayHarness = app(AtlasFrontendRivalReplayHarnessService::class);
         $replay = $replayHarness->inspect($rivalEvidence);
         $operatorPacketVerification = $rivalEvidence === null
@@ -445,7 +446,7 @@ final class AtlasFrontendWorldBestProofPlanService
      */
     private function publication(array $input): array
     {
-        $bundle = $this->nullableString($input['bundle'] ?? null);
+        $bundle = AiValueNormalizer::trimmedStringOrNull($input['bundle'] ?? null);
         if ($bundle === null) {
             return [
                 'schema_version' => AtlasFrontendPublicationVerifierService::SCHEMA_VERSION,
@@ -460,7 +461,7 @@ final class AtlasFrontendWorldBestProofPlanService
 
         return app(AtlasFrontendPublicationVerifierService::class)->verify(
             $bundle,
-            $this->nullableString($input['publication_receipt'] ?? null),
+            AiValueNormalizer::trimmedStringOrNull($input['publication_receipt'] ?? null),
         );
     }
 
@@ -573,20 +574,9 @@ final class AtlasFrontendWorldBestProofPlanService
         return array_values(array_unique($actions));
     }
 
-    private function nullableString(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
-    }
-
     private function hashNullable(mixed $value): ?string
     {
-        $value = $this->nullableString($value);
+        $value = AiValueNormalizer::trimmedStringOrNull($value);
 
         return $value === null ? null : hash('sha256', $value);
     }

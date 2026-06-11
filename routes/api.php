@@ -50,6 +50,7 @@ use App\Http\Controllers\AtlasAiVoxController;
 use App\Http\Controllers\AtlasAiVoxDogfoodController;
 use App\Http\Controllers\AtlasAiVoxMetricsController;
 use App\Http\Controllers\AtlasAiVoxReadinessController;
+use App\Http\Controllers\AtlasBlogEditorialController;
 use App\Http\Controllers\AtlasCalendarBlockController;
 use App\Http\Controllers\AtlasCartographyController;
 use App\Http\Controllers\AtlasCodeAttentionControlPlaneController;
@@ -315,6 +316,7 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/engineering/knowledge/code/modules/{module}', [EngineeringKnowledgeController::class, 'codeModule']);
     Route::get('/engineering/knowledge/code/symbols', [EngineeringKnowledgeController::class, 'codeSymbols']);
     Route::get('/engineering/knowledge/items/{item}', [EngineeringKnowledgeController::class, 'show']);
+    Route::get('/blog/editorial/state', [AtlasBlogEditorialController::class, 'state']);
     Route::get('/engineering/benchmarks/suites', [EngineeringBenchmarkController::class, 'indexSuites']);
     Route::post('/engineering/benchmarks/suites', [EngineeringBenchmarkController::class, 'storeSuite']);
     Route::post('/engineering/benchmarks/suites/default', [EngineeringBenchmarkController::class, 'ensureDefaultSuite']);

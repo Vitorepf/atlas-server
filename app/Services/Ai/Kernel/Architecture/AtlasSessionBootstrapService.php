@@ -69,6 +69,7 @@ class AtlasSessionBootstrapService
             'gate_status' => $placement['gate_status'] ?? 'unknown',
             'owner_docs' => $placement['owner_docs'],
             'duplicate_candidates' => $placement['duplicate_candidates'],
+            'duplicate_review' => $placement['duplicate_review'] ?? [],
             'documentation_reality_gate' => $documentationReality,
             'code_intelligence_automatic_gate' => $codeIntelligenceGate,
             'code_reality_anti_duplicate' => $placement['code_reality_anti_duplicate'] ?? [],

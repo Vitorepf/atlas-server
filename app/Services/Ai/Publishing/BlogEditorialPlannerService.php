@@ -24,10 +24,17 @@ final class BlogEditorialPlannerService
         $backlogPath = $siteRoot.'/'.$backlogRelativePath;
         $withContext = (bool) ($options['with_context'] ?? false);
         $withSourceMap = (bool) ($options['source_map'] ?? false);
+        $withReviewQueue = (bool) ($options['review_queue'] ?? false);
         $suggestCandidates = (bool) ($options['suggest_candidates'] ?? false);
         $withCoverageMap = (bool) ($options['coverage_map'] ?? false);
         $withOperations = (bool) ($options['operations'] ?? false);
+        $withOperatingState = (bool) ($options['operating_state'] ?? false);
         $withWritingPacket = (bool) ($options['writing_packet'] ?? false);
+        $withEditorialRadar = (bool) ($options['editorial_radar'] ?? false);
+        $withEditorialGoldenSet = (bool) ($options['editorial_golden_set'] ?? false);
+        $withEditorialGraphContext = (bool) ($options['editorial_graph_context'] ?? false);
+        $withEditorialGraphCandidates = (bool) ($options['editorial_graph_candidates'] ?? false);
+        $withGraphRagReadiness = (bool) ($options['graph_rag_readiness'] ?? false);
         $executeOpenBrain = (bool) ($options['execute_open_brain'] ?? false);
         $writingSlug = is_string($options['writing_slug'] ?? null)
             ? trim((string) $options['writing_slug'])
@@ -41,6 +48,10 @@ final class BlogEditorialPlannerService
         $writeAcceptance = (bool) ($options['write'] ?? false);
         $contextLimit = max(1, min(12, (int) ($options['context_limit'] ?? 5)));
         $candidateLimit = max(1, min(30, (int) ($options['candidate_limit'] ?? 10)));
+        $graphContextLimit = max(1, min(12, (int) ($options['graph_context_limit'] ?? 8)));
+        $graphWorldModelId = is_string($options['graph_world_model_id'] ?? null)
+            ? trim((string) $options['graph_world_model_id'])
+            : '';
 
         if (! is_file($backlogPath)) {
             return $this->failed($siteRoot, $backlogPath, 'backlog_not_found');
@@ -64,6 +75,8 @@ final class BlogEditorialPlannerService
         ))));
         $publishedSet = array_fill_keys($publishedSlugs, true);
         $findings = $this->validatePosts($posts);
+        $reviewQueueState = $this->contextService()->reviewQueueState($siteRoot, $posts, $publishedSlugs);
+        $queuedSlugs = array_values(array_filter((array) data_get($reviewQueueState, 'queued_slugs', []), 'is_string'));
 
         $plannedSlugs = array_fill_keys(array_map(
             fn (array $post): string => (string) ($post['slug'] ?? ''),
@@ -125,7 +138,7 @@ final class BlogEditorialPlannerService
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'status' => $findings === [] ? 'ready' : 'blocked',
-            'mode' => $executeOpenBrain ? 'audited_context_execution_p1' : (($withContext || $withSourceMap || $suggestCandidates || $withCoverageMap || $withOperations || $withWritingPacket || $acceptCandidate !== '' || $promoteCandidate !== '') ? 'read_only_governed_p1' : 'read_only_deterministic_p0'),
+            'mode' => $executeOpenBrain ? 'audited_context_execution_p1' : (($withContext || $withSourceMap || $withReviewQueue || $suggestCandidates || $withCoverageMap || $withOperations || $withOperatingState || $withWritingPacket || $withEditorialRadar || $withEditorialGoldenSet || $withEditorialGraphContext || $withEditorialGraphCandidates || $withGraphRagReadiness || $acceptCandidate !== '' || $promoteCandidate !== '') ? 'read_only_governed_p1' : 'read_only_deterministic_p0'),
             'site_root' => $siteRoot,
             'backlog_path' => $backlogPath,
             'backlog' => [
@@ -144,10 +157,17 @@ final class BlogEditorialPlannerService
                 'finding_count' => count($findings),
                 'with_context' => $withContext,
                 'with_source_map' => $withSourceMap,
+                'with_review_queue' => $withReviewQueue,
                 'with_candidate_suggestions' => $suggestCandidates,
                 'with_coverage_map' => $withCoverageMap,
                 'with_operations_packet' => $withOperations,
+                'with_operating_state' => $withOperatingState,
                 'with_writing_packet' => $withWritingPacket,
+                'with_editorial_radar' => $withEditorialRadar,
+                'with_editorial_golden_set' => $withEditorialGoldenSet,
+                'with_editorial_graph_context' => $withEditorialGraphContext,
+                'with_editorial_graph_candidates' => $withEditorialGraphCandidates,
+                'with_graph_rag_readiness' => $withGraphRagReadiness,
                 'with_open_brain_execution' => $executeOpenBrain,
                 'with_candidate_acceptance' => $acceptCandidate !== '',
                 'with_candidate_promotion' => $promoteCandidate !== '',
@@ -158,14 +178,35 @@ final class BlogEditorialPlannerService
             'source_map' => $withSourceMap
                 ? $this->contextService()->sourceMap($posts, $publishedSlugs, $publishedPosts)
                 : null,
+            'review_queue' => $withReviewQueue
+                ? $reviewQueueState
+                : null,
             'backlog_candidates' => $suggestCandidates
-                ? $this->contextService()->candidateSuggestions($posts, $publishedSlugs, $candidateLimit)
+                ? $this->contextService()->candidateSuggestions($posts, $publishedSlugs, $candidateLimit, $queuedSlugs)
                 : null,
             'coverage_map' => $withCoverageMap
                 ? $this->contextService()->coverageMap($posts, $publishedSlugs)
                 : null,
             'operations_packet' => $withOperations
-                ? $this->contextService()->operationsPacket($posts, $publishedSlugs, $publishedPosts, is_array($nextReady) ? $nextReady : null, $blocked, $contextLimit, $candidateLimit, $executeOpenBrain)
+                ? $this->contextService()->operationsPacket($posts, $publishedSlugs, $publishedPosts, is_array($nextReady) ? $nextReady : null, $blocked, $contextLimit, $candidateLimit, $executeOpenBrain, $reviewQueueState)
+                : null,
+            'operating_state' => $withOperatingState
+                ? $this->contextService()->operatingState($posts, $publishedSlugs, $publishedPosts, is_array($nextReady) ? $nextReady : null, $blocked, $reviewQueueState, $candidateLimit)
+                : null,
+            'editorial_radar' => $withEditorialRadar
+                ? $this->contextService()->editorialRadar($posts, $publishedSlugs, $publishedPosts, is_array($nextReady) ? $nextReady : null, $candidateLimit, $reviewQueueState)
+                : null,
+            'editorial_golden_set' => $withEditorialGoldenSet
+                ? $this->contextService()->editorialGoldenSet($posts, $publishedSlugs, $publishedPosts)
+                : null,
+            'editorial_graph_context' => $withEditorialGraphContext
+                ? $this->contextService()->editorialGraphContext($posts, $publishedSlugs, $publishedPosts, is_array($nextReady) ? $nextReady : null, $graphContextLimit, $graphWorldModelId)
+                : null,
+            'editorial_graph_candidates' => $withEditorialGraphCandidates
+                ? $this->contextService()->editorialGraphCandidates($posts, $publishedSlugs, $publishedPosts, is_array($nextReady) ? $nextReady : null, $graphContextLimit, $candidateLimit, $graphWorldModelId, $queuedSlugs)
+                : null,
+            'graph_rag_readiness' => $withGraphRagReadiness
+                ? $this->contextService()->graphRagReadiness($posts, $publishedSlugs, $publishedPosts)
                 : null,
             'writing_packet' => $withWritingPacket
                 ? (
@@ -187,6 +228,12 @@ final class BlogEditorialPlannerService
             'candidate_acceptance' => $acceptCandidate !== ''
                 ? $this->contextService()->acceptCandidate($siteRoot, $acceptCandidate, $posts, $publishedSlugs, [
                     'write' => $writeAcceptance,
+                    'include_graph_candidates' => $withEditorialGraphCandidates,
+                    'published_posts' => $publishedPosts,
+                    'next_ready_post' => is_array($nextReady) ? $nextReady : null,
+                    'graph_context_limit' => $graphContextLimit,
+                    'candidate_limit' => $candidateLimit,
+                    'graph_world_model_id' => $graphWorldModelId,
                 ])
                 : null,
             'candidate_promotion' => $promoteCandidate !== ''
@@ -202,7 +249,7 @@ final class BlogEditorialPlannerService
                 'uses_graph_rag' => false,
                 'uses_python_runtime' => false,
                 'creates_parallel_memory_store' => false,
-                'uses_existing_knowledge_read_models' => $withContext || $withSourceMap,
+                'uses_existing_knowledge_read_models' => $withContext || $withSourceMap || $withOperatingState || $withGraphRagReadiness,
                 'executes_open_brain_context' => $executeOpenBrain,
                 'writes_audit_log' => $executeOpenBrain,
                 'requires_human_approval_to_publish' => true,

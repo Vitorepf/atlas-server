@@ -358,7 +358,7 @@ final class StewardshipOwnerRuntimeExecutionAdapterService implements \App\Servi
         $ticket = is_array($ownerInput['forge_ticket'] ?? null) ? $ownerInput['forge_ticket'] : [];
         $sandbox = is_array($ownerInput['branch_sandbox'] ?? null) ? $ownerInput['branch_sandbox'] : [];
         $ticketId = (string) ($ticket['ticket_id'] ?? $consumption['queue_item_id'] ?? 'forge_owner_ticket');
-        $lockedPaths = $this->stringList($ticket['locked_paths'] ?? data_get($consumption, 'branch_isolation.allowed_paths', []));
+        $lockedPaths = StewardshipStringListNormalizer::trimmedUniqueStrings($ticket['locked_paths'] ?? data_get($consumption, 'branch_isolation.allowed_paths', []));
         $agents = $this->agents($input);
         $existingReservations = $this->existingReservations($input);
         $proposal = $this->forgeCoordinator->propose([[
@@ -424,7 +424,7 @@ final class StewardshipOwnerRuntimeExecutionAdapterService implements \App\Servi
             $reservations[] = [
                 'agent_id' => $agentId,
                 'ticket_id' => $ticketId,
-                'locked_paths' => $this->stringList($reservation['locked_paths'] ?? []),
+                'locked_paths' => StewardshipStringListNormalizer::trimmedUniqueStrings($reservation['locked_paths'] ?? []),
             ];
         }
 
@@ -653,15 +653,6 @@ final class StewardshipOwnerRuntimeExecutionAdapterService implements \App\Servi
             'new_os_created' => false,
             'ap750_required_after_execution' => true,
         ];
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return StewardshipStringListNormalizer::trimmedUniqueStrings($value);
     }
 
     /**

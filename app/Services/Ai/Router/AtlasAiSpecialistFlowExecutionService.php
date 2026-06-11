@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Router;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 class AtlasAiSpecialistFlowExecutionService
 {
     public const SCHEMA_VERSION = 'atlas.ai.specialist_flow_execution.v1';
@@ -19,7 +21,7 @@ class AtlasAiSpecialistFlowExecutionService
             return $data;
         }
 
-        $flowId = $this->stringValue($runtime['flow_id'] ?? null);
+        $flowId = AiValueNormalizer::trimmedScalarStringOrNull($runtime['flow_id'] ?? null);
         if ($flowId === null) {
             return $data;
         }
@@ -37,7 +39,7 @@ class AtlasAiSpecialistFlowExecutionService
      */
     private function executionPacket(string $flowId, array $runtime, array $data): array
     {
-        $delegationStatus = $this->stringValue(data_get($runtime, 'delegation.status')) ?? 'not_delegated';
+        $delegationStatus = AiValueNormalizer::trimmedScalarStringOrNull(data_get($runtime, 'delegation.status')) ?? 'not_delegated';
         $handler = $this->handler($flowId, $delegationStatus);
 
         return [
@@ -302,14 +304,4 @@ class AtlasAiSpecialistFlowExecutionService
         return mb_substr($input, 0, 240);
     }
 
-    private function stringValue(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
-    }
 }

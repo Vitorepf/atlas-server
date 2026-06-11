@@ -4,6 +4,7 @@ namespace App\Services\Ai\Programming\Frontend;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -22,9 +23,9 @@ final class AtlasFrontendOutcomeMemoryService
         $status = $this->status((string) ($input['status'] ?? ''));
         $taskType = $this->slug((string) ($input['task_type'] ?? 'frontend_task'));
         $surface = $this->slug((string) ($input['surface'] ?? 'programming.frontend'));
-        $drivers = $this->stringList((array) ($input['drivers'] ?? ['ux_driven', 'atdd', 'tdd']));
-        $gates = $this->stringList((array) ($input['gates'] ?? []));
-        $failedGates = $this->stringList((array) ($input['failed_gates'] ?? []));
+        $drivers = $this->slugList((array) ($input['drivers'] ?? ['ux_driven', 'atdd', 'tdd']));
+        $gates = $this->slugList((array) ($input['gates'] ?? []));
+        $failedGates = $this->slugList((array) ($input['failed_gates'] ?? []));
         $evidenceRefs = $this->safeRefs((array) ($input['evidence_refs'] ?? []));
 
         $record = [
@@ -188,14 +189,12 @@ final class AtlasFrontendOutcomeMemoryService
      * @param  array<int,mixed>  $values
      * @return array<int,string>
      */
-    private function stringList(array $values): array
+    private function slugList(array $values): array
     {
-        return collect($values)
-            ->filter(fn (mixed $value): bool => is_string($value) && trim($value) !== '')
-            ->map(fn (string $value): string => $this->slug($value))
-            ->unique()
-            ->values()
-            ->all();
+        return AiStringListNormalizer::uniqueMappedStrings(
+            $values,
+            fn (mixed $value): string => is_string($value) && trim($value) !== '' ? $this->slug($value) : '',
+        );
     }
 
     /**

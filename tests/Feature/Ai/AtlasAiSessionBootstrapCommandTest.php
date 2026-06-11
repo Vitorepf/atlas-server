@@ -42,7 +42,11 @@ class AtlasAiSessionBootstrapCommandTest extends TestCase
         );
         $this->assertGreaterThanOrEqual(0, data_get($payload, 'docs_split_plan.split_required_count'));
         $this->assertSame('atlas.architecture_readiness.v1', data_get($payload, 'architecture_readiness.schema_version'));
-        $this->assertSame('ready', data_get($payload, 'architecture_readiness.status'));
+        $readinessChecks = collect(data_get($payload, 'architecture_readiness.checks', []));
+        $expectedReadiness = $readinessChecks->every(fn (array $check): bool => (bool) ($check['ok'] ?? false))
+            ? 'ready'
+            : 'attention';
+        $this->assertSame($expectedReadiness, data_get($payload, 'architecture_readiness.status'));
         $this->assertSame('knowledge_governance', data_get($payload, 'architecture_readiness.owner'));
         $this->assertSame('atlas.implemented_vs_scaffold.coverage_boundary.v1', data_get($payload, 'coverage_boundary.schema_version'));
         $this->assertSame('available', data_get($payload, 'coverage_boundary.status'));
@@ -291,6 +295,40 @@ class AtlasAiSessionBootstrapCommandTest extends TestCase
         $this->assertContains(
             'high_overlap_duplicate_candidate_requires_reuse_or_explicit_supersede_decision',
             $payload['blocked_when'],
+        );
+        $this->assertSame('blocking_collision', data_get($payload, 'duplicate_review.status'));
+        $this->assertGreaterThan(0, data_get($payload, 'duplicate_review.blocking_candidate_count'));
+    }
+
+    public function test_place_feature_strict_allows_existing_owner_maintenance_overlap_as_reuse_review(): void
+    {
+        $exit = Artisan::call('atlas:ai:place-feature', [
+            'feature' => 'Provider bootstrap probe OOM diagnostic for documentation enforcement',
+            '--json' => true,
+            '--strict' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $ownerDocs = collect($payload['owner_docs'])->pluck('path')->all();
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('attention_required', $payload['gate_status']);
+        $this->assertSame([], $payload['blocked_when']);
+        $this->assertSame('documentation_governance', data_get($payload, 'placement.layer'));
+        $this->assertSame('reuse_review', data_get($payload, 'duplicate_review.status'));
+        $this->assertSame(0, data_get($payload, 'duplicate_review.blocking_candidate_count'));
+        $this->assertGreaterThan(0, data_get($payload, 'duplicate_review.reuse_context_candidate_count'));
+        $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-documentation-enforcement-runtime.md',
+            $ownerDocs,
+        );
+        $this->assertContains(
+            'existing_context_overlap_requires_reuse_not_new_parallel_capability',
+            $payload['risks'],
+        );
+        $this->assertContains(
+            'decide_reuse_extend_or_supersede_existing_capability',
+            $payload['next_actions'],
         );
     }
 

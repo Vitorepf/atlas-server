@@ -244,6 +244,12 @@ Status:
 - `blocked`: nao pode codar.
 - `blocked` tambem cobre falha tecnica nos comandos obrigatorios de bootstrap.
 
+`place-feature` distingue colisao real de reutilizacao obrigatoria. Quando
+`duplicate_review.status=blocking_collision`, o strict gate bloqueia. Quando
+`duplicate_review.status=reuse_review`, ADER deve manter a exigencia de ler e
+reutilizar o contexto existente, mas nao transformar owner claro em falso
+bloqueio so porque docs historicas ou KB citam os mesmos termos.
+
 ## Fluxo
 Fluxo minimo antes de codigo:
 
@@ -286,7 +292,8 @@ ADER cobre:
 - ADRS 52 blocos;
 - ACRUI realidade de codigo;
 - anti-duplicacao por feature;
-- execucao fail-closed de session-bootstrap e feature-placement;
+- execucao fail-closed de session-bootstrap e feature-placement em subprocesso
+  local isolado, com limite de memoria explicito e saida sanitizada/hash;
 - comandos obrigatorios antes de codigo;
 - hash deterministico do relatorio.
 
@@ -324,6 +331,14 @@ O relatorio sempre deve expor:
 - `source_status.provider_bootstrap`;
 - `required_before_code`;
 - `certification_hash`.
+
+`source_status.provider_bootstrap.*` nunca deve derrubar o comando pai com fatal
+de subgate: OOM/timeout/JSON invalido viram `status=blocked`, `failure_reason`,
+`stderr_hash`/`stdout_hash` e excerto sanitizado bounded. Nao expor stack trace,
+log cru ou path absoluto completo para provider.
+Quando o subgate retorna JSON valido mas `--strict` sai 1, preservar
+`payload_gate_status`, `blocked_reason` e `blocked_when` para diferenciar
+bloqueio governado de erro de processo.
 
 ## Riscos
 | Risco | Como ADER bloqueia |

@@ -70,6 +70,37 @@ final class AtlasDevStringListNormalizer
     /**
      * @return list<string>
      */
+    public static function requireNonEmptyStringArray(mixed $raw, string $field, string $owner = ''): array
+    {
+        if (! is_array($raw)) {
+            $prefix = $owner !== '' ? "{$owner}: " : '';
+
+            throw new InvalidArgumentException("{$prefix}{$field} must be an array.");
+        }
+
+        return self::requireNonEmptyStrings(array_values($raw), $field);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function realStringsWithoutGeneratedPrefix(mixed $value, string $generatedPrefix): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $value,
+            static fn (mixed $item): bool => is_string($item)
+                && $item !== ''
+                && ! str_starts_with($item, $generatedPrefix),
+        ));
+    }
+
+    /**
+     * @return list<string>
+     */
     public static function trimmedStrings(mixed $value): array
     {
         return AiStringListNormalizer::trimmedStrings($value);

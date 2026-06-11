@@ -6,6 +6,7 @@ namespace App\Services\Ai\RuntimeEfficiency;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\ProgrammingTestImpactAnalyzer;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Carbon\CarbonImmutable;
 
 final class AtlasLocalVerificationEngineService
@@ -34,9 +35,9 @@ final class AtlasLocalVerificationEngineService
     {
         $flowId = (string) ($input['flow_id'] ?? 'atlas_dev');
         $risk = $this->risk((string) ($input['risk_level'] ?? 'medium'));
-        $changedFiles = $this->stringList($input['changed_files'] ?? []);
-        $forbidden = $this->stringList($input['forbidden_files'] ?? []);
-        $allowed = $this->stringList($input['allowed_files'] ?? []);
+        $changedFiles = AiStringListNormalizer::stringsFromArrayCast($input['changed_files'] ?? []);
+        $forbidden = AiStringListNormalizer::stringsFromArrayCast($input['forbidden_files'] ?? []);
+        $allowed = AiStringListNormalizer::stringsFromArrayCast($input['allowed_files'] ?? []);
         $resourcePolicy = is_array($input['resource_policy'] ?? null) ? $input['resource_policy'] : [];
         $scope = $this->scopeGuard($changedFiles, $allowed, $forbidden);
         $impact = $this->testImpact($changedFiles, is_array($input['code_graph'] ?? null) ? $input['code_graph'] : [], $risk);
@@ -253,14 +254,6 @@ final class AtlasLocalVerificationEngineService
         }
 
         return max(1, (int) $matches[1]);
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return array_values(array_filter((array) $value, 'is_string'));
     }
 
     /**

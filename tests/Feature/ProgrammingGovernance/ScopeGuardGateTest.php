@@ -118,6 +118,24 @@ class ScopeGuardGateTest extends TestCase
         $this->assertSame('passed', $outcome->status);
     }
 
+    public function test_normalizes_legacy_scalar_task_lists_and_trimmed_evidence_files(): void
+    {
+        $item = $this->makeWorkItem(
+            tasks: [[
+                'allowed_files' => 'app/Foo.php',
+                'forbidden_files' => [],
+            ]],
+            evidence: [
+                ['files' => [' app/Foo.php ', 'app/Foo.php', ' ']],
+            ],
+        );
+
+        $outcome = (new ProgrammingScopeGuardGate())->evaluate($item);
+
+        $this->assertSame('passed', $outcome->status);
+        $this->assertSame(['app/Foo.php'], $outcome->payload['verified_files']);
+    }
+
     /**
      * @param  list<array<string,mixed>>  $tasks
      * @param  list<array<string,mixed>>  $evidence

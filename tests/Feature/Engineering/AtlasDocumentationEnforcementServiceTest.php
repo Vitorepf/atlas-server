@@ -106,6 +106,81 @@ final class AtlasDocumentationEnforcementServiceTest extends TestCase
         );
     }
 
+    public function test_provider_bootstrap_probe_isolates_fatal_subcommand_output(): void
+    {
+        $probe = new class extends AtlasDocumentationProviderBootstrapProbe
+        {
+            public function __construct() {}
+
+            /**
+             * @param  array<int,string>  $argv
+             * @return array{exit_code:int, stdout:string, stderr:string, timed_out:bool}
+             */
+            protected function runProbeProcess(array $argv): array
+            {
+                return [
+                    'exit_code' => 255,
+                    'stdout' => '',
+                    'stderr' => 'PHP Fatal error: Allowed memory size of 134217728 bytes exhausted in /Users/example/project/app/HeavyGate.php on line 42',
+                    'timed_out' => false,
+                ];
+            }
+        };
+
+        $payload = $probe->report('task', 'feature', 'atlas-server');
+
+        $this->assertSame('blocked', $payload['status']);
+        $this->assertSame('blocked', $payload['session_bootstrap']['status']);
+        $this->assertTrue($payload['session_bootstrap']['process_isolated']);
+        $this->assertSame('1024M', $payload['session_bootstrap']['memory_limit']);
+        $this->assertSame('memory_limit_exhausted', $payload['session_bootstrap']['failure_reason']);
+        $this->assertSame(255, $payload['session_bootstrap']['exit_code']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $payload['session_bootstrap']['stderr_hash']);
+        $this->assertStringNotContainsString('/Users/example', (string) $payload['session_bootstrap']['stderr_excerpt']);
+        $this->assertStringContainsString('<local-path>', (string) $payload['session_bootstrap']['stderr_excerpt']);
+    }
+
+    public function test_provider_bootstrap_probe_reports_strict_gate_reason_from_valid_json(): void
+    {
+        $probe = new class extends AtlasDocumentationProviderBootstrapProbe
+        {
+            public function __construct() {}
+
+            /**
+             * @param  array<int,string>  $argv
+             * @return array{exit_code:int, stdout:string, stderr:string, timed_out:bool}
+             */
+            protected function runProbeProcess(array $argv): array
+            {
+                return [
+                    'exit_code' => 1,
+                    'stdout' => json_encode([
+                        'schema_version' => 'atlas.session_bootstrap.v1',
+                        'status' => 'ok',
+                        'gate_status' => 'blocked',
+                        'session_gate' => [
+                            'reason' => 'feature_placement_gate_blocked',
+                            'blocked_when' => ['high_overlap_duplicate_candidate_requires_reuse_or_explicit_supersede_decision'],
+                        ],
+                    ], JSON_THROW_ON_ERROR),
+                    'stderr' => '',
+                    'timed_out' => false,
+                ];
+            }
+        };
+
+        $payload = $probe->report('task', 'feature', 'atlas-server');
+
+        $this->assertSame('blocked', $payload['session_bootstrap']['status']);
+        $this->assertSame('ok', $payload['session_bootstrap']['payload_status']);
+        $this->assertSame('blocked', $payload['session_bootstrap']['payload_gate_status']);
+        $this->assertSame('feature_placement_gate_blocked', $payload['session_bootstrap']['blocked_reason']);
+        $this->assertSame(
+            ['high_overlap_duplicate_candidate_requires_reuse_or_explicit_supersede_decision'],
+            $payload['session_bootstrap']['blocked_when'],
+        );
+    }
+
     /**
      * @param  array<string,mixed>  $payload
      */

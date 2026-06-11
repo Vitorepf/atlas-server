@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+
 /**
  * Atlas Dev Efficient Programming Flow Contracts v1 · Parte 4 — executable
  * invariant validator for the two contracts carved into this doc recorte:
@@ -146,12 +148,12 @@ final class AtlasDevEfficientProgrammingFlowContractsV1Part04Service
     {
         $violations = [];
 
-        $allowedFiles = $this->stringList($contract['allowed_files'] ?? []);
-        $watchedFiles = $this->stringList($contract['watched_files'] ?? []);
-        $forbiddenFiles = $this->stringList($contract['forbidden_files'] ?? []);
-        $allowedTools = $this->stringList($contract['allowed_tools'] ?? []);
-        $blockedActions = $this->stringList($contract['blocked_actions'] ?? []);
-        $grantedPermissions = $this->stringList($contract['granted_permissions'] ?? []);
+        $allowedFiles = AtlasAaeosValueNormalizer::castStringList($contract['allowed_files'] ?? []);
+        $watchedFiles = AtlasAaeosValueNormalizer::castStringList($contract['watched_files'] ?? []);
+        $forbiddenFiles = AtlasAaeosValueNormalizer::castStringList($contract['forbidden_files'] ?? []);
+        $allowedTools = AtlasAaeosValueNormalizer::castStringList($contract['allowed_tools'] ?? []);
+        $blockedActions = AtlasAaeosValueNormalizer::castStringList($contract['blocked_actions'] ?? []);
+        $grantedPermissions = AtlasAaeosValueNormalizer::castStringList($contract['granted_permissions'] ?? []);
         $maxFiles = (int) ($contract['max_files_changed'] ?? 0);
         $riskLevel = (string) ($contract['risk_level'] ?? 'R0');
         $riskIndex = $this->riskIndex($riskLevel);
@@ -267,8 +269,8 @@ final class AtlasDevEfficientProgrammingFlowContractsV1Part04Service
     {
         $violations = [];
 
-        $tiers = $this->stringList($plan['tiers_selected'] ?? []);
-        $requiredSources = $this->stringList($plan['required_sources'] ?? []);
+        $tiers = AtlasAaeosValueNormalizer::castStringList($plan['tiers_selected'] ?? []);
+        $requiredSources = AtlasAaeosValueNormalizer::castStringList($plan['required_sources'] ?? []);
         $taskKind = (string) ($plan['task_kind'] ?? '');
         $workspaceResolved = (bool) ($plan['workspace_resolved'] ?? false);
         $riskLevel = (string) ($plan['risk_level'] ?? 'R0');
@@ -411,19 +413,6 @@ final class AtlasDevEfficientProgrammingFlowContractsV1Part04Service
     // ---------------------------------------------------------------------
     // Internals
     // ---------------------------------------------------------------------
-
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList($value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_map(static fn ($item): string => (string) $item, $value));
-    }
 
     /** Map a risk level label to its ordered index; unknown -> 0 (R0). */
     private function riskIndex(string $riskLevel): int

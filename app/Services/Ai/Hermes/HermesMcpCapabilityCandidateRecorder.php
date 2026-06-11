@@ -4,6 +4,7 @@ namespace App\Services\Ai\Hermes;
 
 use App\Models\AiJob;
 use App\Models\HermesMcpCapabilityCandidate;
+use App\Services\Ai\Hermes\Support\HermesStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
@@ -214,8 +215,8 @@ class HermesMcpCapabilityCandidateRecorder
         $tools = is_array($tools) ? $tools : [];
 
         return [
-            'include' => $this->stringList($tools['include'] ?? null, 64, 190),
-            'exclude' => $this->stringList($tools['exclude'] ?? null, 64, 190),
+            'include' => HermesStringListNormalizer::bounded($tools['include'] ?? null, 64, 190),
+            'exclude' => HermesStringListNormalizer::bounded($tools['exclude'] ?? null, 64, 190),
         ];
     }
 
@@ -242,21 +243,6 @@ class HermesMcpCapabilityCandidateRecorder
         $source = $this->string($serverDescriptor['source'] ?? null, 40);
 
         return in_array($source, ['manifest_diff', 'catalog_install'], true) ? $source : 'manifest_diff';
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value, int $limit, int $itemLimit): array
-    {
-        $items = is_array($value) ? $value : (is_string($value) ? preg_split('/\s*,\s*/', $value) ?: [] : []);
-
-        return collect(array_slice($items, 0, $limit))
-            ->map(fn (mixed $item): ?string => $this->string($item, $itemLimit))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
     }
 
     private function string(mixed $value, int $limit): ?string

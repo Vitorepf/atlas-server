@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+
 /**
  * Atlas Dev Efficient Programming Flow Contracts v1 · Parte 5 — executable
  * invariant validator for the three contracts carved into this doc recorte:
@@ -174,7 +176,7 @@ final class AtlasDevEffProgFlowContractsV1Part05Service
         $violations = [];
 
         $likelyFiles = is_array($manifest['likely_files'] ?? null) ? $manifest['likely_files'] : [];
-        $forbiddenFiles = $this->stringList($manifest['forbidden_files'] ?? []);
+        $forbiddenFiles = AtlasAaeosValueNormalizer::castStringList($manifest['forbidden_files'] ?? []);
         $missingRefs = is_array($manifest['missing_refs'] ?? null) ? $manifest['missing_refs'] : [];
         $relatedTests = is_array($manifest['related_tests'] ?? null) ? $manifest['related_tests'] : [];
         $confidence = (string) ($manifest['confidence'] ?? '');
@@ -277,13 +279,13 @@ final class AtlasDevEffProgFlowContractsV1Part05Service
         $normalizedIntent = (string) ($projection['normalized_intent'] ?? '');
         $objectiveHash = (string) ($projection['objective_hash'] ?? '');
         $providerSafe = (bool) ($projection['provider_safe'] ?? false);
-        $requiredSources = $this->stringList($projection['required_sources'] ?? []);
-        $missingSources = $this->stringList($projection['missing_sources'] ?? []);
+        $requiredSources = AtlasAaeosValueNormalizer::castStringList($projection['required_sources'] ?? []);
+        $missingSources = AtlasAaeosValueNormalizer::castStringList($projection['missing_sources'] ?? []);
 
         $charsRequested = (int) data_get($projection, 'budget.chars_requested', 0);
         $charsUsed = (int) data_get($projection, 'budget.chars_used', 0);
         $truncated = (bool) data_get($projection, 'truncation.truncated', false);
-        $truncationReasons = $this->stringList(data_get($projection, 'truncation.reasons', []));
+        $truncationReasons = AtlasAaeosValueNormalizer::castStringList(data_get($projection, 'truncation.reasons', []));
 
         // P1: schema_version is fixed.
         if ($schemaVersion !== self::OPEN_BRAIN_PROJECTION) {
@@ -371,11 +373,11 @@ final class AtlasDevEffProgFlowContractsV1Part05Service
         $renderedPromptText = (string) ($projection['rendered_prompt_text'] ?? '');
         $promptHash = (string) ($projection['prompt_projection_hash'] ?? '');
 
-        $allowedFiles = $this->stringList($sections['allowed_files'] ?? []);
-        $forbiddenFiles = $this->stringList($sections['forbidden_files'] ?? []);
-        $outputContract = $this->stringList($sections['output_contract'] ?? []);
-        $contractAllowed = $this->stringList(data_get($projection, 'task_contract.allowed_files', []));
-        $contractForbidden = $this->stringList(data_get($projection, 'task_contract.forbidden_files', []));
+        $allowedFiles = AtlasAaeosValueNormalizer::castStringList($sections['allowed_files'] ?? []);
+        $forbiddenFiles = AtlasAaeosValueNormalizer::castStringList($sections['forbidden_files'] ?? []);
+        $outputContract = AtlasAaeosValueNormalizer::castStringList($sections['output_contract'] ?? []);
+        $contractAllowed = AtlasAaeosValueNormalizer::castStringList(data_get($projection, 'task_contract.allowed_files', []));
+        $contractForbidden = AtlasAaeosValueNormalizer::castStringList(data_get($projection, 'task_contract.forbidden_files', []));
 
         // R1: every required section must be present and non-empty.
         foreach (self::REQUIRED_PROMPT_SECTIONS as $section) {
@@ -593,19 +595,6 @@ final class AtlasDevEffProgFlowContractsV1Part05Service
     // ---------------------------------------------------------------------
     // Internals
     // ---------------------------------------------------------------------
-
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList($value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_map(static fn ($item): string => (string) $item, $value));
-    }
 
     /** Map a confidence label to its ladder index; unknown -> -1 (below floor). */
     private function confidenceIndex(string $confidence): int

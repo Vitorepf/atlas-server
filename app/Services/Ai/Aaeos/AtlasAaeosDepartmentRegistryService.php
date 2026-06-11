@@ -94,7 +94,7 @@ class AtlasAaeosDepartmentRegistryService
     public function validateRegistry(array $departments): array
     {
         $ids = $this->departmentIds($departments);
-        $knownIds = $this->uniqueStrings(array_merge(self::CANONICAL_DEPARTMENTS, $ids));
+        $knownIds = AiStringListNormalizer::uniqueStrings(array_merge(self::CANONICAL_DEPARTMENTS, $ids));
 
         $results = [];
         $duplicateIds = $this->duplicateStrings($ids);
@@ -172,18 +172,9 @@ class AtlasAaeosDepartmentRegistryService
      * @param  array<int,string>  $values
      * @return array<int,string>
      */
-    private function uniqueStrings(array $values): array
-    {
-        return AiStringListNormalizer::uniqueStrings($values);
-    }
-
-    /**
-     * @param  array<int,string>  $values
-     * @return array<int,string>
-     */
     private function duplicateStrings(array $values): array
     {
-        return $this->uniqueStrings(array_diff_assoc($values, array_unique($values)));
+        return AiStringListNormalizer::uniqueStrings(array_diff_assoc($values, array_unique($values)));
     }
 
     private function departmentId(mixed $value): string

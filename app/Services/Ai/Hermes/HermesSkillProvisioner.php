@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Hermes;
 
 use App\Models\HermesSkillCandidate;
+use App\Services\Ai\Hermes\Support\HermesStringListNormalizer;
 use App\Services\Ai\Skills\Governance\HermesSkillProvisionGate;
 use App\Services\Ai\Skills\Governance\SkillPackPromotionGate;
 use App\Services\Ai\Support\DatabaseTableAvailability;
@@ -382,16 +383,16 @@ class HermesSkillProvisioner
         $meta = $this->hermesMeta($record);
         $description = $this->string($record['description'] ?? null, 700) ?? 'Atlas-governed Hermes skill.';
         $version = $this->semver($record['version'] ?? null);
-        $platforms = $this->stringList($record['platforms'] ?? ['local'], 8, 40) ?: ['local'];
-        $tags = $this->stringList($meta['tags'] ?? null, 16, 60);
+        $platforms = HermesStringListNormalizer::bounded($record['platforms'] ?? ['local'], 8, 40) ?: ['local'];
+        $tags = HermesStringListNormalizer::bounded($meta['tags'] ?? null, 16, 60);
         $category = $this->string($meta['category'] ?? null, 80) ?? 'atlas';
-        $fallbackFor = $this->stringList($meta['fallback_for_toolsets'] ?? null, 16, 80);
-        $requiresToolsets = $this->stringList($meta['requires_toolsets'] ?? null, 16, 80);
-        $config = $this->stringList($meta['config'] ?? null, 24, 120);
+        $fallbackFor = HermesStringListNormalizer::bounded($meta['fallback_for_toolsets'] ?? null, 16, 80);
+        $requiresToolsets = HermesStringListNormalizer::bounded($meta['requires_toolsets'] ?? null, 16, 80);
+        $config = HermesStringListNormalizer::bounded($meta['config'] ?? null, 24, 120);
         // NAME only — never values. Strip any "=value" an upstream payload smuggled in.
         $envVars = array_values(array_map(
             static fn (string $entry): string => trim(explode('=', $entry, 2)[0]),
-            $this->stringList($record['required_environment_variables'] ?? null, 24, 191),
+            HermesStringListNormalizer::bounded($record['required_environment_variables'] ?? null, 24, 191),
         ));
         $envVars = array_values(array_filter($envVars, static fn (string $v): bool => $v !== ''));
 
@@ -604,7 +605,7 @@ class HermesSkillProvisioner
             'hub_skill_name' => $hubSkillName,
             'description' => $this->string($entry['description'] ?? null, 700),
             'category' => $this->string($entry['category'] ?? null, 80),
-            'tags' => $this->stringList($entry['tags'] ?? null, 16, 60),
+            'tags' => HermesStringListNormalizer::bounded($entry['tags'] ?? null, 16, 60),
             'source' => $this->string($entry['source'] ?? $entry['registry'] ?? null, 80) ?: 'agentskills.io',
             'gate_status' => 'quarantined_for_atlas_capability_review',
             'review_status' => 'pending',
@@ -699,21 +700,6 @@ class HermesSkillProvisioner
     private function yamlScalar(string $value): string
     {
         return '"'.str_replace(['\\', '"'], ['\\\\', '\\"'], $value).'"';
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value, int $limit, int $itemLimit): array
-    {
-        $items = is_array($value) ? $value : (is_string($value) ? preg_split('/\s*,\s*/', $value) ?: [] : []);
-
-        return collect(array_slice($items, 0, $limit))
-            ->map(fn (mixed $item): ?string => $this->string($item, $itemLimit))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
     }
 
     private function string(mixed $value, int $limit): ?string

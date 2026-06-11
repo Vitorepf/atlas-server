@@ -60,6 +60,16 @@ final class StewardshipStringListNormalizerTest extends TestCase
         );
     }
 
+    public function test_array_trimmed_strings_preserves_legacy_array_only_contract(): void
+    {
+        $this->assertSame(
+            ['owner', 'owner', '0'],
+            StewardshipStringListNormalizer::arrayTrimmedStrings([' owner ', '', 'owner', '  ', '0', 0]),
+        );
+
+        $this->assertSame([], StewardshipStringListNormalizer::arrayTrimmedStrings(' owner '));
+    }
+
     public function test_maps_non_empty_strings(): void
     {
         $this->assertSame(

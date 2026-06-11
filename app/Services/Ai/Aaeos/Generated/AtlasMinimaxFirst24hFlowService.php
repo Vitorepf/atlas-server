@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+
 /**
  * MiniMax-First 24h Agentic Engineering Flow — policy decider.
  *
@@ -181,8 +183,8 @@ final class AtlasMinimaxFirst24hFlowService
     public function decideWorkPlan(array $cycle): array
     {
         $touchesCode = (bool) ($cycle['touches_code'] ?? true);
-        $deficits = $this->normalizeList($cycle['deficit_patterns'] ?? []);
-        $repos = $this->normalizeList($cycle['repos'] ?? []);
+        $deficits = AtlasAaeosValueNormalizer::trimmedStringList($cycle['deficit_patterns'] ?? []);
+        $repos = AtlasAaeosValueNormalizer::trimmedStringList($cycle['repos'] ?? []);
         $wantsWriter = (bool) ($cycle['wants_writer'] ?? true);
         $plan = is_array($cycle['work_plan'] ?? null) ? $cycle['work_plan'] : [];
 
@@ -272,7 +274,7 @@ final class AtlasMinimaxFirst24hFlowService
         $logicalAgents = max(0, $this->toInt($pool['logical_agents'] ?? 0));
         $budget = max(0, $this->toInt($pool['llm_worker_budget'] ?? 2));
         $requestedWorkers = max(0, $this->toInt($pool['requested_workers'] ?? 0));
-        $scopes = $this->normalizeList($pool['ownership_scopes'] ?? []);
+        $scopes = AtlasAaeosValueNormalizer::trimmedStringList($pool['ownership_scopes'] ?? []);
         $distinctScopes = count(array_unique($scopes));
         $requestedWriters = max(0, $this->toInt($pool['requested_writers'] ?? 0));
 
@@ -571,26 +573,6 @@ final class AtlasMinimaxFirst24hFlowService
         }
 
         return true;
-    }
-
-    /**
-     * @param mixed $value
-     * @return list<string>
-     */
-    private function normalizeList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
-        }
-
-        return array_values($out);
     }
 
     private function toInt(mixed $value): int

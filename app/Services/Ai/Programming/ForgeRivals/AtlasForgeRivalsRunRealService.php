@@ -239,7 +239,7 @@ final class AtlasForgeRivalsRunRealService
             $runtimeIsolation = $this->prepareProviderRuntimeIsolation($runId, $paths);
             if (($runtimeIsolation['blockers'] ?? []) !== []) {
                 return $this->blocked(
-                    $this->stringList($runtimeIsolation['blockers']),
+                    AiStringListNormalizer::castItemsToStrings($runtimeIsolation['blockers']),
                     'fix runtime isolation before spending provider tokens',
                 );
             }
@@ -382,8 +382,8 @@ final class AtlasForgeRivalsRunRealService
             $seedRival = $this->stageCaseFixture($runId, 'rival', $paths['rival'], $case);
             if (($seedAtlas['blockers'] ?? []) !== [] || ($seedRival['blockers'] ?? []) !== []) {
                 $seedBlockers = array_values(array_merge(
-                    $this->stringList($seedAtlas['blockers'] ?? []),
-                    $this->stringList($seedRival['blockers'] ?? []),
+                    AiStringListNormalizer::castItemsToStrings($seedAtlas['blockers'] ?? []),
+                    AiStringListNormalizer::castItemsToStrings($seedRival['blockers'] ?? []),
                 ));
 
                 if ($isMultiCase) {
@@ -465,8 +465,8 @@ final class AtlasForgeRivalsRunRealService
 
             $dirtyAtlas = $this->workspaceDirty($paths['atlas']);
             $dirtyRival = $this->workspaceDirty($paths['rival']);
-            $atlasWorkspaceBlockers = $this->stringList($atlasReceipt['workspace_blockers'] ?? []);
-            $rivalWorkspaceBlockers = $this->stringList($rivalReceipt['workspace_blockers'] ?? []);
+            $atlasWorkspaceBlockers = AiStringListNormalizer::castItemsToStrings($atlasReceipt['workspace_blockers'] ?? []);
+            $rivalWorkspaceBlockers = AiStringListNormalizer::castItemsToStrings($rivalReceipt['workspace_blockers'] ?? []);
             $caseArmContractBlockers = array_values(array_unique(array_merge(
                 $this->armContractBlockers($atlasWorkspaceBlockers),
                 $this->armContractBlockers($rivalWorkspaceBlockers),
@@ -537,13 +537,13 @@ final class AtlasForgeRivalsRunRealService
                     isset($case['human_prompt']) ? hash('sha256', (string) $case['human_prompt']) : null
                 ),
                 'context_profile' => is_array($case['context_profile'] ?? null) ? $case['context_profile'] : null,
-                'measurement_tags' => $this->stringList($case['measurement_tags'] ?? []),
+                'measurement_tags' => AiStringListNormalizer::castItemsToStrings($case['measurement_tags'] ?? []),
                 'human_prompt_probe' => is_array($case['human_prompt_probe'] ?? null) ? $case['human_prompt_probe'] : null,
                 'meta_provider_stress' => is_array($case['meta_provider_stress'] ?? null) ? $case['meta_provider_stress'] : null,
                 'extreme_differentiator' => is_array($case['extreme_differentiator'] ?? null) ? $case['extreme_differentiator'] : null,
                 'ceiling_360' => is_array($case['ceiling_360'] ?? null) ? $case['ceiling_360'] : null,
                 'ceiling_pressure_profile' => is_array($case['ceiling_pressure_profile'] ?? null) ? $case['ceiling_pressure_profile'] : null,
-                'measured_capabilities' => $this->stringList($case['measured_capabilities'] ?? []),
+                'measured_capabilities' => AiStringListNormalizer::castItemsToStrings($case['measured_capabilities'] ?? []),
                 'prompt_mode' => $case['prompt_mode'] ?? $promptMode,
                 'difficulty' => $case['difficulty'] ?? null,
                 'difficulty_level' => $case['difficulty_level'] ?? null,
@@ -593,27 +593,27 @@ final class AtlasForgeRivalsRunRealService
 
             $aggregateChangedAtlas = array_values(array_unique(array_merge(
                 $aggregateChangedAtlas,
-                $this->stringList($atlasReceipt['changed_files'] ?? []),
+                AiStringListNormalizer::castItemsToStrings($atlasReceipt['changed_files'] ?? []),
             )));
             $aggregateChangedRival = array_values(array_unique(array_merge(
                 $aggregateChangedRival,
-                $this->stringList($rivalReceipt['changed_files'] ?? []),
+                AiStringListNormalizer::castItemsToStrings($rivalReceipt['changed_files'] ?? []),
             )));
             $aggregateOosAtlas = array_values(array_unique(array_merge(
                 $aggregateOosAtlas,
-                $this->stringList($atlasReceipt['out_of_scope_files'] ?? []),
+                AiStringListNormalizer::castItemsToStrings($atlasReceipt['out_of_scope_files'] ?? []),
             )));
             $aggregateOosRival = array_values(array_unique(array_merge(
                 $aggregateOosRival,
-                $this->stringList($rivalReceipt['out_of_scope_files'] ?? []),
+                AiStringListNormalizer::castItemsToStrings($rivalReceipt['out_of_scope_files'] ?? []),
             )));
             $aggregateBytecodeAtlas = array_values(array_unique(array_merge(
                 $aggregateBytecodeAtlas,
-                $this->stringList($atlasReceipt['bytecode_artifacts'] ?? []),
+                AiStringListNormalizer::castItemsToStrings($atlasReceipt['bytecode_artifacts'] ?? []),
             )));
             $aggregateBytecodeRival = array_values(array_unique(array_merge(
                 $aggregateBytecodeRival,
-                $this->stringList($rivalReceipt['bytecode_artifacts'] ?? []),
+                AiStringListNormalizer::castItemsToStrings($rivalReceipt['bytecode_artifacts'] ?? []),
             )));
             $aggregateWorkspaceBlockers = array_values(array_unique(array_merge(
                 $aggregateWorkspaceBlockers,
@@ -896,13 +896,13 @@ final class AtlasForgeRivalsRunRealService
                 isset($firstCase['human_prompt']) ? hash('sha256', (string) $firstCase['human_prompt']) : null
             ),
             'context_profile' => is_array($firstCase['context_profile'] ?? null) ? $firstCase['context_profile'] : null,
-            'measurement_tags' => $this->stringList($firstCase['measurement_tags'] ?? []),
+            'measurement_tags' => AiStringListNormalizer::castItemsToStrings($firstCase['measurement_tags'] ?? []),
             'human_prompt_probe' => is_array($firstCase['human_prompt_probe'] ?? null) ? $firstCase['human_prompt_probe'] : null,
             'meta_provider_stress' => is_array($firstCase['meta_provider_stress'] ?? null) ? $firstCase['meta_provider_stress'] : null,
             'extreme_differentiator' => is_array($firstCase['extreme_differentiator'] ?? null) ? $firstCase['extreme_differentiator'] : null,
             'ceiling_360' => is_array($firstCase['ceiling_360'] ?? null) ? $firstCase['ceiling_360'] : null,
             'ceiling_pressure_profile' => is_array($firstCase['ceiling_pressure_profile'] ?? null) ? $firstCase['ceiling_pressure_profile'] : null,
-            'measured_capabilities' => $this->stringList($firstCase['measured_capabilities'] ?? []),
+            'measured_capabilities' => AiStringListNormalizer::castItemsToStrings($firstCase['measured_capabilities'] ?? []),
             'difficulty' => $firstCase['difficulty'] ?? null,
             'difficulty_level' => $firstCase['difficulty_level'] ?? null,
             'difficulty_band' => $firstCase['difficulty_level'] ?? null,
@@ -1253,7 +1253,7 @@ final class AtlasForgeRivalsRunRealService
             if ($cid !== '') {
                 $caseIds[] = $cid;
             }
-            foreach ($this->stringList($receipt['workspace_blockers'] ?? []) as $blocker) {
+            foreach (AiStringListNormalizer::castItemsToStrings($receipt['workspace_blockers'] ?? []) as $blocker) {
                 if ($blocker !== '') {
                     if ($this->isArmContractBlocker($blocker)) {
                         $armContractBlockers[] = $blocker;
@@ -1364,7 +1364,7 @@ final class AtlasForgeRivalsRunRealService
             $worktree = (string) ($paths[$arm] ?? '');
             $prepared = $this->prepareArmRuntimeIsolation($runId, $arm, $worktree);
             $arms[$arm] = $prepared;
-            foreach ($this->stringList($prepared['blockers'] ?? []) as $blocker) {
+            foreach (AiStringListNormalizer::castItemsToStrings($prepared['blockers'] ?? []) as $blocker) {
                 $blockers[] = 'runtime_isolation:'.$arm.':'.$blocker;
             }
         }
@@ -1447,7 +1447,7 @@ final class AtlasForgeRivalsRunRealService
         if ($blockers === []) {
             $composer = $this->runComposerDumpAutoload($worktree);
             $actions[] = (string) ($composer['action'] ?? 'composer_dump_autoload_attempted');
-            foreach ($this->stringList($composer['blockers'] ?? []) as $blocker) {
+            foreach (AiStringListNormalizer::castItemsToStrings($composer['blockers'] ?? []) as $blocker) {
                 $blockers[] = $blocker;
             }
         }
@@ -1746,7 +1746,7 @@ final class AtlasForgeRivalsRunRealService
     private function resolveCaseContext(array $input, string $preset): array
     {
         $explicitCase = trim((string) ($input['case'] ?? ''));
-        $explicitCases = $this->stringList($input['cases'] ?? []);
+        $explicitCases = AiStringListNormalizer::castItemsToStrings($input['cases'] ?? []);
         $caseSet = trim((string) ($input['case_set'] ?? ''));
 
         if ($explicitCase !== '') {
@@ -1869,13 +1869,13 @@ final class AtlasForgeRivalsRunRealService
             'human_prompt' => (string) ($corpusCase['human_prompt'] ?? ''),
             'human_prompt_hash' => hash('sha256', (string) ($corpusCase['human_prompt'] ?? '')),
             'context_profile' => is_array($corpusCase['context_profile'] ?? null) ? $corpusCase['context_profile'] : null,
-            'measurement_tags' => $this->stringList($corpusCase['measurement_tags'] ?? []),
+            'measurement_tags' => AiStringListNormalizer::castItemsToStrings($corpusCase['measurement_tags'] ?? []),
             'human_prompt_probe' => is_array($corpusCase['human_prompt_probe'] ?? null) ? $corpusCase['human_prompt_probe'] : null,
             'meta_provider_stress' => is_array($corpusCase['meta_provider_stress'] ?? null) ? $corpusCase['meta_provider_stress'] : null,
             'extreme_differentiator' => is_array($corpusCase['extreme_differentiator'] ?? null) ? $corpusCase['extreme_differentiator'] : null,
             'ceiling_360' => is_array($corpusCase['ceiling_360'] ?? null) ? $corpusCase['ceiling_360'] : null,
             'ceiling_pressure_profile' => is_array($corpusCase['ceiling_pressure_profile'] ?? null) ? $corpusCase['ceiling_pressure_profile'] : null,
-            'measured_capabilities' => $this->stringList($corpusCase['measured_capabilities'] ?? []),
+            'measured_capabilities' => AiStringListNormalizer::castItemsToStrings($corpusCase['measured_capabilities'] ?? []),
             'task_category' => (string) ($corpusCase['task_category'] ?? ''),
             'category' => (string) ($corpusCase['category'] ?? ''),
             'difficulty' => $difficulty,
@@ -1890,18 +1890,18 @@ final class AtlasForgeRivalsRunRealService
             'role_focus' => (string) ($corpusCase['role_focus'] ?? ''),
             'objective' => (string) ($corpusCase['objective'] ?? ''),
             'business_rule' => (string) ($corpusCase['business_rule'] ?? ''),
-            'allowed_files' => $this->normalizeWorkspacePaths($this->stringList($corpusCase['allowed_files_scope'] ?? [])),
-            'forbidden_files' => $this->normalizeWorkspacePaths($this->stringList($corpusCase['forbidden_files_scope'] ?? [])),
-            'expected_changed_files' => $this->normalizeWorkspacePaths($this->stringList($corpusCase['expected_changed_files'] ?? [])),
-            'acceptance_criteria' => $this->stringList($corpusCase['acceptance_criteria'] ?? []),
+            'allowed_files' => $this->normalizeWorkspacePaths(AiStringListNormalizer::castItemsToStrings($corpusCase['allowed_files_scope'] ?? [])),
+            'forbidden_files' => $this->normalizeWorkspacePaths(AiStringListNormalizer::castItemsToStrings($corpusCase['forbidden_files_scope'] ?? [])),
+            'expected_changed_files' => $this->normalizeWorkspacePaths(AiStringListNormalizer::castItemsToStrings($corpusCase['expected_changed_files'] ?? [])),
+            'acceptance_criteria' => AiStringListNormalizer::castItemsToStrings($corpusCase['acceptance_criteria'] ?? []),
             'quick_test_command' => $quickCommand,
             'full_test_command' => $fullCommand,
             'test_command' => $testCommand,
-            'expected_artifacts' => $this->stringList($corpusCase['expected_evidence'] ?? []),
+            'expected_artifacts' => AiStringListNormalizer::castItemsToStrings($corpusCase['expected_evidence'] ?? []),
             'expected_signal' => (string) ($corpusCase['expected_signal'] ?? ''),
             'setup_fixture' => [
                 'seed_dir' => (string) ($fixture['seed_dir'] ?? ''),
-                'base_files' => $this->stringList($fixture['base_files'] ?? []),
+                'base_files' => AiStringListNormalizer::castItemsToStrings($fixture['base_files'] ?? []),
             ],
             'quality_gates' => is_array($corpusCase['quality_gates'] ?? null) ? $corpusCase['quality_gates'] : [],
             'timeout_policy' => is_array($corpusCase['timeout_policy'] ?? null) ? $corpusCase['timeout_policy'] : [],
@@ -1998,8 +1998,8 @@ final class AtlasForgeRivalsRunRealService
             ];
         }
 
-        $allowed = $this->stringList($case['allowed_files'] ?? []);
-        $expectedChanged = $this->stringList($case['expected_changed_files'] ?? []);
+        $allowed = AiStringListNormalizer::castItemsToStrings($case['allowed_files'] ?? []);
+        $expectedChanged = AiStringListNormalizer::castItemsToStrings($case['expected_changed_files'] ?? []);
         $targetsByBasename = [];
         foreach (array_values(array_unique(array_merge($allowed, $expectedChanged))) as $target) {
             $targetsByBasename[basename($target)] = $target;
@@ -2258,8 +2258,8 @@ TS,
                 continue;
             }
 
-            $allowed = $this->stringList($case['allowed_files'] ?? []);
-            $expectedChanged = $this->stringList($case['expected_changed_files'] ?? []);
+            $allowed = AiStringListNormalizer::castItemsToStrings($case['allowed_files'] ?? []);
+            $expectedChanged = AiStringListNormalizer::castItemsToStrings($case['expected_changed_files'] ?? []);
             if ($expectedChanged === []) {
                 $blockers[] = 'expected_changed_files_missing:'.$caseId;
             }
@@ -2912,7 +2912,7 @@ TS,
             ];
         }
         $scope = $this->scopeCheck($worktree, $case);
-        $runtimeChangedFiles = $this->stringList($runtimeDiff['changed_files'] ?? []);
+        $runtimeChangedFiles = AiStringListNormalizer::castItemsToStrings($runtimeDiff['changed_files'] ?? []);
         $changedFiles = $scope['changed_files'];
         if ($changedFiles === [] && $runtimeChangedFiles !== []) {
             $changedFiles = $runtimeChangedFiles;
@@ -3038,7 +3038,7 @@ TS,
 
         return [
             'diff' => is_string($decoded['diff'] ?? null) ? (string) $decoded['diff'] : '',
-            'changed_files' => $this->stringList($decoded['changed_files'] ?? []),
+            'changed_files' => AiStringListNormalizer::castItemsToStrings($decoded['changed_files'] ?? []),
         ];
     }
 
@@ -3103,13 +3103,13 @@ TS,
             'rivals_runtime_execution=true',
             'workspace_patch_required=true',
         ];
-        foreach ($this->stringList($case['allowed_files'] ?? []) as $path) {
+        foreach (AiStringListNormalizer::castItemsToStrings($case['allowed_files'] ?? []) as $path) {
             $constraints[] = 'allowed_files='.$path;
         }
         foreach ($this->expectedChangedScope($case) as $path) {
             $constraints[] = 'expected_changed_file='.$path;
         }
-        foreach ($this->stringList($case['forbidden_files'] ?? []) as $path) {
+        foreach (AiStringListNormalizer::castItemsToStrings($case['forbidden_files'] ?? []) as $path) {
             $constraints[] = 'forbidden_files='.$path;
         }
         $testCommand = $this->testCommand($case);
@@ -3376,9 +3376,9 @@ DIFF;
     private function casePrompt(array $case, string $role, bool $providerSafeProjection = false): string
     {
         $promptMode = (string) ($case['prompt_mode'] ?? 'spec-perfect');
-        $allowed = implode("\n- ", $this->stringList($case['allowed_files'] ?? []));
+        $allowed = implode("\n- ", AiStringListNormalizer::castItemsToStrings($case['allowed_files'] ?? []));
         $expectedChanged = implode("\n- ", $this->expectedChangedScope($case));
-        $acceptance = implode("\n- ", $this->stringList($case['acceptance_criteria'] ?? []));
+        $acceptance = implode("\n- ", AiStringListNormalizer::castItemsToStrings($case['acceptance_criteria'] ?? []));
         $testCommand = $this->testCommand($case);
         $businessRule = trim((string) ($case['business_rule'] ?? ''));
         $expectedSignal = trim((string) ($case['expected_signal'] ?? ''));
@@ -3537,9 +3537,9 @@ PROMPT;
 
         if ($pressure !== []) {
             $pressureLevel = (string) ($pressure['pressure_level'] ?? 'unknown');
-            $requiredSections = implode(', ', $this->stringList($pressure['required_sections'] ?? []));
-            $invalidIfMissing = implode(', ', $this->stringList($pressure['invalid_if_missing'] ?? []));
-            $requires = implode(', ', $this->stringList($pressure['requires'] ?? []));
+            $requiredSections = implode(', ', AiStringListNormalizer::castItemsToStrings($pressure['required_sections'] ?? []));
+            $invalidIfMissing = implode(', ', AiStringListNormalizer::castItemsToStrings($pressure['invalid_if_missing'] ?? []));
+            $requires = implode(', ', AiStringListNormalizer::castItemsToStrings($pressure['requires'] ?? []));
 
             $contractLabel = $providerSafeProjection ? 'Contrato 360 obrigatorio' : 'Contrato Rivals 360 obrigatorio';
             $evidenceLabel = $providerSafeProjection ? '360 Evidence' : 'Rivals 360 Evidence';
@@ -3752,7 +3752,7 @@ TEXT;
      */
     private function scopeCheck(string $worktree, array $case): array
     {
-        $allowed = $this->stringList($case['allowed_files'] ?? []);
+        $allowed = AiStringListNormalizer::castItemsToStrings($case['allowed_files'] ?? []);
         $expectedChanged = $this->expectedChangedScope($case);
         $fixtureHashes = $this->fixtureBaselineHashes($case);
         $changed = [];
@@ -3809,12 +3809,12 @@ TEXT;
      */
     private function expectedChangedScope(array $case): array
     {
-        $expected = $this->stringList($case['expected_changed_files'] ?? []);
+        $expected = AiStringListNormalizer::castItemsToStrings($case['expected_changed_files'] ?? []);
         if ($expected !== []) {
             return $expected;
         }
 
-        return $this->stringList($case['allowed_files'] ?? []);
+        return AiStringListNormalizer::castItemsToStrings($case['allowed_files'] ?? []);
     }
 
     /**
@@ -4000,7 +4000,7 @@ TEXT;
             return false;
         }
 
-        $expected = $this->stringList($case['expected_changed_files'] ?? []);
+        $expected = AiStringListNormalizer::castItemsToStrings($case['expected_changed_files'] ?? []);
         if ($expected !== [] && $this->matchesAnyAllowedScope($file, $expected)) {
             return false;
         }
@@ -4041,18 +4041,9 @@ TEXT;
             'provider_exit_zero' => (int) ($receipt['exit_code'] ?? -1) === 0,
             'tests_passed' => (int) ($receipt['test_exit_code'] ?? -1) === 0,
             'patch_diff_present' => (int) ($receipt['patch_diff_bytes'] ?? 0) > 0,
-            'out_of_scope_files' => $this->stringList($receipt['out_of_scope_files'] ?? []),
-            'bytecode_artifacts' => $this->stringList($receipt['bytecode_artifacts'] ?? []),
+            'out_of_scope_files' => AiStringListNormalizer::castItemsToStrings($receipt['out_of_scope_files'] ?? []),
+            'bytecode_artifacts' => AiStringListNormalizer::castItemsToStrings($receipt['bytecode_artifacts'] ?? []),
         ];
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList($value): array
-    {
-        return AiStringListNormalizer::castItemsToStrings($value);
     }
 
     /**
@@ -4385,9 +4376,9 @@ TEXT;
         $atlasReceipt = is_array($caseEntry['atlas_receipt'] ?? null) ? $caseEntry['atlas_receipt'] : [];
         $rivalReceipt = is_array($caseEntry['rival_receipt'] ?? null) ? $caseEntry['rival_receipt'] : [];
         $verdict = (string) ($caseEntry['verdict'] ?? 'unknown');
-        $workspaceBlockers = $this->stringList($caseEntry['workspace_blockers'] ?? []);
-        $armContractBlockers = $this->stringList($caseEntry['arm_contract_blockers'] ?? []);
-        $fixtureBlockers = $this->stringList($caseEntry['fixture_blockers'] ?? []);
+        $workspaceBlockers = AiStringListNormalizer::castItemsToStrings($caseEntry['workspace_blockers'] ?? []);
+        $armContractBlockers = AiStringListNormalizer::castItemsToStrings($caseEntry['arm_contract_blockers'] ?? []);
+        $fixtureBlockers = AiStringListNormalizer::castItemsToStrings($caseEntry['fixture_blockers'] ?? []);
         $caseDirty = $workspaceBlockers !== [];
         $startedAt = (string) ($atlasReceipt['started_at'] ?? '');
         $finishedAt = (string) ($rivalReceipt['finished_at'] ?? $atlasReceipt['finished_at'] ?? '');

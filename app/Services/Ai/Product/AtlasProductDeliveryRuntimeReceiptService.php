@@ -4,6 +4,8 @@ namespace App\Services\Ai\Product;
 
 use App\Models\AtlasProductDeliveryRuntimeReceipt;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 class AtlasProductDeliveryRuntimeReceiptService
 {
@@ -18,9 +20,9 @@ class AtlasProductDeliveryRuntimeReceiptService
             'schema_version' => self::SCHEMA_VERSION,
             'receipt_type' => $this->type($type),
             'status' => $this->status($payload),
-            'route' => $this->nullableString($payload['route'] ?? data_get($payload, 'patch_proposal_gate.route')),
-            'delivery_hash' => $this->nullableString($payload['delivery_hash'] ?? null),
-            'proof_hash' => $this->nullableString($payload['proof_hash'] ?? null),
+            'route' => AiValueNormalizer::trimmedScalarStringOrNull($payload['route'] ?? data_get($payload, 'patch_proposal_gate.route')),
+            'delivery_hash' => AiValueNormalizer::trimmedScalarStringOrNull($payload['delivery_hash'] ?? null),
+            'proof_hash' => AiValueNormalizer::trimmedScalarStringOrNull($payload['proof_hash'] ?? null),
             'writes' => (bool) ($payload['writes'] ?? false),
             'aedpds_gate' => $this->aedpdsGate($payload),
             'payload' => $payload,
@@ -59,8 +61,8 @@ class AtlasProductDeliveryRuntimeReceiptService
         return [
             'status' => (string) data_get($payload, 'aedpds_gate.status', data_get($payload, 'delivery_contract.aedpds.gate.status', 'unknown')),
             'hash' => (string) data_get($payload, 'aedpds_gate.hash', data_get($payload, 'delivery_contract.aedpds.gate.hash', '')),
-            'warnings' => $this->stringList(data_get($payload, 'aedpds_gate.warnings', data_get($payload, 'delivery_contract.aedpds.gate.warnings', []))),
-            'blockers' => $this->stringList(data_get($payload, 'aedpds_gate.blockers', data_get($payload, 'delivery_contract.aedpds.gate.blockers', []))),
+            'warnings' => AiStringListNormalizer::trimmedScalarValues(data_get($payload, 'aedpds_gate.warnings', data_get($payload, 'delivery_contract.aedpds.gate.warnings', []))),
+            'blockers' => AiStringListNormalizer::trimmedScalarValues(data_get($payload, 'aedpds_gate.blockers', data_get($payload, 'delivery_contract.aedpds.gate.blockers', []))),
         ];
     }
 
@@ -83,29 +85,4 @@ class AtlasProductDeliveryRuntimeReceiptService
         return is_scalar($status) && trim((string) $status) !== '' ? trim((string) $status) : 'unknown';
     }
 
-    private function nullableString(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value === '' ? null : $value;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(
-            static fn (mixed $item): ?string => is_scalar($item) ? trim((string) $item) : null,
-            $value,
-        ), static fn (?string $item): bool => $item !== null && $item !== ''));
-    }
 }

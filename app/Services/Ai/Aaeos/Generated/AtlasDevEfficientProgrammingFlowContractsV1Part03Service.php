@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+
 /**
  * Atlas Dev Efficient Programming Flow Contracts v1 · Parte 3 — invariant decider.
  *
@@ -186,7 +188,7 @@ final class AtlasDevEfficientProgrammingFlowContractsV1Part03Service
             return; // no risk context supplied → invariant cannot be asserted.
         }
 
-        $nonGoals = $this->stringList($spec['non_goals'] ?? null);
+        $nonGoals = AtlasAaeosValueNormalizer::trimmedStringList($spec['non_goals'] ?? null);
 
         if ($rank >= 2 && $nonGoals === []) {
             $violations[] = [
@@ -236,9 +238,9 @@ final class AtlasDevEfficientProgrammingFlowContractsV1Part03Service
      */
     private function checkFileSets(array $spec, array &$violations): void
     {
-        $expected = $this->stringList($spec['expected_files'] ?? null);
-        $allowed = $this->stringList($spec['allowed_files'] ?? null);
-        $forbidden = $this->stringList($spec['forbidden_files'] ?? null);
+        $expected = AtlasAaeosValueNormalizer::trimmedStringList($spec['expected_files'] ?? null);
+        $allowed = AtlasAaeosValueNormalizer::trimmedStringList($spec['allowed_files'] ?? null);
+        $forbidden = AtlasAaeosValueNormalizer::trimmedStringList($spec['forbidden_files'] ?? null);
 
         // I4 — every expected file must appear in allowed_files.
         $notAllowed = array_values(array_diff($expected, $allowed));
@@ -388,26 +390,6 @@ final class AtlasDevEfficientProgrammingFlowContractsV1Part03Service
         }
 
         return (int) $digits;
-    }
-
-    /**
-     * Coerce a payload field into a clean list of non-empty trimmed strings.
-     *
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
-        }
-
-        return $out;
     }
 
     /**

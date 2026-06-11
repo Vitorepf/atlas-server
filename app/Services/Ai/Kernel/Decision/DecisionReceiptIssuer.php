@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Kernel\Decision;
 
 use App\Services\Ai\Kernel\Envelope\OperationEnvelope;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 
@@ -140,14 +141,7 @@ class DecisionReceiptIssuer
      */
     private function stringList(mixed $values): array
     {
-        if (! is_array($values)) {
-            return [];
-        }
-
-        return array_values(array_unique(array_filter(
-            array_map(fn (mixed $value): string => $this->string($value), $values),
-            fn (string $value): bool => $value !== '',
-        )));
+        return AiStringListNormalizer::uniqueTrimmedCastItemsToStrings($values);
     }
 
     /**

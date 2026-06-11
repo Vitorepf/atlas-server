@@ -139,12 +139,12 @@ final class AtlasAiImplementationPacketContractService
         $packetId = $this->str($packet['packet_id'] ?? null) ?? 'AIP-UNKNOWN';
         $status = $this->normalizeStatus($packet['status'] ?? null);
 
-        $allowed = $this->normalizePaths($packet['allowed_files'] ?? []);
-        $forbidden = $this->normalizePaths($packet['forbidden_files'] ?? []);
-        $requiredGates = $this->normalizePaths($packet['required_gates'] ?? []);
-        $hotFiles = $this->normalizePaths($packet['hot_files'] ?? []);
-        $acceptance = $this->normalizeList($packet['acceptance_criteria'] ?? []);
-        $evidence = $this->normalizeList($packet['required_evidence'] ?? []);
+        $allowed = AtlasAaeosValueNormalizer::uniqueTrimmedStringList($packet['allowed_files'] ?? []);
+        $forbidden = AtlasAaeosValueNormalizer::uniqueTrimmedStringList($packet['forbidden_files'] ?? []);
+        $requiredGates = AtlasAaeosValueNormalizer::uniqueTrimmedStringList($packet['required_gates'] ?? []);
+        $hotFiles = AtlasAaeosValueNormalizer::uniqueTrimmedStringList($packet['hot_files'] ?? []);
+        $acceptance = AtlasAaeosValueNormalizer::uniqueTrimmedStringList($packet['acceptance_criteria'] ?? []);
+        $evidence = AtlasAaeosValueNormalizer::uniqueTrimmedStringList($packet['required_evidence'] ?? []);
 
         $touchesSensitive = $this->touchesSensitive($allowed);
         $hasCriticalAp = (bool) ($packet['has_critical_ap'] ?? false);
@@ -294,8 +294,8 @@ final class AtlasAiImplementationPacketContractService
     {
         $packetId = $this->str($report['packet_id'] ?? null) ?? 'AIP-UNKNOWN';
 
-        $acceptance = $this->normalizeList($report['acceptance_criteria'] ?? []);
-        $satisfied = $this->normalizeList($report['satisfied_criteria'] ?? []);
+        $acceptance = AtlasAaeosValueNormalizer::uniqueTrimmedStringList($report['acceptance_criteria'] ?? []);
+        $satisfied = AtlasAaeosValueNormalizer::uniqueTrimmedStringList($report['satisfied_criteria'] ?? []);
         $missingCriteria = array_values(array_diff($acceptance, $satisfied));
 
         $gates = is_array($report['gates'] ?? null) ? $report['gates'] : [];
@@ -315,11 +315,11 @@ final class AtlasAiImplementationPacketContractService
         $scopeStatus = strtolower((string) ($report['scope_validator_status'] ?? 'fail'));
         $scopeClean = $scopeStatus === 'pass';
 
-        $evidence = $this->normalizeList($report['evidence'] ?? []);
+        $evidence = AtlasAaeosValueNormalizer::uniqueTrimmedStringList($report['evidence'] ?? []);
         $evidenceAttached = $evidence !== [];
 
         $residualDocumented = ($report['residual_risk_documented'] ?? false) === true;
-        $unrelated = $this->normalizePaths($report['unrelated_files_changed'] ?? []);
+        $unrelated = AtlasAaeosValueNormalizer::uniqueTrimmedStringList($report['unrelated_files_changed'] ?? []);
         $normalizedResponse = ($report['normalized_final_response'] ?? false) === true;
 
         $blockers = [];
@@ -511,35 +511,6 @@ final class AtlasAiImplementationPacketContractService
     private function reason(string $code, string $message): array
     {
         return ['code' => $code, 'message' => $message];
-    }
-
-    /**
-     * @param mixed $paths
-     * @return list<string>
-     */
-    private function normalizePaths(mixed $paths): array
-    {
-        if (! is_array($paths)) {
-            return [];
-        }
-
-        $clean = [];
-        foreach ($paths as $p) {
-            if (is_string($p) && trim($p) !== '') {
-                $clean[] = trim($p);
-            }
-        }
-
-        return array_values(array_unique($clean));
-    }
-
-    /**
-     * @param mixed $list
-     * @return list<string>
-     */
-    private function normalizeList(mixed $list): array
-    {
-        return $this->normalizePaths($list);
     }
 
     private function str(mixed $v): ?string

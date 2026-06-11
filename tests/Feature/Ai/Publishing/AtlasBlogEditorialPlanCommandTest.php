@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Publishing;
 
+use App\Models\AiCodebaseWorldModel;
+use App\Models\AiCodebaseWorldModelEdge;
+use App\Models\AiCodebaseWorldModelNode;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -305,6 +308,449 @@ JS);
         $this->assertSame('deep_post_without_prior_foundation', data_get($payload, 'coverage_map.deep_sequence_warnings.0.code'));
     }
 
+    public function test_editorial_radar_reports_week_lanes_gaps_and_candidate_feed(): void
+    {
+        $this->bootContextReadModels();
+        $this->seedContextReadModels();
+        $this->writeFirstMonthFoundationBacklog();
+        $this->writePublishedPosts(['o-que-e-o-atlas', 'por-que-estou-construindo-o-atlas']);
+
+        $exit = Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--editorial-radar' => true,
+            '--candidate-limit' => 3,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('read_only_governed_p1', $payload['mode']);
+        $this->assertTrue(data_get($payload, 'summary.with_editorial_radar'));
+        $this->assertSame('atlas.blog_editorial_radar.v1', data_get($payload, 'editorial_radar.schema_version'));
+        $this->assertSame(2, data_get($payload, 'editorial_radar.current_state.contiguous_published_until_order'));
+        $this->assertSame(3, data_get($payload, 'editorial_radar.current_state.next_sequence_order'));
+        $this->assertSame('o-problema-dos-assistentes-de-ia-hoje', data_get($payload, 'editorial_radar.current_state.next_ready_slug'));
+        $this->assertSame(4, count(data_get($payload, 'editorial_radar.week_lanes')));
+        $this->assertSame('building-atlas', data_get($payload, 'editorial_radar.sequence_lanes.0.series'));
+        $this->assertGreaterThanOrEqual(1, count(data_get($payload, 'editorial_radar.gap_register.missing_foundation_published')));
+        $this->assertGreaterThanOrEqual(1, data_get($payload, 'editorial_radar.candidate_feed.candidate_count'));
+        $this->assertSame('future_governed', data_get($payload, 'editorial_radar.source_readiness.graph_retrieval'));
+        $this->assertFalse(data_get($payload, 'editorial_radar.guardrails.writes_backlog'));
+        $this->assertFalse(data_get($payload, 'editorial_radar.guardrails.uses_graph_rag'));
+    }
+
+    public function test_operating_state_reports_compact_blog_area_state_without_writing(): void
+    {
+        $this->bootContextReadModels();
+        $this->seedContextReadModels();
+        $this->writeFirstMonthFoundationBacklog();
+        $this->writePublishedPosts(['o-que-e-o-atlas', 'por-que-estou-construindo-o-atlas']);
+
+        $exit = Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--operating-state' => true,
+            '--candidate-limit' => 3,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('read_only_governed_p1', $payload['mode']);
+        $this->assertTrue(data_get($payload, 'summary.with_operating_state'));
+        $this->assertSame('atlas.blog_editorial_operating_state.v1', data_get($payload, 'operating_state.schema_version'));
+        $this->assertSame('read_only_area_state_p1', data_get($payload, 'operating_state.mode'));
+        $this->assertSame('foundation_sequence_in_progress', data_get($payload, 'operating_state.stage.current'));
+        $this->assertSame(20, data_get($payload, 'operating_state.counts.planned_posts'));
+        $this->assertSame(2, data_get($payload, 'operating_state.counts.published_posts'));
+        $this->assertSame(3, data_get($payload, 'operating_state.publication_frontier.next_sequence_order'));
+        $this->assertSame('next_post_ready_future_blockers', data_get($payload, 'operating_state.publication_frontier.sequence_health'));
+        $this->assertSame('o-problema-dos-assistentes-de-ia-hoje', data_get($payload, 'operating_state.next_post.slug'));
+        $this->assertSame(4, count(data_get($payload, 'operating_state.week_board')));
+        $this->assertSame('o-problema-dos-assistentes-de-ia-hoje', data_get($payload, 'operating_state.week_board.0.next_unpublished_slug'));
+        $this->assertSame('future_governed', data_get($payload, 'operating_state.source_posture.graph_retrieval'));
+        $this->assertArrayHasKey('daily_operations', data_get($payload, 'operating_state.area_surfaces'));
+        $this->assertFalse(data_get($payload, 'operating_state.guardrails.writes_backlog'));
+        $this->assertFalse(data_get($payload, 'operating_state.guardrails.publishes_content'));
+    }
+
+    public function test_graph_rag_readiness_reports_components_and_blockers_without_enabling_runtime(): void
+    {
+        $this->writeFirstMonthFoundationBacklog();
+        $this->writePublishedPosts(['o-que-e-o-atlas']);
+
+        $exit = Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--graph-rag-readiness' => true,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('read_only_governed_p1', $payload['mode']);
+        $this->assertTrue(data_get($payload, 'summary.with_graph_rag_readiness'));
+        $this->assertSame('atlas.blog_editorial_graph_rag_readiness.v1', data_get($payload, 'graph_rag_readiness.schema_version'));
+        $this->assertSame('not_promoted', data_get($payload, 'graph_rag_readiness.status'));
+        $this->assertSame('p1_read_only_editorial_intelligence', data_get($payload, 'graph_rag_readiness.current_phase'));
+        $this->assertSame('p2_bounded_graph_rag_editorial_context', data_get($payload, 'graph_rag_readiness.target_phase'));
+
+        $components = collect(data_get($payload, 'graph_rag_readiness.available_components', []))->keyBy('component');
+        $this->assertSame('available', data_get($components->get('ap_811_code_graph_traversal'), 'status'));
+        $this->assertSame('available', data_get($components->get('atlas_graph_retrieval_service'), 'status'));
+        $this->assertSame('available', data_get($components->get('world_model_graph_ranker'), 'status'));
+        $this->assertSame('available', data_get($components->get('mandatory_rag_gate'), 'status'));
+
+        $blockers = collect(data_get($payload, 'graph_rag_readiness.missing_or_blocking_items', []))
+            ->pluck('code')
+            ->all();
+        $this->assertContains('ap_817_p2_review_required', $blockers);
+        $this->assertContains('kernel_decision_receipt_required', $blockers);
+        $this->assertContains('global_graph_retrieval_future_governed', $blockers);
+        $this->assertNotContains('editorial_golden_set_missing', $blockers);
+        $this->assertSame('passed', data_get($payload, 'graph_rag_readiness.editorial_golden_set.status'));
+        $this->assertSame(7, data_get($payload, 'graph_rag_readiness.editorial_golden_set.summary.case_count'));
+        $this->assertContains('editorial_radar', data_get($payload, 'graph_rag_readiness.allowed_now'));
+        $this->assertContains('direct_graph_traversal_for_blog_planning', data_get($payload, 'graph_rag_readiness.deferred_until_p2'));
+        $this->assertFalse(data_get($payload, 'graph_rag_readiness.guardrails.uses_graph_rag'));
+        $this->assertFalse(data_get($payload, 'graph_rag_readiness.guardrails.uses_python_runtime'));
+        $this->assertFalse(data_get($payload, 'graph_rag_readiness.guardrails.invokes_graph_retrieval'));
+    }
+
+    public function test_editorial_golden_set_proves_foundation_first_sequence_without_runtime(): void
+    {
+        $this->writeFirstMonthFoundationBacklog();
+        $this->writePublishedPosts(['o-que-e-o-atlas', 'por-que-estou-construindo-o-atlas']);
+
+        $exit = Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--editorial-golden-set' => true,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('read_only_governed_p1', $payload['mode']);
+        $this->assertTrue(data_get($payload, 'summary.with_editorial_golden_set'));
+        $this->assertSame('atlas.blog_editorial_golden_set.v1', data_get($payload, 'editorial_golden_set.schema_version'));
+        $this->assertSame('passed', data_get($payload, 'editorial_golden_set.status'));
+        $this->assertSame(7, data_get($payload, 'editorial_golden_set.summary.case_count'));
+        $this->assertSame(0, data_get($payload, 'editorial_golden_set.summary.failed_count'));
+
+        $cases = collect(data_get($payload, 'editorial_golden_set.cases', []))->keyBy('code');
+        $this->assertTrue(data_get($cases->get('sequence_starts_with_atlas_identity'), 'passed'));
+        $this->assertTrue(data_get($cases->get('published_prefix_advances_to_next_foundation'), 'passed'));
+        $this->assertTrue(data_get($cases->get('deep_topic_without_foundation_is_warned'), 'passed'));
+        $this->assertTrue(data_get($cases->get('future_terms_stay_future_until_introduced'), 'passed'));
+        $this->assertTrue(data_get($payload, 'editorial_golden_set.promotion_signal.editorial_golden_set_ready'));
+        $this->assertFalse(data_get($payload, 'editorial_golden_set.guardrails.uses_graph_rag'));
+        $this->assertFalse(data_get($payload, 'editorial_golden_set.guardrails.uses_python_runtime'));
+        $this->assertFalse(data_get($payload, 'editorial_golden_set.guardrails.invokes_graph_retrieval'));
+    }
+
+    public function test_editorial_graph_context_uses_bounded_world_model_receipt_without_publication_power(): void
+    {
+        $this->bootWorldModelSchemaForEditorialGraph();
+        $worldModelId = $this->seedEditorialBlogWorldModel();
+        $this->writeFirstMonthFoundationBacklog();
+        $this->writePublishedPosts(['o-que-e-o-atlas', 'por-que-estou-construindo-o-atlas']);
+
+        $exit = Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--editorial-graph-context' => true,
+            '--graph-world-model-id' => $worldModelId,
+            '--graph-context-limit' => 4,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('read_only_governed_p1', $payload['mode']);
+        $this->assertTrue(data_get($payload, 'summary.with_editorial_graph_context'));
+        $this->assertSame('atlas.blog_editorial_graph_context.v1', data_get($payload, 'editorial_graph_context.schema_version'));
+        $this->assertSame('ready', data_get($payload, 'editorial_graph_context.status'));
+        $this->assertSame('o-problema-dos-assistentes-de-ia-hoje', data_get($payload, 'editorial_graph_context.post.slug'));
+        $this->assertSame('passed', data_get($payload, 'editorial_graph_context.editorial_golden_set.status'));
+        $this->assertSame('ready', data_get($payload, 'editorial_graph_context.graph_retrieval.status'));
+        $this->assertSame('codebase_world_model_bounded', data_get($payload, 'editorial_graph_context.graph_retrieval.graph_scope'));
+        $this->assertSame('passed', data_get($payload, 'editorial_graph_context.graph_retrieval.traversal_receipt.status'));
+        $this->assertTrue(data_get($payload, 'editorial_graph_context.graph_retrieval.traversal_receipt.bounded_traversal'));
+        $this->assertGreaterThanOrEqual(1, data_get($payload, 'editorial_graph_context.graph_retrieval.evidence_set.evidence_count'));
+        $this->assertFalse(data_get($payload, 'editorial_graph_context.graph_retrieval.policy.global_graph_retrieval_active'));
+        $this->assertFalse(data_get($payload, 'editorial_graph_context.graph_retrieval.policy.python_runtime_invoked'));
+        $this->assertFalse(data_get($payload, 'editorial_graph_context.graph_retrieval.policy.providers_invoked'));
+        $this->assertFalse(data_get($payload, 'editorial_graph_context.editorial_policy.may_reorder_backlog'));
+        $this->assertFalse(data_get($payload, 'editorial_graph_context.editorial_policy.may_publish'));
+        $this->assertTrue(data_get($payload, 'editorial_graph_context.guardrails.invokes_bounded_graph_retrieval'));
+        $this->assertFalse(data_get($payload, 'editorial_graph_context.guardrails.uses_global_graph_rag'));
+    }
+
+    public function test_editorial_graph_candidates_feed_review_only_future_backlog_ideas(): void
+    {
+        $this->bootWorldModelSchemaForEditorialGraph();
+        $worldModelId = $this->seedEditorialBlogWorldModel();
+        $this->writeFirstMonthFoundationBacklog();
+        $this->writePublishedPosts(['o-que-e-o-atlas', 'por-que-estou-construindo-o-atlas']);
+
+        $exit = Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--editorial-graph-candidates' => true,
+            '--graph-world-model-id' => $worldModelId,
+            '--graph-context-limit' => 4,
+            '--candidate-limit' => 3,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertTrue(data_get($payload, 'summary.with_editorial_graph_candidates'));
+        $this->assertSame('atlas.blog_editorial_graph_candidates.v1', data_get($payload, 'editorial_graph_candidates.schema_version'));
+        $this->assertSame('ready', data_get($payload, 'editorial_graph_candidates.status'));
+        $this->assertSame('como-o-atlas-esta-evoluindo', data_get($payload, 'editorial_graph_candidates.sequence_policy.default_suggested_after_slug'));
+        $this->assertGreaterThanOrEqual(1, data_get($payload, 'editorial_graph_candidates.candidate_count'));
+        $this->assertSame('bounded_world_model_graph', data_get($payload, 'editorial_graph_candidates.candidates.0.source_type'));
+        $this->assertSame('como-o-atlas-esta-evoluindo', data_get($payload, 'editorial_graph_candidates.candidates.0.suggested_after_slug'));
+        $this->assertStringContainsString('review queue', data_get($payload, 'editorial_graph_candidates.candidates.0.promotion_rule'));
+        $this->assertSame('ready', data_get($payload, 'editorial_graph_candidates.graph_context.graph_retrieval_status'));
+        $this->assertTrue(data_get($payload, 'editorial_graph_candidates.graph_context.bounded_traversal'));
+        $this->assertFalse(data_get($payload, 'editorial_graph_candidates.graph_context.global_graph_retrieval_active'));
+        $this->assertFalse(data_get($payload, 'editorial_graph_candidates.guardrails.writes_backlog'));
+        $this->assertFalse(data_get($payload, 'editorial_graph_candidates.guardrails.writes_review_queue'));
+        $this->assertFalse(data_get($payload, 'editorial_graph_candidates.guardrails.publishes_content'));
+        $this->assertFalse(data_get($payload, 'editorial_graph_candidates.guardrails.may_reorder_backlog'));
+        $this->assertTrue(data_get($payload, 'editorial_graph_candidates.guardrails.requires_human_approval_to_accept'));
+        $this->assertFalse(File::exists($this->siteRoot.'/content/backlog/blog-candidates.yaml'));
+    }
+
+    public function test_accept_graph_candidate_dry_run_uses_same_review_queue_contract(): void
+    {
+        $this->bootWorldModelSchemaForEditorialGraph();
+        $worldModelId = $this->seedEditorialBlogWorldModel();
+        $this->writeFirstMonthFoundationBacklog();
+        $this->writePublishedPosts(['o-que-e-o-atlas', 'por-que-estou-construindo-o-atlas']);
+
+        $exit = Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--editorial-graph-candidates' => true,
+            '--graph-world-model-id' => $worldModelId,
+            '--accept-candidate' => 'como-o-atlas-decide-a-ordem-do-blog',
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('dry_run_review_queue_p1', data_get($payload, 'candidate_acceptance.mode'));
+        $this->assertSame('bounded_world_model_graph', data_get($payload, 'candidate_acceptance.candidate.source_type'));
+        $this->assertSame('como-o-atlas-esta-evoluindo', data_get($payload, 'candidate_acceptance.review_queue_entry.suggested_after_slug'));
+        $this->assertStringContainsString('slug: "como-o-atlas-decide-a-ordem-do-blog"', data_get($payload, 'candidate_acceptance.yaml_snippet'));
+        $this->assertFalse(data_get($payload, 'candidate_acceptance.guardrails.writes_main_backlog'));
+        $this->assertFalse(data_get($payload, 'candidate_acceptance.guardrails.writes_review_queue'));
+        $this->assertTrue(data_get($payload, 'candidate_acceptance.guardrails.invokes_bounded_graph_retrieval'));
+        $this->assertFalse(data_get($payload, 'candidate_acceptance.guardrails.uses_global_graph_rag'));
+        $this->assertFalse(File::exists($this->siteRoot.'/content/backlog/blog-candidates.yaml'));
+    }
+
+    public function test_accept_graph_candidate_with_write_creates_review_queue_only(): void
+    {
+        $this->bootWorldModelSchemaForEditorialGraph();
+        $worldModelId = $this->seedEditorialBlogWorldModel();
+        $this->writeFirstMonthFoundationBacklog();
+        $this->writePublishedPosts(['o-que-e-o-atlas', 'por-que-estou-construindo-o-atlas']);
+
+        $exit = Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--editorial-graph-candidates' => true,
+            '--graph-world-model-id' => $worldModelId,
+            '--accept-candidate' => 'como-o-atlas-decide-a-ordem-do-blog',
+            '--write' => true,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('explicit_write_review_queue_p1', data_get($payload, 'candidate_acceptance.mode'));
+        $this->assertTrue(data_get($payload, 'candidate_acceptance.guardrails.writes_review_queue'));
+        $this->assertFalse(data_get($payload, 'candidate_acceptance.guardrails.writes_main_backlog'));
+        $this->assertTrue(File::exists($this->siteRoot.'/content/backlog/blog-candidates.yaml'));
+        $this->assertStringContainsString('source_type: "bounded_world_model_graph"', File::get($this->siteRoot.'/content/backlog/blog-candidates.yaml'));
+        $this->assertStringContainsString('slug: "como-o-atlas-decide-a-ordem-do-blog"', File::get($this->siteRoot.'/content/backlog/blog-candidates.yaml'));
+    }
+
+    public function test_review_queue_state_reports_accepted_candidates_without_writing(): void
+    {
+        $this->bootWorldModelSchemaForEditorialGraph();
+        $worldModelId = $this->seedEditorialBlogWorldModel();
+        $this->writeFirstMonthFoundationBacklog();
+        $this->writePublishedPosts(['o-que-e-o-atlas', 'por-que-estou-construindo-o-atlas']);
+
+        Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--editorial-graph-candidates' => true,
+            '--graph-world-model-id' => $worldModelId,
+            '--accept-candidate' => 'como-o-atlas-decide-a-ordem-do-blog',
+            '--write' => true,
+            '--json' => true,
+        ]);
+
+        $exit = Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--review-queue' => true,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertTrue(data_get($payload, 'summary.with_review_queue'));
+        $this->assertSame('atlas.blog_editorial_review_queue.v1', data_get($payload, 'review_queue.schema_version'));
+        $this->assertSame('ready', data_get($payload, 'review_queue.status'));
+        $this->assertSame(1, data_get($payload, 'review_queue.candidate_count'));
+        $this->assertSame(0, data_get($payload, 'review_queue.duplicate_count'));
+        $this->assertSame('como-o-atlas-decide-a-ordem-do-blog', data_get($payload, 'review_queue.candidates.0.slug'));
+        $this->assertTrue(data_get($payload, 'review_queue.candidates.0.ready_for_promotion_review'));
+        $this->assertFalse(data_get($payload, 'review_queue.guardrails.writes_backlog'));
+    }
+
+    public function test_review_queue_deduplicates_kb_candidate_suggestions(): void
+    {
+        $this->bootContextReadModels();
+        $this->seedContextReadModels();
+        $this->writeBacklog();
+        $this->writePublishedPosts([]);
+
+        Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--accept-candidate' => 'memory-ledger-contract',
+            '--write' => true,
+            '--json' => true,
+        ]);
+
+        $exit = Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--suggest-candidates' => true,
+            '--candidate-limit' => 10,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $slugs = collect(data_get($payload, 'backlog_candidates.candidates', []))
+            ->pluck('slug')
+            ->all();
+
+        $this->assertNotContains('memory-ledger-contract', $slugs);
+        $this->assertTrue(data_get($payload, 'backlog_candidates.guardrails.deduplicates_review_queue'));
+    }
+
+    public function test_operations_packet_uses_review_queue_state_to_deduplicate_candidates(): void
+    {
+        $this->bootContextReadModels();
+        $this->seedContextReadModels();
+        $this->writeBacklog();
+        $this->writePublishedPosts([]);
+
+        Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--accept-candidate' => 'memory-ledger-contract',
+            '--write' => true,
+            '--json' => true,
+        ]);
+
+        $exit = Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--operations' => true,
+            '--candidate-limit' => 10,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $slugs = collect(data_get($payload, 'operations_packet.candidate_feed.candidates', []))
+            ->pluck('slug')
+            ->all();
+
+        $this->assertSame('ready', data_get($payload, 'operations_packet.review_queue.status'));
+        $this->assertSame(1, data_get($payload, 'operations_packet.review_queue.candidate_count'));
+        $this->assertSame(['memory-ledger-contract'], data_get($payload, 'operations_packet.review_queue.queued_slugs'));
+        $this->assertSame('review_or_promote_candidates', data_get($payload, 'operations_packet.review_queue.next_review_action'));
+        $this->assertNotContains('memory-ledger-contract', $slugs);
+    }
+
+    public function test_editorial_radar_uses_review_queue_state_to_deduplicate_candidates(): void
+    {
+        $this->bootContextReadModels();
+        $this->seedContextReadModels();
+        $this->writeBacklog();
+        $this->writePublishedPosts([]);
+
+        Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--accept-candidate' => 'memory-ledger-contract',
+            '--write' => true,
+            '--json' => true,
+        ]);
+
+        $exit = Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--editorial-radar' => true,
+            '--candidate-limit' => 10,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $slugs = collect(data_get($payload, 'editorial_radar.candidate_feed.candidates', []))
+            ->pluck('slug')
+            ->all();
+
+        $this->assertSame('ready', data_get($payload, 'editorial_radar.review_queue.status'));
+        $this->assertSame(1, data_get($payload, 'editorial_radar.review_queue.candidate_count'));
+        $this->assertSame(['memory-ledger-contract'], data_get($payload, 'editorial_radar.review_queue.queued_slugs'));
+        $this->assertSame('review_or_promote_candidates', data_get($payload, 'editorial_radar.review_queue.next_review_action'));
+        $this->assertNotContains('memory-ledger-contract', $slugs);
+    }
+
+    public function test_review_queue_deduplicates_graph_candidate_suggestions(): void
+    {
+        $this->bootWorldModelSchemaForEditorialGraph();
+        $worldModelId = $this->seedEditorialBlogWorldModel();
+        $this->writeFirstMonthFoundationBacklog();
+        $this->writePublishedPosts(['o-que-e-o-atlas', 'por-que-estou-construindo-o-atlas']);
+
+        Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--editorial-graph-candidates' => true,
+            '--graph-world-model-id' => $worldModelId,
+            '--accept-candidate' => 'como-o-atlas-decide-a-ordem-do-blog',
+            '--write' => true,
+            '--json' => true,
+        ]);
+
+        $exit = Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--editorial-graph-candidates' => true,
+            '--graph-world-model-id' => $worldModelId,
+            '--candidate-limit' => 10,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $slugs = collect(data_get($payload, 'editorial_graph_candidates.candidates', []))
+            ->pluck('slug')
+            ->all();
+
+        $this->assertNotContains('como-o-atlas-decide-a-ordem-do-blog', $slugs);
+        $this->assertGreaterThanOrEqual(1, data_get($payload, 'editorial_graph_candidates.candidate_count'));
+        $this->assertSame('como-o-atlas-esta-evoluindo', data_get($payload, 'editorial_graph_candidates.sequence_policy.default_suggested_after_slug'));
+    }
+
     public function test_writing_packet_prepares_next_ready_post_without_writing(): void
     {
         $this->bootContextReadModels();
@@ -326,6 +772,8 @@ JS);
         $this->assertTrue(data_get($payload, 'summary.with_writing_packet'));
         $this->assertSame('atlas.blog_editorial_writing_packet.v1', data_get($payload, 'writing_packet.schema_version'));
         $this->assertSame('o-que-e-o-atlas', data_get($payload, 'writing_packet.post.slug'));
+        $this->assertSame('atlas.blog_editorial_concept_progression.v1', data_get($payload, 'writing_packet.concept_progression_map.schema_version'));
+        $this->assertSame('o-que-e-o-atlas', data_get($payload, 'writing_packet.concept_progression_map.current_slug'));
         $this->assertSame('pt-BR', data_get($payload, 'writing_packet.writing_brief.language'));
         $this->assertFalse(data_get($payload, 'writing_packet.guardrails.writes_draft'));
         $this->assertFalse(data_get($payload, 'writing_packet.guardrails.publishes_content'));
@@ -334,6 +782,65 @@ JS);
         $this->assertSame('o-que-e-o-atlas', data_get($payload, 'writing_packet.open_brain_handoff.payload.post.slug'));
         $this->assertFalse(data_get($payload, 'writing_packet.open_brain_handoff.guardrails.uses_graph_rag'));
         $this->assertContains('Nao expor paths locais, tokens, prompts, traces ou detalhes privados.', data_get($payload, 'writing_packet.writing_brief.must_not_include'));
+    }
+
+    public function test_writing_packet_maps_concept_progression_before_deep_topics(): void
+    {
+        $this->writeBacklog([
+            [
+                'order' => 1,
+                'title' => 'O que e o Atlas',
+                'slug' => 'o-que-e-o-atlas',
+                'topics' => ['atlas', 'produto'],
+                'prerequisites' => [],
+            ],
+            [
+                'order' => 2,
+                'title' => 'Por que estou construindo o Atlas',
+                'slug' => 'por-que-estou-construindo-o-atlas',
+                'topics' => ['atlas', 'visao', 'processo'],
+                'prerequisites' => ['o-que-e-o-atlas'],
+            ],
+            [
+                'order' => 3,
+                'title' => 'Memoria como ledger',
+                'slug' => 'memoria-como-ledger',
+                'complexity_level' => 'L3',
+                'topics' => ['memoria', 'ledger', 'governanca'],
+                'prerequisites' => ['por-que-estou-construindo-o-atlas'],
+            ],
+            [
+                'order' => 4,
+                'title' => 'Graph RAG profundo no Atlas',
+                'slug' => 'graph-rag-profundo-no-atlas',
+                'complexity_level' => 'L5',
+                'topics' => ['graph-rag', 'python-runtime', 'embedding'],
+                'prerequisites' => ['memoria-como-ledger'],
+            ],
+        ]);
+        $this->writePublishedPosts(['o-que-e-o-atlas', 'por-que-estou-construindo-o-atlas']);
+
+        $exit = Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--writing-packet' => true,
+            '--writing-slug' => 'memoria-como-ledger',
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $map = data_get($payload, 'writing_packet.concept_progression_map');
+
+        $this->assertSame('atlas.blog_editorial_concept_progression.v1', data_get($map, 'schema_version'));
+        $this->assertSame('memoria-como-ledger', data_get($map, 'current_slug'));
+        $this->assertContains('produto', data_get($map, 'introduced_terms'));
+        $this->assertContains('processo', data_get($map, 'introduced_terms'));
+        $this->assertContains('memoria', data_get($map, 'current_terms'));
+        $this->assertContains('ledger', data_get($map, 'allowed_terms'));
+        $this->assertContains('graph-rag', data_get($map, 'future_terms_to_avoid'));
+        $this->assertContains('python-runtime', data_get($map, 'future_terms_to_avoid'));
+        $this->assertFalse(data_get($map, 'guardrails.uses_graph_rag'));
     }
 
     public function test_writing_packet_can_execute_open_brain_context_export_without_returning_raw_pack(): void
@@ -624,8 +1131,7 @@ JS);
             ],
         ];
 
-        $encodedPosts = collect($posts)
-            ->map(function (array $post): string {
+        $encodePost = function (array $post): string {
                 $prerequisites = collect((array) ($post['prerequisites'] ?? []))
                     ->map(fn (string $slug): string => "          - \"{$slug}\"")
                     ->implode("\n");
@@ -637,6 +1143,11 @@ JS);
                 $complexity = (string) ($post['complexity_level'] ?? 'L0');
                 $collection = (string) ($post['collection'] ?? 'atlas');
                 $series = (string) ($post['series'] ?? 'building-atlas');
+                $topics = collect((array) ($post['topics'] ?? ['atlas']))
+                    ->filter(fn (mixed $topic): bool => is_string($topic))
+                    ->values()
+                    ->map(fn (string $topic): string => "          - \"{$topic}\"")
+                    ->implode("\n");
 
                 return <<<YAML
       - order: {$post['order']}
@@ -652,7 +1163,25 @@ JS);
 {$prerequisiteBlock}
         next_reading: []
         topics:
-          - "atlas"
+{$topics}
+YAML;
+        };
+
+        $encodedWeeks = collect($posts)
+            ->groupBy(fn (array $post): int => (int) ($post['week'] ?? max(1, (int) ceil(((int) ($post['order'] ?? 1)) / 5))))
+            ->map(function ($weekPosts, int $week) use ($encodePost): string {
+                $theme = (string) data_get($weekPosts->first(), 'week_theme', 'Orientacao');
+                $encodedPosts = $weekPosts
+                    ->sortBy(fn (array $post): int => (int) ($post['order'] ?? 0))
+                    ->map(fn (array $post): string => $encodePost($post))
+                    ->implode("\n");
+
+                return <<<YAML
+  - week: {$week}
+    theme: "{$theme}"
+    goal: "Test"
+    posts:
+{$encodedPosts}
 YAML;
             })
             ->implode("\n");
@@ -668,11 +1197,7 @@ buffer_days:
   - saturday
 rule: "A ordem importa mais que a data."
 weeks:
-  - week: 1
-    theme: "Orientacao"
-    goal: "Test"
-    posts:
-{$encodedPosts}
+{$encodedWeeks}
 YAML);
     }
 
@@ -760,6 +1285,65 @@ JS);
 
         $this->assertSame(0, $exit);
         $this->assertTrue(File::exists($this->siteRoot.'/content/backlog/blog-candidates.yaml'));
+    }
+
+    private function bootWorldModelSchemaForEditorialGraph(): void
+    {
+        if (! Schema::hasTable('ai_codebase_world_models')) {
+            (require database_path('migrations/2026_05_17_220000_create_ai_autonomous_engineering_os_tables.php'))->up();
+        }
+    }
+
+    private function seedEditorialBlogWorldModel(): string
+    {
+        $modelId = 'blog_editorial_world_model_test';
+        AiCodebaseWorldModel::query()->where('model_id', $modelId)->delete();
+
+        $model = AiCodebaseWorldModel::query()->create([
+            'model_id' => $modelId,
+            'scope' => 'atlas-server',
+            'status' => 'built',
+            'capabilities' => ['blog_editorial_planning', 'content_intelligence', 'atlas'],
+            'risks' => ['skip_reader_foundation'],
+            'receipt' => ['schema_version' => 'atlas.ai.autonomous_engineering.codebase_world_model.v1'],
+            'model_hash' => hash('sha256', $modelId),
+        ]);
+
+        $this->worldModelNode($model->id, 'service:blog-editorial-context', 'service', 'app/Services/Ai/Publishing/BlogEditorialContextService.php', 'blog_editorial_planning', ['blog_editorial_planning', 'content_intelligence']);
+        $this->worldModelNode($model->id, 'command:blog-editorial-plan', 'command', 'app/Console/Commands/AtlasBlogEditorialPlanCommand.php', 'blog_editorial_planning', ['blog_editorial_planning']);
+        $this->worldModelNode($model->id, 'doc:blog-editorial-system', 'doc', 'docs/engineering-knowledge-base/atlas-blog-editorial-planning-system.md', 'blog_editorial_planning', ['content_intelligence', 'atlas']);
+        $this->worldModelEdge($model->id, 'doc:blog-editorial-system', 'service:blog-editorial-context', 'documents');
+        $this->worldModelEdge($model->id, 'command:blog-editorial-plan', 'service:blog-editorial-context', 'invokes');
+
+        return $modelId;
+    }
+
+    /**
+     * @param  array<int,string>  $capabilities
+     */
+    private function worldModelNode(string $worldModelUuid, string $nodeId, string $nodeType, string $path, string $flowId, array $capabilities): void
+    {
+        AiCodebaseWorldModelNode::query()->create([
+            'world_model_id' => $worldModelUuid,
+            'node_id' => $nodeId,
+            'node_type' => $nodeType,
+            'path' => $path,
+            'flow_id' => $flowId,
+            'capabilities' => $capabilities,
+            'risks' => [],
+            'metadata' => ['seeded_by' => 'AtlasBlogEditorialPlanCommandTest'],
+        ]);
+    }
+
+    private function worldModelEdge(string $worldModelUuid, string $from, string $to, string $type): void
+    {
+        AiCodebaseWorldModelEdge::query()->create([
+            'world_model_id' => $worldModelUuid,
+            'from_node_id' => $from,
+            'to_node_id' => $to,
+            'edge_type' => $type,
+            'metadata' => ['seeded_by' => 'AtlasBlogEditorialPlanCommandTest'],
+        ]);
     }
 
     private function bootContextReadModels(): void

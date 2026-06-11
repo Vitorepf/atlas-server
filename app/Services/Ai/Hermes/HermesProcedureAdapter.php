@@ -4,6 +4,7 @@ namespace App\Services\Ai\Hermes;
 
 use App\Models\AiJob;
 use App\Models\HermesProcedureCandidate;
+use App\Services\Ai\Hermes\Support\HermesStringListNormalizer;
 use App\Services\Ai\Skills\Governance\SkillPackPromotionGate;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
@@ -162,8 +163,8 @@ class HermesProcedureAdapter
             'schema_version' => 'atlas.hermes.procedure_candidate.v1',
             'name' => $this->string($candidate['name'] ?? null, 160),
             'purpose' => $this->string($candidate['purpose'] ?? null, 700),
-            'steps' => $this->stringList($candidate['steps'] ?? null, 12, 700),
-            'required_tools' => $this->stringList($candidate['required_tools'] ?? null, 12, 120),
+            'steps' => HermesStringListNormalizer::bounded($candidate['steps'] ?? null, 12, 700),
+            'required_tools' => HermesStringListNormalizer::bounded($candidate['required_tools'] ?? null, 12, 120),
             'risk_level' => $this->riskLevel($candidate),
             'source' => $this->string($candidate['source'] ?? null, 80) ?: 'hermes_session',
             'gate_status' => 'persisted_for_atlas_skill_review',
@@ -232,21 +233,6 @@ class HermesProcedureAdapter
         $riskLevel = $this->string($candidate['risk_level'] ?? null, 16) ?: 'medium';
 
         return in_array($riskLevel, ['low', 'medium', 'high'], true) ? $riskLevel : 'medium';
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value, int $limit, int $itemLimit): array
-    {
-        $items = is_array($value) ? $value : (is_string($value) ? preg_split('/\s*,\s*/', $value) ?: [] : []);
-
-        return collect(array_slice($items, 0, $limit))
-            ->map(fn (mixed $item): ?string => $this->string($item, $itemLimit))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
     }
 
     private function workspace(AiJob $job): ?string

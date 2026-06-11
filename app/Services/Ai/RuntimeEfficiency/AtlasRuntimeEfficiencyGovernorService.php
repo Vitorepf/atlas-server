@@ -10,6 +10,8 @@ use App\Models\AtlasRuntimeEfficiencyPolicy;
 use App\Models\AtlasRuntimeEfficiencyReplay;
 use App\Services\Ai\Caching\EfficiencyOutcomeRecorder;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -57,13 +59,13 @@ final class AtlasRuntimeEfficiencyGovernorService implements EfficiencyOutcomeRe
     public function govern(array $input): array
     {
         $prompt = $this->prompt($input);
-        $surfaceId = $this->stringValue($input['surface_id'] ?? null)
-            ?? $this->stringValue($input['app_surface'] ?? null)
+        $surfaceId = AiValueNormalizer::trimmedScalarStringOrNull($input['surface_id'] ?? null)
+            ?? AiValueNormalizer::trimmedScalarStringOrNull($input['app_surface'] ?? null)
             ?? 'atlas_ai';
-        $domain = $this->normalizeDomain($this->stringValue($input['domain'] ?? null) ?? $this->classifyDomain($prompt));
-        $flowId = $this->stringValue($input['flow_id'] ?? null) ?? $this->flowForDomain($domain, $input);
-        $evidenceRefs = $this->stringList($input['evidence_refs'] ?? []);
-        $contextRefs = $this->stringList($input['context_refs'] ?? []);
+        $domain = $this->normalizeDomain(AiValueNormalizer::trimmedScalarStringOrNull($input['domain'] ?? null) ?? $this->classifyDomain($prompt));
+        $flowId = AiValueNormalizer::trimmedScalarStringOrNull($input['flow_id'] ?? null) ?? $this->flowForDomain($domain, $input);
+        $evidenceRefs = AiStringListNormalizer::trimmedScalarValues($input['evidence_refs'] ?? []);
+        $contextRefs = AiStringListNormalizer::trimmedScalarValues($input['context_refs'] ?? []);
         $complexity = $this->complexityScore($prompt, $domain, $flowId, $input);
         $risk = $this->riskScore($prompt, $domain, $flowId, $input, $evidenceRefs);
         $basePath = $this->path($prompt, $domain, $flowId, $complexity, $risk, $input);
@@ -137,19 +139,19 @@ final class AtlasRuntimeEfficiencyGovernorService implements EfficiencyOutcomeRe
      */
     public function recordOutcome(array $input): array
     {
-        $decisionId = $this->stringValue($input['decision_id'] ?? null);
+        $decisionId = AiValueNormalizer::trimmedScalarStringOrNull($input['decision_id'] ?? null);
         $qualityScore = $this->numericOrNull($input['quality_score'] ?? null);
         $contextRoi = $this->numericOrNull($input['context_roi_score'] ?? null);
-        $status = $this->stringValue($input['status'] ?? null) ?? self::STATUS_READY;
+        $status = AiValueNormalizer::trimmedScalarStringOrNull($input['status'] ?? null) ?? self::STATUS_READY;
         $signals = is_array($input['signals'] ?? null) ? $input['signals'] : [];
-        $evidenceRefs = $this->stringList($input['evidence_refs'] ?? []);
+        $evidenceRefs = AiStringListNormalizer::trimmedScalarValues($input['evidence_refs'] ?? []);
         $learningCandidates = $this->learningCandidates($qualityScore, $contextRoi, $signals);
 
         $payload = [
             'schema_version' => self::OUTCOME_SCHEMA,
             'status' => $status,
             'decision_id' => $decisionId,
-            'outcome_type' => $this->stringValue($input['outcome_type'] ?? null) ?? 'runtime_efficiency_feedback',
+            'outcome_type' => AiValueNormalizer::trimmedScalarStringOrNull($input['outcome_type'] ?? null) ?? 'runtime_efficiency_feedback',
             'quality_score' => $qualityScore,
             'context_roi_score' => $contextRoi,
             'signals' => $signals,
@@ -191,8 +193,8 @@ final class AtlasRuntimeEfficiencyGovernorService implements EfficiencyOutcomeRe
      */
     public function compilePolicy(array $input = []): array
     {
-        $flowId = $this->stringValue($input['flow_id'] ?? null) ?? 'atlas_conversation';
-        $domain = $this->normalizeDomain($this->stringValue($input['domain'] ?? null) ?? 'conversation');
+        $flowId = AiValueNormalizer::trimmedScalarStringOrNull($input['flow_id'] ?? null) ?? 'atlas_conversation';
+        $domain = $this->normalizeDomain(AiValueNormalizer::trimmedScalarStringOrNull($input['domain'] ?? null) ?? 'conversation');
         $hours = max(1, (int) ($input['hours'] ?? 720));
         $minSamples = max(1, (int) ($input['min_samples'] ?? 3));
         $since = CarbonImmutable::now()->subHours($hours);
@@ -287,11 +289,11 @@ final class AtlasRuntimeEfficiencyGovernorService implements EfficiencyOutcomeRe
     public function counterfactualReplay(array $input): array
     {
         $prompt = $this->prompt($input);
-        $domain = $this->normalizeDomain($this->stringValue($input['domain'] ?? null) ?? $this->classifyDomain($prompt));
-        $flowId = $this->stringValue($input['flow_id'] ?? null) ?? $this->flowForDomain($domain, $input);
+        $domain = $this->normalizeDomain(AiValueNormalizer::trimmedScalarStringOrNull($input['domain'] ?? null) ?? $this->classifyDomain($prompt));
+        $flowId = AiValueNormalizer::trimmedScalarStringOrNull($input['flow_id'] ?? null) ?? $this->flowForDomain($domain, $input);
         $complexity = (int) ($input['complexity_score'] ?? $this->complexityScore($prompt, $domain, $flowId, $input));
-        $risk = (int) ($input['risk_score'] ?? $this->riskScore($prompt, $domain, $flowId, $input, $this->stringList($input['evidence_refs'] ?? [])));
-        $baselinePath = $this->stringValue($input['baseline_path'] ?? null) ?? $this->path($prompt, $domain, $flowId, $complexity, $risk, $input);
+        $risk = (int) ($input['risk_score'] ?? $this->riskScore($prompt, $domain, $flowId, $input, AiStringListNormalizer::trimmedScalarValues($input['evidence_refs'] ?? [])));
+        $baselinePath = AiValueNormalizer::trimmedScalarStringOrNull($input['baseline_path'] ?? null) ?? $this->path($prompt, $domain, $flowId, $complexity, $risk, $input);
         $candidates = collect([self::PATH_FAST, self::PATH_STANDARD, self::PATH_DEEP, self::PATH_FORGE, self::PATH_BLOCKED])
             ->map(fn (string $path): array => $this->scoreCounterfactualPath($path, $baselinePath, $domain, $flowId, $complexity, $risk))
             ->sortByDesc('utility_score')
@@ -301,13 +303,13 @@ final class AtlasRuntimeEfficiencyGovernorService implements EfficiencyOutcomeRe
         $payload = [
             'schema_version' => self::COUNTERFACTUAL_REPLAY_SCHEMA,
             'status' => self::STATUS_READY,
-            'decision_id' => $this->stringValue($input['decision_id'] ?? null),
+            'decision_id' => AiValueNormalizer::trimmedScalarStringOrNull($input['decision_id'] ?? null),
             'flow_id' => $flowId,
             'baseline_path' => $baselinePath,
             'recommended_path' => (string) ($winningCandidate['path'] ?? $baselinePath),
             'candidates' => $candidates,
             'winning_candidate' => $winningCandidate,
-            'evidence_refs' => $this->stringList($input['evidence_refs'] ?? []),
+            'evidence_refs' => AiStringListNormalizer::trimmedScalarValues($input['evidence_refs'] ?? []),
         ];
         $payload['replay_hash'] = MissionCanonicalHash::sha256($payload);
 
@@ -463,7 +465,7 @@ final class AtlasRuntimeEfficiencyGovernorService implements EfficiencyOutcomeRe
 
     private function prompt(array $input): string
     {
-        return $this->stringValue($input['prompt'] ?? $input['input_text'] ?? $input['objective'] ?? null) ?? '';
+        return AiValueNormalizer::trimmedScalarStringOrNull($input['prompt'] ?? $input['input_text'] ?? $input['objective'] ?? null) ?? '';
     }
 
     private function normalizeDomain(string $domain): string
@@ -491,7 +493,7 @@ final class AtlasRuntimeEfficiencyGovernorService implements EfficiencyOutcomeRe
 
     private function flowForDomain(string $domain, array $input): string
     {
-        $task = $this->stringValue($input['task'] ?? $input['routing_task'] ?? null);
+        $task = AiValueNormalizer::trimmedScalarStringOrNull($input['task'] ?? $input['routing_task'] ?? null);
         if ($domain === 'programming') {
             return match ($task) {
                 'debug', 'repair' => 'atlas_debug',
@@ -1082,28 +1084,6 @@ final class AtlasRuntimeEfficiencyGovernorService implements EfficiencyOutcomeRe
             self::PATH_BLOCKED => 5,
             default => 2,
         };
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return collect(is_array($value) ? $value : [])
-            ->filter(fn (mixed $item): bool => is_scalar($item) && trim((string) $item) !== '')
-            ->map(fn (mixed $item): string => trim((string) $item))
-            ->values()
-            ->all();
-    }
-
-    private function stringValue(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-        $value = trim((string) $value);
-
-        return $value === '' ? null : $value;
     }
 
     private function numericOrNull(mixed $value): ?float

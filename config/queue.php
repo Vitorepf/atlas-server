@@ -44,6 +44,20 @@ return [
             'after_commit' => false,
         ],
 
+        // AP-818 — fila de trabalhos legitimamente LONGOS (assembly de
+        // inteligência de pasta: index multi-repo leva minutos). Mesmo driver/
+        // tabela; retry_after alto para o job não ser re-entregue no meio de
+        // um index — o lock W-10 protege contra corrida, mas a re-entrega
+        // viraria "attempted too many times" com tries=1.
+        'database-long' => [
+            'driver' => 'database',
+            'connection' => env('DB_QUEUE_CONNECTION'),
+            'table' => env('DB_QUEUE_TABLE', 'jobs'),
+            'queue' => 'folder-intel',
+            'retry_after' => (int) env('DB_QUEUE_LONG_RETRY_AFTER', 1800),
+            'after_commit' => false,
+        ],
+
         'beanstalkd' => [
             'driver' => 'beanstalkd',
             'host' => env('BEANSTALKD_QUEUE_HOST', 'localhost'),

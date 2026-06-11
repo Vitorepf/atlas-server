@@ -7,7 +7,7 @@ return [
     | CORS · Atlas Code MVP
     |--------------------------------------------------------------------------
     |
-    | Allow the atlas-desktop dev server (Vite on :5173) to consume the
+    | Allow the atlas-desktop dev server (Vite/Tauri on :1420 or Vite on :5173) to consume the
     | atlas-server endpoints during local development. Production hosts must
     | be added explicitly.
     |
@@ -18,6 +18,8 @@ return [
     'allowed_methods' => ['*'],
 
     'allowed_origins' => [
+        'http://localhost:1420',
+        'http://127.0.0.1:1420',
         'http://localhost:5173',
         'http://127.0.0.1:5173',
         'http://localhost:5174',

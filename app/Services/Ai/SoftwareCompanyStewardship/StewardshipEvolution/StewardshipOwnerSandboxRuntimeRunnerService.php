@@ -762,7 +762,7 @@ PHP);
             $stdout = AtlasSecurity::redactString($process->getOutput());
             $stderr = AtlasSecurity::redactString($process->getErrorOutput());
             $ownerOutcome = $this->ownerCommandOutcome($stdout);
-            $ownerBlockers = $this->stringList($ownerOutcome['blockers'] ?? []);
+            $ownerBlockers = StewardshipStringListNormalizer::trimmedUniqueStrings($ownerOutcome['blockers'] ?? []);
             if ($killedBySupervisor) {
                 $ownerBlockers[] = 'kill_switch_active';
             }
@@ -901,7 +901,7 @@ PHP);
             'status' => (string) ($decoded['status'] ?? ''),
             'run_summary' => $runSummary,
             'debug_loop' => is_array($decoded['debug_loop'] ?? null) ? $decoded['debug_loop'] : [],
-            'blockers' => $this->stringList($decoded['blockers'] ?? []),
+            'blockers' => StewardshipStringListNormalizer::trimmedUniqueStrings($decoded['blockers'] ?? []),
             'routing_decision' => strtolower(trim((string) data_get($runSummary, 'routing_decision', data_get($decoded, 'debug_loop.routing_decision', '')))),
             'test_results' => $testResults,
         ];
@@ -926,7 +926,7 @@ PHP);
 
         $status = strtolower(trim((string) ($decoded['status'] ?? '')));
         $completionState = strtolower(trim((string) data_get($decoded, 'run_summary.completion_state', '')));
-        $blockers = $this->stringList($decoded['blockers'] ?? []);
+        $blockers = StewardshipStringListNormalizer::trimmedUniqueStrings($decoded['blockers'] ?? []);
         $providerCalls = max(0, (int) data_get($decoded, 'run_summary.provider_call.provider_calls', 0));
         $okStatuses = ['', 'ok', 'ready', 'passed', 'completed', 'success'];
         $failedStatuses = ['blocked', 'failed', 'failure', 'error'];
@@ -982,7 +982,7 @@ PHP);
      */
     private function changedFiles(array $gitStatus): array
     {
-        return $this->productChangedFiles($this->stringList($gitStatus['changed_files'] ?? []));
+        return $this->productChangedFiles(StewardshipStringListNormalizer::trimmedUniqueStrings($gitStatus['changed_files'] ?? []));
     }
 
     /**
@@ -1009,7 +1009,7 @@ PHP);
             default => $completed ? 'completed' : 'failed',
         };
         $changedFiles = $this->productChangedFiles($changedFiles);
-        $diffChangedFiles = $this->productChangedFiles($this->stringList(data_get($seniorLoop, 'run_summary.changed_files', [])));
+        $diffChangedFiles = $this->productChangedFiles(StewardshipStringListNormalizer::trimmedUniqueStrings(data_get($seniorLoop, 'run_summary.changed_files', [])));
         if ($changedFiles === [] && $diffChangedFiles !== []) {
             $changedFiles = $diffChangedFiles;
         }
@@ -1024,7 +1024,7 @@ PHP);
             $completionState,
         ];
         $evidenceHash = 'sha256:'.MissionCanonicalHash::sha256($evidencePayload);
-        $tests = $this->stringList($receipt['validation_commands'] ?? []);
+        $tests = StewardshipStringListNormalizer::trimmedUniqueStrings($receipt['validation_commands'] ?? []);
         if ($tests === []) {
             $tests = [(string) ($commandPlan['command_display'] ?? 'owner command executed')];
         }
@@ -1428,15 +1428,6 @@ PHP);
             'new_os_created' => false,
             'ap750_required_after_execution' => true,
         ];
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return StewardshipStringListNormalizer::trimmedUniqueStrings($value);
     }
 
     /**

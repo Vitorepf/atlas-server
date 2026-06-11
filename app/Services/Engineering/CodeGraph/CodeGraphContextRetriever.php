@@ -155,10 +155,37 @@ class CodeGraphContextRetriever
      */
     public function packFor(string $query, string $workspaceId, int $budget = self::DEFAULT_BUDGET, array $changedFiles = []): array
     {
+        return $this->packForWorkspaces($query, [$workspaceId], $budget, $changedFiles);
+    }
+
+    /**
+     * AP-818 F2.2 — the SAME retrieval pipeline over a LIST of workspace ids
+     * (umbrella scope: the umbrella graph + every member with its own graph).
+     * Strictly additive: a single-element list behaves byte-identically to
+     * {@see packFor()}. Isolation contract: candidates are scoped with a
+     * whereIn over EXACTLY the given ids — a workspace outside the list can
+     * never leak into the pack. Each candidate carries its `workspace_id` so
+     * umbrella packs stay auditable per member.
+     *
+     * @param  array<int,string>  $workspaceIds  already-resolved workspace ids;
+     *   blank entries are dropped; an empty effective list yields an empty pack.
+     * @param  array<int,string>  $changedFiles
+     * @return array{included: array<int,mixed>, excluded: array<int,mixed>, estimated_tokens: int, budget: int, truncated: bool, count: int}
+     */
+    public function packForWorkspaces(string $query, array $workspaceIds, int $budget = self::DEFAULT_BUDGET, array $changedFiles = []): array
+    {
         $budget = max(0, $budget);
 
-        $terms = $this->extractTermsForQuery($query, $changedFiles);
-        $ranked = $terms === [] ? [] : $this->rankedCandidates($workspaceId, $terms, $changedFiles);
+        $ids = [];
+        foreach ($workspaceIds as $workspaceId) {
+            if (is_string($workspaceId) && trim($workspaceId) !== '') {
+                $ids[trim($workspaceId)] = true;
+            }
+        }
+        $ids = array_keys($ids);
+
+        $terms = $ids === [] ? [] : $this->extractTermsForQuery($query, $changedFiles);
+        $ranked = $terms === [] ? [] : $this->rankedCandidates($ids, $terms, $changedFiles);
 
         return $this->assembler->assemble($ranked, $budget);
     }
@@ -257,7 +284,11 @@ class CodeGraphContextRetriever
      * @param  array<int,string>  $changedFiles
      * @return array<int,array<string,mixed>> ranked pack candidates
      */
-    private function rankedCandidates(string $workspaceId, array $terms, array $changedFiles = []): array
+    /**
+     * @param  array<int,string>  $workspaceIds  AP-818 F2.2 — one id = the proven
+     *   single-workspace path; N ids = umbrella scope (whereIn, never unscoped).
+     */
+    private function rankedCandidates(array $workspaceIds, array $terms, array $changedFiles = []): array
     {
         try {
             if (! DatabaseTableAvailability::has('atlas_engineering_code_symbols')) {
@@ -292,18 +323,24 @@ class CodeGraphContextRetriever
                         ->where('file_path', 'not like', 'tests/%');
                 }
 
-                // Scope to the workspace only when the read-model is W-1-keyed; on a pre-W-1
-                // table (no column) every row is implicitly the primary workspace.
+                // Scope to the workspace(s) only when the read-model is W-1-keyed; on a
+                // pre-W-1 table (no column) every row is implicitly the primary workspace.
                 if ($hasWorkspaceId) {
-                    $query->where('workspace_id', $workspaceId);
+                    count($workspaceIds) === 1
+                        ? $query->where('workspace_id', $workspaceIds[0])
+                        : $query->whereIn('workspace_id', $workspaceIds);
                 }
+
+                $columns = $hasWorkspaceId
+                    ? ['symbol_name', 'symbol_type', 'file_path', 'signature', 'workspace_id']
+                    : ['symbol_name', 'symbol_type', 'file_path', 'signature'];
 
                 foreach ($query
                     ->orderByRaw($this->symbolTypePrioritySql())
                     ->orderByRaw('length(symbol_name) asc')
                     ->orderBy('symbol_name')
                     ->limit(self::CANDIDATE_LIMIT_PER_TERM)
-                    ->get(['symbol_name', 'symbol_type', 'file_path', 'signature']) as $row) {
+                    ->get($columns) as $row) {
                     $key = (string) ($row->symbol_type ?? '').'|'.(string) ($row->symbol_name ?? '').'|'.(string) ($row->file_path ?? '');
                     if (isset($seenRows[$key])) {
                         continue;
@@ -329,7 +366,7 @@ class CodeGraphContextRetriever
             $signature = $row->signature !== null ? (string) $row->signature : '';
             $symbolType = (string) ($row->symbol_type ?? '');
             $filePath = (string) ($row->file_path ?? '');
-            $candidates[] = [
+            $candidate = [
                 'id' => 'sym:'.$symbolName,
                 'tokens' => $this->estimateTokens($signature !== '' ? $signature : $symbolName),
                 'signature' => $signature,
@@ -339,6 +376,13 @@ class CodeGraphContextRetriever
                 // terms ("secret","scanner") against identifiers ("CodeGraphSecretScanner").
                 'rank_text' => trim($this->tokenizeIdentifier($symbolName).' '.$this->tokenizeIdentifier($filePath).' '.$signature),
             ];
+            // F2.2: umbrella packs stay auditable per member — only attached on
+            // multi-workspace retrieval so the single-workspace pack shape is
+            // byte-identical to the proven atlas:ctx output.
+            if (count($workspaceIds) > 1 && isset($row->workspace_id)) {
+                $candidate['workspace_id'] = (string) $row->workspace_id;
+            }
+            $candidates[] = $candidate;
             $lastKey = array_key_last($candidates);
             $candidates[$lastKey]['fallback_score'] = $this->fallbackScore(
                 $terms,
@@ -358,6 +402,16 @@ class CodeGraphContextRetriever
             $candidates = $this->sortByFallbackScore($candidates);
         }
 
+        // AP-818 F2.4: semantic re-rank over REAL embeddings (semantic_rag
+        // runtime, fastembed local) as the final relevance authority — catches
+        // matches with zero lexical overlap. Flag default OFF; runtime absent
+        // or non-real receipt → null → the proven order above stands (honest
+        // degrade, never fabricated vectors).
+        $semantic = $this->semanticRerank($terms, $candidates);
+        if ($semantic !== null) {
+            $candidates = $semantic;
+        }
+
         foreach ($candidates as &$candidate) {
             unset($candidate['rank_text']);
             unset($candidate['fallback_score']);
@@ -365,6 +419,78 @@ class CodeGraphContextRetriever
         unset($candidate);
 
         return $candidates;
+    }
+
+    /**
+     * AP-818 F2.4 — re-order the candidate pool by real-embedding similarity to
+     * the query, via the governed python_ai_data boundary
+     * ({@see \App\Services\Ai\RuntimeBoundary\SemanticRetrievalRuntime}: receipt
+     * guard, anti-fake, no PHP fallback). Returns null — meaning "keep the
+     * existing order" — whenever the flag is off, the runtime is unavailable,
+     * or anything fails. Candidates the runtime does not score keep their
+     * current relative order after the scored ones.
+     *
+     * @param  array<int,string>  $terms
+     * @param  array<int,array<string,mixed>>  $candidates
+     * @return array<int,array<string,mixed>>|null
+     */
+    private function semanticRerank(array $terms, array $candidates): ?array
+    {
+        if ($candidates === [] || $terms === []) {
+            return null;
+        }
+        if (! (bool) config('atlas.code_folder_intelligence.semantic_rerank', false)) {
+            return null;
+        }
+
+        try {
+            $runtime = app(\App\Services\Ai\RuntimeBoundary\SemanticRetrievalRuntime::class);
+            if (! $runtime->available()) {
+                return null;
+            }
+
+            $documents = [];
+            foreach ($candidates as $index => $candidate) {
+                $documents[] = [
+                    'id' => (string) ($candidate['id'] ?? ('cand-'.$index)),
+                    'text' => (string) ($candidate['rank_text'] ?? ''),
+                ];
+            }
+
+            $result = $runtime->retrieve($documents, implode(' ', $terms), k: count($documents));
+
+            $scores = [];
+            foreach ((array) ($result['matches'] ?? []) as $match) {
+                if (is_array($match) && isset($match['id'], $match['score'])) {
+                    $scores[(string) $match['id']] = (float) $match['score'];
+                }
+            }
+            if ($scores === []) {
+                return null;
+            }
+
+            // Stable: scored first (score desc), unscored after (original order).
+            $indexed = array_values($candidates);
+            usort($indexed, static function (array $a, array $b) use ($scores): int {
+                $sa = $scores[(string) ($a['id'] ?? '')] ?? null;
+                $sb = $scores[(string) ($b['id'] ?? '')] ?? null;
+                if ($sa === null && $sb === null) {
+                    return 0;
+                }
+                if ($sa === null) {
+                    return 1;
+                }
+                if ($sb === null) {
+                    return -1;
+                }
+
+                return $sb <=> $sa;
+            });
+
+            return $indexed;
+        } catch (Throwable) {
+            return null; // degrade honesto — a ordem provada permanece.
+        }
     }
 
     /**

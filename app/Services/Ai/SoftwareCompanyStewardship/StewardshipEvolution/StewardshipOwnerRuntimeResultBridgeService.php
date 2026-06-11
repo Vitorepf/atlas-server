@@ -290,7 +290,7 @@ final class StewardshipOwnerRuntimeResultBridgeService implements \App\Services\
     private function evidenceCheck(array $result): array
     {
         $pack = is_array($result['evidence_pack'] ?? null) ? $result['evidence_pack'] : [];
-        $tests = $this->stringList($result['tests'] ?? data_get($pack, 'tests', []));
+        $tests = StewardshipStringListNormalizer::trimmedUniqueStrings($result['tests'] ?? data_get($pack, 'tests', []));
         $missing = [];
         if ($pack === []) {
             $missing[] = 'evidence_pack_required';
@@ -319,9 +319,9 @@ final class StewardshipOwnerRuntimeResultBridgeService implements \App\Services\
      */
     private function isolationCheck(array $consumption, array $result): array
     {
-        $allowed = $this->stringList(data_get($consumption, 'branch_isolation.allowed_paths', []));
-        $forbidden = $this->stringList(data_get($consumption, 'branch_isolation.forbidden_paths', ['.env']));
-        $changed = $this->stringList($result['changed_files'] ?? data_get($result, 'evidence_pack.changed_files', []));
+        $allowed = StewardshipStringListNormalizer::trimmedUniqueStrings(data_get($consumption, 'branch_isolation.allowed_paths', []));
+        $forbidden = StewardshipStringListNormalizer::trimmedUniqueStrings(data_get($consumption, 'branch_isolation.forbidden_paths', ['.env']));
+        $changed = StewardshipStringListNormalizer::trimmedUniqueStrings($result['changed_files'] ?? data_get($result, 'evidence_pack.changed_files', []));
         $violations = [];
 
         if ($allowed === []) {
@@ -396,8 +396,8 @@ final class StewardshipOwnerRuntimeResultBridgeService implements \App\Services\
             'owner_result_id' => $this->ownerResultId($result),
             'owner_result_status' => (string) ($result['result_status'] ?? $result['status'] ?? ''),
             'evidence_hash' => (string) data_get($result, 'evidence_pack.evidence_hash', $result['evidence_hash'] ?? ''),
-            'changed_files' => $this->stringList($result['changed_files'] ?? data_get($result, 'evidence_pack.changed_files', [])),
-            'tests' => $this->stringList($result['tests'] ?? data_get($result, 'evidence_pack.tests', [])),
+            'changed_files' => StewardshipStringListNormalizer::trimmedUniqueStrings($result['changed_files'] ?? data_get($result, 'evidence_pack.changed_files', [])),
+            'tests' => StewardshipStringListNormalizer::trimmedUniqueStrings($result['tests'] ?? data_get($result, 'evidence_pack.tests', [])),
             'operator_review_required' => true,
             'auto_merge_allowed' => false,
             'auto_deploy_allowed' => false,
@@ -481,8 +481,8 @@ final class StewardshipOwnerRuntimeResultBridgeService implements \App\Services\
             'schema_version' => 'atlas.software_company_stewardship.owner_runtime_result_summary.v1',
             'result_status' => (string) ($result['result_status'] ?? $result['status'] ?? ''),
             'summary' => (string) ($result['summary'] ?? data_get($result, 'evidence_pack.summary', '')),
-            'changed_file_count' => count($this->stringList($result['changed_files'] ?? data_get($result, 'evidence_pack.changed_files', []))),
-            'test_count' => count($this->stringList($result['tests'] ?? data_get($result, 'evidence_pack.tests', []))),
+            'changed_file_count' => count(StewardshipStringListNormalizer::trimmedUniqueStrings($result['changed_files'] ?? data_get($result, 'evidence_pack.changed_files', []))),
+            'test_count' => count(StewardshipStringListNormalizer::trimmedUniqueStrings($result['tests'] ?? data_get($result, 'evidence_pack.tests', []))),
             'branch_created' => (bool) ($result['branch_created'] ?? false),
             'runtime_execution_started' => (bool) ($result['runtime_execution_started'] ?? true),
             'provider_invoked' => (bool) ($result['provider_invoked'] ?? false),
@@ -698,15 +698,6 @@ final class StewardshipOwnerRuntimeResultBridgeService implements \App\Services\
         unset($copy['generated_at'], $copy['result_bridge_hash'], $copy['result_storage_status'], $copy['recorded_at']);
 
         return $copy;
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return StewardshipStringListNormalizer::trimmedUniqueStrings($value);
     }
 
     /**

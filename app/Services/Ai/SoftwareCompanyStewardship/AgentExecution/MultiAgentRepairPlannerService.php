@@ -91,11 +91,11 @@ final class MultiAgentRepairPlannerService
         $slice = is_array($input['executable_slice'] ?? null) ? $input['executable_slice'] : [];
         $diff = is_array($input['diff_summary'] ?? null) ? $input['diff_summary'] : [];
 
-        $allowedFiles = $this->stringList($slice['allowed_files'] ?? []);
-        $forbiddenFiles = $this->stringList($slice['forbidden_files'] ?? []);
-        $changedFiles = $this->stringList($diff['changed_files'] ?? $laneResult['changed_files'] ?? []);
+        $allowedFiles = StewardshipStringListNormalizer::trimmedStrings($slice['allowed_files'] ?? []);
+        $forbiddenFiles = StewardshipStringListNormalizer::trimmedStrings($slice['forbidden_files'] ?? []);
+        $changedFiles = StewardshipStringListNormalizer::trimmedStrings($diff['changed_files'] ?? $laneResult['changed_files'] ?? []);
         $validationCommands = $this->validationCommands($slice, $validation);
-        $failingTests = $this->stringList($validation['failing_tests'] ?? []);
+        $failingTests = StewardshipStringListNormalizer::trimmedStrings($validation['failing_tests'] ?? []);
 
         $failed = $this->detectFailure($validation, $gateFailures, $laneResult, $failingTests);
         $scopeEscape = $this->scopeEscape($changedFiles, $allowedFiles, $forbiddenFiles);
@@ -504,7 +504,7 @@ final class MultiAgentRepairPlannerService
             'branch_strategy' => $branchStrategy,
             'retry_budget' => $budget,
             'max_runtime_seconds' => $this->positiveInt($slice['max_runtime_seconds'] ?? null, 900),
-            'evidence_obligations' => $this->stringList($slice['evidence_obligations'] ?? []),
+            'evidence_obligations' => StewardshipStringListNormalizer::trimmedStrings($slice['evidence_obligations'] ?? []),
             'provider_fit' => $slice['provider_fit'] ?? null,
             'merge_policy' => 'review_required',
             'stop_condition' => 'same failure signature twice OR retry budget exhausted',
@@ -582,7 +582,7 @@ final class MultiAgentRepairPlannerService
         $status = strtolower(trim((string) ($laneResult['status'] ?? '')));
 
         return in_array($status, ['failed', 'blocked', 'error'], true)
-            || $this->stringList($laneResult['blockers'] ?? []) !== [];
+            || StewardshipStringListNormalizer::trimmedStrings($laneResult['blockers'] ?? []) !== [];
     }
 
     /**
@@ -660,12 +660,12 @@ final class MultiAgentRepairPlannerService
      */
     private function validationCommands(array $slice, array $validation): array
     {
-        $commands = $this->stringList($slice['validation_commands'] ?? []);
+        $commands = StewardshipStringListNormalizer::trimmedStrings($slice['validation_commands'] ?? []);
         if ($commands !== []) {
             return $commands;
         }
 
-        return $this->stringList($validation['commands'] ?? []);
+        return StewardshipStringListNormalizer::trimmedStrings($validation['commands'] ?? []);
     }
 
     /**
@@ -830,10 +830,10 @@ final class MultiAgentRepairPlannerService
         foreach ($gateFailures as $gate) {
             $parts[] = $gate['gate'].' '.$gate['reason'].' '.$gate['kind'];
         }
-        foreach ($this->stringList($laneResult['blockers'] ?? []) as $blocker) {
+        foreach (StewardshipStringListNormalizer::trimmedStrings($laneResult['blockers'] ?? []) as $blocker) {
             $parts[] = $blocker;
         }
-        foreach ($this->stringList($laneResult['error_codes'] ?? []) as $code) {
+        foreach (StewardshipStringListNormalizer::trimmedStrings($laneResult['error_codes'] ?? []) as $code) {
             $parts[] = $code;
         }
 
@@ -864,7 +864,7 @@ final class MultiAgentRepairPlannerService
      */
     private function errorCode(array $laneResult, array $codes): bool
     {
-        $haystack = array_map('strtolower', $this->stringList($laneResult['error_codes'] ?? []));
+        $haystack = array_map('strtolower', StewardshipStringListNormalizer::trimmedStrings($laneResult['error_codes'] ?? []));
         foreach ($codes as $code) {
             if (in_array($code, $haystack, true)) {
                 return true;
@@ -931,12 +931,4 @@ final class MultiAgentRepairPlannerService
         return $copy;
     }
 
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return StewardshipStringListNormalizer::trimmedStrings($value);
-    }
 }

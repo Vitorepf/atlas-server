@@ -7,6 +7,8 @@ use App\Services\Ai\Context\AtlasCognitiveMemoryFabricService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevRuntimeIntelligenceService;
 use App\Services\Ai\RuntimeEfficiency\AtlasRuntimeEfficiencyGovernorService;
+use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 class AtlasAiAssistedExecutionQualityService
 {
@@ -59,9 +61,9 @@ class AtlasAiAssistedExecutionQualityService
      */
     public function buildEnvelope(array $input): array
     {
-        $request = $this->string($input['human_request'] ?? $input['input_text'] ?? $input['prompt'] ?? null)
+        $request = AiValueNormalizer::trimmedScalarStringOrNull($input['human_request'] ?? $input['input_text'] ?? $input['prompt'] ?? null)
             ?? 'Atlas assisted execution request';
-        $workspace = $this->string($input['workspace'] ?? $input['workspace_slug'] ?? null);
+        $workspace = AiValueNormalizer::trimmedScalarStringOrNull($input['workspace'] ?? $input['workspace_slug'] ?? null);
         $route = $this->routeFor($request, $input);
         $contract = $this->executionContract($request, $input, $route);
         $doctrine = $this->doctrine($request, $workspace, $route, $contract, $input);
@@ -73,8 +75,8 @@ class AtlasAiAssistedExecutionQualityService
         $devPreview = null;
         if ($route['target'] === 'atlas_dev') {
             $devPreview = $this->devRuntime->preview([
-                'run_id' => $this->string($input['run_id'] ?? null) ?? 'assisted-execution-preview',
-                'task_id' => $this->string($input['task_id'] ?? null) ?? 'human-request-'.substr(MissionCanonicalHash::sha256($request), 0, 12),
+                'run_id' => AiValueNormalizer::trimmedScalarStringOrNull($input['run_id'] ?? null) ?? 'assisted-execution-preview',
+                'task_id' => AiValueNormalizer::trimmedScalarStringOrNull($input['task_id'] ?? null) ?? 'human-request-'.substr(MissionCanonicalHash::sha256($request), 0, 12),
                 'objective' => $contract['objective'],
                 'task_class' => $contract['task_class'],
                 'risk_band' => $contract['risk_band'],
@@ -131,7 +133,7 @@ class AtlasAiAssistedExecutionQualityService
             'human_intake' => [
                 'request' => $request,
                 'workspace' => $workspace,
-                'surface' => $this->string($input['surface_id'] ?? null) ?? 'atlas_ai',
+                'surface' => AiValueNormalizer::trimmedScalarStringOrNull($input['surface_id'] ?? null) ?? 'atlas_ai',
             ],
             'route' => $route,
             'execution_contract' => $contract,
@@ -175,13 +177,13 @@ class AtlasAiAssistedExecutionQualityService
      */
     public function recordOutcomeFeedback(array $envelope, array $input = []): array
     {
-        $evidenceRefs = $this->stringList($input['evidence_refs'] ?? []);
+        $evidenceRefs = AiStringListNormalizer::uniqueTruthyTrimmedScalarValues($input['evidence_refs'] ?? []);
         if ($evidenceRefs === []) {
-            $evidenceRefs = $this->stringList(data_get($envelope, 'execution_contract.required_evidence', []));
+            $evidenceRefs = AiStringListNormalizer::uniqueTruthyTrimmedScalarValues(data_get($envelope, 'execution_contract.required_evidence', []));
         }
 
         $persist = (bool) ($input['persist'] ?? false);
-        $status = $this->string($input['status'] ?? null) ?? ($evidenceRefs === [] ? 'blocked' : 'succeeded');
+        $status = AiValueNormalizer::trimmedScalarStringOrNull($input['status'] ?? null) ?? ($evidenceRefs === [] ? 'blocked' : 'succeeded');
         $qualityScore = $this->score($input['quality_score'] ?? ($status === 'succeeded' ? 0.90 : 0.45));
         $contextRoiScore = $this->score($input['context_roi_score'] ?? ($status === 'succeeded' ? 0.82 : 0.35));
         $blockers = $evidenceRefs === []
@@ -189,7 +191,7 @@ class AtlasAiAssistedExecutionQualityService
             : [];
 
         $aregOutcome = $this->runtimeEfficiency()->recordOutcome([
-            'decision_id' => $this->string(data_get($envelope, 'areg.decision_id')),
+            'decision_id' => AiValueNormalizer::trimmedScalarStringOrNull(data_get($envelope, 'areg.decision_id')),
             'status' => $status === 'succeeded' ? AtlasRuntimeEfficiencyGovernorService::STATUS_READY : AtlasRuntimeEfficiencyGovernorService::STATUS_WATCH,
             'outcome_type' => 'assisted_execution_feedback',
             'quality_score' => $qualityScore,
@@ -213,7 +215,7 @@ class AtlasAiAssistedExecutionQualityService
             'context_roi_score' => $contextRoiScore,
             'evidence_refs' => $evidenceRefs,
             'blockers' => $blockers,
-            'summary' => $this->string($input['summary'] ?? null) ?? 'Assisted AI execution outcome feedback closed.',
+            'summary' => AiValueNormalizer::trimmedScalarStringOrNull($input['summary'] ?? null) ?? 'Assisted AI execution outcome feedback closed.',
         ]);
 
         $payload = [
@@ -249,7 +251,7 @@ class AtlasAiAssistedExecutionQualityService
     {
         return $this->executionDoctrine()->select([
             'task' => $request,
-            'surface' => $this->string($input['surface_id'] ?? null) ?? 'atlas_ai',
+            'surface' => AiValueNormalizer::trimmedScalarStringOrNull($input['surface_id'] ?? null) ?? 'atlas_ai',
             'workspace' => $workspace,
             'task_type' => $contract['task_class'] === 'debug' ? 'bug' : 'feature',
             'flow_hint' => $route['flow_id'],
@@ -288,7 +290,7 @@ class AtlasAiAssistedExecutionQualityService
             'review' => $contract['review_refs'],
             'evidence_refs' => $contract['required_evidence'],
             'ux_expectations' => $contract['ux_expectations'],
-            'risk_band' => $this->string($input['risk_band'] ?? null),
+            'risk_band' => AiValueNormalizer::trimmedScalarStringOrNull($input['risk_band'] ?? null),
         ]);
     }
 
@@ -351,7 +353,7 @@ class AtlasAiAssistedExecutionQualityService
     {
         $decision = $this->runtimeEfficiency()->govern([
             'prompt' => $request,
-            'surface_id' => $this->string($input['surface_id'] ?? null) ?? 'atlas_ai',
+            'surface_id' => AiValueNormalizer::trimmedScalarStringOrNull($input['surface_id'] ?? null) ?? 'atlas_ai',
             'workspace' => $workspace,
             'domain' => 'programming',
             'flow_id' => $route['flow_id'],
@@ -484,7 +486,7 @@ class AtlasAiAssistedExecutionQualityService
     private function driverEffectiveness(array $envelope, string $status): array
     {
         $effectiveness = [];
-        foreach ($this->stringList(data_get($envelope, 'aedpds.doctrine.selected_primary_drivers', [])) as $driver) {
+        foreach (AiStringListNormalizer::uniqueTruthyTrimmedScalarValues(data_get($envelope, 'aedpds.doctrine.selected_primary_drivers', [])) as $driver) {
             $effectiveness[$driver] = $status === 'succeeded' ? 'effective_pending_judgment' : 'needs_review';
         }
 
@@ -498,8 +500,8 @@ class AtlasAiAssistedExecutionQualityService
     private function routeFor(string $request, array $input): array
     {
         $lower = mb_strtolower($request);
-        $forced = $this->string($input['route'] ?? $input['target'] ?? null);
-        $expectedFiles = $this->stringList($input['expected_files'] ?? []);
+        $forced = AiValueNormalizer::trimmedScalarStringOrNull($input['route'] ?? $input['target'] ?? null);
+        $expectedFiles = AiStringListNormalizer::uniqueTruthyTrimmedScalarValues($input['expected_files'] ?? []);
         $longWork = str_contains($lower, 'obra')
             || str_contains($lower, 'milestone')
             || str_contains($lower, 'sistema inteiro')
@@ -530,20 +532,20 @@ class AtlasAiAssistedExecutionQualityService
         $lower = mb_strtolower($request);
         $isBug = str_contains($lower, 'bug') || str_contains($lower, 'erro') || str_contains($lower, 'quebr');
         $isLogin = str_contains($lower, 'login') || str_contains($lower, 'auth') || str_contains($lower, 'autentic');
-        $risk = $this->string($input['risk_band'] ?? null) ?? ($isLogin ? 'high' : 'medium');
+        $risk = AiValueNormalizer::trimmedScalarStringOrNull($input['risk_band'] ?? null) ?? ($isLogin ? 'high' : 'medium');
         $taskClass = $isBug ? 'debug' : 'feature';
 
-        $contextRefs = $this->stringList($input['context_refs'] ?? []);
+        $contextRefs = AiStringListNormalizer::uniqueTruthyTrimmedScalarValues($input['context_refs'] ?? []);
         if ($contextRefs === []) {
             $contextRefs = ['docs/engineering-knowledge-base/atlas-dev-runtime-intelligence.md'];
         }
 
-        $expectedFiles = $this->stringList($input['expected_files'] ?? []);
+        $expectedFiles = AiStringListNormalizer::uniqueTruthyTrimmedScalarValues($input['expected_files'] ?? []);
         if ($expectedFiles === [] && $isLogin) {
             $expectedFiles = ['auth/login surface', 'auth/session service', 'login tests'];
         }
 
-        $suggestedTests = $this->stringList($input['suggested_tests'] ?? []);
+        $suggestedTests = AiStringListNormalizer::uniqueTruthyTrimmedScalarValues($input['suggested_tests'] ?? []);
         if ($suggestedTests === [] && $isLogin) {
             $suggestedTests = ['php artisan test --filter=Login|Auth|Session'];
         } elseif ($suggestedTests === []) {
@@ -553,11 +555,11 @@ class AtlasAiAssistedExecutionQualityService
         $isUi = $route['target'] === 'atlas_forge'
             || $this->containsAny($request, ['tela', 'ui', 'ux', 'frontend', 'mobile', 'desktop', 'layout', 'visual', 'produto', 'saas', 'ecommerce', 'empresa']);
         $isApi = $this->containsAny($request, ['api', 'endpoint', 'payload', 'webhook', 'contract', 'integra']);
-        $reviewRefs = $this->stringList($input['review_refs'] ?? []);
+        $reviewRefs = AiStringListNormalizer::uniqueTruthyTrimmedScalarValues($input['review_refs'] ?? []);
         if ($reviewRefs === [] && (bool) ($input['operator_approved'] ?? false)) {
             $reviewRefs = ['operator_approval://risk-review'];
         }
-        $acceptanceCriteria = $this->stringList($input['acceptance_criteria'] ?? []);
+        $acceptanceCriteria = AiStringListNormalizer::uniqueTruthyTrimmedScalarValues($input['acceptance_criteria'] ?? []);
         if ($acceptanceCriteria === []) {
             $acceptanceCriteria = [
                 'Reproduzir ou explicar o bug antes do patch.',
@@ -566,7 +568,7 @@ class AtlasAiAssistedExecutionQualityService
                 'Persistir outcome memory e run certification.',
             ];
         }
-        $requiredEvidence = $this->stringList($input['required_evidence'] ?? []);
+        $requiredEvidence = AiStringListNormalizer::uniqueTruthyTrimmedScalarValues($input['required_evidence'] ?? []);
         if ($requiredEvidence === []) {
             $requiredEvidence = ['spec', 'diff_or_reason', 'focused_tests', 'scope_guard', 'completion_gate'];
         }
@@ -576,15 +578,15 @@ class AtlasAiAssistedExecutionQualityService
             'task_class' => $taskClass,
             'risk_band' => $risk,
             'route_target' => $route['target'],
-            'allowed_files' => $this->stringList($input['allowed_files'] ?? $expectedFiles),
-            'forbidden_files' => $this->stringList($input['forbidden_files'] ?? ['vendor/', 'node_modules/', '.env']),
+            'allowed_files' => AiStringListNormalizer::uniqueTruthyTrimmedScalarValues($input['allowed_files'] ?? $expectedFiles),
+            'forbidden_files' => AiStringListNormalizer::uniqueTruthyTrimmedScalarValues($input['forbidden_files'] ?? ['vendor/', 'node_modules/', '.env']),
             'context_refs' => $contextRefs,
             'expected_files' => $expectedFiles,
             'suggested_tests' => $suggestedTests,
-            'contract_refs' => $this->stringList($input['contract_refs'] ?? ($isApi ? ['api_or_payload_contract_required'] : [])),
-            'doc_refs' => $this->stringList($input['doc_refs'] ?? []),
+            'contract_refs' => AiStringListNormalizer::uniqueTruthyTrimmedScalarValues($input['contract_refs'] ?? ($isApi ? ['api_or_payload_contract_required'] : [])),
+            'doc_refs' => AiStringListNormalizer::uniqueTruthyTrimmedScalarValues($input['doc_refs'] ?? []),
             'review_refs' => $reviewRefs,
-            'ux_expectations' => $this->stringList($input['ux_expectations'] ?? ($isUi ? ['preserve_or_improve_reported_screen_experience'] : [])),
+            'ux_expectations' => AiStringListNormalizer::uniqueTruthyTrimmedScalarValues($input['ux_expectations'] ?? ($isUi ? ['preserve_or_improve_reported_screen_experience'] : [])),
             'acceptance_criteria' => $acceptanceCriteria,
             'required_evidence' => $requiredEvidence,
         ];
@@ -666,29 +668,4 @@ class AtlasAiAssistedExecutionQualityService
         return $this->aemor ?? app(AtlasAemorRuntimeService::class);
     }
 
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_unique(array_filter(array_map(
-            fn (mixed $item): ?string => $this->string($item),
-            $value,
-        ))));
-    }
-
-    private function string(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value === '' ? null : $value;
-    }
 }

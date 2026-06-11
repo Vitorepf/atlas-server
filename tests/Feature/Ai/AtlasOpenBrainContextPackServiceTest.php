@@ -7,6 +7,7 @@ namespace Tests\Feature\Ai;
 use App\Models\AtlasAurgEdge;
 use App\Models\AtlasAurgNode;
 use App\Models\AtlasMemoryEntry;
+use App\Services\Ai\Compounding\AtlasRagFeedbackService;
 use App\Services\Ai\AtlasOpenBrainContextPackService;
 use App\Services\Ai\AtlasOpenBrainMcpService;
 use App\Services\Engineering\CodeGraph\CodeGraphContextRetriever;
@@ -14,6 +15,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Symfony\Component\Process\Process;
 use Tests\Concerns\CreatesAtlasMemoryEntryTable;
 use Tests\TestCase;
 
@@ -39,6 +41,9 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
 {
     use CreatesAtlasMemoryEntryTable;
 
+    /** @var array<int,string> */
+    private array $tempDirs = [];
+
     private const M1 = 'memory:memory_entry:mem-1';
 
     private const C1 = 'code:module:atlas-server/services-ai-memory';
@@ -59,10 +64,14 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
 
     protected function tearDown(): void
     {
+        $this->dropCompoundingSchema();
         Schema::dropIfExists('atlas_aurg_edges');
         Schema::dropIfExists('atlas_aurg_nodes');
         Schema::dropIfExists('atlas_engineering_code_symbols');
         $this->dropAtlasMemoryEntryTable();
+        foreach ($this->tempDirs as $dir) {
+            (new Process(['rm', '-rf', $dir]))->run();
+        }
         parent::tearDown();
     }
 
@@ -130,6 +139,56 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertStringNotContainsString('secret vault key', $memoryBlob);
         $this->assertStringNotContainsString('secret vault key material', $memoryBlob);
         $this->assertStringContainsString('safe note', $memoryBlob);
+    }
+
+    public function test_pack_includes_provider_safe_post_execution_feedback_request(): void
+    {
+        $this->seedCodeSymbol('CodeGraphEmbeddingDecisionResolver', 'atlas-server');
+        $this->seedAurg();
+        $this->seedMemory('mem-1', 'Embedding decision feedback note', true, 'normal');
+
+        $pack = $this->service()->packFor('embedding decision', [
+            'domain' => 'developer',
+            'task_type' => 'debug',
+        ]);
+
+        $request = $pack['context_feedback_request'];
+
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $pack['context_pack_hash']);
+        $this->assertSame(AtlasOpenBrainContextPackService::CONTEXT_FEEDBACK_REQUEST_SCHEMA, $request['schema_version']);
+        $this->assertSame('atlas_context_feedback', $request['tool']);
+        $this->assertSame('after_execution', $request['timing']);
+        $this->assertSame($pack['context_pack_hash'], $request['context_pack_hash']);
+        $this->assertSame($pack['context_pack_hash'], $request['retrieval_receipt_id']);
+        $this->assertSame('developer.debug', $request['flow_id']);
+        $this->assertSame('developer', $request['domain']);
+        $this->assertSame('debug', $request['task_type']);
+        $this->assertNotEmpty($request['delivered_context_refs']);
+        $this->assertSame($request['delivered_context_refs'], data_get($request, 'arguments_template.delivered_context_refs'));
+        $this->assertSame($pack['context_pack_hash'], data_get($request, 'arguments_template.context_pack_hash'));
+        $this->assertTrue(data_get($request, 'arguments_template.record'));
+        $this->assertFalse(data_get($request, 'policy.raw_text_exposed'));
+        $this->assertFalse(data_get($request, 'policy.raw_logs_allowed'));
+        $this->assertContains('used_context_refs', $request['required_after_execution']);
+        $this->assertContains('post_execution_utility', $request['required_after_execution']);
+        $this->assertStringContainsString('## Context feedback request', $pack['markdown']);
+        $this->assertStringContainsString('context_pack_hash='.substr($pack['context_pack_hash'], 0, 16), $pack['markdown']);
+        $this->assertStringContainsString('no raw logs or source text', $pack['markdown']);
+    }
+
+    public function test_feedback_request_preserves_bare_flow_id_without_relabeling_domain(): void
+    {
+        $pack = $this->service()->packFor('embedding decision', [
+            'flow_id' => 'atlas_conversation',
+        ]);
+
+        $request = $pack['context_feedback_request'];
+
+        $this->assertSame('atlas_conversation', $request['flow_id']);
+        $this->assertSame('atlas', $request['domain']);
+        $this->assertSame('dev', $request['task_type']);
+        $this->assertSame('atlas_conversation', data_get($request, 'arguments_template.flow_id'));
+        $this->assertSame('atlas', data_get($request, 'arguments_template.domain'));
     }
 
     public function test_budget_is_respected(): void
@@ -351,6 +410,145 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         ]);
     }
 
+    public function test_context_pack_uses_recent_feedback_to_shrink_initial_budget_and_offer_expansion_handles(): void
+    {
+        $this->bootCompoundingSchema();
+
+        $this->seedCodeSymbol('CodeGraphEmbeddingDecisionResolver', 'atlas-server');
+        $this->seedMemory('mem-1', 'Embedding decision memoria note', true, 'normal');
+        $this->recordLowRoiFeedback('receipt-aobg-policy-1');
+        $this->recordLowRoiFeedback('receipt-aobg-policy-2');
+
+        $pack = $this->service()->packFor('embedding decision', [
+            'budget' => 2000,
+            'flow_id' => 'aobg.pack',
+        ]);
+
+        $policy = $pack['context_delivery_policy'];
+
+        $this->assertSame(AtlasOpenBrainContextPackService::CONTEXT_DELIVERY_POLICY_SCHEMA, $policy['schema_version']);
+        $this->assertSame('active', $policy['status']);
+        $this->assertSame('feedback_shrunk_initial_expand_on_demand', $policy['delivery_mode']);
+        $this->assertSame('latest_flow_feedback', $policy['source']);
+        $this->assertSame('aobg.pack', $policy['flow_id']);
+        $this->assertSame(0.85, $policy['initial_context_budget_multiplier']);
+        $this->assertTrue($policy['applied_to_initial_budget']);
+        $this->assertContains('shrink_initial_context', $policy['actions']);
+        $this->assertContains('expand_missing_source_types', $policy['actions']);
+        $this->assertContains('migration', $policy['expand_source_types']);
+        $this->assertContains('expand:migration', $policy['on_demand_handles']);
+        $this->assertContains('recheck:canonical_doc', $policy['on_demand_handles']);
+        $this->assertSame(2, data_get($policy, 'evidence.feedback_event_count'));
+        $this->assertSame(2, data_get($policy, 'evidence.low_roi_count'));
+        $this->assertFalse(data_get($policy, 'policy.raw_text_exposed'));
+        $this->assertFalse(data_get($policy, 'policy.providers_invoked'));
+        $this->assertFalse(data_get($policy, 'policy.ref_demotion_auto_applied'));
+        $this->assertSame('bounded_initial_budget_only', data_get($policy, 'policy.auto_apply_scope'));
+
+        $this->assertSame(2000, $pack['budget']['requested_total_chars']);
+        $this->assertSame(1700, $pack['budget']['total_chars']);
+        $this->assertStringContainsString('## Context delivery policy', $pack['markdown']);
+        $this->assertStringContainsString('expand:migration', $pack['markdown']);
+        $this->assertStringNotContainsString('receipt-aobg-policy', json_encode($policy, JSON_THROW_ON_ERROR));
+    }
+
+    public function test_readiness_only_feedback_does_not_shrink_initial_budget_without_roi_signal(): void
+    {
+        $this->bootCompoundingSchema();
+
+        $this->recordReadinessOnlyFeedback('receipt-aobg-ready-1');
+        $this->recordReadinessOnlyFeedback('receipt-aobg-ready-2');
+
+        $pack = $this->service()->packFor('embedding decision', [
+            'budget' => 2000,
+            'flow_id' => 'aobg.readiness',
+        ]);
+
+        $policy = $pack['context_delivery_policy'];
+
+        $this->assertSame('observed', $policy['status']);
+        $this->assertSame('standard_minimal_top_k', $policy['delivery_mode']);
+        $this->assertSame('latest_flow_feedback', $policy['source']);
+        $this->assertSame(['keep_current_pack'], $policy['actions']);
+        $this->assertSame(1.0, $policy['initial_context_budget_multiplier']);
+        $this->assertFalse($policy['applied_to_initial_budget']);
+        $this->assertSame(2, data_get($policy, 'evidence.feedback_event_count'));
+        $this->assertSame(0, data_get($policy, 'evidence.low_roi_count'));
+        $this->assertSame(0, data_get($policy, 'evidence.non_passing_count'));
+        $this->assertSame(0, data_get($policy, 'evidence.actionable_feedback_count'));
+        $this->assertSame(2, data_get($policy, 'evidence.non_actionable_feedback_count'));
+        $this->assertSame(2, data_get($policy, 'evidence.missing_roi_signal_count'));
+        $this->assertSame('feedback_observed_but_not_actionable_for_budget', $policy['quality_gate_hint']);
+        $this->assertSame(2000, $pack['budget']['total_chars']);
+    }
+
+    public function test_context_pack_uses_roi_feedback_to_adjust_initial_source_mix(): void
+    {
+        $this->bootCompoundingSchema();
+
+        for ($i = 0; $i < 6; $i++) {
+            $this->seedCodeSymbol('CodeGraphEmbeddingDecisionResolver'.$i, 'atlas-server');
+            $this->seedMemory('mem-source-'.$i, 'Embedding decision source mix memory '.$i, true, 'normal');
+        }
+        $this->recordSourceMixFeedback('receipt-aobg-source-mix-1');
+        $this->recordSourceMixFeedback('receipt-aobg-source-mix-2');
+
+        $pack = $this->service()->packFor('embedding decision', [
+            'budget' => 3000,
+            'code_budget' => 1200,
+            'memory_budget' => 1200,
+            'flow_id' => 'aobg.source_mix',
+        ]);
+
+        $policy = $pack['context_delivery_policy'];
+        $sourcePolicy = $policy['source_selection_policy'];
+
+        $this->assertSame('active', $sourcePolicy['status']);
+        $this->assertTrue($sourcePolicy['applied_to_initial_pack']);
+        $this->assertContains('adjust_initial_source_mix', $policy['actions']);
+        $this->assertSame(1.0, data_get($sourcePolicy, 'budget_multipliers.code'));
+        $this->assertLessThan(1.0, data_get($sourcePolicy, 'budget_multipliers.memory'));
+        $this->assertSame('reduce_initial_share', data_get($sourcePolicy, 'source_types.memory.action'));
+        $this->assertSame('preserve_initial_share', data_get($sourcePolicy, 'source_types.code.action'));
+        $this->assertLessThan($pack['budget']['code_budget_chars'], $pack['budget']['memory_budget_chars']);
+        $this->assertFalse(data_get($sourcePolicy, 'guardrails.raw_text_exposed'));
+        $this->assertStringContainsString('source_mix:', $pack['markdown']);
+    }
+
+    public function test_context_pack_expands_umbrella_workspace_scope_without_leaking_other_workspaces(): void
+    {
+        config()->set('atlas.code_folder_intelligence.umbrella_context', true);
+
+        $umbrella = $this->makeTempDir('umbrella-aobg');
+        $alpha = $this->makeGitFolder($umbrella.'/alpha');
+        $beta = $this->makeGitFolder($umbrella.'/beta');
+
+        config()->set('atlas_projects.profiles', [
+            $this->workspaceProfile('umbrella-aobg', $umbrella),
+            $this->workspaceProfile('alpha-aobg', $alpha),
+            $this->workspaceProfile('beta-aobg', $beta),
+        ]);
+
+        $this->seedCodeSymbol('AlphaWorkspaceAssemblyResolver', 'alpha-aobg');
+        $this->seedCodeSymbol('BetaWorkspaceAssemblyResolver', 'beta-aobg');
+        $this->seedCodeSymbol('GammaWorkspaceAssemblyResolver', 'gamma-aobg');
+
+        $pack = $this->service()->packFor('workspace assembly resolver', [
+            'workspace' => $umbrella,
+            'budget' => 4000,
+            'code_budget' => 3000,
+        ]);
+
+        $symbolIds = array_column($pack['code_graph'], 'id');
+        $this->assertContains('sym:AlphaWorkspaceAssemblyResolver', $symbolIds);
+        $this->assertContains('sym:BetaWorkspaceAssemblyResolver', $symbolIds);
+        $this->assertNotContains('sym:GammaWorkspaceAssemblyResolver', $symbolIds);
+        $this->assertSame(
+            ['umbrella-aobg', 'alpha-aobg', 'beta-aobg'],
+            data_get($pack, 'provenance.code_graph.workspace_scope'),
+        );
+    }
+
     public function test_cli_command_runs_json_and_validates_input(): void
     {
         $this->seedMemory('mem-1', 'Embedding decision cli note', true, 'normal');
@@ -510,5 +708,203 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
                 'meta' => $meta,
             ]);
         }
+    }
+
+    private function bootCompoundingSchema(): void
+    {
+        $this->dropCompoundingSchema();
+        (require database_path('migrations/2026_05_17_180000_create_ai_compounding_engineering_intelligence_tables.php'))->up();
+        (require database_path('migrations/2026_05_19_030000_strengthen_rag_feedback_and_create_learning_proposals.php'))->up();
+    }
+
+    private function dropCompoundingSchema(): void
+    {
+        foreach ([
+            'ai_learning_proposals',
+            'ai_temporal_certifications',
+            'ai_benchmark_cases',
+            'ai_rag_feedback_events',
+            'ai_heuristic_updates',
+            'ai_compounding_memories',
+            'ai_learning_candidates',
+            'ai_run_outcomes',
+        ] as $table) {
+            Schema::dropIfExists($table);
+        }
+    }
+
+    private function recordLowRoiFeedback(string $receiptId): void
+    {
+        app(AtlasRagFeedbackService::class)->record([
+            'retrieval_receipt_id' => $receiptId,
+            'flow_id' => 'aobg.pack',
+            'query_plan_hash' => hash('sha256', $receiptId),
+            'included_sources' => 4,
+            'used_sources' => 1,
+            'noise_sources' => 1,
+            'missed_required_sources' => ['migration'],
+            'context_sufficiency' => 62,
+            'post_execution_utility' => 38,
+            'source_utility' => [
+                hash('sha256', 'source://noisy-doc') => 'noise',
+            ],
+            'outcome_status' => 'partial',
+            'failure_reason' => 'retrieval_missed_required_source',
+            'payload' => [
+                'schema_version' => 'atlas.aucri.retrieval_feedback_loop.v1',
+                'context_roi' => [
+                    'roi_score' => 0.32,
+                    'use_ratio' => 0.25,
+                    'quality_band' => 'weak',
+                    'context_sufficiency' => 62,
+                    'post_execution_utility' => 38,
+                ],
+                'context_ref_attribution' => [
+                    'use_ratio' => 0.25,
+                    'waste_ratio' => 0.50,
+                    'missing_source_types' => ['migration'],
+                    'noise_count' => 1,
+                ],
+                'next_context_policy' => [
+                    'actions' => ['shrink_initial_context', 'expand_missing_source_types'],
+                    'next_initial_budget_multiplier' => 0.85,
+                    'expand_source_types' => ['migration'],
+                    'defer_sections' => ['canonical_doc'],
+                    'demote_context_refs' => ['noise:canonical_doc'],
+                    'auto_apply' => false,
+                ],
+                'raw_text_exposed' => false,
+            ],
+        ]);
+    }
+
+    private function recordSourceMixFeedback(string $receiptId): void
+    {
+        app(AtlasRagFeedbackService::class)->record([
+            'retrieval_receipt_id' => $receiptId,
+            'flow_id' => 'aobg.source_mix',
+            'query_plan_hash' => hash('sha256', $receiptId),
+            'included_sources' => 4,
+            'used_sources' => 2,
+            'noise_sources' => 0,
+            'missed_required_sources' => [],
+            'context_sufficiency' => 82,
+            'post_execution_utility' => 78,
+            'source_utility' => [],
+            'outcome_status' => 'passed',
+            'payload' => [
+                'schema_version' => 'atlas.aucri.retrieval_feedback_loop.v1',
+                'context_roi' => [
+                    'roi_score' => 0.62,
+                    'use_ratio' => 0.50,
+                    'quality_band' => 'mixed',
+                    'context_sufficiency' => 82,
+                    'post_execution_utility' => 78,
+                ],
+                'context_ref_attribution' => [
+                    'delivered_count' => 4,
+                    'used_count' => 2,
+                    'unused_count' => 2,
+                    'noise_count' => 0,
+                    'use_ratio' => 0.50,
+                    'waste_ratio' => 0.50,
+                    'delivered_refs' => [
+                        ['ref' => 'code:used-1', 'source_type' => 'code'],
+                        ['ref' => 'code:used-2', 'source_type' => 'code'],
+                        ['ref' => 'memory:unused-1', 'source_type' => 'memory'],
+                        ['ref' => 'memory:unused-2', 'source_type' => 'memory'],
+                    ],
+                    'used_refs' => [
+                        ['ref' => 'code:used-1', 'source_type' => 'code'],
+                        ['ref' => 'code:used-2', 'source_type' => 'code'],
+                    ],
+                    'unused_refs' => [
+                        ['ref' => 'memory:unused-1', 'source_type' => 'memory'],
+                        ['ref' => 'memory:unused-2', 'source_type' => 'memory'],
+                    ],
+                    'noise_refs' => [],
+                    'missing_source_types' => [],
+                ],
+                'next_context_policy' => [
+                    'actions' => ['shrink_initial_context'],
+                    'next_initial_budget_multiplier' => 0.75,
+                    'expand_source_types' => [],
+                    'defer_sections' => ['memory'],
+                    'demote_context_refs' => [],
+                    'auto_apply' => false,
+                ],
+                'raw_text_exposed' => false,
+            ],
+        ]);
+    }
+
+    private function recordReadinessOnlyFeedback(string $receiptId): void
+    {
+        app(AtlasRagFeedbackService::class)->record([
+            'retrieval_receipt_id' => $receiptId,
+            'flow_id' => 'aobg.readiness',
+            'query_plan_hash' => hash('sha256', $receiptId),
+            'included_sources' => 2,
+            'used_sources' => 0,
+            'noise_sources' => 0,
+            'missed_required_sources' => [],
+            'context_sufficiency' => 70,
+            'post_execution_utility' => 70,
+            'source_utility' => [],
+            'outcome_status' => 'ready_for_provider',
+            'payload' => [
+                'schema_version' => 'atlas.aucri.retrieval_feedback_loop.v1',
+                'raw_text_exposed' => false,
+            ],
+        ]);
+    }
+
+    private function makeTempDir(string $suffix): string
+    {
+        $root = sys_get_temp_dir().'/atlas-aobg-pack-test-'.getmypid();
+        $dir = $root.'/'.$suffix;
+        if (! is_dir($dir)) {
+            mkdir($dir, 0775, true);
+        }
+        if (! in_array($root, $this->tempDirs, true)) {
+            $this->tempDirs[] = $root;
+        }
+
+        return $dir;
+    }
+
+    private function makeGitFolder(string $path): string
+    {
+        if (! is_dir($path)) {
+            mkdir($path, 0775, true);
+        }
+        if (! is_dir($path.'/.git')) {
+            mkdir($path.'/.git', 0775, true);
+        }
+
+        return $path;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function workspaceProfile(string $slug, string $path): array
+    {
+        return [
+            'slug' => $slug,
+            'name' => Str::headline($slug),
+            'kind' => 'test',
+            'workspace_path' => $path,
+            'repo_root' => $path,
+            'production_status' => 'development',
+            'stack_summary' => 'Test workspace',
+            'commands' => [],
+            'test_commands' => [],
+            'build_commands' => [],
+            'critical_areas' => [],
+            'docs_status' => 'test',
+            'default_risk' => 'medium',
+            'surfaces_enabled' => ['atlas_ai', 'code'],
+        ];
     }
 }

@@ -4,6 +4,7 @@ namespace App\Services\Ai\Programming\Governance\Gates;
 
 use App\Models\AtlasProgrammingWorkItem;
 use App\Services\Ai\Support\AiPathMatcher;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Throwable;
 
 /**
@@ -33,16 +34,16 @@ class ProgrammingScopeGuardGate implements ProgrammingGateContract
             if (! is_array($task)) {
                 continue;
             }
-            $taskAllowed = array_values(array_filter((array) ($task['allowed_files'] ?? []), 'is_string'));
-            $taskForbidden = array_values(array_filter((array) ($task['forbidden_files'] ?? []), 'is_string'));
+            $taskAllowed = AiStringListNormalizer::stringsFromArrayCast($task['allowed_files'] ?? []);
+            $taskForbidden = AiStringListNormalizer::stringsFromArrayCast($task['forbidden_files'] ?? []);
             if ($taskAllowed === []) {
                 $tasksWithoutAllowed++;
             }
             $allowed = array_merge($allowed, $taskAllowed);
             $forbidden = array_merge($forbidden, $taskForbidden);
         }
-        $allowed = array_values(array_unique($allowed));
-        $forbidden = array_values(array_unique($forbidden));
+        $allowed = AiStringListNormalizer::uniqueStrings($allowed);
+        $forbidden = AiStringListNormalizer::uniqueStrings($forbidden);
 
         if ($allowed === [] && $tasksWithoutAllowed === 0) {
             return ProgrammingGateOutcome::skipped(
@@ -60,7 +61,7 @@ class ProgrammingScopeGuardGate implements ProgrammingGateContract
 
         $declaredFiles = $this->filesFromEvidence($workItem);
         $observedFiles = $this->filesFromGit($workItem);
-        $allFiles = array_values(array_unique(array_merge($declaredFiles, $observedFiles)));
+        $allFiles = AiStringListNormalizer::uniqueMergedStrings($declaredFiles, $observedFiles);
 
         $outOfScope = [];
         $forbiddenHits = [];
@@ -106,14 +107,10 @@ class ProgrammingScopeGuardGate implements ProgrammingGateContract
             if (! is_array($receipt)) {
                 continue;
             }
-            foreach ((array) ($receipt['files'] ?? []) as $file) {
-                if (is_string($file) && trim($file) !== '') {
-                    $files[] = trim($file);
-                }
-            }
+            $files = array_merge($files, AiStringListNormalizer::trimmedStringsFromArrayCast($receipt['files'] ?? []));
         }
 
-        return array_values(array_unique($files));
+        return AiStringListNormalizer::uniqueStrings($files);
     }
 
     /**
@@ -141,10 +138,7 @@ class ProgrammingScopeGuardGate implements ProgrammingGateContract
             }
             $lines = preg_split('/\r?\n/', $output, -1, PREG_SPLIT_NO_EMPTY) ?: [];
 
-            return array_values(array_filter(
-                array_map('trim', $lines),
-                static fn (string $line): bool => $line !== '',
-            ));
+            return AiStringListNormalizer::trimmedCastItemsToStrings($lines);
         } catch (Throwable) {
             return [];
         }

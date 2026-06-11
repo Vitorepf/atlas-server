@@ -21,17 +21,26 @@ capabilities:
   - editorial_source_readiness_map
   - public_archive_reconciliation
   - public_archive_coverage_map
+  - blog_editorial_operating_state
+  - blog_editorial_area_state_api
+  - editorial_radar_packet
+  - editorial_sequence_golden_set
+  - bounded_editorial_graph_context
+  - bounded_editorial_graph_candidate_feed
   - governed_writing_packet
+  - editorial_concept_progression_map
   - daily_editorial_operations_packet
   - open_brain_editorial_context_handoff
   - audited_open_brain_editorial_context_execution
+  - graph_rag_readiness_preflight
   - reviewable_backlog_candidate_suggestions
+  - editorial_review_queue_state
   - reviewed_candidate_backlog_promotion
 decisions:
   - O blog e de Vitor Freire; Atlas e assunto/colecao, nao identidade total do site.
   - A ordem editorial deve ir do superficial ao profundo.
   - O Atlas pode planejar e sugerir, mas nao publicar sem aprovacao humana.
-  - P0 e deterministico/read-only; P1 anexa refs de KB/Code Intelligence existentes, reconcilia o arquivo publico com o backlog planejado, expoe mapa de fontes editoriais, calcula cobertura editorial, prepara pacote privado de escrita, monta pacote operacional diario, entrega handoff e execucao auditada opcional de Open Brain, sugere candidatos revisaveis e promove candidatos aceitos para o backlog somente com escrita explicita; graph/RAG entra depois por AP-817 e runtime boundaries existentes.
+  - P0 e deterministico/read-only; P1 anexa refs de KB/Code Intelligence existentes, reconcilia arquivo publico, expoe mapa de fontes, fila de revisao, cobertura, operating-state, radar, golden set, graph-context/candidates bounded, readiness graph/RAG, pacote privado de escrita, operacao diaria, Open Brain, candidatos e promocao explicita; graph/RAG ativo entra depois por AP-817 e runtime boundaries existentes.
   - O sistema nao cria store paralelo de memoria, contexto, grafo ou publicacao.
 maintenance:
   - Atualizar quando mudar calendario, contrato editorial, comando, schema ou integracao com graph/RAG.
@@ -43,8 +52,14 @@ related_paths:
   - docs/engineering-knowledge-base/code-intelligence.md
   - app/Services/Ai/Publishing/BlogEditorialPlannerService.php
   - app/Services/Ai/Publishing/BlogEditorialContextService.php
+  - app/Http/Controllers/AtlasBlogEditorialController.php
+  - routes/api.php
+  - ../atlas-desktop/apps/desktop/src/surfaces/blog-editorial/
+  - ../atlas-desktop/apps/desktop/src/shell/surfaceRegistry.ts
+  - ../atlas-desktop/apps/desktop/src/shell/SurfaceHost.tsx
   - app/Console/Commands/AtlasBlogEditorialPlanCommand.php
   - tests/Feature/Ai/Publishing/AtlasBlogEditorialPlanCommandTest.php
+  - tests/Feature/Ai/Publishing/AtlasBlogEditorialAreaApiTest.php
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-blog-editorial-planning-system
 graph_title: Atlas Blog Editorial Planning System
@@ -80,11 +95,15 @@ evidence:
   - docs/ap/AP-817-blog-editorial-planning-contract.md
   - app/Services/Ai/Publishing/BlogEditorialPlannerService.php
   - app/Services/Ai/Publishing/BlogEditorialContextService.php
+  - app/Http/Controllers/AtlasBlogEditorialController.php
+  - routes/api.php
   - app/Console/Commands/AtlasBlogEditorialPlanCommand.php
   - tests/Feature/Ai/Publishing/AtlasBlogEditorialPlanCommandTest.php
+  - tests/Feature/Ai/Publishing/AtlasBlogEditorialAreaApiTest.php
 required_tests:
   - php artisan atlas:blog:editorial-plan --json
   - php artisan test --filter=AtlasBlogEditorialPlanCommandTest
+  - php artisan test --filter=AtlasBlogEditorialAreaApiTest
 requires_evidence: true
 risk_level: medium
 visual_tags:
@@ -97,6 +116,7 @@ ai_usage_notes:
 quality_gates:
   - php artisan atlas:blog:editorial-plan --json
   - php artisan test --filter=AtlasBlogEditorialPlanCommandTest
+  - php artisan test --filter=AtlasBlogEditorialAreaApiTest
 failure_modes:
   - Publicar topico profundo antes da base publica.
   - Confundir backlog do site com memoria canonica do Atlas.
@@ -173,13 +193,40 @@ Saida P1:
   publicados de posts externos e sugerindo pontes para posts planejados;
 - `coverage_map` com fundacao planejada/publicada, indice de topicos,
   distribuicao por profundidade, warnings e proximos arcos seguros;
+- `operating_state` quando `--operating-state` for usado, servindo como payload
+  compacto para a area do blog no Atlas: estagio, contadores, proximo post,
+  semanas, fila, candidatos, fontes, cobertura e superficies disponiveis;
+- `GET /blog/editorial/state` como superficie autenticada `atlas.token` para a
+  UI/agentes do Atlas consumirem estado, fonte, fila, cobertura, radar,
+  candidatos e readiness sem escrita, promocao, reordenacao ou publicacao;
+- Atlas Desktop surface `blog_editorial` (`Blog`, atalho `Cmd+9`) consome
+  somente `GET /blog/editorial/state`, renderiza proximo texto, fronteira,
+  semanas, candidatos, fila e guardrails, e nunca publica, reordena ou aceita
+  candidato;
+- `editorial_radar` quando `--editorial-radar` for usado, agregando estado
+  atual, semanas, lanes de serie, lacunas, fila de revisao, janelas de insercao,
+  candidatos e prontidao de fontes para alimentar a lista sem quebrar a ordem;
+- `editorial_golden_set` quando `--editorial-golden-set` for usado, provando com
+  fixtures deterministicas que a ordem comeca por identidade, avanca por
+  prerequisitos, alerta saltos profundos e mantem termos futuros como futuros;
+- `editorial_graph_context` quando `--editorial-graph-context` for usado,
+  executando apenas o Codebase World Model bounded com traversal receipt,
+  evidencias provider-safe e zero poder de reordenar, publicar ou escrever;
+- `editorial_graph_candidates` quando `--editorial-graph-candidates` for usado,
+  convertendo sinais do Codebase World Model bounded em candidatos de pauta
+  futuros, sempre append-after do arco planejado, sem escrever backlog, fila de
+  revisao, rascunho ou publicacao;
 - `writing_packet` privado quando `--writing-packet` for usado, contendo
   posicao na sequencia, prerequisitos, contexto candidato, promessa ao leitor,
   contexto do arquivo publico anterior, risco de duplicacao/rewrite, outline,
   pontos obrigatorios, temas a evitar e prompts de revisao;
+- `concept_progression_map` dentro do `writing_packet`, separando termos ja
+  introduzidos, termos atuais permitidos, prerequisitos conceituais e termos
+  futuros que nao devem ser tratados como conhecimento previo do leitor;
 - `operations_packet` quando `--operations` for usado, agregando proxima acao,
   foco diario, writing packet, riscos do arquivo publico, bloqueios, snapshots
-  de fonte/cobertura, handoff Open Brain e candidatos para revisao;
+  de fonte/cobertura, fila de revisao, handoff Open Brain e candidatos para
+  revisao;
 - `open_brain_handoff` dentro de `operations_packet` e `writing_packet`, com
   objetivo, comando `atlas:open-brain:context`, payload provider-safe e
   guardrails que mantem invocacao automatica, graph/RAG, Python e publicacao
@@ -187,8 +234,18 @@ Saida P1:
 - `open_brain_context` quando `--execute-open-brain` for usado com
   `--writing-packet` ou `--operations`, contendo apenas hash, resumo, safety,
   audit e refs resumidas do context pack, sem retornar o pacote bruto;
+- `graph_rag_readiness` quando `--graph-rag-readiness` for usado, reportando
+  componentes P2 existentes, bloqueios, checklist de promocao e plano de
+  integracao sem invocar graph retrieval, vector runtime ou Python;
 - `backlog_candidates` revisaveis quando `--suggest-candidates` for usado;
+- `review_queue` quando `--review-queue` for usado, lendo
+  `content/backlog/blog-candidates.yaml`, reportando candidatos aceitos,
+  duplicatas e slugs ja em revisao; sugestões de KB/codigo e grafo usam essa
+  fila para nao repetir candidatos ja aceitos;
 - `candidate_acceptance` em dry-run ou escrita explicita para fila de revisao;
+- candidatos vindos de `editorial_graph_candidates` podem usar o mesmo
+  `candidate_acceptance`, mas somente quando `--editorial-graph-candidates`
+  tambem for solicitado, mantendo escrita restrita a fila de revisao;
 - `candidate_promotion` em dry-run ou escrita explicita append-only no backlog
   principal;
 - prompts de revisao de seguranca;
@@ -212,16 +269,38 @@ source-map -> inspect available read-models and editorial source layers
 coverage-map -> compare backlog/published slugs with foundation ladder
              -> show covered topics, depth warnings and safe next arcs
 
+editorial-radar -> aggregate source/coverage/candidates into an operator view
+                -> show week lanes, sequence lanes, gaps and insertion windows
+                -> keep graph/RAG deferred until P2 promotion
+
+operating-state -> aggregate compact area state for Atlas UI/agents
+                -> expose next post, week board, queue, candidates and source posture
+                -> read-only, no publication or backlog mutation
+
+area-state-api -> expose operating-state/source/coverage/radar via atlas.token
+               -> support Atlas UI and agents without terminal coupling
+               -> no acceptance, promotion, reorder, draft write or publication
+
 writing-packet -> choose next ready post, or explicit planned slug
                -> attach sequence, public archive context, refs, outline and safety prompts
+               -> attach concept progression map for introduced/current/future terms
                -> optionally execute audited Open Brain context export
                -> private preparation only, no full article and no file write
 
 operations -> aggregate next action, writing packet, archive risks and blockers
-           -> show source/coverage snapshot and candidate feed
+           -> show source/coverage snapshot, review queue state and candidate feed
            -> include audited Open Brain handoff for the next post
            -> optionally include Open Brain execution summary
            -> daily read-only operator packet
+
+graph-rag-readiness -> inspect AP/docs/classes/tables for P2 editorial context
+                    -> include editorial golden-set status as a P2 blocker gate
+                    -> report blockers and promotion checklist
+                    -> no traversal, no Python, no backlog mutation
+
+editorial-graph-context -> choose next ready post -> run bounded World Model retrieval
+                        -> attach receipt/evidence as context hints
+                        -> no global graph/RAG, no Python, no publication power
 
 suggest-candidates -> read KB/code-intel read-models -> remove obvious duplicates
                    -> emit review packets -> human accepts before YAML changes
@@ -241,6 +320,17 @@ promote-candidate -> read accepted review queue item -> emit backlog YAML snippe
 - Nao use Python/runtime externo sem Decision Receipt e AP-817.
 - Quando um post tecnico parecer interessante mas nao tiver base publica,
   sugira primeiro o texto introdutor.
+- Cada pacote de escrita deve proteger a progressao do leitor: usar conceitos
+  ja introduzidos, explicar a camada atual e evitar detalhes que pertencem a
+  posts futuros.
+- Use `--editorial-radar` para decidir onde alimentar a lista; ele nao muda
+  backlog, nao aceita candidatos e nao publica.
+- Use `--editorial-golden-set` para provar que a sequencia ainda ensina do raso
+  ao profundo antes de aceitar sugestoes mais inteligentes.
+- Use `--editorial-graph-context` somente como evidência auxiliar; ele pode
+  informar o pacote editorial, mas nao muda ordem, candidato ou publicacao.
+- Use `--graph-rag-readiness` para ver o caminho de P2; ele nao executa graph,
+  RAG, Python nem reordena a lista.
 
 ## Escopo de Implementacao
 
@@ -261,8 +351,12 @@ Permitido em P1:
 - reconciliacao do arquivo publico contra o backlog, incluindo posts externos
   ao plano e possiveis pontes para textos planejados;
 - mapa de cobertura read-only para saber o que ja foi planejado/publicado;
+- radar editorial read-only para semanas, lanes, lacunas e janelas de insercao;
+- golden set editorial read-only para validar fixtures de sequencia antes de P2;
+- contexto editorial via World Model bounded, com receipt e sem poder de escrita;
 - candidatos revisaveis para alimentar backlog futuro;
 - pacote privado de escrita para o proximo post ou slug planejado explicito;
+- mapa de progressao conceitual dentro do pacote privado de escrita;
 - contexto do arquivo publico dentro do pacote de escrita, para linkar posts
   antigos, detectar risco de repeticao e decidir rewrite deliberadamente;
 - pacote operacional diario read-only, para orientar o proximo trabalho sem
@@ -270,6 +364,8 @@ Permitido em P1:
 - handoff auditavel para `atlas:open-brain:context`, sem invocacao automatica;
 - execucao auditada opcional de Open Brain, retornando resumo seguro e refs
   resumidas, nunca o context pack bruto;
+- preflight read-only de graph/RAG para mostrar APs, runtime boundaries,
+  classes, tabelas, bloqueios e checklist antes de qualquer promocao P2;
 - escrita explicita somente em `content/backlog/blog-candidates.yaml`;
 - promocao explicita append-only de candidatos aceitos para o backlog principal;
 - prompts de seguranca e privacidade.
@@ -309,6 +405,11 @@ Tambem proibido em P1:
 - `php artisan atlas:blog:editorial-plan --site=/Users/vitorepf/develop/vitorepf-site --with-context --json`
 - `php artisan atlas:blog:editorial-plan --site=/Users/vitorepf/develop/vitorepf-site --source-map --json`
 - `php artisan atlas:blog:editorial-plan --site=/Users/vitorepf/develop/vitorepf-site --coverage-map --json`
+- `php artisan atlas:blog:editorial-plan --site=/Users/vitorepf/develop/vitorepf-site --operating-state --json`
+- `php artisan atlas:blog:editorial-plan --site=/Users/vitorepf/develop/vitorepf-site --editorial-radar --json`
+- `php artisan atlas:blog:editorial-plan --site=/Users/vitorepf/develop/vitorepf-site --editorial-golden-set --json`
+- `php artisan atlas:blog:editorial-plan --site=/Users/vitorepf/develop/vitorepf-site --editorial-graph-context --json`
+- `php artisan atlas:blog:editorial-plan --site=/Users/vitorepf/develop/vitorepf-site --graph-rag-readiness --json`
 - `php artisan atlas:blog:editorial-plan --site=/Users/vitorepf/develop/vitorepf-site --writing-packet --json`
 - `php artisan atlas:blog:editorial-plan --site=/Users/vitorepf/develop/vitorepf-site --writing-packet --writing-slug=<slug> --json`
 - `php artisan atlas:blog:editorial-plan --site=/Users/vitorepf/develop/vitorepf-site --suggest-candidates --json`
@@ -317,6 +418,7 @@ Tambem proibido em P1:
 - `php artisan atlas:blog:editorial-plan --site=/Users/vitorepf/develop/vitorepf-site --promote-candidate=<slug> --json`
 - `php artisan atlas:blog:editorial-plan --site=/Users/vitorepf/develop/vitorepf-site --promote-candidate=<slug> --write --json`
 - `php artisan test --filter=AtlasBlogEditorialPlanCommandTest`
+- `php artisan test --filter=AtlasBlogEditorialAreaApiTest`
 - `php artisan atlas:ai:runtime-boundary --json`
 
 ## Riscos

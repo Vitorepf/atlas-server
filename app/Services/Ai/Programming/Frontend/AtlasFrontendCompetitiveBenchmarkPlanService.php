@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Programming\Frontend;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 final class AtlasFrontendCompetitiveBenchmarkPlanService
 {
@@ -14,7 +15,7 @@ final class AtlasFrontendCompetitiveBenchmarkPlanService
      */
     public function plan(array $input = []): array
     {
-        $rivalEvidence = $this->nullableString($input['rival_evidence'] ?? null);
+        $rivalEvidence = AiValueNormalizer::trimmedStringOrNull($input['rival_evidence'] ?? null);
         $benchmark = app(AtlasFrontendBenchmarkRuntimeService::class)->run($rivalEvidence);
         $legacyProofPlan = app(AtlasFrontendWorldBestProofPlanService::class)->plan($input);
 
@@ -328,23 +329,13 @@ final class AtlasFrontendCompetitiveBenchmarkPlanService
         return $blockers;
     }
 
-    private function nullableString(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
-    }
-
     private function hashNullable(mixed $value): ?string
     {
-        if (! is_string($value) || trim($value) === '') {
+        $value = AiValueNormalizer::trimmedStringOrNull($value);
+        if ($value === null) {
             return null;
         }
 
-        return hash('sha256', trim($value));
+        return hash('sha256', $value);
     }
 }

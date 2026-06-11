@@ -108,7 +108,7 @@ final class MultiAgentIntegrationJudgeService
         $owner = trim((string) ($lanePlan['owner'] ?? '')) ?: 'unknown';
         $riskLevel = strtolower(trim((string) ($lanePlan['risk_level'] ?? 'medium'))) ?: 'medium';
 
-        $changedFiles = $this->stringList($diffSummary['changed_files'] ?? []);
+        $changedFiles = StewardshipStringListNormalizer::arrayTrimmedStrings($diffSummary['changed_files'] ?? []);
         $reviewer = $this->reviewerResult($laneResults);
         $repairPolicy = $this->repairPolicy($lanePlan['repair_policy'] ?? []);
 
@@ -370,7 +370,7 @@ final class MultiAgentIntegrationJudgeService
      */
     private function scoreValidation(array $lanePlan, array $validationResult): array
     {
-        $requiredCommands = $this->stringList($lanePlan['validation_commands'] ?? []);
+        $requiredCommands = StewardshipStringListNormalizer::arrayTrimmedStrings($lanePlan['validation_commands'] ?? []);
         $ran = (bool) ($validationResult['ran'] ?? false);
         $passed = $validationResult['passed'] ?? null;
 
@@ -394,7 +394,7 @@ final class MultiAgentIntegrationJudgeService
      */
     private function scoreEvidence(array $lanePlan, array $evidenceRefs): array
     {
-        $obligations = $this->stringList($lanePlan['evidence_obligations'] ?? []);
+        $obligations = StewardshipStringListNormalizer::arrayTrimmedStrings($lanePlan['evidence_obligations'] ?? []);
         $providedKinds = $this->evidenceKinds($evidenceRefs);
 
         $missing = array_values(array_filter(
@@ -427,8 +427,8 @@ final class MultiAgentIntegrationJudgeService
      */
     private function scoreScope(array $lanePlan, array $changedFiles): array
     {
-        $allowed = $this->stringList($lanePlan['allowed_files'] ?? []);
-        $forbidden = $this->stringList($lanePlan['forbidden_files'] ?? []);
+        $allowed = StewardshipStringListNormalizer::arrayTrimmedStrings($lanePlan['allowed_files'] ?? []);
+        $forbidden = StewardshipStringListNormalizer::arrayTrimmedStrings($lanePlan['forbidden_files'] ?? []);
 
         if ($allowed === []) {
             return [
@@ -497,7 +497,7 @@ final class MultiAgentIntegrationJudgeService
      */
     private function scoreForbiddenActions(array $lanePlan, array $laneResults): array
     {
-        $forbidden = $this->stringList($lanePlan['forbidden_actions'] ?? []);
+        $forbidden = StewardshipStringListNormalizer::arrayTrimmedStrings($lanePlan['forbidden_actions'] ?? []);
         $forbidden = $forbidden === []
             ? self::DEFAULT_FORBIDDEN_ACTIONS
             : StewardshipStringListNormalizer::uniqueMergedStrings($forbidden, self::DEFAULT_FORBIDDEN_ACTIONS);
@@ -505,7 +505,7 @@ final class MultiAgentIntegrationJudgeService
         $violations = [];
         foreach ($laneResults as $result) {
             $lane = (string) ($result['lane'] ?? $result['role'] ?? 'unknown');
-            foreach ($this->stringList($result['performed_actions'] ?? []) as $action) {
+            foreach (StewardshipStringListNormalizer::arrayTrimmedStrings($result['performed_actions'] ?? []) as $action) {
                 if (in_array($action, $forbidden, true)) {
                     $violations[] = ['lane' => $lane, 'action' => $action];
                 }
@@ -708,7 +708,7 @@ final class MultiAgentIntegrationJudgeService
      */
     private function laneSummary(array $lanePlan, array $laneResults): array
     {
-        $expected = $this->stringList($lanePlan['expected_lanes'] ?? []);
+        $expected = StewardshipStringListNormalizer::arrayTrimmedStrings($lanePlan['expected_lanes'] ?? []);
         $observed = [];
         $failed = [];
         foreach ($laneResults as $result) {
@@ -914,22 +914,6 @@ final class MultiAgentIntegrationJudgeService
     private function normalizeShape(string $shape): string
     {
         return strtolower(trim(str_replace(['-', ' '], '_', $shape)));
-    }
-
-    /**
-     * @param  mixed  $raw
-     * @return list<string>
-     */
-    private function stringList(mixed $raw): array
-    {
-        if (! is_array($raw)) {
-            return [];
-        }
-
-        return array_values(array_filter(
-            array_map(static fn ($item): string => is_string($item) ? trim($item) : '', $raw),
-            static fn (string $item): bool => $item !== '',
-        ));
     }
 
     /**

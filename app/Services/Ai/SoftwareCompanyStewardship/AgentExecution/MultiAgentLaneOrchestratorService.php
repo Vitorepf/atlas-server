@@ -211,10 +211,10 @@ class MultiAgentLaneOrchestratorService
             throw new InvalidArgumentException(self::BLOCK_WORK_UNIT_REQUIRED.': the work unit needs a stable slice_id/task_id.');
         }
 
-        $allowedFiles = $this->stringList($source['allowed_files'] ?? []);
-        $forbiddenFiles = $this->stringList($source['forbidden_files'] ?? []);
-        $validationCommands = $this->stringList($source['validation_commands'] ?? []);
-        $evidenceObligations = $this->stringList($source['evidence_obligations'] ?? []);
+        $allowedFiles = StewardshipStringListNormalizer::arrayTrimmedStrings($source['allowed_files'] ?? []);
+        $forbiddenFiles = StewardshipStringListNormalizer::arrayTrimmedStrings($source['forbidden_files'] ?? []);
+        $validationCommands = StewardshipStringListNormalizer::arrayTrimmedStrings($source['validation_commands'] ?? []);
+        $evidenceObligations = StewardshipStringListNormalizer::arrayTrimmedStrings($source['evidence_obligations'] ?? []);
 
         $maxRuntime = (int) ($source['max_runtime_seconds'] ?? 1800);
         if ($maxRuntime < 60) {
@@ -364,7 +364,7 @@ class MultiAgentLaneOrchestratorService
             : self::ROLE_AUTHORITY[$role];
 
         $allowedActions = $this->baseAllowedActions($role);
-        foreach ($this->stringList($override['extra_allowed_actions'] ?? []) as $extra) {
+        foreach (StewardshipStringListNormalizer::arrayTrimmedStrings($override['extra_allowed_actions'] ?? []) as $extra) {
             if (! in_array($extra, $allowedActions, true)) {
                 $allowedActions[] = $extra;
             }
@@ -606,25 +606,4 @@ class MultiAgentLaneOrchestratorService
         return in_array($value, ['critical', 'high', 'medium', 'low'], true) ? $value : 'medium';
     }
 
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item)) {
-                $trimmed = trim($item);
-                if ($trimmed !== '') {
-                    $out[] = $trimmed;
-                }
-            }
-        }
-
-        return array_values($out);
-    }
 }

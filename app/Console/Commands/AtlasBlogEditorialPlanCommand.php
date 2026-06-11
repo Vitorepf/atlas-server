@@ -14,8 +14,17 @@ final class AtlasBlogEditorialPlanCommand extends Command
         {--backlog=content/backlog/blog-first-month.yaml : Backlog path relative to the site root}
         {--with-context : Attach governed Atlas KB/code-intelligence refs to posts}
         {--source-map : Attach read-only Atlas editorial source readiness map}
+        {--review-queue : Attach accepted candidate review queue state}
         {--coverage-map : Attach read-only sequence coverage and gap map}
         {--operations : Attach read-only daily editorial operations packet}
+        {--operating-state : Attach compact read-only state for the Atlas blog planning area}
+        {--editorial-radar : Attach read-only week/sequence/candidate radar}
+        {--editorial-golden-set : Attach read-only sequence golden-set evaluation}
+        {--editorial-graph-context : Attach bounded Codebase World Model editorial graph context}
+        {--editorial-graph-candidates : Suggest review-only backlog candidates from bounded editorial graph context}
+        {--graph-world-model-id= : Optional Codebase World Model id for editorial graph context}
+        {--graph-context-limit=8 : Maximum bounded graph evidence nodes}
+        {--graph-rag-readiness : Attach read-only P2 graph/RAG readiness preflight}
         {--writing-packet : Attach read-only writing packet for the next ready post}
         {--writing-slug= : Specific post slug to prepare instead of the next ready post}
         {--execute-open-brain : Execute the audited Open Brain context export for the operations/writing target}
@@ -36,8 +45,17 @@ final class AtlasBlogEditorialPlanCommand extends Command
         $payload = $planner->plan($siteRoot, (string) $this->option('backlog'), [
             'with_context' => (bool) $this->option('with-context'),
             'source_map' => (bool) $this->option('source-map'),
+            'review_queue' => (bool) $this->option('review-queue'),
             'coverage_map' => (bool) $this->option('coverage-map'),
             'operations' => (bool) $this->option('operations'),
+            'operating_state' => (bool) $this->option('operating-state'),
+            'editorial_radar' => (bool) $this->option('editorial-radar'),
+            'editorial_golden_set' => (bool) $this->option('editorial-golden-set'),
+            'editorial_graph_context' => (bool) $this->option('editorial-graph-context'),
+            'editorial_graph_candidates' => (bool) $this->option('editorial-graph-candidates'),
+            'graph_world_model_id' => $this->option('graph-world-model-id'),
+            'graph_context_limit' => (int) $this->option('graph-context-limit'),
+            'graph_rag_readiness' => (bool) $this->option('graph-rag-readiness'),
             'writing_packet' => (bool) $this->option('writing-packet'),
             'writing_slug' => $this->option('writing-slug'),
             'execute_open_brain' => (bool) $this->option('execute-open-brain'),
@@ -64,8 +82,15 @@ final class AtlasBlogEditorialPlanCommand extends Command
         $this->components->twoColumnDetail('Ready', (string) data_get($payload, 'summary.ready_posts', 0));
         $this->components->twoColumnDetail('Context', (bool) data_get($payload, 'summary.with_context', false) ? 'attached' : 'off');
         $this->components->twoColumnDetail('Source map', (bool) data_get($payload, 'summary.with_source_map', false) ? 'attached' : 'off');
+        $this->components->twoColumnDetail('Review queue', (bool) data_get($payload, 'summary.with_review_queue', false) ? 'attached' : 'off');
         $this->components->twoColumnDetail('Coverage map', (bool) data_get($payload, 'summary.with_coverage_map', false) ? 'attached' : 'off');
         $this->components->twoColumnDetail('Operations', (bool) data_get($payload, 'summary.with_operations_packet', false) ? 'attached' : 'off');
+        $this->components->twoColumnDetail('Operating state', (bool) data_get($payload, 'summary.with_operating_state', false) ? 'attached' : 'off');
+        $this->components->twoColumnDetail('Editorial radar', (bool) data_get($payload, 'summary.with_editorial_radar', false) ? 'attached' : 'off');
+        $this->components->twoColumnDetail('Editorial golden set', (bool) data_get($payload, 'summary.with_editorial_golden_set', false) ? 'attached' : 'off');
+        $this->components->twoColumnDetail('Editorial graph context', (bool) data_get($payload, 'summary.with_editorial_graph_context', false) ? 'attached' : 'off');
+        $this->components->twoColumnDetail('Editorial graph candidates', (bool) data_get($payload, 'summary.with_editorial_graph_candidates', false) ? 'attached' : 'off');
+        $this->components->twoColumnDetail('Graph/RAG readiness', (bool) data_get($payload, 'summary.with_graph_rag_readiness', false) ? 'attached' : 'off');
         $this->components->twoColumnDetail('Writing packet', (bool) data_get($payload, 'summary.with_writing_packet', false) ? 'attached' : 'off');
         $this->components->twoColumnDetail('Open Brain', (bool) data_get($payload, 'summary.with_open_brain_execution', false) ? 'executed' : 'handoff only');
         $this->components->twoColumnDetail('Candidates', (string) data_get($payload, 'backlog_candidates.candidate_count', 0));
@@ -111,6 +136,15 @@ final class AtlasBlogEditorialPlanCommand extends Command
             $this->line('- Graph/RAG: '.((string) data_get($sourceMap, 'sources.graph_retrieval.status', 'unknown')));
         }
 
+        $reviewQueue = data_get($payload, 'review_queue');
+        if (is_array($reviewQueue)) {
+            $this->newLine();
+            $this->line('Review queue:');
+            $this->line('- status: '.((string) data_get($reviewQueue, 'status', 'unknown')));
+            $this->line('- candidates: '.((string) data_get($reviewQueue, 'candidate_count', 0)));
+            $this->line('- duplicates: '.((string) data_get($reviewQueue, 'duplicate_count', 0)));
+        }
+
         $coverageMap = data_get($payload, 'coverage_map');
         if (is_array($coverageMap)) {
             $this->newLine();
@@ -134,6 +168,62 @@ final class AtlasBlogEditorialPlanCommand extends Command
             $this->line('- next action: '.((string) data_get($operations, 'next_action.action', 'unknown')));
             $this->line('- next slug: '.((string) data_get($operations, 'next_action.slug', 'unknown')));
             $this->line('- duplicate risks: '.((string) data_get($operations, 'public_archive_risks.duplicate_risk_count', 0)));
+        }
+
+        $operatingState = data_get($payload, 'operating_state');
+        if (is_array($operatingState)) {
+            $this->newLine();
+            $this->line('Operating state:');
+            $this->line('- stage: '.((string) data_get($operatingState, 'stage.current', 'unknown')));
+            $this->line('- next post: '.((string) data_get($operatingState, 'next_post.slug', 'none')));
+            $this->line('- queue: '.((string) data_get($operatingState, 'review_queue.candidate_count', 0)));
+            $this->line('- candidate feed: '.((string) data_get($operatingState, 'candidate_pipeline.feed_count', 0)));
+        }
+
+        $radar = data_get($payload, 'editorial_radar');
+        if (is_array($radar)) {
+            $this->newLine();
+            $this->line('Editorial radar:');
+            $this->line('- next sequence order: '.((string) data_get($radar, 'current_state.next_sequence_order', 1)));
+            $this->line('- next ready: '.((string) data_get($radar, 'current_state.next_ready_slug', 'none')));
+            $this->line('- graph/RAG: '.((string) data_get($radar, 'source_readiness.graph_retrieval', 'unknown')));
+            $this->line('- candidate feed: '.((string) data_get($radar, 'candidate_feed.candidate_count', 0)));
+        }
+
+        $goldenSet = data_get($payload, 'editorial_golden_set');
+        if (is_array($goldenSet)) {
+            $this->newLine();
+            $this->line('Editorial golden set:');
+            $this->line('- status: '.((string) data_get($goldenSet, 'status', 'unknown')));
+            $this->line('- cases: '.((string) data_get($goldenSet, 'summary.passed_count', 0)).'/'.((string) data_get($goldenSet, 'summary.case_count', 0)));
+        }
+
+        $graphContext = data_get($payload, 'editorial_graph_context');
+        if (is_array($graphContext)) {
+            $this->newLine();
+            $this->line('Editorial graph context:');
+            $this->line('- status: '.((string) data_get($graphContext, 'status', 'unknown')));
+            $this->line('- retrieval: '.((string) data_get($graphContext, 'graph_retrieval.status', 'unknown')));
+            $this->line('- evidence: '.((string) data_get($graphContext, 'graph_retrieval.evidence_set.evidence_count', 0)));
+        }
+
+        $graphCandidates = data_get($payload, 'editorial_graph_candidates');
+        if (is_array($graphCandidates)) {
+            $this->newLine();
+            $this->line('Editorial graph candidates:');
+            $this->line('- status: '.((string) data_get($graphCandidates, 'status', 'unknown')));
+            $this->line('- candidates: '.((string) data_get($graphCandidates, 'candidate_count', 0)));
+            $this->line('- after: '.((string) data_get($graphCandidates, 'sequence_policy.default_suggested_after_slug', 'review')));
+        }
+
+        $graphRagReadiness = data_get($payload, 'graph_rag_readiness');
+        if (is_array($graphRagReadiness)) {
+            $this->newLine();
+            $this->line('Graph/RAG readiness:');
+            $this->line('- status: '.((string) data_get($graphRagReadiness, 'status', 'unknown')));
+            $this->line('- current phase: '.((string) data_get($graphRagReadiness, 'current_phase', 'unknown')));
+            $this->line('- target phase: '.((string) data_get($graphRagReadiness, 'target_phase', 'unknown')));
+            $this->line('- blocking items: '.((string) data_get($graphRagReadiness, 'summary.blocking_item_count', 0)));
         }
 
         $acceptance = data_get($payload, 'candidate_acceptance');

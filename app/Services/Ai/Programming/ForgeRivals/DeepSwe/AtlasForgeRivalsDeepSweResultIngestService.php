@@ -863,9 +863,9 @@ final class AtlasForgeRivalsDeepSweResultIngestService
             'stderr_bytes' => $stderrBytes,
             'patch_diff_bytes' => $patchBytes,
             'trajectory_sha256' => $artifacts['trajectory_sha256'],
-            'changed_files' => $this->stringList($result['changed_files'] ?? []),
-            'out_of_scope_files' => $this->stringList($result['out_of_scope_files'] ?? []),
-            'bytecode_artifacts' => $this->stringList($result['bytecode_artifacts'] ?? []),
+            'changed_files' => AiStringListNormalizer::castItemsToStrings($result['changed_files'] ?? []),
+            'out_of_scope_files' => AiStringListNormalizer::castItemsToStrings($result['out_of_scope_files'] ?? []),
+            'bytecode_artifacts' => AiStringListNormalizer::castItemsToStrings($result['bytecode_artifacts'] ?? []),
             'provider_tokens_spent' => (bool) ($result['provider_tokens_spent'] ?? false),
             'external_provider_call' => (bool) ($result['external_provider_call'] ?? false),
             'cost_usd' => $result['cost_usd'] ?? null,
@@ -1230,14 +1230,6 @@ final class AtlasForgeRivalsDeepSweResultIngestService
     private function mayHaveSpentTokens(array $result): bool
     {
         return (bool) ($result['provider_tokens_spent'] ?? $result['external_provider_call'] ?? false);
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return AiStringListNormalizer::castItemsToStrings($value);
     }
 
     /**

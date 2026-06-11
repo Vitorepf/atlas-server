@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Kernel\Capability;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
+
 final readonly class CapabilityManifest
 {
     /**
@@ -68,14 +70,7 @@ final readonly class CapabilityManifest
      */
     private static function stringList(mixed $values): array
     {
-        if (! is_array($values)) {
-            return [];
-        }
-
-        return array_values(array_unique(array_filter(
-            array_map(fn (mixed $value): string => self::string($value), $values),
-            fn (string $value): bool => $value !== '',
-        )));
+        return AiStringListNormalizer::uniqueTrimmedCastItemsToStrings($values);
     }
 
     /**

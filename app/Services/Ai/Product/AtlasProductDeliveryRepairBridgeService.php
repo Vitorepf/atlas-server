@@ -5,6 +5,7 @@ namespace App\Services\Ai\Product;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\AtlasDev\Repair\DevRepairLoopService;
 use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionCycleCanon;
+use App\Services\Ai\Support\AiStringListNormalizer;
 
 class AtlasProductDeliveryRepairBridgeService
 {
@@ -73,7 +74,7 @@ class AtlasProductDeliveryRepairBridgeService
             static fn (mixed $blocker): ?string => is_array($blocker) && isset($blocker['id']) ? (string) $blocker['id'] : null,
             (array) ($proof['critical_blockers'] ?? []),
         )));
-        $repairs = $this->stringList($proof['required_repairs'] ?? []);
+        $repairs = AiStringListNormalizer::truthyTrimmedScalarValues($proof['required_repairs'] ?? []);
         $message = trim(implode('; ', array_values(array_unique(array_merge($blockers, $repairs)))));
 
         return [
@@ -82,9 +83,9 @@ class AtlasProductDeliveryRepairBridgeService
             'exit_code' => 1,
             'primary_error_excerpt' => $message !== '' ? $message : 'APFPR blocked product delivery.',
             'failing_test' => in_array('missing_test_evidence', $blockers, true) ? 'product_delivery_proof_tests' : null,
-            'changed_files' => $this->stringList(data_get($delivery, 'delivery_plan.scope_guard.allowed_files', [])),
+            'changed_files' => AiStringListNormalizer::truthyTrimmedScalarValues(data_get($delivery, 'delivery_plan.scope_guard.allowed_files', [])),
             'failure_type' => 'product_delivery_proof_blocked',
-            'failed_commands' => $this->stringList(data_get($delivery, 'delivery_plan.tests', [])),
+            'failed_commands' => AiStringListNormalizer::truthyTrimmedScalarValues(data_get($delivery, 'delivery_plan.tests', [])),
             'failure_hash' => MissionCanonicalHash::sha256([
                 'delivery_hash' => $delivery['delivery_hash'] ?? '',
                 'proof_hash' => $proof['proof_hash'] ?? '',
@@ -108,11 +109,11 @@ class AtlasProductDeliveryRepairBridgeService
             'attempt_count' => 0,
             'max_attempts' => 2,
             'failure_packet' => $failurePacket,
-            'changed_files' => $this->stringList($failurePacket['changed_files'] ?? []),
+            'changed_files' => AiStringListNormalizer::truthyTrimmedScalarValues($failurePacket['changed_files'] ?? []),
             'retrieval_plan' => [
                 'context_sufficiency_gate' => ['status' => 'ready'],
                 'test_impact' => [
-                    'recommended_commands' => $this->stringList(data_get($delivery, 'delivery_plan.tests', [])),
+                    'recommended_commands' => AiStringListNormalizer::truthyTrimmedScalarValues(data_get($delivery, 'delivery_plan.tests', [])),
                 ],
             ],
         ]);
@@ -126,7 +127,7 @@ class AtlasProductDeliveryRepairBridgeService
      */
     private function forgeRepairPacket(array $delivery, array $proof, array $failurePacket): array
     {
-        $repairs = $this->stringList($proof['required_repairs'] ?? []);
+        $repairs = AiStringListNormalizer::truthyTrimmedScalarValues($proof['required_repairs'] ?? []);
         $repairHint = in_array('add_or_run_focused_tests', $repairs, true)
             ? ForgeWorkPacketExecutionCycleCanon::REPAIR_HINT_ADD_TESTS
             : ForgeWorkPacketExecutionCycleCanon::REPAIR_HINT_RETRY_WITH_FRESH_CONTEXT;
@@ -158,25 +159,11 @@ class AtlasProductDeliveryRepairBridgeService
      */
     private function riskLevel(array $delivery): string
     {
-        $required = $this->stringList(data_get($delivery, 'product_truth.execution_lenses.required', []));
+        $required = AiStringListNormalizer::truthyTrimmedScalarValues(data_get($delivery, 'product_truth.execution_lenses.required', []));
 
         return array_intersect($required, ['security_driven', 'performance_driven', 'add']) !== []
             ? 'R3'
             : 'R2';
     }
 
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(
-            static fn (mixed $item): ?string => is_scalar($item) && trim((string) $item) !== '' ? trim((string) $item) : null,
-            $value,
-        )));
-    }
 }

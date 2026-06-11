@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Router;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 class AtlasAiSpecialistFlowRuntimeService
 {
     public const SCHEMA_VERSION = 'atlas.ai.specialist_flow_runtime.v1';
@@ -16,7 +18,7 @@ class AtlasAiSpecialistFlowRuntimeService
     {
         $payload = is_array($data['payload'] ?? null) ? $data['payload'] : [];
         $router = is_array($payload['atlas_ai_router'] ?? null) ? $payload['atlas_ai_router'] : [];
-        $flowId = $this->stringValue($router['flow_id'] ?? null);
+        $flowId = AiValueNormalizer::trimmedScalarStringOrNull($router['flow_id'] ?? null);
 
         if ($flowId === null || is_array($payload['specialist_flow_runtime'] ?? null)) {
             return $data;
@@ -45,12 +47,12 @@ class AtlasAiSpecialistFlowRuntimeService
             'status' => 'planned',
             'flow_id' => $flowId,
             'owner' => $flowId,
-            'flow_origin' => $this->stringValue($router['flow_origin'] ?? null) ?? 'router_auto',
-            'command_intent' => $this->stringValue($router['command_intent'] ?? null),
-            'routing_reason' => $this->stringValue($router['routing_reason'] ?? null),
+            'flow_origin' => AiValueNormalizer::trimmedScalarStringOrNull($router['flow_origin'] ?? null) ?? 'router_auto',
+            'command_intent' => AiValueNormalizer::trimmedScalarStringOrNull($router['command_intent'] ?? null),
+            'routing_reason' => AiValueNormalizer::trimmedScalarStringOrNull($router['routing_reason'] ?? null),
             'workspace_present' => $workspacePresent,
-            'surface_id' => $this->stringValue(data_get($router, 'handoff_payload.surface_id'))
-                ?? $this->stringValue($payload['surface_id'] ?? null),
+            'surface_id' => AiValueNormalizer::trimmedScalarStringOrNull(data_get($router, 'handoff_payload.surface_id'))
+                ?? AiValueNormalizer::trimmedScalarStringOrNull($payload['surface_id'] ?? null),
             'side_effect_policy' => 'read_only_until_confirmed',
             'required_evidence' => ['router_decision', 'flow_contract'],
             'delegation' => [
@@ -193,14 +195,4 @@ class AtlasAiSpecialistFlowRuntimeService
         return $canonical;
     }
 
-    private function stringValue(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
-    }
 }

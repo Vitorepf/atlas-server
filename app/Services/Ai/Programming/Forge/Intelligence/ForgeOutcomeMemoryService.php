@@ -5,6 +5,7 @@ namespace App\Services\Ai\Programming\Forge\Intelligence;
 use App\Models\AiForgeOutcomeMemory;
 use App\Models\AiForgeWorkPacketExecutionCycle;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Support\Str;
 
 final class ForgeOutcomeMemoryService
@@ -26,10 +27,10 @@ final class ForgeOutcomeMemoryService
             'packet_id' => $cycle->work_packet_canonical_id,
             'outcome_status' => $cycle->outcome_status,
             'execution_mode' => $cycle->execution_mode,
-            'evidence_kinds' => array_values(array_unique(array_filter(array_map(
-                static fn ($ref): string => is_array($ref) ? (string) ($ref['kind'] ?? '') : '',
+            'evidence_kinds' => AiStringListNormalizer::uniqueTruthyMappedScalarStrings(
                 (array) ($cycle->evidence_refs ?? []),
-            )))),
+                static fn (mixed $ref): mixed => is_array($ref) ? ($ref['kind'] ?? '') : '',
+            ),
             'aedpds_drivers' => $aedpdsDrivers,
             'aedpds_gate_status' => (string) ($aedpds['status'] ?? 'unknown'),
             'aedpds_doctrine_hash' => (string) ($aedpds['doctrine_hash'] ?? ''),

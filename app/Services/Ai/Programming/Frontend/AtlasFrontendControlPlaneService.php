@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Programming\Frontend;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 final class AtlasFrontendControlPlaneService
 {
@@ -15,8 +16,8 @@ final class AtlasFrontendControlPlaneService
     public function snapshot(array $input = []): array
     {
         $certification = app(AtlasFrontendDesignRuntimeService::class)->certify();
-        $benchmark = app(AtlasFrontendBenchmarkRuntimeService::class)->run($this->nullableString($input['rival_evidence'] ?? null));
-        $replay = app(AtlasFrontendRivalReplayHarnessService::class)->inspect($this->nullableString($input['rival_evidence'] ?? null));
+        $benchmark = app(AtlasFrontendBenchmarkRuntimeService::class)->run(AiValueNormalizer::trimmedStringOrNull($input['rival_evidence'] ?? null));
+        $replay = app(AtlasFrontendRivalReplayHarnessService::class)->inspect(AiValueNormalizer::trimmedStringOrNull($input['rival_evidence'] ?? null));
         $competitiveDimensionGaps = $this->competitiveDimensionGaps((array) data_get($replay, 'competitive_diagnostics.cases', []));
         $competitiveRepairPlan = $competitiveDimensionGaps !== []
             ? app(AtlasFrontendRepairPlannerService::class)->plan([
@@ -61,7 +62,7 @@ final class AtlasFrontendControlPlaneService
                 'task_hash' => $this->hashNullable($input['task'] ?? null),
                 'workspace_hash' => $this->hashNullable($input['workspace'] ?? null),
                 'frontend_app_hash' => $this->hashNullable($input['frontend_app'] ?? null),
-                'surface' => $this->nullableString($input['surface'] ?? null) ?: 'programming.frontend',
+                'surface' => AiValueNormalizer::trimmedStringOrNull($input['surface'] ?? null) ?: 'programming.frontend',
                 'gauntlet_requested' => $this->shouldRunGauntlet($input),
                 'rival_evidence_directory_hash' => $this->hashNullable($input['rival_evidence'] ?? null),
                 'publication_bundle_hash' => $this->hashNullable($input['bundle'] ?? null),
@@ -186,10 +187,10 @@ final class AtlasFrontendControlPlaneService
         }
 
         return app(AtlasFrontendGauntletService::class)->run([
-            'task' => $this->nullableString($input['task'] ?? null) ?? '',
-            'surface' => $this->nullableString($input['surface'] ?? null) ?? 'programming.frontend',
-            'workspace' => $this->nullableString($input['workspace'] ?? null) ?? '',
-            'frontend_app' => $this->nullableString($input['frontend_app'] ?? null) ?? '',
+            'task' => AiValueNormalizer::trimmedStringOrNull($input['task'] ?? null) ?? '',
+            'surface' => AiValueNormalizer::trimmedStringOrNull($input['surface'] ?? null) ?? 'programming.frontend',
+            'workspace' => AiValueNormalizer::trimmedStringOrNull($input['workspace'] ?? null) ?? '',
+            'frontend_app' => AiValueNormalizer::trimmedStringOrNull($input['frontend_app'] ?? null) ?? '',
             'acceptance_criteria' => (bool) ($input['acceptance_criteria'] ?? false),
             'asset_context' => (bool) ($input['asset_context'] ?? false),
             'company_profile_ready' => (bool) ($input['company_profile_ready'] ?? false),
@@ -209,7 +210,7 @@ final class AtlasFrontendControlPlaneService
      */
     private function publication(array $input): array
     {
-        $bundle = $this->nullableString($input['bundle'] ?? null);
+        $bundle = AiValueNormalizer::trimmedStringOrNull($input['bundle'] ?? null);
         if ($bundle === null) {
             return [
                 'schema_version' => AtlasFrontendPublicationVerifierService::SCHEMA_VERSION,
@@ -228,7 +229,7 @@ final class AtlasFrontendControlPlaneService
 
         return app(AtlasFrontendPublicationVerifierService::class)->verify(
             $bundle,
-            $this->nullableString($input['publication_receipt'] ?? null),
+            AiValueNormalizer::trimmedStringOrNull($input['publication_receipt'] ?? null),
         );
     }
 
@@ -237,8 +238,8 @@ final class AtlasFrontendControlPlaneService
      */
     private function shouldRunGauntlet(array $input): bool
     {
-        return $this->nullableString($input['task'] ?? null) !== null
-            || $this->nullableString($input['workspace'] ?? null) !== null
+        return AiValueNormalizer::trimmedStringOrNull($input['task'] ?? null) !== null
+            || AiValueNormalizer::trimmedStringOrNull($input['workspace'] ?? null) !== null
             || (bool) ($input['force_gauntlet'] ?? false);
     }
 
@@ -333,20 +334,9 @@ final class AtlasFrontendControlPlaneService
         return array_values(array_unique($actions));
     }
 
-    private function nullableString(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
-    }
-
     private function hashNullable(mixed $value): ?string
     {
-        $value = $this->nullableString($value);
+        $value = AiValueNormalizer::trimmedStringOrNull($value);
 
         return $value === null ? null : hash('sha256', $value);
     }

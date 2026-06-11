@@ -287,10 +287,10 @@ final class DevForgeRuntimeExecutionBridgeService
             default => '',
         });
 
-        $allowedFiles = $this->stringList($input['allowed_files'] ?? $raw['allowed_files'] ?? data_get($input, 'spec.allowed_files', []));
+        $allowedFiles = StewardshipStringListNormalizer::trimmedUniqueStrings($input['allowed_files'] ?? $raw['allowed_files'] ?? data_get($input, 'spec.allowed_files', []));
         $spec = is_array($input['spec'] ?? null) ? $input['spec'] : (is_array($raw['spec'] ?? null) ? $raw['spec'] : []);
         if ($allowedFiles === []) {
-            $allowedFiles = $this->stringList($spec['allowed_files'] ?? []);
+            $allowedFiles = StewardshipStringListNormalizer::trimmedUniqueStrings($spec['allowed_files'] ?? []);
         }
 
         return [
@@ -325,7 +325,7 @@ final class DevForgeRuntimeExecutionBridgeService
         $mat = is_array($raw['materialization'] ?? null) ? $raw['materialization'] : [];
         $branchName = $this->str($raw['branch_name'] ?? $mat['branch_name'] ?? '');
         $worktreePath = $this->str($raw['worktree_path'] ?? $mat['worktree_path'] ?? '');
-        $allowedPaths = $this->stringList($raw['allowed_paths'] ?? data_get($raw, 'branch_isolation.allowed_paths', $mat['allowed_paths'] ?? []));
+        $allowedPaths = StewardshipStringListNormalizer::trimmedUniqueStrings($raw['allowed_paths'] ?? data_get($raw, 'branch_isolation.allowed_paths', $mat['allowed_paths'] ?? []));
 
         return [
             'present' => true,
@@ -334,7 +334,7 @@ final class DevForgeRuntimeExecutionBridgeService
             'worktree_path' => $worktreePath,
             'base_ref' => $this->str($raw['base_ref'] ?? $mat['base_ref'] ?? 'HEAD'),
             'allowed_paths' => $allowedPaths,
-            'forbidden_paths' => $this->stringList($raw['forbidden_paths'] ?? data_get($raw, 'branch_isolation.forbidden_paths', ['.env', 'secrets'])),
+            'forbidden_paths' => StewardshipStringListNormalizer::trimmedUniqueStrings($raw['forbidden_paths'] ?? data_get($raw, 'branch_isolation.forbidden_paths', ['.env', 'secrets'])),
             // Real materializer records prove isolation; a flat descriptor may set `isolated`.
             'isolated_flag' => (bool) ($raw['isolated'] ?? ($mat !== [])),
         ];
@@ -404,7 +404,7 @@ final class DevForgeRuntimeExecutionBridgeService
             'sandbox_isolated' => ($sandbox['present'] ?? false)
                 && ! in_array(strtolower((string) ($sandbox['branch_name'] ?? '')), self::NON_ISOLATED_BRANCHES, true)
                 && (bool) ($sandbox['isolated_flag'] ?? false),
-            'allowed_paths' => $this->stringList($sandbox['allowed_paths'] ?? []),
+            'allowed_paths' => StewardshipStringListNormalizer::trimmedUniqueStrings($sandbox['allowed_paths'] ?? []),
             'merge_deploy_requested' => (bool) ($input['merge'] ?? false) || (bool) ($input['deploy'] ?? false) || (bool) ($input['push'] ?? false),
             'kill_switch_active' => (bool) ($input['kill_switch'] ?? false) || (bool) ($input['area_kill_switch'] ?? false),
             'budget_checked' => $budgetChecked,
@@ -902,7 +902,7 @@ final class DevForgeRuntimeExecutionBridgeService
             (string) ($source['kind'] ?? ''),
             (string) ($source['id'] ?? ''),
             (string) ($sandbox['sandbox_id'] ?? ''),
-            $this->stringList($source['allowed_files'] ?? []),
+            StewardshipStringListNormalizer::trimmedUniqueStrings($source['allowed_files'] ?? []),
         ]), 0, 18);
     }
 
@@ -912,7 +912,7 @@ final class DevForgeRuntimeExecutionBridgeService
      */
     private function claimPolicy(array $payload): array
     {
-        $changed = $this->stringList($payload['changed_files'] ?? []);
+        $changed = StewardshipStringListNormalizer::trimmedUniqueStrings($payload['changed_files'] ?? []);
 
         return [
             'mode' => 'dev_forge_runtime_execution_bridge',
@@ -1165,15 +1165,6 @@ final class DevForgeRuntimeExecutionBridgeService
     private function str(mixed $value): string
     {
         return is_scalar($value) ? trim((string) $value) : '';
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return StewardshipStringListNormalizer::trimmedUniqueStrings($value);
     }
 
     /**

@@ -7,6 +7,7 @@ namespace App\Services\Ai\Publishing;
 use App\Models\AtlasEngineeringCodeModule;
 use App\Models\AtlasEngineeringCodeSymbol;
 use App\Models\AtlasEngineeringKnowledgeItem;
+use App\Services\Ai\Context\AtlasGraphRetrievalNetworkService;
 use App\Services\Ai\AtlasOpenBrainService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Database\Eloquent\Builder;
@@ -46,6 +47,16 @@ final class BlogEditorialContextService
         }
 
         $candidate = $this->candidateBySlug($candidateSlug, $posts);
+
+        if (! is_array($candidate) && (bool) ($options['include_graph_candidates'] ?? false)) {
+            $candidate = $this->graphCandidateBySlug($candidateSlug, $posts, $publishedSlugs, [
+                'published_posts' => is_array($options['published_posts'] ?? null) ? $options['published_posts'] : [],
+                'next_ready_post' => is_array($options['next_ready_post'] ?? null) ? $options['next_ready_post'] : null,
+                'graph_context_limit' => (int) ($options['graph_context_limit'] ?? 8),
+                'candidate_limit' => (int) ($options['candidate_limit'] ?? 10),
+                'graph_world_model_id' => is_string($options['graph_world_model_id'] ?? null) ? (string) $options['graph_world_model_id'] : '',
+            ]);
+        }
 
         if (! is_array($candidate)) {
             return [
@@ -87,6 +98,8 @@ final class BlogEditorialContextService
                 'writes_review_queue' => $write && ! $alreadyQueued,
                 'requires_human_approval_to_promote' => true,
                 'uses_graph_rag' => false,
+                'uses_global_graph_rag' => false,
+                'invokes_bounded_graph_retrieval' => (string) ($candidate['source_type'] ?? '') === 'bounded_world_model_graph',
                 'uses_python_runtime' => false,
             ],
         ];
@@ -236,10 +249,10 @@ final class BlogEditorialContextService
      * @param  array<int,string>  $publishedSlugs
      * @return array<string,mixed>
      */
-    public function candidateSuggestions(array $posts, array $publishedSlugs = [], int $limit = 10): array
+    public function candidateSuggestions(array $posts, array $publishedSlugs = [], int $limit = 10, array $queuedSlugs = []): array
     {
         $limit = max(1, min(30, $limit));
-        $existing = $this->existingEditorialIndex($posts, $publishedSlugs);
+        $existing = $this->existingEditorialIndex($posts, $publishedSlugs, $queuedSlugs);
         $candidates = [];
 
         foreach ($this->knowledgeCandidateRows($limit * 3) as $row) {
@@ -294,6 +307,71 @@ final class BlogEditorialContextService
                 'uses_python_runtime' => false,
                 'creates_parallel_memory_store' => false,
                 'source_of_truth' => 'existing_atlas_engineering_knowledge_and_code_intelligence_read_models',
+                'deduplicates_review_queue' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $posts
+     * @param  array<int,string>  $publishedSlugs
+     * @return array<string,mixed>
+     */
+    public function reviewQueueState(string $siteRoot, array $posts, array $publishedSlugs = [], string $relativePath = 'content/backlog/blog-candidates.yaml'): array
+    {
+        $siteRoot = rtrim($siteRoot, '/');
+        $path = $siteRoot.'/'.$relativePath;
+        $entries = is_file($path) ? $this->queuedCandidateEntries($path) : [];
+        $existing = $this->existingEditorialIndex($posts, $publishedSlugs);
+        $seen = [];
+        $duplicates = [];
+
+        $entries = array_values(array_map(function (array $entry) use (&$seen, &$duplicates, $existing): array {
+            $slug = (string) ($entry['slug'] ?? '');
+            $duplicateReason = null;
+            if ($slug !== '' && isset($seen[$slug])) {
+                $duplicateReason = 'duplicate_in_review_queue';
+            } elseif ($slug !== '' && isset($existing['slugs'][$slug])) {
+                $duplicateReason = 'already_in_main_backlog_or_published';
+            }
+
+            if ($slug !== '') {
+                $seen[$slug] = true;
+            }
+
+            if ($duplicateReason !== null) {
+                $duplicates[] = [
+                    'slug' => $slug,
+                    'reason' => $duplicateReason,
+                ];
+            }
+
+            return $entry + [
+                'duplicate_reason' => $duplicateReason,
+                'ready_for_promotion_review' => $duplicateReason === null,
+            ];
+        }, $entries));
+
+        return [
+            'schema_version' => 'atlas.blog_editorial_review_queue.v1',
+            'mode' => 'read_only_review_queue_state_p1',
+            'status' => is_file($path) ? 'ready' : 'missing',
+            'path' => $path,
+            'candidate_count' => count($entries),
+            'queued_slugs' => array_values(array_filter(array_map(
+                fn (array $entry): string => (string) ($entry['slug'] ?? ''),
+                $entries,
+            ))),
+            'duplicate_count' => count($duplicates),
+            'duplicates' => $duplicates,
+            'candidates' => $entries,
+            'guardrails' => [
+                'read_only' => true,
+                'writes_backlog' => false,
+                'writes_review_queue' => false,
+                'publishes_content' => false,
+                'uses_graph_rag' => false,
+                'uses_python_runtime' => false,
             ],
         ];
     }
@@ -489,17 +567,470 @@ final class BlogEditorialContextService
      * @param  array<int,array<string,mixed>>  $posts
      * @param  array<int,string>  $publishedSlugs
      * @param  array<int,array<string,mixed>>  $publishedPosts
+     * @return array<string,mixed>
+     */
+    public function graphRagReadiness(array $posts, array $publishedSlugs = [], array $publishedPosts = []): array
+    {
+        $sourceMap = $this->sourceMap($posts, $publishedSlugs, $publishedPosts);
+        $coverageMap = $this->coverageMap($posts, $publishedSlugs);
+        $goldenSet = $this->editorialGoldenSet($posts, $publishedSlugs, $publishedPosts);
+        $components = $this->graphRagReadinessComponents();
+        $blockedItems = [
+            [
+                'code' => 'ap_817_p2_review_required',
+                'status' => 'blocking',
+                'reason' => 'Editorial graph/RAG needs explicit P2 promotion before becoming an active source.',
+                'evidence' => 'docs/ap/AP-817-blog-editorial-planning-contract.md',
+            ],
+            [
+                'code' => 'kernel_decision_receipt_required',
+                'status' => 'blocking',
+                'reason' => 'Every Python/data/graph runtime call must be mediated by the Kernel and recorded as a decision receipt.',
+                'evidence' => 'docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md',
+            ],
+            [
+                'code' => 'global_graph_retrieval_future_governed',
+                'status' => 'blocking',
+                'reason' => 'AGRN currently allows bounded Codebase World Model retrieval; global/external graph remains future-governed.',
+                'evidence' => 'docs/engineering-knowledge-base/atlas-graph-retrieval-network.md',
+            ],
+        ];
+
+        if (($goldenSet['status'] ?? '') !== 'passed') {
+            $blockedItems[] = [
+                'code' => 'editorial_golden_set_missing',
+                'status' => 'blocking',
+                'reason' => 'Blog order suggestions need a fixture/golden set proving they do not skip reader foundation.',
+                'evidence' => 'tests/Feature/Ai/Publishing/AtlasBlogEditorialPlanCommandTest.php',
+            ];
+        }
+
+        return [
+            'schema_version' => 'atlas.blog_editorial_graph_rag_readiness.v1',
+            'mode' => 'read_only_p2_readiness_preflight',
+            'status' => 'not_promoted',
+            'current_phase' => 'p1_read_only_editorial_intelligence',
+            'target_phase' => 'p2_bounded_graph_rag_editorial_context',
+            'summary' => [
+                'planned_posts' => count($posts),
+                'public_archive_posts' => (int) data_get($sourceMap, 'archive_state.public_archive_posts', 0),
+                'foundation_planned' => (int) data_get($coverageMap, 'summary.foundation_planned', 0),
+                'foundation_published' => (int) data_get($coverageMap, 'summary.foundation_published', 0),
+                'available_component_count' => count(array_filter($components, fn (array $component): bool => (string) ($component['status'] ?? '') === 'available')),
+                'blocking_item_count' => count($blockedItems),
+                'editorial_golden_set_status' => (string) ($goldenSet['status'] ?? 'unknown'),
+            ],
+            'available_components' => $components,
+            'editorial_golden_set' => $goldenSet,
+            'missing_or_blocking_items' => $blockedItems,
+            'allowed_now' => [
+                'source_map',
+                'coverage_map',
+                'editorial_radar',
+                'editorial_graph_context_bounded_world_model',
+                'writing_packet',
+                'open_brain_handoff',
+                'explicit_open_brain_context_execution',
+                'review_queue_candidate_suggestions',
+            ],
+            'deferred_until_p2' => [
+                'direct_graph_traversal_for_blog_planning',
+                'direct_vector_runtime_calls',
+                'python_ai_data_runtime_calls',
+                'automatic_backlog_reordering',
+                'automatic_publication',
+            ],
+            'editorial_integration_plan' => [
+                [
+                    'step' => 1,
+                    'name' => 'bounded_context_only',
+                    'rule' => 'Use graph results only as provider-safe evidence summaries, never as raw blog text.',
+                ],
+                [
+                    'step' => 2,
+                    'name' => 'attach_evidence_to_candidates',
+                    'rule' => 'Candidates must carry source refs and suggested placement, not mutate the backlog.',
+                ],
+                [
+                    'step' => 3,
+                    'name' => 'sequence_gate_before_depth',
+                    'rule' => 'Graph/RAG may suggest topics only after foundation coverage says the reader path is ready.',
+                ],
+                [
+                    'step' => 4,
+                    'name' => 'human_promotion',
+                    'rule' => 'Vitor explicitly accepts and promotes any graph/RAG-derived candidate.',
+                ],
+            ],
+            'promotion_checklist' => [
+                '/opt/homebrew/bin/php artisan atlas:engineering:knowledge docs-health --json',
+                '/opt/homebrew/bin/php artisan test tests/Feature/Ai/Context/GraphRetrievalNetworkTest.php',
+                "/opt/homebrew/bin/php artisan atlas:context:graph-retrieval --query='blog editorial memory atlas' --json",
+                '/opt/homebrew/bin/php artisan test --filter=AtlasBlogEditorialPlanCommandTest',
+                '/opt/homebrew/bin/php artisan atlas:blog:editorial-plan --graph-rag-readiness --json',
+            ],
+            'risk_assessment' => [
+                'primary_risk' => 'Advanced context can make the blog skip the reader foundation and become impressive but confusing.',
+                'privacy_risk' => 'Graph/RAG evidence can surface private paths, traces or implementation details if not summarized.',
+                'mitigation' => 'Keep P1 read-only; promote P2 only through AP-817, Kernel receipts, provider-safe summaries and golden tests.',
+            ],
+            'guardrails' => [
+                'read_only' => true,
+                'writes_backlog' => false,
+                'writes_review_queue' => false,
+                'writes_draft' => false,
+                'publishes_content' => false,
+                'uses_graph_rag' => false,
+                'uses_python_runtime' => false,
+                'invokes_graph_retrieval' => false,
+                'invokes_vector_runtime' => false,
+                'creates_parallel_memory_store' => false,
+                'requires_human_approval_to_promote' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $posts
+     * @param  array<int,string>  $publishedSlugs
+     * @param  array<int,array<string,mixed>>  $publishedPosts
+     * @param  array<string,mixed>|null  $nextReadyPost
+     * @return array<string,mixed>
+     */
+    public function editorialGraphContext(array $posts, array $publishedSlugs = [], array $publishedPosts = [], ?array $nextReadyPost = null, int $maxResults = 8, string $worldModelId = ''): array
+    {
+        $maxResults = max(1, min(12, $maxResults));
+        $goldenSet = $this->editorialGoldenSet($posts, $publishedSlugs, $publishedPosts);
+        $targetPost = is_array($nextReadyPost)
+            ? $this->plannedPostBySlug($posts, (string) ($nextReadyPost['slug'] ?? ''))
+            : null;
+
+        if (! is_array($targetPost)) {
+            $targetPost = $this->plannedPostBySlug($posts, $this->firstReadySlug($posts, $publishedSlugs) ?? '');
+        }
+
+        if (($goldenSet['status'] ?? '') !== 'passed') {
+            return [
+                'schema_version' => 'atlas.blog_editorial_graph_context.v1',
+                'mode' => 'bounded_world_model_editorial_context_p2_preflight',
+                'status' => 'blocked',
+                'reason' => 'editorial_golden_set_failed',
+                'post' => $targetPost !== null ? $this->compactPostRef($targetPost) : null,
+                'editorial_golden_set' => [
+                    'status' => (string) ($goldenSet['status'] ?? 'unknown'),
+                    'failed_cases' => array_values((array) ($goldenSet['failed_cases'] ?? [])),
+                ],
+                'graph_retrieval' => null,
+                'guardrails' => $this->editorialGraphContextGuardrails(false),
+            ];
+        }
+
+        if (! is_array($targetPost)) {
+            return [
+                'schema_version' => 'atlas.blog_editorial_graph_context.v1',
+                'mode' => 'bounded_world_model_editorial_context_p2_preflight',
+                'status' => 'blocked',
+                'reason' => 'next_ready_post_not_found',
+                'post' => null,
+                'editorial_golden_set' => [
+                    'status' => (string) ($goldenSet['status'] ?? 'unknown'),
+                    'failed_cases' => [],
+                ],
+                'graph_retrieval' => null,
+                'guardrails' => $this->editorialGraphContextGuardrails(false),
+            ];
+        }
+
+        $graph = $this->graphRetrievalService()->retrieve([
+            'objective' => $this->editorialGraphObjective($targetPost),
+            'task_type' => 'research',
+            'domain' => 'blog_editorial',
+            'risk_level' => 'medium',
+            'target_files' => [
+                'app/Services/Ai/Publishing/BlogEditorialPlannerService.php',
+                'app/Services/Ai/Publishing/BlogEditorialContextService.php',
+                'app/Console/Commands/AtlasBlogEditorialPlanCommand.php',
+            ],
+            'target_flows' => [
+                'blog_editorial_planning',
+                (string) ($targetPost['collection'] ?? ''),
+                (string) ($targetPost['series'] ?? ''),
+            ],
+            'target_capabilities' => array_values(array_unique(array_filter(array_merge(
+                ['blog_editorial_planning', 'content_intelligence'],
+                (array) ($targetPost['topics'] ?? []),
+                $this->terms($targetPost),
+            ), 'is_string'))),
+            'target_risks' => [
+                'skip_reader_foundation',
+                'publish_private_implementation_details',
+                'automatic_backlog_reordering',
+            ],
+            'world_model_id' => $worldModelId,
+            'max_results' => $maxResults,
+        ]);
+
+        return [
+            'schema_version' => 'atlas.blog_editorial_graph_context.v1',
+            'mode' => 'bounded_world_model_editorial_context_p2_preflight',
+            'status' => in_array((string) ($graph['status'] ?? ''), ['ready', 'degraded'], true) ? 'ready' : 'blocked',
+            'post' => $this->compactPostRef($targetPost),
+            'editorial_golden_set' => [
+                'status' => (string) ($goldenSet['status'] ?? 'unknown'),
+                'failed_cases' => array_values((array) ($goldenSet['failed_cases'] ?? [])),
+            ],
+            'graph_retrieval' => [
+                'schema_version' => (string) ($graph['schema_version'] ?? ''),
+                'status' => (string) ($graph['status'] ?? 'unknown'),
+                'hash' => (string) ($graph['graph_retrieval_hash'] ?? ''),
+                'query_hash' => (string) data_get($graph, 'graph_query.query_hash', ''),
+                'graph_scope' => (string) data_get($graph, 'graph_query.graph_scope', ''),
+                'traversal_receipt' => [
+                    'schema_version' => (string) data_get($graph, 'graph_traversal_receipt.schema_version', ''),
+                    'status' => (string) data_get($graph, 'graph_traversal_receipt.status', 'unknown'),
+                    'bounded_traversal' => (bool) data_get($graph, 'graph_traversal_receipt.bounded_traversal', false),
+                    'fallback_reason' => data_get($graph, 'graph_traversal_receipt.fallback_reason'),
+                    'edge_types_used' => array_values((array) data_get($graph, 'graph_traversal_receipt.edge_types_used', [])),
+                ],
+                'evidence_set' => [
+                    'schema_version' => (string) data_get($graph, 'graph_evidence_set.schema_version', ''),
+                    'status' => (string) data_get($graph, 'graph_evidence_set.status', 'unknown'),
+                    'evidence_count' => (int) data_get($graph, 'graph_evidence_set.evidence_count', 0),
+                    'source_count' => (int) data_get($graph, 'graph_evidence_set.source_count', 0),
+                    'evidence' => array_slice((array) data_get($graph, 'graph_evidence_set.evidence', []), 0, $maxResults),
+                    'sources' => array_slice((array) data_get($graph, 'graph_evidence_set.sources', []), 0, $maxResults),
+                ],
+                'policy' => [
+                    'bounded_traversal_only' => (bool) data_get($graph, 'policy.bounded_traversal_only', false),
+                    'global_graph_retrieval_active' => (bool) data_get($graph, 'policy.global_graph_retrieval_active', false),
+                    'external_graph_runtime_invoked' => (bool) data_get($graph, 'policy.external_graph_runtime_invoked', false),
+                    'python_runtime_invoked' => (bool) data_get($graph, 'policy.python_runtime_invoked', false),
+                    'providers_invoked' => (bool) data_get($graph, 'policy.providers_invoked', false),
+                    'writes' => (bool) data_get($graph, 'policy.writes', false),
+                    'raw_query_exposed' => (bool) data_get($graph, 'policy.raw_query_exposed', false),
+                ],
+                'claims' => [
+                    'global_graph_rag_ready' => (bool) data_get($graph, 'claims.global_graph_rag_ready', false),
+                    'bounded_world_model_retrieval_ready' => (bool) data_get($graph, 'claims.bounded_world_model_retrieval_ready', false),
+                ],
+            ],
+            'editorial_policy' => [
+                'may_inform_writing_packet' => true,
+                'may_create_candidate' => false,
+                'may_reorder_backlog' => false,
+                'may_publish' => false,
+                'rule' => 'Use bounded graph evidence as context hints only; sequence, candidate promotion and publication remain human-approved.',
+            ],
+            'guardrails' => $this->editorialGraphContextGuardrails(true),
+        ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $posts
+     * @param  array<int,string>  $publishedSlugs
+     * @param  array<int,array<string,mixed>>  $publishedPosts
+     * @param  array<string,mixed>|null  $nextReadyPost
+     * @return array<string,mixed>
+     */
+    public function editorialGraphCandidates(array $posts, array $publishedSlugs = [], array $publishedPosts = [], ?array $nextReadyPost = null, int $graphLimit = 8, int $candidateLimit = 5, string $worldModelId = '', array $queuedSlugs = []): array
+    {
+        $graphLimit = max(1, min(12, $graphLimit));
+        $candidateLimit = max(1, min(15, $candidateLimit));
+        $graphContext = $this->editorialGraphContext($posts, $publishedSlugs, $publishedPosts, $nextReadyPost, $graphLimit, $worldModelId);
+        $appendAfterSlug = $this->lastPostSlug($posts);
+        $existing = $this->existingEditorialIndex($posts, $publishedSlugs, $queuedSlugs);
+
+        if (($graphContext['status'] ?? '') !== 'ready') {
+            return [
+                'schema_version' => 'atlas.blog_editorial_graph_candidates.v1',
+                'mode' => 'bounded_world_model_candidate_feed_p2_preflight',
+                'status' => 'blocked',
+                'reason' => (string) ($graphContext['reason'] ?? 'editorial_graph_context_not_ready'),
+                'candidate_count' => 0,
+                'candidates' => [],
+                'graph_context' => $this->compactGraphContextForCandidates($graphContext),
+                'sequence_policy' => $this->graphCandidateSequencePolicy($posts, $publishedSlugs, $appendAfterSlug),
+                'guardrails' => $this->editorialGraphCandidateGuardrails((bool) data_get($graphContext, 'guardrails.invokes_bounded_graph_retrieval', false)),
+            ];
+        }
+
+        $evidence = array_values((array) data_get($graphContext, 'graph_retrieval.evidence_set.evidence', []));
+        $candidates = [];
+        $rejectedDuplicates = [];
+
+        foreach ($this->graphCandidateBlueprints($graphContext, $evidence) as $blueprint) {
+            $candidate = $this->graphCandidateFromBlueprint($blueprint, $appendAfterSlug, $evidence);
+            $slug = (string) ($candidate['slug'] ?? '');
+            $normalizedTitle = $this->normalizedTitle((string) ($candidate['title'] ?? ''));
+
+            if ($slug === '' || isset($existing['slugs'][$slug]) || isset($existing['titles'][$normalizedTitle])) {
+                $rejectedDuplicates[] = [
+                    'slug' => $slug,
+                    'title' => (string) ($candidate['title'] ?? ''),
+                    'reason' => 'already_planned_or_published',
+                ];
+
+                continue;
+            }
+
+            $existing['slugs'][$slug] = true;
+            $existing['titles'][$normalizedTitle] = true;
+            $candidates[] = $candidate;
+
+            if (count($candidates) >= $candidateLimit) {
+                break;
+            }
+        }
+
+        return [
+            'schema_version' => 'atlas.blog_editorial_graph_candidates.v1',
+            'mode' => 'bounded_world_model_candidate_feed_p2_preflight',
+            'status' => 'ready',
+            'candidate_count' => count($candidates),
+            'candidates' => $candidates,
+            'rejected_duplicates' => $rejectedDuplicates,
+            'graph_context' => $this->compactGraphContextForCandidates($graphContext),
+            'sequence_policy' => $this->graphCandidateSequencePolicy($posts, $publishedSlugs, $appendAfterSlug),
+            'guardrails' => $this->editorialGraphCandidateGuardrails(true),
+        ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $posts
+     * @param  array<int,string>  $publishedSlugs
+     * @param  array<int,array<string,mixed>>  $publishedPosts
+     * @return array<string,mixed>
+     */
+    public function editorialGoldenSet(array $posts, array $publishedSlugs = [], array $publishedPosts = []): array
+    {
+        $publishedSet = array_fill_keys($publishedSlugs, true);
+        $plannedSet = array_fill_keys(array_values(array_filter(array_map(
+            fn (array $post): string => (string) ($post['slug'] ?? ''),
+            $posts,
+        ))), true);
+        $coverage = $this->coverageMap($posts, $publishedSlugs);
+        $frontier = $this->publicationFrontier($posts, $publishedSet);
+        $firstReady = $this->firstReadySlug($posts, []);
+        $afterIntroReady = $this->firstReadySlug($posts, ['o-que-e-o-atlas', 'por-que-estou-construindo-o-atlas']);
+        $cases = [];
+
+        $cases[] = $this->goldenCase(
+            'sequence_starts_with_atlas_identity',
+            ! isset($plannedSet['o-que-e-o-atlas']) || $firstReady === 'o-que-e-o-atlas',
+            'If the intro post is planned and nothing is published, it must be the first ready post.',
+            ['first_ready_slug' => $firstReady]
+        );
+
+        $cases[] = $this->goldenCase(
+            'published_prefix_advances_to_next_foundation',
+            ! isset($plannedSet['o-problema-dos-assistentes-de-ia-hoje']) || $afterIntroReady === 'o-problema-dos-assistentes-de-ia-hoje',
+            'After the two first foundation posts, the next ready post must be the assistant-problem bridge.',
+            ['next_ready_after_intro' => $afterIntroReady]
+        );
+
+        $deepFixtureWarnings = $this->deepSequenceWarnings([
+            [
+                'order' => 1,
+                'title' => 'Graph RAG profundo no Atlas',
+                'slug' => 'graph-rag-profundo-no-atlas',
+                'complexity_level' => 'L5',
+                'collection' => 'atlas',
+                'series' => 'graph-rag',
+                'prerequisites' => [],
+            ],
+        ]);
+        $cases[] = $this->goldenCase(
+            'deep_topic_without_foundation_is_warned',
+            collect($deepFixtureWarnings)->contains(fn (array $warning): bool => (string) ($warning['code'] ?? '') === 'deep_post_without_prior_foundation'),
+            'A deep standalone post must trigger a sequence warning instead of becoming a safe editorial jump.',
+            ['warning_count' => count($deepFixtureWarnings)]
+        );
+
+        $conceptFixture = $this->conceptProgressionFixturePosts();
+        $conceptPost = $this->plannedPostBySlug($conceptFixture, 'memoria-como-ledger') ?? [];
+        $conceptMap = $this->conceptProgressionMap($conceptPost, $conceptFixture, ['o-que-e-o-atlas', 'por-que-estou-construindo-o-atlas']);
+        $futureTerms = (array) ($conceptMap['future_terms_to_avoid'] ?? []);
+        $cases[] = $this->goldenCase(
+            'future_terms_stay_future_until_introduced',
+            in_array('graph-rag', $futureTerms, true) && in_array('python-runtime', $futureTerms, true) && (bool) data_get($conceptMap, 'guardrails.uses_graph_rag') === false,
+            'A memory post may not assume future Graph/RAG or Python runtime terms as reader knowledge.',
+            ['future_terms_sample' => array_slice($futureTerms, 0, 6)]
+        );
+
+        $cases[] = $this->goldenCase(
+            'first_month_foundation_has_no_deep_sequence_warning',
+            (int) data_get($coverage, 'summary.deep_sequence_warning_count', 0) === 0,
+            'The active first-month plan must not place L3+ material before a same-series or same-collection foundation.',
+            ['deep_sequence_warning_count' => (int) data_get($coverage, 'summary.deep_sequence_warning_count', 0)]
+        );
+
+        $cases[] = $this->goldenCase(
+            'publication_frontier_is_append_only',
+            (int) ($frontier['next_order'] ?? 0) >= 1 && (($frontier['next_planned_post'] ?? null) === null || is_array($frontier['next_planned_post'])),
+            'The public sequence frontier must be computed from contiguous published order, not from interesting deep topics.',
+            ['next_order' => (int) ($frontier['next_order'] ?? 0), 'next_slug' => (string) data_get($frontier, 'next_planned_post.slug', '')]
+        );
+
+        $cases[] = $this->goldenCase(
+            'graph_rag_candidate_policy_is_review_only',
+            true,
+            'Graph/RAG-derived topics remain review candidates until explicit human promotion.',
+            ['allowed_state' => 'review_queue_before_backlog_promotion']
+        );
+
+        $failed = array_values(array_filter($cases, fn (array $case): bool => ! (bool) ($case['passed'] ?? false)));
+
+        return [
+            'schema_version' => 'atlas.blog_editorial_golden_set.v1',
+            'mode' => 'read_only_sequence_evaluation_p1',
+            'status' => $failed === [] ? 'passed' : 'failed',
+            'summary' => [
+                'case_count' => count($cases),
+                'passed_count' => count($cases) - count($failed),
+                'failed_count' => count($failed),
+                'planned_posts' => count($posts),
+                'published_posts' => count($publishedSlugs),
+                'public_archive_posts' => count($publishedPosts),
+            ],
+            'cases' => $cases,
+            'failed_cases' => $failed,
+            'promotion_signal' => [
+                'editorial_golden_set_ready' => $failed === [],
+                'p2_blocker' => $failed === [] ? null : 'editorial_golden_set_failed',
+                'rule' => 'P2 graph/RAG can inform editorial context only after sequence fixtures prove foundation-first behavior.',
+            ],
+            'guardrails' => [
+                'read_only' => true,
+                'writes_backlog' => false,
+                'writes_review_queue' => false,
+                'writes_draft' => false,
+                'publishes_content' => false,
+                'uses_graph_rag' => false,
+                'uses_python_runtime' => false,
+                'invokes_graph_retrieval' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $posts
+     * @param  array<int,string>  $publishedSlugs
+     * @param  array<int,array<string,mixed>>  $publishedPosts
      * @param  array<string,mixed>|null  $nextReadyPost
      * @param  array<int,array<string,mixed>>  $blockedPosts
      * @return array<string,mixed>
      */
-    public function operationsPacket(array $posts, array $publishedSlugs = [], array $publishedPosts = [], ?array $nextReadyPost = null, array $blockedPosts = [], int $contextLimit = 5, int $candidateLimit = 5, bool $executeOpenBrain = false): array
+    public function operationsPacket(array $posts, array $publishedSlugs = [], array $publishedPosts = [], ?array $nextReadyPost = null, array $blockedPosts = [], int $contextLimit = 5, int $candidateLimit = 5, bool $executeOpenBrain = false, array $reviewQueueState = []): array
     {
         $contextLimit = max(1, min(12, $contextLimit));
         $candidateLimit = max(1, min(15, $candidateLimit));
+        $queuedSlugs = array_values(array_filter(
+            (array) data_get($reviewQueueState, 'queued_slugs', []),
+            'is_string',
+        ));
         $sourceMap = $this->sourceMap($posts, $publishedSlugs, $publishedPosts);
         $coverageMap = $this->coverageMap($posts, $publishedSlugs);
-        $candidateFeed = $this->candidateSuggestions($posts, $publishedSlugs, $candidateLimit);
+        $candidateFeed = $this->candidateSuggestions($posts, $publishedSlugs, $candidateLimit, $queuedSlugs);
         $nextPost = $this->plannedPostBySlug($posts, (string) ($nextReadyPost['slug'] ?? ''));
         $writingPacket = $nextPost !== null
             ? $this->writingPacket($nextPost, $posts, $publishedSlugs, $contextLimit, $publishedPosts, $executeOpenBrain)
@@ -558,6 +1089,16 @@ final class BlogEditorialContextService
                     $blockedPosts,
                 )), 0, 5),
             ],
+            'review_queue' => [
+                'status' => (string) data_get($reviewQueueState, 'status', 'missing'),
+                'candidate_count' => (int) data_get($reviewQueueState, 'candidate_count', 0),
+                'duplicate_count' => (int) data_get($reviewQueueState, 'duplicate_count', 0),
+                'queued_slugs' => $queuedSlugs,
+                'next_review_action' => count($queuedSlugs) > 0
+                    ? 'review_or_promote_candidates'
+                    : 'accept_new_candidates',
+                'rule' => 'Accepted candidates stay in review queue until a human promotes them into the planned backlog.',
+            ],
             'coverage_snapshot' => [
                 'foundation_planned' => (int) data_get($coverageMap, 'summary.foundation_planned', 0),
                 'foundation_published' => (int) data_get($coverageMap, 'summary.foundation_published', 0),
@@ -593,6 +1134,232 @@ final class BlogEditorialContextService
     }
 
     /**
+     * @param  array<int,array<string,mixed>>  $posts
+     * @param  array<int,string>  $publishedSlugs
+     * @param  array<int,array<string,mixed>>  $publishedPosts
+     * @param  array<string,mixed>|null  $nextReadyPost
+     * @return array<string,mixed>
+     */
+    public function editorialRadar(array $posts, array $publishedSlugs = [], array $publishedPosts = [], ?array $nextReadyPost = null, int $candidateLimit = 5, array $reviewQueueState = []): array
+    {
+        $candidateLimit = max(1, min(15, $candidateLimit));
+        $queuedSlugs = array_values(array_filter(
+            (array) data_get($reviewQueueState, 'queued_slugs', []),
+            'is_string',
+        ));
+        $publishedSet = array_fill_keys($publishedSlugs, true);
+        $plannedSet = array_fill_keys(array_values(array_filter(array_map(
+            fn (array $post): string => (string) ($post['slug'] ?? ''),
+            $posts,
+        ))), true);
+        $coverageMap = $this->coverageMap($posts, $publishedSlugs);
+        $sourceMap = $this->sourceMap($posts, $publishedSlugs, $publishedPosts);
+        $candidateFeed = $this->candidateSuggestions($posts, $publishedSlugs, $candidateLimit, $queuedSlugs);
+        $frontier = $this->publicationFrontier($posts, $publishedSet);
+        $blocked = $this->blockedPostsForRadar($posts, $publishedSet, $plannedSet);
+
+        return [
+            'schema_version' => 'atlas.blog_editorial_radar.v1',
+            'mode' => 'read_only_editorial_omnibus_p1',
+            'status' => 'ready',
+            'current_state' => [
+                'planned_posts' => count($posts),
+                'planned_published_posts' => (int) data_get($sourceMap, 'archive_state.planned_published_posts', 0),
+                'public_archive_posts' => (int) data_get($sourceMap, 'archive_state.public_archive_posts', 0),
+                'external_published_posts' => (int) data_get($sourceMap, 'archive_state.external_published_posts', 0),
+                'contiguous_published_until_order' => (int) ($frontier['published_until_order'] ?? 0),
+                'next_sequence_order' => (int) ($frontier['next_order'] ?? 1),
+                'next_ready_slug' => is_array($nextReadyPost) ? (string) ($nextReadyPost['slug'] ?? '') : null,
+                'next_ready_title' => is_array($nextReadyPost) ? (string) ($nextReadyPost['title'] ?? '') : null,
+                'blocked_unpublished_posts' => count($blocked),
+            ],
+            'week_lanes' => $this->weekLanes($posts, $publishedSet),
+            'sequence_lanes' => $this->sequenceLanes($posts, $publishedSet),
+            'gap_register' => [
+                'missing_foundation_planned' => array_values(array_filter(
+                    (array) ($coverageMap['foundation_ladder'] ?? []),
+                    fn (array $item): bool => ! (bool) ($item['planned'] ?? false),
+                )),
+                'missing_foundation_published' => array_values(array_filter(
+                    (array) ($coverageMap['foundation_ladder'] ?? []),
+                    fn (array $item): bool => (bool) ($item['planned'] ?? false) && ! (bool) ($item['published'] ?? false),
+                )),
+                'deep_sequence_warnings' => array_values((array) ($coverageMap['deep_sequence_warnings'] ?? [])),
+                'blocked_posts' => array_slice($blocked, 0, 12),
+                'rule' => 'Fill missing foundation before adding deep posts to the public sequence.',
+            ],
+            'insertion_windows' => $this->insertionWindows($posts, $publishedSet, (array) ($coverageMap['next_safe_arcs'] ?? [])),
+            'review_queue' => [
+                'status' => (string) data_get($reviewQueueState, 'status', 'missing'),
+                'candidate_count' => (int) data_get($reviewQueueState, 'candidate_count', 0),
+                'duplicate_count' => (int) data_get($reviewQueueState, 'duplicate_count', 0),
+                'queued_slugs' => $queuedSlugs,
+                'next_review_action' => count($queuedSlugs) > 0
+                    ? 'review_or_promote_candidates'
+                    : 'accept_new_candidates',
+                'rule' => 'Review queue candidates are visible to the radar but cannot reorder the planned sequence by themselves.',
+            ],
+            'candidate_feed' => [
+                'candidate_count' => (int) ($candidateFeed['candidate_count'] ?? 0),
+                'candidates' => array_values(array_map(
+                    fn (array $candidate): array => $this->candidateRadarSummary($candidate, $posts),
+                    array_slice((array) ($candidateFeed['candidates'] ?? []), 0, $candidateLimit),
+                )),
+                'rule' => 'Candidates feed the review queue; they do not change the planned order until accepted and promoted.',
+            ],
+            'source_readiness' => [
+                'engineering_knowledge' => (string) data_get($sourceMap, 'sources.engineering_knowledge.status', 'unknown'),
+                'code_intelligence' => (string) data_get($sourceMap, 'sources.code_intelligence.status', 'unknown'),
+                'open_brain_context_pack' => (string) data_get($sourceMap, 'sources.open_brain_context_pack.status', 'unknown'),
+                'vector_retrieval' => (string) data_get($sourceMap, 'sources.vector_retrieval.status', 'unknown'),
+                'graph_retrieval' => (string) data_get($sourceMap, 'sources.graph_retrieval.status', 'unknown'),
+                'rule' => 'Graph/RAG remains deferred until P2; P1 radar uses existing read-models and audited context handoff only.',
+            ],
+            'operator_next_steps' => $this->radarNextSteps($frontier, $blocked, $nextReadyPost, (array) ($coverageMap['next_safe_arcs'] ?? [])),
+            'guardrails' => [
+                'read_only' => true,
+                'writes_backlog' => false,
+                'writes_review_queue' => false,
+                'writes_draft' => false,
+                'publishes_content' => false,
+                'uses_graph_rag' => false,
+                'uses_python_runtime' => false,
+                'creates_parallel_memory_store' => false,
+                'requires_human_approval_to_publish' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $posts
+     * @param  array<int,string>  $publishedSlugs
+     * @param  array<int,array<string,mixed>>  $publishedPosts
+     * @param  array<string,mixed>|null  $nextReadyPost
+     * @param  array<int,array<string,mixed>>  $blockedPosts
+     * @param  array<string,mixed>  $reviewQueueState
+     * @return array<string,mixed>
+     */
+    public function operatingState(array $posts, array $publishedSlugs = [], array $publishedPosts = [], ?array $nextReadyPost = null, array $blockedPosts = [], array $reviewQueueState = [], int $candidateLimit = 5): array
+    {
+        $candidateLimit = max(1, min(15, $candidateLimit));
+        $publishedSet = array_fill_keys($publishedSlugs, true);
+        $queuedSlugs = array_values(array_filter(
+            (array) data_get($reviewQueueState, 'queued_slugs', []),
+            'is_string',
+        ));
+        $frontier = $this->publicationFrontier($posts, $publishedSet);
+        $coverageMap = $this->coverageMap($posts, $publishedSlugs);
+        $sourceMap = $this->sourceMap($posts, $publishedSlugs, $publishedPosts);
+        $candidateFeed = $this->candidateSuggestions($posts, $publishedSlugs, $candidateLimit, $queuedSlugs);
+        $plannedCount = count($posts);
+        $publishedCount = count(array_filter(
+            $posts,
+            fn (array $post): bool => isset($publishedSet[(string) ($post['slug'] ?? '')]),
+        ));
+        $firstMonthComplete = $plannedCount > 0 && $publishedCount >= $plannedCount;
+        $currentStage = $firstMonthComplete
+            ? 'foundation_complete_expand_next_arc'
+            : ($publishedCount === 0 ? 'first_post_pending' : 'foundation_sequence_in_progress');
+
+        return [
+            'schema_version' => 'atlas.blog_editorial_operating_state.v1',
+            'mode' => 'read_only_area_state_p1',
+            'status' => 'ready',
+            'stage' => [
+                'current' => $currentStage,
+                'rule' => 'Advance the public reader ladder in order; review candidates do not affect the schedule until promoted.',
+            ],
+            'counts' => [
+                'planned_posts' => $plannedCount,
+                'published_posts' => $publishedCount,
+                'ready_posts' => is_array($nextReadyPost) ? 1 : 0,
+                'blocked_posts' => count($blockedPosts),
+                'review_queue_candidates' => (int) data_get($reviewQueueState, 'candidate_count', 0),
+                'candidate_feed' => (int) ($candidateFeed['candidate_count'] ?? 0),
+            ],
+            'publication_frontier' => [
+                'contiguous_published_until_order' => (int) ($frontier['published_until_order'] ?? 0),
+                'next_sequence_order' => (int) ($frontier['next_order'] ?? 1),
+                'sequence_health' => is_array($nextReadyPost)
+                    ? (count($blockedPosts) > 0 ? 'next_post_ready_future_blockers' : 'next_post_ready')
+                    : (count($blockedPosts) > 0 ? 'blocked_by_prerequisites' : 'clear'),
+            ],
+            'next_post' => is_array($nextReadyPost)
+                ? [
+                    'order' => (int) ($nextReadyPost['order'] ?? 0),
+                    'slug' => (string) ($nextReadyPost['slug'] ?? ''),
+                    'title' => (string) ($nextReadyPost['title'] ?? ''),
+                    'main_question' => (string) ($nextReadyPost['main_question'] ?? ''),
+                    'complexity_level' => (string) ($nextReadyPost['complexity_level'] ?? ''),
+                    'collection' => (string) ($nextReadyPost['collection'] ?? ''),
+                    'series' => (string) ($nextReadyPost['series'] ?? ''),
+                ]
+                : null,
+            'week_board' => array_values(array_map(
+                fn (array $lane): array => [
+                    'week' => (int) ($lane['week'] ?? 0),
+                    'theme' => (string) ($lane['theme'] ?? ''),
+                    'post_count' => (int) ($lane['planned_count'] ?? 0),
+                    'published_count' => (int) ($lane['published_count'] ?? 0),
+                    'next_unpublished_slug' => (string) data_get($lane, 'next_unpublished.slug', ''),
+                    'status' => (bool) ($lane['complete'] ?? false) ? 'complete' : 'active_or_pending',
+                ],
+                $this->weekLanes($posts, $publishedSet),
+            )),
+            'review_queue' => [
+                'status' => (string) data_get($reviewQueueState, 'status', 'missing'),
+                'candidate_count' => (int) data_get($reviewQueueState, 'candidate_count', 0),
+                'duplicate_count' => (int) data_get($reviewQueueState, 'duplicate_count', 0),
+                'queued_slugs' => $queuedSlugs,
+                'next_review_action' => count($queuedSlugs) > 0 ? 'review_or_promote_candidates' : 'accept_new_candidates',
+            ],
+            'candidate_pipeline' => [
+                'feed_count' => (int) ($candidateFeed['candidate_count'] ?? 0),
+                'top_candidates' => array_values(array_map(
+                    fn (array $candidate): array => $this->candidateRadarSummary($candidate, $posts),
+                    array_slice((array) ($candidateFeed['candidates'] ?? []), 0, $candidateLimit),
+                )),
+                'promotion_rule' => 'accept into review queue first, then promote append-only into the backlog after human approval',
+            ],
+            'source_posture' => [
+                'public_archive_posts' => (int) data_get($sourceMap, 'archive_state.public_archive_posts', 0),
+                'external_published_posts' => (int) data_get($sourceMap, 'archive_state.external_published_posts', 0),
+                'engineering_knowledge' => (string) data_get($sourceMap, 'sources.engineering_knowledge.status', 'unknown'),
+                'code_intelligence' => (string) data_get($sourceMap, 'sources.code_intelligence.status', 'unknown'),
+                'open_brain_context_pack' => (string) data_get($sourceMap, 'sources.open_brain_context_pack.status', 'unknown'),
+                'vector_retrieval' => (string) data_get($sourceMap, 'sources.vector_retrieval.status', 'unknown'),
+                'graph_retrieval' => (string) data_get($sourceMap, 'sources.graph_retrieval.status', 'unknown'),
+            ],
+            'coverage' => [
+                'foundation_planned' => (int) data_get($coverageMap, 'summary.foundation_planned', 0),
+                'foundation_published' => (int) data_get($coverageMap, 'summary.foundation_published', 0),
+                'deep_sequence_warning_count' => (int) data_get($coverageMap, 'summary.deep_sequence_warning_count', 0),
+                'next_safe_arcs' => array_slice((array) ($coverageMap['next_safe_arcs'] ?? []), 0, 4),
+            ],
+            'area_surfaces' => [
+                'planner' => 'atlas:blog:editorial-plan --json',
+                'operating_state' => 'atlas:blog:editorial-plan --operating-state --json',
+                'daily_operations' => 'atlas:blog:editorial-plan --operations --json',
+                'editorial_radar' => 'atlas:blog:editorial-plan --editorial-radar --json',
+                'writing_packet' => 'atlas:blog:editorial-plan --writing-packet --json',
+                'review_queue' => 'atlas:blog:editorial-plan --review-queue --json',
+                'candidate_feed' => 'atlas:blog:editorial-plan --suggest-candidates --json',
+            ],
+            'guardrails' => [
+                'read_only' => true,
+                'writes_backlog' => false,
+                'writes_review_queue' => false,
+                'writes_draft' => false,
+                'publishes_content' => false,
+                'uses_graph_rag' => false,
+                'uses_python_runtime' => false,
+                'creates_parallel_memory_store' => false,
+                'requires_human_approval_to_publish' => true,
+            ],
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $post
      * @param  array<int,array<string,mixed>>  $posts
      * @param  array<int,string>  $publishedSlugs
@@ -619,6 +1386,7 @@ final class BlogEditorialContextService
         ));
         $neighbors = $this->neighborPosts($post, $posts);
         $terms = $this->terms($post);
+        $conceptProgressionMap = $this->conceptProgressionMap($post, $posts, $publishedSlugs);
         $publicArchiveContext = $this->publicArchiveContextForPost($post, $posts, $publishedSlugs, $publishedPosts);
         $openBrainHandoff = $this->openBrainHandoffForPost($post, $contextLimit);
 
@@ -649,6 +1417,7 @@ final class BlogEditorialContextService
                 'rule' => 'Write only what this post is allowed to introduce at its current depth.',
             ],
             'public_archive_context' => $publicArchiveContext,
+            'concept_progression_map' => $conceptProgressionMap,
             'editorial_context' => $this->contextForPost($post, $contextLimit),
             'open_brain_handoff' => $openBrainHandoff,
             'open_brain_context' => $executeOpenBrain
@@ -658,7 +1427,7 @@ final class BlogEditorialContextService
                 'terms' => $terms,
                 'current_level' => (string) ($post['complexity_level'] ?? ''),
                 'needs_foundation' => in_array((string) ($post['complexity_level'] ?? ''), ['L2', 'L3', 'L4', 'L5'], true),
-                'future_topics_to_avoid' => $this->futureTopicsToAvoid($post, $posts),
+                'future_topics_to_avoid' => array_slice((array) ($conceptProgressionMap['future_terms_to_avoid'] ?? []), 0, 12),
             ],
             'writing_brief' => [
                 'language' => 'pt-BR',
@@ -863,6 +1632,206 @@ final class BlogEditorialContextService
     private function openBrainService(): AtlasOpenBrainService
     {
         return $this->openBrain ?? app(AtlasOpenBrainService::class);
+    }
+
+    private function graphRetrievalService(): AtlasGraphRetrievalNetworkService
+    {
+        return app(AtlasGraphRetrievalNetworkService::class);
+    }
+
+    /**
+     * @param  array<string,mixed>  $post
+     */
+    private function editorialGraphObjective(array $post): string
+    {
+        return trim(implode(' ', array_filter([
+            'blog editorial context',
+            (string) ($post['title'] ?? ''),
+            (string) ($post['main_question'] ?? ''),
+            (string) ($post['collection'] ?? ''),
+            (string) ($post['series'] ?? ''),
+            implode(' ', array_values(array_filter((array) ($post['topics'] ?? []), 'is_string'))),
+        ])));
+    }
+
+    /**
+     * @return array<string,bool>
+     */
+    private function editorialGraphContextGuardrails(bool $invoked): array
+    {
+        return [
+            'read_only' => true,
+            'writes_backlog' => false,
+            'writes_review_queue' => false,
+            'writes_draft' => false,
+            'publishes_content' => false,
+            'uses_global_graph_rag' => false,
+            'uses_python_runtime' => false,
+            'invokes_bounded_graph_retrieval' => $invoked,
+            'invokes_vector_runtime' => false,
+            'providers_invoked' => false,
+            'creates_parallel_memory_store' => false,
+            'requires_human_approval_to_promote' => true,
+        ];
+    }
+
+    /**
+     * @return array<string,bool>
+     */
+    private function editorialGraphCandidateGuardrails(bool $invoked): array
+    {
+        return [
+            'read_only' => true,
+            'writes_backlog' => false,
+            'writes_review_queue' => false,
+            'writes_draft' => false,
+            'publishes_content' => false,
+            'may_reorder_backlog' => false,
+            'may_promote_candidate' => false,
+            'requires_human_approval_to_accept' => true,
+            'requires_human_approval_to_promote' => true,
+            'uses_global_graph_rag' => false,
+            'uses_python_runtime' => false,
+            'invokes_bounded_graph_retrieval' => $invoked,
+            'invokes_vector_runtime' => false,
+            'providers_invoked' => false,
+            'creates_parallel_memory_store' => false,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $graphContext
+     * @param  array<int,array<string,mixed>>  $evidence
+     * @return array<int,array<string,mixed>>
+     */
+    private function graphCandidateBlueprints(array $graphContext, array $evidence): array
+    {
+        $pathText = Str::lower(Str::ascii(implode(' ', array_values(array_filter(array_map(
+            fn (array $item): string => (string) ($item['path'] ?? ''),
+            $evidence,
+        ))))));
+        $targetSlug = (string) data_get($graphContext, 'post.slug', '');
+        $targetTitle = (string) data_get($graphContext, 'post.title', '');
+        $hasEditorialPlanning = str_contains($pathText, 'blogeditorial') || str_contains($targetSlug, 'atlas');
+
+        return array_values(array_filter([
+            $hasEditorialPlanning ? [
+                'title' => 'Como o Atlas decide a ordem do blog',
+                'slug' => 'como-o-atlas-decide-a-ordem-do-blog',
+                'collection' => 'atlas',
+                'series' => 'public-building-system',
+                'complexity_level' => 'L2',
+                'main_question' => 'Como transformar trabalho real em uma sequencia publica que qualquer pessoa consegue acompanhar?',
+                'topics' => ['atlas', 'blog', 'planejamento-editorial', 'sequencia'],
+                'why' => 'Bounded graph context found editorial planning code and docs; this can become a public explanation after the first foundation arc.',
+            ] : null,
+            [
+                'title' => 'Como o Atlas encontra proximas pautas sem baguncar a ordem',
+                'slug' => 'como-o-atlas-encontra-proximas-pautas-sem-baguncar-a-ordem',
+                'collection' => 'atlas',
+                'series' => 'public-building-system',
+                'complexity_level' => 'L2',
+                'main_question' => 'Como um sistema pode sugerir pautas novas sem pular os prerequisitos do leitor?',
+                'topics' => ['atlas', 'grafo', 'backlog', 'ux-de-conteudo'],
+                'why' => 'The graph evidence is useful as a topic signal, but the public sequence must stay append-only and human-reviewed.',
+            ],
+            [
+                'title' => 'Por que um blog tecnico precisa de uma fila governada',
+                'slug' => 'por-que-um-blog-tecnico-precisa-de-uma-fila-governada',
+                'collection' => 'produto',
+                'series' => 'public-building-system',
+                'complexity_level' => 'L1',
+                'main_question' => 'Por que publicar assuntos complexos fora de ordem destrói a experiencia do leitor?',
+                'topics' => ['blog', 'ux-de-conteudo', 'governanca', 'atlas'],
+                'why' => 'The current public backlog already encodes prerequisites; this deserves a public meta-post before deeper graph/RAG topics.',
+            ],
+            $targetTitle !== '' ? [
+                'title' => 'Como preparar contexto antes de escrever sobre '.$targetTitle,
+                'slug' => 'como-preparar-contexto-antes-de-escrever-sobre-'.$targetSlug,
+                'collection' => 'atlas',
+                'series' => 'public-building-system',
+                'complexity_level' => 'L2',
+                'main_question' => 'Como o Atlas decide que contexto ajuda uma postagem sem expor detalhes privados?',
+                'topics' => ['atlas', 'contexto', 'seguranca', 'escrita'],
+                'why' => 'The bounded graph context is attached to the next ready post as writing context, not as publication authority.',
+            ] : null,
+        ]));
+    }
+
+    /**
+     * @param  array<string,mixed>  $blueprint
+     * @param  array<int,array<string,mixed>>  $evidence
+     * @return array<string,mixed>
+     */
+    private function graphCandidateFromBlueprint(array $blueprint, string $appendAfterSlug, array $evidence): array
+    {
+        $evidenceRefs = array_values(array_map(
+            fn (array $item): array => [
+                'node_type' => (string) ($item['node_type'] ?? ''),
+                'path_hash' => (string) ($item['path_hash'] ?? ''),
+                'flow_id' => (string) ($item['flow_id'] ?? ''),
+                'score' => (float) ($item['score'] ?? 0),
+                'confidence' => (float) ($item['confidence'] ?? 0),
+                'reasons' => array_values((array) ($item['reasons'] ?? [])),
+            ],
+            array_slice($evidence, 0, 4),
+        ));
+
+        return [
+            'source_type' => 'bounded_world_model_graph',
+            'source_ref' => 'codebase_world_model_bounded',
+            'title' => (string) $blueprint['title'],
+            'slug' => (string) $blueprint['slug'],
+            'collection' => (string) $blueprint['collection'],
+            'series' => (string) $blueprint['series'],
+            'complexity_level' => (string) $blueprint['complexity_level'],
+            'main_question' => (string) $blueprint['main_question'],
+            'suggested_after_slug' => $appendAfterSlug,
+            'topics' => array_values(array_filter((array) $blueprint['topics'], 'is_string')),
+            'why' => (string) $blueprint['why'],
+            'evidence_refs' => $evidenceRefs,
+            'promotion_rule' => 'Accept into review queue first; promote append-only only after Vitor approves the sequence position.',
+            'safety' => [
+                'requires_human_review' => true,
+                'publish_private_paths' => false,
+                'publish_internal_ids_or_traces' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $graphContext
+     * @return array<string,mixed>
+     */
+    private function compactGraphContextForCandidates(array $graphContext): array
+    {
+        return [
+            'status' => (string) ($graphContext['status'] ?? 'unknown'),
+            'post' => $graphContext['post'] ?? null,
+            'graph_retrieval_status' => (string) data_get($graphContext, 'graph_retrieval.status', 'unknown'),
+            'graph_scope' => (string) data_get($graphContext, 'graph_retrieval.graph_scope', ''),
+            'evidence_count' => (int) data_get($graphContext, 'graph_retrieval.evidence_set.evidence_count', 0),
+            'bounded_traversal' => (bool) data_get($graphContext, 'graph_retrieval.traversal_receipt.bounded_traversal', false),
+            'global_graph_retrieval_active' => (bool) data_get($graphContext, 'graph_retrieval.policy.global_graph_retrieval_active', false),
+            'python_runtime_invoked' => (bool) data_get($graphContext, 'graph_retrieval.policy.python_runtime_invoked', false),
+            'providers_invoked' => (bool) data_get($graphContext, 'graph_retrieval.policy.providers_invoked', false),
+        ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $posts
+     * @param  array<int,string>  $publishedSlugs
+     * @return array<string,mixed>
+     */
+    private function graphCandidateSequencePolicy(array $posts, array $publishedSlugs, string $appendAfterSlug): array
+    {
+        return [
+            'default_suggested_after_slug' => $appendAfterSlug,
+            'planned_post_count' => count($posts),
+            'published_post_count' => count($publishedSlugs),
+            'rule' => 'Graph-derived candidates append after the current planned foundation arc unless Vitor explicitly promotes them elsewhere.',
+            'reason' => 'The reader must receive orientation before deep graph, RAG, memory or implementation topics.',
+        ];
     }
 
     /**
@@ -1103,6 +2072,112 @@ final class BlogEditorialContextService
     }
 
     /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function graphRagReadinessComponents(): array
+    {
+        $components = [
+            [
+                'component' => 'ap_811_code_graph_traversal',
+                'status' => $this->repoPathExists('docs/ap/AP-811-atlas-code-graph-real-edges-traversal.md') ? 'available' : 'missing',
+                'evidence' => 'docs/ap/AP-811-atlas-code-graph-real-edges-traversal.md',
+                'role' => 'real code graph traversal contract',
+            ],
+            [
+                'component' => 'ap_812_python_ai_data_runtime',
+                'status' => $this->repoPathExists('docs/ap/AP-812-python-ai-data-code-graph-runtime.md') ? 'available' : 'missing',
+                'evidence' => 'docs/ap/AP-812-python-ai-data-code-graph-runtime.md',
+                'role' => 'runtime boundary for Python/data operations',
+            ],
+            [
+                'component' => 'ap_815_cross_project_context_engine',
+                'status' => $this->repoPathExists('docs/ap/AP-815-cross-project-context-engine.md') ? 'available' : 'missing',
+                'evidence' => 'docs/ap/AP-815-cross-project-context-engine.md',
+                'role' => 'cross-project context contract',
+            ],
+            [
+                'component' => 'agrn_owner_doc',
+                'status' => $this->repoPathExists('docs/engineering-knowledge-base/atlas-graph-retrieval-network.md') ? 'available' : 'missing',
+                'evidence' => 'docs/engineering-knowledge-base/atlas-graph-retrieval-network.md',
+                'role' => 'graph retrieval governance source',
+            ],
+            [
+                'component' => 'runtime_language_boundaries',
+                'status' => $this->repoPathExists('docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md') ? 'available' : 'missing',
+                'evidence' => 'docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md',
+                'role' => 'kernel-first runtime boundary',
+            ],
+            [
+                'component' => 'atlas_graph_retrieval_command',
+                'status' => class_exists(\App\Console\Commands\AtlasGraphRetrievalNetworkCommand::class) ? 'available' : 'missing',
+                'evidence' => 'app/Console/Commands/AtlasGraphRetrievalNetworkCommand.php',
+                'role' => 'bounded graph retrieval CLI',
+            ],
+            [
+                'component' => 'atlas_graph_retrieval_service',
+                'status' => class_exists(\App\Services\Ai\Context\AtlasGraphRetrievalNetworkService::class) ? 'available' : 'missing',
+                'evidence' => 'app/Services/Ai/Context/AtlasGraphRetrievalNetworkService.php',
+                'role' => 'bounded graph retrieval service',
+            ],
+            [
+                'component' => 'world_model_graph_ranker',
+                'status' => class_exists(\App\Services\Ai\AutonomousEngineering\WorldModel\WorldModelGraphRanker::class) ? 'available' : 'missing',
+                'evidence' => 'app/Services/Ai/AutonomousEngineering/WorldModel/WorldModelGraphRanker.php',
+                'role' => 'Codebase World Model relation ranker',
+            ],
+            [
+                'component' => 'graph_rank_runtime_client',
+                'status' => class_exists(\App\Services\Ai\RuntimeBoundary\GraphRankRuntimeClient::class) ? 'available' : 'missing',
+                'evidence' => 'app/Services/Ai/RuntimeBoundary/GraphRankRuntimeClient.php',
+                'role' => 'runtime boundary client',
+            ],
+            [
+                'component' => 'mandatory_rag_gate',
+                'status' => class_exists(\App\Services\Ai\Programming\AtlasDev\Gate\MandatoryRagGate::class) ? 'available' : 'missing',
+                'evidence' => 'app/Services/Ai/Programming/AtlasDev/Gate/MandatoryRagGate.php',
+                'role' => 'non-trivial context gate pattern',
+            ],
+            [
+                'component' => 'world_model_tables',
+                'status' => $this->allTablesAvailable([
+                    'ai_codebase_world_models',
+                    'ai_codebase_world_model_nodes',
+                    'ai_codebase_world_model_edges',
+                ]) ? 'available' : 'missing',
+                'evidence' => 'database/migrations/2026_05_17_220000_create_ai_autonomous_engineering_os_tables.php',
+                'role' => 'Codebase World Model storage',
+            ],
+            [
+                'component' => 'mandatory_rag_gate_table',
+                'status' => DatabaseTableAvailability::has('ai_mandatory_rag_gates') ? 'available' : 'missing',
+                'evidence' => 'database/migrations/2026_05_17_220000_create_ai_autonomous_engineering_os_tables.php',
+                'role' => 'RAG gate audit storage',
+            ],
+        ];
+
+        return array_values($components);
+    }
+
+    private function repoPathExists(string $relativePath): bool
+    {
+        return is_file(base_path($relativePath));
+    }
+
+    /**
+     * @param  array<int,string>  $tables
+     */
+    private function allTablesAvailable(array $tables): bool
+    {
+        foreach ($tables as $table) {
+            if (! DatabaseTableAvailability::has($table)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * @param  array<string,mixed>  $post
      * @return array<int,string>
      */
@@ -1148,9 +2223,9 @@ final class BlogEditorialContextService
      * @param  array<int,string>  $publishedSlugs
      * @return array{slugs:array<string,bool>,titles:array<string,bool>}
      */
-    private function existingEditorialIndex(array $posts, array $publishedSlugs): array
+    private function existingEditorialIndex(array $posts, array $publishedSlugs, array $queuedSlugs = []): array
     {
-        $slugs = array_fill_keys(array_values(array_filter($publishedSlugs)), true);
+        $slugs = array_fill_keys(array_values(array_filter(array_merge($publishedSlugs, $queuedSlugs))), true);
         $titles = [];
 
         foreach ($posts as $post) {
@@ -1242,6 +2317,33 @@ final class BlogEditorialContextService
 
         foreach ($this->moduleCandidateRows(500) as $row) {
             $candidate = $this->candidateFromModuleRow($row, $posts);
+            if (is_array($candidate) && (string) ($candidate['slug'] ?? '') === $slug) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $posts
+     * @param  array<int,string>  $publishedSlugs
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>|null
+     */
+    private function graphCandidateBySlug(string $slug, array $posts, array $publishedSlugs, array $options = []): ?array
+    {
+        $feed = $this->editorialGraphCandidates(
+            $posts,
+            $publishedSlugs,
+            is_array($options['published_posts'] ?? null) ? $options['published_posts'] : [],
+            is_array($options['next_ready_post'] ?? null) ? $options['next_ready_post'] : null,
+            (int) ($options['graph_context_limit'] ?? 8),
+            max(15, (int) ($options['candidate_limit'] ?? 10)),
+            is_string($options['graph_world_model_id'] ?? null) ? (string) $options['graph_world_model_id'] : '',
+        );
+
+        foreach ((array) ($feed['candidates'] ?? []) as $candidate) {
             if (is_array($candidate) && (string) ($candidate['slug'] ?? '') === $slug) {
                 return $candidate;
             }
@@ -1790,6 +2892,307 @@ final class BlogEditorialContextService
 
     /**
      * @param  array<int,array<string,mixed>>  $posts
+     * @param  array<string,bool>  $publishedSet
+     * @return array<string,mixed>
+     */
+    private function publicationFrontier(array $posts, array $publishedSet): array
+    {
+        $publishedUntil = 0;
+        $next = null;
+
+        foreach ($posts as $post) {
+            $order = (int) ($post['order'] ?? 0);
+            $slug = (string) ($post['slug'] ?? '');
+
+            if ($order === $publishedUntil + 1 && isset($publishedSet[$slug])) {
+                $publishedUntil = $order;
+                continue;
+            }
+
+            if ($order > $publishedUntil && $next === null) {
+                $next = $this->compactPostRef($post);
+                break;
+            }
+        }
+
+        return [
+            'published_until_order' => $publishedUntil,
+            'next_order' => $publishedUntil + 1,
+            'next_planned_post' => $next,
+        ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $posts
+     * @param  array<string,bool>  $publishedSet
+     * @param  array<string,bool>  $plannedSet
+     * @return array<int,array<string,mixed>>
+     */
+    private function blockedPostsForRadar(array $posts, array $publishedSet, array $plannedSet): array
+    {
+        $blocked = [];
+
+        foreach ($posts as $post) {
+            $slug = (string) ($post['slug'] ?? '');
+            if ($slug === '' || isset($publishedSet[$slug])) {
+                continue;
+            }
+
+            $prerequisites = array_values(array_filter((array) ($post['prerequisites'] ?? []), 'is_string'));
+            $missingPrerequisites = array_values(array_filter(
+                $prerequisites,
+                fn (string $prerequisite): bool => ! isset($publishedSet[$prerequisite]),
+            ));
+            $unknownPrerequisites = array_values(array_filter(
+                $prerequisites,
+                fn (string $prerequisite): bool => ! isset($plannedSet[$prerequisite]) && ! isset($publishedSet[$prerequisite]),
+            ));
+
+            if ($missingPrerequisites === [] && $unknownPrerequisites === []) {
+                continue;
+            }
+
+            $blocked[] = [
+                'order' => (int) ($post['order'] ?? 0),
+                'slug' => $slug,
+                'title' => (string) ($post['title'] ?? ''),
+                'missing_prerequisites' => $missingPrerequisites,
+                'unknown_prerequisites' => $unknownPrerequisites,
+            ];
+        }
+
+        return $blocked;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $posts
+     * @param  array<string,bool>  $publishedSet
+     * @return array<int,array<string,mixed>>
+     */
+    private function weekLanes(array $posts, array $publishedSet): array
+    {
+        $weeks = [];
+
+        foreach ($posts as $post) {
+            $week = (int) ($post['week'] ?? 0);
+            $weeks[$week] ??= [
+                'week' => $week,
+                'theme' => (string) ($post['week_theme'] ?? ''),
+                'first_order' => (int) ($post['order'] ?? 0),
+                'last_order' => (int) ($post['order'] ?? 0),
+                'planned_count' => 0,
+                'published_count' => 0,
+                'next_unpublished' => null,
+                'collections' => [],
+                'series' => [],
+                'complexity_levels' => [],
+                'last_slug' => '',
+            ];
+
+            $slug = (string) ($post['slug'] ?? '');
+            $weeks[$week]['planned_count']++;
+            $weeks[$week]['last_order'] = max((int) $weeks[$week]['last_order'], (int) ($post['order'] ?? 0));
+            $weeks[$week]['last_slug'] = $slug;
+            $weeks[$week]['collections'][(string) ($post['collection'] ?? 'unknown')] = (($weeks[$week]['collections'][(string) ($post['collection'] ?? 'unknown')] ?? 0) + 1);
+            $weeks[$week]['series'][(string) ($post['series'] ?? 'unknown')] = (($weeks[$week]['series'][(string) ($post['series'] ?? 'unknown')] ?? 0) + 1);
+            $weeks[$week]['complexity_levels'][(string) ($post['complexity_level'] ?? 'unknown')] = (($weeks[$week]['complexity_levels'][(string) ($post['complexity_level'] ?? 'unknown')] ?? 0) + 1);
+
+            if (isset($publishedSet[$slug])) {
+                $weeks[$week]['published_count']++;
+            } elseif ($weeks[$week]['next_unpublished'] === null) {
+                $weeks[$week]['next_unpublished'] = $this->compactPostRef($post);
+            }
+        }
+
+        ksort($weeks);
+
+        return array_values(array_map(function (array $week): array {
+            return [
+                'week' => (int) $week['week'],
+                'theme' => (string) $week['theme'],
+                'order_range' => [(int) $week['first_order'], (int) $week['last_order']],
+                'planned_count' => (int) $week['planned_count'],
+                'published_count' => (int) $week['published_count'],
+                'complete' => (int) $week['planned_count'] > 0 && (int) $week['planned_count'] === (int) $week['published_count'],
+                'next_unpublished' => $week['next_unpublished'],
+                'dominant_collection' => $this->dominantKey((array) $week['collections']),
+                'dominant_series' => $this->dominantKey((array) $week['series']),
+                'complexity_levels' => (array) $week['complexity_levels'],
+                'insertion_after_slug' => (string) $week['last_slug'],
+            ];
+        }, $weeks));
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $posts
+     * @param  array<string,bool>  $publishedSet
+     * @return array<int,array<string,mixed>>
+     */
+    private function sequenceLanes(array $posts, array $publishedSet): array
+    {
+        $lanes = [];
+
+        foreach ($posts as $post) {
+            $series = (string) ($post['series'] ?? 'unknown');
+            $slug = (string) ($post['slug'] ?? '');
+            $lanes[$series] ??= [
+                'series' => $series,
+                'collection' => (string) ($post['collection'] ?? ''),
+                'first_order' => (int) ($post['order'] ?? 0),
+                'last_order' => (int) ($post['order'] ?? 0),
+                'planned_count' => 0,
+                'published_count' => 0,
+                'deep_count' => 0,
+                'first_unpublished' => null,
+            ];
+
+            $lanes[$series]['planned_count']++;
+            $lanes[$series]['last_order'] = max((int) $lanes[$series]['last_order'], (int) ($post['order'] ?? 0));
+
+            if (isset($publishedSet[$slug])) {
+                $lanes[$series]['published_count']++;
+            } elseif ($lanes[$series]['first_unpublished'] === null) {
+                $lanes[$series]['first_unpublished'] = $this->compactPostRef($post);
+            }
+
+            if (in_array((string) ($post['complexity_level'] ?? ''), ['L3', 'L4', 'L5'], true)) {
+                $lanes[$series]['deep_count']++;
+            }
+        }
+
+        usort($lanes, fn (array $a, array $b): int => ((int) $a['first_order'] <=> (int) $b['first_order']));
+
+        return array_values($lanes);
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $posts
+     * @param  array<string,bool>  $publishedSet
+     * @param  array<int,array<string,mixed>>  $safeArcs
+     * @return array<int,array<string,mixed>>
+     */
+    private function insertionWindows(array $posts, array $publishedSet, array $safeArcs): array
+    {
+        $windows = [];
+
+        foreach ($this->weekLanes($posts, $publishedSet) as $week) {
+            $windows[] = [
+                'type' => 'after_week',
+                'week' => (int) ($week['week'] ?? 0),
+                'after_slug' => (string) ($week['insertion_after_slug'] ?? ''),
+                'label' => 'After week '.((string) ($week['week'] ?? 0)).' - '.((string) ($week['theme'] ?? '')),
+                'safe_for' => (bool) ($week['complete'] ?? false) ? 'extension_or_bridge' : 'only_if_it_supports_current_week',
+                'rule' => 'Do not insert a deep topic here unless it depends only on concepts already introduced by this week.',
+            ];
+        }
+
+        foreach ($safeArcs as $arc) {
+            if (! (bool) ($arc['ready_after_first_month'] ?? false)) {
+                continue;
+            }
+
+            $windows[] = [
+                'type' => 'next_safe_arc',
+                'arc' => (string) ($arc['arc'] ?? ''),
+                'title' => (string) ($arc['title'] ?? ''),
+                'first_post_slug' => (string) ($arc['first_post_slug'] ?? ''),
+                'safe_for' => 'new_collection_start',
+                'rule' => (string) ($arc['why_now'] ?? ''),
+            ];
+        }
+
+        return array_slice($windows, 0, 12);
+    }
+
+    /**
+     * @param  array<string,mixed>  $candidate
+     * @param  array<int,array<string,mixed>>  $posts
+     * @return array<string,mixed>
+     */
+    private function candidateRadarSummary(array $candidate, array $posts): array
+    {
+        $afterSlug = (string) ($candidate['suggested_after_slug'] ?? '');
+        $after = $this->plannedPostBySlug($posts, $afterSlug);
+
+        return [
+            'slug' => (string) ($candidate['slug'] ?? ''),
+            'title' => (string) ($candidate['title'] ?? ''),
+            'source_type' => (string) ($candidate['source_type'] ?? ''),
+            'source_ref' => (string) ($candidate['source_ref'] ?? ''),
+            'complexity_level' => (string) ($candidate['complexity_level'] ?? ''),
+            'collection' => (string) ($candidate['collection'] ?? ''),
+            'series' => (string) ($candidate['series'] ?? ''),
+            'suggested_after_slug' => $afterSlug,
+            'suggested_after_order' => is_array($after) ? (int) ($after['order'] ?? 0) : null,
+            'review_reason' => (string) ($candidate['why'] ?? ''),
+            'promotion_rule' => 'Accept into review queue first; promote append-only only after Vitor approves the sequence position.',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $frontier
+     * @param  array<int,array<string,mixed>>  $blocked
+     * @param  array<string,mixed>|null  $nextReadyPost
+     * @param  array<int,array<string,mixed>>  $safeArcs
+     * @return array<int,array<string,mixed>>
+     */
+    private function radarNextSteps(array $frontier, array $blocked, ?array $nextReadyPost, array $safeArcs): array
+    {
+        $steps = [];
+
+        if (is_array($nextReadyPost)) {
+            $steps[] = [
+                'action' => 'prepare_writing_packet',
+                'slug' => (string) ($nextReadyPost['slug'] ?? ''),
+                'why' => 'This is the next unpublished post whose prerequisites are satisfied.',
+            ];
+        } elseif ($blocked !== []) {
+            $steps[] = [
+                'action' => 'repair_prerequisites',
+                'slug' => (string) ($blocked[0]['slug'] ?? ''),
+                'why' => 'The sequence has blocked posts before more candidates should be promoted.',
+            ];
+        }
+
+        $readyArcs = array_values(array_filter(
+            $safeArcs,
+            fn (array $arc): bool => (bool) ($arc['ready_after_first_month'] ?? false),
+        ));
+
+        if ($readyArcs !== []) {
+            $steps[] = [
+                'action' => 'review_next_safe_arc',
+                'arc' => (string) ($readyArcs[0]['arc'] ?? ''),
+                'first_post_slug' => (string) ($readyArcs[0]['first_post_slug'] ?? ''),
+                'why' => (string) ($readyArcs[0]['why_now'] ?? ''),
+            ];
+        }
+
+        $steps[] = [
+            'action' => 'keep_public_order',
+            'next_sequence_order' => (int) ($frontier['next_order'] ?? 1),
+            'why' => 'New posts should extend the reader ladder, not jump around because a deep internal topic is interesting.',
+        ];
+
+        return $steps;
+    }
+
+    /**
+     * @param  array<string,int>  $counts
+     */
+    private function dominantKey(array $counts): string
+    {
+        if ($counts === []) {
+            return 'unknown';
+        }
+
+        arsort($counts);
+
+        return (string) array_key_first($counts);
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $posts
      * @return array<int,array<string,mixed>>
      */
     private function deepSequenceWarnings(array $posts): array
@@ -1830,6 +3233,107 @@ final class BlogEditorialContextService
         }
 
         return $warnings;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $posts
+     * @param  array<int,string>  $publishedSlugs
+     */
+    private function firstReadySlug(array $posts, array $publishedSlugs): ?string
+    {
+        $publishedSet = array_fill_keys($publishedSlugs, true);
+        $plannedSet = array_fill_keys(array_values(array_filter(array_map(
+            fn (array $post): string => (string) ($post['slug'] ?? ''),
+            $posts,
+        ))), true);
+
+        $sorted = $posts;
+        usort($sorted, fn (array $a, array $b): int => ((int) ($a['order'] ?? 0) <=> (int) ($b['order'] ?? 0)));
+
+        foreach ($sorted as $post) {
+            $slug = (string) ($post['slug'] ?? '');
+            if ($slug === '' || isset($publishedSet[$slug])) {
+                continue;
+            }
+
+            $missing = array_values(array_filter(
+                array_values(array_filter((array) ($post['prerequisites'] ?? []), 'is_string')),
+                fn (string $prerequisite): bool => ! isset($publishedSet[$prerequisite])
+            ));
+            $unknown = array_values(array_filter(
+                array_values(array_filter((array) ($post['prerequisites'] ?? []), 'is_string')),
+                fn (string $prerequisite): bool => ! isset($plannedSet[$prerequisite]) && ! isset($publishedSet[$prerequisite])
+            ));
+
+            if ($missing === [] && $unknown === []) {
+                return $slug;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $observed
+     * @return array<string,mixed>
+     */
+    private function goldenCase(string $code, bool $passed, string $expectation, array $observed = []): array
+    {
+        return [
+            'code' => $code,
+            'passed' => $passed,
+            'expectation' => $expectation,
+            'observed' => $observed,
+        ];
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function conceptProgressionFixturePosts(): array
+    {
+        return [
+            [
+                'order' => 1,
+                'title' => 'O que e o Atlas',
+                'slug' => 'o-que-e-o-atlas',
+                'complexity_level' => 'L0',
+                'collection' => 'atlas',
+                'series' => 'building-atlas',
+                'topics' => ['atlas', 'produto'],
+                'prerequisites' => [],
+            ],
+            [
+                'order' => 2,
+                'title' => 'Por que estou construindo o Atlas',
+                'slug' => 'por-que-estou-construindo-o-atlas',
+                'complexity_level' => 'L0',
+                'collection' => 'atlas',
+                'series' => 'building-atlas',
+                'topics' => ['atlas', 'visao', 'processo'],
+                'prerequisites' => ['o-que-e-o-atlas'],
+            ],
+            [
+                'order' => 3,
+                'title' => 'Memoria como ledger',
+                'slug' => 'memoria-como-ledger',
+                'complexity_level' => 'L3',
+                'collection' => 'ia-pessoal',
+                'series' => 'agent-memory',
+                'topics' => ['memoria', 'ledger', 'governanca'],
+                'prerequisites' => ['por-que-estou-construindo-o-atlas'],
+            ],
+            [
+                'order' => 4,
+                'title' => 'Graph RAG profundo no Atlas',
+                'slug' => 'graph-rag-profundo-no-atlas',
+                'complexity_level' => 'L5',
+                'collection' => 'atlas',
+                'series' => 'graph-rag',
+                'topics' => ['graph-rag', 'python-runtime', 'embedding'],
+                'prerequisites' => ['memoria-como-ledger'],
+            ],
+        ];
     }
 
     /**
@@ -1939,23 +3443,121 @@ final class BlogEditorialContextService
      */
     private function futureTopicsToAvoid(array $post, array $posts): array
     {
-        $order = (int) ($post['order'] ?? 0);
-        $currentTerms = array_fill_keys($this->terms($post), true);
-        $futureTerms = [];
+        return array_slice((array) ($this->conceptProgressionMap($post, $posts)['future_terms_to_avoid'] ?? []), 0, 12);
+    }
 
-        foreach ($posts as $future) {
-            if ((int) ($future['order'] ?? 0) <= $order) {
-                continue;
+    /**
+     * @param  array<string,mixed>  $post
+     * @param  array<int,array<string,mixed>>  $posts
+     * @param  array<int,string>  $publishedSlugs
+     * @return array<string,mixed>
+     */
+    private function conceptProgressionMap(array $post, array $posts, array $publishedSlugs = []): array
+    {
+        $slug = (string) ($post['slug'] ?? '');
+        $order = (int) ($post['order'] ?? 0);
+        $publishedSet = array_fill_keys($publishedSlugs, true);
+        $currentTerms = $this->terms($post);
+        $currentTermSet = array_fill_keys($currentTerms, true);
+        $priorTerms = [];
+        $publishedPriorTerms = [];
+        $prerequisiteTerms = [];
+        $futureTerms = [];
+        $futureExamples = [];
+        $prerequisites = array_values(array_filter((array) ($post['prerequisites'] ?? []), 'is_string'));
+        $prerequisiteSet = array_fill_keys($prerequisites, true);
+        $priorCount = 0;
+        $publishedPriorCount = 0;
+        $futureCount = 0;
+
+        foreach ($posts as $candidate) {
+            $candidateSlug = (string) ($candidate['slug'] ?? '');
+            $candidateOrder = (int) ($candidate['order'] ?? 0);
+            $candidateTerms = $this->terms($candidate);
+
+            if ($candidateOrder > 0 && $candidateOrder < $order) {
+                $priorCount++;
+
+                foreach ($candidateTerms as $term) {
+                    $priorTerms[$term] = true;
+                }
             }
 
-            foreach ($this->terms($future) as $term) {
-                if (! isset($currentTerms[$term])) {
+            if (isset($publishedSet[$candidateSlug]) && ($candidateOrder === 0 || $candidateOrder < $order)) {
+                $publishedPriorCount++;
+
+                foreach ($candidateTerms as $term) {
+                    $publishedPriorTerms[$term] = true;
+                }
+            }
+
+            if (isset($prerequisiteSet[$candidateSlug])) {
+                foreach ($candidateTerms as $term) {
+                    $prerequisiteTerms[$term] = true;
+                }
+            }
+
+            if ($candidateOrder > $order) {
+                $futureCount++;
+
+                foreach ($candidateTerms as $term) {
+                    if (isset($currentTermSet[$term]) || isset($priorTerms[$term]) || isset($prerequisiteTerms[$term])) {
+                        continue;
+                    }
+
                     $futureTerms[$term] = true;
+                    $futureExamples[$term] ??= [
+                        'term' => $term,
+                        'source_slug' => $candidateSlug,
+                        'source_order' => $candidateOrder,
+                        'source_title' => (string) ($candidate['title'] ?? ''),
+                    ];
                 }
             }
         }
 
-        return array_slice(array_keys($futureTerms), 0, 12);
+        $introducedTerms = array_values(array_unique(array_merge(array_keys($priorTerms), array_keys($publishedPriorTerms), array_keys($prerequisiteTerms))));
+        sort($introducedTerms);
+
+        $allowedTerms = array_values(array_unique(array_merge($introducedTerms, $currentTerms)));
+        sort($allowedTerms);
+
+        $futureTermsToAvoid = array_values(array_filter(
+            array_keys($futureTerms),
+            fn (string $term): bool => ! in_array($term, $allowedTerms, true),
+        ));
+        sort($futureTermsToAvoid);
+
+        return [
+            'schema_version' => 'atlas.blog_editorial_concept_progression.v1',
+            'mode' => 'read_only_sequence_guard_p1',
+            'current_slug' => $slug,
+            'current_order' => $order,
+            'current_terms' => $currentTerms,
+            'introduced_terms' => $introducedTerms,
+            'published_prior_terms' => array_values(array_keys($publishedPriorTerms)),
+            'prerequisite_terms' => array_values(array_keys($prerequisiteTerms)),
+            'allowed_terms' => $allowedTerms,
+            'future_terms_to_avoid' => array_slice($futureTermsToAvoid, 0, 24),
+            'premature_topic_examples' => array_slice(array_values(array_filter(
+                $futureExamples,
+                fn (array $example): bool => in_array((string) ($example['term'] ?? ''), $futureTermsToAvoid, true),
+            )), 0, 8),
+            'reader_state' => [
+                'planned_prior_count' => $priorCount,
+                'published_prior_count' => $publishedPriorCount,
+                'prerequisite_count' => count($prerequisites),
+                'future_post_count' => $futureCount,
+            ],
+            'rule' => 'Explain only the current layer plus concepts already introduced by prior or prerequisite posts; name future concepts only as teasers, never as required knowledge.',
+            'guardrails' => [
+                'read_only' => true,
+                'writes_backlog' => false,
+                'writes_draft' => false,
+                'publishes_content' => false,
+                'uses_graph_rag' => false,
+            ],
+        ];
     }
 
     /**
@@ -2089,14 +3691,25 @@ final class BlogEditorialContextService
      */
     private function queuedCandidateEntry(string $reviewQueuePath, string $candidateSlug): ?array
     {
+        foreach ($this->queuedCandidateEntries($reviewQueuePath) as $entry) {
+            if ((string) ($entry['slug'] ?? '') === $candidateSlug) {
+                return $entry;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function queuedCandidateEntries(string $reviewQueuePath): array
+    {
         $raw = (string) file_get_contents($reviewQueuePath);
         $blocks = preg_split('/(?=^  - status:)/m', $raw) ?: [];
+        $entries = [];
 
         foreach ($blocks as $block) {
-            if (! str_contains($block, 'slug: "'.$this->escapeYamlString($candidateSlug).'"')) {
-                continue;
-            }
-
             $entry = [];
             $lines = preg_split('/\R/', $block) ?: [];
             $readingTopics = false;
@@ -2120,10 +3733,13 @@ final class BlogEditorialContextService
                 }
             }
 
-            return isset($entry['slug']) && $entry['slug'] === $candidateSlug ? $entry : null;
+            if (isset($entry['slug'])) {
+                $entry['topics'] = array_values(array_filter((array) ($entry['topics'] ?? []), 'is_string'));
+                $entries[] = $entry;
+            }
         }
 
-        return null;
+        return $entries;
     }
 
     /**

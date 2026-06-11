@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Hermes;
 
+use App\Services\Ai\Hermes\Support\HermesStringListNormalizer;
 use Illuminate\Support\Str;
 
 /**
@@ -29,15 +30,15 @@ class HermesMissionCapabilitiesFactory
         $caps = $this->capabilitiesObject($payload);
 
         $toolsets = $this->mergeToolsets(
-            $this->stringList($caps['toolsets'] ?? null, 24, 80),
+            HermesStringListNormalizer::bounded($caps['toolsets'] ?? null, 24, 80),
             $this->fallbackToolsets($payload, $provider),
         );
 
         $capabilities = [
             'schema_version' => 'atlas.hermes.mission_capabilities.v1',
             'toolsets' => $toolsets,
-            'skills' => $this->stringList($caps['skills'] ?? null, 24, 80),
-            'mcp' => $this->stringList($caps['mcp'] ?? null, 24, 80),
+            'skills' => HermesStringListNormalizer::bounded($caps['skills'] ?? null, 24, 80),
+            'mcp' => HermesStringListNormalizer::bounded($caps['mcp'] ?? null, 24, 80),
             'delegation' => $this->delegation($caps['delegation'] ?? null),
             'hooks' => $this->hooks($caps['hooks'] ?? null),
             'checkpoints' => $this->bool($caps['checkpoints'] ?? null),
@@ -133,7 +134,7 @@ class HermesMissionCapabilitiesFactory
     {
         $fallback = data_get($payload, 'hermes.toolsets') ?: ($provider['toolsets'] ?? null);
 
-        return $this->stringList($fallback, 24, 80);
+        return HermesStringListNormalizer::bounded($fallback, 24, 80);
     }
 
     /**
@@ -168,7 +169,7 @@ class HermesMissionCapabilitiesFactory
             $delegation['max_depth'] = (int) $maxDepth;
         }
 
-        $agents = $this->stringList($value['agents'] ?? null, 24, 80);
+        $agents = HermesStringListNormalizer::bounded($value['agents'] ?? null, 24, 80);
         if ($agents !== []) {
             $delegation['agents'] = $agents;
         }
@@ -251,21 +252,6 @@ class HermesMissionCapabilitiesFactory
         $type = $this->string($value, 40);
 
         return in_array($type, ['file', 'directory', 'symbol', 'url'], true) ? $type : 'file';
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value, int $limit, int $itemLimit): array
-    {
-        $items = is_array($value) ? $value : (is_string($value) ? preg_split('/\s*,\s*/', $value) ?: [] : []);
-
-        return collect(array_slice($items, 0, $limit))
-            ->map(fn (mixed $item): ?string => $this->string($item, $itemLimit))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
     }
 
     private function bool(mixed $value): bool

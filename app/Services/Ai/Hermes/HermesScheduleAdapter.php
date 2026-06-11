@@ -4,6 +4,7 @@ namespace App\Services\Ai\Hermes;
 
 use App\Models\AiJob;
 use App\Models\AiScheduledTask;
+use App\Services\Ai\Hermes\Support\HermesStringListNormalizer;
 use App\Services\Ai\Scheduling\ScheduleParser;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
@@ -192,7 +193,7 @@ class HermesScheduleAdapter
                 'trigger' => $trigger,
                 'cadence' => $cadence,
                 'objective' => $this->string($candidate['objective'] ?? null, 700),
-                'stop_conditions' => $this->stringList($candidate['stop_conditions'] ?? null, 8, 500),
+                'stop_conditions' => HermesStringListNormalizer::bounded($candidate['stop_conditions'] ?? null, 8, 500),
                 'source' => $this->string($candidate['source'] ?? null, 80) ?: 'hermes_session',
                 'gate_status' => 'persisted_for_atlas_schedule_review',
             ],
@@ -245,21 +246,6 @@ class HermesScheduleAdapter
         $trigger = $this->string($candidate['trigger'] ?? null, 40) ?: 'manual';
 
         return in_array($trigger, ['cron', 'webhook', 'manual'], true) ? $trigger : 'manual';
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value, int $limit, int $itemLimit): array
-    {
-        $items = is_array($value) ? $value : (is_string($value) ? preg_split('/\s*,\s*/', $value) ?: [] : []);
-
-        return collect(array_slice($items, 0, $limit))
-            ->map(fn (mixed $item): ?string => $this->string($item, $itemLimit))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
     }
 
     private function workspace(AiJob $job): ?string

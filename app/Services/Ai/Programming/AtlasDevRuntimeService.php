@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Programming;
 
 use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevRuntimeIntelligenceService;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceHandoffPackService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
@@ -143,7 +144,7 @@ class AtlasDevRuntimeService
                 ?? AiValueNormalizer::trimmedScalarStringOrNull($payload['prompt'] ?? null)
                 ?? $flowId,
         );
-        $expectedFiles = $this->arrayOfStrings($payload['expected_files'] ?? []);
+        $expectedFiles = AiStringListNormalizer::uniqueTrimmedScalarValues($payload['expected_files'] ?? []);
         $workspaceContextSelection = $this->workspaceContextSelection(
             $workspaceGate,
             $expectedFiles,
@@ -162,18 +163,18 @@ class AtlasDevRuntimeService
             'task_class' => $task === 'debug' ? 'debug' : ($task === 'review' ? 'review' : 'feature'),
             'risk_band' => AiValueNormalizer::trimmedScalarStringOrNull($payload['risk_band'] ?? null) ?? 'medium',
             'workspace_slug' => $workspace,
-            'allowed_files' => $this->arrayOfStrings(data_get($artifactAgentPacket, 'allowed_paths', data_get($payload, 'tool_permissions.allowed_files', []))),
-            'forbidden_files' => $this->arrayOfStrings(data_get($artifactAgentPacket, 'forbidden_paths', data_get($payload, 'tool_permissions.forbidden_files', []))),
+            'allowed_files' => AiStringListNormalizer::uniqueTrimmedScalarValues(data_get($artifactAgentPacket, 'allowed_paths', data_get($payload, 'tool_permissions.allowed_files', []))),
+            'forbidden_files' => AiStringListNormalizer::uniqueTrimmedScalarValues(data_get($artifactAgentPacket, 'forbidden_paths', data_get($payload, 'tool_permissions.forbidden_files', []))),
             'context_refs' => $this->mergeStrings(
-                $this->arrayOfStrings(data_get($artifactAgentPacket, 'context_refs', $payload['context_refs'] ?? [])),
+                AiStringListNormalizer::uniqueTrimmedScalarValues(data_get($artifactAgentPacket, 'context_refs', $payload['context_refs'] ?? [])),
                 (array) ($workspaceContextSelection['context_refs'] ?? []),
             ),
             'expected_files' => $expectedFiles,
             'suggested_tests' => $this->mergeStrings(
-                $this->arrayOfStrings(data_get($artifactAgentPacket, 'test_plan', $payload['suggested_tests'] ?? [])),
+                AiStringListNormalizer::uniqueTrimmedScalarValues(data_get($artifactAgentPacket, 'test_plan', $payload['suggested_tests'] ?? [])),
                 (array) ($workspaceContextSelection['suggested_tests'] ?? []),
             ),
-            'acceptance_criteria' => $this->arrayOfStrings(data_get($artifactAgentPacket, 'done_when', $payload['acceptance_criteria'] ?? [])),
+            'acceptance_criteria' => AiStringListNormalizer::uniqueTrimmedScalarValues(data_get($artifactAgentPacket, 'done_when', $payload['acceptance_criteria'] ?? [])),
             'required_evidence' => self::EXPECTED_ARTIFACTS,
             'source' => $artifactAgentPacket !== null
                 ? 'AtlasDevRuntimeService:artifact_agent_packet+awis_context_loading_plan'
@@ -251,12 +252,12 @@ class AtlasDevRuntimeService
             if ($repoKey === null) {
                 continue;
             }
-            foreach ($this->arrayOfStrings($manifestRef['manifest_files'] ?? []) as $manifestFile) {
+            foreach (AiStringListNormalizer::uniqueTrimmedScalarValues($manifestRef['manifest_files'] ?? []) as $manifestFile) {
                 $contextRefs[] = 'awis_manifest:'.$repoKey.':'.$manifestFile;
             }
         }
 
-        foreach ($this->arrayOfStrings($contextLoadingPlan['stack_tags'] ?? []) as $stackTag) {
+        foreach (AiStringListNormalizer::uniqueTrimmedScalarValues($contextLoadingPlan['stack_tags'] ?? []) as $stackTag) {
             $contextRefs[] = 'awis_stack:'.$stackTag;
         }
 
@@ -321,15 +322,15 @@ class AtlasDevRuntimeService
                 $suggestedTests[] = $command;
             }
         }
-        $suggestedTests = $this->mergeStrings($this->arrayOfStrings(data_get($contextLoadingPlan, 'execution_optimization_policy.preferred_commands', [])), $suggestedTests);
-        $suggestedTests = $this->mergeStrings($suggestedTests, $this->arrayOfStrings(data_get($contextLoadingPlan, 'execution_optimization_policy.standard_commands', [])));
-        $suggestedTests = $this->mergeStrings($suggestedTests, $this->arrayOfStrings($contextLoadingPlan['area_ranked_commands'] ?? []));
-        $suggestedTests = $this->mergeStrings($suggestedTests, $this->arrayOfStrings($contextLoadingPlan['outcome_ranked_commands'] ?? []));
-        $suggestedTests = $this->mergeStrings($suggestedTests, $this->arrayOfStrings($contextLoadingPlan['command_hints'] ?? []));
+        $suggestedTests = $this->mergeStrings(AiStringListNormalizer::uniqueTrimmedScalarValues(data_get($contextLoadingPlan, 'execution_optimization_policy.preferred_commands', [])), $suggestedTests);
+        $suggestedTests = $this->mergeStrings($suggestedTests, AiStringListNormalizer::uniqueTrimmedScalarValues(data_get($contextLoadingPlan, 'execution_optimization_policy.standard_commands', [])));
+        $suggestedTests = $this->mergeStrings($suggestedTests, AiStringListNormalizer::uniqueTrimmedScalarValues($contextLoadingPlan['area_ranked_commands'] ?? []));
+        $suggestedTests = $this->mergeStrings($suggestedTests, AiStringListNormalizer::uniqueTrimmedScalarValues($contextLoadingPlan['outcome_ranked_commands'] ?? []));
+        $suggestedTests = $this->mergeStrings($suggestedTests, AiStringListNormalizer::uniqueTrimmedScalarValues($contextLoadingPlan['command_hints'] ?? []));
         $avoidTests = $this->mergeStrings(
-            $this->arrayOfStrings($contextLoadingPlan['avoid_commands'] ?? []),
-            $this->arrayOfStrings($contextLoadingPlan['slow_commands'] ?? []),
-            $this->arrayOfStrings(data_get($contextLoadingPlan, 'execution_optimization_policy.blocked_commands', [])),
+            AiStringListNormalizer::uniqueTrimmedScalarValues($contextLoadingPlan['avoid_commands'] ?? []),
+            AiStringListNormalizer::uniqueTrimmedScalarValues($contextLoadingPlan['slow_commands'] ?? []),
+            AiStringListNormalizer::uniqueTrimmedScalarValues(data_get($contextLoadingPlan, 'execution_optimization_policy.blocked_commands', [])),
         );
         $suggestedTests = array_values(array_filter(
             $suggestedTests,
@@ -385,7 +386,7 @@ class AtlasDevRuntimeService
             if ($key === null || ! $this->filesMatchScope($expectedFiles, $key)) {
                 continue;
             }
-            $commands = $this->mergeStrings($commands, $this->arrayOfStrings($route['preferred_commands'] ?? []));
+            $commands = $this->mergeStrings($commands, AiStringListNormalizer::uniqueTrimmedScalarValues($route['preferred_commands'] ?? []));
         }
         if ($commands !== []) {
             return $commands;
@@ -400,7 +401,7 @@ class AtlasDevRuntimeService
             if ($key === null || ! in_array($key, $stacks, true)) {
                 continue;
             }
-            $commands = $this->mergeStrings($commands, $this->arrayOfStrings($route['preferred_commands'] ?? []));
+            $commands = $this->mergeStrings($commands, AiStringListNormalizer::uniqueTrimmedScalarValues($route['preferred_commands'] ?? []));
         }
 
         return $commands;
@@ -420,7 +421,7 @@ class AtlasDevRuntimeService
         }
 
         $refs = [];
-        foreach ($this->arrayOfStrings($selected['commands'] ?? []) as $command) {
+        foreach (AiStringListNormalizer::uniqueTrimmedScalarValues($selected['commands'] ?? []) as $command) {
             if (! in_array($command, $suggestedTests, true)) {
                 continue;
             }
@@ -452,7 +453,7 @@ class AtlasDevRuntimeService
                     'kind' => 'area',
                     'key' => $key,
                     'route_ref' => AiValueNormalizer::trimmedScalarStringOrNull($route['route_ref'] ?? null) ?? 'area:'.hash('sha256', $key),
-                    'commands' => $this->arrayOfStrings($route['preferred_commands'] ?? []),
+                    'commands' => AiStringListNormalizer::uniqueTrimmedScalarValues($route['preferred_commands'] ?? []),
                     'recommended_validation_tier' => AiValueNormalizer::trimmedScalarStringOrNull($route['recommended_validation_tier'] ?? null),
                     'validation_reason' => AiValueNormalizer::trimmedScalarStringOrNull($route['validation_reason'] ?? null),
                     'route_mode' => AiValueNormalizer::trimmedScalarStringOrNull($route['route_mode'] ?? null),
@@ -472,7 +473,7 @@ class AtlasDevRuntimeService
                     'kind' => 'stack',
                     'key' => $key,
                     'route_ref' => AiValueNormalizer::trimmedScalarStringOrNull($route['route_ref'] ?? null) ?? 'stack:'.hash('sha256', $key),
-                    'commands' => $this->arrayOfStrings($route['preferred_commands'] ?? []),
+                    'commands' => AiStringListNormalizer::uniqueTrimmedScalarValues($route['preferred_commands'] ?? []),
                     'recommended_validation_tier' => AiValueNormalizer::trimmedScalarStringOrNull($route['recommended_validation_tier'] ?? null),
                     'validation_reason' => AiValueNormalizer::trimmedScalarStringOrNull($route['validation_reason'] ?? null),
                     'route_mode' => AiValueNormalizer::trimmedScalarStringOrNull($route['route_mode'] ?? null),
@@ -558,11 +559,11 @@ class AtlasDevRuntimeService
                 continue;
             }
             if (count($manifestRefs) === 1 || $this->filesMatchScope($expectedFiles, $repoKey)) {
-                $stacks = $this->mergeStrings($stacks, $this->arrayOfStrings($manifestRef['stack'] ?? []));
+                $stacks = $this->mergeStrings($stacks, AiStringListNormalizer::uniqueTrimmedScalarValues($manifestRef['stack'] ?? []));
             }
         }
 
-        return $this->mergeStrings($stacks, $this->arrayOfStrings($contextLoadingPlan['stack_tags'] ?? []));
+        return $this->mergeStrings($stacks, AiStringListNormalizer::uniqueTrimmedScalarValues($contextLoadingPlan['stack_tags'] ?? []));
     }
 
     /**
@@ -769,31 +770,16 @@ class AtlasDevRuntimeService
             'route_target' => AiValueNormalizer::trimmedScalarStringOrNull($packet['route_target'] ?? null),
             'artifact_type' => AiValueNormalizer::trimmedScalarStringOrNull($packet['artifact_type'] ?? null),
             'artifact_hash' => AiValueNormalizer::trimmedScalarStringOrNull($packet['artifact_hash'] ?? null),
-            'allowed_paths' => $this->arrayOfStrings($packet['allowed_paths'] ?? []),
-            'forbidden_paths' => $this->arrayOfStrings($packet['forbidden_paths'] ?? []),
-            'must_keep' => $this->arrayOfStrings($packet['must_keep'] ?? []),
-            'context_refs' => $this->arrayOfStrings($packet['context_refs'] ?? []),
-            'test_plan' => $this->arrayOfStrings($packet['test_plan'] ?? []),
-            'done_when' => $this->arrayOfStrings($packet['done_when'] ?? []),
+            'allowed_paths' => AiStringListNormalizer::uniqueTrimmedScalarValues($packet['allowed_paths'] ?? []),
+            'forbidden_paths' => AiStringListNormalizer::uniqueTrimmedScalarValues($packet['forbidden_paths'] ?? []),
+            'must_keep' => AiStringListNormalizer::uniqueTrimmedScalarValues($packet['must_keep'] ?? []),
+            'context_refs' => AiStringListNormalizer::uniqueTrimmedScalarValues($packet['context_refs'] ?? []),
+            'test_plan' => AiStringListNormalizer::uniqueTrimmedScalarValues($packet['test_plan'] ?? []),
+            'done_when' => AiStringListNormalizer::uniqueTrimmedScalarValues($packet['done_when'] ?? []),
             'redaction' => AiValueNormalizer::trimmedScalarStringOrNull($packet['redaction'] ?? null) ?? 'provider_safe',
             'raw_conversation_included' => false,
             'artifact_body_included' => false,
         ];
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function arrayOfStrings(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_unique(array_filter(array_map(
-            fn (mixed $item): ?string => AiValueNormalizer::trimmedScalarStringOrNull($item),
-            $value,
-        ))));
     }
 
     /**
