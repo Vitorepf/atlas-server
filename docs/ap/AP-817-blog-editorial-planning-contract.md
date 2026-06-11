@@ -162,6 +162,10 @@ P1 is acceptable when:
   assumable topics, not-yet-assumable topics, archive bridges and the current
   reader contract without writing, reordering, publishing or creating parallel
   memory;
+- `operations_packet.agent_operating_queue` reports read-only agent lanes for
+  what can be prepared now, prepared later, reviewed by a human or held behind
+  prerequisites, without writing drafts, publishing, reordering, promoting
+  candidates or invoking graph/RAG;
 - `atlas:blog:editorial-plan --writing-packet --json` returns
   `writing_packet` for the next ready post with
   `generates_full_article=false`, `writes_draft=false` and

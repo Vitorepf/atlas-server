@@ -37,6 +37,7 @@ capabilities:
   - read_only_backlog_intake
   - read_only_atlas_signal_mesh
   - read_only_public_knowledge_map
+  - read_only_agent_operating_queue
   - open_brain_editorial_context_handoff
   - audited_open_brain_editorial_context_execution
   - graph_rag_readiness_preflight
@@ -264,6 +265,11 @@ Saida P1:
   leitor publico ja pode saber: posts publicados, assuntos assumiveis, assuntos
   ainda nao assumiveis, pontes com o arquivo externo e contrato do proximo texto
   desbloqueado;
+- `agent_operating_queue` dentro de `operations_packet`, derivando lanes
+  read-only para agentes (`write_now`, `prepare_next`, `review`, `hold`) a
+  partir do plano, matriz de dependencias, intake, mapa publico e signal mesh,
+  sem escrever rascunho, publicar, reordenar, promover candidato ou usar
+  graph/RAG;
 - `open_brain_handoff` dentro de `operations_packet` e `writing_packet`, com
   objetivo, comando `atlas:open-brain:context`, payload provider-safe e
   guardrails que mantem invocacao automatica, graph/RAG, Python e publicacao
@@ -382,6 +388,10 @@ promote-candidate -> read accepted review queue item -> emit backlog YAML snippe
 - Trate `public_knowledge_map` como memoria publica do leitor, nao como memoria
   canonica do Atlas: ele so diz o que ja pode ser assumido em texto publico e o
   que ainda precisa ser introduzido antes de aprofundar.
+- Trate `agent_operating_queue` como o painel de decisao dos agentes antes de
+  qualquer escrita: `write_now` e a unica preparacao imediata, `prepare_next`
+  espera aprovacao do texto atual, `review` exige humano e `hold` nao pode virar
+  texto profundo ate os prerequisitos aparecerem publicamente.
 - Use `--editorial-radar` para decidir onde alimentar a lista; ele nao muda
   backlog, nao aceita candidatos e nao publica.
 - Use `--editorial-golden-set` para provar que a sequencia ainda ensina do raso

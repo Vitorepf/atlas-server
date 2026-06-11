@@ -1048,6 +1048,7 @@ final class BlogEditorialContextService
         $backlogIntake = $this->backlogIntake($posts, $publishedSlugs, $candidateFeed, $reviewQueueState, $editorialDependencyMatrix);
         $atlasSignalMesh = $this->atlasSignalMesh($sourceMap, $coverageMap, $candidateFeed, $reviewQueueState, $editorialRoadmap, $editorialDependencyMatrix, $backlogIntake, $openBrainHandoff);
         $publicKnowledgeMap = $this->publicKnowledgeMap($posts, $sourceMap, $topicLedger, $editorialDependencyMatrix);
+        $agentOperatingQueue = $this->agentOperatingQueue($publishingPlan, $editorialDependencyMatrix, $backlogIntake, $publicKnowledgeMap, $atlasSignalMesh);
 
         return [
             'schema_version' => 'atlas.blog_editorial_operations_packet.v1',
@@ -1086,6 +1087,7 @@ final class BlogEditorialContextService
             'backlog_intake' => $backlogIntake,
             'atlas_signal_mesh' => $atlasSignalMesh,
             'public_knowledge_map' => $publicKnowledgeMap,
+            'agent_operating_queue' => $agentOperatingQueue,
             'public_archive_risks' => [
                 'duplicate_risk_count' => (int) ($publicArchiveContext['duplicate_risk_count'] ?? 0),
                 'linkable_artifact_count' => (int) ($publicArchiveContext['linkable_artifact_count'] ?? 0),
@@ -1144,6 +1146,7 @@ final class BlogEditorialContextService
                 'generates_backlog_intake' => true,
                 'generates_atlas_signal_mesh' => true,
                 'generates_public_knowledge_map' => true,
+                'generates_agent_operating_queue' => true,
                 'uses_graph_rag' => false,
                 'uses_python_runtime' => false,
                 'creates_parallel_memory_store' => false,
@@ -2664,6 +2667,172 @@ final class BlogEditorialContextService
                 'creates_parallel_memory_store' => false,
                 'requires_human_approval_to_promote' => true,
             ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $publishingPlan
+     * @param  array<string,mixed>  $dependencyMatrix
+     * @param  array<string,mixed>  $backlogIntake
+     * @param  array<string,mixed>  $publicKnowledgeMap
+     * @param  array<string,mixed>  $atlasSignalMesh
+     * @return array<string,mixed>
+     */
+    private function agentOperatingQueue(array $publishingPlan, array $dependencyMatrix, array $backlogIntake, array $publicKnowledgeMap, array $atlasSignalMesh): array
+    {
+        $items = [];
+        $todayLane = (array) ($publishingPlan['today_lane'] ?? []);
+        $nextSlots = array_values((array) ($publishingPlan['next_slots'] ?? []));
+        $dependencyRows = array_values((array) ($dependencyMatrix['rows'] ?? []));
+        $intakeItems = array_values((array) ($backlogIntake['items'] ?? []));
+        $currentUnlockedSlug = (string) data_get($dependencyMatrix, 'summary.current_unlocked_slug', '');
+        $currentUnlockedRow = collect($dependencyRows)
+            ->first(fn (array $row): bool => (string) ($row['slug'] ?? '') === $currentUnlockedSlug);
+
+        if ((string) ($todayLane['slug'] ?? '') !== '') {
+            $items[] = $this->agentOperatingQueueItem(
+                'write_now',
+                'prepare_foundation_draft_seed',
+                (string) ($todayLane['slug'] ?? ''),
+                is_array($currentUnlockedRow) ? (string) ($currentUnlockedRow['title'] ?? '') : null,
+                is_array($currentUnlockedRow) ? (int) ($currentUnlockedRow['order'] ?? 0) : null,
+                'ready_to_prepare',
+                'Current unlocked planned post. Prepare the writing packet, do not publish automatically.',
+                'publishing_plan.today_lane',
+                true,
+            );
+        }
+
+        foreach ($nextSlots as $slot) {
+            if ((string) ($slot['slug'] ?? '') === '' || (string) ($slot['slug'] ?? '') === (string) ($todayLane['slug'] ?? '')) {
+                continue;
+            }
+
+            if ((string) ($slot['status'] ?? '') !== 'ready_to_draft') {
+                continue;
+            }
+
+            $items[] = $this->agentOperatingQueueItem(
+                'prepare_next',
+                'prepare_after_current_post_is_approved',
+                (string) ($slot['slug'] ?? ''),
+                (string) ($slot['title'] ?? ''),
+                (int) ($slot['order'] ?? 0),
+                (string) ($slot['status'] ?? 'ready_to_draft'),
+                'Ready slot, but sequence still starts with the write_now item.',
+                'publishing_plan.next_slots',
+                true,
+            );
+        }
+
+        foreach ($dependencyRows as $row) {
+            if ((string) ($row['readiness'] ?? '') !== 'blocked_missing_prerequisites') {
+                continue;
+            }
+
+            $items[] = $this->agentOperatingQueueItem(
+                'hold',
+                'do_not_write_until_prerequisites_are_public',
+                (string) ($row['slug'] ?? ''),
+                (string) ($row['title'] ?? ''),
+                (int) ($row['order'] ?? 0),
+                (string) ($row['readiness'] ?? 'blocked'),
+                'Missing public prerequisites: '.implode(', ', array_values((array) data_get($row, 'depends_on.missing_prerequisites', []))),
+                'editorial_dependency_matrix.rows',
+                true,
+            );
+        }
+
+        foreach ($intakeItems as $item) {
+            $recommendedAction = (string) ($item['recommended_action'] ?? '');
+            $lane = str_contains($recommendedAction, 'hold') ? 'hold' : 'review';
+
+            $items[] = $this->agentOperatingQueueItem(
+                $lane,
+                $lane === 'hold' ? 'keep_candidate_out_of_main_backlog' : 'human_review_before_promotion',
+                (string) ($item['slug'] ?? ''),
+                (string) ($item['title'] ?? ''),
+                null,
+                $recommendedAction !== '' ? $recommendedAction : (string) ($item['lane'] ?? 'candidate'),
+                (string) ($item['reason'] ?? 'Candidate requires human review before it can affect the public sequence.'),
+                'backlog_intake.items',
+                true,
+            );
+        }
+
+        $items = array_values(array_filter($items, fn (array $item): bool => (string) ($item['slug'] ?? '') !== ''));
+        $laneCounts = [
+            'write_now' => count(array_filter($items, fn (array $item): bool => (string) ($item['lane'] ?? '') === 'write_now')),
+            'prepare_next' => count(array_filter($items, fn (array $item): bool => (string) ($item['lane'] ?? '') === 'prepare_next')),
+            'review' => count(array_filter($items, fn (array $item): bool => (string) ($item['lane'] ?? '') === 'review')),
+            'hold' => count(array_filter($items, fn (array $item): bool => (string) ($item['lane'] ?? '') === 'hold')),
+        ];
+
+        return [
+            'schema_version' => 'atlas.blog_editorial_agent_operating_queue.v1',
+            'mode' => 'read_only_agent_blog_queue_p1',
+            'status' => 'ready',
+            'summary' => [
+                'item_count' => count($items),
+                'write_now_count' => $laneCounts['write_now'],
+                'prepare_next_count' => $laneCounts['prepare_next'],
+                'review_count' => $laneCounts['review'],
+                'hold_count' => $laneCounts['hold'],
+                'current_unlocked_slug' => $currentUnlockedSlug !== '' ? $currentUnlockedSlug : null,
+                'next_action' => $laneCounts['write_now'] > 0
+                    ? 'prepare_current_unlocked_post'
+                    : 'review_dependency_or_candidate_lanes',
+                'graph_posture' => (string) data_get($atlasSignalMesh, 'summary.graph_posture', 'future_governed'),
+                'public_reader_known_topics' => (int) data_get($publicKnowledgeMap, 'summary.assumable_topic_count', 0),
+            ],
+            'lanes' => [
+                'write_now' => array_values(array_filter($items, fn (array $item): bool => (string) ($item['lane'] ?? '') === 'write_now')),
+                'prepare_next' => array_values(array_filter($items, fn (array $item): bool => (string) ($item['lane'] ?? '') === 'prepare_next')),
+                'review' => array_values(array_filter($items, fn (array $item): bool => (string) ($item['lane'] ?? '') === 'review')),
+                'hold' => array_values(array_filter($items, fn (array $item): bool => (string) ($item['lane'] ?? '') === 'hold')),
+            ],
+            'items' => $items,
+            'agent_rules' => [
+                'Leia write_now antes de qualquer rascunho; e a unica fila autorizada para preparacao imediata.',
+                'Prepare_next so deve ser usado depois que o texto atual for revisado e aprovado por Vitor.',
+                'Hold nunca vira texto profundo antes dos prerequisitos aparecerem publicamente.',
+                'Review pode sugerir promocao, mas nao escreve backlog, fila de revisao ou publicacao.',
+                'Graph/RAG continua futuro governado nesta fase.',
+            ],
+            'guardrails' => [
+                'read_only' => true,
+                'writes_backlog' => false,
+                'writes_review_queue' => false,
+                'writes_draft' => false,
+                'publishes_content' => false,
+                'reorders_posts' => false,
+                'uses_graph_rag' => false,
+                'uses_python_runtime' => false,
+                'creates_parallel_memory_store' => false,
+                'requires_human_approval_to_write' => true,
+                'requires_human_approval_to_publish' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function agentOperatingQueueItem(string $lane, string $action, string $slug, ?string $title, ?int $order, string $status, string $reason, string $source, bool $humanGate): array
+    {
+        return [
+            'lane' => $lane,
+            'action' => $action,
+            'slug' => $slug,
+            'title' => $title ?: $slug,
+            'order' => $order,
+            'status' => $status,
+            'reason' => $reason,
+            'source' => $source,
+            'human_gate' => $humanGate,
+            'can_write_draft' => false,
+            'can_publish' => false,
+            'can_reorder' => false,
         ];
     }
 
