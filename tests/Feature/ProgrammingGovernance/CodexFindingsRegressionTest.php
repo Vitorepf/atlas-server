@@ -50,7 +50,7 @@ class CodexFindingsRegressionTest extends TestCase
             {
                 public function __construct() {}
 
-                public function summary(): array
+                public function summary(array $options = []): array
                 {
                     // Production shape: top-level module_count, no `totals` wrapper.
                     return [
@@ -79,7 +79,7 @@ class CodexFindingsRegressionTest extends TestCase
             {
                 public function __construct() {}
 
-                public function summary(): array
+                public function summary(array $options = []): array
                 {
                     // Production-empty shape (status=empty, module_count=0).
                     return [

@@ -207,6 +207,8 @@ provider-safe memory, seed or promote reviewed memory before applying.
 
 ```bash
 ./bin/atlas open-brain context "continue implementation" --workspace=/Users/vitorepf/develop/Atlas/atlas-server --include-prompt --json
+./bin/atlas open-brain context "audit full context" --workspace=/Users/vitorepf/develop/Atlas/atlas-server --include-prompt --prompt-mode=full --json
+./bin/atlas open-brain expand-context recheck:canonical_doc "continue implementation" --workspace=/Users/vitorepf/develop/Atlas/atlas-server --json
 ./bin/atlas open-brain mcp --describe --json
 ./bin/atlas open-brain mcp --once='{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
@@ -214,6 +216,9 @@ provider-safe memory, seed or promote reviewed memory before applying.
 Rules:
 
 - recall/context exports are provider-safe by default;
+- `include_prompt` defaults to compact mode and defers memory bodies/semantic excerpts to expansion handles;
+- prompt exports persist only `summary.prompt` metrics (`atlas.open_brain.prompt_metrics.v1`), never the rendered prompt text;
+- `atlas_memory_maintenance_status` exposes `open_brain_prompt_metrics` aggregates for compact/full usage, token savings and prompt-persistence regressions;
 - MCP tools are read-only in the current phase;
 - every export should write audit metadata when the audit table exists;
 - Streamable HTTP/SSE, destructive MCP tools and multiuser sync require future AP.

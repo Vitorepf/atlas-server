@@ -770,14 +770,17 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
         $this->assertSame(2, data_get($result, 'summary.context_delivery_policy.expansion_handle_count'));
         $this->assertSame(2, data_get($result, 'summary.context_expansion_handles'));
         $this->assertContains('context_delivery_required_source_recheck', $result['warnings']);
-        $this->assertContains('Expand guarded required sources before implementation.', $result['next_actions']);
-        $this->assertContains('Use context expansion handles before dumping full docs, tests or graph output.', $result['next_actions']);
+        $this->assertContains('Call atlas_context_expand for guarded required sources before implementation.', $result['next_actions']);
+        $this->assertContains('Call atlas_context_expand for deferred sources before dumping full docs, tests or graph output.', $result['next_actions']);
 
         $this->assertStringContainsString('## Context Delivery Policy', $result['prompt_section'] ?? '');
         $this->assertStringContainsString('mode: staged_minimal_targeted_expansion', $result['prompt_section'] ?? '');
         $this->assertStringContainsString('initial_sources: vector_retrieval', $result['prompt_section'] ?? '');
         $this->assertStringContainsString('deferred_sources: evidence_replay', $result['prompt_section'] ?? '');
         $this->assertStringContainsString('guarded_required_sources: canonical_doc', $result['prompt_section'] ?? '');
+        $this->assertStringContainsString('expansion_tool: mcp=atlas_context_expand', $result['prompt_section'] ?? '');
+        $this->assertStringContainsString('expansion_handles: expand:evidence_replay, recheck:canonical_doc', $result['prompt_section'] ?? '');
+        $this->assertStringContainsString('implementation_gate: expand guarded handles before code changes.', $result['prompt_section'] ?? '');
         $this->assertStringContainsString('raw_text_exposed=false', $result['prompt_section'] ?? '');
         $this->assertStringNotContainsString('DO_NOT_LEAK_RAW_TEXT', $result['prompt_section'] ?? '');
 
@@ -848,6 +851,95 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
         $this->assertSame(1700, data_get($result, 'summary.context_delivery_policy.expansion_token_reserve'));
         $this->assertStringContainsString('## Context Delivery Policy', $result['prompt_section'] ?? '');
         $this->assertStringContainsString('deferred_sources: evidence_replay', $result['prompt_section'] ?? '');
+    }
+
+    public function test_open_brain_service_include_prompt_defaults_to_compact_and_allows_full(): void
+    {
+        $builder = new class extends AiContextPackBuilder
+        {
+            public function __construct() {}
+
+            public function build(string $input, AiTaskRequest $task, array $options = []): AiContextPack
+            {
+                return new AiContextPack([
+                    'task' => [
+                        'type' => 'dev',
+                        'desired_mode' => 'direct',
+                        'risk_level' => 'low',
+                        'domain' => 'atlas',
+                        'objective' => $input,
+                    ],
+                    'surface' => ['kind' => 'mcp', 'workspace' => base_path()],
+                    'retrieval' => [
+                        'schema_version' => 'atlas.context.retrieval_plan.v1',
+                        'mode' => 'balanced',
+                        'selected_sources' => [
+                            ['type' => 'memory_signals', 'reason' => 'memory', 'limit' => 8, 'required' => false],
+                        ],
+                    ],
+                    'memory' => [
+                        'recall' => [[
+                            'rank' => 1,
+                            'source' => 'registry',
+                            'type' => 'technical_context',
+                            'scope' => 'global',
+                            'title' => 'Compact prompt contract',
+                            'summary' => 'Compact prompt keeps the index only.',
+                            'excerpt' => str_repeat('OPEN_BRAIN_FULL_RECALL_EXCERPT ', 20),
+                            'reason' => 'test',
+                        ]],
+                        'registry' => [[
+                            'title' => 'Compact prompt contract',
+                            'type' => 'technical_context',
+                            'scope' => 'global',
+                            'summary' => 'Compact prompt keeps the index only.',
+                            'body' => str_repeat('OPEN_BRAIN_FULL_REGISTRY_BODY ', 20),
+                        ]],
+                        'semantic' => [[
+                            'title' => 'Semantic note',
+                            'path' => 'Atlas/Semantic.md',
+                            'type' => 'principle',
+                            'summary' => 'Semantic summary.',
+                            'excerpt' => str_repeat('OPEN_BRAIN_FULL_SEMANTIC_EXCERPT ', 20),
+                        ]],
+                    ],
+                    'constraints' => [],
+                ], []);
+            }
+        };
+
+        $service = new AtlasOpenBrainService($builder);
+        $compact = $service->contextPack([
+            'objective' => 'exportar contexto compacto',
+            'include_prompt' => true,
+        ], 'mcp');
+        $full = $service->contextPack([
+            'objective' => 'exportar contexto completo',
+            'include_prompt' => true,
+            'prompt_mode' => 'full',
+        ], 'mcp');
+
+        $this->assertSame('compact', data_get($compact, 'summary.prompt.mode'));
+        $this->assertSame('full', data_get($full, 'summary.prompt.mode'));
+        $this->assertSame('atlas.open_brain.prompt_metrics.v1', data_get($compact, 'summary.prompt.schema_version'));
+        $this->assertFalse(data_get($compact, 'summary.prompt.raw_prompt_persisted'));
+        $this->assertTrue(data_get($compact, 'summary.prompt.raw_bodies_deferred'));
+        $this->assertTrue(data_get($compact, 'summary.prompt.baseline_generated_for_metrics_only'));
+        $this->assertGreaterThan(0, data_get($compact, 'summary.prompt.expansion_handle_count'));
+        $this->assertSame('compact', data_get($compact, 'safety.prompt_mode'));
+        $this->assertGreaterThan(0, data_get($compact, 'safety.prompt_saved_chars'));
+        $this->assertStringNotContainsString('OPEN_BRAIN_FULL_REGISTRY_BODY', $compact['prompt_section'] ?? '');
+        $this->assertStringNotContainsString('OPEN_BRAIN_FULL_SEMANTIC_EXCERPT', $compact['prompt_section'] ?? '');
+        $this->assertStringContainsString('expansion_tool: mcp=atlas_context_expand', $compact['prompt_section'] ?? '');
+        $this->assertStringContainsString('OPEN_BRAIN_FULL_REGISTRY_BODY', $full['prompt_section'] ?? '');
+        $this->assertGreaterThan(data_get($compact, 'summary.prompt.chars'), data_get($full, 'summary.prompt.chars'));
+        $this->assertGreaterThan(data_get($compact, 'summary.prompt.chars'), data_get($compact, 'summary.prompt.full_chars'));
+        $this->assertGreaterThan(0, data_get($compact, 'summary.prompt.saved_chars'));
+        $this->assertGreaterThan(0, data_get($compact, 'summary.prompt.estimated_tokens_saved'));
+        $this->assertLessThan(1, data_get($compact, 'summary.prompt.compact_to_full_ratio'));
+        $this->assertSame(0, data_get($full, 'summary.prompt.saved_chars'));
+        $this->assertFalse(data_get($full, 'summary.prompt.raw_bodies_deferred'));
+        $this->assertFalse(data_get($full, 'summary.prompt.baseline_generated_for_metrics_only'));
     }
 
     public function test_required_open_brain_fails_closed_when_required_retrieval_source_is_unavailable(): void

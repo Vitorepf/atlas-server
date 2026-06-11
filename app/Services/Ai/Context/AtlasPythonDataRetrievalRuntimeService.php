@@ -9,6 +9,7 @@ use App\Services\Ai\Programming\ProgrammingPythonRuntimeContract;
 use App\Services\Ai\Programming\ProgrammingPythonRuntimeExecutor;
 use App\Services\Ai\Programming\ProgrammingPythonRuntimeGraphProjector;
 use App\Services\Ai\Programming\ProgrammingPythonRuntimePolicy;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Carbon\CarbonImmutable;
 
 /**
@@ -63,7 +64,7 @@ final class AtlasPythonDataRetrievalRuntimeService
     {
         $workspace = $this->workspace($input['workspace'] ?? base_path());
         $files = $this->files($input['files'] ?? []);
-        $decisionReceiptHash = $this->string($input['decision_receipt_hash'] ?? '') ?? '';
+        $decisionReceiptHash = AiValueNormalizer::trimmedScalarStringOrNull($input['decision_receipt_hash'] ?? '') ?? '';
         $approved = (bool) ($input['approved'] ?? false);
         $runtimeBoundaryGreen = (bool) ($input['runtime_boundary_green'] ?? true);
         $execute = (bool) ($input['execute'] ?? false);
@@ -266,14 +267,4 @@ final class AtlasPythonDataRetrievalRuntimeService
         )));
     }
 
-    private function string(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value === '' ? null : $value;
-    }
 }

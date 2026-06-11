@@ -18,6 +18,7 @@ class AtlasOpenBrainContextCommand extends Command
         {--requester=atlas-cli : Requester/tool label for audit}
         {--payload-json= : Extra payload JSON}
         {--include-prompt : Include rendered prompt section}
+        {--prompt-mode=compact : Prompt rendering mode when --include-prompt is used: compact or full}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Export an audited Atlas Open Brain context pack for local tools and providers.';
@@ -45,6 +46,7 @@ class AtlasOpenBrainContextCommand extends Command
             'intent' => $this->stringOption('intent') ?: 'memory_context_export',
             'requester' => $this->stringOption('requester') ?: 'atlas-cli',
             'include_prompt' => (bool) $this->option('include-prompt'),
+            'prompt_mode' => $this->stringOption('prompt-mode') ?: 'compact',
             'payload' => $payload,
         ], 'cli');
 

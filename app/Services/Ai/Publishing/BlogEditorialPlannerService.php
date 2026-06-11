@@ -23,9 +23,19 @@ final class BlogEditorialPlannerService
         $siteRoot = rtrim($siteRoot, '/');
         $backlogPath = $siteRoot.'/'.$backlogRelativePath;
         $withContext = (bool) ($options['with_context'] ?? false);
+        $withSourceMap = (bool) ($options['source_map'] ?? false);
         $suggestCandidates = (bool) ($options['suggest_candidates'] ?? false);
+        $withCoverageMap = (bool) ($options['coverage_map'] ?? false);
+        $withOperations = (bool) ($options['operations'] ?? false);
+        $withWritingPacket = (bool) ($options['writing_packet'] ?? false);
+        $writingSlug = is_string($options['writing_slug'] ?? null)
+            ? trim((string) $options['writing_slug'])
+            : '';
         $acceptCandidate = is_string($options['accept_candidate'] ?? null)
             ? trim((string) $options['accept_candidate'])
+            : '';
+        $promoteCandidate = is_string($options['promote_candidate'] ?? null)
+            ? trim((string) $options['promote_candidate'])
             : '';
         $writeAcceptance = (bool) ($options['write'] ?? false);
         $contextLimit = max(1, min(12, (int) ($options['context_limit'] ?? 5)));
@@ -46,7 +56,11 @@ final class BlogEditorialPlannerService
         }
 
         $posts = $this->flattenPosts($backlog);
-        $publishedSlugs = $this->publishedSlugs($siteRoot);
+        $publishedPosts = $this->publishedPosts($siteRoot);
+        $publishedSlugs = array_values(array_unique(array_filter(array_map(
+            fn (array $post): string => (string) ($post['slug'] ?? ''),
+            $publishedPosts,
+        ))));
         $publishedSet = array_fill_keys($publishedSlugs, true);
         $findings = $this->validatePosts($posts);
 
@@ -98,6 +112,9 @@ final class BlogEditorialPlannerService
             ->filter(fn (array $post): bool => (bool) $post['ready'])
             ->sortBy('order')
             ->first();
+        $writingTarget = $withWritingPacket
+            ? $this->writingTargetPost($posts, $writingSlug, is_array($nextReady) ? (string) ($nextReady['slug'] ?? '') : '')
+            : null;
 
         $blocked = collect($enriched)
             ->filter(fn (array $post): bool => ! $post['published'] && ! $post['ready'])
@@ -107,7 +124,7 @@ final class BlogEditorialPlannerService
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'status' => $findings === [] ? 'ready' : 'blocked',
-            'mode' => ($withContext || $suggestCandidates || $acceptCandidate !== '') ? 'read_only_governed_p1' : 'read_only_deterministic_p0',
+            'mode' => ($withContext || $withSourceMap || $suggestCandidates || $withCoverageMap || $withOperations || $withWritingPacket || $acceptCandidate !== '' || $promoteCandidate !== '') ? 'read_only_governed_p1' : 'read_only_deterministic_p0',
             'site_root' => $siteRoot,
             'backlog_path' => $backlogPath,
             'backlog' => [
@@ -125,18 +142,55 @@ final class BlogEditorialPlannerService
                 'blocked_posts' => count($blocked),
                 'finding_count' => count($findings),
                 'with_context' => $withContext,
+                'with_source_map' => $withSourceMap,
                 'with_candidate_suggestions' => $suggestCandidates,
+                'with_coverage_map' => $withCoverageMap,
+                'with_operations_packet' => $withOperations,
+                'with_writing_packet' => $withWritingPacket,
                 'with_candidate_acceptance' => $acceptCandidate !== '',
+                'with_candidate_promotion' => $promoteCandidate !== '',
             ],
             'next_ready_post' => $nextReady,
             'blocked_posts' => $blocked,
             'posts' => $enriched,
+            'source_map' => $withSourceMap
+                ? $this->contextService()->sourceMap($posts, $publishedSlugs, $publishedPosts)
+                : null,
             'backlog_candidates' => $suggestCandidates
                 ? $this->contextService()->candidateSuggestions($posts, $publishedSlugs, $candidateLimit)
+                : null,
+            'coverage_map' => $withCoverageMap
+                ? $this->contextService()->coverageMap($posts, $publishedSlugs)
+                : null,
+            'operations_packet' => $withOperations
+                ? $this->contextService()->operationsPacket($posts, $publishedSlugs, $publishedPosts, is_array($nextReady) ? $nextReady : null, $blocked, $contextLimit, $candidateLimit)
+                : null,
+            'writing_packet' => $withWritingPacket
+                ? (
+                    is_array($writingTarget)
+                        ? $this->contextService()->writingPacket($writingTarget, $posts, $publishedSlugs, $contextLimit, $publishedPosts)
+                        : [
+                            'schema_version' => 'atlas.blog_editorial_writing_packet.v1',
+                            'status' => 'failed',
+                            'error' => $writingSlug !== '' ? 'writing_slug_not_found' : 'next_ready_post_not_found',
+                            'requested_slug' => $writingSlug,
+                            'guardrails' => [
+                                'read_only' => true,
+                                'writes_draft' => false,
+                                'publishes_content' => false,
+                            ],
+                        ]
+                )
                 : null,
             'candidate_acceptance' => $acceptCandidate !== ''
                 ? $this->contextService()->acceptCandidate($siteRoot, $acceptCandidate, $posts, $publishedSlugs, [
                     'write' => $writeAcceptance,
+                ])
+                : null,
+            'candidate_promotion' => $promoteCandidate !== ''
+                ? $this->contextService()->promoteQueuedCandidate($siteRoot, $backlogPath, $promoteCandidate, $posts, $publishedSlugs, [
+                    'write' => $writeAcceptance,
+                    'promotion_after' => $options['promotion_after'] ?? null,
                 ])
                 : null,
             'findings' => $findings,
@@ -146,7 +200,7 @@ final class BlogEditorialPlannerService
                 'uses_graph_rag' => false,
                 'uses_python_runtime' => false,
                 'creates_parallel_memory_store' => false,
-                'uses_existing_knowledge_read_models' => $withContext,
+                'uses_existing_knowledge_read_models' => $withContext || $withSourceMap,
                 'requires_human_approval_to_publish' => true,
                 'runtime_upgrade_contract' => 'docs/ap/AP-817-blog-editorial-planning-contract.md',
             ],
@@ -422,7 +476,7 @@ final class BlogEditorialPlannerService
     /**
      * @return array<int,string>
      */
-    private function publishedSlugs(string $siteRoot): array
+    private function publishedPosts(string $siteRoot): array
     {
         $siteDataPath = $siteRoot.'/src/data/site.js';
         if (! is_file($siteDataPath)) {
@@ -434,9 +488,153 @@ final class BlogEditorialPlannerService
             return [];
         }
 
-        preg_match_all('/slug:\s*[\'"]([^\'"]+)[\'"]/', $matches[1], $slugMatches);
+        $posts = [];
+        foreach ($this->topLevelObjectBlocks($matches[1]) as $block) {
+            $slug = $this->jsStringField($block, 'slug');
+            if ($slug === '') {
+                continue;
+            }
 
-        return array_values(array_unique($slugMatches[1] ?? []));
+            $posts[] = [
+                'slug' => $slug,
+                'kind' => $this->jsNullableStringField($block, 'kind'),
+                'date' => $this->jsNullableStringField($block, 'date'),
+                'reading' => $this->jsIntField($block, 'reading'),
+                'collection' => $this->jsNullableStringField($block, 'collection'),
+                'series' => $this->jsNullableStringField($block, 'series'),
+                'series_index' => $this->jsIntField($block, 'seriesIndex'),
+                'original' => $this->jsNullableStringField($block, 'original'),
+                'num' => $this->jsNullableStringField($block, 'num'),
+                'tags' => $this->jsStringArrayField($block, 'tags'),
+                'title_pt' => $this->jsLocalizedTitle($block, 'pt'),
+                'title_en' => $this->jsLocalizedTitle($block, 'en'),
+            ];
+        }
+
+        return $posts;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function publishedSlugs(string $siteRoot): array
+    {
+        return array_values(array_unique(array_filter(array_map(
+            fn (array $post): string => (string) ($post['slug'] ?? ''),
+            $this->publishedPosts($siteRoot),
+        ))));
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function topLevelObjectBlocks(string $source): array
+    {
+        $objects = [];
+        $depth = 0;
+        $start = null;
+        $quote = null;
+        $escaped = false;
+        $length = strlen($source);
+
+        for ($i = 0; $i < $length; $i++) {
+            $char = $source[$i];
+
+            if ($quote !== null) {
+                if ($escaped) {
+                    $escaped = false;
+                    continue;
+                }
+                if ($char === '\\') {
+                    $escaped = true;
+                    continue;
+                }
+                if ($char === $quote) {
+                    $quote = null;
+                }
+                continue;
+            }
+
+            if ($char === '"' || $char === "'") {
+                $quote = $char;
+                continue;
+            }
+
+            if ($char === '{') {
+                if ($depth === 0) {
+                    $start = $i;
+                }
+                $depth++;
+                continue;
+            }
+
+            if ($char === '}') {
+                $depth--;
+                if ($depth === 0 && $start !== null) {
+                    $objects[] = substr($source, $start, $i - $start + 1);
+                    $start = null;
+                }
+            }
+        }
+
+        return $objects;
+    }
+
+    private function jsStringField(string $block, string $field): string
+    {
+        return $this->jsNullableStringField($block, $field) ?? '';
+    }
+
+    private function jsNullableStringField(string $block, string $field): ?string
+    {
+        if (! preg_match('/\b'.preg_quote($field, '/').'\s*:\s*([\'"])(.*?)\1/s', $block, $matches)) {
+            return null;
+        }
+
+        return stripcslashes((string) $matches[2]);
+    }
+
+    private function jsIntField(string $block, string $field): ?int
+    {
+        if (! preg_match('/\b'.preg_quote($field, '/').'\s*:\s*(\d+)/', $block, $matches)) {
+            return null;
+        }
+
+        return (int) $matches[1];
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function jsStringArrayField(string $block, string $field): array
+    {
+        if (! preg_match('/\b'.preg_quote($field, '/').'\s*:\s*\[(.*?)\]/s', $block, $matches)) {
+            return [];
+        }
+
+        preg_match_all('/([\'"])(.*?)\1/s', (string) $matches[1], $items);
+
+        return array_values(array_map(
+            fn (string $item): string => stripcslashes($item),
+            $items[2] ?? [],
+        ));
+    }
+
+    private function jsLocalizedTitle(string $block, string $locale): ?string
+    {
+        if (preg_match('/\b'.preg_quote($locale, '/').'\s*:\s*\{.*?\btitle\s*:\s*([\'"])(.*?)\1/s', $block, $matches)) {
+            return stripcslashes((string) $matches[2]);
+        }
+
+        if ($locale === 'pt' && preg_match('/\btitle\s*:\s*\{\s*\bpt\s*:\s*([\'"])(.*?)\1/s', $block, $matches)) {
+            return stripcslashes((string) $matches[2]);
+        }
+
+        if ($locale === 'en' && preg_match('/\btitle\s*:\s*\{.*?\ben\s*:\s*([\'"])(.*?)\1/s', $block, $matches)) {
+            return stripcslashes((string) $matches[2]);
+        }
+
+        return null;
     }
 
     /**
@@ -456,6 +654,26 @@ final class BlogEditorialPlannerService
     private function contextService(): BlogEditorialContextService
     {
         return $this->context ?? app(BlogEditorialContextService::class);
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $posts
+     * @return array<string,mixed>|null
+     */
+    private function writingTargetPost(array $posts, string $requestedSlug, string $nextReadySlug): ?array
+    {
+        $targetSlug = $requestedSlug !== '' ? $requestedSlug : $nextReadySlug;
+        if ($targetSlug === '') {
+            return null;
+        }
+
+        foreach ($posts as $post) {
+            if ((string) ($post['slug'] ?? '') === $targetSlug) {
+                return $post;
+            }
+        }
+
+        return null;
     }
 
     /**

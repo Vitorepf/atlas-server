@@ -11,6 +11,7 @@ use App\Services\Ai\ContextIntelligence\AtlasContextOperationsRuntimeService;
 use App\Services\Ai\IntelligenceFactory\AtlasIntelligenceFactoryRuntimeService;
 use App\Services\Ai\Kernel\Architecture\AtlasSessionBootstrapService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use Illuminate\Support\Str;
@@ -42,24 +43,24 @@ class AtlasPersistentContextRuntimeService
     public function build(array $input): array
     {
         $prompt = trim((string) ($input['prompt'] ?? $input['input_text'] ?? $input['task'] ?? ''));
-        $workspace = $this->stringValue($input['workspace'] ?? data_get($input, 'payload.workspace')) ?? base_path();
+        $workspace = AiValueNormalizer::trimmedScalarStringOrNull($input['workspace'] ?? data_get($input, 'payload.workspace')) ?? base_path();
         $payload = is_array($input['payload'] ?? null) ? $input['payload'] : [];
         $payload['workspace'] = $workspace;
-        $sourceType = $this->stringValue($input['source_type'] ?? null) ?? 'apcr_runtime';
-        $provider = $this->stringValue($input['provider'] ?? data_get($payload, 'provider'));
-        $domain = $this->stringValue($input['domain'] ?? data_get($payload, 'routing_domain') ?? data_get($payload, 'atlas_mode')) ?? 'atlas';
-        $flowId = $this->stringValue($input['flow_id'] ?? data_get($payload, 'flow_id') ?? data_get($payload, 'routing_task'));
-        $surfaceId = $this->stringValue($input['surface_id'] ?? data_get($payload, 'surface_id') ?? data_get($payload, 'app_surface'));
-        $scopeType = $this->stringValue($input['scope_type'] ?? null) ?? 'workspace';
-        $scopeId = $this->stringValue($input['scope_id'] ?? null) ?? $this->workspaceScopeId($workspace);
+        $sourceType = AiValueNormalizer::trimmedScalarStringOrNull($input['source_type'] ?? null) ?? 'apcr_runtime';
+        $provider = AiValueNormalizer::trimmedScalarStringOrNull($input['provider'] ?? data_get($payload, 'provider'));
+        $domain = AiValueNormalizer::trimmedScalarStringOrNull($input['domain'] ?? data_get($payload, 'routing_domain') ?? data_get($payload, 'atlas_mode')) ?? 'atlas';
+        $flowId = AiValueNormalizer::trimmedScalarStringOrNull($input['flow_id'] ?? data_get($payload, 'flow_id') ?? data_get($payload, 'routing_task'));
+        $surfaceId = AiValueNormalizer::trimmedScalarStringOrNull($input['surface_id'] ?? data_get($payload, 'surface_id') ?? data_get($payload, 'app_surface'));
+        $scopeType = AiValueNormalizer::trimmedScalarStringOrNull($input['scope_type'] ?? null) ?? 'workspace';
+        $scopeId = AiValueNormalizer::trimmedScalarStringOrNull($input['scope_id'] ?? null) ?? $this->workspaceScopeId($workspace);
         $evidenceRefs = array_values(array_filter((array) ($input['evidence_refs'] ?? data_get($payload, 'evidence_refs', [])), 'is_string'));
 
         $bootstrap = $this->safeBootstrap($prompt, $workspace);
         $task = AiTaskRequest::fromInput($prompt, [
             'source_type' => $sourceType,
             'payload' => array_merge($payload, [
-                'task_type' => $this->stringValue($input['task_type'] ?? null) ?? data_get($payload, 'task_type'),
-                'atlas_workflow_mode' => $this->stringValue($input['workflow_mode'] ?? null) ?? data_get($payload, 'atlas_workflow_mode'),
+                'task_type' => AiValueNormalizer::trimmedScalarStringOrNull($input['task_type'] ?? null) ?? data_get($payload, 'task_type'),
+                'atlas_workflow_mode' => AiValueNormalizer::trimmedScalarStringOrNull($input['workflow_mode'] ?? null) ?? data_get($payload, 'atlas_workflow_mode'),
                 'domain' => $domain,
                 'provider' => $provider,
             ]),
@@ -363,8 +364,8 @@ class AtlasPersistentContextRuntimeService
                 'prompt' => $prompt,
                 'domain' => $domain,
                 'flow_id' => $flowId ?? 'atlas_conversation',
-                'flow_profile' => $this->stringValue($input['flow_profile'] ?? null),
-                'runtime_mode' => $this->stringValue($input['runtime_mode'] ?? null) ?? 'standard',
+                'flow_profile' => AiValueNormalizer::trimmedScalarStringOrNull($input['flow_profile'] ?? null),
+                'runtime_mode' => AiValueNormalizer::trimmedScalarStringOrNull($input['runtime_mode'] ?? null) ?? 'standard',
                 'context_refs' => $contextRefs,
                 'evidence_refs' => $evidenceRefs,
                 'must_keep_items' => $mustKnowLedger['items'] ?? [],
@@ -573,16 +574,6 @@ class AtlasPersistentContextRuntimeService
     private function workspaceScopeId(string $workspace): string
     {
         return Str::limit(str_replace(['/', '\\', ' '], '_', trim($workspace)), 150, '');
-    }
-
-    private function stringValue(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-        $value = trim((string) $value);
-
-        return $value === '' ? null : $value;
     }
 
     private function uuidOrNull(mixed $value): ?string

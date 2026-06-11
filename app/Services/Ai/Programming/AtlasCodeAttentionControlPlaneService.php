@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProject;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\AtlasCode\AtlasCodeObservedSessionService;
 use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
 use App\Services\AtlasCode\DevToForgePromotionService;
@@ -197,7 +198,7 @@ final class AtlasCodeAttentionControlPlaneService
     public function snapshot(array $options = []): array
     {
         $generatedAt = now()->toIso8601String();
-        $workspaceSlug = $this->stringOrNull($options['workspace_slug'] ?? null);
+        $workspaceSlug = AiValueNormalizer::trimmedStringOrNull($options['workspace_slug'] ?? null);
 
         $obras = $this->candidateObras($workspaceSlug);
         $queue = [];
@@ -418,11 +419,11 @@ final class AtlasCodeAttentionControlPlaneService
 
     private function obraTitle(AtlasProject $obra): string
     {
-        $title = $this->stringOrNull($obra->title);
+        $title = AiValueNormalizer::trimmedStringOrNull($obra->title);
         if ($title !== null) {
             return $title;
         }
-        $goal = $this->stringOrNull($obra->goal);
+        $goal = AiValueNormalizer::trimmedStringOrNull($obra->goal);
         if ($goal !== null) {
             return $goal;
         }
@@ -906,10 +907,10 @@ final class AtlasCodeAttentionControlPlaneService
             'kind' => (string) ($matched['kind'] ?? ''),
             'state_at_decision' => (string) ($matched['obra_status'] ?? ''),
             'action' => $action,
-            'reason' => $this->stringOrNull($context['reason'] ?? null),
-            'decided_by' => $this->stringOrNull($context['decided_by'] ?? null) ?? 'human',
+            'reason' => AiValueNormalizer::trimmedStringOrNull($context['reason'] ?? null),
+            'decided_by' => AiValueNormalizer::trimmedStringOrNull($context['decided_by'] ?? null) ?? 'human',
             'decided_at' => Carbon::now()->toIso8601String(),
-            'notes' => $this->stringOrNull($context['notes'] ?? null),
+            'notes' => AiValueNormalizer::trimmedStringOrNull($context['notes'] ?? null),
             'evidence_refs' => array_values((array) ($matched['evidence_refs'] ?? [])),
             'schema_version' => 'atlas.code.attention_human_decision_receipt.v1',
         ];
@@ -932,13 +933,4 @@ final class AtlasCodeAttentionControlPlaneService
         return $receipt;
     }
 
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
-    }
 }

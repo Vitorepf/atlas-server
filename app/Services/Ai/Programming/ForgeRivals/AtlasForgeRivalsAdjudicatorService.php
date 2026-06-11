@@ -653,11 +653,11 @@ final class AtlasForgeRivalsAdjudicatorService
     ): array {
         $verdict = (string) ($manifest['verdict'] ?? 'unknown');
         $dirty = (bool) ($manifest['dirty_after_run'] ?? false);
-        $atlasOos = $this->stringList($atlasReceipt['out_of_scope_files'] ?? []);
-        $rivalOos = $this->stringList($rivalReceipt['out_of_scope_files'] ?? []);
-        $atlasBytecode = $this->stringList($atlasReceipt['bytecode_artifacts'] ?? []);
-        $rivalBytecode = $this->stringList($rivalReceipt['bytecode_artifacts'] ?? []);
-        $missingEvidence = $this->stringList($evidencePack['missing_evidence'] ?? []);
+        $atlasOos = AiStringListNormalizer::castItemsToStrings($atlasReceipt['out_of_scope_files'] ?? []);
+        $rivalOos = AiStringListNormalizer::castItemsToStrings($rivalReceipt['out_of_scope_files'] ?? []);
+        $atlasBytecode = AiStringListNormalizer::castItemsToStrings($atlasReceipt['bytecode_artifacts'] ?? []);
+        $rivalBytecode = AiStringListNormalizer::castItemsToStrings($rivalReceipt['bytecode_artifacts'] ?? []);
+        $missingEvidence = AiStringListNormalizer::castItemsToStrings($evidencePack['missing_evidence'] ?? []);
         $atlasForbiddenPremiumModels = $this->forbiddenPremiumModelsObservedForModelLock(
             (string) ($manifest['atlas_model'] ?? $atlasReceipt['model'] ?? ''),
             $atlasReceipt,
@@ -786,7 +786,7 @@ final class AtlasForgeRivalsAdjudicatorService
     {
         $models = [];
         $providerUsage = is_array($receipt['provider_usage'] ?? null) ? $receipt['provider_usage'] : [];
-        foreach ($this->stringList($providerUsage['models_observed'] ?? []) as $model) {
+        foreach (AiStringListNormalizer::castItemsToStrings($providerUsage['models_observed'] ?? []) as $model) {
             $models[] = $model;
         }
 
@@ -1033,7 +1033,7 @@ final class AtlasForgeRivalsAdjudicatorService
     private function dimensionComplexity(array $atlasReceipt, array $rivalReceipt): array
     {
         $score = function (array $r): float {
-            $changed = $this->stringList($r['changed_files'] ?? []);
+            $changed = AiStringListNormalizer::castItemsToStrings($r['changed_files'] ?? []);
             $count = count($changed);
             if ($count === 0) {
                 return 50.0;
@@ -1081,7 +1081,7 @@ final class AtlasForgeRivalsAdjudicatorService
             }
             $assertions = $this->extractAssertionCount($tail);
             $touchedTest = false;
-            foreach ($this->stringList($r['changed_files'] ?? []) as $f) {
+            foreach (AiStringListNormalizer::castItemsToStrings($r['changed_files'] ?? []) as $f) {
                 if (str_contains($f, 'tests/') || str_ends_with($f, 'Test.php') || str_ends_with($f, '.spec.ts') || str_ends_with($f, '.test.ts')) {
                     $touchedTest = true;
                     break;
@@ -1118,7 +1118,7 @@ final class AtlasForgeRivalsAdjudicatorService
     {
         $score = function (array $r): float {
             $bytes = (int) ($r['patch_diff_bytes'] ?? 0);
-            $count = max(1, count($this->stringList($r['changed_files'] ?? [])));
+            $count = max(1, count(AiStringListNormalizer::castItemsToStrings($r['changed_files'] ?? [])));
             $avg = $bytes / $count;
             if ($avg <= 1_500) {
                 return 95.0;
@@ -1148,7 +1148,7 @@ final class AtlasForgeRivalsAdjudicatorService
     private function dimensionRiskSurface(array $atlasReceipt, array $rivalReceipt): array
     {
         $score = function (array $r): float {
-            $changed = $this->stringList($r['changed_files'] ?? []);
+            $changed = AiStringListNormalizer::castItemsToStrings($r['changed_files'] ?? []);
             $productionTouched = 0;
             $testsTouched = 0;
             foreach ($changed as $f) {
@@ -1190,8 +1190,8 @@ final class AtlasForgeRivalsAdjudicatorService
     private function dimensionScopeDiscipline(array $atlasReceipt, array $rivalReceipt): array
     {
         $score = function (array $r): float {
-            $oos = count($this->stringList($r['out_of_scope_files'] ?? []));
-            $bytecode = count($this->stringList($r['bytecode_artifacts'] ?? []));
+            $oos = count(AiStringListNormalizer::castItemsToStrings($r['out_of_scope_files'] ?? []));
+            $bytecode = count(AiStringListNormalizer::castItemsToStrings($r['bytecode_artifacts'] ?? []));
             if ($oos > 0 || $bytecode > 0) {
                 return 0.0;
             }
@@ -1696,7 +1696,7 @@ final class AtlasForgeRivalsAdjudicatorService
             $notes[] = 'atlas_test_failure_distinct_from_provider_failure';
         }
 
-        $missingEvidence = $this->stringList($evidencePack['missing_evidence'] ?? []);
+        $missingEvidence = AiStringListNormalizer::castItemsToStrings($evidencePack['missing_evidence'] ?? []);
         if ($validity === self::VALIDITY_VALID && $missingEvidence !== []) {
             $validity = self::VALIDITY_INVALID_MISSING_EVIDENCE;
             $notes[] = 'missing_evidence:'.implode(',', $missingEvidence);
@@ -1835,14 +1835,14 @@ final class AtlasForgeRivalsAdjudicatorService
             if (($receipt['fixture_error'] ?? false) === true) {
                 return $arm.'_receipt_fixture_error';
             }
-            $fixtureBlockers = $this->stringList($receipt['fixture_blockers'] ?? []);
+            $fixtureBlockers = AiStringListNormalizer::castItemsToStrings($receipt['fixture_blockers'] ?? []);
             if ($fixtureBlockers !== []) {
                 return $arm.'_fixture_blockers:'.implode(',', $fixtureBlockers);
             }
         }
 
         $declaredCase = (string) ($manifest['case_id'] ?? '');
-        $declaredCases = $this->stringList($manifest['case_ids'] ?? []);
+        $declaredCases = AiStringListNormalizer::castItemsToStrings($manifest['case_ids'] ?? []);
         $atlasCase = (string) ($atlasReceipt['case_id'] ?? '');
         $rivalCase = (string) ($rivalReceipt['case_id'] ?? '');
 
@@ -1875,7 +1875,7 @@ final class AtlasForgeRivalsAdjudicatorService
      */
     private function receiptCaseIds(array $receipt): array
     {
-        $caseIds = $this->stringList($receipt['case_ids'] ?? []);
+        $caseIds = AiStringListNormalizer::castItemsToStrings($receipt['case_ids'] ?? []);
         $caseId = trim((string) ($receipt['case_id'] ?? ''));
         if ($caseIds === [] && $caseId !== '' && $caseId !== 'multi_case_aggregate') {
             $caseIds[] = $caseId;
@@ -1963,7 +1963,7 @@ final class AtlasForgeRivalsAdjudicatorService
         ?string $rivalProviderFailure,
         ?string $fixtureFailure,
     ): array {
-        $missingEvidence = $this->stringList($evidencePack['missing_evidence'] ?? []);
+        $missingEvidence = AiStringListNormalizer::castItemsToStrings($evidencePack['missing_evidence'] ?? []);
 
         $bothSidesProduced = (int) ($atlasReceipt['patch_diff_bytes'] ?? 0) > 0
             && (int) ($rivalReceipt['patch_diff_bytes'] ?? 0) > 0
@@ -2104,15 +2104,6 @@ final class AtlasForgeRivalsAdjudicatorService
     private function readJson(string $path): array
     {
         return JsonFileStore::readArray($path) ?? [];
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList($value): array
-    {
-        return AiStringListNormalizer::castItemsToStrings($value);
     }
 
     private function extractAssertionCount(string $tail): int

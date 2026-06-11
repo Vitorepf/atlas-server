@@ -55,7 +55,7 @@ _atlas_complete() {
       return 0
       ;;
     open-brain|brain)
-      COMPREPLY=( $(compgen -W "context context-pack export mcp serve server --workspace= --task-type= --desired-mode= --agent= --intent= --requester= --payload-json= --include-prompt --once= --describe --json" -- "${cur}") )
+      COMPREPLY=( $(compgen -W "context context-pack export expand expand-context context-expand mcp serve server --workspace= --task-type= --desired-mode= --agent= --intent= --requester= --payload-json= --include-prompt --prompt-mode= --once= --describe --max-refs= --budget= --domain= --risk= --json" -- "${cur}") )
       return 0
       ;;
     benchmark|bench)

@@ -412,7 +412,7 @@ class AdaptiveHierarchicalControlPlaneTest extends TestCase
             {
                 public function __construct() {}
 
-                public function summary(): array
+                public function summary(array $options = []): array
                 {
                     return [
                         'status' => 'ready',

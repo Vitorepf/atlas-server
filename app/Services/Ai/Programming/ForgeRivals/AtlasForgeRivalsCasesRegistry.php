@@ -158,8 +158,8 @@ final class AtlasForgeRivalsCasesRegistry
         return [
             'id' => (string) $case['case_id'],
             'objective' => (string) ($case['objective'] ?? ''),
-            'allowed_files' => $this->stringList($case['allowed_files_scope'] ?? []),
-            'acceptance_criteria' => $this->stringList($case['acceptance_gates'] ?? []),
+            'allowed_files' => AiStringListNormalizer::castItemsToStrings($case['allowed_files_scope'] ?? []),
+            'acceptance_criteria' => AiStringListNormalizer::castItemsToStrings($case['acceptance_gates'] ?? []),
             'quick_test_command' => (string) ($case['quick_test_command'] ?? ''),
             'full_test_command' => (string) ($case['full_test_command'] ?? ''),
             'expected_artifacts' => is_array($case['evidence_requirements'] ?? null)
@@ -170,12 +170,4 @@ final class AtlasForgeRivalsCasesRegistry
         ];
     }
 
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList($value): array
-    {
-        return AiStringListNormalizer::castItemsToStrings($value);
-    }
 }

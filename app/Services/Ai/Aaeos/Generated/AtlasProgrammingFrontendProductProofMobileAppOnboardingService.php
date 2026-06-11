@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Aaeos\Generated;
 
 use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
 
 /**
  * Mobile app-onboarding product-proof gate evaluator.
@@ -104,7 +105,7 @@ final class AtlasProgrammingFrontendProductProofMobileAppOnboardingService
         $viewports = AtlasAaeosStringListNormalizer::uniqueLowerTrimmedStrings($demo['viewports'] ?? []);
         $evidence = AtlasAaeosStringListNormalizer::uniqueLowerTrimmedStrings($demo['evidence'] ?? []);
         $states = AtlasAaeosStringListNormalizer::uniqueLowerTrimmedStrings($demo['states'] ?? []);
-        $a11yReason = $this->normalizeString($demo['a11y_reason'] ?? null);
+        $a11yReason = AtlasAaeosValueNormalizer::stringOrNull($demo['a11y_reason'] ?? null);
 
         $claimsPublished = (bool) ($demo['claims_published'] ?? false);
         $buildProof = (bool) ($demo['build_proof'] ?? false);
@@ -277,13 +278,4 @@ final class AtlasProgrammingFrontendProductProofMobileAppOnboardingService
         return $map;
     }
 
-    private function normalizeString(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $trimmed = trim($value);
-
-        return $trimmed === '' ? null : $trimmed;
-    }
 }

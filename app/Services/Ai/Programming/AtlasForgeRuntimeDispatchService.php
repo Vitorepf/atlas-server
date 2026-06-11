@@ -94,13 +94,7 @@ class AtlasForgeRuntimeDispatchService
 
     public static function normalizeObraIdInput(mixed $value): ?string
     {
-        if (! is_string($value)) {
-            return null;
-        }
-
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
+        return AiValueNormalizer::trimmedStringOrNull($value);
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\ForgeRivals;
 
 use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * Atlas Forge Rivals · Plan-Real.
@@ -189,9 +190,9 @@ final class AtlasForgeRivalsPlanRealService
      */
     private function resolveRunContext(array $input): array
     {
-        $workspace = $this->stringOrNull($input['atlas_worktree'] ?? $input['workspace'] ?? null);
-        $baselineWorkspace = $this->stringOrNull($input['baseline_worktree'] ?? $input['baseline_workspace'] ?? null);
-        $runId = $this->stringOrNull($input['run_id'] ?? null);
+        $workspace = AiValueNormalizer::trimmedStringOrNull($input['atlas_worktree'] ?? $input['workspace'] ?? null);
+        $baselineWorkspace = AiValueNormalizer::trimmedStringOrNull($input['baseline_worktree'] ?? $input['baseline_workspace'] ?? null);
+        $runId = AiValueNormalizer::trimmedStringOrNull($input['run_id'] ?? null);
 
         if ($runId !== null && ($workspace === null || $baselineWorkspace === null)) {
             $paths = $this->paths->paths($runId);
@@ -202,8 +203,4 @@ final class AtlasForgeRivalsPlanRealService
         return [$workspace, $baselineWorkspace, $runId];
     }
 
-    private function stringOrNull(mixed $value): ?string
-    {
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 }

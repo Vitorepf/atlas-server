@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\AtlasDev\Runtime;
 
 use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\JsonFileStore;
 use Illuminate\Support\Facades\File;
 
@@ -57,20 +58,20 @@ final class AtlasDevDesktopEfficiencyEvidenceService
                 continue;
             }
 
-            $caseId = $this->nonEmptyString($case['case_id'] ?? null) ?: 'case_'.$index;
-            $taskKind = $this->nonEmptyString($case['task_kind'] ?? null);
+            $caseId = AiValueNormalizer::trimmedStringOrNull($case['case_id'] ?? null) ?: 'case_'.$index;
+            $taskKind = AiValueNormalizer::trimmedStringOrNull($case['task_kind'] ?? null);
             if ($taskKind !== null) {
                 $coveredTaskKinds[] = $taskKind;
             }
             if ($taskKind === null || ! in_array($taskKind, self::REQUIRED_TASK_KINDS, true)) {
                 $findings[] = $caseId.':task_kind_invalid';
             }
-            $taskPrompt = $this->nonEmptyString($case['task_prompt'] ?? null);
+            $taskPrompt = AiValueNormalizer::trimmedStringOrNull($case['task_prompt'] ?? null);
             if ($taskPrompt === null) {
                 $findings[] = $caseId.':task_prompt_missing';
             }
             $taskPromptHash = $taskPrompt !== null ? hash('sha256', $taskPrompt) : null;
-            $declaredTaskPromptHash = $this->nonEmptyString($case['task_prompt_sha256'] ?? null);
+            $declaredTaskPromptHash = AiValueNormalizer::trimmedStringOrNull($case['task_prompt_sha256'] ?? null);
             if ($declaredTaskPromptHash !== null && $declaredTaskPromptHash !== $taskPromptHash) {
                 $findings[] = $caseId.':task_prompt_sha256_mismatch';
             }
@@ -458,7 +459,7 @@ final class AtlasDevDesktopEfficiencyEvidenceService
                     continue;
                 }
 
-                $sourceTaskPrompt = $this->nonEmptyString($source['task_prompt'] ?? null);
+                $sourceTaskPrompt = AiValueNormalizer::trimmedStringOrNull($source['task_prompt'] ?? null);
                 if ($sourceTaskPrompt === null) {
                     $blockers[] = $caseId.':'.$participant.'_task_prompt_missing';
                 } elseif (! $sourcePromptLocked) {
@@ -663,9 +664,9 @@ final class AtlasDevDesktopEfficiencyEvidenceService
                 continue;
             }
 
-            $caseId = $this->nonEmptyString($case['case_id'] ?? null);
-            $taskKind = $this->nonEmptyString($case['task_kind'] ?? null);
-            $taskPrompt = $this->nonEmptyString($case['task_prompt'] ?? null);
+            $caseId = AiValueNormalizer::trimmedStringOrNull($case['case_id'] ?? null);
+            $taskKind = AiValueNormalizer::trimmedStringOrNull($case['task_kind'] ?? null);
+            $taskPrompt = AiValueNormalizer::trimmedStringOrNull($case['task_prompt'] ?? null);
             if ($caseId === null || $taskKind === null) {
                 continue;
             }
@@ -870,7 +871,7 @@ final class AtlasDevDesktopEfficiencyEvidenceService
         if (! is_array($decoded)) {
             return false;
         }
-        $runRef = $this->nonEmptyString($decoded['run_ref'] ?? null);
+        $runRef = AiValueNormalizer::trimmedStringOrNull($decoded['run_ref'] ?? null);
 
         return ($decoded['schema_version'] ?? null) === 'atlas.dev.desktop_efficiency_source.v1'
             && ($decoded['case_id'] ?? null) === $caseId
@@ -920,7 +921,7 @@ final class AtlasDevDesktopEfficiencyEvidenceService
                 $blockers[] = $metric.'_invalid';
             }
         }
-        $taskPrompt = $this->nonEmptyString($source['task_prompt'] ?? null);
+        $taskPrompt = AiValueNormalizer::trimmedStringOrNull($source['task_prompt'] ?? null);
         if ($taskPrompt === null) {
             $blockers[] = 'task_prompt_missing';
         } elseif (hash('sha256', $taskPrompt) !== $taskPromptSha256) {
@@ -929,7 +930,7 @@ final class AtlasDevDesktopEfficiencyEvidenceService
         if (! $this->validObservedAt($source['observed_at'] ?? null)) {
             $blockers[] = 'observed_at_invalid';
         }
-        $runRef = $this->nonEmptyString($source['run_ref'] ?? null);
+        $runRef = AiValueNormalizer::trimmedStringOrNull($source['run_ref'] ?? null);
         if ($runRef === null) {
             $blockers[] = 'run_ref_missing';
         } elseif (! $this->validRelativeRef($runRef)) {
@@ -962,8 +963,8 @@ final class AtlasDevDesktopEfficiencyEvidenceService
             && ($decoded['case_id'] ?? null) === $caseId
             && ($decoded['task_kind'] ?? null) === $taskKind
             && ($decoded['participant'] ?? null) === $participant
-            && $this->nonEmptyString($decoded['summary'] ?? null) !== null
-            && $this->nonEmptyString($decoded['verification_command'] ?? null) !== null
+            && AiValueNormalizer::trimmedStringOrNull($decoded['summary'] ?? null) !== null
+            && AiValueNormalizer::trimmedStringOrNull($decoded['verification_command'] ?? null) !== null
             && ($decoded['verification_passed'] ?? null) === true
             && $this->validObservedAt($decoded['captured_at'] ?? null);
     }
@@ -1012,11 +1013,6 @@ final class AtlasDevDesktopEfficiencyEvidenceService
         $float = (float) $value;
 
         return $float >= 0.0 ? $float : null;
-    }
-
-    private function nonEmptyString(mixed $value): ?string
-    {
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
     }
 
     /**
@@ -1086,8 +1082,8 @@ final class AtlasDevDesktopEfficiencyEvidenceService
                 continue;
             }
 
-            $caseId = $this->nonEmptyString($case['case_id'] ?? null);
-            $taskPrompt = $this->nonEmptyString($case['task_prompt'] ?? null);
+            $caseId = AiValueNormalizer::trimmedStringOrNull($case['case_id'] ?? null);
+            $taskPrompt = AiValueNormalizer::trimmedStringOrNull($case['task_prompt'] ?? null);
             if ($caseId === null || $taskPrompt === null) {
                 continue;
             }

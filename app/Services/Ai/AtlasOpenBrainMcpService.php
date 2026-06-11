@@ -58,6 +58,7 @@ class AtlasOpenBrainMcpService
     public function __construct(
         private readonly AtlasHybridMemoryRetrievalService $recall,
         private readonly AtlasOpenBrainContextPackService $contextPack,
+        private readonly AtlasOpenBrainContextExpansionService $contextExpansion,
         private readonly AtlasOpenBrainService $openBrain,
         private readonly AtlasProviderProjectionService $projection,
         private readonly AtlasMemoryPrivacyService $privacy,
@@ -184,6 +185,7 @@ class AtlasOpenBrainMcpService
                         'intent' => ['type' => 'string', 'description' => 'Intent auditavel.'],
                         'requester' => ['type' => 'string', 'description' => 'Nome do cliente/provider MCP.'],
                         'include_prompt' => ['type' => 'boolean', 'description' => 'Inclui secao renderizada de prompt.'],
+                        'prompt_mode' => ['type' => 'string', 'description' => 'Modo do prompt quando include_prompt=true: compact (default, menor primeiro pacote) ou full (auditoria completa).'],
                         'payload' => ['type' => 'object', 'description' => 'Payload Atlas adicional, como project_id e task_id.'],
                         'options' => ['type' => 'object', 'description' => 'Opcoes do context pack.'],
                     ],
@@ -196,9 +198,33 @@ class AtlasOpenBrainMcpService
                 ],
             ],
             [
+                'name' => 'atlas_context_expand',
+                'title' => 'Atlas Context Expand',
+                'description' => 'Expande sob demanda um handle do Open Brain, como expand:evidence_replay ou recheck:canonical_doc. Read-only, provider-safe, local-only, sem provider spend, sem raw docs/tests dump.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'handle' => ['type' => 'string', 'description' => 'Handle de expansao: expand:<source_type>, recheck:<source_type> ou source_type direto.'],
+                        'objective' => ['type' => 'string', 'description' => 'Objetivo/tarefa que guia a expansao.'],
+                        'workspace' => ['type' => 'string', 'description' => 'Workspace local permitido.'],
+                        'task_type' => ['type' => 'string', 'description' => 'Tipo da tarefa: dev, debug, review, research, decision ou memory.'],
+                        'domain' => ['type' => 'string', 'description' => 'Dominio/logical area, por exemplo developer.'],
+                        'risk_level' => ['type' => 'string', 'description' => 'Risco da tarefa: low, medium, high ou irreversible.'],
+                        'max_refs' => ['type' => 'integer', 'description' => 'Max refs para expansao via ranking. Default 6, max 20.'],
+                        'budget' => ['type' => 'integer', 'description' => 'Budget para expansao via compact AOBG pack. Default 3200.'],
+                    ],
+                    'required' => ['handle', 'objective'],
+                ],
+                'annotations' => [
+                    'readOnlyHint' => true,
+                    'destructiveHint' => false,
+                    'openWorldHint' => false,
+                ],
+            ],
+            [
                 'name' => 'atlas_memory_maintenance_status',
                 'title' => 'Atlas Memory Maintenance Status',
-                'description' => 'Mostra health check read-only da memoria: docs sync, code index, provider projection e tabelas principais.',
+                'description' => 'Mostra health check read-only da memoria: docs sync, code index, provider projection, prompt metric aggregates e tabelas principais.',
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => [
@@ -1121,6 +1147,7 @@ class AtlasOpenBrainMcpService
             return match ($name) {
                 'atlas_memory_recall' => $this->toolResponse($id, $this->memoryRecall($arguments)),
                 'atlas_open_brain_context_pack' => $this->toolResponse($id, $this->contextPack($arguments)),
+                'atlas_context_expand' => $this->toolResponse($id, $this->contextExpand($arguments)),
                 'atlas_memory_maintenance_status' => $this->toolResponse($id, $this->maintenanceStatus($arguments)),
                 'atlas_memory_record' => $this->toolResponse($id, $this->memoryRecord($arguments)),
                 'atlas_code_find_relevant' => $this->toolResponse($id, $this->codeFindRelevant($arguments)),
@@ -1251,9 +1278,50 @@ class AtlasOpenBrainMcpService
                 'intent' => $this->string($arguments['intent'] ?? null) ?: 'mcp_context_export',
                 'requester' => $this->string($arguments['requester'] ?? null) ?: 'mcp-client',
                 'include_prompt' => (bool) ($arguments['include_prompt'] ?? false),
+                'prompt_mode' => $this->string($arguments['prompt_mode'] ?? data_get($arguments, 'options.prompt_mode')) ?: 'compact',
                 'payload' => $payload,
                 'options' => $this->object($arguments['options'] ?? []),
             ], 'mcp'),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function contextExpand(array $arguments): array
+    {
+        $handle = $this->string($arguments['handle'] ?? '') ?? '';
+        if ($handle === '') {
+            return [
+                'ok' => false,
+                'error' => 'handle_required',
+            ];
+        }
+
+        $objective = $this->string($arguments['objective'] ?? $arguments['task'] ?? $arguments['query'] ?? '') ?? '';
+        if ($objective === '') {
+            return [
+                'ok' => false,
+                'error' => 'objective_required',
+            ];
+        }
+
+        $workspace = $this->workspace($arguments['workspace'] ?? null);
+
+        return [
+            'ok' => true,
+            'tool' => 'atlas_context_expand',
+            'context_expansion' => $this->contextExpansion->expand([
+                'handle' => $handle,
+                'objective' => $objective,
+                'workspace' => $workspace,
+                'task_type' => $this->string($arguments['task_type'] ?? null) ?: 'dev',
+                'domain' => $this->string($arguments['domain'] ?? null) ?: 'atlas',
+                'risk_level' => $this->string($arguments['risk_level'] ?? $arguments['risk'] ?? null) ?: 'low',
+                'max_refs' => $this->positiveInt($arguments['max_refs'] ?? null) ?: 6,
+                'budget' => $this->positiveInt($arguments['budget'] ?? null) ?: 3200,
+            ]),
         ];
     }
 
@@ -1275,6 +1343,7 @@ class AtlasOpenBrainMcpService
         $memoryQuality = $this->quality->scorecard([
             'workspace' => $workspace,
         ]);
+        $promptMetrics = $this->openBrainPromptMetrics();
         $includeDriftAudit = (bool) ($arguments['include_drift_audit'] ?? false);
         $codeAudit = $includeDriftAudit
             ? $this->code->audit([
@@ -1289,12 +1358,13 @@ class AtlasOpenBrainMcpService
             'workspace' => $workspace,
             'memory' => $memory,
             'memory_quality' => $memoryQuality,
+            'open_brain_prompt_metrics' => $promptMetrics,
             'knowledge' => $knowledge,
             'code_intelligence' => $code,
             'code_audit' => $codeAudit,
             'provider_projection' => $projection,
-            'overall_status' => $this->overallStatus($memory, $memoryQuality, $knowledge, $code, $projection, $codeAudit),
-            'next_actions' => $this->nextActions($workspace, $memory, $memoryQuality, $knowledge, $code, $projection, $codeAudit),
+            'overall_status' => $this->overallStatus($memory, $memoryQuality, $promptMetrics, $knowledge, $code, $projection, $codeAudit),
+            'next_actions' => $this->nextActions($workspace, $memory, $memoryQuality, $promptMetrics, $knowledge, $code, $projection, $codeAudit),
             'writes' => false,
             'generated_at' => now()->toJSON(),
         ];
@@ -3338,6 +3408,162 @@ class AtlasOpenBrainMcpService
     /**
      * @return array<string,mixed>
      */
+    private function openBrainPromptMetrics(int $hours = 168): array
+    {
+        if (! Schema::hasTable('atlas_open_brain_access_logs')) {
+            return [
+                'schema_version' => 'atlas.open_brain.prompt_metric_aggregate.v1',
+                'status' => 'not_migrated',
+                'window_hours' => $hours,
+                'observed_count' => 0,
+                'review_signal' => [
+                    'status' => 'unavailable',
+                    'severity' => 'low',
+                    'reasons' => ['open_brain_audit_table_missing'],
+                    'recommended_action' => 'run_open_brain_audit_migrations_before_prompt_metric_review',
+                ],
+            ];
+        }
+
+        $logs = AtlasOpenBrainAccessLog::query()
+            ->where('accessed_at', '>=', now()->subHours($hours))
+            ->where('action', 'context_pack_export')
+            ->orderByDesc('accessed_at')
+            ->limit(200)
+            ->get();
+
+        $promptRows = $logs
+            ->map(function (AtlasOpenBrainAccessLog $log): ?array {
+                $summary = (array) ($log->result_summary_json ?? []);
+                $prompt = data_get($summary, 'prompt');
+                if (! is_array($prompt)) {
+                    return null;
+                }
+
+                return [
+                    'id' => $log->id,
+                    'mode' => (string) ($prompt['mode'] ?? 'unknown'),
+                    'chars' => (int) ($prompt['chars'] ?? 0),
+                    'lines' => (int) ($prompt['lines'] ?? 0),
+                    'estimated_tokens' => (int) ($prompt['estimated_tokens'] ?? 0),
+                    'full_chars' => (int) ($prompt['full_chars'] ?? 0),
+                    'saved_chars' => (int) ($prompt['saved_chars'] ?? 0),
+                    'estimated_tokens_saved' => (int) ($prompt['estimated_tokens_saved'] ?? 0),
+                    'savings_ratio' => (float) ($prompt['savings_ratio'] ?? 0),
+                    'compact_to_full_ratio' => (float) ($prompt['compact_to_full_ratio'] ?? 0),
+                    'raw_prompt_persisted' => (bool) ($prompt['raw_prompt_persisted'] ?? false)
+                        || (bool) data_get($summary, 'safety.prompt_raw_prompt_persisted', false)
+                        || array_key_exists('prompt_section', $summary),
+                    'accessed_at' => $log->accessed_at?->toJSON(),
+                ];
+            })
+            ->filter()
+            ->values();
+
+        if ($promptRows->isEmpty()) {
+            return [
+                'schema_version' => 'atlas.open_brain.prompt_metric_aggregate.v1',
+                'status' => 'no_data',
+                'window_hours' => $hours,
+                'observed_count' => 0,
+                'total_context_pack_exports' => $logs->count(),
+                'review_signal' => [
+                    'status' => 'observe',
+                    'severity' => 'low',
+                    'reasons' => ['no_prompt_metric_exports_in_window'],
+                    'recommended_action' => 'collect_include_prompt_exports_before_prompt_metric_review',
+                ],
+            ];
+        }
+
+        $compactRows = $promptRows->where('mode', 'compact')->values();
+        $fullRows = $promptRows->where('mode', 'full')->values();
+        $unknownRows = $promptRows
+            ->reject(fn (array $row): bool => in_array($row['mode'], ['compact', 'full'], true))
+            ->values();
+        $rawPromptViolations = $promptRows
+            ->filter(fn (array $row): bool => (bool) ($row['raw_prompt_persisted'] ?? false))
+            ->values();
+        $lowSavingsRows = $compactRows
+            ->filter(fn (array $row): bool => (float) ($row['savings_ratio'] ?? 0) < 0.25)
+            ->values();
+
+        $observedCount = $promptRows->count();
+        $fullModeRatio = $observedCount > 0 ? round($fullRows->count() / $observedCount, 4) : 0.0;
+        $fullModeDominant = $observedCount >= 3 && $fullModeRatio > 0.5;
+        $reasons = [];
+        if ($rawPromptViolations->isNotEmpty()) {
+            $reasons[] = 'raw_prompt_persistence_detected';
+        }
+        if ($lowSavingsRows->isNotEmpty()) {
+            $reasons[] = 'compact_prompt_savings_below_threshold';
+        }
+        if ($fullModeDominant) {
+            $reasons[] = 'full_prompt_mode_dominant';
+        }
+        if ($unknownRows->isNotEmpty()) {
+            $reasons[] = 'unknown_prompt_mode_observed';
+        }
+
+        $status = 'ready';
+        if ($rawPromptViolations->isNotEmpty()) {
+            $status = 'critical';
+        } elseif ($reasons !== []) {
+            $status = 'warning';
+        }
+
+        return [
+            'schema_version' => 'atlas.open_brain.prompt_metric_aggregate.v1',
+            'status' => $status,
+            'window_hours' => $hours,
+            'observed_count' => $observedCount,
+            'total_context_pack_exports' => $logs->count(),
+            'compact_count' => $compactRows->count(),
+            'full_count' => $fullRows->count(),
+            'unknown_mode_count' => $unknownRows->count(),
+            'full_mode_ratio' => $fullModeRatio,
+            'raw_prompt_persistence_violation_count' => $rawPromptViolations->count(),
+            'low_savings_count' => $lowSavingsRows->count(),
+            'averages' => [
+                'chars' => $this->averageMetric($promptRows, 'chars'),
+                'estimated_tokens' => $this->averageMetric($promptRows, 'estimated_tokens'),
+                'saved_chars' => $this->averageMetric($promptRows, 'saved_chars'),
+                'estimated_tokens_saved' => $this->averageMetric($promptRows, 'estimated_tokens_saved'),
+                'savings_ratio' => $this->averageMetric($promptRows, 'savings_ratio', 4),
+            ],
+            'compact' => [
+                'count' => $compactRows->count(),
+                'avg_chars' => $this->averageMetric($compactRows, 'chars'),
+                'avg_full_chars' => $this->averageMetric($compactRows, 'full_chars'),
+                'avg_saved_chars' => $this->averageMetric($compactRows, 'saved_chars'),
+                'avg_estimated_tokens_saved' => $this->averageMetric($compactRows, 'estimated_tokens_saved'),
+                'avg_savings_ratio' => $this->averageMetric($compactRows, 'savings_ratio', 4),
+                'avg_compact_to_full_ratio' => $this->averageMetric($compactRows, 'compact_to_full_ratio', 4),
+            ],
+            'latest' => $promptRows->first(),
+            'review_signal' => [
+                'status' => $status === 'ready' ? 'ready' : ($status === 'critical' ? 'blocking' : 'review'),
+                'severity' => $status === 'critical' ? 'high' : ($status === 'warning' ? 'medium' : 'low'),
+                'reasons' => $reasons,
+                'recommended_action' => $status === 'ready'
+                    ? 'keep_compact_prompt_default_and_continue_measuring'
+                    : 'review_open_brain_prompt_metric_regression_before_changing_prompt_delivery_policy',
+            ],
+        ];
+    }
+
+    private function averageMetric(Collection $rows, string $key, int $precision = 2): float
+    {
+        if ($rows->isEmpty()) {
+            return 0.0;
+        }
+
+        return round((float) $rows->avg($key), $precision);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
     private function memorySummary(?string $workspace): array
     {
         $memoryTable = Schema::hasTable('atlas_memory_entries');
@@ -3370,13 +3596,16 @@ class AtlasOpenBrainMcpService
     /**
      * @param  array<string,mixed>|null  $codeAudit
      */
-    private function overallStatus(array $memory, array $memoryQuality, array $knowledge, array $code, array $projection, ?array $codeAudit): string
+    private function overallStatus(array $memory, array $memoryQuality, array $promptMetrics, array $knowledge, array $code, array $projection, ?array $codeAudit): string
     {
         if (($memory['status'] ?? null) !== 'ready') {
             return 'needs_memory';
         }
         if (in_array($memoryQuality['status'] ?? null, ['critical'], true)) {
             return 'needs_memory_quality_review';
+        }
+        if (in_array($promptMetrics['status'] ?? null, ['critical'], true)) {
+            return 'needs_prompt_metric_review';
         }
         if (($knowledge['status'] ?? null) !== 'ready') {
             return 'needs_knowledge_sync';
@@ -3398,7 +3627,7 @@ class AtlasOpenBrainMcpService
      * @param  array<string,mixed>|null  $codeAudit
      * @return array<int,string>
      */
-    private function nextActions(?string $workspace, array $memory, array $memoryQuality, array $knowledge, array $code, array $projection, ?array $codeAudit): array
+    private function nextActions(?string $workspace, array $memory, array $memoryQuality, array $promptMetrics, array $knowledge, array $code, array $projection, ?array $codeAudit): array
     {
         $workspaceArg = $workspace ? ' --workspace="'.str_replace('"', '\"', $workspace).'"' : '';
         $actions = [];
@@ -3410,6 +3639,9 @@ class AtlasOpenBrainMcpService
             if (is_string($action) && $action !== '') {
                 $actions[] = $action;
             }
+        }
+        if (in_array($promptMetrics['status'] ?? null, ['critical', 'warning'], true)) {
+            $actions[] = 'Review open_brain_prompt_metrics before changing prompt delivery policy.';
         }
         if (($knowledge['status'] ?? null) !== 'ready') {
             $actions[] = './bin/atlas engineering knowledge sync --prune --json';

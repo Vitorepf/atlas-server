@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Programming;
 
 use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevRuntimeIntelligenceService;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceHandoffPackService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use RuntimeException;
@@ -97,7 +98,7 @@ class AtlasDevRuntimeService
 
         [$decisionMode, $manualProvider] = $this->normalizeDecisionMode($payload);
         $workspaceSource = $this->workspaceSource($payload, $workspace);
-        $explicitFlowId = $this->stringValue($payload['flow_id'] ?? null);
+        $explicitFlowId = AiValueNormalizer::trimmedScalarStringOrNull($payload['flow_id'] ?? null);
 
         $payload['atlas_mode'] = 'programming';
         $payload['routing_task'] = $task;
@@ -138,28 +139,28 @@ class AtlasDevRuntimeService
         $workspaceGate = $this->workspaceExecutionGate?->gate(
             workspace: $workspace,
             mode: 'dev',
-            task: $this->stringValue($payload['input_text'] ?? null)
-                ?? $this->stringValue($payload['prompt'] ?? null)
+            task: AiValueNormalizer::trimmedScalarStringOrNull($payload['input_text'] ?? null)
+                ?? AiValueNormalizer::trimmedScalarStringOrNull($payload['prompt'] ?? null)
                 ?? $flowId,
         );
         $expectedFiles = $this->arrayOfStrings($payload['expected_files'] ?? []);
         $workspaceContextSelection = $this->workspaceContextSelection(
             $workspaceGate,
             $expectedFiles,
-            $this->stringValue($payload['risk_band'] ?? null),
+            AiValueNormalizer::trimmedScalarStringOrNull($payload['risk_band'] ?? null),
         );
         $payload['atlas_dev_runtime']['workspace_context_selection'] = $workspaceContextSelection;
 
         $runtimeIntelligence = (new DevRuntimeIntelligenceService)->preview([
-            'run_id' => $this->stringValue($payload['run_id'] ?? null)
-                ?? $this->stringValue($payload['trace_id'] ?? null)
+            'run_id' => AiValueNormalizer::trimmedScalarStringOrNull($payload['run_id'] ?? null)
+                ?? AiValueNormalizer::trimmedScalarStringOrNull($payload['trace_id'] ?? null)
                 ?? 'dev-runtime-preview',
-            'task_id' => $this->stringValue($payload['task_id'] ?? null) ?? $flowId,
-            'objective' => $this->stringValue($payload['input_text'] ?? null)
-                ?? $this->stringValue($payload['prompt'] ?? null)
+            'task_id' => AiValueNormalizer::trimmedScalarStringOrNull($payload['task_id'] ?? null) ?? $flowId,
+            'objective' => AiValueNormalizer::trimmedScalarStringOrNull($payload['input_text'] ?? null)
+                ?? AiValueNormalizer::trimmedScalarStringOrNull($payload['prompt'] ?? null)
                 ?? 'Atlas Dev programming request',
             'task_class' => $task === 'debug' ? 'debug' : ($task === 'review' ? 'review' : 'feature'),
-            'risk_band' => $this->stringValue($payload['risk_band'] ?? null) ?? 'medium',
+            'risk_band' => AiValueNormalizer::trimmedScalarStringOrNull($payload['risk_band'] ?? null) ?? 'medium',
             'workspace_slug' => $workspace,
             'allowed_files' => $this->arrayOfStrings(data_get($artifactAgentPacket, 'allowed_paths', data_get($payload, 'tool_permissions.allowed_files', []))),
             'forbidden_files' => $this->arrayOfStrings(data_get($artifactAgentPacket, 'forbidden_paths', data_get($payload, 'tool_permissions.forbidden_files', []))),
@@ -195,8 +196,8 @@ class AtlasDevRuntimeService
         }
         $handoffPack = ($this->workspaceHandoffPack ?? app(AtlasWorkspaceHandoffPackService::class))->build(
             workspace: $workspace,
-            task: $this->stringValue($payload['input_text'] ?? null)
-                ?? $this->stringValue($payload['prompt'] ?? null)
+            task: AiValueNormalizer::trimmedScalarStringOrNull($payload['input_text'] ?? null)
+                ?? AiValueNormalizer::trimmedScalarStringOrNull($payload['prompt'] ?? null)
                 ?? $flowId,
             consumer: 'atlas_dev',
         );
@@ -207,7 +208,7 @@ class AtlasDevRuntimeService
         $handoffAllowed = ($handoffPack['status'] ?? null) === 'ready'
             && (bool) data_get($handoffPack, 'claim_policy.safe_for_provider_prompt', false);
         $payload['atlas_dev_runtime']['provider_safe'] = $providerSafe && $workspaceAllowed && $handoffAllowed && $artifactAgentPacketAllowed === true;
-        $payload['atlas_dev_runtime']['provider_execution_allowed'] = $providerSafe && $workspaceAllowed && $artifactAgentPacketAllowed === true;
+        $payload['atlas_dev_runtime']['provider_execution_allowed'] = $providerSafe && $workspaceAllowed && $handoffAllowed && $artifactAgentPacketAllowed === true;
         $payload['atlas_dev_runtime']['native_capability_status'] = (string) data_get($runtimeIntelligence, 'native_capabilities.status', 'unknown');
         $payload['atlas_dev_runtime']['native_capability_blockers'] = data_get($runtimeIntelligence, 'native_capabilities.blockers', []);
 
@@ -236,7 +237,7 @@ class AtlasDevRuntimeService
             if (! is_array($repository)) {
                 continue;
             }
-            $repoKey = $this->stringValue($repository['repo_key'] ?? null);
+            $repoKey = AiValueNormalizer::trimmedScalarStringOrNull($repository['repo_key'] ?? null);
             if ($repoKey !== null) {
                 $contextRefs[] = 'awis_repo:'.$repoKey;
             }
@@ -246,7 +247,7 @@ class AtlasDevRuntimeService
             if (! is_array($manifestRef)) {
                 continue;
             }
-            $repoKey = $this->stringValue($manifestRef['repo_key'] ?? null);
+            $repoKey = AiValueNormalizer::trimmedScalarStringOrNull($manifestRef['repo_key'] ?? null);
             if ($repoKey === null) {
                 continue;
             }
@@ -259,54 +260,54 @@ class AtlasDevRuntimeService
             $contextRefs[] = 'awis_stack:'.$stackTag;
         }
 
-        $repositoryInventoryHash = $this->stringValue($contextLoadingPlan['repository_inventory_hash'] ?? null);
+        $repositoryInventoryHash = AiValueNormalizer::trimmedScalarStringOrNull($contextLoadingPlan['repository_inventory_hash'] ?? null);
         if ($repositoryInventoryHash !== null) {
             $contextRefs[] = 'awis_cache:repository_inventory:'.$repositoryInventoryHash;
         }
-        $workspaceWorkingSetHash = $this->stringValue($contextLoadingPlan['working_set_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.workspace_working_set_hash'));
+        $workspaceWorkingSetHash = AiValueNormalizer::trimmedScalarStringOrNull($contextLoadingPlan['working_set_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.workspace_working_set_hash'));
         if ($workspaceWorkingSetHash !== null) {
             $contextRefs[] = 'awis_cache:workspace_working_set:'.$workspaceWorkingSetHash;
         }
-        $contextDeltaPlanHash = $this->stringValue($contextLoadingPlan['context_delta_plan_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.context_delta_plan_hash'));
+        $contextDeltaPlanHash = AiValueNormalizer::trimmedScalarStringOrNull($contextLoadingPlan['context_delta_plan_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.context_delta_plan_hash'));
         if ($contextDeltaPlanHash !== null) {
             $contextRefs[] = 'awis_cache:context_delta_plan:'.$contextDeltaPlanHash;
         }
-        $outcomeCommandMemoryHash = $this->stringValue($contextLoadingPlan['outcome_command_memory_hash'] ?? null);
+        $outcomeCommandMemoryHash = AiValueNormalizer::trimmedScalarStringOrNull($contextLoadingPlan['outcome_command_memory_hash'] ?? null);
         if ($outcomeCommandMemoryHash !== null) {
             $contextRefs[] = 'awis_cache:outcome_command_memory:'.$outcomeCommandMemoryHash;
         }
-        $performanceHistogramHash = $this->stringValue($contextLoadingPlan['command_performance_histogram_hash'] ?? null);
+        $performanceHistogramHash = AiValueNormalizer::trimmedScalarStringOrNull($contextLoadingPlan['command_performance_histogram_hash'] ?? null);
         if ($performanceHistogramHash !== null) {
             $contextRefs[] = 'awis_cache:command_performance_histogram:'.$performanceHistogramHash;
         }
-        $areaPerformanceIndexHash = $this->stringValue($contextLoadingPlan['area_performance_index_hash'] ?? null);
+        $areaPerformanceIndexHash = AiValueNormalizer::trimmedScalarStringOrNull($contextLoadingPlan['area_performance_index_hash'] ?? null);
         if ($areaPerformanceIndexHash !== null) {
             $contextRefs[] = 'awis_cache:area_performance_index:'.$areaPerformanceIndexHash;
         }
-        $stackPerformanceIndexHash = $this->stringValue($contextLoadingPlan['stack_performance_index_hash'] ?? null);
+        $stackPerformanceIndexHash = AiValueNormalizer::trimmedScalarStringOrNull($contextLoadingPlan['stack_performance_index_hash'] ?? null);
         if ($stackPerformanceIndexHash !== null) {
             $contextRefs[] = 'awis_cache:stack_performance_index:'.$stackPerformanceIndexHash;
         }
-        $workspaceLearningSnapshotHash = $this->stringValue($contextLoadingPlan['learning_snapshot_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.workspace_learning_snapshot_hash'));
+        $workspaceLearningSnapshotHash = AiValueNormalizer::trimmedScalarStringOrNull($contextLoadingPlan['learning_snapshot_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.workspace_learning_snapshot_hash'));
         if ($workspaceLearningSnapshotHash !== null) {
             $contextRefs[] = 'awis_cache:workspace_learning_snapshot:'.$workspaceLearningSnapshotHash;
         }
-        $executionOptimizationPolicyHash = $this->stringValue($contextLoadingPlan['execution_optimization_policy_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.execution_optimization_policy_hash'));
+        $executionOptimizationPolicyHash = AiValueNormalizer::trimmedScalarStringOrNull($contextLoadingPlan['execution_optimization_policy_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.execution_optimization_policy_hash'));
         if ($executionOptimizationPolicyHash !== null) {
             $contextRefs[] = 'awis_cache:execution_optimization_policy:'.$executionOptimizationPolicyHash;
         }
-        $executionPolicyEffectivenessIndexHash = $this->stringValue($contextLoadingPlan['execution_policy_effectiveness_index_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.execution_policy_effectiveness_index_hash'));
+        $executionPolicyEffectivenessIndexHash = AiValueNormalizer::trimmedScalarStringOrNull($contextLoadingPlan['execution_policy_effectiveness_index_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.execution_policy_effectiveness_index_hash'));
         if ($executionPolicyEffectivenessIndexHash !== null) {
             $contextRefs[] = 'awis_cache:execution_policy_effectiveness:'.$executionPolicyEffectivenessIndexHash;
         }
-        $executionRouteEffectivenessIndexHash = $this->stringValue($contextLoadingPlan['execution_route_effectiveness_index_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.execution_route_effectiveness_index_hash'));
+        $executionRouteEffectivenessIndexHash = AiValueNormalizer::trimmedScalarStringOrNull($contextLoadingPlan['execution_route_effectiveness_index_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.execution_route_effectiveness_index_hash'));
         if ($executionRouteEffectivenessIndexHash !== null) {
             $contextRefs[] = 'awis_cache:execution_route_effectiveness:'.$executionRouteEffectivenessIndexHash;
         }
         $validationDepthDecision = $this->validationDepthDecision(
             $contextLoadingPlan,
             $expectedFiles,
-            $riskBand ?? $this->stringValue(data_get($workspaceGate, 'risk_band')),
+            $riskBand ?? AiValueNormalizer::trimmedScalarStringOrNull(data_get($workspaceGate, 'risk_band')),
         );
         $contextRefs = $this->mergeStrings($contextRefs, $this->validationDepthContextRefs($validationDepthDecision));
 
@@ -315,7 +316,7 @@ class AtlasDevRuntimeService
             if (! is_array($priority)) {
                 continue;
             }
-            $command = $this->stringValue($priority['command'] ?? null);
+            $command = AiValueNormalizer::trimmedScalarStringOrNull($priority['command'] ?? null);
             if ($command !== null) {
                 $suggestedTests[] = $command;
             }
@@ -380,7 +381,7 @@ class AtlasDevRuntimeService
             if (! is_array($route)) {
                 continue;
             }
-            $key = $this->stringValue($route['key'] ?? null);
+            $key = AiValueNormalizer::trimmedScalarStringOrNull($route['key'] ?? null);
             if ($key === null || ! $this->filesMatchScope($expectedFiles, $key)) {
                 continue;
             }
@@ -395,7 +396,7 @@ class AtlasDevRuntimeService
             if (! is_array($route)) {
                 continue;
             }
-            $key = $this->stringValue($route['key'] ?? null);
+            $key = AiValueNormalizer::trimmedScalarStringOrNull($route['key'] ?? null);
             if ($key === null || ! in_array($key, $stacks, true)) {
                 continue;
             }
@@ -445,17 +446,17 @@ class AtlasDevRuntimeService
             if (! is_array($route)) {
                 continue;
             }
-            $key = $this->stringValue($route['key'] ?? null);
+            $key = AiValueNormalizer::trimmedScalarStringOrNull($route['key'] ?? null);
             if ($key !== null && $this->filesMatchScope($expectedFiles, $key)) {
                 return [
                     'kind' => 'area',
                     'key' => $key,
-                    'route_ref' => $this->stringValue($route['route_ref'] ?? null) ?? 'area:'.hash('sha256', $key),
+                    'route_ref' => AiValueNormalizer::trimmedScalarStringOrNull($route['route_ref'] ?? null) ?? 'area:'.hash('sha256', $key),
                     'commands' => $this->arrayOfStrings($route['preferred_commands'] ?? []),
-                    'recommended_validation_tier' => $this->stringValue($route['recommended_validation_tier'] ?? null),
-                    'validation_reason' => $this->stringValue($route['validation_reason'] ?? null),
-                    'route_mode' => $this->stringValue($route['route_mode'] ?? null),
-                    'feedback_effectiveness' => $this->stringValue($route['feedback_effectiveness'] ?? null),
+                    'recommended_validation_tier' => AiValueNormalizer::trimmedScalarStringOrNull($route['recommended_validation_tier'] ?? null),
+                    'validation_reason' => AiValueNormalizer::trimmedScalarStringOrNull($route['validation_reason'] ?? null),
+                    'route_mode' => AiValueNormalizer::trimmedScalarStringOrNull($route['route_mode'] ?? null),
+                    'feedback_effectiveness' => AiValueNormalizer::trimmedScalarStringOrNull($route['feedback_effectiveness'] ?? null),
                 ];
             }
         }
@@ -465,17 +466,17 @@ class AtlasDevRuntimeService
             if (! is_array($route)) {
                 continue;
             }
-            $key = $this->stringValue($route['key'] ?? null);
+            $key = AiValueNormalizer::trimmedScalarStringOrNull($route['key'] ?? null);
             if ($key !== null && in_array($key, $stacks, true)) {
                 return [
                     'kind' => 'stack',
                     'key' => $key,
-                    'route_ref' => $this->stringValue($route['route_ref'] ?? null) ?? 'stack:'.hash('sha256', $key),
+                    'route_ref' => AiValueNormalizer::trimmedScalarStringOrNull($route['route_ref'] ?? null) ?? 'stack:'.hash('sha256', $key),
                     'commands' => $this->arrayOfStrings($route['preferred_commands'] ?? []),
-                    'recommended_validation_tier' => $this->stringValue($route['recommended_validation_tier'] ?? null),
-                    'validation_reason' => $this->stringValue($route['validation_reason'] ?? null),
-                    'route_mode' => $this->stringValue($route['route_mode'] ?? null),
-                    'feedback_effectiveness' => $this->stringValue($route['feedback_effectiveness'] ?? null),
+                    'recommended_validation_tier' => AiValueNormalizer::trimmedScalarStringOrNull($route['recommended_validation_tier'] ?? null),
+                    'validation_reason' => AiValueNormalizer::trimmedScalarStringOrNull($route['validation_reason'] ?? null),
+                    'route_mode' => AiValueNormalizer::trimmedScalarStringOrNull($route['route_mode'] ?? null),
+                    'feedback_effectiveness' => AiValueNormalizer::trimmedScalarStringOrNull($route['feedback_effectiveness'] ?? null),
                 ];
             }
         }
@@ -491,14 +492,14 @@ class AtlasDevRuntimeService
     private function validationDepthDecision(array $contextLoadingPlan, array $expectedFiles, ?string $riskBand = null): array
     {
         $route = $this->matchingScopeRoute($contextLoadingPlan, $expectedFiles);
-        $tier = $this->stringValue(data_get($route, 'recommended_validation_tier'))
-            ?? $this->stringValue(data_get($contextLoadingPlan, 'execution_optimization_policy.validation_tier_routing.default_tier'))
+        $tier = AiValueNormalizer::trimmedScalarStringOrNull(data_get($route, 'recommended_validation_tier'))
+            ?? AiValueNormalizer::trimmedScalarStringOrNull(data_get($contextLoadingPlan, 'execution_optimization_policy.validation_tier_routing.default_tier'))
             ?? 'standard';
         if (! in_array($tier, ['instant', 'standard', 'deep'], true)) {
             $tier = 'standard';
         }
 
-        $reason = $this->stringValue(data_get($route, 'validation_reason')) ?? 'default_validation_depth';
+        $reason = AiValueNormalizer::trimmedScalarStringOrNull(data_get($route, 'validation_reason')) ?? 'default_validation_depth';
         $risk = $riskBand !== null ? strtolower($riskBand) : 'unknown';
         if (in_array($risk, ['high', 'critical'], true) && $tier === 'instant') {
             $tier = 'standard';
@@ -510,10 +511,10 @@ class AtlasDevRuntimeService
             'tier' => $tier,
             'reason' => $reason,
             'risk_band' => $risk,
-            'route_kind' => $this->stringValue(data_get($route, 'kind')) ?? 'global',
-            'route_ref' => $this->stringValue(data_get($route, 'route_ref')),
-            'route_mode' => $this->stringValue(data_get($route, 'route_mode')) ?? 'global_default',
-            'feedback_effectiveness' => $this->stringValue(data_get($route, 'feedback_effectiveness')) ?? 'unknown',
+            'route_kind' => AiValueNormalizer::trimmedScalarStringOrNull(data_get($route, 'kind')) ?? 'global',
+            'route_ref' => AiValueNormalizer::trimmedScalarStringOrNull(data_get($route, 'route_ref')),
+            'route_mode' => AiValueNormalizer::trimmedScalarStringOrNull(data_get($route, 'route_mode')) ?? 'global_default',
+            'feedback_effectiveness' => AiValueNormalizer::trimmedScalarStringOrNull(data_get($route, 'feedback_effectiveness')) ?? 'unknown',
             'raw_logs_returned' => false,
             'raw_content_returned' => false,
         ];
@@ -525,13 +526,13 @@ class AtlasDevRuntimeService
      */
     private function validationDepthContextRefs(array $decision): array
     {
-        $tier = $this->stringValue($decision['tier'] ?? null);
+        $tier = AiValueNormalizer::trimmedScalarStringOrNull($decision['tier'] ?? null);
         if ($tier === null) {
             return [];
         }
 
         $refs = ['awis_validation_tier:'.$tier];
-        $routeRef = $this->stringValue($decision['route_ref'] ?? null);
+        $routeRef = AiValueNormalizer::trimmedScalarStringOrNull($decision['route_ref'] ?? null);
         if ($routeRef !== null) {
             $refs[] = 'awis_validation_route:'.$routeRef;
         }
@@ -552,7 +553,7 @@ class AtlasDevRuntimeService
         ));
         $stacks = [];
         foreach ($manifestRefs as $manifestRef) {
-            $repoKey = $this->stringValue($manifestRef['repo_key'] ?? null);
+            $repoKey = AiValueNormalizer::trimmedScalarStringOrNull($manifestRef['repo_key'] ?? null);
             if ($repoKey === null) {
                 continue;
             }
@@ -589,8 +590,8 @@ class AtlasDevRuntimeService
      */
     private function isDevRuntimeCandidate(array $payload): bool
     {
-        $surface = $this->stringValue($payload['surface_id'] ?? null)
-            ?? $this->stringValue($payload['app_surface'] ?? null);
+        $surface = AiValueNormalizer::trimmedScalarStringOrNull($payload['surface_id'] ?? null)
+            ?? AiValueNormalizer::trimmedScalarStringOrNull($payload['app_surface'] ?? null);
 
         if ($surface === 'atlas_code') {
             return false;
@@ -608,9 +609,9 @@ class AtlasDevRuntimeService
      */
     private function normalizeMode(array $payload): string
     {
-        $mode = $this->stringValue($payload['atlas_mode'] ?? null)
-            ?? $this->stringValue($payload['current_mode'] ?? null)
-            ?? $this->stringValue($payload['atlas_focus'] ?? null);
+        $mode = AiValueNormalizer::trimmedScalarStringOrNull($payload['atlas_mode'] ?? null)
+            ?? AiValueNormalizer::trimmedScalarStringOrNull($payload['current_mode'] ?? null)
+            ?? AiValueNormalizer::trimmedScalarStringOrNull($payload['atlas_focus'] ?? null);
 
         return match ($mode) {
             'programming', 'dev', 'debug', 'programacao', 'programação' => 'programming',
@@ -624,8 +625,8 @@ class AtlasDevRuntimeService
      */
     private function normalizeTask(array $payload): string
     {
-        $task = $this->stringValue($payload['routing_task'] ?? null)
-            ?? $this->stringValue($payload['atlas_workflow_mode'] ?? null);
+        $task = AiValueNormalizer::trimmedScalarStringOrNull($payload['routing_task'] ?? null)
+            ?? AiValueNormalizer::trimmedScalarStringOrNull($payload['atlas_workflow_mode'] ?? null);
 
         return match ($task) {
             'plan', 'review', 'dev', 'debug' => $task,
@@ -639,7 +640,7 @@ class AtlasDevRuntimeService
      */
     private function normalizeFlowId(array $payload, string $task): string
     {
-        $explicit = $this->stringValue($payload['flow_id'] ?? null);
+        $explicit = AiValueNormalizer::trimmedScalarStringOrNull($payload['flow_id'] ?? null);
         if ($explicit !== null && in_array($explicit, self::SUPPORTED_FLOWS, true)) {
             return $explicit;
         }
@@ -652,9 +653,9 @@ class AtlasDevRuntimeService
      */
     private function extractWorkspace(array $payload): ?string
     {
-        $workspace = $this->stringValue($payload['workspace'] ?? null)
-            ?? $this->stringValue(data_get($payload, 'tool_permissions.workspace'))
-            ?? $this->stringValue(data_get($payload, 'forge_workspace.workspace_path'));
+        $workspace = AiValueNormalizer::trimmedScalarStringOrNull($payload['workspace'] ?? null)
+            ?? AiValueNormalizer::trimmedScalarStringOrNull(data_get($payload, 'tool_permissions.workspace'))
+            ?? AiValueNormalizer::trimmedScalarStringOrNull(data_get($payload, 'forge_workspace.workspace_path'));
 
         return $workspace;
     }
@@ -665,9 +666,9 @@ class AtlasDevRuntimeService
      */
     private function normalizeDecisionMode(array $payload): array
     {
-        $rawDecisionMode = $this->stringValue($payload['decision_mode'] ?? null);
-        $manualProvider = $this->stringValue($payload['operator_requested_provider'] ?? null)
-            ?? $this->stringValue($payload['requested_provider'] ?? null);
+        $rawDecisionMode = AiValueNormalizer::trimmedScalarStringOrNull($payload['decision_mode'] ?? null);
+        $manualProvider = AiValueNormalizer::trimmedScalarStringOrNull($payload['operator_requested_provider'] ?? null)
+            ?? AiValueNormalizer::trimmedScalarStringOrNull($payload['requested_provider'] ?? null);
 
         if ($manualProvider === 'auto') {
             $manualProvider = null;
@@ -693,15 +694,15 @@ class AtlasDevRuntimeService
      */
     private function workspaceSource(array $payload, string $workspace): string
     {
-        if ($this->stringValue($payload['workspace'] ?? null) === $workspace) {
+        if (AiValueNormalizer::trimmedScalarStringOrNull($payload['workspace'] ?? null) === $workspace) {
             return 'payload.workspace';
         }
 
-        if ($this->stringValue(data_get($payload, 'tool_permissions.workspace')) === $workspace) {
+        if (AiValueNormalizer::trimmedScalarStringOrNull(data_get($payload, 'tool_permissions.workspace')) === $workspace) {
             return 'payload.tool_permissions.workspace';
         }
 
-        if ($this->stringValue(data_get($payload, 'forge_workspace.workspace_path')) === $workspace) {
+        if (AiValueNormalizer::trimmedScalarStringOrNull(data_get($payload, 'forge_workspace.workspace_path')) === $workspace) {
             return 'payload.forge_workspace.workspace_path';
         }
 
@@ -739,10 +740,10 @@ class AtlasDevRuntimeService
         }
 
         $blockers = [];
-        if ($this->stringValue($packet['workspace_id'] ?? null) !== $workspace) {
+        if (AiValueNormalizer::trimmedScalarStringOrNull($packet['workspace_id'] ?? null) !== $workspace) {
             $blockers[] = 'artifact_agent_packet_workspace_mismatch';
         }
-        if (! in_array($this->stringValue($packet['route_target'] ?? null), ['dev', 'repair'], true)) {
+        if (! in_array(AiValueNormalizer::trimmedScalarStringOrNull($packet['route_target'] ?? null), ['dev', 'repair'], true)) {
             $blockers[] = 'artifact_agent_packet_route_not_dev';
         }
         if ((bool) ($packet['raw_conversation_included'] ?? true) !== false) {
@@ -763,32 +764,21 @@ class AtlasDevRuntimeService
     {
         return [
             'schema_version' => 'atlas.workspace_artifact_agent_packet.v1',
-            'workspace_id' => $this->stringValue($packet['workspace_id'] ?? null),
-            'consumer' => $this->stringValue($packet['consumer'] ?? null),
-            'route_target' => $this->stringValue($packet['route_target'] ?? null),
-            'artifact_type' => $this->stringValue($packet['artifact_type'] ?? null),
-            'artifact_hash' => $this->stringValue($packet['artifact_hash'] ?? null),
+            'workspace_id' => AiValueNormalizer::trimmedScalarStringOrNull($packet['workspace_id'] ?? null),
+            'consumer' => AiValueNormalizer::trimmedScalarStringOrNull($packet['consumer'] ?? null),
+            'route_target' => AiValueNormalizer::trimmedScalarStringOrNull($packet['route_target'] ?? null),
+            'artifact_type' => AiValueNormalizer::trimmedScalarStringOrNull($packet['artifact_type'] ?? null),
+            'artifact_hash' => AiValueNormalizer::trimmedScalarStringOrNull($packet['artifact_hash'] ?? null),
             'allowed_paths' => $this->arrayOfStrings($packet['allowed_paths'] ?? []),
             'forbidden_paths' => $this->arrayOfStrings($packet['forbidden_paths'] ?? []),
             'must_keep' => $this->arrayOfStrings($packet['must_keep'] ?? []),
             'context_refs' => $this->arrayOfStrings($packet['context_refs'] ?? []),
             'test_plan' => $this->arrayOfStrings($packet['test_plan'] ?? []),
             'done_when' => $this->arrayOfStrings($packet['done_when'] ?? []),
-            'redaction' => $this->stringValue($packet['redaction'] ?? null) ?? 'provider_safe',
+            'redaction' => AiValueNormalizer::trimmedScalarStringOrNull($packet['redaction'] ?? null) ?? 'provider_safe',
             'raw_conversation_included' => false,
             'artifact_body_included' => false,
         ];
-    }
-
-    private function stringValue(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
     }
 
     /**
@@ -801,7 +791,7 @@ class AtlasDevRuntimeService
         }
 
         return array_values(array_unique(array_filter(array_map(
-            fn (mixed $item): ?string => $this->stringValue($item),
+            fn (mixed $item): ?string => AiValueNormalizer::trimmedScalarStringOrNull($item),
             $value,
         ))));
     }

@@ -71,13 +71,13 @@ final class DurableExecutionReceipt
             'ap_reference' => self::AP_REFERENCE,
             'outcome' => $outcome,
             'issued_at' => now()->toAtomString(),
-            'work_item_id' => $this->extractString($decision, 'work_item_id'),
-            'plan_hash' => $this->extractString($decision, 'plan_hash'),
-            'spec_hash' => $this->extractString($decision, 'spec_hash'),
+            'work_item_id' => DurableExecutionFieldReader::stringOrNull($decision, 'work_item_id'),
+            'plan_hash' => DurableExecutionFieldReader::stringOrNull($decision, 'plan_hash'),
+            'spec_hash' => DurableExecutionFieldReader::stringOrNull($decision, 'spec_hash'),
             'decision_ref' => [
-                'decision' => $this->extractString($decision, 'decision'),
-                'actor' => $this->extractString($decision, 'actor'),
-                'decided_at' => $this->extractString($decision, 'decided_at'),
+                'decision' => DurableExecutionFieldReader::stringOrNull($decision, 'decision'),
+                'actor' => DurableExecutionFieldReader::stringOrNull($decision, 'actor'),
+                'decided_at' => DurableExecutionFieldReader::stringOrNull($decision, 'decided_at'),
             ],
             'metrics' => [
                 'duration_ms' => (int) ($metrics['duration_ms'] ?? 0),
@@ -120,16 +120,6 @@ final class DurableExecutionReceipt
         $envelope['failure_signature'] = $failureSignature;
 
         return $envelope;
-    }
-
-    /**
-     * @param  array<string,mixed>  $source
-     */
-    private function extractString(array $source, string $key): ?string
-    {
-        $value = $source[$key] ?? null;
-
-        return is_string($value) && $value !== '' ? $value : null;
     }
 
     /**

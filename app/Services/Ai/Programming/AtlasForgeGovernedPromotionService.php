@@ -9,6 +9,7 @@ use App\Models\AtlasProject;
 use App\Services\Ai\Programming\Governance\ProgrammingAdaptiveHierarchicalControlPlaneService;
 use App\Services\Ai\Programming\Governance\ProgrammingEvidenceLedger;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
+use App\Services\Ai\Support\AiPathMatcher;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use Illuminate\Support\Facades\File;
@@ -645,10 +646,7 @@ class AtlasForgeGovernedPromotionService
 
     private function relativePathIsSafe(string $path): bool
     {
-        return $path !== ''
-            && ! str_starts_with($path, '/')
-            && ! str_contains($path, '..')
-            && ! str_contains($path, "\0");
+        return AiPathMatcher::isProviderSafeRelativePath($path);
     }
 
     private function insideRollbackRoot(string $path): bool

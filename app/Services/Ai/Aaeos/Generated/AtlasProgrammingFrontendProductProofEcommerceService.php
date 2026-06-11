@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Aaeos\Generated;
 
 use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
 
 /**
  * Ecommerce product-page product-proof gate evaluator.
@@ -97,7 +98,7 @@ final class AtlasProgrammingFrontendProductProofEcommerceService
         $viewports = AtlasAaeosStringListNormalizer::uniqueLowerTrimmedStrings($demo['viewports'] ?? []);
         $evidence = AtlasAaeosStringListNormalizer::uniqueLowerTrimmedStrings($demo['evidence'] ?? []);
         $surfaces = AtlasAaeosStringListNormalizer::uniqueLowerTrimmedStrings($demo['surfaces'] ?? []);
-        $performanceReason = $this->normalizeString($demo['performance_reason'] ?? null);
+        $performanceReason = AtlasAaeosValueNormalizer::stringOrNull($demo['performance_reason'] ?? null);
 
         $claimsCheckout = (bool) ($demo['claims_checkout'] ?? false);
         $checkoutTested = (bool) ($demo['checkout_tested'] ?? false);
@@ -271,13 +272,4 @@ final class AtlasProgrammingFrontendProductProofEcommerceService
         return $map;
     }
 
-    private function normalizeString(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $trimmed = trim($value);
-
-        return $trimmed === '' ? null : $trimmed;
-    }
 }

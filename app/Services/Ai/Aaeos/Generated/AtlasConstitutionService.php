@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+
 /**
  * Atlas Self-Construction Constitution decider.
  *
@@ -202,9 +204,9 @@ final class AtlasConstitutionService
      */
     public function evaluate(array $operation): array
     {
-        $intent = $this->normalizeString($operation['intent'] ?? null);
-        $structuralTarget = $this->normalizeString($operation['structural_target'] ?? null);
-        $contractStage = $this->normalizeString($operation['contract_stage'] ?? null);
+        $intent = AtlasAaeosValueNormalizer::lowerString($operation['intent'] ?? null);
+        $structuralTarget = AtlasAaeosValueNormalizer::lowerString($operation['structural_target'] ?? null);
+        $contractStage = AtlasAaeosValueNormalizer::lowerString($operation['contract_stage'] ?? null);
         $contractComplete = $this->normalizeList($operation['contract_complete'] ?? []);
         $changeKinds = $this->normalizeList($operation['change_kinds'] ?? []);
         $boundary = is_array($operation['boundary'] ?? null) ? $operation['boundary'] : [];
@@ -399,15 +401,6 @@ final class AtlasConstitutionService
         }
 
         return $value !== null && $value !== false;
-    }
-
-    private function normalizeString(mixed $value): string
-    {
-        if (! is_string($value)) {
-            return '';
-        }
-
-        return strtolower(trim($value));
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProject;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * Atlas Forge Continuum Certification.
@@ -121,8 +122,8 @@ class AtlasForgeContinuumCertificationService
     public function certify(array $options = []): array
     {
         $repoRoot = $this->resolveRepoRoot($options);
-        $obraId = $this->stringOrNull($options['obra_id'] ?? null);
-        $simulate = $this->stringOrNull($options['simulate_provider_failure'] ?? null);
+        $obraId = AiValueNormalizer::trimmedStringOrNull($options['obra_id'] ?? null);
+        $simulate = AiValueNormalizer::trimmedStringOrNull($options['simulate_provider_failure'] ?? null);
         $strict = (bool) ($options['strict'] ?? false);
 
         $project = $obraId !== null ? AtlasProject::query()->whereKey($obraId)->first() : null;
@@ -144,9 +145,9 @@ class AtlasForgeContinuumCertificationService
         $topology = $this->topology->topology([
             'obra_id' => $obraPresent ? (string) $project->getKey() : null,
             'simulate_provider_failure' => $simulate,
-            'strategy' => $this->stringOrNull($options['strategy'] ?? null),
-            'fast_path_run_id' => $this->stringOrNull($options['fast_path_run_id'] ?? null),
-            'decision_receipt_id' => $this->stringOrNull($options['decision_receipt_id'] ?? null),
+            'strategy' => AiValueNormalizer::trimmedStringOrNull($options['strategy'] ?? null),
+            'fast_path_run_id' => AiValueNormalizer::trimmedStringOrNull($options['fast_path_run_id'] ?? null),
+            'decision_receipt_id' => AiValueNormalizer::trimmedStringOrNull($options['decision_receipt_id'] ?? null),
         ]);
         $liveDecideRuntime = $this->liveDecideRuntime($topology);
 
@@ -213,9 +214,9 @@ class AtlasForgeContinuumCertificationService
      */
     private function liveDecideRuntime(array $topology): array
     {
-        $decisionSource = $this->stringOrNull($topology['decision_source'] ?? null) ?? 'static_policy';
-        $hasReceipt = $this->stringOrNull($topology['decision_receipt_id'] ?? null) !== null
-            && $this->stringOrNull($topology['decision_receipt_hash'] ?? null) !== null;
+        $decisionSource = AiValueNormalizer::trimmedStringOrNull($topology['decision_source'] ?? null) ?? 'static_policy';
+        $hasReceipt = AiValueNormalizer::trimmedStringOrNull($topology['decision_receipt_id'] ?? null) !== null
+            && AiValueNormalizer::trimmedStringOrNull($topology['decision_receipt_hash'] ?? null) !== null;
         $fallbackChildReceiptRequired = (bool) ($topology['fallback_child_receipt_required'] ?? false);
 
         return [
@@ -227,8 +228,8 @@ class AtlasForgeContinuumCertificationService
             'fallback_child_receipt_required' => $fallbackChildReceiptRequired,
             'runtime_dispatch_not_allowed_without_receipt' => ! $hasReceipt && ! (bool) ($topology['runtime_dispatch_allowed'] ?? false),
             'runtime_dispatch_allowed' => (bool) ($topology['runtime_dispatch_allowed'] ?? false),
-            'decision_receipt_id' => $this->stringOrNull($topology['decision_receipt_id'] ?? null),
-            'decision_receipt_hash' => $this->stringOrNull($topology['decision_receipt_hash'] ?? null),
+            'decision_receipt_id' => AiValueNormalizer::trimmedStringOrNull($topology['decision_receipt_id'] ?? null),
+            'decision_receipt_hash' => AiValueNormalizer::trimmedStringOrNull($topology['decision_receipt_hash'] ?? null),
         ];
     }
 
@@ -574,7 +575,7 @@ class AtlasForgeContinuumCertificationService
      */
     private function resolveRepoRoot(array $options): string
     {
-        $explicit = $this->stringOrNull($options['workspace'] ?? null);
+        $explicit = AiValueNormalizer::trimmedStringOrNull($options['workspace'] ?? null);
         if ($explicit !== null && is_dir($explicit)) {
             return rtrim($explicit, '/');
         }
@@ -582,14 +583,4 @@ class AtlasForgeContinuumCertificationService
         return rtrim(base_path(), '/');
     }
 
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
-    }
 }

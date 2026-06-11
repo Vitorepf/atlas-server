@@ -4,6 +4,7 @@ namespace App\Services\Ai\Programming\Forge;
 
 use App\Services\Ai\Hermes\HermesAdapterReceipt;
 use App\Services\Ai\Hermes\Kanban\HermesKanbanSwarmService;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * Consumer call-path: dispatches a DECOMPOSED Forge obra (work packets) as a
@@ -52,7 +53,7 @@ class ForgeKanbanSwarmDispatcher
         }
 
         $run = $this->kanban->run($spec, true, array_filter([
-            'hermes_home' => $this->cleanString($options['hermes_home'] ?? null),
+            'hermes_home' => AiValueNormalizer::trimmedStringOrNull($options['hermes_home'] ?? null),
             'timeout' => isset($options['timeout']) ? (int) $options['timeout'] : null,
         ], static fn ($v): bool => $v !== null));
 
@@ -88,23 +89,23 @@ class ForgeKanbanSwarmDispatcher
     {
         $workers = [];
         foreach ($workPackets as $packet) {
-            $title = $this->cleanString(data_get($packet, 'objective') ?? data_get($packet, 'title'));
+            $title = AiValueNormalizer::trimmedStringOrNull(data_get($packet, 'objective') ?? data_get($packet, 'title'));
             if ($title === null) {
                 continue;
             }
-            $profile = $this->cleanString(data_get($packet, 'role_slot') ?? data_get($packet, 'role')) ?? 'worker';
+            $profile = AiValueNormalizer::trimmedStringOrNull(data_get($packet, 'role_slot') ?? data_get($packet, 'role')) ?? 'worker';
             $workers[] = ['profile' => $profile, 'title' => $title, 'skills' => []];
         }
 
-        $mode = $this->cleanString($options['permission_mode'] ?? null);
+        $mode = AiValueNormalizer::trimmedStringOrNull($options['permission_mode'] ?? null);
 
         return [
             'goal' => trim($taskSummary),
             'workers' => $workers,
-            'verifier' => $this->cleanString($options['verifier'] ?? null) ?? (string) config('atlas.ai.providers.hermes_cli.kanban.forge_verifier_profile', 'verifier'),
-            'synthesizer' => $this->cleanString($options['synthesizer'] ?? null) ?? (string) config('atlas.ai.providers.hermes_cli.kanban.forge_synthesizer_profile', 'synthesizer'),
+            'verifier' => AiValueNormalizer::trimmedStringOrNull($options['verifier'] ?? null) ?? (string) config('atlas.ai.providers.hermes_cli.kanban.forge_verifier_profile', 'verifier'),
+            'synthesizer' => AiValueNormalizer::trimmedStringOrNull($options['synthesizer'] ?? null) ?? (string) config('atlas.ai.providers.hermes_cli.kanban.forge_synthesizer_profile', 'synthesizer'),
             'permission_mode' => in_array($mode, ['read', 'write', 'danger'], true) ? $mode : 'read',
-            'mission_id' => $this->cleanString($options['mission_id'] ?? null),
+            'mission_id' => AiValueNormalizer::trimmedStringOrNull($options['mission_id'] ?? null),
         ];
     }
 
@@ -144,13 +145,4 @@ class ForgeKanbanSwarmDispatcher
             : 'forge_dispatch_disabled';
     }
 
-    private function cleanString(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $trimmed = trim($value);
-
-        return $trimmed === '' ? null : $trimmed;
-    }
 }

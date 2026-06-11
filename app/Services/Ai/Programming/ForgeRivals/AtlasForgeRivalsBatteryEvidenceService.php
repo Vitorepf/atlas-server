@@ -138,7 +138,7 @@ final class AtlasForgeRivalsBatteryEvidenceService
                 $missingArtifacts[] = 'evidence_pack_write_blocked_and_missing:'.$paths['run_id'];
                 $missingArtifacts = array_values(array_merge(
                     $missingArtifacts,
-                    $this->prefixBlockers('evidence_pack_write_blocked:', $this->stringList($packWriteStatus['blockers'] ?? [])),
+                    $this->prefixBlockers('evidence_pack_write_blocked:', AiStringListNormalizer::castItemsToStrings($packWriteStatus['blockers'] ?? [])),
                 ));
             } else {
                 $packResult = $this->collect->collect([
@@ -167,10 +167,10 @@ final class AtlasForgeRivalsBatteryEvidenceService
                 'case_count' => (int) ($pack['case_count'] ?? 0),
                 'verdict' => $pack['verdict'] ?? null,
                 'claim_ready' => (bool) ($pack['claim_ready'] ?? false),
-                'missing_required' => $this->stringList($pack['missing_required'] ?? []),
+                'missing_required' => AiStringListNormalizer::castItemsToStrings($pack['missing_required'] ?? []),
                 'after_clean_check_clean' => $pack['after_clean_check']['clean'] ?? null,
                 'after_clean_check_ran' => (bool) ($pack['after_clean_check']['ran'] ?? false),
-                'tracked_bytecode_artifacts' => $this->stringList($pack['tracked_bytecode_artifacts'] ?? []),
+                'tracked_bytecode_artifacts' => AiStringListNormalizer::castItemsToStrings($pack['tracked_bytecode_artifacts'] ?? []),
             ];
             $batteryRuns[] = $runEntry;
 
@@ -275,7 +275,7 @@ final class AtlasForgeRivalsBatteryEvidenceService
             } else {
                 $blockers = array_values(array_unique(array_merge(
                     $blockers,
-                    $this->prefixBlockers('battery_evidence_pack_write_blocked:', $this->stringList($outputWriteStatus['blockers'] ?? [])),
+                    $this->prefixBlockers('battery_evidence_pack_write_blocked:', AiStringListNormalizer::castItemsToStrings($outputWriteStatus['blockers'] ?? [])),
                 )));
                 $pack['blockers'] = $blockers;
                 $pack['battery_pack_path'] = null;
@@ -484,7 +484,7 @@ final class AtlasForgeRivalsBatteryEvidenceService
             'human_prompt_probe' => $case['human_prompt_probe'] ?? null,
             'meta_provider_stress' => $case['meta_provider_stress'] ?? null,
             'extreme_differentiator' => $case['extreme_differentiator'] ?? null,
-            'measured_capabilities' => $this->stringList($case['measured_capabilities'] ?? []),
+            'measured_capabilities' => AiStringListNormalizer::castItemsToStrings($case['measured_capabilities'] ?? []),
             'verdict' => $case['verdict'] ?? null,
             'evidence_subdir' => $case['evidence_subdir'] ?? null,
             'evidence_path' => $case['evidence_path'] ?? null,
@@ -556,17 +556,17 @@ final class AtlasForgeRivalsBatteryEvidenceService
             'difficulty_level_origin' => $manifest['difficulty_level_origin'] ?? 'manifest',
             'difficulty_weight' => $manifest['difficulty_weight'] ?? null,
             'context_profile' => $manifest['context_profile'] ?? null,
-            'measurement_tags' => $this->stringList($manifest['measurement_tags'] ?? []),
+            'measurement_tags' => AiStringListNormalizer::castItemsToStrings($manifest['measurement_tags'] ?? []),
             'human_prompt_probe' => $manifest['human_prompt_probe'] ?? null,
             'meta_provider_stress' => $manifest['meta_provider_stress'] ?? null,
             'extreme_differentiator' => $manifest['extreme_differentiator'] ?? null,
-            'measured_capabilities' => $this->stringList($manifest['measured_capabilities'] ?? []),
+            'measured_capabilities' => AiStringListNormalizer::castItemsToStrings($manifest['measured_capabilities'] ?? []),
             'verdict' => $pack['verdict'] ?? $manifest['verdict'] ?? 'unknown',
             'evidence_subdir' => null,
             'evidence_path' => $paths['evidence'],
             'workspace_hash_before' => $pack['workspace_hash_before'] ?? null,
             'workspace_hash_after' => $pack['workspace_hash_after'] ?? null,
-            'workspace_blockers' => $this->stringList($manifest['workspace_blockers'] ?? []),
+            'workspace_blockers' => AiStringListNormalizer::castItemsToStrings($manifest['workspace_blockers'] ?? []),
             'arms' => [
                 'atlas' => [
                     'present' => (bool) ($atlasReceipt['present'] ?? false),
@@ -738,14 +738,6 @@ final class AtlasForgeRivalsBatteryEvidenceService
     private function readJson(string $path): array
     {
         return JsonFileStore::readArray($path) ?? [];
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return AiStringListNormalizer::castItemsToStrings($value);
     }
 
     /**

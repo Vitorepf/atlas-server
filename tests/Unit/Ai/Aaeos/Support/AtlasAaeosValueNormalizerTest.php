@@ -17,6 +17,23 @@ final class AtlasAaeosValueNormalizerTest extends TestCase
         $this->assertNull(AtlasAaeosValueNormalizer::stringOrNull(null));
     }
 
+    public function test_lower_string_or_null_trims_lowercases_and_rejects_non_strings(): void
+    {
+        $this->assertSame('desktop', AtlasAaeosValueNormalizer::lowerStringOrNull(' Desktop '));
+        $this->assertNull(AtlasAaeosValueNormalizer::lowerStringOrNull('   '));
+        $this->assertNull(AtlasAaeosValueNormalizer::lowerStringOrNull(42));
+    }
+
+    public function test_trimmed_lower_and_non_blank_helpers_preserve_aaeos_mixed_value_semantics(): void
+    {
+        $this->assertSame('Alpha', AtlasAaeosValueNormalizer::trimmedString(' Alpha '));
+        $this->assertSame('', AtlasAaeosValueNormalizer::trimmedString(42));
+        $this->assertSame('alpha', AtlasAaeosValueNormalizer::lowerString(' Alpha '));
+        $this->assertTrue(AtlasAaeosValueNormalizer::isNonBlankString(' alpha '));
+        $this->assertFalse(AtlasAaeosValueNormalizer::isNonBlankString('   '));
+        $this->assertFalse(AtlasAaeosValueNormalizer::isNonBlankString(42));
+    }
+
     public function test_risk_code_r0_to_r5_uses_configurable_fallback(): void
     {
         $this->assertSame('R4', AtlasAaeosValueNormalizer::riskCodeR0ToR5(' r4 ', 'R1'));

@@ -57,6 +57,206 @@ class AiContextPack
         return $this->contextRefs;
     }
 
+    public function toCompactPromptSection(): string
+    {
+        $task = $this->data['task'] ?? [];
+        $constraints = $this->data['constraints'] ?? [];
+        $rankedRecall = data_get($this->data, 'memory.recall', []);
+        $retrievalPlan = data_get($this->data, 'retrieval', []);
+        $contextDeliveryPolicy = data_get($this->data, 'context_delivery_policy', []);
+        $registryMemory = data_get($this->data, 'memory.registry', []);
+        $verbatimMemory = data_get($this->data, 'memory.verbatim', []);
+        $semanticMemory = data_get($this->data, 'memory.semantic', []);
+        $openQuestions = $this->data['open_questions'] ?? [];
+        $excluded = $this->data['excluded_context'] ?? [];
+
+        $lines = [
+            '# Context Pack Atlas',
+            '',
+            '## Tarefa',
+            '- tipo: '.($task['type'] ?? 'unknown'),
+            '- modo: '.($task['desired_mode'] ?? 'direct'),
+            '- risco: '.($task['risk_level'] ?? 'low'),
+            '- dominio: '.($task['domain'] ?? 'unknown'),
+            '- superficie: '.data_get($this->data, 'surface.kind', 'unknown'),
+            '- workspace: '.(data_get($this->data, 'surface.workspace') ?: 'n/a'),
+            '',
+            '## Objetivo',
+            (string) ($task['objective'] ?? ''),
+        ];
+
+        if (! empty($constraints['must_do'])) {
+            $lines[] = '';
+            $lines[] = '## Obrigatorio';
+            foreach (array_slice((array) $constraints['must_do'], 0, 8) as $item) {
+                $lines[] = '- '.$item;
+            }
+        }
+
+        if (! empty($constraints['must_not_do'])) {
+            $lines[] = '';
+            $lines[] = '## Nao Fazer';
+            foreach (array_slice((array) $constraints['must_not_do'], 0, 8) as $item) {
+                $lines[] = '- '.$item;
+            }
+        }
+
+        if (is_array($retrievalPlan) && ! empty($retrievalPlan['selected_sources'])) {
+            $lines[] = '';
+            $lines[] = '## Retrieval Router Plan';
+            $lines[] = '- schema: '.($retrievalPlan['schema_version'] ?? 'unknown');
+            $lines[] = '- mode: '.($retrievalPlan['mode'] ?? 'balanced');
+            foreach (array_slice((array) $retrievalPlan['selected_sources'], 0, 6) as $source) {
+                if (! is_array($source)) {
+                    continue;
+                }
+
+                $lines[] = '- '.($source['type'] ?? 'unknown')
+                    .'; reason='.($source['reason'] ?? 'n/a')
+                    .'; limit='.($source['limit'] ?? 'n/a')
+                    .'; required='.(($source['required'] ?? false) ? 'true' : 'false');
+            }
+        }
+
+        $handles = $this->expansionHandles($contextDeliveryPolicy, $registryMemory, $verbatimMemory, $semanticMemory);
+        $lines[] = '';
+        $lines[] = '## Context Delivery Policy';
+        if (is_array($contextDeliveryPolicy) && ($contextDeliveryPolicy['status'] ?? null) === 'active') {
+            $lines[] = '- schema: '.($contextDeliveryPolicy['schema_version'] ?? 'atlas.token_economy.context_delivery_policy.v1');
+            $lines[] = '- mode: '.($contextDeliveryPolicy['delivery_mode'] ?? 'unknown')
+                .'; source='.($contextDeliveryPolicy['source'] ?? 'unknown')
+                .'; advisory=true';
+            $lines[] = '- initial: tokens='.(int) ($contextDeliveryPolicy['initial_context_token_budget'] ?? 0)
+                .'; ref_limit='.(int) ($contextDeliveryPolicy['initial_ref_limit'] ?? 0)
+                .'; expansion_reserve='.(int) ($contextDeliveryPolicy['expansion_token_reserve'] ?? 0);
+            foreach ([
+                'initial_source_types' => 'initial_sources',
+                'deferred_source_types' => 'deferred_sources',
+                'guarded_required_source_types' => 'guarded_required_sources',
+                'expansion_triggers' => 'expansion_triggers',
+            ] as $key => $label) {
+                $values = array_values(array_filter((array) ($contextDeliveryPolicy[$key] ?? []), 'is_scalar'));
+                if ($values !== []) {
+                    $lines[] = '- '.$label.': '.implode(', ', array_slice(array_map('strval', $values), 0, 12));
+                }
+            }
+        } else {
+            $lines[] = '- mode: compact_initial_targeted_expansion; source=open_brain_default; advisory=true';
+            $lines[] = '- initial: ranked_recall_titles_and_summaries_only; bodies=false; semantic_excerpts=false';
+        }
+        if ($handles !== []) {
+            $lines[] = '- expansion_tool: mcp=atlas_context_expand; cli="./bin/atlas open-brain expand-context <handle> \"<objective>\" --json"';
+            $lines[] = '- expansion_handles: '.implode(', ', array_slice($handles, 0, 16));
+        }
+        $lines[] = '- policy: provider_safe_only=true; raw_text_exposed=false; raw_docs_dumped=false; raw_tests_dumped=false; providers_invoked=false; writes=false';
+
+        if (! empty($rankedRecall)) {
+            $lines[] = '';
+            $lines[] = '## Recall Atlas Priorizado';
+            $lines[] = 'Indice compacto. Expanda fontes especificas antes de despejar docs, testes ou historico completo.';
+            foreach (array_slice((array) $rankedRecall, 0, 8) as $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+
+                $lines[] = '### #'.($item['rank'] ?? '?').' '.($item['title'] ?: ($item['type'] ?? 'Memoria'));
+                $lines[] = '- fonte: '.($item['source'] ?? 'n/a').'; tipo: '.($item['type'] ?? 'n/a').'; escopo: '.($item['scope'] ?? 'n/a');
+                $lines[] = '- motivo: '.($item['reason'] ?? 'memoria relevante');
+                if (! empty($item['summary'])) {
+                    $lines[] = '- resumo: '.$item['summary'];
+                }
+            }
+        }
+
+        if (! empty($registryMemory) || ! empty($verbatimMemory) || ! empty($semanticMemory)) {
+            $lines[] = '';
+            $lines[] = '## Memory Index';
+            $lines[] = '- registry_count='.count((array) $registryMemory)
+                .'; verbatim_count='.count((array) $verbatimMemory)
+                .'; semantic_count='.count((array) $semanticMemory);
+            $lines[] = '- full_bodies_deferred=true; use expansion handles or a focused recall before implementation.';
+        }
+
+        if (! empty($semanticMemory)) {
+            $lines[] = '';
+            $lines[] = '## Memoria Semantica Recuperada';
+            $lines[] = 'Indice sem trechos longos. Use silenciosamente quando ajudar; expanda se precisar do texto.';
+            foreach (array_slice((array) $semanticMemory, 0, 5) as $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+                $lines[] = '### '.($item['title'] ?? 'Sem titulo').$this->scoreLabel($item['score'] ?? null);
+                $lines[] = 'path: '.($item['path'] ?? 'n/a');
+                $lines[] = 'tipo: '.($item['type'] ?? 'n/a');
+                if (! empty($item['summary'])) {
+                    $lines[] = 'resumo: '.$item['summary'];
+                }
+            }
+        }
+
+        if (! empty($openQuestions)) {
+            $lines[] = '';
+            $lines[] = '## Lacunas / Perguntas Abertas';
+            foreach (array_slice((array) $openQuestions, 0, 8) as $question) {
+                $lines[] = '- '.$question;
+            }
+        }
+
+        if (! empty($excluded)) {
+            $lines[] = '';
+            $lines[] = '## Contexto Excluido';
+            foreach (array_slice((array) $excluded, 0, 8) as $item) {
+                $lines[] = '- '.$item;
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function expansionHandles(mixed $contextDeliveryPolicy, mixed $registryMemory, mixed $verbatimMemory, mixed $semanticMemory): array
+    {
+        $handles = [];
+        if (is_array($contextDeliveryPolicy) && ($contextDeliveryPolicy['status'] ?? null) === 'active') {
+            foreach ((array) ($contextDeliveryPolicy['deferred_source_types'] ?? []) as $source) {
+                if (is_scalar($source) && trim((string) $source) !== '') {
+                    $handles[] = 'expand:'.trim((string) $source);
+                }
+            }
+            foreach ((array) ($contextDeliveryPolicy['guarded_required_source_types'] ?? []) as $source) {
+                if (is_scalar($source) && trim((string) $source) !== '') {
+                    $handles[] = 'recheck:'.trim((string) $source);
+                }
+            }
+        }
+
+        if (! empty($registryMemory) || ! empty($verbatimMemory)) {
+            $handles[] = 'expand:memory_signals';
+        }
+        if (! empty($semanticMemory)) {
+            $handles[] = 'expand:vector_retrieval';
+        }
+        $handles[] = 'recheck:canonical_doc';
+
+        return array_values(array_unique(array_filter($handles)));
+    }
+
+    private function scoreLabel(mixed $rawScore): string
+    {
+        if ($rawScore === null) {
+            return '';
+        }
+
+        $floatScore = is_numeric($rawScore) ? (float) $rawScore : NAN;
+        if (! is_finite($floatScore)) {
+            return '';
+        }
+
+        return ' score='.number_format($floatScore, 4, '.', '');
+    }
+
     /**
      * @param  array<string,mixed>  $data
      * @param  array<int,mixed>  $contextRefs

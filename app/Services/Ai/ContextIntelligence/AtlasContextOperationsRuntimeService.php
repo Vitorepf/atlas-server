@@ -7,8 +7,9 @@ namespace App\Services\Ai\ContextIntelligence;
 use App\Services\Ai\ConversationOps\AtlasConversationOperationsService;
 use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use Carbon\CarbonImmutable;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use Carbon\CarbonImmutable;
 use Throwable;
 
 final class AtlasContextOperationsRuntimeService
@@ -35,8 +36,8 @@ final class AtlasContextOperationsRuntimeService
     {
         $now = ($input['now'] ?? null) instanceof CarbonImmutable ? $input['now'] : CarbonImmutable::now();
         $prompt = trim((string) ($input['prompt'] ?? ''));
-        $flowId = $this->stringValue($input['flow_id'] ?? null) ?? 'atlas_conversation';
-        $domain = $this->stringValue($input['domain'] ?? null) ?? 'atlas';
+        $flowId = AiValueNormalizer::trimmedScalarStringOrNull($input['flow_id'] ?? null) ?? 'atlas_conversation';
+        $domain = AiValueNormalizer::trimmedScalarStringOrNull($input['domain'] ?? null) ?? 'atlas';
         $contextRefs = array_values(array_filter((array) ($input['context_refs'] ?? []), 'is_string'));
         $evidenceRefs = array_values(array_filter((array) ($input['evidence_refs'] ?? []), 'is_string'));
         $mustKeepItems = $this->mustKeepItems($input, $flowId);
@@ -64,7 +65,7 @@ final class AtlasContextOperationsRuntimeService
             'allowed_scope' => array_values(array_filter([
                 'domain:'.$domain,
                 'flow:'.$flowId,
-                $this->stringValue($handoffTarget['kind'] ?? null) ? 'handoff:'.$handoffTarget['kind'] : null,
+                AiValueNormalizer::trimmedScalarStringOrNull($handoffTarget['kind'] ?? null) ? 'handoff:'.$handoffTarget['kind'] : null,
             ])),
             'evidence_refs' => $evidenceRefs,
             'context_budget' => $handoffTarget['kind'] === 'atlas_forge' ? 'large' : 'medium',
@@ -78,8 +79,8 @@ final class AtlasContextOperationsRuntimeService
             'flow_binding' => [
                 'domain' => $domain,
                 'flow_id' => $flowId,
-                'flow_profile' => $this->stringValue($input['flow_profile'] ?? null),
-                'runtime_mode' => $this->stringValue($input['runtime_mode'] ?? null),
+                'flow_profile' => AiValueNormalizer::trimmedScalarStringOrNull($input['flow_profile'] ?? null),
+                'runtime_mode' => AiValueNormalizer::trimmedScalarStringOrNull($input['runtime_mode'] ?? null),
                 'required_gates' => array_values((array) ($input['required_gates'] ?? [])),
             ],
             'context_intelligence' => $context,
@@ -291,7 +292,7 @@ final class AtlasContextOperationsRuntimeService
      */
     private function scopeId(array $input, string $flowId): string
     {
-        $provided = $this->stringValue($input['scope_id'] ?? null);
+        $provided = AiValueNormalizer::trimmedScalarStringOrNull($input['scope_id'] ?? null);
         if ($provided !== null) {
             return $provided;
         }
@@ -324,17 +325,6 @@ final class AtlasContextOperationsRuntimeService
         }
 
         return self::STATUS_READY;
-    }
-
-    private function stringValue(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value === '' ? null : $value;
     }
 
 }

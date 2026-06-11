@@ -9,6 +9,7 @@ use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
 use App\Services\Ai\Programming\AtlasDev\Schemas\EscalationPacket;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
 use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 use Throwable;
@@ -144,8 +145,8 @@ class ForgeIntakeService
 
         $obraTitle = (string) ($options['obra_title']
             ?? Str::limit($prompt, 180, ''));
-        $workspaceSlug = $this->stringOrNull($options['workspace_slug'] ?? null);
-        $normalizedIntent = $this->stringOrNull($options['normalized_intent'] ?? null)
+        $workspaceSlug = AiValueNormalizer::trimmedStringOrNull($options['workspace_slug'] ?? null);
+        $normalizedIntent = AiValueNormalizer::trimmedStringOrNull($options['normalized_intent'] ?? null)
             ?? $this->normalizeIntent($prompt);
 
         $definitionOfDone = $this->ensureList(
@@ -205,20 +206,20 @@ class ForgeIntakeService
             'workspace_slug' => $workspaceSlug,
             'original_user_intent' => $prompt,
             'normalized_intent' => $normalizedIntent,
-            'scope_assessment' => $this->stringOrNull($options['scope_assessment'] ?? null),
-            'risk_assessment' => $this->stringOrNull($options['risk_assessment'] ?? null),
-            'ambiguity_assessment' => $this->stringOrNull($options['ambiguity_assessment'] ?? null),
+            'scope_assessment' => AiValueNormalizer::trimmedStringOrNull($options['scope_assessment'] ?? null),
+            'risk_assessment' => AiValueNormalizer::trimmedStringOrNull($options['risk_assessment'] ?? null),
+            'ambiguity_assessment' => AiValueNormalizer::trimmedStringOrNull($options['ambiguity_assessment'] ?? null),
             'risk_band' => $riskBand,
-            'mission_id' => $this->stringOrNull($options['mission_id'] ?? null),
-            'escalation_packet_id' => $this->stringOrNull($options['escalation_packet_id'] ?? null),
-            'escalation_packet_hash' => $this->stringOrNull($options['escalation_packet_hash'] ?? null),
-            'promotion_reason' => $this->stringOrNull($options['promotion_reason'] ?? null),
+            'mission_id' => AiValueNormalizer::trimmedStringOrNull($options['mission_id'] ?? null),
+            'escalation_packet_id' => AiValueNormalizer::trimmedStringOrNull($options['escalation_packet_id'] ?? null),
+            'escalation_packet_hash' => AiValueNormalizer::trimmedStringOrNull($options['escalation_packet_hash'] ?? null),
+            'promotion_reason' => AiValueNormalizer::trimmedStringOrNull($options['promotion_reason'] ?? null),
             'promotion_triggers' => $this->arrayOrNull($options['promotion_triggers'] ?? null),
             'definition_of_done' => $definitionOfDone,
             'required_evidence' => $requiredEvidence,
             'evidence_refs' => $this->arrayOrNull($options['evidence_refs'] ?? null),
             'context_refs' => $contextRefs !== [] ? $contextRefs : null,
-            'context_pack_hash' => $this->stringOrNull($options['context_pack_hash'] ?? null),
+            'context_pack_hash' => AiValueNormalizer::trimmedStringOrNull($options['context_pack_hash'] ?? null),
             'rich_input_payload' => $richInputPayload !== [] ? $richInputPayload : null,
             'rich_input_schema_version' => $richInputPayload['schema_version'] ?? null,
             'context_operations_hash' => $contextOperations['operations_runtime_hash'] ?? null,
@@ -330,7 +331,7 @@ class ForgeIntakeService
                 'flow_id' => 'atlas_forge',
                 'flow_profile' => 'programming.forge',
                 'runtime_mode' => 'forge',
-                'provider' => $this->stringOrNull($options['provider'] ?? null),
+                'provider' => AiValueNormalizer::trimmedStringOrNull($options['provider'] ?? null),
                 'scope_type' => 'forge_intake',
                 'scope_id' => $uuid,
                 'payload' => [
@@ -510,16 +511,6 @@ class ForgeIntakeService
         }
 
         return (array) $value;
-    }
-
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $trimmed = trim($value);
-
-        return $trimmed === '' ? null : $trimmed;
     }
 
     /**
@@ -739,7 +730,7 @@ class ForgeIntakeService
             if (! is_array($repository)) {
                 continue;
             }
-            $repoKey = $this->stringOrNull($repository['repo_key'] ?? null);
+            $repoKey = AiValueNormalizer::trimmedStringOrNull($repository['repo_key'] ?? null);
             if ($repoKey !== null) {
                 $refs[] = 'awis_repo:'.$repoKey;
             }
@@ -748,7 +739,7 @@ class ForgeIntakeService
             if (! is_array($manifestRef)) {
                 continue;
             }
-            $repoKey = $this->stringOrNull($manifestRef['repo_key'] ?? null);
+            $repoKey = AiValueNormalizer::trimmedStringOrNull($manifestRef['repo_key'] ?? null);
             if ($repoKey === null) {
                 continue;
             }
@@ -759,54 +750,54 @@ class ForgeIntakeService
         foreach ($this->stringList($contextLoadingPlan['stack_tags'] ?? []) as $stackTag) {
             $refs[] = 'awis_stack:'.$stackTag;
         }
-        $inventoryHash = $this->stringOrNull($contextLoadingPlan['repository_inventory_hash'] ?? null);
+        $inventoryHash = AiValueNormalizer::trimmedStringOrNull($contextLoadingPlan['repository_inventory_hash'] ?? null);
         if ($inventoryHash !== null) {
             $refs[] = 'awis_cache:repository_inventory:'.$inventoryHash;
         }
-        $workspaceWorkingSetHash = $this->stringOrNull($contextLoadingPlan['working_set_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.workspace_working_set_hash'));
+        $workspaceWorkingSetHash = AiValueNormalizer::trimmedStringOrNull($contextLoadingPlan['working_set_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.workspace_working_set_hash'));
         if ($workspaceWorkingSetHash !== null) {
             $refs[] = 'awis_cache:workspace_working_set:'.$workspaceWorkingSetHash;
         }
-        $contextDeltaPlanHash = $this->stringOrNull($contextLoadingPlan['context_delta_plan_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.context_delta_plan_hash'));
+        $contextDeltaPlanHash = AiValueNormalizer::trimmedStringOrNull($contextLoadingPlan['context_delta_plan_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.context_delta_plan_hash'));
         if ($contextDeltaPlanHash !== null) {
             $refs[] = 'awis_cache:context_delta_plan:'.$contextDeltaPlanHash;
         }
-        $outcomeCommandMemoryHash = $this->stringOrNull($contextLoadingPlan['outcome_command_memory_hash'] ?? null);
+        $outcomeCommandMemoryHash = AiValueNormalizer::trimmedStringOrNull($contextLoadingPlan['outcome_command_memory_hash'] ?? null);
         if ($outcomeCommandMemoryHash !== null) {
             $refs[] = 'awis_cache:outcome_command_memory:'.$outcomeCommandMemoryHash;
         }
-        $performanceHistogramHash = $this->stringOrNull($contextLoadingPlan['command_performance_histogram_hash'] ?? null);
+        $performanceHistogramHash = AiValueNormalizer::trimmedStringOrNull($contextLoadingPlan['command_performance_histogram_hash'] ?? null);
         if ($performanceHistogramHash !== null) {
             $refs[] = 'awis_cache:command_performance_histogram:'.$performanceHistogramHash;
         }
-        $areaPerformanceIndexHash = $this->stringOrNull($contextLoadingPlan['area_performance_index_hash'] ?? null);
+        $areaPerformanceIndexHash = AiValueNormalizer::trimmedStringOrNull($contextLoadingPlan['area_performance_index_hash'] ?? null);
         if ($areaPerformanceIndexHash !== null) {
             $refs[] = 'awis_cache:area_performance_index:'.$areaPerformanceIndexHash;
         }
-        $stackPerformanceIndexHash = $this->stringOrNull($contextLoadingPlan['stack_performance_index_hash'] ?? null);
+        $stackPerformanceIndexHash = AiValueNormalizer::trimmedStringOrNull($contextLoadingPlan['stack_performance_index_hash'] ?? null);
         if ($stackPerformanceIndexHash !== null) {
             $refs[] = 'awis_cache:stack_performance_index:'.$stackPerformanceIndexHash;
         }
-        $workspaceLearningSnapshotHash = $this->stringOrNull($contextLoadingPlan['learning_snapshot_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.workspace_learning_snapshot_hash'));
+        $workspaceLearningSnapshotHash = AiValueNormalizer::trimmedStringOrNull($contextLoadingPlan['learning_snapshot_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.workspace_learning_snapshot_hash'));
         if ($workspaceLearningSnapshotHash !== null) {
             $refs[] = 'awis_cache:workspace_learning_snapshot:'.$workspaceLearningSnapshotHash;
         }
-        $executionOptimizationPolicyHash = $this->stringOrNull($contextLoadingPlan['execution_optimization_policy_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.execution_optimization_policy_hash'));
+        $executionOptimizationPolicyHash = AiValueNormalizer::trimmedStringOrNull($contextLoadingPlan['execution_optimization_policy_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.execution_optimization_policy_hash'));
         if ($executionOptimizationPolicyHash !== null) {
             $refs[] = 'awis_cache:execution_optimization_policy:'.$executionOptimizationPolicyHash;
         }
-        $executionPolicyEffectivenessIndexHash = $this->stringOrNull($contextLoadingPlan['execution_policy_effectiveness_index_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.execution_policy_effectiveness_index_hash'));
+        $executionPolicyEffectivenessIndexHash = AiValueNormalizer::trimmedStringOrNull($contextLoadingPlan['execution_policy_effectiveness_index_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.execution_policy_effectiveness_index_hash'));
         if ($executionPolicyEffectivenessIndexHash !== null) {
             $refs[] = 'awis_cache:execution_policy_effectiveness:'.$executionPolicyEffectivenessIndexHash;
         }
-        $executionRouteEffectivenessIndexHash = $this->stringOrNull($contextLoadingPlan['execution_route_effectiveness_index_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.execution_route_effectiveness_index_hash'));
+        $executionRouteEffectivenessIndexHash = AiValueNormalizer::trimmedStringOrNull($contextLoadingPlan['execution_route_effectiveness_index_hash'] ?? data_get($contextLoadingPlan, 'cache_keys.execution_route_effectiveness_index_hash'));
         if ($executionRouteEffectivenessIndexHash !== null) {
             $refs[] = 'awis_cache:execution_route_effectiveness:'.$executionRouteEffectivenessIndexHash;
         }
         $validationDepthDecision = $this->validationDepthDecision(
             $contextLoadingPlan,
             $expectedFiles,
-            $riskBand ?? $this->stringOrNull(data_get($workspaceGate, 'risk_band')),
+            $riskBand ?? AiValueNormalizer::trimmedStringOrNull(data_get($workspaceGate, 'risk_band')),
         );
         $refs = array_values(array_unique(array_merge($refs, $this->validationDepthContextRefs($validationDepthDecision))));
 
@@ -895,7 +886,7 @@ class ForgeIntakeService
             if (! is_array($route)) {
                 continue;
             }
-            $key = $this->stringOrNull($route['key'] ?? null);
+            $key = AiValueNormalizer::trimmedStringOrNull($route['key'] ?? null);
             if ($key === null || ! $this->filesMatchScope($expectedFiles, $key)) {
                 continue;
             }
@@ -910,7 +901,7 @@ class ForgeIntakeService
             if (! is_array($route)) {
                 continue;
             }
-            $key = $this->stringOrNull($route['key'] ?? null);
+            $key = AiValueNormalizer::trimmedStringOrNull($route['key'] ?? null);
             if ($key === null || ! in_array($key, $stacks, true)) {
                 continue;
             }
@@ -956,17 +947,17 @@ class ForgeIntakeService
             if (! is_array($route)) {
                 continue;
             }
-            $key = $this->stringOrNull($route['key'] ?? null);
+            $key = AiValueNormalizer::trimmedStringOrNull($route['key'] ?? null);
             if ($key !== null && $this->filesMatchScope($expectedFiles, $key)) {
                 return [
                     'kind' => 'area',
                     'key' => $key,
-                    'route_ref' => $this->stringOrNull($route['route_ref'] ?? null) ?? 'area:'.hash('sha256', $key),
+                    'route_ref' => AiValueNormalizer::trimmedStringOrNull($route['route_ref'] ?? null) ?? 'area:'.hash('sha256', $key),
                     'commands' => $this->stringList($route['preferred_commands'] ?? []),
-                    'recommended_validation_tier' => $this->stringOrNull($route['recommended_validation_tier'] ?? null),
-                    'validation_reason' => $this->stringOrNull($route['validation_reason'] ?? null),
-                    'route_mode' => $this->stringOrNull($route['route_mode'] ?? null),
-                    'feedback_effectiveness' => $this->stringOrNull($route['feedback_effectiveness'] ?? null),
+                    'recommended_validation_tier' => AiValueNormalizer::trimmedStringOrNull($route['recommended_validation_tier'] ?? null),
+                    'validation_reason' => AiValueNormalizer::trimmedStringOrNull($route['validation_reason'] ?? null),
+                    'route_mode' => AiValueNormalizer::trimmedStringOrNull($route['route_mode'] ?? null),
+                    'feedback_effectiveness' => AiValueNormalizer::trimmedStringOrNull($route['feedback_effectiveness'] ?? null),
                 ];
             }
         }
@@ -976,17 +967,17 @@ class ForgeIntakeService
             if (! is_array($route)) {
                 continue;
             }
-            $key = $this->stringOrNull($route['key'] ?? null);
+            $key = AiValueNormalizer::trimmedStringOrNull($route['key'] ?? null);
             if ($key !== null && in_array($key, $stacks, true)) {
                 return [
                     'kind' => 'stack',
                     'key' => $key,
-                    'route_ref' => $this->stringOrNull($route['route_ref'] ?? null) ?? 'stack:'.hash('sha256', $key),
+                    'route_ref' => AiValueNormalizer::trimmedStringOrNull($route['route_ref'] ?? null) ?? 'stack:'.hash('sha256', $key),
                     'commands' => $this->stringList($route['preferred_commands'] ?? []),
-                    'recommended_validation_tier' => $this->stringOrNull($route['recommended_validation_tier'] ?? null),
-                    'validation_reason' => $this->stringOrNull($route['validation_reason'] ?? null),
-                    'route_mode' => $this->stringOrNull($route['route_mode'] ?? null),
-                    'feedback_effectiveness' => $this->stringOrNull($route['feedback_effectiveness'] ?? null),
+                    'recommended_validation_tier' => AiValueNormalizer::trimmedStringOrNull($route['recommended_validation_tier'] ?? null),
+                    'validation_reason' => AiValueNormalizer::trimmedStringOrNull($route['validation_reason'] ?? null),
+                    'route_mode' => AiValueNormalizer::trimmedStringOrNull($route['route_mode'] ?? null),
+                    'feedback_effectiveness' => AiValueNormalizer::trimmedStringOrNull($route['feedback_effectiveness'] ?? null),
                 ];
             }
         }
@@ -1002,14 +993,14 @@ class ForgeIntakeService
     private function validationDepthDecision(array $contextLoadingPlan, array $expectedFiles, ?string $riskBand = null): array
     {
         $route = $this->matchingScopeRoute($contextLoadingPlan, $expectedFiles);
-        $tier = $this->stringOrNull(data_get($route, 'recommended_validation_tier'))
-            ?? $this->stringOrNull(data_get($contextLoadingPlan, 'execution_optimization_policy.validation_tier_routing.default_tier'))
+        $tier = AiValueNormalizer::trimmedStringOrNull(data_get($route, 'recommended_validation_tier'))
+            ?? AiValueNormalizer::trimmedStringOrNull(data_get($contextLoadingPlan, 'execution_optimization_policy.validation_tier_routing.default_tier'))
             ?? 'standard';
         if (! in_array($tier, ['instant', 'standard', 'deep'], true)) {
             $tier = 'standard';
         }
 
-        $reason = $this->stringOrNull(data_get($route, 'validation_reason')) ?? 'default_validation_depth';
+        $reason = AiValueNormalizer::trimmedStringOrNull(data_get($route, 'validation_reason')) ?? 'default_validation_depth';
         $risk = $riskBand !== null ? strtolower($riskBand) : 'unknown';
         if (in_array($risk, ['high', 'critical'], true) && $tier === 'instant') {
             $tier = 'standard';
@@ -1021,10 +1012,10 @@ class ForgeIntakeService
             'tier' => $tier,
             'reason' => $reason,
             'risk_band' => $risk,
-            'route_kind' => $this->stringOrNull(data_get($route, 'kind')) ?? 'global',
-            'route_ref' => $this->stringOrNull(data_get($route, 'route_ref')),
-            'route_mode' => $this->stringOrNull(data_get($route, 'route_mode')) ?? 'global_default',
-            'feedback_effectiveness' => $this->stringOrNull(data_get($route, 'feedback_effectiveness')) ?? 'unknown',
+            'route_kind' => AiValueNormalizer::trimmedStringOrNull(data_get($route, 'kind')) ?? 'global',
+            'route_ref' => AiValueNormalizer::trimmedStringOrNull(data_get($route, 'route_ref')),
+            'route_mode' => AiValueNormalizer::trimmedStringOrNull(data_get($route, 'route_mode')) ?? 'global_default',
+            'feedback_effectiveness' => AiValueNormalizer::trimmedStringOrNull(data_get($route, 'feedback_effectiveness')) ?? 'unknown',
             'raw_logs_returned' => false,
             'raw_content_returned' => false,
         ];
@@ -1036,13 +1027,13 @@ class ForgeIntakeService
      */
     private function validationDepthContextRefs(array $decision): array
     {
-        $tier = $this->stringOrNull($decision['tier'] ?? null);
+        $tier = AiValueNormalizer::trimmedStringOrNull($decision['tier'] ?? null);
         if ($tier === null) {
             return [];
         }
 
         $refs = ['awis_validation_tier:'.$tier];
-        $routeRef = $this->stringOrNull($decision['route_ref'] ?? null);
+        $routeRef = AiValueNormalizer::trimmedStringOrNull($decision['route_ref'] ?? null);
         if ($routeRef !== null) {
             $refs[] = 'awis_validation_route:'.$routeRef;
         }
@@ -1063,7 +1054,7 @@ class ForgeIntakeService
         ));
         $stacks = [];
         foreach ($manifestRefs as $manifestRef) {
-            $repoKey = $this->stringOrNull($manifestRef['repo_key'] ?? null);
+            $repoKey = AiValueNormalizer::trimmedStringOrNull($manifestRef['repo_key'] ?? null);
             if ($repoKey === null) {
                 continue;
             }

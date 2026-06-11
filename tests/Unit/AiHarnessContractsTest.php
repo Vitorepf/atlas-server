@@ -114,6 +114,71 @@ class AiHarnessContractsTest extends TestCase
         $this->assertStringContainsString('C = ambos', $promptSection);
     }
 
+    public function test_context_pack_compact_prompt_defers_long_memory_bodies(): void
+    {
+        $pack = new AiContextPack([
+            'task' => [
+                'type' => 'dev',
+                'desired_mode' => 'direct',
+                'risk_level' => 'low',
+                'domain' => 'atlas',
+                'objective' => 'Reduzir token bloat do contexto',
+            ],
+            'surface' => ['kind' => 'mcp', 'workspace' => '/repo'],
+            'retrieval' => [
+                'schema_version' => 'atlas.context.retrieval_plan.v1',
+                'mode' => 'balanced',
+                'selected_sources' => [
+                    ['type' => 'memory_signals', 'reason' => 'memory', 'limit' => 8, 'required' => false],
+                    ['type' => 'vector_retrieval', 'reason' => 'semantic', 'limit' => 5, 'required' => false],
+                ],
+            ],
+            'constraints' => [],
+            'memory' => [
+                'recall' => [[
+                    'rank' => 1,
+                    'source' => 'registry',
+                    'type' => 'decision',
+                    'scope' => 'global',
+                    'title' => 'Use compact context first',
+                    'summary' => 'First packet should carry the useful index only.',
+                    'excerpt' => str_repeat('VERY_LONG_RECALL_EXCERPT_SHOULD_NOT_BE_IN_COMPACT_PROMPT ', 20),
+                    'reason' => 'test',
+                ]],
+                'registry' => [[
+                    'title' => 'Canonical memory',
+                    'type' => 'technical_context',
+                    'scope' => 'global',
+                    'summary' => 'Memory summary.',
+                    'body' => str_repeat('VERY_LONG_REGISTRY_BODY_SHOULD_NOT_BE_IN_COMPACT_PROMPT ', 20),
+                ]],
+                'verbatim' => [],
+                'semantic' => [[
+                    'title' => 'Semantic note',
+                    'path' => 'Atlas/Semantic.md',
+                    'type' => 'principle',
+                    'summary' => 'Semantic summary.',
+                    'excerpt' => str_repeat('VERY_LONG_SEMANTIC_EXCERPT_SHOULD_NOT_BE_IN_COMPACT_PROMPT ', 20),
+                    'score' => 0.42,
+                ]],
+            ],
+            'open_questions' => [],
+            'excluded_context' => [],
+        ], []);
+
+        $full = $pack->toPromptSection();
+        $compact = $pack->toCompactPromptSection();
+
+        $this->assertStringContainsString('VERY_LONG_REGISTRY_BODY_SHOULD_NOT_BE_IN_COMPACT_PROMPT', $full);
+        $this->assertStringContainsString('VERY_LONG_SEMANTIC_EXCERPT_SHOULD_NOT_BE_IN_COMPACT_PROMPT', $full);
+        $this->assertStringNotContainsString('VERY_LONG_RECALL_EXCERPT_SHOULD_NOT_BE_IN_COMPACT_PROMPT', $compact);
+        $this->assertStringNotContainsString('VERY_LONG_REGISTRY_BODY_SHOULD_NOT_BE_IN_COMPACT_PROMPT', $compact);
+        $this->assertStringNotContainsString('VERY_LONG_SEMANTIC_EXCERPT_SHOULD_NOT_BE_IN_COMPACT_PROMPT', $compact);
+        $this->assertStringContainsString('expansion_tool: mcp=atlas_context_expand', $compact);
+        $this->assertStringContainsString('expansion_handles: expand:memory_signals, expand:vector_retrieval, recheck:canonical_doc', $compact);
+        $this->assertLessThan(strlen($full), strlen($compact));
+    }
+
     public function test_context_pack_renders_operational_state_compaction_and_handoff(): void
     {
         $pack = new AiContextPack([

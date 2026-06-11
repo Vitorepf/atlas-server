@@ -32,12 +32,7 @@ class AtlasCodeForgeReviewCompletionService
 
     public static function normalizeRunIdInput(mixed $value): ?string
     {
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
+        return AiValueNormalizer::trimmedStringOrNull($value);
     }
 
     /**

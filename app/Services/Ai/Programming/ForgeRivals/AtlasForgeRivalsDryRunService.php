@@ -7,6 +7,7 @@ namespace App\Services\Ai\Programming\ForgeRivals;
 use App\Services\Ai\Programming\AtlasForgeNativeRivalsDryRunService;
 use App\Services\Ai\Programming\AtlasForgeNativeRivalsProtocolService;
 use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * Atlas Forge Rivals · Dry-Run (v2 orchestration).
@@ -123,7 +124,7 @@ final class AtlasForgeRivalsDryRunService
             'next_command' => $blockers === []
                 ? 'php artisan atlas:forge:rivals plan-real --mode='.($input['mode'] ?? 'fair').' --preset='.$preset
                     .($presetCaseSet !== null ? ' --case-set='.$presetCaseSet : '')
-                    .($this->stringOrNull($input['run_id'] ?? null) !== null ? ' --run-id='.$this->stringOrNull($input['run_id']) : '')
+                    .(AiValueNormalizer::trimmedStringOrNull($input['run_id'] ?? null) !== null ? ' --run-id='.AiValueNormalizer::trimmedStringOrNull($input['run_id']) : '')
                     .' --json'
                 : 'fix blockers and re-run dry-run',
         ];
@@ -198,9 +199,9 @@ final class AtlasForgeRivalsDryRunService
      */
     private function resolveWorktrees(array $input): array
     {
-        $workspace = $this->stringOrNull($input['atlas_worktree'] ?? $input['workspace'] ?? null);
-        $baselineWorkspace = $this->stringOrNull($input['baseline_worktree'] ?? $input['baseline_workspace'] ?? null);
-        $runId = $this->stringOrNull($input['run_id'] ?? null);
+        $workspace = AiValueNormalizer::trimmedStringOrNull($input['atlas_worktree'] ?? $input['workspace'] ?? null);
+        $baselineWorkspace = AiValueNormalizer::trimmedStringOrNull($input['baseline_worktree'] ?? $input['baseline_workspace'] ?? null);
+        $runId = AiValueNormalizer::trimmedStringOrNull($input['run_id'] ?? null);
 
         if ($runId !== null && ($workspace === null || $baselineWorkspace === null)) {
             $paths = $this->paths->paths($runId);
@@ -211,8 +212,4 @@ final class AtlasForgeRivalsDryRunService
         return [$workspace, $baselineWorkspace];
     }
 
-    private function stringOrNull(mixed $value): ?string
-    {
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 }

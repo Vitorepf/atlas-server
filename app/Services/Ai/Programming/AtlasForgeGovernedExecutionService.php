@@ -10,6 +10,7 @@ use App\Services\Ai\Programming\Governance\ProgrammingEvidenceLedger;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
 use App\Services\Ai\Support\AiPathMatcher;
 use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -33,12 +34,7 @@ class AtlasForgeGovernedExecutionService
 
     public static function normalizeObraIdInput(mixed $value): ?string
     {
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
+        return AiValueNormalizer::trimmedStringOrNull($value);
     }
 
     /**
@@ -880,10 +876,7 @@ class AtlasForgeGovernedExecutionService
 
     private function relativePathIsSafe(string $path): bool
     {
-        return $path !== ''
-            && ! str_starts_with($path, '/')
-            && ! str_contains($path, '..')
-            && ! str_contains($path, "\0");
+        return AiPathMatcher::isProviderSafeRelativePath($path);
     }
 
     /**

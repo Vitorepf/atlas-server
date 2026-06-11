@@ -61,15 +61,39 @@ P1 may enrich the plan with existing Atlas context:
 1. context-pack query suggestions per post;
 2. owner-doc hints for technical subjects;
 3. privacy/sensitivity review prompts;
-4. "covered vs missing" signals from public posts and Atlas docs.
-5. reviewable backlog candidates derived from existing KB/code read-models.
+4. "covered vs missing" signals from public posts and Atlas docs;
+5. reviewable backlog candidates derived from existing KB/code read-models;
+6. read-only source, coverage, writing and daily operations packets;
+7. public archive reconciliation that compares published site metadata against
+   the planned backlog and marks external posts as bridge candidates, duplicate
+   risks or prior artifacts.
 
 P1 still stays kernel-first and read-only. It may read the Engineering
 Knowledge Base and Code Intelligence read-models, but it must present them as
 candidate editorial references, not as generated facts ready for publication.
-Candidate backlog items are review packets. They do not mutate the public site
-YAML and do not become part of the publication sequence until Vitor accepts
-them.
+Candidate backlog items are review packets. They do not become part of the
+publication sequence until Vitor accepts them and explicitly promotes them.
+Writing packets are private preparation packets. They may assemble sequence
+position, prerequisite state, candidate references, outline hints, reader
+promise, prior public archive artifacts, duplicate/rewrite risk, safety prompts
+and "avoid for now" topics. They must not generate a complete article, create a
+draft file, publish content or bypass the backlog sequence.
+Published posts that are outside the current planned backlog are not promoted
+to ordered prerequisites automatically. They may inform a planned post as prior
+public evidence, but Vitor must decide whether to link, rewrite or keep them as
+historical material.
+
+Acceptance is two-stage:
+
+1. dry-run acceptance emits a YAML snippet for review;
+2. explicit `--write` appends the candidate to a review queue file, not to the
+   main scheduled backlog.
+
+Promotion is also explicit:
+
+1. dry-run promotion emits the YAML that would be appended to the main backlog;
+2. explicit `--write` appends a new "Fila revisada" week to the main backlog;
+3. promotion never removes the review queue entry and never publishes content.
 
 ## P2 Scope
 
@@ -111,9 +135,38 @@ P1 is acceptable when:
   `read_only_governed_p1`;
 - refs are sourced only from existing Atlas read-models;
 - per-post context keeps `uses_graph_rag=false` and `uses_python_runtime=false`;
-- safety review prompts are emitted with every attached context packet;
 - `atlas:blog:editorial-plan --suggest-candidates --json` returns
   `backlog_candidates` with `writes_backlog=false`;
+- `atlas:blog:editorial-plan --source-map --json` returns `source_map` with
+  backlog, public archive, Engineering Knowledge, Code Intelligence, Open
+  Brain, vector retrieval and graph retrieval status, while keeping
+  `graph_retrieval.status=future_governed` until P2 is explicitly promoted;
+- `source_map.archive_reconciliation` reports planned published posts,
+  external published posts, external coverage by kind/collection and bridge
+  candidates matched to planned posts without changing prerequisites;
+- `atlas:blog:editorial-plan --coverage-map --json` returns foundation
+  coverage, topic index, depth warnings and safe next arcs;
+- `atlas:blog:editorial-plan --operations --json` returns
+  `operations_packet` with next action, daily focus, writing packet, public
+  archive risks, blockers, source/coverage snapshots and candidate feed while
+  keeping all write/publish/graph guardrails false;
+- `atlas:blog:editorial-plan --writing-packet --json` returns
+  `writing_packet` for the next ready post with
+  `generates_full_article=false`, `writes_draft=false` and
+  `publishes_content=false`;
+- `writing_packet.public_archive_context` reports already-published planned
+  matches and prior public artifacts matched from external archive posts, so
+  the writer can link, rewrite or avoid repetition deliberately;
+- `atlas:blog:editorial-plan --writing-packet --writing-slug=<slug> --json`
+  prepares a planned post by slug without writing files or changing schedule;
+- `atlas:blog:editorial-plan --accept-candidate=<slug> --json` previews a
+  review queue entry without writing;
+- `atlas:blog:editorial-plan --accept-candidate=<slug> --write --json` writes
+  only the review queue and keeps `writes_main_backlog=false`;
+- `atlas:blog:editorial-plan --promote-candidate=<slug> --json` previews the
+  main backlog append without writing;
+- `atlas:blog:editorial-plan --promote-candidate=<slug> --write --json`
+  appends to the main backlog with `append_only_backlog_update=true`;
 - focused tests prove KB/code refs can be attached without publication.
 
 ## Promotion Rule

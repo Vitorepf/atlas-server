@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * Rivals Forge Readiness Fingerprint v1.
  *
@@ -108,8 +110,8 @@ class RivalsForgeReadinessFingerprintService
      */
     private function normalizeComponents(array $intent): array
     {
-        $workspace = $this->stringOrNull($intent['atlas_workspace'] ?? null);
-        $baselineWorkspace = $this->stringOrNull($intent['baseline_workspace'] ?? null);
+        $workspace = AiValueNormalizer::trimmedStringOrNull($intent['atlas_workspace'] ?? null);
+        $baselineWorkspace = AiValueNormalizer::trimmedStringOrNull($intent['baseline_workspace'] ?? null);
         $caseIds = (array) ($intent['case_ids'] ?? []);
         $caseIdsNormalized = collect($caseIds)
             ->filter(fn (mixed $v): bool => is_string($v) && trim($v) !== '')
@@ -139,10 +141,4 @@ class RivalsForgeReadinessFingerprintService
         return $trimmed === '' ? $fallback : $trimmed;
     }
 
-    private function stringOrNull(mixed $value): ?string
-    {
-        $trimmed = is_string($value) ? trim($value) : '';
-
-        return $trimmed === '' ? null : $trimmed;
-    }
 }

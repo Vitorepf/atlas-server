@@ -621,14 +621,14 @@ final class AtlasForgeRivalsCollectEvidenceService
         $ran = $manifest !== [] || $workspaceHashes !== [];
         $clean = $ran ? ! $dirty : null;
         $blockers = array_values(array_unique(array_merge(
-            $this->stringList($manifest['workspace_blockers'] ?? []),
-            $this->stringList($workspaceHashes['workspace_blockers'] ?? []),
+            AiStringListNormalizer::castItemsToStrings($manifest['workspace_blockers'] ?? []),
+            AiStringListNormalizer::castItemsToStrings($workspaceHashes['workspace_blockers'] ?? []),
         )));
         $atlasBlocking = (bool) ($atlasReceipt['workspace_has_blocking_changes'] ?? false);
         $rivalBlocking = (bool) ($rivalReceipt['workspace_has_blocking_changes'] ?? false);
         $changedFiles = [
-            'atlas' => $this->stringList($atlasReceipt['changed_files'] ?? []),
-            'rival' => $this->stringList($rivalReceipt['changed_files'] ?? []),
+            'atlas' => AiStringListNormalizer::castItemsToStrings($atlasReceipt['changed_files'] ?? []),
+            'rival' => AiStringListNormalizer::castItemsToStrings($rivalReceipt['changed_files'] ?? []),
         ];
 
         return [
@@ -657,8 +657,8 @@ final class AtlasForgeRivalsCollectEvidenceService
      */
     private function aggregateBytecodeArtifacts(array $atlasReceipt, array $rivalReceipt): array
     {
-        $atlas = $this->stringList($atlasReceipt['bytecode_artifacts'] ?? []);
-        $rival = $this->stringList($rivalReceipt['bytecode_artifacts'] ?? []);
+        $atlas = AiStringListNormalizer::castItemsToStrings($atlasReceipt['bytecode_artifacts'] ?? []);
+        $rival = AiStringListNormalizer::castItemsToStrings($rivalReceipt['bytecode_artifacts'] ?? []);
 
         return array_values(array_unique(array_merge($atlas, $rival)));
     }
@@ -779,14 +779,6 @@ final class AtlasForgeRivalsCollectEvidenceService
     }
 
     /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return AiStringListNormalizer::castItemsToStrings($value);
-    }
-
-    /**
      * Build the multi-case summary surfaced on the evidence pack. Walks the
      * run manifest's `cases[]` array (written by run-real) and produces three
      * blocks the verifier consumes:
@@ -883,7 +875,7 @@ final class AtlasForgeRivalsCollectEvidenceService
                 'human_prompt_probe' => $entry['human_prompt_probe'] ?? null,
                 'meta_provider_stress' => $entry['meta_provider_stress'] ?? null,
                 'extreme_differentiator' => $entry['extreme_differentiator'] ?? null,
-                'measured_capabilities' => $this->stringList($entry['measured_capabilities'] ?? []),
+                'measured_capabilities' => AiStringListNormalizer::castItemsToStrings($entry['measured_capabilities'] ?? []),
                 'difficulty' => $legacyDifficulty !== '' ? $legacyDifficulty : null,
                 'difficulty_level' => $level,
                 'difficulty_level_origin' => $origin,
@@ -893,7 +885,7 @@ final class AtlasForgeRivalsCollectEvidenceService
                 'evidence_path' => $evidenceSubdir,
                 'workspace_hash_before' => $entry['workspace_hash_before'] ?? null,
                 'workspace_hash_after' => $entry['workspace_hash_after'] ?? null,
-                'workspace_blockers' => $this->stringList($entry['workspace_blockers'] ?? []),
+                'workspace_blockers' => AiStringListNormalizer::castItemsToStrings($entry['workspace_blockers'] ?? []),
                 'arms' => [
                     'atlas' => $this->summarizeCaseArm((array) ($entry['atlas_arm'] ?? []), $evidenceSubdir, 'atlas'),
                     'rival' => $this->summarizeCaseArm((array) ($entry['rival_arm'] ?? []), $evidenceSubdir, 'rival'),
@@ -989,9 +981,9 @@ final class AtlasForgeRivalsCollectEvidenceService
             'patch_diff_on_disk_sha256' => is_file($patchPath) ? (hash_file('sha256', $patchPath) ?: null) : null,
             'test_log_path' => is_file($testLogPath) ? $testLogPath : ($armSummary['test_log_path'] ?? null),
             'test_log_on_disk_sha256' => is_file($testLogPath) ? (hash_file('sha256', $testLogPath) ?: null) : null,
-            'changed_files' => $this->stringList($armSummary['changed_files'] ?? []),
-            'out_of_scope_files' => $this->stringList($armSummary['out_of_scope_files'] ?? []),
-            'bytecode_artifacts' => $this->stringList($armSummary['bytecode_artifacts'] ?? []),
+            'changed_files' => AiStringListNormalizer::castItemsToStrings($armSummary['changed_files'] ?? []),
+            'out_of_scope_files' => AiStringListNormalizer::castItemsToStrings($armSummary['out_of_scope_files'] ?? []),
+            'bytecode_artifacts' => AiStringListNormalizer::castItemsToStrings($armSummary['bytecode_artifacts'] ?? []),
         ];
     }
 }

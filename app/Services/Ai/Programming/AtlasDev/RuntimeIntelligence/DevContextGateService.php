@@ -5,6 +5,7 @@ namespace App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence;
 use App\Models\AtlasDevContextGate;
 use App\Models\AtlasDevTaskPacket;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Support\Str;
 
 class DevContextGateService
@@ -36,21 +37,21 @@ class DevContextGateService
         $remediation = [];
 
         $objective = trim((string) ($packet['objective'] ?? ''));
-        $contextRefs = $this->list($packet['context_refs'] ?? []);
+        $contextRefs = AiStringListNormalizer::strings($packet['context_refs'] ?? []);
         $realContextRefs = array_values(array_filter(
             $contextRefs,
             static fn (string $ref): bool => ! str_starts_with($ref, self::AEDPDS_CONTEXT_PREFIX),
         ));
-        $expectedFiles = $this->list($packet['expected_files'] ?? []);
-        $allowedFiles = $this->list($packet['allowed_files'] ?? []);
-        $suggestedTests = $this->list($packet['suggested_tests'] ?? []);
-        $requiredEvidence = $this->list($packet['required_evidence'] ?? []);
-        $verificationHandles = $this->list($packet['verification_handles'] ?? []);
-        $expansionHandles = $this->list($packet['expansion_handles'] ?? []);
-        $initialContextKinds = $this->list($packet['initial_context_kinds'] ?? []);
+        $expectedFiles = AiStringListNormalizer::strings($packet['expected_files'] ?? []);
+        $allowedFiles = AiStringListNormalizer::strings($packet['allowed_files'] ?? []);
+        $suggestedTests = AiStringListNormalizer::strings($packet['suggested_tests'] ?? []);
+        $requiredEvidence = AiStringListNormalizer::strings($packet['required_evidence'] ?? []);
+        $verificationHandles = AiStringListNormalizer::strings($packet['verification_handles'] ?? []);
+        $expansionHandles = AiStringListNormalizer::strings($packet['expansion_handles'] ?? []);
+        $initialContextKinds = AiStringListNormalizer::strings($packet['initial_context_kinds'] ?? []);
         $initialContextChars = $this->intValue($packet['initial_context_chars'] ?? null);
         $maxInitialContextChars = $this->intValue($packet['max_initial_context_chars'] ?? null) ?? 12000;
-        $acceptance = $this->list($packet['acceptance_criteria'] ?? []);
+        $acceptance = AiStringListNormalizer::strings($packet['acceptance_criteria'] ?? []);
 
         if ($objective === '' || $objective === 'Atlas Dev task') {
             $missing[] = 'objective';
@@ -134,14 +135,6 @@ class DevContextGateService
                 'provider_safe' => $payload['provider_safe'],
             ],
         );
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function list(mixed $value): array
-    {
-        return is_array($value) ? array_values(array_filter($value, 'is_string')) : [];
     }
 
     /**

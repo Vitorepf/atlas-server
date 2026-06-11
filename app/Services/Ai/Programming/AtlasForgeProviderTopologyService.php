@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProject;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Str;
 
 /**
@@ -69,22 +70,22 @@ class AtlasForgeProviderTopologyService implements \App\Services\Ai\SoftwareComp
      */
     public function topology(array $options = []): array
     {
-        $obraId = $this->stringOrNull($options['obra_id'] ?? null);
+        $obraId = AiValueNormalizer::trimmedStringOrNull($options['obra_id'] ?? null);
         $project = $obraId !== null
             ? AtlasProject::query()->whereKey($obraId)->first()
             : null;
 
         $obraExists = $project !== null;
         $receiptTopology = $this->receiptTopology($options, $project);
-        $strategy = $this->stringOrNull($options['strategy'] ?? null)
-            ?? $this->stringOrNull(data_get($receiptTopology, 'strategy'))
+        $strategy = AiValueNormalizer::trimmedStringOrNull($options['strategy'] ?? null)
+            ?? AiValueNormalizer::trimmedStringOrNull(data_get($receiptTopology, 'strategy'))
             ?? self::STRATEGY_ONE_SHOT_ENTERPRISE;
-        $fastPathRunId = $this->stringOrNull($options['fast_path_run_id'] ?? null);
-        $decisionReceiptId = $this->stringOrNull($options['decision_receipt_id'] ?? null)
-            ?? $this->stringOrNull(data_get($receiptTopology, 'decision_receipt_id'));
+        $fastPathRunId = AiValueNormalizer::trimmedStringOrNull($options['fast_path_run_id'] ?? null);
+        $decisionReceiptId = AiValueNormalizer::trimmedStringOrNull($options['decision_receipt_id'] ?? null)
+            ?? AiValueNormalizer::trimmedStringOrNull(data_get($receiptTopology, 'decision_receipt_id'));
 
-        $topologyId = $this->stringOrNull($options['provider_topology_id'] ?? null)
-            ?? $this->stringOrNull(data_get($receiptTopology, 'provider_topology_id'))
+        $topologyId = AiValueNormalizer::trimmedStringOrNull($options['provider_topology_id'] ?? null)
+            ?? AiValueNormalizer::trimmedStringOrNull(data_get($receiptTopology, 'provider_topology_id'))
             ?? 'topo_'.(string) Str::ulid();
 
         $defaultRoles = $receiptTopology !== null ? $this->rolesFromReceiptTopology($receiptTopology) : $this->defaultRoles();
@@ -115,8 +116,8 @@ class AtlasForgeProviderTopologyService implements \App\Services\Ai\SoftwareComp
         // capacity runtime key (claude_cli/codex_cli/...). Resolve via helper.
         if ($obraExists) {
             foreach ($defaultRoles as $idx => $role) {
-                $vendor = $this->stringOrNull($role['provider'] ?? null);
-                $model = $this->stringOrNull($role['model'] ?? null);
+                $vendor = AiValueNormalizer::trimmedStringOrNull($role['provider'] ?? null);
+                $model = AiValueNormalizer::trimmedStringOrNull($role['model'] ?? null);
                 $runtimeKey = $this->capacityRuntimeKeyFor($vendor, $model);
                 if ($runtimeKey === null) {
                     continue;
@@ -142,8 +143,8 @@ class AtlasForgeProviderTopologyService implements \App\Services\Ai\SoftwareComp
         // provider/model — if the runtime is unavailable, capable becomes
         // false even if the static chain marked it as capable.
         foreach ($fallbackChain as $idx => $entry) {
-            $vendor = is_array($entry) ? $this->stringOrNull($entry['provider'] ?? null) : null;
-            $model = is_array($entry) ? $this->stringOrNull($entry['model'] ?? null) : null;
+            $vendor = is_array($entry) ? AiValueNormalizer::trimmedStringOrNull($entry['provider'] ?? null) : null;
+            $model = is_array($entry) ? AiValueNormalizer::trimmedStringOrNull($entry['model'] ?? null) : null;
             $runtimeKey = $this->capacityRuntimeKeyFor($vendor, $model);
             if ($runtimeKey === null) {
                 continue;
@@ -159,9 +160,9 @@ class AtlasForgeProviderTopologyService implements \App\Services\Ai\SoftwareComp
             }
             $fallbackChain[$idx]['runtime_key'] = $runtimeKey;
         }
-        $decisionSource = $this->stringOrNull(data_get($receiptTopology, 'decision_source')) ?? 'static_policy';
-        $decisionReceiptHash = $this->stringOrNull(data_get($receiptTopology, 'decision_receipt_hash'));
-        $receiptSchemaVersion = $this->stringOrNull(data_get($receiptTopology, 'receipt_schema_version'));
+        $decisionSource = AiValueNormalizer::trimmedStringOrNull(data_get($receiptTopology, 'decision_source')) ?? 'static_policy';
+        $decisionReceiptHash = AiValueNormalizer::trimmedStringOrNull(data_get($receiptTopology, 'decision_receipt_hash'));
+        $receiptSchemaVersion = AiValueNormalizer::trimmedStringOrNull(data_get($receiptTopology, 'receipt_schema_version'));
         $fallbackChildReceiptRequired = (bool) data_get($receiptTopology, 'fallback_child_receipt_required', false);
         $runtimeDispatchAllowed = $receiptTopology !== null
             ? (bool) data_get($receiptTopology, 'runtime_dispatch_allowed', false)
@@ -204,7 +205,7 @@ class AtlasForgeProviderTopologyService implements \App\Services\Ai\SoftwareComp
         }
 
         $fallbackEvent = null;
-        $simulate = $this->stringOrNull($options['simulate_provider_failure'] ?? null);
+        $simulate = AiValueNormalizer::trimmedStringOrNull($options['simulate_provider_failure'] ?? null);
 
         if ($simulate !== null) {
             $primary = $defaultRoles[0] ?? null;
@@ -569,17 +570,6 @@ class AtlasForgeProviderTopologyService implements \App\Services\Ai\SoftwareComp
         }
 
         return 'available';
-    }
-
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
     }
 
     /**

@@ -16,4 +16,15 @@ final class AiValueNormalizer
 
         return $value === '' ? null : $value;
     }
+
+    public static function trimmedScalarStringOrNull(mixed $value): ?string
+    {
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return $value === '' ? null : $value;
+    }
 }

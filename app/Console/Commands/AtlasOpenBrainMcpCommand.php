@@ -151,6 +151,7 @@ class AtlasOpenBrainMcpCommand extends Command
             'tools' => [
                 'atlas_memory_recall',
                 'atlas_open_brain_context_pack',
+                'atlas_context_expand',
                 'atlas_memory_maintenance_status',
                 'atlas_code_find_relevant',
             ],

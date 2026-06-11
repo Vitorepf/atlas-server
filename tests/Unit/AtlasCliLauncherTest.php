@@ -30,6 +30,8 @@ class AtlasCliLauncherTest extends TestCase
         $this->assertStringContainsString('exec_artisan_with_workspace atlas:engineering:visual-baseline "$@"', $script);
         $this->assertStringContainsString('exec_artisan_with_workspace atlas:engineering:benchmark "$@"', $script);
         $this->assertStringContainsString('exec_artisan_with_workspace atlas:engineering:run "$@"', $script);
+        $this->assertStringContainsString('expand|expand-context|context-expand|expand_context)', $script);
+        $this->assertStringContainsString('exec_artisan_with_workspace atlas:open-brain:expand-context "$@"', $script);
         $this->assertStringContainsString('rivals|rival)', $script);
         $this->assertStringContainsString('exec_artisan_with_workspace atlas:engineering:benchmark:rivals "$subcmd" "$@"', $script);
         $this->assertStringContainsString('exec_artisan_with_workspace atlas:engineering:benchmark:rivals "$@"', $script);

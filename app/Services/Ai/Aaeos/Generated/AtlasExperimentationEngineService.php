@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
 use InvalidArgumentException;
 
 /**
@@ -98,11 +99,11 @@ class AtlasExperimentationEngineService
         $satisfied = [];
         $missing = [];
 
-        $hasHypothesis = $this->nonEmptyString($experiment['hypothesis'] ?? null);
+        $hasHypothesis = AtlasAaeosValueNormalizer::isNonBlankString($experiment['hypothesis'] ?? null);
         $this->push($satisfied, $missing, 'hypothesis-written', $hasHypothesis);
 
         $metric = is_array($experiment['primary_metric'] ?? null) ? $experiment['primary_metric'] : [];
-        $hasMetric = $this->nonEmptyString($metric['name'] ?? null) && is_numeric($metric['target'] ?? null);
+        $hasMetric = AtlasAaeosValueNormalizer::isNonBlankString($metric['name'] ?? null) && is_numeric($metric['target'] ?? null);
         $this->push($satisfied, $missing, 'metric-selected', $hasMetric);
 
         $sample = (int) ($experiment['sample_size'] ?? 0);
@@ -145,7 +146,7 @@ class AtlasExperimentationEngineService
     public function evaluateMetricChoice(array $metric): array
     {
         $isVanity = (bool) ($metric['is_vanity'] ?? false);
-        $businessMetric = $this->nonEmptyString($metric['business_metric'] ?? null)
+        $businessMetric = AtlasAaeosValueNormalizer::isNonBlankString($metric['business_metric'] ?? null)
             ? (string) $metric['business_metric']
             : null;
         $businessAvailable = $businessMetric !== null;
@@ -334,8 +335,4 @@ class AtlasExperimentationEngineService
         }
     }
 
-    private function nonEmptyString(mixed $value): bool
-    {
-        return is_string($value) && trim($value) !== '';
-    }
 }

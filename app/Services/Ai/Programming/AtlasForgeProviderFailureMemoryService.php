@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProject;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -78,14 +79,14 @@ class AtlasForgeProviderFailureMemoryService
      */
     public function record(AtlasProject $project, array $payload): array
     {
-        $failureType = $this->stringOrNull($payload['failure_type'] ?? null);
+        $failureType = AiValueNormalizer::trimmedStringOrNull($payload['failure_type'] ?? null);
         if ($failureType === null
             || ! in_array($failureType, AtlasForgeProviderFallbackPolicyService::KNOWN_FAILURES, true)
         ) {
             throw new \InvalidArgumentException('unknown_failure_type:'.(string) $failureType);
         }
 
-        $provider = $this->stringOrNull($payload['provider'] ?? null);
+        $provider = AiValueNormalizer::trimmedStringOrNull($payload['provider'] ?? null);
         if ($provider === null) {
             throw new \InvalidArgumentException('provider_required');
         }
@@ -98,19 +99,19 @@ class AtlasForgeProviderFailureMemoryService
             'event_id' => 'fme_'.(string) Str::ulid(),
             'occurred_at' => $occurredAt->toIso8601String(),
             'provider' => $provider,
-            'model' => $this->stringOrNull($payload['model'] ?? null),
-            'role' => $this->stringOrNull($payload['role'] ?? null),
+            'model' => AiValueNormalizer::trimmedStringOrNull($payload['model'] ?? null),
+            'role' => AiValueNormalizer::trimmedStringOrNull($payload['role'] ?? null),
             'failure_type' => $failureType,
-            'action' => $this->stringOrNull($payload['action'] ?? null),
-            'blocker' => $this->stringOrNull($payload['blocker'] ?? null),
-            'reason' => $this->stringOrNull($payload['reason'] ?? null),
+            'action' => AiValueNormalizer::trimmedStringOrNull($payload['action'] ?? null),
+            'blocker' => AiValueNormalizer::trimmedStringOrNull($payload['blocker'] ?? null),
+            'reason' => AiValueNormalizer::trimmedStringOrNull($payload['reason'] ?? null),
             'cooldown_until' => $cooldownUntil?->toIso8601String(),
-            'fallback_event_id' => $this->stringOrNull($payload['fallback_event_id'] ?? null),
-            'decision_receipt_id' => $this->stringOrNull($payload['decision_receipt_id'] ?? null),
-            'provider_topology_id' => $this->stringOrNull($payload['provider_topology_id'] ?? null),
-            'capacity_snapshot_id' => $this->stringOrNull($payload['capacity_snapshot_id'] ?? null),
-            'provider_status_before' => $this->stringOrNull($payload['provider_status_before'] ?? null),
-            'provider_status_after' => $this->stringOrNull($payload['provider_status_after'] ?? null),
+            'fallback_event_id' => AiValueNormalizer::trimmedStringOrNull($payload['fallback_event_id'] ?? null),
+            'decision_receipt_id' => AiValueNormalizer::trimmedStringOrNull($payload['decision_receipt_id'] ?? null),
+            'provider_topology_id' => AiValueNormalizer::trimmedStringOrNull($payload['provider_topology_id'] ?? null),
+            'capacity_snapshot_id' => AiValueNormalizer::trimmedStringOrNull($payload['capacity_snapshot_id'] ?? null),
+            'provider_status_before' => AiValueNormalizer::trimmedStringOrNull($payload['provider_status_before'] ?? null),
+            'provider_status_after' => AiValueNormalizer::trimmedStringOrNull($payload['provider_status_after'] ?? null),
             'silent' => false,
             'reduces_quality_gates' => false,
             'bypasses_review_completion_gate' => false,
@@ -335,13 +336,4 @@ class AtlasForgeProviderFailureMemoryService
         }
     }
 
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
-    }
 }

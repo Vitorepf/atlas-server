@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Aaeos\Generated;
 
 use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
 
 /**
  * Live-mode repair-loop product-proof gate evaluator.
@@ -97,7 +98,7 @@ final class AtlasProgrammingFrontendProductProofLiveModeRepairLoopService
      */
     public function evaluate(array $run): array
     {
-        $viewport = $this->normalizeString($run['viewport'] ?? null);
+        $viewport = AtlasAaeosValueNormalizer::lowerStringOrNull($run['viewport'] ?? null);
         $completedStages = AtlasAaeosStringListNormalizer::lowerTrimmedStrings($run['completed_stages'] ?? []);
         $evidence = AtlasAaeosStringListNormalizer::lowerTrimmedStrings($run['evidence'] ?? []);
 
@@ -279,13 +280,4 @@ final class AtlasProgrammingFrontendProductProofLiveModeRepairLoopService
         return null;
     }
 
-    private function normalizeString(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $trimmed = strtolower(trim($value));
-
-        return $trimmed === '' ? null : $trimmed;
-    }
 }

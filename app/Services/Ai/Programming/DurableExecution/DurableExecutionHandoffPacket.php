@@ -57,7 +57,7 @@ final class DurableExecutionHandoffPacket
      */
     public function build(array $preflight, array $decision): array
     {
-        $target = match ($this->extractString($decision, 'decision')) {
+        $target = match (DurableExecutionFieldReader::stringOrNull($decision, 'decision')) {
             'execute_durable' => self::TARGET_DURABLE_RUNNER,
             'escalate_to_forge' => self::TARGET_FORGE,
             default => throw new \LogicException(
@@ -70,9 +70,9 @@ final class DurableExecutionHandoffPacket
             'ap_reference' => self::AP_REFERENCE,
             'target' => $target,
             'handed_off_at' => now()->toAtomString(),
-            'work_item_id' => $this->extractString($decision, 'work_item_id'),
-            'plan_hash' => $this->extractString($decision, 'plan_hash'),
-            'spec_hash' => $this->extractString($decision, 'spec_hash'),
+            'work_item_id' => DurableExecutionFieldReader::stringOrNull($decision, 'work_item_id'),
+            'plan_hash' => DurableExecutionFieldReader::stringOrNull($decision, 'plan_hash'),
+            'spec_hash' => DurableExecutionFieldReader::stringOrNull($decision, 'spec_hash'),
             'preflight_status' => (string) ($preflight['status'] ?? 'unknown'),
             'decision' => (string) $decision['decision'],
             'actor' => (string) $decision['actor'],
@@ -92,13 +92,4 @@ final class DurableExecutionHandoffPacket
         return $packet;
     }
 
-    /**
-     * @param  array<string,mixed>  $source
-     */
-    private function extractString(array $source, string $key): ?string
-    {
-        $value = $source[$key] ?? null;
-
-        return is_string($value) && $value !== '' ? $value : null;
-    }
 }

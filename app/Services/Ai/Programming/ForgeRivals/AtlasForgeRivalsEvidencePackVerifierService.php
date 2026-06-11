@@ -160,7 +160,7 @@ final class AtlasForgeRivalsEvidencePackVerifierService
         }
 
         $artifacts = (array) ($pack['artifacts'] ?? []);
-        $required = $this->stringList($pack['required_artifacts'] ?? []);
+        $required = AiStringListNormalizer::castItemsToStrings($pack['required_artifacts'] ?? []);
         if ($required === []) {
             $required = array_keys($artifacts);
         }
@@ -283,7 +283,7 @@ final class AtlasForgeRivalsEvidencePackVerifierService
 
         $providerReceipts = (array) ($pack['provider_receipts'] ?? []);
         $afterClean = (array) ($pack['after_clean_check'] ?? []);
-        $bytecode = $this->stringList($pack['tracked_bytecode_artifacts'] ?? []);
+        $bytecode = AiStringListNormalizer::castItemsToStrings($pack['tracked_bytecode_artifacts'] ?? []);
         $modeForEvidence = (string) ($pack['mode_for_evidence'] ?? AtlasForgeRivalsCollectEvidenceService::EVIDENCE_MODE_UNKNOWN);
 
         if ($bytecode !== []) {
@@ -511,7 +511,7 @@ final class AtlasForgeRivalsEvidencePackVerifierService
             }
             $caseId = (string) ($case['case_id'] ?? 'case_'.$index);
             $isStressCase = (string) ($case['case_set'] ?? '') === 'meta-provider-stress'
-                || in_array('meta_provider_stress', $this->stringList($case['measurement_tags'] ?? []), true)
+                || in_array('meta_provider_stress', AiStringListNormalizer::castItemsToStrings($case['measurement_tags'] ?? []), true)
                 || is_array($case['meta_provider_stress'] ?? null);
             if (! $isStressCase) {
                 continue;
@@ -622,7 +622,7 @@ final class AtlasForgeRivalsEvidencePackVerifierService
             $missing[] = 'meta_provider_receipt.'.$armKey.'.stream_json.session_id_consistent';
             $reasons[] = 'meta_provider_receipt_stream_json_session_inconsistent_'.$armKey;
         }
-        if ($this->stringList($summary['parse_errors'] ?? []) !== []) {
+        if (AiStringListNormalizer::castItemsToStrings($summary['parse_errors'] ?? []) !== []) {
             $blockers[] = 'meta_provider_receipt_stream_json_parse_errors:'.$armKey;
             $reasons[] = 'meta_provider_receipt_stream_json_parse_errors_'.$armKey;
         }
@@ -701,11 +701,4 @@ final class AtlasForgeRivalsEvidencePackVerifierService
         return JsonFileStore::readArray($path) ?? [];
     }
 
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return AiStringListNormalizer::castItemsToStrings($value);
-    }
 }

@@ -7,6 +7,7 @@ namespace App\Services\Ai\Programming;
 use App\Services\Ai\Context\AtlasAucriRuntimeEnforcementService;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -60,7 +61,7 @@ class AtlasForgeLiveExecutionService
      */
     public static function normalizeObraIdInput(mixed $value): ?string
     {
-        return self::normalizeNonEmptyString($value);
+        return AiValueNormalizer::trimmedStringOrNull($value);
     }
 
     /**
@@ -98,7 +99,7 @@ class AtlasForgeLiveExecutionService
     public function execute(array $options = []): array
     {
         $obraId = self::normalizeObraIdInput($options['obra_id'] ?? null);
-        $workspace = self::normalizeNonEmptyString($options['workspace'] ?? null);
+        $workspace = AiValueNormalizer::trimmedStringOrNull($options['workspace'] ?? null);
         $simulateTestFailure = (bool) ($options['simulate_test_failure'] ?? false);
         $planId = (string) Str::ulid();
         $envelopeId = (string) Str::ulid();
@@ -834,14 +835,4 @@ class AtlasForgeLiveExecutionService
         ];
     }
 
-    private static function normalizeNonEmptyString(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-
-        $value = trim($value);
-
-        return $value !== '' ? $value : null;
-    }
 }

@@ -6,6 +6,7 @@ use App\Models\AiForgeIntake;
 use App\Models\AiForgeMultiAgentSchedule;
 use App\Models\AiForgeWorkPacket;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
@@ -98,10 +99,10 @@ class ForgeMultiAgentSchedulerService
         $verificationRequired = (bool) ($options['verification_required'] ?? false);
         $reviewerRequired = (bool) ($options['reviewer_required'] ?? false);
         $failureContext = (bool) ($options['failure_context'] ?? false);
-        $missionId = $this->stringOrNull($options['mission_id'] ?? null);
-        $workOrderId = $this->stringOrNull($options['work_order_id'] ?? null);
+        $missionId = AiValueNormalizer::trimmedStringOrNull($options['mission_id'] ?? null);
+        $workOrderId = AiValueNormalizer::trimmedStringOrNull($options['work_order_id'] ?? null);
 
-        $obraId = $this->stringOrNull($options['obra_id'] ?? $intake?->id);
+        $obraId = AiValueNormalizer::trimmedStringOrNull($options['obra_id'] ?? $intake?->id);
 
         $packetCount = count($normalisedPackets);
 
@@ -581,13 +582,4 @@ class ForgeMultiAgentSchedulerService
         return MissionCanonicalHash::sha256($payload);
     }
 
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $trimmed = trim($value);
-
-        return $trimmed === '' ? null : $trimmed;
-    }
 }

@@ -1920,6 +1920,11 @@ class AtlasMemoryRegistryTest extends TestCase
             ->assertJsonPath('open_brain.safety.raw_content_exposed', false)
             ->assertJsonPath('open_brain.safety.raw_content_persisted', false)
             ->assertJsonPath('open_brain.safety.audit_persisted', true)
+            ->assertJsonPath('open_brain.summary.prompt.schema_version', 'atlas.open_brain.prompt_metrics.v1')
+            ->assertJsonPath('open_brain.summary.prompt.mode', 'compact')
+            ->assertJsonPath('open_brain.summary.prompt.raw_prompt_persisted', false)
+            ->assertJsonPath('open_brain.safety.prompt_mode', 'compact')
+            ->assertJsonPath('open_brain.safety.prompt_raw_prompt_persisted', false)
             ->assertJsonPath('open_brain.audit.requester', 'test-api');
 
         $this->assertStringContainsString('Open Brain context source', (string) data_get($response->json(), 'open_brain.prompt_section'));
@@ -1935,6 +1940,15 @@ class AtlasMemoryRegistryTest extends TestCase
         $apiLog = AtlasOpenBrainAccessLog::query()->where('requester', 'test-api')->first();
         $this->assertTrue(data_get($apiLog?->result_summary_json, 'safety.audit_persisted'));
         $this->assertFalse(data_get($apiLog?->result_summary_json, 'safety.audit_query_raw_content_persisted'));
+        $this->assertSame('atlas.open_brain.prompt_metrics.v1', data_get($apiLog?->result_summary_json, 'prompt.schema_version'));
+        $this->assertSame('compact', data_get($apiLog?->result_summary_json, 'prompt.mode'));
+        $this->assertFalse(data_get($apiLog?->result_summary_json, 'prompt.raw_prompt_persisted'));
+        $this->assertTrue(data_get($apiLog?->result_summary_json, 'prompt.raw_bodies_deferred'));
+        $this->assertSame('compact', data_get($apiLog?->result_summary_json, 'safety.prompt_mode'));
+        $this->assertFalse(data_get($apiLog?->result_summary_json, 'safety.prompt_raw_prompt_persisted'));
+        $this->assertGreaterThan(0, (int) data_get($apiLog?->result_summary_json, 'prompt.chars'));
+        $this->assertGreaterThanOrEqual(0, (int) data_get($apiLog?->result_summary_json, 'prompt.estimated_tokens_saved'));
+        $this->assertArrayNotHasKey('prompt_section', $apiLog?->result_summary_json ?? []);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($apiLog?->query_json, 'objective_hash'));
         $this->assertTrue(data_get($apiLog?->query_json, 'objective_excerpt_redacted'));
         $this->assertArrayNotHasKey('objective_excerpt', $apiLog?->query_json ?? []);

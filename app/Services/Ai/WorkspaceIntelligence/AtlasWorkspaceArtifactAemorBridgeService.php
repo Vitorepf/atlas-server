@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\WorkspaceIntelligence;
 
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 
 final class AtlasWorkspaceArtifactAemorBridgeService
@@ -40,10 +41,10 @@ final class AtlasWorkspaceArtifactAemorBridgeService
             ];
         }
 
-        $workspaceId = $this->stringValue($workroom['workspace_id'] ?? null) ?? 'unknown';
-        $artifactHash = $this->stringValue($workroom['artifact_hash'] ?? null) ?? 'unknown';
-        $artifactType = $this->stringValue($workroom['artifact_type'] ?? null) ?? 'unknown';
-        $eventHash = $this->stringValue($timelineEvent['event_hash'] ?? null) ?? hash('sha256', $artifactHash.$outcomeStatus.$summary);
+        $workspaceId = AiValueNormalizer::trimmedScalarStringOrNull($workroom['workspace_id'] ?? null) ?? 'unknown';
+        $artifactHash = AiValueNormalizer::trimmedScalarStringOrNull($workroom['artifact_hash'] ?? null) ?? 'unknown';
+        $artifactType = AiValueNormalizer::trimmedScalarStringOrNull($workroom['artifact_type'] ?? null) ?? 'unknown';
+        $eventHash = AiValueNormalizer::trimmedScalarStringOrNull($timelineEvent['event_hash'] ?? null) ?? hash('sha256', $artifactHash.$outcomeStatus.$summary);
         $evidenceRefs = [
             'awis_artifact:'.$artifactHash,
             'awis_artifact_timeline:'.$eventHash,
@@ -178,13 +179,4 @@ final class AtlasWorkspaceArtifactAemorBridgeService
         ];
     }
 
-    private function stringValue(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-        $value = trim((string) $value);
-
-        return $value === '' ? null : $value;
-    }
 }

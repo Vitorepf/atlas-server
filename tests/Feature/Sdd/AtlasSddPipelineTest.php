@@ -115,7 +115,7 @@ class AtlasSddPipelineTest extends TestCase
             {
                 public function __construct() {}
 
-                public function summary(): array
+                public function summary(array $options = []): array
                 {
                     return ['status' => 'ready', 'module_count' => 23, 'symbol_count' => 39419];
                 }

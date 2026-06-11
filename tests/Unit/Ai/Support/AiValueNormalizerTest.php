@@ -17,4 +17,14 @@ final class AiValueNormalizerTest extends TestCase
         $this->assertNull(AiValueNormalizer::trimmedStringOrNull(42));
         $this->assertNull(AiValueNormalizer::trimmedStringOrNull(null));
     }
+
+    public function test_trimmed_scalar_string_or_null_preserves_scalar_cast_contract(): void
+    {
+        $this->assertSame('alpha', AiValueNormalizer::trimmedScalarStringOrNull(' alpha '));
+        $this->assertSame('42', AiValueNormalizer::trimmedScalarStringOrNull(42));
+        $this->assertSame('1', AiValueNormalizer::trimmedScalarStringOrNull(true));
+        $this->assertNull(AiValueNormalizer::trimmedScalarStringOrNull(false));
+        $this->assertNull(AiValueNormalizer::trimmedScalarStringOrNull('   '));
+        $this->assertNull(AiValueNormalizer::trimmedScalarStringOrNull([]));
+    }
 }

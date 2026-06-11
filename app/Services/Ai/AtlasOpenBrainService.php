@@ -3,6 +3,7 @@
 namespace App\Services\Ai;
 
 use App\Models\AtlasOpenBrainAccessLog;
+use App\Services\Ai\ValueObjects\AiContextPack;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use Illuminate\Support\Facades\Schema;
 
@@ -60,6 +61,15 @@ class AtlasOpenBrainService
         if (is_array($contextPack['context_delivery_policy'] ?? null)) {
             $summary['context_delivery_policy'] = $this->contextDeliveryPolicySummary((array) $contextPack['context_delivery_policy']);
         }
+
+        $promptSection = null;
+        if ((bool) ($data['include_prompt'] ?? false)) {
+            $promptMode = $this->promptMode($data);
+            $promptSection = $this->promptSection($pack, $promptMode);
+            $fullPromptSection = $promptMode === 'compact' ? $pack->toPromptSection() : null;
+            $summary['prompt'] = $this->promptMetrics($promptSection, $promptMode, $fullPromptSection);
+        }
+
         $auditTableExists = Schema::hasTable('atlas_open_brain_access_logs');
         $safety = $this->safetySummary($summary, $auditTableExists, $auditTableExists ? $hash : null);
 
@@ -103,8 +113,8 @@ class AtlasOpenBrainService
             'audit' => $audit,
         ];
 
-        if ((bool) ($data['include_prompt'] ?? false)) {
-            $result['prompt_section'] = $pack->toPromptSection();
+        if ($promptSection !== null) {
+            $result['prompt_section'] = $promptSection;
         }
 
         return $result;
@@ -142,7 +152,7 @@ class AtlasOpenBrainService
      */
     private function safetySummary(array $summary, bool $auditPersisted, ?string $persistedContextPackHash): array
     {
-        return [
+        $safety = [
             'schema_version' => 'atlas.open_brain.context_pack_safety.v1',
             'provider_safe_only' => true,
             'provider_export_allowed' => true,
@@ -159,6 +169,17 @@ class AtlasOpenBrainService
             'verbatim_count' => (int) ($summary['verbatim_count'] ?? 0),
             'semantic_count' => (int) ($summary['semantic_count'] ?? 0),
         ];
+
+        if (is_array($summary['prompt'] ?? null)) {
+            $safety['prompt_mode'] = (string) data_get($summary, 'prompt.mode', 'unknown');
+            $safety['prompt_chars'] = (int) data_get($summary, 'prompt.chars', 0);
+            $safety['prompt_estimated_tokens'] = (int) data_get($summary, 'prompt.estimated_tokens', 0);
+            $safety['prompt_saved_chars'] = (int) data_get($summary, 'prompt.saved_chars', 0);
+            $safety['prompt_estimated_tokens_saved'] = (int) data_get($summary, 'prompt.estimated_tokens_saved', 0);
+            $safety['prompt_raw_prompt_persisted'] = false;
+        }
+
+        return $safety;
     }
 
     /**
@@ -191,6 +212,87 @@ class AtlasOpenBrainService
         $workspace = trim((string) $workspace);
 
         return realpath($workspace) ?: $workspace;
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     */
+    private function promptMode(array $data): string
+    {
+        $mode = $data['prompt_mode'] ?? data_get($data, 'options.prompt_mode');
+        if (is_scalar($mode) && trim((string) $mode) === 'full') {
+            return 'full';
+        }
+
+        return 'compact';
+    }
+
+    private function promptSection(AiContextPack $pack, string $mode): string
+    {
+        return $mode === 'full'
+            ? $pack->toPromptSection()
+            : $pack->toCompactPromptSection();
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function promptMetrics(string $promptSection, string $mode, ?string $fullPromptSection = null): array
+    {
+        $chars = $this->charCount($promptSection);
+        $lines = $this->lineCount($promptSection);
+        $estimatedTokens = $this->estimatedTokens($chars);
+        $fullChars = $fullPromptSection === null ? $chars : $this->charCount($fullPromptSection);
+        $fullLines = $fullPromptSection === null ? $lines : $this->lineCount($fullPromptSection);
+        $fullEstimatedTokens = $this->estimatedTokens($fullChars);
+        $savedChars = max(0, $fullChars - $chars);
+        $savedLines = max(0, $fullLines - $lines);
+        $savedTokens = max(0, $fullEstimatedTokens - $estimatedTokens);
+
+        return [
+            'schema_version' => 'atlas.open_brain.prompt_metrics.v1',
+            'mode' => $mode,
+            'baseline_mode' => 'full',
+            'chars' => $chars,
+            'lines' => $lines,
+            'estimated_token_chars_per_token' => 4,
+            'estimated_tokens' => $estimatedTokens,
+            'full_chars' => $fullChars,
+            'full_lines' => $fullLines,
+            'full_estimated_tokens' => $fullEstimatedTokens,
+            'saved_chars' => $savedChars,
+            'saved_lines' => $savedLines,
+            'estimated_tokens_saved' => $savedTokens,
+            'compact_to_full_ratio' => $fullChars > 0 ? round($chars / $fullChars, 4) : null,
+            'savings_ratio' => $fullChars > 0 ? round($savedChars / $fullChars, 4) : 0.0,
+            'raw_prompt_persisted' => false,
+            'raw_bodies_deferred' => $mode === 'compact',
+            'expansion_handle_count' => $this->expansionHandleCount($promptSection),
+            'baseline_generated_for_metrics_only' => $fullPromptSection !== null,
+            'provider_safe' => true,
+        ];
+    }
+
+    private function charCount(string $value): int
+    {
+        return mb_strlen($value);
+    }
+
+    private function lineCount(string $value): int
+    {
+        return $value === '' ? 0 : substr_count($value, "\n") + 1;
+    }
+
+    private function estimatedTokens(int $chars): int
+    {
+        return (int) ceil($chars / 4);
+    }
+
+    private function expansionHandleCount(string $promptSection): int
+    {
+        preg_match_all('/\b(?:expand|recheck):[a-z0-9_.:-]+/i', $promptSection, $matches);
+
+        return count(array_unique($matches[0] ?? []));
     }
 
     /**

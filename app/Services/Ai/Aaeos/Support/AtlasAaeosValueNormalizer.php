@@ -17,6 +17,28 @@ final class AtlasAaeosValueNormalizer
         return $trimmed === '' ? null : $trimmed;
     }
 
+    public static function lowerStringOrNull(mixed $value): ?string
+    {
+        $string = self::stringOrNull($value);
+
+        return $string === null ? null : strtolower($string);
+    }
+
+    public static function trimmedString(mixed $value): string
+    {
+        return is_string($value) ? trim($value) : '';
+    }
+
+    public static function lowerString(mixed $value): string
+    {
+        return strtolower(self::trimmedString($value));
+    }
+
+    public static function isNonBlankString(mixed $value): bool
+    {
+        return self::stringOrNull($value) !== null;
+    }
+
     public static function riskCodeR0ToR5(mixed $value, string $fallback): string
     {
         $risk = strtoupper(is_string($value) ? trim($value) : '');

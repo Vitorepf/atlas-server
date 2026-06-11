@@ -9,6 +9,7 @@ use App\Models\AtlasEngineeringKnowledgeItem;
 use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
+use App\Models\AtlasOpenBrainAccessLog;
 use App\Models\AtlasTask;
 use App\Models\AtlasTaskEvent;
 use App\Services\Ai\AtlasOpenBrainMcpService;
@@ -49,6 +50,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
     protected function tearDown(): void
     {
         Schema::dropIfExists('atlas_aobg_blackboard');
+        Schema::dropIfExists('atlas_open_brain_access_logs');
         Schema::dropIfExists('atlas_ledger_events');
         Schema::dropIfExists('ai_inbox_items');
         $this->dropAtlasTaskTables();
@@ -223,12 +225,14 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         // + AOBG N1.F2 governed write-back tools (atlas_record_outcome, atlas_propose_learning) = 52,
         // + AOBG N1.F3 multi-project workspace status/activation/map tools = 55,
         // + AOBG N2.F4 blackboard coordination tools (atlas_claim_task, atlas_blackboard_status) = 57,
-        // + AOBG N3.F4 operator-surface obra status tool (atlas_obra_status) = 58.
-        $this->assertCount(58, $structured['tools']);
+        // + AOBG N3.F4 operator-surface obra status tool (atlas_obra_status) = 58,
+        // + Open Brain on-demand context expansion tool (atlas_context_expand) = 59.
+        $this->assertCount(59, $structured['tools']);
         $this->assertContains('atlas_aurg_query', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_mission_history', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_obra_status', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_context_pack', array_column($structured['tools'], 'name'));
+        $this->assertContains('atlas_context_expand', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_record_outcome', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_propose_learning', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_workspace_status', array_column($structured['tools'], 'name'));
@@ -513,6 +517,150 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
             './bin/atlas engineering knowledge index-code --prune --workspace="'.base_path().'" --summary-only --json',
             $structured['next_actions'],
         );
+    }
+
+    public function test_memory_maintenance_status_summarizes_open_brain_prompt_metrics(): void
+    {
+        $this->createOpenBrainAuditTable();
+        AtlasOpenBrainAccessLog::query()->create([
+            'surface' => 'mcp',
+            'requester' => 'codex',
+            'action' => 'context_pack_export',
+            'status' => 'completed',
+            'workspace_hash' => hash('sha256', base_path()),
+            'workspace_label' => basename(base_path()),
+            'context_pack_hash' => str_repeat('a', 64),
+            'context_refs_count' => 4,
+            'memory_refs_count' => 2,
+            'provider_safe' => true,
+            'query_json' => ['objective_hash' => str_repeat('b', 64)],
+            'result_summary_json' => [
+                'prompt' => [
+                    'schema_version' => 'atlas.open_brain.prompt_metrics.v1',
+                    'mode' => 'compact',
+                    'chars' => 5000,
+                    'lines' => 80,
+                    'estimated_tokens' => 1250,
+                    'full_chars' => 20000,
+                    'saved_chars' => 15000,
+                    'estimated_tokens_saved' => 3750,
+                    'savings_ratio' => 0.75,
+                    'compact_to_full_ratio' => 0.25,
+                    'raw_prompt_persisted' => false,
+                ],
+                'safety' => ['prompt_raw_prompt_persisted' => false],
+            ],
+            'metadata' => ['schema_version' => 1],
+            'accessed_at' => now(),
+        ]);
+        AtlasOpenBrainAccessLog::query()->create([
+            'surface' => 'mcp',
+            'requester' => 'audit',
+            'action' => 'context_pack_export',
+            'status' => 'completed',
+            'workspace_hash' => hash('sha256', base_path()),
+            'workspace_label' => basename(base_path()),
+            'context_pack_hash' => str_repeat('c', 64),
+            'context_refs_count' => 4,
+            'memory_refs_count' => 2,
+            'provider_safe' => true,
+            'query_json' => ['objective_hash' => str_repeat('d', 64)],
+            'result_summary_json' => [
+                'prompt' => [
+                    'schema_version' => 'atlas.open_brain.prompt_metrics.v1',
+                    'mode' => 'full',
+                    'chars' => 20000,
+                    'lines' => 300,
+                    'estimated_tokens' => 5000,
+                    'full_chars' => 20000,
+                    'saved_chars' => 0,
+                    'estimated_tokens_saved' => 0,
+                    'savings_ratio' => 0.0,
+                    'compact_to_full_ratio' => 1.0,
+                    'raw_prompt_persisted' => false,
+                ],
+                'safety' => ['prompt_raw_prompt_persisted' => false],
+            ],
+            'metadata' => ['schema_version' => 1],
+            'accessed_at' => now()->subMinute(),
+        ]);
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $structured = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 768,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_memory_maintenance_status',
+                'arguments' => ['workspace' => base_path()],
+            ],
+        ])['result']['structuredContent'];
+
+        $metrics = $structured['open_brain_prompt_metrics'];
+        $this->assertSame('atlas.open_brain.prompt_metric_aggregate.v1', $metrics['schema_version']);
+        $this->assertSame('ready', $metrics['status']);
+        $this->assertSame(2, $metrics['observed_count']);
+        $this->assertSame(1, $metrics['compact_count']);
+        $this->assertSame(1, $metrics['full_count']);
+        $this->assertSame(0, $metrics['raw_prompt_persistence_violation_count']);
+        $this->assertSame(7500.0, $metrics['averages']['saved_chars']);
+        $this->assertSame(15000.0, $metrics['compact']['avg_saved_chars']);
+        $this->assertSame('compact', data_get($metrics, 'latest.mode'));
+    }
+
+    public function test_memory_maintenance_status_flags_raw_prompt_metric_violation(): void
+    {
+        $this->createOpenBrainAuditTable();
+        AtlasOpenBrainAccessLog::query()->create([
+            'surface' => 'mcp',
+            'requester' => 'legacy',
+            'action' => 'context_pack_export',
+            'status' => 'completed',
+            'workspace_hash' => hash('sha256', base_path()),
+            'workspace_label' => basename(base_path()),
+            'context_pack_hash' => str_repeat('e', 64),
+            'context_refs_count' => 1,
+            'memory_refs_count' => 1,
+            'provider_safe' => true,
+            'query_json' => ['objective_hash' => str_repeat('f', 64)],
+            'result_summary_json' => [
+                'prompt_section' => 'raw prompt must never be persisted',
+                'prompt' => [
+                    'schema_version' => 'atlas.open_brain.prompt_metrics.v1',
+                    'mode' => 'compact',
+                    'chars' => 9000,
+                    'lines' => 120,
+                    'estimated_tokens' => 2250,
+                    'full_chars' => 10000,
+                    'saved_chars' => 1000,
+                    'estimated_tokens_saved' => 250,
+                    'savings_ratio' => 0.1,
+                    'compact_to_full_ratio' => 0.9,
+                    'raw_prompt_persisted' => true,
+                ],
+                'safety' => ['prompt_raw_prompt_persisted' => true],
+            ],
+            'metadata' => ['schema_version' => 1],
+            'accessed_at' => now(),
+        ]);
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $structured = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 769,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_memory_maintenance_status',
+                'arguments' => ['workspace' => base_path()],
+            ],
+        ])['result']['structuredContent'];
+
+        $metrics = $structured['open_brain_prompt_metrics'];
+        $this->assertSame('critical', $metrics['status']);
+        $this->assertSame(1, $metrics['raw_prompt_persistence_violation_count']);
+        $this->assertContains('raw_prompt_persistence_detected', data_get($metrics, 'review_signal.reasons'));
+        $this->assertContains('compact_prompt_savings_below_threshold', data_get($metrics, 'review_signal.reasons'));
+        $this->assertContains('Review open_brain_prompt_metrics before changing prompt delivery policy.', $structured['next_actions']);
     }
 
     public function test_architecture_readiness_tool_exposes_preimplementation_snapshot(): void
@@ -3100,6 +3248,13 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
     {
         Schema::dropIfExists('atlas_aobg_blackboard');
         $migration = require database_path('migrations/2026_06_10_120000_create_atlas_aobg_blackboard_table.php');
+        $migration->up();
+    }
+
+    private function createOpenBrainAuditTable(): void
+    {
+        Schema::dropIfExists('atlas_open_brain_access_logs');
+        $migration = require database_path('migrations/2026_05_03_130000_create_atlas_open_brain_access_logs_table.php');
         $migration->up();
     }
 

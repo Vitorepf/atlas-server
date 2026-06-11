@@ -154,6 +154,309 @@ final class AtlasBlogEditorialPlanCommandTest extends TestCase
         $this->assertContains('docs/engineering-knowledge-base/memory/contracts.md', $candidateRefs);
     }
 
+    public function test_source_map_reports_available_and_future_governed_editorial_sources(): void
+    {
+        $this->bootContextReadModels();
+        $this->seedContextReadModels();
+        $this->writeBacklog();
+        $this->writePublishedPosts([]);
+
+        $exit = Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--source-map' => true,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('read_only_governed_p1', $payload['mode']);
+        $this->assertTrue(data_get($payload, 'summary.with_source_map'));
+        $this->assertSame('atlas.blog_editorial_source_map.v1', data_get($payload, 'source_map.schema_version'));
+        $this->assertSame('ready', data_get($payload, 'source_map.sources.engineering_knowledge.status'));
+        $this->assertSame('ready', data_get($payload, 'source_map.sources.code_intelligence.status'));
+        $this->assertSame('available_contract', data_get($payload, 'source_map.sources.open_brain_context_pack.status'));
+        $this->assertSame('future_governed', data_get($payload, 'source_map.sources.graph_retrieval.status'));
+        $this->assertFalse(data_get($payload, 'source_map.guardrails.uses_graph_rag'));
+
+        $firstDirective = data_get($payload, 'source_map.post_source_directives.0');
+        $this->assertSame('o-que-e-o-atlas', data_get($firstDirective, 'slug'));
+        $this->assertContains('engineering_knowledge', data_get($firstDirective, 'required_sources'));
+        $this->assertContains('graph_retrieval', data_get($firstDirective, 'deferred_sources'));
+    }
+
+    public function test_source_map_reconciles_external_public_archive_posts_with_planned_backlog(): void
+    {
+        $this->writeBacklog([
+            [
+                'order' => 1,
+                'title' => 'O que e o Atlas',
+                'slug' => 'o-que-e-o-atlas',
+                'complexity_level' => 'L0',
+                'collection' => 'atlas',
+                'series' => 'building-atlas',
+                'prerequisites' => [],
+            ],
+            [
+                'order' => 2,
+                'title' => 'Memoria como problema de banco de dados',
+                'slug' => 'memoria-como-problema-de-banco-de-dados',
+                'complexity_level' => 'L3',
+                'collection' => 'ia-pessoal',
+                'series' => 'agent-memory',
+                'prerequisites' => ['o-que-e-o-atlas'],
+            ],
+        ]);
+        File::put($this->siteRoot.'/src/data/site.js', <<<'JS'
+export const collections = [];
+export const posts = [
+  {
+    slug: "memory-is-a-database-problem",
+    kind: "essay",
+    date: "2026-05-12",
+    reading: 11,
+    tags: ["atlas", "memory", "local-first"],
+    collection: "atlas",
+    series: "building-atlas",
+    original: "pt",
+    en: { title: "Memory is a database problem", excerpt: "Most AI memory is a pile of embeddings." },
+    pt: { title: "Memória é um problema de banco de dados", excerpt: "O Atlas trata memoria como ledger." },
+  },
+];
+JS);
+
+        $exit = Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--source-map' => true,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(1, data_get($payload, 'source_map.archive_reconciliation.external_published_count'));
+        $this->assertSame('memory-is-a-database-problem', data_get($payload, 'source_map.archive_reconciliation.external_published.0.slug'));
+        $this->assertSame('Memória é um problema de banco de dados', data_get($payload, 'source_map.archive_reconciliation.external_published.0.title'));
+        $this->assertSame('memory-is-a-database-problem', data_get($payload, 'source_map.archive_reconciliation.bridge_candidates.0.published_slug'));
+        $this->assertSame('memoria-como-problema-de-banco-de-dados', data_get($payload, 'source_map.archive_reconciliation.bridge_candidates.0.matched_planned_slug'));
+        $this->assertContains(data_get($payload, 'source_map.archive_reconciliation.bridge_candidates.0.suggested_action'), [
+            'review_for_duplicate_or_rewrite',
+            'link_as_prior_artifact',
+        ]);
+    }
+
+    public function test_coverage_map_reports_foundation_and_next_safe_arcs(): void
+    {
+        $this->writeFirstMonthFoundationBacklog();
+        $this->writePublishedPosts(['o-que-e-o-atlas', 'por-que-estou-construindo-o-atlas']);
+
+        $exit = Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--coverage-map' => true,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('read_only_governed_p1', $payload['mode']);
+        $this->assertTrue(data_get($payload, 'summary.with_coverage_map'));
+        $this->assertSame('atlas.blog_editorial_coverage_map.v1', data_get($payload, 'coverage_map.schema_version'));
+        $this->assertSame(20, data_get($payload, 'coverage_map.summary.foundation_items'));
+        $this->assertSame(20, data_get($payload, 'coverage_map.summary.foundation_planned'));
+        $this->assertSame(2, data_get($payload, 'coverage_map.summary.foundation_published'));
+        $this->assertSame(0, data_get($payload, 'coverage_map.summary.deep_sequence_warning_count'));
+        $this->assertFalse(data_get($payload, 'coverage_map.guardrails.uses_graph_rag'));
+
+        $readyArcs = collect(data_get($payload, 'coverage_map.next_safe_arcs', []))
+            ->where('ready_after_first_month', true)
+            ->pluck('arc')
+            ->all();
+
+        $this->assertContains('knowledge_governance', $readyArcs);
+        $this->assertContains('capture_inbox', $readyArcs);
+    }
+
+    public function test_coverage_map_warns_when_deep_post_appears_without_foundation(): void
+    {
+        $this->writeBacklog([
+            [
+                'order' => 1,
+                'title' => 'Memoria como ledger',
+                'slug' => 'memoria-como-ledger',
+                'complexity_level' => 'L3',
+                'collection' => 'ia-pessoal',
+                'series' => 'agent-memory',
+                'prerequisites' => [],
+            ],
+        ]);
+        $this->writePublishedPosts([]);
+
+        $exit = Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--coverage-map' => true,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(1, data_get($payload, 'coverage_map.summary.deep_sequence_warning_count'));
+        $this->assertSame('deep_post_without_prior_foundation', data_get($payload, 'coverage_map.deep_sequence_warnings.0.code'));
+    }
+
+    public function test_writing_packet_prepares_next_ready_post_without_writing(): void
+    {
+        $this->bootContextReadModels();
+        $this->seedContextReadModels();
+        $this->writeBacklog();
+        $this->writePublishedPosts([]);
+
+        $exit = Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--writing-packet' => true,
+            '--context-limit' => 3,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('read_only_governed_p1', $payload['mode']);
+        $this->assertTrue(data_get($payload, 'summary.with_writing_packet'));
+        $this->assertSame('atlas.blog_editorial_writing_packet.v1', data_get($payload, 'writing_packet.schema_version'));
+        $this->assertSame('o-que-e-o-atlas', data_get($payload, 'writing_packet.post.slug'));
+        $this->assertSame('pt-BR', data_get($payload, 'writing_packet.writing_brief.language'));
+        $this->assertFalse(data_get($payload, 'writing_packet.guardrails.writes_draft'));
+        $this->assertFalse(data_get($payload, 'writing_packet.guardrails.publishes_content'));
+        $this->assertFalse(data_get($payload, 'writing_packet.guardrails.generates_full_article'));
+        $this->assertContains('Nao expor paths locais, tokens, prompts, traces ou detalhes privados.', data_get($payload, 'writing_packet.writing_brief.must_not_include'));
+    }
+
+    public function test_writing_packet_can_target_specific_planned_slug(): void
+    {
+        $this->writeBacklog();
+        $this->writePublishedPosts([]);
+
+        $exit = Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--writing-packet' => true,
+            '--writing-slug' => 'por-que-estou-construindo-o-atlas',
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('por-que-estou-construindo-o-atlas', data_get($payload, 'writing_packet.post.slug'));
+        $this->assertSame('o-que-e-o-atlas', data_get($payload, 'writing_packet.sequence.previous_post.slug'));
+        $this->assertSame('o-problema-dos-assistentes-de-ia-hoje', data_get($payload, 'writing_packet.sequence.next_post.slug'));
+    }
+
+    public function test_writing_packet_includes_prior_public_archive_artifacts(): void
+    {
+        $this->writeBacklog([
+            [
+                'order' => 1,
+                'title' => 'O que e o Atlas',
+                'slug' => 'o-que-e-o-atlas',
+                'complexity_level' => 'L0',
+                'collection' => 'atlas',
+                'series' => 'building-atlas',
+                'prerequisites' => [],
+            ],
+            [
+                'order' => 2,
+                'title' => 'Memoria como problema de banco de dados',
+                'slug' => 'memoria-como-problema-de-banco-de-dados',
+                'complexity_level' => 'L3',
+                'collection' => 'ia-pessoal',
+                'series' => 'agent-memory',
+                'prerequisites' => ['o-que-e-o-atlas'],
+            ],
+        ]);
+        File::put($this->siteRoot.'/src/data/site.js', <<<'JS'
+export const collections = [];
+export const posts = [
+  {
+    slug: "memory-is-a-database-problem",
+    kind: "essay",
+    date: "2026-05-12",
+    tags: ["atlas", "memory", "database"],
+    collection: "atlas",
+    series: "building-atlas",
+    pt: { title: "Memória é um problema de banco de dados", excerpt: "Memoria como estrutura." },
+    en: { title: "Memory is a database problem", excerpt: "Memory as structure." },
+  },
+];
+JS);
+
+        $exit = Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--writing-packet' => true,
+            '--writing-slug' => 'memoria-como-problema-de-banco-de-dados',
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('atlas.blog_editorial_public_archive_context.v1', data_get($payload, 'writing_packet.public_archive_context.schema_version'));
+        $this->assertSame('memory-is-a-database-problem', data_get($payload, 'writing_packet.public_archive_context.prior_public_artifacts.0.published_slug'));
+        $this->assertSame('memoria-como-problema-de-banco-de-dados', data_get($payload, 'writing_packet.public_archive_context.prior_public_artifacts.0.matched_planned_slug'));
+        $this->assertGreaterThanOrEqual(1, data_get($payload, 'writing_packet.public_archive_context.duplicate_risk_count'));
+    }
+
+    public function test_operations_packet_reports_daily_next_action_without_writing(): void
+    {
+        $this->bootContextReadModels();
+        $this->seedContextReadModels();
+        $this->writeBacklog();
+        $this->writePublishedPosts([]);
+
+        $exit = Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--operations' => true,
+            '--candidate-limit' => 3,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('read_only_governed_p1', $payload['mode']);
+        $this->assertTrue(data_get($payload, 'summary.with_operations_packet'));
+        $this->assertSame('atlas.blog_editorial_operations_packet.v1', data_get($payload, 'operations_packet.schema_version'));
+        $this->assertSame('prepare_next_post', data_get($payload, 'operations_packet.next_action.action'));
+        $this->assertSame('o-que-e-o-atlas', data_get($payload, 'operations_packet.next_action.slug'));
+        $this->assertSame('o-que-e-o-atlas', data_get($payload, 'operations_packet.writing_packet.post.slug'));
+        $this->assertSame('future_governed', data_get($payload, 'operations_packet.source_snapshot.graph_retrieval_status'));
+        $this->assertGreaterThanOrEqual(1, data_get($payload, 'operations_packet.candidate_feed.candidate_count'));
+        $this->assertFalse(data_get($payload, 'operations_packet.guardrails.writes_backlog'));
+        $this->assertFalse(data_get($payload, 'operations_packet.guardrails.publishes_content'));
+        $this->assertFalse(data_get($payload, 'operations_packet.guardrails.uses_graph_rag'));
+    }
+
+    public function test_writing_packet_reports_unknown_slug_without_writing(): void
+    {
+        $this->writeBacklog();
+        $this->writePublishedPosts([]);
+
+        $exit = Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--writing-packet' => true,
+            '--writing-slug' => 'nao-existe',
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('failed', data_get($payload, 'writing_packet.status'));
+        $this->assertSame('writing_slug_not_found', data_get($payload, 'writing_packet.error'));
+        $this->assertFalse(data_get($payload, 'writing_packet.guardrails.writes_draft'));
+    }
+
     public function test_accept_candidate_dry_run_does_not_write_review_queue(): void
     {
         $this->bootContextReadModels();
@@ -199,6 +502,61 @@ final class AtlasBlogEditorialPlanCommandTest extends TestCase
         $this->assertStringContainsString('slug: "memory-ledger-contract"', File::get($this->siteRoot.'/content/backlog/blog-candidates.yaml'));
     }
 
+    public function test_promote_candidate_dry_run_does_not_write_main_backlog(): void
+    {
+        $this->bootContextReadModels();
+        $this->seedContextReadModels();
+        $this->writeBacklog();
+        $this->writePublishedPosts([]);
+        $this->acceptCandidateIntoReviewQueue();
+        $before = File::get($this->siteRoot.'/content/backlog/blog-first-month.yaml');
+
+        $exit = Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--promote-candidate' => 'memory-ledger-contract',
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('dry_run_main_backlog_p1', data_get($payload, 'candidate_promotion.mode'));
+        $this->assertFalse(data_get($payload, 'candidate_promotion.write'));
+        $this->assertFalse(data_get($payload, 'candidate_promotion.guardrails.writes_main_backlog'));
+        $this->assertSame($before, File::get($this->siteRoot.'/content/backlog/blog-first-month.yaml'));
+        $this->assertStringContainsString('slug: "memory-ledger-contract"', data_get($payload, 'candidate_promotion.yaml_snippet'));
+        $this->assertSame(4, data_get($payload, 'candidate_promotion.new_order'));
+    }
+
+    public function test_promote_candidate_with_write_appends_to_main_backlog(): void
+    {
+        $this->bootContextReadModels();
+        $this->seedContextReadModels();
+        $this->writeBacklog();
+        $this->writePublishedPosts([]);
+        $this->acceptCandidateIntoReviewQueue();
+
+        $exit = Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--promote-candidate' => 'memory-ledger-contract',
+            '--write' => true,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('explicit_write_main_backlog_p1', data_get($payload, 'candidate_promotion.mode'));
+        $this->assertTrue(data_get($payload, 'candidate_promotion.guardrails.writes_main_backlog'));
+        $backlog = File::get($this->siteRoot.'/content/backlog/blog-first-month.yaml');
+        $this->assertStringContainsString('theme: "Fila revisada"', $backlog);
+        $this->assertStringContainsString('slug: "memory-ledger-contract"', $backlog);
+
+        $payload = $this->runPlanner();
+        $this->assertSame('ready', $payload['status']);
+        $this->assertSame(4, data_get($payload, 'summary.planned_posts'));
+    }
+
     /**
      * @param  array<int,array<string,mixed>>|null  $posts
      */
@@ -235,14 +593,18 @@ final class AtlasBlogEditorialPlanCommandTest extends TestCase
                     ? '        prerequisites: []'
                     : "        prerequisites:\n{$prerequisites}";
 
+                $complexity = (string) ($post['complexity_level'] ?? 'L0');
+                $collection = (string) ($post['collection'] ?? 'atlas');
+                $series = (string) ($post['series'] ?? 'building-atlas');
+
                 return <<<YAML
       - order: {$post['order']}
         title: "{$post['title']}"
         slug: "{$post['slug']}"
         type: "essay"
-        complexity_level: "L0"
-        collection: "atlas"
-        series: "building-atlas"
+        complexity_level: "{$complexity}"
+        collection: "{$collection}"
+        series: "{$series}"
         reader_level: "beginner"
         goal: "Test goal"
         main_question: "Test question?"
@@ -271,6 +633,47 @@ weeks:
     posts:
 {$encodedPosts}
 YAML);
+    }
+
+    private function writeFirstMonthFoundationBacklog(): void
+    {
+        $slugs = [
+            ['O que e o Atlas', 'o-que-e-o-atlas', 'L0', 'atlas', 'building-atlas'],
+            ['Por que estou construindo o Atlas', 'por-que-estou-construindo-o-atlas', 'L0', 'atlas', 'building-atlas'],
+            ['O problema dos assistentes de IA hoje', 'o-problema-dos-assistentes-de-ia-hoje', 'L1', 'ia-pessoal', 'building-atlas'],
+            ['A diferenca entre chatbot e sistema pessoal', 'a-diferenca-entre-chatbot-e-sistema-pessoal', 'L1', 'ia-pessoal', 'building-atlas'],
+            ['O que o Atlas nao e', 'o-que-o-atlas-nao-e', 'L0', 'atlas', 'building-atlas'],
+            ['Por que IA pessoal precisa conhecer contexto', 'por-que-ia-pessoal-precisa-conhecer-contexto', 'L1', 'ia-pessoal', 'building-atlas'],
+            ['O que significa local-first', 'o-que-significa-local-first', 'L1', 'atlas', 'building-atlas'],
+            ['Por que privacidade muda tudo', 'por-que-privacidade-muda-tudo', 'L1', 'ia-pessoal', 'building-atlas'],
+            ['Por que controle importa mais que conveniencia', 'por-que-controle-importa-mais-que-conveniencia', 'L1', 'ia-pessoal', 'building-atlas'],
+            ['O vocabulario do Atlas', 'o-vocabulario-do-atlas', 'L0', 'atlas', 'building-atlas'],
+            ['O problema da memoria em IA', 'o-problema-da-memoria-em-ia', 'L1', 'ia-pessoal', 'agent-memory'],
+            ['Por que lembrar tudo e ruim', 'por-que-lembrar-tudo-e-ruim', 'L2', 'ia-pessoal', 'agent-memory'],
+            ['A diferenca entre conversa memoria e conhecimento', 'a-diferenca-entre-conversa-memoria-e-conhecimento', 'L2', 'ia-pessoal', 'agent-memory'],
+            ['Memoria como problema de banco de dados', 'memoria-como-problema-de-banco-de-dados', 'L3', 'ia-pessoal', 'agent-memory'],
+            ['Memoria como ledger', 'memoria-como-ledger', 'L3', 'ia-pessoal', 'agent-memory'],
+            ['O que sao agentes no Atlas', 'o-que-sao-agentes-no-atlas', 'L1', 'atlas', 'agent-governance'],
+            ['Por que agentes precisam de limites', 'por-que-agentes-precisam-de-limites', 'L2', 'atlas', 'agent-governance'],
+            ['O que e um mandato de agente', 'o-que-e-um-mandato-de-agente', 'L3', 'atlas', 'agent-governance'],
+            ['Por que dry-run e sandbox importam', 'por-que-dry-run-e-sandbox-importam', 'L3', 'atlas', 'agent-governance'],
+            ['Como o Atlas esta evoluindo', 'como-o-atlas-esta-evoluindo', 'L1', 'atlas', 'building-atlas'],
+        ];
+
+        $posts = [];
+        foreach ($slugs as $index => [$title, $slug, $complexity, $collection, $series]) {
+            $posts[] = [
+                'order' => $index + 1,
+                'title' => $title,
+                'slug' => $slug,
+                'complexity_level' => $complexity,
+                'collection' => $collection,
+                'series' => $series,
+                'prerequisites' => $index === 0 ? [] : [$slugs[$index - 1][1]],
+            ];
+        }
+
+        $this->writeBacklog($posts);
     }
 
     /**
@@ -303,6 +706,19 @@ JS);
         $this->assertSame(0, $exit);
 
         return json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+    }
+
+    private function acceptCandidateIntoReviewQueue(): void
+    {
+        $exit = Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--accept-candidate' => 'memory-ledger-contract',
+            '--write' => true,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $this->assertTrue(File::exists($this->siteRoot.'/content/backlog/blog-candidates.yaml'));
     }
 
     private function bootContextReadModels(): void

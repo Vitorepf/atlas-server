@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProject;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Carbon;
 
 /**
@@ -52,12 +53,7 @@ class AtlasCodeObraCommandCenterService
 
     public static function normalizeObraIdInput(mixed $value): ?string
     {
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
+        return AiValueNormalizer::trimmedStringOrNull($value);
     }
 
     /**
@@ -149,8 +145,8 @@ class AtlasCodeObraCommandCenterService
             'generated_at' => $generatedAt,
             'obra_id' => $obraId,
             'obra_present' => true,
-            'obra_title' => $this->stringOrNull($project->title) ?? 'Obra sem titulo',
-            'objective_summary' => $this->stringOrNull(
+            'obra_title' => AiValueNormalizer::trimmedStringOrNull($project->title) ?? 'Obra sem titulo',
+            'objective_summary' => AiValueNormalizer::trimmedStringOrNull(
                 $project->goal ?? $project->desired_outcome ?? $project->title
             ) ?? 'Sem objetivo declarado',
             'human_status_label' => (string) ($ux['human_status_label'] ?? 'Estado desconhecido'),
@@ -307,8 +303,8 @@ class AtlasCodeObraCommandCenterService
         }
 
         $obraId = (string) $project->getKey();
-        $proposalId = $this->stringOrNull($activationBlock['proposal_id'] ?? null);
-        $activationId = $this->stringOrNull($activationBlock['activation_id'] ?? null);
+        $proposalId = AiValueNormalizer::trimmedStringOrNull($activationBlock['proposal_id'] ?? null);
+        $activationId = AiValueNormalizer::trimmedStringOrNull($activationBlock['activation_id'] ?? null);
 
         $latestEntry = null;
         $deltaGrade = null;
@@ -322,8 +318,8 @@ class AtlasCodeObraCommandCenterService
             }
         }
         if (is_array($latestEntry)) {
-            $deltaGrade = $this->stringOrNull($latestEntry['delta_grade'] ?? null);
-            $resultEntryId = $this->stringOrNull($latestEntry['result_entry_id'] ?? null);
+            $deltaGrade = AiValueNormalizer::trimmedStringOrNull($latestEntry['delta_grade'] ?? null);
+            $resultEntryId = AiValueNormalizer::trimmedStringOrNull($latestEntry['result_entry_id'] ?? null);
         }
 
         $humanMessage = match (true) {
@@ -349,12 +345,12 @@ class AtlasCodeObraCommandCenterService
             'schema_version' => 'atlas.code.obra_command_center_self_improvement_origin.v1',
             'proposal_id' => $proposalId,
             'activation_id' => $activationId,
-            'before_snapshot_hash' => $this->stringOrNull($activationBlock['power_gate_hash'] ?? null),
-            'target_capability' => $this->stringOrNull($activationBlock['target_capability'] ?? null),
-            'expected_power_gain' => $this->stringOrNull($activationBlock['expected_power_gain'] ?? null),
-            'strategy_bucket' => $this->stringOrNull($activationBlock['strategy_bucket'] ?? null),
-            'reviewer' => $this->stringOrNull($activationBlock['reviewer'] ?? null),
-            'approved_at' => $this->stringOrNull($activationBlock['approved_at'] ?? null),
+            'before_snapshot_hash' => AiValueNormalizer::trimmedStringOrNull($activationBlock['power_gate_hash'] ?? null),
+            'target_capability' => AiValueNormalizer::trimmedStringOrNull($activationBlock['target_capability'] ?? null),
+            'expected_power_gain' => AiValueNormalizer::trimmedStringOrNull($activationBlock['expected_power_gain'] ?? null),
+            'strategy_bucket' => AiValueNormalizer::trimmedStringOrNull($activationBlock['strategy_bucket'] ?? null),
+            'reviewer' => AiValueNormalizer::trimmedStringOrNull($activationBlock['reviewer'] ?? null),
+            'approved_at' => AiValueNormalizer::trimmedStringOrNull($activationBlock['approved_at'] ?? null),
             'result_entry_id' => $resultEntryId,
             'delta_grade' => $deltaGrade,
             'human_message' => $humanMessage,
@@ -1080,13 +1076,4 @@ class AtlasCodeObraCommandCenterService
         };
     }
 
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
-    }
 }

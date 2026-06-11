@@ -92,7 +92,7 @@ final class AtlasForgeRivalsTrustedSignalGateService
         if ($this->scorePresent($scorecard) === false) {
             $blockers[] = 'scorecard_missing_arm_scores';
         }
-        if ($this->stringList($scorecard['hard_failures'] ?? []) !== []) {
+        if (AiStringListNormalizer::castItemsToStrings($scorecard['hard_failures'] ?? []) !== []) {
             $blockers[] = 'scorecard_has_hard_failures';
         }
 
@@ -256,11 +256,4 @@ final class AtlasForgeRivalsTrustedSignalGateService
             && is_numeric($scorecard['rival_score'] ?? null);
     }
 
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return AiStringListNormalizer::castItemsToStrings($value);
-    }
 }

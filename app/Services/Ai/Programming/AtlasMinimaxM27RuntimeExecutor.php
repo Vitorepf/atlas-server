@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming;
 
 use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Facades\Http;
 use Throwable;
 
@@ -94,9 +95,9 @@ class AtlasMinimaxM27RuntimeExecutor
         }
 
         $authMode = (string) ($config['auth_mode'] ?? self::AUTH_MODE_TOKEN_PLAN);
-        $tokenPlanKey = $this->nonEmptyString($config['token_plan_key'] ?? null);
+        $tokenPlanKey = AiValueNormalizer::trimmedStringOrNull($config['token_plan_key'] ?? null);
         $paygoEnabled = (bool) ($config['paygo_enabled'] ?? false);
-        $paygoKey = $this->nonEmptyString($config['paygo_api_key'] ?? null);
+        $paygoKey = AiValueNormalizer::trimmedStringOrNull($config['paygo_api_key'] ?? null);
 
         if ($authMode === self::AUTH_MODE_TOKEN_PLAN) {
             if ($tokenPlanKey === null) {
@@ -441,15 +442,6 @@ class AtlasMinimaxM27RuntimeExecutor
             return $pgKey !== null ? 'paygo_key_present' : 'missing';
         }
         return 'unknown';
-    }
-
-    private function nonEmptyString(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $v = trim($value);
-        return $v !== '' ? $v : null;
     }
 
     private function isHighspeedModel(string $model): bool

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+
 /**
  * Atlas AI Runtime Language Boundaries decider.
  *
@@ -320,7 +322,7 @@ final class AtlasAiRuntimeLanguageBoundariesService
 
         // The receipt hash is what proves the Kernel signed it: empty == unsigned.
         $kernelSigned = ! in_array('decision_receipt_hash', $missing, true)
-            && $this->nonEmptyString($payload['decision_receipt_hash'] ?? null);
+            && AtlasAaeosValueNormalizer::isNonBlankString($payload['decision_receipt_hash'] ?? null);
         if (! $kernelSigned) {
             $reasons[] = 'kernel_signature_missing:decision_receipt_hash';
         }
@@ -493,11 +495,6 @@ final class AtlasAiRuntimeLanguageBoundariesService
         }
 
         return $missing;
-    }
-
-    private function nonEmptyString(mixed $value): bool
-    {
-        return is_string($value) && trim($value) !== '';
     }
 
     private function normalize(string $value): string

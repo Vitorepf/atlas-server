@@ -7,6 +7,7 @@ namespace App\Services\Ai\Programming\ForgeRivals;
 use App\Services\Ai\Programming\AtlasForgeNativeRivalsPreflightService;
 use App\Services\Ai\Programming\AtlasForgeNativeRivalsProtocolService;
 use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * Atlas Forge Rivals · Preflight (v2 orchestration).
@@ -280,9 +281,9 @@ final class AtlasForgeRivalsPreflightService
      */
     private function resolveWorktrees(array $input): array
     {
-        $workspace = $this->stringOrNull($input['atlas_worktree'] ?? $input['workspace'] ?? null);
-        $baselineWorkspace = $this->stringOrNull($input['baseline_worktree'] ?? $input['baseline_workspace'] ?? null);
-        $runId = $this->stringOrNull($input['run_id'] ?? null);
+        $workspace = AiValueNormalizer::trimmedStringOrNull($input['atlas_worktree'] ?? $input['workspace'] ?? null);
+        $baselineWorkspace = AiValueNormalizer::trimmedStringOrNull($input['baseline_worktree'] ?? $input['baseline_workspace'] ?? null);
+        $runId = AiValueNormalizer::trimmedStringOrNull($input['run_id'] ?? null);
 
         if ($runId !== null && ($workspace === null || $baselineWorkspace === null)) {
             $paths = $this->paths->paths($runId);
@@ -293,8 +294,4 @@ final class AtlasForgeRivalsPreflightService
         return [$workspace, $baselineWorkspace];
     }
 
-    private function stringOrNull(mixed $value): ?string
-    {
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 }

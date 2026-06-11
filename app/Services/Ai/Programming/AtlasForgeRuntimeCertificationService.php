@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming;
 
 use App\Services\Ai\Kernel\Domain\AtlasAiDomainCatalogService;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Surface\DomainCatalogSurfaceSelectionService;
 use App\Services\Ai\Surface\SurfaceAdapterRegistry;
-use Illuminate\Support\Str;
 
 /**
  * Atlas Forge Runtime Certification.
@@ -37,7 +37,7 @@ class AtlasForgeRuntimeCertificationService
      */
     public function certify(array $options = []): array
     {
-        $obraId = $this->normalizeObraId($options['obra_id'] ?? null);
+        $obraId = AiValueNormalizer::trimmedStringOrNull($options['obra_id'] ?? null);
         $stages = [];
         $blockers = [];
 
@@ -363,17 +363,4 @@ class AtlasForgeRuntimeCertificationService
         return 'passed';
     }
 
-    private function normalizeObraId(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-
-        $value = trim($value);
-        if ($value === '') {
-            return null;
-        }
-
-        return Str::isUuid($value) ? $value : $value;
-    }
 }

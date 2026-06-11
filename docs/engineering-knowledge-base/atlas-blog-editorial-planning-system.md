@@ -18,12 +18,18 @@ capabilities:
   - prerequisite_gate
   - public_archive_sequence
   - governed_editorial_context_refs
+  - editorial_source_readiness_map
+  - public_archive_reconciliation
+  - public_archive_coverage_map
+  - governed_writing_packet
+  - daily_editorial_operations_packet
   - reviewable_backlog_candidate_suggestions
+  - reviewed_candidate_backlog_promotion
 decisions:
   - O blog e de Vitor Freire; Atlas e assunto/colecao, nao identidade total do site.
   - A ordem editorial deve ir do superficial ao profundo.
   - O Atlas pode planejar e sugerir, mas nao publicar sem aprovacao humana.
-  - P0 e deterministico/read-only; P1 anexa refs de KB/Code Intelligence existentes e sugere candidatos revisaveis; graph/RAG entra depois por AP-817 e runtime boundaries existentes.
+  - P0 e deterministico/read-only; P1 anexa refs de KB/Code Intelligence existentes, reconcilia o arquivo publico com o backlog planejado, expoe mapa de fontes editoriais, calcula cobertura editorial, prepara pacote privado de escrita, monta pacote operacional diario, sugere candidatos revisaveis e promove candidatos aceitos para o backlog somente com escrita explicita; graph/RAG entra depois por AP-817 e runtime boundaries existentes.
   - O sistema nao cria store paralelo de memoria, contexto, grafo ou publicacao.
 maintenance:
   - Atualizar quando mudar calendario, contrato editorial, comando, schema ou integracao com graph/RAG.
@@ -104,6 +110,8 @@ versions: []
 version_note:
 next_actions:
   - Evoluir P1 para context-pack hints sem escrever memoria.
+  - Evoluir pacote de escrita para seed privado revisavel, ainda sem artigo completo automatico.
+  - Manter promocao de candidatos append-only ate existir reordenacao segura.
 ---
 # Atlas Blog Editorial Planning System
 
@@ -155,7 +163,25 @@ Saida P1:
 - mode `read_only_governed_p1`;
 - `editorial_context` por post;
 - refs canônicas candidatas para docs, modulos e simbolos;
+- `source_map` com backlog, arquivo publico, Engineering Knowledge, Code
+  Intelligence, Open Brain, vector retrieval e graph retrieval classificados
+  como prontos, indiretos, indisponiveis ou futuros governados;
+- `archive_reconciliation` dentro do `source_map`, comparando metadados de
+  posts publicados com o backlog planejado, separando posts planejados ja
+  publicados de posts externos e sugerindo pontes para posts planejados;
+- `coverage_map` com fundacao planejada/publicada, indice de topicos,
+  distribuicao por profundidade, warnings e proximos arcos seguros;
+- `writing_packet` privado quando `--writing-packet` for usado, contendo
+  posicao na sequencia, prerequisitos, contexto candidato, promessa ao leitor,
+  contexto do arquivo publico anterior, risco de duplicacao/rewrite, outline,
+  pontos obrigatorios, temas a evitar e prompts de revisao;
+- `operations_packet` quando `--operations` for usado, agregando proxima acao,
+  foco diario, writing packet, riscos do arquivo publico, bloqueios, snapshots
+  de fonte/cobertura e candidatos para revisao;
 - `backlog_candidates` revisaveis quando `--suggest-candidates` for usado;
+- `candidate_acceptance` em dry-run ou escrita explicita para fila de revisao;
+- `candidate_promotion` em dry-run ou escrita explicita append-only no backlog
+  principal;
 - prompts de revisao de seguranca;
 - guardrails mantendo graph/RAG e Python runtime desligados.
 
@@ -168,8 +194,31 @@ site backlog -> parse -> validate order/prerequisites -> detect published posts
 with-context -> derive editorial terms -> read KB/code-intel read-models
              -> attach candidate refs -> human review before writing/publishing
 
+source-map -> inspect available read-models and editorial source layers
+           -> mark Open Brain/vector as governed handoff sources
+           -> reconcile public archive metadata with planned backlog
+           -> suggest bridge candidates without changing prerequisites
+           -> keep graph retrieval future-governed until P2 promotion
+
+coverage-map -> compare backlog/published slugs with foundation ladder
+             -> show covered topics, depth warnings and safe next arcs
+
+writing-packet -> choose next ready post, or explicit planned slug
+               -> attach sequence, public archive context, refs, outline and safety prompts
+               -> private preparation only, no full article and no file write
+
+operations -> aggregate next action, writing packet, archive risks and blockers
+           -> show source/coverage snapshot and candidate feed
+           -> daily read-only operator packet
+
 suggest-candidates -> read KB/code-intel read-models -> remove obvious duplicates
                    -> emit review packets -> human accepts before YAML changes
+
+accept-candidate -> resolve candidate by slug -> emit YAML snippet
+                 -> optional --write appends review queue, not main schedule
+
+promote-candidate -> read accepted review queue item -> emit backlog YAML snippet
+                  -> optional --write appends a reviewed week to main backlog
 ```
 
 ## Regras para IA
@@ -195,7 +244,19 @@ Permitido em P1:
 - `BlogEditorialContextService`;
 - leitura de Engineering Knowledge e Code Intelligence ja indexados;
 - refs candidatas para orientar escrita;
+- mapa de fontes editoriais read-only para expor o que o Atlas pode consultar
+  agora e o que ainda e P2/futuro governado;
+- reconciliacao do arquivo publico contra o backlog, incluindo posts externos
+  ao plano e possiveis pontes para textos planejados;
+- mapa de cobertura read-only para saber o que ja foi planejado/publicado;
 - candidatos revisaveis para alimentar backlog futuro;
+- pacote privado de escrita para o proximo post ou slug planejado explicito;
+- contexto do arquivo publico dentro do pacote de escrita, para linkar posts
+  antigos, detectar risco de repeticao e decidir rewrite deliberadamente;
+- pacote operacional diario read-only, para orientar o proximo trabalho sem
+  abrir permissao de escrita, draft ou publicacao;
+- escrita explicita somente em `content/backlog/blog-candidates.yaml`;
+- promocao explicita append-only de candidatos aceitos para o backlog principal;
 - prompts de seguranca e privacidade.
 
 Proibido em P0:
@@ -209,7 +270,11 @@ Proibido em P0:
 Tambem proibido em P1:
 
 - tratar refs como texto pronto para publicar;
+- gerar artigo completo automaticamente a partir do pacote de escrita;
+- escrever arquivo de draft a partir do pacote de escrita;
 - escrever no backlog sem aprovacao explicita;
+- promover candidato direto para calendario principal sem passar pela fila de
+  revisao;
 - expor paths/ids internos sem revisao humana;
 - criar indice, memoria ou fila editorial paralela.
 
@@ -226,7 +291,15 @@ Tambem proibido em P1:
 
 - `php artisan atlas:blog:editorial-plan --site=/Users/vitorepf/develop/vitorepf-site --json`
 - `php artisan atlas:blog:editorial-plan --site=/Users/vitorepf/develop/vitorepf-site --with-context --json`
+- `php artisan atlas:blog:editorial-plan --site=/Users/vitorepf/develop/vitorepf-site --source-map --json`
+- `php artisan atlas:blog:editorial-plan --site=/Users/vitorepf/develop/vitorepf-site --coverage-map --json`
+- `php artisan atlas:blog:editorial-plan --site=/Users/vitorepf/develop/vitorepf-site --writing-packet --json`
+- `php artisan atlas:blog:editorial-plan --site=/Users/vitorepf/develop/vitorepf-site --writing-packet --writing-slug=<slug> --json`
 - `php artisan atlas:blog:editorial-plan --site=/Users/vitorepf/develop/vitorepf-site --suggest-candidates --json`
+- `php artisan atlas:blog:editorial-plan --site=/Users/vitorepf/develop/vitorepf-site --accept-candidate=<slug> --json`
+- `php artisan atlas:blog:editorial-plan --site=/Users/vitorepf/develop/vitorepf-site --accept-candidate=<slug> --write --json`
+- `php artisan atlas:blog:editorial-plan --site=/Users/vitorepf/develop/vitorepf-site --promote-candidate=<slug> --json`
+- `php artisan atlas:blog:editorial-plan --site=/Users/vitorepf/develop/vitorepf-site --promote-candidate=<slug> --write --json`
 - `php artisan test --filter=AtlasBlogEditorialPlanCommandTest`
 - `php artisan atlas:ai:runtime-boundary --json`
 
@@ -245,7 +318,7 @@ como problema de banco de dados. Se faltarem, esses textos entram antes.
 
 ## Proximas Acoes
 
-1. P1: permitir aprovacao explicita de candidato para patch controlado do YAML.
+1. P1: evoluir promocao append-only para reordenacao segura quando necessario.
 2. P1: evoluir refs para context-pack hints sem escrever memoria.
-3. P1: gerar seed privado revisavel a partir do `next_ready_post`.
+3. P1: evoluir pacote de escrita para seed privado revisavel, ainda sem artigo completo automatico.
 4. P2: revisar AP-817 antes de qualquer graph/RAG.

@@ -8,6 +8,7 @@ use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevRiskNormalizer;
 use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use App\Services\Ai\Product\AtlasExecutionDoctrineGateService;
 use App\Services\Ai\Product\AtlasExecutionDoctrineRuntimeService;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Str;
 
 class DevTaskPacketRuntimeService
@@ -24,11 +25,11 @@ class DevTaskPacketRuntimeService
      */
     public function build(array $input): array
     {
-        $runId = $this->string($input['run_id'] ?? null) ?? 'dev-run-'.Str::uuid()->toString();
-        $taskId = $this->string($input['task_id'] ?? null) ?? 'dev-task-'.substr(MissionCanonicalHash::sha256($input), 0, 12);
-        $riskBand = AtlasDevRiskNormalizer::runtimeRiskBand($this->string($input['risk_band'] ?? $input['risk'] ?? null));
-        $taskClass = $this->normalizeTaskClass($this->string($input['task_class'] ?? $input['task'] ?? null), $riskBand);
-        $objective = $this->string($input['objective'] ?? $input['intent'] ?? null) ?? 'Atlas Dev task';
+        $runId = AiValueNormalizer::trimmedScalarStringOrNull($input['run_id'] ?? null) ?? 'dev-run-'.Str::uuid()->toString();
+        $taskId = AiValueNormalizer::trimmedScalarStringOrNull($input['task_id'] ?? null) ?? 'dev-task-'.substr(MissionCanonicalHash::sha256($input), 0, 12);
+        $riskBand = AtlasDevRiskNormalizer::runtimeRiskBand(AiValueNormalizer::trimmedScalarStringOrNull($input['risk_band'] ?? $input['risk'] ?? null));
+        $taskClass = $this->normalizeTaskClass(AiValueNormalizer::trimmedScalarStringOrNull($input['task_class'] ?? $input['task'] ?? null), $riskBand);
+        $objective = AiValueNormalizer::trimmedScalarStringOrNull($input['objective'] ?? $input['intent'] ?? null) ?? 'Atlas Dev task';
         $expectedFiles = AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($input['expected_files'] ?? []);
         $contextRefs = AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($input['context_refs'] ?? []);
         $allowedFiles = AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($input['allowed_files'] ?? []);
@@ -39,7 +40,7 @@ class DevTaskPacketRuntimeService
         $doctrine = $this->aedpds->select([
             'task' => $objective,
             'surface' => 'atlas_dev',
-            'workspace' => $this->string($input['workspace_slug'] ?? $input['workspace'] ?? null),
+            'workspace' => AiValueNormalizer::trimmedScalarStringOrNull($input['workspace_slug'] ?? $input['workspace'] ?? null),
             'task_type' => $taskClass,
             'risk_level' => $riskBand,
             'code_changes_requested' => ! in_array($taskClass, ['trivial', 'read_only', 'review'], true),
@@ -66,7 +67,7 @@ class DevTaskPacketRuntimeService
             'objective' => $objective,
             'task_class' => $taskClass,
             'risk_band' => $riskBand,
-            'workspace_slug' => $this->string($input['workspace_slug'] ?? $input['workspace'] ?? null),
+            'workspace_slug' => AiValueNormalizer::trimmedScalarStringOrNull($input['workspace_slug'] ?? $input['workspace'] ?? null),
             'allowed_files' => $allowedFiles,
             'forbidden_files' => AtlasDevStringListNormalizer::uniqueTrimmedScalarValues($input['forbidden_files'] ?? []),
             'context_refs' => $this->mergeStrings($contextRefs, $this->prefix('aedpds_context:', $doctrine['required_context'] ?? [])),
@@ -74,7 +75,7 @@ class DevTaskPacketRuntimeService
             'suggested_tests' => $this->mergeStrings($suggestedTests, $this->prefix('aedpds_test:', $doctrine['required_tests'] ?? [])),
             'acceptance_criteria' => $this->mergeStrings($acceptanceCriteria, in_array('atdd', (array) ($doctrine['selected_primary_drivers'] ?? []), true) ? ['aedpds_acceptance_required'] : []),
             'required_evidence' => $this->mergeStrings($requiredEvidence, $this->prefix('aedpds_evidence:', $doctrine['required_evidence'] ?? [])),
-            'source' => $this->string($input['source'] ?? null) ?? 'atlas_dev_runtime_intelligence',
+            'source' => AiValueNormalizer::trimmedScalarStringOrNull($input['source'] ?? null) ?? 'atlas_dev_runtime_intelligence',
             'aedpds' => [
                 'doctrine' => $doctrine,
                 'gate' => $gate,
@@ -145,14 +146,4 @@ class DevTaskPacketRuntimeService
         );
     }
 
-    private function string(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value === '' ? null : $value;
-    }
 }

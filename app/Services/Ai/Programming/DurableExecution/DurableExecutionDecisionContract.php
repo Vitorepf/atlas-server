@@ -96,9 +96,9 @@ final class DurableExecutionDecisionContract
             'actor' => $actor,
             'reason' => $reason ?? $this->defaultReason($decision),
             'preflight_status' => $mayExecute ? 'preflight_passed' : 'preflight_blocked',
-            'work_item_id' => $this->extractString($evidence, 'work_item_id'),
-            'plan_hash' => $this->extractString($evidence, 'plan_hash'),
-            'spec_hash' => $this->extractString($evidence, 'spec_hash'),
+            'work_item_id' => DurableExecutionFieldReader::stringOrNull($evidence, 'work_item_id'),
+            'plan_hash' => DurableExecutionFieldReader::stringOrNull($evidence, 'plan_hash'),
+            'spec_hash' => DurableExecutionFieldReader::stringOrNull($evidence, 'spec_hash'),
             'forwards_to' => $this->forwardsTo($decision),
         ];
     }
@@ -125,13 +125,4 @@ final class DurableExecutionDecisionContract
         };
     }
 
-    /**
-     * @param  array<string,mixed>  $evidence
-     */
-    private function extractString(array $evidence, string $key): ?string
-    {
-        $value = $evidence[$key] ?? null;
-
-        return is_string($value) && $value !== '' ? $value : null;
-    }
 }

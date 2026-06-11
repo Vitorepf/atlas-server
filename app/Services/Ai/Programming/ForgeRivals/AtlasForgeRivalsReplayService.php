@@ -102,8 +102,8 @@ final class AtlasForgeRivalsReplayService
             || array_key_exists('optional_artifacts', $pack)
             || array_key_exists('evidence_stage', $pack);
         if ($hasV2Markers) {
-            $required = $this->stringList($pack['required_artifacts'] ?? null) ?: $plan['required'];
-            $optional = $this->stringList($pack['optional_artifacts'] ?? null) ?: $plan['optional'];
+            $required = AiStringListNormalizer::castItemsToStrings($pack['required_artifacts'] ?? null) ?: $plan['required'];
+            $optional = AiStringListNormalizer::castItemsToStrings($pack['optional_artifacts'] ?? null) ?: $plan['optional'];
         } else {
             $required = array_keys($artifacts);
             $optional = [];
@@ -236,11 +236,4 @@ final class AtlasForgeRivalsReplayService
         return $path;
     }
 
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return AiStringListNormalizer::castItemsToStrings($value);
-    }
 }

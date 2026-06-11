@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Support\AiPathMatcher;
+
 class ProgrammingPythonRuntimeContract
 {
     public function __construct(
@@ -14,11 +16,7 @@ class ProgrammingPythonRuntimeContract
      */
     public function manifest(string $workspace, array $files, int $maxFiles = 40, int $maxBytesPerFile = 250000): array
     {
-        $providerSafeFiles = collect($files)
-            ->filter(fn (mixed $file): bool => is_string($file) && $file !== '' && ! str_starts_with($file, '/') && ! str_contains($file, '..'))
-            ->values()
-            ->take($maxFiles)
-            ->all();
+        $providerSafeFiles = AiPathMatcher::providerSafeRelativePaths($files, $maxFiles);
 
         $manifest = [
             'schema_version' => 'atlas.programming.python_runtime.request.v1',

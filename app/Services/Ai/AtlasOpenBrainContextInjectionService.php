@@ -1920,6 +1920,16 @@ class AtlasOpenBrainContextInjectionService
                 }
             }
             $lines[] = '- quality_gate_hint: '.($contextDeliveryPolicy['quality_gate_hint'] ?? 'feedback_guided_staging_allowed');
+            $deferredHandles = array_map(static fn (mixed $source): string => 'expand:'.(string) $source, array_values((array) ($contextDeliveryPolicy['deferred_source_types'] ?? [])));
+            $guardedHandles = array_map(static fn (mixed $source): string => 'recheck:'.(string) $source, array_values((array) ($contextDeliveryPolicy['guarded_required_source_types'] ?? [])));
+            $expansionHandles = array_values(array_filter(array_merge($deferredHandles, $guardedHandles)));
+            if ($expansionHandles !== []) {
+                $lines[] = '- expansion_tool: mcp=atlas_context_expand; cli="./bin/atlas open-brain expand-context <handle> \"<objective>\" --json"';
+                $lines[] = '- expansion_handles: '.implode(', ', array_slice($expansionHandles, 0, 16));
+            }
+            if ($guardedHandles !== []) {
+                $lines[] = '- implementation_gate: expand guarded handles before code changes.';
+            }
             $lines[] = '- policy: provider_safe_only=true; raw_text_exposed=false; providers_invoked=false; writes=false';
         }
 
@@ -2165,10 +2175,10 @@ class AtlasOpenBrainContextInjectionService
             $actions[] = 'Run migrations before requiring Open Brain injection.';
         }
         if (in_array('context_delivery_required_source_recheck', $warnings, true)) {
-            $actions[] = 'Expand guarded required sources before implementation.';
+            $actions[] = 'Call atlas_context_expand for guarded required sources before implementation.';
         }
         if ((int) data_get($summary, 'context_delivery_policy.expansion_token_reserve', 0) > 0) {
-            $actions[] = 'Use context expansion handles before dumping full docs, tests or graph output.';
+            $actions[] = 'Call atlas_context_expand for deferred sources before dumping full docs, tests or graph output.';
         }
 
         return array_values(array_unique($actions));

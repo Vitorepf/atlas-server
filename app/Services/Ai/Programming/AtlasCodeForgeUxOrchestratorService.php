@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProject;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Carbon;
 
 /**
@@ -94,12 +95,7 @@ class AtlasCodeForgeUxOrchestratorService
 
     public static function normalizeObraIdInput(mixed $value): ?string
     {
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
+        return AiValueNormalizer::trimmedStringOrNull($value);
     }
 
     /**
@@ -210,8 +206,8 @@ class AtlasCodeForgeUxOrchestratorService
             static fn ($v) => is_string($v) && $v !== '',
         ));
         $intakeMissingFields = array_values(array_filter([
-            $this->stringOrNull(data_get($intake, 'objective')) === null ? 'objective' : null,
-            $this->stringOrNull(data_get($intake, 'business_rule')) === null ? 'business_rule' : null,
+            AiValueNormalizer::trimmedStringOrNull(data_get($intake, 'objective')) === null ? 'objective' : null,
+            AiValueNormalizer::trimmedStringOrNull(data_get($intake, 'business_rule')) === null ? 'business_rule' : null,
             ((array) data_get($intake, 'acceptance_criteria', [])) === [] ? 'acceptance_criteria' : null,
         ]));
 
@@ -238,7 +234,7 @@ class AtlasCodeForgeUxOrchestratorService
                 && data_get($fastPath, 'spec_hash') !== null
                 && data_get($fastPath, 'plan_hash') !== null,
             'fast_path_status' => (string) data_get($fastPath, 'status', 'idle'),
-            'fast_path_run_id' => $this->stringOrNull(data_get($fastPathStatus, 'fast_path_run_id') ?? data_get($fastPath, 'fast_path_run_id')),
+            'fast_path_run_id' => AiValueNormalizer::trimmedStringOrNull(data_get($fastPathStatus, 'fast_path_run_id') ?? data_get($fastPath, 'fast_path_run_id')),
             'execution_status' => $executionStatus,
             'execution_async_status' => $executionAsyncStatus,
             'execution_blocked' => $executionStatus === 'blocked' || $executionAsyncStatus === 'blocked',
@@ -264,9 +260,9 @@ class AtlasCodeForgeUxOrchestratorService
             'provider_called' => (bool) data_get($providerInvocation, 'provider_called', false),
             'external_provider_call' => (bool) data_get($providerInvocation, 'external_provider_call', false),
             'completion_claim_promoted' => (bool) data_get($providerInvocation, 'completion_claim_promoted', false),
-            'provider' => $this->stringOrNull(data_get($runtimeDispatch, 'provider') ?? data_get($providerTopologySnapshot, 'roles.0.provider')),
-            'model' => $this->stringOrNull(data_get($runtimeDispatch, 'model') ?? data_get($providerTopologySnapshot, 'roles.0.model')),
-            'decision_source' => $this->stringOrNull(data_get($runtimeDispatch, 'decision_source') ?? data_get($providerTopologySnapshot, 'decision_source')),
+            'provider' => AiValueNormalizer::trimmedStringOrNull(data_get($runtimeDispatch, 'provider') ?? data_get($providerTopologySnapshot, 'roles.0.provider')),
+            'model' => AiValueNormalizer::trimmedStringOrNull(data_get($runtimeDispatch, 'model') ?? data_get($providerTopologySnapshot, 'roles.0.model')),
+            'decision_source' => AiValueNormalizer::trimmedStringOrNull(data_get($runtimeDispatch, 'decision_source') ?? data_get($providerTopologySnapshot, 'decision_source')),
             'capacity_state' => (string) data_get($providerCapacity, 'status', 'unknown'),
             'capacity_exhausted' => in_array(
                 'provider_capacity_exhausted',
@@ -308,8 +304,8 @@ class AtlasCodeForgeUxOrchestratorService
                 'forge_runtime_dispatch_id' => data_get($runtimeDispatch, 'dispatch_id'),
                 'forge_provider_invocation_id' => data_get($providerInvocation, 'invocation_id'),
                 'fast_path_run_id' => $signals['fast_path_run_id'],
-                'live_execution_run_id' => $this->stringOrNull(data_get($liveExecution, 'run_id')),
-                'live_execution_async_run_id' => $this->stringOrNull(data_get($liveExecutionAsync, 'run_id')),
+                'live_execution_run_id' => AiValueNormalizer::trimmedStringOrNull(data_get($liveExecution, 'run_id')),
+                'live_execution_async_run_id' => AiValueNormalizer::trimmedStringOrNull(data_get($liveExecutionAsync, 'run_id')),
                 'driver_status_schema' => 'atlas.forge.provider_driver_router_status.v1',
                 'configured_drivers' => array_values((array) ($driverStatus['configured_drivers'] ?? [])),
             ],
@@ -1087,13 +1083,4 @@ class AtlasCodeForgeUxOrchestratorService
         return (int) ($order[$state] ?? 0);
     }
 
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
-    }
 }

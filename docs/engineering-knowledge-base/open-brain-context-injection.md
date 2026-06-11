@@ -18,11 +18,13 @@ capabilities:
   - provider_safe_recall
   - audited_context_pack
   - context_delivery_policy_projection
+  - context_expansion_handle_resolution
 decisions:
   - Open Brain context injection is Core runtime behavior, not a manual workbench step.
   - Surfaces declare intent and policy; atlas-server composes, audits and injects context.
   - Automatic context must be provider-safe, budgeted, traceable, deduplicated and reversible.
   - When ATER/ACRS provides a context delivery policy, Open Brain must project the minimal initial packet and expansion handles instead of dumping full docs, tests or graph output.
+  - Expansion handles are resolved on demand by a read-only provider-safe command; the initial pack stays small and the provider asks for a specific source type when needed.
   - Projection apply, MCP write tools, remote sync, ChromaDB and external embeddings stay outside this flow until a dedicated AP promotes them.
 maintenance:
   - Read this file before changing atlas dev, atlas continue, atlas chat, AiPromptBuilder, AiGatewayService or AtlasAiSheet.
@@ -34,6 +36,7 @@ related_paths:
   - docs/engineering-knowledge-base/memory/contracts.md
   - docs/engineering-knowledge-base/archive/source-material/open-brain-context-injection-full-2026-05-08.md
   - app/Services/Ai/AtlasOpenBrainService.php
+  - app/Services/Ai/AtlasOpenBrainContextExpansionService.php
   - app/Services/Ai/AiContextPackBuilder.php
   - app/Services/Ai/ValueObjects/AiContextPack.php
   - app/Services/Ai/AiPromptBuilder.php
@@ -42,6 +45,7 @@ related_paths:
   - app/Console/Commands/AtlasCliContinueCommand.php
   - app/Console/Commands/AiChatCommand.php
   - app/Console/Commands/AtlasOpenBrainContextCommand.php
+  - app/Console/Commands/AtlasOpenBrainExpandContextCommand.php
   - app/Models/AtlasOpenBrainAccessLog.php
   - routes/api.php
   - atlas-app/components/sheets/AtlasAiSheet.tsx
@@ -98,13 +102,18 @@ evidence:
 evidence_refs:
   - symbol: AtlasOpenBrainService
   - symbol: AtlasOpenBrainContextInjectionService
+  - symbol: AtlasOpenBrainContextExpansionService
   - symbol: AiContextPack
   - command: atlas:open-brain:context
+  - command: atlas:open-brain:expand-context
+  - mcp_tool: atlas_context_expand
   - test: AtlasOpenBrainContextInjectionServiceTest
+  - test: AtlasOpenBrainContextExpansionServiceTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test tests/Unit/Ai/AtlasOpenBrainContextInjectionServiceTest.php"
+  - "php artisan test tests/Unit/Ai/AtlasOpenBrainContextExpansionServiceTest.php"
 
 requires_evidence: true
 
@@ -308,6 +317,52 @@ quality-gate hint and policy claims, never raw docs/tests/graph dumps or raw
 feedback text. Inactive or provider-unsafe policies are ignored so legacy
 prompt/hash behavior remains unchanged.
 
+When the provider needs a deferred or guarded source, it should call MCP
+`atlas_context_expand` or CLI
+`./bin/atlas open-brain expand-context <handle> "<objective>" --json`. The expansion
+resolver is read-only, local-only and provider-safe. Ranking-backed sources
+(`evidence_replay`, `code_intelligence`, `memory_signals`, `vector_retrieval`)
+return filtered refs with hashes, reasons and score components, never raw source
+refs. `recheck:canonical_doc` returns a compact AOBG pack excerpt with the
+objective redacted plus counts, sources present, budget and a recheck warning.
+Unsupported source types fail safe with `status=unsupported` and no provider
+call or write.
+
+The prompt block must also carry the operational expansion contract:
+`expansion_tool: mcp=atlas_context_expand`, concrete `expansion_handles`, and an
+`implementation_gate` line when guarded required sources exist. This is what
+turns staged context delivery into provider behavior: use the small first packet,
+then expand exact source types before code changes or before requesting broad
+docs/tests/graph dumps.
+
+For external context exports, `include_prompt=true` defaults to compact prompt
+mode. Compact mode keeps the ranked recall index, summaries, source counts and
+expansion handles, but defers registry bodies, verbatim snippets and semantic
+excerpts. Full prompt mode is still available for audit with
+`prompt_mode=full` or `./bin/atlas open-brain context ... --prompt-mode=full`.
+The compact prompt must remain provider-safe and expansion-first: do not paste
+raw docs, tests, memory bodies or semantic excerpts into the initial provider
+packet when a focused expansion handle can recover the exact source.
+
+Prompt exports also emit `summary.prompt` using
+`atlas.open_brain.prompt_metrics.v1`. The summary records mode, chars, lines,
+estimated tokens, full-mode baseline size, saved chars/lines/tokens,
+compaction ratios, deferred-body status and expansion-handle count. These
+metrics are persisted in `atlas_open_brain_access_logs.result_summary_json`
+when auditing is available, but the rendered `prompt_section` itself is never
+persisted. This lets Atlas learn provider context cost and utility without
+creating parallel prompt memory or storing raw provider packets.
+
+`atlas_memory_maintenance_status` aggregates those prompt metrics as
+`open_brain_prompt_metrics` using
+`atlas.open_brain.prompt_metric_aggregate.v1`. The aggregate is bounded to the
+recent audit window, counts compact/full/unknown modes, averages chars and
+estimated tokens, reports saved chars/tokens, and raises review signals for low
+compact savings, full-mode dominance or any prompt-section persistence
+violation. A running MCP client may need restart to expose newly added fields,
+but `./bin/atlas open-brain mcp --once=...` always validates the current local
+server code path.
+
 The code intelligence slice is expected to include AST-backed PHP relations
 when available (`php_use_ast`, `class_constant_ast`,
 `test_symbol_reference_ast`), plus dependency edges, symbol references,
@@ -356,6 +411,7 @@ or Open Brain runtime integration:
 ```bash
 php artisan test tests/Unit/Ai tests/Feature/Ai
 php artisan test tests/Unit/Ai/AtlasOpenBrainContextInjectionServiceTest.php
+php artisan test tests/Unit/Ai/AtlasOpenBrainContextExpansionServiceTest.php
 php artisan atlas:ai:architecture-validate --json
 atlas engineering knowledge docs-health
 atlas engineering knowledge sync --prune

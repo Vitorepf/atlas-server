@@ -19,6 +19,7 @@ use App\Services\Ai\ProgrammingRuntime\ProgrammingRuntimeReadinessCanon;
 use App\Services\Ai\ProgrammingRuntime\ProgrammingRuntimeReadinessService;
 use App\Services\Ai\ProgrammingRuntime\Telemetry\ProgrammingRuntimeTelemetryAggregator;
 use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -477,8 +478,8 @@ class ProgrammingConsoleService
      */
     public function longHorizonStatus(array $options = []): array
     {
-        $scopeType = $this->stringOption($options, 'scope_type');
-        $scopeId = $this->stringOption($options, 'scope_id');
+        $scopeType = AiValueNormalizer::trimmedScalarStringOrNull($options['scope_type'] ?? null);
+        $scopeId = AiValueNormalizer::trimmedScalarStringOrNull($options['scope_id'] ?? null);
         $packsAvailable = DatabaseTableAvailability::has('atlas_long_horizon_continuation_packs');
         $receiptsAvailable = DatabaseTableAvailability::has('atlas_long_horizon_compaction_receipts');
 
@@ -560,8 +561,8 @@ class ProgrammingConsoleService
      */
     public function longHorizonCompact(array $options = []): array
     {
-        $scopeType = $this->stringOption($options, 'scope_type');
-        $scopeId = $this->stringOption($options, 'scope_id');
+        $scopeType = AiValueNormalizer::trimmedScalarStringOrNull($options['scope_type'] ?? null);
+        $scopeId = AiValueNormalizer::trimmedScalarStringOrNull($options['scope_id'] ?? null);
         $dryRun = (bool) ($options['dry_run'] ?? true);
 
         $blockers = [];
@@ -713,10 +714,10 @@ class ProgrammingConsoleService
      */
     public function longHorizonContinue(array $options = []): array
     {
-        $planId = $this->stringOption($options, 'plan_id');
-        $parentPlanId = $this->stringOption($options, 'parent_plan_id');
-        $scopeType = $this->stringOption($options, 'scope_type');
-        $scopeId = $this->stringOption($options, 'scope_id');
+        $planId = AiValueNormalizer::trimmedScalarStringOrNull($options['plan_id'] ?? null);
+        $parentPlanId = AiValueNormalizer::trimmedScalarStringOrNull($options['parent_plan_id'] ?? null);
+        $scopeType = AiValueNormalizer::trimmedScalarStringOrNull($options['scope_type'] ?? null);
+        $scopeId = AiValueNormalizer::trimmedScalarStringOrNull($options['scope_id'] ?? null);
 
         if ($planId === null) {
             return $this->envelope(
@@ -828,8 +829,8 @@ class ProgrammingConsoleService
      */
     public function longHorizonCertify(array $options = []): array
     {
-        $scopeType = $this->stringOption($options, 'scope_type');
-        $scopeId = $this->stringOption($options, 'scope_id');
+        $scopeType = AiValueNormalizer::trimmedScalarStringOrNull($options['scope_type'] ?? null);
+        $scopeId = AiValueNormalizer::trimmedScalarStringOrNull($options['scope_id'] ?? null);
 
         $blockers = [];
         if ($scopeType === null || $scopeId === null) {
@@ -1224,20 +1225,6 @@ class ProgrammingConsoleService
             'ai_forge_work_packets',
             'ai_forge_milestones',
         ]);
-    }
-
-    /**
-     * @param  array<string,mixed>  $options
-     */
-    private function stringOption(array $options, string $key): ?string
-    {
-        $value = $options[$key] ?? null;
-        if (! is_scalar($value)) {
-            return null;
-        }
-        $value = trim((string) $value);
-
-        return $value === '' ? null : $value;
     }
 
     /**

@@ -117,7 +117,7 @@ class VerifyCommandTest extends TestCase
             {
                 public function __construct() {}
 
-                public function summary(): array
+                public function summary(array $options = []): array
                 {
                     // Mirror the production EngineeringCodeIntelligenceService::summary() shape.
                     return [

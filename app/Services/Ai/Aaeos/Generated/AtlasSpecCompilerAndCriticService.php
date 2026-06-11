@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Aaeos\Generated;
 
 use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
 
 /**
  * Atlas SDD Spec Compiler And Critic.
@@ -163,8 +164,8 @@ final class AtlasSpecCompilerAndCriticService
      */
     public function assessAssumption(array $assumption): array
     {
-        $id = $this->normalizeString($assumption['id'] ?? null);
-        $text = $this->normalizeString($assumption['text'] ?? null);
+        $id = AtlasAaeosValueNormalizer::trimmedString($assumption['id'] ?? null);
+        $text = AtlasAaeosValueNormalizer::trimmedString($assumption['text'] ?? null);
         $confidence = $this->clampConfidence($assumption['confidence'] ?? null);
         $evidence = AtlasAaeosStringListNormalizer::trimmedStrings($assumption['evidence'] ?? null);
         $flaggedBlocking = ($assumption['blocking'] ?? false) === true;
@@ -417,15 +418,6 @@ final class AtlasSpecCompilerAndCriticService
         }
 
         return is_array($value);
-    }
-
-    private function normalizeString(mixed $value): string
-    {
-        if (! is_string($value)) {
-            return '';
-        }
-
-        return trim($value);
     }
 
     /**

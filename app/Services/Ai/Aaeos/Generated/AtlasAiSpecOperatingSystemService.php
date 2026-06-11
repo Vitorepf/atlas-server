@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Aaeos\Generated;
 
 use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
 
 /**
  * Atlas AI Spec Operating System gate.
@@ -273,9 +274,9 @@ final class AtlasAiSpecOperatingSystemService
      */
     public function resolveDesignDirective(array $directive): array
     {
-        $requested = $this->normalizeString($directive['requested_token'] ?? null);
-        $designToken = $this->normalizeString($directive['design_system_token'] ?? null);
-        $action = $this->normalizeString($directive['action'] ?? null);
+        $requested = AtlasAaeosValueNormalizer::lowerString($directive['requested_token'] ?? null);
+        $designToken = AtlasAaeosValueNormalizer::lowerString($directive['design_system_token'] ?? null);
+        $action = AtlasAaeosValueNormalizer::lowerString($directive['action'] ?? null);
 
         // Unknown design token => nothing to reconcile against; honor request.
         $conflict = $designToken !== '' && $requested !== '' && $requested !== $designToken;
@@ -316,7 +317,7 @@ final class AtlasAiSpecOperatingSystemService
      */
     public function evaluateOneShotEligibility(array $context): array
     {
-        $confidence = $this->normalizeString($context['confidence'] ?? null);
+        $confidence = AtlasAaeosValueNormalizer::lowerString($context['confidence'] ?? null);
         $gatesAvailable = $this->flag($context, 'gates_available');
 
         $reasons = [];
@@ -345,15 +346,6 @@ final class AtlasAiSpecOperatingSystemService
     private function flag(array $source, string $key): bool
     {
         return ($source[$key] ?? false) === true;
-    }
-
-    private function normalizeString(mixed $value): string
-    {
-        if (! is_string($value)) {
-            return '';
-        }
-
-        return strtolower(trim($value));
     }
 
 }

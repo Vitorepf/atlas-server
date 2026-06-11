@@ -5,6 +5,7 @@ namespace App\Services\Ai\Programming;
 use App\Models\AtlasLongHorizonContinuationPack;
 use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
 use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class ProgrammingResumeService
@@ -178,11 +179,11 @@ class ProgrammingResumeService
         bool $resumeAllowed,
         array $context,
     ): array {
-        $scopeType = $this->stringOrNull($context['scope_type'] ?? null) ?? AtlasLongHorizonCanon::SCOPE_TYPE_DEV_RUN;
+        $scopeType = AiValueNormalizer::trimmedScalarStringOrNull($context['scope_type'] ?? null) ?? AtlasLongHorizonCanon::SCOPE_TYPE_DEV_RUN;
         if (! in_array($scopeType, AtlasLongHorizonCanon::ALLOWED_SCOPE_TYPES, true)) {
             $scopeType = AtlasLongHorizonCanon::SCOPE_TYPE_DEV_RUN;
         }
-        $scopeId = $this->stringOrNull($context['scope_id'] ?? null) ?? ($parentPlanId ?: $planId);
+        $scopeId = AiValueNormalizer::trimmedScalarStringOrNull($context['scope_id'] ?? null) ?? ($parentPlanId ?: $planId);
 
         $missingRequiredRefs = AiStringListNormalizer::uniqueTrimmedScalarValues($context['missing_required_refs'] ?? []);
         $staleRefs = AiStringListNormalizer::uniqueTrimmedScalarValues($context['stale_refs'] ?? []);
@@ -325,16 +326,6 @@ class ProgrammingResumeService
         $nextStage = (string) ($continuationPacket['next_stage'] ?? 'plan');
 
         return 'resume_stage:'.$nextStage;
-    }
-
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_scalar($value)) {
-            return null;
-        }
-        $value = trim((string) $value);
-
-        return $value === '' ? null : $value;
     }
 
 }

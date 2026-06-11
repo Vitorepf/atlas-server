@@ -448,7 +448,7 @@ final class AtlasForgeRivalsAdjudicatorV2Service
     ): array {
         $caseId = (string) ($manifest['case_id'] ?? $runId);
         $hardGatesV1 = (array) ($v1Scorecard['hard_gates'] ?? []);
-        $hardFailuresV1 = $this->stringList($v1Scorecard['hard_failures'] ?? []);
+        $hardFailuresV1 = AiStringListNormalizer::castItemsToStrings($v1Scorecard['hard_failures'] ?? []);
 
         $extraGates = $this->evaluateV2ExtraHardGates(
             manifest: $manifest,
@@ -803,11 +803,11 @@ final class AtlasForgeRivalsAdjudicatorV2Service
     ): array {
         $verdict = (string) ($manifest['verdict'] ?? 'unknown');
         $dirty = (bool) ($manifest['dirty_after_run'] ?? ($workspaceHashes['dirty_after_run'] ?? false));
-        $atlasOos = $this->stringList($atlasReceipt['out_of_scope_files'] ?? []);
-        $rivalOos = $this->stringList($rivalReceipt['out_of_scope_files'] ?? []);
-        $atlasBytecode = $this->stringList($atlasReceipt['bytecode_artifacts'] ?? []);
-        $rivalBytecode = $this->stringList($rivalReceipt['bytecode_artifacts'] ?? []);
-        $missingEvidence = $this->stringList($evidencePack['missing_evidence'] ?? []);
+        $atlasOos = AiStringListNormalizer::castItemsToStrings($atlasReceipt['out_of_scope_files'] ?? []);
+        $rivalOos = AiStringListNormalizer::castItemsToStrings($rivalReceipt['out_of_scope_files'] ?? []);
+        $atlasBytecode = AiStringListNormalizer::castItemsToStrings($atlasReceipt['bytecode_artifacts'] ?? []);
+        $rivalBytecode = AiStringListNormalizer::castItemsToStrings($rivalReceipt['bytecode_artifacts'] ?? []);
+        $missingEvidence = AiStringListNormalizer::castItemsToStrings($evidencePack['missing_evidence'] ?? []);
 
         return [
             ['code' => 'verdict_comparable', 'ok' => $verdict === 'comparable', 'detail' => $verdict],
@@ -899,21 +899,21 @@ final class AtlasForgeRivalsAdjudicatorV2Service
                 'detail' => $stalled ? 'killed_true_exit_nonzero_no_result' : 'ok',
             ];
 
-            $forbiddenTouched = $this->stringList($receipt['forbidden_paths_touched'] ?? $receipt['forbidden_files_touched'] ?? []);
+            $forbiddenTouched = AiStringListNormalizer::castItemsToStrings($receipt['forbidden_paths_touched'] ?? $receipt['forbidden_files_touched'] ?? []);
             $gates[] = [
                 'code' => 'forbidden_file_changed:'.$arm,
                 'ok' => $forbiddenTouched === [],
                 'detail' => $forbiddenTouched === [] ? 'ok' : implode(',', $forbiddenTouched),
             ];
 
-            $oos = $this->stringList($receipt['out_of_scope_files'] ?? []);
+            $oos = AiStringListNormalizer::castItemsToStrings($receipt['out_of_scope_files'] ?? []);
             $gates[] = [
                 'code' => 'scope_violation:'.$arm,
                 'ok' => $oos === [],
                 'detail' => $oos === [] ? 'ok' : implode(',', $oos),
             ];
 
-            $bytecode = $this->stringList($receipt['bytecode_artifacts'] ?? []);
+            $bytecode = AiStringListNormalizer::castItemsToStrings($receipt['bytecode_artifacts'] ?? []);
             $gates[] = [
                 'code' => 'tracked_python_bytecode:'.$arm,
                 'ok' => $bytecode === [],
@@ -951,11 +951,11 @@ final class AtlasForgeRivalsAdjudicatorV2Service
             'detail' => $replayManifestPresent ? 'ok' : 'replay_manifest_missing',
         ];
 
-        $packComplete = empty($this->stringList($evidencePack['missing_evidence'] ?? []));
+        $packComplete = empty(AiStringListNormalizer::castItemsToStrings($evidencePack['missing_evidence'] ?? []));
         $gates[] = [
             'code' => 'evidence_pack_incomplete',
             'ok' => $packComplete,
-            'detail' => $packComplete ? 'ok' : 'missing:'.implode(',', $this->stringList($evidencePack['missing_evidence'] ?? [])),
+            'detail' => $packComplete ? 'ok' : 'missing:'.implode(',', AiStringListNormalizer::castItemsToStrings($evidencePack['missing_evidence'] ?? [])),
         ];
 
         // Mode-derived structural gates.
@@ -1212,8 +1212,8 @@ final class AtlasForgeRivalsAdjudicatorV2Service
     private function dimScopeDiscipline(array $atlasReceipt, array $rivalReceipt): array
     {
         $s = function (array $r): float {
-            return ($this->stringList($r['out_of_scope_files'] ?? []) === []
-                && $this->stringList($r['bytecode_artifacts'] ?? []) === [])
+            return (AiStringListNormalizer::castItemsToStrings($r['out_of_scope_files'] ?? []) === []
+                && AiStringListNormalizer::castItemsToStrings($r['bytecode_artifacts'] ?? []) === [])
                 ? 100.0 : 0.0;
         };
 
@@ -1264,7 +1264,7 @@ final class AtlasForgeRivalsAdjudicatorV2Service
     {
         $s = function (array $r): float {
             $bytes = (int) ($r['patch_diff_bytes'] ?? 0);
-            $count = max(1, count($this->stringList($r['changed_files'] ?? [])));
+            $count = max(1, count(AiStringListNormalizer::castItemsToStrings($r['changed_files'] ?? [])));
             $avg = $bytes / $count;
             if ($avg <= 1_500) {
                 return 95.0;
@@ -1290,7 +1290,7 @@ final class AtlasForgeRivalsAdjudicatorV2Service
     private function dimArchitectureFit(array $atlasReceipt, array $rivalReceipt): array
     {
         $s = function (array $r): float {
-            $changed = $this->stringList($r['changed_files'] ?? []);
+            $changed = AiStringListNormalizer::castItemsToStrings($r['changed_files'] ?? []);
             $count = count($changed);
             if ($count === 0) {
                 return 50.0;
@@ -2320,14 +2320,6 @@ final class AtlasForgeRivalsAdjudicatorV2Service
         }
 
         return 'unknown';
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return AiStringListNormalizer::castItemsToStrings($value);
     }
 
     private function elapsedSeconds(string $a, string $b): int

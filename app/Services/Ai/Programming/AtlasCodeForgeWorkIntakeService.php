@@ -9,6 +9,7 @@ use App\Models\AtlasProject;
 use App\Services\Ai\Product\AtlasExecutionDoctrineGateService;
 use App\Services\Ai\Product\AtlasExecutionDoctrineRuntimeService;
 use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Str;
 
 /**
@@ -49,20 +50,20 @@ class AtlasCodeForgeWorkIntakeService
      */
     public function save(AtlasProject $project, array $input): array
     {
-        $objective = $this->stringOrNull($input['objective'] ?? null);
-        $businessRule = $this->stringOrNull($input['business_rule'] ?? null);
+        $objective = AiValueNormalizer::trimmedStringOrNull($input['objective'] ?? null);
+        $businessRule = AiValueNormalizer::trimmedStringOrNull($input['business_rule'] ?? null);
         $scopeIn = $this->stringList($input['scope_in'] ?? []);
         $scopeOut = $this->stringList($input['scope_out'] ?? []);
         $acceptance = $this->stringList($input['acceptance_criteria'] ?? []);
         $canonicalDocs = $this->stringList($input['canonical_docs'] ?? []);
         $expectedOutputs = $this->stringList($input['expected_outputs'] ?? []);
         $constraints = $this->stringList($input['constraints'] ?? []);
-        $operatorNotes = $this->stringOrNull($input['operator_notes'] ?? null);
-        $riskLevel = $this->stringOrNull($input['risk_level'] ?? null) ?? 'medium';
+        $operatorNotes = AiValueNormalizer::trimmedStringOrNull($input['operator_notes'] ?? null);
+        $riskLevel = AiValueNormalizer::trimmedStringOrNull($input['risk_level'] ?? null) ?? 'medium';
 
         $existing = (array) data_get($project->metadata, 'latest_atlas_code_forge_work_intake', []);
-        $intakeId = $this->stringOrNull(data_get($existing, 'intake_id')) ?? (string) Str::ulid();
-        $createdAt = $this->stringOrNull(data_get($existing, 'created_at')) ?? now()->toIso8601String();
+        $intakeId = AiValueNormalizer::trimmedStringOrNull(data_get($existing, 'intake_id')) ?? (string) Str::ulid();
+        $createdAt = AiValueNormalizer::trimmedStringOrNull(data_get($existing, 'created_at')) ?? now()->toIso8601String();
 
         $workItem = $this->resolveWorkItem($project);
 
@@ -199,10 +200,10 @@ class AtlasCodeForgeWorkIntakeService
         if (empty($intake['obra_id'])) {
             $blockers[] = 'blocked_no_obra';
         }
-        if (! $this->stringOrNull($intake['objective'] ?? null)) {
+        if (! AiValueNormalizer::trimmedStringOrNull($intake['objective'] ?? null)) {
             $blockers[] = 'blocked_missing_objective';
         }
-        if (! $this->stringOrNull($intake['business_rule'] ?? null)) {
+        if (! AiValueNormalizer::trimmedStringOrNull($intake['business_rule'] ?? null)) {
             $blockers[] = 'blocked_missing_business_rule';
         }
         if ($this->stringList($intake['acceptance_criteria'] ?? []) === []) {
@@ -279,14 +280,14 @@ class AtlasCodeForgeWorkIntakeService
     private function resolveWorkItem(AtlasProject $project): ?AtlasProgrammingWorkItem
     {
         $metadata = is_array($project->metadata) ? $project->metadata : [];
-        $id = $this->stringOrNull(data_get($metadata, 'programming_work_item_id'));
+        $id = AiValueNormalizer::trimmedStringOrNull(data_get($metadata, 'programming_work_item_id'));
         if ($id !== null) {
             $item = AtlasProgrammingWorkItem::query()->whereKey($id)->first();
             if ($item !== null) {
                 return $item;
             }
         }
-        $code = $this->stringOrNull(data_get($metadata, 'programming_work_item_code'));
+        $code = AiValueNormalizer::trimmedStringOrNull(data_get($metadata, 'programming_work_item_code'));
         if ($code !== null) {
             $item = AtlasProgrammingWorkItem::query()->where('code', $code)->first();
             if ($item !== null) {
@@ -305,24 +306,14 @@ class AtlasCodeForgeWorkIntakeService
         return AiStringListNormalizer::trimmedStringsFromArrayCast($value);
     }
 
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value !== '' ? $value : null;
-    }
-
     /**
      * @param  array<string,mixed>  $intake
      */
     private function complexProductRequested(array $intake): bool
     {
         $haystack = mb_strtolower(implode(' ', array_filter([
-            $this->stringOrNull($intake['objective'] ?? null),
-            $this->stringOrNull($intake['business_rule'] ?? null),
+            AiValueNormalizer::trimmedStringOrNull($intake['objective'] ?? null),
+            AiValueNormalizer::trimmedStringOrNull($intake['business_rule'] ?? null),
             ...$this->stringList($intake['scope_in'] ?? []),
             ...$this->stringList($intake['scope_out'] ?? []),
             ...$this->stringList($intake['expected_outputs'] ?? []),
