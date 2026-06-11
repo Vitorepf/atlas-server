@@ -33,6 +33,7 @@ capabilities:
   - read_only_publishing_plan
   - read_only_editorial_topic_ledger
   - read_only_editorial_roadmap
+  - read_only_editorial_dependency_matrix
   - open_brain_editorial_context_handoff
   - audited_open_brain_editorial_context_execution
   - graph_rag_readiness_preflight
@@ -245,6 +246,10 @@ Saida P1:
   `local_privacidade`, `memoria_conhecimento`, `agentes_governanca`,
   `arquitetura_operacao`, `expansao`) para explicar por que cada assunto vem
   antes/depois sem substituir a fila cronologica;
+- `editorial_dependency_matrix` dentro de `operations_packet`, com uma escada
+  read-only por post: fase, nivel de profundidade, prerequisitos explicitos,
+  prerequisitos faltantes, termos que o texto pode introduzir, termos ja
+  disponiveis e assuntos futuros que nao devem ser exigidos do leitor;
 - `open_brain_handoff` dentro de `operations_packet` e `writing_packet`, com
   objetivo, comando `atlas:open-brain:context`, payload provider-safe e
   guardrails que mantem invocacao automatica, graph/RAG, Python e publicacao
@@ -349,6 +354,10 @@ promote-candidate -> read accepted review queue item -> emit backlog YAML snippe
   data. Um post por dia so e seguro quando o slot atual esta pronto.
 - Trate `editorial_roadmap` como explicacao da jornada, nao como autoridade para
   reordenar, pular fase ou promover candidato automaticamente.
+- Trate `editorial_dependency_matrix` como contrato de entendimento do leitor:
+  antes de escrever um post, confirme que seus prerequisitos estao publicados ou
+  explicados na propria camada; se faltar base, escreva primeiro o texto
+  introdutor.
 - Use `--editorial-radar` para decidir onde alimentar a lista; ele nao muda
   backlog, nao aceita candidatos e nao publica.
 - Use `--editorial-golden-set` para provar que a sequencia ainda ensina do raso

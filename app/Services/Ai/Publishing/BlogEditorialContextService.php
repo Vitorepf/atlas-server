@@ -1044,6 +1044,7 @@ final class BlogEditorialContextService
         $publishingPlan = $this->publishingPlan($posts, $publishedSlugs, $nextReadyPost, $blockedPosts, $reviewQueueState, $backlogMeta);
         $topicLedger = $this->topicLedger($posts, $publishedSlugs, $publishedPosts, $candidateFeed, $reviewQueueState, $coverageMap, $sourceMap);
         $editorialRoadmap = $this->editorialRoadmap($publishingPlan, $topicLedger);
+        $editorialDependencyMatrix = $this->editorialDependencyMatrix($posts, $publishedSlugs, $publishingPlan, $editorialRoadmap);
 
         return [
             'schema_version' => 'atlas.blog_editorial_operations_packet.v1',
@@ -1078,6 +1079,7 @@ final class BlogEditorialContextService
             'publishing_plan' => $publishingPlan,
             'topic_ledger' => $topicLedger,
             'editorial_roadmap' => $editorialRoadmap,
+            'editorial_dependency_matrix' => $editorialDependencyMatrix,
             'public_archive_risks' => [
                 'duplicate_risk_count' => (int) ($publicArchiveContext['duplicate_risk_count'] ?? 0),
                 'linkable_artifact_count' => (int) ($publicArchiveContext['linkable_artifact_count'] ?? 0),
@@ -1132,6 +1134,7 @@ final class BlogEditorialContextService
                 'generates_publishing_plan' => true,
                 'generates_topic_ledger' => true,
                 'generates_editorial_roadmap' => true,
+                'generates_editorial_dependency_matrix' => true,
                 'uses_graph_rag' => false,
                 'uses_python_runtime' => false,
                 'creates_parallel_memory_store' => false,
@@ -2058,6 +2061,211 @@ final class BlogEditorialContextService
                 'creates_parallel_memory_store' => false,
             ],
         ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $posts
+     * @param  array<int,string>  $publishedSlugs
+     * @param  array<string,mixed>  $publishingPlan
+     * @param  array<string,mixed>  $editorialRoadmap
+     * @return array<string,mixed>
+     */
+    private function editorialDependencyMatrix(array $posts, array $publishedSlugs, array $publishingPlan, array $editorialRoadmap): array
+    {
+        $publishedSet = array_fill_keys($publishedSlugs, true);
+        $phaseBySlug = $this->editorialPhaseBySlug($editorialRoadmap);
+        $slots = array_values(array_filter(
+            (array) ($publishingPlan['slots'] ?? []),
+            'is_array',
+        ));
+        usort($slots, fn (array $a, array $b): int => (int) ($a['order'] ?? 0) <=> (int) ($b['order'] ?? 0));
+
+        $rows = [];
+        $blockedCount = 0;
+        $currentSlug = null;
+        $foundationWarnings = 0;
+
+        foreach ($slots as $index => $slot) {
+            $slug = (string) ($slot['slug'] ?? '');
+            if ($slug === '') {
+                continue;
+            }
+
+            $post = $this->plannedPostBySlug($posts, $slug) ?? $slot;
+            $progression = $this->conceptProgressionMap($post, $posts, $publishedSlugs);
+            $prerequisites = array_values(array_filter((array) ($post['prerequisites'] ?? []), 'is_string'));
+            $missingPrerequisites = array_values(array_filter(
+                $prerequisites,
+                fn (string $prerequisite): bool => ! isset($publishedSet[$prerequisite]),
+            ));
+            $status = (string) ($slot['status'] ?? 'planned_future');
+            $readiness = $this->editorialDependencyReadiness($status, $missingPrerequisites);
+            $depth = $this->editorialDepthFromLevel((string) ($post['complexity_level'] ?? $slot['complexity_level'] ?? ''));
+            $priorCount = (int) data_get($progression, 'reader_state.planned_prior_count', 0);
+            $phase = $phaseBySlug[$slug] ?? [
+                'key' => $this->editorialRoadmapPhaseKey($slot),
+                'label' => 'Expansao',
+                'position' => 7,
+            ];
+            $warning = $depth >= 3 && $priorCount < 3;
+
+            if ($readiness === 'blocked_missing_prerequisites') {
+                $blockedCount++;
+            }
+            if ($currentSlug === null && $readiness === 'current_unlocked') {
+                $currentSlug = $slug;
+            }
+            if ($warning) {
+                $foundationWarnings++;
+            }
+
+            $rows[] = [
+                'order' => (int) ($slot['order'] ?? $post['order'] ?? 0),
+                'slug' => $slug,
+                'title' => (string) ($post['title'] ?? $slot['title'] ?? ''),
+                'status' => $status,
+                'readiness' => $readiness,
+                'complexity_level' => (string) ($post['complexity_level'] ?? $slot['complexity_level'] ?? ''),
+                'depth' => $depth,
+                'phase' => [
+                    'key' => (string) ($phase['key'] ?? 'expansao'),
+                    'label' => (string) ($phase['label'] ?? 'Expansao'),
+                    'position' => (int) ($phase['position'] ?? 7),
+                ],
+                'depends_on' => [
+                    'previous_slug' => isset($slots[$index - 1]) ? (string) ($slots[$index - 1]['slug'] ?? '') : null,
+                    'next_slug' => isset($slots[$index + 1]) ? (string) ($slots[$index + 1]['slug'] ?? '') : null,
+                    'explicit_prerequisites' => $prerequisites,
+                    'missing_prerequisites' => $missingPrerequisites,
+                ],
+                'reader_contract' => [
+                    'must_introduce' => array_slice((array) ($progression['current_terms'] ?? []), 0, 8),
+                    'already_available' => array_slice((array) ($progression['introduced_terms'] ?? []), 0, 10),
+                    'published_available' => array_slice((array) ($progression['published_prior_terms'] ?? []), 0, 10),
+                    'avoid_until_later' => array_slice((array) ($progression['future_terms_to_avoid'] ?? []), 0, 10),
+                    'rule' => 'O texto so deve exigir conceitos ja publicados, prerequisitos ou introduzidos no proprio texto.',
+                ],
+                'position_reason' => $this->editorialDependencyPositionReason($post, $phase, $missingPrerequisites, $warning),
+                'depth_warning' => $warning ? 'advanced_topic_before_enough_foundation' : null,
+            ];
+        }
+
+        return [
+            'schema_version' => 'atlas.blog_editorial_dependency_matrix.v1',
+            'mode' => 'read_only_prerequisite_ladder_p1',
+            'status' => 'ready',
+            'summary' => [
+                'post_count' => count($rows),
+                'current_unlocked_slug' => $currentSlug,
+                'blocked_post_count' => $blockedCount,
+                'foundation_warning_count' => $foundationWarnings,
+                'phase_count' => (int) data_get($editorialRoadmap, 'summary.phase_count', 0),
+            ],
+            'rows' => array_slice($rows, 0, 80),
+            'rules' => [
+                'A matriz explica dependencias; ela nao altera a fila.',
+                'Um assunto profundo precisa de fundacao publica ou prerequisitos explicitos antes de virar rascunho.',
+                'Graph/RAG pode sugerir contexto, mas nao pode reordenar ou publicar sem promocao governada.',
+            ],
+            'guardrails' => [
+                'read_only' => true,
+                'writes_backlog' => false,
+                'writes_review_queue' => false,
+                'writes_draft' => false,
+                'publishes_content' => false,
+                'reorders_posts' => false,
+                'uses_graph_rag' => false,
+                'uses_python_runtime' => false,
+                'creates_parallel_memory_store' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $editorialRoadmap
+     * @return array<string,array<string,mixed>>
+     */
+    private function editorialPhaseBySlug(array $editorialRoadmap): array
+    {
+        $phaseBySlug = [];
+
+        foreach ((array) ($editorialRoadmap['phases'] ?? []) as $phase) {
+            if (! is_array($phase)) {
+                continue;
+            }
+
+            foreach ((array) ($phase['posts'] ?? []) as $post) {
+                if (! is_array($post)) {
+                    continue;
+                }
+
+                $slug = (string) ($post['slug'] ?? '');
+                if ($slug === '') {
+                    continue;
+                }
+
+                $phaseBySlug[$slug] = [
+                    'key' => (string) ($phase['key'] ?? ''),
+                    'label' => (string) ($phase['label'] ?? ''),
+                    'position' => (int) ($phase['position'] ?? 0),
+                ];
+            }
+        }
+
+        return $phaseBySlug;
+    }
+
+    /**
+     * @param  array<int,string>  $missingPrerequisites
+     */
+    private function editorialDependencyReadiness(string $status, array $missingPrerequisites): string
+    {
+        if ($status === 'published') {
+            return 'published_reference';
+        }
+        if ($missingPrerequisites !== []) {
+            return 'blocked_missing_prerequisites';
+        }
+        if ($status === 'ready_to_draft') {
+            return 'current_unlocked';
+        }
+
+        return 'planned_locked_by_sequence';
+    }
+
+    private function editorialDepthFromLevel(string $level): int
+    {
+        return match ($level) {
+            'L0' => 0,
+            'L1' => 1,
+            'L2' => 2,
+            'L3' => 3,
+            'L4' => 4,
+            default => 1,
+        };
+    }
+
+    /**
+     * @param  array<string,mixed>  $post
+     * @param  array<string,mixed>  $phase
+     * @param  array<int,string>  $missingPrerequisites
+     */
+    private function editorialDependencyPositionReason(array $post, array $phase, array $missingPrerequisites, bool $warning): string
+    {
+        if ($missingPrerequisites !== []) {
+            return 'Ainda depende de textos anteriores: '.implode(', ', $missingPrerequisites).'.';
+        }
+
+        if ($warning) {
+            return 'Tema profundo detectado antes de fundacao suficiente; manter como alerta de revisao.';
+        }
+
+        $label = (string) ($phase['label'] ?? 'fase atual');
+        $question = (string) ($post['main_question'] ?? '');
+
+        return $question !== ''
+            ? 'Pertence a '.$label.' porque responde: '.$question
+            : 'Pertence a '.$label.' e deve preservar a progressao do leitor.';
     }
 
     /**

@@ -1013,6 +1013,17 @@ JS);
         $this->assertSame('o-que-e-o-atlas', data_get($payload, 'operations_packet.editorial_roadmap.phases.0.next_post.slug'));
         $this->assertFalse(data_get($payload, 'operations_packet.editorial_roadmap.guardrails.writes_backlog'));
         $this->assertFalse(data_get($payload, 'operations_packet.editorial_roadmap.guardrails.publishes_content'));
+        $this->assertSame('atlas.blog_editorial_dependency_matrix.v1', data_get($payload, 'operations_packet.editorial_dependency_matrix.schema_version'));
+        $this->assertSame('read_only_prerequisite_ladder_p1', data_get($payload, 'operations_packet.editorial_dependency_matrix.mode'));
+        $this->assertSame(3, data_get($payload, 'operations_packet.editorial_dependency_matrix.summary.post_count'));
+        $this->assertSame('o-que-e-o-atlas', data_get($payload, 'operations_packet.editorial_dependency_matrix.summary.current_unlocked_slug'));
+        $this->assertSame(2, data_get($payload, 'operations_packet.editorial_dependency_matrix.summary.blocked_post_count'));
+        $this->assertSame('current_unlocked', data_get($payload, 'operations_packet.editorial_dependency_matrix.rows.0.readiness'));
+        $this->assertSame('blocked_missing_prerequisites', data_get($payload, 'operations_packet.editorial_dependency_matrix.rows.1.readiness'));
+        $this->assertSame('o-que-e-o-atlas', data_get($payload, 'operations_packet.editorial_dependency_matrix.rows.1.depends_on.missing_prerequisites.0'));
+        $this->assertGreaterThanOrEqual(1, count((array) data_get($payload, 'operations_packet.editorial_dependency_matrix.rows.0.reader_contract.must_introduce', [])));
+        $this->assertFalse(data_get($payload, 'operations_packet.editorial_dependency_matrix.guardrails.reorders_posts'));
+        $this->assertFalse(data_get($payload, 'operations_packet.editorial_dependency_matrix.guardrails.publishes_content'));
         $this->assertSame('future_governed', data_get($payload, 'operations_packet.source_snapshot.graph_retrieval_status'));
         $this->assertSame('atlas.blog_editorial_open_brain_handoff.v1', data_get($payload, 'operations_packet.open_brain_handoff.schema_version'));
         $this->assertSame('o-que-e-o-atlas', data_get($payload, 'operations_packet.open_brain_handoff.payload.post.slug'));
@@ -1026,6 +1037,7 @@ JS);
         $this->assertTrue(data_get($payload, 'operations_packet.guardrails.generates_publishing_plan'));
         $this->assertTrue(data_get($payload, 'operations_packet.guardrails.generates_topic_ledger'));
         $this->assertTrue(data_get($payload, 'operations_packet.guardrails.generates_editorial_roadmap'));
+        $this->assertTrue(data_get($payload, 'operations_packet.guardrails.generates_editorial_dependency_matrix'));
         $this->assertFalse(data_get($payload, 'operations_packet.guardrails.uses_graph_rag'));
     }
 
