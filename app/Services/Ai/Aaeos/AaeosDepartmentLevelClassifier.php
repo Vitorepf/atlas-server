@@ -110,7 +110,7 @@ final class AaeosDepartmentLevelClassifier
             'highest_band_offered' => $highestBandOffered,
             'all_bands_satisfied' => $allBandsSatisfied,
             'capping_metric' => $cappingMetric,
-            'missing_metrics' => $this->sortedUnique($missingMetrics),
+            'missing_metrics' => AtlasAaeosStringListNormalizer::uniqueSortedStrings($missingMetrics),
             'evaluated_bands' => $evaluatedBands,
         ]);
     }
@@ -131,18 +131,6 @@ final class AaeosDepartmentLevelClassifier
         }
 
         return (float) $value;
-    }
-
-    /**
-     * @param  list<string>  $values
-     * @return list<string>
-     */
-    private function sortedUnique(array $values): array
-    {
-        $unique = array_values(array_unique($values));
-        sort($unique);
-
-        return $unique;
     }
 
     /**

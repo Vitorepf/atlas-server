@@ -5140,12 +5140,9 @@ final class AtlasCodeRealityUsageIntelligenceService
      */
     private function uniqueStrings(array $values, bool $filterEmpty = false): array
     {
-        $strings = array_map('strval', $values);
-        if ($filterEmpty) {
-            $strings = array_filter($strings);
-        }
-
-        return array_values(array_unique($strings));
+        return $filterEmpty
+            ? EngineeringStringListNormalizer::uniqueTruthyStringCasts($values)
+            : EngineeringStringListNormalizer::uniqueStringCasts($values);
     }
 
     /**

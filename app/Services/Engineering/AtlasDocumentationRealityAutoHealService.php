@@ -482,7 +482,7 @@ final class AtlasDocumentationRealityAutoHealService
             }
         }
 
-        return array_values(array_unique($paths));
+        return EngineeringStringListNormalizer::uniqueStringCasts($paths, filterEmpty: true);
     }
 
     /**

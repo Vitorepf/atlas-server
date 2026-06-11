@@ -31,6 +31,14 @@ final class EngineeringStringListNormalizerTest extends TestCase
         );
     }
 
+    public function test_unique_truthy_string_casts_preserves_legacy_array_filter_semantics(): void
+    {
+        $this->assertSame(
+            [' a ', '5'],
+            EngineeringStringListNormalizer::uniqueTruthyStringCasts([' a ', '', '0', 0, false, 5, '5']),
+        );
+    }
+
     public function test_unique_truthy_string_values_preserves_legacy_filtering(): void
     {
         $this->assertSame(

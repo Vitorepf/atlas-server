@@ -390,7 +390,7 @@ class AtlasDocumentationRealityMultiEstateCompoundingService
             }
         }
 
-        return array_values(array_unique($ids));
+        return EngineeringStringListNormalizer::uniqueNonEmptyScalarStrings($ids);
     }
 
     /**
@@ -510,7 +510,7 @@ class AtlasDocumentationRealityMultiEstateCompoundingService
             }
         }
 
-        return array_values(array_unique($out));
+        return EngineeringStringListNormalizer::uniqueCommaSeparatedStrings($out, lowercase: true);
     }
 
     /**

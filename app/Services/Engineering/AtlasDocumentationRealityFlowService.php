@@ -700,7 +700,7 @@ class AtlasDocumentationRealityFlowService
             }
         }
 
-        return array_values(array_unique($out));
+        return EngineeringStringListNormalizer::uniqueNonEmptyStrings($out);
     }
 
     /**

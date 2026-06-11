@@ -353,8 +353,8 @@ class EngineeringCodeIntelligenceService
                 'drift_total' => (int) data_get($audit, 'summary.drift.total', 0),
                 'audit_duration_ms' => (int) ($audit['duration_ms'] ?? 0),
             ],
-            'critical_failures' => array_values(array_unique($criticalFailures)),
-            'warnings' => array_values(array_unique($warnings)),
+            'critical_failures' => EngineeringStringListNormalizer::uniqueStringCasts($criticalFailures),
+            'warnings' => EngineeringStringListNormalizer::uniqueStringCasts($warnings),
             'audit' => [
                 'status' => $audit['status'] ?? null,
                 'performance' => $audit['performance'] ?? null,
@@ -2089,7 +2089,7 @@ class EngineeringCodeIntelligenceService
                 }
             }
 
-            return $roots !== [] ? array_values(array_unique($roots)) : null;
+            return $roots !== [] ? EngineeringStringListNormalizer::uniqueStringCasts($roots) : null;
         } catch (Throwable) {
             return null;
         }
@@ -2147,7 +2147,7 @@ class EngineeringCodeIntelligenceService
 
         sort($repos);
 
-        return array_values(array_unique($repos));
+        return EngineeringStringListNormalizer::uniqueStringCasts($repos);
     }
 
     /**
@@ -2233,10 +2233,10 @@ class EngineeringCodeIntelligenceService
         $module['slug'] = $this->qualifyModuleSlug($prefixSlug, (string) ($module['slug'] ?? 'workspace_misc'));
         $module['name'] = trim($prefixName.' '.(string) ($module['name'] ?? 'Module'));
         $module['root_path'] = trim($prefix.'/'.($rootPath !== '' ? $rootPath : dirname($analysisPath)), '/');
-        $module['tags'] = array_values(array_unique(array_merge(
+        $module['tags'] = EngineeringStringListNormalizer::uniqueStringCasts(array_merge(
             is_array($module['tags'] ?? null) ? $module['tags'] : [],
             array_filter(explode('/', $prefix)),
-        )));
+        ));
 
         return $module;
     }
@@ -3508,7 +3508,7 @@ class EngineeringCodeIntelligenceService
         }
 
         foreach ($moduleDocs as $moduleId => $docs) {
-            $paths = array_values(array_unique($docs['paths'] ?? []));
+            $paths = EngineeringStringListNormalizer::uniqueStringCasts($docs['paths'] ?? []);
             $hashes = array_values(array_filter($docs['hashes'] ?? [], fn (string $hash): bool => $hash !== ''));
             sort($hashes);
 

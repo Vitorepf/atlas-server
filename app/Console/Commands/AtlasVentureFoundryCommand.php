@@ -19,7 +19,9 @@ use Illuminate\Console\Command;
 class AtlasVentureFoundryCommand extends Command
 {
     protected $signature = 'atlas:venture
-        {action : idea-register|idea-list|ideate-from-radar|ideate-generate|promote|venture-list|venture-show|link|rule-add|rule-list|metric-record|ladder|strategist-review|review-cycle|comprehend|comprehension-report|comprehension-findings|research-handoff|bridge-execution|status}
+        {action : idea-register|idea-list|ideate-from-radar|ideate-generate|promote|venture-list|venture-show|link|rule-add|rule-list|metric-record|ladder|strategist-review|review-cycle|comprehend|comprehension-report|comprehension-findings|assess|assessment-report|questions|focus|data-readiness|question-catalog|research-handoff|bridge-execution|status}
+        {--dimension-filter= : Filter answers by dimension (questions)}
+        {--status-filter= : Filter answers by status (questions)}
         {--analyze : Include the provider-backed strategic opinion (explicit spend)}
         {--brief= : Operator brief for governed generative ideation (ideate-generate)}
         {--count= : Max ideas to generate (ideate-generate)}
@@ -72,6 +74,7 @@ class AtlasVentureFoundryCommand extends Command
         VentureResearchHandoffService $research,
         VentureExecutionBridgeService $bridge,
         \App\Services\Ai\VentureFoundry\Comprehension\VentureComprehensionService $comprehension,
+        \App\Services\Ai\VentureFoundry\Assessment\VentureAssessmentService $assessment,
     ): int {
         $action = (string) $this->argument('action');
 
@@ -94,6 +97,12 @@ class AtlasVentureFoundryCommand extends Command
                 'comprehend' => $this->comprehend($registry, $comprehension),
                 'comprehension-report' => $this->comprehensionReport($registry),
                 'comprehension-findings' => $this->comprehensionFindings($registry),
+                'assess' => $this->assess($registry, $assessment),
+                'assessment-report' => $this->assessmentReport($registry),
+                'questions' => $this->questions($registry),
+                'focus' => $this->focus($registry),
+                'data-readiness' => $this->dataReadiness($registry),
+                'question-catalog' => $this->questionCatalog(),
                 'research-handoff' => $this->researchHandoff($registry, $ladder, $research),
                 'bridge-execution' => $this->bridgeExecution($registry, $bridge),
                 'status' => $this->sectorStatus(),

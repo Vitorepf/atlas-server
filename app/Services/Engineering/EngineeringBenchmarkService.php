@@ -1261,7 +1261,7 @@ class EngineeringBenchmarkService
             'passed_count' => $passedCount,
             'failed_count' => $failedCount,
             'missing_count' => $missingCount,
-            'blocking_reasons' => array_values(array_unique($blockingReasons)),
+            'blocking_reasons' => $this->uniqueReasonStrings($blockingReasons),
             'files' => $files,
         ]);
     }
@@ -1328,7 +1328,7 @@ class EngineeringBenchmarkService
 
         return [
             'status' => $blocking === [] ? 'passed' : 'failed',
-            'blocking_reasons' => array_values(array_unique($blocking)),
+            'blocking_reasons' => $this->uniqueReasonStrings($blocking),
             'result_integrity_status' => $integrity['status'] ?? null,
             'experiment_validity_status' => $experimentValidity['status'] ?? null,
             'claim_winner' => $claimWinner,
@@ -2144,10 +2144,10 @@ class EngineeringBenchmarkService
             'repair_used' => $repairAttemptCount > 0,
             'converted_to_green' => $repairAttemptCount > 0 && $protocolValid && $deterministicGatesPassed && $passWithoutHuman,
             'scope_safety' => $scopeSafety['summary'],
-            'blocking_reasons' => array_values(array_unique(array_merge(
+            'blocking_reasons' => $this->uniqueReasonStrings(
                 $blockingReasons,
-                array_map('strval', (array) ($fairResult['blocking_reasons'] ?? [])),
-            ))),
+                (array) ($fairResult['blocking_reasons'] ?? []),
+            ),
         ];
     }
 
@@ -2217,7 +2217,7 @@ class EngineeringBenchmarkService
         return [
             'verified' => $verified,
             'summary' => $summary,
-            'blocking_reasons' => array_values(array_unique($blocking)),
+            'blocking_reasons' => $this->uniqueReasonStrings($blocking),
         ];
     }
 
@@ -2232,6 +2232,15 @@ class EngineeringBenchmarkService
 
         return $model === FairClaudePolicy::MODEL_LOCK
             || ($configured !== '' && $model === $configured);
+    }
+
+    /**
+     * @param  array<int,mixed>  ...$reasonGroups
+     * @return array<int,string>
+     */
+    private function uniqueReasonStrings(array ...$reasonGroups): array
+    {
+        return EngineeringStringListNormalizer::uniqueStringCasts(array_merge(...$reasonGroups));
     }
 
     /**
@@ -2380,11 +2389,11 @@ class EngineeringBenchmarkService
             $reasons[] = 'baseline_not_verified_pass';
         }
 
-        return array_values(array_unique(array_merge(
+        return $this->uniqueReasonStrings(
             $reasons,
             $atlasProtocolInvalidReasons,
-            array_map('strval', (array) ($claudeCodeBaseline['blocking_reasons'] ?? [])),
-        )));
+            (array) ($claudeCodeBaseline['blocking_reasons'] ?? []),
+        );
     }
 
     /**
@@ -2425,7 +2434,7 @@ class EngineeringBenchmarkService
             }
         }
 
-        return array_values(array_unique($reasons));
+        return $this->uniqueReasonStrings($reasons);
     }
 
     /**
@@ -3119,11 +3128,11 @@ class EngineeringBenchmarkService
         $scorecard['comparable'] = false;
         $scorecard['winner'] = null;
         data_set($scorecard, 'atlas.verified', false);
-        $scorecard['blocking_reasons'] = array_values(array_unique(array_merge(
+        $scorecard['blocking_reasons'] = $this->uniqueReasonStrings(
             ['atlas_protocol_invalid'],
             $invalidReasons,
-            array_map('strval', (array) ($scorecard['blocking_reasons'] ?? [])),
-        )));
+            (array) ($scorecard['blocking_reasons'] ?? []),
+        );
 
         return $scorecard;
     }
@@ -3161,7 +3170,7 @@ class EngineeringBenchmarkService
             }
         }
 
-        return array_values(array_unique($reasons));
+        return $this->uniqueReasonStrings($reasons);
     }
 
     /**
@@ -4613,11 +4622,11 @@ class EngineeringBenchmarkService
             default => $status,
         };
         $evaluatorVerified = $finalStatus === 'passed';
-        $decisionReasons = array_values(array_unique(array_merge(
+        $decisionReasons = $this->uniqueReasonStrings(
             $invalidReasons,
             $failedReasons,
             $unverifiedReasons,
-        )));
+        );
 
         $skips = [];
         if ($packetCount > 0 && $deterministicGatePacketCount < $packetCount) {

@@ -612,7 +612,7 @@ class AtlasDocumentationRealitySystemService
      */
     private function authorityKernelEvaluation(array $sources, array $authorityReport): array
     {
-        $tiers = array_values(array_unique(array_column($sources, 'authority_tier')));
+        $tiers = EngineeringStringListNormalizer::uniqueStringCasts(array_column($sources, 'authority_tier'));
         $missingOwners = array_values(array_filter($sources, static fn (array $source): bool => ($source['owner'] ?? 'unknown') === 'unknown'));
         $unknownTierSources = array_values(array_filter($sources, static fn (array $source): bool => ($source['authority_tier'] ?? '') === 'tier_unknown'));
 
@@ -1612,7 +1612,7 @@ class AtlasDocumentationRealitySystemService
      */
     private function documentationEntropyEvaluation(array $sources): array
     {
-        $owners = array_values(array_unique(array_column($sources, 'owner')));
+        $owners = EngineeringStringListNormalizer::uniqueStringCasts(array_column($sources, 'owner'));
         $averageLines = count($sources) === 0 ? 0.0 : round(array_sum(array_map(static fn (array $source): int => (int) $source['line_count'], $sources)) / count($sources), 2);
 
         return [
@@ -1920,7 +1920,9 @@ class AtlasDocumentationRealitySystemService
             'canonical_question_count' => $total,
             'resolved_route_count' => $resolved,
             'routes' => $routes,
-            'route_targets' => array_values(array_unique(array_filter(array_column($routes, 'owner')))),
+            'route_targets' => EngineeringStringListNormalizer::uniqueStringCasts(
+                array_filter(array_column($routes, 'owner')),
+            ),
         ];
     }
 
@@ -2536,7 +2538,7 @@ class AtlasDocumentationRealitySystemService
             $commands[] = 'php artisan atlas:ai:session-bootstrap --task="<task>" --json';
         }
 
-        return array_values(array_unique($commands));
+        return EngineeringStringListNormalizer::uniqueNonEmptyStrings($commands);
     }
 
     /**
@@ -2558,7 +2560,7 @@ class AtlasDocumentationRealitySystemService
             $tests[] = 'tests/Feature/Ai/AtlasAiSessionBootstrapCommandTest.php';
         }
 
-        return array_values(array_unique($tests));
+        return EngineeringStringListNormalizer::uniqueNonEmptyStrings($tests);
     }
 
     private function ownerDocForBlock(string $name): string

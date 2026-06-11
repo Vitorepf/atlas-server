@@ -386,10 +386,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
             }
         }
 
-        $signals = array_values(array_unique($signals));
-        sort($signals);
-
-        return $signals;
+        return AtlasAaeosStringListNormalizer::uniqueSortedStrings($signals);
     }
 
     private function normalizeText(string $text): string

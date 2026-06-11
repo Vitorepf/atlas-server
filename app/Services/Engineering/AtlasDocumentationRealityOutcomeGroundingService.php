@@ -394,12 +394,9 @@ class AtlasDocumentationRealityOutcomeGroundingService
             $candidates[] = preg_replace('/\.md$/', '', $base) ?? $base;
         }
 
-        $candidates = array_values(array_unique(array_filter(
+        return EngineeringStringListNormalizer::uniqueNonEmptyStrings(
             array_map(fn (mixed $v): string => $this->str($v) ?? '', $candidates),
-            static fn (string $v): bool => $v !== '',
-        )));
-
-        return $candidates;
+        );
     }
 
     /**

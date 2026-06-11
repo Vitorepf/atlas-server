@@ -45,6 +45,7 @@ use App\Console\Commands\AtlasAiAutoApplySafeCommand;
 use App\Console\Commands\AtlasAiCaptureQualityAuditCommand;
 use App\Console\Commands\AtlasAiMemoryForgetCommand;
 use App\Console\Commands\AtlasAiStrategyDomainCommand;
+use App\Console\Commands\AtlasStrategicOperatingSystemCommand;
 use App\Console\Commands\AtlasAiWeeklyMemoryDigestCommand;
 use App\Console\Commands\AtlasApplyLearningCommand;
 use App\Console\Commands\AtlasBridgeEvidenceCommand;
@@ -252,6 +253,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasAiCaptureQualityAuditCommand::class,
         AtlasAiMemoryForgetCommand::class,
         AtlasAiStrategyDomainCommand::class,
+        AtlasStrategicOperatingSystemCommand::class,
         AtlasAiWeeklyMemoryDigestCommand::class,
         AtlasApplyLearningCommand::class,
         AtlasBridgeEvidenceCommand::class,

@@ -129,8 +129,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
             $unresolved[] = $this->stringValue($blocker['id'] ?? '');
         }
 
-        $unresolved = array_values(array_unique($unresolved));
-        sort($unresolved);
+        $unresolved = AtlasAaeosStringListNormalizer::uniqueSortedStrings($unresolved);
 
         return [
             'passed' => $unresolved === [],

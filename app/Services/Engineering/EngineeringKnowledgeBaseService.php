@@ -453,7 +453,7 @@ class EngineeringKnowledgeBaseService
             $categories[] = 'quality_scan';
         }
 
-        return array_values(array_unique($categories));
+        return EngineeringStringListNormalizer::uniqueNonEmptyStrings($categories);
     }
 
     /**
