@@ -17,7 +17,11 @@ if /usr/bin/pgrep -f "$RUNNER_PATTERN" >/dev/null 2>&1; then
 fi
 
 cd "$APP_ROOT"
-exec /opt/homebrew/bin/php artisan atlas:finance:strategy-campaign-runner \
+# JIT ligado: backtests são loops numéricos apertados — medido ~28-39% mais rápido
+# e provado BIT-IDÊNTICO ao não-JIT (mesma seed => mesmo ledger, 2026-06-10).
+exec /opt/homebrew/bin/php \
+  -d opcache.enable_cli=1 -d opcache.jit=tracing -d opcache.jit_buffer_size=128M \
+  artisan atlas:finance:strategy-campaign-runner \
   --family=roadmap \
   --candidates=600 \
   --sleep=2 \

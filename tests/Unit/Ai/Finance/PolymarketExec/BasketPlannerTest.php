@@ -118,9 +118,10 @@ final class BasketPlannerTest extends TestCase
         $this->assertLessThanOrEqual(1.80 + 1e-6, $plan->targetCostUsd);
     }
 
-    public function test_sizing_is_bounded_by_executable_depth_when_thin(): void
+    public function test_sizing_is_bounded_by_depth_buffer_when_thin(): void
     {
-        // Thin thinnest leg (4 shares) caps the sets below the cap-implied size.
+        // Thin thinnest leg (4 shares) caps sets below the cap-implied size and
+        // leaves the 3x depth buffer the execution gate requires.
         $planner = new BasketPlanner(
             $this->cfg(['maxBasketUsd' => 100.0]),
             $this->books([
@@ -134,8 +135,9 @@ final class BasketPlannerTest extends TestCase
         $plan = $planner->plan('evt', 'long_sum_under', [['token' => 'A'], ['token' => 'B'], ['token' => 'C']], 1200);
 
         $this->assertNotNull($plan);
-        $this->assertEqualsWithDelta(4.0, $plan->targetSets, 1e-4);
+        $this->assertEqualsWithDelta(1.3333, $plan->targetSets, 1e-4);
         $this->assertEqualsWithDelta(4.0, $plan->executableDepthShares, 1e-4);
+        $this->assertGreaterThanOrEqual($plan->targetSets * 3.0, $plan->executableDepthShares);
     }
 
     public function test_rejects_non_long_kind_and_sum_at_or_above_one(): void

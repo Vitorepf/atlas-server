@@ -53,6 +53,14 @@ final class AtlasCodeWorkspaceProfileService
         foreach ($this->persistedProfiles() as $raw) {
             $profile = $this->shape($raw);
             if ($profile['slug'] !== '') {
+                $configured = $shapedBySlug[$profile['slug']] ?? null;
+                if (
+                    is_array($configured)
+                    && ($profile['code_index_roots'] ?? []) === []
+                    && ($configured['code_index_roots'] ?? []) !== []
+                ) {
+                    $profile['code_index_roots'] = $configured['code_index_roots'];
+                }
                 $shapedBySlug[$profile['slug']] = $profile;
             }
         }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\AtlasAobgWorkspaceOnboardingService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendCompanyPortfolioService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendCompetitiveBenchmarkPlanService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendControlPlaneService;
@@ -136,6 +137,7 @@ final class AtlasFrontendWorkspaceController extends Controller
         Request $request,
         AtlasFrontendSelectedWorkspaceService $selectedWorkspace,
         AtlasCodeWorkspaceProfileService $profiles,
+        AtlasAobgWorkspaceOnboardingService $aobgWorkspaces,
     ): JsonResponse {
         $payload = $request->validate([
             'workspace' => ['required', 'string', 'max:1000'],
@@ -166,6 +168,10 @@ final class AtlasFrontendWorkspaceController extends Controller
             $invalidFrontendApp ? ['requested_frontend_app_subscope_not_found'] : [],
         )));
         $profile = null;
+        $aobgActivation = [
+            'ok' => true,
+            'action' => 'skipped_until_project_workspace_ready',
+        ];
 
         if ($selected) {
             try {
@@ -188,6 +194,7 @@ final class AtlasFrontendWorkspaceController extends Controller
                     'source' => 'atlas_frontend_selected_workspace',
                     'status' => 'active',
                 ]);
+                $aobgActivation = $this->activateAobgWorkspaceIfConfigured($workspace, $aobgWorkspaces);
             } catch (InvalidArgumentException $exception) {
                 $blockers[] = $exception->getMessage();
             }
@@ -224,6 +231,7 @@ final class AtlasFrontendWorkspaceController extends Controller
                 'provider_dispatch_performed' => false,
                 'execution_performed' => false,
                 'world_best_claim_allowed' => false,
+                'aobg_activation' => $aobgActivation,
             ],
             'required_next_actions' => $ready
                 ? ['switch_atlas_code_active_workspace_to_project_slug', 'open_atlas_frontend_runtime_cockpit_for_selected_repo']
@@ -246,8 +254,32 @@ final class AtlasFrontendWorkspaceController extends Controller
                 'frontend_app_is_subscope_only' => true,
                 'space_runtime_required' => false,
                 'world_best_claim_allowed' => false,
+                'aobg_activation' => $aobgActivation,
             ],
         ], $ready ? 200 : 422);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function activateAobgWorkspaceIfConfigured(string $workspace, AtlasAobgWorkspaceOnboardingService $aobgWorkspaces): array
+    {
+        if (! (bool) config('atlas.aobg.workspace_api_auto_activate', true)) {
+            return [
+                'ok' => true,
+                'action' => 'skipped_by_config',
+                'reason' => 'workspace_api_auto_activate_disabled',
+            ];
+        }
+        if ($workspace === '' || ! is_dir($workspace)) {
+            return [
+                'ok' => false,
+                'action' => 'skipped_missing_workspace_path',
+                'reason' => $workspace === '' ? 'workspace_path_empty' : 'workspace_path_not_directory',
+            ];
+        }
+
+        return $aobgWorkspaces->activate(['workspace' => $workspace]);
     }
 
     public function runtimeProjection(Request $request, AtlasFrontendWorkspaceRuntimeProjectionService $projection): JsonResponse

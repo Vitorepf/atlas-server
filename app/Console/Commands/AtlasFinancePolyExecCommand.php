@@ -330,6 +330,22 @@ final class AtlasFinancePolyExecCommand extends Command
                 'reason' => sprintf('observed=%d required>=%d', $observed['executed_total'], $minExecuted),
             ],
             [
+                'name' => 'shadow_settled_min',
+                'ok' => (int) ($observed['settled_total'] ?? 0) >= $minExecuted,
+                'reason' => sprintf('settled=%d required>=%d',
+                    (int) ($observed['settled_total'] ?? 0),
+                    $minExecuted,
+                ),
+            ],
+            [
+                'name' => 'shadow_unsafe_terminal_absent',
+                'ok' => (int) ($observed['unsafe_terminal_total'] ?? 0) === 0,
+                'reason' => sprintf('unsafe_terminal_total=%d statuses=%s',
+                    (int) ($observed['unsafe_terminal_total'] ?? 0),
+                    json_encode($observed['unsafe_terminal_statuses'] ?? [], JSON_UNESCAPED_SLASHES) ?: '{}',
+                ),
+            ],
+            [
                 'name' => 'slow_cycle_ratio',
                 'ok' => $observed['cycles_observed'] > 0 && $slowRatio <= $maxSlowRatio,
                 'reason' => sprintf('observed=%.4f max=%.4f slow=%d cycles=%d',
@@ -348,6 +364,19 @@ final class AtlasFinancePolyExecCommand extends Command
                     $observed['scan_cycles'],
                     $observed['scan_verified'],
                     $observed['scan_signals'],
+                ),
+            ],
+            [
+                'name' => 'scan_coverage_floor',
+                'ok' => $observed['scan_cycles'] > 0
+                    && ((int) ($observed['scan_expected_events'] ?? 0) === 0
+                        || (int) ($observed['scan_undercovered_cycles'] ?? 0) === 0),
+                'reason' => sprintf('undercovered=%d scan_cycles=%d min_scanned=%s expected=%d floor=%d',
+                    (int) ($observed['scan_undercovered_cycles'] ?? 0),
+                    (int) $observed['scan_cycles'],
+                    $observed['scan_min_scanned'] === null ? 'n/a' : (string) $observed['scan_min_scanned'],
+                    (int) ($observed['scan_expected_events'] ?? 0),
+                    (int) ceil(((int) ($observed['scan_expected_events'] ?? 0)) * 0.8),
                 ),
             ],
             [
@@ -580,9 +609,21 @@ final class AtlasFinancePolyExecCommand extends Command
 
             $candidates = $this->selectCandidates($cfg, $kinds, $maxCandidates);
             $out = $allocator->allocate('sim', $sessionId.'-'.$cycle, $candidates, $maxCandidates, microtime(true) + $candidateTimeBudget);
+            $freshResults = array_values(array_filter(
+                $out['results'],
+                fn (array $result): bool => ! (bool) ($result['idempotent_replay'] ?? false),
+            ));
+            $replayResults = array_values(array_filter(
+                $out['results'],
+                fn (array $result): bool => (bool) ($result['idempotent_replay'] ?? false),
+            ));
             $statuses = array_count_values(array_map(
                 fn (array $result): string => (string) ($result['status'] ?? 'unknown'),
-                $out['results'],
+                $freshResults,
+            ));
+            $replayStatuses = array_count_values(array_map(
+                fn (array $result): string => (string) ($result['status'] ?? 'unknown'),
+                $replayResults,
             ));
             $resultSamples = $this->monitorResultSamples($out['results']);
             $report = [
@@ -591,6 +632,8 @@ final class AtlasFinancePolyExecCommand extends Command
                 'processed' => $out['processed'] ?? count($out['results']),
                 'dispatched' => $out['dispatched'],
                 'executed' => $this->executedCount($out['results']),
+                'idempotent_replays' => count($replayResults),
+                'idempotent_replay_statuses' => $replayStatuses,
                 'blocked' => $out['blocked'],
                 'statuses' => $statuses,
                 'reason_counts' => $this->monitorReasonCounts($resultSamples),
@@ -605,9 +648,10 @@ final class AtlasFinancePolyExecCommand extends Command
                 'session_id' => $sessionId,
                 'created_at' => now()->toIso8601String(),
             ]);
-            $this->line(sprintf('[poly-exec] monitor cycle#%d candidates=%d processed=%d dispatched=%d executed=%d statuses=%s reasons=%s (%.2fs)%s',
+            $this->line(sprintf('[poly-exec] monitor cycle#%d candidates=%d processed=%d dispatched=%d executed=%d replays=%d statuses=%s replay_statuses=%s reasons=%s (%.2fs)%s',
                 $report['cycle'], $report['candidates'], $report['processed'], $report['dispatched'],
-                $report['executed'], json_encode($report['statuses']), json_encode($report['reason_counts']), $report['duration_seconds'],
+                $report['executed'], $report['idempotent_replays'], json_encode($report['statuses']), json_encode($report['idempotent_replay_statuses']),
+                json_encode($report['reason_counts']), $report['duration_seconds'],
                 $report['slow'] ? ' SLOW' : ''));
 
             if ($cycle < $cycles && $interval > 0) {
@@ -634,6 +678,7 @@ final class AtlasFinancePolyExecCommand extends Command
             'cycles' => $cycleReports,
             'slow_cycles' => count(array_filter($cycleReports, fn (array $report): bool => (bool) ($report['slow'] ?? false))),
             'executed_total' => array_sum(array_column($cycleReports, 'executed')),
+            'idempotent_replays_total' => array_sum(array_column($cycleReports, 'idempotent_replays')),
         ];
         $this->appendMonitorLog($logPath, $summary + [
             'event' => 'summary',
@@ -913,14 +958,21 @@ final class AtlasFinancePolyExecCommand extends Command
             'processed' => 0,
             'dispatched' => 0,
             'executed_total' => 0,
+            'idempotent_replays' => 0,
             'blocked' => 0,
             'slow_cycles' => 0,
             'scan_cycles' => 0,
             'scan_skipped_cycles' => 0,
             'scan_budget_exhausted_cycles' => 0,
+            'scan_expected_events' => 0,
+            'scan_scanned' => 0,
+            'scan_min_scanned' => null,
+            'scan_undercovered_cycles' => 0,
+            'scan_undercoverage_samples' => [],
             'scan_verified' => 0,
             'scan_signals' => 0,
             'statuses' => [],
+            'idempotent_replay_statuses' => [],
             'reason_counts' => [],
         ];
 
@@ -928,6 +980,10 @@ final class AtlasFinancePolyExecCommand extends Command
             $events = $this->readMonitorLog($path);
             $summary = $this->lastMonitorEvent($events, 'summary');
             $start = $this->lastMonitorEvent($events, 'start');
+            $scanExpectedEvents = $this->scanExpectedEvents($start);
+            if ($scanExpectedEvents > 0) {
+                $aggregate['scan_expected_events'] = max((int) $aggregate['scan_expected_events'], $scanExpectedEvents);
+            }
             $cycles = array_values(array_filter(
                 $events,
                 fn (array $event): bool => ($event['event'] ?? null) === 'cycle',
@@ -949,6 +1005,7 @@ final class AtlasFinancePolyExecCommand extends Command
                 $aggregate['processed'] += (int) ($cycle['processed'] ?? 0);
                 $aggregate['dispatched'] += (int) ($cycle['dispatched'] ?? 0);
                 $aggregate['executed_total'] += (int) ($cycle['executed'] ?? 0);
+                $aggregate['idempotent_replays'] += (int) ($cycle['idempotent_replays'] ?? 0);
                 $aggregate['blocked'] += (int) ($cycle['blocked'] ?? 0);
                 if ((bool) ($cycle['slow'] ?? false)) {
                     $aggregate['slow_cycles']++;
@@ -962,6 +1019,23 @@ final class AtlasFinancePolyExecCommand extends Command
                         $aggregate['scan_skipped_cycles']++;
                     } else {
                         $aggregate['scan_cycles']++;
+                        $scanned = (int) ($scan['scanned'] ?? 0);
+                        $aggregate['scan_scanned'] += $scanned;
+                        $aggregate['scan_min_scanned'] = $aggregate['scan_min_scanned'] === null
+                            ? $scanned
+                            : min((int) $aggregate['scan_min_scanned'], $scanned);
+                        if ($scanExpectedEvents > 0 && $scanned < (int) ceil($scanExpectedEvents * 0.8)) {
+                            $aggregate['scan_undercovered_cycles']++;
+                            if (count($aggregate['scan_undercoverage_samples']) < 5) {
+                                $aggregate['scan_undercoverage_samples'][] = [
+                                    'session_id' => (string) ($cycle['session_id'] ?? $start['session_id'] ?? ''),
+                                    'cycle' => (int) ($cycle['cycle'] ?? 0),
+                                    'scanned' => $scanned,
+                                    'expected' => $scanExpectedEvents,
+                                    'floor' => (int) ceil($scanExpectedEvents * 0.8),
+                                ];
+                            }
+                        }
                         $aggregate['scan_verified'] += (int) ($scan['verified'] ?? 0);
                         $aggregate['scan_signals'] += (int) ($scan['signals'] ?? 0);
                         if ((bool) ($scan['budget_exhausted'] ?? false)) {
@@ -973,15 +1047,50 @@ final class AtlasFinancePolyExecCommand extends Command
                     }
                 }
                 $this->addCounterMap($aggregate['statuses'], $cycle['statuses'] ?? []);
+                $this->addCounterMap($aggregate['idempotent_replay_statuses'], $cycle['idempotent_replay_statuses'] ?? []);
                 $this->addCounterMap($aggregate['reason_counts'], $cycle['reason_counts'] ?? []);
             }
         }
         ksort($aggregate['statuses']);
+        ksort($aggregate['idempotent_replay_statuses']);
         ksort($aggregate['reason_counts']);
+        $unsafeTerminalStatuses = [];
+        foreach (['unwound', 'failed', 'halted'] as $status) {
+            $count = (int) ($aggregate['statuses'][$status] ?? 0);
+            if ($count > 0) {
+                $unsafeTerminalStatuses[$status] = $count;
+            }
+        }
+        $aggregate['settled_total'] = (int) ($aggregate['statuses']['settled'] ?? 0);
+        $aggregate['unsafe_terminal_statuses'] = $unsafeTerminalStatuses;
+        $aggregate['unsafe_terminal_total'] = array_sum($unsafeTerminalStatuses);
         $aggregate['cycle_duration_seconds'] = $this->durationStats($durations);
         $aggregate['scan_duration_seconds'] = $this->durationStats($scanDurations);
 
         return $aggregate;
+    }
+
+    /**
+     * @param  array<string, mixed>  $start
+     */
+    private function scanExpectedEvents(array $start): int
+    {
+        if (! (bool) ($start['scan_before_cycle'] ?? false)) {
+            return 0;
+        }
+
+        $scanOptions = $start['scan_options'] ?? [];
+        if (! is_array($scanOptions)) {
+            return 0;
+        }
+
+        $pages = (int) ($scanOptions['pages'] ?? 0);
+        $perPage = (int) ($scanOptions['per_page'] ?? 0);
+        if ($pages <= 0 || $perPage <= 0) {
+            return 0;
+        }
+
+        return $pages * $perPage;
     }
 
     /**
@@ -1032,9 +1141,12 @@ final class AtlasFinancePolyExecCommand extends Command
     private function qualificationNextEvidence(array $failed, int $minCycles, int $minExecuted): array
     {
         $items = [];
-        if (array_intersect($failed, ['monitor_logs_present', 'shadow_cycles_min', 'shadow_executed_min']) !== []) {
+        if (array_intersect($failed, ['monitor_logs_present', 'shadow_cycles_min', 'shadow_executed_min', 'shadow_settled_min']) !== []) {
             $items[] = sprintf('Run monitor long enough to capture at least %d cycles and %d successful simulated executions against real books.',
                 $minCycles, $minExecuted);
+        }
+        if (in_array('shadow_unsafe_terminal_absent', $failed, true)) {
+            $items[] = 'Investigate unwound/failed/halted simulated baskets and rerun monitor until the qualification window has no unsafe terminal execution statuses.';
         }
         if (in_array('slow_cycle_ratio', $failed, true)) {
             $items[] = 'Reduce slow monitor cycles before relying on the executor for time-sensitive fills.';
@@ -1044,6 +1156,9 @@ final class AtlasFinancePolyExecCommand extends Command
         }
         if (in_array('scan_budget_exhaustion', $failed, true)) {
             $items[] = 'Tune scan coverage, CLOB verification count, timeouts, or candidate pruning until monitor scan budget_exhausted=0 throughout the qualification window.';
+        }
+        if (in_array('scan_coverage_floor', $failed, true)) {
+            $items[] = 'Investigate partial Gamma scans and rerun monitor until scan-before-cycle coverage stays above the qualification floor throughout the window.';
         }
         if (in_array('finance_policy_allows_live', $failed, true)) {
             $items[] = 'Change the canonical Finance policy through governance before any live market execution.';
@@ -1100,6 +1215,7 @@ final class AtlasFinancePolyExecCommand extends Command
                 'basket_id' => $basketId !== '' ? $basketId : null,
                 'status' => (string) ($result['status'] ?? 'unknown'),
                 'status_reason' => isset($result['status_reason']) ? (string) $result['status_reason'] : null,
+                'idempotent_replay' => (bool) ($result['idempotent_replay'] ?? false) ? true : null,
                 'failed' => $failed !== [] ? $failed : null,
                 'error' => isset($result['error']) && $result['error'] !== null ? (string) $result['error'] : null,
                 'realized_pnl_usd' => isset($result['realized_pnl_usd']) ? (float) $result['realized_pnl_usd'] : null,
@@ -1226,7 +1342,8 @@ final class AtlasFinancePolyExecCommand extends Command
 
         return count(array_filter(
             $results,
-            fn (array $result): bool => in_array((string) ($result['status'] ?? ''), $executedStatuses, true),
+            fn (array $result): bool => ! (bool) ($result['idempotent_replay'] ?? false)
+                && in_array((string) ($result['status'] ?? ''), $executedStatuses, true),
         ));
     }
 

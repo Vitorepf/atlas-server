@@ -113,7 +113,9 @@ final class ShortBasketPlanner
         }
 
         // Binding sellable depth: the thinnest sellable leg caps how many full sets
-        // we can sell (one share per leg per set).
+        // we can sell (one share per leg per set). Size below the full depth so
+        // the downstream depth_multiple gate remains a safety check, not an
+        // automatic rejection of every depth-bound plan.
         $executableDepth = min(array_column($sellable, 'depth_at_floor'));
 
         // Each set costs exactly $1 to mint, so the budget directly bounds sets.
@@ -121,7 +123,10 @@ final class ShortBasketPlanner
             ? $this->cfg->maxBasketUsd
             : min($this->cfg->maxBasketUsd, max(0.0, $dailyRemainingUsd));
         $maxSetsByCap = $capUsd; // $1 per set
-        $targetSets = floor(min($maxSetsByCap, $executableDepth) * 10_000) / 10_000;
+        $maxSetsByDepthBuffer = $this->cfg->minDepthMultiple > 0.0
+            ? $executableDepth / $this->cfg->minDepthMultiple
+            : $executableDepth;
+        $targetSets = floor(min($maxSetsByCap, $maxSetsByDepthBuffer) * 10_000) / 10_000;
         if ($targetSets <= 0.0) {
             return null;
         }

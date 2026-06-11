@@ -76,6 +76,24 @@ final class ShortBasketPlannerTest extends TestCase
         $this->assertEqualsWithDelta(1000.0, $plan->executableDepthShares, 1e-6);
     }
 
+    public function test_sizes_the_mint_by_depth_buffer_when_book_is_thin(): void
+    {
+        $books = [
+            'A' => ['bids' => [['price' => 0.40, 'size' => 9.0]]],
+            'B' => ['bids' => [['price' => 0.40, 'size' => 1000.0]]],
+            'C' => ['bids' => [['price' => 0.40, 'size' => 1000.0]]],
+        ];
+        $legs = [['token' => 'A'], ['token' => 'B'], ['token' => 'C']];
+
+        $plan = $this->planner($books, ['maxBasketUsd' => 100.0])->plan('evt', $legs, 1200, 100.0);
+
+        $this->assertNotNull($plan);
+        $this->assertEqualsWithDelta(3.0, $plan->targetSets, 1e-6);
+        $this->assertEqualsWithDelta(9.0, $plan->executableDepthShares, 1e-6);
+        $this->assertGreaterThanOrEqual($plan->targetSets * 3.0, $plan->executableDepthShares);
+        $this->assertEqualsWithDelta(3.0, $plan->mintCostUsd, 1e-6);
+    }
+
     public function test_rejects_when_bids_do_not_sum_over_one(): void
     {
         $books = [

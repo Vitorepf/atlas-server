@@ -74,6 +74,14 @@ fi
 [ -f "$ATLAS_SERVER_DIR/artisan" ] || exit 0
 cd "$ATLAS_SERVER_DIR" 2>/dev/null || exit 0
 
+# Best-effort workspace activation: bind the opened folder into AWIS, install/merge
+# provider bootstrap files, and index the CodeGraph on the first prompt for a new
+# workspace. Subsequent prompts are cheap because activation sees the workspace is
+# already indexed. Disable with ATLAS_AOBG_HOOK_AUTO_ACTIVATE=0.
+if [ "${ATLAS_AOBG_HOOK_AUTO_ACTIVATE:-1}" = "1" ]; then
+    php artisan atlas:aobg:workspace activate --workspace="$WORKSPACE_DIR" --json >/dev/null 2>&1 || true
+fi
+
 # Run the proven unified retrieval. Capture stdout only; swallow stderr/non-zero (never
 # block). The command is fail-safe by contract (exit 0 + honest-empty pack on any fault).
 PACK_JSON="$(php artisan atlas:context-pack "$PROMPT" --workspace="$WORKSPACE_DIR" --budget="$ATLAS_AOBG_HOOK_BUDGET" --json 2>/dev/null || true)"

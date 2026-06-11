@@ -263,6 +263,8 @@ final class MintSellStateMachineTest extends TestCase
 
         $again = $machine->execute($this->plan(2.0), 's8', 'sess1');
         $this->assertSame('settled', $again['status']);
+        $this->assertTrue($again['idempotent_replay']);
+        $this->assertSame('terminal_basket_already_recorded', $again['status_reason']);
         $this->assertCount($sellsAfterFirst, $client->sellLimits, 're-running a terminal basket sells nothing more');
         $this->assertSame(1, DB::table('atlas_poly_exec_baskets')->where('basket_id', 's8')->count());
         // Exactly one mint event ever recorded (no re-mint on resume).

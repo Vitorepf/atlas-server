@@ -41,6 +41,9 @@
         <!-- AP-811: code graph is activated in dev/prod .env, but tests stay
              deterministic with it OFF (per-test config()->set turns it on where needed). -->
         <env name="ATLAS_CODE_GRAPH_REAL_EDGES" value="false"/>
+        <!-- AOBG workspace API activation mutates real workspace provider files.
+             Keep it off in tests unless a test explicitly enables and stubs it. -->
+        <env name="ATLAS_AOBG_WORKSPACE_API_AUTO_ACTIVATE" value="false"/>
         <!-- AP-813: compression layer is activated in dev/prod .env, but tests stay
              deterministic with it OFF (per-test config()->set turns it on where needed). -->
         <env name="ATLAS_COMPRESSION_LAYER_ENABLED" value="false"/>

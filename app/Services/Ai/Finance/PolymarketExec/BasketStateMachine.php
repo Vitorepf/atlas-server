@@ -73,7 +73,7 @@ final class BasketStateMachine
 
         $existing = DB::table('atlas_poly_exec_baskets')->where('basket_id', $basketId)->first();
         if ($existing !== null && $this->isTerminal((string) $existing->status)) {
-            return $this->summary($basketId); // idempotent: already done, do nothing
+            return $this->summary($basketId, true); // idempotent: already done, do nothing
         }
 
         if ($existing === null) {
@@ -627,7 +627,7 @@ final class BasketStateMachine
     /**
      * @return array<string, mixed>
      */
-    public function summary(string $basketId): array
+    public function summary(string $basketId, bool $idempotentReplay = false): array
     {
         $b = DB::table('atlas_poly_exec_baskets')->where('basket_id', $basketId)->first();
         if ($b === null) {
@@ -637,7 +637,7 @@ final class BasketStateMachine
             ->get(['position', 'question', 'status', 'target_size', 'filled_size', 'avg_fill_price', 'cost_usd', 'unwind_proceeds_usd'])
             ->map(fn ($r) => (array) $r)->all();
 
-        return [
+        $summary = [
             'basket_id' => (string) $b->basket_id,
             'mode' => (string) $b->mode,
             'event_slug' => (string) $b->event_slug,
@@ -658,5 +658,12 @@ final class BasketStateMachine
             'error' => $b->error,
             'legs' => $legs,
         ];
+
+        if ($idempotentReplay) {
+            $summary['idempotent_replay'] = true;
+            $summary['status_reason'] = 'terminal_basket_already_recorded';
+        }
+
+        return $summary;
     }
 }

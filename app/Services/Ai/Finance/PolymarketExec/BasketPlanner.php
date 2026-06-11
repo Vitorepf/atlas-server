@@ -112,6 +112,8 @@ final class BasketPlanner
 
         // Binding executable depth = the thinnest leg's depth at limit (one share
         // per leg per set, so the smallest leg caps how many full sets we can buy).
+        // Size below the full depth so the downstream depth_multiple gate remains
+        // a safety check, not an automatic rejection of every depth-bound plan.
         $executableDepth = min(array_column($priced, 'depth_at_limit'));
         $costPerSet = $sumBestAsks;
 
@@ -120,8 +122,11 @@ final class BasketPlanner
             : min($this->cfg->maxBasketUsd, max(0.0, $dailyRemainingUsd));
 
         $maxSetsByCap = $costPerSet > 0.0 ? $capUsd / $costPerSet : 0.0;
+        $maxSetsByDepthBuffer = $this->cfg->minDepthMultiple > 0.0
+            ? $executableDepth / $this->cfg->minDepthMultiple
+            : $executableDepth;
         // Floor to 4dp so we never round UP past the cap or available depth.
-        $targetSets = floor(min($maxSetsByCap, $executableDepth) * 10_000) / 10_000;
+        $targetSets = floor(min($maxSetsByCap, $maxSetsByDepthBuffer) * 10_000) / 10_000;
         if ($targetSets <= 0.0) {
             return null;
         }

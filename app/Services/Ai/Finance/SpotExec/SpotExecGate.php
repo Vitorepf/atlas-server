@@ -41,7 +41,13 @@ final class SpotExecGate
             $reasons[] = 'live_disabled (ATLAS_SPOT_EXEC_LIVE_ENABLED != true)';
         }
         $armedEnv = (string) ($this->cfg['armed_env'] ?? 'ATLAS_SPOT_EXEC_ARMED');
-        if (strtolower(trim((string) env($armedEnv, ''))) !== 'true') {
+        // env() COAGE "true"→bool(true) (phpdotenv); getenv() devolve a string crua e
+        // cobre testes via putenv. Aceitar as duas formas — um cast ingênuo p/ string
+        // ("1") deixaria o gate IMPOSSÍVEL de armar em produção (pego por teste).
+        $armedVal = env($armedEnv) ?? (getenv($armedEnv) !== false ? getenv($armedEnv) : null);
+        $armed = $armedVal === true
+            || (is_string($armedVal) && in_array(strtolower(trim($armedVal)), ['true', '1'], true));
+        if (! $armed) {
             $reasons[] = 'not_armed ('.$armedEnv.' != true)';
         }
         if (! $confirmed) {

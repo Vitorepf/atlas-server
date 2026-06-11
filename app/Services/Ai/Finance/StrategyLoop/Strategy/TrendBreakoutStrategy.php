@@ -53,6 +53,7 @@ final class TrendBreakoutStrategy implements StrategyRunner
         $entryPrice = 0.0;
         $entryIdx = -1;
         $trailHigh = 0.0;
+        $entryR = 0.0; // distância de stop na entrada (1R) — base da gestão de trade (v2)
         $equity = $returns = $trades = [];
         $prevEquity = 1.0;
         $pending = null; // null | ['enter', stopDist] | ['exit']
@@ -82,6 +83,7 @@ final class TrendBreakoutStrategy implements StrategyRunner
                         $entryPrice = $fill;
                         $entryIdx = $t;
                         $trailHigh = $close[$t];
+                        $entryR = $stopDist;
                     }
                 } elseif ($pending[0] === 'exit' && $inPos) {
                     $fill = $open[$t] * (1.0 - $slip);
@@ -101,6 +103,7 @@ final class TrendBreakoutStrategy implements StrategyRunner
                     $entryIdx = -1;
                     $entryPrice = 0.0;
                     $trailHigh = 0.0;
+                    $entryR = 0.0;
                 }
                 $pending = null;
             }
@@ -122,10 +125,23 @@ final class TrendBreakoutStrategy implements StrategyRunner
                     $trailHigh = $close[$t];
                 }
                 $atr = $this->atr($high, $low, $close, $t, $p['atr_period']);
-                $stopHit = ($trailHigh - $p['atr_mult'] * $atr) > $close[$t];
+                // GESTÃO DE TRADE (defaults 0 = desligado = comportamento v1 bit-idêntico;
+                // as famílias v2 exploram via params):
+                // trail aperta após +tighten_at_r·R — deixa respirar cedo, trava lucro tarde.
+                $atrMult = $p['atr_mult'];
+                if ($p['tighten_at_r'] > 0.0 && $p['tighten_atr_mult'] > 0.0 && $entryR > 0.0
+                    && $trailHigh >= $entryPrice + $p['tighten_at_r'] * $entryR) {
+                    $atrMult = min($atrMult, $p['tighten_atr_mult']);
+                }
+                $stopHit = ($trailHigh - $atrMult * $atr) > $close[$t];
+                // breakeven: armado quando o trade já andou +breakeven_at_r·R; depois
+                // disso, devolver até a entrada encerra (lucro não vira perda).
+                $breakevenHit = $p['breakeven_at_r'] > 0.0 && $entryR > 0.0
+                    && $trailHigh >= $entryPrice + $p['breakeven_at_r'] * $entryR
+                    && $close[$t] < $entryPrice;
                 $donExit = $p['exit_lookback'] > 0 && $close[$t] < $this->lowest($low, $t - 1, $p['exit_lookback']);
                 $canExit = ($t - $entryIdx) >= $p['min_hold_bars'];
-                if ($canExit && ($stopHit || $donExit)) {
+                if ($canExit && ($stopHit || $donExit || $breakevenHit)) {
                     $pending = ['exit'];
                 }
             } else {
@@ -167,6 +183,10 @@ final class TrendBreakoutStrategy implements StrategyRunner
             'fee_bps' => max(0.0, $f('fee_bps', 10.0)),            // 0.10% per side (Binance taker)
             'slippage_bps' => max(0.0, $f('slippage_bps', 5.0)),
             'min_hold_bars' => $i('min_hold_bars', 0),
+            // Gestão de trade (0 = desligado = v1 bit-idêntico). Família v2 explora.
+            'breakeven_at_r' => max(0.0, $f('breakeven_at_r', 0.0)),
+            'tighten_at_r' => max(0.0, $f('tighten_at_r', 0.0)),
+            'tighten_atr_mult' => max(0.0, $f('tighten_atr_mult', 0.0)),
         ];
         $out['warmup'] = max($out['regime_period'], $out['entry_lookback'] + 1, $out['exit_lookback'] + 1, $out['atr_period'] + 1, 2);
 

@@ -105,3 +105,16 @@ Depois disso, siga o contrato retornado: rode o bootstrap e o scope validator do
 - Runtime search: `atlas search "<query>"`
 - Open Brain MCP: `atlas open-brain mcp --describe`
 - This projection should stay short; detailed recall belongs in Atlas Context Packs.
+
+<!-- atlas:aobg:auto-bootstrap:start -->
+## Atlas Open Brain Gateway
+- This workspace is activated as `atlas-server` at `/Users/vitorepf/develop/Atlas/atlas-server`.
+- Atlas memory/context is canonical; this provider file is only a compact bootstrap.
+- At session start or before context-sensitive implementation, run `/Users/vitorepf/develop/Atlas/atlas-server/bin/atlas aobg workspace activate --json` from this workspace.
+- Before architecture or implementation work, request context with `/Users/vitorepf/develop/Atlas/atlas-server/bin/atlas open-brain context "<task>" --json` or MCP `atlas_context_pack`.
+- If MCP native transport fails, use the CLI fallback above; it scopes to the current directory automatically.
+- Treat AOBG output as provider-safe curated top-K context, then verify with direct file reads, `rg`, tests, and Atlas gates.
+- Do not expose Atlas internal ids, traces, prompts, or provider details unless the operator asks for audit.
+
+Provider target: `AGENTS.md`.
+<!-- atlas:aobg:auto-bootstrap:end -->

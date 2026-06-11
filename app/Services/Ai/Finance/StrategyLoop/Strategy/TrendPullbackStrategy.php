@@ -53,6 +53,8 @@ final class TrendPullbackStrategy implements StrategyRunner
         $entryIdx = -1;
         $stopLevel = 0.0;   // frozen at decision time
         $targetLevel = 0.0; // frozen at decision time
+        $maxClose = 0.0;    // maior close desde a entrada (arma o breakeven — v2)
+        $entryR = 0.0;      // distância de stop na entrada (1R)
         $equity = $returns = $trades = [];
         $prevEquity = 1.0;
         $pending = null; // null | ['enter', stopDist, stopLevel, targetLevel] | ['exit']
@@ -83,6 +85,8 @@ final class TrendPullbackStrategy implements StrategyRunner
                         $entryIdx = $t;
                         $stopLevel = (float) $pending[2];
                         $targetLevel = (float) $pending[3];
+                        $maxClose = $close[$t];
+                        $entryR = $stopDist;
                     }
                 } elseif ($pending[0] === 'exit' && $inPos) {
                     $fill = $open[$t] * (1.0 - $slip);
@@ -103,6 +107,8 @@ final class TrendPullbackStrategy implements StrategyRunner
                     $entryPrice = 0.0;
                     $stopLevel = 0.0;
                     $targetLevel = 0.0;
+                    $maxClose = 0.0;
+                    $entryR = 0.0;
                 }
                 $pending = null;
             }
@@ -120,6 +126,15 @@ final class TrendPullbackStrategy implements StrategyRunner
                 continue;
             }
             if ($inPos) {
+                if ($close[$t] > $maxClose) {
+                    $maxClose = $close[$t];
+                }
+                // GESTÃO DE TRADE (default 0 = desligado = v1 bit-idêntico; v2 explora):
+                // breakeven — após +breakeven_at_r·R, o stop fixo sobe para a entrada.
+                if ($p['breakeven_at_r'] > 0.0 && $entryR > 0.0
+                    && $maxClose >= $entryPrice + $p['breakeven_at_r'] * $entryR) {
+                    $stopLevel = max($stopLevel, $entryPrice);
+                }
                 $canExit = ($t - $entryIdx) >= $p['min_hold_bars'];
                 $targetHit = $targetLevel > 0.0 && $close[$t] >= $targetLevel;
                 $stopHit = $stopLevel > 0.0 && $close[$t] < $stopLevel;
@@ -171,6 +186,8 @@ final class TrendPullbackStrategy implements StrategyRunner
             'fee_bps' => max(0.0, $f('fee_bps', 10.0)),            // 0.10% per side (Binance taker)
             'slippage_bps' => max(0.0, $f('slippage_bps', 5.0)),
             'min_hold_bars' => $i('min_hold_bars', 0),
+            // Gestão de trade (0 = desligado = v1 bit-idêntico). Família v2 explora.
+            'breakeven_at_r' => max(0.0, $f('breakeven_at_r', 0.0)),
         ];
         $out['warmup'] = max(
             $out['trend_period'],

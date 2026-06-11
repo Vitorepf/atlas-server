@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Models\AtlasWorkspaceProfile;
+use App\Services\Ai\AtlasAobgWorkspaceOnboardingService;
 use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -163,6 +164,59 @@ class AtlasCodeWorkspaceProfileTest extends TestCase
             ->assertJsonPath('workspace.workspace_path_exists', true)
             ->assertJsonPath('workspace.test_commands.0', 'php artisan test')
             ->assertJsonPath('meta.execution_allowed', true);
+    }
+
+    public function test_workspace_registry_api_triggers_aobg_activation_for_existing_folder(): void
+    {
+        $this->createWorkspaceProfilesTable();
+        config()->set('atlas.aobg.workspace_api_auto_activate', true);
+
+        $workspacePath = sys_get_temp_dir().'/atlas-code-aobg-api-'.Str::random(6);
+        @mkdir($workspacePath, 0777, true);
+        $canonicalWorkspacePath = realpath($workspacePath) ?: $workspacePath;
+
+        $fake = new class extends AtlasAobgWorkspaceOnboardingService
+        {
+            /** @var array<int,array<string,mixed>> */
+            public array $calls = [];
+
+            public function __construct() {}
+
+            /**
+             * @param  array<string,mixed>  $opts
+             * @return array<string,mixed>
+             */
+            public function activate(array $opts = []): array
+            {
+                $this->calls[] = $opts;
+
+                return [
+                    'ok' => true,
+                    'action' => 'activated_already_indexed',
+                    'workspace_id' => 'client-auto',
+                    'workspace_path' => $opts['workspace'] ?? null,
+                ];
+            }
+        };
+        $this->app->instance(AtlasAobgWorkspaceOnboardingService::class, $fake);
+
+        $response = $this->withHeaders($this->headers())->postJson('/atlas-code/projects/workspaces', [
+            'slug' => 'client-auto',
+            'name' => 'Client Auto',
+            'workspace_path' => $canonicalWorkspacePath,
+            'repo_root' => $canonicalWorkspacePath,
+            'docs_status' => 'complete',
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('workspace.slug', 'client-auto')
+            ->assertJsonPath('meta.aobg_activation.ok', true)
+            ->assertJsonPath('meta.aobg_activation.action', 'activated_already_indexed');
+        $this->assertCount(1, $fake->calls);
+        $this->assertSame($canonicalWorkspacePath, $fake->calls[0]['workspace']);
+
+        @rmdir($workspacePath);
     }
 
     public function test_workspace_registry_api_archives_persisted_profile_without_hard_delete(): void

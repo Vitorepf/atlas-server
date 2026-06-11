@@ -53,7 +53,7 @@ use Illuminate\Console\Command;
  */
 final class AtlasFinanceStrategySearchCommand extends Command
 {
-    private const SUPPORTED_FAMILIES = ['trend-breakout-v1', 'mean-reversion-v1', 'momentum-v1', 'volume-breakout-v1', 'pullback-trend-v1', 'regime-adaptive-v1', 'funding-extreme-v1'];
+    private const SUPPORTED_FAMILIES = ['trend-breakout-v1', 'mean-reversion-v1', 'momentum-v1', 'volume-breakout-v1', 'pullback-trend-v1', 'regime-adaptive-v1', 'funding-extreme-v1', 'trend-breakout-v2', 'pullback-trend-v2'];
 
     /** @var list<array{0:int,1:float}> fita congelada de funding (família funding-extreme-v1) */
     private array $fundingTapeEvents = [];
@@ -822,6 +822,8 @@ final class AtlasFinanceStrategySearchCommand extends Command
             'pullback-trend-v1' => new TrendPullbackStrategy,
             'regime-adaptive-v1' => new RegimeAdaptiveStrategy,
             'funding-extreme-v1' => new FundingExtremeStrategy($this->fundingTapeEvents),
+            'trend-breakout-v2' => new TrendBreakoutStrategy,
+            'pullback-trend-v2' => new TrendPullbackStrategy,
             default => new TrendBreakoutStrategy,
         };
     }
@@ -846,6 +848,12 @@ final class AtlasFinanceStrategySearchCommand extends Command
         }
         if ($family === 'funding-extreme-v1') {
             return $this->randomFundingExtremeParams($island);
+        }
+        if ($family === 'trend-breakout-v2') {
+            return $this->withTrendManagementDims($this->randomTrendBreakoutParams($island), null);
+        }
+        if ($family === 'pullback-trend-v2') {
+            return $this->withBreakevenDim($this->randomTrendPullbackParams($island), null);
         }
 
         return $this->randomTrendBreakoutParams($island);
@@ -890,6 +898,12 @@ final class AtlasFinanceStrategySearchCommand extends Command
         }
         if ($family === 'funding-extreme-v1') {
             return $this->mutateFundingExtremeParams($base, $island);
+        }
+        if ($family === 'trend-breakout-v2') {
+            return $this->withTrendManagementDims($this->mutateTrendBreakoutParams($base, $island), $base);
+        }
+        if ($family === 'pullback-trend-v2') {
+            return $this->withBreakevenDim($this->mutateTrendPullbackParams($base, $island), $base);
         }
 
         return $this->mutateTrendBreakoutParams($base, $island);
@@ -1097,6 +1111,50 @@ final class AtlasFinanceStrategySearchCommand extends Command
             $params['risk_pct'] = min(0.28, max(0.08, (float) $params['risk_pct']));
             $params['atr_mult'] = min(6.0, max(1.5, (float) $params['atr_mult']));
         }
+
+        return $params;
+    }
+
+    /**
+     * Dimensões de GESTÃO DE TRADE das famílias v2 (breakeven + trail-tighten).
+     * $base=null gera aleatório; com $base, jitter evolutivo. 0 = camada desligada —
+     * a busca decide POR EVIDÊNCIA se a gestão paga o próprio custo.
+     *
+     * @param  array<string,float|int>  $params
+     * @param  array<string,mixed>|null  $base
+     * @return array<string,float|int>
+     */
+    private function withTrendManagementDims(array $params, ?array $base): array
+    {
+        if ($base === null) {
+            $params['breakeven_at_r'] = $this->chance(0.3) ? 0.0 : $this->randFloat(0.5, 3.0);
+            $params['tighten_at_r'] = $this->chance(0.3) ? 0.0 : $this->randFloat(1.0, 4.0);
+            $params['tighten_atr_mult'] = $this->randFloat(1.0, 4.0);
+        } else {
+            $params['breakeven_at_r'] = $this->chance(0.15)
+                ? ($this->chance(0.5) ? 0.0 : $this->randFloat(0.5, 3.0))
+                : $this->jitterFloat((float) ($base['breakeven_at_r'] ?? 0.0), 0.0, 3.0, 0.4);
+            $params['tighten_at_r'] = $this->chance(0.15)
+                ? ($this->chance(0.5) ? 0.0 : $this->randFloat(1.0, 4.0))
+                : $this->jitterFloat((float) ($base['tighten_at_r'] ?? 0.0), 0.0, 4.0, 0.5);
+            $params['tighten_atr_mult'] = $this->jitterFloat((float) ($base['tighten_atr_mult'] ?? 2.0), 1.0, 4.0, 0.5);
+        }
+
+        return $params;
+    }
+
+    /**
+     * @param  array<string,float|int>  $params
+     * @param  array<string,mixed>|null  $base
+     * @return array<string,float|int>
+     */
+    private function withBreakevenDim(array $params, ?array $base): array
+    {
+        $params['breakeven_at_r'] = $base === null
+            ? ($this->chance(0.3) ? 0.0 : $this->randFloat(0.5, 3.0))
+            : ($this->chance(0.15)
+                ? ($this->chance(0.5) ? 0.0 : $this->randFloat(0.5, 3.0))
+                : $this->jitterFloat((float) ($base['breakeven_at_r'] ?? 0.0), 0.0, 3.0, 0.4));
 
         return $params;
     }

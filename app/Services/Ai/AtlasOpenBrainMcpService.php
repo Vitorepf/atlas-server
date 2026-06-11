@@ -998,6 +998,21 @@ class AtlasOpenBrainMcpService
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
             [
+                'name' => 'atlas_workspace_activate',
+                'title' => 'Atlas Workspace Activate (AOBG auto-bootstrap)',
+                'description' => 'AOBG workspace activation: explicit local bootstrap for a folder the provider just opened. It registers/binds the workspace in AWIS, merges provider bootstrap files (.mcp.json, .claude/settings.json, AGENTS.md, CLAUDE.md), and runs the existing AWIS-gated CodeGraph index when the workspace is not indexed yet (or force=true). Local filesystem + DB only, zero provider spend. Use when atlas_workspace_status returns needs_onboarding=true or at session start for a new workspace.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'cwd' => ['type' => 'string', 'description' => 'Working directory do chamador (a pasta do projeto da IA externa) — resolvido a um workspace id.'],
+                        'workspace' => ['type' => 'string', 'description' => 'Path OU id do workspace a ativar (vence sobre cwd; precisa resolver para uma pasta para bootstrap/index).'],
+                        'force' => ['type' => 'boolean', 'description' => 'Reindexa mesmo se o workspace já tiver símbolos.'],
+                    ],
+                    'required' => [],
+                ],
+                'annotations' => ['readOnlyHint' => false, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
                 'name' => 'atlas_claim_task',
                 'title' => 'Atlas Claim Task (AOBG blackboard)',
                 'description' => 'AOBG N2.F4 — o BLACKBOARD: múltiplos engines coordenam ATRAVÉS do cérebro. Reivindica um TARGET (um path de arquivo OU uma ref de task/mission) para o engine chamador (claude_code|codex|cursor|atlas) numa tabela compacta de claims que expira por TTL. Tanto Claude Code QUANTO Codex falam MCP, então ambos reivindicam + veem claims — assim um engine pode ver "codex já está editando fileX" e contornar em vez de pisar no mesmo target. IDEMPOTENTE (re-reivindicar o mesmo target colapsa no mesmo claim e renova o TTL); CONFLICT-AWARE (se OUTRO engine já tem um claim ativo no mesmo target, retorna status=conflict + o claim conflitante — NÃO rouba, NÃO bloqueia: coordenação, não gate); EXPIRA por TTL (um engine que crashou nunca segura para sempre); FAIL-OPEN (qualquer falha degrada para no-op seguro, nunca quebra a sessão). Workspace AUTO-ESCOPADO (path OU id, nunca vaza cross-workspace). Provider-safe (só labels/ids/timestamps), só DB local, ZERO gasto de provider. Use release via id quando terminar.',
@@ -1143,6 +1158,7 @@ class AtlasOpenBrainMcpService
                 'atlas_record_outcome' => $this->toolResponse($id, $this->recordOutcome($arguments)),
                 'atlas_propose_learning' => $this->toolResponse($id, $this->proposeLearning($arguments)),
                 'atlas_workspace_status' => $this->toolResponse($id, $this->workspaceStatus($arguments)),
+                'atlas_workspace_activate' => $this->toolResponse($id, $this->workspaceActivate($arguments)),
                 'atlas_claim_task' => $this->toolResponse($id, $this->claimTask($arguments)),
                 'atlas_blackboard_status' => $this->toolResponse($id, $this->blackboardStatus($arguments)),
                 default => $this->error($id, -32602, "Unknown Atlas MCP tool [{$name}]."),
@@ -2809,11 +2825,50 @@ class AtlasOpenBrainMcpService
         $workspace = $this->string($arguments['workspace'] ?? null);
         if ($workspace !== null) {
             $opts['workspace'] = $workspace;
+        } elseif ($cwd === null) {
+            $defaultWorkspace = $this->workspace(null);
+            if ($defaultWorkspace !== null) {
+                $opts['workspace'] = $defaultWorkspace;
+            }
         }
 
         $status = $this->workspaceOnboarding->status($opts);
 
         return ['ok' => true, 'tool' => $tool] + $status;
+    }
+
+    /**
+     * AOBG workspace activation: explicit local bootstrap + index for a newly opened
+     * folder. This writes provider bootstrap files and may run the local CodeGraph
+     * index, so it is not a read-only tool. It still spends zero provider tokens.
+     *
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function workspaceActivate(array $arguments): array
+    {
+        $tool = 'atlas_workspace_activate';
+
+        $opts = [];
+        $cwd = $this->string($arguments['cwd'] ?? null);
+        if ($cwd !== null) {
+            $opts['cwd'] = $cwd;
+        }
+        $workspace = $this->string($arguments['workspace'] ?? null);
+        if ($workspace !== null) {
+            $opts['workspace'] = $workspace;
+        } elseif ($cwd === null) {
+            $defaultWorkspace = $this->workspace(null);
+            if ($defaultWorkspace !== null) {
+                $opts['workspace'] = $defaultWorkspace;
+            }
+        }
+        $force = $arguments['force'] ?? null;
+        if (is_bool($force)) {
+            $opts['force'] = $force;
+        }
+
+        return ['tool' => $tool] + $this->workspaceOnboarding->activate($opts);
     }
 
     /**

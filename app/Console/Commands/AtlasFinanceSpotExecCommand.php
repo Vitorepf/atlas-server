@@ -62,10 +62,14 @@ final class AtlasFinanceSpotExecCommand extends Command
             return $this->refuse('preflight falhou: '.json_encode(['error' => $acc['error'] ?? '?', 'code' => $acc['binance_code'] ?? null, 'msg' => $acc['binance_msg'] ?? null]));
         }
 
+        $key = $client->apiRestrictions();
+
         return $this->emit([
             'status' => 'ready',
-            'can_trade' => $acc['can_trade'],
-            'can_withdraw_MUST_BE_FALSE' => $acc['can_withdraw'],
+            'account_can_trade' => $acc['can_trade'],
+            'key_withdrawals_MUST_BE_FALSE' => $key['enable_withdrawals'] ?? 'unknown',
+            'key_spot_trading' => $key['enable_spot'] ?? 'unknown',
+            'key_ip_restricted' => $key['ip_restrict'] ?? 'unknown',
             'balances' => $acc['balances'],
         ], self::SUCCESS);
     }

@@ -182,6 +182,63 @@ final class StrategyLoopOperationalAuditTest extends TestCase
         $this->assertSame('plan_items_are_proven_by_current_artifacts_not_by_claim', $payload['completion_policy']);
     }
 
+    public function test_runtime_launchagent_audit_accepts_roadmap_runner_guard(): void
+    {
+        $oldHome = $_SERVER['HOME'] ?? null;
+        $home = storage_path('framework/atlas/finance/phpunit-home');
+        $launchDir = $home.'/Library/LaunchAgents';
+        @mkdir($launchDir, 0o755, true);
+
+        $guardPath = base_path('scripts/finance/strategy-loop-launchd-guard.sh');
+        $stopPath = storage_path('atlas/finance/STOP');
+        file_put_contents($launchDir.'/com.atlas.finance.strategy-loop.plist', sprintf(<<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.atlas.finance.strategy-loop</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/sh</string>
+    <string>%s</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>PathState</key>
+    <dict>
+      <key>%s</key>
+      <false/>
+    </dict>
+  </dict>
+  <key>StartInterval</key>
+  <integer>60</integer>
+</dict>
+</plist>
+XML, $guardPath, $stopPath));
+
+        $_SERVER['HOME'] = $home;
+
+        try {
+            $method = new \ReflectionMethod(StrategyLoopOperationalAudit::class, 'strategyLaunchAgentPolicy');
+            $method->setAccessible(true);
+
+            $payload = $method->invoke(new StrategyLoopOperationalAudit);
+
+            $this->assertTrue($payload['passed'], json_encode($payload));
+            $this->assertTrue($payload['guard_execs_continuous_runner']);
+        } finally {
+            if ($oldHome === null) {
+                unset($_SERVER['HOME']);
+            } else {
+                $_SERVER['HOME'] = $oldHome;
+            }
+            $this->removeDirectory($home);
+        }
+    }
+
     private function writeCampaign(string $id, string $status, string $holdoutId, string $confirmationHoldoutId): string
     {
         $dir = $this->campaignRoot.'/'.$id;

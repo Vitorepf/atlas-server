@@ -697,11 +697,14 @@ final class StrategyLoopOperationalAudit
             && str_contains($guard, 'exit 0');
         $guardAvoidsDuplicates = str_contains($guard, 'pgrep')
             && str_contains($guard, 'strategy-campaign-runner');
-        $guardExecsRunner = str_contains($guard, 'exec /opt/homebrew/bin/php artisan atlas:finance:strategy-campaign-runner')
-            && str_contains($guard, '--symbol=BTCUSDT')
-            && str_contains($guard, '--interval=1d')
-            && str_contains($guard, '--continuous')
-            && str_contains($guard, '--max-campaigns=0');
+        $guardCommand = preg_replace('/\\\\\s*\R\s*/', ' ', $guard) ?? $guard;
+        $guardCommand = preg_replace('/\s+/', ' ', $guardCommand) ?? $guardCommand;
+        $guardExecsRunner = str_contains($guardCommand, 'exec /opt/homebrew/bin/php')
+            && str_contains($guardCommand, 'artisan atlas:finance:strategy-campaign-runner')
+            && str_contains($guardCommand, '--family=roadmap')
+            && str_contains($guardCommand, '--continuous')
+            && str_contains($guardCommand, '--max-campaigns=0')
+            && str_contains($guardCommand, '--idle-sleep=60');
 
         return [
             'passed' => $usesGuard && $runAtLoad && $keepAliveWhenStopAbsent && $hasRecoveryInterval && $guardRespectsStop && $guardAvoidsDuplicates && $guardExecsRunner,

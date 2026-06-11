@@ -133,6 +133,19 @@ final class PolyExecGateTest extends TestCase
         $this->assertTrue($gate->checkOpportunity($this->goodOpportunity(), 'sim')->allowed);
     }
 
+    public function test_depth_multiple_boundary_tolerates_floating_point_noise(): void
+    {
+        $gate = new PolyExecGate($this->cfg());
+
+        $decision = $gate->checkOpportunity($this->goodOpportunity([
+            'target_sets' => 7.36,
+            'executable_depth_shares' => 22.08,
+            'target_cost_usd' => 6.62,
+        ]), 'sim');
+
+        $this->assertNotContains('depth_multiple', $decision->failedNames());
+    }
+
     public function test_each_quality_dimension_blocks_independently(): void
     {
         $gate = new PolyExecGate($this->cfg());

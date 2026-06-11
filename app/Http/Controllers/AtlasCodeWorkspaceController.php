@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 // Gap5.F2 wiring marker — Programming-adjacent controller.
 // Canonical route_decision schema: atlas.dual_core.route_decision.v1
 
+use App\Services\Ai\AtlasAobgWorkspaceOnboardingService;
 use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,7 +29,10 @@ use InvalidArgumentException;
  */
 final class AtlasCodeWorkspaceController extends Controller
 {
-    public function __construct(private readonly AtlasCodeWorkspaceProfileService $profiles) {}
+    public function __construct(
+        private readonly AtlasCodeWorkspaceProfileService $profiles,
+        private readonly AtlasAobgWorkspaceOnboardingService $aobgWorkspaces,
+    ) {}
 
     public function index(): JsonResponse
     {
@@ -126,6 +130,8 @@ final class AtlasCodeWorkspaceController extends Controller
             ], 422);
         }
 
+        $aobgActivation = $this->activateAobgWorkspaceIfConfigured($profile);
+
         return response()->json([
             'schema_version' => AtlasCodeWorkspaceProfileService::SCHEMA_VERSION,
             'workspace' => $profile,
@@ -133,8 +139,42 @@ final class AtlasCodeWorkspaceController extends Controller
                 'persisted' => true,
                 'execution_allowed' => (bool) data_get($profile, 'safety.execution_allowed', false),
                 'execution_blocked_reason' => data_get($profile, 'safety.execution_blocked_reason'),
+                'aobg_activation' => $aobgActivation,
             ],
         'route_decision' => \App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope::emit(route: 'programming', reason: 'http_atlas_code_workspace_controller'),
     ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $profile
+     * @return array<string,mixed>
+     */
+    private function activateAobgWorkspaceIfConfigured(array $profile): array
+    {
+        if (! (bool) config('atlas.aobg.workspace_api_auto_activate', true)) {
+            return [
+                'ok' => true,
+                'action' => 'skipped_by_config',
+                'reason' => 'workspace_api_auto_activate_disabled',
+            ];
+        }
+
+        $path = trim((string) ($profile['workspace_path'] ?? $profile['repo_root'] ?? ''));
+        if ($path === '') {
+            return [
+                'ok' => true,
+                'action' => 'skipped_missing_workspace_path',
+                'reason' => 'workspace_path_empty',
+            ];
+        }
+        if (! is_dir($path)) {
+            return [
+                'ok' => false,
+                'action' => 'skipped_missing_workspace_path',
+                'reason' => 'workspace_path_not_directory',
+            ];
+        }
+
+        return $this->aobgWorkspaces->activate(['workspace' => $path]);
     }
 }

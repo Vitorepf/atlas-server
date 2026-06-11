@@ -98,6 +98,29 @@ final class BinanceSpotOrderClient
     }
 
     /**
+     * Restrições DA CHAVE (não da conta): a fonte da verdade sobre o que esta
+     * API key pode fazer. enableWithdrawals DEVE ser false para o bot.
+     *
+     * @return array{ok:bool,error?:string,enable_withdrawals?:bool,enable_spot?:bool,enable_reading?:bool,ip_restrict?:bool}
+     */
+    public function apiRestrictions(): array
+    {
+        $res = $this->signedRequest('GET', '/sapi/v1/account/apiRestrictions', []);
+        if (! ($res['ok'] ?? false)) {
+            return $res;
+        }
+        $json = (array) $res['json'];
+
+        return [
+            'ok' => true,
+            'enable_withdrawals' => (bool) ($json['enableWithdrawals'] ?? true),
+            'enable_spot' => (bool) ($json['enableSpotAndMarginTrading'] ?? false),
+            'enable_reading' => (bool) ($json['enableReading'] ?? false),
+            'ip_restrict' => (bool) ($json['ipRestrict'] ?? false),
+        ];
+    }
+
+    /**
      * Quantidade livre de um ativo (para SELL de posição inteira).
      */
     public function freeBalance(string $asset): ?float

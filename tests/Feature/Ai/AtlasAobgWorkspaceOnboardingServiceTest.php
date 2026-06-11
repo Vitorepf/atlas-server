@@ -34,12 +34,19 @@ final class AtlasAobgWorkspaceOnboardingServiceTest extends TestCase
         parent::setUp();
 
         $this->createCodeSymbolsTable();
+        $this->createWorkspaceProfilesTable();
         config()->set('atlas.aobg.auto_onboard', false);
+        config()->set('atlas.ai.workdir', base_path());
+
+        $atlasProjects = require config_path('atlas_projects.php');
+        config()->set('atlas_projects.default_slug', $atlasProjects['default_slug'] ?? 'atlas');
+        config()->set('atlas_projects.profiles', $atlasProjects['profiles'] ?? []);
     }
 
     protected function tearDown(): void
     {
         Schema::dropIfExists('atlas_engineering_code_symbols');
+        Schema::dropIfExists('atlas_workspace_profiles');
         parent::tearDown();
     }
 
@@ -154,6 +161,232 @@ final class AtlasAobgWorkspaceOnboardingServiceTest extends TestCase
         $this->assertSame(1, $result['status']['symbols']);
         $this->assertFalse($result['status']['needs_onboarding']);
         $this->assertTrue($result['ok']);
+    }
+
+    public function test_activate_registers_workspace_writes_provider_bootstrap_and_indexes(): void
+    {
+        $identity = $this->app->make(CodeGraphWorkspaceIdentity::class);
+        $workspacePath = sys_get_temp_dir().'/aobg-activate-'.Str::random(6);
+        $appPath = $workspacePath.'/frontend';
+        @mkdir($appPath, 0777, true);
+        $canonicalWorkspacePath = realpath($workspacePath) ?: $workspacePath;
+        file_put_contents($appPath.'/package.json', json_encode([
+            'scripts' => ['test' => 'vitest run', 'build' => 'vite build'],
+        ], JSON_PRETTY_PRINT));
+
+        $workspaceId = $identity->resolve($workspacePath);
+        $calledWith = null;
+        $service = $this->service()->setIndexRunner(function (string $path, string $wsId) use (&$calledWith): array {
+            $calledWith = ['path' => $path, 'workspace_id' => $wsId];
+            $this->seedCodeSymbol('ActivatedSymbol', $wsId);
+
+            return ['ok' => true, 'reason' => 'indexed', 'exit_code' => 0];
+        });
+
+        $result = $service->activate(['cwd' => $workspacePath]);
+
+        $this->assertSame($canonicalWorkspacePath, $calledWith['path']);
+        $this->assertSame($workspaceId, $calledWith['workspace_id']);
+        $this->assertTrue($result['ok']);
+        $this->assertSame('activated', $result['action']);
+        $this->assertTrue($result['triggered_index']);
+        $this->assertTrue($result['status']['indexed']);
+        $this->assertSame(1, $result['status']['symbols']);
+        $this->assertDatabaseHas('atlas_workspace_profiles', [
+            'slug' => $workspaceId,
+            'workspace_path' => $canonicalWorkspacePath,
+            'source' => 'aobg_workspace_activation',
+        ]);
+        $this->assertFileExists($workspacePath.'/.mcp.json');
+        $this->assertFileExists($workspacePath.'/.claude/settings.json');
+        $this->assertFileExists($workspacePath.'/AGENTS.md');
+        $this->assertFileExists($workspacePath.'/CLAUDE.md');
+        $this->assertStringContainsString('Atlas Open Brain Gateway', (string) file_get_contents($workspacePath.'/AGENTS.md'));
+        $this->assertSame('provider_bootstrap_ready', $result['provider_bootstrap']['reason']);
+
+        $this->deleteTree($workspacePath);
+    }
+
+    public function test_activate_preserves_configured_production_safety_profile(): void
+    {
+        $workspacePath = sys_get_temp_dir().'/aobg-prod-'.Str::random(6);
+        @mkdir($workspacePath.'/app', 0777, true);
+        $canonicalWorkspacePath = realpath($workspacePath) ?: $workspacePath;
+        file_put_contents($workspacePath.'/app/package.json', json_encode([
+            'scripts' => ['test' => 'vitest run'],
+        ], JSON_PRETTY_PRINT));
+        config()->set('atlas_projects.profiles', [[
+            'id' => 'safety-product',
+            'slug' => 'safety-product',
+            'name' => 'Safety Product',
+            'kind' => 'product',
+            'workspace_path' => $canonicalWorkspacePath,
+            'repo_root' => $canonicalWorkspacePath,
+            'production_status' => 'production',
+            'stack_summary' => 'Configured production workspace',
+            'commands' => [],
+            'test_commands' => [],
+            'build_commands' => [],
+            'dev_server_command' => null,
+            'critical_areas' => [],
+            'docs_status' => 'incomplete',
+            'default_risk' => 'high',
+            'deployment_notes' => 'Configured production guardrail.',
+            'surfaces_enabled' => ['atlas_ai', 'code'],
+        ]]);
+
+        $service = $this->service()->setIndexRunner(function (string $path, string $wsId): array {
+            $this->seedCodeSymbol('ProductionActivatedSymbol', $wsId);
+
+            return ['ok' => true, 'reason' => 'indexed', 'exit_code' => 0];
+        });
+
+        $result = $service->activate(['cwd' => $workspacePath]);
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame('safety-product', $result['workspace_id']);
+        $this->assertSame('production', $result['profile']['workspace']['production_status']);
+        $this->assertSame('incomplete', $result['profile']['workspace']['docs_status']);
+        $this->assertSame('high', $result['profile']['workspace']['default_risk']);
+        $this->assertSame(['atlas_ai', 'code'], $result['profile']['workspace']['surfaces_enabled']);
+        $this->assertSame(['cd app && npm run test'], $result['profile']['workspace']['test_commands']);
+
+        $this->deleteTree($workspacePath);
+    }
+
+    public function test_activate_promotes_discovered_child_workspace_with_parent_policy(): void
+    {
+        $rootPath = sys_get_temp_dir().'/aobg-parent-'.Str::random(6);
+        $childPath = $rootPath.'/blackink-app';
+        @mkdir($childPath, 0777, true);
+        $canonicalRootPath = realpath($rootPath) ?: $rootPath;
+        $canonicalChildPath = realpath($childPath) ?: $childPath;
+        file_put_contents($childPath.'/package.json', json_encode([
+            'scripts' => ['test' => 'vitest run', 'build' => 'vite build'],
+        ], JSON_PRETTY_PRINT));
+
+        $this->insertWorkspaceProfile([
+            'slug' => 'blackink',
+            'name' => 'Blackink',
+            'workspace_path' => $canonicalRootPath,
+            'repo_root' => $canonicalRootPath,
+            'production_status' => 'production',
+            'docs_status' => 'incomplete',
+            'default_risk' => 'high',
+            'deployment_notes' => 'Parent product policy.',
+            'surfaces_enabled' => ['atlas_ai', 'code'],
+            'source' => 'operator',
+        ]);
+        $this->insertWorkspaceProfile([
+            'slug' => 'blackink-app',
+            'name' => 'Blackink App',
+            'workspace_path' => $canonicalChildPath,
+            'repo_root' => $canonicalChildPath,
+            'production_status' => 'development',
+            'stack_summary' => 'code graph ws=legacy-id (499 symbols)',
+            'docs_status' => 'unknown',
+            'default_risk' => 'medium',
+            'surfaces_enabled' => ['atlas_ai', 'cartografia', 'code', 'atencao'],
+            'source' => 'atlas-code-graph-index-all',
+        ]);
+
+        $service = $this->service()->setIndexRunner(function (string $path, string $wsId): array {
+            $this->seedCodeSymbol('ChildActivatedSymbol', $wsId);
+
+            return ['ok' => true, 'reason' => 'indexed', 'exit_code' => 0];
+        });
+
+        $result = $service->activate(['workspace' => $childPath]);
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame('blackink-app', $result['workspace_id']);
+        $this->assertTrue($result['profile']['inherited_parent_policy']);
+        $this->assertSame('production', $result['profile']['workspace']['production_status']);
+        $this->assertSame('incomplete', $result['profile']['workspace']['docs_status']);
+        $this->assertSame('high', $result['profile']['workspace']['default_risk']);
+        $this->assertSame(['atlas_ai', 'code'], $result['profile']['workspace']['surfaces_enabled']);
+        $this->assertSame('node', $result['profile']['workspace']['stack_summary']);
+        $this->assertSame(['npm run test'], $result['profile']['workspace']['test_commands']);
+        $this->assertSame(['npm run build'], $result['profile']['workspace']['build_commands']);
+        $this->assertDatabaseHas('atlas_workspace_profiles', [
+            'slug' => 'blackink-app',
+            'source' => 'aobg_workspace_activation',
+            'production_status' => 'production',
+            'default_risk' => 'high',
+        ]);
+
+        $this->deleteTree($rootPath);
+    }
+
+    public function test_activate_infers_static_website_node_test_command_without_package_json(): void
+    {
+        $workspacePath = sys_get_temp_dir().'/aobg-static-web-'.Str::random(6);
+        @mkdir($workspacePath.'/tests', 0777, true);
+        file_put_contents($workspacePath.'/index.html', '<!doctype html><title>Static</title>');
+        file_put_contents($workspacePath.'/referral-tracking.js', 'export const ok = true;');
+        file_put_contents($workspacePath.'/tests/referral-tracking.test.mjs', 'import assert from "node:assert/strict"; assert.equal(1, 1);');
+
+        $service = $this->service()->setIndexRunner(function (string $path, string $wsId): array {
+            $this->seedCodeSymbol('StaticActivatedSymbol', $wsId);
+
+            return ['ok' => true, 'reason' => 'indexed', 'exit_code' => 0];
+        });
+
+        $result = $service->activate(['workspace' => $workspacePath]);
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame('static-web, javascript', $result['profile']['workspace']['stack_summary']);
+        $this->assertSame(['node --test tests/referral-tracking.test.mjs'], $result['profile']['workspace']['test_commands']);
+
+        $this->deleteTree($workspacePath);
+    }
+
+    public function test_activate_all_sweeps_registered_existing_workspaces(): void
+    {
+        config()->set('atlas_projects.profiles', []);
+
+        $one = sys_get_temp_dir().'/aobg-all-one-'.Str::random(6);
+        $two = sys_get_temp_dir().'/aobg-all-two-'.Str::random(6);
+        @mkdir($one, 0777, true);
+        @mkdir($two, 0777, true);
+        $canonicalOne = realpath($one) ?: $one;
+        $canonicalTwo = realpath($two) ?: $two;
+
+        $this->insertWorkspaceProfile([
+            'slug' => 'all-one',
+            'name' => 'All One',
+            'workspace_path' => $canonicalOne,
+            'repo_root' => $canonicalOne,
+            'source' => 'operator',
+        ]);
+        $this->insertWorkspaceProfile([
+            'slug' => 'all-two',
+            'name' => 'All Two',
+            'workspace_path' => $canonicalTwo,
+            'repo_root' => $canonicalTwo,
+            'source' => 'operator',
+        ]);
+
+        $calls = [];
+        $service = $this->service()->setIndexRunner(function (string $path, string $wsId) use (&$calls): array {
+            $calls[] = ['path' => $path, 'workspace_id' => $wsId];
+            $this->seedCodeSymbol('BulkSymbol'.count($calls), $wsId);
+
+            return ['ok' => true, 'reason' => 'indexed', 'exit_code' => 0];
+        });
+
+        $result = $service->activateAll();
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame('activate_all', $result['action']);
+        $this->assertSame(2, $result['summary']['total_profiles']);
+        $this->assertSame(2, $result['summary']['activated']);
+        $this->assertSame(2, $result['summary']['indexed']);
+        $this->assertCount(2, $calls);
+        $this->assertSame(['all-one', 'all-two'], array_column($calls, 'workspace_id'));
+
+        $this->deleteTree($one);
+        $this->deleteTree($two);
     }
 
     public function test_already_indexed_workspace_does_not_re_run_index(): void
@@ -277,6 +510,33 @@ final class AtlasAobgWorkspaceOnboardingServiceTest extends TestCase
         });
     }
 
+    private function createWorkspaceProfilesTable(): void
+    {
+        Schema::dropIfExists('atlas_workspace_profiles');
+        Schema::create('atlas_workspace_profiles', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('slug', 120)->unique();
+            $table->string('name', 200);
+            $table->string('kind', 80)->default('product');
+            $table->string('workspace_path', 1000)->nullable();
+            $table->string('repo_root', 1000)->nullable();
+            $table->string('production_status', 80)->default('development')->index();
+            $table->text('stack_summary')->nullable();
+            $table->json('commands')->nullable();
+            $table->json('test_commands')->nullable();
+            $table->json('build_commands')->nullable();
+            $table->string('dev_server_command', 1000)->nullable();
+            $table->json('critical_areas')->nullable();
+            $table->string('docs_status', 80)->default('unknown')->index();
+            $table->string('default_risk', 40)->default('medium')->index();
+            $table->text('deployment_notes')->nullable();
+            $table->json('surfaces_enabled')->nullable();
+            $table->string('source', 80)->default('operator')->index();
+            $table->string('status', 40)->default('active')->index();
+            $table->timestamps();
+        });
+    }
+
     private function seedCodeSymbol(string $name, string $workspaceId): void
     {
         DB::table('atlas_engineering_code_symbols')->insert([
@@ -295,5 +555,66 @@ final class AtlasAobgWorkspaceOnboardingServiceTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $overrides
+     */
+    private function insertWorkspaceProfile(array $overrides): void
+    {
+        $payload = array_merge([
+            'id' => (string) Str::uuid(),
+            'slug' => 'workspace-'.Str::random(8),
+            'name' => 'Workspace',
+            'kind' => 'product',
+            'workspace_path' => '',
+            'repo_root' => '',
+            'production_status' => 'development',
+            'stack_summary' => '',
+            'commands' => [],
+            'test_commands' => [],
+            'build_commands' => [],
+            'dev_server_command' => null,
+            'critical_areas' => [],
+            'docs_status' => 'unknown',
+            'default_risk' => 'medium',
+            'deployment_notes' => '',
+            'surfaces_enabled' => ['atlas_ai', 'cartografia', 'code', 'atencao'],
+            'source' => 'operator',
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], $overrides);
+
+        foreach (['commands', 'test_commands', 'build_commands', 'critical_areas', 'surfaces_enabled'] as $key) {
+            if (is_array($payload[$key] ?? null)) {
+                $payload[$key] = json_encode($payload[$key], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            }
+        }
+
+        DB::table('atlas_workspace_profiles')->insert($payload);
+    }
+
+    private function deleteTree(string $path): void
+    {
+        if (! is_dir($path)) {
+            return;
+        }
+        $items = scandir($path);
+        if ($items === false) {
+            return;
+        }
+        foreach ($items as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+            $target = $path.DIRECTORY_SEPARATOR.$item;
+            if (is_dir($target) && ! is_link($target)) {
+                $this->deleteTree($target);
+            } else {
+                @unlink($target);
+            }
+        }
+        @rmdir($path);
     }
 }

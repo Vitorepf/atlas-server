@@ -264,6 +264,11 @@ final class StrategyScenarioRegistry
             // Informação de POSICIONAMENTO (salto 3): fita de funding dos perps lida em
             // publish-time; opera SPOT apenas — derivativos são lidos, nunca negociados.
             ['family' => 'funding-extreme-v1', 'priority' => 7, 'hypothesis' => 'crowded_short_funding_squeeze_edge_after_costs', 'feature_set_id' => 'derivatives_funding_oi_v1'],
+            // GESTÃO DE TRADE (estrutura, pedido do operador): mesmos engines de tendência
+            // com exits geridos (breakeven / trail-tighten) — family ids novos para a
+            // contabilidade de trials/holdouts das v1 permanecer limpa.
+            ['family' => 'trend-breakout-v2', 'priority' => 8, 'hypothesis' => 'breakout_with_breakeven_and_trail_tightening_exit_management_edge_after_costs'],
+            ['family' => 'pullback-trend-v2', 'priority' => 9, 'hypothesis' => 'dip_entry_with_breakeven_exit_management_edge_after_costs'],
         ];
         $markets = [
             ['symbol' => 'BTCUSDT', 'interval' => '1d', 'priority' => 1],

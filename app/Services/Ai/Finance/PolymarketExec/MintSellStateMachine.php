@@ -81,7 +81,7 @@ final class MintSellStateMachine
 
         $existing = DB::table('atlas_poly_exec_baskets')->where('basket_id', $basketId)->first();
         if ($existing !== null && $this->isTerminal((string) $existing->status)) {
-            return $this->summary($basketId); // idempotent
+            return $this->summary($basketId, true); // idempotent
         }
 
         if ($existing === null) {
@@ -661,7 +661,7 @@ final class MintSellStateMachine
     /**
      * @return array<string, mixed>
      */
-    public function summary(string $basketId): array
+    public function summary(string $basketId, bool $idempotentReplay = false): array
     {
         $b = DB::table('atlas_poly_exec_baskets')->where('basket_id', $basketId)->first();
         if ($b === null) {
@@ -671,7 +671,7 @@ final class MintSellStateMachine
             ->get(['position', 'question', 'status', 'target_size', 'sold_size', 'avg_fill_price', 'sold_proceeds_usd', 'freeroll'])
             ->map(fn ($r) => (array) $r)->all();
 
-        return [
+        $summary = [
             'basket_id' => (string) $b->basket_id,
             'mode' => (string) $b->mode,
             'event_slug' => (string) $b->event_slug,
@@ -695,5 +695,12 @@ final class MintSellStateMachine
             'error' => $b->error,
             'legs' => $legs,
         ];
+
+        if ($idempotentReplay) {
+            $summary['idempotent_replay'] = true;
+            $summary['status_reason'] = 'terminal_basket_already_recorded';
+        }
+
+        return $summary;
     }
 }

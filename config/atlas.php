@@ -1840,6 +1840,12 @@ return [
         // decision, never implicit. The status read is always honest either way.
         'auto_onboard' => (bool) env('ATLAS_AOBG_AUTO_ONBOARD', false),
 
+        // Workspace registry API auto-activation. When the Atlas Desktop project/folder
+        // screen creates, edits or swaps a real workspace_path, Atlas immediately binds
+        // that folder into AWIS, writes provider bootstraps and indexes CodeGraph when
+        // needed. PHPUnit disables this by env so tests never mutate the source tree.
+        'workspace_api_auto_activate' => (bool) env('ATLAS_AOBG_WORKSPACE_API_AUTO_ACTIVATE', true),
+
         // N1.F2 — governed WRITE-BACK caps. Untrusted external input is bounded
         // BEFORE it reaches the brain: an oversized payload is rejected honestly
         // (not silently truncated), so a runaway external session cannot flood the
@@ -2124,7 +2130,7 @@ return [
         // Gamma-cached sums within this distance of 1.0 get live CLOB verification.
         'pre_filter_margin' => (float) env('ATLAS_POLY_ARB_PRE_FILTER_MARGIN', 0.02),
         'fee_per_set' => (float) env('ATLAS_POLY_ARB_FEE_PER_SET', 0.0),
-        'max_clob_verifications' => (int) env('ATLAS_POLY_ARB_MAX_CLOB_VERIFICATIONS', 40),
+        'max_clob_verifications' => (int) env('ATLAS_POLY_ARB_MAX_CLOB_VERIFICATIONS', 18),
         // Phantom-liquidity guard: events trading less than this in 24h get their
         // opportunities flagged dead_book (stale quotes may never fill).
         'min_volume_24hr' => (float) env('ATLAS_POLY_ARB_MIN_VOLUME_24HR', 50.0),

@@ -195,4 +195,46 @@ final class AtlasOpenBrainMcpCommandWorkspaceTest extends TestCase
             data_get($payload, 'pack.workspace'),
         );
     }
+
+    public function test_workspace_status_tool_defaults_to_process_workspace_when_argument_is_omitted(): void
+    {
+        $explicit = sys_get_temp_dir();
+        $body = json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 8,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_workspace_status',
+                'arguments' => [],
+            ],
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $this->assertIsString($body);
+
+        $process = new Process([
+            PHP_BINARY,
+            base_path('artisan'),
+            'atlas:open-brain:mcp',
+            '--workspace='.$explicit,
+            '--once='.$body,
+        ], base_path());
+        $process->setTimeout(20);
+        $process->run();
+
+        $this->assertSame(0, $process->getExitCode(), $process->getErrorOutput());
+
+        $decoded = json_decode(trim($process->getOutput()), true);
+        $this->assertIsArray($decoded);
+
+        $text = data_get($decoded, 'result.content.0.text');
+        $this->assertIsString($text);
+        $payload = json_decode($text, true);
+        $this->assertIsArray($payload);
+
+        $this->assertTrue($payload['ok'] ?? false);
+        $this->assertSame(
+            app(\App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity::class)->resolveWorkspaceOrId($explicit),
+            $payload['workspace_id'] ?? null,
+        );
+        $this->assertSame(realpath($explicit) ?: $explicit, $payload['workspace_path'] ?? null);
+    }
 }

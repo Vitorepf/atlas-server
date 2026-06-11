@@ -82,7 +82,7 @@ final class PolyExecGate
             sprintf('net_edge/set=%.4f floor=%.4f', $o['net_edge_per_set'], $this->cfg->minNetEdgePerSet));
 
         $needDepth = $o['target_sets'] * $this->cfg->minDepthMultiple;
-        $checks[] = $this->check('depth_multiple', $o['executable_depth_shares'] >= $needDepth && $o['target_sets'] > 0.0,
+        $checks[] = $this->check('depth_multiple', $o['executable_depth_shares'] + 1e-6 >= $needDepth && $o['target_sets'] > 0.0,
             sprintf('depth=%.2f need>=%.2f (%.1fx of %.2f sets)',
                 $o['executable_depth_shares'], $needDepth, $this->cfg->minDepthMultiple, $o['target_sets']));
 

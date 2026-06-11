@@ -133,6 +133,8 @@ final class BasketStateMachineTest extends TestCase
 
         $again = $machine->execute($this->plan(2.0), 'b3', 's1');
         $this->assertSame('filled', $again['status']);
+        $this->assertTrue($again['idempotent_replay']);
+        $this->assertSame('terminal_basket_already_recorded', $again['status_reason']);
         $this->assertCount($countAfterFirst, $client->buys, 're-running a terminal basket buys nothing more');
         $this->assertSame(1, DB::table('atlas_poly_exec_baskets')->where('basket_id', 'b3')->count());
     }

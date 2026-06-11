@@ -542,6 +542,270 @@ final class PolyExecShadowSimTest extends TestCase
         $this->assertStringContainsString('budget_exhausted=0', $out);
     }
 
+    public function test_command_qualify_fails_when_monitor_scan_coverage_is_partial(): void
+    {
+        $logDir = sys_get_temp_dir().'/atlas-poly-monitor-coverage-'.uniqid();
+        mkdir($logDir, 0775, true);
+        $path = $logDir.'/partial-scan.jsonl';
+
+        $rows = [
+            [
+                'event' => 'start',
+                'session_id' => 'partial-scan',
+                'scan_before_cycle' => true,
+                'scan_options' => [
+                    'pages' => 6,
+                    'per_page' => 50,
+                ],
+                'created_at' => now()->toIso8601String(),
+                'schema_version' => 'atlas.finance.poly_exec.monitor_log.v1',
+            ],
+            [
+                'event' => 'cycle',
+                'session_id' => 'partial-scan',
+                'cycle' => 1,
+                'candidates' => 1,
+                'processed' => 1,
+                'dispatched' => 1,
+                'executed' => 1,
+                'blocked' => null,
+                'statuses' => ['settled' => 1],
+                'reason_counts' => ['settled' => 1],
+                'scan' => [
+                    'skipped' => false,
+                    'scanned' => 50,
+                    'eligible' => 4,
+                    'shortlisted' => 3,
+                    'verified' => 3,
+                    'signals' => 0,
+                    'budget_exhausted' => false,
+                    'duration_seconds' => 8.23,
+                ],
+                'duration_seconds' => 27.17,
+                'slow' => false,
+                'created_at' => now()->toIso8601String(),
+                'schema_version' => 'atlas.finance.poly_exec.monitor_log.v1',
+            ],
+            [
+                'event' => 'summary',
+                'session_id' => 'partial-scan',
+                'executed_total' => 1,
+                'created_at' => now()->toIso8601String(),
+                'schema_version' => 'atlas.finance.poly_exec.monitor_log.v1',
+            ],
+        ];
+
+        foreach ($rows as $row) {
+            file_put_contents($path, json_encode($row, JSON_UNESCAPED_SLASHES).PHP_EOL, FILE_APPEND | LOCK_EX);
+        }
+
+        $exit = Artisan::call('atlas:finance:poly-exec', [
+            'action' => 'qualify',
+            '--mode' => 'sim',
+            '--monitor-log-dir' => $logDir,
+            '--qualification-min-cycles' => 1,
+            '--qualification-min-executed' => 1,
+            '--qualification-max-slow-ratio' => 1,
+            '--json' => true,
+        ]);
+
+        $out = Artisan::output();
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('"decision": "not_qualified"', $out);
+        $this->assertStringContainsString('"scan_expected_events": 300', $out);
+        $this->assertStringContainsString('"scan_undercovered_cycles": 1', $out);
+        $this->assertStringContainsString('"scan_coverage_floor"', $out);
+        $this->assertStringContainsString('undercovered=1', $out);
+    }
+
+    public function test_command_qualify_fails_when_shadow_execution_unwinds(): void
+    {
+        $logDir = sys_get_temp_dir().'/atlas-poly-monitor-unwound-'.uniqid();
+        mkdir($logDir, 0775, true);
+        $path = $logDir.'/unwound.jsonl';
+
+        $rows = [
+            [
+                'event' => 'start',
+                'session_id' => 'unwound',
+                'scan_before_cycle' => true,
+                'scan_options' => [
+                    'pages' => 6,
+                    'per_page' => 50,
+                ],
+                'created_at' => now()->toIso8601String(),
+                'schema_version' => 'atlas.finance.poly_exec.monitor_log.v1',
+            ],
+            [
+                'event' => 'cycle',
+                'session_id' => 'unwound',
+                'cycle' => 1,
+                'candidates' => 1,
+                'processed' => 1,
+                'dispatched' => 1,
+                'executed' => 1,
+                'blocked' => null,
+                'statuses' => ['unwound' => 1],
+                'reason_counts' => ['unwound' => 1],
+                'result_samples' => [
+                    [
+                        'event_slug' => 'thin-long-basket',
+                        'kind' => 'long_sum_under',
+                        'status' => 'unwound',
+                        'realized_pnl_usd' => -0.01,
+                        'est_profit_usd' => 0.03,
+                    ],
+                ],
+                'scan' => [
+                    'skipped' => false,
+                    'scanned' => 300,
+                    'eligible' => 40,
+                    'shortlisted' => 30,
+                    'verified' => 30,
+                    'signals' => 1,
+                    'budget_exhausted' => false,
+                    'duration_seconds' => 60.0,
+                ],
+                'duration_seconds' => 80.0,
+                'slow' => false,
+                'created_at' => now()->toIso8601String(),
+                'schema_version' => 'atlas.finance.poly_exec.monitor_log.v1',
+            ],
+            [
+                'event' => 'summary',
+                'session_id' => 'unwound',
+                'executed_total' => 1,
+                'created_at' => now()->toIso8601String(),
+                'schema_version' => 'atlas.finance.poly_exec.monitor_log.v1',
+            ],
+        ];
+
+        foreach ($rows as $row) {
+            file_put_contents($path, json_encode($row, JSON_UNESCAPED_SLASHES).PHP_EOL, FILE_APPEND | LOCK_EX);
+        }
+
+        $exit = Artisan::call('atlas:finance:poly-exec', [
+            'action' => 'qualify',
+            '--mode' => 'sim',
+            '--monitor-log-dir' => $logDir,
+            '--qualification-min-cycles' => 1,
+            '--qualification-min-executed' => 1,
+            '--qualification-max-slow-ratio' => 1,
+            '--json' => true,
+        ]);
+
+        $out = Artisan::output();
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('"decision": "not_qualified"', $out);
+        $this->assertStringContainsString('"settled_total": 0', $out);
+        $this->assertStringContainsString('"unsafe_terminal_total": 1', $out);
+        $this->assertStringContainsString('"shadow_settled_min"', $out);
+        $this->assertStringContainsString('"shadow_unsafe_terminal_absent"', $out);
+    }
+
+    public function test_command_qualify_keeps_idempotent_replays_out_of_execution_counts(): void
+    {
+        $logDir = sys_get_temp_dir().'/atlas-poly-monitor-replay-'.uniqid();
+        mkdir($logDir, 0775, true);
+        $path = $logDir.'/replay.jsonl';
+
+        $baseScan = [
+            'skipped' => false,
+            'scanned' => 300,
+            'eligible' => 40,
+            'shortlisted' => 30,
+            'verified' => 30,
+            'signals' => 1,
+            'budget_exhausted' => false,
+            'duration_seconds' => 60.0,
+        ];
+        $rows = [
+            [
+                'event' => 'start',
+                'session_id' => 'replay',
+                'scan_before_cycle' => true,
+                'scan_options' => ['pages' => 6, 'per_page' => 50],
+                'created_at' => now()->toIso8601String(),
+                'schema_version' => 'atlas.finance.poly_exec.monitor_log.v1',
+            ],
+            [
+                'event' => 'cycle',
+                'session_id' => 'replay',
+                'cycle' => 1,
+                'candidates' => 1,
+                'processed' => 1,
+                'dispatched' => 1,
+                'executed' => 1,
+                'idempotent_replays' => 0,
+                'idempotent_replay_statuses' => [],
+                'blocked' => null,
+                'statuses' => ['unwound' => 1],
+                'reason_counts' => ['unwound' => 1],
+                'result_samples' => [['event_slug' => 'thin-long-basket', 'kind' => 'long_sum_under', 'status' => 'unwound']],
+                'scan' => $baseScan,
+                'duration_seconds' => 80.0,
+                'slow' => false,
+                'created_at' => now()->toIso8601String(),
+                'schema_version' => 'atlas.finance.poly_exec.monitor_log.v1',
+            ],
+            [
+                'event' => 'cycle',
+                'session_id' => 'replay',
+                'cycle' => 2,
+                'candidates' => 1,
+                'processed' => 1,
+                'dispatched' => 1,
+                'executed' => 0,
+                'idempotent_replays' => 1,
+                'idempotent_replay_statuses' => ['unwound' => 1],
+                'blocked' => null,
+                'statuses' => [],
+                'reason_counts' => ['terminal_basket_already_recorded' => 1],
+                'result_samples' => [[
+                    'event_slug' => 'thin-long-basket',
+                    'kind' => 'long_sum_under',
+                    'status' => 'unwound',
+                    'status_reason' => 'terminal_basket_already_recorded',
+                    'idempotent_replay' => true,
+                ]],
+                'scan' => $baseScan,
+                'duration_seconds' => 80.0,
+                'slow' => false,
+                'created_at' => now()->toIso8601String(),
+                'schema_version' => 'atlas.finance.poly_exec.monitor_log.v1',
+            ],
+            [
+                'event' => 'summary',
+                'session_id' => 'replay',
+                'executed_total' => 1,
+                'idempotent_replays_total' => 1,
+                'created_at' => now()->toIso8601String(),
+                'schema_version' => 'atlas.finance.poly_exec.monitor_log.v1',
+            ],
+        ];
+
+        foreach ($rows as $row) {
+            file_put_contents($path, json_encode($row, JSON_UNESCAPED_SLASHES).PHP_EOL, FILE_APPEND | LOCK_EX);
+        }
+
+        $exit = Artisan::call('atlas:finance:poly-exec', [
+            'action' => 'qualify',
+            '--mode' => 'sim',
+            '--monitor-log-dir' => $logDir,
+            '--qualification-min-cycles' => 2,
+            '--qualification-min-executed' => 1,
+            '--qualification-max-slow-ratio' => 1,
+            '--json' => true,
+        ]);
+
+        $out = Artisan::output();
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('"executed_total": 1', $out);
+        $this->assertStringContainsString('"idempotent_replays": 1', $out);
+        $this->assertStringContainsString('"unsafe_terminal_total": 1', $out);
+        $this->assertStringContainsString('"idempotent_replay_statuses": {', $out);
+    }
+
     public function test_command_run_live_is_refused_by_finance_policy(): void
     {
         config()->set('atlas.finance_poly_exec.live_enabled', true);
