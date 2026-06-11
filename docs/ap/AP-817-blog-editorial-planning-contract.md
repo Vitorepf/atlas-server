@@ -66,11 +66,12 @@ P1 may enrich the plan with existing Atlas context:
 6. read-only source, coverage, writing and daily operations packets;
 7. public archive reconciliation that compares published site metadata against
    the planned backlog and marks external posts as bridge candidates, duplicate
-   risks or prior artifacts.
+   risks or prior artifacts;
+8. Open Brain handoff/execution packets for audited context export.
 
-P1 still stays kernel-first and read-only. It may read the Engineering
-Knowledge Base and Code Intelligence read-models, but it must present them as
-candidate editorial references, not as generated facts ready for publication.
+P1 stays kernel-first. It may read Engineering Knowledge, Code Intelligence and
+audited Open Brain context, but presents them as editorial references, not
+generated facts ready for publication.
 Candidate backlog items are review packets. They do not become part of the
 publication sequence until Vitor accepts them and explicitly promotes them.
 Writing packets are private preparation packets. They may assemble sequence
@@ -148,15 +149,19 @@ P1 is acceptable when:
   coverage, topic index, depth warnings and safe next arcs;
 - `atlas:blog:editorial-plan --operations --json` returns
   `operations_packet` with next action, daily focus, writing packet, public
-  archive risks, blockers, source/coverage snapshots and candidate feed while
-  keeping all write/publish/graph guardrails false;
+  archive risks, blockers, source/coverage snapshots, candidate feed and
+  `open_brain_handoff` while keeping all write/publish/graph guardrails false;
 - `atlas:blog:editorial-plan --writing-packet --json` returns
   `writing_packet` for the next ready post with
   `generates_full_article=false`, `writes_draft=false` and
   `publishes_content=false`;
-- `writing_packet.public_archive_context` reports already-published planned
-  matches and prior public artifacts matched from external archive posts, so
-  the writer can link, rewrite or avoid repetition deliberately;
+- `writing_packet.open_brain_handoff` returns an audited context export
+  contract with `invoked_by_this_command=false`;
+- `atlas:blog:editorial-plan --writing-packet --execute-open-brain --json`
+  returns `mode=audited_context_execution_p1` and safe
+  `writing_packet.open_brain_context`; it must not return the raw context pack;
+- `writing_packet.public_archive_context` reports planned matches and prior
+  public artifacts so the writer can link, rewrite or avoid repetition;
 - `atlas:blog:editorial-plan --writing-packet --writing-slug=<slug> --json`
   prepares a planned post by slug without writing files or changing schedule;
 - `atlas:blog:editorial-plan --accept-candidate=<slug> --json` previews a

@@ -7,6 +7,7 @@ namespace App\Services\Ai\Publishing;
 use App\Models\AtlasEngineeringCodeModule;
 use App\Models\AtlasEngineeringCodeSymbol;
 use App\Models\AtlasEngineeringKnowledgeItem;
+use App\Services\Ai\AtlasOpenBrainService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\File;
@@ -15,6 +16,10 @@ use Illuminate\Support\Str;
 final class BlogEditorialContextService
 {
     public const SCHEMA_VERSION = 'atlas.blog_editorial_context.v1';
+
+    public function __construct(
+        private readonly ?AtlasOpenBrainService $openBrain = null,
+    ) {}
 
     /**
      * @param  array<int,array<string,mixed>>  $posts
@@ -488,7 +493,7 @@ final class BlogEditorialContextService
      * @param  array<int,array<string,mixed>>  $blockedPosts
      * @return array<string,mixed>
      */
-    public function operationsPacket(array $posts, array $publishedSlugs = [], array $publishedPosts = [], ?array $nextReadyPost = null, array $blockedPosts = [], int $contextLimit = 5, int $candidateLimit = 5): array
+    public function operationsPacket(array $posts, array $publishedSlugs = [], array $publishedPosts = [], ?array $nextReadyPost = null, array $blockedPosts = [], int $contextLimit = 5, int $candidateLimit = 5, bool $executeOpenBrain = false): array
     {
         $contextLimit = max(1, min(12, $contextLimit));
         $candidateLimit = max(1, min(15, $candidateLimit));
@@ -497,11 +502,14 @@ final class BlogEditorialContextService
         $candidateFeed = $this->candidateSuggestions($posts, $publishedSlugs, $candidateLimit);
         $nextPost = $this->plannedPostBySlug($posts, (string) ($nextReadyPost['slug'] ?? ''));
         $writingPacket = $nextPost !== null
-            ? $this->writingPacket($nextPost, $posts, $publishedSlugs, $contextLimit, $publishedPosts)
+            ? $this->writingPacket($nextPost, $posts, $publishedSlugs, $contextLimit, $publishedPosts, $executeOpenBrain)
             : null;
         $publicArchiveContext = is_array($writingPacket)
             ? (array) ($writingPacket['public_archive_context'] ?? [])
             : [];
+        $openBrainHandoff = $nextPost !== null
+            ? $this->openBrainHandoffForPost($nextPost, $contextLimit)
+            : null;
 
         return [
             'schema_version' => 'atlas.blog_editorial_operations_packet.v1',
@@ -562,6 +570,7 @@ final class BlogEditorialContextService
                 'graph_retrieval_status' => (string) data_get($sourceMap, 'sources.graph_retrieval.status', 'unknown'),
                 'open_brain_status' => (string) data_get($sourceMap, 'sources.open_brain_context_pack.status', 'unknown'),
             ],
+            'open_brain_handoff' => $openBrainHandoff,
             'candidate_feed' => [
                 'candidate_count' => (int) ($candidateFeed['candidate_count'] ?? 0),
                 'candidates' => array_slice((array) ($candidateFeed['candidates'] ?? []), 0, $candidateLimit),
@@ -576,6 +585,8 @@ final class BlogEditorialContextService
                 'uses_graph_rag' => false,
                 'uses_python_runtime' => false,
                 'creates_parallel_memory_store' => false,
+                'executes_open_brain_context' => $executeOpenBrain,
+                'writes_audit_log' => $executeOpenBrain,
                 'requires_human_approval_to_publish' => true,
             ],
         ];
@@ -588,7 +599,7 @@ final class BlogEditorialContextService
      * @param  array<int,array<string,mixed>>  $publishedPosts
      * @return array<string,mixed>
      */
-    public function writingPacket(array $post, array $posts, array $publishedSlugs = [], int $contextLimit = 5, array $publishedPosts = []): array
+    public function writingPacket(array $post, array $posts, array $publishedSlugs = [], int $contextLimit = 5, array $publishedPosts = [], bool $executeOpenBrain = false): array
     {
         $contextLimit = max(1, min(12, $contextLimit));
         $publishedSet = array_fill_keys($publishedSlugs, true);
@@ -609,6 +620,7 @@ final class BlogEditorialContextService
         $neighbors = $this->neighborPosts($post, $posts);
         $terms = $this->terms($post);
         $publicArchiveContext = $this->publicArchiveContextForPost($post, $posts, $publishedSlugs, $publishedPosts);
+        $openBrainHandoff = $this->openBrainHandoffForPost($post, $contextLimit);
 
         return [
             'schema_version' => 'atlas.blog_editorial_writing_packet.v1',
@@ -638,6 +650,10 @@ final class BlogEditorialContextService
             ],
             'public_archive_context' => $publicArchiveContext,
             'editorial_context' => $this->contextForPost($post, $contextLimit),
+            'open_brain_handoff' => $openBrainHandoff,
+            'open_brain_context' => $executeOpenBrain
+                ? $this->executeOpenBrainHandoff($openBrainHandoff)
+                : null,
             'coverage_snapshot' => [
                 'terms' => $terms,
                 'current_level' => (string) ($post['complexity_level'] ?? ''),
@@ -669,8 +685,184 @@ final class BlogEditorialContextService
                 'uses_graph_rag' => false,
                 'uses_python_runtime' => false,
                 'creates_parallel_memory_store' => false,
+                'executes_open_brain_context' => $executeOpenBrain,
+                'writes_audit_log' => $executeOpenBrain,
             ],
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $handoff
+     * @return array<string,mixed>
+     */
+    private function executeOpenBrainHandoff(array $handoff): array
+    {
+        try {
+            $result = $this->openBrainService()->contextPack([
+                'objective' => (string) ($handoff['objective'] ?? ''),
+                'task_type' => 'research',
+                'desired_mode' => 'direct',
+                'agent' => 'orquestrador',
+                'intent' => 'blog_editorial_context_export',
+                'requester' => 'atlas-blog-editorial-plan',
+                'payload' => is_array($handoff['payload'] ?? null) ? $handoff['payload'] : [],
+            ], 'blog_editorial_plan');
+        } catch (\Throwable $exception) {
+            return [
+                'schema_version' => 'atlas.blog_editorial_open_brain_execution.v1',
+                'status' => 'failed',
+                'invoked_by_this_command' => true,
+                'error' => 'open_brain_context_failed',
+                'message' => $exception->getMessage(),
+                'guardrails' => [
+                    'raw_context_pack_returned' => false,
+                    'publishes_content' => false,
+                    'uses_graph_rag' => false,
+                    'uses_python_runtime' => false,
+                    'creates_parallel_memory_store' => false,
+                ],
+            ];
+        }
+
+        $contextRefs = array_values(array_filter((array) ($result['context_refs'] ?? []), 'is_array'));
+
+        return [
+            'schema_version' => 'atlas.blog_editorial_open_brain_execution.v1',
+            'status' => (bool) ($result['ok'] ?? false) ? 'ready' : 'failed',
+            'invoked_by_this_command' => true,
+            'context_pack_hash' => (string) ($result['context_pack_hash'] ?? ''),
+            'summary' => [
+                'context_refs_count' => (int) data_get($result, 'summary.context_refs_count', 0),
+                'memory_refs_count' => (int) data_get($result, 'summary.memory_refs_count', 0),
+                'recall_count' => (int) data_get($result, 'summary.recall_count', 0),
+                'semantic_count' => (int) data_get($result, 'summary.semantic_count', 0),
+                'provider_safe' => (bool) data_get($result, 'summary.provider_safe', false),
+            ],
+            'safety' => [
+                'provider_safe_only' => (bool) data_get($result, 'safety.provider_safe_only', false),
+                'raw_content_exposed' => (bool) data_get($result, 'safety.raw_content_exposed', true),
+                'raw_content_persisted' => (bool) data_get($result, 'safety.raw_content_persisted', true),
+                'audit_persisted' => (bool) data_get($result, 'safety.audit_persisted', false),
+                'context_pack_hash_persisted' => (bool) data_get($result, 'safety.context_pack_hash_persisted', false),
+            ],
+            'audit' => [
+                'persisted' => is_array($result['audit'] ?? null),
+                'surface' => (string) data_get($result, 'audit.surface', ''),
+                'requester' => (string) data_get($result, 'audit.requester', ''),
+                'action' => (string) data_get($result, 'audit.action', ''),
+                'status' => (string) data_get($result, 'audit.status', ''),
+                'provider_safe' => (bool) data_get($result, 'audit.provider_safe', false),
+            ],
+            'context_refs' => array_slice(array_map(
+                fn (array $ref): array => [
+                    'type' => (string) ($ref['type'] ?? ''),
+                    'title' => (string) ($ref['title'] ?? $ref['memory_type'] ?? ''),
+                    'path' => (string) ($ref['path'] ?? ''),
+                    'privacy_class' => (string) ($ref['privacy_class'] ?? ''),
+                    'external_ai_allowed' => (bool) ($ref['external_ai_allowed'] ?? true),
+                    'redaction_status' => (string) ($ref['redaction_status'] ?? ''),
+                ],
+                $contextRefs,
+            ), 0, 8),
+            'guardrails' => [
+                'raw_context_pack_returned' => false,
+                'publishes_content' => false,
+                'uses_graph_rag' => false,
+                'uses_python_runtime' => false,
+                'creates_parallel_memory_store' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $post
+     * @return array<string,mixed>
+     */
+    private function openBrainHandoffForPost(array $post, int $contextLimit = 5): array
+    {
+        $contextLimit = max(1, min(12, $contextLimit));
+        $slug = (string) ($post['slug'] ?? '');
+        $title = (string) ($post['title'] ?? '');
+        $mainQuestion = (string) ($post['main_question'] ?? '');
+        $topics = array_values(array_filter((array) ($post['topics'] ?? []), 'is_string'));
+        $objective = trim("Prepare provider-safe Atlas blog context for {$title} ({$slug}). Main question: {$mainQuestion}");
+        $payload = [
+            'schema_version' => 'atlas.blog_editorial_open_brain_payload.v1',
+            'post' => [
+                'order' => (int) ($post['order'] ?? 0),
+                'title' => $title,
+                'slug' => $slug,
+                'complexity_level' => (string) ($post['complexity_level'] ?? ''),
+                'collection' => (string) ($post['collection'] ?? ''),
+                'series' => (string) ($post['series'] ?? ''),
+                'main_question' => $mainQuestion,
+                'topics' => $topics,
+                'prerequisites' => array_values(array_filter((array) ($post['prerequisites'] ?? []), 'is_string')),
+                'next_reading' => array_values(array_filter((array) ($post['next_reading'] ?? []), 'is_string')),
+            ],
+            'editorial_constraints' => [
+                'language' => 'pt-BR',
+                'canonical_language' => 'pt-BR',
+                'write_depth_rule' => 'Do not introduce concepts before the backlog sequence allows them.',
+                'human_approval_required' => true,
+                'do_not_publish' => true,
+                'do_not_generate_full_article' => true,
+            ],
+            'source_policy' => [
+                'intent' => 'blog_editorial_context_export',
+                'provider_safe_only' => true,
+                'prefer_existing_knowledge_read_models' => true,
+                'prefer_code_intelligence_for_implementation_claims' => true,
+                'allow_vector_retrieval' => true,
+                'allow_graph_retrieval' => false,
+                'context_limit' => $contextLimit,
+            ],
+        ];
+        $payloadJson = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
+
+        return [
+            'schema_version' => 'atlas.blog_editorial_open_brain_handoff.v1',
+            'status' => 'available_contract',
+            'mode' => 'audited_context_export_handoff_p1',
+            'invoked_by_this_command' => false,
+            'objective' => $objective,
+            'command' => '/opt/homebrew/bin/php artisan atlas:open-brain:context '
+                .escapeshellarg($objective)
+                .' --task-type=research'
+                .' --desired-mode=direct'
+                .' --agent=orquestrador'
+                .' --intent=blog_editorial_context_export'
+                .' --requester=atlas-blog-editorial-plan'
+                .' --payload-json='.escapeshellarg($payloadJson)
+                .' --json',
+            'payload' => $payload,
+            'expected_sources' => [
+                'atlas_memory_registry',
+                'engineering_knowledge',
+                'code_intelligence',
+                'vector_retrieval_when_provider_safe',
+            ],
+            'deferred_sources' => [
+                'graph_retrieval',
+                'python_ai_data_runtime',
+                'automatic_publication',
+            ],
+            'guardrails' => [
+                'read_only' => true,
+                'writes_backlog' => false,
+                'writes_draft' => false,
+                'publishes_content' => false,
+                'uses_graph_rag' => false,
+                'uses_python_runtime' => false,
+                'creates_parallel_memory_store' => false,
+                'requires_human_approval_to_publish' => true,
+            ],
+        ];
+    }
+
+    private function openBrainService(): AtlasOpenBrainService
+    {
+        return $this->openBrain ?? app(AtlasOpenBrainService::class);
     }
 
     /**

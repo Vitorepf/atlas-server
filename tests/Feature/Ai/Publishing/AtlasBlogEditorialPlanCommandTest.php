@@ -330,7 +330,42 @@ JS);
         $this->assertFalse(data_get($payload, 'writing_packet.guardrails.writes_draft'));
         $this->assertFalse(data_get($payload, 'writing_packet.guardrails.publishes_content'));
         $this->assertFalse(data_get($payload, 'writing_packet.guardrails.generates_full_article'));
+        $this->assertSame('atlas.blog_editorial_open_brain_handoff.v1', data_get($payload, 'writing_packet.open_brain_handoff.schema_version'));
+        $this->assertSame('o-que-e-o-atlas', data_get($payload, 'writing_packet.open_brain_handoff.payload.post.slug'));
+        $this->assertFalse(data_get($payload, 'writing_packet.open_brain_handoff.guardrails.uses_graph_rag'));
         $this->assertContains('Nao expor paths locais, tokens, prompts, traces ou detalhes privados.', data_get($payload, 'writing_packet.writing_brief.must_not_include'));
+    }
+
+    public function test_writing_packet_can_execute_open_brain_context_export_without_returning_raw_pack(): void
+    {
+        $this->bootContextReadModels();
+        $this->seedContextReadModels();
+        $this->writeBacklog();
+        $this->writePublishedPosts([]);
+
+        $exit = Artisan::call('atlas:blog:editorial-plan', [
+            '--site' => $this->siteRoot,
+            '--writing-packet' => true,
+            '--execute-open-brain' => true,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('audited_context_execution_p1', $payload['mode']);
+        $this->assertTrue(data_get($payload, 'summary.with_open_brain_execution'));
+        $this->assertSame('atlas.blog_editorial_open_brain_execution.v1', data_get($payload, 'writing_packet.open_brain_context.schema_version'));
+        $this->assertSame('ready', data_get($payload, 'writing_packet.open_brain_context.status'));
+        $this->assertTrue(data_get($payload, 'writing_packet.open_brain_context.invoked_by_this_command'));
+        $this->assertNotSame('', data_get($payload, 'writing_packet.open_brain_context.context_pack_hash'));
+        $this->assertTrue(data_get($payload, 'writing_packet.open_brain_context.summary.provider_safe'));
+        $this->assertFalse(data_get($payload, 'writing_packet.open_brain_context.safety.raw_content_exposed'));
+        $this->assertFalse(data_get($payload, 'writing_packet.open_brain_context.guardrails.raw_context_pack_returned'));
+        $this->assertArrayNotHasKey('context_pack', data_get($payload, 'writing_packet.open_brain_context'));
+        $this->assertTrue(data_get($payload, 'guardrails.executes_open_brain_context'));
+        $this->assertTrue(data_get($payload, 'guardrails.writes_audit_log'));
+        $this->assertFalse(data_get($payload, 'guardrails.publishes_content'));
     }
 
     public function test_writing_packet_can_target_specific_planned_slug(): void
@@ -431,6 +466,12 @@ JS);
         $this->assertSame('o-que-e-o-atlas', data_get($payload, 'operations_packet.next_action.slug'));
         $this->assertSame('o-que-e-o-atlas', data_get($payload, 'operations_packet.writing_packet.post.slug'));
         $this->assertSame('future_governed', data_get($payload, 'operations_packet.source_snapshot.graph_retrieval_status'));
+        $this->assertSame('atlas.blog_editorial_open_brain_handoff.v1', data_get($payload, 'operations_packet.open_brain_handoff.schema_version'));
+        $this->assertSame('o-que-e-o-atlas', data_get($payload, 'operations_packet.open_brain_handoff.payload.post.slug'));
+        $this->assertSame('blog_editorial_context_export', data_get($payload, 'operations_packet.open_brain_handoff.payload.source_policy.intent', 'blog_editorial_context_export'));
+        $this->assertStringContainsString('atlas:open-brain:context', data_get($payload, 'operations_packet.open_brain_handoff.command'));
+        $this->assertFalse(data_get($payload, 'operations_packet.open_brain_handoff.invoked_by_this_command'));
+        $this->assertFalse(data_get($payload, 'operations_packet.open_brain_handoff.guardrails.uses_graph_rag'));
         $this->assertGreaterThanOrEqual(1, data_get($payload, 'operations_packet.candidate_feed.candidate_count'));
         $this->assertFalse(data_get($payload, 'operations_packet.guardrails.writes_backlog'));
         $this->assertFalse(data_get($payload, 'operations_packet.guardrails.publishes_content'));

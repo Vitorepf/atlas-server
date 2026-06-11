@@ -961,8 +961,8 @@ class AtlasCodeForgeFastPathService
     {
         $metadata = is_array($project->metadata) ? $project->metadata : [];
         $intake = (array) data_get($metadata, 'latest_atlas_code_forge_work_intake', []);
-        $canonicalDocs = $this->stringList(data_get($intake, 'canonical_docs', []));
-        $acceptance = $this->stringList(data_get($intake, 'acceptance_criteria', []));
+        $canonicalDocs = AiStringListNormalizer::trimmedStringsFromArrayCast(data_get($intake, 'canonical_docs', []));
+        $acceptance = AiStringListNormalizer::trimmedStringsFromArrayCast(data_get($intake, 'acceptance_criteria', []));
 
         $likelyFiles = $canonicalDocs !== []
             ? $canonicalDocs
@@ -1013,10 +1013,10 @@ class AtlasCodeForgeFastPathService
             'schema_version' => 'atlas.code.forge_work_intake_projection.v1',
             'intake_id' => AiValueNormalizer::trimmedStringOrNull(data_get($intake, 'intake_id')),
             'business_rule' => AiValueNormalizer::trimmedStringOrNull(data_get($intake, 'business_rule')),
-            'scope_in' => $this->stringList(data_get($intake, 'scope_in', [])),
-            'scope_out' => $this->stringList(data_get($intake, 'scope_out', [])),
-            'acceptance_criteria' => $this->stringList(data_get($intake, 'acceptance_criteria', [])),
-            'canonical_docs' => $this->stringList(data_get($intake, 'canonical_docs', [])),
+            'scope_in' => AiStringListNormalizer::trimmedStringsFromArrayCast(data_get($intake, 'scope_in', [])),
+            'scope_out' => AiStringListNormalizer::trimmedStringsFromArrayCast(data_get($intake, 'scope_out', [])),
+            'acceptance_criteria' => AiStringListNormalizer::trimmedStringsFromArrayCast(data_get($intake, 'acceptance_criteria', [])),
+            'canonical_docs' => AiStringListNormalizer::trimmedStringsFromArrayCast(data_get($intake, 'canonical_docs', [])),
             'operator_notes' => AiValueNormalizer::trimmedStringOrNull(data_get($intake, 'operator_notes')),
             'source_authority' => 'AtlasCodeForgeWorkIntakeService::save',
             'projected_at' => now()->toIso8601String(),
@@ -1176,15 +1176,6 @@ class AtlasCodeForgeFastPathService
         return strlen($value) > $maxLength
             ? substr($value, 0, $maxLength).'...'
             : $value;
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return AiStringListNormalizer::trimmedStringsFromArrayCast($value);
     }
 
     private function intentFromProject(AtlasProject $project): ?string

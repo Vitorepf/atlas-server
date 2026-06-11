@@ -226,13 +226,15 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         // + AOBG N1.F3 multi-project workspace status/activation/map tools = 55,
         // + AOBG N2.F4 blackboard coordination tools (atlas_claim_task, atlas_blackboard_status) = 57,
         // + AOBG N3.F4 operator-surface obra status tool (atlas_obra_status) = 58,
-        // + Open Brain on-demand context expansion tool (atlas_context_expand) = 59.
-        $this->assertCount(59, $structured['tools']);
+        // + Open Brain on-demand context expansion tool (atlas_context_expand) = 59,
+        // + Open Brain provider-safe context feedback tool (atlas_context_feedback) = 60.
+        $this->assertCount(60, $structured['tools']);
         $this->assertContains('atlas_aurg_query', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_mission_history', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_obra_status', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_context_pack', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_context_expand', array_column($structured['tools'], 'name'));
+        $this->assertContains('atlas_context_feedback', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_record_outcome', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_propose_learning', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_workspace_status', array_column($structured['tools'], 'name'));
@@ -268,6 +270,52 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertContains('atlas_provider_release_sources', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_ledger_projection_health', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_decision_receipt_report', array_column($structured['tools'], 'name'));
+    }
+
+    public function test_context_feedback_tool_captures_provider_safe_retrieval_roi(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 701,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_context_feedback',
+                'arguments' => [
+                    'objective' => 'debug raw stack trace should not persist',
+                    'task_type' => 'debug',
+                    'domain' => 'developer',
+                    'outcome_status' => 'partial',
+                    'context_pack_hash' => str_repeat('b', 64),
+                    'delivered_context_refs' => ['doc:owner-context', 'test:full-suite-dump'],
+                    'used_context_refs' => ['doc:owner-context'],
+                    'noise_context_refs' => ['test:full-suite-dump'],
+                    'missed_required_sources' => ['migration'],
+                    'post_execution_utility' => 42,
+                ],
+            ],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $feedback = $structured['context_feedback'];
+
+        $this->assertTrue($structured['ok']);
+        $this->assertSame('atlas_context_feedback', $structured['tool']);
+        $this->assertSame('atlas.aucri.retrieval_feedback_loop.v1', $feedback['schema_version']);
+        $this->assertSame('needs_review', $feedback['status']);
+        $this->assertSame('atlas.aucri.context_ref_attribution.v1', data_get($feedback, 'context_ref_attribution.schema_version'));
+        $this->assertGreaterThanOrEqual(2, data_get($feedback, 'context_ref_attribution.delivered_count'));
+        $this->assertGreaterThanOrEqual(1, data_get($feedback, 'context_ref_attribution.used_count'));
+        $this->assertGreaterThanOrEqual(1, data_get($feedback, 'context_ref_attribution.noise_count'));
+        $this->assertContains('migration', data_get($feedback, 'context_ref_attribution.missing_source_types'));
+        $this->assertContains('expand_missing_source_types', data_get($feedback, 'next_context_policy.actions'));
+        $this->assertContains('demote_noise_context_refs', data_get($feedback, 'next_context_policy.actions'));
+        $this->assertContains('shrink_initial_context', data_get($feedback, 'next_context_policy.actions'));
+        $this->assertSame(42, data_get($feedback, 'context_roi.post_execution_utility'));
+        $this->assertFalse(data_get($feedback, 'persistence.persisted'));
+        $this->assertFalse(data_get($feedback, 'policy.auto_promote_learning'));
+        $this->assertFalse(data_get($feedback, 'claims.raw_text_exposed'));
+        $this->assertStringNotContainsString('raw stack trace should not persist', json_encode($feedback, JSON_THROW_ON_ERROR));
     }
 
     public function test_domain_catalog_tool_exposes_ready_domain_flow_contracts(): void

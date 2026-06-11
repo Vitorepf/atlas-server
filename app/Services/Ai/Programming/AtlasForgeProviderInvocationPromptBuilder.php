@@ -81,11 +81,11 @@ class AtlasForgeProviderInvocationPromptBuilder
             ?? $project->title,
         ) ?? 'Forge task without explicit intent — please refuse and ask for missing context.';
 
-        $allowedFiles = $this->normalizeStringList(data_get($workItem?->placement_json, 'allowed_files') ?? data_get($metadata, 'allowed_files') ?? []);
-        $forbiddenFiles = $this->normalizeStringList(data_get($workItem?->placement_json, 'forbidden_files') ?? data_get($metadata, 'forbidden_files') ?? []);
-        $acceptanceCriteria = $this->normalizeStringList(data_get($workItem?->spec_json, 'acceptance_criteria') ?? data_get($metadata, 'acceptance_criteria') ?? []);
-        $qualityGates = $this->normalizeStringList($dispatchPlan['quality_gates'] ?? data_get($metadata, 'latest_atlas_forge_provider_topology.quality_gates') ?? []);
-        $contextRefs = $this->normalizeStringList(
+        $allowedFiles = AiStringListNormalizer::uniqueTrimmedStrings(data_get($workItem?->placement_json, 'allowed_files') ?? data_get($metadata, 'allowed_files') ?? []);
+        $forbiddenFiles = AiStringListNormalizer::uniqueTrimmedStrings(data_get($workItem?->placement_json, 'forbidden_files') ?? data_get($metadata, 'forbidden_files') ?? []);
+        $acceptanceCriteria = AiStringListNormalizer::uniqueTrimmedStrings(data_get($workItem?->spec_json, 'acceptance_criteria') ?? data_get($metadata, 'acceptance_criteria') ?? []);
+        $qualityGates = AiStringListNormalizer::uniqueTrimmedStrings($dispatchPlan['quality_gates'] ?? data_get($metadata, 'latest_atlas_forge_provider_topology.quality_gates') ?? []);
+        $contextRefs = AiStringListNormalizer::uniqueTrimmedStrings(
             data_get($metadata, 'latest_atlas_forge_provider_topology.evidence_refs')
             ?? data_get($metadata, 'latest_atlas_forge_runtime_dispatch.evidence_refs')
             ?? [
@@ -313,14 +313,6 @@ class AtlasForgeProviderInvocationPromptBuilder
                 return 'atlas-server';
             }
         }
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function normalizeStringList(mixed $value): array
-    {
-        return AiStringListNormalizer::uniqueTrimmedStrings($value);
     }
 
     private function resolveWorkItem(AtlasProject $project): ?AtlasProgrammingWorkItem

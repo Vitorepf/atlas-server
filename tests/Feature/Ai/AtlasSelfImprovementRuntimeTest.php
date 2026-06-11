@@ -1227,6 +1227,92 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertSame(['open_brain_access_log'], data_get($learningEvent->payload, 'finding.source_types'));
     }
 
+    public function test_self_improvement_detects_open_brain_prompt_metric_regressions(): void
+    {
+        AtlasOpenBrainAccessLog::query()->create([
+            'surface' => 'mcp',
+            'requester' => 'codex',
+            'action' => 'context_pack_export',
+            'status' => 'completed',
+            'workspace_hash' => 'workspace-hash',
+            'workspace_label' => 'atlas-server',
+            'context_pack_hash' => str_repeat('a', 64),
+            'context_refs_count' => 8,
+            'memory_refs_count' => 4,
+            'provider_safe' => true,
+            'query_json' => ['objective_hash' => hash('sha256', 'prompt metric regression')],
+            'result_summary_json' => [
+                'prompt_section' => 'raw prompt must not be in audit summary',
+                'prompt' => [
+                    'schema_version' => 'atlas.open_brain.prompt_metrics.v1',
+                    'mode' => 'compact',
+                    'chars' => 9000,
+                    'lines' => 120,
+                    'estimated_tokens' => 2250,
+                    'full_chars' => 10000,
+                    'full_lines' => 140,
+                    'full_estimated_tokens' => 2500,
+                    'saved_chars' => 1000,
+                    'saved_lines' => 20,
+                    'estimated_tokens_saved' => 250,
+                    'compact_to_full_ratio' => 0.9,
+                    'savings_ratio' => 0.1,
+                    'raw_prompt_persisted' => true,
+                    'raw_bodies_deferred' => true,
+                    'provider_safe' => true,
+                ],
+                'safety' => [
+                    'prompt_mode' => 'compact',
+                    'prompt_raw_prompt_persisted' => true,
+                ],
+            ],
+            'metadata' => ['schema_version' => 'atlas.open_brain.access_log.v1'],
+            'accessed_at' => now()->subMinutes(8),
+        ]);
+
+        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
+            flow: 'domain_learning_review',
+            emit: false,
+            hours: 24,
+            limit: 20,
+        );
+
+        $finding = collect($result['findings'])->firstWhere(
+            'metadata.schema_version',
+            'atlas.self_improvement.open_brain_prompt_metrics.v1',
+        );
+
+        $this->assertSame('self_improvement.domain_learning_review', $result['flow']);
+        $this->assertIsArray($finding);
+        $this->assertSame('Corrigir regressao de economia de contexto no Open Brain', $finding['title']);
+        $this->assertSame('blocking', data_get($finding, 'metadata.review_signal.status'));
+        $this->assertSame('high', data_get($finding, 'metadata.review_signal.severity'));
+        $this->assertContains('raw_prompt_persistence_detected', data_get($finding, 'metadata.review_signal.reasons'));
+        $this->assertContains('compact_prompt_savings_below_threshold', data_get($finding, 'metadata.review_signal.reasons'));
+        $this->assertSame('remove_raw_prompt_persistence_before_next_open_brain_policy_change', data_get($finding, 'metadata.review_signal.recommended_action'));
+        $this->assertSame(1, data_get($finding, 'metadata.observed_count'));
+        $this->assertSame(1, data_get($finding, 'metadata.raw_prompt_persistence_violation_count'));
+        $this->assertSame(1, data_get($finding, 'metadata.low_savings_count'));
+        $this->assertSame(1000.0, data_get($finding, 'metadata.avg_saved_chars'));
+        $this->assertSame('open_brain_prompt_metric', data_get($finding, 'source_refs.0.type'));
+        $this->assertSame('compact', data_get($finding, 'source_refs.0.mode'));
+        $this->assertTrue((bool) data_get($finding, 'source_refs.0.raw_prompt_persisted'));
+        $this->assertArrayNotHasKey('prompt_section', data_get($finding, 'source_refs.0', []));
+
+        $learningEvent = AtlasLedgerEvent::query()
+            ->where('envelope_id', 'self_improvement_run:'.$result['run_id'])
+            ->where('event_type', LedgerEventType::LearningProposed->value)
+            ->get()
+            ->first(fn (AtlasLedgerEvent $event): bool => data_get($event->payload, 'finding.dedupe_key') === $finding['dedupe_key']);
+
+        $this->assertInstanceOf(AtlasLedgerEvent::class, $learningEvent);
+        $this->assertSame('atlas.self_improvement.open_brain_prompt_metrics.v1', data_get($learningEvent->payload, 'finding.schema_version'));
+        $this->assertSame('blocking', data_get($learningEvent->payload, 'finding.review_signal.status'));
+        $this->assertSame('remove_raw_prompt_persistence_before_next_open_brain_policy_change', data_get($learningEvent->payload, 'finding.review_signal.recommended_action'));
+        $this->assertSame(['open_brain_prompt_metric'], data_get($learningEvent->payload, 'finding.source_types'));
+        $this->assertStringNotContainsString('raw prompt must not be in audit summary', json_encode($learningEvent->payload, JSON_UNESCAPED_SLASHES) ?: '');
+    }
+
     public function test_learning_proposed_event_links_emitted_inbox_item_to_finding(): void
     {
         AtlasOpenBrainAccessLog::query()->create([

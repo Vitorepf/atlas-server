@@ -196,6 +196,7 @@ class AtlasSelfImprovementRuntime
                 ...$this->rivalsStrategyFindings($hours, $filters),
                 ...$this->voiceRealtimeFindings($hours, $filters),
                 ...$this->openBrainRetrievalFindings($hours, $filters),
+                ...$this->openBrainPromptMetricFindings($hours, $filters),
                 ...$this->localRagPromotionFindings($filters),
                 ...$this->constelacaoUsageReviewFindings($events, $filters),
                 ...$this->productiveFailureTransferTestFindings($filters),
@@ -230,6 +231,7 @@ class AtlasSelfImprovementRuntime
                 ...$this->rivalsStrategyFindings($hours, $filters),
                 ...$this->voiceRealtimeFindings($hours, $filters),
                 ...$this->openBrainRetrievalFindings($hours, $filters),
+                ...$this->openBrainPromptMetricFindings($hours, $filters),
                 ...$this->localRagPromotionFindings($filters),
                 ...$this->constelacaoUsageReviewFindings($events, $filters),
                 ...$this->productiveFailureTransferTestFindings($filters),
@@ -358,6 +360,159 @@ class AtlasSelfImprovementRuntime
                 'status_counts' => $statusCounts,
                 'required_unavailable_source_counts' => $requiredUnavailableSourceCounts,
                 'recommended_action_counts' => $recommendedActionCounts,
+                'filters' => array_filter($filters, fn (?string $value): bool => $value !== null),
+            ],
+        ]];
+    }
+
+    /**
+     * @param  array<string,string|null>  $filters
+     * @return array<int,array<string,mixed>>
+     */
+    private function openBrainPromptMetricFindings(int $hours, array $filters = []): array
+    {
+        if (! Schema::hasTable('atlas_open_brain_access_logs')) {
+            return [];
+        }
+
+        $query = AtlasOpenBrainAccessLog::query()
+            ->where('accessed_at', '>=', now()->subHours($hours))
+            ->where('action', 'context_pack_export');
+
+        if (($filters['surface'] ?? null) !== null) {
+            $query->where('surface', $filters['surface']);
+        }
+
+        $logs = $query
+            ->orderByDesc('accessed_at')
+            ->limit(100)
+            ->get();
+
+        $rows = $logs
+            ->map(function (AtlasOpenBrainAccessLog $log): ?array {
+                $summary = (array) ($log->result_summary_json ?? []);
+                $prompt = data_get($summary, 'prompt');
+                if (! is_array($prompt)) {
+                    return null;
+                }
+
+                return [
+                    'id' => $log->id,
+                    'surface' => $log->surface,
+                    'requester' => $log->requester,
+                    'context_pack_hash' => $log->context_pack_hash,
+                    'mode' => (string) ($prompt['mode'] ?? 'unknown'),
+                    'chars' => (int) ($prompt['chars'] ?? 0),
+                    'estimated_tokens' => (int) ($prompt['estimated_tokens'] ?? 0),
+                    'saved_chars' => (int) ($prompt['saved_chars'] ?? 0),
+                    'estimated_tokens_saved' => (int) ($prompt['estimated_tokens_saved'] ?? 0),
+                    'savings_ratio' => (float) ($prompt['savings_ratio'] ?? 0),
+                    'raw_prompt_persisted' => (bool) ($prompt['raw_prompt_persisted'] ?? false)
+                        || (bool) data_get($summary, 'safety.prompt_raw_prompt_persisted', false)
+                        || array_key_exists('prompt_section', $summary),
+                    'accessed_at' => $log->accessed_at?->toJSON(),
+                ];
+            })
+            ->filter()
+            ->values();
+
+        if ($rows->isEmpty()) {
+            return [];
+        }
+
+        $compactRows = $rows->where('mode', 'compact')->values();
+        $fullRows = $rows->where('mode', 'full')->values();
+        $unknownRows = $rows
+            ->reject(fn (array $row): bool => in_array($row['mode'], ['compact', 'full'], true))
+            ->values();
+        $rawPromptViolations = $rows
+            ->filter(fn (array $row): bool => (bool) ($row['raw_prompt_persisted'] ?? false))
+            ->values();
+        $lowSavingsRows = $compactRows
+            ->filter(fn (array $row): bool => (float) ($row['savings_ratio'] ?? 0) < 0.25)
+            ->values();
+
+        $observedCount = $rows->count();
+        $fullModeRatio = $observedCount > 0 ? round($fullRows->count() / $observedCount, 4) : 0.0;
+        $fullModeDominant = $observedCount >= 3 && $fullModeRatio > 0.5;
+        $reasons = [];
+        if ($rawPromptViolations->isNotEmpty()) {
+            $reasons[] = 'raw_prompt_persistence_detected';
+        }
+        if ($lowSavingsRows->isNotEmpty()) {
+            $reasons[] = 'compact_prompt_savings_below_threshold';
+        }
+        if ($fullModeDominant) {
+            $reasons[] = 'full_prompt_mode_dominant';
+        }
+        if ($unknownRows->isNotEmpty()) {
+            $reasons[] = 'unknown_prompt_mode_observed';
+        }
+
+        if ($reasons === []) {
+            return [];
+        }
+
+        $modeCounts = $rows
+            ->map(fn (array $row): string => (string) ($row['mode'] ?? 'unknown'))
+            ->countBy()
+            ->all();
+        $status = $rawPromptViolations->isNotEmpty() ? 'blocking' : 'review';
+        $severity = $rawPromptViolations->isNotEmpty() ? 'high' : 'medium';
+        $recommendedAction = $rawPromptViolations->isNotEmpty()
+            ? 'remove_raw_prompt_persistence_before_next_open_brain_policy_change'
+            : 'review_open_brain_prompt_metric_regression_before_changing_prompt_delivery_policy';
+
+        return [[
+            'title' => 'Corrigir regressao de economia de contexto no Open Brain',
+            'category' => 'self_improvement',
+            'finding' => 'Open Brain registrou '.$observedCount.' export(s) com metricas de prompt e sinalizou regressao: '.implode(', ', $reasons).'.',
+            'problem' => 'Quando exports de contexto voltam a usar prompt full, economizam pouco ou persistem prompt bruto, providers externos recebem contexto maior, menos navegavel ou menos seguro.',
+            'solution' => 'Abrir proposta revisavel para ajustar a politica compact-first, preservar expansao sob demanda e corrigir qualquer persistencia indevida antes de promover mudancas em AOBG/MCP.',
+            'worth_it' => 'Vale porque transforma token bloat e vazamento de prompt em feedback operacional auditavel, fechando o ciclo metricas -> Self-Improvement -> politica de contexto.',
+            'best_solution_rationale' => 'Consumir atlas_open_brain_access_logs reaproveita a evidencia operacional do AOBG sem criar memoria paralela nem guardar prompt bruto.',
+            'alternatives' => ['Manter apenas alerta manual no maintenance status.', 'Rebaixar full mode dominante para observacao quando for auditoria explicitamente aprovada.'],
+            'source_refs' => $rows
+                ->take(5)
+                ->map(fn (array $row): array => [
+                    'type' => 'open_brain_prompt_metric',
+                    'id' => $row['id'],
+                    'surface' => $row['surface'],
+                    'requester' => $row['requester'],
+                    'context_pack_hash' => $row['context_pack_hash'],
+                    'mode' => $row['mode'],
+                    'chars' => $row['chars'],
+                    'estimated_tokens' => $row['estimated_tokens'],
+                    'saved_chars' => $row['saved_chars'],
+                    'estimated_tokens_saved' => $row['estimated_tokens_saved'],
+                    'savings_ratio' => $row['savings_ratio'],
+                    'raw_prompt_persisted' => $row['raw_prompt_persisted'],
+                    'accessed_at' => $row['accessed_at'],
+                ])
+                ->values()
+                ->all(),
+            'confidence' => $rawPromptViolations->isNotEmpty() ? 0.92 : 0.84,
+            'dedupe_key' => 'self-improvement:open-brain-prompt-metrics:'.sha1(implode('|', $reasons).':'.implode('|', array_keys($modeCounts))),
+            'metadata' => [
+                'schema_version' => 'atlas.self_improvement.open_brain_prompt_metrics.v1',
+                'review_signal' => [
+                    'status' => $status,
+                    'severity' => $severity,
+                    'reasons' => $reasons,
+                    'recommended_action' => $recommendedAction,
+                ],
+                'observed_count' => $observedCount,
+                'compact_count' => $compactRows->count(),
+                'full_count' => $fullRows->count(),
+                'unknown_mode_count' => $unknownRows->count(),
+                'mode_counts' => $modeCounts,
+                'full_mode_ratio' => $fullModeRatio,
+                'raw_prompt_persistence_violation_count' => $rawPromptViolations->count(),
+                'low_savings_count' => $lowSavingsRows->count(),
+                'avg_chars' => round((float) $rows->avg('chars'), 2),
+                'avg_saved_chars' => round((float) $rows->avg('saved_chars'), 2),
+                'avg_estimated_tokens_saved' => round((float) $rows->avg('estimated_tokens_saved'), 2),
+                'avg_savings_ratio' => round((float) $rows->avg('savings_ratio'), 4),
                 'filters' => array_filter($filters, fn (?string $value): bool => $value !== null),
             ],
         ]];

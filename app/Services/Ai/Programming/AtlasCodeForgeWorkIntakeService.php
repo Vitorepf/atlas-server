@@ -52,12 +52,12 @@ class AtlasCodeForgeWorkIntakeService
     {
         $objective = AiValueNormalizer::trimmedStringOrNull($input['objective'] ?? null);
         $businessRule = AiValueNormalizer::trimmedStringOrNull($input['business_rule'] ?? null);
-        $scopeIn = $this->stringList($input['scope_in'] ?? []);
-        $scopeOut = $this->stringList($input['scope_out'] ?? []);
-        $acceptance = $this->stringList($input['acceptance_criteria'] ?? []);
-        $canonicalDocs = $this->stringList($input['canonical_docs'] ?? []);
-        $expectedOutputs = $this->stringList($input['expected_outputs'] ?? []);
-        $constraints = $this->stringList($input['constraints'] ?? []);
+        $scopeIn = AiStringListNormalizer::trimmedStringsFromArrayCast($input['scope_in'] ?? []);
+        $scopeOut = AiStringListNormalizer::trimmedStringsFromArrayCast($input['scope_out'] ?? []);
+        $acceptance = AiStringListNormalizer::trimmedStringsFromArrayCast($input['acceptance_criteria'] ?? []);
+        $canonicalDocs = AiStringListNormalizer::trimmedStringsFromArrayCast($input['canonical_docs'] ?? []);
+        $expectedOutputs = AiStringListNormalizer::trimmedStringsFromArrayCast($input['expected_outputs'] ?? []);
+        $constraints = AiStringListNormalizer::trimmedStringsFromArrayCast($input['constraints'] ?? []);
         $operatorNotes = AiValueNormalizer::trimmedStringOrNull($input['operator_notes'] ?? null);
         $riskLevel = AiValueNormalizer::trimmedStringOrNull($input['risk_level'] ?? null) ?? 'medium';
 
@@ -157,20 +157,20 @@ class AtlasCodeForgeWorkIntakeService
             'code_changes_requested' => true,
             'forge_involved' => true,
             'complex_product' => $this->complexProductRequested($intake),
-            'missing_context' => $this->stringList($intake['canonical_docs'] ?? []) === [],
+            'missing_context' => AiStringListNormalizer::trimmedStringsFromArrayCast($intake['canonical_docs'] ?? []) === [],
         ]);
         $gate = $this->aedpdsGate->evaluate([
             'doctrine' => $doctrine,
-            'acceptance_criteria' => $this->stringList($intake['acceptance_criteria'] ?? []),
-            'context_refs' => $this->stringList($intake['canonical_docs'] ?? []),
-            'tests' => $this->stringList($intake['expected_outputs'] ?? []) !== []
-                ? $this->stringList($intake['expected_outputs'] ?? [])
-                : ($this->stringList($intake['acceptance_criteria'] ?? []) === [] ? [] : ['forge_packet_acceptance_verification']),
-            'docs' => $this->stringList($intake['canonical_docs'] ?? []),
+            'acceptance_criteria' => AiStringListNormalizer::trimmedStringsFromArrayCast($intake['acceptance_criteria'] ?? []),
+            'context_refs' => AiStringListNormalizer::trimmedStringsFromArrayCast($intake['canonical_docs'] ?? []),
+            'tests' => AiStringListNormalizer::trimmedStringsFromArrayCast($intake['expected_outputs'] ?? []) !== []
+                ? AiStringListNormalizer::trimmedStringsFromArrayCast($intake['expected_outputs'] ?? [])
+                : (AiStringListNormalizer::trimmedStringsFromArrayCast($intake['acceptance_criteria'] ?? []) === [] ? [] : ['forge_packet_acceptance_verification']),
+            'docs' => AiStringListNormalizer::trimmedStringsFromArrayCast($intake['canonical_docs'] ?? []),
             'review' => in_array((string) ($intake['risk_level'] ?? 'medium'), ['high', 'critical'], true) ? [] : ['risk_review_not_required_for_current_band'],
-            'evidence' => $this->stringList($intake['expected_outputs'] ?? []) !== []
-                ? $this->stringList($intake['expected_outputs'] ?? [])
-                : ($this->stringList($intake['acceptance_criteria'] ?? []) === [] ? [] : ['forge_packet_evidence_required']),
+            'evidence' => AiStringListNormalizer::trimmedStringsFromArrayCast($intake['expected_outputs'] ?? []) !== []
+                ? AiStringListNormalizer::trimmedStringsFromArrayCast($intake['expected_outputs'] ?? [])
+                : (AiStringListNormalizer::trimmedStringsFromArrayCast($intake['acceptance_criteria'] ?? []) === [] ? [] : ['forge_packet_evidence_required']),
         ]);
 
         return [
@@ -206,14 +206,14 @@ class AtlasCodeForgeWorkIntakeService
         if (! AiValueNormalizer::trimmedStringOrNull($intake['business_rule'] ?? null)) {
             $blockers[] = 'blocked_missing_business_rule';
         }
-        if ($this->stringList($intake['acceptance_criteria'] ?? []) === []) {
+        if (AiStringListNormalizer::trimmedStringsFromArrayCast($intake['acceptance_criteria'] ?? []) === []) {
             $blockers[] = 'blocked_missing_acceptance_criteria';
         }
-        if ($this->stringList($intake['canonical_docs'] ?? []) === []) {
+        if (AiStringListNormalizer::trimmedStringsFromArrayCast($intake['canonical_docs'] ?? []) === []) {
             $blockers[] = 'blocked_missing_canonical_docs';
         }
         if (data_get($intake, 'aedpds.gate_status') === 'blocked') {
-            foreach ($this->stringList(data_get($intake, 'aedpds.blockers', [])) as $blocker) {
+            foreach (AiStringListNormalizer::trimmedStringsFromArrayCast(data_get($intake, 'aedpds.blockers', [])) as $blocker) {
                 $blockers[] = 'blocked_aedpds_'.$blocker;
             }
         }
@@ -299,14 +299,6 @@ class AtlasCodeForgeWorkIntakeService
     }
 
     /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return AiStringListNormalizer::trimmedStringsFromArrayCast($value);
-    }
-
-    /**
      * @param  array<string,mixed>  $intake
      */
     private function complexProductRequested(array $intake): bool
@@ -314,10 +306,10 @@ class AtlasCodeForgeWorkIntakeService
         $haystack = mb_strtolower(implode(' ', array_filter([
             AiValueNormalizer::trimmedStringOrNull($intake['objective'] ?? null),
             AiValueNormalizer::trimmedStringOrNull($intake['business_rule'] ?? null),
-            ...$this->stringList($intake['scope_in'] ?? []),
-            ...$this->stringList($intake['scope_out'] ?? []),
-            ...$this->stringList($intake['expected_outputs'] ?? []),
-            ...$this->stringList($intake['constraints'] ?? []),
+            ...AiStringListNormalizer::trimmedStringsFromArrayCast($intake['scope_in'] ?? []),
+            ...AiStringListNormalizer::trimmedStringsFromArrayCast($intake['scope_out'] ?? []),
+            ...AiStringListNormalizer::trimmedStringsFromArrayCast($intake['expected_outputs'] ?? []),
+            ...AiStringListNormalizer::trimmedStringsFromArrayCast($intake['constraints'] ?? []),
         ])));
 
         foreach (['saas', 'ecommerce', 'e-commerce', 'empresa', 'produto complexo'] as $needle) {

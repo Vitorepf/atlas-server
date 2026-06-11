@@ -1094,14 +1094,14 @@ final class AtlasForgeRivalsReportService
                 'human_prompt_contract' => $promptProbe,
                 'complexity_profile' => $complexityProfile,
                 'measurement_tags' => array_values(array_unique(array_merge(
-                    $this->stringList($manifest['measurement_tags'] ?? []),
-                    $this->stringList($parent['measurement_tags'] ?? []),
+                    AiStringListNormalizer::trimmedCastItemsToStrings($manifest['measurement_tags'] ?? []),
+                    AiStringListNormalizer::trimmedCastItemsToStrings($parent['measurement_tags'] ?? []),
                 ))),
                 'measured_capabilities' => array_values(array_unique(array_merge(
-                    $this->stringList($manifest['measured_capabilities'] ?? []),
-                    $this->stringList($parent['measured_capabilities'] ?? []),
-                    $this->stringList(data_get($manifest, 'extreme_differentiator.capability_axes', [])),
-                    $this->stringList(data_get($parent, 'extreme_differentiator.capability_axes', [])),
+                    AiStringListNormalizer::trimmedCastItemsToStrings($manifest['measured_capabilities'] ?? []),
+                    AiStringListNormalizer::trimmedCastItemsToStrings($parent['measured_capabilities'] ?? []),
+                    AiStringListNormalizer::trimmedCastItemsToStrings(data_get($manifest, 'extreme_differentiator.capability_axes', [])),
+                    AiStringListNormalizer::trimmedCastItemsToStrings(data_get($parent, 'extreme_differentiator.capability_axes', [])),
                 ))),
                 'atlas_model' => (string) ($manifest['atlas_model'] ?? 'unknown'),
                 'rival_model' => (string) ($manifest['rival_model'] ?? 'unknown'),
@@ -1167,7 +1167,7 @@ final class AtlasForgeRivalsReportService
             : (is_array($context['complexity_profile'] ?? null) ? (array) $context['complexity_profile'] : []);
         $hasComplexity = ($complexity['schema_version'] ?? null) === 'atlas.forge.rivals.case_complexity_profile.v1';
 
-        $sections = $this->stringList($probe['requires_sections'] ?? []);
+        $sections = AiStringListNormalizer::trimmedCastItemsToStrings($probe['requires_sections'] ?? []);
         $required = [
             'facts_observed',
             'assumptions',
@@ -1203,14 +1203,6 @@ final class AtlasForgeRivalsReportService
                 && $hasComplexity
                 && $missing === [],
         ];
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return AiStringListNormalizer::trimmedCastItemsToStrings($value);
     }
 
     /**
@@ -1745,9 +1737,9 @@ final class AtlasForgeRivalsReportService
             'capability',
             function (array $case): array {
                 $profile = is_array($case['complexity_profile'] ?? null) ? (array) $case['complexity_profile'] : [];
-                $dimensions = $this->stringList($profile['measured_dimensions'] ?? []);
-                $tags = $this->stringList($case['measurement_tags'] ?? []);
-                $declared = $this->stringList($case['measured_capabilities'] ?? []);
+                $dimensions = AiStringListNormalizer::trimmedCastItemsToStrings($profile['measured_dimensions'] ?? []);
+                $tags = AiStringListNormalizer::trimmedCastItemsToStrings($case['measurement_tags'] ?? []);
+                $declared = AiStringListNormalizer::trimmedCastItemsToStrings($case['measured_capabilities'] ?? []);
                 $derived = [];
                 if (($profile['requires_rollback_plan'] ?? false) === true) {
                     $derived[] = 'rollback_safety';
@@ -2495,7 +2487,7 @@ final class AtlasForgeRivalsReportService
             if (($contract['requires_scope_boundary_reasoning'] ?? false) === true) {
                 $scopeReasoning++;
             }
-            foreach ($this->stringList($contract['missing_sections'] ?? []) as $section) {
+            foreach (AiStringListNormalizer::trimmedCastItemsToStrings($contract['missing_sections'] ?? []) as $section) {
                 $missingSections[$section] = ($missingSections[$section] ?? 0) + 1;
             }
         }
@@ -2805,7 +2797,7 @@ final class AtlasForgeRivalsReportService
             return [];
         }
 
-        $caseSets = $this->stringList($capabilityCoverage['recommended_case_sets'] ?? []);
+        $caseSets = AiStringListNormalizer::trimmedCastItemsToStrings($capabilityCoverage['recommended_case_sets'] ?? []);
         if ($caseSets === []) {
             $caseSets = ['ceiling-360', 'extreme-differentiator', 'meta-provider-stress', 'statistical-repeat'];
         }
@@ -3156,7 +3148,7 @@ final class AtlasForgeRivalsReportService
                 $scopeSurfaces[] = $surfaceCount;
             }
 
-            foreach ($this->stringList($profile['measured_dimensions'] ?? []) as $dimension) {
+            foreach (AiStringListNormalizer::trimmedCastItemsToStrings($profile['measured_dimensions'] ?? []) as $dimension) {
                 $measuredDimensions[$dimension] = ($measuredDimensions[$dimension] ?? 0) + 1;
             }
         }
@@ -3395,7 +3387,7 @@ final class AtlasForgeRivalsReportService
             ];
         }
         if ($caseCount > 0 && ($capabilityCoverage['floor_met'] ?? false) !== true) {
-            $missing = $this->stringList($capabilityCoverage['missing_required_capabilities'] ?? []);
+            $missing = AiStringListNormalizer::trimmedCastItemsToStrings($capabilityCoverage['missing_required_capabilities'] ?? []);
             $underSampled = array_keys((array) ($capabilityCoverage['under_sampled_required_capabilities'] ?? []));
             $detailBits = [];
             if ($missing !== []) {
@@ -3570,12 +3562,12 @@ final class AtlasForgeRivalsReportService
                 $replayDriftCases[] = (string) $case['case_id'];
             }
             $humanPromptContract = is_array($case['human_prompt_contract'] ?? null) ? (array) $case['human_prompt_contract'] : [];
-            $measurementTags = $this->stringList($case['measurement_tags'] ?? []);
+            $measurementTags = AiStringListNormalizer::trimmedCastItemsToStrings($case['measurement_tags'] ?? []);
             $humanPromptContractRequired = in_array('human_prompt', $measurementTags, true)
                 || in_array('assumption_probe', $measurementTags, true)
                 || in_array('meta_provider_stress', $measurementTags, true);
             $humanPromptContractComplete = ($humanPromptContract['complete'] ?? false) === true;
-            $humanPromptMissingSections = $this->stringList($humanPromptContract['missing_sections'] ?? []);
+            $humanPromptMissingSections = AiStringListNormalizer::trimmedCastItemsToStrings($humanPromptContract['missing_sections'] ?? []);
             if ($humanPromptContractRequired && ! $humanPromptContractComplete) {
                 $reasons[] = $humanPromptContract === []
                     ? 'missing_human_prompt_contract'
@@ -4433,7 +4425,7 @@ MD;
                 $rows[] = '- capability_separation_ratio = `'.(string) ($separation['separation_ratio'] ?? 0).'`';
                 $rows[] = '- tie_is_diagnostic_not_claim = **'.((bool) ($separation['tie_is_diagnostic_not_claim'] ?? true) ? 'true' : 'false').'**';
             }
-            $missing = $this->stringList($capabilityCoverage['missing_required_capabilities'] ?? []);
+            $missing = AiStringListNormalizer::trimmedCastItemsToStrings($capabilityCoverage['missing_required_capabilities'] ?? []);
             if ($missing !== []) {
                 $rows[] = '- missing_required_capabilities: `'.implode('`, `', $missing).'`';
             }
@@ -4451,7 +4443,7 @@ MD;
                         '  - `%s`: +%d case(s) via `%s`',
                         (string) ($requirement['capability'] ?? 'unknown'),
                         (int) ($requirement['additional_cases_needed'] ?? 0),
-                        implode('`, `', $this->stringList($requirement['recommended_case_sets'] ?? [])),
+                        implode('`, `', AiStringListNormalizer::trimmedCastItemsToStrings($requirement['recommended_case_sets'] ?? [])),
                     );
                 }
                 $commands = is_array($plan['recommended_commands'] ?? null) ? (array) $plan['recommended_commands'] : [];

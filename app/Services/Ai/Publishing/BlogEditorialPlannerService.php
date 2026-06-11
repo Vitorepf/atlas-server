@@ -28,6 +28,7 @@ final class BlogEditorialPlannerService
         $withCoverageMap = (bool) ($options['coverage_map'] ?? false);
         $withOperations = (bool) ($options['operations'] ?? false);
         $withWritingPacket = (bool) ($options['writing_packet'] ?? false);
+        $executeOpenBrain = (bool) ($options['execute_open_brain'] ?? false);
         $writingSlug = is_string($options['writing_slug'] ?? null)
             ? trim((string) $options['writing_slug'])
             : '';
@@ -124,7 +125,7 @@ final class BlogEditorialPlannerService
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'status' => $findings === [] ? 'ready' : 'blocked',
-            'mode' => ($withContext || $withSourceMap || $suggestCandidates || $withCoverageMap || $withOperations || $withWritingPacket || $acceptCandidate !== '' || $promoteCandidate !== '') ? 'read_only_governed_p1' : 'read_only_deterministic_p0',
+            'mode' => $executeOpenBrain ? 'audited_context_execution_p1' : (($withContext || $withSourceMap || $suggestCandidates || $withCoverageMap || $withOperations || $withWritingPacket || $acceptCandidate !== '' || $promoteCandidate !== '') ? 'read_only_governed_p1' : 'read_only_deterministic_p0'),
             'site_root' => $siteRoot,
             'backlog_path' => $backlogPath,
             'backlog' => [
@@ -147,6 +148,7 @@ final class BlogEditorialPlannerService
                 'with_coverage_map' => $withCoverageMap,
                 'with_operations_packet' => $withOperations,
                 'with_writing_packet' => $withWritingPacket,
+                'with_open_brain_execution' => $executeOpenBrain,
                 'with_candidate_acceptance' => $acceptCandidate !== '',
                 'with_candidate_promotion' => $promoteCandidate !== '',
             ],
@@ -163,12 +165,12 @@ final class BlogEditorialPlannerService
                 ? $this->contextService()->coverageMap($posts, $publishedSlugs)
                 : null,
             'operations_packet' => $withOperations
-                ? $this->contextService()->operationsPacket($posts, $publishedSlugs, $publishedPosts, is_array($nextReady) ? $nextReady : null, $blocked, $contextLimit, $candidateLimit)
+                ? $this->contextService()->operationsPacket($posts, $publishedSlugs, $publishedPosts, is_array($nextReady) ? $nextReady : null, $blocked, $contextLimit, $candidateLimit, $executeOpenBrain)
                 : null,
             'writing_packet' => $withWritingPacket
                 ? (
                     is_array($writingTarget)
-                        ? $this->contextService()->writingPacket($writingTarget, $posts, $publishedSlugs, $contextLimit, $publishedPosts)
+                        ? $this->contextService()->writingPacket($writingTarget, $posts, $publishedSlugs, $contextLimit, $publishedPosts, $executeOpenBrain)
                         : [
                             'schema_version' => 'atlas.blog_editorial_writing_packet.v1',
                             'status' => 'failed',
@@ -201,6 +203,8 @@ final class BlogEditorialPlannerService
                 'uses_python_runtime' => false,
                 'creates_parallel_memory_store' => false,
                 'uses_existing_knowledge_read_models' => $withContext || $withSourceMap,
+                'executes_open_brain_context' => $executeOpenBrain,
+                'writes_audit_log' => $executeOpenBrain,
                 'requires_human_approval_to_publish' => true,
                 'runtime_upgrade_contract' => 'docs/ap/AP-817-blog-editorial-planning-contract.md',
             ],

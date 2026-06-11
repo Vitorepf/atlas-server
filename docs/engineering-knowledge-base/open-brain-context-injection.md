@@ -335,6 +335,14 @@ turns staged context delivery into provider behavior: use the small first packet
 then expand exact source types before code changes or before requesting broad
 docs/tests/graph dumps.
 
+After execution, external providers can close the loop with
+`atlas_context_feedback`. The tool accepts only provider-safe refs and source
+types (`delivered_context_refs`, `used_context_refs`, `noise_context_refs`,
+`missed_required_sources`, outcome and utility score), then returns AUCRI
+context ROI, ref attribution and the next context policy. It does not accept
+raw failure narratives, never auto-applies learning, and persists feedback only
+when `record=true`.
+
 For external context exports, `include_prompt=true` defaults to compact prompt
 mode. Compact mode keeps the ranked recall index, summaries, source counts and
 expansion handles, but defers registry bodies, verbatim snippets and semantic
@@ -362,6 +370,14 @@ compact savings, full-mode dominance or any prompt-section persistence
 violation. A running MCP client may need restart to expose newly added fields,
 but `./bin/atlas open-brain mcp --once=...` always validates the current local
 server code path.
+
+Self-Improvement consumes the same audit trail. The
+`domain_learning_review`/memory-quality review path emits
+`atlas.self_improvement.open_brain_prompt_metrics.v1` when prompt metrics show
+low compact savings, full-mode dominance, unknown prompt modes or any raw
+prompt persistence. The finding references only provider-safe metric rows
+(`open_brain_prompt_metric` refs with ids, hashes, modes, counts and ratios),
+never the rendered prompt text.
 
 The code intelligence slice is expected to include AST-backed PHP relations
 when available (`php_use_ast`, `class_constant_ast`,

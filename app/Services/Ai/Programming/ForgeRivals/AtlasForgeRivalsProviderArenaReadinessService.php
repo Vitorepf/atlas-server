@@ -474,7 +474,7 @@ final class AtlasForgeRivalsProviderArenaReadinessService
             $evidenceDiskBlocked => 'plan_ready_evidence_disk_blocked',
             default => 'real_run_ready_after_confirmations',
         };
-        $realRunBlockers = $evidenceDiskBlocked ? $this->stringList($evidenceDisk['blockers'] ?? []) : [];
+        $realRunBlockers = $evidenceDiskBlocked ? AiStringListNormalizer::trimmedCastItemsToStrings($evidenceDisk['blockers'] ?? []) : [];
 
         return [
             'pair_id' => $pair['pair_id'],
@@ -511,7 +511,7 @@ final class AtlasForgeRivalsProviderArenaReadinessService
             'path' => $evidenceDisk['path'] ?? null,
             'required_free_bytes' => $evidenceDisk['required_free_bytes'] ?? null,
             'free_bytes' => $evidenceDisk['free_bytes'] ?? null,
-            'blockers' => $this->stringList($evidenceDisk['blockers'] ?? []),
+            'blockers' => AiStringListNormalizer::trimmedCastItemsToStrings($evidenceDisk['blockers'] ?? []),
             'external_provider_call' => false,
             'provider_tokens_spent' => false,
         ];
@@ -602,14 +602,6 @@ final class AtlasForgeRivalsProviderArenaReadinessService
         $proc->run();
 
         return $proc->isSuccessful() && trim((string) $proc->getOutput()) !== '';
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return AiStringListNormalizer::trimmedCastItemsToStrings($value);
     }
 
     /**

@@ -157,7 +157,7 @@ final class AtlasForgeRivalsIndustrialExecutionSuiteService
                 $invalidCases[] = $caseId.':fixture_seed_empty';
             }
 
-            $expectedChanged = $this->stringList($case['expected_changed_files'] ?? []);
+            $expectedChanged = AiStringListNormalizer::trimmedCastValues($case['expected_changed_files'] ?? []);
             if ($expectedChanged === []) {
                 $missingExpectedChangedFiles[] = $caseId;
                 $invalidCases[] = $caseId.':expected_changed_files_missing';
@@ -185,7 +185,7 @@ final class AtlasForgeRivalsIndustrialExecutionSuiteService
                 $invalidCases[] = $caseId.':oracle_metadata_missing';
             }
 
-            $evidence = $this->stringList($case['evidence_requirements'] ?? $case['expected_evidence'] ?? []);
+            $evidence = AiStringListNormalizer::trimmedCastValues($case['evidence_requirements'] ?? $case['expected_evidence'] ?? []);
             foreach (['patch_diff', 'provider_receipt', 'test_log', 'scorecard_per_case', 'workspace_hashes'] as $required) {
                 if (! in_array($required, $evidence, true)) {
                     $evidenceViolations[] = $caseId.':'.$required;
@@ -372,7 +372,7 @@ final class AtlasForgeRivalsIndustrialExecutionSuiteService
         }
 
         $seedRoot = base_path($seedDir);
-        $expectedChanged = $this->stringList($case['expected_changed_files'] ?? []);
+        $expectedChanged = AiStringListNormalizer::trimmedCastValues($case['expected_changed_files'] ?? []);
         $sourceFile = $expectedChanged[0] ?? 'storage/forge-rivals-industrial/'.$caseId.'/src/'.$caseId.'.php';
         $testFile = $expectedChanged[1] ?? 'storage/forge-rivals-industrial/'.$caseId.'/tests/'.$caseId.'Test.php';
         $docFile = 'storage/forge-rivals-industrial/'.$caseId.'/docs/'.$caseId.'-runbook.md';
@@ -498,8 +498,8 @@ PHP;
     private function docFixtureContents(array $case): string
     {
         $caseId = $this->caseId($case);
-        $criteria = implode("\n", array_map(static fn (string $line): string => '- '.$line, $this->stringList($case['acceptance_criteria'] ?? [])));
-        $invalid = implode("\n", array_map(static fn (string $line): string => '- '.$line, $this->stringList($case['invalid_if'] ?? [])));
+        $criteria = implode("\n", array_map(static fn (string $line): string => '- '.$line, AiStringListNormalizer::trimmedCastValues($case['acceptance_criteria'] ?? [])));
+        $invalid = implode("\n", array_map(static fn (string $line): string => '- '.$line, AiStringListNormalizer::trimmedCastValues($case['invalid_if'] ?? [])));
 
         $contents = <<<MD
 # {$caseId}
@@ -572,14 +572,6 @@ MD;
         sort($files);
 
         return array_values($files);
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return AiStringListNormalizer::trimmedCastValues($value);
     }
 
     private function escapePhpString(string $value): string

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\AtlasDev\Repair;
 
 use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 final class FailureFingerprintDedupScorer
 {
@@ -35,10 +36,10 @@ final class FailureFingerprintDedupScorer
      */
     private function baseScore(array $a, array $b): float
     {
-        $gateA = $this->stringField($a, 'gate');
-        $gateB = $this->stringField($b, 'gate');
-        $errorA = $this->stringField($a, 'normalized_error');
-        $errorB = $this->stringField($b, 'normalized_error');
+        $gateA = AiValueNormalizer::trimmedStringOrNull($a['gate'] ?? null) ?? '';
+        $gateB = AiValueNormalizer::trimmedStringOrNull($b['gate'] ?? null) ?? '';
+        $errorA = AiValueNormalizer::trimmedStringOrNull($a['normalized_error'] ?? null) ?? '';
+        $errorB = AiValueNormalizer::trimmedStringOrNull($b['normalized_error'] ?? null) ?? '';
         $sameGate = $gateA !== '' && $gateA === $gateB;
 
         // (1) gate AND normalized_error equal, both non-empty.
@@ -48,20 +49,20 @@ final class FailureFingerprintDedupScorer
 
         // (2) same gate non-empty AND at least one shared failing_test.
         if ($sameGate && $this->hasOverlap(
-            $this->listField($a, 'failing_tests'),
-            $this->listField($b, 'failing_tests'),
+            AtlasDevStringListNormalizer::trimmedStrings($a['failing_tests'] ?? []),
+            AtlasDevStringListNormalizer::trimmedStrings($b['failing_tests'] ?? []),
         )) {
             return 0.85;
         }
 
         // (3) same error_class non-empty AND at least one overlapping changed_dir.
-        $errorClassA = $this->stringField($a, 'error_class');
-        $errorClassB = $this->stringField($b, 'error_class');
+        $errorClassA = AiValueNormalizer::trimmedStringOrNull($a['error_class'] ?? null) ?? '';
+        $errorClassB = AiValueNormalizer::trimmedStringOrNull($b['error_class'] ?? null) ?? '';
         $sameErrorClass = $errorClassA !== '' && $errorClassA === $errorClassB;
 
         if ($sameErrorClass && $this->hasOverlap(
-            $this->listField($a, 'changed_dirs'),
-            $this->listField($b, 'changed_dirs'),
+            AtlasDevStringListNormalizer::trimmedStrings($a['changed_dirs'] ?? []),
+            AtlasDevStringListNormalizer::trimmedStrings($b['changed_dirs'] ?? []),
         )) {
             return 0.6;
         }
@@ -122,35 +123,6 @@ final class FailureFingerprintDedupScorer
         }
 
         return array_intersect($a, $b) !== [];
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function stringField(array $payload, string $key): string
-    {
-        $value = $payload[$key] ?? '';
-
-        if (! is_string($value)) {
-            return '';
-        }
-
-        return trim($value);
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     * @return list<string>
-     */
-    private function listField(array $payload, string $key): array
-    {
-        $value = $payload[$key] ?? [];
-
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return AtlasDevStringListNormalizer::trimmedStrings($value);
     }
 
     private function clamp(float $value): float

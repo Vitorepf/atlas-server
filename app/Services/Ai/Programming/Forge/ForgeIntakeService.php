@@ -400,13 +400,13 @@ class ForgeIntakeService
                     (array) data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan', []),
                     $this->expectedFilesFromOptions($options),
                 ),
-                $this->stringList(data_get($intake->workspace_execution_gate, 'execution_context.execution_priority.*.command')),
-                $this->stringList(data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.area_ranked_commands')),
-                $this->stringList(data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.outcome_ranked_commands')),
-                $this->stringList(data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.command_hints')),
+                AiStringListNormalizer::uniqueTrimmedStrings(data_get($intake->workspace_execution_gate, 'execution_context.execution_priority.*.command')),
+                AiStringListNormalizer::uniqueTrimmedStrings(data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.area_ranked_commands')),
+                AiStringListNormalizer::uniqueTrimmedStrings(data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.outcome_ranked_commands')),
+                AiStringListNormalizer::uniqueTrimmedStrings(data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.command_hints')),
             )), array_unique(array_merge(
-                $this->stringList(data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.avoid_commands')),
-                $this->stringList(data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.slow_commands')),
+                AiStringListNormalizer::uniqueTrimmedStrings(data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.avoid_commands')),
+                AiStringListNormalizer::uniqueTrimmedStrings(data_get($intake->workspace_execution_gate, 'execution_context.context_loading_plan.slow_commands')),
             )))), 0, 12),
         );
     }
@@ -685,14 +685,6 @@ class ForgeIntakeService
     }
 
     /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return AiStringListNormalizer::uniqueTrimmedStrings($value);
-    }
-
-    /**
      * @return array<string,mixed>|null
      */
     /**
@@ -743,11 +735,11 @@ class ForgeIntakeService
             if ($repoKey === null) {
                 continue;
             }
-            foreach ($this->stringList($manifestRef['manifest_files'] ?? []) as $manifestFile) {
+            foreach (AiStringListNormalizer::uniqueTrimmedStrings($manifestRef['manifest_files'] ?? []) as $manifestFile) {
                 $refs[] = 'awis_manifest:'.$repoKey.':'.$manifestFile;
             }
         }
-        foreach ($this->stringList($contextLoadingPlan['stack_tags'] ?? []) as $stackTag) {
+        foreach (AiStringListNormalizer::uniqueTrimmedStrings($contextLoadingPlan['stack_tags'] ?? []) as $stackTag) {
             $refs[] = 'awis_stack:'.$stackTag;
         }
         $inventoryHash = AiValueNormalizer::trimmedStringOrNull($contextLoadingPlan['repository_inventory_hash'] ?? null);
@@ -810,16 +802,16 @@ class ForgeIntakeService
             ))), 0, 40),
             'suggested_tests' => array_slice(array_values(array_diff(array_unique(array_merge(
                 $this->scopeRouteSuggestedTests($contextLoadingPlan, $expectedFiles),
-                $this->stringList(data_get($contextLoadingPlan, 'execution_optimization_policy.preferred_commands', [])),
-                $this->stringList(data_get($workspaceGate, 'execution_context.execution_priority.*.command')),
-                $this->stringList(data_get($contextLoadingPlan, 'execution_optimization_policy.standard_commands', [])),
-                $this->stringList($contextLoadingPlan['area_ranked_commands'] ?? []),
-                $this->stringList($contextLoadingPlan['outcome_ranked_commands'] ?? []),
-                $this->stringList($contextLoadingPlan['command_hints'] ?? []),
+                AiStringListNormalizer::uniqueTrimmedStrings(data_get($contextLoadingPlan, 'execution_optimization_policy.preferred_commands', [])),
+                AiStringListNormalizer::uniqueTrimmedStrings(data_get($workspaceGate, 'execution_context.execution_priority.*.command')),
+                AiStringListNormalizer::uniqueTrimmedStrings(data_get($contextLoadingPlan, 'execution_optimization_policy.standard_commands', [])),
+                AiStringListNormalizer::uniqueTrimmedStrings($contextLoadingPlan['area_ranked_commands'] ?? []),
+                AiStringListNormalizer::uniqueTrimmedStrings($contextLoadingPlan['outcome_ranked_commands'] ?? []),
+                AiStringListNormalizer::uniqueTrimmedStrings($contextLoadingPlan['command_hints'] ?? []),
             )), array_unique(array_merge(
-                $this->stringList($contextLoadingPlan['avoid_commands'] ?? []),
-                $this->stringList($contextLoadingPlan['slow_commands'] ?? []),
-                $this->stringList(data_get($contextLoadingPlan, 'execution_optimization_policy.blocked_commands', [])),
+                AiStringListNormalizer::uniqueTrimmedStrings($contextLoadingPlan['avoid_commands'] ?? []),
+                AiStringListNormalizer::uniqueTrimmedStrings($contextLoadingPlan['slow_commands'] ?? []),
+                AiStringListNormalizer::uniqueTrimmedStrings(data_get($contextLoadingPlan, 'execution_optimization_policy.blocked_commands', [])),
             )))), 0, 12),
             'repository_inventory_hash' => $inventoryHash,
             'workspace_working_set_hash' => $workspaceWorkingSetHash,
@@ -848,7 +840,7 @@ class ForgeIntakeService
     private function expectedFilesFromOptions(array $options): array
     {
         return array_values(array_unique(array_merge(
-            $this->stringList($options['expected_files'] ?? []),
+            AiStringListNormalizer::uniqueTrimmedStrings($options['expected_files'] ?? []),
             $this->expectedFilesFromWorkPackets((array) ($options['work_packets'] ?? [])),
         )));
     }
@@ -864,7 +856,7 @@ class ForgeIntakeService
             if (! is_array($packet)) {
                 continue;
             }
-            $files = array_merge($files, $this->stringList($packet['expected_files'] ?? []));
+            $files = array_merge($files, AiStringListNormalizer::uniqueTrimmedStrings($packet['expected_files'] ?? []));
         }
 
         return array_values(array_unique($files));
@@ -890,7 +882,7 @@ class ForgeIntakeService
             if ($key === null || ! $this->filesMatchScope($expectedFiles, $key)) {
                 continue;
             }
-            $commands = array_values(array_unique(array_merge($commands, $this->stringList($route['preferred_commands'] ?? []))));
+            $commands = array_values(array_unique(array_merge($commands, AiStringListNormalizer::uniqueTrimmedStrings($route['preferred_commands'] ?? []))));
         }
         if ($commands !== []) {
             return $commands;
@@ -905,7 +897,7 @@ class ForgeIntakeService
             if ($key === null || ! in_array($key, $stacks, true)) {
                 continue;
             }
-            $commands = array_values(array_unique(array_merge($commands, $this->stringList($route['preferred_commands'] ?? []))));
+            $commands = array_values(array_unique(array_merge($commands, AiStringListNormalizer::uniqueTrimmedStrings($route['preferred_commands'] ?? []))));
         }
 
         return $commands;
@@ -924,7 +916,7 @@ class ForgeIntakeService
         }
 
         $refs = [];
-        foreach ($this->stringList($selected['commands'] ?? []) as $command) {
+        foreach (AiStringListNormalizer::uniqueTrimmedStrings($selected['commands'] ?? []) as $command) {
             $refs[] = 'awis_execution_route_command:'.hash('sha256', $command).':'
                 .$selected['kind'].':'.hash('sha256', (string) $selected['key']);
         }
@@ -953,7 +945,7 @@ class ForgeIntakeService
                     'kind' => 'area',
                     'key' => $key,
                     'route_ref' => AiValueNormalizer::trimmedStringOrNull($route['route_ref'] ?? null) ?? 'area:'.hash('sha256', $key),
-                    'commands' => $this->stringList($route['preferred_commands'] ?? []),
+                    'commands' => AiStringListNormalizer::uniqueTrimmedStrings($route['preferred_commands'] ?? []),
                     'recommended_validation_tier' => AiValueNormalizer::trimmedStringOrNull($route['recommended_validation_tier'] ?? null),
                     'validation_reason' => AiValueNormalizer::trimmedStringOrNull($route['validation_reason'] ?? null),
                     'route_mode' => AiValueNormalizer::trimmedStringOrNull($route['route_mode'] ?? null),
@@ -973,7 +965,7 @@ class ForgeIntakeService
                     'kind' => 'stack',
                     'key' => $key,
                     'route_ref' => AiValueNormalizer::trimmedStringOrNull($route['route_ref'] ?? null) ?? 'stack:'.hash('sha256', $key),
-                    'commands' => $this->stringList($route['preferred_commands'] ?? []),
+                    'commands' => AiStringListNormalizer::uniqueTrimmedStrings($route['preferred_commands'] ?? []),
                     'recommended_validation_tier' => AiValueNormalizer::trimmedStringOrNull($route['recommended_validation_tier'] ?? null),
                     'validation_reason' => AiValueNormalizer::trimmedStringOrNull($route['validation_reason'] ?? null),
                     'route_mode' => AiValueNormalizer::trimmedStringOrNull($route['route_mode'] ?? null),
@@ -1059,11 +1051,11 @@ class ForgeIntakeService
                 continue;
             }
             if (count($manifestRefs) === 1 || $this->filesMatchScope($expectedFiles, $repoKey)) {
-                $stacks = array_values(array_unique(array_merge($stacks, $this->stringList($manifestRef['stack'] ?? []))));
+                $stacks = array_values(array_unique(array_merge($stacks, AiStringListNormalizer::uniqueTrimmedStrings($manifestRef['stack'] ?? []))));
             }
         }
 
-        return array_values(array_unique(array_merge($stacks, $this->stringList($contextLoadingPlan['stack_tags'] ?? []))));
+        return array_values(array_unique(array_merge($stacks, AiStringListNormalizer::uniqueTrimmedStrings($contextLoadingPlan['stack_tags'] ?? []))));
     }
 
     /**

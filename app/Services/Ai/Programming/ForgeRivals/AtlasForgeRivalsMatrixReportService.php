@@ -341,7 +341,7 @@ final class AtlasForgeRivalsMatrixReportService
                 $matrix['matrix_report_json_sha256'] = null;
                 $matrix['matrix_report_md_sha256'] = null;
                 $matrix['matrix_report_write_status'] = $writeStatus;
-                $matrix['matrix_report_write_blockers'] = $this->stringList($writeStatus['blockers'] ?? []);
+                $matrix['matrix_report_write_blockers'] = AiStringListNormalizer::trimmedCastItemsToStrings($writeStatus['blockers'] ?? []);
             }
         }
 
@@ -1366,7 +1366,7 @@ final class AtlasForgeRivalsMatrixReportService
                 )),
                 'dry_run_ready' => true,
                 'real_run_ready' => $realRunReady,
-                'real_run_blockers' => $realRunReady ? [] : $this->stringList($evidenceDiskStatus['blockers'] ?? []),
+                'real_run_blockers' => $realRunReady ? [] : AiStringListNormalizer::trimmedCastItemsToStrings($evidenceDiskStatus['blockers'] ?? []),
                 'evidence_disk_status' => $evidenceDiskStatus,
                 'required_confirmations_for_real_run' => ['runbook_reviewed', 'provider_cost', 'real_provider_call'],
                 'provider_call' => false,
@@ -1438,8 +1438,8 @@ final class AtlasForgeRivalsMatrixReportService
         $l5TieRate = $l5Cases > 0 ? round($l5Ties / $l5Cases, 4) : 0.0;
         $avgMargin = $total > 0 ? round($marginSum / $total, 2) : 0.0;
         $targetCapabilities = array_values(array_unique(array_merge(
-            $this->stringList($differentiation['required_tied_capabilities'] ?? []),
-            $this->stringList($differentiation['required_insufficient_capabilities'] ?? []),
+            AiStringListNormalizer::trimmedCastItemsToStrings($differentiation['required_tied_capabilities'] ?? []),
+            AiStringListNormalizer::trimmedCastItemsToStrings($differentiation['required_insufficient_capabilities'] ?? []),
         )));
         if ($targetCapabilities === []) {
             $targetCapabilities = AtlasForgeRivalsReportService::REQUIRED_360_CAPABILITIES;
@@ -1456,7 +1456,7 @@ final class AtlasForgeRivalsMatrixReportService
         $followupCommands = array_values(array_unique(array_filter($followupCommands)));
 
         $perLevelTieEscalation = $this->buildPerLevelTieEscalation($levelTieBuckets);
-        $levelsExceedingTieBudget = $this->stringList($perLevelTieEscalation['levels_exceeding_tie_budget'] ?? []);
+        $levelsExceedingTieBudget = AiStringListNormalizer::trimmedCastItemsToStrings($perLevelTieEscalation['levels_exceeding_tie_budget'] ?? []);
         $shouldCancelCurrentBattery = $ties >= self::TIE_ESCALATION_CANCEL_AFTER_TIES || $levelsExceedingTieBudget !== [];
         $requiresHarderFollowup = $shouldCancelCurrentBattery || (
             $total > 0
@@ -1617,7 +1617,7 @@ final class AtlasForgeRivalsMatrixReportService
         if (! $evidenceDiskReady) {
             $blockers = array_merge(
                 $blockers,
-                $this->stringList($evidenceDiskStatus['blockers'] ?? ['provider_evidence_disk_space_insufficient']),
+                AiStringListNormalizer::trimmedCastItemsToStrings($evidenceDiskStatus['blockers'] ?? ['provider_evidence_disk_space_insufficient']),
             );
         }
 
@@ -1723,7 +1723,7 @@ final class AtlasForgeRivalsMatrixReportService
             'composite_next_measurement_plan' => $compositePlan,
             'dry_run_ready' => true,
             'real_run_ready' => $requirements !== [] && $realRunReady,
-            'real_run_blockers' => $realRunReady ? [] : $this->stringList($evidenceDiskStatus['blockers'] ?? []),
+            'real_run_blockers' => $realRunReady ? [] : AiStringListNormalizer::trimmedCastItemsToStrings($evidenceDiskStatus['blockers'] ?? []),
             'evidence_disk_status' => $evidenceDiskStatus,
             'required_confirmations_for_real_run' => ['runbook_reviewed', 'provider_cost', 'real_provider_call'],
             'provider_call' => false,
@@ -1753,7 +1753,7 @@ final class AtlasForgeRivalsMatrixReportService
             }
             $targetCapabilities = array_merge(
                 $targetCapabilities,
-                $this->stringList($requirement['target_capabilities'] ?? []),
+                AiStringListNormalizer::trimmedCastItemsToStrings($requirement['target_capabilities'] ?? []),
             );
         }
         $targetMarkers = array_values(array_unique($targetMarkers));
@@ -1861,7 +1861,7 @@ final class AtlasForgeRivalsMatrixReportService
             }
 
             $pressure = is_array($case['ceiling_pressure_profile'] ?? null) ? (array) $case['ceiling_pressure_profile'] : [];
-            $requiredSections = $this->stringList($pressure['required_sections'] ?? []);
+            $requiredSections = AiStringListNormalizer::trimmedCastItemsToStrings($pressure['required_sections'] ?? []);
             $matchedMarkers = array_values(array_intersect($targetMarkers, $requiredSections));
             $compositeScore = count($matchedCapabilities) + count($matchedMarkers);
 
@@ -1930,8 +1930,8 @@ final class AtlasForgeRivalsMatrixReportService
             }
 
             $pressure = is_array($case['ceiling_pressure_profile'] ?? null) ? (array) $case['ceiling_pressure_profile'] : [];
-            $requiredSections = $this->stringList($pressure['required_sections'] ?? []);
-            $invalidIfMissing = $this->stringList($pressure['invalid_if_missing'] ?? []);
+            $requiredSections = AiStringListNormalizer::trimmedCastItemsToStrings($pressure['required_sections'] ?? []);
+            $invalidIfMissing = AiStringListNormalizer::trimmedCastItemsToStrings($pressure['invalid_if_missing'] ?? []);
             $candidates[$caseId] = [
                 'case_id' => $caseId,
                 'case_set' => $case['industrial_case_set'] ?? $case['case_set'] ?? AtlasForgeRivalsProviderArenaCorpusService::CASE_SET_CEILING_360,
@@ -2011,7 +2011,7 @@ final class AtlasForgeRivalsMatrixReportService
             if ($capability === '') {
                 continue;
             }
-            $observedCasesByCapability[$capability] = $this->stringList($row['case_ids'] ?? []);
+            $observedCasesByCapability[$capability] = AiStringListNormalizer::trimmedCastItemsToStrings($row['case_ids'] ?? []);
         }
 
         $requirements = [];
@@ -2395,11 +2395,11 @@ final class AtlasForgeRivalsMatrixReportService
         $humanPrompt = is_array($case['human_prompt_probe'] ?? null) ? (array) $case['human_prompt_probe'] : [];
 
         $keys = array_merge(
-            $this->stringList($case['measured_capabilities'] ?? []),
-            $this->stringList($case['measurement_tags'] ?? []),
-            $this->stringList($profile['measured_dimensions'] ?? []),
-            $this->stringList($extreme['capability_axes'] ?? []),
-            $this->stringList($extreme['measures'] ?? []),
+            AiStringListNormalizer::trimmedCastItemsToStrings($case['measured_capabilities'] ?? []),
+            AiStringListNormalizer::trimmedCastItemsToStrings($case['measurement_tags'] ?? []),
+            AiStringListNormalizer::trimmedCastItemsToStrings($profile['measured_dimensions'] ?? []),
+            AiStringListNormalizer::trimmedCastItemsToStrings($extreme['capability_axes'] ?? []),
+            AiStringListNormalizer::trimmedCastItemsToStrings($extreme['measures'] ?? []),
         );
 
         if (($profile['requires_rollback_plan'] ?? false) === true) {
@@ -2446,14 +2446,6 @@ final class AtlasForgeRivalsMatrixReportService
         }
 
         return array_values(array_unique($out));
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return AiStringListNormalizer::trimmedCastItemsToStrings($value);
     }
 
     /**
@@ -2611,7 +2603,7 @@ final class AtlasForgeRivalsMatrixReportService
             'path' => $evidenceDisk['path'] ?? null,
             'required_free_bytes' => $evidenceDisk['required_free_bytes'] ?? null,
             'free_bytes' => $evidenceDisk['free_bytes'] ?? null,
-            'blockers' => $this->stringList($evidenceDisk['blockers'] ?? []),
+            'blockers' => AiStringListNormalizer::trimmedCastItemsToStrings($evidenceDisk['blockers'] ?? []),
             'external_provider_call' => false,
             'provider_tokens_spent' => false,
         ];

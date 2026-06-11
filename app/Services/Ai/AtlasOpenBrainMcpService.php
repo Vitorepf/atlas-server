@@ -15,6 +15,7 @@ use App\Models\AtlasVerbatimMemory;
 use App\Services\Ai\AutonomousEngineering\WorldModel\WorldModelGraphRanker;
 use App\Services\Ai\AutonomousEngineering\WorldModel\WorldModelRankingQuery;
 use App\Services\Ai\Compression\AtlasCcrStore;
+use App\Services\Ai\Context\AtlasRetrievalFeedbackLoopService;
 use App\Services\Ai\Kernel\Architecture\AtlasAiArchitectureValidationService;
 use App\Services\Ai\Kernel\Architecture\AtlasArchitectureOperationsCatalog;
 use App\Services\Ai\Kernel\Architecture\AtlasArchitectureReadinessService;
@@ -59,6 +60,7 @@ class AtlasOpenBrainMcpService
         private readonly AtlasHybridMemoryRetrievalService $recall,
         private readonly AtlasOpenBrainContextPackService $contextPack,
         private readonly AtlasOpenBrainContextExpansionService $contextExpansion,
+        private readonly AtlasRetrievalFeedbackLoopService $retrievalFeedback,
         private readonly AtlasOpenBrainService $openBrain,
         private readonly AtlasProviderProjectionService $projection,
         private readonly AtlasMemoryPrivacyService $privacy,
@@ -217,6 +219,37 @@ class AtlasOpenBrainMcpService
                 ],
                 'annotations' => [
                     'readOnlyHint' => true,
+                    'destructiveHint' => false,
+                    'openWorldHint' => false,
+                ],
+            ],
+            [
+                'name' => 'atlas_context_feedback',
+                'title' => 'Atlas Context Feedback',
+                'description' => 'Registra feedback provider-safe sobre utilidade do contexto entregue: refs usadas, refs ruidosas, fontes ausentes, outcome e ROI. Nao aceita texto bruto; aprendizado e proposal-only e so persiste quando record=true.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'objective' => ['type' => 'string', 'description' => 'Objetivo ou label redigido da tarefa. Evite texto bruto sensivel.'],
+                        'workspace' => ['type' => 'string', 'description' => 'Workspace local permitido.'],
+                        'task_type' => ['type' => 'string', 'description' => 'Tipo da tarefa: dev, debug, review, research, decision ou memory.'],
+                        'domain' => ['type' => 'string', 'description' => 'Dominio/logical area, por exemplo developer.'],
+                        'risk_level' => ['type' => 'string', 'description' => 'Risco da tarefa: low, medium, high ou irreversible.'],
+                        'outcome_status' => ['type' => 'string', 'description' => 'Resultado: passed, partial, failed, blocked, error ou unknown.'],
+                        'context_pack_hash' => ['type' => 'string', 'description' => 'Hash do context pack usado, quando conhecido.'],
+                        'retrieval_receipt_id' => ['type' => 'string', 'description' => 'Receipt/hash de retrieval, quando conhecido.'],
+                        'delivered_context_refs' => ['type' => 'array', 'description' => 'Refs provider-safe entregues no contexto inicial.'],
+                        'used_context_refs' => ['type' => 'array', 'description' => 'Refs provider-safe realmente usadas.'],
+                        'noise_context_refs' => ['type' => 'array', 'description' => 'Refs provider-safe julgadas ruidosas ou desnecessarias.'],
+                        'missed_required_sources' => ['type' => 'array', 'description' => 'Tipos de fonte ausentes, como migration, test, route, doc ou graph.'],
+                        'post_execution_utility' => ['type' => 'integer', 'description' => 'Nota 0-100 de utilidade do contexto apos execucao.'],
+                        'max_refs' => ['type' => 'integer', 'description' => 'Max refs para avaliacao auxiliar. Default 8.'],
+                        'record' => ['type' => 'boolean', 'description' => 'Quando true, persiste evento em ai_rag_feedback_events se a tabela existir.'],
+                    ],
+                    'required' => ['objective'],
+                ],
+                'annotations' => [
+                    'readOnlyHint' => false,
                     'destructiveHint' => false,
                     'openWorldHint' => false,
                 ],
@@ -1148,6 +1181,7 @@ class AtlasOpenBrainMcpService
                 'atlas_memory_recall' => $this->toolResponse($id, $this->memoryRecall($arguments)),
                 'atlas_open_brain_context_pack' => $this->toolResponse($id, $this->contextPack($arguments)),
                 'atlas_context_expand' => $this->toolResponse($id, $this->contextExpand($arguments)),
+                'atlas_context_feedback' => $this->toolResponse($id, $this->contextFeedback($arguments)),
                 'atlas_memory_maintenance_status' => $this->toolResponse($id, $this->maintenanceStatus($arguments)),
                 'atlas_memory_record' => $this->toolResponse($id, $this->memoryRecord($arguments)),
                 'atlas_code_find_relevant' => $this->toolResponse($id, $this->codeFindRelevant($arguments)),
@@ -1322,6 +1356,65 @@ class AtlasOpenBrainMcpService
                 'max_refs' => $this->positiveInt($arguments['max_refs'] ?? null) ?: 6,
                 'budget' => $this->positiveInt($arguments['budget'] ?? null) ?: 3200,
             ]),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function contextFeedback(array $arguments): array
+    {
+        $objective = $this->string($arguments['objective'] ?? $arguments['task'] ?? $arguments['query'] ?? '') ?? '';
+        if ($objective === '') {
+            return [
+                'ok' => false,
+                'error' => 'objective_required',
+            ];
+        }
+
+        $contextPackHash = $this->string($arguments['context_pack_hash'] ?? null);
+        $retrievalReceiptId = $this->string($arguments['retrieval_receipt_id'] ?? null) ?: $contextPackHash;
+        $workspace = $this->workspace($arguments['workspace'] ?? null);
+        $missedSources = $this->stringList($arguments['missed_required_sources'] ?? $arguments['missed_sources'] ?? []);
+        $input = [
+            'objective' => $objective,
+            'workspace' => $workspace,
+            'task_type' => $this->string($arguments['task_type'] ?? null) ?: 'dev',
+            'domain' => $this->string($arguments['domain'] ?? null) ?: 'atlas',
+            'risk_level' => $this->string($arguments['risk_level'] ?? $arguments['risk'] ?? null) ?: 'low',
+            'outcome_status' => $this->string($arguments['outcome_status'] ?? $arguments['outcome'] ?? null) ?: 'unknown',
+            'max_refs' => $this->positiveInt($arguments['max_refs'] ?? null) ?: 8,
+            'delivered_context_refs' => $this->stringList($arguments['delivered_context_refs'] ?? $arguments['delivered_refs'] ?? []),
+            'used_context_refs' => $this->stringList($arguments['used_context_refs'] ?? $arguments['used_refs'] ?? []),
+            'noise_context_refs' => $this->stringList($arguments['noise_context_refs'] ?? $arguments['noise_refs'] ?? []),
+            'missed_required_sources' => array_map(
+                static fn (string $source): array => [
+                    'source_type' => $source,
+                    'reason' => 'mcp_reported_missing_source',
+                ],
+                $missedSources,
+            ),
+            'record' => (bool) ($arguments['record'] ?? false),
+        ];
+
+        if ($retrievalReceiptId !== null) {
+            $input['retrieval_receipt_id'] = $retrievalReceiptId;
+        }
+        if ($contextPackHash !== null) {
+            $input['context_pack_hash'] = $contextPackHash;
+        }
+        if (is_numeric($arguments['post_execution_utility'] ?? $arguments['utility'] ?? null)) {
+            $input['post_execution_utility'] = max(0, min(100, (int) ($arguments['post_execution_utility'] ?? $arguments['utility'])));
+        }
+        if (($runOutcomeId = $this->string($arguments['run_outcome_id'] ?? null)) !== null) {
+            $input['run_outcome_id'] = $runOutcomeId;
+        }
+
+        return [
+            'ok' => true,
+            'tool' => 'atlas_context_feedback',
+            'context_feedback' => $this->retrievalFeedback->capture($input),
         ];
     }
 

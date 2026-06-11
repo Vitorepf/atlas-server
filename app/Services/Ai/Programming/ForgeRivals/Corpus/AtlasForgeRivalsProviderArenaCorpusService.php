@@ -801,7 +801,7 @@ final class AtlasForgeRivalsProviderArenaCorpusService
         $maxEstimatedContextTokens = null;
 
         foreach ($cases as $case) {
-            foreach ($this->stringList($case['industrial_domains'] ?? []) as $domain) {
+            foreach (AiStringListNormalizer::trimmedCastItemsToStrings($case['industrial_domains'] ?? []) as $domain) {
                 $domains[$domain] = ($domains[$domain] ?? 0) + 1;
             }
 
@@ -884,14 +884,6 @@ final class AtlasForgeRivalsProviderArenaCorpusService
             'advisory_only' => true,
             'routing_effect' => 'none',
         ];
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return AiStringListNormalizer::trimmedCastItemsToStrings($value);
     }
 
     /**

@@ -219,7 +219,9 @@ Rules:
 - `include_prompt` defaults to compact mode and defers memory bodies/semantic excerpts to expansion handles;
 - prompt exports persist only `summary.prompt` metrics (`atlas.open_brain.prompt_metrics.v1`), never the rendered prompt text;
 - `atlas_memory_maintenance_status` exposes `open_brain_prompt_metrics` aggregates for compact/full usage, token savings and prompt-persistence regressions;
-- MCP tools are read-only in the current phase;
+- Self-Improvement emits provider-safe findings when prompt metrics show low savings, full-mode dominance or prompt-persistence regressions;
+- `atlas_context_feedback` lets external providers return provider-safe context ROI signals (`used_refs`, `noise_refs`, `missed_sources`) after execution; it is proposal-only and persists only when `record=true`;
+- MCP writes are non-destructive and gated; destructive tools and automatic policy promotion require future AP;
 - every export should write audit metadata when the audit table exists;
 - Streamable HTTP/SSE, destructive MCP tools and multiuser sync require future AP.
 

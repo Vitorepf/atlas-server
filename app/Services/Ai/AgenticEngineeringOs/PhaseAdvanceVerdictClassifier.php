@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AgenticEngineeringOs;
 
+use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class PhaseAdvanceVerdictClassifier
 {
     private const SCHEMA_VERSION = 'atlas.aaeos.phase_advance_verdict.v1';
@@ -61,12 +64,12 @@ final class PhaseAdvanceVerdictClassifier
      */
     public function classify(array $envelope): array
     {
-        $phaseOut = $this->stringValue($envelope, 'phase_out');
+        $phaseOut = AiValueNormalizer::trimmedStringOrNull($envelope['phase_out'] ?? null) ?? '';
 
         $gates = is_array($envelope['gates'] ?? null) ? $envelope['gates'] : [];
-        $required = $this->normalizeList($gates['required'] ?? []);
-        $passed = $this->normalizeList($gates['passed'] ?? []);
-        $blockedGates = $this->normalizeList($gates['blocked'] ?? []);
+        $required = AiStringListNormalizer::trimmedStrings($gates['required'] ?? []);
+        $passed = AiStringListNormalizer::trimmedStrings($gates['passed'] ?? []);
+        $blockedGates = AiStringListNormalizer::trimmedStrings($gates['blocked'] ?? []);
 
         $blockers = is_array($envelope['blockers'] ?? null) ? $envelope['blockers'] : [];
         $hasOpenBlockers = $this->hasOpenBlockers($blockers);
@@ -222,13 +225,7 @@ final class PhaseAdvanceVerdictClassifier
      */
     private function severityOf(array $blocker): string
     {
-        $severity = $blocker['severity'] ?? null;
-
-        if (! is_string($severity)) {
-            return '';
-        }
-
-        return strtolower(trim($severity));
+        return strtolower(AiValueNormalizer::trimmedStringOrNull($blocker['severity'] ?? null) ?? '');
     }
 
     /**
@@ -236,54 +233,6 @@ final class PhaseAdvanceVerdictClassifier
      */
     private function operatorSignature(array $envelope): ?string
     {
-        $signature = $envelope['operator_signature'] ?? null;
-
-        if (! is_string($signature)) {
-            return null;
-        }
-
-        $trimmed = trim($signature);
-
-        return $trimmed === '' ? null : $trimmed;
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function stringValue(array $payload, string $key): string
-    {
-        $value = $payload[$key] ?? null;
-
-        return is_string($value) ? trim($value) : '';
-    }
-
-    /**
-     * Trim non-empty string entries, drop non-string and blank values, keep first-seen order.
-     *
-     * @param  mixed  $values
-     * @return list<string>
-     */
-    private function normalizeList($values): array
-    {
-        if (! is_array($values)) {
-            return [];
-        }
-
-        $normalized = [];
-
-        foreach ($values as $value) {
-            if (! is_string($value)) {
-                continue;
-            }
-
-            $trimmed = trim($value);
-            if ($trimmed === '') {
-                continue;
-            }
-
-            $normalized[] = $trimmed;
-        }
-
-        return $normalized;
+        return AiValueNormalizer::trimmedStringOrNull($envelope['operator_signature'] ?? null);
     }
 }

@@ -23,13 +23,15 @@ capabilities:
   - public_archive_coverage_map
   - governed_writing_packet
   - daily_editorial_operations_packet
+  - open_brain_editorial_context_handoff
+  - audited_open_brain_editorial_context_execution
   - reviewable_backlog_candidate_suggestions
   - reviewed_candidate_backlog_promotion
 decisions:
   - O blog e de Vitor Freire; Atlas e assunto/colecao, nao identidade total do site.
   - A ordem editorial deve ir do superficial ao profundo.
   - O Atlas pode planejar e sugerir, mas nao publicar sem aprovacao humana.
-  - P0 e deterministico/read-only; P1 anexa refs de KB/Code Intelligence existentes, reconcilia o arquivo publico com o backlog planejado, expoe mapa de fontes editoriais, calcula cobertura editorial, prepara pacote privado de escrita, monta pacote operacional diario, sugere candidatos revisaveis e promove candidatos aceitos para o backlog somente com escrita explicita; graph/RAG entra depois por AP-817 e runtime boundaries existentes.
+  - P0 e deterministico/read-only; P1 anexa refs de KB/Code Intelligence existentes, reconcilia o arquivo publico com o backlog planejado, expoe mapa de fontes editoriais, calcula cobertura editorial, prepara pacote privado de escrita, monta pacote operacional diario, entrega handoff e execucao auditada opcional de Open Brain, sugere candidatos revisaveis e promove candidatos aceitos para o backlog somente com escrita explicita; graph/RAG entra depois por AP-817 e runtime boundaries existentes.
   - O sistema nao cria store paralelo de memoria, contexto, grafo ou publicacao.
 maintenance:
   - Atualizar quando mudar calendario, contrato editorial, comando, schema ou integracao com graph/RAG.
@@ -177,7 +179,14 @@ Saida P1:
   pontos obrigatorios, temas a evitar e prompts de revisao;
 - `operations_packet` quando `--operations` for usado, agregando proxima acao,
   foco diario, writing packet, riscos do arquivo publico, bloqueios, snapshots
-  de fonte/cobertura e candidatos para revisao;
+  de fonte/cobertura, handoff Open Brain e candidatos para revisao;
+- `open_brain_handoff` dentro de `operations_packet` e `writing_packet`, com
+  objetivo, comando `atlas:open-brain:context`, payload provider-safe e
+  guardrails que mantem invocacao automatica, graph/RAG, Python e publicacao
+  desligados em P1;
+- `open_brain_context` quando `--execute-open-brain` for usado com
+  `--writing-packet` ou `--operations`, contendo apenas hash, resumo, safety,
+  audit e refs resumidas do context pack, sem retornar o pacote bruto;
 - `backlog_candidates` revisaveis quando `--suggest-candidates` for usado;
 - `candidate_acceptance` em dry-run ou escrita explicita para fila de revisao;
 - `candidate_promotion` em dry-run ou escrita explicita append-only no backlog
@@ -205,10 +214,13 @@ coverage-map -> compare backlog/published slugs with foundation ladder
 
 writing-packet -> choose next ready post, or explicit planned slug
                -> attach sequence, public archive context, refs, outline and safety prompts
+               -> optionally execute audited Open Brain context export
                -> private preparation only, no full article and no file write
 
 operations -> aggregate next action, writing packet, archive risks and blockers
            -> show source/coverage snapshot and candidate feed
+           -> include audited Open Brain handoff for the next post
+           -> optionally include Open Brain execution summary
            -> daily read-only operator packet
 
 suggest-candidates -> read KB/code-intel read-models -> remove obvious duplicates
@@ -255,6 +267,9 @@ Permitido em P1:
   antigos, detectar risco de repeticao e decidir rewrite deliberadamente;
 - pacote operacional diario read-only, para orientar o proximo trabalho sem
   abrir permissao de escrita, draft ou publicacao;
+- handoff auditavel para `atlas:open-brain:context`, sem invocacao automatica;
+- execucao auditada opcional de Open Brain, retornando resumo seguro e refs
+  resumidas, nunca o context pack bruto;
 - escrita explicita somente em `content/backlog/blog-candidates.yaml`;
 - promocao explicita append-only de candidatos aceitos para o backlog principal;
 - prompts de seguranca e privacidade.
@@ -271,6 +286,7 @@ Tambem proibido em P1:
 
 - tratar refs como texto pronto para publicar;
 - gerar artigo completo automaticamente a partir do pacote de escrita;
+- tratar `open_brain_context` como texto pronto para publicar;
 - escrever arquivo de draft a partir do pacote de escrita;
 - escrever no backlog sem aprovacao explicita;
 - promover candidato direto para calendario principal sem passar pela fila de

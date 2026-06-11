@@ -1141,7 +1141,7 @@ final class AtlasForgeRivalsBatteryReportService
         $perLevelTieEscalation = is_array($separationAnalysis['per_level_tie_escalation'] ?? null)
             ? (array) $separationAnalysis['per_level_tie_escalation']
             : [];
-        $levelsExceedingTieBudget = $this->stringList($perLevelTieEscalation['levels_exceeding_tie_budget'] ?? []);
+        $levelsExceedingTieBudget = AiStringListNormalizer::trimmedCastItemsToStrings($perLevelTieEscalation['levels_exceeding_tie_budget'] ?? []);
         $tieRate = $separationAnalysis['tie_rate'] ?? null;
         $globalDelta = $globalAverages['delta'];
         $nearGlobalTie = $globalDelta === null || abs((float) $globalDelta) < self::TIE_THRESHOLD;
@@ -2370,7 +2370,7 @@ final class AtlasForgeRivalsBatteryReportService
         $lines[] = '| low_discrimination | '.(($separationAnalysis['low_discrimination'] ?? false) ? '**true**' : 'false').' |';
         $perLevelTie = (array) ($separationAnalysis['per_level_tie_escalation'] ?? []);
         $lines[] = '| max_tie_rate_por_L1_L5 | '.number_format((float) ($perLevelTie['max_allowed_technical_tie_rate'] ?? self::MAX_TECHNICAL_TIE_RATE_PER_DIFFICULTY_LEVEL), 2).' |';
-        $lines[] = '| niveis_acima_do_teto_de_empate | `'.implode('`, `', $this->stringList($perLevelTie['levels_exceeding_tie_budget'] ?? [])).'` |';
+        $lines[] = '| niveis_acima_do_teto_de_empate | `'.implode('`, `', AiStringListNormalizer::trimmedCastItemsToStrings($perLevelTie['levels_exceeding_tie_budget'] ?? [])).'` |';
         if (($separationAnalysis['reasons'] ?? []) !== []) {
             $lines[] = '';
             $lines[] = 'Sinais de baixa separação:';
@@ -2691,11 +2691,4 @@ final class AtlasForgeRivalsBatteryReportService
         return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return AiStringListNormalizer::trimmedCastItemsToStrings($value);
-    }
 }

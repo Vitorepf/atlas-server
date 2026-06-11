@@ -18,6 +18,7 @@ final class AtlasBlogEditorialPlanCommand extends Command
         {--operations : Attach read-only daily editorial operations packet}
         {--writing-packet : Attach read-only writing packet for the next ready post}
         {--writing-slug= : Specific post slug to prepare instead of the next ready post}
+        {--execute-open-brain : Execute the audited Open Brain context export for the operations/writing target}
         {--context-limit=5 : Maximum KB/module/symbol refs per context group}
         {--suggest-candidates : Suggest reviewable new backlog candidates from Atlas read-models}
         {--candidate-limit=10 : Maximum backlog candidates to suggest}
@@ -39,6 +40,7 @@ final class AtlasBlogEditorialPlanCommand extends Command
             'operations' => (bool) $this->option('operations'),
             'writing_packet' => (bool) $this->option('writing-packet'),
             'writing_slug' => $this->option('writing-slug'),
+            'execute_open_brain' => (bool) $this->option('execute-open-brain'),
             'context_limit' => (int) $this->option('context-limit'),
             'suggest_candidates' => (bool) $this->option('suggest-candidates'),
             'candidate_limit' => (int) $this->option('candidate-limit'),
@@ -65,6 +67,7 @@ final class AtlasBlogEditorialPlanCommand extends Command
         $this->components->twoColumnDetail('Coverage map', (bool) data_get($payload, 'summary.with_coverage_map', false) ? 'attached' : 'off');
         $this->components->twoColumnDetail('Operations', (bool) data_get($payload, 'summary.with_operations_packet', false) ? 'attached' : 'off');
         $this->components->twoColumnDetail('Writing packet', (bool) data_get($payload, 'summary.with_writing_packet', false) ? 'attached' : 'off');
+        $this->components->twoColumnDetail('Open Brain', (bool) data_get($payload, 'summary.with_open_brain_execution', false) ? 'executed' : 'handoff only');
         $this->components->twoColumnDetail('Candidates', (string) data_get($payload, 'backlog_candidates.candidate_count', 0));
         $this->components->twoColumnDetail('Acceptance', (string) data_get($payload, 'candidate_acceptance.status', 'off'));
         $this->components->twoColumnDetail('Promotion', (string) data_get($payload, 'candidate_promotion.status', 'off'));
