@@ -1047,6 +1047,7 @@ final class BlogEditorialContextService
         $editorialDependencyMatrix = $this->editorialDependencyMatrix($posts, $publishedSlugs, $publishingPlan, $editorialRoadmap);
         $backlogIntake = $this->backlogIntake($posts, $publishedSlugs, $candidateFeed, $reviewQueueState, $editorialDependencyMatrix);
         $atlasSignalMesh = $this->atlasSignalMesh($sourceMap, $coverageMap, $candidateFeed, $reviewQueueState, $editorialRoadmap, $editorialDependencyMatrix, $backlogIntake, $openBrainHandoff);
+        $publicKnowledgeMap = $this->publicKnowledgeMap($posts, $sourceMap, $topicLedger, $editorialDependencyMatrix);
 
         return [
             'schema_version' => 'atlas.blog_editorial_operations_packet.v1',
@@ -1084,6 +1085,7 @@ final class BlogEditorialContextService
             'editorial_dependency_matrix' => $editorialDependencyMatrix,
             'backlog_intake' => $backlogIntake,
             'atlas_signal_mesh' => $atlasSignalMesh,
+            'public_knowledge_map' => $publicKnowledgeMap,
             'public_archive_risks' => [
                 'duplicate_risk_count' => (int) ($publicArchiveContext['duplicate_risk_count'] ?? 0),
                 'linkable_artifact_count' => (int) ($publicArchiveContext['linkable_artifact_count'] ?? 0),
@@ -1141,6 +1143,7 @@ final class BlogEditorialContextService
                 'generates_editorial_dependency_matrix' => true,
                 'generates_backlog_intake' => true,
                 'generates_atlas_signal_mesh' => true,
+                'generates_public_knowledge_map' => true,
                 'uses_graph_rag' => false,
                 'uses_python_runtime' => false,
                 'creates_parallel_memory_store' => false,
@@ -2561,6 +2564,199 @@ final class BlogEditorialContextService
             'can_publish' => false,
             'next_action' => $nextAction,
         ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $posts
+     * @param  array<string,mixed>  $sourceMap
+     * @param  array<string,mixed>  $topicLedger
+     * @param  array<string,mixed>  $dependencyMatrix
+     * @return array<string,mixed>
+     */
+    private function publicKnowledgeMap(array $posts, array $sourceMap, array $topicLedger, array $dependencyMatrix): array
+    {
+        $reconciliation = (array) data_get($sourceMap, 'archive_reconciliation', []);
+        $plannedPublished = array_values((array) ($reconciliation['planned_published'] ?? []));
+        $externalPublished = array_values((array) ($reconciliation['external_published'] ?? []));
+        $bridgeCandidates = array_values((array) ($reconciliation['bridge_candidates'] ?? []));
+        $publishedRows = $this->publicKnowledgePublishedRows($plannedPublished, $externalPublished);
+        $publishedSlugSet = array_fill_keys(array_values(array_filter(array_map(
+            fn (array $row): string => (string) ($row['slug'] ?? ''),
+            $publishedRows,
+        ))), true);
+        $assumableTopics = $this->publicKnowledgeAssumableTopics($topicLedger);
+        $notYetAssumableTopics = $this->publicKnowledgeNotYetAssumableTopics($topicLedger);
+        $currentUnlockedSlug = (string) data_get($dependencyMatrix, 'summary.current_unlocked_slug', '');
+        $currentUnlockedRow = collect((array) ($dependencyMatrix['rows'] ?? []))
+            ->first(fn (array $row): bool => (string) ($row['slug'] ?? '') === $currentUnlockedSlug);
+
+        return [
+            'schema_version' => 'atlas.blog_editorial_public_knowledge_map.v1',
+            'mode' => 'read_only_public_reader_memory_p1',
+            'status' => 'ready',
+            'summary' => [
+                'planned_posts' => count($posts),
+                'public_archive_posts' => count($publishedRows),
+                'planned_published_count' => count($plannedPublished),
+                'external_published_count' => count($externalPublished),
+                'bridge_candidate_count' => count($bridgeCandidates),
+                'assumable_topic_count' => count($assumableTopics),
+                'not_yet_assumable_topic_count' => count($notYetAssumableTopics),
+                'current_unlocked_slug' => $currentUnlockedSlug !== '' ? $currentUnlockedSlug : null,
+                'blocked_post_count' => (int) data_get($dependencyMatrix, 'summary.blocked_post_count', 0),
+            ],
+            'reader_contract' => [
+                'current_unlocked_slug' => $currentUnlockedSlug !== '' ? $currentUnlockedSlug : null,
+                'current_unlocked_title' => is_array($currentUnlockedRow) ? (string) ($currentUnlockedRow['title'] ?? '') : null,
+                'can_assume' => array_slice(array_column($assumableTopics, 'topic'), 0, 12),
+                'must_introduce_now' => is_array($currentUnlockedRow)
+                    ? array_values((array) data_get($currentUnlockedRow, 'reader_contract.must_introduce', []))
+                    : [],
+                'must_not_assume_yet' => array_slice(array_column($notYetAssumableTopics, 'topic'), 0, 12),
+                'rule' => 'Assuma apenas o que ja apareceu no arquivo publico; se o assunto ainda nao foi publicado, introduza antes de aprofundar.',
+            ],
+            'published_posts' => $publishedRows,
+            'assumable_topics' => $assumableTopics,
+            'not_yet_assumable_topics' => $notYetAssumableTopics,
+            'bridge_candidates' => array_slice(array_map(
+                fn (array $candidate): array => [
+                    'published_slug' => (string) ($candidate['published_slug'] ?? ''),
+                    'published_title' => (string) ($candidate['published_title'] ?? ''),
+                    'matched_planned_slug' => (string) ($candidate['matched_planned_slug'] ?? ''),
+                    'matched_planned_title' => (string) ($candidate['matched_planned_title'] ?? ''),
+                    'matched_terms' => array_values(array_filter((array) ($candidate['matched_terms'] ?? []), 'is_string')),
+                    'suggested_action' => (string) ($candidate['suggested_action'] ?? ''),
+                ],
+                $bridgeCandidates,
+            ), 0, 8),
+            'sequence_warnings' => array_values(array_filter(array_map(
+                function (array $row) use ($publishedSlugSet): ?array {
+                    $slug = (string) ($row['slug'] ?? '');
+                    $readiness = (string) ($row['readiness'] ?? '');
+                    if ($slug === '' || isset($publishedSlugSet[$slug]) || $readiness !== 'blocked_missing_prerequisites') {
+                        return null;
+                    }
+
+                    return [
+                        'slug' => $slug,
+                        'title' => (string) ($row['title'] ?? ''),
+                        'missing_prerequisites' => array_values((array) data_get($row, 'depends_on.missing_prerequisites', [])),
+                        'reason' => 'Public reader does not have this foundation yet.',
+                    ];
+                },
+                array_slice((array) ($dependencyMatrix['rows'] ?? []), 0, 12),
+            ))),
+            'rules' => [
+                'O mapa representa conhecimento publico do leitor, nao memoria canonica interna do Atlas.',
+                'Posts externos ao backlog podem ser contexto ou ponte, mas nao viram prerequisito automaticamente.',
+                'Assuntos sem publicacao previa devem ser apresentados antes de qualquer versao profunda.',
+                'A ordem do backlog continua sendo a autoridade de sequencia.',
+            ],
+            'guardrails' => [
+                'read_only' => true,
+                'writes_backlog' => false,
+                'writes_review_queue' => false,
+                'writes_draft' => false,
+                'publishes_content' => false,
+                'reorders_posts' => false,
+                'uses_graph_rag' => false,
+                'uses_python_runtime' => false,
+                'creates_parallel_memory_store' => false,
+                'requires_human_approval_to_promote' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $plannedPublished
+     * @param  array<int,array<string,mixed>>  $externalPublished
+     * @return array<int,array<string,mixed>>
+     */
+    private function publicKnowledgePublishedRows(array $plannedPublished, array $externalPublished): array
+    {
+        $rows = [];
+        foreach ($plannedPublished as $post) {
+            if (! is_array($post)) {
+                continue;
+            }
+
+            $rows[] = [
+                'slug' => (string) ($post['slug'] ?? ''),
+                'title' => (string) ($post['title'] ?? ''),
+                'kind' => (string) ($post['kind'] ?? ''),
+                'date' => (string) ($post['date'] ?? ''),
+                'collection' => (string) ($post['collection'] ?? ''),
+                'source' => 'planned_backlog',
+                'planned_order' => (int) ($post['planned_order'] ?? 0),
+                'terms' => $this->publishedTerms($post),
+            ];
+        }
+        foreach ($externalPublished as $post) {
+            if (! is_array($post)) {
+                continue;
+            }
+
+            $rows[] = [
+                'slug' => (string) ($post['slug'] ?? ''),
+                'title' => (string) ($post['title'] ?? ''),
+                'kind' => (string) ($post['kind'] ?? ''),
+                'date' => (string) ($post['date'] ?? ''),
+                'collection' => (string) ($post['collection'] ?? ''),
+                'source' => 'external_archive',
+                'planned_order' => null,
+                'terms' => $this->publishedTerms($post),
+            ];
+        }
+
+        usort($rows, fn (array $a, array $b): int => ((int) ($a['planned_order'] ?? PHP_INT_MAX) <=> (int) ($b['planned_order'] ?? PHP_INT_MAX))
+            ?: strcmp((string) ($b['date'] ?? ''), (string) ($a['date'] ?? ''))
+            ?: strcmp((string) ($a['slug'] ?? ''), (string) ($b['slug'] ?? '')));
+
+        return array_slice($rows, 0, 24);
+    }
+
+    /**
+     * @param  array<string,mixed>  $topicLedger
+     * @return array<int,array<string,mixed>>
+     */
+    private function publicKnowledgeAssumableTopics(array $topicLedger): array
+    {
+        return array_slice(array_values(array_map(
+            fn (array $row): array => [
+                'topic' => (string) ($row['topic'] ?? ''),
+                'published_count' => (int) ($row['published_count'] ?? 0),
+                'published_slugs' => array_values((array) ($row['published_slugs'] ?? [])),
+                'planned_count' => (int) ($row['planned_count'] ?? 0),
+                'next_action' => 'may_use_as_reader_context',
+            ],
+            array_filter(
+                (array) ($topicLedger['rows'] ?? []),
+                fn (array $row): bool => (int) ($row['published_count'] ?? 0) > 0,
+            ),
+        )), 0, 20);
+    }
+
+    /**
+     * @param  array<string,mixed>  $topicLedger
+     * @return array<int,array<string,mixed>>
+     */
+    private function publicKnowledgeNotYetAssumableTopics(array $topicLedger): array
+    {
+        return array_slice(array_values(array_map(
+            fn (array $row): array => [
+                'topic' => (string) ($row['topic'] ?? ''),
+                'planned_count' => (int) ($row['planned_count'] ?? 0),
+                'candidate_count' => (int) ($row['candidate_count'] ?? 0),
+                'review_queue_count' => (int) ($row['review_queue_count'] ?? 0),
+                'first_planned_order' => $row['first_planned_order'] ?? null,
+                'next_action' => 'introduce_before_depth',
+            ],
+            array_filter(
+                (array) ($topicLedger['rows'] ?? []),
+                fn (array $row): bool => (int) ($row['published_count'] ?? 0) === 0
+                    && ((int) ($row['planned_count'] ?? 0) > 0 || (int) ($row['candidate_count'] ?? 0) > 0 || (int) ($row['review_queue_count'] ?? 0) > 0),
+            ),
+        )), 0, 20);
     }
 
     private function backlogIntakeAction(bool $isQueued, string $duplicateReason, bool $blockedByDepth): string

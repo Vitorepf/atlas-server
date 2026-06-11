@@ -36,6 +36,7 @@ capabilities:
   - read_only_editorial_dependency_matrix
   - read_only_backlog_intake
   - read_only_atlas_signal_mesh
+  - read_only_public_knowledge_map
   - open_brain_editorial_context_handoff
   - audited_open_brain_editorial_context_execution
   - graph_rag_readiness_preflight
@@ -259,6 +260,10 @@ Saida P1:
   arquivo publico, Engineering Knowledge, Code Intelligence, Open Brain,
   vector retrieval indireto, grafo bounded, fila, feed e intake em uma malha de
   sinais read-only com autoridade, status e proxima acao;
+- `public_knowledge_map` dentro de `operations_packet`, projetando o que o
+  leitor publico ja pode saber: posts publicados, assuntos assumiveis, assuntos
+  ainda nao assumiveis, pontes com o arquivo externo e contrato do proximo texto
+  desbloqueado;
 - `open_brain_handoff` dentro de `operations_packet` e `writing_packet`, com
   objetivo, comando `atlas:open-brain:context`, payload provider-safe e
   guardrails que mantem invocacao automatica, graph/RAG, Python e publicacao
@@ -325,6 +330,7 @@ operations -> aggregate next action, writing packet, archive risks and blockers
            -> show source/coverage snapshot, review queue state and candidate feed
            -> derive publishing plan slots from backlog order and cadence
            -> derive editorial roadmap phases from slots and topic ledger
+           -> derive public knowledge map from archive and topic ledger
            -> include audited Open Brain handoff for the next post
            -> optionally include Open Brain execution summary
            -> daily read-only operator packet
@@ -373,6 +379,9 @@ promote-candidate -> read accepted review queue item -> emit backlog YAML snippe
 - Trate `atlas_signal_mesh` como painel de controle dos sinais do Atlas: ela
   coordena fontes existentes, mas nao cria memoria, grafo, RAG, fila paralela,
   reordenacao automatica ou autoridade de publicacao.
+- Trate `public_knowledge_map` como memoria publica do leitor, nao como memoria
+  canonica do Atlas: ele so diz o que ja pode ser assumido em texto publico e o
+  que ainda precisa ser introduzido antes de aprofundar.
 - Use `--editorial-radar` para decidir onde alimentar a lista; ele nao muda
   backlog, nao aceita candidatos e nao publica.
 - Use `--editorial-golden-set` para provar que a sequencia ainda ensina do raso
@@ -416,6 +425,9 @@ Permitido em P1:
   antigos, detectar risco de repeticao e decidir rewrite deliberadamente;
 - pacote operacional diario read-only, para orientar o proximo trabalho sem
   abrir permissao de escrita, draft ou publicacao;
+- mapa de conhecimento publico dentro do pacote operacional, derivado do arquivo
+  publicado e do ledger de assuntos, para impedir que IA assuma conceitos que o
+  leitor ainda nao viu;
 - plano de publicacao read-only dentro do pacote operacional, derivado da
   cadencia e da ordem do backlog, com status de slot, etapa do pipeline e acao
   humana esperada;

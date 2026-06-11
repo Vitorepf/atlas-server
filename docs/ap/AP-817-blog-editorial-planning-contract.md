@@ -1,4 +1,6 @@
 ---
+id: AP-817-blog-editorial-planning-contract
+type: architecture_proposal
 title: AP-817 Blog Editorial Planning Contract
 status: proposed
 owner: atlas-kernel
@@ -63,7 +65,7 @@ P1 may enrich the plan with existing Atlas context:
 3. privacy/sensitivity review prompts;
 4. "covered vs missing" signals from public posts and Atlas docs;
 5. reviewable backlog candidates derived from existing KB/code read-models or bounded graph evidence;
-6. read-only source, review-queue, coverage, operating-state, radar, golden-set, bounded graph-context/candidate, signal-mesh, writing and daily operations packets;
+6. read-only source, review-queue, coverage, operating-state, radar, golden-set, bounded graph-context/candidate, signal-mesh, public-knowledge, writing and daily operations packets;
 7. public archive reconciliation for bridges, duplicate risks and prior artifacts;
 8. Open Brain handoff/execution packets for audited context export.
 9. graph/RAG readiness preflight without invoking graph or Python.
@@ -156,6 +158,10 @@ P1 is acceptable when:
   across backlog, public archive, canonical docs, code intelligence, Open Brain,
   indirect vector readiness, bounded graph posture, review queue, candidate feed
   and intake without writing or granting publication/reorder authority;
+- `operations_packet.public_knowledge_map` reports published reader knowledge,
+  assumable topics, not-yet-assumable topics, archive bridges and the current
+  reader contract without writing, reordering, publishing or creating parallel
+  memory;
 - `atlas:blog:editorial-plan --writing-packet --json` returns
   `writing_packet` for the next ready post with
   `generates_full_article=false`, `writes_draft=false` and

@@ -1044,6 +1044,16 @@ JS);
         $this->assertFalse(data_get($payload, 'operations_packet.atlas_signal_mesh.guardrails.writes_backlog'));
         $this->assertFalse(data_get($payload, 'operations_packet.atlas_signal_mesh.guardrails.publishes_content'));
         $this->assertFalse(data_get($payload, 'operations_packet.atlas_signal_mesh.guardrails.uses_graph_rag'));
+        $this->assertSame('atlas.blog_editorial_public_knowledge_map.v1', data_get($payload, 'operations_packet.public_knowledge_map.schema_version'));
+        $this->assertSame('read_only_public_reader_memory_p1', data_get($payload, 'operations_packet.public_knowledge_map.mode'));
+        $this->assertSame(0, data_get($payload, 'operations_packet.public_knowledge_map.summary.public_archive_posts'));
+        $this->assertSame(0, data_get($payload, 'operations_packet.public_knowledge_map.summary.assumable_topic_count'));
+        $this->assertGreaterThanOrEqual(1, data_get($payload, 'operations_packet.public_knowledge_map.summary.not_yet_assumable_topic_count'));
+        $this->assertSame('o-que-e-o-atlas', data_get($payload, 'operations_packet.public_knowledge_map.summary.current_unlocked_slug'));
+        $this->assertContains('building-atlas', data_get($payload, 'operations_packet.public_knowledge_map.reader_contract.must_not_assume_yet'));
+        $this->assertFalse(data_get($payload, 'operations_packet.public_knowledge_map.guardrails.writes_backlog'));
+        $this->assertFalse(data_get($payload, 'operations_packet.public_knowledge_map.guardrails.publishes_content'));
+        $this->assertFalse(data_get($payload, 'operations_packet.public_knowledge_map.guardrails.uses_graph_rag'));
         $this->assertSame('future_governed', data_get($payload, 'operations_packet.source_snapshot.graph_retrieval_status'));
         $this->assertSame('atlas.blog_editorial_open_brain_handoff.v1', data_get($payload, 'operations_packet.open_brain_handoff.schema_version'));
         $this->assertSame('o-que-e-o-atlas', data_get($payload, 'operations_packet.open_brain_handoff.payload.post.slug'));
@@ -1060,6 +1070,7 @@ JS);
         $this->assertTrue(data_get($payload, 'operations_packet.guardrails.generates_editorial_dependency_matrix'));
         $this->assertTrue(data_get($payload, 'operations_packet.guardrails.generates_backlog_intake'));
         $this->assertTrue(data_get($payload, 'operations_packet.guardrails.generates_atlas_signal_mesh'));
+        $this->assertTrue(data_get($payload, 'operations_packet.guardrails.generates_public_knowledge_map'));
         $this->assertFalse(data_get($payload, 'operations_packet.guardrails.uses_graph_rag'));
     }
 
