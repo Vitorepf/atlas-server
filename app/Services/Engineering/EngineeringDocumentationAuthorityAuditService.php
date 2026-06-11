@@ -309,16 +309,13 @@ class EngineeringDocumentationAuthorityAuditService
      */
     private function uniqueColumnStrings(array $items, string $field, bool $filterEmpty = true): array
     {
-        $values = array_map(
-            static fn (array $item): string => (string) ($item[$field] ?? ''),
-            $items,
+        return EngineeringStringListNormalizer::uniqueStringCasts(
+            array_map(
+                static fn (array $item): mixed => $item[$field] ?? '',
+                $items,
+            ),
+            filterEmpty: $filterEmpty,
         );
-
-        if ($filterEmpty) {
-            $values = array_filter($values, static fn (string $value): bool => $value !== '');
-        }
-
-        return array_values(array_unique($values));
     }
 
     /**

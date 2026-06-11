@@ -17,6 +17,20 @@ final class EngineeringStringListNormalizerTest extends TestCase
         );
     }
 
+    public function test_unique_string_casts_can_preserve_empty_and_spacing(): void
+    {
+        $values = [' a ', '', '0', 5, '5'];
+
+        $this->assertSame(
+            [' a ', '', '0', '5'],
+            EngineeringStringListNormalizer::uniqueStringCasts($values, filterEmpty: false),
+        );
+        $this->assertSame(
+            [' a ', '0', '5'],
+            EngineeringStringListNormalizer::uniqueStringCasts($values, filterEmpty: true),
+        );
+    }
+
     public function test_unique_truthy_string_values_preserves_legacy_filtering(): void
     {
         $this->assertSame(

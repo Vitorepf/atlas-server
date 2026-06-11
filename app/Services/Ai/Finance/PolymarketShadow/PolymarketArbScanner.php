@@ -67,12 +67,12 @@ final class PolymarketArbScanner
                 break;
             }
 
-            $events = $this->http->getJson(sprintf(
-                '%s/events?active=true&closed=false&order=volume24hr&ascending=false&limit=%d&offset=%d',
-                self::GAMMA_BASE, $perPage, $page * $perPage,
-            ), $marketReadTimeoutSeconds);
+            $events = $this->gammaEventsPage($page, $perPage, $marketReadTimeoutSeconds, $deadlineAt);
 
             if (! is_array($events) || $events === []) {
+                if ($this->deadlineExceeded($deadlineAt)) {
+                    $budgetExhausted = true;
+                }
                 break;
             }
 
@@ -213,6 +213,38 @@ final class PolymarketArbScanner
             'best_long_sum' => $bestLongSum,
             'best_short_sum' => $bestShortSum,
         ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>|null
+     */
+    private function gammaEventsPage(int $page, int $perPage, int $marketReadTimeoutSeconds, ?float $deadlineAt): ?array
+    {
+        $url = sprintf(
+            '%s/events?active=true&closed=false&order=volume24hr&ascending=false&limit=%d&offset=%d',
+            self::GAMMA_BASE,
+            $perPage,
+            $page * $perPage,
+        );
+
+        $attempts = 3;
+        for ($attempt = 1; $attempt <= $attempts; $attempt++) {
+            if ($this->deadlineExceeded($deadlineAt)) {
+                return null;
+            }
+
+            $events = $this->http->getJson($url, $marketReadTimeoutSeconds);
+            if (is_array($events) && $events !== []) {
+                /** @var list<array<string, mixed>> $events */
+                return $events;
+            }
+
+            if ($attempt < $attempts && ! $this->deadlineExceeded($deadlineAt)) {
+                usleep(100_000 * $attempt);
+            }
+        }
+
+        return null;
     }
 
     /**

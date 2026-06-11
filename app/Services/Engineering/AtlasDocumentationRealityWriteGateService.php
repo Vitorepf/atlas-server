@@ -192,7 +192,7 @@ final class AtlasDocumentationRealityWriteGateService
             $docs[] = $path;
         }
 
-        return array_values(array_unique($docs));
+        return EngineeringStringListNormalizer::uniqueStringCasts($docs);
     }
 
     /**
@@ -256,7 +256,7 @@ final class AtlasDocumentationRealityWriteGateService
             }
         }
 
-        return array_values(array_unique($hits));
+        return EngineeringStringListNormalizer::uniqueStringCasts($hits);
     }
 
     /**
@@ -282,7 +282,7 @@ final class AtlasDocumentationRealityWriteGateService
             }
         }
 
-        return array_values(array_unique($out));
+        return EngineeringStringListNormalizer::uniqueStringCasts($out);
     }
 
     /**
@@ -349,7 +349,7 @@ final class AtlasDocumentationRealityWriteGateService
             }
         }
 
-        return array_values(array_unique($hits));
+        return EngineeringStringListNormalizer::uniqueStringCasts($hits);
     }
 
     /**

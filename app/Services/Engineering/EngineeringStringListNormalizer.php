@@ -17,6 +17,21 @@ final class EngineeringStringListNormalizer
     }
 
     /**
+     * @param  array<int|string,mixed>  $values
+     * @return array<int,string>
+     */
+    public static function uniqueStringCasts(array $values, bool $filterEmpty = false): array
+    {
+        $strings = array_map(static fn (mixed $value): string => (string) $value, $values);
+
+        if ($filterEmpty) {
+            $strings = array_filter($strings, static fn (string $value): bool => $value !== '');
+        }
+
+        return array_values(array_unique($strings));
+    }
+
+    /**
      * @param  array<int,mixed>  $values
      * @return array<int,string>
      */

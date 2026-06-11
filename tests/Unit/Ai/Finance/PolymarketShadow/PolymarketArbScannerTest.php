@@ -147,6 +147,66 @@ final class PolymarketArbScannerTest extends TestCase
         Http::assertNotSent(fn ($request): bool => str_contains($request->url(), 'https://clob.polymarket.com/book'));
     }
 
+    public function test_scan_retries_transient_empty_gamma_page(): void
+    {
+        $gammaCalls = 0;
+        Http::fake([
+            'https://1.1.1.1/*' => Http::response([
+                'Answer' => [['data' => '104.18.34.205']],
+            ], 200),
+            'https://gamma-api.polymarket.com/events*' => function () use (&$gammaCalls) {
+                $gammaCalls++;
+
+                if ($gammaCalls === 1) {
+                    return Http::response([
+                        [
+                            'negRisk' => true,
+                            'slug' => 'page-one',
+                            'title' => 'Page One',
+                            'volume24hr' => 123.45,
+                            'liquidity' => 999.99,
+                            'markets' => [
+                                $this->market('A', 'Will A win?', 0.10),
+                                $this->market('B', 'Will B win?', 0.10),
+                                $this->market('C', 'Will C win?', 0.10),
+                            ],
+                        ],
+                    ], 200);
+                }
+
+                if ($gammaCalls === 2) {
+                    return Http::response([], 200);
+                }
+
+                return Http::response([
+                    [
+                        'negRisk' => true,
+                        'slug' => 'page-two',
+                        'title' => 'Page Two',
+                        'volume24hr' => 123.45,
+                        'liquidity' => 999.99,
+                        'markets' => [
+                            $this->market('D', 'Will D win?', 0.10),
+                            $this->market('E', 'Will E win?', 0.10),
+                            $this->market('F', 'Will F win?', 0.10),
+                        ],
+                    ],
+                ], 200);
+            },
+        ]);
+
+        $result = (new PolymarketArbScanner)->scanOnce(
+            pages: 2,
+            perPage: 50,
+            preFilterMargin: 0.10,
+            maxClobVerifications: 1,
+        );
+
+        $this->assertSame(2, $result['scanned_events']);
+        $this->assertFalse($result['budget_exhausted']);
+        $this->assertSame(3, $gammaCalls);
+    }
+
     public function test_scan_time_budget_fails_closed_before_public_reads(): void
     {
         Http::fake([
