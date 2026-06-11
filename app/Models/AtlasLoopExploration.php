@@ -21,7 +21,7 @@ class AtlasLoopExploration extends Model
     protected $fillable = [
         'campaign_id', 'task_id', 'schema_version', 'objective', 'provider',
         'scenarios_explored', 'scenarios_accepted', 'has_winner', 'converged',
-        'rejected_reasons', 'elapsed_seconds',
+        'rejected_reasons', 'attempt_metrics', 'elapsed_seconds',
     ];
 
     protected function casts(): array
@@ -32,6 +32,7 @@ class AtlasLoopExploration extends Model
             'has_winner' => 'boolean',
             'converged' => 'boolean',
             'rejected_reasons' => 'array',
+            'attempt_metrics' => 'array',
             'elapsed_seconds' => 'float',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',

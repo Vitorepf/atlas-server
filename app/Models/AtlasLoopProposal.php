@@ -25,7 +25,7 @@ class AtlasLoopProposal extends Model
 
     protected $fillable = [
         'campaign_id', 'task_id', 'schema_version', 'status', 'objective', 'provider',
-        'target_path', 'diff_text', 'proposal_hash', 'metric', 'acceptance_hash',
+        'target_path', 'diff_text', 'proposal_hash', 'metric', 'quality', 'acceptance_hash',
         'scenarios_explored', 'scenarios_accepted', 'winning_scenario', 'merged_to_main', 'reviewed_at',
     ];
 
@@ -33,6 +33,7 @@ class AtlasLoopProposal extends Model
     {
         return [
             'metric' => 'array',
+            'quality' => 'array',
             'scenarios_explored' => 'integer',
             'scenarios_accepted' => 'integer',
             'merged_to_main' => 'boolean',

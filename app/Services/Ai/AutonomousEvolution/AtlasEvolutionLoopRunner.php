@@ -25,6 +25,9 @@ final class AtlasEvolutionLoopRunner
 
     public const PROPOSAL_SCHEMA = 'atlas.evolution.proposal.v1';
 
+    /** Hard cap on persisted per-attempt records — the audit stays lean by construction. */
+    public const ATTEMPT_METRICS_CAP = 24;
+
     public function __construct(
         private readonly AtlasEvolutionScenarioExplorer $explorer,
     ) {}
@@ -100,7 +103,41 @@ final class AtlasEvolutionLoopRunner
             'scenarios_accepted' => (int) ($exploration['scenarios_accepted'] ?? 0),
             'has_winner' => ($exploration['winner'] ?? null) !== null,
             'rejected_reasons' => $reasons,
+            'attempt_metrics' => $this->attemptMetrics($attempts),
         ];
+    }
+
+    /**
+     * LEAN per-attempt metric records — what each attempt actually scored, not just
+     * the counts (AP-820 S3). Deliberately NEVER carries stdout/stderr/diff_text:
+     * those are provider-shaped bulk that must not leak into an app-read table.
+     * Capped at {@see self::ATTEMPT_METRICS_CAP} entries.
+     *
+     * @param  list<array<string,mixed>>  $attempts
+     * @return list<array{scenario:int|string, passed:bool, metric:float|null, metric_finite:bool, diff_files:int|null, diff_lines:int|null}>
+     */
+    private function attemptMetrics(array $attempts): array
+    {
+        $metrics = [];
+        foreach (array_slice(array_values($attempts), 0, self::ATTEMPT_METRICS_CAP) as $index => $attempt) {
+            if (! is_array($attempt)) {
+                continue;
+            }
+            $verdict = is_array($attempt['verdict'] ?? null) ? $attempt['verdict'] : [];
+            $diffSize = is_array($attempt['diff_size'] ?? null) ? $attempt['diff_size'] : [];
+            $scenario = $attempt['scenario_id'] ?? null;
+
+            $metrics[] = [
+                'scenario' => is_string($scenario) && trim($scenario) !== '' ? $scenario : $index + 1,
+                'passed' => (bool) ($verdict['passed'] ?? false),
+                'metric' => is_numeric($verdict['metric'] ?? null) ? (float) $verdict['metric'] : null,
+                'metric_finite' => (bool) ($verdict['metric_finite'] ?? true),
+                'diff_files' => is_numeric($diffSize['files'] ?? null) ? (int) $diffSize['files'] : null,
+                'diff_lines' => is_numeric($diffSize['lines'] ?? null) ? (int) $diffSize['lines'] : null,
+            ];
+        }
+
+        return $metrics;
     }
 
     /**

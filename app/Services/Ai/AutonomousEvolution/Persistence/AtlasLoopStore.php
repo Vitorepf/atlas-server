@@ -10,6 +10,7 @@ use App\Models\AtlasLoopProposal;
 use App\Models\AtlasLoopTask;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -280,7 +281,7 @@ final class AtlasLoopStore
 
     public function recordExploration(AtlasLoopTask $task, array $exploration): AtlasLoopExploration
     {
-        return AtlasLoopExploration::query()->create([
+        $attributes = [
             'campaign_id' => $task->campaign_id,
             'task_id' => $task->id,
             'schema_version' => 'atlas.loop.exploration.v1',
@@ -290,7 +291,17 @@ final class AtlasLoopStore
             'scenarios_accepted' => (int) ($exploration['scenarios_accepted'] ?? 0),
             'has_winner' => (bool) ($exploration['has_winner'] ?? false),
             'rejected_reasons' => array_values((array) ($exploration['rejected_reasons'] ?? [])),
-        ]);
+        ];
+
+        // Per-attempt metric audit (AP-820 S3) — only when the column exists, so a
+        // pre-migration DB keeps working; the runner emits lean records only
+        // (never stdout/stderr/diff_text), and this seam persists them as-is.
+        if (is_array($exploration['attempt_metrics'] ?? null)
+            && Schema::hasColumn('atlas_loop_explorations', 'attempt_metrics')) {
+            $attributes['attempt_metrics'] = array_values($exploration['attempt_metrics']);
+        }
+
+        return AtlasLoopExploration::query()->create($attributes);
     }
 
     /**
@@ -310,7 +321,7 @@ final class AtlasLoopStore
             return $existing;
         }
 
-        return AtlasLoopProposal::query()->create([
+        $attributes = [
             'campaign_id' => $task->campaign_id,
             'task_id' => $task->id,
             'schema_version' => 'atlas.loop.proposal.v1',
@@ -324,7 +335,16 @@ final class AtlasLoopStore
             'scenarios_explored' => (int) ($proposal['scenarios_explored'] ?? 0),
             'scenarios_accepted' => (int) ($proposal['scenarios_accepted'] ?? 0),
             'winning_scenario' => ((string) ($proposal['winning_scenario'] ?? '')) ?: null,
-        ]);
+        ];
+
+        // Graded quality verdict (AP-820 S3) — optional key, persisted only when the
+        // column exists (pre-migration DBs stay healthy). Absence = not graded.
+        if (is_array($proposal['quality'] ?? null)
+            && Schema::hasColumn('atlas_loop_proposals', 'quality')) {
+            $attributes['quality'] = $proposal['quality'];
+        }
+
+        return AtlasLoopProposal::query()->create($attributes);
     }
 
     /**
