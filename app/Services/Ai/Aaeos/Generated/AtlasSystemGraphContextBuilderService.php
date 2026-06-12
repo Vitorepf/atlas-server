@@ -158,10 +158,10 @@ final class AtlasSystemGraphContextBuilderService
             $overflow
         );
 
-        $citations = array_values(array_map(
+        $citations = array_values(array_unique(array_map(
             static fn (array $s): string => $s['reference'],
             $sources
-        ));
+        )));
 
         $reasons = [];
         if ($rejected !== []) {
