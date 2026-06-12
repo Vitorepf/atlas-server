@@ -181,7 +181,9 @@ final class L8SystemEvolutionTwinPredictionScorer
         }
 
         if (array_key_exists('predicted_delta', $prediction)
-            && (is_int($prediction['predicted_delta']) || is_float($prediction['predicted_delta']))) {
+            && (is_int($prediction['predicted_delta'])
+                || is_float($prediction['predicted_delta'])
+                || (is_string($prediction['predicted_delta']) && is_numeric(trim($prediction['predicted_delta']))))) {
             return $this->directionFromDelta((float) $prediction['predicted_delta']);
         }
 
