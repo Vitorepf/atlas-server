@@ -115,16 +115,16 @@ final class InvariantBreachDemoteMonitor
      */
     private function isBreached(array $invariant): bool
     {
-        if (array_key_exists('breached', $invariant)) {
-            return $invariant['breached'] === true;
+        if (array_key_exists('breached', $invariant) && $invariant['breached'] === true) {
+            return true;
         }
 
-        if (array_key_exists('passing', $invariant)) {
-            return $invariant['passing'] === false;
+        if (array_key_exists('passing', $invariant) && $invariant['passing'] === false) {
+            return true;
         }
 
-        if (array_key_exists('ok', $invariant)) {
-            return $invariant['ok'] === false;
+        if (array_key_exists('ok', $invariant) && $invariant['ok'] === false) {
+            return true;
         }
 
         if (array_key_exists('status', $invariant)) {
