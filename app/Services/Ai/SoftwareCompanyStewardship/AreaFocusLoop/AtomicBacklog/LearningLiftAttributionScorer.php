@@ -158,7 +158,13 @@ final class LearningLiftAttributionScorer
     private function computeAttributionConfidence(array $attribution): float
     {
         if ($this->hasNumeric($attribution, 'confidence')) {
-            return round($this->clampZeroToOne($this->numeric($attribution, 'confidence')), 4);
+            $confidence = $this->clampZeroToOne($this->numeric($attribution, 'confidence'));
+
+            if (($attribution['confounded'] ?? false) === true) {
+                $confidence /= 2.0;
+            }
+
+            return round($confidence, 4);
         }
 
         $total = $this->hasNumeric($attribution, 'total_samples')
