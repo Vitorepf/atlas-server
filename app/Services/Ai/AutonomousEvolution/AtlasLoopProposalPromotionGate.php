@@ -121,6 +121,15 @@ final class AtlasLoopProposalPromotionGate
             return ['ok' => false, 'reason' => 'no_acceptance_contract'];
         }
 
+        // AUTÓPSIA 12/06: contratos SNIPPET (descoberta self-contained) referenciam
+        // arquivos que só existem no workspace da task (`php tests/atlas_generated_0.php`)
+        // — re-prová-los num clone do repo falharia sempre. O payload da task é o snapshot
+        // durável e reproduzível desse workspace: re-prova fiel = reconstruir o snippet do
+        // payload, aplicar o diff e re-rodar o juiz congelado lá dentro.
+        if ($this->contractIsSnippetShaped($proposal, $baseDir)) {
+            return $this->reproveSnippet($proposal);
+        }
+
         // L3-1: re-prova em workspace COMPLETO (clone runnable) — a materialização mínima
         // de um arquivo dava frozen_path_tampered em toda mudança de impl (0 merges). No
         // clone, o teste-spec congelado roda contra a impl mudada (validação real).
@@ -136,6 +145,80 @@ final class AtlasLoopProposalPromotionGate
                 : ['ok' => false, 'reason' => 'reproof_failed'];
         } finally {
             (new Process(['rm', '-rf', $workspace]))->run();
+        }
+    }
+
+    /**
+     * Um contrato é snippet-shaped quando algum arquivo referenciado pelos seus commands
+     * NÃO existe na árvore real — ele só pode rodar no workspace reconstruído da task.
+     */
+    private function contractIsSnippetShaped(AtlasLoopProposal $proposal, string $baseDir): bool
+    {
+        $commands = \App\Services\Ai\Support\AiStringListNormalizer::trimmedStrings(
+            $this->persistedAcceptanceContract($proposal)['commands'] ?? [],
+        );
+        foreach ($commands as $command) {
+            if (preg_match_all('/(?:^|\s)((?:[A-Za-z0-9_.\/-]+)\.php)\b/', $command, $m) > 0) {
+                foreach ($m[1] as $ref) {
+                    if (! is_file(rtrim($baseDir, '/').'/'.ltrim($ref, '/'))) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Re-prova SNIPPET: reconstrói o workspace exato da task a partir do payload durável
+     * (target_content + frozen_tests + support_files), aplica o diff da proposta sobre um
+     * baseline git e re-roda o juiz congelado com o contrato persistido. Fail-closed em
+     * qualquer elo ausente (payload sumido ⇒ irreprovável ⇒ o auto-merger aposenta).
+     *
+     * @return array{ok:bool, reason:?string}
+     */
+    private function reproveSnippet(AtlasLoopProposal $proposal): array
+    {
+        $task = \App\Models\AtlasLoopTask::query()->find((string) $proposal->task_id);
+        $payload = is_array($task?->payload) ? $task->payload : (array) json_decode((string) ($task->payload ?? ''), true);
+        if ($task === null || $payload === []) {
+            return ['ok' => false, 'reason' => 'no_acceptance_contract'];
+        }
+
+        try {
+            [$explorerTask, $cleanup] = app(AtlasLoopWorkspaceMaterializer::class)
+                ->materialize((string) $task->objective, $payload);
+        } catch (Throwable $e) {
+            return ['ok' => false, 'reason' => 'materialize_failed:snippet:'.mb_substr($e->getMessage(), 0, 80)];
+        }
+        $workspace = (string) ($explorerTask['base_workspace'] ?? '');
+
+        try {
+            // Baseline git + apply (os paths do diff já são workspace-relativos).
+            foreach ([
+                ['git', '-C', $workspace, 'init', '-q'],
+                ['git', '-C', $workspace, 'add', '-A'],
+                ['git', '-C', $workspace, '-c', 'user.email=atlas-loop@local', '-c', 'user.name=Atlas Loop', '-c', 'commit.gpgsign=false', 'commit', '-q', '--allow-empty', '-m', 'reprove baseline'],
+            ] as $argv) {
+                $p = new Process($argv, null, null, null, 60.0);
+                $p->run();
+                if (! $p->isSuccessful()) {
+                    return ['ok' => false, 'reason' => 'materialize_failed:snippet_git'];
+                }
+            }
+            $apply = new Process(['git', '-C', $workspace, 'apply', '--whitespace=nowarn', '-'], null, null, null, 60.0);
+            $apply->setInput((string) $proposal->diff_text);
+            $apply->run();
+            if (! $apply->isSuccessful()) {
+                return ['ok' => false, 'reason' => 'materialize_failed:git_apply_failed'];
+            }
+
+            return $this->defaultReprove($workspace, $proposal)
+                ? ['ok' => true, 'reason' => null]
+                : ['ok' => false, 'reason' => 'reproof_failed'];
+        } finally {
+            $cleanup();
         }
     }
 

@@ -72,7 +72,7 @@ final class AtlasCognitiveAntifragilityEquationService
         self::COMPONENT_MEMORY => ['weight' => 0.20, 'metric' => 'retention_quality_score', 'min' => 0.0, 'max' => 1.0],
         self::COMPONENT_EVIDENCE => ['weight' => 0.15, 'metric' => 'replay_success_rate', 'min' => 0.0, 'max' => 1.0],
         self::COMPONENT_COMPOUNDING => ['weight' => 0.15, 'metric' => 'obras_quality_trend', 'min' => -1.0, 'max' => 1.0],
-        self::COMPONENT_SELF_CONSTRUCTION => ['weight' => 0.10, 'metric' => 'self_improvements_per_quarter', 'min' => 0.0, 'max' => 1.0],
+        self::COMPONENT_SELF_CONSTRUCTION => ['weight' => 0.10, 'metric' => 'self_improvements_per_quarter', 'min' => 0.0, 'max' => INF],
         self::COMPONENT_MULTI_AGENT => ['weight' => 0.10, 'metric' => 'parallel_efficiency_factor', 'min' => 1.0, 'max' => 8.0],
         self::COMPONENT_MULTI_PROVIDER => ['weight' => 0.10, 'metric' => 'provider_diversity_score', 'min' => 0.0, 'max' => 1.0],
         self::COMPONENT_SOVEREIGNTY => ['weight' => 0.10, 'metric' => 'local_run_rate', 'min' => 0.0, 'max' => 1.0],
@@ -106,7 +106,8 @@ final class AtlasCognitiveAntifragilityEquationService
      * Each supplied metric is clamped to the component's documented range
      * BEFORE weighting (so an out-of-range input cannot inflate or deflate M
      * beyond the contract). A missing metric defaults to the component range
-     * minimum. The signed `obras_quality_trend` can be negative, which is the
+     * minimum, except signed metrics default to neutral 0.0. The signed
+     * `obras_quality_trend` can be negative, which is the
      * only way a component can subtract from M.
      *
      * @param  array<string,int|float>  $metrics  keyed by component id
@@ -123,7 +124,7 @@ final class AtlasCognitiveAntifragilityEquationService
 
         foreach (self::M_COMPONENTS as $id => $spec) {
             $hasInput = array_key_exists($id, $metrics);
-            $raw = $hasInput ? (float) $metrics[$id] : $spec['min'];
+            $raw = $hasInput ? (float) $metrics[$id] : max(0.0, $spec['min']);
             $clamped = max($spec['min'], min($spec['max'], $raw));
             $contribution = $spec['weight'] * $clamped;
             $value += $contribution;
