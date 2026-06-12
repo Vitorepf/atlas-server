@@ -227,7 +227,7 @@ final class L9OperatorOverrideLearningLoop
         }
 
         if (array_key_exists('visible', $override)) {
-            return $override['visible'] !== true;
+            return ! (bool) $override['visible'];
         }
 
         return ! $this->hasVisibilityProof($override);
