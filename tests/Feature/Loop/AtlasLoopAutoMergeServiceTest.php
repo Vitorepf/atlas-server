@@ -7,7 +7,9 @@ namespace Tests\Feature\Loop;
 use App\Models\AtlasLoopCampaign;
 use App\Models\AtlasLoopProposal;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopAutoMergeService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
@@ -161,6 +163,40 @@ final class AtlasLoopAutoMergeServiceTest extends TestCase
         $fresh = $proposal->fresh();
         $this->assertFalse((bool) $fresh->merged_to_main, 'stale nunca mergeia');
         $this->assertNotNull($fresh->reviewed_at, 'stale é aposentada para não bloquear a fila');
+    }
+
+    public function test_drain_ignores_non_certified_rows_even_when_they_are_older(): void
+    {
+        $campaign = AtlasLoopCampaign::create([
+            'schema_version' => 'atlas.loop.campaign.v1',
+            'status' => AtlasLoopCampaign::STATUS_RUNNING,
+            'goal' => 'raw non-certified row',
+            'config' => [],
+            'max_seconds' => 60,
+        ]);
+        DB::table('atlas_loop_proposals')->insert([
+            'id' => (string) Str::uuid(),
+            'campaign_id' => $campaign->id,
+            'schema_version' => 'atlas.loop.proposal.v1',
+            'status' => 'draft',
+            'objective' => 'raw db draft must not consume drain slots',
+            'target_path' => 'snippet.php',
+            'diff_text' => 'not a real diff',
+            'proposal_hash' => 'raw-draft-'.bin2hex(random_bytes(4)),
+            'merged_to_main' => false,
+            'created_at' => now()->subMinute(),
+            'updated_at' => now()->subMinute(),
+        ]);
+
+        $original = "<?php\nfunction val(){ return 1; }\n";
+        $modified = "<?php\nfunction val(){ return 2; }\n";
+        $repo = $this->repo($original);
+        $proposal = $this->certifiedProposal($this->makeDiff($original, $modified), 'automerge-cert-filter-1');
+
+        $result = app(AtlasLoopAutoMergeService::class)->drain($repo, 1);
+
+        $this->assertSame(1, $result['merged_count'], json_encode($result['results']));
+        $this->assertTrue((bool) $proposal->fresh()->merged_to_main);
     }
 
     public function test_nothing_outside_the_governed_scope_can_mark_merged(): void

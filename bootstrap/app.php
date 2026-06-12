@@ -15,6 +15,7 @@ use App\Console\Commands\AiTelemetryHealthCommand;
 use App\Console\Commands\AiTelemetryPerformanceReportCommand;
 use App\Console\Commands\AiTelemetryRollupCommand;
 use App\Console\Commands\AiWorkCommand;
+use App\Console\Commands\AtlasAobgSemanticRetrievalLiftCommand;
 use App\Console\Commands\AtlasAiArchitectureValidateCommand;
 use App\Console\Commands\AtlasAiAutomationDomainCommand;
 use App\Console\Commands\AtlasAiAutonomousHoldingCommand;
@@ -107,6 +108,7 @@ use App\Console\Commands\AtlasEngineeringSecurityScanCommand;
 use App\Console\Commands\AtlasEngineeringVisualBaselineCommand;
 use App\Console\Commands\AtlasEngineeringVisualDriverCommand;
 use App\Console\Commands\AtlasEngineeringVisualSmokeCommand;
+use App\Console\Commands\AtlasForgeMultiNodeL410ProofCommand;
 use App\Console\Commands\AtlasForgeRivalsCommand;
 use App\Console\Commands\AtlasForgeRuntimeCertifyCommand;
 use App\Console\Commands\AtlasInitiativesCommand;
@@ -115,6 +117,7 @@ use App\Console\Commands\AtlasInsightWatchCommand;
 use App\Console\Commands\AtlasLoopCertifyImplementationCommand;
 use App\Console\Commands\AtlasLoopCompileVerifierCommand;
 use App\Console\Commands\AtlasLoopMaterializeCommand;
+use App\Console\Commands\AtlasLoopMorningDigestCommand;
 use App\Console\Commands\AtlasLoopPromoteCommand;
 use App\Console\Commands\AtlasLoopReviewFeedbackCommand;
 use App\Console\Commands\AtlasUnifiedLoopInstallLaunchdCommand;
@@ -225,6 +228,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AiTelemetryPerformanceReportCommand::class,
         AiTelemetryRollupCommand::class,
         AiWorkCommand::class,
+        AtlasAobgSemanticRetrievalLiftCommand::class,
         AtlasAiArchitectureValidateCommand::class,
         AtlasAiAutomationDomainCommand::class,
         AtlasAiAutonomousHoldingCommand::class,
@@ -300,6 +304,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasLoopCertifyImplementationCommand::class,
         AtlasLoopCompileVerifierCommand::class,
         AtlasLoopMaterializeCommand::class,
+        AtlasLoopMorningDigestCommand::class,
         AtlasLoopPromoteCommand::class,
         AtlasLoopReviewFeedbackCommand::class,
         AtlasUnifiedLoopInstallLaunchdCommand::class,
@@ -361,6 +366,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasEngineeringVisualDriverCommand::class,
         AtlasEngineeringVisualBaselineCommand::class,
         AtlasEngineeringVisualSmokeCommand::class,
+        AtlasForgeMultiNodeL410ProofCommand::class,
         AtlasCognitiveFunctionDecomposeCommand::class,
         AtlasCostCalibrateCommand::class,
         AtlasPatamar4ActivateFlagsCommand::class,

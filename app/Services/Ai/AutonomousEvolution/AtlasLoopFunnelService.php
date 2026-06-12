@@ -124,7 +124,10 @@ final class AtlasLoopFunnelService
 
     private function drainableCount(?string $campaignId): int
     {
-        $q = DB::table('atlas_loop_proposals')->where('merged_to_main', false)->whereNull('reviewed_at');
+        $q = DB::table('atlas_loop_proposals')
+            ->where('status', AtlasLoopProposal::STATUS_CERTIFIED)
+            ->where('merged_to_main', false)
+            ->whereNull('reviewed_at');
         if ($campaignId !== null) {
             $q->where('campaign_id', $campaignId);
         }

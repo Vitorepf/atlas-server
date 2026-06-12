@@ -67,6 +67,7 @@ final class AtlasLoopAutoMergeService
         }
 
         $proposals = AtlasLoopProposal::query()
+            ->where('status', AtlasLoopProposal::STATUS_CERTIFIED)
             ->where('merged_to_main', false)
             ->whereNull('reviewed_at')
             ->orderBy('created_at')

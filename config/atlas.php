@@ -1569,6 +1569,19 @@ return [
         // ausente ⇒ relança detached, resume). Motivado pela morte silenciosa de 12/06.
         'keepalive_enabled' => (bool) env('ATLAS_LOOP_KEEPALIVE_ENABLED', true),
 
+        // L4-6: painel 24h no digest matinal. Read-only: agrega funil, merges,
+        // impact receipts, canários, custo medido, eventos de keepalive e propostas
+        // estacionadas para o operador. O keepalive também registra um JSONL curto
+        // para esta leitura; falha de escrita nunca derruba o respawn.
+        'morning_digest' => [
+            'enabled' => (bool) env('ATLAS_LOOP_MORNING_DIGEST_ENABLED', true),
+            'schedule_time' => (string) env('ATLAS_LOOP_MORNING_DIGEST_SCHEDULE_TIME', '05:35'),
+            'window_hours' => max(1, (int) env('ATLAS_LOOP_MORNING_DIGEST_WINDOW_HOURS', 24)),
+            'keepalive_event_log_enabled' => (bool) env('ATLAS_LOOP_KEEPALIVE_EVENT_LOG_ENABLED', true),
+            'keepalive_event_log_path' => (string) env('ATLAS_LOOP_KEEPALIVE_EVENT_LOG_PATH', storage_path('app/atlas/loop/keepalive-events.jsonl')),
+            'keepalive_event_log_max_lines' => max(100, (int) env('ATLAS_LOOP_KEEPALIVE_EVENT_LOG_MAX_LINES', 2000)),
+        ],
+
         // 24h+ sem intervenção: revive campanhas que pararam por STARVATION de fila (a única
         // parada permanente — completed com budget sobrando). O loop mergeia código → novos
         // alvos surgem → reviver throttled re-descobre trabalho. Sem isto o soak para sozinho

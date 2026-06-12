@@ -9,11 +9,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * A certified-for-review PROPOSAL — the durable artifact the operator wakes up to.
  *
- * HARD INVARIANT: the loop NEVER merges to main. This model enforces it structurally
- * at the persistence boundary: every save forces `merged_to_main = false` and the
- * status to `certified_for_review`, so no code path — buggy or otherwise — can ever
- * record a loop-merged change. Merging is exclusively the operator's action, OUTSIDE
- * the loop. This is the structural guard, not a discouragement.
+ * HARD INVARIANT: ordinary loop persistence NEVER marks a proposal merged. Merge-livre
+ * v2 has one governed exception: AtlasLoopAutoMergeService may set `merged_to_main=true`
+ * only inside its re-proofed guarded scope. Every other save forces `merged_to_main=false`
+ * and status `certified_for_review`, so stray writers cannot fake a merge.
  */
 class AtlasLoopProposal extends Model
 {

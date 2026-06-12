@@ -68,6 +68,7 @@ return new class extends Migration
             $$ LANGUAGE plpgsql;
         SQL);
 
-        DB::statement("ALTER TABLE atlas_loop_proposals ADD CONSTRAINT chk_atlas_loop_proposals_never_merged CHECK (merged_to_main = false) NOT VALID");
+        DB::statement('ALTER TABLE atlas_loop_proposals DROP CONSTRAINT IF EXISTS chk_atlas_loop_proposals_never_merged');
+        DB::statement('ALTER TABLE atlas_loop_proposals ADD CONSTRAINT chk_atlas_loop_proposals_never_merged CHECK (merged_to_main = false) NOT VALID');
     }
 };

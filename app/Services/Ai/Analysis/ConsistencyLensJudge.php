@@ -143,6 +143,10 @@ final class ConsistencyLensJudge implements AnalysisJudgePort
         }
 
         $refs = $conclusion['claim_refs'] ?? [];
+        if (is_scalar($refs)) {
+            $refs = [$refs];
+        }
+
         if (! is_array($refs) || $refs === []) {
             return [];
         }

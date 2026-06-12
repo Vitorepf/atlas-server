@@ -149,6 +149,14 @@ Schedule::command('atlas:loop:backlog-feed --json')
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas.loop.backlog_auto_feed.enabled', true));
 
+// L4-6 · Painel 24h no digest matinal: um comando responde "o que Atlas fez
+// sozinho ontem?" com funil, merges+impacto, canários, custo, keepalive e fila
+// parked-for-review. Read-only; não manda e-mail nem chama provider.
+Schedule::command('atlas:loop:morning-digest --json')
+    ->dailyAt((string) config('atlas.loop.morning_digest.schedule_time', '05:35'))
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.loop.morning_digest.enabled', true));
+
 // 24h-autonomia · Keepalive do supervisor do Loop: campanha running com heartbeat velho
 // E sem processo vivo é relançada detached (resume pelo campaign-id; nada se perde).
 // Motivado por evidência real: o soak morreu silenciosamente em 12/06 com budget sobrando.
