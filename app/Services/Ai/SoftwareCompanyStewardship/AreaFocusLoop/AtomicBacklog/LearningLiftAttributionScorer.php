@@ -123,13 +123,13 @@ final class LearningLiftAttributionScorer
 
         $denominator = abs($baselineValue);
 
-        if ($denominator === 0.0) {
-            return 0.0;
-        }
-
         $rawChange = $lowerIsBetter
             ? ($baselineValue - $afterValue)
             : ($afterValue - $baselineValue);
+
+        if ($denominator === 0.0) {
+            return $rawChange === 0.0 ? 0.0 : ($rawChange > 0.0 ? 1.0 : -1.0);
+        }
 
         $relative = $rawChange / $denominator;
 
