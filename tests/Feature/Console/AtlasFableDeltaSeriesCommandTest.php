@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Console;
 
+use App\Models\AtlasLoopCampaign;
+use App\Models\AtlasLoopProposal;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Tests\TestCase;
 
@@ -38,6 +41,7 @@ final class AtlasFableDeltaSeriesCommandTest extends TestCase
                 'learning_capture_quality_7d' => ['gate_mode' => 'observe'],
             ],
         ]));
+        $this->ensureLoopTables();
     }
 
     protected function tearDown(): void
@@ -58,6 +62,8 @@ final class AtlasFableDeltaSeriesCommandTest extends TestCase
         $this->assertSame('2026-06-12', $rows[0]['date']);
         $this->assertArrayHasKey('metrics', $rows[0]);
         $this->assertArrayHasKey('scorecard_overall', $rows[0]['metrics']);
+        $this->assertArrayHasKey('loop_impact_receipt_coverage_pct', $rows[0]['metrics']);
+        $this->assertArrayHasKey('impact_receipts', $rows[0]);
         $this->assertArrayHasKey('sources', $rows[0], 'cada snapshot declara a fonte viva');
     }
 
@@ -106,6 +112,7 @@ final class AtlasFableDeltaSeriesCommandTest extends TestCase
         $this->assertArrayHasKey('delta', $m);
         $this->assertArrayHasKey('direction', $m);
         $this->assertEqualsWithDelta($m['latest'] - $m['first'], $m['delta'], 0.001, 'delta = latest - first, resolvido da série');
+        $this->assertArrayHasKey('loop_impact_receipt_coverage_pct', $trend['metrics']);
     }
 
     public function test_missing_baseline_is_honest_blocked_exit_zero(): void
@@ -127,6 +134,8 @@ final class AtlasFableDeltaSeriesCommandTest extends TestCase
 
     private function snap(string $date): int
     {
+        $this->seedMergedImpactReceipt();
+
         return Artisan::call('atlas:fable:delta-series', [
             '--baseline' => $this->baseline,
             '--series' => $this->series,
@@ -150,5 +159,67 @@ final class AtlasFableDeltaSeriesCommandTest extends TestCase
         }
 
         return $rows;
+    }
+
+    private function ensureLoopTables(): void
+    {
+        if (! Schema::hasTable('atlas_loop_campaigns')) {
+            foreach ([
+                '2026_06_02_000100_create_atlas_loop_runtime_tables.php',
+                '2026_06_02_000200_complete_atlas_loop_runtime_schema.php',
+            ] as $file) {
+                (require base_path('database/migrations/'.$file))->up();
+            }
+        }
+
+        if (! Schema::hasColumn('atlas_loop_proposals', 'quality')) {
+            (require base_path('database/migrations/2026_06_11_000100_add_quality_columns_to_atlas_loop_tables.php'))->up();
+        }
+    }
+
+    private function seedMergedImpactReceipt(): void
+    {
+        $campaign = AtlasLoopCampaign::create([
+            'schema_version' => 'atlas.loop.campaign.v1',
+            'status' => AtlasLoopCampaign::STATUS_RUNNING,
+            'goal' => 'fable series impact receipt proof',
+            'config' => [],
+            'max_seconds' => 60,
+        ]);
+
+        AtlasLoopProposal::$governedMergeInProgress = true;
+        try {
+            AtlasLoopProposal::create([
+                'campaign_id' => $campaign->id,
+                'schema_version' => 'atlas.loop.proposal.v1',
+                'status' => AtlasLoopProposal::STATUS_CERTIFIED,
+                'objective' => 'fix edge case for Fable series',
+                'target_path' => 'app/Services/FableSeriesProof.php',
+                'diff_text' => "diff --git a/app/Services/FableSeriesProof.php b/app/Services/FableSeriesProof.php\n+return true;\n",
+                'proposal_hash' => 'fable-series-impact-'.bin2hex(random_bytes(4)),
+                'quality' => [
+                    '_impact_receipt' => [
+                        'schema_version' => 'atlas.loop.impact_receipt.v1',
+                        'category' => 'edge_case',
+                        'target_kind' => 'real',
+                        'real_vs_generated' => 'real',
+                        'target_path' => 'app/Services/FableSeriesProof.php',
+                        'size' => [
+                            'files_changed' => 1,
+                            'php_files_changed' => 1,
+                            'added_lines' => 1,
+                            'deleted_lines' => 0,
+                            'touched_lines' => 1,
+                            'bucket' => 'small',
+                        ],
+                        'impact_score' => 0.8,
+                    ],
+                ],
+                'merged_to_main' => true,
+                'reviewed_at' => now(),
+            ]);
+        } finally {
+            AtlasLoopProposal::$governedMergeInProgress = false;
+        }
     }
 }

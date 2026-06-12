@@ -121,7 +121,7 @@ final class L8FrameMeasuredOrRevertedDecisionService
      */
     private function regressionCount(array $result): int
     {
-        if (array_key_exists('regression_count', $result)) {
+        if (array_key_exists('regression_count', $result) && $result['regression_count'] !== null) {
             return max(0, AreaFocusScalarNormalizer::payloadInt($result, 'regression_count', 0));
         }
 

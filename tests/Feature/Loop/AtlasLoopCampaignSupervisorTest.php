@@ -185,6 +185,48 @@ final class AtlasLoopCampaignSupervisorTest extends TestCase
         $this->assertFalse($result['merged_to_main']);
     }
 
+    public function test_code_drift_exits_restartably_and_keeps_campaign_running_for_keepalive(): void
+    {
+        config(['atlas.loop.campaign.restart_on_code_drift' => true]);
+        $campaign = $this->seedCampaign();
+        $this->seedTask($campaign->id, 'Alpha');
+        $this->seedTask($campaign->id, 'Bravo');
+
+        $headA = str_repeat('a', 40);
+        $headB = str_repeat('b', 40);
+        $calls = 0;
+        $supervisor = $this->supervisor();
+        $supervisor->setGitHeadResolverForTesting(function () use (&$calls, $headA, $headB): string {
+            $calls++;
+
+            return $calls < 3 ? $headA : $headB;
+        });
+        // L4-5 refinado: o drift só reinicia quando o merge tocou o MOTOR do loop. Aqui o
+        // HEAD novo trouxe uma mudança no pipeline (o grinder), então deve reciclar.
+        $supervisor->setChangedFilesResolverForTesting(static fn (): array => [
+            'app/Services/Ai/AutonomousEvolution/AtlasLoopTaskGrinder.php',
+        ]);
+
+        $result = $supervisor->run(['campaign_id' => $campaign->id, 'scenarios' => 1]);
+
+        $this->assertSame('code_drift_restart', $result['stop_reason']);
+        $this->assertTrue($result['restartable']);
+        $this->assertSame(1, $result['cycles']);
+        $this->assertFalse($result['merged_to_main']);
+        $this->assertFileDoesNotExist($this->storageRoot.'/'.$campaign->id.'/lock.json');
+
+        $campaign->refresh();
+        $this->assertSame(AtlasLoopCampaign::STATUS_RUNNING, $campaign->status);
+        $this->assertSame('code_drift_restart', $campaign->stop_reason);
+        $this->assertNull($campaign->completed_at);
+        $this->assertCount(1, AtlasLoopProposal::query()->where('campaign_id', $campaign->id)->get());
+        $this->assertSame(1, AtlasLoopTask::query()->where('campaign_id', $campaign->id)->where('status', AtlasLoopTask::STATUS_PENDING)->count());
+
+        $ledger = $supervisor->readLedger($campaign->id, 20);
+        $this->assertNotEmpty(array_filter($ledger, static fn (array $e): bool => ($e['event'] ?? null) === 'boot_git_head' && ($e['head'] ?? null) === $headA));
+        $this->assertNotEmpty(array_filter($ledger, static fn (array $e): bool => ($e['event'] ?? null) === 'code_drift_restart' && ($e['boot_head'] ?? null) === $headA && ($e['current_head'] ?? null) === $headB));
+    }
+
     /**
      * The historical 8h crash: reclaimExpiredTasks threw SQLSTATE[08006] (Connection refused)
      * mid-loop and the supervisor died. With the fault confined to the first two reclaim calls,

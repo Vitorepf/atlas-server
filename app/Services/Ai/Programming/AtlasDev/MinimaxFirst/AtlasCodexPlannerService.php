@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\MinimaxFirst;
 
+use App\Models\AiJob;
+use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
-use Symfony\Component\Process\Exception\ProcessTimedOutException;
-use Symfony\Component\Process\Process;
 
 /**
- * Calls the local Codex CLI (gpt-5.5) to produce a structured, ultra-precise
+ * Calls the sanctioned Codex provider spine to produce a structured, ultra-precise
  * implementation plan before MiniMax is invoked.
  *
  * Codex reads the complexity of the spec and distils it into a ~200-token
@@ -23,22 +23,20 @@ final class AtlasCodexPlannerService
     /** Planning prompt must stay under this limit (characters). */
     public const MAX_PROMPT_CHARS = 2_000;
 
-    /** @var callable|null Test seam: override Process creation. */
-    private $processFactory;
-
-    public function setProcessFactoryForTesting(callable $factory): void
-    {
-        $this->processFactory = $factory;
-    }
+    public function __construct(private ?AiProviderManager $providers = null) {}
 
     /**
      * @return array{available: bool, blocker: string|null}
      */
     public function configured(): array
     {
-        $binary = $this->resolveBinary();
-        if ($binary === null) {
-            return ['available' => false, 'blocker' => 'codex_binary_not_found'];
+        try {
+            $health = $this->provider()->health();
+            if (! in_array($health->status, ['online', 'healthy', 'ready'], true)) {
+                return ['available' => false, 'blocker' => 'codex_provider_'.$health->status];
+            }
+        } catch (\Throwable) {
+            return ['available' => false, 'blocker' => 'codex_provider_unavailable'];
         }
 
         return ['available' => true, 'blocker' => null];
@@ -52,34 +50,16 @@ final class AtlasCodexPlannerService
      */
     public function plan(array $finding, array $allowedFiles, array $validationCommands, string $repoRoot): ?array
     {
-        $binary = $this->resolveBinary();
-        if ($binary === null) {
-            return null;
-        }
-
         $prompt = $this->buildPlanningPrompt($finding, $allowedFiles, $validationCommands);
-        $env    = $this->buildEnv();
+        $job = $this->planningJob($repoRoot);
 
         try {
-            $process = $this->makeProcess([
-                $binary,
-                'exec',
-                '--sandbox',
-                'read-only',
-                '--ephemeral',
-                '--cd',
-                $repoRoot,
-                $prompt,
-            ], $repoRoot, $env, self::TIMEOUT_SECONDS);
-            $process->run();
-
-            if (! $process->isSuccessful()) {
+            $result = $this->provider()->run($job, $prompt);
+            if (! $result->ok) {
                 return null;
             }
 
-            return $this->parseOutput($process->getOutput());
-        } catch (ProcessTimedOutException) {
-            return null;
+            return $this->parseOutput($result->output !== '' ? $result->output : $result->stdout);
         } catch (\Throwable) {
             return null;
         }
@@ -192,21 +172,47 @@ final class AtlasCodexPlannerService
         return 'focused validation command not declared';
     }
 
-    /** @return array<string,string> */
-    private function buildEnv(): array
+    private function providerManager(): AiProviderManager
     {
-        $env  = ['PATH' => (string) (getenv('PATH') ?: '/usr/local/bin:/usr/bin:/bin')];
-        $oai  = getenv('OPENAI_API_KEY');
-        $codex = getenv('CODEX_API_KEY');
-
-        if (is_string($oai) && $oai !== '') {
-            $env['OPENAI_API_KEY'] = $oai;
-        }
-        if (is_string($codex) && $codex !== '') {
-            $env['CODEX_API_KEY'] = $codex;
+        if ($this->providers instanceof AiProviderManager) {
+            return $this->providers;
         }
 
-        return $env;
+        return $this->providers = app(AiProviderManager::class);
+    }
+
+    private function provider(): \App\Services\Ai\AiProvider
+    {
+        return $this->providerManager()->get('codex_cli');
+    }
+
+    private function planningJob(string $repoRoot): AiJob
+    {
+        return new AiJob([
+            'kind' => 'atlas_dev_codex_planner',
+            'provider' => 'codex_cli',
+            'status' => 'processing',
+            'timeout_seconds' => self::TIMEOUT_SECONDS,
+            'payload' => [
+                'workspace' => $repoRoot,
+                'tool_permissions' => [
+                    'mode' => 'read',
+                    'workspace' => $repoRoot,
+                    'codex_sandbox' => 'read-only',
+                ],
+                'model_identity_source' => 'provider_default_identity',
+                's50_spine_contract' => [
+                    'schema_version' => 'atlas.codex_planner_spine.v1',
+                    'provider' => 'codex_cli',
+                    'invocation' => 'AiProviderManager::get(codex_cli)->run',
+                    'planner_mode' => 'read_only_json_plan',
+                ],
+            ],
+            'metadata' => [
+                'component' => 'AtlasCodexPlannerService',
+                's50_spine_migration' => true,
+            ],
+        ]);
     }
 
     private function parseOutput(string $stdout): ?array
@@ -221,28 +227,4 @@ final class AtlasCodexPlannerService
         return null;
     }
 
-    private function resolveBinary(): ?string
-    {
-        foreach (['codex'] as $bin) {
-            $path = trim((string) shell_exec("which {$bin} 2>/dev/null"));
-            if ($path !== '') {
-                return $path;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * @param  list<string>          $cmd
-     * @param  array<string,string>  $env
-     */
-    private function makeProcess(array $cmd, string $cwd, array $env, int $timeout): Process
-    {
-        if ($this->processFactory !== null) {
-            return ($this->processFactory)($cmd, $cwd, $env, $timeout);
-        }
-
-        return new Process($cmd, $cwd, $env, null, (float) $timeout);
-    }
 }

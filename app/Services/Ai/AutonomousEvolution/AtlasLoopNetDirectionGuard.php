@@ -16,9 +16,11 @@ use Throwable;
  * decisão do sistema).
  *
  * Medição: a taxa de falha do canário sobre a janela dos últimos merges (o resultado do
- * canário persiste em quality._canary no merge). Throttle quando, com amostra mínima,
- * a maioria dos canários executados falhou — sinal de que fix-forward está perdendo a
- * corrida. Puro leitor; fail-open (sem dados/tabela => sem throttle, merges livres).
+ * canário persiste em quality._canary no merge). L4-3 acrescenta o saldo de impacto
+ * (quality._impact_receipt) como sinal consultivo: o guard passa a enxergar se o composto
+ * está indo para alvo real ou farmando baixo valor, sem mudar o throttle já provado.
+ * Throttle quando, com amostra mínima, a maioria dos canários executados falhou — sinal
+ * de que fix-forward está perdendo a corrida. Puro leitor; fail-open.
  */
 final class AtlasLoopNetDirectionGuard
 {
@@ -32,7 +34,7 @@ final class AtlasLoopNetDirectionGuard
     private const FAIL_RATE_THRESHOLD = 0.5;
 
     /**
-     * @return array{schema_version:string, throttled:bool, reason:?string, window:int, canaries_ran:int, canaries_failed:int, fail_rate:?float}
+     * @return array<string,mixed>
      */
     public function verdict(): array
     {
@@ -44,11 +46,29 @@ final class AtlasLoopNetDirectionGuard
             'canaries_ran' => 0,
             'canaries_failed' => 0,
             'fail_rate' => null,
+            'impact_receipts' => [
+                'observed' => 0,
+                'coverage_pct' => 0.0,
+                'avg_impact_score' => 0.0,
+                'generated_target_pct' => 0.0,
+                'by_category' => [],
+                'by_target_kind' => [],
+            ],
         ];
 
         if (! DatabaseTableAvailability::has('atlas_loop_proposals')) {
             return $base; // fail-open: sem dados, merges livres
         }
+
+        $impact = app(AtlasLoopImpactReceiptService::class)->aggregate(self::WINDOW);
+        $base['impact_receipts'] = [
+            'observed' => (int) ($impact['receipted_merges'] ?? 0),
+            'coverage_pct' => (float) ($impact['coverage_pct'] ?? 0.0),
+            'avg_impact_score' => (float) ($impact['avg_impact_score'] ?? 0.0),
+            'generated_target_pct' => (float) ($impact['generated_target_pct'] ?? 0.0),
+            'by_category' => is_array($impact['by_category'] ?? null) ? $impact['by_category'] : [],
+            'by_target_kind' => is_array($impact['by_target_kind'] ?? null) ? $impact['by_target_kind'] : [],
+        ];
 
         try {
             $recent = AtlasLoopProposal::query()

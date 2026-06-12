@@ -7,8 +7,11 @@ namespace Tests\Feature\Loop;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBacklogIntentSource;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopTargetDiscoveryService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopTargetRepository;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+use Tests\Concerns\CreatesAtlasEngineeringCodeTables;
 use Tests\TestCase;
 
 /**
@@ -22,6 +25,8 @@ use Tests\TestCase;
  */
 final class AtlasLoopBacklogIntentTest extends TestCase
 {
+    use CreatesAtlasEngineeringCodeTables;
+
     /** @var list<string> */
     private array $dirs = [];
 
@@ -44,6 +49,7 @@ final class AtlasLoopBacklogIntentTest extends TestCase
             File::deleteDirectory($d);
         }
         @File::delete(storage_path('app/atlas/loop/backlog-intents.json'));
+        $this->dropAtlasEngineeringCodeTables();
         parent::tearDown();
     }
 
@@ -120,6 +126,43 @@ final class AtlasLoopBacklogIntentTest extends TestCase
         $this->assertStringContainsString('divisão por zero', (string) ($signals['backlog_objective'] ?? ''));
     }
 
+    public function test_impact_ranking_boosts_indexed_surface_and_cooldown_downranks_recent_targets(): void
+    {
+        $campaignId = 'camp-l41';
+        $highImpact = 'app/Services/HighImpact.php';
+        $recentFarmed = 'app/Services/RecentFarmed.php';
+        $repo = $this->repoWith($highImpact, $this->classFixture('HighImpact'));
+        File::put($repo.'/'.$recentFarmed, $this->classFixture('RecentFarmed'));
+        $this->createAtlasEngineeringCodeTables();
+        $this->seedCodeSymbols($highImpact, 9);
+        $this->seedCodeSymbols($recentFarmed, 1);
+        $this->seedRecentTargetActivity($campaignId, $recentFarmed);
+        config([
+            'atlas.loop.impact_ranking_enabled' => true,
+            'atlas.loop.target_cooldown_enabled' => true,
+            'atlas.loop.target_cooldown_hours' => 24,
+            'atlas.loop.discovery_backlog_intents' => false,
+        ]);
+
+        $discovery = new AtlasLoopTargetDiscoveryService(app(AtlasLoopTargetRepository::class));
+        $result = $discovery->discover($repo, $campaignId, ['roots' => ['app/Services'], 'limit' => 5]);
+
+        $this->assertSame($highImpact, $result['top'][0]['path'], 'impacto real supera o alvo recém-farmado');
+
+        $rows = DB::table('atlas_loop_targets')
+            ->where('campaign_id', $campaignId)
+            ->get()
+            ->keyBy('target_path');
+        $highSignals = (array) json_decode((string) $rows[$highImpact]->signals, true);
+        $recentSignals = (array) json_decode((string) $rows[$recentFarmed]->signals, true);
+
+        $this->assertSame(9, (int) ($highSignals['impact_code_symbols'] ?? 0), 'surface indexada entra no ranking');
+        $this->assertGreaterThan(0.0, (float) ($highSignals['impact_rank'] ?? 0), 'impact_rank é material');
+        $this->assertSame(1.0, (float) ($recentSignals['target_cooldown'] ?? 0), 'cooldown carimba o alvo recente');
+        $this->assertGreaterThanOrEqual(2, (int) ($recentSignals['target_cooldown_hits'] ?? 0), 'tasks+proposals recentes contam');
+        $this->assertLessThan((float) $rows[$highImpact]->score, (float) $rows[$recentFarmed]->score, 'cooldown derruba score final');
+    }
+
     public function test_flag_off_injects_nothing(): void
     {
         $repo = $this->repoWith('app/Services/Target.php', "<?php\nclass Target {}\n");
@@ -144,5 +187,79 @@ final class AtlasLoopBacklogIntentTest extends TestCase
             $this->assertArrayNotHasKey('backlog_reach', $signals, 'flag OFF não injeta sinal de backlog');
         }
         $this->assertTrue(true);
+    }
+
+    private function classFixture(string $class): string
+    {
+        $padding = implode("\n", array_map(static fn (int $i): string => '  // pad '.$i, range(1, 42)));
+
+        return <<<PHP
+        <?php
+        final class {$class}
+        {
+        {$padding}
+            public function handle(int \$value): int
+            {
+                return \$value + 1;
+            }
+        }
+        PHP;
+    }
+
+    private function seedCodeSymbols(string $path, int $count): void
+    {
+        for ($i = 0; $i < $count; $i++) {
+            DB::table('atlas_engineering_code_symbols')->insert([
+                'id' => (string) Str::uuid(),
+                'symbol_type' => 'method',
+                'symbol_name' => basename($path, '.php').'::m'.$i,
+                'file_path' => $path,
+                'status' => 'active',
+                'source_hash' => hash('sha256', $path.'|'.$i),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+    }
+
+    private function seedRecentTargetActivity(string $campaignId, string $path): void
+    {
+        DB::table('atlas_loop_tasks')->insert([
+            'id' => (string) Str::uuid(),
+            'campaign_id' => $campaignId,
+            'schema_version' => 'atlas.loop.task.v1',
+            'status' => 'done',
+            'source' => 'discovery',
+            'self_contained' => true,
+            'target_path' => $path,
+            'objective' => 'recent task on same target',
+            'payload' => json_encode([]),
+            'priority' => 0,
+            'attempts' => 0,
+            'max_attempts' => 1,
+            'dedupe_key' => hash('sha256', $campaignId.'|task|'.$path),
+            'created_at' => now()->subHours(2),
+            'updated_at' => now()->subHours(2),
+        ]);
+        DB::table('atlas_loop_proposals')->insert([
+            'id' => (string) Str::uuid(),
+            'campaign_id' => $campaignId,
+            'task_id' => null,
+            'schema_version' => 'atlas.loop.proposal.v1',
+            'status' => 'certified_for_review',
+            'objective' => 'recent proposal on same target',
+            'provider' => 'test',
+            'target_path' => $path,
+            'diff_text' => "--- a/{$path}\n+++ b/{$path}\n",
+            'proposal_hash' => hash('sha256', $campaignId.'|proposal|'.$path),
+            'metric' => json_encode([]),
+            'acceptance_hash' => null,
+            'scenarios_explored' => 1,
+            'scenarios_accepted' => 1,
+            'winning_scenario' => 'test',
+            'merged_to_main' => false,
+            'created_at' => now()->subHour(),
+            'updated_at' => now()->subHour(),
+        ]);
     }
 }

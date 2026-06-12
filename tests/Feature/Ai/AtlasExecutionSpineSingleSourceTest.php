@@ -31,9 +31,7 @@ use PHPUnit\Framework\TestCase;
  * ACTUALLY is. Files that resolve+spawn for legitimate non-inference reasons
  * (capability probes, `--version` readiness checks, Hermes' own kanban/mesh tool
  * surfaces) are listed and labelled as such — they are not pretended-absent. The
- * one genuine inference fragmenter still on the books carries a `// TODO(S50)`
- * with the reason it has not yet been migrated onto the spine. The invariant's
- * value is "no NEW ones"; migrating one shrinks the list by one.
+ * invariant's value is "no NEW ones"; migrating one shrinks the list by one.
  *
  * Modeled on the kernel runtime-boundary scanner allow-list pattern and the
  * existing single-source contract {@see
@@ -72,16 +70,6 @@ final class AtlasExecutionSpineSingleSourceTest extends TestCase
         // `hermes mesh dispatch` — Hermes' OWN internal multi-agent swarm, a
         // distinct product surface (not Atlas routing a model through the manager).
         'app/Services/Ai/Hermes/Mesh/HermesMeshProcessWorkerFactory.php' => 'tool: hermes mesh swarm',
-
-        // --- KNOWN FRAGMENTED INFERENCE CALLER (documented, not hidden). ---
-        // TODO(S50): AtlasCodexPlannerService spawns `codex exec --sandbox
-        // read-only --ephemeral` DIRECTLY to pre-plan before MiniMax, bypassing
-        // AiProviderManager. Self-contained planning helper, no code-graph
-        // consumers, bespoke flag set. Should be migrated onto the spine
-        // (CodexCliProvider via the manager) but only with behaviour-equivalence
-        // proof. Listed so the RATCHET holds (no NEW fragmentation) while this
-        // remains visible as debt.
-        'app/Services/Ai/Programming/AtlasDev/MinimaxFirst/AtlasCodexPlannerService.php' => 'TODO(S50): direct codex-exec planner — migrate onto spine',
     ];
 
     /**

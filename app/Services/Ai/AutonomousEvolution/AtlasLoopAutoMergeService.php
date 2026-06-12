@@ -41,6 +41,7 @@ final class AtlasLoopAutoMergeService
         private readonly AtlasLoopProposalPromotionGate $gate,
         private readonly AtlasLoopProposalMaterializer $materializer,
         private readonly \App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore $store,
+        private readonly AtlasLoopImpactReceiptService $impactReceipts,
     ) {}
 
     /**
@@ -83,9 +84,61 @@ final class AtlasLoopAutoMergeService
     }
 
     /**
+     * Merge a proposal that was explicitly reviewed by the operator after the normal
+     * auto-merge guard parked it. This is the only path that can override the
+     * forbidden-self-target park, and it still runs the full re-proof/apply/lint/canary
+     * pipeline.
+     *
+     * @param  array{operator_id?:string,approved?:bool,reason?:string}  $approval
      * @return array<string,mixed>
      */
-    private function mergeOne(AtlasLoopProposal $proposal, string $repoRoot): array
+    public function mergeOperatorApproved(AtlasLoopProposal $proposal, string $repoRoot, array $approval): array
+    {
+        $operator = trim((string) ($approval['operator_id'] ?? ''));
+        if ($operator === '' || ($approval['approved'] ?? false) !== true) {
+            return [
+                'schema_version' => self::SCHEMA_VERSION,
+                'status' => 'denied',
+                'reason' => 'operator_approval_required',
+                'result' => null,
+            ];
+        }
+        $repoRoot = rtrim($repoRoot, '/');
+        if (! is_dir($repoRoot.'/.git')) {
+            return [
+                'schema_version' => self::SCHEMA_VERSION,
+                'status' => 'blocked',
+                'reason' => 'repo_root_not_a_git_tree',
+                'result' => null,
+            ];
+        }
+
+        $result = $this->mergeOne(
+            $proposal,
+            $repoRoot,
+            true,
+            $operator,
+            trim((string) ($approval['reason'] ?? 'operator approved parked proposal')),
+        );
+
+        return [
+            'schema_version' => self::SCHEMA_VERSION,
+            'status' => ($result['merged'] ?? false) === true ? 'merged' : 'blocked',
+            'reason' => $result['reason'] ?? null,
+            'result' => $result,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function mergeOne(
+        AtlasLoopProposal $proposal,
+        string $repoRoot,
+        bool $operatorApproved = false,
+        ?string $operatorId = null,
+        ?string $operatorReason = null,
+    ): array
     {
         $base = [
             'proposal_id' => (string) $proposal->getKey(),
@@ -101,8 +154,8 @@ final class AtlasLoopAutoMergeService
             // descoberta pode ser contornado por propostas já certificadas (achado 12/06:
             // o soak certificou edição no PRÓPRIO painel-juiz). Alvo de segurança JAMAIS
             // auto-mergeia — parqueia para revisão do operador (reviewed_at), nunca silencioso.
-            if (app(AtlasLoopHarnessGuard::class)->isForbiddenSelfTarget((string) $proposal->target_path)) {
-                $proposal->forceFill(['reviewed_at' => now()])->save();
+            if (app(AtlasLoopHarnessGuard::class)->isForbiddenSelfTarget((string) $proposal->target_path) && ! $operatorApproved) {
+                $this->markOperatorReview($proposal, 'parked_for_operator_review', 'forbidden_self_target', 'auto_merge');
 
                 return array_merge($base, ['reason' => 'forbidden_self_target (parked_for_operator_review)']);
             }
@@ -153,6 +206,21 @@ final class AtlasLoopAutoMergeService
                 }
             }
 
+            // 3b. INDEPENDÊNCIA (crítico p/ 24h+ sem intervenção): `php -l` só pega SINTAXE.
+            // Um merge com erro de LÓGICA que quebra o BOOT do app (um provider/singleton que
+            // lança ao bootar) passaria — e quando o supervisor reiniciasse por drift,
+            // carregaria o código quebrado e entraria em CRASH-LOOP, derrubando o loop inteiro.
+            // Estende o piso "sintaxe quebrada nunca entra" para "BOOT quebrado nunca entra":
+            // boota o app com a mudança aplicada na working tree; se falhar, DESFAZ o apply e
+            // rejeita (NÃO é revert — nada foi commitado ainda, igual ao php -l). Gated.
+            if ((bool) config('atlas.ai.loop.boot_smoke_guard', true) && ! $this->bootSmokeOk($repoRoot)) {
+                foreach ($changed as $file) {
+                    $this->git($repoRoot, ['checkout', '--', $file]);
+                }
+
+                return array_merge($base, ['reason' => 'boot_smoke_failed (rejeitado pré-commit, boot do app quebraria)']);
+            }
+
             // 4. Snapshot pré-merge (L2-5): âncora git endereçável do estado ANTES do
             // merge — fix-forward sempre barato (restaurar = checkout da tag). O commit
             // do merge referencia a âncora no receipt.
@@ -167,18 +235,35 @@ final class AtlasLoopAutoMergeService
             }
             $commit = $this->headSha($repoRoot);
 
-            $this->governedSave(function () use ($proposal): void {
-                $proposal->forceFill(['merged_to_main' => true, 'reviewed_at' => now()])->save();
+            $this->governedSave(function () use ($proposal, $operatorApproved, $operatorId, $operatorReason): void {
+                $quality = is_array($proposal->quality) ? $proposal->quality : [];
+                if ($operatorApproved) {
+                    $quality['_operator_review'] = [
+                        'schema_version' => 'atlas.loop.operator_review.v1',
+                        'status' => 'merged',
+                        'reason' => $operatorReason,
+                        'operator_id' => $operatorId,
+                        'reviewed_at' => now()->toIso8601String(),
+                        'decision' => 'approve_and_merge',
+                    ];
+                }
+                $proposal->forceFill(['merged_to_main' => true, 'reviewed_at' => now(), 'quality' => $quality])->save();
             });
 
             // 6. Canário best-effort (fix-forward-first: falha registra, não reverte).
             $canary = $this->canary($repoRoot, $changed);
+            $impactReceipt = (bool) config('atlas.ai.loop.impact_receipts_enabled', true)
+                ? $this->impactReceipts->build($proposal, $changed, $commit, $canary)
+                : null;
 
-            // L2-6: o resultado do canário persiste na proposta — é o dado que alimenta
-            // o guard de saldo líquido (taxa de quebra medida, não narrativa).
-            $this->governedSave(function () use ($proposal, $canary): void {
+            // L2-6/L4-3: canário mede quebra; impact receipt mede valor. Ambos persistem
+            // no mesmo registro de qualidade para alimentar guard + digest sem narrativa.
+            $this->governedSave(function () use ($proposal, $canary, $impactReceipt): void {
                 $quality = is_array($proposal->quality) ? $proposal->quality : [];
                 $quality['_canary'] = $canary;
+                if (is_array($impactReceipt)) {
+                    $quality['_impact_receipt'] = $impactReceipt;
+                }
                 $proposal->forceFill(['quality' => $quality])->save();
             });
 
@@ -191,17 +276,39 @@ final class AtlasLoopAutoMergeService
                 $fixForward = $this->enqueueFixForward($proposal, $canary, $snapTag);
             }
 
-            $this->receipt($proposal, $commit, $canary, $snapTag);
+            $this->receipt($proposal, $commit, $canary, $snapTag, $impactReceipt);
 
             // L3-7: cada merge REAL vira learning recallável (accrual de compounding). O
             // contrato no-noise é respeitado por construção — só dispara num merge concreto,
             // com claim SUBSTANTIVO (arquivo, commit, veredito do canário), nunca boilerplate.
             $this->accrueCompounding($proposal, $commit, $canary);
 
-            return array_merge($base, ['merged' => true, 'commit' => $commit, 'canary' => $canary, 'snapshot_tag' => $snapTag, 'fix_forward_task' => $fixForward]);
+            return array_merge($base, [
+                'merged' => true,
+                'commit' => $commit,
+                'canary' => $canary,
+                'impact_receipt' => $impactReceipt,
+                'snapshot_tag' => $snapTag,
+                'fix_forward_task' => $fixForward,
+                'operator_approved' => $operatorApproved,
+            ]);
         } catch (Throwable $e) {
             return array_merge($base, ['reason' => 'error:'.mb_substr($e->getMessage(), 0, 160)]);
         }
+    }
+
+    private function markOperatorReview(AtlasLoopProposal $proposal, string $status, string $reason, string $operatorId): void
+    {
+        $quality = is_array($proposal->quality) ? $proposal->quality : [];
+        $quality['_operator_review'] = [
+            'schema_version' => 'atlas.loop.operator_review.v1',
+            'status' => $status,
+            'reason' => $reason,
+            'operator_id' => $operatorId,
+            'reviewed_at' => now()->toIso8601String(),
+            'decision' => 'park',
+        ];
+        $proposal->forceFill(['reviewed_at' => now(), 'quality' => $quality])->save();
     }
 
     /**
@@ -358,6 +465,30 @@ final class AtlasLoopAutoMergeService
         return $p->isSuccessful();
     }
 
+    /**
+     * Boot-smoke: o app inteiro consegue BOOTAR com a mudança aplicada? Carrega o autoloader
+     * + bootstrap/app.php + bootstrap do kernel (que registra TODOS os providers). Se um
+     * provider/singleton resolvido no boot lançar por causa da mudança, falha aqui — e o
+     * merge é rejeitado ANTES de entrar em main (evita o crash-loop do supervisor). Bounded
+     * + degrade-safe: sem vendor/bootstrap (ex.: workspace incompleto) ⇒ true (não bloqueia
+     * por ambiente; o `php -l` já cobriu a sintaxe).
+     */
+    private function bootSmokeOk(string $repoRoot): bool
+    {
+        $repoRoot = rtrim($repoRoot, '/');
+        if (! is_file($repoRoot.'/vendor/autoload.php') || ! is_file($repoRoot.'/bootstrap/app.php')) {
+            return true;
+        }
+        $script = "require 'vendor/autoload.php';"
+            ."\$app = require 'bootstrap/app.php';"
+            ."\$app->make(Illuminate\\Contracts\\Console\\Kernel::class)->bootstrap();"
+            ."echo 'atlas-boot-ok';";
+        $p = new Process([PHP_BINARY, '-d', 'memory_limit=512M', '-r', $script], $repoRoot, null, null, 60.0);
+        $p->run();
+
+        return $p->isSuccessful() && str_contains($p->getOutput(), 'atlas-boot-ok');
+    }
+
     private function headSha(string $repoRoot): ?string
     {
         $p = new Process(['git', 'rev-parse', 'HEAD'], $repoRoot, null, null, 15.0);
@@ -380,7 +511,13 @@ final class AtlasLoopAutoMergeService
     /**
      * @param  array<string,mixed>  $canary
      */
-    private function receipt(AtlasLoopProposal $proposal, ?string $commit, array $canary, ?string $snapshotTag = null): void
+    private function receipt(
+        AtlasLoopProposal $proposal,
+        ?string $commit,
+        array $canary,
+        ?string $snapshotTag = null,
+        ?array $impactReceipt = null,
+    ): void
     {
         try {
             app(AtlasEvidenceLedger::class)->record(
@@ -392,6 +529,7 @@ final class AtlasLoopAutoMergeService
                     'target_path' => (string) $proposal->target_path,
                     'commit' => $commit,
                     'canary' => $canary,
+                    'impact_receipt' => $impactReceipt,
                     'snapshot_tag' => $snapshotTag,
                     'policy' => 'merge_livre_v2_operator_2026_06_12',
                 ],

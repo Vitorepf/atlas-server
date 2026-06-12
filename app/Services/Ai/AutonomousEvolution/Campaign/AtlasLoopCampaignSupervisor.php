@@ -37,9 +37,15 @@ use Throwable;
  */
 final class AtlasLoopCampaignSupervisor
 {
+    private const STOP_CODE_DRIFT_RESTART = 'code_drift_restart';
+
     private ?Closure $clock = null;
 
     private ?Closure $sleeper = null;
+
+    private ?Closure $gitHeadResolver = null;
+
+    private ?Closure $changedFilesResolver = null;
 
     private ?string $storageRoot = null;
 
@@ -62,6 +68,16 @@ final class AtlasLoopCampaignSupervisor
         $this->sleeper = $sleeper;
     }
 
+    public function setGitHeadResolverForTesting(Closure $resolver): void
+    {
+        $this->gitHeadResolver = $resolver;
+    }
+
+    public function setChangedFilesResolverForTesting(Closure $resolver): void
+    {
+        $this->changedFilesResolver = $resolver;
+    }
+
     public function setStorageRootForTesting(string $root): void
     {
         $this->storageRoot = rtrim($root, '/');
@@ -81,6 +97,9 @@ final class AtlasLoopCampaignSupervisor
         $watermark = max(1, (int) ($cfg['queue_low_watermark'] ?? 4));
         $refillBatch = max(1, (int) ($cfg['refill_batch'] ?? 6));
         $rateLimit = max(0, (int) ($input['sleep_seconds'] ?? ($cfg['sleep_seconds'] ?? 0)));
+        $baseWorkspace = (string) ($campaign->base_workspace ?: base_path());
+        $restartOnCodeDrift = (bool) ($cfg['restart_on_code_drift'] ?? true);
+        $bootHead = $restartOnCodeDrift ? $this->currentGitHead($baseWorkspace) : null;
 
         // Transient-DB resilience policy: absorb a brief Postgres blip during the 24h run
         // instead of dying. Inner bounded retry+reconnect heals sub-window blips in place;
@@ -101,6 +120,13 @@ final class AtlasLoopCampaignSupervisor
         }
         if (! $this->acquireLock($campaign->id, (int) ($cfg['lock_lease_seconds'] ?? 3600))) {
             return ['schema_version' => 'atlas.loop.campaign_run.v1', 'campaign_id' => $campaign->id, 'stop_reason' => 'lock_held', 'cycles' => 0, 'proposals_total' => (int) $campaign->proposals_count, 'merged_to_main' => false];
+        }
+        if ($bootHead !== null) {
+            $this->appendLedger($campaign->id, [
+                'event' => 'boot_git_head',
+                'head' => $bootHead,
+                'workspace' => $baseWorkspace,
+            ]);
         }
 
         $cycles = 0;
@@ -126,6 +152,31 @@ final class AtlasLoopCampaignSupervisor
                     if ($campaign->isOverBudget()) {
                         $stop = (string) $campaign->budgetStopReason();
                         break;
+                    }
+                    // L4-5: a long-lived supervisor must not keep evolving Atlas with stale
+                    // PIPELINE code. Mas o drain mergeia arquivos-ALVO em main toda cadência —
+                    // reiniciar a cada HEAD novo seria churn (5min de downtime por merge). Só
+                    // reinicia quando o merge tocou o PRÓPRIO motor do loop (o supervisor está
+                    // rodando código velho do que importa). Merges de alvo: absorve o HEAD novo
+                    // e segue, sem downtime.
+                    if ($restartOnCodeDrift && $bootHead !== null) {
+                        $head = $this->currentGitHead($baseWorkspace);
+                        if ($head !== null && ! hash_equals($bootHead, $head)) {
+                            $pipelineChanged = $this->changedPipelineFiles($bootHead, $head, $baseWorkspace);
+                            if ($pipelineChanged !== []) {
+                                $this->appendLedger($campaign->id, [
+                                    'event' => self::STOP_CODE_DRIFT_RESTART,
+                                    'boot_head' => $bootHead,
+                                    'current_head' => $head,
+                                    'pipeline_files' => array_slice($pipelineChanged, 0, 20),
+                                    'cycle' => $cycles + 1,
+                                ]);
+                                $stop = self::STOP_CODE_DRIFT_RESTART;
+                                break;
+                            }
+                            // Mudança não-pipeline (merge de alvo): absorve e segue sem reiniciar.
+                            $bootHead = $head;
+                        }
                     }
 
                     // Pause — freeze budget (do not accrue elapsed) and idle responsively.
@@ -293,6 +344,32 @@ final class AtlasLoopCampaignSupervisor
 
     private function finish(AtlasLoopCampaign $campaign, string $stop, int $cycles): array
     {
+        if ($stop === self::STOP_CODE_DRIFT_RESTART) {
+            try {
+                // A code-drift exit is intentionally restartable: keep the campaign running
+                // so the external keepalive resumes it under the fresh HEAD.
+                $this->guard(fn () => $campaign->forceFill([
+                    'status' => AtlasLoopCampaign::STATUS_RUNNING,
+                    'stop_reason' => $stop,
+                ])->save(), 'campaign_code_drift_restart');
+            } catch (Throwable) {
+                $this->appendLedger($campaign->id, ['event' => 'restart_unpersisted', 'stop_reason' => $stop]);
+            }
+
+            return [
+                'schema_version' => 'atlas.loop.campaign_run.v1',
+                'campaign_id' => $campaign->id,
+                'stop_reason' => $stop,
+                'cycles' => $cycles,
+                'tasks_processed' => (int) $campaign->tasks_processed,
+                'proposals_total' => (int) $campaign->proposals_count,
+                'scenarios_explored' => (int) $campaign->scenarios_explored,
+                'elapsed_seconds' => (int) $campaign->elapsed_seconds,
+                'restartable' => true,
+                'merged_to_main' => false,
+            ];
+        }
+
         $terminal = (str_starts_with($stop, 'crashed') || $stop === 'kill_switch' || $stop === 'db_unavailable')
             ? AtlasLoopCampaign::STATUS_ABORTED
             : AtlasLoopCampaign::STATUS_COMPLETED;
@@ -350,6 +427,93 @@ final class AtlasLoopCampaignSupervisor
     private function now(): int
     {
         return $this->clock !== null ? (int) ($this->clock)() : time();
+    }
+
+    /**
+     * Prefixos de path que compõem o MOTOR do loop — quando um merge toca qualquer um
+     * deles, o supervisor vivo está rodando código velho do que importa e precisa
+     * reciclar. Arquivos FORA destes prefixos (alvos comuns que o loop melhora) NÃO
+     * disparam restart: o supervisor não depende deles em memória.
+     *
+     * @var list<string>
+     */
+    private const PIPELINE_PREFIXES = [
+        'app/Services/Ai/AutonomousEvolution/',
+        'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AdversarialProofPanelService.php',
+        'app/Models/AtlasLoop',
+        'config/atlas.php',
+        'database/migrations/2026_06_02_000200_complete_atlas_loop_runtime_schema.php',
+        'database/migrations/2026_06_12_000100_governed_merge_door_atlas_loop_proposals.php',
+    ];
+
+    /**
+     * Os arquivos do MOTOR do loop alterados entre dois commits (bootHead..currentHead).
+     * Lista vazia = o merge tocou só arquivos-alvo → sem restart. Best-effort: erro de git
+     * ⇒ [] (degrada para "sem drift de pipeline", o keepalive ainda cobre morte real).
+     *
+     * @return list<string>
+     */
+    private function changedPipelineFiles(string $bootHead, string $currentHead, string $workspace): array
+    {
+        if ($workspace === '' || ! is_dir($workspace)) {
+            return [];
+        }
+        if ($this->changedFilesResolver !== null) {
+            $changed = ($this->changedFilesResolver)($bootHead, $currentHead, $workspace);
+        } else {
+            $lines = [];
+            $exitCode = 1;
+            @exec(
+                'git -C '.escapeshellarg($workspace).' diff --name-only '
+                .escapeshellarg($bootHead).' '.escapeshellarg($currentHead).' 2>/dev/null',
+                $lines,
+                $exitCode,
+            );
+            $changed = $exitCode === 0 ? $lines : [];
+        }
+
+        $pipeline = [];
+        foreach ($changed as $file) {
+            $file = trim((string) $file);
+            if ($file === '') {
+                continue;
+            }
+            foreach (self::PIPELINE_PREFIXES as $prefix) {
+                if (str_starts_with($file, $prefix)) {
+                    $pipeline[] = $file;
+                    break;
+                }
+            }
+        }
+
+        return array_values(array_unique($pipeline));
+    }
+
+    private function currentGitHead(string $workspace): ?string
+    {
+        if ($this->gitHeadResolver !== null) {
+            return $this->normalizeGitHead((string) ($this->gitHeadResolver)($workspace));
+        }
+
+        if ($workspace === '' || ! is_dir($workspace)) {
+            return null;
+        }
+
+        $lines = [];
+        $exitCode = 1;
+        @exec('git -C '.escapeshellarg($workspace).' rev-parse HEAD 2>/dev/null', $lines, $exitCode);
+        if ($exitCode !== 0) {
+            return null;
+        }
+
+        return $this->normalizeGitHead(implode("\n", $lines));
+    }
+
+    private function normalizeGitHead(string $head): ?string
+    {
+        $head = trim($head);
+
+        return preg_match('/\A[0-9a-f]{40}\z/i', $head) === 1 ? strtolower($head) : null;
     }
 
     private function responsiveSleep(string $campaignId, int $seconds): void

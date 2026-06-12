@@ -35,6 +35,7 @@ final class AtlasLoopAutoMergeServiceTest extends TestCase
             }
         }
         config(['atlas.ai.loop.auto_merge_to_main' => true]);
+        config(['atlas.ai.loop.impact_receipts_enabled' => true]);
     }
 
     protected function tearDown(): void
@@ -123,6 +124,18 @@ final class AtlasLoopAutoMergeServiceTest extends TestCase
         $this->assertStringContainsString('atlas loop auto-merge', $this->git($repo, ['log', '-1', '--pretty=%s']));
         // A proposta está marcada como mergeada (via escopo governado).
         $this->assertTrue((bool) $proposal->fresh()->merged_to_main);
+        $impact = $proposal->fresh()->quality['_impact_receipt'] ?? null;
+        $this->assertIsArray($impact, 'todo merge novo carrega impact receipt');
+        $this->assertSame('atlas.loop.impact_receipt.v1', $impact['schema_version']);
+        $this->assertSame('bug', $impact['category']);
+        $this->assertSame('real', $impact['target_kind']);
+        $this->assertSame('real', $impact['real_vs_generated']);
+        $this->assertSame(1, $impact['size']['files_changed']);
+        $this->assertSame(1, $impact['size']['added_lines']);
+        $this->assertSame(1, $impact['size']['deleted_lines']);
+        $this->assertGreaterThan(0.0, $impact['impact_score']);
+        $this->assertSame($result['results'][0]['commit'], $impact['commit']);
+        $this->assertSame($impact['category'], $result['results'][0]['impact_receipt']['category']);
 
         // L2-5: a âncora de snapshot pré-merge existe e aponta para o estado ANTES do
         // merge (fix-forward barato: restaurar = checkout da tag).
@@ -215,7 +228,25 @@ final class AtlasLoopAutoMergeServiceTest extends TestCase
                 $p->forceFill([
                     'merged_to_main' => true,
                     'reviewed_at' => now()->subMinutes(10 - $i),
-                    'quality' => ['_canary' => ['ran' => true, 'passed' => true, 'target' => 't']],
+                    'quality' => [
+                        '_canary' => ['ran' => true, 'passed' => true, 'target' => 't'],
+                        '_impact_receipt' => [
+                            'schema_version' => 'atlas.loop.impact_receipt.v1',
+                            'category' => 'bug',
+                            'target_kind' => 'real',
+                            'real_vs_generated' => 'real',
+                            'target_path' => 'snippet.php',
+                            'size' => [
+                                'files_changed' => 1,
+                                'php_files_changed' => 1,
+                                'added_lines' => 1,
+                                'deleted_lines' => 1,
+                                'touched_lines' => 2,
+                                'bucket' => 'small',
+                            ],
+                            'impact_score' => 0.8,
+                        ],
+                    ],
                 ])->save();
             }
         } finally {
@@ -224,5 +255,7 @@ final class AtlasLoopAutoMergeServiceTest extends TestCase
 
         $verdict = app(\App\Services\Ai\AutonomousEvolution\AtlasLoopNetDirectionGuard::class)->verdict();
         $this->assertFalse($verdict['throttled'], 'direção líquida positiva = merges livres');
+        $this->assertGreaterThanOrEqual(5, $verdict['impact_receipts']['observed']);
+        $this->assertGreaterThan(0.0, $verdict['impact_receipts']['avg_impact_score']);
     }
 }

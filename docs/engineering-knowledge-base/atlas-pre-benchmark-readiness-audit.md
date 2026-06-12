@@ -86,12 +86,16 @@ evidence:
   - app/Services/Ai/AiWorker.php
   - app/Services/Ai/Programming/BenchmarkReadiness/AtlasPreBenchmarkReadinessService.php
   - app/Console/Commands/AtlasProgrammingPreBenchmarkReadinessCommand.php
+  - app/Services/Ai/Programming/AtlasDevBeatTestReportService.php
+  - app/Console/Commands/AtlasDevBeatTestReportCommand.php
 evidence_refs:
   - symbol: ProgrammingRuntimeReadinessService
   - command: atlas:programming:pre-benchmark-readiness
+  - command: atlas:dev:beat-test
 required_tests:
   - "/opt/homebrew/bin/php artisan atlas:programming:pre-benchmark-readiness --json --strict"
   - "/opt/homebrew/bin/php artisan test tests/Feature/Ai/Programming/BenchmarkReadiness/AtlasPreBenchmarkReadinessServiceTest.php"
+  - "/opt/homebrew/bin/php artisan test tests/Feature/Ai/Programming/AtlasDevBeatTestReportTest.php"
   - "/opt/homebrew/bin/php artisan atlas:engineering:knowledge docs-health --json"
   - "/opt/homebrew/bin/php artisan atlas:ai:programming-runtime --action=readiness --json"
   - "/opt/homebrew/bin/php artisan atlas:ai:compounding readiness --json"
@@ -136,6 +140,26 @@ reporta `ready_to_replace_claude_code_codex: false` e
 `benchmark_status.not_run: true` e
 `claim_policy.allows_external_superiority_claim: false`. Nenhuma camada
 permite que essa decisao seja tomada por inadvertencia.
+
+## L4-9 Dev Beat-Test Honesto
+
+`php artisan atlas:dev:beat-test --evidence=<path> --json` e o intake
+honesto para a taxonomia do operador: bug, feature e refactor em tarefas
+medias. Ele **nao executa Atlas Dev**, **nao chama Claude Code/Cursor/Codex** e
+**nao gasta provider**. Ele pontua somente evidence ja coletada de runs reais de
+Atlas Dev contra criterios fixos:
+
+- tarefa media obrigatoria;
+- testes passam;
+- escopo passa;
+- tempo dentro do teto declarado.
+
+Sem evidence comparavel de rival, o status correto e
+`external_claim_blocked`: Atlas Dev pode ter passado as tres tarefas internas,
+mas nenhuma claim externa de superioridade e admitida. Quando um criterio falha
+ou a comparacao externa falta, o comando pode escrever gaps no manifesto do Loop
+via `--enqueue-backlog-gaps`, usando `source=dev_beat_test:l4_9`. Isso liga o
+relatorio ao auto-feed de backlog (L4-2) sem fabricar score.
 
 ## Papel no Atlas
 

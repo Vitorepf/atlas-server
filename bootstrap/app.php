@@ -84,6 +84,7 @@ use App\Console\Commands\AtlasDevDesktopEfficiencyEvidenceCommand;
 use App\Console\Commands\AtlasDevDesktopEnableCommand;
 use App\Console\Commands\AtlasDevDesktopGoalAuditCommand;
 use App\Console\Commands\AtlasDevDesktopRealSmokeCommand;
+use App\Console\Commands\AtlasDevBeatTestReportCommand;
 use App\Console\Commands\AtlasDevMinimaxWorkerRunCommand;
 use App\Console\Commands\AtlasDevSeniorLoopAuditCommand;
 use App\Console\Commands\AtlasDevSeniorLoopRunCommand;
@@ -333,6 +334,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasDevDesktopGoalAuditCommand::class,
         AtlasDevDesktopEnableCommand::class,
         AtlasDevDesktopRealSmokeCommand::class,
+        AtlasDevBeatTestReportCommand::class,
         AtlasDevMinimaxWorkerRunCommand::class,
         AtlasDevSeniorLoopAuditCommand::class,
         AtlasDevSeniorLoopRunCommand::class,

@@ -732,6 +732,15 @@ return [
             // L3-7: cada merge real vira learning recallável (accrual de compounding,
             // contrato no-noise — só dispara em merge concreto com claim substantivo).
             'compounding_accrual' => (bool) env('ATLAS_LOOP_COMPOUNDING_ACCRUAL', true),
+            // INDEPENDÊNCIA 24h+: boot-smoke pré-commit — um merge que quebra o BOOT do app
+            // (erro de lógica que passa no php -l) é rejeitado ANTES de entrar em main, senão
+            // o supervisor entraria em crash-loop ao reiniciar por drift. Default ON.
+            'boot_smoke_guard' => (bool) env('ATLAS_LOOP_BOOT_SMOKE_GUARD', true),
+            // L4-3: cada merge governado recebe um impact receipt determinístico
+            // (categoria, tamanho, alvo real-vs-generated, score) para o guard e os
+            // relatórios medirem valor, não só volume/quebra.
+            'impact_receipts_enabled' => (bool) env('ATLAS_LOOP_IMPACT_RECEIPTS_ENABLED', true),
+            'impact_receipts_report_limit' => (int) env('ATLAS_LOOP_IMPACT_RECEIPTS_REPORT_LIMIT', 500),
         ],
 
         // AP-819 AUTOPILOT — diretiva do operador 2026-06-11: evolução do harness
@@ -1511,6 +1520,46 @@ return [
         // Default OFF de fábrica; o operador liga via .env. Fail-open (fonte vazia ⇒ no-op).
         'discovery_backlog_intents' => (bool) env('ATLAS_LOOP_DISCOVERY_BACKLOG_INTENTS', false),
 
+        // L4-1: ranking anti-Goodhart. O score estrutural continua sendo a base, mas ganha
+        // boost limitado por impacto real: surface no code graph, evidência de falha e backlog.
+        'impact_ranking_enabled' => (bool) env('ATLAS_LOOP_IMPACT_RANKING_ENABLED', true),
+
+        // L4-1: cooldown por target recente. Tasks/proposals recentes do mesmo path caem no
+        // ranking para evitar farming do arquivo que acabou de render proposta.
+        'target_cooldown_enabled' => (bool) env('ATLAS_LOOP_TARGET_COOLDOWN_ENABLED', true),
+        'target_cooldown_hours' => max(1, (int) env('ATLAS_LOOP_TARGET_COOLDOWN_HOURS', 24)),
+
+        // L4-4: autópsia diária do Loop. Observa perdas/rejeições dominantes no ledger e
+        // abre intents de backlog dedupados quando um padrão cruza o limiar.
+        'loss_observer' => [
+            'enabled' => (bool) env('ATLAS_LOOP_LOSS_OBSERVER_ENABLED', true),
+            'schedule_time' => (string) env('ATLAS_LOOP_LOSS_OBSERVER_SCHEDULE_TIME', '05:20'),
+            'window_hours' => max(1, (int) env('ATLAS_LOOP_LOSS_OBSERVER_WINDOW_HOURS', 24)),
+            'min_occurrences' => max(2, (int) env('ATLAS_LOOP_LOSS_OBSERVER_MIN_OCCURRENCES', 3)),
+            'manifest_limit' => max(10, (int) env('ATLAS_LOOP_LOSS_OBSERVER_MANIFEST_LIMIT', 200)),
+        ],
+
+        // L4-2: auto-alimentador diário do manifesto de backlog. Destila sinais reais e
+        // endereçáveis (loss observer, corpus de falhas, residuais de campanha, scorecard
+        // ACOS fraco, achados de sweep) em intents dedupados para a discovery L3-2.
+        'backlog_auto_feed' => [
+            'enabled' => (bool) env('ATLAS_LOOP_BACKLOG_AUTO_FEED_ENABLED', true),
+            'schedule_time' => (string) env('ATLAS_LOOP_BACKLOG_AUTO_FEED_SCHEDULE_TIME', '05:25'),
+            'window_hours' => max(1, (int) env('ATLAS_LOOP_BACKLOG_AUTO_FEED_WINDOW_HOURS', 24)),
+            'min_signal_count' => max(2, (int) env('ATLAS_LOOP_BACKLOG_AUTO_FEED_MIN_SIGNAL_COUNT', 2)),
+            'max_items' => max(1, (int) env('ATLAS_LOOP_BACKLOG_AUTO_FEED_MAX_ITEMS', 8)),
+            'manifest_limit' => max(10, (int) env('ATLAS_LOOP_BACKLOG_AUTO_FEED_MANIFEST_LIMIT', 200)),
+            'include_scorecard_weak_receipts' => (bool) env('ATLAS_LOOP_BACKLOG_AUTO_FEED_SCORECARD_WEAK_RECEIPTS', true),
+            'include_sweep_findings' => (bool) env('ATLAS_LOOP_BACKLOG_AUTO_FEED_SWEEP_FINDINGS', true),
+        ],
+
+        // L4-7: fila explícita para propostas parqueadas pelo auto-merge (ex.: alvo de
+        // segurança do próprio harness). Não é schedulada; é uma ação soberana do operador.
+        'operator_review' => [
+            'enabled' => (bool) env('ATLAS_LOOP_OPERATOR_REVIEW_ENABLED', true),
+            'limit' => max(1, (int) env('ATLAS_LOOP_OPERATOR_REVIEW_LIMIT', 10)),
+        ],
+
         // L3-12: meta-loop — o Loop pode tocar o PRÓPRIO harness (não-segurança) quando ON.
         // O AtlasLoopHarnessGuard mantém o conjunto PROIBIDO pétreo (frozen judge, gates,
         // never-merge) INTOCÁVEL independentemente desta flag. Default OFF (anti-runaway).
@@ -1519,6 +1568,13 @@ return [
         // 24h-autonomia: respawn automático do supervisor morto (heartbeat velho + processo
         // ausente ⇒ relança detached, resume). Motivado pela morte silenciosa de 12/06.
         'keepalive_enabled' => (bool) env('ATLAS_LOOP_KEEPALIVE_ENABLED', true),
+
+        // 24h+ sem intervenção: revive campanhas que pararam por STARVATION de fila (a única
+        // parada permanente — completed com budget sobrando). O loop mergeia código → novos
+        // alvos surgem → reviver throttled re-descobre trabalho. Sem isto o soak para sozinho
+        // após esgotar os alvos atuais e nunca volta.
+        'keepalive_revive_starved' => (bool) env('ATLAS_LOOP_KEEPALIVE_REVIVE_STARVED', true),
+        'keepalive_starved_revive_minutes' => (int) env('ATLAS_LOOP_KEEPALIVE_STARVED_REVIVE_MINUTES', 20),
 
         // O-2 slice (d): universal adversarial certification. When ON, the DISCOVERY
         // path (not just framework tasks) routes every proposal through the semantic
@@ -1551,6 +1607,10 @@ return [
             'lock_lease_seconds' => max(60, (int) env('ATLAS_LOOP_LOCK_LEASE_SECONDS', 3600)),
             // Supervisor heartbeat cadence (seconds).
             'heartbeat_seconds' => max(5, (int) env('ATLAS_LOOP_HEARTBEAT_SECONDS', 30)),
+            // L4-5: supervisor bootstraps the git HEAD it started under and exits
+            // cleanly when that HEAD changes, leaving the campaign running for
+            // keepalive to respawn fresh code.
+            'restart_on_code_drift' => (bool) env('ATLAS_LOOP_RESTART_ON_CODE_DRIFT', true),
             // Operator control files — touch to gracefully pause / kill a running campaign.
             'kill_switch_file' => (string) env('ATLAS_LOOP_KILL_SWITCH', storage_path('atlas-loop/KILL')),
             'pause_switch_file' => (string) env('ATLAS_LOOP_PAUSE_SWITCH', storage_path('atlas-loop/PAUSE')),

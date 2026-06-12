@@ -112,8 +112,10 @@ Schedule::command('atlas:venture review-cycle --json')
 // O drain é internamente seguro: gated pela flag do operador, freado pelo guard de saldo
 // líquido (AtlasLoopNetDirectionGuard), re-prova cada proposta em workspace completo, e a
 // porta governada no DB é a única que registra merge. --limit bound por passe.
-Schedule::command('atlas:loop:automerge --limit=5 --json')
-    ->everyThirtyMinutes()
+// Pace: o loop certifica mais rápido do que o drain consumia (drenáveis acumulavam) —
+// limit 10 a cada 15min para os merges acompanharem o ritmo da certificação.
+Schedule::command('atlas:loop:automerge --limit=10 --json')
+    ->everyFifteenMinutes()
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas.ai.loop.auto_merge_to_main', false));
 
@@ -133,10 +135,24 @@ Schedule::command('atlas:fable:delta-series --json')
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas.fable.delta_series_enabled', true));
 
+// L4-4 · Loss-observer diário: autópsia do ledger do Loop. Detecta razões/gates
+// dominantes de rejeição e abre backlog intents dedupados para o próprio Loop atacar.
+Schedule::command('atlas:loop:loss-observer --json')
+    ->dailyAt((string) config('atlas.loop.loss_observer.schedule_time', '05:20'))
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.loop.loss_observer.enabled', true));
+
+// L4-2 · Backlog auto-alimentado: transforma loss observer, corpus de falhas,
+// residuais de campanha, scorecard fraco e achados de sweep em intents dedupados.
+Schedule::command('atlas:loop:backlog-feed --json')
+    ->dailyAt((string) config('atlas.loop.backlog_auto_feed.schedule_time', '05:25'))
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.loop.backlog_auto_feed.enabled', true));
+
 // 24h-autonomia · Keepalive do supervisor do Loop: campanha running com heartbeat velho
 // E sem processo vivo é relançada detached (resume pelo campaign-id; nada se perde).
 // Motivado por evidência real: o soak morreu silenciosamente em 12/06 com budget sobrando.
-Schedule::command('atlas:loop:keepalive --json')
+Schedule::command('atlas:loop:keepalive --stale-minutes=2 --json')
     ->everyFiveMinutes()
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas.loop.keepalive_enabled', true));

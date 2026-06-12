@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Programming\AtlasDev\MinimaxFirst;
 
+use App\Models\AiJob;
+use App\Services\Ai\AiProvider;
+use App\Services\Ai\AiProviderHealthCheck;
+use App\Services\Ai\AiProviderManager;
+use App\Services\Ai\AiProviderResult;
 use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasCodexPlannerService;
 use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasMinimaxContextCompilerService;
 use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasMinimaxFirstWorkerService;
@@ -1007,16 +1012,58 @@ PHP;
 
     private function service(AtlasMinimaxM27CliRuntimeExecutor $executor): AtlasMinimaxFirstWorkerService
     {
-        $planner = new AtlasCodexPlannerService();
-        $planner->setProcessFactoryForTesting(
-            static fn (array $cmd, string $cwd, array $env, int $timeout): Process => new Process([PHP_BINARY, '-r', 'exit(1);'], $cwd, $env, null, (float) $timeout),
-        );
+        $planner = new AtlasCodexPlannerService($this->codexManagerReturning(new AiProviderResult(
+            ok: false,
+            output: '',
+            command: ['codex'],
+            exitCode: 1,
+            durationMs: 1,
+            stdout: '',
+            stderr: 'planner disabled for worker tests',
+            errorCode: 'planner_unavailable',
+        )));
 
         return new AtlasMinimaxFirstWorkerService(
             $executor,
             $planner,
             new AtlasMinimaxContextCompilerService(),
         );
+    }
+
+    private function codexManagerReturning(AiProviderResult $result): AiProviderManager
+    {
+        $provider = new class($result) implements AiProvider {
+            public function __construct(private readonly AiProviderResult $result) {}
+
+            public function key(): string
+            {
+                return 'codex_cli';
+            }
+
+            public function run(AiJob $job, string $prompt): AiProviderResult
+            {
+                return $this->result;
+            }
+
+            public function runStreaming(AiJob $job, string $prompt, ?callable $onEvent = null): AiProviderResult
+            {
+                return $this->run($job, $prompt);
+            }
+
+            public function health(): AiProviderHealthCheck
+            {
+                return new AiProviderHealthCheck('codex_cli', 'online', 'test provider');
+            }
+        };
+
+        return new class($provider) extends AiProviderManager {
+            public function __construct(private readonly AiProvider $provider) {}
+
+            public function get(?string $provider = null): AiProvider
+            {
+                return $this->provider;
+            }
+        };
     }
 
     private function gitFixture(): string

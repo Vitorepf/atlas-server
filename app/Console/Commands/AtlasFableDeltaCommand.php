@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Models\AiProgrammingRuntimeTelemetryEvent;
 use App\Models\AtlasLoopProposal;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopImpactReceiptService;
 use App\Services\Ai\Cognition\AtlasCognitionScoreCardService;
 use App\Services\Ai\RuntimeBoundary\SemanticRetrievalRuntime;
 use App\Services\Ai\Support\DatabaseTableAvailability;
@@ -57,6 +58,19 @@ class AtlasFableDeltaCommand extends Command
                     0.0, // Marco Zero: 72 presas em quarentena, 0 merged — o composto não existia
                     $now['merged_to_main'],
                 ),
+                'loop_impact_receipt_coverage_pct' => $this->metric(
+                    0.0,
+                    (float) ($now['impact_receipts']['coverage_pct'] ?? 0.0),
+                ),
+                'loop_impact_receipt_avg_score' => $this->metric(
+                    0.0,
+                    (float) ($now['impact_receipts']['avg_impact_score'] ?? 0.0),
+                ),
+                'loop_impact_receipts' => [
+                    'baseline' => [],
+                    'current' => $now['impact_receipts'],
+                    'note' => 'L4-3: categoria, tamanho e alvo real-vs-generated por merge',
+                ],
                 'capture_gate_mode' => [
                     'baseline' => (string) data_get($b, 'learning_capture_quality_7d.gate_mode', 'observe'),
                     'current' => (string) config('atlas.ai.capture_quality_gate.mode'),
@@ -74,6 +88,7 @@ class AtlasFableDeltaCommand extends Command
             'sources' => [
                 'scorecard' => 'AtlasCognitionScoreCardService::build() (resolved-evidence)',
                 'merged' => 'atlas_loop_proposals.merged_to_main=true (escopo governado)',
+                'impact_receipts' => 'atlas_loop_proposals.quality._impact_receipt (categoria/tamanho/alvo por merge)',
                 'semantic' => 'SemanticRetrievalRuntime::available()',
                 'cost' => 'ai_programming_runtime_telemetry_events.cost_estimate_usd>0 / total (% medido por sinal real)',
             ],
@@ -105,7 +120,7 @@ class AtlasFableDeltaCommand extends Command
     }
 
     /**
-     * @return array{scorecard_overall: float, merged_to_main: float, semantic_available: bool, cost_measured_coverage_pct: float}
+     * @return array{scorecard_overall: float, merged_to_main: float, impact_receipts: array<string,mixed>, semantic_available: bool, cost_measured_coverage_pct: float}
      */
     private function currentState(): array
     {
@@ -126,6 +141,12 @@ class AtlasFableDeltaCommand extends Command
         $semantic = false;
         try {
             $semantic = app(SemanticRetrievalRuntime::class)->available();
+        } catch (Throwable) {
+        }
+
+        $impactReceipts = [];
+        try {
+            $impactReceipts = app(AtlasLoopImpactReceiptService::class)->aggregate();
         } catch (Throwable) {
         }
 
@@ -150,6 +171,7 @@ class AtlasFableDeltaCommand extends Command
         return [
             'scorecard_overall' => $scorecard,
             'merged_to_main' => $merged,
+            'impact_receipts' => $impactReceipts,
             'semantic_available' => $semantic,
             'cost_measured_coverage_pct' => $coverage,
         ];

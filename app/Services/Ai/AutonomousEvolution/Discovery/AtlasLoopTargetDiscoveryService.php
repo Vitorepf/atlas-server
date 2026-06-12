@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Discovery;
 
+use App\Services\Ai\Support\DatabaseTableAvailability;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\Process\Process;
+use Throwable;
 
 /**
  * The "Sources" stage at repo scale — DETERMINISTIC, PROVIDER-FREE, cheap enough to
@@ -113,6 +116,25 @@ final class AtlasLoopTargetDiscoveryService
             }
         }
 
+        // L4-1: anti-Goodhart ranking. Structural self-containedness is still the base
+        // gate, but the final order now gets a bounded IMPACT boost from real read-model
+        // signal (code-indexed symbol surface, failure evidence, and backlog reach).
+        if ((bool) config('atlas.loop.impact_ranking_enabled', true)) {
+            $this->applyImpactRanking($scoredRows);
+        }
+
+        // L4-1: target cooldown. A recent task/proposal for the same path means the loop
+        // already spent attention there; strongly down-rank it so one lucky target cannot
+        // farm the queue. Fail-open: missing runtime tables => no cooldown.
+        if ((bool) config('atlas.loop.target_cooldown_enabled', true)) {
+            $cooldownHours = max(1, (int) config('atlas.loop.target_cooldown_hours', 24));
+            $this->applyTargetCooldown(
+                $scoredRows,
+                $this->repository->recentTargetActivity($campaignId, $cooldownHours),
+                $cooldownHours,
+            );
+        }
+
         // L3-12: guardrail do meta-loop. O conjunto PROIBIDO (frozen judge, gates,
         // never-merge, este guard) NUNCA é alvo — pétreo, ignora flags/backlog/score (o loop
         // não edita a própria fechadura). Arquivos do harness não-segurança só passam com a
@@ -141,6 +163,94 @@ final class AtlasLoopTargetDiscoveryService
             'upserted' => $upserted,
             'top' => array_map(static fn (array $r): array => ['path' => $r['path'], 'score' => round($r['scored']['score'], 4)], $top),
         ];
+    }
+
+    /**
+     * @param  list<array{path:string,abs:string,scored:array<string,mixed>}>  $scoredRows
+     */
+    private function applyImpactRanking(array &$scoredRows): void
+    {
+        if ($scoredRows === []) {
+            return;
+        }
+
+        $symbolCounts = $this->codeGraphSymbolCounts(array_values(array_unique(array_column($scoredRows, 'path'))));
+        $maxSymbols = max(8, (int) max($symbolCounts ?: [0]));
+
+        foreach ($scoredRows as &$row) {
+            $signals = is_array($row['scored']['signals'] ?? null) ? $row['scored']['signals'] : [];
+            $symbols = (int) ($symbolCounts[$row['path']] ?? 0);
+            $consumerProxy = $symbols > 0 ? min(1.0, log(1 + $symbols) / log(1 + $maxSymbols)) : 0.0;
+            $failureEvidence = $this->clamp01((float) ($row['scored']['evidence'] ?? $signals['failure_evidence'] ?? 0.0));
+            $backlogReach = $this->clamp01((float) ($signals['backlog_reach'] ?? 0.0));
+            $impact = $this->clamp01(0.50 * $consumerProxy + 0.30 * $failureEvidence + 0.20 * $backlogReach);
+
+            $signals['impact_rank'] = round($impact, 4);
+            $signals['impact_code_symbols'] = $symbols;
+            $signals['impact_consumer_proxy'] = round($consumerProxy, 4);
+            $signals['impact_failure_evidence'] = round($failureEvidence, 4);
+            $signals['impact_backlog_reach'] = round($backlogReach, 4);
+            $row['scored']['signals'] = $signals;
+            $row['scored']['score'] = round(min(1.0, (float) $row['scored']['score'] + 0.18 * $impact), 4);
+        }
+        unset($row);
+    }
+
+    /**
+     * @param  list<string>  $paths
+     * @return array<string,int>
+     */
+    private function codeGraphSymbolCounts(array $paths): array
+    {
+        if ($paths === [] || ! DatabaseTableAvailability::has('atlas_engineering_code_symbols')) {
+            return [];
+        }
+
+        try {
+            $query = DB::table('atlas_engineering_code_symbols')
+                ->select('file_path', DB::raw('count(*) as symbols'))
+                ->whereIn('file_path', $paths);
+            if (DatabaseTableAvailability::hasColumn('atlas_engineering_code_symbols', 'status')) {
+                $query->where('status', 'active');
+            }
+            if (DatabaseTableAvailability::hasColumn('atlas_engineering_code_symbols', 'workspace_id')) {
+                $query->where('workspace_id', (string) config('atlas.code_graph.default_workspace_id', 'atlas-server'));
+            }
+
+            $counts = [];
+            foreach ($query->groupBy('file_path')->get() as $row) {
+                $counts[(string) $row->file_path] = (int) $row->symbols;
+            }
+
+            return $counts;
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @param  list<array{path:string,abs:string,scored:array<string,mixed>}>  $scoredRows
+     * @param  array<string,int>  $recentActivity
+     */
+    private function applyTargetCooldown(array &$scoredRows, array $recentActivity, int $cooldownHours): void
+    {
+        foreach ($scoredRows as &$row) {
+            $signals = is_array($row['scored']['signals'] ?? null) ? $row['scored']['signals'] : [];
+            $hits = (int) ($recentActivity[$row['path']] ?? 0);
+            $signals['target_cooldown'] = $hits > 0 ? 1.0 : 0.0;
+            $signals['target_cooldown_hits'] = $hits;
+            $signals['target_cooldown_hours'] = $cooldownHours;
+            if ($hits > 0) {
+                $row['scored']['score'] = round(max(0.0, (float) $row['scored']['score'] * 0.35), 4);
+            }
+            $row['scored']['signals'] = $signals;
+        }
+        unset($row);
+    }
+
+    private function clamp01(float $value): float
+    {
+        return max(0.0, min(1.0, $value));
     }
 
     /**

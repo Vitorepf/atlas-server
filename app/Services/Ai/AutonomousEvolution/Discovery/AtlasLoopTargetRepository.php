@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution\Discovery;
 
 use App\Models\AtlasLoopTarget;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * Thin persistence over `atlas_loop_targets` — keeps discovery + loop-back
@@ -23,8 +25,8 @@ final class AtlasLoopTargetRepository
     }
 
     /**
-     * Idempotent upsert on (campaign_id, target_key). A no-op when the file content is
-     * unchanged (same content_hash) — re-scoring only happens when the file changed.
+     * Idempotent upsert on (campaign_id, target_key). Unchanged candidate files still
+     * refresh score/signals so live ranking policy changes take effect without churn.
      *
      * @param  array{score:float,self_contained:float,improvement:float,novelty:float,signals:array<string,mixed>}  $scored
      * @param  array<string,mixed>  $lineage
@@ -36,7 +38,17 @@ final class AtlasLoopTargetRepository
 
         if ($existing instanceof AtlasLoopTarget) {
             if ($existing->content_hash === $contentHash) {
-                return $existing; // unchanged file — no-op
+                if ($existing->status === AtlasLoopTarget::STATUS_CANDIDATE) {
+                    $existing->forceFill([
+                        'score' => $scored['score'],
+                        'self_contained_score' => $scored['self_contained'],
+                        'improvement_score' => $scored['improvement'],
+                        'novelty_score' => $scored['novelty'],
+                        'signals' => $scored['signals'],
+                    ])->save();
+                }
+
+                return $existing; // same content: refreshed if candidate, otherwise historical state
             }
             $existing->forceFill([
                 'content_hash' => $contentHash,
@@ -161,5 +173,40 @@ final class AtlasLoopTargetRepository
             ->where('campaign_id', $campaignId)
             ->where('status', AtlasLoopTarget::STATUS_PROPOSED)
             ->pluck('target_path')->all();
+    }
+
+    /**
+     * @return array<string,int>
+     */
+    public function recentTargetActivity(string $campaignId, int $hours): array
+    {
+        $since = Carbon::now()->subHours(max(1, $hours));
+        $counts = [];
+
+        foreach (['atlas_loop_tasks', 'atlas_loop_proposals'] as $table) {
+            if (! DatabaseTableAvailability::has($table)) {
+                continue;
+            }
+
+            try {
+                $rows = DB::table($table)
+                    ->select('target_path', DB::raw('count(*) as hits'))
+                    ->where('campaign_id', $campaignId)
+                    ->whereNotNull('target_path')
+                    ->where('target_path', '!=', '')
+                    ->where('created_at', '>=', $since)
+                    ->groupBy('target_path')
+                    ->get();
+
+                foreach ($rows as $row) {
+                    $path = (string) $row->target_path;
+                    $counts[$path] = ($counts[$path] ?? 0) + (int) $row->hits;
+                }
+            } catch (Throwable) {
+                continue;
+            }
+        }
+
+        return $counts;
     }
 }

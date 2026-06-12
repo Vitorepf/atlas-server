@@ -90,7 +90,7 @@ final class AtlasLoopBacklogIntentSource
                 'path' => $rel,
                 'objective' => $objective,
                 'priority' => $this->clamp01((float) ($raw['priority'] ?? 0.9)),
-                'source' => 'manifest',
+                'source' => trim((string) ($raw['source'] ?? 'manifest')) ?: 'manifest',
             ];
         }
 
