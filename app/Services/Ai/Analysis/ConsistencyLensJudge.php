@@ -10,6 +10,7 @@ namespace App\Services\Ai\Analysis;
  * Deterministic (no provider call). Refutes on internal contradictions:
  *  - the same numeric metric reported with different values (top-level
  *    `metrics` map vs per-claim `metrics` maps, or claim vs claim);
+ *  - duplicate non-empty claim ids;
  *  - the conclusion referencing a claim id that does not exist;
  *  - a top-level `verdict` field inconsistent with the claim polarity counts
  *    (e.g. verdict "positive" while negative-polarity claims outnumber
@@ -29,6 +30,7 @@ final class ConsistencyLensJudge implements AnalysisJudgePort
     {
         $reasons = [
             ...$this->metricContradictions($analysis),
+            ...$this->duplicateClaimIds($analysis),
             ...$this->danglingConclusionRefs($analysis),
             ...$this->verdictPolarityMismatch($analysis),
         ];
@@ -89,6 +91,41 @@ final class ConsistencyLensJudge implements AnalysisJudgePort
                     $record((string) $name, $value);
                 }
             }
+        }
+
+        return $reasons;
+    }
+
+    /**
+     * @param  array<string,mixed>  $analysis
+     * @return list<string>
+     */
+    private function duplicateClaimIds(array $analysis): array
+    {
+        $claims = $analysis['claims'] ?? [];
+        if (! is_array($claims)) {
+            return [];
+        }
+
+        $seen = [];
+        $reasons = [];
+        foreach ($claims as $claim) {
+            if (! is_array($claim)) {
+                continue;
+            }
+
+            $id = trim((string) ($claim['id'] ?? ''));
+            if ($id === '') {
+                continue;
+            }
+
+            if (isset($seen[$id])) {
+                $reasons[] = 'duplicate_claim_id:'.$id;
+
+                continue;
+            }
+
+            $seen[$id] = true;
         }
 
         return $reasons;
