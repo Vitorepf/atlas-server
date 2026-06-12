@@ -57,7 +57,7 @@ final class CompoundingAxisCoverageScorer
         return [
             'axes' => $axes,
             'leap_count' => $leapCount,
-            'most_neglected_axis' => $this->mostNeglectedAxis($axes),
+            'most_neglected_axis' => $leapCount === 0 ? null : $this->mostNeglectedAxis($axes),
             'fully_covered' => $this->fullyCovered($axes),
         ];
     }
