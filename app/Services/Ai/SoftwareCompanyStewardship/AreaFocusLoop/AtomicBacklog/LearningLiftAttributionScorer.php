@@ -209,7 +209,9 @@ final class LearningLiftAttributionScorer
      */
     private function hasNumeric(array $payload, string $key): bool
     {
-        return array_key_exists($key, $payload) && is_numeric($payload[$key]);
+        return array_key_exists($key, $payload)
+            && is_numeric($payload[$key])
+            && is_finite((float) $payload[$key]);
     }
 
     /**
