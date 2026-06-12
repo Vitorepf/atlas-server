@@ -26,8 +26,12 @@ final class StringLengthEquivalenceClassDeriver
             throw new InvalidArgumentException('paramSpec requires both min and max length bounds.');
         }
 
-        $min = (int) $paramSpec['min'];
-        $max = (int) $paramSpec['max'];
+        if (! is_int($paramSpec['min']) || ! is_int($paramSpec['max'])) {
+            throw new InvalidArgumentException('min and max length bounds must be integers.');
+        }
+
+        $min = $paramSpec['min'];
+        $max = $paramSpec['max'];
 
         if ($min < 0) {
             throw new InvalidArgumentException('min length must not be negative.');
