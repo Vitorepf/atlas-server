@@ -82,6 +82,7 @@ final class MemoryFeedbackDecayScorer
             $wrongContext,
             $healthScore,
             $staleness,
+            $hitRate,
             $reasons,
         );
 
@@ -115,6 +116,7 @@ final class MemoryFeedbackDecayScorer
         int $wrongContext,
         int $healthScore,
         string $staleness,
+        ?float $hitRate,
         array &$reasons,
     ): string {
         if ($stale >= self::ARCHIVE_STALE_FEEDBACK_THRESHOLD) {
@@ -143,6 +145,12 @@ final class MemoryFeedbackDecayScorer
 
         if ($staleness === 'stale_review_recommended') {
             $reasons[] = 'degraded_by_stale_age';
+
+            return 'degrade';
+        }
+
+        if ($staleness === 'fresh' && $hitRate === 0.0) {
+            $reasons[] = 'degraded_by_low_recall_hit_rate';
 
             return 'degrade';
         }
