@@ -568,7 +568,20 @@ class AtlasEngineeringRunConductorServiceTest extends TestCase
         $pr = new AtlasSwarmProductionResolverService($this->fakeManager($fake));
 
         $runtime = Mockery::mock(AtlasCompoundingRuntimeService::class);
-        $runtime->shouldReceive('recordExecution')->once()->andReturn([
+        $runtime->shouldReceive('recordExecution')->once()->with(Mockery::on(function (array $payload): bool {
+            $signal = $payload['learning_signal'] ?? null;
+
+            return is_array($signal)
+                && isset($signal['claim'])
+                && is_string($signal['claim'])
+                && ! str_contains($signal['claim'], 'should inform future routing, retrieval or execution when matching evidence recurs')
+                && str_contains($signal['claim'], 'do the thing')
+                && ($signal['memory_type'] ?? null) === 'engineering_run_memory'
+                && ($signal['flow_id'] ?? null) === 'code_generation'
+                && ($signal['scope'] ?? null) === 'engineering'
+                && ($signal['evidence_refs'] ?? null) === ['receipt:compounding-live']
+                && ($payload['evidence_refs'] ?? null) === ['receipt:compounding-live'];
+        }))->andReturn([
             'learning_candidate' => ['status' => 'distilled'],
             'compounding_memory' => ['id' => 'mem-1'],
         ]);
@@ -576,7 +589,12 @@ class AtlasEngineeringRunConductorServiceTest extends TestCase
         $conductor = new AtlasEngineeringRunConductorService(
             $this->swarmConductor('ok', 'codex_cli'), $this->executor(), $pr, null, null, null, null, $runtime,
         );
-        $env = $conductor->run($this->work(), ['mode' => 'live', 'operator_approved' => true, 'compound' => true]);
+        $env = $conductor->run($this->work(), [
+            'mode' => 'live',
+            'operator_approved' => true,
+            'compound' => true,
+            'evidence_refs' => ['receipt:compounding-live'],
+        ]);
 
         $this->assertSame(AtlasEngineeringRunConductorService::MODE_LIVE, $env['mode']);
         $this->assertIsArray($env['compounding_record']);

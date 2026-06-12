@@ -53,6 +53,50 @@ class AtlasCompoundingRuntimeServiceTest extends TestCase
         $this->assertSame('atlas.ai.compounding.temporal_certification.v1', AiTemporalCertification::query()->firstOrFail()->schema_version);
     }
 
+    /**
+     * F3 (sweep O-1): memory_hash inclui candidate_hash (único por run) — sem dedup por
+     * conteúdo, CADA run com o mesmo claim criava uma memória ATIVA nova, inundando o
+     * top-5 do approvedForFlow com boilerplate de confidence auto-declarado. Re-ver o
+     * mesmo claim/scope/type tem que REVALIDAR a memória existente, nunca duplicar.
+     */
+    public function test_repromoting_the_same_claim_revalidates_instead_of_duplicating_active_memory(): void
+    {
+        $service = app(AtlasCompoundingRuntimeService::class);
+
+        $first = $service->recordExecution($this->executionPayload('runtime-dedup-1'));
+        $second = $service->recordExecution($this->executionPayload('runtime-dedup-2'));
+
+        $this->assertNotNull($first['compounding_memory']);
+        $this->assertNotNull($second['compounding_memory']);
+        $this->assertSame(
+            $first['compounding_memory']['id'],
+            $second['compounding_memory']['id'],
+            'mesmo claim/scope/type deve revalidar a memória existente, não criar outra'
+        );
+        $this->assertSame(1, AiCompoundingMemory::query()->where('status', 'active')->count());
+    }
+
+    /**
+     * Sweep O-1 (bypass): a classificação "crítica" de heurística é por prefixo de string
+     * controlado pelo caller — apply=true em key fora dos prefixos (ex.: eval_gate.*)
+     * gravava status='applied' sem revisão. O caminho de RUNTIME nunca auto-aplica.
+     */
+    public function test_runtime_path_never_auto_applies_heuristics_even_for_unclassified_keys(): void
+    {
+        $payload = $this->executionPayload('runtime-heuristic-deny');
+        $payload['heuristic_update']['heuristic_key'] = 'eval_gate.quality_threshold';
+        $payload['heuristic_update']['apply'] = true;
+
+        $result = app(AtlasCompoundingRuntimeService::class)->recordExecution($payload);
+
+        $this->assertNotNull($result['heuristic_update']);
+        $this->assertSame(
+            'proposed',
+            AiHeuristicUpdate::query()->firstOrFail()->status,
+            'apply=true vindo do runtime não pode gravar applied — sempre proposed'
+        );
+    }
+
     public function test_blocks_memory_promotion_without_evidence_refs(): void
     {
         $result = app(AtlasCompoundingRuntimeService::class)->recordExecution([

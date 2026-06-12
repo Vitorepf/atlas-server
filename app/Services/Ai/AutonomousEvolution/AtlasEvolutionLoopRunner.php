@@ -65,7 +65,8 @@ final class AtlasEvolutionLoopRunner
             $explorations[] = $this->summariseExploration($exploration);
 
             if (($exploration['winner'] ?? null) !== null) {
-                $proposals[] = $this->toProposal($exploration);
+                $acceptance = is_array($task) && is_array($task['acceptance'] ?? null) ? $task['acceptance'] : [];
+                $proposals[] = $this->toProposal($exploration, $acceptance);
             }
         }
 
@@ -144,7 +145,12 @@ final class AtlasEvolutionLoopRunner
      * @param  array<string,mixed>  $exploration
      * @return array<string,mixed>  atlas.evolution.proposal.v1 (certified_for_review, never merged)
      */
-    private function toProposal(array $exploration): array
+    /**
+     * @param  array<string,mixed>  $exploration
+     * @param  array<string,mixed>  $acceptance  the FROZEN acceptance contract of the task
+     * @return array<string,mixed>
+     */
+    private function toProposal(array $exploration, array $acceptance = []): array
     {
         $winner = is_array($exploration['winner'] ?? null) ? $exploration['winner'] : [];
         $verdict = is_array($winner['verdict'] ?? null) ? $winner['verdict'] : [];
@@ -162,6 +168,10 @@ final class AtlasEvolutionLoopRunner
             'scenarios_explored' => (int) ($exploration['scenarios_explored'] ?? 0),
             'scenarios_accepted' => (int) ($exploration['scenarios_accepted'] ?? 0),
             'acceptance_hash' => (string) ($verdict['acceptance_hash'] ?? ''),
+            // O-3: the FULL frozen acceptance contract travels WITH the proposal so the
+            // promotion gate can re-run the real test before merge (the metric column is
+            // a numeric verdict, not a re-runnable contract — that was the O-1 #1/#2 gap).
+            'acceptance_contract' => $acceptance,
         ];
         $proposal['proposal_hash'] = hash('sha256', (string) json_encode([
             'objective' => $proposal['objective'],

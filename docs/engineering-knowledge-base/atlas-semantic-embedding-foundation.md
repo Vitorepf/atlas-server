@@ -167,3 +167,24 @@ retorna candidatos semanticamente relevantes com hashes e fonte.
 1. Conectar AHRI ao candidate set ASEF.
 2. Definir AP/Decision Receipt para vector indexing/rerank persistente.
 3. Criar cert ASEF antes de ativar external embeddings fora do adapter atual.
+
+## O-4 — semantic recall é REAL + contrato anti-fake congelado (Campanha Fable, 2026-06-12)
+
+Verificação code+runtime (corrige memória stale que dizia "placeholder manifest-only"):
+o canal `semantic_candidate` do AUCRI JÁ usa embeddings LOCAIS REAIS. Estado provado live:
+
+- `SemanticRetrievalRuntime` → `SemanticRagRuntimeClient` (AppServiceProvider), roda
+  `runtimes/python/semantic_rag` sob venv própria; `available()=true` aqui.
+- `applyLocalSemanticScores()` (AtlasHybridRetrievalInfrastructureService) substitui o
+  placeholder estático 0.60 por cosine REAL e estampa `score_origin=local_semantic_vector`;
+  honest-degrade para `manifest_pending_embedding` quando o runtime está off.
+- O bonus +0.22 do reranker (AtlasContextRankingSystemService) é gated APENAS em
+  `score_origin === local_semantic_vector` — o placeholder nunca o dispara (a armadilha
+  mapeada está fechada).
+- `PythonBoundaryReceiptGuard::runReal` recusa receipts sem `real_embeddings` /
+  `embeddings_engine_in_python` (anti-fake na fronteira).
+- Prova live: query "a tiny kitten meowing" (zero tokens compartilhados) rankeia
+  feline 0.82 ≫ canine 0.28 ≫ finance 0.013; modelo paraphrase-multilingual-MiniLM-L12-v2,
+  384-dim, `real_embeddings:true`, `fabricated_vectors:false`.
+- Contrato congelado: `AtlasSemanticRecallAntiFakeContractTest` (skip honesto se runtime
+  indisponível; pin da propriedade semântica + receipt real quando disponível).

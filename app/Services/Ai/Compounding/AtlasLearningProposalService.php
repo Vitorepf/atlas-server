@@ -138,7 +138,9 @@ class AtlasLearningProposalService
             try {
                 $dup = AiLearningProposal::query()
                     ->where('payload->quality->content_hash', $gate['content_hash'])
-                    ->where('status', '!=', 'rejected_by_quality_gate')
+                    // Não colar numa proposta já recusada (pelo gate OU por humano): se foi
+                    // rejeitada, a nova evidência merece um registro próprio, não ser engolida.
+                    ->whereNotIn('status', ['rejected_by_quality_gate', 'rejected'])
                     ->first();
                 if ($dup !== null) {
                     $this->logQualityGate('deduped', $kind, $gate);

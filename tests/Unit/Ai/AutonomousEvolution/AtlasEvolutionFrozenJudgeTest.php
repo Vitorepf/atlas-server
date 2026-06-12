@@ -73,6 +73,40 @@ final class AtlasEvolutionFrozenJudgeTest extends TestCase
         $this->assertSame(['tests/subject_test.php'], $v['details']['tampered_files']);
     }
 
+    /**
+     * Sweep O-1: acceptance SEM frozen_globs dava zero proteção de tamper — o candidato
+     * editava o próprio teste e passava. Os arquivos referenciados pelos commands viram
+     * congelados implícitos quando o contrato não declara nenhum.
+     */
+    public function test_empty_frozen_globs_implicitly_freezes_the_command_referenced_test(): void
+    {
+        file_put_contents($this->ws.'/tests/subject_test.php', "<?php\necho 'green';\n");
+
+        $acceptance = $this->acceptance();
+        unset($acceptance['frozen_globs']);
+        $v = (new AtlasEvolutionFrozenJudge)->score($this->ws, $acceptance);
+
+        $this->assertFalse($v['passed'], 'editar o teste referenciado pelos commands tem que reprovar mesmo sem frozen_globs');
+        $this->assertSame('frozen_path_tampered', $v['details']['reason']);
+    }
+
+    /**
+     * Sweep O-1: um .gitignore auto-autorado (que se auto-ignora) escondia arquivos do
+     * censo de scope/tamper — lógica real podia viver num sibling invisível. Arquivos de
+     * regra de ignore entram SEMPRE no censo.
+     */
+    public function test_a_self_authored_gitignore_cannot_hide_files_from_the_census(): void
+    {
+        file_put_contents($this->ws.'/src/Subject.php', "<?php\nrequire __DIR__.'/../evil.php';\nfunction greet(){ return EVIL; }\n");
+        file_put_contents($this->ws.'/evil.php', "<?php\nconst EVIL = 'hello';\n");
+        file_put_contents($this->ws.'/.gitignore', "evil.php\n.gitignore\n");
+
+        $v = (new AtlasEvolutionFrozenJudge)->score($this->ws, $this->acceptance());
+
+        $this->assertFalse($v['passed'], 'o .gitignore auto-autorado tem que aparecer no censo e reprovar por scope');
+        $this->assertContains('.gitignore', $v['details']['changed_files'] ?? $v['details']['out_of_scope_files'] ?? []);
+    }
+
     public function test_rejects_an_out_of_scope_change(): void
     {
         file_put_contents($this->ws.'/src/Subject.php', "<?php\nfunction greet(){ return 'hello'; }\n");

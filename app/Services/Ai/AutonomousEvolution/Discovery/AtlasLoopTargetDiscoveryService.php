@@ -36,6 +36,7 @@ final class AtlasLoopTargetDiscoveryService
 
     public function __construct(
         private readonly AtlasLoopTargetRepository $repository,
+        private readonly ?AtlasLoopEvidenceSignalService $evidence = null,
     ) {}
 
     /**
@@ -64,6 +65,19 @@ final class AtlasLoopTargetDiscoveryService
             $admissible++;
             $scoredRows[] = ['path' => $rel, 'abs' => $abs, 'scored' => $scored];
         }
+
+        // O-2 slice (b): blend a REAL-evidence term into the structural score so the loop
+        // discovers what actually breaks. evidence = recurrence in the failure corpus.
+        // final = 0.72 * structural + 0.28 * evidence. Fail-open: empty corpus => structural
+        // unchanged (every evidence weight 0, the 0.72 factor only rescales uniformly).
+        $evidenceWeights = $this->evidence?->weights(array_column($scoredRows, 'path')) ?? [];
+        foreach ($scoredRows as &$row) {
+            $ev = (float) ($evidenceWeights[$row['path']] ?? 0.0);
+            $row['scored']['evidence'] = round($ev, 4);
+            $row['scored']['signals']['failure_evidence'] = $ev;
+            $row['scored']['score'] = round(0.72 * (float) $row['scored']['score'] + 0.28 * $ev, 4);
+        }
+        unset($row);
 
         // Highest score first; upsert the top-N as candidates.
         usort($scoredRows, static fn (array $a, array $b): int => $b['scored']['score'] <=> $a['scored']['score']);

@@ -53,6 +53,13 @@ final class AtlasEvolutionFrozenJudge
         $commands = AiStringListNormalizer::trimmedStrings($acceptance['commands'] ?? []);
         $allowedGlobs = AiStringListNormalizer::trimmedStrings($acceptance['allowed_globs'] ?? ['**']);
         $frozenGlobs = AiStringListNormalizer::trimmedStrings($acceptance['frozen_globs'] ?? []);
+        // Fail-closed (sweep O-1): acceptance sem frozen_globs dava ZERO proteção de
+        // tamper — o candidato podia editar o próprio teste de acceptance e o diff_earned
+        // (que reverte o diff inteiro) ainda marcava "earned". Os arquivos referenciados
+        // pelos commands são SEMPRE congelados implicitamente quando o contrato não diz nada.
+        if ($frozenGlobs === []) {
+            $frozenGlobs = $this->commandFileRefs($commands);
+        }
         $metricKind = (string) ($acceptance['metric_kind'] ?? self::METRIC_GATE);
         $metricPattern = isset($acceptance['metric_pattern']) ? (string) $acceptance['metric_pattern'] : null;
         $timeout = max(1, (int) ($acceptance['timeout_seconds'] ?? 600));
@@ -205,6 +212,29 @@ final class AtlasEvolutionFrozenJudge
     }
 
     /**
+     * Caminhos de arquivo referenciados diretamente pelos commands da acceptance
+     * (ex.: `php tests/Frozen/FooTest.php` → `tests/Frozen/FooTest.php`). Usados como
+     * frozen_globs implícitos quando o contrato não declara nenhum.
+     *
+     * @param  list<string>  $commands
+     * @return list<string>
+     */
+    private function commandFileRefs(array $commands): array
+    {
+        $refs = [];
+        foreach ($commands as $command) {
+            foreach (preg_split('/\s+/', $command) ?: [] as $token) {
+                $token = trim($token, "'\"");
+                if ($token !== '' && str_contains($token, '/') && str_ends_with($token, '.php') && ! str_starts_with($token, '-')) {
+                    $refs[$token] = true;
+                }
+            }
+        }
+
+        return array_keys($refs);
+    }
+
+    /**
      * @return list<string>
      */
     private function changedFiles(string $workspace, bool $strictUntracked = false): array
@@ -217,6 +247,27 @@ final class AtlasEvolutionFrozenJudge
             ? ['git', 'ls-files', '--others']
             : ['git', 'ls-files', '--others', '--exclude-standard'];
         $files = [];
+        // Fail-closed (sweep O-1): mesmo no modo padrão, arquivos de REGRA de ignore nunca
+        // escapam do censo — um candidato podia esconder um sibling com lógica real atrás
+        // de um .gitignore auto-autorado (que se auto-ignora) ou de .git/info/exclude,
+        // invisível para os guards de TAMPER e SCOPE.
+        if (! $strictUntracked) {
+            $ignoreRules = new Process(['git', 'ls-files', '--others'], $workspace, null, null, 30.0);
+            $ignoreRules->run();
+            if ($ignoreRules->isSuccessful() || $ignoreRules->getExitCode() === 1) {
+                foreach (preg_split('/\R/', trim((string) $ignoreRules->getOutput())) ?: [] as $line) {
+                    $line = trim($line);
+                    $base = basename($line);
+                    if ($line !== '' && ($base === '.gitignore' || $base === '.gitattributes')) {
+                        $files[$line] = true;
+                    }
+                }
+            }
+            $infoExclude = $workspace.'/.git/info/exclude';
+            if (is_file($infoExclude) && trim(preg_replace('/^\s*#.*$/m', '', (string) file_get_contents($infoExclude)) ?? '') !== '') {
+                $files['.git/info/exclude'] = true;
+            }
+        }
         foreach ([
             ['git', 'diff', '--name-only', '--no-ext-diff'],
             $untracked,

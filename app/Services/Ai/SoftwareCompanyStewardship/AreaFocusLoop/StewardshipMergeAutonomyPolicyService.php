@@ -32,14 +32,20 @@ final class StewardshipMergeAutonomyPolicyService
         $maxFiles = max(1, (int) ($input['max_auto_merge_files'] ?? 5));
         $riskClass = $this->riskClass($kind, $changedFiles, $branchOnly, $blockers);
         $safeKind = in_array($kind, ['documentation_only', 'tests_only', 'docs_and_tests'], true);
+        // Fail-closed (sweep O-1): auto-merge de código exige validação que EXECUTOU de
+        // verdade — passed=true sozinho não basta (um caller com run_validation=false e
+        // results=[] não pode destravar nenhuma classe de código).
+        $validationExecuted = ($validation['passed'] ?? false) === true
+            && ($validation['run_validation'] ?? false) === true
+            && ($validation['results'] ?? []) !== [];
         $operatorSafeClass = in_array($kind, ['bugfix', 'cleanup', 'test'], true)
             && (bool) ($input['allow_code_auto_merge'] ?? false)
             && (int) ($classification['code_or_other_file_count'] ?? 0) > 0
-            && ($validation['passed'] ?? false) === true;
+            && $validationExecuted;
         $factoryScopedCodeClass = $kind === 'code_or_mixed'
             && (bool) ($input['allow_code_auto_merge'] ?? false)
             && (int) ($classification['code_or_other_file_count'] ?? 0) > 0
-            && ($validation['passed'] ?? false) === true
+            && $validationExecuted
             && $branchOnly >= 1 && $branchOnly <= 3
             && $this->factoryScopedCodeChange($changedFiles);
         $boundedPacketCodeClass = $kind === 'code_or_mixed'
@@ -48,7 +54,7 @@ final class StewardshipMergeAutonomyPolicyService
             && (string) ($input['merge_target'] ?? '') === 'integration_lane'
             && (string) ($input['origin_type'] ?? '') === 'self_construction_admission_packet'
             && (int) ($classification['code_or_other_file_count'] ?? 0) > 0
-            && ($validation['passed'] ?? false) === true
+            && $validationExecuted
             && $branchOnly >= 1 && $branchOnly <= 3
             && $this->boundedPacketCodeChange($changedFiles, (array) ($input['bounded_packet_allowed_files'] ?? []));
         // Narrow Pilar 1 plan-execution exception: an OPERATOR-AUTHORIZED injected
@@ -66,7 +72,7 @@ final class StewardshipMergeAutonomyPolicyService
             && (bool) ($input['allow_code_auto_merge'] ?? false)
             && (bool) ($input['injected_plan_slice_auto_merge'] ?? false)
             && (int) ($classification['code_or_other_file_count'] ?? 0) > 0
-            && ($validation['passed'] ?? false) === true
+            && $validationExecuted
             && $branchOnly >= 1 && $branchOnly <= 3
             && $this->boundedPacketCodeChange($changedFiles, (array) ($input['injected_plan_slice_allowed_files'] ?? []));
 

@@ -60,6 +60,11 @@ final class AtlasLoopProposalMaterializer
         $this->git($dir, ['-c', 'user.email=loop@atlas', '-c', 'user.name=atlas', 'commit', '-q', '-m', 'base', '--no-gpg-sign']);
         file_put_contents($dir.'/atlas.patch', $diff);
         $applied = $this->git($dir, ['apply', '--whitespace=nowarn', 'atlas.patch']);
+        // Remove the patch artifact: leaving it makes the frozen judge's scope census see
+        // an extra untracked file (atlas.patch) and reject the re-proof as out_of_scope —
+        // which would make EVERY promotion re-proof fail. The workspace must contain only
+        // the applied change. (O-3: discovered when the promotion gate re-proof was wired.)
+        @unlink($dir.'/atlas.patch');
 
         return [
             'schema_version' => self::SCHEMA_VERSION,

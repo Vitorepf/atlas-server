@@ -339,9 +339,18 @@ final class AtlasLoopStore
 
         // Graded quality verdict (AP-820 S3) — optional key, persisted only when the
         // column exists (pre-migration DBs stay healthy). Absence = not graded.
-        if (is_array($proposal['quality'] ?? null)
-            && Schema::hasColumn('atlas_loop_proposals', 'quality')) {
-            $attributes['quality'] = $proposal['quality'];
+        // O-3: the full frozen acceptance contract rides inside the quality json under a
+        // reserved key so the promotion gate can re-run the REAL test before merge
+        // (no migration needed; metric stays the numeric verdict). Absence => reproof
+        // fails closed, never promotes what it cannot re-verify.
+        if (Schema::hasColumn('atlas_loop_proposals', 'quality')) {
+            $quality = is_array($proposal['quality'] ?? null) ? $proposal['quality'] : [];
+            if (is_array($proposal['acceptance_contract'] ?? null) && $proposal['acceptance_contract'] !== []) {
+                $quality['_acceptance_contract'] = $proposal['acceptance_contract'];
+            }
+            if ($quality !== []) {
+                $attributes['quality'] = $quality;
+            }
         }
 
         return AtlasLoopProposal::query()->create($attributes);

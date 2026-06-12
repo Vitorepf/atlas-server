@@ -37,10 +37,19 @@ final class AtlasCaptureQualityGate
         'should inform future routing, retrieval or execution when matching evidence recurs',
     ];
 
-    /** Smoke-test / readiness-simulation markers — Atlas testing itself, not learning. */
-    private const FIXTURE_PATTERNS = [
+    /**
+     * Smoke-test / readiness-simulation markers — Atlas testing itself, not learning.
+     * STRONG = artefatos estruturais que só existem em fixture (1 hit rejeita).
+     * WEAK = vocabulário normal de engenharia ("smoke test" aparece em learnings REAIS
+     * de falha de teste); 1 hit sozinho NÃO pode rejeitar — exige 2+ marcadores
+     * distintos co-ocorrendo (o perfil de um fixture echo de verdade).
+     */
+    private const STRONG_FIXTURE_PATTERNS = [
         'atlas_compound_ok',
         'reply with exactly',
+    ];
+
+    private const WEAK_FIXTURE_PATTERNS = [
         'deterministic smoke',
         'smoke simulation',
         'smoke test',
@@ -69,10 +78,19 @@ final class AtlasCaptureQualityGate
         $hash = $this->contentHash($kind, $claim, $identity);
         $haystack = $this->normalizeText($claim.' '.$this->flatten($content));
 
-        foreach (self::FIXTURE_PATTERNS as $p) {
+        foreach (self::STRONG_FIXTURE_PATTERNS as $p) {
             if ($p !== '' && str_contains($haystack, $p)) {
                 return $this->verdict(false, self::REASON_FIXTURE_ECHO, $hash, 0);
             }
+        }
+        $weakHits = 0;
+        foreach (self::WEAK_FIXTURE_PATTERNS as $p) {
+            if ($p !== '' && str_contains($haystack, $p)) {
+                $weakHits++;
+            }
+        }
+        if ($weakHits >= 2) {
+            return $this->verdict(false, self::REASON_FIXTURE_ECHO, $hash, 0);
         }
         foreach (self::META_STUB_PATTERNS as $p) {
             if (str_contains($haystack, $this->normalizeText($p))) {
@@ -104,12 +122,46 @@ final class AtlasCaptureQualityGate
         // Identity is the meaningful CONTENT when present (so a generator that varies
         // only the summary still collapses); fall back to the claim when content is
         // empty (so two distinct sentence-learnings stay distinct).
-        $stripped = $this->stripVolatile($content);
+        // CANONICALIZED antes do hash: sem isto, whitespace/caixa/ordem de chaves
+        // aninhadas — exatamente a família de variação que um gerador LLM produz a
+        // cada run — quebram o dedup e o padrão "137→3" volta com outro nome.
+        $stripped = $this->canonicalize($this->stripVolatile($content));
         $identity = $this->isContentless($stripped)
             ? ['kind' => strtolower(trim($kind)), 'claim' => $this->normalizeText($claim)]
             : ['kind' => strtolower(trim($kind)), 'content' => $stripped];
 
         return 'sha256:'.hash('sha256', (string) json_encode($identity, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+
+    /**
+     * Forma canônica para identidade de dedup: strings normalizadas (caixa+espaços),
+     * mapas com chaves ordenadas recursivamente, listas de escalares ordenadas
+     * (evidências reordenadas são o mesmo conteúdo); listas de estruturas mantêm a
+     * ordem (sequências de passos têm ordem semântica).
+     */
+    private function canonicalize(mixed $content): mixed
+    {
+        if (is_string($content)) {
+            return $this->normalizeText($content);
+        }
+        if (! is_array($content)) {
+            return $content;
+        }
+        $out = [];
+        foreach ($content as $k => $v) {
+            $out[$k] = $this->canonicalize($v);
+        }
+        if (array_is_list($out)) {
+            $allScalar = array_reduce($out, static fn (bool $c, mixed $v): bool => $c && ! is_array($v), true);
+            if ($allScalar) {
+                sort($out);
+            }
+
+            return $out;
+        }
+        ksort($out);
+
+        return $out;
     }
 
     private function minScore(): int
@@ -160,7 +212,7 @@ final class AtlasCaptureQualityGate
     private function substanceScore(string $claim, mixed $content): int
     {
         $text = $this->normalizeText($claim.' '.$this->flatten($content));
-        foreach (array_merge(self::META_STUB_PATTERNS, self::FIXTURE_PATTERNS) as $p) {
+        foreach (array_merge(self::META_STUB_PATTERNS, self::STRONG_FIXTURE_PATTERNS, self::WEAK_FIXTURE_PATTERNS) as $p) {
             $text = str_replace($this->normalizeText($p), ' ', $text);
         }
         // Unicode-aware: letters/digits in ANY script count (pt-BR, CJK, …). Keep 2-3

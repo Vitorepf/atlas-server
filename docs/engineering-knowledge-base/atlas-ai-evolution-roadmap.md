@@ -228,3 +228,53 @@ Exemplos concretos devem ser adicionados quando reduzirem ambiguidade para human
 ## Proximas Acoes
 
 Proximas acoes devem ser concretas, verificaveis e ligadas a gates de qualidade.
+
+## O-2 "Loop decente" — qualidade no ciclo (Campanha Fable, 2026-06-12)
+
+A falha histórica (Opus/GPT nunca deixaram o Loop decente) era qualidade no ciclo, não o
+runtime. Quatro contratos estruturais, cada um com teste congelado:
+
+- **(a) Capture quality enforce é o default.** `atlas.ai.capture_quality_gate.mode` passou
+  observe→enforce (Marco Zero mediu 94% waste em observe; os fixes do O-1 tornaram seguro).
+  Em enforce: ruído não persiste, conteúdo idêntico colapsa (dedup por content_hash
+  canonicalizado), e o dedup NÃO cola em proposta rejeitada (gate OU humano).
+  Prova: `AtlasLearningProposalQualityGateTest`, `AtlasCaptureQualityGateTest`.
+- **(b) Descoberta dirigida por evidência real.** `AtlasLoopEvidenceSignalService` deriva
+  um peso por arquivo do corpus REAL de falhas (failure_signatures, janela 30d); o score
+  de descoberta passou a `0.72·estrutural + 0.28·evidência`. Fail-open: corpus vazio →
+  ranking estrutural intacto. Prova: `AtlasLoopEvidenceSignalServiceTest`.
+- **(c) Guard numérico determinístico.** `NumericSafetyGuard` é o primitivo único que a
+  família NaN/INF/overflow/SORT_STRING (57/107 kernels) precisava — finite/safeDivide/
+  clamp/safeMean/safeSum/numericSort, total e puro. Prova: `NumericSafetyGuardTest`.
+- **(d) Certificação adversarial em todos os caminhos (flag).**
+  `atlas.loop.universal_certification` (default OFF): quando ON, o caminho de descoberta
+  — não só o framework — roteia cada proposta pelo semantic certifier + painel adversarial
+  antes de certified_for_review (fecha o Goodhart do frozen judge auto-escrito). Fail-soft
+  por proposta: erro de gate dropa a proposta, nunca a task. Ligar muda a severidade do
+  juiz do loop vivo → decisão deliberada destravada junto da política merge-livre (O-3).
+  Prova: `AtlasLoopGrindTaskCommandTest::test_universal_certification_gates_the_discovery_path_fail_soft`.
+
+## O-3 "Travessia merge-livre" — reprove funcional + contrato persistido (Campanha Fable, 2026-06-12)
+
+A travessia (promover uma vitória do Loop a código) só é segura se a re-prova ANTES do
+merge for real. Três contratos, com teste congelado:
+
+- **Contrato de acceptance viaja COM a proposta.** O runner anexa o contrato frozen
+  completo (`acceptance_contract`: commands/frozen_globs/allowed_globs/metric_kind) a cada
+  proposta; o store persiste em `quality._acceptance_contract` (sem migração). Antes só
+  sobravam `metric` (float) + `acceptance_hash` — re-rodar o teste original era impossível.
+- **defaultReprove lê o contrato, não o `metric`.** O `AtlasLoopProposalPromotionGate`
+  re-roda o frozen judge contra o contrato persistido; contrato ausente/sem commands =
+  fail-closed (nunca promove o que não consegue re-verificar). Fecha o O-1 #1/#2 (o código
+  lia `$proposal->metric` numérico como acceptance → sempre []→sempre negava ou, pior,
+  promovia sem re-prova real). Prova: `AtlasLoopProposalPromotionGateTest`.
+- **Materializer limpa o artefato `atlas.patch`.** Bug descoberto ao wirar o reprove: o
+  materializer deixava `atlas.patch` no workspace isolado → o census de escopo do frozen
+  judge via um arquivo extra → `out_of_scope` → TODA promoção falharia a re-prova em
+  produção. Agora o patch é removido após aplicar; o workspace contém só a mudança.
+  Prova: `AtlasLoopProposalReverserTest` (cadeia G5 materialize→promote→reverse) verde.
+
+A política merge-livre (auto-merge pós-veredito + fix-forward + saldo líquido) permanece
+destravável pela flag `atlas.loop.universal_certification` (O-2 slice d) + a chave do
+operador `atlas.ai.loop.merge_to_source_enabled` (default OFF) — a porta e a fechadura
+existem e re-provam de verdade; girar a chave segue decisão do operador.

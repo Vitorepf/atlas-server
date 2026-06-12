@@ -87,8 +87,18 @@ final class AtlasLoopTaskGrinder
             if ($intentVerifierPacket !== null) {
                 $result['intent_verifier_factory'] = $this->summariseIntentVerifierPacket($intentVerifierPacket);
             }
-            if ($frameworkTask) {
-                $result = $this->gateFrameworkImplementationProposals($result, $explorerTask, $payload);
+            // O-2 slice (d): certificação adversarial em TODOS os caminhos. Antes só o
+            // caminho framework passava pelo gate (semantic certifier + painel adversarial
+            // + refuters); o caminho default de descoberta — o que alimenta a campanha 24h
+            // e o que o merge-livre vai consumir — só tinha o frozen judge auto-escrito
+            // (Goodhart aberto). Ligar a certificação universal MUDA a severidade do juiz
+            // do loop vivo: é decisão deliberada (flag, default OFF — destravada em O-3
+            // junto da política de merge-livre), não um flip silencioso. Quando ligada, o
+            // caminho de descoberta passa pelo MESMO gate; falha de certificação de uma
+            // proposta a derruba (fail-closed), nunca derruba a task inteira.
+            $universal = (bool) config('atlas.loop.universal_certification', false);
+            if (($frameworkTask || $universal) && $this->canGateProposals($explorerTask)) {
+                $result = $this->gateImplementationProposals($result, $explorerTask, $payload, $frameworkTask);
             }
             $summary = $this->persister->persist($task, $workerId, $result);
             $cleanup();
@@ -189,7 +199,29 @@ final class AtlasLoopTaskGrinder
      * @param  array<string,mixed>  $payload
      * @return array<string,mixed>
      */
-    private function gateFrameworkImplementationProposals(array $result, array $explorerTask, array $payload): array
+    /**
+     * Can the adversarial gate run for this task? It needs a real base workspace (to
+     * re-materialize each proposal's diff) and a frozen acceptance with commands. Both
+     * the framework and the discovery materializers provide these; if either is missing
+     * (malformed task) we do not fabricate a certification.
+     *
+     * @param  array<string,mixed>  $explorerTask
+     */
+    private function canGateProposals(array $explorerTask): bool
+    {
+        $base = (string) ($explorerTask['base_workspace'] ?? '');
+        $commands = AiStringListNormalizer::trimmedStrings(data_get($explorerTask, 'acceptance.commands', []));
+
+        return $base !== '' && is_dir($base) && $commands !== [];
+    }
+
+    /**
+     * @param  array<string,mixed>  $result
+     * @param  array<string,mixed>  $explorerTask
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function gateImplementationProposals(array $result, array $explorerTask, array $payload, bool $frameworkTask = true): array
     {
         $proposals = is_array($result['proposals'] ?? null) ? $result['proposals'] : [];
         $acceptance = is_array($explorerTask['acceptance'] ?? null) ? $explorerTask['acceptance'] : [];
@@ -205,19 +237,37 @@ final class AtlasLoopTaskGrinder
                 continue;
             }
             $diff = (string) ($proposal['diff_text'] ?? '');
-            $gateWorkspace = $this->materializeGateWorkspace($baseWorkspace, $diff);
+            // On the discovery (non-framework) path the certifier can fail for reasons
+            // specific to a self-contained workspace; fail-CLOSED per-proposal (drop it)
+            // instead of failing the whole task, so the hole is closed without crashing
+            // the 24h loop. The framework path keeps its original strict behavior.
             try {
-                $verdict = $this->semanticCertifier->certify($gateWorkspace, $acceptance, [
-                    'objective' => (string) ($proposal['objective'] ?? $explorerTask['objective'] ?? ''),
-                    'allowed_files' => $this->semanticAllowedFiles($payload, $explorerTask),
-                    'sealed_holdout_commands' => $sealedHoldouts,
-                    'semantic_refuter_commands' => $refuterCommands,
-                    'provider_refuters_required' => $this->semanticRefutersRequired($payload, count($refuterCommands)),
-                    'refuter_provider' => $payload['refuter_provider'] ?? $payload['provider'] ?? null,
-                    'refuter_timeout_seconds' => $payload['refuter_timeout_seconds'] ?? null,
-                ]);
-            } finally {
-                $this->removeGateWorkspace($baseWorkspace, $gateWorkspace);
+                $gateWorkspace = $this->materializeGateWorkspace($baseWorkspace, $diff);
+                try {
+                    $verdict = $this->semanticCertifier->certify($gateWorkspace, $acceptance, [
+                        'objective' => (string) ($proposal['objective'] ?? $explorerTask['objective'] ?? ''),
+                        'allowed_files' => $this->semanticAllowedFiles($payload, $explorerTask),
+                        'sealed_holdout_commands' => $sealedHoldouts,
+                        'semantic_refuter_commands' => $refuterCommands,
+                        'provider_refuters_required' => $this->semanticRefutersRequired($payload, count($refuterCommands)),
+                        'refuter_provider' => $payload['refuter_provider'] ?? $payload['provider'] ?? null,
+                        'refuter_timeout_seconds' => $payload['refuter_timeout_seconds'] ?? null,
+                    ]);
+                } finally {
+                    $this->removeGateWorkspace($baseWorkspace, $gateWorkspace);
+                }
+            } catch (Throwable $e) {
+                if ($frameworkTask) {
+                    throw $e; // framework path unchanged: a gate error is fatal
+                }
+                $certificationReports[] = [
+                    'proposal_hash' => (string) ($proposal['proposal_hash'] ?? ''),
+                    'certified' => false,
+                    'level' => 'gate_error',
+                    'reasons' => ['gate_error:'.mb_substr($e->getMessage(), 0, 120)],
+                ];
+
+                continue; // fail-closed: uncertifiable proposal is dropped
             }
 
             $deterministicGate = is_array($verdict['deterministic_gate'] ?? null) ? $verdict['deterministic_gate'] : [];

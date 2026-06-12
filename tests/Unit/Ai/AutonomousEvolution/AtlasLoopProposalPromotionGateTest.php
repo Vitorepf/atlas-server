@@ -120,6 +120,69 @@ class AtlasLoopProposalPromotionGateTest extends TestCase
         $this->assertSame('reproof_failed', $r['reason']);
     }
 
+    /**
+     * O-3 (closes O-1 #1/#2): the DEFAULT reproof (no injected reprover) re-runs the real
+     * frozen judge against the PERSISTED acceptance contract. A proposal whose diff makes
+     * the frozen test pass is promoted; the gate genuinely re-verified before merge.
+     */
+    public function test_default_reproof_uses_the_persisted_acceptance_contract_and_promotes_on_pass(): void
+    {
+        config(['atlas.ai.loop.merge_to_source_enabled' => true]);
+        $original = "<?php\nfunction val(){ return 1; }\n";
+        $modified = "<?php\nfunction val(){ return 2; }\n";
+        $diff = $this->makeDiff('snippet.php', $original, $modified);
+
+        // The materializer reconstructs ONLY the target file, so the acceptance command
+        // must be self-contained (it asserts against snippet.php, which the diff fixed).
+        $base = $this->base($original);
+
+        $proposal = (new AtlasLoopProposal())->forceFill([
+            'status' => AtlasLoopProposal::STATUS_CERTIFIED,
+            'target_path' => 'snippet.php',
+            'diff_text' => $diff,
+            'proposal_hash' => 'hash-contract-pass',
+            'metric' => ['some' => 'numeric verdict'], // metric is NOT the contract
+            'quality' => ['_acceptance_contract' => [
+                'commands' => ["php -r \"require 'snippet.php'; exit(val()===2?0:1);\""],
+                'allowed_globs' => ['snippet.php'],
+                'frozen_globs' => ['composer.json'], // explicit, non-target; snippet.php stays editable
+                'metric_kind' => 'gate',
+            ]],
+        ]);
+
+        // No injected reprover — the REAL defaultReprove runs.
+        $r = $this->gate()->promote($proposal, $base, ['operator_id' => 'vitor', 'approved' => true]);
+        $this->dirs[] = (string) $r['isolated_path'];
+
+        $this->assertTrue($r['promoted'], 'reason: '.(string) $r['reason']);
+        $this->assertFalse($r['merged_to_main']);
+    }
+
+    /**
+     * O-1 #1/#2 regression: a proposal with ONLY the numeric `metric` and NO persisted
+     * acceptance contract must fail closed — the old code read `metric` as acceptance and
+     * could mis-promote. Now: no contract => reproof denied, never promoted.
+     */
+    public function test_numeric_metric_without_a_contract_fails_reproof_closed(): void
+    {
+        config(['atlas.ai.loop.merge_to_source_enabled' => true]);
+        $original = "<?php\nfunction val(){ return 1; }\n";
+        $diff = $this->makeDiff('snippet.php', $original, "<?php\nfunction val(){ return 2; }\n");
+
+        $proposal = (new AtlasLoopProposal())->forceFill([
+            'status' => AtlasLoopProposal::STATUS_CERTIFIED,
+            'target_path' => 'snippet.php',
+            'diff_text' => $diff,
+            'proposal_hash' => 'hash-no-contract',
+            'metric' => ['gate' => 'pass', 'value' => 1.0], // looks like acceptance, ISN'T
+        ]);
+
+        $r = $this->gate()->promote($proposal, $this->base($original), ['operator_id' => 'vitor', 'approved' => true]);
+
+        $this->assertFalse($r['promoted'], 'numeric metric must never be mistaken for a runnable contract');
+        $this->assertSame('reproof_failed', $r['reason']);
+    }
+
     public function test_promotes_to_a_branch_never_touching_main_or_base(): void
     {
         config(['atlas.ai.loop.merge_to_source_enabled' => true]);

@@ -45,6 +45,7 @@ class AtlasCompoundingReadinessService
         $specialistFlowSource = $this->source(app_path('Services/Ai/Router/AtlasAiSpecialistFlowExecutionService.php'));
         $hyperflowSource = $this->source(app_path('Services/Ai/Router/AtlasAiHyperflowRivalsBatteryService.php'));
         $gatewaySource = $this->source(app_path('Services/Ai/AiGatewayService.php'));
+        $conductorSource = $this->source(app_path('Services/Ai/AtlasDecide/AtlasEngineeringRunConductorService.php'));
         $atlasDevRunSource = $this->source(app_path('Http/Controllers/AtlasDev/RunController.php'));
         $devToForgeSource = $this->source(app_path('Services/AtlasCode/DevToForgePromotionService.php'));
         $checks = [
@@ -67,8 +68,16 @@ class AtlasCompoundingReadinessService
             $this->check('hyperflow_records_compounding_outcome', str_contains($hyperflowSource, 'recordCompoundingOutcome') && str_contains($hyperflowSource, 'AtlasCompoundingRuntimeService'), [
                 'hyperflow_bridge_present' => str_contains($hyperflowSource, 'recordCompoundingOutcome'),
             ]),
-            $this->check('gateway_records_flow_learning_signal', str_contains($gatewaySource, 'recordCompoundingFlowSignal') && str_contains($gatewaySource, 'AtlasCompoundingRuntimeService'), [
-                'gateway_compounding_hook_present' => str_contains($gatewaySource, 'recordCompoundingFlowSignal'),
+            // T1.2 (2026-06-11): o hook recordCompoundingFlowSignal do gateway fabricava um
+            // learning signal boilerplate por interação (a fonte do ~94% de noise medido).
+            // O contrato agora é o INVERSO: a fábrica deve estar ausente e o compounding
+            // deve ser alimentado pelo caminho real (conductor learn→recall).
+            $this->check('gateway_does_not_fabricate_learning_signals', ! str_contains($gatewaySource, 'recordCompoundingFlowSignal('), [
+                'noise_factory_absent' => ! str_contains($gatewaySource, 'recordCompoundingFlowSignal('),
+            ]),
+            $this->check('conductor_feeds_compounding_runtime', str_contains($conductorSource, 'AtlasCompoundingRuntimeService') && str_contains($conductorSource, 'recordExecution') && str_contains($conductorSource, 'learning_signal') && str_contains($conductorSource, 'engineering_run_memory'), [
+                'conductor_real_feed_present' => str_contains($conductorSource, 'recordExecution'),
+                'substantive_learning_signal_present' => str_contains($conductorSource, 'learning_signal'),
             ]),
             $this->check('atlas_dev_records_compounding_outcome', str_contains($atlasDevRunSource, 'recordCompoundingLearningSignal') && str_contains($atlasDevRunSource, 'atlas.ai.compounding.atlas_dev_bridge.v1'), [
                 'atlas_dev_bridge_present' => str_contains($atlasDevRunSource, 'atlas.ai.compounding.atlas_dev_bridge.v1'),

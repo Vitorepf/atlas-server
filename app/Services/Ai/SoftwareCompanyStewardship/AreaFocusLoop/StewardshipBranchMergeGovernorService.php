@@ -596,7 +596,11 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
         return [
             'commands' => $commands,
             'run_validation' => $run,
-            'passed' => $commands === [] ? null : $passed,
+            // Fail-closed (sweep O-1): comandos declarados mas NÃO executados nunca são
+            // validação verde — um caller que omita run_validation=true (o default do CLI)
+            // não pode destravar as classes de auto-merge de código com passed=true vazio.
+            'passed' => $commands === [] ? null : ($run ? $passed : false),
+            'not_run' => $commands !== [] && ! $run,
             'results' => $results,
         ];
     }

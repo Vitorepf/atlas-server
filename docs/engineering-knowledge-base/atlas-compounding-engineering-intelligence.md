@@ -110,6 +110,8 @@ quality_gates:
   - outcome-evaluation-required
   - learning-distillation-required
   - memory-evidence-and-confidence
+  - gateway-learning-noise-factory-absent
+  - workspace-mutator-scope-sees-unstaged-staged-and-explicit-ignored-forbidden-files
   - rag-feedback-measured
   - benchmark-from-real-failure
   - heuristic-update-auditable
@@ -265,6 +267,30 @@ Uma execucao so compoe inteligencia quando produz pelo menos um destes efeitos:
 - RAG feedback mensuravel;
 - self-improvement queue item com evidence;
 - certificacao temporal com delta.
+
+### Certificacao O-1 da campanha Fable
+
+Durante o sweep O-1, dois contratos viraram piso congelado:
+
+1. O gateway generico nao pode fabricar learning signal por interacao. O check
+   `gateway_does_not_fabricate_learning_signals` exige ausencia de
+   `recordCompoundingFlowSignal(` em `AiGatewayService`; o caminho valido e o
+   conductor alimentar `AtlasCompoundingRuntimeService::recordExecution` com
+   `learning_signal` substantivo, `engineering_run_memory`, evidence refs e
+   flow da tarefa.
+2. Providers que mutam workspace diretamente precisam ter scope guard sobre
+   alteracoes unstaged, staged/cached, todos os untracked nao ignorados e
+   ignored explicitamente proibidos. Isso impede uma edicao permitida de
+   mascarar arquivo novo fora de escopo, inclusive se o provider tentar
+   `git add` no arquivo proibido ou criar arquivo ignorado declarado em
+   `forbidden_files`.
+
+Provas congeladas:
+
+- `tests/Feature/Ai/AtlasCompoundingEngineeringIntelligenceTest.php`
+- `tests/Unit/Ai/AtlasDecide/AtlasEngineeringRunConductorServiceTest.php`
+- `tests/Unit/Ai/Programming/AtlasDev/Http/PipelineRunExecutorHermesProviderTest.php`
+- `tests/Unit/Ai/Programming/AtlasDev/Http/PipelineRunExecutorTest.php`
 
 ## Regras para IA
 
@@ -429,3 +455,34 @@ Atlas Compounding Engineering Intelligence esta completo quando:
 - self-improvement queue prioriza melhorias por impacto verificavel;
 - temporal certification mostra evolucao por flow e rival;
 - claims contra Claude Code/Codex sao automaticamente limitados pela evidencia.
+
+## Pisos certificados — Sweep O-1 da Campanha Fable (2026-06-12)
+
+Auditoria adversarial multi-agente (mandato de refutar, 2 verificadores independentes
+por achado) certificou os pisos compounding/capture antes do merge-livre. Contratos
+estruturais que NÃO podem regredir (cada um tem teste congelado):
+
+- **Gateway nunca fabrica learning signals** — o hook `recordCompoundingFlowSignal`
+  (boilerplate por interação, fonte do ~94% de noise) foi removido; o readiness exige a
+  AUSÊNCIA dele e a presença do feed real (conductor → `recordExecution`).
+  Prova: `AtlasCompoundingEngineeringIntelligenceTest`.
+- **Memória ativa deduplica por conteúdo** — re-promover o mesmo claim/scope/type
+  REVALIDA a memória existente (nunca duplica; `memory_hash` inclui candidate_hash
+  único-por-run e inundava o top-5 do `approvedForFlow`).
+  Prova: `AtlasCompoundingRuntimeServiceTest::test_repromoting_the_same_claim_*`.
+- **Capture gate enforce não dropa learning real** — padrões de fixture divididos em
+  fortes (1 hit rejeita) e fracos (vocabulário de prosa; exige 2+ co-ocorrências);
+  `content_hash` canonicalizado (caixa/espaço/ordem de chaves/lista escalar).
+  Prova: `AtlasCaptureQualityGateTest`.
+- **Auto-apply nunca vaza aprovação forjada** — falha de apply após approve reverte o
+  carimbo para a fila de revisão; G3 lê evidence_refs da coluna canônica (nunca do
+  proposed_state do produtor; sample/effect zerados sem evidência canônica).
+  Prova: `AtlasAutonomousLearningApplierTest`.
+- **Runtime nunca auto-aplica heurística** — `apply=true` vindo de `recordExecution` é
+  forçado a `proposed` para QUALQUER key (a classificação crítica por prefixo era
+  controlada pelo caller). Prova: `AtlasCompoundingRuntimeServiceTest`.
+
+Pendências roteadas (não são deste subsistema): veredito anti-Goodhart do juiz do Loop
+(O-2d), persistência do contrato de acceptance para re-prova no promote (O-3),
+verificação do receipt Decide + allowlist de validação Forge (O-6). Marco Zero da
+campanha: Evidence Ledger `01KTWCPTNZQDQ2NGMD8G8NP83K`.

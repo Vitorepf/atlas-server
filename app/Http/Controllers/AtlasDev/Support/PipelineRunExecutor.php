@@ -736,7 +736,11 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         // Hermes mutated the workspace directly — derive diff like the
         // Codex/Cursor/MiniMax providers and let scope/verification gate it.
         $providerChangedFiles = $errors === []
-            ? $this->stringList($this->changedFilePathsInWorkspace($envelope->workspace, $taskContract->allowedFiles))
+            ? $this->stringList($this->changedFilePathsInWorkspace(
+                $envelope->workspace,
+                $taskContract->allowedFiles,
+                $taskContract->forbiddenFiles,
+            ))
             : [];
         $scopeViolations = array_values(array_filter(
             $providerChangedFiles,
@@ -799,14 +803,24 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
     }
 
     /**
-     * Changed (tracked + untracked) workspace paths, repo-relative, used to
-     * compute scope violations for providers (like Hermes) that mutate the
-     * worktree directly but do not return a structured changed-files list.
+     * Changed (tracked, staged, untracked, and explicit ignored-forbidden)
+     * workspace paths, repo-relative, used to compute scope violations for
+     * providers (like Hermes) that mutate the worktree directly but do not
+     * return a structured changed-files list.
+     *
+     * Important: scope inspection must not pathspec regular untracked files to
+     * allowed_files. Otherwise a provider can create an out-of-scope file and
+     * still pass by also changing an allowed file. Staged files need their own
+     * cached diff because `git add` removes them from the untracked set. Ignored
+     * files are limited to explicit forbidden_files to avoid failing every real
+     * workspace that already has ignored local artifacts such as dependency
+     * folders or machine-local environment files.
      *
      * @param  list<string>  $allowedFiles
+     * @param  list<string>  $forbiddenFiles
      * @return list<string>
      */
-    private function changedFilePathsInWorkspace(string $workspace, array $allowedFiles): array
+    private function changedFilePathsInWorkspace(string $workspace, array $allowedFiles, array $forbiddenFiles = []): array
     {
         if (! is_dir($workspace)) {
             return [];
@@ -814,34 +828,56 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
 
         $paths = [];
 
-        $tracked = new Process(['git', 'diff', '--no-ext-diff', '--name-only'], $workspace, null, null, 15.0);
-        $tracked->run();
-        if ($tracked->isSuccessful() || $tracked->getExitCode() === 1) {
-            foreach (explode("\n", (string) $tracked->getOutput()) as $line) {
-                $line = trim($line);
-                if ($line !== '') {
-                    $paths[] = $line;
-                }
-            }
+        foreach ([
+            ['git', 'diff', '--no-ext-diff', '--name-only'],
+            ['git', 'diff', '--cached', '--no-ext-diff', '--name-only'],
+            ['git', 'ls-files', '--others', '--exclude-standard'],
+        ] as $argv) {
+            $paths = array_merge($paths, $this->gitNameOnlyPaths($workspace, $argv));
         }
 
-        $untrackedArgv = ['git', 'ls-files', '--others', '--exclude-standard'];
-        if ($allowedFiles !== []) {
-            $untrackedArgv[] = '--';
-            array_push($untrackedArgv, ...$allowedFiles);
-        }
-        $untracked = new Process($untrackedArgv, $workspace, null, null, 15.0);
-        $untracked->run();
-        if ($untracked->isSuccessful()) {
-            foreach (explode("\n", (string) $untracked->getOutput()) as $line) {
-                $line = trim($line);
-                if ($line !== '') {
-                    $paths[] = $line;
-                }
-            }
+        $ignoredForbidden = $this->safeRelativePaths($forbiddenFiles);
+        if ($ignoredForbidden !== []) {
+            $argv = ['git', 'ls-files', '--others', '--ignored', '--exclude-standard', '--'];
+            array_push($argv, ...$ignoredForbidden);
+            $paths = array_merge($paths, $this->gitNameOnlyPaths($workspace, $argv));
         }
 
         return array_values(array_unique($paths));
+    }
+
+    /**
+     * @param  list<string>  $argv
+     * @return list<string>
+     */
+    private function gitNameOnlyPaths(string $workspace, array $argv): array
+    {
+        $process = new Process($argv, $workspace, null, null, 15.0);
+        $process->run();
+        if (! $process->isSuccessful() && $process->getExitCode() !== 1) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            static fn (string $line): string => trim($line),
+            explode("\n", (string) $process->getOutput()),
+        ), static fn (string $path): bool => $path !== ''));
+    }
+
+    /**
+     * @param  list<string>  $paths
+     * @return list<string>
+     */
+    private function safeRelativePaths(array $paths): array
+    {
+        return array_values(array_filter(array_map(
+            static function (string $path): string {
+                $path = ltrim(trim($path), '/');
+
+                return $path !== '' && ! str_contains($path, '..') ? $path : '';
+            },
+            $paths,
+        ), static fn (string $path): bool => $path !== ''));
     }
 
     /**

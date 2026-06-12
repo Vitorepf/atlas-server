@@ -224,6 +224,302 @@ final class PipelineRunExecutorHermesProviderTest extends TestCase
         $this->assertSame('provider_mutated_workspace', $apply['reason']);
     }
 
+    public function test_hermes_workspace_mutator_blocks_untracked_files_outside_allowed_scope(): void
+    {
+        config()->set('atlas_dev.efficient.deterministic_fast_path_enabled', false);
+
+        $runId = 'dev-hermes-forbidden-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+        $this->seedRun($storage, $runId, taskKind: 'repair', riskLevel: 'R2');
+        $this->initGitWorkspace();
+
+        $allowed = $this->tmpWorkspace.'/app/Foo.php';
+        $forbidden = $this->tmpWorkspace.'/secrets.txt';
+        mkdir(dirname($allowed), 0o755, true);
+        file_put_contents($allowed, "<?php\nfinal class Foo { public function value(): string { return 'before'; } }\n");
+        $this->git(['add', 'app/Foo.php']);
+        $this->git(['commit', '-m', 'fixture']);
+
+        $fakeHermes = new class($allowed, $forbidden) implements AiProvider
+        {
+            public function __construct(
+                private readonly string $allowed,
+                private readonly string $forbidden,
+            ) {}
+
+            public function key(): string
+            {
+                return 'hermes_cli';
+            }
+
+            public function run(AiJob $job, string $prompt): AiProviderResult
+            {
+                return $this->runStreaming($job, $prompt);
+            }
+
+            public function runStreaming(AiJob $job, string $prompt, ?callable $onEvent = null): AiProviderResult
+            {
+                file_put_contents($this->allowed, "<?php\nfinal class Foo { public function value(): string { return 'after-hermes'; } }\n");
+                file_put_contents($this->forbidden, "must never be invisible\n");
+
+                return new AiProviderResult(
+                    ok: true,
+                    output: 'Hermes edited files.',
+                    command: ['hermes', 'chat', '--quiet'],
+                    exitCode: 0,
+                    durationMs: 42,
+                    stdout: 'Hermes edited files.',
+                    stderr: '',
+                    errorCode: null,
+                    errorMessage: null,
+                    metadata: [],
+                );
+            }
+
+            public function health(): AiProviderHealthCheck
+            {
+                return new AiProviderHealthCheck(provider: 'hermes_cli', status: 'online', message: 'fake');
+            }
+        };
+
+        $manager = app(AiProviderManager::class);
+        $manager->registerDriver('hermes_cli', $fakeHermes);
+        app()->instance(AiProviderManager::class, $manager);
+
+        $gateway = new FakeClaudeCliGateway;
+        $container = new Container;
+        $container->instance(ClaudeCliGateway::class, $gateway);
+        $container->instance(VerificationCommandRunner::class, new FakeCommandRunner);
+        $executor = new PipelineRunExecutor($container, $storage);
+
+        $envelope = $this->envelope(
+            intent: 'Use Hermes to change only app/Foo.php.',
+            providerChoice: 'hermes_cli',
+        );
+        $taskContract = $this->taskContractFixture([
+            'allowed_files' => ['app/Foo.php'],
+            'forbidden_files' => ['secrets.txt'],
+            'max_files_changed' => 1,
+            'validation_commands' => ['php -l app/Foo.php'],
+            'provider_lock' => [
+                'provider' => 'hermes_cli',
+                'model_family' => 'minimax-m3',
+                'fallback_allowed' => false,
+            ],
+        ]);
+
+        $result = $executor->execute(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            promptProjection: $this->buildSendableProjection(envelope: $envelope, taskContract: $taskContract),
+            runId: $runId,
+        );
+
+        $this->assertSame([], $gateway->requests);
+        $this->assertSame('blocked', $result->completionState);
+        $this->assertContains('hermes_cli_scope_violation:secrets.txt', $result->providerCallSummary['error_codes']);
+    }
+
+    public function test_hermes_workspace_mutator_blocks_staged_files_outside_allowed_scope(): void
+    {
+        config()->set('atlas_dev.efficient.deterministic_fast_path_enabled', false);
+
+        $runId = 'dev-hermes-staged-forbidden-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+        $this->seedRun($storage, $runId, taskKind: 'repair', riskLevel: 'R2');
+        $this->initGitWorkspace();
+
+        $allowed = $this->tmpWorkspace.'/app/Foo.php';
+        $forbidden = $this->tmpWorkspace.'/secrets.txt';
+        mkdir(dirname($allowed), 0o755, true);
+        file_put_contents($allowed, "<?php\nfinal class Foo { public function value(): string { return 'before'; } }\n");
+        $this->git(['add', 'app/Foo.php']);
+        $this->git(['commit', '-m', 'fixture']);
+
+        $fakeHermes = new class($this->tmpWorkspace, $allowed, $forbidden) implements AiProvider
+        {
+            public function __construct(
+                private readonly string $workspace,
+                private readonly string $allowed,
+                private readonly string $forbidden,
+            ) {}
+
+            public function key(): string
+            {
+                return 'hermes_cli';
+            }
+
+            public function run(AiJob $job, string $prompt): AiProviderResult
+            {
+                return $this->runStreaming($job, $prompt);
+            }
+
+            public function runStreaming(AiJob $job, string $prompt, ?callable $onEvent = null): AiProviderResult
+            {
+                file_put_contents($this->allowed, "<?php\nfinal class Foo { public function value(): string { return 'after-hermes'; } }\n");
+                file_put_contents($this->forbidden, "must never be invisible\n");
+
+                $process = new Process(['git', 'add', 'secrets.txt'], $this->workspace, null, null, 10.0);
+                $process->run();
+                if (! $process->isSuccessful()) {
+                    throw new \RuntimeException($process->getErrorOutput());
+                }
+
+                return new AiProviderResult(
+                    ok: true,
+                    output: 'Hermes edited files.',
+                    command: ['hermes', 'chat', '--quiet'],
+                    exitCode: 0,
+                    durationMs: 42,
+                    stdout: 'Hermes edited files.',
+                    stderr: '',
+                    errorCode: null,
+                    errorMessage: null,
+                    metadata: [],
+                );
+            }
+
+            public function health(): AiProviderHealthCheck
+            {
+                return new AiProviderHealthCheck(provider: 'hermes_cli', status: 'online', message: 'fake');
+            }
+        };
+
+        $manager = app(AiProviderManager::class);
+        $manager->registerDriver('hermes_cli', $fakeHermes);
+        app()->instance(AiProviderManager::class, $manager);
+
+        $gateway = new FakeClaudeCliGateway;
+        $container = new Container;
+        $container->instance(ClaudeCliGateway::class, $gateway);
+        $container->instance(VerificationCommandRunner::class, new FakeCommandRunner);
+        $executor = new PipelineRunExecutor($container, $storage);
+
+        $envelope = $this->envelope(
+            intent: 'Use Hermes to change only app/Foo.php.',
+            providerChoice: 'hermes_cli',
+        );
+        $taskContract = $this->taskContractFixture([
+            'allowed_files' => ['app/Foo.php'],
+            'forbidden_files' => ['secrets.txt'],
+            'max_files_changed' => 1,
+            'validation_commands' => ['php -l app/Foo.php'],
+            'provider_lock' => [
+                'provider' => 'hermes_cli',
+                'model_family' => 'minimax-m3',
+                'fallback_allowed' => false,
+            ],
+        ]);
+
+        $result = $executor->execute(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            promptProjection: $this->buildSendableProjection(envelope: $envelope, taskContract: $taskContract),
+            runId: $runId,
+        );
+
+        $this->assertSame([], $gateway->requests);
+        $this->assertSame('blocked', $result->completionState);
+        $this->assertContains('hermes_cli_scope_violation:secrets.txt', $result->providerCallSummary['error_codes']);
+    }
+
+    public function test_hermes_workspace_mutator_blocks_ignored_files_outside_allowed_scope(): void
+    {
+        config()->set('atlas_dev.efficient.deterministic_fast_path_enabled', false);
+
+        $runId = 'dev-hermes-ignored-forbidden-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+        $this->seedRun($storage, $runId, taskKind: 'repair', riskLevel: 'R2');
+        $this->initGitWorkspace();
+
+        $allowed = $this->tmpWorkspace.'/app/Foo.php';
+        $forbidden = $this->tmpWorkspace.'/ignored-forbidden.txt';
+        mkdir(dirname($allowed), 0o755, true);
+        file_put_contents($allowed, "<?php\nfinal class Foo { public function value(): string { return 'before'; } }\n");
+        file_put_contents($this->tmpWorkspace.'/.gitignore', "ignored-forbidden.txt\n");
+        $this->git(['add', '.gitignore', 'app/Foo.php']);
+        $this->git(['commit', '-m', 'fixture']);
+
+        $fakeHermes = new class($allowed, $forbidden) implements AiProvider
+        {
+            public function __construct(
+                private readonly string $allowed,
+                private readonly string $forbidden,
+            ) {}
+
+            public function key(): string
+            {
+                return 'hermes_cli';
+            }
+
+            public function run(AiJob $job, string $prompt): AiProviderResult
+            {
+                return $this->runStreaming($job, $prompt);
+            }
+
+            public function runStreaming(AiJob $job, string $prompt, ?callable $onEvent = null): AiProviderResult
+            {
+                file_put_contents($this->allowed, "<?php\nfinal class Foo { public function value(): string { return 'after-hermes'; } }\n");
+                file_put_contents($this->forbidden, "IGNORED_FILE_CREATED_BY_FAKE=1\n");
+
+                return new AiProviderResult(
+                    ok: true,
+                    output: 'Hermes edited files.',
+                    command: ['hermes', 'chat', '--quiet'],
+                    exitCode: 0,
+                    durationMs: 42,
+                    stdout: 'Hermes edited files.',
+                    stderr: '',
+                    errorCode: null,
+                    errorMessage: null,
+                    metadata: [],
+                );
+            }
+
+            public function health(): AiProviderHealthCheck
+            {
+                return new AiProviderHealthCheck(provider: 'hermes_cli', status: 'online', message: 'fake');
+            }
+        };
+
+        $manager = app(AiProviderManager::class);
+        $manager->registerDriver('hermes_cli', $fakeHermes);
+        app()->instance(AiProviderManager::class, $manager);
+
+        $gateway = new FakeClaudeCliGateway;
+        $container = new Container;
+        $container->instance(ClaudeCliGateway::class, $gateway);
+        $container->instance(VerificationCommandRunner::class, new FakeCommandRunner);
+        $executor = new PipelineRunExecutor($container, $storage);
+
+        $envelope = $this->envelope(
+            intent: 'Use Hermes to change only app/Foo.php.',
+            providerChoice: 'hermes_cli',
+        );
+        $taskContract = $this->taskContractFixture([
+            'allowed_files' => ['app/Foo.php'],
+            'forbidden_files' => ['ignored-forbidden.txt'],
+            'max_files_changed' => 1,
+            'validation_commands' => ['php -l app/Foo.php'],
+            'provider_lock' => [
+                'provider' => 'hermes_cli',
+                'model_family' => 'minimax-m3',
+                'fallback_allowed' => false,
+            ],
+        ]);
+
+        $result = $executor->execute(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            promptProjection: $this->buildSendableProjection(envelope: $envelope, taskContract: $taskContract),
+            runId: $runId,
+        );
+
+        $this->assertSame([], $gateway->requests);
+        $this->assertSame('blocked', $result->completionState);
+        $this->assertContains('hermes_cli_scope_violation:ignored-forbidden.txt', $result->providerCallSummary['error_codes']);
+    }
+
     public function test_hermes_branch_blocks_when_provider_cannot_be_resolved(): void
     {
         config()->set('atlas_dev.efficient.deterministic_fast_path_enabled', false);

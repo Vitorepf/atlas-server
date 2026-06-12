@@ -256,9 +256,14 @@ class AtlasCompoundingRuntimeService
         $key = isset($payload['heuristic_key']) && is_string($payload['heuristic_key']) ? $payload['heuristic_key'] : '';
         $criticalKind = AtlasLearningProposalService::kindForHeuristicKey($key);
 
+        // Default-deny (sweep O-1): o caminho de RUNTIME nunca auto-aplica heurística —
+        // a classificação "crítica" era por prefixo controlado pelo caller, então
+        // apply=true em qualquer key fora dos prefixos gravava status='applied' sem
+        // revisão (incl. eval_gate.*, que a taxonomia crítica do classificador lista).
+        $payload['apply'] = false;
+
         $proposals = [];
         if ($criticalKind !== null) {
-            $payload['apply'] = false;
             $proposals[] = $this->learningProposalService->propose([
                 'kind' => $criticalKind,
                 'scope' => 'atlas-server',

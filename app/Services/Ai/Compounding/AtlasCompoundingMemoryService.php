@@ -45,6 +45,26 @@ class AtlasCompoundingMemoryService
             'evidence_refs' => $payload['evidence_refs'],
         ]);
 
+        // F3 (sweep O-1): dedup por CONTEÚDO antes do firstOrCreate — memory_hash inclui
+        // candidate_hash (único por run), então sem isto cada run cria uma memória ATIVA
+        // nova para o MESMO claim e inunda o top-5 do approvedForFlow com boilerplate.
+        // Re-ver o mesmo claim/scope/type = REVALIDA a memória existente, não duplica.
+        $existing = AiCompoundingMemory::query()
+            ->where('claim', $payload['claim'])
+            ->where('scope', $payload['scope'])
+            ->where('memory_type', $payload['memory_type'])
+            ->where('status', 'active')
+            ->first();
+        if ($existing !== null) {
+            $existing->forceFill([
+                'confidence' => max((int) $existing->confidence, (int) $candidate->confidence),
+                'valid_until' => $payload['valid_until'],
+                'last_revalidated_at' => $payload['last_revalidated_at'],
+            ])->save();
+
+            return $existing->refresh();
+        }
+
         return AiCompoundingMemory::query()->firstOrCreate(
             ['memory_hash' => $payload['memory_hash']],
             $payload,

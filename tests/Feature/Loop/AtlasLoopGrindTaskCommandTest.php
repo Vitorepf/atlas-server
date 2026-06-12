@@ -115,6 +115,75 @@ final class AtlasLoopGrindTaskCommandTest extends TestCase
         $this->assertGreaterThanOrEqual(1, $campaign->scenarios_explored);
     }
 
+    /**
+     * O-2 slice (d): with universal_certification ON, the DISCOVERY path routes through
+     * the adversarial gate too (not just framework tasks). The safety property proven
+     * here is fail-SOFT: even when the gate can't certify the proposal, the task still
+     * completes 'done' (never 'failed') — the earlier naive always-gate broke 29 tests
+     * exactly because gate errors failed the whole task.
+     */
+    public function test_universal_certification_gates_the_discovery_path_fail_soft(): void
+    {
+        config(['atlas.loop.universal_certification' => true]);
+
+        $this->app->bind(LoopExecutionDriver::class, fn () => new class implements LoopExecutionDriver
+        {
+            public function attempt(string $surfaceId, string $workspace, string $intent, array $userConstraints, array $surfaceHints): array
+            {
+                file_put_contents(
+                    $workspace.'/src/SmokeSubject.php',
+                    "<?php\nnamespace Smoke;\nfinal class SmokeSubject{ public function greeting(): string { return 'hello atlas'; } }\n",
+                );
+
+                return ['status' => 'completed'];
+            }
+        });
+
+        $campaign = AtlasLoopCampaign::create([
+            'schema_version' => 'atlas.loop.campaign.v1',
+            'status' => AtlasLoopCampaign::STATUS_RUNNING,
+            'goal' => 'prove universal certification on discovery path',
+            'config' => ['scenarios_per_task' => 1],
+            'max_seconds' => 60,
+        ]);
+
+        $task = AtlasLoopTask::create([
+            'campaign_id' => $campaign->id,
+            'schema_version' => 'atlas.loop.task.v1',
+            'status' => AtlasLoopTask::STATUS_PENDING,
+            'source' => AtlasLoopTask::SOURCE_SEED,
+            'target_path' => 'src/SmokeSubject.php',
+            'objective' => 'Fix the greeting typo so the test passes. Edit src/SmokeSubject.php directly.',
+            'payload' => [
+                'target_relative_path' => 'src/SmokeSubject.php',
+                'target_content' => "<?php\nnamespace Smoke;\nfinal class SmokeSubject{ public function greeting(): string { return 'helo atlas'; } }\n",
+                'frozen_tests' => [[
+                    'path' => 'tests/SmokeSubjectTest.php',
+                    'content' => "<?php\nrequire __DIR__.'/../src/SmokeSubject.php';\n\$s = new \\Smoke\\SmokeSubject();\nif (\$s->greeting() !== 'hello atlas') { fwrite(STDERR, 'bad'); exit(1); }\necho 'ok';\n",
+                ]],
+                'acceptance' => [
+                    'commands' => ['php tests/SmokeSubjectTest.php'],
+                    'allowed_globs' => ['src/**'],
+                    'frozen_globs' => ['tests/**', 'composer.json'],
+                    'metric_kind' => 'gate',
+                ],
+                'allowed_files' => ['src/SmokeSubject.php'],
+                'validation_commands' => ['php tests/SmokeSubjectTest.php'],
+            ],
+            'dedupe_key' => 'smoke-universal-1',
+        ]);
+
+        $this->artisan('atlas:loop:grind-task', ['--task-id' => $task->id, '--scenarios' => 1])
+            ->assertExitCode(0);
+
+        // Fail-soft: the universal gate ran on the discovery path; whatever its verdict,
+        // the task lifecycle completed cleanly (the regression that broke 29 tests was
+        // a gate error turning the task 'failed').
+        $task->refresh();
+        $this->assertSame(AtlasLoopTask::STATUS_DONE, $task->status);
+        $this->assertNull($task->lease_expires_at);
+    }
+
     public function test_grinds_framework_materialized_p4_small_task_through_implementation_gate(): void
     {
         $target = 'app/Services/Ai/AutonomousEvolution/AtlasLoopWorkspaceMaterializer.php';

@@ -712,12 +712,30 @@ final class AtlasEngineeringRunConductorService
 
         try {
             $quality = $winner['quality_score'] ?? null;
+            $confidence = is_numeric($quality) ? max(0, min(100, (int) round((float) $quality * 100))) : 80;
+            $taskCategory = (string) ($work['task_category'] ?? 'engineering_run');
+            $taskInput = trim((string) ($work['input'] ?? $taskCategory));
+            $provider = (string) ($winner['provider'] ?? 'unknown_provider');
             $result = $this->compoundingRuntime->recordExecution([
                 'outcome_status' => 'passed',
-                'flow_id' => (string) ($work['task_category'] ?? ''),
+                'flow_id' => $taskCategory,
                 'run_id' => (string) ($execution['dispatch_id'] ?? ''),
                 'evidence_refs' => $evidenceRefs,
                 'execution_quality' => is_numeric($quality) ? max(0.0, min(100.0, (float) $quality * 100)) : null,
+                'learning_signal' => [
+                    'claim' => sprintf(
+                        'Engineering task "%s" completed successfully via %s; reuse this concrete outcome when routing similar Atlas engineering work.',
+                        mb_substr($taskInput !== '' ? $taskInput : $taskCategory, 0, 180),
+                        $provider !== '' ? $provider : 'unknown_provider',
+                    ),
+                    'memory_type' => 'engineering_run_memory',
+                    'scope' => 'engineering',
+                    'confidence' => $confidence,
+                    'flow_id' => $taskCategory,
+                    'evidence_refs' => $evidenceRefs,
+                    'provider' => $winner['provider'] ?? null,
+                    'model' => $winner['model'] ?? null,
+                ],
             ]);
 
             return [

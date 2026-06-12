@@ -60,4 +60,30 @@ class AtlasCognitionScorecardCommandTest extends TestCase
         $lenient = new BufferedOutput;
         $this->assertSame(0, Artisan::call('atlas:cognition:scorecard', [], $lenient));
     }
+
+    /**
+     * O-5 (Criação ≠ Medição): the `code` dimension is RESOLVED from real class_exists,
+     * not a self-declared constant. Freeze it: the code score must exactly match the
+     * count of subsystems whose service_class actually exists. If anyone re-introduces a
+     * hardcoded 'ready', this drifts and the test fails.
+     */
+    public function test_code_dimension_is_resolved_from_real_class_exists_not_declared(): void
+    {
+        $report = app(AtlasCognitionScoreCardService::class)->build();
+        $rows = $report['subsystems'];
+        $this->assertNotEmpty($rows);
+
+        $expectedReady = 0;
+        foreach ($rows as $row) {
+            $cls = (string) ($row['service_class'] ?? '');
+            $codeReady = $row['code_status'] === AtlasCognitionScoreCardService::STATUS_READY;
+            // The prober's verdict must match ground truth: class exists <=> code ready.
+            $this->assertSame(class_exists($cls), $codeReady, "code_status for {$cls} must mirror class_exists");
+            $expectedReady += $codeReady ? 1 : 0;
+        }
+
+        // The aggregated code score (out of 10) is exactly the ready ratio — pure evidence.
+        $codeScore = (float) $report['score']['dimensions']['code']['score_out_of_10'];
+        $this->assertEqualsWithDelta(round(10 * $expectedReady / count($rows), 2), $codeScore, 0.01);
+    }
 }

@@ -125,4 +125,65 @@ class AtlasCaptureQualityGateTest extends TestCase
 
         $this->assertNotSame($a['content_hash'], $b['content_hash']);
     }
+
+    /**
+     * F5 (sweep O-1): "smoke test" é vocabulário normal de engenharia — um learning REAL
+     * de falha de teste que o mencione NÃO pode ser dropado como fixture_echo (em enforce
+     * o drop é transiente e destrutivo: o conteúdo some sem trilha).
+     */
+    public function test_a_real_learning_mentioning_smoke_test_is_admitted(): void
+    {
+        $v = $this->gate()->assess([
+            'kind' => 'failure_pattern',
+            'claim' => 'Remediation failed: smoke test atlas_dev_smoke timing out after paratest upgrade; pin paratest 7.4 and keep the 512M memory floor.',
+            'content' => [
+                'trigger' => 'paratest 7.5 upgrade broke the timeout budget',
+                'action' => 'pin paratest 7.4 + 512M floor until upstream fix',
+            ],
+        ]);
+
+        $this->assertTrue($v['admit'], 'learning real mencionando smoke test deve ser admitido; got '.$v['reason']);
+        $this->assertSame(AtlasCaptureQualityGate::REASON_OK, $v['reason']);
+    }
+
+    public function test_a_real_fixture_echo_with_multiple_weak_markers_is_still_rejected(): void
+    {
+        $v = $this->gate()->assess([
+            'kind' => 'routing_memory',
+            'claim' => 'Deterministic smoke run for readiness simulation completed and produced a passed outcome.',
+            'content' => [],
+        ]);
+
+        $this->assertFalse($v['admit']);
+        $this->assertSame(AtlasCaptureQualityGate::REASON_FIXTURE_ECHO, $v['reason']);
+    }
+
+    /**
+     * F6 (sweep O-1): variação trivial — caixa, whitespace, ordem de chaves aninhadas,
+     * lista de escalares reordenada — é exatamente o que um gerador LLM produz a cada
+     * run; o hash de dedup tem que colapsar tudo isso para o MESMO valor.
+     */
+    public function test_trivial_variation_collapses_to_the_same_hash(): void
+    {
+        $base = $this->gate()->assess([
+            'kind' => 'memory',
+            'content' => ['action' => 'Retry on blip', 'detail' => ['a' => 1, 'b' => 2], 'refs' => ['ev-1', 'ev-2']],
+        ]);
+        $caseAndWhitespace = $this->gate()->assess([
+            'kind' => 'memory',
+            'content' => ['action' => '  retry   ON blip ', 'detail' => ['a' => 1, 'b' => 2], 'refs' => ['ev-1', 'ev-2']],
+        ]);
+        $nestedKeyOrder = $this->gate()->assess([
+            'kind' => 'memory',
+            'content' => ['refs' => ['ev-1', 'ev-2'], 'detail' => ['b' => 2, 'a' => 1], 'action' => 'retry on blip'],
+        ]);
+        $scalarListOrder = $this->gate()->assess([
+            'kind' => 'memory',
+            'content' => ['action' => 'retry on blip', 'detail' => ['a' => 1, 'b' => 2], 'refs' => ['ev-2', 'ev-1']],
+        ]);
+
+        $this->assertSame($base['content_hash'], $caseAndWhitespace['content_hash'], 'caixa/whitespace não pode quebrar dedup');
+        $this->assertSame($base['content_hash'], $nestedKeyOrder['content_hash'], 'ordem de chaves aninhadas não pode quebrar dedup');
+        $this->assertSame($base['content_hash'], $scalarListOrder['content_hash'], 'lista de escalares reordenada não pode quebrar dedup');
+    }
 }

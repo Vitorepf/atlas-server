@@ -28,11 +28,42 @@ final class StewardshipMergeAutonomyPolicyServiceTest extends TestCase
         $this->assertSame([], $policy['reasons']);
     }
 
+    /**
+     * F-sweep O-1 (fail-open de validação): passed=true com results=[] — comandos
+     * declarados mas NUNCA executados (run_validation=false, o default do CLI) — era
+     * suficiente para destravar as classes de auto-merge de código. Auto-merge de
+     * código exige validação que EXECUTOU: run_validation=true E results não-vazio.
+     */
+    public function test_declared_but_not_executed_validation_never_unlocks_code_auto_merge(): void
+    {
+        $forgedGreen = ['passed' => true, 'run_validation' => false, 'results' => []];
+
+        $bugfix = app(StewardshipMergeAutonomyPolicyService::class)->decide(
+            ['kind' => 'bugfix', 'code_or_other_file_count' => 1],
+            $forgedGreen,
+            ['app/Foo.php'],
+            1,
+            [],
+            ['allow_code_auto_merge' => true],
+        );
+        $this->assertFalse($bugfix['code_auto_merge_authorized'], 'validação não-executada não pode autorizar código');
+
+        $passedOnly = app(StewardshipMergeAutonomyPolicyService::class)->decide(
+            ['kind' => 'bugfix', 'code_or_other_file_count' => 1],
+            ['passed' => true],
+            ['app/Foo.php'],
+            1,
+            [],
+            ['allow_code_auto_merge' => true],
+        );
+        $this->assertFalse($passedOnly['code_auto_merge_authorized'], 'passed=true sem evidência de execução não pode autorizar código');
+    }
+
     public function test_allows_bugfix_only_with_operator_flag_and_green_validation(): void
     {
         $policy = app(StewardshipMergeAutonomyPolicyService::class)->decide(
             ['kind' => 'bugfix', 'code_or_other_file_count' => 1],
-            ['passed' => true],
+            ['passed' => true, 'run_validation' => true, 'results' => [['ok' => true]]],
             ['app/Foo.php'],
             1,
             [],
@@ -49,7 +80,7 @@ final class StewardshipMergeAutonomyPolicyServiceTest extends TestCase
     {
         $policy = app(StewardshipMergeAutonomyPolicyService::class)->decide(
             ['kind' => 'test', 'code_or_other_file_count' => 1],
-            ['passed' => true],
+            ['passed' => true, 'run_validation' => true, 'results' => [['ok' => true]]],
             ['app/Foo.php', 'tests/Unit/FooTest.php'],
             1,
             [],
@@ -68,7 +99,7 @@ final class StewardshipMergeAutonomyPolicyServiceTest extends TestCase
     {
         $policy = app(StewardshipMergeAutonomyPolicyService::class)->decide(
             ['kind' => 'code_or_mixed', 'code_or_other_file_count' => 1],
-            ['passed' => true],
+            ['passed' => true, 'run_validation' => true, 'results' => [['ok' => true]]],
             [
                 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerService.php',
                 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerServiceTest.php',
@@ -89,7 +120,7 @@ final class StewardshipMergeAutonomyPolicyServiceTest extends TestCase
     {
         $policy = app(StewardshipMergeAutonomyPolicyService::class)->decide(
             ['kind' => 'code_or_mixed', 'code_or_other_file_count' => 1],
-            ['passed' => true],
+            ['passed' => true, 'run_validation' => true, 'results' => [['ok' => true]]],
             [
                 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipMergeAutonomyPolicyService.php',
                 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipMergeAutonomyPolicyServiceTest.php',
@@ -108,7 +139,7 @@ final class StewardshipMergeAutonomyPolicyServiceTest extends TestCase
     {
         $policy = app(StewardshipMergeAutonomyPolicyService::class)->decide(
             ['kind' => 'code_or_mixed', 'code_or_other_file_count' => 1],
-            ['passed' => true],
+            ['passed' => true, 'run_validation' => true, 'results' => [['ok' => true]]],
             [
                 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipMergeAutonomyPolicyService.php',
                 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipMergeAutonomyPolicyServiceTest.php',
@@ -127,7 +158,7 @@ final class StewardshipMergeAutonomyPolicyServiceTest extends TestCase
     {
         $policy = app(StewardshipMergeAutonomyPolicyService::class)->decide(
             ['kind' => 'code_or_mixed', 'code_or_other_file_count' => 1],
-            ['passed' => true],
+            ['passed' => true, 'run_validation' => true, 'results' => [['ok' => true]]],
             [
                 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipMergeAutonomyPolicyService.php',
                 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipMergeAutonomyPolicyServiceTest.php',
@@ -145,7 +176,7 @@ final class StewardshipMergeAutonomyPolicyServiceTest extends TestCase
     {
         $policy = app(StewardshipMergeAutonomyPolicyService::class)->decide(
             ['kind' => 'code_or_mixed', 'code_or_other_file_count' => 1],
-            ['passed' => true],
+            ['passed' => true, 'run_validation' => true, 'results' => [['ok' => true]]],
             ['app/Services/Ai/Programming/AtlasDev/Runtime/AtlasDevRuntimeService.php'],
             1,
             [],
@@ -167,7 +198,7 @@ final class StewardshipMergeAutonomyPolicyServiceTest extends TestCase
 
         $policy = app(StewardshipMergeAutonomyPolicyService::class)->decide(
             ['kind' => 'code_or_mixed', 'code_or_other_file_count' => 1],
-            ['passed' => true],
+            ['passed' => true, 'run_validation' => true, 'results' => [['ok' => true]]],
             $files,
             1,
             [],
@@ -198,7 +229,7 @@ final class StewardshipMergeAutonomyPolicyServiceTest extends TestCase
 
         $mainPolicy = app(StewardshipMergeAutonomyPolicyService::class)->decide(
             ['kind' => 'code_or_mixed', 'code_or_other_file_count' => 1],
-            ['passed' => true],
+            ['passed' => true, 'run_validation' => true, 'results' => [['ok' => true]]],
             $files,
             1,
             [],
@@ -213,7 +244,7 @@ final class StewardshipMergeAutonomyPolicyServiceTest extends TestCase
 
         $scopePolicy = app(StewardshipMergeAutonomyPolicyService::class)->decide(
             ['kind' => 'code_or_mixed', 'code_or_other_file_count' => 1],
-            ['passed' => true],
+            ['passed' => true, 'run_validation' => true, 'results' => [['ok' => true]]],
             array_merge($files, ['app/Services/Ai/AgenticEngineeringOs/Unexpected.php']),
             1,
             [],
@@ -244,7 +275,7 @@ final class StewardshipMergeAutonomyPolicyServiceTest extends TestCase
 
         $policy = app(StewardshipMergeAutonomyPolicyService::class)->decide(
             ['kind' => 'code_or_mixed', 'code_or_other_file_count' => 1],
-            ['passed' => true],
+            ['passed' => true, 'run_validation' => true, 'results' => [['ok' => true]]],
             $files,
             1,
             [],
@@ -277,7 +308,7 @@ final class StewardshipMergeAutonomyPolicyServiceTest extends TestCase
         // still requires operator review (self-selected findings are unaffected).
         $noFlag = app(StewardshipMergeAutonomyPolicyService::class)->decide(
             ['kind' => 'code_or_mixed', 'code_or_other_file_count' => 1],
-            ['passed' => true],
+            ['passed' => true, 'run_validation' => true, 'results' => [['ok' => true]]],
             $files,
             1,
             [],
@@ -287,7 +318,7 @@ final class StewardshipMergeAutonomyPolicyServiceTest extends TestCase
         // (b) Authorized but a changed file escapes the slice's allowed_files.
         $outOfScope = app(StewardshipMergeAutonomyPolicyService::class)->decide(
             ['kind' => 'code_or_mixed', 'code_or_other_file_count' => 1],
-            ['passed' => true],
+            ['passed' => true, 'run_validation' => true, 'results' => [['ok' => true]]],
             array_merge($files, ['app/Services/Ai/PlanExecution/Unexpected.php']),
             1,
             [],

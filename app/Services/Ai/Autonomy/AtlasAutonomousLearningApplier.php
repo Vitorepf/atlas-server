@@ -111,11 +111,36 @@ final class AtlasAutonomousLearningApplier
 
                 return true;
             }
+            $this->revertToQueue($proposal);
         } catch (Throwable) {
-            // fall through to queue — fail-safe
+            $this->revertToQueue($proposal);
         }
 
         return false;
+    }
+
+    /**
+     * O apply() exige status='approved', então approve vem antes — mas se o apply não
+     * concluiu, o carimbo NÃO pode sobrar: 'approved' é o marcador que o apply-learning
+     * manual confia, e status!='proposed' desaparece da fila de revisão de domingo.
+     * Reverte apenas o carimbo que ESTE ator acabou de fazer (nunca decisão de operador).
+     */
+    private function revertToQueue(AiLearningProposal $proposal): void
+    {
+        try {
+            $proposal->refresh();
+            if ($proposal->status !== 'approved' || $proposal->decided_by !== 'atlas-auto') {
+                return;
+            }
+            $proposal->forceFill([
+                'status' => 'proposed',
+                'decided_by' => null,
+                'decided_at' => null,
+                'decision_notes' => 'auto_apply_failed: aplicação não concluiu; devolvido à fila de revisão',
+            ])->save();
+        } catch (Throwable) {
+            // revert impossível (ex.: DB indisponível) — o run() ainda reporta queued_for_review
+        }
     }
 
     /**
@@ -194,13 +219,19 @@ final class AtlasAutonomousLearningApplier
     private function signalFor(AiLearningProposal $proposal): array
     {
         $ps = is_array($proposal->proposed_state) ? $proposal->proposed_state : [];
+        // Hardening G3 (sweep O-1): evidence_refs vem da coluna CANÔNICA do proposal
+        // (gravada pelo proposal service no momento da captura), nunca do proposed_state
+        // que o produtor avaliado escreve. sample/effect continuam do produtor — por isso
+        // só contam quando há evidência canônica não-vazia; o desenho completo
+        // (refs resolvíveis no ledger + privacy de classificador Atlas-side) é O-2a.
+        $canonicalRefs = is_array($proposal->evidence_refs) ? array_values(array_filter($proposal->evidence_refs, static fn ($r): bool => $r !== null && $r !== '')) : [];
 
         return [
             'kind' => (string) $proposal->kind,
             'summary' => (string) ($ps['claim'] ?? ($ps['title'] ?? '')),
-            'evidence_refs' => is_array($ps['evidence_refs'] ?? null) ? $ps['evidence_refs'] : [],
-            'sample_size' => (int) ($ps['sample_size'] ?? 0),
-            'effect_size' => (float) ($ps['effect_size'] ?? 0.0),
+            'evidence_refs' => $canonicalRefs,
+            'sample_size' => $canonicalRefs === [] ? 0 : (int) ($ps['sample_size'] ?? 0),
+            'effect_size' => $canonicalRefs === [] ? 0.0 : (float) ($ps['effect_size'] ?? 0.0),
         ];
     }
 

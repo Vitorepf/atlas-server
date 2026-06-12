@@ -106,14 +106,17 @@ final class AtlasLoopProposalPromotionGate
 
     /**
      * Conservative default re-proof: re-run the frozen judge against the materialized
-     * workspace when the proposal carries a runnable acceptance; refuse otherwise
-     * (never promote what cannot be re-proven). Best-effort by design — a caller may
-     * inject a stronger reprover.
+     * workspace using the PERSISTED frozen acceptance CONTRACT (commands/frozen_globs/
+     * metric_kind), not the numeric `metric` verdict. O-3 closes the O-1 #1/#2 gap where
+     * this read `$proposal->metric` (a float) as acceptance — always [] => always denied.
+     * Refuses when the contract is absent or unrunnable (never promote what it cannot
+     * re-verify). Best-effort by design — a caller may inject a stronger reprover.
      */
     private function defaultReprove(string $workspace, AtlasLoopProposal $proposal): bool
     {
-        $acceptance = is_array($proposal->metric ?? null) ? $proposal->metric : [];
-        if ($acceptance === []) {
+        $acceptance = $this->persistedAcceptanceContract($proposal);
+        // A runnable contract needs at least one command; a bare/absent contract fails closed.
+        if ($acceptance === [] || ($acceptance['commands'] ?? []) === []) {
             return false;
         }
 
@@ -124,6 +127,20 @@ final class AtlasLoopProposalPromotionGate
         } catch (Throwable) {
             return false;
         }
+    }
+
+    /**
+     * The full frozen acceptance contract, persisted by the store inside the proposal's
+     * `quality` json under the reserved `_acceptance_contract` key (see AtlasLoopStore).
+     *
+     * @return array<string,mixed>
+     */
+    private function persistedAcceptanceContract(AtlasLoopProposal $proposal): array
+    {
+        $quality = is_array($proposal->quality ?? null) ? $proposal->quality : [];
+        $contract = $quality['_acceptance_contract'] ?? null;
+
+        return is_array($contract) ? $contract : [];
     }
 
     private function recordReceipt(AtlasLoopProposal $proposal, string $operator, string $branch, string $receiptHash): void

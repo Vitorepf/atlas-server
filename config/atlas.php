@@ -678,12 +678,15 @@ return [
         // rejects contentless/empty-template, meta-stub ("a signal was emitted"),
         // fixture/smoke-test echoes, and low-substance candidates, and dedups by CONTENT
         // hash (so identical-content rows collapse instead of multiplying).
-        //   mode = off | observe (DEFAULT) | enforce
+        //   mode = off | observe | enforce (DEFAULT, desde O-2 da campanha Fable)
         //     observe — annotate + log what it WOULD prune; persists everything (no change)
         //     enforce — noise is NOT persisted; identical content collapses
+        // DEFAULT enforce: o Marco Zero mediu 94% de waste em observe; os fixes do sweep
+        // O-1 (falso-positivo smoke-test, canonicalização do hash, dedup que respeita
+        // rejeição humana) tornaram enforce seguro — não dropa learning real.
         // Audit any time (read-only): php artisan atlas:ai:capture-quality-audit
         'capture_quality_gate' => [
-            'mode' => env('ATLAS_CAPTURE_QUALITY_MODE', 'observe'),
+            'mode' => env('ATLAS_CAPTURE_QUALITY_MODE', 'enforce'),
             'min_score' => (int) env('ATLAS_CAPTURE_QUALITY_MIN_SCORE', 20),
         ],
 
@@ -1450,6 +1453,15 @@ return [
         'max_seconds_per_scenario' => max(30, (int) env('ATLAS_LOOP_MAX_SECONDS_PER_SCENARIO', 600)),
         // The loop NEVER merges to main: it accumulates certified-for-review proposals.
         'propose_only' => (bool) env('ATLAS_LOOP_PROPOSE_ONLY', true),
+
+        // O-2 slice (d): universal adversarial certification. When ON, the DISCOVERY
+        // path (not just framework tasks) routes every proposal through the semantic
+        // certifier + adversarial panel before certified_for_review — closing the
+        // Goodhart hole where the default 24h path trusted only a self-written frozen
+        // judge. DEFAULT OFF: turning it on changes the live loop judge's strictness,
+        // so it is deliberate (destravada junto da política merge-livre em O-3). When
+        // on, a proposal that errors the gate is dropped (fail-closed), never the task.
+        'universal_certification' => (bool) env('ATLAS_LOOP_UNIVERSAL_CERTIFICATION', false),
 
         // The 24h CAMPAIGN runtime — the durable supervisor around the per-task engine.
         // It self-feeds (discovery + generator refill the queue), grinds in parallel

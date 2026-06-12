@@ -1,0 +1,550 @@
+version: 2
+goal:
+  title: Campanha Fable — obra atual
+  slug: fable-campanha-obra-atual
+  kind: existing_plan
+  tranche: Executar a primeira obra em andamento ou pendente do ledger canônico da Campanha Fable, sem pular ordem, com slices verificados, captura
+    integral e auditoria final.
+  status: active
+  oracle:
+    signal: 'A obra alvo do ledger canônico está concluída com DoD item-a-item provado, regressões verdes, captura realizada, ledger atualizado
+      e final audit full_outcome_complete: true.'
+    cadence: após cada Worker package, após cada refutação Judge, antes de avançar de obra e na auditoria final
+    final_proof: Receipts de Scout/Judge/Worker/PM + outputs reais de comandos/testes/artefatos + ledger docs/fable-campanha-11-dias-nxm.md atualizado
+      + checklist DoD da obra alvo.
+  intake:
+    original_request: ep Leia e execute /Users/vitorepf/develop/Atlas/atlas-server/docs/fable-campanha-goalbuddy-prep-request.md
+    interpreted_outcome: Criar um GoalBuddy board durável para executar a próxima obra da Campanha Fable do Atlas com governança, receipts, prova
+      por slice e retomada fria.
+    input_shape: existing_plan
+    audience: Operador do Atlas / Hermes PM executando no atlas-server
+    authority: requested
+    proof_type: test
+    completion_proof: Board executado até a obra alvo estar completa conforme prompt mestre e ledger canônico, com evidências reais, captura e
+      auditoria final.
+    likely_misfire: Completar só o planejamento/board/discovery, ou concluir um slice isolado, sem fechar a obra alvo com DoD, captura e ledger.
+    blind_spots_considered:
+      - Estado do ledger pode mudar entre prep e /goal; a execução deve revalidar a primeira obra em andamento ou pendente.
+      - O-1 tem Marco Zero parcialmente provado, mas ainda precisa audit/correção/captura completa antes de O-2.
+      - Fable é recurso escasso; não usar em boilerplate/refactor mecânico.
+      - Criação não pode medir criação; cada slice precisa de Judge/refutação independente.
+      - Decisões [OPERADOR] devem ser registradas e não tomadas autonomamente.
+      - Após O-3 o soak contínuo vira requisito vivo e não deve ser parado cedo.
+    existing_plan_facts:
+      - 'Fonte de execução: docs/fable-campanha-execution-prompt.md.'
+      - 'Plano governante: docs/fable-campanha-11-dias-nxm.md.'
+      - 'Workspace: /Users/vitorepf/develop/Atlas/atlas-server.'
+      - 'Ledger prep-time: O-1 Sweep + Marco Zero está em andamento; O-2+ pendentes.'
+      - 'Bootstrap obrigatório: /opt/homebrew/bin/php artisan atlas:ai:session-bootstrap --task="<obra>" --json.'
+      - 'AOBG obrigatório: bin/atlas open-brain context "<obra>" --json.'
+      - 'Placement obrigatório para peça nova: /opt/homebrew/bin/php artisan atlas:ai:place-feature "<peça>" --json.'
+      - 'Captura: testes verdes, canon docs quando aplicável, KB sync, Code Intelligence index-code com --workspace, memória Atlas, ledger atualizado
+        e DoD checklist.'
+      - 'Modelo policy: Fable PM/Judge, Codex gpt-5.5 Worker, MiniMax M3 Scout/manutenção barata.'
+rules:
+  pm_owns_state: true
+  one_active_task: true
+  max_write_workers: 1
+  no_implementation_without_worker_or_pm_task: true
+  no_completion_without_judge_or_pm_audit: true
+  planning_is_not_completion: true
+  queued_required_worker_blocks_completion: true
+  continuous_until_full_outcome: true
+  missing_input_or_credentials_do_not_stop_goal: true
+  preserve_and_validate_existing_plan: true
+  intake_misfire_must_be_audited: true
+  goal_pressure_requires_oracle: true
+  no_completion_on_weak_proof: true
+  no_order_skip: true
+  creation_ne_measurement: true
+  operator_decisions_not_autonomous: true
+  slice_policy:
+    max_consecutive_tiny_tasks: 2
+    prefer_vertical_slices: true
+    judge_picks_largest_safe_slice: true
+    worker_completes_whole_slice: true
+model_policy:
+  pm:
+    provider: anthropic
+    model: claude-fable-5
+    use_for:
+      - campanha PM
+      - arquitetura
+      - sequenciamento
+      - governança
+      - receipts finais
+  judge:
+    provider: anthropic
+    model: claude-fable-5
+    use_for:
+      - refutação adversarial
+      - decisões de risco
+      - auditoria final
+      - código de medição/gates/imune
+  worker:
+    provider: openai-codex
+    model: gpt-5.5
+    use_for:
+      - edição de código
+      - testes
+      - refactors mecânicos
+      - correções técnicas pesadas
+  scout:
+    provider: minimax
+    model: MiniMax-M3
+    use_for:
+      - mapeamento read-only simples
+      - resumos
+      - triagem leve
+      - limpeza de receipts
+agents:
+  scout: bundled_not_installed
+  worker: bundled_not_installed
+  judge: bundled_not_installed
+  availability_checked:
+    status: bundled GoalBuddy agent templates found at /Users/vitorepf/.hermes/skills/goalbuddy/agents/goal_*.toml; matching installed .codex/agents
+      configs not found in user or atlas-server project locations checked during prep
+    checked_at: 2026-06-11 prep session
+visual_board:
+  selected: local
+  local:
+    status: live
+    url: http://goalbuddy.localhost:41737/fable-campanha-obra-atual/
+    command: npx goalbuddy board docs/goals/fable-campanha-obra-atual
+active_task: T010
+tasks:
+  - id: T001
+    type: pm
+    assignee: PM
+    status: done
+    reasoning_hint: high
+    objective: Carregar o prompt mestre e plano canônico, revalidar o ledger, confirmar a obra alvo e decompor os primeiros slices sem modificar
+      código.
+    inputs:
+      - docs/fable-campanha-execution-prompt.md
+      - docs/fable-campanha-11-dias-nxm.md
+      - docs/goals/fable-campanha-obra-atual/goal.md
+      - docs/goals/fable-campanha-obra-atual/state.yaml
+    constraints:
+      - PM/Fable. Controle de board apenas; não editar código de produto nesta tarefa.
+      - Identificar a primeira obra em andamento ou pendente no ledger; prep-time indicou O-1, mas revalidar.
+      - Não pular ordem O-1 -> O-2 -> O-3.
+      - Registrar obra alvo, DoD e slices propostos no receipt ou notes/T001-obra-alvo-e-slices.md se longo.
+      - Se houver decisão [OPERADOR] necessária, criar tarefa bloqueada específica e continuar trabalho local seguro.
+    expected_output:
+      - Obra alvo confirmada a partir do ledger atual.
+      - DoD da obra alvo copiado/sumarizado com links/caminhos.
+      - Primeiros slices com proof/verify/stop_if propostos.
+      - 'Próxima tarefa ativa escolhida: bootstrap/contexto ou Judge de validação, conforme estado.'
+    receipt:
+      result: done
+      summary: Plano e ledger canônico re-lidos; obra alvo confirmada como O-1 Sweep + Marco Zero em andamento; DoD extraído; slices O1-S0..O1-S7
+        propostos sem tocar código de produto.
+      evidence:
+        - docs/fable-campanha-execution-prompt.md
+        - docs/fable-campanha-11-dias-nxm.md:142-160
+        - docs/goals/fable-campanha-obra-atual/goal.md
+        - docs/goals/fable-campanha-obra-atual/state.yaml
+        - docs/goals/fable-campanha-obra-atual/notes/T001-obra-alvo-e-slices.md
+      target_work: O-1 — Certification Sweep da espinha de engenharia + Marco Zero
+      target_status: em andamento
+      next_active_task: T002
+      spawned_or_refined_tasks:
+        - T002
+        - T003
+        - T004
+        - T005
+        - T006
+        - T999
+  - id: T002
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: Validar adversarialmente a obra alvo, ordem, DoD, riscos e slice plan antes de implementação.
+    inputs:
+      - T001 receipt
+      - docs/fable-campanha-execution-prompt.md
+      - docs/fable-campanha-11-dias-nxm.md
+      - docs/goals/fable-campanha-obra-atual/notes/T001-obra-alvo-e-slices.md
+    constraints:
+      - Judge/Fable. Read-only. Não implementar.
+      - 'Mandato de refutar: procurar ordem pulada, DoD fraco, proof fraca, Fable gasto em tarefa mecânica, criação medindo criação e decisão
+        [OPERADOR] não escalada.'
+      - Se validar Worker, devolver allowed_files iniciais, verify commands e stop_if.
+    expected_output:
+      - 'decision: approved | revise | blocked'
+      - obra alvo validada ou correção necessária
+      - riscos e decisões [OPERADOR]
+      - Worker objective se approved
+      - allowed_files
+      - verify
+      - stop_if
+    receipt:
+      result: done
+      decision: approved_for_scout_then_worker
+      summary: O-1 target/order and T001 slice decomposition validated; immediate Worker rejected until Scout/bootstrap/AOBG map exact evidence
+        and file scopes.
+      note: notes/T002-judge-validation.md
+      evidence:
+        - docs/fable-campanha-11-dias-nxm.md:142-160
+        - docs/goals/fable-campanha-obra-atual/notes/T001-obra-alvo-e-slices.md
+      full_outcome_complete: false
+      next_active_task: T003
+      worker_status: not_approved_yet_allowed_files_unknown
+  - id: T003
+    type: scout
+    assignee: Scout
+    status: done
+    reasoning_hint: low
+    objective: Mapear evidências read-only para a obra alvo e localizar testes/comandos/docs relevantes sem gastar Fable.
+    inputs:
+      - Obra alvo e slices de T001/T002
+      - Workspace /Users/vitorepf/develop/Atlas/atlas-server
+      - T002 receipt
+      - docs/goals/fable-campanha-obra-atual/notes/T002-judge-validation.md
+    constraints:
+      - Scout/MiniMax preferido. Read-only.
+      - Não editar arquivos.
+      - 'Usar evidência concreta: caminhos, comandos, docs, testes, artifacts, ledger.'
+      - Não re-derivar contexto que AOBG já entrega; complementar com leitura direta/rg quando necessário.
+      - Run bootstrap and AOBG/context commands before mapping; preserve provider-safe summaries in receipt/note.
+      - Do not activate Worker or edit code; this task only maps evidence and proposes scopes.
+    expected_output:
+      - Mapa de arquivos/doc/tests/comandos por slice.
+      - Evidências existentes e gaps.
+      - Sugestões de allowed_files por Worker package.
+      - Bootstrap JSON summary
+      - AOBG/context JSON summary
+      - Marco Zero artifact integrity check
+      - Candidate allowed_files and verify commands for first Worker package
+    receipt:
+      result: done
+      summary: Bootstrap/AOBG executed and O-1 evidence map built. Bootstrap status ok but session gate is blocked by ambiguous feature placement;
+        Worker remains blocked until placement/scope resolution.
+      note: notes/T003-scout-evidence-map.md
+      commands:
+        - cmd: /opt/homebrew/bin/php artisan atlas:ai:session-bootstrap --task="O-1 Certification Sweep da espinha de engenharia + Marco Zero"
+            --json
+          status: pass_with_gate_blocked
+        - cmd: bin/atlas open-brain context "O-1 Certification Sweep da espinha de engenharia + Marco Zero" --json
+          status: pass
+        - cmd: test -f storage/app/atlas/evidence/marco-zero-fable-2026-06-11.json
+          status: pass
+      critical_findings:
+        - session_gate.status=blocked reason=feature_placement_gate_blocked
+        - blocked_when=ambiguous_placement_requires_more_specific_feature_or_hint
+        - Marco Zero artifact exists and matches ledger directionally
+      next_active_task: T008
+      worker_status: blocked_until_gate_resolution_and_allowed_files
+  - id: T004
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: medium
+    objective: Executar o remediation command canônico do blocker técnico release_dossier_green, capturar replay snapshot/release dossier, reexecutar
+      completion audit e registrar receipt sem editar código.
+    inputs:
+      - T002 Judge decision
+      - T003 Scout receipt quando existir
+      - Bootstrap e AOBG outputs da sessão executora
+    constraints:
+      - Worker/Codex gpt-5.5.
+      - 'Antes de editar: rodar bootstrap e AOBG no workspace.'
+      - Modificar apenas allowed_files definidos/atualizados pelo PM a partir do Judge.
+      - Adicionar teste congelado antes de considerar comportamento novo completo.
+      - Não mexer em medição/gates/imune sem verificação adversarial reforçada.
+      - Não tomar decisões [OPERADOR].
+    allowed_files:
+      - storage/app/private/atlas/self-construction/** (somente via comando canonico)
+      - storage/app/atlas/** (somente se comando canonico escrever evidencia/snapshot)
+      - docs/goals/fable-campanha-obra-atual/notes/T004-worker-release-dossier.md
+      - docs/goals/fable-campanha-obra-atual/state.yaml
+    verify:
+      - /opt/homebrew/bin/php artisan atlas:ai:self-construction --agent-control-plane-replay-snapshot-store-capture --json
+      - /opt/homebrew/bin/php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json
+      - /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOsCompletionAuditTest.php --stop-on-failure
+    stop_if:
+      - Command requires human/operator artifact or real provider smoke.
+      - Command attempts dispatch/provider/self-programming.
+      - Need files outside allowed_files.
+      - routes/api.php or AtlasSelfConstructionOsCompletionAuditTest.php would need edits.
+      - Completion audit changes technical blocker into human/provider blocker.
+      - Verification fails.
+    receipt:
+      result: done
+      decision: technical_blocker_removed_but_o1_incomplete
+      summary: Worker exposed the missing CLI wiring for replay snapshot store/replay diff/release dossier projections, captured a current replay
+        snapshot, and removed the release_dossier_green technical blocker. Completion audit is still incomplete with 7 passed / 3 failed due only
+        to human/runtime/provider blockers.
+      note: notes/T004-worker-release-dossier.md
+      changed_files:
+        - app/Console/Commands/AtlasAiSelfConstructionMotherCommand.php
+        - storage/app/atlas/self-construction/agent-control-plane/replay-snapshots/registry.json and capped snapshot entry via canonical capture
+          command
+        - docs/goals/fable-campanha-obra-atual/notes/T004-worker-release-dossier.md
+      commands:
+        - cmd: /opt/homebrew/bin/php -l app/Console/Commands/AtlasAiSelfConstructionMotherCommand.php
+          status: pass
+        - cmd: /opt/homebrew/bin/php artisan atlas:ai:self-construction --agent-control-plane-replay-snapshot-store-capture --json
+          status: pass_captured_snap_01KTWMJB4K7ZXFY4EBZWN81CKK
+        - cmd: /opt/homebrew/bin/php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneReplaySnapshotStoreTest.php tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneReplayDiffTest.php
+            tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneReleaseDossierTest.php --stop-on-failure
+          status: pass_96_tests_404_assertions
+        - cmd: /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOsCompletionAuditTest.php --stop-on-failure
+          status: pass_30_tests_581_assertions
+        - cmd: /opt/homebrew/bin/php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json
+          status: pass_incomplete_7_passed_3_failed_no_technical_blockers
+      remaining_blockers:
+        - runtime_gap_matrix_all_runtime_y
+        - human_signed_os_complete_receipt_present
+        - end_to_end_real_provider_smoke_green
+      full_outcome_complete: false
+      next_active_task: T005
+  - id: T005
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: Refutar adversarialmente o slice entregue pelo Worker e decidir se passa, precisa fix-forward ou exige escalonamento.
+    inputs:
+      - T004 receipt
+      - git diff/current dirty diff
+      - test outputs do Worker
+      - DoD da obra alvo
+    constraints:
+      - Judge/Fable. Read-only.
+      - 'Mandato de refutar: correção, segurança, gaming/Goodhart, reprodução, captura e regressão.'
+      - Não aceitar self-declared proof. Exigir outputs reais e leitura direta do código alterado.
+    expected_output:
+      - 'decision: pass | fix_forward | blocked | escalate_operator'
+      - evidência verificada
+      - missing proof
+      - next Worker/PM task if not complete
+    receipt:
+      result: done
+      decision: pass_for_code_fix_forward_for_process
+      summary: 'Judge approved the T004 code/capture outcome but recorded a process exception: the worker had to edit AtlasAiSelfConstructionMotherCommand.php
+        outside the original allowed_files to make the canonical runbook command executable. O-1 remains incomplete with human/runtime/provider
+        blockers only.'
+      note: notes/T005-judge-worker-release-dossier.md
+      evidence:
+        - git diff -- app/Console/Commands/AtlasAiSelfConstructionMotherCommand.php
+        - php -l pass
+        - 126 focal tests pass
+        - completion audit incomplete 7 passed / 3 failed, technical_blockers empty
+      full_outcome_complete: false
+      required_board_updates:
+        - T006 must capture slice only, not mark O-1 complete
+        - T006 must record process exception and remaining [OPERADOR]/provider blockers
+      next_active_task: T006
+  - id: T006
+    type: pm
+    assignee: PM
+    status: done
+    reasoning_hint: high
+    objective: 'Capturar o slice T004/T005 aprovado sem declarar O-1 concluída: sync/index quando aplicável, registrar exceção de escopo, produzir
+      pacote [OPERADOR] para blockers restantes e manter full_outcome_complete=false.'
+    inputs:
+      - Receipts aprovados de Worker/Judge
+      - DoD da obra alvo
+      - docs/fable-campanha-11-dias-nxm.md
+      - docs/engineering-knowledge-base quando aplicável
+    constraints:
+      - PM/Fable para governança; Codex/MiniMax podem ser delegados para mecânica.
+      - Atualizar ledger canônico com status e prova concreta.
+      - 'Rodar sync/index-code quando houver docs/código relevante: bin/atlas engineering knowledge sync --prune; bin/atlas engineering knowledge
+        index-code --prune --workspace "$(pwd)".'
+      - Registrar memória Atlas provider-safe quando aplicável.
+      - Reler DoD item por item; faltou um item = obra incompleta.
+    expected_output:
+      - captura realizada ou tarefas específicas restantes
+      - ledger atualizado com prova
+      - comandos de sync/index/teste e resultados
+      - checklist DoD itemizado
+    receipt:
+      result: done
+      summary: Captured the approved technical slice without marking O-1 complete. Ran knowledge sync (107 updated, 0 failed), index-code (118014
+        symbols, 601 routes, 965 commands, 23183 tests), extracted operator evidence readiness and final closure corridor. Remaining blockers
+        require operator/provider artifacts.
+      note: notes/T006-capture-and-operator-package.md
+      commands:
+        - cmd: bin/atlas engineering knowledge sync --prune
+          status: pass_107_updated_0_failed
+        - cmd: bin/atlas engineering knowledge index-code --prune --workspace "$(pwd)"
+          status: pass_118014_symbols_601_routes_965_commands_23183_tests
+        - cmd: /opt/homebrew/bin/php artisan atlas:ai:self-construction --atlas-self-construction-operator-evidence-submission-readiness-status
+            --json
+          status: pass_incomplete_next_runtime_promotion_receipt
+        - cmd: /opt/homebrew/bin/php artisan atlas:ai:self-construction --atlas-self-construction-final-operator-evidence-closure-corridor-status
+            --json
+          status: pass_blocked_operator_evidence_required_3_artifacts
+      facts:
+        - technical_blockers=[]
+        - passed_count=7 failed_count=3
+        - blocking_artifacts=[runtime_promotion_receipt, real_provider_smoke, human_completion_receipt]
+        - operator_resume_packet.copy_safe=false due placeholders
+      full_outcome_complete: false
+      next_active_task: T010
+  - id: T007
+    type: pm
+    assignee: PM
+    status: queued
+    reasoning_hint: low
+    objective: Manter board e receipts limpos para retomada fria, resumindo estado e preparando próxima tarefa ativa.
+    inputs:
+      - Receipts recentes
+      - state.yaml
+    constraints:
+      - MiniMax M3 ou PM. Controle de board apenas.
+      - Não editar código de produto.
+      - Não esconder blockers; registrar tarefas bloqueadas específicas.
+    expected_output:
+      - state.yaml consistente
+      - receipts compactos
+      - próxima tarefa ativa clara
+      - nota de continuação se contexto estiver acabando
+    receipt: null
+  - id: T010
+    type: pm
+    assignee: PM/OPERADOR
+    status: active
+    reasoning_hint: high
+    objective: 'Obter/protocolar o primeiro artefato bloqueante de operador: runtime_promotion_receipt. Não assinar pelo operador e não substituir
+      julgamento humano por inferência automática.'
+    inputs:
+      - notes/T006-capture-and-operator-package.md
+      - operator evidence readiness output
+      - final operator evidence closure corridor output
+    constraints:
+      - Bloqueado até operador fornecer signed-by real e reason >=32 chars.
+      - Não executar comandos com placeholders.
+      - Não persistir receipt gerado de placeholder.
+      - 'Após runtime_promotion_receipt, seguir sequência: real_provider_smoke -> human_completion_receipt -> final completion audit.'
+    expected_output:
+      - runtime_promotion_receipt validado/persistido ou blocker de operador registrado
+      - completion audit reexecutado
+      - full_outcome_complete permanece false até failed_count=0
+    operator_next_command_template: php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-receipt-draft-status --signed-by="<operator>"
+      --reason="<operator reason with at least 32 chars>" --json
+    persist_command_template: php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json
+      --persist-runtime-promotion-receipt --json
+    receipt: null
+  - id: T999
+    type: judge
+    assignee: Judge
+    status: queued
+    reasoning_hint: high
+    objective: Auditar se a obra alvo da Campanha Fable está completa conforme oracle, DoD, captura e ledger.
+    inputs:
+      - All done task receipts
+      - Last verification outputs
+      - Current dirty diff
+      - docs/fable-campanha-11-dias-nxm.md ledger atualizado
+      - DoD da obra alvo
+    constraints:
+      - Judge/Fable. Read-only.
+      - Reject completion if required Worker/PM work is still queued or active.
+      - Reject completion if proof is self-declared or capture ritual is incomplete.
+      - Reject completion if ordem do ledger foi pulada.
+      - Reject completion if decisão [OPERADOR] foi tomada autonomamente.
+    expected_output:
+      - complete | not_complete
+      - 'full_outcome_complete: true | false'
+      - obra alvo concluída ou lacunas
+      - evidências por item de DoD
+      - missing evidence
+      - next task if not complete
+    receipt: null
+  - id: T008
+    type: pm
+    assignee: PM
+    status: done
+    reasoning_hint: high
+    objective: Resolver o bloqueio de placement/scope do bootstrap para O-1 sem editar código, lendo owner docs e rodando placement mais específico.
+    inputs:
+      - T003 receipt
+      - docs/goals/fable-campanha-obra-atual/notes/T003-scout-evidence-map.md
+      - docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md
+      - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
+      - docs/engineering-knowledge-base/atlas-ai-core-vs-domain.md
+      - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
+    constraints:
+      - PM/Fable. Read-only/control files only; do not edit product code.
+      - Run a more specific atlas:ai:place-feature for the O-1 audit/sweep scope.
+      - If placement remains blocked, record exact blocker and keep Worker blocked.
+      - If placement resolves, update T004 with the first safe Worker objective, allowed_files, verify and stop_if only after Judge-quality reasoning.
+      - Do not take [OPERADOR] decisions autonomously.
+    expected_output:
+      - placement command output summary
+      - owner docs read/confirmed
+      - 'decision: worker_ready | still_blocked | needs_operator'
+      - updated T004 scope if worker_ready
+    receipt:
+      result: done
+      decision: still_blocked
+      summary: Specific place-feature classified O-1 as evidence/programming/programming.dev but gate remains blocked by hard duplicate collisions
+        in routes/api.php and AtlasSelfConstructionOsCompletionAuditTest.php.
+      note: notes/T008-placement-gate-resolution.md
+      commands:
+        - cmd: '/opt/homebrew/bin/php artisan atlas:ai:place-feature "O-1 certification sweep existing Atlas engineering spine: audit Dev pipe
+            provider manager conductor workspace mutating providers, Forge gates, Loop stack drivers, compounding flywheel capture quality gate,
+            and Marco Zero evidence integrity; no new runtime or surface" --json'
+          status: pass_with_gate_blocked
+      gate_status: blocked
+      blocked_when: high_overlap_duplicate_candidate_requires_reuse_or_explicit_supersede_decision
+      blocking_candidates:
+        - routes/api.php
+        - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOsCompletionAuditTest.php
+      next_active_task: T009
+  - id: T009
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: Inspecionar as colisões hard-blocking do placement O-1 e decidir se Worker pode ser liberado com escopo seguro ou se precisa de
+      operador.
+    inputs:
+      - docs/goals/fable-campanha-obra-atual/notes/T008-placement-gate-resolution.md
+      - routes/api.php
+      - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOsCompletionAuditTest.php
+      - docs/engineering-knowledge-base/atlas-ai-telemetry-evidence-performance.md
+      - docs/engineering-knowledge-base/domains/programming.md
+      - docs/engineering-knowledge-base/atlas-programming-governance-system.md
+    constraints:
+      - Read-only. Do not edit code/product files.
+      - Do not override high-overlap duplicate collisions without evidence.
+      - If collision is real, reuse existing owner path or request [OPERADOR] supersede decision.
+      - If collision is false positive, document why and prepare the smallest safe Worker scope.
+    expected_output:
+      - collision classification for each blocking candidate
+      - 'decision: worker_ready | still_blocked | needs_operator'
+      - 'if worker_ready: exact Worker objective, allowed_files, verify, stop_if'
+      - 'if still_blocked/needs_operator: exact blocker and next safe action'
+    receipt:
+      result: done
+      decision: worker_ready_for_reuse_path_only
+      summary: Hard-blocking placement collisions are real owner/reuse signals, not permission to create new routes/tests. routes/api.php and
+        AtlasSelfConstructionOsCompletionAuditTest.php must be reused/read-only. Next safe Worker is the canonical release_dossier technical remediation
+        command only.
+      note: notes/T009-collision-judge.md
+      commands:
+        - cmd: '/opt/homebrew/bin/php artisan atlas:ai:place-feature "O-1 certification sweep existing Atlas engineering spine: audit Dev pipe
+            provider manager conductor workspace mutating providers, Forge gates, Loop stack drivers, compounding flywheel capture quality gate,
+            and Marco Zero evidence integrity; no new runtime or surface" --json'
+          status: pass_with_gate_blocked_reuse_required
+        - cmd: /opt/homebrew/bin/php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOsCompletionAuditTest.php --stop-on-failure
+          status: pass_30_tests_581_assertions
+        - cmd: /opt/homebrew/bin/php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json
+          status: pass_incomplete_6_passed_4_failed
+      collision_classification:
+        routes/api.php: real_owner_surface_reuse_required
+        tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOsCompletionAuditTest.php: canonical_completion_audit_test_reuse_required
+      next_active_task: T004
+      full_outcome_complete: false
+checks:
+  dirty_fingerprint: unknown
+  last_verification:
+    result: unknown
+    task: null
+    commands: []

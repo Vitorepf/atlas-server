@@ -96,4 +96,14 @@ final class AtlasLoopWorkerPoolTest extends TestCase
         $this->assertSame(2, $planner->plan(2));   // honor a smaller request
         $this->assertSame(1, $planner->plan(0));   // never below 1
     }
+
+    /**
+     * O-10 safety default: the parallel frota ships GATED OFF — serial single-worker is
+     * the default, so enabling the fleet (which a 24h soak at scale needs) is a deliberate
+     * operator act, never the out-of-the-box behavior.
+     */
+    public function test_parallel_fleet_ships_gated_off_by_default(): void
+    {
+        $this->assertFalse((bool) config('atlas.loop.parallel.enabled'), 'frota deve embarcar gated OFF');
+    }
 }

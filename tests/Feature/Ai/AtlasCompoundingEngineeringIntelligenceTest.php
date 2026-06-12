@@ -42,6 +42,16 @@ class AtlasCompoundingEngineeringIntelligenceTest extends TestCase
         $this->assertContains('atlas_dev_records_compounding_outcome', array_column($readiness['checks'], 'id'));
         $this->assertContains('forge_handoff_carries_learning_bundle', array_column($readiness['checks'], 'id'));
 
+        // T1.2: a fábrica de noise do gateway (recordCompoundingFlowSignal por interação)
+        // foi removida; o contrato de readiness agora exige a AUSÊNCIA dela e a presença
+        // do caminho real (conductor → AtlasCompoundingRuntimeService::recordExecution).
+        $checksById = array_column($readiness['checks'], null, 'id');
+        $this->assertArrayHasKey('gateway_does_not_fabricate_learning_signals', $checksById);
+        $this->assertSame('passed', $checksById['gateway_does_not_fabricate_learning_signals']['status']);
+        $this->assertArrayHasKey('conductor_feeds_compounding_runtime', $checksById);
+        $this->assertSame('passed', $checksById['conductor_feeds_compounding_runtime']['status']);
+        $this->assertArrayNotHasKey('gateway_records_flow_learning_signal', $checksById);
+
         $runExit = Artisan::call('atlas:ai:compounding', [
             'action' => 'run',
             '--run-id' => 'feature-compounding-run',
