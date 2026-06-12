@@ -201,7 +201,7 @@ final class L10RecursiveDivergenceGamingDetector
         if (array_key_exists('status', $invariant)) {
             return in_array(
                 strtolower(trim((string) $invariant['status'])),
-                ['drift', 'drifted', 'breached', 'fail', 'failed', 'violation', 'violated'],
+                ['drift', 'drifted', 'breach', 'breached', 'fail', 'failed', 'violation', 'violated'],
                 true,
             );
         }
