@@ -129,7 +129,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
             $unresolved[] = $this->stringValue($blocker['id'] ?? '');
         }
 
-        $unresolved = AtlasAaeosStringListNormalizer::uniqueSortedStrings($unresolved);
+        $unresolved = $this->uniqueSortedStrings($unresolved);
 
         return [
             'passed' => $unresolved === [],
@@ -279,6 +279,19 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
         }
 
         return $default;
+    }
+
+    /**
+     * @param list<string> $values
+     *
+     * @return list<string>
+     */
+    private function uniqueSortedStrings(array $values): array
+    {
+        $normalized = array_values(array_unique($values));
+        sort($normalized, SORT_STRING);
+
+        return $normalized;
     }
 
     private function stringValue(mixed $value): string
