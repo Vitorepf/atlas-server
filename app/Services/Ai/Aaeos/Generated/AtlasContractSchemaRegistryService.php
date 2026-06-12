@@ -146,7 +146,8 @@ final class AtlasContractSchemaRegistryService
         $schemaId = is_string($entry['schema_id'] ?? null) ? trim((string) $entry['schema_id']) : '';
         $owner = is_string($entry['owner'] ?? null) ? trim((string) $entry['owner']) : '';
         $doc = is_string($entry['canonical_doc'] ?? null) ? trim((string) $entry['canonical_doc']) : '';
-        $deprecated = (bool) ($entry['deprecated'] ?? false);
+        $deprecatedRaw = $entry['deprecated'] ?? false;
+        $deprecated = is_string($deprecatedRaw) && strtolower(trim($deprecatedRaw)) === 'false' ? false : (bool) $deprecatedRaw;
         $deprecatedAt = is_string($entry['deprecated_at'] ?? null) ? trim((string) $entry['deprecated_at']) : '';
 
         $reasons = [];
