@@ -133,6 +133,14 @@ Schedule::command('atlas:fable:delta-series --json')
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas.fable.delta_series_enabled', true));
 
+// 24h-autonomia · Keepalive do supervisor do Loop: campanha running com heartbeat velho
+// E sem processo vivo é relançada detached (resume pelo campaign-id; nada se perde).
+// Motivado por evidência real: o soak morreu silenciosamente em 12/06 com budget sobrando.
+Schedule::command('atlas:loop:keepalive --json')
+    ->everyFiveMinutes()
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.loop.keepalive_enabled', true));
+
 // NOTE: the Sunday digest (the ONLY weekly notification) is scheduled ONCE in
 // bootstrap/app.php (weeklyOn(0, …), timezone-aware, gated by atlas.ai.weekly_memory_digest.enabled).
 // Do NOT add a second Sunday schedule here — one report, one time.

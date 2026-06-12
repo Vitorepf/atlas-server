@@ -38,6 +38,10 @@ final class AtlasLoopHarnessGuard
         'app/Services/Ai/AutonomousEvolution/AtlasLoopNetDirectionGuard.php',
         'app/Services/Ai/AutonomousEvolution/AtlasLoopHarnessGuard.php',
         'app/Models/AtlasLoopProposal.php',
+        // A cadeia de CERTIFICAÇÃO fora de AutonomousEvolution/ (achado 12/06: o soak
+        // certificou proposta editando o PRÓPRIO painel-juiz — réu editando o juiz).
+        'app/Services/Ai/AutonomousEvolution/AtlasLoopSemanticImplementationCertifier.php',
+        'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AdversarialProofPanelService.php',
         // A camada never-merge no banco (CHECK + trigger + a porta governada).
         'database/migrations/2026_06_02_000200_complete_atlas_loop_runtime_schema.php',
         'database/migrations/2026_06_12_000100_governed_merge_door_atlas_loop_proposals.php',

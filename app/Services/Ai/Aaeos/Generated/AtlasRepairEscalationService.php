@@ -102,7 +102,7 @@ final class AtlasRepairEscalationService
 
         $policy = is_array($failure['policy'] ?? null) ? $failure['policy'] : [];
         $maxAttempts = $this->normalizeMaxAttempts($policy['max_attempts'] ?? null);
-        $allowRepair = (bool) ($policy['allow_repair'] ?? true);
+        $allowRepair = $this->normalizeBooleanFlag($policy['allow_repair'] ?? true);
 
         $attempt = $this->normalizeAttempt($failure['attempt'] ?? null);
         $signatureRepeated = (bool) ($failure['signature_repeated'] ?? false);
@@ -230,6 +230,18 @@ final class AtlasRepairEscalationService
         }
 
         return array_values($clean);
+    }
+
+    private function normalizeBooleanFlag(mixed $value): bool
+    {
+        if (is_string($value)) {
+            $normalized = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if (is_bool($normalized)) {
+                return $normalized;
+            }
+        }
+
+        return (bool) $value;
     }
 
     private function normalizeMaxAttempts(mixed $max): int

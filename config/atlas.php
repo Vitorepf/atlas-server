@@ -1516,6 +1516,10 @@ return [
         // never-merge) INTOCÁVEL independentemente desta flag. Default OFF (anti-runaway).
         'meta_harness_targets' => (bool) env('ATLAS_LOOP_META_HARNESS_TARGETS', false),
 
+        // 24h-autonomia: respawn automático do supervisor morto (heartbeat velho + processo
+        // ausente ⇒ relança detached, resume). Motivado pela morte silenciosa de 12/06.
+        'keepalive_enabled' => (bool) env('ATLAS_LOOP_KEEPALIVE_ENABLED', true),
+
         // O-2 slice (d): universal adversarial certification. When ON, the DISCOVERY
         // path (not just framework tasks) routes every proposal through the semantic
         // certifier + adversarial panel before certified_for_review — closing the

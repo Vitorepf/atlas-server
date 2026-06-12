@@ -97,6 +97,16 @@ final class AtlasLoopAutoMergeService
         ];
 
         try {
+            // 0. Guardrail do meta-loop NO CONSUMO (defense-in-depth do L3-12): o guard da
+            // descoberta pode ser contornado por propostas já certificadas (achado 12/06:
+            // o soak certificou edição no PRÓPRIO painel-juiz). Alvo de segurança JAMAIS
+            // auto-mergeia — parqueia para revisão do operador (reviewed_at), nunca silencioso.
+            if (app(AtlasLoopHarnessGuard::class)->isForbiddenSelfTarget((string) $proposal->target_path)) {
+                $proposal->forceFill(['reviewed_at' => now()])->save();
+
+                return array_merge($base, ['reason' => 'forbidden_self_target (parked_for_operator_review)']);
+            }
+
             // 1. Re-prova real contra o contrato congelado persistido.
             $re = $this->gate->reprove($proposal, $repoRoot);
             if ($re['ok'] !== true) {
