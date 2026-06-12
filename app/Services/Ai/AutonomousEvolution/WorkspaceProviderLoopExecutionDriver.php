@@ -71,6 +71,23 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
             'max_output_chars' => 16000,
         ]);
 
+        // L2-1 (regressão ACP): "sucesso" do provider com ZERO mudanças no workspace é
+        // um sucesso FALSO para uma invocação mutadora — foi exatamente a assinatura da
+        // regressão do transport acp (12 cenários, diff 0, sucesso reportado). Uma
+        // re-tentativa única recupera o cenário em vez de desperdiçá-lo; o carimbo
+        // zero_diff_retry torna a anomalia auditável (recorrência = transport suspeito).
+        $zeroDiffRetry = false;
+        if ((bool) ($result['provider_called'] ?? false)
+            && ($result['changed_files'] ?? []) === []
+            && (bool) config('atlas.loop.zero_diff_retry', true)) {
+            $zeroDiffRetry = true;
+            $result = $this->router->invoke($provider, $model, $prompt, [
+                'cwd' => $workspace,
+                'timeout_seconds' => $timeout,
+                'max_output_chars' => 16000,
+            ]);
+        }
+
         $called = (bool) ($result['provider_called'] ?? false);
 
         return [
@@ -79,6 +96,7 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
             'provider_invoked' => $called,
             'changed_files' => $result['changed_files'] ?? [],
             'exit_code' => $result['exit_code'] ?? null,
+            'zero_diff_retry' => $zeroDiffRetry,
             'reason' => $called ? null : (string) ($result['note'] ?? 'provider_not_called'),
         ];
     }

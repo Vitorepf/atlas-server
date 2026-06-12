@@ -80,6 +80,9 @@ class AtlasHarnessAutopilotTest extends TestCase
         if ($suite === null) {
             $suite = new AtlasHarnessFrozenSuite;
             $suite->setBaselinePathForTesting($this->tmpFile('baseline'));
+            // Operator-sealed baseline: the default-suite path represents a run where
+            // an operator already sealed Gate-2 (the autopilot may not self-seal).
+            $suite->sealBaseline();
         }
         $autopilot = new AtlasHarnessAutopilot(
             $this->surface,
@@ -175,12 +178,84 @@ class AtlasHarnessAutopilotTest extends TestCase
             ],
         ], JSON_THROW_ON_ERROR));
 
-        // Nenhum attempt cru combina com o cluster ⇒ post_count 0 < 5 ⇒ confirma.
+        // L3-9 #6: real post-window evidence EXISTS (attempts of a DIFFERENT cluster),
+        // so post_count 0 for the tracked cluster is a genuine strict decrease (5→0).
+        // The table is observed-but-the-cluster-stopped, not empty.
+        foreach ([5, 4, 3] as $daysAgo) {
+            DB::table('ai_job_attempts')->insert([
+                'id' => (string) Str::uuid(),
+                'ai_job_id' => (string) Str::uuid(),
+                'provider' => 'other_cli',
+                'status' => 'failed',
+                'error_code' => 'unrelated_err',
+                'error_message' => 'a totally different failure family',
+                'created_at' => now()->subDays($daysAgo)->toDateTimeString(),
+                'updated_at' => now()->subDays($daysAgo)->toDateTimeString(),
+            ]);
+        }
+
         $report = $autopilot->monitor();
 
         $this->assertSame(1, $report['confirmed'], json_encode($report));
         $this->assertSame('confirmed', $autopilot->state()[(string) $proposal->getKey()]['outcome']);
         $this->assertSame('applied', $proposal->fresh()->status, 'confirmado segue aplicado');
+    }
+
+    /**
+     * L3-9 #6 (frozen): an EMPTY ai_job_attempts table in the post window cannot
+     * count as an improvement. With zero observed attempts, post_count=0 is "no
+     * evidence", NOT "the cluster stopped" — so the verdict is inconclusive and the
+     * proposal stays under observation rather than confirming a phantom win.
+     */
+    public function test_monitor_does_not_confirm_improvement_on_empty_attempt_table(): void
+    {
+        $proposal = $this->proposal(900, 'fsig_empty_table');
+        $proposal->forceFill(['status' => 'applied'])->save();
+
+        $autopilot = $this->autopilot();
+        file_put_contents($autopilot->statePath(), json_encode([
+            (string) $proposal->getKey() => [
+                'key' => 'runtime_control.timeout_seconds',
+                'cluster' => 'fsig_empty_table',
+                'outcome' => 'applied_under_observation',
+                'applied_at' => now()->subDays(8)->toJSON(),
+                'observation_days' => 7,
+                'pre_count' => 5,
+            ],
+        ], JSON_THROW_ON_ERROR));
+
+        // No attempts seeded at all ⇒ no post-window evidence.
+        $report = $autopilot->monitor();
+
+        $this->assertSame(0, $report['confirmed'], json_encode($report));
+        $this->assertSame(0, $report['checked']);
+        $this->assertSame(1, $report['still_observing']);
+        $this->assertSame('applied_under_observation', $autopilot->state()[(string) $proposal->getKey()]['outcome']);
+    }
+
+    /**
+     * L3-9 #5 + #7 (frozen): a missing Gate-2 baseline is FAIL-CLOSED. The autopilot
+     * may NOT silently self-seal its own baseline (default flag OFF) — it aborts and
+     * escalates instead of passing the gate on an absent reference.
+     */
+    public function test_absent_baseline_fails_closed_and_does_not_self_seal(): void
+    {
+        config(['atlas.ai.harness_autopilot.allow_self_seal_baseline' => false]);
+        config(['atlas.ai.timeout_seconds' => 600]);
+        $proposal = $this->proposal(900);
+
+        // Fresh suite with a baseline path that has nothing sealed ⇒ no_baseline.
+        $suite = new AtlasHarnessFrozenSuite;
+        $suite->setBaselinePathForTesting($this->tmpFile('unsealed_baseline'));
+        $autopilot = $this->autopilot($suite);
+
+        $result = $autopilot->run();
+
+        $this->assertSame('no_baseline_requires_operator_seal', $result['status'], json_encode($result));
+        // Fail-closed: nothing applied, proposal untouched, no baseline written.
+        $this->assertSame('proposed', $proposal->fresh()->status);
+        $this->assertSame(600, config('atlas.ai.timeout_seconds'));
+        $this->assertFileDoesNotExist($suite->baselinePath());
     }
 
     public function test_monitor_auto_reverses_when_cluster_does_not_improve(): void

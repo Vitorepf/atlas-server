@@ -294,6 +294,19 @@ class HermesCliProvider implements AiProvider
      * @param  array<string,mixed>  $invocation
      * @param  array<string,mixed>  $provider
      */
+    /**
+     * L3-3: um resultado ACP "succeeded" mas com output VAZIO é o sucesso-falso que causava
+     * o sintoma diff-0 (ACP não editava nada mas reportava sucesso, sem disparar fallback).
+     * Tratá-lo como vazio força o fallback para o CLI provado. Predicado puro p/ congelar a
+     * regressão. Gated (default ON) — desligar restaura o comportamento antigo.
+     */
+    public function acpResultIsEmptySuccess(bool $ok, string $text): bool
+    {
+        return $ok
+            && trim($text) === ''
+            && (bool) config('atlas.ai.hermes.acp_empty_output_fallback', true);
+    }
+
     private function maybeRunViaAcp(AiJob $job, array $mission, string $prompt, array $invocation, string $cwd, ?string $managedConfigPath, array $provider, int $timeout): ?AiProviderResult
     {
         if ($this->executionTransport($job, $provider) !== 'acp') {
@@ -333,6 +346,17 @@ class HermesCliProvider implements AiProvider
         $text = (string) data_get($packet, 'output.text', '');
         $usage = is_array(data_get($packet, 'usage')) ? data_get($packet, 'usage') : [];
         $ok = ($packet['status'] ?? null) === 'succeeded';
+
+        // L3-3: guard de regressão do transporte ACP. O sintoma diff-0 era um ACP que
+        // reportava `succeeded` mas devolvia output VAZIO (nenhum produto de trabalho) — pior
+        // que falhar, porque o sucesso-falso não disparava o fallback e o loop via diff 0.
+        // Tratar "succeeded + output vazio" como fallback-required: cai para o CLI provado,
+        // com razão auditável. Gated (default ON); desligar restaura o comportamento antigo.
+        if ($this->acpResultIsEmptySuccess($ok, $text)) {
+            $this->lastAcpFallbackReason = 'acp_succeeded_empty_output';
+
+            return null;
+        }
 
         return new AiProviderResult(
             ok: $ok,

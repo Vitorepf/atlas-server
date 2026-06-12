@@ -131,6 +131,47 @@ final class StewardshipBranchMergeGovernorServiceTest extends TestCase
         $this->assertFalse($report['claim_policy']['merge_performed']);
     }
 
+    /**
+     * L3-9 #4: execute_merge=false must DURABLY prevent the merge across cycles. The
+     * eligible branch is NOT placed in the auto-merge retry queue (which is a merge
+     * executor that would land it on the next iteration), so the operator's `false`
+     * decision actually holds. The branch is still reported AUTO_MERGE_ELIGIBLE/ready.
+     */
+    public function test_execute_merge_false_does_not_enqueue_for_later_auto_merge(): void
+    {
+        $repo = $this->repo();
+        $this->branch($repo, 'atlas/area-focus/hold-no-merge');
+        $this->commitFile($repo, 'docs/README.md', "base docs\nheld update\n", 'Docs held update');
+        $this->checkout($repo, 'main');
+
+        $service = $this->service();
+        $report = $service->evaluate([
+            'repo_root' => $repo,
+            'base_ref' => 'main',
+            'branch_ref' => 'atlas/area-focus/hold-no-merge',
+            // The decisive operator decision: eligible by policy, but explicitly NOT merge.
+            'auto_merge' => true,
+            'execute_merge' => false,
+        ]);
+
+        // Eligible/ready but NOT merged and NOT queued for a later auto-merge.
+        $this->assertSame(StewardshipBranchMergeGovernorService::STATUS_AUTO_MERGE_ELIGIBLE, $report['status']);
+        $this->assertFalse($report['claim_policy']['merge_performed']);
+        $this->assertFalse($report['merge_retry_queue_enqueued']);
+        $this->assertSame('execute_merge_false_not_enqueued', $report['merge_retry_queue_reason']);
+
+        // Durable proof: the retry queue (the cross-cycle merge executor) is empty, so
+        // a subsequent processQueue() cannot resurrect the merge the operator vetoed.
+        $queue = new \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopMergeRetryQueueService;
+        $queue->setStorageRootForTesting($this->tmp.'/governor/merge_retry_queue');
+        $this->assertFalse($queue->hasPending(), 'execute_merge=false must not leave a pending auto-merge item');
+
+        // main must remain untouched (no merge happened).
+        $mainHead = trim((new Process(['git', 'rev-parse', 'main'], $repo))->mustRun()->getOutput());
+        $branchHead = trim((new Process(['git', 'rev-parse', 'atlas/area-focus/hold-no-merge'], $repo))->mustRun()->getOutput());
+        $this->assertNotSame($branchHead, $mainHead, 'main must not have advanced to the branch head');
+    }
+
     public function test_atlas_governance_artifacts_do_not_false_block_docs_only_auto_merge(): void
     {
         $repo = $this->repo();

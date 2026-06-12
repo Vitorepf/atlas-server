@@ -158,6 +158,25 @@ class FailureRecurrenceMetricService
     }
 
     /**
+     * Total finished (non-processing) ai_job_attempts in [from, to). Used by the
+     * autopilot G3 gate to distinguish "the cluster genuinely stopped recurring"
+     * (real post-window evidence, count dropped) from "the table is simply empty
+     * in this window" (no evidence at all — which must NOT count as improvement).
+     */
+    public function totalAttemptsBetween(\Carbon\CarbonInterface $from, \Carbon\CarbonInterface $to): int
+    {
+        if (! DatabaseTableAvailability::all(['ai_job_attempts'])) {
+            return 0;
+        }
+
+        return DB::table('ai_job_attempts')
+            ->whereNotIn('status', ['processing'])
+            ->where('created_at', '>=', $from)
+            ->where('created_at', '<', $to)
+            ->count();
+    }
+
+    /**
      * @return array<string,mixed>
      */
     private function totals(\Carbon\CarbonInterface $currentStart, \Carbon\CarbonInterface $previousStart, ?string $provider): array

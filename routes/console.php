@@ -107,6 +107,32 @@ Schedule::command('atlas:venture review-cycle --json')
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas_venture_foundry.weekly_review_enabled', true));
 
+// L3-1 · Drain do merge-livre v2 em CADÊNCIA — o consumo do flywheel. Sem isto, as
+// propostas certificadas acumulam (82 candidatas / 0 merges era exatamente este buraco).
+// O drain é internamente seguro: gated pela flag do operador, freado pelo guard de saldo
+// líquido (AtlasLoopNetDirectionGuard), re-prova cada proposta em workspace completo, e a
+// porta governada no DB é a única que registra merge. --limit bound por passe.
+Schedule::command('atlas:loop:automerge --limit=5 --json')
+    ->everyThirtyMinutes()
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.ai.loop.auto_merge_to_main', false));
+
+// L3-11 · Mint de green-run receipts da dimensão pipeline do ACOS, em cadência. Mira os
+// subsistemas `partial` (cada receipt verde flipa partial→ready) e sobe o scorecard com
+// evidência resolved (nunca self-declared). Bounded por passe; gated para o operador ligar.
+Schedule::command('atlas:cognition:mint-pipeline-receipts --limit=8 --json')
+    ->dailyAt('04:40')
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.cognition.mint_pipeline_receipts_enabled', true));
+
+// L3-14 · Série diária do delta N×M da campanha Fable — a foto persistida de
+// HOJE-vs-Marco-Zero (waste, merges, custo, scorecard, recall semântico). Idempotente
+// por data; alimenta o relatório final que decide pagar API Fable.
+Schedule::command('atlas:fable:delta-series --json')
+    ->dailyAt('05:10')
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.fable.delta_series_enabled', true));
+
 // NOTE: the Sunday digest (the ONLY weekly notification) is scheduled ONCE in
 // bootstrap/app.php (weeklyOn(0, …), timezone-aware, gated by atlas.ai.weekly_memory_digest.enabled).
 // Do NOT add a second Sunday schedule here — one report, one time.

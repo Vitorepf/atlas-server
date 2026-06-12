@@ -849,17 +849,33 @@ class AtlasForgeGovernedExecutionService
                 continue;
             }
 
-            if (preg_match('/^php\s+-r\s+([\'"])(.*)\1$/s', $normalized, $matches) === 1) {
-                return [
-                    'display' => $normalized,
-                    'argv' => [PHP_BINARY, '-r', (string) $matches[2]],
-                ];
-            }
-
+            // Test runner REAL ancorado em testes nomeados (ligados ao spec da WorkItem)
+            // — a forma de validação que prova comportamento. SEMPRE aceita.
             if (preg_match('/^php\s+artisan\s+test\s+(?:--filter=|--filter\s+)([A-Za-z0-9_\\\\|:.-]+)$/', $normalized, $matches) === 1) {
                 return [
                     'display' => $normalized,
                     'argv' => [PHP_BINARY, 'artisan', 'test', '--filter', (string) $matches[1]],
+                ];
+            }
+
+            if (preg_match('#^(?:\./)?vendor/bin/(phpunit|pest)\s+--filter(?:=|\s+)([A-Za-z0-9_\\\\|:.-]+)$#', $normalized, $matches) === 1) {
+                return [
+                    'display' => $normalized,
+                    'argv' => [base_path('vendor/bin/'.$matches[1]), '--filter', (string) $matches[2]],
+                ];
+            }
+
+            // L2-10 (dívida do sweep O-1): `php -r '<snippet>'` livre é uma validação
+            // GAMEÁVEL — `php -r "exit(0);"` carimba verde sem exercitar nada. O endurecimento
+            // exige um test runner real; é FLAG-GATED (default OFF) porque callers legítimos
+            // ainda usam `php -r` como marker de smoke — ligar exige migrá-los para testes
+            // nomeados primeiro. Quando ON, `php -r` deixa de ser runnable (validação fica
+            // blocked, fail-closed). Migração = decisão do operador.
+            if (! (bool) config('atlas.forge.validation_test_runner_only', false)
+                && preg_match('/^php\s+-r\s+([\'"])(.*)\1$/s', $normalized, $matches) === 1) {
+                return [
+                    'display' => $normalized,
+                    'argv' => [PHP_BINARY, '-r', (string) $matches[2]],
                 ];
             }
         }

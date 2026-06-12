@@ -237,6 +237,13 @@ final class GovernedBranchMaterializationService
             return $this->refuseObra('worktree_create_failed', $branch, ['detail' => substr($wtOut, 0, 200)]);
         }
 
+        // L3-13: o integrated-check do obra roda `php artisan test` DENTRO deste worktree,
+        // mas um `git worktree` é um checkout limpo SEM os deps gitignored (vendor/.env/
+        // node_modules) — então o teste quebrava por `vendor/autoload.php` ausente (não por
+        // código errado). Liga os deps de runtime por symlink (não copia): a obra passa a
+        // poder se CERTIFICAR de verdade. Best-effort; ausência de um dep não impede o open.
+        $this->linkRuntimeDeps($repo, $worktree);
+
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'opened' => true,
@@ -525,7 +532,8 @@ final class GovernedBranchMaterializationService
     private function writeFilesToWorktree(string $worktree, array $files): array
     {
         foreach ($files as $file) {
-            $abs = $worktree.'/'.ltrim($file['path'], '/');
+            $relPath = $this->normalizeWorktreeRelativePath($worktree, ltrim((string) $file['path'], '/'));
+            $abs = $worktree.'/'.$relPath;
             if (str_contains($abs, '/../') || ! str_starts_with($abs, $worktree.'/')) {
                 return ['ok' => false, 'reason' => 'unsafe_file_path', 'path' => $file['path']];
             }
@@ -537,6 +545,37 @@ final class GovernedBranchMaterializationService
         }
 
         return ['ok' => true];
+    }
+
+    /**
+     * L3-13: normaliza um path workspace-relativo para repo-relativo. Quando o workspace
+     * do brain é o guarda-chuva (`/…/Atlas`) e o repo é um subdir (`atlas-server`), o
+     * provider gera o path com o prefixo do umbrella (`atlas-server/app/Support/X.php`) —
+     * que, escrito num worktree QUE JÁ É o atlas-server, vira `atlas-server/app/…` aninhado
+     * e errado (cria arquivo novo no lugar errado em vez de tocar o existente). Regra segura
+     * e bounded a UM nível: se o 1º segmento NÃO existe como dir no worktree mas, removendo-o,
+     * o próximo segmento EXISTE, então o 1º era o prefixo do umbrella → strip. Caso contrário,
+     * deixa intacto (não corrompe paths legítimos).
+     */
+    private function normalizeWorktreeRelativePath(string $worktree, string $relPath): string
+    {
+        $slash = strpos($relPath, '/');
+        if ($slash === false) {
+            return $relPath;
+        }
+        $first = substr($relPath, 0, $slash);
+        $rest = substr($relPath, $slash + 1);
+        $restFirstSlash = strpos($rest, '/');
+        $restFirst = $restFirstSlash === false ? $rest : substr($rest, 0, $restFirstSlash);
+
+        if ($first !== '' && $restFirst !== ''
+            && ! is_dir($worktree.'/'.$first)
+            && is_dir($worktree.'/'.$restFirst)
+        ) {
+            return $rest;
+        }
+
+        return $relPath;
     }
 
     /**
@@ -563,6 +602,24 @@ final class GovernedBranchMaterializationService
         $id = strtolower(preg_replace('/[^A-Za-z0-9._-]+/', '-', $id) ?? '');
 
         return trim($id, '-.') ?: '';
+    }
+
+    /**
+     * L3-13: liga (symlink, não copia) os deps de runtime gitignored do repo-fonte para
+     * dentro do worktree efêmero do obra, para o integrated-check (`php artisan test`) poder
+     * rodar. Sem isto o `git worktree` é um checkout limpo sem vendor → o teste quebra por
+     * `vendor/autoload.php` ausente e o obra nunca certifica. Best-effort e idempotente:
+     * só liga o que existe na fonte e ainda não existe no worktree.
+     */
+    private function linkRuntimeDeps(string $repo, string $worktree): void
+    {
+        foreach (['vendor', '.env', 'node_modules'] as $dep) {
+            $src = $repo.'/'.$dep;
+            $dst = $worktree.'/'.$dep;
+            if ((is_dir($src) || is_file($src)) && ! file_exists($dst)) {
+                @symlink($src, $dst);
+            }
+        }
     }
 
     /**

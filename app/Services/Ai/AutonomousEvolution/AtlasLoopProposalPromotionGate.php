@@ -105,6 +105,41 @@ final class AtlasLoopProposalPromotionGate
     }
 
     /**
+     * Public re-proof for the governed AUTO-merge path (merge-livre v2): materialize the
+     * proposal's diff in isolation and re-run the frozen judge against the PERSISTED
+     * acceptance contract. Returns ok=false (never throws) when it cannot re-verify —
+     * the auto-merger must skip, not guess.
+     *
+     * @return array{ok:bool, reason:?string}
+     */
+    public function reprove(AtlasLoopProposal $proposal, string $baseDir): array
+    {
+        // L3-1: propostas SEM contrato de acceptance persistido (legadas, pré-O-3) nunca
+        // podem ser re-provadas — sinalizar distintamente para o auto-merger as APOSENTAR
+        // (em vez de re-clonar o repo a cada passe sem nunca convergir). Estrutural, honesto.
+        if ($this->persistedAcceptanceContract($proposal) === []) {
+            return ['ok' => false, 'reason' => 'no_acceptance_contract'];
+        }
+
+        // L3-1: re-prova em workspace COMPLETO (clone runnable) — a materialização mínima
+        // de um arquivo dava frozen_path_tampered em toda mudança de impl (0 merges). No
+        // clone, o teste-spec congelado roda contra a impl mudada (validação real).
+        $mat = $this->materializer->materializeFull($proposal, $baseDir);
+        if (($mat['materialized'] ?? false) !== true) {
+            return ['ok' => false, 'reason' => 'materialize_failed:'.(string) ($mat['reason'] ?? 'unknown')];
+        }
+        $workspace = (string) $mat['isolated_path'];
+
+        try {
+            return $this->defaultReprove($workspace, $proposal)
+                ? ['ok' => true, 'reason' => null]
+                : ['ok' => false, 'reason' => 'reproof_failed'];
+        } finally {
+            (new Process(['rm', '-rf', $workspace]))->run();
+        }
+    }
+
+    /**
      * Conservative default re-proof: re-run the frozen judge against the materialized
      * workspace using the PERSISTED frozen acceptance CONTRACT (commands/frozen_globs/
      * metric_kind), not the numeric `metric` verdict. O-3 closes the O-1 #1/#2 gap where

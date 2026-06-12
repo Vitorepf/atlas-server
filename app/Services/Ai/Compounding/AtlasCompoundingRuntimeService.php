@@ -413,7 +413,16 @@ class AtlasCompoundingRuntimeService
                 'certification_status' => $certification->status,
                 'blocker_count' => count($blockers),
                 'duration_ms' => $input['duration_ms'] ?? null,
+                // L3-10: forward the real cost signals so the recorder can
+                // MEASURE the cost (provider-reported tokens, or runtime for
+                // local providers). If a measured cost is already known we keep
+                // it; otherwise the recorder derives one from these — never faked.
                 'cost_estimate_usd' => $input['cost_estimate_usd'] ?? null,
+                'provider' => $input['provider'] ?? null,
+                'model' => $input['model'] ?? null,
+                'tokens_in' => $input['tokens_in'] ?? $input['input_tokens'] ?? $input['prompt_tokens'] ?? null,
+                'tokens_out' => $input['tokens_out'] ?? $input['output_tokens'] ?? $input['completion_tokens'] ?? null,
+                'total_tokens' => $input['total_tokens'] ?? null,
                 'metadata' => [
                     'outcome_hash' => $outcome->outcome_hash,
                     'rag_feedback_hash' => $ragFeedback?->feedback_hash,

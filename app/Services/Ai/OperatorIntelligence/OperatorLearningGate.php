@@ -21,6 +21,16 @@ class OperatorLearningGate
 
     public const TRUSTED_AUTO_APPLY_PROVENANCES = [self::AUTO_APPLY_PROVENANCE, self::AUTO_APPLY_PROVENANCE_MANUAL];
 
+    /**
+     * L3-9 #8: explicit, NON-auto-apply provenance the passive regex chat-detector
+     * stamps onto its OWN signals. It is deliberately NOT in TRUSTED_AUTO_APPLY_PROVENANCES,
+     * so a passive-detector signal can be captured for review but can NEVER auto-apply —
+     * even though its hardcoded confidence (0.91/0.92) clears the numeric floor. The
+     * detector stamps this verbatim so a caller cannot forge `comprehension`/`manual_operator`
+     * onto a passive signal to sneak it past the gate.
+     */
+    public const PASSIVE_DETECTOR_PROVENANCE = 'passive_detector';
+
     public function __construct(
         private readonly OperatorTaxonomyRegistry $taxonomy = new OperatorTaxonomyRegistry(),
     ) {}

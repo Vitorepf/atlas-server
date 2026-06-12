@@ -43,12 +43,23 @@ class AtlasLoopProposal extends Model
         ];
     }
 
+    /**
+     * Escopo de merge governado (decisão merge-livre v2 do operador, 12/06): SOMENTE o
+     * AtlasLoopAutoMergeService — após re-prova real do contrato congelado — pode marcar
+     * merged_to_main=true, dentro de um escopo try/finally. Qualquer outro save continua
+     * estruturalmente incapaz de marcar merged (o guard abaixo força false).
+     */
+    public static bool $governedMergeInProgress = false;
+
     protected static function booted(): void
     {
-        // Structural never-merge guard: the loop's ledger can only ever hold
-        // certified-for-review proposals. Enforced on EVERY save.
+        // Structural merge guard: outside the governed auto-merge scope, every save
+        // forces merged_to_main=false — no stray writer can fake a merge. The ledger
+        // only ever holds certified proposals (status forced on every save).
         static::saving(function (AtlasLoopProposal $proposal): void {
-            $proposal->merged_to_main = false;
+            if (! self::$governedMergeInProgress) {
+                $proposal->merged_to_main = false;
+            }
             $proposal->status = self::STATUS_CERTIFIED;
         });
     }

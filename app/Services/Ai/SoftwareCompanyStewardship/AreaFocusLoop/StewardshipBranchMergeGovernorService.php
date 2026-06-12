@@ -234,14 +234,14 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
                 }
             } elseif (! $executeMerge) {
                 $status = self::STATUS_AUTO_MERGE_ELIGIBLE;
-                // Branch is accepted by policy but execute_merge=false: enqueue so
-                // a later iteration can attempt the ff-only merge once the caller
-                // is ready to permit execution.
-                if ($this->mergeRetryQueue !== null) {
-                    $findingKey = trim((string) ($input['finding_id'] ?? $input['finding_key'] ?? $branchRef));
-                    $acceptedDiff = (string) ($input['accepted_diff'] ?? $this->acceptedDiffRef($branchRef, $branchCommit));
-                    $this->mergeRetryQueue->enqueue($branchRef, $findingKey, $acceptedDiff, 'auto_merge_eligible_execute_not_requested');
-                }
+                // L3-9 #4: execute_merge=false must DURABLY prevent the merge — not just
+                // for this cycle. Enqueuing here made the retry queue (which is a merge
+                // EXECUTOR: it ff-merges pending items on the next loop iteration) land
+                // the merge regardless, so a `false` decision still merged one cycle
+                // later. The branch stays AUTO_MERGE_ELIGIBLE (reported as ready) but is
+                // NOT placed in the auto-merge queue: the merge only happens when a
+                // caller actually passes execute_merge=true (the explicit go-ahead).
+                $mergeRetryReason = 'execute_merge_false_not_enqueued';
             } else {
                 $mergeResult = $this->mergeFfOnly($repoRoot, $baseRef, $branchRef);
                 if (($mergeResult['status'] ?? '') === self::STATUS_MERGED) {

@@ -26,11 +26,39 @@ final class LoopMergeRetryQueueServiceTest extends TestCase
         $this->tmp = sys_get_temp_dir().'/atlas_merge_retry_'.uniqid('', true);
         File::ensureDirectoryExists($this->tmp);
 
+        // L2-11: a drenagem auto-mergeadora agora é fail-closed (default OFF). Estes testes
+        // exercitam a MECÂNICA de merge (válida quando habilitada) — ligam a flag; o teste
+        // do default fail-closed a desliga explicitamente.
+        config(['atlas.stewardship.retry_queue_auto_merge' => true]);
+
         $git = new Process(['git', '--version']);
         $git->run();
         if (! $git->isSuccessful()) {
             $this->markTestSkipped('git binary is required for merge retry queue tests.');
         }
+    }
+
+    public function test_default_off_escalates_instead_of_merging_to_main_fail_closed(): void
+    {
+        // L2-11 (achado CRÍTICO): sem a flag, NENHUM branch é mergeado às cegas; pendentes
+        // escalam p/ revisão humana (a re-validação contra a base atual é pré-requisito; o
+        // caminho governado e re-provado é o AtlasLoopAutoMergeService — merge-livre v2).
+        config(['atlas.stewardship.retry_queue_auto_merge' => false]);
+
+        $repo = $this->initRepo('repo_failclosed');
+        $this->runGit(['git', 'checkout', '-b', 'atlas/should-not-merge'], $repo);
+        file_put_contents($repo.'/app/X.php', "<?php\nclass X {}\n");
+        $this->runGit(['git', 'add', '.'], $repo);
+        $this->runGit(['git', 'commit', '-m', 'x'], $repo);
+        $this->runGit(['git', 'checkout', 'main'], $repo);
+
+        $svc = $this->service($repo);
+        $svc->enqueue('atlas/should-not-merge', 'fk-x', 'diff x', 'ff_only_merge_failed');
+
+        $result = $svc->processQueue('main');
+
+        $this->assertSame([], $result['merged'], 'fail-closed: nada mergeia às cegas');
+        $this->assertContains('atlas/should-not-merge', $result['escalated'], 'pendentes escalam p/ revisão');
     }
 
     protected function tearDown(): void
@@ -186,6 +214,46 @@ final class LoopMergeRetryQueueServiceTest extends TestCase
 
         $this->assertContains('atlas/diverged', $result['merged']);
         $this->assertEmpty($result['escalated']);
+    }
+
+    /**
+     * L3-9 #2: a branch that rebases cleanly (non-conflicting paths) but carries
+     * COMMITTED conflict markers must NOT be fast-forward merged — the rebase "success"
+     * does not mean the content is safe. The post-rebase cleanliness check catches the
+     * markers and the item escalates to the operator instead of merging poisoned content.
+     */
+    public function test_rebase_success_with_committed_conflict_markers_escalates_not_merges(): void
+    {
+        $repo = $this->initRepo('repo_marker');
+
+        // Branch adds a NEW file that contains committed conflict-marker text. This file
+        // does not exist on main, so the rebase onto main is conflict-free (it just
+        // replays the commit) — yet the merged content would be poisoned.
+        $this->runGit(['git', 'checkout', '-b', 'atlas/poisoned'], $repo);
+        $poison = "<?php\n// generated\n<<<<<<< HEAD\n\$a = 1;\n=======\n\$a = 2;\n>>>>>>> theirs\n";
+        file_put_contents($repo.'/app/Poisoned.php', $poison);
+        $this->runGit(['git', 'add', '.'], $repo);
+        $this->runGit(['git', 'commit', '-m', 'feat: poisoned (committed conflict markers)'], $repo);
+
+        // Advance main on an UNRELATED file so the branch is behind and a rebase is taken.
+        $this->runGit(['git', 'checkout', 'main'], $repo);
+        file_put_contents($repo.'/app/MainAdvance.php', "<?php\nclass MainAdvance {}\n");
+        $this->runGit(['git', 'add', '.'], $repo);
+        $this->runGit(['git', 'commit', '-m', 'chore: advance main'], $repo);
+
+        $svc = $this->service($repo);
+        $svc->enqueue('atlas/poisoned', 'fk-poison', 'diff-poison', 'branch_not_rebased_on_current_base');
+
+        // maxAttempts=1 so the single attempt's verdict is terminal.
+        $result = $svc->processQueue('main', 1);
+
+        $this->assertEmpty($result['merged'], 'poisoned branch must NOT merge after rebase');
+        $this->assertContains('atlas/poisoned', $result['escalated'], 'must escalate to operator');
+
+        // main must not have advanced to the branch (no merge landed).
+        $mainHead = trim((new Process(['git', 'rev-parse', 'main'], $repo))->mustRun()->getOutput());
+        $branchHead = trim((new Process(['git', 'rev-parse', 'atlas/poisoned'], $repo))->mustRun()->getOutput());
+        $this->assertNotSame($branchHead, $mainHead);
     }
 
     // ── processQueue — escalation after maxAttempts ──────────────────────────

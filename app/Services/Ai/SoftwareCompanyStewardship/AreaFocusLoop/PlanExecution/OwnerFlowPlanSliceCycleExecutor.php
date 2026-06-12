@@ -125,12 +125,23 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
             'active_slice_kind' => 'plan_backlog_slice',
             'why_it_matters' => $objective !== '' ? $objective : (string) ($slice['why_it_matters'] ?? ''),
             'proposed_next_action' => $delivery !== '' ? $delivery : (string) ($slice['proposed_next_action'] ?? ''),
-            // Operator-authorized plan execution: the slice is allowed to run autonomously,
-            // same authorization the session grants its own selected findings.
-            'auto_execution_allowed' => true,
-            'operator_review_required' => false,
-            'autonomous_execution_reason' => 'operator_authorized_plan_execution',
         ];
+
+        // L3-9 #3: the `operator_authorized_plan_execution` token unlocks downstream
+        // code auto-merge. It must NOT be self-minted by the executor — that would let
+        // any plan run claim operator authority it never had. Stamp the unlock token
+        // ONLY when the context carries VERIFIED operator provenance; otherwise FAIL
+        // CLOSED: the slice stays operator-review-required and the downstream auto-merge
+        // remains locked (the work still runs, it just can't merge unauthorized).
+        if ($this->operatorAuthorizedPlanExecution($context)) {
+            $finding['auto_execution_allowed'] = true;
+            $finding['operator_review_required'] = false;
+            $finding['autonomous_execution_reason'] = 'operator_authorized_plan_execution';
+        } else {
+            $finding['auto_execution_allowed'] = false;
+            $finding['operator_review_required'] = true;
+            $finding['autonomous_execution_reason'] = 'plan_slice_pending_operator_authorization';
+        }
         if (is_array($slice['provider_fit'] ?? null)) {
             $finding['provider_fit'] = $slice['provider_fit'];
         }
@@ -335,6 +346,38 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
         }
 
         return trim($fallback);
+    }
+
+    /**
+     * L3-9 #3: whether the run carries VERIFIED operator provenance authorizing
+     * autonomous (auto-merge-capable) plan-slice execution. The executor must not
+     * self-mint this — the authority has to be supplied by the launching surface in
+     * the context. Accepted, explicit signals:
+     *   - context.operator_authorized_plan_execution === true  (boolean opt-in), or
+     *   - context.operator_provenance ∈ a trusted set (operator / manual_operator), or
+     *   - context.operator_id is a real, non-empty, non-system id.
+     * Absent / forged-as-anything-else ⇒ false (fail-closed).
+     *
+     * @param  array<string,mixed>  $context
+     */
+    private function operatorAuthorizedPlanExecution(array $context): bool
+    {
+        if (($context['operator_authorized_plan_execution'] ?? null) === true) {
+            return true;
+        }
+
+        $provenance = is_string($context['operator_provenance'] ?? null)
+            ? strtolower(trim((string) $context['operator_provenance']))
+            : '';
+        if (in_array($provenance, ['operator', 'manual_operator', 'verified_operator'], true)) {
+            return true;
+        }
+
+        $operatorId = is_string($context['operator_id'] ?? null)
+            ? trim((string) $context['operator_id'])
+            : '';
+
+        return $operatorId !== '' && ! in_array(strtolower($operatorId), ['', 'system', 'autopilot', 'loop', 'none'], true);
     }
 
     /**

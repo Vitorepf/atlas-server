@@ -42,6 +42,12 @@ final class AtlasLoopSemanticImplementationCertifier
         $deterministicGate = $this->honestyGate->evaluateImplementation($workspace, $targetAcceptance, $sealedHoldouts);
         $changedFiles = $this->changedFiles($workspace);
         $changedFileContents = $this->changedFileContents($workspace, $changedFiles);
+        // AUTÓPSIA 12/06 (causa-raiz #2 do "0 propostas"): o painel checava markers de
+        // incompletude no ARQUIVO INTEIRO — alvos reais do Atlas carregam TODOs legítimos
+        // pré-existentes, então toda proposta de discovery era refutada para sempre.
+        // Extraímos as linhas ADICIONADAS pelo diff (a única coisa que a proposta pode
+        // sujar) para o painel escanear o delta, não o passivo histórico do arquivo.
+        $changedAddedLines = $this->addedLines($workspace, $changedFiles);
         $panelVerdict = $this->adversarialPanel->refute($this->panelCycle(
             $workspace,
             $objective,
@@ -50,6 +56,7 @@ final class AtlasLoopSemanticImplementationCertifier
             $deterministicGate,
             $changedFiles,
             $changedFileContents,
+            $changedAddedLines,
         ));
         $providerRefuters = $this->runRefuters($workspace, [
             'schema_version' => self::SCHEMA.'.refuter_packet',
@@ -154,6 +161,7 @@ final class AtlasLoopSemanticImplementationCertifier
         array $deterministicGate,
         array $changedFiles,
         array $changedFileContents,
+        array $changedAddedLines = [],
     ): array {
         $commands = AiStringListNormalizer::uniqueTrimmedStrings(array_merge(
             AiStringListNormalizer::trimmedStrings($targetAcceptance['commands'] ?? []),
@@ -175,6 +183,9 @@ final class AtlasLoopSemanticImplementationCertifier
                 'commands' => $commands,
             ],
             'changed_file_contents' => $changedFileContents,
+            // Diff-scoped: as linhas que o diff ADICIONOU por arquivo — o painel checa
+            // markers de incompletude no delta, não nos TODOs pré-existentes do alvo.
+            'changed_added_lines' => $changedAddedLines,
             'outcome_measured' => true,
             'outcome_metric' => [
                 'outcome_met' => (bool) ($deterministicGate['certified'] ?? false),
@@ -306,6 +317,43 @@ final class AtlasLoopSemanticImplementationCertifier
     /**
      * @return list<string>
      */
+    /**
+     * As linhas que o diff ADICIONOU, por arquivo (rel => texto das linhas '+'). Para
+     * arquivos novos/untracked, o conteúdo inteiro é "adicionado". Best-effort: erro de
+     * git ⇒ mapa vazio (o painel cai no scan file-scoped, fail-closed preservado).
+     *
+     * @param  list<string>  $changedFiles
+     * @return array<string,string>
+     */
+    private function addedLines(string $workspace, array $changedFiles): array
+    {
+        $out = [];
+        $p = new Process(['git', 'diff', '--unified=0', '--no-ext-diff'], $workspace, null, null, 30.0);
+        $p->run();
+        $current = null;
+        foreach (preg_split('/\R/', (string) $p->getOutput()) ?: [] as $line) {
+            if (str_starts_with($line, '+++ b/')) {
+                $current = substr($line, 6);
+
+                continue;
+            }
+            if ($current !== null && str_starts_with($line, '+') && ! str_starts_with($line, '+++')) {
+                $out[$current] = ($out[$current] ?? '')."\n".substr($line, 1);
+            }
+        }
+        // Untracked (arquivo novo): tudo é adição.
+        $ls = new Process(['git', 'ls-files', '--others', '--exclude-standard'], $workspace, null, null, 30.0);
+        $ls->run();
+        foreach (preg_split('/\R/', trim((string) $ls->getOutput())) ?: [] as $rel) {
+            $rel = trim($rel);
+            if ($rel !== '' && ! isset($out[$rel]) && is_file($workspace.'/'.$rel)) {
+                $out[$rel] = (string) @file_get_contents($workspace.'/'.$rel);
+            }
+        }
+
+        return $out;
+    }
+
     private function changedFiles(string $workspace): array
     {
         $files = [];

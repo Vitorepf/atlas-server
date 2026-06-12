@@ -37,6 +37,8 @@ final class AtlasLoopTargetDiscoveryService
     public function __construct(
         private readonly AtlasLoopTargetRepository $repository,
         private readonly ?AtlasLoopEvidenceSignalService $evidence = null,
+        private readonly ?AtlasLoopBacklogIntentSource $backlog = null,
+        private readonly ?\App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard $harnessGuard = null,
     ) {}
 
     /**
@@ -79,6 +81,49 @@ final class AtlasLoopTargetDiscoveryService
         }
         unset($row);
 
+        // L3-2: backlog REAL guiando os intents — em vez de só varrer arquivos ao acaso,
+        // injeta alvos com OBJETIVO ESPECÍFICO (manifesto curado + corpus de falhas) e os
+        // promove no ranking. É o que ataca os 94% de waste: o provider recebe "corrija X
+        // em Y" em vez de "melhore este arquivo". Flag-gated; fail-open (fonte vazia ⇒ no-op).
+        if ((bool) config('atlas.loop.discovery_backlog_intents', false) && $this->backlog !== null) {
+            $byPath = [];
+            foreach ($scoredRows as $i => $row) {
+                $byPath[$row['path']] = $i;
+            }
+            foreach ($this->backlog->candidates($repoRoot, $limit) as $bk) {
+                $rel = $bk['path'];
+                if (isset($alreadyProposed[$rel])) {
+                    continue;
+                }
+                $abs = $repoRoot.'/'.$rel;
+                $signals = ['backlog_reach' => 1.0, 'backlog_objective' => $bk['objective'], 'backlog_source' => $bk['source']];
+                // Score de backlog domina o estrutural (mínimo do candidato + prioridade) —
+                // o backlog real vem primeiro, mas nunca acima de 1.0.
+                $score = min(1.0, 0.85 + 0.15 * (float) $bk['priority']);
+                if (isset($byPath[$rel])) {
+                    $idx = $byPath[$rel];
+                    $scoredRows[$idx]['scored']['score'] = max((float) $scoredRows[$idx]['scored']['score'], $score);
+                    $scoredRows[$idx]['scored']['signals'] = array_merge($scoredRows[$idx]['scored']['signals'] ?? [], $signals);
+                } elseif (is_file($abs)) {
+                    $scoredRows[] = ['path' => $rel, 'abs' => $abs, 'scored' => [
+                        'score' => $score, 'self_contained' => 0.0, 'improvement' => (float) $bk['priority'],
+                        'novelty' => 1.0, 'evidence' => 0.0, 'signals' => $signals,
+                    ]];
+                }
+            }
+        }
+
+        // L3-12: guardrail do meta-loop. O conjunto PROIBIDO (frozen judge, gates,
+        // never-merge, este guard) NUNCA é alvo — pétreo, ignora flags/backlog/score (o loop
+        // não edita a própria fechadura). Arquivos do harness não-segurança só passam com a
+        // flag meta-harness ON. Aplicado no chokepoint final, depois do backlog, antes do upsert.
+        $guard = $this->harnessGuard ?? new \App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard();
+        $metaHarness = (bool) config('atlas.loop.meta_harness_targets', false);
+        $scoredRows = array_values(array_filter(
+            $scoredRows,
+            static fn (array $row): bool => $guard->admit((string) $row['path'], $metaHarness) === 'admissible',
+        ));
+
         // Highest score first; upsert the top-N as candidates.
         usort($scoredRows, static fn (array $a, array $b): int => $b['scored']['score'] <=> $a['scored']['score']);
         $top = array_slice($scoredRows, 0, $limit);
@@ -119,14 +164,20 @@ final class AtlasLoopTargetDiscoveryService
         if (preg_match('/\b(final\s+|abstract\s+)*(class|enum|trait)\s+\w/', $text) !== 1) {
             return null; // must declare a unit
         }
-        if ($this->frameworkReach($text) > 0) {
+        $frameworkReach = $this->frameworkReach($text);
+        // L2-2 (breadth): targets framework-reach são admitidos quando a flag está ON —
+        // eles seguem o caminho framework-materializer + intent-verifier + certificação
+        // adversarial universal no grinder (não o plain-`php` grind). Penalizados no
+        // score (mais caros de moer), mas elegíveis: é onde moram as melhorias REAIS.
+        $frameworkEligible = (bool) config('atlas.loop.discovery_framework_targets', false);
+        if ($frameworkReach > 0 && ! $frameworkEligible) {
             return null; // NOT self-contained — the plain-`php` grind cannot pin it
         }
         if (! $this->phpLintClean($absPath)) {
             return null; // already broken / unparseable
         }
 
-        $selfContained = 1.0; // passed the hard gate
+        $selfContained = $frameworkReach > 0 ? 0.45 : 1.0;
         $improvement = $this->improvementSignal($text);
         $novelty = isset($context['already_proposed'][$repoRelPath]) ? 0.0 : 1.0;
         $score = 0.55 * $selfContained + 0.30 * $improvement + 0.15 * $novelty;
@@ -137,6 +188,7 @@ final class AtlasLoopTargetDiscoveryService
             'improvement' => round($improvement, 4),
             'novelty' => $novelty,
             'signals' => [
+                'framework_reach' => $frameworkReach,
                 'loc' => $loc,
                 'public_methods' => $this->publicMethodCount($text),
                 'branch_density' => round($this->branchDensity($text), 4),

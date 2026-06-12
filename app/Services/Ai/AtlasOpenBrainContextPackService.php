@@ -105,6 +105,7 @@ class AtlasOpenBrainContextPackService
         private readonly AtlasRealityGraphQueryService $realityGraph,
         private readonly AtlasHybridMemoryRetrievalService $memory,
         private readonly CodeGraphWorkspaceIdentity $workspaceIdentity,
+        private readonly \App\Services\Ai\Context\SemanticContextRetrievalService $semanticContext,
     ) {}
 
     /**
@@ -1384,8 +1385,7 @@ class AtlasOpenBrainContextPackService
             return $empty;
         }
 
-        $items = [];
-        $chars = 0;
+        $candidates = [];
         foreach ((array) ($recall['recall'] ?? []) as $row) {
             if (! is_array($row)) {
                 continue;
@@ -1393,7 +1393,7 @@ class AtlasOpenBrainContextPackService
             $title = (string) ($row['title'] ?? '');
             $summary = (string) ($row['summary'] ?? '');
             $body = (string) ($row['body'] ?? ($row['snippet'] ?? ($row['excerpt'] ?? '')));
-            $item = [
+            $candidates[] = [
                 'type' => (string) ($row['type'] ?? ''),
                 'scope' => (string) ($row['scope'] ?? ''),
                 'title' => $title,
@@ -1404,7 +1404,17 @@ class AtlasOpenBrainContextPackService
                 'source_type' => (string) ($row['source_type'] ?? ''),
                 'content_hash' => (string) ($row['content_hash'] ?? ''),
             ];
-            $entryChars = strlen($title.$summary.$body);
+        }
+
+        // L3-6: optional semantic re-rank over the recalled items (symbols+docs) via
+        // the REAL local embedding engine. Flag-gated (atlas.aobg.semantic_retrieval,
+        // default OFF) and fail-open — on any miss the lexical recall order stands.
+        [$candidates, $memoryMode] = $this->semanticallyReorderMemory($task, $candidates);
+
+        $items = [];
+        $chars = 0;
+        foreach ($candidates as $item) {
+            $entryChars = strlen($item['title'].$item['summary'].$item['body']);
             if ($chars + $entryChars > $budgetChars && $items !== []) {
                 break; // respect the sub-budget; keep at least the top hit
             }
@@ -1420,9 +1430,66 @@ class AtlasOpenBrainContextPackService
                 'policy' => (string) data_get($recall, 'summary.policy', 'provider_safe_only'),
                 'recall_count' => (int) data_get($recall, 'summary.recall_count', count($items)),
                 'redacted_ref_count' => (int) data_get($recall, 'summary.redacted_ref_count', 0),
+                'retrieval_mode' => $memoryMode,
                 'note' => self::HONESTY_LABEL,
             ],
         ];
+    }
+
+    /**
+     * L3-6 semantic re-rank of recalled memory items via the real local embedding
+     * engine. Returns [reordered items, mode] where mode is 'semantic' (real
+     * embeddings reordered the set) or 'lexical' (off / unavailable / fail-open).
+     * The item text NEVER leaves the local runtime; only the reordering is applied.
+     *
+     * @param  array<int,array<string,mixed>>  $candidates
+     * @return array{0:array<int,array<string,mixed>>,1:string}
+     */
+    private function semanticallyReorderMemory(string $task, array $candidates): array
+    {
+        if (count($candidates) < 2 || trim($task) === '') {
+            return [$candidates, 'lexical'];
+        }
+
+        $byId = [];
+        $items = [];
+        foreach ($candidates as $index => $candidate) {
+            $id = 'mem_'.$index;
+            $byId[$id] = $candidate;
+            $items[] = [
+                'id' => $id,
+                'text' => trim(implode(' ', array_filter([
+                    (string) ($candidate['title'] ?? ''),
+                    (string) ($candidate['summary'] ?? ''),
+                    (string) ($candidate['body'] ?? ''),
+                ]))),
+            ];
+        }
+
+        try {
+            $ranked = $this->semanticContext->rank($task, $items, count($items));
+        } catch (\Throwable) {
+            return [$candidates, 'lexical'];
+        }
+
+        if (($ranked['mode'] ?? 'lexical') !== 'semantic' || ($ranked['ranked'] ?? []) === []) {
+            return [$candidates, 'lexical'];
+        }
+
+        $reordered = [];
+        foreach ((array) $ranked['ranked'] as $row) {
+            $id = (string) ($row['id'] ?? '');
+            if ($id !== '' && isset($byId[$id])) {
+                $reordered[] = $byId[$id];
+                unset($byId[$id]);
+            }
+        }
+        // Append anything the ranker omitted, preserving the original recall order.
+        foreach ($byId as $candidate) {
+            $reordered[] = $candidate;
+        }
+
+        return [$reordered, 'semantic'];
     }
 
     // ------------------------------------------------------------------

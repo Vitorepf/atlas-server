@@ -188,6 +188,17 @@ final class AdversarialProofPanelService implements AdversarialProofPanel
         $verifier = 'regression_detection';
         $contents = is_array($cycle['changed_file_contents'] ?? null) ? $cycle['changed_file_contents'] : [];
 
+        // AUTÓPSIA 12/06: quando o caller fornece as linhas ADICIONADAS pelo diff
+        // (`changed_added_lines`), o scan de incompletude é DIFF-SCOPED — só o que a
+        // mudança introduziu pode refutá-la. O scan file-scoped punia alvos reais do
+        // Atlas por TODOs pré-existentes que o diff nem tocou (100% das propostas de
+        // discovery refutadas para sempre). Sem a chave, o comportamento file-scoped
+        // original é preservado (callers legados inalterados).
+        $addedLines = is_array($cycle['changed_added_lines'] ?? null) ? $cycle['changed_added_lines'] : [];
+        if ($addedLines !== []) {
+            $contents = $addedLines; // deleções puras não podem introduzir marker
+        }
+
         foreach ($contents as $rel => $body) {
             if (! is_string($rel) || ! is_string($body)) {
                 continue;

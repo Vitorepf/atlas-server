@@ -21,6 +21,10 @@ use InvalidArgumentException;
  */
 class ProgrammingRuntimeTelemetryRecorder
 {
+    public function __construct(
+        private readonly ProviderCostEstimator $costEstimator = new ProviderCostEstimator(),
+    ) {}
+
     /**
      * @param  array<string,mixed>  $input
      */
@@ -74,7 +78,12 @@ class ProgrammingRuntimeTelemetryRecorder
             ),
             'blocker_count' => $this->nonNegativeInt($input['blocker_count'] ?? null, 65535),
             'duration_ms' => $this->nonNegativeInt($input['duration_ms'] ?? null),
-            'cost_estimate_usd' => $this->nonNegativeFloat($input['cost_estimate_usd'] ?? null),
+            // L3-10: MEASURE the cost axis. If the caller already passed a
+            // measured cost we keep it; otherwise we derive one from real
+            // execution signals (provider-reported tokens, or wall-clock
+            // runtime for local token-free providers). Never fabricated — if no
+            // signal exists, this stays null (honestly "unknown").
+            'cost_estimate_usd' => $this->nonNegativeFloat($this->costEstimator->estimate($input)),
             'metadata' => $metadata,
             'occurred_at' => $this->timestamp($input['occurred_at'] ?? null),
         ];

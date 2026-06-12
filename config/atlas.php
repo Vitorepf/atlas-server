@@ -632,6 +632,14 @@ return [
         'default_tier' => env('ATLAS_AI_DEFAULT_TIER', 'daily'),
         'council_allow_auto' => (bool) env('ATLAS_AI_COUNCIL_ALLOW_AUTO', false),
 
+        // L3-10: custo medido por execução (eixo custo do N×M, antes 100% cego). Overrides
+        // opcionais sobre os defaults in-class do ProviderCostEstimator (tokens×rate, ou
+        // runtime×taxa/min p/ providers locais sem tokens). Vazio = usa os defaults seguros.
+        'cost' => [
+            'rates' => [], // ['<provider>' => ['in' => <usd_por_1k>, 'out' => <usd_por_1k>]]
+            'runtime_usd_per_minute' => (float) env('ATLAS_AI_COST_RUNTIME_USD_PER_MINUTE', 0.02),
+        ],
+
         // atlas.ai.trust_ladder — Self-Construction per-change-class friction ladder.
         // DEFAULT = MAX FRICTION (operator approval for everything). `enabled` gates
         // whether the ladder is wired into admission at all; absent thresholds are
@@ -716,6 +724,14 @@ return [
         // path (the runtime atlas.loop block at the root is the campaign engine's).
         'loop' => [
             'merge_to_source_enabled' => (bool) env('ATLAS_LOOP_MERGE_TO_SOURCE_ENABLED', false),
+            // Merge-livre v2 (decisão do operador 11-12/06): propostas certificadas +
+            // re-provadas são mergeadas EM MAIN pelo AtlasLoopAutoMergeService (commit
+            // real, receipt, canário fix-forward-first). Default OFF; o operador ligou
+            // em 12/06 via .env. Reversível a qualquer momento.
+            'auto_merge_to_main' => (bool) env('ATLAS_LOOP_AUTO_MERGE_TO_MAIN', false),
+            // L3-7: cada merge real vira learning recallável (accrual de compounding,
+            // contrato no-noise — só dispara em merge concreto com claim substantivo).
+            'compounding_accrual' => (bool) env('ATLAS_LOOP_COMPOUNDING_ACCRUAL', true),
         ],
 
         // AP-819 AUTOPILOT — diretiva do operador 2026-06-11: evolução do harness
@@ -725,6 +741,14 @@ return [
         'harness_autopilot' => [
             'enabled' => (bool) env('ATLAS_HARNESS_AUTOPILOT_ENABLED', false),
             'observation_days' => (int) env('ATLAS_HARNESS_AUTOPILOT_OBSERVATION_DAYS', 7),
+            // Anti-self-seal (L3-9 #7): the autopilot may NOT seal its own Gate-2
+            // baseline unchallenged — a self-sealed baseline is a reference the
+            // autopilot itself authored, so "non-regression vs baseline" becomes
+            // self-judging. Default OFF (fail-closed): if no baseline is sealed the
+            // run aborts with no_baseline_requires_operator_seal until an operator
+            // (or explicit gate) seals one. Flip ON only to restore the old
+            // auto-seal behavior deliberately.
+            'allow_self_seal_baseline' => (bool) env('ATLAS_HARNESS_AUTOPILOT_ALLOW_SELF_SEAL_BASELINE', false),
         ],
 
         // G7 — ponte síncrona texto→resultado: POST /ai/interactions/sync roda o
@@ -1231,6 +1255,10 @@ return [
                 // cold-start a fresh ACP process per call (still ACP, just no reuse).
                 'acp_warm_pool' => (bool) env('ATLAS_AI_HERMES_ACP_WARM_POOL', true),
                 'acp_warm_pool_max_prompts' => (int) env('ATLAS_AI_HERMES_ACP_WARM_POOL_MAX_PROMPTS', 50),
+                // L3-3: guard de regressão — um ACP "succeeded" com output VAZIO (o sintoma
+                // diff-0) é tratado como fallback-required → cai no CLI provado, com razão
+                // auditável. Default ON; permite reativar o transporte acp warm com segurança.
+                'acp_empty_output_fallback' => (bool) env('ATLAS_AI_HERMES_ACP_EMPTY_OUTPUT_FALLBACK', true),
                 'model' => env('ATLAS_AI_HERMES_MODEL', 'hermes_cli_default'),
                 'model_label' => env('ATLAS_AI_HERMES_MODEL_LABEL', env('ATLAS_AI_HERMES_MODEL') ?: 'Hermes Executive Runtime'),
                 'model_tier' => env('ATLAS_AI_HERMES_MODEL_TIER', 'executive_runtime'),
@@ -1381,7 +1409,16 @@ return [
 
     // Atlas Cognition Operating System (ACOS) — toggles e budgets canonicos.
     // Doc canon: docs/engineering-knowledge-base/atlas-cognition-operating-system.md.
+    // L3-14: campanha Fable — série diária do delta N×M (HOJE vs Marco Zero).
+    'fable' => [
+        'delta_series_enabled' => (bool) env('ATLAS_FABLE_DELTA_SERIES_ENABLED', true),
+    ],
+
     'cognition' => [
+        // L3-11: agenda diária do mint de pipeline receipts (sobe a dimensão mais fraca do
+        // ACOS com evidência resolved, mirando os subsistemas partial). Default ON; reversível.
+        'mint_pipeline_receipts_enabled' => (bool) env('ATLAS_COGNITION_MINT_PIPELINE_RECEIPTS_ENABLED', true),
+
         // Absorcao 1 (mem0): Integer ID Mapping anti-halucinacao.
         // Doc: atlas-external-memory-pattern-absorptions-v1.md (Absorcao 1).
         // Quando habilitado, AiContextPackBuilder remapeia UUIDs em prompts.
@@ -1423,6 +1460,11 @@ return [
     // cockpit->Decide->Dispatch->Invocation wiring is proven (atlas-local first).
     'forge' => [
         'cockpit_real_invocation_enabled' => (bool) env('ATLAS_FORGE_COCKPIT_REAL_INVOCATION_ENABLED', false),
+        // L2-10 (dívida do sweep O-1): quando ON, a validação governada só aceita um test
+        // runner REAL (php artisan test --filter / phpunit --filter), rejeitando `php -r`
+        // livre (gameável: `exit(0)` carimba verde sem provar nada). Default OFF porque
+        // callers legítimos ainda usam `php -r` como marker de smoke — ligar exige migrá-los.
+        'validation_test_runner_only' => (bool) env('ATLAS_FORGE_VALIDATION_TEST_RUNNER_ONLY', false),
     ],
 
     /*
@@ -1453,6 +1495,26 @@ return [
         'max_seconds_per_scenario' => max(30, (int) env('ATLAS_LOOP_MAX_SECONDS_PER_SCENARIO', 600)),
         // The loop NEVER merges to main: it accumulates certified-for-review proposals.
         'propose_only' => (bool) env('ATLAS_LOOP_PROPOSE_ONLY', true),
+
+        // L2-1: "sucesso" de provider com ZERO mudanças no workspace re-tenta uma vez
+        // (assinatura da regressão acp diff-0); carimbo zero_diff_retry auditável.
+        'zero_diff_retry' => (bool) env('ATLAS_LOOP_ZERO_DIFF_RETRY', true),
+
+        // L2-2: descoberta admite targets framework-reach (serviços REAIS) — eles seguem
+        // o caminho framework-materializer + intent-verifier + certificação adversarial.
+        // Default OFF de fábrica; o operador ligou em 12/06 (.env). Reversível.
+        'discovery_framework_targets' => (bool) env('ATLAS_LOOP_DISCOVERY_FRAMEWORK_TARGETS', false),
+
+        // L3-2: a descoberta injeta intents guiados pelo BACKLOG REAL (manifesto curado +
+        // corpus de falhas), com OBJETIVO ESPECÍFICO promovido no ranking — o que ataca os
+        // 94% de waste medidos no Marco Zero (o Loop deixa de inventar tarefa genérica).
+        // Default OFF de fábrica; o operador liga via .env. Fail-open (fonte vazia ⇒ no-op).
+        'discovery_backlog_intents' => (bool) env('ATLAS_LOOP_DISCOVERY_BACKLOG_INTENTS', false),
+
+        // L3-12: meta-loop — o Loop pode tocar o PRÓPRIO harness (não-segurança) quando ON.
+        // O AtlasLoopHarnessGuard mantém o conjunto PROIBIDO pétreo (frozen judge, gates,
+        // never-merge) INTOCÁVEL independentemente desta flag. Default OFF (anti-runaway).
+        'meta_harness_targets' => (bool) env('ATLAS_LOOP_META_HARNESS_TARGETS', false),
 
         // O-2 slice (d): universal adversarial certification. When ON, the DISCOVERY
         // path (not just framework tasks) routes every proposal through the semantic
@@ -1924,6 +1986,9 @@ return [
     | honest empty independently — the pack is a curated top-K, never omniscience.
     */
     'aobg' => [
+        // L3-6: rerank semântico da seção de memória do context pack via o engine local
+        // real (embeddings sobre os itens recuperados). Default OFF; fail-open sem venv.
+        'semantic_retrieval' => (bool) env('ATLAS_AOBG_SEMANTIC_RETRIEVAL', false),
         // Total char budget for the assembled pack (a text brief, ~6000 chars).
         'budget_chars' => (int) env('ATLAS_AOBG_BUDGET_CHARS', 6000),
         // Per-source sub-budgets (the code-graph sub-budget is converted to a

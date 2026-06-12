@@ -98,12 +98,17 @@ final class AtlasLoopWorkerPoolTest extends TestCase
     }
 
     /**
-     * O-10 safety default: the parallel frota ships GATED OFF — serial single-worker is
-     * the default, so enabling the fleet (which a 24h soak at scale needs) is a deliberate
-     * operator act, never the out-of-the-box behavior.
+     * O-10 safety default: the parallel frota SHIPS gated OFF — the config fallback is
+     * false, so enabling the fleet is a deliberate operator act (env), never the
+     * out-of-the-box behavior. Asserted against the SHIPPED default in config source
+     * (não o env vivo: o operador ligou a frota em 12/06, legitimamente).
      */
     public function test_parallel_fleet_ships_gated_off_by_default(): void
     {
-        $this->assertFalse((bool) config('atlas.loop.parallel.enabled'), 'frota deve embarcar gated OFF');
+        $this->assertStringContainsString(
+            "env('ATLAS_LOOP_PARALLEL_ENABLED', false)",
+            (string) file_get_contents(config_path('atlas.php')),
+            'o fallback de fábrica da frota deve ser false (ligar = ato do operador via env)'
+        );
     }
 }

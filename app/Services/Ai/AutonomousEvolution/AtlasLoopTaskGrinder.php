@@ -324,7 +324,21 @@ final class AtlasLoopTaskGrinder
         }
 
         $workspace = sys_get_temp_dir().'/atlas-loop-fw-gate-'.bin2hex(random_bytes(5));
-        $this->mustRun(['git', '-C', $baseWorkspace, 'worktree', 'add', '--detach', $workspace, 'HEAD'], 'framework_gate_worktree_add_failed', 120.0);
+        if (is_dir($baseWorkspace.'/.git')) {
+            $this->mustRun(['git', '-C', $baseWorkspace, 'worktree', 'add', '--detach', $workspace, 'HEAD'], 'framework_gate_worktree_add_failed', 120.0);
+        } else {
+            // AUTÓPSIA 12/06 (a causa-raiz do "0 propostas"): no caminho DISCOVERY o
+            // base_workspace é um cp -R SEM .git — o `git worktree add` acima estourava
+            // `not a git repository` em 100% das propostas self-contained e o gate
+            // (universal_certification ON) as dropava todas fail-closed. O provider
+            // produzia; o gate jogava fora. Para base não-git: cp -R + git init +
+            // baseline commit (o MESMO contrato que o explorer self-contained usa),
+            // e o diff aplica sobre um baseline real.
+            $this->mustRun(['bash', '-lc', 'cp -R '.escapeshellarg($baseWorkspace).' '.escapeshellarg($workspace)], 'framework_gate_copy_failed', 120.0);
+            $this->mustRun(['git', '-C', $workspace, 'init', '-q'], 'framework_gate_git_init_failed', 30.0);
+            $this->mustRun(['git', '-C', $workspace, 'add', '-A'], 'framework_gate_baseline_add_failed', 60.0);
+            $this->mustRun(['git', '-C', $workspace, '-c', 'user.email=atlas-loop@local', '-c', 'user.name=Atlas Loop', '-c', 'commit.gpgsign=false', 'commit', '-q', '--allow-empty', '-m', 'gate baseline'], 'framework_gate_baseline_commit_failed', 60.0);
+        }
         $this->copyLocalSupport($baseWorkspace, $workspace);
 
         $apply = new Process(['git', 'apply', '--whitespace=nowarn', '-'], $workspace, null, null, 60.0);
@@ -351,13 +365,15 @@ final class AtlasLoopTaskGrinder
 
     private function copyLocalSupport(string $baseWorkspace, string $workspace): void
     {
+        // Guard de destino: no caminho base-não-git o workspace nasce de um cp -R completo
+        // do base — vendor/.env já estão lá; copiar de novo aninharia (vendor/vendor).
         foreach (['vendor'] as $dir) {
-            if (is_dir($baseWorkspace.'/'.$dir)) {
+            if (is_dir($baseWorkspace.'/'.$dir) && ! is_dir($workspace.'/'.$dir)) {
                 $this->mustRun(['bash', '-lc', 'cp -R '.escapeshellarg($baseWorkspace.'/'.$dir).' '.escapeshellarg($workspace.'/'.$dir)], 'framework_gate_support_copy_failed_'.$dir, 180.0);
             }
         }
         foreach (['.env', '.env.testing'] as $file) {
-            if (is_file($baseWorkspace.'/'.$file)) {
+            if (is_file($baseWorkspace.'/'.$file) && ! is_file($workspace.'/'.$file)) {
                 copy($baseWorkspace.'/'.$file, $workspace.'/'.$file);
             }
         }

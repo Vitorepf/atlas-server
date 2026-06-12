@@ -118,6 +118,28 @@ final class LoopMergeRetryQueueService
         $escalated = [];
         $skipped = [];
 
+        // L2-11 (achado CRÍTICO do sweep): este caminho mergeia em main via git cru SEM
+        // re-rodar a autonomy policy nem a validação — a autoridade de merge fica partida
+        // (gate no governor, gatilho aqui, sem re-prova). Fail-closed: a drenagem
+        // auto-mergeadora é GATED (default OFF). Desligada, itens pendentes são ESCALADOS
+        // para revisão humana em vez de mergeados às cegas. O caminho governado e
+        // re-provado é o AtlasLoopAutoMergeService (merge-livre v2). Ligar esta fila exige
+        // primeiro wirar a re-validação contra a base atual (fix completo do achado).
+        if (! (bool) config('atlas.stewardship.retry_queue_auto_merge', false)) {
+            foreach ($items as &$pendingItem) {
+                if (($pendingItem['status'] ?? '') === self::STATUS_PENDING) {
+                    $pendingItem['status'] = self::STATUS_ESCALATED;
+                    $pendingItem['escalated_at'] = AreaFocusUtcClock::atomNow();
+                    $pendingItem['last_failure_reason'] = 'retry_queue_auto_merge_disabled_revalidation_required';
+                    $escalated[] = (string) ($pendingItem['branch'] ?? '');
+                }
+            }
+            unset($pendingItem);
+            $this->rewrite($items);
+
+            return ['merged' => [], 'escalated' => array_values(array_filter($escalated)), 'skipped' => []];
+        }
+
         foreach ($items as &$item) {
             if (($item['status'] ?? '') !== self::STATUS_PENDING) {
                 continue;
@@ -304,6 +326,68 @@ final class LoopMergeRetryQueueService
             $abort->setTimeout(30);
             $abort->run();
 
+            return false;
+        }
+
+        // L3-9 #2: a `git rebase` can exit successfully yet leave the branch in a
+        // state that must NOT be merged — an interrupted/partial rebase, a dirty tree,
+        // or conflict markers committed into a file. The subsequent ff-only merge would
+        // then land content that was never re-conflict-checked against the current base.
+        // FAIL-CLOSED: if the rebased branch is not verifiably clean, abort any
+        // in-progress rebase and refuse — the item escalates to the operator instead.
+        if (! $this->rebasedBranchIsClean($repoRoot)) {
+            $abort = new Process(['git', 'rebase', '--abort'], $repoRoot);
+            $abort->setTimeout(30);
+            $abort->run();
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Verify a just-rebased branch is safe to fast-forward merge: no rebase still in
+     * progress, a clean working tree, and no conflict markers committed into tracked
+     * text files. Any uncertainty ⇒ false (fail-closed).
+     */
+    private function rebasedBranchIsClean(string $repoRoot): bool
+    {
+        // 1. No rebase still in progress (REBASE_HEAD / rebase-merge / rebase-apply).
+        $inProgress = new Process(['git', 'rev-parse', '--verify', '--quiet', 'REBASE_HEAD'], $repoRoot);
+        $inProgress->setTimeout(15);
+        $inProgress->run();
+        if (trim($inProgress->getOutput()) !== '') {
+            return false;
+        }
+        if (is_dir($repoRoot.'/.git/rebase-merge') || is_dir($repoRoot.'/.git/rebase-apply')) {
+            return false;
+        }
+
+        // 2. Working tree must be clean (no unmerged paths, no leftover changes).
+        $status = new Process(['git', 'status', '--porcelain'], $repoRoot);
+        $status->setTimeout(15);
+        $status->run();
+        if (! $status->isSuccessful() || trim($status->getOutput()) !== '') {
+            return false;
+        }
+
+        // 3. No conflict markers committed into the rebased tree. `git diff --check`
+        //    against the tree reports conflict markers / whitespace errors; we scan the
+        //    HEAD tree for the canonical merge-conflict marker lines explicitly.
+        $grep = new Process(
+            ['git', 'grep', '-I', '-l', '-E', '^(<{7}|={7}|>{7})( |$)', 'HEAD'],
+            $repoRoot,
+        );
+        $grep->setTimeout(30);
+        $grep->run();
+        // git grep exit 0 = matches found (conflict markers present) ⇒ NOT clean.
+        // exit 1 = no matches (clean). Any other exit ⇒ treat as unsafe (fail-closed).
+        $exit = $grep->getExitCode();
+        if ($exit === 0) {
+            return false;
+        }
+        if ($exit !== 1) {
             return false;
         }
 

@@ -78,6 +78,16 @@ class AtlasHarnessAutopilot
     }
 
     /**
+     * L3-9 #7: whether the autopilot is permitted to seal its OWN Gate-2 baseline.
+     * Default OFF (fail-closed) — a self-sealed baseline is self-judging. Only the
+     * operator may flip this ON to restore the legacy auto-seal behavior.
+     */
+    private function allowSelfSealBaseline(): bool
+    {
+        return (bool) config('atlas.ai.harness_autopilot.allow_self_seal_baseline', false);
+    }
+
+    /**
      * Fase APPLY: pega a proposta harness_config `proposed` mais antiga ainda não
      * tentada e a aplica sob os gates 1+2. Cap estrutural: 1 por run.
      *
@@ -102,6 +112,21 @@ class AtlasHarnessAutopilot
         // antes do edit — senão não há referência matemática para julgar o depois.
         $pre = $this->suite->promotionVerdict();
         if (($pre['verdict'] ?? '') === 'no_baseline') {
+            // L3-9 #5 + #7: a missing Gate-2 baseline is FAIL-CLOSED, not fail-open.
+            // The autopilot must NOT silently self-seal its own baseline — a
+            // self-authored baseline makes "non-regression vs baseline" self-judging
+            // (the very reference it later compares against). Without a baseline
+            // there is no mathematical reference for the after-edit verdict, so the
+            // run aborts and escalates to an operator/explicit gate. Auto-seal is
+            // only restored when the operator deliberately flips the flag ON.
+            if (! $this->allowSelfSealBaseline()) {
+                return [
+                    'schema_version' => self::SCHEMA_VERSION,
+                    'status' => 'no_baseline_requires_operator_seal',
+                    'flag' => 'ATLAS_HARNESS_AUTOPILOT_ALLOW_SELF_SEAL_BASELINE',
+                    'pre' => $pre,
+                ];
+            }
             $this->suite->sealBaseline();
             $pre = $this->suite->promotionVerdict();
         }
@@ -214,7 +239,25 @@ class AtlasHarnessAutopilot
                 continue;
             }
 
-            $postCount = $this->recurrence->clusterCountBetween($cluster, $appliedAt, $appliedAt->copy()->addDays($days));
+            $windowEnd = $appliedAt->copy()->addDays($days);
+            $postCount = $this->recurrence->clusterCountBetween($cluster, $appliedAt, $windowEnd);
+
+            // L3-9 #6: an EMPTY/ZERO attempt table in the post window is NOT evidence
+            // of improvement — postCount=0 with zero observed attempts means "we saw
+            // nothing", not "the cluster stopped recurring". Confirming on absent
+            // evidence fabricates an improvement. Require real post-window evidence
+            // (at least one finished attempt observed) AND a real pre baseline before
+            // a strict-decrease can confirm. No post evidence ⇒ stay observing
+            // (re-checked next monitor pass) rather than confirm a phantom win.
+            $postEvidence = $this->recurrence->totalAttemptsBetween($appliedAt, $windowEnd);
+            if ($postEvidence <= 0) {
+                $report['still_observing']++;
+                $report['checked']--;
+                $report['details'][] = ['proposal_id' => $proposalId, 'verdict' => 'inconclusive_no_post_evidence', 'pre_count' => $preCount, 'post_count' => $postCount];
+
+                continue;
+            }
+
             $improved = $postCount < (int) $preCount;
 
             if ($improved) {

@@ -41,6 +41,14 @@ class OperatorLearningSignalDetector
                 'detector' => 'operator_learning_signal_detector.v1',
                 'matched_pattern_family' => $this->matchedFamily($normalized),
                 'raw_text_persisted' => false,
+                // L3-9 #8: this passive regex detector emits hardcoded confidence
+                // (0.91/0.92) that clears the 0.85 auto-apply floor. It must NEVER carry
+                // auto-apply provenance it did not earn. We STAMP a non-auto-apply
+                // provenance UNCONDITIONALLY — never copy `auto_apply_provenance` from the
+                // (spoofable) caller context — so a caller cannot forge `comprehension`/
+                // `manual_operator` to push a passive signal past the gate. The gate stays
+                // the structural authority; this closes the producer-side spoof hole.
+                'auto_apply_provenance' => OperatorLearningGate::PASSIVE_DETECTOR_PROVENANCE,
             ],
         ];
     }

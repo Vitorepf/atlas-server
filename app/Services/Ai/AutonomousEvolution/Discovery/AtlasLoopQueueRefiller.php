@@ -79,6 +79,37 @@ final class AtlasLoopQueueRefiller
             return 'quarantined';
         }
 
+        // L2-2 (breadth): target framework-reach NÃO passa pelo gerador self-contained —
+        // vai direto para o caminho framework do grinder (worktree real + intent-verifier
+        // compilado deterministicamente + certificação adversarial universal). É o
+        // caminho pelo qual o Loop melhora serviços REAIS do Atlas.
+        $signals = is_array($target->signals) ? $target->signals : [];
+        if ((int) ($signals['framework_reach'] ?? 0) > 0) {
+            $payload = [
+                'materializer' => 'framework',
+                'intent_verifier_factory' => true,
+                'target_relative_path' => ltrim((string) $target->target_path, '/'),
+                'allowed_files' => [ltrim((string) $target->target_path, '/')],
+                '_target_id' => $target->id,
+            ];
+            if ($provider !== '') {
+                $payload['provider'] = $provider;
+            }
+            $enq = $this->store->enqueueTask(
+                $campaign->id,
+                'Improve '.basename((string) $target->target_path).' guided by its improvement signals (edge gaps, branch density) — framework target.',
+                $payload,
+                'discovery',
+                (string) $target->target_path,
+                (int) round(((float) $target->score) * 100),
+                true,
+                '',
+            );
+            $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'framework_task_enqueued');
+
+            return $enq !== null ? 'enqueued' : 'deferred';
+        }
+
         $base = sys_get_temp_dir().'/atlas-loop-gen-'.bin2hex(random_bytes(5));
         $targetRel = 'src/'.basename((string) $target->target_path);
         $cleanup = static function () use ($base): void {

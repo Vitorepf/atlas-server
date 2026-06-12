@@ -188,6 +188,32 @@ class AtlasCognitionEvidenceResolver
      *
      * @return array<int,array{capability_id:string, owner_doc:string, symbol_ref:string, evidence_refs:array<int,array{kind:string,ref:string}>, test_refs:array<int,string>}>
      */
+    /**
+     * L3-11: os capability_ids dos owner docs que governam um service_class. Permite ao
+     * mint de receipts MIRAR exatamente os subsistemas `partial` (cada receipt verde flipa
+     * um partial→ready) em vez de varrer todas as capabilities com conversão baixa.
+     * Degrade-safe: FQN inválido / índice cego ⇒ lista vazia.
+     *
+     * @return list<string>
+     */
+    public function ownerCapabilityIdsForFqn(?string $serviceClass): array
+    {
+        $fqn = $this->normalizeFqn($serviceClass);
+        if ($fqn === null) {
+            return [];
+        }
+
+        $ids = [];
+        foreach ($this->ownerDocsForFqn($fqn) as $owner) {
+            $id = trim((string) ($owner['capability_id'] ?? ''));
+            if ($id !== '') {
+                $ids[] = $id;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
     private function ownerDocsForFqn(string $fqn): array
     {
         $short = $this->classBasename($fqn);

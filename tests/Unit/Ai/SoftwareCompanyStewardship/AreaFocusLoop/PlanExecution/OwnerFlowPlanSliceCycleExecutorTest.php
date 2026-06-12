@@ -132,6 +132,46 @@ final class OwnerFlowPlanSliceCycleExecutorTest extends TestCase
     }
 
     /**
+     * L3-9 #3: without verified operator provenance the executor must NOT self-mint
+     * the `operator_authorized_plan_execution` unlock token (which would let any plan
+     * run claim operator authority it never had). Fail-closed.
+     */
+    public function test_no_operator_provenance_does_not_authorize_plan_execution(): void
+    {
+        $this->assertFalse($this->operatorAuthorized([]), 'empty context must not authorize');
+        $this->assertFalse($this->operatorAuthorized(['operator_authorized_plan_execution' => false]));
+        $this->assertFalse($this->operatorAuthorized(['operator_authorized_plan_execution' => 'true']), 'string true is not a boolean opt-in');
+        $this->assertFalse($this->operatorAuthorized(['operator_provenance' => 'autopilot']));
+        $this->assertFalse($this->operatorAuthorized(['operator_id' => 'system']));
+        $this->assertFalse($this->operatorAuthorized(['operator_id' => '']));
+        $this->assertFalse($this->operatorAuthorized(['operator_id' => 'loop']));
+    }
+
+    /**
+     * L3-9 #3: an explicit, verified operator signal DOES authorize — the legitimate
+     * operator-launched plan run still merges autonomously.
+     */
+    public function test_verified_operator_provenance_authorizes_plan_execution(): void
+    {
+        $this->assertTrue($this->operatorAuthorized(['operator_authorized_plan_execution' => true]));
+        $this->assertTrue($this->operatorAuthorized(['operator_provenance' => 'operator']));
+        $this->assertTrue($this->operatorAuthorized(['operator_provenance' => 'manual_operator']));
+        $this->assertTrue($this->operatorAuthorized(['operator_id' => 'vitor']));
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     */
+    private function operatorAuthorized(array $context): bool
+    {
+        $executor = new OwnerFlowPlanSliceCycleExecutor(app(AutonomousEvolutionSessionService::class));
+        $method = new ReflectionMethod($executor, 'operatorAuthorizedPlanExecution');
+        $method->setAccessible(true);
+
+        return (bool) $method->invoke($executor, $context);
+    }
+
+    /**
      * @param  array<string,mixed>  $slice
      * @param  array<string,mixed>  $context
      * @return array<string,mixed>
