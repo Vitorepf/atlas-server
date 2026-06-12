@@ -223,17 +223,13 @@ final class L8LocalDistillationTaskClassMiner
      */
     private function samples(array $evidence): array
     {
-        $samples = $evidence['samples']
-            ?? $evidence['records']
-            ?? $evidence['runs']
-            ?? $evidence['evidence']
-            ?? [];
-
-        if (! is_array($samples)) {
-            return [];
+        foreach (['samples', 'records', 'runs', 'evidence'] as $key) {
+            if (is_array($evidence[$key] ?? null)) {
+                return array_values($evidence[$key]);
+            }
         }
 
-        return array_values($samples);
+        return [];
     }
 
     /**
