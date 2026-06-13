@@ -1582,6 +1582,25 @@ return [
             'keepalive_event_log_max_lines' => max(100, (int) env('ATLAS_LOOP_KEEPALIVE_EVENT_LOG_MAX_LINES', 2000)),
         ],
 
+        // L5-1: pauta semanal governada. Propõe prioridades a partir de
+        // evidência resolvida (digest/delta/backlog/final-capture) e, no
+        // schedule, grava somente um draft no backlog para aprovação humana.
+        'weekly_agenda' => [
+            'enabled' => (bool) env('ATLAS_LOOP_WEEKLY_AGENDA_ENABLED', true),
+            'schedule_day' => max(0, min(6, (int) env('ATLAS_LOOP_WEEKLY_AGENDA_SCHEDULE_DAY', 1))),
+            'schedule_time' => (string) env('ATLAS_LOOP_WEEKLY_AGENDA_SCHEDULE_TIME', '05:45'),
+            'window_hours' => max(24, (int) env('ATLAS_LOOP_WEEKLY_AGENDA_WINDOW_HOURS', 168)),
+            'max_items' => max(1, (int) env('ATLAS_LOOP_WEEKLY_AGENDA_MAX_ITEMS', 5)),
+            'scheduled_create_proposal' => (bool) env('ATLAS_LOOP_WEEKLY_AGENDA_SCHEDULED_CREATE_PROPOSAL', true),
+        ],
+
+        // L5-2: Loop -> Obra bridge. Builds a Forge handoff packet for
+        // multi-file intents, but does not run providers or create Obras.
+        'obra_bridge' => [
+            'enabled' => (bool) env('ATLAS_LOOP_OBRA_BRIDGE_ENABLED', true),
+            'min_files' => max(2, (int) env('ATLAS_LOOP_OBRA_BRIDGE_MIN_FILES', 2)),
+        ],
+
         // 24h+ sem intervenção: revive campanhas que pararam por STARVATION de fila (a única
         // parada permanente — completed com budget sobrando). O loop mergeia código → novos
         // alvos surgem → reviver throttled re-descobre trabalho. Sem isto o soak para sozinho
@@ -1616,6 +1635,11 @@ return [
             'max_tasks' => (int) env('ATLAS_LOOP_CAMPAIGN_MAX_TASKS', 0),
             // Per-task claim lease: a crashed worker's task is reclaimed after this.
             'task_lease_seconds' => max(60, (int) env('ATLAS_LOOP_TASK_LEASE_SECONDS', 1800)),
+            // INDEPENDÊNCIA 24h+: teto de tempo de UM grind. Antes o grind herdava o budget
+            // inteiro (7 dias) → uma chamada de provider travada congelaria o supervisor por
+            // dias (keepalive não pega processo vivo). Capa em 30min/task; o budget total
+            // segue respeitado (usa o menor entre os dois).
+            'task_timeout_seconds' => max(60, (int) env('ATLAS_LOOP_TASK_TIMEOUT_SECONDS', 1800)),
             // Campaign exclusive lock lease: a crashed supervisor's campaign is resumable after this.
             'lock_lease_seconds' => max(60, (int) env('ATLAS_LOOP_LOCK_LEASE_SECONDS', 3600)),
             // Supervisor heartbeat cadence (seconds).

@@ -219,7 +219,12 @@ final class AtlasLoopCampaignSupervisor
 
                     $this->writeHeartbeat($campaign->id);
                     $grindStart = $this->now();
-                    $remaining = $campaign->max_seconds > 0 ? max(5, (int) $campaign->max_seconds - (int) $campaign->elapsed_seconds) : null;
+                    // INDEPENDÊNCIA 24h+: o timeout do grind era o BUDGET INTEIRO (7 dias) —
+                    // uma chamada de provider que travasse congelaria o supervisor por dias e
+                    // o keepalive não pegaria (processo vivo). Capa por-task (default 1800s)
+                    // para um único grind nunca segurar o loop; ainda respeita o budget total.
+                    $budgetLeft = $campaign->max_seconds > 0 ? max(5, (int) $campaign->max_seconds - (int) $campaign->elapsed_seconds) : null;
+                    $remaining = $this->grindTimeout($budgetLeft, (int) ($cfg['task_timeout_seconds'] ?? 1800));
                     $result = $this->grinder->grind($task, $workerId, $scenarios, '', $remaining);
                     $this->beat($campaign, $this->now() - $grindStart);
 
@@ -487,6 +492,19 @@ final class AtlasLoopCampaignSupervisor
         }
 
         return array_values(array_unique($pipeline));
+    }
+
+    /**
+     * INDEPENDÊNCIA 24h+: o teto de tempo de UM grind. Sem cap, o grind herdava o budget
+     * inteiro (até 7 dias) e uma chamada de provider travada congelaria o supervisor por
+     * dias (o keepalive não pega processo vivo). Retorna o MENOR entre o budget restante e o
+     * cap por-task; sem budget definido, só o cap. Cap mínimo de 60s (segurança).
+     */
+    private function grindTimeout(?int $budgetLeft, int $taskCap): int
+    {
+        $taskCap = max(60, $taskCap);
+
+        return $budgetLeft === null ? $taskCap : max(5, min($budgetLeft, $taskCap));
     }
 
     private function currentGitHead(string $workspace): ?string

@@ -5,7 +5,9 @@ namespace Tests\Feature\Ai\Cognitive;
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class AtlasFailureCommandTest extends TestCase
@@ -66,5 +68,57 @@ class AtlasFailureCommandTest extends TestCase
         ]);
         $ack = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
         $this->assertSame('acknowledged', data_get($ack, 'alert.alert_status'));
+    }
+
+    public function test_failure_review_triages_test_suite_report_without_auto_correction(): void
+    {
+        $path = storage_path('framework/testing/failure-review-tests-'.Str::uuid().'.json');
+        File::ensureDirectoryExists(dirname($path));
+        File::put($path, json_encode([
+            'tests' => [
+                [
+                    'name' => 'Tests\\Feature\\ExternalDatabaseTest',
+                    'status' => 'failed',
+                    'message' => 'SQLSTATE[HY000] [2002] Connection refused while connecting to mysql',
+                ],
+                [
+                    'name' => 'Tests\\Unit\\ContractTest',
+                    'status' => 'failed',
+                    'message' => 'Failed asserting that false is true.',
+                ],
+                [
+                    'name' => 'Tests\\Unit\\GreenTest',
+                    'status' => 'passed',
+                    'message' => '',
+                ],
+            ],
+            'history' => [
+                ['week' => '2026-W23', 'failed' => 7],
+                ['week' => '2026-W24', 'failed' => 4],
+            ],
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+        try {
+            Artisan::call('atlas:failure', [
+                'action' => 'review',
+                '--domain' => 'programming',
+                '--test-report' => $path,
+                '--json' => true,
+            ]);
+            $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+            $this->assertSame('planned', $payload['status']);
+            $this->assertSame('triaged', data_get($payload, 'test_suite_triage.status'));
+            $this->assertSame(3, data_get($payload, 'test_suite_triage.total_tests_seen'));
+            $this->assertSame(2, data_get($payload, 'test_suite_triage.failed_tests_seen'));
+            $this->assertSame(1, data_get($payload, 'test_suite_triage.counts.environmental'));
+            $this->assertSame(1, data_get($payload, 'test_suite_triage.counts.real_failure'));
+            $this->assertSame('decreasing', data_get($payload, 'test_suite_triage.trend.status'));
+            $this->assertFalse((bool) data_get($payload, 'test_suite_triage.claim_policy.auto_corrects_tests'));
+            $this->assertFalse((bool) data_get($payload, 'test_suite_triage.claim_policy.auto_quarantines_tests'));
+            $this->assertTrue((bool) data_get($payload, 'rules.environmental_quarantine_requires_operator_review'));
+        } finally {
+            @File::delete($path);
+        }
     }
 }

@@ -157,6 +157,16 @@ Schedule::command('atlas:loop:morning-digest --json')
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas.loop.morning_digest.enabled', true));
 
+// L5-1 · Pauta semanal governada: propõe a semana a partir de evidência resolvida.
+// O schedule pode criar um draft no backlog, mas nunca aprova nem executa a pauta.
+$weeklyAgendaCommand = (bool) config('atlas.loop.weekly_agenda.scheduled_create_proposal', true)
+    ? 'atlas:loop:weekly-agenda --create-proposal --json'
+    : 'atlas:loop:weekly-agenda --json';
+Schedule::command($weeklyAgendaCommand)
+    ->weeklyOn((int) config('atlas.loop.weekly_agenda.schedule_day', 1), (string) config('atlas.loop.weekly_agenda.schedule_time', '05:45'))
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.loop.weekly_agenda.enabled', true));
+
 // 24h-autonomia · Keepalive do supervisor do Loop: campanha running com heartbeat velho
 // E sem processo vivo é relançada detached (resume pelo campaign-id; nada se perde).
 // Motivado por evidência real: o soak morreu silenciosamente em 12/06 com budget sobrando.

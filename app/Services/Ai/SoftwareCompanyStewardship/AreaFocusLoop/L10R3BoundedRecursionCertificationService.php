@@ -272,6 +272,8 @@ final class L10R3BoundedRecursionCertificationService
      * depth gate's `hard_stop`: any truthy value (a real bool true from S151, or a
      * `1` / `"true"` arriving from a serialized envelope) closes the check, so a
      * divergence / gaming / hard-stop signal can never fail OPEN into a certification.
+     * An array that carries none of the recognised S151 verdict flags also fails
+     * closed: absence of detector verdict is not clean detector evidence.
      */
     private function divergencePassed(mixed $raw): bool
     {
@@ -280,6 +282,10 @@ final class L10R3BoundedRecursionCertificationService
         }
 
         if (! is_array($raw)) {
+            return false;
+        }
+
+        if (! $this->hasDivergenceVerdict($raw)) {
             return false;
         }
 
@@ -294,9 +300,10 @@ final class L10R3BoundedRecursionCertificationService
 
     /**
      * Whether the divergence evidence is divergence-free. A bare bool is taken
-     * directly; an array is divergence-free unless `divergence_detected` is raised
-     * (read truthy / fail-closed, so a `1` from a serialized envelope still reports
-     * a divergence); absent evidence is fail-closed (not divergence-free).
+     * directly; an array with at least one recognised S151 verdict flag is
+     * divergence-free unless `divergence_detected` is raised (read truthy /
+     * fail-closed, so a `1` from a serialized envelope still reports a divergence);
+     * absent evidence and verdict-less arrays are fail-closed (not divergence-free).
      */
     private function isDivergenceFree(mixed $raw): bool
     {
@@ -304,7 +311,7 @@ final class L10R3BoundedRecursionCertificationService
             return $raw;
         }
 
-        if (is_array($raw)) {
+        if (is_array($raw) && $this->hasDivergenceVerdict($raw)) {
             return ! $this->flagRaised($raw['divergence_detected'] ?? false);
         }
 
@@ -313,9 +320,10 @@ final class L10R3BoundedRecursionCertificationService
 
     /**
      * Whether the divergence evidence is gaming-free. A bare bool is taken directly;
-     * an array is gaming-free unless `gaming_detected` is raised (read truthy /
-     * fail-closed, so a `1` from a serialized envelope still reports gaming); absent
-     * evidence is fail-closed (not gaming-free).
+     * an array with at least one recognised S151 verdict flag is gaming-free unless
+     * `gaming_detected` is raised (read truthy / fail-closed, so a `1` from a
+     * serialized envelope still reports gaming); absent evidence and verdict-less
+     * arrays are fail-closed (not gaming-free).
      */
     private function isGamingFree(mixed $raw): bool
     {
@@ -323,7 +331,7 @@ final class L10R3BoundedRecursionCertificationService
             return $raw;
         }
 
-        if (is_array($raw)) {
+        if (is_array($raw) && $this->hasDivergenceVerdict($raw)) {
             return ! $this->flagRaised($raw['gaming_detected'] ?? false);
         }
 
@@ -339,6 +347,24 @@ final class L10R3BoundedRecursionCertificationService
     private function flagRaised(mixed $value): bool
     {
         return (bool) $value;
+    }
+
+    /**
+     * S151 detector arrays must carry at least one recognised verdict flag. An
+     * artefact with none of these flags is missing the detector verdict and must
+     * fail closed instead of being inferred clean from absent vetoes.
+     *
+     * @param  array<string,mixed>  $raw
+     */
+    private function hasDivergenceVerdict(array $raw): bool
+    {
+        foreach (['divergence_detected', 'gaming_detected', 'hard_stop_required'] as $flag) {
+            if (array_key_exists($flag, $raw)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
