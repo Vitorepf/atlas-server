@@ -61,7 +61,10 @@ final class MemoryFeedbackDecayScorer
 
         $reasons = [];
 
-        $recordedHardStale = $recordedAge !== null && $recordedAge > self::HARD_STALE_AGE_DAYS;
+        $lastUsedRecently = $lastUsedAge !== null && $lastUsedAge <= self::SOFT_STALE_AGE_DAYS;
+        $recordedAgeForDecay = $lastUsedRecently ? null : $recordedAge;
+
+        $recordedHardStale = $recordedAgeForDecay !== null && $recordedAgeForDecay > self::HARD_STALE_AGE_DAYS;
         $lastUsedHardStale = $lastUsedAge !== null && $lastUsedAge > self::HARD_STALE_AGE_DAYS;
         $decayActive = $recordedHardStale || $lastUsedHardStale;
 
@@ -70,9 +73,9 @@ final class MemoryFeedbackDecayScorer
             $reasons[] = 'stale_age_exceeds_180d';
         }
 
-        $staleness = $this->resolveStaleness($recordedAge, $lastUsedAge, $recordedHardStale, $lastUsedHardStale);
+        $staleness = $this->resolveStaleness($recordedAgeForDecay, $lastUsedAge, $recordedHardStale, $lastUsedHardStale);
 
-        if ($this->softStale($recordedAge) || $this->softStale($lastUsedAge)) {
+        if ($this->softStale($recordedAgeForDecay) || $this->softStale($lastUsedAge)) {
             $reasons[] = 'soft_stale_age_exceeds_45d';
         }
 
