@@ -259,7 +259,7 @@ final class AtlasCyberSecurityExtensionService
     public function submissionGate(array $request): array
     {
         $prepared = (bool) ($request['payload_prepared'] ?? false);
-        $approved = (bool) ($request['human_approved'] ?? false);
+        $approved = ($request['human_approved'] ?? false) === true;
 
         if (! $prepared) {
             return [
