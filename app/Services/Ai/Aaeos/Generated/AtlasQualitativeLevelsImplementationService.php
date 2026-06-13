@@ -262,7 +262,7 @@ class AtlasQualitativeLevelsImplementationService
         if (is_int($value)) {
             return $value;
         }
-        if (is_string($value) && preg_match('/(\d+)/', $value, $m) === 1) {
+        if (is_string($value) && preg_match('/^P?(\d+)$/i', trim($value), $m) === 1) {
             return (int) $m[1];
         }
 
