@@ -166,6 +166,16 @@ final class L7PromotionRequestBuilder
             return self::DEFAULT_ROLLBACK_WINDOW_SECONDS;
         }
 
+        $value = $evidence['rollback_window_seconds'];
+
+        if (is_float($value) && ! is_finite($value)) {
+            return 0;
+        }
+
+        if (is_string($value) && is_numeric($value) && ! is_finite((float) $value)) {
+            return 0;
+        }
+
         return $this->intValue($evidence, 'rollback_window_seconds');
     }
 
