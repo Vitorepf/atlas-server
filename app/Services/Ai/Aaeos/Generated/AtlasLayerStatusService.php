@@ -389,6 +389,6 @@ final class AtlasLayerStatusService
             return $token === '' ? '0' : $token;
         }
 
-        throw new InvalidArgumentException('Layer identifier has no number: ' . $layer);
+        return $trimmed;
     }
 }
