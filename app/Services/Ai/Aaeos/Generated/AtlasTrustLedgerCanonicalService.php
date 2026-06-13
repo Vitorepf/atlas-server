@@ -21,7 +21,7 @@ use DateTimeZone;
  * store or a provider. It answers three contract questions deterministically:
  *
  *   "Score formula" + "Tabela de pesos" — {@see score()} computes
- *     sigmoid( sum(weight_i * sign_i) / norm ) over events_window(90d), where
+ *     sigmoid( 3 * sum(weight_i * sign_i) / norm ) over events_window(90d), where
  *     sign_i is +1 for success kinds and -1 for failure kinds, weight_i is taken
  *     from the frozen weight table, and norm = sum(|weight_i|). An empty window
  *     normalises to a neutral 0.5 (sigmoid of 0).
@@ -55,6 +55,9 @@ final class AtlasTrustLedgerCanonicalService
 
     /** L4 is the lowest tier whose promotion requires the same-day score. */
     public const SAME_DAY_FLOOR_LEVEL = 4;
+
+    /** Logistic calibration: all-positive evidence must be able to clear L7. */
+    private const SCORE_LOGIT_SCALE = 3.0;
 
     /**
      * Frozen weight + sign table ("Tabela de pesos"). Sign is +1 for success
@@ -171,8 +174,9 @@ final class AtlasTrustLedgerCanonicalService
         }
 
         // norm = sum(|weight_i|); an empty window folds to a neutral 0 input
-        // (sigmoid(0) = 0.5) rather than dividing by zero.
-        $x = $norm > 0.0 ? ($weightedSum / $norm) : 0.0;
+        // (sigmoid(0) = 0.5) rather than dividing by zero. The calibrated logit
+        // scale lets a fully-positive window reach the documented L7 threshold.
+        $x = $norm > 0.0 ? (($weightedSum / $norm) * self::SCORE_LOGIT_SCALE) : 0.0;
 
         return [
             'schema' => self::DECISION_SCHEMA,
