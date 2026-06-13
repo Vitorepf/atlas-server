@@ -49,7 +49,7 @@ final class AtlasAaeosQualityBarService
             'schema_version' => self::SCHEMA_VERSION,
             'breach_count' => count($breaches),
             'breaches' => $breaches,
-            'emitted_at' => date('c'),
+            'emitted_at' => gmdate('c'),
         ];
     }
 

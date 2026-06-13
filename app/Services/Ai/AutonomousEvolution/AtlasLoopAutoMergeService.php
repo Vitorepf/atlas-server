@@ -161,8 +161,17 @@ final class AtlasLoopAutoMergeService
                 return array_merge($base, ['reason' => 'forbidden_self_target (parked_for_operator_review)']);
             }
 
-            // 1. Re-prova real contra o contrato congelado persistido.
+            // 1. Re-prova real contra o contrato congelado persistido. A re-prova é FLAKY sob
+            // contenção (o drain roda junto do grind do supervisor + outros comandos; o test
+            // runner no clone pode dar timeout sob carga e voltar reproof_failed mesmo p/ uma
+            // proposta sã — provado: a mesma proposta re-prova ok=true isolada). reproof_failed
+            // é TRANSIENTE (≠ estrutural): re-tenta até 3× antes de pular, então uma janela de
+            // carga não mata os merges. Falhas ESTRUTURAIS (git_apply_failed/no_acceptance_
+            // contract) NÃO re-tentam — saem na 1ª e aposentam.
             $re = $this->gate->reprove($proposal, $repoRoot);
+            for ($attempt = 2; $attempt <= 3 && $re['ok'] !== true && (string) ($re['reason'] ?? '') === 'reproof_failed'; $attempt++) {
+                $re = $this->gate->reprove($proposal, $repoRoot);
+            }
             if ($re['ok'] !== true) {
                 $reason = 'reprove:'.(string) $re['reason'];
                 // Aposentadoria honesta: uma proposta que NUNCA vai convergir deve sair da
