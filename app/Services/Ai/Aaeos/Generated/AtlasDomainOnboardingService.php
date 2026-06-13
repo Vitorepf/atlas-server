@@ -241,7 +241,7 @@ final class AtlasDomainOnboardingService
         foreach (self::DOMAIN_TEST_CRITERIA as $key => $label) {
             $out[$key] = [
                 'required' => true,
-                'present' => (bool) ($candidate[$key] ?? false),
+                'present' => ($candidate[$key] ?? false) === true,
                 'label' => $label,
             ];
         }

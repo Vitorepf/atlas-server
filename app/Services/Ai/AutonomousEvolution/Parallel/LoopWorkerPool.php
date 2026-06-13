@@ -33,8 +33,15 @@ final class LoopWorkerPool
      * @param  callable():?AtlasLoopTask  $claimNext  atomically claims the next task (already lease-stamped) or null
      * @return array{in_flight:int, spawned:int, settled:list<array<string,mixed>>, backpressured:bool}
      */
-    public function tick(int $maxSlots, string $campaignId, callable $claimNext, int $leaseSeconds, int $timeoutSeconds, string $workspaceRootBase = ''): array
-    {
+    public function tick(
+        int $maxSlots,
+        string $campaignId,
+        callable $claimNext,
+        int $leaseSeconds,
+        int $timeoutSeconds,
+        string $workspaceRootBase = '',
+        int $scenarios = 0,
+    ): array {
         $maxSlots = max(1, $maxSlots);
 
         // 1. Harvest finished workers.
@@ -73,6 +80,7 @@ final class LoopWorkerPool
                 $leaseSeconds,
                 $wsRoot,
                 $timeoutSeconds,
+                $scenarios,
             );
             $spawned++;
         }

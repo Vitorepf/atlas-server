@@ -15,14 +15,26 @@ use Symfony\Component\Process\Process;
  */
 final class LoopWorkerSpawner implements LoopWorkerSpawnerContract
 {
-    public function spawn(string $campaignId, string $taskId, string $workerId, int $leaseSeconds, string $workspaceRoot, int $timeoutSeconds): LoopWorkerHandle
+    public function spawn(
+        string $campaignId,
+        string $taskId,
+        string $workerId,
+        int $leaseSeconds,
+        string $workspaceRoot,
+        int $timeoutSeconds,
+        int $scenarios,
+    ): LoopWorkerHandle
     {
         $argv = [
             PHP_BINARY, 'artisan', 'atlas:loop:grind-task',
             '--task-id='.$taskId,
             '--worker='.$workerId,
             '--lease-seconds='.$leaseSeconds,
+            '--json',
         ];
+        if ($scenarios > 0) {
+            $argv[] = '--scenarios='.$scenarios;
+        }
         if ($workspaceRoot !== '') {
             $argv[] = '--workspace-root='.$workspaceRoot;
         }

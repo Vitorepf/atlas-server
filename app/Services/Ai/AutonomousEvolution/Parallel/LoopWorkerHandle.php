@@ -61,7 +61,7 @@ final class LoopWorkerHandle
     }
 
     /**
-     * @return array{task_id:string, worker_id:string, exit_code:?int, duration_ms:int, timed_out:bool}
+     * @return array{task_id:string, worker_id:string, exit_code:?int, duration_ms:int, timed_out:bool, result:?array<string,mixed>}
      */
     public function summary(): array
     {
@@ -71,6 +71,33 @@ final class LoopWorkerHandle
             'exit_code' => $this->exitCode(),
             'duration_ms' => $this->durationMs(),
             'timed_out' => $this->timedOut(),
+            'result' => $this->jsonResult(),
         ];
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function jsonResult(): ?array
+    {
+        $output = trim($this->process->getOutput());
+        if ($output === '') {
+            return null;
+        }
+
+        $decoded = json_decode($output, true);
+        if (is_array($decoded)) {
+            return $decoded;
+        }
+
+        $start = strpos($output, '{');
+        $end = strrpos($output, '}');
+        if ($start === false || $end === false || $end <= $start) {
+            return null;
+        }
+
+        $decoded = json_decode(substr($output, $start, $end - $start + 1), true);
+
+        return is_array($decoded) ? $decoded : null;
     }
 }

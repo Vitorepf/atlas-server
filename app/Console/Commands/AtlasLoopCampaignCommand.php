@@ -29,7 +29,7 @@ final class AtlasLoopCampaignCommand extends Command
         {--max-tasks= : Stop after this many tasks processed (0/unset = unbounded)}
         {--max-usd-cents= : Provider spend ceiling in cents (0/unset = no cost cap)}
         {--scenarios= : Candidate scenarios explored per task (default: loop config)}
-        {--workers=1 : Parallel grind workers (1 = serial, the proven default)}
+        {--workers= : Parallel grind workers (default: atlas.loop.campaign.workers; only active when atlas.loop.parallel.enabled)}
         {--provider= : Pin a provider key (default: empty = loop default / Atlas Decide)}
         {--sleep-seconds= : Rate-limit: seconds between cycles}
         {--no-shadow : Run active instead of the shadow default}
@@ -47,7 +47,7 @@ final class AtlasLoopCampaignCommand extends Command
             'max_tasks' => $this->intOption('max-tasks'),
             'max_usd_cents' => $this->intOption('max-usd-cents'),
             'scenarios' => $this->intOption('scenarios'),
-            'workers' => $this->intOption('workers') ?? 1,
+            'workers' => $this->intOption('workers'),
             'provider' => trim((string) ($this->option('provider') ?: '')),
             'sleep_seconds' => $this->intOption('sleep-seconds'),
             'shadow' => ! (bool) $this->option('no-shadow'),

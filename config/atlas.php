@@ -743,6 +743,18 @@ return [
             // relatórios medirem valor, não só volume/quebra.
             'impact_receipts_enabled' => (bool) env('ATLAS_LOOP_IMPACT_RECEIPTS_ENABLED', true),
             'impact_receipts_report_limit' => (int) env('ATLAS_LOOP_IMPACT_RECEIPTS_REPORT_LIMIT', 500),
+            // VALUE GATE (impact upgrade): a TIGHTENING — refuses near-zero-impact merges
+            // (orphan/dead-scaffolding) at the merge boundary, AFTER all safety gates. ON
+            // by default (tightening is safe to automate). Fail-safe: blocked = revert the
+            // applied diff pre-commit + NOT retired (re-discoverable). Tune the floor/min
+            // callers to trade throughput for impact.
+            'value_gate_enabled' => (bool) env('ATLAS_LOOP_VALUE_GATE_ENABLED', true),
+            'value_gate_min_impact_score' => (float) env('ATLAS_LOOP_VALUE_GATE_MIN_IMPACT_SCORE', 0.45),
+            'value_gate_min_callers' => (int) env('ATLAS_LOOP_VALUE_GATE_MIN_CALLERS', 1),
+            // Ungameable Utility/Impact grade: window of recent merges + the hub fan-in
+            // threshold that counts as compounding-leverage.
+            'utility_grade_window' => (int) env('ATLAS_LOOP_UTILITY_GRADE_WINDOW', 50),
+            'utility_grade_hub_callers' => (int) env('ATLAS_LOOP_UTILITY_GRADE_HUB_CALLERS', 3),
         ],
 
         // AP-819 AUTOPILOT — diretiva do operador 2026-06-11: evolução do harness
@@ -1552,6 +1564,13 @@ return [
         // L4-1: ranking anti-Goodhart. O score estrutural continua sendo a base, mas ganha
         // boost limitado por impacto real: surface no code graph, evidência de falha e backlog.
         'impact_ranking_enabled' => (bool) env('ATLAS_LOOP_IMPACT_RANKING_ENABLED', true),
+
+        // WIRED targeting (impact upgrade): demote/exclude orphan scaffolding (0 real
+        // production callers + 0 failure evidence + 0 backlog reach) so the provider
+        // budget hardens code that RUNS. Default ON (deprioritise); hard_exclude OFF.
+        'orphan_gate_enabled' => (bool) env('ATLAS_LOOP_ORPHAN_GATE_ENABLED', true),
+        'orphan_score_penalty' => (float) env('ATLAS_LOOP_ORPHAN_SCORE_PENALTY', 0.15),
+        'orphan_gate_hard_exclude' => (bool) env('ATLAS_LOOP_ORPHAN_GATE_HARD_EXCLUDE', false),
 
         // L4-1: cooldown por target recente. Tasks/proposals recentes do mesmo path caem no
         // ranking para evitar farming do arquivo que acabou de render proposta.

@@ -239,6 +239,25 @@ final class AtlasLoopAutoMergeService
                 return array_merge($base, ['reason' => 'boot_smoke_failed (rejeitado pré-commit, boot do app quebraria)']);
             }
 
+            // 3c. VALUE GATE (default OFF) + medição WIRED. Resolve UMA vez quantos callers
+            // de produção REAIS o alvo tem; isso (a) alimenta o real_callers do receipt (o
+            // sinal WIRED que a nota re-resolve) e (b) dirige o value-gate opcional. Todos os
+            // gates de SEGURANÇA acima (harness-guard, re-prova frozen, escopo, php -l,
+            // boot-smoke) rodaram PRIMEIRO e estão intactos — este gate só recusa merge de
+            // BAIXO IMPACTO (órfão/dead-scaffolding), nunca relaxa segurança.
+            $callers = $this->targetCallerCount($proposal, $changed);
+            if ((bool) config('atlas.ai.loop.value_gate_enabled', false)) {
+                $verdict = $this->valueGateVerdict($proposal, $changed, $callers);
+                if (! ($verdict['passed'] ?? false)) {
+                    foreach ($changed as $file) {
+                        $this->git($repoRoot, ['checkout', '--', $file]); // pré-commit: desfaz o apply (não é revert)
+                    }
+                    // NÃO aposenta (sem reviewed_at) — re-descobrível: o alvo pode ganhar
+                    // callers/evidência depois. Mesma filosofia fail-open dos outros gates.
+                    return array_merge($base, ['reason' => 'value_gate_blocked:'.($verdict['reason'] ?? 'low_impact'), 'value_gate' => $verdict]);
+                }
+            }
+
             // 4. Snapshot pré-merge (L2-5): âncora git endereçável do estado ANTES do
             // merge — fix-forward sempre barato (restaurar = checkout da tag). O commit
             // do merge referencia a âncora no receipt.
@@ -271,7 +290,7 @@ final class AtlasLoopAutoMergeService
             // 6. Canário best-effort (fix-forward-first: falha registra, não reverte).
             $canary = $this->canary($repoRoot, $changed);
             $impactReceipt = (bool) config('atlas.ai.loop.impact_receipts_enabled', true)
-                ? $this->impactReceipts->build($proposal, $changed, $commit, $canary)
+                ? $this->impactReceipts->build($proposal, $changed, $commit, $canary, $callers)
                 : null;
 
             // L2-6/L4-3: canário mede quebra; impact receipt mede valor. Ambos persistem
@@ -437,6 +456,75 @@ final class AtlasLoopAutoMergeService
      * @param  list<string>  $changed
      * @return array{ran:bool, passed:?bool, target:?string}
      */
+    /**
+     * Real production caller count of the merge's primary target. ?int: null means
+     * the wired-caller service was unavailable (fail-open — never blocks on missing
+     * data); 0 = orphan; >0 = wired. Resolved lazily (no constructor change).
+     *
+     * @param  list<string>  $changed
+     */
+    private function targetCallerCount(AtlasLoopProposal $proposal, array $changed): ?int
+    {
+        try {
+            $target = trim(str_replace('\\', '/', (string) $proposal->target_path));
+            if ($target === '') {
+                foreach ($changed as $file) {
+                    $file = trim(str_replace('\\', '/', $file));
+                    if (str_ends_with($file, '.php') && ! str_contains($file, '/tests/') && ! str_ends_with($file, 'Test.php')) {
+                        $target = $file;
+                        break;
+                    }
+                }
+            }
+            if ($target === '') {
+                return null;
+            }
+
+            return app(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWiredCallerService::class)
+                ->callerCount($target);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Value-gate verdict (pre-commit). Refuses near-zero-impact merges so the loop's
+     * provider budget hardens code that RUNS, not orphan scaffolding. The impact_score
+     * already embeds the caller penalty (orphan -0.20), so the score floor alone
+     * separates orphan (~0.4) from hub (~0.7+); the caller check is belt-and-suspenders.
+     * Fail-open on unmeasured callers.
+     *
+     * @param  list<string>  $changed
+     * @return array<string,mixed>
+     */
+    private function valueGateVerdict(AtlasLoopProposal $proposal, array $changed, ?int $callers): array
+    {
+        $receipt = $this->impactReceipts->build($proposal, $changed, null, ['ran' => false], $callers);
+        $impactScore = (float) ($receipt['impact_score'] ?? 0.0);
+        $minScore = (float) config('atlas.ai.loop.value_gate_min_impact_score', 0.45);
+        $minCallers = max(0, (int) config('atlas.ai.loop.value_gate_min_callers', 1));
+
+        $scoreOk = $impactScore >= $minScore;
+        $callersOk = $callers === null || $callers >= $minCallers;
+        $passed = $scoreOk && $callersOk;
+
+        $reason = 'ok';
+        if (! $scoreOk) {
+            $reason = 'impact_score_below_floor:'.$impactScore.'<'.$minScore;
+        } elseif (! $callersOk) {
+            $reason = 'orphan_below_min_callers:'.$callers;
+        }
+
+        return [
+            'passed' => $passed,
+            'impact_score' => $impactScore,
+            'real_callers' => $callers,
+            'min_impact_score' => $minScore,
+            'min_callers' => $minCallers,
+            'reason' => $reason,
+        ];
+    }
+
     private function canary(string $repoRoot, array $changed): array
     {
         foreach ($changed as $file) {

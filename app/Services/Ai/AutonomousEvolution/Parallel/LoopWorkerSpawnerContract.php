@@ -10,5 +10,13 @@ namespace App\Services\Ai\AutonomousEvolution\Parallel;
  */
 interface LoopWorkerSpawnerContract
 {
-    public function spawn(string $campaignId, string $taskId, string $workerId, int $leaseSeconds, string $workspaceRoot, int $timeoutSeconds): LoopWorkerHandle;
+    public function spawn(
+        string $campaignId,
+        string $taskId,
+        string $workerId,
+        int $leaseSeconds,
+        string $workspaceRoot,
+        int $timeoutSeconds,
+        int $scenarios,
+    ): LoopWorkerHandle;
 }

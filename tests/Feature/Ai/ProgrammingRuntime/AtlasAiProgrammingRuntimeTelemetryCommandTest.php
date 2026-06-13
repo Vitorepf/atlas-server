@@ -77,6 +77,39 @@ class AtlasAiProgrammingRuntimeTelemetryCommandTest extends TestCase
         $this->assertSame(1, AiProgrammingRuntimeTelemetryEvent::query()->count());
     }
 
+    public function test_record_command_accepts_cost_and_token_signals(): void
+    {
+        $exitCode = Artisan::call('atlas:ai:programming-runtime-telemetry', [
+            '--action' => 'record',
+            '--event-name' => 'l5_7_cost_probe',
+            '--flow' => 'loop_auto_merge',
+            '--core' => 'atlas_dev',
+            '--provider' => 'codex_cli',
+            '--run-id' => 'l5-7-test',
+            '--execution-status' => 'passed',
+            '--duration-ms' => '1234',
+            '--tokens-in' => '100',
+            '--tokens-out' => '50',
+            '--cost-estimate-usd' => '0.12',
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exitCode);
+        $decoded = json_decode(Artisan::output(), true);
+        $this->assertIsArray($decoded);
+        $this->assertTrue($decoded['recorded']);
+        $this->assertSame('l5_7_cost_probe', $decoded['event']['event_name']);
+        $this->assertEqualsWithDelta(0.12, (float) $decoded['event']['cost_estimate_usd'], 0.000001);
+
+        $event = AiProgrammingRuntimeTelemetryEvent::query()->firstOrFail();
+        $this->assertSame('loop_auto_merge', $event->flow);
+        $this->assertSame('atlas_dev', $event->selected_core);
+        $this->assertSame('l5-7-test', $event->run_id);
+        $this->assertSame('passed', $event->execution_status);
+        $this->assertSame(1234, $event->duration_ms);
+        $this->assertEqualsWithDelta(0.12, (float) $event->cost_estimate_usd, 0.000001);
+    }
+
     public function test_record_command_fails_without_event_name(): void
     {
         $exitCode = Artisan::call('atlas:ai:programming-runtime-telemetry', [

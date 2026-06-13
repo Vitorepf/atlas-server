@@ -12,6 +12,8 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopTaskGrinder;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopTransientDbException;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBackService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopQueueRefiller;
+use App\Services\Ai\AutonomousEvolution\Parallel\LoopWorkerCountPlanner;
+use App\Services\Ai\AutonomousEvolution\Parallel\LoopWorkerPool;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use Closure;
@@ -58,6 +60,8 @@ final class AtlasLoopCampaignSupervisor
         private readonly AtlasLoopResourceGate $resourceGate,
         private readonly AtlasLoopDbResilience $db,
         private readonly AtlasLoopTaxa2DialOverlayService $taxa2Dials,
+        private readonly LoopWorkerPool $workerPool,
+        private readonly LoopWorkerCountPlanner $workerPlanner,
     ) {}
 
     public function setClockForTesting(Closure $clock): void
@@ -100,6 +104,11 @@ final class AtlasLoopCampaignSupervisor
         $refillBatch = max(1, (int) ($cfg['refill_batch'] ?? 6));
         $rateLimit = max(0, (int) ($input['sleep_seconds'] ?? ($cfg['sleep_seconds'] ?? 0)));
         $baseWorkspace = (string) ($campaign->base_workspace ?: base_path());
+        $requestedWorkers = max(1, (int) ($input['workers'] ?? ($cfg['workers'] ?? 1)));
+        $parallelEnabled = (bool) config('atlas.loop.parallel.enabled', false);
+        $effectiveWorkers = $parallelEnabled ? $this->workerPlanner->plan($requestedWorkers) : 1;
+        $pool = $parallelEnabled && $effectiveWorkers > 1 ? $this->workerPool : null;
+        $parallelClaimSeq = 0;
         $restartOnCodeDrift = (bool) ($cfg['restart_on_code_drift'] ?? true);
         $bootHead = $restartOnCodeDrift ? $this->currentGitHead($baseWorkspace) : null;
         $taxa2 = $this->taxa2Overlay($scenarios);
@@ -137,6 +146,14 @@ final class AtlasLoopCampaignSupervisor
                 'workspace' => $baseWorkspace,
             ]);
         }
+        $this->appendLedger($campaign->id, [
+            'event' => 'parallel_fleet_boot',
+            'enabled' => $parallelEnabled,
+            'requested_workers' => $requestedWorkers,
+            'effective_workers' => $effectiveWorkers,
+            'max_workers' => (int) config('atlas.loop.parallel.max_workers', 4),
+            'mode' => $pool instanceof LoopWorkerPool ? 'parallel_pool' : 'serial_supervisor',
+        ]);
         if (is_array($taxa2)) {
             $this->appendLedger($campaign->id, [
                 'event' => 'taxa2_dials',
@@ -214,7 +231,8 @@ final class AtlasLoopCampaignSupervisor
                     }
 
                     // Self-feed: keep the queue above the low watermark (discover + generate).
-                    if ((int) $this->guard(fn () => $this->store->countPending($campaign->id), 'count_pending') < $watermark) {
+                    if ((int) $this->guard(fn () => $this->store->countPending($campaign->id), 'count_pending') < $watermark
+                        && ! ($pool instanceof LoopWorkerPool && $pool->inFlight() > 0)) {
                         $refillStart = $this->now();
                         $refill = $this->refiller->refill($campaign, $refillBatch);
                         $this->guard(fn () => $campaign->increment('refills'), 'campaign_refills');
@@ -223,6 +241,69 @@ final class AtlasLoopCampaignSupervisor
                             $stop = 'queue_starved_no_refill';
                             break;
                         }
+                    }
+
+                    if ($pool instanceof LoopWorkerPool) {
+                        $tickStart = $this->now();
+                        $budgetLeft = $campaign->max_seconds > 0 ? max(5, (int) $campaign->max_seconds - (int) $campaign->elapsed_seconds) : null;
+                        $remaining = $this->grindTimeout($budgetLeft, (int) ($cfg['task_timeout_seconds'] ?? 1800));
+                        $costGovernor = $this->costGovernorDecision($campaign, $scenarios);
+                        if (($costGovernor['status'] ?? null) === 'throttled') {
+                            $this->appendLedger($campaign->id, [
+                                'event' => 'cost_governor_throttle',
+                                'action' => $costGovernor['action'] ?? null,
+                                'spend_usd_cents' => $costGovernor['spend_usd_cents'] ?? null,
+                                'max_usd_cents' => $costGovernor['max_usd_cents'] ?? null,
+                                'spend_pct' => $costGovernor['spend_pct'] ?? null,
+                                'base_scenarios_per_task' => $costGovernor['base_scenarios_per_task'] ?? null,
+                                'effective_scenarios_per_task' => $costGovernor['effective_scenarios_per_task'] ?? null,
+                            ]);
+                        }
+                        $effectiveScenarios = max(1, (int) ($costGovernor['effective_scenarios_per_task'] ?? ($scenarios ?? config('atlas.loop.scenarios_per_task', 3))));
+                        $tick = $pool->tick(
+                            $effectiveWorkers,
+                            $campaign->id,
+                            function () use ($campaign, $taskLease, &$parallelClaimSeq): mixed {
+                                $parallelClaimSeq++;
+                                $worker = 'pool-'.$campaign->id.'-'.getmypid().'-'.$parallelClaimSeq;
+
+                                return $this->guard(fn () => $this->store->claimNextTask($campaign->id, $worker, $taskLease), 'parallel_claim_next');
+                            },
+                            $taskLease,
+                            $remaining,
+                            $this->parallelWorkspaceRoot($campaign->id),
+                            $effectiveScenarios,
+                        );
+                        $settled = array_values((array) ($tick['settled'] ?? []));
+                        $cycles += count($settled);
+                        $settledSpendCents = $this->spendCentsFromWorkerSummaries($settled);
+                        $this->beat($campaign, $this->now() - $tickStart, $settledSpendCents);
+                        $this->writeHeartbeat($campaign->id);
+                        $this->appendLedger($campaign->id, [
+                            'event' => 'parallel_pool_tick',
+                            'cycle' => $cycles,
+                            'requested_workers' => $requestedWorkers,
+                            'effective_workers' => $effectiveWorkers,
+                            'spawned' => (int) ($tick['spawned'] ?? 0),
+                            'in_flight' => (int) ($tick['in_flight'] ?? 0),
+                            'settled_count' => count($settled),
+                            'settled' => $settled,
+                            'backpressured' => (bool) ($tick['backpressured'] ?? false),
+                            'effective_scenarios_per_task' => $effectiveScenarios,
+                            'spend_usd_cents' => $settledSpendCents,
+                            'cost_governor' => $costGovernor,
+                            'elapsed_seconds' => $this->guard(fn () => $campaign->fresh()?->elapsed_seconds, 'campaign_fresh'),
+                        ]);
+                        $this->guard(fn () => $this->store->reclaimExpiredTasks($campaign->id), 'reclaim_cycle');
+                        if ((int) ($tick['spawned'] ?? 0) === 0 && (int) ($tick['in_flight'] ?? 0) === 0
+                            && (int) $this->guard(fn () => $this->store->countOpen($campaign->id), 'count_open') === 0) {
+                            $stop = 'queue_exhausted';
+                            break;
+                        }
+                        $this->responsiveSleep($campaign->id, max(1, $rateLimit ?: 1));
+                        $lastTick = $this->now();
+
+                        continue;
                     }
 
                     // Claim + grind one task (serial, in-process — the proven v1 default).
@@ -313,6 +394,12 @@ final class AtlasLoopCampaignSupervisor
         } catch (Throwable $e) {
             $stop = 'crashed: '.mb_substr($e->getMessage(), 0, 120);
         } finally {
+            if ($pool instanceof LoopWorkerPool && $pool->inFlight() > 0) {
+                $this->appendLedger($campaign->id, [
+                    'event' => 'parallel_pool_drain',
+                    'drained' => $pool->drain(),
+                ]);
+            }
             // Terminal cleanup MUST NOT throw — otherwise the lock leaks and the campaign
             // row is stranded in status=running (the exact historical failure: a still-down
             // DB re-threw from this reclaim, skipping releaseLock + finish). Best-effort.
@@ -527,6 +614,30 @@ final class AtlasLoopCampaignSupervisor
         }
 
         return 0;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $settled
+     */
+    private function spendCentsFromWorkerSummaries(array $settled): int
+    {
+        $spend = 0;
+        foreach ($settled as $summary) {
+            $result = is_array($summary['result'] ?? null) ? $summary['result'] : [];
+            $spend += $this->spendCentsFromResult($result);
+        }
+
+        return $spend;
+    }
+
+    private function parallelWorkspaceRoot(string $campaignId): string
+    {
+        $root = $this->storageDir($campaignId).'/workers';
+        if (! is_dir($root)) {
+            @mkdir($root, 0o755, true);
+        }
+
+        return $root;
     }
 
     /** Route a supervisor-owned durable write through the transient-DB resilience guard. */

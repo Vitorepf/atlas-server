@@ -25,8 +25,15 @@ final class AtlasLoopWorkerPoolTest extends TestCase
     {
         return new class implements LoopWorkerSpawnerContract
         {
-            public function spawn(string $campaignId, string $taskId, string $workerId, int $leaseSeconds, string $workspaceRoot, int $timeoutSeconds): LoopWorkerHandle
-            {
+            public function spawn(
+                string $campaignId,
+                string $taskId,
+                string $workerId,
+                int $leaseSeconds,
+                string $workspaceRoot,
+                int $timeoutSeconds,
+                int $scenarios,
+            ): LoopWorkerHandle {
                 $p = new Process([PHP_BINARY, '-r', 'usleep(150000);']); // ~150ms real worker
                 $p->start();
 

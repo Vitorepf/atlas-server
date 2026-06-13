@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace Tests\Feature\Loop;
 
 use App\Models\AtlasLoopCampaign;
+use App\Models\AtlasLoopExploration;
 use App\Models\AtlasLoopProposal;
 use App\Models\AtlasLoopTask;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopDbResilience;
 use App\Services\Ai\AutonomousEvolution\Campaign\AtlasLoopCampaignSupervisor;
 use App\Services\Ai\AutonomousEvolution\LoopExecutionDriver;
+use App\Services\Ai\AutonomousEvolution\Parallel\LoopWorkerHandle;
+use App\Services\Ai\AutonomousEvolution\Parallel\LoopWorkerSpawnerContract;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
 use Closure;
 use Illuminate\Database\QueryException;
@@ -64,6 +67,20 @@ final class AtlasLoopCampaignSupervisorTest extends TestCase
 
     protected function tearDown(): void
     {
+        if (isset($this->emptyRepo) && Schema::hasTable('atlas_loop_campaigns')) {
+            $campaignIds = AtlasLoopCampaign::query()
+                ->where('base_workspace', $this->emptyRepo)
+                ->pluck('id')
+                ->all();
+
+            if ($campaignIds !== []) {
+                AtlasLoopExploration::query()->whereIn('campaign_id', $campaignIds)->delete();
+                AtlasLoopProposal::query()->whereIn('campaign_id', $campaignIds)->delete();
+                AtlasLoopTask::query()->whereIn('campaign_id', $campaignIds)->delete();
+                AtlasLoopCampaign::query()->whereIn('id', $campaignIds)->delete();
+            }
+        }
+
         foreach ([$this->storageRoot, $this->emptyRepo] as $dir) {
             (new Process(['rm', '-rf', $dir]))->run();
         }
@@ -256,6 +273,86 @@ final class AtlasLoopCampaignSupervisorTest extends TestCase
         $this->assertIsArray($cycle);
         $this->assertSame(6, $cycle['spend_usd_cents']);
         $this->assertSame('throttled', data_get($cycle, 'cost_governor.status'));
+    }
+
+    public function test_parallel_fleet_claims_four_distinct_tasks_when_enabled(): void
+    {
+        config([
+            'atlas.loop.parallel.enabled' => true,
+            'atlas.loop.parallel.max_workers' => 4,
+            'atlas.loop.campaign.workers' => 4,
+            'atlas.loop.campaign.queue_low_watermark' => 1,
+            'atlas.loop.taxa2_dials.enabled' => false,
+            'atlas.loop.cost_governor.enabled' => false,
+        ]);
+        $this->app->bind(LoopWorkerSpawnerContract::class, fn ($app) => new class($app->make(AtlasLoopStore::class)) implements LoopWorkerSpawnerContract
+        {
+            public function __construct(private readonly AtlasLoopStore $store) {}
+
+            public function spawn(
+                string $campaignId,
+                string $taskId,
+                string $workerId,
+                int $leaseSeconds,
+                string $workspaceRoot,
+                int $timeoutSeconds,
+                int $scenarios,
+            ): LoopWorkerHandle {
+                $task = AtlasLoopTask::query()->find($taskId);
+                if ($task instanceof AtlasLoopTask) {
+                    $this->store->completeTask($taskId, $workerId, [
+                        'has_winner' => false,
+                        'scenarios_explored' => $scenarios,
+                        'proposals' => 0,
+                    ], true);
+                    AtlasLoopCampaign::query()->whereKey($campaignId)->increment('tasks_processed');
+                    AtlasLoopCampaign::query()->whereKey($campaignId)->increment('scenarios_explored', $scenarios);
+                }
+
+                $payload = json_encode([
+                    'task_id' => $taskId,
+                    'worker' => $workerId,
+                    'status' => 'no_winner',
+                    'has_winner' => false,
+                    'proposals' => 0,
+                    'scenarios_explored' => $scenarios,
+                    'cost_cents' => 0,
+                ], JSON_UNESCAPED_SLASHES);
+                $process = new Process([PHP_BINARY, '-r', 'usleep(120000); echo '.var_export(is_string($payload) ? $payload : '{}', true).';']);
+                $process->start();
+
+                return new LoopWorkerHandle($process, $taskId, $workerId);
+            }
+        });
+
+        $campaign = $this->seedCampaign();
+        foreach (['Alpha', 'Bravo', 'Charlie', 'Delta'] as $class) {
+            $this->seedTask($campaign->id, $class);
+        }
+
+        $supervisor = $this->supervisor();
+        $result = $supervisor->run([
+            'campaign_id' => $campaign->id,
+            'workers' => 4,
+            'scenarios' => 1,
+            'sleep_seconds' => 0,
+        ]);
+
+        $this->assertSame('queue_exhausted', $result['stop_reason']);
+        $this->assertSame(4, $result['cycles']);
+        $this->assertSame(4, AtlasLoopTask::query()->where('campaign_id', $campaign->id)->where('status', AtlasLoopTask::STATUS_DONE)->count());
+        $this->assertSame(4, AtlasLoopTask::query()->where('campaign_id', $campaign->id)->distinct('claimed_by')->count('claimed_by'));
+
+        $ledger = $supervisor->readLedger($campaign->id, 50);
+        $boot = array_values(array_filter($ledger, static fn (array $e): bool => ($e['event'] ?? null) === 'parallel_fleet_boot'))[0] ?? null;
+        $this->assertIsArray($boot);
+        $this->assertSame('parallel_pool', $boot['mode']);
+        $this->assertSame(4, $boot['effective_workers']);
+
+        $ticks = array_values(array_filter($ledger, static fn (array $e): bool => ($e['event'] ?? null) === 'parallel_pool_tick'));
+        $this->assertNotEmpty($ticks);
+        $this->assertSame(4, max(array_map(static fn (array $e): int => (int) ($e['spawned'] ?? 0), $ticks)));
+        $this->assertSame(4, max(array_map(static fn (array $e): int => (int) ($e['in_flight'] ?? 0), $ticks)));
     }
 
     public function test_crash_resume_reclaims_inflight_task_and_does_not_duplicate_proposal(): void

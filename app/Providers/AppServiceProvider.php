@@ -19,6 +19,8 @@ use App\Services\Ai\AtlasDecide\AtlasSwarmParallelDispatchService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService;
 use App\Services\Ai\AtlasDecideService;
 use App\Services\Ai\AutonomousEvolution\LoopExecutionDriver;
+use App\Services\Ai\AutonomousEvolution\Parallel\LoopWorkerSpawner;
+use App\Services\Ai\AutonomousEvolution\Parallel\LoopWorkerSpawnerContract;
 use App\Services\Ai\AutonomousEvolution\TimeBoundedLoopExecutionDriver;
 use App\Services\Ai\AutonomousEvolution\WorkspaceProviderLoopExecutionDriver;
 use App\Services\Ai\Caching\AiCallCostGuard;
@@ -161,6 +163,25 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(SkillBundleStore::class);
+        $this->app->bind(LoopWorkerSpawnerContract::class, LoopWorkerSpawner::class);
+
+        // Loop discovery wiring. Laravel does NOT auto-inject nullable-with-default
+        // constructor params (`?Type $x = null`), so AtlasLoopTargetDiscoveryService
+        // was silently running with evidence/backlog/wiredCallers ALL null — its own
+        // impact-ranking + backlog steering were inert, and the new wired-caller orphan
+        // gate would never fire. Bind it explicitly so the intended signals are live.
+        // Each dep is resolved defensively (rescue => null) to preserve the service's
+        // fail-open contract if any dependency cannot build.
+        $this->app->bind(
+            \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopTargetDiscoveryService::class,
+            fn ($app) => new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopTargetDiscoveryService(
+                $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopTargetRepository::class),
+                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopEvidenceSignalService::class), null, false),
+                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBacklogIntentSource::class), null, false),
+                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard::class), null, false),
+                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWiredCallerService::class), null, false),
+            ),
+        );
         // Warm ACP session pool: ONE per worker process (singleton) so a `hermes acp`
         // session stays warm across the worker's jobs. maxServed bounds the long-lived
         // process before it is recycled.
