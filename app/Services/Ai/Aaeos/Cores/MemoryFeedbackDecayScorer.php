@@ -140,6 +140,12 @@ final class MemoryFeedbackDecayScorer
             return 'inactivate';
         }
 
+        if ($wrongContext > 0 && $healthScore <= self::INACTIVATE_HEALTH_CEILING) {
+            $reasons[] = 'inactivated_by_wrong_context_feedback';
+
+            return 'inactivate';
+        }
+
         if ($negative >= self::INACTIVATE_NEGATIVE_THRESHOLD || $wrongContext > 0 || $healthScore <= self::DEGRADE_HEALTH_CEILING) {
             $reasons[] = 'degraded_by_feedback_pressure';
 
