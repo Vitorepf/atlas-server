@@ -50,6 +50,11 @@ final class LocalAgentMemoryPromotionGateEvaluator
             $requiredEvidence[] = 'additional_corroborating_evidence';
         }
 
+        if (! is_finite($confidence) || $confidence < 0.0 || $confidence > 1.0) {
+            $blockers[] = 'confidence_out_of_range';
+            $requiredEvidence[] = 'normalized_confidence_between_zero_and_one';
+        }
+
         if (! $this->secretScanPassed($candidate)) {
             $blockers[] = 'secret_scan_failed';
             $requiredEvidence[] = 'clean_secret_scan';
