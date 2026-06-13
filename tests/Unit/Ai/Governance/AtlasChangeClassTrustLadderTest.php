@@ -22,6 +22,10 @@ class AtlasChangeClassTrustLadderTest extends TestCase
     {
         parent::setUp();
         $this->log = sys_get_temp_dir().'/atlas-ladder-'.bin2hex(random_bytes(4)).'.jsonl';
+        config([
+            'atlas.ai.trust_ladder.eligible_classes' => [],
+            'atlas.ai.trust_ladder.blocked_class_patterns' => ['never_merge', 'kernel'],
+        ]);
     }
 
     protected function tearDown(): void
@@ -99,5 +103,25 @@ class AtlasChangeClassTrustLadderTest extends TestCase
         // A fabricated evidence kind is ignored (closed vocabulary, service boundary).
         $l->recordEvidence('c', 'made_up_kind', 'x');
         $this->assertSame(1, $l->cleanStreak('c'));
+    }
+
+    public function test_release_policy_blocks_unlisted_and_sensitive_classes_before_autonomy_is_earned(): void
+    {
+        config([
+            'atlas.ai.trust_ladder.thresholds' => ['autonomous' => 1],
+            'atlas.ai.trust_ladder.eligible_classes' => ['documentation_only'],
+            'atlas.ai.trust_ladder.blocked_class_patterns' => ['kernel', 'never_merge'],
+        ]);
+
+        $l = $this->ladder();
+        $l->recordEvidence('documentation_only', self::FJ, 'doc-ref');
+        $l->recordEvidence('bugfix', self::FJ, 'bug-ref');
+        $l->recordEvidence('constitutional_kernel', self::FJ, 'kernel-ref');
+
+        $this->assertSame(PolicyCanon::AUTONOMY_AUTONOMOUS, $l->earnedAutonomy('documentation_only'));
+        $this->assertSame(PolicyCanon::AUTONOMY_SUGGEST, $l->earnedAutonomy('bugfix'));
+        $this->assertSame(PolicyCanon::AUTONOMY_SUGGEST, $l->earnedAutonomy('constitutional_kernel'));
+        $this->assertContains('change_class_not_allowlisted', $l->releasePolicy('bugfix')['blockers']);
+        $this->assertContains('blocked_class_pattern:kernel', $l->releasePolicy('constitutional_kernel')['blockers']);
     }
 }

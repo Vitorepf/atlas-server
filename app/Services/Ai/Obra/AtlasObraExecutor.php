@@ -84,6 +84,10 @@ final class AtlasObraExecutor
         // IO). Default-constructed so the executor always certifies the assembled
         // branch as a unit, not just per-step.
         private readonly ?AtlasObraCertificationService $certification = null,
+        // L4-10 — the EXECUTOR-SELF-STAMPED RUNTIME RECEIPT minter. Default-constructed
+        // so every run emits a signed, executor-output receipt (provenance-hardened) the
+        // L4-10 proof verifies — a hand-assembled file can no longer pass the strict proof.
+        private readonly ?AtlasObraReceiptStamp $receiptStamp = null,
     ) {}
 
     /**
@@ -210,6 +214,7 @@ final class AtlasObraExecutor
                     'commit' => $previous['commit'] ?? null,
                     'files_changed' => array_values((array) ($previous['files_changed'] ?? [])),
                     'provider' => $previous['provider'] ?? null,
+                    'model' => is_string($previous['model'] ?? null) ? $previous['model'] : null,
                     'delivery' => $previous['delivery'] ?? 'resumed_prior_delivery',
                     'resumed' => true,
                 ];
@@ -319,6 +324,9 @@ final class AtlasObraExecutor
                 'commit' => $apply['commit'] ?? null,
                 'files_changed' => $filesChanged,
                 'provider' => $delivered['provider'] ?? null,
+                // L4-10 — carry the engine model LABEL the delivery reported so the
+                // self-stamped receipt can record provider/model from observed facts.
+                'model' => is_string($delivered['model'] ?? null) ? $delivered['model'] : null,
                 'delivery' => $this->delivery->label(),
             ];
             $nodeResults[] = $nodeOutcome;
@@ -328,6 +336,7 @@ final class AtlasObraExecutor
                 'branch' => $branch,
                 'gate_receipt' => $gateReceipt,
                 'provider' => $delivered['provider'] ?? null,
+                'model' => is_string($delivered['model'] ?? null) ? $delivered['model'] : null,
                 'delivery' => $this->delivery->label(),
             ]);
 
@@ -392,6 +401,30 @@ final class AtlasObraExecutor
 
         $reason = $envelope['reason'] ?? ($halted ? 'halted_on_node:'.((string) $failedNode) : null);
 
+        $mainUntouched = (bool) ($close['main_untouched'] ?? true);
+
+        // --- L4-10 — EMIT the self-stamped, signed executor RECEIPT from observed facts. ---
+        // This is the provenance inversion: the L4-10 proof reads THIS executor OUTPUT
+        // (HMAC-sealed over the load-bearing facts), not a hand-assembled file. A
+        // hand-edit of any sealed fact (certified / provider / node_count / a step commit
+        // / main_untouched) invalidates the signature and the strict proof rejects it.
+        $executorReceipt = $this->stampReceipt([
+            'obra_id' => $planId,
+            'branch' => $branch,
+            'base_head' => (string) ($open['base_head'] ?? ''),
+            'status' => $status,
+            'certified' => $certified,
+            'node_count' => count($nodes),
+            'delivered_nodes' => $deliveredCount,
+            'resumed' => $resumed,
+            'resume_count' => $resumeCount,
+            'main_untouched' => $mainUntouched,
+            'never_merged' => true,
+            'receipt_hash' => is_string($envelope['receipt_hash'] ?? null) ? $envelope['receipt_hash'] : null,
+            'nodes' => $nodeResults,
+            'integrated' => $envelope['integrated_test_result'] ?? null,
+        ]);
+
         return [
             'schema' => self::SCHEMA,
             'plan_id' => $planId,
@@ -408,16 +441,104 @@ final class AtlasObraExecutor
             'integrated_test_result' => $envelope['integrated_test_result'] ?? null,
             'files_total' => (int) ($envelope['files_total'] ?? 0),
             'nodes' => $nodeResults,
-            'main_untouched' => (bool) ($close['main_untouched'] ?? true),
+            'main_untouched' => $mainUntouched,
             'never_merged' => true,
             'never_pushed' => true,
             'reversible' => true,
             'resumed' => $resumed,
             'resume_count' => $resumeCount,
             'brain_recorded' => $obraRecorded,
+            // L4-10 — the self-stamped, HMAC-signed runtime receipt (executor OUTPUT). The
+            // L4-10 proof verifies its provenance signature; a hand-edit is rejected.
+            'executor_receipt' => $executorReceipt,
             'review_commands' => $close['review_commands'] ?? [],
             'reason' => $reason,
         ];
+    }
+
+    /**
+     * L4-10 — mint the self-stamped, signed executor receipt from the run's OBSERVED
+     * facts (provider/model aggregated from the delivered nodes, the per-step commits,
+     * resumed/resume_count, main_untouched, the F3 receipt_hash). Default-constructed
+     * stamp when none injected — every run emits one. Provider-safe: ids / commits /
+     * labels / booleans only.
+     *
+     * @param  array<string,mixed>  $facts  {obra_id, branch, base_head, status, certified,
+     *                             node_count, delivered_nodes, resumed, resume_count,
+     *                             main_untouched, never_merged, receipt_hash, nodes, integrated}
+     * @return array<string,mixed> the signed receipt
+     */
+    private function stampReceipt(array $facts): array
+    {
+        $nodes = array_values((array) ($facts['nodes'] ?? []));
+        $done = array_values(array_filter(
+            $nodes,
+            static fn (array $n): bool => ($n['status'] ?? '') === self::NODE_DONE,
+        ));
+
+        // Aggregate the provider/model LABELS from the delivered steps (the executor
+        // genuinely observed these). A homogeneous run reports the single engine; a
+        // mixed run reports the FIRST non-empty (the receipt carries a label, not a claim).
+        $provider = $this->firstNonEmptyNodeField($done, 'provider');
+        $model = $this->firstNonEmptyNodeField($done, 'model');
+
+        $steps = array_map(static fn (array $n): array => [
+            'id' => (string) ($n['id'] ?? ''),
+            'status' => (string) ($n['status'] ?? ''),
+            'commit' => is_string($n['commit'] ?? null) ? (string) $n['commit'] : '',
+        ], $nodes);
+
+        $deliveredFiles = [];
+        foreach ($done as $n) {
+            foreach ((array) ($n['files_changed'] ?? []) as $f) {
+                if (is_string($f) && $f !== '') {
+                    $deliveredFiles[$f] = true;
+                }
+            }
+        }
+
+        return $this->receiptStamper()->stamp([
+            'obra_id' => (string) ($facts['obra_id'] ?? ''),
+            'branch' => $facts['branch'] ?? null,
+            'base_head' => $facts['base_head'] ?? null,
+            'status' => (string) ($facts['status'] ?? ''),
+            'certified' => (bool) ($facts['certified'] ?? false),
+            'node_count' => (int) ($facts['node_count'] ?? count($nodes)),
+            'delivered_nodes' => (int) ($facts['delivered_nodes'] ?? count($done)),
+            'provider' => $provider,
+            'model' => $model,
+            'resumed' => (bool) ($facts['resumed'] ?? false),
+            'resume_count' => (int) ($facts['resume_count'] ?? 0),
+            'main_untouched' => (bool) ($facts['main_untouched'] ?? false),
+            'never_merged' => (bool) ($facts['never_merged'] ?? true),
+            'receipt_hash' => is_string($facts['receipt_hash'] ?? null) ? $facts['receipt_hash'] : null,
+            'delivered_item_id' => null,
+            'delivered_files' => array_keys($deliveredFiles),
+            'steps' => $steps,
+            'integrated' => $facts['integrated'] ?? null,
+        ]);
+    }
+
+    private function receiptStamper(): AtlasObraReceiptStamp
+    {
+        return $this->receiptStamp ?? new AtlasObraReceiptStamp;
+    }
+
+    /**
+     * First non-empty string value of $field across the given nodes (provider/model).
+     *
+     * @param  list<array<string,mixed>>  $nodes
+     */
+    private function firstNonEmptyNodeField(array $nodes, string $field): ?string
+    {
+        foreach ($nodes as $n) {
+            $v = $n[$field] ?? null;
+            if (is_string($v) && trim($v) !== '') {
+                return trim($v);
+            }
+        }
+
+        return null;
     }
 
     /**

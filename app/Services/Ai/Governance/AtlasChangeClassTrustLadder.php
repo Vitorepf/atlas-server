@@ -49,11 +49,126 @@ final class AtlasChangeClassTrustLadder
         if ($this->logOverride !== null) {
             return $this->logOverride;
         }
+        // Config seam: lets the operator/tests pin the canonical ledger path explicitly
+        // (one seam for the production feed and isolated frozen tests). Absent ⇒ canonical
+        // storage path. Never silently uses temp in production (storage_path always exists).
+        $configured = trim((string) config('atlas.ai.trust_ladder.log_path', ''));
+        if ($configured !== '') {
+            return $configured;
+        }
         $base = function_exists('storage_path')
             ? storage_path('atlas/governance')
             : sys_get_temp_dir().'/atlas/governance';
 
         return $base.DIRECTORY_SEPARATOR.'change_class_trust.jsonl';
+    }
+
+    /**
+     * Real-history feed: translate a CONCRETE Loop auto-merge OUTCOME into ladder
+     * evidence so the class can auto-green from real merges — never from a self-report.
+     *
+     * This is the missing wire of L6-14: until this is called by the real merge pipeline,
+     * the production ledger sits at entry_count=0 forever and NO class can ever earn
+     * autonomy. It is deliberately STRUCTURAL about what it will and won't accrue:
+     *
+     *   - Gated: does nothing unless the trust ladder is enabled (default OFF).
+     *   - Evidence-only: a clean promotion accrues ONLY when a REAL commit landed
+     *     ($commit non-empty) AND the post-merge canary was NOT red. The commit SHA is
+     *     the distinct re-checkable ref, so re-draining the same merge cannot inflate.
+     *   - Asymmetric & automatic: a red canary (the v2 regression signal — fix-forward,
+     *     never auto-revert) records a REVERT that resets the class streak to zero. This
+     *     is the DoD's "a regression in the class REVERTS the trust automatically".
+     *   - Class-derived from the real diff, never operator-claimed: the change_class is
+     *     computed from the changed file paths (documentation_only / tests_only /
+     *     docs_and_tests / code). The release policy (allowlist + blocked patterns) still
+     *     decides whether the class is even eligible — `code` is never allowlisted by
+     *     default, so ordinary code merges accrue history but earn nothing until the
+     *     operator allowlists the class.
+     *
+     * Best-effort and side-effect-pure w.r.t. the merge: the merge already happened and
+     * this never throws back into it (the caller wraps it, and the guards here are total).
+     *
+     * @param  list<string>  $changedFiles  repo-relative paths the merge touched
+     * @param  array{ran?:bool,passed?:bool|null,target?:string|null}  $canary
+     */
+    public function recordMergeOutcome(array $changedFiles, ?string $commit, array $canary): string
+    {
+        if (! (bool) config('atlas.ai.trust_ladder.enabled', false)) {
+            return '';
+        }
+        $class = $this->classifyChangedFiles($changedFiles);
+        if ($class === '') {
+            return '';
+        }
+
+        // A red canary is the only regression signal in merge-livre v2 (the policy never
+        // auto-reverts; it fix-forwards). It must asymmetrically revoke trust. The revert
+        // is intentionally NOT keyed on a distinct ref — every regression resets, and the
+        // closed vocabulary already makes a revert un-fabricable as a clean evidence.
+        if (($canary['ran'] ?? false) === true && ($canary['passed'] ?? null) === false) {
+            $this->recordEvidence($class, self::EVIDENCE_REVERT, 'canary-red:'.($commit !== null && $commit !== '' ? $commit : 'uncommitted'));
+
+            return $class;
+        }
+
+        // A clean promotion requires a REAL landed commit. No commit ⇒ nothing happened
+        // that can be re-checked, so nothing accrues (refuses to fabricate a green).
+        if ($commit === null || trim($commit) === '') {
+            return '';
+        }
+        $this->recordEvidence($class, self::EVIDENCE_CLEAN_PROMOTION, 'commit:'.trim($commit));
+
+        return $class;
+    }
+
+    /**
+     * Derive a change class from the real changed-file set. Conservative by construction:
+     * a single non-docs/non-tests file makes the whole merge `code` (never allowlisted by
+     * default), so a class only stays `documentation_only` / `tests_only` when EVERY
+     * touched file is of that kind. Empty set ⇒ '' (nothing to classify).
+     *
+     * @param  list<string>  $changedFiles
+     */
+    public function classifyChangedFiles(array $changedFiles): string
+    {
+        $files = [];
+        foreach ($changedFiles as $f) {
+            $f = strtolower(trim(str_replace('\\', '/', (string) $f)));
+            if ($f !== '') {
+                $files[] = $f;
+            }
+        }
+        if ($files === []) {
+            return '';
+        }
+
+        $allDocs = true;
+        $allTests = true;
+        $sawDocs = false;
+        $sawTests = false;
+        foreach ($files as $f) {
+            $isDoc = str_ends_with($f, '.md') || str_starts_with($f, 'docs/');
+            $isTest = str_ends_with($f, 'test.php') || str_contains($f, '/tests/') || str_starts_with($f, 'tests/');
+            $sawDocs = $sawDocs || $isDoc;
+            $sawTests = $sawTests || $isTest;
+            $allDocs = $allDocs && $isDoc;
+            $allTests = $allTests && $isTest;
+            if (! $isDoc && ! $isTest) {
+                return 'code';
+            }
+        }
+
+        if ($allDocs) {
+            return 'documentation_only';
+        }
+        if ($allTests) {
+            return 'tests_only';
+        }
+        if ($sawDocs && $sawTests) {
+            return 'docs_and_tests';
+        }
+
+        return 'code';
     }
 
     public function recordEvidence(string $changeClass, string $kind, ?string $ref = null): void

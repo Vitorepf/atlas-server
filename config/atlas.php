@@ -651,6 +651,9 @@ return [
         // Pinned here so the safe defaults are auditable in canon, not implicit in code.
         'trust_ladder' => [
             'enabled' => (bool) env('ATLAS_TRUST_LADDER_ENABLED', false), // default OFF — unwired
+            // Canonical append-only ledger path. Empty => storage/atlas/governance/change_class_trust.jsonl.
+            // The L6-14 real-history feed (AtlasLoopAutoMergeService) and the operator CLI both write here.
+            'log_path' => (string) env('ATLAS_TRUST_LADDER_LOG_PATH', ''),
             'thresholds' => [
                 // Clean-streak count the operator must set to unlock each tier. Non-positive
                 // => disabled. Still capped by risk and by eligible/blocked class policy.
@@ -729,6 +732,20 @@ return [
             'domain' => env('ATLAS_FAILURE_AUTO_FEED_DOMAIN', 'engineering'),
         ],
 
+        // L5-3 — Auto-cura da suíte real. O snapshot SEMANAL do número REAL de testes
+        // vermelhos (derivado de um relatório de teste real) é a fonte-de-verdade do
+        // trend que destrava o claim L5-3. Gravado por ISO-week, idempotente por semana.
+        // O scheduler consome o relatório de teste real mais recente em `report_path`
+        // (escrito pela suíte/CI). Default OFF; nunca corrige nem quarentena testes —
+        // só MEDE e persiste. Lido por AtlasFailureWeeklyRedSnapshotCommand.
+        'suite_red_snapshot' => [
+            'schedule_enabled' => (bool) env('ATLAS_SUITE_RED_SNAPSHOT_SCHEDULE_ENABLED', false),
+            'schedule_day' => env('ATLAS_SUITE_RED_SNAPSHOT_SCHEDULE_DAY', 'monday'),
+            'schedule_time' => env('ATLAS_SUITE_RED_SNAPSHOT_SCHEDULE_TIME', '06:30'),
+            'domain' => env('ATLAS_SUITE_RED_SNAPSHOT_DOMAIN', 'programming'),
+            'report_path' => env('ATLAS_SUITE_RED_SNAPSHOT_REPORT_PATH', storage_path('app/atlas/evidence/suite-red-latest.json')),
+        ],
+
         // G4 — governed promotion of a STAGED self-construction scaffold to a NEW
         // git branch (worktree-isolated; never main, never the operator's working
         // tree). Default OFF; explicit per-call operator approval is ALWAYS
@@ -737,6 +754,29 @@ return [
             'promote_to_source_enabled' => (bool) env('ATLAS_SELF_CONSTRUCTION_PROMOTE_ENABLED', false),
             'tool_gap_schedule_enabled' => (bool) env('ATLAS_SELF_CONSTRUCTION_TOOL_GAP_SCHEDULE_ENABLED', true),
             'tool_gap_schedule_time' => (string) env('ATLAS_SELF_CONSTRUCTION_TOOL_GAP_SCHEDULE_TIME', '05:50'),
+
+            // L5-4 keystone · the recurrent-capability-gap bridge. Reads the Loop
+            // loss-observer's dominant loss patterns, classifies the subset that
+            // signal a MISSING TOOL/CAPABILITY (fixture builder, contract linter,
+            // worktree/framework-gate helper, …) rather than an ordinary code bug,
+            // and routes them into the governed self-construction corridor as a
+            // parked proposal (requires_human_approval=true). NEVER approves,
+            // stages, promotes, merges, or runs a provider. Read by
+            // AtlasSelfConstructionToolGapBridgeService. Default-safe: the daily
+            // schedule runs dry-run only; --write must be passed to persist a
+            // parked proposal, and it is itself gated behind bridge_write_enabled.
+            'tool_gap_bridge' => [
+                'enabled' => (bool) env('ATLAS_SELF_CONSTRUCTION_TOOL_GAP_BRIDGE_ENABLED', true),
+                'schedule_enabled' => (bool) env('ATLAS_SELF_CONSTRUCTION_TOOL_GAP_BRIDGE_SCHEDULE_ENABLED', true),
+                'schedule_time' => (string) env('ATLAS_SELF_CONSTRUCTION_TOOL_GAP_BRIDGE_SCHEDULE_TIME', '05:52'),
+                // When false the scheduled run stays dry-run (observe + classify,
+                // no parked proposal persisted). Operator flips on to let the
+                // cadence persist parked proposals for review.
+                'schedule_write_enabled' => (bool) env('ATLAS_SELF_CONSTRUCTION_TOOL_GAP_BRIDGE_SCHEDULE_WRITE_ENABLED', false),
+                'window_hours' => max(1, (int) env('ATLAS_SELF_CONSTRUCTION_TOOL_GAP_BRIDGE_WINDOW_HOURS', 24)),
+                'min_occurrences' => max(2, (int) env('ATLAS_SELF_CONSTRUCTION_TOOL_GAP_BRIDGE_MIN_OCCURRENCES', 3)),
+                'max_proposals' => max(1, (int) env('ATLAS_SELF_CONSTRUCTION_TOOL_GAP_BRIDGE_MAX_PROPOSALS', 5)),
+            ],
         ],
 
         // G5 — governed promotion of a certified loop proposal to a NEW BRANCH
@@ -750,6 +790,20 @@ return [
             // real, receipt, canário fix-forward-first). Default OFF; o operador ligou
             // em 12/06 via .env. Reversível a qualquer momento.
             'auto_merge_to_main' => (bool) env('ATLAS_LOOP_AUTO_MERGE_TO_MAIN', false),
+            // L5-9 (campanhas multi-repo): o Loop pode manter os OUTROS repos do operador
+            // (blackink, nivor, …) com os MESMOS guards — mas a porta de merge é POR-REPO.
+            // Invariante pétreo: NEVER-MERGE DEFAULT TAMBÉM LÁ. Um repo estrangeiro só é
+            // mergeável quando `enabled` está ON E o caminho ABSOLUTO canônico está em
+            // `allowed_repos` (CSV no .env). Default fechado: nenhum repo estrangeiro
+            // autorizado. O home repo (atlas-server) continua governado por
+            // `auto_merge_to_main` — ligar multi-repo NÃO reabre a porta do home.
+            'multi_repo' => [
+                'enabled' => (bool) env('ATLAS_LOOP_MULTI_REPO_ENABLED', false),
+                'allowed_repos' => array_values(array_filter(array_map(
+                    'trim',
+                    explode(',', (string) env('ATLAS_LOOP_MULTI_REPO_ALLOWED_REPOS', '')),
+                ), static fn (string $s): bool => $s !== '')),
+            ],
             // L3-7: cada merge real vira learning recallável (accrual de compounding,
             // contrato no-noise — só dispara em merge concreto com claim substantivo).
             'compounding_accrual' => (bool) env('ATLAS_LOOP_COMPOUNDING_ACCRUAL', true),
@@ -1488,6 +1542,10 @@ return [
             'min_days' => max(1, (int) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_MIN_DAYS', 30)),
             'min_overall' => max(0.0, min(10.0, (float) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_MIN_OVERALL', 9.5))),
             'min_pipeline' => max(0.0, min(10.0, (float) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_MIN_PIPELINE', 9.5))),
+            // Freshness bound (calendar days): the latest delta-series day must be
+            // within this window of "today" or the gate rejects it as stale. Any
+            // future-dated row is always rejected. Mechanical does_not_backfill_time.
+            'max_latest_stale_days' => max(0, (int) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_MAX_LATEST_STALE_DAYS', 2)),
             'series_path' => (string) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_SERIES_PATH', storage_path('app/atlas/evidence/fable-delta-series.jsonl')),
             'receipt_path' => (string) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_RECEIPT_PATH', storage_path('app/atlas/evidence/acos-long-horizon-gate.json')),
         ],
@@ -1557,6 +1615,28 @@ return [
             'strict_replay' => (bool) env('ATLAS_LONG_HORIZON_CONTINUITY_PACK_EMITTER_STRICT_REPLAY', true),
             'receipt_path' => (string) env('ATLAS_LONG_HORIZON_CONTINUITY_PACK_EMITTER_RECEIPT_PATH', storage_path('app/atlas/evidence/long-horizon-continuity-pack.json')),
         ],
+
+        // L6-12 keystone: prove CROSS-WEEK continuity with a measured old-memory
+        // recall lift on REAL elapsed calendar time. The emitter above proves
+        // resume-readiness now; this gate proves the DoD ("recall de uma decisão
+        // de 3 semanas atrás influencia uma certificação de hoje, medido"). It is
+        // read-only, fail-closed and never fabricates elapsed time / recall
+        // events / lift — every age derives from the real persisted created_at.
+        // It auto-greens the instant real >=3-week-old recall data exists.
+        'cross_week_recall_lift_gate' => [
+            'enabled' => (bool) env('ATLAS_LONG_HORIZON_CROSS_WEEK_RECALL_LIFT_GATE_ENABLED', true),
+            'schedule_enabled' => (bool) env('ATLAS_LONG_HORIZON_CROSS_WEEK_RECALL_LIFT_GATE_SCHEDULE_ENABLED', true),
+            'schedule_time' => (string) env('ATLAS_LONG_HORIZON_CROSS_WEEK_RECALL_LIFT_GATE_SCHEDULE_TIME', '07:32'),
+            'scope_type' => (string) env('ATLAS_LONG_HORIZON_CROSS_WEEK_RECALL_LIFT_GATE_SCOPE_TYPE', 'long_horizon'),
+            'scope_id' => (string) env('ATLAS_LONG_HORIZON_CROSS_WEEK_RECALL_LIFT_GATE_SCOPE_ID', 'fable-lista-6'),
+            'min_recall_age_days' => max(1, (int) env('ATLAS_LONG_HORIZON_CROSS_WEEK_RECALL_LIFT_GATE_MIN_RECALL_AGE_DAYS', 21)),
+            'recent_window_days' => max(1, (int) env('ATLAS_LONG_HORIZON_CROSS_WEEK_RECALL_LIFT_GATE_RECENT_WINDOW_DAYS', 7)),
+            'min_calendar_span_days' => max(1, (int) env('ATLAS_LONG_HORIZON_CROSS_WEEK_RECALL_LIFT_GATE_MIN_CALENDAR_SPAN_DAYS', 21)),
+            'min_recall_events' => max(1, (int) env('ATLAS_LONG_HORIZON_CROSS_WEEK_RECALL_LIFT_GATE_MIN_RECALL_EVENTS', 1)),
+            'min_new_tasks' => max(1, (int) env('ATLAS_LONG_HORIZON_CROSS_WEEK_RECALL_LIFT_GATE_MIN_NEW_TASKS', 1)),
+            'min_recall_lift' => max(0.0, (float) env('ATLAS_LONG_HORIZON_CROSS_WEEK_RECALL_LIFT_GATE_MIN_RECALL_LIFT', 0.01)),
+            'receipt_path' => (string) env('ATLAS_LONG_HORIZON_CROSS_WEEK_RECALL_LIFT_GATE_RECEIPT_PATH', storage_path('app/atlas/evidence/long-horizon-cross-week-recall-lift-gate.json')),
+        ],
     ],
 
     // Patamar 4 · runtime flags. All default OFF except cron heartbeat and
@@ -1615,6 +1695,15 @@ return [
             'forced_model' => (string) env('ATLAS_PATAMAR4_SWARM_TOPOLOGY_AUTO_COMPOSER_FORCED_MODEL', 'gpt-5.5'),
             'receipt_path' => (string) env('ATLAS_PATAMAR4_SWARM_TOPOLOGY_AUTO_COMPOSER_RECEIPT_PATH', storage_path('app/atlas/evidence/swarm-topology-auto-compose.json')),
         ],
+        // L6-10 live wiring: when ON, the SHARED AtlasSwarmTopologySelector drives
+        // the live AtlasEngineeringRunConductorService dispatch — it auto-composes
+        // the topology-by-task-type plan-DAG and routes it through the governed
+        // runPlan() path (per-node Kernel + Admission + whole-plan pre-gate). It
+        // changes ordering/shape of EXISTING dispatch nodes only; it never escalates
+        // the sovereignty mode guard and never spends a provider token on its own.
+        // DEFAULT OFF, fail-open: with the flag off the conductor's single-dispatch
+        // path is byte-for-byte unchanged. Flip only after the wiring is proven.
+        'swarm_topology_live_routing_enabled' => (bool) env('ATLAS_PATAMAR4_SWARM_TOPOLOGY_LIVE_ROUTING_ENABLED', false),
         'runtime_degradation_auto_tick_enabled' => (bool) env('ATLAS_PATAMAR4_RUNTIME_DEGRADATION_AUTO_TICK_ENABLED', true),
         'runtime_degradation_auto_tick_threshold' => env('ATLAS_PATAMAR4_RUNTIME_DEGRADATION_AUTO_TICK_THRESHOLD', 'high'),
     ],
@@ -1741,6 +1830,17 @@ return [
         // O AtlasLoopHarnessGuard mantém o conjunto PROIBIDO pétreo (frozen judge, gates,
         // never-merge) INTOCÁVEL independentemente desta flag. Default OFF (anti-runaway).
         'meta_harness_targets' => (bool) env('ATLAS_LOOP_META_HARNESS_TARGETS', false),
+
+        // L6-1: the "loop-proposes-harness" producer. When ON (and meta_harness_targets ON),
+        // the backlog intent source deterministically enqueues admissible NON-SAFETY harness
+        // files as named meta-improvement intents, so the meta_harness A/B arm fills as the
+        // loop runs. Passes through the AtlasLoopHarnessGuard chokepoint (forbidden set stays
+        // pétreo). Low priority so it never starves the ordinary backlog. Default OFF.
+        'meta_harness_self_improve' => [
+            'enabled' => (bool) env('ATLAS_LOOP_META_HARNESS_SELF_IMPROVE_ENABLED', true),
+            'priority' => max(0.0, min(1.0, (float) env('ATLAS_LOOP_META_HARNESS_SELF_IMPROVE_PRIORITY', 0.4))),
+            'max_candidates' => max(1, min(50, (int) env('ATLAS_LOOP_META_HARNESS_SELF_IMPROVE_MAX_CANDIDATES', 6))),
+        ],
 
         // L6-1: meta-harness A/B lift. Read-only measurement; strict completion
         // requires real meta-harness and ordinary cases plus positive certification lift.
@@ -1893,6 +1993,12 @@ return [
         'obra_bridge' => [
             'enabled' => (bool) env('ATLAS_LOOP_OBRA_BRIDGE_ENABLED', true),
             'min_files' => max(2, (int) env('ATLAS_LOOP_OBRA_BRIDGE_MIN_FILES', 2)),
+            // When ON, the 24h supervisor auto-invokes the bridge preflight for any
+            // claimed task whose intent spans >= min_files distinct files, parking a
+            // governed Forge handoff packet for operator review. NEVER auto-merges and
+            // NEVER dispatches a provider — the bridge stays preflight-only. Default OFF;
+            // fail-open (a bridge error is logged to the ledger and the grind proceeds).
+            'auto_escalate' => (bool) env('ATLAS_LOOP_OBRA_BRIDGE_AUTO_ESCALATE', false),
         ],
 
         // L5-13: fortnightly adversarial sweep. It reuses the governed backlog
@@ -1976,6 +2082,33 @@ return [
         // so it is deliberate (destravada junto da política merge-livre em O-3). When
         // on, a proposal that errors the gate is dropped (fail-closed), never the task.
         'universal_certification' => (bool) env('ATLAS_LOOP_UNIVERSAL_CERTIFICATION', false),
+
+        // L6-11: predictive outcome bridge. When ON, every terminal loop grind records a
+        // real prediction + observed outcome into the predictive-failure calibration
+        // surface (predictive_failure_insertions), so atlas:predict metrics compute
+        // brier_score / avg_calibration_error on LIVE loop data instead of staying null.
+        // DEFAULT OFF: this is loop telemetry feeding the cognitive calibration surface,
+        // so turning it on is the operator's deliberate decision. The bridge is fail-open
+        // (never crashes a grind) and writes telemetry only — no code, proposal, or merge.
+        'predictive_outcome_bridge' => [
+            'enabled' => (bool) env('ATLAS_LOOP_PREDICTIVE_OUTCOME_BRIDGE_ENABLED', false),
+            'domain' => (string) env('ATLAS_LOOP_PREDICTIVE_OUTCOME_BRIDGE_DOMAIN', 'programming'),
+
+            // L6-11 follow-up: daily recompute of the predictive_failure_calibration_metrics
+            // read-model. Today those metrics (brier_score / avg_calibration_error) only
+            // recompute on demand — when `atlas:predict metrics` runs or the L6-11 correlation
+            // gate evaluates in live mode. Once the bridge above is feeding real loop grind
+            // predictions+outcomes, this keeps the calibration table fresh for dashboards/digests
+            // without waiting for a gate run. It recomputes the SAME domain the bridge writes.
+            // DEFAULT OFF and gated on the bridge being ON too: with no bridge data there is
+            // nothing to summarize, so turning it on is the operator's deliberate decision.
+            'metrics_recompute' => [
+                'enabled' => (bool) env('ATLAS_LOOP_PREDICTIVE_OUTCOME_BRIDGE_METRICS_RECOMPUTE_ENABLED', false),
+                'schedule_enabled' => (bool) env('ATLAS_LOOP_PREDICTIVE_OUTCOME_BRIDGE_METRICS_RECOMPUTE_SCHEDULE_ENABLED', true),
+                'schedule_time' => (string) env('ATLAS_LOOP_PREDICTIVE_OUTCOME_BRIDGE_METRICS_RECOMPUTE_SCHEDULE_TIME', '07:45'),
+                'window_days' => max(1, (int) env('ATLAS_LOOP_PREDICTIVE_OUTCOME_BRIDGE_METRICS_RECOMPUTE_WINDOW_DAYS', 60)),
+            ],
+        ],
 
         // The 24h CAMPAIGN runtime — the durable supervisor around the per-task engine.
         // It self-feeds (discovery + generator refill the queue), grinds in parallel
@@ -2658,6 +2791,12 @@ return [
         // per-step passes alone). Override per-run with --integrated-check. Example:
         //   'php artisan test --filter=Obra'  (run against the assembled worktree).
         'integrated_check' => (string) env('ATLAS_OBRA_INTEGRATED_CHECK', ''),
+        // L4-10 — the HMAC secret the executor signs its self-stamped runtime receipt
+        // with (and the L4-10 proof verifies against). Empty ⇒ falls back to app.key
+        // (always present in a booted app). The executor that runs and the proof that
+        // certifies live in the SAME Atlas, so they share this secret — which is why an
+        // out-of-band hand-edit of the receipt can never reproduce the signature.
+        'receipt_secret' => (string) env('ATLAS_OBRA_RECEIPT_SECRET', ''),
     ],
 
     /*

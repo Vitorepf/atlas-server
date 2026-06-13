@@ -147,15 +147,75 @@ final class AtlasForgeProviderInvocationDriverRouterTest extends TestCase
         );
     }
 
+    public function test_invoke_surfaces_real_token_usage_when_provider_reports_it(): void
+    {
+        // L6-3 live-evidence wire: a provider that returns a real `usage` block
+        // (MiniMax HTTP does) must have its numeric token count + cost surfaced on
+        // the router result, so the strategy bandit can measure certification-per-
+        // token on live runs.
+        $router = $this->routerWithStubMinimaxDrivers(configured: true, invokeResult: [
+            'provider_called' => true,
+            'external_provider_call' => true,
+            'provider_tokens_spent' => true,
+            'exit_code' => 0,
+            'changed_files' => ['app/Foo.php'],
+            'usage' => ['input_tokens' => 1200, 'output_tokens' => 340, 'cost_usd' => 0.021],
+            'note' => 'stub minimax usage',
+        ]);
+
+        $result = $router->invoke(
+            AtlasForgeMinimaxM27InvocationDriver::PROVIDER,
+            'MiniMax-M3',
+            ['schema_version' => 'atlas.forge.provider_invocation_prompt.v1'],
+            ['cwd' => sys_get_temp_dir()],
+        );
+
+        $this->assertTrue($result['provider_called']);
+        $this->assertSame(1540, $result['tokens_used']);
+        $this->assertSame(0.021, $result['cost_estimate_usd']);
+    }
+
+    public function test_invoke_never_fabricates_tokens_when_provider_reports_none(): void
+    {
+        // Anti-over-claim: a provider with no usage (CLI providers) must surface
+        // tokens_used=null — never a fabricated number — so the bandit stays
+        // honestly blocked on `token_efficiency_not_measured` until real evidence.
+        $router = $this->routerWithStubMinimaxDrivers(configured: true, invokeResult: [
+            'provider_called' => true,
+            'external_provider_call' => true,
+            'provider_tokens_spent' => 'unknown',
+            'exit_code' => 0,
+            'changed_files' => ['app/Foo.php'],
+            'note' => 'stub cli no usage',
+        ]);
+
+        $result = $router->invoke(
+            AtlasForgeMinimaxM27InvocationDriver::PROVIDER,
+            'MiniMax-M3',
+            ['schema_version' => 'atlas.forge.provider_invocation_prompt.v1'],
+            ['cwd' => sys_get_temp_dir()],
+        );
+
+        $this->assertTrue($result['provider_called']);
+        $this->assertNull($result['tokens_used']);
+        $this->assertNull($result['cost_estimate_usd']);
+    }
+
     /**
      * Builds a router where all non-MiniMax drivers are resolved from the
      * container and the two MiniMax drivers are replaced with lightweight mocks
-     * that return a controlled configured() payload.
+     * that return a controlled configured() payload. When $invokeResult is given,
+     * the primary MiniMax driver's invoke() returns it (for the token-wire tests).
+     *
+     * @param  array<string,mixed>|null  $invokeResult
      */
-    private function routerWithStubMinimaxDrivers(bool $configured): AtlasForgeProviderInvocationDriverRouter
+    private function routerWithStubMinimaxDrivers(bool $configured, ?array $invokeResult = null): AtlasForgeProviderInvocationDriverRouter
     {
         $minimaxDriver = $this->createMock(AtlasForgeMinimaxM27InvocationDriver::class);
         $minimaxDriver->method('provider')->willReturn(AtlasForgeMinimaxM27InvocationDriver::PROVIDER);
+        if ($invokeResult !== null) {
+            $minimaxDriver->method('invoke')->willReturn($invokeResult);
+        }
         $minimaxDriver->method('configured')->willReturn([
             'schema_version' => 'atlas.forge.provider_driver_config_status.v1',
             'provider' => AtlasForgeMinimaxM27InvocationDriver::PROVIDER,

@@ -11,16 +11,25 @@ use DateTimeZone;
 /**
  * L6-10: auto-compose a bounded multi-agent topology by task type.
  *
- * This is a shadow-only proof gate. It selects a plan topology, sends it
- * through the existing governed conductor, then measures convergence from the
- * real plan_trace. It never changes runtime routing or activates live spend.
+ * This is the convergence PROOF gate. It selects a plan topology (via the shared
+ * {@see AtlasSwarmTopologySelector}), sends it through the existing governed
+ * conductor in SHADOW, then measures convergence from the real plan_trace.
+ *
+ * Live routing effect: the SAME selector now drives the live conductor dispatch
+ * when the operator flips `atlas.patamar4.swarm_topology_live_routing_enabled`
+ * ON (default OFF, fail-open). This gate's own evaluate() stays SHADOW-only and
+ * never spends a provider token; it reports `runtime_routing_effect` honestly by
+ * reading that flag so the receipt never over-claims a wiring that is off.
  */
 final class AtlasSwarmTopologyAutoComposerService
 {
     public const SCHEMA_VERSION = 'atlas.swarm.topology_auto_composer.v1';
 
+    public const LIVE_ROUTING_FLAG = 'atlas.patamar4.swarm_topology_live_routing_enabled';
+
     public function __construct(
         private readonly AtlasEngineeringRunConductorService $conductor,
+        private readonly AtlasSwarmTopologySelector $selector = new AtlasSwarmTopologySelector(),
     ) {}
 
     /**
@@ -135,6 +144,19 @@ final class AtlasSwarmTopologyAutoComposerService
     }
 
     /**
+     * Honest read of whether the SHARED topology selector is wired into the live
+     * conductor dispatch. Default OFF, fail-open: any config error reads false.
+     */
+    private function liveRoutingEnabled(): bool
+    {
+        if (! function_exists('config')) {
+            return false;
+        }
+
+        return (bool) config(self::LIVE_ROUTING_FLAG, false);
+    }
+
+    /**
      * @param  array<string,mixed>  $options
      * @return list<array<string,mixed>>|null
      */
@@ -200,19 +222,7 @@ final class AtlasSwarmTopologyAutoComposerService
 
     private function selectTopology(string $taskCategory): string
     {
-        $category = strtolower($taskCategory);
-
-        if (str_contains($category, 'code') || str_contains($category, 'generation')) {
-            return 'tournament';
-        }
-        if (str_contains($category, 'audit') || str_contains($category, 'verify') || str_contains($category, 'review')) {
-            return 'panel';
-        }
-        if (str_contains($category, 'retrieval') || str_contains($category, 'context')) {
-            return 'pipeline';
-        }
-
-        return 'debate';
+        return $this->selector->selectTopology($taskCategory);
     }
 
     /**
@@ -220,36 +230,7 @@ final class AtlasSwarmTopologyAutoComposerService
      */
     private function composePlan(string $topology, string $rootCategory): array
     {
-        return match ($topology) {
-            'tournament' => [
-                'nodes' => [
-                    ['node_id' => 'candidate_a', 'task_category' => $rootCategory, 'role' => 'engineer'],
-                    ['node_id' => 'candidate_b', 'task_category' => $rootCategory, 'role' => 'engineer'],
-                    ['node_id' => 'verdict', 'task_category' => 'audit', 'role' => 'verifier', 'depends_on' => ['candidate_a', 'candidate_b']],
-                ],
-            ],
-            'panel' => [
-                'nodes' => [
-                    ['node_id' => 'static_audit', 'task_category' => $rootCategory, 'role' => 'auditor'],
-                    ['node_id' => 'semantic_audit', 'task_category' => $rootCategory, 'role' => 'reviewer'],
-                    ['node_id' => 'verdict', 'task_category' => $rootCategory, 'role' => 'verifier', 'depends_on' => ['static_audit', 'semantic_audit']],
-                ],
-            ],
-            'pipeline' => [
-                'nodes' => [
-                    ['node_id' => 'retrieve', 'task_category' => $rootCategory, 'role' => 'researcher'],
-                    ['node_id' => 'rank', 'task_category' => $rootCategory, 'role' => 'ranker', 'depends_on' => ['retrieve']],
-                    ['node_id' => 'synthesize', 'task_category' => 'reasoning', 'role' => 'synthesizer', 'depends_on' => ['rank']],
-                ],
-            ],
-            default => [
-                'nodes' => [
-                    ['node_id' => 'position_a', 'task_category' => $rootCategory, 'role' => 'engineer'],
-                    ['node_id' => 'position_b', 'task_category' => $rootCategory, 'role' => 'critic'],
-                    ['node_id' => 'synthesis', 'task_category' => $rootCategory, 'role' => 'synthesizer', 'depends_on' => ['position_a', 'position_b']],
-                ],
-            ],
-        };
+        return $this->selector->composePlan($topology, $rootCategory);
     }
 
     /**
@@ -374,10 +355,14 @@ final class AtlasSwarmTopologyAutoComposerService
             'blockers' => $blockers,
             'config' => $config,
             'claim_policy' => [
+                // This gate's OWN evaluate() is always shadow (zero spend). The
+                // selector it shares with the live conductor drives real dispatch
+                // ONLY when the operator flips the live-routing flag — reflected
+                // honestly here so the receipt never over-claims an off wiring.
                 'shadow_only' => true,
                 'provider_tokens_spent' => false,
-                'runtime_routing_effect' => 'none',
-                'topology_activation_effect' => 'none',
+                'runtime_routing_effect' => $this->liveRoutingEnabled() ? 'live_topology_routing' : 'none',
+                'topology_activation_effect' => $this->liveRoutingEnabled() ? 'conductor_plan_dag' : 'none',
                 'aggregate_winner_claim_allowed' => false,
                 'rivals_claim_allowed' => false,
                 'benchmark_claim_allowed' => false,

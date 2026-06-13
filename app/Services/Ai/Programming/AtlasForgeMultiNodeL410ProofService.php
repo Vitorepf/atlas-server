@@ -7,6 +7,7 @@ namespace App\Services\Ai\Programming;
 use App\Console\Commands\AtlasLoopMorningDigestCommand;
 use App\Services\Ai\AtlasForge\AtlasForgeParallelDurableCoordinatorService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMorningDigestService;
+use App\Services\Ai\Obra\AtlasObraReceiptStamp;
 use App\Services\Ai\Programming\Forge\ForgeMultiAgentScheduleCanon;
 use App\Services\Ai\Programming\Forge\ForgeMultiAgentSchedulerService;
 use Illuminate\Support\Carbon;
@@ -46,6 +47,10 @@ final class AtlasForgeMultiNodeL410ProofService
         private readonly ForgeMultiAgentSchedulerService $scheduler,
         private readonly AtlasForgeParallelDurableCoordinatorService $parallelDurable,
         private readonly AtlasLoopMorningDigestService $morningDigest,
+        // L4-10 — verifies the receipt's executor self-stamp (HMAC over the load-bearing
+        // facts). Default-constructed so the proof always provenance-verifies when a
+        // receipt declares itself executor-stamped. A hand-edit invalidates the signature.
+        private readonly ?AtlasObraReceiptStamp $receiptStamp = null,
     ) {}
 
     /**
@@ -437,11 +442,67 @@ final class AtlasForgeMultiNodeL410ProofService
             $blockers[] = 'l4_6_digest_command_proof_missing';
         }
 
+        // --- L4-10 — PROVENANCE: the receipt MUST be an executor SELF-STAMPED OUTPUT,
+        //     not a hand-assembled file. The executor emits the receipt with an HMAC
+        //     over its load-bearing facts (certified / provider / node_count / step
+        //     commits / main_untouched); the proof recomputes that HMAC from the
+        //     receipt's OWN fields and rejects any receipt whose signature does not
+        //     match. A hand-edit of ANY sealed fact invalidates the stamp → rejected.
+        $provenance = $this->verifyExecutorProvenance($payload);
+        $checks['executor_provenance'] = $provenance;
+        if (! (bool) ($provenance['stamped'] ?? false)) {
+            // No executor self-stamp at all — a hand-assembled receipt is no longer
+            // accepted (the L4-10 inversion: the proof reads an executor OUTPUT).
+            $blockers[] = 'executor_stamped_receipt_required';
+        } elseif (! (bool) ($provenance['verified'] ?? false)) {
+            // Marked executor-stamped but the signature does not recompute — tampered.
+            $blockers[] = 'executor_receipt_provenance_invalid';
+        }
+
         return [
             'certified' => $blockers === [],
             'blockers' => array_values(array_unique($blockers)),
             'checks' => $checks,
         ];
+    }
+
+    /**
+     * L4-10 — verify the receipt's executor self-stamp. The receipt is provenance-hardened
+     * when its `provenance.executor_stamped` block carries an HMAC over the load-bearing
+     * facts that recomputes from the receipt's OWN fields (so any hand-edit is rejected).
+     *
+     * The signed body the executor stamps lives at the receipt's TOP LEVEL; when a real
+     * run wraps that signed core inside a richer live receipt (kill/resume + command
+     * results), the signed core is carried under `executor_receipt` — verify whichever
+     * is present (top-level core first, then the nested core).
+     *
+     * @param  array<string,mixed>  $payload
+     * @return array{stamped:bool,verified:bool,reason:?string,source:?string}
+     */
+    private function verifyExecutorProvenance(array $payload): array
+    {
+        $stamp = $this->receiptStamp ?? new AtlasObraReceiptStamp;
+
+        foreach (['<self>' => $payload, 'executor_receipt' => $payload['executor_receipt'] ?? null] as $source => $candidate) {
+            if (! is_array($candidate)) {
+                continue;
+            }
+            $provenance = $candidate['provenance'] ?? null;
+            if (! is_array($provenance) || ($provenance['executor_stamped'] ?? null) !== true) {
+                continue;
+            }
+
+            $verdict = $stamp->verify($candidate);
+
+            return [
+                'stamped' => true,
+                'verified' => (bool) ($verdict['verified'] ?? false),
+                'reason' => $verdict['reason'] ?? null,
+                'source' => $source,
+            ];
+        }
+
+        return ['stamped' => false, 'verified' => false, 'reason' => 'executor_stamp_absent', 'source' => null];
     }
 
     /**

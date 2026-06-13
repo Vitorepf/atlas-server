@@ -107,6 +107,84 @@ final class AtlasLoopAutoArchitectureProposalTest extends TestCase
         $this->assertFalse((bool) data_get($payload, 'admission.can_apply'));
     }
 
+    public function test_completion_claim_is_structurally_bound_to_the_admission_gate(): void
+    {
+        $this->seedHotspotModule(fileCount: 38, symbolCount: 220, testCount: 1);
+
+        // Anti-over-claim petreo proof. The L6-4 completion claim must be bound to
+        // the STRUCTURAL ADMISSION GATE's recognition of the operator signature —
+        // not to a self-asserted "review recorded" flag. We prove the binding by
+        // driving the real (deterministic, `final`) gate in both states and
+        // asserting the published claim mirrors the gate output exactly, AND that
+        // an absent gate-accept (no review) keeps completion blocked even though a
+        // backlog draft is parked.
+
+        // State A — NO operator review: gate does NOT accept an operator
+        // signature, so completion stays blocked despite a parked draft.
+        $withoutReview = app(AtlasLoopAutoArchitectureProposalService::class)->propose([
+            'create_proposal' => true,
+            'min_file_count' => 20,
+            'min_symbol_count' => 120,
+        ]);
+        $this->assertSame('parked_for_operator_review', $withoutReview['status']);
+        $this->assertTrue((bool) data_get($withoutReview, 'claim_policy.proposal_backlog_written'));
+        // The published gate-accept flag mirrors the real gate's operator_signature.
+        $this->assertSame(
+            (bool) data_get($withoutReview, 'admission.operator_signature'),
+            (bool) data_get($withoutReview, 'claim_policy.admission_gate_accepted_operator_signature'),
+        );
+        $this->assertFalse((bool) data_get($withoutReview, 'claim_policy.admission_gate_accepted_operator_signature'));
+        $this->assertContains(ArchitectureEvolutionProposalAdmissionService::BLOCKER_MISSING_OPERATOR_SIGNATURE, data_get($withoutReview, 'admission.blockers'));
+        // Self-asserted review NOT recorded -> and crucially completion blocked.
+        $this->assertFalse((bool) data_get($withoutReview, 'claim_policy.completion_claim_allowed'));
+
+        // State B — WITH operator review: the review threads into the gate, the
+        // gate recognizes the operator signature, and ONLY THEN may completion be
+        // claimed. The claim flag still mirrors the gate output exactly.
+        $withReview = app(AtlasLoopAutoArchitectureProposalService::class)->propose([
+            'create_proposal' => true,
+            'operator_review' => 'operator reviewed and approved this structural decomposition',
+            'min_file_count' => 20,
+            'min_symbol_count' => 120,
+        ]);
+        $this->assertSame(
+            (bool) data_get($withReview, 'admission.operator_signature'),
+            (bool) data_get($withReview, 'claim_policy.admission_gate_accepted_operator_signature'),
+        );
+        $this->assertTrue((bool) data_get($withReview, 'claim_policy.admission_gate_accepted_operator_signature'));
+        $this->assertTrue((bool) data_get($withReview, 'operator_review.admission_gate_accepted_operator_signature'));
+        $this->assertTrue((bool) data_get($withReview, 'claim_policy.completion_claim_allowed'));
+
+        // Completion claim is NEVER apply authorization: the architect signature is
+        // still missing, so the gate cannot apply and no side effect ever leaks.
+        $this->assertContains(ArchitectureEvolutionProposalAdmissionService::BLOCKER_MISSING_ARCHITECT_SIGNATURE, data_get($withReview, 'admission.blockers'));
+        $this->assertFalse((bool) data_get($withReview, 'admission.can_apply'));
+        $this->assertFalse((bool) data_get($withReview, 'admission.apply_side_effect'));
+        $this->assertFalse((bool) data_get($withReview, 'claim_policy.merged_to_main'));
+        $this->assertFalse((bool) data_get($withReview, 'claim_policy.refactor_applied'));
+        $this->assertFalse((bool) data_get($withReview, 'claim_policy.never_merge_changed'));
+    }
+
+    public function test_completion_claim_requires_a_parked_backlog_draft_even_with_operator_review(): void
+    {
+        $this->seedHotspotModule(fileCount: 38, symbolCount: 220, testCount: 1);
+
+        // Operator review recorded AND gate accepts the operator signature, but
+        // NO backlog draft was requested -> the DoD ("proposed + parked +
+        // reviewed") is not met, so completion stays blocked. This proves all
+        // three legs are required, not just the operator review.
+        $payload = app(AtlasLoopAutoArchitectureProposalService::class)->propose([
+            'operator_review' => 'operator reviewed and approved this structural decomposition',
+            'min_file_count' => 20,
+            'min_symbol_count' => 120,
+        ]);
+
+        $this->assertTrue((bool) data_get($payload, 'claim_policy.admission_gate_accepted_operator_signature'));
+        $this->assertFalse((bool) data_get($payload, 'claim_policy.proposal_backlog_written'));
+        $this->assertFalse((bool) data_get($payload, 'claim_policy.completion_claim_allowed'));
+        $this->assertSame('ready_for_operator_review', $payload['status']);
+    }
+
     public function test_auto_architecture_blocks_when_code_graph_tables_are_missing(): void
     {
         $this->dropAtlasEngineeringCodeTables();

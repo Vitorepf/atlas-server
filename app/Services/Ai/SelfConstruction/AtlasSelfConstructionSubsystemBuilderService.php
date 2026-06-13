@@ -48,6 +48,15 @@ final class AtlasSelfConstructionSubsystemBuilderService
 
     public const GAP_OPERATOR_REQUEST = 'operator_request';
 
+    /**
+     * L5-4 · a RECURRENT capability gap surfaced by the Loop loss-observer
+     * (a missing tool/capability — e.g. a fixture builder or a contract linter —
+     * NOT an ordinary code bug in an existing file). Routed here by
+     * {@see \App\Services\Ai\SelfConstruction\AtlasSelfConstructionToolGapBridgeService}
+     * so the self-construction corridor (parked, human-approval) owns the build.
+     */
+    public const GAP_RECURRENT_CAPABILITY = 'recurrent_capability';
+
     public const APPROVAL_APPROVE = 'approve';
 
     public const APPROVAL_REJECT = 'reject';
@@ -136,18 +145,34 @@ final class AtlasSelfConstructionSubsystemBuilderService
     }
 
     /**
-     * Build a canonical proposal for one gap.
+     * Build a canonical proposal for one gap AND persist it (append-only jsonl).
      *
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
     public function propose(array $input): array
     {
+        $proposal = $this->buildProposalEnvelope($input);
+        $this->appendProposal($proposal);
+
+        return $proposal;
+    }
+
+    /**
+     * Build the canonical proposal envelope WITHOUT persisting it. Lets callers
+     * (e.g. the L5-4 tool-gap bridge) preview the exact would-be proposal — same
+     * deterministic id/hash — in a genuine dry-run with zero disk writes.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function buildProposalEnvelope(array $input): array
+    {
         $gapKind = (string) ($input['gap_kind'] ?? '');
         if (! in_array($gapKind, [
             self::GAP_MISSING_SERVICE_CLASS, self::GAP_PARTIAL_CANON,
             self::GAP_PIPELINE_NOT_PROVEN, self::GAP_COVERAGE_DRIFT,
-            self::GAP_OPERATOR_REQUEST,
+            self::GAP_OPERATOR_REQUEST, self::GAP_RECURRENT_CAPABILITY,
         ], true)) {
             throw new InvalidArgumentException("Unknown gap_kind '{$gapKind}'.");
         }
@@ -204,8 +229,6 @@ final class AtlasSelfConstructionSubsystemBuilderService
             'requires_human_approval' => true,
         ];
         $proposal['proposal_hash'] = $this->proposalHash($proposal);
-
-        $this->appendProposal($proposal);
 
         return $proposal;
     }

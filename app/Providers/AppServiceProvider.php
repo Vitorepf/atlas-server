@@ -172,6 +172,17 @@ class AppServiceProvider extends ServiceProvider
         // gate would never fire. Bind it explicitly so the intended signals are live.
         // Each dep is resolved defensively (rescue => null) to preserve the service's
         // fail-open contract if any dependency cannot build.
+        // L6-1: the backlog intent source must receive the meta-harness self-improve leg
+        // (Laravel does NOT auto-inject `?Type $x = null`). Without this bind the
+        // "loop-proposes-harness" path is inert and the meta_harness A/B arm never fills.
+        // Defensive resolve preserves the fail-open contract.
+        $this->app->bind(
+            \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBacklogIntentSource::class,
+            fn ($app) => new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBacklogIntentSource(
+                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopEvidenceSignalService::class), null, false),
+                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopMetaHarnessIntentSource::class), null, false),
+            ),
+        );
         $this->app->bind(
             \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopTargetDiscoveryService::class,
             fn ($app) => new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopTargetDiscoveryService(
@@ -637,6 +648,7 @@ class AppServiceProvider extends ServiceProvider
                 $app->make(AtlasCompoundingRuntimeService::class),
                 $app->make(AtlasLiveCodeDeliveryService::class),
                 $app->make(AtlasConductorRoutingMemory::class),
+                $app->make(\App\Services\Ai\AtlasDecide\AtlasSwarmTopologySelector::class),
             );
         });
 

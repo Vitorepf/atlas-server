@@ -72,6 +72,57 @@ class PredictiveFailureRepository
     }
 
     /**
+     * L6-11: record a prediction AND its observed outcome in one shot — the seam the
+     * loop-outcome bridge uses to feed REAL loop grind events into the same calibration
+     * surface the metrics service reads. The prediction is formed BEFORE the outcome is
+     * known (by the caller, from the task signals); here we persist both and compute the
+     * calibration error identically to {@see recordOutcome}, so brier_score becomes
+     * non-null on real data without any backfill.
+     *
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    public function recordLoopOutcome(array $payload): array
+    {
+        if (! $this->tableReady()) {
+            return ['schema_version' => self::SCHEMA_VERSION, 'status' => 'table_missing'];
+        }
+
+        $outcome = (string) ($payload['outcome'] ?? '');
+        $predicted = (float) ($payload['predicted_failure_probability'] ?? 0.0);
+        $actual = match ($outcome) {
+            'success' => 0.0,
+            'partial' => 0.5,
+            'failure' => 1.0,
+            default => null,
+        };
+        $error = $actual !== null ? round(abs($predicted - $actual), 3) : null;
+        $signature = $payload['actual_failure_signature'] ?? null;
+        $now = now();
+
+        $id = DB::table('predictive_failure_insertions')->insertGetId([
+            'envelope_id' => $payload['envelope_id'],
+            'target_knowledge_node_id' => $payload['target_knowledge_node_id'],
+            'domain' => $payload['domain'],
+            'signals_used' => json_encode($payload['signals_used'] ?? [], JSON_THROW_ON_ERROR),
+            'predicted_failure_probability' => $predicted,
+            'calibration_band' => $payload['calibration_band'],
+            'predicted_failure_signature_key' => $payload['predicted_failure_signature_key'] ?? null,
+            'problem_payload' => json_encode($payload['problem_payload'] ?? [], JSON_THROW_ON_ERROR),
+            'source_type' => $payload['source_type'] ?? 'loop_grind_outcome',
+            'inserted_at' => $now,
+            'outcome' => $outcome !== '' ? $outcome : null,
+            'actual_failure_signature' => is_array($signature) ? json_encode($signature, JSON_THROW_ON_ERROR) : null,
+            'outcome_recorded_at' => $now,
+            'prediction_calibration_error' => $error,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        return $this->find((int) $id) ?? ['schema_version' => self::SCHEMA_VERSION, 'status' => 'not_found_after_insert'];
+    }
+
+    /**
      * @param  array<string,mixed>|null  $signature
      * @return array<string,mixed>
      */

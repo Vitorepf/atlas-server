@@ -267,11 +267,28 @@ final class FixedNCapabilityDollarSeriesGateService
             $series,
         ), static fn (string $value): bool => $value !== '|')));
 
-        $measuredRows = array_values(array_filter($series, static fn (array $row): bool => (
-            (float) data_get($row, 'metrics.total_cost_usd', 0.0) > 0
-            && (float) data_get($row, 'metrics.cost_coverage_pct', 0.0) >= $minCostCoveragePct
-            && is_numeric(data_get($row, 'metrics.capability_per_dollar'))
-        )));
+        // Measured rows = rows with real measured cost, sufficient coverage, and a
+        // numeric capability-per-dollar. Dedup to ONE row per calendar date (keep the
+        // last sorted row for a date) so the floor below counts measured *days*, never
+        // duplicate rows — this matches the live append-dedup-by-date semantics and
+        // keeps the `measured_cost_day_count` name honest. This can only shrink the
+        // count vs. counting rows, so it strictly fails *closed* (never weakens the gate).
+        $measuredByDate = [];
+        foreach ($series as $row) {
+            $measured = (float) data_get($row, 'metrics.total_cost_usd', 0.0) > 0
+                && (float) data_get($row, 'metrics.cost_coverage_pct', 0.0) >= $minCostCoveragePct
+                && is_numeric(data_get($row, 'metrics.capability_per_dollar'));
+            if (! $measured) {
+                continue;
+            }
+            $rowDate = (string) ($row['date'] ?? '');
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $rowDate) !== 1) {
+                continue;
+            }
+            $measuredByDate[$rowDate] = $row; // series is date-sorted; keeps last row per date
+        }
+        ksort($measuredByDate);
+        $measuredRows = array_values($measuredByDate);
 
         $firstMeasured = $measuredRows[0] ?? null;
         $latestMeasured = $measuredRows[count($measuredRows) - 1] ?? null;

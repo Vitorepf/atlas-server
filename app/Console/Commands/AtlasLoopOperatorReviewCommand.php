@@ -4,16 +4,18 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\AutonomousEvolution\AtlasLoopOperatorReviewMobilePublisher;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopOperatorReviewQueueService;
 use Illuminate\Console\Command;
 
 /**
  * L4-7 · Operator review queue for parked Loop proposals.
+ * L5-12 · `publish-mobile` action bridges the queue to the mobile inbox.
  */
 final class AtlasLoopOperatorReviewCommand extends Command
 {
     protected $signature = 'atlas:loop:operator-review
-        {--action=list : list, approve, reject}
+        {--action=list : list, approve, reject, publish-mobile}
         {--proposal= : Proposal id or proposal_hash for approve/reject}
         {--operator=operator : Operator label}
         {--reason= : Review reason}
@@ -24,7 +26,7 @@ final class AtlasLoopOperatorReviewCommand extends Command
 
     protected $description = 'List and review Loop proposals parked for operator decision.';
 
-    public function handle(AtlasLoopOperatorReviewQueueService $queue): int
+    public function handle(AtlasLoopOperatorReviewQueueService $queue, AtlasLoopOperatorReviewMobilePublisher $mobilePublisher): int
     {
         if (! (bool) config('atlas.loop.operator_review.enabled', true)) {
             $payload = [
@@ -55,6 +57,9 @@ final class AtlasLoopOperatorReviewCommand extends Command
                 'operator_id' => (string) $this->option('operator'),
                 'reason' => $this->stringOption('reason') ?? 'operator rejected parked proposal',
             ]),
+            'publish-mobile', 'publish_mobile' => $mobilePublisher->publish(
+                $this->intOption('limit') ?? (int) config('atlas.loop.operator_review.limit', 10),
+            ),
             default => ['schema_version' => AtlasLoopOperatorReviewQueueService::SCHEMA_VERSION, 'status' => 'failed', 'reason' => 'unknown_action:'.$action],
         };
 
@@ -96,6 +101,16 @@ final class AtlasLoopOperatorReviewCommand extends Command
                 (string) ($item['reason'] ?? ''),
                 (string) ($item['target_path'] ?? ''),
             ));
+        }
+        if (array_key_exists('published', $payload)) {
+            $this->components->twoColumnDetail('Published to mobile', (string) ($payload['published_count'] ?? 0));
+            foreach ((array) $payload['published'] as $published) {
+                $this->line(sprintf(
+                    '- inbox %s · %s',
+                    (string) ($published['inbox_item_id'] ?? ''),
+                    (string) ($published['target_path'] ?? ''),
+                ));
+            }
         }
     }
 

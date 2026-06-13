@@ -44,9 +44,79 @@ final class AtlasLoopWorkerPoolTest extends TestCase
         };
     }
 
+    /**
+     * A spawner whose subprocess does REAL, deterministic CPU-bound work — a fixed-count
+     * busy hash loop, the faithful proxy for what a grind worker actually burns cores on
+     * (compile/verify/hash), NOT an idle usleep. CPU work genuinely contends for cores,
+     * so a measured speedup only materializes if (a) the host has real parallel cores AND
+     * (b) the pool truly runs the workers concurrently. The subprocess prints a JSON
+     * checksum so the harvest can prove the work executed (not skipped/short-circuited).
+     */
+    private function cpuWorkSpawner(int $iterations): LoopWorkerSpawnerContract
+    {
+        return new class($iterations) implements LoopWorkerSpawnerContract
+        {
+            public function __construct(private readonly int $iterations) {}
+
+            public function spawn(
+                string $campaignId,
+                string $taskId,
+                string $workerId,
+                int $leaseSeconds,
+                string $workspaceRoot,
+                int $timeoutSeconds,
+                int $scenarios,
+            ): LoopWorkerHandle {
+                // Deterministic CPU burn: a fixed-count hash chain seeded ONLY by the
+                // iteration count, so every worker does identical work and the checksum
+                // is byte-stable across runs/hosts. No I/O, no sleep, no randomness.
+                $script = 'declare(strict_types=1);'
+                    .'$n=(int)$argv[1];'
+                    .'$h="atlas-loop-cpu-proof";'
+                    .'for($i=0;$i<$n;$i++){$h=hash("sha256",$h.$i);}'
+                    .'echo json_encode(["checksum"=>$h,"iters"=>$n]);';
+                $p = new Process([PHP_BINARY, '-r', $script, (string) $this->iterations]);
+                $p->start();
+
+                return new LoopWorkerHandle($p, $taskId, $workerId);
+            }
+        };
+    }
+
     private function task(string $id): AtlasLoopTask
     {
         return (new AtlasLoopTask)->forceFill(['id' => $id, 'claimed_by' => 'w-'.$id]);
+    }
+
+    /** Best-effort logical-core probe; mirrors LoopWorkerCountPlanner's detector. */
+    private function detectCores(): int
+    {
+        $raw = @shell_exec(PHP_OS_FAMILY === 'Darwin' ? 'sysctl -n hw.ncpu 2>/dev/null' : 'nproc 2>/dev/null');
+
+        return max(1, (int) trim((string) $raw) ?: 1);
+    }
+
+    /**
+     * Calibrate the per-worker iteration count so ONE worker takes ~$targetMs of real CPU
+     * time on THIS host. Keeps the proof hermetic (fixed wall-clock budget) regardless of
+     * how fast the box is, while the work itself stays deterministic for a given count.
+     */
+    private function calibrateIterations(int $targetMs): int
+    {
+        $sample = 4000;
+        $start = microtime(true);
+        $h = 'atlas-loop-cpu-proof';
+        for ($i = 0; $i < $sample; $i++) {
+            $h = hash('sha256', $h.$i);
+        }
+        $elapsedMs = (microtime(true) - $start) * 1000;
+        $perIterMs = $elapsedMs / $sample;
+
+        if ($perIterMs <= 0.0) {
+            return $sample * 8; // pathologically fast clock — fall back to a fixed floor
+        }
+
+        return max($sample, (int) round($targetMs / $perIterMs));
     }
 
     public function test_tick_bounds_slots_and_harvests_finished_workers(): void
@@ -106,27 +176,98 @@ final class AtlasLoopWorkerPoolTest extends TestCase
         $this->assertSame(1, $planner->plan(0));   // never below 1
     }
 
-    public function test_four_worker_pool_beats_serial_sleep_baseline(): void
+    /**
+     * L5-8 DoD — "cenários/hora >= 2x o serial". The REAL throughput proof (replaces the
+     * former usleep tautology, which proved only that idle waits overlap and would have
+     * passed even on a single core).
+     *
+     * Method: run the SAME deterministic CPU-bound workload (a fixed-count hash chain)
+     * (1) serially — one worker at a time through the pool with max 1 slot — and then
+     * (2) in parallel through the REAL LoopWorkerPool + spawner with 4 slots; measure BOTH
+     * wall-clocks (no computed baseline) and assert the parallel run finishes in < half
+     * the measured serial baseline. Because the work genuinely competes for cores, the
+     * speedup is only achievable when the pool truly runs workers concurrently on real
+     * parallel hardware — a property the idle-sleep variant could never test.
+     *
+     * Hermetic + deterministic: iteration count is calibrated to a fixed ~per-worker CPU
+     * budget on this host, the workload is seeded only by that count (byte-stable
+     * checksum), and the test verifies every worker emitted the EXPECTED checksum so a
+     * skipped/short-circuited "fast" run can't fake the speedup. Skips cleanly on hosts
+     * without enough cores so it never flakes on a constrained box.
+     */
+    public function test_four_worker_pool_beats_serial_with_real_cpu_work(): void
     {
-        $sleepMicros = 250000;
-        $pool = new LoopWorkerPool($this->fakeSpawner($sleepMicros), new AtlasLoopResourceGate);
-        $queue = [$this->task('t1'), $this->task('t2'), $this->task('t3'), $this->task('t4')];
-        $claimNext = function () use (&$queue): ?AtlasLoopTask { return array_shift($queue); };
+        $cores = $this->detectCores();
+        if ($cores < 5) {
+            $this->markTestSkipped(
+                'Real-parallelism proof needs >=5 logical cores (4 workers + supervisor headroom); host reports '.$cores.'.'
+            );
+        }
 
-        $started = microtime(true);
-        $guard = 0;
-        do {
-            $pool->tick(4, 'c', $claimNext, 600, 60);
-            usleep(50000);
-            $this->assertLessThan(50, ++$guard);
-        } while ($queue !== [] || $pool->inFlight() > 0);
-        $durationMs = (int) round((microtime(true) - $started) * 1000);
-        $serialBaselineMs = (int) round((count(['t1', 't2', 't3', 't4']) * $sleepMicros) / 1000);
+        // ~120ms of real CPU per worker — long enough to dominate process-spawn jitter,
+        // short enough to keep the whole proof well under a second.
+        $iterations = $this->calibrateIterations(120);
+        $workerCount = 4;
 
+        // The expected checksum of the deterministic workload (the anti-skip lock).
+        $expectedChecksum = 'atlas-loop-cpu-proof';
+        for ($i = 0; $i < $iterations; $i++) {
+            $expectedChecksum = hash('sha256', $expectedChecksum.$i);
+        }
+
+        $drain = function (LoopWorkerPool $pool, int $slots, array $tasks): array {
+            $queue = $tasks;
+            $claimNext = function () use (&$queue): ?AtlasLoopTask { return array_shift($queue); };
+            $settled = [];
+            $started = microtime(true);
+            $guard = 0;
+            do {
+                $r = $pool->tick($slots, 'c', $claimNext, 600, 60);
+                foreach ($r['settled'] as $s) {
+                    $settled[] = $s;
+                }
+                usleep(2000); // 2ms poll — tiny vs the ~120ms/worker CPU burn
+                $this->assertLessThan(2000, ++$guard, 'pool drain failed to make progress');
+            } while ($queue !== [] || $pool->inFlight() > 0);
+
+            return ['duration_ms' => (int) round((microtime(true) - $started) * 1000), 'settled' => $settled];
+        };
+
+        $tasksFor = fn (): array => array_map(fn (int $i): AtlasLoopTask => $this->task('t'.$i), range(1, $workerCount));
+
+        // (1) Serial baseline: one slot, so the workers run strictly one-at-a-time.
+        $serialPool = new LoopWorkerPool($this->cpuWorkSpawner($iterations), new AtlasLoopResourceGate);
+        $serial = $drain($serialPool, 1, $tasksFor());
+
+        // (2) Parallel: four slots through the SAME real pool + spawner.
+        $parallelPool = new LoopWorkerPool($this->cpuWorkSpawner($iterations), new AtlasLoopResourceGate);
+        $parallel = $drain($parallelPool, $workerCount, $tasksFor());
+
+        // Anti-skip lock: EVERY worker (both runs) must have emitted the EXPECTED checksum,
+        // proving the real CPU work executed and was not short-circuited.
+        $this->assertCount($workerCount, $serial['settled']);
+        $this->assertCount($workerCount, $parallel['settled']);
+        foreach (array_merge($serial['settled'], $parallel['settled']) as $s) {
+            $this->assertSame(0, $s['exit_code'], 'a worker exited non-zero — the CPU workload crashed');
+            $this->assertIsArray($s['result'] ?? null, 'a worker produced no parseable checksum result');
+            $this->assertSame($iterations, $s['result']['iters'] ?? null);
+            $this->assertSame($expectedChecksum, $s['result']['checksum'] ?? null, 'worker checksum mismatch — work was not done deterministically');
+        }
+
+        // The DoD: parallel throughput >= 2x serial, i.e. parallel wall-clock < half serial.
+        $this->assertGreaterThan(0, $serial['duration_ms']);
         $this->assertLessThan(
-            (int) floor($serialBaselineMs / 2),
-            $durationMs,
-            '4-worker pool should finish four equal waits in less than half the serial baseline.'
+            $serial['duration_ms'] / 2,
+            $parallel['duration_ms'],
+            sprintf(
+                '4-worker pool must finish four equal CPU-bound waits in < half the MEASURED serial baseline '
+                .'(serial=%dms, parallel=%dms, speedup=%.2fx, iters/worker=%d, cores=%d).',
+                $serial['duration_ms'],
+                $parallel['duration_ms'],
+                $serial['duration_ms'] / max(1, $parallel['duration_ms']),
+                $iterations,
+                $cores,
+            )
         );
     }
 

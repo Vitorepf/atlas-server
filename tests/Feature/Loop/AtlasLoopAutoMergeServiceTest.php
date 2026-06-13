@@ -58,6 +58,17 @@ final class AtlasLoopAutoMergeServiceTest extends TestCase
         $this->git($d, ['add', '-A']);
         $this->git($d, ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'base', '--no-gpg-sign']);
 
+        // L5-9: estes repos temporários são ESTRANGEIROS por caminho (não são o home
+        // repo do atlas-server). A travessia do merge agora passa pela PORTA GOVERNADA
+        // POR-REPO: para os testes do pipeline de merge exercitarem o caminho feliz,
+        // autoriza explicitamente cada repo temp na allow-list multi-repo (exatamente o
+        // que o operador faria ao registrar um repo real como blackink/nivor). O default
+        // never-merge para repos não-autorizados é provado em test_foreign_repo_*.
+        config(['atlas.ai.loop.multi_repo.enabled' => true]);
+        $allowed = (array) config('atlas.ai.loop.multi_repo.allowed_repos', []);
+        $allowed[] = realpath($d) ?: $d;
+        config(['atlas.ai.loop.multi_repo.allowed_repos' => array_values(array_unique($allowed))]);
+
         return $d;
     }
 
@@ -210,12 +221,16 @@ final class AtlasLoopAutoMergeServiceTest extends TestCase
 
     public function test_disabled_flag_merges_nothing(): void
     {
-        config(['atlas.ai.loop.auto_merge_to_main' => false]);
         $repo = $this->repo("<?php\nfunction val(){ return 1; }\n");
+        // Desliga a porta multi-repo DEPOIS de criar o repo (repo() a liga p/ o caminho
+        // feliz): com a porta por-repo fechada, o repo estrangeiro volta a never-merge.
+        config(['atlas.ai.loop.multi_repo.enabled' => false]);
+        config(['atlas.ai.loop.auto_merge_to_main' => false]);
 
         $result = app(AtlasLoopAutoMergeService::class)->drain($repo, 5);
 
-        $this->assertSame('disabled', $result['status']);
+        $this->assertSame('blocked', $result['status']);
+        $this->assertSame('multi_repo_disabled', $result['repo_authority']['reason']);
     }
 
     /**

@@ -187,6 +187,16 @@ final class AtlasLoopOperatorReviewQueueTest extends TestCase
         $this->git($dir, ['add', '-A']);
         $this->git($dir, ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'base', '--no-gpg-sign']);
 
+        // L5-9: este repo temp é ESTRANGEIRO por caminho. O override do operador agora
+        // exige que o repo esteja REGISTRADO na porta por-repo (a aprovação de uma
+        // proposta não vira autorização estrutural do repo). Registra o temp para
+        // exercitar o caminho feliz do parked-review (o que o operador faria ao registrar
+        // blackink/nivor antes de aprovar).
+        config(['atlas.ai.loop.multi_repo.enabled' => true]);
+        $allowed = (array) config('atlas.ai.loop.multi_repo.allowed_repos', []);
+        $allowed[] = realpath($dir) ?: $dir;
+        config(['atlas.ai.loop.multi_repo.allowed_repos' => array_values(array_unique($allowed))]);
+
         return $dir;
     }
 

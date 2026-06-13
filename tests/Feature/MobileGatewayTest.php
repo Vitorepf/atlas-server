@@ -20,6 +20,7 @@ use App\Models\HealthSnapshot;
 use App\Models\MobilePairingCode;
 use App\Models\MobilePushDelivery;
 use App\Services\Ai\AiGatewayService;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopOperatorReviewMobilePublisher;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Mobile\AtlasInboxService;
 use App\Services\Ai\Mobile\AutoImprovementProposalScanner;
@@ -3121,6 +3122,7 @@ class MobileGatewayTest extends TestCase
         $original = "<?php\nfunction mobile_loop_probe(){ return 1; }\n";
         $modified = "<?php\nfunction mobile_loop_probe(){ return 2; }\n";
         $repo = $this->loopReviewRepo($target, $original);
+        $this->authorizeLoopRepoForGovernedMerge($repo);
 
         try {
             $campaign = AtlasLoopCampaign::query()->create([
@@ -3203,6 +3205,169 @@ class MobileGatewayTest extends TestCase
             $this->assertStringContainsString('atlas loop auto-merge', $this->loopReviewGit($repo, ['log', '-1', '--pretty=%s']));
             $this->assertNotContains('commit', collect($item->available_actions)->pluck('id')->all());
             $this->assertNotContains('merge', collect($item->available_actions)->pluck('id')->all());
+        } finally {
+            File::deleteDirectory($repo);
+        }
+    }
+
+    public function test_publisher_bridges_governed_queue_to_mobile_inbox_and_operator_approves_end_to_end(): void
+    {
+        $this->bootLoopRuntimeTables();
+        config(['atlas.ai.loop.value_gate_enabled' => false]);
+        $token = $this->pairedDeviceToken();
+        $target = 'app/Support/MobileLoopPublishProbe.php';
+        $original = "<?php\nfunction mobile_loop_publish_probe(){ return 1; }\n";
+        $modified = "<?php\nfunction mobile_loop_publish_probe(){ return 2; }\n";
+        $repo = $this->loopReviewRepo($target, $original);
+        $this->authorizeLoopRepoForGovernedMerge($repo);
+
+        try {
+            $campaign = AtlasLoopCampaign::query()->create([
+                'schema_version' => 'atlas.loop.campaign.v1',
+                'status' => AtlasLoopCampaign::STATUS_RUNNING,
+                'goal' => 'l5-12-publisher-approve-test',
+                'base_workspace' => $repo,
+                'config' => [],
+                'max_seconds' => 3600,
+            ]);
+            $proposal = AtlasLoopProposal::query()->create([
+                'campaign_id' => $campaign->id,
+                'schema_version' => 'atlas.loop.proposal.v1',
+                'status' => AtlasLoopProposal::STATUS_CERTIFIED,
+                'objective' => 'publisher bridges parked proposal to mobile then operator approves',
+                'target_path' => $target,
+                'diff_text' => $this->loopReviewDiff($repo, $target, $modified),
+                'proposal_hash' => 'l5-12-publish-approve-'.bin2hex(random_bytes(4)),
+                'metric' => null,
+                'quality' => [
+                    '_operator_review' => [
+                        'schema_version' => 'atlas.loop.operator_review.v1',
+                        'status' => 'parked_for_operator_review',
+                        'reason' => 'forbidden_self_target',
+                        'operator_id' => 'auto_merge',
+                        'reviewed_at' => now()->toIso8601String(),
+                        'decision' => 'park',
+                    ],
+                    '_acceptance_contract' => [
+                        'commands' => ["/opt/homebrew/bin/php -r \"require '{$target}'; exit(mobile_loop_publish_probe()===2?0:1);\""],
+                        'allowed_globs' => [$target],
+                        'frozen_globs' => ['composer.json'],
+                        'metric_kind' => 'mobile_loop_review',
+                    ],
+                ],
+                'reviewed_at' => now(),
+            ]);
+
+            // Keystone under test: the governed queue becomes a mobile inbox item via the
+            // PRODUCTION publisher (not a hand-crafted fixture item).
+            $publish = app(AtlasLoopOperatorReviewMobilePublisher::class)->publish(10);
+            $this->assertSame('ok', $publish['status']);
+            $this->assertSame(1, $publish['published_count']);
+            $publishedRef = $publish['published'][0]['proposal_ref'];
+            $this->assertSame((string) $proposal->getKey(), $publishedRef);
+
+            $item = AiInboxItem::query()->findOrFail($publish['published'][0]['inbox_item_id']);
+            $this->assertSame('proposal', $item->type);
+            $actionIds = collect($item->available_actions)->pluck('id')->all();
+            $this->assertContains('loop_operator_review_approve', $actionIds);
+            $this->assertContains('loop_operator_review_reject', $actionIds);
+            // never-merge: the bridge NEVER ships a code action id.
+            $this->assertNotContains('commit', $actionIds);
+            $this->assertNotContains('merge', $actionIds);
+            $this->assertNotContains('apply_patch', $actionIds);
+
+            // Idempotent: re-publishing the same parked proposal does not duplicate.
+            $republish = app(AtlasLoopOperatorReviewMobilePublisher::class)->publish(10);
+            $this->assertSame(1, $republish['published_count']);
+            $this->assertSame($item->id, $republish['published'][0]['inbox_item_id']);
+            $this->assertSame(1, AiInboxItem::query()->where('type', 'proposal')->count());
+
+            // Operator taps Approve on the phone -> governed queue -> re-proof -> real merge.
+            $this
+                ->withHeader('Authorization', 'Bearer '.$token)
+                ->withHeader('Idempotency-Key', 'l5-12-publish-approve')
+                ->postJson('/v1/mobile/inbox/'.$item->id.'/respond', [
+                    'action' => 'loop_operator_review_approve',
+                    'data' => ['reason' => 'approved from published mobile item'],
+                ])
+                ->assertOk()
+                ->assertJsonPath('item.status', 'resolved')
+                ->assertJsonPath('item.response.action', 'loop_operator_review_approve')
+                ->assertJsonPath('result.payload.loop_operator_review.decision_status', 'merged')
+                ->assertJsonPath('result.payload.loop_operator_review.resolved', true);
+
+            $this->assertSame($modified, File::get($repo.'/'.$target));
+            $this->assertTrue((bool) $proposal->fresh()->merged_to_main);
+            $this->assertSame('merged', $proposal->fresh()->quality['_operator_review']['status']);
+            $this->assertStringContainsString('atlas loop auto-merge', $this->loopReviewGit($repo, ['log', '-1', '--pretty=%s']));
+        } finally {
+            File::deleteDirectory($repo);
+        }
+    }
+
+    public function test_publisher_bridges_governed_queue_and_operator_rejects_end_to_end(): void
+    {
+        $this->bootLoopRuntimeTables();
+        config(['atlas.ai.loop.value_gate_enabled' => false]);
+        $token = $this->pairedDeviceToken();
+        $target = 'app/Services/Ai/AutonomousEvolution/AtlasLoopProposalPromotionGate.php';
+        $repo = $this->loopReviewRepo($target, "<?php\n// frozen judge target\n");
+
+        try {
+            $campaign = AtlasLoopCampaign::query()->create([
+                'schema_version' => 'atlas.loop.campaign.v1',
+                'status' => AtlasLoopCampaign::STATUS_RUNNING,
+                'goal' => 'l5-12-publisher-reject-test',
+                'base_workspace' => $repo,
+                'config' => [],
+                'max_seconds' => 3600,
+            ]);
+            $proposal = AtlasLoopProposal::query()->create([
+                'campaign_id' => $campaign->id,
+                'schema_version' => 'atlas.loop.proposal.v1',
+                'status' => AtlasLoopProposal::STATUS_CERTIFIED,
+                'objective' => 'forbidden self-target proposal parked for operator',
+                'target_path' => $target,
+                'diff_text' => "diff --git a/{$target} b/{$target}\n",
+                'proposal_hash' => 'l5-12-publish-reject-'.bin2hex(random_bytes(4)),
+                'metric' => null,
+                'quality' => [
+                    '_operator_review' => [
+                        'schema_version' => 'atlas.loop.operator_review.v1',
+                        'status' => 'parked_for_operator_review',
+                        'reason' => 'forbidden_self_target',
+                        'operator_id' => 'auto_merge',
+                        'reviewed_at' => now()->toIso8601String(),
+                        'decision' => 'park',
+                    ],
+                ],
+                'reviewed_at' => now(),
+            ]);
+
+            $publish = app(AtlasLoopOperatorReviewMobilePublisher::class)->publish(10);
+            $this->assertSame(1, $publish['published_count']);
+            $item = AiInboxItem::query()->findOrFail($publish['published'][0]['inbox_item_id']);
+
+            $this
+                ->withHeader('Authorization', 'Bearer '.$token)
+                ->withHeader('Idempotency-Key', 'l5-12-publish-reject')
+                ->postJson('/v1/mobile/inbox/'.$item->id.'/respond', [
+                    'action' => 'loop_operator_review_reject',
+                    'data' => ['reason' => 'rejected from published mobile item'],
+                ])
+                ->assertOk()
+                ->assertJsonPath('item.status', 'resolved')
+                ->assertJsonPath('item.response.action', 'loop_operator_review_reject')
+                ->assertJsonPath('result.payload.loop_operator_review.decision_status', 'rejected')
+                ->assertJsonPath('result.payload.loop_operator_review.resolved', true);
+
+            // never-merge: a reject NEVER touches main and quarantines the target.
+            $fresh = $proposal->fresh();
+            $this->assertFalse((bool) $fresh->merged_to_main);
+            $this->assertSame('rejected', $fresh->quality['_operator_review']['status']);
+            // Once rejected, the proposal leaves the governed queue, so re-publish is empty.
+            $republish = app(AtlasLoopOperatorReviewMobilePublisher::class)->publish(10);
+            $this->assertSame(0, $republish['published_count']);
         } finally {
             File::deleteDirectory($repo);
         }
@@ -4570,6 +4735,20 @@ PHP);
             (require base_path('database/migrations/'.$file))->up();
         }
         AtlasLoopProposal::$governedMergeInProgress = false;
+    }
+
+    /**
+     * L5-9 governed merge door: a FOREIGN repo only crosses when the operator has enabled
+     * multi-repo AND allow-listed the canonical absolute path. The frozen tests must supply
+     * that authorization exactly as the operator does — never weaken the door.
+     */
+    private function authorizeLoopRepoForGovernedMerge(string $repo): void
+    {
+        $canonical = realpath($repo) ?: $repo;
+        config([
+            'atlas.ai.loop.multi_repo.enabled' => true,
+            'atlas.ai.loop.multi_repo.allowed_repos' => [$canonical],
+        ]);
     }
 
     private function loopReviewRepo(string $path, string $contents): string

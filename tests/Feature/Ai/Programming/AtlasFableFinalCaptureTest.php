@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Programming;
 
+use App\Services\Ai\Obra\AtlasObraReceiptStamp;
 use App\Services\Ai\Programming\AtlasDevBeatTestReportService;
 use App\Services\Ai\Programming\AtlasFableFinalCaptureService;
 use App\Services\Ai\Programming\AtlasFableFinalReportService;
@@ -411,6 +412,103 @@ final class AtlasFableFinalCaptureTest extends TestCase
         $this->assertArrayNotHasKey('L4-10', data_get($proofRequest, 'artifact.template_paths'));
     }
 
+    public function test_final_capture_stays_gated_when_l4_9_is_honestly_comparable_but_not_superior(): void
+    {
+        // THE LAUNDERING GUARD. The capture machinery must NOT turn an honest
+        // "comparable but not superior" L4-9 result into a Lista-4 completion claim.
+        // Stage the exact 13/14 + 1-honest-comparable end-state: L4-10 is genuinely
+        // certified (executor self-stamped receipt), and L4-9 has REAL comparable
+        // external evidence for all three medium tasks, but Atlas only wins one of them
+        // (Atlas faster on bug, external faster on feature + refactor). The dev beat-test
+        // status is comparable_report_ready_no_superiority with external_comparison=true
+        // but external_superiority=false. The capture must keep L4-9 pending, keep the
+        // completion + list-4 claims false, and refuse --require-list-4-complete.
+        $this->writeReadyReceipts();
+        $this->writeForgeEvidence();
+        $this->writeDevBeatEvidence([
+            $this->comparableDevBeatTask('bug', 48, 73),       // Atlas wins (faster)
+            $this->comparableDevBeatTask('feature', 152, 74),  // external wins (faster)
+            $this->comparableDevBeatTask('refactor', 95, 48),  // external wins (faster)
+        ]);
+
+        $out = new BufferedOutput;
+        $exit = Artisan::call('atlas:fable:final-capture', [
+            '--baseline' => $this->baselinePath,
+            '--series' => $this->seriesPath,
+            '--date' => '2026-06-12',
+            '--dev-beat-evidence' => $this->devBeatEvidencePath,
+            '--forge-evidence' => $this->forgeEvidencePath,
+            '--final-report' => $this->reportPath,
+            '--packet' => $this->packetPath,
+            '--knowledge-sync-receipt' => $this->receiptPaths['knowledge_sync'],
+            '--code-index-receipt' => $this->receiptPaths['code_index'],
+            '--projection-write-receipt' => $this->receiptPaths['projection_write'],
+            '--projection-status-receipt' => $this->receiptPaths['projection_status'],
+            '--docs-health-receipt' => $this->receiptPaths['docs_health'],
+            '--context-pack-receipt' => $this->receiptPaths['context_pack'],
+            '--write' => true,
+            '--capture-path' => $this->capturePath,
+            '--write-operator-proof-request' => true,
+            '--operator-proof-request-path' => $this->operatorProofRequestPath,
+            '--json' => true,
+            '--strict' => true,
+            '--require-list-4-complete' => true,
+        ], $out);
+        $raw = $out->fetch();
+        $payload = json_decode($raw, true, flags: JSON_THROW_ON_ERROR);
+
+        // --require-list-4-complete must FAIL because L4-9 is not superior.
+        $this->assertSame(1, $exit, $raw);
+
+        // The capture artifact itself is still legitimately recorded (strict-ready),
+        // but completion stays operator-gated — recording != claiming.
+        $this->assertSame('ready_with_operator_gated_external_proofs', $payload['status']);
+        $this->assertSame('ready', data_get($payload, 'cold_session_recovery.status'));
+
+        // L4-9 honest split surfaced from the dev beat-test source of truth.
+        $this->assertSame(
+            'comparable_report_ready_no_superiority',
+            data_get($payload, 'operator_evidence_ingest.l4_9_status'),
+        );
+        $this->assertTrue((bool) data_get($payload, 'operator_evidence_ingest.l4_9_external_comparison_claim_allowed'));
+        $this->assertFalse((bool) data_get($payload, 'operator_evidence_ingest.l4_9_external_superiority_claim_allowed'));
+
+        // L4-10 is genuinely certified here, so the ONLY thing blocking Lista 4 is the
+        // absence of an L4-9 SUPERIORITY claim — comparable is not enough.
+        $this->assertSame('certified', data_get($payload, 'operator_gated_external_proofs.l4_10.status'));
+        $this->assertTrue((bool) data_get($payload, 'operator_gated_external_proofs.l4_10.certified'));
+        $this->assertSame('comparable_report_ready_no_superiority', data_get($payload, 'operator_gated_external_proofs.l4_9.status'));
+        $this->assertTrue((bool) data_get($payload, 'operator_gated_external_proofs.l4_9.external_comparison_claim_allowed'));
+        $this->assertFalse((bool) data_get($payload, 'operator_gated_external_proofs.l4_9.external_superiority_claim_allowed'));
+
+        // The gate stays pending on L4-9 ONLY (not L4-10), proving comparable-without-
+        // superiority does NOT clear the gate.
+        $this->assertSame('pending_operator_evidence', data_get($payload, 'operator_gated_external_proofs.status'));
+        $this->assertSame(1, data_get($payload, 'operator_gated_external_proofs.pending_count'));
+        $this->assertSame(
+            ['L4-9:atlas_dev_external_benchmark_receipt_missing_or_not_winning'],
+            data_get($payload, 'operator_gated_external_proofs.pending'),
+        );
+
+        // NO laundering: every completion claim stays false even though comparable
+        // external evidence exists and L4-10 is certified.
+        $this->assertFalse((bool) data_get($payload, 'claim_policy.completion_claim_allowed'));
+        $this->assertFalse((bool) data_get($payload, 'claim_policy.list_4_completion_claim_allowed'));
+        $this->assertFalse((bool) data_get($payload, 'claim_policy.operator_gated_external_proof_claim_allowed'));
+        $this->assertFalse((bool) data_get($payload, 'claim_policy.operator_proof_request_claim_allowed'));
+        $this->assertFalse((bool) data_get($payload, 'operator_proof_request.claim_policy.list_4_completion_claim_allowed'));
+        $this->assertSame('pending_operator_evidence', data_get($payload, 'operator_proof_request.status'));
+
+        // The persisted artifact carries the same gated truth (cold-session safe). The
+        // honesty note must say L4-9 needs a WINNING comparable receipt (comparable alone
+        // is not enough) while acknowledging L4-10 is already certified.
+        $written = json_decode((string) File::get($this->capturePath), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertFalse((bool) data_get($written, 'claim_policy.list_4_completion_claim_allowed'));
+        $honestyNote = strtolower((string) data_get($written, 'claim_policy.honesty_note'));
+        $this->assertStringContainsString('winning comparable external benchmark receipt', $honestyNote);
+        $this->assertStringContainsString('l4-10 is already certified', $honestyNote);
+    }
+
     private function writeReadyReceipts(): void
     {
         $this->writeReceipt('knowledge_sync', [
@@ -475,6 +573,33 @@ final class AtlasFableFinalCaptureTest extends TestCase
 
     private function writeForgeEvidence(): void
     {
+        // L4-10 provenance hardening: the proof now rejects a hand-assembled receipt and
+        // requires an EXECUTOR SELF-STAMPED core (HMAC over the load-bearing facts). Build
+        // the signed core through the real production stamper so the fixture cannot launder
+        // a green — a hand-edit of any sealed fact would break the recomputed signature.
+        $executorReceipt = app(AtlasObraReceiptStamp::class)->stamp([
+            'obra_id' => 'obra-l4-10-real-capture-20260612',
+            'branch' => 'atlas/obra/obra-l4-10-real-capture-20260612',
+            'base_head' => 'deadbeef',
+            'status' => 'done',
+            'certified' => true,
+            'node_count' => 6,
+            'delivered_nodes' => 6,
+            'provider' => 'hermes_cli',
+            'model' => 'gpt-5.5',
+            'resumed' => true,
+            'resume_count' => 1,
+            'main_untouched' => true,
+            'never_merged' => true,
+            'receipt_hash' => 'f3-receipt-hash-l4-10',
+            'delivered_item_id' => 'L4-6',
+            'delivered_files' => [
+                'app/Services/Ai/AutonomousEvolution/AtlasLoopMorningDigestService.php',
+                'app/Console/Commands/AtlasLoopMorningDigestCommand.php',
+                'tests/Feature/Loop/AtlasLoopMorningDigestTest.php',
+            ],
+        ]);
+
         File::put($this->forgeEvidencePath, json_encode([
             'schema_version' => AtlasForgeMultiNodeL410ProofService::REAL_RECEIPT_SCHEMA_VERSION,
             'status' => 'done',
@@ -505,6 +630,8 @@ final class AtlasFableFinalCaptureTest extends TestCase
             'command_results' => [
                 ['command' => '/opt/homebrew/bin/php artisan atlas:loop:morning-digest --json', 'exit_code' => 0],
             ],
+            // The provenance-hardened core — the executor's own signed output.
+            'executor_receipt' => $executorReceipt,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
@@ -537,5 +664,35 @@ final class AtlasFableFinalCaptureTest extends TestCase
                 'provider' => 'claude_code',
             ],
         ];
+    }
+
+    /**
+     * Build a beat-test task with a COMPLETE, real-shaped external baseline (allowed
+     * runner + model + changed files + passing validation + evidence refs, no template
+     * markers) so the scorer treats the external comparison as real. The external
+     * duration vs the Atlas duration decides who wins that single task — letting the
+     * caller stage an honest comparable-but-not-superior split.
+     *
+     * @return array<string,mixed>
+     */
+    private function comparableDevBeatTask(string $type, int $atlasDuration, int $externalDuration): array
+    {
+        $task = $this->devBeatTask($type, $atlasDuration);
+        $task['baseline'] = [
+            'executed' => true,
+            'provider' => 'cursor',
+            'runner' => 'cursor',
+            'model' => 'cursor-auto',
+            'duration_seconds' => $externalDuration,
+            'tests_passed' => true,
+            'scope_passed' => true,
+            'changed_files' => ['app/Services/Ai/Programming/AtlasFableFinalCaptureService.php'],
+            'validation_commands' => [
+                ['command' => 'php artisan test tests/Feature/Ai/Programming/AtlasFableFinalCaptureTest.php', 'exit_code' => 0],
+            ],
+            'evidence_refs' => ['cursor-receipt:'.$type, 'cursor-validation:'.$type],
+        ];
+
+        return $task;
     }
 }

@@ -366,6 +366,14 @@ class AtlasForgeProviderInvocationDriverRouter
             'provider_called' => (bool) ($result['provider_called'] ?? false),
             'external_provider_call' => (bool) ($result['external_provider_call'] ?? false),
             'spends_provider_tokens' => $result['provider_tokens_spent'] ?? 'unknown',
+            // L6-3 live-evidence wire: surface a numeric token count + cost ONLY when
+            // the underlying driver actually reported them (SDK/HTTP providers like
+            // MiniMax return a real `usage` block; CLI providers do not). Never
+            // fabricated — null when the provider gave no count, so the strategy
+            // bandit measures certification-per-token on real evidence and stays
+            // honestly blocked until token-bearing runs accumulate.
+            'tokens_used' => $this->extractTokensUsed($result),
+            'cost_estimate_usd' => $this->extractCostUsd($result),
             'exit_code' => $result['exit_code'] ?? null,
             'duration_ms' => $result['duration_ms'] ?? null,
             'stdout' => $result['stdout_excerpt'] ?? '',
@@ -619,5 +627,58 @@ class AtlasForgeProviderInvocationDriverRouter
             'provider_tokens_spent' => false,
             'note' => 'claude_codex council plan-only; execution delegated to AiGateway dual-review.',
         ];
+    }
+
+    /**
+     * Sum the real token count a provider reported, or null when none was given.
+     * Recognises the canonical `usage.{input,output,total}_tokens` block (MiniMax
+     * HTTP, SDK adapters) and a flat `tokens_used`. NEVER invents a number — CLI
+     * providers that report no usage return null, keeping the bandit honestly blocked.
+     *
+     * @param  array<string,mixed>  $result
+     */
+    private function extractTokensUsed(array $result): ?int
+    {
+        if (is_numeric($result['tokens_used'] ?? null)) {
+            return max(0, (int) $result['tokens_used']);
+        }
+
+        $usage = $result['usage'] ?? data_get($result, 'performance_signal.usage');
+        if (! is_array($usage)) {
+            return null;
+        }
+
+        if (is_numeric($usage['total_tokens'] ?? null)) {
+            return max(0, (int) $usage['total_tokens']);
+        }
+
+        $in = is_numeric($usage['input_tokens'] ?? null) ? (int) $usage['input_tokens'] : null;
+        $out = is_numeric($usage['output_tokens'] ?? null) ? (int) $usage['output_tokens'] : null;
+        if ($in === null && $out === null) {
+            return null;
+        }
+
+        return max(0, ($in ?? 0) + ($out ?? 0));
+    }
+
+    /**
+     * Pass through a real measured cost in USD, or null. Never fabricated.
+     *
+     * @param  array<string,mixed>  $result
+     */
+    private function extractCostUsd(array $result): ?float
+    {
+        foreach ([
+            $result['cost_estimate_usd'] ?? null,
+            $result['cost_usd'] ?? null,
+            data_get($result, 'usage.cost_usd'),
+            data_get($result, 'performance_signal.cost_usd'),
+        ] as $candidate) {
+            if (is_numeric($candidate)) {
+                return max(0.0, (float) $candidate);
+            }
+        }
+
+        return null;
     }
 }

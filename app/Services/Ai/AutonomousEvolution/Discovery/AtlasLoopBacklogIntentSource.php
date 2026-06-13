@@ -30,6 +30,7 @@ final class AtlasLoopBacklogIntentSource
 
     public function __construct(
         private readonly ?AtlasLoopEvidenceSignalService $evidence = null,
+        private readonly ?AtlasLoopMetaHarnessIntentSource $metaHarness = null,
     ) {}
 
     /**
@@ -46,6 +47,14 @@ final class AtlasLoopBacklogIntentSource
             $out[$item['path']] = $item; // dedup por path; manifesto vence o corpus
         }
         foreach ($this->fromFailureCorpus() as $item) {
+            if (! isset($out[$item['path']])) {
+                $out[$item['path']] = $item;
+            }
+        }
+        // L6-1: a perna META — o Loop propõe melhoria do PRÓPRIO harness. Prioridade baixa
+        // (perna de fundo), gated pela flag pétrea + flag desta perna, e passa pelo MESMO
+        // chokepoint do HarnessGuard na discovery. Fail-closed: fonte ausente/flag OFF ⇒ no-op.
+        foreach ($this->metaHarness?->candidates($repoRoot, $limit) ?? [] as $item) {
             if (! isset($out[$item['path']])) {
                 $out[$item['path']] = $item;
             }

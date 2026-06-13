@@ -51,19 +51,54 @@ final class AtlasLoopExplorerStrategyBanditService
             }
         }
 
-        $scenarioCount = max(1, (int) ($options['scenario_count'] ?? config('atlas.loop.scenarios_per_task', 3)));
-        $defaultKeys = array_keys($this->portfolio());
-        $selectedKeys = is_array($recommendation['selected_strategy_keys'] ?? null)
-            ? array_values($recommendation['selected_strategy_keys'])
+        // Resolve how many scenarios the grinder will actually run. A null/0/blank
+        // hint (the grinder passes `scenario_count => $scenarios` and $scenarios is
+        // often null) MUST fall through to the configured default — never collapse
+        // to 1, which would silently narrow the explored portfolio to a single
+        // strategy and defeat the whole "N competing strategies" point.
+        $rawCount = $options['scenario_count'] ?? null;
+        $scenarioCount = is_numeric($rawCount) && (int) $rawCount > 0
+            ? (int) $rawCount
+            : max(1, (int) config('atlas.loop.scenarios_per_task', 3));
+
+        $portfolio = $this->portfolio();
+        $defaultKeys = array_keys($portfolio);
+
+        // The FULL UCB-proven ranking for this target type (top-first), padded with
+        // any portfolio key the ranking didn't cover so the order is always total.
+        $provenOrder = is_array($recommendation['selected_strategy_keys'] ?? null)
+            ? array_values(array_filter(
+                $recommendation['selected_strategy_keys'],
+                static fn (mixed $k): bool => is_string($k) && $k !== '',
+            ))
             : $defaultKeys;
-        $applied = (bool) config('atlas.loop.explorer_strategy_bandit.apply_enabled', true)
-            && (bool) data_get($recommendation, 'completion_eligible', false);
-        if (! $applied) {
-            $selectedKeys = $defaultKeys;
+        $provenOrder = array_values(array_unique([...$provenOrder, ...$defaultKeys]));
+        // Drop any non-portfolio key — the apply-path must only ever hand the
+        // explorer strategies it actually knows how to render.
+        $provenOrder = array_values(array_filter(
+            $provenOrder,
+            static fn (string $k): bool => array_key_exists($k, $portfolio),
+        ));
+        if ($provenOrder === []) {
+            $provenOrder = $defaultKeys;
         }
 
-        $selectedKeys = array_slice($selectedKeys, 0, max($scenarioCount, count($defaultKeys)));
-        $portfolio = $this->portfolio();
+        $applied = (bool) config('atlas.loop.explorer_strategy_bandit.apply_enabled', true)
+            && (bool) data_get($recommendation, 'completion_eligible', false);
+
+        // When the bandit APPLIES, hand the explorer EXACTLY the top-N proven order
+        // (N = scenario_count): the grinder must try the proven order and nothing
+        // beyond it. When it does NOT apply, hand back the full baseline portfolio
+        // so the explorer keeps its own default diversification (no narrowing).
+        $appliedCount = min($scenarioCount, count($provenOrder));
+        $selectedKeys = $applied
+            ? array_slice($provenOrder, 0, max(1, $appliedCount))
+            : $defaultKeys;
+
+        // Proven distribution truly differs from baseline only if the top-N order
+        // the explorer will actually try is not the baseline's own top-N order.
+        $distributionChanged = $applied
+            && $selectedKeys !== array_slice($defaultKeys, 0, count($selectedKeys));
 
         return [
             'schema_version' => self::SCHEMA_VERSION.'.decision.v1',
@@ -71,10 +106,13 @@ final class AtlasLoopExplorerStrategyBanditService
             'applied' => $applied,
             'target_path' => $targetPath,
             'target_type' => $type,
+            'scenario_count' => $scenarioCount,
+            'applied_scenario_count' => $applied ? count($selectedKeys) : 0,
+            'proven_order' => $provenOrder,
             'selected_strategy_keys' => $selectedKeys,
             'selected_strategy_texts' => array_map(static fn (string $key): string => (string) ($portfolio[$key] ?? ''), $selectedKeys),
             'baseline_strategy_keys' => $defaultKeys,
-            'distribution_changed' => $applied && $selectedKeys !== array_slice($defaultKeys, 0, count($selectedKeys)),
+            'distribution_changed' => $distributionChanged,
             'token_efficiency_delta_per_1k' => data_get($recommendation, 'token_efficiency_delta_per_1k'),
             'blockers' => array_values((array) ($measurement['blockers'] ?? [])),
         ];

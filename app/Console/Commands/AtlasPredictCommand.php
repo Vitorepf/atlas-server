@@ -2,24 +2,28 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\Cognitive\PredictiveFailure\AtlasLoopPredictiveOutcomeBridge;
 use App\Services\Ai\Cognitive\PredictiveFailure\PredictiveFailureFlow;
 use Illuminate\Console\Command;
 
 class AtlasPredictCommand extends Command
 {
     protected $signature = 'atlas:predict
-        {action=failure : failure|history|metrics|resolve}
+        {action=failure : failure|history|metrics|resolve|record-loop}
         {subject? : Knowledge node/topic or insertion id}
         {--domain=learning : Domain for prediction}
         {--outcome= : Outcome for resolve: success|partial|failure|abandoned|skipped}
         {--signature= : Optional actual failure signature key}
         {--window=60 : Metrics/history window in days}
         {--load=normal : Cognitive load level}
+        {--grind-status= : record-loop: terminal grind status (winner|no_winner|failed)}
+        {--target-path= : record-loop: the loop target path that was ground}
+        {--scenarios=0 : record-loop: scenarios explored}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Run governed cognitive predictive failure insertion and calibration reports.';
 
-    public function handle(PredictiveFailureFlow $flow): int
+    public function handle(PredictiveFailureFlow $flow, AtlasLoopPredictiveOutcomeBridge $bridge): int
     {
         $action = trim((string) $this->argument('action'));
         $subject = trim((string) ($this->argument('subject') ?? ''));
@@ -51,14 +55,37 @@ class AtlasPredictCommand extends Command
             'metrics' => $flow->metrics($domain, $window),
             'resolve' => $flow->resolve((int) $subject, trim((string) $this->option('outcome')), $this->actualSignature()),
             'failure' => $flow->insert($subject, $domain, ['level' => trim((string) $this->option('load')) ?: 'normal']),
+            'record-loop' => $bridge->recordGrind($this->grindResultFromOptions(), [
+                'objective' => $subject,
+                'target_path' => trim((string) $this->option('target-path')),
+                'domain' => $domain !== 'learning' ? $domain : 'programming',
+            ]),
             default => ['schema_version' => 'atlas.predict.command.v1', 'status' => 'invalid_input', 'reason' => 'unknown_predict_action'],
         };
 
-        $exit = in_array($payload['status'] ?? null, ['blocked', 'missing', 'invalid_input'], true)
+        $exit = in_array($payload['status'] ?? null, ['blocked', 'missing', 'invalid_input', 'skipped'], true)
             ? self::FAILURE
             : self::SUCCESS;
 
         return $this->render($payload, $exit);
+    }
+
+    /**
+     * Build a terminal grind-result shape from CLI options for the record-loop action.
+     * This is the explicit-CLI surface onto the same bridge the live grinder uses.
+     *
+     * @return array<string,mixed>
+     */
+    private function grindResultFromOptions(): array
+    {
+        $status = trim((string) $this->option('grind-status'));
+
+        return [
+            'status' => $status !== '' ? $status : 'no_winner',
+            'has_winner' => $status === 'winner',
+            'proposals' => $status === 'winner' ? 1 : 0,
+            'scenarios_explored' => max(0, (int) $this->option('scenarios')),
+        ];
     }
 
     /**

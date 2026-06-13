@@ -97,6 +97,13 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
             'changed_files' => $result['changed_files'] ?? [],
             'exit_code' => $result['exit_code'] ?? null,
             'zero_diff_retry' => $zeroDiffRetry,
+            // L6-3 live-evidence wire: forward the REAL token count + cost the router
+            // surfaced (numeric only when the provider actually reported usage; null
+            // otherwise — never fabricated) so the runner persists them into
+            // attempt_metrics and the strategy bandit can measure certification-per-
+            // token on the live soak. Closes the auto-fill loop end-to-end.
+            'tokens_used' => is_numeric($result['tokens_used'] ?? null) ? max(0, (int) $result['tokens_used']) : null,
+            'cost_estimate_usd' => is_numeric($result['cost_estimate_usd'] ?? null) ? max(0.0, (float) $result['cost_estimate_usd']) : null,
             'reason' => $called ? null : (string) ($result['note'] ?? 'provider_not_called'),
         ];
     }

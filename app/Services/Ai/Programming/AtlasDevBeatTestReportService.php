@@ -113,8 +113,34 @@ final class AtlasDevBeatTestReportService
             $taskReports,
             static fn (array $task): bool => data_get($task, 'comparison.beats_external') === false,
         ));
+        // Honesty split (L5-10): a "win" because the external runner disqualified
+        // itself (forfeit) is NOT the same as genuinely out-performing it head to
+        // head. The strongest superiority claim is gated on real head-to-head wins
+        // only; forfeits keep the evidence comparable but block the 3-0 claim.
+        $atlasHeadToHeadWins = count(array_filter(
+            $taskReports,
+            static fn (array $task): bool => data_get($task, 'comparison.beats_external') === true
+                && data_get($task, 'comparison.win_kind') === 'head_to_head',
+        ));
+        $atlasDefaultWins = count(array_filter(
+            $taskReports,
+            static fn (array $task): bool => data_get($task, 'comparison.beats_external') === true
+                && data_get($task, 'comparison.win_kind') === 'external_forfeit',
+        ));
+        // Wins that only exist because the Atlas side carried a one-off,
+        // non-default runtime tuning override the external baseline could not
+        // receive. These keep the evidence comparable but are NOT clean
+        // head-to-head superiority signals (fail-closed against asymmetric tuning).
+        $atlasUnfairTuningWins = count(array_filter(
+            $taskReports,
+            static fn (array $task): bool => data_get($task, 'comparison.beats_external') === true
+                && data_get($task, 'comparison.win_kind') === 'unfair_atlas_only_tuning',
+        ));
         $allComparable = $comparable === count(self::REQUIRED_TASK_TYPES);
-        $allAtlasWon = $allComparable && $atlasWins === count(self::REQUIRED_TASK_TYPES);
+        $allAtlasWon = $allComparable
+            && $atlasWins === count(self::REQUIRED_TASK_TYPES)
+            && $atlasHeadToHeadWins === count(self::REQUIRED_TASK_TYPES)
+            && $atlasUnfairTuningWins === 0;
 
         $status = $this->status($atlasPassed, $atlasFailed, $atlasMissing, $allComparable, $allAtlasWon);
         $payload = [
@@ -141,6 +167,9 @@ final class AtlasDevBeatTestReportService
                 'atlas_dev_missing_count' => $atlasMissing,
                 'comparable_external_count' => $comparable,
                 'atlas_win_count' => $atlasWins,
+                'atlas_head_to_head_win_count' => $atlasHeadToHeadWins,
+                'atlas_default_win_count' => $atlasDefaultWins,
+                'atlas_unfair_tuning_win_count' => $atlasUnfairTuningWins,
                 'external_win_count' => $externalWins,
                 'gap_count' => count($gaps),
             ],
@@ -153,7 +182,11 @@ final class AtlasDevBeatTestReportService
                 'internal_atlas_dev_measurement_allowed' => $atlasPassed > 0,
                 'external_comparison_claim_allowed' => $allComparable,
                 'external_superiority_claim_allowed' => $allAtlasWon,
-                'honest_operator_answer' => $this->operatorAnswer($status),
+                'external_head_to_head_superiority_claim_allowed' => $allAtlasWon,
+                'superiority_includes_external_forfeit_win' => $atlasDefaultWins > 0,
+                'superiority_blocked_by_atlas_only_tuning' => $atlasUnfairTuningWins > 0,
+                'fair_comparison_required_for_superiority' => true,
+                'honest_operator_answer' => $this->operatorAnswer($status, $atlasDefaultWins, $atlasUnfairTuningWins),
             ],
             'receipt_autopsy' => $receiptAutopsy,
             'gaps' => $gaps,
@@ -308,8 +341,9 @@ final class AtlasDevBeatTestReportService
                 'evidence_refs' => array_values(array_filter((array) ($atlas['evidence_refs'] ?? []), 'is_string')),
             ],
             'criteria' => $criteria,
+            'fairness' => $this->fairness($atlas, $baseline),
             'baseline' => $this->baselineSummary($baseline, $maxSeconds),
-            'comparison' => $this->comparison($passed, $duration, $baseline, $maxSeconds),
+            'comparison' => $this->comparison($passed, $duration, $atlas, $baseline, $maxSeconds),
             'gap_hint' => is_array($task['gap'] ?? null) ? $task['gap'] : [],
         ];
     }
@@ -380,10 +414,11 @@ final class AtlasDevBeatTestReportService
     }
 
     /**
+     * @param  array<string,mixed>  $atlas
      * @param  array<string,mixed>  $baseline
      * @return array<string,mixed>
      */
-    private function comparison(bool $atlasPassed, ?int $atlasDuration, array $baseline, int $maxSeconds): array
+    private function comparison(bool $atlasPassed, ?int $atlasDuration, array $atlas, array $baseline, int $maxSeconds): array
     {
         $baselineSummary = $this->baselineSummary($baseline, $maxSeconds);
         if (! (bool) $baselineSummary['executed']) {
@@ -396,20 +431,86 @@ final class AtlasDevBeatTestReportService
             ];
         }
         if (! $atlasPassed) {
-            return ['beats_external' => false, 'reason' => 'atlas_dev_failed_fixed_criteria'];
+            return ['beats_external' => false, 'win_kind' => 'none', 'reason' => 'atlas_dev_failed_fixed_criteria'];
         }
         if (! (bool) $baselineSummary['passed_fixed_criteria']) {
-            return ['beats_external' => true, 'reason' => 'atlas_passed_external_failed_fixed_criteria'];
+            // Win by forfeit: the external runner disqualified itself (failed the
+            // fixed criteria). This is comparable evidence but NOT a head-to-head
+            // superiority signal, so it is tagged distinctly and must not feed the
+            // 3-0 superiority claim.
+            return [
+                'beats_external' => true,
+                'win_kind' => 'external_forfeit',
+                'reason' => 'atlas_passed_external_failed_fixed_criteria',
+            ];
         }
         $baselineDuration = $baselineSummary['duration_seconds'];
         if (is_int($atlasDuration) && is_int($baselineDuration) && $atlasDuration < $baselineDuration) {
-            return ['beats_external' => true, 'reason' => 'atlas_passed_and_was_faster'];
+            // Fail-closed fairness gate: a faster-than-external "win" is only a
+            // clean head-to-head superiority signal when the comparison was fair.
+            // If the Atlas side carried a one-off, non-default runtime tuning
+            // override (e.g. an env-only ACP/max-turns override applied "before
+            // default enablement") that the external baseline could not receive,
+            // the speed advantage is an artefact of asymmetric tuning, not of
+            // Atlas Dev as the operator actually ships it. Such a win stays
+            // comparable evidence but must NOT feed the head-to-head 3-0 claim.
+            $fairness = $this->fairness($atlas, $baseline);
+            if (! (bool) ($fairness['fair'] ?? true)) {
+                return [
+                    'beats_external' => true,
+                    'win_kind' => 'unfair_atlas_only_tuning',
+                    'reason' => 'atlas_faster_but_used_atlas_only_non_default_runtime_tuning',
+                    'fairness_blockers' => (array) ($fairness['blockers'] ?? []),
+                ];
+            }
+
+            return ['beats_external' => true, 'win_kind' => 'head_to_head', 'reason' => 'atlas_passed_and_was_faster'];
         }
         if (is_int($atlasDuration) && is_int($baselineDuration) && $atlasDuration > $baselineDuration) {
-            return ['beats_external' => false, 'reason' => 'external_passed_and_was_faster'];
+            return ['beats_external' => false, 'win_kind' => 'none', 'reason' => 'external_passed_and_was_faster'];
         }
 
-        return ['beats_external' => null, 'reason' => 'fixed_criteria_tie'];
+        return ['beats_external' => null, 'win_kind' => 'none', 'reason' => 'fixed_criteria_tie'];
+    }
+
+    /**
+     * Fairness gate for head-to-head superiority. A comparison is fair only when
+     * the Atlas side did not receive a one-off, non-default runtime tuning
+     * override that the external baseline could not also receive. This is
+     * deliberately fail-closed: any declared Atlas-side runtime tuning whose
+     * provenance is not a shipped default blocks the head-to-head win, so the
+     * loop cannot mint a green L4-9 by re-adding asymmetric tuning.
+     *
+     * @param  array<string,mixed>  $atlas
+     * @param  array<string,mixed>  $baseline
+     * @return array{fair:bool,blockers:list<string>,atlas_runtime_tuning:array<string,mixed>}
+     */
+    private function fairness(array $atlas, array $baseline): array
+    {
+        $tuning = is_array($atlas['runtime_tuning'] ?? null) ? $atlas['runtime_tuning'] : [];
+        $blockers = [];
+
+        if ($tuning !== []) {
+            $source = strtolower(trim((string) ($tuning['source'] ?? '')));
+            $shippedDefault = $source === 'shipped_default'
+                || $source === 'config_default'
+                || (bool) ($tuning['shipped_default'] ?? false);
+            if (! $shippedDefault) {
+                // Atlas declared a runtime tuning override that is not the shipped
+                // default; unless the baseline declares an explicitly operator-
+                // approved equivalent, the head-to-head comparison is unfair.
+                $baselineEquivalent = (bool) data_get($baseline, 'runtime_tuning.operator_approved_equivalent', false);
+                if (! $baselineEquivalent) {
+                    $blockers[] = 'atlas_only_non_default_runtime_tuning';
+                }
+            }
+        }
+
+        return [
+            'fair' => $blockers === [],
+            'blockers' => $blockers,
+            'atlas_runtime_tuning' => $tuning,
+        ];
     }
 
     /**
@@ -638,11 +739,18 @@ final class AtlasDevBeatTestReportService
         return 'comparable_report_ready_no_superiority';
     }
 
-    private function operatorAnswer(string $status): string
+    private function operatorAnswer(string $status, int $defaultWins = 0, int $unfairTuningWins = 0): string
     {
+        if ($status === 'comparable_report_ready_no_superiority' && $unfairTuningWins > 0) {
+            return 'Comparable evidence exists; some Atlas wins relied on an Atlas-only, non-default runtime tuning override the external baseline could not receive, so the comparison is not fair enough for a head-to-head superiority claim — report it as comparable, not superior.';
+        }
+        if ($status === 'comparable_report_ready_no_superiority' && $defaultWins > 0) {
+            return 'Comparable evidence exists; some tasks were won only because the external runner failed its own fixed criteria (forfeit), so no clean head-to-head superiority claim is allowed — report the split honestly.';
+        }
+
         return match ($status) {
-            'atlas_dev_beats_baseline' => 'Atlas Dev beat all three comparable medium tasks under the fixed criteria.',
-            'comparable_report_ready_no_superiority' => 'Comparable evidence exists, but Atlas Dev did not beat every task; report the split honestly.',
+            'atlas_dev_beats_baseline' => 'Atlas Dev beat all three comparable medium tasks head to head under the fixed criteria.',
+            'comparable_report_ready_no_superiority' => 'Comparable evidence exists, but Atlas Dev did not beat every task head to head; report the split honestly.',
             'external_claim_blocked' => 'Atlas Dev passed the internal medium tasks, but no external superiority claim is allowed without comparable rival evidence.',
             'atlas_dev_failed' => 'At least one Atlas Dev task failed fixed criteria; backlog gaps were emitted.',
             default => 'Required Atlas Dev evidence is missing or incomplete; no benchmark claim is allowed.',

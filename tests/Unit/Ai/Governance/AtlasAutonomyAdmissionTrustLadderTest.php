@@ -21,6 +21,15 @@ class AtlasAutonomyAdmissionTrustLadderTest extends TestCase
     /** @var list<string> */
     private array $tmp = [];
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config([
+            'atlas.ai.trust_ladder.eligible_classes' => [],
+            'atlas.ai.trust_ladder.blocked_class_patterns' => ['never_merge', 'kernel'],
+        ]);
+    }
+
     protected function tearDown(): void
     {
         foreach ($this->tmp as $p) {

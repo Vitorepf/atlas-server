@@ -153,6 +153,155 @@ final class AtlasDevBeatTestReportTest extends TestCase
         $this->assertSame([], $payload['gaps']);
     }
 
+    public function test_report_downgrades_superiority_when_a_win_is_only_an_external_forfeit(): void
+    {
+        // Mirrors the real L4-9/L5-10 Cursor split: two genuine head-to-head
+        // speed wins, but the third "win" is only because the external runner
+        // ran FASTER yet failed its own fixed criteria (scope). That forfeit must
+        // NOT mint a clean 3-0 superiority claim — honest end-state = comparable.
+        $this->writeEvidence([
+            $this->task('bug', 320, baselineDuration: 500),
+            $this->task('refactor', 610, baselineDuration: 850),
+            $this->task('feature', 540, baselineDuration: 300, baselineScopePassed: false),
+        ]);
+
+        $exit = Artisan::call('atlas:dev:beat-test', [
+            '--evidence' => $this->evidencePath,
+            '--manifest-path' => $this->manifestPath,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit, Artisan::output());
+        // All three are scored as Atlas "wins" mechanically...
+        $this->assertSame(3, $payload['summary']['comparable_external_count']);
+        $this->assertSame(3, $payload['summary']['atlas_win_count']);
+        // ...but only two are genuine head-to-head wins; one is a forfeit.
+        $this->assertSame(2, $payload['summary']['atlas_head_to_head_win_count']);
+        $this->assertSame(1, $payload['summary']['atlas_default_win_count']);
+
+        // The strongest claim is fail-closed: NO clean 3-0 superiority.
+        $this->assertSame('comparable_report_ready_no_superiority', $payload['status']);
+        $this->assertTrue($payload['claim_policy']['external_comparison_claim_allowed']);
+        $this->assertFalse($payload['claim_policy']['external_superiority_claim_allowed']);
+        $this->assertFalse($payload['claim_policy']['external_head_to_head_superiority_claim_allowed']);
+        $this->assertTrue($payload['claim_policy']['superiority_includes_external_forfeit_win']);
+        $this->assertStringContainsString('forfeit', $payload['claim_policy']['honest_operator_answer']);
+
+        $feature = collect($payload['tasks'])->firstWhere('task_type', 'feature');
+        $this->assertTrue($feature['comparison']['beats_external']);
+        $this->assertSame('external_forfeit', $feature['comparison']['win_kind']);
+        $this->assertSame('atlas_passed_external_failed_fixed_criteria', $feature['comparison']['reason']);
+
+        $bug = collect($payload['tasks'])->firstWhere('task_type', 'bug');
+        $this->assertSame('head_to_head', $bug['comparison']['win_kind']);
+    }
+
+    public function test_report_downgrades_superiority_when_speed_win_used_atlas_only_non_default_tuning(): void
+    {
+        // Direct guard against the real L4-9 over-claim risk: the 3-0 win was
+        // unlocked by an Atlas-only ACP + max_turns=1 runtime override the Cursor
+        // baseline never received. A faster-than-external win carrying non-default,
+        // Atlas-only tuning is comparable evidence but NOT a fair head-to-head
+        // superiority signal, so it must block the clean 3-0 claim (fail-closed).
+        $bug = $this->task('bug', 320, baselineDuration: 500);
+        $bug['atlas_dev']['runtime_tuning'] = [
+            'source' => 'env_override',
+            'shipped_default' => false,
+            'fields' => ['execution_transport' => 'acp', 'max_turns' => 1],
+        ];
+
+        $this->writeEvidence([
+            $bug,
+            $this->task('feature', 540, baselineDuration: 700),
+            $this->task('refactor', 610, baselineDuration: 850),
+        ]);
+
+        $exit = Artisan::call('atlas:dev:beat-test', [
+            '--evidence' => $this->evidencePath,
+            '--manifest-path' => $this->manifestPath,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit, Artisan::output());
+        $this->assertSame(3, $payload['summary']['comparable_external_count']);
+        $this->assertSame(3, $payload['summary']['atlas_win_count']);
+        $this->assertSame(2, $payload['summary']['atlas_head_to_head_win_count']);
+        $this->assertSame(1, $payload['summary']['atlas_unfair_tuning_win_count']);
+
+        $this->assertSame('comparable_report_ready_no_superiority', $payload['status']);
+        $this->assertTrue($payload['claim_policy']['external_comparison_claim_allowed']);
+        $this->assertFalse($payload['claim_policy']['external_superiority_claim_allowed']);
+        $this->assertTrue($payload['claim_policy']['superiority_blocked_by_atlas_only_tuning']);
+        $this->assertStringContainsString('runtime tuning', $payload['claim_policy']['honest_operator_answer']);
+
+        $bugTask = collect($payload['tasks'])->firstWhere('task_type', 'bug');
+        $this->assertTrue($bugTask['comparison']['beats_external']);
+        $this->assertSame('unfair_atlas_only_tuning', $bugTask['comparison']['win_kind']);
+        $this->assertContains('atlas_only_non_default_runtime_tuning', $bugTask['comparison']['fairness_blockers']);
+    }
+
+    public function test_report_keeps_superiority_when_atlas_tuning_is_a_shipped_default(): void
+    {
+        // The fairness gate must not block a win when the tuning is a shipped
+        // default (i.e. how Atlas Dev actually ships to the operator). This proves
+        // the gate is targeted at asymmetric one-off tuning, not at all tuning.
+        $bug = $this->task('bug', 320, baselineDuration: 500);
+        $bug['atlas_dev']['runtime_tuning'] = [
+            'source' => 'shipped_default',
+            'shipped_default' => true,
+        ];
+
+        $this->writeEvidence([
+            $bug,
+            $this->task('feature', 540, baselineDuration: 700),
+            $this->task('refactor', 610, baselineDuration: 850),
+        ]);
+
+        $exit = Artisan::call('atlas:dev:beat-test', [
+            '--evidence' => $this->evidencePath,
+            '--manifest-path' => $this->manifestPath,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit, Artisan::output());
+        $this->assertSame('atlas_dev_beats_baseline', $payload['status']);
+        $this->assertSame(3, $payload['summary']['atlas_head_to_head_win_count']);
+        $this->assertSame(0, $payload['summary']['atlas_unfair_tuning_win_count']);
+        $this->assertTrue($payload['claim_policy']['external_superiority_claim_allowed']);
+        $this->assertFalse($payload['claim_policy']['superiority_blocked_by_atlas_only_tuning']);
+    }
+
+    public function test_report_allows_superiority_only_when_every_win_is_head_to_head(): void
+    {
+        // Same numbers as the forfeit test EXCEPT the external feature run now
+        // passes its scope and is slower — so it becomes a real head-to-head win.
+        // This proves the gate auto-greens on genuine evidence and is not a
+        // blanket block on forfeit-shaped inputs.
+        $this->writeEvidence([
+            $this->task('bug', 320, baselineDuration: 500),
+            $this->task('refactor', 610, baselineDuration: 850),
+            $this->task('feature', 540, baselineDuration: 900),
+        ]);
+
+        $exit = Artisan::call('atlas:dev:beat-test', [
+            '--evidence' => $this->evidencePath,
+            '--manifest-path' => $this->manifestPath,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit, Artisan::output());
+        $this->assertSame('atlas_dev_beats_baseline', $payload['status']);
+        $this->assertSame(3, $payload['summary']['atlas_head_to_head_win_count']);
+        $this->assertSame(0, $payload['summary']['atlas_default_win_count']);
+        $this->assertTrue($payload['claim_policy']['external_superiority_claim_allowed']);
+        $this->assertTrue($payload['claim_policy']['external_head_to_head_superiority_claim_allowed']);
+        $this->assertFalse($payload['claim_policy']['superiority_includes_external_forfeit_win']);
+    }
+
     public function test_report_rejects_thin_external_baseline_without_material_receipts(): void
     {
         $this->writeEvidence([
@@ -325,6 +474,7 @@ final class AtlasDevBeatTestReportTest extends TestCase
         ?int $baselineDuration = null,
         bool $completeBaseline = true,
         bool $placeholderBaseline = false,
+        bool $baselineScopePassed = true,
     ): array {
         return [
             'id' => $type.'-medium-001',
@@ -349,11 +499,11 @@ final class AtlasDevBeatTestReportTest extends TestCase
                 ],
                 'evidence_refs' => ['receipt:'.$type],
             ],
-            'baseline' => $this->baseline($type, $baselineDuration, $completeBaseline, $placeholderBaseline),
+            'baseline' => $this->baseline($type, $baselineDuration, $completeBaseline, $placeholderBaseline, $baselineScopePassed),
         ];
     }
 
-    private function baseline(string $type, ?int $baselineDuration, bool $complete, bool $placeholder): array
+    private function baseline(string $type, ?int $baselineDuration, bool $complete, bool $placeholder, bool $scopePassed = true): array
     {
         if ($placeholder) {
             return [
@@ -387,7 +537,7 @@ final class AtlasDevBeatTestReportTest extends TestCase
             'provider' => 'claude_code',
             'duration_seconds' => $baselineDuration,
             'tests_passed' => true,
-            'scope_passed' => true,
+            'scope_passed' => $scopePassed,
         ];
 
         if (! $complete) {

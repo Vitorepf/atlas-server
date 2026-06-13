@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution\Campaign;
 
 use App\Models\AtlasLoopCampaign;
+use App\Models\AtlasLoopTask;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopDbResilience;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopObraBridgeService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopResourceGate;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopTaxa2DialOverlayService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopTaskGrinder;
@@ -62,6 +64,7 @@ final class AtlasLoopCampaignSupervisor
         private readonly AtlasLoopTaxa2DialOverlayService $taxa2Dials,
         private readonly LoopWorkerPool $workerPool,
         private readonly LoopWorkerCountPlanner $workerPlanner,
+        private readonly AtlasLoopObraBridgeService $obraBridge,
     ) {}
 
     public function setClockForTesting(Closure $clock): void
@@ -267,7 +270,14 @@ final class AtlasLoopCampaignSupervisor
                                 $parallelClaimSeq++;
                                 $worker = 'pool-'.$campaign->id.'-'.getmypid().'-'.$parallelClaimSeq;
 
-                                return $this->guard(fn () => $this->store->claimNextTask($campaign->id, $worker, $taskLease), 'parallel_claim_next');
+                                $claimed = $this->guard(fn () => $this->store->claimNextTask($campaign->id, $worker, $taskLease), 'parallel_claim_next');
+                                // L5-2: same parked-for-review Obra escalation on the parallel
+                                // claim path. Fail-open, never blocks the worker dispatch.
+                                if ($claimed instanceof AtlasLoopTask) {
+                                    $this->maybeAutoEscalateToObra($campaign->id, $claimed);
+                                }
+
+                                return $claimed;
                             },
                             $taskLease,
                             $remaining,
@@ -320,6 +330,11 @@ final class AtlasLoopCampaignSupervisor
                     }
 
                     $this->writeHeartbeat($campaign->id);
+                    // L5-2: a multi-file intent is too big for a propose-only micro-diff —
+                    // package it for a governed Forge/Obra handoff (operator-reviewed, never
+                    // auto-merged) instead of silently grinding it. Flag-gated, default OFF,
+                    // fail-open: a bridge error is logged and the normal grind proceeds.
+                    $this->maybeAutoEscalateToObra($campaign->id, $task);
                     $grindStart = $this->now();
                     // INDEPENDÊNCIA 24h+: o timeout do grind era o BUDGET INTEIRO (7 dias) —
                     // uma chamada de provider que travasse congelaria o supervisor por dias e
@@ -671,6 +686,141 @@ final class AtlasLoopCampaignSupervisor
             'write_receipt' => (bool) config('atlas.loop.taxa2_dials.receipt_on_supervisor_boot', true),
             'source' => 'atlas:loop:campaign.supervisor_boot',
         ]);
+    }
+
+    /**
+     * L5-2: the orphaned Loop -> Obra bridge, finally wired into the live loop.
+     *
+     * When a claimed task's intent spans >= obra_bridge.min_files DISTINCT files it is a
+     * poor fit for the propose-only single-diff grind; package it for a governed Forge/Obra
+     * handoff (operator-reviewed) instead. This NEVER dispatches a provider and NEVER merges:
+     * {@see AtlasLoopObraBridgeService::bridge()} is preflight-only (no create_proposal here,
+     * write_receipt OFF), and we assert the packet's operator gate stays closed before
+     * recording it. A single-file intent (the normal Loop case) is logged as skipped and
+     * grinds as usual.
+     *
+     * Flag-gated (atlas.loop.obra_bridge.auto_escalate, default OFF) and fail-OPEN: any error
+     * is captured to the ledger and the grind proceeds — auto-escalation must never be able to
+     * stall the 24h loop.
+     */
+    private function maybeAutoEscalateToObra(string $campaignId, AtlasLoopTask $task): void
+    {
+        if (! (bool) config('atlas.loop.obra_bridge.auto_escalate', false)) {
+            return;
+        }
+
+        try {
+            $minFiles = max(2, (int) config('atlas.loop.obra_bridge.min_files', 2));
+            $files = $this->intentFiles($task);
+            if (count($files) < $minFiles) {
+                $this->appendLedger($campaignId, [
+                    'event' => 'obra_auto_escalation_skipped',
+                    'task_id' => $task->id,
+                    'reason' => 'single_file_intent_below_min_files',
+                    'file_count' => count($files),
+                    'min_files' => $minFiles,
+                ]);
+
+                return;
+            }
+
+            $intent = trim((string) $task->objective) !== ''
+                ? (string) $task->objective
+                : 'Atlas Loop multi-file intent '.$task->id;
+
+            // Preflight ONLY: no provider dispatch, no Obra creation, no backlog proposal,
+            // no receipt write. The bridge composes the governed handoff packet and we record
+            // it; the operator authorizes any real Forge execution out-of-band.
+            $packet = $this->obraBridge->bridge([
+                'intent' => $intent,
+                'files' => $files,
+                'min_files' => $minFiles,
+                'create_proposal' => false,
+                'write_receipt' => false,
+            ]);
+
+            // Never-merge / operator-gated invariant (defense-in-depth, independent of the
+            // bridge's own asserts): if the packet ever claimed auto-execute or a merge, we
+            // refuse to record it as an escalation and flag the violation instead.
+            $autoExecuteAllowed = (bool) data_get($packet, 'operator_approval.auto_execute_allowed', false);
+            $autoExecutionStarted = (bool) data_get($packet, 'claim_policy.auto_execution_started', false);
+            $providerDispatched = (bool) data_get($packet, 'claim_policy.provider_dispatches_now', false);
+            if ($autoExecuteAllowed || $autoExecutionStarted || $providerDispatched) {
+                $this->appendLedger($campaignId, [
+                    'event' => 'obra_auto_escalation_refused',
+                    'task_id' => $task->id,
+                    'reason' => 'bridge_packet_violated_operator_gate',
+                    'auto_execute_allowed' => $autoExecuteAllowed,
+                    'auto_execution_started' => $autoExecutionStarted,
+                    'provider_dispatches_now' => $providerDispatched,
+                ]);
+
+                return;
+            }
+
+            $this->appendLedger($campaignId, [
+                'event' => 'obra_auto_escalation',
+                'task_id' => $task->id,
+                'bridge_status' => (string) ($packet['status'] ?? 'unknown'),
+                'file_count' => count($files),
+                'min_files' => $minFiles,
+                'target_files' => array_slice($files, 0, 20),
+                'multi_file_detected' => (bool) data_get($packet, 'bridge_packet.multi_file_detected', false),
+                'packet_hash' => (string) data_get($packet, 'bridge_packet.packet_hash', ''),
+                'operator_approval_required' => (bool) data_get($packet, 'operator_approval.required', true),
+                'auto_execute_allowed' => $autoExecuteAllowed,
+                'next_safe_action' => data_get($packet, 'operator_approval.next_safe_action'),
+                'blockers' => array_slice((array) ($packet['blockers'] ?? []), 0, 20),
+            ]);
+        } catch (Throwable $e) {
+            // Fail-OPEN: an escalation hiccup must never stall the live loop.
+            $this->appendLedger($campaignId, [
+                'event' => 'obra_auto_escalation_error',
+                'task_id' => $task->id,
+                'detail' => mb_substr($e->getMessage(), 0, 200),
+            ]);
+        }
+    }
+
+    /**
+     * The DISTINCT real-repo files a claimed task's intent touches, drawn from the durable
+     * payload's scope signals (in priority of specificity) plus the target_path column. This
+     * is what decides single- vs multi-file; it never reaches outside the task's own record.
+     *
+     * @return list<string>
+     */
+    private function intentFiles(AtlasLoopTask $task): array
+    {
+        $payload = is_array($task->payload) ? $task->payload : [];
+        $files = [];
+
+        // Explicit multi-file lists first (the authoritative scope), then single-file pointers.
+        foreach (['allowed_files', 'target_files', 'expected_files'] as $key) {
+            foreach ((array) ($payload[$key] ?? []) as $value) {
+                $this->collectPath($files, $value);
+            }
+        }
+        foreach (['target_relative_path', 'target_repo_path'] as $key) {
+            $this->collectPath($files, $payload[$key] ?? null);
+        }
+        $this->collectPath($files, $task->target_path);
+
+        // Keys hold the deduped paths; values are the presence sentinel.
+        return array_keys($files);
+    }
+
+    /**
+     * @param  array<string,true>  $files
+     */
+    private function collectPath(array &$files, mixed $value): void
+    {
+        if (! is_string($value)) {
+            return;
+        }
+        $path = ltrim(trim($value), '/');
+        if ($path !== '') {
+            $files[$path] = true;
+        }
     }
 
     private function now(): int

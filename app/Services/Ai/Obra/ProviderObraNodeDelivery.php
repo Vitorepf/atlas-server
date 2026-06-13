@@ -120,6 +120,10 @@ final class ProviderObraNodeDelivery implements ObraNodeDelivery
             'files' => $files,
             'gate_receipt' => $gateReceipt,
             'provider' => is_string($result['provider'] ?? null) ? $result['provider'] : null,
+            // L4-10 — surface the engine model LABEL on the certified path too (was only
+            // on the blocked path) so the executor's self-stamped receipt records the
+            // real provider/model from observed delivery facts, not a hand-written claim.
+            'model' => is_string($result['model'] ?? null) ? $result['model'] : ($options['model'] ?? null),
         ];
     }
 

@@ -140,7 +140,37 @@ final class AtlasLoopObraBridgeTest extends TestCase
     private function writeRealL410Evidence(): void
     {
         File::ensureDirectoryExists(dirname($this->evidencePath));
-        File::put($this->evidencePath, json_encode([
+        File::put($this->evidencePath, json_encode($this->realL410Receipt(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+
+    /**
+     * The full L4-10 receipt: surrounding live run-evidence + the executor's SELF-STAMPED
+     * signed core (provenance-hardened, L4-10). Mirrors AtlasForgeMultiNodeL410ProofTest's
+     * green shape so the strict proof's verifyExecutorProvenance() passes (the gate added
+     * in L4-10 rejects hand-assembled evidence with no executor stamp).
+     *
+     * @return array<string,mixed>
+     */
+    private function realL410Receipt(): array
+    {
+        $files = $this->targetFiles();
+        $executorReceipt = (new \App\Services\Ai\Obra\AtlasObraReceiptStamp)->stamp([
+            'obra_id' => 'obra-l5-2-real-20260612',
+            'status' => 'done',
+            'certified' => true,
+            'node_count' => 6,
+            'delivered_nodes' => 6,
+            'provider' => 'hermes_cli',
+            'model' => 'gpt-5.5',
+            'resumed' => true,
+            'resume_count' => 1,
+            'main_untouched' => true,
+            'never_merged' => true,
+            'delivered_item_id' => 'L4-6',
+            'delivered_files' => $files,
+        ]);
+
+        return [
             'schema_version' => AtlasForgeMultiNodeL410ProofService::REAL_RECEIPT_SCHEMA_VERSION,
             'status' => 'done',
             'certified' => true,
@@ -154,7 +184,7 @@ final class AtlasLoopObraBridgeTest extends TestCase
                 'model' => 'gpt-5.5',
             ],
             'delivered_item_id' => 'L4-6',
-            'delivered_files' => $this->targetFiles(),
+            'delivered_files' => $files,
             'resumed' => true,
             'resume_count' => 1,
             'kill_resume' => [
@@ -165,7 +195,9 @@ final class AtlasLoopObraBridgeTest extends TestCase
             'command_results' => [
                 ['command' => 'php artisan atlas:loop:morning-digest --json', 'exit_code' => 0],
             ],
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            // L4-10 provenance-hardened core — the executor's own signed output.
+            'executor_receipt' => $executorReceipt,
+        ];
     }
 
     /**

@@ -42,6 +42,7 @@ final class AtlasLoopAutoMergeService
         private readonly AtlasLoopProposalMaterializer $materializer,
         private readonly \App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore $store,
         private readonly AtlasLoopImpactReceiptService $impactReceipts,
+        private readonly AtlasLoopMultiRepoMergeAuthority $repoAuthority,
     ) {}
 
     /**
@@ -51,8 +52,20 @@ final class AtlasLoopAutoMergeService
      */
     public function drain(string $repoRoot, int $limit = 10): array
     {
-        if (! (bool) config('atlas.ai.loop.auto_merge_to_main', false)) {
-            return $this->summary('disabled', [], 'auto_merge_to_main desligado (decisão do operador necessária)');
+        // L5-9: a PORTA É POR-REPO. O home repo segue governado por `auto_merge_to_main`;
+        // qualquer repo ESTRANGEIRO é never-merge default e só atravessa com a feature
+        // multi-repo ON + o caminho na allow-list do operador (fail-closed por construção).
+        $authority = $this->repoAuthority->authorize($repoRoot);
+        if (($authority['allowed'] ?? false) !== true) {
+            $status = $authority['scope'] === AtlasLoopMultiRepoMergeAuthority::SCOPE_HOME ? 'disabled' : 'blocked';
+            $note = $authority['scope'] === AtlasLoopMultiRepoMergeAuthority::SCOPE_HOME
+                ? 'auto_merge_to_main desligado (decisão do operador necessária)'
+                : 'repo estrangeiro sem porta governada: '.(string) ($authority['reason'] ?? 'foreign_repo_not_authorized');
+
+            return array_merge(
+                $this->summary($status, [], $note),
+                ['repo_authority' => $authority],
+            );
         }
         $repoRoot = rtrim($repoRoot, '/');
         if (! is_dir($repoRoot.'/.git')) {
@@ -63,7 +76,10 @@ final class AtlasLoopAutoMergeService
         // líquida MEDIDA for positiva; afogamento em quebra aperta o dial sozinho.
         $net = app(AtlasLoopNetDirectionGuard::class)->verdict();
         if ((bool) ($net['throttled'] ?? false)) {
-            return $this->summary('throttled', [], 'saldo líquido negativo medido: '.(string) ($net['reason'] ?? ''));
+            return array_merge(
+                $this->summary('throttled', [], 'saldo líquido negativo medido: '.(string) ($net['reason'] ?? '')),
+                ['repo_authority' => $authority],
+            );
         }
 
         $proposals = AtlasLoopProposal::query()
@@ -81,7 +97,10 @@ final class AtlasLoopAutoMergeService
 
         $merged = count(array_filter($results, static fn (array $r): bool => $r['merged']));
 
-        return $this->summary($merged > 0 ? 'merged' : 'no_merges', $results, null, $merged);
+        return array_merge(
+            $this->summary($merged > 0 ? 'merged' : 'no_merges', $results, null, $merged),
+            ['repo_authority' => $authority],
+        );
     }
 
     /**
@@ -111,6 +130,25 @@ final class AtlasLoopAutoMergeService
                 'status' => 'blocked',
                 'reason' => 'repo_root_not_a_git_tree',
                 'result' => null,
+            ];
+        }
+
+        // L5-9: a porta por-repo vale TAMBÉM no override do operador. Aprovar uma proposta
+        // parqueada é uma decisão humana explícita, mas um repo ESTRANGEIRO só atravessa se
+        // estiver REGISTRADO (multi-repo ON + na allow-list) — a aprovação de UMA proposta
+        // não vira autorização estrutural do repo. O home repo segue livre p/ override
+        // (comportamento existente do parked-review). Fail-closed para foreign não-registrado.
+        $authority = $this->repoAuthority->authorize($repoRoot);
+        if (
+            ($authority['scope'] ?? null) === AtlasLoopMultiRepoMergeAuthority::SCOPE_FOREIGN
+            && ($authority['allowed'] ?? false) !== true
+        ) {
+            return [
+                'schema_version' => self::SCHEMA_VERSION,
+                'status' => 'blocked',
+                'reason' => 'foreign_repo_not_registered:'.(string) ($authority['reason'] ?? 'foreign_repo_not_authorized'),
+                'result' => null,
+                'repo_authority' => $authority,
             ];
         }
 
@@ -320,6 +358,13 @@ final class AtlasLoopAutoMergeService
             // com claim SUBSTANTIVO (arquivo, commit, veredito do canário), nunca boilerplate.
             $this->accrueCompounding($proposal, $commit, $canary);
 
+            // L6-14: o merge REAL também alimenta o trust-ladder por-classe — é o feed de
+            // HISTÓRICO REAL que faltava para uma classe poder auto-ganhar confiança (ou
+            // perdê-la num canário vermelho). Gated (default OFF), evidence-only (chave = o
+            // commit SHA real), assimétrico (canário RED → revert) e best-effort: o merge já
+            // aconteceu e NUNCA depende disso. Não toca never-merge nem a porta de merge.
+            $this->feedTrustLadder($changed, $commit, $canary);
+
             return array_merge($base, [
                 'merged' => true,
                 'commit' => $commit,
@@ -386,6 +431,28 @@ final class AtlasLoopAutoMergeService
             ]);
         } catch (Throwable) {
             // accrual é best-effort; o merge não depende dele.
+        }
+    }
+
+    /**
+     * L6-14: feed the per-change-class trust ladder from this REAL merge outcome. This is
+     * the production HISTORY feed the capstone needed — without it the ladder log sits at
+     * entry_count=0 forever and no class can ever auto-green. Gated (default OFF) and
+     * best-effort: the merge already happened and never depends on this. The ladder method
+     * is structurally evidence-only (real commit SHA = the distinct ref) and asymmetric (a
+     * red canary records a revert that resets the class streak). Never touches never-merge
+     * or the merge gate; the class is derived from the real diff, never operator-claimed.
+     *
+     * @param  list<string>  $changed
+     * @param  array<string,mixed>  $canary
+     */
+    private function feedTrustLadder(array $changed, ?string $commit, array $canary): void
+    {
+        try {
+            app(\App\Services\Ai\Governance\AtlasChangeClassTrustLadder::class)
+                ->recordMergeOutcome($changed, $commit, $canary);
+        } catch (Throwable) {
+            // best-effort: the merge is already committed and never depends on the ladder feed.
         }
     }
 

@@ -68,5 +68,11 @@
              identity assertions are unaffected (guard tests set config explicitly). -->
         <env name="ATLAS_AI_CALL_COST_GUARD_SOFT_UNITS" value="0"/>
         <env name="ATLAS_AI_CALL_COST_GUARD_HARD_UNITS" value="0"/>
+        <!-- L6-14: the per-change-class trust ladder is ENABLED in dev/prod .env, and the
+             Loop auto-merge pipeline now feeds it from real merges. Pin the canonical
+             ledger to an isolated testing path so real-merge tests can NEVER pollute the
+             production ledger (storage/atlas/governance/change_class_trust.jsonl). Tests
+             that assert on the ledger override this with their own temp file. -->
+        <env name="ATLAS_TRUST_LADDER_LOG_PATH" value="storage/framework/testing/atlas-trust-ladder-testenv.jsonl"/>
     </php>
 </phpunit>

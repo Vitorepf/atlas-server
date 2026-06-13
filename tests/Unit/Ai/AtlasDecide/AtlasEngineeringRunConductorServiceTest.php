@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\AtlasDecide;
 
+use App\Models\AiCompoundingMemory;
 use App\Models\AiJob;
+use App\Models\AiRagFeedbackEvent;
+use App\Models\AiRunOutcome;
 use App\Services\Ai\AiContextPackBuilder;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiProviderHealthCheck;
@@ -19,6 +22,7 @@ use App\Services\Ai\AtlasDecide\AtlasConductorRoutingMemory;
 use App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService;
 use App\Services\Ai\Compounding\AtlasCompoundingMemoryService;
 use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
+use App\Services\Ai\Compounding\AtlasLearningRecallUseLiftService;
 use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
 use App\Services\Ai\Programming\Sdd\Compilers\SpecCritic;
@@ -616,6 +620,221 @@ class AtlasEngineeringRunConductorServiceTest extends TestCase
         $env = $conductor->run($this->work(), ['mode' => 'shadow', 'compound' => true]);
 
         $this->assertNull($env['compounding_record']);
+    }
+
+    /**
+     * L5-11 end-to-end FROZEN proof of the recall→use→passing-lift loop on the
+     * REAL compounding spine (no mocked runtime): a LIVE conductor run that
+     * recalled an active governed memory and passed must persist — via the
+     * existing RAG-feedback pipeline — a feedback row that marks that memory
+     * `used` in source_utility and links the run outcome. The live measurer
+     * (AtlasLearningRecallUseLiftService) then sees a real recall-use case and,
+     * against a baseline arm with no recall, reports positive measured lift.
+     * This is the single live producer that lets the lift count auto-fill as
+     * the loop runs — proving the mechanism, never minting the outcome.
+     */
+    public function test_live_recall_use_feeds_the_measured_recall_lift_loop_end_to_end(): void
+    {
+        $this->bootCompoundingSchema();
+        config([
+            'atlas.patamar4.swarm_production_resolver_enabled' => true,
+            'atlas.ai.loop.learning_recall_use_lift.enabled' => true,
+            'atlas.ai.loop.learning_recall_use_lift.min_cases_per_arm' => 1,
+            'atlas.ai.loop.learning_recall_use_lift.min_passing_memory_use' => 1,
+        ]);
+
+        // Real active governed memory scoped to the run's flow (task_category).
+        $memory = AiCompoundingMemory::query()->create([
+            'schema_version' => 'atlas.ai.compounding.memory.v1',
+            'learning_candidate_id' => null,
+            'memory_type' => 'routing_memory',
+            'scope' => 'engineering',
+            'flow_id' => 'code_generation',
+            'status' => 'active',
+            'claim' => 'Prefer deterministic kernels with explicit numeric guards for code_generation tasks.',
+            'confidence' => 90,
+            'evidence_refs' => ['receipt:l5-11-conductor'],
+            'revalidation_policy' => 'revalidate_on_failure_or_expiry',
+            'valid_until' => now()->addDays(7),
+            'last_revalidated_at' => now(),
+            'payload' => [],
+            'memory_hash' => hash('sha256', 'l5-11-conductor-memory'),
+        ]);
+
+        // Baseline arm: a passing run that recalled NO memory + a failing run.
+        // Both feed the lift service's "without recall" arm so the A/B is real.
+        $this->seedBaselineFeedback('l5-11-baseline-pass', 'passed', 70);
+        $this->seedBaselineFeedback('l5-11-baseline-fail', 'failed', 30);
+
+        // Real recall + real compounding runtime; only the swarm dispatch/exec
+        // is stubbed deterministically (no provider spend).
+        $fake = $this->fakeProvider(fn (): AiProviderResult => new AiProviderResult(true, 'real output', [], 0, 5, 'real output', ''));
+        $pr = new AtlasSwarmProductionResolverService($this->fakeManager($fake));
+        $conductor = new AtlasEngineeringRunConductorService(
+            $this->swarmConductor('ok', 'codex_cli'),
+            $this->executor(),
+            $pr,
+            null,
+            app(AtlasCompoundingMemoryService::class),
+            null,
+            null,
+            app(AtlasCompoundingRuntimeService::class),
+        );
+
+        $env = $conductor->run($this->work(), [
+            'mode' => 'live',
+            'operator_approved' => true,
+            'compound' => true,
+            'evidence_refs' => ['receipt:l5-11-live'],
+        ]);
+
+        // The run recalled the memory and recorded the recall-use attribution.
+        $this->assertSame(AtlasEngineeringRunConductorService::MODE_LIVE, $env['mode']);
+        $this->assertSame(1, $env['context_injection']['recalled_count']);
+        $this->assertTrue($env['compounding_record']['recorded']);
+        $this->assertTrue($env['compounding_record']['recall_use_attributed']);
+        $this->assertNotNull($env['compounding_record']['rag_feedback_id']);
+
+        // The persisted feedback row marks the recalled memory `used` and links
+        // the run outcome — provider-safe (hash/id only, no raw claim text).
+        $event = AiRagFeedbackEvent::query()->findOrFail($env['compounding_record']['rag_feedback_id']);
+        $this->assertSame('used', $event->source_utility['compounding_memory:'.$memory->memory_hash] ?? null);
+        $this->assertSame('passed', $event->outcome_status);
+        $this->assertNotNull($event->run_outcome_id);
+        $this->assertStringNotContainsString('deterministic kernels with explicit numeric guards', json_encode($event->source_utility, JSON_THROW_ON_ERROR));
+
+        // The live measurer now sees a real recall-use case and reports a
+        // positive A/B lift — the count auto-filled from a real run.
+        $report = app(AtlasLearningRecallUseLiftService::class)->report(minCases: 1, minPassingUse: 1);
+        $this->assertSame('positive_live_lift', $report['status']);
+        $this->assertTrue(data_get($report, 'claim_policy.completion_claim_allowed'));
+        $this->assertSame(1, data_get($report, 'measurement.with_recalled_memory.case_count'));
+        $this->assertGreaterThanOrEqual(1, data_get($report, 'measurement.without_recalled_memory.case_count'));
+        $this->assertGreaterThan(0.0, data_get($report, 'measurement.passed_rate_lift'));
+        $this->assertSame([], data_get($report, 'measurement.blockers'));
+
+        $this->dropCompoundingSchema();
+    }
+
+    /**
+     * Honesty guard: a passing LIVE run that recalled NO memory must NOT
+     * fabricate a recall-use signal. The baseline arm stays clean so the A/B
+     * lift can never be gamed by emitting `used` for runs that recalled nothing.
+     */
+    public function test_live_passing_run_without_recall_never_fabricates_a_recall_use_signal(): void
+    {
+        $this->bootCompoundingSchema();
+        config([
+            'atlas.patamar4.swarm_production_resolver_enabled' => true,
+            'atlas.ai.loop.learning_recall_use_lift.enabled' => true,
+        ]);
+
+        $fake = $this->fakeProvider(fn (): AiProviderResult => new AiProviderResult(true, 'real output', [], 0, 5, 'real output', ''));
+        $pr = new AtlasSwarmProductionResolverService($this->fakeManager($fake));
+        // No memory service -> nothing recalled.
+        $conductor = new AtlasEngineeringRunConductorService(
+            $this->swarmConductor('ok', 'codex_cli'),
+            $this->executor(),
+            $pr,
+            null,
+            null,
+            null,
+            null,
+            app(AtlasCompoundingRuntimeService::class),
+        );
+
+        $env = $conductor->run($this->work(), [
+            'mode' => 'live',
+            'operator_approved' => true,
+            'compound' => true,
+            'evidence_refs' => ['receipt:l5-11-norecall'],
+        ]);
+
+        $this->assertSame(0, $env['context_injection']['recalled_count']);
+        $this->assertTrue($env['compounding_record']['recorded']);
+        $this->assertFalse($env['compounding_record']['recall_use_attributed']);
+        $this->assertSame(0, $env['compounding_record']['recall_use_memory_count']);
+
+        // No feedback row carries a recall-use attribution.
+        $hasRecallUse = AiRagFeedbackEvent::query()->get()->contains(function (AiRagFeedbackEvent $event): bool {
+            foreach ((array) $event->source_utility as $key => $value) {
+                if (str_starts_with((string) $key, 'compounding_memory:') && $value === 'used') {
+                    return true;
+                }
+            }
+
+            return false;
+        });
+        $this->assertFalse($hasRecallUse, 'a run that recalled nothing must never emit a recall-use signal');
+
+        $this->dropCompoundingSchema();
+    }
+
+    private function bootCompoundingSchema(): void
+    {
+        $this->dropCompoundingSchema();
+        (require database_path('migrations/2026_05_17_180000_create_ai_compounding_engineering_intelligence_tables.php'))->up();
+        (require database_path('migrations/2026_05_19_030000_strengthen_rag_feedback_and_create_learning_proposals.php'))->up();
+    }
+
+    private function dropCompoundingSchema(): void
+    {
+        foreach ([
+            'ai_learning_proposals',
+            'ai_temporal_certifications',
+            'ai_benchmark_cases',
+            'ai_rag_feedback_events',
+            'ai_heuristic_updates',
+            'ai_compounding_memories',
+            'ai_learning_candidates',
+            'ai_run_outcomes',
+        ] as $table) {
+            \Illuminate\Support\Facades\Schema::dropIfExists($table);
+        }
+    }
+
+    private function seedBaselineFeedback(string $runId, string $status, int $quality): void
+    {
+        $outcome = AiRunOutcome::query()->create([
+            'schema_version' => 'atlas.ai.compounding.outcome.v1',
+            'run_id' => $runId,
+            'trace_id' => null,
+            'flow_id' => 'code_generation',
+            'outcome_status' => $status,
+            'flow_quality' => $quality,
+            'retrieval_quality' => $quality,
+            'execution_quality' => $quality,
+            'evidence_quality' => $quality,
+            'human_override' => false,
+            'learning_required' => true,
+            'missed_signals' => [],
+            'evidence_refs' => ['receipt:'.$runId],
+            'payload' => [],
+            'outcome_hash' => hash('sha256', 'outcome-'.$runId),
+            'evaluated_at' => now(),
+        ]);
+
+        AiRagFeedbackEvent::query()->create([
+            'schema_version' => 'atlas.ai.rag.feedback.v1',
+            'retrieval_receipt_id' => 'retr-'.$runId,
+            'flow_id' => 'code_generation',
+            'query_plan_hash' => hash('sha256', 'query-'.$runId),
+            'included_sources' => 1,
+            'used_sources' => 1,
+            'noise_sources' => $status === 'passed' ? 0 : 2,
+            'missed_required_sources' => [],
+            'context_sufficiency' => $quality,
+            'post_execution_utility' => $quality,
+            'source_utility' => ['docs/baseline-'.$runId.'.md' => 'useful'],
+            'outcome_status' => $status,
+            'failure_reason' => $status === 'passed' ? null : 'fixture_failure',
+            'next_retrieval_hint' => null,
+            'memory_candidate_id' => null,
+            'learning_proposal_id' => null,
+            'run_outcome_id' => $outcome->id,
+            'payload' => [],
+            'feedback_hash' => hash('sha256', 'feedback-'.$runId),
+        ]);
     }
 
     public function test_live_run_delivers_code_via_the_routed_provider_when_opted_in(): void

@@ -7,6 +7,7 @@ namespace App\Services\Ai\AtlasDecide;
 use App\Services\Ai\AiContextPackBuilder;
 use App\Services\Ai\Compounding\AtlasCompoundingMemoryService;
 use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
+use App\Services\Ai\Compounding\AtlasRagFeedbackService;
 use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
 use App\Services\Ai\Programming\Sdd\Compilers\SpecCritic;
 use App\Services\Ai\RealExecution\AtlasLiveCodeDeliveryService;
@@ -75,6 +76,17 @@ final class AtlasEngineeringRunConductorService
 
     public const LIVE_FLAG = 'atlas.patamar4.swarm_production_resolver_enabled';
 
+    /**
+     * L6-10: gate that wires the SHARED topology selector into the live dispatch.
+     * Default OFF, fail-open. When ON and the caller supplied no explicit plan,
+     * the conductor auto-composes the topology-by-task-type plan-DAG and routes
+     * the dispatch through the SAME governed runPlan() path the operator-authored
+     * plan uses (Constitutional Kernel + Autonomy Admission per node + whole-plan
+     * pre-gate). It changes ORDERING/SHAPE of existing dispatch nodes only —
+     * never the sovereignty mode guard, never provider spend on its own.
+     */
+    public const TOPOLOGY_LIVE_ROUTING_FLAG = 'atlas.patamar4.swarm_topology_live_routing_enabled';
+
     public function __construct(
         private readonly AtlasSwarmConductorService $conductor,
         private readonly AtlasSwarmExecutorService $executor,
@@ -86,6 +98,7 @@ final class AtlasEngineeringRunConductorService
         private readonly ?AtlasCompoundingRuntimeService $compoundingRuntime = null,
         private readonly ?AtlasLiveCodeDeliveryService $codeDelivery = null,
         private readonly ?AtlasConductorRoutingMemory $routingMemory = null,
+        private readonly ?AtlasSwarmTopologySelector $topologySelector = null,
     ) {}
 
     /**
@@ -107,9 +120,30 @@ final class AtlasEngineeringRunConductorService
 
         // 0.6 Authored plan-DAG (opt-in) — the conductor executes a bounded, governed
         //     ordering of existing dispatch nodes. Absent $options['plan'] the
-        //     single-dispatch path below is byte-for-byte unchanged.
+        //     single-dispatch path below is byte-for-byte unchanged. An operator
+        //     authored plan ALWAYS wins over the auto-composed topology below.
         if (isset($options['plan']) && is_array($options['plan'])) {
             return $this->runPlan($options['plan'], $work, $options, $generatedAt, $requestedMode);
+        }
+
+        // 0.65 L6-10 — auto-composed topology routing (flag-gated, default OFF,
+        //     fail-open). When ON and the caller authored NO plan, the SHARED
+        //     {@see AtlasSwarmTopologySelector} picks the topology by task type and
+        //     composes a bounded plan-DAG, which the conductor then drives through
+        //     the SAME governed runPlan() path (per-node Kernel + Admission + the
+        //     whole-plan pre-gate). The selection records provenance on the
+        //     envelope so the receipt proves WHICH topology drove the live dispatch
+        //     — this is the wiring that takes the composer out of shadow_only.
+        $autoTopology = $this->maybeAutoComposeTopology($work, $options);
+        if ($autoTopology !== null) {
+            return $this->runPlan(
+                $autoTopology['plan'],
+                $work,
+                $options,
+                $generatedAt,
+                $requestedMode,
+                $autoTopology,
+            );
         }
 
         // 0.5 Learned auto-routing — when the operator gave no provider, consult
@@ -184,7 +218,7 @@ final class AtlasEngineeringRunConductorService
         // 7. Close the compounding loop (LIVE-only, opt-in) — feed the real run
         //    outcome to the existing compounding pipeline so it learns. NEVER on
         //    SHADOW (a planned outcome must not pollute the learning system).
-        $compoundingRecord = $this->maybeRecordCompounding($mode, $status, $execution, $work, $evidenceRefs, $options);
+        $compoundingRecord = $this->maybeRecordCompounding($mode, $status, $execution, $work, $evidenceRefs, $options, $recalled);
 
         // 8. Real code delivery (LIVE-only, opt-in) — the routed winner provider
         //    produces a syntax-verified artifact in an isolated sandbox,
@@ -561,11 +595,11 @@ final class AtlasEngineeringRunConductorService
      * @param  array<string,mixed>  $options
      * @return array<string,mixed>
      */
-    private function runPlan(array $plan, array $work, array $options, string $generatedAt, string $requestedMode): array
+    private function runPlan(array $plan, array $work, array $options, string $generatedAt, string $requestedMode, ?array $autoTopology = null): array
     {
         $gate = app(AtlasConductorPlanGate::class)->validate($plan, $work);
         if (! $gate['ok']) {
-            return $this->planEnvelope($generatedAt, $requestedMode, $work, self::STATUS_PLAN_BLOCKED, [], $gate);
+            return $this->planEnvelope($generatedAt, $requestedMode, $work, self::STATUS_PLAN_BLOCKED, [], $gate, $autoTopology);
         }
 
         // SHADOW resolver: deterministic per-node planned winner, no provider spend.
@@ -610,16 +644,67 @@ final class AtlasEngineeringRunConductorService
             ];
         }
 
-        return $this->planEnvelope($generatedAt, $requestedMode, $work, self::STATUS_EXECUTED, $trace, $gate);
+        return $this->planEnvelope($generatedAt, $requestedMode, $work, self::STATUS_EXECUTED, $trace, $gate, $autoTopology);
+    }
+
+    /**
+     * L6-10 — flag-gated topology auto-composition for the live dispatch. Returns
+     * the chosen topology + composed plan-DAG ONLY when:
+     *   - the live-routing flag is ON (default OFF, fail-open on any config error),
+     *   - the shared selector is wired, and
+     *   - the caller authored no explicit plan (already handled above).
+     * Otherwise returns null and the byte-for-byte default single-dispatch path is
+     * untouched. This never escalates the sovereignty mode guard — the composed
+     * plan runs SHADOW-or-LIVE exactly as the existing runPlan() decides.
+     *
+     * @param  array<string,mixed>  $work
+     * @param  array<string,mixed>  $options
+     * @return array{topology:string,plan:array{nodes:list<array<string,mixed>>},source:string}|null
+     */
+    private function maybeAutoComposeTopology(array $work, array $options): ?array
+    {
+        if ($this->topologySelector === null) {
+            return null;
+        }
+        // Explicit opt-out wins even when the flag is ON (lets a caller force the
+        // legacy single-dispatch path without flipping the global flag).
+        if (($options['topology_auto_compose'] ?? null) === false) {
+            return null;
+        }
+        if (! $this->topologyLiveRoutingEnabled()) {
+            return null;
+        }
+        $taskCategory = trim((string) ($work['task_category'] ?? ''));
+        if ($taskCategory === '') {
+            return null;
+        }
+
+        $composed = $this->topologySelector->composeForTaskCategory($taskCategory);
+        $plan = $composed['plan'];
+        if (! is_array($plan['nodes'] ?? null) || $plan['nodes'] === []) {
+            return null; // fail-open: a malformed composition never breaks the run
+        }
+
+        return [
+            'topology' => (string) $composed['topology'],
+            'plan' => $plan,
+            'source' => 'auto_composed_by_task_type',
+        ];
+    }
+
+    private function topologyLiveRoutingEnabled(): bool
+    {
+        return function_exists('config') && (bool) config(self::TOPOLOGY_LIVE_ROUTING_FLAG, false);
     }
 
     /**
      * @param  array<string,mixed>  $work
      * @param  list<array<string,mixed>>  $trace
      * @param  array<string,mixed>  $gate
+     * @param  array{topology:string,plan:array<string,mixed>,source:string}|null  $autoTopology
      * @return array<string,mixed>
      */
-    private function planEnvelope(string $generatedAt, string $requestedMode, array $work, string $status, array $trace, array $gate): array
+    private function planEnvelope(string $generatedAt, string $requestedMode, array $work, string $status, array $trace, array $gate, ?array $autoTopology = null): array
     {
         $env = [
             'schema_version' => self::ENVELOPE_SCHEMA,
@@ -644,6 +729,15 @@ final class AtlasEngineeringRunConductorService
                 'node_count' => count($trace),
                 'blocked_reason' => $gate['reason'] ?? null,
                 'nodes' => $trace,
+            ],
+            // L6-10 provenance: present ONLY when the live-routing flag drove this
+            // dispatch through the auto-composed topology. Proves WHICH topology
+            // was selected for this task type — the receipt the spec asks for.
+            'topology_routing' => $autoTopology === null ? null : [
+                'schema_version' => 'atlas.engineering_run.topology_routing.v1',
+                'topology' => (string) ($autoTopology['topology'] ?? ''),
+                'source' => (string) ($autoTopology['source'] ?? ''),
+                'live_routing_enabled' => true,
             ],
             'compounding_candidate' => null,
             'claim_policy' => [
@@ -695,9 +789,10 @@ final class AtlasEngineeringRunConductorService
      * @param  array<string,mixed>  $work
      * @param  list<string>  $evidenceRefs
      * @param  array<string,mixed>  $options
+     * @param  list<array<string,mixed>>  $recalled
      * @return array<string,mixed>|null
      */
-    private function maybeRecordCompounding(string $mode, string $status, ?array $execution, array $work, array $evidenceRefs, array $options): ?array
+    private function maybeRecordCompounding(string $mode, string $status, ?array $execution, array $work, array $evidenceRefs, array $options, array $recalled = []): ?array
     {
         if ($this->compoundingRuntime === null
             || $mode !== self::MODE_LIVE
@@ -716,10 +811,19 @@ final class AtlasEngineeringRunConductorService
             $taskCategory = (string) ($work['task_category'] ?? 'engineering_run');
             $taskInput = trim((string) ($work['input'] ?? $taskCategory));
             $provider = (string) ($winner['provider'] ?? 'unknown_provider');
-            $result = $this->compoundingRuntime->recordExecution([
+            $runId = (string) ($execution['dispatch_id'] ?? '');
+            // L5-11: when a governed memory was recalled into the prompt of a
+            // PASSING LIVE run, attribute it as actually USED via the existing
+            // RAG-feedback spine (provider-safe ids/hashes only — never raw
+            // memory text). This is the single live producer that lets
+            // AtlasLearningRecallUseLiftService measure recall→use→passing lift;
+            // the live count auto-fills as the loop runs. No new table, no
+            // auto-promote — the feedback row is read-only evidence.
+            $recallUse = $this->recallUseRagFeedback($recalled, $taskCategory, $runId, $confidence);
+            $recordInput = [
                 'outcome_status' => 'passed',
                 'flow_id' => $taskCategory,
-                'run_id' => (string) ($execution['dispatch_id'] ?? ''),
+                'run_id' => $runId,
                 'evidence_refs' => $evidenceRefs,
                 'execution_quality' => is_numeric($quality) ? max(0.0, min(100.0, (float) $quality * 100)) : null,
                 'learning_signal' => [
@@ -736,16 +840,78 @@ final class AtlasEngineeringRunConductorService
                     'provider' => $winner['provider'] ?? null,
                     'model' => $winner['model'] ?? null,
                 ],
-            ]);
+            ];
+            if ($recallUse !== null) {
+                $recordInput['rag_feedback'] = $recallUse;
+            }
+            $result = $this->compoundingRuntime->recordExecution($recordInput);
 
             return [
                 'recorded' => true,
                 'learning_candidate_status' => $result['learning_candidate']['status'] ?? null,
                 'compounding_memory_id' => $result['compounding_memory']['id'] ?? null,
+                'recall_use_attributed' => $recallUse !== null,
+                'recall_use_memory_count' => $recallUse === null ? 0 : count((array) ($recallUse['source_utility'] ?? [])),
+                'rag_feedback_id' => $result['rag_feedback']['id'] ?? null,
             ];
         } catch (\Throwable) {
             return ['recorded' => false, 'error' => 'compounding_record_failed'];
         }
+    }
+
+    /**
+     * L5-11 recall→use attribution. Builds a provider-safe RAG feedback block
+     * that marks each governed memory recalled into a PASSING run's prompt as
+     * actually `used` in `source_utility`, keyed by both the canonical
+     * `compounding_memory:<hash>` form and the bare id/hash the lift service
+     * also recognises. Provider-safe by construction: only memory ids/hashes
+     * are emitted — never the recalled claim text. Returns null when nothing
+     * was recalled, so a run with no memory recall never fabricates a use
+     * signal (keeps the A/B baseline arm honest).
+     *
+     * @param  list<array<string,mixed>>  $recalled
+     * @return array<string,mixed>|null
+     */
+    private function recallUseRagFeedback(array $recalled, string $flowId, string $runId, int $confidence): ?array
+    {
+        $sourceUtility = [];
+        foreach ($recalled as $memory) {
+            if (! is_array($memory)) {
+                continue;
+            }
+            foreach ([$memory['memory_hash'] ?? null, $memory['memory_id'] ?? null] as $value) {
+                if (! is_scalar($value)) {
+                    continue;
+                }
+                $value = trim((string) $value);
+                if ($value === '') {
+                    continue;
+                }
+                // Canonical prefixed key (what --memory-ref records) plus the
+                // bare value the lift service's memoryKeys() also matches.
+                $sourceUtility['compounding_memory:'.$value] = 'used';
+                $sourceUtility[$value] = 'used';
+            }
+        }
+
+        if ($sourceUtility === []) {
+            return null;
+        }
+
+        $usedRefCount = count($sourceUtility);
+
+        return [
+            'schema_version' => AtlasRagFeedbackService::SCHEMA_VERSION,
+            'retrieval_receipt_id' => 'recall-use:'.($runId !== '' ? $runId : substr(hash('sha256', $flowId.'|'.implode('|', array_keys($sourceUtility))), 0, 24)),
+            'flow_id' => $flowId,
+            'outcome_status' => 'passed',
+            'included_sources' => $usedRefCount,
+            'used_sources' => $usedRefCount,
+            'noise_sources' => 0,
+            'context_sufficiency' => max(0, min(100, $confidence)),
+            'post_execution_utility' => max(0, min(100, $confidence)),
+            'source_utility' => $sourceUtility,
+        ];
     }
 
     /**

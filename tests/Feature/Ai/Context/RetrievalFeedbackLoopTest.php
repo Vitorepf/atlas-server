@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Context;
 
+use App\Models\AiCompoundingMemory;
 use App\Models\AiRagFeedbackEvent;
+use App\Models\AiRunOutcome;
+use App\Services\Ai\Compounding\AtlasLearningRecallUseLiftService;
 use App\Services\Ai\Context\AtlasRetrievalFeedbackLoopService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
@@ -191,11 +194,105 @@ final class RetrievalFeedbackLoopTest extends TestCase
         $this->assertFalse(data_get($payload, 'claims.writes'));
     }
 
+    public function test_command_records_used_memory_ref_and_run_outcome_for_recall_lift_measurement(): void
+    {
+        config([
+            'atlas.ai.loop.learning_recall_use_lift.enabled' => true,
+            'atlas.ai.loop.learning_recall_use_lift.min_cases_per_arm' => 1,
+            'atlas.ai.loop.learning_recall_use_lift.min_passing_memory_use' => 1,
+        ]);
+
+        $memory = AiCompoundingMemory::query()->create([
+            'schema_version' => 'atlas.ai.compounding.memory.v1',
+            'learning_candidate_id' => null,
+            'memory_type' => 'routing_memory',
+            'scope' => 'atlas-server',
+            'flow_id' => 'atlas_dev',
+            'status' => 'active',
+            'claim' => 'Prefer recorded recall-use feedback for certified Atlas Dev tasks.',
+            'confidence' => 92,
+            'evidence_refs' => ['receipt:l5-11-command-path'],
+            'revalidation_policy' => 'revalidate_on_failure_or_expiry',
+            'valid_until' => now()->addDays(7),
+            'last_revalidated_at' => now(),
+            'payload' => [],
+            'memory_hash' => hash('sha256', 'l5-11-command-memory'),
+        ]);
+
+        $passingOutcome = $this->runOutcome('l5-11-with-recall', 'atlas_dev', 'passed', 92);
+        $failedOutcome = $this->runOutcome('l5-11-baseline', 'atlas_dev', 'failed', 40);
+
+        $exit = Artisan::call('atlas:context:retrieval-feedback', [
+            '--query' => 'l5-11 certified task used active compounding recall',
+            '--task-type' => 'debug',
+            '--domain' => 'atlas_dev',
+            '--outcome' => 'passed',
+            '--memory-ref' => [$memory->memory_hash],
+            '--run-outcome-id' => $passingOutcome->id,
+            '--utility' => '92',
+            '--record' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertTrue(data_get($payload, 'persistence.persisted'));
+
+        $baselineExit = Artisan::call('atlas:context:retrieval-feedback', [
+            '--query' => 'l5-11 certified task baseline without compounding recall',
+            '--task-type' => 'debug',
+            '--domain' => 'atlas_dev',
+            '--outcome' => 'failed',
+            '--run-outcome-id' => $failedOutcome->id,
+            '--utility' => '40',
+            '--record' => true,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $baselineExit);
+        $this->assertSame(2, AiRagFeedbackEvent::query()->count());
+
+        $event = AiRagFeedbackEvent::query()
+            ->where('run_outcome_id', $passingOutcome->id)
+            ->firstOrFail();
+        $this->assertSame('used', $event->source_utility['compounding_memory:'.$memory->memory_hash] ?? null);
+
+        $report = app(AtlasLearningRecallUseLiftService::class)->report(minCases: 1, minPassingUse: 1);
+
+        $this->assertSame('positive_live_lift', $report['status']);
+        $this->assertTrue(data_get($report, 'claim_policy.completion_claim_allowed'));
+        $this->assertSame(1, data_get($report, 'measurement.with_recalled_memory.case_count'));
+        $this->assertSame(1, data_get($report, 'measurement.without_recalled_memory.case_count'));
+        $this->assertSame(1.0, data_get($report, 'measurement.passed_rate_lift'));
+    }
+
     private function bootCompoundingSchema(): void
     {
         $this->dropCompoundingSchema();
         (require database_path('migrations/2026_05_17_180000_create_ai_compounding_engineering_intelligence_tables.php'))->up();
         (require database_path('migrations/2026_05_19_030000_strengthen_rag_feedback_and_create_learning_proposals.php'))->up();
+    }
+
+    private function runOutcome(string $runId, string $flowId, string $status, int $quality): AiRunOutcome
+    {
+        return AiRunOutcome::query()->create([
+            'schema_version' => 'atlas.ai.compounding.outcome.v1',
+            'run_id' => $runId,
+            'trace_id' => null,
+            'flow_id' => $flowId,
+            'outcome_status' => $status,
+            'flow_quality' => $quality,
+            'retrieval_quality' => $quality,
+            'execution_quality' => $quality,
+            'evidence_quality' => $quality,
+            'human_override' => false,
+            'learning_required' => true,
+            'missed_signals' => [],
+            'evidence_refs' => ['receipt:'.$runId],
+            'payload' => [],
+            'outcome_hash' => hash('sha256', 'outcome-'.$runId),
+            'evaluated_at' => now(),
+        ]);
     }
 
     private function dropCompoundingSchema(): void

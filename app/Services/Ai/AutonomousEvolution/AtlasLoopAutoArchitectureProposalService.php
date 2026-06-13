@@ -68,6 +68,18 @@ final class AtlasLoopAutoArchitectureProposalService
         }
 
         $operatorReviewRecorded = $operatorReview !== null;
+        // Anti-over-claim: the operator review only counts toward the L6-4
+        // completion claim when the STRUCTURAL ADMISSION GATE itself recognized
+        // the operator signature. The gate is the authority, not a self-asserted
+        // flag — a review string that never threads into admission (e.g. a future
+        // wiring regression) must NOT be enough to claim completion.
+        $operatorSignatureGateAccepted = is_array($admission)
+            && (bool) ($admission['operator_signature'] ?? false) === true
+            && ! in_array(
+                ArchitectureEvolutionProposalAdmissionService::BLOCKER_MISSING_OPERATOR_SIGNATURE,
+                (array) ($admission['blockers'] ?? []),
+                true,
+            );
         $status = $this->status($blockers, $created);
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -91,6 +103,7 @@ final class AtlasLoopAutoArchitectureProposalService
             'operator_review' => [
                 'recorded' => $operatorReviewRecorded,
                 'required_for_l6_4_completion' => true,
+                'admission_gate_accepted_operator_signature' => $operatorSignatureGateAccepted,
                 'review_hash' => $operatorReviewRecorded ? hash('sha256', $operatorReview) : null,
                 'review_excerpt' => $operatorReviewRecorded ? mb_substr($operatorReview, 0, 160) : null,
             ],
@@ -108,10 +121,19 @@ final class AtlasLoopAutoArchitectureProposalService
                 'proposal_backlog_write_requested' => $createProposal,
                 'proposal_backlog_written' => is_array($created) && (bool) ($created['proposal_available'] ?? false),
                 'operator_review_recorded' => $operatorReviewRecorded,
+                'admission_gate_accepted_operator_signature' => $operatorSignatureGateAccepted,
+                // The L6-4 DoD ("1 refactor estrutural proposto a partir de
+                // metrica de grafo, revisado pelo operador") is claimable ONLY
+                // when: a real code-graph hotspot was selected (top), a backlog
+                // draft is actually parked, an operator review string was
+                // recorded, AND the structural admission gate itself recognized
+                // the operator signature. The gate is the source of truth — a
+                // self-asserted review flag alone can never unlock the claim.
                 'completion_claim_allowed' => is_array($top)
                     && is_array($created)
                     && (bool) ($created['proposal_available'] ?? false)
-                    && $operatorReviewRecorded,
+                    && $operatorReviewRecorded
+                    && $operatorSignatureGateAccepted,
             ],
         ];
 

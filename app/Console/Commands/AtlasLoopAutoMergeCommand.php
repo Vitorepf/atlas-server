@@ -34,6 +34,14 @@ class AtlasLoopAutoMergeCommand extends Command
 
         $this->components->twoColumnDetail('Auto-merge', (string) $result['status']);
         $this->components->twoColumnDetail('Merged to main', (string) $result['merged_count']);
+        // L5-9: torna a decisão da porta por-repo visível (home vs foreign + porquê).
+        if (is_array($result['repo_authority'] ?? null)) {
+            $auth = $result['repo_authority'];
+            $this->components->twoColumnDetail(
+                'Repo door',
+                (string) ($auth['scope'] ?? '?').' ('.(string) ($auth['reason'] ?? '?').')',
+            );
+        }
         foreach ($result['results'] as $r) {
             $line = $r['merged']
                 ? '✅ '.$r['target_path'].' → '.substr((string) $r['commit'], 0, 10)

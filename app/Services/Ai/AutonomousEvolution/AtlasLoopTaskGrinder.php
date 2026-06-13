@@ -8,6 +8,7 @@ use App\Models\AtlasLoopTask;
 use App\Services\Ai\AutonomousEvolution\Framework\AtlasLoopFrameworkMaterializer;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopRunPersister;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
+use App\Services\Ai\Cognitive\PredictiveFailure\AtlasLoopPredictiveOutcomeBridge;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use RuntimeException;
 use Symfony\Component\Process\Process;
@@ -37,6 +38,7 @@ final class AtlasLoopTaskGrinder
         private readonly AtlasLoopSemanticImplementationCertifier $semanticCertifier,
         private readonly AtlasLoopIntentVerifierFactory $intentVerifierFactory,
         private readonly AtlasLoopExplorerStrategyBanditService $strategyBandit,
+        private readonly AtlasLoopPredictiveOutcomeBridge $predictiveBridge,
     ) {}
 
     /**
@@ -112,7 +114,7 @@ final class AtlasLoopTaskGrinder
             $summary = $this->persister->persist($task, $workerId, $result);
             $cleanup();
 
-            return [
+            $grindResult = [
                 'status' => $summary['has_winner'] ? 'winner' : 'no_winner',
                 'has_winner' => $summary['has_winner'],
                 'proposals' => $summary['proposals'],
@@ -122,12 +124,42 @@ final class AtlasLoopTaskGrinder
                 'cost_cents' => (int) ($summary['cost_cents'] ?? 0),
                 'tokens_used' => $summary['tokens_used'] ?? null,
             ];
+
+            // L6-11: record a real prediction + observed outcome for this grind so the
+            // predictive calibration surface computes brier on live loop data. Fail-open
+            // + flag-gated default-OFF inside the bridge — never crashes a grind.
+            $this->recordPredictiveOutcome($task, $grindResult);
+
+            return $grindResult;
         } catch (Throwable $e) {
             $cleanup();
             // Infra failure (not a no-winner) — mark failed, lease-checked; counters untouched.
             $this->store->completeTask($task->id, $workerId, ['error' => mb_substr($e->getMessage(), 0, 400)], false);
 
-            return ['status' => 'failed', 'reason' => mb_substr($e->getMessage(), 0, 200), 'has_winner' => false, 'proposals' => 0, 'scenarios_explored' => 0, 'elapsed_seconds' => (int) ceil(microtime(true) - $started)];
+            $grindResult = ['status' => 'failed', 'reason' => mb_substr($e->getMessage(), 0, 200), 'has_winner' => false, 'proposals' => 0, 'scenarios_explored' => 0, 'elapsed_seconds' => (int) ceil(microtime(true) - $started)];
+            $this->recordPredictiveOutcome($task, $grindResult);
+
+            return $grindResult;
+        }
+    }
+
+    /**
+     * L6-11 seam: hand the terminal grind outcome to the predictive bridge. The bridge
+     * is flag-gated (default OFF), fail-open, and writes telemetry only. This wrapper
+     * adds a final fail-open shell so even an unexpected bridge construction issue can
+     * never escape the grind.
+     *
+     * @param  array<string,mixed>  $grindResult
+     */
+    private function recordPredictiveOutcome(AtlasLoopTask $task, array $grindResult): void
+    {
+        try {
+            $this->predictiveBridge->recordGrind($grindResult, [
+                'objective' => (string) $task->objective,
+                'target_path' => (string) $task->target_path,
+            ]);
+        } catch (Throwable) {
+            // Telemetry must never crash a grind.
         }
     }
 
@@ -162,6 +194,9 @@ final class AtlasLoopTaskGrinder
             'status' => (string) ($decision['status'] ?? 'unknown'),
             'applied' => (bool) ($decision['applied'] ?? false),
             'target_type' => (string) ($decision['target_type'] ?? ''),
+            'scenario_count' => isset($decision['scenario_count']) ? (int) $decision['scenario_count'] : null,
+            'applied_scenario_count' => isset($decision['applied_scenario_count']) ? (int) $decision['applied_scenario_count'] : null,
+            'proven_order' => array_values((array) ($decision['proven_order'] ?? [])),
             'selected_strategy_keys' => array_values((array) ($decision['selected_strategy_keys'] ?? [])),
             'baseline_strategy_keys' => array_values((array) ($decision['baseline_strategy_keys'] ?? [])),
             'distribution_changed' => (bool) ($decision['distribution_changed'] ?? false),

@@ -260,7 +260,7 @@ final class AtlasRetrievalFeedbackLoopService
             'missed_required_sources' => array_values(array_map(static fn (array $item): string => (string) $item['source_type'], $missed)),
             'context_sufficiency' => (int) ($roi['context_sufficiency'] ?? 0),
             'post_execution_utility' => (int) ($roi['post_execution_utility'] ?? 0),
-            'source_utility' => $this->sourceUtility((array) data_get($gate, 'freshness_report.items', []), $noise),
+            'source_utility' => $this->sourceUtility((array) data_get($gate, 'freshness_report.items', []), $noise, $input),
             'failure_reason' => $this->failureReason($input, $outcomeStatus, $missed, $noise),
         ];
     }
@@ -367,7 +367,7 @@ final class AtlasRetrievalFeedbackLoopService
      * @param  array<int,array<string,mixed>>  $noise
      * @return array<string,string>
      */
-    private function sourceUtility(array $items, array $noise): array
+    private function sourceUtility(array $items, array $noise, array $input = []): array
     {
         $noiseHashes = $this->itemStringColumn($noise, 'source_ref_hash');
         $utility = [];
@@ -378,6 +378,24 @@ final class AtlasRetrievalFeedbackLoopService
                 continue;
             }
             $utility[$hash] = in_array($hash, $noiseHashes, true) ? 'noise' : 'useful';
+        }
+
+        foreach ($this->inputContextRefEntries($input['used_context_refs'] ?? [], 'explicit_used') as $entry) {
+            $ref = (string) ($entry['ref'] ?? '');
+            if ($ref !== '') {
+                $utility[$ref] = 'used';
+            }
+        }
+
+        foreach ($this->scalarStringList($input['used_ref_hashes'] ?? []) as $hash) {
+            $utility[$hash] = 'used';
+        }
+
+        foreach ($this->inputContextRefEntries($input['noise_context_refs'] ?? [], 'explicit_noise') as $entry) {
+            $ref = (string) ($entry['ref'] ?? '');
+            if ($ref !== '') {
+                $utility[$ref] = 'noise';
+            }
         }
 
         return $utility;

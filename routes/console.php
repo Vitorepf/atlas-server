@@ -61,6 +61,21 @@ Schedule::command('atlas:failure:auto-feed --json')
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas.ai.failure_auto_feed.enabled', false));
 
+// L5-3 — auto-cura da suíte real: grava SEMANALMENTE o snapshot do número REAL de
+// testes vermelhos (derivado do último relatório real) por ISO-week. É a fonte-de-verdade
+// do trend que destrava o claim L5-3 (gate exige ≥2 semanas REAIS caindo). Observe-only:
+// só mede e persiste, nunca corrige/quarentena. Idempotente por semana. Gated default-OFF.
+Schedule::command('atlas:failure:weekly-red-snapshot --json')
+    ->weeklyOn(
+        match (mb_strtolower((string) config('atlas.ai.suite_red_snapshot.schedule_day', 'monday'))) {
+            'sunday' => 0, 'tuesday' => 2, 'wednesday' => 3, 'thursday' => 4, 'friday' => 5, 'saturday' => 6,
+            default => 1,
+        },
+        (string) config('atlas.ai.suite_red_snapshot.schedule_time', '06:30'),
+    )
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.ai.suite_red_snapshot.schedule_enabled', false));
+
 // Hermes Capability Registry drift capture: probe the local Hermes daily and persist the manifest +
 // quarantined CapabilityCandidates (read-only; never enables a capability). Gated off by default so it
 // runs only when the operator opts in — this is the "Atlas auto-detects Hermes changes" heartbeat.
@@ -167,6 +182,26 @@ Schedule::command('atlas:cognition:predictive-code-intelligence-gate --write-rec
     ->when(static fn (): bool => (bool) config('atlas.cognition.predictive_code_intelligence_gate.enabled', true)
         && (bool) config('atlas.cognition.predictive_code_intelligence_gate.schedule_enabled', true));
 
+// L6-11 follow-up · Daily predictive-failure calibration recompute. The loop predictive
+// outcome bridge (atlas.loop.predictive_outcome_bridge) feeds real grind predictions+outcomes
+// into predictive_failure_insertions, but the calibration metrics only recompute on demand
+// (atlas:predict metrics / the gate above in live mode). This refreshes the
+// predictive_failure_calibration_metrics read-model daily for the SAME domain the bridge
+// writes, so dashboards/digests stay fresh without waiting for a gate run. It is read-only
+// telemetry rollup — no code, proposal, or merge. DEFAULT OFF and gated on the bridge being
+// ON too: with no bridge data there is nothing to summarize.
+$predictiveCalibrationRecomputeCommand = sprintf(
+    'atlas:predict metrics --domain=%s --window=%d --json',
+    (string) config('atlas.loop.predictive_outcome_bridge.domain', 'programming'),
+    max(1, (int) config('atlas.loop.predictive_outcome_bridge.metrics_recompute.window_days', 60)),
+);
+Schedule::command($predictiveCalibrationRecomputeCommand)
+    ->dailyAt((string) config('atlas.loop.predictive_outcome_bridge.metrics_recompute.schedule_time', '07:45'))
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.loop.predictive_outcome_bridge.enabled', false)
+        && (bool) config('atlas.loop.predictive_outcome_bridge.metrics_recompute.enabled', false)
+        && (bool) config('atlas.loop.predictive_outcome_bridge.metrics_recompute.schedule_enabled', true));
+
 // L6-12 · Long-horizon continuity pack. Explicitly writes a provider-safe
 // continuation pack + replay manifest, then certifies through the read-only gate.
 Schedule::command('atlas:long-horizon:continuity-pack --strict-replay --write-receipt --json')
@@ -174,6 +209,17 @@ Schedule::command('atlas:long-horizon:continuity-pack --strict-replay --write-re
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas.long_horizon.continuity_pack_emitter.enabled', true)
         && (bool) config('atlas.long_horizon.continuity_pack_emitter.schedule_enabled', true));
+
+// L6-12 keystone · Cross-week recall-lift gate. Reads the REAL persisted
+// continuation packs and proves the temporal DoD (old-memory recall lifting a
+// task today) on real elapsed calendar time. Fail-closed, never fabricates
+// elapsed time / recall events / lift; auto-greens once >=3-week-old recall
+// data exists.
+Schedule::command('atlas:long-horizon:cross-week-recall-lift-gate --write-receipt --json')
+    ->dailyAt((string) config('atlas.long_horizon.cross_week_recall_lift_gate.schedule_time', '07:32'))
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.long_horizon.cross_week_recall_lift_gate.enabled', true)
+        && (bool) config('atlas.long_horizon.cross_week_recall_lift_gate.schedule_enabled', true));
 
 // L6-13 · Fixed-N capability-per-dollar series. Writes a daily measured-cost
 // snapshot, then gates the monthly positive-trend claim without estimating N.
@@ -240,6 +286,21 @@ Schedule::command('atlas:self-construction:detect-gaps --json')
     ->dailyAt((string) config('atlas.ai.self_construction.tool_gap_schedule_time', '05:50'))
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas.ai.self_construction.tool_gap_schedule_enabled', true));
+
+// L5-4 keystone · recurrent-capability-gap bridge. Reads the Loop loss-observer's
+// dominant loss patterns and routes the ones that signal a MISSING TOOL/CAPABILITY
+// (fixture builder, contract linter, worktree helper, …) into the governed
+// self-construction corridor as a PARKED proposal (human approval required). It
+// never approves, stages, promotes, merges or runs a provider; the cadence is
+// dry-run unless the operator turns schedule_write_enabled on.
+$toolGapBridgeCommand = (bool) config('atlas.ai.self_construction.tool_gap_bridge.schedule_write_enabled', false)
+    ? 'atlas:self-construction:tool-gap-bridge --write --json'
+    : 'atlas:self-construction:tool-gap-bridge --json';
+Schedule::command($toolGapBridgeCommand)
+    ->dailyAt((string) config('atlas.ai.self_construction.tool_gap_bridge.schedule_time', '05:52'))
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.ai.self_construction.tool_gap_bridge.enabled', true)
+        && (bool) config('atlas.ai.self_construction.tool_gap_bridge.schedule_enabled', true));
 
 // L5-11 · Learn→recall→USE lift: read-only A/B measurement over compounding
 // RAG feedback. It never writes memory or changes retrieval; strict completion
