@@ -228,6 +228,10 @@ final class L7PromotionExecutor
             return (float) $value;
         }
 
+        if (is_string($value) && is_numeric($value)) {
+            $value = (float) $value;
+        }
+
         // Non-finite floats (NaN, ±INF) are not a real trust score: NaN slips
         // past both the unit clamp and the `< threshold` gate (every NaN
         // comparison is false), which would fail OPEN and promote on garbage.
