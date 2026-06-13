@@ -62,7 +62,7 @@ final class L8FrameReplayPlanBuilder
         $regressionObservedCount = $this->regressionObservedCount($obraRefs, $realObraIds);
         $cleanReplayCount = max($replayedCount - $regressionObservedCount, 0);
         $regressionRate = $replayedCount > 0
-            ? AreaFocusScalarNormalizer::clampUnit($regressionObservedCount / $replayedCount)
+            ? min(1.0, max(0.0, $regressionObservedCount / $replayedCount))
             : 0.0;
 
         $blockers = [];
