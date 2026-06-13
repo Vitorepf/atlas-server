@@ -304,12 +304,22 @@ final class L8MetaCompoundingWeightRederivationService
         }
 
         foreach ($contributions as $contribution) {
-            if (! is_array($contribution) || ! $this->hasP5Evidence($contribution)) {
+            if (! is_array($contribution)) {
                 $blockers[] = 'missing_p5_evidence';
                 break;
             }
 
             $factorId = $contribution['factor_id'] ?? null;
+
+            if (is_string($factorId) && ! array_key_exists($factorId, $currentFactorIds)) {
+                continue;
+            }
+
+            if (! $this->hasP5Evidence($contribution)) {
+                $blockers[] = 'missing_p5_evidence';
+                break;
+            }
+
             if (is_string($factorId) && array_key_exists($factorId, $currentFactorIds)) {
                 $evidencedCurrentFactorIds[$factorId] = true;
             }
