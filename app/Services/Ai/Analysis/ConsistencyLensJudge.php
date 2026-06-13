@@ -57,6 +57,7 @@ final class ConsistencyLensJudge implements AnalysisJudgePort
                 return;
             }
 
+            $name = trim($name);
             $float = (float) $value;
 
             if (array_key_exists($name, $seen) && abs($seen[$name] - $float) > self::NUMERIC_EPSILON) {
