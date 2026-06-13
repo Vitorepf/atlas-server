@@ -332,19 +332,19 @@ final class L8LocalDistillationTaskClassMiner
 
         $refs = [];
 
-        if (is_array($raw)) {
-            foreach ($raw as $value) {
-                if (! is_string($value) && ! is_int($value) && ! is_float($value)) {
-                    continue;
-                }
+        $values = is_array($raw) ? $raw : [$raw];
 
-                $ref = trim((string) $value);
-                if ($ref === '' || in_array($ref, $refs, true)) {
-                    continue;
-                }
-
-                $refs[] = $ref;
+        foreach ($values as $value) {
+            if (! is_string($value) && ! is_int($value) && ! is_float($value)) {
+                continue;
             }
+
+            $ref = trim((string) $value);
+            if ($ref === '' || in_array($ref, $refs, true)) {
+                continue;
+            }
+
+            $refs[] = $ref;
         }
 
         return $refs;
