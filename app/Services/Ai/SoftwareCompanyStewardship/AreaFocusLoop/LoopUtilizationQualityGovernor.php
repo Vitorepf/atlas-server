@@ -68,7 +68,7 @@ final class LoopUtilizationQualityGovernor
         $wastedSpend = 0.0;
 
         foreach ($cycles as $cycle) {
-            $runtimeConsumed = AreaFocusScalarNormalizer::payloadBool($cycle, 'runtime_consumed');
+            $runtimeConsumed = $this->payloadBool($cycle, 'runtime_consumed');
             $reportedUseful = $this->reportedUseful($cycle, $runtimeConsumed);
             $spend = $this->spend($cycle);
 
@@ -150,7 +150,7 @@ final class LoopUtilizationQualityGovernor
             return false;
         }
 
-        return AreaFocusScalarNormalizer::payloadRawString($cycle, 'delivery_kind') === self::INERT_DELIVERY_KIND;
+        return $this->payloadRawString($cycle, 'delivery_kind') === self::INERT_DELIVERY_KIND;
     }
 
     /**
@@ -166,7 +166,50 @@ final class LoopUtilizationQualityGovernor
             return $runtimeConsumed;
         }
 
-        return AreaFocusScalarNormalizer::payloadBool($cycle, 'reported_useful');
+        return $this->payloadBool($cycle, 'reported_useful');
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function payloadBool(array $payload, string $key): bool
+    {
+        $value = $payload[$key] ?? false;
+
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_int($value) || is_float($value)) {
+            return $value !== 0 && $value !== 0.0;
+        }
+
+        if (! is_string($value)) {
+            return false;
+        }
+
+        return match (strtolower(trim($value))) {
+            '1', 'true', 'yes', 'on' => true,
+            default => false,
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function payloadRawString(array $payload, string $key): string
+    {
+        $value = $payload[$key] ?? '';
+
+        if (is_string($value)) {
+            return $value;
+        }
+
+        if (is_int($value) || is_float($value) || is_bool($value)) {
+            return (string) $value;
+        }
+
+        return '';
     }
 
     /**
