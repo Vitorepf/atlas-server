@@ -163,6 +163,10 @@ final class AnalysisHonestyGate
             $reasons[] = 'engineering_missing_tests_total';
         }
 
+        if (is_numeric($passed) && is_numeric($total) && (int) $total >= 1 && (float) $passed > (float) $total) {
+            $reasons[] = 'engineering_tests_passed_exceeds_total';
+        }
+
         $passRate = $this->lookup($analysis, 'pass_rate');
         if (is_numeric($passRate) && (! is_numeric($total) || (int) $total < 1)) {
             $reasons[] = 'engineering_pass_rate_without_totals';
