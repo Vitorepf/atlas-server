@@ -40,7 +40,7 @@ final class ContextPackStalenessClassifier
         $severity = match (true) {
             $ageRatio >= 4.0 || $changedFiles >= 200 => 'critical',
             $ageRatio >= 2.0 || $changedFiles >= 50 => 'stale',
-            $ageRatio >= 1.0 || $changedFiles >= 10 || $lastQueryAgeSeconds > $maxFreshSeconds => 'aging',
+            $ageRatio >= 1.0 || $changedFiles >= 10 || $lastQueryAgeSeconds >= $maxFreshSeconds => 'aging',
             default => 'fresh',
         };
 
