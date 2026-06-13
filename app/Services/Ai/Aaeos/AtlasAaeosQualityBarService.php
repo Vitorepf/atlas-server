@@ -31,6 +31,7 @@ final class AtlasAaeosQualityBarService
                 'threshold' => (float) $data['threshold'],
                 'current' => (float) $data['current'],
                 'breached' => $data['current'] < $data['threshold'],
+                'deficit' => $data['current'] < $data['threshold'] ? round($data['threshold'] - $data['current'], 4) : 0.0,
             ];
         }
 
