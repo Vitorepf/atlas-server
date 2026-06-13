@@ -159,6 +159,10 @@ final class AnalysisHonestyGate
             $reasons[] = 'engineering_missing_tests_passed';
         }
 
+        if (is_numeric($passed) && (float) $passed < 0) {
+            $reasons[] = 'engineering_tests_passed_negative';
+        }
+
         if (! is_numeric($total) || (int) $total < 1) {
             $reasons[] = 'engineering_missing_tests_total';
         }
