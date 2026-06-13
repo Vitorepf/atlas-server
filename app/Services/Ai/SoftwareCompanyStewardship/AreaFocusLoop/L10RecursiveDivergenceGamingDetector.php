@@ -67,8 +67,9 @@ final class L10RecursiveDivergenceGamingDetector
     public function detect(array $evidence): array
     {
         $blockers = [];
+        $emptyEvidence = $this->isEmptyEvidence($evidence);
 
-        if ($this->isEmptyEvidence($evidence)) {
+        if ($emptyEvidence) {
             $blockers[] = 'evidence_empty';
         }
 
@@ -91,7 +92,7 @@ final class L10RecursiveDivergenceGamingDetector
         // Fail-closed hard stop: ANY single stop signal halts recursion. This is the
         // R3 rule "recursive improvement stops on divergence or gaming"; invariant
         // drift is itself a hard stop per the row's explicit clause.
-        $hardStopRequired = $invariantDrift || $gamingDetected || $divergenceDetected;
+        $hardStopRequired = $emptyEvidence || $invariantDrift || $gamingDetected || $divergenceDetected;
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
