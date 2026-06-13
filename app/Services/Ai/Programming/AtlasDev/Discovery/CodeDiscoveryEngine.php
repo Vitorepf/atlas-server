@@ -34,6 +34,8 @@ use Throwable;
  */
 final class CodeDiscoveryEngine
 {
+    private const REASON_PATH_MENTIONED_IN_INTENT = 'path mentioned in intent';
+
     /**
      * @var list<string>
      */
@@ -86,7 +88,7 @@ final class CodeDiscoveryEngine
             if ($absolute !== null && is_file($absolute)) {
                 $confirmedFiles[$absolute] = [
                     'path' => $absolute,
-                    'reason' => 'path mentioned in intent',
+                    'reason' => self::REASON_PATH_MENTIONED_IN_INTENT,
                     'confidence' => 0.95,
                     'symbols' => [],
                 ];
@@ -162,7 +164,12 @@ final class CodeDiscoveryEngine
             );
         }
 
-        usort($likely, static fn (CodeCandidate $a, CodeCandidate $b): int => strcmp($a->path, $b->path));
+        usort(
+            $likely,
+            static fn (CodeCandidate $a, CodeCandidate $b): int => self::candidateSortTier($a) <=> self::candidateSortTier($b)
+                ?: $b->confidence <=> $a->confidence
+                ?: strcmp($a->path, $b->path),
+        );
 
         $confidence = $this->classifyConfidence(
             confirmedCount: count($likely),
@@ -398,5 +405,10 @@ final class CodeDiscoveryEngine
         }
 
         return CodeDiscoveryManifest::CONFIDENCE_STRONG_INFERENCE;
+    }
+
+    private static function candidateSortTier(CodeCandidate $candidate): int
+    {
+        return $candidate->reason === self::REASON_PATH_MENTIONED_IN_INTENT ? 0 : 1;
     }
 }

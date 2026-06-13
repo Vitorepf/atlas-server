@@ -137,6 +137,52 @@ final class CodeDiscoveryEngineTest extends TestCase
         );
     }
 
+    public function test_explicit_path_reference_ranks_before_broader_symbol_hit(): void
+    {
+        $workspace = sys_get_temp_dir().'/atlas-dev-discovery-explicit-path-'.bin2hex(random_bytes(4));
+        $explicitPath = 'app/Services/Ai/Programming/AtlasDev/Support/AtlasDevStringListNormalizer.php';
+        $broadHitPath = 'app/Console/Commands/AtlasCliDevPlanCommand.php';
+
+        mkdir($workspace.'/'.dirname($explicitPath), 0o755, true);
+        mkdir($workspace.'/'.dirname($broadHitPath), 0o755, true);
+        file_put_contents($workspace.'/'.$explicitPath, "<?php\nfinal class AtlasDevStringListNormalizer {}\n");
+        file_put_contents($workspace.'/'.$broadHitPath, "<?php\nfinal class AtlasCliDevPlanCommand {}\n");
+
+        try {
+            $engine = new CodeDiscoveryEngine(
+                rg: $this->ripgrepStub(),
+                symbols: $this->symbolStub([
+                    'AtlasDevStringListNormalizer' => [
+                        ['path' => $broadHitPath],
+                    ],
+                ]),
+            );
+
+            $intent = 'Refactor AtlasDevStringListNormalizer in '.$explicitPath.' and keep the public behavior unchanged.';
+
+            $manifest = $engine->discover(
+                DiscoveryFixtureFactory::envelope([
+                    'workspace' => $workspace,
+                    'normalized_intent' => $intent,
+                    'raw_intent' => $intent,
+                ]),
+                DiscoveryFixtureFactory::compactSdd([
+                    'intent_normalized' => $intent,
+                    'intent_raw' => $intent,
+                ]),
+            );
+        } finally {
+            $this->removeDirectory($workspace);
+        }
+
+        $this->assertNotEmpty($manifest->likelyFiles);
+        $this->assertSame($workspace.'/'.$explicitPath, $manifest->likelyFiles[0]->path);
+        $this->assertSame('path mentioned in intent', $manifest->likelyFiles[0]->reason);
+
+        $paths = array_map(static fn ($candidate): string => $candidate->path, $manifest->likelyFiles);
+        $this->assertContains($workspace.'/'.$broadHitPath, $paths);
+    }
+
     public function test_discovery_is_deterministic_byte_identical_payload(): void
     {
         $engine = new CodeDiscoveryEngine(
@@ -223,5 +269,27 @@ final class CodeDiscoveryEngineTest extends TestCase
                 return $this->map[$symbol] ?? [];
             }
         };
+    }
+
+    private function removeDirectory(string $path): void
+    {
+        if (! is_dir($path)) {
+            return;
+        }
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST,
+        );
+
+        foreach ($iterator as $entry) {
+            if ($entry->isDir()) {
+                @rmdir($entry->getPathname());
+            } else {
+                @unlink($entry->getPathname());
+            }
+        }
+
+        @rmdir($path);
     }
 }
