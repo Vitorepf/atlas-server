@@ -190,7 +190,7 @@ final class AtlasSystemGraphContextBuilderService
             'summary' => $this->compileSummary($obra, $intent, $sources),
             'limits' => [
                 'budget' => $budget,
-                'admitted' => count($sources),
+                'admitted' => count($admitted),
                 'trimmed' => count($trimmed),
                 'rejected' => count($rejected),
             ],
