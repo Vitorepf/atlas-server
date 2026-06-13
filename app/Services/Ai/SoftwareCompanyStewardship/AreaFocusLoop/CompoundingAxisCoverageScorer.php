@@ -97,7 +97,9 @@ final class CompoundingAxisCoverageScorer
             return 0.0;
         }
 
-        return (float) $impact;
+        $impact = (float) $impact;
+
+        return is_finite($impact) ? $impact : 0.0;
     }
 
     /**
