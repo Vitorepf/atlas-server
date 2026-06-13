@@ -312,7 +312,7 @@ class WorkspaceReader
     private function guard(string $relativePath): ?string
     {
         $relativePath = ltrim(str_replace('\\', '/', $relativePath), '/');
-        if ($relativePath === '' || str_contains($relativePath, '..')) {
+        if ($relativePath === '' || in_array('..', explode('/', $relativePath), true)) {
             return null;
         }
         $abs = $this->root.DIRECTORY_SEPARATOR.$relativePath;
