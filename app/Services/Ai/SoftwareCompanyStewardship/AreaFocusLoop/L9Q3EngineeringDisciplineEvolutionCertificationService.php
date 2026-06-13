@@ -46,7 +46,9 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
  *      did not hold breaks the criterion);
  *   3. missing Q2 boundary               -> `q2_boundary_missing`
  *      (Q3 has no proven sandbox to stand on without Q2).
- *   q3_certified=true ONLY when none of the three blockers fire.
+ *   4. non-positive lineage multiplier lift -> `non_positive_lineage_multiplier`
+ *      (parallel-lineage exploration did not raise the compound multiplier).
+ *   q3_certified=true ONLY when none of the blockers fire.
  *
  * The `q2_boundary_missing` blocker constant and the Q2-boundary detection mirror
  * the sibling L9 parallel-lineage planner (S141,
@@ -80,6 +82,9 @@ final class L9Q3EngineeringDisciplineEvolutionCertificationService
      * Mirrors L9ParallelEngineeringLineageSandboxPlanner::BLOCKER_Q2_BOUNDARY_MISSING.
      */
     public const BLOCKER_Q2_BOUNDARY_MISSING = 'q2_boundary_missing';
+
+    /** Blocker when parallel lineages did not raise the compound multiplier. */
+    public const BLOCKER_NON_POSITIVE_LINEAGE_MULTIPLIER = 'non_positive_lineage_multiplier';
 
     /**
      * Certify L9-Q3 from discipline-evolution evidence.
@@ -158,6 +163,10 @@ final class L9Q3EngineeringDisciplineEvolutionCertificationService
 
         if (! $q2BoundaryPresent) {
             $blockers[] = self::BLOCKER_Q2_BOUNDARY_MISSING;
+        }
+
+        if ($lineageMultiplierDelta <= 0.0) {
+            $blockers[] = self::BLOCKER_NON_POSITIVE_LINEAGE_MULTIPLIER;
         }
 
         $certified = $blockers === [];
