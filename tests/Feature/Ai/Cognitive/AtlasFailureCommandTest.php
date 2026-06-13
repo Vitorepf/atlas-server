@@ -107,18 +107,67 @@ class AtlasFailureCommandTest extends TestCase
             ]);
             $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
 
-            $this->assertSame('planned', $payload['status']);
+            $this->assertSame('triage_ready', $payload['status']);
             $this->assertSame('triaged', data_get($payload, 'test_suite_triage.status'));
             $this->assertSame(3, data_get($payload, 'test_suite_triage.total_tests_seen'));
             $this->assertSame(2, data_get($payload, 'test_suite_triage.failed_tests_seen'));
             $this->assertSame(1, data_get($payload, 'test_suite_triage.counts.environmental'));
             $this->assertSame(1, data_get($payload, 'test_suite_triage.counts.real_failure'));
             $this->assertSame('decreasing', data_get($payload, 'test_suite_triage.trend.status'));
+            $this->assertFalse((bool) data_get($payload, 'claim_policy.l5_3_completion_claim_allowed'));
+            $this->assertContains('real_failures_remain_fix_forward_required', data_get($payload, 'claim_policy.blockers'));
             $this->assertFalse((bool) data_get($payload, 'test_suite_triage.claim_policy.auto_corrects_tests'));
             $this->assertFalse((bool) data_get($payload, 'test_suite_triage.claim_policy.auto_quarantines_tests'));
             $this->assertTrue((bool) data_get($payload, 'rules.environmental_quarantine_requires_operator_review'));
         } finally {
             @File::delete($path);
+        }
+    }
+
+    public function test_failure_review_writes_l5_3_claim_receipt_only_when_red_trend_is_down_and_no_real_failures_remain(): void
+    {
+        $path = storage_path('framework/testing/failure-review-green-'.Str::uuid().'.json');
+        $reportPath = storage_path('framework/testing/failure-review-green-receipt-'.Str::uuid().'.json');
+        File::ensureDirectoryExists(dirname($path));
+        File::put($path, json_encode([
+            'tests' => [
+                [
+                    'name' => 'Tests\\Feature\\Loop\\CanaryBundle',
+                    'status' => 'passed',
+                    'message' => '',
+                ],
+            ],
+            'history' => [
+                ['week' => '2026-W23', 'failed' => 3],
+                ['week' => '2026-W24', 'failed' => 0],
+            ],
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+        try {
+            Artisan::call('atlas:failure', [
+                'action' => 'review',
+                '--domain' => 'programming',
+                '--test-report' => $path,
+                '--write-report' => true,
+                '--report-path' => $reportPath,
+                '--json' => true,
+            ]);
+            $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+            $this->assertSame('suite_healing_trend_proven', $payload['status']);
+            $this->assertSame('triaged', data_get($payload, 'test_suite_triage.status'));
+            $this->assertSame(0, data_get($payload, 'test_suite_triage.failed_tests_seen'));
+            $this->assertSame('decreasing', data_get($payload, 'test_suite_triage.trend.status'));
+            $this->assertTrue((bool) data_get($payload, 'claim_policy.l5_3_completion_claim_allowed'));
+            $this->assertSame([], data_get($payload, 'claim_policy.blockers'));
+            $this->assertSame($reportPath, $payload['written_report_path']);
+            $this->assertFileExists($reportPath);
+
+            $written = json_decode((string) File::get($reportPath), true, flags: JSON_THROW_ON_ERROR);
+            $this->assertTrue((bool) data_get($written, 'claim_policy.l5_3_completion_claim_allowed'));
+        } finally {
+            @File::delete($path);
+            @File::delete($reportPath);
         }
     }
 }

@@ -175,6 +175,14 @@ Schedule::command($weeklyAgendaCommand)
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas.loop.weekly_agenda.enabled', true));
 
+// L5-4 · Self-construction tool gap scan. Read-only: sees ACOS gaps on a cadence
+// so recurring loss-observer/tooling gaps can be proposed through the governed
+// self-construction commands. It never approves, stages, promotes, merges or runs providers.
+Schedule::command('atlas:self-construction:detect-gaps --json')
+    ->dailyAt((string) config('atlas.ai.self_construction.tool_gap_schedule_time', '05:50'))
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.ai.self_construction.tool_gap_schedule_enabled', true));
+
 // 24h-autonomia · Keepalive do supervisor do Loop: campanha running com heartbeat velho
 // E sem processo vivo é relançada detached (resume pelo campaign-id; nada se perde).
 // Motivado por evidência real: o soak morreu silenciosamente em 12/06 com budget sobrando.

@@ -716,6 +716,8 @@ return [
         // required even when enabled. Read by AtlasSelfConstructionPromotionExecutorService.
         'self_construction' => [
             'promote_to_source_enabled' => (bool) env('ATLAS_SELF_CONSTRUCTION_PROMOTE_ENABLED', false),
+            'tool_gap_schedule_enabled' => (bool) env('ATLAS_SELF_CONSTRUCTION_TOOL_GAP_SCHEDULE_ENABLED', true),
+            'tool_gap_schedule_time' => (string) env('ATLAS_SELF_CONSTRUCTION_TOOL_GAP_SCHEDULE_TIME', '05:50'),
         ],
 
         // G5 — governed promotion of a certified loop proposal to a NEW BRANCH

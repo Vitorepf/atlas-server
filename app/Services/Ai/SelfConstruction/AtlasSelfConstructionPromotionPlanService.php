@@ -187,23 +187,86 @@ final class AtlasSelfConstructionPromotionPlanService
     // ---------- internals ----------
 
     /**
-     * Heuristic: a staged file under `.../staged/<proposal_dir>/SomeService.php`
-     * maps to `<project_root>/app/Services/Ai/SelfConstruction/SomeService.php`.
-     * Docs map to `docs/engineering-knowledge-base/`. Tests map to `tests/Unit/Ai/`.
-     * The operator MUST verify these before copying.
+     * Resolve a staged scaffold back to the source path declared by its PHP
+     * namespace. Unknown PHP stays in the conservative SelfConstruction bucket.
      */
     private function resolveTargetPath(string $stagedPath): string
     {
         $base = function_exists('base_path') ? base_path() : dirname(__DIR__, 5);
         $filename = basename($stagedPath);
         if (str_ends_with($filename, 'Test.php')) {
+            $testedClass = $this->extractTestedAppServiceClass($stagedPath);
+            $serviceRelative = $testedClass === null ? null : $this->appServiceClassToRelativePath($testedClass);
+            if ($serviceRelative !== null) {
+                $serviceDir = dirname($serviceRelative);
+                $testDir = str_replace('app/Services/', 'tests/Unit/', $serviceDir);
+
+                return $base.'/'.$testDir.'/'.$filename;
+            }
+
             return $base.'/tests/Unit/Ai/SelfConstruction/'.$filename;
         }
         if (str_ends_with($filename, '.md')) {
             return $base.'/docs/engineering-knowledge-base/'.$filename;
         }
+        if (str_ends_with($filename, '.php')) {
+            $class = $this->extractNamespacedClass($stagedPath);
+            $relative = $class === null ? null : $this->appServiceClassToRelativePath($class);
+            if ($relative !== null) {
+                return $base.'/'.$relative;
+            }
+        }
 
         return $base.'/app/Services/Ai/SelfConstruction/'.$filename;
+    }
+
+    private function extractNamespacedClass(string $path): ?string
+    {
+        $contents = @file_get_contents($path);
+        if (! is_string($contents) || $contents === '') {
+            return null;
+        }
+        if (! preg_match('/^namespace\s+([A-Za-z0-9_\\\\]+)\s*;/m', $contents, $nsMatch)) {
+            return null;
+        }
+        if (! preg_match('/\b(?:final\s+)?class\s+([A-Za-z0-9_]+)/', $contents, $classMatch)) {
+            return null;
+        }
+
+        return $nsMatch[1].'\\'.$classMatch[1];
+    }
+
+    private function extractTestedAppServiceClass(string $path): ?string
+    {
+        $contents = @file_get_contents($path);
+        if (! is_string($contents) || $contents === '') {
+            return null;
+        }
+        if (preg_match('/new\s+\\\\?(App\\\\Services\\\\Ai\\\\[A-Za-z0-9_\\\\]+)\s*\(/', $contents, $match)) {
+            return $match[1];
+        }
+
+        return null;
+    }
+
+    private function appServiceClassToRelativePath(string $fqcn): ?string
+    {
+        $prefix = 'App\\Services\\Ai\\';
+        if (! str_starts_with($fqcn, $prefix)) {
+            return null;
+        }
+        $suffix = substr($fqcn, strlen($prefix));
+        $parts = array_values(array_filter(explode('\\', $suffix), static fn (string $part): bool => $part !== ''));
+        if ($parts === []) {
+            return null;
+        }
+        foreach ($parts as $part) {
+            if (! preg_match('/^[A-Za-z0-9_]+$/', $part)) {
+                return null;
+            }
+        }
+
+        return 'app/Services/Ai/'.implode('/', $parts).'.php';
     }
 
     /**

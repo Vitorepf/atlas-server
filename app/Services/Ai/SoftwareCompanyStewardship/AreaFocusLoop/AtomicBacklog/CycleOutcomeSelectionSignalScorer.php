@@ -60,6 +60,7 @@ final class CycleOutcomeSelectionSignalScorer
      */
     private function scoreGapKind(string $gapKind, array $cycles): array
     {
+        $cycles = array_values(array_filter($cycles, static fn ($cycle): bool => is_array($cycle)));
         $total = count($cycles);
 
         if ($total === 0) {

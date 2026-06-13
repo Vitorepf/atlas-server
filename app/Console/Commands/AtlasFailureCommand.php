@@ -7,6 +7,7 @@ use App\Services\Ai\Cognitive\Failure\FailureRecurrenceMetricService;
 use App\Services\Ai\Cognitive\Failure\FailureRepetitionAlerter;
 use App\Services\Ai\Cognitive\Failure\FailureSignatureRepository;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\File;
 
 class AtlasFailureCommand extends Command
 {
@@ -18,6 +19,8 @@ class AtlasFailureCommand extends Command
         {--provider= : Provider filter for recurrence mode}
         {--message= : Failure message for record mode}
         {--test-report= : Optional JSON test report for review-mode suite triage}
+        {--write-report : Persist review payload as a JSON receipt}
+        {--report-path= : Path for --write-report (defaults to storage/app/atlas/evidence/fable-l5-3-failure-review.json)}
         {--status=open : Alert status for alerts mode: open|acknowledged|resolved|suppressed|all}
         {--reflection= : Operator reflection for ack mode}
         {--json : Print machine-readable JSON}';
@@ -102,10 +105,11 @@ class AtlasFailureCommand extends Command
     private function review(FailureSignatureRepository $signatures, BayesianFailureTracker $tracker, string $domain, int $days): int
     {
         $testSuiteTriage = $this->testSuiteTriage($this->stringOption('test-report'));
+        $claimPolicy = $this->l5ThreeClaimPolicy($testSuiteTriage);
 
-        return $this->render([
+        $payload = [
             'schema_version' => 'atlas.cognitive.failure_review.v1',
-            'status' => 'planned',
+            'status' => $this->reviewStatus($testSuiteTriage, $claimPolicy),
             'mode' => 'review',
             'domain' => $domain,
             'days' => $days,
@@ -113,6 +117,7 @@ class AtlasFailureCommand extends Command
             'diversity' => $tracker->compute($domain, $days),
             'open_alerts' => $signatures->alerts('open'),
             'test_suite_triage' => $testSuiteTriage,
+            'claim_policy' => $claimPolicy,
             'rules' => [
                 'plan_only_until_operator_acceptance' => true,
                 'does_not_auto_correct_behavior' => true,
@@ -120,7 +125,16 @@ class AtlasFailureCommand extends Command
                 'test_suite_triage_is_read_only' => true,
                 'environmental_quarantine_requires_operator_review' => true,
             ],
-        ]);
+        ];
+
+        if ((bool) $this->option('write-report')) {
+            $path = $this->stringOption('report-path') ?: storage_path('app/atlas/evidence/fable-l5-3-failure-review.json');
+            File::ensureDirectoryExists(dirname($path));
+            File::put($path, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
+            $payload['written_report_path'] = $path;
+        }
+
+        return $this->render($payload);
     }
 
     /**
@@ -318,6 +332,67 @@ class AtlasFailureCommand extends Command
             'points' => $points,
             'weekly_reds_decreasing' => $last < $first,
             'delta' => $last - $first,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $triage
+     * @param  array<string,mixed>  $claimPolicy
+     */
+    private function reviewStatus(array $triage, array $claimPolicy): string
+    {
+        $status = (string) ($triage['status'] ?? 'not_supplied');
+        if ($status === 'not_supplied') {
+            return 'planned';
+        }
+        if ($status === 'blocked') {
+            return 'blocked';
+        }
+
+        return (bool) ($claimPolicy['l5_3_completion_claim_allowed'] ?? false)
+            ? 'suite_healing_trend_proven'
+            : 'triage_ready';
+    }
+
+    /**
+     * @param  array<string,mixed>  $triage
+     * @return array<string,mixed>
+     */
+    private function l5ThreeClaimPolicy(array $triage): array
+    {
+        $status = (string) ($triage['status'] ?? 'not_supplied');
+        $counts = (array) ($triage['counts'] ?? []);
+        $trend = (array) ($triage['trend'] ?? []);
+        $environmental = (int) ($counts['environmental'] ?? 0);
+        $real = (int) ($counts['real_failure'] ?? 0);
+        $unknown = (int) ($counts['unknown'] ?? 0);
+        $decreasing = (bool) ($trend['weekly_reds_decreasing'] ?? false);
+
+        $blockers = [];
+        if ($status !== 'triaged') {
+            $blockers[] = 'test_suite_report_not_triaged';
+        }
+        if (! $decreasing) {
+            $blockers[] = 'weekly_red_trend_not_decreasing';
+        }
+        if ($real > 0) {
+            $blockers[] = 'real_failures_remain_fix_forward_required';
+        }
+        if ($unknown > 0) {
+            $blockers[] = 'unknown_failures_require_manual_triage';
+        }
+
+        return [
+            'l5_3_completion_claim_allowed' => $blockers === [],
+            'weekly_reds_decreasing' => $decreasing,
+            'real_failures_remaining' => $real,
+            'unknown_failures_remaining' => $unknown,
+            'environmental_quarantine_candidates' => $environmental,
+            'auto_corrects_tests' => false,
+            'auto_quarantines_tests' => false,
+            'operator_review_required_for_quarantine' => true,
+            'fix_forward_required_for_real_failures' => true,
+            'blockers' => array_values(array_unique($blockers)),
         ];
     }
 
