@@ -243,13 +243,14 @@ final class MemoryFeedbackDecayScorer
         }
 
         if (is_float($value) && is_finite($value)) {
-            $int = (int) $value;
+            $int = (int) ceil($value);
 
             return $int < 0 ? 0 : $int;
         }
 
         if (is_string($value) && is_numeric($value)) {
-            $int = (int) $value;
+            $float = (float) $value;
+            $int = is_finite($float) ? (int) ceil($float) : (int) $value;
 
             return $int < 0 ? 0 : $int;
         }
