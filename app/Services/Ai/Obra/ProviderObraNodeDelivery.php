@@ -67,11 +67,22 @@ final class ProviderObraNodeDelivery implements ObraNodeDelivery
         $result = $this->delivery->deliver($request, $options);
 
         if (($result['status'] ?? '') !== AtlasLiveCodeDeliveryService::STATUS_CERTIFIED) {
+            $reason = $this->blockedReason($result);
+            $diagnostic = $this->blockedDiagnostic($result, $reason);
+
             return [
                 'certified' => false,
                 'files' => [],
                 'provider' => is_string($result['provider'] ?? null) ? $result['provider'] : null,
-                'reason' => (string) ($result['reason'] ?? 'delivery_not_certified'),
+                'model' => is_string($result['model'] ?? null) ? $result['model'] : null,
+                'reason' => $reason,
+                'delivery_status' => is_string($result['status'] ?? null) ? $result['status'] : null,
+                'target_file' => is_string($result['target_file'] ?? null) ? $result['target_file'] : null,
+                'file_count' => is_numeric($result['file_count'] ?? null) ? (int) $result['file_count'] : null,
+                'latency_ms' => is_numeric($result['latency_ms'] ?? null) ? (int) $result['latency_ms'] : null,
+                'syntax_check' => $diagnostic['syntax_check'] ?? null,
+                'run_check' => $diagnostic['run_check'] ?? null,
+                'delivery_diagnostic' => $diagnostic,
             ];
         }
 
@@ -108,5 +119,69 @@ final class ProviderObraNodeDelivery implements ObraNodeDelivery
             'gate_receipt' => $gateReceipt,
             'provider' => is_string($result['provider'] ?? null) ? $result['provider'] : null,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $result
+     */
+    private function blockedReason(array $result): string
+    {
+        foreach (['reason', 'blocked_reason', 'error_code'] as $key) {
+            $value = $result[$key] ?? null;
+            if (is_string($value) && trim($value) !== '') {
+                return substr(trim($value), 0, 180);
+            }
+        }
+
+        return 'delivery_not_certified';
+    }
+
+    /**
+     * Bounded, provider-safe autopsy data for failed deliveries. Deliberately excludes
+     * raw prompt, provider output, code preview, sandbox file contents and file bodies.
+     *
+     * @param  array<string,mixed>  $result
+     * @return array<string,mixed>
+     */
+    private function blockedDiagnostic(array $result, string $reason): array
+    {
+        $diagnostic = [
+            'schema_version' => 'atlas.obra.delivery_diagnostic.v1',
+            'reason' => $reason,
+            'delivery_status' => is_string($result['status'] ?? null) ? $result['status'] : null,
+            'blocked_reason' => is_string($result['blocked_reason'] ?? null) ? substr(trim($result['blocked_reason']), 0, 180) : null,
+            'provider' => is_string($result['provider'] ?? null) ? $result['provider'] : null,
+            'model' => is_string($result['model'] ?? null) ? $result['model'] : null,
+            'target_file' => is_string($result['target_file'] ?? null) ? $result['target_file'] : null,
+            'file_count' => is_numeric($result['file_count'] ?? null) ? (int) $result['file_count'] : null,
+            'latency_ms' => is_numeric($result['latency_ms'] ?? null) ? (int) $result['latency_ms'] : null,
+            'syntax_check' => $this->boundedCheck((array) ($result['syntax_check'] ?? [])),
+            'run_check' => $this->boundedCheck((array) ($result['run_check'] ?? [])),
+        ];
+
+        return array_filter($diagnostic, static fn (mixed $value): bool => $value !== null && $value !== []);
+    }
+
+    /**
+     * @param  array<string,mixed>  $check
+     * @return array<string,mixed>
+     */
+    private function boundedCheck(array $check): array
+    {
+        if ($check === []) {
+            return [];
+        }
+
+        $bounded = [];
+        foreach (['ok', 'tool', 'reason', 'exit_code'] as $key) {
+            if (array_key_exists($key, $check)) {
+                $bounded[$key] = is_string($check[$key]) ? substr(trim($check[$key]), 0, 180) : $check[$key];
+            }
+        }
+        if (isset($check['output']) && is_string($check['output'])) {
+            $bounded['output_excerpt'] = substr(trim($check['output']), 0, 500);
+        }
+
+        return $bounded;
     }
 }

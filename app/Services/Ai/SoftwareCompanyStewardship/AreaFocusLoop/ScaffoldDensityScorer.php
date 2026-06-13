@@ -179,7 +179,7 @@ final class ScaffoldDensityScorer
 
         return ! str_contains($normalized, '/tests/')
             && ! str_starts_with($normalized, 'tests/')
-            && ! str_ends_with($normalized, 'test.php');
+            && ! str_ends_with($path, 'Test.php');
     }
 
     private function markerLabel(string $line): ?string

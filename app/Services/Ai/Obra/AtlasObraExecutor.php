@@ -260,8 +260,15 @@ final class AtlasObraExecutor
             // FAIL-CLOSED: a non-certified delivery HALTS the obra (no garbage applied).
             if (! (bool) ($delivered['certified'] ?? false)) {
                 $reason = (string) ($delivered['reason'] ?? 'not_certified');
-                $nodeResults[] = ['id' => $nodeId, 'seq' => $seq, 'status' => self::NODE_FAILED, 'stage' => 'delivery', 'reason' => $reason];
-                $this->setNodeStatus($nodeId, self::NODE_FAILED, ['stage' => 'delivery', 'reason' => $reason]);
+                $failure = array_merge([
+                    'id' => $nodeId,
+                    'seq' => $seq,
+                    'status' => self::NODE_FAILED,
+                    'stage' => 'delivery',
+                    'reason' => $reason,
+                ], $this->deliveryFailureAutopsy($delivered));
+                $nodeResults[] = $failure;
+                $this->setNodeStatus($nodeId, self::NODE_FAILED, $this->nodeResultPayload($failure));
                 $failedNode = $nodeId;
                 $halted = true;
 
@@ -723,6 +730,112 @@ final class AtlasObraExecutor
         } catch (Throwable) {
             // In-memory-only execute(): the node row may not exist; ignore.
         }
+    }
+
+    /**
+     * Bounded delivery autopsy for a halted node. This intentionally carries only
+     * metadata/gate summaries: no prompt, provider output, code preview or file bodies.
+     *
+     * @param  array<string,mixed>  $delivered
+     * @return array<string,mixed>
+     */
+    private function deliveryFailureAutopsy(array $delivered): array
+    {
+        $autopsy = [];
+        foreach (['provider', 'model', 'delivery_status', 'target_file'] as $key) {
+            if (isset($delivered[$key]) && is_string($delivered[$key]) && $delivered[$key] !== '') {
+                $autopsy[$key] = substr($delivered[$key], 0, 180);
+            }
+        }
+        foreach (['file_count', 'latency_ms'] as $key) {
+            if (isset($delivered[$key]) && is_numeric($delivered[$key])) {
+                $autopsy[$key] = (int) $delivered[$key];
+            }
+        }
+
+        $syntax = $this->boundedGateCheck((array) ($delivered['syntax_check'] ?? []));
+        if ($syntax !== []) {
+            $autopsy['syntax_check'] = $syntax;
+        }
+        $run = $this->boundedGateCheck((array) ($delivered['run_check'] ?? []));
+        if ($run !== []) {
+            $autopsy['run_check'] = $run;
+        }
+        $diagnostic = $this->boundedDeliveryDiagnostic((array) ($delivered['delivery_diagnostic'] ?? []));
+        if ($diagnostic !== []) {
+            $autopsy['delivery_diagnostic'] = $diagnostic;
+        }
+
+        return $autopsy;
+    }
+
+    /**
+     * Drop presentation-only fields before persisting the node result.
+     *
+     * @param  array<string,mixed>  $failure
+     * @return array<string,mixed>
+     */
+    private function nodeResultPayload(array $failure): array
+    {
+        unset($failure['id'], $failure['seq'], $failure['status']);
+
+        return $failure;
+    }
+
+    /**
+     * @param  array<string,mixed>  $diagnostic
+     * @return array<string,mixed>
+     */
+    private function boundedDeliveryDiagnostic(array $diagnostic): array
+    {
+        if ($diagnostic === []) {
+            return [];
+        }
+
+        $bounded = [];
+        foreach (['schema_version', 'reason', 'delivery_status', 'blocked_reason', 'provider', 'model', 'target_file'] as $key) {
+            if (isset($diagnostic[$key]) && is_string($diagnostic[$key]) && $diagnostic[$key] !== '') {
+                $bounded[$key] = substr($diagnostic[$key], 0, 180);
+            }
+        }
+        foreach (['file_count', 'latency_ms'] as $key) {
+            if (isset($diagnostic[$key]) && is_numeric($diagnostic[$key])) {
+                $bounded[$key] = (int) $diagnostic[$key];
+            }
+        }
+        foreach (['syntax_check', 'run_check'] as $key) {
+            $check = $this->boundedGateCheck((array) ($diagnostic[$key] ?? []));
+            if ($check !== []) {
+                $bounded[$key] = $check;
+            }
+        }
+
+        return $bounded;
+    }
+
+    /**
+     * @param  array<string,mixed>  $check
+     * @return array<string,mixed>
+     */
+    private function boundedGateCheck(array $check): array
+    {
+        if ($check === []) {
+            return [];
+        }
+
+        $bounded = [];
+        foreach (['ok', 'tool', 'reason', 'exit_code'] as $key) {
+            if (array_key_exists($key, $check)) {
+                $bounded[$key] = is_string($check[$key]) ? substr(trim($check[$key]), 0, 180) : $check[$key];
+            }
+        }
+        if (isset($check['output_excerpt']) && is_string($check['output_excerpt'])) {
+            $bounded['output_excerpt'] = substr(trim($check['output_excerpt']), 0, 500);
+        } elseif (isset($check['output']) && is_string($check['output'])) {
+            $bounded['output_excerpt'] = substr(trim($check['output']), 0, 500);
+        }
+
+        return $bounded;
     }
 
     private function slug(string $id): string
