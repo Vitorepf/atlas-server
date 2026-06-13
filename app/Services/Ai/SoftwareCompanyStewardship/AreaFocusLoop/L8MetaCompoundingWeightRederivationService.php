@@ -287,6 +287,11 @@ final class L8MetaCompoundingWeightRederivationService
     private function collectBlockers(array $current_weights, array $contributions): array
     {
         $blockers = [];
+        $currentFactorIds = [];
+        foreach ($current_weights as $factorId => $_weight) {
+            $currentFactorIds[(string) $factorId] = true;
+        }
+        $evidencedCurrentFactorIds = [];
 
         if ($current_weights === []) {
             $blockers[] = 'no_current_weights';
@@ -301,6 +306,20 @@ final class L8MetaCompoundingWeightRederivationService
         foreach ($contributions as $contribution) {
             if (! is_array($contribution) || ! $this->hasP5Evidence($contribution)) {
                 $blockers[] = 'missing_p5_evidence';
+                break;
+            }
+
+            $factorId = $contribution['factor_id'] ?? null;
+            if (is_string($factorId) && array_key_exists($factorId, $currentFactorIds)) {
+                $evidencedCurrentFactorIds[$factorId] = true;
+            }
+        }
+
+        foreach ($currentFactorIds as $factorId => $_present) {
+            if (! array_key_exists($factorId, $evidencedCurrentFactorIds)) {
+                if (! in_array('missing_p5_evidence', $blockers, true)) {
+                    $blockers[] = 'missing_p5_evidence';
+                }
                 break;
             }
         }
