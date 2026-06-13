@@ -86,6 +86,10 @@ final class RepairRetryHintPolicyEvaluator
     {
         foreach (['repair_loop_attempt_count', 'attempt_count', 'attempts'] as $key) {
             if (array_key_exists($key, $state)) {
+                if (! is_numeric($state[$key])) {
+                    continue;
+                }
+
                 return max(0, $this->intValue($state[$key]));
             }
         }
