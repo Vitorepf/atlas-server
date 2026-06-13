@@ -53,9 +53,11 @@ final class ProviderObraNodeDelivery implements ObraNodeDelivery
             // Multi-file so a step that touches several files works (parsed via markers).
             'multi_file' => true,
         ];
-        if (isset($context['provider']) && is_string($context['provider']) && $context['provider'] !== '') {
-            $options['provider'] = (string) $context['provider'];
-        }
+        $providerKey = $this->providerKey($context);
+        $providerConfig = (array) config('atlas.ai.providers.'.$providerKey, []);
+        $options['provider'] = $providerKey;
+        $options['model'] = $this->modelFor($providerKey, $context, $providerConfig);
+        $options['timeout_seconds'] = $this->timeoutSeconds($context, $providerConfig);
         if (isset($context['target_area']) && is_string($context['target_area']) && $context['target_area'] !== '') {
             $options['target_file'] = (string) $context['target_area'];
         }
@@ -119,6 +121,49 @@ final class ProviderObraNodeDelivery implements ObraNodeDelivery
             'gate_receipt' => $gateReceipt,
             'provider' => is_string($result['provider'] ?? null) ? $result['provider'] : null,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     */
+    private function providerKey(array $context): string
+    {
+        if (isset($context['provider']) && is_string($context['provider']) && trim($context['provider']) !== '') {
+            return trim($context['provider']);
+        }
+
+        $configured = config('atlas.ai.default_provider', 'hermes_cli');
+
+        return is_string($configured) && trim($configured) !== '' ? trim($configured) : 'hermes_cli';
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     * @param  array<string,mixed>  $providerConfig
+     */
+    private function modelFor(string $providerKey, array $context, array $providerConfig): string
+    {
+        if (isset($context['model']) && is_string($context['model']) && trim($context['model']) !== '') {
+            return trim($context['model']);
+        }
+
+        $configured = $providerConfig['model'] ?? $providerConfig['model_identity'] ?? null;
+        if (is_string($configured) && trim($configured) !== '' && ! str_ends_with(trim($configured), '_default')) {
+            return trim($configured);
+        }
+
+        return $providerKey === 'hermes_cli' ? 'gpt-5.5' : '';
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     * @param  array<string,mixed>  $providerConfig
+     */
+    private function timeoutSeconds(array $context, array $providerConfig): int
+    {
+        $raw = $context['timeout_seconds'] ?? $providerConfig['timeout_seconds'] ?? config('atlas.ai.timeout_seconds', 600);
+
+        return max(60, min(3600, (int) $raw));
     }
 
     /**

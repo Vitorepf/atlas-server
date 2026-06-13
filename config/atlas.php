@@ -1268,10 +1268,10 @@ return [
                 // diff-0) é tratado como fallback-required → cai no CLI provado, com razão
                 // auditável. Default ON; permite reativar o transporte acp warm com segurança.
                 'acp_empty_output_fallback' => (bool) env('ATLAS_AI_HERMES_ACP_EMPTY_OUTPUT_FALLBACK', true),
-                'model' => env('ATLAS_AI_HERMES_MODEL', 'hermes_cli_default'),
+                'model' => env('ATLAS_AI_HERMES_MODEL', 'gpt-5.5'),
                 'model_label' => env('ATLAS_AI_HERMES_MODEL_LABEL', env('ATLAS_AI_HERMES_MODEL') ?: 'Hermes Executive Runtime'),
                 'model_tier' => env('ATLAS_AI_HERMES_MODEL_TIER', 'executive_runtime'),
-                'model_identity' => env('ATLAS_AI_HERMES_MODEL_IDENTITY', env('ATLAS_AI_HERMES_MODEL') ?: 'hermes_cli_default'),
+                'model_identity' => env('ATLAS_AI_HERMES_MODEL_IDENTITY', env('ATLAS_AI_HERMES_MODEL') ?: 'gpt-5.5'),
                 'fallback_model' => null,
                 'allow_auto' => (bool) env('ATLAS_AI_HERMES_ALLOW_AUTO', true),
                 'allow_manual' => (bool) env('ATLAS_AI_HERMES_ALLOW_MANUAL', true),

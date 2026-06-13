@@ -55,7 +55,7 @@ final class SummaryFidelityCoverageScorer
 
             $id = $this->stringValue($item, 'id');
             $idToken = trim($id);
-            $kind = $this->stringValue($item, 'kind');
+            $kind = $this->normalize($this->stringValue($item, 'kind'));
             $isDecision = $kind === self::DECISION_KIND;
 
             if ($isDecision) {
