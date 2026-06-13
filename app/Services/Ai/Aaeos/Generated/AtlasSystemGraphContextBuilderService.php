@@ -302,6 +302,10 @@ final class AtlasSystemGraphContextBuilderService
 
     private function normalizeBudget(mixed $budget): int
     {
+        if (! is_scalar($budget)) {
+            return self::DEFAULT_BUDGET;
+        }
+
         $value = (int) $budget;
 
         return $value > 0 ? $value : self::DEFAULT_BUDGET;
