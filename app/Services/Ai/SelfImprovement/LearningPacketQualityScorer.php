@@ -31,7 +31,10 @@ final class LearningPacketQualityScorer
     public function score(array $packet): array
     {
         $confidence = $this->floatValue($packet, 'confidence');
-        $evidence = $this->listValue($packet, 'evidence_supporting_improvement');
+        $evidence = array_values(array_filter(
+            $this->listValue($packet, 'evidence_supporting_improvement'),
+            static fn (mixed $item): bool => ! is_string($item) || trim($item) !== '',
+        ));
         $failures = array_values(array_filter(
             $this->listValue($packet, 'what_failed_or_was_missing'),
             static fn (mixed $failure): bool => ! is_string($failure) || trim($failure) !== '',
