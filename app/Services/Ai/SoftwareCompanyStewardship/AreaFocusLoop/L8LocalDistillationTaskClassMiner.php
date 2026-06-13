@@ -207,11 +207,15 @@ final class L8LocalDistillationTaskClassMiner
         // Provenance fallback is class-level, not per-sample: a class with zero
         // real refs across every sample gets the synthetic placeholder, but a
         // class that carries genuine governed refs is never contaminated with it
-        // just because one of its samples happened to omit refs.
+        // just because one of its samples happened to omit refs. Recurrence is
+        // counted from these unique class-level refs so duplicated records of a
+        // single governed reference cannot satisfy the recurrence threshold.
         foreach ($grouped as $taskClassId => $group) {
             if ($group['evidence_refs'] === []) {
                 $grouped[$taskClassId]['evidence_refs'] = ['task_class:'.$taskClassId];
             }
+
+            $grouped[$taskClassId]['recurrence_count'] = count($grouped[$taskClassId]['evidence_refs']);
         }
 
         return $grouped;
