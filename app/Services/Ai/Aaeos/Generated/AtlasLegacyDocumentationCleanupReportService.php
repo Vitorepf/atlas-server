@@ -208,6 +208,8 @@ final class AtlasLegacyDocumentationCleanupReportService
      *   promotes_vault_content : bool  promoting personal/vault content.
      *   privacy_reviewed    : bool  was that content privacy-reviewed.
      *   copies_long_legacy_file : bool  copying a long legacy file into a new canon doc.
+     *   uses_non_authoritative_source_as_truth : bool  using prompt/agent/bootstrap material as source of truth.
+     *   non_authoritative_kind : string  kind of non-authoritative material.
      *   creates_master_architecture : bool  creating a master architecture doc.
      *   master_architecture_exists  : bool  does a master architecture already exist.
      *
@@ -233,6 +235,14 @@ final class AtlasLegacyDocumentationCleanupReportService
         // 3. Never copy a long legacy file into a new canonical doc.
         if ((bool) ($action['copies_long_legacy_file'] ?? false)) {
             $violations[] = 'long_legacy_file_copied_into_canonical_doc';
+        }
+
+        // 4. Never use prompt files, AGENTS.md, CLAUDE.md, or provider
+        //    bootstrap docs as source of truth.
+        $nonAuthoritativeKind = str_replace(['.', '-', ' '], '_', strtolower(trim((string) ($action['non_authoritative_kind'] ?? ''))));
+        if ((bool) ($action['uses_non_authoritative_source_as_truth'] ?? false)
+            && in_array($nonAuthoritativeKind, self::NON_AUTHORITATIVE_KINDS, true)) {
+            $violations[] = 'non_authoritative_source_used_as_truth';
         }
 
         // 5. Never create a second master architecture because a legacy doc
