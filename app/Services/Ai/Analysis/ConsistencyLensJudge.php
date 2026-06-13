@@ -167,7 +167,7 @@ final class ConsistencyLensJudge implements AnalysisJudgePort
 
         $reasons = [];
         foreach ($refs as $ref) {
-            $refId = trim((string) $ref);
+            $refId = is_array($ref) ? trim((string) ($ref['id'] ?? '')) : trim((string) $ref);
             if ($refId !== '' && ! isset($knownIds[$refId])) {
                 $reasons[] = 'conclusion_references_missing_claim:'.$refId;
             }
