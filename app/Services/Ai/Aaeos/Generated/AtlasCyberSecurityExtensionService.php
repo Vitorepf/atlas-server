@@ -241,10 +241,18 @@ final class AtlasCyberSecurityExtensionService
         }
 
         // Offensive work against an authorized external target -> this extension.
+        if ($offensive && $externalAuthorized) {
+            return [
+                'surface' => self::SURFACE_EXTENSION,
+                'reasons' => ['offensive_authorized_external_target_belongs_to_cyber_extension'],
+                'is_extension' => true,
+            ];
+        }
+
         return [
-            'surface' => self::SURFACE_EXTENSION,
-            'reasons' => ['offensive_authorized_external_target_belongs_to_cyber_extension'],
-            'is_extension' => true,
+            'surface' => self::SURFACE_SECURITY_DOMAIN,
+            'reasons' => ['non_authorized_or_non_offensive_request_belongs_to_security_domain'],
+            'is_extension' => false,
         ];
     }
 
