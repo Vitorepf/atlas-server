@@ -445,7 +445,11 @@ final class AtlasLoopAutoMergeService
             if ($hits === []) {
                 continue;
             }
-            $p = new Process(['php', '-d', 'memory_limit=2048M', 'artisan', 'test', $hits[0]], $repoRoot, null, null, 300.0);
+            // PHP_BINARY, not bare 'php': the canary runs as a direct child of the
+            // launchd-spawned drain (outside the frozen judge's process tree, so it does
+            // not inherit the judge's PATH fix). Under launchd's minimal PATH a bare
+            // 'php' argv[0] would not resolve — same exit-127 class that broke reprove.
+            $p = new Process([PHP_BINARY, '-d', 'memory_limit=2048M', 'artisan', 'test', $hits[0]], $repoRoot, null, null, 300.0);
             $p->run();
 
             return ['ran' => true, 'passed' => $p->isSuccessful(), 'target' => str_replace($repoRoot.'/', '', $hits[0])];

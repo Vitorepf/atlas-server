@@ -73,8 +73,20 @@ final class AreaFocusScalarNormalizer
             return $value;
         }
 
-        if (is_float($value) || (is_string($value) && is_numeric($value))) {
-            return (int) $value;
+        if (is_float($value)) {
+            return self::intRepresentableFloat($value) ? (int) $value : 0;
+        }
+
+        if (is_string($value) && is_numeric($value)) {
+            $trimmed = trim($value);
+
+            if (preg_match('/^[+-]?\d+$/', $trimmed) === 1) {
+                return self::intRepresentableString($trimmed) ? (int) $trimmed : 0;
+            }
+
+            $number = (float) $trimmed;
+
+            return self::intRepresentableFloat($number) ? (int) $trimmed : 0;
         }
 
         return 0;
@@ -276,6 +288,23 @@ final class AreaFocusScalarNormalizer
         return is_finite($value)
             && $value >= (float) PHP_INT_MIN
             && $value < (float) PHP_INT_MAX;
+    }
+
+    private static function intRepresentableString(string $value): bool
+    {
+        $negative = str_starts_with($value, '-');
+        $digits = ltrim($value, '+-');
+        $digits = ltrim($digits, '0');
+
+        if ($digits === '') {
+            return true;
+        }
+
+        $limit = $negative ? substr((string) PHP_INT_MIN, 1) : (string) PHP_INT_MAX;
+        $length = strlen($digits);
+        $limitLength = strlen($limit);
+
+        return $length < $limitLength || ($length === $limitLength && strcmp($digits, $limit) <= 0);
     }
 
     private static function saturatingFloatToInt(float $value, int $default): int
