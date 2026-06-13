@@ -237,6 +237,119 @@ class AtlasDecideMetaLearningServiceTest extends TestCase
         $this->assertSame(89.0, $frontend['average_score']);
     }
 
+    public function test_cost_outcome_routing_selects_cheaper_certified_m3_and_activates_existing_table(): void
+    {
+        config(['atlas.patamar4.adml_cost_outcome' => [
+            'enabled' => true,
+            'min_evidence' => 3,
+            'min_certification_rate' => 0.8,
+            'min_score' => 80.0,
+            'max_score_drop' => 3.0,
+            'require_measured_cost' => true,
+            'min_cost_samples' => 1,
+        ]]);
+
+        for ($i = 0; $i < 3; $i++) {
+            $this->appendLedgerEntry(
+                'bugfix',
+                'L2',
+                'repair_agent',
+                'codex',
+                'gpt-5.5',
+                91.0,
+                'cost-outcome-codex-'.$i,
+                framework: 'python',
+                costEstimate: 0.04,
+                recordedAt: date(DATE_ATOM),
+            );
+            $this->appendLedgerEntry(
+                'bugfix',
+                'L2',
+                'repair_agent',
+                'minimax',
+                'MiniMax-M3',
+                89.2,
+                'cost-outcome-m3-'.$i,
+                framework: 'python',
+                costEstimate: 0.004,
+                recordedAt: date(DATE_ATOM),
+            );
+        }
+
+        $svc = $this->buildService();
+        $rec = $svc->recommend([
+            'task_category' => 'bugfix',
+            'role' => 'repair_agent',
+            'framework' => 'python',
+        ]);
+
+        $this->assertTrue($rec['actionable']);
+        $this->assertSame(AtlasDecideMetaLearningService::ROUTING_BASIS_COST_OUTCOME, $rec['routing_basis']);
+        $this->assertSame('minimax_m27_cli', $rec['recommended_provider']);
+        $this->assertSame('MiniMax-M3', $rec['recommended_model']);
+        $this->assertSame('codex_cli', $rec['fallback_provider']);
+        $this->assertGreaterThan(80, $rec['estimated_savings_pct']);
+        $this->assertSame('ready', $rec['cost_outcome']['status']);
+        $this->assertSame(1.0, $rec['cost_outcome']['selected']['certification_rate']);
+
+        $receipt = $svc->applyAction([
+            'action' => AtlasDecideMetaLearningService::ACTION_ACTIVATE,
+            'task_category' => 'bugfix',
+            'role' => 'repair_agent',
+            'framework' => 'python',
+            'actor' => 'operator-test',
+        ]);
+        $this->assertSame('activate', $receipt['action']);
+        $this->assertSame(AtlasDecideMetaLearningService::ROUTING_BASIS_COST_OUTCOME, $receipt['routing_basis']);
+
+        $table = $svc->routingTable();
+        $this->assertSame(1, $table['active_entries']);
+        $this->assertSame('minimax_m27_cli', $table['entries'][0]['provider']);
+        $this->assertSame(AtlasDecideMetaLearningService::ROUTING_BASIS_COST_OUTCOME, $table['entries'][0]['routing_basis']);
+
+        $route = $svc->activeRouteFor('bugfix', 'repair_agent', 'python');
+        $this->assertSame('minimax_m27_cli', $route['provider']);
+        $this->assertSame('codex_cli', $route['fallback_provider']);
+    }
+
+    public function test_cost_outcome_routing_blocks_without_measured_cost(): void
+    {
+        config(['atlas.patamar4.adml_cost_outcome' => [
+            'enabled' => true,
+            'min_evidence' => 3,
+            'min_certification_rate' => 0.8,
+            'min_score' => 80.0,
+            'max_score_drop' => 3.0,
+            'require_measured_cost' => true,
+            'min_cost_samples' => 1,
+        ]]);
+
+        for ($i = 0; $i < 3; $i++) {
+            $this->appendLedgerEntry(
+                'bugfix',
+                'L2',
+                'repair_agent',
+                'minimax',
+                'MiniMax-M3',
+                90.0,
+                'cost-missing-m3-'.$i,
+                framework: 'python',
+                costEstimate: null,
+                recordedAt: date(DATE_ATOM),
+            );
+        }
+
+        $rec = $this->buildService()->recommend([
+            'task_category' => 'bugfix',
+            'role' => 'repair_agent',
+            'framework' => 'python',
+        ]);
+
+        $this->assertFalse($rec['actionable']);
+        $this->assertSame('blocked', $rec['cost_outcome']['status']);
+        $this->assertContains('cost_outcome_missing_measured_cost', $rec['reason']);
+    }
+
     private function appendLedgerEntry(
         string $taskCategory,
         string $difficultyLevel,
@@ -245,12 +358,15 @@ class AtlasDecideMetaLearningServiceTest extends TestCase
         string $model,
         float $score,
         string $runId,
+        ?string $framework = null,
+        ?float $costEstimate = 0.02,
+        ?string $recordedAt = '2026-05-15T12:00:00+00:00',
     ): void {
         $path = $this->tmpRoot.'/ledger/entries.jsonl';
         $entry = [
             'schema_version' => 'atlas.forge.rivals.provider_performance_ledger_entry.v1',
             'entry_id' => $runId.'-'.$provider.'-'.$model,
-            'recorded_at' => '2026-05-15T12:00:00+00:00',
+            'recorded_at' => $recordedAt,
             'run_id' => $runId,
             'battery_id' => 'rivals-map-test',
             'arena_run_id' => $runId,
@@ -265,7 +381,7 @@ class AtlasDecideMetaLearningServiceTest extends TestCase
             'difficulty_level' => $difficultyLevel,
             'difficulty_weight' => 3.0,
             'role' => $role,
-            'framework' => null,
+            'framework' => $framework,
             'mode' => 'fair',
             'preset' => 'test',
             'score_total' => $score,
@@ -275,7 +391,7 @@ class AtlasDecideMetaLearningServiceTest extends TestCase
             'tests_passed' => true,
             'replay_passed' => true,
             'duration_ms' => 60_000,
-            'cost_estimate' => 0.02,
+            'cost_estimate' => $costEstimate,
             'tokens_used' => 2_000,
             'valid_for_ranking' => true,
             'claim_ready' => false,

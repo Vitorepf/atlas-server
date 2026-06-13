@@ -51,7 +51,7 @@ final class HandoffCompletenessScorer
                 continue;
             }
 
-            $distinct[$trimmed] = true;
+            $distinct[strtolower($trimmed)] = true;
         }
 
         return $distinct;

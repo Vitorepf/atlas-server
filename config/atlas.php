@@ -1452,6 +1452,33 @@ return [
         'reconciliation_cadence' => env('ATLAS_PATAMAR4_RECONCILIATION_CADENCE', 'fifteen'),
         'nightly_counterfactuals_enabled' => (bool) env('ATLAS_PATAMAR4_NIGHTLY_COUNTERFACTUALS_ENABLED', true),
         'adml_sweep_enabled' => (bool) env('ATLAS_PATAMAR4_ADML_SWEEP_ENABLED', true),
+        // L5-6: ADML cost×outcome routing. This is not a parallel router:
+        // activation still goes through the existing Atlas Decide routing
+        // table + operator receipt, and gateway fallback remains intact.
+        'adml_cost_outcome' => [
+            'enabled' => (bool) env('ATLAS_PATAMAR4_ADML_COST_OUTCOME_ENABLED', false),
+            'min_evidence' => max(1, (int) env('ATLAS_PATAMAR4_ADML_COST_OUTCOME_MIN_EVIDENCE', 3)),
+            'min_certification_rate' => max(0.0, min(1.0, (float) env('ATLAS_PATAMAR4_ADML_COST_OUTCOME_MIN_CERTIFICATION_RATE', 0.8))),
+            'min_score' => max(0.0, min(100.0, (float) env('ATLAS_PATAMAR4_ADML_COST_OUTCOME_MIN_SCORE', 80.0))),
+            'max_score_drop' => max(0.0, (float) env('ATLAS_PATAMAR4_ADML_COST_OUTCOME_MAX_SCORE_DROP', 3.0)),
+            'require_measured_cost' => (bool) env('ATLAS_PATAMAR4_ADML_COST_OUTCOME_REQUIRE_MEASURED_COST', true),
+            'min_cost_samples' => max(1, (int) env('ATLAS_PATAMAR4_ADML_COST_OUTCOME_MIN_COST_SAMPLES', 1)),
+        ],
+        'adml_provider_aliases' => [
+            'anthropic_claude' => 'claude_cli',
+            'claude' => 'claude_cli',
+            'claude_code' => 'claude_cli',
+            'openai_codex' => 'codex_cli',
+            'openai_gpt' => 'codex_cli',
+            'codex' => 'codex_cli',
+            'minimax' => 'minimax_m27_cli',
+            'minimax_m3' => 'minimax_m27_cli',
+            'minimax-m3' => 'minimax_m27_cli',
+            'minimax_m27' => 'minimax_m27_cli',
+            'hermes' => 'hermes_cli',
+            'google_gemini' => 'gemini_cli',
+            'gemini' => 'gemini_cli',
+        ],
         'swarm_production_resolver_enabled' => (bool) env('ATLAS_PATAMAR4_SWARM_PRODUCTION_RESOLVER_ENABLED', false),
         'swarm_parallel_enabled' => (bool) env('ATLAS_PATAMAR4_SWARM_PARALLEL_ENABLED', false),
         'swarm_auto_failover_enabled' => (bool) env('ATLAS_PATAMAR4_SWARM_AUTO_FAILOVER_ENABLED', false),

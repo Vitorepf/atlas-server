@@ -96,6 +96,35 @@ class AtlasDecideMetaLearningCommandTest extends TestCase
         $this->assertFalse($decoded['advisory_map']['provider_tokens_spent']);
     }
 
+    public function test_scoped_json_exposes_cost_outcome_diagnostics_when_enabled(): void
+    {
+        config(['atlas.patamar4.adml_cost_outcome' => [
+            'enabled' => true,
+            'min_evidence' => 3,
+            'min_certification_rate' => 0.8,
+            'min_score' => 80.0,
+            'max_score_drop' => 3.0,
+            'require_measured_cost' => true,
+            'min_cost_samples' => 1,
+        ]]);
+
+        $out = new BufferedOutput;
+        $code = Artisan::call('atlas:atlas-decide:meta-learning', [
+            '--task-category' => 'bugfix',
+            '--role' => 'repair_agent',
+            '--framework' => 'python',
+            '--json' => true,
+        ], $out);
+
+        $this->assertSame(0, $code);
+        $decoded = json_decode($out->fetch(), true);
+        $this->assertIsArray($decoded);
+        $this->assertSame('meta-learning:list', $decoded['action']);
+        $this->assertTrue($decoded['recommendations'][0]['cost_outcome']['enabled']);
+        $this->assertSame('blocked', $decoded['recommendations'][0]['cost_outcome']['status']);
+        $this->assertContains('cost_outcome_no_relevant_ledger_evidence', $decoded['recommendations'][0]['reason']);
+    }
+
     public function test_activate_requires_apply_and_confirm(): void
     {
         $out = new BufferedOutput;
