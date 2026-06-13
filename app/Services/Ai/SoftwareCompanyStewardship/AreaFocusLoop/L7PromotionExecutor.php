@@ -304,7 +304,7 @@ final class L7PromotionExecutor
     {
         $value = $request[$key] ?? null;
 
-        if (is_string($value) && is_numeric($value)) {
+        if (is_float($value) || (is_string($value) && is_numeric($value))) {
             $float = (float) $value;
 
             if (! is_finite($float) || floor($float) !== $float) {
