@@ -284,6 +284,10 @@ class WorkspaceReader
                 new \RecursiveDirectoryIterator($this->root, \FilesystemIterator::SKIP_DOTS | \FilesystemIterator::FOLLOW_SYMLINKS),
                 function (\SplFileInfo $f): bool {
                     if ($f->isDir()) {
+                        if ($f->isLink()) {
+                            return false;
+                        }
+
                         $real = realpath($f->getPathname());
                         if ($real === false || ($real !== $this->root && ! str_starts_with($real, $this->root.DIRECTORY_SEPARATOR))) {
                             return false;
