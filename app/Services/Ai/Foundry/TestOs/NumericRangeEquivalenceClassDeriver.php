@@ -78,6 +78,10 @@ final class NumericRangeEquivalenceClassDeriver
 
     private function normalizeBound(int|float $bound, bool $isInt): int|float
     {
+        if (is_float($bound) && ! is_finite($bound)) {
+            throw new InvalidArgumentException('paramSpec bounds must be finite numbers.');
+        }
+
         return $isInt ? (int) $bound : (float) $bound;
     }
 }
