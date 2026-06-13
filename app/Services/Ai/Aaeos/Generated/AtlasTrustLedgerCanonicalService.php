@@ -155,6 +155,11 @@ final class AtlasTrustLedgerCanonicalService
 
                 continue;
             }
+            if (! $this->isIsoTimestamp($at)) {
+                $ignored++;
+
+                continue;
+            }
             $atTs = strtotime($at);
             if ($atTs === false) {
                 $ignored++;
@@ -348,6 +353,11 @@ final class AtlasTrustLedgerCanonicalService
     private function sameUtcDay(string $a, string $b): bool
     {
         return gmdate('Y-m-d', $this->toTimestamp($a)) === gmdate('Y-m-d', $this->toTimestamp($b));
+    }
+
+    private function isIsoTimestamp(string $timestamp): bool
+    {
+        return preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})$/', $timestamp) === 1;
     }
 
     private function toTimestamp(string $iso): int
