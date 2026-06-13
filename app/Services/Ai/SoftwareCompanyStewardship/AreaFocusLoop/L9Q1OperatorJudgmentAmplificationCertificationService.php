@@ -281,11 +281,12 @@ final class L9Q1OperatorJudgmentAmplificationCertificationService
     }
 
     /**
-     * Whether a value is an int/float finite number accepted by the metric normalizers.
+     * Whether a value is a finite number accepted by the metric normalizers.
      */
     private function finiteNumber(mixed $value): bool
     {
-        return (is_int($value) || is_float($value)) && is_finite((float) $value);
+        return (is_int($value) || is_float($value) || (is_string($value) && is_numeric($value)))
+            && is_finite((float) $value);
     }
 
     /**
