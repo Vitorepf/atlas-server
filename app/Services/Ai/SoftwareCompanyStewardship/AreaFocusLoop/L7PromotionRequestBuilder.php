@@ -52,7 +52,7 @@ final class L7PromotionRequestBuilder
     public function build(array $evidence): array
     {
         $approvedProposals = $this->intValue($evidence, 'approved_self_construction_proposals');
-        $brokenInvariants = $this->intValue($evidence, 'broken_invariant_count');
+        $brokenInvariants = $this->brokenInvariantCount($evidence);
         $trustLedgerScore = $this->trustLedgerScore($evidence);
         $rollbackWindowSeconds = $this->rollbackWindowSeconds($evidence);
 
@@ -149,6 +149,28 @@ final class L7PromotionRequestBuilder
         }
 
         return $this->intValue($evidence, 'rollback_window_seconds');
+    }
+
+    /**
+     * @param  array<string,mixed>  $evidence
+     */
+    private function brokenInvariantCount(array $evidence): int
+    {
+        $value = $evidence['broken_invariant_count'] ?? 0;
+
+        if (is_float($value) && is_finite($value) && $value !== floor($value)) {
+            return $value > 0.0 ? 1 : -1;
+        }
+
+        if (is_string($value) && is_numeric($value)) {
+            $float = (float) $value;
+
+            if (is_finite($float) && $float !== floor($float)) {
+                return $float > 0.0 ? 1 : -1;
+            }
+        }
+
+        return $this->intValue($evidence, 'broken_invariant_count');
     }
 
     /**
