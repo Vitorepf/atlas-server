@@ -247,6 +247,19 @@ final class AtlasTrustLedgerCanonicalService
      */
     public function gate(array $events, int $targetLevel, ?string $requestAt = null, ?array $scoreReceipt = null): array
     {
+        if ($targetLevel < 1 || $targetLevel > 7) {
+            return [
+                'schema' => self::DECISION_SCHEMA,
+                'target_level' => $targetLevel,
+                'allowed' => false,
+                'reason' => 'invalid_target_level',
+                'score' => 0.0,
+                'eligible_level' => 0,
+                'requires_same_day' => false,
+                'same_day' => false,
+            ];
+        }
+
         $requestAt ??= ($this->clock)();
         $scoreReceipt ??= $this->score($events, $requestAt);
         $score = (float) ($scoreReceipt['score'] ?? 0.0);
