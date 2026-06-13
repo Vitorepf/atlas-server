@@ -33,11 +33,11 @@ final class LearningPacketQualityScorer
         $confidence = $this->floatValue($packet, 'confidence');
         $evidence = array_values(array_filter(
             $this->listValue($packet, 'evidence_supporting_improvement'),
-            static fn (mixed $item): bool => ! is_string($item) || trim($item) !== '',
+            static fn (mixed $item): bool => $item !== null && (! is_string($item) || trim($item) !== ''),
         ));
         $failures = array_values(array_filter(
             $this->listValue($packet, 'what_failed_or_was_missing'),
-            static fn (mixed $failure): bool => ! is_string($failure) || trim($failure) !== '',
+            static fn (mixed $failure): bool => $failure !== null && (! is_string($failure) || trim($failure) !== ''),
         ));
         $rulePresent = $this->stringPresent($packet, 'new_rule_candidate');
         $rollbackPresent = $this->stringPresent($packet, 'rollback_recommendation');
