@@ -229,6 +229,41 @@ final class AtlasObraExecutorTest extends TestCase
         $this->assertSame($this->headBefore, trim($this->gOut(['rev-parse', 'HEAD'])));
     }
 
+    public function test_failed_delivery_persists_bounded_provider_autopsy_without_raw_content(): void
+    {
+        $this->seedLinearPlan('obra-autopsy', 2);
+
+        $executor = new AtlasObraExecutor($this->deliveryThatFailsWithDiagnostics(), new GovernedBranchMaterializationService);
+        $r = $executor->executePlanId('obra-autopsy', ['repo_dir' => $this->repo, 'provider' => 'hermes_cli']);
+
+        $this->assertSame(AtlasObraExecutor::STATUS_FAILED, $r['status']);
+        $this->assertSame('obra-autopsy:n0', $r['failed_node']);
+        $this->assertSame('provider_returned_not_ok:rate_limited', data_get($r, 'nodes.0.reason'));
+        $this->assertSame('hermes_cli', data_get($r, 'nodes.0.provider'));
+        $this->assertSame('gpt-5.5', data_get($r, 'nodes.0.model'));
+        $this->assertSame('blocked', data_get($r, 'nodes.0.delivery_status'));
+        $this->assertSame(1, data_get($r, 'nodes.0.file_count'));
+        $this->assertSame(false, data_get($r, 'nodes.0.syntax_check.ok'));
+        $this->assertStringContainsString('Parse error', (string) data_get($r, 'nodes.0.syntax_check.output_excerpt'));
+        $this->assertSame('provider_returned_not_ok:rate_limited', data_get($r, 'nodes.0.delivery_diagnostic.blocked_reason'));
+
+        $raw = (string) DB::table('atlas_obra_nodes')->where('id', 'obra-autopsy:n0')->value('result');
+        $persisted = json_decode($raw, true);
+        $this->assertSame('delivery', data_get($persisted, 'stage'));
+        $this->assertSame('provider_returned_not_ok:rate_limited', data_get($persisted, 'reason'));
+        $this->assertSame('hermes_cli', data_get($persisted, 'provider'));
+        $this->assertSame('gpt-5.5', data_get($persisted, 'model'));
+        $this->assertSame('blocked', data_get($persisted, 'delivery_status'));
+        $this->assertStringContainsString('Parse error', (string) data_get($persisted, 'syntax_check.output_excerpt'));
+        $this->assertStringContainsString('self-test failed', (string) data_get($persisted, 'run_check.output_excerpt'));
+        $this->assertStringNotContainsString('RAW_PROMPT_SHOULD_NOT_PERSIST', $raw);
+        $this->assertStringNotContainsString('SECRET_CODE_PREVIEW_SHOULD_NOT_PERSIST', $raw);
+        $this->assertStringNotContainsString('provider_raw_output', $raw);
+
+        $this->assertSame('skipped', DB::table('atlas_obra_nodes')->where('id', 'obra-autopsy:n1')->value('status'));
+        $this->assertTrue($r['main_untouched']);
+    }
+
     public function test_an_injected_gate_veto_halts_the_obra_fail_closed(): void
     {
         $this->seedLinearPlan('obra-gate', 3);
@@ -407,6 +442,68 @@ final class AtlasObraExecutorTest extends TestCase
                     'files' => [['path' => $target, 'content' => "<?php\n// ".$request."\nreturn ".$n.";\n"]],
                     'gate_receipt' => str_repeat('b', 40),
                     'provider' => 'fake',
+                ];
+            }
+        };
+    }
+
+    private function deliveryThatFailsWithDiagnostics(): ObraNodeDelivery
+    {
+        return new class implements ObraNodeDelivery
+        {
+            public function label(): string
+            {
+                return 'fake_fails_with_diagnostics';
+            }
+
+            public function deliver(string $request, array $context = []): array
+            {
+                return [
+                    'certified' => false,
+                    'files' => [],
+                    'reason' => 'provider_returned_not_ok:rate_limited',
+                    'provider' => (string) ($context['provider'] ?? 'hermes_cli'),
+                    'model' => 'gpt-5.5',
+                    'delivery_status' => 'blocked',
+                    'target_file' => (string) ($context['target_area'] ?? 'step1.php'),
+                    'file_count' => 1,
+                    'latency_ms' => 1234,
+                    'syntax_check' => [
+                        'ok' => false,
+                        'tool' => 'php -l',
+                        'output' => str_repeat('Parse error ', 80),
+                    ],
+                    'run_check' => [
+                        'ok' => false,
+                        'tool' => 'php_self_test',
+                        'exit_code' => 1,
+                        'output' => str_repeat('self-test failed ', 80),
+                    ],
+                    'delivery_diagnostic' => [
+                        'schema_version' => 'atlas.obra.delivery_diagnostic.v1',
+                        'reason' => 'provider_returned_not_ok:rate_limited',
+                        'blocked_reason' => 'provider_returned_not_ok:rate_limited',
+                        'delivery_status' => 'blocked',
+                        'provider' => 'hermes_cli',
+                        'model' => 'gpt-5.5',
+                        'target_file' => (string) ($context['target_area'] ?? 'step1.php'),
+                        'file_count' => 1,
+                        'latency_ms' => 1234,
+                        'syntax_check' => [
+                            'ok' => false,
+                            'tool' => 'php -l',
+                            'output_excerpt' => str_repeat('Parse error ', 80),
+                        ],
+                        'run_check' => [
+                            'ok' => false,
+                            'tool' => 'php_self_test',
+                            'exit_code' => 1,
+                            'output_excerpt' => str_repeat('self-test failed ', 80),
+                        ],
+                    ],
+                    'prompt' => 'RAW_PROMPT_SHOULD_NOT_PERSIST',
+                    'code_preview' => 'SECRET_CODE_PREVIEW_SHOULD_NOT_PERSIST',
+                    'provider_raw_output' => 'provider_raw_output',
                 ];
             }
         };

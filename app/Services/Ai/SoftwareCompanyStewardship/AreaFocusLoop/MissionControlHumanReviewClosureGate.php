@@ -169,6 +169,11 @@ final class MissionControlHumanReviewClosureGate
             if (is_string($age) && is_numeric(trim($age))) {
                 return (float) trim($age) > self::MAX_SNAPSHOT_AGE_SECONDS;
             }
+
+            // A present but unparseable age is not a freshness proof. L4+ human
+            // review closure must fail closed rather than treating malformed
+            // Mission Control snapshot age values as fresh.
+            return true;
         }
 
         return false;
