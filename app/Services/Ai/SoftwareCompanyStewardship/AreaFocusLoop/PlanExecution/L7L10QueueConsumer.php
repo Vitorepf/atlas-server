@@ -154,7 +154,7 @@ final class L7L10QueueConsumer
                 continue;
             }
             $acceptance = implode(' ; ', array_map('strval', (array) ($slice['acceptance_criteria'] ?? [])));
-            $rows[] = '| '.$label.' | '.trim((string) ($slice['delivery'] ?? '')).' | '.$acceptance.' | '.trim((string) ($slice['authority_guard'] ?? '')).' |';
+            $rows[] = '| '.$label.' | '.$this->escapeMarkdownTableCell(trim((string) ($slice['delivery'] ?? ''))).' | '.$this->escapeMarkdownTableCell($acceptance).' | '.$this->escapeMarkdownTableCell(trim((string) ($slice['authority_guard'] ?? ''))).' |';
         }
 
         $edges = [];
@@ -193,5 +193,10 @@ final class L7L10QueueConsumer
         }
 
         return null;
+    }
+
+    private function escapeMarkdownTableCell(string $value): string
+    {
+        return str_replace('|', '\\|', $value);
     }
 }
