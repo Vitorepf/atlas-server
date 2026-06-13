@@ -160,7 +160,7 @@ final class AtlasAiRuntimePacketsService
         $isSideEffect = in_array($tier, self::SIDE_EFFECT_TIERS, true)
             || in_array($kind, self::SIDE_EFFECT_KINDS, true);
         if ($isSideEffect) {
-            $hasPolicy = (bool) ($packet['has_policy'] ?? false);
+            $hasPolicy = ($packet['has_policy'] ?? false) === true;
             if (! $hasEvidence) {
                 $reasons[] = 'side_effect_requires_evidence';
             }
