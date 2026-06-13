@@ -212,6 +212,11 @@ final class AutonomyLadderRuntimeService
             return false;
         }
 
+        $observed = $metrics[$criterion['metric']];
+        if (! is_int($observed) && ! is_float($observed) && ! (is_string($observed) && is_numeric(trim($observed)))) {
+            return false;
+        }
+
         return $this->comparatorSatisfied(
             $criterion['comparator'],
             AreaFocusScalarNormalizer::payloadNumberOrDefault($metrics, $criterion['metric'], 0.0),
