@@ -153,7 +153,33 @@ final class SpecCompletenessScorer
             return [false, false, 'empty_list'];
         }
 
+        if (! $this->hasMeaningfulItem($value)) {
+            return [true, false, 'too_short'];
+        }
+
         return [true, true, 'ok'];
+    }
+
+    /**
+     * @param  array<int|string,mixed>  $items
+     */
+    private function hasMeaningfulItem(array $items): bool
+    {
+        foreach ($items as $item) {
+            if (is_string($item)) {
+                if (mb_strlen(trim($item)) >= self::TEXT_MIN_LENGTH) {
+                    return true;
+                }
+
+                continue;
+            }
+
+            if (is_array($item) && $this->hasMeaningfulItem($item)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
