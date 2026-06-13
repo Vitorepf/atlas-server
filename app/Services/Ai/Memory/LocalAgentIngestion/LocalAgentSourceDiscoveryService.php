@@ -137,13 +137,15 @@ final class LocalAgentSourceDiscoveryService
      */
     private function skip(string $alias, string $path, string $rootPath, string $reason, \SplFileInfo $file): array
     {
+        $leaksOutsideRootMetadata = $reason === LocalAgentMemoryIngestionCanon::SKIP_PATH_OUTSIDE_ROOT;
+
         return [
             'alias' => $alias,
             'absolute_path' => $path,
             'relative_path' => $this->relativePath($path, $rootPath),
             'extension' => strtolower((string) $file->getExtension()),
-            'size_bytes' => (int) $file->getSize(),
-            'mtime' => $file->getMTime(),
+            'size_bytes' => $leaksOutsideRootMetadata ? 0 : (int) $file->getSize(),
+            'mtime' => $leaksOutsideRootMetadata ? null : $file->getMTime(),
             'skip_reason' => $reason,
         ];
     }
