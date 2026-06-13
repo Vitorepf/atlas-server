@@ -105,7 +105,7 @@ final class AtlasRepairEscalationService
         $allowRepair = $this->normalizeBooleanFlag($policy['allow_repair'] ?? true);
 
         $attempt = $this->normalizeAttempt($failure['attempt'] ?? null);
-        $signatureRepeated = (bool) ($failure['signature_repeated'] ?? false);
+        $signatureRepeated = $this->normalizeBooleanFlag($failure['signature_repeated'] ?? false);
 
         $reasons = [];
         $action = null;
