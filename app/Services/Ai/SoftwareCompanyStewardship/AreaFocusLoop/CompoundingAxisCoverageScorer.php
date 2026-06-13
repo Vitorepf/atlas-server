@@ -93,7 +93,7 @@ final class CompoundingAxisCoverageScorer
         }
 
         $impact = $impactAxes[$axis] ?? 0.0;
-        if (! is_int($impact) && ! is_float($impact)) {
+        if (! is_int($impact) && ! is_float($impact) && ! is_numeric($impact)) {
             return 0.0;
         }
 
