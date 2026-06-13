@@ -126,6 +126,69 @@ final class AtlasObraExecutorTest extends TestCase
         $this->assertSame(3, DB::table('atlas_obra_nodes')->where('plan_id', 'obra-acc')->where('status', 'done')->count());
     }
 
+    public function test_running_obra_resumes_existing_worktree_and_skips_done_nodes(): void
+    {
+        $this->seedLinearPlan('obra-resume', 3);
+
+        $materializer = new GovernedBranchMaterializationService;
+        $open = $materializer->openObra(['id' => 'obra-resume', 'repo_dir' => $this->repo]);
+        $this->assertTrue((bool) ($open['opened'] ?? false), (string) ($open['reason'] ?? 'open failed'));
+
+        $apply = $materializer->applyStepToObra([
+            'worktree' => (string) $open['worktree'],
+            'base_head' => (string) $open['base_head'],
+            'step_id' => 'obra-resume:n0',
+            'files' => [['path' => 'step1.php', 'content' => "<?php\n// before kill\nreturn 1;\n"]],
+            'certified' => true,
+            'gate_receipt' => str_repeat('a', 40),
+        ]);
+        $this->assertTrue((bool) ($apply['applied'] ?? false), (string) ($apply['reason'] ?? 'apply failed'));
+
+        DB::table('atlas_obra_plans')->where('id', 'obra-resume')->update([
+            'status' => 'running',
+            'meta' => json_encode([
+                'obra_runtime' => [
+                    'branch' => (string) $open['branch'],
+                    'worktree' => (string) $open['worktree'],
+                    'base_head' => (string) $open['base_head'],
+                    'repo_dir' => $this->repo,
+                    'resume_supported' => true,
+                    'resume_count' => 0,
+                ],
+            ], JSON_UNESCAPED_SLASHES),
+        ]);
+        DB::table('atlas_obra_nodes')->where('id', 'obra-resume:n0')->update([
+            'status' => 'done',
+            'result' => json_encode([
+                'commit' => $apply['commit'] ?? null,
+                'files_changed' => ['step1.php'],
+                'branch' => (string) $open['branch'],
+                'provider' => 'fake_before_kill',
+                'delivery' => 'fake_before_kill',
+            ], JSON_UNESCAPED_SLASHES),
+        ]);
+
+        $executor = new AtlasObraExecutor($this->accumulatingDelivery(), $materializer);
+        $r = $executor->executePlanId('obra-resume', ['repo_dir' => $this->repo]);
+
+        $this->assertSame(AtlasObraExecutor::STATUS_DONE, $r['status'], 'reason: '.($r['reason'] ?? ''));
+        $this->assertTrue($r['resumed']);
+        $this->assertSame(1, $r['resume_count']);
+        $this->assertSame(3, $r['delivered_nodes']);
+        $this->assertTrue((bool) data_get($r, 'nodes.0.resumed'));
+        $this->assertSame('fake_before_kill', data_get($r, 'nodes.0.provider'));
+
+        $tree = $this->gOut(['ls-tree', '-r', '--name-only', 'atlas/obra/obra-resume']);
+        $this->assertStringContainsString('step1.php', $tree);
+        $this->assertStringContainsString('step2.php', $tree);
+        $this->assertStringContainsString('step3.php', $tree);
+        $this->assertSame('3', trim($this->gOut(['rev-list', '--count', $this->headBefore.'..atlas/obra/obra-resume'])));
+
+        $meta = json_decode((string) DB::table('atlas_obra_plans')->where('id', 'obra-resume')->value('meta'), true);
+        $this->assertSame(1, data_get($meta, 'obra_runtime.resume_count'));
+        $this->assertSame(3, DB::table('atlas_obra_nodes')->where('plan_id', 'obra-resume')->where('status', 'done')->count());
+    }
+
     // ------------------------------------------------------------------
     // 2) HALT-ON-FAILURE — a failed node stops the obra (fail-closed).
     // ------------------------------------------------------------------

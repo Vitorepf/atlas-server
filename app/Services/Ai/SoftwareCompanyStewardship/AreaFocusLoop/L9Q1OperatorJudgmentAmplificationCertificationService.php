@@ -258,11 +258,16 @@ final class L9Q1OperatorJudgmentAmplificationCertificationService
             return $value > 0 ? $value : 0;
         }
 
-        if (is_float($value) && is_finite($value)) {
+        if (
+            (is_float($value) && is_finite($value))
+            || (is_string($value) && is_numeric($value) && is_finite((float) $value))
+        ) {
             // A float at or beyond 2^63 is not representable as an int: casting it
             // would emit a runtime warning and overflow to a platform-dependent
             // (even negative) value, breaking purity/determinism. A magnitude that
             // large is unambiguously > 0, so it must block; clamp it to PHP_INT_MAX.
+            $value = (float) $value;
+
             if ($value >= 9223372036854775808.0) {
                 return PHP_INT_MAX;
             }

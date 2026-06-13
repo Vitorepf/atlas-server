@@ -166,8 +166,8 @@ final class AtlasObraExecutor
         // caller handed an unordered list).
         usort($nodes, static fn (array $a, array $b): int => ((int) ($a['seq'] ?? 0)) <=> ((int) ($b['seq'] ?? 0)));
 
-        // --- OPEN the obra: ONE branch + a persistent worktree from the clean base. ---
-        $open = $this->materializer->openObra(['id' => $planId, 'repo_dir' => $repoDir]);
+        // --- OPEN or RESUME the obra: ONE branch + a persistent worktree from the clean base. ---
+        $open = $this->openOrResumeObra($planId, $repoDir);
         if (! (bool) ($open['opened'] ?? false)) {
             $this->setPlanStatus($planId, self::STATUS_FAILED);
 
@@ -178,7 +178,18 @@ final class AtlasObraExecutor
 
         $branch = (string) $open['branch'];
         $worktree = (string) $open['worktree'];
+        $resumed = (bool) ($open['resumed'] ?? false);
+        $resumeCount = (int) ($open['resume_count'] ?? 0);
         $this->setPlanStatus($planId, 'running');
+        $this->setPlanRuntime($planId, [
+            'branch' => $branch,
+            'worktree' => $worktree,
+            'base_head' => (string) $open['base_head'],
+            'repo_dir' => $repoDir,
+            'resume_supported' => true,
+            'resume_count' => $resumeCount,
+            'resumed_current_run' => $resumed,
+        ]);
 
         $nodeResults = [];
         $deliveredCount = 0;
@@ -189,6 +200,23 @@ final class AtlasObraExecutor
             $nodeId = (string) ($node['id'] ?? '');
             $request = trim((string) ($node['request'] ?? ''));
             $seq = (int) ($node['seq'] ?? 0);
+
+            if ($resumed && $this->nodeStatus($nodeId) === self::NODE_DONE) {
+                $previous = $this->nodeResult($nodeId);
+                $nodeResults[] = [
+                    'id' => $nodeId,
+                    'seq' => $seq,
+                    'status' => self::NODE_DONE,
+                    'commit' => $previous['commit'] ?? null,
+                    'files_changed' => array_values((array) ($previous['files_changed'] ?? [])),
+                    'provider' => $previous['provider'] ?? null,
+                    'delivery' => $previous['delivery'] ?? 'resumed_prior_delivery',
+                    'resumed' => true,
+                ];
+                $deliveredCount++;
+
+                continue;
+            }
 
             // Once halted, the remaining nodes do NOT run — they are recorded skipped.
             if ($halted) {
@@ -292,6 +320,8 @@ final class AtlasObraExecutor
                 'files_changed' => $filesChanged,
                 'branch' => $branch,
                 'gate_receipt' => $gateReceipt,
+                'provider' => $delivered['provider'] ?? null,
+                'delivery' => $this->delivery->label(),
             ]);
 
             // BRAIN write-back (compounding) — provider-safe, fail-open.
@@ -375,10 +405,56 @@ final class AtlasObraExecutor
             'never_merged' => true,
             'never_pushed' => true,
             'reversible' => true,
+            'resumed' => $resumed,
+            'resume_count' => $resumeCount,
             'brain_recorded' => $obraRecorded,
             'review_commands' => $close['review_commands'] ?? [],
             'reason' => $reason,
         ];
+    }
+
+    /**
+     * Resume only when a prior live run persisted the exact branch/worktree/base
+     * runtime and that worktree still exists. This makes kill/restart fail-closed:
+     * branch-only leftovers are not guessed back into a green run.
+     *
+     * @return array<string,mixed>
+     */
+    private function openOrResumeObra(string $planId, string $repoDir): array
+    {
+        $stored = $this->storedPlanRuntime($planId);
+        if (($stored['status'] ?? null) === 'running') {
+            $runtime = (array) ($stored['runtime'] ?? []);
+            $worktree = rtrim((string) ($runtime['worktree'] ?? ''), '/');
+            $branch = (string) ($runtime['branch'] ?? '');
+            $baseHead = (string) ($runtime['base_head'] ?? '');
+            if (
+                $branch !== ''
+                && $baseHead !== ''
+                && $worktree !== ''
+                && is_dir($worktree)
+                && (is_dir($worktree.'/.git') || is_file($worktree.'/.git'))
+            ) {
+                $resumeCount = ((int) ($runtime['resume_count'] ?? 0)) + 1;
+
+                return [
+                    'opened' => true,
+                    'resumed' => true,
+                    'resume_count' => $resumeCount,
+                    'repo' => $repoDir,
+                    'branch' => $branch,
+                    'worktree' => $worktree,
+                    'base_head' => $baseHead,
+                    'status_before' => (string) ($stored['status'] ?? ''),
+                ];
+            }
+        }
+
+        $open = $this->materializer->openObra(['id' => $planId, 'repo_dir' => $repoDir]);
+        $open['resumed'] = false;
+        $open['resume_count'] = (int) data_get($stored, 'runtime.resume_count', 0);
+
+        return $open;
     }
 
     /**
@@ -550,6 +626,77 @@ final class AtlasObraExecutor
             return (bool) ($r['recorded'] ?? false);
         } catch (Throwable) {
             return false;
+        }
+    }
+
+    /**
+     * @return array{status?:string,runtime?:array<string,mixed>}
+     */
+    private function storedPlanRuntime(string $planId): array
+    {
+        try {
+            $row = DB::table('atlas_obra_plans')->where('id', $planId)->first(['status', 'meta']);
+            if ($row === null) {
+                return [];
+            }
+            $meta = json_decode((string) ($row->meta ?? '{}'), true);
+
+            return [
+                'status' => (string) ($row->status ?? ''),
+                'runtime' => is_array($meta) ? (array) ($meta['obra_runtime'] ?? []) : [],
+            ];
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $runtime
+     */
+    private function setPlanRuntime(string $planId, array $runtime): void
+    {
+        try {
+            $raw = DB::table('atlas_obra_plans')->where('id', $planId)->value('meta');
+            $meta = json_decode((string) ($raw ?: '{}'), true);
+            if (! is_array($meta)) {
+                $meta = [];
+            }
+            $previous = (array) ($meta['obra_runtime'] ?? []);
+            $meta['obra_runtime'] = array_merge($previous, $runtime, [
+                'updated_at' => now()->toISOString(),
+            ]);
+            DB::table('atlas_obra_plans')->where('id', $planId)->update([
+                'meta' => json_encode($meta, JSON_UNESCAPED_SLASHES),
+                'updated_at' => now(),
+            ]);
+        } catch (Throwable) {
+            // The plan tables may be absent in an in-memory-only execute(); ignore.
+        }
+    }
+
+    private function nodeStatus(string $nodeId): ?string
+    {
+        try {
+            $status = DB::table('atlas_obra_nodes')->where('id', $nodeId)->value('status');
+
+            return is_string($status) ? $status : null;
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function nodeResult(string $nodeId): array
+    {
+        try {
+            $raw = DB::table('atlas_obra_nodes')->where('id', $nodeId)->value('result');
+            $decoded = json_decode((string) ($raw ?: '{}'), true);
+
+            return is_array($decoded) ? $decoded : [];
+        } catch (Throwable) {
+            return [];
         }
     }
 
