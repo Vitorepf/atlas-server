@@ -249,7 +249,7 @@ final class L10R3BoundedRecursionCertificationService
             return false;
         }
 
-        if (($raw['hard_stop'] ?? false)) {
+        if ($this->flagRaised($raw['hard_stop'] ?? false)) {
             return false;
         }
 
@@ -342,10 +342,15 @@ final class L10R3BoundedRecursionCertificationService
      * Read a safety-veto flag truthy / fail-closed, exactly as the depth gate reads
      * its `hard_stop`: a real bool true raises it, and so does a truthy non-bool
      * (`1` / `"true"`) arriving from a serialized envelope, while every falsey value
-     * (false, 0, "0", "", [], null) leaves it unraised. A veto can never fail OPEN.
+     * (false, 0, "0", "", [], null) and the serialized string `"false"` leaves it
+     * unraised. A veto can never fail OPEN.
      */
     private function flagRaised(mixed $value): bool
     {
+        if (is_string($value) && strtolower(trim($value)) === 'false') {
+            return false;
+        }
+
         return (bool) $value;
     }
 
