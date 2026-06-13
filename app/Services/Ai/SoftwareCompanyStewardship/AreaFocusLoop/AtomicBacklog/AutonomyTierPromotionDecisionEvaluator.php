@@ -16,6 +16,16 @@ final class AutonomyTierPromotionDecisionEvaluator
 
         $blockers = [];
 
+        foreach ([
+            [$areaState, 'active_tier'],
+            [$receipt, 'requested_tier'],
+            [$areaState, 'max_autonomy_tier'],
+        ] as [$payload, $key]) {
+            if (! $this->hasValidTierValue($payload, $key)) {
+                $blockers[] = 'invalid_' . $key;
+            }
+        }
+
         if (! $this->isRegisteredArea($areaState)) {
             $blockers[] = 'area_not_registered';
         }
@@ -73,5 +83,16 @@ final class AutonomyTierPromotionDecisionEvaluator
         $value = $payload[$key] ?? $default;
 
         return is_int($value) ? $value : (int) $value;
+    }
+
+    private function hasValidTierValue(array $payload, string $key): bool
+    {
+        if (! array_key_exists($key, $payload)) {
+            return true;
+        }
+
+        $value = $payload[$key];
+
+        return is_int($value) || (is_string($value) && filter_var($value, FILTER_VALIDATE_INT) !== false);
     }
 }
