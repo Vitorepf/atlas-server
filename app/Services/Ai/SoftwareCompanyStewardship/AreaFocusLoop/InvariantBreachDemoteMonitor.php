@@ -130,7 +130,7 @@ final class InvariantBreachDemoteMonitor
         if (array_key_exists('status', $invariant)) {
             return in_array(
                 strtolower(trim((string) $invariant['status'])),
-                ['breached', 'fail', 'failed', 'violation', 'violated'],
+                ['breached', 'fail', 'failed', 'failing', 'violation', 'violated'],
                 true,
             );
         }
