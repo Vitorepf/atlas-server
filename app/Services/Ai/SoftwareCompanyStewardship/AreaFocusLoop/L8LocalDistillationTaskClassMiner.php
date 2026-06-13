@@ -233,7 +233,7 @@ final class L8LocalDistillationTaskClassMiner
             return array_values($evidence);
         }
 
-        return [];
+        return [$evidence];
     }
 
     /**
