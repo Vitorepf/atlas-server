@@ -209,12 +209,12 @@ final class L9Q1OperatorJudgmentAmplificationCertificationService
     private function throughputLift(array $source): float
     {
         $explicit = $source['throughput_lift'] ?? null;
-        if (AreaFocusScalarNormalizer::finiteNumber($explicit)) {
+        if ($this->finiteNumber($explicit)) {
             return $this->round((float) $explicit);
         }
 
-        $current = AreaFocusScalarNormalizer::finiteNumberOrZero($source['current_throughput'] ?? $source['current'] ?? null);
-        $baseline = AreaFocusScalarNormalizer::finiteNumberOrZero($source['baseline_throughput'] ?? $source['baseline'] ?? null);
+        $current = $this->finiteNumberOrZero($source['current_throughput'] ?? $source['current'] ?? null);
+        $baseline = $this->finiteNumberOrZero($source['baseline_throughput'] ?? $source['baseline'] ?? null);
 
         return $this->round($current - $baseline);
     }
@@ -230,12 +230,12 @@ final class L9Q1OperatorJudgmentAmplificationCertificationService
     private function overrideRateDelta(array $source): float
     {
         $explicit = $source['override_rate_delta'] ?? null;
-        if (AreaFocusScalarNormalizer::finiteNumber($explicit)) {
+        if ($this->finiteNumber($explicit)) {
             return $this->round($this->clampSigned((float) $explicit));
         }
 
-        $current = AreaFocusScalarNormalizer::finiteClampUnit(AreaFocusScalarNormalizer::finiteNumberOrZero($source['current_override_rate'] ?? null));
-        $baseline = AreaFocusScalarNormalizer::finiteClampUnit(AreaFocusScalarNormalizer::finiteNumberOrZero($source['baseline_override_rate'] ?? null));
+        $current = $this->finiteClampUnit($this->finiteNumberOrZero($source['current_override_rate'] ?? null));
+        $baseline = $this->finiteClampUnit($this->finiteNumberOrZero($source['baseline_override_rate'] ?? null));
 
         return $this->round($current - $baseline);
     }
@@ -273,6 +273,38 @@ final class L9Q1OperatorJudgmentAmplificationCertificationService
         }
 
         return 0;
+    }
+
+    /**
+     * Whether a value is an int/float finite number accepted by the metric normalizers.
+     */
+    private function finiteNumber(mixed $value): bool
+    {
+        return (is_int($value) || is_float($value)) && is_finite((float) $value);
+    }
+
+    /**
+     * Finite numeric metric value, fail-closed to zero when absent or invalid.
+     */
+    private function finiteNumberOrZero(mixed $value): float
+    {
+        return $this->finiteNumber($value) ? (float) $value : 0.0;
+    }
+
+    /**
+     * Clamp a finite rate to the 0..1 unit interval.
+     */
+    private function finiteClampUnit(float $value): float
+    {
+        if (! is_finite($value)) {
+            return 0.0;
+        }
+
+        if ($value < 0.0) {
+            return 0.0;
+        }
+
+        return $value > 1.0 ? 1.0 : $value;
     }
 
     /**
