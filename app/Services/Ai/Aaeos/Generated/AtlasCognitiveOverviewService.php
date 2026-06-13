@@ -216,6 +216,19 @@ final class AtlasCognitiveOverviewService
      */
     public function classifyCompression(float $factor): array
     {
+        if (! is_finite($factor)) {
+            return [
+                'factor' => $factor,
+                'meets_floor' => false,
+                'on_target' => false,
+                'exceeds_target' => false,
+                'band' => 'invalid_factor',
+                'floor' => self::COMPRESSION_FLOOR,
+                'target_min' => self::COMPRESSION_TARGET_MIN,
+                'target_max' => self::COMPRESSION_TARGET_MAX,
+            ];
+        }
+
         $meetsFloor = $factor >= self::COMPRESSION_FLOOR;
         $onTarget = $factor >= self::COMPRESSION_TARGET_MIN && $factor <= self::COMPRESSION_TARGET_MAX;
         $exceeds = $factor > self::COMPRESSION_TARGET_MAX;
