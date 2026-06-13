@@ -120,6 +120,9 @@ class WorkspaceReader
     public function files(array $extensions = [], ?string $underRelative = null): array
     {
         $extensions = $extensions === [] ? self::CODE_GLOBS : array_map('strtolower', $extensions);
+        while ($underRelative !== null && str_starts_with($underRelative, './')) {
+            $underRelative = substr($underRelative, 2);
+        }
 
         if ($this->fileCache === null) {
             $this->fileCache = $this->scanAllFiles();
