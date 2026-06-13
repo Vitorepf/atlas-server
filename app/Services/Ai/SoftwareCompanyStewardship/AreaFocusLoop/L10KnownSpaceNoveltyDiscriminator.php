@@ -256,6 +256,10 @@ final class L10KnownSpaceNoveltyDiscriminator
             $signature = $this->normalizeToken($pattern['signature'] ?? '');
             $mechanisms = $this->mechanismsOf($pattern);
 
+            if ($signature === '' && $mechanisms === []) {
+                continue;
+            }
+
             $id = $this->normalizeToken($pattern['id'] ?? '');
             if ($id === '') {
                 $id = $signature !== '' ? $signature : 'pattern_'.$fallback;
