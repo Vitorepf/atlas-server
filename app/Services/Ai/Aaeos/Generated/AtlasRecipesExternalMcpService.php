@@ -109,8 +109,8 @@ final class AtlasRecipesExternalMcpService
         $integration = strtolower((string) ($this->str($candidate['integration'] ?? null) ?? ''));
         $wrapper = strtolower((string) ($this->str($candidate['wrapper_skill'] ?? null) ?? ''));
         $sandbox = strtolower((string) ($this->str($candidate['sandbox'] ?? null) ?? ''));
-        $adrRecorded = (bool) ($candidate['adr_recorded'] ?? false);
-        $extraApproval = (bool) ($candidate['extra_approval'] ?? false);
+        $adrRecorded = $this->boolGate($candidate['adr_recorded'] ?? false);
+        $extraApproval = $this->boolGate($candidate['extra_approval'] ?? false);
         $enforced = $this->normalizeList($candidate['enforced_controls'] ?? []);
 
         $violations = [];
@@ -223,9 +223,9 @@ final class AtlasRecipesExternalMcpService
     {
         $target = $this->str($call['target'] ?? null);
         $scopeIn = $this->normalizeList($call['scope_in'] ?? []);
-        $hasReceipt = (bool) ($call['has_decision_receipt'] ?? false);
-        $refusalHit = (bool) ($call['refusal_matrix_hit'] ?? false);
-        $rateLimited = (bool) ($call['rate_limited'] ?? false);
+        $hasReceipt = $this->boolGate($call['has_decision_receipt'] ?? false);
+        $refusalHit = $this->boolGate($call['refusal_matrix_hit'] ?? false);
+        $rateLimited = $this->boolGate($call['rate_limited'] ?? false);
 
         $inScope = $target !== null
             && $scopeIn !== []
@@ -359,5 +359,14 @@ final class AtlasRecipesExternalMcpService
         }
 
         return null;
+    }
+
+    private function boolGate(mixed $v): bool
+    {
+        if (is_string($v)) {
+            return filter_var($v, FILTER_VALIDATE_BOOLEAN);
+        }
+
+        return (bool) $v;
     }
 }
