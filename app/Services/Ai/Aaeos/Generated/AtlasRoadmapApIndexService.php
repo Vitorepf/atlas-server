@@ -128,7 +128,7 @@ final class AtlasRoadmapApIndexService
         'agent_workflow_governance' => [
             'label' => 'Agent workflow governance',
             // AP-200 family.
-            'ranges' => [[200, 200]],
+            'ranges' => [[200, 299]],
             'singles' => [],
         ],
         'external_graph_candidates' => [
