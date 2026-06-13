@@ -61,13 +61,13 @@ final class DepartmentMaturityCheckContract
         $requiredDepartmentIds = array_values(array_map(
             static fn (string $id): string => strtolower(trim($id)),
             array_filter(
-                (array) ($input['required_department_ids'] ?? []),
+                (array) ($input['required_department_ids'] ?? ['dev']),
                 static fn (mixed $id): bool => is_string($id) && trim($id) !== '',
             ),
         ));
 
         $snapshot = [];
-        foreach ((array) ($input['department_maturity_snapshot'] ?? []) as $departmentId => $level) {
+        foreach ((array) ($input['department_maturity_snapshot'] ?? ['dev' => self::MIN_ROUTING_LEVEL]) as $departmentId => $level) {
             if (! is_string($departmentId) || ! is_string($level)) {
                 continue;
             }
