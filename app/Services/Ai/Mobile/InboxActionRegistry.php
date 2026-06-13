@@ -7,6 +7,7 @@ use App\Models\AiMessage;
 use App\Models\AiPerformanceRecommendation;
 use App\Models\AiThread;
 use App\Models\AtlasMobileDevice;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopOperatorReviewQueueService;
 use App\Services\Ai\Kernel\Architecture\AtlasRivalsStrategyReadModel;
 use App\Services\Ai\Kernel\Architecture\AtlasRivalsStrategyReviewRecorder;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptHash;
@@ -38,6 +39,7 @@ class InboxActionRegistry
         private readonly ProposalInboxEmitter $proposals,
         private readonly RecommendationLifecycleService $recommendations,
         private readonly DiscussionBootstrapper $discussionBootstrapper,
+        private readonly AtlasLoopOperatorReviewQueueService $loopOperatorReview,
         private readonly AtlasEvidenceLedger $ledger,
         private readonly LedgerProjectionWorker $ledgerProjectionWorker,
         private readonly AtlasRivalsStrategyReviewRecorder $rivalsStrategyReviewRecorder,
@@ -102,6 +104,7 @@ class InboxActionRegistry
                 'discuss' => $this->discuss($locked),
                 'approve_once', 'approve_session', 'approve_workspace_1h', 'deny' => $this->resolveApproval($locked, $actionId, $input),
                 'view_trace', 'review_patch' => $this->readOnlyResult($locked, $actionId),
+                'loop_operator_review_approve', 'loop_operator_review_reject' => $this->loopOperatorReviewDecision($locked, $actionId, $input, $actor),
                 'create_proposal' => $this->createProposal($locked),
                 'run_ledger_projection' => $this->runLedgerProjection($locked, $input),
                 'review_retrieval_regression' => $this->reviewRetrievalRegression($locked, $input),
@@ -509,6 +512,66 @@ class InboxActionRegistry
                 'file_refs' => $this->array(data_get($proposalContract, 'file_refs')),
                 'diff_refs' => $this->array(data_get($proposalContract, 'diff_refs')),
                 'payload' => $payload,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array{item:AiInboxItem,payload:array<string,mixed>}
+     */
+    private function loopOperatorReviewDecision(AiInboxItem $item, string $actionId, array $input, ?AtlasMobileDevice $actor): array
+    {
+        if ($item->type !== 'proposal') {
+            throw ValidationException::withMessages(['action' => 'Loop operator review action so pode ser usada em item proposal.']);
+        }
+
+        $payload = $item->payload ?? [];
+        $review = $this->array(data_get($payload, 'loop_operator_review'));
+        $proposalRef = $this->string($input['proposal_ref'] ?? null)
+            ?? $this->string(data_get($review, 'proposal_ref'))
+            ?? $this->string(data_get($review, 'proposal_hash'))
+            ?? $this->string($item->source_id);
+        if ($proposalRef === null) {
+            throw ValidationException::withMessages(['proposal' => 'Proposta Loop obrigatoria para revisao mobile.']);
+        }
+
+        $reason = $this->string($input['reason'] ?? null)
+            ?? ($actionId === 'loop_operator_review_approve'
+                ? 'mobile operator approved parked loop proposal'
+                : 'mobile operator rejected parked loop proposal');
+        $operator = $actor?->id !== null ? 'mobile_device:'.$actor->id : 'mobile_device';
+
+        $decision = $actionId === 'loop_operator_review_approve'
+            ? $this->loopOperatorReview->approve($proposalRef, [
+                'operator_id' => $operator,
+                'reason' => $reason,
+                'base_path' => $this->string(data_get($review, 'base_path')) ?? base_path(),
+                'approved' => true,
+            ])
+            : $this->loopOperatorReview->reject($proposalRef, [
+                'operator_id' => $operator,
+                'reason' => $reason,
+            ]);
+
+        $resolved = in_array(($decision['status'] ?? null), ['merged', 'rejected'], true);
+        $item->forceFill([
+            'status' => $resolved ? 'resolved' : 'read',
+            'read_at' => $item->read_at ?? now(),
+            'resolved_at' => $resolved ? now() : $item->resolved_at,
+        ])->save();
+
+        return [
+            'item' => $item->refresh(),
+            'payload' => [
+                'action' => $actionId,
+                'loop_operator_review' => [
+                    'schema_version' => 'atlas.mobile.loop_operator_review.v1',
+                    'proposal_ref_hash' => hash('sha256', $proposalRef),
+                    'decision_status' => $decision['status'] ?? 'unknown',
+                    'resolved' => $resolved,
+                ],
+                'decision' => $decision,
             ],
         ];
     }

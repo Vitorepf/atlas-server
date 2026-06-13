@@ -36,6 +36,7 @@ final class AtlasLoopTaskGrinder
         private readonly AtlasLoopResourceGate $gate,
         private readonly AtlasLoopSemanticImplementationCertifier $semanticCertifier,
         private readonly AtlasLoopIntentVerifierFactory $intentVerifierFactory,
+        private readonly AtlasLoopExplorerStrategyBanditService $strategyBandit,
     ) {}
 
     /**
@@ -62,6 +63,11 @@ final class AtlasLoopTaskGrinder
         $cleanup = static function (): void {};
         try {
             $payload = $this->taskPayload($task);
+            $strategyBanditDecision = $this->strategyBanditDecision($task, $payload, $scenarios);
+            if ((bool) ($strategyBanditDecision['applied'] ?? false)) {
+                $payload['scenario_strategies'] = $strategyBanditDecision['selected_strategy_texts'] ?? [];
+                $payload['scenario_strategy_keys'] = $strategyBanditDecision['selected_strategy_keys'] ?? [];
+            }
             $frameworkTask = $this->usesFrameworkMaterializer($payload);
             $intentVerifierPacket = null;
             if ($frameworkTask && $this->shouldCompileIntentVerifier($payload)) {
@@ -84,6 +90,9 @@ final class AtlasLoopTaskGrinder
             }
 
             $result = $this->runner->run([$explorerTask], $options);
+            if (is_array($strategyBanditDecision)) {
+                $result['explorer_strategy_bandit'] = $this->summariseStrategyBanditDecision($strategyBanditDecision);
+            }
             if ($intentVerifierPacket !== null) {
                 $result['intent_verifier_factory'] = $this->summariseIntentVerifierPacket($intentVerifierPacket);
             }
@@ -120,6 +129,45 @@ final class AtlasLoopTaskGrinder
 
             return ['status' => 'failed', 'reason' => mb_substr($e->getMessage(), 0, 200), 'has_winner' => false, 'proposals' => 0, 'scenarios_explored' => 0, 'elapsed_seconds' => (int) ceil(microtime(true) - $started)];
         }
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function strategyBanditDecision(AtlasLoopTask $task, array $payload, ?int $scenarios): array
+    {
+        if (is_array($payload['scenario_strategies'] ?? null) && $payload['scenario_strategies'] !== []) {
+            return [
+                'schema_version' => AtlasLoopExplorerStrategyBanditService::SCHEMA_VERSION.'.decision.v1',
+                'status' => 'operator_override',
+                'applied' => false,
+                'reason' => 'task_payload_already_declares_scenario_strategies',
+            ];
+        }
+
+        return $this->strategyBandit->decideForTask((string) $task->target_path, [
+            'scenario_count' => $scenarios,
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $decision
+     * @return array<string,mixed>
+     */
+    private function summariseStrategyBanditDecision(array $decision): array
+    {
+        return [
+            'schema_version' => (string) ($decision['schema_version'] ?? AtlasLoopExplorerStrategyBanditService::SCHEMA_VERSION.'.decision.v1'),
+            'status' => (string) ($decision['status'] ?? 'unknown'),
+            'applied' => (bool) ($decision['applied'] ?? false),
+            'target_type' => (string) ($decision['target_type'] ?? ''),
+            'selected_strategy_keys' => array_values((array) ($decision['selected_strategy_keys'] ?? [])),
+            'baseline_strategy_keys' => array_values((array) ($decision['baseline_strategy_keys'] ?? [])),
+            'distribution_changed' => (bool) ($decision['distribution_changed'] ?? false),
+            'token_efficiency_delta_per_1k' => $decision['token_efficiency_delta_per_1k'] ?? null,
+            'blockers' => array_values((array) ($decision['blockers'] ?? [])),
+        ];
     }
 
     /**

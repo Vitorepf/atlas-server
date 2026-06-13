@@ -10,6 +10,8 @@ use App\Models\AiPerformanceRecommendation;
 use App\Models\AiQualityEvaluation;
 use App\Models\AiThread;
 use App\Models\AiTrace;
+use App\Models\AtlasLoopCampaign;
+use App\Models\AtlasLoopProposal;
 use App\Models\AtlasInitiativeRun;
 use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasMobileDevice;
@@ -43,6 +45,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Mockery\MockInterface;
 use RuntimeException;
+use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 class MobileGatewayTest extends TestCase
@@ -3109,6 +3112,102 @@ class MobileGatewayTest extends TestCase
         $this->assertDatabaseCount('ai_context_bundles', 1);
     }
 
+    public function test_mobile_inbox_can_approve_parked_loop_proposal_through_governed_queue(): void
+    {
+        $this->bootLoopRuntimeTables();
+        config(['atlas.ai.loop.value_gate_enabled' => false]);
+        $token = $this->pairedDeviceToken();
+        $target = 'app/Support/MobileLoopProbe.php';
+        $original = "<?php\nfunction mobile_loop_probe(){ return 1; }\n";
+        $modified = "<?php\nfunction mobile_loop_probe(){ return 2; }\n";
+        $repo = $this->loopReviewRepo($target, $original);
+
+        try {
+            $campaign = AtlasLoopCampaign::query()->create([
+                'schema_version' => 'atlas.loop.campaign.v1',
+                'status' => AtlasLoopCampaign::STATUS_RUNNING,
+                'goal' => 'l5-12-mobile-operator-review-test',
+                'base_workspace' => $repo,
+                'config' => [],
+                'max_seconds' => 3600,
+            ]);
+            $proposal = AtlasLoopProposal::query()->create([
+                'campaign_id' => $campaign->id,
+                'schema_version' => 'atlas.loop.proposal.v1',
+                'status' => AtlasLoopProposal::STATUS_CERTIFIED,
+                'objective' => 'mobile operator approves parked loop proposal',
+                'target_path' => $target,
+                'diff_text' => $this->loopReviewDiff($repo, $target, $modified),
+                'proposal_hash' => 'l5-12-mobile-approve-'.bin2hex(random_bytes(4)),
+                'metric' => null,
+                'quality' => [
+                    '_operator_review' => [
+                        'schema_version' => 'atlas.loop.operator_review.v1',
+                        'status' => 'parked_for_operator_review',
+                        'reason' => 'operator_mobile_review_fixture',
+                        'operator_id' => 'auto_merge',
+                        'reviewed_at' => now()->toIso8601String(),
+                        'decision' => 'park',
+                    ],
+                    '_acceptance_contract' => [
+                        'commands' => ["/opt/homebrew/bin/php -r \"require '{$target}'; exit(mobile_loop_probe()===2?0:1);\""],
+                        'allowed_globs' => [$target],
+                        'frozen_globs' => ['composer.json'],
+                        'metric_kind' => 'mobile_loop_review',
+                    ],
+                ],
+                'reviewed_at' => now(),
+            ]);
+
+            $item = app(ProposalInboxEmitter::class)->emit([
+                'title' => 'Revisar proposta parked do Loop',
+                'problem' => 'Uma proposta certificada esta parked aguardando revisao humana.',
+                'solution' => 'Aprovar pelo mobile usando a fila governada existente do Loop.',
+                'worth_it' => 'Prova o caminho telefone -> inbox -> queue governada sem bypass.',
+                'category' => 'loop_operator_review',
+                'source_type' => 'atlas_loop_proposal',
+                'source_id' => (string) $proposal->getKey(),
+                'dedupe_key' => 'loop-operator-review:'.$proposal->proposal_hash,
+                'diff_refs' => [['path' => $target]],
+                'payload' => [
+                    'loop_operator_review' => [
+                        'schema_version' => 'atlas.mobile.loop_operator_review.v1',
+                        'proposal_ref' => (string) $proposal->getKey(),
+                        'proposal_hash' => (string) $proposal->proposal_hash,
+                        'base_path' => $repo,
+                    ],
+                ],
+                'available_actions' => [
+                    ['id' => 'loop_operator_review_approve', 'label' => 'Aprovar', 'style' => 'primary'],
+                    ['id' => 'loop_operator_review_reject', 'label' => 'Rejeitar', 'style' => 'destructive'],
+                ],
+            ]);
+            $this->assertNotNull($item);
+
+            $this
+                ->withHeader('Authorization', 'Bearer '.$token)
+                ->withHeader('Idempotency-Key', 'l5-12-mobile-loop-approve')
+                ->postJson('/v1/mobile/inbox/'.$item->id.'/respond', [
+                    'action' => 'loop_operator_review_approve',
+                    'data' => ['reason' => 'approved from mobile fixture'],
+                ])
+                ->assertOk()
+                ->assertJsonPath('item.status', 'resolved')
+                ->assertJsonPath('item.response.action', 'loop_operator_review_approve')
+                ->assertJsonPath('result.payload.loop_operator_review.decision_status', 'merged')
+                ->assertJsonPath('result.payload.loop_operator_review.resolved', true);
+
+            $this->assertSame($modified, File::get($repo.'/'.$target));
+            $this->assertTrue((bool) $proposal->fresh()->merged_to_main);
+            $this->assertSame('merged', $proposal->fresh()->quality['_operator_review']['status']);
+            $this->assertStringContainsString('atlas loop auto-merge', $this->loopReviewGit($repo, ['log', '-1', '--pretty=%s']));
+            $this->assertNotContains('commit', collect($item->available_actions)->pluck('id')->all());
+            $this->assertNotContains('merge', collect($item->available_actions)->pluck('id')->all());
+        } finally {
+            File::deleteDirectory($repo);
+        }
+    }
+
     public function test_auto_improvement_proposal_scanner_emits_marker_findings_and_records_run(): void
     {
         $workspace = sys_get_temp_dir().'/atlas-proposal-scan-'.Str::uuid();
@@ -4415,6 +4514,10 @@ PHP);
 
     private function dropMobileTables(): void
     {
+        Schema::dropIfExists('atlas_loop_targets');
+        Schema::dropIfExists('atlas_loop_proposals');
+        Schema::dropIfExists('atlas_loop_tasks');
+        Schema::dropIfExists('atlas_loop_campaigns');
         Schema::dropIfExists('atlas_ledger_events');
         Schema::dropIfExists('ai_provider_handoffs');
         Schema::dropIfExists('ai_context_snapshots');
@@ -4455,5 +4558,50 @@ PHP);
                 $table->uuid('id')->primary();
             });
         }
+    }
+
+    private function bootLoopRuntimeTables(): void
+    {
+        foreach ([
+            '2026_06_02_000100_create_atlas_loop_runtime_tables.php',
+            '2026_06_02_000200_complete_atlas_loop_runtime_schema.php',
+            '2026_06_11_000100_add_quality_columns_to_atlas_loop_tables.php',
+        ] as $file) {
+            (require base_path('database/migrations/'.$file))->up();
+        }
+        AtlasLoopProposal::$governedMergeInProgress = false;
+    }
+
+    private function loopReviewRepo(string $path, string $contents): string
+    {
+        $dir = sys_get_temp_dir().'/atlas-mobile-loop-review-'.bin2hex(random_bytes(4));
+        File::ensureDirectoryExists(dirname($dir.'/'.$path));
+        File::put($dir.'/'.$path, $contents);
+        File::put($dir.'/composer.json', "{}\n");
+        $this->loopReviewGit($dir, ['init', '-q']);
+        $this->loopReviewGit($dir, ['add', '-A']);
+        $this->loopReviewGit($dir, ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'base', '--no-gpg-sign']);
+
+        return $dir;
+    }
+
+    private function loopReviewDiff(string $repo, string $path, string $modified): string
+    {
+        File::put($repo.'/'.$path, $modified);
+        $diff = $this->loopReviewGit($repo, ['diff']);
+        $this->loopReviewGit($repo, ['checkout', '--', $path]);
+
+        return $diff;
+    }
+
+    /**
+     * @param  list<string>  $argv
+     */
+    private function loopReviewGit(string $cwd, array $argv): string
+    {
+        $process = new Process(array_merge(['git'], $argv), $cwd);
+        $process->run();
+
+        return trim($process->getOutput());
     }
 }

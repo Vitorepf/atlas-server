@@ -175,6 +175,14 @@ Schedule::command($weeklyAgendaCommand)
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas.loop.weekly_agenda.enabled', true));
 
+// L5-14 · Weekly Atlas report, written before the L5-1 agenda cadence. It is
+// a readable source artifact and agenda feed, never an approval/merge action.
+Schedule::command('atlas:fable:weekly-report --write-report --write-markdown --json')
+    ->weeklyOn((int) config('atlas.loop.weekly_report.schedule_day', 1), (string) config('atlas.loop.weekly_report.schedule_time', '05:40'))
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.loop.weekly_report.enabled', true)
+        && (bool) config('atlas.loop.weekly_report.schedule_enabled', true));
+
 // L5-4 · Self-construction tool gap scan. Read-only: sees ACOS gaps on a cadence
 // so recurring loss-observer/tooling gaps can be proposed through the governed
 // self-construction commands. It never approves, stages, promotes, merges or runs providers.
@@ -182,6 +190,49 @@ Schedule::command('atlas:self-construction:detect-gaps --json')
     ->dailyAt((string) config('atlas.ai.self_construction.tool_gap_schedule_time', '05:50'))
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas.ai.self_construction.tool_gap_schedule_enabled', true));
+
+// L5-11 · Learn→recall→USE lift: read-only A/B measurement over compounding
+// RAG feedback. It never writes memory or changes retrieval; strict completion
+// remains blocked until live feedback marks recalled memory used in passing tasks.
+Schedule::command('atlas:ai:learning-recall-lift --json')
+    ->dailyAt((string) config('atlas.ai.loop.learning_recall_use_lift.schedule_time', '06:00'))
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.ai.loop.learning_recall_use_lift.enabled', true)
+        && (bool) config('atlas.ai.loop.learning_recall_use_lift.schedule_enabled', true));
+
+// L6-1 · Meta-harness A/B lift read-model. It never edits harness code; it
+// only proves or blocks the claim from real Loop outcomes.
+Schedule::command('atlas:loop:meta-harness-ab-lift --json')
+    ->dailyAt((string) config('atlas.loop.meta_harness_ab_lift.schedule_time', '06:15'))
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.loop.meta_harness_ab_lift.enabled', true)
+        && (bool) config('atlas.loop.meta_harness_ab_lift.schedule_enabled', true));
+
+// L6-2 · Judge self-calibration from historical RED-canary fix-forward cases.
+// Writes only evidence artifacts/packets; it never changes merge gates or runs providers.
+Schedule::command('atlas:loop:judge-calibration --write --json')
+    ->dailyAt((string) config('atlas.loop.judge_self_calibration.schedule_time', '06:20'))
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.loop.judge_self_calibration.enabled', true)
+        && (bool) config('atlas.loop.judge_self_calibration.schedule_enabled', true));
+
+// L6-3 · Explorer strategy bandit. Measures certification-per-token by target
+// type and writes a routing receipt; the grinder applies only proven lift.
+Schedule::command('atlas:loop:strategy-bandit --write-receipt --json')
+    ->dailyAt((string) config('atlas.loop.explorer_strategy_bandit.schedule_time', '06:25'))
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.loop.explorer_strategy_bandit.enabled', true)
+        && (bool) config('atlas.loop.explorer_strategy_bandit.schedule_enabled', true));
+
+// L5-13 · Perpetual adversarial sweep, fortnightly by ISO-week parity. LOW is
+// enqueued as governed backlog intent; HIGH is parked for operator review.
+$perpetualSweepWeekParity = (int) config('atlas.loop.perpetual_sweep.schedule_week_parity', 0);
+Schedule::command('atlas:loop:perpetual-sweep --write --json')
+    ->weeklyOn((int) config('atlas.loop.perpetual_sweep.schedule_day', 6), (string) config('atlas.loop.perpetual_sweep.schedule_time', '06:05'))
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.loop.perpetual_sweep.enabled', true)
+        && (bool) config('atlas.loop.perpetual_sweep.schedule_enabled', true)
+        && ((int) now()->format('W') % 2) === $perpetualSweepWeekParity);
 
 // L5-5 · TAXA² dials: daily receipt of the raise-only/clamped overlay that the
 // campaign supervisor also consumes on boot. Receipt-only; no providers, no merge.

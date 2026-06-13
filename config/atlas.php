@@ -734,6 +734,18 @@ return [
             // L3-7: cada merge real vira learning recallável (accrual de compounding,
             // contrato no-noise — só dispara em merge concreto com claim substantivo).
             'compounding_accrual' => (bool) env('ATLAS_LOOP_COMPOUNDING_ACCRUAL', true),
+            // L5-11: read-only learn→recall→USE measurement over existing
+            // compounding/RAG feedback rows. It never promotes memory or changes
+            // retrieval; completion is claimable only when live feedback shows
+            // recalled compounding memory used in passing outcomes with A/B lift.
+            'learning_recall_use_lift' => [
+                'enabled' => (bool) env('ATLAS_LEARNING_RECALL_USE_LIFT_ENABLED', true),
+                'schedule_enabled' => (bool) env('ATLAS_LEARNING_RECALL_USE_LIFT_SCHEDULE_ENABLED', true),
+                'schedule_time' => (string) env('ATLAS_LEARNING_RECALL_USE_LIFT_SCHEDULE_TIME', '06:00'),
+                'min_cases_per_arm' => (int) env('ATLAS_LEARNING_RECALL_USE_LIFT_MIN_CASES_PER_ARM', 2),
+                'min_passing_memory_use' => (int) env('ATLAS_LEARNING_RECALL_USE_LIFT_MIN_PASSING_MEMORY_USE', 1),
+                'max_events' => (int) env('ATLAS_LEARNING_RECALL_USE_LIFT_MAX_EVENTS', 500),
+            ],
             // INDEPENDÊNCIA 24h+: boot-smoke pré-commit — um merge que quebra o BOOT do app
             // (erro de lógica que passa no php -l) é rejeitado ANTES de entrar em main, senão
             // o supervisor entraria em crash-loop ao reiniciar por drift. Default ON.
@@ -1613,6 +1625,49 @@ return [
         // never-merge) INTOCÁVEL independentemente desta flag. Default OFF (anti-runaway).
         'meta_harness_targets' => (bool) env('ATLAS_LOOP_META_HARNESS_TARGETS', false),
 
+        // L6-1: meta-harness A/B lift. Read-only measurement; strict completion
+        // requires real meta-harness and ordinary cases plus positive certification lift.
+        'meta_harness_ab_lift' => [
+            'enabled' => (bool) env('ATLAS_LOOP_META_HARNESS_AB_LIFT_ENABLED', true),
+            'schedule_enabled' => (bool) env('ATLAS_LOOP_META_HARNESS_AB_LIFT_SCHEDULE_ENABLED', true),
+            'schedule_time' => (string) env('ATLAS_LOOP_META_HARNESS_AB_LIFT_SCHEDULE_TIME', '06:15'),
+            'window_hours' => max(1, (int) env('ATLAS_LOOP_META_HARNESS_AB_LIFT_WINDOW_HOURS', 168)),
+            'min_cases_per_arm' => max(1, (int) env('ATLAS_LOOP_META_HARNESS_AB_LIFT_MIN_CASES_PER_ARM', 3)),
+            'min_lift' => max(0.0, min(1.0, (float) env('ATLAS_LOOP_META_HARNESS_AB_LIFT_MIN_LIFT', 0.01))),
+            'max_tasks' => max(10, (int) env('ATLAS_LOOP_META_HARNESS_AB_LIFT_MAX_TASKS', 1000)),
+        ],
+
+        // L6-2: judge self-calibration. Historical RED-canary fix-forward tasks
+        // compile into frozen verifier packets. Tighten-only: no providers, no
+        // merge policy writes, and forbidden self-targets are refused.
+        'judge_self_calibration' => [
+            'enabled' => (bool) env('ATLAS_LOOP_JUDGE_SELF_CALIBRATION_ENABLED', true),
+            'schedule_enabled' => (bool) env('ATLAS_LOOP_JUDGE_SELF_CALIBRATION_SCHEDULE_ENABLED', true),
+            'schedule_time' => (string) env('ATLAS_LOOP_JUDGE_SELF_CALIBRATION_SCHEDULE_TIME', '06:20'),
+            'window_hours' => max(1, (int) env('ATLAS_LOOP_JUDGE_SELF_CALIBRATION_WINDOW_HOURS', 168)),
+            'max_cases' => max(1, (int) env('ATLAS_LOOP_JUDGE_SELF_CALIBRATION_MAX_CASES', 8)),
+            'timeout_seconds' => max(30, (int) env('ATLAS_LOOP_JUDGE_SELF_CALIBRATION_TIMEOUT_SECONDS', 300)),
+            'write_packets' => (bool) env('ATLAS_LOOP_JUDGE_SELF_CALIBRATION_WRITE_PACKETS', true),
+            'manifest_path' => (string) env('ATLAS_LOOP_JUDGE_SELF_CALIBRATION_MANIFEST_PATH', storage_path('app/atlas/evidence/judge-self-calibration.json')),
+            'packet_dir' => (string) env('ATLAS_LOOP_JUDGE_SELF_CALIBRATION_PACKET_DIR', storage_path('app/atlas/evidence/judge-self-calibration-packets')),
+        ],
+
+        // L6-3: explorer strategy portfolio bandit. Strategic routing only:
+        // ranks existing scenario hints by target type from resolved attempt
+        // metrics, applies only with measured certification-per-token lift.
+        'explorer_strategy_bandit' => [
+            'enabled' => (bool) env('ATLAS_LOOP_EXPLORER_STRATEGY_BANDIT_ENABLED', true),
+            'apply_enabled' => (bool) env('ATLAS_LOOP_EXPLORER_STRATEGY_BANDIT_APPLY_ENABLED', true),
+            'schedule_enabled' => (bool) env('ATLAS_LOOP_EXPLORER_STRATEGY_BANDIT_SCHEDULE_ENABLED', true),
+            'schedule_time' => (string) env('ATLAS_LOOP_EXPLORER_STRATEGY_BANDIT_SCHEDULE_TIME', '06:25'),
+            'window_hours' => max(1, (int) env('ATLAS_LOOP_EXPLORER_STRATEGY_BANDIT_WINDOW_HOURS', 168)),
+            'min_attempts_per_target_type' => max(1, (int) env('ATLAS_LOOP_EXPLORER_STRATEGY_BANDIT_MIN_ATTEMPTS_PER_TYPE', 4)),
+            'min_token_samples_per_strategy' => max(1, (int) env('ATLAS_LOOP_EXPLORER_STRATEGY_BANDIT_MIN_TOKEN_SAMPLES_PER_STRATEGY', 1)),
+            'min_token_efficiency_delta_per_1k' => max(0.0, (float) env('ATLAS_LOOP_EXPLORER_STRATEGY_BANDIT_MIN_TOKEN_DELTA_PER_1K', 0.01)),
+            'ucb_exploration_weight' => max(0.0, min(2.0, (float) env('ATLAS_LOOP_EXPLORER_STRATEGY_BANDIT_UCB_EXPLORATION_WEIGHT', 0.35))),
+            'receipt_path' => (string) env('ATLAS_LOOP_EXPLORER_STRATEGY_BANDIT_RECEIPT_PATH', storage_path('app/atlas/evidence/explorer-strategy-bandit.json')),
+        ],
+
         // 24h-autonomia: respawn automático do supervisor morto (heartbeat velho + processo
         // ausente ⇒ relança detached, resume). Motivado pela morte silenciosa de 12/06.
         'keepalive_enabled' => (bool) env('ATLAS_LOOP_KEEPALIVE_ENABLED', true),
@@ -1642,11 +1697,58 @@ return [
             'scheduled_create_proposal' => (bool) env('ATLAS_LOOP_WEEKLY_AGENDA_SCHEDULED_CREATE_PROPOSAL', true),
         ],
 
+        // L5-14: weekly human-readable report. It is a source artifact for the
+        // weekly agenda, not an approval surface and not a provider runtime.
+        'weekly_report' => [
+            'enabled' => (bool) env('ATLAS_LOOP_WEEKLY_REPORT_ENABLED', true),
+            'schedule_enabled' => (bool) env('ATLAS_LOOP_WEEKLY_REPORT_SCHEDULE_ENABLED', true),
+            'schedule_day' => max(0, min(6, (int) env('ATLAS_LOOP_WEEKLY_REPORT_SCHEDULE_DAY', 1))),
+            'schedule_time' => (string) env('ATLAS_LOOP_WEEKLY_REPORT_SCHEDULE_TIME', '05:40'),
+            'hours' => max(24, (int) env('ATLAS_LOOP_WEEKLY_REPORT_HOURS', 168)),
+            'max_words' => max(120, min(600, (int) env('ATLAS_LOOP_WEEKLY_REPORT_MAX_WORDS', 420))),
+            'report_path' => (string) env('ATLAS_LOOP_WEEKLY_REPORT_PATH', storage_path('app/atlas/evidence/weekly-engineering-report.json')),
+            'markdown_path' => (string) env('ATLAS_LOOP_WEEKLY_REPORT_MARKDOWN_PATH', storage_path('app/atlas/evidence/weekly-engineering-report.md')),
+        ],
+
         // L5-2: Loop -> Obra bridge. Builds a Forge handoff packet for
         // multi-file intents, but does not run providers or create Obras.
         'obra_bridge' => [
             'enabled' => (bool) env('ATLAS_LOOP_OBRA_BRIDGE_ENABLED', true),
             'min_files' => max(2, (int) env('ATLAS_LOOP_OBRA_BRIDGE_MIN_FILES', 2)),
+        ],
+
+        // L5-13: fortnightly adversarial sweep. It reuses the governed backlog
+        // manifest: LOW findings are queued as Loop intents, HIGH findings are
+        // parked for operator review. No providers, no direct code mutation.
+        'perpetual_sweep' => [
+            'enabled' => (bool) env('ATLAS_LOOP_PERPETUAL_SWEEP_ENABLED', true),
+            'schedule_enabled' => (bool) env('ATLAS_LOOP_PERPETUAL_SWEEP_SCHEDULE_ENABLED', true),
+            'schedule_day' => max(0, min(6, (int) env('ATLAS_LOOP_PERPETUAL_SWEEP_SCHEDULE_DAY', 6))),
+            'schedule_time' => (string) env('ATLAS_LOOP_PERPETUAL_SWEEP_SCHEDULE_TIME', '06:05'),
+            'schedule_week_parity' => max(0, min(1, (int) env('ATLAS_LOOP_PERPETUAL_SWEEP_SCHEDULE_WEEK_PARITY', 0))),
+            'low_auto_fix_enabled' => (bool) env('ATLAS_LOOP_PERPETUAL_SWEEP_LOW_AUTOFIX_ENABLED', true),
+            'high_review_enabled' => (bool) env('ATLAS_LOOP_PERPETUAL_SWEEP_HIGH_REVIEW_ENABLED', true),
+            'include_backlog_feed' => (bool) env('ATLAS_LOOP_PERPETUAL_SWEEP_INCLUDE_BACKLOG_FEED', true),
+            'max_findings' => max(1, (int) env('ATLAS_LOOP_PERPETUAL_SWEEP_MAX_FINDINGS', 12)),
+            'manifest_limit' => max(10, (int) env('ATLAS_LOOP_PERPETUAL_SWEEP_MANIFEST_LIMIT', 200)),
+            'carryover_findings' => [
+                [
+                    'path' => 'app/Services/Ai/AutonomousEvolution/AtlasLoopProposalPromotionGate.php',
+                    'reason' => 'snippet_payload_missing',
+                    'severity' => 'high',
+                    'priority' => 0.96,
+                    'objective' => 'Separar snippet_payload_missing de no_acceptance_contract na re-prova snippet para aposentadoria/autopsia honesta.',
+                    'source' => 'carryover:l4_12',
+                ],
+                [
+                    'path' => 'app/Services/Ai/AutonomousEvolution/AtlasLoopProposalMaterializer.php',
+                    'reason' => 'rename_diff_normalization_requires_refusal_or_safe_normalization',
+                    'severity' => 'high',
+                    'priority' => 0.95,
+                    'objective' => 'Refutar rename diffs no materializer: recusar ou normalizar explicitamente sem mascarar troca de path.',
+                    'source' => 'carryover:l4_12',
+                ],
+            ],
         ],
 
         // L5-5: TAXA² dial overlay. The existing campaign supervisor consumes

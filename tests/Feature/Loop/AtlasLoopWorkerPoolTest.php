@@ -21,10 +21,12 @@ use Tests\TestCase;
  */
 final class AtlasLoopWorkerPoolTest extends TestCase
 {
-    private function fakeSpawner(): LoopWorkerSpawnerContract
+    private function fakeSpawner(int $sleepMicros = 150000): LoopWorkerSpawnerContract
     {
-        return new class implements LoopWorkerSpawnerContract
+        return new class($sleepMicros) implements LoopWorkerSpawnerContract
         {
+            public function __construct(private readonly int $sleepMicros) {}
+
             public function spawn(
                 string $campaignId,
                 string $taskId,
@@ -34,7 +36,7 @@ final class AtlasLoopWorkerPoolTest extends TestCase
                 int $timeoutSeconds,
                 int $scenarios,
             ): LoopWorkerHandle {
-                $p = new Process([PHP_BINARY, '-r', 'usleep(150000);']); // ~150ms real worker
+                $p = new Process([PHP_BINARY, '-r', 'usleep('.$this->sleepMicros.');']);
                 $p->start();
 
                 return new LoopWorkerHandle($p, $taskId, $workerId);
@@ -102,6 +104,30 @@ final class AtlasLoopWorkerPoolTest extends TestCase
         $this->assertSame(4, $planner->plan(100)); // ceiling 4
         $this->assertSame(2, $planner->plan(2));   // honor a smaller request
         $this->assertSame(1, $planner->plan(0));   // never below 1
+    }
+
+    public function test_four_worker_pool_beats_serial_sleep_baseline(): void
+    {
+        $sleepMicros = 250000;
+        $pool = new LoopWorkerPool($this->fakeSpawner($sleepMicros), new AtlasLoopResourceGate);
+        $queue = [$this->task('t1'), $this->task('t2'), $this->task('t3'), $this->task('t4')];
+        $claimNext = function () use (&$queue): ?AtlasLoopTask { return array_shift($queue); };
+
+        $started = microtime(true);
+        $guard = 0;
+        do {
+            $pool->tick(4, 'c', $claimNext, 600, 60);
+            usleep(50000);
+            $this->assertLessThan(50, ++$guard);
+        } while ($queue !== [] || $pool->inFlight() > 0);
+        $durationMs = (int) round((microtime(true) - $started) * 1000);
+        $serialBaselineMs = (int) round((count(['t1', 't2', 't3', 't4']) * $sleepMicros) / 1000);
+
+        $this->assertLessThan(
+            (int) floor($serialBaselineMs / 2),
+            $durationMs,
+            '4-worker pool should finish four equal waits in less than half the serial baseline.'
+        );
     }
 
     /**

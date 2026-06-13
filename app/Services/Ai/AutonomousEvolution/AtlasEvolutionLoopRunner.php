@@ -127,7 +127,7 @@ final class AtlasEvolutionLoopRunner
      * Capped at {@see self::ATTEMPT_METRICS_CAP} entries.
      *
      * @param  list<array<string,mixed>>  $attempts
-     * @return list<array{scenario:int|string, passed:bool, metric:float|null, metric_finite:bool, diff_files:int|null, diff_lines:int|null}>
+     * @return list<array<string,mixed>>
      */
     private function attemptMetrics(array $attempts): array
     {
@@ -142,9 +142,15 @@ final class AtlasEvolutionLoopRunner
 
             $metrics[] = [
                 'scenario' => is_string($scenario) && trim($scenario) !== '' ? $scenario : $index + 1,
+                'strategy_key' => is_string($attempt['strategy_key'] ?? null) && trim((string) $attempt['strategy_key']) !== ''
+                    ? trim((string) $attempt['strategy_key'])
+                    : null,
+                'strategy' => is_string($attempt['strategy'] ?? null) ? trim((string) $attempt['strategy']) : null,
                 'passed' => (bool) ($verdict['passed'] ?? false),
                 'metric' => is_numeric($verdict['metric'] ?? null) ? (float) $verdict['metric'] : null,
                 'metric_finite' => (bool) ($verdict['metric_finite'] ?? true),
+                'tokens_used' => is_numeric($attempt['tokens_used'] ?? null) ? max(0, (int) $attempt['tokens_used']) : null,
+                'cost_estimate_usd' => is_numeric($attempt['cost_estimate_usd'] ?? null) ? max(0.0, (float) $attempt['cost_estimate_usd']) : null,
                 'diff_files' => is_numeric($diffSize['files'] ?? null) ? (int) $diffSize['files'] : null,
                 'diff_lines' => is_numeric($diffSize['lines'] ?? null) ? (int) $diffSize['lines'] : null,
             ];

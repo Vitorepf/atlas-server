@@ -39,6 +39,7 @@ final class AtlasLoopCampaignSupervisorTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        config(['atlas.loop.parallel.enabled' => false]);
         if (! Schema::hasTable('atlas_loop_campaigns')) {
             foreach (['2026_06_02_000100_create_atlas_loop_runtime_tables.php', '2026_06_02_000200_complete_atlas_loop_runtime_schema.php'] as $f) {
                 (require base_path('database/migrations/'.$f))->up();
@@ -262,7 +263,7 @@ final class AtlasLoopCampaignSupervisorTest extends TestCase
         $this->assertSame(1, $campaign->scenarios_explored);
         $this->assertSame(1, AtlasLoopTask::query()->where('campaign_id', $campaign->id)->where('status', AtlasLoopTask::STATUS_PENDING)->count());
 
-        $ledger = $supervisor->readLedger($campaign->id, 50);
+        $ledger = $supervisor->readLedger($campaign->id, 1000);
         $throttle = array_values(array_filter($ledger, static fn (array $e): bool => ($e['event'] ?? null) === 'cost_governor_throttle'))[0] ?? null;
         $this->assertIsArray($throttle);
         $this->assertSame('reduce_scenarios_per_task', $throttle['action']);
@@ -343,7 +344,7 @@ final class AtlasLoopCampaignSupervisorTest extends TestCase
         $this->assertSame(4, AtlasLoopTask::query()->where('campaign_id', $campaign->id)->where('status', AtlasLoopTask::STATUS_DONE)->count());
         $this->assertSame(4, AtlasLoopTask::query()->where('campaign_id', $campaign->id)->distinct('claimed_by')->count('claimed_by'));
 
-        $ledger = $supervisor->readLedger($campaign->id, 50);
+        $ledger = $supervisor->readLedger($campaign->id, 1000);
         $boot = array_values(array_filter($ledger, static fn (array $e): bool => ($e['event'] ?? null) === 'parallel_fleet_boot'))[0] ?? null;
         $this->assertIsArray($boot);
         $this->assertSame('parallel_pool', $boot['mode']);

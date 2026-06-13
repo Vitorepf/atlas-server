@@ -98,7 +98,8 @@ final class AtlasEvolutionScenarioExplorer
                 break; // search time budget reached
             }
 
-            $attempt = $this->runScenario($i, $objective, $this->strategyFor($task, $i), $baseWorkspace, $acceptance, $surfaceId, $userConstraints, $surfaceHints, $provider, $keepWorkspaces, $workspaceRoot, $this->scenarioCloneMode($task));
+            $strategy = $this->strategyFor($task, $i);
+            $attempt = $this->runScenario($i, $objective, $strategy['text'], $strategy['key'], $baseWorkspace, $acceptance, $surfaceId, $userConstraints, $surfaceHints, $provider, $keepWorkspaces, $workspaceRoot, $this->scenarioCloneMode($task));
             $attempts[] = $attempt;
 
             if ($this->improvesBest($attempt, $best, $metricKind)) {
@@ -125,7 +126,7 @@ final class AtlasEvolutionScenarioExplorer
      * @param  array<string,mixed>  $surfaceHints
      * @return array<string,mixed>
      */
-    private function runScenario(int $index, string $objective, string $strategy, string $baseWorkspace, array $acceptance, string $surfaceId, array $userConstraints, array $surfaceHints, string $provider, bool $keepWorkspaces, string $workspaceRoot = '', string $cloneMode = 'copy'): array
+    private function runScenario(int $index, string $objective, string $strategy, string $strategyKey, string $baseWorkspace, array $acceptance, string $surfaceId, array $userConstraints, array $surfaceHints, string $provider, bool $keepWorkspaces, string $workspaceRoot = '', string $cloneMode = 'copy'): array
     {
         $scenarioId = 'scn-'.($index + 1);
         $workspace = null;
@@ -151,6 +152,7 @@ final class AtlasEvolutionScenarioExplorer
 
             return [
                 'scenario_id' => $scenarioId,
+                'strategy_key' => $strategyKey,
                 'strategy' => $strategy,
                 'provider' => $provider,
                 'loop_status' => (string) ($loopSummary['status'] ?? 'unknown'),
@@ -165,6 +167,7 @@ final class AtlasEvolutionScenarioExplorer
         } catch (Throwable $e) {
             return [
                 'scenario_id' => $scenarioId,
+                'strategy_key' => $strategyKey,
                 'strategy' => $strategy,
                 'provider' => $provider,
                 'loop_status' => 'errored',
@@ -301,15 +304,40 @@ final class AtlasEvolutionScenarioExplorer
     /**
      * @param  array<string,mixed>  $task
      */
-    private function strategyFor(array $task, int $i): string
+    /**
+     * @param  array<string,mixed>  $task
+     * @return array{key:string,text:string}
+     */
+    private function strategyFor(array $task, int $i): array
     {
         $provided = array_values(array_filter(
             is_array($task['scenario_strategies'] ?? null) ? $task['scenario_strategies'] : [],
             static fn (mixed $v): bool => is_string($v),
         ));
+        $keys = array_values(array_filter(
+            is_array($task['scenario_strategy_keys'] ?? null) ? $task['scenario_strategy_keys'] : [],
+            static fn (mixed $v): bool => is_string($v) && trim($v) !== '',
+        ));
         $pool = $provided !== [] ? $provided : self::DEFAULT_STRATEGIES;
+        $text = (string) $pool[$i % count($pool)];
+        $key = $keys[$i % count($keys)] ?? $this->defaultStrategyKey($text, $i);
 
-        return (string) $pool[$i % count($pool)];
+        return ['key' => $key, 'text' => $text];
+    }
+
+    private function defaultStrategyKey(string $strategy, int $i): string
+    {
+        if ($strategy === '') {
+            return 'baseline';
+        }
+
+        return match ($strategy) {
+            self::DEFAULT_STRATEGIES[1] => 'surgical',
+            self::DEFAULT_STRATEGIES[2] => 'clean_alternative',
+            self::DEFAULT_STRATEGIES[3] => 'root_cause',
+            self::DEFAULT_STRATEGIES[4] => 'simplify',
+            default => 'custom_'.substr(hash('sha256', $strategy.'|'.$i), 0, 12),
+        };
     }
 
     /**

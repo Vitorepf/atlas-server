@@ -80,6 +80,9 @@ final class AtlasLoopRunPersister
             if (is_array($runnerResult['intent_verifier_factory'] ?? null)) {
                 $taskResult['intent_verifier_factory'] = $runnerResult['intent_verifier_factory'];
             }
+            if (is_array($runnerResult['explorer_strategy_bandit'] ?? null)) {
+                $taskResult['explorer_strategy_bandit'] = $runnerResult['explorer_strategy_bandit'];
+            }
             if (is_array($runnerResult['semantic_implementation_certification'] ?? null)) {
                 $taskResult['semantic_implementation_certification'] = $runnerResult['semantic_implementation_certification'];
             }
