@@ -302,6 +302,10 @@ final class L7PromotionExecutor
     {
         $value = $request[$key] ?? null;
 
+        if (is_string($value) && is_numeric($value)) {
+            $value = (int) $value;
+        }
+
         if (! is_int($value) || $value <= 0) {
             return null;
         }
