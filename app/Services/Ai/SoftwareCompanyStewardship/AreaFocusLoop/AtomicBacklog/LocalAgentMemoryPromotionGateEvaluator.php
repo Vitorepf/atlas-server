@@ -93,7 +93,9 @@ final class LocalAgentMemoryPromotionGateEvaluator
         }
 
         if (is_array($lineage)) {
-            return $lineage !== [];
+            $source = $lineage['source'] ?? null;
+
+            return is_string($source) && trim($source) !== '';
         }
 
         return false;
