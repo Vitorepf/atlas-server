@@ -58,9 +58,12 @@ final class DepartmentMaturityCheckContract
      */
     public static function fromArray(array $input): self
     {
-        $requiredDepartmentIds = array_values(array_filter(
-            (array) ($input['required_department_ids'] ?? []),
-            static fn (mixed $id): bool => is_string($id) && trim($id) !== '',
+        $requiredDepartmentIds = array_values(array_map(
+            static fn (string $id): string => trim($id),
+            array_filter(
+                (array) ($input['required_department_ids'] ?? []),
+                static fn (mixed $id): bool => is_string($id) && trim($id) !== '',
+            ),
         ));
 
         $snapshot = [];
