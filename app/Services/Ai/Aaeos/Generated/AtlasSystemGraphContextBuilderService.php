@@ -113,6 +113,7 @@ final class AtlasSystemGraphContextBuilderService
             $id = trim((string) ($candidate['id'] ?? ''));
             $origin = strtolower(trim((string) ($candidate['origin'] ?? '')));
             $reference = trim((string) ($candidate['reference'] ?? ''));
+            $title = trim((string) ($candidate['title'] ?? ''));
 
             // INVARIANT: every source must be traceable (origin + reference).
             if (! $this->isTraceable($origin, $reference)) {
@@ -130,7 +131,7 @@ final class AtlasSystemGraphContextBuilderService
             $admitted[] = [
                 'id' => $id,
                 'origin' => $origin,
-                'title' => trim((string) ($candidate['title'] ?? $id)),
+                'title' => $title !== '' ? $title : $id,
                 'reference' => $reference,
                 'relevance' => $this->clampRelevance($candidate['relevance'] ?? 0.0),
             ];
