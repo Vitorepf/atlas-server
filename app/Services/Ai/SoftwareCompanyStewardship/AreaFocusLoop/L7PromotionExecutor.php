@@ -108,6 +108,7 @@ final class L7PromotionExecutor
             'promotion_receipt' => $this->buildReceipt(
                 $applied,
                 $fromLevel,
+                $toLevel,
                 $currentLevel,
                 $operatorSigned,
                 $architectSigned,
@@ -126,6 +127,7 @@ final class L7PromotionExecutor
     private function buildReceipt(
         bool $applied,
         string $fromLevel,
+        string $toLevel,
         string $currentLevel,
         bool $operatorSigned,
         bool $architectSigned,
@@ -138,7 +140,7 @@ final class L7PromotionExecutor
             'schema_version' => self::SCHEMA_VERSION,
             'applied' => $applied,
             'from_level' => $fromLevel,
-            'to_level' => self::TO_LEVEL,
+            'to_level' => $toLevel,
             'current_level' => $currentLevel,
             'operator_signature_present' => $operatorSigned,
             'architect_signature_present' => $architectSigned,
