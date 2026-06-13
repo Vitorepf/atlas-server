@@ -34,6 +34,7 @@ final class ContextPackStalenessClassifier
         }
 
         $ageRatio = $indexAgeSeconds / $maxFreshSeconds;
+        $lastQueryAgeRatio = $lastQueryAgeSeconds / $maxFreshSeconds;
 
         $severity = match (true) {
             $ageRatio >= 4.0 || $changedFiles >= 200 => 'critical',
@@ -42,7 +43,7 @@ final class ContextPackStalenessClassifier
             default => 'fresh',
         };
 
-        $score = round(min(1.0, max($ageRatio / 4, $changedFiles / 200)), 3);
+        $score = round(min(1.0, max($ageRatio / 4, $lastQueryAgeRatio / 4, $changedFiles / 200)), 3);
 
         $recommendedAction = match ($severity) {
             'fresh' => 'none',
