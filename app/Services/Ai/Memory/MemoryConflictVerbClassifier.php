@@ -106,6 +106,11 @@ final class MemoryConflictVerbClassifier
         int $tsA,
         int $tsB,
     ): array {
+        // Rule 0: missing/empty keys are anonymous facts -> not_conflict.
+        if ($keyA === '' || $keyB === '') {
+            return [self::VERDICT_NOT_CONFLICT, 'rule_0_missing_key'];
+        }
+
         // Rule 1: keys differ -> not_conflict.
         if ($keyA !== $keyB) {
             return [self::VERDICT_NOT_CONFLICT, 'rule_1_keys_differ'];
