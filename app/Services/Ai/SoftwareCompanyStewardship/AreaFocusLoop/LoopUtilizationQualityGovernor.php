@@ -150,7 +150,7 @@ final class LoopUtilizationQualityGovernor
             return false;
         }
 
-        return $this->payloadRawString($cycle, 'delivery_kind') === self::INERT_DELIVERY_KIND;
+        return trim($this->payloadRawString($cycle, 'delivery_kind')) === self::INERT_DELIVERY_KIND;
     }
 
     /**
