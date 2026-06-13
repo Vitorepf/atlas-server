@@ -229,6 +229,10 @@ final class L8LocalDistillationTaskClassMiner
             }
         }
 
+        if (array_is_list($evidence)) {
+            return array_values($evidence);
+        }
+
         return [];
     }
 
