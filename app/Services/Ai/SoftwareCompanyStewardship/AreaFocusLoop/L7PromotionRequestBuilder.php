@@ -106,8 +106,20 @@ final class L7PromotionRequestBuilder
             return 0;
         }
 
+        if (is_float($value) && $value !== floor($value)) {
+            return 0;
+        }
+
         if (is_string($value) && is_numeric($value) && ! is_finite((float) $value)) {
             return 0;
+        }
+
+        if (is_string($value) && is_numeric($value)) {
+            $float = (float) $value;
+
+            if ($float !== floor($float)) {
+                return 0;
+            }
         }
 
         return $this->intValue($evidence, 'approved_self_construction_proposals');
