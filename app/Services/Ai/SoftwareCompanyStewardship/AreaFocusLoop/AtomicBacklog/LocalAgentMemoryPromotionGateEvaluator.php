@@ -108,7 +108,7 @@ final class LocalAgentMemoryPromotionGateEvaluator
             $findings = $scan['findings'] ?? 0;
 
             return ($scan['passed'] ?? false) === true
-                && is_numeric($findings)
+                && (is_int($findings) || (is_string($findings) && preg_match('/^-?\d+$/', $findings) === 1))
                 && (int) $findings === 0;
         }
 
