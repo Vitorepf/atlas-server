@@ -95,7 +95,7 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifier
             'next_level' => $nextLevel,
             'promotion_blocked' => $bindingBreaches !== [],
             'binding_breaches' => $bindingBreaches,
-            'evaluated_bands' => count($bands),
+            'evaluated_bands' => $firstFailingIndex === null ? count($bands) : $firstFailingIndex + 1,
             'evaluated_metrics' => $evaluatedMetrics,
         ]);
     }
