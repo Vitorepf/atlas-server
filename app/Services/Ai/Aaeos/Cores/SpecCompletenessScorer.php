@@ -172,7 +172,7 @@ final class SpecCompletenessScorer
                 continue;
             }
 
-            if ($item !== null) {
+            if ($item !== null && $item !== false && $item !== []) {
                 $count++;
             }
         }
