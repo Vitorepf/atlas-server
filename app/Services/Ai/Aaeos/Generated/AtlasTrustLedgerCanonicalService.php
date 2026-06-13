@@ -270,8 +270,8 @@ final class AtlasTrustLedgerCanonicalService
         $eligible = (int) $this->eligibleLevel($score)['eligible_level'];
 
         $requiresSameDay = $targetLevel >= self::SAME_DAY_FLOOR_LEVEL;
-        $scoreAsOf = is_string($scoreReceipt['as_of'] ?? null) ? $scoreReceipt['as_of'] : $requestAt;
-        $sameDay = $this->sameUtcDay($scoreAsOf, $requestAt);
+        $scoreAsOf = is_string($scoreReceipt['as_of'] ?? null) ? $scoreReceipt['as_of'] : null;
+        $sameDay = $scoreAsOf !== null && $this->sameUtcDay($scoreAsOf, $requestAt);
 
         // Same-day freshness is checked FIRST for L4+: an out-of-date score may
         // not promote into the autonomous tiers even if its number qualifies.
