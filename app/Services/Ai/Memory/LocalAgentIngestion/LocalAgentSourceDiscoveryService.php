@@ -40,7 +40,7 @@ final class LocalAgentSourceDiscoveryService
             (array) ($config['denylist_patterns'] ?? []),
         );
         $allowExts = array_map(
-            static fn ($e): string => strtolower((string) $e),
+            static fn ($e): string => ltrim(strtolower((string) $e), '.'),
             (array) ($config['allowlist_extensions'] ?? []),
         );
 
