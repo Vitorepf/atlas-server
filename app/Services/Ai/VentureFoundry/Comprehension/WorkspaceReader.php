@@ -303,6 +303,10 @@ class WorkspaceReader
             if (! $info->isFile()) {
                 continue;
             }
+            $real = realpath($info->getPathname());
+            if ($real === false || ! str_starts_with($real, $this->root.DIRECTORY_SEPARATOR)) {
+                continue;
+            }
             $files[] = $this->toRelative($info->getPathname());
             if (count($files) >= $this->maxFiles) {
                 break;

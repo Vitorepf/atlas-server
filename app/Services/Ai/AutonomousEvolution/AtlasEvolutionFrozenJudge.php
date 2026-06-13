@@ -293,7 +293,7 @@ final class AtlasEvolutionFrozenJudge
      */
     private function runFrozenCommand(string $command, string $workspace, int $timeout): array
     {
-        $process = Process::fromShellCommandline($command, $workspace, null, null, (float) $timeout);
+        $process = Process::fromShellCommandline($command, $workspace, $this->frozenCommandEnv(), null, (float) $timeout);
         $process->run();
         $exit = $process->getExitCode() ?? 1;
 
@@ -304,6 +304,43 @@ final class AtlasEvolutionFrozenJudge
             'stdout' => $this->excerpt((string) $process->getOutput()),
             'stderr' => $this->excerpt((string) $process->getErrorOutput()),
         ];
+    }
+
+    /**
+     * Environment for frozen acceptance commands.
+     *
+     * Acceptance commands run `php …` directly, and `./vendor/bin/*` shebangs
+     * resolve through `/usr/bin/env php`. When the reprove pass is spawned by a
+     * minimal-PATH parent (launchd/cron), `/bin/sh -c "php …"` cannot find php
+     * and exits 127 — which the gate mis-reported as a transient `reproof_failed`
+     * (the real "scheduled drain merges 0 but manual merges work" cause: the
+     * interactive shell had php on PATH, launchd did not). PHP_BINARY is the
+     * absolute path of the interpreter actually running this code, so prepending
+     * its directory to PATH makes the subprocess resolve the same php regardless
+     * of who spawned us. Prepend (not replace) so every other tool on the
+     * inherited PATH still resolves. Returns null (inherit parent env) only when
+     * PHP_BINARY is unavailable.
+     *
+     * @return array<string, string>|null
+     */
+    private function frozenCommandEnv(): ?array
+    {
+        $binary = PHP_BINARY;
+        if (! is_string($binary) || $binary === '') {
+            return null;
+        }
+
+        $binDir = \dirname($binary);
+        if ($binDir === '' || $binDir === '.' || $binDir === DIRECTORY_SEPARATOR) {
+            return null;
+        }
+
+        $currentPath = getenv('PATH');
+        $path = (! is_string($currentPath) || $currentPath === '')
+            ? $binDir
+            : $binDir.PATH_SEPARATOR.$currentPath;
+
+        return ['PATH' => $path];
     }
 
     private function computeMetric(string $kind, bool $passed, string $stdout, ?string $pattern): float
