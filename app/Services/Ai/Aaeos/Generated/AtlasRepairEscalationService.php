@@ -72,6 +72,19 @@ final class AtlasRepairEscalationService
     ];
 
     /**
+     * Recoverable FailureDomain families accepted by the closed domain contract.
+     * Any other non-human-review domain normalizes to `unknown` and escalates.
+     *
+     * @var list<string>
+     */
+    private const RECOVERABLE_DOMAIN_PREFIXES = [
+        'gate.',
+        'runtime.',
+        'tool.',
+        'harness.',
+    ];
+
+    /**
      * Default cap on controlled repair attempts before the loop must escalate
      * ("Proibido: loop infinito"). Callers can override via policy.max_attempts.
      */
@@ -195,7 +208,18 @@ final class AtlasRepairEscalationService
             return 'unknown';
         }
 
-        return strtolower(trim($domain));
+        $normalized = strtolower(trim($domain));
+        if (in_array($normalized, self::HUMAN_REVIEW_DOMAINS, true)) {
+            return $normalized;
+        }
+
+        foreach (self::RECOVERABLE_DOMAIN_PREFIXES as $prefix) {
+            if (str_starts_with($normalized, $prefix)) {
+                return $normalized;
+            }
+        }
+
+        return 'unknown';
     }
 
     private function normalizeSeverity(mixed $severity): string
