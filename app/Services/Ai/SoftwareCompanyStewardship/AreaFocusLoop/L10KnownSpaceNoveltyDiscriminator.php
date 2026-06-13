@@ -122,11 +122,24 @@ final class L10KnownSpaceNoveltyDiscriminator
      */
     private function noveltyScore(float $nearestSimilarity, bool $hasNoveltyEvidence): float
     {
-        $similarity = AreaFocusScalarNormalizer::clampUnit($nearestSimilarity);
+        $similarity = self::clampUnit($nearestSimilarity);
         $distance = 1.0 - $similarity;
         $evidenceFactor = $hasNoveltyEvidence ? 1.0 : self::NO_EVIDENCE_PENALTY;
 
-        return round(AreaFocusScalarNormalizer::clampUnit($distance * $evidenceFactor), 4);
+        return round(self::clampUnit($distance * $evidenceFactor), 4);
+    }
+
+    private static function clampUnit(float $value): float
+    {
+        if ($value < 0.0) {
+            return 0.0;
+        }
+
+        if ($value > 1.0) {
+            return 1.0;
+        }
+
+        return $value;
     }
 
     /**
@@ -204,7 +217,7 @@ final class L10KnownSpaceNoveltyDiscriminator
             return 0.0;
         }
 
-        return AreaFocusScalarNormalizer::clampUnit($intersection / $union);
+        return self::clampUnit($intersection / $union);
     }
 
     /**
