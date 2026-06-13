@@ -105,8 +105,11 @@ final class LocalAgentMemoryPromotionGateEvaluator
         $scan = $candidate['secret_scan'] ?? null;
 
         if (is_array($scan)) {
+            $findings = $scan['findings'] ?? 0;
+
             return ($scan['passed'] ?? false) === true
-                && (int) ($scan['findings'] ?? 0) === 0;
+                && is_numeric($findings)
+                && (int) $findings === 0;
         }
 
         if (is_string($scan)) {
