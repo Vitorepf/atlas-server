@@ -118,6 +118,9 @@ final class AtlasRecipesExternalMcpService
         if ($toolSlug === null) {
             $violations[] = $this->violation('missing_tool_slug',
                 'A wrapped external MCP recipe must declare a tool_slug.');
+        } elseif (! $this->isSlug($toolSlug)) {
+            $violations[] = $this->violation('tool_slug_malformed',
+                'Tool slug must contain only slug characters: letters, numbers, and hyphens.');
         }
 
         if ($recipeName === null) {
@@ -305,7 +308,7 @@ final class AtlasRecipesExternalMcpService
 
     /**
      * A wrapper skill is well-formed when it is `cyber-<something>-runner` with a
-     * non-empty middle segment.
+     * slug-safe middle segment.
      */
     private function isWrapperWellFormed(string $wrapper): bool
     {
@@ -315,7 +318,12 @@ final class AtlasRecipesExternalMcpService
 
         $middle = substr($wrapper, strlen('cyber-'), -strlen('-runner'));
 
-        return trim($middle) !== '';
+        return $this->isSlug($middle);
+    }
+
+    private function isSlug(string $value): bool
+    {
+        return preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', strtolower(trim($value))) === 1;
     }
 
     /**
