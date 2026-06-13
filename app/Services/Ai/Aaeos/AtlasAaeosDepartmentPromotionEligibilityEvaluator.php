@@ -187,10 +187,11 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
         $lastEvaluation = is_string($department['last_evaluation'] ?? null) ? $department['last_evaluation'] : '';
         $asOf = is_string($options['as_of'] ?? null) ? $options['as_of'] : $lastEvaluation;
 
+        $lastEvaluationTimestamp = $this->timestampFromIso($lastEvaluation);
         $ageDays = $this->ageInDays($lastEvaluation, $asOf);
 
         return [
-            'passed' => $ageDays <= $maxAgeDays,
+            'passed' => $lastEvaluationTimestamp !== null && $ageDays <= $maxAgeDays,
             'age_days' => $ageDays,
             'max_age_days' => $maxAgeDays,
         ];
