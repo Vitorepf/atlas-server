@@ -59,7 +59,7 @@ final class DepartmentMaturityCheckContract
     public static function fromArray(array $input): self
     {
         $requiredDepartmentIds = array_values(array_map(
-            static fn (string $id): string => trim($id),
+            static fn (string $id): string => strtolower(trim($id)),
             array_filter(
                 (array) ($input['required_department_ids'] ?? []),
                 static fn (mixed $id): bool => is_string($id) && trim($id) !== '',
@@ -72,7 +72,7 @@ final class DepartmentMaturityCheckContract
                 continue;
             }
 
-            $snapshot[trim($departmentId)] = strtoupper(trim($level));
+            $snapshot[strtolower(trim($departmentId))] = strtoupper(trim($level));
         }
 
         return new self(
