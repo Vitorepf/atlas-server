@@ -115,6 +115,10 @@ final class SpecCompletenessScorer
      */
     private function evaluateField(string $field, mixed $value): array
     {
+        if ($field === 'blocking_questions' && $value === []) {
+            return [true, true, 'ok'];
+        }
+
         if (in_array($field, self::LIST_FIELDS, true)) {
             return $this->evaluateListField($value);
         }
