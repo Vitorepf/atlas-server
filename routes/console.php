@@ -143,6 +143,56 @@ Schedule::command('atlas:fable:delta-series --json')
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas.fable.delta_series_enabled', true));
 
+// L6-9 · ACOS long-horizon readiness. Read-only claim gate: requires
+// resolved-evidence score floors plus >=30 real days in the delta series.
+Schedule::command('atlas:cognition:acos-long-horizon-gate --write-receipt --json')
+    ->dailyAt((string) config('atlas.cognition.acos_long_horizon_gate.schedule_time', '06:55'))
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.cognition.acos_long_horizon_gate.enabled', true)
+        && (bool) config('atlas.cognition.acos_long_horizon_gate.schedule_enabled', true));
+
+// L6-10 · Swarm topology auto-composer. Shadow-only: selects a topology by
+// task type and measures convergence from real plan_trace envelopes.
+Schedule::command('atlas:swarm:topology-auto-compose --fixture=two-types --write-receipt --json')
+    ->dailyAt((string) config('atlas.patamar4.swarm_topology_auto_composer.schedule_time', '07:20'))
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.patamar4.swarm_topology_auto_composer.enabled', true)
+        && (bool) config('atlas.patamar4.swarm_topology_auto_composer.schedule_enabled', true));
+
+// L6-11 · Predictive code intelligence correlation. Claim gate only: requires
+// fresh code intelligence plus resolved predictive-failure outcomes.
+Schedule::command('atlas:cognition:predictive-code-intelligence-gate --write-receipt --json')
+    ->dailyAt((string) config('atlas.cognition.predictive_code_intelligence_gate.schedule_time', '07:25'))
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.cognition.predictive_code_intelligence_gate.enabled', true)
+        && (bool) config('atlas.cognition.predictive_code_intelligence_gate.schedule_enabled', true));
+
+// L6-12 · Long-horizon continuity pack. Explicitly writes a provider-safe
+// continuation pack + replay manifest, then certifies through the read-only gate.
+Schedule::command('atlas:long-horizon:continuity-pack --strict-replay --write-receipt --json')
+    ->dailyAt((string) config('atlas.long_horizon.continuity_pack_emitter.schedule_time', '07:30'))
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.long_horizon.continuity_pack_emitter.enabled', true)
+        && (bool) config('atlas.long_horizon.continuity_pack_emitter.schedule_enabled', true));
+
+// L6-13 · Fixed-N capability-per-dollar series. Writes a daily measured-cost
+// snapshot, then gates the monthly positive-trend claim without estimating N.
+Schedule::command('atlas:compounding:fixed-n-capability-dollar-gate --write-snapshot --write-receipt --json')
+    ->dailyAt((string) config('atlas.compounding.fixed_n_capability_dollar_gate.schedule_time', '07:35'))
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.compounding.fixed_n_capability_dollar_gate.enabled', true)
+        && (bool) config('atlas.compounding.fixed_n_capability_dollar_gate.schedule_enabled', true));
+
+// L6-14 · Change-class trust release gate. Reads the per-class trust ladder and
+// proves Admission only relaxes review for allowlisted classes, with regression
+// revocation and sensitive-class blocking checked on every run.
+Schedule::command('atlas:governance:change-class-trust-release-gate --write-receipt --json')
+    ->dailyAt((string) config('atlas.ai.trust_ladder.release_gate.schedule_time', '07:40'))
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.ai.trust_ladder.enabled', false)
+        && (bool) config('atlas.ai.trust_ladder.release_gate.enabled', true)
+        && (bool) config('atlas.ai.trust_ladder.release_gate.schedule_enabled', true));
+
 // L4-4 · Loss-observer diário: autópsia do ledger do Loop. Detecta razões/gates
 // dominantes de rejeição e abre backlog intents dedupados para o próprio Loop atacar.
 Schedule::command('atlas:loop:loss-observer --json')
@@ -223,6 +273,52 @@ Schedule::command('atlas:loop:strategy-bandit --write-receipt --json')
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas.loop.explorer_strategy_bandit.enabled', true)
         && (bool) config('atlas.loop.explorer_strategy_bandit.schedule_enabled', true));
+
+// L6-4 · Code-graph auto-architecture proposals. Parked draft only; no
+// provider call, no Obra creation, no refactor apply.
+$autoArchitectureCommand = (bool) config('atlas.loop.auto_architecture_proposals.scheduled_create_proposal', true)
+    ? 'atlas:loop:auto-architecture --write-receipt --create-proposal --json'
+    : 'atlas:loop:auto-architecture --write-receipt --json';
+Schedule::command($autoArchitectureCommand)
+    ->dailyAt((string) config('atlas.loop.auto_architecture_proposals.schedule_time', '06:30'))
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.loop.auto_architecture_proposals.enabled', true)
+        && (bool) config('atlas.loop.auto_architecture_proposals.schedule_enabled', true));
+
+// L6-5 · Mutation adequacy proof. The live semantic certifier uses this gate
+// inline; the scheduled fixture proves the gate itself still rejects weak tests
+// and generates NaN/INF/overflow adversarial inputs without touching source.
+Schedule::command('atlas:loop:mutation-gate --fixture=strong --write-receipt --json')
+    ->dailyAt((string) config('atlas.loop.mutation_adequacy_gate.schedule_time', '06:35'))
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.loop.mutation_adequacy_gate.enabled', true)
+        && (bool) config('atlas.loop.mutation_adequacy_gate.schedule_enabled', true));
+
+// L6-6 · Cross-file consumer proof. The live semantic certifier uses this gate
+// inline; the scheduled fixture proves code-graph-discovered consumer contracts
+// are replayed without touching source or merge policy.
+Schedule::command('atlas:loop:cross-file-consumer-gate --fixture=safe --write-receipt --json')
+    ->dailyAt((string) config('atlas.loop.cross_file_consumer_gate.schedule_time', '06:40'))
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.loop.cross_file_consumer_gate.enabled', true)
+        && (bool) config('atlas.loop.cross_file_consumer_gate.schedule_enabled', true));
+
+// L6-7 · Observed-behavior regression oracle. Receipt-only: proves the sentinel
+// still blocks drift in behavior contracts that are not covered by test specs.
+Schedule::command('atlas:self-improvement:regression-sentinel --fixture=safe --write-receipt --json')
+    ->dailyAt((string) config('atlas.loop.self_improvement_regression_oracle.schedule_time', '06:45'))
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.loop.self_improvement_regression_oracle.enabled', true)
+        && (bool) config('atlas.loop.self_improvement_regression_oracle.schedule_enabled', true));
+
+// L6-8 · Formal-light invariant gate. Receipt-only: verifies reproducible
+// proof envelopes for sensitive kernel floors without claiming full formal
+// verification, touching source, providers, merge policy or never-merge.
+Schedule::command('atlas:loop:formal-invariant-gate --fixture=safe --write-receipt --json')
+    ->dailyAt((string) config('atlas.loop.formal_invariant_gate.schedule_time', '06:50'))
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.loop.formal_invariant_gate.enabled', true)
+        && (bool) config('atlas.loop.formal_invariant_gate.schedule_enabled', true));
 
 // L5-13 · Perpetual adversarial sweep, fortnightly by ISO-week parity. LOW is
 // enqueued as governed backlog intent; HIGH is parked for operator review.

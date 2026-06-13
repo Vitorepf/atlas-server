@@ -14,6 +14,9 @@ final class AtlasSelfImprovementRegressionSentinelCommand extends Command
         {--before-snapshot=}
         {--after-snapshot=}
         {--diff=}
+        {--fixture= : Fixture proof: safe|uncovered-drift}
+        {--receipt= : Receipt path; defaults to atlas.loop.self_improvement_regression_oracle.receipt_path}
+        {--write-receipt : Persist the report receipt}
         {--json}
         {--strict : Exit non-zero unless status is clear (no severe findings)}';
 
@@ -21,11 +24,34 @@ final class AtlasSelfImprovementRegressionSentinelCommand extends Command
 
     public function handle(AtlasSelfImprovementRegressionSentinelService $service): int
     {
-        $before = $this->resolveJsonOption('before-snapshot') ?? [];
-        $after = $this->resolveJsonOption('after-snapshot') ?? [];
-        $diff = $this->resolveJsonOption('diff') ?? [];
+        $fixture = trim((string) ($this->option('fixture') ?: ''));
+        if ($fixture !== '') {
+            $payload = $this->fixtureSnapshots($fixture);
+            if ($payload === null) {
+                $report = [
+                    'schema_version' => 'atlas.self_improvement.regression_sentinel.command.v1',
+                    'status' => 'invalid_input',
+                    'reason' => 'unknown_regression_sentinel_fixture',
+                    'allowed_fixtures' => ['safe', 'uncovered-drift'],
+                ];
+                $this->emit($report);
+
+                return self::FAILURE;
+            }
+            [$before, $after, $diff] = $payload;
+        } else {
+            $before = $this->resolveJsonOption('before-snapshot') ?? [];
+            $after = $this->resolveJsonOption('after-snapshot') ?? [];
+            $diff = $this->resolveJsonOption('diff') ?? [];
+        }
 
         $report = $service->scan($before, $after, $diff);
+        if ($fixture !== '') {
+            $report['fixture'] = $fixture;
+        }
+        if ((bool) $this->option('write-receipt') || trim((string) ($this->option('receipt') ?: '')) !== '') {
+            $report['receipt_path'] = $this->writeReceipt($report);
+        }
         $this->emit($report);
 
         if (! (bool) $this->option('strict')) {
@@ -35,6 +61,94 @@ final class AtlasSelfImprovementRegressionSentinelCommand extends Command
         return $report['status'] === AtlasSelfImprovementRegressionSentinelService::STATUS_BLOCKED
             ? self::FAILURE
             : self::SUCCESS;
+    }
+
+    /**
+     * @return array{array<string,mixed>,array<string,mixed>,array<string,mixed>}|null
+     */
+    private function fixtureSnapshots(string $fixture): ?array
+    {
+        $before = [
+            'observed_behavior' => [
+                'contracts' => [
+                    [
+                        'id' => 'atlas.invoice.total.rounding',
+                        'source' => 'live_observation_fixture',
+                        'observed_value' => 100.0,
+                        'covered_by_test' => false,
+                        'tolerance_abs' => 0.01,
+                    ],
+                ],
+            ],
+        ];
+
+        return match ($fixture) {
+            'safe' => [
+                $before,
+                [
+                    'observed_behavior' => [
+                        'contracts' => [
+                            [
+                                'id' => 'atlas.invoice.total.rounding',
+                                'source' => 'live_observation_fixture',
+                                'observed_value' => 100.0,
+                                'covered_by_test' => false,
+                                'tolerance_abs' => 0.01,
+                            ],
+                        ],
+                    ],
+                ],
+                ['test_spec_status' => 'green', 'updated_canonical_docs' => false],
+            ],
+            'uncovered-drift' => [
+                $before,
+                [
+                    'observed_behavior' => [
+                        'contracts' => [
+                            [
+                                'id' => 'atlas.invoice.total.rounding',
+                                'source' => 'live_observation_fixture',
+                                'observed_value' => 95.0,
+                                'covered_by_test' => false,
+                                'tolerance_abs' => 0.01,
+                            ],
+                        ],
+                    ],
+                ],
+                [
+                    'test_spec_status' => 'green',
+                    'updated_canonical_docs' => false,
+                    'behavior_drift_not_covered_by_test' => true,
+                ],
+            ],
+            default => null,
+        };
+    }
+
+    /**
+     * @param  array<string,mixed>  $report
+     */
+    private function writeReceipt(array $report): string
+    {
+        $path = trim((string) ($this->option('receipt') ?: ''));
+        if ($path === '') {
+            $path = (string) config(
+                'atlas.loop.self_improvement_regression_oracle.receipt_path',
+                storage_path('app/atlas/evidence/self-improvement-regression-oracle.json'),
+            );
+        }
+
+        $dir = dirname($path);
+        if (! is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+
+        file_put_contents(
+            $path,
+            json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL,
+        );
+
+        return $path;
     }
 
     /**

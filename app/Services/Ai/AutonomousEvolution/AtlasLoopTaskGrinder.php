@@ -279,6 +279,7 @@ final class AtlasLoopTaskGrinder
         $baseWorkspace = (string) ($explorerTask['base_workspace'] ?? '');
         $sealedHoldouts = $this->sealedHoldoutCommands($payload);
         $refuterCommands = $this->semanticRefuterCommands($payload);
+        $consumerCommands = $this->crossFileConsumerCommands($payload);
         $kept = [];
         $gateReports = [];
         $certificationReports = [];
@@ -299,6 +300,10 @@ final class AtlasLoopTaskGrinder
                         'objective' => (string) ($proposal['objective'] ?? $explorerTask['objective'] ?? ''),
                         'allowed_files' => $this->semanticAllowedFiles($payload, $explorerTask),
                         'sealed_holdout_commands' => $sealedHoldouts,
+                        'mutation_property_commands' => $this->mutationPropertyCommands($payload),
+                        'cross_file_consumer_commands' => $consumerCommands,
+                        'consumer_contracts' => $this->crossFileConsumerContracts($payload),
+                        'code_graph_workspace' => $payload['code_graph_workspace'] ?? base_path(),
                         'semantic_refuter_commands' => $refuterCommands,
                         'provider_refuters_required' => $this->semanticRefutersRequired($payload, count($refuterCommands)),
                         'refuter_provider' => $payload['refuter_provider'] ?? $payload['provider'] ?? null,
@@ -335,6 +340,8 @@ final class AtlasLoopTaskGrinder
                 'reasons' => $verdict['reasons'] ?? [],
                 'provider_refuters' => $verdict['provider_refuters'] ?? [],
                 'adversarial_panel' => $verdict['adversarial_panel'] ?? [],
+                'mutation_adequacy_gate' => $verdict['mutation_adequacy_gate'] ?? [],
+                'cross_file_consumer_gate' => $verdict['cross_file_consumer_gate'] ?? [],
                 'receipt' => $verdict,
             ];
             if ((bool) ($verdict['certified'] ?? false)) {
@@ -359,6 +366,7 @@ final class AtlasLoopTaskGrinder
             'proposals_certified' => count($kept),
             'provider_refuter_command_count' => count($refuterCommands),
             'provider_refuters_required' => $this->semanticRefutersRequired($payload, count($refuterCommands)),
+            'cross_file_consumer_command_count' => count($consumerCommands),
             'reports' => $certificationReports,
         ];
 
@@ -474,6 +482,56 @@ final class AtlasLoopTaskGrinder
         }
 
         return AiStringListNormalizer::uniqueStrings($commands);
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return list<string>
+     */
+    private function mutationPropertyCommands(array $payload): array
+    {
+        $commands = [];
+        foreach (['mutation_property_commands', 'property_commands', 'property_based_commands'] as $key) {
+            foreach (AiStringListNormalizer::trimmedStrings($payload[$key] ?? []) as $command) {
+                $commands[] = $command;
+            }
+        }
+
+        return AiStringListNormalizer::uniqueStrings($commands);
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return list<string>
+     */
+    private function crossFileConsumerCommands(array $payload): array
+    {
+        $commands = [];
+        foreach (['cross_file_consumer_commands', 'consumer_commands', 'consumer_contract_commands'] as $key) {
+            foreach (AiStringListNormalizer::trimmedStrings($payload[$key] ?? []) as $command) {
+                $commands[] = $command;
+            }
+        }
+
+        return AiStringListNormalizer::uniqueStrings($commands);
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return list<array<string,mixed>>
+     */
+    private function crossFileConsumerContracts(array $payload): array
+    {
+        $contracts = [];
+        foreach (['cross_file_consumer_contracts', 'consumer_contracts', 'code_graph_consumer_contracts'] as $key) {
+            foreach ((array) ($payload[$key] ?? []) as $contract) {
+                if (is_array($contract)) {
+                    $contracts[] = $contract;
+                }
+            }
+        }
+
+        return $contracts;
     }
 
     /**

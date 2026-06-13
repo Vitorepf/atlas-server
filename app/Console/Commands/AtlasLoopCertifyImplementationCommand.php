@@ -21,6 +21,10 @@ final class AtlasLoopCertifyImplementationCommand extends Command
         {--objective= : Human objective for the evidence receipt}
         {--allowed-file=* : Allowed changed file for adversarial scope proof}
         {--holdout=* : Sealed holdout command}
+        {--property-command=* : Mutation/property runner; gets ATLAS_MUTATION_PROPERTY_CASES}
+        {--consumer-command=* : Cross-file consumer contract command}
+        {--consumer-contract=* : Cross-file consumer contract JSON object}
+        {--code-graph-workspace= : Workspace path/id to use for Code Intelligence lookup}
         {--refuter-command=* : External/provider refuter command; gets ATLAS_SEMANTIC_REFUTER_PACKET}
         {--refuters= : Required external/provider refuter count}
         {--refuter-provider= : Advisory provider key for refuter receipt}
@@ -40,8 +44,9 @@ final class AtlasLoopCertifyImplementationCommand extends Command
 
         try {
             $acceptance = $this->acceptance();
+            $consumerContracts = $this->consumerContracts();
         } catch (JsonException $e) {
-            $this->error('Invalid acceptance JSON: '.$e->getMessage());
+            $this->error('Invalid JSON: '.$e->getMessage());
 
             return self::FAILURE;
         }
@@ -50,6 +55,10 @@ final class AtlasLoopCertifyImplementationCommand extends Command
             'objective' => trim((string) ($this->option('objective') ?: '')),
             'allowed_files' => $this->stringOptionList('allowed-file'),
             'sealed_holdout_commands' => $this->stringOptionList('holdout'),
+            'mutation_property_commands' => $this->stringOptionList('property-command'),
+            'cross_file_consumer_commands' => $this->stringOptionList('consumer-command'),
+            'consumer_contracts' => $consumerContracts,
+            'code_graph_workspace' => trim((string) ($this->option('code-graph-workspace') ?: '')) ?: null,
             'semantic_refuter_commands' => $this->stringOptionList('refuter-command'),
             'provider_refuters_required' => $this->intOption('refuters'),
             'refuter_provider' => trim((string) ($this->option('refuter-provider') ?: '')) ?: null,
@@ -112,5 +121,23 @@ final class AtlasLoopCertifyImplementationCommand extends Command
         $raw = trim((string) ($this->option($key) ?: ''));
 
         return $raw === '' || ! ctype_digit($raw) ? null : (int) $raw;
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     *
+     * @throws JsonException
+     */
+    private function consumerContracts(): array
+    {
+        $contracts = [];
+        foreach ($this->stringOptionList('consumer-contract') as $json) {
+            $decoded = json_decode($json, true, flags: JSON_THROW_ON_ERROR);
+            if (is_array($decoded)) {
+                $contracts[] = $decoded;
+            }
+        }
+
+        return $contracts;
     }
 }

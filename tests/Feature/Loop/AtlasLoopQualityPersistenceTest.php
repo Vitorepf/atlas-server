@@ -64,12 +64,20 @@ final class AtlasLoopQualityPersistenceTest extends TestCase
                     ],
                     'diff_size' => ['files' => 2, 'lines' => 14],
                     'diff_text' => 'SECRET-DIFF-TEXT',
+                    'strategy_key' => 'surgical',
+                    'strategy' => 'Prefer the smallest, most surgical change that satisfies the objective.',
+                    'tokens_used' => 300,
+                    'cost_estimate_usd' => 0.01,
                 ],
                 [
                     'scenario_id' => 'scn-2',
                     'verdict' => ['passed' => false, 'metric' => 0.0, 'metric_finite' => false, 'details' => ['reason' => 'acceptance_command_failed']],
                     'diff_size' => ['files' => 0, 'lines' => 0],
                     'diff_text' => 'SECRET-DIFF-TEXT-2',
+                    'strategy_key' => 'root_cause',
+                    'strategy' => 'Re-read the failing acceptance carefully; fix the true root cause, not the symptom.',
+                    'tokens_used' => 900,
+                    'cost_estimate_usd' => 0.02,
                 ],
                 [
                     // degraded attempt: no scenario_id, no metric, no diff_size — every
@@ -80,9 +88,9 @@ final class AtlasLoopQualityPersistenceTest extends TestCase
         ]);
 
         $this->assertSame([
-            ['scenario' => 'scn-1', 'passed' => true, 'metric' => 0.75, 'metric_finite' => true, 'diff_files' => 2, 'diff_lines' => 14],
-            ['scenario' => 'scn-2', 'passed' => false, 'metric' => 0.0, 'metric_finite' => false, 'diff_files' => 0, 'diff_lines' => 0],
-            ['scenario' => 3, 'passed' => false, 'metric' => null, 'metric_finite' => true, 'diff_files' => null, 'diff_lines' => null],
+            ['scenario' => 'scn-1', 'strategy_key' => 'surgical', 'strategy' => 'Prefer the smallest, most surgical change that satisfies the objective.', 'passed' => true, 'metric' => 0.75, 'metric_finite' => true, 'tokens_used' => 300, 'cost_estimate_usd' => 0.01, 'diff_files' => 2, 'diff_lines' => 14],
+            ['scenario' => 'scn-2', 'strategy_key' => 'root_cause', 'strategy' => 'Re-read the failing acceptance carefully; fix the true root cause, not the symptom.', 'passed' => false, 'metric' => 0.0, 'metric_finite' => false, 'tokens_used' => 900, 'cost_estimate_usd' => 0.02, 'diff_files' => 0, 'diff_lines' => 0],
+            ['scenario' => 3, 'strategy_key' => null, 'strategy' => null, 'passed' => false, 'metric' => null, 'metric_finite' => true, 'tokens_used' => null, 'cost_estimate_usd' => null, 'diff_files' => null, 'diff_lines' => null],
         ], $summary['attempt_metrics']);
 
         // The summary as a whole must be lean: no stdout/stderr/diff_text ANYWHERE.

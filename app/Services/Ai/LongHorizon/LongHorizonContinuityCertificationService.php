@@ -372,7 +372,7 @@ class LongHorizonContinuityCertificationService
             $result = $this->freshnessGate->evaluate([
                 'scope_type' => $scopeType,
                 'scope_id' => $scopeId,
-                'continuation_pack_id' => $pack->uuid,
+                'continuation_pack_id' => (string) $pack->id,
                 'context_manifest' => is_array($pack->context_manifest) ? $pack->context_manifest : [],
                 'compaction_receipt_payload' => $compaction === null ? null : [
                     'must_keep_coverage' => (float) ($compaction->must_keep_coverage ?? 0),

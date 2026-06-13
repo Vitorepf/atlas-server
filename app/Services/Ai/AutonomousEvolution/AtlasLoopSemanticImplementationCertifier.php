@@ -24,6 +24,8 @@ final class AtlasLoopSemanticImplementationCertifier
     public function __construct(
         private readonly AtlasEngineeringHonestyGate $honestyGate,
         private readonly AdversarialProofPanelService $adversarialPanel,
+        private readonly AtlasLoopMutationAdequacyGateService $mutationAdequacyGate,
+        private readonly AtlasLoopCrossFileConsumerGateService $crossFileConsumerGate,
     ) {}
 
     /**
@@ -58,6 +60,32 @@ final class AtlasLoopSemanticImplementationCertifier
             $changedFileContents,
             $changedAddedLines,
         ));
+        $mutationAdequacy = $this->mutationAdequacyGate->evaluate($workspace, $targetAcceptance, $changedFiles, [
+            'enabled' => (bool) config('atlas.loop.mutation_adequacy_gate.enabled', false),
+            'timeout_seconds' => (int) config('atlas.loop.mutation_adequacy_gate.timeout_seconds', 120),
+            'max_mutants' => (int) config('atlas.loop.mutation_adequacy_gate.max_mutants', 1),
+            'property_commands' => AiStringListNormalizer::uniqueMergedStrings(
+                AiStringListNormalizer::trimmedStrings($options['mutation_property_commands'] ?? []),
+                AiStringListNormalizer::trimmedStrings($targetAcceptance['property_commands'] ?? []),
+            ),
+        ]);
+        // L6-6: local GREEN is not enough for unreviewed trust. If Code Intelligence
+        // says a changed symbol has consumer contracts, those contracts must also stay
+        // GREEN in the candidate workspace. No graph/consumer signal skips safely; a
+        // discovered failing consumer refutes the proposal.
+        $crossFileConsumers = $this->crossFileConsumerGate->evaluate($workspace, $targetAcceptance, $changedFiles, [
+            'enabled' => (bool) config('atlas.loop.cross_file_consumer_gate.enabled', false),
+            'timeout_seconds' => (int) config('atlas.loop.cross_file_consumer_gate.timeout_seconds', 120),
+            'code_graph_workspace' => $options['code_graph_workspace'] ?? null,
+            'consumer_commands' => AiStringListNormalizer::uniqueMergedStrings(
+                AiStringListNormalizer::trimmedStrings($options['cross_file_consumer_commands'] ?? []),
+                AiStringListNormalizer::trimmedStrings($targetAcceptance['cross_file_consumer_commands'] ?? []),
+                AiStringListNormalizer::trimmedStrings($options['consumer_commands'] ?? []),
+                AiStringListNormalizer::trimmedStrings($targetAcceptance['consumer_commands'] ?? []),
+            ),
+            'consumer_contracts' => is_array($options['consumer_contracts'] ?? null) ? $options['consumer_contracts'] : [],
+            'code_graph_consumer_contracts' => is_array($options['code_graph_consumer_contracts'] ?? null) ? $options['code_graph_consumer_contracts'] : [],
+        ]);
         $providerRefuters = $this->runRefuters($workspace, [
             'schema_version' => self::SCHEMA.'.refuter_packet',
             'objective' => $objective,
@@ -67,6 +95,8 @@ final class AtlasLoopSemanticImplementationCertifier
             'target_acceptance' => $this->redactedAcceptance($targetAcceptance),
             'deterministic_gate' => $deterministicGate,
             'adversarial_panel' => $panelVerdict,
+            'mutation_adequacy_gate' => $mutationAdequacy,
+            'cross_file_consumer_gate' => $crossFileConsumers,
             'proposal_only' => true,
             'merged_to_main' => false,
         ], $refuterCommands, [
@@ -75,7 +105,7 @@ final class AtlasLoopSemanticImplementationCertifier
             'timeout_seconds' => max(1, (int) ($options['refuter_timeout_seconds'] ?? 120)),
         ]);
 
-        $reasons = $this->reasons($deterministicGate, $panelVerdict, $providerRefuters);
+        $reasons = $this->reasons($deterministicGate, $panelVerdict, $mutationAdequacy, $crossFileConsumers, $providerRefuters);
         $certified = $reasons === [];
         $receipt = [
             'schema_version' => self::SCHEMA,
@@ -89,12 +119,22 @@ final class AtlasLoopSemanticImplementationCertifier
             'reasons' => $certified ? ['certified'] : $reasons,
             'deterministic_gate' => $deterministicGate,
             'adversarial_panel' => $panelVerdict,
+            'mutation_adequacy_gate' => $mutationAdequacy,
+            'cross_file_consumer_gate' => $crossFileConsumers,
             'provider_refuters' => $providerRefuters,
             'evidence' => [
                 'target_acceptance_passed' => (bool) data_get($deterministicGate, 'report.holdouts.target_frozen_passed', false),
                 'diff_earned' => data_get($deterministicGate, 'report.holdouts.diff_earned') === true,
                 'sealed_holdout_passed' => data_get($deterministicGate, 'report.holdouts.sealed_holdout_passed') === true,
                 'adversarial_refuted_count' => (int) ($panelVerdict['refuted_count'] ?? 0),
+                'mutation_gate_enabled' => (bool) config('atlas.loop.mutation_adequacy_gate.enabled', false),
+                'mutation_mutants_sampled' => (int) ($mutationAdequacy['mutants_sampled'] ?? 0),
+                'mutation_mutants_killed' => (int) ($mutationAdequacy['mutants_killed'] ?? 0),
+                'mutation_mutants_survived' => (int) ($mutationAdequacy['mutants_survived'] ?? 0),
+                'cross_file_gate_enabled' => (bool) config('atlas.loop.cross_file_consumer_gate.enabled', false),
+                'cross_file_changed_symbols' => count((array) data_get($crossFileConsumers, 'code_graph.changed_symbols', [])),
+                'cross_file_consumer_contracts' => (int) ($crossFileConsumers['consumer_contract_count'] ?? 0),
+                'cross_file_consumer_failures' => (int) ($crossFileConsumers['consumer_contracts_failed'] ?? 0),
                 'provider_refuters_required' => (int) ($providerRefuters['required'] ?? 0),
                 'provider_refuters_executed' => (int) ($providerRefuters['executed'] ?? 0),
                 'provider_refuters_refuted' => (int) ($providerRefuters['refuted'] ?? 0),
@@ -279,7 +319,7 @@ final class AtlasLoopSemanticImplementationCertifier
      * @param  array<string,mixed>  $providerRefuters
      * @return list<string>
      */
-    private function reasons(array $deterministicGate, array $panelVerdict, array $providerRefuters): array
+    private function reasons(array $deterministicGate, array $panelVerdict, array $mutationAdequacy, array $crossFileConsumers, array $providerRefuters): array
     {
         $reasons = [];
         if (! (bool) ($deterministicGate['certified'] ?? false)) {
@@ -289,6 +329,18 @@ final class AtlasLoopSemanticImplementationCertifier
         }
         if (! (bool) ($panelVerdict['merge_allowed'] ?? false)) {
             $reasons[] = 'adversarial_panel:'.(string) ($panelVerdict['reason'] ?? 'refuted');
+        }
+        if (! (bool) ($mutationAdequacy['certified'] ?? false)) {
+            $reasons[] = 'mutation_adequacy_gate:'.(string) ($mutationAdequacy['status'] ?? 'blocked');
+            foreach ((array) ($mutationAdequacy['blockers'] ?? []) as $blocker) {
+                $reasons[] = 'mutation_adequacy_gate:'.(string) $blocker;
+            }
+        }
+        if (! (bool) ($crossFileConsumers['certified'] ?? false)) {
+            $reasons[] = 'cross_file_consumer_gate:'.(string) ($crossFileConsumers['status'] ?? 'blocked');
+            foreach ((array) ($crossFileConsumers['blockers'] ?? []) as $blocker) {
+                $reasons[] = 'cross_file_consumer_gate:'.(string) $blocker;
+            }
         }
         if (! (bool) ($providerRefuters['met_required'] ?? false)) {
             $reasons[] = 'provider_refuters_missing(required:'.(int) ($providerRefuters['required'] ?? 0).',executed:'.(int) ($providerRefuters['executed'] ?? 0).')';

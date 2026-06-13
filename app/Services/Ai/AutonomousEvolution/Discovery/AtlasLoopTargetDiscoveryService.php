@@ -43,6 +43,7 @@ final class AtlasLoopTargetDiscoveryService
         private readonly ?AtlasLoopBacklogIntentSource $backlog = null,
         private readonly ?\App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard $harnessGuard = null,
         private readonly ?AtlasLoopWiredCallerService $wiredCallers = null,
+        private readonly ?AtlasLoopSiblingTestResolver $siblingTests = null,
     ) {}
 
     /**
@@ -131,6 +132,14 @@ final class AtlasLoopTargetDiscoveryService
         // when the wired-caller service supplied real caller data (signals.orphan set).
         if ((bool) config('atlas.loop.orphan_gate_enabled', true)) {
             $this->applyOrphanGate($scoredRows);
+        }
+
+        // SUBSTANTIVE-GRIND: prefer WIRED files that already carry a convention sibling
+        // test — those are the only targets where a canary can RUN and go GREEN, the hard
+        // requirement for NON_TRIVIAL credit. Bounded boost, default OFF, fail-open (no
+        // resolver / no test-backed candidate => ordering unchanged, queue never starves).
+        if ((bool) config('atlas.loop.prefer_test_backed_targets', false)) {
+            $this->applyTestBackedRanking($scoredRows);
         }
 
         // L4-1: target cooldown. A recent task/proposal for the same path means the loop
@@ -250,6 +259,40 @@ final class AtlasLoopTargetDiscoveryService
             $kept[] = $row;
         }
         $scoredRows = array_values($kept);
+    }
+
+    /**
+     * Bounded boost for WIRED, test-backed targets — where a canary can run green and a
+     * substantive change can earn NON_TRIVIAL credit. Stamps has_sibling_test/sibling
+     * signals so the downstream test-gap objective + the grind reuse the SAME sibling.
+     *
+     * @param  list<array{path:string,abs:string,scored:array<string,mixed>}>  $scoredRows
+     */
+    private function applyTestBackedRanking(array &$scoredRows): void
+    {
+        if ($this->siblingTests === null) {
+            return; // fail-open: no resolver => ordering untouched
+        }
+        $minCallers = max(0, (int) config('atlas.loop.test_gap_min_callers', 1));
+
+        foreach ($scoredRows as &$row) {
+            $signals = is_array($row['scored']['signals'] ?? null) ? $row['scored']['signals'] : [];
+            $sib = $this->siblingTests->resolve((string) $row['path']);
+            $signals['has_sibling_test'] = $sib['has_sibling'];
+            $signals['sibling_test_path'] = $sib['sibling_path'];
+
+            // Real callers measured by applyImpactRanking (null = unmeasured => treat as 0
+            // for the wired requirement, never block).
+            $callers = $signals['impact_real_callers'];
+            $callers = is_int($callers) ? $callers : 0;
+
+            if ($sib['has_sibling'] && $callers >= $minCallers) {
+                $row['scored']['score'] = round(min(1.0, (float) $row['scored']['score'] + 0.25), 4);
+                $signals['test_backed_boost'] = true;
+            }
+            $row['scored']['signals'] = $signals;
+        }
+        unset($row);
     }
 
     /**

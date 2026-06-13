@@ -122,6 +122,10 @@ final class AtlasChangeClassTrustLadder
      */
     public function earnedAutonomy(string $changeClass): string
     {
+        if ((array) $this->releasePolicy($changeClass)['blockers'] !== []) {
+            return PolicyCanon::AUTONOMY_SUGGEST;
+        }
+
         $streak = $this->cleanStreak($changeClass);
         $t = (array) config('atlas.ai.trust_ladder.thresholds', []);
 
@@ -143,11 +147,46 @@ final class AtlasChangeClassTrustLadder
      */
     public function snapshot(string $changeClass): array
     {
+        $policy = $this->releasePolicy($changeClass);
+
         return [
             'schema_version' => self::SCHEMA,
             'change_class' => trim($changeClass),
             'clean_streak' => $this->cleanStreak($changeClass),
             'earned_autonomy' => $this->earnedAutonomy($changeClass),
+            'release_policy' => $policy,
+        ];
+    }
+
+    /**
+     * @return array{eligible:bool,blockers:list<string>,eligible_classes:list<string>,blocked_class_patterns:list<string>}
+     */
+    public function releasePolicy(string $changeClass): array
+    {
+        $class = $this->normalizeClass($changeClass);
+        $eligibleClasses = $this->stringListConfig('atlas.ai.trust_ladder.eligible_classes');
+        $blockedPatterns = $this->stringListConfig('atlas.ai.trust_ladder.blocked_class_patterns');
+
+        $blockers = [];
+        if ($class === '') {
+            $blockers[] = 'change_class_missing';
+        }
+
+        foreach ($blockedPatterns as $pattern) {
+            if ($pattern !== '' && $class !== '' && str_contains($class, $pattern)) {
+                $blockers[] = 'blocked_class_pattern:'.$pattern;
+            }
+        }
+
+        if ($eligibleClasses !== [] && $class !== '' && ! in_array($class, $eligibleClasses, true)) {
+            $blockers[] = 'change_class_not_allowlisted';
+        }
+
+        return [
+            'eligible' => $blockers === [],
+            'blockers' => array_values(array_unique($blockers)),
+            'eligible_classes' => $eligibleClasses,
+            'blocked_class_patterns' => $blockedPatterns,
         ];
     }
 
@@ -160,6 +199,38 @@ final class AtlasChangeClassTrustLadder
 
         // Absent / non-positive => unreachable (disabled) => the tier never unlocks.
         return is_numeric($v) && (int) $v > 0 ? (int) $v : PHP_INT_MAX;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function stringListConfig(string $key): array
+    {
+        $value = config($key, []);
+        if (is_string($value)) {
+            $value = explode(',', $value);
+        }
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($value as $item) {
+            if (! is_string($item) && ! is_numeric($item)) {
+                continue;
+            }
+            $normalized = $this->normalizeClass((string) $item);
+            if ($normalized !== '') {
+                $out[] = $normalized;
+            }
+        }
+
+        return array_values(array_unique($out));
+    }
+
+    private function normalizeClass(string $class): string
+    {
+        return strtolower(trim($class));
     }
 
     /**

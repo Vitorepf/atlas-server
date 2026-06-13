@@ -193,6 +193,9 @@ class AtlasSelfImprovementResultLedgerService
             'reason' => $reason,
             'accepted_risks' => array_values((array) ($context['accepted_risks'] ?? [])),
             'regressions_detected' => array_values((array) ($regression['findings'] ?? [])),
+            'observed_behavior_oracle' => is_array($regression['observed_behavior_oracle'] ?? null)
+                ? $regression['observed_behavior_oracle']
+                : null,
             'invariants_preserved' => ($invariant['status'] ?? 'unknown') === 'passed',
             'invariant_violations' => array_values((array) ($invariant['violations'] ?? [])),
             'trust_delta' => $this->trustDeltaFor($grade),

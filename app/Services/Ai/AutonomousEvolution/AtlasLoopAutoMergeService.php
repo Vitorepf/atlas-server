@@ -504,21 +504,28 @@ final class AtlasLoopAutoMergeService
         $minScore = (float) config('atlas.ai.loop.value_gate_min_impact_score', 0.45);
         $minCallers = max(0, (int) config('atlas.ai.loop.value_gate_min_callers', 1));
 
+        // callers===null = the wired-caller infra was unavailable (grep error / stale world
+        // model). Default fail-OPEN (don't block a real fix on a transient infra blip), but
+        // the operator can flip value_gate_fail_open=false to fail-CLOSED, and we ALWAYS
+        // stamp `unmeasured` so the digest can surface how many merges rode the seam.
+        $unmeasured = $callers === null;
+        $failOpen = (bool) config('atlas.ai.loop.value_gate_fail_open', true);
         $scoreOk = $impactScore >= $minScore;
-        $callersOk = $callers === null || $callers >= $minCallers;
+        $callersOk = $unmeasured ? $failOpen : $callers >= $minCallers;
         $passed = $scoreOk && $callersOk;
 
         $reason = 'ok';
         if (! $scoreOk) {
             $reason = 'impact_score_below_floor:'.$impactScore.'<'.$minScore;
         } elseif (! $callersOk) {
-            $reason = 'orphan_below_min_callers:'.$callers;
+            $reason = $unmeasured ? 'unmeasured_callers_fail_closed' : 'orphan_below_min_callers:'.$callers;
         }
 
         return [
             'passed' => $passed,
             'impact_score' => $impactScore,
             'real_callers' => $callers,
+            'unmeasured' => $unmeasured,
             'min_impact_score' => $minScore,
             'min_callers' => $minCallers,
             'reason' => $reason,
@@ -527,20 +534,26 @@ final class AtlasLoopAutoMergeService
 
     private function canary(string $repoRoot, array $changed): array
     {
+        // Resolve the sibling via the SHARED recursive resolver — NOT the old
+        // `tests/{Unit,Feature}/**/X` glob, whose `**` is NOT recursive in PHP and so
+        // only matched tests 0-1 dirs deep, MISSING the deep mirror layout
+        // (tests/Unit/Ai/.../{Class}Test.php) — the reason canaries "rarely ran". Now the
+        // canary finds + runs the real deep sibling, the same one discovery/grade resolve,
+        // so canary-green is a real fact for far more merges (and feeds NON_TRIVIAL credit).
+        $resolver = new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSiblingTestResolver($repoRoot);
         foreach ($changed as $file) {
-            $class = pathinfo($file, PATHINFO_FILENAME);
-            $hits = glob($repoRoot.'/tests/{Unit,Feature}/**/'.$class.'Test.php', GLOB_BRACE) ?: [];
-            if ($hits === []) {
+            $sib = $resolver->resolve($file);
+            if (! ($sib['has_sibling'] ?? false)) {
                 continue;
             }
+            $siblingRel = (string) $sib['sibling_path'];
             // PHP_BINARY, not bare 'php': the canary runs as a direct child of the
-            // launchd-spawned drain (outside the frozen judge's process tree, so it does
-            // not inherit the judge's PATH fix). Under launchd's minimal PATH a bare
-            // 'php' argv[0] would not resolve — same exit-127 class that broke reprove.
-            $p = new Process([PHP_BINARY, '-d', 'memory_limit=2048M', 'artisan', 'test', $hits[0]], $repoRoot, null, null, 300.0);
+            // launchd-spawned drain (outside the frozen judge's process tree). Under
+            // launchd's minimal PATH a bare 'php' argv[0] would not resolve (exit-127).
+            $p = new Process([PHP_BINARY, '-d', 'memory_limit=2048M', 'artisan', 'test', $siblingRel], $repoRoot, null, null, 300.0);
             $p->run();
 
-            return ['ran' => true, 'passed' => $p->isSuccessful(), 'target' => str_replace($repoRoot.'/', '', $hits[0])];
+            return ['ran' => true, 'passed' => $p->isSuccessful(), 'target' => $siblingRel];
         }
 
         return ['ran' => false, 'passed' => null, 'target' => null];

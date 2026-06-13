@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Ai\LongHorizon;
 
+use App\Models\AtlasLongHorizonContinuationPack;
 use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
 use App\Services\Ai\LongHorizon\Gate\LongHorizonContextFreshnessGate;
 use App\Services\Ai\LongHorizon\Gate\LongHorizonContextFreshnessGateResult;
@@ -360,6 +361,47 @@ class LongHorizonContextFreshnessGateTest extends TestCase
         $decoded = json_decode((string) $json, true);
         $this->assertSame(LongHorizonContextFreshnessGateResult::SCHEMA_VERSION, $decoded['schema_version']);
         $this->assertSame($result->freshnessHash, $decoded['freshness_hash']);
+    }
+
+    public function test_resolves_persisted_pack_by_non_uuid_canonical_uuid(): void
+    {
+        $now = Carbon::parse('2026-05-19T10:00:00Z');
+        $payload = [
+            'uuid' => 'long-horizon-non-uuid-alias',
+            'scope_type' => AtlasLongHorizonCanon::SCOPE_TYPE_LONG_HORIZON,
+            'scope_id' => 'fable-lista-6',
+            'objective' => 'Resume from provider-safe continuity pack.',
+            'current_phase' => 'continuity_certification',
+            'state_summary' => 'Pack uuid is a canonical alias, not a database UUID.',
+            'decisions' => [],
+            'superseded_decisions' => [],
+            'open_tasks' => [],
+            'completed_tasks' => [],
+            'blockers' => [],
+            'risks' => [],
+            'evidence_refs' => [['kind' => 'doc', 'ref' => 'docs/fable-lista-6-14-itens.md']],
+            'context_manifest' => [],
+            'context_pack_hash' => str_repeat('a', 64),
+            'summary_hash' => str_repeat('b', 64),
+            'source_receipts' => [],
+            'stale_after' => $now->copy()->addDays(7),
+            'safe_resume_mode' => AtlasLongHorizonCanon::SAFE_RESUME_EXECUTE,
+            'next_safe_action' => 'run continuity certification',
+            'human_decisions_required' => [],
+            'confidence' => 0.86,
+            'pack_hash' => str_repeat('c', 64),
+        ];
+        AtlasLongHorizonContinuationPack::query()->create($payload);
+
+        $result = $this->gate->evaluate([
+            'scope_type' => AtlasLongHorizonCanon::SCOPE_TYPE_LONG_HORIZON,
+            'scope_id' => 'fable-lista-6',
+            'continuation_pack_id' => 'long-horizon-non-uuid-alias',
+            'now' => $now,
+        ]);
+
+        $this->assertSame(LongHorizonContextFreshnessGateResult::STATUS_PASS, $result->status);
+        $this->assertSame([], $result->blockingReasons);
     }
 
     public function test_invalid_scope_type_throws(): void

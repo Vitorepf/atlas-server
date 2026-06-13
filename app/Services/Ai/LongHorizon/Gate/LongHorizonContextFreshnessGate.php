@@ -8,6 +8,7 @@ use App\Models\AtlasLongHorizonContinuationPack;
 use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
 use App\Services\Ai\Programming\AtlasDev\Gate\MandatoryRagGate;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 /**
@@ -335,10 +336,12 @@ final class LongHorizonContextFreshnessGate
             return null;
         }
 
-        $row = AtlasLongHorizonContinuationPack::query()
-            ->where('id', $id)
-            ->orWhere('uuid', $id)
-            ->first();
+        $query = AtlasLongHorizonContinuationPack::query()->where('uuid', $id);
+        if (Str::isUuid($id)) {
+            $query->orWhere('id', $id);
+        }
+
+        $row = $query->first();
         if ($row === null) {
             return null;
         }

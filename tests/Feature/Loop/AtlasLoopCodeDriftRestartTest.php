@@ -46,6 +46,8 @@ final class AtlasLoopCodeDriftRestartTest extends TestCase
     {
         foreach ([
             'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AdversarialProofPanelService.php',
+            'app/Services/Ai/AutonomousEvolution/AtlasLoopMutationAdequacyGateService.php',
+            'app/Services/Ai/AutonomousEvolution/AtlasLoopCrossFileConsumerGateService.php',
             'app/Models/AtlasLoopProposal.php',
             'config/atlas.php',
             'database/migrations/2026_06_12_000100_governed_merge_door_atlas_loop_proposals.php',

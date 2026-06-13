@@ -320,7 +320,7 @@ final class AtlasEvolutionScenarioExplorer
         ));
         $pool = $provided !== [] ? $provided : self::DEFAULT_STRATEGIES;
         $text = (string) $pool[$i % count($pool)];
-        $key = $keys[$i % count($keys)] ?? $this->defaultStrategyKey($text, $i);
+        $key = $keys !== [] ? (string) $keys[$i % count($keys)] : $this->defaultStrategyKey($text, $i);
 
         return ['key' => $key, 'text' => $text];
     }

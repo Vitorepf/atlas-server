@@ -19,8 +19,19 @@ class AtlasDecideMetaLearningCommandTest extends TestCase
         $this->tmpRoot = sys_get_temp_dir().'/atlas_meta_cli_'.uniqid('', true);
         @mkdir($this->tmpRoot, 0775, true);
         config(['atlas_rivals.ledger_root' => $this->tmpRoot.'/ledger']);
+
+        // HERMETIC: isolate the live-outcome log so the test never reads the PRODUCTION
+        // storage/atlas/atlas_decide/live_outcomes.jsonl (the live soak appends to it,
+        // which flipped the cost-outcome-diagnostics assertion non-deterministically).
+        // Bind the singleton (so a fresh MetaLearningService's provider closure picks the
+        // tmp one) AND set it on the resolved instance (covers the already-resolved case).
+        $feedback = new \App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
+        $feedback->setLogPathForTesting($this->tmpRoot.'/live_outcomes.jsonl');
+        $this->app->instance(\App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService::class, $feedback);
+
         $svc = $this->app->make(AtlasDecideMetaLearningService::class);
         $svc->setActivationLogPathForTesting($this->tmpRoot.'/routing_activations.jsonl');
+        $svc->setLiveOutcomeFeedback($feedback);
     }
 
     protected function tearDown(): void

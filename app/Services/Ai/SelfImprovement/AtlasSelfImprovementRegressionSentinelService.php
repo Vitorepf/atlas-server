@@ -70,6 +70,8 @@ class AtlasSelfImprovementRegressionSentinelService
         $findings = array_merge($findings, $this->scanUiConfusion($implementationDiff));
         $findings = array_merge($findings, $this->scanComplexityWithoutMaturity($implementationDiff));
         $findings = array_merge($findings, $this->scanDocsRuntimeDivergence($beforeSnapshot, $afterSnapshot));
+        $observedBehaviorOracle = $this->scanObservedBehaviorDrift($beforeSnapshot, $afterSnapshot);
+        $findings = array_merge($findings, $observedBehaviorOracle['findings']);
 
         $severeCount = 0;
         $warnCount = 0;
@@ -110,7 +112,9 @@ class AtlasSelfImprovementRegressionSentinelService
                 'severe_finding_blocks_promotion' => true,
                 'never_calls_external_provider' => true,
                 'never_unlocks_external_rivals_claim' => true,
+                'uncovered_observed_behavior_drift_blocks_promotion' => true,
             ],
+            'observed_behavior_oracle' => $observedBehaviorOracle,
             'external_provider_call' => false,
             'provider_tokens_spent' => false,
             'separated_from' => 'external_rivals_certification',
@@ -310,14 +314,268 @@ class AtlasSelfImprovementRegressionSentinelService
     }
 
     /**
+     * L6-7: compare OBSERVED behavior contracts, not test assertions.
+     *
+     * Expected snapshot shape:
+     *   observed_behavior.contracts[] = {
+     *     id: string,
+     *     observed_value: scalar|array,
+     *     covered_by_test: bool,
+     *     tolerance_abs?: float,
+     *     tolerance_ratio?: float,
+     *     source?: string
+     *   }
+     *
+     * Missing observed behavior remains a no-op for backwards compatibility. A
+     * changed contract that is not covered by a test becomes a severe finding: this
+     * sentinel never mutates anything, but promotion callers must treat it as a block.
+     *
      * @return array<string,mixed>
      */
-    private function finding(string $id, string $severity, string $message): array
+    private function scanObservedBehaviorDrift(array $before, array $after): array
     {
+        $beforeContracts = $this->observedBehaviorContracts($before);
+        $afterContracts = $this->observedBehaviorContracts($after);
+        $findings = [];
+        $compared = 0;
+        $uncoveredCompared = 0;
+        $coveredSkipped = 0;
+        $missingAfter = 0;
+
+        foreach ($beforeContracts as $id => $beforeContract) {
+            $afterContract = $afterContracts[$id] ?? null;
+            $coveredByTest = $this->contractCoveredByTest($beforeContract)
+                || ($afterContract !== null && $this->contractCoveredByTest($afterContract));
+
+            if ($coveredByTest) {
+                $coveredSkipped++;
+
+                continue;
+            }
+
+            $uncoveredCompared++;
+            $compared++;
+
+            if ($afterContract === null) {
+                $missingAfter++;
+                $findings[] = $this->finding(
+                    'observed_behavior_contract_missing_after',
+                    self::SEVERITY_SEVERE,
+                    'observed behavior contract disappeared without test coverage',
+                    [
+                        'oracle' => 'observed_behavior',
+                        'behavior_id' => $id,
+                        'covered_by_test' => false,
+                    ],
+                );
+
+                continue;
+            }
+
+            $beforeValue = $this->observedBehaviorValue($beforeContract);
+            $afterValue = $this->observedBehaviorValue($afterContract);
+            if ($this->observedValuesEquivalent($beforeValue, $afterValue, $beforeContract, $afterContract)) {
+                continue;
+            }
+
+            $findings[] = $this->finding(
+                'observed_behavior_drift_uncovered_by_test',
+                self::SEVERITY_SEVERE,
+                'observed behavior changed but the contract is not covered by a test-spec',
+                [
+                    'oracle' => 'observed_behavior',
+                    'behavior_id' => $id,
+                    'covered_by_test' => false,
+                    'source' => $this->stringValue($afterContract['source'] ?? $beforeContract['source'] ?? null),
+                    'before_value_hash' => $this->valueHash($beforeValue),
+                    'after_value_hash' => $this->valueHash($afterValue),
+                    'before_value_preview' => $this->valuePreview($beforeValue),
+                    'after_value_preview' => $this->valuePreview($afterValue),
+                ],
+            );
+        }
+
+        $status = match (true) {
+            count($beforeContracts) === 0 => 'no_observed_behavior',
+            $findings !== [] => 'drift_detected',
+            default => 'clear',
+        };
+
         return [
+            'schema_version' => 'atlas.self_improvement.observed_behavior_oracle.v1',
+            'status' => $status,
+            'contract_count_before' => count($beforeContracts),
+            'contract_count_after' => count($afterContracts),
+            'compared_contracts' => $compared,
+            'uncovered_compared_contracts' => $uncoveredCompared,
+            'covered_contracts_skipped' => $coveredSkipped,
+            'missing_after_count' => $missingAfter,
+            'drift_count' => count($findings),
+            'finding_ids' => array_values(array_map(
+                static fn (array $finding): string => (string) ($finding['finding_id'] ?? ''),
+                $findings,
+            )),
+            'findings' => $findings,
+            'read_model_only' => true,
+            'external_provider_call' => false,
+        ];
+    }
+
+    /**
+     * @return array<string,array<string,mixed>>
+     */
+    private function observedBehaviorContracts(array $snapshot): array
+    {
+        $raw = data_get($snapshot, 'observed_behavior.contracts');
+        if (! is_array($raw)) {
+            $raw = data_get($snapshot, 'behavior_observations');
+        }
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        $contracts = [];
+        foreach ($raw as $key => $contract) {
+            if (! is_array($contract)) {
+                continue;
+            }
+            $id = $this->stringValue($contract['id'] ?? $contract['behavior_id'] ?? $contract['name'] ?? null);
+            if ($id === null && is_string($key) && trim($key) !== '') {
+                $id = trim($key);
+            }
+            if ($id === null) {
+                continue;
+            }
+            $contracts[$id] = $contract;
+        }
+
+        ksort($contracts);
+
+        return $contracts;
+    }
+
+    /**
+     * @param  array<string,mixed>  $contract
+     */
+    private function contractCoveredByTest(array $contract): bool
+    {
+        foreach (['covered_by_test', 'covered_by_tests', 'test_covered', 'test_spec_covered', 'covered_by_test_spec'] as $key) {
+            if (array_key_exists($key, $contract)) {
+                return filter_var($contract[$key], FILTER_VALIDATE_BOOL);
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string,mixed>  $contract
+     */
+    private function observedBehaviorValue(array $contract): mixed
+    {
+        foreach (['observed_value', 'value', 'output', 'result', 'behavior', 'signature', 'hash'] as $key) {
+            if (array_key_exists($key, $contract)) {
+                return $contract[$key];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $beforeContract
+     * @param  array<string,mixed>  $afterContract
+     */
+    private function observedValuesEquivalent(
+        mixed $before,
+        mixed $after,
+        array $beforeContract,
+        array $afterContract,
+    ): bool {
+        if (is_numeric($before) && is_numeric($after)) {
+            $beforeFloat = (float) $before;
+            $afterFloat = (float) $after;
+            $absoluteDelta = abs($afterFloat - $beforeFloat);
+            $absoluteTolerance = max(
+                0.0,
+                (float) ($afterContract['tolerance_abs'] ?? $afterContract['tolerance'] ?? $beforeContract['tolerance_abs'] ?? $beforeContract['tolerance'] ?? 0),
+            );
+            if ($absoluteDelta <= $absoluteTolerance) {
+                return true;
+            }
+
+            $ratioTolerance = max(
+                0.0,
+                (float) ($afterContract['tolerance_ratio'] ?? $beforeContract['tolerance_ratio'] ?? 0),
+            );
+            if ($ratioTolerance > 0) {
+                $denominator = max(1.0, abs($beforeFloat));
+
+                return ($absoluteDelta / $denominator) <= $ratioTolerance;
+            }
+
+            return false;
+        }
+
+        return hash_equals($this->valueHash($before), $this->valueHash($after));
+    }
+
+    private function valueHash(mixed $value): string
+    {
+        $normalized = $this->normalizeValue($value);
+        $json = json_encode($normalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        return 'sha256:'.hash('sha256', $json === false ? '' : $json);
+    }
+
+    private function normalizeValue(mixed $value): mixed
+    {
+        if (! is_array($value)) {
+            return $value;
+        }
+
+        $normalized = [];
+        foreach ($value as $key => $child) {
+            $normalized[$key] = $this->normalizeValue($child);
+        }
+        if (! array_is_list($normalized)) {
+            ksort($normalized);
+        }
+
+        return $normalized;
+    }
+
+    private function valuePreview(mixed $value): string|int|float|bool|null
+    {
+        if (is_string($value)) {
+            return mb_substr($value, 0, 160);
+        }
+        if (is_int($value) || is_float($value) || is_bool($value) || $value === null) {
+            return $value;
+        }
+
+        return $this->valueHash($value);
+    }
+
+    private function stringValue(mixed $value): ?string
+    {
+        if (! is_scalar($value)) {
+            return null;
+        }
+        $string = trim((string) $value);
+
+        return $string === '' ? null : $string;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function finding(string $id, string $severity, string $message, array $context = []): array
+    {
+        return array_merge([
             'finding_id' => $id,
             'severity' => $severity,
             'message' => $message,
-        ];
+        ], $context);
     }
 }

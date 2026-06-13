@@ -98,6 +98,26 @@ final class AtlasLoopWiredTargetingTest extends TestCase
         $this->assertLessThan(7.0, $grade['grade'], 'a gamed-but-orphan ledger is structurally capped well under 9.3');
     }
 
+    public function test_sibling_test_resolver_finds_deep_tests_and_rejects_untested(): void
+    {
+        $r = new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSiblingTestResolver();
+
+        // A real DEEP sibling (tests/Unit/Ai/.../AreaFocusLoop/...Test.php) — the old
+        // shallow glob missed these; the recursive index must find it.
+        $deep = $r->resolve('app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/L9Q3EngineeringDisciplineEvolutionCertificationService.php');
+        $this->assertTrue($deep['has_sibling'], 'deep sibling must be found by the recursive index');
+        $this->assertStringContainsString('L9Q3EngineeringDisciplineEvolutionCertificationServiceTest.php', (string) $deep['sibling_path']);
+        $this->assertNotEmpty($deep['asserted_methods'], 'sibling test methods must be parsed for the coverage gap');
+
+        // A file with no convention sibling => fail-closed (no false lane entry).
+        $none = $r->resolve('app/Services/Ai/Aaeos/Generated/AtlasLayerStatusService.php');
+        $this->assertFalse($none['has_sibling']);
+        $this->assertNull($none['sibling_path']);
+
+        // Non-php / empty path => safe.
+        $this->assertFalse($r->hasSibling('app/Services/Ai/Whatever.txt'));
+    }
+
     public function test_value_gate_blocks_orphan_passes_wired_and_fails_open_on_degraded_infra(): void
     {
         $proposal = AtlasLoopProposal::create([

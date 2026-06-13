@@ -652,11 +652,30 @@ return [
         'trust_ladder' => [
             'enabled' => (bool) env('ATLAS_TRUST_LADDER_ENABLED', false), // default OFF — unwired
             'thresholds' => [
-                // Clean-streak count the operator must set to unlock each tier. Absent
-                // => disabled. Uncomment + tune to opt a class in (still capped by risk):
-                // 'draft'                 => null,
-                // 'execute_with_approval' => null,
-                // 'autonomous'            => null,
+                // Clean-streak count the operator must set to unlock each tier. Non-positive
+                // => disabled. Still capped by risk and by eligible/blocked class policy.
+                'draft' => (int) env('ATLAS_TRUST_LADDER_DRAFT_THRESHOLD', 0),
+                'execute_with_approval' => (int) env('ATLAS_TRUST_LADDER_EXECUTE_WITH_APPROVAL_THRESHOLD', 0),
+                'autonomous' => (int) env('ATLAS_TRUST_LADDER_AUTONOMOUS_THRESHOLD', 0),
+            ],
+            'eligible_classes' => array_values(array_filter(array_map(
+                'trim',
+                explode(',', (string) env('ATLAS_TRUST_LADDER_ELIGIBLE_CLASSES', '')),
+            ))),
+            'blocked_class_patterns' => array_values(array_filter(array_map(
+                'trim',
+                explode(',', (string) env('ATLAS_TRUST_LADDER_BLOCKED_CLASS_PATTERNS', 'never_merge,merge_gate,constitutional_kernel,harness_guard,frozen_judge,formal_invariant,kernel,security_sensitive,provider_secret')),
+            ))),
+            // L6-14: capstone proof that a class-scoped release is earned by
+            // evidence and revoked by regression, without touching never-merge.
+            'release_gate' => [
+                'enabled' => (bool) env('ATLAS_CHANGE_CLASS_TRUST_RELEASE_GATE_ENABLED', true),
+                'schedule_enabled' => (bool) env('ATLAS_CHANGE_CLASS_TRUST_RELEASE_GATE_SCHEDULE_ENABLED', true),
+                'schedule_time' => env('ATLAS_CHANGE_CLASS_TRUST_RELEASE_GATE_SCHEDULE_TIME', '07:40'),
+                'target_class' => env('ATLAS_CHANGE_CLASS_TRUST_RELEASE_GATE_TARGET_CLASS', 'documentation_only'),
+                'min_clean_streak' => (int) env('ATLAS_CHANGE_CLASS_TRUST_RELEASE_GATE_MIN_CLEAN_STREAK', 3),
+                'blocked_class_probe' => env('ATLAS_CHANGE_CLASS_TRUST_RELEASE_GATE_BLOCKED_CLASS_PROBE', 'constitutional_kernel'),
+                'receipt_path' => env('ATLAS_CHANGE_CLASS_TRUST_RELEASE_GATE_RECEIPT_PATH', storage_path('app/atlas/evidence/change-class-trust-release-gate.json')),
             ],
         ],
 
@@ -763,6 +782,11 @@ return [
             'value_gate_enabled' => (bool) env('ATLAS_LOOP_VALUE_GATE_ENABLED', true),
             'value_gate_min_impact_score' => (float) env('ATLAS_LOOP_VALUE_GATE_MIN_IMPACT_SCORE', 0.45),
             'value_gate_min_callers' => (int) env('ATLAS_LOOP_VALUE_GATE_MIN_CALLERS', 1),
+            // When the wired-caller infra is UNAVAILABLE (grep error / stale world model)
+            // the gate can't measure callers. Default fail-OPEN (don't block a real fix on a
+            // transient blip); flip false to fail-CLOSED so a genuine orphan can't slip when
+            // measurement degrades. Either way the receipt stamps `unmeasured` for the digest.
+            'value_gate_fail_open' => (bool) env('ATLAS_LOOP_VALUE_GATE_FAIL_OPEN', true),
             // Ungameable Utility/Impact grade: window of recent merges + the hub fan-in
             // threshold that counts as compounding-leverage.
             'utility_grade_window' => (int) env('ATLAS_LOOP_UTILITY_GRADE_WINDOW', 50),
@@ -1454,6 +1478,38 @@ return [
         // ACOS com evidência resolved, mirando os subsistemas partial). Default ON; reversível.
         'mint_pipeline_receipts_enabled' => (bool) env('ATLAS_COGNITION_MINT_PIPELINE_RECEIPTS_ENABLED', true),
 
+        // L6-9: gate honesto para o claim "ACOS 10/10 real". Ele não cunha
+        // receipts nem backfilla tempo; só permite completion quando o scorecard
+        // resolved-evidence e a delta-series append-only sustentam >=30 dias.
+        'acos_long_horizon_gate' => [
+            'enabled' => (bool) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_ENABLED', true),
+            'schedule_enabled' => (bool) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_SCHEDULE_ENABLED', true),
+            'schedule_time' => (string) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_SCHEDULE_TIME', '06:55'),
+            'min_days' => max(1, (int) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_MIN_DAYS', 30)),
+            'min_overall' => max(0.0, min(10.0, (float) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_MIN_OVERALL', 9.5))),
+            'min_pipeline' => max(0.0, min(10.0, (float) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_MIN_PIPELINE', 9.5))),
+            'series_path' => (string) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_SERIES_PATH', storage_path('app/atlas/evidence/fable-delta-series.jsonl')),
+            'receipt_path' => (string) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_RECEIPT_PATH', storage_path('app/atlas/evidence/acos-long-horizon-gate.json')),
+        ],
+
+        // L6-11: predictive code intelligence completion gate. It reuses the
+        // existing code-gate and predictive-failure calibration tables; it never
+        // mints predictions or backfills outcomes.
+        'predictive_code_intelligence_gate' => [
+            'enabled' => (bool) env('ATLAS_COGNITION_PREDICTIVE_CODE_INTELLIGENCE_GATE_ENABLED', true),
+            'schedule_enabled' => (bool) env('ATLAS_COGNITION_PREDICTIVE_CODE_INTELLIGENCE_GATE_SCHEDULE_ENABLED', true),
+            'schedule_time' => (string) env('ATLAS_COGNITION_PREDICTIVE_CODE_INTELLIGENCE_GATE_SCHEDULE_TIME', '07:25'),
+            'domain' => (string) env('ATLAS_COGNITION_PREDICTIVE_CODE_INTELLIGENCE_GATE_DOMAIN', 'learning'),
+            'window_days' => max(1, (int) env('ATLAS_COGNITION_PREDICTIVE_CODE_INTELLIGENCE_GATE_WINDOW_DAYS', 60)),
+            'min_outcomes' => max(1, (int) env('ATLAS_COGNITION_PREDICTIVE_CODE_INTELLIGENCE_GATE_MIN_OUTCOMES', 3)),
+            'min_failure_signature_outcomes' => max(1, (int) env('ATLAS_COGNITION_PREDICTIVE_CODE_INTELLIGENCE_GATE_MIN_FAILURE_SIGNATURE_OUTCOMES', 1)),
+            'max_avg_calibration_error' => max(0.0, min(1.0, (float) env('ATLAS_COGNITION_PREDICTIVE_CODE_INTELLIGENCE_GATE_MAX_AVG_CALIBRATION_ERROR', 0.35))),
+            'max_brier_score' => max(0.0, min(1.0, (float) env('ATLAS_COGNITION_PREDICTIVE_CODE_INTELLIGENCE_GATE_MAX_BRIER_SCORE', 0.25))),
+            'max_code_index_age_minutes' => max(1, (int) env('ATLAS_COGNITION_PREDICTIVE_CODE_INTELLIGENCE_GATE_MAX_CODE_INDEX_AGE_MINUTES', 1440)),
+            'auto_refresh' => (bool) env('ATLAS_COGNITION_PREDICTIVE_CODE_INTELLIGENCE_GATE_AUTO_REFRESH', false),
+            'receipt_path' => (string) env('ATLAS_COGNITION_PREDICTIVE_CODE_INTELLIGENCE_GATE_RECEIPT_PATH', storage_path('app/atlas/evidence/predictive-code-intelligence-gate.json')),
+        ],
+
         // Absorcao 1 (mem0): Integer ID Mapping anti-halucinacao.
         // Doc: atlas-external-memory-pattern-absorptions-v1.md (Absorcao 1).
         // Quando habilitado, AiContextPackBuilder remapeia UUIDs em prompts.
@@ -1463,6 +1519,43 @@ return [
             'ttl_seconds' => (int) env('ATLAS_COGNITION_ID_REMAP_TTL_SECONDS', 3600),
             // Bracket style do label provider-safe. Fixo "square_bracket" em v1.
             'bracket_style' => env('ATLAS_COGNITION_ID_REMAP_BRACKET_STYLE', 'square_bracket'),
+        ],
+    ],
+
+    'compounding' => [
+        // L6-13: fixed-N capability-per-dollar gate. Measures only local
+        // wrapper capability/cost; never estimates external provider capability.
+        'fixed_n_capability_dollar_gate' => [
+            'enabled' => (bool) env('ATLAS_COMPOUNDING_FIXED_N_CAPABILITY_DOLLAR_GATE_ENABLED', true),
+            'schedule_enabled' => (bool) env('ATLAS_COMPOUNDING_FIXED_N_CAPABILITY_DOLLAR_GATE_SCHEDULE_ENABLED', true),
+            'schedule_time' => (string) env('ATLAS_COMPOUNDING_FIXED_N_CAPABILITY_DOLLAR_GATE_SCHEDULE_TIME', '07:35'),
+            'series_path' => (string) env('ATLAS_COMPOUNDING_FIXED_N_CAPABILITY_DOLLAR_GATE_SERIES_PATH', storage_path('app/atlas/evidence/fixed-n-capability-dollar-series.jsonl')),
+            'receipt_path' => (string) env('ATLAS_COMPOUNDING_FIXED_N_CAPABILITY_DOLLAR_GATE_RECEIPT_PATH', storage_path('app/atlas/evidence/fixed-n-capability-dollar-gate.json')),
+            'fixed_provider' => (string) env('ATLAS_COMPOUNDING_FIXED_N_CAPABILITY_DOLLAR_GATE_FIXED_PROVIDER', 'codex'),
+            'fixed_model' => (string) env('ATLAS_COMPOUNDING_FIXED_N_CAPABILITY_DOLLAR_GATE_FIXED_MODEL', 'gpt-5.5'),
+            'min_days' => max(1, (int) env('ATLAS_COMPOUNDING_FIXED_N_CAPABILITY_DOLLAR_GATE_MIN_DAYS', 30)),
+            'min_cost_coverage_pct' => max(0.0, min(100.0, (float) env('ATLAS_COMPOUNDING_FIXED_N_CAPABILITY_DOLLAR_GATE_MIN_COST_COVERAGE_PCT', 80))),
+            'min_measured_cost_days' => max(1, (int) env('ATLAS_COMPOUNDING_FIXED_N_CAPABILITY_DOLLAR_GATE_MIN_MEASURED_COST_DAYS', 30)),
+            'min_positive_trend_delta' => (float) env('ATLAS_COMPOUNDING_FIXED_N_CAPABILITY_DOLLAR_GATE_MIN_POSITIVE_TREND_DELTA', 0.0001),
+        ],
+    ],
+
+    'long_horizon' => [
+        // L6-12: explicit writer for provider-safe continuity packs. It feeds
+        // the existing read-only continuity certifier and replay manifest builder.
+        'continuity_pack_emitter' => [
+            'enabled' => (bool) env('ATLAS_LONG_HORIZON_CONTINUITY_PACK_EMITTER_ENABLED', true),
+            'schedule_enabled' => (bool) env('ATLAS_LONG_HORIZON_CONTINUITY_PACK_EMITTER_SCHEDULE_ENABLED', true),
+            'schedule_time' => (string) env('ATLAS_LONG_HORIZON_CONTINUITY_PACK_EMITTER_SCHEDULE_TIME', '07:30'),
+            'scope_type' => (string) env('ATLAS_LONG_HORIZON_CONTINUITY_PACK_EMITTER_SCOPE_TYPE', 'long_horizon'),
+            'scope_id' => (string) env('ATLAS_LONG_HORIZON_CONTINUITY_PACK_EMITTER_SCOPE_ID', 'fable-lista-6'),
+            'evidence_root' => (string) env('ATLAS_LONG_HORIZON_CONTINUITY_PACK_EMITTER_EVIDENCE_ROOT', storage_path('app/atlas/evidence')),
+            'doc_path' => (string) env('ATLAS_LONG_HORIZON_CONTINUITY_PACK_EMITTER_DOC_PATH', base_path('docs/fable-lista-6-14-itens.md')),
+            'max_evidence_refs' => max(2, (int) env('ATLAS_LONG_HORIZON_CONTINUITY_PACK_EMITTER_MAX_EVIDENCE_REFS', 40)),
+            'stale_after_days' => max(1, (int) env('ATLAS_LONG_HORIZON_CONTINUITY_PACK_EMITTER_STALE_AFTER_DAYS', 21)),
+            'required_evidence_kinds' => array_values(array_filter(array_map('trim', explode(',', (string) env('ATLAS_LONG_HORIZON_CONTINUITY_PACK_EMITTER_REQUIRED_EVIDENCE_KINDS', 'doc,artifact'))))),
+            'strict_replay' => (bool) env('ATLAS_LONG_HORIZON_CONTINUITY_PACK_EMITTER_STRICT_REPLAY', true),
+            'receipt_path' => (string) env('ATLAS_LONG_HORIZON_CONTINUITY_PACK_EMITTER_RECEIPT_PATH', storage_path('app/atlas/evidence/long-horizon-continuity-pack.json')),
         ],
     ],
 
@@ -1508,6 +1601,20 @@ return [
         'swarm_auto_failover_enabled' => (bool) env('ATLAS_PATAMAR4_SWARM_AUTO_FAILOVER_ENABLED', false),
         'swarm_circuit_threshold' => (int) env('ATLAS_PATAMAR4_SWARM_CIRCUIT_THRESHOLD', 3),
         'swarm_circuit_cooldown_seconds' => (int) env('ATLAS_PATAMAR4_SWARM_CIRCUIT_COOLDOWN_SECONDS', 60),
+        // L6-10: shadow-only multi-agent topology auto-composer. Selects a
+        // bounded plan topology by task type and measures convergence through
+        // the existing governed conductor; it never changes live routing.
+        'swarm_topology_auto_composer' => [
+            'enabled' => (bool) env('ATLAS_PATAMAR4_SWARM_TOPOLOGY_AUTO_COMPOSER_ENABLED', true),
+            'schedule_enabled' => (bool) env('ATLAS_PATAMAR4_SWARM_TOPOLOGY_AUTO_COMPOSER_SCHEDULE_ENABLED', true),
+            'schedule_time' => (string) env('ATLAS_PATAMAR4_SWARM_TOPOLOGY_AUTO_COMPOSER_SCHEDULE_TIME', '07:20'),
+            'min_task_types' => max(2, (int) env('ATLAS_PATAMAR4_SWARM_TOPOLOGY_AUTO_COMPOSER_MIN_TASK_TYPES', 2)),
+            'min_distinct_topologies' => max(2, (int) env('ATLAS_PATAMAR4_SWARM_TOPOLOGY_AUTO_COMPOSER_MIN_DISTINCT_TOPOLOGIES', 2)),
+            'min_convergence_rate' => max(0.0, min(1.0, (float) env('ATLAS_PATAMAR4_SWARM_TOPOLOGY_AUTO_COMPOSER_MIN_CONVERGENCE_RATE', 1.0))),
+            'forced_provider' => (string) env('ATLAS_PATAMAR4_SWARM_TOPOLOGY_AUTO_COMPOSER_FORCED_PROVIDER', 'codex'),
+            'forced_model' => (string) env('ATLAS_PATAMAR4_SWARM_TOPOLOGY_AUTO_COMPOSER_FORCED_MODEL', 'gpt-5.5'),
+            'receipt_path' => (string) env('ATLAS_PATAMAR4_SWARM_TOPOLOGY_AUTO_COMPOSER_RECEIPT_PATH', storage_path('app/atlas/evidence/swarm-topology-auto-compose.json')),
+        ],
         'runtime_degradation_auto_tick_enabled' => (bool) env('ATLAS_PATAMAR4_RUNTIME_DEGRADATION_AUTO_TICK_ENABLED', true),
         'runtime_degradation_auto_tick_threshold' => env('ATLAS_PATAMAR4_RUNTIME_DEGRADATION_AUTO_TICK_THRESHOLD', 'high'),
     ],
@@ -1583,6 +1690,16 @@ return [
         'orphan_gate_enabled' => (bool) env('ATLAS_LOOP_ORPHAN_GATE_ENABLED', true),
         'orphan_score_penalty' => (float) env('ATLAS_LOOP_ORPHAN_SCORE_PENALTY', 0.15),
         'orphan_gate_hard_exclude' => (bool) env('ATLAS_LOOP_ORPHAN_GATE_HARD_EXCLUDE', false),
+
+        // SUBSTANTIVE-GRIND (lift NON_TRIVIAL): route the grind to WIRED files that already
+        // carry a convention sibling test, frame the objective as the sibling coverage gap,
+        // and make a canary-green substantive change the credit. ALL default OFF/fail-open
+        // so the running 24/7 loop is byte-identical until the operator flips them.
+        'test_gap_targets' => (bool) env('ATLAS_LOOP_TEST_GAP_TARGETS', false),
+        'prefer_test_backed_targets' => (bool) env('ATLAS_LOOP_PREFER_TEST_BACKED_TARGETS', false),
+        'substantive_tiebreak' => (bool) env('ATLAS_LOOP_SUBSTANTIVE_TIEBREAK', false),
+        'test_gap_min_callers' => max(0, (int) env('ATLAS_LOOP_TEST_GAP_MIN_CALLERS', 1)),
+        'test_gap_hub_callers' => max(2, (int) env('ATLAS_LOOP_TEST_GAP_HUB_CALLERS', 3)),
 
         // L4-1: cooldown por target recente. Tasks/proposals recentes do mesmo path caem no
         // ranking para evitar farming do arquivo que acabou de render proposta.
@@ -1666,6 +1783,67 @@ return [
             'min_token_efficiency_delta_per_1k' => max(0.0, (float) env('ATLAS_LOOP_EXPLORER_STRATEGY_BANDIT_MIN_TOKEN_DELTA_PER_1K', 0.01)),
             'ucb_exploration_weight' => max(0.0, min(2.0, (float) env('ATLAS_LOOP_EXPLORER_STRATEGY_BANDIT_UCB_EXPLORATION_WEIGHT', 0.35))),
             'receipt_path' => (string) env('ATLAS_LOOP_EXPLORER_STRATEGY_BANDIT_RECEIPT_PATH', storage_path('app/atlas/evidence/explorer-strategy-bandit.json')),
+        ],
+
+        // L6-4: code-graph auto-architecture proposals. Proposal-only:
+        // reads Code Intelligence, parks a reviewable structural refactor draft,
+        // and relies on the existing admission gate to prevent apply.
+        'auto_architecture_proposals' => [
+            'enabled' => (bool) env('ATLAS_LOOP_AUTO_ARCHITECTURE_PROPOSALS_ENABLED', true),
+            'schedule_enabled' => (bool) env('ATLAS_LOOP_AUTO_ARCHITECTURE_PROPOSALS_SCHEDULE_ENABLED', true),
+            'scheduled_create_proposal' => (bool) env('ATLAS_LOOP_AUTO_ARCHITECTURE_PROPOSALS_SCHEDULED_CREATE_PROPOSAL', true),
+            'schedule_time' => (string) env('ATLAS_LOOP_AUTO_ARCHITECTURE_PROPOSALS_SCHEDULE_TIME', '06:30'),
+            'candidate_limit' => max(1, (int) env('ATLAS_LOOP_AUTO_ARCHITECTURE_PROPOSALS_CANDIDATE_LIMIT', 5)),
+            'min_file_count' => max(1, (int) env('ATLAS_LOOP_AUTO_ARCHITECTURE_PROPOSALS_MIN_FILE_COUNT', 20)),
+            'min_symbol_count' => max(1, (int) env('ATLAS_LOOP_AUTO_ARCHITECTURE_PROPOSALS_MIN_SYMBOL_COUNT', 120)),
+            'receipt_path' => (string) env('ATLAS_LOOP_AUTO_ARCHITECTURE_PROPOSALS_RECEIPT_PATH', storage_path('app/atlas/evidence/auto-architecture-proposal.json')),
+            'proposal_index_path' => (string) env('ATLAS_LOOP_AUTO_ARCHITECTURE_PROPOSALS_INDEX_PATH', 'atlas/loop/auto-architecture/proposal-index.json'),
+        ],
+
+        // L6-5: property-based + mutation adequacy gate. When semantic
+        // certification is active, passing tests must kill a temporary mutant;
+        // otherwise the proposal is refuted as an empty/weak-test survivor.
+        'mutation_adequacy_gate' => [
+            'enabled' => (bool) env('ATLAS_LOOP_MUTATION_ADEQUACY_GATE_ENABLED', true),
+            'schedule_enabled' => (bool) env('ATLAS_LOOP_MUTATION_ADEQUACY_GATE_SCHEDULE_ENABLED', true),
+            'schedule_time' => (string) env('ATLAS_LOOP_MUTATION_ADEQUACY_GATE_SCHEDULE_TIME', '06:35'),
+            'max_mutants' => max(1, (int) env('ATLAS_LOOP_MUTATION_ADEQUACY_GATE_MAX_MUTANTS', 1)),
+            'timeout_seconds' => max(10, (int) env('ATLAS_LOOP_MUTATION_ADEQUACY_GATE_TIMEOUT_SECONDS', 120)),
+            'receipt_path' => (string) env('ATLAS_LOOP_MUTATION_ADEQUACY_GATE_RECEIPT_PATH', storage_path('app/atlas/evidence/mutation-adequacy-gate.json')),
+        ],
+
+        // L6-6: cross-file consumer verification. When the code graph can tie a
+        // changed symbol to a consumer contract, semantic certification replays
+        // that contract and refutes local-GREEN proposals that break consumers.
+        'cross_file_consumer_gate' => [
+            'enabled' => (bool) env('ATLAS_LOOP_CROSS_FILE_CONSUMER_GATE_ENABLED', true),
+            'schedule_enabled' => (bool) env('ATLAS_LOOP_CROSS_FILE_CONSUMER_GATE_SCHEDULE_ENABLED', true),
+            'schedule_time' => (string) env('ATLAS_LOOP_CROSS_FILE_CONSUMER_GATE_SCHEDULE_TIME', '06:40'),
+            'timeout_seconds' => max(10, (int) env('ATLAS_LOOP_CROSS_FILE_CONSUMER_GATE_TIMEOUT_SECONDS', 120)),
+            'receipt_path' => (string) env('ATLAS_LOOP_CROSS_FILE_CONSUMER_GATE_RECEIPT_PATH', storage_path('app/atlas/evidence/cross-file-consumer-gate.json')),
+        ],
+
+        // L6-7: long-horizon observed-behavior regression oracle. This extends
+        // the self-improvement regression sentinel with behavior contracts that
+        // came from real observations rather than test specs. Receipt-only and
+        // read-model-only: it blocks promotion when called with drifting snapshots,
+        // but never mutates code, policy, provider routing or merge state.
+        'self_improvement_regression_oracle' => [
+            'enabled' => (bool) env('ATLAS_LOOP_SELF_IMPROVEMENT_REGRESSION_ORACLE_ENABLED', true),
+            'schedule_enabled' => (bool) env('ATLAS_LOOP_SELF_IMPROVEMENT_REGRESSION_ORACLE_SCHEDULE_ENABLED', true),
+            'schedule_time' => (string) env('ATLAS_LOOP_SELF_IMPROVEMENT_REGRESSION_ORACLE_SCHEDULE_TIME', '06:45'),
+            'receipt_path' => (string) env('ATLAS_LOOP_SELF_IMPROVEMENT_REGRESSION_ORACLE_RECEIPT_PATH', storage_path('app/atlas/evidence/self-improvement-regression-oracle.json')),
+        ],
+
+        // L6-8: formal-light invariant gate over the sensitive kernel floor.
+        // Receipt-only and tighten-only: verifies reproducible proof envelopes
+        // for the Constitutional Kernel, governed never-merge DB door and
+        // HarnessGuard forbidden targets; never calls providers or mutates code.
+        'formal_invariant_gate' => [
+            'enabled' => (bool) env('ATLAS_LOOP_FORMAL_INVARIANT_GATE_ENABLED', true),
+            'schedule_enabled' => (bool) env('ATLAS_LOOP_FORMAL_INVARIANT_GATE_SCHEDULE_ENABLED', true),
+            'schedule_time' => (string) env('ATLAS_LOOP_FORMAL_INVARIANT_GATE_SCHEDULE_TIME', '06:50'),
+            'receipt_path' => (string) env('ATLAS_LOOP_FORMAL_INVARIANT_GATE_RECEIPT_PATH', storage_path('app/atlas/evidence/formal-invariant-gate.json')),
         ],
 
         // 24h-autonomia: respawn automático do supervisor morto (heartbeat velho + processo

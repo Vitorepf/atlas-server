@@ -339,9 +339,29 @@ final class AtlasLoopUtilityGradeService
             if ($line === '' || str_starts_with($line, '+++') || str_starts_with($line, '---')) {
                 continue;
             }
-            if ($line[0] === '+' || $line[0] === '-') {
-                $touched++;
+            if ($line[0] !== '+' && $line[0] !== '-') {
+                continue;
             }
+            // Anti-padding belt: a real substantive change cannot be bought with blank
+            // lines or comments. Strip the diff marker, then skip blank and pure-comment
+            // lines (// # /* * */) so the >15 floor measures CODE, not filler. (The
+            // load-bearing substance gate is the canary behavioral delta, not this count.)
+            $body = ltrim(substr($line, 1));
+            if ($body === '') {
+                continue;
+            }
+            // Skip ONLY genuine comment lines. NOT PHP 8 attributes (#[...] is code, not a
+            // # comment), and a `/* ... */ code` inline-comment line still counts (it has
+            // code). (Fallback path only — git numstat is the primary truth for fresh merges.)
+            $isComment = str_starts_with($body, '//')
+                || (str_starts_with($body, '#') && ! str_starts_with($body, '#['))
+                || str_starts_with($body, '*/')
+                || str_starts_with($body, '*')
+                || ($body !== '' && str_starts_with($body, '/*') && ! str_contains($body, '*/'));
+            if ($isComment) {
+                continue;
+            }
+            $touched++;
         }
 
         return $touched;
