@@ -210,13 +210,13 @@ final class L9Q1OperatorJudgmentAmplificationCertificationService
     {
         $explicit = $source['throughput_lift'] ?? null;
         if ($this->finiteNumber($explicit)) {
-            return $this->round((float) $explicit);
+            return $this->roundThroughputLift((float) $explicit);
         }
 
         $current = $this->finiteNumberOrZero($source['current_throughput'] ?? $source['current'] ?? null);
         $baseline = $this->finiteNumberOrZero($source['baseline_throughput'] ?? $source['baseline'] ?? null);
 
-        return $this->round($current - $baseline);
+        return $this->roundThroughputLift($current - $baseline);
     }
 
     /**
@@ -321,6 +321,16 @@ final class L9Q1OperatorJudgmentAmplificationCertificationService
         }
 
         return $value > 1.0 ? 1.0 : $value;
+    }
+
+    /**
+     * Round a throughput lift without erasing a strictly positive measured gain.
+     */
+    private function roundThroughputLift(float $value): float
+    {
+        $rounded = $this->round($value);
+
+        return $value > 0.0 && $rounded <= 0.0 ? $value : $rounded;
     }
 
     /**
