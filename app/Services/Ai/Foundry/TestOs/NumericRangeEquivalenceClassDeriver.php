@@ -25,7 +25,13 @@ final class NumericRangeEquivalenceClassDeriver
             throw new InvalidArgumentException('paramSpec requires both min and max bounds.');
         }
 
-        $isInt = ($paramSpec['type'] ?? 'int') === 'int';
+        $type = $paramSpec['type'] ?? 'int';
+
+        if (! in_array($type, ['int', 'float'], true)) {
+            throw new InvalidArgumentException('paramSpec type must be either int or float.');
+        }
+
+        $isInt = $type === 'int';
 
         $min = $this->normalizeBound($paramSpec['min'], $isInt);
         $max = $this->normalizeBound($paramSpec['max'], $isInt);
