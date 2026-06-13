@@ -338,11 +338,17 @@ class AtlasEnterpriseExcellenceChecklistService
         $barResult = $this->evaluateUltraEnterpriseBar($repeatable);
         $autonomyResult = $this->evaluateAutonomyGate($autonomyPre, $proposalFirst);
 
+        $autonomySafetyBreach = $autonomyResult['posture'] === 'blocked_unsafe_autonomy';
+
         $atLevel = $mustHaveResult['complete']
             && $targetsResult['all_targets_met']
-            && $barResult['bar_reached'];
+            && $barResult['bar_reached']
+            && ! $autonomySafetyBreach;
 
-        if ($barResult['safety_breach']) {
+        if ($autonomySafetyBreach) {
+            $verdict = 'safety_breach';
+            $reason = 'ultra_enterprise_blocked:requested_autonomy_is_not_proposal_first';
+        } elseif ($barResult['safety_breach']) {
             $verdict = 'safety_breach';
             $reason = 'ultra_enterprise_blocked:silent_unsafe_autonomy_is_a_safety_breach';
         } elseif ($atLevel) {
