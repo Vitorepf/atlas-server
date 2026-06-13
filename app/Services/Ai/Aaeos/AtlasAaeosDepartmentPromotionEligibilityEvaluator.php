@@ -147,7 +147,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
     {
         $currentScore = $this->floatValue($metrics['current_score'] ?? 0.0);
         $requiredThreshold = $this->resolveRequiredThreshold($metrics, $targetTier);
-        $deficit = round($requiredThreshold - $currentScore, 4);
+        $deficit = max(0.0, round($requiredThreshold - $currentScore, 4));
 
         return [
             'passed' => $currentScore >= $requiredThreshold,
