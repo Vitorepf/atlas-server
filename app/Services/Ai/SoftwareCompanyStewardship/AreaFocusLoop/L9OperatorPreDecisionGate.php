@@ -147,7 +147,7 @@ final class L9OperatorPreDecisionGate
 
         foreach ($refs as $ref) {
             if (is_string($ref) && trim($ref) !== '') {
-                $normalized[] = $ref;
+                $normalized[] = trim($ref);
             }
         }
 
