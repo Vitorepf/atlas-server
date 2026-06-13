@@ -38,6 +38,13 @@ return [
         // provider evidence cannot be confused with deterministic execution.
         'deterministic_fast_path_enabled' => (bool) env('ATLAS_DEV_DETERMINISTIC_FAST_PATH_ENABLED', true),
 
+        // L4-9: Atlas Dev single-file Hermes runs are already fully governed by
+        // TaskContract + ScopeGuard + VerificationGate. Use ACP transport and a
+        // one-turn cap for those narrow edits; broader multi-file Dev runs keep
+        // the global Hermes max-turn policy.
+        'hermes_execution_transport' => env('ATLAS_DEV_HERMES_EXECUTION_TRANSPORT', 'acp'),
+        'hermes_single_file_max_turns' => (int) env('ATLAS_DEV_HERMES_SINGLE_FILE_MAX_TURNS', 1),
+
         // Canonical default path for CLI / API entrypoints. When `efficient`,
         // any Atlas Dev entrypoint that did not explicitly opt out routes
         // through the efficient pipeline (plan → token → run). Operators can

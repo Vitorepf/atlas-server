@@ -678,6 +678,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         }
 
         $timeoutSeconds = $this->providerTimeoutSeconds($taskContract);
+        $hermesOverrides = $this->atlasDevHermesOverrides($taskContract);
 
         // workdirForJob() reads tool_permissions.workspace || workspace ||
         // config('atlas.ai.workdir'). Pin both so Hermes runs IN the Dev
@@ -703,6 +704,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
                     'task_contract_hash' => $taskContract->taskContractHash,
                     'prompt_projection_hash' => $promptProjection->promptProjectionHash,
                 ],
+                'hermes' => $hermesOverrides,
             ],
         ]);
 
@@ -776,6 +778,26 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
             ),
             $result->ok ? 1 : 0,
         ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function atlasDevHermesOverrides(LightTaskContract $taskContract): array
+    {
+        $overrides = [];
+
+        $transport = strtolower(trim((string) config('atlas_dev.efficient.hermes_execution_transport', '')));
+        if (in_array($transport, ['cli', 'acp'], true)) {
+            $overrides['execution_transport'] = $transport;
+        }
+
+        $singleFileMaxTurns = (int) config('atlas_dev.efficient.hermes_single_file_max_turns', 0);
+        if (count($taskContract->allowedFiles) === 1 && $singleFileMaxTurns > 0) {
+            $overrides['max_turns'] = max(1, min(10, $singleFileMaxTurns));
+        }
+
+        return $overrides;
     }
 
     private function blockedProviderCallResult(

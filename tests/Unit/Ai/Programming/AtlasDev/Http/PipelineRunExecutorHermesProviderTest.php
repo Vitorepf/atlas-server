@@ -208,6 +208,8 @@ final class PipelineRunExecutorHermesProviderTest extends TestCase
         $job = $capturedJobs[0];
         $this->assertSame($this->tmpWorkspace, data_get($job->payload, 'workspace'));
         $this->assertSame($this->tmpWorkspace, data_get($job->payload, 'tool_permissions.workspace'));
+        $this->assertSame('acp', data_get($job->payload, 'hermes.execution_transport'));
+        $this->assertSame(1, data_get($job->payload, 'hermes.max_turns'));
         $this->assertSame('hermes_cli', $job->provider);
         // Atlas defers sub-model selection to Hermes' own executive runtime: the
         // job carries the Hermes default sentinel (config

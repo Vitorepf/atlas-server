@@ -143,6 +143,13 @@ final class SeniorEngineerLoopAuditor
             ];
         }
 
+        usort(
+            $hypotheses,
+            fn (array $a, array $b): int => $this->hypothesisSortTier($plan, $a) <=> $this->hypothesisSortTier($plan, $b)
+                ?: ((float) ($b['confidence'] ?? 0.0) <=> (float) ($a['confidence'] ?? 0.0))
+                ?: strcmp((string) ($a['evidence_ref'] ?? ''), (string) ($b['evidence_ref'] ?? '')),
+        );
+
         $decision = $plan->routingKind() === 'blocked'
             ? 'ask_clarifying_question'
             : 'selected_highest_confidence_workspace_interpretation';
@@ -274,5 +281,18 @@ final class SeniorEngineerLoopAuditor
         }
 
         return basename($path);
+    }
+
+    /**
+     * @param  array<string,mixed>  $hypothesis
+     */
+    private function hypothesisSortTier(PlanOnlyResult $plan, array $hypothesis): int
+    {
+        $interpretation = (string) ($hypothesis['interpretation'] ?? '');
+        $path = str_starts_with($interpretation, 'edit_or_inspect:')
+            ? substr($interpretation, strlen('edit_or_inspect:'))
+            : $interpretation;
+
+        return in_array($path, $plan->taskContract->allowedFiles, true) ? 0 : 1;
     }
 }
