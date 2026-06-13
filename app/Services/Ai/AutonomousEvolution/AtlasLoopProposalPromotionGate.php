@@ -240,10 +240,46 @@ final class AtlasLoopProposalPromotionGate
 
         try {
             $score = app(AtlasEvolutionFrozenJudge::class)->score($workspace, $acceptance);
+            $passed = ($score['passed'] ?? $score['ok'] ?? (($score['gate'] ?? '') === 'pass')) === true;
+            if (! $passed) {
+                // DIAGNÓSTICO (13/06): reproof_failed sob carga era opaco. Loga o detalhe REAL
+                // do veredito (reason do juiz + exit/stderr dos comandos) num log dedicado —
+                // sem mexer no `reason` string (o retry/retirement do drain dependem de
+                // "reproof_failed" literal). Permite ver se é timeout/OOM/tamper/teste-real.
+                $this->logReproveFailure($proposal, $score);
+            }
 
-            return ($score['passed'] ?? $score['ok'] ?? (($score['gate'] ?? '') === 'pass')) === true;
-        } catch (Throwable) {
+            return $passed;
+        } catch (Throwable $e) {
+            $this->logReproveFailure($proposal, ['exception' => mb_substr($e->getMessage(), 0, 200)]);
+
             return false;
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $score
+     */
+    private function logReproveFailure(AtlasLoopProposal $proposal, array $score): void
+    {
+        try {
+            $detail = [
+                'proposal_id' => (string) $proposal->getKey(),
+                'target' => (string) $proposal->target_path,
+                'judge_reason' => data_get($score, 'details.reason'),
+                'command_exit_codes' => array_map(
+                    static fn ($r): mixed => is_array($r) ? ($r['exit_code'] ?? null) : null,
+                    (array) data_get($score, 'details.command_results', []),
+                ),
+                'stderr_tail' => mb_substr((string) data_get($score, 'details.command_results.0.stderr', ''), -200),
+                'exception' => $score['exception'] ?? null,
+            ];
+            $line = json_encode($detail, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            if (function_exists('storage_path') && $line !== false) {
+                @file_put_contents(storage_path('logs/loop-reprove-failures.log'), $line."\n", FILE_APPEND);
+            }
+        } catch (Throwable) {
+            // diagnóstico best-effort; jamais afeta a re-prova
         }
     }
 

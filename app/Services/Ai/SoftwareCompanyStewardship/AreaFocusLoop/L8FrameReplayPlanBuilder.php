@@ -254,7 +254,7 @@ final class L8FrameReplayPlanBuilder
 
         $lowerId = strtolower($id);
 
-        foreach (['synthetic:', 'synthetic-', 'fixture:', 'fixture-', 'stub:'] as $prefix) {
+        foreach (['synthetic:', 'synthetic-', 'fixture:', 'fixture-', 'stub:', 'stub-'] as $prefix) {
             if (str_starts_with($lowerId, $prefix)) {
                 return true;
             }
