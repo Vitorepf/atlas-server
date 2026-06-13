@@ -19,7 +19,9 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
  *      work) -> novelty_status=known_existing, blocker exact_known_pattern_match.
  *   2. An insufficient known corpus cannot prove "outside known space" ->
  *      novelty_status=unknown_not_new, blocker insufficient_known_corpus.
- *   3. A novelty_score below threshold blocks (too close to known space) ->
+ *   3. Missing candidate mechanisms cannot prove "outside known space" ->
+ *      novelty_status=unknown_not_new, blocker missing_candidate_mechanisms.
+ *   4. A novelty_score below threshold blocks (too close to known space) ->
  *      novelty_status=known_existing, blocker novelty_score_below_threshold.
  *   Otherwise novelty_status=novel_outside_known_space with no blockers.
  *
@@ -83,6 +85,10 @@ final class L10KnownSpaceNoveltyDiscriminator
 
         if (count($patterns) < self::MIN_KNOWN_CORPUS) {
             return $this->result(self::STATUS_UNKNOWN_NOT_NEW, $nearest, $noveltyScore, ['insufficient_known_corpus']);
+        }
+
+        if ($candidateMechanisms === []) {
+            return $this->result(self::STATUS_UNKNOWN_NOT_NEW, $nearest, $noveltyScore, ['missing_candidate_mechanisms']);
         }
 
         if ($noveltyScore < self::NOVELTY_SCORE_THRESHOLD) {
