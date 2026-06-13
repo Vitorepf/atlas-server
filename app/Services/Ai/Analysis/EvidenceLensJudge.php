@@ -44,7 +44,7 @@ final class EvidenceLensJudge implements AnalysisJudgePort
 
             $claimId = $this->claimId($claim, $index);
             $refs = $claim['evidence_refs'] ?? null;
-            $refCount = is_array($refs) ? count(array_filter($refs, static fn ($ref): bool => trim((string) $ref) !== '')) : 0;
+            $refCount = is_array($refs) ? count(array_filter($refs, static fn ($ref): bool => is_scalar($ref) && trim((string) $ref) !== '')) : 0;
 
             if ($refCount === 0) {
                 $reasons[] = 'claim_missing_evidence_refs:'.$claimId;
