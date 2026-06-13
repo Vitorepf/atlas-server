@@ -172,6 +172,10 @@ final class MemoryFeedbackDecayScorer
             return 'stale_review_recommended';
         }
 
+        if ($this->softStale($recordedAge) || $this->softStale($lastUsedAge)) {
+            return 'stale_review_recommended';
+        }
+
         return 'fresh';
     }
 
