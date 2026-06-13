@@ -183,6 +183,14 @@ Schedule::command('atlas:self-construction:detect-gaps --json')
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas.ai.self_construction.tool_gap_schedule_enabled', true));
 
+// L5-5 · TAXA² dials: daily receipt of the raise-only/clamped overlay that the
+// campaign supervisor also consumes on boot. Receipt-only; no providers, no merge.
+Schedule::command('atlas:loop:taxa2-dials --write-receipt --json')
+    ->dailyAt((string) config('atlas.loop.taxa2_dials.schedule_time', '05:55'))
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.loop.taxa2_dials.enabled', false)
+        && (bool) config('atlas.loop.taxa2_dials.schedule_enabled', true));
+
 // 24h-autonomia · Keepalive do supervisor do Loop: campanha running com heartbeat velho
 // E sem processo vivo é relançada detached (resume pelo campaign-id; nada se perde).
 // Motivado por evidência real: o soak morreu silenciosamente em 12/06 com budget sobrando.

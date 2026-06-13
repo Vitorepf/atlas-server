@@ -120,6 +120,7 @@ use App\Console\Commands\AtlasLoopMaterializeCommand;
 use App\Console\Commands\AtlasLoopMorningDigestCommand;
 use App\Console\Commands\AtlasLoopPromoteCommand;
 use App\Console\Commands\AtlasLoopReviewFeedbackCommand;
+use App\Console\Commands\AtlasLoopTaxa2DialsCommand;
 use App\Console\Commands\AtlasUnifiedLoopInstallLaunchdCommand;
 use App\Console\Commands\AtlasUnifiedLoopSupervisorCommand;
 use App\Console\Commands\AtlasLoopVerifyProposalsCommand;
@@ -307,6 +308,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasLoopMorningDigestCommand::class,
         AtlasLoopPromoteCommand::class,
         AtlasLoopReviewFeedbackCommand::class,
+        AtlasLoopTaxa2DialsCommand::class,
         AtlasUnifiedLoopInstallLaunchdCommand::class,
         AtlasUnifiedLoopSupervisorCommand::class,
         AtlasLoopVerifyProposalsCommand::class,

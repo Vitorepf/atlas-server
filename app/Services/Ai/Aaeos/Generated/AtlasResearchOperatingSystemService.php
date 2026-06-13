@@ -172,6 +172,13 @@ final class AtlasResearchOperatingSystemService
             }
             $seen[$stage] = true;
 
+            if ($index > $maxIndex + 1) {
+                for ($skipped = $maxIndex + 1; $skipped < $index; $skipped++) {
+                    $violations[] = 'skipped_stage:' . self::PIPELINE[$skipped];
+                }
+                $orderOk = false;
+            }
+
             if ($index <= $maxIndex) {
                 $violations[] = 'out_of_order_stage:' . $stage;
                 $orderOk = false;

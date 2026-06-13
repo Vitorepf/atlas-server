@@ -7,6 +7,7 @@ namespace App\Services\Ai\AutonomousEvolution\Campaign;
 use App\Models\AtlasLoopCampaign;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopDbResilience;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopResourceGate;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopTaxa2DialOverlayService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopTaskGrinder;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopTransientDbException;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBackService;
@@ -56,6 +57,7 @@ final class AtlasLoopCampaignSupervisor
         private readonly AtlasLoopBackService $loopBack,
         private readonly AtlasLoopResourceGate $resourceGate,
         private readonly AtlasLoopDbResilience $db,
+        private readonly AtlasLoopTaxa2DialOverlayService $taxa2Dials,
     ) {}
 
     public function setClockForTesting(Closure $clock): void
@@ -100,6 +102,13 @@ final class AtlasLoopCampaignSupervisor
         $baseWorkspace = (string) ($campaign->base_workspace ?: base_path());
         $restartOnCodeDrift = (bool) ($cfg['restart_on_code_drift'] ?? true);
         $bootHead = $restartOnCodeDrift ? $this->currentGitHead($baseWorkspace) : null;
+        $taxa2 = $this->taxa2Overlay($scenarios);
+        if (is_array($taxa2)) {
+            $effectiveDials = is_array($taxa2['effective_dials'] ?? null) ? $taxa2['effective_dials'] : [];
+            $scenarios = max(1, (int) ($effectiveDials['scenarios_per_task'] ?? ($scenarios ?? config('atlas.loop.scenarios_per_task', 3))));
+            $watermark = max(1, (int) ($effectiveDials['queue_low_watermark'] ?? $watermark));
+            $refillBatch = max(1, (int) ($effectiveDials['refill_batch'] ?? $refillBatch));
+        }
 
         // Transient-DB resilience policy: absorb a brief Postgres blip during the 24h run
         // instead of dying. Inner bounded retry+reconnect heals sub-window blips in place;
@@ -126,6 +135,18 @@ final class AtlasLoopCampaignSupervisor
                 'event' => 'boot_git_head',
                 'head' => $bootHead,
                 'workspace' => $baseWorkspace,
+            ]);
+        }
+        if (is_array($taxa2)) {
+            $this->appendLedger($campaign->id, [
+                'event' => 'taxa2_dials',
+                'status' => $taxa2['status'] ?? null,
+                'changed' => (bool) ($taxa2['changed'] ?? false),
+                'base_dials' => $taxa2['base_dials'] ?? [],
+                'effective_dials' => $taxa2['effective_dials'] ?? [],
+                'reasons' => $taxa2['reasons'] ?? [],
+                'receipt_path' => data_get($taxa2, 'receipt.receipt_path'),
+                'operator_scenarios_override' => (bool) data_get($taxa2, 'adjustments.scenarios_per_task.operator_override', false),
             ]);
         }
 
@@ -427,6 +448,23 @@ final class AtlasLoopCampaignSupervisor
         } catch (Throwable) {
             return $campaign;
         }
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function taxa2Overlay(?int $explicitScenarios): ?array
+    {
+        if (! (bool) config('atlas.loop.taxa2_dials.enabled', false)) {
+            return null;
+        }
+
+        return $this->taxa2Dials->evaluate([
+            'hours' => (int) config('atlas.loop.taxa2_dials.window_hours', 24),
+            'explicit_scenarios' => $explicitScenarios,
+            'write_receipt' => (bool) config('atlas.loop.taxa2_dials.receipt_on_supervisor_boot', true),
+            'source' => 'atlas:loop:campaign.supervisor_boot',
+        ]);
     }
 
     private function now(): int

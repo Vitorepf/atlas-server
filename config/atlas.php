@@ -1603,6 +1603,27 @@ return [
             'min_files' => max(2, (int) env('ATLAS_LOOP_OBRA_BRIDGE_MIN_FILES', 2)),
         ],
 
+        // L5-5: TAXA² dial overlay. The existing campaign supervisor consumes
+        // these effective dials at boot; this never starts a parallel runtime,
+        // never calls a provider and never touches the governed merge door.
+        'taxa2_dials' => [
+            'enabled' => (bool) env('ATLAS_LOOP_TAXA2_DIALS_ENABLED', false),
+            'kernel_sanctioned' => (bool) env('ATLAS_LOOP_TAXA2_DIALS_KERNEL_SANCTIONED', true),
+            'schedule_enabled' => (bool) env('ATLAS_LOOP_TAXA2_DIALS_SCHEDULE_ENABLED', true),
+            'schedule_time' => (string) env('ATLAS_LOOP_TAXA2_DIALS_SCHEDULE_TIME', '05:55'),
+            'window_hours' => max(1, (int) env('ATLAS_LOOP_TAXA2_DIALS_WINDOW_HOURS', 24)),
+            'receipt_on_command' => (bool) env('ATLAS_LOOP_TAXA2_DIALS_RECEIPT_ON_COMMAND', true),
+            'receipt_on_supervisor_boot' => (bool) env('ATLAS_LOOP_TAXA2_DIALS_RECEIPT_ON_SUPERVISOR_BOOT', true),
+            'max_delta_per_run' => max(1, (int) env('ATLAS_LOOP_TAXA2_DIALS_MAX_DELTA_PER_RUN', 2)),
+            'max_queue_low_watermark' => max(1, (int) env('ATLAS_LOOP_TAXA2_DIALS_MAX_QUEUE_LOW_WATERMARK', 12)),
+            'max_refill_batch' => max(1, (int) env('ATLAS_LOOP_TAXA2_DIALS_MAX_REFILL_BATCH', 24)),
+            'min_certification_rate' => max(0.0, min(1.0, (float) env('ATLAS_LOOP_TAXA2_DIALS_MIN_CERTIFICATION_RATE', 0.65))),
+            'min_certified_to_merged' => max(0.0, min(1.0, (float) env('ATLAS_LOOP_TAXA2_DIALS_MIN_CERTIFIED_TO_MERGED', 0.5))),
+            'max_canary_failures_24h' => max(0, (int) env('ATLAS_LOOP_TAXA2_DIALS_MAX_CANARY_FAILURES_24H', 0)),
+            'min_impact_receipt_coverage_pct' => max(0.0, min(100.0, (float) env('ATLAS_LOOP_TAXA2_DIALS_MIN_IMPACT_RECEIPT_COVERAGE_PCT', 95.0))),
+            'min_cost_coverage_pct' => max(0.0, min(100.0, (float) env('ATLAS_LOOP_TAXA2_DIALS_MIN_COST_COVERAGE_PCT', 80.0))),
+        ],
+
         // 24h+ sem intervenção: revive campanhas que pararam por STARVATION de fila (a única
         // parada permanente — completed com budget sobrando). O loop mergeia código → novos
         // alvos surgem → reviver throttled re-descobre trabalho. Sem isto o soak para sozinho

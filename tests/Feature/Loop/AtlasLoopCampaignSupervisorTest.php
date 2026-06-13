@@ -15,6 +15,7 @@ use Closure;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use PDOException;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
@@ -146,6 +147,43 @@ final class AtlasLoopCampaignSupervisorTest extends TestCase
         $this->assertSame(2, $campaign->proposals_count);
         $this->assertSame(AtlasLoopCampaign::STATUS_COMPLETED, $campaign->status);
         $this->assertSame(0, AtlasLoopTask::query()->where('campaign_id', $campaign->id)->where('status', AtlasLoopTask::STATUS_PENDING)->count());
+    }
+
+    public function test_taxa2_overlay_records_effective_dials_on_supervisor_boot(): void
+    {
+        Storage::fake('local');
+        config([
+            'atlas.loop.scenarios_per_task' => 3,
+            'atlas.loop.max_scenarios_per_task' => 12,
+            'atlas.loop.campaign.queue_low_watermark' => 4,
+            'atlas.loop.campaign.refill_batch' => 6,
+            'atlas.loop.taxa2_dials.enabled' => true,
+            'atlas.loop.taxa2_dials.receipt_on_supervisor_boot' => true,
+            'atlas.loop.taxa2_dials.max_delta_per_run' => 2,
+            'atlas.loop.taxa2_dials.max_queue_low_watermark' => 12,
+            'atlas.loop.taxa2_dials.max_refill_batch' => 24,
+        ]);
+
+        $campaign = $this->seedCampaign();
+        $this->seedTask($campaign->id, 'Alpha');
+
+        $supervisor = $this->supervisor();
+        $result = $supervisor->run(['campaign_id' => $campaign->id, 'scenarios' => 1]);
+
+        $this->assertFalse($result['merged_to_main']);
+        $ledger = $supervisor->readLedger($campaign->id, 20);
+        $taxa2 = array_values(array_filter($ledger, static fn (array $e): bool => ($e['event'] ?? null) === 'taxa2_dials'))[0] ?? null;
+
+        $this->assertIsArray($taxa2);
+        $this->assertSame('adjusted', $taxa2['status']);
+        $this->assertTrue((bool) $taxa2['operator_scenarios_override']);
+        $this->assertSame(1, data_get($taxa2, 'effective_dials.scenarios_per_task'));
+        $this->assertGreaterThanOrEqual(5, data_get($taxa2, 'effective_dials.queue_low_watermark'));
+        $this->assertLessThanOrEqual(6, data_get($taxa2, 'effective_dials.queue_low_watermark'));
+        $this->assertGreaterThanOrEqual(7, data_get($taxa2, 'effective_dials.refill_batch'));
+        $this->assertLessThanOrEqual(8, data_get($taxa2, 'effective_dials.refill_batch'));
+        $this->assertContains('pending_queue_below_base_watermark', $taxa2['reasons']);
+        Storage::disk('local')->assertExists((string) $taxa2['receipt_path']);
     }
 
     public function test_stops_on_wall_clock_budget_with_work_remaining(): void
