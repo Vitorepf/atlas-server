@@ -382,6 +382,10 @@ class AtlasEnterpriseExcellenceChecklistService
      */
     private function targetMet(string $comparator, int|float|bool $value, float $threshold): bool
     {
+        if (! is_bool($value) && ! is_finite((float) $value)) {
+            return false;
+        }
+
         return match ($comparator) {
             'gt' => is_bool($value) ? false : (float) $value > $threshold,
             'lt' => is_bool($value) ? false : (float) $value < $threshold,
