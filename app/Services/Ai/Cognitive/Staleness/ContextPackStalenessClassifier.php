@@ -18,6 +18,7 @@ final class ContextPackStalenessClassifier
      *     severity: string,
      *     score: float,
      *     index_age_seconds: int,
+     *     last_query_age_seconds: int,
      *     changed_files_since_index: int,
      *     recommended_action: string
      * }
@@ -56,6 +57,7 @@ final class ContextPackStalenessClassifier
             'severity' => $severity,
             'score' => $score,
             'index_age_seconds' => $indexAgeSeconds,
+            'last_query_age_seconds' => $lastQueryAgeSeconds,
             'changed_files_since_index' => $changedFiles,
             'recommended_action' => $recommendedAction,
         ];
