@@ -62,6 +62,10 @@ final class ExecutionGateBlockerCollector
     {
         $value = $payload[$key] ?? 0;
 
+        if (is_string($value) && preg_match('/^\s*[+-]?\d+\s*$/', $value) !== 1) {
+            return 0;
+        }
+
         return is_int($value) ? $value : (int) $value;
     }
 }
