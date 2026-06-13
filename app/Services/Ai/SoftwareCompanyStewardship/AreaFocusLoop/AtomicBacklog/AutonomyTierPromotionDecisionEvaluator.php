@@ -93,6 +93,10 @@ final class AutonomyTierPromotionDecisionEvaluator
 
         $value = $payload[$key];
 
+        if ($key === 'active_tier' && (int) $value < 0) {
+            return false;
+        }
+
         return is_int($value) || (is_string($value) && filter_var($value, FILTER_VALIDATE_INT) !== false);
     }
 }
