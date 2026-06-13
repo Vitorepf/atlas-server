@@ -109,9 +109,10 @@ final class AaeosDepartmentL4ClosurePlanner
             $hasComputedEvidence = $evidenceRefs !== [];
             $qualityBarMet = $this->qualityBarMet($deptQualityBar);
 
-            // L4 is computed: it requires the level to be at/above L4 AND real
-            // computed evidence backing it. Prose alone never marks L4.
-            $isMarkedL4 = $currentValue >= self::TARGET_LEVEL_VALUE && $hasComputedEvidence;
+            // L4 is computed: it requires the level to be at/above L4, real
+            // computed evidence backing it, and the L4 quality bar satisfied.
+            // Prose alone never marks L4.
+            $isMarkedL4 = $currentValue >= self::TARGET_LEVEL_VALUE && $hasComputedEvidence && $qualityBarMet;
             $needsPacket = ! $isMarkedL4;
 
             $departments[] = [
