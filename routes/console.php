@@ -114,9 +114,13 @@ Schedule::command('atlas:venture review-cycle --json')
 // porta governada no DB é a única que registra merge. --limit bound por passe.
 // Pace: o loop certifica mais rápido do que o drain consumia (drenáveis acumulavam) —
 // limit 10 a cada 15min para os merges acompanharem o ritmo da certificação.
+// withoutOverlapping(10): expiry de 10min no mutex. O default (24h) seria um buraco de
+// 24h-independência — um drain agendado morto no meio (OOM/kill) seguraria o lock por 24h
+// e NENHUM drain rodaria mais. Um passe de drain nunca passa de ~2min, então 10min é folga
+// segura que destrava sozinho se um passe crashar.
 Schedule::command('atlas:loop:automerge --limit=10 --json')
     ->everyFifteenMinutes()
-    ->withoutOverlapping()
+    ->withoutOverlapping(10)
     ->when(static fn (): bool => (bool) config('atlas.ai.loop.auto_merge_to_main', false));
 
 // L3-11 · Mint de green-run receipts da dimensão pipeline do ACOS, em cadência. Mira os
@@ -172,7 +176,10 @@ Schedule::command($weeklyAgendaCommand)
 // Motivado por evidência real: o soak morreu silenciosamente em 12/06 com budget sobrando.
 Schedule::command('atlas:loop:keepalive --stale-minutes=2 --json')
     ->everyFiveMinutes()
-    ->withoutOverlapping()
+    // withoutOverlapping(5): o keepalive é a REDE DE SEGURANÇA — se o lock dele travasse
+    // 24h (default), ele pararia de respawnar o supervisor morto = independência perdida.
+    // Expiry de 5min (= sua própria cadência) destrava sozinho se um passe crashar.
+    ->withoutOverlapping(5)
     ->when(static fn (): bool => (bool) config('atlas.loop.keepalive_enabled', true));
 
 // NOTE: the Sunday digest (the ONLY weekly notification) is scheduled ONCE in

@@ -53,7 +53,7 @@ final class InvariantBreachDemoteMonitor
             ? $this->oneLevelDown($currentLevel)
             : $currentLevel;
 
-        $trustScore = AreaFocusScalarNormalizer::payloadFloat($state, 'trust_ledger_score', 0.0);
+        $trustScore = $this->payloadFloat($state, 'trust_ledger_score', 0.0);
         $trustGateSatisfied = $trustScore >= self::TRUST_GATE;
 
         $blockers = [];
@@ -177,6 +177,28 @@ final class InvariantBreachDemoteMonitor
         }
 
         return $raw;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function payloadFloat(array $payload, string $field, float $default): float
+    {
+        if (! array_key_exists($field, $payload)) {
+            return $default;
+        }
+
+        $value = $payload[$field];
+
+        if (is_int($value) || is_float($value)) {
+            return (float) $value;
+        }
+
+        if (is_string($value) && is_numeric(trim($value))) {
+            return (float) trim($value);
+        }
+
+        return $default;
     }
 
     private function oneLevelDown(string $level): string
