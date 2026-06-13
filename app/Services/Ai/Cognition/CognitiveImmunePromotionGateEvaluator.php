@@ -286,9 +286,9 @@ final class CognitiveImmunePromotionGateEvaluator
             return [self::STATUS_PENDING, 'probation_unevaluated'];
         }
 
-        return $this->flag($signals, 'on_probation')
-            ? [self::STATUS_PENDING, 'probation_not_cleared']
-            : [self::STATUS_PASS, ''];
+        return $this->explicitlyFalse($signals, 'on_probation')
+            ? [self::STATUS_PASS, '']
+            : [self::STATUS_PENDING, 'probation_not_cleared'];
     }
 
     /**
