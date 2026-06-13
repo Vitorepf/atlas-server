@@ -415,7 +415,7 @@ final class L10R3BoundedRecursionCertificationService
             return max(0, $value);
         }
 
-        if (is_string($value) && $value !== '' && (string) (int) $value === $value) {
+        if (is_string($value) && preg_match('/^-?\d+$/', $value) === 1) {
             return max(0, (int) $value);
         }
 
