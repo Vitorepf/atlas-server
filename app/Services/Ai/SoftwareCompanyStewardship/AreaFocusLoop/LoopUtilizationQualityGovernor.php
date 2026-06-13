@@ -166,7 +166,7 @@ final class LoopUtilizationQualityGovernor
             return $runtimeConsumed;
         }
 
-        return $cycle['reported_useful'] === true;
+        return AreaFocusScalarNormalizer::payloadBool($cycle, 'reported_useful');
     }
 
     /**
