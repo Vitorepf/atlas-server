@@ -231,13 +231,13 @@ final class L9Q1OperatorJudgmentAmplificationCertificationService
     {
         $explicit = $source['override_rate_delta'] ?? null;
         if ($this->finiteNumber($explicit)) {
-            return $this->round($this->clampSigned((float) $explicit));
+            return $this->roundOverrideRateDelta($this->clampSigned((float) $explicit));
         }
 
         $current = $this->finiteClampUnit($this->finiteNumberOrZero($source['current_override_rate'] ?? null));
         $baseline = $this->finiteClampUnit($this->finiteNumberOrZero($source['baseline_override_rate'] ?? null));
 
-        return $this->round($current - $baseline);
+        return $this->roundOverrideRateDelta($current - $baseline);
     }
 
     /**
@@ -332,6 +332,16 @@ final class L9Q1OperatorJudgmentAmplificationCertificationService
      * Round a throughput lift without erasing a strictly positive measured gain.
      */
     private function roundThroughputLift(float $value): float
+    {
+        $rounded = $this->round($value);
+
+        return $value > 0.0 && $rounded <= 0.0 ? $value : $rounded;
+    }
+
+    /**
+     * Round an override-rate delta without erasing a strictly positive measured increase.
+     */
+    private function roundOverrideRateDelta(float $value): float
     {
         $rounded = $this->round($value);
 
