@@ -54,7 +54,7 @@ final class AtlasFableFinalCaptureService
             ? $this->runRitual($workspace, $options)
             : $this->loadRitualReceipts($options);
 
-        $finalReport = $this->finalReportCheck($finalReportPath, $packetPath);
+        $finalReport = $this->finalReportCheck($finalReportPath, $packetPath, $options);
         $campaignArtifacts = $this->fileChecks('campaign_artifacts', $this->campaignArtifactFiles());
         $frozenTests = $this->fileChecks('frozen_tests', $this->frozenTestFiles());
         $commands = $this->commandChecks($this->requiredCommands());

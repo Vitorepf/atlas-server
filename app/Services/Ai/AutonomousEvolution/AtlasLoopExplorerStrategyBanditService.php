@@ -174,6 +174,9 @@ final class AtlasLoopExplorerStrategyBanditService
         }
 
         $stats = [];
+        // Minimum non-trivial token count for an attempt to count as a real
+        // token-efficiency sample (kills the 1-token => 1000x efficiency unit-gaming).
+        $minRealTokens = max(1, (int) config('atlas.loop.explorer_bandit.min_real_tokens', 10));
         foreach ($rows as $row) {
             $type = $this->targetType((string) ($row->target_path ?? ''));
             $attempts = $this->arrayPayload($row->attempt_metrics ?? null);
@@ -187,13 +190,19 @@ final class AtlasLoopExplorerStrategyBanditService
                 }
                 $stats[$type][$key] ??= $this->emptyStrategyStats($key);
                 $passed = (bool) ($attempt['passed'] ?? false);
+                $providerInvoked = ($attempt['provider_invoked'] ?? null) === true;
                 $tokens = is_numeric($attempt['tokens_used'] ?? null) ? max(0, (int) $attempt['tokens_used']) : null;
 
                 $stats[$type][$key]['attempts']++;
                 if ($passed) {
                     $stats[$type][$key]['certified']++;
                 }
-                if ($tokens !== null && $tokens > 0) {
+                // Token-efficiency samples are counted ONLY from attempts that actually
+                // invoked a provider (provider_invoked===true, set by the real execution
+                // driver) AND reported a non-trivial token count. This fail-closes
+                // against fabricated/injected rows carrying tokens_used with no real
+                // provider call, and against absurd 1-token efficiency ratios.
+                if ($providerInvoked && $tokens !== null && $tokens >= $minRealTokens) {
                     $stats[$type][$key]['tokens_used'] += $tokens;
                     $stats[$type][$key]['token_samples']++;
                 }
@@ -259,10 +268,15 @@ final class AtlasLoopExplorerStrategyBanditService
             $topEfficiency = is_numeric($top['certified_per_1k_tokens'] ?? null) ? (float) $top['certified_per_1k_tokens'] : null;
             $delta = $baselineEfficiency !== null && $topEfficiency !== null ? round($topEfficiency - $baselineEfficiency, 4) : null;
             $distributionChanged = $selected !== $defaultKeys;
+            // Require at least 2 real token samples per arm regardless of the configured
+            // floor: a single-sample "efficiency" is statistical noise and could let one
+            // fluky run mint a completion claim. The floor can be raised by config but
+            // never drops below 2.
+            $effectiveMinSamples = max(2, $minTokenSamples);
             $completionEligible = $totalAttempts >= $minAttempts
                 && $distributionChanged
-                && (int) ($baseline['token_samples'] ?? 0) >= $minTokenSamples
-                && (int) ($top['token_samples'] ?? 0) >= $minTokenSamples
+                && (int) ($baseline['token_samples'] ?? 0) >= $effectiveMinSamples
+                && (int) ($top['token_samples'] ?? 0) >= $effectiveMinSamples
                 && is_float($delta)
                 && $delta >= $minTokenLift;
 

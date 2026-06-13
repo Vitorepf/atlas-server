@@ -90,9 +90,17 @@ final class AtlasLoopAutoMergeService
             ->limit(max(1, min(50, $limit)))
             ->get();
 
+        // L5-9 TOCTOU: captura a identidade canônica AUTORIZADA. O `mergeOne()` re-resolve
+        // o caminho imediatamente antes das git ops e aborta se ela mudou (symlink/montagem
+        // trocada entre authorize() e o apply) — a autorização não é um cheque em branco
+        // para qualquer alvo que `$repoRoot` venha a apontar depois.
+        $authorizedCanonical = (string) ($authority['resolved_repo'] ?? '') !== ''
+            ? (string) $authority['resolved_repo']
+            : $this->repoAuthority->canonicalPath($repoRoot);
+
         $results = [];
         foreach ($proposals as $proposal) {
-            $results[] = $this->mergeOne($proposal, $repoRoot);
+            $results[] = $this->mergeOne($proposal, $repoRoot, false, null, null, $authorizedCanonical);
         }
 
         $merged = count(array_filter($results, static fn (array $r): bool => $r['merged']));
@@ -152,12 +160,19 @@ final class AtlasLoopAutoMergeService
             ];
         }
 
+        // L5-9 TOCTOU: também no override do operador a identidade autorizada é re-resolvida
+        // antes das git ops (o `mergeOne` aborta se o caminho mudou desde aqui).
+        $authorizedCanonical = (string) ($authority['resolved_repo'] ?? '') !== ''
+            ? (string) $authority['resolved_repo']
+            : $this->repoAuthority->canonicalPath($repoRoot);
+
         $result = $this->mergeOne(
             $proposal,
             $repoRoot,
             true,
             $operator,
             trim((string) ($approval['reason'] ?? 'operator approved parked proposal')),
+            $authorizedCanonical,
         );
 
         return [

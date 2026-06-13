@@ -149,6 +149,11 @@ final class AtlasEvolutionLoopRunner
                 'passed' => (bool) ($verdict['passed'] ?? false),
                 'metric' => is_numeric($verdict['metric'] ?? null) ? (float) $verdict['metric'] : null,
                 'metric_finite' => (bool) ($verdict['metric_finite'] ?? true),
+                // Carry the driver's real provider-invocation signal so the strategy
+                // bandit counts token-efficiency samples ONLY from attempts that
+                // actually called a provider — a row with a fabricated tokens_used but
+                // no real provider call (provider_invoked false/absent) is rejected.
+                'provider_invoked' => (bool) ($attempt['provider_invoked'] ?? false),
                 'tokens_used' => is_numeric($attempt['tokens_used'] ?? null) ? max(0, (int) $attempt['tokens_used']) : null,
                 'cost_estimate_usd' => is_numeric($attempt['cost_estimate_usd'] ?? null) ? max(0.0, (float) $attempt['cost_estimate_usd']) : null,
                 'diff_files' => is_numeric($diffSize['files'] ?? null) ? (int) $diffSize['files'] : null,

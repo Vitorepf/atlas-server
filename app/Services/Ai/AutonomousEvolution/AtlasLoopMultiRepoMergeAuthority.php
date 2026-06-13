@@ -118,6 +118,33 @@ final class AtlasLoopMultiRepoMergeAuthority
     }
 
     /**
+     * L5-9 TOCTOU guard. Resolve o caminho canônico ATUAL de `$repoRoot` (sem barra final),
+     * ou null se irresolúvel. Exposto para o auto-merge RE-RESOLVER imediatamente antes das
+     * git ops e abortar se a identidade do repo mudou desde a autorização (ex.: troca de
+     * symlink entre `authorize()` e o primeiro `git apply`) — fail-closed por construção.
+     */
+    public function canonicalPath(string $repoRoot): ?string
+    {
+        return $this->canonical($repoRoot);
+    }
+
+    /**
+     * L5-9 TOCTOU guard. true SOMENTE quando o caminho canônico ATUAL de `$repoRoot` é
+     * resolúvel E idêntico ao `$authorizedCanonical` capturado no momento da autorização.
+     * Qualquer divergência (path agora irresolúvel, ou symlink/montagem trocada apontando
+     * para outro alvo canônico) ⇒ false ⇒ o chamador aborta o merge.
+     */
+    public function stillResolvesTo(string $repoRoot, ?string $authorizedCanonical): bool
+    {
+        if ($authorizedCanonical === null || $authorizedCanonical === '') {
+            return false;
+        }
+        $now = $this->canonical($repoRoot);
+
+        return $now !== null && $now === rtrim($authorizedCanonical, '/');
+    }
+
+    /**
      * @return list<string>
      */
     private function allowedRepos(): array

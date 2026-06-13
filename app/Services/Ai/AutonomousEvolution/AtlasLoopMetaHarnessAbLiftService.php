@@ -133,8 +133,16 @@ final class AtlasLoopMetaHarnessAbLiftService
 
         $result = is_string($result) ? json_decode($result, true) : $result;
         $result = is_array($result) ? $result : [];
-        $certified = max(
-            $proposalCount,
+        // Anti-Goodhart (adversarial-audit fix): certification is counted ONLY from
+        // REAL atlas_loop_proposals rows for this task ($proposalCount), NEVER from the
+        // task's own writable `result` JSON. The loop writes `result`, so trusting
+        // `proposals_certified_for_review` / `semantic_implementation_certification`
+        // over the proposal table let an injected result inflate the meta_harness arm
+        // and mint a fabricated A/B lift with zero real certified proposals. The DB
+        // proposal row is the only forgery-resistant ground truth; result fields are
+        // kept for display only and can never raise the certified count.
+        $certified = $proposalCount;
+        $resultClaimedCertified = max(
             (int) data_get($result, 'proposals_certified_for_review', 0),
             (int) data_get($result, 'semantic_implementation_certification.proposals_certified', 0),
         );
@@ -151,6 +159,9 @@ final class AtlasLoopMetaHarnessAbLiftService
                 'target_path' => $path,
                 'status' => $status,
                 'certified' => $certified > 0,
+                'real_certified_proposals' => $certified,
+                'result_claimed_certified' => $resultClaimedCertified,
+                'result_over_claimed' => $resultClaimedCertified > $certified,
             ];
         }
     }

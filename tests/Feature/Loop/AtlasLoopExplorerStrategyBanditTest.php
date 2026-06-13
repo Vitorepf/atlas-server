@@ -388,6 +388,9 @@ final class AtlasLoopExplorerStrategyBanditTest extends TestCase
                     'passed' => $i < $certified,
                     'metric' => $i < $certified ? 1.0 : 0.0,
                     'metric_finite' => true,
+                    // Real provider attempts carry the driver's provider_invoked signal;
+                    // the hardened bandit counts token samples only from invoked attempts.
+                    'provider_invoked' => true,
                     'tokens_used' => 300,
                     'cost_estimate_usd' => 0.01,
                     'diff_files' => 1,
@@ -443,12 +446,12 @@ final class AtlasLoopExplorerStrategyBanditTest extends TestCase
             'has_winner' => true,
             'rejected_reasons' => [],
             'attempt_metrics' => [
-                ['scenario' => 'scn-1', 'strategy_key' => 'baseline', 'strategy' => '', 'passed' => false, 'metric' => 0.0, 'metric_finite' => true, 'tokens_used' => 1000, 'cost_estimate_usd' => 0.01, 'diff_files' => 1, 'diff_lines' => 1],
-                ['scenario' => 'scn-2', 'strategy_key' => 'baseline', 'strategy' => '', 'passed' => true, 'metric' => 1.0, 'metric_finite' => true, 'tokens_used' => 1000, 'cost_estimate_usd' => 0.01, 'diff_files' => 1, 'diff_lines' => 1],
-                ['scenario' => 'scn-3', 'strategy_key' => 'baseline', 'strategy' => '', 'passed' => false, 'metric' => 0.0, 'metric_finite' => true, 'tokens_used' => 1000, 'cost_estimate_usd' => 0.01, 'diff_files' => 1, 'diff_lines' => 1],
-                ['scenario' => 'scn-4', 'strategy_key' => 'root_cause', 'strategy' => 'Re-read the failing acceptance carefully; fix the true root cause, not the symptom.', 'passed' => true, 'metric' => 1.0, 'metric_finite' => true, 'tokens_used' => 300, 'cost_estimate_usd' => 0.01, 'diff_files' => 1, 'diff_lines' => 1],
-                ['scenario' => 'scn-5', 'strategy_key' => 'root_cause', 'strategy' => 'Re-read the failing acceptance carefully; fix the true root cause, not the symptom.', 'passed' => true, 'metric' => 1.0, 'metric_finite' => true, 'tokens_used' => 300, 'cost_estimate_usd' => 0.01, 'diff_files' => 1, 'diff_lines' => 1],
-                ['scenario' => 'scn-6', 'strategy_key' => 'root_cause', 'strategy' => 'Re-read the failing acceptance carefully; fix the true root cause, not the symptom.', 'passed' => true, 'metric' => 1.0, 'metric_finite' => true, 'tokens_used' => 300, 'cost_estimate_usd' => 0.01, 'diff_files' => 1, 'diff_lines' => 1],
+                ['scenario' => 'scn-1', 'strategy_key' => 'baseline', 'strategy' => '', 'passed' => false, 'metric' => 0.0, 'metric_finite' => true, 'provider_invoked' => true, 'tokens_used' => 1000, 'cost_estimate_usd' => 0.01, 'diff_files' => 1, 'diff_lines' => 1],
+                ['scenario' => 'scn-2', 'strategy_key' => 'baseline', 'strategy' => '', 'passed' => true, 'metric' => 1.0, 'metric_finite' => true, 'provider_invoked' => true, 'tokens_used' => 1000, 'cost_estimate_usd' => 0.01, 'diff_files' => 1, 'diff_lines' => 1],
+                ['scenario' => 'scn-3', 'strategy_key' => 'baseline', 'strategy' => '', 'passed' => false, 'metric' => 0.0, 'metric_finite' => true, 'provider_invoked' => true, 'tokens_used' => 1000, 'cost_estimate_usd' => 0.01, 'diff_files' => 1, 'diff_lines' => 1],
+                ['scenario' => 'scn-4', 'strategy_key' => 'root_cause', 'strategy' => 'Re-read the failing acceptance carefully; fix the true root cause, not the symptom.', 'passed' => true, 'metric' => 1.0, 'metric_finite' => true, 'provider_invoked' => true, 'tokens_used' => 300, 'cost_estimate_usd' => 0.01, 'diff_files' => 1, 'diff_lines' => 1],
+                ['scenario' => 'scn-5', 'strategy_key' => 'root_cause', 'strategy' => 'Re-read the failing acceptance carefully; fix the true root cause, not the symptom.', 'passed' => true, 'metric' => 1.0, 'metric_finite' => true, 'provider_invoked' => true, 'tokens_used' => 300, 'cost_estimate_usd' => 0.01, 'diff_files' => 1, 'diff_lines' => 1],
+                ['scenario' => 'scn-6', 'strategy_key' => 'root_cause', 'strategy' => 'Re-read the failing acceptance carefully; fix the true root cause, not the symptom.', 'passed' => true, 'metric' => 1.0, 'metric_finite' => true, 'provider_invoked' => true, 'tokens_used' => 300, 'cost_estimate_usd' => 0.01, 'diff_files' => 1, 'diff_lines' => 1],
             ],
         ]);
     }

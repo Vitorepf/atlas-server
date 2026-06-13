@@ -40,6 +40,12 @@ final class FixedNCapabilityDollarSeriesGateService
         $minCostCoveragePct = max(0.0, min(100.0, (float) ($options['min_cost_coverage_pct'] ?? $cfg['min_cost_coverage_pct'] ?? 80.0)));
         $minMeasuredCostDays = max(1, (int) ($options['min_measured_cost_days'] ?? $cfg['min_measured_cost_days'] ?? $minDays));
         $minTrendDelta = (float) ($options['min_positive_trend_delta'] ?? $cfg['min_positive_trend_delta'] ?? 0.0001);
+        // Time-integrity floors (mirror the L6-9 ACOS long-horizon gate): a fixed-N
+        // capability-per-dollar trend is only honest evidence if its dates are real
+        // and recent. The future-date guard makes calendar backfill impossible; the
+        // staleness guard rejects a months-old series that stopped updating.
+        $maxLatestStaleDays = max(0, (int) ($options['max_latest_stale_days'] ?? $cfg['max_latest_stale_days'] ?? 60));
+        $today = $this->today($options['now'] ?? null);
 
         if (! $enabled) {
             return $this->payload('disabled', false, $fixture, null, [], [], ['fixed_n_capability_dollar_gate_disabled'], []);
@@ -49,10 +55,10 @@ final class FixedNCapabilityDollarSeriesGateService
         }
 
         $series = match ($fixture) {
-            'mature' => $this->fixtureSeries(31, $fixedProvider, $fixedModel, 'up'),
-            'short-window' => $this->fixtureSeries(2, $fixedProvider, $fixedModel, 'up'),
-            'flat-trend' => $this->fixtureSeries(31, $fixedProvider, $fixedModel, 'flat'),
-            'missing-cost' => $this->fixtureSeries(31, $fixedProvider, $fixedModel, 'missing-cost'),
+            'mature' => $this->fixtureSeries(31, $fixedProvider, $fixedModel, 'up', $today),
+            'short-window' => $this->fixtureSeries(2, $fixedProvider, $fixedModel, 'up', $today),
+            'flat-trend' => $this->fixtureSeries(31, $fixedProvider, $fixedModel, 'flat', $today),
+            'missing-cost' => $this->fixtureSeries(31, $fixedProvider, $fixedModel, 'missing-cost', $today),
             default => $this->readSeries($seriesPath),
         };
 
@@ -75,6 +81,8 @@ final class FixedNCapabilityDollarSeriesGateService
             minMeasuredCostDays: $minMeasuredCostDays,
             minTrendDelta: $minTrendDelta,
             seriesPath: $seriesPath,
+            today: $today,
+            maxLatestStaleDays: $maxLatestStaleDays,
         );
 
         $blockers = (array) ($assessment['blockers'] ?? []);
@@ -254,6 +262,8 @@ final class FixedNCapabilityDollarSeriesGateService
         int $minMeasuredCostDays,
         float $minTrendDelta,
         string $seriesPath,
+        string $today = '',
+        int $maxLatestStaleDays = 60,
     ): array {
         $series = $this->sortSeries($series);
         $dates = array_values(array_unique(array_filter(array_map(
@@ -319,12 +329,35 @@ final class FixedNCapabilityDollarSeriesGateService
             $blockers[] = 'capability_per_dollar_trend_not_positive';
         }
 
+        // Time-integrity guards (anti-backfill). When $today is set (the real path),
+        // any row dated after today is rejected outright — calendar backfill of a
+        // 30-day window into the future is mechanically impossible — and a series
+        // whose latest measured day is older than the staleness bound is rejected so
+        // a frozen historical block cannot pass as a current trend.
+        $latestDate = $dates[count($dates) - 1] ?? null;
+        $futureDatedRows = 0;
+        $latestStalenessDays = null;
+        if ($today !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $today) === 1) {
+            $futureDatedRows = count(array_filter($dates, static fn (string $d): bool => $d > $today));
+            if ($futureDatedRows > 0) {
+                $blockers[] = 'series_future_dated_rows';
+            }
+            $latestStalenessDays = $this->daysBetween($latestDate, $today);
+            if ($latestStalenessDays === null || $latestStalenessDays > $maxLatestStaleDays) {
+                $blockers[] = 'series_window_stale';
+            }
+        }
+
         return [
             'series_path' => $seriesPath,
             'series_day_count' => count($dates),
             'calendar_span_days' => $this->calendarSpanDays($dates[0] ?? null, $dates[count($dates) - 1] ?? null),
             'first_date' => $dates[0] ?? null,
             'latest_date' => $dates[count($dates) - 1] ?? null,
+            'today' => $today !== '' ? $today : null,
+            'future_dated_rows' => $futureDatedRows,
+            'latest_staleness_days' => $latestStalenessDays,
+            'max_latest_stale_days' => $maxLatestStaleDays,
             'fixed_provider_model_count' => count($providerModels),
             'fixed_provider_models' => $providerModels,
             'measured_cost_day_count' => count($measuredRows),
@@ -345,10 +378,54 @@ final class FixedNCapabilityDollarSeriesGateService
     /**
      * @return list<array<string,mixed>>
      */
-    private function fixtureSeries(int $days, string $provider, string $model, string $shape): array
+    /**
+     * Resolve the "today" anchor used by the future-date and staleness guards.
+     * Injectable for deterministic tests; defaults to the real UTC calendar day.
+     */
+    private function today(mixed $now): string
+    {
+        if (is_string($now) && preg_match('/^\d{4}-\d{2}-\d{2}$/', trim($now)) === 1) {
+            return trim($now);
+        }
+
+        try {
+            return Carbon::now('UTC')->toDateString();
+        } catch (Throwable) {
+            return date('Y-m-d');
+        }
+    }
+
+    /**
+     * Calendar days between a series date and today. Null when the date is missing
+     * or unparseable; a future date clamps to 0 (the future-date guard owns that).
+     */
+    private function daysBetween(?string $date, string $today): ?int
+    {
+        if ($date === null || preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) !== 1) {
+            return null;
+        }
+
+        try {
+            $d = Carbon::createFromFormat('Y-m-d', $date, 'UTC')->startOfDay();
+            $t = Carbon::createFromFormat('Y-m-d', $today, 'UTC')->startOfDay();
+
+            return $d->greaterThan($t) ? 0 : (int) $d->diffInDays($t);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    private function fixtureSeries(int $days, string $provider, string $model, string $shape, string $today = ''): array
     {
         $rows = [];
-        $start = Carbon::create(2026, 5, 14, 0, 0, 0, 'UTC');
+        // Anchor the fixture window to END on "today" so the staleness guard treats
+        // it as fresh evidence (proving the gate auto-greens on real recent data,
+        // not a frozen historical block). Legacy callers (today='') keep the old
+        // fixed start for backward compatibility.
+        $anchor = ($today !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $today) === 1)
+            ? Carbon::createFromFormat('Y-m-d', $today, 'UTC')->startOfDay()
+            : Carbon::create(2026, 5, 14, 0, 0, 0, 'UTC')->addDays(max(0, $days - 1));
+        $start = $anchor->copy()->subDays(max(0, $days - 1));
         for ($i = 0; $i < $days; $i++) {
             $ratio = $days > 1 ? $i / ($days - 1) : 0.0;
             $score = $shape === 'flat' ? 8.5 : 8.0 + $ratio;
