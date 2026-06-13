@@ -87,9 +87,17 @@ final class AtlasLoopCampaignSupervisorTest extends TestCase
         return $s;
     }
 
-    private function seedCampaign(int $maxSeconds = 0): AtlasLoopCampaign
+    private function seedCampaign(int $maxSeconds = 0, int $maxUsdCents = 0, int $spendUsdCents = 0): AtlasLoopCampaign
     {
-        return $this->app->make(AtlasLoopStore::class)->openCampaign('prove supervisor', $this->emptyRepo, ['max_seconds' => $maxSeconds], ['scenarios_per_task' => 1]);
+        $campaign = $this->app->make(AtlasLoopStore::class)->openCampaign('prove supervisor', $this->emptyRepo, [
+            'max_seconds' => $maxSeconds,
+            'max_usd_cents' => $maxUsdCents,
+        ], ['scenarios_per_task' => 1]);
+        if ($spendUsdCents > 0) {
+            $campaign->forceFill(['spend_usd_cents' => $spendUsdCents])->save();
+        }
+
+        return $campaign;
     }
 
     private function seedTask(string $campaignId, string $class): AtlasLoopTask
@@ -199,6 +207,55 @@ final class AtlasLoopCampaignSupervisorTest extends TestCase
         $this->assertFalse($result['merged_to_main']);
         // Budget stopped it before the queue drained — real fixed-budget discipline.
         $this->assertGreaterThan(0, AtlasLoopTask::query()->where('campaign_id', $campaign->id)->where('status', AtlasLoopTask::STATUS_PENDING)->count());
+    }
+
+    public function test_cost_governor_throttles_scenarios_and_stops_on_cost_cap(): void
+    {
+        config([
+            'atlas.loop.cost_governor.enabled' => true,
+            'atlas.loop.cost_governor.throttle_at_pct' => 80.0,
+            'atlas.loop.cost_governor.min_scenarios_per_task' => 1,
+            'atlas.loop.campaign.queue_low_watermark' => 1,
+        ]);
+        $this->app->bind(LoopExecutionDriver::class, fn () => new class implements LoopExecutionDriver
+        {
+            public function attempt(string $surfaceId, string $workspace, string $intent, array $userConstraints, array $surfaceHints): array
+            {
+                foreach (glob($workspace.'/src/*.php') ?: [] as $file) {
+                    file_put_contents($file, str_replace("'broken'", "'fixed'", (string) file_get_contents($file)));
+                }
+
+                return ['status' => 'completed', 'cost_estimate_usd' => 0.06, 'tokens_used' => 600];
+            }
+        });
+
+        $campaign = $this->seedCampaign(maxUsdCents: 10, spendUsdCents: 8);
+        $this->seedTask($campaign->id, 'Alpha');
+        $this->seedTask($campaign->id, 'Bravo');
+
+        $supervisor = $this->supervisor();
+        $result = $supervisor->run(['campaign_id' => $campaign->id, 'scenarios' => 3]);
+
+        $this->assertSame('cost_cap', $result['stop_reason']);
+        $this->assertSame(1, $result['cycles']);
+        $this->assertFalse($result['merged_to_main']);
+
+        $campaign->refresh();
+        $this->assertSame(14, $campaign->spend_usd_cents);
+        $this->assertSame(1, $campaign->scenarios_explored);
+        $this->assertSame(1, AtlasLoopTask::query()->where('campaign_id', $campaign->id)->where('status', AtlasLoopTask::STATUS_PENDING)->count());
+
+        $ledger = $supervisor->readLedger($campaign->id, 50);
+        $throttle = array_values(array_filter($ledger, static fn (array $e): bool => ($e['event'] ?? null) === 'cost_governor_throttle'))[0] ?? null;
+        $this->assertIsArray($throttle);
+        $this->assertSame('reduce_scenarios_per_task', $throttle['action']);
+        $this->assertSame(3, $throttle['base_scenarios_per_task']);
+        $this->assertSame(1, $throttle['effective_scenarios_per_task']);
+
+        $cycle = array_values(array_filter($ledger, static fn (array $e): bool => ($e['cycle'] ?? null) === 1))[0] ?? null;
+        $this->assertIsArray($cycle);
+        $this->assertSame(6, $cycle['spend_usd_cents']);
+        $this->assertSame('throttled', data_get($cycle, 'cost_governor.status'));
     }
 
     public function test_crash_resume_reclaims_inflight_task_and_does_not_duplicate_proposal(): void

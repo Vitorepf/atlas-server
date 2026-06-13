@@ -122,7 +122,7 @@ class AtlasDecideMetaLearningCommandTest extends TestCase
         $this->assertSame('meta-learning:list', $decoded['action']);
         $this->assertTrue($decoded['recommendations'][0]['cost_outcome']['enabled']);
         $this->assertSame('blocked', $decoded['recommendations'][0]['cost_outcome']['status']);
-        $this->assertContains('cost_outcome_no_relevant_ledger_evidence', $decoded['recommendations'][0]['reason']);
+        $this->assertContains('cost_outcome_no_relevant_cost_outcome_evidence', $decoded['recommendations'][0]['reason']);
     }
 
     public function test_activate_requires_apply_and_confirm(): void

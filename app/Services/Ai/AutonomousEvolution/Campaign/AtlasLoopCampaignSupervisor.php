@@ -246,8 +246,22 @@ final class AtlasLoopCampaignSupervisor
                     // para um único grind nunca segurar o loop; ainda respeita o budget total.
                     $budgetLeft = $campaign->max_seconds > 0 ? max(5, (int) $campaign->max_seconds - (int) $campaign->elapsed_seconds) : null;
                     $remaining = $this->grindTimeout($budgetLeft, (int) ($cfg['task_timeout_seconds'] ?? 1800));
-                    $result = $this->grinder->grind($task, $workerId, $scenarios, '', $remaining);
-                    $this->beat($campaign, $this->now() - $grindStart);
+                    $costGovernor = $this->costGovernorDecision($campaign, $scenarios);
+                    if (($costGovernor['status'] ?? null) === 'throttled') {
+                        $this->appendLedger($campaign->id, [
+                            'event' => 'cost_governor_throttle',
+                            'action' => $costGovernor['action'] ?? null,
+                            'spend_usd_cents' => $costGovernor['spend_usd_cents'] ?? null,
+                            'max_usd_cents' => $costGovernor['max_usd_cents'] ?? null,
+                            'spend_pct' => $costGovernor['spend_pct'] ?? null,
+                            'base_scenarios_per_task' => $costGovernor['base_scenarios_per_task'] ?? null,
+                            'effective_scenarios_per_task' => $costGovernor['effective_scenarios_per_task'] ?? null,
+                        ]);
+                    }
+                    $effectiveScenarios = max(1, (int) ($costGovernor['effective_scenarios_per_task'] ?? ($scenarios ?? config('atlas.loop.scenarios_per_task', 3))));
+                    $result = $this->grinder->grind($task, $workerId, $effectiveScenarios, '', $remaining);
+                    $spendCents = $this->spendCentsFromResult($result);
+                    $this->beat($campaign, $this->now() - $grindStart, $spendCents);
 
                     // Results -> Sources, so the queue self-sustains.
                     $targetId = (string) (is_array($task->payload) ? ($task->payload['_target_id'] ?? '') : '');
@@ -262,6 +276,9 @@ final class AtlasLoopCampaignSupervisor
                         'task_id' => $task->id,
                         'status' => $result['status'],
                         'proposals' => $result['proposals'] ?? 0,
+                        'cost_estimate_usd' => $result['cost_estimate_usd'] ?? null,
+                        'spend_usd_cents' => $spendCents,
+                        'cost_governor' => $costGovernor,
                         'elapsed_seconds' => $this->guard(fn () => $campaign->fresh()?->elapsed_seconds, 'campaign_fresh'),
                     ]);
 
@@ -429,9 +446,87 @@ final class AtlasLoopCampaignSupervisor
         ];
     }
 
-    private function beat(AtlasLoopCampaign $campaign, int $deltaSeconds): void
+    private function beat(AtlasLoopCampaign $campaign, int $deltaSeconds, int $addSpendCents = 0): void
     {
-        $this->guard(fn () => $campaign->beat(max(0, $deltaSeconds)), 'campaign_beat');
+        $this->guard(fn () => $campaign->beat(max(0, $deltaSeconds), max(0, $addSpendCents)), 'campaign_beat');
+    }
+
+    /**
+     * The L5-7 governor is not a separate router/runtime. It is the campaign's
+     * existing cost budget interpreted before each grind: near the cap, reduce
+     * scenarios; at/over the cap, the existing budgetStopReason() stops the loop.
+     *
+     * @return array<string,mixed>
+     */
+    private function costGovernorDecision(AtlasLoopCampaign $campaign, ?int $scenarios): array
+    {
+        $baseScenarios = max(1, (int) ($scenarios ?? config('atlas.loop.scenarios_per_task', 3)));
+        $cfg = (array) config('atlas.loop.cost_governor', []);
+        $enabled = (bool) ($cfg['enabled'] ?? false);
+        $minScenarios = max(1, (int) ($cfg['min_scenarios_per_task'] ?? 1));
+        $maxCents = max(0, (int) $campaign->max_usd_cents);
+        $spendCents = max(0, (int) $campaign->spend_usd_cents);
+
+        $base = [
+            'schema_version' => 'atlas.loop.cost_governor_decision.v1',
+            'enabled' => $enabled,
+            'status' => $enabled ? 'monitoring' : 'disabled',
+            'action' => 'none',
+            'spend_usd_cents' => $spendCents,
+            'max_usd_cents' => $maxCents,
+            'spend_pct' => $maxCents > 0 ? round(($spendCents / $maxCents) * 100, 2) : null,
+            'base_scenarios_per_task' => $baseScenarios,
+            'effective_scenarios_per_task' => $baseScenarios,
+            'min_scenarios_per_task' => $minScenarios,
+        ];
+
+        if (! $enabled) {
+            return $base;
+        }
+        if ($maxCents <= 0) {
+            return array_replace($base, [
+                'status' => 'no_cost_cap_configured',
+                'reason' => 'campaign_max_usd_cents_zero',
+            ]);
+        }
+
+        $throttlePct = max(0.0, min(100.0, (float) ($cfg['throttle_at_pct'] ?? 80.0)));
+        $spendPct = (float) $base['spend_pct'];
+        if ($spendPct >= 100.0) {
+            return array_replace($base, [
+                'status' => 'over_cap',
+                'action' => 'pause_on_cost_cap',
+                'effective_scenarios_per_task' => $minScenarios,
+                'reason' => 'budget_stop_reason_cost_cap_will_apply',
+            ]);
+        }
+        if ($spendPct >= $throttlePct && $baseScenarios > $minScenarios) {
+            return array_replace($base, [
+                'status' => 'throttled',
+                'action' => 'reduce_scenarios_per_task',
+                'effective_scenarios_per_task' => $minScenarios,
+                'threshold_pct' => $throttlePct,
+            ]);
+        }
+
+        return array_replace($base, [
+            'threshold_pct' => $throttlePct,
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $result
+     */
+    private function spendCentsFromResult(array $result): int
+    {
+        if (is_numeric($result['cost_cents'] ?? null) && (int) $result['cost_cents'] > 0) {
+            return (int) $result['cost_cents'];
+        }
+        if (is_numeric($result['cost_estimate_usd'] ?? null) && (float) $result['cost_estimate_usd'] > 0.0) {
+            return max(1, (int) ceil((float) $result['cost_estimate_usd'] * 100));
+        }
+
+        return 0;
     }
 
     /** Route a supervisor-owned durable write through the transient-DB resilience guard. */

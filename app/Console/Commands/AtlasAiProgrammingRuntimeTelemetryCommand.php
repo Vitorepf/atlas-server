@@ -14,7 +14,14 @@ class AtlasAiProgrammingRuntimeTelemetryCommand extends Command
         {--event-name= : when --action=record, the event name (required)}
         {--flow= : optional flow}
         {--core= : optional selected_core (atlas_dev|atlas_forge|atlas_dev_to_forge)}
+        {--provider= : optional provider key for cost estimation}
+        {--run-id= : optional run id}
         {--execution-status= : optional execution status}
+        {--duration-ms= : optional measured duration}
+        {--tokens-in= : optional input token count}
+        {--tokens-out= : optional output token count}
+        {--total-tokens= : optional total token count}
+        {--cost-estimate-usd= : optional measured/estimated USD cost}
         {--since= : optional ISO timestamp lower bound for aggregate}
         {--until= : optional ISO timestamp upper bound for aggregate}
         {--json : output JSON only}';
@@ -63,7 +70,14 @@ class AtlasAiProgrammingRuntimeTelemetryCommand extends Command
                 'event_name' => $eventName,
                 'flow' => $this->option('flow'),
                 'selected_core' => $this->option('core'),
+                'provider' => $this->option('provider'),
+                'run_id' => $this->option('run-id'),
                 'execution_status' => $this->option('execution-status'),
+                'duration_ms' => $this->option('duration-ms') !== null ? (int) $this->option('duration-ms') : null,
+                'tokens_in' => $this->option('tokens-in') !== null ? (int) $this->option('tokens-in') : null,
+                'tokens_out' => $this->option('tokens-out') !== null ? (int) $this->option('tokens-out') : null,
+                'total_tokens' => $this->option('total-tokens') !== null ? (int) $this->option('total-tokens') : null,
+                'cost_estimate_usd' => $this->option('cost-estimate-usd') !== null ? (float) $this->option('cost-estimate-usd') : null,
                 'metadata' => ['source' => 'cli:atlas:ai:programming-runtime-telemetry'],
             ]);
         } catch (\Throwable $exception) {
@@ -83,6 +97,7 @@ class AtlasAiProgrammingRuntimeTelemetryCommand extends Command
                 'event_hash' => $event->event_hash,
                 'flow' => $event->flow,
                 'selected_core' => $event->selected_core,
+                'cost_estimate_usd' => $event->cost_estimate_usd,
             ],
             'benchmark_not_run' => true,
         ];

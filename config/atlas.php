@@ -1651,6 +1651,17 @@ return [
             'min_cost_coverage_pct' => max(0.0, min(100.0, (float) env('ATLAS_LOOP_TAXA2_DIALS_MIN_COST_COVERAGE_PCT', 80.0))),
         ],
 
+        // L5-7: daily cost governor. This is not a second runtime; the
+        // existing campaign budget fields remain authoritative. When a running
+        // campaign approaches its configured cost cap, the supervisor reduces
+        // scenarios per task; once the cap is reached, budgetStopReason()
+        // returns cost_cap and the campaign stops.
+        'cost_governor' => [
+            'enabled' => (bool) env('ATLAS_LOOP_COST_GOVERNOR_ENABLED', false),
+            'throttle_at_pct' => max(0.0, min(100.0, (float) env('ATLAS_LOOP_COST_GOVERNOR_THROTTLE_AT_PCT', 80.0))),
+            'min_scenarios_per_task' => max(1, (int) env('ATLAS_LOOP_COST_GOVERNOR_MIN_SCENARIOS_PER_TASK', 1)),
+        ],
+
         // 24h+ sem intervenção: revive campanhas que pararam por STARVATION de fila (a única
         // parada permanente — completed com budget sobrando). O loop mergeia código → novos
         // alvos surgem → reviver throttled re-descobre trabalho. Sem isto o soak para sozinho

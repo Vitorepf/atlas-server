@@ -38,11 +38,18 @@ class AtlasDecideLiveOutcomeFeedbackServiceTest extends TestCase
             'result' => 'success',
             'latency_ms' => 1200,
             'quality_score' => 0.92,
+            'cost_usd' => 0.004,
+            'input_tokens' => 120,
+            'output_tokens' => 80,
         ]);
         $this->assertSame(AtlasDecideLiveOutcomeFeedbackService::OUTCOME_SCHEMA, $entry['schema_version']);
         $this->assertStringStartsWith('sha256:', $entry['entry_hash']);
         $this->assertSame('claude_cli', $entry['provider']);
         $this->assertSame(0.92, $entry['quality_score']);
+        $this->assertSame(0.004, $entry['cost_usd']);
+        $this->assertSame(200, $entry['tokens_used']);
+        $this->assertSame(120, $entry['input_tokens']);
+        $this->assertSame(80, $entry['output_tokens']);
     }
 
     public function test_record_requires_task_category_role_and_provider(): void
@@ -92,6 +99,30 @@ class AtlasDecideLiveOutcomeFeedbackServiceTest extends TestCase
         }
         $this->assertSame(0.9, $byKey['claude_cli']['success_rate']);
         $this->assertSame(0.4, $byKey['codex_cli']['success_rate']);
+    }
+
+    public function test_route_stats_aggregates_cost_and_tokens(): void
+    {
+        $base = [
+            'task_category' => 'code_generation',
+            'role' => 'primary',
+            'framework' => 'laravel',
+            'provider' => 'minimax_m27_cli',
+            'model' => 'MiniMax-M3',
+            'result' => 'success',
+            'quality_score' => 0.9,
+        ];
+        $this->svc->record($base + ['cost_usd' => 0.004, 'tokens_used' => 120]);
+        $this->svc->record($base + ['cost_usd' => 0.006, 'input_tokens' => 70, 'output_tokens' => 50]);
+
+        $stats = $this->svc->routeStats('code_generation', 'primary', 'laravel');
+        $provider = $stats['providers'][0];
+
+        $this->assertSame('minimax_m27_cli', $provider['provider']);
+        $this->assertSame(0.005, $provider['avg_cost_usd']);
+        $this->assertSame(2, $provider['cost_sample_count']);
+        $this->assertSame(120, $provider['avg_tokens_used']);
+        $this->assertSame(2, $provider['token_sample_count']);
     }
 
     public function test_degradation_signal_insufficient_evidence(): void

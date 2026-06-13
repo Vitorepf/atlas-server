@@ -14,7 +14,7 @@ use Illuminate\Console\Command;
  * Doc canon: docs/engineering-knowledge-base/atlas-decide-live-outcome-feedback.md
  *
  * Actions:
- *   record       --task-category --role --provider [--framework] [--model] --result [--latency-ms] [--quality]
+ *   record       --task-category --role --provider [--framework] [--model] --result [--latency-ms] [--quality] [--cost-usd] [--tokens-used]
  *   stats        --task-category --role [--framework]
  *   signal       --task-category --role --provider [--framework] [--model]
  *   sweep        [--actor=autonomous_feedback_loop]  (calls ADML.autoDeactivateOnDegradation)
@@ -32,6 +32,10 @@ class AtlasDecideLiveFeedbackCommand extends Command
         {--result= : success|failure|timeout}
         {--latency-ms= : optional integer}
         {--quality= : optional float 0..1}
+        {--cost-usd= : optional measured or receipt-backed USD cost}
+        {--tokens-used= : optional total token count}
+        {--input-tokens= : optional input token count}
+        {--output-tokens= : optional output token count}
         {--actor=autonomous_feedback_loop}
         {--json : Emit JSON envelope}';
 
@@ -54,6 +58,10 @@ class AtlasDecideLiveFeedbackCommand extends Command
                         'result' => (string) $this->option('result'),
                         'latency_ms' => $this->option('latency-ms') !== null ? (int) $this->option('latency-ms') : null,
                         'quality_score' => $this->option('quality') !== null ? (float) $this->option('quality') : null,
+                        'cost_usd' => $this->option('cost-usd') !== null ? (float) $this->option('cost-usd') : null,
+                        'tokens_used' => $this->option('tokens-used') !== null ? (int) $this->option('tokens-used') : null,
+                        'input_tokens' => $this->option('input-tokens') !== null ? (int) $this->option('input-tokens') : null,
+                        'output_tokens' => $this->option('output-tokens') !== null ? (int) $this->option('output-tokens') : null,
                         'actor' => (string) $this->option('actor'),
                     ]);
 

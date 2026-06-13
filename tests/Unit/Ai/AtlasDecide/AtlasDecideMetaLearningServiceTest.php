@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\AtlasDecide;
 
 use App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService;
+use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsDecideSignalProjectionService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsProviderPerformanceLedgerService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsRunPathResolver;
@@ -348,6 +349,68 @@ class AtlasDecideMetaLearningServiceTest extends TestCase
         $this->assertFalse($rec['actionable']);
         $this->assertSame('blocked', $rec['cost_outcome']['status']);
         $this->assertContains('cost_outcome_missing_measured_cost', $rec['reason']);
+    }
+
+    public function test_cost_outcome_routing_can_use_live_feedback_with_measured_cost_and_quality(): void
+    {
+        config(['atlas.patamar4.adml_cost_outcome' => [
+            'enabled' => true,
+            'min_evidence' => 3,
+            'min_certification_rate' => 0.8,
+            'min_score' => 80.0,
+            'max_score_drop' => 3.0,
+            'require_measured_cost' => true,
+            'min_cost_samples' => 1,
+        ]]);
+
+        $feedback = new AtlasDecideLiveOutcomeFeedbackService;
+        $feedback->setLogPathForTesting($this->tmpRoot.'/live_outcomes.jsonl');
+        for ($i = 0; $i < 3; $i++) {
+            $feedback->record([
+                'task_category' => 'bugfix',
+                'role' => 'repair_agent',
+                'framework' => 'python',
+                'provider' => 'codex_cli',
+                'model' => 'gpt-5.5',
+                'result' => AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS,
+                'quality_score' => 0.91,
+                'cost_usd' => 0.04,
+                'tokens_used' => 800,
+                'actor' => 'ai_worker',
+            ]);
+            $feedback->record([
+                'task_category' => 'bugfix',
+                'role' => 'repair_agent',
+                'framework' => 'python',
+                'provider' => 'minimax_m27_cli',
+                'model' => 'MiniMax-M3',
+                'result' => AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS,
+                'quality_score' => 0.892,
+                'cost_usd' => 0.004,
+                'tokens_used' => 300,
+                'actor' => 'ai_worker',
+            ]);
+        }
+
+        $svc = $this->buildService();
+        $svc->setLiveOutcomeFeedback($feedback);
+
+        $rec = $svc->recommend([
+            'task_category' => 'bugfix',
+            'role' => 'repair_agent',
+            'framework' => 'python',
+        ]);
+
+        $this->assertTrue($rec['actionable']);
+        $this->assertSame(AtlasDecideMetaLearningService::ROUTING_BASIS_COST_OUTCOME, $rec['routing_basis']);
+        $this->assertSame('minimax_m27_cli', $rec['recommended_provider']);
+        $this->assertSame('MiniMax-M3', $rec['recommended_model']);
+        $this->assertSame('codex_cli', $rec['fallback_provider']);
+        $this->assertSame('ready', $rec['cost_outcome']['status']);
+        $this->assertContains('live_outcome_feedback', $rec['cost_outcome']['selected']['evidence_sources']);
+        $this->assertSame(0.004, $rec['cost_outcome']['selected']['average_cost_estimate']);
+        $this->assertSame(89.2, $rec['cost_outcome']['selected']['average_score']);
+        $this->assertGreaterThan(80, $rec['estimated_savings_pct']);
     }
 
     private function appendLedgerEntry(

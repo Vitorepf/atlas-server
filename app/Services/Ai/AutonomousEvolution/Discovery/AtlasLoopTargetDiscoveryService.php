@@ -42,6 +42,7 @@ final class AtlasLoopTargetDiscoveryService
         private readonly ?AtlasLoopEvidenceSignalService $evidence = null,
         private readonly ?AtlasLoopBacklogIntentSource $backlog = null,
         private readonly ?\App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard $harnessGuard = null,
+        private readonly ?AtlasLoopWiredCallerService $wiredCallers = null,
     ) {}
 
     /**
@@ -123,6 +124,15 @@ final class AtlasLoopTargetDiscoveryService
             $this->applyImpactRanking($scoredRows);
         }
 
+        // L?-impact: orphan gate. A target with ZERO real production callers AND no
+        // failure evidence AND no backlog reach is dead/orphan scaffolding — improving
+        // it is provably zero real-world utility (the measured 54%-orphan defect). Demote
+        // it hard so the provider budget flows to code that runs. Fail-open: only fires
+        // when the wired-caller service supplied real caller data (signals.orphan set).
+        if ((bool) config('atlas.loop.orphan_gate_enabled', true)) {
+            $this->applyOrphanGate($scoredRows);
+        }
+
         // L4-1: target cooldown. A recent task/proposal for the same path means the loop
         // already spent attention there; strongly down-rank it so one lucky target cannot
         // farm the queue. Fail-open: missing runtime tables => no cooldown.
@@ -174,26 +184,69 @@ final class AtlasLoopTargetDiscoveryService
             return;
         }
 
-        $symbolCounts = $this->codeGraphSymbolCounts(array_values(array_unique(array_column($scoredRows, 'path'))));
+        $paths = array_values(array_unique(array_column($scoredRows, 'path')));
+        $symbolCounts = $this->codeGraphSymbolCounts($paths);
         $maxSymbols = max(8, (int) max($symbolCounts ?: [0]));
+
+        // REAL consumer proxy: how many PRODUCTION files actually call this target
+        // (grep UNION scoped code-graph, tests excluded). This replaces the old defect
+        // where consumer_proxy counted the file's OWN symbols, which rewarded big orphan
+        // scaffolds. Fail-open: when the service is absent OR returns nothing (graph+grep
+        // both unavailable), fall back to the symbol-count proxy = byte-identical legacy
+        // behaviour, and the orphan flag is never set (no false orphan on missing data).
+        $callerCounts = $this->wiredCallers?->callerCounts($paths) ?? [];
+        $haveCallers = $callerCounts !== [];
+        $maxCallers = max(4, (int) max($callerCounts ?: [0]));
 
         foreach ($scoredRows as &$row) {
             $signals = is_array($row['scored']['signals'] ?? null) ? $row['scored']['signals'] : [];
             $symbols = (int) ($symbolCounts[$row['path']] ?? 0);
-            $consumerProxy = $symbols > 0 ? min(1.0, log(1 + $symbols) / log(1 + $maxSymbols)) : 0.0;
+            $callers = (int) ($callerCounts[$row['path']] ?? 0);
+            $consumerProxy = $haveCallers
+                ? ($callers > 0 ? min(1.0, log(1 + $callers) / log(1 + $maxCallers)) : 0.0)
+                : ($symbols > 0 ? min(1.0, log(1 + $symbols) / log(1 + $maxSymbols)) : 0.0);
             $failureEvidence = $this->clamp01((float) ($row['scored']['evidence'] ?? $signals['failure_evidence'] ?? 0.0));
             $backlogReach = $this->clamp01((float) ($signals['backlog_reach'] ?? 0.0));
             $impact = $this->clamp01(0.50 * $consumerProxy + 0.30 * $failureEvidence + 0.20 * $backlogReach);
 
             $signals['impact_rank'] = round($impact, 4);
             $signals['impact_code_symbols'] = $symbols;
+            $signals['impact_real_callers'] = $haveCallers ? $callers : null;
             $signals['impact_consumer_proxy'] = round($consumerProxy, 4);
             $signals['impact_failure_evidence'] = round($failureEvidence, 4);
             $signals['impact_backlog_reach'] = round($backlogReach, 4);
+            // Orphan ONLY when we have real caller data: 0 callers AND 0 evidence AND 0 reach.
+            $signals['orphan'] = $haveCallers && $callers === 0 && $failureEvidence <= 0.0 && $backlogReach <= 0.0;
             $row['scored']['signals'] = $signals;
             $row['scored']['score'] = round(min(1.0, (float) $row['scored']['score'] + 0.18 * $impact), 4);
         }
         unset($row);
+    }
+
+    /**
+     * Orphan gate: demote (or exclude) targets with no production callers, no failure
+     * evidence and no backlog reach. Only acts on rows the impact stage flagged orphan
+     * (i.e. real caller data was available); fail-open otherwise.
+     *
+     * @param  list<array{path:string,abs:string,scored:array<string,mixed>}>  $scoredRows
+     */
+    private function applyOrphanGate(array &$scoredRows): void
+    {
+        $penalty = $this->clamp01((float) config('atlas.loop.orphan_score_penalty', 0.15));
+        $hardExclude = (bool) config('atlas.loop.orphan_gate_hard_exclude', false);
+
+        $kept = [];
+        foreach ($scoredRows as $row) {
+            $orphan = (bool) ($row['scored']['signals']['orphan'] ?? false);
+            if ($orphan) {
+                if ($hardExclude) {
+                    continue; // never even propose dead scaffolding
+                }
+                $row['scored']['score'] = round((float) $row['scored']['score'] * $penalty, 4);
+            }
+            $kept[] = $row;
+        }
+        $scoredRows = array_values($kept);
     }
 
     /**

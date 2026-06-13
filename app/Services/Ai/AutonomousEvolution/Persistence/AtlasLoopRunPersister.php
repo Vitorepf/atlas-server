@@ -33,7 +33,7 @@ final class AtlasLoopRunPersister
 
     /**
      * @param  array<string,mixed>  $runnerResult  AtlasEvolutionLoopRunner::run output
-     * @return array{has_winner:bool, proposals:int, scenarios_explored:int, exploration_ids:list<string>, proposal_ids:list<string>}
+     * @return array{has_winner:bool, proposals:int, scenarios_explored:int, exploration_ids:list<string>, proposal_ids:list<string>, cost_estimate_usd:?float, cost_cents:int, tokens_used:?int}
      */
     public function persist(AtlasLoopTask $task, string $workerId, array $runnerResult): array
     {
@@ -45,11 +45,23 @@ final class AtlasLoopRunPersister
 
         return DB::transaction(function () use ($task, $workerId, $explorations, $proposals, $hasWinner, $runnerResult): array {
             $scenariosExplored = 0;
+            $costUsd = 0.0;
+            $costSamples = 0;
+            $tokensUsed = 0;
+            $tokenSamples = 0;
             $explorationIds = [];
             $proposalIds = [];
 
             foreach ($explorations as $exploration) {
                 $scenariosExplored += (int) ($exploration['scenarios_explored'] ?? 0);
+                if (is_numeric($exploration['cost_estimate_usd'] ?? null) && (float) $exploration['cost_estimate_usd'] > 0.0) {
+                    $costUsd += (float) $exploration['cost_estimate_usd'];
+                    $costSamples++;
+                }
+                if (is_numeric($exploration['tokens_used'] ?? null) && (int) $exploration['tokens_used'] > 0) {
+                    $tokensUsed += (int) $exploration['tokens_used'];
+                    $tokenSamples++;
+                }
                 $explorationIds[] = $this->store->recordExploration($task, is_array($exploration) ? $exploration : [])->id;
             }
 
@@ -94,6 +106,9 @@ final class AtlasLoopRunPersister
                 'scenarios_explored' => $scenariosExplored,
                 'exploration_ids' => $explorationIds,
                 'proposal_ids' => $proposalIds,
+                'cost_estimate_usd' => $costSamples > 0 ? round($costUsd, 6) : null,
+                'cost_cents' => $costSamples > 0 ? max(1, (int) ceil($costUsd * 100)) : 0,
+                'tokens_used' => $tokenSamples > 0 ? $tokensUsed : null,
             ];
         });
     }

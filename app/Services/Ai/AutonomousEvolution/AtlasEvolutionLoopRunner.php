@@ -96,6 +96,14 @@ final class AtlasEvolutionLoopRunner
             $rejected,
             static fn (array $a): string => (string) ($a['verdict']['details']['reason'] ?? ''),
         );
+        $costSamples = array_values(array_filter(
+            array_map(static fn (array $a): ?float => is_numeric($a['cost_estimate_usd'] ?? null) ? (float) $a['cost_estimate_usd'] : null, $attempts),
+            static fn (?float $cost): bool => $cost !== null && $cost > 0.0,
+        ));
+        $tokensUsed = array_values(array_filter(
+            array_map(static fn (array $a): ?int => is_numeric($a['tokens_used'] ?? null) ? (int) $a['tokens_used'] : null, $attempts),
+            static fn (?int $tokens): bool => $tokens !== null && $tokens > 0,
+        ));
 
         return [
             'objective' => (string) ($exploration['objective'] ?? ''),
@@ -104,6 +112,10 @@ final class AtlasEvolutionLoopRunner
             'scenarios_accepted' => (int) ($exploration['scenarios_accepted'] ?? 0),
             'has_winner' => ($exploration['winner'] ?? null) !== null,
             'rejected_reasons' => $reasons,
+            'cost_estimate_usd' => $costSamples !== [] ? round(array_sum($costSamples), 6) : null,
+            'cost_sample_count' => count($costSamples),
+            'tokens_used' => $tokensUsed !== [] ? array_sum($tokensUsed) : null,
+            'token_sample_count' => count($tokensUsed),
             'attempt_metrics' => $this->attemptMetrics($attempts),
         ];
     }

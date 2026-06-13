@@ -827,11 +827,11 @@ class AtlasDecideMetaLearningService
             return $base;
         }
 
-        $entries = $this->relevantLedgerEntries($taskCategory, $role, $framework);
+        $entries = $this->relevantCostOutcomeEntries($taskCategory, $role, $framework);
         if ($entries === []) {
             return array_replace($base, [
                 'status' => 'blocked',
-                'blockers' => ['no_relevant_ledger_evidence'],
+                'blockers' => ['no_relevant_cost_outcome_evidence'],
                 'candidate_count' => 0,
                 'candidates' => [],
             ]);
@@ -940,6 +940,17 @@ class AtlasDecideMetaLearningService
     /**
      * @return list<array<string,mixed>>
      */
+    private function relevantCostOutcomeEntries(string $taskCategory, string $role, ?string $framework): array
+    {
+        return array_values(array_merge(
+            $this->relevantLedgerEntries($taskCategory, $role, $framework),
+            $this->relevantLiveOutcomeEntries($taskCategory, $role, $framework),
+        ));
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
     private function relevantLedgerEntries(string $taskCategory, string $role, ?string $framework): array
     {
         $task = strtolower(trim($taskCategory));
@@ -959,6 +970,64 @@ class AtlasDecideMetaLearningService
 
             return true;
         }));
+    }
+
+    /**
+     * Live feedback is the warm runtime signal for L5-6. A row is admitted into
+     * cost×outcome only when it carries both a successful call result and an
+     * explicit quality score, so transport success alone never masquerades as
+     * outcome certification.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function relevantLiveOutcomeEntries(string $taskCategory, string $role, ?string $framework): array
+    {
+        if ($this->liveFeedback === null) {
+            return [];
+        }
+
+        $task = strtolower(trim($taskCategory));
+        $r = strtolower(trim($role));
+        $fw = $framework === null ? null : strtolower(trim($framework));
+        $entries = [];
+
+        foreach ($this->liveFeedback->listOutcomes() as $entry) {
+            if (strtolower((string) ($entry['task_category'] ?? '')) !== $task) {
+                continue;
+            }
+            if (strtolower((string) ($entry['role'] ?? '')) !== $r) {
+                continue;
+            }
+            if ($fw !== null && strtolower((string) ($entry['framework'] ?? '')) !== $fw) {
+                continue;
+            }
+
+            $quality = $entry['quality_score'] ?? null;
+            $score = is_numeric($quality) ? max(0.0, min(100.0, (float) $quality * 100.0)) : null;
+
+            $entries[] = [
+                'evidence_source' => 'live_outcome_feedback',
+                'source_schema_version' => $entry['schema_version'] ?? AtlasDecideLiveOutcomeFeedbackService::OUTCOME_SCHEMA,
+                'recorded_at' => $entry['recorded_at'] ?? null,
+                'run_id' => $entry['entry_hash'] ?? null,
+                'task_category' => $entry['task_category'] ?? null,
+                'role' => $entry['role'] ?? null,
+                'framework' => $entry['framework'] ?? null,
+                'provider' => $entry['provider'] ?? null,
+                'model' => $entry['model'] ?? null,
+                'result' => $entry['result'] ?? null,
+                'score_total' => $score,
+                'cost_estimate' => $entry['cost_usd'] ?? null,
+                'tokens_used' => $entry['tokens_used'] ?? null,
+                'quality_score' => $quality,
+                'valid_for_ranking' => ($entry['result'] ?? null) === AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS && $score !== null,
+                'tests_passed' => ($entry['result'] ?? null) === AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS && $score !== null,
+                'replay_passed' => ($entry['result'] ?? null) === AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS && $score !== null,
+                'hard_failures' => [],
+            ];
+        }
+
+        return $entries;
     }
 
     /**
@@ -988,6 +1057,7 @@ class AtlasDecideMetaLearningService
                 'token_count' => 0,
                 'latest_recorded_at' => null,
                 'latest_run_ids' => [],
+                'evidence_sources' => [],
                 'provider_resolvable' => $this->isKnownProviderKey($provider),
             ];
 
@@ -999,6 +1069,10 @@ class AtlasDecideMetaLearningService
             $runId = (string) ($entry['run_id'] ?? '');
             if ($runId !== '' && ! in_array($runId, $groups[$key]['latest_run_ids'], true)) {
                 $groups[$key]['latest_run_ids'][] = $runId;
+            }
+            $source = (string) ($entry['evidence_source'] ?? 'forge_rivals_provider_performance_ledger');
+            if ($source !== '' && ! in_array($source, $groups[$key]['evidence_sources'], true)) {
+                $groups[$key]['evidence_sources'][] = $source;
             }
 
             if (! $this->isCertifiedCostOutcomeEntry($entry)) {
@@ -1064,6 +1138,7 @@ class AtlasDecideMetaLearningService
                 'latest_recorded_at' => $group['latest_recorded_at'],
                 'latest_age_days' => $latestAgeDays,
                 'latest_run_ids' => array_slice((array) $group['latest_run_ids'], 0, 5),
+                'evidence_sources' => array_values((array) $group['evidence_sources']),
                 'provider_resolvable' => (bool) $group['provider_resolvable'],
                 'blockers' => array_values(array_unique($blockers)),
             ];
@@ -1082,6 +1157,13 @@ class AtlasDecideMetaLearningService
      */
     private function isCertifiedCostOutcomeEntry(array $entry): bool
     {
+        if (($entry['evidence_source'] ?? null) === 'live_outcome_feedback') {
+            return ($entry['result'] ?? null) === AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS
+                && is_numeric($entry['quality_score'] ?? null)
+                && is_numeric($entry['score_total'] ?? null)
+                && (array) ($entry['hard_failures'] ?? []) === [];
+        }
+
         return (bool) ($entry['valid_for_ranking'] ?? false)
             && (bool) ($entry['tests_passed'] ?? false)
             && (bool) ($entry['replay_passed'] ?? false)

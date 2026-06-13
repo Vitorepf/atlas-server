@@ -478,6 +478,17 @@ class AiWorker
                     $result->ok === true => \App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS,
                     default => \App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService::RESULT_FAILURE,
                 };
+                $inputTokens = data_get($result->metadata, 'input_tokens');
+                $outputTokens = data_get($result->metadata, 'output_tokens');
+                $tokensUsed = data_get($result->metadata, 'tokens_used');
+                if ($tokensUsed === null && (is_numeric($inputTokens) || is_numeric($outputTokens))) {
+                    $tokensUsed = (int) ($inputTokens ?? 0) + (int) ($outputTokens ?? 0);
+                }
+                $costUsd = data_get($result->metadata, 'cost_usd')
+                    ?? data_get($result->metadata, 'cost_estimate_usd')
+                    ?? data_get($result->metadata, 'estimated_cost_usd');
+                $qualityScore = data_get($result->metadata, 'quality_score')
+                    ?? data_get($result->metadata, 'atlas_decide.quality_score');
                 $this->liveOutcomeFeedback->record([
                     'task_category' => $taskCategory,
                     'role' => $role,
@@ -486,6 +497,11 @@ class AiWorker
                     'model' => $attempt->model ?? null,
                     'result' => $resultKind,
                     'latency_ms' => is_int($result->durationMs) ? $result->durationMs : null,
+                    'quality_score' => is_numeric($qualityScore) ? (float) $qualityScore : null,
+                    'cost_usd' => is_numeric($costUsd) ? (float) $costUsd : null,
+                    'tokens_used' => is_numeric($tokensUsed) ? (int) $tokensUsed : null,
+                    'input_tokens' => is_numeric($inputTokens) ? (int) $inputTokens : null,
+                    'output_tokens' => is_numeric($outputTokens) ? (int) $outputTokens : null,
                     'actor' => 'ai_worker',
                 ]);
             } catch (\Throwable $e) {

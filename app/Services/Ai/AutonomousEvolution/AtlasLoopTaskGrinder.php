@@ -39,7 +39,7 @@ final class AtlasLoopTaskGrinder
     ) {}
 
     /**
-     * @return array{status:string, has_winner:bool, proposals:int, scenarios_explored:int, elapsed_seconds:int, reason?:string}
+     * @return array{status:string, has_winner:bool, proposals:int, scenarios_explored:int, elapsed_seconds:int, cost_estimate_usd?:?float, cost_cents?:int, tokens_used?:?int, reason?:string}
      */
     public function grind(AtlasLoopTask $task, string $workerId, ?int $scenarios = null, string $workspaceRoot = '', ?int $timeBudgetSeconds = null): array
     {
@@ -109,6 +109,9 @@ final class AtlasLoopTaskGrinder
                 'proposals' => $summary['proposals'],
                 'scenarios_explored' => $summary['scenarios_explored'],
                 'elapsed_seconds' => (int) ceil(microtime(true) - $started),
+                'cost_estimate_usd' => $summary['cost_estimate_usd'] ?? null,
+                'cost_cents' => (int) ($summary['cost_cents'] ?? 0),
+                'tokens_used' => $summary['tokens_used'] ?? null,
             ];
         } catch (Throwable $e) {
             $cleanup();

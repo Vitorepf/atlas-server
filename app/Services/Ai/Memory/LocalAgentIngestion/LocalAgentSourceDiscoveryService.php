@@ -36,11 +36,11 @@ final class LocalAgentSourceDiscoveryService
         $maxBytes = (int) ($config['max_file_bytes'] ?? 1_048_576);
         $maxFiles = (int) ($config['max_files_per_run'] ?? 500);
         $denylist = array_map(
-            static fn ($p): string => strtolower((string) $p),
+            static fn ($p): string => strtolower(trim((string) $p)),
             (array) ($config['denylist_patterns'] ?? []),
         );
         $allowExts = array_map(
-            static fn ($e): string => ltrim(strtolower((string) $e), '.'),
+            static fn ($e): string => ltrim(strtolower(trim((string) $e)), '.'),
             (array) ($config['allowlist_extensions'] ?? []),
         );
 

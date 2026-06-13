@@ -100,6 +100,10 @@ final class AtlasDecideLiveOutcomeFeedbackService
      *     result:string,
      *     latency_ms?:int,
      *     quality_score?:float,
+     *     cost_usd?:float,
+     *     tokens_used?:int,
+     *     input_tokens?:int,
+     *     output_tokens?:int,
      *     actor?:string
      * }  $input
      * @return array<string,mixed>
@@ -125,6 +129,13 @@ final class AtlasDecideLiveOutcomeFeedbackService
         $model = $input['model'] ?? null;
         $latency = isset($input['latency_ms']) ? max(0, (int) $input['latency_ms']) : null;
         $quality = isset($input['quality_score']) ? max(0.0, min(1.0, (float) $input['quality_score'])) : null;
+        $costUsd = $this->positiveFloatOrNull($input['cost_usd'] ?? null);
+        $inputTokens = $this->positiveIntOrNull($input['input_tokens'] ?? null);
+        $outputTokens = $this->positiveIntOrNull($input['output_tokens'] ?? null);
+        $tokensUsed = $this->positiveIntOrNull($input['tokens_used'] ?? null);
+        if ($tokensUsed === null && ($inputTokens !== null || $outputTokens !== null)) {
+            $tokensUsed = ($inputTokens ?? 0) + ($outputTokens ?? 0);
+        }
         $actor = (string) ($input['actor'] ?? 'ai_gateway');
 
         $at = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
@@ -140,6 +151,10 @@ final class AtlasDecideLiveOutcomeFeedbackService
             'result' => $result,
             'latency_ms' => $latency,
             'quality_score' => $quality,
+            'cost_usd' => $costUsd,
+            'tokens_used' => $tokensUsed,
+            'input_tokens' => $inputTokens,
+            'output_tokens' => $outputTokens,
             'actor' => $actor,
         ];
         $entry['entry_hash'] = 'sha256:'.hash('sha256', json_encode([
@@ -150,6 +165,9 @@ final class AtlasDecideLiveOutcomeFeedbackService
             'provider' => $provider,
             'model' => $model,
             'result' => $result,
+            'cost_usd' => $costUsd,
+            'tokens_used' => $tokensUsed,
+            'quality_score' => $quality,
             'actor' => $actor,
         ], JSON_THROW_ON_ERROR));
 
@@ -204,6 +222,10 @@ final class AtlasDecideLiveOutcomeFeedbackService
             $latencyCount = 0;
             $qualitySum = 0.0;
             $qualityCount = 0;
+            $costSum = 0.0;
+            $costCount = 0;
+            $tokenSum = 0;
+            $tokenCount = 0;
             foreach ($window as $w) {
                 $r = (string) ($w['result'] ?? '');
                 match ($r) {
@@ -220,6 +242,14 @@ final class AtlasDecideLiveOutcomeFeedbackService
                     $qualitySum += (float) $w['quality_score'];
                     $qualityCount++;
                 }
+                if (isset($w['cost_usd']) && is_numeric($w['cost_usd']) && (float) $w['cost_usd'] > 0.0) {
+                    $costSum += (float) $w['cost_usd'];
+                    $costCount++;
+                }
+                if (isset($w['tokens_used']) && is_numeric($w['tokens_used']) && (int) $w['tokens_used'] > 0) {
+                    $tokenSum += (int) $w['tokens_used'];
+                    $tokenCount++;
+                }
             }
             $successRate = $n > 0 ? round($success / $n, 4) : null;
             $providers[$p] = [
@@ -231,6 +261,10 @@ final class AtlasDecideLiveOutcomeFeedbackService
                 'success_rate' => $successRate,
                 'avg_latency_ms' => $latencyCount > 0 ? (int) round($latencySum / $latencyCount) : null,
                 'avg_quality_score' => $qualityCount > 0 ? round($qualitySum / $qualityCount, 4) : null,
+                'avg_cost_usd' => $costCount > 0 ? round($costSum / $costCount, 6) : null,
+                'cost_sample_count' => $costCount,
+                'avg_tokens_used' => $tokenCount > 0 ? (int) round($tokenSum / $tokenCount) : null,
+                'token_sample_count' => $tokenCount,
             ];
         }
         ksort($providers);
@@ -317,6 +351,26 @@ final class AtlasDecideLiveOutcomeFeedbackService
     }
 
     // ---------- internals ----------
+
+    private function positiveFloatOrNull(mixed $value): ?float
+    {
+        if (! is_numeric($value)) {
+            return null;
+        }
+        $float = (float) $value;
+
+        return $float > 0.0 ? $float : null;
+    }
+
+    private function positiveIntOrNull(mixed $value): ?int
+    {
+        if (! is_numeric($value)) {
+            return null;
+        }
+        $int = (int) $value;
+
+        return $int > 0 ? $int : null;
+    }
 
     /**
      * @return array<string,mixed>

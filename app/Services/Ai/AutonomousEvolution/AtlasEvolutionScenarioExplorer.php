@@ -154,6 +154,8 @@ final class AtlasEvolutionScenarioExplorer
                 'strategy' => $strategy,
                 'provider' => $provider,
                 'loop_status' => (string) ($loopSummary['status'] ?? 'unknown'),
+                'cost_estimate_usd' => $this->positiveFloat($loopSummary['cost_estimate_usd'] ?? $loopSummary['cost_usd'] ?? data_get($loopSummary, 'provider_usage.cost_usd')),
+                'tokens_used' => $this->positiveInt($loopSummary['tokens_used'] ?? data_get($loopSummary, 'provider_usage.tokens_used')),
                 'verdict' => $verdict,
                 'diff_size' => $diffSize,
                 'diff_text' => $diffText,
@@ -166,6 +168,8 @@ final class AtlasEvolutionScenarioExplorer
                 'strategy' => $strategy,
                 'provider' => $provider,
                 'loop_status' => 'errored',
+                'cost_estimate_usd' => null,
+                'tokens_used' => null,
                 'verdict' => ['passed' => false, 'metric' => 0.0, 'details' => ['reason' => 'scenario_threw']],
                 'diff_size' => ['files' => 0, 'lines' => 0],
                 'workspace' => $keepWorkspaces ? $workspace : null,
@@ -176,6 +180,26 @@ final class AtlasEvolutionScenarioExplorer
                 $this->removeScenarioWorkspace($baseWorkspace, $workspace, $cloneMode);
             }
         }
+    }
+
+    private function positiveFloat(mixed $value): ?float
+    {
+        if (! is_numeric($value)) {
+            return null;
+        }
+        $float = (float) $value;
+
+        return $float > 0.0 ? $float : null;
+    }
+
+    private function positiveInt(mixed $value): ?int
+    {
+        if (! is_numeric($value)) {
+            return null;
+        }
+        $int = (int) $value;
+
+        return $int > 0 ? $int : null;
     }
 
     /**
