@@ -116,7 +116,7 @@ final class RetrievalFanoutGate
 
     private function numericScore(mixed $value): float
     {
-        if (is_int($value) || is_float($value)) {
+        if (is_int($value) || is_float($value) || is_numeric($value)) {
             return (float) $value;
         }
 
