@@ -101,6 +101,10 @@ final class PostExecutionPhaseEmissionPlanBuilder
             return $phaseId === 'P10' ? 'failed' : 'blocked';
         }
 
+        if ($phaseId === 'P11' && ($result['quality_ok'] ?? true) === false) {
+            return 'failed';
+        }
+
         if ($phaseName === 'human_review' && ! $this->missionJob($job)) {
             return 'skipped';
         }
