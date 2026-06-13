@@ -149,7 +149,10 @@ final class AtlasMemoryRecallRelevanceScorer
     {
         $source = $row['source'] ?? '';
 
-        return is_string($source) ? $source : '';
+        return match (is_string($source) ? $source : '') {
+            'semantic', 'verbatim' => $source,
+            default => 'registry',
+        };
     }
 
     /**
