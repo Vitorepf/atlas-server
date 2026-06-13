@@ -172,6 +172,14 @@ final class SpecCompletenessScorer
                 continue;
             }
 
+            if (is_array($item)) {
+                if ($this->countNonEmptyItems($item) > 0) {
+                    $count++;
+                }
+
+                continue;
+            }
+
             if ($item !== null && $item !== false && $item !== []) {
                 $count++;
             }
