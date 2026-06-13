@@ -159,12 +159,20 @@ final class AnalysisHonestyGate
             $reasons[] = 'engineering_missing_tests_passed';
         }
 
+        if (is_numeric($passed) && floor((float) $passed) !== (float) $passed) {
+            $reasons[] = 'engineering_tests_passed_not_integer';
+        }
+
         if (is_numeric($passed) && (float) $passed < 0) {
             $reasons[] = 'engineering_tests_passed_negative';
         }
 
         if (! is_numeric($total) || (int) $total < 1) {
             $reasons[] = 'engineering_missing_tests_total';
+        }
+
+        if (is_numeric($total) && floor((float) $total) !== (float) $total) {
+            $reasons[] = 'engineering_tests_total_not_integer';
         }
 
         if (is_numeric($passed) && is_numeric($total) && (int) $total >= 1 && (float) $passed > (float) $total) {
