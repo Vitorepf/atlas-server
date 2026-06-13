@@ -54,6 +54,7 @@ final class LocalAgentSourceDiscoveryService
                 \FilesystemIterator::SKIP_DOTS | \FilesystemIterator::UNIX_PATHS,
             ),
             \RecursiveIteratorIterator::LEAVES_ONLY,
+            \RecursiveIteratorIterator::CATCH_GET_CHILD,
         );
 
         foreach ($iterator as $file) {
