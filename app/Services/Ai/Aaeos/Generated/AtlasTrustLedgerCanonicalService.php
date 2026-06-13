@@ -152,7 +152,12 @@ final class AtlasTrustLedgerCanonicalService
 
                 continue;
             }
-            $atTs = $this->toTimestamp($at);
+            $atTs = strtotime($at);
+            if ($atTs === false) {
+                $ignored++;
+
+                continue;
+            }
             // events_window(90d): strictly inside the rolling window, not future.
             if ($atTs < $windowStartTs || $atTs > $asOfTs) {
                 $ignored++;
