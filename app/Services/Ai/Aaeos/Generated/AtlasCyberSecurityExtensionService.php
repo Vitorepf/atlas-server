@@ -232,7 +232,7 @@ final class AtlasCyberSecurityExtensionService
         }
 
         // Non-Confusion #2: security review of OWN code -> programming.security flow.
-        if ($ownCode && ! $externalAuthorized) {
+        if ($ownCode) {
             return [
                 'surface' => self::SURFACE_PROGRAMMING_SECURITY,
                 'reasons' => ['own_code_security_review_belongs_to_programming_security'],
