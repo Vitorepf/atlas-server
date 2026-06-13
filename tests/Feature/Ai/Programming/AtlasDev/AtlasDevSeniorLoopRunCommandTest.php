@@ -152,6 +152,28 @@ PHP);
             File::deleteDirectory($workspace);
         }
     }
+
+    public function test_force_real_provider_disables_deterministic_shortcut_for_this_run(): void
+    {
+        config()->set('atlas_dev.efficient.deterministic_fast_path_enabled', true);
+        $this->app->instance(RunExecutor::class, new AssertingRealProviderSeniorLoopRunExecutor);
+
+        $exit = Artisan::call('atlas:dev:senior-loop:run', [
+            '--provider-choice' => 'hermes_cli',
+            '--composer-model' => 'gpt-5.5',
+            '--force-real-provider' => true,
+            '--json' => true,
+            '--strict' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exit, Artisan::output());
+        $this->assertIsArray($payload);
+        $this->assertSame('passed', $payload['status']);
+        $this->assertSame('hermes_cli', data_get($payload, 'run_summary.provider_call.provider'));
+        $this->assertSame('gpt-5.5', data_get($payload, 'run_summary.provider_call.model_family'));
+        $this->assertSame(1, data_get($payload, 'run_summary.provider_call.provider_calls'));
+    }
 }
 
 final class FailingSeniorLoopRunExecutor implements RunExecutor
@@ -189,6 +211,49 @@ final class FailingSeniorLoopRunExecutor implements RunExecutor
             verificationReceiptHash: 'sha256:verification-failed',
             scopeGuardReceiptHash: 'sha256:scope-passed',
             diffHash: 'sha256:failed-diff',
+        );
+    }
+}
+
+final class AssertingRealProviderSeniorLoopRunExecutor implements RunExecutor
+{
+    public function execute(
+        OperationEnvelope $envelope,
+        LightTaskContract $taskContract,
+        ProviderPromptProjection $promptProjection,
+        string $runId,
+        ?string $expectedCompactSddHash = null,
+    ): RunExecutionResult {
+        if (config('atlas_dev.efficient.deterministic_fast_path_enabled') !== false) {
+            throw new \RuntimeException('force-real-provider did not disable deterministic fast path');
+        }
+
+        return new RunExecutionResult(
+            completionState: 'passed',
+            scopeGuardStatus: 'passed',
+            verificationStatus: 'passed',
+            persistedReceiptPaths: [],
+            providerCallSummary: [
+                'provider' => $taskContract->providerLock->provider,
+                'model_family' => $taskContract->providerLock->modelFamily,
+                'provider_calls' => 1,
+                'exit_code' => 0,
+                'duration_ms' => 42,
+                'tokens_in' => 1,
+                'tokens_out' => 1,
+                'estimated_cost_usd' => 0.0,
+                'error_codes' => [],
+                'raw_response_hash' => 'sha256:real-provider-test',
+                'stdout_bytes' => 120,
+                'stderr_bytes' => 0,
+            ],
+            diffParseSummary: [
+                'changed_files' => ['src/SmokeSubject.php'],
+                'diff_hash' => 'sha256:real-provider-diff',
+            ],
+            verificationReceiptHash: 'sha256:verification-passed',
+            scopeGuardReceiptHash: 'sha256:scope-passed',
+            diffHash: 'sha256:real-provider-diff',
         );
     }
 }

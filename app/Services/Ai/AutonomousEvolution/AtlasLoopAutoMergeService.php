@@ -188,7 +188,15 @@ final class AtlasLoopAutoMergeService
             file_put_contents($patch, $normalized);
             try {
                 if (! $this->git($repoRoot, ['apply', '--check', '--whitespace=nowarn', basename($patch)])) {
-                    return array_merge($base, ['reason' => 'apply_conflict_tree_moved']);
+                    // INDEPENDÊNCIA 24h+: a proposta passou a re-prova mas o diff não aplica
+                    // mais no repo real (outro merge moveu a árvore). A árvore só anda PRA
+                    // FRENTE — esse diff específico nunca mais casa; sem aposentar, fica
+                    // drenável p/ sempre, re-clonando o repo a cada passe (lixo que infla a
+                    // fila e gasta ciclos). Retira (reviewed_at); o loop re-descobre o alvo se
+                    // ainda tiver superfície melhorável. Mesma filosofia do git_apply_failed.
+                    $proposal->forceFill(['reviewed_at' => now()])->save();
+
+                    return array_merge($base, ['reason' => 'apply_conflict_tree_moved (retired_stale)']);
                 }
                 if (! $this->git($repoRoot, ['apply', '--whitespace=nowarn', basename($patch)])) {
                     return array_merge($base, ['reason' => 'apply_failed']);

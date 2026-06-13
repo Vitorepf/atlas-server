@@ -33,6 +33,11 @@ return [
 
         'desktop_enabled' => (bool) env('ATLAS_DEV_EFFICIENT_DESKTOP_ENABLED', false),
 
+        // Fast local patcher for tiny smoke fixtures. Keep ON by default for
+        // cheap smoke coverage, but live proof commands can force it OFF so
+        // provider evidence cannot be confused with deterministic execution.
+        'deterministic_fast_path_enabled' => (bool) env('ATLAS_DEV_DETERMINISTIC_FAST_PATH_ENABLED', true),
+
         // Canonical default path for CLI / API entrypoints. When `efficient`,
         // any Atlas Dev entrypoint that did not explicitly opt out routes
         // through the efficient pipeline (plan → token → run). Operators can

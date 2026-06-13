@@ -21,6 +21,7 @@ final class AtlasDevSeniorLoopRunCommand extends Command
         {--provider-choice= : Provider choice hint for planning/audit}
         {--composer-model= : Composer/model hint for planning/audit}
         {--provider-timeout-seconds= : Inner provider-call timeout ceiling (seconds) for this run; overrides config defaults for claude_cli/cursor_cli}
+        {--force-real-provider : Disable the deterministic patch shortcut for this run so provider evidence cannot be synthetic}
         {--create-fixture-workspace : Create the standard senior-loop fixture at --workspace when it does not exist}
         {--keep-workspace : Keep the generated fixture workspace}
         {--json : Emit canonical JSON}
@@ -31,6 +32,7 @@ final class AtlasDevSeniorLoopRunCommand extends Command
     public function handle(SeniorEngineerLoopExecutor $executor): int
     {
         $this->applyProviderTimeoutOverride();
+        $this->applyRealProviderOverride();
 
         [$workspace, $created] = $this->resolveWorkspace();
         $intent = (string) ($this->option('intent') ?: 'Fix the failing test in src/SmokeSubject.php: greeting returns helo atlas but tests expect hello atlas. Change only src/SmokeSubject.php and run composer test.');
@@ -85,6 +87,15 @@ final class AtlasDevSeniorLoopRunCommand extends Command
         return (bool) $this->option('strict') && ($payload['status'] ?? null) !== 'passed'
             ? self::FAILURE
             : self::SUCCESS;
+    }
+
+    private function applyRealProviderOverride(): void
+    {
+        if (! (bool) $this->option('force-real-provider')) {
+            return;
+        }
+
+        config(['atlas_dev.efficient.deterministic_fast_path_enabled' => false]);
     }
 
     /**

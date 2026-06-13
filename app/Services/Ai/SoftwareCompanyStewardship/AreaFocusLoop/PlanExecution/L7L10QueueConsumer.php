@@ -82,6 +82,11 @@ final class L7L10QueueConsumer
             if ($n < $min || $n > $max) {
                 continue; // outside the L7-L10 range (e.g. S1-S82) — not this queue
             }
+            if (isset($seen[$n])) {
+                $bad[] = $label.':duplicate';
+
+                continue;
+            }
             $seen[$n] = true;
 
             $level = $this->levelFor($n, $levels);
