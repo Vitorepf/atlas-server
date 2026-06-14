@@ -309,4 +309,98 @@ final class AtlasLoopAutoMergeServiceTest extends TestCase
         $this->assertGreaterThanOrEqual(5, $verdict['impact_receipts']['observed']);
         $this->assertGreaterThan(0.0, $verdict['impact_receipts']['avg_impact_score']);
     }
+
+    /**
+     * F1 (L5-9 TOCTOU, agora ENFORCED): a identidade canônica autorizada é re-resolvida
+     * imediatamente antes das git ops. Se o caminho não resolve mais idêntico (symlink/montagem
+     * trocada entre authorize() e o apply), o merge ABORTA — main intocado, nada commitado.
+     * Antes deste fix o 6º arg era silenciosamente descartado e a re-resolução nunca rodava.
+     */
+    public function test_toctou_canonical_change_aborts_the_merge(): void
+    {
+        $original = "<?php\nfunction val(){ return 1; }\n";
+        $repo = $this->repo($original);
+        $proposal = $this->certifiedProposal($this->makeDiff($original, "<?php\nfunction val(){ return 2; }\n"), 'toctou-1');
+
+        $svc = app(AtlasLoopAutoMergeService::class);
+        $m = new \ReflectionMethod($svc, 'mergeOne');
+        $m->setAccessible(true);
+        // authorizedCanonical aponta para um caminho que $repo NÃO resolve → stillResolvesTo=false → abort.
+        $res = $m->invoke($svc, $proposal, $repo, false, null, null, '/nonexistent/authorized/path');
+
+        $this->assertFalse((bool) $res['merged'], 'identidade do repo mudou → merge abortado');
+        $this->assertStringContainsString('canonical_path_changed_toctou', (string) $res['reason']);
+        $this->assertSame($original, file_get_contents($repo.'/snippet.php'), 'a árvore real não foi tocada');
+        $this->assertStringNotContainsString('atlas loop auto-merge', $this->git($repo, ['log', '-1', '--pretty=%s']));
+        $this->assertFalse((bool) $proposal->fresh()->merged_to_main);
+    }
+
+    /**
+     * F3 (pre-commit canary gate): um canário-irmão VERMELHO bloqueia o merge — o apply é
+     * DESFEITO (main intocado, nada commitado), a proposta é aposentada e uma task fix-forward
+     * é enfileirada. A regressão de comportamento NUNCA transita por main no caminho single-file.
+     */
+    public function test_precommit_canary_red_blocks_merge_reverts_apply_and_fix_forwards(): void
+    {
+        $original = "<?php\nfunction val(){ return 1; }\n";
+        $repo = $this->repoWithCanary($original, true); // fake artisan exits 1 = RED
+        $proposal = $this->certifiedProposal($this->makeDiff($original, "<?php\nfunction val(){ return 2; }\n"), 'precommit-red-1');
+
+        $result = app(AtlasLoopAutoMergeService::class)->drain($repo, 5);
+
+        $this->assertSame(0, $result['merged_count'], json_encode($result['results']));
+        $r = $result['results'][0];
+        $this->assertFalse((bool) $r['merged']);
+        $this->assertStringContainsString('canary_red_precommit_gate', (string) $r['reason']);
+        $this->assertSame($original, file_get_contents($repo.'/snippet.php'), 'o apply foi desfeito (regressão não entra em main)');
+        $this->assertStringNotContainsString('atlas loop auto-merge', $this->git($repo, ['log', '-1', '--pretty=%s']));
+        $fresh = $proposal->fresh();
+        $this->assertFalse((bool) $fresh->merged_to_main, 'canário vermelho nunca mergeia');
+        $this->assertNotNull($fresh->reviewed_at, 'aposentada para não re-drenar e re-falhar o canário p/ sempre');
+        $this->assertTrue((bool) ($r['fix_forward_task']['enqueued'] ?? false), 'fix-forward enfileirado (semântica preservada)');
+    }
+
+    /**
+     * F3 contraprova: canário-irmão VERDE pré-commit → o merge atravessa normalmente.
+     */
+    public function test_precommit_canary_green_merges(): void
+    {
+        $original = "<?php\nfunction val(){ return 1; }\n";
+        $repo = $this->repoWithCanary($original, false); // fake artisan exits 0 = GREEN
+        $proposal = $this->certifiedProposal($this->makeDiff($original, "<?php\nfunction val(){ return 2; }\n"), 'precommit-green-1');
+
+        $result = app(AtlasLoopAutoMergeService::class)->drain($repo, 5);
+
+        $this->assertSame(1, $result['merged_count'], json_encode($result['results']));
+        $this->assertTrue((bool) $proposal->fresh()->merged_to_main);
+        $this->assertTrue((bool) ($result['results'][0]['canary']['ran'] ?? false), 'o canário rodou pré-commit');
+        $this->assertTrue((bool) ($result['results'][0]['canary']['passed'] ?? false), 'e ficou verde');
+    }
+
+    /**
+     * A bare git repo whose convention sibling test EXISTS (so the resolver finds it) plus a
+     * fake `artisan` stub that exits 1 (RED) or 0 (GREEN), so the pre-commit canary verdict is
+     * deterministic without a full Laravel app in the temp tree.
+     */
+    private function repoWithCanary(string $original, bool $red): string
+    {
+        $d = sys_get_temp_dir().'/atlas-automerge-'.bin2hex(random_bytes(4));
+        mkdir($d.'/tests/Unit', 0o755, true);
+        $this->dirs[] = $d;
+        file_put_contents($d.'/snippet.php', $original);
+        // The canary runs `php artisan test <sibling>` in the repo; the stub decides red/green.
+        file_put_contents($d.'/artisan', "<?php\nexit(".($red ? '1' : '0').");\n");
+        // Presence is what AtlasLoopSiblingTestResolver keys on (basename snippet → snippetTest.php).
+        file_put_contents($d.'/tests/Unit/snippetTest.php', "<?php\n// sibling presence; the fake artisan decides the verdict.\n");
+        $this->git($d, ['init', '-q']);
+        $this->git($d, ['add', '-A']);
+        $this->git($d, ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'base', '--no-gpg-sign']);
+
+        config(['atlas.ai.loop.multi_repo.enabled' => true]);
+        $allowed = (array) config('atlas.ai.loop.multi_repo.allowed_repos', []);
+        $allowed[] = realpath($d) ?: $d;
+        config(['atlas.ai.loop.multi_repo.allowed_repos' => array_values(array_unique($allowed))]);
+
+        return $d;
+    }
 }

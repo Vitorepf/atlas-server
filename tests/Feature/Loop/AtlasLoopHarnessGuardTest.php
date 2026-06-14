@@ -68,6 +68,8 @@ final class AtlasLoopHarnessGuardTest extends TestCase
             'AtlasLoopAutoMergeService',
             'AtlasLoopNetDirectionGuard',
             'AtlasLoopHarnessGuard',
+            'AtlasLoopUtilityGradeService',       // o termômetro honesto (pétreo desde 14/06)
+            'AtlasLoopWiredCallerService',         // a fonte de verdade que a régua re-resolve
             'complete_atlas_loop_runtime_schema', // never-merge CHECK+trigger
             'governed_merge_door',                // a porta governada
         ] as $critical) {
