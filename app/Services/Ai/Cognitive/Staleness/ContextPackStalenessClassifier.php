@@ -70,6 +70,10 @@ final class ContextPackStalenessClassifier
     {
         $value = $signals[$key] ?? 0;
 
+        if (is_float($value) && ! is_finite($value)) {
+            return 0;
+        }
+
         if (! is_int($value)) {
             $value = is_numeric($value) ? (int) $value : 0;
         }
