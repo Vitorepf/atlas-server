@@ -50,6 +50,7 @@ final class AtlasAaeosQualityBarService
             'schema_version' => self::SCHEMA_VERSION,
             'breach_count' => count($breaches),
             'breaches' => $breaches,
+            'worst_breach' => $breaches[0] ?? null,
             'emitted_at' => gmdate('c'),
         ];
     }
