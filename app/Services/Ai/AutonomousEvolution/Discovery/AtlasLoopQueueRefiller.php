@@ -38,7 +38,49 @@ final class AtlasLoopQueueRefiller
         private readonly ?AtlasLoopObraClusterDetectorService $obraClusterDetector = null,
         private readonly ?AtlasLoopWorkShapeRouter $workShapeRouter = null,
         private readonly ?AtlasLoopMultiFileRefactorSynthesizer $multiFileRefactorSynthesizer = null,
+        private readonly ?AtlasLoopNextWorkDecider $nextWorkDecider = null,
     ) {}
+
+    /**
+     * DECISION ("o quê a seguir") — the next-work priority for a target, gated by the PER-CAMPAIGN
+     * frozen pricing scheme. With the decider scheme OFF (default) it returns the legacy score*100,
+     * byte-identical to today. With it ON it returns the ungameable BAND(shape)+OFFSET(leverage
+     * re-resolved FRESH from the campaign workspace). FAIL-OPEN: a null decider or any error falls
+     * back to the legacy value — never throws out of generateAndEnqueue, never regresses ordering.
+     * The receipt (empty when OFF/failed) is stamped into the task payload under '_decision'.
+     *
+     * @param  array<string,mixed>  $signals
+     * @return array{priority:int, receipt:array<string,mixed>}
+     */
+    private function decidedPriority(AtlasLoopCampaign $campaign, AtlasLoopTarget $target, array $signals, string $repoRoot, string $shapeHint): array
+    {
+        $legacy = (int) round(((float) $target->score) * 100);
+        if ($this->nextWorkDecider === null || ! $this->frozenDecisionScheme($campaign)) {
+            return ['priority' => $legacy, 'receipt' => []];
+        }
+        try {
+            $d = $this->nextWorkDecider->decide($repoRoot, ltrim((string) $target->target_path, '/'), $signals, (float) $target->score, $shapeHint);
+
+            return ['priority' => (int) $d['priority'], 'receipt' => (array) $d['receipt']];
+        } catch (Throwable) {
+            return ['priority' => $legacy, 'receipt' => []];
+        }
+    }
+
+    /**
+     * The next-work pricing scheme is FROZEN per campaign at creation ({@see AtlasLoopStore::openCampaign}),
+     * so an in-flight campaign never mixes the legacy and banded priority scales in one column. An
+     * older campaign without the snapshot falls back to the live flag (default OFF => no mix).
+     */
+    private function frozenDecisionScheme(AtlasLoopCampaign $campaign): bool
+    {
+        $cfg = is_array($campaign->config) ? $campaign->config : [];
+        if (array_key_exists('decision_priority_enabled', $cfg)) {
+            return (bool) $cfg['decision_priority_enabled'];
+        }
+
+        return (bool) config('atlas.loop.decision_priority_enabled', false);
+    }
 
     /**
      * Discover + generate + enqueue up to $want new tasks for a campaign.
@@ -168,13 +210,18 @@ final class AtlasLoopQueueRefiller
             if ($cluster !== null) {
                 $synth = $this->multiFileRefactorSynthesizer->synthesizeMultiFileRefactor($cluster, $repoRoot, $signals, $provider);
                 if ($synth !== null) {
+                    $dp = $this->decidedPriority($campaign, $target, $signals, $repoRoot, 'multi_file_refactor');
+                    $mfPayload = $synth['payload'];
+                    if ($dp['receipt'] !== []) {
+                        $mfPayload['_decision'] = $dp['receipt'];
+                    }
                     $enq = $this->store->enqueueTask(
                         $campaign->id,
                         $synth['objective'],
-                        $synth['payload'],
+                        $mfPayload,
                         'discovery',
                         (string) $target->target_path,
-                        (int) round(((float) $target->score) * 100),
+                        $dp['priority'],
                         true,
                         $synth['acceptance_hash'],
                     );
@@ -209,13 +256,17 @@ final class AtlasLoopQueueRefiller
             if ($provider !== '') {
                 $payload['provider'] = $provider;
             }
+            $dp = $this->decidedPriority($campaign, $target, $signals, $repoRoot, AtlasLoopWorkShapeRouter::SHAPE_EDGE_FIX);
+            if ($dp['receipt'] !== []) {
+                $payload['_decision'] = $dp['receipt'];
+            }
             $enq = $this->store->enqueueTask(
                 $campaign->id,
                 'Improve '.basename((string) $target->target_path).' guided by its improvement signals (edge gaps, branch density) — framework target.',
                 $payload,
                 'discovery',
                 (string) $target->target_path,
-                (int) round(((float) $target->score) * 100),
+                $dp['priority'],
                 true,
                 '',
             );
@@ -243,13 +294,18 @@ final class AtlasLoopQueueRefiller
                     $target->id,
                 );
                 if ($refactor !== null) {
+                    $dp = $this->decidedPriority($campaign, $target, $signals, $repoRoot, AtlasLoopWorkShapeRouter::SHAPE_REFACTOR);
+                    $rfPayload = $refactor['payload'];
+                    if ($dp['receipt'] !== []) {
+                        $rfPayload['_decision'] = $dp['receipt'];
+                    }
                     $enq = $this->store->enqueueTask(
                         $campaign->id,
                         $refactor['objective'],
-                        $refactor['payload'],
+                        $rfPayload,
                         'discovery',
                         (string) $target->target_path,
-                        (int) round(((float) $target->score) * 100),
+                        $dp['priority'],
                         true,
                         $refactor['acceptance_hash'],
                     );
@@ -298,13 +354,17 @@ final class AtlasLoopQueueRefiller
 
             $task = $gen['task'];
             $payload = $this->snapshotPayload($base, $task, $targetRel, $provider, $target->id);
+            $dp = $this->decidedPriority($campaign, $target, $signals, $repoRoot, AtlasLoopWorkShapeRouter::SHAPE_EDGE_FIX);
+            if ($dp['receipt'] !== []) {
+                $payload['_decision'] = $dp['receipt'];
+            }
             $enq = $this->store->enqueueTask(
                 $campaign->id,
                 (string) $task['objective'],
                 $payload,
                 AtlasLoopTarget::ORIGIN_DISCOVERY === ($target->lineage['origin'] ?? AtlasLoopTarget::ORIGIN_DISCOVERY) ? 'discovery' : 'loopback',
                 (string) $target->target_path,
-                (int) round(((float) $target->score) * 100),
+                $dp['priority'],
                 true,
                 (string) ($task['acceptance']['acceptance_hash'] ?? ''),
             );
@@ -363,13 +423,18 @@ final class AtlasLoopQueueRefiller
         if ($refactor === null) {
             return null;
         }
+        $dp = $this->decidedPriority($campaign, $target, $signals, $repoRoot, AtlasLoopWorkShapeRouter::SHAPE_REFACTOR);
+        $frPayload = $refactor['payload'];
+        if ($dp['receipt'] !== []) {
+            $frPayload['_decision'] = $dp['receipt'];
+        }
         $enq = $this->store->enqueueTask(
             $campaign->id,
             $refactor['objective'],
-            $refactor['payload'],
+            $frPayload,
             'discovery',
             (string) $target->target_path,
-            (int) round(((float) $target->score) * 100),
+            $dp['priority'],
             true,
             $refactor['acceptance_hash'],
         );

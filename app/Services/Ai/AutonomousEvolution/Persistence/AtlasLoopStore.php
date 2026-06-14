@@ -33,6 +33,15 @@ final class AtlasLoopStore
      */
     public function openCampaign(string $goal, string $baseWorkspace, array $caps = [], array $config = [], string $provider = ''): AtlasLoopCampaign
     {
+        // SCHEME FREEZE (decision-priority): snapshot the next-work pricing scheme at creation so a
+        // single campaign NEVER mixes the legacy score*100 scale and the banded decider scale in one
+        // priority column (claimNextTask is campaign-scoped, so freezing per campaign is sufficient).
+        // Flipping the flag mid-flight only affects the NEXT campaign — an in-flight campaign keeps
+        // the scheme it started with. Explicit config wins (tests/operator override).
+        if (! array_key_exists('decision_priority_enabled', $config)) {
+            $config['decision_priority_enabled'] = (bool) config('atlas.loop.decision_priority_enabled', false);
+        }
+
         return AtlasLoopCampaign::query()->create([
             'schema_version' => 'atlas.loop.campaign.v1',
             'status' => AtlasLoopCampaign::STATUS_RUNNING,

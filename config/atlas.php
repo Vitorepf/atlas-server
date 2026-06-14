@@ -1868,6 +1868,19 @@ return [
         'decision_min_refactor_cyclomatic' => max(1, (int) env('ATLAS_LOOP_DECISION_MIN_REFACTOR_CYCLOMATIC', 10)),
         'decision_leverage_floor' => max(0.0, (float) env('ATLAS_LOOP_DECISION_LEVERAGE_FLOOR', 0.6)),
 
+        // DECISION ("o quê a seguir") — the UNGAMEABLE next-work priority. When ON, the task
+        // priority becomes BAND(shape) + OFFSET(leverage re-resolved FRESH from git/graph) instead
+        // of the stored `score*100` scalar, so SHAPE dominates (a confirmed orphan can never out-rank
+        // a wired hub) and no forged stored score can buy the next-work slot. Re-resolution runs at
+        // ENQUEUE only (never the hot claim path); fail-open to the legacy value WITHIN the band.
+        // Default OFF: with it off the enqueue priority is byte-identical to today (score*100).
+        'decision_priority_enabled' => (bool) env('ATLAS_LOOP_DECISION_PRIORITY_ENABLED', false),
+        // When BOTH fresh leverage reads (grep callers + AST cyclomatic) are unavailable, the offset
+        // falls back to the stored score but is CAPPED to this ceiling (far below the band width)
+        // so any genuinely measured target sorts strictly above any fail-open-degraded one — a
+        // forged/stale stored score can never buy the next-work slot. Anti-gaming floor.
+        'decision_unmeasured_offset_ceiling' => max(0, min(999, (int) env('ATLAS_LOOP_DECISION_UNMEASURED_OFFSET_CEILING', 199))),
+
         // OPTION 3 — operator-gated autonomous MULTI-FILE refactor. When ON (AND
         // refactor_multi_file_via_obra ON, AND obra_cluster_detection_enabled ON), the refiller
         // synthesizes a >=2-file refactor_reduce_complexity task from a detected cluster; the

@@ -226,6 +226,11 @@ class AppServiceProvider extends ServiceProvider
                 rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObraClusterDetectorService::class), null, false),
                 rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWorkShapeRouter::class), null, false),
                 rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopMultiFileRefactorSynthesizer::class), null, false),
+                // Arg 12: the ungameable next-work decider. Bound WITHOUT a caller-resolver so it
+                // self-anchors to each campaign workspace per-call (the critical anti-gaming fix —
+                // callers must be grepped from the SAME tree the cyclomatic is read from, never
+                // base_path()). Default decision_priority_enabled is OFF (frozen per campaign).
+                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopNextWorkDecider::class), null, false),
             ),
         );
         // Warm ACP session pool: ONE per worker process (singleton) so a `hermes acp`

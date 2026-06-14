@@ -48,6 +48,10 @@ final class AtlasLoopHarnessGuard
         // termômetro). O juiz NUNCA pode ser editável a um flip de distância; pétreo aqui.
         'app/Services/Ai/AutonomousEvolution/AtlasLoopUtilityGradeService.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopWiredCallerService.php',
+        // O DECISOR "o quê a seguir" (a prioridade ungameable). Mesmo princípio do termômetro:
+        // o réu NUNCA pode editar o próprio priorizador — senão lavaria qualquer alvo para o topo
+        // da fila. Pétreo: o decisor re-resolve leverage do git/grafo fresco e a SHAPE-band domina.
+        'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopNextWorkDecider.php',
         // A camada never-merge no banco (CHECK + trigger + a porta governada).
         'database/migrations/2026_06_02_000200_complete_atlas_loop_runtime_schema.php',
         'database/migrations/2026_06_12_000100_governed_merge_door_atlas_loop_proposals.php',
