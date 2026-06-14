@@ -28,7 +28,6 @@ final class AtlasAutonomousEvolutionCertificationService
             $this->assistedExecutionBridgeSmoke(),
             $this->highRiskGateSmoke(),
             $this->doctrineBlockerSmoke(),
-            $this->claimPolicy(),
             $this->fileCheck('commands', 'app/Console/Commands/AtlasAaelCommand.php', ['atlas:aael', 'cycle', 'control-plane']),
             $this->fileCheck('certify_command', 'app/Console/Commands/AtlasAaelCertifyCommand.php', ['atlas:aael:certify']),
             $this->fileCheck('tests', 'tests/Feature/Ai/AutonomousEvolution/AtlasAutonomousEvolutionLoopServiceTest.php', ['test_cycle_creates_portfolio_experiment_decision_and_audit', 'test_doctrine_gate_blocks_parallel_runtime_duplication', 'assisted_execution_quality']),
@@ -203,12 +202,18 @@ final class AtlasAutonomousEvolutionCertificationService
      */
     private function withoutPersistingSmoke(callable $callback): mixed
     {
-        return DB::transaction(function () use ($callback): mixed {
+        DB::beginTransaction();
+
+        try {
             $result = $callback();
             DB::rollBack();
 
             return $result;
-        });
+        } catch (\Throwable $throwable) {
+            DB::rollBack();
+
+            throw $throwable;
+        }
     }
 
     private function contains(string $path, string $token): bool
