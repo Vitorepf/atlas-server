@@ -1859,6 +1859,15 @@ return [
         // Max obra candidates parked per refill cycle (bounds operator-queue growth).
         'obra_cluster_max_candidates_per_cycle' => max(1, (int) env('ATLAS_LOOP_OBRA_CLUSTER_MAX_CANDIDATES_PER_CYCLE', 2)),
 
+        // DECISION work-shape router (AtlasLoopWorkShapeRouter): reasons the highest-leverage work
+        // SHAPE per target from the already-stamped discovery signals, replacing the static flag
+        // cascade. Load-bearing decision = work_skip (defer a CONFIRMED orphan instead of spending
+        // a provider call on dead code). Default ON; fail-open to the cascade. The shape only
+        // routes; the synthesizer/generator RED-gates remain the authority.
+        'decision_router_enabled' => (bool) env('ATLAS_LOOP_DECISION_ROUTER_ENABLED', true),
+        'decision_min_refactor_cyclomatic' => max(1, (int) env('ATLAS_LOOP_DECISION_MIN_REFACTOR_CYCLOMATIC', 10)),
+        'decision_leverage_floor' => max(0.0, (float) env('ATLAS_LOOP_DECISION_LEVERAGE_FLOOR', 0.6)),
+
         // L4-1: cooldown por target recente. Tasks/proposals recentes do mesmo path caem no
         // ranking para evitar farming do arquivo que acabou de render proposta.
         'target_cooldown_enabled' => (bool) env('ATLAS_LOOP_TARGET_COOLDOWN_ENABLED', true),

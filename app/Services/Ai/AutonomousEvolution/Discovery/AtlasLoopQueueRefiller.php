@@ -36,6 +36,7 @@ final class AtlasLoopQueueRefiller
         private readonly ?AtlasLoopHarnessGuard $harnessGuard = null,
         private readonly ?AtlasLoopFrameworkRefactorSynthesizer $frameworkRefactorSynthesizer = null,
         private readonly ?AtlasLoopObraClusterDetectorService $obraClusterDetector = null,
+        private readonly ?AtlasLoopWorkShapeRouter $workShapeRouter = null,
     ) {}
 
     /**
@@ -128,6 +129,27 @@ final class AtlasLoopQueueRefiller
         // compilado deterministicamente + certificação adversarial universal). É o
         // caminho pelo qual o Loop melhora serviços REAIS do Atlas.
         $signals = is_array($target->signals) ? $target->signals : [];
+
+        // DECISION ("o quê a seguir"): the work-shape router REASONS the highest-leverage shape
+        // from the already-stamped signals (replacing pure flag-routing). Its load-bearing
+        // decision HERE is work_skip — a CONFIRMED orphan is DEFERRED, not ground: don't spend a
+        // provider call on dead code (the honest decision the static cascade lacked). The
+        // refactor/edge lanes below remain the executors and keep every RED-gate. Flag-gated
+        // (default ON); fail-open — the router only skips on a measured orphan, never on missing
+        // data, so the cascade is byte-identical for every non-orphan target.
+        if ((bool) config('atlas.loop.decision_router_enabled', true)) {
+            $decision = ($this->workShapeRouter ?? new AtlasLoopWorkShapeRouter())->decideShape($signals);
+            if (($decision['shape'] ?? '') === AtlasLoopWorkShapeRouter::SHAPE_SKIP) {
+                $this->loopBack->reflect($campaign->id, [
+                    'target_id' => $target->id,
+                    'status' => 'no_winner',
+                    'reason' => 'work_shape_skip:'.(string) ($decision['reason'] ?? 'low_leverage'),
+                ]);
+
+                return 'deferred';
+            }
+        }
+
         if ((int) ($signals['framework_reach'] ?? 0) > 0) {
             // FRAMEWORK REFACTOR (heavy, behavior-preserving): BEFORE the edge-gap objective, try
             // to synthesize a `refactor_reduce_complexity` objective STRUCTURALLY (no provider
