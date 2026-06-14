@@ -66,7 +66,9 @@ final class ProviderBudgetFailoverSignalContract
             providerCalls: max(0, (int) ($input['provider_calls'] ?? 0)),
             providerCallsHardCeiling: max(
                 1,
-                (int) ($input['provider_calls_hard_ceiling'] ?? self::DEFAULT_PROVIDER_CALLS_HARD_CEILING),
+                is_numeric($input['provider_calls_hard_ceiling'] ?? null)
+                    ? (int) $input['provider_calls_hard_ceiling']
+                    : self::DEFAULT_PROVIDER_CALLS_HARD_CEILING,
             ),
             remainingProviderBudgetPct: $normalizedRemaining,
         );
