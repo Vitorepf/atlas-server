@@ -180,12 +180,18 @@ final class L7PromotionRequestBuilder
 
         $value = $evidence['rollback_window_seconds'];
 
-        if (is_float($value) && ! is_finite($value)) {
-            return 0;
+        if (is_float($value)) {
+            if (! is_finite($value) || $value !== floor($value)) {
+                return 0;
+            }
         }
 
-        if (is_string($value) && is_numeric($value) && ! is_finite((float) $value)) {
-            return 0;
+        if (is_string($value) && is_numeric($value)) {
+            $float = (float) $value;
+
+            if (! is_finite($float) || $float !== floor($float)) {
+                return 0;
+            }
         }
 
         return $this->intValue($evidence, 'rollback_window_seconds');
