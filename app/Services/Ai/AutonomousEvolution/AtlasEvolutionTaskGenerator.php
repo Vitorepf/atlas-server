@@ -48,7 +48,9 @@ final class AtlasEvolutionTaskGenerator
         $testRel = 'tests/atlas_generated_'.$index.'.php';
         $objRel = 'GENERATED_OBJECTIVE_'.$index.'.txt';
 
-        if (! is_dir($baseWorkspace) || ! is_file(rtrim($baseWorkspace, '/').'/'.$targetRelativePath)) {
+        $base = realpath($baseWorkspace);
+        $target = $base === false ? false : realpath($base.'/'.$targetRelativePath);
+        if ($base === false || $target === false || ! is_file($target) || ! str_starts_with($target, $base.'/')) {
             return ['generated' => false, 'reason' => 'invalid_base_or_target'];
         }
 
