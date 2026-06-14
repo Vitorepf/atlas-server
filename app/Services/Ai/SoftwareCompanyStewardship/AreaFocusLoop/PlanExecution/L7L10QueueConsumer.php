@@ -203,6 +203,6 @@ final class L7L10QueueConsumer
 
     private function escapeMarkdownTableCell(string $value): string
     {
-        return str_replace('|', '\\|', $value);
+        return str_replace('|', '\\|', str_replace(["\r\n", "\r", "\n"], ' ', $value));
     }
 }
