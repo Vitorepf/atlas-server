@@ -68,7 +68,11 @@ final class AtlasAaeosQualityBarService
             }
         }
 
-        usort($breaches, static fn (array $left, array $right): int => $right['deficit'] <=> $left['deficit']);
+        usort(
+            $breaches,
+            static fn (array $left, array $right): int => ($right['deficit'] <=> $left['deficit'])
+                ?: ($left['department'] <=> $right['department'])
+        );
 
         return $breaches;
     }
