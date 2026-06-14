@@ -123,6 +123,9 @@ class WorkspaceReader
         while ($underRelative !== null && str_starts_with($underRelative, './')) {
             $underRelative = substr($underRelative, 2);
         }
+        if ($underRelative === '.') {
+            $underRelative = '';
+        }
 
         if ($this->fileCache === null) {
             $this->fileCache = $this->scanAllFiles();
