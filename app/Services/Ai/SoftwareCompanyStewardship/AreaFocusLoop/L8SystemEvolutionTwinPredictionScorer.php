@@ -161,6 +161,13 @@ final class L8SystemEvolutionTwinPredictionScorer
                 continue;
             }
 
+            if (! array_key_exists('actual_delta', $outcome)
+                || (! is_int($outcome['actual_delta'])
+                    && ! is_float($outcome['actual_delta'])
+                    && ! (is_string($outcome['actual_delta']) && is_numeric(trim($outcome['actual_delta']))))) {
+                continue;
+            }
+
             $indexed[$candidateId] = AreaFocusScalarNormalizer::numberOrDefault($outcome['actual_delta'] ?? 0.0, 0.0);
         }
 
