@@ -224,6 +224,13 @@ PHP;
         $refiller = $this->refiller();
         $this->invokeGenerateAndEnqueue($refiller, $campaign, $target);
 
+        // Always-counted assertion (guards against a zero-task "risky" result), plus the
+        // per-task check that proves NO enqueued task is a synthesized refactor.
+        $this->assertSame(
+            0,
+            $this->refactorTaskCount($campaign->id),
+            'flag OFF => the synthesizer is never invoked (default-inert)',
+        );
         $tasks = DB::table('atlas_loop_tasks')->where('campaign_id', $campaign->id)->get();
         foreach ($tasks as $t) {
             $payload = (array) json_decode((string) $t->payload, true);
@@ -233,6 +240,20 @@ PHP;
                 'flag OFF => the synthesizer is never invoked (default-inert)',
             );
         }
+    }
+
+    /** Count the enqueued tasks for a campaign whose objective is a complexity refactor. */
+    private function refactorTaskCount(string $campaignId): int
+    {
+        $count = 0;
+        foreach (DB::table('atlas_loop_tasks')->where('campaign_id', $campaignId)->get() as $t) {
+            $payload = (array) json_decode((string) $t->payload, true);
+            if (($payload['objective_kind'] ?? null) === 'refactor_reduce_complexity') {
+                $count++;
+            }
+        }
+
+        return $count;
     }
 
     /** A full discovery `scored` array (upsert requires score/self_contained/improvement/novelty/signals). */

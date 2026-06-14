@@ -1810,6 +1810,22 @@ return [
         // Gates Phase-2 routing of >=2-file refactor tasks through AtlasLoopObraBridgeService
         // (operator-reviewed, never-merge). Phase 1 is single-file only; this stays OFF until Phase 2.
         'refactor_multi_file_via_obra' => (bool) env('ATLAS_LOOP_REFACTOR_MULTI_FILE_VIA_OBRA', false),
+
+        // FRAMEWORK REFACTOR (heavy, behavior-preserving, framework-reach targets). The loop can
+        // emit a `refactor_reduce_complexity` objective for a HIGH-COMPLEXITY framework service that
+        // is WIRED (>=1 real production caller) AND has real PHPUnit tests; the framework path runs
+        // those REAL tests (behavior preserved) AND the semantic certifier proves an AST max-per-method
+        // cyclomatic DROP (file total not increasing) by the judge's OWN measure in the gate workspace
+        // — ungameable: behavior by the real tests, complexity by AST, never provider-claimed. ALL
+        // default OFF: with the flag OFF the framework branch is byte-identical to today (edge-gap
+        // objective only). NEVER weakens never-merge / petreo HarnessGuard / governed door /
+        // broader-regression gate. Heavy multi-statement diffs are NOT rejected by any small-diff cap
+        // for refactor objectives — the certification measure is complexity drop, not diff size.
+        'framework_refactor_enabled' => (bool) env('ATLAS_LOOP_FRAMEWORK_REFACTOR_ENABLED', false),
+        // Min AST max-per-method cyclomatic for a framework target to be worth a heavy refactor.
+        'framework_refactor_min_cyclomatic' => max(1, (int) env('ATLAS_LOOP_FRAMEWORK_REFACTOR_MIN_CYCLOMATIC', 10)),
+        // Min real production callers (wired requirement): a refactor only pays back on code that runs.
+        'framework_refactor_min_callers' => max(1, (int) env('ATLAS_LOOP_FRAMEWORK_REFACTOR_MIN_CALLERS', 1)),
         // Gates the obra-auto-merge crossing (AtlasLoopObraAutoMergeService): a GENUINELY
         // certified obra branch auto-merges to main WITHOUT operator review, but ONLY after the
         // broader-regression gate passes. DEFAULT FALSE; OFF => obra always stays operator-review.

@@ -8,6 +8,7 @@ use App\Models\AtlasLoopCampaign;
 use App\Models\AtlasLoopTarget;
 use App\Services\Ai\AutonomousEvolution\AtlasEvolutionTaskGenerator;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopFrameworkRefactorSynthesizer;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -33,6 +34,7 @@ final class AtlasLoopQueueRefiller
         private readonly AtlasLoopStore $store,
         private readonly ?AtlasLoopRefactorObjectiveSynthesizer $refactorSynthesizer = null,
         private readonly ?AtlasLoopHarnessGuard $harnessGuard = null,
+        private readonly ?AtlasLoopFrameworkRefactorSynthesizer $frameworkRefactorSynthesizer = null,
     ) {}
 
     /**
@@ -111,6 +113,43 @@ final class AtlasLoopQueueRefiller
         // caminho pelo qual o Loop melhora serviços REAIS do Atlas.
         $signals = is_array($target->signals) ? $target->signals : [];
         if ((int) ($signals['framework_reach'] ?? 0) > 0) {
+            // FRAMEWORK REFACTOR (heavy, behavior-preserving): BEFORE the edge-gap objective, try
+            // to synthesize a `refactor_reduce_complexity` objective STRUCTURALLY (no provider
+            // call) for a HIGH-COMPLEXITY framework target that is WIRED (>=1 real caller) AND has
+            // real PHPUnit tests. The framework path runs those REAL tests (behavior preserved) and
+            // the semantic certifier proves an AST cyclomatic DROP. Default OFF; fail-closed (the
+            // synthesizer returns null => fall through to the edge-gap path, byte-identical to
+            // today). PETREO: a forbidden self-target is rejected here before enqueue
+            // (belt-and-suspenders; discovery's admit() already filters them).
+            if ((bool) config('atlas.loop.framework_refactor_enabled', false)) {
+                $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard();
+                if (! $guard->isForbiddenSelfTarget((string) $target->target_path)) {
+                    $synth = $this->frameworkRefactorSynthesizer ?? new AtlasLoopFrameworkRefactorSynthesizer();
+                    $refactor = $synth->synthesizeFrameworkRefactor(
+                        $repoRoot,
+                        ltrim((string) $target->target_path, '/'),
+                        $signals,
+                        $provider,
+                        $target->id,
+                    );
+                    if ($refactor !== null) {
+                        $enq = $this->store->enqueueTask(
+                            $campaign->id,
+                            $refactor['objective'],
+                            $refactor['payload'],
+                            'discovery',
+                            (string) $target->target_path,
+                            (int) round(((float) $target->score) * 100),
+                            true,
+                            $refactor['acceptance_hash'],
+                        );
+                        $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'framework_refactor_task_synthesized');
+
+                        return $enq !== null ? 'enqueued' : 'deferred';
+                    }
+                }
+            }
+
             $payload = [
                 'materializer' => 'framework',
                 'intent_verifier_factory' => true,

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasEngineeringHonestyGate;
+use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AdversarialProofPanelService;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use RuntimeException;
@@ -26,6 +27,7 @@ final class AtlasLoopSemanticImplementationCertifier
         private readonly AdversarialProofPanelService $adversarialPanel,
         private readonly AtlasLoopMutationAdequacyGateService $mutationAdequacyGate,
         private readonly AtlasLoopCrossFileConsumerGateService $crossFileConsumerGate,
+        private readonly ?AtlasLoopSignalAnalyzer $signalAnalyzer = null,
     ) {}
 
     /**
@@ -105,7 +107,29 @@ final class AtlasLoopSemanticImplementationCertifier
             'timeout_seconds' => max(1, (int) ($options['refuter_timeout_seconds'] ?? 120)),
         ]);
 
+        // COMPLEXITY-DROP GATE (framework refactor certification). When the FROZEN acceptance is a
+        // refactor contract (complexity_proof=true AND metric_kind=minimize), certification is a
+        // CONJUNCTION: behavior MUST be preserved (the deterministic gate above re-ran the REAL
+        // frozen tests and they stayed GREEN) AND a REAL AST max-per-method cyclomatic measure MUST
+        // drop (file total not increasing), measured by the judge's OWN analyzer in this gate
+        // workspace — never a provider-claimed number. Ungameable: a behavior change turns the real
+        // test RED (deterministic gate), a no-op leaves candidate>=baseline => rejected here. Gated
+        // on the ACCEPTANCE flag (set by the synthesizer), NOT a config flag — a vanilla
+        // implementation contract has complexity_proof absent and never enters this branch
+        // (byte-identical to today). Fail-CLOSED: an unmeasurable/no-op diff returns null => refuted.
+        $complexityProof = null;
+        if ($this->complexityProofRequired($targetAcceptance)) {
+            $complexityProof = $this->measureComplexityReduction($workspace, $changedFiles);
+        }
+
         $reasons = $this->reasons($deterministicGate, $panelVerdict, $mutationAdequacy, $crossFileConsumers, $providerRefuters);
+        if ($this->complexityProofRequired($targetAcceptance) && ($complexityProof['reduced'] ?? null) !== true) {
+            // fail-closed: not reduced, OR null/error measuring (could not verify the drop).
+            $reasons[] = is_array($complexityProof)
+                ? 'complexity_gate:complexity_not_reduced'
+                : 'complexity_gate:measurement_failed';
+        }
+        $reasons = AiStringListNormalizer::uniqueStrings($reasons);
         $certified = $reasons === [];
         $receipt = [
             'schema_version' => self::SCHEMA,
@@ -122,8 +146,15 @@ final class AtlasLoopSemanticImplementationCertifier
             'mutation_adequacy_gate' => $mutationAdequacy,
             'cross_file_consumer_gate' => $crossFileConsumers,
             'provider_refuters' => $providerRefuters,
+            'complexity_proof' => $complexityProof,
             'evidence' => [
                 'target_acceptance_passed' => (bool) data_get($deterministicGate, 'report.holdouts.target_frozen_passed', false),
+                'complexity_proof_required' => $this->complexityProofRequired($targetAcceptance),
+                'complexity_reduced' => is_array($complexityProof) ? (bool) ($complexityProof['reduced'] ?? false) : false,
+                'complexity_baseline_max' => is_array($complexityProof) ? (int) ($complexityProof['baseline_max'] ?? 0) : null,
+                'complexity_candidate_max' => is_array($complexityProof) ? (int) ($complexityProof['candidate_max'] ?? 0) : null,
+                'complexity_baseline_total' => is_array($complexityProof) ? (int) ($complexityProof['baseline_total'] ?? 0) : null,
+                'complexity_candidate_total' => is_array($complexityProof) ? (int) ($complexityProof['candidate_total'] ?? 0) : null,
                 'diff_earned' => data_get($deterministicGate, 'report.holdouts.diff_earned') === true,
                 'sealed_holdout_passed' => data_get($deterministicGate, 'report.holdouts.sealed_holdout_passed') === true,
                 'adversarial_refuted_count' => (int) ($panelVerdict['refuted_count'] ?? 0),
@@ -352,6 +383,93 @@ final class AtlasLoopSemanticImplementationCertifier
         }
 
         return AiStringListNormalizer::uniqueStrings($reasons);
+    }
+
+    /**
+     * Is this a refactor contract that must PROVE a complexity drop? Gated on the ACCEPTANCE
+     * flag (set by the framework/within-file refactor synthesizer), never a config flag — a
+     * vanilla implementation contract has complexity_proof absent and skips the gate entirely.
+     *
+     * @param  array<string,mixed>  $acceptance
+     */
+    private function complexityProofRequired(array $acceptance): bool
+    {
+        return (bool) ($acceptance['complexity_proof'] ?? false)
+            && (string) ($acceptance['metric_kind'] ?? '') === AtlasEvolutionFrozenJudge::METRIC_MINIMIZE;
+    }
+
+    /**
+     * The ungameable refactor proof for the framework path: did the candidate genuinely REDUCE
+     * complexity? Replicates {@see AtlasEvolutionFrozenJudge::complexityEarned} EXACTLY (the same
+     * AST analyzer, the same git-stash machinery, the same aggregation rule) so the framework
+     * certifier and the within-file judge measure the SAME fact. The diff is LIVE in this gate
+     * workspace, so measure the CANDIDATE first, stash to the committed baseline, measure BASELINE,
+     * and restore (try/finally guarantees the pop even on error).
+     *
+     * AGGREGATION: reduced = candidate_max < baseline_max AND candidate_total <= baseline_total.
+     * The PRIMARY metric is max-per-method cyclomatic (extracting from the worst method registers
+     * a real drop even when the file total stays flat); the file total may not increase, so
+     * "split one ugly method into two uglier ones" cannot game the max.
+     *
+     * @param  list<string>  $changedFiles
+     * @return array{baseline_max:int,candidate_max:int,baseline_total:int,candidate_total:int,reduced:bool}|null
+     *                                  null = could not verify (no PHP file / no diff to stash /
+     *                                  git error / unparseable) => fail closed
+     */
+    private function measureComplexityReduction(string $workspace, array $changedFiles): ?array
+    {
+        $phpFiles = array_values(array_filter(
+            $changedFiles,
+            static fn (string $f): bool => str_ends_with($f, '.php'),
+        ));
+        if ($phpFiles === []) {
+            return null; // nothing measurable -> fail closed
+        }
+        $absPaths = array_map(static fn (string $f): string => $workspace.'/'.ltrim($f, '/'), $phpFiles);
+
+        $analyzer = $this->signalAnalyzer ?? new AtlasLoopSignalAnalyzer();
+
+        // CANDIDATE first: the diff is live in the working tree right now.
+        $candidate = $analyzer->aggregateComplexity($absPaths);
+        if (! $candidate['measured']) {
+            return null; // candidate unparseable -> fail closed
+        }
+
+        $stash = new Process(['git', 'stash', 'push', '--include-untracked', '--quiet'], $workspace, null, null, 60.0);
+        $stash->run();
+        if (! $stash->isSuccessful() || ! $this->stashCreated($workspace)) {
+            return null; // no diff to stash (no-op candidate) -> fail closed
+        }
+
+        try {
+            $baseline = $analyzer->aggregateComplexity($absPaths);
+        } finally {
+            (new Process(['git', 'stash', 'pop', '--quiet'], $workspace, null, null, 60.0))->run();
+        }
+
+        if (! $baseline['measured']) {
+            return null; // baseline unparseable -> fail closed
+        }
+
+        $reduced = $candidate['max_per_method'] < $baseline['max_per_method']
+            && $candidate['total'] <= $baseline['total'];
+
+        return [
+            'baseline_max' => $baseline['max_per_method'],
+            'candidate_max' => $candidate['max_per_method'],
+            'baseline_total' => $baseline['total'],
+            'candidate_total' => $candidate['total'],
+            'reduced' => $reduced,
+        ];
+    }
+
+    /** True when a stash entry exists (the push actually captured changes). */
+    private function stashCreated(string $workspace): bool
+    {
+        $list = new Process(['git', 'stash', 'list'], $workspace, null, null, 30.0);
+        $list->run();
+
+        return trim((string) $list->getOutput()) !== '';
     }
 
     /**

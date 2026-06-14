@@ -288,7 +288,20 @@ final class AtlasEngineeringHonestyGate
             }
 
             $acceptance = $targetAcceptance;
-            $acceptance['revert_recheck'] = true;
+            // DIFF-EARNED (anti-fake for NEW behavior): force the revert-recheck so a passing diff
+            // must EARN its green (reverting it turns the target test RED). EXCEPTION — a
+            // behavior-PRESERVING refactor (complexity_proof=true AND metric_kind=minimize) stays
+            // GREEN with the diff reverted by design, so diff-earned does NOT apply; its anti-fake
+            // proof is the REAL AST complexity DROP enforced by the semantic certifier instead. This
+            // is NOT a weakening: the refactor still must keep the frozen test GREEN (behavior
+            // preserved, re-run by the judge here), pass scope/tamper guards, pass sealed holdouts,
+            // AND prove a measured complexity drop downstream. Only the inapplicable diff-earned
+            // check is skipped for refactors; the (default) new-behavior path is untouched.
+            $isRefactor = (bool) ($targetAcceptance['complexity_proof'] ?? false)
+                && (string) ($targetAcceptance['metric_kind'] ?? '') === AtlasEvolutionFrozenJudge::METRIC_MINIMIZE;
+            if (! $isRefactor) {
+                $acceptance['revert_recheck'] = true;
+            }
             $targetVerdict = (new AtlasEvolutionFrozenJudge)->score($workspace, $acceptance);
             if (! (bool) ($targetVerdict['passed'] ?? false)) {
                 $reason = (string) ($targetVerdict['details']['reason'] ?? 'unknown');

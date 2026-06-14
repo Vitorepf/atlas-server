@@ -373,8 +373,6 @@ class WorkspaceReader
 
     private function looksBinary(string $content): bool
     {
-        $sample = substr($content, 0, 1024);
-
-        return str_contains($sample, "\0");
+        return str_contains($content, "\0");
     }
 }

@@ -110,12 +110,20 @@ final class AtlasLoopFrameworkMaterializer
             throw $e;
         }
 
+        // Anti-fake proof: for a NEW-behavior framework target, revert_recheck=true proves the
+        // diff earned the green (reverting it turns the test RED). A behavior-PRESERVING refactor
+        // (objective_kind=refactor_*, complexity_proof) would stay GREEN with the diff reverted by
+        // design — diff-earned does NOT apply — so its anti-fake proof is the AST complexity DROP
+        // enforced by the certifier instead. Keep revert_recheck OFF for refactor contracts; never
+        // weaken it for the (default) new-behavior path.
+        $isRefactor = str_starts_with(trim((string) ($payload['objective_kind'] ?? '')), 'refactor_')
+            && (bool) ($acceptance['complexity_proof'] ?? false);
         $explorerTask = [
             'objective' => $objective,
             'base_workspace' => $base,
             'materializer' => 'framework',
             'scenario_clone_mode' => 'worktree', // the explorer clones per-scenario worktrees, not cp -R + git init
-            'acceptance' => array_merge($acceptance, ['revert_recheck' => true]), // anti-fake on for framework targets
+            'acceptance' => $isRefactor ? $acceptance : array_merge($acceptance, ['revert_recheck' => true]), // anti-fake on for new-behavior framework targets
             'allowed_files' => AiStringListNormalizer::trimmedStrings($payload['allowed_files'] ?? [$targetRel]),
             'validation_commands' => AiStringListNormalizer::trimmedStrings($payload['validation_commands'] ?? []),
         ];
