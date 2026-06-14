@@ -51,7 +51,7 @@ final class HandoffCompletenessScorer
                 continue;
             }
 
-            $distinct[strtolower($trimmed)] = true;
+            $distinct[mb_strtolower($trimmed, 'UTF-8')] = true;
         }
 
         return $distinct;
