@@ -507,6 +507,13 @@ final class AtlasObraExecutor
             'delivered_nodes' => (int) ($facts['delivered_nodes'] ?? count($done)),
             'provider' => $provider,
             'model' => $model,
+            // RUN PROVENANCE (sealed in the HMAC): only the executor knows its delivery binding.
+            // A real provider run (ProviderObraNodeDelivery, the single spend path) is the ONLY
+            // thing that earns 'real_provider_obra_run'; ANY other binding (a deterministic test
+            // fixture) is honestly stamped 'fixture_obra_run' and a downstream L4-10 proof rejects
+            // it — a fixture can never be laundered into a real receipt.
+            'execution_mode' => $this->delivery instanceof ProviderObraNodeDelivery ? 'real_provider_obra_run' : 'fixture_obra_run',
+            'delivery_label' => $this->delivery->label(),
             'resumed' => (bool) ($facts['resumed'] ?? false),
             'resume_count' => (int) ($facts['resume_count'] ?? 0),
             'main_untouched' => (bool) ($facts['main_untouched'] ?? false),

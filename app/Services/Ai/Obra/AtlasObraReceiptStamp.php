@@ -163,6 +163,12 @@ final class AtlasObraReceiptStamp
             'delivered_nodes' => $this->int($facts['delivered_nodes'] ?? 0),
             'provider' => $this->nullableStr($facts['provider'] ?? null),
             'model' => $this->nullableStr($facts['model'] ?? null),
+            // RUN PROVENANCE (sealed): the delivery binding that produced this obra. A FIXTURE
+            // run (deterministic stub) carries execution_mode='fixture_obra_run' and can NEVER be
+            // verified as a real provider run — a downstream L4-10 proof rejects it. Sealing these
+            // inside the HMAC means a hand-edit of execution_mode/delivery_label breaks the signature.
+            'execution_mode' => $this->nullableStr($facts['execution_mode'] ?? null),
+            'delivery_label' => $this->nullableStr($facts['delivery_label'] ?? null),
             'resumed' => (bool) ($facts['resumed'] ?? false),
             'resume_count' => $this->int($facts['resume_count'] ?? 0),
             'main_untouched' => (bool) ($facts['main_untouched'] ?? false),
@@ -196,6 +202,8 @@ final class AtlasObraReceiptStamp
             'delivered_nodes' => $receipt['delivered_nodes'] ?? 0,
             'provider' => $receipt['provider'] ?? null,
             'model' => $receipt['model'] ?? null,
+            'execution_mode' => $receipt['execution_mode'] ?? null,
+            'delivery_label' => $receipt['delivery_label'] ?? null,
             'resumed' => $receipt['resumed'] ?? false,
             'resume_count' => $receipt['resume_count'] ?? 0,
             'main_untouched' => $receipt['main_untouched'] ?? false,
