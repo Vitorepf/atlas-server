@@ -823,6 +823,12 @@ return [
             // (erro de lógica que passa no php -l) é rejeitado ANTES de entrar em main, senão
             // o supervisor entraria em crash-loop ao reiniciar por drift. Default ON.
             'boot_smoke_guard' => (bool) env('ATLAS_LOOP_BOOT_SMOKE_GUARD', true),
+            // PRE-COMMIT CANARY GATE (default ON): the single-file merge path runs the sibling
+            // canary BEFORE the commit; a RED canary reverts the apply (main untouched) + retires
+            // + enqueues fix-forward, so a behavioral regression never transits main. Fix-forward
+            // semantics are preserved (the loop still fixes forward, from a CLEAN main). Flip OFF
+            // to restore the pure v2 policy (canary post-commit, never reverts — regression lands).
+            'precommit_canary_gate' => (bool) env('ATLAS_LOOP_PRECOMMIT_CANARY_GATE', true),
             // L4-3: cada merge governado recebe um impact receipt determinístico
             // (categoria, tamanho, alvo real-vs-generated, score) para o guard e os
             // relatórios medirem valor, não só volume/quebra.
@@ -2136,6 +2142,12 @@ return [
         // após esgotar os alvos atuais e nunca volta.
         'keepalive_revive_starved' => (bool) env('ATLAS_LOOP_KEEPALIVE_REVIVE_STARVED', true),
         'keepalive_starved_revive_minutes' => (int) env('ATLAS_LOOP_KEEPALIVE_STARVED_REVIVE_MINUTES', 20),
+        // Reap window: a `running` row with no live process whose heartbeat is older than this is
+        // an ABANDONED campaign (not a recently-died soak) — the watchdog marks it completed
+        // (stop_reason=reaped_orphan_no_process) instead of respawning it. The recency bound is
+        // what lets the respawn filter safely include unbounded (max_seconds<=0) soaks without
+        // resurrecting ancient test zombies. Default 24h.
+        'keepalive_reap_after_minutes' => max(60, (int) env('ATLAS_LOOP_KEEPALIVE_REAP_AFTER_MINUTES', 1440)),
 
         // O-2 slice (d): universal adversarial certification. When ON, the DISCOVERY
         // path (not just framework tasks) routes every proposal through the semantic

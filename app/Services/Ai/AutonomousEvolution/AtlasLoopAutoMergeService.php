@@ -192,6 +192,7 @@ final class AtlasLoopAutoMergeService
         bool $operatorApproved = false,
         ?string $operatorId = null,
         ?string $operatorReason = null,
+        ?string $authorizedCanonical = null,
     ): array
     {
         $base = [
@@ -204,6 +205,18 @@ final class AtlasLoopAutoMergeService
         ];
 
         try {
+            // L5-9 TOCTOU (agora ENFORCED — antes o 6º arg era silenciosamente descartado e
+            // a re-resolução documentada NUNCA rodava). A identidade canônica AUTORIZADA foi
+            // capturada pelo chamador (drain/operator-approved) logo após authorize(). Re-resolve
+            // o caminho canônico de $repoRoot AGORA, imediatamente antes de QUALQUER git op, e
+            // ABORTA se mudou (symlink/montagem trocada entre authorize() e aqui). Fail-closed:
+            // um canônico autorizado não-nulo que não resolve mais idêntico bloqueia o merge.
+            // null/'' = chamador legado sem captura ⇒ guarda inerte (comportamento inalterado).
+            if ($authorizedCanonical !== null && $authorizedCanonical !== ''
+                && ! $this->repoAuthority->stillResolvesTo($repoRoot, $authorizedCanonical)) {
+                return array_merge($base, ['reason' => 'canonical_path_changed_toctou (merge abortado; identidade do repo mudou desde a autorização)']);
+            }
+
             // 0. Guardrail do meta-loop NO CONSUMO (defense-in-depth do L3-12): o guard da
             // descoberta pode ser contornado por propostas já certificadas (achado 12/06:
             // o soak certificou edição no PRÓPRIO painel-juiz). Alvo de segurança JAMAIS
@@ -334,6 +347,43 @@ final class AtlasLoopAutoMergeService
             $snapTag = 'atlas-snap-'.substr((string) $proposal->proposal_hash, 0, 12);
             $this->git($repoRoot, ['tag', '-f', $snapTag, 'HEAD']);
 
+            // 4b. CANÁRIO PRÉ-COMMIT (default ON, flag `precommit_canary_gate`) — fecha o buraco
+            // do "fix-forward commitava ANTES do veredito e nunca revertia": uma regressão de
+            // COMPORTAMENTO (passa php -l + boot-smoke mas quebra o teste-irmão) chegava em main
+            // no caminho single-file dominante. Agora o canário roda contra a árvore APLICADA-
+            // mas-não-commitada; RED ⇒ DESFAZ o apply (NÃO é revert de main — nada commitado,
+            // igual php -l/boot-smoke/value-gate), APOSENTA a proposta (senão re-drena + re-falha
+            // p/ sempre = clog) e enfileira a CORREÇÃO fix-forward. A semântica fix-forward é
+            // PRESERVADA (o Loop conserta pra frente), mas a partir de um MAIN LIMPO — a regressão
+            // nunca transita por main. GREEN/sem-irmão ⇒ segue p/ commit. Flag OFF restaura a
+            // política v2 pura (canário pós-commit, nunca reverte) — bloco 6 abaixo.
+            $precommitGate = (bool) config('atlas.ai.loop.precommit_canary_gate', true);
+            $canary = $precommitGate ? $this->canary($repoRoot, $changed) : ['ran' => false, 'passed' => null, 'target' => null];
+            if ($precommitGate && ($canary['ran'] ?? false) && ($canary['passed'] ?? null) === false) {
+                foreach ($changed as $file) {
+                    $this->git($repoRoot, ['checkout', '--', $file]); // pré-commit: desfaz o apply (não é revert)
+                }
+                $fixForward = $this->enqueueFixForward($proposal, $canary, $snapTag);
+                $this->governedSave(function () use ($proposal, $canary): void {
+                    $quality = is_array($proposal->quality) ? $proposal->quality : [];
+                    $quality['_operator_review'] = [
+                        'schema_version' => 'atlas.loop.operator_review.v1',
+                        'status' => 'canary_red_retired',
+                        'reason' => 'precommit_canary_red:'.(string) ($canary['target'] ?? '?'),
+                        'reviewed_at' => now()->toIso8601String(),
+                        'decision' => 'retire_canary_red_fix_forward',
+                    ];
+                    $quality['_canary'] = $canary;
+                    $proposal->forceFill(['reviewed_at' => now(), 'quality' => $quality])->save();
+                });
+
+                return array_merge($base, [
+                    'reason' => 'canary_red_precommit_gate (apply desfeito, main intocado, fix-forward enfileirado)',
+                    'canary' => $canary,
+                    'fix_forward_task' => $fixForward,
+                ]);
+            }
+
             // 5. Commit em main + receipt + marcação governada.
             $msg = 'atlas loop auto-merge: '.(string) $proposal->target_path.' ['.substr((string) $proposal->proposal_hash, 0, 12).']';
             $this->git($repoRoot, array_merge(['add', '--'], $changed));
@@ -357,8 +407,12 @@ final class AtlasLoopAutoMergeService
                 $proposal->forceFill(['merged_to_main' => true, 'reviewed_at' => now(), 'quality' => $quality])->save();
             });
 
-            // 6. Canário best-effort (fix-forward-first: falha registra, não reverte).
-            $canary = $this->canary($repoRoot, $changed);
+            // 6. Canário. Com o gate ON o GREEN já rodou (pré-commit, acima). Com o gate OFF
+            // (política v2 pura, opt-in) roda agora, pós-commit; um RED enfileira fix-forward
+            // SEM reverter — a regressão fica em main até o conserto (comportamento legado).
+            if (! $precommitGate) {
+                $canary = $this->canary($repoRoot, $changed);
+            }
             $impactReceipt = (bool) config('atlas.ai.loop.impact_receipts_enabled', true)
                 ? $this->impactReceipts->build($proposal, $changed, $commit, $canary, $callers)
                 : null;
@@ -374,12 +428,10 @@ final class AtlasLoopAutoMergeService
                 $proposal->forceFill(['quality' => $quality])->save();
             });
 
-            // L3-4: fix-forward FECHA o ciclo. O canário vermelho pós-merge NUNCA reverte
-            // (política v2 do operador) — em vez disso enfileira uma task de CORREÇÃO no
-            // próprio Loop, alvejando o mesmo arquivo, com o snapshot pré-merge endereçado
-            // para a correção partir de um estado conhecido. Dedup natural (enqueueTask).
+            // L3-4 (legado, só com o gate OFF): fix-forward pós-commit sem reverter. Com o gate
+            // ON o RED já foi tratado pré-commit (revert+retire+fix-forward) e nunca chega aqui.
             $fixForward = null;
-            if (($canary['ran'] ?? false) && ($canary['passed'] ?? null) === false) {
+            if (! $precommitGate && ($canary['ran'] ?? false) && ($canary['passed'] ?? null) === false) {
                 $fixForward = $this->enqueueFixForward($proposal, $canary, $snapTag);
             }
 

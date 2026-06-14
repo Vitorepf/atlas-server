@@ -42,6 +42,12 @@ final class AtlasLoopHarnessGuard
         // certificou proposta editando o PRÓPRIO painel-juiz — réu editando o juiz).
         'app/Services/Ai/AutonomousEvolution/AtlasLoopSemanticImplementationCertifier.php',
         'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AdversarialProofPanelService.php',
+        // O TERMÔMETRO HONESTO + sua fonte de verdade (achado adversarial 14/06: a régua
+        // ungameable e o resolvedor de callers que ela re-resolve fresco estavam só
+        // flag-gated, não pétreos — um flip da flag meta e o réu poderia editar o próprio
+        // termômetro). O juiz NUNCA pode ser editável a um flip de distância; pétreo aqui.
+        'app/Services/Ai/AutonomousEvolution/AtlasLoopUtilityGradeService.php',
+        'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopWiredCallerService.php',
         // A camada never-merge no banco (CHECK + trigger + a porta governada).
         'database/migrations/2026_06_02_000200_complete_atlas_loop_runtime_schema.php',
         'database/migrations/2026_06_12_000100_governed_merge_door_atlas_loop_proposals.php',

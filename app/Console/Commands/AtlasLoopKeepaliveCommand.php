@@ -32,13 +32,22 @@ class AtlasLoopKeepaliveCommand extends Command
 
     public function handle(): int
     {
-        $out = ['schema_version' => 'atlas.loop.keepalive.v1', 'checked' => 0, 'respawned' => [], 'healthy' => []];
+        $out = ['schema_version' => 'atlas.loop.keepalive.v1', 'checked' => 0, 'respawned' => [], 'reaped' => [], 'healthy' => []];
         $staleMinutes = max(2, (int) $this->option('stale-minutes'));
 
         $campaigns = DB::table('atlas_loop_campaigns')
             ->where('status', 'running')
             ->where('kill_switch', false)
-            ->whereColumn('elapsed_seconds', '<', 'max_seconds')
+            ->where(function ($q): void {
+                // Bounded campaign with budget remaining, OR an UNBOUNDED soak (max_seconds<=0 =
+                // "no wall-clock cap", per the campaigns migration + the model's budgetReached()).
+                // The unbounded case was WRONGLY excluded by `elapsed_seconds < max_seconds`
+                // (100 < 0 = false), so a dead UNBOUNDED soak was NEVER death-respawned — exactly
+                // the 24/7-independence gap. Treat <=0 as always-budget-remaining (eligible);
+                // ancient abandoned rows are then separated from real soaks by the reaper below.
+                $q->whereColumn('elapsed_seconds', '<', 'max_seconds')
+                    ->orWhere('max_seconds', '<=', 0);
+            })
             ->get();
 
         foreach ($campaigns as $campaign) {
@@ -61,6 +70,25 @@ class AtlasLoopKeepaliveCommand extends Command
                 $this->killSupervisor($id);
                 $this->respawn($id);
                 $out['respawned'][] = ['campaign_id' => $id, 'reason' => 'frozen_alive_killed_and_respawned', 'heartbeat_age_minutes' => (int) floor((time() - $heartbeat) / 60)];
+
+                continue;
+            }
+
+            // REAP de órfãos: uma linha `running` SEM processo vivo cujo heartbeat é mais velho
+            // que a janela de reap é uma campanha ABANDONADA (ex.: campanha-teste antiga que
+            // nunca completou limpo, ou um soak unbounded morto há muito tempo) — NÃO é um soak
+            // que acabou de morrer para ressuscitar. Marca completed para parar de se passar por
+            // `running` e poluir o monitoramento. A janela de recência é o que separa "relança o
+            // soak que morreu há 5 min" de "aposenta o zumbi de ontem". Sem isto, incluir
+            // max_seconds<=0 no filtro acima ressuscitaria zumbis-teste antigos a cada 5 min.
+            $reapAfterMinutes = max(60, (int) config('atlas.loop.keepalive_reap_after_minutes', 1440));
+            if (! $alive && $heartbeat > 0 && $heartbeat < (time() - $reapAfterMinutes * 60)) {
+                DB::table('atlas_loop_campaigns')->where('id', $id)->update([
+                    'status' => 'completed',
+                    'stop_reason' => 'reaped_orphan_no_process',
+                    'updated_at' => now(),
+                ]);
+                $out['reaped'][] = ['campaign_id' => $id, 'heartbeat_age_minutes' => (int) floor((time() - $heartbeat) / 60)];
 
                 continue;
             }

@@ -110,11 +110,13 @@ final class AtlasLoopUtilityGradeService
             if (is_array($git) && $git['files'] !== []) {
                 $changedFiles = $git['files'];
                 $touched = $git['touched'];
+                $perFile = is_array($git['per_file'] ?? null) ? $git['per_file'] : [];
             } else {
                 $changedFiles = $this->changedFilesFromDiff($diff);
                 $touched = $this->touchedLinesFromDiff($diff);
+                $perFile = $this->perFileLinesFromDiff($diff);
             }
-            $target = $this->primaryTarget($changedFiles, (string) $proposal->target_path);
+            $target = $this->primaryTarget($changedFiles, (string) $proposal->target_path, $perFile);
             if ($target === '') {
                 continue;
             }
@@ -232,13 +234,17 @@ final class AtlasLoopUtilityGradeService
     }
 
     /**
-     * The file the grade actually scores: the largest-looking REAL .php file in the diff
-     * (production, non-test, non-generated). Falls back to the stored target_path only if
-     * the diff yielded nothing parseable.
+     * The file the grade actually scores: the DOMINANT real .php file in the diff — the one with
+     * the MOST changed lines (production, non-test, non-generated), NOT merely the first in diff
+     * order. This closes the bundle mis-attribution the adversarial grade found (a 218-line/
+     * 7-file commit was credited to a file that changed 4 lines), so the WIRED/NON_TRIVIAL axes
+     * score the file the merge actually changed. Falls back to first real, then first changed,
+     * then the stored target_path when the diff yields nothing parseable.
      *
      * @param  list<string>  $changedFiles
+     * @param  array<string,int>  $perFile  changed-line count per path (numstat/diff); [] = unknown
      */
-    private function primaryTarget(array $changedFiles, string $storedTarget): string
+    private function primaryTarget(array $changedFiles, string $storedTarget, array $perFile = []): string
     {
         $real = array_values(array_filter(
             $changedFiles,
@@ -248,13 +254,57 @@ final class AtlasLoopUtilityGradeService
                 && preg_match('#(^|/)Generated(/|$)#', $f) !== 1,
         ));
         if ($real !== []) {
-            return $real[0];
+            // Dominant by changed lines; ties keep the earliest diff-order file (stable, so the
+            // attribution is deterministic across re-grades of the same commit).
+            $best = $real[0];
+            $bestLines = (int) ($perFile[$best] ?? 0);
+            foreach ($real as $f) {
+                $lines = (int) ($perFile[$f] ?? 0);
+                if ($lines > $bestLines) {
+                    $best = $f;
+                    $bestLines = $lines;
+                }
+            }
+
+            return $best;
         }
         if ($changedFiles !== []) {
             return $changedFiles[0];
         }
 
         return trim(str_replace('\\', '/', $storedTarget));
+    }
+
+    /**
+     * Per-file changed-line counts parsed from a unified diff — the fallback when git numstat is
+     * unavailable. Counts +/- BODY lines (excluding the +++/--- file headers) per file section so
+     * {@see primaryTarget} can pick the dominant file even off the stored diff.
+     *
+     * @return array<string,int>
+     */
+    private function perFileLinesFromDiff(string $diff): array
+    {
+        $perFile = [];
+        $current = null;
+        foreach (preg_split('/\R/', $diff) ?: [] as $line) {
+            if (preg_match('/^diff --git a\/(.+?) b\/(.+)$/', $line, $m) === 1) {
+                $current = trim(str_replace('\\', '/', (string) $m[2]));
+                $perFile[$current] ??= 0;
+
+                continue;
+            }
+            if ($current === null || $line === '') {
+                continue;
+            }
+            if (str_starts_with($line, '+++') || str_starts_with($line, '---')) {
+                continue;
+            }
+            if ($line[0] === '+' || $line[0] === '-') {
+                $perFile[$current]++;
+            }
+        }
+
+        return $perFile;
     }
 
     /**
@@ -280,7 +330,7 @@ final class AtlasLoopUtilityGradeService
      * Real changed files + touched lines of an actual merge commit (the ungameable truth
      * of what landed in main). null when the commit is missing/unreadable or git fails.
      *
-     * @return array{files: list<string>, touched: int}|null
+     * @return array{files: list<string>, touched: int, per_file: array<string,int>}|null
      */
     private function gitDiffStat(string $commit): ?array
     {
@@ -304,17 +354,21 @@ final class AtlasLoopUtilityGradeService
                 return null;
             }
             $files = [];
+            $perFile = [];
             $touched = 0;
             foreach (preg_split('/\R/', trim((string) $process->getOutput())) ?: [] as $line) {
                 // numstat: "<added>\t<deleted>\t<path>"
                 if (preg_match('/^(\d+|-)\t(\d+|-)\t(.+)$/', trim($line), $m) !== 1) {
                     continue;
                 }
-                $files[] = trim(str_replace('\\', '/', $m[3]));
-                $touched += (is_numeric($m[1]) ? (int) $m[1] : 0) + (is_numeric($m[2]) ? (int) $m[2] : 0);
+                $path = trim(str_replace('\\', '/', $m[3]));
+                $lines = (is_numeric($m[1]) ? (int) $m[1] : 0) + (is_numeric($m[2]) ? (int) $m[2] : 0);
+                $files[] = $path;
+                $perFile[$path] = ($perFile[$path] ?? 0) + $lines;
+                $touched += $lines;
             }
 
-            return $files === [] ? null : ['files' => array_values(array_unique($files)), 'touched' => $touched];
+            return $files === [] ? null : ['files' => array_values(array_unique($files)), 'touched' => $touched, 'per_file' => $perFile];
         } catch (Throwable) {
             return null;
         }
