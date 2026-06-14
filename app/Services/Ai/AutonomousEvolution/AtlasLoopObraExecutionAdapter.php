@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObraPlanValidator;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopPlanReadinessGate;
 use App\Services\Ai\Obra\AtlasObraExecutor;
 use App\Services\Ai\Obra\ObraNodeDelivery;
 use App\Services\Ai\RealExecution\GovernedBranchMaterializationService;
@@ -70,11 +71,14 @@ final class AtlasLoopObraExecutionAdapter
         $plan = $this->buildPlan($payload, $allowed);
         $planId = (string) $plan['plan_id'];
 
-        // DECOMPOSITION SAFETY GATE — validate the DAG (acyclic, scoped, no self-target, every node
-        // verifiable) BEFORE spending a single token. A malformed/unsafe decomposition is refused.
-        $planVerdict = (new AtlasLoopObraPlanValidator($this->guard))->validate($plan, $allowed);
-        if (($planVerdict['valid'] ?? false) !== true) {
-            return $this->fail('plan_invalid:'.implode(',', array_slice((array) ($planVerdict['reasons'] ?? []), 0, 4)));
+        // PLAN-READINESS GATE — "plan impeccably, THEN implement". Do not spend the EXPENSIVE
+        // implementation budget on a plan that is not structurally sound + fully specified +
+        // pre-verified (every node names its target, states a concrete change, and carries an
+        // acceptance defined UP FRONT). A weak plan REPLANS (cheap), never builds-and-discards
+        // (expensive). This is the structure that makes the loop almost never waste tokens.
+        $readiness = (new AtlasLoopPlanReadinessGate(new AtlasLoopObraPlanValidator($this->guard)))->assess($plan, $allowed);
+        if (($readiness['ready'] ?? false) !== true) {
+            return $this->fail('plan_not_ready_'.((string) ($readiness['decision'] ?? 'replan')).':'.implode(',', array_slice((array) ($readiness['gaps'] ?? []), 0, 4)));
         }
 
         $executor = new AtlasObraExecutor($delivery, new GovernedBranchMaterializationService());
