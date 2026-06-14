@@ -138,7 +138,7 @@ final class DepartmentMaturityCheckContract
 
     private function levelNumeric(string $level): int
     {
-        if (preg_match('/^L(\d+)/', strtoupper(trim($level)), $matches) === 1) {
+        if (preg_match('/^L(\d+)$/', strtoupper(trim($level)), $matches) === 1) {
             return (int) $matches[1];
         }
 
