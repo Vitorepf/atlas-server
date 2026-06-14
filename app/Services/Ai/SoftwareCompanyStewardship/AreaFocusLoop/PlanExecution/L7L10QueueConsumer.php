@@ -95,7 +95,7 @@ final class L7L10QueueConsumer
 
                 continue;
             }
-            if (trim((string) ($slice['delivery'] ?? '')) === '' || (array) ($slice['acceptance_criteria'] ?? []) === []) {
+            if (trim((string) ($slice['delivery'] ?? '')) === '' || array_filter((array) ($slice['acceptance_criteria'] ?? []), static fn (mixed $criterion): bool => trim((string) $criterion) !== '') === []) {
                 $bad[] = $label.':malformed_missing_delivery_or_acceptance';
 
                 continue;
