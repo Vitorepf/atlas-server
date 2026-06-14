@@ -52,14 +52,16 @@ final class ProviderBudgetFailoverSignalContract
      */
     public static function fromArray(array $input): self
     {
+        $areaId = trim((string) ($input['area_id'] ?? 'agentic_engineering_os'));
+        $focus = trim((string) ($input['focus'] ?? 'dev_forge'));
         $explicitRemaining = $input['remaining_provider_budget_pct'] ?? null;
         $normalizedRemaining = is_numeric($explicitRemaining)
             ? self::clampPct((int) $explicitRemaining)
             : null;
 
         return new self(
-            areaId: trim((string) ($input['area_id'] ?? 'agentic_engineering_os')),
-            focus: trim((string) ($input['focus'] ?? 'dev_forge')),
+            areaId: $areaId !== '' ? $areaId : 'agentic_engineering_os',
+            focus: $focus !== '' ? $focus : 'dev_forge',
             runId: trim((string) ($input['run_id'] ?? '')),
             providerCalls: max(0, (int) ($input['provider_calls'] ?? 0)),
             providerCallsHardCeiling: max(
