@@ -309,6 +309,80 @@ final class AtlasLoopSignalAnalyzer
         return implode('', $out);
     }
 
+    /**
+     * Deterministic, AST-based cyclomatic measure for a SINGLE file's source, exposed as
+     * the one honest signal that BOTH the discovery ranker and the frozen judge consume
+     * (so frozen-green and rank-boost are the same fact, never two divergent numbers).
+     *
+     * The aggregation is the load-bearing choice (open risk in the plan): the PRIMARY
+     * metric is `max_per_method` — the worst single method's cyclomatic — so simplifying
+     * or extracting from the worst method registers a real drop even when an
+     * extract-method keeps the file's TOTAL flat. The judge additionally requires the
+     * file `total` does not increase, so "extract a giant method into two ugly ones" does
+     * not game the max while ballooning the file. Fail-open by construction: an
+     * unparseable file returns measured=false and zeroed numbers, so a downstream gate
+     * reads the documented null/0 default and never crashes.
+     *
+     * @return array{measured:bool, max_per_method:int, total:int, methods:int}
+     */
+    public function fileComplexity(string $source): array
+    {
+        $none = ['measured' => false, 'max_per_method' => 0, 'total' => 0, 'methods' => 0];
+        $stmts = $this->parse($source);
+        if ($stmts === null) {
+            return $none;
+        }
+
+        /** @var list<Node\FunctionLike> $units */
+        $units = $this->finder->find($stmts, static fn (Node $node): bool => $node instanceof Node\Stmt\ClassMethod || $node instanceof Node\Stmt\Function_);
+
+        $max = 0;
+        $total = 0;
+        $methods = 0;
+        foreach ($units as $unit) {
+            $score = $this->cyclomaticScore($unit);
+            $max = max($max, $score);
+            $total += $score;
+            $methods++;
+        }
+
+        return ['measured' => true, 'max_per_method' => $max, 'total' => $total, 'methods' => $methods];
+    }
+
+    /**
+     * Sum of `fileComplexity` over a set of absolute file paths (the judge's allowed_globs
+     * census). Aggregates per-method max as the MAX across files and total as the SUM, so a
+     * multi-file allowed scope still has a single comparable pair. Missing/unreadable files
+     * are skipped (fail-open). Returns measured=true iff at least one file parsed.
+     *
+     * @param  list<string>  $absPaths
+     * @return array{measured:bool, max_per_method:int, total:int, files:int}
+     */
+    public function aggregateComplexity(array $absPaths): array
+    {
+        $max = 0;
+        $total = 0;
+        $files = 0;
+        foreach ($absPaths as $abs) {
+            if (! is_file($abs)) {
+                continue;
+            }
+            $source = @file_get_contents($abs);
+            if (! is_string($source) || $source === '') {
+                continue;
+            }
+            $one = $this->fileComplexity($source);
+            if (! $one['measured']) {
+                continue;
+            }
+            $max = max($max, $one['max_per_method']);
+            $total += $one['total'];
+            $files++;
+        }
+
+        return ['measured' => $files > 0, 'max_per_method' => $max, 'total' => $total, 'files' => $files];
+    }
+
     private function cyclomaticScore(Node\FunctionLike $unit): int
     {
         $score = 1;

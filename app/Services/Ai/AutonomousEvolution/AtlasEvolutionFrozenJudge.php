@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use Symfony\Component\Process\Process;
 
@@ -130,7 +131,44 @@ final class AtlasEvolutionFrozenJudge
             }
         }
 
+        // Guard 4b — COMPLEXITY-EARNED (governed refactor, default-inert). When the FROZEN
+        // acceptance is a `refactor_reduce_complexity` contract (metric_kind=minimize AND
+        // complexity_proof=true) AND the operator flag is ON, certification is a CONJUNCTION:
+        // behavior MUST be preserved (Guard 3 above re-ran the FROZEN sibling test — which the
+        // loop can never edit, frozen_globs — and it stayed GREEN) AND a REAL AST cyclomatic
+        // measure MUST drop. complexityEarned() reuses diffEarned's git-stash machinery to
+        // measure CANDIDATE then BASELINE with the judge's OWN parser (never the provider's
+        // claimed number), so it is ungameable: a behavior change fails Guard 3, a
+        // delete-the-branch cheat turns the sibling test RED (Guard 3), and a no-op leaves
+        // candidate>=baseline -> rejected here. When the flag is OFF the branch is never
+        // entered and the judge is BYTE-IDENTICAL to today.
+        $complexityProof = null;
+        $wantComplexityProof = $allPassed
+            && (bool) ($acceptance['complexity_proof'] ?? false)
+            && $metricKind === self::METRIC_MINIMIZE
+            && (bool) config('atlas.loop.refactor_complexity_proof', false);
+        if ($wantComplexityProof) {
+            $complexityProof = $this->complexityEarned($workspace, $changed);
+            $reduced = is_array($complexityProof) ? ($complexityProof['reduced'] ?? null) : null;
+            if ($reduced !== true) {
+                return $this->verdict(false, 0.0, [
+                    'rejected' => true,
+                    // fail-closed: not reduced, OR null/error measuring (could not verify).
+                    'reason' => 'complexity_not_reduced',
+                    'complexity_proof' => $complexityProof,
+                    'changed_files' => $changed,
+                    'command_results' => $commandResults,
+                ], $acceptance);
+            }
+        }
+
         $metric = $this->computeMetric($metricKind, $allPassed, $lastStdout, $metricPattern);
+        // For a verified refactor, the candidate's own AST max-per-method is the honest
+        // ranking number — never trust a metric_pattern parse of provider stdout for the
+        // ORDER either (the gate decision already used the AST; keep ordering consistent).
+        if ($wantComplexityProof && is_array($complexityProof) && ($complexityProof['reduced'] ?? false)) {
+            $metric = (float) $complexityProof['candidate_max'];
+        }
 
         return $this->verdict($allPassed, $metric, [
             'rejected' => false,
@@ -139,7 +177,80 @@ final class AtlasEvolutionFrozenJudge
             'command_results' => $commandResults,
             'metric_kind' => $metricKind,
             'diff_earned' => ($allPassed && (bool) ($acceptance['revert_recheck'] ?? false)) ? true : null,
+            '_complexity_reduction' => $complexityProof,
         ], $acceptance);
+    }
+
+    /**
+     * The ungameable refactor proof: did the candidate genuinely REDUCE complexity while
+     * preserving behavior (Guard 3 already proved behavior with the frozen sibling test)?
+     * Reuses diffEarned's git-stash machinery: the candidate diff is live in the workspace,
+     * so measure the CANDIDATE first, then stash to the committed baseline, measure BASELINE,
+     * and restore. The measure is the judge's OWN deterministic AST cyclomatic pass over the
+     * files the diff touched (never a provider-claimed number).
+     *
+     * AGGREGATION (the declared metric — see acceptance.complexity_aggregation): the PRIMARY
+     * comparison is max-per-method cyclomatic, so simplifying or extracting from the WORST
+     * method registers a real drop even when the file total stays flat; AND the file total is
+     * required NOT to increase, so "split one ugly method into two uglier ones" cannot game the
+     * max while ballooning the file. reduced = candidate_max < baseline_max AND
+     * candidate_total <= baseline_total.
+     *
+     * @param  list<string>  $changed  the SCOPE/TAMPER census (already inside allowed_globs)
+     * @return array{baseline_max:int,candidate_max:int,baseline_total:int,candidate_total:int,reduced:bool}|null
+     *                                  null = could not verify (no diff to stash / git error / nothing measured) -> fail closed
+     */
+    private function complexityEarned(string $workspace, array $changed): ?array
+    {
+        $phpFiles = array_values(array_filter(
+            $changed,
+            static fn (string $f): bool => str_ends_with($f, '.php'),
+        ));
+        if ($phpFiles === []) {
+            return null; // nothing measurable -> fail closed
+        }
+        $absPaths = array_map(static fn (string $f): string => $workspace.'/'.ltrim($f, '/'), $phpFiles);
+
+        $analyzer = $this->signalAnalyzer();
+
+        // CANDIDATE first: the diff is live in the working tree right now.
+        $candidate = $analyzer->aggregateComplexity($absPaths);
+        if (! $candidate['measured']) {
+            return null; // candidate unparseable -> fail closed
+        }
+
+        $stash = new Process(['git', 'stash', 'push', '--include-untracked', '--quiet'], $workspace, null, null, 60.0);
+        $stash->run();
+        if (! $stash->isSuccessful() || ! $this->stashCreated($workspace)) {
+            return null; // no diff to stash (no-op candidate) -> fail closed
+        }
+
+        try {
+            $baseline = $analyzer->aggregateComplexity($absPaths);
+        } finally {
+            (new Process(['git', 'stash', 'pop', '--quiet'], $workspace, null, null, 60.0))->run();
+        }
+
+        if (! $baseline['measured']) {
+            return null; // baseline unparseable -> fail closed
+        }
+
+        $reduced = $candidate['max_per_method'] < $baseline['max_per_method']
+            && $candidate['total'] <= $baseline['total'];
+
+        return [
+            'baseline_max' => $baseline['max_per_method'],
+            'candidate_max' => $candidate['max_per_method'],
+            'baseline_total' => $baseline['total'],
+            'candidate_total' => $candidate['total'],
+            'reduced' => $reduced,
+        ];
+    }
+
+    /** Lazily-built deterministic AST analyzer — the judge's OWN complexity measure. */
+    private function signalAnalyzer(): AtlasLoopSignalAnalyzer
+    {
+        return new AtlasLoopSignalAnalyzer();
     }
 
     /**

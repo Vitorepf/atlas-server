@@ -7,6 +7,7 @@ namespace App\Services\Ai\AutonomousEvolution\Discovery;
 use App\Models\AtlasLoopCampaign;
 use App\Models\AtlasLoopTarget;
 use App\Services\Ai\AutonomousEvolution\AtlasEvolutionTaskGenerator;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -30,6 +31,8 @@ final class AtlasLoopQueueRefiller
         private readonly AtlasEvolutionTaskGenerator $generator,
         private readonly AtlasLoopBackService $loopBack,
         private readonly AtlasLoopStore $store,
+        private readonly ?AtlasLoopRefactorObjectiveSynthesizer $refactorSynthesizer = null,
+        private readonly ?AtlasLoopHarnessGuard $harnessGuard = null,
     ) {}
 
     /**
@@ -131,6 +134,42 @@ final class AtlasLoopQueueRefiller
             $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'framework_task_enqueued');
 
             return $enq !== null ? 'enqueued' : 'deferred';
+        }
+
+        // GOVERNED REFACTOR (Phase 1 · within-file): BEFORE the provider-call generator, try
+        // to synthesize a `refactor_reduce_complexity` objective STRUCTURALLY (no provider
+        // call) for a high-complexity self-contained file that already has a real sibling
+        // test. The frozen judge certifies it ONLY when the frozen sibling test stays GREEN
+        // (behavior preserved — the loop can never edit it) AND a real AST cyclomatic measure
+        // drops. Default OFF; fail-closed (synthesizer returns null => fall through to the
+        // normal generator). PETREO: a forbidden self-target is rejected here before enqueue
+        // (belt-and-suspenders; discovery's admit() already filters them).
+        if ((bool) config('atlas.loop.refactor_objectives_enabled', false) && $this->refactorSynthesizer !== null) {
+            $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard();
+            if (! $guard->isForbiddenSelfTarget((string) $target->target_path)) {
+                $refactor = $this->refactorSynthesizer->synthesize(
+                    $repoRoot,
+                    ltrim((string) $target->target_path, '/'),
+                    $signals,
+                    $provider,
+                    $target->id,
+                );
+                if ($refactor !== null) {
+                    $enq = $this->store->enqueueTask(
+                        $campaign->id,
+                        $refactor['objective'],
+                        $refactor['payload'],
+                        'discovery',
+                        (string) $target->target_path,
+                        (int) round(((float) $target->score) * 100),
+                        true,
+                        $refactor['acceptance_hash'],
+                    );
+                    $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'refactor_task_synthesized');
+
+                    return $enq !== null ? 'enqueued' : 'deferred';
+                }
+            }
         }
 
         $base = sys_get_temp_dir().'/atlas-loop-gen-'.bin2hex(random_bytes(5));

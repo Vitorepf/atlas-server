@@ -1790,6 +1790,27 @@ return [
         'test_gap_min_callers' => max(0, (int) env('ATLAS_LOOP_TEST_GAP_MIN_CALLERS', 1)),
         'test_gap_hub_callers' => max(2, (int) env('ATLAS_LOOP_TEST_GAP_HUB_CALLERS', 3)),
 
+        // GOVERNED REFACTOR (Phase 1 within-file). The loop can synthesize a
+        // `refactor_reduce_complexity` objective for a high-complexity self-contained file
+        // that HAS a real sibling test, and the frozen judge certifies ONLY when the frozen
+        // sibling test stays GREEN (behavior preserved — the loop cannot edit it) AND a real
+        // AST cyclomatic measure DROPS. ALL FOUR default OFF; with them OFF the judge,
+        // discovery and refiller are byte-identical to today (proven by a default-inert
+        // frozen test). Each is a deliberate operator flip via .env; a separate soak step
+        // turns them on. NEVER weakens never-merge / petreo HarnessGuard / canary / value-gate.
+        //
+        // Gates the refactor objective synthesizer at AtlasLoopQueueRefiller::generateAndEnqueue.
+        'refactor_objectives_enabled' => (bool) env('ATLAS_LOOP_REFACTOR_OBJECTIVES_ENABLED', false),
+        // Gates the small (<=0.12) refactor_leverage rank boost in applyImpactRanking;
+        // the leverage signal is computed but UNUSED in scoring when OFF (byte-identical order).
+        'refactoring_targets_enabled' => (bool) env('ATLAS_LOOP_REFACTORING_TARGETS_ENABLED', false),
+        // Gates the judge's complexityEarned proof; when OFF the judge ignores complexity_proof
+        // entirely and behaves exactly as today (the petreo TAMPER/SCOPE/RE-PROOF/DIFF-EARNED path).
+        'refactor_complexity_proof' => (bool) env('ATLAS_LOOP_REFACTOR_COMPLEXITY_PROOF', false),
+        // Gates Phase-2 routing of >=2-file refactor tasks through AtlasLoopObraBridgeService
+        // (operator-reviewed, never-merge). Phase 1 is single-file only; this stays OFF until Phase 2.
+        'refactor_multi_file_via_obra' => (bool) env('ATLAS_LOOP_REFACTOR_MULTI_FILE_VIA_OBRA', false),
+
         // L4-1: cooldown por target recente. Tasks/proposals recentes do mesmo path caem no
         // ranking para evitar farming do arquivo que acabou de render proposta.
         'target_cooldown_enabled' => (bool) env('ATLAS_LOOP_TARGET_COOLDOWN_ENABLED', true),

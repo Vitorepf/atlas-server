@@ -192,6 +192,23 @@ class AppServiceProvider extends ServiceProvider
                 rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard::class), null, false),
                 rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWiredCallerService::class), null, false),
                 rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSiblingTestResolver::class), null, false),
+                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer::class), null, false),
+            ),
+        );
+        // GOVERNED REFACTOR (Phase 1): wire the refactor objective synthesizer + harness guard
+        // into the refiller (Laravel does NOT auto-inject `?Type $x = null`). Without this bind
+        // the refactor_objectives_enabled flag would be inert even when the operator flips it ON.
+        // Defensive resolve preserves the fail-open contract; flag-gated and default OFF.
+        $this->app->bind(
+            \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopQueueRefiller::class,
+            fn ($app) => new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopQueueRefiller(
+                $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopTargetDiscoveryService::class),
+                $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopTargetRepository::class),
+                $app->make(\App\Services\Ai\AutonomousEvolution\AtlasEvolutionTaskGenerator::class),
+                $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBackService::class),
+                $app->make(\App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore::class),
+                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopRefactorObjectiveSynthesizer::class), null, false),
+                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard::class), null, false),
             ),
         );
         // Warm ACP session pool: ONE per worker process (singleton) so a `hermes acp`

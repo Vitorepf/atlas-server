@@ -44,7 +44,14 @@ final class AtlasLoopTargetDiscoveryService
         private readonly ?\App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard $harnessGuard = null,
         private readonly ?AtlasLoopWiredCallerService $wiredCallers = null,
         private readonly ?AtlasLoopSiblingTestResolver $siblingTests = null,
+        private readonly ?\App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer $signalAnalyzer = null,
     ) {}
+
+    /** Lazily-built deterministic AST cyclomatic analyzer (the honest complexity signal). */
+    private function analyzer(): \App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer
+    {
+        return $this->signalAnalyzer ?? new \App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer();
+    }
 
     /**
      * @param  array{roots?:list<string>, limit?:int, max_files?:int, already_proposed_paths?:list<string>}  $options
@@ -250,8 +257,24 @@ final class AtlasLoopTargetDiscoveryService
             $signals['impact_backlog_reach'] = round($backlogReach, 4);
             // Orphan ONLY when THIS path was measured: 0 callers AND 0 evidence AND 0 reach.
             $signals['orphan'] = $measured && $callers === 0 && $failureEvidence <= 0.0 && $backlogReach <= 0.0;
+
+            // REFACTOR LEVERAGE (default-inert): high callers x high complexity = the file a
+            // simplification pays back the most. Computed from signals ALREADY resolved this
+            // pass (no extra grep): the cyclomatic AST signal from scoreCandidate + the same
+            // log-scaled caller count the impact term uses. The composite is ALWAYS stamped
+            // for audit, but the bounded (<=0.12) score boost is applied ONLY when the
+            // refactoring_targets_enabled flag is ON — with it OFF the ranking is byte-identical
+            // (the signal is present but never moves the score).
+            $cyclomatic = (int) ($signals['cyclomatic'] ?? 0);
+            $callerLeverage = $callers > 0 ? min(1.0, log(1 + $callers) / log(1 + $maxCallers)) : 0.0;
+            $complexityLeverage = min(1.0, $cyclomatic / 10.0);
+            $refactorLeverage = $this->clamp01(0.6 * $callerLeverage + 0.4 * $complexityLeverage);
+            $signals['refactor_leverage'] = round($refactorLeverage, 4);
             $row['scored']['signals'] = $signals;
             $row['scored']['score'] = round(min(1.0, (float) $row['scored']['score'] + 0.18 * $impact), 4);
+            if ((bool) config('atlas.loop.refactoring_targets_enabled', false)) {
+                $row['scored']['score'] = round(min(1.0, (float) $row['scored']['score'] + 0.12 * $refactorLeverage), 4);
+            }
         }
         unset($row);
     }
@@ -412,21 +435,33 @@ final class AtlasLoopTargetDiscoveryService
         $novelty = isset($context['already_proposed'][$repoRelPath]) ? 0.0 : 1.0;
         $score = 0.55 * $selfContained + 0.30 * $improvement + 0.15 * $novelty;
 
+        // HONEST complexity signal (refactor capability): the deterministic AST cyclomatic
+        // measure — NOT the regex branch_density above (which counts the words 'if'/'&&' in
+        // prose too). max_per_method drives refactor leverage; total guards "extract method
+        // that balloons the file". Fail-open: an unparseable unit yields measured=false, so
+        // the signals are simply omitted and every downstream reader takes its 0 default.
+        $signals = [
+            'framework_reach' => $frameworkReach,
+            'loc' => $loc,
+            'public_methods' => $this->publicMethodCount($text),
+            'branch_density' => round($this->branchDensity($text), 4),
+            'todos' => $this->todoCount($text),
+            'deprecated' => $this->isDeprecated($text),
+            'throws' => $this->throwsCount($text),
+            'edge_gaps' => $this->edgeGaps($text),
+        ];
+        $complexity = $this->analyzer()->fileComplexity($text);
+        if ($complexity['measured']) {
+            $signals['cyclomatic'] = $complexity['max_per_method'];
+            $signals['cyclomatic_total'] = $complexity['total'];
+        }
+
         return [
             'score' => round($score, 4),
             'self_contained' => $selfContained,
             'improvement' => round($improvement, 4),
             'novelty' => $novelty,
-            'signals' => [
-                'framework_reach' => $frameworkReach,
-                'loc' => $loc,
-                'public_methods' => $this->publicMethodCount($text),
-                'branch_density' => round($this->branchDensity($text), 4),
-                'todos' => $this->todoCount($text),
-                'deprecated' => $this->isDeprecated($text),
-                'throws' => $this->throwsCount($text),
-                'edge_gaps' => $this->edgeGaps($text),
-            ],
+            'signals' => $signals,
         ];
     }
 
