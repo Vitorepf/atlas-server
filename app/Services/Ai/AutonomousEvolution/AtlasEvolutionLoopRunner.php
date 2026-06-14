@@ -64,7 +64,7 @@ final class AtlasEvolutionLoopRunner
             $exploration = $this->explorer->explore(is_array($task) ? $task : [], $scenarios);
             $explorations[] = $this->summariseExploration($exploration);
 
-            if (($exploration['winner'] ?? null) !== null) {
+            if (is_array($exploration['winner'] ?? null)) {
                 $acceptance = is_array($task) && is_array($task['acceptance'] ?? null) ? $task['acceptance'] : [];
                 $proposals[] = $this->toProposal($exploration, $acceptance);
             }
@@ -111,7 +111,7 @@ final class AtlasEvolutionLoopRunner
             'provider' => (string) ($exploration['provider'] ?? ''),
             'scenarios_explored' => (int) ($exploration['scenarios_explored'] ?? 0),
             'scenarios_accepted' => (int) ($exploration['scenarios_accepted'] ?? 0),
-            'has_winner' => ($exploration['winner'] ?? null) !== null,
+            'has_winner' => is_array($exploration['winner'] ?? null),
             'rejected_reasons' => $reasons,
             'cost_estimate_usd' => $costSamples !== [] ? round(array_sum($costSamples), 6) : null,
             'cost_sample_count' => count($costSamples),
