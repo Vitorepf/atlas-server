@@ -510,12 +510,16 @@ final class AtlasEvolutionScenarioExplorer
                 $lines += (is_numeric($m[1]) ? (int) $m[1] : 0) + (is_numeric($m[2]) ? (int) $m[2] : 0);
             }
         }
-        // include untracked additions in the file count
+        // include untracked additions in the file and line count
         $others = new Process(['git', 'ls-files', '--others', '--exclude-standard'], $workspace, null, null, 30.0);
         $others->run();
         foreach (preg_split('/\R/', trim((string) $others->getOutput())) ?: [] as $row) {
             if (trim($row) !== '') {
                 $files++;
+                $contents = (string) file_get_contents($workspace.'/'.trim($row));
+                if ($contents !== '') {
+                    $lines += substr_count($contents, "\n") + (str_ends_with($contents, "\n") ? 0 : 1);
+                }
             }
         }
 
