@@ -66,7 +66,9 @@ final class L7PromotionRequestBuilder
             $blockers[] = 'trust_ledger_below_threshold';
         }
 
-        if ($brokenInvariants > self::MAX_BROKEN_INVARIANTS || $brokenInvariants < 0) {
+        if (! array_key_exists('broken_invariant_count', $evidence)) {
+            $blockers[] = 'broken_invariant_count_missing';
+        } elseif ($brokenInvariants > self::MAX_BROKEN_INVARIANTS || $brokenInvariants < 0) {
             $blockers[] = 'invariant_breached';
         }
 
