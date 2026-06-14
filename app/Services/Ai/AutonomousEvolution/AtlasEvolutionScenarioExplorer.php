@@ -72,7 +72,13 @@ final class AtlasEvolutionScenarioExplorer
         $userConstraints = $this->userConstraints($task);
         $surfaceHints = $this->surfaceHints($provider);
 
-        if ($objective === '' || ! is_dir($baseWorkspace) || ($acceptance['commands'] ?? []) === []) {
+        $commands = $acceptance['commands'] ?? null;
+        $validCommands = is_array($commands)
+            && $commands !== []
+            && array_values($commands) === $commands
+            && array_filter($commands, static fn (mixed $command): bool => ! is_string($command) || trim($command) === '') === [];
+
+        if ($objective === '' || ! is_dir($baseWorkspace) || ! $validCommands) {
             return $this->result($objective, $provider, $metricKind, null, [], [
                 'blocked' => true,
                 'reason' => 'invalid_task (objective/base_workspace/acceptance.commands required)',
