@@ -104,8 +104,14 @@ final class L7L10QueueConsumer
             $ready[] = $label;
         }
 
-        // Gaps: any slice number in the declared range that the doc does not provide.
-        for ($n = $min; $n <= $max; $n++) {
+        // Gaps: any explicitly declared slice number that the doc does not provide.
+        $expected = [];
+        foreach ($levels as [$lo, $hi]) {
+            for ($n = $lo; $n <= $hi; $n++) {
+                $expected[$n] = true;
+            }
+        }
+        foreach (array_keys($expected) as $n) {
             if (! isset($seen[$n])) {
                 $bad[] = 'S'.$n.':missing';
             }
