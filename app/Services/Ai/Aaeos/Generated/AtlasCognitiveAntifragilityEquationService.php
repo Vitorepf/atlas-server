@@ -110,7 +110,7 @@ final class AtlasCognitiveAntifragilityEquationService
      * `obras_quality_trend` can be negative, which is the
      * only way a component can subtract from M.
      *
-     * @param  array<string,int|float>  $metrics  keyed by component id
+     * @param  array<string,int|float>  $metrics  keyed by component id or documented metric name
      * @return array{
      *   schema_version:string,
      *   value:float,
@@ -123,8 +123,11 @@ final class AtlasCognitiveAntifragilityEquationService
         $value = 0.0;
 
         foreach (self::M_COMPONENTS as $id => $spec) {
-            $hasInput = array_key_exists($id, $metrics);
-            $raw = $hasInput ? (float) $metrics[$id] : max(0.0, $spec['min']);
+            $hasComponentInput = array_key_exists($id, $metrics);
+            $hasMetricInput = array_key_exists($spec['metric'], $metrics);
+            $raw = $hasComponentInput
+                ? (float) $metrics[$id]
+                : ($hasMetricInput ? (float) $metrics[$spec['metric']] : max(0.0, $spec['min']));
             $clamped = max($spec['min'], min($spec['max'], $raw));
             $contribution = $spec['weight'] * $clamped;
             $value += $contribution;
