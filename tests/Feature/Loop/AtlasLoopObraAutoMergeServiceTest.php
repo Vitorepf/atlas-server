@@ -179,6 +179,38 @@ final class AtlasLoopObraAutoMergeServiceTest extends TestCase
     // (3) THE KEY SAFETY TEST — broader-gate RED => merge BLOCKED, main untouched.
     // ------------------------------------------------------------------
 
+    public function test_dirty_working_tree_is_refused_never_resets_over_uncommitted_work(): void
+    {
+        $this->bindGate(passed: true);
+        [$repo, $branch, $headBefore] = $this->repoWithObraBranch('obra-dirty');
+        // Uncommitted work in the tree — a recovery reset --hard would clobber it.
+        file_put_contents($repo.'/UNCOMMITTED.txt', "operator work in progress\n");
+
+        $result = $this->service()->autoMerge($this->certifiedObra('obra-dirty', $branch), $repo);
+
+        $this->assertFalse((bool) $result['merged'], 'never merges into a dirty tree');
+        $this->assertStringContainsString('working_tree_not_clean', (string) ($result['reason'] ?? ''));
+        $this->assertSame($headBefore, trim($this->gitOut($repo, ['rev-parse', 'HEAD'])), 'main HEAD untouched');
+        $this->assertFileExists($repo.'/UNCOMMITTED.txt', 'the uncommitted work was NOT clobbered');
+    }
+
+    public function test_an_in_flight_crossing_lock_refuses_a_concurrent_merge(): void
+    {
+        $this->bindGate(passed: true);
+        [$repo, $branch] = $this->repoWithObraBranch('obra-locked');
+        // Simulate another crossing already holding the exclusive lock.
+        $held = fopen($repo.'/.git/atlas-obra-automerge.lock', 'c');
+        $this->assertNotFalse($held);
+        $this->assertTrue(flock($held, LOCK_EX | LOCK_NB));
+
+        $result = $this->service()->autoMerge($this->certifiedObra('obra-locked', $branch), $repo);
+
+        $this->assertFalse((bool) $result['merged'], 'a second concurrent crossing is refused, not raced');
+        $this->assertStringContainsString('merge_lock_held', (string) ($result['reason'] ?? ''));
+        flock($held, LOCK_UN);
+        fclose($held);
+    }
+
     public function test_certified_obra_breaking_an_outside_test_is_blocked_main_untouched(): void
     {
         // The obra is GENUINELY CERTIFIED (its own nodes + integrated test green), but its

@@ -107,6 +107,20 @@ final class AtlasLoopObraAutoMergeService
             return array_merge($base, ['reason' => 'obra_branch_missing_in_repo:'.$branch]);
         }
 
+        // DAY-2 SAFETY (adversarial finding): a recovery `git reset --hard` over a DIRTY tree would
+        // clobber uncommitted work, and two concurrent crossings (this + the single-file auto-merger)
+        // would race on main. (1) REFUSE unless the working tree is CLEAN — this is what makes every
+        // later reset --hard provably safe (nothing uncommitted to lose); (2) hold an EXCLUSIVE,
+        // non-blocking lock for the whole git-mutating sequence (auto-released when this method
+        // returns) — a second crossing is refused rather than racing.
+        if (! $this->workingTreeClean($repoRoot)) {
+            return array_merge($base, ['reason' => 'working_tree_not_clean_refused (never reset --hard over uncommitted work)']);
+        }
+        $mergeLock = $this->acquireMergeLock($repoRoot);
+        if ($mergeLock === null) {
+            return array_merge($base, ['reason' => 'merge_lock_held_by_another_crossing']);
+        }
+
         // Capture pre-merge HEAD: every red verdict / abort restores main to EXACTLY here.
         $headBefore = $this->headSha($repoRoot);
         if ($headBefore === null) {
@@ -271,6 +285,38 @@ final class AtlasLoopObraAutoMergeService
     private function hardResetTo(string $repoRoot, string $sha): void
     {
         $this->git($repoRoot, ['reset', '--hard', $sha]);
+    }
+
+    /** True only when there is NOTHING uncommitted/untracked — the precondition that makes a recovery reset --hard safe. */
+    private function workingTreeClean(string $repoRoot): bool
+    {
+        $p = new Process(['git', 'status', '--porcelain'], $repoRoot, null, null, 30.0);
+        $p->run();
+
+        return $p->isSuccessful() && trim($p->getOutput()) === '';
+    }
+
+    /**
+     * Acquire a non-blocking EXCLUSIVE lock for the git-mutating crossing. The returned handle is
+     * held by the caller; PHP releases the lock when it goes out of scope (the autoMerge() return),
+     * so no explicit unlock is needed on the many early-return paths. NULL = a crossing is already
+     * in flight (refuse rather than race).
+     *
+     * @return resource|null
+     */
+    private function acquireMergeLock(string $repoRoot)
+    {
+        $handle = @fopen($repoRoot.'/.git/atlas-obra-automerge.lock', 'c');
+        if ($handle === false) {
+            return null;
+        }
+        if (! flock($handle, LOCK_EX | LOCK_NB)) {
+            @fclose($handle);
+
+            return null;
+        }
+
+        return $handle;
     }
 
     private function headSha(string $repoRoot): ?string
