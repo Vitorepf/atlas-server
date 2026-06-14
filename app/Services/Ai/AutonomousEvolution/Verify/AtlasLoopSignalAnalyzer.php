@@ -323,11 +323,11 @@ final class AtlasLoopSignalAnalyzer
      * unparseable file returns measured=false and zeroed numbers, so a downstream gate
      * reads the documented null/0 default and never crashes.
      *
-     * @return array{measured:bool, max_per_method:int, total:int, methods:int}
+     * @return array{measured:bool, max_per_method:int, total:int, methods:int, worst_method:?string}
      */
     public function fileComplexity(string $source): array
     {
-        $none = ['measured' => false, 'max_per_method' => 0, 'total' => 0, 'methods' => 0];
+        $none = ['measured' => false, 'max_per_method' => 0, 'total' => 0, 'methods' => 0, 'worst_method' => null];
         $stmts = $this->parse($source);
         if ($stmts === null) {
             return $none;
@@ -339,14 +339,22 @@ final class AtlasLoopSignalAnalyzer
         $max = 0;
         $total = 0;
         $methods = 0;
+        $worstMethod = null;
         foreach ($units as $unit) {
             $score = $this->cyclomaticScore($unit);
-            $max = max($max, $score);
+            // Track the NAME of the worst method (not just its score) so the refactor objective can
+            // tell the provider EXACTLY which method's decision-count to drive down. Provider diffs
+            // that refactor broadly but miss the worst method never register an AST max drop and fail
+            // certification (observed live: complexity_not_reduced on big multi-scenario diffs).
+            if ($score > $max) {
+                $max = $score;
+                $worstMethod = isset($unit->name) ? (string) $unit->name : null;
+            }
             $total += $score;
             $methods++;
         }
 
-        return ['measured' => true, 'max_per_method' => $max, 'total' => $total, 'methods' => $methods];
+        return ['measured' => true, 'max_per_method' => $max, 'total' => $total, 'methods' => $methods, 'worst_method' => $worstMethod];
     }
 
     /**

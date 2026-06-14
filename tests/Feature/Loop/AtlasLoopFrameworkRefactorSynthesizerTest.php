@@ -138,7 +138,11 @@ PHP;
         $this->assertTrue($payload['acceptance']['complexity_proof']);
         $this->assertFalse($payload['acceptance']['revert_recheck'], 'refactors are behavior-preserving, not RED-earned');
         $this->assertSame(['tests/Unit/Services/RouterTest.php'], array_column($payload['frozen_tests'], 'path'));
-        $this->assertStringContainsString('REDUCE complexity', $out['objective']);
+        // Smarter objective: NAMES the worst method (Router::route() is the only/worst method in the
+        // fixture) so the provider targets the right method, demands the AST drop, and scopes to one file.
+        $this->assertStringContainsString('route()', $out['objective'], 'objective names the worst method (route) for surgical targeting');
+        $this->assertStringContainsString('REDUCE', $out['objective']);
+        $this->assertStringContainsString('Edit ONLY', $out['objective'], 'objective scopes the provider to the single file (cuts out_of_scope_change rejections)');
     }
 
     public function test_returns_null_below_the_complexity_floor(): void

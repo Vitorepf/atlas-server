@@ -64,9 +64,19 @@ final class AtlasLoopFrameworkRefactorSynthesizer
             // AST signal already in the packet; re-measure from source if absent (fail-open).
             $minCyclomatic = max(1, (int) config('atlas.loop.framework_refactor_min_cyclomatic', 10));
             $cyclomatic = (int) ($signals['cyclomatic'] ?? 0);
-            if ($cyclomatic <= 0) {
-                $source = (string) @file_get_contents($absTarget);
-                $cyclomatic = (int) ($this->analyzer()->fileComplexity($source)['max_per_method'] ?? 0);
+            // The WORST METHOD NAME makes the objective surgically targetable (provider diffs that
+            // refactor broadly but miss the worst method never drop the AST max -> fail cert). It is
+            // not in the discovery signals, so re-measure when either the cyclomatic or the name is
+            // absent (one AST parse covers both; fail-open -> null name just yields the file-level text).
+            $worstMethod = is_string($signals['worst_method'] ?? null) ? (string) $signals['worst_method'] : null;
+            if ($cyclomatic <= 0 || $worstMethod === null) {
+                $measure = $this->analyzer()->fileComplexity((string) @file_get_contents($absTarget));
+                if ($cyclomatic <= 0) {
+                    $cyclomatic = (int) ($measure['max_per_method'] ?? 0);
+                }
+                if ($worstMethod === null) {
+                    $worstMethod = is_string($measure['worst_method'] ?? null) ? (string) $measure['worst_method'] : null;
+                }
             }
             if ($cyclomatic < $minCyclomatic) {
                 return null; // not complex enough — refactoring it is low-value noise
@@ -116,7 +126,7 @@ final class AtlasLoopFrameworkRefactorSynthesizer
                 'timeout_seconds' => max(60, (int) config('atlas.loop.framework_refactor_timeout_seconds', 300)),
             ];
 
-            $objective = $this->objectiveText($targetRepoRelPath, $cyclomatic);
+            $objective = $this->objectiveText($targetRepoRelPath, $cyclomatic, $worstMethod);
             $acceptanceHash = hash('sha256', json_encode([
                 'commands' => $acceptance['commands'],
                 'allowed_globs' => $acceptance['allowed_globs'],
@@ -168,15 +178,22 @@ final class AtlasLoopFrameworkRefactorSynthesizer
         return $service->callerCount($targetRepoRelPath);
     }
 
-    private function objectiveText(string $targetRepoRelPath, int $cyclomatic): string
+    private function objectiveText(string $targetRepoRelPath, int $cyclomatic, ?string $worstMethod): string
     {
-        // Stable per-kind template (dedupe is on objective text — keep refactor + edge-gap tasks
-        // for the SAME file distinct, but stable across cycles so the queue is not bloated). The
-        // baseline complexity number is included, never a time-measured value, so re-measuring the
-        // SAME file does not produce a "distinct" objective.
-        return 'Refactor '.basename($targetRepoRelPath).' to substantially REDUCE complexity '
-            .'(simplify/extract/dedupe; worst method = '.$cyclomatic.') while PRESERVING behavior — '
-            .'its existing tests must stay green.';
+        // Stable per-kind template (dedupe is on objective text). The worst-method NAME + its cyclomatic
+        // are deterministic for a given file state, so re-measuring the SAME file yields the SAME
+        // objective (no queue bloat); once that method is simplified a DIFFERENT method becomes worst →
+        // a distinct objective → progressive refactoring. Naming the exact method + giving concrete
+        // decision-count-reduction techniques is the lever that turns broad no-AST-drop diffs into
+        // certifiable ones (the cert independently re-measures the drop, so this text only AIMS the work).
+        $base = basename($targetRepoRelPath);
+        $where = $worstMethod !== null ? $base.'::'.$worstMethod.'()' : 'the file\'s most complex method';
+        return 'Refactor '.$base.' to REDUCE the cyclomatic complexity of its worst method, '.$where
+            .' (cyclomatic '.$cyclomatic.', the file max). Drive DOWN the decision/branch count of THAT '
+            .'method specifically — use early-return guard clauses, extract cohesive private helpers, and '
+            .'replace long if/elseif or switch chains with a lookup/dispatch table — so the file\'s AST '
+            .'max-per-method drops below '.$cyclomatic.'. Edit ONLY '.$base.'; do not modify any other '
+            .'file. PRESERVE behavior exactly — the existing tests must stay green.';
     }
 
     private function analyzer(): AtlasLoopSignalAnalyzer
