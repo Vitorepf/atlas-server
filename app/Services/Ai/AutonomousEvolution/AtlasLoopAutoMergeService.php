@@ -305,8 +305,25 @@ final class AtlasLoopAutoMergeService
                     foreach ($changed as $file) {
                         $this->git($repoRoot, ['checkout', '--', $file]); // pré-commit: desfaz o apply (não é revert)
                     }
-                    // NÃO aposenta (sem reviewed_at) — re-descobrível: o alvo pode ganhar
-                    // callers/evidência depois. Mesma filosofia fail-open dos outros gates.
+                    // RETIRE (não deixa re-drenável): deixar a proposta unreviewed CLOGAVA a fila
+                    // oldest-first do drain (--limit=10) — propostas WIRED ficavam presas ATRÁS de
+                    // alvos órfãos/baixo-impacto que nunca mergeiam (incidente medido: 13 wired
+                    // presas atrás de 8 órfãs, ~7h sem merge). Aposenta com status auditável; a
+                    // re-descoberta cria uma proposta NOVA se o alvo ganhar callers/evidência
+                    // depois (não re-processa ESTA proposta velha). Fail-open intacto: callers
+                    // null (não-medido) já passou no value-gate; só MEDIDO órfão chega aqui.
+                    $this->governedSave(function () use ($proposal, $verdict): void {
+                        $quality = is_array($proposal->quality) ? $proposal->quality : [];
+                        $quality['_operator_review'] = [
+                            'schema_version' => 'atlas.loop.operator_review.v1',
+                            'status' => 'value_gate_retired',
+                            'reason' => (string) ($verdict['reason'] ?? 'low_impact'),
+                            'reviewed_at' => now()->toIso8601String(),
+                            'decision' => 'retire_low_impact',
+                        ];
+                        $proposal->forceFill(['reviewed_at' => now(), 'quality' => $quality])->save();
+                    });
+
                     return array_merge($base, ['reason' => 'value_gate_blocked:'.($verdict['reason'] ?? 'low_impact'), 'value_gate' => $verdict]);
                 }
             }
