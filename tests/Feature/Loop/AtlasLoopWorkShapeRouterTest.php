@@ -104,7 +104,7 @@ final class AtlasLoopWorkShapeRouterTest extends TestCase
         ]);
         $target = app(AtlasLoopTargetRepository::class)->upsert(
             $campaign->id, 'app/Services/Orphan.php', hash('sha256', 'x'),
-            ['score' => 0.5, 'signals' => ['orphan' => true, 'impact_real_callers' => 0, 'cyclomatic' => 12]],
+            ['score' => 0.5, 'self_contained' => 1.0, 'improvement' => 0.3, 'novelty' => 1.0, 'signals' => ['orphan' => true, 'impact_real_callers' => 0, 'cyclomatic' => 12]],
             ['origin' => 'discovery'],
         );
 
