@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObraPlanValidator;
 use App\Services\Ai\Obra\AtlasObraExecutor;
 use App\Services\Ai\Obra\ObraNodeDelivery;
 use App\Services\Ai\RealExecution\GovernedBranchMaterializationService;
@@ -68,6 +69,14 @@ final class AtlasLoopObraExecutionAdapter
         $delivery ??= app(ProviderObraNodeDelivery::class);
         $plan = $this->buildPlan($payload, $allowed);
         $planId = (string) $plan['plan_id'];
+
+        // DECOMPOSITION SAFETY GATE — validate the DAG (acyclic, scoped, no self-target, every node
+        // verifiable) BEFORE spending a single token. A malformed/unsafe decomposition is refused.
+        $planVerdict = (new AtlasLoopObraPlanValidator($this->guard))->validate($plan, $allowed);
+        if (($planVerdict['valid'] ?? false) !== true) {
+            return $this->fail('plan_invalid:'.implode(',', array_slice((array) ($planVerdict['reasons'] ?? []), 0, 4)));
+        }
+
         $executor = new AtlasObraExecutor($delivery, new GovernedBranchMaterializationService());
 
         $evidencePath = '';
@@ -253,6 +262,8 @@ final class AtlasLoopObraExecutionAdapter
                 'target_area' => $file,
                 'depends_on' => [],
                 'brain_refs' => [],
+                // Each refactor node is verified by the obra-level complexity-proof + integrated check.
+                'complexity_proof' => true,
             ];
         }
 
