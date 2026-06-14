@@ -193,12 +193,16 @@ final class AtlasLoopFrameworkRefactorSynthesizer
             .'method specifically — extract cohesive private helpers that MOVE existing branches out of it, '
             .'and replace long if/elseif or switch chains with a lookup/dispatch table — so the file\'s AST '
             .'max-per-method drops below '.$cyclomatic.'. '
-            // ALIGN-WITH-GATE: the certifier scores DECISION POINTS (the file\'s total branch count,
-            // extract-method-neutral), not raw method count. A refactor that drops the max but ADDS net
-            // conditionals is REJECTED. So: do NOT add new branches/guard clauses beyond what already
-            // exists — prefer PURE extraction (relocate the same conditionals into helpers) and collapse
-            // chains into tables. The file\'s TOTAL number of if/for/while/case/&&/||/?: must stay flat or
-            // fall; only the worst method\'s share of them should shrink. '
+            // ALIGN-WITH-GATE (in the prompt, not just a comment): the certifier scores DECISION POINTS
+            // (the file's TOTAL branch count, extract-method-neutral), not raw method count. A refactor
+            // that drops the max but ADDS net conditionals is rejected as complexity_not_reduced. This
+            // constraint is exactly what made the controlled cx19->cx4 run certify (decisions 21->21).
+            .'CRITICAL CONSTRAINT: do NOT increase the file\'s TOTAL decision/branch count. Do not add new '
+            .'conditionals, guard clauses, loops, ternaries, or && / || beyond those already present — only '
+            .'RELOCATE existing branches into the extracted helpers, and collapse if/elseif chains into a '
+            .'single lookup/dispatch table. The file\'s total number of branches must stay flat or fall; '
+            .'only the worst method\'s SHARE of them should shrink. A version that lowers the max but adds '
+            .'net branches will be REJECTED. '
             .'Edit ONLY '.$base.'; do not modify any other '
             .'file. PRESERVE behavior exactly — the existing tests must stay green.';
     }
