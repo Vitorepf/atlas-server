@@ -479,14 +479,24 @@ final class AtlasLoopSemanticImplementationCertifier
             return null; // baseline unparseable -> fail closed
         }
 
+        // Secondary "no new complexity" guard on DECISION POINTS (total − methods), not raw total:
+        // extract-method adds +1 to total per new method (base cyclomatic 1), so a raw-total gate
+        // falsely rejects legitimate extraction — the only way to cut max-per-method (proven live: a
+        // worst-method 19→4 refactor was rejected purely because 10 new helpers raised total). The
+        // max-gate still blocks gaming (no method may exceed baseline max). Flag default ON.
+        $decisionsGate = (bool) config('atlas.loop.complexity_decisions_gate', true);
+        $candidateAgg = $decisionsGate ? ($candidate['total'] - ($candidate['methods'] ?? 0)) : $candidate['total'];
+        $baselineAgg = $decisionsGate ? ($baseline['total'] - ($baseline['methods'] ?? 0)) : $baseline['total'];
         $reduced = $candidate['max_per_method'] < $baseline['max_per_method']
-            && $candidate['total'] <= $baseline['total'];
+            && $candidateAgg <= $baselineAgg;
 
         return [
             'baseline_max' => $baseline['max_per_method'],
             'candidate_max' => $candidate['max_per_method'],
             'baseline_total' => $baseline['total'],
             'candidate_total' => $candidate['total'],
+            'baseline_decisions' => $baseline['total'] - ($baseline['methods'] ?? 0),
+            'candidate_decisions' => $candidate['total'] - ($candidate['methods'] ?? 0),
             'reduced' => $reduced,
         ];
     }

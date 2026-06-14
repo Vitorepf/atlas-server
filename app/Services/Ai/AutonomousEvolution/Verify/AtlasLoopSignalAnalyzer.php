@@ -364,13 +364,14 @@ final class AtlasLoopSignalAnalyzer
      * are skipped (fail-open). Returns measured=true iff at least one file parsed.
      *
      * @param  list<string>  $absPaths
-     * @return array{measured:bool, max_per_method:int, total:int, files:int}
+     * @return array{measured:bool, max_per_method:int, total:int, files:int, methods:int}
      */
     public function aggregateComplexity(array $absPaths): array
     {
         $max = 0;
         $total = 0;
         $files = 0;
+        $methods = 0;
         foreach ($absPaths as $abs) {
             if (! is_file($abs)) {
                 continue;
@@ -385,10 +386,15 @@ final class AtlasLoopSignalAnalyzer
             }
             $max = max($max, $one['max_per_method']);
             $total += $one['total'];
+            // Sum method count across the set so callers can derive DECISION POINTS (total − methods),
+            // which is extract-method-neutral: each cyclomatic score is 1+decisions, so extraction adds
+            // +1 per new method to `total` — a raw-total gate would falsely reject legitimate extraction
+            // (the only way to lower max-per-method). Decisions isolate the real branch count.
+            $methods += $one['methods'];
             $files++;
         }
 
-        return ['measured' => $files > 0, 'max_per_method' => $max, 'total' => $total, 'files' => $files];
+        return ['measured' => $files > 0, 'max_per_method' => $max, 'total' => $total, 'files' => $files, 'methods' => $methods];
     }
 
     private function cyclomaticScore(Node\FunctionLike $unit): int

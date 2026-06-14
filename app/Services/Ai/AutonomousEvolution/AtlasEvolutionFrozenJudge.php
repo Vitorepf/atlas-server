@@ -235,14 +235,26 @@ final class AtlasEvolutionFrozenJudge
             return null; // baseline unparseable -> fail closed
         }
 
+        // Secondary "no new complexity" guard compares DECISION POINTS (total − methods), not raw
+        // total: extract-method (the only way to cut max-per-method) adds +1 to total per new method
+        // (each method's base cyclomatic is 1), so a raw-total gate falsely rejects legitimate
+        // extraction (proven live: a refactor cutting the worst method 19→4 was rejected only because
+        // 10 new helper methods raised total 29→38, though real decisions fell 21→20). Anti-gaming
+        // still holds via the max-gate (no method may exceed baseline max). Flag default ON; flip OFF
+        // to restore the prior raw-total behavior.
+        $decisionsGate = (bool) config('atlas.loop.complexity_decisions_gate', true);
+        $candidateAgg = $decisionsGate ? ($candidate['total'] - ($candidate['methods'] ?? 0)) : $candidate['total'];
+        $baselineAgg = $decisionsGate ? ($baseline['total'] - ($baseline['methods'] ?? 0)) : $baseline['total'];
         $reduced = $candidate['max_per_method'] < $baseline['max_per_method']
-            && $candidate['total'] <= $baseline['total'];
+            && $candidateAgg <= $baselineAgg;
 
         return [
             'baseline_max' => $baseline['max_per_method'],
             'candidate_max' => $candidate['max_per_method'],
             'baseline_total' => $baseline['total'],
             'candidate_total' => $candidate['total'],
+            'baseline_decisions' => $baseline['total'] - ($baseline['methods'] ?? 0),
+            'candidate_decisions' => $candidate['total'] - ($candidate['methods'] ?? 0),
             'reduced' => $reduced,
         ];
     }
