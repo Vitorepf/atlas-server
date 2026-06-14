@@ -11,6 +11,7 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBackService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopFrameworkRefactorSynthesizer;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopQueueRefiller;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopRefactorObjectiveSynthesizer;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopTargetDiscoveryService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopTargetRepository;
 use App\Services\Ai\AutonomousEvolution\LoopExecutionDriver;
@@ -259,6 +260,88 @@ PHP;
         $this->assertTrue((bool) ($payload['acceptance']['complexity_proof'] ?? false));
     }
 
+    public function test_self_contained_phpunit_backed_target_routes_to_framework_refactor(): void
+    {
+        // THE FIX: a pure-logic SELF-CONTAINED file (framework_reach=0) whose only behavior anchor
+        // is a PHPUnit sibling. The Phase-1 plain-`php` synthesizer CANNOT run a PHPUnit sibling and
+        // returns null; the target must then fall through to the framework materializer (worktree +
+        // real ./vendor/bin/phpunit). Before the fix this produced a small provider edge-gap, never a
+        // refactor — the heavy-refactor lane was structurally dead for the whole real (PHPUnit) codebase.
+        config([
+            'atlas.loop.framework_refactor_enabled' => true,
+            'atlas.loop.refactor_objectives_enabled' => true,
+            'atlas.loop.framework_refactor_min_cyclomatic' => 8,
+            'atlas.loop.framework_refactor_min_callers' => 1,
+        ]);
+        $repo = $this->repoWithComplexFrameworkTargetAndSibling();
+
+        $campaign = AtlasLoopCampaign::create([
+            'schema_version' => 'atlas.loop.campaign.v1',
+            'status' => 'running',
+            'goal' => 'test',
+            'base_workspace' => $repo,
+            'provider' => '',
+            'config' => [],
+        ]);
+        // framework_reach = 0 => routes to the SELF-CONTAINED branch (not the framework branch).
+        $target = app(AtlasLoopTargetRepository::class)->upsert(
+            $campaign->id,
+            'app/Services/Router.php',
+            hash('sha256', 'x'),
+            $this->scored(['cyclomatic' => 10, 'framework_reach' => 0, 'impact_real_callers' => 3]),
+            ['origin' => 'discovery'],
+        );
+
+        // Real Phase-1 self-contained synthesizer present (the true production wiring): it must
+        // return null on the PHPUnit sibling, and the new fallback must then fire.
+        $this->invokeGenerateAndEnqueue($this->refillerWithRealSelfContainedSynth(), $campaign, $target);
+
+        $tasks = DB::table('atlas_loop_tasks')->where('campaign_id', $campaign->id)->get();
+        $this->assertCount(1, $tasks, 'a self-contained PHPUnit-backed complex file yields exactly one task');
+        $payload = (array) json_decode((string) $tasks->first()->payload, true);
+        $this->assertSame('refactor_reduce_complexity', $payload['objective_kind'] ?? null, 'self-contained + PHPUnit sibling => framework refactor (the fix)');
+        $this->assertSame('framework', $payload['materializer'] ?? null, 'routed through the framework materializer that can run PHPUnit');
+        $this->assertTrue((bool) ($payload['acceptance']['complexity_proof'] ?? false));
+    }
+
+    public function test_self_contained_phpunit_backed_target_flag_off_produces_no_refactor(): void
+    {
+        // Default-inert: with the framework-refactor flag OFF, a self-contained PHPUnit-backed file
+        // must NOT become a refactor task — it falls to the normal generator, byte-identical to today.
+        config([
+            'atlas.loop.framework_refactor_enabled' => false,
+            'atlas.loop.refactor_objectives_enabled' => true,
+        ]);
+        $repo = $this->repoWithComplexFrameworkTargetAndSibling();
+
+        $campaign = AtlasLoopCampaign::create([
+            'schema_version' => 'atlas.loop.campaign.v1',
+            'status' => 'running',
+            'goal' => 'test',
+            'base_workspace' => $repo,
+            'provider' => '',
+            'config' => [],
+        ]);
+        $target = app(AtlasLoopTargetRepository::class)->upsert(
+            $campaign->id,
+            'app/Services/Router.php',
+            hash('sha256', 'x'),
+            $this->scored(['cyclomatic' => 10, 'framework_reach' => 0, 'impact_real_callers' => 3]),
+            ['origin' => 'discovery'],
+        );
+
+        $this->invokeGenerateAndEnqueue($this->refillerWithRealSelfContainedSynth(), $campaign, $target);
+
+        // Unconditional assertion (no task may be enqueued at all — the noop generator quarantines —
+        // so count refactor tasks directly rather than looping, which would be a no-assertion test).
+        $refactorTasks = DB::table('atlas_loop_tasks')
+            ->where('campaign_id', $campaign->id)
+            ->get()
+            ->filter(fn ($t) => (((array) json_decode((string) $t->payload, true))['objective_kind'] ?? null) === 'refactor_reduce_complexity')
+            ->count();
+        $this->assertSame(0, $refactorTasks, 'flag OFF => no refactor objective even for a PHPUnit-backed self-contained file');
+    }
+
     /** @param array<string,mixed> $signals */
     private function scored(array $signals): array
     {
@@ -296,6 +379,37 @@ PHP;
             app(AtlasLoopBackService::class),
             app(AtlasLoopStore::class),
             null,
+            new AtlasLoopHarnessGuard(),
+            new AtlasLoopFrameworkRefactorSynthesizer(),
+        );
+    }
+
+    /**
+     * The TRUE production wiring for the self-contained branch: the real Phase-1 plain-`php`
+     * synthesizer is present (arg 6) AND the framework refactor synthesizer (arg 8). Proves the
+     * PHPUnit-sibling fallback fires AFTER the Phase-1 synthesizer correctly returns null.
+     */
+    private function refillerWithRealSelfContainedSynth(): AtlasLoopQueueRefiller
+    {
+        $this->app->bind(AtlasEvolutionTaskGenerator::class, function () {
+            $fake = new class implements LoopExecutionDriver
+            {
+                public function attempt(string $surfaceId, string $workspace, string $intent, array $userConstraints, array $surfaceHints): array
+                {
+                    return ['status' => 'noop'];
+                }
+            };
+
+            return new AtlasEvolutionTaskGenerator($fake);
+        });
+
+        return new AtlasLoopQueueRefiller(
+            app(AtlasLoopTargetDiscoveryService::class),
+            app(AtlasLoopTargetRepository::class),
+            app(AtlasEvolutionTaskGenerator::class),
+            app(AtlasLoopBackService::class),
+            app(AtlasLoopStore::class),
+            new AtlasLoopRefactorObjectiveSynthesizer(),
             new AtlasLoopHarnessGuard(),
             new AtlasLoopFrameworkRefactorSynthesizer(),
         );

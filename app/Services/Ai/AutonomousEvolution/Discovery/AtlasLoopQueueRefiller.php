@@ -137,33 +137,9 @@ final class AtlasLoopQueueRefiller
             // synthesizer returns null => fall through to the edge-gap path, byte-identical to
             // today). PETREO: a forbidden self-target is rejected here before enqueue
             // (belt-and-suspenders; discovery's admit() already filters them).
-            if ((bool) config('atlas.loop.framework_refactor_enabled', false)) {
-                $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard();
-                if (! $guard->isForbiddenSelfTarget((string) $target->target_path)) {
-                    $synth = $this->frameworkRefactorSynthesizer ?? new AtlasLoopFrameworkRefactorSynthesizer();
-                    $refactor = $synth->synthesizeFrameworkRefactor(
-                        $repoRoot,
-                        ltrim((string) $target->target_path, '/'),
-                        $signals,
-                        $provider,
-                        $target->id,
-                    );
-                    if ($refactor !== null) {
-                        $enq = $this->store->enqueueTask(
-                            $campaign->id,
-                            $refactor['objective'],
-                            $refactor['payload'],
-                            'discovery',
-                            (string) $target->target_path,
-                            (int) round(((float) $target->score) * 100),
-                            true,
-                            $refactor['acceptance_hash'],
-                        );
-                        $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'framework_refactor_task_synthesized');
-
-                        return $enq !== null ? 'enqueued' : 'deferred';
-                    }
-                }
+            $outcome = $this->tryFrameworkRefactor($campaign, $target, $signals, $provider, $repoRoot);
+            if ($outcome !== null) {
+                return $outcome;
             }
 
             $payload = [
@@ -227,6 +203,19 @@ final class AtlasLoopQueueRefiller
             }
         }
 
+        // PHPUnit-sibling refactor fallback: the Phase-1 plain-`php` synthesizer above admits ONLY
+        // the rare require-style sibling. The COMMON case is a pure-logic self-contained service
+        // (framework_reach==0) whose only honest behavior anchor is a PHPUnit sibling — which the
+        // plain-`php` harness cannot run. Route it through the FRAMEWORK materializer (worktree +
+        // real autoload + ./vendor/bin/phpunit), the right tool for ANY file with a PHPUnit anchor.
+        // framework_reach==0 only means NEW-behavior grind needs no framework boot; a behavior-
+        // PRESERVING refactor still wants the worktree. Same complexity_proof certification.
+        // (Without this, the heavy-refactor lane was structurally dead for the whole real codebase.)
+        $outcome = $this->tryFrameworkRefactor($campaign, $target, $signals, $provider, $repoRoot);
+        if ($outcome !== null) {
+            return $outcome;
+        }
+
         $base = sys_get_temp_dir().'/atlas-loop-gen-'.bin2hex(random_bytes(5));
         $targetRel = 'src/'.basename((string) $target->target_path);
         $cleanup = static function () use ($base): void {
@@ -283,6 +272,55 @@ final class AtlasLoopQueueRefiller
      * @param  array<string,mixed>  $task
      * @return array<string,mixed>
      */
+    /**
+     * HEAVY REFACTOR attempt (behavior-preserving, AST complexity-drop certified) for a
+     * high-complexity WIRED target whose behavior anchor is a real PHPUnit sibling. Routes
+     * through the FRAMEWORK materializer (worktree + real autoload + ./vendor/bin/phpunit),
+     * which runs PHPUnit correctly — so it is the right tool for BOTH framework-reach files AND
+     * pure-logic self-contained files (the common case: framework_reach==0 but the only honest
+     * behavior anchor is a PHPUnit test, which the plain-`php` Phase-1 synthesizer cannot run).
+     * Flag-gated by `framework_refactor_enabled`, fail-closed: returns the enqueue outcome
+     * ('enqueued'|'deferred') when a refactor task was synthesized, or null when the target is
+     * not refactor-eligible (the caller falls through to its normal path). PETREO: a forbidden
+     * self-target is rejected here before enqueue (belt-and-suspenders; discovery already filters).
+     *
+     * @param  array<string,mixed>  $signals
+     */
+    private function tryFrameworkRefactor(AtlasLoopCampaign $campaign, AtlasLoopTarget $target, array $signals, string $provider, string $repoRoot): ?string
+    {
+        if (! (bool) config('atlas.loop.framework_refactor_enabled', false)) {
+            return null;
+        }
+        $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard();
+        if ($guard->isForbiddenSelfTarget((string) $target->target_path)) {
+            return null;
+        }
+        $synth = $this->frameworkRefactorSynthesizer ?? new AtlasLoopFrameworkRefactorSynthesizer();
+        $refactor = $synth->synthesizeFrameworkRefactor(
+            $repoRoot,
+            ltrim((string) $target->target_path, '/'),
+            $signals,
+            $provider,
+            $target->id,
+        );
+        if ($refactor === null) {
+            return null;
+        }
+        $enq = $this->store->enqueueTask(
+            $campaign->id,
+            $refactor['objective'],
+            $refactor['payload'],
+            'discovery',
+            (string) $target->target_path,
+            (int) round(((float) $target->score) * 100),
+            true,
+            $refactor['acceptance_hash'],
+        );
+        $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'framework_refactor_task_synthesized');
+
+        return $enq !== null ? 'enqueued' : 'deferred';
+    }
+
     private function snapshotPayload(string $base, array $task, string $targetRel, string $provider, string $targetId): array
     {
         $frozenTests = [];
