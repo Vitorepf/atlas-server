@@ -122,7 +122,7 @@ final class FinalDeliveryQualityGateService
 
     private function isProductPhpFile(string $path): bool
     {
-        $p = strtolower($path);
+        $p = strtolower(str_replace('\\', '/', $path));
         if (! str_ends_with($p, '.php')) {
             return false;
         }
