@@ -274,6 +274,23 @@ final class AtlasLoopTargetDiscoveryService
             $row['scored']['score'] = round(min(1.0, (float) $row['scored']['score'] + 0.18 * $impact), 4);
             if ((bool) config('atlas.loop.refactoring_targets_enabled', false)) {
                 $row['scored']['score'] = round(min(1.0, (float) $row['scored']['score'] + 0.12 * $refactorLeverage), 4);
+
+                // HEAVY-REFACTOR PRIORITIZATION (gated on framework_refactor_enabled, default
+                // OFF): when heavy refactoring is ON, a genuinely high-complexity WIRED file is a
+                // PRIMARY target (the operator wants big refactors, not small fixes) — the small
+                // +0.12 boost above never beats a backlog/evidence edge-gap (~0.85), so such a
+                // file never reached the claimed top-N where the framework refactor synthesizer
+                // turns it into a refactor objective (measured: refactoring never fired). Promote
+                // it to top-tier so it surfaces. With the framework flag OFF the ranking is
+                // unchanged. The synthesizer + complexity-drop cert still gate certification.
+                $refMinCx = (int) config('atlas.loop.framework_refactor_min_cyclomatic', 10);
+                if ((bool) config('atlas.loop.framework_refactor_enabled', false)
+                    && $cyclomatic >= $refMinCx
+                    && $callers >= 1) {
+                    $row['scored']['score'] = round(max((float) $row['scored']['score'], min(1.0, 0.80 + 0.18 * $refactorLeverage)), 4);
+                    $signals['heavy_refactor_candidate'] = true;
+                    $row['scored']['signals'] = $signals;
+                }
             }
         }
         unset($row);
