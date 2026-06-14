@@ -672,7 +672,7 @@ final class AtlasAutonomousEvolutionLoopService
     private function alignmentScore(string $objective, array $input): float
     {
         if (is_numeric($input['strategic_alignment_score'] ?? null)) {
-            return round((float) $input['strategic_alignment_score'], 4);
+            return round(max(0.0, min(1.0, (float) $input['strategic_alignment_score'])), 4);
         }
         $text = Str::lower($objective);
         $score = 0.48;
@@ -690,9 +690,9 @@ final class AtlasAutonomousEvolutionLoopService
      */
     private function roiModel(string $objective, array $input): array
     {
-        $impact = (float) ($input['impact'] ?? (str_contains(Str::lower($objective), 'manual') ? 0.86 : 0.72));
-        $frequency = (float) ($input['frequency'] ?? 0.68);
-        $effort = (float) ($input['effort'] ?? 0.42);
+        $impact = max(0.0, min(1.0, (float) ($input['impact'] ?? (str_contains(Str::lower($objective), 'manual') ? 0.86 : 0.72))));
+        $frequency = max(0.0, min(1.0, (float) ($input['frequency'] ?? 0.68)));
+        $effort = max(0.0, min(1.0, (float) ($input['effort'] ?? 0.42)));
         $riskPenalty = match ($this->riskLevel($objective, $input)) {
             'critical' => 0.45,
             'high' => 0.25,
@@ -701,9 +701,9 @@ final class AtlasAutonomousEvolutionLoopService
         };
 
         return [
-            'impact' => round(min(1.0, $impact), 4),
-            'frequency' => round(min(1.0, $frequency), 4),
-            'effort' => round(min(1.0, $effort), 4),
+            'impact' => round($impact, 4),
+            'frequency' => round($frequency, 4),
+            'effort' => round($effort, 4),
             'risk_penalty' => $riskPenalty,
             'estimated_hours_saved_per_month' => round(($impact * $frequency * 40) - ($effort * 4), 2),
         ];
