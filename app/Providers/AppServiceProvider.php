@@ -165,6 +165,14 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(SkillBundleStore::class);
         $this->app->bind(LoopWorkerSpawnerContract::class, LoopWorkerSpawner::class);
 
+        // Obra-auto-merge broader-regression gate seam: the production gate runs the affected
+        // suites + never-merge invariant + boot-smoke + php -l; tests substitute a deterministic
+        // fake. Binding the contract is what lets AtlasLoopObraAutoMergeService resolve.
+        $this->app->bind(
+            \App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract::class,
+            \App\Services\Ai\AutonomousEvolution\AtlasLoopBroaderRegressionGate::class,
+        );
+
         // Loop discovery wiring. Laravel does NOT auto-inject nullable-with-default
         // constructor params (`?Type $x = null`), so AtlasLoopTargetDiscoveryService
         // was silently running with evidence/backlog/wiredCallers ALL null — its own

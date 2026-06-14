@@ -65,6 +65,20 @@ final class AtlasLoopTaskGrinder
         $cleanup = static function (): void {};
         try {
             $payload = $this->taskPayload($task);
+
+            // PHASE-2 multi-file refactor routing (flag-gated, default OFF). A `refactor_*`
+            // objective touching >=2 files is HARD-ROUTED to the governed Obra bridge
+            // (operator-reviewed, never-merge) INSTEAD of the single-file explorer/materializer.
+            // It NEVER single-file-materializes a multi-file diff. With the flag OFF or a single
+            // file, the routing is inert and the grind falls through to the normal path below.
+            // Resolved LAZILY via app() so the grinder constructor signature stays unchanged.
+            $obraRoute = $this->maybeRouteMultiFileRefactorToObra($task, $payload, $workerId, $started);
+            if ($obraRoute !== null) {
+                $cleanup();
+
+                return $obraRoute;
+            }
+
             $strategyBanditDecision = $this->strategyBanditDecision($task, $payload, $scenarios);
             if ((bool) ($strategyBanditDecision['applied'] ?? false)) {
                 $payload['scenario_strategies'] = $strategyBanditDecision['selected_strategy_texts'] ?? [];
@@ -141,6 +155,90 @@ final class AtlasLoopTaskGrinder
 
             return $grindResult;
         }
+    }
+
+    /**
+     * PHASE-2: hard-route a multi-file `refactor_*` objective to the governed Obra bridge
+     * (operator-reviewed, never-merge) instead of the single-file explorer/materializer.
+     *
+     * Returns a terminal grind result when the route fires, or null when it does NOT (flag OFF,
+     * non-refactor objective, or fewer than 2 allowed files) so the caller falls through to the
+     * normal single-file path. The bridge dispatches NO provider and never merges; a blocked
+     * bridge (no certified L4-10 real evidence) drops to no_winner — it NEVER single-file
+     * materializes a multi-file diff.
+     *
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>|null
+     */
+    private function maybeRouteMultiFileRefactorToObra(AtlasLoopTask $task, array $payload, string $workerId, float $started): ?array
+    {
+        if (! (bool) config('atlas.loop.refactor_multi_file_via_obra', false)) {
+            return null;
+        }
+
+        $objectiveKind = trim((string) ($payload['objective_kind'] ?? ''));
+        if (! str_starts_with($objectiveKind, 'refactor_')) {
+            return null;
+        }
+
+        $allowedFiles = AiStringListNormalizer::trimmedStrings($payload['allowed_files'] ?? []);
+        if (count($allowedFiles) < 2) {
+            return null;
+        }
+
+        $bridgeOptions = [
+            'intent' => (string) $task->objective,
+            'files' => $allowedFiles,
+        ];
+        $evidencePath = trim((string) ($payload['l4_10_evidence_path'] ?? ''));
+        if ($evidencePath !== '') {
+            $bridgeOptions['l4_10_evidence_path'] = $evidencePath;
+        }
+        $deliveryReceiptPath = trim((string) ($payload['delivery_receipt_path'] ?? ''));
+        if ($deliveryReceiptPath !== '') {
+            $bridgeOptions['delivery_receipt_path'] = $deliveryReceiptPath;
+        }
+
+        $bridge = app(AtlasLoopObraBridgeService::class)->bridge($bridgeOptions);
+        $status = (string) ($bridge['status'] ?? '');
+        $elapsed = (int) ceil(microtime(true) - $started);
+        $obraBridge = [
+            'status' => $status,
+            'operator_approval_required' => (bool) data_get($bridge, 'operator_approval.required', true),
+            'provider_dispatches_now' => (bool) data_get($bridge, 'claim_policy.provider_dispatches_now', false),
+        ];
+
+        if (in_array($status, ['ready_for_operator_review', 'delivered'], true)) {
+            // Graduated to the governed obra handoff: terminal-DONE, never a winner, zero
+            // proposals (the bridge never merges; operator review is required before any merge).
+            $this->store->completeTask($task->id, $workerId, [
+                'status' => 'proposal_created_obra_multi_file_refactor',
+                'obra_bridge' => $obraBridge,
+            ], true);
+
+            return [
+                'status' => 'proposal_created_obra_multi_file_refactor',
+                'has_winner' => false,
+                'proposals' => 0,
+                'scenarios_explored' => 0,
+                'elapsed_seconds' => $elapsed,
+                'obra_bridge' => $obraBridge,
+            ];
+        }
+
+        // Blocked bridge (no certified L4-10 real evidence). DROP to no_winner — never fall
+        // through to a single-file materialize of a multi-file refactor.
+        $this->store->releaseClaim($task->id, $workerId);
+
+        return [
+            'status' => 'no_winner',
+            'has_winner' => false,
+            'proposals' => 0,
+            'scenarios_explored' => 0,
+            'elapsed_seconds' => $elapsed,
+            'reason' => 'obra_bridge_blocked_by_l4_10:'.$status,
+            'obra_bridge' => $obraBridge,
+        ];
     }
 
     /**

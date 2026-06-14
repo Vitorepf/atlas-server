@@ -1810,6 +1810,10 @@ return [
         // Gates Phase-2 routing of >=2-file refactor tasks through AtlasLoopObraBridgeService
         // (operator-reviewed, never-merge). Phase 1 is single-file only; this stays OFF until Phase 2.
         'refactor_multi_file_via_obra' => (bool) env('ATLAS_LOOP_REFACTOR_MULTI_FILE_VIA_OBRA', false),
+        // Gates the obra-auto-merge crossing (AtlasLoopObraAutoMergeService): a GENUINELY
+        // certified obra branch auto-merges to main WITHOUT operator review, but ONLY after the
+        // broader-regression gate passes. DEFAULT FALSE; OFF => obra always stays operator-review.
+        'obra_auto_merge_enabled' => (bool) env('ATLAS_LOOP_OBRA_AUTO_MERGE_ENABLED', false),
 
         // L4-1: cooldown por target recente. Tasks/proposals recentes do mesmo path caem no
         // ranking para evitar farming do arquivo que acabou de render proposta.
