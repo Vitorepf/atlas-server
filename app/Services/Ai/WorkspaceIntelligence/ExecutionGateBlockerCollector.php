@@ -66,6 +66,10 @@ final class ExecutionGateBlockerCollector
             return 0;
         }
 
+        if (is_float($value) && floor($value) !== $value) {
+            return 0;
+        }
+
         return is_int($value) ? $value : (int) $value;
     }
 }
