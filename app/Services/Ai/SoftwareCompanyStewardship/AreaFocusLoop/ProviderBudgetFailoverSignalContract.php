@@ -101,6 +101,7 @@ final class ProviderBudgetFailoverSignalContract
     public static function signalTriggersFailover(array $signal): bool
     {
         return ($signal['schema_version'] ?? null) === self::SCHEMA
+            && ($signal['signal_id'] ?? null) === self::SIGNAL_ID
             && ($signal['outputs']['triggers_provider_failover'] ?? false) === true;
     }
 
