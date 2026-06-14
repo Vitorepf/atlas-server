@@ -190,9 +190,16 @@ final class AtlasLoopFrameworkRefactorSynthesizer
         $where = $worstMethod !== null ? $base.'::'.$worstMethod.'()' : 'the file\'s most complex method';
         return 'Refactor '.$base.' to REDUCE the cyclomatic complexity of its worst method, '.$where
             .' (cyclomatic '.$cyclomatic.', the file max). Drive DOWN the decision/branch count of THAT '
-            .'method specifically — use early-return guard clauses, extract cohesive private helpers, and '
-            .'replace long if/elseif or switch chains with a lookup/dispatch table — so the file\'s AST '
-            .'max-per-method drops below '.$cyclomatic.'. Edit ONLY '.$base.'; do not modify any other '
+            .'method specifically — extract cohesive private helpers that MOVE existing branches out of it, '
+            .'and replace long if/elseif or switch chains with a lookup/dispatch table — so the file\'s AST '
+            .'max-per-method drops below '.$cyclomatic.'. '
+            // ALIGN-WITH-GATE: the certifier scores DECISION POINTS (the file\'s total branch count,
+            // extract-method-neutral), not raw method count. A refactor that drops the max but ADDS net
+            // conditionals is REJECTED. So: do NOT add new branches/guard clauses beyond what already
+            // exists — prefer PURE extraction (relocate the same conditionals into helpers) and collapse
+            // chains into tables. The file\'s TOTAL number of if/for/while/case/&&/||/?: must stay flat or
+            // fall; only the worst method\'s share of them should shrink. '
+            .'Edit ONLY '.$base.'; do not modify any other '
             .'file. PRESERVE behavior exactly — the existing tests must stay green.';
     }
 
