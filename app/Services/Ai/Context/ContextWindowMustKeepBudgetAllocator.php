@@ -111,6 +111,11 @@ final class ContextWindowMustKeepBudgetAllocator
                 $leftoverForCompression,
             );
 
+            // Give flooring leftovers to higher-ranked flagged must_keep before optional context.
+            if ($assignedCompressionTokens + $target < $leftoverForCompression && $target < $segment['tokens']) {
+                $target++;
+            }
+
             if ($target <= 0) {
                 $unrecoverable = true;
                 $excluded[] = $this->excludedRow(
