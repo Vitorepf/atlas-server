@@ -118,16 +118,44 @@ final class AtlasLoopSemanticImplementationCertifier
         // implementation contract has complexity_proof absent and never enters this branch
         // (byte-identical to today). Fail-CLOSED: an unmeasurable/no-op diff returns null => refuted.
         $complexityProof = null;
+        $scopeViolation = [];
         if ($this->complexityProofRequired($targetAcceptance)) {
-            $complexityProof = $this->measureComplexityReduction($workspace, $changedFiles);
+            // SCOPE GATE (anti-gaming): the aggregate-drop must be measured over the files the obra
+            // was ALLOWED to touch — NOT the raw git diff. Without this, a multi-file obra could drop
+            // the headline complexity in an allowed file while editing an UNRELATED file outside the
+            // cluster (which the diff-scoped measurement would silently include). When allowed_files
+            // is supplied, intersect the changed .php files against it: measure only the scoped set,
+            // and REFUSE if any changed .php file lands outside the allowed cluster.
+            $scoped = $changedFiles;
+            if ($allowedFiles !== []) {
+                $allowSet = array_flip(array_map(static fn (string $f): string => ltrim($f, '/'), $allowedFiles));
+                $scoped = [];
+                foreach ($changedFiles as $cf) {
+                    $norm = ltrim((string) $cf, '/');
+                    if (! str_ends_with($norm, '.php')) {
+                        continue;
+                    }
+                    if (isset($allowSet[$norm])) {
+                        $scoped[] = $cf;
+                    } else {
+                        $scopeViolation[] = $norm;
+                    }
+                }
+            }
+            $complexityProof = $this->measureComplexityReduction($workspace, $scoped);
         }
 
         $reasons = $this->reasons($deterministicGate, $panelVerdict, $mutationAdequacy, $crossFileConsumers, $providerRefuters);
-        if ($this->complexityProofRequired($targetAcceptance) && ($complexityProof['reduced'] ?? null) !== true) {
-            // fail-closed: not reduced, OR null/error measuring (could not verify the drop).
-            $reasons[] = is_array($complexityProof)
-                ? 'complexity_gate:complexity_not_reduced'
-                : 'complexity_gate:measurement_failed';
+        if ($this->complexityProofRequired($targetAcceptance)) {
+            if ($scopeViolation !== []) {
+                $reasons[] = 'complexity_gate:changed_files_outside_allowed:'.implode(',', array_slice($scopeViolation, 0, 5));
+            }
+            if (($complexityProof['reduced'] ?? null) !== true) {
+                // fail-closed: not reduced, OR null/error measuring (could not verify the drop).
+                $reasons[] = is_array($complexityProof)
+                    ? 'complexity_gate:complexity_not_reduced'
+                    : 'complexity_gate:measurement_failed';
+            }
         }
         $reasons = AiStringListNormalizer::uniqueStrings($reasons);
         $certified = $reasons === [];

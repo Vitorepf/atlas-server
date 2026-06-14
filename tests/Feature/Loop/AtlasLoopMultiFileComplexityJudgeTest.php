@@ -116,6 +116,20 @@ final class AtlasLoopMultiFileComplexityJudgeTest extends TestCase
         $this->assertContains('complexity_gate:complexity_not_reduced', $receipt['reasons']);
     }
 
+    public function test_changed_file_outside_allowed_cluster_is_rejected_by_scope_gate(): void
+    {
+        // A genuine drop in the allowed files, but the obra ALSO edited a file OUTSIDE the allowed
+        // cluster. The diff-scoped measurement alone would not catch it; the scope gate MUST refuse.
+        $this->workspace = $this->repo(12, 2);
+        file_put_contents($this->workspace.'/src/HubA.php', $this->klass('HubA', 5));      // allowed, drop
+        file_put_contents($this->workspace.'/src/Outside.php', $this->klass('Outside', 3)); // NEW, not allowed
+
+        $receipt = $this->certify(); // allowed_files = ['src/HubA.php','src/HubB.php']
+
+        $this->assertFalse((bool) $receipt['certified'], 'editing a file outside the allowed cluster is rejected');
+        $this->assertStringContainsString('changed_files_outside_allowed', implode('|', $receipt['reasons']));
+    }
+
     public function test_noop_diff_fails_closed(): void
     {
         // No working-tree change => nothing to stash => the judge cannot prove a drop => fail-closed.
