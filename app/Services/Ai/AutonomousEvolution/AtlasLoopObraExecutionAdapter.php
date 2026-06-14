@@ -72,12 +72,19 @@ final class AtlasLoopObraExecutionAdapter
 
         $evidencePath = '';
         try {
-            $envelope = $executor->execute($plan, array_filter([
+            $opts = array_filter([
                 'repo_dir' => $repoRoot,
                 'provider' => 'hermes_cli',
                 'integrated_check' => $this->integratedCheck($payload),
                 'no_brain' => true,
-            ], static fn ($v): bool => $v !== null && $v !== ''));
+            ], static fn ($v): bool => $v !== null && $v !== '');
+            // REPAIR (eixo-3, default-OFF): bounded per-node retry-with-feedback inside execute().
+            $opts['repair'] = [
+                'enabled' => (bool) config('atlas.loop.obra_repair_enabled', false),
+                'maxPerNode' => (int) config('atlas.loop.obra_repair_max_attempts_per_node', 3),
+                'maxPerObra' => (int) config('atlas.loop.obra_repair_max_attempts_per_obra', 8),
+            ];
+            $envelope = $executor->execute($plan, $opts);
 
             // FAIL-CLOSED: the whole obra must be genuinely done, certified, every node delivered, and
             // main byte-identical — anything else discards the branch and loops back honestly.

@@ -199,6 +199,9 @@ final class AtlasObraExecutor
         $deliveredCount = 0;
         $failedNode = null;
         $halted = false;
+        // REPAIR (default-OFF): a single per-OBRA delivery-attempt counter bounds total provider
+        // spend across ALL nodes even if no single node hits its per-node cap.
+        $totalAttempts = 0;
 
         foreach ($nodes as $node) {
             $nodeId = (string) ($node['id'] ?? '');
@@ -256,15 +259,58 @@ final class AtlasObraExecutor
                 $context['provider'] = (string) $opts['provider'];
             }
 
-            try {
-                $delivered = $this->delivery->deliver($request, $context);
-            } catch (Throwable $e) {
-                $delivered = ['certified' => false, 'files' => [], 'reason' => 'delivery_exception:'.substr($e->getMessage(), 0, 120)];
+            // REPAIR LOOP (default-OFF): on a DELIVERY failure (certified=false — BEFORE any apply or
+            // commit, so there is no gate-stage launder), retry the delivery with LABEL-ONLY failure
+            // feedback, bounded per-node AND per-obra, stopping early on no-progress (a byte-identical
+            // re-edit). Repair changes only the COUNT of delivery attempts, never the bar: a retry's
+            // result still faces the same certified/apply/gate stack below. With repair.enabled=false
+            // the delivery runs EXACTLY ONCE (byte-identical to today).
+            $repairEnabled = (bool) ($opts['repair']['enabled'] ?? false);
+            $maxPerNode = max(1, (int) ($opts['repair']['maxPerNode'] ?? 1));
+            $maxPerObra = max(1, (int) ($opts['repair']['maxPerObra'] ?? PHP_INT_MAX));
+            $nodeAttempt = 0;
+            $repairStop = null;
+            $lastArtifactFp = null;
+            $deliveryRequest = $request;
+            while (true) {
+                $nodeAttempt++;
+                $totalAttempts++;
+                try {
+                    $delivered = $this->delivery->deliver($deliveryRequest, $context);
+                } catch (Throwable $e) {
+                    $delivered = ['certified' => false, 'files' => [], 'reason' => 'delivery_exception:'.substr($e->getMessage(), 0, 120)];
+                }
+                if ((bool) ($delivered['certified'] ?? false) || ! $repairEnabled) {
+                    break; // delivered (-> apply+gate below) OR repair OFF (single pass -> halt below)
+                }
+                // NO-PROGRESS: only when the failed delivery actually produced files (a re-edit that
+                // keeps failing identically). An empty-files delivery failure has no artifact to
+                // compare — the per-node/per-obra caps bound it instead.
+                $fp = $this->deliveredArtifactFingerprint($delivered);
+                if ($fp !== null && $fp === $lastArtifactFp) {
+                    $repairStop = 'no_progress';
+                    break;
+                }
+                $lastArtifactFp = $fp;
+                if ($nodeAttempt >= $maxPerNode) {
+                    $repairStop = 'per_node';
+                    break;
+                }
+                if ($totalAttempts >= $maxPerObra) {
+                    $repairStop = 'per_obra';
+                    break;
+                }
+                // LABEL-ONLY feedback (the critical anti-leak: NEVER the raw output_excerpt / source).
+                $deliveryRequest = $request."\n\n[repair attempt ".($nodeAttempt + 1)."] the prior attempt failed — "
+                    .$this->repairFeedback($delivered)." Fix it and PRESERVE behaviour so the frozen sibling tests stay green.";
             }
 
             // FAIL-CLOSED: a non-certified delivery HALTS the obra (no garbage applied).
             if (! (bool) ($delivered['certified'] ?? false)) {
                 $reason = (string) ($delivered['reason'] ?? 'not_certified');
+                if ($repairEnabled && $repairStop !== null) {
+                    $reason = 'repair_exhausted:'.$repairStop.':'.$reason;
+                }
                 $failure = array_merge([
                     'id' => $nodeId,
                     'seq' => $seq,
@@ -858,6 +904,67 @@ final class AtlasObraExecutor
         } catch (Throwable) {
             // In-memory-only execute(): the node row may not exist; ignore.
         }
+    }
+
+    /**
+     * LABEL-ONLY repair feedback for the next delivery attempt — provider-safe BY CONSTRUCTION: it
+     * projects ONLY the failure reason and the gate-check tool/reason/exit_code SCALARS, and
+     * DELIBERATELY DROPS output_excerpt / output (the raw command stdout/stderr that could echo
+     * source). No file bodies, no provider output, no prompt — a single short clause the provider can
+     * act on. (The full {@see deliveryFailureAutopsy} carries bounded excerpts for the AUDIT receipt;
+     * this projection is what crosses back INTO a provider request, so it is strictly narrower.)
+     *
+     * @param  array<string,mixed>  $delivered
+     */
+    private function repairFeedback(array $delivered): string
+    {
+        $parts = [];
+        $reason = trim((string) ($delivered['reason'] ?? 'not_certified'));
+        if ($reason !== '') {
+            $parts[] = 'reason='.substr($reason, 0, 120);
+        }
+        foreach (['syntax_check' => 'syntax', 'run_check' => 'tests'] as $key => $label) {
+            $check = (array) ($delivered[$key] ?? []);
+            $bits = [];
+            foreach (['tool', 'reason', 'exit_code'] as $f) {
+                // EXPLICIT scalar whitelist — output_excerpt/output are NEVER included.
+                if (isset($check[$f]) && (is_string($check[$f]) || is_int($check[$f]))) {
+                    $bits[] = $f.'='.substr((string) $check[$f], 0, 80);
+                }
+            }
+            if ($bits !== []) {
+                $parts[] = $label.'('.implode(',', $bits).')';
+            }
+        }
+
+        return $parts === [] ? 'the gate did not pass.' : implode('; ', $parts).'.';
+    }
+
+    /**
+     * Content fingerprint of the delivered files (sorted path => sha256(content)); NULL when the
+     * failed delivery produced no files (nothing to compare — the caps bound it instead). The repair
+     * no-progress guard stops when a retry reproduces an identical fingerprint (the same wrong edit).
+     *
+     * @param  array<string,mixed>  $delivered
+     */
+    private function deliveredArtifactFingerprint(array $delivered): ?string
+    {
+        $map = [];
+        foreach (array_values((array) ($delivered['files'] ?? [])) as $f) {
+            if (! is_array($f)) {
+                continue;
+            }
+            $path = trim((string) ($f['path'] ?? ''));
+            if ($path !== '') {
+                $map[$path] = hash('sha256', (string) ($f['content'] ?? ''));
+            }
+        }
+        if ($map === []) {
+            return null;
+        }
+        ksort($map);
+
+        return hash('sha256', (string) json_encode($map));
     }
 
     /**

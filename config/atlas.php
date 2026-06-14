@@ -1899,6 +1899,16 @@ return [
         // (today's behaviour, byte-identical). Auto-merge of the parked obra stays a SEPARATE, default-
         // OFF decision (obra_auto_merge_enabled) — this flag only makes the loop PRODUCE the obra.
         'multi_file_execution_enabled' => (bool) env('ATLAS_LOOP_MULTI_FILE_EXECUTION_ENABLED', false),
+
+        // OBRA REPAIR (eixo-3, the autonomy multiplier) — when ON, a node whose DELIVERY fails
+        // certification is RETRIED with label-only failure feedback (bounded), instead of halting on
+        // the first failure. Raises per-node success, which compounds for a many-node obra. Repair
+        // changes only the COUNT of attempts, never the bar (every retry faces the same gate stack).
+        // DEFAULT-OFF: with it off the delivery runs exactly once (byte-identical to today). Two caps
+        // bound spend: per-node (3) and per-obra (8); a byte-identical re-edit stops early (no-progress).
+        'obra_repair_enabled' => (bool) env('ATLAS_LOOP_OBRA_REPAIR_ENABLED', false),
+        'obra_repair_max_attempts_per_node' => max(1, (int) env('ATLAS_LOOP_OBRA_REPAIR_MAX_ATTEMPTS_PER_NODE', 3)),
+        'obra_repair_max_attempts_per_obra' => max(1, (int) env('ATLAS_LOOP_OBRA_REPAIR_MAX_ATTEMPTS_PER_OBRA', 8)),
         'multi_file_refactor_timeout_seconds' => max(60, (int) env('ATLAS_LOOP_MULTI_FILE_REFACTOR_TIMEOUT_SECONDS', 600)),
 
         // L4-1: cooldown por target recente. Tasks/proposals recentes do mesmo path caem no
