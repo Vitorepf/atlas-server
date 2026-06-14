@@ -6,6 +6,7 @@ namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Models\AtlasLoopProposal;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWiredCallerService;
+use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -39,7 +40,13 @@ final class AtlasLoopUtilityGradeService
     public function __construct(
         private readonly AtlasLoopWiredCallerService $wiredCallers,
         private readonly ?string $repoRoot = null,
+        private readonly ?AtlasLoopSignalAnalyzer $signalAnalyzer = null,
     ) {}
+
+    private function analyzer(): AtlasLoopSignalAnalyzer
+    {
+        return $this->signalAnalyzer ?? new AtlasLoopSignalAnalyzer();
+    }
 
     /**
      * @return array<string,mixed>
@@ -127,6 +134,12 @@ final class AtlasLoopUtilityGradeService
                 'touched_lines' => $touched,
                 'canary_ran' => (bool) ($canary['ran'] ?? false),
                 'canary_passed' => $canary['passed'] ?? null,
+                // A complexity-reducing refactor objective. For these the NON_TRIVIAL credit is
+                // decided by a git-RE-MEASURED AST drop (authoritative), NEVER by the writable
+                // objective/diff text — so a "refactor" whose diff merely mentions null/fix/error
+                // cannot launder a non-trivial credit via the keyword path.
+                'is_refactor_objective' => preg_match('/refactor.*complex|complex.*reduc|reduce.*complex/i', (string) $proposal->objective) === 1,
+                'commit' => $commit,
             ];
             $targets[$target] = true;
         }
@@ -146,6 +159,7 @@ final class AtlasLoopUtilityGradeService
         $hub = 0;
         $canaryRan = 0;
         $canaryGreen = 0;
+        $reMeasuredRefactor = 0;
         foreach ($merges as $m) {
             $callers = (int) ($freshCallers[$m['target']] ?? 0);
             $isGenerated = in_array($m['target_kind'], ['generated', 'test', 'docs'], true);
@@ -156,11 +170,24 @@ final class AtlasLoopUtilityGradeService
             if (! $isGenerated) {
                 $realTarget++;
             }
-            $substantive = $m['touched_lines'] > 15
-                && in_array($m['category'], ['bug', 'edge_case', 'perf'], true)
-                && $m['canary_ran'] === true
-                && $m['canary_passed'] === true; // strict: ran:true/passed:null is NOT green
-            if ($substantive) {
+            // NON_TRIVIAL = substantive, behavior-proven work. Two honest doors, BOTH requiring
+            // >15 touched lines + a canary that ran and passed (strict: ran:true/passed:null is
+            // NOT green):
+            //   (a) a correctness/perf merge whose category the objective/diff declares; OR
+            //   (b) a complexity-reducing REFACTOR whose AST max-per-method cyclomatic DROP is
+            //       RE-MEASURED from the real merge commit (git show parent-vs-commit). For a
+            //       refactor objective the re-measure is AUTHORITATIVE — the writable keyword path
+            //       is NOT accepted — so a "refactor" that did not actually reduce complexity (or
+            //       whose diff merely mentions null/fix/error) scores ZERO. Ungameable: the drop
+            //       is re-derived from the immutable commit by the same AST measure the certifier
+            //       used to gate the merge; fail-closed (null => not credited).
+            $baseSubstantive = $m['touched_lines'] > 15 && $m['canary_ran'] === true && $m['canary_passed'] === true;
+            if ($baseSubstantive && ($m['is_refactor_objective'] ?? false)) {
+                if ($this->reMeasuredComplexityDrop((string) ($m['commit'] ?? ''), (string) $m['target']) === true) {
+                    $nonTrivial++;
+                    $reMeasuredRefactor++;
+                }
+            } elseif ($baseSubstantive && in_array($m['category'], ['bug', 'edge_case', 'perf'], true)) {
                 $nonTrivial++;
             }
             // Compounding leverage: a wired HUB whose improvement protects many callers.
@@ -203,6 +230,7 @@ final class AtlasLoopUtilityGradeService
             'wired_merges' => $wired,
             'real_target_merges' => $realTarget,
             'non_trivial_merges' => $nonTrivial,
+            're_measured_refactor_merges' => $reMeasuredRefactor,
             'hub_merges' => $hub,
             'hub_threshold' => $hubThreshold,
             'canary_ran' => $canaryRan,
@@ -324,6 +352,60 @@ final class AtlasLoopUtilityGradeService
         }
 
         return 'real';
+    }
+
+    /**
+     * HONEST NON_TRIVIAL proof for a complexity-reducing refactor: re-measure the primary
+     * target's AST max-per-method cyclomatic BEFORE the merge (parent commit) vs AFTER (the merge
+     * commit), straight from the immutable git history — NEVER the objective text and NEVER a
+     * writable receipt field. Returns true iff the candidate genuinely reduced the worst method's
+     * complexity (candidate_max < baseline_max) without ballooning the file total
+     * (candidate_total <= baseline_total) — the SAME rule the semantic certifier used to GATE the
+     * merge, so grade and gate measure one fact. Null on any failure (non-.php target, git error,
+     * missing parent, unparseable) => the caller does NOT credit (fail-closed). A "refactor" that
+     * did not actually reduce complexity scores ZERO; the keyword path is never an escape hatch.
+     */
+    private function reMeasuredComplexityDrop(string $commit, string $primaryTarget): ?bool
+    {
+        if (! preg_match('/^[0-9a-f]{7,40}$/i', $commit) || ! str_ends_with($primaryTarget, '.php')) {
+            return null;
+        }
+        // `<commit>^` = first parent (well-defined even for a merge commit); a root commit with no
+        // parent fails and yields null => not credited.
+        $baseline = $this->fileAtCommit($commit.'^', $primaryTarget);
+        $candidate = $this->fileAtCommit($commit, $primaryTarget);
+        if ($baseline === null || $candidate === null) {
+            return null;
+        }
+        $before = $this->analyzer()->fileComplexity($baseline);
+        $after = $this->analyzer()->fileComplexity($candidate);
+        if (! $before['measured'] || ! $after['measured']) {
+            return null;
+        }
+
+        return $after['max_per_method'] < $before['max_per_method']
+            && $after['total'] <= $before['total'];
+    }
+
+    /**
+     * A file's exact content at a git ref (`git show <ref>:<path>`), or null when the ref/path
+     * does not resolve (file absent at that ref, or a root commit has no parent). Read-only;
+     * bounded; PATH-safe env (launchd/cron). Hex/path are validated by the caller.
+     */
+    private function fileAtCommit(string $ref, string $relPath): ?string
+    {
+        try {
+            $root = rtrim($this->repoRoot ?? base_path(), '/');
+            if (! is_dir($root.'/.git')) {
+                return null;
+            }
+            $process = new Process(['git', 'show', $ref.':'.$relPath], $root, $this->gitEnv(), null, 30.0);
+            $process->run();
+
+            return $process->isSuccessful() ? (string) $process->getOutput() : null;
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /**
