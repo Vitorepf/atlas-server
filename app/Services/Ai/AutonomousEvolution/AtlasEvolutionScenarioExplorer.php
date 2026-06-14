@@ -175,6 +175,7 @@ final class AtlasEvolutionScenarioExplorer
                 'tokens_used' => null,
                 'verdict' => ['passed' => false, 'metric' => 0.0, 'details' => ['reason' => 'scenario_threw']],
                 'diff_size' => ['files' => 0, 'lines' => 0],
+                'diff_text' => '',
                 'workspace' => $keepWorkspaces ? $workspace : null,
                 'error' => mb_substr($e->getMessage(), 0, 300),
             ];
