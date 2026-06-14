@@ -206,7 +206,28 @@ final class AtlasLoopTargetDiscoveryService
         // callerCounts returns ONLY measured paths (tri-state: an unmeasured path is
         // absent, never a key with 0). So measurement is decided PER PATH — an absent
         // path falls back to the symbol proxy and is NEVER flagged orphan on missing data.
-        $callerCounts = $this->wiredCallers?->callerCounts($paths) ?? [];
+        //
+        // COST GUARD (24h-soak keystone fix): callerCounts runs a per-path grep across the
+        // production tree (~0.4s/path). Resolving it for the WHOLE scanned universe (up to
+        // max_files=1200) makes a single refill take many MINUTES, so the supervisor never
+        // finishes a cycle inside its budget — it stops with cycles=0 / time_budget_reached
+        // and the loop never grinds (the observed 24h idle). Only the highest pre-ranked
+        // candidates can win the top-N upsert slots, so resolve real callers for a BOUNDED
+        // top-K by the cheap structural score; every other path keeps the symbol-proxy
+        // fallback — the EXACT branch an "unmeasured" path already takes (fail-open, never
+        // falsely flagged orphan). Correctness of the top-N order is preserved; only the
+        // certain-losers skip the expensive grep.
+        $callerCap = max(1, (int) config('atlas.loop.discovery_caller_resolve_cap', 60));
+        $resolvePaths = $paths;
+        if (count($paths) > $callerCap) {
+            $byScore = $scoredRows;
+            usort($byScore, static fn (array $a, array $b): int => ((float) ($b['scored']['score'] ?? 0)) <=> ((float) ($a['scored']['score'] ?? 0)));
+            $resolvePaths = array_values(array_unique(array_map(
+                static fn (array $r): string => (string) $r['path'],
+                array_slice($byScore, 0, $callerCap),
+            )));
+        }
+        $callerCounts = $this->wiredCallers?->callerCounts($resolvePaths) ?? [];
         $maxCallers = max(4, (int) max($callerCounts ?: [0]));
 
         foreach ($scoredRows as &$row) {

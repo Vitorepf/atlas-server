@@ -135,33 +135,49 @@ final class FinalDeliveryQualityGateService
 
     private function firstNewMarkerMatch(string $contents, string $baseline, string $pattern): ?string
     {
-        $matchCount = preg_match_all($pattern, $contents, $matches);
+        $matchCount = preg_match_all($pattern, $contents, $matches, PREG_OFFSET_CAPTURE);
         if ($matchCount === false || $matchCount === 0) {
             return null;
         }
 
         $baselineCounts = [];
-        $baselineMatchCount = $baseline !== '' ? preg_match_all($pattern, $baseline, $baselineMatches) : 0;
+        $baselineMatchCount = $baseline !== '' ? preg_match_all($pattern, $baseline, $baselineMatches, PREG_OFFSET_CAPTURE) : 0;
         if ($baselineMatchCount !== false && $baselineMatchCount > 0) {
             foreach ($baselineMatches[0] as $match) {
-                $key = $this->markerKey((string) $match);
+                $key = $this->markerOccurrenceKey((string) $match[0], $this->lineContainingOffset($baseline, (int) $match[1]));
                 $baselineCounts[$key] = ($baselineCounts[$key] ?? 0) + 1;
             }
         }
 
         foreach ($matches[0] as $match) {
-            $match = (string) $match;
-            $key = $this->markerKey($match);
+            $line = $this->lineContainingOffset($contents, (int) $match[1]);
+            $match = (string) $match[0];
+            $key = $this->markerOccurrenceKey($match, $line);
             if (($baselineCounts[$key] ?? 0) > 0) {
                 $baselineCounts[$key]--;
 
                 continue;
             }
 
-            return $match;
+            return $line !== '' ? $line : $match;
         }
 
         return null;
+    }
+
+    private function markerOccurrenceKey(string $match, string $line): string
+    {
+        return $this->markerKey($match).'|'.$this->markerKey($line);
+    }
+
+    private function lineContainingOffset(string $contents, int $offset): string
+    {
+        $lineStart = strrpos(substr($contents, 0, $offset), "\n");
+        $lineStart = $lineStart === false ? 0 : $lineStart + 1;
+        $lineEnd = strpos($contents, "\n", $offset);
+        $lineEnd = $lineEnd === false ? strlen($contents) : $lineEnd;
+
+        return substr($contents, $lineStart, $lineEnd - $lineStart);
     }
 
     private function markerKey(string $match): string

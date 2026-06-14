@@ -70,9 +70,21 @@ final class AtlasLoopNetDirectionGuard
             'by_target_kind' => is_array($impact['by_target_kind'] ?? null) ? $impact['by_target_kind'] : [],
         ];
 
+        // RECENCY BOUND (deadlock fix): the window is the last N merges WITHIN a recent
+        // time horizon, not the last N merges of all time. The guard is count-based, but
+        // merged_to_main rows are PERMANENT history — without a time bound, a poisoned old
+        // window (e.g. a prior campaign's red canaries) freezes forever, because the
+        // throttle blocks the very merges that would refresh it: the loop produces certified
+        // proposals it can NEVER commit. With the bound, stale breakage ages out; once there
+        // are fewer than MIN_RAN recent canaries the existing min-sample gate fail-opens, so
+        // merges resume and fresh canaries decide the direction honestly. Recent breakage
+        // still throttles (safety intact) — it just can no longer deadlock on ancient data.
+        $recencyHours = max(1, (int) config('atlas.loop.net_direction_recency_hours', 6));
+        $base['recency_hours'] = $recencyHours;
         try {
             $recent = AtlasLoopProposal::query()
                 ->where('merged_to_main', true)
+                ->where('reviewed_at', '>=', now()->subHours($recencyHours))
                 ->orderByDesc('reviewed_at')
                 ->limit(self::WINDOW)
                 ->get();

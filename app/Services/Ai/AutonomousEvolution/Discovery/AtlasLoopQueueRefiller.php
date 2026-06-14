@@ -58,6 +58,13 @@ final class AtlasLoopQueueRefiller
             } else {
                 $deferred++;
             }
+            // Liveness during a long refill: generating a batch can take many minutes (a
+            // provider call per self-contained target), but the supervisor only beats AFTER
+            // refill() RETURNS. Without this, a cold-start refill freezes the campaign
+            // heartbeat for 10-20min, so the keepalive watchdog and operator monitoring
+            // cannot tell "working" from "hung". Refresh the heartbeat per target (liveness
+            // only — never touches elapsed_seconds, so the wall-clock budget is unaffected).
+            $this->touchHeartbeat($campaign);
         }
 
         return [
@@ -67,6 +74,22 @@ final class AtlasLoopQueueRefiller
             'quarantined' => $quarantined,
             'deferred' => $deferred,
         ];
+    }
+
+    /**
+     * Best-effort liveness ping during a long refill. Updates ONLY heartbeat_at (never
+     * elapsed_seconds, so the wall-clock budget is untouched). Never throws — a heartbeat
+     * write must not break task generation.
+     */
+    private function touchHeartbeat(AtlasLoopCampaign $campaign): void
+    {
+        try {
+            \Illuminate\Support\Facades\DB::table('atlas_loop_campaigns')
+                ->where('id', $campaign->id)
+                ->update(['heartbeat_at' => now()]);
+        } catch (\Throwable) {
+            // liveness ping is best-effort; ignore failures
+        }
     }
 
     private function generateAndEnqueue(AtlasLoopCampaign $campaign, AtlasLoopTarget $target, string $provider): string
