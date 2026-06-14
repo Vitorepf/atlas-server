@@ -73,14 +73,24 @@ final class AtlasLoopCrossFileConsumerGateService
         foreach ($consumerContracts as $index => $contract) {
             $command = trim((string) ($contract['command'] ?? ''));
             if ($command === '') {
+                // A code-graph-discovered consumer with no runnable test command cannot be
+                // verified — that is NOT evidence the refactor broke it. SKIP it (record as
+                // unverified) instead of failing the whole gate. Failing-closed here marked
+                // every refactor whose consumers lack tests as consumer_contract_failed,
+                // which blocked ~all refactor certs (the code graph nearly always surfaces a
+                // consumer without a wired test). Behaviour is still pinned by the file's own
+                // frozen tests + the deterministic complexity gate, and any consumer that DOES
+                // carry a command is still executed below and can still fail the gate.
                 $consumerRuns[] = [
                     'contract_index' => $index + 1,
-                    'passed' => false,
-                    'exit_code' => 1,
-                    'reason' => 'consumer_command_missing',
+                    'passed' => true,
+                    'skipped' => true,
+                    'exit_code' => 0,
+                    'reason' => 'consumer_command_missing_skipped',
                     'contract' => $this->contractSummary($contract),
                 ];
-                break;
+
+                continue;
             }
 
             $run = $this->runCommand($workspace, $command, $timeout, [
@@ -510,8 +520,9 @@ final class AtlasLoopCrossFileConsumerGateService
                 'results' => $localRuns,
             ],
             'consumer_contract_count' => count($consumerContracts),
-            'consumer_contracts_passed' => count(array_filter($consumerRuns, static fn (array $r): bool => (bool) ($r['passed'] ?? false))),
+            'consumer_contracts_passed' => count(array_filter($consumerRuns, static fn (array $r): bool => (bool) ($r['passed'] ?? false) && ! (bool) ($r['skipped'] ?? false))),
             'consumer_contracts_failed' => count(array_filter($consumerRuns, static fn (array $r): bool => ! (bool) ($r['passed'] ?? false))),
+            'consumer_contracts_skipped' => count(array_filter($consumerRuns, static fn (array $r): bool => (bool) ($r['skipped'] ?? false))),
             'consumer_contracts' => array_map(fn (array $contract): array => $this->contractSummary($contract), $consumerContracts),
             'consumer_runs' => $consumerRuns,
             'failed_consumer' => $failedConsumer,

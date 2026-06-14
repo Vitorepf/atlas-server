@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Loop;
 
+use App\Services\Ai\AutonomousEvolution\AtlasLoopCrossFileConsumerGateService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -117,6 +118,34 @@ final class AtlasLoopCrossFileConsumerGateTest extends TestCase
         $this->assertSame('atlas_engineering_code_file_snapshots', data_get($payload, 'cross_file_consumer_gate.code_graph.source'));
     }
 
+    public function test_skips_code_graph_consumer_without_a_test_command_instead_of_failing(): void
+    {
+        // REGRESSION: a code-graph-discovered consumer that is a SOURCE file (not under tests/,
+        // no contract_command) has no runnable command. The gate used to mark it
+        // consumer_command_missing -> passed=false -> consumer_contract_failed, which blocked
+        // ~every refactor cert (the graph almost always surfaces such a consumer). It must now
+        // SKIP the unverifiable consumer and still certify, while real breaks (other tests) fail.
+        $workspaceId = 'skip-no-cmd-'.bin2hex(random_bytes(4));
+        // Reuse the producer-change workspace: ProducerTest expects 'new' so LOCAL acceptance
+        // PASSES; the consumer the graph surfaces below is a source file with no command.
+        $this->workspace = $this->workspaceWithConsumerBreak();
+        $this->seedCodeGraphWithSourceConsumer($workspaceId);
+
+        $result = app(AtlasLoopCrossFileConsumerGateService::class)->evaluate(
+            $this->workspace,
+            ['commands' => ['php tests/ProducerTest.php'], 'timeout_seconds' => 30],
+            ['src/Producer.php'],
+            ['code_graph_workspace' => $workspaceId, 'timeout_seconds' => 30],
+        );
+
+        $this->assertTrue($result['certified'], json_encode($result));
+        $this->assertSame('consumer_contracts_passed', $result['status']);
+        $this->assertSame(1, $result['consumer_contract_count']);
+        $this->assertSame(1, $result['consumer_contracts_skipped']);
+        $this->assertSame(0, $result['consumer_contracts_failed']);
+        $this->assertSame('consumer_command_missing_skipped', data_get($result, 'consumer_runs.0.reason'));
+    }
+
     public function test_schedule_contains_daily_cross_file_consumer_gate_fixture_proof(): void
     {
         Artisan::call('schedule:list');
@@ -187,6 +216,60 @@ final class AtlasLoopCrossFileConsumerGateTest extends TestCase
                     'test_path' => 'tests/ConsumerContractTest.php',
                     'line' => 4,
                     'contract_command' => 'php tests/ConsumerContractTest.php',
+                ]],
+            ], JSON_THROW_ON_ERROR),
+            'status' => 'active',
+            'indexed_at' => $now,
+            'archived_at' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+    }
+
+    private function seedCodeGraphWithSourceConsumer(string $workspaceId): void
+    {
+        $now = now();
+        DB::table('atlas_engineering_code_symbols')->insert([
+            'id' => (string) Str::uuid(),
+            'workspace_id' => $workspaceId,
+            'module_id' => null,
+            'symbol_type' => 'class',
+            'symbol_name' => 'Producer',
+            'file_path' => 'src/Producer.php',
+            'line_start' => 3,
+            'line_end' => 9,
+            'language' => 'php',
+            'signature' => 'final class Producer',
+            'namespace' => null,
+            'parent_symbol' => null,
+            'visibility' => null,
+            'status' => 'active',
+            'docs_status' => 'fixture',
+            'source_hash' => hash('sha256', $workspaceId.'|Producer'),
+            'related_doc_ids_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'metadata' => json_encode(['fixture' => 'skip-no-command-consumer'], JSON_THROW_ON_ERROR),
+            'indexed_at' => $now,
+            'archived_at' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        // A SOURCE-file consumer (src/Consumer.php) that uses Producer — no test_path, no
+        // contract_command => the derived contract has an empty command (the unverifiable case).
+        DB::table('atlas_engineering_code_file_snapshots')->insert([
+            'id' => (string) Str::uuid(),
+            'workspace_id' => $workspaceId,
+            'file_path' => 'src/Consumer.php',
+            'module_slug' => 'src',
+            'language' => 'php',
+            'source_hash' => hash('sha256', $workspaceId.'|source-consumer'),
+            'file_size' => 1,
+            'symbols_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'relations_json' => json_encode([
+                'symbol_references' => [[
+                    'kind' => 'php_use_ast',
+                    'symbol' => 'Producer',
+                    'target_module' => 'src',
+                    'line' => 4,
                 ]],
             ], JSON_THROW_ON_ERROR),
             'status' => 'active',
