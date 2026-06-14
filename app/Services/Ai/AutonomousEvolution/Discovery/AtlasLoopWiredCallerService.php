@@ -79,6 +79,44 @@ final class AtlasLoopWiredCallerService
     }
 
     /**
+     * Measured production caller FILE PATHS per file — the wired-caller IDENTITIES behind
+     * {@see callerCounts}, for a consumer that needs the actual coupled files (e.g. assembling a
+     * multi-file obra cluster), not just the count. GREP-ONLY by design: the working-tree grep is
+     * the authoritative source of real file paths (the code-graph arm yields symbol ids, not
+     * paths, and can be stale relative to the tree). Returns ONLY measured paths (a file whose
+     * grep errored is OMITTED, exactly like {@see callerCounts}); an empty list is a measured
+     * "no production callers". Self + tests excluded; sorted for determinism.
+     *
+     * @param  list<string>  $relPaths
+     * @return array<string,list<string>>  relPath => sorted list of production caller rel paths
+     */
+    public function callerPaths(array $relPaths): array
+    {
+        $root = rtrim($this->repoRoot ?? base_path(), '/');
+        $dirs = array_values(array_filter(
+            self::PRODUCTION_DIRS,
+            static fn (string $d): bool => is_dir($root.'/'.$d),
+        ));
+        $fqcnByPath = $this->fqcnMap($relPaths, $root);
+
+        $out = [];
+        foreach ($relPaths as $rel) {
+            $rel = ltrim($rel, '/');
+            $fqcn = $fqcnByPath[$rel] ?? null;
+            if ($fqcn === null || $dirs === []) {
+                continue; // unmeasured — cannot resolve the class to grep for
+            }
+            $files = $this->grepCallerFiles($fqcn, $rel, $root, $dirs);
+            if ($files === null) {
+                continue; // grep error => unmeasured, omit (fail-open like callerCounts)
+            }
+            $out[$rel] = $files;
+        }
+
+        return $out;
+    }
+
+    /**
      * @param  list<string>  $relPaths
      * @return array<string,?int>  relPath => measured count, or null when unmeasured
      */
@@ -192,6 +230,22 @@ final class AtlasLoopWiredCallerService
      */
     private function grepCallerCount(string $fqcn, string $relPath, string $root, array $dirs): ?int
     {
+        $files = $this->grepCallerFiles($fqcn, $relPath, $root, $dirs);
+
+        return $files === null ? null : count($files);
+    }
+
+    /**
+     * The DISTINCT production caller FILE PATHS (repo-relative, the target file and tests
+     * excluded) that reference the class — the FQCN-union-short-name grep that backs
+     * {@see grepCallerCount}, returning the file IDENTITIES instead of just the count, so the
+     * count is exactly count() of this list (the wired signal stays byte-identical). ?list: null
+     * on grep error (unmeasured => the gate fails open), list (incl []) on success. Sorted.
+     *
+     * @return list<string>|null
+     */
+    private function grepCallerFiles(string $fqcn, string $relPath, string $root, array $dirs): ?array
+    {
         $short = ($pos = strrpos($fqcn, '\\')) !== false ? substr($fqcn, $pos + 1) : $fqcn;
         $nsDir = trim(str_replace('\\', '/', \dirname($relPath)), '/');
 
@@ -217,7 +271,7 @@ final class AtlasLoopWiredCallerService
                 }
             }
 
-            $count = 0;
+            $callers = [];
             foreach (array_keys($files) as $line) {
                 if (str_contains($line, $relPath)) {
                     continue; // the file itself
@@ -225,10 +279,12 @@ final class AtlasLoopWiredCallerService
                 if (preg_match('/Test\.php$/', $line) === 1 || str_contains($line, '/tests/')) {
                     continue; // tests are not production callers
                 }
-                $count++;
+                $callers[$line] = true;
             }
+            $callers = array_keys($callers);
+            sort($callers);
 
-            return $count;
+            return $callers;
         } catch (Throwable) {
             return null;
         }

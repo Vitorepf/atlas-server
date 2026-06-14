@@ -1831,6 +1831,28 @@ return [
         // broader-regression gate passes. DEFAULT FALSE; OFF => obra always stays operator-review.
         'obra_auto_merge_enabled' => (bool) env('ATLAS_LOOP_OBRA_AUTO_MERGE_ENABLED', false),
 
+        // OBRA CANDIDATE PRODUCER (AtlasLoopObraClusterDetectorService): connects the live grind
+        // loop to the operator-gated big-obra surface. After discovery+enqueue it scans the
+        // claimed targets for a WIRED high-leverage HUB (measured callers + complexity + leverage),
+        // resolves the hub's REAL production caller FILE PATHS, and parks a >=2-file obra CANDIDATE
+        // in the SAME operator-review backlog the architecture proposer uses. PROPOSAL-ONLY: never
+        // enqueues a loop task, never calls a provider, never mutates code, never merges, never
+        // weakens never-merge / HarnessGuard / the L4-10 gate. DEFAULT-OFF => fully inert. Fail-open.
+        'obra_cluster_detection_enabled' => (bool) env('ATLAS_LOOP_OBRA_CLUSTER_DETECTION_ENABLED', false),
+        // Min MEASURED production callers for a target to qualify as a refactor-worthy hub.
+        'obra_cluster_min_callers' => max(2, (int) env('ATLAS_LOOP_OBRA_CLUSTER_MIN_CALLERS', 3)),
+        // Min AST max-per-method cyclomatic for the hub (only complex hubs are worth an obra).
+        'obra_cluster_min_cyclomatic' => max(1, (int) env('ATLAS_LOOP_OBRA_CLUSTER_MIN_CYCLOMATIC', 10)),
+        // Min refactor_leverage (0.6*callerLeverage + 0.4*complexityLeverage) for the hub.
+        'obra_cluster_leverage_floor' => max(0.0, (float) env('ATLAS_LOOP_OBRA_CLUSTER_LEVERAGE_FLOOR', 0.5)),
+        // Hard cap on cluster size (hub + callers) so an obra candidate stays reviewable.
+        'obra_cluster_max_files' => max(2, (int) env('ATLAS_LOOP_OBRA_CLUSTER_MAX_FILES', 8)),
+        // Re-proposal cooldown for the SAME cluster hash (anti-spam; dedup lives in the detector's
+        // own durable index, NOT the backlog which mints a fresh id per call).
+        'obra_cluster_cooldown_hours' => max(1, (int) env('ATLAS_LOOP_OBRA_CLUSTER_COOLDOWN_HOURS', 168)),
+        // Max obra candidates parked per refill cycle (bounds operator-queue growth).
+        'obra_cluster_max_candidates_per_cycle' => max(1, (int) env('ATLAS_LOOP_OBRA_CLUSTER_MAX_CANDIDATES_PER_CYCLE', 2)),
+
         // L4-1: cooldown por target recente. Tasks/proposals recentes do mesmo path caem no
         // ranking para evitar farming do arquivo que acabou de render proposta.
         'target_cooldown_enabled' => (bool) env('ATLAS_LOOP_TARGET_COOLDOWN_ENABLED', true),

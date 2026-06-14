@@ -217,6 +217,13 @@ class AppServiceProvider extends ServiceProvider
                 $app->make(\App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore::class),
                 rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopRefactorObjectiveSynthesizer::class), null, false),
                 rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard::class), null, false),
+                // Arg 8 (frameworkRefactorSynthesizer) was previously omitted, relying on its null
+                // default (the refiller news one up lazily). It MUST be passed explicitly now that
+                // arg 9 (the obra cluster detector) exists — positional args cannot skip, so
+                // omitting 8 would land the detector in the framework-synthesizer slot and break
+                // the LIVE framework_refactor lane.
+                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopFrameworkRefactorSynthesizer::class), null, false),
+                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObraClusterDetectorService::class), null, false),
             ),
         );
         // Warm ACP session pool: ONE per worker process (singleton) so a `hermes acp`

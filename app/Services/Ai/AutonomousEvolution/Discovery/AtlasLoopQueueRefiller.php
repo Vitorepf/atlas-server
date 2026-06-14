@@ -35,12 +35,13 @@ final class AtlasLoopQueueRefiller
         private readonly ?AtlasLoopRefactorObjectiveSynthesizer $refactorSynthesizer = null,
         private readonly ?AtlasLoopHarnessGuard $harnessGuard = null,
         private readonly ?AtlasLoopFrameworkRefactorSynthesizer $frameworkRefactorSynthesizer = null,
+        private readonly ?AtlasLoopObraClusterDetectorService $obraClusterDetector = null,
     ) {}
 
     /**
      * Discover + generate + enqueue up to $want new tasks for a campaign.
      *
-     * @return array{discovered:int, claimed:int, enqueued:int, quarantined:int, deferred:int}
+     * @return array{discovered:int, claimed:int, enqueued:int, quarantined:int, deferred:int, obra_candidates:int}
      */
     public function refill(AtlasLoopCampaign $campaign, int $want): array
     {
@@ -72,12 +73,27 @@ final class AtlasLoopQueueRefiller
             $this->touchHeartbeat($campaign);
         }
 
+        // OBRA CANDIDATE PRODUCER (slice-1, default-OFF, fail-open): after discovery+enqueue,
+        // scan the SAME claimed targets for high-leverage multi-file HUB clusters and park them
+        // as operator-review obra CANDIDATES. It enqueues NO loop task, calls NO provider,
+        // mutates NOTHING, and never changes discovered/claimed/enqueued/quarantined/deferred.
+        // Flag OFF or detector unresolved => this block is inert and the counters are unchanged.
+        $obraCandidates = 0;
+        if ((bool) config('atlas.loop.obra_cluster_detection_enabled', false) && $this->obraClusterDetector !== null) {
+            try {
+                $obraCandidates = count($this->obraClusterDetector->detect($campaign, $targets));
+            } catch (Throwable) {
+                $obraCandidates = 0; // fail-open: the producer can never break a refill
+            }
+        }
+
         return [
             'discovered' => (int) $disc['upserted'],
             'claimed' => count($targets),
             'enqueued' => $enqueued,
             'quarantined' => $quarantined,
             'deferred' => $deferred,
+            'obra_candidates' => $obraCandidates,
         ];
     }
 
