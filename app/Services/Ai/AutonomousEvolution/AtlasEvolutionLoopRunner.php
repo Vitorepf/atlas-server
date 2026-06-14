@@ -91,6 +91,7 @@ final class AtlasEvolutionLoopRunner
     private function summariseExploration(array $exploration): array
     {
         $attempts = is_array($exploration['attempts'] ?? null) ? $exploration['attempts'] : [];
+        $attempts = array_values(array_filter($attempts, static fn ($attempt): bool => is_array($attempt)));
         $rejected = array_filter($attempts, static fn (array $a): bool => ! (bool) ($a['verdict']['passed'] ?? false));
         $reasons = AiStringListNormalizer::uniqueMappedStrings(
             $rejected,
