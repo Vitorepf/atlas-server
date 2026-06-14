@@ -2151,6 +2151,14 @@ return [
         // após esgotar os alvos atuais e nunca volta.
         'keepalive_revive_starved' => (bool) env('ATLAS_LOOP_KEEPALIVE_REVIVE_STARVED', true),
         'keepalive_starved_revive_minutes' => (int) env('ATLAS_LOOP_KEEPALIVE_STARVED_REVIVE_MINUTES', 20),
+        // Frozen-kill backstop threshold: a `running` campaign whose process is ALIVE but whose
+        // heartbeat is stale longer than this is genuinely STUCK (not just slow). It MUST exceed the
+        // max single-grind time (task_timeout_seconds, default 1800s = 30min) — otherwise the
+        // watchdog kills HEALTHY long refactor grinds mid-flight (the heartbeat is not beaten during
+        // a serial in-process grind), causing thrash: re-claim → re-grind → re-kill, never completing
+        // (observed live: heavy refactors of complex services never certified, only fast tasks did).
+        // 40min = the 30min grind cap + buffer; a truly-hung supervisor is still reaped at 40min.
+        'keepalive_frozen_kill_minutes' => max(20, (int) env('ATLAS_LOOP_KEEPALIVE_FROZEN_KILL_MINUTES', 40)),
         // Reap window: a `running` row with no live process whose heartbeat is older than this is
         // an ABANDONED campaign (not a recently-died soak) — the watchdog marks it completed
         // (stop_reason=reaped_orphan_no_process) instead of respawning it. The recency bound is
