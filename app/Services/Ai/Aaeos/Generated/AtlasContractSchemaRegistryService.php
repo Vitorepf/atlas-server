@@ -116,7 +116,7 @@ final class AtlasContractSchemaRegistryService
     public function isCanonical(string $schemaId, array $registry): bool
     {
         $id = trim($schemaId);
-        if ($id === '') {
+        if ($id === '' || ! $this->parseSchemaId($id)['valid']) {
             return false;
         }
         foreach ($registry as $entry) {
