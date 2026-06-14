@@ -82,13 +82,27 @@ class AtlasLoopKeepaliveCommand extends Command
             // soak que morreu há 5 min" de "aposenta o zumbi de ontem". Sem isto, incluir
             // max_seconds<=0 no filtro acima ressuscitaria zumbis-teste antigos a cada 5 min.
             $reapAfterMinutes = max(60, (int) config('atlas.loop.keepalive_reap_after_minutes', 1440));
-            if (! $alive && $heartbeat > 0 && $heartbeat < (time() - $reapAfterMinutes * 60)) {
+            $reapCutoff = time() - $reapAfterMinutes * 60;
+            // A dead row is an abandoned orphan when EITHER its heartbeat is older than the reap
+            // window, OR it NEVER beat (heartbeat<=0 — killed before its first generation, or a
+            // wiped heartbeat) AND the ROW itself is older than the window. The heartbeat<=0 branch
+            // closes the respawn-forever edge: without it a NULL-heartbeat dead row (now eligible
+            // via the max_seconds<=0 OR filter) is never reaped (the reaper needed heartbeat>0) yet
+            // always respawned (stale=true) — an infinite respawn loop. A FRESH dead row (age <
+            // window) is still respawned once below; only genuinely OLD never-beat rows are reaped.
+            $rowAge = $campaign->updated_at ? strtotime((string) $campaign->updated_at)
+                : ($campaign->created_at ? strtotime((string) $campaign->created_at) : 0);
+            $reapable = ! $alive && (
+                ($heartbeat > 0 && $heartbeat < $reapCutoff)
+                || ($heartbeat <= 0 && $rowAge > 0 && $rowAge < $reapCutoff)
+            );
+            if ($reapable) {
                 DB::table('atlas_loop_campaigns')->where('id', $id)->update([
                     'status' => 'completed',
                     'stop_reason' => 'reaped_orphan_no_process',
                     'updated_at' => now(),
                 ]);
-                $out['reaped'][] = ['campaign_id' => $id, 'heartbeat_age_minutes' => (int) floor((time() - $heartbeat) / 60)];
+                $out['reaped'][] = ['campaign_id' => $id, 'heartbeat_age_minutes' => $heartbeat > 0 ? (int) floor((time() - $heartbeat) / 60) : null];
 
                 continue;
             }

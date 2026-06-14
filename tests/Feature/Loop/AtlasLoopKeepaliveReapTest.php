@@ -123,4 +123,30 @@ final class AtlasLoopKeepaliveReapTest extends TestCase
 
         $this->assertContains($id, $cmd->respawned, 'bounded campaign with budget that died recently still respawns');
     }
+
+    public function test_ancient_null_heartbeat_orphan_is_reaped_not_respawned_forever(): void
+    {
+        // A dead unbounded row that NEVER beat (heartbeat NULL) AND is OLD by row age would,
+        // without the heartbeat<=0 reaper branch, respawn every cycle forever (the adversarial
+        // edge). It must be reaped instead.
+        $id = $this->seedRunning(['max_seconds' => 0, 'heartbeat_at' => null, 'created_at' => now()->subDays(2), 'updated_at' => now()->subDays(2)]);
+
+        [$cmd] = $this->runKeepalive();
+
+        $this->assertNotContains($id, $cmd->respawned, 'an ancient never-beat orphan is not respawned forever');
+        $this->assertSame('completed', DB::table('atlas_loop_campaigns')->where('id', $id)->value('status'), 'reaped to completed');
+        $this->assertSame('reaped_orphan_no_process', DB::table('atlas_loop_campaigns')->where('id', $id)->value('stop_reason'));
+    }
+
+    public function test_fresh_null_heartbeat_dead_row_gets_one_respawn_not_reaped(): void
+    {
+        // A FRESH dead row that hasn't beat yet (just started, process died) is within the recency
+        // window: it should get one respawn chance, NOT be reaped.
+        $id = $this->seedRunning(['max_seconds' => 0, 'heartbeat_at' => null, 'created_at' => now()->subMinutes(5), 'updated_at' => now()->subMinutes(5)]);
+
+        [$cmd] = $this->runKeepalive();
+
+        $this->assertContains($id, $cmd->respawned, 'a fresh never-beat dead row is respawned once');
+        $this->assertSame('running', DB::table('atlas_loop_campaigns')->where('id', $id)->value('status'), 'not reaped (within recency window)');
+    }
 }
