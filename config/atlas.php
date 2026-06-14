@@ -1889,6 +1889,16 @@ return [
         // with refactor_multi_file_via_obra OFF the lane is inert (a multi-file task with no obra
         // route is never admissible), so a multi-file diff can never reach main via a single-file canary.
         'multi_file_refactor_objectives_enabled' => (bool) env('ATLAS_LOOP_MULTI_FILE_REFACTOR_OBJECTIVES_ENABLED', false),
+
+        // OPTION 3 · #7 EXECUTION — when ON, the grinder's multi-file refactor lane (already gated on
+        // refactor_multi_file_via_obra) EXECUTES the obra itself when no operator L4-10 is supplied:
+        // AtlasLoopObraExecutionAdapter runs the real provider on an ISOLATED worktree, certifies, and
+        // produces the real L4-10, then routes the certified result to the obra bridge -> PARK for
+        // operator review. A provider failure / non-real / non-certified result loops back honestly
+        // (never parks). DEFAULT-OFF: with it off the lane only accepts an operator-supplied L4-10
+        // (today's behaviour, byte-identical). Auto-merge of the parked obra stays a SEPARATE, default-
+        // OFF decision (obra_auto_merge_enabled) — this flag only makes the loop PRODUCE the obra.
+        'multi_file_execution_enabled' => (bool) env('ATLAS_LOOP_MULTI_FILE_EXECUTION_ENABLED', false),
         'multi_file_refactor_timeout_seconds' => max(60, (int) env('ATLAS_LOOP_MULTI_FILE_REFACTOR_TIMEOUT_SECONDS', 600)),
 
         // L4-1: cooldown por target recente. Tasks/proposals recentes do mesmo path caem no

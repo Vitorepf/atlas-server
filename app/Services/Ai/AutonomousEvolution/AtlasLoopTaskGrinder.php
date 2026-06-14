@@ -186,6 +186,31 @@ final class AtlasLoopTaskGrinder
             return null;
         }
 
+        // #7 EXECUTION LANE (default-OFF, co-gated): when no operator L4-10 is supplied AND
+        // multi_file_execution_enabled is ON, the loop EXECUTES the obra itself — the adapter runs
+        // the real provider on an ISOLATED worktree, certifies, and PRODUCES the real L4-10 — then
+        // threads that evidence into the bridge below (PARK). A provider failure / non-real /
+        // non-certified result loops back HONESTLY (never parks a non-real obra). With the flag OFF
+        // the lane only accepts an operator-supplied L4-10 (byte-identical to today).
+        if (trim((string) ($payload['l4_10_evidence_path'] ?? '')) === ''
+            && (bool) config('atlas.loop.multi_file_execution_enabled', false)) {
+            $exec = app(AtlasLoopObraExecutionAdapter::class)->executeAndProve($payload);
+            if (($exec['ok'] ?? false) === true && is_string($exec['l4_10_evidence_path'] ?? null)) {
+                $payload['l4_10_evidence_path'] = (string) $exec['l4_10_evidence_path'];
+            } else {
+                $this->store->releaseClaim($task->id, $workerId);
+
+                return [
+                    'status' => 'no_winner',
+                    'has_winner' => false,
+                    'proposals' => 0,
+                    'scenarios_explored' => 0,
+                    'elapsed_seconds' => (int) ceil(microtime(true) - $started),
+                    'reason' => 'obra_execution_not_certified:'.(string) ($exec['reason'] ?? '?'),
+                ];
+            }
+        }
+
         $bridgeOptions = [
             'intent' => (string) $task->objective,
             'files' => $allowedFiles,
