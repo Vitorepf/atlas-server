@@ -123,25 +123,9 @@ final class AtlasLoopSemanticImplementationCertifier
             // SCOPE GATE (anti-gaming): the aggregate-drop must be measured over the files the obra
             // was ALLOWED to touch — NOT the raw git diff. Without this, a multi-file obra could drop
             // the headline complexity in an allowed file while editing an UNRELATED file outside the
-            // cluster (which the diff-scoped measurement would silently include). When allowed_files
-            // is supplied, intersect the changed .php files against it: measure only the scoped set,
-            // and REFUSE if any changed .php file lands outside the allowed cluster.
-            $scoped = $changedFiles;
-            if ($allowedFiles !== []) {
-                $allowSet = array_flip(array_map(static fn (string $f): string => ltrim($f, '/'), $allowedFiles));
-                $scoped = [];
-                foreach ($changedFiles as $cf) {
-                    $norm = ltrim((string) $cf, '/');
-                    if (! str_ends_with($norm, '.php')) {
-                        continue;
-                    }
-                    if (isset($allowSet[$norm])) {
-                        $scoped[] = $cf;
-                    } else {
-                        $scopeViolation[] = $norm;
-                    }
-                }
-            }
+            // cluster (which the diff-scoped measurement would silently include). The shared
+            // {@see scopedChangedFiles} intersects the changed .php files against allowed_files.
+            [$scoped, $scopeViolation] = $this->scopedChangedFiles($changedFiles, $allowedFiles);
             $complexityProof = $this->measureComplexityReduction($workspace, $scoped);
         }
 
@@ -424,6 +408,61 @@ final class AtlasLoopSemanticImplementationCertifier
     {
         return (bool) ($acceptance['complexity_proof'] ?? false)
             && (string) ($acceptance['metric_kind'] ?? '') === AtlasEvolutionFrozenJudge::METRIC_MINIMIZE;
+    }
+
+    /**
+     * PUBLIC, reusable aggregate-drop measurement scoped to allowed_files — the ungameable refactor
+     * judge ({@see measureComplexityReduction}) plus the {@see scopedChangedFiles} scope intersect.
+     * Used by {@see certify()} AND by the obra EXECUTION adapter, which replays the obra net diff
+     * into a base_head worktree and re-measures the drop (the executor's integrated check proves
+     * behaviour preserved, NOT complexity reduced — this is the separate quality gate).
+     *
+     * reduced is true ONLY when NO changed .php file lands outside allowed_files AND the scoped
+     * aggregate AST max-per-method dropped (total non-increasing). Fail-closed: an out-of-scope edit
+     * or an unmeasurable/no-op diff => reduced=false.
+     *
+     * @param  list<string>  $changedFiles
+     * @param  list<string>  $allowedFiles
+     * @return array{reduced:bool, scope_violation:list<string>, proof:array<string,mixed>|null}
+     */
+    public function measureScopedComplexityDrop(string $workspace, array $changedFiles, array $allowedFiles): array
+    {
+        [$scoped, $violations] = $this->scopedChangedFiles($changedFiles, $allowedFiles);
+        $proof = $this->measureComplexityReduction($workspace, $scoped);
+        $reduced = $violations === [] && is_array($proof) && ($proof['reduced'] ?? null) === true;
+
+        return ['reduced' => $reduced, 'scope_violation' => $violations, 'proof' => is_array($proof) ? $proof : null];
+    }
+
+    /**
+     * Intersect the changed .php files against allowed_files: the SCOPED set to measure, plus any
+     * out-of-allowed .php files (the scope violation). An empty allowed set measures everything.
+     *
+     * @param  list<string>  $changedFiles
+     * @param  list<string>  $allowedFiles
+     * @return array{0:list<string>, 1:list<string>}  [scoped, violations]
+     */
+    private function scopedChangedFiles(array $changedFiles, array $allowedFiles): array
+    {
+        if ($allowedFiles === []) {
+            return [array_values($changedFiles), []];
+        }
+        $allowSet = array_flip(array_map(static fn (string $f): string => ltrim($f, '/'), $allowedFiles));
+        $scoped = [];
+        $violations = [];
+        foreach ($changedFiles as $cf) {
+            $norm = ltrim((string) $cf, '/');
+            if (! str_ends_with($norm, '.php')) {
+                continue;
+            }
+            if (isset($allowSet[$norm])) {
+                $scoped[] = $cf;
+            } else {
+                $violations[] = $norm;
+            }
+        }
+
+        return [$scoped, $violations];
     }
 
     /**

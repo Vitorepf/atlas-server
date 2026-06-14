@@ -10,6 +10,7 @@ use App\Services\Ai\RealExecution\GovernedBranchMaterializationService;
 use App\Services\Ai\Obra\ProviderObraNodeDelivery;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use Symfony\Component\Process\Process;
 use Throwable;
 
 /**
@@ -38,6 +39,7 @@ final class AtlasLoopObraExecutionAdapter
     public function __construct(
         private readonly ?AtlasLoopRefactorObraL410ProofService $l410 = null,
         private readonly ?AtlasLoopHarnessGuard $guard = null,
+        private readonly ?AtlasLoopSemanticImplementationCertifier $certifier = null,
     ) {}
 
     /**
@@ -89,6 +91,18 @@ final class AtlasLoopObraExecutionAdapter
                 return $this->fail('obra_not_certified:'.(string) ($envelope['status'] ?? 'unknown'), $envelope);
             }
 
+            // AGGREGATE-DROP CERTIFY (the refactor's POINT): the executor's integrated check proved
+            // BEHAVIOUR preserved, NOT that complexity dropped. Replay the obra net diff into a fresh
+            // worktree cut at BASE_HEAD (never live HEAD — the soak's single-file auto-merger may have
+            // advanced main between openObra and now) and re-measure the SCOPED aggregate AST drop.
+            // A refactor that ran green but did not reduce complexity is REFUSED (discard + loop-back).
+            $drop = $this->certifyAggregateDrop($repoRoot, $envelope, $allowed);
+            if (($drop['reduced'] ?? false) !== true) {
+                $executor->discardObra($repoRoot, $planId);
+
+                return $this->fail('aggregate_complexity_not_reduced:'.(string) ($drop['reason'] ?? '?'), $envelope);
+            }
+
             // L4-10 — emit the signed evidence from the executor receipt, then validate provenance.
             // A FIXTURE run is sealed fixture_obra_run → rejected here (it proved the machinery, not real work).
             $evidencePath = $this->writeEvidence($envelope);
@@ -123,6 +137,87 @@ final class AtlasLoopObraExecutionAdapter
 
             return $this->fail('execution_error:'.mb_substr($e->getMessage(), 0, 120));
         }
+    }
+
+    /**
+     * Replay the obra net diff (base_head..branch) into a fresh worktree cut at BASE_HEAD and
+     * re-measure the SCOPED aggregate AST drop via the certifier. The obra branch is committed, so
+     * the certifier (which measures an UNSTAGED dirty tree) can't read it directly — the replay
+     * materializes the net diff as an unstaged change it CAN measure. Cuts at base_head, not live
+     * HEAD, so a concurrent single-file auto-merge to main never drifts the baseline.
+     *
+     * @param  list<string>  $allowed
+     * @return array{reduced:bool, reason:?string, proof:array<string,mixed>|null}
+     */
+    private function certifyAggregateDrop(string $repoRoot, array $envelope, array $allowed): array
+    {
+        $branch = (string) ($envelope['branch'] ?? '');
+        $baseHead = (string) (($envelope['executor_receipt']['base_head'] ?? '') ?: '');
+        if ($branch === '' || $baseHead === '') {
+            return ['reduced' => false, 'reason' => 'no_branch_or_base_head', 'proof' => null];
+        }
+
+        $changed = $this->gitLines($repoRoot, ['diff', '--name-only', $baseHead.'..'.$branch]);
+        $diff = $this->gitOutput($repoRoot, ['diff', $baseHead.'..'.$branch]);
+        if ($diff === null || trim($diff) === '' || $changed === []) {
+            return ['reduced' => false, 'reason' => 'empty_obra_diff', 'proof' => null];
+        }
+
+        $ws = sys_get_temp_dir().'/atlas-obra-replay-'.bin2hex(random_bytes(5));
+        if (! $this->git($repoRoot, ['worktree', 'add', '--detach', $ws, $baseHead])) {
+            return ['reduced' => false, 'reason' => 'replay_worktree_add_failed', 'proof' => null];
+        }
+        try {
+            $apply = new Process(['git', 'apply', '--whitespace=nowarn', '-'], $ws, null, null, 60.0);
+            $apply->setInput($diff);
+            $apply->run();
+            if (! $apply->isSuccessful()) {
+                return ['reduced' => false, 'reason' => 'replay_apply_failed', 'proof' => null];
+            }
+            $drop = ($this->certifier ?? app(AtlasLoopSemanticImplementationCertifier::class))
+                ->measureScopedComplexityDrop($ws, $changed, $allowed);
+
+            $reduced = (bool) ($drop['reduced'] ?? false);
+            $reason = $reduced
+                ? null
+                : (($drop['scope_violation'] ?? []) !== [] ? 'changed_files_outside_allowed' : 'not_reduced');
+
+            return ['reduced' => $reduced, 'reason' => $reason, 'proof' => $drop['proof'] ?? null];
+        } finally {
+            $this->git($repoRoot, ['worktree', 'remove', '--force', $ws]);
+        }
+    }
+
+    /** @param  list<string>  $argv */
+    private function git(string $repoRoot, array $argv): bool
+    {
+        $p = new Process(array_merge(['git', '-C', $repoRoot], $argv), null, null, null, 60.0);
+        $p->run();
+
+        return $p->isSuccessful();
+    }
+
+    /** @param  list<string>  $argv */
+    private function gitOutput(string $repoRoot, array $argv): ?string
+    {
+        $p = new Process(array_merge(['git', '-C', $repoRoot], $argv), null, null, null, 60.0);
+        $p->run();
+
+        return $p->isSuccessful() ? $p->getOutput() : null;
+    }
+
+    /**
+     * @param  list<string>  $argv
+     * @return list<string>
+     */
+    private function gitLines(string $repoRoot, array $argv): array
+    {
+        $out = $this->gitOutput($repoRoot, $argv);
+        if ($out === null) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map('trim', preg_split('/\R/', $out) ?: []), static fn (string $l): bool => $l !== ''));
     }
 
     /**

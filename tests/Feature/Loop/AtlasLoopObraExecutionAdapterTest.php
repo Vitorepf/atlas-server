@@ -108,6 +108,26 @@ final class AtlasLoopObraExecutionAdapterTest extends TestCase
         $this->assertSame('', trim($branches), 'the obra branch was discarded on the honest no-park');
     }
 
+    public function test_obra_that_did_not_reduce_complexity_is_refused_at_the_aggregate_gate(): void
+    {
+        // The fixture's "refactor" makes the files MORE complex (a real provider could ship a green-
+        // but-not-simpler change). The executor still certifies (behaviour preserved by the trivial
+        // integrated check), but the adapter's AGGREGATE-DROP gate must REFUSE it BEFORE the L4-10.
+        $this->buildRepo();
+        $bloated = new FixtureRefactorObraNodeDelivery([
+            'app/HubA.php' => $this->klass('HubA', 18), // 12 -> 18 (worse)
+            'app/HubB.php' => $this->klass('HubB', 14), // 8 -> 14 (worse)
+        ]);
+
+        $result = (new AtlasLoopObraExecutionAdapter())->executeAndProve($this->payload(), $bloated);
+
+        $this->assertFalse((bool) $result['ok']);
+        $this->assertStringContainsString('aggregate_complexity_not_reduced', (string) $result['reason'], 'a green-but-not-simpler obra never parks');
+        // The branch was discarded; main is untouched.
+        $branches = (new Process(['git', 'branch', '--list', 'atlas/obra/*'], $this->repo))->mustRun()->getOutput();
+        $this->assertSame('', trim($branches));
+    }
+
     public function test_single_file_payload_is_refused_not_multi_file(): void
     {
         $this->buildRepo();
