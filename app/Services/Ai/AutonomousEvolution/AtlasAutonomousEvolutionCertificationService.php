@@ -65,7 +65,7 @@ final class AtlasAutonomousEvolutionCertificationService
     {
         $full = base_path($path);
         $contents = File::exists($full) ? File::get($full) : '';
-        $missing = array_values(array_filter($tokens, fn (string $token): bool => ! str_contains($contents, $token)));
+        $missing = array_values(array_filter($tokens, fn (string $token): bool => trim($token) === '' || ! str_contains($contents, $token)));
 
         return [
             'id' => $id,
