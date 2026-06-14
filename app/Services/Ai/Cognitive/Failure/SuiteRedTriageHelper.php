@@ -51,7 +51,7 @@ class SuiteRedTriageHelper
         $tests = $this->testRows($decoded);
         $items = [];
         foreach ($tests as $test) {
-            $status = mb_strtolower((string) ($test['status'] ?? ''));
+            $status = mb_strtolower(trim((string) ($test['status'] ?? '')));
             if (! in_array($status, ['failed', 'failure', 'error'], true)) {
                 continue;
             }
