@@ -168,7 +168,12 @@ final class L8SystemEvolutionTwinPredictionScorer
                 continue;
             }
 
-            $indexed[$candidateId] = AreaFocusScalarNormalizer::numberOrDefault($outcome['actual_delta'] ?? 0.0, 0.0);
+            $actualDelta = AreaFocusScalarNormalizer::numberOrDefault($outcome['actual_delta'] ?? 0.0, 0.0);
+            if (! is_finite($actualDelta)) {
+                continue;
+            }
+
+            $indexed[$candidateId] = $actualDelta;
         }
 
         return $indexed;
