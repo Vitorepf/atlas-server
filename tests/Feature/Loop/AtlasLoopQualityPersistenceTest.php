@@ -88,9 +88,9 @@ final class AtlasLoopQualityPersistenceTest extends TestCase
         ]);
 
         $this->assertSame([
-            ['scenario' => 'scn-1', 'strategy_key' => 'surgical', 'strategy' => 'Prefer the smallest, most surgical change that satisfies the objective.', 'passed' => true, 'metric' => 0.75, 'metric_finite' => true, 'tokens_used' => 300, 'cost_estimate_usd' => 0.01, 'diff_files' => 2, 'diff_lines' => 14],
-            ['scenario' => 'scn-2', 'strategy_key' => 'root_cause', 'strategy' => 'Re-read the failing acceptance carefully; fix the true root cause, not the symptom.', 'passed' => false, 'metric' => 0.0, 'metric_finite' => false, 'tokens_used' => 900, 'cost_estimate_usd' => 0.02, 'diff_files' => 0, 'diff_lines' => 0],
-            ['scenario' => 3, 'strategy_key' => null, 'strategy' => null, 'passed' => false, 'metric' => null, 'metric_finite' => true, 'tokens_used' => null, 'cost_estimate_usd' => null, 'diff_files' => null, 'diff_lines' => null],
+            ['scenario' => 'scn-1', 'strategy_key' => 'surgical', 'strategy' => 'Prefer the smallest, most surgical change that satisfies the objective.', 'passed' => true, 'metric' => 0.75, 'metric_finite' => true, 'provider_invoked' => false, 'tokens_used' => 300, 'cost_estimate_usd' => 0.01, 'diff_files' => 2, 'diff_lines' => 14],
+            ['scenario' => 'scn-2', 'strategy_key' => 'root_cause', 'strategy' => 'Re-read the failing acceptance carefully; fix the true root cause, not the symptom.', 'passed' => false, 'metric' => 0.0, 'metric_finite' => false, 'provider_invoked' => false, 'tokens_used' => 900, 'cost_estimate_usd' => 0.02, 'diff_files' => 0, 'diff_lines' => 0],
+            ['scenario' => 3, 'strategy_key' => null, 'strategy' => null, 'passed' => false, 'metric' => null, 'metric_finite' => true, 'provider_invoked' => false, 'tokens_used' => null, 'cost_estimate_usd' => null, 'diff_files' => null, 'diff_lines' => null],
         ], $summary['attempt_metrics']);
 
         // The summary as a whole must be lean: no stdout/stderr/diff_text ANYWHERE.
