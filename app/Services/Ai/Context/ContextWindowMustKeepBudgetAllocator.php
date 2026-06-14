@@ -217,9 +217,9 @@ final class ContextWindowMustKeepBudgetAllocator
         $kind = (string) ($segment['kind'] ?? 'context');
         $ref = (string) ($segment['ref'] ?? $kind.':'.$index);
         $tokens = max(0, (int) ($segment['tokens'] ?? 0));
-        $priority = round(max(0.0, min(1.0, (float) ($segment['priority'] ?? 0.0))), 4);
-        $mustKeep = (bool) ($segment['must_keep'] ?? false);
         $category = $this->category($kind);
+        $priority = round(max(0.0, min(1.0, (float) ($segment['priority'] ?? 0.0))), 4);
+        $mustKeep = (bool) ($segment['must_keep'] ?? ($category === 'must_keep'));
 
         return [
             'kind' => $kind,
