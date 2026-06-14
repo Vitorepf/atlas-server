@@ -88,6 +88,10 @@ final class L8SystemEvolutionTwinPredictionScorer
             }
 
             $predictedDirection = $this->resolvePredictedDirection($prediction);
+            if ($predictedDirection === null) {
+                continue;
+            }
+
             $actualDirection = $this->directionFromDelta($actualByCandidate[$candidateId]);
             $confidence = $this->clamp(
                 AreaFocusScalarNormalizer::numberOrDefault($prediction['confidence'] ?? 1.0, 1.0),
@@ -185,7 +189,7 @@ final class L8SystemEvolutionTwinPredictionScorer
      *
      * @param  array{predicted_direction?: mixed, predicted_delta?: mixed}  $prediction
      */
-    private function resolvePredictedDirection(array $prediction): string
+    private function resolvePredictedDirection(array $prediction): ?string
     {
         $explicit = $this->normaliseDirection($prediction['predicted_direction'] ?? null);
         if ($explicit !== null) {
@@ -199,7 +203,7 @@ final class L8SystemEvolutionTwinPredictionScorer
             return $this->directionFromDelta((float) $prediction['predicted_delta']);
         }
 
-        return 'neutral';
+        return null;
     }
 
     private function normaliseDirection(mixed $raw): ?string
