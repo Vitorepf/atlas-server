@@ -37,6 +37,7 @@ final class AtlasLoopQueueRefiller
         private readonly ?AtlasLoopFrameworkRefactorSynthesizer $frameworkRefactorSynthesizer = null,
         private readonly ?AtlasLoopObraClusterDetectorService $obraClusterDetector = null,
         private readonly ?AtlasLoopWorkShapeRouter $workShapeRouter = null,
+        private readonly ?AtlasLoopMultiFileRefactorSynthesizer $multiFileRefactorSynthesizer = null,
     ) {}
 
     /**
@@ -147,6 +148,40 @@ final class AtlasLoopQueueRefiller
                 ]);
 
                 return 'deferred';
+            }
+        }
+
+        // OPTION 3 (operator-gated autonomous MULTI-FILE refactor): if this target is the HUB of a
+        // coherent high-leverage cluster, synthesize a >=2-file `refactor_reduce_complexity` task
+        // that the grinder HARD-routes to the obra bridge (operator-review, NEVER auto-merge). It
+        // runs BEFORE the single-file framework lane so a real cluster goes to the obra route, not
+        // a single-file refactor. CO-GATED (adversary finding): requires BOTH
+        // multi_file_refactor_objectives_enabled AND refactor_multi_file_via_obra ON — otherwise a
+        // multi-file task would fall through to the single-file grind at route time and a >=2-file
+        // diff could reach main with only a single-target canary. With either flag OFF, or any
+        // null, the lane is inert and the cascade below is byte-identical.
+        if ((bool) config('atlas.loop.multi_file_refactor_objectives_enabled', false)
+            && (bool) config('atlas.loop.refactor_multi_file_via_obra', false)
+            && $this->obraClusterDetector !== null
+            && $this->multiFileRefactorSynthesizer !== null) {
+            $cluster = $this->obraClusterDetector->candidateFor($target, $campaign);
+            if ($cluster !== null) {
+                $synth = $this->multiFileRefactorSynthesizer->synthesizeMultiFileRefactor($cluster, $repoRoot, $signals, $provider);
+                if ($synth !== null) {
+                    $enq = $this->store->enqueueTask(
+                        $campaign->id,
+                        $synth['objective'],
+                        $synth['payload'],
+                        'discovery',
+                        (string) $target->target_path,
+                        (int) round(((float) $target->score) * 100),
+                        true,
+                        $synth['acceptance_hash'],
+                    );
+                    $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'multi_file_refactor_task_synthesized');
+
+                    return $enq !== null ? 'enqueued' : 'deferred';
+                }
             }
         }
 

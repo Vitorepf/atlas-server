@@ -225,6 +225,7 @@ class AppServiceProvider extends ServiceProvider
                 rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopFrameworkRefactorSynthesizer::class), null, false),
                 rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObraClusterDetectorService::class), null, false),
                 rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWorkShapeRouter::class), null, false),
+                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopMultiFileRefactorSynthesizer::class), null, false),
             ),
         );
         // Warm ACP session pool: ONE per worker process (singleton) so a `hermes acp`

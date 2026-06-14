@@ -128,6 +128,38 @@ final class AtlasLoopObraClusterDetectorService
     }
 
     /**
+     * OPTION 3 read-only seam: return the typed cluster CANDIDATE for one target WITHOUT writing
+     * the backlog or touching the cooldown — so the refiller can hand it to the multi-file refactor
+     * synthesizer (the operator-gated autonomous multi-file lane). Same admission logic + thresholds
+     * as {@see detect()}; pure, provider-free, fail-open (null on any failure). It does NOT consult
+     * the detection flag — the caller co-gates the multi-file lane.
+     */
+    public function candidateFor(\App\Models\AtlasLoopTarget $target, AtlasLoopCampaign $campaign): ?AtlasLoopObraClusterCandidate
+    {
+        try {
+            $repoRoot = rtrim((string) $campaign->base_workspace, '/');
+            if ($repoRoot === '' || ! is_dir($repoRoot)) {
+                return null;
+            }
+            $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard();
+            $wired = $this->wiredCallers ?? new AtlasLoopWiredCallerService($repoRoot);
+
+            return $this->candidateForTarget(
+                $target,
+                $repoRoot,
+                $guard,
+                $wired,
+                max(2, (int) config('atlas.loop.obra_cluster_min_callers', 3)),
+                max(1, (int) config('atlas.loop.obra_cluster_min_cyclomatic', 10)),
+                max(0.0, (float) config('atlas.loop.obra_cluster_leverage_floor', 0.5)),
+                max(2, (int) config('atlas.loop.obra_cluster_max_files', 8)),
+            );
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
      * Build the obra candidate for one target, or null if it does not qualify. Deterministic and
      * provider-free; the ONLY external read is the grep-based caller-path resolution.
      */

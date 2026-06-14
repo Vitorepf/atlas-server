@@ -1868,6 +1868,16 @@ return [
         'decision_min_refactor_cyclomatic' => max(1, (int) env('ATLAS_LOOP_DECISION_MIN_REFACTOR_CYCLOMATIC', 10)),
         'decision_leverage_floor' => max(0.0, (float) env('ATLAS_LOOP_DECISION_LEVERAGE_FLOOR', 0.6)),
 
+        // OPTION 3 — operator-gated autonomous MULTI-FILE refactor. When ON (AND
+        // refactor_multi_file_via_obra ON, AND obra_cluster_detection_enabled ON), the refiller
+        // synthesizes a >=2-file refactor_reduce_complexity task from a detected cluster; the
+        // grinder hard-routes it to the obra bridge -> operator-review. NEVER auto-merges (operator
+        // approval required for every multi-file merge). DEFAULT-OFF. The CO-GATE is load-bearing:
+        // with refactor_multi_file_via_obra OFF the lane is inert (a multi-file task with no obra
+        // route is never admissible), so a multi-file diff can never reach main via a single-file canary.
+        'multi_file_refactor_objectives_enabled' => (bool) env('ATLAS_LOOP_MULTI_FILE_REFACTOR_OBJECTIVES_ENABLED', false),
+        'multi_file_refactor_timeout_seconds' => max(60, (int) env('ATLAS_LOOP_MULTI_FILE_REFACTOR_TIMEOUT_SECONDS', 600)),
+
         // L4-1: cooldown por target recente. Tasks/proposals recentes do mesmo path caem no
         // ranking para evitar farming do arquivo que acabou de render proposta.
         'target_cooldown_enabled' => (bool) env('ATLAS_LOOP_TARGET_COOLDOWN_ENABLED', true),
