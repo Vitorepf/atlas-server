@@ -49,6 +49,22 @@ class AtlasLoopKeepaliveCommand extends Command
             $stale = $heartbeat < (time() - $staleMinutes * 60);
             $alive = $this->supervisorAlive($id);
 
+            // Alive-but-FROZEN self-heal: a supervisor whose heartbeat is stale FAR beyond a
+            // normal generation is STUCK (post-restart-idle / deadlock), not working — the
+            // refiller touches the heartbeat per target (~minutes), so a heartbeat older than
+            // frozenMinutes WITH the process alive means genuinely frozen. Kill the stuck
+            // process + respawn. (Plain stale+dead is the normal respawn below; stale+alive was
+            // previously treated as "healthy" forever — the gap that let a frozen soak hang for
+            // hours unattended, defeating the 24/7 goal.)
+            $frozenMinutes = max($staleMinutes + 5, (int) config('atlas.loop.keepalive_frozen_kill_minutes', 15));
+            if ($alive && $heartbeat > 0 && $heartbeat < (time() - $frozenMinutes * 60)) {
+                $this->killSupervisor($id);
+                $this->respawn($id);
+                $out['respawned'][] = ['campaign_id' => $id, 'reason' => 'frozen_alive_killed_and_respawned', 'heartbeat_age_minutes' => (int) floor((time() - $heartbeat) / 60)];
+
+                continue;
+            }
+
             if (! $stale || $alive) {
                 $out['healthy'][] = ['campaign_id' => $id, 'stale' => $stale, 'process_alive' => $alive];
 
@@ -113,6 +129,18 @@ class AtlasLoopKeepaliveCommand extends Command
     protected function supervisorPattern(string $campaignId): string
     {
         return 'atlas:loop:campaign.*'.preg_quote($campaignId, '/');
+    }
+
+    /** SIGTERM a FROZEN supervisor process so respawn() can start a clean one. */
+    protected function killSupervisor(string $campaignId): void
+    {
+        $p = new Process(['pgrep', '-f', $this->supervisorPattern($campaignId)], null, null, null, 10.0);
+        $p->run();
+        foreach (preg_split('/\s+/', trim($p->getOutput())) ?: [] as $pid) {
+            if ($pid !== '' && ctype_digit($pid)) {
+                (new Process(['kill', '-TERM', $pid], null, null, null, 10.0))->run();
+            }
+        }
     }
 
     protected function respawn(string $campaignId): void
