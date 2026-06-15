@@ -256,6 +256,24 @@ final class AtlasLoopSemanticImplementationCertifier
             $reasons[] = (string) $judgeConsensus['reason'];
         }
 
+        // COMPLETENESS (Next-Lever 1): correctness is necessary but not sufficient — a refactor that
+        // simplifies ONE method of a god-class "passes" while the class stays god. The goal's checklist of
+        // acceptance CRITERIA (each a falsifiable sub-requirement, satisfaction resolved upstream) must be
+        // covered: every REQUIRED criterion satisfied + coverage >= floor. RECORDED always; a GATE only when
+        // completeness_gate_enabled (global) or per-task — default OFF / empty checklist => byte-identical.
+        $completenessCriteria = is_array($targetAcceptance['completeness_criteria'] ?? null)
+            ? array_values($targetAcceptance['completeness_criteria'])
+            : [];
+        $minCoverage = isset($targetAcceptance['completeness_min_coverage'])
+            ? (float) $targetAcceptance['completeness_min_coverage']
+            : (float) config('atlas.loop.completeness_min_coverage', 1.0);
+        $completeness = (new AtlasLoopCompletenessGate)->evaluate($completenessCriteria, $minCoverage);
+        $completenessGate = (bool) ($targetAcceptance['completeness_gate'] ?? false)
+            || (bool) config('atlas.loop.completeness_gate_enabled', false);
+        if ($completenessGate && $completenessCriteria !== [] && ! ($completeness['complete'] ?? false)) {
+            $reasons[] = (string) $completeness['reason'];
+        }
+
         $reasons = AiStringListNormalizer::uniqueStrings($reasons);
         $certified = $reasons === [];
         $receipt = [
@@ -276,6 +294,7 @@ final class AtlasLoopSemanticImplementationCertifier
             'complexity_proof' => $complexityProof,
             'delivery_confidence' => $deliveryConfidence,
             'judge_consensus' => $judgeConsensus,
+            'completeness' => $completeness,
             'quality_grade' => $qualityGrade,
             'evidence' => [
                 'target_acceptance_passed' => (bool) data_get($deterministicGate, 'report.holdouts.target_frozen_passed', false),

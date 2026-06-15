@@ -1992,6 +1992,12 @@ return [
             'threshold' => (float) env('ATLAS_LOOP_CONFIDENCE_THRESHOLD', 0.93),
             'weights' => [], // empty => the model's conservative defaults; the calibration loop overwrites this
         ],
+        // NEXT-LEVER 1 — COMPLETENESS. A goal's checklist of acceptance criteria must be covered (every
+        // required criterion satisfied + coverage >= floor) — proves the change did the WHOLE job, not just
+        // enough to pass one test. RECORDED always; GATE only when completeness_gate_enabled — default OFF /
+        // empty checklist => byte-identical. The criteria-from-goal resolver feeds the checklist + satisfaction.
+        'completeness_gate_enabled' => (bool) env('ATLAS_LOOP_COMPLETENESS_GATE_ENABLED', false),
+        'completeness_min_coverage' => max(0.0, min(1.0, (float) env('ATLAS_LOOP_COMPLETENESS_MIN_COVERAGE', 1.0))),
         // NEXT-LEVER 3 — INDEPENDENT MULTI-JUDGE CONSENSUS. The certifier RECORDS a consensus assessment over
         // independent verdicts (lens-diverse provider judges when supplied; else the adversarial panel +
         // refuters as correctness judges). GATE only when judge_consensus_gate_enabled — default OFF until the
