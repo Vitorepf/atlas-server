@@ -233,6 +233,41 @@ final class AtlasObraIntegrationCertificationTest extends TestCase
     }
 
     // ------------------------------------------------------------------
+    // 4) BUDGET — the integrated check honours the caller's timeout, not the 120s git constant.
+    // ------------------------------------------------------------------
+
+    public function test_integrated_check_honours_the_caller_budget_generous_certifies_tight_fails_closed(): void
+    {
+        // REGRESSION (HIGH false-reject): the whole-obra integrated check ran under the materializer's
+        // 120s git constant regardless of the obra's DECLARED budget, so a legitimately-slow assembled
+        // suite (bigger obra = slower) timed out → ran=false → integration_unrunnable → the GOOD branch
+        // discarded. The executor must thread integrated_check_timeout.
+        $this->seedLinearPlan('obra-slow-ok', 2);
+        $ok = $this->executorWithBrain()->executePlanId('obra-slow-ok', [
+            'repo_dir' => $this->repo,
+            // ~2s but PASSING; a generous 10s budget lets it finish and certify.
+            'integrated_check' => 'sleep 2; test -f step1.php && test -f step2.php',
+            'integrated_check_timeout' => 10,
+        ]);
+        $this->assertSame(AtlasObraExecutor::STATUS_DONE, $ok['status'], 'reason: '.($ok['reason'] ?? ''));
+        $this->assertTrue($ok['certified'], 'a slow-but-passing integrated check certifies under a generous budget (was: 120s default would also pass here, but a >120s suite would not)');
+        $this->assertTrue($ok['certification']['integrated_test_result']['ran']);
+        $this->assertTrue($ok['certification']['integrated_test_result']['passed']);
+
+        // The SAME ~2s check under a TIGHT 1s budget times out → ran=false → fail-closed (never a
+        // false green). This proves the timeout is actually threaded (not the 120s constant).
+        $this->seedLinearPlan('obra-slow-tight', 2);
+        $tight = $this->executorWithBrain()->executePlanId('obra-slow-tight', [
+            'repo_dir' => $this->repo,
+            'integrated_check' => 'sleep 2; exit 0',
+            'integrated_check_timeout' => 1,
+        ]);
+        $this->assertSame(AtlasObraExecutor::STATUS_NEEDS_REVIEW, $tight['status']);
+        $this->assertFalse($tight['certified'], 'a check exceeding the budget fails closed');
+        $this->assertFalse((bool) ($tight['certification']['integrated_test_result']['ran'] ?? true), 'a timed-out check is recorded ran=false (integration unrunnable)');
+    }
+
+    // ------------------------------------------------------------------
     // fixtures (all cost-free — no provider call anywhere)
     // ------------------------------------------------------------------
 

@@ -416,7 +416,15 @@ final class GovernedBranchMaterializationService
             return ['ran' => false, 'passed' => false, 'exit_code' => null, 'cmd' => $cmd, 'output_tail' => 'worktree_invalid'];
         }
 
-        return $this->runMeasure($worktree, $cmd);
+        // The whole-obra INTEGRATED test (the slowest step in a big obra) must honour the obra's
+        // declared budget, not the 120s git constant — a legit assembled suite >120s otherwise times
+        // out, is recorded ran=false, and the certifier discards the whole (good) branch. Optional +
+        // capped (3600s); absent => GIT_TIMEOUT, byte-identical for every existing caller.
+        $timeout = isset($input['measure_timeout_seconds'])
+            ? max(1.0, min(3600.0, (float) $input['measure_timeout_seconds']))
+            : self::GIT_TIMEOUT;
+
+        return $this->runMeasure($worktree, $cmd, $timeout);
     }
 
     /**
@@ -478,10 +486,10 @@ final class GovernedBranchMaterializationService
         }
     }
 
-    private function runMeasure(string $cwd, string $cmd): array
+    private function runMeasure(string $cwd, string $cmd, float $timeout = self::GIT_TIMEOUT): array
     {
         try {
-            $p = Process::fromShellCommandline($cmd, $cwd, null, null, self::GIT_TIMEOUT);
+            $p = Process::fromShellCommandline($cmd, $cwd, null, null, $timeout);
             $p->run();
 
             return [

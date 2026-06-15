@@ -97,6 +97,12 @@ final class AtlasLoopObraExecutionAdapter
                 'maxPerNode' => (int) config('atlas.loop.obra_repair_max_attempts_per_node', 3),
                 'maxPerObra' => (int) config('atlas.loop.obra_repair_max_attempts_per_obra', 8),
             ];
+            // The integrated whole-obra test must honour the obra's DECLARED budget (the multi-file
+            // refactor synthesizer sets acceptance.timeout_seconds, default 600), not the materializer's
+            // 120s git constant — else a legitimately-large assembled suite times out and the good
+            // branch is discarded as "integration unrunnable". (measureObra hard-caps at 3600s.)
+            $acc = is_array($payload['acceptance'] ?? null) ? (array) $payload['acceptance'] : [];
+            $opts['integrated_check_timeout'] = max(60, (int) ($acc['timeout_seconds'] ?? config('atlas.loop.multi_file_refactor_timeout_seconds', 600)));
             $envelope = $executor->execute($plan, $opts);
 
             // FAIL-CLOSED: the whole obra must be genuinely done, certified, every node delivered, and

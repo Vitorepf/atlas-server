@@ -399,10 +399,14 @@ final class AtlasObraExecutor
         $integratedCheck = $this->integratedCheckFor($opts);
         $integratedResult = null;
         if (! $halted && $integratedCheck !== null) {
-            $integratedResult = $this->materializer->measureObra([
-                'worktree' => $worktree,
-                'measure_cmd' => $integratedCheck,
-            ]);
+            $measureInput = ['worktree' => $worktree, 'measure_cmd' => $integratedCheck];
+            // The integrated whole-obra test is the slowest step; honour the caller's declared budget
+            // when supplied (else measureObra keeps its default git timeout — byte-identical).
+            $integratedTimeout = $this->integratedCheckTimeoutFor($opts);
+            if ($integratedTimeout !== null) {
+                $measureInput['measure_timeout_seconds'] = $integratedTimeout;
+            }
+            $integratedResult = $this->materializer->measureObra($measureInput);
         }
 
         // --- CLOSE the obra: drop the worktree, keep the branch, prove main untouched. ---
@@ -648,6 +652,19 @@ final class AtlasObraExecutor
      *
      * @param  array<string,mixed>  $opts
      */
+    /**
+     * Optional budget (seconds) for the integrated whole-obra check. Null (the default) leaves the
+     * materializer's own git timeout in place — so the default executor path is byte-identical.
+     *
+     * @param  array<string,mixed>  $opts
+     */
+    private function integratedCheckTimeoutFor(array $opts): ?int
+    {
+        $v = $opts['integrated_check_timeout'] ?? null;
+
+        return is_numeric($v) && (int) $v > 0 ? (int) $v : null;
+    }
+
     private function integratedCheckFor(array $opts): ?string
     {
         if (array_key_exists('integrated_check', $opts) && is_string($opts['integrated_check'])) {
