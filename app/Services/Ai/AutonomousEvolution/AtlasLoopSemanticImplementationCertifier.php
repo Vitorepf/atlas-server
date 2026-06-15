@@ -224,6 +224,38 @@ final class AtlasLoopSemanticImplementationCertifier
             $reasons[] = 'delivery_confidence:below_threshold:'.$deliveryConfidence['confidence'].'<'.$deliveryConfidence['threshold'];
         }
 
+        // INDEPENDENT MULTI-JUDGE CONSENSUS (Next-Lever 3): the structural trust a single agent cannot give
+        // itself. Consensus is computed over INDEPENDENT verdicts. Dedicated lens-diverse provider judges
+        // (when a panel supplies options.judge_verdicts) are the strongest form; absent those, the cert's own
+        // independent signals (the adversarial panel + each provider refuter) serve as correctness judges.
+        // RECORDED always; a GATE only when judge_consensus_gate_enabled (global) or per-task — default OFF.
+        $judgeVerdicts = is_array($options['judge_verdicts'] ?? null) ? array_values($options['judge_verdicts']) : [];
+        if ($judgeVerdicts === []) {
+            $judgeVerdicts[] = [
+                'lens' => 'correctness',
+                'provider' => 'adversarial_panel',
+                'passes' => (int) ($panelVerdict['refuted_count'] ?? 0) === 0,
+                'reason' => (string) ($panelVerdict['reason'] ?? 'refuted'),
+            ];
+            foreach ((array) ($providerRefuters['verdicts'] ?? []) as $rv) {
+                $judgeVerdicts[] = [
+                    'lens' => 'correctness',
+                    'provider' => trim((string) ($rv['provider'] ?? 'refuter')) ?: 'refuter',
+                    'passes' => ($rv['refuted'] ?? false) !== true,
+                    'reason' => (string) ($rv['reason'] ?? ''),
+                ];
+            }
+        }
+        $consensusQuorum = is_array($targetAcceptance['judge_consensus_quorum'] ?? null)
+            ? $targetAcceptance['judge_consensus_quorum']
+            : (array) config('atlas.loop.judge_consensus.quorum', []);
+        $judgeConsensus = (new AtlasLoopJudgeConsensusGate)->evaluate($judgeVerdicts, $consensusQuorum);
+        $consensusGate = (bool) ($targetAcceptance['judge_consensus_gate'] ?? false)
+            || (bool) config('atlas.loop.judge_consensus_gate_enabled', false);
+        if ($consensusGate && ! ($judgeConsensus['consensus'] ?? false)) {
+            $reasons[] = (string) $judgeConsensus['reason'];
+        }
+
         $reasons = AiStringListNormalizer::uniqueStrings($reasons);
         $certified = $reasons === [];
         $receipt = [
@@ -243,6 +275,7 @@ final class AtlasLoopSemanticImplementationCertifier
             'provider_refuters' => $providerRefuters,
             'complexity_proof' => $complexityProof,
             'delivery_confidence' => $deliveryConfidence,
+            'judge_consensus' => $judgeConsensus,
             'quality_grade' => $qualityGrade,
             'evidence' => [
                 'target_acceptance_passed' => (bool) data_get($deterministicGate, 'report.holdouts.target_frozen_passed', false),

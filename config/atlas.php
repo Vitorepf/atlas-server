@@ -1992,6 +1992,22 @@ return [
             'threshold' => (float) env('ATLAS_LOOP_CONFIDENCE_THRESHOLD', 0.93),
             'weights' => [], // empty => the model's conservative defaults; the calibration loop overwrites this
         ],
+        // NEXT-LEVER 3 — INDEPENDENT MULTI-JUDGE CONSENSUS. The certifier RECORDS a consensus assessment over
+        // independent verdicts (lens-diverse provider judges when supplied; else the adversarial panel +
+        // refuters as correctness judges). GATE only when judge_consensus_gate_enabled — default OFF until the
+        // lens-judge panel (dedicated provider judges per lens) feeds diverse verdicts. quorum: policy
+        // (unanimous|n_of_m), min_pass, required_lenses, min_distinct_providers (independence).
+        'judge_consensus_gate_enabled' => (bool) env('ATLAS_LOOP_JUDGE_CONSENSUS_GATE_ENABLED', false),
+        'judge_consensus' => [
+            'quorum' => [
+                'policy' => (string) env('ATLAS_LOOP_JUDGE_CONSENSUS_POLICY', 'unanimous'),
+                'min_distinct_providers' => max(1, (int) env('ATLAS_LOOP_JUDGE_CONSENSUS_MIN_PROVIDERS', 2)),
+                'required_lenses' => array_values(array_filter(array_map(
+                    static fn (string $l): string => trim($l),
+                    explode(',', (string) env('ATLAS_LOOP_JUDGE_CONSENSUS_REQUIRED_LENSES', 'correctness,completeness')),
+                ), static fn (string $l): bool => $l !== '')),
+            ],
+        ],
         // LEVER 5 — SPEC AMPLIFICATION floor (feature lane). A feature's frozen acceptance test IS its spec;
         // a thin test under-specifies a complex feature (spec-gaming). The gate refuses a feature whose
         // acceptance asserts fewer than this many cases — forcing the spec to be amplified (boundary/error/
