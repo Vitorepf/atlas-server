@@ -118,6 +118,66 @@ final class AtlasLoopCoverageGapsCommand extends Command
             return ['enabled' => true, 'campaign' => null, 'enqueued' => [], 'reason' => 'no live supervisor to receive the tasks'];
         }
 
-        return ['enabled' => true, 'campaign' => (string) $campaignId, 'enqueued' => $feeder->feed((string) $campaignId, $gaps), 'reason' => null];
+        // Pre-validate: feed ONLY gaps that are REAL on the CURRENT code (the operator's mutant
+        // SURVIVES the existing sibling test). A detector gap can be a refactor-time artifact — the
+        // surviving mutant lived in the relocated/refactored code, while the original is already
+        // covered. Feeding a spurious gap would let a provider "certify" a no-op test (mutant already
+        // killed) = low-value churn. The check reuses the proven verifier inverted (NOT certified on
+        // current code => the test does not kill it => real gap).
+        $real = [];
+        $skippedSpurious = 0;
+        foreach ($gaps as $gap) {
+            $verdict = $this->gapIsRealOnCurrentCode($gap);
+            if ($verdict === true) {
+                $real[] = $gap;
+            } elseif ($verdict === false) {
+                $skippedSpurious++;
+            }
+            // $verdict === null (couldn't validate) => conservatively DROP, never feed an unconfirmed gap.
+        }
+
+        return [
+            'enabled' => true,
+            'campaign' => (string) $campaignId,
+            'enqueued' => $feeder->feed((string) $campaignId, $real),
+            'reason' => $real === [] ? ('no real gaps to feed (skipped '.$skippedSpurious.' spurious/unconfirmed)') : null,
+            'skipped_spurious' => $skippedSpurious,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $gap
+     * @return bool|null  true = real (mutant survives current test), false = spurious (already killed),
+     *                    null = could not validate (materialize/run error) => caller drops it
+     */
+    private function gapIsRealOnCurrentCode(array $gap): ?bool
+    {
+        $target = trim((string) ($gap['target_file'] ?? ''));
+        $sibling = trim((string) ($gap['sibling_test'] ?? ''));
+        $operator = trim((string) ($gap['decision_operator'] ?? ''));
+        if ($target === '' || $sibling === '' || $operator === '') {
+            return null;
+        }
+        try {
+            $materializer = app(\App\Services\Ai\AutonomousEvolution\Framework\AtlasLoopFrameworkMaterializer::class);
+            $verifier = app(\App\Services\Ai\AutonomousEvolution\AtlasLoopCharacterizationTestVerifier::class);
+            $payload = [
+                'materializer' => 'framework',
+                'target_relative_path' => $target,
+                'target_repo_path' => $target,
+                'acceptance' => ['commands' => ['x'], 'allowed_globs' => [$sibling], 'frozen_globs' => [$target], 'timeout_seconds' => 120],
+                'allowed_files' => [$sibling],
+            ];
+            [$explorerTask, $cleanup] = $materializer->materializeBase(base_path(), 'coverage gap real-check', $payload);
+            try {
+                $verdict = $verifier->verify((string) ($explorerTask['base_workspace'] ?? ''), $target, $sibling, $operator, 120);
+            } finally {
+                $cleanup();
+            }
+            // certified == mutant KILLED by the CURRENT test == NOT a real gap (already covered).
+            return ! (bool) ($verdict['certified'] ?? false);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }
