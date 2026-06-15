@@ -1792,6 +1792,14 @@ return [
         // (assinatura da regressão acp diff-0); carimbo zero_diff_retry auditável.
         'zero_diff_retry' => (bool) env('ATLAS_LOOP_ZERO_DIFF_RETRY', true),
 
+        // ACDE engine-independence: um provider de TEXTO/HTTP (MiniMax M3) não edita arquivos
+        // — devolve a mudança como unified diff no corpo da resposta. Com este flag ON, o
+        // WorkspaceProviderLoopExecutionDriver parseia e APLICA esse diff no workspace via o
+        // caminho provado DiffParser+PatchApplier, transformando um motor de texto em agente
+        // que edita repo. Guardado por changed_files===[] (CLI providers não são afetados).
+        // Default ON: é a capacidade que destrava rodar o loop no motor mais fraco/barato.
+        'text_provider_edit_apply' => (bool) env('ATLAS_LOOP_TEXT_PROVIDER_EDIT_APPLY', true),
+
         // L2-2: descoberta admite targets framework-reach (serviços REAIS) — eles seguem
         // o caminho framework-materializer + intent-verifier + certificação adversarial.
         // Default OFF de fábrica; o operador ligou em 12/06 (.env). Reversível.

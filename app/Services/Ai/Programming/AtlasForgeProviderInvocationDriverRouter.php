@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\HermesCliProvider;
+
 /**
  * Atlas Forge Provider Invocation Driver Router (v2).
  *
@@ -376,7 +378,10 @@ class AtlasForgeProviderInvocationDriverRouter
             'cost_estimate_usd' => $this->extractCostUsd($result),
             'exit_code' => $result['exit_code'] ?? null,
             'duration_ms' => $result['duration_ms'] ?? null,
-            'stdout' => $result['stdout_excerpt'] ?? '',
+            // Prefer the FULL completion body when the driver surfaced it (HTTP/SDK providers
+            // like MiniMax return their whole unified-diff change here); fall back to the
+            // audit excerpt for CLI drivers that only expose a redacted snippet.
+            'stdout' => $result['stdout'] ?? $result['stdout_excerpt'] ?? '',
             'stderr' => $result['stderr_excerpt'] ?? '',
             'stdout_hash' => $result['stdout_hash'] ?? null,
             'stderr_hash' => $result['stderr_hash'] ?? null,
@@ -560,7 +565,7 @@ class AtlasForgeProviderInvocationDriverRouter
      * Resolve the Hermes adapter lazily from the container.
      *
      * Hermes is wired additively: the adapter delegates to
-     * {@see \App\Services\Ai\HermesCliProvider} via the AiProviderManager and is
+     * {@see HermesCliProvider} via the AiProviderManager and is
      * NOT part of the constructor-injected $drivers map, so the router's
      * constructor signature stays byte-identical (existing claude/codex/gemini/
      * cursor/minimax/antigravity registrations are untouched).

@@ -37,6 +37,15 @@ use Throwable;
 final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
 {
     /**
+     * Output budget for a provider invocation. A text/HTTP provider delivers its whole change
+     * AS a unified diff in the completion body — a small excerpt would truncate the patch and
+     * make it un-appliable — so the loop asks for a generous body (token cost is not a loop
+     * constraint; the cheap engine pays depth). A CLI provider edits files directly and ignores
+     * this. The MiniMax executor clamps to its own ceiling, so over-asking is harmless.
+     */
+    private const MAX_PROVIDER_OUTPUT_CHARS = 60000;
+
+    /**
      * AP-815 · I-4 loop seam: the code-graph context retriever (and the workspace
      * identity that scopes it to the indexed primary graph). Constructor-injected so
      * Laravel auto-wires both concrete services; they are touched ONLY when the
@@ -46,7 +55,47 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
         private readonly AtlasForgeProviderInvocationDriverRouter $router,
         private readonly CodeGraphContextRetriever $codeGraphContext,
         private readonly CodeGraphWorkspaceIdentity $workspaceIdentity,
+        private readonly AtlasLoopProviderEditApplier $editApplier = new AtlasLoopProviderEditApplier,
     ) {}
+
+    /**
+     * Invoke the provider, then — for a TEXT/HTTP provider that returned only a completion
+     * and edited NOTHING — parse its unified diff and apply it to the scenario workspace so
+     * its work becomes REAL files the frozen judge can score. A CLI provider that edited in
+     * place already carries a non-empty `changed_files`, so the apply is skipped and the
+     * result is byte-identical. Flag-gated ({@see config} `atlas.loop.text_provider_edit_apply`,
+     * default ON) and guarded by `changed_files === []` + non-empty stdout — so existing CLI
+     * and fake-router paths are unaffected. This is the single primitive that lets the loop
+     * run end-to-end on a text-only engine (the ACDE engine-independence proof).
+     *
+     * @param  array<string,mixed>  $prompt
+     * @param  list<string>  $allowedFiles
+     * @return array<string,mixed>
+     */
+    private function invokeWithEditApply(string $provider, ?string $model, array $prompt, string $workspace, int $timeout, array $allowedFiles = []): array
+    {
+        $result = $this->router->invoke($provider, $model, $prompt, [
+            'cwd' => $workspace,
+            'timeout_seconds' => $timeout,
+            'max_output_chars' => self::MAX_PROVIDER_OUTPUT_CHARS,
+        ]);
+
+        if (! (bool) config('atlas.loop.text_provider_edit_apply', true)
+            || ! (bool) ($result['provider_called'] ?? false)
+            || ($result['changed_files'] ?? []) !== []) {
+            return $result;
+        }
+
+        $stdout = (string) ($result['stdout'] ?? $result['output_excerpt'] ?? '');
+        $applied = $this->editApplier->applyFromText($stdout, $workspace, $timeout, $allowedFiles);
+        $result['edits_applied_from_text'] = $applied['applied'];
+        $result['edit_apply_status'] = $applied['status'];
+        if ($applied['applied']) {
+            $result['changed_files'] = $applied['changed_files'];
+        }
+
+        return $result;
+    }
 
     public function attempt(
         string $surfaceId,
@@ -62,15 +111,11 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
 
         $allowedFiles = $this->parseConstraint($userConstraints, 'allowed_files');
         $validationCommands = $this->parseConstraint($userConstraints, 'validation_command');
-        $prompt = $this->buildPrompt($intent, $allowedFiles, $validationCommands);
+        $prompt = $this->buildPrompt($intent, $allowedFiles, $validationCommands, $workspace);
         $model = $this->resolveModel($provider);
         $timeout = max(60, (int) config('atlas.loop.campaign.attempt_hard_seconds', 900));
 
-        $result = $this->router->invoke($provider, $model, $prompt, [
-            'cwd' => $workspace,
-            'timeout_seconds' => $timeout,
-            'max_output_chars' => 16000,
-        ]);
+        $result = $this->invokeWithEditApply($provider, $model, $prompt, $workspace, $timeout, $allowedFiles);
 
         // L2-1 (regressão ACP): "sucesso" do provider com ZERO mudanças no workspace é
         // um sucesso FALSO para uma invocação mutadora — foi exatamente a assinatura da
@@ -82,11 +127,7 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
             && ($result['changed_files'] ?? []) === []
             && (bool) config('atlas.loop.zero_diff_retry', true)) {
             $zeroDiffRetry = true;
-            $result = $this->router->invoke($provider, $model, $prompt, [
-                'cwd' => $workspace,
-                'timeout_seconds' => $timeout,
-                'max_output_chars' => 16000,
-            ]);
+            $result = $this->invokeWithEditApply($provider, $model, $prompt, $workspace, $timeout, $allowedFiles);
         }
 
         // ADEP keystone — ITERATE-TO-GREEN (flag-gated, default OFF => byte-identical). The single
@@ -107,13 +148,9 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
                 return ['passed' => $p->isSuccessful(), 'output' => mb_substr($p->getOutput()."\n".$p->getErrorOutput(), -4000)];
             };
             $reinvoke = function (string $failure) use ($provider, $model, $intent, $allowedFiles, $validationCommands, $workspace, $timeout, &$result): void {
-                $result = $this->router->invoke($provider, $model, $this->buildFixPrompt($intent, $allowedFiles, $validationCommands, $failure), [
-                    'cwd' => $workspace,
-                    'timeout_seconds' => $timeout,
-                    'max_output_chars' => 16000,
-                ]);
+                $result = $this->invokeWithEditApply($provider, $model, $this->buildFixPrompt($intent, $allowedFiles, $validationCommands, $failure, $workspace), $workspace, $timeout, $allowedFiles);
             };
-            $iterateMeta = (new AtlasLoopIterateToGreenExecutor())->pursue($runTest, $reinvoke, $maxIter);
+            $iterateMeta = (new AtlasLoopIterateToGreenExecutor)->pursue($runTest, $reinvoke, $maxIter);
         }
 
         $called = (bool) ($result['provider_called'] ?? false);
@@ -125,6 +162,11 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
             'changed_files' => $result['changed_files'] ?? [],
             'exit_code' => $result['exit_code'] ?? null,
             'zero_diff_retry' => $zeroDiffRetry,
+            // ACDE seam audit: was this attempt's diff produced as TEXT and applied by the loop
+            // (a text/HTTP engine), vs edited in place by a CLI agent? Lets the soak prove the
+            // engine-independence path actually fired (and which status when it did not).
+            'edits_applied_from_text' => (bool) ($result['edits_applied_from_text'] ?? false),
+            'edit_apply_status' => $result['edit_apply_status'] ?? null,
             'iterate_to_green' => $iterateMeta,
             // L6-3 live-evidence wire: forward the REAL token count + cost the router
             // surfaced (numeric only when the provider actually reported usage; null
@@ -142,7 +184,7 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
      * @param  list<string>  $validationCommands
      * @return array<string,mixed>
      */
-    private function buildPrompt(string $intent, array $allowedFiles, array $validationCommands): array
+    private function buildPrompt(string $intent, array $allowedFiles, array $validationCommands, string $workspace = ''): array
     {
         $lines = [
             'You are autonomously improving code in an ISOLATED throwaway workspace. Make the change directly by editing files in place.',
@@ -158,6 +200,9 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
             $lines[] = 'Your change is correct only when this passes: '.implode(' && ', $validationCommands).'.';
         }
         $lines[] = 'Preserve all existing behavior; make the smallest change that satisfies the objective.';
+        foreach ($this->editProtocolLines($allowedFiles, $workspace) as $line) {
+            $lines[] = $line;
+        }
 
         // AP-815 · I-4 loop seam: when the operator flips the auto-context flag ON, pull
         // the precise, budgeted code-graph pack (proven atlas:ctx retrieval) for this
@@ -183,7 +228,7 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
      * @param  list<string>  $validationCommands
      * @return array<string,mixed>
      */
-    private function buildFixPrompt(string $intent, array $allowedFiles, array $validationCommands, string $failure): array
+    private function buildFixPrompt(string $intent, array $allowedFiles, array $validationCommands, string $failure, string $workspace = ''): array
     {
         $lines = [
             'Your previous change did NOT pass the acceptance test. Fix the code IN PLACE so it passes — read the failure, find the cause, and correct it (create any file the objective requires; a missing/mis-namespaced class is a common cause).',
@@ -199,9 +244,87 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
             $lines[] = 'Edit ONLY these files (and CREATE any the objective requires among them): '.implode(', ', $allowedFiles).'.';
         }
         $lines[] = 'Do NOT modify anything under tests/ or composer.json. Make the smallest change that turns the test GREEN while preserving existing behavior.';
+        foreach ($this->editProtocolLines($allowedFiles, $workspace) as $line) {
+            $lines[] = $line;
+        }
         $text = implode("\n", $lines);
 
         return ['text' => $text, 'instruction' => $text, 'messages' => [['role' => 'user', 'content' => $text]]];
+    }
+
+    /**
+     * The text-provider edit protocol — the heart of running the loop on a no-filesystem
+     * engine. A CLI agent edits files in place and can ignore this; a text/HTTP engine
+     * (MiniMax) has no filesystem, so it must DELIVER its change as text the loop then
+     * applies ({@see AtlasLoopProviderEditApplier}).
+     *
+     * Two things make a WEAK engine reliable here: (1) we show it the EXACT current contents
+     * of every in-scope file, so it does not hallucinate context (the failure that made its
+     * first diffs un-appliable); (2) we ask for FULL-FILE blocks — the complete new contents,
+     * not a fragile unified diff a weak model miscounts — which the applier writes verbatim.
+     * A unified diff is still accepted as a fallback. Emitted only when the apply seam is ON
+     * (default), so a flag-OFF prompt is byte-identical.
+     *
+     * @param  list<string>  $allowedFiles
+     * @return list<string>
+     */
+    private function editProtocolLines(array $allowedFiles, string $workspace): array
+    {
+        if (! (bool) config('atlas.loop.text_provider_edit_apply', true)) {
+            return [];
+        }
+
+        $lines = [
+            '',
+            'OUTPUT PROTOCOL — you have NO filesystem access, so deliver your change as TEXT, applied for you:',
+            'For EACH file you change or create, emit a block with the COMPLETE new file contents (not a diff):',
+            '*** ATLAS_FILE: relative/path.php ***',
+            '<the entire new contents of the file>',
+            '*** ATLAS_END ***',
+            'Reproduce the file EXACTLY as shown below, changing only what the objective requires. Output ONLY',
+            'these blocks — no prose, no markdown fences. Paths are relative to the repo root.',
+        ];
+
+        foreach ($this->currentFileContents($allowedFiles, $workspace) as $line) {
+            $lines[] = $line;
+        }
+
+        return $lines;
+    }
+
+    /**
+     * Embed the current contents of each in-scope file so a no-filesystem engine edits the
+     * REAL code instead of guessing it. Bounded per file; missing files are simply skipped
+     * (the engine creates them). Fail-safe: any read error contributes no lines.
+     *
+     * @param  list<string>  $allowedFiles
+     * @return list<string>
+     */
+    private function currentFileContents(array $allowedFiles, string $workspace): array
+    {
+        if ($allowedFiles === [] || $workspace === '' || ! is_dir($workspace)) {
+            return [];
+        }
+
+        $lines = ['', 'CURRENT FILE CONTENTS (edit these exactly):'];
+        $emitted = false;
+        foreach ($allowedFiles as $relative) {
+            $relative = ltrim((string) $relative, './');
+            if ($relative === '' || str_contains($relative, '..')) {
+                continue;
+            }
+            $full = rtrim($workspace, '/').'/'.$relative;
+            if (! is_file($full)) {
+                continue;
+            }
+            $contents = (string) @file_get_contents($full, false, null, 0, self::MAX_PROVIDER_OUTPUT_CHARS);
+            $lines[] = '*** ATLAS_FILE: '.$relative.' ***';
+            $lines[] = $contents;
+            $lines[] = '*** ATLAS_END ***';
+            $emitted = true;
+        }
+
+        return $emitted ? $lines : [];
     }
 
     /**

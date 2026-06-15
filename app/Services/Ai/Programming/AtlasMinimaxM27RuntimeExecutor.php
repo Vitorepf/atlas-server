@@ -6,6 +6,8 @@ namespace App\Services\Ai\Programming;
 
 use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\AiValueNormalizer;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Throwable;
 
@@ -19,11 +21,15 @@ use Throwable;
 class AtlasMinimaxM27RuntimeExecutor
 {
     public const STATUS_COMPLETED = 'completed';
+
     public const STATUS_FAILED = 'failed';
+
     public const STATUS_TIMED_OUT = 'timed_out';
+
     public const STATUS_BLOCKED = 'blocked';
 
     public const AUTH_MODE_TOKEN_PLAN = 'token_plan_key';
+
     public const AUTH_MODE_PAYGO = 'paygo';
 
     /**
@@ -31,14 +37,21 @@ class AtlasMinimaxM27RuntimeExecutor
      * truncated (never crashes). ~4 chars per token approximation.
      */
     public const MAX_TOKENS = 38000;
+
     private const MAX_CONTEXT_CHARS = self::MAX_TOKENS * 4;
 
     public const BLOCKER_DISABLED = 'minimax_m27_disabled';
+
     public const BLOCKER_MISSING_TOKEN_PLAN_KEY = 'missing_token_plan_key';
+
     public const BLOCKER_PAYGO_NOT_AUTHORIZED = 'paygo_not_authorized';
+
     public const BLOCKER_HIGHSPEED_NOT_AUTHORIZED = 'minimax_m27_highspeed_not_authorized';
+
     public const BLOCKER_MODEL_NOT_M3 = 'minimax_m3_required';
+
     public const BLOCKER_WORKSPACE_REQUIRED = 'workspace_path_required';
+
     public const MODEL = 'MiniMax-M3';
 
     /** @var callable|null */
@@ -261,6 +274,10 @@ class AtlasMinimaxM27RuntimeExecutor
                 'timed_out' => false,
                 'stdout_hash' => hash('sha256', $stdout),
                 'stderr_hash' => hash('sha256', ''),
+                // FULL completion body (already clamped to max_output_chars above). A text
+                // provider delivers its whole change as a unified diff in this body, so the
+                // loop's edit-applier needs the full text, not the 2000-char audit excerpt.
+                'stdout' => $stdout,
                 'stdout_excerpt' => $this->excerpt($stdout, 2000),
                 'stderr_excerpt' => '',
                 'process_status' => self::STATUS_COMPLETED,
@@ -275,7 +292,7 @@ class AtlasMinimaxM27RuntimeExecutor
                 'stop_reason' => (string) ($data['stop_reason'] ?? ''),
                 'usage' => $data['usage'] ?? null,
             ];
-        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+        } catch (ConnectionException $e) {
             $durationMs = (int) round((microtime(true) - $started) * 1000);
 
             return $this->blockedWithFailure($manifest, ['timeout'],
@@ -293,7 +310,7 @@ class AtlasMinimaxM27RuntimeExecutor
     /**
      * @param  array<string,mixed>  $payload
      */
-    private function makeHttpRequest(string $endpoint, string $apiKey, array $payload, int $timeout): \Illuminate\Http\Client\Response
+    private function makeHttpRequest(string $endpoint, string $apiKey, array $payload, int $timeout): Response
     {
         if ($this->httpFactory !== null) {
             return ($this->httpFactory)($endpoint, $apiKey, $payload, $timeout);
@@ -333,9 +350,30 @@ class AtlasMinimaxM27RuntimeExecutor
     private function buildMessages(array $manifest, int $maxChars = self::MAX_CONTEXT_CHARS): array
     {
         $prompt = is_array($manifest['prompt'] ?? null) ? $manifest['prompt'] : [];
+
+        // Forge task-contract shape (the Atlas Dev senior loop sends this).
         $task = (string) data_get($prompt, 'task_contract.task_description', '');
         $context = (string) data_get($prompt, 'context', '');
         $content = trim(implode("\n\n", array_filter([$context, $task])));
+
+        // Canonical LoopExecutionDriver shape (text / instruction / messages). WITHOUT this
+        // fallback the evolution loop's prompt — which carries only `text`+`messages`, no
+        // task_contract — collapsed to the empty-manifest stub, so live MiniMax replied
+        // "I don't see a task definition" and certified NOTHING (campaign 019ecd81). Honor
+        // the messages first (richest), then the flat text/instruction.
+        if ($content === '') {
+            $fromMessages = [];
+            foreach (is_array($prompt['messages'] ?? null) ? $prompt['messages'] : [] as $message) {
+                $piece = is_array($message) ? trim((string) ($message['content'] ?? '')) : '';
+                if ($piece !== '') {
+                    $fromMessages[] = $piece;
+                }
+            }
+            $content = trim(implode("\n\n", $fromMessages));
+        }
+        if ($content === '') {
+            $content = trim((string) ($prompt['text'] ?? $prompt['instruction'] ?? ''));
+        }
 
         if ($content === '') {
             $content = 'Execute the task as defined in the manifest.';
@@ -415,6 +453,7 @@ class AtlasMinimaxM27RuntimeExecutor
             if (str_contains($low, 'quota') || str_contains($low, 'credits')) {
                 return [['quota_exhausted'], AtlasForgeProviderFallbackPolicyService::FAILURE_QUOTA_EXHAUSTED];
             }
+
             return [['rate_limit'], AtlasForgeProviderFallbackPolicyService::FAILURE_RATE_LIMIT];
         }
         if ($status === 400 && str_contains($low, 'context')) {
@@ -423,12 +462,14 @@ class AtlasMinimaxM27RuntimeExecutor
         if ($status >= 503) {
             return [['model_unavailable'], AtlasForgeProviderFallbackPolicyService::FAILURE_MODEL_UNAVAILABLE];
         }
+
         return [['provider_error'], AtlasForgeProviderFallbackPolicyService::FAILURE_PROVIDER_ERROR];
     }
 
     private function httpError(array $manifest, int $status, string $body, int $durationMs): array
     {
         [$blockers, $failureType] = $this->classifyHttpError($status, $body);
+
         return $this->blockedWithFailure($manifest, $blockers, $failureType,
             "MiniMax M3 HTTP {$status}: ".$this->sanitizeBody($body), $durationMs);
     }
@@ -441,6 +482,7 @@ class AtlasMinimaxM27RuntimeExecutor
         if ($mode === self::AUTH_MODE_PAYGO && $paygoEnabled) {
             return $pgKey !== null ? 'paygo_key_present' : 'missing';
         }
+
         return 'unknown';
     }
 
@@ -479,6 +521,7 @@ class AtlasMinimaxM27RuntimeExecutor
     private function sanitizeBody(string $body): string
     {
         $s = $this->sanitizeMsg($body);
+
         return strlen($s) > 300 ? substr($s, 0, 300).'…' : $s;
     }
 

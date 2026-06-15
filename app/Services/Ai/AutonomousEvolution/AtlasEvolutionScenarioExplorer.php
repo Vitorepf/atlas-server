@@ -236,6 +236,11 @@ final class AtlasEvolutionScenarioExplorer
                 'strategy' => $strategy,
                 'provider' => $provider,
                 'loop_status' => (string) ($loopSummary['status'] ?? 'unknown'),
+                // Carry the driver's REAL provider-invocation signal so attempt_metrics records
+                // whether the engine actually ran (was absent here → every metric row read
+                // provider_invoked:false even when the provider fired — masking the live signal).
+                'provider_invoked' => (bool) ($loopSummary['provider_invoked'] ?? false),
+                'edits_applied_from_text' => (bool) ($loopSummary['edits_applied_from_text'] ?? false),
                 'cost_estimate_usd' => $this->positiveFloat($loopSummary['cost_estimate_usd'] ?? $loopSummary['cost_usd'] ?? data_get($loopSummary, 'provider_usage.cost_usd')),
                 'tokens_used' => $this->positiveInt($loopSummary['tokens_used'] ?? data_get($loopSummary, 'provider_usage.tokens_used')),
                 'verdict' => $verdict,
