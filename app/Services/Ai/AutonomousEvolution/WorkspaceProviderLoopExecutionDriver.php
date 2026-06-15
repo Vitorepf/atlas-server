@@ -7,6 +7,7 @@ namespace App\Services\Ai\AutonomousEvolution;
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
 use App\Services\Engineering\CodeGraph\CodeGraphContextRetriever;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
+use Symfony\Component\Process\Process;
 use Throwable;
 
 /**
@@ -88,6 +89,33 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
             ]);
         }
 
+        // ADEP keystone — ITERATE-TO-GREEN (flag-gated, default OFF => byte-identical). The single
+        // biggest gap vs codex/Claude: the loop named the acceptance test in the prompt but never RAN
+        // it and fed the failure back. Here the LOOP closes that loop — run the validation; on red,
+        // re-invoke the provider WITH the exact failure; repeat until green or budget. Works for any
+        // provider (does not rely on the provider self-iterating). The frozen judge stays authoritative.
+        $iterateMeta = null;
+        if ((bool) config('atlas.loop.iterate_to_green_enabled', false)
+            && (bool) ($result['provider_called'] ?? false)
+            && $validationCommands !== []) {
+            $maxIter = max(1, (int) config('atlas.loop.iterate_to_green_max', 3));
+            $cmd = implode(' && ', $validationCommands);
+            $runTest = function () use ($cmd, $workspace, $timeout): array {
+                $p = new Process(['bash', '-lc', $cmd], $workspace, null, null, (float) $timeout);
+                $p->run();
+
+                return ['passed' => $p->isSuccessful(), 'output' => mb_substr($p->getOutput()."\n".$p->getErrorOutput(), -4000)];
+            };
+            $reinvoke = function (string $failure) use ($provider, $model, $intent, $allowedFiles, $validationCommands, $workspace, $timeout, &$result): void {
+                $result = $this->router->invoke($provider, $model, $this->buildFixPrompt($intent, $allowedFiles, $validationCommands, $failure), [
+                    'cwd' => $workspace,
+                    'timeout_seconds' => $timeout,
+                    'max_output_chars' => 16000,
+                ]);
+            };
+            $iterateMeta = (new AtlasLoopIterateToGreenExecutor())->pursue($runTest, $reinvoke, $maxIter);
+        }
+
         $called = (bool) ($result['provider_called'] ?? false);
 
         return [
@@ -97,6 +125,7 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
             'changed_files' => $result['changed_files'] ?? [],
             'exit_code' => $result['exit_code'] ?? null,
             'zero_diff_retry' => $zeroDiffRetry,
+            'iterate_to_green' => $iterateMeta,
             // L6-3 live-evidence wire: forward the REAL token count + cost the router
             // surfaced (numeric only when the provider actually reported usage; null
             // otherwise — never fabricated) so the runner persists them into
@@ -141,6 +170,35 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
             }
         }
 
+        $text = implode("\n", $lines);
+
+        return ['text' => $text, 'instruction' => $text, 'messages' => [['role' => 'user', 'content' => $text]]];
+    }
+
+    /**
+     * The iterate-to-green follow-up prompt: the previous attempt left the acceptance RED, so feed the
+     * provider the EXACT failure output and ask for the smallest in-place fix that turns it green.
+     *
+     * @param  list<string>  $allowedFiles
+     * @param  list<string>  $validationCommands
+     * @return array<string,mixed>
+     */
+    private function buildFixPrompt(string $intent, array $allowedFiles, array $validationCommands, string $failure): array
+    {
+        $lines = [
+            'Your previous change did NOT pass the acceptance test. Fix the code IN PLACE so it passes — read the failure, find the cause, and correct it (create any file the objective requires; a missing/mis-namespaced class is a common cause).',
+            '',
+            'The command `'.implode(' && ', $validationCommands).'` failed with (tail):',
+            '--- failure output ---',
+            $failure,
+            '--- end failure output ---',
+            '',
+            'OBJECTIVE (unchanged): '.$intent,
+        ];
+        if ($allowedFiles !== []) {
+            $lines[] = 'Edit ONLY these files (and CREATE any the objective requires among them): '.implode(', ', $allowedFiles).'.';
+        }
+        $lines[] = 'Do NOT modify anything under tests/ or composer.json. Make the smallest change that turns the test GREEN while preserving existing behavior.';
         $text = implode("\n", $lines);
 
         return ['text' => $text, 'instruction' => $text, 'messages' => [['role' => 'user', 'content' => $text]]];

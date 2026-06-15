@@ -1957,6 +1957,13 @@ return [
         // — no Obra ceremony. Default OFF = byte-identical (single-file in-place reduction only).
         'multi_file_refactor_via_normal_lane' => (bool) env('ATLAS_LOOP_MULTI_FILE_REFACTOR_VIA_NORMAL_LANE', false),
         'extract_class_min_cyclomatic' => max(1, (int) env('ATLAS_LOOP_EXTRACT_CLASS_MIN_CYCLOMATIC', 15)),
+        // ADEP keystone — ITERATE-TO-GREEN: after the provider attempt, the LOOP runs the acceptance
+        // test and, on red, re-invokes the provider WITH the exact failure until green or budget (the
+        // test-fix-retest loop codex/Claude use; the loop's single-shot lane never had it). Default
+        // OFF => byte-identical (one invocation + zero-diff retry only). Token cost is no concern;
+        // quality is — set the budget high. iterate_to_green_max = max re-invocations per attempt.
+        'iterate_to_green_enabled' => (bool) env('ATLAS_LOOP_ITERATE_TO_GREEN_ENABLED', false),
+        'iterate_to_green_max' => max(1, (int) env('ATLAS_LOOP_ITERATE_TO_GREEN_MAX', 3)),
 
         // OBRA REPAIR (eixo-3, the autonomy multiplier) — when ON, a node whose DELIVERY fails
         // certification is RETRIED with label-only failure feedback (bounded), instead of halting on
