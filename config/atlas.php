@@ -1775,6 +1775,14 @@ return [
         // Convergence: once a winner exists, stop after this many consecutive
         // scenarios that fail to improve it (patience). Higher = searches harder.
         'search_patience' => max(1, (int) env('ATLAS_LOOP_SEARCH_PATIENCE', 3)),
+        // Lever 4 — CROSS-PROVIDER best-of-N. Comma-separated provider keys the explorer rotates the N
+        // attempts across, so candidates are DECORRELATED by engine (codex and MiniMax fail differently),
+        // a real one-shot success-rate lift. Empty => single-provider (byte-identical to before). The
+        // explorer reads this ONLY when a task pins no provider, so pure unit tests never touch config.
+        'scenario_provider_portfolio' => array_values(array_filter(array_map(
+            static fn (string $p): string => trim($p),
+            explode(',', (string) env('ATLAS_LOOP_SCENARIO_PROVIDER_PORTFOLIO', '')),
+        ), static fn (string $p): bool => $p !== '')),
         // Hard caps per task (the autoresearch fixed-budget discipline).
         'max_seconds_per_scenario' => max(30, (int) env('ATLAS_LOOP_MAX_SECONDS_PER_SCENARIO', 600)),
         // The loop NEVER merges to main: it accumulates certified-for-review proposals.

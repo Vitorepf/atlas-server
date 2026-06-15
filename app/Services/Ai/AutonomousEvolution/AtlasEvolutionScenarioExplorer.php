@@ -40,6 +40,7 @@ final class AtlasEvolutionScenarioExplorer
     public function __construct(
         private readonly LoopExecutionDriver $driver,
         private readonly AtlasEvolutionFrozenJudge $judge,
+        private readonly ?AtlasLoopScenarioProviderPortfolio $portfolio = null,
     ) {}
 
     /**
@@ -57,7 +58,7 @@ final class AtlasEvolutionScenarioExplorer
      *     surface_id?: string,
      *     keep_workspaces?: bool
      * }  $task
-     * @return array<string,mixed>  atlas.evolution.scenario_exploration.v1
+     * @return array<string,mixed> atlas.evolution.scenario_exploration.v1
      */
     public function explore(array $task, ?int $scenarios = null): array
     {
@@ -113,6 +114,7 @@ final class AtlasEvolutionScenarioExplorer
         $best = null;
         $noImprove = 0;
         $start = microtime(true);
+        $portfolio = $this->portfolio ?? new AtlasLoopScenarioProviderPortfolio;
 
         for ($i = 0; $i < $max; $i++) {
             if ($i >= $min && $best !== null && $noImprove >= $patience) {
@@ -123,7 +125,13 @@ final class AtlasEvolutionScenarioExplorer
             }
 
             $strategy = $this->strategyFor($task, $i);
-            $attempt = $this->runScenario($i, $objective, $strategy['text'], $strategy['key'], $baseWorkspace, $acceptance, $surfaceId, $userConstraints, $surfaceHints, $provider, $keepWorkspaces, $workspaceRoot, $this->scenarioCloneMode($task));
+            // CROSS-PROVIDER best-of-N (Lever 4): rotate the N attempts across a provider portfolio so the
+            // candidates are DECORRELATED by engine (codex and MiniMax fail differently), not only by
+            // strategy hint. Fail-safe: an empty/single portfolio reproduces single-provider behavior
+            // byte-for-byte (every attempt uses $provider, $surfaceHints unchanged).
+            $attemptProvider = $portfolio->providerFor($task, $i, $provider);
+            $attemptHints = $attemptProvider === $provider ? $surfaceHints : $this->surfaceHints($attemptProvider);
+            $attempt = $this->runScenario($i, $objective, $strategy['text'], $strategy['key'], $baseWorkspace, $acceptance, $surfaceId, $userConstraints, $attemptHints, $attemptProvider, $keepWorkspaces, $workspaceRoot, $this->scenarioCloneMode($task));
             $attempts[] = $attempt;
 
             if ($this->improvesBest($attempt, $best, $metricKind)) {
@@ -400,7 +408,7 @@ final class AtlasEvolutionScenarioExplorer
 
     /**
      * @param  array<string,mixed>  $task
-     * @return array{0:int,1:int,2:int,3:int}  [min, max, patience, time_budget_seconds]
+     * @return array{0:int,1:int,2:int,3:int} [min, max, patience, time_budget_seconds]
      */
     private function searchParams(array $task, ?int $scenarios): array
     {

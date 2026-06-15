@@ -195,6 +195,64 @@ final class AtlasEvolutionScenarioExplorerTest extends TestCase
         $this->assertFalse($result['status']['converged']);
     }
 
+    public function test_cross_provider_portfolio_rotates_the_engine_across_attempts(): void
+    {
+        // Lever 4: the N best-of-N attempts rotate across a provider portfolio (decorrelated by engine).
+        // The fake driver records the provider_choice surface hint per call; assert it cycles a,b,c.
+        $fake = new class implements LoopExecutionDriver
+        {
+            /** @var list<string> */
+            public array $providers = [];
+
+            public function attempt(string $surfaceId, string $workspace, string $intent, array $userConstraints, array $surfaceHints): array
+            {
+                $this->providers[] = (string) ($surfaceHints['provider_choice'] ?? '');
+                // honest minimal fix so every attempt passes (we only care about provider rotation here)
+                file_put_contents($workspace.'/src/Subject.php', "<?php\nfunction greet(){ return 'hello'; }\n");
+
+                return ['status' => 'completed'];
+            }
+        };
+
+        $task = $this->task();
+        // keep task['provider'] set so resolveProvider never reads config (pure unit test, no container);
+        // scenario_providers is step-1 in the portfolio so it governs the rotation regardless.
+        $task['scenario_providers'] = ['prov_a', 'prov_b', 'prov_c'];
+
+        $result = (new AtlasEvolutionScenarioExplorer($fake, new AtlasEvolutionFrozenJudge))->explore($task, 4);
+
+        $this->assertSame(4, $result['scenarios_explored']);
+        $this->assertSame(['prov_a', 'prov_b', 'prov_c', 'prov_a'], $fake->providers, 'attempts rotate the portfolio and cycle back');
+        // each attempt records the engine it ran on (audit trail for the A/B + bandit)
+        $this->assertSame(['prov_a', 'prov_b', 'prov_c', 'prov_a'], array_map(
+            static fn (array $a): string => (string) $a['provider'],
+            $result['attempts'],
+        ));
+    }
+
+    public function test_single_provider_is_byte_identical_no_portfolio(): void
+    {
+        // With a single pinned provider and no portfolio, every attempt uses it (today's behavior).
+        $fake = new class implements LoopExecutionDriver
+        {
+            /** @var list<string> */
+            public array $providers = [];
+
+            public function attempt(string $surfaceId, string $workspace, string $intent, array $userConstraints, array $surfaceHints): array
+            {
+                $this->providers[] = (string) ($surfaceHints['provider_choice'] ?? '');
+                file_put_contents($workspace.'/src/Subject.php', "<?php\nfunction greet(){ return 'hello'; }\n");
+
+                return ['status' => 'completed'];
+            }
+        };
+
+        $result = (new AtlasEvolutionScenarioExplorer($fake, new AtlasEvolutionFrozenJudge))->explore($this->task(), 3);
+
+        $this->assertSame(3, $result['scenarios_explored']);
+        $this->assertSame(['test_provider', 'test_provider', 'test_provider'], $fake->providers);
+    }
+
     public function test_framework_clone_mode_uses_worktree_and_copies_local_support(): void
     {
         file_put_contents($this->base.'/.gitignore', "/vendor/\n.env.testing\n");
