@@ -1982,6 +1982,11 @@ return [
         // is the threshold (operator directive: 9). Raise once the loop reliably clears it.
         'quality_bar_gate_enabled' => (bool) env('ATLAS_LOOP_QUALITY_BAR_GATE_ENABLED', false),
         'quality_bar' => (float) env('ATLAS_LOOP_QUALITY_BAR', 9.0),
+        // LEVER 3 — behavioral-equivalence STRENGTH floor. For a refactor, "the sibling test is green" is
+        // necessary but weak; this requires the frozen suite to be strong enough to have CAUGHT a behaviour
+        // change — a minimum mutation KILL RATIO (killed/sampled) over the exhaustively sampled decision
+        // mutants. 0.0 => OFF (byte-identical). Raise toward the >93%-confidence bar once the loop clears it.
+        'mutation_kill_ratio_floor' => max(0.0, min(1.0, (float) env('ATLAS_LOOP_MUTATION_KILL_RATIO_FLOOR', 0.0))),
         // LEVER 5 — provider routing ("MiniMax when you should, codex as you should"). Cheap classes
         // go to the cheap tier (MiniMax-M3), load-bearing classes stay on the strong default. Default
         // OFF => byte-identical. Fail-safe: a cheap provider that is not configured falls back to the

@@ -155,6 +155,19 @@ final class AtlasLoopSemanticImplementationCertifier
             if (! $this->behaviorAnchorAsserted($deterministicGate)) {
                 $reasons[] = 'complexity_gate:behavior_anchor_no_assertions';
             }
+            // BEHAVIORAL-EQUIVALENCE STRENGTH (Lever 3): "the sibling test is green" is necessary but
+            // WEAK for an extremely complex refactor — a thin suite passes while untested branches break.
+            // Require the frozen suite to be strong enough to have CAUGHT a behaviour change: a minimum
+            // mutation KILL RATIO over the sampled mutants. Per-task floor (complex/self-improvement) wins
+            // over the global; default 0.0 => OFF (byte-identical). Fail-open when no mutants were sampled.
+            $behavioralEquivalence = (new AtlasLoopBehavioralEquivalenceGate)->evaluate(
+                (int) ($mutationAdequacy['mutants_sampled'] ?? 0),
+                (int) ($mutationAdequacy['mutants_killed'] ?? 0),
+                (float) ($targetAcceptance['mutation_kill_ratio_floor'] ?? config('atlas.loop.mutation_kill_ratio_floor', 0.0)),
+            );
+            if (! $behavioralEquivalence['passes'] && $behavioralEquivalence['reason'] !== null) {
+                $reasons[] = $behavioralEquivalence['reason'];
+            }
         }
 
         // ≥9 QUALITY BAR (operator directive: "tudo numa nota de no mínimo 9"). Grade the verified
