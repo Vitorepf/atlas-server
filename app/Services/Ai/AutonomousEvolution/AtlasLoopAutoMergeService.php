@@ -248,8 +248,17 @@ final class AtlasLoopAutoMergeService
                 // impossível re-provar). merged_to_main permanece false; o Loop redescobre o
                 // alvo se ainda valer.
                 if (str_contains($reason, 'git_apply_failed') || str_contains($reason, 'no_acceptance_contract')) {
-                    $proposal->forceFill(['reviewed_at' => now()])->save();
-                    $reason .= str_contains($reason, 'no_acceptance_contract') ? ' (retired_contractless)' : ' (retired_stale)';
+                    $contractless = str_contains($reason, 'no_acceptance_contract');
+                    // ATTRIBUTABLE RETIRE: persist WHY on the row. This used to be a bare reviewed_at
+                    // stamp, so "retired_stale" was an unattributed black hole — the funnel could not
+                    // tell a RECOVERABLE base-drift casualty (contract present, only the base moved)
+                    // from a genuinely DEAD contractless legacy one. Now every retire is auditable.
+                    $this->retireStale(
+                        $proposal,
+                        $contractless ? 'retired_contractless' : 'retired_stale_diff',
+                        $reason,
+                    );
+                    $reason .= $contractless ? ' (retired_contractless)' : ' (retired_stale)';
                 }
 
                 return array_merge($base, ['reason' => $reason]);
@@ -269,7 +278,9 @@ final class AtlasLoopAutoMergeService
                     // drenável p/ sempre, re-clonando o repo a cada passe (lixo que infla a
                     // fila e gasta ciclos). Retira (reviewed_at); o loop re-descobre o alvo se
                     // ainda tiver superfície melhorável. Mesma filosofia do git_apply_failed.
-                    $proposal->forceFill(['reviewed_at' => now()])->save();
+                    // ATTRIBUTABLE: reproved GREEN but the diff no longer applies (tree moved) — the
+                    // MOST recoverable retire class (the change is still good; only its base is stale).
+                    $this->retireStale($proposal, 'retired_stale_tree_moved', 'apply_conflict_tree_moved');
 
                     return array_merge($base, ['reason' => 'apply_conflict_tree_moved (retired_stale)']);
                 }
@@ -473,6 +484,29 @@ final class AtlasLoopAutoMergeService
             'operator_id' => $operatorId,
             'reviewed_at' => now()->toIso8601String(),
             'decision' => 'park',
+        ];
+        $proposal->forceFill(['reviewed_at' => now(), 'quality' => $quality])->save();
+    }
+
+    /**
+     * Retire a certified proposal TERMINALLY (out of the drain queue) with an AUDITABLE, attributable
+     * reason persisted on the row. Mirrors the value_gate_retired stamp (decision=retire, so it never
+     * surfaces in the operator-review queue), and records had_acceptance_contract so the funnel/digest
+     * can split RECOVERABLE base-drift casualties (tree moved, contract present → re-discoverable, and
+     * the future rebase-salvage candidate) from genuinely DEAD ones (no contract, irreprovable).
+     * reviewed_at terminates drainability (drainable requires reviewed_at IS NULL); merged_to_main
+     * stays false (this only annotates a retire that already happened — it never marks a merge).
+     */
+    private function retireStale(AtlasLoopProposal $proposal, string $status, string $reason): void
+    {
+        $quality = is_array($proposal->quality) ? $proposal->quality : [];
+        $quality['_operator_review'] = [
+            'schema_version' => 'atlas.loop.operator_review.v1',
+            'status' => $status,
+            'reason' => $reason,
+            'reviewed_at' => now()->toIso8601String(),
+            'decision' => 'retire',
+            'had_acceptance_contract' => (bool) data_get($quality, '_acceptance_contract'),
         ];
         $proposal->forceFill(['reviewed_at' => now(), 'quality' => $quality])->save();
     }

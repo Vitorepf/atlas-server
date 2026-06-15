@@ -174,6 +174,48 @@ final class AtlasLoopAutoMergeServiceTest extends TestCase
         $fresh = $proposal->fresh();
         $this->assertFalse((bool) $fresh->merged_to_main, 'stale nunca mergeia');
         $this->assertNotNull($fresh->reviewed_at, 'stale é aposentada para não bloquear a fila');
+        // ATTRIBUTABLE RETIRE: the reason is now PERSISTED on the row (no longer a bare reviewed_at
+        // black hole) and marks this as a RECOVERABLE base-drift casualty (contract present), not a
+        // genuinely dead one — so the funnel can split stale into recoverable vs irreprovable.
+        $review = $fresh->quality['_operator_review'] ?? null;
+        $this->assertIsArray($review, 'retire deve persistir um motivo auditável');
+        $this->assertSame('retired_stale_diff', $review['status']);
+        $this->assertSame('retire', $review['decision'], 'retire ≠ park — não polui a fila de operator-review');
+        $this->assertTrue((bool) $review['had_acceptance_contract'], 'tinha contrato → recuperável');
+    }
+
+    public function test_contractless_proposal_retires_as_dead_not_recoverable(): void
+    {
+        // A legacy proposal with NO acceptance contract can never be re-proven → it retires as
+        // genuinely DEAD (distinct from a base-drift casualty), and the persisted flag says so.
+        $repo = $this->repo("<?php\nfunction val(){ return 1; }\n");
+        $campaign = AtlasLoopCampaign::create([
+            'schema_version' => 'atlas.loop.campaign.v1',
+            'status' => AtlasLoopCampaign::STATUS_RUNNING,
+            'goal' => 'contractless retire proof',
+            'config' => [],
+            'max_seconds' => 60,
+        ]);
+        AtlasLoopProposal::$governedMergeInProgress = false;
+        $proposal = AtlasLoopProposal::create([
+            'campaign_id' => $campaign->id,
+            'schema_version' => 'atlas.loop.proposal.v1',
+            'status' => AtlasLoopProposal::STATUS_CERTIFIED,
+            'objective' => 'legacy contractless',
+            'target_path' => 'snippet.php',
+            'diff_text' => $this->makeDiff("<?php\nfunction val(){ return 1; }\n", "<?php\nfunction val(){ return 2; }\n"),
+            'proposal_hash' => 'automerge-contractless-1',
+            'metric' => null,
+            'quality' => [], // no _acceptance_contract → irreprovable
+        ]);
+
+        $result = app(AtlasLoopAutoMergeService::class)->drain($repo, 5);
+
+        $this->assertSame(0, $result['merged_count']);
+        $review = $proposal->fresh()->quality['_operator_review'] ?? null;
+        $this->assertIsArray($review);
+        $this->assertSame('retired_contractless', $review['status']);
+        $this->assertFalse((bool) $review['had_acceptance_contract'], 'sem contrato → morto, não recuperável');
     }
 
     public function test_drain_ignores_non_certified_rows_even_when_they_are_older(): void
