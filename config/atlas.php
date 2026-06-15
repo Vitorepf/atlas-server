@@ -1850,6 +1850,13 @@ return [
         // drop elsewhere = certify"). Byte-identical for all existing single-file/sibling paths (they
         // never emit a net-new file in the census). Set false only to restore the legacy treat-as-no-change.
         'complexity_new_file_fail_closed' => (bool) env('ATLAS_LOOP_COMPLEXITY_NEW_FILE_FAIL_CLOSED', true),
+        // Structural-depth (extract-class) lane gate (default OFF). When ON, a structural_proof
+        // contract routes the complexity verdict to the per-method-identity gate
+        // (structuralComplexityReduced), which supersedes the per-file-max + new-file-lock so a
+        // legitimate new class file is provable — under the anti-relocation invariant (a method moved
+        // intact earns nothing). OFF -> a structural_proof task falls back to complexityReduced (the
+        // new-file-lock rejects the extract-class), so judge + certifier are byte-identical.
+        'complexity_method_identity_gate' => (bool) env('ATLAS_LOOP_COMPLEXITY_METHOD_IDENTITY_GATE', false),
         // Min AST max-per-method cyclomatic for a framework target to be worth a heavy refactor.
         'framework_refactor_min_cyclomatic' => max(1, (int) env('ATLAS_LOOP_FRAMEWORK_REFACTOR_MIN_CYCLOMATIC', 10)),
         // Min real production callers (wired requirement): a refactor only pays back on code that runs.

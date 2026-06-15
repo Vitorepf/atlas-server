@@ -126,7 +126,12 @@ final class AtlasLoopSemanticImplementationCertifier
             // cluster (which the diff-scoped measurement would silently include). The shared
             // {@see scopedChangedFiles} intersects the changed .php files against allowed_files.
             [$scoped, $scopeViolation] = $this->scopedChangedFiles($changedFiles, $allowedFiles);
-            $complexityProof = $this->measureComplexityReduction($workspace, $scoped);
+            // STRUCTURAL lane (extract-class): structural_proof rides on complexity_proof and swaps the
+            // verdict to the per-method-identity gate. Config-gated (default OFF) -> inert: a structural
+            // task with the flag off falls back to complexityReduced (new-file-lock rejects), byte-identical.
+            $structural = (bool) ($targetAcceptance['structural_proof'] ?? false)
+                && (bool) config('atlas.loop.complexity_method_identity_gate', false);
+            $complexityProof = $this->measureComplexityReduction($workspace, $scoped, $structural);
         }
 
         $reasons = $this->reasons($deterministicGate, $panelVerdict, $mutationAdequacy, $crossFileConsumers, $providerRefuters);
@@ -546,7 +551,7 @@ final class AtlasLoopSemanticImplementationCertifier
         return null;
     }
 
-    private function measureComplexityReduction(string $workspace, array $changedFiles): ?array
+    private function measureComplexityReduction(string $workspace, array $changedFiles, bool $structural = false): ?array
     {
         $phpFiles = array_values(array_filter(
             $changedFiles,
@@ -594,7 +599,12 @@ final class AtlasLoopSemanticImplementationCertifier
         // drift): a multi-file cluster refactor that simplifies the hub but not the cluster's
         // global-worst method (living in an UNTOUCHED sibling) used to be FALSE-rejected — the
         // big-obra=3/10 keystone. Single-file behaviour is byte-identical (per-file max == global max).
-        $reduced = AtlasLoopSignalAnalyzer::complexityReduced($baseline, $candidate, $decisionsGate, $perFileGate);
+        // STRUCTURAL lane (extract-class): route to the per-method-identity verdict (supersedes the
+        // per-file-max + new-file-lock so a legitimate new class file is provable), under the
+        // anti-relocation invariant. Same single source as the frozen judge so the two cannot drift.
+        $reduced = $structural
+            ? AtlasLoopSignalAnalyzer::structuralComplexityReduced($baseline, $candidate)
+            : AtlasLoopSignalAnalyzer::complexityReduced($baseline, $candidate, $decisionsGate, $perFileGate);
 
         return [
             'baseline_max' => $baseline['max_per_method'],
@@ -603,6 +613,7 @@ final class AtlasLoopSemanticImplementationCertifier
             'candidate_total' => $candidate['total'],
             'baseline_decisions' => $baseline['total'] - ($baseline['methods'] ?? 0),
             'candidate_decisions' => $candidate['total'] - ($candidate['methods'] ?? 0),
+            'structural' => $structural,
             'reduced' => $reduced,
         ];
     }

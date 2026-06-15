@@ -147,8 +147,14 @@ final class AtlasEvolutionFrozenJudge
             && (bool) ($acceptance['complexity_proof'] ?? false)
             && $metricKind === self::METRIC_MINIMIZE
             && (bool) config('atlas.loop.refactor_complexity_proof', false);
+        // STRUCTURAL lane (extract-class): a structural_proof contract rides ON TOP of complexity_proof,
+        // swapping the verdict to the per-method-identity gate. Config-gated (default OFF) -> inert: a
+        // structural_proof task with the flag off falls back to complexityReduced (new-file-lock rejects
+        // the extract-class), so the running soak is byte-identical until the operator flips it.
+        $structuralProof = (bool) ($acceptance['structural_proof'] ?? false)
+            && (bool) config('atlas.loop.complexity_method_identity_gate', false);
         if ($wantComplexityProof) {
-            $complexityProof = $this->complexityEarned($workspace, $changed);
+            $complexityProof = $this->complexityEarned($workspace, $changed, $structuralProof);
             $reduced = is_array($complexityProof) ? ($complexityProof['reduced'] ?? null) : null;
             if ($reduced !== true) {
                 return $this->verdict(false, 0.0, [
@@ -200,7 +206,7 @@ final class AtlasEvolutionFrozenJudge
      * @return array{baseline_max:int,candidate_max:int,baseline_total:int,candidate_total:int,reduced:bool}|null
      *                                  null = could not verify (no diff to stash / git error / nothing measured) -> fail closed
      */
-    private function complexityEarned(string $workspace, array $changed): ?array
+    private function complexityEarned(string $workspace, array $changed, bool $structural = false): ?array
     {
         $phpFiles = array_values(array_filter(
             $changed,
@@ -249,7 +255,12 @@ final class AtlasEvolutionFrozenJudge
         // PER-FILE reduced verdict (shared single source with the certifier so the two cannot drift):
         // a multi-file cluster refactor that simplifies the hub but not the cluster's global-worst
         // method (in an UNTOUCHED sibling) used to be false-rejected. Single-file is byte-identical.
-        $reduced = AtlasLoopSignalAnalyzer::complexityReduced($baseline, $candidate, $decisionsGate, $perFileGate);
+        // STRUCTURAL lane (extract-class): route to the per-method-identity verdict, which supersedes
+        // the per-file-max + new-file-lock (an extract-class legitimately creates a new file) under the
+        // anti-relocation invariant. Same single source as the certifier so the two cannot drift.
+        $reduced = $structural
+            ? AtlasLoopSignalAnalyzer::structuralComplexityReduced($baseline, $candidate)
+            : AtlasLoopSignalAnalyzer::complexityReduced($baseline, $candidate, $decisionsGate, $perFileGate);
 
         return [
             'baseline_max' => $baseline['max_per_method'],
