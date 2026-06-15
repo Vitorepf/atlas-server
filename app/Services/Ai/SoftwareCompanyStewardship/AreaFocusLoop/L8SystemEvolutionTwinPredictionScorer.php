@@ -73,39 +73,13 @@ final class L8SystemEvolutionTwinPredictionScorer
         $squaredCalibrationGaps = [];
 
         foreach ($predictions as $prediction) {
-            if (! is_array($prediction)) {
-                continue;
-            }
-
-            $candidateId = AreaFocusScalarNormalizer::trimmedStringOnly($prediction['candidate_id'] ?? '');
-            if ($candidateId === '' || ! array_key_exists($candidateId, $actualByCandidate)) {
-                continue;
-            }
-
-            // Each candidate is scored at most once, on its first prediction.
-            if (in_array($candidateId, $scoredIds, true)) {
-                continue;
-            }
-
-            $predictedDirection = $this->resolvePredictedDirection($prediction);
-            if ($predictedDirection === null) {
-                continue;
-            }
-
-            $actualDirection = $this->directionFromDelta($actualByCandidate[$candidateId]);
-            $confidence = $this->clamp(
-                AreaFocusScalarNormalizer::numberOrDefault($prediction['confidence'] ?? 1.0, 1.0),
-                0.0,
-                1.0,
+            $this->scorePrediction(
+                $prediction,
+                $actualByCandidate,
+                $scoredIds,
+                $correctFlags,
+                $squaredCalibrationGaps,
             );
-
-            $isCorrect = $predictedDirection === $actualDirection;
-            $correctValue = $isCorrect ? 1.0 : 0.0;
-
-            $scoredIds[] = $candidateId;
-            $correctFlags[] = $isCorrect;
-            $gap = $confidence - $correctValue;
-            $squaredCalibrationGaps[] = $gap * $gap;
         }
 
         $sampleCount = count($scoredIds);
@@ -144,6 +118,55 @@ final class L8SystemEvolutionTwinPredictionScorer
     }
 
     /**
+     * @param  array<string, float>  $actualByCandidate
+     * @param  list<string>  $scoredIds
+     * @param  list<bool>  $correctFlags
+     * @param  list<float>  $squaredCalibrationGaps
+     */
+    private function scorePrediction(
+        mixed $prediction,
+        array $actualByCandidate,
+        array &$scoredIds,
+        array &$correctFlags,
+        array &$squaredCalibrationGaps,
+    ): void
+    {
+        if (! is_array($prediction)) {
+            return;
+        }
+
+        $candidateId = AreaFocusScalarNormalizer::trimmedStringOnly($prediction['candidate_id'] ?? '');
+        if ($candidateId === '' || ! array_key_exists($candidateId, $actualByCandidate)) {
+            return;
+        }
+
+        // Each candidate is scored at most once, on its first prediction.
+        if (in_array($candidateId, $scoredIds, true)) {
+            return;
+        }
+
+        $predictedDirection = $this->resolvePredictedDirection($prediction);
+        if ($predictedDirection === null) {
+            return;
+        }
+
+        $actualDirection = $this->directionFromDelta($actualByCandidate[$candidateId]);
+        $confidence = $this->clamp(
+            AreaFocusScalarNormalizer::numberOrDefault($prediction['confidence'] ?? 1.0, 1.0),
+            0.0,
+            1.0,
+        );
+
+        $isCorrect = $predictedDirection === $actualDirection;
+        $correctValue = $isCorrect ? 1.0 : 0.0;
+
+        $scoredIds[] = $candidateId;
+        $correctFlags[] = $isCorrect;
+        $gap = $confidence - $correctValue;
+        $squaredCalibrationGaps[] = $gap * $gap;
+    }
+
+    /**
      * @param  list<array{candidate_id?: mixed, actual_delta?: mixed}>  $outcomes
      * @return array<string, float>
      */
@@ -165,10 +188,7 @@ final class L8SystemEvolutionTwinPredictionScorer
                 continue;
             }
 
-            if (! array_key_exists('actual_delta', $outcome)
-                || (! is_int($outcome['actual_delta'])
-                    && ! is_float($outcome['actual_delta'])
-                    && ! (is_string($outcome['actual_delta']) && is_numeric(trim($outcome['actual_delta']))))) {
+            if (! $this->hasNumericValue($outcome, 'actual_delta')) {
                 continue;
             }
 
@@ -196,14 +216,22 @@ final class L8SystemEvolutionTwinPredictionScorer
             return $explicit;
         }
 
-        if (array_key_exists('predicted_delta', $prediction)
-            && (is_int($prediction['predicted_delta'])
-                || is_float($prediction['predicted_delta'])
-                || (is_string($prediction['predicted_delta']) && is_numeric(trim($prediction['predicted_delta']))))) {
+        if ($this->hasNumericValue($prediction, 'predicted_delta')) {
             return $this->directionFromDelta((float) $prediction['predicted_delta']);
         }
 
         return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $source
+     */
+    private function hasNumericValue(array $source, string $key): bool
+    {
+        return array_key_exists($key, $source)
+            && (is_int($source[$key])
+                || is_float($source[$key])
+                || (is_string($source[$key]) && is_numeric(trim($source[$key]))));
     }
 
     private function normaliseDirection(mixed $raw): ?string
