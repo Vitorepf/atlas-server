@@ -346,6 +346,94 @@ PHP;
         $this->assertSame(0, $refactorTasks, 'flag OFF => no refactor objective even for a PHPUnit-backed self-contained file');
     }
 
+    public function test_extract_class_mode_emits_a_two_file_objective_for_the_normal_lane(): void
+    {
+        // PATH B: extractClass=true reuses the SAME gates (complex+wired+sibling) but emits a 2-file
+        // extract-class objective (target + a NEW <Target>Support.php) carrying structural_proof, so
+        // the grinder routes it to the normal grind + cross-file structural cert (not the Obra bridge).
+        config([
+            'atlas.loop.framework_refactor_min_cyclomatic' => 8,
+            'atlas.loop.framework_refactor_min_callers' => 1,
+        ]);
+        $repo = $this->repoWithComplexFrameworkTargetAndSibling();
+
+        $out = (new AtlasLoopFrameworkRefactorSynthesizer())->synthesizeFrameworkRefactor(
+            $repo,
+            'app/Services/Router.php',
+            ['cyclomatic' => 10, 'framework_reach' => 1, 'impact_real_callers' => 2],
+            '',
+            'target-1',
+            true, // extractClass
+        );
+
+        $this->assertIsArray($out);
+        $payload = $out['payload'];
+        $this->assertSame('refactor_extract_class', $payload['objective_kind']);
+        $this->assertSame('framework', $payload['materializer']);
+        $this->assertSame(['app/Services/Router.php', 'app/Services/RouterSupport.php'], $payload['allowed_files'], 'multi-file: target + the new support class');
+        $this->assertSame(['app/Services/Router.php', 'app/Services/RouterSupport.php'], $payload['acceptance']['allowed_globs']);
+        $this->assertTrue($payload['acceptance']['structural_proof'], 'routes the verdict to the cross-file anti-relocation gate');
+        $this->assertTrue($payload['acceptance']['complexity_proof']);
+        $this->assertFalse($payload['acceptance']['revert_recheck']);
+        $this->assertSame(['tests/Unit/Services/RouterTest.php'], array_column($payload['frozen_tests'], 'path'), 'same frozen sibling anchor as the single-file lane');
+        $this->assertStringContainsString('EXTRACTING', $out['objective']);
+        $this->assertStringContainsString('RouterSupport', $out['objective']);
+    }
+
+    public function test_refiller_escalates_to_extract_class_when_lane_on_and_complex_enough(): void
+    {
+        config([
+            'atlas.loop.framework_refactor_enabled' => true,
+            'atlas.loop.framework_refactor_min_cyclomatic' => 8,
+            'atlas.loop.framework_refactor_min_callers' => 1,
+            'atlas.loop.multi_file_refactor_via_normal_lane' => true,
+            'atlas.loop.extract_class_min_cyclomatic' => 8, // cyclomatic 10 >= 8 => escalate
+        ]);
+        $repo = $this->repoWithComplexFrameworkTargetAndSibling();
+        $campaign = AtlasLoopCampaign::create([
+            'schema_version' => 'atlas.loop.campaign.v1', 'status' => 'running', 'goal' => 'test',
+            'base_workspace' => $repo, 'provider' => '', 'config' => [],
+        ]);
+        $target = app(AtlasLoopTargetRepository::class)->upsert(
+            $campaign->id, 'app/Services/Router.php', hash('sha256', 'x'),
+            $this->scored(['cyclomatic' => 10, 'framework_reach' => 1, 'impact_real_callers' => 3]),
+            ['origin' => 'discovery'],
+        );
+
+        $this->invokeGenerateAndEnqueue($this->refiller(), $campaign, $target);
+
+        $payload = (array) json_decode((string) DB::table('atlas_loop_tasks')->where('campaign_id', $campaign->id)->first()->payload, true);
+        $this->assertSame('refactor_extract_class', $payload['objective_kind'] ?? null, 'lane ON + complex enough => multi-file extract-class objective');
+        $this->assertCount(2, $payload['allowed_files'] ?? [], 'target + new support class');
+    }
+
+    public function test_refiller_stays_single_file_below_the_extract_class_threshold(): void
+    {
+        config([
+            'atlas.loop.framework_refactor_enabled' => true,
+            'atlas.loop.framework_refactor_min_cyclomatic' => 8,
+            'atlas.loop.framework_refactor_min_callers' => 1,
+            'atlas.loop.multi_file_refactor_via_normal_lane' => true,
+            'atlas.loop.extract_class_min_cyclomatic' => 50, // cyclomatic 10 < 50 => stays single-file
+        ]);
+        $repo = $this->repoWithComplexFrameworkTargetAndSibling();
+        $campaign = AtlasLoopCampaign::create([
+            'schema_version' => 'atlas.loop.campaign.v1', 'status' => 'running', 'goal' => 'test',
+            'base_workspace' => $repo, 'provider' => '', 'config' => [],
+        ]);
+        $target = app(AtlasLoopTargetRepository::class)->upsert(
+            $campaign->id, 'app/Services/Router.php', hash('sha256', 'x'),
+            $this->scored(['cyclomatic' => 10, 'framework_reach' => 1, 'impact_real_callers' => 3]),
+            ['origin' => 'discovery'],
+        );
+
+        $this->invokeGenerateAndEnqueue($this->refiller(), $campaign, $target);
+
+        $payload = (array) json_decode((string) DB::table('atlas_loop_tasks')->where('campaign_id', $campaign->id)->first()->payload, true);
+        $this->assertSame('refactor_reduce_complexity', $payload['objective_kind'] ?? null, 'below the threshold stays a single-file in-place reduction');
+        $this->assertCount(1, $payload['allowed_files'] ?? []);
+    }
+
     /** @param array<string,mixed> $signals */
     private function scored(array $signals): array
     {

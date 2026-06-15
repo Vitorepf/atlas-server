@@ -48,9 +48,12 @@ final class AtlasLoopFrameworkRefactorSynthesizer
      * acceptance so the certifier enforces the cyclomatic drop.
      *
      * @param  array<string,mixed>  $signals  the discovery signals packet for this target
+     * @param  bool  $extractClass  when true, emit a MULTI-FILE extract-class objective (target + a
+     *   new <Target>Support.php) routed to the normal grind via the structural cert — reusing the
+     *   SAME complexity/wired/sibling gates as the single-file refactor. Default false = unchanged.
      * @return array{objective:string, payload:array<string,mixed>, acceptance_hash:string}|null
      */
-    public function synthesizeFrameworkRefactor(string $repoRoot, string $targetRepoRelPath, array $signals, string $provider, string $targetId): ?array
+    public function synthesizeFrameworkRefactor(string $repoRoot, string $targetRepoRelPath, array $signals, string $provider, string $targetId, bool $extractClass = false): ?array
     {
         try {
             $repoRoot = rtrim($repoRoot, '/');
@@ -106,6 +109,25 @@ final class AtlasLoopFrameworkRefactorSynthesizer
             $siblingBody = (string) @file_get_contents($siblingAbs);
             if ($siblingBody === '') {
                 return null;
+            }
+
+            // EXTRACT-CLASS (multi-file, Path B): same gates above (complex + wired + real sibling),
+            // but emit a 2-file extract-class objective routed to the NORMAL grind (structural cert,
+            // anti-relocation, cross-file census) instead of the single-file in-place reduction. The
+            // builder's payload carries allowed_globs=[target,newClass] + structural_proof; enrich it
+            // with the frozen sibling snapshot + target id so it is materializer-identical to below.
+            if ($extractClass) {
+                $built = (new AtlasLoopExtractClassObjectiveBuilder())->build(
+                    $targetRepoRelPath,
+                    $siblingRel,
+                    $worstMethod ?? '',
+                    $cyclomatic,
+                    $provider !== '' ? $provider : null,
+                );
+                $built['payload']['frozen_tests'] = [['path' => $siblingRel, 'content' => $siblingBody]];
+                $built['payload']['_target_id'] = $targetId;
+
+                return $built;
             }
 
             // The acceptance runs the REAL PHPUnit sibling test through the worktree's phpunit

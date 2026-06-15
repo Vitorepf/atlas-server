@@ -178,6 +178,15 @@ final class AtlasLoopTaskGrinder
      */
     private function maybeRouteMultiFileRefactorToObra(AtlasLoopTask $task, array $payload, string $workerId, float $started): ?array
     {
+        // PATH B (default lane for big refactors): when multi_file_refactor_via_normal_lane is ON, a
+        // multi-file refactor is NOT diverted to the heavy Obra bridge — it falls through to the
+        // PROVEN grind (the materializer already reads allowed_files as a list; the frozen judge +
+        // certifier honour the structural_proof cross-file census + anti-relocation verdict, and the
+        // acceptance's allowed_globs bound the diff to exactly the declared files). This precedes the
+        // via_obra check so the normal lane wins when both are set.
+        if ((bool) config('atlas.loop.multi_file_refactor_via_normal_lane', false)) {
+            return null;
+        }
         if (! (bool) config('atlas.loop.refactor_multi_file_via_obra', false)) {
             return null;
         }

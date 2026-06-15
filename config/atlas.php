@@ -1947,6 +1947,16 @@ return [
         // (today's behaviour, byte-identical). Auto-merge of the parked obra stays a SEPARATE, default-
         // OFF decision (obra_auto_merge_enabled) — this flag only makes the loop PRODUCE the obra.
         'multi_file_execution_enabled' => (bool) env('ATLAS_LOOP_MULTI_FILE_EXECUTION_ENABLED', false),
+        // PATH B (the operator-chosen unblock for BIG refactors): instead of the heavy Obra/L4-10
+        // machine, let multi-file refactors run through the PROVEN normal grind. When ON: (1) the
+        // refiller escalates a target with cyclomatic >= extract_class_min_cyclomatic to a 2-file
+        // extract-class objective (target + a new <Target>Support.php), and (2) the grinder routes
+        // multi-file refactors to the normal materializer/explorer/structural-cert (NOT the Obra
+        // bridge). Safety: the structural_proof cert (cross-file census + anti-relocation), the frozen
+        // sibling test, and allowed_globs (diff bounded to exactly the 2 declared files) gate the merge
+        // — no Obra ceremony. Default OFF = byte-identical (single-file in-place reduction only).
+        'multi_file_refactor_via_normal_lane' => (bool) env('ATLAS_LOOP_MULTI_FILE_REFACTOR_VIA_NORMAL_LANE', false),
+        'extract_class_min_cyclomatic' => max(1, (int) env('ATLAS_LOOP_EXTRACT_CLASS_MIN_CYCLOMATIC', 15)),
 
         // OBRA REPAIR (eixo-3, the autonomy multiplier) — when ON, a node whose DELIVERY fails
         // certification is RETRIED with label-only failure feedback (bounded), instead of halting on

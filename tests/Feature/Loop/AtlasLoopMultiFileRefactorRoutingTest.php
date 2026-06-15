@@ -207,6 +207,28 @@ final class AtlasLoopMultiFileRefactorRoutingTest extends TestCase
         $this->assertSame(AtlasLoopTask::STATUS_FAILED, $task->fresh()->status, 'blocked obra task must be TERMINAL, not re-queued to spin');
     }
 
+    public function test_via_normal_lane_flag_bypasses_the_obra_route(): void
+    {
+        // PATH B: with multi_file_refactor_via_normal_lane ON, a multi-file refactor is NOT diverted
+        // to the Obra bridge — the route returns null so the grind falls through to the PROVEN normal
+        // lane (materialize all allowed_files -> explorer -> cross-file structural cert). The flag wins
+        // even with refactor_multi_file_via_obra also ON.
+        config([
+            'atlas.loop.multi_file_refactor_via_normal_lane' => true,
+            'atlas.loop.refactor_multi_file_via_obra' => true,
+        ]);
+        $campaign = $this->campaign();
+        $payload = ['objective_kind' => 'refactor_extract_class', 'allowed_files' => $this->targetFiles()];
+        $task = $this->claimedTask($campaign->id, 'refactor extract a cohesive helper', $payload, 'w-normal');
+
+        $grinder = $this->grinder();
+        $ref = new \ReflectionMethod($grinder, 'maybeRouteMultiFileRefactorToObra');
+        $ref->setAccessible(true);
+        $route = $ref->invoke($grinder, $task, $payload, 'w-normal', microtime(true));
+
+        $this->assertNull($route, 'normal-lane flag ON => multi-file refactor is NOT routed to Obra');
+    }
+
     public function test_single_file_refactor_does_not_route_to_obra(): void
     {
         config(['atlas.loop.refactor_multi_file_via_obra' => true]);

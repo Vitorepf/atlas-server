@@ -413,12 +413,19 @@ final class AtlasLoopQueueRefiller
             return null;
         }
         $synth = $this->frameworkRefactorSynthesizer ?? new AtlasLoopFrameworkRefactorSynthesizer();
+        // PATH B: escalate a sufficiently-complex target to a MULTI-FILE extract-class objective
+        // (routed to the normal grind via the structural cert, NOT the Obra bridge) when the lane is
+        // enabled. Below the threshold — or with the lane OFF — it stays a single-file in-place
+        // reduction (byte-identical). The synth reuses the SAME complex/wired/sibling gates for both.
+        $extractClass = (bool) config('atlas.loop.multi_file_refactor_via_normal_lane', false)
+            && (int) ($signals['cyclomatic'] ?? 0) >= max(1, (int) config('atlas.loop.extract_class_min_cyclomatic', 15));
         $refactor = $synth->synthesizeFrameworkRefactor(
             $repoRoot,
             ltrim((string) $target->target_path, '/'),
             $signals,
             $provider,
             $target->id,
+            $extractClass,
         );
         if ($refactor === null) {
             return null;
