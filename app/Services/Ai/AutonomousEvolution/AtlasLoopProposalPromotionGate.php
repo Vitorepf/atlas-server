@@ -247,9 +247,34 @@ final class AtlasLoopProposalPromotionGate
                 // sem mexer no `reason` string (o retry/retirement do drain dependem de
                 // "reproof_failed" literal). Permite ver se é timeout/OOM/tamper/teste-real.
                 $this->logReproveFailure($proposal, $score);
+
+                return false;
             }
 
-            return $passed;
+            // CHARACTERIZATION re-verify at the MERGE boundary: a characterization proposal's real
+            // anti-fake proof is mutant-kill, NOT just "the sibling test passes" (the frozen judge only
+            // re-ran phpunit above). main may have shifted since cert, so re-apply the SAME operator's
+            // mutant on this re-prove workspace and require the test STILL kills it — fail-closed if the
+            // descriptor is incomplete. Non-characterization proposals are unaffected.
+            $charCert = data_get(is_array($proposal->quality ?? null) ? $proposal->quality : [], 'characterization_certification');
+            if (is_array($charCert)) {
+                $operator = trim((string) ($charCert['operator'] ?? ''));
+                $target = trim((string) $proposal->target_path);
+                $sibling = $this->siblingTestFromAcceptance($acceptance);
+                if ($operator === '' || $target === '' || $sibling === null) {
+                    $this->logReproveFailure($proposal, ['characterization_reverify' => 'incomplete_descriptor']);
+
+                    return false;
+                }
+                $verdict = app(AtlasLoopCharacterizationTestVerifier::class)->verify($workspace, $target, $sibling, $operator, max(1, (int) ($acceptance['timeout_seconds'] ?? 120)));
+                if (! (bool) ($verdict['certified'] ?? false)) {
+                    $this->logReproveFailure($proposal, ['characterization_reverify' => (string) ($verdict['reason'] ?? 'mutant_survived')]);
+
+                    return false;
+                }
+            }
+
+            return true;
         } catch (Throwable $e) {
             $this->logReproveFailure($proposal, ['exception' => mb_substr($e->getMessage(), 0, 200)]);
 
@@ -281,6 +306,23 @@ final class AtlasLoopProposalPromotionGate
         } catch (Throwable) {
             // diagnóstico best-effort; jamais afeta a re-prova
         }
+    }
+
+    /**
+     * The sibling test path a characterization contract strengthens — parsed from its phpunit
+     * acceptance command. Null when none is found (re-verify then fails closed).
+     *
+     * @param  array<string,mixed>  $acceptance
+     */
+    private function siblingTestFromAcceptance(array $acceptance): ?string
+    {
+        foreach (\App\Services\Ai\Support\AiStringListNormalizer::trimmedStrings($acceptance['commands'] ?? []) as $command) {
+            if (preg_match('#(tests/[^\s\'"]+\.php)#', (string) $command, $m)) {
+                return $m[1];
+            }
+        }
+
+        return null;
     }
 
     /**
