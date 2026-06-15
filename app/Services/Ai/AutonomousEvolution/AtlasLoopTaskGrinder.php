@@ -257,9 +257,18 @@ final class AtlasLoopTaskGrinder
             ];
         }
 
-        // Blocked bridge (no certified L4-10 real evidence). DROP to no_winner — never fall
-        // through to a single-file materialize of a multi-file refactor.
-        $this->store->releaseClaim($task->id, $workerId);
+        // Blocked bridge (no certified L4-10 real evidence). TERMINAL no_winner — the block is
+        // STRUCTURAL (operator_approval_required / multi_file_execution OFF), so every re-grind is
+        // byte-identical and re-blocks. releaseClaim() here would spin claim->release->re-claim,
+        // burning one attempt per claim until the task zombies (pending @ max_attempts, claimable=0)
+        // and starves the queue (observed live: an extract_class_proof seed exhausted 5/5 in <4min
+        // and sat as a dead pending row, blocking the clean queue_starved stop). Finalize so the
+        // refiller can move on. Single-file fall-through is still never taken — this returns first.
+        $this->store->completeTask($task->id, $workerId, [
+            'status' => 'no_winner',
+            'reason' => 'obra_bridge_blocked_by_l4_10:'.$status,
+            'obra_bridge' => $obraBridge,
+        ], false);
 
         return [
             'status' => 'no_winner',

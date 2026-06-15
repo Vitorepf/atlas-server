@@ -425,12 +425,23 @@ final class AtlasLoopStore
             ->count();
     }
 
-    /** Open = anything not yet terminal: pending + claimed + running. Drives starvation detection. */
+    /**
+     * Open = WORKABLE, not-yet-terminal: claimable pending (attempts < max) + claimed + running.
+     * Drives starvation detection. A pending task at attempts >= max_attempts is NOT workable
+     * (claimNextTask can never take it) — it is a zombie, not "open". Counting it would falsely
+     * keep the loop out of the clean queue_starved_no_refill stop and hold it in produce-nothing
+     * limbo (alive, heartbeat fresh, refilling, but 0 claimable and never stopping).
+     */
     public function countOpen(string $campaignId): int
     {
         return AtlasLoopTask::query()
             ->where('campaign_id', $campaignId)
-            ->whereIn('status', [AtlasLoopTask::STATUS_PENDING, AtlasLoopTask::STATUS_CLAIMED, AtlasLoopTask::STATUS_RUNNING])
+            ->where(function ($q): void {
+                $q->where(function ($q2): void {
+                    $q2->where('status', AtlasLoopTask::STATUS_PENDING)
+                        ->whereColumn('attempts', '<', 'max_attempts');
+                })->orWhereIn('status', [AtlasLoopTask::STATUS_CLAIMED, AtlasLoopTask::STATUS_RUNNING]);
+            })
             ->count();
     }
 }

@@ -117,6 +117,31 @@ final class AtlasLoopStoreReclaimTest extends TestCase
         $this->assertTrue($fresh->attempts < $fresh->max_attempts, 'task is claimable again, not a zombie');
     }
 
+    /**
+     * countOpen drives the queue_starved_no_refill stop. A zombie (pending @ attempts==max) is NOT
+     * workable, so it must NOT count as "open" — else it holds the loop in produce-nothing limbo
+     * (alive, refilling, 0 claimable, never stopping) instead of the clean starvation stop.
+     */
+    public function test_count_open_excludes_unclaimable_zombies(): void
+    {
+        $campaign = AtlasLoopCampaign::create([
+            'schema_version' => 'atlas.loop.campaign.v1', 'status' => AtlasLoopCampaign::STATUS_RUNNING,
+            'goal' => 'countOpen proof', 'config' => [], 'max_seconds' => 60,
+        ]);
+        $cid = (string) $campaign->id;
+        $claimablePending = $this->task($cid, 'pending', null);          // attempts 0/2 => open
+        $running = $this->task($cid, 'running', now()->addHour());        // in-flight => open
+        $zombie = $this->task($cid, 'pending', null);
+        $zombie->update(['attempts' => 2, 'max_attempts' => 2]);          // pending @ max => NOT open
+        $this->task($cid, 'done', null);                                  // terminal => never open
+
+        $this->assertSame(2, app(AtlasLoopStore::class)->countOpen($cid), 'open = claimable pending + in-flight, zombie excluded');
+        // And the zombie is correctly invisible to the claimable-pending count too.
+        $this->assertSame(1, app(AtlasLoopStore::class)->countPending($cid));
+        $this->assertNotNull($claimablePending->fresh());
+        $this->assertNotNull($running->fresh());
+    }
+
     public function test_reclaim_expired_decrements_with_floor_zero(): void
     {
         $campaign = AtlasLoopCampaign::create([

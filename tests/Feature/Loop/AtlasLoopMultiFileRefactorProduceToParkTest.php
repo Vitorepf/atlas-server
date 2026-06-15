@@ -165,5 +165,8 @@ final class AtlasLoopMultiFileRefactorProduceToParkTest extends TestCase
         $this->assertSame('no_winner', $result['status']);
         $this->assertStringContainsString('obra_bridge_blocked_by_l4_10', (string) $result['reason']);
         $this->assertSame(0, AtlasLoopProposal::query()->count(), 'a blocked multi-file refactor must NEVER single-file materialize');
+        // TERMINAL, not re-queued — a permanent structural block must not spin claim->release and
+        // zombie at attempts==max (which starves the queue and blocks the clean stop).
+        $this->assertSame(AtlasLoopTask::STATUS_FAILED, $task->fresh()->status, 'blocked obra task must be terminal');
     }
 }
