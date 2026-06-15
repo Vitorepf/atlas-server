@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Models\AtlasLoopCampaign;
 use App\Models\AtlasLoopProposal;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
@@ -611,8 +612,12 @@ final class AtlasLoopAutoMergeService
             $target = (string) $proposal->target_path;
             $objective = 'fix-forward: canário RED após auto-merge de '.$target.' (teste-irmão '
                 .(string) ($canary['target'] ?? '?').' falhou). Corrigir para frente — não reverter.';
+            // Route to a LIVE supervisor, not the proposal's originating campaign. The originating
+            // campaign is almost always COMPLETED by merge time, and claimNextTask() is strictly
+            // campaign-scoped — so a fix-forward queued there is unclaimable and main stays RED
+            // (observed: 12/14 fix-forwards orphaned in dead campaigns; one regression sat ~107min).
             $task = $this->store->enqueueTask(
-                (string) $proposal->campaign_id,
+                $this->resolveFixForwardCampaignId((string) $proposal->campaign_id),
                 $objective,
                 [
                     'origin' => 'fix_forward_canary_red',
@@ -631,6 +636,37 @@ final class AtlasLoopAutoMergeService
             // fix-forward é best-effort; o merge já aconteceu e nunca reverte.
             return ['task_id' => null, 'enqueued' => false];
         }
+    }
+
+    /**
+     * Resolve which campaign should OWN a fix-forward task. A canary-red regression is global
+     * (it sits in main), but the task queue is campaign-scoped, so the fix-forward must land in a
+     * campaign a LIVE supervisor will actually claim. Pick the freshest running, non-killed campaign
+     * whose heartbeat is within the freshness window (a SIGTERM'd zombie keeps status=running but
+     * carries kill_switch=true and a stale heartbeat, so it is excluded). Fall back to the
+     * originating campaign only when nothing is alive — best-effort, preserving the prior behavior
+     * for the no-supervisor edge case rather than dropping the task.
+     */
+    private function resolveFixForwardCampaignId(string $originatingCampaignId): string
+    {
+        try {
+            $freshnessSeconds = max(60, (int) config('atlas.ai.loop.fix_forward_live_campaign_freshness_seconds', 1800));
+            $floor = now()->subSeconds($freshnessSeconds);
+            $live = AtlasLoopCampaign::query()
+                ->where('status', AtlasLoopCampaign::STATUS_RUNNING)
+                ->where('kill_switch', false)
+                ->where('heartbeat_at', '>=', $floor)
+                ->orderByDesc('heartbeat_at')
+                ->value('id');
+
+            if (is_string($live) && $live !== '') {
+                return $live;
+            }
+        } catch (Throwable) {
+            // fall through to the originating id — never let routing failure drop the fix-forward
+        }
+
+        return $originatingCampaignId;
     }
 
     /**

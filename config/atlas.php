@@ -857,6 +857,12 @@ return [
             'substance_floor_min_touched' => max(1, (int) env('ATLAS_LOOP_SUBSTANCE_FLOOR_MIN_TOUCHED', 30)),
             'substance_floor_min_callers' => max(0, (int) env('ATLAS_LOOP_SUBSTANCE_FLOOR_MIN_CALLERS', 2)),
             'substance_floor_min_touched_floor' => max(1, (int) env('ATLAS_LOOP_SUBSTANCE_FLOOR_MIN_TOUCHED_FLOOR', 10)),
+            // Fix-forward routing: a canary-red regression is global, but the task queue is
+            // campaign-scoped. Route the fix-forward to the freshest LIVE supervisor (running,
+            // not killed, heartbeat within this window) instead of the proposal's usually-dead
+            // originating campaign, so the regression is actually claimed. Generous default so a
+            // campaign mid-long-grind (heartbeat only beaten between tasks) still counts as live.
+            'fix_forward_live_campaign_freshness_seconds' => max(60, (int) env('ATLAS_LOOP_FIX_FORWARD_LIVE_CAMPAIGN_FRESHNESS_SECONDS', 1800)),
             // Ungameable Utility/Impact grade: window of recent merges + the hub fan-in
             // threshold that counts as compounding-leverage.
             'utility_grade_window' => (int) env('ATLAS_LOOP_UTILITY_GRADE_WINDOW', 50),

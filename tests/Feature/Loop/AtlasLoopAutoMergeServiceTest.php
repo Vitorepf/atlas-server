@@ -176,6 +176,42 @@ final class AtlasLoopAutoMergeServiceTest extends TestCase
         ]);
     }
 
+    public function test_fix_forward_routes_to_live_supervisor_not_dead_originating_campaign(): void
+    {
+        // A canary-red regression is global (it sits in main), but the task queue is campaign-scoped
+        // and the proposal's ORIGINATING campaign is COMPLETED by merge time, so a fix-forward queued
+        // there is unclaimable and main stays RED (observed: 12/14 fix-forwards orphaned; one sat ~107min).
+        config(['atlas.ai.loop.fix_forward_live_campaign_freshness_seconds' => 1800]);
+
+        $dead = AtlasLoopCampaign::create([
+            'schema_version' => 'atlas.loop.campaign.v1', 'status' => AtlasLoopCampaign::STATUS_COMPLETED,
+            'goal' => 'dead originating', 'config' => [], 'max_seconds' => 60,
+            'kill_switch' => false, 'heartbeat_at' => now()->subSeconds(30),
+        ]);
+        // SIGTERM'd zombie: status still 'running' but kill_switch=true + stale heartbeat => excluded.
+        AtlasLoopCampaign::create([
+            'schema_version' => 'atlas.loop.campaign.v1', 'status' => AtlasLoopCampaign::STATUS_RUNNING,
+            'goal' => 'zombie', 'config' => [], 'max_seconds' => 60,
+            'kill_switch' => true, 'heartbeat_at' => now()->subHours(5),
+        ]);
+        $live = AtlasLoopCampaign::create([
+            'schema_version' => 'atlas.loop.campaign.v1', 'status' => AtlasLoopCampaign::STATUS_RUNNING,
+            'goal' => 'live supervisor', 'config' => [], 'max_seconds' => 60,
+            'kill_switch' => false, 'heartbeat_at' => now()->subSeconds(60),
+        ]);
+
+        $svc = app(AtlasLoopAutoMergeService::class);
+        $m = new \ReflectionMethod($svc, 'resolveFixForwardCampaignId');
+        $m->setAccessible(true);
+
+        // Routes to the LIVE campaign — not the dead originating one, not the zombie.
+        $this->assertSame((string) $live->id, (string) $m->invoke($svc, (string) $dead->id));
+
+        // No live supervisor => best-effort fall back to the originating id (never DROP the fix-forward).
+        $live->forceFill(['kill_switch' => true])->save();
+        $this->assertSame((string) $dead->id, (string) $m->invoke($svc, (string) $dead->id));
+    }
+
     public function test_certified_reproven_proposal_merges_to_main_for_real(): void
     {
         $original = "<?php\nfunction val(){ return 1; }\n";
