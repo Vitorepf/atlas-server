@@ -69,7 +69,23 @@ class VentureIdeaGenerationService
             ]);
         }
 
-        $candidates = (array) ($validated['value']['ideas'] ?? []);
+        [$created, $dropped] = $this->registerCandidates(
+            (array) ($validated['value']['ideas'] ?? []),
+            $max,
+            $brief,
+            $providerKey,
+            $raw,
+        );
+
+        return $this->report($brief, $providerKey, 'ok', $created, $dropped);
+    }
+
+    /**
+     * @param  array<int,mixed>  $candidates
+     * @return array{0: array<int,AiVentureIdea>, 1: array<int,array<string,string>>}
+     */
+    private function registerCandidates(array $candidates, int $max, string $brief, ?string $providerKey, string $raw): array
+    {
         $created = [];
         $dropped = [];
 
@@ -98,41 +114,74 @@ class VentureIdeaGenerationService
                 continue;
             }
 
-            // Cite-or-omit: a market size without a stated assumption is dropped.
-            $marketSize = null;
-            $assumption = trim((string) ($candidate['market_size_assumption'] ?? ''));
-            if (isset($candidate['market_size_usd']) && is_numeric($candidate['market_size_usd']) && (float) $candidate['market_size_usd'] > 0 && $assumption !== '') {
-                $marketSize = (float) $candidate['market_size_usd'];
-            }
-
-            try {
-                $created[] = $this->ideation->register([
-                    'idea_id' => $ideaId,
-                    'title' => $title,
-                    'problem' => (string) ($candidate['problem'] ?? ''),
-                    'icp' => (string) ($candidate['icp'] ?? ''),
-                    'pain' => (string) ($candidate['pain'] ?? ''),
-                    'urgency' => (string) ($candidate['urgency'] ?? 'medium'),
-                    'source' => VentureIdeationService::SOURCE_GENERATED,
-                    'market_size_usd' => $marketSize,
-                    'pain_severity' => $this->clamp($candidate['pain_severity'] ?? 3),
-                    'founder_fit' => $this->clamp($candidate['founder_fit'] ?? 3),
-                    'sovereignty_fit' => $this->clamp($candidate['sovereignty_fit'] ?? 3),
-                    'generation_meta' => [
-                        'schema_version' => 'atlas.ai.venture.idea_generation.v1',
-                        'provider_key' => $providerKey ?? 'runtime_default',
-                        'brief' => Str::limit($brief, 400),
-                        'rationale' => Str::limit(trim((string) ($candidate['rationale'] ?? '')), 600),
-                        'market_size_assumption' => $assumption !== '' ? Str::limit($assumption, 400) : null,
-                        'raw_output_hash' => hash('sha256', $raw),
-                    ],
-                ]);
-            } catch (VentureFoundryException $e) {
-                $dropped[] = ['reason' => 'gate_rejected', 'detail' => $e->getMessage()];
-            }
+            [$created, $dropped] = $this->registerCandidate(
+                $candidate,
+                $ideaId,
+                $title,
+                $brief,
+                $providerKey,
+                $raw,
+                $created,
+                $dropped,
+            );
         }
 
-        return $this->report($brief, $providerKey, 'ok', $created, $dropped);
+        return [$created, $dropped];
+    }
+
+    /**
+     * @param  array<string,mixed>  $candidate
+     * @param  array<int,AiVentureIdea>  $created
+     * @param  array<int,array<string,string>>  $dropped
+     * @return array{0: array<int,AiVentureIdea>, 1: array<int,array<string,string>>}
+     */
+    private function registerCandidate(array $candidate, string $ideaId, string $title, string $brief, ?string $providerKey, string $raw, array $created, array $dropped): array
+    {
+        [$marketSize, $assumption] = $this->candidateMarketSizeAndAssumption($candidate);
+
+        try {
+            $created[] = $this->ideation->register([
+                'idea_id' => $ideaId,
+                'title' => $title,
+                'problem' => (string) ($candidate['problem'] ?? ''),
+                'icp' => (string) ($candidate['icp'] ?? ''),
+                'pain' => (string) ($candidate['pain'] ?? ''),
+                'urgency' => (string) ($candidate['urgency'] ?? 'medium'),
+                'source' => VentureIdeationService::SOURCE_GENERATED,
+                'market_size_usd' => $marketSize,
+                'pain_severity' => $this->clamp($candidate['pain_severity'] ?? 3),
+                'founder_fit' => $this->clamp($candidate['founder_fit'] ?? 3),
+                'sovereignty_fit' => $this->clamp($candidate['sovereignty_fit'] ?? 3),
+                'generation_meta' => [
+                    'schema_version' => 'atlas.ai.venture.idea_generation.v1',
+                    'provider_key' => $providerKey ?? 'runtime_default',
+                    'brief' => Str::limit($brief, 400),
+                    'rationale' => Str::limit(trim((string) ($candidate['rationale'] ?? '')), 600),
+                    'market_size_assumption' => $assumption !== '' ? Str::limit($assumption, 400) : null,
+                    'raw_output_hash' => hash('sha256', $raw),
+                ],
+            ]);
+        } catch (VentureFoundryException $e) {
+            $dropped[] = ['reason' => 'gate_rejected', 'detail' => $e->getMessage()];
+        }
+
+        return [$created, $dropped];
+    }
+
+    /**
+     * @param  array<string,mixed>  $candidate
+     * @return array{0: float|null, 1: string}
+     */
+    private function candidateMarketSizeAndAssumption(array $candidate): array
+    {
+        // Cite-or-omit: a market size without a stated assumption is dropped.
+        $marketSize = null;
+        $assumption = trim((string) ($candidate['market_size_assumption'] ?? ''));
+        if (isset($candidate['market_size_usd']) && is_numeric($candidate['market_size_usd']) && (float) $candidate['market_size_usd'] > 0 && $assumption !== '') {
+            $marketSize = (float) $candidate['market_size_usd'];
+        }
+
+        return [$marketSize, $assumption];
     }
 
     /**
