@@ -1992,6 +1992,12 @@ return [
             'threshold' => (float) env('ATLAS_LOOP_CONFIDENCE_THRESHOLD', 0.93),
             'weights' => [], // empty => the model's conservative defaults; the calibration loop overwrites this
         ],
+        // NEXT-LEVER 2 — ESCALATION LADDER. When a round fails to certify, escalate to a stronger tier
+        // (best_of_n -> repair_from_refutation -> decompose -> escalate_provider) instead of giving up —
+        // bounded by certification (the quality bar) and this round budget, NOT a fixed N. The ladder is the
+        // pure policy; the grind orchestrator walks it across the existing tiers.
+        'escalation_max_rounds' => max(1, (int) env('ATLAS_LOOP_ESCALATION_MAX_ROUNDS', 6)),
+        'escalation_thrash_threshold' => max(2, (int) env('ATLAS_LOOP_ESCALATION_THRASH_THRESHOLD', 3)),
         // NEXT-LEVER 1 — COMPLETENESS. A goal's checklist of acceptance criteria must be covered (every
         // required criterion satisfied + coverage >= floor) — proves the change did the WHOLE job, not just
         // enough to pass one test. RECORDED always; GATE only when completeness_gate_enabled — default OFF /
