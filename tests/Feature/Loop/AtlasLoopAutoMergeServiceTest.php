@@ -93,6 +93,54 @@ final class AtlasLoopAutoMergeServiceTest extends TestCase
         return $p->getOutput();
     }
 
+    public function test_substance_floor_blocks_low_value_vanilla_but_exempts_refactor(): void
+    {
+        // ~16-line change: clears the hard floor (>=10) but is UNDER the vanilla floor (30). So a
+        // VANILLA contract is blocked (low value) while a REFACTOR contract is EXEMPT from the size
+        // arm (its AST complexity drop is already cert-gated) — same size, opposite outcome by kind.
+        $original = "<?php\nfunction val(){ return 1; }\n";
+        $body = implode("\n", array_map(static fn (int $i): string => '    $x'.$i.' = '.$i.';', range(1, 15)));
+        $modified = "<?php\nfunction val(){\n".$body."\n    return 2;\n}\n";
+        $diff = $this->makeDiff($original, $modified);
+
+        $svc = app(AtlasLoopAutoMergeService::class);
+        $m = new \ReflectionMethod($svc, 'valueGateVerdict');
+        $m->setAccessible(true);
+
+        // VANILLA (metric_kind=gate, no complexity_proof) + flag ON => blocked by the substance floor.
+        config(['atlas.ai.loop.substance_floor_enabled' => true]);
+        $vanilla = $this->certifiedProposal($diff, 'sf-vanilla-1');
+        $vVerdict = $m->invoke($svc, $vanilla, ['snippet.php'], 5);
+        $this->assertFalse($vVerdict['passed'], json_encode($vVerdict));
+        $this->assertStringContainsString('substance_floor', $vVerdict['reason']);
+        $this->assertFalse((bool) ($vVerdict['substance_floor']['is_refactor'] ?? null));
+
+        // REFACTOR contract (complexity_proof=true + metric_kind=minimize) => EXEMPT from the size arm
+        // (its AST complexity drop is already cert-gated), so the same tiny diff is NOT blocked here.
+        $refactor = $this->refactorContractProposal($diff, 'sf-refactor-1');
+        $rVerdict = $m->invoke($svc, $refactor, ['snippet.php'], 5);
+        $this->assertTrue((bool) ($rVerdict['substance_floor']['is_refactor'] ?? null));
+        $this->assertStringNotContainsString('substance_floor', $rVerdict['reason'], 'refactor contracts are exempt from the substance floor');
+
+        // FLAG OFF (default) => the substance floor never runs (byte-identical to legacy).
+        config(['atlas.ai.loop.substance_floor_enabled' => false]);
+        $off = $m->invoke($svc, $this->certifiedProposal($diff, 'sf-off-1'), ['snippet.php'], 5);
+        $this->assertFalse((bool) ($off['substance_floor']['enabled'] ?? false));
+        $this->assertStringNotContainsString('substance_floor', $off['reason']);
+    }
+
+    private function refactorContractProposal(string $diff, string $hash): AtlasLoopProposal
+    {
+        $proposal = $this->certifiedProposal($diff, $hash);
+        $quality = $proposal->quality;
+        $quality['_acceptance_contract']['complexity_proof'] = true;
+        $quality['_acceptance_contract']['metric_kind'] = 'minimize';
+        $proposal->quality = $quality;
+        $proposal->save();
+
+        return $proposal->fresh();
+    }
+
     private function certifiedProposal(string $diff, string $hash): AtlasLoopProposal
     {
         $campaign = AtlasLoopCampaign::create([

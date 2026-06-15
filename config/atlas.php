@@ -847,6 +847,16 @@ return [
             // transient blip); flip false to fail-CLOSED so a genuine orphan can't slip when
             // measurement degrades. Either way the receipt stamps `unmeasured` for the digest.
             'value_gate_fail_open' => (bool) env('ATLAS_LOOP_VALUE_GATE_FAIL_OPEN', true),
+            // SUBSTANCE FLOOR (default OFF): block LOW-VALUE work from auto-merging — the operator wants
+            // only enormous refactors / big obras / big features, never tiny vanilla clamps. Refactor
+            // contracts (AST complexity drop already cert-gated) are EXEMPT from the size/leverage arm;
+            // vanilla (non-refactor) changes must clear min_touched lines AND min_callers leverage; all
+            // changes must clear the hard min_touched_floor. Fail-closed on the vanilla proof at the
+            // merge boundary (blocked = re-discoverable), fail-open on unmeasured callers. OFF = today.
+            'substance_floor_enabled' => (bool) env('ATLAS_LOOP_SUBSTANCE_FLOOR_ENABLED', false),
+            'substance_floor_min_touched' => max(1, (int) env('ATLAS_LOOP_SUBSTANCE_FLOOR_MIN_TOUCHED', 30)),
+            'substance_floor_min_callers' => max(0, (int) env('ATLAS_LOOP_SUBSTANCE_FLOOR_MIN_CALLERS', 2)),
+            'substance_floor_min_touched_floor' => max(1, (int) env('ATLAS_LOOP_SUBSTANCE_FLOOR_MIN_TOUCHED_FLOOR', 10)),
             // Ungameable Utility/Impact grade: window of recent merges + the hub fan-in
             // threshold that counts as compounding-leverage.
             'utility_grade_window' => (int) env('ATLAS_LOOP_UTILITY_GRADE_WINDOW', 50),

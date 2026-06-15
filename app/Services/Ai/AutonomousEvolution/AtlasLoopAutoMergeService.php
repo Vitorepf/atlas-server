@@ -722,6 +722,42 @@ final class AtlasLoopAutoMergeService
             $reason = $unmeasured ? 'unmeasured_callers_fail_closed' : 'orphan_below_min_callers:'.$callers;
         }
 
+        // SUBSTANCE FLOOR (flag-gated, default OFF) — block LOW-VALUE work from auto-merging. The
+        // operator directive: only enormous refactors / big obras / big features, never tiny vanilla
+        // clamps. Uses only objective data already in hand: touched_lines (impact receipt, diff add+del,
+        // paddable only with dead lines), real callers (production FQCN grep), and the SYNTHESIZER-
+        // stamped refactor discriminator quality._acceptance_contract (complexity_proof+metric_kind,
+        // NOT provider-claimed). Refactor contracts are EXEMPT from the size/leverage arm because their
+        // AST complexity drop was already enforced fail-closed at certification (complexityProofRequired).
+        // Fail-CLOSED on the vanilla substance proof (merge boundary, blocked = re-discoverable, no loss);
+        // fail-OPEN on unmeasured callers (mirrors the value-gate seam).
+        $substanceFloor = ['enabled' => false];
+        if ($passed && (bool) config('atlas.ai.loop.substance_floor_enabled', false)) {
+            $touched = (int) data_get($receipt, 'size.touched_lines', 0);
+            $quality = is_array($proposal->quality ?? null)
+                ? $proposal->quality
+                : (array) json_decode((string) ($proposal->quality ?? '{}'), true);
+            $isRefactor = data_get($quality, '_acceptance_contract.complexity_proof') === true
+                && (string) data_get($quality, '_acceptance_contract.metric_kind') === AtlasEvolutionFrozenJudge::METRIC_MINIMIZE;
+            $minTouchedFloor = max(1, (int) config('atlas.ai.loop.substance_floor_min_touched_floor', 10));
+            $minTouchedVanilla = max(1, (int) config('atlas.ai.loop.substance_floor_min_touched', 30));
+            $minCallersVanilla = max(0, (int) config('atlas.ai.loop.substance_floor_min_callers', 2));
+
+            if ($touched < $minTouchedFloor) {
+                $passed = false;
+                $reason = 'substance_floor_below_min_touched:'.$touched.'<'.$minTouchedFloor;
+            } elseif (! $isRefactor) {
+                if ($touched < $minTouchedVanilla) {
+                    $passed = false;
+                    $reason = 'substance_floor_vanilla_too_small:'.$touched.'<'.$minTouchedVanilla;
+                } elseif (! ($unmeasured ? $failOpen : $callers >= $minCallersVanilla)) {
+                    $passed = false;
+                    $reason = 'substance_floor_vanilla_low_leverage:callers='.($callers ?? 'null');
+                }
+            }
+            $substanceFloor = ['enabled' => true, 'touched_lines' => $touched, 'is_refactor' => $isRefactor];
+        }
+
         return [
             'passed' => $passed,
             'impact_score' => $impactScore,
@@ -729,6 +765,7 @@ final class AtlasLoopAutoMergeService
             'unmeasured' => $unmeasured,
             'min_impact_score' => $minScore,
             'min_callers' => $minCallers,
+            'substance_floor' => $substanceFloor,
             'reason' => $reason,
         ];
     }
