@@ -27,7 +27,14 @@ use Throwable;
  */
 final class RealityGraphProposalRecorder implements OrganismProposalRecorder
 {
-    private const SOURCE_KIND = 'domain';
+    // 'organism' (NOT 'domain'): the read-model sync (AtlasRealityGraphIngestionService) writes the 21
+    // canonical taxonomy nodes as source_kind='domain' and the DAILY `atlas:aurg:ingest --prune` deletes
+    // every source_kind='domain' node NOT in that 21-id keep-set — so reusing 'domain' had the organism
+    // compounding proposals WIPED daily (the priorProposals() read-back came up empty). mission/obra use
+    // their own un-synced source_kinds for exactly this reason; 'organism' is not in SOURCES, so the
+    // read-model prune never touches it. Both record() and priorProposals() reference this constant, so
+    // the writer + reader stay consistent and the node id prefix updates with it.
+    private const SOURCE_KIND = 'organism';
 
     public function record(DomainProposal $proposal, array $validation): array
     {

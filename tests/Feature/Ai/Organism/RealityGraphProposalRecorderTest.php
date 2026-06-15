@@ -69,8 +69,9 @@ final class RealityGraphProposalRecorderTest extends TestCase
         $res = $recorder->record($this->proposal(true), $validation);
 
         $this->assertTrue($res['recorded']);
-        $node = AtlasAurgNode::query()->where('source_kind', 'domain')->first();
+        $node = AtlasAurgNode::query()->where('source_kind', 'organism')->first();
         $this->assertNotNull($node);
+        $this->assertSame('organism', $node->source_kind, 'recorded in the UN-synced source so the daily read-model --prune (source_kind=domain) never wipes organism compounding proposals');
         $this->assertTrue($node->sensitive, 'a finance proposal must be stored sensitive');
         $this->assertTrue($node->provider_safe);
 
@@ -102,6 +103,32 @@ final class RealityGraphProposalRecorderTest extends TestCase
         $this->assertTrue($prior[0]['sensitive']);
         // The read-back is label-only (no payload).
         $this->assertStringNotContainsString('DO-NOT-LEAK', json_encode($prior) ?: '');
+    }
+
+    public function test_organism_proposal_survives_the_daily_domain_source_prune(): void
+    {
+        // REGRESSION (#9): the read-model sync writes the 21 canonical taxonomy nodes as
+        // source_kind='domain' and the DAILY `atlas:aurg:ingest --prune` deletes every source_kind=
+        // 'domain' node NOT in that keep-set. The organism recorder reused 'domain', so its compounding
+        // proposals were WIPED daily (priorProposals came up empty). Now it uses the un-synced
+        // 'organism' source (like mission/obra) and survives the prune.
+        config()->set('atlas.aurg.enabled', true);
+        $this->createAurgTables();
+        // A taxonomy node (the read-model keep-set) alongside the organism proposal.
+        AtlasAurgNode::query()->insert([
+            'id' => 'domain:domain:finance', 'kind' => 'domain', 'source_kind' => 'domain',
+            'source_id' => 'finance', 'label' => 'finance', 'workspace_id' => null, 'provider_safe' => true,
+            'sensitive' => false, 'meta' => '{}', 'content_hash' => 'tax-finance', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        (new RealityGraphProposalRecorder)->record($this->proposal(true), ['metric' => 'm', 'value' => 1.0, 'passed' => true, 'method' => 'm']);
+        $this->assertCount(1, (new RealityGraphProposalRecorder)->priorProposals('finance', 10));
+
+        // Mimic pruneSource('domain', keepIds): delete the synced 'domain' source not in the keep-set.
+        AtlasAurgNode::query()->where('source_kind', 'domain')->whereNotIn('id', ['domain:domain:finance'])->delete();
+
+        // The organism proposal (source_kind='organism') is untouched; the taxonomy node is intact.
+        $this->assertCount(1, (new RealityGraphProposalRecorder)->priorProposals('finance', 10), 'organism proposal survives the domain-source prune');
+        $this->assertNotNull(AtlasAurgNode::query()->whereKey('domain:domain:finance')->first(), 'the taxonomy node is intact');
     }
 
     public function test_fail_open_when_store_absent(): void
