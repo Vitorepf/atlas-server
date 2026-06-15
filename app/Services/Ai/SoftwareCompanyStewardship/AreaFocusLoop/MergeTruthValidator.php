@@ -33,31 +33,19 @@ final class MergeTruthValidator
      */
     public function validate(array $input): array
     {
-        $mainBefore = trim((string) ($input['main_before'] ?? ''));
-        $mainAfter = trim((string) ($input['main_after'] ?? ''));
-        $targetBefore = trim((string) ($input['target_ref_before'] ?? ''));
-        $targetAfter = trim((string) ($input['target_ref_after'] ?? ''));
-        $mergeTarget = trim((string) ($input['merge_target'] ?? self::TARGET_NONE)) ?: self::TARGET_NONE;
-        $performedToBase = (bool) ($input['merge_performed_to_base'] ?? false);
+        $support = new MergeTruthValidatorSupport;
+        [
+            $mainBefore,
+            $mainAfter,
+            $targetBefore,
+            $targetAfter,
+            $mergeTarget,
+            $performedToBase,
+        ] = $support->normalizedInput($input);
 
-        $mainAdvanced = $mainBefore !== '' && $mainAfter !== '' && $mainBefore !== $mainAfter;
-        $targetAdvanced = $targetBefore !== '' && $targetAfter !== '' && $targetBefore !== $targetAfter;
-
-        $violations = [];
-        if ($performedToBase && ! $mainAdvanced) {
-            $violations[] = 'merge_performed_to_base_claimed_but_main_not_advanced';
-        }
-        if ($mergeTarget === self::TARGET_LANE && $mainAdvanced) {
-            $violations[] = 'lane_target_but_main_advanced_inconsistent';
-        }
-        if ($targetAdvanced && ! $mainAdvanced && $mergeTarget !== self::TARGET_MAIN) {
-            $violations[] = 'lane_only_advance_not_counted_as_real_merge';
-        }
-        if (! $mainAdvanced && ! $targetAdvanced) {
-            $violations[] = 'noop_or_already_up_to_date';
-        }
-
-        $mergeReal = $mergeTarget === self::TARGET_MAIN && $mainAdvanced && $performedToBase;
+        $mainAdvanced = $support->refAdvanced($mainBefore, $mainAfter);
+        $targetAdvanced = $support->refAdvanced($targetBefore, $targetAfter);
+        $mergeReal = $support->mergeReal($mergeTarget, $mainAdvanced, $performedToBase);
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
@@ -69,10 +57,8 @@ final class MergeTruthValidator
             'main_after' => $mainAfter,
             'target_ref_before' => $targetBefore,
             'target_ref_after' => $targetAfter,
-            'violations' => AreaFocusStringListNormalizer::uniqueStringValues($violations),
-            'reason' => $mergeReal
-                ? 'real_merge_main_advanced'
-                : ($mainAdvanced ? 'main_advanced_but_not_governed_base_merge' : 'main_did_not_advance_no_real_merge'),
+            'violations' => AreaFocusStringListNormalizer::uniqueStringValues($support->violations($performedToBase, $mergeTarget, $mainAdvanced, $targetAdvanced)),
+            'reason' => $support->reason($mergeReal, $mainAdvanced),
         ];
     }
 }
