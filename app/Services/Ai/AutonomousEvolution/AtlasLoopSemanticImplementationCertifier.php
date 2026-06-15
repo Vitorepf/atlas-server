@@ -524,10 +524,14 @@ final class AtlasLoopSemanticImplementationCertifier
         // worst-method 19→4 refactor was rejected purely because 10 new helpers raised total). The
         // max-gate still blocks gaming (no method may exceed baseline max). Flag default ON.
         $decisionsGate = (bool) config('atlas.loop.complexity_decisions_gate', true);
+        $perFileGate = (bool) config('atlas.loop.complexity_per_file_max_gate', true);
         $candidateAgg = $decisionsGate ? ($candidate['total'] - ($candidate['methods'] ?? 0)) : $candidate['total'];
         $baselineAgg = $decisionsGate ? ($baseline['total'] - ($baseline['methods'] ?? 0)) : $baseline['total'];
-        $reduced = $candidate['max_per_method'] < $baseline['max_per_method']
-            && $candidateAgg <= $baselineAgg;
+        // PER-FILE reduced verdict (shared single source with the frozen judge so the two cannot
+        // drift): a multi-file cluster refactor that simplifies the hub but not the cluster's
+        // global-worst method (living in an UNTOUCHED sibling) used to be FALSE-rejected — the
+        // big-obra=3/10 keystone. Single-file behaviour is byte-identical (per-file max == global max).
+        $reduced = AtlasLoopSignalAnalyzer::complexityReduced($baseline, $candidate, $decisionsGate, $perFileGate);
 
         return [
             'baseline_max' => $baseline['max_per_method'],

@@ -243,10 +243,13 @@ final class AtlasEvolutionFrozenJudge
         // still holds via the max-gate (no method may exceed baseline max). Flag default ON; flip OFF
         // to restore the prior raw-total behavior.
         $decisionsGate = (bool) config('atlas.loop.complexity_decisions_gate', true);
+        $perFileGate = (bool) config('atlas.loop.complexity_per_file_max_gate', true);
         $candidateAgg = $decisionsGate ? ($candidate['total'] - ($candidate['methods'] ?? 0)) : $candidate['total'];
         $baselineAgg = $decisionsGate ? ($baseline['total'] - ($baseline['methods'] ?? 0)) : $baseline['total'];
-        $reduced = $candidate['max_per_method'] < $baseline['max_per_method']
-            && $candidateAgg <= $baselineAgg;
+        // PER-FILE reduced verdict (shared single source with the certifier so the two cannot drift):
+        // a multi-file cluster refactor that simplifies the hub but not the cluster's global-worst
+        // method (in an UNTOUCHED sibling) used to be false-rejected. Single-file is byte-identical.
+        $reduced = AtlasLoopSignalAnalyzer::complexityReduced($baseline, $candidate, $decisionsGate, $perFileGate);
 
         return [
             'baseline_max' => $baseline['max_per_method'],

@@ -364,7 +364,7 @@ final class AtlasLoopSignalAnalyzer
      * are skipped (fail-open). Returns measured=true iff at least one file parsed.
      *
      * @param  list<string>  $absPaths
-     * @return array{measured:bool, max_per_method:int, total:int, files:int, methods:int}
+     * @return array{measured:bool, max_per_method:int, total:int, files:int, methods:int, per_file_max:array<string,int>}
      */
     public function aggregateComplexity(array $absPaths): array
     {
@@ -372,6 +372,7 @@ final class AtlasLoopSignalAnalyzer
         $total = 0;
         $files = 0;
         $methods = 0;
+        $perFileMax = [];
         foreach ($absPaths as $abs) {
             if (! is_file($abs)) {
                 continue;
@@ -385,6 +386,11 @@ final class AtlasLoopSignalAnalyzer
                 continue;
             }
             $max = max($max, $one['max_per_method']);
+            // PER-FILE worst-method, so a multi-file cluster verdict can be per-file (not collapsed to
+            // a single cluster-global max — which falsely rejected a real hub simplification whenever
+            // the cluster's global-worst method lived in an UNTOUCHED sibling). Keyed by abs path; the
+            // baseline/candidate pair measures the SAME path set, so the keys line up.
+            $perFileMax[$abs] = $one['max_per_method'];
             $total += $one['total'];
             // Sum method count across the set so callers can derive DECISION POINTS (total − methods),
             // which is extract-method-neutral: each cyclomatic score is 1+decisions, so extraction adds
@@ -394,7 +400,47 @@ final class AtlasLoopSignalAnalyzer
             $files++;
         }
 
-        return ['measured' => $files > 0, 'max_per_method' => $max, 'total' => $total, 'files' => $files, 'methods' => $methods];
+        return ['measured' => $files > 0, 'max_per_method' => $max, 'total' => $total, 'files' => $files, 'methods' => $methods, 'per_file_max' => $perFileMax];
+    }
+
+    /**
+     * The single source of the "did it genuinely get simpler" verdict, shared by the certifier and the
+     * frozen judge so the two cannot drift. PER-FILE semantics (perFileGate, default ON):
+     *   - NO changed file's worst method got worse (anti-laundering: blocks pushing complexity into a sibling),
+     *   - AT LEAST ONE changed file's worst method dropped (a real simplification happened somewhere),
+     *   - AND the decisions/total aggregate did not rise (the existing non-increasing lock).
+     * For a single file this is byte-identical to `candidate.max < baseline.max` (per-file max == global
+     * max). perFileGate OFF (or no per-file data) restores the legacy cluster-global-max rule.
+     *
+     * @param  array<string,mixed>  $baseline
+     * @param  array<string,mixed>  $candidate
+     */
+    public static function complexityReduced(array $baseline, array $candidate, bool $decisionsGate, bool $perFileGate): bool
+    {
+        $candidateAgg = $decisionsGate ? ((int) $candidate['total'] - (int) ($candidate['methods'] ?? 0)) : (int) $candidate['total'];
+        $baselineAgg = $decisionsGate ? ((int) $baseline['total'] - (int) ($baseline['methods'] ?? 0)) : (int) $baseline['total'];
+        $aggOk = $candidateAgg <= $baselineAgg;
+
+        $baseFiles = is_array($baseline['per_file_max'] ?? null) ? $baseline['per_file_max'] : [];
+        $candFiles = is_array($candidate['per_file_max'] ?? null) ? $candidate['per_file_max'] : [];
+        if (! $perFileGate || $baseFiles === [] || $candFiles === []) {
+            // Legacy / no per-file data: the cluster-global-max rule (still safe, just coarser).
+            return (int) $candidate['max_per_method'] < (int) $baseline['max_per_method'] && $aggOk;
+        }
+
+        $noFileRegressed = true;
+        $atLeastOneDropped = false;
+        foreach ($candFiles as $path => $candMax) {
+            $baseMax = (int) ($baseFiles[$path] ?? $candMax); // unknown baseline for a file => treat as no-change
+            if ((int) $candMax > $baseMax) {
+                $noFileRegressed = false;
+            }
+            if ((int) $candMax < $baseMax) {
+                $atLeastOneDropped = true;
+            }
+        }
+
+        return $noFileRegressed && $atLeastOneDropped && $aggOk;
     }
 
     private function cyclomaticScore(Node\FunctionLike $unit): int

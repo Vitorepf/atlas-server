@@ -11,14 +11,17 @@ use Tests\TestCase;
 
 /**
  * OBRA (heavy work) — frozen ratchet for the MULTI-FILE certification JUDGE, the gate that makes
- * "park a multi-file obra for operator review" TRUSTWORTHY. The judge re-measures aggregate AST
- * cyclomatic across ALL changed files via a real git-stash before/after, and certifies a drop ONLY
- * when `candidate.max_per_method < baseline.max_per_method AND candidate.total <= baseline.total`.
+ * "park a multi-file obra for operator review" TRUSTWORTHY. The judge re-measures AST cyclomatic
+ * across the changed files via a real git-stash before/after and certifies a drop under the PER-FILE
+ * rule: NO changed file's worst method regressed (anti-laundering) AND at least one file's worst
+ * method dropped AND the decisions aggregate (total − methods) did not rise.
  *
- * The `total <= baseline.total` term is the ungameability lock: an obra cannot launder a headline
- * worst-method drop in one file while INFLATING total complexity in a sibling — the classic
- * multi-file refactor game. This test pins both directions so a future edit to the (pétreo)
- * certifier can never silently weaken the aggregate judge to a per-file or headline-only check.
+ * The per-file rule replaced a cluster-GLOBAL-max rule that false-rejected the majority of genuine
+ * cluster refactors — any obra that simplified the hub but did not happen to own the cluster's single
+ * global-worst method (which often lives in an untouched sibling) was wrongly refused. The
+ * no-file-regressed + decisions-non-increasing terms keep the ungameability lock: an obra still cannot
+ * launder a headline drop by inflating a sibling. This test pins BOTH directions (genuine cluster
+ * drop certifies; laundering rejected) so a future edit can never silently weaken — or re-break — the judge.
  */
 final class AtlasLoopMultiFileComplexityJudgeTest extends TestCase
 {
@@ -94,6 +97,29 @@ final class AtlasLoopMultiFileComplexityJudgeTest extends TestCase
         $this->assertSame(12, (int) $proof['baseline_max']);
         $this->assertSame(6, (int) $proof['candidate_max']);
         $this->assertLessThanOrEqual((int) $proof['baseline_total'], (int) $proof['candidate_total']);
+    }
+
+    public function test_hub_drop_certifies_even_when_cluster_global_worst_lives_in_an_untouched_sibling(): void
+    {
+        // THE big-obra=3/10 keystone (false-reject). A real cluster refactor: HubA's worst method
+        // genuinely drops (9 -> 4); HubB is ALSO in the change set (its call-site to HubA updated)
+        // but HubB's worst method (14, the cluster's GLOBAL-worst) is unrelated and unchanged. The old
+        // cluster-global-max rule rejected this (max 14 -> 14, "no drop") — falsely killing the
+        // majority of genuine cluster refactors. The per-file rule certifies it: a real per-file drop
+        // happened, NO file regressed, and the decisions aggregate did not rise.
+        $this->workspace = $this->repo(9, 14); // HubA worst 9, HubB worst 14 (the global worst)
+        file_put_contents($this->workspace.'/src/HubA.php', $this->klass('HubA', 3)); // 9 -> 4: real worst-method drop
+        // HubB changes (call-site update) but its worst method stays 14 — modelled as the same 14-cx
+        // method with a trailing comment, so the file differs yet HubB's per-file max is unchanged.
+        file_put_contents($this->workspace.'/src/HubB.php', $this->klass('HubB', 13)."// call-site updated to HubA::run\n");
+
+        $proof = $this->certify()['complexity_proof'];
+
+        $this->assertIsArray($proof);
+        $this->assertSame(14, (int) $proof['baseline_max']);
+        $this->assertSame(14, (int) $proof['candidate_max'], 'the cluster global-max did NOT drop (it lives in the sibling) — the OLD rule false-rejected here');
+        $this->assertLessThanOrEqual((int) $proof['baseline_total'], (int) $proof['candidate_total'], 'no total/decisions inflation (the anti-gaming lock still holds)');
+        $this->assertTrue((bool) $proof['reduced'], 'a real per-file hub drop with no file regressed IS a reduction (per-file rule)');
     }
 
     public function test_complexity_laundered_into_a_sibling_is_rejected(): void
