@@ -83,4 +83,35 @@ final class AtlasLoopCoverageGapFeederTest extends TestCase
         $this->assertNull($taskId);
         $this->assertSame(0, AtlasLoopTask::query()->where('campaign_id', $campaign->id)->count());
     }
+
+    public function test_bounded_retry_re_enqueues_a_failed_gap_until_the_cap(): void
+    {
+        config(['atlas.loop.characterization_max_attempts_per_gap' => 3]);
+        $campaign = $this->campaign();
+        $feeder = app(AtlasLoopCoverageGapFeeder::class);
+        $gap = [
+            'target_file' => 'app/Services/Ai/Y.php',
+            'decision_operator' => 'strict_equals',
+            'mutation_id' => 'mz',
+            'sibling_test' => 'tests/Unit/Ai/YTest.php',
+        ];
+
+        $ids = [];
+        for ($i = 0; $i < 4; $i++) {
+            $id = $feeder->feedGap((string) $campaign->id, $gap);
+            if ($id !== null) {
+                $ids[] = $id;
+                // simulate a FAILED attempt (a re-detected gap means it did not close)
+                AtlasLoopTask::query()->whereKey($id)->update(['status' => 'done']);
+            }
+        }
+
+        // 3 distinct retry tasks (attempts 0,1,2), then the 4th feed is past the cap => null.
+        $this->assertCount(3, $ids);
+        $this->assertCount(3, array_unique($ids), 'each retry is a DISTINCT task, not a dedup no-op');
+        $this->assertSame(3, AtlasLoopTask::query()->where('campaign_id', $campaign->id)->where('source', 'coverage_gap_characterization')->count());
+
+        // A 5th feed is still capped (idempotent give-up).
+        $this->assertNull($feeder->feedGap((string) $campaign->id, $gap));
+    }
 }

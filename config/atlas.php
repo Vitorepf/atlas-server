@@ -1857,6 +1857,10 @@ return [
         // intact earns nothing). OFF -> a structural_proof task falls back to complexityReduced (the
         // new-file-lock rejects the extract-class), so judge + certifier are byte-identical.
         'complexity_method_identity_gate' => (bool) env('ATLAS_LOOP_COMPLEXITY_METHOD_IDENTITY_GATE', false),
+        // Characterization flywheel: max grind attempts per coverage gap before backing off. The
+        // provider's test output is variable (a gap can certify on retry), so a re-detected gap gets
+        // bounded retries (salted dedupe); past this it is provider-hard and the feeder stops hammering.
+        'characterization_max_attempts_per_gap' => max(1, (int) env('ATLAS_LOOP_CHARACTERIZATION_MAX_ATTEMPTS_PER_GAP', 3)),
         // Min AST max-per-method cyclomatic for a framework target to be worth a heavy refactor.
         'framework_refactor_min_cyclomatic' => max(1, (int) env('ATLAS_LOOP_FRAMEWORK_REFACTOR_MIN_CYCLOMATIC', 10)),
         // Min real production callers (wired requirement): a refactor only pays back on code that runs.

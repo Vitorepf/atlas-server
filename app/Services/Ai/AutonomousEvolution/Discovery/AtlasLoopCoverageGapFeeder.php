@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution\Discovery;
 
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The input side of the auto-characterization-test lane: turns a coverage gap (a target file +
@@ -74,12 +75,25 @@ final class AtlasLoopCoverageGapFeeder
             $payload['provider'] = $provider;
         }
 
+        // BOUNDED RETRY: the provider's characterization output is variable (the SAME gap certified in
+        // isolation but its sibling test survived the mutant in a soak grind). A re-detected gap means
+        // the prior attempt(s) did NOT close it, so give the provider another shot — up to a cap — by
+        // SALTING the dedupe with the attempt count (a fresh task, not a no-op). Past the cap, stop
+        // hammering the same gap (it is provider-hard; a human or Forge should take it).
+        $attempt = $this->priorAttempts($campaignId, $target, $operator);
+        $maxAttempts = max(1, (int) config('atlas.loop.characterization_max_attempts_per_gap', 3));
+        if ($attempt >= $maxAttempts) {
+            return null; // exhausted: do not re-enqueue a gap the provider keeps failing
+        }
+        $payload['characterization_attempt'] = $attempt;
+
         $acceptanceHash = hash('sha256', json_encode([
             'objective_kind' => 'characterization_test',
             'target' => $target,
             'sibling' => $sibling,
             'operator' => $operator,
             'mutation_id' => (string) ($gap['mutation_id'] ?? ''),
+            'attempt' => $attempt, // salt so each retry is a distinct dedupe key, not a no-op
         ], JSON_THROW_ON_ERROR));
 
         $task = $this->store->enqueueTask(
@@ -111,6 +125,28 @@ final class AtlasLoopCoverageGapFeeder
         }
 
         return $ids;
+    }
+
+    /**
+     * Completed (done/failed) characterization attempts already made for this exact gap
+     * (campaign + target + operator). A re-detected gap with prior completed attempts means none
+     * closed it — the count drives bounded retry. An in-flight (pending/claimed/running) attempt is
+     * NOT counted: with attempt unchanged the dedupe key is identical, so enqueueTask returns the
+     * existing task (never a parallel double-enqueue). Fail-open: a count error never blocks feeding.
+     */
+    private function priorAttempts(string $campaignId, string $target, string $operator): int
+    {
+        try {
+            return (int) DB::table('atlas_loop_tasks')
+                ->where('campaign_id', $campaignId)
+                ->where('source', 'coverage_gap_characterization')
+                ->where('target_path', $target)
+                ->whereIn('status', ['done', 'failed'])
+                ->where('payload', 'like', '%"characterization_operator":"'.$operator.'"%')
+                ->count();
+        } catch (\Throwable) {
+            return 0;
+        }
     }
 
     private function objectiveText(string $target, string $sibling, string $operator): string
