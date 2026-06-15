@@ -61,22 +61,18 @@ final class AtlasEvolutionScenarioExplorer
      */
     public function explore(array $task, ?int $scenarios = null): array
     {
-        $objective = trim((string) ($task['objective'] ?? ''));
-        $baseWorkspace = (string) ($task['base_workspace'] ?? '');
-        $acceptance = is_array($task['acceptance'] ?? null) ? $task['acceptance'] : [];
-        $metricKind = (string) ($acceptance['metric_kind'] ?? AtlasEvolutionFrozenJudge::METRIC_GATE);
-        $surfaceId = trim((string) ($task['surface_id'] ?? 'atlas_evolution_loop')) ?: 'atlas_evolution_loop';
-        $keepWorkspaces = (bool) ($task['keep_workspaces'] ?? false);
-
-        $provider = $this->resolveProvider($task);                 // provider-agnostic
-        $userConstraints = $this->userConstraints($task);
-        $surfaceHints = $this->surfaceHints($provider);
-
-        $commands = $acceptance['commands'] ?? null;
-        $validCommands = is_array($commands)
-            && $commands !== []
-            && array_values($commands) === $commands
-            && array_filter($commands, static fn (mixed $command): bool => ! is_string($command) || trim($command) === '') === [];
+        [
+            $objective,
+            $baseWorkspace,
+            $acceptance,
+            $metricKind,
+            $surfaceId,
+            $keepWorkspaces,
+            $provider,
+            $userConstraints,
+            $surfaceHints,
+            $validCommands,
+        ] = $this->explorationInput($task);
 
         if ($objective === '' || ! is_dir($baseWorkspace) || ! $validCommands) {
             return $this->result($objective, $provider, $metricKind, null, [], [
@@ -124,6 +120,43 @@ final class AtlasEvolutionScenarioExplorer
             'scenarios_cap' => $max,
             'converged' => $best !== null && $noImprove >= $patience,
         ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $task
+     * @return array{0:string,1:string,2:array<string,mixed>,3:string,4:string,5:bool,6:string,7:list<string>,8:array<string,mixed>,9:bool}
+     */
+    private function explorationInput(array $task): array
+    {
+        $objective = trim((string) ($task['objective'] ?? ''));
+        $baseWorkspace = (string) ($task['base_workspace'] ?? '');
+        $acceptance = is_array($task['acceptance'] ?? null) ? $task['acceptance'] : [];
+        $metricKind = (string) ($acceptance['metric_kind'] ?? AtlasEvolutionFrozenJudge::METRIC_GATE);
+        $surfaceId = trim((string) ($task['surface_id'] ?? 'atlas_evolution_loop')) ?: 'atlas_evolution_loop';
+        $keepWorkspaces = (bool) ($task['keep_workspaces'] ?? false);
+
+        $provider = $this->resolveProvider($task);                 // provider-agnostic
+        $userConstraints = $this->userConstraints($task);
+        $surfaceHints = $this->surfaceHints($provider);
+
+        $commands = $acceptance['commands'] ?? null;
+        $validCommands = is_array($commands)
+            && $commands !== []
+            && array_values($commands) === $commands
+            && array_filter($commands, static fn (mixed $command): bool => ! is_string($command) || trim($command) === '') === [];
+
+        return [
+            $objective,
+            $baseWorkspace,
+            $acceptance,
+            $metricKind,
+            $surfaceId,
+            $keepWorkspaces,
+            $provider,
+            $userConstraints,
+            $surfaceHints,
+            $validCommands,
+        ];
     }
 
     /**
