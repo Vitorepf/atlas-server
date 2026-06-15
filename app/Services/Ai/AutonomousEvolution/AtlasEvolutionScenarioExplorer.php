@@ -115,6 +115,10 @@ final class AtlasEvolutionScenarioExplorer
         $noImprove = 0;
         $start = microtime(true);
         $portfolio = $this->portfolio ?? new AtlasLoopScenarioProviderPortfolio;
+        // PER-OBRA WORKING MEMORY (Next-Lever 5): accumulate what THIS obra already tried + why it failed,
+        // and feed a "do NOT repeat" digest into each subsequent attempt's intent so round K is smarter than
+        // 1..K-1 (anti-context-rot). The ledger's thrashing signal is exposed for the escalation ladder.
+        $ledger = new AtlasLoopAttemptLedger;
 
         for ($i = 0; $i < $max; $i++) {
             if ($i >= $min && $best !== null && $noImprove >= $patience) {
@@ -131,8 +135,18 @@ final class AtlasEvolutionScenarioExplorer
             // byte-for-byte (every attempt uses $provider, $surfaceHints unchanged).
             $attemptProvider = $portfolio->providerFor($task, $i, $provider);
             $attemptHints = $attemptProvider === $provider ? $surfaceHints : $this->surfaceHints($attemptProvider);
-            $attempt = $this->runScenario($i, $objective, $strategy['text'], $strategy['key'], $baseWorkspace, $acceptance, $surfaceId, $userConstraints, $attemptHints, $attemptProvider, $keepWorkspaces, $workspaceRoot, $this->scenarioCloneMode($task));
+            // Feed prior failed approaches forward (empty on the first attempt => byte-identical).
+            $guidance = $ledger->guidance();
+            $strategyText = $guidance === '' ? $strategy['text'] : trim($strategy['text']."\n\n".$guidance);
+            $attempt = $this->runScenario($i, $objective, $strategyText, $strategy['key'], $baseWorkspace, $acceptance, $surfaceId, $userConstraints, $attemptHints, $attemptProvider, $keepWorkspaces, $workspaceRoot, $this->scenarioCloneMode($task));
             $attempts[] = $attempt;
+            $ledger->record(
+                $strategy['key'],
+                $attemptProvider,
+                (bool) data_get($attempt, 'verdict.passed', false),
+                (string) data_get($attempt, 'verdict.details.reason', ''),
+                (string) ($attempt['scenario_id'] ?? ''),
+            );
 
             if ($this->improvesBest($attempt, $best, $metricKind)) {
                 $best = $attempt;
@@ -145,6 +159,7 @@ final class AtlasEvolutionScenarioExplorer
         return [
             'attempts' => $attempts,
             'converged' => $best !== null && $noImprove >= $patience,
+            'convergence' => $ledger->convergence(),
         ];
     }
 
