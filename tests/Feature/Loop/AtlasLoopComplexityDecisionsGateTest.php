@@ -228,4 +228,72 @@ PHP;
         $this->assertSame(3, $agg['methods']);
         $this->assertSame(2, $agg['files']);
     }
+
+    public function test_structural_gate_certifies_a_genuine_extract_class(): void
+    {
+        // A::run (cx20) -> A::run thin (cx5, delegates) + a NEW class B with two SMALLER helpers.
+        // The kept identity A::run strictly dropped IN PLACE; new helpers are below the old worst;
+        // decisions did not rise (branches relocated, not added). => structural win.
+        $baseline = ['per_method' => ['A::run' => 20], 'max_per_method' => 20, 'total' => 20, 'methods' => 1];
+        $candidate = ['per_method' => ['A::run' => 5, 'B::doX' => 8, 'B::doY' => 7], 'max_per_method' => 8, 'total' => 20, 'methods' => 3];
+
+        $this->assertTrue(AtlasLoopSignalAnalyzer::structuralComplexityReduced($baseline, $candidate));
+    }
+
+    public function test_structural_gate_rejects_pure_relocation_moved_and_renamed(): void
+    {
+        // THE cardinal case: A::run (cx20) moved INTACT to B::run (cx20). No kept identity dropped,
+        // and a new identity sits AT the baseline worst => relocation, certifies nothing.
+        $baseline = ['per_method' => ['A::run' => 20], 'max_per_method' => 20, 'total' => 20, 'methods' => 1];
+        $candidate = ['per_method' => ['B::run' => 20], 'max_per_method' => 20, 'total' => 20, 'methods' => 1];
+
+        $this->assertFalse(AtlasLoopSignalAnalyzer::structuralComplexityReduced($baseline, $candidate));
+    }
+
+    public function test_structural_gate_rejects_within_scope_relocation_to_sibling_class(): void
+    {
+        // The hole the design named: a method relocated to a sibling class WITHIN the allowed file set
+        // (no net-new file, so the new-file lock never fires). Distinct identities, nothing dropped in
+        // place => still a relocation => rejected by the per-method-identity gate.
+        $baseline = ['per_method' => ['Hub::heavy' => 14, 'Hub::tiny' => 1], 'max_per_method' => 14, 'total' => 15, 'methods' => 2];
+        $candidate = ['per_method' => ['Sibling::heavy' => 14, 'Hub::tiny' => 1], 'max_per_method' => 14, 'total' => 15, 'methods' => 2];
+
+        $this->assertFalse(AtlasLoopSignalAnalyzer::structuralComplexityReduced($baseline, $candidate));
+    }
+
+    public function test_structural_gate_rejects_added_branches_balloon(): void
+    {
+        // A::run dropped in place BUT the extraction ADDED net branches (decisions rose) => rejected.
+        $baseline = ['per_method' => ['A::run' => 20], 'max_per_method' => 20, 'total' => 20, 'methods' => 1];
+        $candidate = ['per_method' => ['A::run' => 5, 'B::x' => 18], 'max_per_method' => 18, 'total' => 23, 'methods' => 2];
+
+        $this->assertFalse(AtlasLoopSignalAnalyzer::structuralComplexityReduced($baseline, $candidate));
+    }
+
+    public function test_structural_gate_rejects_a_kept_method_regression(): void
+    {
+        // A::run dropped, but a kept sibling A::other got WORSE => laundering complexity => rejected.
+        $baseline = ['per_method' => ['A::run' => 12, 'A::other' => 5], 'max_per_method' => 12, 'total' => 17, 'methods' => 2];
+        $candidate = ['per_method' => ['A::run' => 6, 'A::other' => 9], 'max_per_method' => 9, 'total' => 15, 'methods' => 2];
+
+        $this->assertFalse(AtlasLoopSignalAnalyzer::structuralComplexityReduced($baseline, $candidate));
+    }
+
+    public function test_structural_gate_rejects_new_method_at_baseline_worst_complexity(): void
+    {
+        // A::run dropped in place, but the extracted NEW method is AS COMPLEX as the old worst (the god
+        // method merely re-homed behind a thin wrapper) => rejected by the anti-relocation clause.
+        $baseline = ['per_method' => ['A::run' => 20], 'max_per_method' => 20, 'total' => 20, 'methods' => 1];
+        $candidate = ['per_method' => ['A::run' => 2, 'B::big' => 20], 'max_per_method' => 20, 'total' => 22, 'methods' => 2];
+
+        $this->assertFalse(AtlasLoopSignalAnalyzer::structuralComplexityReduced($baseline, $candidate));
+    }
+
+    public function test_structural_gate_fails_closed_without_a_per_method_census(): void
+    {
+        $baseline = ['per_method' => [], 'max_per_method' => 20, 'total' => 20, 'methods' => 1];
+        $candidate = ['per_method' => [], 'max_per_method' => 8, 'total' => 20, 'methods' => 3];
+
+        $this->assertFalse(AtlasLoopSignalAnalyzer::structuralComplexityReduced($baseline, $candidate));
+    }
 }

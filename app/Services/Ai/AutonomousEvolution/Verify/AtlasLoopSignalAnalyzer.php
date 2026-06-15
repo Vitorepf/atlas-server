@@ -498,6 +498,73 @@ final class AtlasLoopSignalAnalyzer
         return $noFileRegressed && $atLeastOneDropped && $aggOk;
     }
 
+    /**
+     * STRUCTURAL complexity-drop verdict for the extract-class (ENORMOUS-refactor) lane — Slice 3,
+     * ADDITIVE + INERT (no caller yet; the cert wires it behind acceptance `structural_proof` in a
+     * later slice). It supersedes the per-file-max + new-file-lock for structural tasks because an
+     * extract-class legitimately CREATES a new file and the per-file-max cannot see method identity.
+     * It uses the per-method identity census (Slice 1/2) and enforces the CARDINAL INVARIANT: never
+     * certify a pure relocation — a method moved intact (even within the allowed file set) is a
+     * DISTINCT candidate-only identity and earns nothing.
+     *
+     * Certifies IFF all hold:
+     *   (1) aggregate decisions non-increasing (total - methods): no branch was added, only relocated;
+     *   (2) NO kept identity (present in both) regressed, and AT LEAST ONE kept identity STRICTLY
+     *       dropped — proof a specific method got simpler IN PLACE (the anti-relocation anchor);
+     *   (3) NO candidate-only (new) identity is as complex as the baseline worst — a god method
+     *       moved+renamed into a new class is a new identity at ~the old max; a genuine extract yields
+     *       strictly smaller helpers.
+     * Fail-closed on a missing census (unprovable structurally).
+     *
+     * @param  array<string,mixed>  $baseline
+     * @param  array<string,mixed>  $candidate
+     */
+    public static function structuralComplexityReduced(array $baseline, array $candidate): bool
+    {
+        $basePm = is_array($baseline['per_method'] ?? null) ? $baseline['per_method'] : [];
+        $candPm = is_array($candidate['per_method'] ?? null) ? $candidate['per_method'] : [];
+        if ($basePm === [] || $candPm === []) {
+            return false; // no per-method census => unprovable structurally, fail closed
+        }
+
+        // (1) anti-balloon: decision points must not rise (extract relocates branches, never adds them).
+        $candAgg = (int) $candidate['total'] - (int) ($candidate['methods'] ?? 0);
+        $baseAgg = (int) $baseline['total'] - (int) ($baseline['methods'] ?? 0);
+        if ($candAgg > $baseAgg) {
+            return false;
+        }
+
+        // (2) kept identities: none regressed, at least one strictly dropped (simpler IN PLACE).
+        $someKeptDropped = false;
+        foreach ($candPm as $id => $candScore) {
+            if (! array_key_exists($id, $basePm)) {
+                continue;
+            }
+            if ((int) $candScore > (int) $basePm[$id]) {
+                return false; // a kept method got worse
+            }
+            if ((int) $candScore < (int) $basePm[$id]) {
+                $someKeptDropped = true;
+            }
+        }
+        if (! $someKeptDropped) {
+            return false; // nothing got simpler in place => at best a relocation
+        }
+
+        // (3) anti-relocation: no NEW identity may be as complex as the baseline worst-per-method.
+        $baselineWorst = (int) ($baseline['max_per_method'] ?? 0);
+        foreach ($candPm as $id => $candScore) {
+            if (array_key_exists($id, $basePm)) {
+                continue;
+            }
+            if ((int) $candScore >= $baselineWorst) {
+                return false; // a new method as complex as the old worst == the god method relocated
+            }
+        }
+
+        return true;
+    }
+
     private function cyclomaticScore(Node\FunctionLike $unit): int
     {
         $score = 1;
