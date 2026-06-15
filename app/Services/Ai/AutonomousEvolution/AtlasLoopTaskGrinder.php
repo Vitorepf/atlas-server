@@ -9,6 +9,7 @@ use App\Services\Ai\AutonomousEvolution\Framework\AtlasLoopFrameworkMaterializer
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopRunPersister;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
 use App\Services\Ai\Cognitive\PredictiveFailure\AtlasLoopPredictiveOutcomeBridge;
+use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use RuntimeException;
 use Symfony\Component\Process\Process;
@@ -73,12 +74,12 @@ final class AtlasLoopTaskGrinder
             // driver auto-resolves the routed provider's model. Fail-safe: an unconfigured cheap
             // provider falls back to the default (the router never returns an unconfigured one).
             if (empty($payload['provider'])) {
-                $routed = (new AtlasLoopProviderRouter())->route(
+                $routed = (new AtlasLoopProviderRouter)->route(
                     (string) ($payload['objective_kind'] ?? ''),
                     (string) config('atlas.loop.default_provider', (string) config('atlas.ai.default_provider', '')),
                     null,
                     (array) config('atlas.loop.provider_routing', []),
-                    fn (string $p): bool => app(\App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter::class)->isConfigured($p),
+                    fn (string $p): bool => app(AtlasForgeProviderInvocationDriverRouter::class)->isConfigured($p),
                 );
                 if ($routed['tier'] === 'cheap') {
                     $payload['provider'] = $routed['provider'];
@@ -434,13 +435,21 @@ final class AtlasLoopTaskGrinder
             'red_preflight' => is_array($packet['red_preflight'] ?? null) ? $packet['red_preflight'] : null,
             'verifier_refuters' => is_array($packet['verifier_refuters'] ?? null) ? $packet['verifier_refuters'] : null,
             'acceptance' => is_array($packet['acceptance'] ?? null)
-                ? [
+                ? array_filter([
                     'commands' => AiStringListNormalizer::trimmedStrings(data_get($packet, 'acceptance.commands', [])),
                     'allowed_globs' => AiStringListNormalizer::trimmedStrings(data_get($packet, 'acceptance.allowed_globs', [])),
                     'frozen_globs' => AiStringListNormalizer::trimmedStrings(data_get($packet, 'acceptance.frozen_globs', [])),
                     'metric_kind' => (string) data_get($packet, 'acceptance.metric_kind', ''),
                     'revert_recheck' => (bool) data_get($packet, 'acceptance.revert_recheck', false),
-                ]
+                    // Lever pass-through: preserve the COMPLETENESS checklist + per-task gate keys so those
+                    // dimensions actually reach the certifier (otherwise the whitelist silently strips them
+                    // and the gate can never fire). New keys only => byte-identical when absent (null => dropped).
+                    'completeness_criteria' => is_array(data_get($packet, 'acceptance.completeness_criteria'))
+                        ? array_values(data_get($packet, 'acceptance.completeness_criteria'))
+                        : null,
+                    'completeness_min_coverage' => data_get($packet, 'acceptance.completeness_min_coverage'),
+                    'completeness_gate' => data_get($packet, 'acceptance.completeness_gate'),
+                ], static fn (mixed $v): bool => $v !== null)
                 : null,
         ];
     }

@@ -63,4 +63,20 @@ final class AtlasLoopCompletenessGateTest extends TestCase
         $this->assertFalse($r['complete']);
         $this->assertStringContainsString('coverage:', (string) $r['reason']);
     }
+
+    public function test_rounding_boundary_does_not_false_pass(): void
+    {
+        // REGRESSION (adversarial workflow): comparing a 4-decimal-ROUNDED coverage against a >4-decimal
+        // floor false-PASSed. 5/9 = 0.55555... is BELOW floor 0.55556, but round(.,4)=0.5556 >= floor.
+        // The fix compares the EXACT ratio, so this is correctly INCOMPLETE.
+        $criteria = [];
+        for ($i = 0; $i < 5; $i++) {
+            $criteria[] = ['id' => 's'.$i, 'satisfied' => true, 'required' => false];
+        }
+        for ($i = 0; $i < 4; $i++) {
+            $criteria[] = ['id' => 'u'.$i, 'satisfied' => false, 'required' => false];
+        }
+        $r = (new AtlasLoopCompletenessGate)->evaluate($criteria, 0.55556);
+        $this->assertFalse($r['complete'], 'exact 5/9 < floor 0.55556 must be incomplete despite rounding to 0.5556');
+    }
 }

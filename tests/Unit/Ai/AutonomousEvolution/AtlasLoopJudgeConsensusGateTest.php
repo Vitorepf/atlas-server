@@ -75,6 +75,39 @@ final class AtlasLoopJudgeConsensusGateTest extends TestCase
         $this->assertSame(2, $r['passed']);
     }
 
+    public function test_internal_fallback_verdicts_cover_default_required_lenses(): void
+    {
+        // Fix for the shipped-defaults footgun (adversarial workflow): the certifier's internal fallback
+        // supplies BOTH default required lenses — correctness (adversarial panel) + completeness
+        // (completeness gate) — across two distinct engines, so arming the gate with shipped defaults
+        // reaches consensus for a genuinely good change instead of universal-refuting on uncovered_lens.
+        $r = (new AtlasLoopJudgeConsensusGate)->evaluate([
+            ['lens' => 'correctness', 'provider' => 'adversarial_panel', 'passes' => true],
+            ['lens' => 'completeness', 'provider' => 'completeness_gate', 'passes' => true],
+        ], ['policy' => 'unanimous', 'required_lenses' => ['correctness', 'completeness'], 'min_distinct_providers' => 2]);
+        $this->assertTrue($r['consensus'], 'internal fallback covers both default lenses across 2 engines');
+    }
+
+    public function test_unknown_verdict_lens_fails_closed(): void
+    {
+        $r = (new AtlasLoopJudgeConsensusGate)->evaluate([
+            ['lens' => 'corectness', 'provider' => 'a', 'passes' => true], // typo
+            ['lens' => 'completeness', 'provider' => 'b', 'passes' => true],
+        ], ['policy' => 'unanimous', 'min_distinct_providers' => 2]);
+        $this->assertFalse($r['consensus'], 'a typo lens must not silently satisfy coverage');
+        $this->assertContains('unknown_lens:corectness', $r['dissents']);
+    }
+
+    public function test_invalid_required_lens_fails_closed(): void
+    {
+        $r = (new AtlasLoopJudgeConsensusGate)->evaluate([
+            ['lens' => 'correctness', 'provider' => 'a', 'passes' => true],
+            ['lens' => 'correctness', 'provider' => 'b', 'passes' => true],
+        ], ['policy' => 'unanimous', 'required_lenses' => ['correctness', 'secrity'], 'min_distinct_providers' => 2]);
+        $this->assertFalse($r['consensus'], 'a typo in a required lens must fail closed, not be silently covered');
+        $this->assertContains('invalid_required_lens:secrity', $r['dissents']);
+    }
+
     public function test_empty_panel_is_not_consensus(): void
     {
         $r = (new AtlasLoopJudgeConsensusGate)->evaluate([], ['policy' => 'unanimous']);

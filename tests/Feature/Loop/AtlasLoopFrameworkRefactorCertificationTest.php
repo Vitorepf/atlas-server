@@ -198,6 +198,62 @@ PHP;
         $this->assertNotContains('mutation_adequacy_gate:no_applicable_mutation', $receipt['reasons']);
     }
 
+    public function test_completeness_gate_blocks_an_incomplete_delivery_end_to_end(): void
+    {
+        // Next-Lever 1 integration: a refactor that would certify on correctness is REFUSED when its
+        // completeness checklist has an unmet REQUIRED criterion and the gate is armed per-task. Proves the
+        // completeness dimension flows through certify() end to end (not just the unit gate).
+        config(['atlas.loop.completeness_gate_enabled' => false]); // global OFF — per-task arms it
+        $this->workspace = $this->workspaceWithRefactor($this->highComplexity(), $this->lowComplexity());
+
+        $acceptance = $this->refactorAcceptance();
+        $acceptance['completeness_gate'] = true;
+        $acceptance['completeness_criteria'] = [
+            ['id' => 'worst_method_simplified', 'satisfied' => true, 'required' => true],
+            ['id' => 'class_no_longer_god', 'satisfied' => false, 'required' => true],
+        ];
+
+        $receipt = app(AtlasLoopSemanticImplementationCertifier::class)->certify(
+            $this->workspace,
+            $acceptance,
+            ['objective' => 'Refactor Classifier', 'allowed_files' => ['src/Classifier.php']],
+        );
+
+        $this->assertFalse($receipt['certified'], 'an incomplete delivery (a required criterion unmet) must not certify');
+        $hasIncomplete = false;
+        foreach ((array) $receipt['reasons'] as $r) {
+            if (str_starts_with((string) $r, 'incomplete:')) {
+                $hasIncomplete = true;
+                break;
+            }
+        }
+        $this->assertTrue($hasIncomplete, 'refusal reason is completeness: '.json_encode($receipt['reasons']));
+        $this->assertFalse(data_get($receipt, 'completeness.complete'));
+        $this->assertContains('class_no_longer_god', (array) data_get($receipt, 'completeness.required_missing', []));
+    }
+
+    public function test_completeness_recorded_but_does_not_block_when_gate_off(): void
+    {
+        // Gate OFF (default): the same unmet checklist is RECORDED on the receipt but does NOT block — the
+        // refactor still certifies on its correctness. Proves record-not-block (byte-identical gating).
+        config(['atlas.loop.completeness_gate_enabled' => false]);
+        $this->workspace = $this->workspaceWithRefactor($this->highComplexity(), $this->lowComplexity());
+
+        $acceptance = $this->refactorAcceptance();
+        $acceptance['completeness_criteria'] = [
+            ['id' => 'class_no_longer_god', 'satisfied' => false, 'required' => true],
+        ];
+
+        $receipt = app(AtlasLoopSemanticImplementationCertifier::class)->certify(
+            $this->workspace,
+            $acceptance,
+            ['objective' => 'Refactor Classifier', 'allowed_files' => ['src/Classifier.php']],
+        );
+
+        $this->assertTrue($receipt['certified'], 'gate off => completeness does not block: '.json_encode($receipt['reasons']));
+        $this->assertFalse(data_get($receipt, 'completeness.complete'), 'but completeness is still RECORDED');
+    }
+
     public function test_per_task_quality_bar_gates_a_self_improvement_even_with_the_global_flag_off(): void
     {
         // Lever 4 contract: a self-improvement task (the loop refactoring its OWN pipeline) carries

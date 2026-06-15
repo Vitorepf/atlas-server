@@ -70,6 +70,19 @@ final class AtlasLoopJudgeConsensusGate
 
         // BLOCKING reasons — these (not an individual minority dissent) decide consensus.
         $blocking = [];
+        // GATE 0 — LENS VALIDITY: the LENSES constant is load-bearing, not advisory. A verdict or a
+        // required-lens that names a lens outside the known set fails CLOSED (a typo'd lens must never
+        // silently satisfy coverage, and a typo'd required lens must never be silently "covered").
+        foreach (array_keys($passingLenses) as $lens) {
+            if (! in_array($lens, self::LENSES, true)) {
+                $blocking[] = 'unknown_lens:'.$lens;
+            }
+        }
+        foreach ($requiredLenses as $lens) {
+            if (! in_array($lens, self::LENSES, true)) {
+                $blocking[] = 'invalid_required_lens:'.$lens;
+            }
+        }
         // GATE 1 — independence: a panel of clones is not independent verification.
         if ($distinctProviders < $minProviders) {
             $blocking[] = 'insufficient_independence:'.$distinctProviders.'<'.$minProviders.'_distinct_providers';

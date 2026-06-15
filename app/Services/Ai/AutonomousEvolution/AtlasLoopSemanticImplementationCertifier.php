@@ -224,11 +224,32 @@ final class AtlasLoopSemanticImplementationCertifier
             $reasons[] = 'delivery_confidence:below_threshold:'.$deliveryConfidence['confidence'].'<'.$deliveryConfidence['threshold'];
         }
 
+        // COMPLETENESS (Next-Lever 1): correctness is necessary but not sufficient — a refactor that
+        // simplifies ONE method of a god-class "passes" while the class stays god. The goal's checklist of
+        // acceptance CRITERIA (each a falsifiable sub-requirement, satisfaction resolved upstream) must be
+        // covered: every REQUIRED criterion satisfied + coverage >= floor. RECORDED always; a GATE only when
+        // completeness_gate_enabled (global) or per-task — default OFF / empty checklist => byte-identical.
+        // Computed BEFORE consensus so it can serve as the independent completeness-lens judge below.
+        $completenessCriteria = is_array($targetAcceptance['completeness_criteria'] ?? null)
+            ? array_values($targetAcceptance['completeness_criteria'])
+            : [];
+        $minCoverage = isset($targetAcceptance['completeness_min_coverage'])
+            ? (float) $targetAcceptance['completeness_min_coverage']
+            : (float) config('atlas.loop.completeness_min_coverage', 1.0);
+        $completeness = (new AtlasLoopCompletenessGate)->evaluate($completenessCriteria, $minCoverage);
+        $completenessGate = (bool) ($targetAcceptance['completeness_gate'] ?? false)
+            || (bool) config('atlas.loop.completeness_gate_enabled', false);
+        if ($completenessGate && $completenessCriteria !== [] && ! ($completeness['complete'] ?? false)) {
+            $reasons[] = (string) $completeness['reason'];
+        }
+
         // INDEPENDENT MULTI-JUDGE CONSENSUS (Next-Lever 3): the structural trust a single agent cannot give
         // itself. Consensus is computed over INDEPENDENT verdicts. Dedicated lens-diverse provider judges
         // (when a panel supplies options.judge_verdicts) are the strongest form; absent those, the cert's own
-        // independent signals (the adversarial panel + each provider refuter) serve as correctness judges.
-        // RECORDED always; a GATE only when judge_consensus_gate_enabled (global) or per-task — default OFF.
+        // independent signals serve as judges — the adversarial panel + provider refuters as CORRECTNESS
+        // judges AND the completeness gate as the COMPLETENESS judge (two distinct engines, both default
+        // required lenses genuinely covered, so arming the gate refutes only a real correctness/completeness
+        // failure — never a universal refute). RECORDED always; GATE only when judge_consensus_gate_enabled.
         $judgeVerdicts = is_array($options['judge_verdicts'] ?? null) ? array_values($options['judge_verdicts']) : [];
         if ($judgeVerdicts === []) {
             $judgeVerdicts[] = [
@@ -236,6 +257,12 @@ final class AtlasLoopSemanticImplementationCertifier
                 'provider' => 'adversarial_panel',
                 'passes' => (int) ($panelVerdict['refuted_count'] ?? 0) === 0,
                 'reason' => (string) ($panelVerdict['reason'] ?? 'refuted'),
+            ];
+            $judgeVerdicts[] = [
+                'lens' => 'completeness',
+                'provider' => 'completeness_gate',
+                'passes' => (bool) ($completeness['complete'] ?? true),
+                'reason' => (string) ($completeness['reason'] ?? ''),
             ];
             foreach ((array) ($providerRefuters['verdicts'] ?? []) as $rv) {
                 $judgeVerdicts[] = [
@@ -254,24 +281,6 @@ final class AtlasLoopSemanticImplementationCertifier
             || (bool) config('atlas.loop.judge_consensus_gate_enabled', false);
         if ($consensusGate && ! ($judgeConsensus['consensus'] ?? false)) {
             $reasons[] = (string) $judgeConsensus['reason'];
-        }
-
-        // COMPLETENESS (Next-Lever 1): correctness is necessary but not sufficient — a refactor that
-        // simplifies ONE method of a god-class "passes" while the class stays god. The goal's checklist of
-        // acceptance CRITERIA (each a falsifiable sub-requirement, satisfaction resolved upstream) must be
-        // covered: every REQUIRED criterion satisfied + coverage >= floor. RECORDED always; a GATE only when
-        // completeness_gate_enabled (global) or per-task — default OFF / empty checklist => byte-identical.
-        $completenessCriteria = is_array($targetAcceptance['completeness_criteria'] ?? null)
-            ? array_values($targetAcceptance['completeness_criteria'])
-            : [];
-        $minCoverage = isset($targetAcceptance['completeness_min_coverage'])
-            ? (float) $targetAcceptance['completeness_min_coverage']
-            : (float) config('atlas.loop.completeness_min_coverage', 1.0);
-        $completeness = (new AtlasLoopCompletenessGate)->evaluate($completenessCriteria, $minCoverage);
-        $completenessGate = (bool) ($targetAcceptance['completeness_gate'] ?? false)
-            || (bool) config('atlas.loop.completeness_gate_enabled', false);
-        if ($completenessGate && $completenessCriteria !== [] && ! ($completeness['complete'] ?? false)) {
-            $reasons[] = (string) $completeness['reason'];
         }
 
         $reasons = AiStringListNormalizer::uniqueStrings($reasons);

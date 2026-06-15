@@ -53,8 +53,11 @@ final class AtlasLoopCompletenessGate
             }
         }
 
-        $coverage = round($satisfied / $total, 4);
-        $complete = $requiredMissing === [] && $coverage + 1e-9 >= $minCoverage;
+        // Compare the EXACT ratio against the floor (round only for the human-facing value) — comparing a
+        // 4-decimal-rounded coverage could false-PASS at a rounding band straddling a >4-decimal floor.
+        $exact = $satisfied / $total;
+        $coverage = round($exact, 4);
+        $complete = $requiredMissing === [] && $exact + 1e-9 >= $minCoverage;
 
         return [
             'complete' => $complete,
