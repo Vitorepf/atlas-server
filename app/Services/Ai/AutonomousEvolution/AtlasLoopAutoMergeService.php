@@ -395,6 +395,13 @@ final class AtlasLoopAutoMergeService
                     $proposal->forceFill(['reviewed_at' => now(), 'quality' => $quality])->save();
                 });
 
+                // ASYMMETRIC TRUST (#10): a precommit canary-red is a DETECTED REGRESSION by this
+                // change-class — feed the ladder a revert so the class streak resets, exactly as the
+                // success path feeds a clean promotion. Without this, the DEFAULT (precommit-gate-ON)
+                // path never reset trust on a regression, so a class could keep earning autonomy
+                // despite producing breaking changes. Best-effort; commit is null (nothing merged).
+                $this->feedTrustLadder($changed, null, $canary);
+
                 return array_merge($base, [
                     'reason' => 'canary_red_precommit_gate (apply desfeito, main intocado, fix-forward enfileirado)',
                     'canary' => $canary,

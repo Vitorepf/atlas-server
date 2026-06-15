@@ -38,6 +38,12 @@ final class AtlasLoopAutoMergeServiceTest extends TestCase
         }
         config(['atlas.ai.loop.auto_merge_to_main' => true]);
         config(['atlas.ai.loop.impact_receipts_enabled' => true]);
+        // These exercise the drain MECHANICS (reprove / apply / lint / boot / canary / net-direction /
+        // patch-scoping / trust-ladder) on minimal fixtures — NOT the value/substance gate, which is a
+        // separate concern proven in test_substance_floor_*. The value-gate is default-ON for the live
+        // drain (it exempts refactors), so disable it here so a 2-line vanilla fixture is not blocked.
+        config(['atlas.ai.loop.value_gate_enabled' => false]);
+        config(['atlas.ai.loop.substance_floor_enabled' => false]);
     }
 
     protected function tearDown(): void
@@ -494,6 +500,40 @@ final class AtlasLoopAutoMergeServiceTest extends TestCase
         $this->assertTrue((bool) $proposal->fresh()->merged_to_main);
         $this->assertTrue((bool) ($result['results'][0]['canary']['ran'] ?? false), 'o canário rodou pré-commit');
         $this->assertTrue((bool) ($result['results'][0]['canary']['passed'] ?? false), 'e ficou verde');
+    }
+
+    public function test_precommit_canary_red_feeds_the_trust_ladder_a_revert_resetting_the_class_streak(): void
+    {
+        // REGRESSION (#10): a precommit canary-red is a DETECTED REGRESSION; the DEFAULT path retired
+        // the proposal but never fed the trust ladder, so the change-class kept its clean streak (and
+        // its earned autonomy) despite producing a breaking change. The asymmetric-revert invariant
+        // (a regression resets the streak) must hold on this path too — exactly as on the success path.
+        $ledger = sys_get_temp_dir().'/atlas-tl-precommit-'.bin2hex(random_bytes(4)).'.jsonl';
+        @unlink($ledger);
+        config([
+            'atlas.ai.trust_ladder.enabled' => true,
+            'atlas.ai.trust_ladder.log_path' => $ledger,
+            'atlas.ai.trust_ladder.eligible_classes' => ['code'],
+            'atlas.ai.trust_ladder.thresholds' => ['autonomous' => 1],
+        ]);
+        $ladder = app(\App\Services\Ai\Governance\AtlasChangeClassTrustLadder::class);
+        // Earn a clean streak for the `code` class first, so a regression has something to reset.
+        $ladder->recordEvidence('code', \App\Services\Ai\Governance\AtlasChangeClassTrustLadder::EVIDENCE_CLEAN_PROMOTION, 'seed-clean-1');
+        $this->assertSame(1, $ladder->cleanStreak('code'));
+        $this->assertSame(\App\Services\Ai\Policy\PolicyCanon::AUTONOMY_AUTONOMOUS, $ladder->earnedAutonomy('code'));
+
+        $original = "<?php\nfunction val(){ return 1; }\n";
+        $repo = $this->repoWithCanary($original, true); // RED canary => precommit regression on a `code` file
+        $this->certifiedProposal($this->makeDiff($original, "<?php\nfunction val(){ return 2; }\n"), 'precommit-red-tl-1');
+
+        app(AtlasLoopAutoMergeService::class)->drain($repo, 5);
+
+        // The precommit-red retire fed the ladder a revert: the class streak is back to zero and the
+        // earned autonomy fell off AUTONOMOUS (snippet.php => class `code`).
+        $fresh = app(\App\Services\Ai\Governance\AtlasChangeClassTrustLadder::class);
+        $this->assertSame(0, $fresh->cleanStreak('code'), 'a precommit regression resets the class streak (asymmetric trust)');
+        $this->assertNotSame(\App\Services\Ai\Policy\PolicyCanon::AUTONOMY_AUTONOMOUS, $fresh->earnedAutonomy('code'));
+        @unlink($ledger);
     }
 
     /**
