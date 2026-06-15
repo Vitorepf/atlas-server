@@ -2251,6 +2251,16 @@ return [
         // what lets the respawn filter safely include unbounded (max_seconds<=0) soaks without
         // resurrecting ancient test zombies. Default 24h.
         'keepalive_reap_after_minutes' => max(60, (int) env('ATLAS_LOOP_KEEPALIVE_REAP_AFTER_MINUTES', 1440)),
+        // Out-of-process code-drift backstop grace. The in-process drift-restart (campaign.
+        // restart_on_code_drift) only fires at the TOP of the supervisor loop, so it is starved
+        // during a long grind and goes dark entirely if the boot-time git HEAD read returned null
+        // (observed live 2026-06-15: a pipeline fix sat un-loaded for 3h). When the SAME
+        // restart_on_code_drift flag is ON, the keepalive ALSO recycles an alive supervisor whose
+        // PROCESS START predates the newest engine commit — immune to both inner-loop failure modes.
+        // This grace avoids killing a just-respawned (already-fresh) supervisor; the decision is
+        // self-clearing (a recycle moves the start past the commit). Gated by restart_on_code_drift
+        // so one flag controls the operator's churn-vs-autonomy choice for both checks.
+        'keepalive_code_drift_grace_seconds' => max(60, (int) env('ATLAS_LOOP_KEEPALIVE_CODE_DRIFT_GRACE_SECONDS', 120)),
 
         // O-2 slice (d): universal adversarial certification. When ON, the DISCOVERY
         // path (not just framework tasks) routes every proposal through the semantic

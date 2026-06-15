@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMorningDigestService;
+use App\Services\Ai\AutonomousEvolution\Campaign\AtlasLoopPipelineDrift;
 use App\Support\AtlasPhpBinary;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -57,6 +58,36 @@ class AtlasLoopKeepaliveCommand extends Command
             $heartbeat = $campaign->heartbeat_at ? strtotime((string) $campaign->heartbeat_at) : 0;
             $stale = $heartbeat < (time() - $staleMinutes * 60);
             $alive = $this->supervisorAlive($id);
+
+            // Out-of-process CODE-DRIFT recycle (belt-and-suspenders for the in-process
+            // restart_on_code_drift, which only fires at the top of the supervisor loop → starved
+            // during a long grind, and goes dark entirely if the boot-time git HEAD read returned
+            // null). Observed live 2026-06-15: a pipeline fix sat un-loaded for 3h. Here the
+            // watchdog — which runs every cadence regardless of supervisor state — recycles an
+            // ALIVE supervisor whose PROCESS START predates the newest engine commit. Gated by the
+            // SAME flag so the operator's one churn-vs-autonomy choice governs both checks; only
+            // ENGINE drift counts (target merges never match), and the decision self-clears (the
+            // respawn's start is after the commit). Lossless: respawn resumes by campaign-id.
+            if ($alive && (bool) config('atlas.loop.campaign.restart_on_code_drift', true)) {
+                $bootEpoch = $this->supervisorStartedAt($id);
+                $driftWorkspace = (string) ($campaign->base_workspace ?: base_path());
+                $latestPipelineCommit = AtlasLoopPipelineDrift::latestPipelineCommitEpoch($driftWorkspace);
+                $grace = max(60, (int) config('atlas.loop.keepalive_code_drift_grace_seconds', 120));
+                $aliveSeconds = $bootEpoch !== null ? max(0, time() - $bootEpoch) : 0;
+                if (AtlasLoopPipelineDrift::shouldRecycle($bootEpoch, $latestPipelineCommit, $aliveSeconds, $grace)) {
+                    $this->killSupervisor($id);
+                    $this->respawn($id);
+                    $out['respawned'][] = [
+                        'campaign_id' => $id,
+                        'reason' => 'code_drift_recycled',
+                        'boot_epoch' => $bootEpoch,
+                        'latest_pipeline_commit_epoch' => $latestPipelineCommit,
+                        'stale_seconds' => $latestPipelineCommit !== null && $bootEpoch !== null ? $latestPipelineCommit - $bootEpoch : null,
+                    ];
+
+                    continue;
+                }
+            }
 
             // Alive-but-FROZEN self-heal: a supervisor whose heartbeat is stale FAR beyond a
             // normal generation is STUCK (post-restart-idle / deadlock), not working — the
@@ -171,6 +202,42 @@ class AtlasLoopKeepaliveCommand extends Command
     protected function supervisorPattern(string $campaignId): string
     {
         return 'atlas:loop:campaign.*'.preg_quote($campaignId, '/');
+    }
+
+    /**
+     * Process-start epoch of the REAL php supervisor for this campaign (the oldest matching one if
+     * more than one), or null if none / unparseable. Filters out shell watchers and the pgrep/ps
+     * helpers that merely mention the campaign id in their own command line, so a transient
+     * monitoring loop can never masquerade as the supervisor's boot time.
+     */
+    protected function supervisorStartedAt(string $campaignId): ?int
+    {
+        $p = new Process(['pgrep', '-f', $this->supervisorPattern($campaignId)], null, null, null, 10.0);
+        $p->run();
+        $oldest = null;
+        foreach (preg_split('/\s+/', trim($p->getOutput())) ?: [] as $pid) {
+            if ($pid === '' || ! ctype_digit($pid)) {
+                continue;
+            }
+            $cmdProc = new Process(['ps', '-p', $pid, '-o', 'command='], null, null, null, 10.0);
+            $cmdProc->run();
+            $command = trim($cmdProc->getOutput());
+            if (! str_contains($command, 'artisan atlas:loop:campaign')) {
+                continue; // not the supervisor invocation
+            }
+            if (preg_match('/(?:pgrep|\bgrep\b|\/zsh|\/bash|\bseq\b)/', $command) === 1) {
+                continue; // a shell watcher / matcher, not the php process
+            }
+            $lstart = new Process(['ps', '-p', $pid, '-o', 'lstart='], null, null, null, 10.0);
+            $lstart->run();
+            $ts = strtotime(trim($lstart->getOutput()));
+            if ($ts === false) {
+                continue;
+            }
+            $oldest = $oldest === null ? $ts : min($oldest, $ts);
+        }
+
+        return $oldest;
     }
 
     /** SIGTERM a FROZEN supervisor process so respawn() can start a clean one. */

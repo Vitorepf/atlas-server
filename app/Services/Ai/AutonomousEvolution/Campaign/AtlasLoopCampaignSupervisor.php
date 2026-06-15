@@ -828,22 +828,8 @@ final class AtlasLoopCampaignSupervisor
         return $this->clock !== null ? (int) ($this->clock)() : time();
     }
 
-    /**
-     * Prefixos de path que compõem o MOTOR do loop — quando um merge toca qualquer um
-     * deles, o supervisor vivo está rodando código velho do que importa e precisa
-     * reciclar. Arquivos FORA destes prefixos (alvos comuns que o loop melhora) NÃO
-     * disparam restart: o supervisor não depende deles em memória.
-     *
-     * @var list<string>
-     */
-    private const PIPELINE_PREFIXES = [
-        'app/Services/Ai/AutonomousEvolution/',
-        'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AdversarialProofPanelService.php',
-        'app/Models/AtlasLoop',
-        'config/atlas.php',
-        'database/migrations/2026_06_02_000200_complete_atlas_loop_runtime_schema.php',
-        'database/migrations/2026_06_12_000100_governed_merge_door_atlas_loop_proposals.php',
-    ];
+    // Pipeline-engine path prefixes live in AtlasLoopPipelineDrift::PREFIXES (single source,
+    // shared with the keepalive backstop) so the two drift checks can never diverge.
 
     /**
      * Os arquivos do MOTOR do loop alterados entre dois commits (bootHead..currentHead).
@@ -871,21 +857,9 @@ final class AtlasLoopCampaignSupervisor
             $changed = $exitCode === 0 ? $lines : [];
         }
 
-        $pipeline = [];
-        foreach ($changed as $file) {
-            $file = trim((string) $file);
-            if ($file === '') {
-                continue;
-            }
-            foreach (self::PIPELINE_PREFIXES as $prefix) {
-                if (str_starts_with($file, $prefix)) {
-                    $pipeline[] = $file;
-                    break;
-                }
-            }
-        }
-
-        return array_values(array_unique($pipeline));
+        // Single source of truth (shared with the out-of-process keepalive backstop) so the
+        // in-process and watchdog drift definitions can never diverge.
+        return AtlasLoopPipelineDrift::pipelineFiles($changed);
     }
 
     /**
