@@ -1828,6 +1828,12 @@ return [
         // broader-regression gate. Heavy multi-statement diffs are NOT rejected by any small-diff cap
         // for refactor objectives — the certification measure is complexity drop, not diff size.
         'framework_refactor_enabled' => (bool) env('ATLAS_LOOP_FRAMEWORK_REFACTOR_ENABLED', false),
+        // Cert-integrity lock for a future structural (extract-to-new-file) lane: a net-new candidate
+        // file has no baseline worst-method, so its complexity win is UNPROVABLE. Default ON fails the
+        // complexity verdict closed for any net-new file (blocks "god method relocated intact + cosmetic
+        // drop elsewhere = certify"). Byte-identical for all existing single-file/sibling paths (they
+        // never emit a net-new file in the census). Set false only to restore the legacy treat-as-no-change.
+        'complexity_new_file_fail_closed' => (bool) env('ATLAS_LOOP_COMPLEXITY_NEW_FILE_FAIL_CLOSED', true),
         // Min AST max-per-method cyclomatic for a framework target to be worth a heavy refactor.
         'framework_refactor_min_cyclomatic' => max(1, (int) env('ATLAS_LOOP_FRAMEWORK_REFACTOR_MIN_CYCLOMATIC', 10)),
         // Min real production callers (wired requirement): a refactor only pays back on code that runs.

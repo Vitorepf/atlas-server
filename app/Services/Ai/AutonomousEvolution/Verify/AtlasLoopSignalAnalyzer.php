@@ -428,10 +428,26 @@ final class AtlasLoopSignalAnalyzer
             return (int) $candidate['max_per_method'] < (int) $baseline['max_per_method'] && $aggOk;
         }
 
+        $newFileFailClosed = (bool) config('atlas.loop.complexity_new_file_fail_closed', true);
         $noFileRegressed = true;
         $atLeastOneDropped = false;
         foreach ($candFiles as $path => $candMax) {
-            $baseMax = (int) ($baseFiles[$path] ?? $candMax); // unknown baseline for a file => treat as no-change
+            if (! array_key_exists($path, $baseFiles)) {
+                // A net-new candidate file has NO baseline worst-method to compare against, so its
+                // complexity contribution is UNPROVABLE. The old `?? $candMax` treated it as no-change,
+                // which let a god method relocated INTACT into a new file certify on a cosmetic drop
+                // elsewhere (zero net simplification — reproduced). Fail closed: a refactor that
+                // introduces a new file must prove its win another way (a future structural lane with a
+                // per-method-identity census), never via the unknown-baseline default. Every EXISTING
+                // path (single-file allowed_files=[target]; multi-file-with-siblings) leaves the baseline
+                // census complete, so candFiles ⊆ baseFiles and this branch never fires for them.
+                if ($newFileFailClosed) {
+                    return false;
+                }
+                $baseMax = (int) $candMax; // legacy treat-as-no-change only when the lock is disabled
+            } else {
+                $baseMax = (int) $baseFiles[$path];
+            }
             if ((int) $candMax > $baseMax) {
                 $noFileRegressed = false;
             }

@@ -132,4 +132,50 @@ PHP;
         $bloatedDecisions = $bloated['total'] - $bloated['methods'];
         $this->assertGreaterThan($baselineDecisions, $bloatedDecisions, 'real added complexity raises decision points -> rejected even though split into methods');
     }
+
+    /**
+     * CERT-INTEGRITY LOCK (rank-2, prerequisite for a structural extract-to-new-file lane):
+     * a god method (cx20) relocated INTACT into a NEW file + a cosmetic 1-pt drop on the hub file
+     * is ZERO net simplification, yet the old `?? $candMax` (treat net-new file as no-change) let it
+     * certify. The fail-closed lock makes any net-new candidate file refute the complexity verdict.
+     */
+    public function test_new_file_lock_rejects_god_method_relocated_intact_to_new_file(): void
+    {
+        // hub.php had the god method (max 20); candidate moved it to new.php (still 20) and only
+        // cosmetically dropped the hub's own worst method to 6 — aggregate decisions did NOT rise.
+        $baseline = ['total' => 27, 'methods' => 2, 'max_per_method' => 20, 'per_file_max' => ['src/Hub.php' => 20]];
+        $candidate = ['total' => 26, 'methods' => 2, 'max_per_method' => 20, 'per_file_max' => ['src/Hub.php' => 6, 'src/New.php' => 20]];
+
+        config(['atlas.loop.complexity_new_file_fail_closed' => true]);
+        $this->assertFalse(
+            AtlasLoopSignalAnalyzer::complexityReduced($baseline, $candidate, true, true),
+            'a net-new file with no baseline worst-method must fail the complexity verdict closed'
+        );
+    }
+
+    public function test_new_file_lock_off_restores_legacy_treat_as_no_change(): void
+    {
+        $baseline = ['total' => 27, 'methods' => 2, 'max_per_method' => 20, 'per_file_max' => ['src/Hub.php' => 20]];
+        $candidate = ['total' => 26, 'methods' => 2, 'max_per_method' => 20, 'per_file_max' => ['src/Hub.php' => 6, 'src/New.php' => 20]];
+
+        config(['atlas.loop.complexity_new_file_fail_closed' => false]);
+        $this->assertTrue(
+            AtlasLoopSignalAnalyzer::complexityReduced($baseline, $candidate, true, true),
+            'flag OFF restores the legacy treat-net-new-as-no-change behaviour (the hole), proving the lock is what closes it'
+        );
+    }
+
+    public function test_new_file_lock_does_not_affect_single_file_extract(): void
+    {
+        // The proven cx19->cx4 single-file extract (helpers added, NO net-new file) must stay certified
+        // with the lock ON — byte-identical, the lock only bites net-new files.
+        $baseline = ['total' => 20, 'methods' => 1, 'max_per_method' => 19, 'per_file_max' => ['src/A.php' => 19]];
+        $candidate = ['total' => 22, 'methods' => 4, 'max_per_method' => 4, 'per_file_max' => ['src/A.php' => 4]];
+
+        config(['atlas.loop.complexity_new_file_fail_closed' => true]);
+        $this->assertTrue(
+            AtlasLoopSignalAnalyzer::complexityReduced($baseline, $candidate, true, true),
+            'a genuine single-file extract (no net-new file) is unaffected by the new-file lock'
+        );
+    }
 }
