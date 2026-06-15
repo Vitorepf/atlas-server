@@ -91,4 +91,49 @@ final class AtlasLoopStoreReclaimTest extends TestCase
         $this->assertSame(1, $res['reclaimed']);
         $this->assertSame(1, $res['pending']); // the reclaimed task is now pending + claimable
     }
+
+    /**
+     * INVARIANT: claim increments attempts; a reclaim of an INCOMPLETE attempt (still claimed/running,
+     * never reached completeTask) must REVERSE that increment. Otherwise repeated supervisor deaths
+     * march attempts to max and the task zombies (pending @ max => never claimable => loop idles).
+     * Regression for the 2h "alive but 0 grinds" production-stall: 5 tasks orphaned to attempts=2/2
+     * with zero real explorations.
+     */
+    public function test_reclaim_all_in_flight_gives_back_the_uncompleted_attempt(): void
+    {
+        $campaign = AtlasLoopCampaign::create([
+            'schema_version' => 'atlas.loop.campaign.v1', 'status' => AtlasLoopCampaign::STATUS_RUNNING,
+            'goal' => 'attempt-giveback proof', 'config' => [], 'max_seconds' => 60,
+        ]);
+        // A task orphaned on its FINAL attempt (claimed for attempt 2 of 2, supervisor died before grind).
+        $exhausted = $this->task((string) $campaign->id, 'running', now()->addHour());
+        $exhausted->update(['attempts' => 2, 'max_attempts' => 2]);
+
+        app(AtlasLoopStore::class)->reclaimAllInFlight((string) $campaign->id);
+
+        $fresh = $exhausted->fresh();
+        $this->assertSame('pending', $fresh->status);
+        $this->assertSame(1, (int) $fresh->attempts, 'the un-completed attempt is given back');
+        $this->assertTrue($fresh->attempts < $fresh->max_attempts, 'task is claimable again, not a zombie');
+    }
+
+    public function test_reclaim_expired_decrements_with_floor_zero(): void
+    {
+        $campaign = AtlasLoopCampaign::create([
+            'schema_version' => 'atlas.loop.campaign.v1', 'status' => AtlasLoopCampaign::STATUS_RUNNING,
+            'goal' => 'floor proof', 'config' => [], 'max_seconds' => 60,
+        ]);
+        // Lease-expired claimed task at attempts=1 => decrements to 0.
+        $one = $this->task((string) $campaign->id, 'claimed', now()->subMinute());
+        $one->update(['attempts' => 1]);
+        // A defensively-zero attempt must FLOOR at 0, never go negative.
+        $zero = $this->task((string) $campaign->id, 'running', now()->subMinute());
+        $zero->update(['attempts' => 0]);
+
+        $reclaimed = app(AtlasLoopStore::class)->reclaimExpiredTasks((string) $campaign->id);
+
+        $this->assertSame(2, $reclaimed);
+        $this->assertSame(0, (int) $one->fresh()->attempts);
+        $this->assertSame(0, (int) $zero->fresh()->attempts, 'floored at zero, no underflow');
+    }
 }

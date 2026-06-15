@@ -268,6 +268,12 @@ final class AtlasLoopStore
                 'status' => AtlasLoopTask::STATUS_PENDING,
                 'claimed_by' => null,
                 'lease_expires_at' => null,
+                // INVARIANT: claim increments attempts; an incomplete attempt (still claimed/running
+                // at reclaim time => never reached completeTask) must REVERSE that increment, else
+                // attempts leak upward on every orphaning and the task zombies (pending @ max => never
+                // claimable). Portable CASE works on pgsql + sqlite. Real failures finalize via
+                // completeTask(STATUS_FAILED) and never pass through here, so this cannot resurrect them.
+                'attempts' => DB::raw('CASE WHEN attempts > 0 THEN attempts - 1 ELSE 0 END'),
             ]);
     }
 
@@ -291,6 +297,11 @@ final class AtlasLoopStore
                 'claimed_by' => null,
                 'claimed_at' => null,
                 'lease_expires_at' => null,
+                // Same invariant as reclaimExpiredTasks: a supervisor death orphans in-flight tasks
+                // mid-attempt. Reverse the claim-time increment so the orphaned (never-completed)
+                // attempt is given back — otherwise repeated supervisor restarts (e.g. during a
+                // crash-loop or stall-debugging) march attempts to max and zombie the task.
+                'attempts' => DB::raw('CASE WHEN attempts > 0 THEN attempts - 1 ELSE 0 END'),
             ]);
     }
 
