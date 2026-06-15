@@ -96,6 +96,27 @@ final class AtlasLoopFunnelAndPathRewriteTest extends TestCase
         $this->assertSame($once, $twice, 'reescrever um diff já-correto é no-op');
     }
 
+    public function test_rewrite_preserves_hunk_body_lines_that_collide_with_header_markers(): void
+    {
+        // REGRESSION (#12): a removed source line `-- x` is emitted in the diff BODY as `--- x`, and an
+        // added `++ x` as `+++ x`. The rewrite used to mangle those body lines into file headers,
+        // corrupting the patch so `git apply` rejected a CORRECT certified refactor (silently retired).
+        // Header lines (before @@) must still map; hunk body lines (after @@) must be preserved verbatim.
+        $diff = "diff --git a/src/Foo.php b/src/Foo.php\n"
+            ."index 111..222 100644\n--- a/src/Foo.php\n+++ b/src/Foo.php\n"
+            ."@@ -1,3 +1,3 @@\n keep\n--- removed sql comment line\n+++ added incr line\n";
+
+        $out = $this->materializer()->rewriteDiffToTarget($diff, 'app/Services/X/Foo.php');
+
+        // The real HEADER (before @@) is mapped to the target.
+        $this->assertStringContainsString('--- a/app/Services/X/Foo.php', $out);
+        $this->assertStringContainsString('+++ b/app/Services/X/Foo.php', $out);
+        $this->assertStringNotContainsString('src/Foo.php', $out);
+        // The hunk BODY lines that LOOK like headers are preserved verbatim (NOT rewritten to a header).
+        $this->assertStringContainsString('--- removed sql comment line', $out);
+        $this->assertStringContainsString('+++ added incr line', $out);
+    }
+
     // ── 2. funnel instrumentation ────────────────────────────────────────────
 
     public function test_funnel_reports_drainable_and_retired_stages_with_reasons(): void

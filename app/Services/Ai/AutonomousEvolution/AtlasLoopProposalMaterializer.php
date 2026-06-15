@@ -177,31 +177,44 @@ final class AtlasLoopProposalMaterializer
         }
 
         $out = [];
+        $inHunk = false;
         foreach ($lines as $line) {
-            if (str_starts_with($line, 'diff --git ')) {
-                $out[] = 'diff --git a/'.$target.' b/'.$target;
+            // HUNK-AWARE: the header rewrites below must touch only the diff HEADER region, never a
+            // hunk BODY. Once `@@` opens a hunk, a removed source line `-- x` is emitted as `--- x` and
+            // an added `++ x` as `+++ x`; rewriting those as file headers corrupted the patch, so
+            // `git apply` rejected a CORRECT certified refactor and it was silently retired (false-reject).
+            if (str_starts_with($line, '@@ ')) {
+                $inHunk = true;
+                $out[] = $line;
 
                 continue;
             }
-            if (str_starts_with($line, '--- ')) {
-                $out[] = str_contains($line, '/dev/null') ? $line : '--- a/'.$target;
+            if (! $inHunk) {
+                if (str_starts_with($line, 'diff --git ')) {
+                    $out[] = 'diff --git a/'.$target.' b/'.$target;
 
-                continue;
-            }
-            if (str_starts_with($line, '+++ ')) {
-                $out[] = str_contains($line, '/dev/null') ? $line : '+++ b/'.$target;
+                    continue;
+                }
+                if (str_starts_with($line, '--- ')) {
+                    $out[] = str_contains($line, '/dev/null') ? $line : '--- a/'.$target;
 
-                continue;
-            }
-            if (str_starts_with($line, 'rename from ')) {
-                $out[] = 'rename from '.$target;
+                    continue;
+                }
+                if (str_starts_with($line, '+++ ')) {
+                    $out[] = str_contains($line, '/dev/null') ? $line : '+++ b/'.$target;
 
-                continue;
-            }
-            if (str_starts_with($line, 'rename to ')) {
-                $out[] = 'rename to '.$target;
+                    continue;
+                }
+                if (str_starts_with($line, 'rename from ')) {
+                    $out[] = 'rename from '.$target;
 
-                continue;
+                    continue;
+                }
+                if (str_starts_with($line, 'rename to ')) {
+                    $out[] = 'rename to '.$target;
+
+                    continue;
+                }
             }
             $out[] = $line;
         }
