@@ -178,4 +178,31 @@ PHP;
             'a genuine single-file extract (no net-new file) is unaffected by the new-file lock'
         );
     }
+
+    public function test_file_complexity_emits_per_method_census_without_changing_aggregates(): void
+    {
+        // Slice 1 of the structural-refactor lane: an ADDITIVE per-method census keyed by qualified
+        // identity, so a method RELOCATED into another class is a DISTINCT identity (A::run != B::run) —
+        // the anti-relocation foundation for a future structural complexity-drop gate. The existing flat
+        // aggregates must stay byte-identical.
+        $src = <<<'PHP'
+<?php
+final class A { public function run(int $n){ if($n>0){return 1;} return 0; } }
+final class B { public function run(int $n){ return 2; } }
+function foo(int $n){ if($n===1){return 1;} return 0; }
+$x = new class { public function ghost(){ if(true){return 1;} return 0; } };
+PHP;
+        $r = (new AtlasLoopSignalAnalyzer())->fileComplexity($src);
+
+        // Qualified identities: same bare name in different classes are DISTINCT (relocation trap closed).
+        $this->assertSame(2, $r['per_method']['A::run']);
+        $this->assertSame(1, $r['per_method']['B::run']);
+        $this->assertSame(2, $r['per_method']['\\foo']);
+        // Anonymous-class method has no stable identity -> excluded from per_method...
+        $this->assertCount(3, $r['per_method']);
+        // ...but still counted in the byte-identical flat aggregates (4 methods incl. ghost; total 7).
+        $this->assertSame(4, $r['methods']);
+        $this->assertSame(7, $r['total']);
+        $this->assertSame(2, $r['max_per_method']);
+    }
 }

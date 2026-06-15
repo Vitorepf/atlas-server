@@ -323,11 +323,11 @@ final class AtlasLoopSignalAnalyzer
      * unparseable file returns measured=false and zeroed numbers, so a downstream gate
      * reads the documented null/0 default and never crashes.
      *
-     * @return array{measured:bool, max_per_method:int, total:int, methods:int, worst_method:?string}
+     * @return array{measured:bool, max_per_method:int, total:int, methods:int, worst_method:?string, per_method:array<string,int>}
      */
     public function fileComplexity(string $source): array
     {
-        $none = ['measured' => false, 'max_per_method' => 0, 'total' => 0, 'methods' => 0, 'worst_method' => null];
+        $none = ['measured' => false, 'max_per_method' => 0, 'total' => 0, 'methods' => 0, 'worst_method' => null, 'per_method' => []];
         $stmts = $this->parse($source);
         if ($stmts === null) {
             return $none;
@@ -354,7 +354,35 @@ final class AtlasLoopSignalAnalyzer
             $methods++;
         }
 
-        return ['measured' => true, 'max_per_method' => $max, 'total' => $total, 'methods' => $methods, 'worst_method' => $worstMethod];
+        // Per-method identity census (ADDITIVE; nothing consumes it yet). Keyed by qualified identity
+        // (Class::method, or \function) so a method RELOCATED into a different class is a DISTINCT
+        // identity — a future structural-refactor gate can then prove the SPECIFIC moved method got
+        // strictly simpler instead of mistaking a pure relocation for a simplification. The flat walk
+        // above stays the single source of max/total/methods/worst_method (it also counts anonymous-
+        // class methods + free functions toward the aggregates); this census is a SECOND independent
+        // pass that changes none of those numbers. Anonymous classes (null name) are excluded — no
+        // stable identity — so they can never vacuously satisfy candidate[id] < baseline[id].
+        $perMethod = [];
+        /** @var list<Node\Stmt\ClassLike> $classes */
+        $classes = $this->finder->find($stmts, static fn (Node $node): bool => $node instanceof Node\Stmt\Class_ || $node instanceof Node\Stmt\Trait_ || $node instanceof Node\Stmt\Enum_);
+        foreach ($classes as $class) {
+            if ($class->name === null) {
+                continue;
+            }
+            $className = (string) $class->name;
+            foreach ($class->getMethods() as $method) {
+                $key = $className.'::'.(string) $method->name;
+                $perMethod[$key] = max($perMethod[$key] ?? 0, $this->cyclomaticScore($method));
+            }
+        }
+        /** @var list<Node\Stmt\Function_> $functions */
+        $functions = $this->finder->find($stmts, static fn (Node $node): bool => $node instanceof Node\Stmt\Function_);
+        foreach ($functions as $func) {
+            $key = '\\'.(string) $func->name;
+            $perMethod[$key] = max($perMethod[$key] ?? 0, $this->cyclomaticScore($func));
+        }
+
+        return ['measured' => true, 'max_per_method' => $max, 'total' => $total, 'methods' => $methods, 'worst_method' => $worstMethod, 'per_method' => $perMethod];
     }
 
     /**
