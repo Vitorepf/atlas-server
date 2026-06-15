@@ -128,13 +128,26 @@ final class AtlasLoopFunnelAndPathRewriteTest extends TestCase
             'proposal_hash' => 'h-ret-'.bin2hex(random_bytes(3)),
         ]);
         $retired->forceFill(['reviewed_at' => now()])->save();
+        // Uma PARQUEADA p/ o operador (reviewed_at set + decision=park) — NÃO é retired_stale (#11):
+        // é trabalho aguardando humano, não trabalho perdido; reportar como retired era desonesto.
+        $parked = AtlasLoopProposal::query()->create([
+            'campaign_id' => $campaign->id,
+            'schema_version' => 'atlas.loop.proposal.v1',
+            'objective' => 'parked one',
+            'target_path' => 'app/C.php',
+            'diff_text' => 'diff',
+            'proposal_hash' => 'h-park-'.bin2hex(random_bytes(3)),
+            'quality' => ['_operator_review' => ['decision' => 'park', 'status' => 'parked_for_operator_review']],
+        ]);
+        $parked->forceFill(['reviewed_at' => now()])->save();
 
         $snap = app(AtlasLoopFunnelService::class)->snapshot($campaign->id);
 
-        $this->assertSame(2, $snap['stages']['certified'], 'ambas certificadas');
+        $this->assertSame(3, $snap['stages']['certified'], 'as três certificadas');
         $this->assertSame(1, $snap['stages']['drainable'], 'só a não-revisada é drenável');
         $this->assertSame(0, $snap['stages']['merged'], 'nenhuma mergeada (never-merge default)');
-        $this->assertSame(1, $snap['branches']['retired_stale'], 'a revisada-não-mergeada é aposentada');
+        $this->assertSame(1, $snap['branches']['retired_stale'], 'só a aposentada de verdade conta como retired (a parqueada NÃO)');
+        $this->assertSame(1, $snap['branches']['parked_for_operator'], 'a parqueada é reportada como parked, não como retired');
         $this->assertIsString($snap['verdict']);
     }
 

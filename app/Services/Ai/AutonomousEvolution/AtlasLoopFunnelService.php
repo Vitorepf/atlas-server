@@ -42,7 +42,7 @@ final class AtlasLoopFunnelService
 
         $drainable = $this->drainableCount($campaignId);
         $merged = $this->mergedCount($campaignId);
-        $retiredStale = $this->retiredStaleCount($campaignId);
+        ['parked' => $parked, 'retired_stale' => $retiredStale] = $this->reviewedNotMergedBreakdown($campaignId);
 
         $stages = [
             'discovered' => $discovered,
@@ -60,6 +60,7 @@ final class AtlasLoopFunnelService
             'branches' => [
                 'pending_tasks' => $pendingTasks,
                 'retired_stale' => $retiredStale,
+                'parked_for_operator' => $parked,
             ],
             'reasons' => [
                 'tasks_by_status' => $tasks,
@@ -145,14 +146,37 @@ final class AtlasLoopFunnelService
         return (int) $q->count();
     }
 
-    private function retiredStaleCount(?string $campaignId): int
+    /**
+     * The reviewed-but-not-merged proposals, split by their _operator_review.decision: a `park`
+     * decision (forbidden-self-target / operator-review queue) is PARKED awaiting a human — it is NOT
+     * lost work and must not be reported as retired. Everything else (retire / value_gate_retired /
+     * canary_red_retired, or a bare legacy stamp) is a genuine retirement. Classified in PHP for
+     * portability (no DB-specific JSON SQL); the reviewed set is small (a funnel report, not a hot path).
+     *
+     * @return array{parked:int, retired_stale:int}
+     */
+    private function reviewedNotMergedBreakdown(?string $campaignId): array
     {
-        $q = DB::table('atlas_loop_proposals')->where('merged_to_main', false)->whereNotNull('reviewed_at');
+        $q = DB::table('atlas_loop_proposals')
+            ->where('merged_to_main', false)
+            ->whereNotNull('reviewed_at')
+            ->select('quality');
         if ($campaignId !== null) {
             $q->where('campaign_id', $campaignId);
         }
 
-        return (int) $q->count();
+        $parked = 0;
+        $retired = 0;
+        foreach ($q->get() as $row) {
+            $quality = is_string($row->quality) ? (json_decode($row->quality, true) ?: []) : (array) ($row->quality ?? []);
+            if ((string) data_get($quality, '_operator_review.decision', '') === 'park') {
+                $parked++;
+            } else {
+                $retired++;
+            }
+        }
+
+        return ['parked' => $parked, 'retired_stale' => $retired];
     }
 
     private function ratio(int $num, int $den): float
