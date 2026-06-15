@@ -2254,6 +2254,13 @@ return [
         // on, a proposal that errors the gate is dropped (fail-closed), never the task.
         'universal_certification' => (bool) env('ATLAS_LOOP_UNIVERSAL_CERTIFICATION', false),
 
+        // Auto-characterization-test lane (default OFF). When ON, a `characterization_test` objective
+        // (produced only by the coverage-gap feeder) routes to the mutant-killed verifier instead of
+        // the refactor cert: a provider-written test is kept only if it PASSES on correct code AND
+        // FAILS on the gate's surviving mutant. Raises refactor conversion by closing coverage gaps,
+        // never by lowering the mutation bar. Inert while OFF — the normal grind path is unchanged.
+        'characterization_test_lane_enabled' => (bool) env('ATLAS_LOOP_CHARACTERIZATION_TEST_LANE_ENABLED', false),
+
         // L6-11: predictive outcome bridge. When ON, every terminal loop grind records a
         // real prediction + observed outcome into the predictive-failure calibration
         // surface (predictive_failure_insertions), so atlas:predict metrics compute

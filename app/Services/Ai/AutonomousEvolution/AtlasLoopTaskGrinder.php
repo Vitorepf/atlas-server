@@ -122,7 +122,13 @@ final class AtlasLoopTaskGrinder
             // caminho de descoberta passa pelo MESMO gate; falha de certificação de uma
             // proposta a derruba (fail-closed), nunca derruba a task inteira.
             $universal = (bool) config('atlas.loop.universal_certification', false);
-            if (($frameworkTask || $universal) && $this->canGateProposals($explorerTask)) {
+            // CHARACTERIZATION-TEST lane: a provider-written test certifies via the mutant-killed
+            // verifier (not the refactor cert). Inert for every existing task — fires ONLY for the
+            // dedicated objective_kind (only the coverage-gap feeder produces it) AND behind a config
+            // flag, so the running soak's normal grind/cert path is byte-unchanged.
+            if ($this->isCharacterizationTestTask($payload) && $this->canGateProposals($explorerTask)) {
+                $result = $this->gateCharacterizationTestProposals($result, $explorerTask, $payload);
+            } elseif (($frameworkTask || $universal) && $this->canGateProposals($explorerTask)) {
                 $result = $this->gateImplementationProposals($result, $explorerTask, $payload, $frameworkTask);
             }
             $summary = $this->persister->persist($task, $workerId, $result);
@@ -422,6 +428,89 @@ final class AtlasLoopTaskGrinder
         $commands = AiStringListNormalizer::trimmedStrings(data_get($explorerTask, 'acceptance.commands', []));
 
         return $base !== '' && is_dir($base) && $commands !== [];
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function isCharacterizationTestTask(array $payload): bool
+    {
+        return trim((string) ($payload['objective_kind'] ?? '')) === 'characterization_test'
+            && (bool) config('atlas.loop.characterization_test_lane_enabled', false)
+            && trim((string) ($payload['characterization_target'] ?? '')) !== ''
+            && trim((string) ($payload['characterization_operator'] ?? '')) !== '';
+    }
+
+    /**
+     * Certify provider-written characterization tests via the mutant-killed verifier instead of the
+     * refactor cert: a kept proposal is one whose new test PASSES on the correct target and FAILS once
+     * the gate's surviving operator is re-applied. Mirrors {@see gateImplementationProposals}'s
+     * per-proposal materialize/clean structure; fail-closed (a verifier error drops just that proposal).
+     *
+     * @param  array<string,mixed>  $result
+     * @param  array<string,mixed>  $explorerTask
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function gateCharacterizationTestProposals(array $result, array $explorerTask, array $payload): array
+    {
+        $proposals = is_array($result['proposals'] ?? null) ? $result['proposals'] : [];
+        $baseWorkspace = (string) ($explorerTask['base_workspace'] ?? '');
+        $targetFile = trim((string) ($payload['characterization_target'] ?? ''));
+        $siblingTest = trim((string) ($payload['characterization_sibling_test'] ?? ''));
+        $operator = trim((string) ($payload['characterization_operator'] ?? ''));
+        $timeout = max(1, (int) ($payload['characterization_timeout_seconds'] ?? 120));
+        $verifier = app(AtlasLoopCharacterizationTestVerifier::class);
+
+        $kept = [];
+        $reports = [];
+        foreach ($proposals as $proposal) {
+            if (! is_array($proposal)) {
+                continue;
+            }
+            $diff = (string) ($proposal['diff_text'] ?? '');
+            try {
+                $gateWorkspace = $this->materializeGateWorkspace($baseWorkspace, $diff);
+                try {
+                    $verdict = $verifier->verify($gateWorkspace, $targetFile, $siblingTest, $operator, $timeout);
+                } finally {
+                    $this->removeGateWorkspace($baseWorkspace, $gateWorkspace);
+                }
+            } catch (Throwable $e) {
+                $reports[] = [
+                    'proposal_hash' => (string) ($proposal['proposal_hash'] ?? ''),
+                    'certified' => false,
+                    'reasons' => ['verifier_error:'.mb_substr($e->getMessage(), 0, 120)],
+                ];
+
+                continue; // fail-closed: an uncertifiable test proposal is dropped, never the whole task
+            }
+
+            $reports[] = [
+                'proposal_hash' => (string) ($proposal['proposal_hash'] ?? ''),
+                'certified' => (bool) ($verdict['certified'] ?? false),
+                'reasons' => [(string) ($verdict['reason'] ?? '')],
+                'characterization' => $verdict,
+            ];
+            if ((bool) ($verdict['certified'] ?? false)) {
+                $proposal['characterization_certification'] = $verdict;
+                $kept[] = $proposal;
+            }
+        }
+
+        $result['proposals'] = $kept;
+        $result['proposals_certified_for_review'] = count($kept);
+        $result['characterization_test_certification'] = [
+            'schema_version' => 'atlas.loop.characterization_test_certification.v1.summary',
+            'proposals_in' => count($proposals),
+            'proposals_certified' => count($kept),
+            'target' => $targetFile,
+            'sibling_test' => $siblingTest,
+            'operator' => $operator,
+            'reports' => $reports,
+        ];
+
+        return $result;
     }
 
     /**
