@@ -622,26 +622,21 @@ final class AtlasEvolutionScenarioExplorer
      */
     private function diffText(string $workspace, int $max = 20000): string
     {
-        $diff = new Process(['git', 'diff', '--no-ext-diff'], $workspace, null, null, 30.0);
+        // Capture a VALID, applyable unified diff that includes NEW (untracked) files. A multi-file
+        // refactor CREATES files (e.g. an extracted class), and both the cert gate and the merge
+        // apply this diff with `git apply`. The previous version hand-built the new-file hunk as
+        // `--- /dev/null\n+++ b/<path>\n<raw contents>` — MALFORMED: no `diff --git`/`new file mode`/
+        // `index`/`@@` headers and no `+` line prefixes — so `git apply` silently dropped the new
+        // file => its class never existed in the gate workspace => class-not-found => EVERY multi-file
+        // refactor was rejected. Let GIT generate the patch: stage everything (incl untracked) so the
+        // diff carries proper creation hunks, capture index-vs-HEAD, then RESET the index so the
+        // judge's untracked census (`git ls-files --others`) is unaffected (a mixed reset leaves the
+        // working tree untouched — the candidate's files remain on disk, just unstaged again).
+        (new Process(['git', 'add', '-A'], $workspace, null, null, 30.0))->run();
+        $diff = new Process(['git', 'diff', '--cached', '--no-ext-diff'], $workspace, null, null, 30.0);
         $diff->run();
         $text = (string) $diff->getOutput();
-
-        // STAGED edits too — a provider that `git add`s its work would otherwise produce an EMPTY
-        // diff_text, and AtlasLoopAutoMergeService applies the persisted diff_text at merge: an empty
-        // diff merges nothing, silently dropping the certified win.
-        $cachedDiff = new Process(['git', 'diff', '--cached', '--no-ext-diff'], $workspace, null, null, 30.0);
-        $cachedDiff->run();
-        $text .= (string) $cachedDiff->getOutput();
-
-        $others = new Process(['git', 'ls-files', '--others', '--exclude-standard'], $workspace, null, null, 30.0);
-        $others->run();
-        foreach (preg_split('/\R/', trim((string) $others->getOutput())) ?: [] as $path) {
-            $path = trim($path);
-            if ($path === '' || ! is_file($workspace.'/'.$path)) {
-                continue;
-            }
-            $text .= "\n--- /dev/null\n+++ b/".$path."\n".(string) file_get_contents($workspace.'/'.$path);
-        }
+        (new Process(['git', 'reset', '-q'], $workspace, null, null, 30.0))->run();
 
         return strlen($text) <= $max ? $text : substr($text, 0, $max).'…';
     }

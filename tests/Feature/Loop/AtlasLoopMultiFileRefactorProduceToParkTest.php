@@ -45,6 +45,9 @@ final class AtlasLoopMultiFileRefactorProduceToParkTest extends TestCase
             }
         }
         $this->evidencePath = storage_path('framework/testing/mf-produce-park-l410-'.Str::uuid().'.json');
+        // Tests the OBRA produce-to-park route — pin the normal-lane flag OFF so it is hermetic
+        // regardless of the operator's live .env (Path B via_normal_lane ON).
+        config(['atlas.loop.multi_file_refactor_via_normal_lane' => false]);
     }
 
     protected function tearDown(): void

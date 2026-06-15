@@ -41,6 +41,9 @@ final class AtlasLoopMultiFileRefactorRoutingTest extends TestCase
             }
         }
         $this->evidencePath = storage_path('framework/testing/multi-file-refactor-l410-'.Str::uuid().'.json');
+        // This suite tests the OBRA route specifically — pin the normal-lane flag OFF so it is
+        // hermetic regardless of the operator's live .env (where Path B's via_normal_lane is ON).
+        config(['atlas.loop.multi_file_refactor_via_normal_lane' => false]);
     }
 
     protected function tearDown(): void
