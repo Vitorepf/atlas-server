@@ -44,7 +44,12 @@ final class ContextPackStalenessClassifier
             default => 'fresh',
         };
 
-        $score = round(min(1.0, max($ageRatio / 4, $lastQueryAgeRatio / 4, $changedFiles / 200)), 3);
+        // Score is the DRIFT magnitude over its two axes only (index age + changed files). The
+        // last_query_age signal elevates SEVERITY (the third ordered rule in the match above) but is
+        // deliberately NOT a score axis — a pack that simply has not been queried recently has not
+        // drifted. (Regression guard: an auto-merge once folded $lastQueryAgeRatio/4 into this max(),
+        // which broke testNegativeAndMissingSignalsAreClampedAndMaxFreshDefaultsApply: score 0.0 -> 0.26.)
+        $score = round(min(1.0, max($ageRatio / 4, $changedFiles / 200)), 3);
 
         $recommendedAction = match ($severity) {
             'fresh' => 'none',
