@@ -392,7 +392,7 @@ final class AtlasLoopSignalAnalyzer
      * are skipped (fail-open). Returns measured=true iff at least one file parsed.
      *
      * @param  list<string>  $absPaths
-     * @return array{measured:bool, max_per_method:int, total:int, files:int, methods:int, per_file_max:array<string,int>}
+     * @return array{measured:bool, max_per_method:int, total:int, files:int, methods:int, per_file_max:array<string,int>, per_method:array<string,int>}
      */
     public function aggregateComplexity(array $absPaths): array
     {
@@ -401,6 +401,7 @@ final class AtlasLoopSignalAnalyzer
         $files = 0;
         $methods = 0;
         $perFileMax = [];
+        $perMethod = [];
         foreach ($absPaths as $abs) {
             if (! is_file($abs)) {
                 continue;
@@ -414,6 +415,16 @@ final class AtlasLoopSignalAnalyzer
                 continue;
             }
             $max = max($max, $one['max_per_method']);
+            // Union the per-method identity census ACROSS the cluster, keyed by qualified identity
+            // (Class::method / \func). Slice 2 of the structural-refactor lane — ADDITIVE; nothing
+            // consumes it yet. MAX-per-identity is defensive: a qualified identity should be unique
+            // across a file set, but two same-named methods in distinct classes stay distinct keys, so
+            // the union never collapses A::run and B::run. A future structural gate compares this map
+            // baseline-vs-candidate per identity to prove a SPECIFIC method got strictly simpler IN
+            // PLACE — never certifying a pure relocation (a moved-intact method is a DISTINCT identity).
+            foreach (($one['per_method'] ?? []) as $identity => $score) {
+                $perMethod[$identity] = max($perMethod[$identity] ?? 0, (int) $score);
+            }
             // PER-FILE worst-method, so a multi-file cluster verdict can be per-file (not collapsed to
             // a single cluster-global max — which falsely rejected a real hub simplification whenever
             // the cluster's global-worst method lived in an UNTOUCHED sibling). Keyed by abs path; the
@@ -428,7 +439,7 @@ final class AtlasLoopSignalAnalyzer
             $files++;
         }
 
-        return ['measured' => $files > 0, 'max_per_method' => $max, 'total' => $total, 'files' => $files, 'methods' => $methods, 'per_file_max' => $perFileMax];
+        return ['measured' => $files > 0, 'max_per_method' => $max, 'total' => $total, 'files' => $files, 'methods' => $methods, 'per_file_max' => $perFileMax, 'per_method' => $perMethod];
     }
 
     /**

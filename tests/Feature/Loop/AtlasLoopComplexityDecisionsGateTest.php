@@ -205,4 +205,27 @@ PHP;
         $this->assertSame(7, $r['total']);
         $this->assertSame(2, $r['max_per_method']);
     }
+
+    public function test_aggregate_complexity_unions_per_method_across_files(): void
+    {
+        // Slice 2 of the structural lane: aggregateComplexity unions the per-method census ACROSS the
+        // cluster, keyed by qualified identity, so a future structural gate can compare a SPECIFIC
+        // method baseline-vs-candidate. Same bare name in different classes stays DISTINCT (HubA::run
+        // != HubB::run) — the anti-relocation foundation. Existing flat aggregates stay byte-identical.
+        $fileA = "<?php\nfinal class HubA { public function run(int \$n){ if(\$n>0){return 1;} return 0; } public function tiny(){ return 1; } }\n";
+        $fileB = "<?php\nfinal class HubB { public function run(int \$n){ if(\$n===1){return 1;} if(\$n===2){return 2;} return 0; } }\n";
+
+        $agg = (new AtlasLoopSignalAnalyzer())->aggregateComplexity([$this->tmp($fileA), $this->tmp($fileB)]);
+
+        // Unioned across both files; qualified identities are distinct (no collapse of the two run()s).
+        $this->assertSame(2, $agg['per_method']['HubA::run']);
+        $this->assertSame(1, $agg['per_method']['HubA::tiny']);
+        $this->assertSame(3, $agg['per_method']['HubB::run']);
+        $this->assertCount(3, $agg['per_method']);
+        // Byte-identical flat aggregates: max=worst(HubB::run=3), total=2+1+3, methods=3, files=2.
+        $this->assertSame(3, $agg['max_per_method']);
+        $this->assertSame(6, $agg['total']);
+        $this->assertSame(3, $agg['methods']);
+        $this->assertSame(2, $agg['files']);
+    }
 }
