@@ -156,6 +156,28 @@ final class AtlasLoopSemanticImplementationCertifier
                 $reasons[] = 'complexity_gate:behavior_anchor_no_assertions';
             }
         }
+
+        // ≥9 QUALITY BAR (operator directive: "tudo numa nota de no mínimo 9"). Grade the verified
+        // refactor on its measurable axes (behavior preserved, scope clean, real cx drop, no net
+        // branches added). OBSERVABLE always (recorded in the receipt); a GATE only when
+        // quality_bar_gate_enabled is ON (default OFF => byte-identical — the score is computed but
+        // never adds a reason). Only meaningful for complexity-proof refactors (cx before/after exist).
+        $qualityGrade = null;
+        if ($this->complexityProofRequired($targetAcceptance) && is_array($complexityProof)) {
+            $qualityGrade = (new AtlasLoopQualityGrader())->grade([
+                'behavior_preserved' => (bool) data_get($deterministicGate, 'report.holdouts.target_frozen_passed', false),
+                'scope_clean' => $scopeViolation === [],
+                'cx_before' => (int) ($complexityProof['baseline_max'] ?? 0),
+                'cx_after' => (int) ($complexityProof['candidate_max'] ?? 0),
+                'total_branches_before' => (int) ($complexityProof['baseline_total'] ?? 0),
+                'total_branches_after' => (int) ($complexityProof['candidate_total'] ?? 0),
+                'coverage_added' => false,
+            ]);
+            if ((bool) config('atlas.loop.quality_bar_gate_enabled', false) && ! ($qualityGrade['passes_bar'] ?? false)) {
+                $reasons[] = 'quality_bar:below_min:'.$qualityGrade['score'];
+            }
+        }
+
         $reasons = AiStringListNormalizer::uniqueStrings($reasons);
         $certified = $reasons === [];
         $receipt = [
@@ -174,6 +196,7 @@ final class AtlasLoopSemanticImplementationCertifier
             'cross_file_consumer_gate' => $crossFileConsumers,
             'provider_refuters' => $providerRefuters,
             'complexity_proof' => $complexityProof,
+            'quality_grade' => $qualityGrade,
             'evidence' => [
                 'target_acceptance_passed' => (bool) data_get($deterministicGate, 'report.holdouts.target_frozen_passed', false),
                 'complexity_proof_required' => $this->complexityProofRequired($targetAcceptance),

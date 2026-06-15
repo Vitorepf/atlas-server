@@ -1026,6 +1026,10 @@ return [
         'provider_projection_max_lines' => (int) env('ATLAS_AI_PROVIDER_PROJECTION_MAX_LINES', 80),
         'provider_projection_memory_limit' => (int) env('ATLAS_AI_PROVIDER_PROJECTION_MEMORY_LIMIT', 18),
         'provider_projection_memory_chars' => (int) env('ATLAS_AI_PROVIDER_PROJECTION_MEMORY_CHARS', 220),
+        // When true, a nested claude projection (whose canonical context already loads from a
+        // managed ancestor CLAUDE.md) emits only its Manual Notes instead of duplicating the
+        // Operating Contract / Governance / Provider-Safe Memory / Pointers blocks every turn.
+        'provider_projection_lean_nested' => (bool) env('ATLAS_AI_PROVIDER_PROJECTION_LEAN_NESTED', false),
         'provider_projection_audit_purge' => [
             'require_operator' => (bool) env('ATLAS_AI_PROVIDER_PROJECTION_AUDIT_PURGE_REQUIRE_OPERATOR', false),
             'operator_header' => env('ATLAS_AI_PROVIDER_PROJECTION_AUDIT_PURGE_OPERATOR_HEADER', 'X-Atlas-Operator'),
@@ -1964,6 +1968,12 @@ return [
         // quality is — set the budget high. iterate_to_green_max = max re-invocations per attempt.
         'iterate_to_green_enabled' => (bool) env('ATLAS_LOOP_ITERATE_TO_GREEN_ENABLED', false),
         'iterate_to_green_max' => max(1, (int) env('ATLAS_LOOP_ITERATE_TO_GREEN_MAX', 3)),
+        // ≥9 QUALITY BAR (AtlasLoopQualityGrader). The certifier always RECORDS the 0-10 grade in the
+        // receipt (observability); quality_bar_gate_enabled makes it a GATE (a verified refactor below
+        // the bar is refuted). Default OFF => byte-identical (grade computed, never gates). quality_bar
+        // is the threshold (operator directive: 9). Raise once the loop reliably clears it.
+        'quality_bar_gate_enabled' => (bool) env('ATLAS_LOOP_QUALITY_BAR_GATE_ENABLED', false),
+        'quality_bar' => (float) env('ATLAS_LOOP_QUALITY_BAR', 9.0),
 
         // OBRA REPAIR (eixo-3, the autonomy multiplier) — when ON, a node whose DELIVERY fails
         // certification is RETRIED with label-only failure feedback (bounded), instead of halting on
