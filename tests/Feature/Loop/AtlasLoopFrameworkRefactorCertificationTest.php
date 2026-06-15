@@ -122,6 +122,82 @@ PHP;
         $this->assertTrue($receipt['complexity_proof']['reduced']);
     }
 
+    public function test_match_map_refactor_certifies_with_decision_aware_flag_ON(): void
+    {
+        // PROOF the refinement is a PURE WIN: with the refactor-decision-aware flag ON, the match-map
+        // simplification (whose added lines have a COVERED relocated literal but NO decision operator)
+        // CERTIFIES via the cosmetic-fallback KILL tier — instead of the pre-refinement hard
+        // mutation_adequacy_gate:no_applicable_mutation that FALSELY rejected it. The complexity drop +
+        // frozen behaviour test still both hold, so the conjunction certifies.
+        config(['atlas.loop.mutation_adequacy_gate.refactor_decision_aware' => true]);
+        config(['atlas.loop.mutation_adequacy_gate.enabled' => true]);
+
+        $this->workspace = $this->workspaceWithRefactor($this->highComplexity(), $this->lowComplexity());
+
+        $receipt = app(AtlasLoopSemanticImplementationCertifier::class)->certify(
+            $this->workspace,
+            $this->refactorAcceptance(),
+            ['objective' => 'Refactor Classifier to reduce complexity', 'allowed_files' => ['src/Classifier.php']],
+        );
+
+        $this->assertTrue($receipt['certified'], 'flag ON must still certify the match-map refactor: '.json_encode($receipt['reasons']));
+        $this->assertTrue($receipt['complexity_proof']['reduced']);
+        // The mutation gate certified via a KILLED cosmetic (the relocated literal proves the test
+        // exercises the new code), NOT a hard no_applicable_mutation reject.
+        $this->assertSame('mutation_killed', data_get($receipt, 'mutation_adequacy_gate.status'));
+        $this->assertTrue(data_get($receipt, 'mutation_adequacy_gate.certified'));
+        $this->assertNotContains('mutation_adequacy_gate:no_applicable_mutation', $receipt['reasons']);
+    }
+
+    public function test_heavy_extraction_refactor_certifies_with_decision_aware_flag_ON(): void
+    {
+        // The same PURE-WIN proof for the HEAVY (>15-line) dispatch-table extraction: with the flag ON
+        // it certifies via the cosmetic-fallback tier rather than the pre-refinement false reject.
+        config(['atlas.loop.mutation_adequacy_gate.refactor_decision_aware' => true]);
+        config(['atlas.loop.mutation_adequacy_gate.enabled' => true]);
+
+        $heavyCandidate = <<<'PHP'
+<?php
+final class Classifier
+{
+    /** @var array<int,string> */
+    private array $labels = [
+        0 => 'zero',
+        1 => 'one',
+        2 => 'two',
+        3 => 'three',
+        4 => 'four',
+        5 => 'five',
+        6 => 'six',
+        7 => 'seven',
+        8 => 'eight',
+    ];
+
+    public function classify(int $n): string
+    {
+        return $this->labels[$n] ?? $this->fallback();
+    }
+
+    private function fallback(): string
+    {
+        return 'many';
+    }
+}
+PHP;
+        $this->workspace = $this->workspaceWithRefactor($this->highComplexity(), $heavyCandidate);
+
+        $receipt = app(AtlasLoopSemanticImplementationCertifier::class)->certify(
+            $this->workspace,
+            $this->refactorAcceptance(),
+            ['objective' => 'Refactor Classifier — heavy extraction', 'allowed_files' => ['src/Classifier.php']],
+        );
+
+        $this->assertTrue($receipt['certified'], 'flag ON must still certify the heavy refactor: '.json_encode($receipt['reasons']));
+        $this->assertTrue($receipt['complexity_proof']['reduced']);
+        $this->assertTrue(data_get($receipt, 'mutation_adequacy_gate.certified'));
+        $this->assertNotContains('mutation_adequacy_gate:no_applicable_mutation', $receipt['reasons']);
+    }
+
     public function test_not_certified_when_a_refactor_breaks_a_real_test(): void
     {
         // candidate has WRONG behavior (everything -> 'zero'): the real frozen test goes RED, so the

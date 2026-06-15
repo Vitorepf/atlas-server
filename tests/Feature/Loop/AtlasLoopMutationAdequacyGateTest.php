@@ -171,8 +171,17 @@ CMD;
         $this->assertSame(1, $on['mutants_survived']);
     }
 
-    public function test_refactor_contract_rejects_when_no_decision_mutant_producible(): void
+    public function test_refactor_contract_skips_when_only_an_unasserted_relocated_literal_is_producible(): void
     {
+        // REFINED CONTRACT (cosmetic-fallback tier, 2026-06-14): the added lines extract a helper that
+        // ONLY returns a string literal the test never asserts. No decision mutant is producible, so the
+        // gate falls back to a COSMETIC mutant CONFINED to the added line. That relocated literal SURVIVES
+        // (the test never calls label()), and a relocated UNASSERTED literal is NOT evidence of an empty
+        // test — this is the original keystone insight. PRE-REFINEMENT this hard-rejected
+        // (no_applicable_mutation), falsely killing a behaviour-preserving refactor; now it SKIP-certifies
+        // (skipped_cosmetic_survived). The deterministic complexity gate + frozen behaviour test +
+        // consumer/refuter gates carry the proof. The true bar is untouched: a SURVIVING DECISION mutant
+        // still rejects (see the test above), and the cosmetic never lands on old code (position-confined).
         $this->workspace = $this->refactorWorkspaceWithOnlyRelocatedLiteral();
 
         $on = app(AtlasLoopMutationAdequacyGateService::class)->evaluate(
@@ -182,22 +191,31 @@ CMD;
             ['enabled' => true, 'refactor_decision_aware' => true],
         );
 
-        // Added lines contain ONLY a relocated string literal and no decision operator: with cosmetic
-        // operators skipped there is nothing to sample, so the gate fails closed (no free pass).
-        $this->assertSame('no_applicable_mutation', $on['status']);
-        $this->assertFalse($on['certified']);
-        $this->assertSame(['no_applicable_mutation'], $on['blockers']);
-        $this->assertSame('none', $on['decisive_operator_family']);
-        $this->assertSame(0, $on['mutants_sampled']);
+        $this->assertSame('skipped_cosmetic_survived', $on['status']);
+        $this->assertTrue($on['certified'], 'a relocated unasserted literal is not an empty-test signal');
+        $this->assertSame([], $on['blockers']);
+        $this->assertSame('cosmetic', $on['decisive_operator_family']);
+        $this->assertSame(1, $on['mutants_sampled']);
+        $this->assertSame(0, $on['mutants_killed']);
+        $this->assertSame(1, $on['mutants_survived']);
+        $this->assertSame('return_string_literal', data_get($on, 'mutants.0.operator'));
+        $this->assertFalse(data_get($on, 'mutants.0.killed'));
     }
 
     public function test_refactor_contract_never_mutates_decision_operator_in_old_unchanged_code(): void
     {
         // REGRESSION (adversarial panel, 2026-06-15): the ONLY covered `===` lives in OLD, UNCHANGED
         // classify(); the refactor adds ONLY an unasserted relocated literal, so the diff's added
-        // lines contain NO decision operator. A correct decision-aware gate must fail CLOSED
-        // (no_applicable_mutation) and must NOT reach back into the old classify() `===` to
-        // manufacture a kill — that would FALSELY certify a refactor whose new code is untested.
+        // lines contain NO decision operator. The load-bearing invariant — the gate must NEVER reach
+        // back into the old classify() `===` to manufacture a kill — is STILL ENFORCED here.
+        //
+        // REFINED CONTRACT (cosmetic-fallback tier, 2026-06-14): the verdict is no longer the hard
+        // no_applicable_mutation reject; with no decision mutant the gate falls back to a COSMETIC
+        // mutant CONFINED to the NEW added line (`return 'brand-new-untested-relocated-literal';`).
+        // That literal is unasserted, so the cosmetic SURVIVES -> skipped_cosmetic_survived (certified).
+        // The anti-false-certify guarantee is unchanged and is the heart of this test: the sampled
+        // mutant is a `return_string_literal` on the NEW line that SURVIVED (killed=0) — it did NOT
+        // become a `strict_equals` kill on the old covered `===`. mutation_killed must NEVER appear.
         $this->workspace = $this->refactorWorkspaceWithDecisionOnlyInOldCode();
 
         $on = app(AtlasLoopMutationAdequacyGateService::class)->evaluate(
@@ -207,11 +225,20 @@ CMD;
             ['enabled' => true, 'refactor_decision_aware' => true],
         );
 
-        $this->assertSame('no_applicable_mutation', $on['status'], 'must NOT mutate the covered === in OLD unchanged code');
-        $this->assertFalse($on['certified']);
-        $this->assertSame(['no_applicable_mutation'], $on['blockers']);
-        $this->assertSame(0, $on['mutants_sampled']);
-        $this->assertSame('none', $on['decisive_operator_family']);
+        // The keystone anti-false-certify assertions: NEVER a kill manufactured from old code.
+        $this->assertNotSame('mutation_killed', $on['status'], 'must NOT mutate the covered === in OLD unchanged code');
+        $this->assertSame(0, $on['mutants_killed'], 'no kill may come from the old covered === line');
+        $this->assertNotSame('decision', $on['decisive_operator_family'], 'the old === must never be the deciding mutant');
+
+        // The refined SKIP outcome (a relocated unasserted literal on the new line, position-confined).
+        $this->assertSame('skipped_cosmetic_survived', $on['status']);
+        $this->assertTrue($on['certified']);
+        $this->assertSame([], $on['blockers']);
+        $this->assertSame('cosmetic', $on['decisive_operator_family']);
+        $this->assertSame(1, $on['mutants_sampled']);
+        $this->assertSame(1, $on['mutants_survived']);
+        $this->assertSame('return_string_literal', data_get($on, 'mutants.0.operator'));
+        $this->assertFalse(data_get($on, 'mutants.0.killed'));
     }
 
     public function test_non_refactor_contract_is_byte_identical_when_flag_on(): void
@@ -340,13 +367,236 @@ CMD;
         $this->assertSame(1, $on['mutants_killed']);
     }
 
+    public function test_refactor_contract_certifies_via_killed_cosmetic_when_no_decision_mutant_exists(): void
+    {
+        // KEYSTONE — cosmetic-fallback KILL (2026-06-14): a match-map extraction whose added lines carry
+        // NO decision operator (an array literal + a `?? ` lookup), but DO carry a COVERED string literal
+        // the test asserts (classify(0) === 'zero'). No decision mutant is producible, so the gate falls
+        // back to a COSMETIC mutant CONFINED to the added line; flipping the relocated 'zero' turns the
+        // test RED -> the cosmetic is KILLED -> mutation_killed/certified. This is the exact class the
+        // pre-refinement hard no_applicable_mutation FALSELY rejected (the 2 broken framework-refactor
+        // certification tests). The kill PROVES the test exercises the new code via the relocated literal.
+        $this->workspace = $this->refactorWorkspaceWithCoveredRelocatedLiteralNoDecision();
+
+        $on = app(AtlasLoopMutationAdequacyGateService::class)->evaluate(
+            $this->workspace,
+            $this->refactorAcceptance(),
+            ['src/Calc.php'],
+            ['enabled' => true, 'refactor_decision_aware' => true],
+        );
+
+        $this->assertSame('mutation_killed', $on['status']);
+        $this->assertTrue($on['certified']);
+        $this->assertSame([], $on['blockers']);
+        $this->assertSame('cosmetic', $on['decisive_operator_family']);
+        $this->assertSame(1, $on['mutants_sampled']);
+        $this->assertSame(1, $on['mutants_killed']);
+        $this->assertSame(0, $on['mutants_survived']);
+        $this->assertTrue(data_get($on, 'mutants.0.killed'));
+    }
+
+    public function test_refactor_contract_skips_when_no_mutant_is_producible_at_all(): void
+    {
+        // TIER 3 — no mutant at all (2026-06-14): an extract-method refactor whose added lines contain
+        // NEITHER a decision operator NOR a string literal (pure arithmetic delegation + a new helper
+        // signature). With nothing to sample the gate SKIP-certifies (skipped_no_refactor_mutant): the
+        // deterministic complexity gate + frozen behaviour test + consumer/refuter gates carry the proof.
+        // This was a hard no_applicable_mutation reject before the refinement.
+        $this->workspace = $this->refactorWorkspaceWithNoProducibleMutant();
+
+        $on = app(AtlasLoopMutationAdequacyGateService::class)->evaluate(
+            $this->workspace,
+            $this->refactorAcceptance(),
+            ['src/Calc.php'],
+            ['enabled' => true, 'refactor_decision_aware' => true],
+        );
+
+        $this->assertSame('skipped_no_refactor_mutant', $on['status']);
+        $this->assertTrue($on['certified']);
+        $this->assertSame([], $on['blockers']);
+        $this->assertSame('none', $on['decisive_operator_family']);
+        $this->assertSame(0, $on['mutants_sampled']);
+        $this->assertSame(0, $on['mutants_killed']);
+        $this->assertSame(0, $on['mutants_survived']);
+    }
+
+    public function test_refactor_contract_rejects_surviving_decision_on_a_later_file_despite_killed_cosmetic_first(): void
+    {
+        // REGRESSION — HOLE 3, FALSE-CERTIFY via multi-file ordering + max_mutants=1 (false-certify probe,
+        // 2026-06-14): a two-file refactor where the FIRST diffed file (src/A.php) carries a KILLED
+        // cosmetic (a relocated COVERED literal, NO decision op) and the SECOND file (src/B.php) carries a
+        // SURVIVING uncovered DECISION branch (a `===` the test never reaches). The pre-fix single-pass
+        // loop incremented ONE shared $sampled counter for both families, so the cosmetic kill on A
+        // consumed the live max_mutants=1 budget and `break`ed BEFORE B's surviving decision was sampled
+        // -> mutation_killed/certified for untested decision code, decided purely by git's file order.
+        // The two-pass fix gives DECISION mutants absolute priority across ALL targets, so B's surviving
+        // `===` is found in BOTH orderings and the refactor is hard-rejected.
+        $svc = app(AtlasLoopMutationAdequacyGateService::class);
+
+        // A FIRST, B SECOND (the order that used to false-certify).
+        $this->workspace = $this->refactorTwoFileWorkspaceCosmeticThenSurvivingDecision();
+        $aFirst = $svc->evaluate(
+            $this->workspace,
+            $this->refactorAcceptance(['php tests/Test.php']),
+            ['src/A.php', 'src/B.php'],
+            ['enabled' => true, 'refactor_decision_aware' => true],
+        );
+        $this->assertSame('mutation_survived', $aFirst['status'], 'a surviving decision on a later file must reject even when an earlier file has a killed cosmetic');
+        $this->assertFalse($aFirst['certified']);
+        $this->assertSame(['mutation_survived'], $aFirst['blockers']);
+        $this->assertSame('decision', $aFirst['decisive_operator_family']);
+        $this->assertSame(0, $aFirst['mutants_killed']);
+        $this->assertSame(1, $aFirst['mutants_survived']);
+        $this->assertSame('src/B.php', data_get($aFirst, 'mutants.0.file'), 'the deciding mutant must be the surviving decision on B, not the cosmetic on A');
+
+        (new Process(['rm', '-rf', $this->workspace], null, null, null, 30.0))->run();
+
+        // B FIRST, A SECOND — must ALSO reject (order independence).
+        $this->workspace = $this->refactorTwoFileWorkspaceCosmeticThenSurvivingDecision();
+        $bFirst = $svc->evaluate(
+            $this->workspace,
+            $this->refactorAcceptance(['php tests/Test.php']),
+            ['src/B.php', 'src/A.php'],
+            ['enabled' => true, 'refactor_decision_aware' => true],
+        );
+        $this->assertSame('mutation_survived', $bFirst['status'], 'the verdict must be order-independent');
+        $this->assertFalse($bFirst['certified']);
+        $this->assertSame('decision', $bFirst['decisive_operator_family']);
+    }
+
+    public function test_refactor_contract_rejects_surviving_decision_on_a_later_file_despite_killed_decision_first(): void
+    {
+        // REGRESSION — HOLE 4 / Fix D, FALSE-CERTIFY via decision-vs-decision multi-file ordering +
+        // max_mutants=1 (false-certify probe ROUND 2, 2026-06-14): the HOLE-3 two-pass fix gave DECISION
+        // mutants priority over COSMETIC ones, but PASS 1 still `return`ed mutation_killed on the FIRST
+        // decision mutant it killed. So a two-file refactor where the FIRST diffed file (src/A.php) has a
+        // COVERED (killed) decision and the SECOND file (src/B.php) has an UNCOVERED (surviving) decision
+        // certified A-first (the kill consumed the max_mutants=1 budget and returned BEFORE B was probed)
+        // but rejected B-first — the verdict depended purely on git's file order, FALSE-certifying the
+        // untested decision branch on B. Fix D makes the decision-survivor hunt EXHAUSTIVE over every
+        // decision-bearing target (uncapped by max_mutants) and lets a surviving decision OUTRANK any
+        // killed one, so B's surviving `=== 42` rejects the refactor in BOTH orderings.
+        $svc = app(AtlasLoopMutationAdequacyGateService::class);
+
+        // A FIRST (killed decision), B SECOND (surviving decision) — the order that used to false-certify.
+        $this->workspace = $this->refactorTwoFileWorkspaceKilledDecisionThenSurvivingDecision();
+        $aFirst = $svc->evaluate(
+            $this->workspace,
+            $this->refactorAcceptance(['php tests/Test.php']),
+            ['src/A.php', 'src/B.php'],
+            ['enabled' => true, 'refactor_decision_aware' => true],
+        );
+        $this->assertSame('mutation_survived', $aFirst['status'], 'a surviving decision on a later file must reject even when an earlier file has a KILLED decision');
+        $this->assertFalse($aFirst['certified']);
+        $this->assertSame(['mutation_survived'], $aFirst['blockers']);
+        $this->assertSame('decision', $aFirst['decisive_operator_family']);
+        $this->assertSame(0, $aFirst['mutants_killed'], 'the deciding mutant must be the surviving decision, not the killed one');
+        $this->assertSame(1, $aFirst['mutants_survived']);
+        $this->assertSame('src/B.php', data_get($aFirst, 'mutants.0.file'), 'the surviving decision on B must decide, not the killed decision on A');
+
+        (new Process(['rm', '-rf', $this->workspace], null, null, null, 30.0))->run();
+
+        // B FIRST (surviving decision), A SECOND (killed decision) — must ALSO reject (order independence).
+        $this->workspace = $this->refactorTwoFileWorkspaceKilledDecisionThenSurvivingDecision();
+        $bFirst = $svc->evaluate(
+            $this->workspace,
+            $this->refactorAcceptance(['php tests/Test.php']),
+            ['src/B.php', 'src/A.php'],
+            ['enabled' => true, 'refactor_decision_aware' => true],
+        );
+        $this->assertSame('mutation_survived', $bFirst['status'], 'the verdict must be order-independent');
+        $this->assertFalse($bFirst['certified']);
+        $this->assertSame('decision', $bFirst['decisive_operator_family']);
+        $this->assertSame('src/B.php', data_get($bFirst, 'mutants.0.file'));
+    }
+
     /**
+     * HOLE 4 / Fix D fixture: a TWO-file behaviour-preserving refactor where BOTH files carry a DECISION
+     * mutant, but one is covered and one is not.
+     *   - src/A.php relocates the COVERED `> 0` decision into a helper (a KILLED decision mutant), and
+     *   - src/B.php adds an UNCOVERED `=== 42` decision branch (audit(), never called by the test).
+     * The covered test asserts A->classify(5) and B->name() only. A correct gate must sample B's
+     * surviving decision regardless of which file is diffed first, never certifying on A's killed decision.
+     */
+    private function refactorTwoFileWorkspaceKilledDecisionThenSurvivingDecision(): string
+    {
+        $dir = sys_get_temp_dir().'/atlas-loop-mutation-twofile-dec-'.bin2hex(random_bytes(5));
+        mkdir($dir.'/src', 0o755, true);
+        mkdir($dir.'/tests', 0o755, true);
+
+        file_put_contents($dir.'/src/A.php', "<?php\nfinal class A {\n    public function classify(int \$n): string {\n        return \$n > 0 ? 'pos' : 'nonpos';\n    }\n}\n");
+        file_put_contents($dir.'/src/B.php', "<?php\nfinal class B {\n    public function name(): string { return 'beta'; }\n}\n");
+        file_put_contents($dir.'/tests/Test.php', <<<'PHP'
+<?php
+require __DIR__.'/../src/A.php';
+require __DIR__.'/../src/B.php';
+$a = new A(); $b = new B();
+if ($a->classify(5) !== 'pos') { fwrite(STDERR, 'A wrong'); exit(1); }
+if ($b->name() !== 'beta') { fwrite(STDERR, 'B wrong'); exit(1); }
+exit(0);
+PHP);
+
+        $this->runProcess(['git', 'init', '-q'], $dir);
+        $this->runProcess(['git', 'config', 'user.email', 'atlas-loop@local'], $dir);
+        $this->runProcess(['git', 'config', 'user.name', 'Atlas Loop'], $dir);
+        $this->runProcess(['git', 'add', '-A'], $dir);
+        $this->runProcess(['git', 'commit', '-q', '-m', 'baseline'], $dir);
+
+        // A: relocate the COVERED decision into a helper (killed decision mutant: classify(5) exercises it).
+        file_put_contents($dir.'/src/A.php', "<?php\nfinal class A {\n    public function classify(int \$n): string {\n        return \$this->isPos(\$n) ? 'pos' : 'nonpos';\n    }\n    private function isPos(int \$n): bool {\n        return \$n > 0;\n    }\n}\n");
+        // B: add an UNCOVERED decision branch (audit() with === 42 the test never calls -> survives).
+        file_put_contents($dir.'/src/B.php', "<?php\nfinal class B {\n    public function name(): string { return 'beta'; }\n    public function audit(int \$n): bool {\n        return \$n === 42;\n    }\n}\n");
+
+        return $dir;
+    }
+
+    /**
+     * HOLE 3 fixture: a TWO-file behaviour-preserving refactor.
+     *   - src/A.php relocates a COVERED literal into a helper (a KILLED cosmetic, no decision op), and
+     *   - src/B.php adds an UNCOVERED `===` decision branch (audit(), never called by the test).
+     * The covered test asserts A->name() and B->classify(5) only. A correct decision-priority gate must
+     * sample B's surviving decision regardless of which file is diffed first.
+     */
+    private function refactorTwoFileWorkspaceCosmeticThenSurvivingDecision(): string
+    {
+        $dir = sys_get_temp_dir().'/atlas-loop-mutation-twofile-'.bin2hex(random_bytes(5));
+        mkdir($dir.'/src', 0o755, true);
+        mkdir($dir.'/tests', 0o755, true);
+
+        file_put_contents($dir.'/src/A.php', "<?php\nfinal class A {\n    public function name(): string { return 'alpha'; }\n}\n");
+        file_put_contents($dir.'/src/B.php', "<?php\nfinal class B {\n    public function classify(int \$n): string {\n        return \$n > 0 ? 'pos' : 'nonpos';\n    }\n}\n");
+        file_put_contents($dir.'/tests/Test.php', <<<'PHP'
+<?php
+require __DIR__.'/../src/A.php';
+require __DIR__.'/../src/B.php';
+$a = new A(); $b = new B();
+if ($a->name() !== 'alpha') { fwrite(STDERR, 'A wrong'); exit(1); }
+if ($b->classify(5) !== 'pos') { fwrite(STDERR, 'B wrong'); exit(1); }
+exit(0);
+PHP);
+
+        $this->runProcess(['git', 'init', '-q'], $dir);
+        $this->runProcess(['git', 'config', 'user.email', 'atlas-loop@local'], $dir);
+        $this->runProcess(['git', 'config', 'user.name', 'Atlas Loop'], $dir);
+        $this->runProcess(['git', 'add', '-A'], $dir);
+        $this->runProcess(['git', 'commit', '-q', '-m', 'baseline'], $dir);
+
+        // A: relocate the covered literal (killed cosmetic, no decision op).
+        file_put_contents($dir.'/src/A.php', "<?php\nfinal class A {\n    public function name(): string { return \$this->build(); }\n    private function build(): string { return 'alpha'; }\n}\n");
+        // B: add an UNCOVERED decision branch (audit() with === 42 the test never calls).
+        file_put_contents($dir.'/src/B.php', "<?php\nfinal class B {\n    public function classify(int \$n): string {\n        return \$n > 0 ? 'pos' : 'nonpos';\n    }\n    public function audit(int \$n): bool {\n        return \$n === 42;\n    }\n}\n");
+
+        return $dir;
+    }
+
+    /**
+     * @param  list<string>|null  $commands
      * @return array<string,mixed>
      */
-    private function refactorAcceptance(): array
+    private function refactorAcceptance(?array $commands = null): array
     {
         return [
-            'commands' => ['php tests/CalcTest.php'],
+            'commands' => $commands ?? ['php tests/CalcTest.php'],
             'allowed_globs' => ['src/**'],
             'frozen_globs' => ['tests/**'],
             'metric_kind' => 'minimize',
@@ -690,6 +940,83 @@ final class Calc {
     }
     private function isNeg(int $n): bool {
         return $n < 0;
+    }
+}
+PHP;
+
+        return $this->refactorWorkspace($baseline, $test, $refactor);
+    }
+
+    /**
+     * KEYSTONE fixture (cosmetic-fallback KILL): a match-map extraction whose added lines have NO
+     * decision operator (an array literal + a `?? ` lookup), but DO carry a COVERED string literal
+     * (`'zero'`) that classify(0) asserts. No decision mutant is producible; the cosmetic fallback
+     * flips the relocated 'zero' -> the test goes RED -> KILLED -> certified. Mirrors the framework
+     * refactor certification fixtures (match-map / heavy extraction) the refinement unblocks.
+     */
+    private function refactorWorkspaceWithCoveredRelocatedLiteralNoDecision(): string
+    {
+        $baseline = <<<'PHP'
+<?php
+final class Calc {
+    public function classify(int $n): string {
+        if ($n === 0) { return 'zero'; }
+        return 'other';
+    }
+}
+PHP;
+        $test = <<<'PHP'
+<?php
+require __DIR__.'/../src/Calc.php';
+$c = new Calc();
+if ($c->classify(0) !== 'zero') { fwrite(STDERR, 'classify(0) wrong'); exit(1); }
+if ($c->classify(5) !== 'other') { fwrite(STDERR, 'classify(5) wrong'); exit(1); }
+exit(0);
+PHP;
+        $refactor = <<<'PHP'
+<?php
+final class Calc {
+    public function classify(int $n): string {
+        $map = [0 => 'zero'];
+        return $map[$n] ?? 'other';
+    }
+}
+PHP;
+
+        return $this->refactorWorkspace($baseline, $test, $refactor);
+    }
+
+    /**
+     * TIER 3 fixture (no mutant at all): an extract-method refactor whose added lines contain NEITHER a
+     * decision operator NOR a string literal — pure arithmetic delegation plus a new helper signature.
+     * Nothing is producible, so the gate SKIP-certifies (skipped_no_refactor_mutant) and the
+     * deterministic complexity gate + frozen behaviour test carry the proof.
+     */
+    private function refactorWorkspaceWithNoProducibleMutant(): string
+    {
+        $baseline = <<<'PHP'
+<?php
+final class Calc {
+    public function total(int $a, int $b): int {
+        return $a + $b;
+    }
+}
+PHP;
+        $test = <<<'PHP'
+<?php
+require __DIR__.'/../src/Calc.php';
+$c = new Calc();
+if ($c->total(2, 3) !== 5) { fwrite(STDERR, 'total wrong'); exit(1); }
+exit(0);
+PHP;
+        $refactor = <<<'PHP'
+<?php
+final class Calc {
+    public function total(int $a, int $b): int {
+        return $this->sum($a, $b);
+    }
+    private function sum(int $a, int $b): int {
+        return $a + $b;
     }
 }
 PHP;

@@ -67,8 +67,18 @@ final class AtlasLoopMutationAdequacyGateService
 
         $maxMutants = max(1, (int) ($options['max_mutants'] ?? config('atlas.loop.mutation_adequacy_gate.max_mutants', 1)));
         $decisionOnly = $this->refactorDecisionAware($acceptance, $options);
+
+        // REFACTOR contracts (complexity_proof + metric_kind=minimize, flag ON) run the decision-aware
+        // tiered path: prefer a DECISION mutant (real bar), fall back to a COSMETIC mutant confined to
+        // the added lines (a KILLED cosmetic still proves the test exercises the new code), and only
+        // SKIP-certify when nothing at all is producible. This turns the original false-reject of a
+        // relocated-literal refactor AND the false-reject of a no-decision-op refactor into pass/skip,
+        // without ever lowering the true bar (a surviving DECISION mutant still rejects).
+        if ($decisionOnly) {
+            return $this->evaluateRefactorContract($workspace, $commands, $timeout, $targets, $baseline, $propertyProbe);
+        }
+
         $addedLines = $this->addedLines($workspace);
-        $addedLineMap = $this->addedLineMap($workspace);
         $mutants = [];
         $sampled = 0;
         foreach ($targets as $target) {
@@ -77,7 +87,7 @@ final class AtlasLoopMutationAdequacyGateService
             }
             $path = $workspace.'/'.$target;
             $original = is_file($path) ? (string) file_get_contents($path) : '';
-            $mutation = $this->firstMutation($target, $original, $addedLines[$target] ?? null, $decisionOnly, $addedLineMap[$target] ?? []);
+            $mutation = $this->firstMutation($target, $original, $addedLines[$target] ?? null, false, []);
             if ($mutation === null) {
                 continue;
             }
@@ -113,6 +123,159 @@ final class AtlasLoopMutationAdequacyGateService
         }
 
         return $this->receipt('mutation_killed', true, [], $mutants, [$baseline], $propertyProbe);
+    }
+
+    /**
+     * REFACTOR-contract tiered sampling (decisionOnly=true; flag-gated, opt-in). The tiers, per target,
+     * preserve the TRUE bar while turning two legitimate refactors that the legacy hard-reject path
+     * killed into pass/skip:
+     *
+     *   1. DECISION mutant (position-confined to the added lines, exact NEW-file index, drift-guarded):
+     *        KILLED  -> mutation_killed (certified)        — the test covers the new branch.
+     *        SURVIVED -> mutation_survived (REJECT)        — a real branch the test misses; bar kept.
+     *   2. else COSMETIC mutant (same position confinement, e.g. a relocated string literal):
+     *        KILLED  -> mutation_killed (certified)        — the test DOES exercise the new code via the
+     *                                                         relocated literal; this fixes the
+     *                                                         no-decision-op refactor false reject.
+     *        SURVIVED -> skipped_cosmetic_survived (CERTIFIED, SKIP) — a relocated UNASSERTED literal is
+     *                                                         not evidence of an empty test (the original
+     *                                                         keystone insight; fixes the
+     *                                                         string-relocating false reject).
+     *   3. else (no mutant at all): skipped_no_refactor_mutant (CERTIFIED, SKIP) — the deterministic
+     *        complexity gate + behaviour frozen test + consumer/refuter gates carry the proof.
+     *
+     * A DECISION mutant is ALWAYS preferred over a cosmetic one across all targets: only when NO target
+     * can yield a decision mutant does a cosmetic outcome decide. That ordering is what keeps a real
+     * surviving decision branch a hard reject even if some other target has a killable cosmetic. The
+     * decision pass is EXHAUSTIVE over every decision-bearing target and a surviving decision mutant
+     * OUTRANKS any killed decision mutant — so a covered (killed) decision on an earlier file can never
+     * mask an uncovered (surviving) decision on a later file (Fix D), keeping the verdict order-independent.
+     *
+     * The max_mutants perf budget deliberately does NOT bound this method: the decision-survivor hunt
+     * must be EXHAUSTIVE over every decision-bearing target (a surviving branch anywhere is fatal and
+     * must never escape because of a sampling cap), and the cosmetic fallback already samples exactly
+     * ONE mutant. Refactor diffs are small (a single-file extract), so this stays cheap.
+     *
+     * @param  list<string>  $commands
+     * @param  list<string>  $targets
+     * @param  array<string,mixed>  $baseline
+     * @param  array<string,mixed>  $propertyProbe
+     * @return array<string,mixed>
+     */
+    private function evaluateRefactorContract(string $workspace, array $commands, int $timeout, array $targets, array $baseline, array $propertyProbe): array
+    {
+        $addedLineMap = $this->addedLineMap($workspace);
+
+        // ABSOLUTE DECISION PRIORITY (Fix C, false-certify probe 2026-06-14): a DECISION mutant on ANY
+        // target is the real bar and MUST be checked before a cosmetic outcome on a different target can
+        // decide. The earlier single-pass loop incremented one shared $sampled counter for BOTH families,
+        // so under the live max_mutants=1 default a KILLED cosmetic on the FIRST diffed file consumed the
+        // budget and `break`ed BEFORE a later file's SURVIVING uncovered decision branch was ever sampled
+        // — certifying untested decision code purely by git's file ordering. Two ordered passes fix this
+        // structurally: PASS 1 hunts decision mutants across all targets (max_mutants = the decision-probe
+        // budget); only if NO decision mutant exists anywhere does PASS 2 fall back to ONE cosmetic.
+        // This keeps the true bar: a surviving decision mutant on any target still hard-rejects.
+        //
+        // Fix D (false-certify probe round 2, 2026-06-14): PASS 1 must not `return mutation_killed` on the
+        // FIRST decision mutant it kills — that re-opens the SAME ordering hole one level down. With the
+        // live max_mutants=1 default a KILLED covered decision on the FIRST diffed file would consume the
+        // budget and return certified BEFORE a LATER file's SURVIVING uncovered decision branch was ever
+        // probed, so the verdict again depended on git's file order (A-first => mutation_killed/certified;
+        // B-first => mutation_survived — confirmed by a two-decision-file probe). A SURVIVING decision
+        // mutant ANYWHERE is fatal and outranks any number of killed ones, so the survivor hunt must be
+        // EXHAUSTIVE over every decision-bearing target and CANNOT be capped by max_mutants (that cap is a
+        // perf budget for SAMPLING, never a license for a surviving branch to escape). Refactor diffs are
+        // inherently small (the complexity gate runs on a single-file extract), so one decision probe per
+        // changed file is cheap and bounded. PASS 1 therefore: probes the first decision mutant on EVERY
+        // target; a survivor on any target hard-rejects immediately (order-independent); a kill is
+        // REMEMBERED but never short-circuits the hunt; only once ALL decision targets are proven
+        // survivor-free does a remembered kill certify. True bar never lowered.
+
+        // PASS 1 — DECISION mutants only, EXHAUSTIVE across ALL targets (not max_mutants-capped). A
+        // survivor on any target rejects order-independently; the first kill is remembered and only
+        // decides once every decision target is proven survivor-free.
+        $killedDecision = null;
+        foreach ($targets as $target) {
+            $path = $workspace.'/'.$target;
+            $original = is_file($path) ? (string) file_get_contents($path) : '';
+            $map = $addedLineMap[$target] ?? [];
+
+            $decision = $this->firstAddedLineMutation($target, $original, $map, false);
+            if ($decision === null) {
+                continue;
+            }
+            $record = $this->runMutant($workspace, $path, $original, $target, $decision, $commands, $timeout, $propertyProbe);
+            if (! $record['killed']) {
+                // A surviving DECISION mutant is a real failure — reject immediately, order-independent,
+                // and never downgrade to a cosmetic skip (that would hide a branch the test misses).
+                return $this->receipt('mutation_survived', false, ['mutation_survived'], [$record], [$baseline], $propertyProbe);
+            }
+            // Remember the FIRST kill but keep hunting: a later target may carry a surviving decision the
+            // test misses, which must outrank this kill regardless of git's file ordering.
+            $killedDecision ??= $record;
+        }
+
+        // Every decision target proven survivor-free: a remembered kill certifies the refactor.
+        if ($killedDecision !== null) {
+            return $this->receipt('mutation_killed', true, [], [$killedDecision], [$baseline], $propertyProbe);
+        }
+
+        // PASS 2 — NO decision mutant anywhere: fall back to the FIRST COSMETIC mutant confined to an
+        // added line. A relocated literal whose kill proves the test exercises the new code certifies;
+        // a surviving relocated unasserted literal SKIP-certifies (not an empty-test signal).
+        foreach ($targets as $target) {
+            $path = $workspace.'/'.$target;
+            $original = is_file($path) ? (string) file_get_contents($path) : '';
+            $map = $addedLineMap[$target] ?? [];
+
+            $cosmetic = $this->firstAddedLineMutation($target, $original, $map, true);
+            if ($cosmetic === null) {
+                continue;
+            }
+            $record = $this->runMutant($workspace, $path, $original, $target, $cosmetic, $commands, $timeout, $propertyProbe);
+            if ($record['killed']) {
+                return $this->receipt('mutation_killed', true, [], [$record], [$baseline], $propertyProbe);
+            }
+
+            return $this->receipt('skipped_cosmetic_survived', true, [], [$record], [$baseline], $propertyProbe);
+        }
+
+        // TIER 3 — nothing producible from the added lines: SKIP-certify; the deterministic complexity
+        // gate + frozen behaviour test + consumer/refuter gates carry the proof.
+        return $this->receipt('skipped_no_refactor_mutant', true, [], [], [$baseline], $propertyProbe);
+    }
+
+    /**
+     * Apply ONE mutant to the live file, run the acceptance, restore the file, and return the audit
+     * record. Position confinement / drift guarding already happened in {@see firstAddedLineMutation}.
+     *
+     * @param  array{mutation_id:string,operator:string,content:string}  $mutation
+     * @param  list<string>  $commands
+     * @param  array<string,mixed>  $propertyProbe
+     * @return array<string,mixed>
+     */
+    private function runMutant(string $workspace, string $path, string $original, string $target, array $mutation, array $commands, int $timeout, array $propertyProbe): array
+    {
+        $mutantContent = $mutation['content'];
+        file_put_contents($path, $mutantContent);
+        try {
+            $mutantRun = $this->runCommands($workspace, $commands, $timeout, $propertyProbe);
+        } finally {
+            file_put_contents($path, $original);
+        }
+
+        $killed = ! (bool) ($mutantRun['passed'] ?? false);
+
+        return [
+            'file' => $target,
+            'mutation_id' => $mutation['mutation_id'],
+            'operator' => $mutation['operator'],
+            'original_hash' => 'sha256:'.hash('sha256', $original),
+            'mutant_hash' => 'sha256:'.hash('sha256', $mutantContent),
+            'killed' => $killed,
+            'survived' => ! $killed,
+            'command_results' => $mutantRun['results'],
+        ];
     }
 
     /**
@@ -422,16 +585,23 @@ final class AtlasLoopMutationAdequacyGateService
      * Fix A: mutate exactly ONE added line at its NEW-file index, never via strpos.
      *
      * Splits the live file into lines, finds the first added line (by NEW line number) that the
-     * decision mutators can change, mutates THAT line in place, and rebuilds the file. Because the
+     * selected mutators can change, mutates THAT line in place, and rebuilds the file. Because the
      * mutation is applied at the diff-declared index — and we additionally verify the file's text at
      * that index still equals the added line — a duplicate line in OLD code can never be the target.
      * If the file at the declared index no longer matches the added line (e.g. unexpected drift),
      * that line is skipped rather than mutated elsewhere, preserving the fail-closed contract.
      *
+     * $cosmeticOnly selects which mutator family is allowed at each added line:
+     *   false (default) -> DECISION operators only (cosmetics skipped) — the real refactor bar.
+     *   true            -> COSMETIC operators only (decisions skipped) — the fallback that proves the
+     *                      test exercises the new code via a relocated literal. Both modes share the
+     *                      SAME position-confinement + drift guard + comment/docblock skip, so a
+     *                      cosmetic mutant can never land on old code either.
+     *
      * @param  array<int,string>  $addedLineMap  NEW-file line number => added line text
      * @return array{mutation_id:string,operator:string,content:string}|null
      */
-    private function firstAddedLineMutation(string $file, string $content, array $addedLineMap): ?array
+    private function firstAddedLineMutation(string $file, string $content, array $addedLineMap, bool $cosmeticOnly = false): ?array
     {
         if ($addedLineMap === []) {
             return null;
@@ -469,7 +639,10 @@ final class AtlasLoopMutationAdequacyGateService
             )) {
                 continue;
             }
-            $lineMutation = $this->mutationForText($file, $addedText, true);
+            // decisionOnly stays true for BOTH modes (cosmetic-only is selected separately below) so the
+            // generic relational ops in mutationForText keep their comment/string masking guards; the
+            // $cosmeticOnly flag flips WHICH family is allowed, not the masking.
+            $lineMutation = $this->mutationForText($file, $addedText, true, $cosmeticOnly);
             if ($lineMutation === null || $lineMutation['content'] === $addedText) {
                 continue;
             }
@@ -505,9 +678,12 @@ final class AtlasLoopMutationAdequacyGateService
     ];
 
     /**
+     * @param  bool  $cosmeticOnly  when true, ONLY cosmetic operators are allowed (the inverse of the
+     *                              decisionOnly skip) — used by the refactor cosmetic-fallback tier so a
+     *                              relocated string literal can prove the test exercises the new code.
      * @return array{mutation_id:string,operator:string,content:string}|null
      */
-    private function mutationForText(string $file, string $content, bool $decisionOnly = false): ?array
+    private function mutationForText(string $file, string $content, bool $decisionOnly = false, bool $cosmeticOnly = false): ?array
     {
         $mutators = [
             'return_string_literal' => static fn (string $source): ?string => self::replaceFirst('/return\s+([\'"])(?:\\\\.|(?!\1).)*\1\s*;/', "return '__atlas_mutant__';", $source),
@@ -537,10 +713,17 @@ final class AtlasLoopMutationAdequacyGateService
         ];
 
         foreach ($mutators as $operator => $mutator) {
+            $isCosmetic = isset(self::COSMETIC_OPERATORS[$operator]);
             // Refactor contracts sample DECISION operators only — a surviving cosmetic literal
             // must not decide a behaviour-preserving refactor's fate. decisionOnly=false keeps
             // the original full-ordered, first-mutation-wins behaviour byte-identical.
-            if ($decisionOnly && isset(self::COSMETIC_OPERATORS[$operator])) {
+            if ($decisionOnly && ! $cosmeticOnly && $isCosmetic) {
+                continue;
+            }
+            // The refactor COSMETIC-fallback tier wants the inverse: only a cosmetic operator (a
+            // relocated string literal). Skip every decision operator so the produced mutant is
+            // exactly the cosmetic one whose kill proves the test exercises the new code.
+            if ($cosmeticOnly && ! $isCosmetic) {
                 continue;
             }
             $mutated = $mutator($content);
