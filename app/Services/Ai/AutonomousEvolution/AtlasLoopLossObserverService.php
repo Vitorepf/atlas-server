@@ -127,15 +127,22 @@ final class AtlasLoopLossObserverService
                 continue;
             }
             arsort($group['target_counts']);
-            $targetPath = (string) array_key_first($group['target_counts']);
-            $patterns[] = [
-                'reason' => (string) $group['reason'],
-                'reason_family' => (string) $group['reason_family'],
-                'occurrences' => (int) $group['occurrences'],
-                'target_path' => $targetPath,
-                'target_hits' => (int) ($group['target_counts'][$targetPath] ?? 0),
-                'campaign_ids' => array_keys($group['campaign_ids']),
-            ];
+            // Emit ONE pattern PER affected target — not only the most-frequent one. A loss reason that
+            // spans N distinct files is N pieces of heavy-refactor re-attack work; keeping only the top
+            // path silently DROPPED the other N-1 (live: complexity_not_reduced spanned 6 files, 5 lost)
+            // AND mis-reported the survivor's `occurrences` as the inflated cross-path sum. Each path now
+            // carries its OWN honest hit count; the reason-group still had to clear the dominance gate,
+            // and downstream dedup (source_key) + the auto-feeder caps keep the emission bounded.
+            foreach ($group['target_counts'] as $targetPath => $hits) {
+                $patterns[] = [
+                    'reason' => (string) $group['reason'],
+                    'reason_family' => (string) $group['reason_family'],
+                    'occurrences' => (int) $hits,
+                    'target_path' => (string) $targetPath,
+                    'target_hits' => (int) $hits,
+                    'campaign_ids' => array_keys($group['campaign_ids']),
+                ];
+            }
         }
 
         usort($patterns, static fn (array $a, array $b): int => [$b['occurrences'], $b['target_hits']] <=> [$a['occurrences'], $a['target_hits']]);
