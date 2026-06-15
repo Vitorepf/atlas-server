@@ -665,18 +665,6 @@ final class AtlasLoopMutationAdequacyGateService
     }
 
     /**
-     * COSMETIC operators relocate/replace a string literal without touching control flow.
-     * For a behaviour-preserving REFACTOR, a moved unasserted literal surviving is NOT
-     * evidence the test is empty — it conflates "one relocated string is unasserted" with
-     * "the refactor is untested". {@see mutationForText} skips these for refactor contracts.
-     *
-     * @var array<string,true>
-     */
-    private const COSMETIC_OPERATORS = [
-        'return_string_literal' => true,
-        'string_literal' => true,
-    ];
-
     /**
      * @param  bool  $cosmeticOnly  when true, ONLY cosmetic operators are allowed (the inverse of the
      *                              decisionOnly skip) — used by the refactor cosmetic-fallback tier so a
@@ -685,35 +673,10 @@ final class AtlasLoopMutationAdequacyGateService
      */
     private function mutationForText(string $file, string $content, bool $decisionOnly = false, bool $cosmeticOnly = false): ?array
     {
-        $mutators = [
-            'return_string_literal' => static fn (string $source): ?string => self::replaceFirst('/return\s+([\'"])(?:\\\\.|(?!\1).)*\1\s*;/', "return '__atlas_mutant__';", $source),
-            'return_true' => static fn (string $source): ?string => self::replaceFirst('/return\s+true\s*;/', 'return false;', $source),
-            'return_false' => static fn (string $source): ?string => self::replaceFirst('/return\s+false\s*;/', 'return true;', $source),
-            'strict_equals' => static fn (string $source): ?string => self::replaceFirst('/===/', '!==', $source),
-            'strict_not_equals' => static fn (string $source): ?string => self::replaceFirst('/!==/', '===', $source),
-            'return_integer' => static fn (string $source): ?string => self::replaceFirstCallback('/return\s+(-?\d+)\s*;/', static fn (array $m): string => 'return '.(((int) $m[1]) === 0 ? '1' : '0').';', $source),
-            'positive_comparison' => static fn (string $source): ?string => self::replaceFirst('/>\s*0/', '<= 0', $source),
-            // Fix B (adversarial panel, 2026-06-14): BROADEN the decision vocabulary to ALL relational/
-            // equality operators generically, each a real behaviour-changing mutant. Ordered longest-first
-            // so a shorter operator never eats a longer one. >=,<=,<,> (any RHS) cover the common
-            // refactor decisions that the >0/=== narrow set used to miss (false reject -> certs=0).
-            // Each routes through {@see relationalReplace} which IGNORES operators inside comments/
-            // docblocks (e.g. the `>` in `@var array<int,string>`) so a no-op comment edit can never
-            // masquerade as a decision mutant — that would survive and FALSELY reject a real refactor.
-            'gte_comparison' => static fn (string $source): ?string => self::relationalReplace('/>=/', '<', $source),
-            'lte_comparison' => static fn (string $source): ?string => self::relationalReplace('/<=/', '>', $source),
-            'loose_equals' => static fn (string $source): ?string => self::relationalReplace('/(?<![=!<>])==(?![=])/', '!=', $source),
-            'loose_not_equals' => static fn (string $source): ?string => self::relationalReplace('/!=(?![=])/', '==', $source),
-            // > not part of >=, =>, ->, >>, or the >0 already handled above; < not part of <=, <<, or </> tags.
-            'gt_comparison' => static fn (string $source): ?string => self::relationalReplace('/(?<![=<>-])>(?![=>])/', '<=', $source),
-            'lt_comparison' => static fn (string $source): ?string => self::relationalReplace('/(?<![=<>])<(?![=<])/', '>=', $source),
-            'job_dispatch_noop' => static fn (string $source): ?string => self::replaceFirst('/\\\\?[A-Za-z_][A-Za-z0-9_\\\\]*::dispatch\(\);/', ';', $source),
-            'db_insert_noop' => static fn (string $source): ?string => self::replaceFirst('/->insert\(/', "->whereRaw('1 = 0')->update(", $source),
-            'string_literal' => static fn (string $source): ?string => self::replaceFirst('/([\'"])(?:\\\\.|(?!\1).){1,160}\1/', "'__atlas_mutant__'", $source),
-        ];
+        $mutators = AtlasLoopMutationOperators::map();
 
         foreach ($mutators as $operator => $mutator) {
-            $isCosmetic = isset(self::COSMETIC_OPERATORS[$operator]);
+            $isCosmetic = isset(AtlasLoopMutationOperators::COSMETIC_OPERATORS[$operator]);
             // Refactor contracts sample DECISION operators only — a surviving cosmetic literal
             // must not decide a behaviour-preserving refactor's fate. decisionOnly=false keeps
             // the original full-ordered, first-mutation-wins behaviour byte-identical.
@@ -773,7 +736,7 @@ final class AtlasLoopMutationAdequacyGateService
             return 'none';
         }
 
-        return isset(self::COSMETIC_OPERATORS[$operator]) ? 'cosmetic' : 'decision';
+        return isset(AtlasLoopMutationOperators::COSMETIC_OPERATORS[$operator]) ? 'cosmetic' : 'decision';
     }
 
     private function replaceFirstLiteral(string $haystack, string $needle, string $replacement): string
@@ -784,122 +747,6 @@ final class AtlasLoopMutationAdequacyGateService
         }
 
         return substr_replace($haystack, $replacement, $pos, strlen($needle));
-    }
-
-    /**
-     * Replace the FIRST relational/equality operator that lives in real CODE — never one inside a
-     * comment, docblock or string literal. Comment/string spans are masked to spaces before locating
-     * the operator, then the replacement is applied at that exact offset in the ORIGINAL source so
-     * surrounding code/strings stay byte-intact. This stops a no-op edit to `@var array<int,string>`
-     * (the `>` in a docblock) or a `>` inside a quoted string from masquerading as a decision mutant —
-     * which would survive the test and FALSELY reject a behaviour-preserving refactor (Fix B guard).
-     */
-    private static function relationalReplace(string $pattern, string $replacement, string $source): ?string
-    {
-        $masked = self::maskCommentsAndStrings($source);
-        if (preg_match($pattern, $masked, $m, PREG_OFFSET_CAPTURE) !== 1) {
-            return null;
-        }
-        $offset = (int) $m[0][1];
-        $length = strlen((string) $m[0][0]);
-        $mutated = substr_replace($source, $replacement, $offset, $length);
-
-        return $mutated !== $source ? $mutated : null;
-    }
-
-    /**
-     * Replace every byte inside a // , # , /* ... *\/ , /** ... *\/ comment or a single/double quoted
-     * string with a space, preserving length and newlines so offsets in the masked string map 1:1 onto
-     * the original. Operators are only ever sought in the UNMASKED (real-code) remainder.
-     */
-    private static function maskCommentsAndStrings(string $source): string
-    {
-        $len = strlen($source);
-        $out = $source;
-        $i = 0;
-        while ($i < $len) {
-            $c = $source[$i];
-            $next = $i + 1 < $len ? $source[$i + 1] : '';
-            // Line comment: // or #
-            if (($c === '/' && $next === '/') || $c === '#') {
-                while ($i < $len && $source[$i] !== "\n") {
-                    $out[$i] = ' ';
-                    $i++;
-                }
-
-                continue;
-            }
-            // Block / doc comment: /* ... */
-            if ($c === '/' && $next === '*') {
-                while ($i < $len) {
-                    if ($source[$i] === "\n") {
-                        $i++;
-
-                        continue;
-                    }
-                    $closing = $source[$i] === '*' && ($i + 1 < $len) && $source[$i + 1] === '/';
-                    $out[$i] = ' ';
-                    $i++;
-                    if ($closing) {
-                        if ($i < $len) {
-                            $out[$i] = ' ';
-                            $i++;
-                        }
-
-                        break;
-                    }
-                }
-
-                continue;
-            }
-            // String literal: ' ... ' or " ... " (respecting backslash escapes)
-            if ($c === '\'' || $c === '"') {
-                $quote = $c;
-                $out[$i] = ' ';
-                $i++;
-                while ($i < $len) {
-                    if ($source[$i] === '\\' && $i + 1 < $len) {
-                        $out[$i] = ' ';
-                        $out[$i + 1] = $source[$i + 1] === "\n" ? "\n" : ' ';
-                        $i += 2;
-
-                        continue;
-                    }
-                    $isClose = $source[$i] === $quote;
-                    if ($source[$i] !== "\n") {
-                        $out[$i] = ' ';
-                    }
-                    $i++;
-                    if ($isClose) {
-                        break;
-                    }
-                }
-
-                continue;
-            }
-            $i++;
-        }
-
-        return $out;
-    }
-
-    private static function replaceFirst(string $pattern, string $replacement, string $source): ?string
-    {
-        $count = 0;
-        $mutated = preg_replace($pattern, $replacement, $source, 1, $count);
-
-        return $count > 0 && is_string($mutated) ? $mutated : null;
-    }
-
-    /**
-     * @param  callable(array<int,string>):string  $callback
-     */
-    private static function replaceFirstCallback(string $pattern, callable $callback, string $source): ?string
-    {
-        $count = 0;
-        $mutated = preg_replace_callback($pattern, $callback, $source, 1, $count);
-
-        return $count > 0 && is_string($mutated) ? $mutated : null;
     }
 
     /**

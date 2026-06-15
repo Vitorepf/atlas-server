@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Discovery;
 
+use App\Services\Ai\AutonomousEvolution\AtlasLoopMutationOperators;
+
 /**
  * Turns the buried mutation-survival evidence in a refactor grind RESULT into the precise,
  * actionable coverage gaps that BLOCKED certification: the (target file, surviving decision
@@ -19,17 +21,6 @@ namespace App\Services\Ai\AutonomousEvolution\Discovery;
  */
 final class AtlasLoopCoverageGapDetector
 {
-    /**
-     * Cosmetic mutation operators (mirror of AtlasLoopMutationAdequacyGateService::COSMETIC_OPERATORS).
-     * A surviving COSMETIC mutant is NOT an actionable coverage gap — flipping a string literal does
-     * not change behavior, and the decision-aware gate is meant to SKIP (not reject) it. Only a
-     * surviving DECISION mutant marks logic a characterization test must pin.
-     */
-    private const COSMETIC_OPERATORS = [
-        'string_literal' => true,
-        'return_string_literal' => true,
-    ];
-
     /**
      * @param  array<string,mixed>  $taskResult  the persisted grind result (atlas_loop_tasks.result)
      * @return list<array{target_file:string, decision_operator:string, mutation_id:string, mutant_hash:string, sibling_test:?string}>
@@ -73,8 +64,8 @@ final class AtlasLoopCoverageGapDetector
                     continue;
                 }
                 // A surviving COSMETIC mutant is not a behavior gap — skip (the decision-aware gate
-                // should not even reject on it).
-                if (isset(self::COSMETIC_OPERATORS[$operator])) {
+                // should not even reject on it). Single source: the shared operators class.
+                if (AtlasLoopMutationOperators::isCosmetic($operator)) {
                     continue;
                 }
                 $sibling = $this->siblingTestFromCommands($mutant['command_results'] ?? null);
