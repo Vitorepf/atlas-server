@@ -314,6 +314,32 @@ CMD;
         $this->assertSame(1, $lt['mutants_killed']);
     }
 
+    public function test_refactor_contract_certifies_decision_below_typed_docblock_generic(): void
+    {
+        // REGRESSION — HOLE 2 docblock edge (final adversarial pass, 2026-06-15): the extract-method
+        // refactor adds a typed docblock (' * @param array<string,mixed> $ctx') ABOVE the relocated
+        // covered `>=`. A docblock CONTINUATION line carries no comment opener, so per-line masking
+        // could not see it and the generic's '<'/'>' became a FAKE gt/lt mutant that — sampled first
+        // because it has the lower line number — survived (a comment can never be killed) -> the
+        // well-tested refactor was FALSELY rejected. firstAddedLineMutation now SKIPS comment/docblock
+        // added lines, so the real `>=` is sampled and KILLED -> the refactor certifies.
+        $this->workspace = $this->refactorWorkspaceWithTypedDocblockAboveDecision();
+
+        $on = app(AtlasLoopMutationAdequacyGateService::class)->evaluate(
+            $this->workspace,
+            $this->refactorAcceptance(),
+            ['src/Calc.php'],
+            ['enabled' => true, 'refactor_decision_aware' => true],
+        );
+
+        $this->assertSame('mutation_killed', $on['status'], 'the typed docblock generic must NOT become a fake surviving mutant');
+        $this->assertTrue($on['certified']);
+        $this->assertSame('gte_comparison', data_get($on, 'mutants.0.operator'), 'must mutate the real >=, not the docblock generic');
+        $this->assertSame('decision', $on['decisive_operator_family']);
+        $this->assertTrue(data_get($on, 'mutants.0.killed'));
+        $this->assertSame(1, $on['mutants_killed']);
+    }
+
     /**
      * @return array<string,mixed>
      */
@@ -578,6 +604,50 @@ final class Calc {
         return $this->isBig($n) ? 'big' : 'small';
     }
     private function isBig(int $n): bool {
+        return $n >= 10;
+    }
+}
+PHP;
+
+        return $this->refactorWorkspace($baseline, $test, $refactor);
+    }
+
+    /**
+     * REGRESSION fixture for the docblock edge: the extracted helper carries a typed @param docblock
+     * whose generic (array<string,mixed>) contains '<'/'>' on a comment-continuation line ABOVE the
+     * relocated covered `>=`. The gate must skip the docblock line and mutate the real `>=`.
+     */
+    private function refactorWorkspaceWithTypedDocblockAboveDecision(): string
+    {
+        $baseline = <<<'PHP'
+<?php
+final class Calc {
+    public function classify(int $n): string {
+        if ($n >= 10) {
+            return 'big';
+        }
+        return 'small';
+    }
+}
+PHP;
+        $test = <<<'PHP'
+<?php
+require __DIR__.'/../src/Calc.php';
+$c = new Calc();
+if ($c->classify(10) !== 'big') { fwrite(STDERR, 'classify(10) wrong'); exit(1); }
+if ($c->classify(9) !== 'small') { fwrite(STDERR, 'classify(9) wrong'); exit(1); }
+exit(0);
+PHP;
+        $refactor = <<<'PHP'
+<?php
+final class Calc {
+    public function classify(int $n): string {
+        return $this->isBig($n) ? 'big' : 'small';
+    }
+    /**
+     * @param array<string,mixed> $ctx
+     */
+    private function isBig(int $n, array $ctx = []): bool {
         return $n >= 10;
     }
 }

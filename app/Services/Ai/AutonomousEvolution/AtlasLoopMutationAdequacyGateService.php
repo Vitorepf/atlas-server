@@ -455,6 +455,20 @@ final class AtlasLoopMutationAdequacyGateService
             if ($lines[$index] !== $addedText) {
                 continue;
             }
+            // A docblock/comment CONTINUATION added line carries no comment opener on the line
+            // itself (e.g. ' * @param array<string,mixed> $x', ' * @return Collection<int,Foo>'), so
+            // per-line masking cannot see it and the generic's '<'/'>' would become a FAKE relational
+            // mutant that the test can never kill -> false reject of the refactor. Skip pure
+            // comment/docblock lines; real code lines keep inline comment/string masking below.
+            $trimmedAdded = ltrim($addedText);
+            if ($trimmedAdded !== '' && (
+                str_starts_with($trimmedAdded, '*')
+                || str_starts_with($trimmedAdded, '//')
+                || str_starts_with($trimmedAdded, '/*')
+                || str_starts_with($trimmedAdded, '#')
+            )) {
+                continue;
+            }
             $lineMutation = $this->mutationForText($file, $addedText, true);
             if ($lineMutation === null || $lineMutation['content'] === $addedText) {
                 continue;
@@ -587,6 +601,103 @@ final class AtlasLoopMutationAdequacyGateService
         }
 
         return substr_replace($haystack, $replacement, $pos, strlen($needle));
+    }
+
+    /**
+     * Replace the FIRST relational/equality operator that lives in real CODE — never one inside a
+     * comment, docblock or string literal. Comment/string spans are masked to spaces before locating
+     * the operator, then the replacement is applied at that exact offset in the ORIGINAL source so
+     * surrounding code/strings stay byte-intact. This stops a no-op edit to `@var array<int,string>`
+     * (the `>` in a docblock) or a `>` inside a quoted string from masquerading as a decision mutant —
+     * which would survive the test and FALSELY reject a behaviour-preserving refactor (Fix B guard).
+     */
+    private static function relationalReplace(string $pattern, string $replacement, string $source): ?string
+    {
+        $masked = self::maskCommentsAndStrings($source);
+        if (preg_match($pattern, $masked, $m, PREG_OFFSET_CAPTURE) !== 1) {
+            return null;
+        }
+        $offset = (int) $m[0][1];
+        $length = strlen((string) $m[0][0]);
+        $mutated = substr_replace($source, $replacement, $offset, $length);
+
+        return $mutated !== $source ? $mutated : null;
+    }
+
+    /**
+     * Replace every byte inside a // , # , /* ... *\/ , /** ... *\/ comment or a single/double quoted
+     * string with a space, preserving length and newlines so offsets in the masked string map 1:1 onto
+     * the original. Operators are only ever sought in the UNMASKED (real-code) remainder.
+     */
+    private static function maskCommentsAndStrings(string $source): string
+    {
+        $len = strlen($source);
+        $out = $source;
+        $i = 0;
+        while ($i < $len) {
+            $c = $source[$i];
+            $next = $i + 1 < $len ? $source[$i + 1] : '';
+            // Line comment: // or #
+            if (($c === '/' && $next === '/') || $c === '#') {
+                while ($i < $len && $source[$i] !== "\n") {
+                    $out[$i] = ' ';
+                    $i++;
+                }
+
+                continue;
+            }
+            // Block / doc comment: /* ... */
+            if ($c === '/' && $next === '*') {
+                while ($i < $len) {
+                    if ($source[$i] === "\n") {
+                        $i++;
+
+                        continue;
+                    }
+                    $closing = $source[$i] === '*' && ($i + 1 < $len) && $source[$i + 1] === '/';
+                    $out[$i] = ' ';
+                    $i++;
+                    if ($closing) {
+                        if ($i < $len) {
+                            $out[$i] = ' ';
+                            $i++;
+                        }
+
+                        break;
+                    }
+                }
+
+                continue;
+            }
+            // String literal: ' ... ' or " ... " (respecting backslash escapes)
+            if ($c === '\'' || $c === '"') {
+                $quote = $c;
+                $out[$i] = ' ';
+                $i++;
+                while ($i < $len) {
+                    if ($source[$i] === '\\' && $i + 1 < $len) {
+                        $out[$i] = ' ';
+                        $out[$i + 1] = $source[$i + 1] === "\n" ? "\n" : ' ';
+                        $i += 2;
+
+                        continue;
+                    }
+                    $isClose = $source[$i] === $quote;
+                    if ($source[$i] !== "\n") {
+                        $out[$i] = ' ';
+                    }
+                    $i++;
+                    if ($isClose) {
+                        break;
+                    }
+                }
+
+                continue;
+            }
+            $i++;
+        }
+
+        return $out;
     }
 
     private static function replaceFirst(string $pattern, string $replacement, string $source): ?string
