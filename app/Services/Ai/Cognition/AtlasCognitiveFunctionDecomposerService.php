@@ -99,9 +99,12 @@ final class AtlasCognitiveFunctionDecomposerService
 
     private readonly CognitiveContextNudgeApplier $nudges;
 
+    private readonly AtlasCognitiveFunctionDecomposerServiceSupport $support;
+
     public function __construct(?CognitiveContextNudgeApplier $nudges = null)
     {
         $this->nudges = $nudges ?? new CognitiveContextNudgeApplier();
+        $this->support = new AtlasCognitiveFunctionDecomposerServiceSupport();
     }
 
     public function setLogPathForTesting(?string $path): void
@@ -133,7 +136,7 @@ final class AtlasCognitiveFunctionDecomposerService
     public function decompose(string $input, array $context = []): array
     {
         $input = trim($input);
-        $normalized = $this->normalize($input);
+        $normalized = $this->support->normalize($input);
         $weights = array_fill_keys(self::FUNCTIONS, 0.0);
 
         if ($input === '') {
@@ -144,18 +147,7 @@ final class AtlasCognitiveFunctionDecomposerService
         }
 
         // Score rules.
-        $hits = array_fill_keys(self::FUNCTIONS, 0);
-        foreach (self::RULES as $axis => $keywords) {
-            foreach ($keywords as $kw) {
-                $needle = $this->normalize($kw);
-                if ($needle === '') {
-                    continue;
-                }
-                if (str_contains($normalized, $needle)) {
-                    $hits[$axis]++;
-                }
-            }
-        }
+        $hits = $this->support->scoreRuleHits(self::FUNCTIONS, self::RULES, $normalized);
 
         // Framework + role nudges (relocated to CognitiveContextNudgeApplier).
         $hits = $this->nudges->applyNudges($hits, $context);
@@ -264,16 +256,6 @@ final class AtlasCognitiveFunctionDecomposerService
         AppendOnlyJsonlStore::append($this->logPath(), $envelope);
 
         return $envelope;
-    }
-
-    private function normalize(string $s): string
-    {
-        $s = mb_strtolower($s);
-        // Strip accents.
-        $accent = ['á', 'à', 'â', 'ã', 'ä', 'é', 'è', 'ê', 'ë', 'í', 'ì', 'î', 'ï', 'ó', 'ò', 'ô', 'õ', 'ö', 'ú', 'ù', 'û', 'ü', 'ç', 'ñ'];
-        $plain = ['a', 'a', 'a', 'a', 'a', 'e', 'e', 'e', 'e', 'i', 'i', 'i', 'i', 'o', 'o', 'o', 'o', 'o', 'u', 'u', 'u', 'u', 'c', 'n'];
-
-        return str_replace($accent, $plain, $s);
     }
 
 }
