@@ -200,6 +200,30 @@ final class AtlasLoopSemanticImplementationCertifier
             }
         }
 
+        // CALIBRATED DELIVERY CONFIDENCE (Lever 2): replace the loop's hardcoded confidence theatre with a
+        // PRINCIPLED P(correct) over the cert's measurable signals. RECORDED on EVERY cert (observability —
+        // every proposal now carries an honest, evidence-based confidence). A GATE only when
+        // confidence_gate_enabled (global) or a per-task confidence_gate is ON — default OFF => byte-identical.
+        // NOTE: arming the gate at a TRUSTWORTHY 0.93 is honest only AFTER the self-calibration loop fits the
+        // model's weights to real outcomes; an uncalibrated 0.93 would be the same theatre we are removing.
+        $crossOk = ($crossFileConsumers['certified'] ?? null) !== false && ($crossFileConsumers['passed'] ?? null) !== false;
+        $mutSampled = (int) ($mutationAdequacy['mutants_sampled'] ?? 0);
+        $deliveryConfidence = (new AtlasLoopDeliveryConfidenceModel)->estimate([
+            'behavior_preserved' => (bool) data_get($deterministicGate, 'report.holdouts.target_frozen_passed', false),
+            'diff_earned' => data_get($deterministicGate, 'report.holdouts.diff_earned') === true,
+            'sealed_holdout_passed' => data_get($deterministicGate, 'report.holdouts.sealed_holdout_passed') === true,
+            'complexity_reduced' => is_array($complexityProof) && (bool) ($complexityProof['reduced'] ?? false),
+            'cross_file_consumers_ok' => $crossOk,
+            'mutation_kill_ratio' => $mutSampled > 0 ? (int) ($mutationAdequacy['mutants_killed'] ?? 0) / $mutSampled : 0.0,
+            'quality_score' => is_array($qualityGrade) ? (float) ($qualityGrade['score'] ?? 0.0) : 0.0,
+            'adversarial_refuted_count' => (int) ($panelVerdict['refuted_count'] ?? 0),
+        ], isset($targetAcceptance['confidence_threshold']) ? (float) $targetAcceptance['confidence_threshold'] : null);
+        $confidenceGate = (bool) ($targetAcceptance['confidence_gate'] ?? false)
+            || (bool) config('atlas.loop.confidence_gate_enabled', false);
+        if ($confidenceGate && ! ($deliveryConfidence['passes'] ?? false)) {
+            $reasons[] = 'delivery_confidence:below_threshold:'.$deliveryConfidence['confidence'].'<'.$deliveryConfidence['threshold'];
+        }
+
         $reasons = AiStringListNormalizer::uniqueStrings($reasons);
         $certified = $reasons === [];
         $receipt = [
@@ -218,6 +242,7 @@ final class AtlasLoopSemanticImplementationCertifier
             'cross_file_consumer_gate' => $crossFileConsumers,
             'provider_refuters' => $providerRefuters,
             'complexity_proof' => $complexityProof,
+            'delivery_confidence' => $deliveryConfidence,
             'quality_grade' => $qualityGrade,
             'evidence' => [
                 'target_acceptance_passed' => (bool) data_get($deterministicGate, 'report.holdouts.target_frozen_passed', false),

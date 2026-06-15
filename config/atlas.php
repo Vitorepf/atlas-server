@@ -1982,6 +1982,16 @@ return [
         // is the threshold (operator directive: 9). Raise once the loop reliably clears it.
         'quality_bar_gate_enabled' => (bool) env('ATLAS_LOOP_QUALITY_BAR_GATE_ENABLED', false),
         'quality_bar' => (float) env('ATLAS_LOOP_QUALITY_BAR', 9.0),
+        // LEVER 2 — CALIBRATED delivery confidence. The certifier RECORDS a principled P(correct) over the
+        // cert's measurable signals on every proposal (replacing the old hardcoded confidence theatre). The
+        // GATE (confidence_gate_enabled) refuses a cert below the threshold — but arming it at a TRUSTWORTHY
+        // 0.93 is honest only AFTER the self-calibration loop fits the weights to real outcomes, so it ships
+        // OFF (record-only). weights/threshold are config so calibration can refit them without code changes.
+        'confidence_gate_enabled' => (bool) env('ATLAS_LOOP_CONFIDENCE_GATE_ENABLED', false),
+        'confidence_model' => [
+            'threshold' => (float) env('ATLAS_LOOP_CONFIDENCE_THRESHOLD', 0.93),
+            'weights' => [], // empty => the model's conservative defaults; the calibration loop overwrites this
+        ],
         // LEVER 3 — behavioral-equivalence STRENGTH floor. For a refactor, "the sibling test is green" is
         // necessary but weak; this requires the frozen suite to be strong enough to have CAUGHT a behaviour
         // change — a minimum mutation KILL RATIO (killed/sampled) over the exhaustively sampled decision
