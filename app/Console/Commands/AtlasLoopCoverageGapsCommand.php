@@ -174,8 +174,12 @@ final class AtlasLoopCoverageGapsCommand extends Command
             } finally {
                 $cleanup();
             }
-            // certified == mutant KILLED by the CURRENT test == NOT a real gap (already covered).
-            return ! (bool) ($verdict['certified'] ?? false);
+            // A REAL gap is SPECIFICALLY "mutant_survived": baseline green, the operator's mutant was
+            // produced, and the current test failed to kill it. Every OTHER non-certified verdict is
+            // NOT feedable — `certified` (already covered/spurious), `mutant_not_reproducible` (the op
+            // has no site on current code), `baseline_red`/`target_missing` (can't characterize). Only
+            // mutant_survived has a test a provider can actually strengthen.
+            return str_starts_with((string) ($verdict['reason'] ?? ''), 'mutant_survived');
         } catch (\Throwable) {
             return null;
         }
