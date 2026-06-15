@@ -135,4 +135,25 @@ final class AtlasLoopFrameworkMaterializerTest extends TestCase
         $this->assertNull($extract("<?php\nnamespace App\\Bad;\nclass never { }\n"));
         $this->assertNull($extract("<?php\nnamespace App\\Bad;\nenum void {}\n"));
     }
+
+    public function test_revert_recheck_is_forced_only_for_new_behavior_not_behavior_preserving_lanes(): void
+    {
+        // Pins the 3-way diff-earned branch so a future edit cannot silently re-arm diff-earned on the
+        // additive characterization lane (which it would always fail) or disarm it on new-behavior.
+        $m = new \ReflectionMethod(AtlasLoopFrameworkMaterializer::class, 'behaviorPreservingContract');
+        $preserving = static fn (array $payload, array $acceptance): bool => (bool) $m->invoke(null, $payload, $acceptance);
+
+        // characterization_test: ADDITIVE -> behavior-preserving -> revert_recheck must stay OFF
+        // (its real proof is the downstream mutant-kill verifier).
+        $this->assertTrue($preserving(['objective_kind' => 'characterization_test'], []));
+
+        // refactor_* + complexity_proof: behavior-preserving (proof = AST drop) -> OFF, unchanged.
+        $this->assertTrue($preserving(['objective_kind' => 'refactor_reduce_complexity'], ['complexity_proof' => true]));
+        // refactor_* WITHOUT complexity_proof is not exempt (guards against a half-built refactor task).
+        $this->assertFalse($preserving(['objective_kind' => 'refactor_reduce_complexity'], []));
+
+        // new-behavior (no objective_kind): diff-earned MUST stay armed -> revert_recheck forced true.
+        $this->assertFalse($preserving([], []));
+        $this->assertFalse($preserving(['objective_kind' => 'new_behavior'], []));
+    }
 }

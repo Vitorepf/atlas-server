@@ -111,19 +111,24 @@ final class AtlasLoopFrameworkMaterializer
         }
 
         // Anti-fake proof: for a NEW-behavior framework target, revert_recheck=true proves the
-        // diff earned the green (reverting it turns the test RED). A behavior-PRESERVING refactor
-        // (objective_kind=refactor_*, complexity_proof) would stay GREEN with the diff reverted by
-        // design — diff-earned does NOT apply — so its anti-fake proof is the AST complexity DROP
-        // enforced by the certifier instead. Keep revert_recheck OFF for refactor contracts; never
-        // weaken it for the (default) new-behavior path.
-        $isRefactor = str_starts_with(trim((string) ($payload['objective_kind'] ?? '')), 'refactor_')
-            && (bool) ($acceptance['complexity_proof'] ?? false);
+        // diff earned the green (reverting it turns the test RED). A behavior-PRESERVING change would
+        // stay GREEN with the diff reverted by design — diff-earned does NOT apply — so its anti-fake
+        // proof lives elsewhere. Two behavior-preserving lanes keep revert_recheck OFF:
+        //   - refactor (objective_kind=refactor_*, complexity_proof): proof = the AST complexity DROP
+        //     enforced by the certifier.
+        //   - characterization_test: an ADDITIVE coverage edit — the sibling test is GREEN both before
+        //     and after the new assertions, so diff-earned could never pass. Its proof is the downstream
+        //     mutant-kill verifier (gateCharacterizationTestProposals), which is STRICTLY stronger than
+        //     revert-recheck: it requires the new test to FAIL once the gate's surviving operator is
+        //     re-applied, so a trivial/no-op test edit still cannot win.
+        // Never weaken revert_recheck for the (default) new-behavior path.
+        $behaviorPreserving = self::behaviorPreservingContract($payload, $acceptance);
         $explorerTask = [
             'objective' => $objective,
             'base_workspace' => $base,
             'materializer' => 'framework',
             'scenario_clone_mode' => 'worktree', // the explorer clones per-scenario worktrees, not cp -R + git init
-            'acceptance' => $isRefactor ? $acceptance : array_merge($acceptance, ['revert_recheck' => true]), // anti-fake on for new-behavior framework targets
+            'acceptance' => $behaviorPreserving ? $acceptance : array_merge($acceptance, ['revert_recheck' => true]), // anti-fake on for new-behavior framework targets
             'allowed_files' => AiStringListNormalizer::trimmedStrings($payload['allowed_files'] ?? [$targetRel]),
             'validation_commands' => AiStringListNormalizer::trimmedStrings($payload['validation_commands'] ?? []),
         ];
@@ -252,6 +257,23 @@ final class AtlasLoopFrameworkMaterializer
         if (realpath($resolved) !== realpath($expected)) {
             throw new RuntimeException('framework materialize: autoload_resolves_outside_worktree (got "'.$resolved.'", expected "'.$expected.'")');
         }
+    }
+
+    /**
+     * Is this a BEHAVIOR-PRESERVING contract that must NOT have diff-earned (revert -> RED) forced on?
+     * Two lanes qualify: a refactor (objective_kind=refactor_* + complexity_proof; proof = AST drop)
+     * and a characterization_test (additive coverage; proof = the downstream mutant-kill verifier).
+     * Everything else is new-behavior and keeps revert_recheck forced true.
+     *
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $acceptance
+     */
+    private static function behaviorPreservingContract(array $payload, array $acceptance): bool
+    {
+        $objectiveKind = trim((string) ($payload['objective_kind'] ?? ''));
+
+        return (str_starts_with($objectiveKind, 'refactor_') && (bool) ($acceptance['complexity_proof'] ?? false))
+            || $objectiveKind === 'characterization_test';
     }
 
     private function classFromFile(string $file): ?string

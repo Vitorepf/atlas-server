@@ -46,6 +46,13 @@ final class AtlasLoopCoverageGapFeeder
             // Provider edits the TEST; production target + config are FROZEN (coverage-only change).
             'allowed_globs' => [$sibling],
             'frozen_globs' => [$target, 'phpunit.xml', 'phpunit.xml.dist', 'composer.json'],
+            // Additive coverage is behavior-preserving: the sibling test is green before AND after the
+            // new assertions, so diff-earned (revert -> RED) can never apply. The real anti-fake proof
+            // is the downstream mutant-kill verifier. (The framework materializer exempts the
+            // characterization_test objective_kind from forcing revert_recheck on; these explicit keys
+            // document the intent — they do not, alone, override the materializer.)
+            'metric_kind' => 'gate',
+            'revert_recheck' => false,
             'timeout_seconds' => $timeout,
         ];
 
