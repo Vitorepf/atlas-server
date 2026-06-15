@@ -1974,6 +1974,16 @@ return [
         // is the threshold (operator directive: 9). Raise once the loop reliably clears it.
         'quality_bar_gate_enabled' => (bool) env('ATLAS_LOOP_QUALITY_BAR_GATE_ENABLED', false),
         'quality_bar' => (float) env('ATLAS_LOOP_QUALITY_BAR', 9.0),
+        // LEVER 5 — provider routing ("MiniMax when you should, codex as you should"). Cheap classes
+        // go to the cheap tier (MiniMax-M3), load-bearing classes stay on the strong default. Default
+        // OFF => byte-identical. Fail-safe: a cheap provider that is not configured falls back to the
+        // default. Turn ON once the cheap provider key (minimax_m27) is wired in the operator's setup.
+        'provider_routing' => [
+            'enabled' => (bool) env('ATLAS_LOOP_PROVIDER_ROUTING_ENABLED', false),
+            'cheap_provider' => (string) env('ATLAS_LOOP_PROVIDER_ROUTING_CHEAP_PROVIDER', 'minimax_m27'),
+            'cheap_model' => (string) env('ATLAS_LOOP_PROVIDER_ROUTING_CHEAP_MODEL', 'MiniMax-M3'),
+            'cheap_classes' => array_values(array_filter(array_map('trim', explode(',', (string) env('ATLAS_LOOP_PROVIDER_ROUTING_CHEAP_CLASSES', 'characterization_test,edge_fix'))))),
+        ],
 
         // OBRA REPAIR (eixo-3, the autonomy multiplier) — when ON, a node whose DELIVERY fails
         // certification is RETRIED with label-only failure feedback (bounded), instead of halting on

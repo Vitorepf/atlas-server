@@ -66,6 +66,25 @@ final class AtlasLoopTaskGrinder
         try {
             $payload = $this->taskPayload($task);
 
+            // LEVER 5 — provider routing (flag-gated, default OFF => byte-identical). Send cheap
+            // task-classes (characterization tests, edge-fixes) to the cheap tier (MiniMax) and keep
+            // load-bearing classes (refactors/features) on the strong default (codex/gpt-5.5). Only
+            // overrides when the route picks the cheap tier AND the payload has no explicit pin; the
+            // driver auto-resolves the routed provider's model. Fail-safe: an unconfigured cheap
+            // provider falls back to the default (the router never returns an unconfigured one).
+            if (empty($payload['provider'])) {
+                $routed = (new AtlasLoopProviderRouter())->route(
+                    (string) ($payload['objective_kind'] ?? ''),
+                    (string) config('atlas.loop.default_provider', (string) config('atlas.ai.default_provider', '')),
+                    null,
+                    (array) config('atlas.loop.provider_routing', []),
+                    fn (string $p): bool => app(\App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter::class)->isConfigured($p),
+                );
+                if ($routed['tier'] === 'cheap') {
+                    $payload['provider'] = $routed['provider'];
+                }
+            }
+
             // PHASE-2 multi-file refactor routing (flag-gated, default OFF). A `refactor_*`
             // objective touching >=2 files is HARD-ROUTED to the governed Obra bridge
             // (operator-reviewed, never-merge) INSTEAD of the single-file explorer/materializer.
