@@ -1836,6 +1836,13 @@ return [
         // certified obra branch auto-merges to main WITHOUT operator review, but ONLY after the
         // broader-regression gate passes. DEFAULT FALSE; OFF => obra always stays operator-review.
         'obra_auto_merge_enabled' => (bool) env('ATLAS_LOOP_OBRA_AUTO_MERGE_ENABLED', false),
+        // PARK-FIRST MATURITY INTERLOCK (day-2 hardening). Even with the crossing flag ON, an obra
+        // may auto-merge ONLY if its derived change CLASS has EARNED autonomy from REAL merge
+        // history on the single-source AtlasChangeClassTrustLadder (operator-allowlisted class +
+        // proven clean streak). DEFAULT TRUE => a never-proven class (e.g. any `code` obra) PARKS
+        // for the operator however green its gates — autonomy is earned, never granted on a first
+        // run. The operator may set FALSE for a controlled experiment, but the safe default stands.
+        'obra_auto_merge_require_trust' => (bool) env('ATLAS_LOOP_OBRA_AUTO_MERGE_REQUIRE_TRUST', true),
 
         // OBRA CANDIDATE PRODUCER (AtlasLoopObraClusterDetectorService): connects the live grind
         // loop to the operator-gated big-obra surface. After discovery+enqueue it scans the

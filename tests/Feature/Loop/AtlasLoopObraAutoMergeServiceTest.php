@@ -7,7 +7,9 @@ namespace Tests\Feature\Loop;
 use App\Models\AtlasLoopProposal;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopObraAutoMergeService;
 use App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract;
+use App\Services\Ai\Governance\AtlasChangeClassTrustLadder;
 use App\Services\Ai\Obra\AtlasObraExecutor;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
@@ -33,6 +35,8 @@ final class AtlasLoopObraAutoMergeServiceTest extends TestCase
     /** @var list<string> */
     private array $dirs = [];
 
+    private string $trustLedger = '';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -47,14 +51,29 @@ final class AtlasLoopObraAutoMergeServiceTest extends TestCase
         }
         // The crossing is OFF by default; the happy-path/safety tests flip it ON explicitly.
         config(['atlas.loop.obra_auto_merge_enabled' => true]);
+        // These tests exercise certification / net-direction / clean-tree / lock / broader-gate in
+        // ISOLATION. The park-first maturity interlock is a SEPARATE day-2 layer proven on its own
+        // (see the trust tests at the bottom); disable it here so these gates are tested cleanly.
+        config(['atlas.loop.obra_auto_merge_require_trust' => false]);
     }
 
     protected function tearDown(): void
     {
+        if ($this->trustLedger !== '') {
+            File::delete($this->trustLedger);
+        }
         foreach ($this->dirs as $d) {
             (new Process(['rm', '-rf', $d]))->run();
         }
         parent::tearDown();
+    }
+
+    /** Pin the single-source change-class trust ladder to an isolated temp ledger for a test. */
+    private function isolateTrustLedger(): void
+    {
+        $this->trustLedger = sys_get_temp_dir().'/atlas-obra-trust-'.bin2hex(random_bytes(4)).'.jsonl';
+        File::delete($this->trustLedger);
+        config(['atlas.ai.trust_ladder.log_path' => $this->trustLedger]);
     }
 
     /**
@@ -358,5 +377,60 @@ final class AtlasLoopObraAutoMergeServiceTest extends TestCase
         $proposal->forceFill(['merged_to_main' => true])->save();
 
         $this->assertFalse((bool) $proposal->fresh()->merged_to_main, 'the governed door still forces false outside scope');
+    }
+
+    // ------------------------------------------------------------------
+    // (6) PARK-FIRST MATURITY INTERLOCK (day-2) — autonomy is EARNED from real merge history,
+    //     never granted on a first run. Default ON; uses the SAME single-source change-class
+    //     trust ladder the single-file pipeline feeds (no parallel trust source).
+    // ------------------------------------------------------------------
+
+    public function test_park_first_interlock_parks_an_unproven_class_even_with_everything_else_green(): void
+    {
+        // Trust required (the production default), certified + flag ON + green broader gate — but the
+        // obra's change class (`code`, from feature.php) has NO proven merge history. It MUST park.
+        config(['atlas.loop.obra_auto_merge_require_trust' => true]);
+        $this->isolateTrustLedger(); // empty ledger => zero clean streak for every class
+        $this->bindGate(passed: true);
+        [$repo, $branch, $headBefore] = $this->repoWithObraBranch('obra-unproven');
+
+        $result = $this->service()->autoMerge($this->certifiedObra('obra-unproven', $branch), $repo);
+
+        $this->assertSame('trust_not_earned', $result['status'], (string) ($result['reason'] ?? ''));
+        $this->assertFalse((bool) $result['merged']);
+        $this->assertStringContainsString('has_not_earned_autonomy', (string) $result['reason']);
+        // Refused BEFORE any apply: main is byte-identical and the obra file never reached the tree.
+        $this->assertSame($headBefore, trim($this->gitOut($repo, ['rev-parse', 'HEAD'])), 'main HEAD untouched');
+        $this->assertFileDoesNotExist($repo.'/feature.php');
+        $this->assertSame('', trim($this->gitOut($repo, ['status', '--porcelain'])), 'working tree untouched');
+    }
+
+    public function test_a_class_that_earned_autonomy_from_real_history_is_allowed_to_cross(): void
+    {
+        // Same crossing, trust STILL required — but now the operator has allowlisted the class and
+        // it has earned a clean streak past the autonomous threshold from REAL evidence. It crosses.
+        config(['atlas.loop.obra_auto_merge_require_trust' => true]);
+        $this->isolateTrustLedger();
+        config([
+            'atlas.ai.trust_ladder.enabled' => true,
+            'atlas.ai.trust_ladder.eligible_classes' => ['code'],   // operator allowlists the class
+            'atlas.ai.trust_ladder.thresholds' => ['autonomous' => 1],
+        ]);
+        // One re-checkable clean promotion keyed on a distinct ref => cleanStreak('code') = 1 => AUTONOMOUS.
+        app(AtlasChangeClassTrustLadder::class)->recordEvidence(
+            'code',
+            AtlasChangeClassTrustLadder::EVIDENCE_CLEAN_PROMOTION,
+            'real-commit:'.bin2hex(random_bytes(6)),
+        );
+
+        $this->bindGate(passed: true);
+        [$repo, $branch, $headBefore] = $this->repoWithObraBranch('obra-proven');
+
+        $result = $this->service()->autoMerge($this->certifiedObra('obra-proven', $branch), $repo);
+
+        $this->assertSame('merged', $result['status'], (string) ($result['reason'] ?? ''));
+        $this->assertTrue((bool) $result['merged'], 'a class that earned autonomy crosses (still behind every other gate)');
+        $this->assertFileExists($repo.'/feature.php');
+        $this->assertNotSame($headBefore, trim($this->gitOut($repo, ['rev-parse', 'HEAD'])), 'main advanced');
     }
 }

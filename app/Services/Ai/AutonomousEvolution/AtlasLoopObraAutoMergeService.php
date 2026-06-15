@@ -6,8 +6,10 @@ namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Models\AtlasLoopProposal;
 use App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract;
+use App\Services\Ai\Governance\AtlasChangeClassTrustLadder;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Policy\PolicyCanon;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -127,6 +129,30 @@ final class AtlasLoopObraAutoMergeService
             return array_merge($base, ['reason' => 'cannot_resolve_head']);
         }
 
+        // The authoritative changed-file set: the diff of the obra branch against the pre-merge
+        // HEAD (two committed refs — independent of the working tree, computable BEFORE any apply).
+        $changed = $this->obraChangedFiles($repoRoot, $obra, $headBefore);
+
+        // 3b. PARK-FIRST MATURITY INTERLOCK (day-2). Even certified + un-throttled, an obra may
+        //     cross ONLY if its derived change CLASS has EARNED autonomy from REAL merge history
+        //     on the single-source change-class trust ladder (operator-allowlisted class + proven
+        //     clean streak). A never-proven class (any `code` obra by default, or a class whose
+        //     files we cannot determine) is PARKED — autonomy is earned from real runs, never
+        //     granted on a first attempt. Reuses the SAME ladder the single-file pipeline feeds:
+        //     no parallel trust source. No working-tree mutation has happened yet, so a refusal
+        //     here simply returns (the lock auto-releases) and main is byte-identical.
+        if ((bool) config('atlas.loop.obra_auto_merge_require_trust', true)) {
+            $ladder = app(AtlasChangeClassTrustLadder::class);
+            $class = $ladder->classifyChangedFiles($changed);
+            $earned = $ladder->earnedAutonomy($class);
+            if ($earned !== PolicyCanon::AUTONOMY_AUTONOMOUS) {
+                return array_merge($base, [
+                    'status' => 'trust_not_earned',
+                    'reason' => 'obra_class_has_not_earned_autonomy:'.($class === '' ? 'unclassifiable' : $class).':earned='.$earned.' (parked for operator — autonomy is earned from real merge history, never granted on a first run)',
+                ]);
+            }
+        }
+
         // 4. APPLY-NO-COMMIT — bring the obra change into the working tree WITHOUT committing.
         //    A conflict / dirty tree aborts and leaves main untouched.
         $merge = $this->git($repoRoot, ['merge', '--no-commit', '--no-ff', $branch]);
@@ -142,7 +168,7 @@ final class AtlasLoopObraAutoMergeService
             // 5. THE BROADER REGRESSION GATE — the load-bearing safety piece. Runs the affected
             //    test modules + the never-merge invariant test + boot-smoke + php -l against the
             //    APPLIED (not-yet-committed) tree. ANY red => abort, main untouched, park.
-            $changed = $this->obraChangedFiles($repoRoot, $obra, $headBefore);
+            //    ($changed was resolved above from the branch-vs-HEAD diff — reuse it.)
             $gate = $this->broaderGate->evaluate($repoRoot, $changed);
             $base['broader_gate'] = $gate;
 
