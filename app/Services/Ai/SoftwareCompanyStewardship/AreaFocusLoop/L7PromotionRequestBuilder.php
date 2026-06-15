@@ -104,27 +104,42 @@ final class L7PromotionRequestBuilder
     {
         $value = $evidence['approved_self_construction_proposals'] ?? 0;
 
-        if (is_float($value) && ! is_finite($value)) {
+        if ($this->rejectsApprovedSelfConstructionProposalValue($value)) {
             return 0;
-        }
-
-        if (is_float($value) && $value !== floor($value)) {
-            return 0;
-        }
-
-        if (is_string($value) && is_numeric($value) && ! is_finite((float) $value)) {
-            return 0;
-        }
-
-        if (is_string($value) && is_numeric($value)) {
-            $float = (float) $value;
-
-            if ($float !== floor($float)) {
-                return 0;
-            }
         }
 
         return $this->intValue($evidence, 'approved_self_construction_proposals');
+    }
+
+    private function rejectsApprovedSelfConstructionProposalValue(mixed $value): bool
+    {
+        if (is_float($value)) {
+            return $this->isNonFiniteOrFractionalFloat($value);
+        }
+
+        if (is_string($value)) {
+            return $this->rejectsApprovedSelfConstructionProposalString($value);
+        }
+
+        return false;
+    }
+
+    private function rejectsApprovedSelfConstructionProposalString(string $value): bool
+    {
+        if (! is_numeric($value)) {
+            return false;
+        }
+
+        return $this->isNonFiniteOrFractionalFloat((float) $value);
+    }
+
+    private function isNonFiniteOrFractionalFloat(float $value): bool
+    {
+        if (! is_finite($value)) {
+            return true;
+        }
+
+        return $value !== floor($value);
     }
 
     /**
