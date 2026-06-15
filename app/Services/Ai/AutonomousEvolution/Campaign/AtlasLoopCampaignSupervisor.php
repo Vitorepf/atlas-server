@@ -206,18 +206,34 @@ final class AtlasLoopCampaignSupervisor
                         if ($head !== null && ! hash_equals($bootHead, $head)) {
                             $pipelineChanged = $this->changedPipelineFiles($bootHead, $head, $baseWorkspace);
                             if ($pipelineChanged !== []) {
-                                $this->appendLedger($campaign->id, [
-                                    'event' => self::STOP_CODE_DRIFT_RESTART,
-                                    'boot_head' => $bootHead,
-                                    'current_head' => $head,
-                                    'pipeline_files' => array_slice($pipelineChanged, 0, 20),
-                                    'cycle' => $cycles + 1,
-                                ]);
-                                $stop = self::STOP_CODE_DRIFT_RESTART;
-                                break;
+                                // IN-FLIGHT GUARD: a code-drift restart is NOT urgent — restarting
+                                // mid-grind abandons minutes of async in-flight provider work (a long
+                                // iterate-to-green refactor in the parallel pool) and the grind never
+                                // certifies. DEFER while any grind is claimed/running, keeping bootHead
+                                // UNCHANGED so the next IDLE cycle re-detects the drift and restarts
+                                // cleanly. (The keepalive's out-of-process recycle has the same guard.)
+                                $inFlight = (int) $this->guard(fn () => $this->store->countRunning($campaign->id), 'count_running_for_drift');
+                                if ($inFlight > 0) {
+                                    $this->appendLedger($campaign->id, [
+                                        'event' => 'code_drift_restart_deferred_in_flight',
+                                        'running' => $inFlight,
+                                        'cycle' => $cycles + 1,
+                                    ]);
+                                } else {
+                                    $this->appendLedger($campaign->id, [
+                                        'event' => self::STOP_CODE_DRIFT_RESTART,
+                                        'boot_head' => $bootHead,
+                                        'current_head' => $head,
+                                        'pipeline_files' => array_slice($pipelineChanged, 0, 20),
+                                        'cycle' => $cycles + 1,
+                                    ]);
+                                    $stop = self::STOP_CODE_DRIFT_RESTART;
+                                    break;
+                                }
+                            } else {
+                                // Mudança não-pipeline (merge de alvo): absorve e segue sem reiniciar.
+                                $bootHead = $head;
                             }
-                            // Mudança não-pipeline (merge de alvo): absorve e segue sem reiniciar.
-                            $bootHead = $head;
                         }
                     }
 

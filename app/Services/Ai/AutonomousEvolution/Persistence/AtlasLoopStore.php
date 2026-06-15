@@ -437,6 +437,16 @@ final class AtlasLoopStore
             ->count();
     }
 
+    /** In-flight grinds: claimed or running. Drives the drift-restart in-flight guard (defer a code
+     *  recycle while a long grind is mid-flight so it is not abandoned before it can certify). */
+    public function countRunning(string $campaignId): int
+    {
+        return AtlasLoopTask::query()
+            ->where('campaign_id', $campaignId)
+            ->whereIn('status', [AtlasLoopTask::STATUS_CLAIMED, AtlasLoopTask::STATUS_RUNNING])
+            ->count();
+    }
+
     /**
      * Open = WORKABLE, not-yet-terminal: claimable pending (attempts < max) + claimed + running.
      * Drives starvation detection. A pending task at attempts >= max_attempts is NOT workable
