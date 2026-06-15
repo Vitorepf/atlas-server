@@ -178,6 +178,47 @@ final class GovernedBranchMaterializationServiceTest extends TestCase
         $this->assertSame($statusBefore, $this->gOut(['status', '--porcelain']));
     }
 
+    public function test_obra_measure_runs_hermetically_and_never_inherits_the_live_db_connection(): void
+    {
+        // REGRESSION (#8 CRITICAL data-loss): the obra worktree symlinks the REAL .env (pgsql/atlas)
+        // and the loop daemon putenv's DB_CONNECTION=pgsql, so the integrated phpunit check could run
+        // RefreshDatabase migrate:fresh against the operator's LIVE database. The measure child must be
+        // pinned to sqlite :memory: via the process env (load-bearing) + a hermetic .env.testing.
+        $svc = new GovernedBranchMaterializationService;
+        $open = $svc->openObra(['id' => 'hermetic1', 'repo_dir' => $this->repo]);
+        $this->assertTrue($open['opened'], 'reason: '.($open['reason'] ?? ''));
+        $worktree = (string) $open['worktree'];
+
+        // (1) defense-in-depth: a hermetic .env.testing pinned to sqlite :memory:.
+        $this->assertFileExists($worktree.'/.env.testing');
+        $envTesting = (string) file_get_contents($worktree.'/.env.testing');
+        $this->assertStringContainsString('DB_CONNECTION=sqlite', $envTesting);
+        $this->assertStringContainsString('DB_DATABASE=:memory:', $envTesting);
+
+        // (2) LOAD-BEARING: even with the daemon env exporting the LIVE pgsql connection, the measure
+        // child reports sqlite — it cannot inherit the live DB (a RefreshDatabase suite stays isolated).
+        putenv('DB_CONNECTION=pgsql');
+        putenv('DB_DATABASE=atlas');
+        try {
+            $r = $svc->measureObra([
+                'worktree' => $worktree,
+                'measure_cmd' => escapeshellarg(PHP_BINARY)." -r \"echo getenv('DB_CONNECTION').'|'.getenv('DB_DATABASE');\"",
+            ]);
+        } finally {
+            putenv('DB_CONNECTION=sqlite'); // restore the phpunit-expected value for sibling tests
+            putenv('DB_DATABASE=:memory:');
+        }
+
+        $this->assertTrue((bool) $r['ran'], json_encode($r));
+        $this->assertStringContainsString('sqlite', (string) $r['output_tail'], json_encode($r));
+        $this->assertStringContainsString(':memory:', (string) $r['output_tail']);
+        $this->assertStringNotContainsString('pgsql', (string) $r['output_tail'], 'the measure child must NOT inherit the live pgsql connection');
+        $this->assertStringNotContainsString('atlas', (string) $r['output_tail'], 'the measure child must NOT see the live database name');
+
+        $svc->closeObra(['repo' => $open['repo'], 'worktree' => $worktree, 'branch' => $open['branch'],
+            'base_head' => $open['base_head'], 'status_before' => $open['status_before']]);
+    }
+
     public function test_obra_apply_step_blocks_without_certification_or_receipt(): void
     {
         $svc = new GovernedBranchMaterializationService;

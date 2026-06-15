@@ -243,6 +243,11 @@ final class GovernedBranchMaterializationService
         // código errado). Liga os deps de runtime por symlink (não copia): a obra passa a
         // poder se CERTIFICAR de verdade. Best-effort; ausência de um dep não impede o open.
         $this->linkRuntimeDeps($repo, $worktree);
+        // HERMETIC TEST ENV (defense-in-depth alongside the process-env isolation in measureObra):
+        // linkRuntimeDeps symlinks the REAL .env (pgsql/atlas); a worktree `php artisan test` boots
+        // APP_ENV=testing and must load a sqlite :memory: env, NEVER fall back to that real .env. The
+        // framework + scenario materializers already write this; the obra path was the one missing it.
+        $this->writeObraHermeticTestEnv($worktree);
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
@@ -424,7 +429,34 @@ final class GovernedBranchMaterializationService
             ? max(1.0, min(3600.0, (float) $input['measure_timeout_seconds']))
             : self::GIT_TIMEOUT;
 
-        return $this->runMeasure($worktree, $cmd, $timeout);
+        // HERMETIC DB ISOLATION (critical, data-loss): the obra worktree symlinks the REAL .env
+        // (DB_CONNECTION=pgsql, DB_DATABASE=atlas) and the loop daemon has putenv'd DB_CONNECTION=pgsql,
+        // so an inherited-env phpunit child running a RefreshDatabase suite would migrate:fresh against
+        // the operator's LIVE database. Force the child onto sqlite :memory: via the PROCESS env — this
+        // is load-bearing: a non-forced phpunit.xml override and Laravel's immutable safeLoad cannot
+        // reclaim an already-set DB_CONNECTION, but the process env is read before either runs.
+        return $this->runMeasure($worktree, $cmd, $timeout, $this->hermeticMeasureEnv());
+    }
+
+    /**
+     * Process-env overrides that pin a measure child onto a throwaway sqlite :memory: database +
+     * non-persistent drivers, so it can NEVER touch the operator's real DB/cache/queue/mail. Merged
+     * over the inherited environment by Symfony Process (PATH etc. preserved).
+     *
+     * @return array<string,string>
+     */
+    private function hermeticMeasureEnv(): array
+    {
+        return [
+            'APP_ENV' => 'testing',
+            'DB_CONNECTION' => 'sqlite',
+            'DB_DATABASE' => ':memory:',
+            'CACHE_STORE' => 'array',
+            'CACHE_DRIVER' => 'array',
+            'SESSION_DRIVER' => 'array',
+            'QUEUE_CONNECTION' => 'sync',
+            'MAIL_MAILER' => 'array',
+        ];
     }
 
     /**
@@ -486,10 +518,10 @@ final class GovernedBranchMaterializationService
         }
     }
 
-    private function runMeasure(string $cwd, string $cmd, float $timeout = self::GIT_TIMEOUT): array
+    private function runMeasure(string $cwd, string $cmd, float $timeout = self::GIT_TIMEOUT, ?array $env = null): array
     {
         try {
-            $p = Process::fromShellCommandline($cmd, $cwd, null, null, $timeout);
+            $p = Process::fromShellCommandline($cmd, $cwd, $env, null, $timeout);
             $p->run();
 
             return [
@@ -628,6 +660,29 @@ final class GovernedBranchMaterializationService
                 @symlink($src, $dst);
             }
         }
+    }
+
+    /**
+     * Write a hermetic .env.testing into the obra worktree (sqlite :memory: + non-persistent drivers)
+     * so a worktree `php artisan test` (APP_ENV=testing) never falls back to the symlinked real .env.
+     * Preserves the repo's APP_KEY when readable (so the app boots identically), else a throwaway one.
+     */
+    private function writeObraHermeticTestEnv(string $worktree): void
+    {
+        $appKey = '';
+        $realEnv = (string) @file_get_contents($worktree.'/.env'); // follows the symlink to the real .env
+        if ($realEnv !== '' && preg_match('/^\s*APP_KEY\s*=\s*(.+)$/m', $realEnv, $m)) {
+            $appKey = trim($m[1], " \t\"'");
+        }
+        if ($appKey === '') {
+            $appKey = 'base64:'.base64_encode(random_bytes(32));
+        }
+        $env = [
+            'APP_NAME=Atlas', 'APP_ENV=testing', 'APP_KEY='.$appKey, 'APP_DEBUG=true',
+            'DB_CONNECTION=sqlite', 'DB_DATABASE=:memory:', 'CACHE_STORE=array',
+            'SESSION_DRIVER=array', 'QUEUE_CONNECTION=sync', 'MAIL_MAILER=array', 'BCRYPT_ROUNDS=4',
+        ];
+        @file_put_contents($worktree.'/.env.testing', implode("\n", $env)."\n");
     }
 
     /**
