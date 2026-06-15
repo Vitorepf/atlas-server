@@ -238,6 +238,82 @@ CMD;
         $this->assertSame('cosmetic', $on['decisive_operator_family']);
     }
 
+    public function test_refactor_contract_never_false_certifies_via_duplicate_line_in_old_covered_code(): void
+    {
+        // REGRESSION — HOLE 1, FALSE-CERTIFY via strpos mis-landing (adversarial panel, 2026-06-14):
+        // the refactor leaves the COVERED classify() UNCHANGED and adds a NEW, UNTESTED method whose
+        // first body line `        if ($n === 0) {` is BYTE-IDENTICAL to the covered line inside the
+        // old classify(). The pre-fix per-line path called strpos on the FULL file, landing the `===`
+        // mutation on the OLD covered line -> the sibling test killed it -> mutation_killed/certified
+        // for code that is actually untested. Fix A position-confines the mutation to the added line's
+        // EXACT NEW-file index, so the `===` is flipped only inside the new untested method, where the
+        // test never reaches it. The verdict MUST be mutation_survived (or no_applicable_mutation),
+        // NEVER mutation_killed/certified=true.
+        $this->workspace = $this->refactorWorkspaceWithDuplicateDecisionLineInNewUntestedMethod();
+
+        $on = app(AtlasLoopMutationAdequacyGateService::class)->evaluate(
+            $this->workspace,
+            $this->refactorAcceptance(),
+            ['src/Calc.php'],
+            ['enabled' => true, 'refactor_decision_aware' => true],
+        );
+
+        $this->assertContains(
+            $on['status'],
+            ['mutation_survived', 'no_applicable_mutation'],
+            'duplicate added line must NEVER be mutated on the old covered copy (false certify)'
+        );
+        $this->assertFalse($on['certified'], 'an untested new method must never certify');
+        $this->assertNotSame('mutation_killed', $on['status']);
+        // If a mutant was sampled at all, it must have been the NEW line (so it survived, not killed).
+        if ($on['mutants_sampled'] > 0) {
+            $this->assertSame(0, $on['mutants_killed'], 'no kill may come from the old covered duplicate line');
+            $this->assertSame(1, $on['mutants_survived']);
+            $this->assertFalse(data_get($on, 'mutants.0.killed'));
+        }
+    }
+
+    public function test_refactor_contract_certifies_extract_method_using_gte_and_lt_operators(): void
+    {
+        // REGRESSION — HOLE 2, FALSE-REJECT via narrow vocabulary (adversarial panel, 2026-06-14):
+        // a well-tested extract-method refactor whose relocated COVERED decision uses `>=` (and a
+        // sibling fixture using `<`). The pre-fix vocabulary only knew ===,!==,>0,return bool/int,
+        // dispatch,insert -> these refactors produced ZERO decision mutants -> no_applicable_mutation
+        // -> hard reject (certs=0 for a huge, common class of refactors). Fix B makes >=,<=,<,> real
+        // behaviour-changing mutants, so the covered decision is now sampled and KILLED -> certified.
+
+        $this->workspace = $this->refactorWorkspaceWithCoveredGteDecision();
+        $gte = app(AtlasLoopMutationAdequacyGateService::class)->evaluate(
+            $this->workspace,
+            $this->refactorAcceptance(),
+            ['src/Calc.php'],
+            ['enabled' => true, 'refactor_decision_aware' => true],
+        );
+        $this->assertSame('mutation_killed', $gte['status'], 'a well-tested >= refactor must certify (was no_applicable_mutation)');
+        $this->assertTrue($gte['certified']);
+        $this->assertSame('gte_comparison', data_get($gte, 'mutants.0.operator'));
+        $this->assertSame('decision', $gte['decisive_operator_family']);
+        $this->assertTrue(data_get($gte, 'mutants.0.killed'));
+        $this->assertSame(1, $gte['mutants_killed']);
+
+        // Tear the >= workspace down before building the < one (one $this->workspace slot).
+        (new Process(['rm', '-rf', $this->workspace], null, null, null, 30.0))->run();
+
+        $this->workspace = $this->refactorWorkspaceWithCoveredLtDecision();
+        $lt = app(AtlasLoopMutationAdequacyGateService::class)->evaluate(
+            $this->workspace,
+            $this->refactorAcceptance(),
+            ['src/Calc.php'],
+            ['enabled' => true, 'refactor_decision_aware' => true],
+        );
+        $this->assertSame('mutation_killed', $lt['status'], 'a well-tested < refactor must certify (was no_applicable_mutation)');
+        $this->assertTrue($lt['certified']);
+        $this->assertSame('lt_comparison', data_get($lt, 'mutants.0.operator'));
+        $this->assertSame('decision', $lt['decisive_operator_family']);
+        $this->assertTrue(data_get($lt, 'mutants.0.killed'));
+        $this->assertSame(1, $lt['mutants_killed']);
+    }
+
     /**
      * @return array<string,mixed>
      */
@@ -412,6 +488,138 @@ final class Calc {
     }
     public function freshUntestedFeature(): string {
         return 'brand-new-untested-relocated-literal';
+    }
+}
+PHP;
+
+        return $this->refactorWorkspace($baseline, $test, $refactor);
+    }
+
+    /**
+     * REGRESSION fixture for HOLE 1 (false-certify via strpos mis-landing): classify() is COVERED and
+     * left UNCHANGED; the refactor adds a NEW, UNTESTED method whose first body line is BYTE-IDENTICAL
+     * to the covered `        if ($n === 0) {` line inside classify(). A strpos-based mutation would
+     * land the `===` flip on the OLD covered copy and get a false kill; a position-confined mutation
+     * flips the `===` only in the new untested method, where it must SURVIVE.
+     */
+    private function refactorWorkspaceWithDuplicateDecisionLineInNewUntestedMethod(): string
+    {
+        $baseline = <<<'PHP'
+<?php
+final class Calc {
+    public function classify(int $n): string {
+        if ($n === 0) {
+            return 'zero';
+        }
+        return 'nonzero';
+    }
+}
+PHP;
+        $test = <<<'PHP'
+<?php
+require __DIR__.'/../src/Calc.php';
+$c = new Calc();
+if ($c->classify(0) !== 'zero') { fwrite(STDERR, 'classify(0) wrong'); exit(1); }
+if ($c->classify(5) !== 'nonzero') { fwrite(STDERR, 'classify(5) wrong'); exit(1); }
+exit(0);
+PHP;
+        $refactor = <<<'PHP'
+<?php
+final class Calc {
+    public function classify(int $n): string {
+        if ($n === 0) {
+            return 'zero';
+        }
+        return 'nonzero';
+    }
+    public function freshUntested(int $n): string {
+        if ($n === 0) {
+            return 'new-untested-zero';
+        }
+        return 'new-untested-other';
+    }
+}
+PHP;
+
+        return $this->refactorWorkspace($baseline, $test, $refactor);
+    }
+
+    /**
+     * REGRESSION fixture for HOLE 2 (false-reject via narrow vocabulary): a well-tested extract-method
+     * refactor whose relocated COVERED decision uses `>=`. classify(10)=big and classify(9)=small both
+     * exercise the relocated `return $n >= 10;`, so flipping `>=` -> `<` flips classify(10) to small and
+     * the sibling test goes RED -> the decision mutant is KILLED -> the refactor certifies.
+     */
+    private function refactorWorkspaceWithCoveredGteDecision(): string
+    {
+        $baseline = <<<'PHP'
+<?php
+final class Calc {
+    public function classify(int $n): string {
+        if ($n >= 10) {
+            return 'big';
+        }
+        return 'small';
+    }
+}
+PHP;
+        $test = <<<'PHP'
+<?php
+require __DIR__.'/../src/Calc.php';
+$c = new Calc();
+if ($c->classify(10) !== 'big') { fwrite(STDERR, 'classify(10) wrong'); exit(1); }
+if ($c->classify(9) !== 'small') { fwrite(STDERR, 'classify(9) wrong'); exit(1); }
+exit(0);
+PHP;
+        $refactor = <<<'PHP'
+<?php
+final class Calc {
+    public function classify(int $n): string {
+        return $this->isBig($n) ? 'big' : 'small';
+    }
+    private function isBig(int $n): bool {
+        return $n >= 10;
+    }
+}
+PHP;
+
+        return $this->refactorWorkspace($baseline, $test, $refactor);
+    }
+
+    /**
+     * REGRESSION fixture for HOLE 2 (the `<` arm): the relocated COVERED decision uses `<`. The mutant
+     * `<` -> `>=` flips classify(-1) from neg to nonneg, the sibling test goes RED, the decision mutant
+     * is KILLED -> the refactor certifies. Pins that `<` is NOT mis-eaten by the `<=` mutator.
+     */
+    private function refactorWorkspaceWithCoveredLtDecision(): string
+    {
+        $baseline = <<<'PHP'
+<?php
+final class Calc {
+    public function classify(int $n): string {
+        if ($n < 0) {
+            return 'neg';
+        }
+        return 'nonneg';
+    }
+}
+PHP;
+        $test = <<<'PHP'
+<?php
+require __DIR__.'/../src/Calc.php';
+$c = new Calc();
+if ($c->classify(-1) !== 'neg') { fwrite(STDERR, 'classify(-1) wrong'); exit(1); }
+if ($c->classify(0) !== 'nonneg') { fwrite(STDERR, 'classify(0) wrong'); exit(1); }
+exit(0);
+PHP;
+        $refactor = <<<'PHP'
+<?php
+final class Calc {
+    public function classify(int $n): string {
+        return $this->isNeg($n) ? 'neg' : 'nonneg';
+    }
+    private function isNeg(int $n): bool {
+        return $n < 0;
     }
 }
 PHP;

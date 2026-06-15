@@ -85,14 +85,7 @@ final class AtlasAaeosThresholdLadderNormalizer
         $normalized = [];
 
         foreach ($thresholds as $threshold) {
-            if (! is_array($threshold)
-                || ! isset($threshold['metric'], $threshold['comparator'], $threshold['value'])
-                || ! is_string($threshold['metric'])
-                || trim($threshold['metric']) === ''
-                || ! is_string($threshold['comparator'])
-                || (! is_int($threshold['value']) && ! is_float($threshold['value']))
-                || ! is_finite((float) $threshold['value'])
-            ) {
+            if (! self::isThresholdShape($threshold)) {
                 return null;
             }
 
@@ -104,5 +97,16 @@ final class AtlasAaeosThresholdLadderNormalizer
         }
 
         return $normalized;
+    }
+
+    private static function isThresholdShape(mixed $threshold): bool
+    {
+        return is_array($threshold)
+            && isset($threshold['metric'], $threshold['comparator'], $threshold['value'])
+            && is_string($threshold['metric'])
+            && trim($threshold['metric']) !== ''
+            && is_string($threshold['comparator'])
+            && in_array(get_debug_type($threshold['value']), ['int', 'float'], true)
+            && is_finite((float) $threshold['value']);
     }
 }

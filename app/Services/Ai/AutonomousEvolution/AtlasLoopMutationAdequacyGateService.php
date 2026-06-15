@@ -68,6 +68,7 @@ final class AtlasLoopMutationAdequacyGateService
         $maxMutants = max(1, (int) ($options['max_mutants'] ?? config('atlas.loop.mutation_adequacy_gate.max_mutants', 1)));
         $decisionOnly = $this->refactorDecisionAware($acceptance, $options);
         $addedLines = $this->addedLines($workspace);
+        $addedLineMap = $this->addedLineMap($workspace);
         $mutants = [];
         $sampled = 0;
         foreach ($targets as $target) {
@@ -76,7 +77,7 @@ final class AtlasLoopMutationAdequacyGateService
             }
             $path = $workspace.'/'.$target;
             $original = is_file($path) ? (string) file_get_contents($path) : '';
-            $mutation = $this->firstMutation($target, $original, $addedLines[$target] ?? null, $decisionOnly);
+            $mutation = $this->firstMutation($target, $original, $addedLines[$target] ?? null, $decisionOnly, $addedLineMap[$target] ?? []);
             if ($mutation === null) {
                 continue;
             }
@@ -308,10 +309,84 @@ final class AtlasLoopMutationAdequacyGateService
     }
 
     /**
+     * Map each ADDED line to its exact NEW-file line number (1-based) per file.
+     *
+     * Fix A (adversarial panel, 2026-06-14): {@see addedLines} concatenates non-contiguous
+     * git hunks into one block that is NOT verbatim in the file, so the decision-aware path
+     * fell back to a per-line strpos that can land a mutation on a byte-identical line in OLD,
+     * UNCHANGED code (false certify). This map lets the gate mutate the diff's added line AT
+     * ITS EXACT INDEX, so a mutation can NEVER touch unchanged code — even for multi-hunk diffs
+     * and duplicate line text. The hunk header `@@ -a,b +c,d @@` declares the added run starts
+     * at NEW line c; each `+` line in that hunk is consecutive from c.
+     *
+     * @return array<string,array<int,string>> file => [newLineNumber => addedLineText]
+     */
+    private function addedLineMap(string $workspace): array
+    {
+        $process = new Process(['git', 'diff', '--unified=0', '--no-ext-diff'], $workspace, null, null, 30.0);
+        $process->run();
+        if (! $process->isSuccessful() && $process->getExitCode() !== 1) {
+            return [];
+        }
+
+        $byFile = [];
+        $current = null;
+        $newLine = 0;
+        foreach (preg_split('/\R/', (string) $process->getOutput()) ?: [] as $line) {
+            if (str_starts_with($line, '+++ b/')) {
+                $current = substr($line, 6);
+                $byFile[$current] ??= [];
+                $newLine = 0;
+
+                continue;
+            }
+            if ($current === null) {
+                continue;
+            }
+            if (str_starts_with($line, '@@')) {
+                // @@ -a,b +c,d @@  -> the added run for this hunk starts at NEW line c.
+                if (preg_match('/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/', $line, $m) === 1) {
+                    $newLine = (int) $m[1];
+                }
+
+                continue;
+            }
+            if (str_starts_with($line, '+') && ! str_starts_with($line, '+++')) {
+                if ($newLine > 0) {
+                    $byFile[$current][$newLine] = substr($line, 1);
+                    $newLine++;
+                }
+            }
+            // --unified=0 emits no context lines, so any non-+ line ends the current run;
+            // the next @@ header re-seeds $newLine. Nothing else to track.
+        }
+
+        $out = [];
+        foreach ($byFile as $file => $lines) {
+            if ($lines !== []) {
+                $out[$file] = $lines;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  array<int,string>  $addedLineMap  NEW-file line number => added line text (Fix A)
      * @return array{mutation_id:string,operator:string,content:string}|null
      */
-    private function firstMutation(string $file, string $content, ?string $preferredText = null, bool $decisionOnly = false): ?array
+    private function firstMutation(string $file, string $content, ?string $preferredText = null, bool $decisionOnly = false, array $addedLineMap = []): ?array
     {
+        // Refactor contracts (decisionOnly) POSITION-CONFINE the mutation: every added line is
+        // mutated AT ITS EXACT NEW-file index (Fix A, adversarial panel 2026-06-14). The legacy
+        // strpos-based path could land a per-line mutation on a byte-identical line in OLD,
+        // UNCHANGED code (false certify); index mutation makes that structurally impossible even
+        // for multi-hunk diffs and duplicate line text. No added line yields a decision mutant =>
+        // null => no_applicable_mutation (fail-closed, no free pass into old code).
+        if ($decisionOnly) {
+            return $this->firstAddedLineMutation($file, $content, $addedLineMap);
+        }
+
         $preferredText = is_string($preferredText) ? trim($preferredText, "\n") : '';
         if ($preferredText !== '') {
             $preferredMutation = $this->mutationForText($file, $preferredText, $decisionOnly);
@@ -340,17 +415,66 @@ final class AtlasLoopMutationAdequacyGateService
             }
         }
 
-        // Refactor contracts (decisionOnly) confine mutation to the APPROVED diff's added lines
-        // ONLY — never the full pre-existing file. Otherwise, when the added lines yield no decision
-        // mutant, this fallback would mutate a decision operator in OLD, UNCHANGED code; a sibling
-        // test covering that old code kills it -> a FALSE certify of an untested refactor (adversarial
-        // panel, 2026-06-15). No producible added-line decision mutant => null => no_applicable_mutation
-        // (fail-closed). Legacy (decisionOnly=false) keeps the original full-file fallback byte-identical.
-        if ($decisionOnly) {
+        return $this->mutationForText($file, $content, $decisionOnly);
+    }
+
+    /**
+     * Fix A: mutate exactly ONE added line at its NEW-file index, never via strpos.
+     *
+     * Splits the live file into lines, finds the first added line (by NEW line number) that the
+     * decision mutators can change, mutates THAT line in place, and rebuilds the file. Because the
+     * mutation is applied at the diff-declared index — and we additionally verify the file's text at
+     * that index still equals the added line — a duplicate line in OLD code can never be the target.
+     * If the file at the declared index no longer matches the added line (e.g. unexpected drift),
+     * that line is skipped rather than mutated elsewhere, preserving the fail-closed contract.
+     *
+     * @param  array<int,string>  $addedLineMap  NEW-file line number => added line text
+     * @return array{mutation_id:string,operator:string,content:string}|null
+     */
+    private function firstAddedLineMutation(string $file, string $content, array $addedLineMap): ?array
+    {
+        if ($addedLineMap === []) {
             return null;
         }
 
-        return $this->mutationForText($file, $content, $decisionOnly);
+        // Preserve the file's exact line endings on rebuild.
+        $eol = str_contains($content, "\r\n") ? "\r\n" : "\n";
+        $lines = preg_split('/\r\n|\n|\r/', $content);
+        if (! is_array($lines)) {
+            return null;
+        }
+
+        ksort($addedLineMap);
+        foreach ($addedLineMap as $lineNumber => $addedText) {
+            $index = $lineNumber - 1; // NEW line numbers are 1-based.
+            if ($index < 0 || ! array_key_exists($index, $lines)) {
+                continue;
+            }
+            // POSITION CONFINEMENT: the live file at this exact index must still be the added line.
+            // If it drifted, skip — never search elsewhere (would risk landing on old code).
+            if ($lines[$index] !== $addedText) {
+                continue;
+            }
+            $lineMutation = $this->mutationForText($file, $addedText, true);
+            if ($lineMutation === null || $lineMutation['content'] === $addedText) {
+                continue;
+            }
+
+            $mutatedLines = $lines;
+            $mutatedLines[$index] = $lineMutation['content'];
+            $mutatedContent = implode($eol, $mutatedLines);
+            if ($mutatedContent === $content) {
+                continue;
+            }
+
+            return [
+                'mutation_id' => substr(hash('sha256', $file.'|'.$lineMutation['operator'].'|'.$lineNumber.'|'.$mutatedContent), 0, 16),
+                'operator' => $lineMutation['operator'],
+                'content' => $mutatedContent,
+            ];
+        }
+
+        return null;
     }
 
     /**
@@ -379,6 +503,20 @@ final class AtlasLoopMutationAdequacyGateService
             'strict_not_equals' => static fn (string $source): ?string => self::replaceFirst('/!==/', '===', $source),
             'return_integer' => static fn (string $source): ?string => self::replaceFirstCallback('/return\s+(-?\d+)\s*;/', static fn (array $m): string => 'return '.(((int) $m[1]) === 0 ? '1' : '0').';', $source),
             'positive_comparison' => static fn (string $source): ?string => self::replaceFirst('/>\s*0/', '<= 0', $source),
+            // Fix B (adversarial panel, 2026-06-14): BROADEN the decision vocabulary to ALL relational/
+            // equality operators generically, each a real behaviour-changing mutant. Ordered longest-first
+            // so a shorter operator never eats a longer one. >=,<=,<,> (any RHS) cover the common
+            // refactor decisions that the >0/=== narrow set used to miss (false reject -> certs=0).
+            // Each routes through {@see relationalReplace} which IGNORES operators inside comments/
+            // docblocks (e.g. the `>` in `@var array<int,string>`) so a no-op comment edit can never
+            // masquerade as a decision mutant — that would survive and FALSELY reject a real refactor.
+            'gte_comparison' => static fn (string $source): ?string => self::relationalReplace('/>=/', '<', $source),
+            'lte_comparison' => static fn (string $source): ?string => self::relationalReplace('/<=/', '>', $source),
+            'loose_equals' => static fn (string $source): ?string => self::relationalReplace('/(?<![=!<>])==(?![=])/', '!=', $source),
+            'loose_not_equals' => static fn (string $source): ?string => self::relationalReplace('/!=(?![=])/', '==', $source),
+            // > not part of >=, =>, ->, >>, or the >0 already handled above; < not part of <=, <<, or </> tags.
+            'gt_comparison' => static fn (string $source): ?string => self::relationalReplace('/(?<![=<>-])>(?![=>])/', '<=', $source),
+            'lt_comparison' => static fn (string $source): ?string => self::relationalReplace('/(?<![=<>])<(?![=<])/', '>=', $source),
             'job_dispatch_noop' => static fn (string $source): ?string => self::replaceFirst('/\\\\?[A-Za-z_][A-Za-z0-9_\\\\]*::dispatch\(\);/', ';', $source),
             'db_insert_noop' => static fn (string $source): ?string => self::replaceFirst('/->insert\(/', "->whereRaw('1 = 0')->update(", $source),
             'string_literal' => static fn (string $source): ?string => self::replaceFirst('/([\'"])(?:\\\\.|(?!\1).){1,160}\1/', "'__atlas_mutant__'", $source),
