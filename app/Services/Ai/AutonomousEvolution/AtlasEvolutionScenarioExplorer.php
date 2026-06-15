@@ -81,12 +81,34 @@ final class AtlasEvolutionScenarioExplorer
             ]);
         }
 
-        // DEEP SEARCH: keep exploring NEW scenarios while they keep improving the
-        // best candidate — up to a hard cap / time budget, stopping early once it
-        // converges (patience). This is the junior who explores many options until
-        // the best one is found. Fixed-N (min=max=N) when $scenarios is explicit.
         [$min, $max, $patience, $timeBudget] = $this->searchParams($task, $scenarios);
         $workspaceRoot = $this->scenarioRoot($task); // honor a per-worker root; defaults to sys_get_temp_dir
+        $search = $this->exploreAttempts($min, $max, $patience, $timeBudget, $objective, $baseWorkspace, $task, $acceptance, $metricKind, $surfaceId, $userConstraints, $surfaceHints, $provider, $keepWorkspaces, $workspaceRoot);
+        $attempts = $search['attempts'];
+
+        $winner = $this->pickWinner($attempts, $metricKind);
+
+        return $this->result($objective, $provider, $metricKind, $winner, $attempts, [
+            'blocked' => false,
+            'reason' => ['no_passing_candidate', 'winner_selected'][(int) ($winner !== null)],
+            'scenarios_cap' => $max,
+            'converged' => $search['converged'],
+        ]);
+    }
+
+    /**
+     * DEEP SEARCH: keep exploring NEW scenarios while they keep improving the
+     * best candidate — up to a hard cap / time budget, stopping early once it
+     * converges (patience). Fixed-N (min=max=N) when $scenarios is explicit.
+     *
+     * @param  array<string,mixed>  $task
+     * @param  array<string,mixed>  $acceptance
+     * @param  list<string>  $userConstraints
+     * @param  array<string,mixed>  $surfaceHints
+     * @return array{attempts:list<array<string,mixed>>,converged:bool}
+     */
+    private function exploreAttempts(int $min, int $max, int $patience, int $timeBudget, string $objective, string $baseWorkspace, array $task, array $acceptance, string $metricKind, string $surfaceId, array $userConstraints, array $surfaceHints, string $provider, bool $keepWorkspaces, string $workspaceRoot): array
+    {
         $attempts = [];
         $best = null;
         $noImprove = 0;
@@ -112,14 +134,10 @@ final class AtlasEvolutionScenarioExplorer
             }
         }
 
-        $winner = $this->pickWinner($attempts, $metricKind);
-
-        return $this->result($objective, $provider, $metricKind, $winner, $attempts, [
-            'blocked' => false,
-            'reason' => $winner !== null ? 'winner_selected' : 'no_passing_candidate',
-            'scenarios_cap' => $max,
+        return [
+            'attempts' => $attempts,
             'converged' => $best !== null && $noImprove >= $patience,
-        ]);
+        ];
     }
 
     /**
