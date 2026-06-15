@@ -66,6 +66,7 @@ final class AtlasLoopMutationAdequacyGateService
         }
 
         $maxMutants = max(1, (int) ($options['max_mutants'] ?? config('atlas.loop.mutation_adequacy_gate.max_mutants', 1)));
+        $decisionOnly = $this->refactorDecisionAware($acceptance, $options);
         $addedLines = $this->addedLines($workspace);
         $mutants = [];
         $sampled = 0;
@@ -75,7 +76,7 @@ final class AtlasLoopMutationAdequacyGateService
             }
             $path = $workspace.'/'.$target;
             $original = is_file($path) ? (string) file_get_contents($path) : '';
-            $mutation = $this->firstMutation($target, $original, $addedLines[$target] ?? null);
+            $mutation = $this->firstMutation($target, $original, $addedLines[$target] ?? null, $decisionOnly);
             if ($mutation === null) {
                 continue;
             }
@@ -309,11 +310,11 @@ final class AtlasLoopMutationAdequacyGateService
     /**
      * @return array{mutation_id:string,operator:string,content:string}|null
      */
-    private function firstMutation(string $file, string $content, ?string $preferredText = null): ?array
+    private function firstMutation(string $file, string $content, ?string $preferredText = null, bool $decisionOnly = false): ?array
     {
         $preferredText = is_string($preferredText) ? trim($preferredText, "\n") : '';
         if ($preferredText !== '') {
-            $preferredMutation = $this->mutationForText($file, $preferredText);
+            $preferredMutation = $this->mutationForText($file, $preferredText, $decisionOnly);
             if ($preferredMutation !== null && str_contains($content, $preferredText)) {
                 $mutatedContent = $this->replaceFirstLiteral($content, $preferredText, $preferredMutation['content']);
                 if ($mutatedContent !== $content) {
@@ -327,7 +328,7 @@ final class AtlasLoopMutationAdequacyGateService
                 if (trim($line) === '') {
                     continue;
                 }
-                $lineMutation = $this->mutationForText($file, $line);
+                $lineMutation = $this->mutationForText($file, $line, $decisionOnly);
                 if ($lineMutation !== null && str_contains($content, $line)) {
                     $mutatedContent = $this->replaceFirstLiteral($content, $line, $lineMutation['content']);
                     if ($mutatedContent !== $content) {
@@ -339,13 +340,36 @@ final class AtlasLoopMutationAdequacyGateService
             }
         }
 
-        return $this->mutationForText($file, $content);
+        // Refactor contracts (decisionOnly) confine mutation to the APPROVED diff's added lines
+        // ONLY — never the full pre-existing file. Otherwise, when the added lines yield no decision
+        // mutant, this fallback would mutate a decision operator in OLD, UNCHANGED code; a sibling
+        // test covering that old code kills it -> a FALSE certify of an untested refactor (adversarial
+        // panel, 2026-06-15). No producible added-line decision mutant => null => no_applicable_mutation
+        // (fail-closed). Legacy (decisionOnly=false) keeps the original full-file fallback byte-identical.
+        if ($decisionOnly) {
+            return null;
+        }
+
+        return $this->mutationForText($file, $content, $decisionOnly);
     }
+
+    /**
+     * COSMETIC operators relocate/replace a string literal without touching control flow.
+     * For a behaviour-preserving REFACTOR, a moved unasserted literal surviving is NOT
+     * evidence the test is empty — it conflates "one relocated string is unasserted" with
+     * "the refactor is untested". {@see mutationForText} skips these for refactor contracts.
+     *
+     * @var array<string,true>
+     */
+    private const COSMETIC_OPERATORS = [
+        'return_string_literal' => true,
+        'string_literal' => true,
+    ];
 
     /**
      * @return array{mutation_id:string,operator:string,content:string}|null
      */
-    private function mutationForText(string $file, string $content): ?array
+    private function mutationForText(string $file, string $content, bool $decisionOnly = false): ?array
     {
         $mutators = [
             'return_string_literal' => static fn (string $source): ?string => self::replaceFirst('/return\s+([\'"])(?:\\\\.|(?!\1).)*\1\s*;/', "return '__atlas_mutant__';", $source),
@@ -361,6 +385,12 @@ final class AtlasLoopMutationAdequacyGateService
         ];
 
         foreach ($mutators as $operator => $mutator) {
+            // Refactor contracts sample DECISION operators only — a surviving cosmetic literal
+            // must not decide a behaviour-preserving refactor's fate. decisionOnly=false keeps
+            // the original full-ordered, first-mutation-wins behaviour byte-identical.
+            if ($decisionOnly && isset(self::COSMETIC_OPERATORS[$operator])) {
+                continue;
+            }
             $mutated = $mutator($content);
             if (is_string($mutated) && $mutated !== $content) {
                 return [
@@ -372,6 +402,43 @@ final class AtlasLoopMutationAdequacyGateService
         }
 
         return null;
+    }
+
+    /**
+     * A refactor contract (complexity_proof + metric_kind=minimize) — the IDENTICAL predicate to
+     * {@see AtlasLoopSemanticImplementationCertifier::complexityProofRequired} so the gate and the
+     * certifier never disagree on what is a refactor. Decision-aware sampling is flag-gated
+     * (default OFF = byte-identical legacy first-mutation-wins), opt-in and fail-closed.
+     *
+     * @param  array<string,mixed>  $acceptance
+     * @param  array<string,mixed>  $options
+     */
+    private function refactorDecisionAware(array $acceptance, array $options = []): bool
+    {
+        $enabled = (bool) ($options['refactor_decision_aware']
+            ?? config('atlas.loop.mutation_adequacy_gate.refactor_decision_aware', false));
+
+        return $enabled
+            && (bool) ($acceptance['complexity_proof'] ?? false)
+            && (string) ($acceptance['metric_kind'] ?? '') === AtlasEvolutionFrozenJudge::METRIC_MINIMIZE;
+    }
+
+    /**
+     * Which mutator family produced the deciding mutant (audit-only; never changes the verdict).
+     *
+     * @param  list<array<string,mixed>>  $mutants
+     */
+    private function decisiveOperatorFamily(array $mutants): string
+    {
+        if ($mutants === []) {
+            return 'none';
+        }
+        $operator = (string) ($mutants[array_key_last($mutants)]['operator'] ?? '');
+        if ($operator === '') {
+            return 'none';
+        }
+
+        return isset(self::COSMETIC_OPERATORS[$operator]) ? 'cosmetic' : 'decision';
     }
 
     private function replaceFirstLiteral(string $haystack, string $needle, string $replacement): string
@@ -439,6 +506,7 @@ final class AtlasLoopMutationAdequacyGateService
             'mutants_sampled' => count($mutants),
             'mutants_killed' => count(array_filter($mutants, static fn (array $m): bool => (bool) ($m['killed'] ?? false))),
             'mutants_survived' => count(array_filter($mutants, static fn (array $m): bool => (bool) ($m['survived'] ?? false))),
+            'decisive_operator_family' => $this->decisiveOperatorFamily($mutants),
             'mutants' => $mutants,
             'invariants' => [
                 'proposal_only' => true,

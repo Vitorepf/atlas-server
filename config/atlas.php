@@ -2037,6 +2037,13 @@ return [
             'schedule_time' => (string) env('ATLAS_LOOP_MUTATION_ADEQUACY_GATE_SCHEDULE_TIME', '06:35'),
             'max_mutants' => max(1, (int) env('ATLAS_LOOP_MUTATION_ADEQUACY_GATE_MAX_MUTANTS', 1)),
             'timeout_seconds' => max(10, (int) env('ATLAS_LOOP_MUTATION_ADEQUACY_GATE_TIMEOUT_SECONDS', 120)),
+            // For REFACTOR contracts (complexity_proof + metric_kind=minimize) sample DECISION
+            // mutators only — a behaviour-preserving refactor that RELOCATES an unasserted string
+            // literal must not be falsely rejected (mutation_survived) on that cosmetic mutant.
+            // Default OFF = byte-identical legacy first-mutation-wins (fail-closed); flip ON once a
+            // soak confirms real refactor certs appear. Never weakens true rejection: a surviving
+            // DECISION mutant still rejects, and no producible decision mutant still rejects.
+            'refactor_decision_aware' => (bool) env('ATLAS_LOOP_MUTATION_ADEQUACY_GATE_REFACTOR_DECISION_AWARE', false),
             'receipt_path' => (string) env('ATLAS_LOOP_MUTATION_ADEQUACY_GATE_RECEIPT_PATH', storage_path('app/atlas/evidence/mutation-adequacy-gate.json')),
         ],
 
