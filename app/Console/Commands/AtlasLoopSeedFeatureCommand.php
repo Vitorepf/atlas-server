@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Models\AtlasLoopCampaign;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopFeatureObjectiveBuilder;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSpecAmplificationGate;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
 use Illuminate\Console\Command;
 
@@ -62,7 +63,24 @@ final class AtlasLoopSeedFeatureCommand extends Command
             return self::FAILURE;
         }
 
-        $built = (new AtlasLoopFeatureObjectiveBuilder())->build($name, $spec, $test, $files, $provider !== '' ? $provider : null);
+        // Lever 5 — SPEC AMPLIFICATION: refuse a feature whose frozen acceptance is too thin to pin a complex
+        // behaviour (spec-gaming — the loop would pass the one test and miss the intent). Fail-open when the
+        // floors are 0 (OFF) or the test file does not exist yet (discovery may author it later).
+        $minA = (int) config('atlas.loop.spec_amplification.min_assertions', 0);
+        $minM = (int) config('atlas.loop.spec_amplification.min_methods', 0);
+        if ($minA > 0 || $minM > 0) {
+            $testAbs = base_path($test);
+            if (is_file($testAbs)) {
+                $richness = (new AtlasLoopSpecAmplificationGate)->assess((string) file_get_contents($testAbs), $minA, $minM);
+                if (! $richness['rich']) {
+                    $this->error("Spec too thin to pin a complex feature ({$richness['reason']}). Amplify the acceptance test (boundary/error/idempotency cases) before seeding.");
+
+                    return self::INVALID;
+                }
+            }
+        }
+
+        $built = (new AtlasLoopFeatureObjectiveBuilder)->build($name, $spec, $test, $files, $provider !== '' ? $provider : null);
 
         $task = $store->enqueueTask(
             (string) $campaign->id,

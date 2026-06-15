@@ -1992,6 +1992,14 @@ return [
             'threshold' => (float) env('ATLAS_LOOP_CONFIDENCE_THRESHOLD', 0.93),
             'weights' => [], // empty => the model's conservative defaults; the calibration loop overwrites this
         ],
+        // LEVER 5 — SPEC AMPLIFICATION floor (feature lane). A feature's frozen acceptance test IS its spec;
+        // a thin test under-specifies a complex feature (spec-gaming). The gate refuses a feature whose
+        // acceptance asserts fewer than this many cases — forcing the spec to be amplified (boundary/error/
+        // idempotency) before provider budget is spent. 0 => OFF (byte-identical). Fail-open if no test file.
+        'spec_amplification' => [
+            'min_assertions' => max(0, (int) env('ATLAS_LOOP_SPEC_MIN_ASSERTIONS', 0)),
+            'min_methods' => max(0, (int) env('ATLAS_LOOP_SPEC_MIN_METHODS', 0)),
+        ],
         // LEVER 3 — behavioral-equivalence STRENGTH floor. For a refactor, "the sibling test is green" is
         // necessary but weak; this requires the frozen suite to be strong enough to have CAUGHT a behaviour
         // change — a minimum mutation KILL RATIO (killed/sampled) over the exhaustively sampled decision

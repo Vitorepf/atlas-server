@@ -62,6 +62,33 @@ final class AtlasLoopSeedFeatureCommandTest extends TestCase
         $this->assertSame('operator_seed:feature', $task->source);
     }
 
+    public function test_refuses_a_thin_spec_when_amplification_floor_is_on(): void
+    {
+        // Lever 5: with the spec-amplification floor armed, a feature whose acceptance test is too thin to
+        // pin a complex behaviour is refused — the spec must be amplified before provider budget is spent.
+        config(['atlas.loop.spec_amplification.min_assertions' => 3, 'atlas.loop.spec_amplification.min_methods' => 2]);
+        $campaign = $this->campaign();
+
+        $thinPath = 'storage/framework/testing/atlas-thin-spec-'.bin2hex(random_bytes(4)).'.php';
+        $abs = base_path($thinPath);
+        @mkdir(dirname($abs), 0o755, true);
+        file_put_contents($abs, "<?php\nfinal class ThinTest extends TestCase {\n    public function test_it(): void { \$this->assertTrue(true); }\n}\n");
+
+        try {
+            $this->artisan('atlas:loop:seed-feature', [
+                '--campaign-id' => (string) $campaign->id,
+                '--name' => 'Complex feature',
+                '--spec' => 'A genuinely complex behaviour with many edge cases that one assertion cannot pin.',
+                '--test' => $thinPath,
+                '--files' => ['app/Http/Controllers/ComplexController.php'],
+            ])->assertExitCode(2); // INVALID — spec too thin
+
+            $this->assertSame(0, AtlasLoopTask::query()->where('campaign_id', $campaign->id)->count(), 'a thin-spec feature is not enqueued');
+        } finally {
+            @unlink($abs);
+        }
+    }
+
     public function test_rejects_missing_required_options(): void
     {
         $campaign = $this->campaign();
