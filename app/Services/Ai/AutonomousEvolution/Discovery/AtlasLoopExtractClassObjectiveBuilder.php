@@ -68,10 +68,27 @@ final class AtlasLoopExtractClassObjectiveBuilder
         ], JSON_THROW_ON_ERROR));
 
         return [
-            'objective' => $this->objectiveText($targetRel, $newClassRel, $newClassName, $worstMethod, $cyclomatic),
+            'objective' => $this->objectiveText($targetRel, $newClassRel, $newClassName, $this->namespaceFromPath($newClassRel), $worstMethod, $cyclomatic),
             'payload' => $payload,
             'acceptance_hash' => $acceptanceHash,
         ];
+    }
+
+    /**
+     * The PSR-4 namespace for a repo-relative path under app/ (composer maps App\ => app/). Deterministic
+     * — `app/Services/Ai/X/Foo.php` => `App\Services\Ai\X`. Passing the EXACT namespace to the provider
+     * removes the #1 extract-class failure: a new class whose namespace does not match its PSR-4 path
+     * fails to autoload -> fatal -> the sibling test goes RED -> the cert (correctly) rejects it.
+     */
+    public function namespaceFromPath(string $rel): string
+    {
+        $dir = trim(str_replace('\\', '/', dirname(ltrim($rel, '/'))), '/');
+        if ($dir === '' || $dir === '.' || ! str_starts_with($dir.'/', 'app/')) {
+            return 'App';
+        }
+        $segments = array_slice(explode('/', $dir), 1); // drop the leading "app"
+
+        return 'App'.($segments === [] ? '' : '\\'.implode('\\', array_map('ucfirst', $segments)));
     }
 
     /**
@@ -92,19 +109,24 @@ final class AtlasLoopExtractClassObjectiveBuilder
         return basename($rel, '.php');
     }
 
-    private function objectiveText(string $targetRel, string $newClassRel, string $newClassName, string $worstMethod, int $cyclomatic): string
+    private function objectiveText(string $targetRel, string $newClassRel, string $newClassName, string $newClassNamespace, string $worstMethod, int $cyclomatic): string
     {
-        return "Refactor {$targetRel} by EXTRACTING a cohesive cluster of its logic into a NEW class. "
-            ."The worst method {$worstMethod} (cyclomatic {$cyclomatic}) must get strictly SIMPLER IN PLACE: "
-            ."move a cohesive group of its branches/helpers into a new class and delegate to it. "
-            ."Create the new class at EXACTLY this path: {$newClassRel} (class {$newClassName}, in the namespace "
-            ."that PSR-4 maps to that path). Edit ONLY {$targetRel} and {$newClassRel} — do NOT modify any "
-            ."test, phpunit config, or composer.json. CRITICAL: do NOT add new branches/conditionals/loops "
-            ."— only RELOCATE existing ones into the new class; the total decision count must stay flat or "
-            ."fall. A method merely MOVED intact (same complexity, just re-homed) will be REJECTED — a "
-            ."SPECIFIC method's complexity must drop IN PLACE and the extracted helpers must each be simpler "
-            ."than the original worst method. PRESERVE behavior exactly: the existing sibling test "
-            ."{$worstMethod} relies on must stay GREEN. Your change is correct only when this passes: "
-            ."the frozen sibling test for {$targetRel}.";
+        return "Refactor {$targetRel} by EXTRACTING a cohesive cluster of its logic into a NEW class, to "
+            ."drive the worst method {$worstMethod} (cyclomatic {$cyclomatic}) strictly SIMPLER IN PLACE.\n\n"
+            ."Create the new class at EXACTLY this path: {$newClassRel}\n"
+            ."It MUST be declared as:  namespace {$newClassNamespace};  final class {$newClassName}\n"
+            ."(the namespace MUST be exactly {$newClassNamespace} so PSR-4 autoloads it — a wrong namespace "
+            ."makes the file unloadable and the test will go red).\n\n"
+            ."STEPS: (1) pick a cohesive group of private helpers/branches currently in {$targetRel} "
+            ."(ideally the logic that bloats {$worstMethod}); (2) MOVE them verbatim into {$newClassName} as "
+            ."public methods; (3) in {$targetRel}, instantiate {$newClassName} and DELEGATE to it — replace "
+            ."the moved bodies with simple calls. Keep the public API of {$targetRel} identical.\n\n"
+            ."HARD RULES: Edit ONLY {$targetRel} and {$newClassRel}. Do NOT touch any test, phpunit config, "
+            ."or composer.json. Do NOT add new branches/conditionals/loops/&&/|| — only RELOCATE existing "
+            ."ones; the total decision count must stay flat or fall. PRESERVE behavior EXACTLY: pass the "
+            ."same arguments through to the extracted methods and return their results unchanged. A method "
+            ."merely MOVED intact (same complexity, just re-homed) is REJECTED — {$worstMethod} itself must "
+            ."get smaller, and each extracted helper must be simpler than the original cyclomatic {$cyclomatic}.\n\n"
+            ."Your change is correct ONLY when the frozen sibling test for {$targetRel} stays GREEN.";
     }
 }
