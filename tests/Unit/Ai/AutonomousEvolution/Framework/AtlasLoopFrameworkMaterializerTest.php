@@ -84,4 +84,42 @@ final class AtlasLoopFrameworkMaterializerTest extends TestCase
 
         $this->assertFalse(is_dir($workspace));
     }
+
+    /**
+     * REGRESSION (HIGH false-reject): the class-name extractor used a comment-blind regex that took
+     * the first `class|interface|trait|enum <word>` anywhere in the source — so a docblock line like
+     * "This class is the explicit …" captured "is", producing a bad FQN whose ReflectionClass probe
+     * threw and was mislabeled autoload_resolves_outside_worktree, FAILING ~3.4% of refactor targets.
+     * The tokenizer-based extractor must return the REAL declared class regardless of docblock prose.
+     */
+    public function test_class_extractor_ignores_docblock_prose_and_returns_the_real_declaration(): void
+    {
+        $extract = static function (string $body): ?string {
+            $dir = sys_get_temp_dir().'/atlas-fw-class-'.bin2hex(random_bytes(4));
+            mkdir($dir, 0o755, true);
+            $file = $dir.'/Probe.php';
+            file_put_contents($file, $body);
+            try {
+                $m = new \ReflectionMethod(AtlasLoopFrameworkMaterializer::class, 'classFromFile');
+
+                return $m->invoke(new AtlasLoopFrameworkMaterializer, $file);
+            } finally {
+                @unlink($file);
+                @rmdir($dir);
+            }
+        };
+
+        // The exact shape that broke live (L7L10QueueConsumer): a docblock that says "This class is …"
+        // BEFORE the real declaration. The old regex returned "App\\X\\is"; the fix returns the class.
+        $this->assertSame('App\\X\\Widget', $extract(
+            "<?php\n\nnamespace App\\X;\n\n/**\n * This class is the explicit, governed entrypoint.\n * Another interface to nowhere.\n */\nfinal class Widget\n{\n    public function go(): int { return 1; }\n}\n",
+        ));
+
+        // Interfaces/traits/enums and a leading `Foo::class` use must not derail it.
+        $this->assertSame('App\\Y\\Shape', $extract("<?php\nnamespace App\\Y;\nuse App\\Z;\n// this trait is fake\ninterface Shape {}\n"));
+        $this->assertSame('App\\E\\Status', $extract("<?php\nnamespace App\\E;\n\$x = Other::class;\nenum Status: string { case A = 'a'; }\n"));
+
+        // No declaration (or no namespace) => null (the defensive skip-verification path).
+        $this->assertNull($extract("<?php\nnamespace App\\None;\n// just a class mention in a comment\n\$y = 1;\n"));
+    }
 }

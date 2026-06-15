@@ -238,7 +238,13 @@ final class AtlasLoopFrameworkMaterializer
         $probe->run();
         $resolved = trim((string) $probe->getOutput());
         $expected = $base.'/'.$targetRel;
-        if ($resolved === '' || realpath($resolved) !== realpath($expected)) {
+        // Distinguish a genuine reflection/class miss (empty probe — the declared class did not
+        // resolve at all) from a real outside-worktree resolution (resolved, but to another file),
+        // so a parser/class issue is never mislabeled as autoload wiring. Both still fail CLOSED.
+        if ($resolved === '') {
+            throw new RuntimeException('framework materialize: class_reflection_failed for "'.$class.'" (worktree autoload did not resolve the declared class)');
+        }
+        if (realpath($resolved) !== realpath($expected)) {
             throw new RuntimeException('framework materialize: autoload_resolves_outside_worktree (got "'.$resolved.'", expected "'.$expected.'")');
         }
     }
@@ -249,11 +255,50 @@ final class AtlasLoopFrameworkMaterializer
         if (! preg_match('/^\s*namespace\s+([^;]+);/m', $src, $ns)) {
             return null;
         }
-        if (! preg_match('/\b(?:final\s+|abstract\s+)*(?:class|enum|trait|interface)\s+(\w+)/', $src, $cls)) {
+        // TOKEN-AWARE (was a comment-blind regex): the old `/(?:class|enum|trait|interface)\s+(\w+)/`
+        // scanned the WHOLE source — docblocks/strings included — and took the FIRST match, so prose
+        // like "* This class is the explicit …" captured "is" as the class name. The bad FQN made the
+        // ReflectionClass probe throw, which assertResolvesInsideWorktree mislabeled
+        // autoload_resolves_outside_worktree, FAILING the refactor task (measured: 121/3542 ≈ 3.4% of
+        // app/Services/Ai files, e.g. L7L10QueueConsumer). The PHP tokenizer ignores comments and
+        // strings by construction, so it matches only the real top-level declaration.
+        $short = $this->firstDeclaredTypeName($src);
+        if ($short === null) {
             return null;
         }
 
-        return trim($ns[1]).'\\'.$cls[1];
+        return trim($ns[1]).'\\'.$short;
+    }
+
+    /**
+     * Short name of the first top-level class/interface/trait/enum DECLARATION via the PHP tokenizer
+     * (comment/string-blind). Null for none, or for an anonymous class / the `::class` operator (the
+     * token following the keyword is not a plain name) — the defensive null path skips verification.
+     */
+    private function firstDeclaredTypeName(string $src): ?string
+    {
+        $tokens = token_get_all($src);
+        $count = count($tokens);
+        for ($i = 0; $i < $count; $i++) {
+            $token = $tokens[$i];
+            if (! is_array($token) || ! in_array($token[0], [T_CLASS, T_INTERFACE, T_TRAIT, T_ENUM], true)) {
+                continue;
+            }
+            for ($j = $i + 1; $j < $count; $j++) {
+                $next = $tokens[$j];
+                if (is_array($next) && in_array($next[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
+                    continue;
+                }
+                // A real declaration is `class <Name>`. Anonymous class (`new class`) or `Foo::class`
+                // => the next meaningful token is not a plain name => not a declaration here.
+                if (is_array($next) && $next[0] === T_STRING) {
+                    return $next[1];
+                }
+                break;
+            }
+        }
+
+        return null;
     }
 
     private function copyDir(string $src, string $dst): void
