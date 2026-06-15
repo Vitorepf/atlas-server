@@ -328,6 +328,7 @@ class AtlasForgeHermesCliInvocationDriver implements AtlasForgeProviderInvocatio
         $files = [];
         foreach ([
             ['git', 'diff', '--name-only', '--no-ext-diff'],
+            ['git', 'diff', '--cached', '--name-only', '--no-ext-diff'], // staged edits (git add removes them from the unstaged diff + untracked set)
             ['git', 'ls-files', '--others', '--exclude-standard'],
         ] as $argv) {
             $process = new Process($argv, $cwd, null, null, 15.0);

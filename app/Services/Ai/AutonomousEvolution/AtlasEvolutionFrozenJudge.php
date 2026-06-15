@@ -396,6 +396,9 @@ final class AtlasEvolutionFrozenJudge
         }
         foreach ([
             ['git', 'diff', '--name-only', '--no-ext-diff'],
+            // STAGED edits: `git add` removes a file from BOTH the unstaged diff and the untracked
+            // set, so a provider that stages its work would be invisible to the scope/tamper census.
+            ['git', 'diff', '--cached', '--name-only', '--no-ext-diff'],
             $untracked,
         ] as $argv) {
             $process = new Process($argv, $workspace, null, null, 30.0);

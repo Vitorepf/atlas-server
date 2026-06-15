@@ -119,6 +119,22 @@ final class AtlasEvolutionFrozenJudgeTest extends TestCase
         $this->assertContains('sneaky.php', $v['details']['out_of_scope_files']);
     }
 
+    public function test_a_staged_out_of_scope_change_cannot_hide_from_the_census(): void
+    {
+        // REGRESSION (#7): `git add` removes a file from BOTH the unstaged diff and the untracked set,
+        // so a provider that STAGES an out-of-scope edit was invisible to the scope/tamper census. The
+        // census now also reads `git diff --cached`, so a staged sneaky file is still caught.
+        file_put_contents($this->ws.'/src/Subject.php', "<?php\nfunction greet(){ return 'hello'; }\n");
+        file_put_contents($this->ws.'/sneaky.php', "<?php // staged out-of-scope edit\n");
+        $this->git(['git', 'add', '-A']); // STAGE everything — sneaky.php is now invisible to a plain `git diff`
+
+        $v = (new AtlasEvolutionFrozenJudge)->score($this->ws, $this->acceptance());
+
+        $this->assertFalse($v['passed']);
+        $this->assertSame('out_of_scope_change', $v['details']['reason']);
+        $this->assertContains('sneaky.php', $v['details']['out_of_scope_files']);
+    }
+
     public function test_rejects_a_candidate_that_does_not_fix_the_target(): void
     {
         // candidate edits the target but still wrong

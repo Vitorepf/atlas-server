@@ -517,6 +517,16 @@ final class AtlasEvolutionScenarioExplorer
                 $lines += (is_numeric($m[1]) ? (int) $m[1] : 0) + (is_numeric($m[2]) ? (int) $m[2] : 0);
             }
         }
+        // STAGED edits too — `git add` removes a file from the unstaged numstat, so a provider that
+        // stages its work would otherwise register as a zero-diff (a real win silently dropped).
+        $cachedStat = new Process(['git', 'diff', '--cached', '--numstat', '--no-ext-diff'], $workspace, null, null, 30.0);
+        $cachedStat->run();
+        foreach (preg_split('/\R/', trim((string) $cachedStat->getOutput())) ?: [] as $row) {
+            if (preg_match('/^(\d+|-)\s+(\d+|-)\s+/', $row, $m) === 1) {
+                $files++;
+                $lines += (is_numeric($m[1]) ? (int) $m[1] : 0) + (is_numeric($m[2]) ? (int) $m[2] : 0);
+            }
+        }
         // include untracked additions in the file and line count
         $others = new Process(['git', 'ls-files', '--others', '--exclude-standard'], $workspace, null, null, 30.0);
         $others->run();
@@ -542,6 +552,13 @@ final class AtlasEvolutionScenarioExplorer
         $diff = new Process(['git', 'diff', '--no-ext-diff'], $workspace, null, null, 30.0);
         $diff->run();
         $text = (string) $diff->getOutput();
+
+        // STAGED edits too — a provider that `git add`s its work would otherwise produce an EMPTY
+        // diff_text, and AtlasLoopAutoMergeService applies the persisted diff_text at merge: an empty
+        // diff merges nothing, silently dropping the certified win.
+        $cachedDiff = new Process(['git', 'diff', '--cached', '--no-ext-diff'], $workspace, null, null, 30.0);
+        $cachedDiff->run();
+        $text .= (string) $cachedDiff->getOutput();
 
         $others = new Process(['git', 'ls-files', '--others', '--exclude-standard'], $workspace, null, null, 30.0);
         $others->run();
