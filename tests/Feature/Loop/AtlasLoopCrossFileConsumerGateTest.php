@@ -146,6 +146,32 @@ final class AtlasLoopCrossFileConsumerGateTest extends TestCase
         $this->assertSame('consumer_command_missing_skipped', data_get($result, 'consumer_runs.0.reason'));
     }
 
+    public function test_default_test_consumer_command_uses_workspace_phpunit_not_artisan_test(): void
+    {
+        // REGRESSION (measured proof blocker, 2026-06-15): a tests/ consumer discovered from the code
+        // graph with NO explicit contract_command defaulted to `php artisan test <file>`. Run in the
+        // isolated gate workspace (a copy of the repo sharing the source's Composer autoloader init
+        // hash), that boots a SECOND autoloader -> "Cannot redeclare class ComposerAutoloaderInit…"
+        // fatal (exit 255). Fail-closed, EVERY refactor whose changed class has a test was scored as a
+        // broken consumer contract and refused certification (zero refactors certified). The default
+        // must be workspace-local phpunit — the same runner the proposal's own acceptance uses green.
+        $workspaceId = 'default-cmd-'.bin2hex(random_bytes(4));
+        $this->workspace = $this->workspaceWithConsumerBreak();
+        $this->seedCodeGraphTestConsumerWithoutCommand($workspaceId);
+
+        $result = app(AtlasLoopCrossFileConsumerGateService::class)->evaluate(
+            $this->workspace,
+            ['commands' => ['php tests/ProducerTest.php'], 'timeout_seconds' => 30],
+            ['src/Producer.php'],
+            ['code_graph_workspace' => $workspaceId, 'timeout_seconds' => 30],
+        );
+
+        $cmd = (string) data_get($result, 'consumer_runs.0.command', '');
+        $this->assertSame(1, $result['consumer_contract_count'], json_encode($result));
+        $this->assertStringContainsString('vendor/bin/phpunit', $cmd, json_encode($result));
+        $this->assertStringNotContainsString('artisan test', $cmd, 'never `php artisan test` — it fatally redeclares the Composer autoloader in the isolated gate workspace (exit 255)');
+    }
+
     public function test_schedule_contains_daily_cross_file_consumer_gate_fixture_proof(): void
     {
         Artisan::call('schedule:list');
@@ -270,6 +296,62 @@ final class AtlasLoopCrossFileConsumerGateTest extends TestCase
                     'symbol' => 'Producer',
                     'target_module' => 'src',
                     'line' => 4,
+                ]],
+            ], JSON_THROW_ON_ERROR),
+            'status' => 'active',
+            'indexed_at' => $now,
+            'archived_at' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+    }
+
+    private function seedCodeGraphTestConsumerWithoutCommand(string $workspaceId): void
+    {
+        $now = now();
+        DB::table('atlas_engineering_code_symbols')->insert([
+            'id' => (string) Str::uuid(),
+            'workspace_id' => $workspaceId,
+            'module_id' => null,
+            'symbol_type' => 'class',
+            'symbol_name' => 'Producer',
+            'file_path' => 'src/Producer.php',
+            'line_start' => 3,
+            'line_end' => 9,
+            'language' => 'php',
+            'signature' => 'final class Producer',
+            'namespace' => null,
+            'parent_symbol' => null,
+            'visibility' => null,
+            'status' => 'active',
+            'docs_status' => 'fixture',
+            'source_hash' => hash('sha256', $workspaceId.'|Producer'),
+            'related_doc_ids_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'metadata' => json_encode(['fixture' => 'default-test-consumer-command'], JSON_THROW_ON_ERROR),
+            'indexed_at' => $now,
+            'archived_at' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        // A TEST consumer (tests/…) that uses Producer but carries NO contract_command — exactly the
+        // live shape (relation_kind php_use_ast, command derived by default) that hit `php artisan test`.
+        DB::table('atlas_engineering_code_file_snapshots')->insert([
+            'id' => (string) Str::uuid(),
+            'workspace_id' => $workspaceId,
+            'file_path' => 'tests/ConsumerContractTest.php',
+            'module_slug' => 'tests',
+            'language' => 'php',
+            'source_hash' => hash('sha256', $workspaceId.'|test-consumer-no-command'),
+            'file_size' => 1,
+            'symbols_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'relations_json' => json_encode([
+                'test_targets' => [[
+                    'kind' => 'php_use_ast',
+                    'symbol' => 'Producer',
+                    'target_module' => 'src',
+                    'test_path' => 'tests/ConsumerContractTest.php',
+                    'line' => 4,
+                    // no contract_command on purpose => the gate derives the default command
                 ]],
             ], JSON_THROW_ON_ERROR),
             'status' => 'active',

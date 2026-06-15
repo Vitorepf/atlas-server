@@ -260,7 +260,7 @@ final class AtlasLoopCrossFileConsumerGateService
 
                             $command = trim((string) ($relation['contract_command'] ?? $relation['command'] ?? ''));
                             if ($command === '' && str_starts_with($consumerFile, 'tests/')) {
-                                $command = 'php artisan test '.escapeshellarg($consumerFile);
+                                $command = $this->defaultTestConsumerCommand($consumerFile);
                             }
 
                             $contracts[] = [
@@ -282,6 +282,25 @@ final class AtlasLoopCrossFileConsumerGateService
         }
 
         return $this->uniqueContracts($contracts);
+    }
+
+    /**
+     * Default contract command for a code-graph-discovered TEST consumer that carries no explicit
+     * contract_command. MUST be workspace-local phpunit — NEVER `php artisan test`.
+     *
+     * WHY (measured proof blocker, 2026-06-15): this gate runs the command in an ISOLATED COPY of the
+     * repo whose Composer autoloader init hash is IDENTICAL to the source repo's (same composer.json).
+     * `php artisan test` boots a SECOND copy of that autoloader and dies with
+     * "Cannot redeclare class ComposerAutoloaderInit…" (exit 255). Fail-closed, that fatal was scored
+     * as a broken consumer contract, so EVERY refactor whose changed class has a test (≈ all of them)
+     * was REFUSED certification — the loop produced good refactors (complexity dropped, own test
+     * green) yet certified zero. vendor/bin/phpunit loads ONLY the workspace vendor (single autoload)
+     * and is exactly how the proposal's own frozen acceptance already runs green in this same
+     * workspace, through this same runner.
+     */
+    private function defaultTestConsumerCommand(string $consumerFile): string
+    {
+        return './vendor/bin/phpunit '.escapeshellarg($consumerFile);
     }
 
     /**
