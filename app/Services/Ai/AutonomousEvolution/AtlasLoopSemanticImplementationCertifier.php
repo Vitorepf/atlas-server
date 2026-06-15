@@ -140,6 +140,16 @@ final class AtlasLoopSemanticImplementationCertifier
                     ? 'complexity_gate:complexity_not_reduced'
                     : 'complexity_gate:measurement_failed';
             }
+            // FALSE-ACCEPT closure: a refactor's ONLY behaviour-preservation check is the frozen
+            // sibling going GREEN (refactor contracts deliberately skip diff-earned). A sibling that
+            // exits 0 VACUOUSLY — all tests skipped (common in the hermetic :memory: worktree) or zero
+            // assertions executed — "preserves" behaviour by accident, so a behaviour-BREAKING but
+            // complexity-reducing refactor would certify. Require the phpunit anchor to have executed
+            // >=1 REAL assertion. A partial-skip sibling still asserts >=1 → never penalised (no
+            // false-reject); unparseable/non-phpunit anchors are not gated (fail-open, no false-reject).
+            if (! $this->behaviorAnchorAsserted($deterministicGate)) {
+                $reasons[] = 'complexity_gate:behavior_anchor_no_assertions';
+            }
         }
         $reasons = AiStringListNormalizer::uniqueStrings($reasons);
         $certified = $reasons === [];
@@ -483,6 +493,59 @@ final class AtlasLoopSemanticImplementationCertifier
      *                                  null = could not verify (no PHP file / no diff to stash /
      *                                  git error / unparseable) => fail closed
      */
+    /**
+     * Did the refactor's frozen behaviour anchor actually EXERCISE behaviour — i.e. did its phpunit
+     * sibling run >=1 real assertion? Fail-OPEN by design (returns true unless we are CONFIDENT the
+     * anchor executed 0 assertions): a non-phpunit acceptance (e.g. a `php -r` gate) is not gated, an
+     * unparseable run is not gated, and any anchor with >=1 assertion passes — so a legitimate
+     * partial-skip sibling (which still asserts) is NEVER false-rejected. Only a positively-zero
+     * phpunit anchor (all-skipped / no-assertion vacuous green) is refused.
+     *
+     * @param  array<string,mixed>  $deterministicGate
+     */
+    private function behaviorAnchorAsserted(array $deterministicGate): bool
+    {
+        $results = data_get($deterministicGate, 'report.target_acceptance.details.command_results');
+        if (! is_array($results)) {
+            return true; // no run data => cannot determine => do not false-reject
+        }
+        $sawZero = false;
+        $sawUnparseable = false;
+        foreach ($results as $r) {
+            $cmd = is_array($r) ? (string) ($r['command'] ?? '') : '';
+            if (! str_contains($cmd, 'phpunit') && ! str_contains($cmd, 'artisan test')) {
+                continue; // non-phpunit anchor (gate command) — not subject to the assertion check
+            }
+            $count = $this->phpunitAssertionCount((string) ($r['stdout'] ?? ''));
+            if ($count === null) {
+                $sawUnparseable = true;
+
+                continue;
+            }
+            if ($count >= 1) {
+                return true; // a real assertion executed — behaviour was exercised
+            }
+            $sawZero = true; // a phpunit anchor positively executed 0 assertions
+        }
+
+        // Refuse ONLY when confident: a phpunit anchor ran 0 assertions AND nothing was unparseable
+        // AND nothing asserted. Any ambiguity falls open (no false-reject).
+        return ! ($sawZero && ! $sawUnparseable);
+    }
+
+    /** Assertions executed, parsed from a phpunit summary ("OK (5 tests, 50 assertions)" / "Assertions: 0"). Null if not a phpunit summary. */
+    private function phpunitAssertionCount(string $stdout): ?int
+    {
+        if (preg_match('/(\d+)\s+assertions?\b/i', $stdout, $m)) {
+            return (int) $m[1];
+        }
+        if (preg_match('/assertions?:\s*(\d+)/i', $stdout, $m)) {
+            return (int) $m[1];
+        }
+
+        return null;
+    }
+
     private function measureComplexityReduction(string $workspace, array $changedFiles): ?array
     {
         $phpFiles = array_values(array_filter(
