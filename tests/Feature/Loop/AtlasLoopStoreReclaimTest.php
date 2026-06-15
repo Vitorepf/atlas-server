@@ -142,6 +142,28 @@ final class AtlasLoopStoreReclaimTest extends TestCase
         $this->assertNotNull($running->fresh());
     }
 
+    /**
+     * openCampaign must honour an operator-supplied VALID uuid so the launched id == the campaign id.
+     * Otherwise the keepalive (which pgreps by campaign id) cannot find the supervisor and spawns a
+     * DUPLICATE for the same campaign. A non-uuid id is ignored (the model generates one) — a garbage
+     * --campaign-id can never reach the uuid column.
+     */
+    public function test_open_campaign_honours_a_valid_uuid_id_and_ignores_garbage(): void
+    {
+        $store = app(AtlasLoopStore::class);
+        $wanted = (string) Str::uuid();
+
+        $withId = $store->openCampaign('goal', '/tmp/x', [], [], '', $wanted);
+        $this->assertSame($wanted, (string) $withId->id, 'a valid requested uuid is used as the campaign id');
+
+        $garbage = $store->openCampaign('goal', '/tmp/x', [], [], '', 'not-a-uuid');
+        $this->assertNotSame('not-a-uuid', (string) $garbage->id);
+        $this->assertTrue(Str::isUuid((string) $garbage->id), 'a non-uuid request falls back to a generated uuid');
+
+        $generated = $store->openCampaign('goal', '/tmp/x', [], [], '', null);
+        $this->assertTrue(Str::isUuid((string) $generated->id), 'no id => generated uuid (unchanged legacy behaviour)');
+    }
+
     public function test_reclaim_expired_decrements_with_floor_zero(): void
     {
         $campaign = AtlasLoopCampaign::create([

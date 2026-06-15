@@ -12,6 +12,7 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopResourceGate;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopTaxa2DialOverlayService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopTaskGrinder;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopTransientDbException;
+use Illuminate\Support\Str;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBackService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopQueueRefiller;
 use App\Services\Ai\AutonomousEvolution\Parallel\LoopWorkerCountPlanner;
@@ -466,7 +467,11 @@ final class AtlasLoopCampaignSupervisor
     private function resolveCampaign(array $input): AtlasLoopCampaign
     {
         $id = trim((string) ($input['campaign_id'] ?? ''));
-        if ($id !== '') {
+        // Only a VALID uuid may touch the uuid column: find() on a non-uuid raised a QueryException
+        // (a garbage --campaign-id crashed the whole launch). A valid-but-unknown id is honoured on
+        // CREATE below so the launched id == the campaign id (the keepalive finds the supervisor).
+        $validId = $id !== '' && Str::isUuid($id);
+        if ($validId) {
             $existing = AtlasLoopCampaign::query()->find($id);
             if ($existing instanceof AtlasLoopCampaign) {
                 return $existing;
@@ -484,6 +489,7 @@ final class AtlasLoopCampaignSupervisor
             ],
             ['scenarios_per_task' => $input['scenarios'] ?? null, 'shadow' => (bool) ($input['shadow'] ?? true), 'workers' => (int) ($input['workers'] ?? 1)],
             (string) ($input['provider'] ?? ''),
+            $validId ? $id : null,
         );
     }
 

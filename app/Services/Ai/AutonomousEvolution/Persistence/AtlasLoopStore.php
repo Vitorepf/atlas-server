@@ -31,7 +31,7 @@ final class AtlasLoopStore
      * @param  array{max_seconds?:int,max_tasks?:int,max_proposals?:int,max_usd_cents?:int}  $caps
      * @param  array<string,mixed>  $config
      */
-    public function openCampaign(string $goal, string $baseWorkspace, array $caps = [], array $config = [], string $provider = ''): AtlasLoopCampaign
+    public function openCampaign(string $goal, string $baseWorkspace, array $caps = [], array $config = [], string $provider = '', ?string $id = null): AtlasLoopCampaign
     {
         // SCHEME FREEZE (decision-priority): snapshot the next-work pricing scheme at creation so a
         // single campaign NEVER mixes the legacy score*100 scale and the banded decider scale in one
@@ -42,7 +42,7 @@ final class AtlasLoopStore
             $config['decision_priority_enabled'] = (bool) config('atlas.loop.decision_priority_enabled', false);
         }
 
-        return AtlasLoopCampaign::query()->create([
+        $attributes = [
             'schema_version' => 'atlas.loop.campaign.v1',
             'status' => AtlasLoopCampaign::STATUS_RUNNING,
             'goal' => $goal,
@@ -55,7 +55,19 @@ final class AtlasLoopStore
             'config' => $config,
             'started_at' => Carbon::now(),
             'heartbeat_at' => Carbon::now(),
-        ]);
+        ];
+        $campaign = new AtlasLoopCampaign();
+        // Honour an operator/CLI-supplied campaign id (must be a valid uuid for the uuid column).
+        // Set it DIRECTLY (id is not mass-assignable, so create(['id'=>..]) drops it) — HasUuids only
+        // generates a key when empty, so a pre-set id is kept. Without this, a `--campaign-id=<fresh>`
+        // launch created a DIFFERENT random id, so the supervisor's cmdline id != the real campaign
+        // id — the keepalive's pgrep-by-id could not find the live supervisor and spawned a DUPLICATE
+        // for the same campaign, and external monitoring (keyed on the launched id) saw "NO_ROW".
+        if ($id !== null && Str::isUuid($id)) {
+            $campaign->id = $id;
+        }
+
+        return tap($campaign->fill($attributes))->save();
     }
 
     /**
