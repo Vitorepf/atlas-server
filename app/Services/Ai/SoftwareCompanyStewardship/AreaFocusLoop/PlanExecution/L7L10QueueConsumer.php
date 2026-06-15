@@ -57,16 +57,7 @@ final class L7L10QueueConsumer
     {
         $parsed = $this->parser->parse($markdown);
 
-        $min = PHP_INT_MAX;
-        $max = 0;
-        foreach ($levels as [$lo, $hi]) {
-            $min = min($min, $lo);
-            $max = max($max, $hi);
-        }
-        if ($levels === []) {
-            $min = 0;
-            $max = -1;
-        }
+        [$min, $max] = $this->sliceRangeFor($levels, 0, -1);
 
         $byLevel = array_fill_keys(array_keys($levels), 0);
         $seen = [];
@@ -74,14 +65,11 @@ final class L7L10QueueConsumer
         $bad = [];
 
         foreach ($parsed['slices'] as $slice) {
-            $label = trim((string) ($slice['label'] ?? ''));
-            if (preg_match('/^S(\d+)$/', $label, $m) !== 1) {
+            $sliceNumber = $this->sliceNumberInRange($slice, $min, $max);
+            if ($sliceNumber === null) {
                 continue;
             }
-            $n = (int) $m[1];
-            if ($n < $min || $n > $max) {
-                continue; // outside the L7-L10 range (e.g. S1-S82) — not this queue
-            }
+            [$label, $n] = $sliceNumber;
             if (isset($seen[$n])) {
                 $bad[] = $label.':duplicate';
 
@@ -95,7 +83,7 @@ final class L7L10QueueConsumer
 
                 continue;
             }
-            if (trim((string) ($slice['delivery'] ?? '')) === '' || array_filter((array) ($slice['acceptance_criteria'] ?? []), static fn (mixed $criterion): bool => trim((string) $criterion) !== '') === []) {
+            if ($this->isMalformedSlice($slice)) {
                 $bad[] = $label.':malformed_missing_delivery_or_acceptance';
 
                 continue;
@@ -105,17 +93,7 @@ final class L7L10QueueConsumer
         }
 
         // Gaps: any explicitly declared slice number that the doc does not provide.
-        $expected = [];
-        foreach ($levels as [$lo, $hi]) {
-            for ($n = $lo; $n <= $hi; $n++) {
-                $expected[$n] = true;
-            }
-        }
-        foreach (array_keys($expected) as $n) {
-            if (! isset($seen[$n])) {
-                $bad[] = 'S'.$n.':missing';
-            }
-        }
+        $bad = $this->appendMissingSlices($bad, $levels, $seen);
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
@@ -123,7 +101,7 @@ final class L7L10QueueConsumer
             'levels' => $byLevel,
             'total' => array_sum($byLevel),
             'bad' => $bad,
-            'range' => ['min' => $min === PHP_INT_MAX ? 0 : $min, 'max' => $max],
+            'range' => ['min' => $min, 'max' => $max],
             'ready_slices' => $ready,
         ];
     }
@@ -142,23 +120,15 @@ final class L7L10QueueConsumer
     public function extractChildDoc(string $markdown, string $childId, string $childTitle, array $levels = self::DEFAULT_LEVELS): string
     {
         $parsed = $this->parser->parse($markdown);
-        $min = PHP_INT_MAX;
-        $max = 0;
-        foreach ($levels as [$lo, $hi]) {
-            $min = min($min, $lo);
-            $max = max($max, $hi);
-        }
+        [$min, $max] = $this->sliceRangeFor($levels, PHP_INT_MAX, 0);
 
         $rows = [];
         foreach ($parsed['slices'] as $slice) {
-            $label = trim((string) ($slice['label'] ?? ''));
-            if (preg_match('/^S(\d+)$/', $label, $m) !== 1) {
+            $sliceNumber = $this->sliceNumberInRange($slice, $min, $max);
+            if ($sliceNumber === null) {
                 continue;
             }
-            $n = (int) $m[1];
-            if ($n < $min || $n > $max) {
-                continue;
-            }
+            [$label] = $sliceNumber;
             $acceptance = implode(' ; ', array_map('strval', (array) ($slice['acceptance_criteria'] ?? [])));
             $rows[] = '| '.$label.' | '.$this->escapeMarkdownTableCell(trim((string) ($slice['delivery'] ?? ''))).' | '.$this->escapeMarkdownTableCell($acceptance).' | '.$this->escapeMarkdownTableCell(trim((string) ($slice['authority_guard'] ?? ''))).' |';
         }
@@ -185,6 +155,75 @@ final class L7L10QueueConsumer
             .implode("\n", $rows)."\n"
             ."\n## 10. Sequenciamento e dependencias\n\n"
             .implode('; ', $edges)."\n";
+    }
+
+
+    /**
+     * @param  array<string,array{0:int,1:int}>  $levels
+     * @return array{0:int,1:int}
+     */
+    private function sliceRangeFor(array $levels, int $emptyMin, int $emptyMax): array
+    {
+        $min = PHP_INT_MAX;
+        $max = 0;
+        foreach ($levels as [$lo, $hi]) {
+            $min = min($min, $lo);
+            $max = max($max, $hi);
+        }
+        if ($levels === []) {
+            return [$emptyMin, $emptyMax];
+        }
+
+        return [$min, $max];
+    }
+
+    /**
+     * @param  array<string,mixed>  $slice
+     * @return array{0:string,1:int}|null
+     */
+    private function sliceNumberInRange(array $slice, int $min, int $max): ?array
+    {
+        $label = trim((string) ($slice['label'] ?? ''));
+        if (preg_match('/^S(\d+)$/', $label, $m) !== 1) {
+            return null;
+        }
+        $n = (int) $m[1];
+        if ($n < $min || $n > $max) {
+            return null;
+        }
+
+        return [$label, $n];
+    }
+
+    /**
+     * @param  array<string,mixed>  $slice
+     */
+    private function isMalformedSlice(array $slice): bool
+    {
+        return trim((string) ($slice['delivery'] ?? '')) === '' || array_filter((array) ($slice['acceptance_criteria'] ?? []), static fn (mixed $criterion): bool => trim((string) $criterion) !== '') === [];
+    }
+
+    /**
+     * @param  list<string>  $bad
+     * @param  array<string,array{0:int,1:int}>  $levels
+     * @param  array<int,bool>  $seen
+     * @return list<string>
+     */
+    private function appendMissingSlices(array $bad, array $levels, array $seen): array
+    {
+        $expected = [];
+        foreach ($levels as [$lo, $hi]) {
+            for ($n = $lo; $n <= $hi; $n++) {
+                $expected[$n] = true;
+            }
+        }
+        foreach (array_keys($expected) as $n) {
+            if (! isset($seen[$n])) {
+                $bad[] = 'S'.$n.':missing';
+            }
+        }
+
+        return $bad;
     }
 
     /**
