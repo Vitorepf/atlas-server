@@ -97,6 +97,13 @@ final class AtlasCognitiveFunctionDecomposerService
 
     private ?string $logPathOverride = null;
 
+    private readonly CognitiveContextNudgeApplier $nudges;
+
+    public function __construct(?CognitiveContextNudgeApplier $nudges = null)
+    {
+        $this->nudges = $nudges ?? new CognitiveContextNudgeApplier();
+    }
+
     public function setLogPathForTesting(?string $path): void
     {
         $this->logPathOverride = $path;
@@ -150,34 +157,8 @@ final class AtlasCognitiveFunctionDecomposerService
             }
         }
 
-        // Framework nudges.
-        $framework = (string) ($context['framework'] ?? '');
-        $framework = strtolower($framework);
-        if ($framework !== '') {
-            if (str_starts_with($framework, 'cartography') || $framework === 'kernel_vault') {
-                $hits['audit'] += 2;
-            } elseif (str_starts_with($framework, 'programming') || $framework === 'sdd' || $framework === 'bdd') {
-                $hits['code'] += 2;
-                $hits['audit'] += 1;
-            } elseif ($framework === 'mission_mode' || $framework === 'hyperflow') {
-                $hits['reasoning'] += 1;
-                $hits['retrieval'] += 1;
-            } elseif ($framework === 'vision' || str_starts_with($framework, 'visual')) {
-                $hits['vision'] += 2;
-            }
-        }
-
-        // Role nudges.
-        $role = strtolower((string) ($context['role'] ?? ''));
-        if ($role === 'auditor' || $role === 'reviewer') {
-            $hits['audit'] += 1;
-        } elseif ($role === 'researcher' || $role === 'librarian') {
-            $hits['retrieval'] += 1;
-        } elseif ($role === 'writer' || $role === 'editor') {
-            $hits['generation'] += 1;
-        } elseif ($role === 'engineer' || $role === 'developer' || $role === 'programmer') {
-            $hits['code'] += 1;
-        }
+        // Framework + role nudges (relocated to CognitiveContextNudgeApplier).
+        $hits = $this->nudges->applyNudges($hits, $context);
 
         $totalHits = array_sum($hits);
         if ($totalHits === 0) {
