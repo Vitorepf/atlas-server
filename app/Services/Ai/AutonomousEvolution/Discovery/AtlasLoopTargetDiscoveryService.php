@@ -229,10 +229,35 @@ final class AtlasLoopTargetDiscoveryService
         if (count($paths) > $callerCap) {
             $byScore = $scoredRows;
             usort($byScore, static fn (array $a, array $b): int => ((float) ($b['scored']['score'] ?? 0)) <=> ((float) ($a['scored']['score'] ?? 0)));
-            $resolvePaths = array_values(array_unique(array_map(
+            $resolveSet = array_slice(array_map(
                 static fn (array $r): string => (string) $r['path'],
-                array_slice($byScore, 0, $callerCap),
-            )));
+                $byScore,
+            ), 0, $callerCap);
+
+            // REFACTOR-SUPPLY FIX (work-supply keystone): the heavy-refactor promotion (:287-293)
+            // AND the +0.25 test-backed boost (:350) both require MEASURED callers, but measurement
+            // was capped to the top-N by cheap STRUCTURAL score. A genuinely complex, wired,
+            // test-backed file ranking BELOW that cut never gets its callers measured => never earns
+            // the promotion => never reaches the tiny claim window => is NEVER refactored. That
+            // chicken-and-egg drained the refactor supply to ~0 and flooded the queue with vanilla
+            // edge-fixes (the framework-edge-fix fallback) until it went dry (queue_starved). The
+            // cyclomatic AST signal is ALREADY computed here (no grep to SELECT the set), so ALSO
+            // measure the most COMPLEX candidates — exactly the files the heavy-refactor lane wants
+            // wired-checked. Bounded by its own cap to respect the per-path grep cost guard; set the
+            // cap to 0 to restore byte-identical legacy behaviour.
+            $refactorResolveCap = max(0, (int) config('atlas.loop.discovery_refactor_resolve_cap', 40));
+            if ($refactorResolveCap > 0) {
+                $refMinCx = max(1, (int) config('atlas.loop.framework_refactor_min_cyclomatic', 10));
+                $byCx = array_values(array_filter(
+                    $scoredRows,
+                    static fn (array $r): bool => (int) ($r['scored']['signals']['cyclomatic'] ?? 0) >= $refMinCx,
+                ));
+                usort($byCx, static fn (array $a, array $b): int => ((int) ($b['scored']['signals']['cyclomatic'] ?? 0)) <=> ((int) ($a['scored']['signals']['cyclomatic'] ?? 0)));
+                foreach (array_slice($byCx, 0, $refactorResolveCap) as $r) {
+                    $resolveSet[] = (string) $r['path'];
+                }
+            }
+            $resolvePaths = array_values(array_unique($resolveSet));
         }
         $callerCounts = $this->wiredCallers?->callerCounts($resolvePaths) ?? [];
         $maxCallers = max(4, (int) max($callerCounts ?: [0]));

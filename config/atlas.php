@@ -1863,6 +1863,14 @@ return [
         'characterization_max_attempts_per_gap' => max(1, (int) env('ATLAS_LOOP_CHARACTERIZATION_MAX_ATTEMPTS_PER_GAP', 3)),
         // Min AST max-per-method cyclomatic for a framework target to be worth a heavy refactor.
         'framework_refactor_min_cyclomatic' => max(1, (int) env('ATLAS_LOOP_FRAMEWORK_REFACTOR_MIN_CYCLOMATIC', 10)),
+        // WORK-SUPPLY keystone: discovery resolves real callers only for the top-N by cheap
+        // structural score (caller_resolve_cap, cost guard). That starved the heavy-refactor lane —
+        // a complex/wired file below that cut never got measured, never earned the promotion that
+        // reaches the claim window, so refactor supply drained to ~0 and vanilla flooded. This ALSO
+        // measures the top-N most-COMPLEX candidates (cyclomatic >= framework_refactor_min_cyclomatic),
+        // breaking the chicken-and-egg without lowering any value gate. 0 => byte-identical legacy.
+        'discovery_caller_resolve_cap' => max(1, (int) env('ATLAS_LOOP_DISCOVERY_CALLER_RESOLVE_CAP', 60)),
+        'discovery_refactor_resolve_cap' => max(0, (int) env('ATLAS_LOOP_DISCOVERY_REFACTOR_RESOLVE_CAP', 40)),
         // Min real production callers (wired requirement): a refactor only pays back on code that runs.
         'framework_refactor_min_callers' => max(1, (int) env('ATLAS_LOOP_FRAMEWORK_REFACTOR_MIN_CALLERS', 1)),
         // Gates the obra-auto-merge crossing (AtlasLoopObraAutoMergeService): a GENUINELY
