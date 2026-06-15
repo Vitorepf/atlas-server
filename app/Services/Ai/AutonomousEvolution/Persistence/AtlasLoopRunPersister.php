@@ -86,6 +86,9 @@ final class AtlasLoopRunPersister
             if (is_array($runnerResult['semantic_implementation_certification'] ?? null)) {
                 $taskResult['semantic_implementation_certification'] = $runnerResult['semantic_implementation_certification'];
             }
+            if (is_array($runnerResult['characterization_test_certification'] ?? null)) {
+                $taskResult['characterization_test_certification'] = $runnerResult['characterization_test_certification'];
+            }
 
             // A processed task is DONE whether or not it yielded a winner — a no-winner
             // is an honest "explored, nothing better found", not a failure. Infra errors

@@ -494,6 +494,12 @@ final class AtlasLoopTaskGrinder
             ];
             if ((bool) ($verdict['certified'] ?? false)) {
                 $proposal['characterization_certification'] = $verdict;
+                // Also ride the verdict inside the proposal's QUALITY json so it survives persistence
+                // (certifyProposal only persists proposal['quality']) — the merge boundary can then see
+                // that this proposal's anti-fake proof is mutant-kill, not just an acceptance pass.
+                $quality = is_array($proposal['quality'] ?? null) ? $proposal['quality'] : [];
+                $quality['characterization_certification'] = $verdict;
+                $proposal['quality'] = $quality;
                 $kept[] = $proposal;
             }
         }
