@@ -5,14 +5,17 @@ namespace App\Services;
 use App\Models\Behavior;
 use App\Models\BehaviorLog;
 use App\Services\Bitacula\CanonicalBehaviorCatalog;
-use App\Support\BehaviorCategories;
 use App\Support\BehaviorLifecycle;
 use App\Support\Metadata;
-use Illuminate\Support\Str;
 
 class BitaculaService
 {
-    public function __construct(private readonly CanonicalBehaviorCatalog $catalog) {}
+    private readonly BitaculaServiceSupport $support;
+
+    public function __construct(private readonly CanonicalBehaviorCatalog $catalog)
+    {
+        $this->support = new BitaculaServiceSupport();
+    }
 
     public function upsertBehavior(array $data): array
     {
@@ -73,84 +76,7 @@ class BitaculaService
 
     public function normalizeBehaviorPayload(array $data): array
     {
-        $name = trim((string) $data['name']);
-        $slug = trim((string) ($data['slug'] ?? Str::slug($name, '_')));
-        $suggestion = $this->shouldNormalizeBehavior($data)
-            ? $this->catalog->bestSuggestion($name)
-            : null;
-        $canonical = $suggestion ? $this->catalog->behaviorPayload($suggestion) : [];
-        $applyCanonical = $suggestion && empty($data['parent_factor']);
-        $autoQuestion = "{$name} aconteceu ontem?";
-        $storedName = $applyCanonical ? $canonical['name'] : $name;
-        $storedSlug = $applyCanonical && ($slug === '' || $slug === Str::slug($name, '_'))
-            ? Str::slug($storedName, '_')
-            : $slug;
-        $storedQuestion = $data['question_text'] ?? null;
-        if ($applyCanonical && (! $storedQuestion || trim((string) $storedQuestion) === $autoQuestion)) {
-            $storedQuestion = $canonical['question_text'];
-        }
-        $providedCategory = BehaviorCategories::canonicalize($data['category'] ?? null);
-        $canonicalCategory = BehaviorCategories::canonicalize($canonical['category'] ?? null);
-        $storedCategory = $applyCanonical && $providedCategory === 'outro'
-            ? $canonicalCategory
-            : ($providedCategory !== 'outro' ? $providedCategory : $canonicalCategory);
-        $lifecycle = BehaviorLifecycle::canonicalize($data['lifecycle_status'] ?? null);
-        $showInBriefing = (bool) ($data['show_in_morning_briefing'] ?? true);
-
-        if (! array_key_exists('lifecycle_status', $data) && $showInBriefing === false) {
-            $lifecycle = BehaviorLifecycle::MANUAL_ONLY;
-        }
-
-        if (! BehaviorLifecycle::isPromptable($lifecycle)) {
-            $showInBriefing = false;
-        }
-
-        return [
-            ...$data,
-            'name' => $storedName,
-            'slug' => $storedSlug === '' ? Str::slug($storedName, '_') : $storedSlug,
-            'category' => $storedCategory,
-            'input_type' => $data['input_type'] ?? $canonical['input_type'] ?? 'yes_no',
-            'question_text' => trim((string) ($storedQuestion ?? $canonical['question_text'] ?? "{$storedName} aconteceu ontem?")),
-            'default_value' => $data['default_value'] ?? 'no',
-            'parent_factor' => $data['parent_factor'] ?? $canonical['parent_factor'] ?? null,
-            'factor_condition' => $data['factor_condition'] ?? $canonical['factor_condition'] ?? null,
-            'target_outcomes' => empty($data['target_outcomes']) ? ($canonical['target_outcomes'] ?? []) : $data['target_outcomes'],
-            'expected_lag' => $data['expected_lag'] ?? $canonical['expected_lag'] ?? null,
-            'expected_direction' => $data['expected_direction'] ?? $canonical['expected_direction'] ?? null,
-            'granularity_level' => $data['granularity_level'] ?? $canonical['granularity_level'] ?? 'binary',
-            'sensitivity_level' => $data['sensitivity_level'] ?? $canonical['sensitivity_level'] ?? 'normal',
-            'derived_from' => Metadata::forStorage(empty($data['derived_from']) ? ($canonical['derived_from'] ?? []) : $data['derived_from']),
-            'operator_confirmed' => $data['operator_confirmed'] ?? true,
-            'created_by' => $data['created_by'] ?? $canonical['created_by'] ?? 'operator',
-            'source_capture_ids' => Metadata::forStorage($data['source_capture_ids'] ?? []),
-            'activation_rules' => Metadata::forStorage($data['activation_rules'] ?? []),
-            'lifecycle_status' => $lifecycle,
-            'paused_until' => $data['paused_until'] ?? null,
-            'last_prompted_at' => $data['last_prompted_at'] ?? null,
-            'prompt_cadence_days' => (int) ($data['prompt_cadence_days'] ?? 1),
-            'auto_suppress_reason' => $data['auto_suppress_reason'] ?? null,
-            'show_in_morning_briefing' => $showInBriefing,
-            'priority_score' => $this->priorityScore($data['priority_score'] ?? null),
-            'streak_yes' => (int) ($data['streak_yes'] ?? 0),
-            'streak_no' => (int) ($data['streak_no'] ?? 0),
-            'total_yes_count' => (int) ($data['total_yes_count'] ?? 0),
-            'total_no_count' => (int) ($data['total_no_count'] ?? 0),
-            'relational_privacy' => $data['relational_privacy'] ?? false,
-            'activated_at' => $data['activated_at'] ?? now(),
-            'metadata' => Metadata::forStorage($data['metadata'] ?? []),
-        ];
-    }
-
-    private function priorityScore(mixed $value): int
-    {
-        if (! is_numeric($value)) {
-            return 50;
-        }
-
-        $score = (int) $value;
-
-        return $score >= 0 && $score <= 100 ? $score : 50;
+        return $this->support->normalizeBehaviorPayload($data, $this->catalog);
     }
 
     public function normalizeBehaviorLogPayload(array $data): array
@@ -277,10 +203,4 @@ class BitaculaService
         };
     }
 
-    private function shouldNormalizeBehavior(array $data): bool
-    {
-        return empty($data['parent_factor'])
-            || empty($data['factor_condition'])
-            || ! array_key_exists('target_outcomes', $data);
-    }
 }
