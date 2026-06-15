@@ -205,16 +205,19 @@ class AtlasLoopKeepaliveCommand extends Command
     }
 
     /**
-     * Process-start epoch of the REAL php supervisor for this campaign (the oldest matching one if
-     * more than one), or null if none / unparseable. Filters out shell watchers and the pgrep/ps
-     * helpers that merely mention the campaign id in their own command line, so a transient
-     * monitoring loop can never masquerade as the supervisor's boot time.
+     * PIDs of the REAL php supervisor(s) for this campaign — the SINGLE filtered source used by
+     * both the boot-time read and the kill. `pgrep -f` matches anything whose command line mentions
+     * the campaign id, which includes shell watchers and the pgrep/ps helpers themselves; this keeps
+     * only the actual `artisan atlas:loop:campaign` php invocation, so a transient monitoring loop
+     * can never masquerade as the supervisor (start-time read) nor get SIGTERM'd in its place (kill).
+     *
+     * @return list<string>
      */
-    protected function supervisorStartedAt(string $campaignId): ?int
+    protected function supervisorPids(string $campaignId): array
     {
         $p = new Process(['pgrep', '-f', $this->supervisorPattern($campaignId)], null, null, null, 10.0);
         $p->run();
-        $oldest = null;
+        $pids = [];
         foreach (preg_split('/\s+/', trim($p->getOutput())) ?: [] as $pid) {
             if ($pid === '' || ! ctype_digit($pid)) {
                 continue;
@@ -228,27 +231,82 @@ class AtlasLoopKeepaliveCommand extends Command
             if (preg_match('/(?:pgrep|\bgrep\b|\/zsh|\/bash|\bseq\b)/', $command) === 1) {
                 continue; // a shell watcher / matcher, not the php process
             }
-            $lstart = new Process(['ps', '-p', $pid, '-o', 'lstart='], null, null, null, 10.0);
-            $lstart->run();
-            $ts = strtotime(trim($lstart->getOutput()));
-            if ($ts === false) {
+            $pids[] = $pid;
+        }
+
+        return $pids;
+    }
+
+    /**
+     * Process-start epoch of the REAL php supervisor for this campaign (the oldest one if more than
+     * one), or null if none / unparseable. Anchored on `ps -o etime=` ELAPSED time, NOT `lstart=`:
+     * lstart prints locale wall-clock with no offset token, which the artisan-forced UTC runtime
+     * (config/app.php) misreads via strtotime — a full local-UTC-offset skew (3h on this -0300 host)
+     * that flipped genuinely-fresh supervisors to "stale" and recycled them every cadence. Elapsed
+     * time is timezone-free by construction (now − elapsed), so boot epoch is exact on any host.
+     */
+    protected function supervisorStartedAt(string $campaignId): ?int
+    {
+        $now = time();
+        $oldest = null;
+        foreach ($this->supervisorPids($campaignId) as $pid) {
+            $etime = new Process(['ps', '-p', $pid, '-o', 'etime='], null, null, null, 10.0);
+            $etime->run();
+            $epoch = self::bootEpochFromEtime(trim($etime->getOutput()), $now);
+            if ($epoch === null) {
                 continue;
             }
-            $oldest = $oldest === null ? $ts : min($oldest, $ts);
+            $oldest = $oldest === null ? $epoch : min($oldest, $epoch);
         }
 
         return $oldest;
     }
 
-    /** SIGTERM a FROZEN supervisor process so respawn() can start a clean one. */
+    /**
+     * Pure, timezone-free conversion of a `ps -o etime=` ELAPSED string to a boot epoch (now −
+     * elapsed). Accepts the POSIX formats `MM:SS`, `HH:MM:SS`, and `[DD]D-HH:MM:SS`. Returns null on
+     * any malformed input (fail-safe → the caller treats it as "no boot evidence" → never recycles).
+     * Public + static so it is unit-testable without the live `ps` plumbing — the blind spot that
+     * let the lstart timezone bug ship green.
+     */
+    public static function bootEpochFromEtime(string $etime, int $now): ?int
+    {
+        $etime = trim($etime);
+        if ($etime === '') {
+            return null;
+        }
+        $days = 0;
+        if (str_contains($etime, '-')) {
+            [$d, $etime] = explode('-', $etime, 2);
+            if ($d === '' || ! ctype_digit($d)) {
+                return null;
+            }
+            $days = (int) $d;
+        }
+        $parts = explode(':', $etime);
+        if (count($parts) < 2 || count($parts) > 3) {
+            return null;
+        }
+        foreach ($parts as $part) {
+            if ($part === '' || ! ctype_digit($part)) {
+                return null;
+            }
+        }
+        $secs = (int) array_pop($parts);
+        $mins = (int) array_pop($parts);
+        $hours = $parts !== [] ? (int) array_pop($parts) : 0;
+        if ($secs >= 60 || $mins >= 60) {
+            return null; // malformed ps output
+        }
+
+        return $now - ($days * 86400 + $hours * 3600 + $mins * 60 + $secs);
+    }
+
+    /** SIGTERM the REAL supervisor process(es) so respawn() can start a clean one. */
     protected function killSupervisor(string $campaignId): void
     {
-        $p = new Process(['pgrep', '-f', $this->supervisorPattern($campaignId)], null, null, null, 10.0);
-        $p->run();
-        foreach (preg_split('/\s+/', trim($p->getOutput())) ?: [] as $pid) {
-            if ($pid !== '' && ctype_digit($pid)) {
-                (new Process(['kill', '-TERM', $pid], null, null, null, 10.0))->run();
-            }
+        foreach ($this->supervisorPids($campaignId) as $pid) {
+            (new Process(['kill', '-TERM', $pid], null, null, null, 10.0))->run();
         }
     }
 
