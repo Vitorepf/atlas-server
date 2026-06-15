@@ -75,17 +75,30 @@ class AtlasLoopKeepaliveCommand extends Command
                 $grace = max(60, (int) config('atlas.loop.keepalive_code_drift_grace_seconds', 120));
                 $aliveSeconds = $bootEpoch !== null ? max(0, time() - $bootEpoch) : 0;
                 if (AtlasLoopPipelineDrift::shouldRecycle($bootEpoch, $latestPipelineCommit, $aliveSeconds, $grace)) {
-                    $this->killSupervisor($id);
-                    $this->respawn($id);
-                    $out['respawned'][] = [
-                        'campaign_id' => $id,
-                        'reason' => 'code_drift_recycled',
-                        'boot_epoch' => $bootEpoch,
-                        'latest_pipeline_commit_epoch' => $latestPipelineCommit,
-                        'stale_seconds' => $latestPipelineCommit !== null && $bootEpoch !== null ? $latestPipelineCommit - $bootEpoch : null,
-                    ];
+                    // IN-FLIGHT GUARD: a code-drift recycle picks up newer engine code but is NOT
+                    // urgent — killing a supervisor mid-grind discards MINUTES of in-flight provider
+                    // work (a long iterate-to-green extract-class fires many codex/MiniMax calls, and a
+                    // killed grind never certifies). DEFER the recycle while any grind is RUNNING; it
+                    // fires on the next cadence once the campaign is between grinds. A genuinely STUCK
+                    // grind can't defer forever — the alive+frozen-kill below (heartbeat stale beyond a
+                    // generation) still recycles it. Observed live: rapid dev commits recycled the soak
+                    // mid-grind every cadence, so no heavy refactor ever finished.
+                    $inFlight = DB::table('atlas_loop_tasks')->where('campaign_id', $id)->where('status', 'running')->count();
+                    if ($inFlight > 0) {
+                        $out['drift_deferred'][] = ['campaign_id' => $id, 'running' => (int) $inFlight, 'reason' => 'code_drift_recycle_deferred_in_flight_grinds'];
+                    } else {
+                        $this->killSupervisor($id);
+                        $this->respawn($id);
+                        $out['respawned'][] = [
+                            'campaign_id' => $id,
+                            'reason' => 'code_drift_recycled',
+                            'boot_epoch' => $bootEpoch,
+                            'latest_pipeline_commit_epoch' => $latestPipelineCommit,
+                            'stale_seconds' => $latestPipelineCommit !== null && $bootEpoch !== null ? $latestPipelineCommit - $bootEpoch : null,
+                        ];
 
-                    continue;
+                        continue;
+                    }
                 }
             }
 
