@@ -16,7 +16,10 @@ namespace App\Services\Ai\AutonomousEvolution;
  * breakage, and never papers over a real pre-existing failure.
  *
  * Pure + deterministic over injected (failures, recent merges) — the real main-watcher (suite runner) and
- * the repair-enqueue wire on top. Timestamps are ISO-8601 strings compared lexicographically (sortable).
+ * the repair-enqueue wire on top. Timestamps are parsed to instants (strtotime) for the latest-merge pick.
+ *
+ * STATUS: keystone only — pure attribution logic with NO production caller yet; the main-watcher + repair
+ * enqueue are the explicit pending integration, not implied to be live.
  */
 final class AtlasLoopRegressionSentinel
 {
@@ -47,8 +50,11 @@ final class AtlasLoopRegressionSentinel
                 if (array_intersect($relatedFiles, $mergeFiles) === []) {
                     continue; // no file overlap => this merge did not touch what broke
                 }
-                // Attribute to the LATEST overlapping merge (most-recent change to the broken surface).
-                if ($culprit === null || (string) ($merge['merged_at'] ?? '') > (string) ($culprit['merged_at'] ?? '')) {
+                // Attribute to the LATEST overlapping merge by PARSED instant (strtotime handles mixed
+                // ISO-8601 forms — offsets, fractional seconds — that lexicographic compare gets wrong); a
+                // missing/unparseable timestamp => epoch 0, so it always loses to a real one. Strict ">"
+                // keeps the FIRST on an exact tie (deterministic, order-stable).
+                if ($culprit === null || $this->instant($merge['merged_at'] ?? '') > $this->instant($culprit['merged_at'] ?? '')) {
                     $culprit = $merge;
                 }
             }
@@ -88,6 +94,18 @@ final class AtlasLoopRegressionSentinel
             'unattributed' => array_values(array_unique($unattributed)),
             'repairs' => $repairs,
         ];
+    }
+
+    /** Parse a merged_at to a comparable epoch (handles mixed ISO-8601 forms); 0 when missing/unparseable. */
+    private function instant(mixed $value): int
+    {
+        $s = trim((string) $value);
+        if ($s === '') {
+            return 0;
+        }
+        $ts = strtotime($s);
+
+        return $ts === false ? 0 : $ts;
     }
 
     /**

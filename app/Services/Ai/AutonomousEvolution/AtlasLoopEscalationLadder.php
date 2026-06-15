@@ -45,12 +45,17 @@ final class AtlasLoopEscalationLadder
             return ['stop' => true, 'action' => 'give_up', 'next_tier' => null, 'round' => $round, 'reason' => 'budget_exhausted:'.$round.'/'.$maxRounds];
         }
 
-        // ESCALATE — advance to the next, stronger tier.
+        // ESCALATE — advance to a stronger tier. THRASHING (the same failure recurring) means the adjacent
+        // tier is unlikely to help, so it JUMPS AHEAD past it to a structurally-different strategy — but
+        // never PAST the strongest tier (clamped), so the last resort is never skipped. Already at the
+        // strongest tier + uncertified => the ladder is exhausted.
         $idx = array_search($currentTier, self::TIERS, true);
-        $nextIdx = $idx === false ? 0 : $idx + 1;
-        if ($nextIdx >= count(self::TIERS)) {
+        $last = count(self::TIERS) - 1;
+        if ($idx === $last) {
             return ['stop' => true, 'action' => 'give_up', 'next_tier' => null, 'round' => $round, 'reason' => 'ladder_exhausted_uncertified'];
         }
+        $step = $thrashing ? 2 : 1;
+        $nextIdx = $idx === false ? 0 : min($idx + $step, $last);
 
         $nextTier = self::TIERS[$nextIdx];
 
@@ -59,7 +64,7 @@ final class AtlasLoopEscalationLadder
             'action' => 'escalate',
             'next_tier' => $nextTier,
             'round' => $round + 1,
-            'reason' => ($thrashing ? 'thrashing->' : 'uncertified->').$nextTier,
+            'reason' => ($thrashing ? 'thrashing_jumps_to->' : 'uncertified->').$nextTier,
         ];
     }
 }

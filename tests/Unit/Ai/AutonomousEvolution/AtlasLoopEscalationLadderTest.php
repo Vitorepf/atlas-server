@@ -44,10 +44,26 @@ final class AtlasLoopEscalationLadderTest extends TestCase
         $this->assertSame('escalate_provider', $this->ladder->next(['current_tier' => 'decompose', 'round' => 3, 'max_rounds' => 6])['next_tier']);
     }
 
-    public function test_thrashing_is_reflected_in_the_reason(): void
+    public function test_thrashing_jumps_past_the_adjacent_tier(): void
     {
+        // (workflow fix) thrashing now ALTERS control flow: it skips the adjacent tier (unlikely to help on
+        // a recurring identical failure) and jumps to a structurally-different, stronger one.
         $r = $this->ladder->next(['current_tier' => 'best_of_n', 'round' => 1, 'thrashing' => true, 'max_rounds' => 6]);
-        $this->assertStringContainsString('thrashing->repair_from_refutation', $r['reason']);
+        $this->assertSame('decompose', $r['next_tier'], 'thrashing from best_of_n skips repair and jumps to decompose');
+        $this->assertStringContainsString('thrashing_jumps_to->decompose', $r['reason']);
+    }
+
+    public function test_non_thrashing_takes_the_adjacent_tier(): void
+    {
+        $r = $this->ladder->next(['current_tier' => 'best_of_n', 'round' => 1, 'thrashing' => false, 'max_rounds' => 6]);
+        $this->assertSame('repair_from_refutation', $r['next_tier']);
+    }
+
+    public function test_thrashing_clamps_to_the_strongest_tier_never_past_it(): void
+    {
+        // thrashing from repair would jump +2 (past the ladder) — clamp to the strongest tier, never skip it.
+        $r = $this->ladder->next(['current_tier' => 'repair_from_refutation', 'round' => 2, 'thrashing' => true, 'max_rounds' => 6]);
+        $this->assertSame('escalate_provider', $r['next_tier'], 'the last-resort tier is never skipped');
     }
 
     public function test_budget_exhaustion_stops(): void

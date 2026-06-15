@@ -16,6 +16,9 @@ namespace App\Services\Ai\AutonomousEvolution;
  *
  * Pure + deterministic (a value/cost greedy knapsack). The live cost estimates (from impact receipts /
  * provider telemetry) and the actual dispatch wire on top.
+ *
+ * STATUS: keystone only — pure value/cost allocation with NO production caller yet; the live cost source +
+ * concurrent dispatch are the explicit pending integration, not implied to be live.
  */
 final class AtlasLoopBudgetScheduler
 {
@@ -30,19 +33,23 @@ final class AtlasLoopBudgetScheduler
 
         // Per obra, pick the CHEAPEST configured provider and its value/cost ratio.
         $candidates = [];
+        $unschedulable = []; // obras with no usable provider/cost — DEFERRED, never silently dropped.
         foreach ($obras as $obra) {
             if (! is_array($obra) || trim((string) ($obra['id'] ?? '')) === '') {
                 continue;
             }
             $id = trim((string) $obra['id']);
-            $value = max(0.0, (float) ($obra['value'] ?? 1.0));
+            $rawValue = (float) ($obra['value'] ?? 1.0);
+            $value = is_finite($rawValue) ? max(0.0, $rawValue) : 0.0; // NaN/INF value => 0 (never poisons the sort)
             $costs = is_array($obra['costs'] ?? null) ? $obra['costs'] : [];
 
             $bestProvider = null;
             $bestCost = null;
             foreach ($costs as $provider => $cost) {
                 $cost = (float) $cost;
-                if (! is_string($provider) || trim($provider) === '' || $cost <= 0.0) {
+                // Reject non-finite (NaN/INF — realistic from live telemetry) and non-positive costs;
+                // a NaN must never pass the comparison and poison the schedule.
+                if (! is_string($provider) || trim($provider) === '' || ! is_finite($cost) || $cost <= 0.0) {
                     continue;
                 }
                 if ($bestCost === null || $cost < $bestCost) {
@@ -51,7 +58,9 @@ final class AtlasLoopBudgetScheduler
                 }
             }
             if ($bestProvider === null) {
-                continue; // no configured provider/cost => not schedulable here
+                $unschedulable[] = $id; // no finite/positive provider cost => deferred (the honest invariant)
+
+                continue;
             }
             $candidates[] = [
                 'id' => $id,
@@ -68,7 +77,7 @@ final class AtlasLoopBudgetScheduler
         });
 
         $scheduled = [];
-        $deferred = [];
+        $deferred = $unschedulable; // unschedulable obras are deferred up-front (the "never silently dropped" invariant)
         $spent = 0.0;
         $expectedValue = 0.0;
         foreach ($candidates as $c) {

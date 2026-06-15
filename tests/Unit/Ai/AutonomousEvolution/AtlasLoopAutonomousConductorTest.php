@@ -100,4 +100,92 @@ final class AtlasLoopAutonomousConductorTest extends TestCase
         $this->assertTrue($merged);
         $this->assertSame('make export idempotent', $out['spec']['summary']);
     }
+
+    public function test_reaches_escalate_provider_tier_then_exhausts(): void
+    {
+        // (workflow fix #2) drive all four tiers to fail with budget >= 4 so escalate_provider ACTUALLY
+        // dispatches and the conductor terminates via ladder_exhausted_uncertified.
+        $ran = [];
+        $fail = function ($g, $guid, $spec, $round) use (&$ran) {
+            return ['certified' => false, 'reason' => 'still_red'];
+        };
+        $out = (new AtlasLoopAutonomousConductor)->conduct('goal', [
+            'max_rounds' => 8,
+            'tier_executors' => [
+                'best_of_n' => $fail,
+                'repair_from_refutation' => $fail,
+                'decompose' => $fail,
+                'escalate_provider' => function () use (&$ran) {
+                    $ran[] = 'escalate_provider';
+
+                    return ['certified' => false, 'reason' => 'still_red'];
+                },
+            ],
+        ]);
+        $this->assertContains('escalate_provider', $ran, 'the strongest tier is actually dispatched');
+        $this->assertFalse($out['certified']);
+        $this->assertSame('ladder_exhausted_uncertified', $out['final_reason']);
+    }
+
+    public function test_thrashing_fast_forwards_a_tier_at_conductor_level(): void
+    {
+        // (workflow fix #3) repeated IDENTICAL failures trip the ledger's thrashing signal, which makes the
+        // ladder skip the adjacent tier — so the same failure does not burn every tier one-by-one.
+        $tiersRun = [];
+        $sameFail = function ($g, $guid, $spec, $round) use (&$tiersRun) {
+            // strategy/reason identical every round => thrashing after the threshold
+            return ['certified' => false, 'reason' => 'complexity_not_reduced', 'strategy' => 'same'];
+        };
+        $out = (new AtlasLoopAutonomousConductor)->conduct('goal', [
+            'max_rounds' => 8,
+            'thrash_threshold' => 2,
+            'tier_executors' => [
+                'best_of_n' => function ($g, $gd, $s, $r) use (&$tiersRun, $sameFail) {
+                    $tiersRun[] = 'best_of_n';
+
+                    return $sameFail($g, $gd, $s, $r);
+                },
+                'repair_from_refutation' => function ($g, $gd, $s, $r) use (&$tiersRun, $sameFail) {
+                    $tiersRun[] = 'repair';
+
+                    return $sameFail($g, $gd, $s, $r);
+                },
+                'decompose' => function ($g, $gd, $s, $r) use (&$tiersRun, $sameFail) {
+                    $tiersRun[] = 'decompose';
+
+                    return $sameFail($g, $gd, $s, $r);
+                },
+                'escalate_provider' => function ($g, $gd, $s, $r) use (&$tiersRun, $sameFail) {
+                    $tiersRun[] = 'escalate_provider';
+
+                    return $sameFail($g, $gd, $s, $r);
+                },
+            ],
+        ]);
+        // Thrashing trips after 2 identical failures (best_of_n + repair), so the round-3 decision jumps
+        // +2 from repair past 'decompose' straight to 'escalate_provider'. Net effect: a tier is SKIPPED.
+        $this->assertContains('best_of_n', $tiersRun);
+        $this->assertContains('repair', $tiersRun);
+        $this->assertNotContains('decompose', $tiersRun, 'thrashing skipped a tier (jumped past decompose)');
+        $this->assertLessThan(4, count(array_unique($tiersRun)), 'not every tier was burned one-by-one');
+        $this->assertTrue($out['convergence']['thrashing']);
+    }
+
+    public function test_a_throwing_tier_executor_is_caught_and_escalates(): void
+    {
+        // (workflow fix #5) a tier that throws does NOT abort the conduct — it is a failed round, the ladder
+        // escalates, and a later tier can still certify.
+        $out = (new AtlasLoopAutonomousConductor)->conduct('goal', [
+            'max_rounds' => 6,
+            'tier_executors' => [
+                'best_of_n' => function () {
+                    throw new \RuntimeException('provider crashed');
+                },
+                'repair_from_refutation' => fn () => ['certified' => true, 'reason' => 'certified'],
+            ],
+        ]);
+        $this->assertTrue($out['certified'], 'a throwing tier is survived, not fatal');
+        $threw = array_values(array_filter($out['tier_history'], fn ($h) => str_contains((string) ($h['reason'] ?? ''), 'tier_threw')));
+        $this->assertNotEmpty($threw, 'the throw is recorded as a failed round');
+    }
 }

@@ -65,4 +65,30 @@ final class AtlasLoopBudgetSchedulerTest extends TestCase
         $this->assertSame([], $r['deferred']);
         $this->assertEqualsWithDelta(2.0, $r['expected_value'], 0.0001);
     }
+
+    public function test_nan_and_infinite_costs_are_sanitized(): void
+    {
+        // (workflow fix #18) NaN/INF costs (realistic from live telemetry) must not poison the schedule —
+        // they are rejected; a finite alternative provider is used instead.
+        $r = (new AtlasLoopBudgetScheduler)->schedule([
+            ['id' => 'mixed', 'value' => 1.0, 'costs' => ['bad' => NAN, 'worse' => INF, 'good' => 4.0]],
+        ], 100.0, 4);
+        $this->assertCount(1, $r['scheduled']);
+        $this->assertSame('good', $r['scheduled'][0]['provider'], 'NaN/INF rejected, finite provider chosen');
+        $this->assertEqualsWithDelta(4.0, $r['scheduled'][0]['cost'], 0.0001);
+    }
+
+    public function test_unschedulable_obra_is_deferred_not_silently_dropped(): void
+    {
+        // (workflow fix #19) an obra with no usable (finite/positive) provider cost must appear in deferred,
+        // honoring the documented "never silently dropped" invariant.
+        $r = (new AtlasLoopBudgetScheduler)->schedule([
+            ['id' => 'all_nan', 'value' => 9.0, 'costs' => ['x' => NAN]],
+            ['id' => 'no_costs', 'value' => 5.0, 'costs' => []],
+            ['id' => 'ok', 'value' => 1.0, 'costs' => ['m' => 1.0]],
+        ], 100.0, 4);
+        $this->assertSame(['ok'], array_map(fn ($s) => $s['id'], $r['scheduled']));
+        $this->assertContains('all_nan', $r['deferred']);
+        $this->assertContains('no_costs', $r['deferred']);
+    }
 }

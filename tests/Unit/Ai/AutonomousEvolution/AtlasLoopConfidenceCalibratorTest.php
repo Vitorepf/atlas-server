@@ -72,4 +72,23 @@ final class AtlasLoopConfidenceCalibratorTest extends TestCase
         $r = (new AtlasLoopConfidenceCalibrator)->calibrate($samples);
         $this->assertNotEmpty($r['buckets']);
     }
+
+    public function test_threshold_sweep_stops_at_the_deepest_t_that_still_clears_precision(): void
+    {
+        // (workflow fix #10) exercise the SWEEP across 3 distinct predicted values: {>=0.99} and {>=0.95}
+        // are 100% correct, but {>=0.90} drops to ~0.917 (< 0.93). The recommended arm-threshold must be the
+        // LOWEST T that still clears target precision => 0.95, NOT 0.90 (which would over-recall below bar).
+        $samples = [];
+        for ($i = 0; $i < 20; $i++) {
+            $samples[] = ['predicted' => 0.99, 'correct' => true];
+        }
+        for ($i = 0; $i < 20; $i++) {
+            $samples[] = ['predicted' => 0.95, 'correct' => true];
+        }
+        for ($i = 0; $i < 20; $i++) {
+            $samples[] = ['predicted' => 0.90, 'correct' => $i < 15]; // 15/20 correct => {>=0.90} = 55/60 = 0.917
+        }
+        $r = (new AtlasLoopConfidenceCalibrator)->calibrate($samples, 0.93, 20);
+        $this->assertEqualsWithDelta(0.95, $r['recommended_threshold'], 0.0001, 'sweep stops at 0.95 — going to 0.90 drops precision below target');
+    }
 }

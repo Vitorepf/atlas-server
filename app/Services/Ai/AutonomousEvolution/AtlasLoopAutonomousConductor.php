@@ -88,7 +88,13 @@ final class AtlasLoopAutonomousConductor
                 continue;
             }
 
-            $outcome = (array) $executor($goal, $ledger->guidance(), $spec, $state['round']);
+            // A throwing tier executor (provider crash, transient fault) must NOT abort the whole conduct —
+            // it is recorded as a failed round so the ladder escalates to a stronger tier (fail-forward).
+            try {
+                $outcome = (array) $executor($goal, $ledger->guidance(), $spec, $state['round']);
+            } catch (\Throwable $e) {
+                $outcome = ['certified' => false, 'reason' => 'tier_threw:'.mb_substr($e->getMessage(), 0, 160)];
+            }
             $lastOutcome = $outcome;
             $certified = (bool) ($outcome['certified'] ?? false);
             $ledger->record(

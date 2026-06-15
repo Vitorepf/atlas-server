@@ -68,4 +68,32 @@ final class AtlasLoopRegressionSentinelTest extends TestCase
         $b = (new AtlasLoopRegressionSentinel)->triage(...$args);
         $this->assertSame($a['repairs'][0]['source_key'], $b['repairs'][0]['source_key'], 'same failure+commit => stable dedup key');
     }
+
+    public function test_latest_by_parsed_instant_across_mixed_iso_formats(): void
+    {
+        // (workflow fix #14) lexicographic compare gets mixed ISO-8601 forms WRONG: '2026-06-15T12:00:00Z'
+        // is EARLIER than '2026-06-15T11:30:00-05:00' (= 16:30 UTC). The parsed-instant compare picks the
+        // later-UTC merge regardless of input order or format.
+        $r = (new AtlasLoopRegressionSentinel)->triage(
+            [['id' => 'T::t', 'related_files' => ['app/Foo.php']]],
+            [
+                ['commit' => 'zulu_earlier', 'files' => ['app/Foo.php'], 'merged_at' => '2026-06-15T12:00:00Z'],
+                ['commit' => 'offset_later', 'files' => ['app/Foo.php'], 'merged_at' => '2026-06-15T11:30:00-05:00'],
+            ],
+        );
+        $this->assertSame('offset_later', $r['attributed'][0]['commit'], '11:30-05:00 (16:30Z) is later than 12:00Z');
+    }
+
+    public function test_missing_timestamp_loses_to_a_real_one(): void
+    {
+        // (workflow fix #15) a merge with no merged_at (epoch 0) must lose to any merge with a real one.
+        $r = (new AtlasLoopRegressionSentinel)->triage(
+            [['id' => 'T::t', 'related_files' => ['app/Foo.php']]],
+            [
+                ['commit' => 'has_ts', 'files' => ['app/Foo.php'], 'merged_at' => '2026-06-15T10:00:00Z'],
+                ['commit' => 'no_ts', 'files' => ['app/Foo.php']],
+            ],
+        );
+        $this->assertSame('has_ts', $r['attributed'][0]['commit'], 'a real timestamp beats a missing one');
+    }
 }

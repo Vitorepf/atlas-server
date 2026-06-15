@@ -72,4 +72,34 @@ final class AtlasLoopBlastRadiusAnalyzerTest extends TestCase
         $r = (new AtlasLoopBlastRadiusAnalyzer)->analyze('a', $this->consumersFrom($graph), 5, 200);
         $this->assertSame(['b'], $r['blast_radius'], 'visited-set prevents infinite cycle walk');
     }
+
+    public function test_risk_band_is_absolute_not_relative_to_the_node_cap(): void
+    {
+        // (workflow fix #7) the SAME hub must get the SAME risk band regardless of the (non-truncating) cap.
+        $consumers = [];
+        for ($i = 0; $i < 30; $i++) {
+            $consumers[] = 'c'.$i;
+        }
+        $graph = ['hub' => $consumers];
+        $tight = (new AtlasLoopBlastRadiusAnalyzer)->analyze('hub', $this->consumersFrom($graph), 2, 200);
+        $loose = (new AtlasLoopBlastRadiusAnalyzer)->analyze('hub', $this->consumersFrom($graph), 2, 5000);
+        $this->assertSame($tight['risk'], $loose['risk'], 'risk band does not change with the node cap');
+        $this->assertSame($tight['risk_score'], $loose['risk_score']);
+        $this->assertSame('high', $tight['risk'], '30/HIGH_FAN_OUT(40) is a high blast radius');
+    }
+
+    public function test_a_throwing_edge_query_does_not_abort_the_analysis(): void
+    {
+        // (workflow fix #9) a real code-graph query can fail on a node; treat as no edges, never crash.
+        $throwing = static function (string $node): array {
+            if ($node === 'boom') {
+                throw new \RuntimeException('graph query failed');
+            }
+
+            return $node === 'root' ? [['to' => 'boom'], ['to' => 'safe']] : [];
+        };
+        $r = (new AtlasLoopBlastRadiusAnalyzer)->analyze('root', $throwing, 3, 200);
+        sort($r['blast_radius']);
+        $this->assertSame(['boom', 'safe'], $r['blast_radius'], 'a throwing query on one node yields no edges, not a crash');
+    }
 }
