@@ -257,7 +257,7 @@ final class AtlasLoopStore
             ]) > 0;
     }
 
-    /** Reclaim every task whose lease expired (crash recovery) back to pending. */
+    /** Reclaim every task whose lease expired (mid-run crash recovery) back to pending. */
     public function reclaimExpiredTasks(string $campaignId): int
     {
         return AtlasLoopTask::query()
@@ -267,6 +267,29 @@ final class AtlasLoopStore
             ->update([
                 'status' => AtlasLoopTask::STATUS_PENDING,
                 'claimed_by' => null,
+                'lease_expires_at' => null,
+            ]);
+    }
+
+    /**
+     * Reclaim ALL in-flight tasks (claimed/running) back to pending — for SUPERVISOR STARTUP only,
+     * where the predecessor that claimed them is DEAD, so every in-flight task is orphaned REGARDLESS
+     * of lease. The old lease-only reclaim left a respawned supervisor's predecessor tasks "running"
+     * for up to the full (90min) lease, which occupied the worker slots and STALLED the fresh
+     * supervisor (no grinding, heartbeat growing). Integrity is safe even if a posix_setsid orphan
+     * grind child outlives its supervisor: completeTask is claimed_by-scoped (a stale worker cannot
+     * torn-write a re-grinded task) and proposals dedupe on proposal_hash — worst case is a wasteful
+     * double-grind, never corruption.
+     */
+    public function reclaimAllInFlight(string $campaignId): int
+    {
+        return AtlasLoopTask::query()
+            ->where('campaign_id', $campaignId)
+            ->whereIn('status', [AtlasLoopTask::STATUS_CLAIMED, AtlasLoopTask::STATUS_RUNNING])
+            ->update([
+                'status' => AtlasLoopTask::STATUS_PENDING,
+                'claimed_by' => null,
+                'claimed_at' => null,
                 'lease_expires_at' => null,
             ]);
     }
@@ -373,7 +396,11 @@ final class AtlasLoopStore
      */
     public function rebuildInFlight(string $campaignId): array
     {
-        $reclaimed = $this->reclaimExpiredTasks($campaignId);
+        // STARTUP reclaim: the predecessor supervisor is dead, so reclaim ALL in-flight (not just
+        // lease-expired). The lease-only reclaim used to leave fresh-leased orphans "running",
+        // stalling the respawned supervisor (worker slots occupied, no grinding). Runs once before
+        // the work loop, so no in-flight task belongs to the current supervisor yet.
+        $reclaimed = $this->reclaimAllInFlight($campaignId);
 
         return ['reclaimed' => $reclaimed, 'pending' => $this->countPending($campaignId)];
     }
