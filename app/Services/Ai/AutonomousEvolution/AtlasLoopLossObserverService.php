@@ -23,6 +23,7 @@ final class AtlasLoopLossObserverService
     public function __construct(
         private readonly AtlasLoopFunnelService $funnel,
         private readonly AtlasLoopBacklogManifestService $manifest,
+        private readonly ?AtlasLoopHarnessGuard $guard = null,
     ) {}
 
     /**
@@ -40,17 +41,40 @@ final class AtlasLoopLossObserverService
         $funnel = $this->funnel->snapshot($campaignId);
         $patterns = $this->dominantPatterns($campaignId, $windowHours, $minOccurrences);
 
+        $guard = $this->guard ?? new AtlasLoopHarnessGuard;
+        // SELF-IMPROVEMENT ladder (Lever 4 — "ADEP improves ADEP"): a dominant loss whose target IS one of
+        // the loop's OWN pipeline files is the loop improving itself. Two invariants from the harness guard
+        // govern it: (1) the petreous set (frozen judge, gates, certifier, never-merge) is NEVER a target —
+        // the defendant cannot be dispatched to fix the judge, so it is dropped outright; (2) other harness
+        // files become a self-improvement intent — held to the ≥9 bar at cert — only when BOTH meta flags
+        // are ON. Otherwise (flags off, or a non-harness target) it stays an ordinary backlog intent.
+        $selfImproveEnabled = (bool) config('atlas.loop.meta_harness_targets', false)
+            && (bool) config('atlas.loop.meta_harness_self_improve.enabled', false);
         $actions = [];
         foreach ($patterns as $pattern) {
-            if (($pattern['target_path'] ?? '') === '') {
+            $path = (string) ($pattern['target_path'] ?? '');
+            if ($path === '') {
                 continue;
             }
-            $actions[] = $this->appendBacklogIntent($manifestPath, $pattern, $windowHours, $manifestLimit, $write);
+            if ($guard->isForbiddenSelfTarget($path)) {
+                $actions[] = ['status' => 'skipped', 'reason' => 'harness_guard:forbidden', 'target_path' => $path];
+
+                continue;
+            }
+            $selfImprove = $selfImproveEnabled && $guard->isHarnessTarget($path);
+            $actions[] = $this->appendBacklogIntent($manifestPath, $pattern, $windowHours, $manifestLimit, $write, $selfImprove);
         }
+
+        // Honest status: a DROPPED (skipped) target — e.g. a petreous self-target the guard refused — is
+        // observed, not acted. "acted" requires a real manifest touch (enqueued/duplicate).
+        $effectiveActions = array_values(array_filter(
+            $actions,
+            static fn (array $a): bool => ($a['status'] ?? '') !== 'skipped',
+        ));
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'status' => $actions !== [] ? ($write ? 'acted' : 'dry_run') : ($patterns !== [] ? 'observed' : 'clear'),
+            'status' => $effectiveActions !== [] ? ($write ? 'acted' : 'dry_run') : ($patterns !== [] ? 'observed' : 'clear'),
             'campaign_id' => $campaignId,
             'window_hours' => $windowHours,
             'min_occurrences' => $minOccurrences,
@@ -233,27 +257,47 @@ final class AtlasLoopLossObserverService
      * @param  array<string,mixed>  $pattern
      * @return array<string,mixed>
      */
-    private function appendBacklogIntent(string $manifestPath, array $pattern, int $windowHours, int $manifestLimit, bool $write): array
+    private function appendBacklogIntent(string $manifestPath, array $pattern, int $windowHours, int $manifestLimit, bool $write, bool $selfImprove = false): array
     {
-        $sourceKey = hash('sha256', 'loss_observer|'.$pattern['target_path'].'|'.$pattern['reason']);
+        $source = $selfImprove ? 'self_improve' : 'loss_observer';
+        $sourceKey = hash('sha256', $source.'|'.$pattern['target_path'].'|'.$pattern['reason']);
         $priority = round(min(1.0, 0.72 + min(0.24, ((int) $pattern['occurrences']) * 0.04)), 4);
-        $item = [
-            'path' => (string) $pattern['target_path'],
-            'objective' => sprintf(
+        $objective = $selfImprove
+            ? sprintf(
+                'AUTO-MELHORIA do próprio pipeline do Loop (ADEP melhora ADEP): atacar %s em %s (%d ocorrências/%dh). '
+                .'Gated ≥%.1f — tocar o próprio cérebro só passa com qualidade máxima e o conjunto pétreo é intocável.',
+                (string) $pattern['reason'],
+                (string) $pattern['target_path'],
+                (int) $pattern['occurrences'],
+                $windowHours,
+                (float) config('atlas.loop.quality_bar', AtlasLoopQualityGrader::DEFAULT_BAR),
+            )
+            : sprintf(
                 'Corrigir padrão dominante do Loop: %s em %s (%d ocorrências nas últimas %dh).',
                 (string) $pattern['reason'],
                 (string) $pattern['target_path'],
                 (int) $pattern['occurrences'],
                 $windowHours,
-            ),
+            );
+        $item = [
+            'path' => (string) $pattern['target_path'],
+            'objective' => $objective,
             'priority' => $priority,
-            'source' => 'loss_observer',
+            'source' => $source,
             'source_key' => $sourceKey,
             'reason' => (string) $pattern['reason'],
             'occurrences' => (int) $pattern['occurrences'],
             'observed_window_hours' => $windowHours,
             'observed_at' => Carbon::now()->toIso8601String(),
         ];
+        if ($selfImprove) {
+            // The ≥9 self-improvement contract the certifier (per-task bar) enforces, plus the marker the
+            // self-improvement objective builder keys on. Touching the loop's own pipeline only at max quality.
+            $item['is_self_improvement'] = true;
+            $item['quality_bar_gate'] = true;
+            $item['quality_bar'] = (float) config('atlas.loop.quality_bar', AtlasLoopQualityGrader::DEFAULT_BAR);
+        }
+
         return $this->manifest->append($manifestPath, $item, $manifestLimit, $write);
     }
 }

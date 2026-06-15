@@ -46,7 +46,7 @@ final class AtlasLoopFrameworkRefactorCertificationTest extends TestCase
         ];
     }
 
-    public function test_certifies_when_tests_green_AND_complexity_drops(): void
+    public function test_certifies_when_tests_green_an_d_complexity_drops(): void
     {
         // baseline = high-cyclomatic if/elseif ladder; candidate = match-map simplification.
         $this->workspace = $this->workspaceWithRefactor($this->highComplexity(), $this->lowComplexity());
@@ -122,7 +122,7 @@ PHP;
         $this->assertTrue($receipt['complexity_proof']['reduced']);
     }
 
-    public function test_match_map_refactor_certifies_with_decision_aware_flag_ON(): void
+    public function test_match_map_refactor_certifies_with_decision_aware_flag_on(): void
     {
         // PROOF the refinement is a PURE WIN: with the refactor-decision-aware flag ON, the match-map
         // simplification (whose added lines have a COVERED relocated literal but NO decision operator)
@@ -149,7 +149,7 @@ PHP;
         $this->assertNotContains('mutation_adequacy_gate:no_applicable_mutation', $receipt['reasons']);
     }
 
-    public function test_heavy_extraction_refactor_certifies_with_decision_aware_flag_ON(): void
+    public function test_heavy_extraction_refactor_certifies_with_decision_aware_flag_on(): void
     {
         // The same PURE-WIN proof for the HEAVY (>15-line) dispatch-table extraction: with the flag ON
         // it certifies via the cosmetic-fallback tier rather than the pre-refinement false reject.
@@ -196,6 +196,57 @@ PHP;
         $this->assertTrue($receipt['complexity_proof']['reduced']);
         $this->assertTrue(data_get($receipt, 'mutation_adequacy_gate.certified'));
         $this->assertNotContains('mutation_adequacy_gate:no_applicable_mutation', $receipt['reasons']);
+    }
+
+    public function test_per_task_quality_bar_gates_a_self_improvement_even_with_the_global_flag_off(): void
+    {
+        // Lever 4 contract: a self-improvement task (the loop refactoring its OWN pipeline) carries
+        // quality_bar_gate=true [+ quality_bar] in its acceptance and is held to that bar EVEN WHEN the
+        // GLOBAL quality-bar flag is OFF — letting the loop touch its own brain is the dangerous case and
+        // must clear the bar regardless. We reuse the SAME behaviour-preserving, complexity-dropping
+        // refactor that certifies by default, but pin an UNREACHABLE per-task bar: the cert must now be
+        // REFUSED purely on the per-task quality bar.
+        config(['atlas.loop.quality_bar_gate_enabled' => false]); // global gate OFF — proves per-task stands alone
+        $this->workspace = $this->workspaceWithRefactor($this->highComplexity(), $this->lowComplexity());
+
+        $acceptance = $this->refactorAcceptance();
+        $acceptance['quality_bar_gate'] = true;
+        $acceptance['quality_bar'] = 10.5; // unreachable: even a perfect 10 is below it
+
+        $receipt = app(AtlasLoopSemanticImplementationCertifier::class)->certify(
+            $this->workspace,
+            $acceptance,
+            ['objective' => 'Self-improve the loop pipeline', 'allowed_files' => ['src/Classifier.php']],
+        );
+
+        $this->assertFalse($receipt['certified'], 'a per-task ≥bar self-edit must be refused below the bar even with the global flag off');
+        $hasBarReason = false;
+        foreach ((array) $receipt['reasons'] as $r) {
+            if (str_starts_with((string) $r, 'quality_bar:below_min:')) {
+                $hasBarReason = true;
+                break;
+            }
+        }
+        $this->assertTrue($hasBarReason, 'the refusal reason is the per-task quality bar: '.json_encode($receipt['reasons']));
+        $this->assertSame(10.5, data_get($receipt, 'quality_grade.bar'), 'the PER-TASK bar (not the config default 9.0) was applied');
+    }
+
+    public function test_per_task_quality_bar_absent_is_byte_identical_default(): void
+    {
+        // The complement: with NO per-task bar key and the global flag OFF, the SAME refactor certifies
+        // exactly as before. Proves the Lever 4 change is byte-identical on the ordinary path.
+        config(['atlas.loop.quality_bar_gate_enabled' => false]);
+        $this->workspace = $this->workspaceWithRefactor($this->highComplexity(), $this->lowComplexity());
+
+        $receipt = app(AtlasLoopSemanticImplementationCertifier::class)->certify(
+            $this->workspace,
+            $this->refactorAcceptance(), // no quality_bar_gate / quality_bar keys
+            ['objective' => 'Refactor Classifier to reduce complexity', 'allowed_files' => ['src/Classifier.php']],
+        );
+
+        $this->assertTrue($receipt['certified'], 'ordinary refactor still certifies with no per-task bar: '.json_encode($receipt['reasons']));
+        // The grade is still computed (observable) at the config-default bar.
+        $this->assertSame(9.0, data_get($receipt, 'quality_grade.bar'));
     }
 
     public function test_not_certified_when_a_refactor_breaks_a_real_test(): void

@@ -164,7 +164,14 @@ final class AtlasLoopSemanticImplementationCertifier
         // never adds a reason). Only meaningful for complexity-proof refactors (cx before/after exist).
         $qualityGrade = null;
         if ($this->complexityProofRequired($targetAcceptance) && is_array($complexityProof)) {
-            $qualityGrade = (new AtlasLoopQualityGrader())->grade([
+            // PER-TASK ≥9 (Lever 4 — self-improvement): a task that modifies the loop's OWN pipeline
+            // carries the bar in its acceptance (quality_bar_gate=true [+ quality_bar]) and is gated at
+            // that bar EVEN WHEN the global flag is OFF — letting the loop touch its own brain is the
+            // dangerous case and must clear ≥9 regardless. When no per-task key is present this stays
+            // byte-identical: quality_bar absent => grader uses the config default; quality_bar_gate
+            // absent => the gate is exactly the global flag.
+            $perTaskBar = isset($targetAcceptance['quality_bar']) ? (float) $targetAcceptance['quality_bar'] : null;
+            $qualityGrade = (new AtlasLoopQualityGrader)->grade([
                 'behavior_preserved' => (bool) data_get($deterministicGate, 'report.holdouts.target_frozen_passed', false),
                 'scope_clean' => $scopeViolation === [],
                 'cx_before' => (int) ($complexityProof['baseline_max'] ?? 0),
@@ -172,8 +179,10 @@ final class AtlasLoopSemanticImplementationCertifier
                 'total_branches_before' => (int) ($complexityProof['baseline_total'] ?? 0),
                 'total_branches_after' => (int) ($complexityProof['candidate_total'] ?? 0),
                 'coverage_added' => false,
-            ]);
-            if ((bool) config('atlas.loop.quality_bar_gate_enabled', false) && ! ($qualityGrade['passes_bar'] ?? false)) {
+            ], $perTaskBar);
+            $barGate = (bool) ($targetAcceptance['quality_bar_gate'] ?? false)
+                || (bool) config('atlas.loop.quality_bar_gate_enabled', false);
+            if ($barGate && ! ($qualityGrade['passes_bar'] ?? false)) {
                 $reasons[] = 'quality_bar:below_min:'.$qualityGrade['score'];
             }
         }
@@ -478,7 +487,7 @@ final class AtlasLoopSemanticImplementationCertifier
      *
      * @param  list<string>  $changedFiles
      * @param  list<string>  $allowedFiles
-     * @return array{0:list<string>, 1:list<string>}  [scoped, violations]
+     * @return array{0:list<string>, 1:list<string>} [scoped, violations]
      */
     private function scopedChangedFiles(array $changedFiles, array $allowedFiles): array
     {
@@ -518,8 +527,8 @@ final class AtlasLoopSemanticImplementationCertifier
      *
      * @param  list<string>  $changedFiles
      * @return array{baseline_max:int,candidate_max:int,baseline_total:int,candidate_total:int,reduced:bool}|null
-     *                                  null = could not verify (no PHP file / no diff to stash /
-     *                                  git error / unparseable) => fail closed
+     *                                                                                                            null = could not verify (no PHP file / no diff to stash /
+     *                                                                                                            git error / unparseable) => fail closed
      */
     /**
      * Did the refactor's frozen behaviour anchor actually EXERCISE behaviour — i.e. did its phpunit
@@ -585,7 +594,7 @@ final class AtlasLoopSemanticImplementationCertifier
         }
         $absPaths = array_map(static fn (string $f): string => $workspace.'/'.ltrim($f, '/'), $phpFiles);
 
-        $analyzer = $this->signalAnalyzer ?? new AtlasLoopSignalAnalyzer();
+        $analyzer = $this->signalAnalyzer ?? new AtlasLoopSignalAnalyzer;
 
         // CANDIDATE first: the diff is live in the working tree right now.
         $candidate = $analyzer->aggregateComplexity($absPaths);
