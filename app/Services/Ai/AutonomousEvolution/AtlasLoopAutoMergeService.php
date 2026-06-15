@@ -532,8 +532,10 @@ final class AtlasLoopAutoMergeService
         }
         try {
             $target = (string) $proposal->target_path;
-            $canaryVerdict = ($canary['ran'] ?? false)
-                ? (($canary['passed'] ?? false) ? 'canário GREEN' : 'canário RED→fix-forward enfileirado')
+            $canaryRan = (bool) ($canary['ran'] ?? false);
+            $canaryGreen = $canaryRan && (bool) ($canary['passed'] ?? false);
+            $canaryVerdict = $canaryRan
+                ? ($canaryGreen ? 'canário GREEN' : 'canário RED→fix-forward enfileirado')
                 : 'sem canário-irmão';
             app(\App\Services\Ai\Compounding\AtlasCompoundingRuntimeService::class)->recordExecution([
                 'outcome_status' => 'passed',
@@ -541,15 +543,22 @@ final class AtlasLoopAutoMergeService
                 'run_id' => (string) $commit,
                 'evidence_refs' => array_values(array_filter([$target, $commit ? 'commit:'.$commit : null])),
                 'learning_signal' => [
+                    // STABLE per target+verdict — the volatile commit SHA lives in evidence_refs, NOT
+                    // the claim: the memory content-dedup (AtlasCompoundingMemoryService) keys on the
+                    // EXACT claim, so a per-merge SHA in the claim would flood a fresh active memory for
+                    // every merge to the same target (the 137→N noise flood the no-noise contract bars).
                     'claim' => sprintf(
-                        'Loop auto-merge melhorou %s e mergeou em main (commit %s, %s); reusar este alvo concreto ao priorizar trabalho de evolução similar.',
+                        'Loop auto-merge endureceu %s em main (%s); reusar este alvo concreto ao priorizar trabalho de evolução similar.',
                         $target,
-                        $commit ? substr($commit, 0, 10) : '?',
                         $canaryVerdict,
                     ),
                     'memory_type' => 'loop_merge_memory',
                     'scope' => 'engineering',
-                    'confidence' => 0.7,
+                    // 0–100 scale (NOT a 0–1 fraction): the distiller's score() floors a fraction to 1,
+                    // which is below the >=70 promote gate, so EVERY loop merge was held forever (203
+                    // merges → 0 recallable memory — the learn→recall flywheel silently dead). Canary-
+                    // gated for honesty: a red-canary merge (fix-forward enqueued) stays HELD (<70).
+                    'confidence' => $canaryGreen ? 75 : ($canaryRan ? 60 : 70),
                     'flow_id' => 'loop_auto_merge',
                     'evidence_refs' => array_values(array_filter([$target, $commit ? 'commit:'.$commit : null])),
                 ],
