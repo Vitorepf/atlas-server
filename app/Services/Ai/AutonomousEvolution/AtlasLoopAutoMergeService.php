@@ -292,7 +292,14 @@ final class AtlasLoopAutoMergeService
             }
 
             // 3. Sanidade: sintaxe quebrada nunca entra (o resto é fix-forward).
-            $changed = $this->changedPhpFiles($repoRoot);
+            // SCOPE TO THE PROPOSAL'S OWN PATCH: the drain runs in base_path, which the concurrently
+            // grinding supervisor leaves dirty with UNRELATED tracked edits. A whole-working-tree
+            // `git diff` let those foreign files (a) ride into the merge commit via `git add` and
+            // (b) mis-aim the canary at an unrelated sibling test — measured 22.4% of merges canaried
+            // the WRONG test, so a real behavioural regression could merge GREEN. Intersect the tree
+            // diff with the patch's own files so EVERY step below (lint, value-gate, canary, git add,
+            // attribution, trust-ladder) sees ONLY this proposal's change.
+            $changed = $this->scopeToPatch($this->changedPhpFiles($repoRoot), $normalized, (string) $proposal->target_path, $repoRoot);
             foreach ($changed as $file) {
                 if (! $this->phpLintOk($repoRoot.'/'.$file)) {
                     $this->git($repoRoot, ['checkout', '--', $file]); // desfaz só o apply inválido
@@ -760,6 +767,52 @@ final class AtlasLoopAutoMergeService
         }
 
         return $files;
+    }
+
+    /**
+     * Restrict the working-tree changed set to the files THIS proposal's patch actually touches.
+     * Never widens to the whole tree; if the intersection is empty (a parse miss), falls back to the
+     * patch's own existing files — a parse miss must NEVER re-admit foreign dirty work.
+     *
+     * @param  list<string>  $treeChanged
+     * @return list<string>
+     */
+    private function scopeToPatch(array $treeChanged, string $normalizedDiff, string $targetPath, string $repoRoot): array
+    {
+        $patchFiles = $this->patchTargetFiles($normalizedDiff, $targetPath);
+        $scoped = array_values(array_intersect($treeChanged, $patchFiles));
+        if ($scoped !== []) {
+            return $scoped;
+        }
+
+        return array_values(array_filter($patchFiles, static fn (string $f): bool => is_file($repoRoot.'/'.$f)));
+    }
+
+    /**
+     * Repo-relative paths a unified diff touches (its `+++ b/<path>` headers, plus the `--- a/<path>`
+     * side for deletes). Falls back to the proposal's declared target_path so the scope is never empty.
+     *
+     * @return list<string>
+     */
+    private function patchTargetFiles(string $diff, string $targetPath): array
+    {
+        $files = [];
+        foreach (preg_split('/\R/', $diff) ?: [] as $line) {
+            if (preg_match('#^\+\+\+\s+b/(.+)$#', $line, $m) || preg_match('#^---\s+a/(.+)$#', $line, $m)) {
+                $path = trim($m[1]);
+                if ($path !== '' && $path !== '/dev/null') {
+                    $files[$path] = true;
+                }
+            }
+        }
+        if ($files === []) {
+            $t = trim($targetPath);
+            if ($t !== '') {
+                $files[$t] = true;
+            }
+        }
+
+        return array_keys($files);
     }
 
     private function phpLintOk(string $absPath): bool

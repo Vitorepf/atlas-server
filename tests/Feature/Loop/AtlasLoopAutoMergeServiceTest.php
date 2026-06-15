@@ -159,6 +159,35 @@ final class AtlasLoopAutoMergeServiceTest extends TestCase
         $this->assertSame($headParent, $tagSha, 'a tag de snapshot aponta para o estado pré-merge');
     }
 
+    public function test_merge_scopes_to_the_proposal_patch_not_foreign_dirty_work(): void
+    {
+        // REGRESSION (HIGH false-accept): the drain built $changed from a whole-working-tree `git
+        // diff`, so files the concurrently-grinding supervisor left dirty in base_path rode into the
+        // merge commit via `git add -- $changed` AND mis-aimed the canary at an unrelated sibling
+        // (measured 22.4% of merges canaried the WRONG test). The merge must scope to the proposal's
+        // OWN patch — foreign dirty work is neither canaried nor committed under the proposal hash.
+        $original = "<?php\nfunction val(){ return 1; }\n";
+        $modified = "<?php\nfunction val(){ return 2; }\n";
+        $repo = $this->repo($original);
+        // A tracked file the supervisor is concurrently editing — DIRTY in the same tree.
+        file_put_contents($repo.'/foreign.php', "<?php\n// v1\n");
+        $this->git($repo, ['add', 'foreign.php']);
+        $this->git($repo, ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'add foreign', '--no-gpg-sign']);
+        file_put_contents($repo.'/foreign.php', "<?php\n// v2 UNRELATED concurrent loop work\n");
+
+        $proposal = $this->certifiedProposal($this->makeDiff($original, $modified), 'scope-1');
+        $result = app(AtlasLoopAutoMergeService::class)->drain($repo, 5);
+
+        $this->assertSame(1, $result['merged_count'], json_encode($result['results']));
+        // The merge commit contains ONLY snippet.php — foreign dirty work did NOT ride in.
+        $committed = $this->git($repo, ['show', '--name-only', '--pretty=format:', 'HEAD']);
+        $this->assertStringContainsString('snippet.php', $committed);
+        $this->assertStringNotContainsString('foreign.php', $committed, 'foreign dirty work must NOT be committed under the proposal hash');
+        // foreign.php remains present and still dirty (the scoped merge never touched it).
+        $this->assertFileExists($repo.'/foreign.php');
+        $this->assertStringContainsString('foreign.php', $this->git($repo, ['status', '--porcelain']));
+    }
+
     public function test_stale_proposal_is_retired_never_merged(): void
     {
         // O diff foi gerado contra um conteúdo que NÃO é o da árvore atual → não aplica.
