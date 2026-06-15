@@ -142,6 +142,17 @@ Schedule::command('atlas:loop:automerge --limit=10 --json')
     ->appendOutputTo(storage_path('logs/loop-automerge.log'))
     ->when(static fn (): bool => (bool) config('atlas.ai.loop.auto_merge_to_main', false));
 
+// Conversion flywheel: feed a characterization_test task per REAL coverage gap (a refactor blocked
+// by mutation_survived on a still-uncovered decision) to the live supervisor. The command itself is
+// the hard gate — it no-ops unless the lane flag is ON and pre-validates each gap is real on current
+// code (it never enqueues spurious/already-covered gaps). withoutOverlapping + a generous interval so
+// a live materialize+verify pre-check pass never stacks; appendOutputTo for 24h observability.
+Schedule::command('atlas:loop:coverage-gaps --hours=24 --feed --json')
+    ->everyThirtyMinutes()
+    ->withoutOverlapping(20)
+    ->appendOutputTo(storage_path('logs/loop-coverage-gaps-feed.log'))
+    ->when(static fn (): bool => (bool) config('atlas.loop.characterization_test_lane_enabled', false));
+
 // L3-11 · Mint de green-run receipts da dimensão pipeline do ACOS, em cadência. Mira os
 // subsistemas `partial` (cada receipt verde flipa partial→ready) e sobe o scorecard com
 // evidência resolved (nunca self-declared). Bounded por passe; gated para o operador ligar.
