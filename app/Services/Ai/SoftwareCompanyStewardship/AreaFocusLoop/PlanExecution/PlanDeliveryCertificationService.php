@@ -7,7 +7,6 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Ap786RealCycleCertificationService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusLoopOperationalCertificationService;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusLoopPayloadNormalizer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusStringListNormalizer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusUtcClock;
 
@@ -115,74 +114,19 @@ final class PlanDeliveryCertificationService
         $sliceStates = is_array($ledger['slice_states'] ?? null) ? $ledger['slice_states'] : [];
         $totalSlices = (int) ($ledger['total_slices'] ?? count($sliceStates));
 
+        $support = new PlanDeliveryCertificationServiceSupport();
+
         // ---- Real-cycle certification: one cert per session, indexed by finding_id ----
-        $certifiedFindingIds = $this->certifiedFindingIds($sessionIds);
+        $certifiedFindingIds = $support->certifiedFindingIds($sessionIds, $this->realCycleCert());
 
         // ---- Per-slice verdict ----
-        $slices = AreaFocusLoopPayloadNormalizer::listOfArrays($plan['slices'] ?? []);
-        $perSlice = [];
-        $blockers = [];
-        $deliveredSlices = 0;
-        $allMergedWithProof = $totalSlices > 0;
-        $allAcceptanceMet = $totalSlices > 0;
-        $allRealCertified = $totalSlices > 0;
-
-        foreach ($slices as $slice) {
-            $sliceId = (string) ($slice['slice_id'] ?? '');
-            $findingId = (string) (data_get($slice, 'finding.finding_id', '') ?: $sliceId);
-            $state = is_array($sliceStates[$sliceId] ?? null) ? $sliceStates[$sliceId] : [];
-
-            $trackerDelivered = (string) ($state['state'] ?? '') === 'delivered';
-            $providerProof = (bool) ($state['provider_proof'] ?? false);
-            $acceptanceMet = (bool) ($state['acceptance_met'] ?? false);
-            $mergeHash = $state['merge_hash'] ?? null;
-            $mergeHash = is_string($mergeHash) && $mergeHash !== '' ? $mergeHash : null;
-
-            $realCycleCertified = $findingId !== '' && isset($certifiedFindingIds[$findingId]);
-
-            $sliceBlockers = [];
-            if (! $trackerDelivered) {
-                $sliceBlockers[] = 'slice_not_delivered:'.((string) ($state['state'] ?? 'unknown'));
-            }
-            if ($trackerDelivered && ! $providerProof) {
-                $sliceBlockers[] = 'delivered_without_provider_proof';
-            }
-            if ($trackerDelivered && ! $acceptanceMet) {
-                $sliceBlockers[] = 'acceptance_not_met';
-            }
-            if ($trackerDelivered && ! $realCycleCertified) {
-                // Provider-proof honesty: tracker says delivered but no real,
-                // certified owner-flow cycle backs it. Never counts as complete.
-                $sliceBlockers[] = 'no_certified_real_cycle';
-            }
-
-            // A slice counts as truly delivered ONLY with tracker delivery AND
-            // provider proof AND acceptance AND a real certified cycle.
-            $delivered = $trackerDelivered && $providerProof && $acceptanceMet && $realCycleCertified;
-            if ($delivered) {
-                $deliveredSlices++;
-            }
-
-            $allMergedWithProof = $allMergedWithProof && $providerProof && $mergeHash !== null;
-            $allAcceptanceMet = $allAcceptanceMet && $acceptanceMet;
-            $allRealCertified = $allRealCertified && $realCycleCertified;
-
-            if ($sliceBlockers !== []) {
-                foreach ($sliceBlockers as $b) {
-                    $blockers[] = $sliceId.':'.$b;
-                }
-            }
-
-            $perSlice[] = [
-                'slice_id' => $sliceId,
-                'delivered' => $delivered,
-                'merge_hash' => $mergeHash,
-                'provider_proof' => $providerProof,
-                'acceptance_met' => $acceptanceMet,
-                'real_cycle_certified' => $realCycleCertified,
-                'blockers' => array_values($sliceBlockers),
-            ];
-        }
+        $perSliceCertification = $support->perSliceCertification($plan, $sliceStates, $certifiedFindingIds, $totalSlices);
+        $slices = $perSliceCertification['slices'];
+        $perSlice = $perSliceCertification['per_slice'];
+        $blockers = $perSliceCertification['blockers'];
+        $deliveredSlices = $perSliceCertification['delivered_slices'];
+        $allMergedWithProof = $perSliceCertification['all_merged_with_proof'];
+        $allAcceptanceMet = $perSliceCertification['all_acceptance_met'];
 
         $dependencyOrderPreserved = PlanSliceReadModel::dependencyOrderPreserved($slices, $sliceStates);
         if (! $dependencyOrderPreserved) {
@@ -204,7 +148,7 @@ final class PlanDeliveryCertificationService
             && $dependencyOrderPreserved
             && $integrationGreen
             && $operationalGate === AreaFocusLoopOperationalCertificationService::STATUS_OPERATIONAL
-            && $this->everyRealCycleCertified($perSlice);
+            && $support->everyRealCycleCertified($perSlice);
 
         if ($complete) {
             $status = self::STATUS_COMPLETE;
@@ -233,52 +177,6 @@ final class PlanDeliveryCertificationService
         ]);
     }
 
-    /**
-     * Build the set of finding_ids proven by a real, certified owner-flow cycle.
-     *
-     * The join key is explicit: the per-session AP-786 cert's TOP-LEVEL cycles[]
-     * entry must carry selected_finding.finding_id AND status === STATUS_CERTIFIED.
-     * three_cycle_audit.per_cycle[] is deliberately NOT used (it omits finding_id).
-     *
-     * @param  list<string>  $sessionIds
-     * @return array<string,true>
-     */
-    private function certifiedFindingIds(array $sessionIds): array
-    {
-        $certified = [];
-        $cert = $this->realCycleCert();
-
-        foreach ($sessionIds as $sessionId) {
-            $result = $cert->certify(['session_id' => $sessionId]);
-            $cycles = is_array($result['cycles'] ?? null) ? $result['cycles'] : [];
-            foreach ($cycles as $cycle) {
-                if (! is_array($cycle)) {
-                    continue;
-                }
-                $findingId = (string) data_get($cycle, 'selected_finding.finding_id', '');
-                $cycleStatus = (string) ($cycle['status'] ?? '');
-                if ($findingId !== '' && $cycleStatus === Ap786RealCycleCertificationService::STATUS_CERTIFIED) {
-                    $certified[$findingId] = true;
-                }
-            }
-        }
-
-        return $certified;
-    }
-
-    /**
-     * @param  list<array<string,mixed>>  $perSlice
-     */
-    private function everyRealCycleCertified(array $perSlice): bool
-    {
-        foreach ($perSlice as $slice) {
-            if (($slice['real_cycle_certified'] ?? false) !== true) {
-                return false;
-            }
-        }
-
-        return true;
-    }
 
     /**
      * @return array{ready_from_synthetic_shape:false,benchmark:false,rivals:false,superiority:false}
