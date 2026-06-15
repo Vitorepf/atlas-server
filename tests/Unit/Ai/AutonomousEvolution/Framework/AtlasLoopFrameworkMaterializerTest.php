@@ -121,5 +121,18 @@ final class AtlasLoopFrameworkMaterializerTest extends TestCase
 
         // No declaration (or no namespace) => null (the defensive skip-verification path).
         $this->assertNull($extract("<?php\nnamespace App\\None;\n// just a class mention in a comment\n\$y = 1;\n"));
+
+        // A `: never` (or other reserved-type) RETURN TYPE must not derail the real class name — this
+        // is the shape that was live-failing (AtlasEvolutionScenarioExplorer with a `: never` method).
+        $this->assertSame('App\\R\\Explorer', $extract(
+            "<?php\nnamespace App\\R;\nfinal class Explorer { public function spin(): never { for(;;){} } }\n",
+        ));
+
+        // A bogus `class never` (reserved word as the declared name — only reachable from a transient
+        // malformed worktree) is an EXTRACTION ARTIFACT, not a real class => null (skip verification),
+        // so the refactor is never failed on a bogus autoload-wiring probe; the cert's behavior test
+        // remains the real gate.
+        $this->assertNull($extract("<?php\nnamespace App\\Bad;\nclass never { }\n"));
+        $this->assertNull($extract("<?php\nnamespace App\\Bad;\nenum void {}\n"));
     }
 }

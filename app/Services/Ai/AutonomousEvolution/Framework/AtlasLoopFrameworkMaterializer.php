@@ -231,9 +231,14 @@ final class AtlasLoopFrameworkMaterializer
         if ($class === null) {
             return; // no declared class to verify (defensive)
         }
+        // Swallow the throwable so an UNRESOLVED class yields clean EMPTY stdout. Without the catch a
+        // ReflectionException fatal prints "Fatal error: ... does not exist" to stdout — non-empty — which
+        // slipped past the empty-check below and got mislabeled autoload_resolves_outside_worktree
+        // (observed: a transient worktree extracted the class name "never", failing a refactor with a
+        // bogus autoload-wiring diagnosis instead of the honest class_reflection_failed).
         $probe = new Process([
             PHP_BINARY, '-r',
-            'require "vendor/autoload.php"; $c=new ReflectionClass('.var_export($class, true).'); echo $c->getFileName();',
+            'require "vendor/autoload.php"; try { $c=new ReflectionClass('.var_export($class, true).'); echo $c->getFileName(); } catch (\Throwable $e) {}',
         ], $base, null, null, 60.0);
         $probe->run();
         $resolved = trim((string) $probe->getOutput());
@@ -271,6 +276,18 @@ final class AtlasLoopFrameworkMaterializer
     }
 
     /**
+     * PHP reserved type/keyword names that are never valid class-declaration identifiers. If the
+     * tokenizer reports one as the name after class/enum/trait/interface, it is an extraction
+     * artifact (a malformed/transient source), not a real type.
+     *
+     * @var list<string>
+     */
+    private const NON_CLASS_TYPE_NAMES = [
+        'never', 'void', 'int', 'float', 'string', 'bool', 'array', 'object',
+        'mixed', 'null', 'false', 'true', 'self', 'static', 'parent', 'iterable', 'callable',
+    ];
+
+    /**
      * Short name of the first top-level class/interface/trait/enum DECLARATION via the PHP tokenizer
      * (comment/string-blind). Null for none, or for an anonymous class / the `::class` operator (the
      * token following the keyword is not a plain name) — the defensive null path skips verification.
@@ -292,6 +309,15 @@ final class AtlasLoopFrameworkMaterializer
                 // A real declaration is `class <Name>`. Anonymous class (`new class`) or `Foo::class`
                 // => the next meaningful token is not a plain name => not a declaration here.
                 if (is_array($next) && $next[0] === T_STRING) {
+                    // A PHP reserved type/keyword can never be a real class-declaration name. If the
+                    // tokenizer landed on one, it is an extraction artifact (e.g. a transient malformed
+                    // worktree where a `: never` return type got mis-shaped) — return null so the caller
+                    // SKIPS verification defensively rather than failing an otherwise-valid refactor on a
+                    // bogus ReflectionClass probe; the cert's own behavior test remains the real gate.
+                    if (in_array(strtolower($next[1]), self::NON_CLASS_TYPE_NAMES, true)) {
+                        return null;
+                    }
+
                     return $next[1];
                 }
                 break;
