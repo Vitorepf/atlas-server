@@ -2324,6 +2324,12 @@ return [
         // Best-effort post-commit, wrapped + self-gated: the merge NEVER depends on it. Default OFF => the
         // recorder is a no-op => the merge path is byte-identical (AtlasLoopAutoMergeServiceTest stays green).
         'delivery_brain_feedback_enabled' => (bool) env('ATLAS_LOOP_DELIVERY_BRAIN_FEEDBACK_ENABLED', false),
+        // ACDE O1 — the in-lane ORIGINATION producer: author a PROPOSE-ONLY origination proposal (structure +
+        // decomposition hint, NO frozen acceptance, EMPTY diff, NEVER executeAndProve). Safe by construction:
+        // empty diff + no acceptance_contract => the drain reprove fails closed => the row is RETIRED on the
+        // first pass (never merged, never clogs); forbidden self-targets are dropped before authoring. Default
+        // OFF => produce() is inert => byte-identical (the producer is never constructed in the OFF path).
+        'origination_producer_enabled' => (bool) env('ATLAS_LOOP_ORIGINATION_PRODUCER_ENABLED', false),
         // ACDE R2-read (the MULTIPLIER) — when ON, the framework synthesizer reads the decomposition corpus
         // (R2's in-lane writes) for THIS shape's fingerprint and, if it has historically THRASHED (>=
         // min_samples outcomes, certified-rate < target_rate), backs the chain off to a single worst-method

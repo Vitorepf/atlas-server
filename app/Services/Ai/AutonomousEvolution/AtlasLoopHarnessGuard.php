@@ -55,6 +55,9 @@ final class AtlasLoopHarnessGuard
         // A camada never-merge no banco (CHECK + trigger + a porta governada).
         'database/migrations/2026_06_02_000200_complete_atlas_loop_runtime_schema.php',
         'database/migrations/2026_06_12_000100_governed_merge_door_atlas_loop_proposals.php',
+        // ACDE O1: o PRÓPRIO produtor de origination é pétreo — o originador nunca pode ser originado-contra
+        // (senão o réu reescreveria quem decide o que propor). Aperto sancionado (só adiciona, nunca afrouxa).
+        'app/Services/Ai/AutonomousEvolution/AtlasLoopOriginationProducer.php',
     ];
 
     /** Prefixos que identificam um arquivo do harness do loop (candidato a meta-target). */
