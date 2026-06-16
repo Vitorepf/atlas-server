@@ -1794,6 +1794,17 @@ return [
         // choose between. Injected via the task by the grinder (the explorer hot path stays config-free);
         // indices 0..4 are byte-identical so OFF == today and persisted strategy keys are stable.
         'deep_strategy_portfolio' => (bool) env('ATLAS_LOOP_DEEP_STRATEGY_PORTFOLIO', false),
+        // ACDE lever #1 — the SAFETY belt for arming the multi-engine best-of-N portfolio. The cross-
+        // provider rotation (scenario_provider_portfolio above) is fully built + live on Path B, but agentic
+        // CLI engines (codex_cli/gemini_cli) edit the workspace IN PLACE — so the FrozenJudge SCOPE guard must
+        // be real. Without allowed_globs the judge defaults to ['**'] (allow-all) and an out-of-scope edit by
+        // a rotated engine is NOT caught. When this is ON, the materializers derive the writable globs from
+        // allowed_files (the tightest correct scope) for any task whose acceptance carries none — so the
+        // portfolio can be armed soundly. ARMING BUNDLE (operator, .env): set this true AND set
+        // ATLAS_LOOP_SCENARIO_PROVIDER_PORTFOLIO=hermes_cli,codex_cli,gemini_cli (keys MUST be the *_cli form
+        // — bare 'codex'/'gemini' hit provider_not_configured and silently no-op). Default OFF => byte-
+        // identical (tightening to allowed_files never false-rejects a candidate that edits only what it may).
+        'cross_provider_best_of_n' => (bool) env('ATLAS_LOOP_CROSS_PROVIDER_BEST_OF_N', false),
         // Hard caps per task (the autoresearch fixed-budget discipline).
         'max_seconds_per_scenario' => max(30, (int) env('ATLAS_LOOP_MAX_SECONDS_PER_SCENARIO', 600)),
         // The loop NEVER merges to main: it accumulates certified-for-review proposals.

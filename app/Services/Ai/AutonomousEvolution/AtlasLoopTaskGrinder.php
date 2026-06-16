@@ -123,6 +123,13 @@ final class AtlasLoopTaskGrinder
             if ((bool) config('atlas.loop.deep_strategy_portfolio', false)) {
                 $payload['deep_strategy_portfolio'] = true;
             }
+            // ACDE lever #1: when the cross-provider best-of-N portfolio is armed, tell the materializer to
+            // derive the FrozenJudge scope globs from allowed_files (the materializer is config-free for the
+            // pure-unit suite, so the flag is injected here where the container is always available). Flag OFF
+            // => payload untouched => byte-identical.
+            if ((bool) config('atlas.loop.cross_provider_best_of_n', false)) {
+                $payload['cross_provider_best_of_n'] = true;
+            }
             $frameworkTask = $this->usesFrameworkMaterializer($payload);
             $intentVerifierPacket = null;
             if ($frameworkTask && $this->shouldCompileIntentVerifier($payload)) {

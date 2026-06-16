@@ -80,6 +80,7 @@ final class AtlasLoopWorkspaceMaterializer
             'allowed_files' => $this->stringList($payload['allowed_files'] ?? [$targetRel]),
             'validation_commands' => $this->stringList($payload['validation_commands'] ?? []),
         ];
+        $this->armCrossProviderScope($explorerTask, $acceptance, (bool) ($payload['cross_provider_best_of_n'] ?? false));
         $provider = trim((string) ($payload['provider'] ?? ''));
         if ($provider !== '') {
             $explorerTask['provider'] = $provider; // per-task pin; else loop default (provider-agnostic)
@@ -91,6 +92,28 @@ final class AtlasLoopWorkspaceMaterializer
         }
 
         return [$explorerTask, $cleanup];
+    }
+
+    /**
+     * ACDE lever #1 — when the multi-engine best-of-N portfolio is armed, agentic CLI engines edit the
+     * workspace IN PLACE, so the FrozenJudge SCOPE guard must be real: derive the writable globs from
+     * allowed_files (tightest correct scope) when the acceptance carries none, else the judge defaults to
+     * ['**'] allow-all and an out-of-scope edit by a rotated engine is not caught. OFF => byte-identical.
+     *
+     * @param  array<string,mixed>  $explorerTask
+     * @param  array<string,mixed>  $acceptance
+     */
+    private function armCrossProviderScope(array &$explorerTask, array $acceptance, bool $enabled): void
+    {
+        if (! $enabled) {
+            return;
+        }
+        $globs = is_array($acceptance['allowed_globs'] ?? null)
+            ? array_filter($acceptance['allowed_globs'], static fn ($g): bool => is_string($g) && trim($g) !== '')
+            : [];
+        if ($globs === [] && ($explorerTask['allowed_files'] ?? []) !== []) {
+            $explorerTask['acceptance']['allowed_globs'] = $explorerTask['allowed_files'];
+        }
     }
 
     /**
