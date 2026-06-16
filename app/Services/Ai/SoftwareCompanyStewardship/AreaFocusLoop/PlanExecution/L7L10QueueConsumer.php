@@ -122,30 +122,8 @@ final class L7L10QueueConsumer
         $parsed = $this->parser->parse($markdown);
         [$min, $max] = $this->sliceRangeFor($levels, PHP_INT_MAX, 0);
 
-        $rows = [];
-        foreach ($parsed['slices'] as $slice) {
-            $sliceNumber = $this->sliceNumberInRange($slice, $min, $max);
-            if ($sliceNumber === null) {
-                continue;
-            }
-            [$label] = $sliceNumber;
-            $acceptance = implode(' ; ', array_map('strval', (array) ($slice['acceptance_criteria'] ?? [])));
-            $rows[] = '| '.$label.' | '.$this->escapeMarkdownTableCell(trim((string) ($slice['delivery'] ?? ''))).' | '.$this->escapeMarkdownTableCell($acceptance).' | '.$this->escapeMarkdownTableCell(trim((string) ($slice['authority_guard'] ?? ''))).' |';
-        }
-
-        $edges = [];
-        foreach ($parsed['dependency_edges'] as $edge) {
-            $from = trim((string) ($edge['from'] ?? ''));
-            $to = trim((string) ($edge['to'] ?? ''));
-            if (preg_match('/^S(\d+)$/', $from, $mf) !== 1 || preg_match('/^S(\d+)$/', $to, $mt) !== 1) {
-                continue;
-            }
-            $fn = (int) $mf[1];
-            $tn = (int) $mt[1];
-            if ($fn >= $min && $fn <= $max && $tn >= $min && $tn <= $max) {
-                $edges[] = $from.' -> '.$to;
-            }
-        }
+        $rows = $this->collectChildRows($parsed['slices'], $min, $max);
+        $edges = $this->collectChildEdges($parsed['dependency_edges'], $min, $max);
 
         $front = "---\nid: ".$childId."\ntitle: ".$childTitle."\ndoc_schema: atlas_build_plan_doc.v1\nimplementation_state: backlog_only_no_runtime\nprovenance: derived L7-L10 range (S".$min."-S".$max.") of atlas-aaeos-loop-evolution-backlog; governed child for explicit --plan-doc consumption, NOT auto-index\n---\n";
 
@@ -155,6 +133,57 @@ final class L7L10QueueConsumer
             .implode("\n", $rows)."\n"
             ."\n## 10. Sequenciamento e dependencias\n\n"
             .implode('; ', $edges)."\n";
+    }
+
+    /**
+     * Build the Section 6 markdown table rows for every in-range slice.
+     * Relocated verbatim from extractChildDoc() to drop its cyclomatic share
+     * without changing total branch count.
+     *
+     * @param  list<array<string,mixed>>  $slices
+     * @return list<string>
+     */
+    private function collectChildRows(array $slices, int $min, int $max): array
+    {
+        $rows = [];
+        foreach ($slices as $slice) {
+            $sliceNumber = $this->sliceNumberInRange($slice, $min, $max);
+            if ($sliceNumber === null) {
+                continue;
+            }
+            [$label] = $sliceNumber;
+            $acceptance = implode(' ; ', array_map('strval', (array) ($slice['acceptance_criteria'] ?? [])));
+            $rows[] = '| '.$label.' | '.$this->escapeMarkdownTableCell(trim((string) ($slice['delivery'] ?? ''))).' | '.$this->escapeMarkdownTableCell($acceptance).' | '.$this->escapeMarkdownTableCell(trim((string) ($slice['authority_guard'] ?? ''))).' |';
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Build the Section 10 dependency-edge strings for every intra-range edge.
+     * Relocated verbatim from extractChildDoc() to drop its cyclomatic share
+     * without changing total branch count.
+     *
+     * @param  list<array<string,mixed>>  $edges
+     * @return list<string>
+     */
+    private function collectChildEdges(array $edges, int $min, int $max): array
+    {
+        $out = [];
+        foreach ($edges as $edge) {
+            $from = trim((string) ($edge['from'] ?? ''));
+            $to = trim((string) ($edge['to'] ?? ''));
+            if (preg_match('/^S(\d+)$/', $from, $mf) !== 1 || preg_match('/^S(\d+)$/', $to, $mt) !== 1) {
+                continue;
+            }
+            $fn = (int) $mf[1];
+            $tn = (int) $mt[1];
+            if ($fn >= $min && $fn <= $max && $tn >= $min && $tn <= $max) {
+                $out[] = $from.' -> '.$to;
+            }
+        }
+
+        return $out;
     }
 
 
