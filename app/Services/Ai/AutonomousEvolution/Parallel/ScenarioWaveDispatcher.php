@@ -54,12 +54,24 @@ final class ScenarioWaveDispatcher implements ScenarioWaveDispatcherContract
 
         // 1. SPAWN the bounded wave. Each spawn is admitted by the resource gate; on a
         //    non-admit the spec runs inline-serial here (backpressure, never dropped).
+        $maxLive = (int) config('atlas.loop.campaign.max_live_workspaces', 0);
         foreach ($specs as $spec) {
             $index = (int) $spec['index'];
+            // ACDE T1 — WITHIN-WAVE workspace-cap accounting. The resource gate globs /tmp for live
+            // workspaces, but children spawned earlier in THIS wave (async start) have not created theirs
+            // yet, so the glob lags by the in-flight count and the cap cannot throttle within a wave.
+            // Account for the in-flight wave children explicitly. max_live_workspaces=0 (the default) =>
+            // unlimited => byte-identical to before (cap 0 handed to the gate, no inline throttle).
+            $wave = self::withinWaveAdmission($maxLive, count($running));
+            if ($wave['run_inline']) {
+                $results[$index] = $this->runInline($spec); // this wave alone hit the cap -> backpressure inline
+
+                continue;
+            }
             $admit = $this->resourceGate->admitScenario(
                 sys_get_temp_dir(),
                 (int) config('atlas.loop.campaign.min_free_mb', 512),
-                (int) config('atlas.loop.campaign.max_live_workspaces', 0),
+                $wave['effective_cap'],
             );
             if (! $admit['admit']) {
                 // INLINE fallback for this single spec — never reduce scenarios explored below serial.
@@ -91,6 +103,27 @@ final class ScenarioWaveDispatcher implements ScenarioWaveDispatcherContract
         ksort($results);
 
         return array_values($results);
+    }
+
+    /**
+     * ACDE T1 — pure within-wave workspace-cap accounting. The resource gate's /tmp glob lags the children
+     * already started in THIS wave by $inFlight, so the cap cannot throttle within a wave on its own. This
+     * decides, per spawn: run inline (this wave alone has reached the cap), else the cap to hand the gate,
+     * shrunk by the in-flight count. maxLive<=0 means "unlimited" (the config default) => no within-wave
+     * throttle and cap 0 (byte-identical to before this lever).
+     *
+     * @return array{run_inline:bool, effective_cap:int}
+     */
+    public static function withinWaveAdmission(int $maxLive, int $inFlight): array
+    {
+        if ($maxLive <= 0) {
+            return ['run_inline' => false, 'effective_cap' => 0]; // 0 = unlimited (gate's own behaviour)
+        }
+        if ($inFlight >= $maxLive) {
+            return ['run_inline' => true, 'effective_cap' => 0]; // this wave alone hit the cap
+        }
+
+        return ['run_inline' => false, 'effective_cap' => $maxLive - max(0, $inFlight)];
     }
 
     /**
