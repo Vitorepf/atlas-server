@@ -46,6 +46,22 @@ final class AtlasEvolutionScenarioExplorer
     ];
 
     /**
+     * DEEPER best-of-N (ACDE direction-(a)). On a single weak engine with no temperature/seed, widening
+     * past the 5 base mandates above just re-rolls them ({@see strategyFor} cycles the pool), so the extra
+     * scenarios collapse into near-duplicates. These four are STRUCTURALLY DISTINCT continuations of the
+     * portfolio — different shapes of change, not different wordings — so widening to 9 buys genuinely new
+     * candidates. Appended (never reordered) so indices 0..4 stay byte-identical and persisted strategy
+     * keys remain stable. Opt-in: only consumed when the task carries `deep_strategy_portfolio` (the grinder
+     * sets it from {@see config} `atlas.loop.deep_strategy_portfolio`); the explorer hot path stays config-free.
+     */
+    private const EXTENDED_STRATEGIES = [
+        'STRATEGY E — GUARD-FIRST / FAIL-CLOSED: add precondition guards and early returns at the TOP of the responsible method so invalid states are rejected before any work runs; then satisfy the objective inside the now-validated region. Make the invalid case unrepresentable rather than handled late.',
+        'STRATEGY F — EXTRACT-HELPER: move the load-bearing logic into a small, single-responsibility private helper with an explicit name and call it from the original site; keep the public signature and the behaviour for valid inputs identical. The diff is a clean extraction, not an inline patch.',
+        'STRATEGY G — TYPE/DATA-DRIVEN: normalize the inputs into one explicit, well-typed shape up front (value object / typed array / enum-like) so the objective becomes a straight-line consequence of the normalized data, eliminating scattered conditionals rather than adding another.',
+        'STRATEGY H — INVERT-AND-FLATTEN: invert the nested conditionals into guard clauses to flatten control flow, then place the fix in the de-nested happy path; reduce branch depth without changing outputs for any valid input.',
+    ];
+
+    /**
      * Anti-overfit clause appended to EVERY attempt's intent. A weak engine, told a test must pass,
      * games it with literal short-circuits (the observed `if (func_num_args()===1) return 5`). This
      * discourages that at prompt time; the certifier's mutation/behavioral gates catch it regardless.
@@ -570,11 +586,29 @@ final class AtlasEvolutionScenarioExplorer
             is_array($task['scenario_strategy_keys'] ?? null) ? $task['scenario_strategy_keys'] : [],
             static fn (mixed $v): bool => is_string($v) && trim($v) !== '',
         ));
-        $pool = $provided !== [] ? $provided : self::DEFAULT_STRATEGIES;
+        $pool = $provided !== [] ? $provided : $this->strategyPool($task);
         $text = (string) $pool[$i % count($pool)];
         $key = $keys !== [] ? (string) $keys[$i % count($keys)] : $this->defaultStrategyKey($text, $i);
 
         return ['key' => $key, 'text' => $text];
+    }
+
+    /**
+     * The default decorrelation pool when the task pins no explicit strategies. 5 base mandates today;
+     * 9 when the task carries `deep_strategy_portfolio` (set by the grinder from the loop config flag) —
+     * the single-engine "more seeds" lever. Reads only the task (never config) so the explorer hot path
+     * stays pure for the unit suite; indices 0..4 are always the base 5 (byte-identical OFF, stable keys).
+     *
+     * @param  array<string,mixed>  $task
+     * @return list<string>
+     */
+    private function strategyPool(array $task): array
+    {
+        if (($task['deep_strategy_portfolio'] ?? false) === true) {
+            return array_merge(self::DEFAULT_STRATEGIES, self::EXTENDED_STRATEGIES);
+        }
+
+        return self::DEFAULT_STRATEGIES;
     }
 
     private function defaultStrategyKey(string $strategy, int $i): string
@@ -588,6 +622,10 @@ final class AtlasEvolutionScenarioExplorer
             self::DEFAULT_STRATEGIES[2] => 'clean_alternative',
             self::DEFAULT_STRATEGIES[3] => 'root_cause',
             self::DEFAULT_STRATEGIES[4] => 'simplify',
+            self::EXTENDED_STRATEGIES[0] => 'guard_first',
+            self::EXTENDED_STRATEGIES[1] => 'extract_helper',
+            self::EXTENDED_STRATEGIES[2] => 'type_driven',
+            self::EXTENDED_STRATEGIES[3] => 'invert_flatten',
             default => 'custom_'.substr(hash('sha256', $strategy.'|'.$i), 0, 12),
         };
     }

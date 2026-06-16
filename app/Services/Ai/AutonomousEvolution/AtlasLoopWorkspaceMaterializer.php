@@ -84,7 +84,7 @@ final class AtlasLoopWorkspaceMaterializer
         if ($provider !== '') {
             $explorerTask['provider'] = $provider; // per-task pin; else loop default (provider-agnostic)
         }
-        foreach (['scenario_strategies', 'scenario_strategy_keys', 'min_scenarios', 'max_scenarios', 'search_patience', 'search_time_budget_seconds', 'keep_workspaces'] as $passthrough) {
+        foreach (['scenario_strategies', 'scenario_strategy_keys', 'deep_strategy_portfolio', 'min_scenarios', 'max_scenarios', 'search_patience', 'search_time_budget_seconds', 'keep_workspaces'] as $passthrough) {
             if (array_key_exists($passthrough, $payload)) {
                 $explorerTask[$passthrough] = $payload[$passthrough];
             }

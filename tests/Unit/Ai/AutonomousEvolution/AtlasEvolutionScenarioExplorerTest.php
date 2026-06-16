@@ -253,6 +253,82 @@ final class AtlasEvolutionScenarioExplorerTest extends TestCase
         $this->assertSame(['test_provider', 'test_provider', 'test_provider'], $fake->providers);
     }
 
+    /**
+     * A driver that records the strategy mandate (the "STRATEGY X" marker) it was handed each call,
+     * so the test can prove the N attempts were DECORRELATED by distinct mandates, not re-rolls.
+     */
+    private function strategyRecordingDriver(): LoopExecutionDriver
+    {
+        return new class implements LoopExecutionDriver
+        {
+            /** @var list<string> */
+            public array $markers = [];
+
+            public function attempt(string $surfaceId, string $workspace, string $intent, array $userConstraints, array $surfaceHints): array
+            {
+                $marker = '';
+                if (preg_match('/STRATEGY [A-H]/', $intent, $m) === 1) {
+                    $marker = $m[0];
+                }
+                $this->markers[] = $marker; // '' == the unconstrained baseline (index 0)
+                file_put_contents($workspace.'/src/Subject.php', "<?php\nfunction greet(){ return 'hello'; }\n");
+
+                return ['status' => 'completed'];
+            }
+        };
+    }
+
+    public function test_deep_strategy_portfolio_widens_decorrelation_to_nine_distinct_mandates(): void
+    {
+        // ACDE direction-(a): on a single weak engine (no temp/seed), strategy diversity IS the only
+        // decorrelation lever. With the flag on, widening to 9 scenarios buys 9 genuinely-distinct
+        // mandates (baseline + A..D + the four extensions) instead of re-rolling the same 5.
+        $fake = $this->strategyRecordingDriver();
+
+        $task = $this->task();
+        $task['deep_strategy_portfolio'] = true;
+
+        $result = (new AtlasEvolutionScenarioExplorer($fake, new AtlasEvolutionFrozenJudge))->explore($task, 9);
+
+        $this->assertSame(9, $result['scenarios_explored']);
+
+        $keys = array_map(static fn (array $a): string => (string) $a['strategy_key'], $result['attempts']);
+        $this->assertSame(
+            ['baseline', 'surgical', 'clean_alternative', 'root_cause', 'simplify', 'guard_first', 'extract_helper', 'type_driven', 'invert_flatten'],
+            $keys,
+            'all 9 scenarios get a distinct mandate key in pool order',
+        );
+        $this->assertCount(9, array_unique($keys), 'no key repeats across the 9-wide search');
+
+        // the four extension mandates were actually handed to the engine (decorrelation by TEXT, not just key)
+        $this->assertContains('STRATEGY E', $fake->markers);
+        $this->assertContains('STRATEGY F', $fake->markers);
+        $this->assertContains('STRATEGY G', $fake->markers);
+        $this->assertContains('STRATEGY H', $fake->markers);
+    }
+
+    public function test_default_strategy_pool_is_byte_identical_at_five_without_the_flag(): void
+    {
+        // OFF (default): the pool stays the base 5, so a 9-wide search cycles back — exactly today's
+        // behavior. Indices 0..4 unchanged; none of the extension mandates ever appear.
+        $fake = $this->strategyRecordingDriver();
+
+        $result = (new AtlasEvolutionScenarioExplorer($fake, new AtlasEvolutionFrozenJudge))->explore($this->task(), 9);
+
+        $this->assertSame(9, $result['scenarios_explored']);
+
+        $keys = array_map(static fn (array $a): string => (string) $a['strategy_key'], $result['attempts']);
+        $this->assertSame(
+            ['baseline', 'surgical', 'clean_alternative', 'root_cause', 'simplify', 'baseline', 'surgical', 'clean_alternative', 'root_cause'],
+            $keys,
+            'without the flag the 5-mandate pool cycles (scenarios 5..8 repeat 0..3)',
+        );
+        $this->assertSame(['', 'STRATEGY A', 'STRATEGY B', 'STRATEGY C', 'STRATEGY D'], array_values(array_unique($fake->markers)));
+        foreach (['STRATEGY E', 'STRATEGY F', 'STRATEGY G', 'STRATEGY H'] as $absent) {
+            $this->assertNotContains($absent, $fake->markers);
+        }
+    }
+
     public function test_framework_clone_mode_uses_worktree_and_copies_local_support(): void
     {
         file_put_contents($this->base.'/.gitignore', "/vendor/\n.env.testing\n");

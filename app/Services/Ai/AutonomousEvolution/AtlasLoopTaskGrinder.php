@@ -115,6 +115,14 @@ final class AtlasLoopTaskGrinder
                 $payload['scenario_strategies'] = $strategyBanditDecision['selected_strategy_texts'] ?? [];
                 $payload['scenario_strategy_keys'] = $strategyBanditDecision['selected_strategy_keys'] ?? [];
             }
+            // ACDE direction-(a): DEEPER best-of-N on the single weak engine. Flag OFF (default) => payload
+            // untouched => byte-identical. ON => the explorer's default decorrelation pool widens from 5 to
+            // 9 structurally-distinct mandates, so the extra scenarios (up to max_scenarios_per_task=12) buy
+            // genuinely different candidates instead of re-rolling the same 5 prompts. Moot when the bandit
+            // pinned explicit strategies above (those take precedence in the explorer).
+            if ((bool) config('atlas.loop.deep_strategy_portfolio', false)) {
+                $payload['deep_strategy_portfolio'] = true;
+            }
             $frameworkTask = $this->usesFrameworkMaterializer($payload);
             $intentVerifierPacket = null;
             if ($frameworkTask && $this->shouldCompileIntentVerifier($payload)) {

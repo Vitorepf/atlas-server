@@ -1783,6 +1783,17 @@ return [
             static fn (string $p): string => trim($p),
             explode(',', (string) env('ATLAS_LOOP_SCENARIO_PROVIDER_PORTFOLIO', '')),
         ), static fn (string $p): bool => $p !== '')),
+        // ACDE direction-(a) · DEEPER best-of-N on a SINGLE weak engine. The cross-provider portfolio
+        // above decorrelates by ENGINE; this is its single-engine sibling. On Hermes/MiniMax there is no
+        // per-call temperature/seed, so the ONLY decorrelation lever is STRATEGY diversity. The explorer's
+        // built-in pool is 5 mandates (baseline + A..D), but max_scenarios_per_task widens to 12 — so
+        // scenarios 5..11 cycle back to the same 5 prompts and, lacking temp/seed, collapse into near-
+        // duplicate diffs (best-of-12 buys only best-of-5-distinct). When ON, the explorer's default pool
+        // extends to 9 STRUCTURALLY-DISTINCT mandates (adds guard-first / extract-helper / type-driven /
+        // invert-flatten) so widening actually buys genuinely-different candidates the frozen judge can
+        // choose between. Injected via the task by the grinder (the explorer hot path stays config-free);
+        // indices 0..4 are byte-identical so OFF == today and persisted strategy keys are stable.
+        'deep_strategy_portfolio' => (bool) env('ATLAS_LOOP_DEEP_STRATEGY_PORTFOLIO', false),
         // Hard caps per task (the autoresearch fixed-budget discipline).
         'max_seconds_per_scenario' => max(30, (int) env('ATLAS_LOOP_MAX_SECONDS_PER_SCENARIO', 600)),
         // The loop NEVER merges to main: it accumulates certified-for-review proposals.
