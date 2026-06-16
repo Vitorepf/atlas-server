@@ -403,6 +403,19 @@ final class AtlasLoopStore
             if (is_array($proposal['acceptance_contract'] ?? null) && $proposal['acceptance_contract'] !== []) {
                 $quality['_acceptance_contract'] = $proposal['acceptance_contract'];
             }
+            // ACDE S1 — the SOLE writer of the self-improvement marker on a proposal. Copy ONLY the boolean
+            // from the (config-gated, operator-armed) TASK PAYLOAD — never from the proposal/provider/grade/
+            // path — so the model can never forge it; this provenance is what makes it unforgeable, and it is
+            // the exact key the self-edit PARK gate reads to park (never merge) a self-edit. _quality_bar rides
+            // only as PURE human-frozen metadata; the park gate never reads it. Self-gated + additive => with
+            // the marker absent (the default), quality is byte-identical.
+            $taskPayload = is_array($task->payload ?? null) ? $task->payload : [];
+            if (($taskPayload['is_self_improvement'] ?? false) === true) {
+                $quality['_is_self_improvement'] = true;
+                if (isset($taskPayload['quality_bar'])) {
+                    $quality['_quality_bar'] = $taskPayload['quality_bar'];
+                }
+            }
             if ($quality !== []) {
                 $attributes['quality'] = $quality;
             }

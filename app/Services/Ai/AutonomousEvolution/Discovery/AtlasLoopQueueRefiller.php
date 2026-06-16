@@ -42,6 +42,28 @@ final class AtlasLoopQueueRefiller
     ) {}
 
     /**
+     * ACDE S1 — copy the (operator-armed) self-improvement marker from the discovery signals into a task
+     * payload so certify() can stamp it on the proposal and the self-edit park gate fires. Applied at EVERY
+     * enqueue lane so a harness self-edit is parked whichever route it takes. Self-gated + additive: an
+     * ordinary target (no marker in signals) returns the payload UNCHANGED (byte-identical).
+     *
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $signals
+     * @return array<string,mixed>
+     */
+    private function withSelfImprovementMarker(array $payload, array $signals): array
+    {
+        if (($signals['is_self_improvement'] ?? false) === true) {
+            $payload['is_self_improvement'] = true;
+            if (isset($signals['quality_bar'])) {
+                $payload['quality_bar'] = $signals['quality_bar'];
+            }
+        }
+
+        return $payload;
+    }
+
+    /**
      * DECISION ("o quê a seguir") — the next-work priority for a target, gated by the PER-CAMPAIGN
      * frozen pricing scheme. With the decider scheme OFF (default) it returns the legacy score*100,
      * byte-identical to today. With it ON it returns the ungameable BAND(shape)+OFFSET(leverage
@@ -215,6 +237,7 @@ final class AtlasLoopQueueRefiller
                     if ($dp['receipt'] !== []) {
                         $mfPayload['_decision'] = $dp['receipt'];
                     }
+                    $mfPayload = $this->withSelfImprovementMarker($mfPayload, $signals);
                     $enq = $this->store->enqueueTask(
                         $campaign->id,
                         $synth['objective'],
@@ -299,6 +322,7 @@ final class AtlasLoopQueueRefiller
                     if ($dp['receipt'] !== []) {
                         $rfPayload['_decision'] = $dp['receipt'];
                     }
+                    $rfPayload = $this->withSelfImprovementMarker($rfPayload, $signals);
                     $enq = $this->store->enqueueTask(
                         $campaign->id,
                         $refactor['objective'],
@@ -358,6 +382,7 @@ final class AtlasLoopQueueRefiller
             if ($dp['receipt'] !== []) {
                 $payload['_decision'] = $dp['receipt'];
             }
+            $payload = $this->withSelfImprovementMarker($payload, $signals);
             $enq = $this->store->enqueueTask(
                 $campaign->id,
                 (string) $task['objective'],
@@ -435,6 +460,7 @@ final class AtlasLoopQueueRefiller
         if ($dp['receipt'] !== []) {
             $frPayload['_decision'] = $dp['receipt'];
         }
+        $frPayload = $this->withSelfImprovementMarker($frPayload, $signals);
         $enq = $this->store->enqueueTask(
             $campaign->id,
             $refactor['objective'],

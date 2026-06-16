@@ -109,6 +109,15 @@ final class AtlasLoopTargetDiscoveryService
                 }
                 $abs = $repoRoot.'/'.$rel;
                 $signals = ['backlog_reach' => 1.0, 'backlog_objective' => $bk['objective'], 'backlog_source' => $bk['source']];
+                // ACDE S1 — carry the self-improvement marker the backlog row preserved into the discovery
+                // signals (hop 2 of 3) so it survives to the task payload and ultimately the proposal. Self-
+                // gated + additive: an ordinary backlog candidate (no marker) keeps the exact 3-key signals.
+                if (($bk['is_self_improvement'] ?? false) === true) {
+                    $signals['is_self_improvement'] = true;
+                    if (isset($bk['quality_bar'])) {
+                        $signals['quality_bar'] = $bk['quality_bar'];
+                    }
+                }
                 // Score de backlog domina o estrutural (mínimo do candidato + prioridade) —
                 // o backlog real vem primeiro, mas nunca acima de 1.0.
                 $score = min(1.0, 0.85 + 0.15 * (float) $bk['priority']);
