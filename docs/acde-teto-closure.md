@@ -92,3 +92,30 @@ The ⚠️ rows fire on real obras and tighten the bar — arm them when you wan
 undetectable to machine-detectable, and imports the single-target moat into greenfield WHENEVER a human freezes
 a contract or characterizes an archetype. The originative-design + semantic-correctness residual is probabilistic
 in the model and ratified by a human — and correctly OFF-LIMITS to any same-engine self-grading gate.
+
+## Measurement flywheel — the ">=2x vs ultracode" head-to-head runbook
+
+The verdict is MACHINE-RESOLVED on both arms (refusal counts as a defect; the ">=2x" claim is the relative-risk
+lower bound on defect rate, so it needs real evidence — never a self-graded number). The CODE is complete and
+runnable end-to-end; reaching a CONFIDENT verdict is a runtime batch, not a code gap.
+
+```
+# 1. ACE arm — the loop's OWN merged-to-main outcomes (report-only; reads the loop tables).
+php artisan atlas:loop:dqs-extract-ace --multi-file-only --out=ace.json
+
+# 2. OPUS arm — real one-shot ultracode refactors on the SAME task set, machine-resolved.
+#    Manifest entry per task: {task_id, committed, workspace, test_command, [mutation_kill_ratio, completeness, cyclomatic_drop]}.
+#    The command RUNS each test to resolve canary (green/red) — a refused task is committed:false (a defect).
+php artisan atlas:loop:dqs-capture-opus-arm --manifest=opus-manifest.json --out=opus.json
+
+# 3. Verdict — relative-risk lower bound on defect rate; tie-breaks decide only near parity.
+php artisan atlas:loop:dqs-head-to-head --ace=ace.json --opus=opus.json --factor=2.0
+```
+
+**The irreducible runtime cost (honest).** A CONFIDENT `a_at_least_factor_better` needs the SAME task set on both
+arms at **N≈30+** (the relative-risk CI is wide at small N — by design; a 1–5 sample correctly reports
+`parity_tie_breaks_decide`/`a_better_not_factor`, not a fluke 2x). That means: (a) engine-hours of the loop
+(Hermes/MiniMax) to accrue ~30 merged obras for the ACE arm, and (b) a real ultracode pass over those same ~30
+tasks for the Opus manifest. Producing the Opus arm by hand inside this provider would be ~30 Claude refactors —
+exactly the token burn the operator rules forbid — so it is deliberately left as an operator-triggered batch.
+The instrument refuses to manufacture confidence it has not measured.
