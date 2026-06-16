@@ -265,11 +265,15 @@ final class ImmutableInvariantRegistryService
             'paths' => [
                 'app/Services/Ai/Foundry/Rsi/RsiSelfImprovementProposalGate.php',
                 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Rsi/SelfTargetSelectorService.php',
+                // The actuator itself — the FIRST code that turns the auto_apply signal into a real git apply.
+                'app/Services/Ai/Foundry/Rsi/RsiSelfImprovementApplyActuatorService.php',
             ],
             'weakening_signatures' => [
                 'STATUS_AUTO_APPLIED_EARNED',
                 'auto_applied',
                 'routed_to_human_gate',
+                'isAutonomyKilled',
+                'self_improvement_apply_enabled',
             ],
         ],
     ];

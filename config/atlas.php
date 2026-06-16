@@ -2859,6 +2859,13 @@ return [
             'earned_autonomy' => [
                 'mode' => (bool) env('ATLAS_EARNED_AUTONOMY_MODE', false),
             ],
+
+            // ACDE S2 — the self-improvement APPLY actuator master switch. DEFAULT-OFF. Even ON it authorizes
+            // NOTHING by itself: the actuator additionally requires KillAuthority::isAutonomyKilled()=false (the
+            // operator kill-file + live heartbeat) AND a freshly re-derived STATUS_AUTO_APPLIED_EARNED verdict
+            // (armed + earned-tier + drift-clean + red-team + not gate/invariant touch). With this OFF the
+            // actuator returns flag_off before any gate or git call — byte-identical, working tree untouched.
+            'self_improvement_apply_enabled' => (bool) env('ATLAS_RSI_SELF_IMPROVEMENT_APPLY', false),
         ],
     ],
 
