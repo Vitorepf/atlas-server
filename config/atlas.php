@@ -2312,6 +2312,12 @@ return [
         // built-in default keeps it verifiable within the box (override via env for cross-process trust).
         'delivery_dossier_enabled' => (bool) env('ATLAS_LOOP_DELIVERY_DOSSIER_ENABLED', false),
         'dossier_hmac_secret' => (string) env('ATLAS_LOOP_DOSSIER_HMAC_SECRET', ''),
+        // ACDE F1 — carry the SEQUENCED-FEATURE plan on the compiled verifier packet: one huge feature's human-
+        // frozen atoms partitioned into an ordered chain of <= max_step_atoms-sized steps, each step's frozen
+        // sub-acceptance being exactly its atom subset (never a re-authored bar). Lets the loop build a big
+        // feature incrementally. Default OFF => key absent => byte-identical.
+        'feature_sequence_enabled' => (bool) env('ATLAS_LOOP_FEATURE_SEQUENCE_ENABLED', false),
+        'feature_sequence_max_step_atoms' => max(1, (int) env('ATLAS_LOOP_FEATURE_SEQUENCE_MAX_STEP_ATOMS', 2)),
         // ACDE R2-read (the MULTIPLIER) — when ON, the framework synthesizer reads the decomposition corpus
         // (R2's in-lane writes) for THIS shape's fingerprint and, if it has historically THRASHED (>=
         // min_samples outcomes, certified-rate < target_rate), backs the chain off to a single worst-method

@@ -72,6 +72,18 @@ final class AtlasLoopIntentVerifierFactory
             $packet['completeness_checklist'] = (new AtlasLoopFeatureCompletenessResolver)->resolve($atoms);
         }
 
+        // ACDE F1 — carry the SEQUENCED-FEATURE plan: one huge feature's human-frozen atoms partitioned into an
+        // ordered chain of small steps (each step's frozen sub-acceptance is exactly its atom subset, compiled
+        // by THIS factory). Lets the loop build a big feature incrementally instead of one-shotting it. Pure
+        // grouping of the atoms the human authored — never a re-authored bar. Additive + flag-gated => OFF =>
+        // key absent => byte-identical (and never touches verifier_hash, which is over atoms/acceptance/test).
+        if ((bool) config('atlas.loop.feature_sequence_enabled', false)) {
+            $planner = new AtlasLoopFeatureSequencePlanner;
+            $maxStepSize = max(1, (int) config('atlas.loop.feature_sequence_max_step_atoms', 2));
+            $packet['feature_sequence_id'] = $planner->sequenceId($target, $intent);
+            $packet['feature_sequence_plan'] = $planner->plan($atoms, $maxStepSize);
+        }
+
         if ($blockers !== []) {
             return $packet;
         }
