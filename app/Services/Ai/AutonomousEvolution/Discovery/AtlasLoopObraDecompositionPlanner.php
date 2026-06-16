@@ -53,7 +53,9 @@ final class AtlasLoopObraDecompositionPlanner
 
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
             $plan = $this->normalize($generatePlan($goal, $context, $gaps));
-            $assessment = $gate->assess($plan, $allowedFiles);
+            // Pass the goal so the readiness gate can consult the Leap 2 boundary-oracle for THIS objective;
+            // any missing-required-boundary gap round-trips here as priorGaps into the next regeneration.
+            $assessment = $gate->assess($plan, $allowedFiles, $goal);
 
             if (($assessment['ready'] ?? false) === true) {
                 return [

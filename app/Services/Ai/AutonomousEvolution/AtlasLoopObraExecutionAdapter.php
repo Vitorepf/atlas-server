@@ -106,7 +106,9 @@ class AtlasLoopObraExecutionAdapter
         // pre-verified (every node names its target, states a concrete change, and carries an
         // acceptance defined UP FRONT). A weak plan REPLANS (cheap), never builds-and-discards
         // (expensive). This is the structure that makes the loop almost never waste tokens.
-        $readiness = (new AtlasLoopPlanReadinessGate(new AtlasLoopObraPlanValidator($this->guard)))->assess($plan, $allowed);
+        // The goal is threaded so the readiness gate can consult the Leap 2 boundary-oracle for this
+        // objective; with the oracle flag OFF / no fixture for the goal the extra arg is inert (byte-identical).
+        $readiness = (new AtlasLoopPlanReadinessGate(new AtlasLoopObraPlanValidator($this->guard)))->assess($plan, $allowed, trim((string) ($payload['objective'] ?? '')));
         if (($readiness['ready'] ?? false) !== true) {
             return $this->fail('plan_not_ready_'.((string) ($readiness['decision'] ?? 'replan')).':'.implode(',', array_slice((array) ($readiness['gaps'] ?? []), 0, 4)));
         }

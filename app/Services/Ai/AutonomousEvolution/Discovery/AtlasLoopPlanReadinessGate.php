@@ -41,18 +41,25 @@ final class AtlasLoopPlanReadinessGate
     /** Minimum readiness score (the share of nodes that are fully specified + pre-verified) to implement. */
     private const MIN_READINESS = 1.0; // every node must be impeccable — one vague node and we replan
 
-    public function __construct(private readonly ?AtlasLoopObraPlanValidator $validator = null)
-    {
-    }
+    public function __construct(
+        private readonly ?AtlasLoopObraPlanValidator $validator = null,
+        // ACDE Leap 2 — the human-frozen decomposition boundary-oracle reader. Nullable + LAST so the
+        // container autowires it to null (Laravel does not inject `?Type = null`); assess() falls back to
+        // a fresh instance. Touched ONLY when atlas.loop.decomposition_oracle_enabled is ON AND a $goal is
+        // passed AND a fixture exists for that goal — otherwise the gate is byte-identical to before.
+        private readonly ?AtlasLoopDecompositionBoundaryOracle $oracle = null,
+    ) {}
 
     /**
      * @param  array<string,mixed>  $plan
-     * @param  list<string>         $allowedFiles
+     * @param  list<string>  $allowedFiles
+     * @param  ?string  $goal  the obra objective — required ONLY for the Leap 2 boundary-oracle
+     *                         lookup; null (default) => no oracle check => byte-identical to before
      * @return array{decision:string, ready:bool, readiness_score:float, structural_valid:bool, gaps:list<string>}
      */
-    public function assess(array $plan, array $allowedFiles): array
+    public function assess(array $plan, array $allowedFiles, ?string $goal = null): array
     {
-        $validator = $this->validator ?? new AtlasLoopObraPlanValidator();
+        $validator = $this->validator ?? new AtlasLoopObraPlanValidator;
         $structural = $validator->validate($plan, $allowedFiles);
         $structuralValid = (bool) ($structural['valid'] ?? false);
 
@@ -79,6 +86,16 @@ final class AtlasLoopPlanReadinessGate
         $readiness = $nodes === [] ? 0.0 : $specifiedCount / count($nodes);
         $ready = $structuralValid && $readiness >= self::MIN_READINESS && $nodes !== [];
 
+        // ACDE Leap 2 — DECOMPOSITION BOUNDARY-ORACLE gate (the moat). An ADDITIONAL deterministic gate:
+        // when the flag is ON and a HUMAN froze the required node-boundaries for THIS objective, the DAG
+        // must SUPERSET them — a plausible-but-wrong split that drops a required seam REPLANS with the
+        // missing-boundary reasons (which the planner's iterate-to-ready loop threads forward as priorGaps).
+        // Flag OFF, no $goal, or no oracle for the goal => degrades to the structural-only gate (byte-identical).
+        foreach ($this->oracleGaps($plan, $goal) as $g) {
+            $gaps[] = $g;
+            $ready = false; // a missing required boundary is a hard not-ready (REPLAN), never IMPLEMENT
+        }
+
         return [
             // The decision encodes the economics: a weak plan REPLANS (cheap) rather than IMPLEMENTING
             // (expensive). Only an impeccable plan spends the implementation budget.
@@ -88,6 +105,51 @@ final class AtlasLoopPlanReadinessGate
             'structural_valid' => $structuralValid,
             'gaps' => array_values(array_unique($gaps)),
         ];
+    }
+
+    /**
+     * ACDE Leap 2 — the boundary-oracle gaps for a plan, or [] (the byte-identical degrade path) when the
+     * flag is OFF, no $goal was supplied, or no human froze a boundary-oracle for THIS objective. When an
+     * oracle DOES exist, returns the missing-required-boundary reasons from the validator's superset check.
+     *
+     * @param  array<string,mixed>  $plan
+     * @return list<string>
+     */
+    private function oracleGaps(array $plan, ?string $goal): array
+    {
+        $goal = trim((string) $goal);
+        if ($goal === '' || ! $this->oracleEnabled()) {
+            return [];
+        }
+
+        $oracle = ($this->oracle ?? new AtlasLoopDecompositionBoundaryOracle)->load($goal);
+        if ($oracle === null) {
+            return []; // no human-frozen bar for this goal => degrade to structural-only (no false-reject)
+        }
+
+        $validator = $this->validator ?? new AtlasLoopObraPlanValidator;
+
+        return $validator->assertDecompositionMatchesOracle($plan, $oracle);
+    }
+
+    /**
+     * Is the boundary-oracle flag ON? Read defensively: this gate is otherwise PURE (the pure-unit planner
+     * tests construct it WITHOUT a Laravel container), so a bare config() call would fatal there. When no
+     * config binding is resolvable, treat the flag as OFF — the byte-identical structural-only degrade — so
+     * the gate stays container-free for pure callers AND honours the flag in a real (booted) run.
+     */
+    private function oracleEnabled(): bool
+    {
+        try {
+            $app = function_exists('app') ? app() : null;
+            if ($app === null || ! $app->bound('config')) {
+                return false;
+            }
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return (bool) config('atlas.loop.decomposition_oracle_enabled', false);
     }
 
     /**

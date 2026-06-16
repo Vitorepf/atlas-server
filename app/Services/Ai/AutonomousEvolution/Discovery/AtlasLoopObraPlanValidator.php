@@ -25,19 +25,17 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
  */
 final class AtlasLoopObraPlanValidator
 {
-    public function __construct(private readonly ?AtlasLoopHarnessGuard $guard = null)
-    {
-    }
+    public function __construct(private readonly ?AtlasLoopHarnessGuard $guard = null) {}
 
     /**
-     * @param  array<string,mixed>  $plan         {plan_id, nodes:list<{id, seq?, request, target_area|allowed_files, depends_on?, acceptance?}>}
-     * @param  list<string>         $allowedFiles the obra's allowed scope (every node file must be within it)
+     * @param  array<string,mixed>  $plan  {plan_id, nodes:list<{id, seq?, request, target_area|allowed_files, depends_on?, acceptance?}>}
+     * @param  list<string>  $allowedFiles  the obra's allowed scope (every node file must be within it)
      * @return array{valid:bool, reasons:list<string>, node_count:int}
      */
     public function validate(array $plan, array $allowedFiles): array
     {
         $reasons = [];
-        $guard = $this->guard ?? new AtlasLoopHarnessGuard();
+        $guard = $this->guard ?? new AtlasLoopHarnessGuard;
         $allow = [];
         foreach ($allowedFiles as $f) {
             if (is_string($f) && trim($f) !== '') {
@@ -123,6 +121,69 @@ final class AtlasLoopObraPlanValidator
         $reasons = array_values(array_unique($reasons));
 
         return ['valid' => $reasons === [], 'reasons' => $reasons, 'node_count' => count($nodes)];
+    }
+
+    /**
+     * ACDE Leap 2 — the DECOMPOSITION BOUNDARY-ORACLE superset check (the moat the structural validator
+     * lacks). The structural checks above prove the DAG is WELL-FORMED; they cannot prove it is CORRECT —
+     * a plausible-but-wrong split that merges two seams the operator named as separate nodes passes them
+     * just as readily as the right split. This method imports the proven single-target trick: a HUMAN
+     * froze the required node boundaries, and we prove the generated DAG SUPERSETS them.
+     *
+     * The generated boundary set is the union of every node's touched files — each node's target_area and
+     * any explicit allowed_files (which, for a create-class node, carries the new file). The check is:
+     *   - every oracle required_boundary MUST be the target of some node, else 'decomposition_missing_required_boundary:<seam>';
+     *   - every oracle required_create_file MUST be the target of some node, else the SAME reason string.
+     * It is a deterministic SUPERSET test against a frozen artifact — the model can never satisfy it by
+     * emitting a plausible-but-wrong split, because the required seams are named by a human, not the model.
+     *
+     * Returns the list of missing-boundary reasons (empty => the DAG supersets the oracle). NO false-reject
+     * surface: an empty oracle returns [] (no required seams => nothing to miss).
+     *
+     * @param  array<string,mixed>  $plan  {nodes:list<{id, target_area|allowed_files, ...}>}
+     * @param  array{required_boundaries?:list<string>, required_create_files?:list<string>}  $oracle
+     * @return list<string>
+     */
+    public function assertDecompositionMatchesOracle(array $plan, array $oracle): array
+    {
+        $nodes = array_values(is_array($plan['nodes'] ?? null) ? (array) $plan['nodes'] : []);
+
+        // The generated boundary set: every file any node targets (target_area + explicit allowed_files).
+        $generated = [];
+        foreach ($nodes as $node) {
+            if (! is_array($node)) {
+                continue;
+            }
+            $ta = ltrim(trim((string) ($node['target_area'] ?? '')), '/');
+            if ($ta !== '') {
+                $generated[$ta] = true;
+            }
+            foreach ((array) ($node['allowed_files'] ?? []) as $f) {
+                if (is_string($f) && trim($f) !== '') {
+                    $generated[ltrim(trim($f), '/')] = true;
+                }
+            }
+        }
+
+        // Required = the union of human-named required boundaries + mandatory create-class files; both must
+        // appear as a node target. (Stay ordered + de-duplicated so the reason list is deterministic.)
+        $required = [];
+        foreach (['required_boundaries', 'required_create_files'] as $key) {
+            foreach ((array) ($oracle[$key] ?? []) as $seam) {
+                if (is_string($seam) && trim($seam) !== '') {
+                    $required[ltrim(trim($seam), '/')] = true;
+                }
+            }
+        }
+
+        $missing = [];
+        foreach (array_keys($required) as $seam) {
+            if (! isset($generated[$seam])) {
+                $missing[] = 'decomposition_missing_required_boundary:'.$seam;
+            }
+        }
+
+        return $missing;
     }
 
     /** A node is verifiable iff it declares some acceptance contract the executor/certifier can run. */

@@ -45,6 +45,12 @@ final class AtlasLoopTaskGrinder
         // newInstanceWithoutConstructor test build is unaffected; grind() falls back to a fresh
         // instance. Touched ONLY when atlas.loop.conductor_escalation_enabled is ON (default OFF).
         private readonly ?AtlasLoopAutonomousConductor $conductor = null,
+        // ACDE Leap 2: the obra execution adapter the conductor's `decompose` tier invokes so escalation
+        // changes STRUCTURE (a real maybePlan -> AtlasObraExecutor), not just scenario width. Nullable +
+        // LAST (Laravel does not inject `?Type = null`); escalateViaConductor falls back to app(). Touched
+        // ONLY inside the decompose tier AND only when atlas.loop.planning_enabled is ON (default OFF) —
+        // OFF => the decompose tier degrades to its prior scenario-width closure (byte-identical).
+        private readonly ?AtlasLoopObraExecutionAdapter $obraAdapter = null,
     ) {}
 
     /**
@@ -774,16 +780,47 @@ final class AtlasLoopTaskGrinder
             };
 
             $deep = array_merge($options, ['scenarios_per_task' => max(1, (int) config('atlas.loop.max_scenarios_per_task', 12))]);
+
+            // ACDE Leap 2 — the `decompose` tier actually DECOMPOSES. Until now every tier mapped to the
+            // same scenario-width closure, so `decompose` only widened the search — it never changed the
+            // STRUCTURE of the attempt. Now, when planning is ON, the decompose tier runs the obra planning
+            // path (maybePlan -> AtlasObraExecutor, via the execution adapter): the goal is split into a
+            // readiness-gated DAG (oracle-gated when a fixture exists) and executed node-by-node in an
+            // isolated worktree. Fail-OPEN: a throw is caught by the conductor as a failed round (never a
+            // fabricated success); with planning OFF this degrades to the prior scenario-width closure.
+            $runDecomposeTier = function (string $guidance) use ($explorerTask, $payload, $deep, $runTier): array {
+                if (! (bool) config('atlas.loop.planning_enabled', false)) {
+                    return $runTier($deep, $guidance); // byte-identical to the pre-Leap-2 decompose tier
+                }
+
+                $adapter = $this->obraAdapter ?? app(AtlasLoopObraExecutionAdapter::class);
+                $obraPayload = $payload;
+                // The decompose tier targets the obra planning path; carry the explorer objective + any
+                // accumulated escalation guidance so the planner sees the same intent the runner saw.
+                $objective = trim((string) ($explorerTask['objective'] ?? ($payload['objective'] ?? '')));
+                if (trim($guidance) !== '') {
+                    $objective = $objective."\n\n".$guidance;
+                }
+                $obraPayload['objective'] = $objective;
+
+                $exec = $adapter->executeAndProve($obraPayload);
+                if (($exec['ok'] ?? false) === true) {
+                    return ['certified' => true, 'reason' => 'decomposed_and_certified', 'strategy' => 'decompose'];
+                }
+
+                return ['certified' => false, 'reason' => 'decompose:'.(string) ($exec['reason'] ?? 'not_certified'), 'strategy' => 'decompose'];
+            };
+
             $byTier = [
                 'best_of_n' => $options,
                 'repair_from_refutation' => $deep,
-                'decompose' => $deep,
                 'escalate_provider' => $deep,
             ];
             $tiers = [];
             foreach ($byTier as $name => $tierOptions) {
                 $tiers[$name] = fn (string $goal, string $guidance, ?array $spec, int $round): array => $runTier($tierOptions, $guidance);
             }
+            $tiers['decompose'] = fn (string $goal, string $guidance, ?array $spec, int $round): array => $runDecomposeTier($guidance);
 
             $conduct = $conductor->conduct((string) ($explorerTask['objective'] ?? ''), ['tier_executors' => $tiers]);
 

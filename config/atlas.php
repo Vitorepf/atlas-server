@@ -2114,6 +2114,18 @@ return [
         'planning_spec_max_attempts' => max(1, (int) env('ATLAS_LOOP_PLANNING_SPEC_MAX_ATTEMPTS', 3)),
         'planning_plan_max_attempts' => max(1, (int) env('ATLAS_LOOP_PLANNING_PLAN_MAX_ATTEMPTS', 3)),
 
+        // ACDE Leap 2 — HUMAN-FROZEN DECOMPOSITION BOUNDARY-ORACLE. Imports the proven single-target
+        // moat (a human-frozen bar the model cannot author) into the DECOMPOSITION layer. With the flag
+        // ON AND a per-objective fixture frozen/obra-decompositions/<goal-hash>.json present, the readiness
+        // gate adds a DETERMINISTIC SUPERSET check: the generated DAG's node target_areas + create-class
+        // set must SUPERSET the human-named required boundaries, else REPLAN with the missing-seam reasons.
+        // OFF, or no oracle for the goal => degrades to the structural-only gate (byte-identical to today).
+        // The oracle dir is overridable so tests can point it at a temp dir; default ships EMPTY (no
+        // false-reject — operators add boundary fixtures per objective). No LLM plan-judge: correlated
+        // weak-model self-grading is the Goodhart this moat forbids — the bar is named by a human only.
+        'decomposition_oracle_enabled' => (bool) env('ATLAS_LOOP_DECOMPOSITION_ORACLE_ENABLED', false),
+        'decomposition_oracle_dir' => env('ATLAS_LOOP_DECOMPOSITION_ORACLE_DIR', base_path('frozen/obra-decompositions')),
+
         // L4-1: cooldown por target recente. Tasks/proposals recentes do mesmo path caem no
         // ranking para evitar farming do arquivo que acabou de render proposta.
         'target_cooldown_enabled' => (bool) env('ATLAS_LOOP_TARGET_COOLDOWN_ENABLED', true),
