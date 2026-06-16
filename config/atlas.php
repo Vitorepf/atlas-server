@@ -2339,6 +2339,12 @@ return [
         'origination_outcome_enabled' => (bool) env('ATLAS_LOOP_ORIGINATION_OUTCOME_ENABLED', false),
         'origination_backoff_min_samples' => max(1, (int) env('ATLAS_LOOP_ORIGINATION_BACKOFF_MIN_SAMPLES', 3)),
         'origination_backoff_target_rate' => (float) env('ATLAS_LOOP_ORIGINATION_BACKOFF_TARGET_RATE', 0.5),
+        // ACDE S2 (observe-only) — record a PROVIDER-SAFE trace of what the EarnedAutonomy gate WOULD decide
+        // (decision + risk rank + earned tier + the safety booleans + changed paths), so the operator can
+        // audit the door for a long while BEFORE any decision to actuate it. OBSERVE-ONLY by construction: it
+        // has NO apply/merge/canonize actuator. The live actuator is OUT OF SCOPE + BLOCKED pending an operator
+        // governance decision + registering the proposal-gate/selector seam as sacred. Default OFF => inert.
+        'earned_autonomy_decision_trace' => (bool) env('ATLAS_LOOP_EARNED_AUTONOMY_DECISION_TRACE', false),
         // ACDE R2-read (the MULTIPLIER) — when ON, the framework synthesizer reads the decomposition corpus
         // (R2's in-lane writes) for THIS shape's fingerprint and, if it has historically THRASHED (>=
         // min_samples outcomes, certified-rate < target_rate), backs the chain off to a single worst-method
