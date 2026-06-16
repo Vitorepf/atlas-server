@@ -56,6 +56,7 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
         private readonly CodeGraphContextRetriever $codeGraphContext,
         private readonly CodeGraphWorkspaceIdentity $workspaceIdentity,
         private readonly AtlasLoopProviderEditApplier $editApplier = new AtlasLoopProviderEditApplier,
+        private readonly AtlasEvolutionFrozenJudge $judge = new AtlasEvolutionFrozenJudge,
     ) {}
 
     /**
@@ -111,6 +112,10 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
 
         $allowedFiles = $this->parseConstraint($userConstraints, 'allowed_files');
         $validationCommands = $this->parseConstraint($userConstraints, 'validation_command');
+        // ACDE Tier-0 #2: the FROZEN acceptance (threaded by the explorer via surfaceHints) lets
+        // iterate-to-green drive toward the JUDGE's bar instead of a raw exit-0 proxy. Absent => the
+        // raw-command path is used (byte-identical).
+        $acceptance = is_array($surfaceHints['acceptance'] ?? null) ? $surfaceHints['acceptance'] : [];
         $prompt = $this->buildPrompt($intent, $allowedFiles, $validationCommands, $workspace);
         $model = $this->resolveModel($provider);
         $timeout = max(60, (int) config('atlas.loop.campaign.attempt_hard_seconds', 900));
@@ -141,7 +146,18 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
             && $validationCommands !== []) {
             $maxIter = max(1, (int) config('atlas.loop.iterate_to_green_max', 3));
             $cmd = implode(' && ', $validationCommands);
-            $runTest = function () use ($cmd, $workspace, $timeout): array {
+            // ACDE Tier-0 #2: when armed AND the frozen acceptance is available, the green check IS the
+            // judge (diff-earned / scope / frozen / complexity), not a raw exit-0 a gamed candidate can
+            // satisfy — so the iterations drive toward a CERTIFIABLE result and the real rejection reason
+            // is fed back. Default OFF / no acceptance => the raw-command path is byte-identical.
+            $againstJudge = (bool) config('atlas.loop.iterate_against_judge', false) && $acceptance !== [];
+            $runTest = function () use ($cmd, $workspace, $timeout, $againstJudge, $acceptance): array {
+                if ($againstJudge) {
+                    $v = $this->judge->score($workspace, $acceptance);
+                    $green = (bool) ($v['passed'] ?? false) && (($v['details']['rejected'] ?? false) !== true);
+
+                    return ['passed' => $green, 'output' => $green ? 'judge_green' : ('judge_rejected: '.(string) ($v['details']['reason'] ?? ''))];
+                }
                 $p = new Process(['bash', '-lc', $cmd], $workspace, null, null, (float) $timeout);
                 $p->run();
 

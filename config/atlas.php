@@ -1989,6 +1989,13 @@ return [
         // quality is — set the budget high. iterate_to_green_max = max re-invocations per attempt.
         'iterate_to_green_enabled' => (bool) env('ATLAS_LOOP_ITERATE_TO_GREEN_ENABLED', false),
         'iterate_to_green_max' => max(1, (int) env('ATLAS_LOOP_ITERATE_TO_GREEN_MAX', 3)),
+
+        // ACDE Tier-0 #2: when ON, iterate-to-green's green check IS the frozen judge (diff-earned /
+        // scope / frozen / complexity), not a raw exit-0 a gamed candidate can satisfy — so the loop
+        // re-prompts toward a CERTIFIABLE result and feeds the real rejection reason back. Default OFF:
+        // the judge re-proof per iteration roughly doubles per-iteration test cost (revert-recheck runs
+        // the suite twice); arm after measuring throughput on the live engine.
+        'iterate_against_judge' => (bool) env('ATLAS_LOOP_ITERATE_AGAINST_JUDGE', false),
         // ≥9 QUALITY BAR (AtlasLoopQualityGrader). The certifier always RECORDS the 0-10 grade in the
         // receipt (observability); quality_bar_gate_enabled makes it a GATE (a verified refactor below
         // the bar is refuted). Default OFF => byte-identical (grade computed, never gates). quality_bar

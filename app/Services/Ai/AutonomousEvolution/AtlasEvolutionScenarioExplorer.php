@@ -237,7 +237,9 @@ final class AtlasEvolutionScenarioExplorer
                 workspace: $workspace,
                 intent: $intent,
                 userConstraints: $userConstraints,
-                surfaceHints: $surfaceHints,
+                // ACDE Tier-0 #2: hand the driver the FROZEN acceptance so iterate-to-green can drive
+                // toward the JUDGE's bar (when armed), not a raw exit-0 proxy a gamed candidate satisfies.
+                surfaceHints: $surfaceHints + ['acceptance' => $acceptance],
             );
 
             // The judge is AUTHORITATIVE — it re-proves independently in the workspace,

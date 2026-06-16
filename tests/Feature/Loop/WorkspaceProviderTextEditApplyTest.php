@@ -116,4 +116,63 @@ final class WorkspaceProviderTextEditApplyTest extends TestCase
         $this->assertFalse($result['edits_applied_from_text'] ?? false);
         $this->assertStringContainsString('return 1;', (string) file_get_contents($this->workspace.'/Subject.php'));
     }
+
+    public function test_armed_iterate_against_judge_reinvokes_when_command_passes_but_judge_rejects(): void
+    {
+        // ACDE Tier-0 #2: a candidate whose raw command exits 0 but is NOT diff-earned (the command does
+        // not depend on the change) must NOT be treated as green — the judge rejects it, so judge-mode
+        // iterate keeps re-prompting instead of stopping at the fake exit-0 (the proxy gap). Armed here.
+        config()->set('atlas.loop.iterate_to_green_enabled', true);
+        config()->set('atlas.loop.iterate_to_green_max', 2);
+        config()->set('atlas.loop.iterate_against_judge', true);
+        config()->set('atlas.loop.zero_diff_retry', false);
+
+        $always = 'php -r \'exit(0);\''; // passes regardless of the diff => never diff-earned
+        $acceptance = [
+            'commands' => [$always],
+            'allowed_globs' => ['Subject.php'],
+            'frozen_globs' => [],
+            'metric_kind' => 'gate',
+            'revert_recheck' => true,
+        ];
+
+        $box = new class
+        {
+            public int $calls = 0;
+        };
+        $fake = new class($box) extends AtlasForgeProviderInvocationDriverRouter
+        {
+            public function __construct(private readonly object $box) {}
+
+            public function isConfigured(?string $provider): bool
+            {
+                return true;
+            }
+
+            public function invoke(?string $provider, ?string $model, array $prompt, array $context = []): array
+            {
+                $n = ++$this->box->calls;
+
+                // a distinct in-scope edit each call (so a fresh diff always exists) that the command ignores
+                return [
+                    'provider_called' => true,
+                    'changed_files' => [],
+                    'exit_code' => 0,
+                    'stdout' => "*** ATLAS_FILE: Subject.php ***\n<?php\n\n// edit {$n}\nreturn 1;\n*** ATLAS_END ***",
+                ];
+            }
+        };
+        $this->app->instance(AtlasForgeProviderInvocationDriverRouter::class, $fake);
+
+        app(WorkspaceProviderLoopExecutionDriver::class)->attempt(
+            'loop',
+            $this->workspace,
+            'edit Subject.php',
+            ['allowed_files=Subject.php', 'validation_command='.$always],
+            ['provider_choice' => 'minimax_m27', 'acceptance' => $acceptance],
+        );
+
+        // The fake exit-0 would stop a raw-proxy iterate at 1 call; judge-mode must re-invoke (not diff-earned).
+        $this->assertGreaterThan(1, $box->calls, 'judge-mode iterate must re-prompt past a fake exit-0 the judge rejects');
+    }
 }
