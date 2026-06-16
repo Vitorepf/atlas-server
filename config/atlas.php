@@ -1958,6 +1958,11 @@ return [
         // breaking the chicken-and-egg without lowering any value gate. 0 => byte-identical legacy.
         'discovery_caller_resolve_cap' => max(1, (int) env('ATLAS_LOOP_DISCOVERY_CALLER_RESOLVE_CAP', 60)),
         'discovery_refactor_resolve_cap' => max(0, (int) env('ATLAS_LOOP_DISCOVERY_REFACTOR_RESOLVE_CAP', 40)),
+        // ACDE T2 (supply-rate coupling) — multiplies BOTH discovery resolve caps so candidate SUPPLY scales
+        // with scenario fan-out WIDTH (else width starves on too few candidates; supply, not width, is the
+        // real bottleneck). Default 1 => byte-identical (60/40). Arm alongside scenario_fanout (e.g. 3 for
+        // a width-4 fan-out). A one-time starvation-unblock, not a dynamic controller (see T3, deferred).
+        'discovery_supply_widen_factor' => max(1, (int) env('ATLAS_LOOP_DISCOVERY_SUPPLY_WIDEN_FACTOR', 1)),
         // Min real production callers (wired requirement): a refactor only pays back on code that runs.
         'framework_refactor_min_callers' => max(1, (int) env('ATLAS_LOOP_FRAMEWORK_REFACTOR_MIN_CALLERS', 1)),
         // Gates the obra-auto-merge crossing (AtlasLoopObraAutoMergeService): a GENUINELY

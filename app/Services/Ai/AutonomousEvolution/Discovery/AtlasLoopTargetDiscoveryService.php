@@ -224,7 +224,12 @@ final class AtlasLoopTargetDiscoveryService
         // fallback — the EXACT branch an "unmeasured" path already takes (fail-open, never
         // falsely flagged orphan). Correctness of the top-N order is preserved; only the
         // certain-losers skip the expensive grep.
-        $callerCap = max(1, (int) config('atlas.loop.discovery_caller_resolve_cap', 60));
+        // ACDE T2 (supply-rate coupling): when scenario fan-out widens throughput, the discovery resolve
+        // caps must widen in LOCKSTEP or width starves on too few candidates (supply, not width, is the
+        // bottleneck). discovery_supply_widen_factor multiplies both caps; default 1 => byte-identical
+        // (60/40). Arm it alongside scenario_fanout so width always has real work to chew.
+        $supplyWiden = max(1, (int) config('atlas.loop.discovery_supply_widen_factor', 1));
+        $callerCap = max(1, (int) config('atlas.loop.discovery_caller_resolve_cap', 60) * $supplyWiden);
         $resolvePaths = $paths;
         if (count($paths) > $callerCap) {
             $byScore = $scoredRows;
@@ -245,7 +250,7 @@ final class AtlasLoopTargetDiscoveryService
             // measure the most COMPLEX candidates — exactly the files the heavy-refactor lane wants
             // wired-checked. Bounded by its own cap to respect the per-path grep cost guard; set the
             // cap to 0 to restore byte-identical legacy behaviour.
-            $refactorResolveCap = max(0, (int) config('atlas.loop.discovery_refactor_resolve_cap', 40));
+            $refactorResolveCap = max(0, (int) config('atlas.loop.discovery_refactor_resolve_cap', 40) * $supplyWiden);
             if ($refactorResolveCap > 0) {
                 $refMinCx = max(1, (int) config('atlas.loop.framework_refactor_min_cyclomatic', 10));
                 $byCx = array_values(array_filter(

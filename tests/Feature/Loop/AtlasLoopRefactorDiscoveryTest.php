@@ -186,6 +186,32 @@ final class AtlasLoopRefactorDiscoveryTest extends TestCase
         $this->assertNull($this->complexCallerSignal('camp-refcap-off'), 'cap OFF => byte-identical legacy: complex target stays unmeasured below the score cut');
     }
 
+    public function test_t2_supply_widen_factor_scales_the_resolve_cap_in_lockstep(): void
+    {
+        // ACDE T2: the supply-widen factor multiplies the discovery resolve caps so candidate supply scales
+        // with fan-out width. Isolate the CALLER cap (refactor cap 0) so Complex (rank-4 by score) is
+        // measured ONLY when the cap is wide enough to reach it.
+        $repo = $this->repoWithFillersAndComplex();
+        config([
+            'atlas.loop.impact_ranking_enabled' => true,
+            'atlas.loop.discovery_refactor_resolve_cap' => 0, // off => only the caller cap can reach Complex
+            'atlas.loop.discovery_caller_resolve_cap' => 1,   // top-1-by-score is a filler; Complex excluded
+        ]);
+        $wired = new AtlasLoopWiredCallerService($repo);
+
+        // factor 1 (default): effective caller cap 1 => Complex stays unmeasured (byte-identical).
+        config(['atlas.loop.discovery_supply_widen_factor' => 1]);
+        (new AtlasLoopTargetDiscoveryService(app(AtlasLoopTargetRepository::class), null, null, null, $wired))
+            ->discover($repo, 'camp-widen-1', ['roots' => ['app/Services'], 'limit' => 10]);
+        $this->assertNull($this->complexCallerSignal('camp-widen-1'), 'factor 1 => byte-identical: Complex excluded by the cap');
+
+        // factor 4: effective caller cap 4 => all files resolved => Complex IS caller-measured.
+        config(['atlas.loop.discovery_supply_widen_factor' => 4]);
+        (new AtlasLoopTargetDiscoveryService(app(AtlasLoopTargetRepository::class), null, null, null, $wired))
+            ->discover($repo, 'camp-widen-4', ['roots' => ['app/Services'], 'limit' => 10]);
+        $this->assertNotNull($this->complexCallerSignal('camp-widen-4'), 'widen factor scales the cap => Complex now resolved (supply widened in lockstep)');
+    }
+
     public function test_rank_boost_is_default_inert_when_flag_off(): void
     {
         $repo = $this->repoWithComplexFile();
