@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Discovery;
 
+use App\Services\Ai\AutonomousEvolution\AtlasLoopDecompositionOutcomeRecorder;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopDecompositionShapePrior;
+
 /**
  * PLAN-READINESS GATE — the structure that minimises WASTE: spend on the CHEAP thing (planning,
  * structuring, verifying the plan) so the EXPENSIVE thing (implementation) almost always LANDS.
@@ -48,6 +51,11 @@ final class AtlasLoopPlanReadinessGate
         // a fresh instance. Touched ONLY when atlas.loop.decomposition_oracle_enabled is ON AND a $goal is
         // passed AND a fixture exists for that goal — otherwise the gate is byte-identical to before.
         private readonly ?AtlasLoopDecompositionBoundaryOracle $oracle = null,
+        // ACDE Leap 5 — the decomposition outcome corpus reader for the shape-prior advisory band. Nullable
+        // + LAST (container autowires to null; assess() falls back to a fresh instance). Touched ONLY when
+        // atlas.loop.shape_prior_gate_enabled is ON AND the corpus has >= minSamples for this plan's shape —
+        // otherwise (flag OFF, thin/cold corpus, or no DB) the gate is byte-identical to before.
+        private readonly ?AtlasLoopDecompositionOutcomeRecorder $outcomeRecorder = null,
     ) {}
 
     /**
@@ -94,6 +102,18 @@ final class AtlasLoopPlanReadinessGate
         foreach ($this->oracleGaps($plan, $goal) as $g) {
             $gaps[] = $g;
             $ready = false; // a missing required boundary is a hard not-ready (REPLAN), never IMPLEMENT
+        }
+
+        // ACDE Leap 5 — SHAPE-PRIOR advisory band (the loop compounds decomposition competence). When the
+        // flag is ON and the outcome corpus holds >= minSamples for THIS plan's structural shape with a
+        // Wilson lower-bound certified-rate below target, append 'shape_historically_thrashes' => REPLAN
+        // (cheap) so the planner regenerates a different-shape plan instead of burning the implementation
+        // budget on a shape that empirically fails the frozen gates. Anchored on machine-resolved terminal
+        // outcomes, never model self-report. Flag OFF, thin/cold corpus (n<minSamples => UNKNOWN), or no DB
+        // => contributes nothing => byte-identical to before (a novel shape is never blocked by a thin prior).
+        foreach ($this->shapePriorGaps($plan) as $g) {
+            $gaps[] = $g;
+            $ready = false;
         }
 
         return [
@@ -150,6 +170,60 @@ final class AtlasLoopPlanReadinessGate
         }
 
         return (bool) config('atlas.loop.decomposition_oracle_enabled', false);
+    }
+
+    /**
+     * ACDE Leap 5 — the shape-prior gap for a plan, or [] (the byte-identical degrade path) when the flag is
+     * OFF, no DB is resolvable, or the corpus is too thin (n<minSamples => UNKNOWN) for this plan's structural
+     * shape. When the corpus DOES have enough history and the Wilson lower-bound certified-rate is below the
+     * target, returns the single 'shape_historically_thrashes' advisory reason.
+     *
+     * @param  array<string,mixed>  $plan
+     * @return list<string>
+     */
+    private function shapePriorGaps(array $plan): array
+    {
+        if (! $this->shapePriorEnabled()) {
+            return [];
+        }
+
+        try {
+            $fp = (new AtlasLoopDecompositionShapeFingerprinter)->fingerprint($plan);
+            $history = ($this->outcomeRecorder ?? new AtlasLoopDecompositionOutcomeRecorder)->history((string) $fp['hash']);
+            $minSamples = max(1, (int) config('atlas.loop.shape_prior_min_samples', 8));
+            $targetRate = (float) config('atlas.loop.shape_prior_target_rate', 0.5);
+            $verdict = (new AtlasLoopDecompositionShapePrior)->assess(
+                (int) ($history['certified'] ?? 0),
+                (int) ($history['total'] ?? 0),
+                $targetRate,
+                $minSamples,
+            );
+            if (($verdict['verdict'] ?? 'unknown') === 'suspect') {
+                return ['shape_historically_thrashes:'.((string) $fp['hash']).':'.((string) ($verdict['reason'] ?? ''))];
+            }
+        } catch (\Throwable) {
+            return []; // any infra hiccup degrades to no-prior (never a false-reject)
+        }
+
+        return [];
+    }
+
+    /**
+     * Is the shape-prior gate flag ON? Defensive (the pure-unit planner tests construct this gate WITHOUT a
+     * container) — no resolvable config binding => treated OFF => byte-identical structural-only degrade.
+     */
+    private function shapePriorEnabled(): bool
+    {
+        try {
+            $app = function_exists('app') ? app() : null;
+            if ($app === null || ! $app->bound('config')) {
+                return false;
+            }
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return (bool) config('atlas.loop.shape_prior_gate_enabled', false);
     }
 
     /**

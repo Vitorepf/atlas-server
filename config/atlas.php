@@ -2141,6 +2141,19 @@ return [
         // unless obra_full_cert_enabled is also ON; empty-derivable checklist => byte-identical (fail-open).
         'obra_completeness_gate_enabled' => (bool) env('ATLAS_LOOP_OBRA_COMPLETENESS_GATE_ENABLED', false),
 
+        // ACDE Leap 5 — DECOMPOSITION OUTCOME LEDGER + shape-prior REPLAN band. The loop compounds
+        // decomposition competence: a durable corpus records one row per EXECUTED obra (structural plan
+        // fingerprint -> real terminal outcome from the Leaps 2-3 certifier envelope / post-merge canary),
+        // and the readiness gate consults a Wilson lower-bound certified-rate per shape. corpus_enabled arms
+        // the RECORDER (append-only telemetry; no gate). shape_prior_gate_enabled arms the ADVISORY band: a
+        // shape whose certified-rate lower-bound is below target with >= min_samples appends
+        // 'shape_historically_thrashes' => REPLAN (cheap). Both default OFF => recorder no-op + prior never
+        // consulted => byte-identical. Cold/thin corpus (n<min_samples => UNKNOWN) never blocks a novel shape.
+        'decomposition_corpus_enabled' => (bool) env('ATLAS_LOOP_DECOMPOSITION_CORPUS_ENABLED', false),
+        'shape_prior_gate_enabled' => (bool) env('ATLAS_LOOP_SHAPE_PRIOR_GATE_ENABLED', false),
+        'shape_prior_min_samples' => max(1, (int) env('ATLAS_LOOP_SHAPE_PRIOR_MIN_SAMPLES', 8)),
+        'shape_prior_target_rate' => max(0.0, min(1.0, (float) env('ATLAS_LOOP_SHAPE_PRIOR_TARGET_RATE', 0.5))),
+
         // L4-1: cooldown por target recente. Tasks/proposals recentes do mesmo path caem no
         // ranking para evitar farming do arquivo que acabou de render proposta.
         'target_cooldown_enabled' => (bool) env('ATLAS_LOOP_TARGET_COOLDOWN_ENABLED', true),

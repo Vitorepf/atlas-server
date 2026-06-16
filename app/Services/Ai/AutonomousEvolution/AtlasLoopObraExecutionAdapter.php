@@ -58,6 +58,9 @@ class AtlasLoopObraExecutionAdapter
         // ACDE Leap 1 — the provider manager the planner seam runs the spec/DAG calls through. Nullable +
         // last: Laravel does not autowire a nullable-default param, so the use-site falls back to app().
         private readonly ?AiProviderManager $providers = null,
+        // ACDE Leap 5 — the decomposition outcome corpus recorder. Nullable + last (use-site falls back to a
+        // fresh instance). No-op when atlas.loop.decomposition_corpus_enabled is OFF (byte-identical).
+        private readonly ?AtlasLoopDecompositionOutcomeRecorder $outcomeRecorder = null,
     ) {}
 
     /**
@@ -144,6 +147,7 @@ class AtlasLoopObraExecutionAdapter
                 && (int) ($envelope['delivered_nodes'] ?? 0) === (int) ($envelope['node_count'] ?? -1)
                 && ($envelope['main_untouched'] ?? false) === true;
             if (! $done) {
+                $this->recordShapeOutcome($plan, $payload, false, 'obra_not_certified:'.(string) ($envelope['status'] ?? 'unknown'));
                 $executor->discardObra($repoRoot, $planId);
 
                 return $this->fail('obra_not_certified:'.(string) ($envelope['status'] ?? 'unknown'), $envelope);
@@ -156,6 +160,7 @@ class AtlasLoopObraExecutionAdapter
             // A refactor that ran green but did not reduce complexity is REFUSED (discard + loop-back).
             $drop = $this->certifyAggregateDrop($repoRoot, $envelope, $allowed, $newFiles);
             if (($drop['reduced'] ?? false) !== true) {
+                $this->recordShapeOutcome($plan, $payload, false, 'aggregate_complexity_not_reduced:'.(string) ($drop['reason'] ?? '?'));
                 $executor->discardObra($repoRoot, $planId);
 
                 return $this->fail('aggregate_complexity_not_reduced:'.(string) ($drop['reason'] ?? '?'), $envelope);
@@ -173,6 +178,7 @@ class AtlasLoopObraExecutionAdapter
             if ((bool) config('atlas.loop.obra_full_cert_enabled', false)) {
                 $netCert = $this->certifyObraNetDiff($repoRoot, $envelope, $allowed, $acc, trim((string) ($payload['objective'] ?? '')));
                 if (($netCert['certified'] ?? false) !== true) {
+                    $this->recordShapeOutcome($plan, $payload, false, 'obra_net_diff_refused:'.(string) ($netCert['reason'] ?? '?'));
                     $executor->discardObra($repoRoot, $planId);
 
                     return $this->fail('obra_net_diff_refused:'.(string) ($netCert['reason'] ?? '?'), $envelope);
@@ -187,11 +193,16 @@ class AtlasLoopObraExecutionAdapter
                 'allowed_files' => $allowed,
             ]);
             if (($l410['certified'] ?? false) !== true) {
+                $this->recordShapeOutcome($plan, $payload, false, 'l4_10_not_real:'.(string) ($l410['status'] ?? '?'));
                 @File::delete($evidencePath);
                 $executor->discardObra($repoRoot, $planId);
 
                 return $this->fail('l4_10_not_real:'.(string) ($l410['status'] ?? '?'), $envelope, $l410);
             }
+
+            // CERTIFIED terminal — the assembled obra cleared the whole frozen-bar stack. Record the shape's
+            // success so the corpus learns which decompositions land (Leap 5; no-op when the corpus is OFF).
+            $this->recordShapeOutcome($plan, $payload, true, 'certified');
 
             return [
                 'ok' => true,
@@ -828,6 +839,26 @@ class AtlasLoopObraExecutionAdapter
     private function fail(string $reason, ?array $envelope = null, ?array $l410 = null): array
     {
         return ['ok' => false, 'reason' => $reason, 'envelope' => $envelope, 'l4_10' => $l410, 'l4_10_evidence_path' => null, 'branch' => null];
+    }
+
+    /**
+     * ACDE Leap 5 — append the EXECUTED obra's terminal outcome to the decomposition corpus. No-op when
+     * atlas.loop.decomposition_corpus_enabled is OFF (byte-identical) and best-effort otherwise (never
+     * breaks the obra path). Called ONLY after the plan was readiness-gated AND the executor ran — a
+     * pre-execution REPLAN (plan_not_ready) is NOT an executed shape and is deliberately not recorded.
+     *
+     * @param  array<string,mixed>  $plan
+     * @param  array<string,mixed>  $payload
+     */
+    private function recordShapeOutcome(array $plan, array $payload, bool $certified, string $terminalReason): void
+    {
+        ($this->outcomeRecorder ?? new AtlasLoopDecompositionOutcomeRecorder)->record(
+            $plan,
+            trim((string) ($payload['objective_kind'] ?? '')),
+            $certified,
+            $terminalReason,
+            count(is_array($plan['nodes'] ?? null) ? (array) $plan['nodes'] : []),
+        );
     }
 
     private function stringOrNull(mixed $v): ?string
