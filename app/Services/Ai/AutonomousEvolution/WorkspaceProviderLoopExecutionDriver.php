@@ -275,6 +275,25 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
         foreach ($this->editProtocolLines($allowedFiles, $workspace) as $line) {
             $lines[] = $line;
         }
+
+        // ACDE lever B1-fast — GROUND the iterate-to-green retry with the SAME brain context the initial
+        // prompt already gets. Today buildFixPrompt goes in PELADO (zero code-graph signatures, zero
+        // dependency bodies) on exactly the retries where the weak engine is failing — the brain evaporates
+        // when it matters most. Gated by a dedicated flag (default OFF => byte-identical) AND the existing
+        // per-source flags, so armed it injects NOTHING the operator has not already armed for buildPrompt.
+        if ((bool) config('atlas.loop.brain_context_on_fix_prompt', false)) {
+            if ((bool) config('atlas.code_graph.auto_context', false)) {
+                foreach ($this->codeGraphContextLines($intent, $allowedFiles) as $line) {
+                    $lines[] = $line;
+                }
+            }
+            if ((bool) config('atlas.loop.inject_dependency_bodies', false)) {
+                foreach ($this->dependencyBodyLines($intent, $allowedFiles) as $line) {
+                    $lines[] = $line;
+                }
+            }
+        }
+
         $text = implode("\n", $lines);
 
         return ['text' => $text, 'instruction' => $text, 'messages' => [['role' => 'user', 'content' => $text]]];

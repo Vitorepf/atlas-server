@@ -274,6 +274,44 @@ final class WorkspaceProviderLoopCodeGraphSeamTest extends TestCase
         );
     }
 
+    /** Reflection-call the private buildFixPrompt (the iterate-to-green RETRY prompt) and return its text. */
+    private function fixPromptText(string $intent, array $allowedFiles): string
+    {
+        $driver = $this->app->make(WorkspaceProviderLoopExecutionDriver::class);
+        $m = new \ReflectionMethod($driver, 'buildFixPrompt');
+        $m->setAccessible(true);
+        $out = $m->invoke($driver, $intent, $allowedFiles, ['php tests/x.php'], 'Error: Class not found', '');
+
+        return (string) ($out['text'] ?? '');
+    }
+
+    public function test_b1fast_armed_grounds_the_retry_prompt_with_the_code_graph_section(): void
+    {
+        // ACDE B1-fast: with the dedicated fix-prompt gate ON (+ auto_context armed), the iterate-to-green
+        // RETRY prompt now carries the same code-graph brain the first attempt gets — today it goes pelado.
+        config()->set('atlas.code_graph.auto_context', true);
+        config()->set('atlas.loop.brain_context_on_fix_prompt', true);
+        $this->symbol('atlas-server', 'class', 'App\\Services\\WorkspaceIdentityResolver', 'app/Services/WorkspaceIdentityResolver.php', 'class WorkspaceIdentityResolver');
+
+        $text = $this->fixPromptText('improve WorkspaceIdentity resolution', []);
+
+        $this->assertStringContainsString('Relevant existing code (from the code graph):', $text, 'armed B1-fast injects the code-graph section into the RETRY prompt');
+        $this->assertStringContainsString('sym:App\\Services\\WorkspaceIdentityResolver', $text);
+    }
+
+    public function test_b1fast_off_is_byte_identical_no_brain_in_the_retry_prompt(): void
+    {
+        // auto_context ON but the dedicated fix-prompt gate OFF (default) => the retry stays byte-identical
+        // (no brain), proving the new behaviour injects nothing unless its own flag is armed.
+        config()->set('atlas.code_graph.auto_context', true);
+        config()->set('atlas.loop.brain_context_on_fix_prompt', false);
+        $this->symbol('atlas-server', 'class', 'App\\Services\\WorkspaceIdentityResolver', 'app/Services/WorkspaceIdentityResolver.php', 'class WorkspaceIdentityResolver');
+
+        $text = $this->fixPromptText('improve WorkspaceIdentity resolution', []);
+
+        $this->assertStringNotContainsString('Relevant existing code (from the code graph):', $text, 'OFF => the retry prompt is byte-identical (no brain)');
+    }
+
     public function test_the_default_bound_loop_driver_is_the_workspace_provider_driver(): void
     {
         // Sanity: the seam lives on the actual default loop execution driver (the proven

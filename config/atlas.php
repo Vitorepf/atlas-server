@@ -1860,6 +1860,12 @@ return [
         // driver appends the EXACT body (line_start..line_end range read, capped) of the top-K cross-file
         // dependencies. Default OFF => byte-identical prompt.
         'inject_dependency_bodies' => (bool) env('ATLAS_LOOP_INJECT_DEPENDENCY_BODIES', false),
+        // ACDE lever B1-fast — extend the brain-context seams (code-graph signatures + dependency bodies)
+        // to the ITERATE-TO-GREEN retry prompt (buildFixPrompt), not just the first attempt. Today the
+        // retry — exactly where the weak engine is failing — goes in with ZERO brain. When ON (AND the
+        // per-source flags above are armed), the fix prompt gets the same grounding as the initial prompt.
+        // Default OFF => byte-identical; injects nothing the operator has not already armed for buildPrompt.
+        'brain_context_on_fix_prompt' => (bool) env('ATLAS_LOOP_BRAIN_CONTEXT_ON_FIX_PROMPT', false),
 
         // L2-2: descoberta admite targets framework-reach (serviços REAIS) — eles seguem
         // o caminho framework-materializer + intent-verifier + certificação adversarial.
