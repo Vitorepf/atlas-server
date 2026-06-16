@@ -190,6 +190,16 @@ final class AtlasLoopFrameworkRefactorSynthesizer
                 $payload['extract_sequence_id'] = $planner->sequenceId($targetRepoRelPath);
                 $payload['extract_sequence_plan'] = $planner->plan($perMethod, $threshold, $maxSteps);
                 $payload['extract_sequence_tractable_cyclomatic'] = $threshold;
+                // ACDE R1 (slice 2/2): de-orphan nextStep() onto the LIVE synthesis path (it was dead
+                // outside tests). It pins THIS step's worst-above-threshold method, carrying the bare name
+                // (via the identity shim) that the objective builder + the in-lane re-discovery chain
+                // consume; null => the file is already tractable (the chain is done). The objective itself
+                // still uses worst_method, so the synthesised task is byte-identical — this only ADDS the
+                // pinned-step record the corpus (R2) and the prior-read (R2-read) build on.
+                $step = $planner->nextStep($perMethod, $threshold);
+                if ($step !== null) {
+                    $payload['extract_sequence_step'] = $step;
+                }
             }
             if ($provider !== '') {
                 $payload['provider'] = $provider;

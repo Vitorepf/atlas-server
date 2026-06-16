@@ -164,6 +164,9 @@ PHP;
         $this->assertStringStartsWith('xseq-', (string) $on['payload']['extract_sequence_id']);
         $this->assertNotEmpty($on['payload']['extract_sequence_plan'], 'the complex worst method projects at least one step');
         $this->assertSame(3, $on['payload']['extract_sequence_tractable_cyclomatic']);
+        // R1 slice 2/2: nextStep() is now live — it pins the worst-above-threshold method with the BARE name
+        // (route) the objective builder uses, via the identity shim.
+        $this->assertSame('route', $on['payload']['extract_sequence_step']['target_method_bare'] ?? null);
     }
 
     public function test_returns_null_below_the_complexity_floor(): void
