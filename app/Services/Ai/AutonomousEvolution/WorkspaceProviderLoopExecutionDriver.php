@@ -221,27 +221,11 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
             $lines[] = $line;
         }
 
-        // AP-815 · I-4 loop seam: when the operator flips the auto-context flag ON, pull
-        // the precise, budgeted code-graph pack (proven atlas:ctx retrieval) for this
-        // task and append it as a clearly-labelled section so the provider edits with the
-        // relevant EXISTING code in view. Flag OFF (default) → this whole block is skipped
-        // → $lines, and therefore the prompt, are byte-identical to before this seam.
-        if ((bool) config('atlas.code_graph.auto_context', false)) {
-            foreach ($this->codeGraphContextLines($intent, $allowedFiles) as $line) {
-                $lines[] = $line;
-            }
-        }
-
-        // ACDE Tier-1 #7: DEPENDENCY-BODY grounding. The code-graph seam above injects only callee
-        // SIGNATURES; a weak engine then edits the target right but hallucinates the callee CONTRACT
-        // (confident wrong calls — a signature map can make it WORSE). When the operator flips
-        // `atlas.loop.inject_dependency_bodies` ON, append the EXACT body of the top-K cross-file
-        // dependencies so the engine calls them as written. Flag OFF (default) => byte-identical.
-        if ((bool) config('atlas.loop.inject_dependency_bodies', false)) {
-            foreach ($this->dependencyBodyLines($intent, $allowedFiles) as $line) {
-                $lines[] = $line;
-            }
-        }
+        // ACDE B1 — the brain-context seams (code-graph signatures + dependency bodies) consolidated into ONE
+        // method shared by buildPrompt + buildFixPrompt (and the future B3/B4 memory/blast-radius extensions),
+        // so the grounding never drifts between the first attempt and the retry again. Each per-source flag is
+        // OFF by default => no lines appended => byte-identical to before the seams.
+        $this->appendBrainContext($lines, $intent, $allowedFiles);
 
         $text = implode("\n", $lines);
 
@@ -276,22 +260,12 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
             $lines[] = $line;
         }
 
-        // ACDE lever B1-fast — GROUND the iterate-to-green retry with the SAME brain context the initial
-        // prompt already gets. Today buildFixPrompt goes in PELADO (zero code-graph signatures, zero
-        // dependency bodies) on exactly the retries where the weak engine is failing — the brain evaporates
-        // when it matters most. Gated by a dedicated flag (default OFF => byte-identical) AND the existing
-        // per-source flags, so armed it injects NOTHING the operator has not already armed for buildPrompt.
+        // ACDE B1-fast — ground the iterate-to-green RETRY with the SAME brain context the first attempt gets
+        // (today buildFixPrompt goes in pelado, exactly where the weak engine is failing). Behind a dedicated
+        // flag (default OFF => byte-identical) AND, inside appendBrainContext, the per-source flags — so armed
+        // it injects nothing the operator has not already armed for buildPrompt.
         if ((bool) config('atlas.loop.brain_context_on_fix_prompt', false)) {
-            if ((bool) config('atlas.code_graph.auto_context', false)) {
-                foreach ($this->codeGraphContextLines($intent, $allowedFiles) as $line) {
-                    $lines[] = $line;
-                }
-            }
-            if ((bool) config('atlas.loop.inject_dependency_bodies', false)) {
-                foreach ($this->dependencyBodyLines($intent, $allowedFiles) as $line) {
-                    $lines[] = $line;
-                }
-            }
+            $this->appendBrainContext($lines, $intent, $allowedFiles);
         }
 
         $text = implode("\n", $lines);
@@ -391,6 +365,31 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
         }
 
         return $emitted ? $lines : [];
+    }
+
+    /**
+     * ACDE B1 — the ONE brain-context composer for the loop prompt. Appends, in order, each ARMED brain
+     * source: code-graph signatures (auto_context) then dependency bodies (inject_dependency_bodies). Shared
+     * by buildPrompt + buildFixPrompt so the grounding can never drift between the first attempt and the
+     * iterate-to-green retry, and the single seam the future B3 (provider-safe memory recall) + B4 (blast-
+     * radius / consumer set) extensions hook. Every source is per-source flag-gated OFF by default => appends
+     * nothing => byte-identical. Each source is independently fail-safe (returns no lines on any error).
+     *
+     * @param  list<string>  $lines  the prompt lines, appended in place
+     * @param  list<string>  $allowedFiles
+     */
+    private function appendBrainContext(array &$lines, string $intent, array $allowedFiles): void
+    {
+        if ((bool) config('atlas.code_graph.auto_context', false)) {
+            foreach ($this->codeGraphContextLines($intent, $allowedFiles) as $line) {
+                $lines[] = $line;
+            }
+        }
+        if ((bool) config('atlas.loop.inject_dependency_bodies', false)) {
+            foreach ($this->dependencyBodyLines($intent, $allowedFiles) as $line) {
+                $lines[] = $line;
+            }
+        }
     }
 
     /**
