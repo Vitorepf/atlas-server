@@ -248,6 +248,19 @@ final class AtlasLoopAutoMergeService
                 return array_merge($base, ['reason' => 'forbidden_self_target (parked_for_operator_review)']);
             }
 
+            // ACDE S1 — SELF-EDIT REVIEW GATE (a porta de segurança que destrava o S1): uma proposta marcada
+            // is_self_improvement (o loop editando o PRÓPRIO harness, mesmo um alvo NÃO-proibido) JAMAIS
+            // auto-mergeia — parqueia para revisão do operador, igual ao forbidden-self-target. Fecha o
+            // vazamento que o passe adversarial achou: self-edits certificados auto-mergeavam sem revisão
+            // porque is_self_improvement não era lido por NENHUM gate de merge/segurança. Invariante sempre-ON;
+            // como nenhuma proposta carrega o marcador hoje (fromManifest o remove), é byte-identical (os 18
+            // testes do auto-merge ficam verdes) até o S1 ligar a produção do marcador.
+            if ($this->isSelfImprovementProposal($proposal) && ! $operatorApproved) {
+                $this->markOperatorReview($proposal, 'parked_for_operator_review', 'self_improvement', 'auto_merge');
+
+                return array_merge($base, ['reason' => 'self_improvement (parked_for_operator_review)']);
+            }
+
             // 1. Re-prova real contra o contrato congelado persistido. A re-prova é FLAKY sob
             // contenção (o drain roda junto do grind do supervisor + outros comandos; o test
             // runner no clone pode dar timeout sob carga e voltar reproof_failed mesmo p/ uma
@@ -734,6 +747,19 @@ final class AtlasLoopAutoMergeService
         }
 
         return [];
+    }
+
+    /**
+     * ACDE S1 — is this a SELF-IMPROVEMENT proposal (the loop editing its own harness)? Read the marker
+     * defensively from the persisted quality envelope (the LossObserver / objective-builder write it). No
+     * proposal carries it today (fromManifest strips it), so this returns false everywhere until S1 wires the
+     * marker through — keeping the self-edit park gate byte-identical until then.
+     */
+    private function isSelfImprovementProposal(AtlasLoopProposal $proposal): bool
+    {
+        $quality = is_array($proposal->quality) ? $proposal->quality : [];
+
+        return ($quality['_is_self_improvement'] ?? $quality['is_self_improvement'] ?? false) === true;
     }
 
     private function accrueCompounding(AtlasLoopProposal $proposal, ?string $commit, array $canary): void
