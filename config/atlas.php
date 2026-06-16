@@ -2171,6 +2171,17 @@ return [
         // as-built AST cert above); arm both for the full design-judgement moat.
         'node_interface_plan_gate_enabled' => (bool) env('ATLAS_LOOP_NODE_INTERFACE_PLAN_GATE_ENABLED', false),
 
+        // ACDE Leap 7 (spec/index-completeness ceiling) — CHANGED-PUBLIC-SYMBOL COVERAGE CENSUS. Closes the
+        // fail-open hole where a changed PUBLIC symbol with no frozen command + no wired consumer emits ZERO
+        // criteria and certifies silently. With the flag ON, the assembled obra net diff is replayed and every
+        // public method DECLARED in the diff's added lines must be NAMED (whole-word) in the coverage corpus —
+        // the source of the test files the obra's frozen acceptance commands run; an uncovered new public
+        // symbol refuses the obra (refuse-until-named, anchored on AST + the literal test corpus). OFF =>
+        // byte-identical. HONEST: name-reference is necessary not sufficient (a thin test naming the symbol
+        // passes — true sufficiency needs a mutation/coverage anchor); container-string/reflection sites are
+        // RECORDED as an audit signal, never gated.
+        'changed_symbol_census_enabled' => (bool) env('ATLAS_LOOP_CHANGED_SYMBOL_CENSUS_ENABLED', false),
+
         // L4-1: cooldown por target recente. Tasks/proposals recentes do mesmo path caem no
         // ranking para evitar farming do arquivo que acabou de render proposta.
         'target_cooldown_enabled' => (bool) env('ATLAS_LOOP_TARGET_COOLDOWN_ENABLED', true),

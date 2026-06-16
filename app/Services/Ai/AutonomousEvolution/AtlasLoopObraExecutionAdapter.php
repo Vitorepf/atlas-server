@@ -203,6 +203,20 @@ class AtlasLoopObraExecutionAdapter
                 }
             }
 
+            // ACDE Leap 7 (spec/completeness ceiling) — CHANGED-PUBLIC-SYMBOL COVERAGE CENSUS. A changed public
+            // symbol with no covering test certifies fail-open today; with the flag ON, replay the obra net diff
+            // and refuse it if any public method declared in the diff's added lines is NOT named by the frozen
+            // acceptance's test corpus (refuse-until-named). OFF => byte-identical. Fail-OPEN on replay infra.
+            if ((bool) config('atlas.loop.changed_symbol_census_enabled', false)) {
+                $census = $this->censusObraSymbols($repoRoot, $envelope, $acc);
+                if (($census['ok'] ?? false) !== true) {
+                    $this->recordShapeOutcome($plan, $payload, false, 'changed_symbol_uncovered:'.(string) ($census['reason'] ?? '?'));
+                    $executor->discardObra($repoRoot, $planId);
+
+                    return $this->fail('changed_symbol_uncovered:'.(string) ($census['reason'] ?? '?'), $envelope);
+                }
+            }
+
             // L4-10 — emit the signed evidence from the executor receipt, then validate provenance.
             // A FIXTURE run is sealed fixture_obra_run → rejected here (it proved the machinery, not real work).
             $evidencePath = $this->writeEvidence($envelope);
@@ -448,6 +462,60 @@ class AtlasLoopObraExecutionAdapter
             }
 
             return ['ok' => true, 'reason' => null, 'violations' => []];
+        } finally {
+            $this->git($repoRoot, ['worktree', 'remove', '--force', $ws]);
+        }
+    }
+
+    /**
+     * ACDE Leap 7 — run the changed-public-symbol coverage census on the assembled obra net diff. Replays the
+     * net diff into a base_head worktree (actual delivered files + the obra's test files), then refuses the
+     * obra if any public method declared in the diff's added lines is NOT named by the frozen acceptance's
+     * test corpus. No acceptance commands / empty diff => ok (degrade, no false-reject). Fail-OPEN on replay
+     * infra; the only refusal is a real uncovered new public symbol (refuse-until-named).
+     *
+     * @param  array<string,mixed>  $acceptance
+     * @return array{ok:bool, reason:?string, census:array<string,mixed>|null}
+     */
+    protected function censusObraSymbols(string $repoRoot, array $envelope, array $acceptance): array
+    {
+        $commands = array_values(array_filter(
+            (array) ($acceptance['commands'] ?? []),
+            static fn ($c): bool => is_string($c) && trim($c) !== '',
+        ));
+        if ($commands === []) {
+            return ['ok' => true, 'reason' => 'no_acceptance_commands', 'census' => null];
+        }
+
+        $branch = (string) ($envelope['branch'] ?? '');
+        $baseHead = (string) (($envelope['executor_receipt']['base_head'] ?? '') ?: '');
+        if ($branch === '' || $baseHead === '') {
+            return ['ok' => true, 'reason' => 'no_branch_or_base_head', 'census' => null];
+        }
+
+        $diff = $this->gitOutput($repoRoot, ['diff', $baseHead.'..'.$branch]);
+        if ($diff === null || trim($diff) === '') {
+            return ['ok' => true, 'reason' => 'empty_obra_diff', 'census' => null];
+        }
+
+        $ws = sys_get_temp_dir().'/atlas-obra-census-'.bin2hex(random_bytes(5));
+        if (! $this->git($repoRoot, ['worktree', 'add', '--detach', $ws, $baseHead])) {
+            return ['ok' => true, 'reason' => 'replay_worktree_add_failed', 'census' => null];
+        }
+        try {
+            $apply = new Process(['git', 'apply', '--whitespace=nowarn', '-'], $ws, null, null, 60.0);
+            $apply->setInput($diff);
+            $apply->run();
+            if (! $apply->isSuccessful()) {
+                return ['ok' => true, 'reason' => 'replay_apply_failed', 'census' => null];
+            }
+
+            $census = (new AtlasLoopChangedSymbolCoverageCensus)->evaluate($ws, $commands);
+            if (($census['passed'] ?? false) !== true) {
+                return ['ok' => false, 'reason' => implode(',', array_slice((array) ($census['uncovered'] ?? []), 0, 4)), 'census' => $census];
+            }
+
+            return ['ok' => true, 'reason' => null, 'census' => $census];
         } finally {
             $this->git($repoRoot, ['worktree', 'remove', '--force', $ws]);
         }
