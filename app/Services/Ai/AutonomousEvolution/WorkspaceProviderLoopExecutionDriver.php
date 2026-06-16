@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBlastRadiusReader;
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
 use App\Services\Engineering\CodeGraph\CodeGraphContextRetriever;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
@@ -401,6 +402,23 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
                 $lines[] = '';
                 $lines[] = 'Recently certified changes in this module (match their conventions):';
                 foreach ($recent as $path) {
+                    $lines[] = '- '.$path;
+                }
+            }
+        }
+
+        // ACDE B4a — BLAST RADIUS: who depends on the file being edited (reverse-dependency walk over the
+        // code graph), so the weak engine edits a hub knowingly instead of blind. De-orphans
+        // AtlasLoopBlastRadiusAnalyzer via the live world-model edges. Paths + risk band only (provider-safe).
+        // Flag-gated + self-gated in the reader => OFF / no index => no lines => byte-identical.
+        if ((bool) config('atlas.loop.blast_radius_brain_enabled', false) && $allowedFiles !== []) {
+            $blast = (new AtlasLoopBlastRadiusReader)->read((string) $allowedFiles[0]);
+            if ($blast !== [] && ($blast['consumers'] ?? []) !== []) {
+                $lines[] = '';
+                $lines[] = 'Blast radius — '.$blast['consumer_count'].' consumer(s), risk: '.$blast['risk']
+                    .'. These depend on this file; do not break their contracts'
+                    .($blast['truncated'] ? ' (impact set truncated — treat as a hub)' : '').':';
+                foreach ($blast['consumers'] as $path) {
                     $lines[] = '- '.$path;
                 }
             }

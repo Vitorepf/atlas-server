@@ -1872,6 +1872,12 @@ return [
         // the merge itself (reads atlas_loop_proposals — no new table, no merge-path write). A SELF signal,
         // never engine-vs-engine. Default OFF => no lines => byte-identical.
         'brain_delivery_recall_enabled' => (bool) env('ATLAS_LOOP_BRAIN_DELIVERY_RECALL_ENABLED', false),
+        // ACDE B4a — inject the BLAST RADIUS of the edited file (who depends on it, via the code-graph reverse-
+        // dependency walk) so the weak engine edits a hub knowingly. De-orphans AtlasLoopBlastRadiusAnalyzer
+        // over the live world-model edges; surfaces consumer PATHS + a risk band only (provider-safe, no raw
+        // code). Reads an index that already exists (no new table, no write). Default OFF => no lines =>
+        // byte-identical. Arm only when the workspace code-graph index is fresh (else no path match => empty).
+        'blast_radius_brain_enabled' => (bool) env('ATLAS_LOOP_BLAST_RADIUS_BRAIN_ENABLED', false),
         // ACDE B2 — AGGREGATE cap (total chars across ALL in-scope files) for the CURRENT FILE CONTENTS dump
         // in the loop prompt. Each file is capped individually, but with no total cap a many-file obra swamps
         // the weak engine's small window before the ranked brain context lands. 0 (default) => unlimited =>
