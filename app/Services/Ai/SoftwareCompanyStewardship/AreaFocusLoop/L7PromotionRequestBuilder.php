@@ -221,16 +221,10 @@ final class L7PromotionRequestBuilder
     {
         $value = $evidence['broken_invariant_count'] ?? 0;
 
-        if (is_float($value) && is_finite($value) && $value !== floor($value)) {
-            return $value > 0.0 ? 1 : -1;
-        }
+        $float = is_float($value) ? $value : (is_string($value) && is_numeric($value) ? (float) $value : null);
 
-        if (is_string($value) && is_numeric($value)) {
-            $float = (float) $value;
-
-            if (is_finite($float) && $float !== floor($float)) {
-                return $float > 0.0 ? 1 : -1;
-            }
+        if ($float !== null && is_finite($float) && $float !== floor($float)) {
+            return $float > 0.0 ? 1 : -1;
         }
 
         return $this->intValue($evidence, 'broken_invariant_count');
