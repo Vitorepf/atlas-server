@@ -2318,6 +2318,12 @@ return [
         // feature incrementally. Default OFF => key absent => byte-identical.
         'feature_sequence_enabled' => (bool) env('ATLAS_LOOP_FEATURE_SEQUENCE_ENABLED', false),
         'feature_sequence_max_step_atoms' => max(1, (int) env('ATLAS_LOOP_FEATURE_SEQUENCE_MAX_STEP_ATOMS', 2)),
+        // ACDE B4b — on a certified+merged delivery, record the PROVEN provider-safe contract (changed public
+        // symbol NAMES + consumer-set via blast-radius + machine-resolved D2 dimensions + deterministic
+        // confidence) into atlas_loop_delivery_contracts — the brain-feedback write-end the B3 read-back uses.
+        // Best-effort post-commit, wrapped + self-gated: the merge NEVER depends on it. Default OFF => the
+        // recorder is a no-op => the merge path is byte-identical (AtlasLoopAutoMergeServiceTest stays green).
+        'delivery_brain_feedback_enabled' => (bool) env('ATLAS_LOOP_DELIVERY_BRAIN_FEEDBACK_ENABLED', false),
         // ACDE R2-read (the MULTIPLIER) — when ON, the framework synthesizer reads the decomposition corpus
         // (R2's in-lane writes) for THIS shape's fingerprint and, if it has historically THRASHED (>=
         // min_samples outcomes, certified-rate < target_rate), backs the chain off to a single worst-method

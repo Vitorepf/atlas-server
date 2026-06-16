@@ -554,6 +554,26 @@ final class AtlasLoopAutoMergeService
             // com claim SUBSTANTIVO (arquivo, commit, veredito do canário), nunca boilerplate.
             $this->accrueCompounding($proposal, $commit, $canary);
 
+            // ACDE B4b: o merge REAL também grava o CONTRATO DE ENTREGA provado (símbolos públicos alterados +
+            // conjunto de consumidores via blast-radius + dimensões D2 resolvidas por máquina) como candidato
+            // provider-safe de brain-feedback — o write-end do flywheel que o B3 lê. Mesma banda best-effort
+            // pós-commit do trust-ladder: o merge já aconteceu e NUNCA depende disto. Flag default-OFF +
+            // self-gated => no-op => byte-identical; embrulhado p/ um throw do recorder nunca desfazer o commit.
+            if ((bool) config('atlas.loop.delivery_brain_feedback_enabled', false)) {
+                try {
+                    $deliveryQuality = is_array($proposal->quality) ? $proposal->quality : [];
+                    (new AtlasLoopDeliveryContractRecorder)->record([
+                        'target_path' => (string) $proposal->target_path,
+                        'changed_symbols' => $this->deliveredSymbols($deliveryQuality),
+                        'canary' => ($canary['ran'] ?? false) ? (($canary['passed'] ?? false) ? 'green' : 'red') : 'not_run',
+                        'quality' => $deliveryQuality,
+                        'commit_sha' => $commit,
+                    ]);
+                } catch (Throwable) {
+                    // best-effort brain feedback — um recorder que falha nunca desfaz o commit durável.
+                }
+            }
+
             // L6-14: o merge REAL também alimenta o trust-ladder por-classe — é o feed de
             // HISTÓRICO REAL que faltava para uma classe poder auto-ganhar confiança (ou
             // perdê-la num canário vermelho). Gated (default OFF), evidence-only (chave = o
@@ -688,6 +708,34 @@ final class AtlasLoopAutoMergeService
      * gated; nunca afeta o merge (que já aconteceu). Reusa a mesma porta que o conductor
      * de engenharia usa — não fabrica sinal, alimenta um outcome concreto.
      */
+    /**
+     * ACDE B4b — the changed public-symbol NAMES the certifier's symbol census persisted into the proposal's
+     * quality envelope (lever #3), read defensively from any of the known key shapes. Names only — never a
+     * body, never code. Empty when no census ran (B4b then records the contract without the symbol bonus).
+     *
+     * @param  array<string,mixed>  $quality
+     * @return list<string>
+     */
+    private function deliveredSymbols(array $quality): array
+    {
+        $candidates = [
+            $quality['_changed_symbols'] ?? null,
+            $quality['changed_symbols'] ?? null,
+            data_get($quality, 'symbol_census.changed_symbols'),
+            data_get($quality, '_symbol_census.changed_symbols'),
+        ];
+        foreach ($candidates as $list) {
+            if (is_array($list) && $list !== []) {
+                return array_values(array_unique(array_filter(array_map(
+                    static fn ($s): string => is_scalar($s) ? trim((string) $s) : '',
+                    $list,
+                ), static fn (string $s): bool => $s !== '')));
+            }
+        }
+
+        return [];
+    }
+
     private function accrueCompounding(AtlasLoopProposal $proposal, ?string $commit, array $canary): void
     {
         if (! (bool) config('atlas.ai.loop.compounding_accrual', true)) {
