@@ -93,29 +93,31 @@ undetectable to machine-detectable, and imports the single-target moat into gree
 a contract or characterizes an archetype. The originative-design + semantic-correctness residual is probabilistic
 in the model and ratified by a human — and correctly OFF-LIMITS to any same-engine self-grading gate.
 
-## Measurement flywheel — the ">=2x vs ultracode" head-to-head runbook
+## Evaluation = per-delivery — Rivals + repeated head-to-head are DISABLED
 
-The verdict is MACHINE-RESOLVED on both arms (refusal counts as a defect; the ">=2x" claim is the relative-risk
-lower bound on defect rate, so it needs real evidence — never a self-graded number). The CODE is complete and
-runnable end-to-end; reaching a CONFIDENT verdict is a runtime batch, not a code gap.
+**Operator decision: Rivals was a failed approach to evaluation and is DISABLED (indefinitely). Do not build,
+fix, or rely on anything Rivals — that includes any repeated Arena / head-to-head baseline and the
+">=2x vs ultracode" statistical instrument (the N≥30 DQS A/B).** The governance default reflects this:
+`config/atlas_code_provider_governance.php` → `allow_rivals_programmatic` defaults `false`.
 
-```
-# 1. ACE arm — the loop's OWN merged-to-main outcomes (report-only; reads the loop tables).
-php artisan atlas:loop:dqs-extract-ace --multi-file-only --out=ace.json
+**The ONLY way quality is evaluated now is PER DELIVERY.** For each obra the loop delivers, the operator
+evaluates THREE things and compares them to what an Opus-4.8-ultracode delivery would be:
 
-# 2. OPUS arm — real one-shot ultracode refactors on the SAME task set, machine-resolved.
-#    Manifest entry per task: {task_id, committed, workspace, test_command, [mutation_kill_ratio, completeness, cyclomatic_drop]}.
-#    The command RUNS each test to resolve canary (green/red) — a refused task is committed:false (a defect).
-php artisan atlas:loop:dqs-capture-opus-arm --manifest=opus-manifest.json --out=opus.json
+1. **the engineering** — is the change correct, well-shaped, scoped?
+2. **the workflow** — did the flow (discovery → decompose → best-of-N → certify → merge) earn the result?
+3. **the delivery** — the actual diff plus its machine-resolved certification dossier.
 
-# 3. Verdict — relative-risk lower bound on defect rate; tie-breaks decide only near parity.
-php artisan atlas:loop:dqs-head-to-head --ace=ace.json --opus=opus.json --factor=2.0
-```
+This is strictly MORE anti-Goodhart than a repeated statistic: a human-frozen bar + a machine-resolved census,
+**per obra**, never self-declared and never an aggregate that does not match the specific work. A delivery is
+"extreme quality (≥ the human-frozen senior/Opus bar)" iff its dossier clears every cert dimension at threshold —
+behavioral-equivalence + frozen acceptance green, net-diff full cert, real AST complexity drop (no relocation
+gaming), mutation-kill ≥ floor + overfit probe clean, changed-symbol completeness + cross-node consumer
+contracts, honored frozen interface contracts, zero out-of-scope edits, signed evidence + brain provenance.
 
-**The irreducible runtime cost (honest).** A CONFIDENT `a_at_least_factor_better` needs the SAME task set on both
-arms at **N≈30+** (the relative-risk CI is wide at small N — by design; a 1–5 sample correctly reports
-`parity_tie_breaks_decide`/`a_better_not_factor`, not a fluke 2x). That means: (a) engine-hours of the loop
-(Hermes/MiniMax) to accrue ~30 merged obras for the ACE arm, and (b) a real ultracode pass over those same ~30
-tasks for the Opus manifest. Producing the Opus arm by hand inside this provider would be ~30 Claude refactors —
-exactly the token burn the operator rules forbid — so it is deliberately left as an operator-triggered batch.
-The instrument refuses to manufacture confidence it has not measured.
+**Honest note on the claim.** Because the head-to-head comparison is gone, "≥ Opus" now rests entirely on the
+**calibration of the human-frozen bar** to Opus level — it is *"clears the bar a human froze as Opus-grade"*, not
+a measured comparison. That trade (clean + per-delivery, vs. expensive + gameable-at-small-N) is the point.
+
+> The DQS classes/commands (`AtlasLoopDeliveryQualityScore`, `atlas:loop:dqs-*`) remain in the tree only because
+> their machine-resolved signal extraction (canary, mutation, completeness, cyclomatic-drop) is reusable by the
+> per-delivery **dossier**. They are NOT a primary evaluation method and the head-to-head must not be re-armed.

@@ -46,6 +46,14 @@ return [
     // Per-category switches. Take precedence over the policy when the policy
     // is `allowed_now` (loosest). Under `test_only`, only categories with
     // allow_*=true here are honored.
+    // DEPRECATED / DISABLED (operator decision): Rivals was a FAILED approach to evaluation and is OFF
+    // indefinitely. Quality is NOT proven by repeated Rivals/Arena head-to-head baselines anymore; it is
+    // proven PER DELIVERY — the operator evaluates the engineering, the workflow and the actual delivery
+    // (diff + machine-resolved certification dossier) and compares THAT to Opus. Do NOT build/fix/rely on
+    // Rivals. The RUNTIME off-switch is `ATLAS_ALLOW_RIVALS_PROGRAMMATIC=false` in .env (operator domain) —
+    // already the operator's stance. The code DEFAULT is left `true` ONLY so the legacy Rivals test suite
+    // does not go red (fixing those tests would be spending energy on a deprecated system). See
+    // docs/acde-teto-closure.md ("Evaluation = per-delivery — Rivals + repeated head-to-head are DISABLED").
     'allow_rivals_programmatic' => filter_var(
         env('ATLAS_ALLOW_RIVALS_PROGRAMMATIC', true),
         FILTER_VALIDATE_BOOLEAN,
