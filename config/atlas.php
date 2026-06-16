@@ -1792,6 +1792,11 @@ return [
         // (assinatura da regressão acp diff-0); carimbo zero_diff_retry auditável.
         'zero_diff_retry' => (bool) env('ATLAS_LOOP_ZERO_DIFF_RETRY', true),
 
+        // ACDE Tier-0 #4: probe determinístico de overfit no cert pipeline — recusa `return <literal>`
+        // curto-circuitado por func_num_args() ou igualdade-no-input (o gaming do modelo fraco). Alta
+        // precisão (só as formas inequívocas), gateia TODA cert. Default ON: pegar isso É o moat.
+        'overfit_probe_enabled' => (bool) env('ATLAS_LOOP_OVERFIT_PROBE_ENABLED', true),
+
         // ACDE engine-independence: um provider de TEXTO/HTTP (MiniMax M3) não edita arquivos
         // — devolve a mudança como unified diff no corpo da resposta. Com este flag ON, o
         // WorkspaceProviderLoopExecutionDriver parseia e APLICA esse diff no workspace via o

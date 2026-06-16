@@ -1070,6 +1070,36 @@ PHP);
         return $dir;
     }
 
+    public function test_overfit_probe_detects_arg_count_short_circuit(): void
+    {
+        // The exact observed weak-model gaming on a thin acceptance.
+        $added = ['src/Calc.php' => "    public function add(int \$a, int \$b = 0): int\n    {\n        if (func_num_args() === 1) {\n            return 5;\n        }\n        return \$a + \$b;\n    }"];
+        $reason = app(AtlasLoopMutationAdequacyGateService::class)->detectOverfitShortCircuit($added);
+        $this->assertSame('overfit_constant_return:arg_count_short_circuit', $reason);
+    }
+
+    public function test_overfit_probe_detects_hardcoded_input_special_case(): void
+    {
+        $added = ['src/Calc.php' => "        if (\$a === 2) return 5;\n        return \$a + \$b;"];
+        $this->assertSame(
+            'overfit_constant_return:literal_input_special_case',
+            app(AtlasLoopMutationAdequacyGateService::class)->detectOverfitShortCircuit($added),
+        );
+    }
+
+    public function test_overfit_probe_does_not_false_reject_honest_general_code(): void
+    {
+        $gate = app(AtlasLoopMutationAdequacyGateService::class);
+        // a clean general implementation
+        $this->assertNull($gate->detectOverfitShortCircuit(['src/Calc.php' => '        return $a + $b;']));
+        // legitimate func_get_args() usage that returns a real expression, not a bare literal
+        $this->assertNull($gate->detectOverfitShortCircuit(['src/X.php' => "        \$args = func_get_args();\n        return array_sum(\$args);"]));
+        // a literal-compared guard that returns a VARIABLE (not a hardcoded answer) is fine
+        $this->assertNull($gate->detectOverfitShortCircuit(['src/X.php' => "        if (\$mode === 1) return \$cached;\n        return compute(\$mode);"]));
+        // empty diff
+        $this->assertNull($gate->detectOverfitShortCircuit([]));
+    }
+
     /**
      * @param  list<string>  $argv
      */

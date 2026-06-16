@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Services\Ai\Support\AiStringListNormalizer;
-use RuntimeException;
 use Symfony\Component\Process\Process;
 
 /**
@@ -307,6 +306,45 @@ final class AtlasLoopMutationAdequacyGateService
             'runner_commands' => $commands,
             'runner_results' => $results,
         ];
+    }
+
+    /**
+     * ACDE Tier-0 #4 — DETERMINISTIC OVERFIT PROBE. A weak engine told "make this test pass" games it
+     * with a literal short-circuit instead of the general logic — the observed
+     * `if (func_num_args() === 1) return 5;` and the `if ($x === 2) return 5;` test-value special-case.
+     * Mutation sampling can miss the gamed line; this catches the pattern STATICALLY off the diff's
+     * ADDED lines (the only thing the candidate authored), with zero model dependency. Deliberately
+     * HIGH-PRECISION (only the unambiguous hardcode shapes, returning a BARE literal) so it never
+     * false-rejects honest code. Returns a refusal reason, or null when no overfit pattern is present.
+     *
+     * @param  array<string,string>|list<string>  $addedLinesByFile  diff-added lines (the certifier's addedLines() map, or a flat list)
+     */
+    public function detectOverfitShortCircuit(array $addedLinesByFile): ?string
+    {
+        $blob = implode("\n", array_map(static fn (mixed $v): string => is_string($v) ? $v : '', $addedLinesByFile));
+        if (trim($blob) === '') {
+            return null;
+        }
+
+        // A bare-literal return: `return <int|float|'str'|"str"|true|false|null>;` — NOT an expression,
+        // variable, property, or call (those are legitimate). This is the "hardcoded answer" half.
+        $literal = '(?:-?\d+(?:\.\d+)?|\'[^\']*\'|"[^"]*"|true|false|null)';
+        $hasLiteralReturn = preg_match('/\breturn\s+'.$literal.'\s*;/i', $blob) === 1;
+
+        // Pattern A — argument-count short-circuit (the exact observed gaming): func_num_args()/func_get_args()
+        // appears in NEW code AND a bare-literal return is present.
+        if ($hasLiteralReturn && preg_match('/\bfunc_(?:num|get)_args\s*\(\s*\)/', $blob) === 1) {
+            return 'overfit_constant_return:arg_count_short_circuit';
+        }
+
+        // Pattern B — single-line input special-case: `if (<expr> ==|=== <literal>) [{] return <literal>;`
+        // i.e. hardcode the test's input value, then hardcode its expected answer. Single-line form only
+        // (a strong, low-false-positive gaming signal; multi-line if-blocks are intentionally not flagged).
+        if (preg_match('/\bif\s*\([^)]*(?:===|==)\s*'.$literal.'[^)]*\)\s*\{?\s*return\s+'.$literal.'\s*;/i', $blob) === 1) {
+            return 'overfit_constant_return:literal_input_special_case';
+        }
+
+        return null;
     }
 
     /**

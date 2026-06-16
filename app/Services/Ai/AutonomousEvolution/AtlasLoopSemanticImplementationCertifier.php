@@ -135,6 +135,36 @@ final class AtlasLoopSemanticImplementationCertifier
         }
 
         $reasons = $this->reasons($deterministicGate, $panelVerdict, $mutationAdequacy, $crossFileConsumers, $providerRefuters);
+
+        // BEHAVIORAL-EQUIVALENCE FLOOR (ACDE Tier-0 #3: universalized onto the vanilla lane). Hoisted OUT
+        // of the refactor-only branch below so it gates EVERY cert — feature/bugfix included, which is the
+        // lane where the proven weak-model gaming lives ("the sibling is green" is necessary but WEAK when a
+        // thin suite passes while the gamed branch stays untested). Require the frozen suite to be strong
+        // enough to have KILLED a behaviour change: a minimum mutation KILL RATIO over the sampled mutants.
+        // Keyed off mutation_kill_ratio_floor (per-task wins over config; default 0.0 => OFF => byte-identical
+        // until armed). Fail-open when no mutants were sampled, so a genuinely trivial diff is never false-rejected.
+        $behavioralEquivalence = (new AtlasLoopBehavioralEquivalenceGate)->evaluate(
+            (int) ($mutationAdequacy['mutants_sampled'] ?? 0),
+            (int) ($mutationAdequacy['mutants_killed'] ?? 0),
+            (float) ($targetAcceptance['mutation_kill_ratio_floor'] ?? config('atlas.loop.mutation_kill_ratio_floor', 0.0)),
+        );
+        if (! $behavioralEquivalence['passes'] && $behavioralEquivalence['reason'] !== null) {
+            $reasons[] = $behavioralEquivalence['reason'];
+        }
+
+        // OVERFIT PROBE (ACDE Tier-0 #4): deterministic, zero-model catch of the weak-engine gaming —
+        // a literal short-circuit keyed on argument count (`if (func_num_args()===1) return 5;`) or a
+        // hardcoded test-input special-case (`if ($x===2) return 5;`). Scans ONLY the diff's added lines
+        // and is high-precision (bare-literal shapes only) so it never false-rejects honest code. Gates
+        // EVERY cert (feature lane included). Flag-gated, default ON — catching this gaming IS the moat.
+        $overfitReason = null;
+        if ((bool) config('atlas.loop.overfit_probe_enabled', true)) {
+            $overfitReason = $this->mutationAdequacyGate->detectOverfitShortCircuit($changedAddedLines);
+            if ($overfitReason !== null) {
+                $reasons[] = $overfitReason;
+            }
+        }
+
         if ($this->complexityProofRequired($targetAcceptance)) {
             if ($scopeViolation !== []) {
                 $reasons[] = 'complexity_gate:changed_files_outside_allowed:'.implode(',', array_slice($scopeViolation, 0, 5));
@@ -154,19 +184,6 @@ final class AtlasLoopSemanticImplementationCertifier
             // false-reject); unparseable/non-phpunit anchors are not gated (fail-open, no false-reject).
             if (! $this->behaviorAnchorAsserted($deterministicGate)) {
                 $reasons[] = 'complexity_gate:behavior_anchor_no_assertions';
-            }
-            // BEHAVIORAL-EQUIVALENCE STRENGTH (Lever 3): "the sibling test is green" is necessary but
-            // WEAK for an extremely complex refactor — a thin suite passes while untested branches break.
-            // Require the frozen suite to be strong enough to have CAUGHT a behaviour change: a minimum
-            // mutation KILL RATIO over the sampled mutants. Per-task floor (complex/self-improvement) wins
-            // over the global; default 0.0 => OFF (byte-identical). Fail-open when no mutants were sampled.
-            $behavioralEquivalence = (new AtlasLoopBehavioralEquivalenceGate)->evaluate(
-                (int) ($mutationAdequacy['mutants_sampled'] ?? 0),
-                (int) ($mutationAdequacy['mutants_killed'] ?? 0),
-                (float) ($targetAcceptance['mutation_kill_ratio_floor'] ?? config('atlas.loop.mutation_kill_ratio_floor', 0.0)),
-            );
-            if (! $behavioralEquivalence['passes'] && $behavioralEquivalence['reason'] !== null) {
-                $reasons[] = $behavioralEquivalence['reason'];
             }
         }
 
@@ -298,6 +315,7 @@ final class AtlasLoopSemanticImplementationCertifier
             'deterministic_gate' => $deterministicGate,
             'adversarial_panel' => $panelVerdict,
             'mutation_adequacy_gate' => $mutationAdequacy,
+            'behavioral_equivalence' => $behavioralEquivalence,
             'cross_file_consumer_gate' => $crossFileConsumers,
             'provider_refuters' => $providerRefuters,
             'complexity_proof' => $complexityProof,
