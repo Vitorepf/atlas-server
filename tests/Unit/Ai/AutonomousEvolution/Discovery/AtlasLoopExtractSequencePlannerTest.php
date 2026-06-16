@@ -22,7 +22,25 @@ final class AtlasLoopExtractSequencePlannerTest extends TestCase
     public function test_next_step_targets_the_current_worst_method_above_threshold(): void
     {
         $census = ['a' => 4, 'big' => 19, 'mid' => 12, 'small' => 2];
-        $this->assertSame(['target_method' => 'big', 'cyclomatic' => 19], $this->planner()->nextStep($census, 10));
+        $this->assertSame(['target_method' => 'big', 'target_method_bare' => 'big', 'cyclomatic' => 19], $this->planner()->nextStep($census, 10));
+    }
+
+    public function test_bare_method_name_strips_the_qualified_identity(): void
+    {
+        // R1 identity shim: the census keys FQ (Class::method / \function); the objective builder wants bare.
+        $this->assertSame('classify', AtlasLoopExtractSequencePlanner::bareMethodName('App\\Services\\Calc::classify'));
+        $this->assertSame('handle', AtlasLoopExtractSequencePlanner::bareMethodName('\\handle'));
+        $this->assertSame('classify', AtlasLoopExtractSequencePlanner::bareMethodName('classify'));
+    }
+
+    public function test_next_step_exposes_the_bare_name_for_the_objective_builder(): void
+    {
+        // A real FQ census key (as fileComplexity emits): nextStep returns the FQ identity AND the bare name
+        // the framework-refactor objective text consumes — so the armed chain pins the same method today's
+        // worst_method (bare) would.
+        $step = $this->planner()->nextStep(['App\\Calc::small' => 3, 'App\\Calc::big' => 17], 10);
+        $this->assertSame('App\\Calc::big', $step['target_method']);
+        $this->assertSame('big', $step['target_method_bare']);
     }
 
     public function test_next_step_is_null_when_every_method_is_tractable(): void

@@ -49,7 +49,29 @@ final class AtlasLoopExtractSequencePlanner
             }
         }
 
-        return $worst === null ? null : ['target_method' => $worst, 'cyclomatic' => $worstScore];
+        return $worst === null
+            ? null
+            : ['target_method' => $worst, 'target_method_bare' => self::bareMethodName($worst), 'cyclomatic' => $worstScore];
+    }
+
+    /**
+     * ACDE R1 identity shim — the per-method census ({@see AtlasLoopSignalAnalyzer::fileComplexity}) keys
+     * methods by QUALIFIED identity (`Class::method`, or `\function`) so a relocated method is a distinct
+     * identity, but the framework-refactor objective text ({@see AtlasLoopFrameworkRefactorSynthesizer}) and
+     * `worst_method` use the BARE method name. When R1 wires nextStep() to DRIVE the sequence, the step's
+     * pinned method must be handed to the objective builder as the bare name — else the byte-identical-OFF
+     * selection (today's worst_method) and the armed selection diverge on every method. This converts the
+     * FQ identity back to the bare name the objective builder consumes.
+     */
+    public static function bareMethodName(string $identity): string
+    {
+        $id = trim($identity);
+        $pos = strrpos($id, '::');
+        if ($pos !== false) {
+            $id = substr($id, $pos + 2);
+        }
+
+        return ltrim($id, '\\');
     }
 
     /**
