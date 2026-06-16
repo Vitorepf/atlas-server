@@ -651,6 +651,35 @@ final class AtlasLoopSemanticImplementationCertifier
     }
 
     /**
+     * ACDE Leap 1 — STRUCTURAL sibling of {@see measureScopedComplexityDrop} for the create-class /
+     * extract-class lane. Folds the planner-introduced net-new files into the measured scope and routes
+     * the verdict to the per-method QUALIFIED-IDENTITY anti-relocation census ({@see
+     * measureComplexityReduction} with structural=true -> {@see AtlasLoopSignalAnalyzer::structuralComplexityReduced}).
+     * A net-new file with no committed baseline is admitted (the default lane's new-file-lock is bypassed)
+     * ONLY because the census proves a KEPT identity got strictly simpler AND no NEW identity carries the
+     * old worst complexity — so a pure cut-paste RELOCATION of a god method is still REFUSED. Same
+     * {reduced, scope_violation, proof} shape as the default lane. Reached from the obra adapter only when
+     * atlas.loop.complexity_method_identity_gate is ON AND the obra introduced a net-new file.
+     *
+     * @param  list<string>  $changedFiles
+     * @param  list<string>  $allowedFiles
+     * @param  list<string>  $newFiles  planner-introduced net-new files (folded into the measured scope)
+     * @return array{reduced:bool, scope_violation:list<string>, proof:array<string,mixed>|null}
+     */
+    public function measureScopedStructuralDrop(string $workspace, array $changedFiles, array $allowedFiles, array $newFiles = []): array
+    {
+        $scope = array_values(array_unique(array_merge(
+            array_values($allowedFiles),
+            array_values(array_filter($newFiles, static fn ($f): bool => is_string($f) && trim($f) !== '')),
+        )));
+        [$scoped, $violations] = $this->scopedChangedFiles($changedFiles, $scope);
+        $proof = $this->measureComplexityReduction($workspace, $scoped, true);
+        $reduced = $violations === [] && is_array($proof) && ($proof['reduced'] ?? null) === true;
+
+        return ['reduced' => $reduced, 'scope_violation' => $violations, 'proof' => is_array($proof) ? $proof : null];
+    }
+
+    /**
      * Intersect the changed .php files against allowed_files: the SCOPED set to measure, plus any
      * out-of-allowed .php files (the scope violation). An empty allowed set measures everything.
      *

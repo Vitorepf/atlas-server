@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Models\AiJob;
+use App\Services\Ai\AiProvider;
+use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopIntentSpecCompiler;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObraDecompositionPlanner;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObraPlanValidator;
@@ -11,6 +14,7 @@ use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopPlanReadinessGate;
 use App\Services\Ai\Obra\AtlasObraExecutor;
 use App\Services\Ai\Obra\ObraNodeDelivery;
 use App\Services\Ai\Obra\ProviderObraNodeDelivery;
+use App\Services\Ai\RealExecution\AtlasLiveCodeDeliveryService;
 use App\Services\Ai\RealExecution\GovernedBranchMaterializationService;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -51,6 +55,9 @@ class AtlasLoopObraExecutionAdapter
         private readonly ?AtlasLoopSemanticImplementationCertifier $certifier = null,
         private readonly ?AtlasLoopIntentSpecCompiler $specCompiler = null,
         private readonly ?AtlasLoopObraDecompositionPlanner $planner = null,
+        // ACDE Leap 1 — the provider manager the planner seam runs the spec/DAG calls through. Nullable +
+        // last: Laravel does not autowire a nullable-default param, so the use-site falls back to app().
+        private readonly ?AiProviderManager $providers = null,
     ) {}
 
     /**
@@ -209,7 +216,7 @@ class AtlasLoopObraExecutionAdapter
      * @param  list<string>  $newFiles  planner-introduced new files (no committed baseline)
      * @return array{reduced:bool, reason:?string, proof:array<string,mixed>|null}
      */
-    private function certifyAggregateDrop(string $repoRoot, array $envelope, array $allowed, array $newFiles = []): array
+    protected function certifyAggregateDrop(string $repoRoot, array $envelope, array $allowed, array $newFiles = []): array
     {
         $branch = (string) ($envelope['branch'] ?? '');
         $baseHead = (string) (($envelope['executor_receipt']['base_head'] ?? '') ?: '');
@@ -234,8 +241,18 @@ class AtlasLoopObraExecutionAdapter
             if (! $apply->isSuccessful()) {
                 return ['reduced' => false, 'reason' => 'replay_apply_failed', 'proof' => null];
             }
-            $drop = ($this->certifier ?? app(AtlasLoopSemanticImplementationCertifier::class))
-                ->measureScopedComplexityDrop($ws, $changed, $allowed);
+            $certifier = $this->certifier ?? app(AtlasLoopSemanticImplementationCertifier::class);
+            // ACDE Leap 1 — STRUCTURAL lane (create-class / extract-class): when the obra introduced a
+            // net-new file AND the per-method-identity gate is ON, route to the anti-relocation per-identity
+            // census so a legitimate create-class+redirect obra is provable instead of refused by the
+            // new-file-locked default lane. Flag OFF (default) OR no net-new file => the default
+            // measureScopedComplexityDrop runs EXACTLY as before (byte-identical). The added-file set is the
+            // ground truth from the net diff (--diff-filter=A), not the planner's declaration.
+            $added = $this->gitLines($repoRoot, ['diff', '--name-only', '--diff-filter=A', $baseHead.'..'.$branch]);
+            $useStructural = $added !== [] && (bool) config('atlas.loop.complexity_method_identity_gate', false);
+            $drop = $useStructural
+                ? $certifier->measureScopedStructuralDrop($ws, $changed, $allowed, $added)
+                : $certifier->measureScopedComplexityDrop($ws, $changed, $allowed);
 
             $reduced = (bool) ($drop['reduced'] ?? false);
             $reason = $reduced
@@ -426,15 +443,12 @@ class AtlasLoopObraExecutionAdapter
     }
 
     /**
-     * PRODUCTION provider seam — spec-only hermes_cli call. FAIL-OPEN: there is no obvious clean
-     * spec-only seam on this adapter today (ProviderObraNodeDelivery is node-delivery, not spec
-     * synthesis), and wiring a bespoke hermes_cli spec call is a larger, riskier piece of work. So
-     * this returns [] => the compiler refuses-with-gaps => maybePlan returns null => buildPlan
-     * fallback => SAFE even with the flag ON (never breaks). Tests override this to inject a ready
-     * spec and exercise the full planning machinery with no provider.
-     *
-     * TODO(item8 follow-up): wire a real hermes_cli spec-only invocation through the AiProviderManager
-     * seam, parsing deterministic JSON into {summary, acceptance_criteria, suggested_files, decomposition_hint}.
+     * ACDE Leap 1 — PRODUCTION provider seam, spec-only. Asks the configured provider (hermes_cli ->
+     * MiniMax) for deterministic JSON and parses it into {summary, acceptance_criteria, suggested_files,
+     * decomposition_hint}. The actual provider call lives in {@see obraPlanningProviderRaw} (overridable in
+     * tests to feed a recorded transcript with NO live call). FAIL-OPEN: any provider error or parse
+     * failure returns [] => the compiler refuses-with-gaps => maybePlan returns null => buildPlan fallback
+     * => SAFE even with the flag ON. Only reached when atlas.loop.planning_enabled is ON.
      *
      * @param  list<string>  $priorGaps
      * @param  array<string,mixed>  $payload
@@ -443,18 +457,45 @@ class AtlasLoopObraExecutionAdapter
      */
     protected function generateSpecViaProvider(string $goal, array $priorGaps, array $payload, array $allowed): array
     {
-        return [];
+        try {
+            $json = $this->decodeJsonObject($this->obraPlanningProviderRaw('spec', $this->specPrompt($goal, $priorGaps)));
+            if ($json === null) {
+                return [];
+            }
+            $criteria = [];
+            foreach ((array) ($json['acceptance_criteria'] ?? []) as $i => $c) {
+                if (! is_array($c)) {
+                    continue;
+                }
+                $criteria[] = [
+                    'id' => trim((string) ($c['id'] ?? ('AC'.($i + 1)))),
+                    'description' => trim((string) ($c['description'] ?? '')),
+                    'required' => (bool) ($c['required'] ?? true),
+                ];
+            }
+
+            return [
+                'summary' => trim((string) ($json['summary'] ?? '')),
+                'acceptance_criteria' => $criteria,
+                'suggested_files' => array_values(array_filter(
+                    (array) ($json['suggested_files'] ?? []),
+                    static fn ($f): bool => is_string($f) && trim($f) !== '',
+                )),
+                'decomposition_hint' => trim((string) ($json['decomposition_hint'] ?? '')),
+            ];
+        } catch (Throwable) {
+            return [];
+        }
     }
 
     /**
-     * PRODUCTION provider seam — DAG-only hermes_cli call. FAIL-OPEN (same rationale as the spec seam):
-     * returns [] => the planner normalises to an empty-node plan the readiness gate rejects => maybePlan
-     * returns null => buildPlan fallback => SAFE even with the flag ON. Tests override this to inject a
-     * valid create-class-at-seq-0 DAG and exercise the planner + readiness gate with no provider.
-     *
-     * TODO(item8 follow-up): wire a real hermes_cli DAG-only invocation; emit the create-class node at
-     * seq 0 (its request MUST literally reference the new file path/basename or the readiness gate flags
-     * 'request_does_not_reference_its_target') + redirect-caller nodes at higher seq with depends_on.
+     * ACDE Leap 1 — PRODUCTION provider seam, DAG-only. Asks the provider for a node list and assembles
+     * it into the shape {@see AtlasLoopObraDecompositionPlanner}->plan() consumes. CRITICAL: the executor
+     * walks nodes by "seq" ASCENDING (NOT depends_on), so Atlas emits a create-class node for each net-new
+     * file at the LOWEST seq (its request literally references the new path so the readiness gate's
+     * request-references-target check passes), then the provider's edit/redirect nodes at higher seq with
+     * depends_on the create ids. FAIL-OPEN: any error/parse failure returns [] => buildPlan fallback. Only
+     * reached when atlas.loop.planning_enabled is ON.
      *
      * @param  array<string,mixed>  $context
      * @param  list<string>  $priorGaps
@@ -466,7 +507,172 @@ class AtlasLoopObraExecutionAdapter
      */
     protected function generatePlanViaProvider(string $goal, array $context, array $priorGaps, array $payload, array $allowed, array $newFiles, array $spec): array
     {
-        return [];
+        try {
+            $dagContext = [
+                'decomposition_hint' => trim((string) ($spec['decomposition_hint'] ?? '')),
+                'suggested_files' => $newFiles,
+            ];
+            $json = $this->decodeJsonObject($this->obraPlanningProviderRaw('dag', $this->dagPrompt($goal, $dagContext, $priorGaps)));
+            if ($json === null) {
+                return [];
+            }
+            $newFileSet = array_flip(array_map(static fn (string $f): string => ltrim($f, '/'), $newFiles));
+
+            $nodes = [];
+            $seq = 0;
+            $createIds = [];
+            // CREATE-CLASS nodes FIRST (lowest seq) — one per net-new file, so the executor's seq walk
+            // materializes the new class before any node that edits/redirects onto it.
+            foreach ($newFiles as $file) {
+                $norm = ltrim((string) $file, '/');
+                if ($norm === '') {
+                    continue;
+                }
+                $id = 'create-'.substr(hash('sha256', $norm), 0, 12);
+                $createIds[] = $id;
+                $nodes[] = [
+                    'id' => $id,
+                    'seq' => $seq++,
+                    'title' => 'create '.basename($norm),
+                    'request' => 'Create the new file '.$norm.' with the extracted, simpler helper methods for: '.$goal
+                        .' PRESERVE behaviour exactly; each new method must be strictly simpler than the original worst method.',
+                    'target_area' => $norm,
+                    'depends_on' => [],
+                    'complexity_proof' => true,
+                ];
+            }
+            // EDIT/REDIRECT nodes at higher seq — each provider-named node that touches an EXISTING file,
+            // depending on every create node so the new class exists first.
+            foreach ((array) ($json['nodes'] ?? []) as $i => $n) {
+                if (! is_array($n)) {
+                    continue;
+                }
+                $target = ltrim(trim((string) ($n['target_area'] ?? ($n['file'] ?? ''))), '/');
+                if ($target === '' || isset($newFileSet[$target])) {
+                    continue; // skip empty + already-emitted create-class targets
+                }
+                $request = trim((string) ($n['request'] ?? ''));
+                if ($request === '') {
+                    $request = 'Edit '.$target.' to redirect onto the extracted class and simplify its worst method in place for: '.$goal;
+                } elseif (! str_contains($request, basename($target)) && ! str_contains($request, $target)) {
+                    $request .= ' (edit '.$target.')';
+                }
+                $nodes[] = [
+                    'id' => trim((string) ($n['id'] ?? ('edit-'.substr(hash('sha256', $target.'|'.$i), 0, 12)))),
+                    'seq' => $seq++,
+                    'title' => 'refactor '.basename($target),
+                    'request' => $request,
+                    'target_area' => $target,
+                    'depends_on' => $createIds,
+                    'complexity_proof' => true,
+                ];
+            }
+
+            return [
+                'plan_id' => trim((string) ($json['plan_id'] ?? ('obra-plan-'.substr(hash('sha256', $goal), 0, 16)))),
+                'nodes' => $nodes,
+            ];
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * ACDE Leap 1 — the ACTUAL provider invocation (the ONLY place a provider runs in the planner path).
+     * Mirrors {@see AtlasLiveCodeDeliveryService}: resolve the configured
+     * provider via {@see AiProviderManager}->get(), run an EPHEMERAL read-only job, return the raw output
+     * text (the generate*ViaProvider methods parse it). Overridable in a test double to return a RECORDED
+     * JSON transcript so the parse path runs for real with NO live call / NO spend. Read-only: the job
+     * never edits anything; it only returns planning TEXT.
+     */
+    protected function obraPlanningProviderRaw(string $mode, string $prompt): string
+    {
+        $manager = $this->providers ?? app(AiProviderManager::class);
+        $providerKey = $this->planningProviderKey();
+        $provider = $manager->get($providerKey);
+        if (! $provider instanceof AiProvider) {
+            return '';
+        }
+
+        $job = new AiJob;
+        $job->kind = 'obra_planning';
+        $job->provider = $providerKey;
+        $job->prompt = $prompt;
+        $job->input_text = $prompt;
+        $job->metadata = ['permission_mode' => 'read', 'obra_planning_mode' => $mode];
+        $job->timeout_seconds = max(60, min(3600, (int) config('atlas.ai.timeout_seconds', 600)));
+
+        $result = $provider->run($job, $prompt);
+        if (! (bool) ($result->ok ?? false)) {
+            return '';
+        }
+
+        return (string) ($result->output ?? '');
+    }
+
+    /** The provider the planner runs through — the loop default (hermes_cli -> MiniMax). */
+    private function planningProviderKey(): string
+    {
+        $configured = config('atlas.ai.default_provider', 'hermes_cli');
+
+        return is_string($configured) && trim($configured) !== '' ? trim($configured) : 'hermes_cli';
+    }
+
+    /** @param  list<string>  $priorGaps */
+    private function specPrompt(string $goal, array $priorGaps): string
+    {
+        $fix = $priorGaps === [] ? '' : "\n\nThe previous spec had these gaps; FIX them: ".implode(', ', array_slice($priorGaps, 0, 8));
+
+        return 'Produce ONLY a single deterministic JSON object (no prose, no markdown fence) for this engineering goal.'
+            ."\nGoal: ".$goal
+            ."\nShape: {\"summary\": string, \"acceptance_criteria\": [{\"id\": string, \"description\": string (>=15 chars), \"required\": bool}], "
+            .'"suggested_files": [string], "decomposition_hint": string}'
+            ."\nAt least one acceptance criterion must be required. suggested_files lists any NEW files the change introduces."
+            .$fix;
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     * @param  list<string>  $priorGaps
+     */
+    private function dagPrompt(string $goal, array $context, array $priorGaps): string
+    {
+        $hint = trim((string) ($context['decomposition_hint'] ?? ''));
+        $newFiles = implode(', ', array_filter((array) ($context['suggested_files'] ?? []), 'is_string'));
+        $fix = $priorGaps === [] ? '' : "\n\nThe previous DAG had these gaps; FIX them: ".implode(', ', array_slice($priorGaps, 0, 8));
+
+        return 'Produce ONLY a single deterministic JSON object (no prose, no markdown fence) decomposing this goal into a node DAG.'
+            ."\nGoal: ".$goal
+            .($hint !== '' ? "\nDecomposition hint: ".$hint : '')
+            .($newFiles !== '' ? "\nNew files to create: ".$newFiles : '')
+            ."\nShape: {\"plan_id\": string, \"nodes\": [{\"id\": string, \"target_area\": string (a file path), \"request\": string (concrete, references its file)}]}"
+            ."\nDo NOT include create-class nodes for the new files — Atlas emits those. List only the EXISTING files to edit/redirect."
+            .$fix;
+    }
+
+    /**
+     * Decode a provider response into a JSON object. Tolerant of a leading/trailing prose wrap or a single
+     * ```json fence (extract the outermost {...}); returns null on anything non-object.
+     *
+     * @return array<string,mixed>|null
+     */
+    private function decodeJsonObject(string $raw): ?array
+    {
+        $raw = trim($raw);
+        if ($raw === '') {
+            return null;
+        }
+        $decoded = json_decode($raw, true);
+        if (! is_array($decoded)) {
+            $start = strpos($raw, '{');
+            $end = strrpos($raw, '}');
+            if ($start === false || $end === false || $end <= $start) {
+                return null;
+            }
+            $decoded = json_decode(substr($raw, $start, $end - $start + 1), true);
+        }
+
+        return is_array($decoded) ? $decoded : null;
     }
 
     /** The whole-obra integrated check = the synthesizer's frozen sibling-test command (behaviour gate). */
