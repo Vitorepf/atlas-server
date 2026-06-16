@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution\Discovery;
 
 use App\Services\Ai\AutonomousEvolution\AtlasEvolutionFrozenJudge;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopDecompositionOutcomeRecorder;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
 use Throwable;
 
@@ -187,6 +188,26 @@ final class AtlasLoopFrameworkRefactorSynthesizer
                 $perMethod = is_array($census['per_method'] ?? null) ? $census['per_method'] : [];
                 $threshold = max(1, (int) config('atlas.loop.extract_sequence_tractable_cyclomatic', $minCyclomatic));
                 $maxSteps = max(1, (int) config('atlas.loop.extract_sequence_max_steps', 6));
+                // ACDE R2-read (the MULTIPLIER): ground the next sequence on the recorded prior (R2's writes).
+                // If THIS shape (the full plan's fingerprint) has historically THRASHED, back the chain off to
+                // a SINGLE worst-method step this round — a smaller, more-certifiable obra the weak engine is
+                // likelier to land — so delivery N's recorded outcome makes delivery N+1 more certifiable (the
+                // curve bends). Default-OFF (and thin corpus => UNKNOWN) => maxSteps unchanged => byte-identical.
+                if ((bool) config('atlas.loop.extract_sequence_prior_read_enabled', false)) {
+                    $fullPlan = $planner->plan($perMethod, $threshold, $maxSteps);
+                    if ($fullPlan !== []) {
+                        $hash = (string) (new AtlasLoopDecompositionShapeFingerprinter)->fingerprint(['nodes' => $fullPlan])['hash'];
+                        $hist = (new AtlasLoopDecompositionOutcomeRecorder)->history($hash);
+                        if (AtlasLoopExtractSequencePlanner::priorBacksOff(
+                            (int) ($hist['certified'] ?? 0),
+                            (int) ($hist['total'] ?? 0),
+                            (int) config('atlas.loop.extract_sequence_prior_min_samples', 4),
+                            (float) config('atlas.loop.extract_sequence_prior_target_rate', 0.5),
+                        )) {
+                            $maxSteps = 1; // hard shape -> attempt only the worst method this round
+                        }
+                    }
+                }
                 $payload['extract_sequence_id'] = $planner->sequenceId($targetRepoRelPath);
                 $payload['extract_sequence_plan'] = $planner->plan($perMethod, $threshold, $maxSteps);
                 $payload['extract_sequence_tractable_cyclomatic'] = $threshold;

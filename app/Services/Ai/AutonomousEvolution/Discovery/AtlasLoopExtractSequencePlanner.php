@@ -114,4 +114,20 @@ final class AtlasLoopExtractSequencePlanner
     {
         return 'xseq-'.substr(hash('sha256', trim($targetPath)), 0, 12);
     }
+
+    /**
+     * ACDE R2-read (MULTIPLIER) — pure decision: should the next sequence BACK OFF (attempt fewer/smaller
+     * steps) because this structural shape has historically THRASHED? True iff the corpus holds >= minSamples
+     * outcomes for the shape AND its certified-rate is below the target. A thin corpus (< minSamples) yields
+     * NO signal => false => byte-identical (UNKNOWN never penalises, the Wilson-prior discipline). This is
+     * the read-back that bends the curve: delivery N's recorded outcome makes delivery N+1 more certifiable.
+     */
+    public static function priorBacksOff(int $certified, int $total, int $minSamples, float $targetRate): bool
+    {
+        if ($total < max(1, $minSamples)) {
+            return false; // thin corpus => UNKNOWN => no back-off
+        }
+
+        return ($certified / $total) < $targetRate;
+    }
 }

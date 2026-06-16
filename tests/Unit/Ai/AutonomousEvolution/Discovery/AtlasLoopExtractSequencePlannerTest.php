@@ -71,6 +71,16 @@ final class AtlasLoopExtractSequencePlannerTest extends TestCase
         $this->assertSame([], $this->planner()->plan(['a' => 5, 'b' => 10], 10, 6));
     }
 
+    public function test_prior_backs_off_only_on_a_real_thrashing_history(): void
+    {
+        // R2-read decision: thin corpus (< minSamples) => UNKNOWN => no back-off (byte-identical).
+        $this->assertFalse(AtlasLoopExtractSequencePlanner::priorBacksOff(0, 3, 4, 0.5));
+        // >= minSamples AND certified-rate below target => back off (the hard shape).
+        $this->assertTrue(AtlasLoopExtractSequencePlanner::priorBacksOff(1, 5, 4, 0.5)); // 0.2 < 0.5
+        // >= minSamples AND a healthy certified-rate => no back-off.
+        $this->assertFalse(AtlasLoopExtractSequencePlanner::priorBacksOff(4, 5, 4, 0.5)); // 0.8 >= 0.5
+    }
+
     public function test_sequence_id_is_stable_per_target_path(): void
     {
         $p = $this->planner();

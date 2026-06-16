@@ -2274,6 +2274,15 @@ return [
         'extract_sequence_enabled' => (bool) env('ATLAS_LOOP_EXTRACT_SEQUENCE_ENABLED', false),
         'extract_sequence_tractable_cyclomatic' => max(1, (int) env('ATLAS_LOOP_EXTRACT_SEQUENCE_TRACTABLE_CYCLOMATIC', 10)),
         'extract_sequence_max_steps' => max(1, (int) env('ATLAS_LOOP_EXTRACT_SEQUENCE_MAX_STEPS', 6)),
+        // ACDE R2-read (the MULTIPLIER) — when ON, the framework synthesizer reads the decomposition corpus
+        // (R2's in-lane writes) for THIS shape's fingerprint and, if it has historically THRASHED (>=
+        // min_samples outcomes, certified-rate < target_rate), backs the chain off to a single worst-method
+        // step this round — a smaller, more-certifiable obra. So delivery N's recorded outcome grounds
+        // delivery N+1 (the curve bends). Needs decomposition_corpus_enabled (R2) armed to have history.
+        // Default OFF, and a thin corpus (< min_samples) yields UNKNOWN => no back-off => byte-identical.
+        'extract_sequence_prior_read_enabled' => (bool) env('ATLAS_LOOP_EXTRACT_SEQUENCE_PRIOR_READ_ENABLED', false),
+        'extract_sequence_prior_min_samples' => max(1, (int) env('ATLAS_LOOP_EXTRACT_SEQUENCE_PRIOR_MIN_SAMPLES', 4)),
+        'extract_sequence_prior_target_rate' => (float) env('ATLAS_LOOP_EXTRACT_SEQUENCE_PRIOR_TARGET_RATE', 0.5),
 
         // ACDE Leap 8 (greenfield ceiling) — REUSABLE DECOMPOSITION ARCHETYPE library. Imports the single-
         // target moat into greenfield: a human freezes a small library of archetypes (frozen/obra-archetypes/
