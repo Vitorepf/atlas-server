@@ -111,6 +111,21 @@ final class AtlasLoopTaskGrinder
             }
 
             $strategyBanditDecision = $this->strategyBanditDecision($task, $payload, $scenarios);
+            // ACDE lever #7 — if THIS exact target has gone N real attempts with ZERO certs it is hopeless
+            // (already-clean / unfixable-as-framed); skip BEFORE best-of-N burns the budget. A skip is an
+            // honest TERMINAL refusal (a DQS defect) via completeTask(success=false) — NOT releaseClaim, which
+            // would re-claim -> re-grind -> re-fail forever (the zombie-stall). Runs before materialization so
+            // there is no workspace to clean. Flag OFF => verdict is always 'open' => byte-identical.
+            if ((string) data_get($strategyBanditDecision, 'target_verdict.verdict') === 'hopeless') {
+                $tv = (array) ($strategyBanditDecision['target_verdict'] ?? []);
+                $this->store->completeTask($task->id, $workerId, [
+                    'status' => 'skipped_hopeless_target',
+                    'reason' => 'per_target_skip:'.(int) ($tv['real_attempts'] ?? 0).'_real_attempts_0_certified',
+                    'target_verdict' => $tv,
+                ], false);
+
+                return ['status' => 'skipped', 'reason' => 'hopeless_target', 'target_verdict' => $tv];
+            }
             if ((bool) ($strategyBanditDecision['applied'] ?? false)) {
                 $payload['scenario_strategies'] = $strategyBanditDecision['selected_strategy_texts'] ?? [];
                 $payload['scenario_strategy_keys'] = $strategyBanditDecision['selected_strategy_keys'] ?? [];

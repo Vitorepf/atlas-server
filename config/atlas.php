@@ -2243,6 +2243,15 @@ return [
         // whole-directory run). Default OFF => `artisan test` => byte-identical for the gate's existing (obra)
         // consumer + its tests; arm it together with broader_regression_gate_live.
         'broader_regression_gate_phpunit' => (bool) env('ATLAS_LOOP_BROADER_REGRESSION_GATE_PHPUNIT', false),
+        // ACDE lever #7 — per-TARGET_PATH hopeless skip. The strategy bandit buckets by target TYPE and so
+        // can never say "THIS file went N attempts with 0 certs — stop re-rolling it." When ON, the grinder
+        // short-circuits a target with >= per_target_skip_min_attempts REAL attempts (provider-invoked,
+        // non-trivial tokens) and ZERO certifications to a terminal honest refusal (completeTask success=false,
+        // never releaseClaim) BEFORE best-of-N burns. Attacks the measured "targets already-clean files"
+        // waste. A skip is itself a DQS refusal (=defect): it produces no fake success, it frees budget.
+        // Default OFF => verdict always 'open' (no extra query) => byte-identical.
+        'per_target_skip_enabled' => (bool) env('ATLAS_LOOP_PER_TARGET_SKIP_ENABLED', false),
+        'per_target_skip_min_attempts' => max(1, (int) env('ATLAS_LOOP_PER_TARGET_SKIP_MIN_ATTEMPTS', 6)),
 
         // ACDE Leap 8 (greenfield ceiling) — REUSABLE DECOMPOSITION ARCHETYPE library. Imports the single-
         // target moat into greenfield: a human freezes a small library of archetypes (frozen/obra-archetypes/

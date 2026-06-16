@@ -115,6 +115,74 @@ final class AtlasLoopExplorerStrategyBanditService
             'distribution_changed' => $distributionChanged,
             'token_efficiency_delta_per_1k' => data_get($recommendation, 'token_efficiency_delta_per_1k'),
             'blockers' => array_values((array) ($measurement['blockers'] ?? [])),
+            // ACDE lever #7 — per-target hopeless verdict (queried only when armed; default 'open' = no skip,
+            // no extra query => byte-identical).
+            'target_verdict' => (bool) config('atlas.loop.per_target_skip_enabled', false)
+                ? $this->targetPathVerdict($targetPath)
+                : ['verdict' => 'open', 'real_attempts' => 0, 'certified' => 0, 'threshold' => 0],
+        ];
+    }
+
+    /**
+     * ACDE lever #7 — the per-TARGET_PATH verdict. The strategy bandit buckets by target TYPE; this asks the
+     * finer question the loop's amnesia cannot: has THIS exact file gone N REAL attempts with ZERO certs? If
+     * so it is 'hopeless' (already-clean / unfixable-as-framed) and re-grinding only burns best-of-N budget.
+     * Anti-gaming: only attempts that genuinely invoked a provider with a non-trivial token count count — the
+     * SAME fail-closed rule {@see historicalStats} uses, so an injected/fabricated row cannot manufacture a
+     * skip. Read-only; any query error or missing table fails OPEN ('open', never a false skip).
+     *
+     * @return array{verdict:string, real_attempts:int, certified:int, threshold:int}
+     */
+    public function targetPathVerdict(string $targetPath, ?int $hours = null): array
+    {
+        $cfg = (array) config('atlas.loop.explorer_strategy_bandit', []);
+        $window = max(1, min(2160, (int) ($hours ?? $cfg['window_hours'] ?? 168)));
+        $threshold = max(1, (int) config('atlas.loop.per_target_skip_min_attempts', 6));
+        $minRealTokens = max(1, (int) config('atlas.loop.explorer_bandit.min_real_tokens', 10));
+        $open = ['verdict' => 'open', 'real_attempts' => 0, 'certified' => 0, 'threshold' => $threshold];
+
+        $targetPath = trim($targetPath);
+        if ($targetPath === '' || ! DatabaseTableAvailability::all(['atlas_loop_explorations', 'atlas_loop_tasks'])) {
+            return $open;
+        }
+
+        try {
+            $rows = DB::table('atlas_loop_explorations as e')
+                ->join('atlas_loop_tasks as t', 't.id', '=', 'e.task_id')
+                ->where('t.target_path', $targetPath)
+                ->where('e.updated_at', '>=', Carbon::now()->subHours($window))
+                ->limit(2000)
+                ->get(['e.attempt_metrics']);
+        } catch (Throwable) {
+            return $open;
+        }
+
+        $real = 0;
+        $certified = 0;
+        foreach ($rows as $row) {
+            foreach ($this->arrayPayload($row->attempt_metrics ?? null) as $attempt) {
+                if (! is_array($attempt)) {
+                    continue;
+                }
+                $providerInvoked = ($attempt['provider_invoked'] ?? null) === true;
+                $tokens = is_numeric($attempt['tokens_used'] ?? null) ? max(0, (int) $attempt['tokens_used']) : null;
+                if (! $providerInvoked || $tokens === null || $tokens < $minRealTokens) {
+                    continue; // only REAL attempts count (anti-gaming, identical to historicalStats)
+                }
+                $real++;
+                if ((bool) ($attempt['passed'] ?? false)) {
+                    $certified++;
+                }
+            }
+        }
+
+        $hopeless = $real >= $threshold && $certified === 0;
+
+        return [
+            'verdict' => $hopeless ? 'hopeless' : 'open',
+            'real_attempts' => $real,
+            'certified' => $certified,
+            'threshold' => $threshold,
         ];
     }
 
