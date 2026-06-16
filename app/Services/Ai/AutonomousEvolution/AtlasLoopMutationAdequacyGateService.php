@@ -73,8 +73,20 @@ final class AtlasLoopMutationAdequacyGateService
         // SKIP-certify when nothing at all is producible. This turns the original false-reject of a
         // relocated-literal refactor AND the false-reject of a no-decision-op refactor into pass/skip,
         // without ever lowering the true bar (a surviving DECISION mutant still rejects).
-        if ($decisionOnly) {
-            return $this->evaluateRefactorContract($workspace, $commands, $timeout, $targets, $baseline, $propertyProbe);
+        // ACDE lever #4 — FEATURE-lane sufficiency. The default feature lane samples at most max_mutants and
+        // returns on the FIRST survivor via the strpos firstMutation() (so most added branches go un-probed
+        // and the 0.5 kill-ratio floor is near-binary at a denominator of ~1). When ON, the feature/bugfix
+        // lane is routed through the SAME exhaustive added-DECISION survivor hunt the refactor lane uses
+        // (exact-index firstAddedLineMutation/addedLineMap — never strpos), bounded by a per-task target
+        // budget. Default OFF => the legacy strpos path below => byte-identical.
+        $exhaustiveFeature = ! $decisionOnly
+            && (bool) config('atlas.loop.mutation_adequacy_gate.exhaustive_added_decisions_feature_lane', false);
+        if ($decisionOnly || $exhaustiveFeature) {
+            $budget = $exhaustiveFeature
+                ? max(1, (int) config('atlas.loop.mutation_adequacy_gate.feature_lane_max_decisions', 12))
+                : null; // refactor lane stays uncapped (byte-identical)
+
+            return $this->evaluateRefactorContract($workspace, $commands, $timeout, $targets, $baseline, $propertyProbe, $budget);
         }
 
         $addedLines = $this->addedLines($workspace);
@@ -161,9 +173,14 @@ final class AtlasLoopMutationAdequacyGateService
      * @param  array<string,mixed>  $propertyProbe
      * @return array<string,mixed>
      */
-    private function evaluateRefactorContract(string $workspace, array $commands, int $timeout, array $targets, array $baseline, array $propertyProbe): array
+    private function evaluateRefactorContract(string $workspace, array $commands, int $timeout, array $targets, array $baseline, array $propertyProbe, ?int $targetBudget = null): array
     {
         $addedLineMap = $this->addedLineMap($workspace);
+        // ACDE lever #4 — the FEATURE lane reuses this exhaustive decision-survivor hunt, but unlike the
+        // inherently-small refactor diff a feature may touch many files; $targetBudget caps how many targets
+        // are probed (a perf budget for SAMPLING, one acceptance re-run per target). null (the refactor lane)
+        // => uncapped => byte-identical. A surviving decision within the probed set still hard-rejects.
+        $probeTargets = $targetBudget !== null ? array_slice($targets, 0, max(1, $targetBudget)) : $targets;
 
         // ABSOLUTE DECISION PRIORITY (Fix C, false-certify probe 2026-06-14): a DECISION mutant on ANY
         // target is the real bar and MUST be checked before a cosmetic outcome on a different target can
@@ -194,7 +211,7 @@ final class AtlasLoopMutationAdequacyGateService
         // survivor on any target rejects order-independently; the first kill is remembered and only
         // decides once every decision target is proven survivor-free.
         $killedDecision = null;
-        foreach ($targets as $target) {
+        foreach ($probeTargets as $target) {
             $path = $workspace.'/'.$target;
             $original = is_file($path) ? (string) file_get_contents($path) : '';
             $map = $addedLineMap[$target] ?? [];
@@ -222,7 +239,7 @@ final class AtlasLoopMutationAdequacyGateService
         // PASS 2 — NO decision mutant anywhere: fall back to the FIRST COSMETIC mutant confined to an
         // added line. A relocated literal whose kill proves the test exercises the new code certifies;
         // a surviving relocated unasserted literal SKIP-certifies (not an empty-test signal).
-        foreach ($targets as $target) {
+        foreach ($probeTargets as $target) {
             $path = $workspace.'/'.$target;
             $original = is_file($path) ? (string) file_get_contents($path) : '';
             $map = $addedLineMap[$target] ?? [];

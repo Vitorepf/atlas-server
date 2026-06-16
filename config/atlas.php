@@ -2389,6 +2389,16 @@ return [
             // soak confirms real refactor certs appear. Never weakens true rejection: a surviving
             // DECISION mutant still rejects, and no producible decision mutant still rejects.
             'refactor_decision_aware' => (bool) env('ATLAS_LOOP_MUTATION_ADEQUACY_GATE_REFACTOR_DECISION_AWARE', false),
+            // ACDE lever #4 — route the FEATURE/bugfix lane through the SAME exhaustive added-DECISION
+            // survivor hunt the refactor lane uses (exact-index firstAddedLineMutation, never the strpos
+            // firstMutation that can land on byte-identical OLD code and re-open the false-certify hole),
+            // instead of "sample <=max_mutants, return on first survivor". Makes the existing 0.5 kill-ratio
+            // floor a REAL ratio over the actual added-branch surface — the sufficiency partner to the
+            // changed-symbol census (#3) necessity check. Default OFF => the legacy strpos path =>
+            // byte-identical. feature_lane_max_decisions bounds the per-task cost (one acceptance re-run per
+            // probed target); a surviving decision within the probed set still hard-rejects.
+            'exhaustive_added_decisions_feature_lane' => (bool) env('ATLAS_LOOP_MUTATION_EXHAUSTIVE_FEATURE_LANE', false),
+            'feature_lane_max_decisions' => max(1, (int) env('ATLAS_LOOP_MUTATION_FEATURE_LANE_MAX_DECISIONS', 12)),
             'receipt_path' => (string) env('ATLAS_LOOP_MUTATION_ADEQUACY_GATE_RECEIPT_PATH', storage_path('app/atlas/evidence/mutation-adequacy-gate.json')),
         ],
 

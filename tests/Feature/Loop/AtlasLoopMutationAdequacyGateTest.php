@@ -149,6 +149,62 @@ CMD;
         $this->assertSame(0, $on['mutants_survived']);
     }
 
+    public function test_exhaustive_feature_lane_rejects_an_uncovered_added_decision(): void
+    {
+        // ACDE lever #4: a FEATURE diff (no complexity_proof => the feature lane) that adds a decision the
+        // test never exercises. The legacy strpos feature lane samples <=max_mutants and can miss it; the
+        // exhaustive added-DECISION hunt (flag ON) catches the surviving decision and refuses.
+        $this->workspace = $this->refactorWorkspaceWithUncoveredDecisionMutant();
+        config(['atlas.loop.mutation_adequacy_gate.exhaustive_added_decisions_feature_lane' => true]);
+
+        $on = app(AtlasLoopMutationAdequacyGateService::class)->evaluate(
+            $this->workspace,
+            $this->featureAcceptance(),
+            ['src/Calc.php'],
+            ['enabled' => true],
+        );
+
+        $this->assertSame('mutation_survived', $on['status']);
+        $this->assertFalse($on['certified']);
+        $this->assertSame('decision', $on['decisive_operator_family']);
+    }
+
+    public function test_exhaustive_feature_lane_certifies_a_covered_added_decision(): void
+    {
+        // The sufficiency partner: a covered added decision is killed -> the feature change certifies (the
+        // flag tightens the floor, it does not false-reject a genuinely-tested change).
+        $this->workspace = $this->refactorWorkspaceWithCoveredDecisionAndUnassertedLiteral();
+        config(['atlas.loop.mutation_adequacy_gate.exhaustive_added_decisions_feature_lane' => true]);
+
+        $on = app(AtlasLoopMutationAdequacyGateService::class)->evaluate(
+            $this->workspace,
+            $this->featureAcceptance(),
+            ['src/Calc.php'],
+            ['enabled' => true],
+        );
+
+        $this->assertSame('mutation_killed', $on['status']);
+        $this->assertTrue($on['certified']);
+    }
+
+    /**
+     * A FEATURE acceptance: the SAME commands as the refactor harness but WITHOUT complexity_proof/minimize,
+     * so refactorDecisionAware() is false and the lever's exhaustive flag (not the refactor path) is what
+     * routes it through the exhaustive decision hunt.
+     *
+     * @return array<string,mixed>
+     */
+    private function featureAcceptance(): array
+    {
+        return [
+            'commands' => ['php tests/CalcTest.php'],
+            'allowed_globs' => ['src/**'],
+            'frozen_globs' => ['tests/**'],
+            'metric_kind' => 'gate',
+            'timeout_seconds' => 30,
+        ];
+    }
+
     public function test_refactor_contract_still_rejects_when_decision_mutant_survives(): void
     {
         $this->workspace = $this->refactorWorkspaceWithUncoveredDecisionMutant();
