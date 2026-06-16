@@ -1520,7 +1520,7 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
                 parent::__construct(new CodeGraphContextPackAssembler);
             }
 
-            public function packFor(string $query, string $workspaceId, int $budget = self::DEFAULT_BUDGET, array $changedFiles = []): array
+            public function packFor(string $query, string $workspaceId, int $budget = self::DEFAULT_BUDGET, array $changedFiles = [], array $assemblyOptions = []): array
             {
                 $this->calls++;
                 $this->lastQuery = $query;

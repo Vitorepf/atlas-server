@@ -208,7 +208,7 @@ final class AtlasForgeProviderInvocationPromptBuilderCodeGraphTest extends TestC
         {
             public function __construct() {}
 
-            public function packFor(string $query, string $workspaceId, int $budget = self::DEFAULT_BUDGET, array $changedFiles = []): array
+            public function packFor(string $query, string $workspaceId, int $budget = self::DEFAULT_BUDGET, array $changedFiles = [], array $assemblyOptions = []): array
             {
                 throw new \RuntimeException('retriever boom');
             }
