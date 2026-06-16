@@ -189,10 +189,20 @@ final class AtlasAutonomousEvolutionCertificationService
      */
     private function integrationWiring(): array
     {
-        $ok = $this->contains('app/Services/Ai/AutonomousEvolution/AtlasAutonomousEvolutionLoopService.php', 'AtlasAutonomousWorkExecutionService')
-            && $this->contains('app/Services/Ai/AutonomousEvolution/AtlasAutonomousEvolutionLoopService.php', 'AtlasIntelligenceFactoryRuntimeService');
+        $path = 'app/Services/Ai/AutonomousEvolution/AtlasAutonomousEvolutionLoopService.php';
+        $tokens = ['AtlasAutonomousWorkExecutionService', 'AtlasIntelligenceFactoryRuntimeService'];
+        $contents = File::exists(base_path($path)) ? (string) File::get(base_path($path)) : '';
+        $missing = array_values(array_filter(
+            $tokens,
+            fn (string $token): bool => trim($token) === '' || ! str_contains($contents, $token)
+        ));
 
-        return ['id' => 'integration_wiring', 'status' => $ok ? 'pass' : 'fail', 'evidence' => ['AAEL uses AWEOS and ASEIF as sidecars']];
+        return [
+            'id' => 'integration_wiring',
+            'status' => $missing === [] ? 'pass' : 'fail',
+            'evidence' => [$path],
+            'missing' => $missing,
+        ];
     }
 
     /**

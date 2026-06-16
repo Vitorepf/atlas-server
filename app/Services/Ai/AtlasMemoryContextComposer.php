@@ -2,12 +2,16 @@
 
 namespace App\Services\Ai;
 
+use App\Services\Ai\Aaeos\Cores\AtlasMemoryRecallRelevanceScorer;
 use App\Services\Ai\Memory\MemoryRecallInput;
 use Illuminate\Support\Str;
 
 class AtlasMemoryContextComposer
 {
-    public function __construct(private readonly MemoryRecallInput $input) {}
+    public function __construct(
+        private readonly MemoryRecallInput $input,
+        private readonly AtlasMemoryRecallRelevanceScorer $scorer,
+    ) {}
 
     /**
      * @param  array<int,array<string,mixed>>  $registry
@@ -91,12 +95,15 @@ class AtlasMemoryContextComposer
 
             $type = (string) ($item['type'] ?? 'memory');
             $scope = (string) ($item['scope_type'] ?? $item['scope'] ?? 'global');
-            $score = (float) ($item['priority'] ?? 50)
-                + ((float) ($item['importance'] ?? 3) * 10)
-                + ((float) ($item['confidence'] ?? 0.7) * 10)
-                + ((float) ($item['hybrid_score'] ?? 0) * 30)
-                + $this->scopeWeight($scope)
-                + $this->typeWeight($type);
+            $score = $this->scorer->score([
+                'source' => 'registry',
+                'type' => $type,
+                'scope_type' => $scope,
+                'priority' => $item['priority'] ?? null,
+                'importance' => $item['importance'] ?? null,
+                'confidence' => $item['confidence'] ?? null,
+                'hybrid_score' => $item['hybrid_score'] ?? null,
+            ]);
 
             return $this->candidate(
                 'registry',
@@ -132,7 +139,12 @@ class AtlasMemoryContextComposer
 
             $type = (string) ($item['type'] ?? 'verbatim');
             $scope = (string) ($item['scope_type'] ?? $item['scope'] ?? 'global');
-            $score = 82 + ((float) ($item['hybrid_score'] ?? 0) * 24) + $this->scopeWeight($scope) + $this->typeWeight($type);
+            $score = $this->scorer->score([
+                'source' => 'verbatim',
+                'type' => $type,
+                'scope_type' => $scope,
+                'hybrid_score' => $item['hybrid_score'] ?? null,
+            ]);
 
             return $this->candidate(
                 'verbatim',
@@ -167,7 +179,11 @@ class AtlasMemoryContextComposer
             }
 
             $type = (string) ($item['type'] ?? 'semantic_note');
-            $score = ((float) ($item['score'] ?? 0.55) * 100) + $this->typeWeight($type);
+            $score = $this->scorer->score([
+                'source' => 'semantic',
+                'type' => $type,
+                'score' => $item['score'] ?? null,
+            ]);
 
             return $this->candidate(
                 'semantic',
@@ -305,29 +321,5 @@ class AtlasMemoryContextComposer
         return Str::length($value) > $limit
             ? Str::limit($value, max(1, $limit - 3), '...')
             : $value;
-    }
-
-    private function scopeWeight(string $scope): int
-    {
-        return match ($scope) {
-            'task' => 22,
-            'engineering_run' => 20,
-            'project' => 16,
-            'workspace' => 12,
-            'session' => 10,
-            'user' => 8,
-            default => 4,
-        };
-    }
-
-    private function typeWeight(string $type): int
-    {
-        return match ($type) {
-            'decision', 'resolution', 'requirement' => 16,
-            'issue', 'failure' => 14,
-            'technical_context', 'command', 'evidence', 'harness_learning' => 11,
-            'preference', 'feedback' => 8,
-            default => 5,
-        };
     }
 }

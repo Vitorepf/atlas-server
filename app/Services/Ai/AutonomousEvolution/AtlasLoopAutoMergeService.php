@@ -205,6 +205,15 @@ final class AtlasLoopAutoMergeService
             'canary' => null,
         ];
 
+        // Honest-attribution reconciliation state. The moment the real `git commit` (block 5) returns
+        // success the change is DURABLE in main — even if a LATER step throws (the attribution save
+        // itself, the impact-receipt build, the canary/receipt persistence). We track the landed commit
+        // so the catch can reconcile the row to MATCH main instead of leaving a permanent
+        // merged_to_main=false lie (the row would say not-merged while main holds the commit, and no
+        // later drain pass ever flips it — a stale re-apply only RETIRES the row).
+        $commit = null;
+        $commitLanded = false;
+
         try {
             // L5-9 TOCTOU (agora ENFORCED — antes o 6º arg era silenciosamente descartado e
             // a re-resolução documentada NUNCA rodava). A identidade canônica AUTORIZADA foi
@@ -416,6 +425,9 @@ final class AtlasLoopAutoMergeService
             if (! $this->git($repoRoot, ['-c', 'user.email=loop@atlas', '-c', 'user.name=atlas-loop', 'commit', '-q', '-m', $msg, '--no-gpg-sign'])) {
                 return array_merge($base, ['reason' => 'commit_failed']);
             }
+            // The change is now DURABLY in main. Everything below must end with the row attributed as
+            // merged; if any step throws, the catch reconciles from this flag instead of lying.
+            $commitLanded = true;
             $commit = $this->headSha($repoRoot);
 
             $this->governedSave(function () use ($proposal, $operatorApproved, $operatorId, $operatorReason): void {
@@ -485,7 +497,76 @@ final class AtlasLoopAutoMergeService
                 'operator_approved' => $operatorApproved,
             ]);
         } catch (Throwable $e) {
+            // POST-COMMIT RECONCILIATION (honest attribution). If the real git commit already landed in
+            // main but a later step threw — the attribution save itself (a transient DB blip), the
+            // impact-receipt build, the canary/receipt persistence — the durable truth is "merged": the
+            // change IS in main. Leaving merged_to_main=false here would be a permanent attribution LIE
+            // (the row says not-merged while main holds the commit; the next drain pass would only retire
+            // it via git_apply_failed, never correcting the flag). Reconcile through the SAME governed
+            // scope so the pétreo never-merge default is untouched — only governedSave can flip the flag,
+            // so the mere SUCCESS of this flip proves it went through the one sanctioned door. Best-effort:
+            // a reconcile that itself fails falls back to the prior cosmetic-mismatch behavior, no worse.
+            if ($commitLanded) {
+                $sha = $commit ?? $this->headSha($repoRoot);
+                if ($this->reconcileMergedAttribution($proposal, $sha, $operatorApproved, $operatorId, $operatorReason)) {
+                    return array_merge($base, [
+                        'merged' => true,
+                        'commit' => $sha,
+                        'reason' => 'post_commit_reconciled:'.mb_substr($e->getMessage(), 0, 120),
+                        'attribution_reconciled' => true,
+                    ]);
+                }
+            }
+
             return array_merge($base, ['reason' => 'error:'.mb_substr($e->getMessage(), 0, 160)]);
+        }
+    }
+
+    /**
+     * Reconcile the durable attribution AFTER the real git commit already landed in main but a later
+     * step threw before/while persisting it. Without this the row keeps merged_to_main=false forever
+     * while main holds the commit — a permanent attribution lie that no later drain pass corrects (a
+     * stale re-apply only RETIRES the row, it never flips the flag).
+     *
+     * Writes through {@see governedSave} ONLY, so the pétreo never-merge default holds: the model's
+     * structural guard forces merged_to_main=false on any save outside the governed scope, so the mere
+     * SUCCESS of this flip proves it went through the one sanctioned door. Idempotent — when the original
+     * attribution actually persisted before the throw (a failure in a LATER step), re-stamping the same
+     * values is a harmless no-op and additionally recovers any best-effort enrichment that did not land.
+     * Best-effort: returns whether the reconcile write succeeded.
+     */
+    private function reconcileMergedAttribution(
+        AtlasLoopProposal $proposal,
+        ?string $commit,
+        bool $operatorApproved,
+        ?string $operatorId,
+        ?string $operatorReason,
+    ): bool {
+        try {
+            $this->governedSave(function () use ($proposal, $commit, $operatorApproved, $operatorId, $operatorReason): void {
+                $quality = is_array($proposal->quality) ? $proposal->quality : [];
+                $quality['_attribution_reconciled'] = [
+                    'schema_version' => 'atlas.loop.attribution_reconcile.v1',
+                    'commit' => $commit,
+                    'reconciled_at' => now()->toIso8601String(),
+                    'reason' => 'post_commit_save_failure',
+                ];
+                if ($operatorApproved && ! isset($quality['_operator_review'])) {
+                    $quality['_operator_review'] = [
+                        'schema_version' => 'atlas.loop.operator_review.v1',
+                        'status' => 'merged',
+                        'reason' => $operatorReason,
+                        'operator_id' => $operatorId,
+                        'reviewed_at' => now()->toIso8601String(),
+                        'decision' => 'approve_and_merge',
+                    ];
+                }
+                $proposal->forceFill(['merged_to_main' => true, 'reviewed_at' => now(), 'quality' => $quality])->save();
+            });
+
+            return true;
+        } catch (Throwable) {
+            return false;
         }
     }
 

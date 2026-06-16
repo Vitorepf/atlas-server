@@ -62,6 +62,14 @@ final class WorkspaceProviderLoopCodeGraphSeamTest extends TestCase
         // default so attempt() reaches buildPrompt()/invoke() (the fake router below makes
         // it configured + capturing — no real CLI is contacted).
         config()->set('atlas.loop.default_provider', self::PROVIDER);
+
+        // This test isolates the AP-815 code-graph `auto_context` seam, so it holds the
+        // unrelated text-provider edit-apply protocol flag fixed OFF. With it ON (the
+        // config default), buildPrompt() appends editProtocolLines()' 8-line OUTPUT PROTOCOL
+        // header to EVERY prompt — which would make the flag-OFF prompt 14 lines, not the
+        // 6-line pre-seam baseline this test asserts byte-identically. Pinning it OFF keeps
+        // the baseline correct while still proving the auto_context flag adds NO section.
+        config()->set('atlas.loop.text_provider_edit_apply', false);
     }
 
     protected function tearDown(): void

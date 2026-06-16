@@ -249,6 +249,68 @@ final class AtlasLoopAutoMergeServiceTest extends TestCase
         $this->assertSame($headParent, $tagSha, 'a tag de snapshot aponta para o estado pré-merge');
     }
 
+    /**
+     * HONEST ATTRIBUTION: the real git commit (block 5) lands in main BEFORE the row is stamped
+     * merged_to_main=true in the attribution governedSave. If that save throws (a transient DB blip),
+     * main holds the commit while the row stays merged_to_main=false / reviewed_at=NULL — a permanent
+     * attribution lie (no later drain pass ever flips the flag; a stale re-apply only RETIRES the row).
+     * The catch must RECONCILE the row to match main's actual state, through the governed scope only
+     * (so the pétreo never-merge default is untouched — the mere success of the flip proves it).
+     */
+    public function test_governed_save_failure_after_commit_reconciles_attribution_to_match_main(): void
+    {
+        $original = "<?php\nfunction val(){ return 1; }\n";
+        $modified = "<?php\nfunction val(){ return 2; }\n";
+        $repo = $this->repo($original);
+        $proposal = $this->certifiedProposal($this->makeDiff($original, $modified), 'reconcile-attr-1');
+
+        // One-shot fault injection on an ISOLATED dispatcher (cloned, restored in finally so the
+        // throwing listener can never leak into a sibling test). The FIRST save that flips
+        // merged_to_main=true is the post-commit attribution write — throw there exactly as a transient
+        // DB error would, then let the catch's reconcile save (the second such flip) succeed.
+        $dispatcher = AtlasLoopProposal::getEventDispatcher();
+        AtlasLoopProposal::setEventDispatcher(clone $dispatcher);
+        $faulted = false;
+        AtlasLoopProposal::saving(function (AtlasLoopProposal $p) use (&$faulted): void {
+            if ($p->merged_to_main === true && ! $faulted) {
+                $faulted = true;
+                throw new \RuntimeException('simulated transient DB blip during attribution save');
+            }
+        });
+
+        try {
+            $result = app(AtlasLoopAutoMergeService::class)->drain($repo, 5);
+        } finally {
+            AtlasLoopProposal::setEventDispatcher($dispatcher);
+        }
+
+        // The post-commit attribution save DID throw, so the bug window was genuinely exercised...
+        $this->assertTrue($faulted, 'the test must actually exercise a post-commit attribution save failure');
+
+        // ...yet main durably holds the merge commit AND the row's attribution now MATCHES main.
+        $headSha = $this->git($repo, ['rev-parse', 'HEAD']);
+        $this->assertStringContainsString('atlas loop auto-merge', $this->git($repo, ['log', '-1', '--pretty=%s']), 'the commit IS in main');
+        $this->assertSame($modified, file_get_contents($repo.'/snippet.php'), 'the working tree holds the merged change');
+
+        $fresh = $proposal->fresh();
+        $this->assertTrue((bool) $fresh->merged_to_main, 'row reconciled to merged — no false-negative attribution lie while main holds the commit');
+        $this->assertNotNull($fresh->reviewed_at, 'reconciled row leaves the drain queue (reviewed_at set)');
+        $this->assertSame($headSha, $fresh->quality['_attribution_reconciled']['commit'] ?? null, 'recorded commit matches main HEAD');
+
+        // The drain reports the merge honestly (reconciled), not a swallowed error.
+        $r = $result['results'][0];
+        $this->assertTrue((bool) $r['merged'], 'reconciled merge is reported as merged: '.json_encode($r));
+        $this->assertTrue((bool) ($r['attribution_reconciled'] ?? false));
+        $this->assertSame($headSha, $r['commit']);
+        $this->assertSame(1, $result['merged_count']);
+
+        // PÉTREO INVARIANT INTACT: the model guard forces merged_to_main=false on every save OUTSIDE the
+        // governed scope (proven independently in test_nothing_outside_the_governed_scope_can_mark_merged),
+        // so the reconcile could only have flipped the flag to true THROUGH governedSave — the successful
+        // flip asserted above is itself the proof — and the scope is closed again afterwards (try/finally).
+        $this->assertFalse(AtlasLoopProposal::$governedMergeInProgress, 'the governed scope must be closed after the reconcile');
+    }
+
     public function test_merge_scopes_to_the_proposal_patch_not_foreign_dirty_work(): void
     {
         // REGRESSION (HIGH false-accept): the drain built $changed from a whole-working-tree `git
