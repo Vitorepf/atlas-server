@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Process\Process;
+use Tests\Feature\Ai\RealExecution\MissionDeliveryOrchestratorTest;
 use Tests\TestCase;
 
 /**
@@ -19,7 +20,7 @@ use Tests\TestCase;
  *
  * Proves the F2 contract COST-FREE over sqlite + a REAL throwaway git repo: the
  * per-node delivery is a FAKE returning certified files per step (ZERO provider spend,
- * exactly the {@see \Tests\Feature\Ai\RealExecution\MissionDeliveryOrchestratorTest}
+ * exactly the {@see MissionDeliveryOrchestratorTest}
  * philosophy), while the REAL {@see GovernedBranchMaterializationService} obra-
  * accumulate mode produces ONE real branch and the never-main invariant is asserted.
  *
@@ -63,6 +64,37 @@ final class AtlasObraExecutorTest extends TestCase
         Schema::dropIfExists('atlas_obra_nodes');
         Schema::dropIfExists('atlas_obra_plans');
         parent::tearDown();
+    }
+
+    // ------------------------------------------------------------------
+    // ACDE Leap 4 (Stage A) — the wave scheduler is CONSUMED (de-orphaned)
+    // when node_fanout_observe is ON; OFF is byte-identical (no wave_schedule).
+    // ------------------------------------------------------------------
+
+    public function test_stage_a_observe_de_orphans_the_wave_scheduler_and_off_is_byte_identical(): void
+    {
+        // OFF (default) => the scheduler is never invoked and the envelope has NO wave_schedule key.
+        config()->set('atlas.obra.node_fanout_observe', false);
+        $this->seedLinearPlan('obra-wave-off', 3);
+        $off = (new AtlasObraExecutor($this->accumulatingDelivery(), new GovernedBranchMaterializationService))
+            ->executePlanId('obra-wave-off', ['repo_dir' => $this->repo]);
+        $this->assertSame(AtlasObraExecutor::STATUS_DONE, $off['status'], 'reason: '.($off['reason'] ?? ''));
+        $this->assertArrayNotHasKey('wave_schedule', $off, 'OFF => byte-identical: no wave_schedule key');
+
+        // ON => the executor consumes AtlasObraWaveScheduler and surfaces the antichain structure.
+        config()->set('atlas.obra.node_fanout_observe', true);
+        $this->seedLinearPlan('obra-wave-on', 3);
+        $on = (new AtlasObraExecutor($this->accumulatingDelivery(), new GovernedBranchMaterializationService))
+            ->executePlanId('obra-wave-on', ['repo_dir' => $this->repo]);
+        $this->assertSame(AtlasObraExecutor::STATUS_DONE, $on['status'], 'reason: '.($on['reason'] ?? ''));
+        $this->assertArrayHasKey('wave_schedule', $on, 'ON => the scheduler is consumed (no longer orphaned)');
+        $this->assertArrayHasKey('levels', $on['wave_schedule']);
+        $this->assertArrayHasKey('width', $on['wave_schedule']);
+        $this->assertArrayHasKey('parallelizable', $on['wave_schedule']);
+        $this->assertSame(3, array_sum(array_map('count', $on['wave_schedule']['levels'])), 'all 3 nodes are scheduled into antichain levels');
+        // Observation is behaviour-NEUTRAL: the obra still certifies DONE exactly as with the flag OFF.
+        $this->assertTrue($on['certified']);
+        $this->assertTrue($on['main_untouched']);
     }
 
     // ------------------------------------------------------------------
@@ -111,7 +143,7 @@ final class AtlasObraExecutorTest extends TestCase
         $this->assertStringContainsString('saw=', $step1);
         $this->assertStringContainsString("// saw=\n", $step1, 'step 1 ran first — it saw NO prior step files');
         $this->assertStringContainsString('saw=step1.php', $step2, 'step 2 must see step 1 in the shared worktree');
-        $this->assertStringNotContainsString('step2.php', explode("saw=", $step2)[1] ?? '', 'step 2 must NOT yet see itself/step3');
+        $this->assertStringNotContainsString('step2.php', explode('saw=', $step2)[1] ?? '', 'step 2 must NOT yet see itself/step3');
         $this->assertStringContainsString('saw=step1.php,step2.php', $step3,
             'step 3 must build on step 1 + step 2 (one accumulating branch)');
 

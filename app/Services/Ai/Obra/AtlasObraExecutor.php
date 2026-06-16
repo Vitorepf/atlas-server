@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Obra;
 
-use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
 use App\Services\Ai\RealExecution\GovernedBranchMaterializationService;
+use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -88,6 +88,14 @@ final class AtlasObraExecutor
         // so every run emits a signed, executor-output receipt (provenance-hardened) the
         // L4-10 proof verifies — a hand-assembled file can no longer pass the strict proof.
         private readonly ?AtlasObraReceiptStamp $receiptStamp = null,
+        // ACDE Leap 4 (Stage A) — the antichain WAVE SCHEDULER. Nullable + LAST + default-constructed at the
+        // use-site. Touched ONLY when atlas.obra.node_fanout_observe is ON: the executor computes the
+        // depends_on DAG's antichain levels (Kahn) + same-level write-scope collisions and surfaces them in
+        // the envelope so the operator can SEE how often real obras have parallelizable levels BEFORE any
+        // parallelism is armed. Flag OFF (default) => the scheduler is NEVER invoked and execute() is
+        // byte-identical (the strict serial seq-walk below is untouched). The actual delivery fan-out
+        // (Stage B) is gated separately behind node_fanout_enabled + a post-delivery disjointness guard.
+        private readonly ?AtlasObraWaveScheduler $waveScheduler = null,
     ) {}
 
     /**
@@ -169,6 +177,17 @@ final class AtlasObraExecutor
         // proved it acyclic + dependency-respecting; re-sort defensively in case the
         // caller handed an unordered list).
         usort($nodes, static fn (array $a, array $b): int => ((int) ($a['seq'] ?? 0)) <=> ((int) ($b['seq'] ?? 0)));
+
+        // ACDE Leap 4 (Stage A, observability) — de-orphan the wave scheduler: compute the obra's antichain
+        // structure (Kahn levels + same-level write-scope collisions) so the operator can SEE how often real
+        // obras have parallelizable levels BEFORE any delivery fan-out is armed. PURE (machine DAG analysis,
+        // no IO, no behaviour change — the strict serial seq-walk below is untouched). OFF (default) => the
+        // scheduler is NEVER invoked and the executor is byte-identical; the result is surfaced in the
+        // envelope ONLY when computed (no new key on the OFF path).
+        $waveSchedule = null;
+        if ((bool) config('atlas.obra.node_fanout_observe', false)) {
+            $waveSchedule = ($this->waveScheduler ?? new AtlasObraWaveScheduler)->schedule($nodes);
+        }
 
         // --- OPEN or RESUME the obra: ONE branch + a persistent worktree from the clean base. ---
         $open = $this->openOrResumeObra($planId, $repoDir);
@@ -301,8 +320,8 @@ final class AtlasObraExecutor
                     break;
                 }
                 // LABEL-ONLY feedback (the critical anti-leak: NEVER the raw output_excerpt / source).
-                $deliveryRequest = $request."\n\n[repair attempt ".($nodeAttempt + 1)."] the prior attempt failed — "
-                    .$this->repairFeedback($delivered)." Fix it and PRESERVE behaviour so the frozen sibling tests stay green.";
+                $deliveryRequest = $request."\n\n[repair attempt ".($nodeAttempt + 1).'] the prior attempt failed — '
+                    .$this->repairFeedback($delivered).' Fix it and PRESERVE behaviour so the frozen sibling tests stay green.';
             }
 
             // FAIL-CLOSED: a non-certified delivery HALTS the obra (no garbage applied).
@@ -477,6 +496,9 @@ final class AtlasObraExecutor
 
         return [
             'schema' => self::SCHEMA,
+            // ACDE Leap 4 (Stage A) — the antichain structure, present ONLY when node_fanout_observe is ON
+            // (byte-identical OFF: no key). Lets the operator measure parallelizable-level frequency on real obras.
+            ...($waveSchedule !== null ? ['wave_schedule' => $waveSchedule] : []),
             'plan_id' => $planId,
             'status' => $status,
             'branch' => $branch,
@@ -514,8 +536,8 @@ final class AtlasObraExecutor
      * labels / booleans only.
      *
      * @param  array<string,mixed>  $facts  {obra_id, branch, base_head, status, certified,
-     *                             node_count, delivered_nodes, resumed, resume_count,
-     *                             main_untouched, never_merged, receipt_hash, nodes, integrated}
+     *                                      node_count, delivered_nodes, resumed, resume_count,
+     *                                      main_untouched, never_merged, receipt_hash, nodes, integrated}
      * @return array<string,mixed> the signed receipt
      */
     private function stampReceipt(array $facts): array

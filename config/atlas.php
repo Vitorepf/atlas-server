@@ -3229,6 +3229,13 @@ return [
     */
     'obra' => [
         'enabled' => (bool) env('ATLAS_OBRA_ENABLED', true),
+        // ACDE Leap 4 (Stage A) — de-orphan the antichain wave scheduler. With this ON, the executor
+        // computes the obra's parallelizable structure (Kahn antichain levels + same-level write-scope
+        // collisions) and surfaces it in the envelope (wave_schedule) so the operator can MEASURE how often
+        // real obras even have parallelizable levels before arming any delivery fan-out. PURE machine DAG
+        // analysis — zero behaviour change; the strict serial walk is untouched. OFF (default) => the
+        // scheduler is never invoked and execute() is byte-identical (no wave_schedule key).
+        'node_fanout_observe' => (bool) env('ATLAS_OBRA_NODE_FANOUT_OBSERVE', false),
         // Provider key for the REAL decomposer. Empty ⇒ deterministic (cost-free).
         'decompose_provider' => (string) env('ATLAS_OBRA_DECOMPOSE_PROVIDER', ''),
         // Hard cap on plan-DAG nodes (an over-cap decomposition is refused).
