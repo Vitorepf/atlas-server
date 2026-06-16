@@ -87,4 +87,21 @@ final class AtlasLoopNodeInterfaceExtractorTest extends TestCase
         $this->assertSame([], $out['types']);
         $this->assertTrue($out['parsed']);
     }
+
+    public function test_extracts_service_locator_class_refs_the_import_census_misses(): void
+    {
+        // Dependency reached via the CONTAINER STRING, not a use-import — must be captured so a forbidden
+        // edge hidden behind app()/resolve()/App::make is still AST-visible.
+        $src = "<?php\nnamespace App\\Support;\nclass H {\n"
+            ."  public function a() { return app(\\App\\Services\\Hub::class); }\n"
+            ."  public function b() { return resolve('App\\\\Services\\\\Other'); }\n"
+            ."  public function c() { return \\App::make(Thing::class); }\n}\n";
+
+        $out = $this->ex()->extract($src);
+
+        $this->assertContains('App\\Services\\Hub', $out['service_refs']);
+        $this->assertContains('App\\Services\\Other', $out['service_refs']);
+        $this->assertContains('Thing', $out['service_refs']);
+        $this->assertSame([], $out['imports'], 'none of these are use-imports — purely container strings');
+    }
 }

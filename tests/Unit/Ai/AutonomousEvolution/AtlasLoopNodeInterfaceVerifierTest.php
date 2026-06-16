@@ -82,6 +82,30 @@ final class AtlasLoopNodeInterfaceVerifierTest extends TestCase
         $this->assertSame([], $this->verifier()->verify($contract, $this->reader(['app/Foo.php' => $src])));
     }
 
+    public function test_forbidden_import_prefix_denylist(): void
+    {
+        // A trailing-backslash forbidden entry forbids the whole namespace; a sibling namespace is fine.
+        $contract = ['app/Foo.php' => ['fqn' => null, 'required_public_methods' => [], 'implements' => [], 'extends' => [], 'forbidden_imports' => ['App\\Services\\']]];
+
+        $bad = "<?php\nnamespace App;\nuse App\\Services\\Hub;\nclass Foo { public function go(Hub \$h): void {} }\n";
+        $this->assertContains('interface_contract_violation:app/Foo.php:forbidden_import:App\\Services\\', $this->verifier()->verify($contract, $this->reader(['app/Foo.php' => $bad])));
+
+        $ok = "<?php\nnamespace App;\nuse App\\ServicesSupport\\Helper;\nclass Foo { public function go(Helper \$h): void {} }\n";
+        $this->assertSame([], $this->verifier()->verify($contract, $this->reader(['app/Foo.php' => $ok])), 'a sibling namespace must NOT trip the prefix');
+    }
+
+    public function test_forbidden_dependency_reached_via_service_locator_string(): void
+    {
+        // No use-import of the Hub — but it is resolved through the container. The import-only census would
+        // miss this; the service-ref census catches the inverted edge.
+        $contract = ['app/Foo.php' => ['fqn' => null, 'required_public_methods' => [], 'implements' => [], 'extends' => [], 'forbidden_imports' => ['App\\Services\\Hub']]];
+        $src = "<?php\nnamespace App;\nclass Foo { public function go() { return app(\\App\\Services\\Hub::class); } }\n";
+
+        $out = $this->verifier()->verify($contract, $this->reader(['app/Foo.php' => $src]));
+
+        $this->assertContains('interface_contract_violation:app/Foo.php:forbidden_service_string:App\\Services\\Hub', $out);
+    }
+
     public function test_a_missing_file_or_wrong_type_is_a_violation(): void
     {
         $contract = ['app/Gone.php' => ['fqn' => 'App\\Gone', 'required_public_methods' => [], 'implements' => [], 'extends' => [], 'forbidden_imports' => []]];

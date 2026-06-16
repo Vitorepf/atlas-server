@@ -71,6 +71,10 @@ final class AtlasLoopNodeInterfaceVerifier
             foreach ($req['forbidden_imports'] as $forbidden) {
                 if ($this->importsContain($iface['imports'], $forbidden)) {
                     $violations[] = $this->v($file, 'forbidden_import:'.$forbidden);
+                } elseif ($this->serviceRefsContain((array) ($iface['service_refs'] ?? []), $forbidden, $iface)) {
+                    // Dependency-inversion reached via a container STRING (app(X::class)/resolve/App::make)
+                    // — invisible to an import-only census, but a real forbidden edge.
+                    $violations[] = $this->v($file, 'forbidden_service_string:'.$forbidden);
                 }
             }
         }
@@ -141,14 +145,54 @@ final class AtlasLoopNodeInterfaceVerifier
         return false;
     }
 
-    /** @param  list<string>  $imports */
+    /**
+     * A forbidden entry ending in '\' is a NAMESPACE PREFIX denylist (e.g. "App\\Services\\" forbids any
+     * import beneath it); otherwise it is an exact-FQN / short-name match.
+     *
+     * @param  list<string>  $imports
+     */
     private function importsContain(array $imports, string $forbidden): bool
     {
         $want = ltrim(trim($forbidden), '\\');
+        if (str_ends_with($want, '\\')) {
+            foreach ($imports as $imp) {
+                if (str_starts_with(ltrim(trim($imp), '\\').'\\', $want)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
         $wantShort = $this->shortName($want);
         foreach ($imports as $imp) {
             $imp = ltrim(trim($imp), '\\');
             if ($imp === $want || $this->shortName($imp) === $wantShort) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Does a service-locator string ref resolve to the forbidden dep? Resolves each written ref against the
+     * file's imports/namespace, then matches by prefix (trailing '\') or exact/short name.
+     *
+     * @param  list<string>  $serviceRefs
+     * @param  array{namespace:?string, imports:list<string>}  $iface
+     */
+    private function serviceRefsContain(array $serviceRefs, string $forbidden, array $iface): bool
+    {
+        $want = ltrim(trim($forbidden), '\\');
+        $isPrefix = str_ends_with($want, '\\');
+        $wantShort = $isPrefix ? '' : $this->shortName($want);
+        foreach ($serviceRefs as $ref) {
+            $resolved = $this->resolveFqn($ref, (array) ($iface['imports'] ?? []), $iface['namespace'] ?? null);
+            if ($isPrefix) {
+                if (str_starts_with($resolved.'\\', $want)) {
+                    return true;
+                }
+            } elseif ($resolved === $want || $this->shortName($ref) === $wantShort) {
                 return true;
             }
         }

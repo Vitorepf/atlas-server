@@ -47,12 +47,13 @@ final class AtlasLoopNodeInterfaceExtractor
      *     namespace: ?string,
      *     types: list<array{fqn:string, name:string, kind:string, public_methods:list<string>, implements:list<string>, extends:list<string>}>,
      *     imports: list<string>,
+     *     service_refs: list<string>,
      *     parsed: bool
      * }
      */
     public function extract(string $phpSource): array
     {
-        $empty = ['namespace' => null, 'types' => [], 'imports' => [], 'parsed' => false];
+        $empty = ['namespace' => null, 'types' => [], 'imports' => [], 'service_refs' => [], 'parsed' => false];
         if (trim($phpSource) === '') {
             return $empty;
         }
@@ -68,6 +69,7 @@ final class AtlasLoopNodeInterfaceExtractor
 
         $namespace = $this->firstNamespace($stmts);
         $imports = $this->imports($stmts);
+        $serviceRefs = $this->serviceRefs($stmts);
 
         $types = [];
         /** @var list<ClassLike> $classLikes */
@@ -88,7 +90,63 @@ final class AtlasLoopNodeInterfaceExtractor
             ];
         }
 
-        return ['namespace' => $namespace, 'types' => $types, 'imports' => $imports, 'parsed' => true];
+        return ['namespace' => $namespace, 'types' => $types, 'imports' => $imports, 'service_refs' => $serviceRefs, 'parsed' => true];
+    }
+
+    /**
+     * Service-locator / container-STRING class references — the dependency-inversion an import-only census
+     * misses: app(X::class), resolve(X::class), App::make(X::class), Container::make(X::class). Captures the
+     * `::class` operand's written name so a forbidden dependency reached via the container is still AST-visible.
+     *
+     * @param  list<Node>  $stmts
+     * @return list<string>
+     */
+    private function serviceRefs(array $stmts): array
+    {
+        $out = [];
+        $funcNames = ['app', 'resolve'];
+        $staticMethods = ['make', 'makewith', 'resolve'];
+
+        /** @var list<Node\Expr\FuncCall> $funcCalls */
+        $funcCalls = $this->finder->findInstanceOf($stmts, Node\Expr\FuncCall::class);
+        foreach ($funcCalls as $call) {
+            if ($call->name instanceof Node\Name && in_array(mb_strtolower($call->name->toString()), $funcNames, true)) {
+                $this->collectClassArg($call->args, $out);
+            }
+        }
+
+        /** @var list<Node\Expr\StaticCall> $staticCalls */
+        $staticCalls = $this->finder->findInstanceOf($stmts, Node\Expr\StaticCall::class);
+        foreach ($staticCalls as $call) {
+            if ($call->name instanceof Node\Identifier && in_array(mb_strtolower($call->name->toString()), $staticMethods, true)) {
+                $this->collectClassArg($call->args, $out);
+            }
+        }
+
+        return array_keys($out);
+    }
+
+    /**
+     * @param  array<int,Node\Arg|Node\VariadicPlaceholder>  $args
+     * @param  array<string,bool>  $out
+     */
+    private function collectClassArg(array $args, array &$out): void
+    {
+        foreach ($args as $arg) {
+            if (! $arg instanceof Node\Arg) {
+                continue;
+            }
+            $value = $arg->value;
+            // X::class
+            if ($value instanceof Node\Expr\ClassConstFetch && $value->class instanceof Node\Name
+                && $value->name instanceof Node\Identifier && mb_strtolower($value->name->toString()) === 'class') {
+                $out[$value->class->toString()] = true;
+            }
+            // 'App\Foo' string literal
+            if ($value instanceof Node\Scalar\String_ && trim($value->value) !== '') {
+                $out[ltrim(trim($value->value), '\\')] = true;
+            }
+        }
     }
 
     /** @param  list<Node>  $stmts */
