@@ -28,14 +28,28 @@ final class AtlasEvolutionScenarioExplorer
 {
     public const SCHEMA = 'atlas.evolution.scenario_exploration.v1';
 
-    /** Strategy nudges that diversify the N attempts (the "explore 20 options"). */
+    /**
+     * Strategy mandates that DECORRELATE the N attempts. On a single weak engine (MiniMax via
+     * Hermes — no per-call temperature/seed available), mild nudges collapse into near-identical
+     * diffs and best-of-N buys almost nothing. These are deliberately STRUCTURALLY DISTINCT and
+     * forceful so even a weak model produces genuinely different candidates the frozen judge can
+     * choose between. Index→key mapping is preserved in {@see defaultStrategyKey}. [0] is the
+     * unconstrained baseline (kept for natural-solution diversity).
+     */
     private const DEFAULT_STRATEGIES = [
         '',
-        'Prefer the smallest, most surgical change that satisfies the objective.',
-        'If the obvious fix is fragile, consider a cleaner alternative — but stay strictly in scope.',
-        'Re-read the failing acceptance carefully; fix the true root cause, not the symptom.',
-        'Favor deleting/simplifying over adding, if it still satisfies the objective.',
+        'STRATEGY A — MINIMAL SURGICAL: change the fewest lines possible, in exactly one method/branch; introduce no new abstraction and do NOT widen any signature. The tightest diff that satisfies the objective generally.',
+        'STRATEGY B — CLEAN REDESIGN: assume the obvious one-line patch is the wrong shape; restructure the responsible unit properly (extract/guard/rename) so the bug class cannot recur. Deliberately DIFFERENT from a minimal patch — stay strictly in scope.',
+        'STRATEGY C — ROOT CAUSE: trace WHY the acceptance fails to its true origin and fix the underlying cause, even if that line differs from the symptom; add a guard for the invariant being violated.',
+        'STRATEGY D — SIMPLIFY/DELETE: satisfy the objective by REMOVING or collapsing code rather than adding; the smallest correct general implementation, no special-cases.',
     ];
+
+    /**
+     * Anti-overfit clause appended to EVERY attempt's intent. A weak engine, told a test must pass,
+     * games it with literal short-circuits (the observed `if (func_num_args()===1) return 5`). This
+     * discourages that at prompt time; the certifier's mutation/behavioral gates catch it regardless.
+     */
+    private const ANTI_OVERFIT = 'Implement the GENERAL logic that satisfies the objective for ALL valid inputs. Do NOT special-case the acceptance test inputs, return literal constants, or branch on argument count to make a specific case pass — such a diff will be rejected by the certification gates.';
 
     public function __construct(
         private readonly LoopExecutionDriver $driver,
@@ -212,7 +226,11 @@ final class AtlasEvolutionScenarioExplorer
         $workspace = null;
         try {
             $workspace = $this->prepareScenarioWorkspace($baseWorkspace, $index, $workspaceRoot, $cloneMode);
-            $intent = $strategy === '' ? $objective : $objective."\n\nApproach hint: ".$strategy;
+            // Forceful per-attempt framing (decorrelation) + the global anti-overfit clause on EVERY
+            // attempt. "Approach hint" was too soft for a weak engine — it collapsed the N attempts.
+            $intent = $strategy === ''
+                ? $objective."\n\n".self::ANTI_OVERFIT
+                : $objective."\n\nMANDATORY DISTINCT APPROACH (this is one of several independent attempts — do NOT produce the generic fix; commit fully to THIS angle):\n".$strategy."\n\n".self::ANTI_OVERFIT;
 
             $loopSummary = $this->driver->attempt(
                 surfaceId: $surfaceId,

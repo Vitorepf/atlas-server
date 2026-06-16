@@ -296,4 +296,41 @@ final class AtlasEvolutionScenarioExplorerTest extends TestCase
         $this->assertTrue($fake->observed['vendor_copied']);
         $this->assertTrue($fake->observed['testing_env_copied']);
     }
+
+    public function test_attempts_are_decorrelated_and_every_intent_carries_the_anti_overfit_clause(): void
+    {
+        // ACDE item 1: on a weak single engine (no per-call temperature), best-of-N only lifts if the
+        // N attempts are genuinely DECORRELATED. The explorer must hand the driver structurally-distinct
+        // strategy mandates, and EVERY attempt must carry the anti-overfit clause that discourages the
+        // observed `if(func_num_args()===1) return 5` gaming. Freeze both guarantees.
+        $fake = new class implements LoopExecutionDriver
+        {
+            /** @var list<string> */
+            public array $intents = [];
+
+            public function attempt(string $surfaceId, string $workspace, string $intent, array $userConstraints, array $surfaceHints): array
+            {
+                $this->intents[] = $intent;
+
+                return ['status' => 'completed'];
+            }
+        };
+
+        $explorer = new AtlasEvolutionScenarioExplorer($fake, new AtlasEvolutionFrozenJudge);
+        $explorer->explore($this->task(), 5);
+
+        $this->assertCount(5, $fake->intents);
+        // Every attempt carries the anti-overfit clause (general logic, no literal/argcount short-circuit).
+        foreach ($fake->intents as $intent) {
+            $this->assertStringContainsString('Do NOT special-case', $intent);
+            $this->assertStringContainsString('all valid inputs', strtolower($intent));
+        }
+        // The 5 attempts are genuinely distinct (decorrelation), not 5 copies of one prompt.
+        $this->assertGreaterThanOrEqual(4, count(array_unique($fake->intents)), 'attempts must be decorrelated');
+        // The distinct structural mandates are present across the attempts.
+        $joined = implode("\n", $fake->intents);
+        $this->assertStringContainsString('MINIMAL SURGICAL', $joined);
+        $this->assertStringContainsString('CLEAN REDESIGN', $joined);
+        $this->assertStringContainsString('ROOT CAUSE', $joined);
+    }
 }
