@@ -2299,6 +2299,12 @@ return [
         // step 1 => the historical single `<Target>Support.php` => byte-identical.
         'extract_class_sequence_enabled' => (bool) env('ATLAS_LOOP_EXTRACT_CLASS_SEQUENCE_ENABLED', false),
         'extract_class_sequence_max_steps' => max(1, (int) env('ATLAS_LOOP_EXTRACT_CLASS_SEQUENCE_MAX_STEPS', 3)),
+        // ACDE F2 — carry the feature COMPLETENESS CHECKLIST (one falsifiable criterion per verification atom)
+        // on the compiled intent-verifier packet, so a delivery dossier reports per-criterion completeness
+        // instead of one opaque green bit. Pure restatement of the atoms the verifier already enforces (no
+        // self-grading); the verifier_hash is computed over atoms/acceptance/test_content, never the whole
+        // packet, so the key never shifts cert. Default OFF => key absent => byte-identical.
+        'feature_completeness_checklist_enabled' => (bool) env('ATLAS_LOOP_FEATURE_COMPLETENESS_CHECKLIST_ENABLED', false),
         // ACDE R2-read (the MULTIPLIER) — when ON, the framework synthesizer reads the decomposition corpus
         // (R2's in-lane writes) for THIS shape's fingerprint and, if it has historically THRASHED (>=
         // min_samples outcomes, certified-rate < target_rate), backs the chain off to a single worst-method

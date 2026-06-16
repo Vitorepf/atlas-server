@@ -63,6 +63,15 @@ final class AtlasLoopIntentVerifierFactory
             'merged_to_main' => false,
         ];
 
+        // ACDE F2 — carry the FEATURE COMPLETENESS CHECKLIST (one falsifiable criterion per verification atom)
+        // on the packet so a delivery dossier reports per-criterion completeness instead of one opaque green
+        // bit. Pure restatement of the atoms the verifier already enforces (no self-grading). Additive +
+        // flag-gated => OFF => key absent => byte-identical (the verifier_hash is computed over intent/target/
+        // atoms/acceptance/test_content, never the whole packet, so this never shifts the hash either way).
+        if ((bool) config('atlas.loop.feature_completeness_checklist_enabled', false)) {
+            $packet['completeness_checklist'] = (new AtlasLoopFeatureCompletenessResolver)->resolve($atoms);
+        }
+
         if ($blockers !== []) {
             return $packet;
         }
