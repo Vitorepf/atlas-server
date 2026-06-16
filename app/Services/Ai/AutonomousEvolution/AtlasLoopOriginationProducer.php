@@ -56,6 +56,23 @@ final class AtlasLoopOriginationProducer
             return null;
         }
 
+        // ACDE O2 (the 3rd MULTIPLIER) — consult the operator accept/reject prior: if this origination SHAPE
+        // has accumulated enough operator decisions AND its accept-rate is below the operator-frozen target,
+        // BACK OFF — do not re-propose a shape the human keeps rejecting. The human accept/reject sharpens the
+        // NEXT authored origination. Flag-gated default-OFF => no consult => byte-identical; a thin/novel shape
+        // never backs off (no false silencing). The feedback stays inside origination — never the shared gate.
+        if ((bool) config('atlas.loop.origination_outcome_enabled', false)) {
+            $token = (new AtlasLoopOriginationOutcomeRecorder)->shapeToken($targetPath, (int) ($structuralHint['criteria_count'] ?? 0));
+            $backsOff = (new AtlasLoopOriginationOutcomeRecorder)->shapeBacksOff(
+                $token,
+                max(1, (int) config('atlas.loop.origination_backoff_min_samples', 3)),
+                (float) config('atlas.loop.origination_backoff_target_rate', 0.5),
+            );
+            if ($backsOff) {
+                return null;
+            }
+        }
+
         try {
             $campaign = $this->originationCampaign();
             AtlasLoopProposal::$governedMergeInProgress = false;

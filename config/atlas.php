@@ -2330,6 +2330,15 @@ return [
         // first pass (never merged, never clogs); forbidden self-targets are dropped before authoring. Default
         // OFF => produce() is inert => byte-identical (the producer is never constructed in the OFF path).
         'origination_producer_enabled' => (bool) env('ATLAS_LOOP_ORIGINATION_PRODUCER_ENABLED', false),
+        // ACDE O2 (the 3rd MULTIPLIER) — record the operator ACCEPT/REJECT on O1 origination proposals
+        // (atlas:loop:origination-review) and let the producer BACK OFF shapes the operator keeps rejecting.
+        // The human accept/reject sharpens the next authored origination — the only ground truth for
+        // origination quality. min_samples + target_rate are OPERATOR-FROZEN (anti-Goodhart: the loop never
+        // self-tunes its own origination bar); a thin/novel shape never backs off. Default OFF => no consult =>
+        // byte-identical. Feedback stays inside origination — never the shared readiness gate or merge door.
+        'origination_outcome_enabled' => (bool) env('ATLAS_LOOP_ORIGINATION_OUTCOME_ENABLED', false),
+        'origination_backoff_min_samples' => max(1, (int) env('ATLAS_LOOP_ORIGINATION_BACKOFF_MIN_SAMPLES', 3)),
+        'origination_backoff_target_rate' => (float) env('ATLAS_LOOP_ORIGINATION_BACKOFF_TARGET_RATE', 0.5),
         // ACDE R2-read (the MULTIPLIER) — when ON, the framework synthesizer reads the decomposition corpus
         // (R2's in-lane writes) for THIS shape's fingerprint and, if it has historically THRASHED (>=
         // min_samples outcomes, certified-rate < target_rate), backs the chain off to a single worst-method
