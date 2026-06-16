@@ -119,7 +119,23 @@ class WorkspaceReader
      */
     public function files(array $extensions = [], ?string $underRelative = null): array
     {
-        $extensions = $extensions === [] ? self::CODE_GLOBS : array_map('strtolower', $extensions);
+        $extensions = $this->normalizeExtensions($extensions);
+        $underRelative = $this->normalizeUnderRelative($underRelative);
+
+        if ($this->fileCache === null) {
+            $this->fileCache = $this->scanAllFiles();
+        }
+
+        return $this->filterFiles($this->fileCache, $underRelative, $extensions);
+    }
+
+    private function normalizeExtensions(array $extensions): array
+    {
+        return $extensions === [] ? self::CODE_GLOBS : array_map('strtolower', $extensions);
+    }
+
+    private function normalizeUnderRelative(?string $underRelative): ?string
+    {
         while ($underRelative !== null && str_starts_with($underRelative, './')) {
             $underRelative = substr($underRelative, 2);
         }
@@ -127,12 +143,18 @@ class WorkspaceReader
             $underRelative = '';
         }
 
-        if ($this->fileCache === null) {
-            $this->fileCache = $this->scanAllFiles();
-        }
+        return $underRelative;
+    }
 
+    /**
+     * @param  list<string>  $fileCache
+     * @param  list<string>  $extensions
+     * @return list<string>
+     */
+    private function filterFiles(array $fileCache, ?string $underRelative, array $extensions): array
+    {
         $out = [];
-        foreach ($this->fileCache as $rel) {
+        foreach ($fileCache as $rel) {
             if ($underRelative !== null && $underRelative !== '' && ! str_starts_with($rel, rtrim($underRelative, '/').'/')) {
                 continue;
             }
