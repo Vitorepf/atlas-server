@@ -139,30 +139,100 @@ final class AtlasEvolutionLoopRunner
             }
             $verdict = is_array($attempt['verdict'] ?? null) ? $attempt['verdict'] : [];
             $diffSize = is_array($attempt['diff_size'] ?? null) ? $attempt['diff_size'] : [];
-            $scenario = $attempt['scenario_id'] ?? null;
 
             $metrics[] = [
-                'scenario' => is_string($scenario) && trim($scenario) !== '' ? $scenario : $index + 1,
-                'strategy_key' => is_string($attempt['strategy_key'] ?? null) && trim((string) $attempt['strategy_key']) !== ''
-                    ? trim((string) $attempt['strategy_key'])
-                    : null,
-                'strategy' => is_string($attempt['strategy'] ?? null) ? trim((string) $attempt['strategy']) : null,
+                'scenario' => $this->attemptScenario($attempt['scenario_id'] ?? null, $index),
+                'strategy_key' => $this->attemptStrategyKey($attempt['strategy_key'] ?? null),
+                'strategy' => $this->attemptStrategy($attempt['strategy'] ?? null),
                 'passed' => (bool) ($verdict['passed'] ?? false),
-                'metric' => is_numeric($verdict['metric'] ?? null) ? (float) $verdict['metric'] : null,
+                'metric' => $this->attemptMetric($verdict['metric'] ?? null),
                 'metric_finite' => (bool) ($verdict['metric_finite'] ?? true),
                 // Carry the driver's real provider-invocation signal so the strategy
                 // bandit counts token-efficiency samples ONLY from attempts that
                 // actually called a provider — a row with a fabricated tokens_used but
                 // no real provider call (provider_invoked false/absent) is rejected.
                 'provider_invoked' => (bool) ($attempt['provider_invoked'] ?? false),
-                'tokens_used' => is_numeric($attempt['tokens_used'] ?? null) ? max(0, (int) $attempt['tokens_used']) : null,
-                'cost_estimate_usd' => is_numeric($attempt['cost_estimate_usd'] ?? null) ? max(0.0, (float) $attempt['cost_estimate_usd']) : null,
-                'diff_files' => is_numeric($diffSize['files'] ?? null) ? (int) $diffSize['files'] : null,
-                'diff_lines' => is_numeric($diffSize['lines'] ?? null) ? (int) $diffSize['lines'] : null,
+                'tokens_used' => $this->attemptTokens($attempt['tokens_used'] ?? null),
+                'cost_estimate_usd' => $this->attemptCost($attempt['cost_estimate_usd'] ?? null),
+                'diff_files' => $this->attemptDiffFiles($diffSize['files'] ?? null),
+                'diff_lines' => $this->attemptDiffLines($diffSize['lines'] ?? null),
             ];
         }
 
         return $metrics;
+    }
+
+    /**
+     * @param  mixed  $scenario
+     * @param  int  $index
+     * @return string|int
+     */
+    private function attemptScenario(mixed $scenario, int $index): string|int
+    {
+        return is_string($scenario) && trim($scenario) !== '' ? $scenario : $index + 1;
+    }
+
+    /**
+     * @param  mixed  $value
+     * @return string|null
+     */
+    private function attemptStrategyKey(mixed $value): ?string
+    {
+        return is_string($value) && trim((string) $value) !== '' ? trim((string) $value) : null;
+    }
+
+    /**
+     * @param  mixed  $value
+     * @return string|null
+     */
+    private function attemptStrategy(mixed $value): ?string
+    {
+        return is_string($value) ? trim((string) $value) : null;
+    }
+
+    /**
+     * @param  mixed  $value
+     * @return float|null
+     */
+    private function attemptMetric(mixed $value): ?float
+    {
+        return is_numeric($value) ? (float) $value : null;
+    }
+
+    /**
+     * @param  mixed  $value
+     * @return int|null
+     */
+    private function attemptTokens(mixed $value): ?int
+    {
+        return is_numeric($value) ? max(0, (int) $value) : null;
+    }
+
+    /**
+     * @param  mixed  $value
+     * @return float|null
+     */
+    private function attemptCost(mixed $value): ?float
+    {
+        return is_numeric($value) ? max(0.0, (float) $value) : null;
+    }
+
+    /**
+     * @param  mixed  $value
+     * @return int|null
+     */
+    private function attemptDiffFiles(mixed $value): ?int
+    {
+        return is_numeric($value) ? (int) $value : null;
+    }
+
+    /**
+     * @param  mixed  $value
+     * @return int|null
+     */
+    private function attemptDiffLines(mixed $value): ?int
+    {
+        return is_numeric($value) ? (int) $value : null;
     }
 
     /**
