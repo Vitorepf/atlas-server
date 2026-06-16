@@ -2283,6 +2283,13 @@ return [
         'extract_sequence_prior_read_enabled' => (bool) env('ATLAS_LOOP_EXTRACT_SEQUENCE_PRIOR_READ_ENABLED', false),
         'extract_sequence_prior_min_samples' => max(1, (int) env('ATLAS_LOOP_EXTRACT_SEQUENCE_PRIOR_MIN_SAMPLES', 4)),
         'extract_sequence_prior_target_rate' => (float) env('ATLAS_LOOP_EXTRACT_SEQUENCE_PRIOR_TARGET_RATE', 0.5),
+        // ACDE lever D1 — the per-DELIVERY capability-trend instrument: the loop's OWN clean-delivery-rate
+        // (committed + canary-not-red, the D2 definition) over rolling time buckets + the Wilson LB + the
+        // SLOPE (is capability(t) bending upward?). A SELF-trend, never engine-vs-engine (Rivals is dead). It
+        // READS atlas_loop_proposals (merged_to_main + quality) — no new table, no merge-path write. The ONLY
+        // instrument that answers "did the curve actually bend." Default OFF => empty/inert trend => byte-
+        // identical. Surface: `php artisan atlas:loop:capability-trend`.
+        'capability_trend_enabled' => (bool) env('ATLAS_LOOP_CAPABILITY_TREND_ENABLED', false),
 
         // ACDE Leap 8 (greenfield ceiling) — REUSABLE DECOMPOSITION ARCHETYPE library. Imports the single-
         // target moat into greenfield: a human freezes a small library of archetypes (frozen/obra-archetypes/
