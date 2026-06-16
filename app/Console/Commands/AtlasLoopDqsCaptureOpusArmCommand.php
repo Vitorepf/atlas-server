@@ -47,6 +47,13 @@ class AtlasLoopDqsCaptureOpusArmCommand extends Command
 
     public function handle(): int
     {
+        // ACDE D3 — DEPRECATED. The Opus-arm capture exists only for the dead head-to-head; Rivals is a failed,
+        // disabled approach. Quality is proven PER DELIVERY (dossier) and tracked by `atlas:loop:capability-trend`
+        // (D1), never engine-vs-engine. (Warning suppressed under --json so machine consumers stay clean.)
+        if (! $this->option('json')) {
+            $this->warn('DEPRECATED: the Opus-arm capture feeds the disabled head-to-head (Rivals failed). Evaluate PER DELIVERY; aggregate via `php artisan atlas:loop:capability-trend`.');
+        }
+
         $manifestPath = trim((string) $this->option('manifest'));
         if ($manifestPath === '' || ! is_file($manifestPath)) {
             $this->error('--manifest <path> is required and must exist (JSON array of per-task refactor artifacts)');

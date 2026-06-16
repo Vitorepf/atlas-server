@@ -34,6 +34,15 @@ class AtlasLoopDeliveryQualityCommand extends Command
 
     public function handle(AtlasLoopDeliveryQualityScore $dqs): int
     {
+        // ACDE D3 — DEPRECATED. Rivals / the repeated head-to-head is a failed, disabled approach: quality is
+        // proven PER DELIVERY now (a human-frozen bar + a machine-resolved dossier), and the AGGREGATE view is
+        // the SELF-trend `atlas:loop:capability-trend` (D1) — never an engine-vs-engine comparison. This command
+        // survives only because its score() math is reused by the per-delivery dossier; do not re-arm the
+        // head-to-head. (Warning suppressed under --json so machine consumers stay clean.)
+        if (! $this->option('json')) {
+            $this->warn('DEPRECATED: head-to-head is disabled (Rivals failed). Evaluate quality PER DELIVERY; for the aggregate trend use `php artisan atlas:loop:capability-trend`. See docs/acde-teto-closure.md.');
+        }
+
         $ace = $this->loadPanel((string) $this->option('ace'), 'ace');
         $opus = $this->loadPanel((string) $this->option('opus'), 'opus');
         if ($ace === null || $opus === null) {
