@@ -95,12 +95,27 @@ final class AtlasLoopBacklogIntentSource
             if (! is_file($repoRoot.'/'.$rel)) {
                 continue;
             }
-            $rows[] = [
+            $row = [
                 'path' => $rel,
                 'objective' => $objective,
                 'priority' => $this->clamp01((float) ($raw['priority'] ?? 0.9)),
                 'source' => trim((string) ($raw['source'] ?? 'manifest')) ?: 'manifest',
             ];
+            // ACDE S1 — PRESERVE (never re-derive) the self-improvement marker the LossObserver already wrote
+            // onto the manifest item. Without this the marker is silently stripped here and never reaches the
+            // proposal, so the self-edit park gate can never fire. Additive: an ordinary item (no marker) keeps
+            // the exact historical 4-key row shape (byte-identical); a self-improve item additionally carries
+            // is_self_improvement=true + its human-frozen >=9 quality bar.
+            if (($raw['is_self_improvement'] ?? false) === true) {
+                $row['is_self_improvement'] = true;
+                if (isset($raw['quality_bar_gate'])) {
+                    $row['quality_bar_gate'] = $raw['quality_bar_gate'];
+                }
+                if (isset($raw['quality_bar'])) {
+                    $row['quality_bar'] = $raw['quality_bar'];
+                }
+            }
+            $rows[] = $row;
         }
 
         return $rows;
