@@ -119,15 +119,22 @@ hours; use /workflows with ultracode."* Full roadmap: memory `acde-large-obra-le
 
 ## 5. CURRENT RESUME POINT (exactly where the building session stopped)
 
-- **Loop:** RUNNING. Campaign `019ece72` (supervisor was PID 73412 + 4 workers), on `989d5bdf`, armed moat. Verify it
-  is still alive (§6). New-leap flags are OFF so the running loop is byte-identical until you arm them.
-- **Wave A (Leap 1):** a workflow `wf_58165c52` (script:
-  `…/workflows/scripts/acde-leap1-truthwiring-wf_58165c52-0ac.js`) was authoring Leap 1 + adversarial-verifying it,
-  emitting `storage/acde-patches/leap1.patch`. **That workflow is scoped to the building session and cannot be
-  resumed cross-session** — but its **script + patch are on disk**. To continue: if `storage/acde-patches/leap1.patch`
-  exists, follow the integration playbook (§8). If not, re-run the workflow: `Workflow({scriptPath:
-  "…/acde-leap1-truthwiring-wf_58165c52-0ac.js"})`.
-- **Tasks #19-23** (`TaskList`) track Wave A→B→C→arm→relaunch with blockedBy deps.
+- **Loop:** QUIESCED for the build window (campaign `019ece72` kill-switched; 0 procs). Relaunch it at the very end
+  (§6) once all leaps land. New-leap flags default OFF, so the relaunched loop is byte-identical until armed.
+- **Wave A (Leap 1): DONE + committed `2fc0e4f4`.** Real planner provider seam (generateSpec/PlanViaProvider now
+  invoke hermes via `obraPlanningProviderRaw`, parse spec + create-class-at-seq-0 DAG, fail-open) + public
+  `measureScopedStructuralDrop` on the certifier + structural routing in `certifyAggregateDrop`
+  (flag `complexity_method_identity_gate`). 280 regression tests green, byte-identical-OFF. 3 new tests:
+  `AtlasLoopStructuralDropCertifierTest`, `AtlasLoopObraPlannerProviderSeamTest`, `AtlasLoopObraAggregateDropRoutingTest`.
+- **Wave B (Leaps 2+3): NEXT.** **Wave C (Leaps 4+5): after.** Then arm + relaunch.
+- **⚠️ CRITICAL LEARNING — do NOT use `isolation:'worktree'` Workflow agents for waves on top of committed work.**
+  Workflow worktrees branch from a PINNED session base (~the session's first commit), NOT current HEAD — so their
+  patches are stale and won't apply over your intervening commits (this is exactly how Wave A's `leap1.patch` died,
+  superseded by #8). The reliable pattern that WORKED: a **non-worktree** subagent (shares the real cwd → sees
+  current HEAD AND has `vendor/`, so it can actually run phpunit) implements + tests-to-green on current `main`,
+  run **sequentially** (one at a time → no race), and you review the diff + re-run the suite + commit each. Use
+  read-only blueprint agents or sequential writing agents — never stale worktree patches.
+- **Tasks #19-23** (`TaskList`) track Wave A→B→C→arm→relaunch with blockedBy deps (#19 done).
 - **Prior-wave specs** (apply-ready, verified): `…/tasks/wjt0nof61.output` (items #5-#10). **Leap specs:**
   `…/tasks/wzowc007w.output`. **Applied patches:** `storage/acde-patches/item{6,8,9,10}.patch`.
 
