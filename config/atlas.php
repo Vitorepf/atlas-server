@@ -1866,6 +1866,12 @@ return [
         // per-source flags above are armed), the fix prompt gets the same grounding as the initial prompt.
         // Default OFF => byte-identical; injects nothing the operator has not already armed for buildPrompt.
         'brain_context_on_fix_prompt' => (bool) env('ATLAS_LOOP_BRAIN_CONTEXT_ON_FIX_PROMPT', false),
+        // ACDE B3 — provider-safe DELIVERY RECALL into the loop prompt window: the recent CERTIFIED merged
+        // deliveries in the edited file's module (paths only, never raw code), so the weak engine matches the
+        // conventions of what just landed nearby. The read-back half of the brain flywheel whose write half is
+        // the merge itself (reads atlas_loop_proposals — no new table, no merge-path write). A SELF signal,
+        // never engine-vs-engine. Default OFF => no lines => byte-identical.
+        'brain_delivery_recall_enabled' => (bool) env('ATLAS_LOOP_BRAIN_DELIVERY_RECALL_ENABLED', false),
         // ACDE B2 — AGGREGATE cap (total chars across ALL in-scope files) for the CURRENT FILE CONTENTS dump
         // in the loop prompt. Each file is capped individually, but with no total cap a many-file obra swamps
         // the weak engine's small window before the ranked brain context lands. 0 (default) => unlimited =>

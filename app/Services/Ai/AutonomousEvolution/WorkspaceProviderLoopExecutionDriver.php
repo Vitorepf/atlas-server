@@ -390,6 +390,21 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
                 $lines[] = $line;
             }
         }
+        // ACDE B3 — provider-safe DELIVERY RECALL: the recent CERTIFIED merged deliveries in this file's
+        // module (paths only, never raw code), so the weak engine matches the conventions of what just landed
+        // nearby. The read-back half of the brain flywheel whose write half is the merge itself. Flag-gated +
+        // self-gated in the service => OFF / no DB => no lines => byte-identical.
+        if ((bool) config('atlas.loop.brain_delivery_recall_enabled', false) && $allowedFiles !== []) {
+            $target = (string) $allowedFiles[0];
+            $recent = (new AtlasLoopDeliveryRecallService)->recall(dirname($target), $target);
+            if ($recent !== []) {
+                $lines[] = '';
+                $lines[] = 'Recently certified changes in this module (match their conventions):';
+                foreach ($recent as $path) {
+                    $lines[] = '- '.$path;
+                }
+            }
+        }
     }
 
     /**
