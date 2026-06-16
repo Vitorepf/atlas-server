@@ -118,17 +118,45 @@ final class AtlasLoopFrameworkRefactorSynthesizer
             // builder's payload carries allowed_globs=[target,newClass] + structural_proof; enrich it
             // with the frozen sibling snapshot + target id so it is materializer-identical to below.
             if ($extractClass) {
-                $built = (new AtlasLoopExtractClassObjectiveBuilder())->build(
-                    $targetRepoRelPath,
-                    $siblingRel,
-                    $worstMethod ?? '',
-                    $cyclomatic,
-                    $provider !== '' ? $provider : null,
-                );
-                $built['payload']['frozen_tests'] = [['path' => $siblingRel, 'content' => $siblingBody]];
-                $built['payload']['_target_id'] = $targetId;
+                // ACDE R3 — budgeted cross-file extract SEQUENCE: across discovery waves spin out distinct
+                // Support / Support2 / Support3 classes (pick the lowest step whose file does not yet exist)
+                // so a god-class is decomposed into a CHAIN of cohesive classes, not one. Default OFF =>
+                // step 1 => the historical single `<Target>Support.php` => byte-identical. When the chain is
+                // exhausted within budget, fall through to the in-place reduction below (a safe terminal).
+                $step = 1;
+                $sequenceOn = (bool) config('atlas.loop.extract_class_sequence_enabled', false);
+                $exhausted = false;
+                if ($sequenceOn) {
+                    $next = (new AtlasLoopExtractClassObjectiveBuilder())->nextAvailableStep(
+                        $targetRepoRelPath,
+                        static fn (string $rel): bool => is_file($repoRoot.'/'.$rel),
+                        max(1, (int) config('atlas.loop.extract_class_sequence_max_steps', 3)),
+                    );
+                    if ($next === null) {
+                        $exhausted = true;
+                    } else {
+                        $step = $next;
+                    }
+                }
+                if (! $exhausted) {
+                    $built = (new AtlasLoopExtractClassObjectiveBuilder())->build(
+                        $targetRepoRelPath,
+                        $siblingRel,
+                        $worstMethod ?? '',
+                        $cyclomatic,
+                        $provider !== '' ? $provider : null,
+                        $step,
+                    );
+                    $built['payload']['frozen_tests'] = [['path' => $siblingRel, 'content' => $siblingBody]];
+                    $built['payload']['_target_id'] = $targetId;
+                    if ($sequenceOn) {
+                        $built['payload']['extract_sequence_id'] = (new AtlasLoopExtractSequencePlanner)->sequenceId($targetRepoRelPath);
+                        $built['payload']['extract_sequence_step'] = $step;
+                    }
 
-                return $built;
+                    return $built;
+                }
+                // chain exhausted within budget -> fall through to in-place reduction (terminal).
             }
 
             // The acceptance runs the REAL PHPUnit sibling test through the worktree's phpunit

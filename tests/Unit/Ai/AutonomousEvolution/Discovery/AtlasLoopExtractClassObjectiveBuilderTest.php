@@ -77,4 +77,64 @@ final class AtlasLoopExtractClassObjectiveBuilderTest extends TestCase
         $this->assertStringContainsString('namespace App\\Services\\Ai\\VentureFoundry\\Comprehension', $spec['objective']);
         $this->assertStringContainsString('final class WorkspaceReaderSupport', $spec['objective']);
     }
+
+    public function test_step_one_is_byte_identical_and_higher_steps_spin_out_distinct_classes(): void
+    {
+        $b = new AtlasLoopExtractClassObjectiveBuilder();
+        // Step 1 (default) keeps the historical un-numbered name.
+        $this->assertSame('app/Foo/BarSupport.php', $b->newClassPath('app/Foo/Bar.php', 1));
+        $this->assertSame('app/Foo/BarSupport.php', $b->newClassPath('app/Foo/Bar.php'));
+        // Steps 2/3 spin out DISTINCT class files in the same directory.
+        $this->assertSame('app/Foo/BarSupport2.php', $b->newClassPath('app/Foo/Bar.php', 2));
+        $this->assertSame('app/Foo/BarSupport3.php', $b->newClassPath('app/Foo/Bar.php', 3));
+
+        // A step-2 build threads the numbered name through path, class, namespace and objective.
+        $spec = $b->build(
+            'app/Services/Ai/Aaeos/AtlasAaeosThresholdLadderNormalizer.php',
+            'tests/Unit/Ai/Aaeos/AtlasAaeosThresholdLadderNormalizerTest.php',
+            'AtlasAaeosThresholdLadderNormalizer::normalize',
+            17,
+            null,
+            2,
+        );
+        $newPath2 = 'app/Services/Ai/Aaeos/AtlasAaeosThresholdLadderNormalizerSupport2.php';
+        $this->assertSame($newPath2, $spec['payload']['extract_class_new_path']);
+        $this->assertSame(
+            ['app/Services/Ai/Aaeos/AtlasAaeosThresholdLadderNormalizer.php', $newPath2],
+            $spec['payload']['acceptance']['allowed_globs'],
+        );
+        $this->assertStringContainsString('final class AtlasAaeosThresholdLadderNormalizerSupport2', $spec['objective']);
+
+        // Distinct steps yield distinct acceptance hashes (so the corpus never dedups two chain links).
+        $spec1 = $b->build(
+            'app/Services/Ai/Aaeos/AtlasAaeosThresholdLadderNormalizer.php',
+            'tests/Unit/Ai/Aaeos/AtlasAaeosThresholdLadderNormalizerTest.php',
+            'AtlasAaeosThresholdLadderNormalizer::normalize',
+            17,
+            null,
+            1,
+        );
+        $this->assertNotSame($spec1['acceptance_hash'], $spec['acceptance_hash']);
+    }
+
+    public function test_next_available_step_picks_lowest_free_and_returns_null_when_exhausted(): void
+    {
+        $b = new AtlasLoopExtractClassObjectiveBuilder();
+        $target = 'app/Foo/Bar.php';
+
+        // Nothing exists yet => step 1.
+        $this->assertSame(1, $b->nextAvailableStep($target, static fn (string $rel): bool => false, 3));
+
+        // Support.php taken => step 2.
+        $taken = ['app/Foo/BarSupport.php' => true];
+        $this->assertSame(2, $b->nextAvailableStep($target, static fn (string $rel): bool => isset($taken[$rel]), 3));
+
+        // Support.php + Support2.php taken => step 3.
+        $taken['app/Foo/BarSupport2.php'] = true;
+        $this->assertSame(3, $b->nextAvailableStep($target, static fn (string $rel): bool => isset($taken[$rel]), 3));
+
+        // All steps up to budget taken => null (chain exhausted; caller falls through to in-place).
+        $taken['app/Foo/BarSupport3.php'] = true;
+        $this->assertNull($b->nextAvailableStep($target, static fn (string $rel): bool => isset($taken[$rel]), 3));
+    }
 }

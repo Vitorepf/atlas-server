@@ -23,13 +23,18 @@ final class AtlasLoopExtractClassObjectiveBuilder
     public const OBJECTIVE_KIND = 'refactor_extract_class';
 
     /**
+     * @param  int  $step  R3 — which step of a budgeted extract-class SEQUENCE this is. 1 (default) keeps the
+     *                     historical `<Target>Support.php`; step N>1 spins out a DISTINCT `<Target>Support{N}.php`
+     *                     so successive waves decompose a god-class into Support, Support2, Support3… instead of
+     *                     colliding on one name. The class name, namespace, allowed_globs, objective text and
+     *                     acceptance hash all derive from the stepped path, so each step is a distinct task.
      * @return array{objective:string, payload:array<string,mixed>, acceptance_hash:string}
      */
-    public function build(string $targetRel, string $siblingTestRel, string $worstMethod, int $cyclomatic, ?string $provider = null): array
+    public function build(string $targetRel, string $siblingTestRel, string $worstMethod, int $cyclomatic, ?string $provider = null, int $step = 1): array
     {
         $targetRel = ltrim(str_replace('\\', '/', $targetRel), '/');
         $siblingTestRel = ltrim(str_replace('\\', '/', $siblingTestRel), '/');
-        $newClassRel = $this->newClassPath($targetRel);
+        $newClassRel = $this->newClassPath($targetRel, $step);
         $newClassName = $this->classNameFromPath($newClassRel);
 
         $command = './vendor/bin/phpunit '.escapeshellarg($siblingTestRel);
@@ -92,16 +97,40 @@ final class AtlasLoopExtractClassObjectiveBuilder
     }
 
     /**
-     * The new class file path — same directory as the target, name = <Target>Support.php — so PSR-4
-     * resolves it under the target's namespace. Must be passed to the provider VERBATIM so its diff
-     * lands inside allowed_globs.
+     * The new class file path — same directory as the target, name = <Target>Support.php (step 1) or
+     * <Target>Support{N}.php (step N>1) — so PSR-4 resolves it under the target's namespace. Must be passed
+     * to the provider VERBATIM so its diff lands inside allowed_globs. Step 1 is byte-identical to the
+     * historical single-class name (no numeric suffix), so the default path is unchanged.
      */
-    public function newClassPath(string $targetRel): string
+    public function newClassPath(string $targetRel, int $step = 1): string
     {
         $dir = trim(str_replace('\\', '/', dirname($targetRel)), '/');
         $base = basename($targetRel, '.php');
+        $name = $base.'Support'.($step > 1 ? (string) $step : '').'.php';
 
-        return ($dir === '' || $dir === '.') ? $base.'Support.php' : $dir.'/'.$base.'Support.php';
+        return ($dir === '' || $dir === '.') ? $name : $dir.'/'.$name;
+    }
+
+    /**
+     * R3 — the lowest step in [1..budget] whose new-class file does NOT yet exist, or null when every step
+     * up to the budget is already taken (the create-class chain for this target is exhausted within budget,
+     * so the caller should fall through to in-place reduction rather than collide on an existing file).
+     *
+     * Pure: existence is supplied by the caller's closure (repo-relative path → bool), so the chain logic is
+     * testable without disk and the same selection is deterministic for a given on-disk state.
+     *
+     * @param  callable(string): bool  $exists  given a repo-relative path, whether that file already exists
+     */
+    public function nextAvailableStep(string $targetRel, callable $exists, int $budget = 3): ?int
+    {
+        $budget = max(1, $budget);
+        for ($step = 1; $step <= $budget; $step++) {
+            if (! $exists($this->newClassPath($targetRel, $step))) {
+                return $step;
+            }
+        }
+
+        return null;
     }
 
     private function classNameFromPath(string $rel): string

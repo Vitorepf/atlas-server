@@ -2292,6 +2292,13 @@ return [
         'extract_sequence_enabled' => (bool) env('ATLAS_LOOP_EXTRACT_SEQUENCE_ENABLED', false),
         'extract_sequence_tractable_cyclomatic' => max(1, (int) env('ATLAS_LOOP_EXTRACT_SEQUENCE_TRACTABLE_CYCLOMATIC', 10)),
         'extract_sequence_max_steps' => max(1, (int) env('ATLAS_LOOP_EXTRACT_SEQUENCE_MAX_STEPS', 6)),
+        // ACDE R3 — budgeted cross-file extract SEQUENCE: when the extract-CLASS branch runs, spin out a CHAIN
+        // of distinct Support / Support2 / Support3 classes across waves (pick the lowest step whose file does
+        // not yet exist), decomposing a god-class into cohesive classes instead of colliding on one name. The
+        // chain is bounded by max_steps; once exhausted it falls through to in-place reduction. Default OFF =>
+        // step 1 => the historical single `<Target>Support.php` => byte-identical.
+        'extract_class_sequence_enabled' => (bool) env('ATLAS_LOOP_EXTRACT_CLASS_SEQUENCE_ENABLED', false),
+        'extract_class_sequence_max_steps' => max(1, (int) env('ATLAS_LOOP_EXTRACT_CLASS_SEQUENCE_MAX_STEPS', 3)),
         // ACDE R2-read (the MULTIPLIER) — when ON, the framework synthesizer reads the decomposition corpus
         // (R2's in-lane writes) for THIS shape's fingerprint and, if it has historically THRASHED (>=
         // min_samples outcomes, certified-rate < target_rate), backs the chain off to a single worst-method
