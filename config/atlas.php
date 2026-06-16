@@ -2305,6 +2305,13 @@ return [
         // self-grading); the verifier_hash is computed over atoms/acceptance/test_content, never the whole
         // packet, so the key never shifts cert. Default OFF => key absent => byte-identical.
         'feature_completeness_checklist_enabled' => (bool) env('ATLAS_LOOP_FEATURE_COMPLETENESS_CHECKLIST_ENABLED', false),
+        // ACDE F3 — the per-delivery HMAC-signed dossier (feature-outcome ledger). recent() reads the merged
+        // deliveries (atlas_loop_proposals) and emits signed dossiers carrying the D2 dimensions + F2 checklist;
+        // no new table, no merge-path write. Substrate that compounds when origination (O2) reads it back.
+        // Default OFF => empty => byte-identical. dossier_hmac_secret keys the tamper-evidence signature; the
+        // built-in default keeps it verifiable within the box (override via env for cross-process trust).
+        'delivery_dossier_enabled' => (bool) env('ATLAS_LOOP_DELIVERY_DOSSIER_ENABLED', false),
+        'dossier_hmac_secret' => (string) env('ATLAS_LOOP_DOSSIER_HMAC_SECRET', ''),
         // ACDE R2-read (the MULTIPLIER) — when ON, the framework synthesizer reads the decomposition corpus
         // (R2's in-lane writes) for THIS shape's fingerprint and, if it has historically THRASHED (>=
         // min_samples outcomes, certified-rate < target_rate), backs the chain off to a single worst-method
