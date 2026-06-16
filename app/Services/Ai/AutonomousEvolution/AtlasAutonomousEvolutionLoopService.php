@@ -601,24 +601,21 @@ final class AtlasAutonomousEvolutionLoopService
                 ? AiStringListNormalizer::uniqueTrimmedScalarValues($input['review_refs'] ?? [])
                 : ['aael:low_risk_auto_review_policy'],
         ]);
-        $feedback = $service->recordOutcomeFeedback($envelope, [
-            'status' => ($envelope['status'] ?? null) === 'ready_for_assisted_execution' ? 'succeeded' : 'blocked',
-            'quality_score' => ($envelope['status'] ?? null) === 'ready_for_assisted_execution' ? 0.88 : 0.42,
-            'context_roi_score' => ($envelope['status'] ?? null) === 'ready_for_assisted_execution' ? 0.80 : 0.35,
-            'evidence_refs' => $requiredEvidence,
-            'persist' => false,
-        ]);
+        $feedback = $service->recordOutcomeFeedback($envelope, $this->buildOutcomeFeedbackArgs($envelope, $requiredEvidence));
 
         $blockers = AiStringListNormalizer::uniqueMergedStrings(
-            $this->blockerIds(is_array($envelope['blockers'] ?? null) ? $envelope['blockers'] : []),
-            $this->blockerIds(is_array($feedback['blockers'] ?? null) ? $feedback['blockers'] : []),
+            $this->extractBlockerIds($envelope['blockers'] ?? null),
+            $this->extractBlockerIds($feedback['blockers'] ?? null),
         );
 
         $payload = [
             'schema_version' => self::ASSISTED_EXECUTION_BRIDGE_SCHEMA,
-            'status' => ($envelope['status'] ?? null) === 'ready_for_assisted_execution' && ($feedback['status'] ?? null) === 'recorded' && $blockers === []
-                ? self::STATUS_READY
-                : self::STATUS_WATCH,
+            'status' => match (true) {
+                ($envelope['status'] ?? null) === 'ready_for_assisted_execution'
+                    && ($feedback['status'] ?? null) === 'recorded'
+                    && $blockers === [] => self::STATUS_READY,
+                default => self::STATUS_WATCH,
+            },
             'route_target' => data_get($envelope, 'route.target'),
             'flow_id' => data_get($envelope, 'route.flow_id'),
             'aedpds_gate_status' => data_get($envelope, 'aedpds.gate.status'),
@@ -640,6 +637,32 @@ final class AtlasAutonomousEvolutionLoopService
         $payload['bridge_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
+    }
+
+    /**
+     * @param  list<string>  $requiredEvidence
+     * @return array<string,mixed>
+     */
+    private function buildOutcomeFeedbackArgs(array $envelope, array $requiredEvidence): array
+    {
+        $ready = ($envelope['status'] ?? null) === 'ready_for_assisted_execution';
+        $metrics = $ready ? ['succeeded', 0.88, 0.80] : ['blocked', 0.42, 0.35];
+
+        return [
+            'status' => $metrics[0],
+            'quality_score' => $metrics[1],
+            'context_roi_score' => $metrics[2],
+            'evidence_refs' => $requiredEvidence,
+            'persist' => false,
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function extractBlockerIds(mixed $value): array
+    {
+        return is_array($value) ? $this->blockerIds($value) : [];
     }
 
     /**
