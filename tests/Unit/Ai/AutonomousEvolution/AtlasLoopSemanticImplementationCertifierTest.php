@@ -122,6 +122,82 @@ final class AtlasLoopSemanticImplementationCertifierTest extends TestCase
         $this->assertTrue($hasIncomplete, 'the armed completeness gate refutes on the resolver-derived unsatisfied criterion: '.json_encode($receipt['reasons']));
     }
 
+    public function test_changed_symbol_census_path_b_refutes_uncovered_new_public_method_when_armed(): void
+    {
+        // ACDE lever #3: the candidate fixes value() (so every other gate is GREEN) but ALSO adds a new
+        // public method the frozen acceptance corpus never names. Armed, the Path B census refutes it —
+        // the deterministic clamp on WRONG-BUT-GREEN-with-un-exercised-surface.
+        config(['atlas.loop.changed_symbol_census_path_b_enabled' => true]);
+        $this->workspace = $this->workspaceAddingPublicMethod('good', 'untestedHelper');
+
+        $receipt = app(AtlasLoopSemanticImplementationCertifier::class)->certify($this->workspace, $this->acceptance(), [
+            'objective' => 'make Foo return good',
+            'allowed_files' => ['src/Foo.php'],
+            'semantic_refuter_commands' => [$this->cleanRefuterCommand()],
+            'provider_refuters_required' => 1,
+            'refuter_provider' => 'deterministic_fixture',
+        ]);
+
+        $this->assertFalse($receipt['certified']);
+        $hasCensus = false;
+        foreach ((array) $receipt['reasons'] as $r) {
+            if (str_starts_with((string) $r, 'changed_symbol_uncovered:')) {
+                $hasCensus = true;
+                $this->assertStringContainsString('src/Foo.php::untestedHelper', (string) $r);
+                break;
+            }
+        }
+        $this->assertTrue($hasCensus, 'armed census refutes the uncovered new public method: '.json_encode($receipt['reasons']));
+    }
+
+    public function test_changed_symbol_census_path_b_off_is_byte_identical(): void
+    {
+        // Same candidate, flag OFF (default): the extra public method alone does NOT block — the cert is
+        // exactly today's verdict (certifies), and no census reason appears.
+        $this->workspace = $this->workspaceAddingPublicMethod('good', 'untestedHelper');
+
+        $receipt = app(AtlasLoopSemanticImplementationCertifier::class)->certify($this->workspace, $this->acceptance(), [
+            'objective' => 'make Foo return good',
+            'allowed_files' => ['src/Foo.php'],
+            'semantic_refuter_commands' => [$this->cleanRefuterCommand()],
+            'provider_refuters_required' => 1,
+            'refuter_provider' => 'deterministic_fixture',
+        ]);
+
+        $this->assertTrue($receipt['certified'], 'flag OFF => the extra method does not block: '.json_encode($receipt['reasons']));
+        foreach ((array) $receipt['reasons'] as $r) {
+            $this->assertStringStartsNotWith('changed_symbol_uncovered:', (string) $r);
+        }
+    }
+
+    private function workspaceAddingPublicMethod(string $candidateValue, string $extraMethod): string
+    {
+        $dir = sys_get_temp_dir().'/atlas-semantic-cert-'.bin2hex(random_bytes(5));
+        mkdir($dir.'/src', 0o755, true);
+        mkdir($dir.'/tests', 0o755, true);
+        file_put_contents($dir.'/src/Foo.php', $this->foo('bad'));
+        file_put_contents($dir.'/tests/FooTest.php', <<<'PHP'
+<?php
+require __DIR__.'/../src/Foo.php';
+
+$foo = new Foo();
+if ($foo->value() !== 'good') {
+    fwrite(STDERR, 'expected good');
+    exit(1);
+}
+PHP);
+        $this->runProcess(['git', 'init'], $dir);
+        $this->runProcess(['git', 'config', 'user.email', 'atlas-loop@local'], $dir);
+        $this->runProcess(['git', 'config', 'user.name', 'Atlas Loop'], $dir);
+        $this->runProcess(['git', 'add', '-A'], $dir);
+        $this->runProcess(['git', 'commit', '-q', '-m', 'baseline'], $dir);
+        // candidate: fix value() AND add a brand-new public method the corpus never names.
+        file_put_contents($dir.'/src/Foo.php',
+            "<?php\nfinal class Foo\n{\n    public function value(): string\n    {\n        return '".$candidateValue."';\n    }\n\n    public function ".$extraMethod."(): int\n    {\n        return 7;\n    }\n}\n");
+
+        return $dir;
+    }
+
     /**
      * @return array<string,mixed>
      */

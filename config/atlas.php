@@ -2192,6 +2192,13 @@ return [
         // passes — true sufficiency needs a mutation/coverage anchor); container-string/reflection sites are
         // RECORDED as an audit signal, never gated.
         'changed_symbol_census_enabled' => (bool) env('ATLAS_LOOP_CHANGED_SYMBOL_CENSUS_ENABLED', false),
+        // ACDE lever #3 — the SAME census on the LIVE Path B cert (not just the planning-OFF obra adapter
+        // above, which has zero attempt-#1 reach). When ON, AtlasLoopSemanticImplementationCertifier::certify()
+        // refuses any new PUBLIC method in the diff's added lines that is NOT named in the frozen acceptance's
+        // coverage corpus — the deterministic clamp on the weak engine's WRONG-BUT-GREEN-with-un-exercised-
+        // surface gaming. Necessary-not-sufficient (a thin naming test passes) so it COMPOSES with the
+        // mutation kill-ratio floor, never replaces it. OFF => byte-identical; a refute only appends a reason.
+        'changed_symbol_census_path_b_enabled' => (bool) env('ATLAS_LOOP_CHANGED_SYMBOL_CENSUS_PATH_B_ENABLED', false),
 
         // ACDE Leap 8 (greenfield ceiling) — REUSABLE DECOMPOSITION ARCHETYPE library. Imports the single-
         // target moat into greenfield: a human freezes a small library of archetypes (frozen/obra-archetypes/

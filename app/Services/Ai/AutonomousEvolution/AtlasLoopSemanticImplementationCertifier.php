@@ -172,6 +172,26 @@ final class AtlasLoopSemanticImplementationCertifier
             }
         }
 
+        // ACDE lever #3 — CHANGED-PUBLIC-SYMBOL CENSUS on the LIVE Path B cert. The dominant weak-engine
+        // gaming is WRONG-BUT-GREEN with un-exercised new surface: satisfy a thin frozen acceptance by adding
+        // a public method whose branches no acceptance command runs. The census (deterministic AST + literal
+        // test corpus + git added-line diff — never a model self-report) refutes any NEW public method in the
+        // diff's added lines that is NOT named in the frozen acceptance's coverage corpus. Until now its ONLY
+        // consumer was the planning-OFF obra adapter (zero attempt-#1 reach). Necessary-not-sufficient (a thin
+        // naming test passes), so it composes with the behavioral-equivalence/mutation floor above, never
+        // replaces it. Default-OFF => byte-identical; a refute only appends a reason (drops the proposal) and
+        // never throws — it cannot crash the framework lane. canGateProposals() guarantees commands!=[] on
+        // Path B, so the corpus is never empty; an empty-command path is skipped (fail-open, no false-reject).
+        if ((bool) config('atlas.loop.changed_symbol_census_path_b_enabled', false)) {
+            $censusCommands = AiStringListNormalizer::trimmedStrings($targetAcceptance['commands'] ?? []);
+            if ($censusCommands !== []) {
+                $census = (new AtlasLoopChangedSymbolCoverageCensus)->evaluate($workspace, $censusCommands);
+                if (($census['passed'] ?? true) !== true) {
+                    $reasons[] = 'changed_symbol_uncovered:'.implode(',', array_slice(array_values((array) ($census['uncovered'] ?? [])), 0, 5));
+                }
+            }
+        }
+
         if ($this->complexityProofRequired($targetAcceptance)) {
             if ($scopeViolation !== []) {
                 $reasons[] = 'complexity_gate:changed_files_outside_allowed:'.implode(',', array_slice($scopeViolation, 0, 5));
