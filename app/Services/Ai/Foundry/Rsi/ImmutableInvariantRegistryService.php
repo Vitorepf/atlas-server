@@ -71,6 +71,8 @@ final class ImmutableInvariantRegistryService
 
     public const GATE_EA_INVARIANT_TOUCH_NEVER_AUTO = 'earned_autonomy.invariant_touch_never_auto';
 
+    public const GATE_EA_PROPOSAL_ACTUATION_SEAM = 'earned_autonomy.proposal_actuation_seam';
+
     /**
      * Sacred set definition. Each gate lists the repo-relative source paths it
      * owns (the files an RSI diff may NEVER add/modify/delete) and the
@@ -251,6 +253,23 @@ final class ImmutableInvariantRegistryService
                 'attack_blocked',
                 'drift_detected',
                 'revoke_to_tier_0',
+            ],
+        ],
+        // ACDE S2 — the auto-apply ACTUATION SEAM. The adversarial pass found the proposal gate (which sets
+        // STATUS_AUTO_APPLIED_EARNED) and the self-target selector (the only admit() caller) were NOT sacred —
+        // a future RSI diff could wire a live actuator into them and be caught ONLY by the substring backstop.
+        // Registering them as sacred makes the seam sacred-path-protected: an RSI proposal can NEVER add/modify/
+        // delete the door's actuation wiring. Pays the registry debt the S2 actuator was blocked on.
+        self::GATE_EA_PROPOSAL_ACTUATION_SEAM => [
+            'title' => 'Earned Autonomy Actuation Seam: the proposal-gate auto-apply decision + the selector that consumes it are sacred — no RSI diff may wire a live actuator',
+            'paths' => [
+                'app/Services/Ai/Foundry/Rsi/RsiSelfImprovementProposalGate.php',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Rsi/SelfTargetSelectorService.php',
+            ],
+            'weakening_signatures' => [
+                'STATUS_AUTO_APPLIED_EARNED',
+                'auto_applied',
+                'routed_to_human_gate',
             ],
         ],
     ];
