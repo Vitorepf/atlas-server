@@ -125,6 +125,16 @@ final class AtlasLoopPlanReadinessGate
             $ready = false;
         }
 
+        // ACDE Leap 8 (greenfield ceiling) — ARCHETYPE invariant band. When the flag is ON and the objective
+        // DETERMINISTICALLY classifies into a human-frozen decomposition archetype, the plan must honour that
+        // archetype's structural invariants (min nodes, a mandatory create-class file, min distinct targets);
+        // a violation REPLANS — importing the moat into greenfield for ANY goal in the family, no per-goal
+        // fixture. Flag OFF, no $goal, or no archetype match => [] (degrade to structural-only, byte-identical).
+        foreach ($this->archetypeGaps($plan, $goal) as $g) {
+            $gaps[] = $g;
+            $ready = false;
+        }
+
         return [
             // The decision encodes the economics: a weak plan REPLANS (cheap) rather than IMPLEMENTING
             // (expensive). Only an impeccable plan spends the implementation budget.
@@ -273,6 +283,38 @@ final class AtlasLoopPlanReadinessGate
         }
 
         return (bool) config('atlas.loop.node_interface_plan_gate_enabled', false);
+    }
+
+    /**
+     * ACDE Leap 8 (greenfield) — the archetype-invariant gaps for a plan, or [] when the flag is OFF, no
+     * $goal was supplied, or the goal classifies into NO frozen archetype (degrade to structural-only).
+     *
+     * @param  array<string,mixed>  $plan
+     * @return list<string>
+     */
+    private function archetypeGaps(array $plan, ?string $goal): array
+    {
+        $goal = trim((string) $goal);
+        if ($goal === '' || ! $this->archetypeEnabled()) {
+            return [];
+        }
+
+        return (new AtlasLoopDecompositionArchetypeOracle)->violations($plan, $goal);
+    }
+
+    /** Is the greenfield archetype gate flag ON? Defensive (container-less pure callers => OFF). */
+    private function archetypeEnabled(): bool
+    {
+        try {
+            $app = function_exists('app') ? app() : null;
+            if ($app === null || ! $app->bound('config')) {
+                return false;
+            }
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return (bool) config('atlas.loop.decomposition_archetype_enabled', false);
     }
 
     /**

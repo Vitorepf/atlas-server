@@ -2182,6 +2182,16 @@ return [
         // RECORDED as an audit signal, never gated.
         'changed_symbol_census_enabled' => (bool) env('ATLAS_LOOP_CHANGED_SYMBOL_CENSUS_ENABLED', false),
 
+        // ACDE Leap 8 (greenfield ceiling) — REUSABLE DECOMPOSITION ARCHETYPE library. Imports the single-
+        // target moat into greenfield: a human freezes a small library of archetypes (frozen/obra-archetypes/
+        // *.json) — each a deterministic token classifier + the structural invariants every obra of that shape
+        // must honour (min nodes, a mandatory create-class file suffix, min distinct targets). A goal that
+        // classifies into an archetype is held to its invariants for ANY novel objective in the family — no
+        // per-goal fixture. OFF, or no archetype match => structural-only (byte-identical). Ships EMPTY (the
+        // library grows one human-authored rule at a time — the honest greenfield edge).
+        'decomposition_archetype_enabled' => (bool) env('ATLAS_LOOP_DECOMPOSITION_ARCHETYPE_ENABLED', false),
+        'decomposition_archetype_dir' => env('ATLAS_LOOP_DECOMPOSITION_ARCHETYPE_DIR', base_path('frozen/obra-archetypes')),
+
         // L4-1: cooldown por target recente. Tasks/proposals recentes do mesmo path caem no
         // ranking para evitar farming do arquivo que acabou de render proposta.
         'target_cooldown_enabled' => (bool) env('ATLAS_LOOP_TARGET_COOLDOWN_ENABLED', true),
