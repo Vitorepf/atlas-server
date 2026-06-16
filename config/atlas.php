@@ -829,6 +829,25 @@ return [
             // semantics are preserved (the loop still fixes forward, from a CLEAN main). Flip OFF
             // to restore the pure v2 policy (canary post-commit, never reverts — regression lands).
             'precommit_canary_gate' => (bool) env('ATLAS_LOOP_PRECOMMIT_CANARY_GATE', true),
+            // ACDE lever #2 — FULL-COVERAGE canary. The default canary proves only the FIRST changed file
+            // that has a sibling (it returns on the first match) and lets a no-sibling diff through — the
+            // literal seam behind the 12 canary-RED merges that leaked (files 2..N of a multi-file diff, and
+            // sibling-less source, were never exercised). When ON, the canary runs EVERY changed file's
+            // sibling on ./vendor/bin/phpunit (NOT `artisan test` — its autoloader-redeclare exit-255 hazard
+            // would spuriously retire good proposals once N siblings run) and fails CLOSED on ANY sibling RED.
+            // Default OFF => byte-identical (first-sibling, `artisan test`).
+            'canary_full_coverage' => (bool) env('ATLAS_LOOP_CANARY_FULL_COVERAGE', false),
+            // ACDE lever #2 (coverage half) — only meaningful with canary_full_coverage ON: additionally block
+            // any merge whose changed app/**.php source resolves NO behavioral sibling (an unprovable source
+            // must not reach main). Default OFF => an uncovered source is recorded but not blocked.
+            'canary_require_coverage' => (bool) env('ATLAS_LOOP_CANARY_REQUIRE_COVERAGE', false),
+            // ACDE lever #2b — run the cross-suite BroaderRegressionGate on the LIVE single-file merge lane
+            // (the canary proves the changed file's own sibling; this proves the affected test MODULES + boot
+            // + lint). The gate is built + DI-bound but until now consumed only by the inert obra path. A
+            // non-pass blocks pre-commit (undo apply, retire, fix-forward) just like a canary RED. Default OFF
+            // => not called => byte-identical. Cost (runs whole suite dirs) is why it is default-OFF; arm it
+            // together with broader_regression_gate_phpunit (below) and canary_full_coverage.
+            'broader_regression_gate_live' => (bool) env('ATLAS_LOOP_BROADER_REGRESSION_GATE_LIVE', false),
             // L4-3: cada merge governado recebe um impact receipt determinístico
             // (categoria, tamanho, alvo real-vs-generated, score) para o guard e os
             // relatórios medirem valor, não só volume/quebra.
@@ -2219,6 +2238,11 @@ return [
         // surface gaming. Necessary-not-sufficient (a thin naming test passes) so it COMPOSES with the
         // mutation kill-ratio floor, never replaces it. OFF => byte-identical; a refute only appends a reason.
         'changed_symbol_census_path_b_enabled' => (bool) env('ATLAS_LOOP_CHANGED_SYMBOL_CENSUS_PATH_B_ENABLED', false),
+        // ACDE lever #2b — run the BroaderRegressionGate's affected-module suites on ./vendor/bin/phpunit
+        // instead of `artisan test` (the latter's autoloader-redeclare exit-255 hazard would spuriously RED a
+        // whole-directory run). Default OFF => `artisan test` => byte-identical for the gate's existing (obra)
+        // consumer + its tests; arm it together with broader_regression_gate_live.
+        'broader_regression_gate_phpunit' => (bool) env('ATLAS_LOOP_BROADER_REGRESSION_GATE_PHPUNIT', false),
 
         // ACDE Leap 8 (greenfield ceiling) — REUSABLE DECOMPOSITION ARCHETYPE library. Imports the single-
         // target moat into greenfield: a human freezes a small library of archetypes (frozen/obra-archetypes/

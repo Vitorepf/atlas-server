@@ -355,8 +355,15 @@ final class AtlasLoopBroaderRegressionGate implements BroaderRegressionGateContr
     private function runSuite(string $repoRoot, string $path): array
     {
         try {
+            // ACDE lever #2b — running whole module directories via `artisan test` raises the documented
+            // exit-255 autoloader-redeclare odds (a spurious RED would retire a good proposal). When armed
+            // alongside the live gate, run the suites on ./vendor/bin/phpunit instead. Default OFF =>
+            // `artisan test` => byte-identical for the existing (obra) consumer + its tests.
+            $argv = (bool) config('atlas.loop.broader_regression_gate_phpunit', false)
+                ? [PHP_BINARY, '-d', 'memory_limit=2048M', './vendor/bin/phpunit', $path]
+                : [PHP_BINARY, '-d', 'memory_limit=2048M', 'artisan', 'test', $path];
             $p = new Process(
-                [PHP_BINARY, '-d', 'memory_limit=2048M', 'artisan', 'test', $path],
+                $argv,
                 $repoRoot,
                 null,
                 null,

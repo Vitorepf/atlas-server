@@ -7,6 +7,7 @@ namespace App\Services\Ai\AutonomousEvolution;
 use App\Models\AtlasLoopCampaign;
 use App\Models\AtlasLoopConfidenceSample;
 use App\Models\AtlasLoopProposal;
+use App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSiblingTestResolver;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWiredCallerService;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
@@ -50,6 +51,11 @@ final class AtlasLoopAutoMergeService
         private readonly AtlasLoopStore $store,
         private readonly AtlasLoopImpactReceiptService $impactReceipts,
         private readonly AtlasLoopMultiRepoMergeAuthority $repoAuthority,
+        // ACDE lever #2b — the cross-suite regression gate for the LIVE single-file lane. LAST + nullable +
+        // default null so the existing call-sites/tests keep constructing the service; when null and armed,
+        // certify() self-resolves it via app(). Laravel zero-config autowiring does NOT inject `?Type $x =
+        // null`, hence the in-method app() fallback.
+        private readonly ?BroaderRegressionGateContract $broaderGate = null,
     ) {}
 
     /**
@@ -391,8 +397,11 @@ final class AtlasLoopAutoMergeService
             // nunca transita por main. GREEN/sem-irmão ⇒ segue p/ commit. Flag OFF restaura a
             // política v2 pura (canário pós-commit, nunca reverte) — bloco 6 abaixo.
             $precommitGate = (bool) config('atlas.ai.loop.precommit_canary_gate', true);
-            $canary = $precommitGate ? $this->canary($repoRoot, $changed) : ['ran' => false, 'passed' => null, 'target' => null];
-            if ($precommitGate && ($canary['ran'] ?? false) && ($canary['passed'] ?? null) === false) {
+            $canary = $precommitGate ? $this->canary($repoRoot, $changed) : ['ran' => false, 'passed' => null, 'target' => null, 'block' => false];
+            // ACDE lever #2 — obey the canary's `block` verdict. Under the default (full-coverage OFF) path
+            // `block` == the old `ran && passed===false`, so this is byte-identical; with full-coverage ON it
+            // also fires on a RED sibling 2..N and (require-coverage ON) on an unprovable source.
+            if ($precommitGate && ($canary['block'] ?? false)) {
                 foreach ($changed as $file) {
                     $this->git($repoRoot, ['checkout', '--', $file]); // pré-commit: desfaz o apply (não é revert)
                 }
@@ -422,6 +431,45 @@ final class AtlasLoopAutoMergeService
                     'canary' => $canary,
                     'fix_forward_task' => $fixForward,
                 ]);
+            }
+
+            // 4c. BROADER-REGRESSION GATE PRÉ-COMMIT (ACDE lever #2b, default OFF). O canário acima prova o
+            // teste-IRMÃO do arquivo mudado; este prova os MÓDULOS afetados (mapeados por subtree) + boot-smoke
+            // + php -l, fechando o buraco "regressão em OUTRA suíte" — a classe cross-test por trás dos 12
+            // vazamentos. O gate é fail-closed (built + DI-bound, mas até agora só consumido pelo obra path
+            // inerte). RED ⇒ mesmo tratamento do canário-red: desfaz o apply (main intocado), aposenta, e
+            // enfileira o fix-forward. Flag OFF ⇒ NÃO chamado ⇒ byte-identical. Custo (roda diretórios de
+            // suíte) é por isso que vem default-OFF e é armado junto do canary_full_coverage.
+            if ((bool) config('atlas.ai.loop.broader_regression_gate_live', false)) {
+                $broader = ($this->broaderGate ?? app(BroaderRegressionGateContract::class))->evaluate($repoRoot, $changed);
+                if (($broader['passed'] ?? false) !== true) {
+                    foreach ($changed as $file) {
+                        $this->git($repoRoot, ['checkout', '--', $file]); // pré-commit: desfaz o apply (não é revert)
+                    }
+                    $verdict = ['ran' => true, 'passed' => false, 'target' => (string) ($broader['reason'] ?? 'broader_regression')];
+                    $fixForward = $this->enqueueFixForward($proposal, $verdict, $snapTag);
+                    $this->governedSave(function () use ($proposal, $broader): void {
+                        $quality = is_array($proposal->quality) ? $proposal->quality : [];
+                        $quality['_operator_review'] = [
+                            'schema_version' => 'atlas.loop.operator_review.v1',
+                            'status' => 'broader_regression_retired',
+                            'reason' => 'broader_regression:'.(string) ($broader['reason'] ?? '?'),
+                            'reviewed_at' => now()->toIso8601String(),
+                            'decision' => 'retire_broader_regression_fix_forward',
+                        ];
+                        $quality['_broader_regression'] = $broader;
+                        $proposal->forceFill(['reviewed_at' => now(), 'quality' => $quality])->save();
+                    });
+                    // Asymmetric trust: a detected cross-suite regression resets the change-class streak,
+                    // exactly as the canary-red path does.
+                    $this->feedTrustLadder($changed, null, $verdict);
+
+                    return array_merge($base, [
+                        'reason' => 'broader_regression_gate (apply desfeito, main intocado, fix-forward enfileirado)',
+                        'broader_regression' => $broader,
+                        'fix_forward_task' => $fixForward,
+                    ]);
+                }
             }
 
             // 5. Commit em main + receipt + marcação governada.
@@ -922,12 +970,26 @@ final class AtlasLoopAutoMergeService
 
     private function canary(string $repoRoot, array $changed): array
     {
-        // Resolve the sibling via the SHARED recursive resolver — NOT the old
-        // `tests/{Unit,Feature}/**/X` glob, whose `**` is NOT recursive in PHP and so
-        // only matched tests 0-1 dirs deep, MISSING the deep mirror layout
-        // (tests/Unit/Ai/.../{Class}Test.php) — the reason canaries "rarely ran". Now the
-        // canary finds + runs the real deep sibling, the same one discovery/grade resolve,
-        // so canary-green is a real fact for far more merges (and feeds NON_TRIVIAL credit).
+        // ACDE lever #2 — default OFF restores TODAY'S behaviour byte-for-byte (first sibling only,
+        // `artisan test`, return on the first match). When ON, exercise EVERY changed file's sibling and fail
+        // CLOSED — the fix for the 12 canary-RED merges that leaked (files 2..N of a multi-file diff, and
+        // sibling-less source, were never proven). The call site obeys the returned `block` flag, which under
+        // the OFF path equals exactly the old `ran && passed===false` condition.
+        if (! (bool) config('atlas.ai.loop.canary_full_coverage', false)) {
+            return $this->canaryFirstSibling($repoRoot, $changed);
+        }
+
+        return $this->canaryAllSiblings($repoRoot, $changed);
+    }
+
+    /**
+     * Today's behaviour (byte-identical to pre-lever-#2): the FIRST changed file with a sibling decides.
+     * Resolve the sibling via the SHARED recursive resolver — NOT the old `tests/{Unit,Feature}/**\/X` glob,
+     * whose `**` is NOT recursive in PHP and so only matched tests 0-1 dirs deep, MISSING the deep mirror
+     * layout (tests/Unit/Ai/.../{Class}Test.php) — the reason canaries "rarely ran".
+     */
+    private function canaryFirstSibling(string $repoRoot, array $changed): array
+    {
         $resolver = new AtlasLoopSiblingTestResolver($repoRoot);
         foreach ($changed as $file) {
             $sib = $resolver->resolve($file);
@@ -940,11 +1002,68 @@ final class AtlasLoopAutoMergeService
             // launchd's minimal PATH a bare 'php' argv[0] would not resolve (exit-127).
             $p = new Process([PHP_BINARY, '-d', 'memory_limit=2048M', 'artisan', 'test', $siblingRel], $repoRoot, null, null, 300.0);
             $p->run();
+            $passed = $p->isSuccessful();
 
-            return ['ran' => true, 'passed' => $p->isSuccessful(), 'target' => $siblingRel];
+            return ['ran' => true, 'passed' => $passed, 'target' => $siblingRel, 'block' => ! $passed];
         }
 
-        return ['ran' => false, 'passed' => null, 'target' => null];
+        return ['ran' => false, 'passed' => null, 'target' => null, 'block' => false];
+    }
+
+    /**
+     * ACDE lever #2 — run EVERY changed file's behavioral sibling on ./vendor/bin/phpunit (NOT `artisan
+     * test`: its autoloader-redeclare exit-255 hazard would spuriously retire good proposals once N siblings
+     * run). Fail CLOSED: ANY sibling RED blocks the merge (the multi-file leak), and — with
+     * canary_require_coverage ON — any changed app/**\/*.php source with NO sibling blocks too (an
+     * unprovable source must not reach main). Stops at the first RED to bound runtime.
+     */
+    private function canaryAllSiblings(string $repoRoot, array $changed): array
+    {
+        $resolver = new AtlasLoopSiblingTestResolver($repoRoot);
+        $requireCoverage = (bool) config('atlas.ai.loop.canary_require_coverage', false);
+        $ranTargets = [];
+        $uncovered = [];
+        $redTarget = null;
+        foreach ($changed as $file) {
+            $sib = $resolver->resolve($file);
+            if (! ($sib['has_sibling'] ?? false)) {
+                if ($this->isCoverableSource((string) $file)) {
+                    $uncovered[] = (string) $file;
+                }
+
+                continue;
+            }
+            $siblingRel = (string) $sib['sibling_path'];
+            $p = new Process([PHP_BINARY, '-d', 'memory_limit=2048M', './vendor/bin/phpunit', $siblingRel], $repoRoot, null, null, 300.0);
+            $p->run();
+            $ranTargets[] = $siblingRel;
+            if (! $p->isSuccessful()) {
+                $redTarget = $siblingRel;
+
+                break; // first RED is enough to block; stop burning time
+            }
+        }
+
+        $coverageHole = $requireCoverage && $uncovered !== [];
+        $block = $redTarget !== null || $coverageHole;
+        $ranAny = $ranTargets !== [];
+
+        return [
+            'ran' => $ranAny,
+            'passed' => $block ? false : ($ranAny ? true : null),
+            'target' => $redTarget ?? ($coverageHole ? 'uncovered:'.implode(',', array_slice($uncovered, 0, 3)) : ($ranTargets[0] ?? null)),
+            'block' => $block,
+            'ran_targets' => $ranTargets,
+            'uncovered' => $uncovered,
+        ];
+    }
+
+    /** A changed first-party SOURCE file that ought to carry a behavioral sibling (app/**\/*.php, non-test). */
+    private function isCoverableSource(string $file): bool
+    {
+        $f = ltrim($file, '/');
+
+        return str_starts_with($f, 'app/') && str_ends_with($f, '.php') && ! str_ends_with($f, 'Test.php');
     }
 
     /**

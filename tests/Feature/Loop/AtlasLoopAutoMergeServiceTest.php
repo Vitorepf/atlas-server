@@ -7,6 +7,7 @@ namespace Tests\Feature\Loop;
 use App\Models\AtlasLoopCampaign;
 use App\Models\AtlasLoopProposal;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopAutoMergeService;
+use App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -598,6 +599,57 @@ final class AtlasLoopAutoMergeServiceTest extends TestCase
         $this->assertTrue((bool) $proposal->fresh()->merged_to_main);
         $this->assertTrue((bool) ($result['results'][0]['canary']['ran'] ?? false), 'o canário rodou pré-commit');
         $this->assertTrue((bool) ($result['results'][0]['canary']['passed'] ?? false), 'e ficou verde');
+    }
+
+    /**
+     * ACDE lever #2b: with the live broader-regression gate ARMED, a cross-suite RED (a regression the
+     * single-sibling canary is blind to) blocks the merge pre-commit — apply undone, retired, fix-forwarded.
+     */
+    public function test_broader_regression_gate_live_red_blocks_merge(): void
+    {
+        config(['atlas.ai.loop.broader_regression_gate_live' => true]);
+        $this->app->instance(BroaderRegressionGateContract::class, new class implements BroaderRegressionGateContract
+        {
+            public function evaluate(string $repoRoot, array $changedFiles): array
+            {
+                return ['passed' => false, 'reason' => 'cross_suite_red_fixture'];
+            }
+        });
+
+        $original = "<?php\nfunction val(){ return 1; }\n";
+        $repo = $this->repoWithCanary($original, false); // canary GREEN — only the broader gate blocks
+        $proposal = $this->certifiedProposal($this->makeDiff($original, "<?php\nfunction val(){ return 2; }\n"), 'broader-red-1');
+
+        $result = app(AtlasLoopAutoMergeService::class)->drain($repo, 5);
+
+        $this->assertSame(0, $result['merged_count'], json_encode($result['results']));
+        $r = $result['results'][0];
+        $this->assertStringContainsString('broader_regression_gate', (string) $r['reason']);
+        $this->assertSame($original, file_get_contents($repo.'/snippet.php'), 'o apply foi desfeito (regressão cross-suite não entra em main)');
+        $this->assertFalse((bool) $proposal->fresh()->merged_to_main);
+        $this->assertTrue((bool) ($r['fix_forward_task']['enqueued'] ?? false), 'fix-forward enfileirado');
+    }
+
+    /** ACDE lever #2b contraprova: gate ARMED but GREEN => the merge crosses normally. */
+    public function test_broader_regression_gate_live_green_merges(): void
+    {
+        config(['atlas.ai.loop.broader_regression_gate_live' => true]);
+        $this->app->instance(BroaderRegressionGateContract::class, new class implements BroaderRegressionGateContract
+        {
+            public function evaluate(string $repoRoot, array $changedFiles): array
+            {
+                return ['passed' => true, 'reason' => null];
+            }
+        });
+
+        $original = "<?php\nfunction val(){ return 1; }\n";
+        $repo = $this->repoWithCanary($original, false);
+        $proposal = $this->certifiedProposal($this->makeDiff($original, "<?php\nfunction val(){ return 2; }\n"), 'broader-green-1');
+
+        $result = app(AtlasLoopAutoMergeService::class)->drain($repo, 5);
+
+        $this->assertSame(1, $result['merged_count'], json_encode($result['results']));
+        $this->assertTrue((bool) $proposal->fresh()->merged_to_main);
     }
 
     public function test_precommit_canary_red_feeds_the_trust_ladder_a_revert_resetting_the_class_streak(): void
