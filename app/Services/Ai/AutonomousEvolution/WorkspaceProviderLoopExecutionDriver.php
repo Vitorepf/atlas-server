@@ -7,6 +7,7 @@ namespace App\Services\Ai\AutonomousEvolution;
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
 use App\Services\Engineering\CodeGraph\CodeGraphContextRetriever;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -231,6 +232,17 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
             }
         }
 
+        // ACDE Tier-1 #7: DEPENDENCY-BODY grounding. The code-graph seam above injects only callee
+        // SIGNATURES; a weak engine then edits the target right but hallucinates the callee CONTRACT
+        // (confident wrong calls — a signature map can make it WORSE). When the operator flips
+        // `atlas.loop.inject_dependency_bodies` ON, append the EXACT body of the top-K cross-file
+        // dependencies so the engine calls them as written. Flag OFF (default) => byte-identical.
+        if ((bool) config('atlas.loop.inject_dependency_bodies', false)) {
+            foreach ($this->dependencyBodyLines($intent, $allowedFiles) as $line) {
+                $lines[] = $line;
+            }
+        }
+
         $text = implode("\n", $lines);
 
         return ['text' => $text, 'instruction' => $text, 'messages' => [['role' => 'user', 'content' => $text]]];
@@ -399,6 +411,90 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
         } catch (Throwable) {
             return [];
         }
+    }
+
+    /** ACDE Tier-1 #7: per-symbol body cap — keeps one huge callee from swamping the prompt. */
+    private const DEPENDENCY_BODY_CHARS = 1500;
+
+    /**
+     * ACDE Tier-1 #7: the EXACT body of the top-K cross-file dependencies relevant to this task, so a
+     * no-filesystem weak engine calls them as WRITTEN instead of hallucinating the contract. Reuses the
+     * proven code-graph retrieval (packFor) for ranking, then range-reads each symbol's body from the
+     * indexed PRIMARY repo (base_path) via the code-symbols read-model (line_start/line_end). The edited
+     * files are skipped (the engine already has them). Fully fail-safe: any error / no graph / missing
+     * table yields no lines.
+     *
+     * @param  list<string>  $allowedFiles
+     * @return list<string>
+     */
+    private function dependencyBodyLines(string $intent, array $allowedFiles): array
+    {
+        try {
+            $workspaceId = (string) $this->workspaceIdentity->default();
+            $pack = $this->codeGraphContext->packFor($intent, $workspaceId, CodeGraphContextRetriever::DEFAULT_BUDGET, $allowedFiles);
+            $included = is_array($pack['included'] ?? null) ? $pack['included'] : [];
+            if ($included === []) {
+                return [];
+            }
+
+            $allowedSet = array_map(static fn (string $f): string => ltrim($f, './'), $allowedFiles);
+            $root = rtrim(base_path(), '/');
+            $blocks = [];
+            foreach ($included as $node) {
+                if (count($blocks) >= 6 || ! is_array($node)) {
+                    continue;
+                }
+                $filePath = trim((string) ($node['file_path'] ?? ''));
+                // Skip the files the engine is editing — it already has their full contents.
+                if ($filePath === '' || in_array(ltrim($filePath, './'), $allowedSet, true)) {
+                    continue;
+                }
+                $symbolName = (string) preg_replace('/^sym:/', '', trim((string) ($node['id'] ?? '')));
+                $body = $this->dependencyBodyFor($root, $filePath, $symbolName, $workspaceId);
+                if ($body !== '') {
+                    $blocks[] = '--- '.$filePath.($symbolName !== '' ? ' :: '.$symbolName : '')." ---\n".$body;
+                }
+            }
+
+            return $blocks === []
+                ? []
+                : array_merge(['', 'DEPENDENCY CODE (read-only — call these EXACTLY as written, do NOT change their signatures):'], $blocks);
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * Range-read a symbol's body from the indexed repo via the code-symbols read-model. Prefers the
+     * workspace-scoped row; falls back to the fullest span for the file. Returns '' on any miss.
+     */
+    private function dependencyBodyFor(string $root, string $filePath, string $symbolName, string $workspaceId): string
+    {
+        $query = DB::table('atlas_engineering_code_symbols')
+            ->where('file_path', $filePath)
+            ->whereNotNull('line_start')
+            ->whereNotNull('line_end');
+        if ($symbolName !== '') {
+            $query->where('symbol_name', $symbolName);
+        }
+        $row = (clone $query)->where('workspace_id', $workspaceId)->first()
+            ?? $query->orderByRaw('(line_end - line_start) desc')->first();
+        if ($row === null) {
+            return '';
+        }
+
+        $start = (int) $row->line_start;
+        $end = (int) $row->line_end;
+        $full = $root.'/'.ltrim($filePath, './');
+        if ($start < 1 || $end < $start || ! is_file($full)) {
+            return '';
+        }
+        $allLines = @file($full, FILE_IGNORE_NEW_LINES);
+        if ($allLines === false) {
+            return '';
+        }
+
+        return mb_substr(implode("\n", array_slice($allLines, $start - 1, $end - $start + 1)), 0, self::DEPENDENCY_BODY_CHARS);
     }
 
     private function resolveModel(string $provider): ?string

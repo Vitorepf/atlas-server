@@ -1805,6 +1805,12 @@ return [
         // Default ON: é a capacidade que destrava rodar o loop no motor mais fraco/barato.
         'text_provider_edit_apply' => (bool) env('ATLAS_LOOP_TEXT_PROVIDER_EDIT_APPLY', true),
 
+        // ACDE Tier-1 #7: DEPENDENCY-BODY grounding. The code-graph seam injects only callee SIGNATURES;
+        // a weak engine then hallucinates the callee CONTRACT (confident wrong calls). With this ON, the
+        // driver appends the EXACT body (line_start..line_end range read, capped) of the top-K cross-file
+        // dependencies. Default OFF => byte-identical prompt.
+        'inject_dependency_bodies' => (bool) env('ATLAS_LOOP_INJECT_DEPENDENCY_BODIES', false),
+
         // L2-2: descoberta admite targets framework-reach (serviços REAIS) — eles seguem
         // o caminho framework-materializer + intent-verifier + certificação adversarial.
         // Default OFF de fábrica; o operador ligou em 12/06 (.env). Reversível.
