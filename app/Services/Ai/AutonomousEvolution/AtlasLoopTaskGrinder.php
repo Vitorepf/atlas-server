@@ -219,6 +219,10 @@ final class AtlasLoopTaskGrinder
             // predictive calibration surface computes brier on live loop data. Fail-open
             // + flag-gated default-OFF inside the bridge — never crashes a grind.
             $this->recordPredictiveOutcome($task, $grindResult);
+            // ACDE R2: append the IN-LANE extract-sequence outcome to the SAME decomposition corpus the obra
+            // path feeds, so the prior-read (R2-read) can ground the next sequence's ordering. Fail-open +
+            // flag-gated (the recorder no-ops when decomposition_corpus_enabled is OFF) => byte-identical.
+            $this->recordExtractSequenceOutcome($payload, $grindResult);
 
             return $grindResult;
         } catch (Throwable $e) {
@@ -375,6 +379,37 @@ final class AtlasLoopTaskGrinder
                 'objective' => (string) $task->objective,
                 'target_path' => (string) $task->target_path,
             ]);
+        } catch (Throwable) {
+            // Telemetry must never crash a grind.
+        }
+    }
+
+    /**
+     * ACDE R2 — append the IN-LANE extract-sequence outcome to the SAME decomposition corpus the obra path
+     * feeds, so the prior-read (R2-read) can ground the next sequence's worst-first ordering + tractable
+     * threshold for a recurring shape. Fires only for an extract-sequence task (payload carries
+     * extract_sequence_plan, set by the framework-refactor synthesizer when extract_sequence_enabled is ON);
+     * fail-open + flag-gated (the recorder is a no-op when decomposition_corpus_enabled is OFF) =>
+     * byte-identical until armed. The plan's steps become the fingerprinted {nodes}; certified = the grind
+     * produced a certified winner.
+     *
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $grindResult
+     */
+    private function recordExtractSequenceOutcome(array $payload, array $grindResult): void
+    {
+        $plan = $payload['extract_sequence_plan'] ?? null;
+        if (! is_array($plan) || $plan === []) {
+            return; // not an in-lane extract-sequence task
+        }
+        try {
+            (new AtlasLoopDecompositionOutcomeRecorder)->record(
+                ['nodes' => array_values($plan)],
+                'refactor_extract_sequence',
+                (bool) ($grindResult['has_winner'] ?? false),
+                (string) ($grindResult['status'] ?? ''),
+                1,
+            );
         } catch (Throwable) {
             // Telemetry must never crash a grind.
         }
