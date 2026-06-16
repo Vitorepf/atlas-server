@@ -774,10 +774,17 @@ final class AtlasLoopTaskGrinder
             $conductor = $this->conductor ?? new AtlasLoopAutonomousConductor;
             $winning = $result;
 
-            $runTier = function (array $tierOptions, string $guidance) use (&$winning, $explorerTask, $payload, $frameworkTask, $universal): array {
+            $runTier = function (array $tierOptions, string $guidance, string $providerOverride = '') use (&$winning, $explorerTask, $payload, $frameworkTask, $universal): array {
                 $task = $explorerTask;
                 if (trim($guidance) !== '') {
                     $task['objective'] = (string) ($task['objective'] ?? '')."\n\n".$guidance;
+                }
+                // ACDE lever #5 — the strong-engine rung pins the task to a genuinely stronger provider for
+                // EVERY scenario of this tier (provider + single-entry portfolio). '' => no override =>
+                // byte-identical to the same-engine tier.
+                if ($providerOverride !== '') {
+                    $task['provider'] = $providerOverride;
+                    $task['scenario_providers'] = [$providerOverride];
                 }
                 $tierResult = $this->runner->run([$task], $tierOptions);
                 if ($this->isCharacterizationTestTask($payload) && $this->canGateProposals($explorerTask)) {
@@ -835,6 +842,15 @@ final class AtlasLoopTaskGrinder
             foreach ($byTier as $name => $tierOptions) {
                 $tiers[$name] = fn (string $goal, string $guidance, ?array $spec, int $round): array => $runTier($tierOptions, $guidance);
             }
+            // ACDE lever #5 — the MISSING N×M rung. The ladder's strongest tier used to re-run the SAME weak
+            // engine wider ('escalate_provider' => $deep), so a no-winner just dead-ended. When a genuinely
+            // stronger engine is configured, hand the FINAL rung that engine on the now-refuted/ledger-enriched
+            // task, under the SAME pétreo frozen judge — converting a refusal (a DQS defect) into a certified
+            // delivery on the same run. Default '' (or Claude/same-as-weak) => byte-identical (re-runs $deep).
+            $strongProvider = $this->escalationStrongProvider($payload);
+            if ($strongProvider !== '') {
+                $tiers['escalate_provider'] = fn (string $goal, string $guidance, ?array $spec, int $round): array => $runTier($deep, $guidance, $strongProvider);
+            }
             $tiers['decompose'] = fn (string $goal, string $guidance, ?array $spec, int $round): array => $runDecomposeTier($guidance);
 
             $conduct = $conductor->conduct((string) ($explorerTask['objective'] ?? ''), ['tier_executors' => $tiers]);
@@ -853,6 +869,45 @@ final class AtlasLoopTaskGrinder
 
             return $result;
         }
+    }
+
+    /**
+     * ACDE lever #5 — resolve the strong escalation engine for THIS task, reading config (container-safe
+     * here in the grinder) and delegating the policy to the pure {@see resolveStrongProvider}.
+     *
+     * @param  array<string,mixed>  $payload
+     */
+    private function escalationStrongProvider(array $payload): string
+    {
+        $weakDefault = trim((string) ($payload['provider'] ?? '')) ?: trim((string) config('atlas.loop.default_provider', ''));
+
+        return self::resolveStrongProvider(
+            (string) config('atlas.loop.escalation_strong_provider', ''),
+            $weakDefault,
+        );
+    }
+
+    /**
+     * Pure policy for the strong-engine rung. Returns the strong provider key, or '' to fall back to the
+     * same-engine $deep tier (byte-identical). Refuses '' / Claude-Anthropic (3rd-party block + operator
+     * no-burn rule) / a provider equal to the weak engine the prior rounds already used (anti-theatre — an
+     * "escalation" to the same engine is not an escalation).
+     */
+    public static function resolveStrongProvider(string $strong, string $weakDefault): string
+    {
+        $strong = trim($strong);
+        if ($strong === '') {
+            return '';
+        }
+        $lower = mb_strtolower($strong);
+        if (str_contains($lower, 'claude') || str_contains($lower, 'anthropic')) {
+            return '';
+        }
+        if ($strong === trim($weakDefault)) {
+            return '';
+        }
+
+        return $strong;
     }
 
     private function materializeGateWorkspace(string $baseWorkspace, string $diff): string

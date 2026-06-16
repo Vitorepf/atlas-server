@@ -1805,6 +1805,15 @@ return [
         // — bare 'codex'/'gemini' hit provider_not_configured and silently no-op). Default OFF => byte-
         // identical (tightening to allowed_files never false-rejects a candidate that edits only what it may).
         'cross_provider_best_of_n' => (bool) env('ATLAS_LOOP_CROSS_PROVIDER_BEST_OF_N', false),
+        // ACDE lever #5 — the strong-engine ESCALATION rung (the missing N×M multiplier). The conductor's
+        // ladder walks best_of_n -> repair -> decompose -> escalate_provider; on a single weak engine that
+        // last tier just re-ran the SAME engine wider, so a no-winner dead-ended (a DQS refusal=defect). Set
+        // this to a genuinely STRONGER configured engine key (e.g. codex_cli / a gpt-5.5 provider) and the
+        // FINAL rung hands that engine the now-refuted task under the SAME pétreo frozen judge — converting a
+        // refusal into a certified delivery on the same run. NEVER Claude (Anthropic 3rd-party block + no-burn
+        // rule) and never equal to the weak default (anti-theatre); both fall back to byte-identical. Default
+        // '' => OFF => byte-identical (the rung stays the same-engine $deep tier).
+        'escalation_strong_provider' => trim((string) env('ATLAS_LOOP_ESCALATION_STRONG_PROVIDER', '')),
         // Hard caps per task (the autoresearch fixed-budget discipline).
         'max_seconds_per_scenario' => max(30, (int) env('ATLAS_LOOP_MAX_SECONDS_PER_SCENARIO', 600)),
         // The loop NEVER merges to main: it accumulates certified-for-review proposals.
