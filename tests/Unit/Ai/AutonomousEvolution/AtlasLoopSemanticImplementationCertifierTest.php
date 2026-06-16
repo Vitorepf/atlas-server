@@ -74,6 +74,54 @@ final class AtlasLoopSemanticImplementationCertifierTest extends TestCase
         $this->assertContains('provider_refuter_1:semantic_gap', $receipt['reasons']);
     }
 
+    public function test_completeness_criteria_are_machine_resolved_and_recorded(): void
+    {
+        // item9: the resolver DERIVES + RESOLVES the completeness checklist from the frozen acceptance
+        // command (re-run in the workspace). The 'good' candidate makes FooTest exit 0 => 1 satisfied
+        // criterion => completeness.complete=true. Gate OFF (default) => no reason added => the verdict
+        // stays byte-identical (still certifies). Proves machine-resolution + record-not-block.
+        $this->workspace = $this->workspaceWithCandidate('good');
+
+        $receipt = app(AtlasLoopSemanticImplementationCertifier::class)->certify($this->workspace, $this->acceptance(), [
+            'objective' => 'make Foo return good',
+            'allowed_files' => ['src/Foo.php'],
+            'semantic_refuter_commands' => [$this->cleanRefuterCommand()],
+            'provider_refuters_required' => 1,
+            'refuter_provider' => 'deterministic_fixture',
+        ]);
+
+        $this->assertSame(1, data_get($receipt, 'completeness.total'), 'the single frozen acceptance command derived one criterion');
+        $this->assertTrue(data_get($receipt, 'completeness.complete'), 'the re-run command exits 0 => criterion satisfied => complete');
+        $this->assertTrue($receipt['certified'], 'gate OFF => completeness records but does not block (byte-identical verdict)');
+    }
+
+    public function test_completeness_gate_armed_refutes_when_derived_criterion_unsatisfied(): void
+    {
+        // Arm the gate. A candidate whose acceptance command FAILS yields a derived criterion with
+        // satisfied=false; with the gate ON the completeness 'incomplete:...' reason appears — proving
+        // the gate is armable end-to-end via the resolver-populated checklist (no acceptance-supplied
+        // criteria; the resolver alone built it).
+        config(['atlas.loop.completeness_gate_enabled' => true]);
+        $this->workspace = $this->workspaceWithCandidate('bad'); // FooTest expects 'good' => command exits 1
+
+        $receipt = app(AtlasLoopSemanticImplementationCertifier::class)->certify($this->workspace, $this->acceptance(), [
+            'objective' => 'make Foo return good',
+            'allowed_files' => ['src/Foo.php'],
+        ]);
+
+        $this->assertFalse($receipt['certified']);
+        $this->assertSame(1, data_get($receipt, 'completeness.total'), 'the failing acceptance command derived one criterion');
+        $this->assertFalse(data_get($receipt, 'completeness.complete'));
+        $hasIncomplete = false;
+        foreach ((array) $receipt['reasons'] as $r) {
+            if (str_starts_with((string) $r, 'incomplete:')) {
+                $hasIncomplete = true;
+                break;
+            }
+        }
+        $this->assertTrue($hasIncomplete, 'the armed completeness gate refutes on the resolver-derived unsatisfied criterion: '.json_encode($receipt['reasons']));
+    }
+
     /**
      * @return array<string,mixed>
      */

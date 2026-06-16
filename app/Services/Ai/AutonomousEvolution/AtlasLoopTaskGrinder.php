@@ -660,6 +660,15 @@ final class AtlasLoopTaskGrinder
             if ((bool) ($verdict['certified'] ?? false)) {
                 $proposal['implementation_gate'] = $deterministicGate['report'] ?? [];
                 $proposal['semantic_implementation_certification'] = $verdict;
+                // Ride the cert's delivery_confidence + quality_grade inside the proposal's QUALITY json so
+                // they survive persistence (AtlasLoopStore::certifyProposal only persists proposal['quality']).
+                // The post-merge confidence-calibration feeder reads delivery_confidence.confidence as the
+                // predicted outcome; the receipt's grade becomes durable. Purely additive (mirrors the
+                // characterization lane); absent keys store null and the feeder no-ops.
+                $quality = is_array($proposal['quality'] ?? null) ? $proposal['quality'] : [];
+                $quality['delivery_confidence'] = is_array($verdict['delivery_confidence'] ?? null) ? $verdict['delivery_confidence'] : null;
+                $quality['quality_grade'] = is_array($verdict['quality_grade'] ?? null) ? $verdict['quality_grade'] : null;
+                $proposal['quality'] = $quality;
                 $kept[] = $proposal;
             }
         }

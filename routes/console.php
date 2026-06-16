@@ -424,3 +424,11 @@ Schedule::command('atlas:loop:keepalive --stale-minutes=2 --json')
 // NOTE: the Sunday digest (the ONLY weekly notification) is scheduled ONCE in
 // bootstrap/app.php (weeklyOn(0, …), timezone-aware, gated by atlas.ai.weekly_memory_digest.enabled).
 // Do NOT add a second Sunday schedule here — one report, one time.
+
+// ITEM10 — CONFIDENCE CALIBRATION. Fits the honest delivery-confidence arm-threshold from post-merge
+// {predicted,correct} samples. Report-only: it NEVER arms the gate (the operator does that manually once
+// recommended_threshold is non-null with n>=20). Inert while atlas.loop.confidence_calibration.enabled is OFF.
+Schedule::command('atlas:loop:confidence-calibrate --json')
+    ->daily()
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.loop.confidence_calibration.enabled', false));

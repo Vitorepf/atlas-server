@@ -5,7 +5,13 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Models\AtlasLoopCampaign;
+use App\Models\AtlasLoopConfidenceSample;
 use App\Models\AtlasLoopProposal;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSiblingTestResolver;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWiredCallerService;
+use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
+use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
+use App\Services\Ai\Governance\AtlasChangeClassTrustLadder;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Support\Facades\DB;
@@ -41,7 +47,7 @@ final class AtlasLoopAutoMergeService
     public function __construct(
         private readonly AtlasLoopProposalPromotionGate $gate,
         private readonly AtlasLoopProposalMaterializer $materializer,
-        private readonly \App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore $store,
+        private readonly AtlasLoopStore $store,
         private readonly AtlasLoopImpactReceiptService $impactReceipts,
         private readonly AtlasLoopMultiRepoMergeAuthority $repoAuthority,
     ) {}
@@ -194,8 +200,7 @@ final class AtlasLoopAutoMergeService
         ?string $operatorId = null,
         ?string $operatorReason = null,
         ?string $authorizedCanonical = null,
-    ): array
-    {
+    ): array {
         $base = [
             'proposal_id' => (string) $proposal->getKey(),
             'target_path' => (string) $proposal->target_path,
@@ -466,6 +471,27 @@ final class AtlasLoopAutoMergeService
                 $proposal->forceFill(['quality' => $quality])->save();
             });
 
+            // ITEM10: feed the confidence-calibration flywheel a {predicted,correct} sample. predicted = the
+            // cert-time delivery_confidence (threaded into proposal.quality by the grinder); correct = the
+            // canary verdict (GREEN, or not-run => treat as correct, the merge gate already passed). Runs
+            // AFTER the durable commit + post-merge governedSave, so it never disturbs reconciliation.
+            // Flag-gated default-OFF, fail-open: a telemetry write NEVER unwinds a completed merge.
+            if ((bool) config('atlas.loop.confidence_calibration.enabled', false)) {
+                try {
+                    $predicted = (float) data_get($proposal->quality, 'delivery_confidence.confidence', 0.0);
+                    if ($predicted > 0.0) {
+                        $correct = ($canary['ran'] ?? false) ? (($canary['passed'] ?? null) === true) : true;
+                        AtlasLoopConfidenceSample::create([
+                            'proposal_id' => $proposal->id,
+                            'predicted' => $predicted,
+                            'correct' => $correct,
+                        ]);
+                    }
+                } catch (Throwable) {
+                    // telemetry never crashes a merge
+                }
+            }
+
             // L3-4 (legado, só com o gate OFF): fix-forward pós-commit sem reverter. Com o gate
             // ON o RED já foi tratado pré-commit (revert+retire+fix-forward) e nunca chega aqui.
             $fixForward = null;
@@ -626,7 +652,7 @@ final class AtlasLoopAutoMergeService
             $canaryVerdict = $canaryRan
                 ? ($canaryGreen ? 'canário GREEN' : 'canário RED→fix-forward enfileirado')
                 : 'sem canário-irmão';
-            app(\App\Services\Ai\Compounding\AtlasCompoundingRuntimeService::class)->recordExecution([
+            app(AtlasCompoundingRuntimeService::class)->recordExecution([
                 'outcome_status' => 'passed',
                 'flow_id' => 'loop_auto_merge',
                 'run_id' => (string) $commit,
@@ -672,7 +698,7 @@ final class AtlasLoopAutoMergeService
     private function feedTrustLadder(array $changed, ?string $commit, array $canary): void
     {
         try {
-            app(\App\Services\Ai\Governance\AtlasChangeClassTrustLadder::class)
+            app(AtlasChangeClassTrustLadder::class)
                 ->recordMergeOutcome($changed, $commit, $canary);
         } catch (Throwable) {
             // best-effort: the merge is already committed and never depends on the ladder feed.
@@ -805,7 +831,7 @@ final class AtlasLoopAutoMergeService
                 return null;
             }
 
-            return app(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWiredCallerService::class)
+            return app(AtlasLoopWiredCallerService::class)
                 ->callerCount($target);
         } catch (Throwable) {
             return null;
@@ -902,7 +928,7 @@ final class AtlasLoopAutoMergeService
         // (tests/Unit/Ai/.../{Class}Test.php) — the reason canaries "rarely ran". Now the
         // canary finds + runs the real deep sibling, the same one discovery/grade resolve,
         // so canary-green is a real fact for far more merges (and feeds NON_TRIVIAL credit).
-        $resolver = new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSiblingTestResolver($repoRoot);
+        $resolver = new AtlasLoopSiblingTestResolver($repoRoot);
         foreach ($changed as $file) {
             $sib = $resolver->resolve($file);
             if (! ($sib['has_sibling'] ?? false)) {
@@ -1012,7 +1038,7 @@ final class AtlasLoopAutoMergeService
         }
         $script = "require 'vendor/autoload.php';"
             ."\$app = require 'bootstrap/app.php';"
-            ."\$app->make(Illuminate\\Contracts\\Console\\Kernel::class)->bootstrap();"
+            .'$app->make(Illuminate\\Contracts\\Console\\Kernel::class)->bootstrap();'
             ."echo 'atlas-boot-ok';";
         $p = new Process([PHP_BINARY, '-d', 'memory_limit=512M', '-r', $script], $repoRoot, null, null, 60.0);
         $p->run();
@@ -1048,8 +1074,7 @@ final class AtlasLoopAutoMergeService
         array $canary,
         ?string $snapshotTag = null,
         ?array $impactReceipt = null,
-    ): void
-    {
+    ): void {
         try {
             app(AtlasEvidenceLedger::class)->record(
                 LedgerEventType::DecisionIssued,

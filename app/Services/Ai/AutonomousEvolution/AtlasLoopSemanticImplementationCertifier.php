@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopCompletenessCriteriaResolver;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasEngineeringHonestyGate;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AdversarialProofPanelService;
@@ -28,6 +29,12 @@ final class AtlasLoopSemanticImplementationCertifier
         private readonly AtlasLoopMutationAdequacyGateService $mutationAdequacyGate,
         private readonly AtlasLoopCrossFileConsumerGateService $crossFileConsumerGate,
         private readonly ?AtlasLoopSignalAnalyzer $signalAnalyzer = null,
+        // item9: MACHINE-VERIFIED completeness resolver. LAST + nullable + default null so the 6
+        // container/reflection-built call-sites keep working. Laravel zero-config autowiring does NOT
+        // inject `?Type $x = null` params, so the integrator adds an explicit bind passing all required
+        // deps + a LIVE AtlasLoopSignalAnalyzer + this resolver; under any null path the in-method
+        // fallback (see certify()) constructs one from the deps already on this class.
+        private readonly ?AtlasLoopCompletenessCriteriaResolver $completenessResolver = null,
     ) {}
 
     /**
@@ -193,6 +200,12 @@ final class AtlasLoopSemanticImplementationCertifier
         // quality_bar_gate_enabled is ON (default OFF => byte-identical — the score is computed but
         // never adds a reason). Only meaningful for complexity-proof refactors (cx before/after exist).
         $qualityGrade = null;
+        // The delivery-confidence model below has ALWAYS read quality_score from the REFACTOR grade only
+        // (the feature lane had no grade and contributed 0.0). The feature-lane grade added below is a
+        // NEW, purely-additive receipt field; it must NOT perturb delivery_confidence for feature certs
+        // (byte-identical OFF — and the confidence value would otherwise change regardless of any flag).
+        // So the confidence model keeps reading this refactor-only score, never the feature grade.
+        $confidenceQualityScore = 0.0;
         if ($this->complexityProofRequired($targetAcceptance) && is_array($complexityProof)) {
             // PER-TASK ≥9 (Lever 4 — self-improvement): a task that modifies the loop's OWN pipeline
             // carries the bar in its acceptance (quality_bar_gate=true [+ quality_bar]) and is gated at
@@ -208,10 +221,39 @@ final class AtlasLoopSemanticImplementationCertifier
                 'cx_after' => (int) ($complexityProof['candidate_max'] ?? 0),
                 'total_branches_before' => (int) ($complexityProof['baseline_total'] ?? 0),
                 'total_branches_after' => (int) ($complexityProof['candidate_total'] ?? 0),
-                'coverage_added' => false,
+                'coverage_added' => $this->coverageAdded($changedFiles),
             ], $perTaskBar);
+            $confidenceQualityScore = (float) ($qualityGrade['score'] ?? 0.0);
             $barGate = (bool) ($targetAcceptance['quality_bar_gate'] ?? false)
                 || (bool) config('atlas.loop.quality_bar_gate_enabled', false);
+            if ($barGate && ! ($qualityGrade['passes_bar'] ?? false)) {
+                $reasons[] = 'quality_bar:below_min:'.$qualityGrade['score'];
+            }
+        }
+
+        // Sampled-mutant count is needed by BOTH the feature-lane grade (below) and the delivery
+        // confidence model (further below); hoisted here so the feature block can read it. Fail-open: 0.
+        $mutSampled = (int) ($mutationAdequacy['mutants_sampled'] ?? 0);
+
+        // ≥9 QUALITY BAR — FEATURE LANE (non-refactor). The refactor block above only runs for complexity-
+        // proof contracts; a feature/bugfix has no cx drop, so grade it on the signals certify() already
+        // computes (behavior_preserved, scope_clean, diff_earned, mutation_kill_ratio,
+        // adversarial_refuted_count==0, coverage_added). RECORDED always; a GATE only when
+        // delivery_bar.armed (global) or per-task quality_bar_gate is ON. Default OFF => byte-identical
+        // (score computed, never adds a reason). Wrapped in (! complexityProofRequired) so refactor certs —
+        // which already grade via the block above — never enter it (no double-assign / double-reason).
+        if (! $this->complexityProofRequired($targetAcceptance)) {
+            $perTaskBar = isset($targetAcceptance['quality_bar']) ? (float) $targetAcceptance['quality_bar'] : null;
+            $qualityGrade = (new AtlasLoopQualityGrader)->gradeFeature([
+                'behavior_preserved' => (bool) data_get($deterministicGate, 'report.holdouts.target_frozen_passed', false),
+                'scope_clean' => $scopeViolation === [],
+                'diff_earned' => data_get($deterministicGate, 'report.holdouts.diff_earned') === true,
+                'mutation_kill_ratio' => $mutSampled > 0 ? (int) ($mutationAdequacy['mutants_killed'] ?? 0) / $mutSampled : 0.0,
+                'adversarial_refuted_count' => (int) ($panelVerdict['refuted_count'] ?? 0),
+                'coverage_added' => $this->coverageAdded($changedFiles),
+            ], $perTaskBar);
+            $barGate = (bool) ($targetAcceptance['quality_bar_gate'] ?? false)
+                || (bool) config('atlas.loop.delivery_bar.armed', false);
             if ($barGate && ! ($qualityGrade['passes_bar'] ?? false)) {
                 $reasons[] = 'quality_bar:below_min:'.$qualityGrade['score'];
             }
@@ -224,7 +266,6 @@ final class AtlasLoopSemanticImplementationCertifier
         // NOTE: arming the gate at a TRUSTWORTHY 0.93 is honest only AFTER the self-calibration loop fits the
         // model's weights to real outcomes; an uncalibrated 0.93 would be the same theatre we are removing.
         $crossOk = ($crossFileConsumers['certified'] ?? null) !== false && ($crossFileConsumers['passed'] ?? null) !== false;
-        $mutSampled = (int) ($mutationAdequacy['mutants_sampled'] ?? 0);
         $deliveryConfidence = (new AtlasLoopDeliveryConfidenceModel)->estimate([
             'behavior_preserved' => (bool) data_get($deterministicGate, 'report.holdouts.target_frozen_passed', false),
             'diff_earned' => data_get($deterministicGate, 'report.holdouts.diff_earned') === true,
@@ -232,7 +273,7 @@ final class AtlasLoopSemanticImplementationCertifier
             'complexity_reduced' => is_array($complexityProof) && (bool) ($complexityProof['reduced'] ?? false),
             'cross_file_consumers_ok' => $crossOk,
             'mutation_kill_ratio' => $mutSampled > 0 ? (int) ($mutationAdequacy['mutants_killed'] ?? 0) / $mutSampled : 0.0,
-            'quality_score' => is_array($qualityGrade) ? (float) ($qualityGrade['score'] ?? 0.0) : 0.0,
+            'quality_score' => $confidenceQualityScore,
             'adversarial_refuted_count' => (int) ($panelVerdict['refuted_count'] ?? 0),
         ], isset($targetAcceptance['confidence_threshold']) ? (float) $targetAcceptance['confidence_threshold'] : null);
         $confidenceGate = (bool) ($targetAcceptance['confidence_gate'] ?? false)
@@ -247,6 +288,17 @@ final class AtlasLoopSemanticImplementationCertifier
         // covered: every REQUIRED criterion satisfied + coverage >= floor. RECORDED always; a GATE only when
         // completeness_gate_enabled (global) or per-task — default OFF / empty checklist => byte-identical.
         // Computed BEFORE consensus so it can serve as the independent completeness-lens judge below.
+        // item9: MACHINE-VERIFIED completeness criteria. When the acceptance carries no explicit
+        // checklist, DERIVE it from already-trusted signals and RESOLVE each by RE-RUNNING its bound
+        // command/metric in the candidate workspace (never model-declared). Empty-derivable => []
+        // (fail-open preserved). Acceptance-supplied criteria always win (today's behaviour preserved
+        // for any task that passes its own). Resolver is optional: a null resolver still resolves via
+        // the in-method fallback built from the deps already on this class.
+        if (! is_array($targetAcceptance['completeness_criteria'] ?? null) || $targetAcceptance['completeness_criteria'] === []) {
+            $completenessResolver = $this->completenessResolver
+                ?? new AtlasLoopCompletenessCriteriaResolver($this->crossFileConsumerGate, $this->signalAnalyzer);
+            $targetAcceptance['completeness_criteria'] = $completenessResolver->resolve($objective, $targetAcceptance, $workspace, $changedFiles);
+        }
         $completenessCriteria = is_array($targetAcceptance['completeness_criteria'] ?? null)
             ? array_values($targetAcceptance['completeness_criteria'])
             : [];
@@ -866,6 +918,28 @@ final class AtlasLoopSemanticImplementationCertifier
         }
 
         return $contents;
+    }
+
+    /**
+     * Deterministic coverage signal from the changed file set (no provider claim): the diff touched a
+     * *Test.php / a tests dir file, so a pinning test rode with the change. Feeds the quality grade's
+     * coverage_added bonus.
+     *
+     * @param  list<string>  $changedFiles
+     */
+    private function coverageAdded(array $changedFiles): bool
+    {
+        foreach ($changedFiles as $f) {
+            $norm = ltrim((string) $f, '/');
+            if (! str_ends_with($norm, '.php')) {
+                continue;
+            }
+            if (str_ends_with($norm, 'Test.php') || str_contains($norm, 'tests/') || str_contains($norm, '/Tests/')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

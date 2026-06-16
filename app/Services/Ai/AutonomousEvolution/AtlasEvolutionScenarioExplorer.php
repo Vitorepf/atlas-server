@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\AutonomousEvolution\Parallel\ScenarioWaveDispatcherContract;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -55,6 +56,12 @@ final class AtlasEvolutionScenarioExplorer
         private readonly LoopExecutionDriver $driver,
         private readonly AtlasEvolutionFrozenJudge $judge,
         private readonly ?AtlasLoopScenarioProviderPortfolio $portfolio = null,
+        // item6_fanout: OPTIONAL bounded-wave dispatcher (LAST, nullable, default null) so every
+        // existing `new AtlasEvolutionScenarioExplorer($fake, new AtlasEvolutionFrozenJudge)` call
+        // site keeps compiling. Typed against the CONTRACT so tests can inject a fake. Laravel does
+        // not autowire a nullable-with-default param — the integrator's explicit bind passes the
+        // concrete; without it this stays null and the serial path runs (byte-identical OFF).
+        private readonly ?ScenarioWaveDispatcherContract $waveDispatcher = null,
     ) {}
 
     /**
@@ -134,6 +141,16 @@ final class AtlasEvolutionScenarioExplorer
         // 1..K-1 (anti-context-rot). The ledger's thrashing signal is exposed for the escalation ladder.
         $ledger = new AtlasLoopAttemptLedger;
 
+        // item6_fanout: when the dispatcher is wired AND the flag is on, run the attempts in
+        // bounded PARALLEL WAVES instead of the serial for-loop below — hiding the per-attempt
+        // provider latency behind width. Fail-safe + byte-identical OFF: the null check is FIRST
+        // (mirroring the line-above $this->portfolio short-circuit), so a null dispatcher — every
+        // frozen unit test, which `new`s the explorer directly — never even reads config() and
+        // falls straight through to the unchanged serial path.
+        if ($this->waveDispatcher !== null && (bool) config('atlas.loop.scenario_fanout.enabled', false)) {
+            return $this->exploreAttemptsInWaves($min, $max, $patience, $timeBudget, $objective, $baseWorkspace, $task, $acceptance, $metricKind, $surfaceId, $userConstraints, $surfaceHints, $provider, $keepWorkspaces, $workspaceRoot, $portfolio, $ledger);
+        }
+
         for ($i = 0; $i < $max; $i++) {
             if ($i >= $min && $best !== null && $noImprove >= $patience) {
                 break; // converged: a winner exists and the last $patience scenarios didn't beat it
@@ -175,6 +192,135 @@ final class AtlasEvolutionScenarioExplorer
             'converged' => $best !== null && $noImprove >= $patience,
             'convergence' => $ledger->convergence(),
         ];
+    }
+
+    /**
+     * item6_fanout — the bounded PARALLEL WAVE engine (the flag-ON path of {@see exploreAttempts}).
+     *
+     * It mirrors the serial loop's bookkeeping (best / noImprove / start / ledger) but dispatches a
+     * WAVE of up to `width` scenarios in-flight together each round, then folds every settled attempt
+     * through the UNCHANGED improvesBest() and ledger->record(). Scenario indices stay ascending so
+     * scn-ids, strategyFor() and portfolio->providerFor() remain index-stable, and the dispatcher
+     * returns attempts ordered by index so the fold matches the serial scn ordering byte-for-byte.
+     *
+     * WAVE-LEVEL GUIDANCE (intended semantic vs serial): in the serial path attempt K sees the
+     * "do NOT repeat" digest from attempts 1..K-1; in waves the scenarios IN one wave run in-flight
+     * together and cannot see each other, so they all share ONE guidance digest computed from PRIOR
+     * waves only. Convergence + the soft time budget are evaluated at WAVE boundaries.
+     *
+     * @param  array<string,mixed>  $task
+     * @param  array<string,mixed>  $acceptance
+     * @param  list<string>  $userConstraints
+     * @param  array<string,mixed>  $surfaceHints
+     * @return array{attempts:list<array<string,mixed>>,converged:bool,convergence:array<string,mixed>}
+     */
+    private function exploreAttemptsInWaves(int $min, int $max, int $patience, int $timeBudget, string $objective, string $baseWorkspace, array $task, array $acceptance, string $metricKind, string $surfaceId, array $userConstraints, array $surfaceHints, string $provider, bool $keepWorkspaces, string $workspaceRoot, AtlasLoopScenarioProviderPortfolio $portfolio, AtlasLoopAttemptLedger $ledger): array
+    {
+        $attempts = [];
+        $best = null;
+        $noImprove = 0;
+        $start = microtime(true);
+        $width = max(1, (int) config('atlas.loop.scenario_fanout.width', 4));
+        $i = 0;
+
+        while ($i < $max) {
+            // Convergence + budget checks at the WAVE boundary (kept identical to the serial guards).
+            if ($i >= $min && $best !== null && $noImprove >= $patience) {
+                break; // converged: a winner exists and the last $patience scenarios didn't beat it
+            }
+            if ($timeBudget > 0 && (microtime(true) - $start) >= $timeBudget) {
+                break; // search time budget reached
+            }
+
+            // WAVE-level guidance: one digest from all PRIOR settled attempts, shared by this wave.
+            $guidance = $ledger->guidance();
+
+            // Build this wave's scenario specs (indices ascending => stable scn-ids/strategy/provider).
+            $waveSpecs = [];
+            $waveSize = min($width, $max - $i);
+            for ($k = 0; $k < $waveSize; $k++) {
+                $idx = $i + $k;
+                $strategy = $this->strategyFor($task, $idx);
+                $attemptProvider = $portfolio->providerFor($task, $idx, $provider);
+                $attemptHints = $attemptProvider === $provider ? $surfaceHints : $this->surfaceHints($attemptProvider);
+                $strategyText = $guidance === '' ? $strategy['text'] : trim($strategy['text']."\n\n".$guidance);
+                $waveSpecs[] = [
+                    'index' => $idx,
+                    'objective' => $objective,
+                    'strategy_text' => $strategyText,
+                    'strategy_key' => $strategy['key'],
+                    'base_workspace' => $baseWorkspace,
+                    'acceptance' => $acceptance,
+                    'surface_id' => $surfaceId,
+                    'user_constraints' => $userConstraints,
+                    'surface_hints' => $attemptHints,
+                    'provider' => $attemptProvider,
+                    'keep_workspaces' => $keepWorkspaces,
+                    'workspace_root' => $workspaceRoot,
+                    'clone_mode' => $this->scenarioCloneMode($task),
+                ];
+            }
+
+            // Run the wave in-flight together; the dispatcher returns one attempt per spec ORDERED by
+            // index, so the fold order is deterministic and matches the serial scn ordering.
+            $settled = $this->waveDispatcher->dispatch($waveSpecs);
+            foreach ($settled as $attempt) {
+                $attempts[] = $attempt;
+                $ledger->record(
+                    (string) ($attempt['strategy_key'] ?? ''),
+                    (string) ($attempt['provider'] ?? ''),
+                    (bool) data_get($attempt, 'verdict.passed', false),
+                    (string) data_get($attempt, 'verdict.details.reason', ''),
+                    (string) ($attempt['scenario_id'] ?? ''),
+                );
+
+                if ($this->improvesBest($attempt, $best, $metricKind)) {
+                    $best = $attempt;
+                    $noImprove = 0;
+                } else {
+                    $noImprove++;
+                }
+            }
+
+            $i += $waveSize;
+        }
+
+        return [
+            'attempts' => $attempts,
+            'converged' => $best !== null && $noImprove >= $patience,
+            'convergence' => $ledger->convergence(),
+        ];
+    }
+
+    /**
+     * item6_fanout — thin PUBLIC shim the per-scenario subprocess (atlas:loop:run-scenario) and the
+     * dispatcher's inline fallback call to run ONE scenario. It unpacks the wave spec and delegates to
+     * the UNCHANGED private runScenario(...) so the byte-identical tested code path is reused — never
+     * widening runScenario's visibility or signature.
+     *
+     * @param  array<string,mixed>  $spec
+     * @return array<string,mixed>
+     */
+    public function runScenarioForWave(array $spec): array
+    {
+        return $this->runScenario(
+            (int) ($spec['index'] ?? 0),
+            (string) ($spec['objective'] ?? ''),
+            (string) ($spec['strategy_text'] ?? ''),
+            (string) ($spec['strategy_key'] ?? ''),
+            (string) ($spec['base_workspace'] ?? ''),
+            is_array($spec['acceptance'] ?? null) ? $spec['acceptance'] : [],
+            (string) ($spec['surface_id'] ?? 'atlas_evolution_loop'),
+            array_values(array_filter(
+                is_array($spec['user_constraints'] ?? null) ? $spec['user_constraints'] : [],
+                static fn (mixed $v): bool => is_string($v),
+            )),
+            is_array($spec['surface_hints'] ?? null) ? $spec['surface_hints'] : [],
+            (string) ($spec['provider'] ?? ''),
+            (bool) ($spec['keep_workspaces'] ?? false),
+            (string) ($spec['workspace_root'] ?? ''),
+            (string) ($spec['clone_mode'] ?? 'copy'),
+        );
     }
 
     /**

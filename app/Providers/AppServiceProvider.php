@@ -17,16 +17,48 @@ use App\Services\Ai\AtlasDecide\AtlasSwarmConductorService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmExecutorService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmParallelDispatchService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService;
+use App\Services\Ai\AtlasDecide\AtlasSwarmTopologySelector;
 use App\Services\Ai\AtlasDecideService;
+use App\Services\Ai\AutonomousEvolution\AtlasEvolutionFrozenJudge;
+use App\Services\Ai\AutonomousEvolution\AtlasEvolutionScenarioExplorer;
+use App\Services\Ai\AutonomousEvolution\AtlasEvolutionTaskGenerator;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopBroaderRegressionGate;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopCrossFileConsumerGateService;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopMutationAdequacyGateService;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopSemanticImplementationCertifier;
+use App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBacklogIntentSource;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBackService;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopCompletenessCriteriaResolver;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopEvidenceSignalService;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopFrameworkRefactorSynthesizer;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopMetaHarnessIntentSource;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopMultiFileRefactorSynthesizer;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopNextWorkDecider;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObraClusterDetectorService;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopQueueRefiller;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopRefactorObjectiveSynthesizer;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSiblingTestResolver;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopTargetDiscoveryService;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopTargetRepository;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWiredCallerService;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWorkShapeRouter;
 use App\Services\Ai\AutonomousEvolution\LoopExecutionDriver;
 use App\Services\Ai\AutonomousEvolution\Parallel\LoopWorkerSpawner;
 use App\Services\Ai\AutonomousEvolution\Parallel\LoopWorkerSpawnerContract;
+use App\Services\Ai\AutonomousEvolution\Parallel\ScenarioWaveDispatcher;
+use App\Services\Ai\AutonomousEvolution\Parallel\ScenarioWaveDispatcherContract;
+use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
 use App\Services\Ai\AutonomousEvolution\TimeBoundedLoopExecutionDriver;
+use App\Services\Ai\AutonomousEvolution\Verify\AtlasEngineeringHonestyGate;
+use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
 use App\Services\Ai\AutonomousEvolution\WorkspaceProviderLoopExecutionDriver;
 use App\Services\Ai\Caching\AiCallCostGuard;
 use App\Services\Ai\Caching\AtlasProviderCostSentinel;
 use App\Services\Ai\Cartography\CartographyTruthGuardService;
 use App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService;
+use App\Services\Ai\Cognitive\Harness\AtlasHarnessSurface;
 use App\Services\Ai\Compounding\AtlasCompoundingMemoryService;
 use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
 use App\Services\Ai\Compression\AtlasCcrStore;
@@ -95,6 +127,7 @@ use App\Services\Ai\SelfConstruction\AtlasSelfImprovementReceiptLog;
 use App\Services\Ai\SelfConstruction\AtlasSelfImprovementRelevanceGate;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementHumanTrustLedgerService;
 use App\Services\Ai\Skills\SkillBundleStore;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AdversarialProofPanelService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDevForgeReleaseService;
@@ -169,8 +202,8 @@ class AppServiceProvider extends ServiceProvider
         // suites + never-merge invariant + boot-smoke + php -l; tests substitute a deterministic
         // fake. Binding the contract is what lets AtlasLoopObraAutoMergeService resolve.
         $this->app->bind(
-            \App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract::class,
-            \App\Services\Ai\AutonomousEvolution\AtlasLoopBroaderRegressionGate::class,
+            BroaderRegressionGateContract::class,
+            AtlasLoopBroaderRegressionGate::class,
         );
 
         // Loop discovery wiring. Laravel does NOT auto-inject nullable-with-default
@@ -185,22 +218,22 @@ class AppServiceProvider extends ServiceProvider
         // "loop-proposes-harness" path is inert and the meta_harness A/B arm never fills.
         // Defensive resolve preserves the fail-open contract.
         $this->app->bind(
-            \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBacklogIntentSource::class,
-            fn ($app) => new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBacklogIntentSource(
-                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopEvidenceSignalService::class), null, false),
-                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopMetaHarnessIntentSource::class), null, false),
+            AtlasLoopBacklogIntentSource::class,
+            fn ($app) => new AtlasLoopBacklogIntentSource(
+                rescue(fn () => $app->make(AtlasLoopEvidenceSignalService::class), null, false),
+                rescue(fn () => $app->make(AtlasLoopMetaHarnessIntentSource::class), null, false),
             ),
         );
         $this->app->bind(
-            \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopTargetDiscoveryService::class,
-            fn ($app) => new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopTargetDiscoveryService(
-                $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopTargetRepository::class),
-                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopEvidenceSignalService::class), null, false),
-                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBacklogIntentSource::class), null, false),
-                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard::class), null, false),
-                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWiredCallerService::class), null, false),
-                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSiblingTestResolver::class), null, false),
-                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer::class), null, false),
+            AtlasLoopTargetDiscoveryService::class,
+            fn ($app) => new AtlasLoopTargetDiscoveryService(
+                $app->make(AtlasLoopTargetRepository::class),
+                rescue(fn () => $app->make(AtlasLoopEvidenceSignalService::class), null, false),
+                rescue(fn () => $app->make(AtlasLoopBacklogIntentSource::class), null, false),
+                rescue(fn () => $app->make(AtlasLoopHarnessGuard::class), null, false),
+                rescue(fn () => $app->make(AtlasLoopWiredCallerService::class), null, false),
+                rescue(fn () => $app->make(AtlasLoopSiblingTestResolver::class), null, false),
+                rescue(fn () => $app->make(AtlasLoopSignalAnalyzer::class), null, false),
             ),
         );
         // GOVERNED REFACTOR (Phase 1): wire the refactor objective synthesizer + harness guard
@@ -208,29 +241,72 @@ class AppServiceProvider extends ServiceProvider
         // the refactor_objectives_enabled flag would be inert even when the operator flips it ON.
         // Defensive resolve preserves the fail-open contract; flag-gated and default OFF.
         $this->app->bind(
-            \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopQueueRefiller::class,
-            fn ($app) => new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopQueueRefiller(
-                $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopTargetDiscoveryService::class),
-                $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopTargetRepository::class),
-                $app->make(\App\Services\Ai\AutonomousEvolution\AtlasEvolutionTaskGenerator::class),
-                $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBackService::class),
-                $app->make(\App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore::class),
-                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopRefactorObjectiveSynthesizer::class), null, false),
-                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard::class), null, false),
+            AtlasLoopQueueRefiller::class,
+            fn ($app) => new AtlasLoopQueueRefiller(
+                $app->make(AtlasLoopTargetDiscoveryService::class),
+                $app->make(AtlasLoopTargetRepository::class),
+                $app->make(AtlasEvolutionTaskGenerator::class),
+                $app->make(AtlasLoopBackService::class),
+                $app->make(AtlasLoopStore::class),
+                rescue(fn () => $app->make(AtlasLoopRefactorObjectiveSynthesizer::class), null, false),
+                rescue(fn () => $app->make(AtlasLoopHarnessGuard::class), null, false),
                 // Arg 8 (frameworkRefactorSynthesizer) was previously omitted, relying on its null
                 // default (the refiller news one up lazily). It MUST be passed explicitly now that
                 // arg 9 (the obra cluster detector) exists — positional args cannot skip, so
                 // omitting 8 would land the detector in the framework-synthesizer slot and break
                 // the LIVE framework_refactor lane.
-                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopFrameworkRefactorSynthesizer::class), null, false),
-                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObraClusterDetectorService::class), null, false),
-                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWorkShapeRouter::class), null, false),
-                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopMultiFileRefactorSynthesizer::class), null, false),
+                rescue(fn () => $app->make(AtlasLoopFrameworkRefactorSynthesizer::class), null, false),
+                rescue(fn () => $app->make(AtlasLoopObraClusterDetectorService::class), null, false),
+                rescue(fn () => $app->make(AtlasLoopWorkShapeRouter::class), null, false),
+                rescue(fn () => $app->make(AtlasLoopMultiFileRefactorSynthesizer::class), null, false),
                 // Arg 12: the ungameable next-work decider. Bound WITHOUT a caller-resolver so it
                 // self-anchors to each campaign workspace per-call (the critical anti-gaming fix —
                 // callers must be grepped from the SAME tree the cyclomatic is read from, never
                 // base_path()). Default decision_priority_enabled is OFF (frozen per campaign).
-                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopNextWorkDecider::class), null, false),
+                rescue(fn () => $app->make(AtlasLoopNextWorkDecider::class), null, false),
+            ),
+        );
+        // ITEM6 — SCENARIO FAN-OUT wiring (LOAD-BEARING). There is no explicit AtlasEvolutionScenarioExplorer
+        // bind today (zero-config autowired), so its new nullable 4th arg would resolve to null and the
+        // parallel-wave path would never engage even with atlas.loop.scenario_fanout.enabled ON. Bind the
+        // dispatcher contract to its concrete and construct the explorer WITH the dispatcher. Portfolio is
+        // passed null to preserve the explorer's internal `?? new` default exactly (byte-identical). The
+        // finance evolve command (a second consumer) also becomes fan-out-capable but stays serial OFF.
+        $this->app->bind(
+            ScenarioWaveDispatcherContract::class,
+            ScenarioWaveDispatcher::class,
+        );
+        $this->app->bind(
+            AtlasEvolutionScenarioExplorer::class,
+            fn ($app) => new AtlasEvolutionScenarioExplorer(
+                $app->make(LoopExecutionDriver::class),
+                $app->make(AtlasEvolutionFrozenJudge::class),
+                null,
+                rescue(fn () => $app->make(ScenarioWaveDispatcherContract::class), null, false),
+            ),
+        );
+        // ITEM9 — MACHINE-VERIFIED completeness. Bind the resolver, and (BLOCKING) bind the certifier
+        // EXPLICITLY: it has no bind today (zero-config autowired) and Laravel does NOT inject
+        // `?Type $x = null`, so without this BOTH its signalAnalyzer AND completenessResolver resolve to
+        // null — an armed completeness gate would then refute EVERY real refactor (the god-class criterion
+        // can never measure without a LIVE analyzer). Pass all 4 required deps + a live signal analyzer +
+        // the resolver; rescue() preserves the fail-open contract.
+        $this->app->bind(
+            AtlasLoopCompletenessCriteriaResolver::class,
+            fn ($app) => new AtlasLoopCompletenessCriteriaResolver(
+                rescue(fn () => $app->make(AtlasLoopCrossFileConsumerGateService::class), null, false),
+                rescue(fn () => $app->make(AtlasLoopSignalAnalyzer::class), null, false),
+            ),
+        );
+        $this->app->bind(
+            AtlasLoopSemanticImplementationCertifier::class,
+            fn ($app) => new AtlasLoopSemanticImplementationCertifier(
+                $app->make(AtlasEngineeringHonestyGate::class),
+                $app->make(AdversarialProofPanelService::class),
+                $app->make(AtlasLoopMutationAdequacyGateService::class),
+                $app->make(AtlasLoopCrossFileConsumerGateService::class),
+                rescue(fn () => $app->make(AtlasLoopSignalAnalyzer::class), null, false),
+                rescue(fn () => $app->make(AtlasLoopCompletenessCriteriaResolver::class), null, false),
             ),
         );
         // Warm ACP session pool: ONE per worker process (singleton) so a `hermes acp`
@@ -687,7 +763,7 @@ class AppServiceProvider extends ServiceProvider
                 $app->make(AtlasCompoundingRuntimeService::class),
                 $app->make(AtlasLiveCodeDeliveryService::class),
                 $app->make(AtlasConductorRoutingMemory::class),
-                $app->make(\App\Services\Ai\AtlasDecide\AtlasSwarmTopologySelector::class),
+                $app->make(AtlasSwarmTopologySelector::class),
             );
         });
 
@@ -921,7 +997,7 @@ class AppServiceProvider extends ServiceProvider
         // harness_config APROVADOS (allowlist+bounds revalidados a cada boot;
         // entrada inválida é ignorada). Fail-open: erro aqui nunca derruba o boot.
         try {
-            app(\App\Services\Ai\Cognitive\Harness\AtlasHarnessSurface::class)->bootOverlay();
+            app(AtlasHarnessSurface::class)->bootOverlay();
         } catch (\Throwable) {
             // o config base do .env segue valendo.
         }

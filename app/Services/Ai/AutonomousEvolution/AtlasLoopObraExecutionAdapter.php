@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopIntentSpecCompiler;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObraDecompositionPlanner;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObraPlanValidator;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopPlanReadinessGate;
 use App\Services\Ai\Obra\AtlasObraExecutor;
 use App\Services\Ai\Obra\ObraNodeDelivery;
-use App\Services\Ai\RealExecution\GovernedBranchMaterializationService;
 use App\Services\Ai\Obra\ProviderObraNodeDelivery;
+use App\Services\Ai\RealExecution\GovernedBranchMaterializationService;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
@@ -35,13 +37,20 @@ use Throwable;
  * The provider RELIABLY producing a correct multi-file change is EMPIRICAL (measured by parked-obra
  * acceptance over live runs); this adapter makes a provider failure a clean discard+loop-back no-op,
  * never a fabricated success. Default-OFF lane (the grinder co-gates it); auto-merge stays separate/OFF.
+ *
+ * ITEM8 NOTE: this class is NO LONGER `final` so a test double can override the two PROTECTED provider
+ * seams (generateSpecViaProvider / generatePlanViaProvider) to exercise the full real planning machinery
+ * (AtlasLoopIntentSpecCompiler -> AtlasLoopObraDecompositionPlanner -> AtlasLoopPlanReadinessGate) with a
+ * fake-but-ready spec/DAG and ZERO provider spend. No behaviour changes for production callers.
  */
-final class AtlasLoopObraExecutionAdapter
+class AtlasLoopObraExecutionAdapter
 {
     public function __construct(
         private readonly ?AtlasLoopRefactorObraL410ProofService $l410 = null,
         private readonly ?AtlasLoopHarnessGuard $guard = null,
         private readonly ?AtlasLoopSemanticImplementationCertifier $certifier = null,
+        private readonly ?AtlasLoopIntentSpecCompiler $specCompiler = null,
+        private readonly ?AtlasLoopObraDecompositionPlanner $planner = null,
     ) {}
 
     /**
@@ -55,7 +64,7 @@ final class AtlasLoopObraExecutionAdapter
         if (count($allowed) < 2) {
             return $this->fail('not_multi_file');
         }
-        $guard = $this->guard ?? new AtlasLoopHarnessGuard();
+        $guard = $this->guard ?? new AtlasLoopHarnessGuard;
         foreach ($allowed as $f) {
             if ($guard->isForbiddenSelfTarget($f)) {
                 return $this->fail('forbidden_self_target:'.$f);
@@ -68,7 +77,21 @@ final class AtlasLoopObraExecutionAdapter
         }
 
         $delivery ??= app(ProviderObraNodeDelivery::class);
-        $plan = $this->buildPlan($payload, $allowed);
+
+        // ITEM8 — PLANNING PHASE (default-OFF). For a qualifying task, compile the intent into a
+        // falsifiable spec then decompose into a readiness-gated DAG with a create-class node at
+        // seq 0 for the NEW file. Any new file is folded into $allowed so the validator scope, the
+        // L4-10 delivered_files census, and the aggregate-drop all admit it. OFF/non-qualifying =>
+        // buildPlan() exactly as today (byte-identical).
+        $planned = $this->maybePlan($payload, $allowed);
+        if ($planned !== null) {
+            $plan = $planned['plan'];
+            $allowed = $planned['allowed']; // includes any planner-introduced new file(s)
+            $newFiles = $planned['new_files']; // for the structural aggregate-drop lane
+        } else {
+            $plan = $this->buildPlan($payload, $allowed);
+            $newFiles = [];
+        }
         $planId = (string) $plan['plan_id'];
 
         // PLAN-READINESS GATE — "plan impeccably, THEN implement". Do not spend the EXPENSIVE
@@ -81,7 +104,7 @@ final class AtlasLoopObraExecutionAdapter
             return $this->fail('plan_not_ready_'.((string) ($readiness['decision'] ?? 'replan')).':'.implode(',', array_slice((array) ($readiness['gaps'] ?? []), 0, 4)));
         }
 
-        $executor = new AtlasObraExecutor($delivery, new GovernedBranchMaterializationService());
+        $executor = new AtlasObraExecutor($delivery, new GovernedBranchMaterializationService);
 
         $evidencePath = '';
         try {
@@ -122,7 +145,7 @@ final class AtlasLoopObraExecutionAdapter
             // worktree cut at BASE_HEAD (never live HEAD — the soak's single-file auto-merger may have
             // advanced main between openObra and now) and re-measure the SCOPED aggregate AST drop.
             // A refactor that ran green but did not reduce complexity is REFUSED (discard + loop-back).
-            $drop = $this->certifyAggregateDrop($repoRoot, $envelope, $allowed);
+            $drop = $this->certifyAggregateDrop($repoRoot, $envelope, $allowed, $newFiles);
             if (($drop['reduced'] ?? false) !== true) {
                 $executor->discardObra($repoRoot, $planId);
 
@@ -132,7 +155,7 @@ final class AtlasLoopObraExecutionAdapter
             // L4-10 — emit the signed evidence from the executor receipt, then validate provenance.
             // A FIXTURE run is sealed fixture_obra_run → rejected here (it proved the machinery, not real work).
             $evidencePath = $this->writeEvidence($envelope);
-            $l410 = ($this->l410 ?? new AtlasLoopRefactorObraL410ProofService())->report([
+            $l410 = ($this->l410 ?? new AtlasLoopRefactorObraL410ProofService)->report([
                 'evidence_path' => $evidencePath,
                 'allowed_files' => $allowed,
             ]);
@@ -172,10 +195,21 @@ final class AtlasLoopObraExecutionAdapter
      * materializes the net diff as an unstaged change it CAN measure. Cuts at base_head, not live
      * HEAD, so a concurrent single-file auto-merge to main never drifts the baseline.
      *
+     * ITEM8: $newFiles carries any planner-introduced NEW file (no committed baseline). $allowed is
+     * ALREADY extended with them by maybePlan, so the diff-name-only census + scope check admit them.
+     * DEVIATION (depends_on): measureScopedComplexityDrop hardcodes the NON-structural complexityReduced
+     * lane, which has a new-file-lock that refuses files with no committed baseline. There is no public
+     * structural variant on the certifier today, so a PURE create-class+redirect obra is still refused
+     * here ('aggregate_complexity_not_reduced'). Until a public structural aggregate-drop ships, item8 is
+     * sound for refactor_ clusters that reuse existing allowed files (no new file); the create-class
+     * capability lands once the structural lane is public. We thread $newFiles to make that contract
+     * explicit and to keep the signature ready for the structural route.
+     *
      * @param  list<string>  $allowed
+     * @param  list<string>  $newFiles  planner-introduced new files (no committed baseline)
      * @return array{reduced:bool, reason:?string, proof:array<string,mixed>|null}
      */
-    private function certifyAggregateDrop(string $repoRoot, array $envelope, array $allowed): array
+    private function certifyAggregateDrop(string $repoRoot, array $envelope, array $allowed, array $newFiles = []): array
     {
         $branch = (string) ($envelope['branch'] ?? '');
         $baseHead = (string) (($envelope['executor_receipt']['base_head'] ?? '') ?: '');
@@ -267,8 +301,8 @@ final class AtlasLoopObraExecutionAdapter
                 'id' => 'node-'.substr(hash('sha256', $clusterKey.'|'.$file), 0, 16),
                 'seq' => $i,
                 'title' => 'refactor '.basename($file),
-                'request' => $objective."\n\nEdit ONLY ".$file." as part of cluster ".$hub
-                    ."; reduce its worst-method cyclomatic complexity; PRESERVE behaviour exactly (the frozen sibling tests must stay green).",
+                'request' => $objective."\n\nEdit ONLY ".$file.' as part of cluster '.$hub
+                    .'; reduce its worst-method cyclomatic complexity; PRESERVE behaviour exactly (the frozen sibling tests must stay green).',
                 'target_area' => $file,
                 'depends_on' => [],
                 'brain_refs' => [],
@@ -282,6 +316,157 @@ final class AtlasLoopObraExecutionAdapter
             'workspace_id' => $clusterKey,
             'nodes' => $nodes,
         ];
+    }
+
+    /**
+     * ITEM8 — when planning is armed AND the task qualifies, compile the intent into a falsifiable
+     * spec then decompose into a readiness-gated DAG. Returns null (=> fall back to buildPlan) when
+     * the flag is OFF, the task does not qualify, the goal is empty, the spec is not ready, or the
+     * planner could not produce a READY plan. Never throws — a refusal is a cheap buildPlan fallback,
+     * never a parked vague obra. With the flag OFF this short-circuits BEFORE any new code runs, so the
+     * adapter path is byte-identical to today.
+     *
+     * @param  array<string,mixed>  $payload
+     * @param  list<string>  $allowed
+     * @return array{plan:array<string,mixed>, allowed:list<string>, new_files:list<string>}|null
+     */
+    protected function maybePlan(array $payload, array $allowed): ?array
+    {
+        if (! (bool) config('atlas.loop.planning_enabled', false)) {
+            return null;
+        }
+        $kind = trim((string) ($payload['objective_kind'] ?? ''));
+        $qualifies = count($allowed) >= 2 || str_starts_with($kind, 'refactor_') || str_starts_with($kind, 'feature_');
+        if (! $qualifies) {
+            return null;
+        }
+        $goal = trim((string) ($payload['objective'] ?? ''));
+        if ($goal === '') {
+            return null;
+        }
+
+        // 1) INTENT -> SPEC (iterate-to-ready). generateSpec is hermes_cli spec-only in production;
+        //    injected (via the protected provider seam) in tests. fn(string $goal, list<string> $priorGaps): array.
+        $compiler = $this->specCompiler ?? new AtlasLoopIntentSpecCompiler;
+        $spec = $compiler->compile($goal, $this->specGenerator($payload, $allowed), (int) config('atlas.loop.planning_spec_max_attempts', 3));
+        if (($spec['ready'] ?? false) !== true || ! is_array($spec['spec'] ?? null)) {
+            return null; // refuse-with-gaps -> fall back to buildPlan (never park a vague obra)
+        }
+
+        // 2) DECOMPOSE -> DAG (iterate-to-ready against the REAL readiness gate). generatePlan is
+        //    fn(string $goal, array $context, list<string> $priorGaps): array. The generator emits a
+        //    create-class node at seq 0 for any NEW file + redirect-caller nodes at higher seq.
+        $guard = $this->guard ?? new AtlasLoopHarnessGuard;
+        $planner = $this->planner ?? new AtlasLoopObraDecompositionPlanner(
+            new AtlasLoopPlanReadinessGate(new AtlasLoopObraPlanValidator($guard))
+        );
+        $newFiles = $this->plannedNewFiles($spec['spec'], $allowed);
+        $planAllowed = array_values(array_unique(array_merge($allowed, $newFiles)));
+        $out = $planner->plan($goal, ['spec' => $spec['spec']], $planAllowed, $this->planGenerator($payload, $allowed, $newFiles, $spec['spec']), (int) config('atlas.loop.planning_plan_max_attempts', 3));
+        if (($out['ready'] ?? false) !== true || ! is_array($out['plan'] ?? null)) {
+            return null; // planner refused -> buildPlan fallback (cheap; never spend on an ill-formed plan)
+        }
+
+        // The executor walks nodes by SEQ ascending (AtlasObraExecutor::execute), NOT by depends_on —
+        // so the create-class node MUST carry seq=0 (the planGenerator assigns it).
+        return ['plan' => $out['plan'], 'allowed' => $planAllowed, 'new_files' => $newFiles];
+    }
+
+    /**
+     * NEW files the spec wants created (suggested_files) that are not yet in $allowed. Only .php paths.
+     *
+     * @param  array<string,mixed>  $spec
+     * @param  list<string>  $allowed
+     * @return list<string>
+     */
+    private function plannedNewFiles(array $spec, array $allowed): array
+    {
+        $allow = array_flip(array_map(static fn (string $f): string => ltrim($f, '/'), $allowed));
+        $out = [];
+        foreach ((array) ($spec['suggested_files'] ?? []) as $f) {
+            $n = ltrim(trim((string) $f), '/');
+            if ($n !== '' && str_ends_with($n, '.php') && ! isset($allow[$n])) {
+                $out[$n] = true;
+            }
+        }
+
+        return array_keys($out);
+    }
+
+    /**
+     * Spec generator. PRODUCTION: hermes_cli spec-only (deterministic JSON). The provider seam is the
+     * protected generateSpecViaProvider() so a test can override it with a fake-but-ready spec.
+     *
+     * @param  array<string,mixed>  $payload
+     * @param  list<string>  $allowed
+     * @return callable(string, list<string>): array<string,mixed>
+     */
+    private function specGenerator(array $payload, array $allowed): callable
+    {
+        return function (string $goal, array $priorGaps) use ($payload, $allowed): array {
+            return $this->generateSpecViaProvider($goal, $priorGaps, $payload, $allowed);
+        };
+    }
+
+    /**
+     * Plan generator. PRODUCTION: hermes_cli DAG-only. Emits create-class @ seq 0 + redirect @ higher
+     * seq. The provider seam is the protected generatePlanViaProvider() so a test can override it.
+     *
+     * @param  array<string,mixed>  $payload
+     * @param  list<string>  $allowed
+     * @param  list<string>  $newFiles
+     * @param  array<string,mixed>  $spec
+     * @return callable(string, array<string,mixed>, list<string>): array<string,mixed>
+     */
+    private function planGenerator(array $payload, array $allowed, array $newFiles, array $spec): callable
+    {
+        return function (string $goal, array $context, array $priorGaps) use ($payload, $allowed, $newFiles, $spec): array {
+            return $this->generatePlanViaProvider($goal, $context, $priorGaps, $payload, $allowed, $newFiles, $spec);
+        };
+    }
+
+    /**
+     * PRODUCTION provider seam — spec-only hermes_cli call. FAIL-OPEN: there is no obvious clean
+     * spec-only seam on this adapter today (ProviderObraNodeDelivery is node-delivery, not spec
+     * synthesis), and wiring a bespoke hermes_cli spec call is a larger, riskier piece of work. So
+     * this returns [] => the compiler refuses-with-gaps => maybePlan returns null => buildPlan
+     * fallback => SAFE even with the flag ON (never breaks). Tests override this to inject a ready
+     * spec and exercise the full planning machinery with no provider.
+     *
+     * TODO(item8 follow-up): wire a real hermes_cli spec-only invocation through the AiProviderManager
+     * seam, parsing deterministic JSON into {summary, acceptance_criteria, suggested_files, decomposition_hint}.
+     *
+     * @param  list<string>  $priorGaps
+     * @param  array<string,mixed>  $payload
+     * @param  list<string>  $allowed
+     * @return array<string,mixed>
+     */
+    protected function generateSpecViaProvider(string $goal, array $priorGaps, array $payload, array $allowed): array
+    {
+        return [];
+    }
+
+    /**
+     * PRODUCTION provider seam — DAG-only hermes_cli call. FAIL-OPEN (same rationale as the spec seam):
+     * returns [] => the planner normalises to an empty-node plan the readiness gate rejects => maybePlan
+     * returns null => buildPlan fallback => SAFE even with the flag ON. Tests override this to inject a
+     * valid create-class-at-seq-0 DAG and exercise the planner + readiness gate with no provider.
+     *
+     * TODO(item8 follow-up): wire a real hermes_cli DAG-only invocation; emit the create-class node at
+     * seq 0 (its request MUST literally reference the new file path/basename or the readiness gate flags
+     * 'request_does_not_reference_its_target') + redirect-caller nodes at higher seq with depends_on.
+     *
+     * @param  array<string,mixed>  $context
+     * @param  list<string>  $priorGaps
+     * @param  array<string,mixed>  $payload
+     * @param  list<string>  $allowed
+     * @param  list<string>  $newFiles
+     * @param  array<string,mixed>  $spec
+     * @return array<string,mixed>
+     */
+    protected function generatePlanViaProvider(string $goal, array $context, array $priorGaps, array $payload, array $allowed, array $newFiles, array $spec): array
+    {
+        return [];
     }
 
     /** The whole-obra integrated check = the synthesizer's frozen sibling-test command (behaviour gate). */

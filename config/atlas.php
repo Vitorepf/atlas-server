@@ -2008,6 +2008,23 @@ return [
         // is the threshold (operator directive: 9). Raise once the loop reliably clears it.
         'quality_bar_gate_enabled' => (bool) env('ATLAS_LOOP_QUALITY_BAR_GATE_ENABLED', false),
         'quality_bar' => (float) env('ATLAS_LOOP_QUALITY_BAR', 9.0),
+
+        // ITEM10 — FEATURE-LANE ≥9 quality bar + CONFIDENCE CALIBRATION flywheel. The certifier always
+        // RECORDS gradeFeature()'s 0-10 score on a non-refactor cert; delivery_bar.armed turns it into a
+        // GATE (a feature below the bar is refuted). The auto-merge feeder appends {predicted,correct}
+        // samples post-merge; atlas:loop:confidence-calibrate fits the honest arm-threshold. All default
+        // OFF => byte-identical. Note: mutation SAMPLING runs regardless of the mutation-gate flag, so a
+        // genuinely good feature (behavior preserved + diff-earned + frozen suite kills its sampled
+        // mutants) scores ~9.5 and PASSES the 9.0 bar; only an undiff-earned change or a weak frozen suite
+        // (mutants survive) scores below 9 and is refused — arming this does NOT universally refuse features.
+        'delivery_bar' => [
+            'armed' => (bool) env('ATLAS_LOOP_DELIVERY_BAR_ARMED', false),
+        ],
+        'confidence_calibration' => [
+            'enabled' => (bool) env('ATLAS_LOOP_CONFIDENCE_CALIBRATION_ENABLED', false),
+            'target_precision' => max(0.0, min(1.0, (float) env('ATLAS_LOOP_CONFIDENCE_CALIBRATION_TARGET', 0.93))),
+            'min_samples' => max(1, (int) env('ATLAS_LOOP_CONFIDENCE_CALIBRATION_MIN_SAMPLES', 20)),
+        ],
         // LEVER 2 — CALIBRATED delivery confidence. The certifier RECORDS a principled P(correct) over the
         // cert's measurable signals on every proposal (replacing the old hardcoded confidence theatre). The
         // GATE (confidence_gate_enabled) refuses a cert below the threshold — but arming it at a TRUSTWORTHY
@@ -2086,6 +2103,16 @@ return [
         'obra_repair_max_attempts_per_node' => max(1, (int) env('ATLAS_LOOP_OBRA_REPAIR_MAX_ATTEMPTS_PER_NODE', 3)),
         'obra_repair_max_attempts_per_obra' => max(1, (int) env('ATLAS_LOOP_OBRA_REPAIR_MAX_ATTEMPTS_PER_OBRA', 8)),
         'multi_file_refactor_timeout_seconds' => max(60, (int) env('ATLAS_LOOP_MULTI_FILE_REFACTOR_TIMEOUT_SECONDS', 600)),
+
+        // ITEM8 — PLANNING PHASE ahead of best-of-N. A qualifying task (>=2 allowed_files OR objective_kind
+        // refactor_/feature_) runs IntentSpecCompiler (NL goal -> falsifiable acceptance) then
+        // ObraDecompositionPlanner (DAG validated by PlanReadinessGate, create-class node at seq 0)
+        // INSTEAD of the one-node-per-existing-file buildPlan. Default-OFF => byte-identical (buildPlan
+        // runs exactly as today). The production provider seam is fail-open: until a hermes_cli spec-only
+        // call is wired it returns no spec/plan and the adapter falls back to buildPlan (so even ON is safe).
+        'planning_enabled' => (bool) env('ATLAS_LOOP_PLANNING_ENABLED', false),
+        'planning_spec_max_attempts' => max(1, (int) env('ATLAS_LOOP_PLANNING_SPEC_MAX_ATTEMPTS', 3)),
+        'planning_plan_max_attempts' => max(1, (int) env('ATLAS_LOOP_PLANNING_PLAN_MAX_ATTEMPTS', 3)),
 
         // L4-1: cooldown por target recente. Tasks/proposals recentes do mesmo path caem no
         // ranking para evitar farming do arquivo que acabou de render proposta.
@@ -2517,6 +2544,16 @@ return [
         'parallel' => [
             'enabled' => (bool) env('ATLAS_LOOP_PARALLEL_ENABLED', false),
             'max_workers' => max(1, (int) env('ATLAS_LOOP_MAX_WORKERS', 4)),
+        ],
+
+        // ITEM6 — SCENARIO-LEVEL fan-out. The explorer's N attempts per task run as a bounded PARALLEL
+        // wave (Process::start + non-blocking harvest) to hide the ~14min/attempt provider latency behind
+        // width. Default-OFF => the serial for-loop is byte-identical. Distinct from `parallel` above
+        // (that is TASK-level: one grind-task subprocess per task).
+        'scenario_fanout' => [
+            'enabled' => (bool) env('ATLAS_LOOP_SCENARIO_FANOUT_ENABLED', false),
+            'width' => max(1, (int) env('ATLAS_LOOP_SCENARIO_FANOUT_WIDTH', 4)),
+            'timeout_seconds' => max(30, (int) env('ATLAS_LOOP_SCENARIO_FANOUT_TIMEOUT_SECONDS', 600)),
         ],
     ],
 
