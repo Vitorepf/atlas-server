@@ -27,6 +27,10 @@ namespace App\Services\Ai\AutonomousEvolution;
  */
 final class AtlasLoopDeliveryQualityScore
 {
+    // ACDE lever D2: the per-delivery dimension definition lives in ONE Rivals-free service the dossier also
+    // reuses; nullable + self-built so the existing call-sites construct this class unchanged.
+    public function __construct(private readonly ?AtlasLoopDeliveryDimensionResolver $resolver = null) {}
+
     /**
      * Score one engine's outcomes over a panel of ATTEMPTED frozen obras.
      *
@@ -44,30 +48,34 @@ final class AtlasLoopDeliveryQualityScore
         $cycSum = 0.0;
         $cleanCommitted = 0;
 
+        $resolver = $this->resolver ?? new AtlasLoopDeliveryDimensionResolver;
         foreach ($panel as $o) {
-            if (! is_array($o) || ($o['attempted'] ?? true) !== true) {
+            if (! is_array($o)) {
+                continue;
+            }
+            // ACDE D2: the SINGLE machine-resolved per-delivery definition (shared with the dossier).
+            $dim = $resolver->resolve($o);
+            if (! $dim['attempted']) {
                 continue;
             }
             $attempted++;
-            $isCommitted = ($o['committed'] ?? false) === true;
-            $canaryRed = mb_strtolower(trim((string) ($o['canary'] ?? 'not_run'))) === 'red';
 
-            if (! $isCommitted) {
+            if (! $dim['committed']) {
                 $refused++; // a refusal IS a delivery defect on that task (anti-selection-bias)
 
                 continue;
             }
             $committed++;
-            if ($canaryRed) {
+            if ($dim['canary'] === 'red') {
                 $escaped++; // a regression that reached main is a defect
 
                 continue;
             }
             // committed + clean => contributes to the tie-break axes
             $cleanCommitted++;
-            $mutSum += max(0.0, min(1.0, (float) ($o['mutation_kill_ratio'] ?? 0.0)));
-            $compSum += max(0.0, min(1.0, (float) ($o['completeness'] ?? 0.0)));
-            $cycSum += max(0.0, (float) ($o['cyclomatic_drop'] ?? 0.0));
+            $mutSum += $dim['mutation_kill_ratio'];
+            $compSum += $dim['completeness'];
+            $cycSum += $dim['cyclomatic_drop'];
         }
 
         $defects = $refused + $escaped;
