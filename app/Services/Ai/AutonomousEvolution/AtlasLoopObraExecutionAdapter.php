@@ -161,6 +161,24 @@ class AtlasLoopObraExecutionAdapter
                 return $this->fail('aggregate_complexity_not_reduced:'.(string) ($drop['reason'] ?? '?'), $envelope);
             }
 
+            // ACDE Leap 3 — OBRA NET-DIFF FULL CERTIFICATION. The aggregate-drop above proved the refactor
+            // reduced complexity; it did NOT run the single-target anti-gaming stack (behavioral-equivalence
+            // floor, overfit probe, diff-earned, mutation, completeness, cross-node consumer contracts) on
+            // the ASSEMBLED multi-file diff — the exact surface where large-obra gaming hides (a node games
+            // one piece while another quietly breaks a sibling). When the flag is ON, route the obra net diff
+            // through the FULL certify() against the obra's HUMAN-FROZEN acceptance; any refusal discards the
+            // branch + loops back honestly (never merges). Flag OFF (default) => this block is skipped, so the
+            // obra path is byte-identical to today. Fail-OPEN on its own infra (no acceptance / empty diff /
+            // replay failure narrows coverage, never false-rejects a real obra — same honest limit as today).
+            if ((bool) config('atlas.loop.obra_full_cert_enabled', false)) {
+                $netCert = $this->certifyObraNetDiff($repoRoot, $envelope, $allowed, $acc, trim((string) ($payload['objective'] ?? '')));
+                if (($netCert['certified'] ?? false) !== true) {
+                    $executor->discardObra($repoRoot, $planId);
+
+                    return $this->fail('obra_net_diff_refused:'.(string) ($netCert['reason'] ?? '?'), $envelope);
+                }
+            }
+
             // L4-10 — emit the signed evidence from the executor receipt, then validate provenance.
             // A FIXTURE run is sealed fixture_obra_run → rejected here (it proved the machinery, not real work).
             $evidencePath = $this->writeEvidence($envelope);
@@ -262,6 +280,90 @@ class AtlasLoopObraExecutionAdapter
                 : (($drop['scope_violation'] ?? []) !== [] ? 'changed_files_outside_allowed' : 'not_reduced');
 
             return ['reduced' => $reduced, 'reason' => $reason, 'proof' => $drop['proof'] ?? null];
+        } finally {
+            $this->git($repoRoot, ['worktree', 'remove', '--force', $ws]);
+        }
+    }
+
+    /**
+     * ACDE Leap 3 — route the ASSEMBLED obra net diff through the FULL single-target anti-gaming stack.
+     *
+     * Self-contained replay (its OWN base_head worktree, so {@see certifyAggregateDrop} stays byte-identical):
+     * materialize the net diff (base_head..branch) as an UNSTAGED dirty tree at base_head — the EXACT input
+     * {@see AtlasLoopSemanticImplementationCertifier::certify} consumes — then run certify() there against the
+     * obra's HUMAN-FROZEN acceptance (payload.acceptance, never the model spec). certify() re-runs the FULL
+     * frozen command set (not just the executor's integrated commands[0]), so a node that silently breaks a
+     * SIBLING's frozen contract turns the assembled net diff RED even when the integrated check stayed green —
+     * the defining large-obra failure mode (independently-green steps that conflict once assembled) becomes
+     * provable end-to-end. The behavioral-equivalence floor, overfit probe, diff-earned, mutation-kill-ratio,
+     * completeness resolver and cross-file consumer gate all apply to the net diff exactly as on a single target.
+     *
+     * Fail-OPEN on its own infra (no acceptance / empty diff / replay failure narrows coverage, never
+     * false-rejects); fail-CLOSED on the moat (any certify() reason refuses the obra). Anchored on the
+     * human-frozen acceptance + machine-derived consumer contracts — zero model claim.
+     *
+     * @param  list<string>  $allowed
+     * @param  array<string,mixed>  $obraAcceptance  the obra's HUMAN-FROZEN payload.acceptance
+     * @return array{certified:bool, reason:?string, receipt:array<string,mixed>|null}
+     */
+    protected function certifyObraNetDiff(string $repoRoot, array $envelope, array $allowed, array $obraAcceptance, string $objective = ''): array
+    {
+        // No human-frozen acceptance => nothing to certify the assembled diff against. Fail-OPEN: narrow
+        // coverage (the aggregate-drop + per-node gates already passed), never refuse a real obra.
+        if ($obraAcceptance === []) {
+            return ['certified' => true, 'reason' => 'no_obra_acceptance', 'receipt' => null];
+        }
+
+        $branch = (string) ($envelope['branch'] ?? '');
+        $baseHead = (string) (($envelope['executor_receipt']['base_head'] ?? '') ?: '');
+        if ($branch === '' || $baseHead === '') {
+            return ['certified' => true, 'reason' => 'no_branch_or_base_head', 'receipt' => null];
+        }
+
+        $changed = $this->gitLines($repoRoot, ['diff', '--name-only', $baseHead.'..'.$branch]);
+        $diff = $this->gitOutput($repoRoot, ['diff', $baseHead.'..'.$branch]);
+        if ($diff === null || trim($diff) === '' || $changed === []) {
+            return ['certified' => true, 'reason' => 'empty_obra_diff', 'receipt' => null];
+        }
+
+        $ws = sys_get_temp_dir().'/atlas-obra-netcert-'.bin2hex(random_bytes(5));
+        if (! $this->git($repoRoot, ['worktree', 'add', '--detach', $ws, $baseHead])) {
+            return ['certified' => true, 'reason' => 'replay_worktree_add_failed', 'receipt' => null];
+        }
+        try {
+            $apply = new Process(['git', 'apply', '--whitespace=nowarn', '-'], $ws, null, null, 60.0);
+            $apply->setInput($diff);
+            $apply->run();
+            if (! $apply->isSuccessful()) {
+                return ['certified' => true, 'reason' => 'replay_apply_failed', 'receipt' => null];
+            }
+
+            // The obra's HUMAN-FROZEN acceptance. When the obra completeness sub-gate is ON, force
+            // completeness_gate so certify()'s resolver derives one criterion per command + per cross-node
+            // consumer contract and RE-RUNS each on the assembled net diff (empty-derivable => fail-open).
+            $acceptance = $obraAcceptance;
+            if ((bool) config('atlas.loop.obra_completeness_gate_enabled', false)) {
+                $acceptance['completeness_gate'] = true;
+            }
+
+            $certifier = $this->certifier ?? app(AtlasLoopSemanticImplementationCertifier::class);
+            $verdict = $certifier->certify($ws, $acceptance, array_filter([
+                'allowed_files' => $allowed,
+                'objective' => $objective,
+                // Cross-node consumer contracts ride the existing cross-file gate when the obra carries a
+                // Code-Intelligence workspace; absent => no cross-node criteria (fail-open, never a false-reject).
+                'code_graph_workspace' => $this->stringOrNull($envelope['code_graph_workspace'] ?? null),
+            ], static fn ($v): bool => $v !== null && $v !== '' && $v !== []));
+
+            $certified = (bool) ($verdict['certified'] ?? false);
+            $reason = $certified
+                ? null
+                : implode(',', array_slice(array_values(array_filter(
+                    (array) ($verdict['reasons'] ?? ['refuted']),
+                    static fn ($r): bool => is_string($r) && $r !== '' && $r !== 'certified',
+                )) ?: ['refuted'], 0, 4));
+
+            return ['certified' => $certified, 'reason' => $reason, 'receipt' => $verdict];
         } finally {
             $this->git($repoRoot, ['worktree', 'remove', '--force', $ws]);
         }

@@ -2126,6 +2126,21 @@ return [
         'decomposition_oracle_enabled' => (bool) env('ATLAS_LOOP_DECOMPOSITION_ORACLE_ENABLED', false),
         'decomposition_oracle_dir' => env('ATLAS_LOOP_DECOMPOSITION_ORACLE_DIR', base_path('frozen/obra-decompositions')),
 
+        // ACDE Leap 3 — OBRA NET-DIFF FULL CERTIFICATION. The single-target anti-gaming stack
+        // (behavioral-equivalence floor, overfit-constant-return probe, diff-earned, mutation-kill-ratio,
+        // completeness, cross-file consumer contracts) runs ONLY inside certify() on a single dirty tree —
+        // the obra path never calls it, so a multi-file obra is anti-gaming WEAKER than a one-file change.
+        // With this flag ON, the ASSEMBLED obra net diff (base_head..branch, replayed into a base_head
+        // worktree) is routed through the FULL certify() against the obra's HUMAN-FROZEN payload.acceptance
+        // (never the model spec). Catches "independently-green steps that conflict once assembled" — a node
+        // that silently breaks a sibling's frozen command turns the whole obra RED. OFF (default) => the obra
+        // path is byte-identical to today (certifyAggregateDrop / structural lane only — never called here).
+        'obra_full_cert_enabled' => (bool) env('ATLAS_LOOP_OBRA_FULL_CERT_ENABLED', false),
+        // Sub-gate: force completeness_gate on the obra acceptance so certify()'s resolver derives one
+        // criterion per command + per cross-node consumer contract and RE-RUNS each on the net diff. Inert
+        // unless obra_full_cert_enabled is also ON; empty-derivable checklist => byte-identical (fail-open).
+        'obra_completeness_gate_enabled' => (bool) env('ATLAS_LOOP_OBRA_COMPLETENESS_GATE_ENABLED', false),
+
         // L4-1: cooldown por target recente. Tasks/proposals recentes do mesmo path caem no
         // ranking para evitar farming do arquivo que acabou de render proposta.
         'target_cooldown_enabled' => (bool) env('ATLAS_LOOP_TARGET_COOLDOWN_ENABLED', true),
