@@ -40,6 +40,11 @@ final class AtlasLoopTaskGrinder
         private readonly AtlasLoopIntentVerifierFactory $intentVerifierFactory,
         private readonly AtlasLoopExplorerStrategyBanditService $strategyBandit,
         private readonly AtlasLoopPredictiveOutcomeBridge $predictiveBridge,
+        // ACDE Tier-1 #5: the autonomous escalation conductor. Optional + nullable + LAST so the
+        // container autowires it to null (Laravel does not inject `?Type = null`) and the
+        // newInstanceWithoutConstructor test build is unaffected; grind() falls back to a fresh
+        // instance. Touched ONLY when atlas.loop.conductor_escalation_enabled is ON (default OFF).
+        private readonly ?AtlasLoopAutonomousConductor $conductor = null,
     ) {}
 
     /**
@@ -150,6 +155,15 @@ final class AtlasLoopTaskGrinder
                 $result = $this->gateCharacterizationTestProposals($result, $explorerTask, $payload);
             } elseif (($frameworkTask || $universal) && $this->canGateProposals($explorerTask)) {
                 $result = $this->gateImplementationProposals($result, $explorerTask, $payload, $frameworkTask);
+            }
+            // ACDE Tier-1 #5: a no-winner best-of-N round, instead of dead-ending, escalates STRUCTURALLY
+            // (repair_from_refutation -> decompose -> escalate_provider) via the autonomous conductor —
+            // the flow-level substitute for model intelligence ("change strategy when stuck"). Fail-open:
+            // any fault leaves $result untouched. Default OFF => skipped entirely (runner ran exactly once).
+            if ((bool) config('atlas.loop.conductor_escalation_enabled', false)
+                && $this->canGateProposals($explorerTask)
+                && ! $this->resultHasCertifiedWinner($result)) {
+                $result = $this->escalateViaConductor($result, $explorerTask, $payload, $frameworkTask, $universal, $options);
             }
             $summary = $this->persister->persist($task, $workerId, $result);
             $cleanup();
@@ -670,6 +684,114 @@ final class AtlasLoopTaskGrinder
         ];
 
         return $result;
+    }
+
+    /**
+     * ACDE Tier-1 #5: does this (post-gate) runner result carry a certified winner? Mirrors the
+     * persister's has_winner rule (proposals !== []), so the conductor escalates iff persist would
+     * otherwise record no winner.
+     *
+     * @param  array<string,mixed>  $result
+     */
+    private function resultHasCertifiedWinner(array $result): bool
+    {
+        return is_array($result['proposals'] ?? null) && $result['proposals'] !== [];
+    }
+
+    /**
+     * ACDE Tier-1 #5: a STABLE reason string for the conductor's attempt ledger — 'certified' on a
+     * winner, else the first non-empty rejection across explorations (kept stable so a recurring
+     * identical failure trips the ledger's thrashing jump), else 'no_winner'.
+     *
+     * @param  array<string,mixed>  $result
+     */
+    private function tierReason(array $result): string
+    {
+        if ($this->resultHasCertifiedWinner($result)) {
+            return 'certified';
+        }
+        foreach ((array) ($result['explorations'] ?? []) as $exploration) {
+            foreach ((array) (is_array($exploration) ? ($exploration['rejected_reasons'] ?? []) : []) as $reason) {
+                $reason = trim((string) $reason);
+                if ($reason !== '') {
+                    return $reason;
+                }
+            }
+        }
+
+        return 'no_winner';
+    }
+
+    /**
+     * ACDE Tier-1 #5: escalate a no-winner round through the autonomous conductor — the flow-level
+     * substitute for model intelligence. The conductor walks the escalation ladder
+     * (best_of_n -> repair_from_refutation -> decompose -> escalate_provider), feeding its attempt-ledger
+     * guidance forward into each re-run's objective and thrash-jumping on recurring failure, stopping on
+     * certification or the round budget. Each tier RE-RUNS the same explorer+gate path with progressively
+     * deeper search (provider rotation is moot on the single live engine — depth is the lever). The full
+     * winning runner-result (proposals/diffs/explorations) is captured by-ref — NOT conduct()'s lite
+     * last_outcome, which carries no proposals. Fully fail-open: any fault returns the ORIGINAL $result.
+     *
+     * @param  array<string,mixed>  $result
+     * @param  array<string,mixed>  $explorerTask
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    private function escalateViaConductor(array $result, array $explorerTask, array $payload, bool $frameworkTask, bool $universal, array $options): array
+    {
+        try {
+            $conductor = $this->conductor ?? new AtlasLoopAutonomousConductor;
+            $winning = $result;
+
+            $runTier = function (array $tierOptions, string $guidance) use (&$winning, $explorerTask, $payload, $frameworkTask, $universal): array {
+                $task = $explorerTask;
+                if (trim($guidance) !== '') {
+                    $task['objective'] = (string) ($task['objective'] ?? '')."\n\n".$guidance;
+                }
+                $tierResult = $this->runner->run([$task], $tierOptions);
+                if ($this->isCharacterizationTestTask($payload) && $this->canGateProposals($explorerTask)) {
+                    $tierResult = $this->gateCharacterizationTestProposals($tierResult, $explorerTask, $payload);
+                } elseif (($frameworkTask || $universal) && $this->canGateProposals($explorerTask)) {
+                    $tierResult = $this->gateImplementationProposals($tierResult, $explorerTask, $payload, $frameworkTask);
+                }
+                if ($this->resultHasCertifiedWinner($tierResult)) {
+                    $winning = $tierResult;
+
+                    return ['certified' => true, 'reason' => 'certified'];
+                }
+
+                return ['certified' => false, 'reason' => $this->tierReason($tierResult)];
+            };
+
+            $deep = array_merge($options, ['scenarios_per_task' => max(1, (int) config('atlas.loop.max_scenarios_per_task', 12))]);
+            $byTier = [
+                'best_of_n' => $options,
+                'repair_from_refutation' => $deep,
+                'decompose' => $deep,
+                'escalate_provider' => $deep,
+            ];
+            $tiers = [];
+            foreach ($byTier as $name => $tierOptions) {
+                $tiers[$name] = fn (string $goal, string $guidance, ?array $spec, int $round): array => $runTier($tierOptions, $guidance);
+            }
+
+            $conduct = $conductor->conduct((string) ($explorerTask['objective'] ?? ''), ['tier_executors' => $tiers]);
+
+            $result = $winning;
+            $result['conductor_escalation'] = [
+                'ran' => true,
+                'certified' => (bool) ($conduct['certified'] ?? false),
+                'rounds' => (int) ($conduct['rounds'] ?? 0),
+                'final_reason' => (string) ($conduct['final_reason'] ?? ''),
+            ];
+
+            return $result;
+        } catch (Throwable $e) {
+            $result['conductor_escalation'] = ['ran' => true, 'error' => mb_substr($e->getMessage(), 0, 200)];
+
+            return $result;
+        }
     }
 
     private function materializeGateWorkspace(string $baseWorkspace, string $diff): string

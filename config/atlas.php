@@ -2018,6 +2018,12 @@ return [
         // pure policy; the grind orchestrator walks it across the existing tiers.
         'escalation_max_rounds' => max(1, (int) env('ATLAS_LOOP_ESCALATION_MAX_ROUNDS', 6)),
         'escalation_thrash_threshold' => max(2, (int) env('ATLAS_LOOP_ESCALATION_THRASH_THRESHOLD', 3)),
+
+        // ACDE Tier-1 #5: arms the autonomous conductor in the grinder — a no-winner best-of-N round
+        // escalates STRUCTURALLY (repair->decompose->escalate) via AtlasLoopAutonomousConductor instead
+        // of dead-ending, feeding the attempt-ledger forward + thrash-jumping. Default OFF: real provider
+        // spend (up to escalation_max_rounds deeper re-runs); arm after measuring conversion + cost.
+        'conductor_escalation_enabled' => (bool) env('ATLAS_LOOP_CONDUCTOR_ESCALATION_ENABLED', false),
         // NEXT-LEVER 1 — COMPLETENESS. A goal's checklist of acceptance criteria must be covered (every
         // required criterion satisfied + coverage >= floor) — proves the change did the WHOLE job, not just
         // enough to pass one test. RECORDED always; GATE only when completeness_gate_enabled — default OFF /
