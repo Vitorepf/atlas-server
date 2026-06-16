@@ -2154,6 +2154,17 @@ return [
         'shape_prior_min_samples' => max(1, (int) env('ATLAS_LOOP_SHAPE_PRIOR_MIN_SAMPLES', 8)),
         'shape_prior_target_rate' => max(0.0, min(1.0, (float) env('ATLAS_LOOP_SHAPE_PRIOR_TARGET_RATE', 0.5))),
 
+        // ACDE Leap 6 (design-judgement ceiling) — HUMAN-FROZEN NODE-INTERFACE CONTRACT. The boundary-oracle
+        // anchors WHICH files are separate nodes; this anchors the required ABSTRACTION inside them. With the
+        // flag ON AND a per-objective fixture frozen/obra-interfaces/<goal-hash>.json present, the assembled
+        // obra net diff is replayed and each contracted file's REAL AST surface (nikic/php-parser — decorrelated
+        // from the provider LLM) must honour the frozen contract: required public methods present, required
+        // implements/extends satisfied, forbidden imports absent (dependency-direction / anti-inversion). A
+        // violation refuses the obra. OFF, or no contract for the goal => no interface check (byte-identical).
+        // No LLM design-judge: the bar is human-authored + the check is a deterministic AST census (ungameable).
+        'interface_contract_enabled' => (bool) env('ATLAS_LOOP_INTERFACE_CONTRACT_ENABLED', false),
+        'interface_contract_dir' => env('ATLAS_LOOP_INTERFACE_CONTRACT_DIR', base_path('frozen/obra-interfaces')),
+
         // L4-1: cooldown por target recente. Tasks/proposals recentes do mesmo path caem no
         // ranking para evitar farming do arquivo que acabou de render proposta.
         'target_cooldown_enabled' => (bool) env('ATLAS_LOOP_TARGET_COOLDOWN_ENABLED', true),

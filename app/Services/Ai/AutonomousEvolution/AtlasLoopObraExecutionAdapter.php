@@ -8,6 +8,8 @@ use App\Models\AiJob;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopIntentSpecCompiler;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopNodeInterfaceContract;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopNodeInterfaceVerifier;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObraDecompositionPlanner;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObraPlanValidator;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopPlanReadinessGate;
@@ -182,6 +184,22 @@ class AtlasLoopObraExecutionAdapter
                     $executor->discardObra($repoRoot, $planId);
 
                     return $this->fail('obra_net_diff_refused:'.(string) ($netCert['reason'] ?? '?'), $envelope);
+                }
+            }
+
+            // ACDE Leap 6 (design-judgement ceiling) — HUMAN-FROZEN NODE-INTERFACE CONTRACT. The boundary-
+            // oracle proved the right FILES are separate nodes; this proves the right ABSTRACTION inside them.
+            // When the flag is ON and a human froze an interface contract for this objective, replay the net
+            // diff and verify each contracted file's REAL AST surface (decorrelated from the provider LLM)
+            // honours it — required methods/implements/extends present, forbidden imports absent. A violation
+            // discards + loops back. OFF / no contract for the goal => no check (byte-identical to today).
+            if ((bool) config('atlas.loop.interface_contract_enabled', false)) {
+                $iface = $this->certifyNodeInterfaces($repoRoot, $envelope, trim((string) ($payload['objective'] ?? '')));
+                if (($iface['ok'] ?? false) !== true) {
+                    $this->recordShapeOutcome($plan, $payload, false, 'interface_contract_violated:'.(string) ($iface['reason'] ?? '?'));
+                    $executor->discardObra($repoRoot, $planId);
+
+                    return $this->fail('interface_contract_violated:'.(string) ($iface['reason'] ?? '?'), $envelope);
                 }
             }
 
@@ -375,6 +393,61 @@ class AtlasLoopObraExecutionAdapter
                 )) ?: ['refuted'], 0, 4));
 
             return ['certified' => $certified, 'reason' => $reason, 'receipt' => $verdict];
+        } finally {
+            $this->git($repoRoot, ['worktree', 'remove', '--force', $ws]);
+        }
+    }
+
+    /**
+     * ACDE Leap 6 — verify the assembled obra's REAL AST surface against the HUMAN-frozen node-interface
+     * contract for the objective. Replays the net diff (base_head..branch) into a base_head worktree so the
+     * ACTUAL delivered files exist, then runs the decorrelated AST verifier per contracted file. No contract
+     * for the goal => ok (degrade, no false-reject). Fail-OPEN on its own replay infra; the ONLY refusal is a
+     * real interface_contract_violation (the bar is human-frozen, the surface is an AST census — ungameable).
+     *
+     * @return array{ok:bool, reason:?string, violations:list<string>}
+     */
+    protected function certifyNodeInterfaces(string $repoRoot, array $envelope, string $goal): array
+    {
+        $contract = (new AtlasLoopNodeInterfaceContract)->load($goal);
+        if ($contract === null) {
+            return ['ok' => true, 'reason' => 'no_interface_contract', 'violations' => []];
+        }
+
+        $branch = (string) ($envelope['branch'] ?? '');
+        $baseHead = (string) (($envelope['executor_receipt']['base_head'] ?? '') ?: '');
+        if ($branch === '' || $baseHead === '') {
+            return ['ok' => true, 'reason' => 'no_branch_or_base_head', 'violations' => []];
+        }
+
+        $diff = $this->gitOutput($repoRoot, ['diff', $baseHead.'..'.$branch]);
+        if ($diff === null || trim($diff) === '') {
+            return ['ok' => true, 'reason' => 'empty_obra_diff', 'violations' => []];
+        }
+
+        $ws = sys_get_temp_dir().'/atlas-obra-iface-'.bin2hex(random_bytes(5));
+        if (! $this->git($repoRoot, ['worktree', 'add', '--detach', $ws, $baseHead])) {
+            return ['ok' => true, 'reason' => 'replay_worktree_add_failed', 'violations' => []];
+        }
+        try {
+            $apply = new Process(['git', 'apply', '--whitespace=nowarn', '-'], $ws, null, null, 60.0);
+            $apply->setInput($diff);
+            $apply->run();
+            if (! $apply->isSuccessful()) {
+                return ['ok' => true, 'reason' => 'replay_apply_failed', 'violations' => []];
+            }
+
+            $violations = (new AtlasLoopNodeInterfaceVerifier)->verify($contract, static function (string $rel) use ($ws): ?string {
+                $path = $ws.'/'.ltrim($rel, '/');
+
+                return is_file($path) ? (string) @file_get_contents($path) : null;
+            });
+
+            if ($violations !== []) {
+                return ['ok' => false, 'reason' => implode(',', array_slice($violations, 0, 4)), 'violations' => $violations];
+            }
+
+            return ['ok' => true, 'reason' => null, 'violations' => []];
         } finally {
             $this->git($repoRoot, ['worktree', 'remove', '--force', $ws]);
         }
