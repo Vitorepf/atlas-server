@@ -2164,6 +2164,12 @@ return [
         // No LLM design-judge: the bar is human-authored + the check is a deterministic AST census (ungameable).
         'interface_contract_enabled' => (bool) env('ATLAS_LOOP_INTERFACE_CONTRACT_ENABLED', false),
         'interface_contract_dir' => env('ATLAS_LOOP_INTERFACE_CONTRACT_DIR', base_path('frozen/obra-interfaces')),
+        // ACDE Leap 6 plan-time half — the readiness gate consults the SAME interface contract's seam-to-seam
+        // edge rules (must_depend_on / forbidden_depend_on) and REPLANS a DAG with a missing or inverted edge,
+        // feeding the planner its first machine design-steering gap. OFF / no contract => byte-identical. This
+        // is STEERING (the model can declare a clean edge then write a contaminated file — caught only by the
+        // as-built AST cert above); arm both for the full design-judgement moat.
+        'node_interface_plan_gate_enabled' => (bool) env('ATLAS_LOOP_NODE_INTERFACE_PLAN_GATE_ENABLED', false),
 
         // L4-1: cooldown por target recente. Tasks/proposals recentes do mesmo path caem no
         // ranking para evitar farming do arquivo que acabou de render proposta.

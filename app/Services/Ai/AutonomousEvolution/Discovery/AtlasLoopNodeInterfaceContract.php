@@ -84,6 +84,11 @@ final class AtlasLoopNodeInterfaceContract
                 'implements' => $this->fqnList($req['implements'] ?? []),
                 'extends' => $this->fqnList($req['extends'] ?? []),
                 'forbidden_imports' => $this->fqnList($req['forbidden_imports'] ?? []),
+                // ACDE Leap 6 plan-time — seam-to-seam DAG edge rules (files this node's seam MUST / must NOT
+                // depend_on). The plan-time gate checks these against the ONLY structural design fact a node
+                // emits (depends_on); the AST cert above checks the delivered code. Both optional.
+                'must_depend_on' => $this->pathList($req['must_depend_on'] ?? []),
+                'forbidden_depend_on' => $this->pathList($req['forbidden_depend_on'] ?? []),
             ];
         }
 
@@ -132,6 +137,19 @@ final class AtlasLoopNodeInterfaceContract
         foreach ((array) $list as $v) {
             if (is_string($v) && trim($v) !== '') {
                 $out[ltrim(trim($v), '\\')] = true;
+            }
+        }
+
+        return array_keys($out);
+    }
+
+    /** Normalize a list of file paths: drop blanks, strip a leading slash, de-dup. @return list<string> */
+    private function pathList(mixed $list): array
+    {
+        $out = [];
+        foreach ((array) $list as $v) {
+            if (is_string($v) && trim($v) !== '') {
+                $out[ltrim(trim($v), '/')] = true;
             }
         }
 

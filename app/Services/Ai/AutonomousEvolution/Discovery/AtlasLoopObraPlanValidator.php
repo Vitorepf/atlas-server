@@ -186,6 +186,75 @@ final class AtlasLoopObraPlanValidator
         return $missing;
     }
 
+    /**
+     * ACDE Leap 6 (plan-time) — the SEAM-TO-SEAM DAG EDGE check (the planner's first machine design-steering
+     * signal). assertDecompositionMatchesOracle proves the right FILES are nodes; this proves the right
+     * DEPENDENCY DIRECTION between them. depends_on is the ONLY structured design fact a node emits — so a
+     * human freezes per file the seams it MUST / must NOT depend_on, and we check the generated DAG's edges.
+     *
+     * Resolve each node's target file + its depends_on (node-ids → their target files), then for the node
+     * targeting a contracted file: a required must_depend_on edge that is ABSENT => 'node_interface_missing_
+     * edge:<file>-><dep>'; a forbidden_depend_on edge that is PRESENT => 'node_interface_inverted_edge:
+     * <file>-><dep>' (the dependency-inversion the file-only oracle cannot see). Edge rules apply only to
+     * files that ARE node targets (a missing required FILE is the boundary-oracle's job) — no false-reject.
+     *
+     * @param  array<string,mixed>  $plan  {nodes:list<{id, target_area|allowed_files, depends_on?}>}
+     * @param  array<string, array{must_depend_on?:list<string>, forbidden_depend_on?:list<string>}>  $contract
+     * @return list<string>
+     */
+    public function assertDecompositionEdges(array $plan, array $contract): array
+    {
+        $nodes = array_values(is_array($plan['nodes'] ?? null) ? (array) $plan['nodes'] : []);
+
+        $idToFile = [];
+        foreach ($nodes as $node) {
+            if (! is_array($node)) {
+                continue;
+            }
+            $id = trim((string) ($node['id'] ?? ''));
+            $file = ltrim(trim((string) ($node['target_area'] ?? '')), '/');
+            if ($id !== '' && $file !== '') {
+                $idToFile[$id] = $file;
+            }
+        }
+
+        $gaps = [];
+        foreach ($nodes as $node) {
+            if (! is_array($node)) {
+                continue;
+            }
+            $id = trim((string) ($node['id'] ?? ''));
+            $file = $idToFile[$id] ?? '';
+            if ($file === '' || ! isset($contract[$file])) {
+                continue;
+            }
+            $rule = (array) $contract[$file];
+
+            $depFiles = [];
+            foreach ((array) ($node['depends_on'] ?? []) as $d) {
+                $d = trim((string) $d);
+                if (isset($idToFile[$d])) {
+                    $depFiles[$idToFile[$d]] = true;
+                }
+            }
+
+            foreach ((array) ($rule['must_depend_on'] ?? []) as $must) {
+                $must = ltrim(trim((string) $must), '/');
+                if ($must !== '' && ! isset($depFiles[$must])) {
+                    $gaps[] = 'node_interface_missing_edge:'.$file.'->'.$must;
+                }
+            }
+            foreach ((array) ($rule['forbidden_depend_on'] ?? []) as $forb) {
+                $forb = ltrim(trim((string) $forb), '/');
+                if ($forb !== '' && isset($depFiles[$forb])) {
+                    $gaps[] = 'node_interface_inverted_edge:'.$file.'->'.$forb;
+                }
+            }
+        }
+
+        return $gaps;
+    }
+
     /** A node is verifiable iff it declares some acceptance contract the executor/certifier can run. */
     private function isVerifiable(array $node): bool
     {

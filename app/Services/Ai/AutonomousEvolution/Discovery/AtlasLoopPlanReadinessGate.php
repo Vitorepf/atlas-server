@@ -116,6 +116,15 @@ final class AtlasLoopPlanReadinessGate
             $ready = false;
         }
 
+        // ACDE Leap 6 (plan-time) — NODE-INTERFACE seam-edge band. When the flag is ON and a human froze an
+        // interface contract carrying seam-to-seam edge rules for THIS objective, a missing required edge or
+        // a forbidden (inverted) edge in the generated DAG is a hard not-ready (REPLAN) — feeding the planner
+        // its first machine DESIGN-steering gap. Flag OFF, no $goal, or no contract => [] (byte-identical).
+        foreach ($this->interfaceGaps($plan, $goal) as $g) {
+            $gaps[] = $g;
+            $ready = false;
+        }
+
         return [
             // The decision encodes the economics: a weak plan REPLANS (cheap) rather than IMPLEMENTING
             // (expensive). Only an impeccable plan spends the implementation budget.
@@ -224,6 +233,46 @@ final class AtlasLoopPlanReadinessGate
         }
 
         return (bool) config('atlas.loop.shape_prior_gate_enabled', false);
+    }
+
+    /**
+     * ACDE Leap 6 (plan-time) — the node-interface seam-EDGE gaps for a plan, or [] (the byte-identical
+     * degrade) when the flag is OFF, no $goal was supplied, or no human froze an interface contract for THIS
+     * objective. When a contract DOES exist, returns the validator's missing/inverted seam-edge reasons.
+     *
+     * @param  array<string,mixed>  $plan
+     * @return list<string>
+     */
+    private function interfaceGaps(array $plan, ?string $goal): array
+    {
+        $goal = trim((string) $goal);
+        if ($goal === '' || ! $this->interfacePlanGateEnabled()) {
+            return [];
+        }
+
+        $contract = (new AtlasLoopNodeInterfaceContract)->load($goal);
+        if ($contract === null) {
+            return [];
+        }
+
+        $validator = $this->validator ?? new AtlasLoopObraPlanValidator;
+
+        return $validator->assertDecompositionEdges($plan, $contract);
+    }
+
+    /** Is the plan-time node-interface gate flag ON? Defensive (container-less pure callers => OFF). */
+    private function interfacePlanGateEnabled(): bool
+    {
+        try {
+            $app = function_exists('app') ? app() : null;
+            if ($app === null || ! $app->bound('config')) {
+                return false;
+            }
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return (bool) config('atlas.loop.node_interface_plan_gate_enabled', false);
     }
 
     /**
