@@ -2252,6 +2252,17 @@ return [
         // Default OFF => verdict always 'open' (no extra query) => byte-identical.
         'per_target_skip_enabled' => (bool) env('ATLAS_LOOP_PER_TARGET_SKIP_ENABLED', false),
         'per_target_skip_min_attempts' => max(1, (int) env('ATLAS_LOOP_PER_TARGET_SKIP_MIN_ATTEMPTS', 6)),
+        // ACDE lever #6 — SEQUENCED single-method extract decompose. The weak engine cannot one-shot a god-
+        // class; when ON, the framework-refactor synthesizer tags each in-place worst-method reduction as one
+        // STEP of a bounded extract sequence (AtlasLoopExtractSequencePlanner). Each grind wave re-discovers
+        // the still-complex file and pins its CURRENT worst method, so the class is decomposed worst-first
+        // across waves — the composition of certified single-method reductions IS the big delivery, all
+        // through the proven Path B cert (never the blocking obra-DAG). tractable_cyclomatic is the decompose
+        // target (the chain ends when the worst method drops below it); max_steps bounds the projected plan.
+        // Default OFF => no sequence tag => byte-identical.
+        'extract_sequence_enabled' => (bool) env('ATLAS_LOOP_EXTRACT_SEQUENCE_ENABLED', false),
+        'extract_sequence_tractable_cyclomatic' => max(1, (int) env('ATLAS_LOOP_EXTRACT_SEQUENCE_TRACTABLE_CYCLOMATIC', 10)),
+        'extract_sequence_max_steps' => max(1, (int) env('ATLAS_LOOP_EXTRACT_SEQUENCE_MAX_STEPS', 6)),
 
         // ACDE Leap 8 (greenfield ceiling) — REUSABLE DECOMPOSITION ARCHETYPE library. Imports the single-
         // target moat into greenfield: a human freezes a small library of archetypes (frozen/obra-archetypes/

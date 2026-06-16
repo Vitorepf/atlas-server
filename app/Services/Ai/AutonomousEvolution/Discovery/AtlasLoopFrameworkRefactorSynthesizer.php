@@ -172,6 +172,25 @@ final class AtlasLoopFrameworkRefactorSynthesizer
                 'validation_commands' => [$command],
                 '_target_id' => $targetId,
             ];
+            // ACDE lever #6 — tag this in-place worst-method reduction as one STEP of a bounded extract
+            // sequence. The weak engine cannot one-shot a whole god-class, but each grind wave's discovery
+            // re-selects the still-complex file and the synthesizer pins its CURRENT worst method, so the
+            // class is decomposed worst-first across waves — the composition of certified single-method
+            // reductions IS the big delivery, all through the proven Path B framework-refactor cert (never
+            // the blocking obra-DAG). The planner makes that sequence explicit + BOUNDED (the tractable
+            // threshold) and the sequence_id groups the steps for observability. Default OFF => no tag =>
+            // byte-identical. The chain ends naturally when the worst method drops below the threshold (the
+            // re-measure is the discovery re-scan, so a step that simplified a DIFFERENT method self-corrects).
+            if ((bool) config('atlas.loop.extract_sequence_enabled', false)) {
+                $planner = new AtlasLoopExtractSequencePlanner;
+                $census = $this->analyzer()->fileComplexity((string) @file_get_contents($absTarget));
+                $perMethod = is_array($census['per_method'] ?? null) ? $census['per_method'] : [];
+                $threshold = max(1, (int) config('atlas.loop.extract_sequence_tractable_cyclomatic', $minCyclomatic));
+                $maxSteps = max(1, (int) config('atlas.loop.extract_sequence_max_steps', 6));
+                $payload['extract_sequence_id'] = $planner->sequenceId($targetRepoRelPath);
+                $payload['extract_sequence_plan'] = $planner->plan($perMethod, $threshold, $maxSteps);
+                $payload['extract_sequence_tractable_cyclomatic'] = $threshold;
+            }
             if ($provider !== '') {
                 $payload['provider'] = $provider;
             }

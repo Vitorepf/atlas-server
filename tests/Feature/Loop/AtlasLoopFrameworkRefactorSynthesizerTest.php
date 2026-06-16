@@ -145,6 +145,27 @@ PHP;
         $this->assertStringContainsString('Edit ONLY', $out['objective'], 'objective scopes the provider to the single file (cuts out_of_scope_change rejections)');
     }
 
+    public function test_extract_sequence_tag_emitted_when_armed_and_absent_when_off(): void
+    {
+        // ACDE lever #6: armed, the in-place worst-method reduction is tagged as one bounded step of an
+        // extract sequence; OFF (default) the payload is untouched (byte-identical).
+        config([
+            'atlas.loop.framework_refactor_min_cyclomatic' => 8,
+            'atlas.loop.framework_refactor_min_callers' => 1,
+        ]);
+        $repo = $this->repoWithComplexFrameworkTargetAndSibling();
+        $signals = ['cyclomatic' => 10, 'framework_reach' => 1, 'impact_real_callers' => 2];
+
+        $off = (new AtlasLoopFrameworkRefactorSynthesizer())->synthesizeFrameworkRefactor($repo, 'app/Services/Router.php', $signals, '', 'target-1');
+        $this->assertArrayNotHasKey('extract_sequence_id', $off['payload'], 'OFF => no sequence metadata (byte-identical)');
+
+        config(['atlas.loop.extract_sequence_enabled' => true, 'atlas.loop.extract_sequence_tractable_cyclomatic' => 3]);
+        $on = (new AtlasLoopFrameworkRefactorSynthesizer())->synthesizeFrameworkRefactor($repo, 'app/Services/Router.php', $signals, '', 'target-1');
+        $this->assertStringStartsWith('xseq-', (string) $on['payload']['extract_sequence_id']);
+        $this->assertNotEmpty($on['payload']['extract_sequence_plan'], 'the complex worst method projects at least one step');
+        $this->assertSame(3, $on['payload']['extract_sequence_tractable_cyclomatic']);
+    }
+
     public function test_returns_null_below_the_complexity_floor(): void
     {
         config(['atlas.loop.framework_refactor_min_cyclomatic' => 50]); // unreachable
