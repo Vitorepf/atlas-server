@@ -353,6 +353,14 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
             return [];
         }
 
+        // ACDE B2 — AGGREGATE prompt budget for the file dump. Each file was capped at MAX_PROVIDER_OUTPUT_CHARS
+        // but there was NO total cap, so a many-file obra swamps the weak engine's small window before any
+        // ranked brain context lands. prompt_file_contents_budget_chars caps the TOTAL across files; 0 (the
+        // default) => unlimited => byte-identical. On overflow the rest are omitted with the proven
+        // [TRUNCATED_BY_ATLAS_OPEN_BRAIN_BUDGET] marker so the engine knows context was clipped.
+        $aggregateBudget = max(0, (int) config('atlas.loop.prompt_file_contents_budget_chars', 0));
+        $used = 0;
+
         $lines = ['', 'CURRENT FILE CONTENTS (edit these exactly):'];
         $emitted = false;
         foreach ($allowedFiles as $relative) {
@@ -364,7 +372,18 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
             if (! is_file($full)) {
                 continue;
             }
-            $contents = (string) @file_get_contents($full, false, null, 0, self::MAX_PROVIDER_OUTPUT_CHARS);
+            $perFileCap = self::MAX_PROVIDER_OUTPUT_CHARS;
+            if ($aggregateBudget > 0) {
+                $remaining = $aggregateBudget - $used;
+                if ($remaining <= 0) {
+                    $lines[] = '[TRUNCATED_BY_ATLAS_OPEN_BRAIN_BUDGET]';
+
+                    break;
+                }
+                $perFileCap = min($perFileCap, $remaining);
+            }
+            $contents = (string) @file_get_contents($full, false, null, 0, $perFileCap);
+            $used += strlen($contents);
             $lines[] = '*** ATLAS_FILE: '.$relative.' ***';
             $lines[] = $contents;
             $lines[] = '*** ATLAS_END ***';
@@ -372,6 +391,16 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
         }
 
         return $emitted ? $lines : [];
+    }
+
+    /**
+     * ACDE B2 — the code-graph context budget, operator-tunable (was a hardcoded DEFAULT_BUDGET that ignored
+     * the existing atlas.code_graph.auto_context_budget config). Default config = DEFAULT_BUDGET =>
+     * byte-identical; lower it to protect the weak engine's small context window on a big obra.
+     */
+    private function autoContextBudget(): int
+    {
+        return max(1, (int) config('atlas.code_graph.auto_context_budget', CodeGraphContextRetriever::DEFAULT_BUDGET));
     }
 
     /**
@@ -399,7 +428,7 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
             $pack = $this->codeGraphContext->packFor(
                 $intent,
                 $workspaceId,
-                CodeGraphContextRetriever::DEFAULT_BUDGET,
+                $this->autoContextBudget(),
                 $allowedFiles,
             );
 
@@ -450,7 +479,7 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
     {
         try {
             $workspaceId = (string) $this->workspaceIdentity->default();
-            $pack = $this->codeGraphContext->packFor($intent, $workspaceId, CodeGraphContextRetriever::DEFAULT_BUDGET, $allowedFiles);
+            $pack = $this->codeGraphContext->packFor($intent, $workspaceId, $this->autoContextBudget(), $allowedFiles);
             $included = is_array($pack['included'] ?? null) ? $pack['included'] : [];
             if ($included === []) {
                 return [];

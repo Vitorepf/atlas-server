@@ -1866,6 +1866,12 @@ return [
         // per-source flags above are armed), the fix prompt gets the same grounding as the initial prompt.
         // Default OFF => byte-identical; injects nothing the operator has not already armed for buildPrompt.
         'brain_context_on_fix_prompt' => (bool) env('ATLAS_LOOP_BRAIN_CONTEXT_ON_FIX_PROMPT', false),
+        // ACDE B2 — AGGREGATE cap (total chars across ALL in-scope files) for the CURRENT FILE CONTENTS dump
+        // in the loop prompt. Each file is capped individually, but with no total cap a many-file obra swamps
+        // the weak engine's small window before the ranked brain context lands. 0 (default) => unlimited =>
+        // byte-identical; set e.g. 40000 to protect the MiniMax window (overflow files are omitted with the
+        // [TRUNCATED_BY_ATLAS_OPEN_BRAIN_BUDGET] marker). Pair with code_graph.auto_context_budget (now read).
+        'prompt_file_contents_budget_chars' => max(0, (int) env('ATLAS_LOOP_PROMPT_FILE_CONTENTS_BUDGET_CHARS', 0)),
 
         // L2-2: descoberta admite targets framework-reach (serviços REAIS) — eles seguem
         // o caminho framework-materializer + intent-verifier + certificação adversarial.
