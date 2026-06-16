@@ -107,3 +107,39 @@ The super-linear curve is REAL for delivery quality, grounding, throughput, and 
 capture and the M× compounding of KNOWN-SHAPED work. It is BOUNDED at originating correct novel intent, which
 rides the model. Build the three flywheels, prove the bend on the refactor family first, and never let the loop
 sign its own bar.
+
+## E. obra-DAG block — DIAGNOSIS (the deferred-levers prerequisite)
+
+The 4 deferred levers (O3, A1, A2, T3) were gated on "diagnose WHY planning_enabled blocked the loop." Done —
+read against `AtlasLoopTaskGrinder::maybeRouteMultiFileRefactorToObra` (lines 249-337) + the decompose tier
+(line 829) + the empty `frozen/obra-*` magazines. The block is **ARCHITECTURAL, not a bug**:
+
+1. **The multi-file hard-route is TERMINAL-but-NEVER-AUTO-MERGES.** A multi-file `refactor_*` (≥2 files) routed
+   to the obra bridge ends at `ready_for_operator_review` → `completeTask(...,true)` with "operator review
+   required before any merge" (grinder:321-327). In autonomous 24/7 mode big refactors therefore PILE UP in
+   the operator-review queue and never land — the loop cannot self-deliver big work. **That is the "block."**
+   Path B (`multi_file_refactor_via_normal_lane`, which short-circuits this route at grinder:257-258) was the
+   fix precisely because the normal grind lane auto-merges certified work.
+2. **`planning_enabled`'s `executeAndProve` needs ammunition that does not exist.** The decompose tier's DAG
+   path (grinder:829-843) runs the heavy `AtlasLoopObraExecutionAdapter::executeAndProve` (worktree-per-node,
+   readiness-gated) — but all three `frozen/obra-*` magazines are EMPTY, so the readiness/boundary/archetype
+   gates fail-open and the "decomposition" degrades to structural-only while paying the heavy DAG cost.
+
+**Implication for the deferred levers (HONEST):**
+- **O3 / A1 (multi-node archetype harvesters):** rich multi-node archetypes EXIST only when `executeAndProve`
+  runs the DAG — and the DAG parks to never-auto-merge operator review (#1). So harvesting multi-node structure
+  autonomously is **blocked by governance, not effort**. The in-lane Path B (R1/R2) yields only FLAT,
+  single-file, goalHash-keyed contracts — honest, but not by-class archetypes. **Verdict: O3/A1 should derive
+  FLAT per-file contracts from the in-lane sequence and STOP there; the by-class archetype is deferred-
+  indefinitely unless the operator makes a policy decision to give the obra-DAG a *governed auto-merge* path
+  (which contradicts today's never-merge invariant) — that is an operator call, not a code lever.**
+- **A2 (freeze:promote CLI):** safe to build as the human-signature chokepoint, but it only has multi-node
+  candidates to promote once #1 is resolved; until then it promotes the FLAT in-lane contracts (A1).
+- **T3 (width controller):** independent of the DAG; deferred only because width saturates at supply (it is a
+  linear ceiling-raise, not a multiplier) — build it last, after the supply frontier is actually hit.
+
+**Net:** the exponential program does NOT require re-arming the blocking obra-DAG. The refactor flywheel
+(R1→R2→R2-read) and the origination flywheel (O1→F3→O2) run entirely IN-LANE. The only thing the DAG would add
+is by-class multi-node archetypes — and that is gated on an operator GOVERNANCE decision (auto-merge vs never-
+merge for big obras), not on more engineering. Recommend: build everything in-lane; leave O3/A1's by-class
+archetype + A2's multi-node promote for an explicit operator policy call on obra auto-merge.
