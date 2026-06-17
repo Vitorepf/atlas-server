@@ -3599,6 +3599,12 @@ return [
         // the STEP REQUEST identity, NOT the frozen verifier. Default OFF => reuse unconditionally => the
         // result json and resume behaviour are byte-identical.
         'atom_identity_resume_guard' => (bool) env('ATLAS_OBRA_ATOM_IDENTITY_RESUME_GUARD', false),
+        // ACDE F7 — reorder independent obra steps by historical first-pass certified rate (do the
+        // historically-easiest-first so the obra banks certified progress before a hard step can halt it).
+        // DAG-safe topological reorder; empty prior == seq order (no-op until the prior fills). Default OFF =>
+        // the proven seq walk is untouched => byte-identical.
+        'first_pass_reorder_enabled' => (bool) env('ATLAS_OBRA_FIRST_PASS_REORDER_ENABLED', false),
+        'first_pass_reorder_window_hours' => (int) env('ATLAS_OBRA_FIRST_PASS_REORDER_WINDOW_HOURS', 720),
         // Provider key for the REAL decomposer. Empty ⇒ deterministic (cost-free).
         'decompose_provider' => (string) env('ATLAS_OBRA_DECOMPOSE_PROVIDER', ''),
         // Hard cap on plan-DAG nodes (an over-cap decomposition is refused).

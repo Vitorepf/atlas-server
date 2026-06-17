@@ -178,6 +178,20 @@ final class AtlasObraExecutor
         // caller handed an unordered list).
         usort($nodes, static fn (array $a, array $b): int => ((int) ($a['seq'] ?? 0)) <=> ((int) ($b['seq'] ?? 0)));
 
+        // ACDE F7 — reorder INDEPENDENT steps by historical first-pass rate: do the historically-easiest-first
+        // so the obra banks certified progress before a hard step can HALT it (and surfaces a likely-hard
+        // step's failure feedback sooner). DAG-safe topological reorder (never before a depends_on); an empty
+        // prior collapses to seq order (no-op until the prior fills — the compounding-seed property). Default
+        // OFF => the seq walk above is untouched => byte-identical.
+        if ((bool) config('atlas.obra.first_pass_reorder_enabled', false)) {
+            try {
+                $reorderer = new AtlasLoopNodeFirstPassReorder;
+                $nodes = $reorderer->reorder($nodes, $reorderer->ratesByShape());
+            } catch (Throwable) {
+                // fail-open: any reorder hiccup leaves the proven seq order intact.
+            }
+        }
+
         // ACDE Leap 4 (Stage A, observability) — de-orphan the wave scheduler: compute the obra's antichain
         // structure (Kahn levels + same-level write-scope collisions) so the operator can SEE how often real
         // obras have parallelizable levels BEFORE any delivery fan-out is armed. PURE (machine DAG analysis,
