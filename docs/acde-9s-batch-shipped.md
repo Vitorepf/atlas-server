@@ -65,24 +65,28 @@ Reconciled against `main` (commits verified, not assumed):
 - U: U4 `a13fb997a`, U5 `a5bd833d3`, U6 `b1a7ff981`, U7 `7c6fac1e7`
 - F: F5+F6 `fc304437c`
 
+**ALSO SHIPPED (the remaining 6, on main, all tested, byte-identical-OFF):**
+- `DC6` `fcead36c6` — thin-prior max-uncertainty abstain-and-ask (pre-hopeless danger band; composes DC4+U5)
+- `F7` `2bc1f7628` — DAG-safe step reorder by historical first-pass rate (reuses atlas_obra_nodes; topological
+  sort that never violates depends_on; empty prior == seq order == byte-identical)
+- `DC7` `dff6f7b66` — de-orphan `AtlasLoopHeavyWorkSelector` into the live refiller ranking using REAL measured
+  leverage evidence + REAL per-class accept stats (the evidence WAS available on the detected payloads — no
+  stub, no theater)
+- `F4` `29adfc91a` — incremental feature-sequence executor: `AtlasLoopFeatureSequenceWalker` turns the F1 plan
+  into executable steps (active sub-acceptance + prior steps held as regression); the orphan is closed
+- `U3` `86f2cbb5c` — sample-N objective divergence (Jaccard) → abstain-and-ask. The "U1 re-architecture"
+  blocker was false: U1 already exposes each reading's objective, so retention was a clean additive change
+- `F8` `941e546e3` — the HONEST non-Goodhart form: a paraphrase audit over the HUMAN-frozen atoms (flags
+  near-duplicate criterion pairs as an operator advisory). It never infers/authors/weakens/grades an atom
+
 **OPERATOR-ARMING, not code:** `RF1` = arm the two already-shipped gates (X2 parse-gate + decision-aware
 mutation) in `.env`. `.env` is SECRET-CLASS and arming changes live loop behaviour — the operator's act.
 
-**BUILDABLE NEXT — medium live-path integration, deliberately NOT rushed (anti-theater + cert-safety):**
-- `DC7` de-orphan `AtlasLoopHeavyWorkSelector` into live refiller ranking. The selector is real and
-  unit-tested but ranks on REAL evidence (refactor_leverage, cyclomatic_total, blast_radius, class_stats);
-  wiring it with stubbed evidence would be theater. Promote when the discovery candidate carries those fields.
-- `F4` incremental feature-sequence executor — close the verified orphan `AtlasLoopFeatureSequencePlanner`
-  on the live obra execution lane.
-- `F7` step reorder by historical first-pass rate (compounding seed) — needs a per-step-shape first-pass
-  prior + a DAG-SAFE reorder (only within an antichain level; never violate depends_on).
-
-**HONESTLY CEILING-/DEPENDENCY-BLOCKED — NOT faked:**
-- `U3` sample-N objective divergence (Jaccard) — blocked on a U1 re-architecture that retains the K sampled
-  objectives (U1 keeps only the consensus today). Data-thin + overlaps M1/U1 until then.
-- `F8` sample-N-over-paraphrases abstain on inferred atoms — paraphrase-sampling of INFERRED acceptance atoms
-  is a semantic judgement that rides the model (Section D #2). Faking it would manufacture the loop's own
-  acceptance bar (Goodhart) — forbidden.
+**THE ONE LINE I REFUSED TO FAKE:** the LITERAL `F8` — "sample-N over paraphrases, abstain on INFERRED
+atoms" — requires the loop to infer + grade its own acceptance bar, the exact Goodhart path the canon forbids
+(P1/V2 were killed for it). I shipped the honest adjacent (audit the HUMAN atoms) and left the inferred-atom
+version refused. This is the same line U3 stays on the right side of: measure spread to ASK a human, never to
+author or pick a bar.
 
 **/workflows:** the heavy multi-agent Workflow fan-outs were NOT run for these levers — operator rule is no
 Claude-token burn on Workflow fan-out without an explicit ask. Every lever was built PHP-native and verified
