@@ -82,6 +82,15 @@ final class AtlasLoopIntentVerifierFactory
             $maxStepSize = max(1, (int) config('atlas.loop.feature_sequence_max_step_atoms', 2));
             $packet['feature_sequence_id'] = $planner->sequenceId($target, $intent);
             $packet['feature_sequence_plan'] = $planner->plan($atoms, $maxStepSize);
+
+            // ACDE F4 — close the verified orphan: attach the EXECUTABLE walk of the plan (each step's ACTIVE
+            // sub-acceptance atoms + every prior step's atoms held as REGRESSION), so a consumer can grind the
+            // feature incrementally instead of only reading the grouping. Pure grouping of the human-frozen
+            // atoms — never a re-authored bar; the last step's cumulative atoms ARE the full feature. Gated
+            // separately => OFF => key absent => byte-identical (and never touches verifier_hash).
+            if ((bool) config('atlas.loop.feature_sequence_walk_enabled', false)) {
+                $packet['feature_sequence_steps'] = (new AtlasLoopFeatureSequenceWalker($planner))->steps($atoms, $maxStepSize);
+            }
         }
 
         if ($blockers !== []) {

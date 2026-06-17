@@ -2318,6 +2318,11 @@ return [
         // feature incrementally. Default OFF => key absent => byte-identical.
         'feature_sequence_enabled' => (bool) env('ATLAS_LOOP_FEATURE_SEQUENCE_ENABLED', false),
         'feature_sequence_max_step_atoms' => max(1, (int) env('ATLAS_LOOP_FEATURE_SEQUENCE_MAX_STEP_ATOMS', 2)),
+        // ACDE F4 — close the verified orphan: attach the EXECUTABLE walk of the F1 feature-sequence plan
+        // (per-step active sub-acceptance atoms + prior steps held as regression) so the loop can grind a big
+        // feature incrementally. Requires feature_sequence_enabled. Default OFF => no feature_sequence_steps
+        // key => byte-identical (and never touches verifier_hash).
+        'feature_sequence_walk_enabled' => (bool) env('ATLAS_LOOP_FEATURE_SEQUENCE_WALK_ENABLED', false),
         // ACDE B4b — on a certified+merged delivery, record the PROVEN provider-safe contract (changed public
         // symbol NAMES + consumer-set via blast-radius + machine-resolved D2 dimensions + deterministic
         // confidence) into atlas_loop_delivery_contracts — the brain-feedback write-end the B3 read-back uses.
