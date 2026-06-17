@@ -2340,6 +2340,11 @@ return [
         // does not cost the whole task. Width raises HONEST task yield without lowering the bar. Default 1 =>
         // one pass => byte-identical. Each extra sample is one extra provider generation call (cost-bounded by N).
         'comprehension_samples' => max(1, (int) env('ATLAS_LOOP_COMPREHENSION_SAMPLES', 1)),
+        // ACDE V1 — strengthen the changed-symbol coverage census from bare name-presence to "exercised": the
+        // changed public symbol must be CALLED in the corpus AND the corpus must assert something. Deterministic,
+        // no coverage driver (bounded — does not prove per-branch coverage). Default OFF => name-presence stands
+        // => byte-identical.
+        'symbol_branch_census_enabled' => (bool) env('ATLAS_LOOP_SYMBOL_BRANCH_CENSUS_ENABLED', false),
         // ACDE WD4 — split the strategy-bandit UCB bucket by a MEASURED complexity tier (lo/mid/hi on total
         // cyclomatic) so surgical-vs-root_cause efficacy is no longer averaged across a trivial adapter and a
         // 200-method hub. Default OFF => targetType() returns the bare path-prefix bucket, no file read,

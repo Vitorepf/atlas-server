@@ -45,6 +45,15 @@ final class AtlasLoopChangedSymbolCoverageCensus
 
         $corpus = $this->coverageCorpus($workspace, $acceptanceCommands);
 
+        // ACDE V1 — when armed, upgrade each symbol's anchor from bare name-presence to "exercised" (called +
+        // the corpus asserts). Default OFF => the name-presence check stands => byte-identical. Read defensively.
+        $strictExercise = false;
+        try {
+            $strictExercise = (bool) config('atlas.loop.symbol_branch_census_enabled', false);
+        } catch (\Throwable) {
+            $strictExercise = false;
+        }
+
         $uncovered = [];
         $examined = 0;
         $dynamic = [];
@@ -71,7 +80,10 @@ final class AtlasLoopChangedSymbolCoverageCensus
                     continue; // a private/protected added method is not a PUBLIC-surface completeness obligation
                 }
                 $examined++;
-                if (! $this->corpusNames($corpus, $publicMethods[$key])) {
+                $covered = $strictExercise
+                    ? $this->symbolExercised($corpus, $publicMethods[$key])
+                    : $this->corpusNames($corpus, $publicMethods[$key]);
+                if (! $covered) {
                     $uncovered[$file.'::'.$publicMethods[$key]] = true;
                 }
             }
@@ -179,6 +191,25 @@ final class AtlasLoopChangedSymbolCoverageCensus
         }
 
         return $corpus;
+    }
+
+    /**
+     * ACDE V1 — a STRONGER coverage anchor than bare name-presence: the changed public symbol must be CALLED
+     * (`symbol(` — invoked, not merely mentioned in a comment/string) in the corpus AND the corpus must contain
+     * at least one assertion. Deterministic, no coverage driver. HONEST LIMIT: this proves the symbol is
+     * invoked-and-the-test-asserts-something, NOT that an assertion covers THIS symbol's specific branches (true
+     * branch-kill needs a coverage/mutation driver phpunit.xml does not configure) — a real, bounded lift over
+     * "named". A thin test that merely references the symbol in a docblock/string now fails the census.
+     */
+    public function symbolExercised(string $corpus, string $symbol): bool
+    {
+        if (! $this->corpusNames($corpus, $symbol)) {
+            return false;
+        }
+        $called = preg_match('/\b'.preg_quote($symbol, '/').'\s*\(/i', $corpus) === 1;
+        $asserts = preg_match('/\bassert[A-Za-z]*\s*\(|->\s*assert|::\s*assert|\bexpect\s*\(/i', $corpus) === 1;
+
+        return $called && $asserts;
     }
 
     /** Whole-word (case-insensitive) presence of a symbol name in the coverage corpus. */
