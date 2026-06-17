@@ -640,11 +640,23 @@ class AtlasLoopObraExecutionAdapter
         // hopeless class. Reads the existing decomposition-outcomes ledger by normalized change-class (no new
         // table). Default OFF / thin corpus => no abstention => byte-identical. Composes with U5: the abstention
         // enqueues a clarification.
-        if ((bool) config('atlas.loop.change_class_prior_enabled', false)) {
+        $ccPriorEnabled = (bool) config('atlas.loop.change_class_prior_enabled', false);
+        $ccThinAskEnabled = (bool) config('atlas.loop.change_class_thin_prior_ask_enabled', false);
+        if ($ccPriorEnabled || $ccThinAskEnabled) {
             try {
-                $ccPrior = (new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopChangeClassPriorService)->priorFor($kind);
-                if (($ccPrior['hopeless'] ?? false) === true) {
+                $ccSvc = new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopChangeClassPriorService;
+                $ccPrior = $ccSvc->priorFor($kind);
+                if ($ccPriorEnabled && ($ccPrior['hopeless'] ?? false) === true) {
                     $this->emitPlanAbstention($payload, 'change_class_historically_thrashes');
+
+                    return null;
+                }
+                // ACDE DC6 — thin-prior MAX-UNCERTAINTY: ask the operator before burning more budget on a class
+                // the loop cannot yet judge (pre-hopeless) but whose early evidence already leans below the
+                // floor. Independently armed from DC4's hopeless gate. Default OFF => byte-identical. Composes
+                // with U5 — the abstention enqueues a clarification.
+                if ($ccThinAskEnabled && $ccSvc->thinPriorMaxUncertainty($ccPrior)) {
+                    $this->emitPlanAbstention($payload, 'change_class_thin_prior_ask');
 
                     return null;
                 }

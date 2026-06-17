@@ -2375,6 +2375,11 @@ return [
         'change_class_prior_min_samples' => (int) env('ATLAS_LOOP_CHANGE_CLASS_PRIOR_MIN_SAMPLES', 8),
         'change_class_prior_floor_rate' => (float) env('ATLAS_LOOP_CHANGE_CLASS_PRIOR_FLOOR_RATE', 0.15),
         'change_class_prior_window_hours' => (int) env('ATLAS_LOOP_CHANGE_CLASS_PRIOR_WINDOW_HOURS', 720),
+        // ACDE DC6 — thin-prior max-uncertainty abstain-and-ask. PRE-hopeless: a change-class with some (but
+        // not yet enough) evidence that already leans below the floor asks the operator before more budget is
+        // burned. Independently armed from DC4's hopeless gate; composes with the U5 queue. Default OFF =>
+        // byte-identical.
+        'change_class_thin_prior_ask_enabled' => (bool) env('ATLAS_LOOP_CHANGE_CLASS_THIN_PRIOR_ASK_ENABLED', false),
         // ACDE MF2 — hub-first multi-file conversion: when a coupled cluster is detected, route the anchored HUB
         // through the proven single-file refactor lane (its own complexity proof) instead of the all-or-nothing
         // N-file conjunction that drops ~17% of conversions. Only under the known-shape guard (covered>=2, hub

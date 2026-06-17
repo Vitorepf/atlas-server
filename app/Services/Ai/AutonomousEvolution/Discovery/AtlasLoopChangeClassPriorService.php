@@ -137,6 +137,26 @@ final class AtlasLoopChangeClassPriorService
     }
 
     /**
+     * ACDE DC6 — MAX-UNCERTAINTY-with-negative-lean: the change-class has SOME evidence (>=1 sample) but not
+     * yet enough to call it hopeless, AND that thin evidence already leans BELOW the floor. This is the danger
+     * band where the loop has the least basis to judge yet the early signal is bad — the calibrated move is to
+     * ASK the operator before burning more budget, not to guess. Distinct from {@see priorFor}'s `hopeless`
+     * (which needs enough_samples): DC6 fires PRE-hopeless. A zero-sample (truly unknown) class never fires —
+     * abstaining on no evidence at all would stall the loop on every fresh class.
+     *
+     * @param  array{samples?:int, enough_samples?:bool, hopeless?:bool, landing_rate?:float, floor_rate?:float}  $prior
+     */
+    public function thinPriorMaxUncertainty(array $prior): bool
+    {
+        $samples = (int) ($prior['samples'] ?? 0);
+        if ($samples < 1 || ($prior['enough_samples'] ?? false) === true || ($prior['hopeless'] ?? false) === true) {
+            return false; // no evidence, or already enough/hopeless (DC4 owns those) => not DC6's band
+        }
+
+        return (float) ($prior['landing_rate'] ?? 0.0) < (float) ($prior['floor_rate'] ?? 0.15);
+    }
+
+    /**
      * @return array{change_class:string, samples:int, certified:int, landing_rate:float, wilson_lower:float,
      *               enough_samples:bool, hopeless:bool, min_samples:int, floor_rate:float}
      */

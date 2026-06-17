@@ -123,6 +123,66 @@ final class AtlasLoopChangeClassPriorTest extends TestCase
             'DC4 returns BEFORE the spec compiler, so spec_not_ready never fires');
     }
 
+    // --- DC6: thin-prior max-uncertainty abstain-and-ask ---------------------------------------
+
+    public function test_dc6_thin_prior_max_uncertainty_only_fires_in_the_danger_band(): void
+    {
+        $svc = new AtlasLoopChangeClassPriorService;
+
+        // thin (3<8) AND below floor (0 < 0.15) => the DC6 danger band.
+        $this->assertTrue($svc->thinPriorMaxUncertainty(
+            ['samples' => 3, 'enough_samples' => false, 'hopeless' => false, 'landing_rate' => 0.0, 'floor_rate' => 0.15]
+        ));
+        // zero evidence => never fires (would stall every fresh class).
+        $this->assertFalse($svc->thinPriorMaxUncertainty(
+            ['samples' => 0, 'enough_samples' => false, 'hopeless' => false, 'landing_rate' => 0.0, 'floor_rate' => 0.15]
+        ));
+        // thin BUT above floor (early good lean) => not the danger band.
+        $this->assertFalse($svc->thinPriorMaxUncertainty(
+            ['samples' => 3, 'enough_samples' => false, 'hopeless' => false, 'landing_rate' => 0.66, 'floor_rate' => 0.15]
+        ));
+        // enough samples => DC4 owns it, not DC6.
+        $this->assertFalse($svc->thinPriorMaxUncertainty(
+            ['samples' => 10, 'enough_samples' => true, 'hopeless' => true, 'landing_rate' => 0.0, 'floor_rate' => 0.15]
+        ));
+    }
+
+    public function test_dc6_armed_abstains_and_asks_on_a_thin_negative_class(): void
+    {
+        config([
+            'atlas.loop.planning_enabled' => true,
+            'atlas.loop.change_class_prior_enabled' => false,       // DC4 hopeless gate OFF
+            'atlas.loop.change_class_thin_prior_ask_enabled' => true, // DC6 ON (independent)
+            'atlas.loop.clarification_queue_enabled' => true,
+        ]);
+        // 3 failures => samples=3 (< min 8), landing_rate 0 < floor => DC6 danger band (NOT yet hopeless).
+        $this->seedOutcomes('feature_sequenced', 3, certified: false);
+
+        $out = $this->adapter()->callMaybePlan($this->payload(), ['app/A.php', 'app/B.php']);
+
+        $this->assertNull($out, 'a thin-negative class asks before burning more budget');
+        $this->assertSame(1, $this->clarificationsWithReason('change_class_thin_prior_ask'), 'DC6 abstains-and-asks');
+        $this->assertSame(0, $this->clarificationsWithReason('change_class_historically_thrashes'), 'not yet hopeless => not the DC4 reason');
+        $this->assertSame(0, $this->clarificationsWithReason('spec_not_ready'), 'DC6 returns before the spec compiler');
+    }
+
+    public function test_dc6_off_is_byte_identical_on_a_thin_negative_class(): void
+    {
+        config([
+            'atlas.loop.planning_enabled' => true,
+            'atlas.loop.change_class_prior_enabled' => false,
+            'atlas.loop.change_class_thin_prior_ask_enabled' => false, // DC6 OFF
+            'atlas.loop.clarification_queue_enabled' => true,
+        ]);
+        $this->seedOutcomes('feature_sequenced', 3, certified: false);
+
+        $out = $this->adapter()->callMaybePlan($this->payload(), ['app/A.php', 'app/B.php']);
+
+        $this->assertNull($out);
+        $this->assertSame(0, $this->clarificationsWithReason('change_class_thin_prior_ask'), 'OFF => no DC6 abstention');
+        $this->assertSame(1, $this->clarificationsWithReason('spec_not_ready'), 'OFF => the usual spec_not_ready fallback (byte-identical)');
+    }
+
     // --- helpers --------------------------------------------------------------------------------
 
     private function payload(): array
