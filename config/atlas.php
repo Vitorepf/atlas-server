@@ -2335,6 +2335,11 @@ return [
         // (deterministic: parses + exercises the target + fails without a load-time structural signature).
         // Default OFF => the gate never runs => task generation is byte-identical.
         'red_reason_gate_enabled' => (bool) env('ATLAS_LOOP_RED_REASON_GATE_ENABLED', false),
+        // ACDE U1 — N-sampled comprehension: draw up to N independent generation readings and keep the FIRST
+        // that yields a genuine verified-RED task (behavioral when U2 is armed), so a weak engine's misread
+        // does not cost the whole task. Width raises HONEST task yield without lowering the bar. Default 1 =>
+        // one pass => byte-identical. Each extra sample is one extra provider generation call (cost-bounded by N).
+        'comprehension_samples' => max(1, (int) env('ATLAS_LOOP_COMPREHENSION_SAMPLES', 1)),
         // ACDE WD4 — split the strategy-bandit UCB bucket by a MEASURED complexity tier (lo/mid/hi on total
         // cyclomatic) so surgical-vs-root_cause efficacy is no longer averaged across a trivial adapter and a
         // 200-method hub. Default OFF => targetType() returns the bare path-prefix bucket, no file read,

@@ -413,7 +413,7 @@ final class AtlasLoopQueueRefiller
             file_put_contents($base.'/composer.json', "{}\n");
             copy($source, $base.'/'.$targetRel);
 
-            $gen = $this->generator->generateForTarget($base, $targetRel, ['provider' => $provider, 'index' => 0]);
+            $gen = $this->generator->generateBestForTarget($base, $targetRel, ['provider' => $provider, 'index' => 0]);
             if (! (bool) ($gen['generated'] ?? false)) {
                 // Not genuinely RED / no real work -> loop-back classifies (quarantine vs requeue).
                 $this->loopBack->reflect($campaign->id, ['target_id' => $target->id, 'status' => 'no_winner', 'reason' => (string) ($gen['reason'] ?? 'not_red')]);

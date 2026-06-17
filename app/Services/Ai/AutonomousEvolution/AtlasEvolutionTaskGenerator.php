@@ -121,6 +121,42 @@ final class AtlasEvolutionTaskGenerator
         ];
     }
 
+    /**
+     * ACDE U1 — N-sampled comprehension. A single open-ended generation pass commits to ONE reading of the file
+     * with no second chance, so a weak engine that misreads (or emits a structural-red the U2 gate rejects)
+     * yields no task at all. U1 draws up to `comprehension_samples` independent readings and keeps the FIRST
+     * that produces a genuine verified-RED task (when U2 is armed, "genuine" already means behavioral, so first-
+     * success is the deterministic selector). Width over a weak engine raises the yield of HONEST tasks without
+     * ever lowering the bar. Default samples=1 => one pass => byte-identical to generateForTarget.
+     *
+     * @param  array{provider?: ?string, index?: int}  $options
+     * @return array<string,mixed>
+     */
+    public function generateBestForTarget(string $baseWorkspace, string $targetRelativePath, array $options = []): array
+    {
+        $samples = max(1, (int) config('atlas.loop.comprehension_samples', 1));
+        if ($samples === 1) {
+            return $this->generateForTarget($baseWorkspace, $targetRelativePath, $options);
+        }
+
+        $baseIndex = max(0, (int) ($options['index'] ?? 0));
+        $last = ['generated' => false, 'reason' => 'comprehension_no_red_in_samples'];
+        for ($k = 0; $k < $samples; $k++) {
+            $opt = $options;
+            $opt['index'] = $baseIndex * $samples + $k; // distinct frozen test file per independent reading
+            $candidate = $this->generateForTarget($baseWorkspace, $targetRelativePath, $opt);
+            if (($candidate['generated'] ?? false) === true) {
+                $candidate['comprehension_sample'] = $k;
+                $candidate['comprehension_samples'] = $samples;
+
+                return $candidate; // first genuine (U2-behavioral when armed) RED wins — deterministic
+            }
+            $last = $candidate;
+        }
+
+        return $last; // no sample produced a genuine RED => the last rejection (honest, no fabricated task)
+    }
+
     private function generationIntent(string $target, string $testRel, string $objRel): string
     {
         return implode("\n", [
