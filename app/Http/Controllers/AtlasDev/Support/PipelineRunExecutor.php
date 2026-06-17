@@ -255,10 +255,23 @@ final class PipelineRunExecutor implements RunExecutor
         // is NOT falsely blocked; a critic exception degrades to non-passed
         // (never silently swallowed to green). REUSE ReviewIntelligenceService
         // (do not rebuild).
+        //
+        // CONTRACT GUARD (VAL-M3-001): the critic runs EXACTLY ONCE after a
+        // PASSED gate, NOT merely a not-failed gate. VerificationGateResult's
+        // aggregateStatus has exactly three possible values after the repair
+        // loop exits: STATUS_PASSED, STATUS_FAILED, STATUS_NEEDS_REVIEW. The
+        // prior guard (!== STATUS_FAILED) was BROADER than the contract: it
+        // also fired on STATUS_NEEDS_REVIEW (e.g. a doc-only diff with no
+        // validationCommands and no no_test_reason → test_skipped_no_reason),
+        // sending diffs to the critic on a non-passed gate. The contract
+        // wording is "after a PASSED gate" — so the guard now keys on the
+        // explicit STATUS_PASSED state. A needs_review / skipped gate no
+        // longer invokes the critic; the completion decision still reflects
+        // the needs_review verification status via CompletionStateGate.
         $reviewReceipt = null;
         $criticException = null;
         $criticAnalysed = false;
-        if ($isHermesCli && $verificationResult->aggregateStatus !== VerificationGateResult::STATUS_FAILED) {
+        if ($isHermesCli && $verificationResult->aggregateStatus === VerificationGateResult::STATUS_PASSED) {
             try {
                 // Resolve from container (allows test bindings) or create fresh.
                 /** @var object $criticService */

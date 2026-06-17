@@ -620,6 +620,196 @@ final class SeniorCriticTest extends TestCase
         );
     }
 
+    /**
+     * VAL-M3-001 tightening: critic runs ONLY after a PASSED gate, not merely a
+     * not-failed gate (needs_review / skipped must NOT invoke the critic).
+     *
+     * This locks the contract wording "critic runs exactly once after a PASSED
+     * gate": the guard must key on aggregateStatus === STATUS_PASSED, not the
+     * broader !== STATUS_FAILED. A needs_review aggregate (doc-only diff with
+     * no validationCommands and no no_test_reason) must NOT invoke the critic;
+     * a passed aggregate must invoke it exactly once.
+     */
+    public function test_critic_does_not_run_on_non_passed_gate_but_runs_once_on_passed(): void
+    {
+        // ---- Scenario A: needs_review gate (non-passed, non-failed) ----
+        // A doc-only diff with empty validationCommands and no no_test_reason
+        // yields aggregateStatus === needs_review (test_skipped_no_reason).
+        // The critic MUST NOT run on this path per the M3 contract.
+        $runIdA = 'dev-critic-guard-needs-review-'.bin2hex(random_bytes(3));
+        $storageA = new ReceiptStorage($this->tmpStorage);
+        $this->seedRun($storageA, $runIdA, taskKind: 'review', riskLevel: 'R0');
+        $this->initGitWorkspace();
+
+        // Doc-only file (no .php) → M1 floor adds no commands.
+        $docTarget = $this->tmpWorkspace.'/docs/README.md';
+        mkdir(dirname($docTarget), 0o755, true);
+        file_put_contents($docTarget, "# README\nUpdated docs.\n");
+        $this->git(['add', 'docs/README.md']);
+        $this->git(['commit', '-m', 'doc fixture']);
+
+        $providerStateA = new \stdClass;
+        $providerStateA->callCount = 0;
+        $fakeHermesA = $this->makeFakeHermesProvider($docTarget, $providerStateA);
+
+        $managerA = app(AiProviderManager::class);
+        $managerA->registerDriver('hermes_cli', $fakeHermesA);
+        app()->instance(AiProviderManager::class, $managerA);
+
+        $commandRunnerA = new FakeCommandRunner; // no commands queued → empty execution
+
+        $capturingCriticA = new CapturingCriticService;
+
+        $gatewayA = new FakeClaudeCliGateway;
+        $containerA = new Container;
+        $containerA->instance(ClaudeCliGateway::class, $gatewayA);
+        $containerA->instance(VerificationCommandRunner::class, $commandRunnerA);
+        $containerA->instance(ReviewIntelligenceService::class, $capturingCriticA);
+        $executorA = new PipelineRunExecutor($containerA, $storageA);
+
+        $envelopeA = $this->criticEnvelope(intent: 'Update docs only');
+        $taskContractA = $this->criticTaskContract([
+            'allowed_files' => ['docs/README.md'],
+            'validation_commands' => [], // empty caller list
+            // no no_test_reason → needs_review honesty path
+        ]);
+
+        $resultA = $executorA->execute(
+            envelope: $envelopeA,
+            taskContract: $taskContractA,
+            promptProjection: $this->buildSendableProjection(envelope: $envelopeA, taskContract: $taskContractA),
+            runId: $runIdA,
+        );
+
+        // Lock that the gate aggregate is needs_review (the non-passed, non-failed state).
+        $this->assertSame(
+            VerificationGateResult::STATUS_NEEDS_REVIEW,
+            $resultA->verificationStatus,
+            'Doc-only diff with no commands and no reason must yield needs_review'
+        );
+
+        // Lock that the critic was NOT invoked on the non-passed gate.
+        $this->assertCount(
+            0, $capturingCriticA->capturedInputs,
+            'Critic must NOT run when aggregateStatus is needs_review (non-passed), per VAL-M3-001'
+        );
+        $this->assertNull(
+            $resultA->providerCallSummary['critic_status'] ?? null,
+            'Critic status must be null when the critic did not run (needs_review gate)'
+        );
+
+        // ---- Scenario B: passed gate → critic runs exactly once ----
+        // Reuse the proven clean-diff path: a .php file with a matching test
+        // that passes yields aggregateStatus === passed, and the critic MUST
+        // be invoked exactly once.
+        $runIdB = 'dev-critic-guard-passed-'.bin2hex(random_bytes(3));
+        $storageB = new ReceiptStorage($this->tmpStorage);
+        $this->seedRun($storageB, $runIdB, taskKind: 'review', riskLevel: 'R1');
+        // Fresh workspace to avoid cross-scenario git state.
+        $workspaceB = sys_get_temp_dir().'/atlas-dev-critic-guard-passed-'.bin2hex(random_bytes(4));
+        mkdir($workspaceB, 0o755, true);
+        try {
+            $gitB = function (array $args) use ($workspaceB): void {
+                $p = new Process(['git', ...$args], $workspaceB, null, null, 10.0);
+                $p->run();
+                $this->assertTrue($p->isSuccessful(), $p->getErrorOutput());
+            };
+            $gitB(['init', '-q']);
+            $gitB(['config', 'user.email', 'atlas-test@example.local']);
+            $gitB(['config', 'user.name', 'Atlas Test']);
+
+            $phpTarget = $workspaceB.'/app/GuardedService.php';
+            $phpTest = $workspaceB.'/tests/Unit/GuardedServiceTest.php';
+            mkdir(dirname($phpTarget), 0o755, true);
+            mkdir(dirname($phpTest), 0o755, true);
+            file_put_contents($phpTarget, "<?php\nfinal class GuardedService { public function run(): string { return 'ok'; } }\n");
+            file_put_contents($phpTest, "<?php\ntest_guarded();\n");
+            $gitB(['add', 'app/GuardedService.php', 'tests/Unit/GuardedServiceTest.php']);
+            $gitB(['commit', '-m', 'php fixture']);
+
+            $providerStateB = new \stdClass;
+            $providerStateB->callCount = 0;
+            $fakeHermesB = $this->makeFakeHermesProvider($phpTarget, $providerStateB);
+
+            $managerB = app(AiProviderManager::class);
+            $managerB->registerDriver('hermes_cli', $fakeHermesB);
+            app()->instance(AiProviderManager::class, $managerB);
+
+            $commandRunnerB = new FakeCommandRunner;
+            $commandRunnerB->queue(new VerificationCommandResult(
+                command: '/opt/homebrew/bin/php artisan test tests/Unit/GuardedServiceTest.php',
+                exitCode: 0, stdout: 'OK', stderr: '', durationMs: 80,
+            ));
+
+            $capturingCriticB = new CapturingCriticService;
+
+            $gatewayB = new FakeClaudeCliGateway;
+            $containerB = new Container;
+            $containerB->instance(ClaudeCliGateway::class, $gatewayB);
+            $containerB->instance(VerificationCommandRunner::class, $commandRunnerB);
+            $containerB->instance(ReviewIntelligenceService::class, $capturingCriticB);
+
+            // Use a dedicated envelope pointing at workspace B.
+            $envelopeB = new OperationEnvelope(
+                runId: 'unused-by-executor',
+                surfaceId: 'atlas_desktop_ai',
+                surfaceContext: new SurfaceContext(
+                    productSurface: 'atlas_ai_desktop_mac',
+                    composerMode: 'programming',
+                    composerTask: 'dev',
+                    providerChoice: 'hermes_cli',
+                ),
+                workspace: $workspaceB,
+                workspaceHash: hash('sha256', $workspaceB),
+                gitState: new GitState(headSha: null, dirty: false, untrackedCount: 0, pendingChangesCount: 0),
+                rawIntent: 'Update GuardedService',
+                normalizedIntent: 'Update GuardedService',
+                userConstraints: [],
+                intentClarityLevel: 'high',
+                dirtyWorktreePolicy: 'preserve_pre_existing_changes',
+                preflight: new Preflight(
+                    workspaceResolved: true,
+                    permissionMode: 'write_allowed',
+                    writeAllowed: true,
+                    operatorExplicit: false,
+                ),
+                envelopeHash: str_repeat('e', 64),
+            );
+            $taskContractB = $this->criticTaskContract([
+                'allowed_files' => ['app/GuardedService.php', 'tests/Unit/GuardedServiceTest.php'],
+                'validation_commands' => ['/opt/homebrew/bin/php artisan test tests/Unit/GuardedServiceTest.php'],
+            ]);
+
+            $executorB = new PipelineRunExecutor($containerB, $storageB);
+
+            $resultB = $executorB->execute(
+                envelope: $envelopeB,
+                taskContract: $taskContractB,
+                promptProjection: $this->buildSendableProjection(envelope: $envelopeB, taskContract: $taskContractB),
+                runId: $runIdB,
+            );
+
+            // Lock that the gate aggregate is passed.
+            $this->assertContains(
+                $resultB->verificationStatus,
+                [VerificationGateResult::STATUS_PASSED, 'passed'],
+                'PHP diff with a passing test must yield a passed gate'
+            );
+
+            // Lock that the critic ran EXACTLY once on the passed gate.
+            $this->assertCount(
+                1, $capturingCriticB->capturedInputs,
+                'Critic must run exactly once when aggregateStatus is passed (VAL-M3-001)'
+            );
+            $this->assertNotNull(
+                $resultB->providerCallSummary['critic_status'] ?? null,
+                'Critic status must be recorded when the critic ran on a passed gate'
+            );
+        } finally {
+            $this->rmrf($workspaceB);
+        }
+    }
+
     // ------------------------------------------------------------------
     // Helper: CompletionStateGate with a green-verification scenario + critic
     // ------------------------------------------------------------------
