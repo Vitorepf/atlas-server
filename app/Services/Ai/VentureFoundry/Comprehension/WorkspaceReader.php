@@ -310,22 +310,7 @@ class WorkspaceReader
         $iterator = new \RecursiveIteratorIterator(
             new \RecursiveCallbackFilterIterator(
                 new \RecursiveDirectoryIterator($this->root, \FilesystemIterator::SKIP_DOTS | \FilesystemIterator::FOLLOW_SYMLINKS),
-                function (\SplFileInfo $f): bool {
-                    if ($f->isDir()) {
-                        if ($f->isLink()) {
-                            return false;
-                        }
-
-                        $real = realpath($f->getPathname());
-                        if ($real === false || ($real !== $this->root && ! str_starts_with($real, $this->root.DIRECTORY_SEPARATOR))) {
-                            return false;
-                        }
-
-                        return ! $this->isExcludedAbsolute($f->getPathname());
-                    }
-
-                    return true;
-                },
+                fn (\SplFileInfo $f) => $this->isAcceptableNode($f),
             ),
             \RecursiveIteratorIterator::LEAVES_ONLY,
         );
@@ -348,6 +333,27 @@ class WorkspaceReader
         sort($files);
 
         return $files;
+    }
+
+    /**
+     * Decide whether the iterator should descend into / yield a node.
+     * For non-directories we accept (the per-file filter runs in the foreach
+     * below); for directories we reject symlinks, anything escaping the
+     * workspace root, and anything in the exclude list.
+     */
+    private function isAcceptableNode(\SplFileInfo $f): bool
+    {
+        if (! $f->isDir()) {
+            return true;
+        }
+        if ($f->isLink()) {
+            return false;
+        }
+        $real = realpath($f->getPathname());
+        if ($real === false || ($real !== $this->root && ! str_starts_with($real, $this->root.DIRECTORY_SEPARATOR))) {
+            return false;
+        }
+        return ! $this->isExcludedAbsolute($f->getPathname());
     }
 
     private function guard(string $relativePath): ?string
