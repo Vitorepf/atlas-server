@@ -227,7 +227,13 @@ final class AtlasObraExecutor
             $request = trim((string) ($node['request'] ?? ''));
             $seq = (int) ($node['seq'] ?? 0);
 
-            if ($resumed && $this->nodeStatus($nodeId) === self::NODE_DONE) {
+            // ACDE F5+F6 — atom-request-identity guard on resume reuse: reuse a DONE atom ONLY when its
+            // persisted request-identity still matches the live step's request. A changed step spec (or a node
+            // certified before the guard existed) re-runs instead of silently reusing a stale result. Default
+            // OFF => reuse unconditionally => byte-identical. NOTE: this guards the STEP REQUEST identity (the
+            // atom's spec at the executor level), NOT the frozen verifier/test — a verifier change under an
+            // unchanged request is out of this guard's scope (named accordingly).
+            if ($resumed && $this->nodeStatus($nodeId) === self::NODE_DONE && $this->atomIdentityReuseOk($nodeId, $request)) {
                 $previous = $this->nodeResult($nodeId);
                 $nodeResults[] = [
                     'id' => $nodeId,
@@ -395,7 +401,7 @@ final class AtlasObraExecutor
                 'delivery' => $this->delivery->label(),
             ];
             $nodeResults[] = $nodeOutcome;
-            $this->setNodeStatus($nodeId, self::NODE_DONE, [
+            $doneResult = [
                 'commit' => $apply['commit'] ?? null,
                 'files_changed' => $filesChanged,
                 'branch' => $branch,
@@ -403,7 +409,14 @@ final class AtlasObraExecutor
                 'provider' => $delivered['provider'] ?? null,
                 'model' => is_string($delivered['model'] ?? null) ? $delivered['model'] : null,
                 'delivery' => $this->delivery->label(),
-            ]);
+            ];
+            // ACDE F6 — persist the atom's request-identity so F5's resume guard can prove a DONE atom is
+            // still the same step before reusing it. Written ONLY when armed => OFF keeps the result json
+            // byte-identical.
+            if ((bool) config('atlas.obra.atom_identity_resume_guard', false)) {
+                $doneResult['atom_request_hash'] = $this->atomRequestHash($request);
+            }
+            $this->setNodeStatus($nodeId, self::NODE_DONE, $doneResult);
 
             // BRAIN write-back (compounding) — provider-safe, fail-open.
             $this->recordNodeIntoBrain($nodeId, $request, $branch, $filesChanged, $delivered);
@@ -927,6 +940,31 @@ final class AtlasObraExecutor
         } catch (Throwable) {
             // The plan tables may be absent in an in-memory-only execute(); ignore.
         }
+    }
+
+    /** ACDE F6 — the atom's request-identity (the step's natural-language spec at the executor level). */
+    private function atomRequestHash(string $request): string
+    {
+        return substr(hash('sha256', trim($request)), 0, 32);
+    }
+
+    /**
+     * ACDE F5 — may a DONE atom be REUSED on resume? OFF (default) => always (byte-identical). ON => only when
+     * the persisted atom-request-identity matches the live step's request; a changed step spec, or a node
+     * certified before the guard existed (no persisted hash), re-runs — never reuse a result we cannot prove
+     * belongs to the current step. Guards the STEP REQUEST identity, not the frozen verifier/test.
+     */
+    private function atomIdentityReuseOk(string $nodeId, string $request): bool
+    {
+        if (! (bool) config('atlas.obra.atom_identity_resume_guard', false)) {
+            return true;
+        }
+        $persisted = trim((string) ($this->nodeResult($nodeId)['atom_request_hash'] ?? ''));
+        if ($persisted === '') {
+            return false; // certified before the guard existed => cannot prove identity => re-run (conservative)
+        }
+
+        return hash_equals($persisted, $this->atomRequestHash($request));
     }
 
     /**

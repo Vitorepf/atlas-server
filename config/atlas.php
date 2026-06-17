@@ -3586,6 +3586,14 @@ return [
         // analysis — zero behaviour change; the strict serial walk is untouched. OFF (default) => the
         // scheduler is never invoked and execute() is byte-identical (no wave_schedule key).
         'node_fanout_observe' => (bool) env('ATLAS_OBRA_NODE_FANOUT_OBSERVE', false),
+        // ACDE F5+F6 — atom-request-identity guard on resume reuse. The resume path skips a DONE atom by id
+        // with NO identity check; if the live plan's step changed, the stale certified result is silently
+        // reused. When ON, a DONE atom is reused ONLY when its persisted request-identity (atom_request_hash,
+        // stored in the node result json — NO new table, the atom catalog IS atlas_obra_nodes) matches the
+        // live step's request; a changed step (or a node certified before the guard existed) re-runs. Guards
+        // the STEP REQUEST identity, NOT the frozen verifier. Default OFF => reuse unconditionally => the
+        // result json and resume behaviour are byte-identical.
+        'atom_identity_resume_guard' => (bool) env('ATLAS_OBRA_ATOM_IDENTITY_RESUME_GUARD', false),
         // Provider key for the REAL decomposer. Empty ⇒ deterministic (cost-free).
         'decompose_provider' => (string) env('ATLAS_OBRA_DECOMPOSE_PROVIDER', ''),
         // Hard cap on plan-DAG nodes (an over-cap decomposition is refused).

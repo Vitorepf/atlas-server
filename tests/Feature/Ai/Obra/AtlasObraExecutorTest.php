@@ -222,6 +222,87 @@ final class AtlasObraExecutorTest extends TestCase
     }
 
     // ------------------------------------------------------------------
+    // ACDE F5+F6 — atom-request-identity guard on resume reuse. ON + matching
+    // identity reuses the DONE atom (same as today); ON + a CHANGED step request
+    // re-runs it instead of reusing a stale certified result. OFF byte-identical
+    // is the existing resume test above (no atom_request_hash, reuse stands).
+    // ------------------------------------------------------------------
+
+    public function test_f5_atom_identity_guard_reuses_a_done_atom_when_the_request_is_unchanged(): void
+    {
+        config()->set('atlas.obra.atom_identity_resume_guard', true);
+        // n0's persisted identity MATCHES its live request ('create step 1') => reuse is allowed.
+        $r = $this->resumeWithPersistedAtomHash('obra-f5-match', substr(hash('sha256', 'create step 1'), 0, 32));
+
+        $this->assertSame(AtlasObraExecutor::STATUS_DONE, $r['status'], 'reason: '.($r['reason'] ?? ''));
+        $this->assertTrue((bool) data_get($r, 'nodes.0.resumed'), 'matching identity => the DONE atom is reused');
+        $this->assertSame('fake_before_kill', data_get($r, 'nodes.0.provider'), 'reused => the prior delivery, not a re-run');
+    }
+
+    public function test_f5_atom_identity_guard_reruns_a_done_atom_when_the_request_changed(): void
+    {
+        config()->set('atlas.obra.atom_identity_resume_guard', true);
+        // n0's persisted identity is STALE (hashed from a different request) => the live step changed =>
+        // the guard refuses to reuse and re-runs the atom instead of trusting a result for a different spec.
+        $r = $this->resumeWithPersistedAtomHash('obra-f5-stale', substr(hash('sha256', 'an older different step request'), 0, 32));
+
+        $this->assertSame(AtlasObraExecutor::STATUS_DONE, $r['status'], 'reason: '.($r['reason'] ?? ''));
+        $this->assertNotTrue(data_get($r, 'nodes.0.resumed'), 'a changed step request must NOT reuse the stale result');
+        $this->assertSame('fake', data_get($r, 'nodes.0.provider'), 're-run => the live accumulating delivery, not the stale reuse');
+    }
+
+    /**
+     * Seed a 3-node plan, open the obra worktree, apply n0, mark it DONE with the given persisted
+     * atom_request_hash, then resume — exactly the existing resume harness plus the F6 identity field.
+     *
+     * @return array<string,mixed>
+     */
+    private function resumeWithPersistedAtomHash(string $planId, string $atomRequestHash): array
+    {
+        $this->seedLinearPlan($planId, 3);
+
+        $materializer = new GovernedBranchMaterializationService;
+        $open = $materializer->openObra(['id' => $planId, 'repo_dir' => $this->repo]);
+        $this->assertTrue((bool) ($open['opened'] ?? false), (string) ($open['reason'] ?? 'open failed'));
+
+        $apply = $materializer->applyStepToObra([
+            'worktree' => (string) $open['worktree'],
+            'base_head' => (string) $open['base_head'],
+            'step_id' => $planId.':n0',
+            'files' => [['path' => 'step1.php', 'content' => "<?php\n// before kill\nreturn 1;\n"]],
+            'certified' => true,
+            'gate_receipt' => str_repeat('a', 40),
+        ]);
+        $this->assertTrue((bool) ($apply['applied'] ?? false), (string) ($apply['reason'] ?? 'apply failed'));
+
+        DB::table('atlas_obra_plans')->where('id', $planId)->update([
+            'status' => 'running',
+            'meta' => json_encode(['obra_runtime' => [
+                'branch' => (string) $open['branch'],
+                'worktree' => (string) $open['worktree'],
+                'base_head' => (string) $open['base_head'],
+                'repo_dir' => $this->repo,
+                'resume_supported' => true,
+                'resume_count' => 0,
+            ]], JSON_UNESCAPED_SLASHES),
+        ]);
+        DB::table('atlas_obra_nodes')->where('id', $planId.':n0')->update([
+            'status' => 'done',
+            'result' => json_encode([
+                'commit' => $apply['commit'] ?? null,
+                'files_changed' => ['step1.php'],
+                'branch' => (string) $open['branch'],
+                'provider' => 'fake_before_kill',
+                'delivery' => 'fake_before_kill',
+                'atom_request_hash' => $atomRequestHash,
+            ], JSON_UNESCAPED_SLASHES),
+        ]);
+
+        return (new AtlasObraExecutor($this->accumulatingDelivery(), $materializer))
+            ->executePlanId($planId, ['repo_dir' => $this->repo]);
+    }
+
+    // ------------------------------------------------------------------
     // 2) HALT-ON-FAILURE — a failed node stops the obra (fail-closed).
     // ------------------------------------------------------------------
 
