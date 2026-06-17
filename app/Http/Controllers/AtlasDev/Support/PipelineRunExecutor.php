@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\AtlasDev\Support;
 
+use App\Models\AiJob;
+use App\Services\Ai\AiProvider;
+use App\Services\Ai\AiProviderManager;
+use App\Services\Ai\Concerns\RunsCliProcesses;
 use App\Services\Ai\Context\AtlasAucriRuntimeEnforcementService;
-use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasMinimaxFirstWorkerService;
-use App\Services\Ai\Programming\AtlasForgeCodexCliInvocationDriver;
-use App\Services\Ai\Programming\AtlasForgeCursorCliInvocationDriver;
-use App\Services\Ai\Programming\AtlasForgeMinimaxM27CliInvocationDriver;
-use App\Services\Ai\Programming\HermesWorkspaceDefaults;
+use App\Services\Ai\HermesCliProvider;
 use App\Services\Ai\Programming\AtlasDev\Gate\AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner;
+use App\Services\Ai\Programming\AtlasDev\Gate\CompletionDecision;
 use App\Services\Ai\Programming\AtlasDev\Gate\CompletionStateGate;
 use App\Services\Ai\Programming\AtlasDev\Gate\PatchApplier;
 use App\Services\Ai\Programming\AtlasDev\Gate\PatchApplyResult;
@@ -23,23 +24,31 @@ use App\Services\Ai\Programming\AtlasDev\Intelligence\PatchIntelligenceInput;
 use App\Services\Ai\Programming\AtlasDev\Intelligence\PatchIntelligenceService;
 use App\Services\Ai\Programming\AtlasDev\Intelligence\TestSelectionInput;
 use App\Services\Ai\Programming\AtlasDev\Intelligence\TestSelectionIntelligenceService;
+use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasMinimaxFirstWorkerService;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliGateway;
 use App\Services\Ai\Programming\AtlasDev\Provider\DiffParser;
 use App\Services\Ai\Programming\AtlasDev\Provider\DiffParseResult;
 use App\Services\Ai\Programming\AtlasDev\Provider\ProviderCallResult;
-use App\Services\Ai\Programming\AtlasDev\WorkspaceMutatingProviders;
 use App\Services\Ai\Programming\AtlasDev\Provider\SonnetClaudeCliAdapter;
+use App\Services\Ai\Programming\AtlasDev\Repair\FailureSignatureHasher;
 use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\CompactSdd;
+use App\Services\Ai\Programming\AtlasDev\Schemas\Components\CompletionSummary;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\GateOutcome;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ScopeGuardReceipt;
 use App\Services\Ai\Programming\AtlasDev\Schemas\VerificationReceipt;
+use App\Services\Ai\Programming\AtlasDev\WorkspaceMutatingProviders;
+use App\Services\Ai\Programming\AtlasForgeCodexCliInvocationDriver;
+use App\Services\Ai\Programming\AtlasForgeCursorCliInvocationDriver;
+use App\Services\Ai\Programming\AtlasForgeMinimaxM27CliInvocationDriver;
+use App\Services\Ai\Programming\HermesWorkspaceDefaults;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Container\Container;
+use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 
 /**
@@ -98,18 +107,118 @@ final class PipelineRunExecutor implements RunExecutor
             return $this->blockedDueToUnwiredDrivers($envelope, false, true, $taskContract->providerLock->provider, $taskContract->providerLock->modelFamily);
         }
 
+        // M2: Repair-to-green loop. On hermes_cli path, when the verification
+        // gate fails, re-invoke the provider with failure context up to the cap.
+        // Mirrors AtlasMinimaxFirstWorkerService loop semantics. Reuses
+        // FailureSignatureHasher for same-signature-twice abort detection.
+        $isHermesCli = $taskContract->providerLock->provider === 'hermes_cli';
+        $repairCap = $isHermesCli
+            ? max(0, min(3, $taskContract->repairPolicy->maxAttempts))
+            : 0;
+        $repairAttempt = 0;
+        $lastFailureSignature = null;
+        $consecutiveSameSignature = 0;
+        $abortReason = null;
+        $hasher = new FailureSignatureHasher;
+
+        // The current prompt text for this iteration (starts as the original,
+        // becomes the repair prompt on subsequent iterations).
+        $currentPromptText = $promptProjection->renderedPromptText;
+
         $callResult = $deterministicCallResult;
         $providerCalls = 0;
-        if ($callResult === null) {
-            [$callResult, $providerCalls] = $this->executeLockedProvider(
+
+        do {
+            if ($callResult === null) {
+                [$callResult, $iterCalls] = $this->executeLockedProvider(
+                    envelope: $envelope,
+                    taskContract: $taskContract,
+                    promptProjection: $promptProjection,
+                    hermesPromptOverride: $currentPromptText !== $promptProjection->renderedPromptText
+                        ? $currentPromptText
+                        : null,
+                );
+                $providerCalls += $iterCalls;
+            }
+
+            $diffResult = (new DiffParser)->parse($callResult->stdout);
+
+            $scopeReceipt = (new ScopeGuard)->check(
                 envelope: $envelope,
                 taskContract: $taskContract,
-                promptProjection: $promptProjection,
+                diffResult: $diffResult,
             );
-        }
 
-        $diffResult = (new DiffParser)->parse($callResult->stdout);
+            $patchApplyResult = $this->applyPatchIfSafe(
+                diffResult: $diffResult,
+                scopeStatus: $scopeReceipt->status,
+                workspace: $envelope->workspace,
+                callResult: $callResult,
+            );
+            $callResultForGates = $patchApplyResult->ok()
+                ? $callResult
+                : $this->withProviderError($callResult, 'patch_apply_failed');
 
+            $verificationResult = $patchApplyResult->ok()
+                ? (new VerificationGate($commandRunner, $this->verificationReceiptStorage($runId)))->run(
+                    taskContract: $taskContract,
+                    callResult: $callResultForGates,
+                    scopeReceipt: $scopeReceipt,
+                    workspace: $envelope->workspace,
+                )
+                : $this->verificationFailedDueToPatchApply($patchApplyResult);
+
+            // Check if repair loop should continue
+            if ($verificationResult->aggregateStatus !== VerificationGateResult::STATUS_FAILED
+                || ! $isHermesCli
+                || $repairCap <= 0
+            ) {
+                // Either green, not hermes, or repair disabled — exit loop.
+                break;
+            }
+
+            $repairAttempt++;
+
+            // M2: Same-signature-twice abort (reuse FailureSignatureHasher).
+            // Compute the normalized signature from the gate failure output.
+            $failureExcerpt = $this->extractFailureExcerpt($verificationResult);
+            $currentSignature = $hasher->signature('verification_gate', $failureExcerpt);
+
+            if ($taskContract->repairPolicy->abortOnSameSignatureTwice
+                && $currentSignature === $lastFailureSignature
+            ) {
+                $consecutiveSameSignature++;
+                if ($consecutiveSameSignature >= 2) {
+                    $abortReason = 'same_signature_twice';
+                    break;
+                }
+            } else {
+                $consecutiveSameSignature = 1;
+            }
+            $lastFailureSignature = $currentSignature;
+
+            if ($repairAttempt > $repairCap) {
+                // Cap exhausted — anti-spin guarantee.
+                $abortReason = 'validation_failed_after_max_repairs';
+                break;
+            }
+
+            // M2: Build repair prompt with failure context fed forward.
+            // Reuses buildRepairManifest-style injection (not duplicate).
+            $currentPromptText = $this->buildHermesRepairPrompt(
+                originalPrompt: $promptProjection->renderedPromptText,
+                failureExcerpt: $failureExcerpt,
+                failureKind: 'verification_gate_failure',
+            );
+
+            // Revert workspace changes before re-invoking provider.
+            $this->revertWorkspaceChanges($envelope->workspace, $taskContract->allowedFiles);
+
+            // Reset for next iteration — provider will be called again.
+            $callResult = null;
+        } while (true);
+
+        // Persist artifacts after the loop exits (final attempt's results).
         $persisted = [];
         $persisted[ArtifactNames::PROVIDER_CALL_RESULT] = $this->storage->writeAtomic(
             $runId,
@@ -122,31 +231,6 @@ final class PipelineRunExecutor implements RunExecutor
             $diffResult->toCanonicalArray(),
         );
 
-        $scopeReceipt = (new ScopeGuard)->check(
-            envelope: $envelope,
-            taskContract: $taskContract,
-            diffResult: $diffResult,
-        );
-
-        $patchApplyResult = $this->applyPatchIfSafe(
-            diffResult: $diffResult,
-            scopeStatus: $scopeReceipt->status,
-            workspace: $envelope->workspace,
-            callResult: $callResult,
-        );
-        $callResultForGates = $patchApplyResult->ok()
-            ? $callResult
-            : $this->withProviderError($callResult, 'patch_apply_failed');
-
-        $verificationResult = $patchApplyResult->ok()
-            ? (new VerificationGate($commandRunner, $this->verificationReceiptStorage($runId)))->run(
-                taskContract: $taskContract,
-                callResult: $callResultForGates,
-                scopeReceipt: $scopeReceipt,
-                workspace: $envelope->workspace,
-            )
-            : $this->verificationFailedDueToPatchApply($patchApplyResult);
-
         $decision = (new CompletionStateGate)->decide(
             taskContract: $taskContract,
             scopeReceipt: $scopeReceipt,
@@ -154,6 +238,24 @@ final class PipelineRunExecutor implements RunExecutor
             callResult: $callResultForGates,
             diffResult: $diffResult,
         );
+
+        // M2: When the repair loop aborted or exhausted, add the abort reason
+        // to the decision's honesty flags so the receipt carries it honestly.
+        if ($abortReason !== null && $decision->status !== CompletionSummary::STATUS_PASSED) {
+            $decision = new CompletionDecision(
+                status: $decision->status,
+                honestyFlags: array_values(array_unique(array_merge(
+                    $decision->honestyFlags,
+                    ['repair_loop_terminated:'.$abortReason],
+                ))),
+                residualRisks: $decision->residualRisks,
+                reasons: array_values(array_merge(
+                    $decision->reasons,
+                    ['repair_abort:'.$abortReason],
+                    $repairAttempt > 0 ? ["repair_attempts:{$repairAttempt}"] : [],
+                )),
+            );
+        }
 
         $receipt = (new ReceiptComposer)->compose(
             envelope: $envelope,
@@ -235,6 +337,8 @@ final class PipelineRunExecutor implements RunExecutor
                 'provider' => $callResult->actualProvider,
                 'model_family' => $callResult->actualModelFamily,
                 'provider_calls' => $providerCalls,
+                'repair_attempts' => $repairAttempt,
+                'repair_abort_reason' => $abortReason,
                 'exit_code' => $callResultForGates->exitStatus,
                 'duration_ms' => $callResultForGates->durationMs,
                 'tokens_in' => $callResultForGates->tokensIn,
@@ -259,6 +363,7 @@ final class PipelineRunExecutor implements RunExecutor
         OperationEnvelope $envelope,
         LightTaskContract $taskContract,
         ProviderPromptProjection $promptProjection,
+        ?string $hermesPromptOverride = null,
     ): array {
         if (! $promptProjection->isSendable()) {
             return [
@@ -279,7 +384,7 @@ final class PipelineRunExecutor implements RunExecutor
             AtlasForgeCodexCliInvocationDriver::PROVIDER => $this->executeCodexProvider($envelope, $taskContract, $promptProjection),
             AtlasForgeCursorCliInvocationDriver::PROVIDER => $this->executeCursorProvider($envelope, $taskContract, $promptProjection),
             AtlasForgeMinimaxM27CliInvocationDriver::PROVIDER => $this->executeMinimaxProvider($envelope, $taskContract, $promptProjection),
-            'hermes_cli' => $this->executeHermesProvider($envelope, $taskContract, $promptProjection),
+            'hermes_cli' => $this->executeHermesProvider($envelope, $taskContract, $promptProjection, $hermesPromptOverride),
             default => [
                 $this->blockedProviderCallResult(
                     runId: $promptProjection->runId,
@@ -567,25 +672,25 @@ final class PipelineRunExecutor implements RunExecutor
         }
 
         $finding = [
-            'title'       => mb_substr($envelope->normalizedIntent, 0, 300),
+            'title' => mb_substr($envelope->normalizedIntent, 0, 300),
             'description' => mb_substr($promptProjection->renderedPromptText, 0, 2_000),
-            'spec_seed'   => ['candidate_id' => $taskContract->taskId],
+            'spec_seed' => ['candidate_id' => $taskContract->taskId],
         ];
 
         $startMs = (int) (microtime(true) * 1_000);
-        $result  = $worker->run([
-            'finding'             => $finding,
-            'allowed_files'       => array_values($taskContract->allowedFiles),
+        $result = $worker->run([
+            'finding' => $finding,
+            'allowed_files' => array_values($taskContract->allowedFiles),
             'validation_commands' => array_values($taskContract->validationCommands),
-            'worktree_path'       => $envelope->workspace,
-            'repo_root'           => $envelope->workspace,
-            'max_repairs'         => $taskContract->repairPolicy->maxAttempts,
+            'worktree_path' => $envelope->workspace,
+            'repo_root' => $envelope->workspace,
+            'max_repairs' => $taskContract->repairPolicy->maxAttempts,
         ]);
         $durationMs = (int) (microtime(true) * 1_000) - $startMs;
 
-        $status     = (string) ($result['status'] ?? 'blocked');
+        $status = (string) ($result['status'] ?? 'blocked');
         $tokensUsed = (int) ($result['run_summary']['provider_call']['tokens_used'] ?? 0);
-        $blockers   = array_values(array_filter(array_map(
+        $blockers = array_values(array_filter(array_map(
             static fn (mixed $b): string => is_string($b) ? $b : '',
             (array) ($result['blockers'] ?? []),
         ), static fn (string $b): bool => $b !== ''));
@@ -613,9 +718,9 @@ final class PipelineRunExecutor implements RunExecutor
         // Worker wrote files directly — derive diff like Cursor provider.
         $stdout = $this->workspaceDiff($envelope->workspace, $taskContract->allowedFiles);
         if (trim($stdout) === '') {
-            $stdout = "no_patch_needed: true
+            $stdout = 'no_patch_needed: true
 reason: MiniMax worker completed without a workspace diff in allowed_files.
-";
+';
         }
 
         return [
@@ -638,12 +743,12 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
 
     /**
      * Hermes CLI is the Atlas executive runtime governed through
-     * {@see \App\Services\Ai\HermesCliProvider}. Like Codex/Cursor/MiniMax it
+     * {@see HermesCliProvider}. Like Codex/Cursor/MiniMax it
      * mutates the isolated workspace directly, so Atlas derives the post-run
      * git diff and still runs scope + verification before any completion claim.
      *
      * The provider chooses its own cwd via
-     * {@see \App\Services\Ai\Concerns\RunsCliProcesses::workdirForJob()}, which
+     * {@see RunsCliProcesses::workdirForJob()}, which
      * reads (in order) payload.tool_permissions.workspace, payload.workspace,
      * then config('atlas.ai.workdir') — realpath()'d and required to be a dir.
      * We therefore pin BOTH workspace keys to $envelope->workspace so Hermes
@@ -655,8 +760,9 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         OperationEnvelope $envelope,
         LightTaskContract $taskContract,
         ProviderPromptProjection $promptProjection,
+        ?string $promptOverride = null,
     ): array {
-        $manager = app(\App\Services\Ai\AiProviderManager::class);
+        $manager = app(AiProviderManager::class);
 
         $provider = null;
         try {
@@ -664,7 +770,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         } catch (\Throwable) {
             $provider = null;
         }
-        if (! $provider instanceof \App\Services\Ai\AiProvider) {
+        if (! $provider instanceof AiProvider) {
             return [
                 $this->blockedProviderCallResult(
                     runId: $promptProjection->runId,
@@ -680,18 +786,22 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         $timeoutSeconds = $this->providerTimeoutSeconds($taskContract);
         $hermesOverrides = $this->atlasDevHermesOverrides($taskContract);
 
+        // M2: When a repair attempt overrides the prompt (failure context fed
+        // forward), use the override text instead of the original projection.
+        $promptText = $promptOverride ?? $promptProjection->renderedPromptText;
+
         // workdirForJob() reads tool_permissions.workspace || workspace ||
         // config('atlas.ai.workdir'). Pin both so Hermes runs IN the Dev
         // worktree ($envelope->workspace) and edits files there.
-        $job = new \App\Models\AiJob([
+        $job = new AiJob([
             'trace_id' => 'atlas-dev:'.$promptProjection->runId,
             'kind' => 'atlas_dev_run',
             'provider' => 'hermes_cli',
             // Hermes self-selects its sub-model; the _default sentinel makes its
             // CLI omit --model. Single-sourced so Dev/Forge can't diverge.
             'model' => HermesWorkspaceDefaults::model(),
-            'prompt' => $promptProjection->renderedPromptText,
-            'input_text' => $promptProjection->renderedPromptText,
+            'prompt' => $promptText,
+            'input_text' => $promptText,
             'timeout_seconds' => $timeoutSeconds,
             'payload' => [
                 'workspace' => $envelope->workspace,
@@ -710,7 +820,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
 
         $startMs = (int) (microtime(true) * 1_000);
         try {
-            $result = $provider->run($job, $promptProjection->renderedPromptText);
+            $result = $provider->run($job, $promptText);
         } catch (\Throwable $e) {
             return [
                 ProviderCallResult::fromStdout(
@@ -719,7 +829,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
                     actualModelFamily: $taskContract->providerLock->modelFamily,
                     exitStatus: 1,
                     stdout: '',
-                    stderr: \Illuminate\Support\Str::limit($e->getMessage(), 500, '...'),
+                    stderr: Str::limit($e->getMessage(), 500, '...'),
                     durationMs: (int) (microtime(true) * 1_000) - $startMs,
                     tokensIn: null,
                     tokensOut: null,
@@ -769,7 +879,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
                 exitStatus: $errors === [] ? 0 : 1,
                 stdout: $stdout,
                 stderr: '',
-                durationMs: (int) ($result->durationMs ?? 0),
+                durationMs: (int) $result->durationMs,
                 tokensIn: null,
                 tokensOut: null,
                 costEstimateUsd: null,
@@ -798,6 +908,72 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         }
 
         return $overrides;
+    }
+
+    /**
+     * M2: Extract a failure excerpt from the verification gate result.
+     *
+     * Collects the output of all failing test runs into a single excerpt
+     * that can be fed into the next repair attempt's prompt.
+     */
+    private function extractFailureExcerpt(VerificationGateResult $result): string
+    {
+        $failingTests = array_filter($result->tests, fn ($t) => ! $t->ok);
+        if ($failingTests === []) {
+            return 'Verification gate failed with no specific test output.';
+        }
+
+        $excerpts = [];
+        foreach ($failingTests as $test) {
+            $excerpts[] = "Command: {$test->command}\nExit code: {$test->exitCode}";
+        }
+
+        return implode("\n\n", $excerpts);
+    }
+
+    /**
+     * M2: Build a repair prompt that feeds the failure context forward.
+     *
+     * Reuses the buildRepairManifest-style injection pattern from
+     * AtlasMinimaxFirstWorkerService (not a duplicate — the same semantics).
+     * The repair prompt appends the failure excerpt to the original prompt,
+     * instructing the provider to fix ONLY the failing issue.
+     */
+    private function buildHermesRepairPrompt(
+        string $originalPrompt,
+        string $failureExcerpt,
+        string $failureKind,
+    ): string {
+        $repair = "\n\n--- REPAIR REQUIRED ({$failureKind}) ---\n"
+            ."Previous attempt failed. Error output:\n{$failureExcerpt}\n\n"
+            ."Fix ONLY the failing issue. Do not rewrite unrelated code.\n"
+            ."Do NOT delete or comment out the failing test.\n"
+            .'Produce the corrected code so the failing test passes.';
+
+        return mb_substr($originalPrompt, 0, 20_000).$repair;
+    }
+
+    /**
+     * M2: Revert workspace changes before a repair re-invocation.
+     *
+     * Checks out the allowed files from HEAD so the next provider
+     * invocation starts from a clean state.
+     *
+     * @param  list<string>  $allowedFiles
+     */
+    private function revertWorkspaceChanges(string $workspace, array $allowedFiles): void
+    {
+        if (! is_dir($workspace)) {
+            return;
+        }
+
+        // Revert all changes in the workspace (git checkout + clean)
+        $process = new Process(['git', 'checkout', '.'], $workspace);
+        $process->run();
+
+        // Also clean untracked files that the provider may have created
+        $process = new Process(['git', 'clean', '-fd'], $workspace);
+        $process->run();
     }
 
     private function blockedProviderCallResult(
@@ -1302,7 +1478,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
                 private readonly string $storageRunId,
             ) {}
 
-            public function writeTestLog(string $runId, int $index, string $output): ?string
+            public function writeTestLog(string $runId, int $index, string $output): string
             {
                 $base = sprintf('test_log_%02d', max(1, $index));
 
