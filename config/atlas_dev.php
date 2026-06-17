@@ -80,10 +80,10 @@ return [
         // AP-790 cycle died on owner_runtime_provider_timeout); the AP-786
         // owner flow threads an explicit, larger value per run via
         // `atlas:dev:senior-loop:run --provider-timeout-seconds`.
-        'timeout_seconds'   => (int) env('ATLAS_DEV_PROVIDER_TIMEOUT_SECONDS', 300),
+        'timeout_seconds' => (int) env('ATLAS_DEV_PROVIDER_TIMEOUT_SECONDS', 300),
         // Set ATLAS_DEV_DEFAULT_PROVIDER=minimax_m27_cli to use MiniMax as
         // automatic fallback when Claude/Codex are exhausted.
-        'default_provider'  => env('ATLAS_DEV_DEFAULT_PROVIDER', 'claude_cli'),
+        'default_provider' => env('ATLAS_DEV_DEFAULT_PROVIDER', 'claude_cli'),
     ],
 
     'receipts_path' => env(
@@ -116,5 +116,52 @@ return [
             'trim',
             explode(',', (string) env('ATLAS_DEV_MANDATORY_RAG_GATE_BYPASS_SURFACES', ''))
         ))),
+    ],
+
+    // ----------------------------------------------------------------------
+    // Atlas Dev Elevation v2 (E1-E6) config-flag convention.
+    // ----------------------------------------------------------------------
+    // Each elevation (E1-E6) is governed by a tri-state `mode`:
+    //   off      => the elevation is a no-op (byte-identical to pre-mission).
+    //   advisory => the elevation surfaces ONLY via an honesty flag, which the
+    //               CompletionStateGate auto-downgrades PASSED -> needs_review
+    //               (never STATUS_FAILED for the flag alone).
+    //   hard     => the elevation blocks via a sanctioned channel
+    //               (STATUS_FAILED gate or STATUS_ESCALATE critic).
+    //
+    // SAFE DEFAULT: `advisory` for landed code. Unknown/missing/invalid values
+    // resolve to advisory without crashing so a misconfigured flag can never
+    // silently disable an elevation nor accidentally hard-block the pipeline.
+    // An elevation is promoted advisory -> hard WITHIN its own milestone once
+    // its trip condition is validated; it never starts at hard.
+    //
+    // Verdicts surface ONLY through the two sanctioned channels. There is no
+    // third channel and no silent green: the CompletionDecision ctor forbids
+    // status=passed alongside an honesty flag, so an advisory flag can never
+    // coexist with a green completion.
+    //
+    // Reading flags: App\Services\Ai\Programming\AtlasDev\Support\Elevations\
+    //                ElevationConfig::fromConfig('<eN>').
+    //
+    // Canon: mission architecture.md (Atlas Dev Elevation v2, Fase 1).
+    // ----------------------------------------------------------------------
+    'elevations' => [
+        // E1: Intent Probe + Semantic Critic (M2 milestone).
+        'e1' => ['mode' => env('ATLAS_DEV_ELEVATION_E1_MODE', 'advisory')],
+
+        // E2: Definition of Done + Semantic Acceptance Criteria (M1 milestone).
+        'e2' => ['mode' => env('ATLAS_DEV_ELEVATION_E2_MODE', 'advisory')],
+
+        // E3: Mutation Testing Gate (M3 milestone).
+        'e3' => ['mode' => env('ATLAS_DEV_ELEVATION_E3_MODE', 'advisory')],
+
+        // E4: Differential Testing / Shadow-Diff (M5 milestone).
+        'e4' => ['mode' => env('ATLAS_DEV_ELEVATION_E4_MODE', 'advisory')],
+
+        // E5: Pre-Patch Regression Baseline + Caller-Test Selection (M4 milestone).
+        'e5' => ['mode' => env('ATLAS_DEV_ELEVATION_E5_MODE', 'advisory')],
+
+        // E6: Spec-Driven Constitution Gate (M6 milestone).
+        'e6' => ['mode' => env('ATLAS_DEV_ELEVATION_E6_MODE', 'advisory')],
     ],
 ];
