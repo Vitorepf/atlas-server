@@ -492,17 +492,26 @@ final class CompoundingFailureMemoryTest extends TestCase
         $target = 'app/Services/Scheduling/ScheduleParser.php';
         $foreignArea = 'app/Services/AutonomousEvolution/Loop.php';
 
+        // The orchestrator resolves the workspace to its absolute path
+        // (IntakeNormalizer::resolveWorkspace -> realpath) and threads it as
+        // the workspace_slug into the injector. The area capsule's
+        // task_packet workspace_slug MUST match that resolved path so the
+        // STRICT workspace-slug equality (VAL-M5-007 round 2) admits it.
+        $resolvedWorkspace = realpath($this->tmpWorkspace);
+
         $areaCapsule = $this->persistCapsule(
             changedFiles: [$target],
             failureClass: 'test_failure',
             suggestedRepair: 'restore plural null symmetry for weeks',
             error: 'PHPUnit assertion failed: parseInterval(2 weeks) returned once',
+            workspaceSlug: $resolvedWorkspace,
         );
         $foreignCapsule = $this->persistCapsule(
             changedFiles: [$foreignArea],
             failureClass: 'architecture_risk',
             suggestedRepair: 'promote to Forge senior review',
             error: 'FOREIGN_AREA_UNIQUE_TOKEN_9931 must never leak',
+            workspaceSlug: $resolvedWorkspace,
         );
 
         $orchestrator = new AtlasDevFastPathOrchestrator(
@@ -556,6 +565,14 @@ final class CompoundingFailureMemoryTest extends TestCase
      * otherwise-identical SAME-workspace capsule with the same overlapping
      * paths IS injected. The injector scopes the capsule query to the current
      * workspace before applying area overlap and failure_hash dedup.
+     *
+     * EXTENDED (VAL-M5-007 round 2 — residual-leak regression): a capsule
+     * whose task_packet workspace_slug is NULL/empty (UNKNOWN origin) MUST
+     * ALSO be excluded when the current run has a KNOWN workspace_slug, even
+     * when its changed_files overlap the run's target set. A null/empty-slug
+     * capsule has unattributable origin (could be a foreign repo or a capsule
+     * whose task_packet is missing) — admitting it would re-open
+     * injection-by-path-overlap from a non-current workspace.
      */
     public function test_anti_gaming_foreign_workspace_capsule_is_never_injected_even_when_paths_overlap(): void
     {
@@ -584,17 +601,37 @@ final class CompoundingFailureMemoryTest extends TestCase
             workspaceSlug: $foreignWorkspace,
         );
 
+        // Null-slug capsule (residual-leak regression, VAL-M5-007 round 2):
+        // IDENTICAL overlapping changed_files but its task_packet carries NO
+        // workspace_slug (persistCapsule with workspaceSlug=null leaves the
+        // packet's workspace_slug NULL). When the current run has a KNOWN
+        // workspace_slug, STRICT equality must EXCLUDE this capsule entirely
+        // — its origin is UNKNOWN and could be a foreign repo.
+        $nullSlugCapsule = $this->persistCapsule(
+            changedFiles: [$target],
+            failureClass: 'null_slug_leak',
+            suggestedRepair: 'NULL_SLUG_REPAIR_TOKEN_5503 must never leak on a known-slug run',
+            error: 'NULL_SLUG_ERROR_TOKEN_5503 unattributable origin capsule',
+            // workspaceSlug intentionally omitted -> packet workspace_slug is NULL
+        );
+
         $this->assertNotSame(
             $sameWorkspaceCapsule->task_packet_id,
             $foreignWorkspaceCapsule->task_packet_id,
-            'VAL-M5-007: the two capsules must belong to distinct task packets.',
+            'VAL-M5-007: the same- and foreign-workspace capsules must belong to distinct task packets.',
+        );
+        $this->assertNotSame(
+            $sameWorkspaceCapsule->task_packet_id,
+            $nullSlugCapsule->task_packet_id,
+            'VAL-M5-007: the same-workspace and null-slug capsules must belong to distinct task packets.',
         );
 
-        // Sanity: the two task packets carry distinct workspace_slugs.
+        // Sanity: the three task packets carry the expected workspace_slugs.
         // (getAttribute() to satisfy phpstan without touching the baseline —
         // pre-existing-debt pattern for magic Eloquent property access.)
         $this->assertSame($currentWorkspace, $sameWorkspaceCapsule->taskPacket->getAttribute('workspace_slug'));
         $this->assertSame($foreignWorkspace, $foreignWorkspaceCapsule->taskPacket->getAttribute('workspace_slug'));
+        $this->assertNull($nullSlugCapsule->taskPacket->getAttribute('workspace_slug'));
 
         $projection = $this->buildProjectionForArea([$target], workspaceSlug: $currentWorkspace);
 
@@ -625,6 +662,25 @@ final class CompoundingFailureMemoryTest extends TestCase
             'FOREIGN_WORKSPACE_ERROR_TOKEN_8842',
             $projection->renderedPromptText,
             'VAL-M5-007: foreign-workspace capsule error_excerpt must never leak',
+        );
+
+        // VAL-M5-007 round 2 (residual-leak regression): the null/empty-slug
+        // capsule MUST NOT inject when the current run has a known
+        // workspace_slug, even though its changed_files overlap the target.
+        $this->assertStringNotContainsString(
+            'null_slug_leak',
+            $projection->renderedPromptText,
+            'VAL-M5-007 round 2: null/empty-slug capsule failure_class must never inject on a known-slug run (strict equality)',
+        );
+        $this->assertStringNotContainsString(
+            'NULL_SLUG_REPAIR_TOKEN_5503',
+            $projection->renderedPromptText,
+            'VAL-M5-007 round 2: null/empty-slug capsule suggested_repair must never inject on a known-slug run',
+        );
+        $this->assertStringNotContainsString(
+            'NULL_SLUG_ERROR_TOKEN_5503',
+            $projection->renderedPromptText,
+            'VAL-M5-007 round 2: null/empty-slug capsule error_excerpt must never inject on a known-slug run',
         );
     }
 

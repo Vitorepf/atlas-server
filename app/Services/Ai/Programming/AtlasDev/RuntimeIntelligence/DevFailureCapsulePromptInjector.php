@@ -40,14 +40,17 @@ use Throwable;
  * BEFORE area overlap + failure_hash dedup. A capsule from a different
  * workspace_slug must NEVER inject even when its changed_files overlap.
  *
- * Null-slug semantics (conservative fallback): when the current run's
- * workspace_slug cannot be derived (null/empty), the injector still injects
- * capsules whose `taskPacket.workspace_slug` is ALSO null/empty
- * (i.e. workspace-unresolvable capsules), but NEVER injects a capsule whose
- * task_packet carries a resolvable (non-empty) foreign workspace_slug. This
- * keeps the honest-empty / area-only tests (which never set a workspace_slug
- * on the persisted packet) working while preventing any confirmed
- * foreign-workspace leak on an unidentifiable run (anti-gaming).
+ * STRICT workspace-slug equality (residual-leak fix, VAL-M5-007 round 2):
+ *   (a) current slug KNOWN (non-empty) -> inject ONLY capsules whose
+ *       task_packet.workspace_slug is EXACTLY EQUAL to the current slug.
+ *       Null/empty-slug and missing-task_packet capsules are EXCLUDED entirely
+ *       in this branch (a null/empty-slug capsule has UNKNOWN/unattributable
+ *       origin — it could be a foreign repo or a capsule whose task_packet is
+ *       missing — so admitting it would re-open injection-by-path-overlap from
+ *       a non-current workspace).
+ *   (b) current slug UNKNOWN (null/empty) -> only null/empty-slug capsules are
+ *       eligible (or none). A capsule attributed to a different concrete
+ *       workspace_slug is NEVER injected on an unidentifiable run.
  *
  * The injector never fabricates content: every emitted entry is derived from a
  * persisted capsule row. No row → no entry (anti-gaming, VAL-M5-004).
@@ -121,19 +124,20 @@ final class DevFailureCapsulePromptInjector
             // run's target set. The capsule's workspace identity is its
             // task_packet.workspace_slug (task_packet_id -> AtlasDevTaskPacket).
             //
-            // Null-slug conservative fallback (see class docblock): when the
-            // current run's workspace_slug is unresolvable, only capsules that
-            // are ALSO workspace-unresolvable (null/empty task_packet
-            // workspace_slug) are eligible. A capsule whose task_packet
-            // carries a resolvable foreign workspace_slug is NEVER injected
-            // on an unidentifiable run (no foreign-repo leak).
+            // STRICT equality semantics (residual-leak fix, VAL-M5-007 round 2):
+            //   (a) current slug KNOWN (non-empty) -> inject ONLY capsules whose
+            //       task_packet.workspace_slug is EXACTLY EQUAL to the current
+            //       slug. Null/empty-slug and missing-task_packet capsules are
+            //       EXCLUDED entirely (a null/empty-slug capsule has UNKNOWN
+            //       origin and could re-open injection-by-path-overlap from a
+            //       non-current workspace).
+            //   (b) current slug UNKNOWN (null/empty) -> only null/empty-slug
+            //       capsules are eligible (or none). A capsule attributed to a
+            //       different concrete workspace_slug is NEVER injected.
             if ($currentSlug !== null) {
-                $query->where(
-                    fn ($q) => $q
-                        ->where('atlas_dev_task_packets.workspace_slug', $currentSlug)
-                        ->orWhereNull('atlas_dev_task_packets.workspace_slug')
-                        ->orWhere('atlas_dev_task_packets.workspace_slug', ''),
-                );
+                // STRICT equality only — no null/empty-slug leniency when the
+                // current run's workspace is known.
+                $query->where('atlas_dev_task_packets.workspace_slug', $currentSlug);
             } else {
                 $query->where(
                     fn ($q) => $q
