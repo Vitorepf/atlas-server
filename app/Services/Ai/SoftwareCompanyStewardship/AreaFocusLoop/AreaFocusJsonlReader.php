@@ -29,6 +29,37 @@ final class AreaFocusJsonlReader
     }
 
     /**
+     * ARBOR-GRAFT W5 (LED1c) — distinct schema versions present in the ledger that are NEWER than the
+     * supported one. rowsWithSchemaVersion() SILENTLY drops non-matching (incl. newer) rows; this lets a
+     * caller SURFACE / park a forward-incompatible ledger (operator-visible) instead of silently losing
+     * state on an additive schema bump. Additive + pure: it changes NO existing read behaviour and NEVER
+     * throws or halts — the floor-safe "flag, don't crash the 24h runner" stance the resume path requires.
+     * Older / equal versions are NOT flagged (only strictly-newer), so a legit older reader is never broken.
+     *
+     * @return list<string>
+     */
+    public static function newerThanSupported(string $path, string $schemaVersion): array
+    {
+        $supported = self::versionOrdinal($schemaVersion);
+        $newer = [];
+        foreach (self::rows($path) as $row) {
+            $actual = $row['schema_version'] ?? null;
+            // collect as VALUES (not keys) so numeric-string versions like "3" stay strings, not ints.
+            if (is_string($actual) && $actual !== $schemaVersion && self::versionOrdinal($actual) > $supported) {
+                $newer[] = $actual;
+            }
+        }
+
+        return array_values(array_unique($newer));
+    }
+
+    /** Trailing-or-embedded integer of a schema version string ("1" => 1, "v3" => 3, "" => 0). */
+    private static function versionOrdinal(string $version): int
+    {
+        return preg_match('/(\d+)/', $version, $m) === 1 ? (int) $m[1] : 0;
+    }
+
+    /**
      * Stream JSONL rows for large append-only ledgers without loading the file.
      *
      * @return \Generator<int,array<string,mixed>>

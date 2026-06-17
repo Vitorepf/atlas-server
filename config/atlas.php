@@ -2193,6 +2193,25 @@ return [
         'planning_spec_max_attempts' => max(1, (int) env('ATLAS_LOOP_PLANNING_SPEC_MAX_ATTEMPTS', 3)),
         'planning_plan_max_attempts' => max(1, (int) env('ATLAS_LOOP_PLANNING_PLAN_MAX_ATTEMPTS', 3)),
 
+        // ARBOR-GRAFT — the idea-tree compounding substrate (ADVISORY: walled off from every cert/merge/
+        // trust class by AtlasLoopAdvisoryFirewallTest). These were read by the code with a hard-coded
+        // `false` default but had NO config entry, so the .env vars could never arm them. Declared here so
+        // the operator can flip them via .env. Each is default-OFF => byte-identical until armed.
+        'idea_tree_enabled' => (bool) env('ATLAS_LOOP_IDEA_TREE_ENABLED', false),
+        'constraints_block_enabled' => (bool) env('ATLAS_LOOP_CONSTRAINTS_BLOCK_ENABLED', false),
+        'insight_backprop_enabled' => (bool) env('ATLAS_LOOP_INSIGHT_BACKPROP_ENABLED', false),
+        'select_adjuster_enabled' => (bool) env('ATLAS_LOOP_SELECT_ADJUSTER_ENABLED', false),
+        'select_adjuster_max_penalty_fraction' => (float) env('ATLAS_LOOP_SELECT_ADJUSTER_MAX_PENALTY_FRACTION', 0.5),
+        // ARBOR-GRAFT #2 — failure-driven supply: a metric-miss fans out N orthogonal alternative-direction
+        // siblings (advisory tree nodes that re-enter the SAME gates). Two-flag AND with idea_tree_enabled.
+        'failure_supply_enabled' => (bool) env('ATLAS_LOOP_FAILURE_SUPPLY_ENABLED', false),
+        'failure_supply_frames' => max(1, (int) env('ATLAS_LOOP_FAILURE_SUPPLY_FRAMES', 3)),
+        'failure_supply_max_depth' => max(0, (int) env('ATLAS_LOOP_FAILURE_SUPPLY_MAX_DEPTH', 1)),
+        // ACDE #8 — merge-boundary CONTRACT-SWAP guard: the reprove asserts the persisted acceptance contract
+        // still hashes to the FROZEN fingerprint stamped at grind time. Default-OFF (byte-identical); arm only
+        // after confirming real certified proposals hash-match (a false mismatch would fail-close every merge).
+        'reprove_hash_assert_enabled' => (bool) env('ATLAS_LOOP_REPROVE_HASH_ASSERT_ENABLED', false),
+
         // ACDE Leap 2 — HUMAN-FROZEN DECOMPOSITION BOUNDARY-ORACLE. Imports the proven single-target
         // moat (a human-frozen bar the model cannot author) into the DECOMPOSITION layer. With the flag
         // ON AND a per-objective fixture frozen/obra-decompositions/<goal-hash>.json present, the readiness

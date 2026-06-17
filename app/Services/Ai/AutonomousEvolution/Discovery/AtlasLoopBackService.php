@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution\Discovery;
 
 use App\Models\AtlasLoopTarget;
+use Throwable;
 
 /**
  * Results -> Sources, so the queue self-sustains for 24h with no new trust surface.
@@ -29,7 +30,42 @@ final class AtlasLoopBackService
 
     public function __construct(
         private readonly AtlasLoopTargetRepository $repository,
+        private readonly ?AtlasLoopIdeaTreeAccessor $treeAccessor = null,
+        private readonly ?AtlasLoopInsightBackpropService $insightBackprop = null,
+        // ARBOR-GRAFT #2: the tree-producer used to turn a metric MISS into competing alternative-direction
+        // siblings (failure-driven work-supply). Nullable + LAST (Laravel does not inject `?Type = null`);
+        // wired by the explicit AppServiceProvider bind. Touched ONLY when failure_supply_enabled is ON.
+        private readonly ?AtlasLoopHypothesisTreeProducer $treeProducer = null,
     ) {}
+
+    /**
+     * ARBOR-GRAFT TIER 0.1 (c) — close the tree's compounding loop. When a target that IS a tree-node
+     * (has a parent edge) reaches a terminal, mirror the outcome into tree_status and fold its lesson up the
+     * path-to-root so the next IDEATE (via CB1's constraints-block) is smarter. Winner => done; a permanent
+     * un-grindable failure => prune the subtree (records the [Pruned: reason] lesson) + backprop it. ADVISORY:
+     * only tree_status / node_insight (advisory fields, firewall-walled from every gate) are touched; the
+     * grind/cert flow is unchanged. Flag-gated default-OFF; non-tree rows (parent null) are a no-op.
+     */
+    private function reflectTreeNode(AtlasLoopTarget $target, string $status, string $reason): void
+    {
+        if ($target->parent_target_id === null || ! (bool) config('atlas.loop.idea_tree_enabled', false)) {
+            return;
+        }
+        try {
+            if ($status === 'winner') {
+                $target->forceFill(['tree_status' => AtlasLoopIdeaTreeAccessor::STATUS_DONE])->save();
+            } elseif ($this->isQuarantineReason($reason) && $this->treeAccessor !== null) {
+                $this->treeAccessor->pruneNode($target->id, $reason !== '' ? $reason : 'un_grindable');
+            } else {
+                return; // a transient requeue is not a terminal — no tree transition, no backprop yet
+            }
+            if ((bool) config('atlas.loop.insight_backprop_enabled', false)) {
+                $this->insightBackprop?->backpropagate($target->id);
+            }
+        } catch (Throwable) {
+            // advisory: never break loop-back
+        }
+    }
 
     /**
      * @param  array{target_id?:?string, status:string, reason?:?string}  $result
@@ -45,6 +81,8 @@ final class AtlasLoopBackService
         if (! $target instanceof AtlasLoopTarget) {
             return ['spawned' => 0, 'quarantined' => 0, 'requeued' => 0];
         }
+
+        $this->reflectTreeNode($target, $status, $reason); // ARBOR-GRAFT TIER 0.1 (c) — flag-OFF / non-tree => no-op
 
         // WINNER: this file produced a proposal — record it, then re-surface it as a
         // NEIGHBOR candidate so the generator can mine its next improvement.
@@ -86,12 +124,70 @@ final class AtlasLoopBackService
                 'lease_expires_at' => null,
             ])->save();
 
+            // ARBOR-GRAFT #2 — a genuine metric miss is the loop's richest FREE signal: in addition to
+            // re-queueing the same direction, fan out N orthogonal ALTERNATIVE directions as competing
+            // sibling nodes so the tree gains supply exactly where it got stuck. Flag-OFF / non-tree => no-op.
+            $this->materializeFailureSupply($target, $reason);
+
             return ['spawned' => 0, 'quarantined' => 0, 'requeued' => 1];
         }
 
         $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_EXHAUSTED, 'attempt_cap_no_winner');
 
         return ['spawned' => 0, 'quarantined' => 0, 'requeued' => 0];
+    }
+
+    /**
+     * ARBOR-GRAFT #2 — turn a metric MISS into competing alternative-direction supply. Frames N orthogonal
+     * re-attacks of the same goal (deterministic, provider-free) and materializes them as parent-linked
+     * SIBLING hypothesis nodes that re-enter the SAME admissibility + RED + cert gates (no shortcut to a
+     * proposal). TWO-FLAG AND: needs BOTH failure_supply_enabled (this expansion) AND idea_tree_enabled (the
+     * producer's substrate — its materialize() no-ops without it), so default OFF is byte-identical. Depth-
+     * clamped so a deep node never fans out forever; fail-open so a fault never breaks loop-back. ADVISORY:
+     * a frame never gates anything — the unchanged out-of-process cert still proves every expansion.
+     */
+    private function materializeFailureSupply(AtlasLoopTarget $target, string $reason): void
+    {
+        if ($this->treeProducer === null || ! (bool) config('atlas.loop.failure_supply_enabled', false)) {
+            return;
+        }
+        // a miss DEEP in the tree must not spawn runaway descendants — only the shallow layer fans out.
+        if ((int) ($target->depth ?? 0) >= (int) config('atlas.loop.failure_supply_max_depth', 1)) {
+            return;
+        }
+        try {
+            $objective = $this->failedObjectiveFor($target);
+            if ($objective === '') {
+                return;
+            }
+            $frames = AtlasLoopFailureHypothesisProducer::alternativeFrames(
+                $objective,
+                $reason !== '' ? $reason : 'requeued_metric_miss',
+                max(1, (int) config('atlas.loop.failure_supply_frames', 3)),
+            );
+            if ($frames !== []) {
+                // idempotent (content-addressed by hypothesis hash) => re-firing on each miss never duplicates.
+                $this->treeProducer->materialize($target, $frames);
+            }
+        } catch (Throwable) {
+            // advisory production: a failed supply expansion never breaks loop-back
+        }
+    }
+
+    /** Best available description of what we were trying on this target, for the failure frames. */
+    private function failedObjectiveFor(AtlasLoopTarget $target): string
+    {
+        $hyp = is_array($target->hypothesis ?? null) ? trim((string) ($target->hypothesis['text'] ?? '')) : '';
+        if ($hyp !== '') {
+            return $hyp;
+        }
+        $signals = is_array($target->signals) ? $target->signals : [];
+        $last = trim((string) ($signals['last_objective'] ?? ''));
+        if ($last !== '') {
+            return $last;
+        }
+
+        return trim((string) $target->target_path);
     }
 
     private function isQuarantineReason(string $reason): bool

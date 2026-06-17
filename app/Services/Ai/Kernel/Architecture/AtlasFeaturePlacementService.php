@@ -631,35 +631,45 @@ class AtlasFeaturePlacementService
         $roots = ['app', 'routes', 'config', 'database/migrations', 'tests'];
         $maxCandidateBytes = 120_000;
 
-        return collect($roots)
-            ->flatMap(fn (string $root) => File::isDirectory(base_path($root)) ? File::allFiles(base_path($root)) : [])
-            ->filter(fn (SplFileInfo $file): bool => in_array($file->getExtension(), ['php', 'json', 'yaml', 'yml'], true))
-            ->filter(fn (SplFileInfo $file): bool => $file->getSize() <= $maxCandidateBytes)
-            ->map(function (SplFileInfo $file) use ($terms): array {
-                $path = str_replace(base_path().'/', '', $file->getPathname());
+        // Memory-bounded STREAM (was: flatMap ALL repo files into one collection + a result-array entry per
+        // file BEFORE filtering score>0 — which OOMs the 128MB default on a large repo). Behaviour-identical:
+        // same roots, extensions, size cap, scoring and score>0 output; only the matched candidates are
+        // retained, and each ~120KB body is released per iteration, so memory is bounded to the matches.
+        $candidates = [];
+        foreach ($roots as $root) {
+            if (! File::isDirectory(base_path($root))) {
+                continue;
+            }
+            foreach (File::allFiles(base_path($root)) as $file) {
+                if (! in_array($file->getExtension(), ['php', 'json', 'yaml', 'yml'], true)) {
+                    continue;
+                }
+                if ($file->getSize() > $maxCandidateBytes) {
+                    continue;
+                }
                 $body = Str::lower((string) File::get($file->getPathname()));
                 $matchedTerms = [];
                 $score = 0;
-
                 foreach ($terms as $term) {
                     if (! str_contains($body, $term)) {
                         continue;
                     }
-
                     $matchedTerms[] = $term;
                     $score += substr_count($body, $term);
                 }
+                unset($body); // release the file body immediately — never accumulate it
+                if ($score > 0) {
+                    $candidates[] = [
+                        'source' => 'repo_code',
+                        'path' => str_replace(base_path().'/', '', $file->getPathname()),
+                        'score' => $score,
+                        'matched_terms' => $matchedTerms,
+                    ];
+                }
+            }
+        }
 
-                return [
-                    'source' => 'repo_code',
-                    'path' => $path,
-                    'score' => $score,
-                    'matched_terms' => $matchedTerms,
-                ];
-            })
-            ->filter(fn (array $candidate): bool => (int) $candidate['score'] > 0)
-            ->values()
-            ->all();
+        return array_values($candidates);
     }
 
     /**

@@ -45,6 +45,8 @@ class AtlasLoopTarget extends Model
         'campaign_id', 'schema_version', 'target_path', 'target_key', 'content_hash', 'status',
         'score', 'self_contained_score', 'improvement_score', 'novelty_score', 'signals', 'lineage',
         'attempts', 'max_attempts', 'claimed_by', 'claimed_at', 'lease_expires_at', 'reason',
+        // ARBOR-GRAFT T1 — idea-tree edges (advisory; never gates — see AtlasLoopIdeaTreeAccessor invariant).
+        'parent_target_id', 'depth', 'node_kind', 'tree_status', 'hypothesis', 'node_insight',
     ];
 
     protected function casts(): array
@@ -62,11 +64,23 @@ class AtlasLoopTarget extends Model
             'lease_expires_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
+            // ARBOR-GRAFT T1 — idea-tree edges.
+            'depth' => 'integer',
+            'hypothesis' => 'array',
+            'node_insight' => 'array',
         ];
     }
 
     public function campaign(): BelongsTo
     {
         return $this->belongsTo(AtlasLoopCampaign::class, 'campaign_id');
+    }
+
+    /**
+     * ARBOR-GRAFT T1 — the parent idea-tree node (null = root / flat-ledger row). Advisory edge only.
+     */
+    public function parentTarget(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_target_id');
     }
 }

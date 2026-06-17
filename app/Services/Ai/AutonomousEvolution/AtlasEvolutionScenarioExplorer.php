@@ -147,9 +147,6 @@ final class AtlasEvolutionScenarioExplorer
      */
     private function exploreAttempts(int $min, int $max, int $patience, int $timeBudget, string $objective, string $baseWorkspace, array $task, array $acceptance, string $metricKind, string $surfaceId, array $userConstraints, array $surfaceHints, string $provider, bool $keepWorkspaces, string $workspaceRoot): array
     {
-        $attempts = [];
-        $best = null;
-        $noImprove = 0;
         $start = microtime(true);
         $portfolio = $this->portfolio ?? new AtlasLoopScenarioProviderPortfolio;
         // PER-OBRA WORKING MEMORY (Next-Lever 5): accumulate what THIS obra already tried + why it failed,
@@ -163,9 +160,42 @@ final class AtlasEvolutionScenarioExplorer
         // (mirroring the line-above $this->portfolio short-circuit), so a null dispatcher — every
         // frozen unit test, which `new`s the explorer directly — never even reads config() and
         // falls straight through to the unchanged serial path.
-        if ($this->waveDispatcher !== null && (bool) config('atlas.loop.scenario_fanout.enabled', false)) {
+        if ($this->isWaveFanoutEnabled()) {
             return $this->exploreAttemptsInWaves($min, $max, $patience, $timeBudget, $objective, $baseWorkspace, $task, $acceptance, $metricKind, $surfaceId, $userConstraints, $surfaceHints, $provider, $keepWorkspaces, $workspaceRoot, $portfolio, $ledger);
         }
+
+        return $this->runSerialAttempts($min, $max, $patience, $timeBudget, $objective, $baseWorkspace, $task, $acceptance, $metricKind, $surfaceId, $userConstraints, $surfaceHints, $provider, $keepWorkspaces, $workspaceRoot, $portfolio, $ledger, $start);
+    }
+
+    /**
+     * STRATEGY A — MINIMAL SURGICAL: collapse the two-clause fanout guard into a single boolean helper
+     * so the `&&` decision point MOVES out of {@see exploreAttempts}. Byte-identical semantics: same
+     * short-circuit order, same first-null-check ordering that lets frozen unit tests skip the config
+     * read. The helper itself is a straight-line conjunction (no if, no ternary) so its decision
+     * count is exactly the `&&` it absorbs — net zero on the file's total.
+     */
+    private function isWaveFanoutEnabled(): bool
+    {
+        return $this->waveDispatcher !== null && (bool) config('atlas.loop.scenario_fanout.enabled', false);
+    }
+
+    /**
+     * Serial loop body for {@see exploreAttempts} — extracted so the orchestrator stays straight-line
+     * and the per-method AST max drops well below the old 13. Behaviour is byte-identical: same
+     * convergence rule, same per-attempt ordering, same ledger fold, same $best/$noImprove wiring.
+     * Strategy-A (minimal surgical): pure relocation of the previously-inlined serial loop body.
+     *
+     * @param  array<string,mixed>  $task
+     * @param  array<string,mixed>  $acceptance
+     * @param  list<string>  $userConstraints
+     * @param  array<string,mixed>  $surfaceHints
+     * @return array{attempts:list<array<string,mixed>>,converged:bool,convergence:array<string,mixed>}
+     */
+    private function runSerialAttempts(int $min, int $max, int $patience, int $timeBudget, string $objective, string $baseWorkspace, array $task, array $acceptance, string $metricKind, string $surfaceId, array $userConstraints, array $surfaceHints, string $provider, bool $keepWorkspaces, string $workspaceRoot, AtlasLoopScenarioProviderPortfolio $portfolio, AtlasLoopAttemptLedger $ledger, float $start): array
+    {
+        $attempts = [];
+        $best = null;
+        $noImprove = 0;
 
         for ($i = 0; $i < $max; $i++) {
             if ($this->shouldBreakSearch($i, $min, $best, $noImprove, $patience, $timeBudget, $start)) {
@@ -203,22 +233,6 @@ final class AtlasEvolutionScenarioExplorer
     }
 
     /**
-     * Combined convergence + budget break-check used by the serial loop body. Centralises the two
-     * guards so the loop body stays straight-line and the per-method AST max-per-method in this file
-     * drops well below the old 13. Returns true when the loop should stop iterating. Behaviour is
-     * byte-identical to the prior inline guards (convergence: a winner exists and the last $patience
-     * scenarios didn't beat it; budget: the soft time limit elapsed).
-     */
-    private function shouldBreakSearch(int $i, int $min, ?array $best, int $noImprove, int $patience, int $timeBudget, float $start): bool
-    {
-        if ($i >= $min && $best !== null && $noImprove >= $patience) {
-            return true; // converged: a winner exists and the last $patience scenarios didn't beat it
-        }
-
-        return $timeBudget > 0 && (microtime(true) - $start) >= $timeBudget; // search time budget reached
-    }
-
-    /**
      * Fold a settled attempt into the running best / noImprove counters. Centralises the if/else that
      * previously sat inline in the serial loop body, so the loop stays straight-line. Behaviour is
      * byte-identical: passing beats failing, strictly-better metric wins, gate ties break to the
@@ -237,6 +251,22 @@ final class AtlasEvolutionScenarioExplorer
         $noImprove++;
 
         return $best;
+    }
+
+    /**
+     * Combined convergence + budget break-check used by the serial loop body. Centralises the two
+     * guards so the loop body stays straight-line and the per-method AST max-per-method in this file
+     * drops well below the old 13. Returns true when the loop should stop iterating. Behaviour is
+     * byte-identical to the prior inline guards (convergence: a winner exists and the last $patience
+     * scenarios didn't beat it; budget: the soft time limit elapsed).
+     */
+    private function shouldBreakSearch(int $i, int $min, ?array $best, int $noImprove, int $patience, int $timeBudget, float $start): bool
+    {
+        if ($i >= $min && $best !== null && $noImprove >= $patience) {
+            return true; // converged: a winner exists and the last $patience scenarios didn't beat it
+        }
+
+        return $timeBudget > 0 && (microtime(true) - $start) >= $timeBudget; // search time budget reached
     }
 
     /**

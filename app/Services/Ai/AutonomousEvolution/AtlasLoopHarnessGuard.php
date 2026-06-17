@@ -58,6 +58,11 @@ final class AtlasLoopHarnessGuard
         // ACDE O1: o PRÓPRIO produtor de origination é pétreo — o originador nunca pode ser originado-contra
         // (senão o réu reescreveria quem decide o que propor). Aperto sancionado (só adiciona, nunca afrouxa).
         'app/Services/Ai/AutonomousEvolution/AtlasLoopOriginationProducer.php',
+        // ARBOR-GRAFT: a camada de seleção/árvore que decide O QUE explorar é pétrea pelo mesmo princípio do
+        // NextWorkDecider — o réu nunca pode editar o próprio priorizador/substrato de candidatos.
+        'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopIdeaTreeAccessor.php',
+        'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopSelectAdjuster.php',
+        'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopHypothesisTreeProducer.php',
     ];
 
     /** Prefixos que identificam um arquivo do harness do loop (candidato a meta-target). */
