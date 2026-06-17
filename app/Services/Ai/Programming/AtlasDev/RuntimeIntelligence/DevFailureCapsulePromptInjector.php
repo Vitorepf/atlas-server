@@ -1,0 +1,235 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence;
+
+use App\Models\AtlasDevFailureCapsule;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
+use Throwable;
+
+/**
+ * M5 — Compounding failure memory: injection seam.
+ *
+ * REUSES the persisted {@see AtlasDevFailureCapsule} rows (model + persistence
+ * live in {@see DevFailureCapsuleRuntimeService::persist()}) and surfaces them
+ * forward as "known failure modes of this repo/area" into the prompt projection
+ * of a subsequent run whose area overlaps a capsule's changed_files.
+ *
+ * Area identity = path overlap between a run's target files (allowed_files /
+ * changed files) and a capsule's changed_files. A foreign-area capsule is
+ * NEVER injected (VAL-M5-003). An area with zero matching capsules yields an
+ * empty list and the projection stays byte-identical to the pre-M5 baseline
+ * (VAL-M5-004 — the renderer omits the section entirely when this returns []).
+ *
+ * Output contract:
+ *   - list<string>, one entry per UNIQUE failure_hash (deduped — VAL-M5-006);
+ *   - deterministically ordered (sorted by failure_hash then by entry text)
+ *     so identical capsule sets produce byte-identical injection (VAL-M5-006);
+ *   - each entry is a single provider-safe string carrying the actionable
+ *     failure_class + suggested_repair + truncated, redacted error_excerpt
+ *     (VAL-M5-005);
+ *   - secret-shaped tokens in error_excerpt are redacted (VAL-M5-005).
+ *
+ * The injector never fabricates content: every emitted entry is derived from a
+ * persisted capsule row. No row → no entry (anti-gaming, VAL-M5-004).
+ *
+ * This service is read-only and DB-scoped. It does not call any provider and
+ * never persists. It is safe to invoke from the deterministic Atlas Dev
+ * planning path (AtlasDevFastPathOrchestrator) before the prompt projection
+ * is built.
+ */
+final class DevFailureCapsulePromptInjector
+{
+    private const ERROR_EXCERPT_LIMIT = 480;
+
+    /**
+     * Capsule row contract (subset consumed from AtlasDevFailureCapsule).
+     */
+    private const SECRET_PATTERNS = [
+        '/\b[A-Z0-9_]*API[_-]?KEY[A-Z0-9_]*\b/i' => 'REDACTED_PROVIDER_TOKEN_NAME',
+        '/\bAWS_SECRET_ACCESS_KEY\b/i' => 'REDACTED_PROVIDER_TOKEN_NAME',
+        '/authorization:\s*bearer\s+[A-Za-z0-9._\-]+/i' => 'authorization: bearer REDACTED',
+        '/bearer\s+ey[A-Za-z0-9._\-]+/i' => 'bearer REDACTED',
+        '/sk-ant-[A-Za-z0-9._\-]+/i' => 'sk-ant-REDACTED',
+        '/sk-[A-Za-z0-9]{20,}/i' => 'sk-REDACTED',
+        '/password\s*=\s*[^\s,;]+/i' => 'password=REDACTED',
+        '/secret\s*=\s*[^\s,;]+/i' => 'secret=REDACTED',
+        '/private_key/i' => 'REDACTED_PRIVATE_KEY_LABEL',
+    ];
+
+    /**
+     * @param  list<string>  $targetFiles  the run's target set (allowed_files).
+     *                                     Empty list returns [] (no area → no
+     *                                     injection — VAL-M5-004 honest empty).
+     * @return list<string>  provider-safe, area-scoped, deduped entries
+     */
+    public function injectFor(array $targetFiles): array
+    {
+        $normalizedTargets = $this->normalizePaths($targetFiles);
+        if ($normalizedTargets === []) {
+            // A run with no target area (read-only / read-only-question) never
+            // receives failure-mode injection: area identity is undefined.
+            return [];
+        }
+
+        // Fail-open: if the capsules table is absent (e.g. a test workspace
+        // that never ran the runtime-intelligence migration, or a DB error),
+        // there is no failure memory to inject. Mirrors the
+        // OpenBrainProjectionAdapter contract — the engine never blocks on a
+        // missing read model. An empty list yields an honest baseline
+        // projection (VAL-M5-004 — no fabricated content).
+        try {
+            $capsules = AtlasDevFailureCapsule::query()->get();
+        } catch (Throwable) {
+            return [];
+        }
+
+        if ($capsules->isEmpty()) {
+            return [];
+        }
+
+        // Bucket entries by failure_hash so duplicates collapse (the
+        // persistence layer already dedups by hash via updateOrCreate, but
+        // the injector keeps the dedup invariant explicitly so a future
+        // caller that bypasses persist() cannot produce double entries).
+        $byHash = [];
+        foreach ($capsules as $capsule) {
+            $hash = (string) ($capsule->failure_hash ?? '');
+            if ($hash === '' || array_key_exists($hash, $byHash)) {
+                continue;
+            }
+            if (! $this->overlapsArea($capsule, $normalizedTargets)) {
+                continue;
+            }
+
+            $byHash[$hash] = $this->buildEntry($capsule);
+        }
+
+        $entries = array_values($byHash);
+
+        // Deterministic ordering: sort by the rendered entry text. Two
+        // invocations over the same capsule set produce the identical list
+        // (VAL-M5-006). String sort is stable for ASCII failure_class tokens.
+        usort($entries, static fn (string $a, string $b): int => strcmp($a, $b));
+
+        return AtlasDevStringListNormalizer::uniqueStrings($entries);
+    }
+
+    /**
+     * @param  list<string>  $paths
+     * @return list<string>
+     */
+    private function normalizePaths(array $paths): array
+    {
+        $normalized = [];
+        foreach ($paths as $path) {
+            if (! is_string($path)) {
+                continue;
+            }
+            $trimmed = trim($path);
+            if ($trimmed === '') {
+                continue;
+            }
+            $normalized[] = $trimmed;
+        }
+
+        return AtlasDevStringListNormalizer::uniqueStrings($normalized);
+    }
+
+    /**
+     * @param  list<string>  $normalizedTargets
+     */
+    private function overlapsArea(AtlasDevFailureCapsule $capsule, array $normalizedTargets): bool
+    {
+        $rawChanged = $capsule->changed_files;
+        if (! is_array($rawChanged)) {
+            return false;
+        }
+        $capsulePaths = $this->normalizePaths($rawChanged);
+        if ($capsulePaths === []) {
+            // A capsule with no changed_files carries no area identity; never
+            // inject (no overlap can be proven — anti-gaming).
+            return false;
+        }
+
+        foreach ($capsulePaths as $capsulePath) {
+            foreach ($normalizedTargets as $targetPath) {
+                if ($this->pathOverlaps($capsulePath, $targetPath)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Two paths overlap when they are equal or one is a directory prefix of
+     * the other (a capsule touching app/Services/Foo/ overlaps a run touching
+     * app/Services/Foo/Bar.php). Exact equality is the most common case.
+     */
+    private function pathOverlaps(string $a, string $b): bool
+    {
+        if ($a === $b) {
+            return true;
+        }
+
+        // Normalize trailing slashes for prefix comparison.
+        $aNorm = rtrim($a, '/');
+        $bNorm = rtrim($b, '/');
+
+        // Directory-prefix overlap: a capsule whose changed_files contains
+        // "app/Services/Foo" overlaps a run targeting "app/Services/Foo/Bar.php"
+        // and vice-versa.
+        return str_starts_with($aNorm.'/', $bNorm.'/')
+            || str_starts_with($bNorm.'/', $aNorm.'/');
+    }
+
+    private function buildEntry(AtlasDevFailureCapsule $capsule): string
+    {
+        $failureClass = trim((string) ($capsule->failure_class ?? ''));
+        $suggestedRepair = trim((string) ($capsule->suggested_repair ?? ''));
+        $errorExcerpt = $this->truncate($this->redact((string) ($capsule->error_excerpt ?? '')));
+
+        $parts = [];
+        if ($failureClass !== '') {
+            $parts[] = 'failure_class='.$failureClass;
+        }
+        if ($suggestedRepair !== '') {
+            $parts[] = 'suggested_repair='.$suggestedRepair;
+        }
+        if ($errorExcerpt !== '') {
+            $parts[] = 'error_excerpt='.$errorExcerpt;
+        }
+
+        return implode(' | ', $parts);
+    }
+
+    private function truncate(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+
+        return strlen($value) <= self::ERROR_EXCERPT_LIMIT
+            ? $value
+            : substr($value, 0, self::ERROR_EXCERPT_LIMIT - 3).'...';
+    }
+
+    /**
+     * Apply the same secret-shaped token redaction that the projection seam
+     * (ProviderPromptBuilder::providerSafeExcerpt) enforces, so injected
+     * error_excerpt can never leak a raw key/bearer/secret (VAL-M5-005).
+     */
+    private function redact(string $value): string
+    {
+        $safe = $value;
+        foreach (self::SECRET_PATTERNS as $pattern => $replacement) {
+            $safe = (string) preg_replace($pattern, $replacement, $safe);
+        }
+
+        return $safe;
+    }
+}

@@ -24,6 +24,7 @@ use App\Services\Ai\Programming\AtlasDev\PromptProjection\PromptQualityChecker;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\PromptRenderer;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\PromptSectionsMapper;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\ProviderPromptBuilder;
+use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsulePromptInjector;
 use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasMinimaxContextCompilerService as MinimaxContextCompiler;
 use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasMinimaxFirstWorkerService;
 use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasCodexPlannerService;
@@ -66,6 +67,7 @@ final class AtlasDevServiceProvider extends ServiceProvider
                 ),
                 routingEngine: new RoutingDecisionEngine,
                 receiptStorage: $app->make(ReceiptStorage::class),
+                failureCapsuleInjector: new DevFailureCapsulePromptInjector,
             );
         });
 

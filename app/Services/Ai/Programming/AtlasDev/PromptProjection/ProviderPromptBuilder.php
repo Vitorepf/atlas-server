@@ -43,6 +43,7 @@ final class ProviderPromptBuilder
         CodeDiscoveryManifest $discovery,
         OpenBrainProgrammingProjection $projection,
         bool $providerSafe = true,
+        array $knownFailureModes = [],
     ): ProviderPromptProjection {
         $sections = $this->sectionsMapper->map(
             envelope: $envelope,
@@ -50,6 +51,7 @@ final class ProviderPromptBuilder
             taskContract: $taskContract,
             discovery: $discovery,
             projection: $projection,
+            knownFailureModes: $knownFailureModes,
         );
 
         $provider = $taskContract->providerLock->provider !== ''
@@ -172,6 +174,7 @@ final class ProviderPromptBuilder
             ],
             providerSafe: $sections->providerSafe,
             nonGoals: $sections->nonGoals,
+            knownFailureModes: $sections->knownFailureModes,
         );
     }
 

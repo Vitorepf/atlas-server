@@ -197,11 +197,30 @@ final class PromptRenderer
             '',
             '## Output Contract',
             ...$this->bulletLines($sections['output_contract']),
-            '',
-            '## Upstream Artifacts',
         ] as $line) {
             $lines[] = $line;
         }
+
+        // M5: Known failure modes (compounding memory). Rendered ONLY when the
+        // area-scoped, deduped, provider-safe list is non-empty so a foreign/
+        // empty area yields a byte-identical baseline projection (VAL-M5-004).
+        // Each entry is a single preformatted string built by
+        // DevFailureCapsulePromptInjector (failure_class + suggested_repair +
+        // truncated error_excerpt, secret-shaped tokens already redacted).
+        $knownFailureModes = is_array($sections['known_failure_modes'] ?? null)
+            ? $sections['known_failure_modes']
+            : [];
+        if ($knownFailureModes !== []) {
+            $lines[] = '';
+            $lines[] = '## Known Failure Modes';
+            $lines[] = '- Prior runs in this area failed in the ways below. Avoid repeating them.';
+            foreach ($knownFailureModes as $entry) {
+                $lines[] = '- '.$entry;
+            }
+        }
+
+        $lines[] = '';
+        $lines[] = '## Upstream Artifacts';
 
         foreach ($upstreamHashes as $name => $hash) {
             $lines[] = '- '.$name.': '.$hash;
@@ -260,6 +279,7 @@ final class PromptRenderer
             'escalation_conditions' => $sections->escalationConditions,
             'output_contract' => $sections->outputContract,
             'non_goals' => $sections->nonGoals,
+            'known_failure_modes' => $sections->knownFailureModes,
         ];
     }
 
