@@ -2334,6 +2334,12 @@ return [
         // sourced in AtlasLoopMutationOperators::map so the gate + characterization verifier agree. Default OFF
         // => the operator map is identical => byte-identical.
         'extra_mutation_operators_enabled' => (bool) env('ATLAS_LOOP_EXTRA_MUTATION_OPERATORS_ENABLED', false),
+        // ACDE RF2+RF4 — per-operator kill VECTOR. The refactor mutation gate certifies over the FULL set of
+        // killed decision mutants (mutants_sampled = real count) and attaches operator_kill_vector, instead of
+        // the single remembered kill (mutants_sampled=1). This is the real denominator QA2's per-family floor
+        // needs (a floor on a 1-mutant receipt is theater). Default OFF => certify over the single kill =>
+        // receipt_hash byte-identical (the hash is over status/certified/blockers/sampled/killed/survived).
+        'mutation_per_operator_vector_enabled' => (bool) env('ATLAS_LOOP_MUTATION_PER_OPERATOR_VECTOR', false),
         // ACDE MF2 — hub-first multi-file conversion: when a coupled cluster is detected, route the anchored HUB
         // through the proven single-file refactor lane (its own complexity proof) instead of the all-or-nothing
         // N-file conjunction that drops ~17% of conversions. Only under the known-shape guard (covered>=2, hub

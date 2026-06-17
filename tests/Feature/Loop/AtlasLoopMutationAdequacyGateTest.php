@@ -432,6 +432,9 @@ CMD;
         // test RED -> the cosmetic is KILLED -> mutation_killed/certified. This is the exact class the
         // pre-refinement hard no_applicable_mutation FALSELY rejected (the 2 broken framework-refactor
         // certification tests). The kill PROVES the test exercises the new code via the relocated literal.
+        // This fixture documents the COSMETIC-fallback path (no decision mutant producible). Pin the base
+        // operator set: ACDE QA1's null_coalesce_null would otherwise mutate the fixture's `??` as a decision.
+        config(['atlas.loop.extra_mutation_operators_enabled' => false]);
         $this->workspace = $this->refactorWorkspaceWithCoveredRelocatedLiteralNoDecision();
 
         $on = app(AtlasLoopMutationAdequacyGateService::class)->evaluate(
@@ -449,6 +452,31 @@ CMD;
         $this->assertSame(1, $on['mutants_killed']);
         $this->assertSame(0, $on['mutants_survived']);
         $this->assertTrue(data_get($on, 'mutants.0.killed'));
+    }
+
+    public function test_rf2_rf4_per_operator_vector_arms_the_real_denominator_off_is_byte_identical(): void
+    {
+        config(['atlas.loop.extra_mutation_operators_enabled' => false]);
+        $this->workspace = $this->refactorWorkspaceWithCoveredGteDecision();
+        $acceptance = $this->refactorAcceptance();
+        $gate = app(AtlasLoopMutationAdequacyGateService::class);
+
+        // OFF (default): the legacy single-record certify path => no vector field, mutants_sampled=1.
+        config(['atlas.loop.mutation_per_operator_vector_enabled' => false]);
+        $off = $gate->evaluate($this->workspace, $acceptance, ['src/Calc.php'], ['enabled' => true, 'refactor_decision_aware' => true]);
+        $this->assertSame('mutation_killed', $off['status']);
+        $this->assertSame(1, $off['mutants_sampled']);
+        $this->assertArrayNotHasKey('operator_kill_vector', $off, 'OFF => no vector field => byte-identical receipt shape');
+
+        // ON: the certify path carries the per-operator kill vector (the real denominator QA2 consumes).
+        config(['atlas.loop.mutation_per_operator_vector_enabled' => true]);
+        $on = $gate->evaluate($this->workspace, $acceptance, ['src/Calc.php'], ['enabled' => true, 'refactor_decision_aware' => true]);
+        $this->assertSame('mutation_killed', $on['status']);
+        $this->assertTrue($on['certified']);
+        $this->assertArrayHasKey('operator_kill_vector', $on);
+        $this->assertGreaterThanOrEqual(1, count($on['operator_kill_vector']));
+        $this->assertSame(1.0, (float) $on['operator_kill_vector'][0]['ratio'], 'every sampled decision was killed on the certify path');
+        $this->assertSame($on['operator_kill_vector'][0]['sampled'], $on['mutants_sampled']);
     }
 
     public function test_refactor_contract_skips_when_no_mutant_is_producible_at_all(): void

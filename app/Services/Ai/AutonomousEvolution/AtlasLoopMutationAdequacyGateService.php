@@ -211,6 +211,7 @@ final class AtlasLoopMutationAdequacyGateService
         // survivor on any target rejects order-independently; the first kill is remembered and only
         // decides once every decision target is proven survivor-free.
         $killedDecision = null;
+        $killedDecisions = []; // ACDE RF2+RF4 — every killed decision, so the certify denominator is REAL (>1)
         foreach ($probeTargets as $target) {
             $path = $workspace.'/'.$target;
             $original = is_file($path) ? (string) file_get_contents($path) : '';
@@ -229,10 +230,22 @@ final class AtlasLoopMutationAdequacyGateService
             // Remember the FIRST kill but keep hunting: a later target may carry a surviving decision the
             // test misses, which must outrank this kill regardless of git's file ordering.
             $killedDecision ??= $record;
+            $killedDecisions[] = $record;
         }
 
         // Every decision target proven survivor-free: a remembered kill certifies the refactor.
         if ($killedDecision !== null) {
+            // ACDE RF2+RF4 — per-operator kill VECTOR. When armed, certify over the FULL killed set so
+            // mutants_sampled reflects the real denominator (>1 when the diff has multiple added-decision lines)
+            // and attach the per-operator breakdown QA2's per-family floor consumes. Default OFF => certify over
+            // the single remembered kill ([$killedDecision]) => mutants_sampled=1, receipt_hash byte-identical.
+            if ((bool) config('atlas.loop.mutation_per_operator_vector_enabled', false)) {
+                $vectorReceipt = $this->receipt('mutation_killed', true, [], $killedDecisions, [$baseline], $propertyProbe);
+                $vectorReceipt['operator_kill_vector'] = $this->operatorKillVector($killedDecisions);
+
+                return $vectorReceipt;
+            }
+
             return $this->receipt('mutation_killed', true, [], [$killedDecision], [$baseline], $propertyProbe);
         }
 
@@ -781,6 +794,35 @@ final class AtlasLoopMutationAdequacyGateService
      *
      * @param  list<array<string,mixed>>  $mutants
      */
+    /**
+     * ACDE RF2+RF4 — the per-operator kill vector: group the killed mutants by their operator and report
+     * {operator, sampled, killed, ratio} per group. This is the real per-operator denominator QA2's per-family
+     * floor needs (a floor over a 1-mutant receipt is theater). Additive receipt metadata; not in receipt_hash.
+     *
+     * @param  list<array<string,mixed>>  $mutants
+     * @return list<array{operator:string, sampled:int, killed:int, ratio:float}>
+     */
+    private function operatorKillVector(array $mutants): array
+    {
+        $byOperator = [];
+        foreach ($mutants as $mutant) {
+            $operator = (string) ($mutant['operator'] ?? 'unknown');
+            $byOperator[$operator] ??= ['operator' => $operator, 'sampled' => 0, 'killed' => 0];
+            $byOperator[$operator]['sampled']++;
+            if (($mutant['killed'] ?? false) === true) {
+                $byOperator[$operator]['killed']++;
+            }
+        }
+
+        $vector = [];
+        foreach ($byOperator as $row) {
+            $row['ratio'] = $row['sampled'] > 0 ? round($row['killed'] / $row['sampled'], 4) : 0.0;
+            $vector[] = $row;
+        }
+
+        return $vector;
+    }
+
     private function decisiveOperatorFamily(array $mutants): string
     {
         if ($mutants === []) {
