@@ -603,7 +603,7 @@ final class BestOfNHermesTest extends TestCase
         $jobs = $providerState->observedJobs;
         $this->assertCount(3, $jobs);
         foreach ($jobs as $job) {
-            $this->assertSame('hermes_cli', $job->provider, 'No candidate may swap the engine');
+            $this->assertSame('hermes_cli', $job->getAttribute('provider'), 'No candidate may swap the engine');
         }
     }
 
