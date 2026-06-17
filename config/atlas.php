@@ -2373,6 +2373,10 @@ return [
         'calibrated_confidence_target_precision' => max(0.0, min(1.0, (float) env('ATLAS_LOOP_CALIBRATED_CONFIDENCE_TARGET_PRECISION', 0.93))),
         'calibrated_confidence_min_samples' => max(2, (int) env('ATLAS_LOOP_CALIBRATED_CONFIDENCE_MIN_SAMPLES', 20)),
         'calibrated_confidence_window_days' => max(1, (int) env('ATLAS_LOOP_CALIBRATED_CONFIDENCE_WINDOW_DAYS', 30)),
+        // ACDE M4 — telemetry window (hours) the obra cost estimator averages real per-provider spend over to
+        // de-orphan the budget scheduler's cost input. Read-only; an absent ledger yields an empty cost map
+        // (the obra stays honestly deferred). The scheduler itself has no live dispatch caller yet.
+        'obra_cost_window_hours' => max(1, (int) env('ATLAS_LOOP_OBRA_COST_WINDOW_HOURS', 336)),
         // ACDE O1 — the in-lane ORIGINATION producer: author a PROPOSE-ONLY origination proposal (structure +
         // decomposition hint, NO frozen acceptance, EMPTY diff, NEVER executeAndProve). Safe by construction:
         // empty diff + no acceptance_contract => the drain reprove fails closed => the row is RETIRED on the
