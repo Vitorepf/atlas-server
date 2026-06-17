@@ -1228,12 +1228,64 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         // hash equals the selected candidate's (VAL-M4-008). The workspace was
         // last mutated by the FINAL candidate; revert then re-apply winner.
         $this->revertWorkspaceChanges($envelope->workspace, $taskContract->allowedFiles);
-        $this->reapplyCandidateDiff(
+        $reapplyStderr = '';
+        $reapplyOk = $this->reapplyCandidateDiff(
             workspace: $envelope->workspace,
             diffText: $winner['candidate_diff_text'] ?? '',
             callResult: $winner['callResult'],
             taskContract: $taskContract,
+            stderrRef: $reapplyStderr,
         );
+
+        // FAIL-CLOSED (m4-fix-reapply-candidate-diff-fail-closed): if the
+        // winner has a non-empty diff and re-apply FAILED, the workspace does
+        // NOT match the selected winner. We MUST NOT return the winner's green
+        // metadata — that would report a GREEN completion whose actual
+        // workspace state differs from the selected winner's diff (fail-open
+        // correctness gap). Instead mirror the no-candidate-produced branch:
+        // a non-completed result with STATUS_FAILED patch_apply carrying the
+        // git apply stderr/reason, and verificationResult via
+        // verificationFailedDueToPatchApply(...) so aggregateStatus is
+        // non-passed. PRESERVE the empty-diff no-op case (the candidate made
+        // no workspace change -> reverted-clean state is correct), which
+        // reapplyCandidateDiff() reports as success.
+        $winnerDiffText = trim((string) ($winner['candidate_diff_text'] ?? ''));
+        if (! $reapplyOk && $winnerDiffText !== '') {
+            $reapplyBlocked = $this->blockedProviderCallResult(
+                runId: $promptProjection->runId,
+                provider: 'hermes_cli',
+                modelFamily: $taskContract->providerLock->modelFamily,
+                error: 'winner_reapply_failed',
+                stderr: $reapplyStderr !== '' ? $reapplyStderr : 'Winner diff re-apply failed.',
+            );
+            $reapplyPatchApply = new PatchApplyResult(
+                status: PatchApplyResult::STATUS_FAILED,
+                exitCode: 1,
+                durationMs: 0,
+                stdout: '',
+                stderr: $reapplyStderr !== '' ? $reapplyStderr : 'Winner diff re-apply failed.',
+                reason: 'winner_reapply_failed',
+            );
+
+            return [
+                'callResult' => $reapplyBlocked,
+                'diffResult' => DiffParseResult::invalid(['winner_reapply_failed']),
+                'scopeReceipt' => (new ScopeGuard)->check(
+                    envelope: $envelope,
+                    taskContract: $taskContract,
+                    diffResult: DiffParseResult::invalid(['winner_reapply_failed']),
+                ),
+                'patchApplyResult' => $reapplyPatchApply,
+                'verificationResult' => $this->verificationFailedDueToPatchApply($reapplyPatchApply),
+                'callResultForGates' => $reapplyBlocked,
+                'providerCalls' => $providerCalls,
+                'summary' => $this->bestOfNSummary(
+                    candidateCount: $candidateCount,
+                    candidates: $candidates,
+                    winnerIndex: -1,
+                ),
+            ];
+        }
 
         // Rebuild the winner's diff result from the now-applied winner diff so
         // the persisted diff hash reflects the selected candidate exactly.
@@ -1261,34 +1313,57 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
      * is workspace-derived text; we re-apply it via `git apply` so the
      * selected winner's diff is the one persisted.
      *
-     * If the captured diff text is empty (no-op candidate) we leave the
-     * workspace in the reverted (clean) state.
+     * FAIL-CLOSED (m4-fix-reapply-candidate-diff-fail-closed): the return
+     * value reports whether `git apply` succeeded. An empty (no-op) diff is
+     * treated as success — the reverted-clean workspace already matches a
+     * candidate that made no workspace change. A non-empty diff whose
+     * `git apply` fails (non-zero exit, e.g. context drift) returns false so
+     * the caller can refuse to persist a desynced winner's green metadata
+     * (anti-gaming: a workspace that does NOT match the selected winner must
+     * never report green). The captured stderr is exposed via the
+     * `$stderrRef` by-reference parameter for the caller's failure reason.
      */
     private function reapplyCandidateDiff(
         string $workspace,
         string $diffText,
         ProviderCallResult $callResult,
         LightTaskContract $taskContract,
-    ): void {
+        string &$stderrRef = '',
+    ): bool {
+        $stderrRef = '';
         if (! is_dir($workspace)) {
-            return;
+            $stderrRef = 'reapply_workspace_missing';
+
+            return false;
         }
         $diffText = trim($diffText);
         if ($diffText === '') {
             // Nothing to re-apply; the candidate made no workspace change.
-            return;
+            // The reverted (clean) workspace already matches this candidate,
+            // so this is a SUCCESS, not a failure.
+            return true;
         }
         $tmp = tempnam(sys_get_temp_dir(), 'atlas_bon_diff_');
         if ($tmp === false) {
-            return;
+            $stderrRef = 'reapply_tempnam_failed';
+
+            return false;
         }
         file_put_contents($tmp, $diffText."\n");
         try {
             $process = new Process(['git', 'apply', '--whitespace=nowarn', $tmp], $workspace, null, null, 15.0);
             $process->run();
-            // If git apply fails (e.g. context drift), fall back to leaving
-            // the workspace clean — the winner's diffResult is still captured
-            // from its parsed stdout, so the persisted hash remains correct.
+            if (! $process->isSuccessful()) {
+                // FAIL-CLOSED: surface the git apply stderr so the caller can
+                // refuse to persist a desynced winner's green metadata.
+                $stderrRef = $process->getErrorOutput() !== ''
+                    ? $process->getErrorOutput()
+                    : 'git apply failed with exit code '.$process->getExitCode();
+
+                return false;
+            }
+
+            return true;
         } finally {
             @unlink($tmp);
         }

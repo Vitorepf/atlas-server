@@ -938,6 +938,181 @@ final class BestOfNHermesTest extends TestCase
         );
     }
 
+    /**
+     * REGRESSION (m4-fix-reapply-candidate-diff-fail-closed): when the winner
+     * has a non-empty diff and its re-application to the reverted workspace
+     * FAILS (git apply non-zero exit, e.g. context drift), the run MUST NOT
+     * report the winner's green metadata. It must yield a NON-completed
+     * outcome (non-passed verification / failed patch_apply) carrying the
+     * apply-failure reason, mirroring the no-candidate-produced branch.
+     *
+     * Anti-gaming: a desynced workspace (one whose actual state does NOT match
+     * the selected winner's diff) must never report green.
+     *
+     * Fixture: candidate 1 is the winner (passes the gate). Its diff is
+     * captured against HEAD=V1. Candidate 2 (fails the gate) commits V3 to
+     * HEAD as a side effect, so when the workspace is reverted after the loop
+     * the target file is V3, and re-applying the winner's V1->V2 diff fails
+     * (context drift) — exactly the fail-open gap the fix closes.
+     */
+    public function test_winner_reapply_failure_yields_non_completed_not_green(): void
+    {
+        $runId = 'dev-bon-reapply-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+        $this->seedRun($storage, $runId, taskKind: 'repair', riskLevel: 'R2');
+        $this->initGitWorkspace();
+
+        $target = $this->tmpWorkspace.'/app/Foo.php';
+        mkdir(dirname($target), 0o755, true);
+        $v1 = "<?php\nfinal class Foo { public function value(): string { return 'baseline-V1'; } }\n";
+        file_put_contents($target, $v1);
+        $this->git(['add', 'app/Foo.php']);
+        $this->git(['commit', '-m', 'fixture V1']);
+
+        $providerState = new \stdClass;
+        $providerState->callCount = 0;
+        // Candidate 1 (winner, passes): writes V2 over V1.
+        // Candidate 2 (fails gate): writes V3 AND commits V3 to HEAD, so the
+        // post-loop revert restores V3 and the winner's V1->V2 diff cannot
+        // apply (context drift) -> git apply non-zero exit.
+        // Candidate 3 (fails gate): writes V3 again (no-op vs HEAD).
+        $fakeHermes = new class($target, $providerState) implements AiProvider
+        {
+            public function __construct(
+                private readonly string $target,
+                private readonly object $state,
+            ) {}
+
+            public function key(): string
+            {
+                return 'hermes_cli';
+            }
+
+            public function run(AiJob $job, string $prompt): AiProviderResult
+            {
+                return $this->runStreaming($job, $prompt);
+            }
+
+            public function runStreaming(AiJob $job, string $prompt, ?callable $onEvent = null): AiProviderResult
+            {
+                $this->state->callCount++;
+                if ($this->state->callCount === 1) {
+                    // Winner: V1 -> V2 (diff captured against HEAD=V1).
+                    file_put_contents($this->target, "<?php\nfinal class Foo { public function value(): string { return 'winner-V2'; } }\n");
+
+                    return new AiProviderResult(
+                        ok: true, output: 'edited', command: [], exitCode: 0,
+                        durationMs: 100, stdout: 'edited', stderr: '',
+                        errorCode: null, errorMessage: null, metadata: [],
+                    );
+                }
+                // Candidate 2+: write V3 and commit V3 to HEAD so the
+                // post-loop revert restores V3, invalidating the winner's
+                // V1-context diff (deterministic git apply failure).
+                file_put_contents($this->target, "<?php\nfinal class Foo { public function value(): string { return 'drift-V3'; } }\n");
+                $this->gitIn(dirname($this->target), ['add', 'app/Foo.php']);
+                $this->gitIn(dirname($this->target), ['commit', '-m', 'drift V3']);
+
+                return new AiProviderResult(
+                    ok: true, output: 'edited', command: [], exitCode: 0,
+                    durationMs: 100, stdout: 'edited', stderr: '',
+                    errorCode: null, errorMessage: null, metadata: [],
+                );
+            }
+
+            public function health(): AiProviderHealthCheck
+            {
+                return new AiProviderHealthCheck(provider: 'hermes_cli', status: 'online', message: 'fake');
+            }
+
+            /** @param  list<string>  $args */
+            private function gitIn(string $workspace, array $args): void
+            {
+                // Run git from the workspace root (parent of app/).
+                $root = dirname($workspace);
+                $process = new Process(['git', ...$args], $root, null, null, 10.0);
+                $process->run();
+            }
+        };
+
+        $this->registerHermes($fakeHermes);
+
+        $commandRunner = new FakeCommandRunner;
+        // Candidate 1 (winner): pass. Candidates 2 and 3: fail the gate.
+        $this->queueGreenGate($commandRunner);
+        $this->queueRedGate($commandRunner);
+        $this->queueRedGate($commandRunner);
+
+        $gateway = new FakeClaudeCliGateway;
+        $container = new Container;
+        $container->instance(ClaudeCliGateway::class, $gateway);
+        $container->instance(VerificationCommandRunner::class, $commandRunner);
+        $executor = new PipelineRunExecutor($container, $storage);
+
+        config()->set('atlas_dev.best_of_n.candidate_count', 3);
+
+        $envelope = $this->envelope(intent: 'Fix app/Foo.php', providerChoice: 'hermes_cli');
+        $taskContract = $this->taskContractFixture([
+            'allowed_files' => ['app/Foo.php'],
+            'max_files_changed' => 1,
+            'validation_commands' => ['/opt/homebrew/bin/php artisan test tests/Unit/FooTest.php'],
+            'provider_lock' => [
+                'provider' => 'hermes_cli',
+                'model_family' => 'minimax-m3',
+                'fallback_allowed' => false,
+            ],
+            'repair_policy' => [
+                'max_attempts' => 0,
+                'same_provider' => true,
+                'requires_failed_gate_output' => true,
+                'abort_on_same_signature_twice' => true,
+            ],
+        ]);
+
+        $result = $executor->execute(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            promptProjection: $this->buildSendableProjection(envelope: $envelope, taskContract: $taskContract),
+            runId: $runId,
+        );
+
+        // REGRESSION: winner re-apply failed -> NON-completed (anti-gaming:
+        // a desynced workspace must never report green).
+        $this->assertNotSame(
+            VerificationGateResult::STATUS_PASSED,
+            $result->verificationStatus,
+            'Winner re-apply failure must NOT report passed verification'
+        );
+        $this->assertNotSame(
+            CompletionSummary::STATUS_PASSED,
+            $result->completionState,
+            'Winner re-apply failure must NOT report a green (passed) completion'
+        );
+        // The provider call summary carries the winner_reapply_failed error
+        // code (the blocked call result synthesized by the fail-closed branch).
+        $this->assertContains(
+            'winner_reapply_failed',
+            $result->providerCallSummary['error_codes'] ?? [],
+            'The provider call summary must carry the winner_reapply_failed error code'
+        );
+        // The persisted patch-apply receipt records STATUS_FAILED + the reason.
+        $patchReceiptPath = $result->persistedReceiptPaths[ArtifactNames::PATCH_APPLY_RESULT] ?? null;
+        $this->assertNotNull($patchReceiptPath, 'A patch-apply receipt must be persisted');
+        $patchReceipt = json_decode((string) file_get_contents($patchReceiptPath), true);
+        $this->assertSame(
+            'failed',
+            $patchReceipt['status'] ?? null,
+            'Persisted patch-apply status must be "failed" when the winner re-apply fails'
+        );
+        $this->assertSame(
+            'winner_reapply_failed',
+            $patchReceipt['reason'] ?? null,
+            'The persisted failure reason must identify a winner-reapply failure'
+        );
+        // Sanity: all 3 candidates were still attempted (no skip).
+        $this->assertSame(3, $providerState->callCount, 'All N candidates must still be attempted');
+    }
+
     // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------
