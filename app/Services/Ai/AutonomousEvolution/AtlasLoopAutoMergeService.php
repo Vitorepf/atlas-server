@@ -56,6 +56,9 @@ final class AtlasLoopAutoMergeService
         // certify() self-resolves it via app(). Laravel zero-config autowiring does NOT inject `?Type $x =
         // null`, hence the in-method app() fallback.
         private readonly ?BroaderRegressionGateContract $broaderGate = null,
+        // ACDE DG1 — the calibrated-confidence abstention gate. LAST + nullable (autowiring does not inject
+        // `?Type $x = null`, so mergeOne self-resolves it via app() when armed). Default OFF => never consulted.
+        private readonly ?AtlasLoopCalibratedConfidenceGate $confidenceGate = null,
     ) {}
 
     /**
@@ -259,6 +262,25 @@ final class AtlasLoopAutoMergeService
                 $this->markOperatorReview($proposal, 'parked_for_operator_review', 'self_improvement', 'auto_merge');
 
                 return array_merge($base, ['reason' => 'self_improvement (parked_for_operator_review)']);
+            }
+
+            // ACDE DG1 — CALIBRATED-CONFIDENCE ABSTENTION. The honest confidence bar is FIT from real post-merge
+            // outcomes (AtlasLoopConfidenceCalibrator over the {predicted, correct} samples the merge feeder
+            // writes), not a hand-set default. When armed, a certified proposal whose cert-time
+            // delivery_confidence sits BELOW the empirically-precise band PARKS for operator review instead of
+            // auto-merging. Default OFF / not-yet-calibrated / no signal => no abstention => byte-identical (the
+            // reprove + trust gates below still decide). Fail-open: any calibration/DB error never blocks merge.
+            if (! $operatorApproved && (bool) config('atlas.loop.calibrated_confidence_gate_enabled', false)) {
+                try {
+                    $abstention = ($this->confidenceGate ?? app(AtlasLoopCalibratedConfidenceGate::class))->abstain($proposal->quality);
+                    if (($abstention['abstain'] ?? false) === true) {
+                        $this->markOperatorReview($proposal, 'parked_for_operator_review', 'below_calibrated_confidence', 'auto_merge');
+
+                        return array_merge($base, ['reason' => 'below_calibrated_confidence (parked_for_operator_review)']);
+                    }
+                } catch (Throwable) {
+                    // fail-open — a calibration/DB hiccup must never block an otherwise-mergeable proposal.
+                }
             }
 
             // 1. Re-prova real contra o contrato congelado persistido. A re-prova é FLAKY sob

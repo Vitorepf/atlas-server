@@ -2364,6 +2364,15 @@ return [
         // fixes exactly the dimension that failed instead of re-rolling blind. Deterministic (canned per
         // dimension, never an LLM judge). Default OFF => guidance unchanged => byte-identical.
         'rejection_dimension_routing_enabled' => (bool) env('ATLAS_LOOP_REJECTION_DIMENSION_ROUTING_ENABLED', false),
+        // ACDE DG1 — calibrated-confidence abstention at the merge gate. AtlasLoopConfidenceCalibrator fits the
+        // honest threshold (lowest cert-time confidence at which observed post-merge precision >= target) from
+        // the real {predicted, correct} samples the merge feeder writes; the live merge authority abstains
+        // (parks for operator) below that band instead of merging on a hand-set default. Default OFF => the gate
+        // is never consulted => byte-identical. Needs >= min_samples real outcomes to fit a band (else fail-open).
+        'calibrated_confidence_gate_enabled' => (bool) env('ATLAS_LOOP_CALIBRATED_CONFIDENCE_GATE_ENABLED', false),
+        'calibrated_confidence_target_precision' => max(0.0, min(1.0, (float) env('ATLAS_LOOP_CALIBRATED_CONFIDENCE_TARGET_PRECISION', 0.93))),
+        'calibrated_confidence_min_samples' => max(2, (int) env('ATLAS_LOOP_CALIBRATED_CONFIDENCE_MIN_SAMPLES', 20)),
+        'calibrated_confidence_window_days' => max(1, (int) env('ATLAS_LOOP_CALIBRATED_CONFIDENCE_WINDOW_DAYS', 30)),
         // ACDE O1 — the in-lane ORIGINATION producer: author a PROPOSE-ONLY origination proposal (structure +
         // decomposition hint, NO frozen acceptance, EMPTY diff, NEVER executeAndProve). Safe by construction:
         // empty diff + no acceptance_contract => the drain reprove fails closed => the row is RETIRED on the
