@@ -135,6 +135,16 @@ final class AtlasLoopPlanReadinessGate
             $ready = false;
         }
 
+        // ACDE P3 — SPEC-COVERAGE band. The bands above prove each node is well-formed, but nothing checked that
+        // the UNION of nodes COVERS the spec's acceptance_criteria — a structurally-impeccable DAG can silently
+        // drop a whole behavioral dimension. When armed and the plan carries acceptance_criteria, a criterion
+        // whose salient keywords appear in NO node REPLANS (the planner regenerates a DAG that covers it). Flag
+        // OFF / no criteria on the plan => [] => byte-identical.
+        foreach ($this->specCoverageGaps($plan) as $g) {
+            $gaps[] = $g;
+            $ready = false;
+        }
+
         return [
             // The decision encodes the economics: a weak plan REPLANS (cheap) rather than IMPLEMENTING
             // (expensive). Only an impeccable plan spends the implementation budget.
@@ -144,6 +154,85 @@ final class AtlasLoopPlanReadinessGate
             'structural_valid' => $structuralValid,
             'gaps' => array_values(array_unique($gaps)),
         ];
+    }
+
+    /**
+     * ACDE P3 — SPEC-COVERAGE gaps: for each acceptance_criterion carried on the plan, require that at least one
+     * salient keyword appears in the union of node requests/acceptance; an uncovered criterion is a REPLAN gap.
+     * Conservative (a criterion sharing even ONE salient token with any node is "covered") so it never false-
+     * rejects. Returns [] (byte-identical) when the flag is OFF or the plan carries no acceptance_criteria.
+     *
+     * @param  array<string,mixed>  $plan
+     * @return list<string>
+     */
+    private function specCoverageGaps(array $plan): array
+    {
+        $enabled = false;
+        try {
+            $enabled = (bool) config('atlas.loop.spec_coverage_band_enabled', false);
+        } catch (\Throwable) {
+            $enabled = false;
+        }
+        if (! $enabled) {
+            return [];
+        }
+
+        $criteria = $plan['acceptance_criteria'] ?? data_get($plan, 'spec.acceptance_criteria', []);
+        $criteria = array_values(array_filter(array_map(
+            static fn (mixed $c): string => is_string($c) ? trim($c) : '',
+            is_array($criteria) ? $criteria : [],
+        )));
+        if ($criteria === []) {
+            return [];
+        }
+
+        // The union of every node's request + acceptance text (lowercased) — what the DAG actually addresses.
+        $nodeText = '';
+        foreach (array_values(is_array($plan['nodes'] ?? null) ? (array) $plan['nodes'] : []) as $node) {
+            if (is_array($node)) {
+                $nodeText .= ' '.mb_strtolower((string) ($node['request'] ?? ''));
+                $nodeText .= ' '.mb_strtolower(json_encode($node['acceptance'] ?? '') ?: '');
+            }
+        }
+
+        $gaps = [];
+        foreach ($criteria as $criterion) {
+            $tokens = $this->salientTokens($criterion);
+            if ($tokens === []) {
+                continue; // a criterion with no salient keyword cannot be matched => never a false REPLAN
+            }
+            $covered = false;
+            foreach ($tokens as $t) {
+                if (str_contains($nodeText, $t)) {
+                    $covered = true;
+                    break;
+                }
+            }
+            if (! $covered) {
+                $gaps[] = 'spec_criterion_uncovered:'.mb_substr($criterion, 0, 60);
+            }
+        }
+
+        return $gaps;
+    }
+
+    /**
+     * Salient lowercased keywords of a criterion: identifier-like words of length >= 4, minus common filler.
+     *
+     * @return list<string>
+     */
+    private function salientTokens(string $criterion): array
+    {
+        $stop = ['must', 'should', 'that', 'with', 'when', 'then', 'this', 'they', 'have', 'from', 'into', 'each', 'than', 'them', 'will', 'shall', 'returns', 'return', 'value', 'given'];
+        $words = preg_split('/[^a-z0-9_]+/i', mb_strtolower($criterion)) ?: [];
+        $out = [];
+        foreach ($words as $w) {
+            if (mb_strlen($w) >= 4 && ! in_array($w, $stop, true)) {
+                $out[$w] = true;
+            }
+        }
+
+        return array_keys($out);
     }
 
     /**

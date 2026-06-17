@@ -2349,6 +2349,11 @@ return [
         // file-agnostic change request (the weak engine "decomposing" by copy-pasting one change across N files).
         // The structural validator proves well-formed, not distinct. Default OFF => byte-identical.
         'decomposition_non_vacuity_enabled' => (bool) env('ATLAS_LOOP_DECOMPOSITION_NON_VACUITY_ENABLED', false),
+        // ACDE P3 — spec-coverage readiness band: a plan whose nodes do not cover one of the spec's
+        // acceptance_criteria (no salient keyword of the criterion appears in any node) REPLANS, so a
+        // structurally-impeccable DAG cannot silently drop a behavioral dimension. Conservative (one shared
+        // token => covered). Default OFF / no criteria on the plan => byte-identical.
+        'spec_coverage_band_enabled' => (bool) env('ATLAS_LOOP_SPEC_COVERAGE_BAND_ENABLED', false),
         // ACDE WD4 — split the strategy-bandit UCB bucket by a MEASURED complexity tier (lo/mid/hi on total
         // cyclomatic) so surgical-vs-root_cause efficacy is no longer averaged across a trivial adapter and a
         // 200-method hub. Default OFF => targetType() returns the bare path-prefix bucket, no file read,
