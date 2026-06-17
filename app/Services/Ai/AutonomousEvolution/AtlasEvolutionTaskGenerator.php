@@ -31,6 +31,7 @@ final class AtlasEvolutionTaskGenerator
 
     public function __construct(
         private readonly LoopExecutionDriver $driver,
+        private readonly AtlasLoopRedReasonGate $redReasonGate = new AtlasLoopRedReasonGate,
     ) {}
 
     /**
@@ -82,6 +83,23 @@ final class AtlasEvolutionTaskGenerator
         // otherwise it describes no real work (a trivial/already-satisfied target).
         if (! $this->isRed($base, $testRel)) {
             return ['generated' => false, 'reason' => 'generated_test_is_not_red (no real work / fabricated target)', 'objective' => $objective];
+        }
+
+        // ACDE U2 — when armed, additionally prove the RED is BEHAVIORAL (the test pins the claimed improvement),
+        // not a STRUCTURAL defect (a non-parsing test or a wrong require path) that merely exits non-zero. Default
+        // OFF => the gate never runs => byte-identical (the any-non-zero isRed remains the sole guard). The flag
+        // read is fail-safe: with no Laravel container (pure unit context) it resolves OFF, never throwing.
+        $redReasonGateEnabled = false;
+        try {
+            $redReasonGateEnabled = (bool) config('atlas.loop.red_reason_gate_enabled', false);
+        } catch (Throwable) {
+            $redReasonGateEnabled = false;
+        }
+        if ($redReasonGateEnabled) {
+            $redReason = $this->redReasonGate->evaluate($base, $testRel, $targetRelativePath);
+            if (! $redReason['is_red']) {
+                return ['generated' => false, 'reason' => 'red_reason_rejected: '.$redReason['reason'], 'objective' => $objective];
+            }
         }
 
         return [

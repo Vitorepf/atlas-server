@@ -2329,6 +2329,12 @@ return [
         // rewrite never poisons the scenario workspace (the fatal-autoload → diff-0 → certifies-nothing trap).
         // Default OFF => the check is skipped => writes are byte-identical to today.
         'parse_gate_enabled' => (bool) env('ATLAS_LOOP_PARSE_GATE_ENABLED', false),
+        // ACDE U2 — red-REASON discriminator. AtlasEvolutionTaskGenerator::isRed accepts ANY non-zero exit as a
+        // real RED task, so a weak engine's structurally-broken test (does not parse / wrong require path) is
+        // mistaken for genuine behavioral work. When armed, a generated RED must additionally be BEHAVIORAL
+        // (deterministic: parses + exercises the target + fails without a load-time structural signature).
+        // Default OFF => the gate never runs => task generation is byte-identical.
+        'red_reason_gate_enabled' => (bool) env('ATLAS_LOOP_RED_REASON_GATE_ENABLED', false),
         // ACDE O1 — the in-lane ORIGINATION producer: author a PROPOSE-ONLY origination proposal (structure +
         // decomposition hint, NO frozen acceptance, EMPTY diff, NEVER executeAndProve). Safe by construction:
         // empty diff + no acceptance_contract => the drain reprove fails closed => the row is RETIRED on the
