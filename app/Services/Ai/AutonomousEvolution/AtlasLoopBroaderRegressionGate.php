@@ -209,6 +209,22 @@ final class AtlasLoopBroaderRegressionGate implements BroaderRegressionGateContr
             }
         }
 
+        // ACDE QA5 — UNION the learned cross-module coverage edges. The static map + sibling above are
+        // blind to a suite in module X that exercises a class in module Y; the coverage ledger has those
+        // edges from real coverage runs. $add() keeps only existing paths and de-dupes, and the union is
+        // purely ADDITIVE (a noisy edge costs an extra green suite, never hides a regression). Default OFF
+        // => the ledger is never read => byte-identical selection. DB read is fail-open (a missing table /
+        // unavailable connection in a throwaway tree must never break the gate's selection).
+        if ((bool) config('atlas.loop.coverage_union_test_selection_enabled', false)) {
+            try {
+                foreach (\App\Models\AtlasLoopTestCoverageEdge::testPathsFor($changed) as $coveringTest) {
+                    $add($coveringTest);
+                }
+            } catch (Throwable) {
+                // fail-open: no ledger union, the static selection stands.
+            }
+        }
+
         return array_keys($selected);
     }
 

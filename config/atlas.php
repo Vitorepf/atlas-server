@@ -2345,6 +2345,12 @@ return [
         // gate probes EVERY added decision line per target (same drift-guard + comment skip); a survivor anywhere
         // rejects. Default OFF => one decision per target (first-only) => byte-identical to the proven lane.
         'exhaustive_decision_probing_enabled' => (bool) env('ATLAS_LOOP_EXHAUSTIVE_DECISION_PROBING_ENABLED', false),
+        // ACDE QA5 — coverage-union test selection. The broader-regression gate unions the learned
+        // cross-module coverage edges (source_path -> test_path, from real coverage runs) onto its static
+        // subtree-map selection, so a suite in another module that exercises a changed class is also run.
+        // Purely ADDITIVE (never removes a suite). Default OFF => the ledger is never consulted => the
+        // gate selects exactly the static map + siblings (byte-identical).
+        'coverage_union_test_selection_enabled' => (bool) env('ATLAS_LOOP_COVERAGE_UNION_TEST_SELECTION_ENABLED', false),
         // ACDE MF2 — hub-first multi-file conversion: when a coupled cluster is detected, route the anchored HUB
         // through the proven single-file refactor lane (its own complexity proof) instead of the all-or-nothing
         // N-file conjunction that drops ~17% of conversions. Only under the known-shape guard (covered>=2, hub
