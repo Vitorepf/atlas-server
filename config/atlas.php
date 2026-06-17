@@ -2421,6 +2421,12 @@ return [
         // does not cost the whole task. Width raises HONEST task yield without lowering the bar. Default 1 =>
         // one pass => byte-identical. Each extra sample is one extra provider generation call (cost-bounded by N).
         'comprehension_samples' => max(1, (int) env('ATLAS_LOOP_COMPREHENSION_SAMPLES', 1)),
+        // ACDE U3 — sample-N objective DIVERGENCE (Jaccard). With comprehension_samples>1, measure the SPREAD
+        // of the K independent readings' proposed objectives; a mean pairwise Jaccard distance >= threshold
+        // means the file is genuinely ambiguous => abstain-and-ask instead of committing to one arbitrary
+        // reading. Default OFF => U1's first-RED early-return is preserved => byte-identical.
+        'objective_divergence_enabled' => (bool) env('ATLAS_LOOP_OBJECTIVE_DIVERGENCE_ENABLED', false),
+        'objective_divergence_threshold' => (float) env('ATLAS_LOOP_OBJECTIVE_DIVERGENCE_THRESHOLD', 0.85),
         // ACDE V1 — strengthen the changed-symbol coverage census from bare name-presence to "exercised": the
         // changed public symbol must be CALLED in the corpus AND the corpus must assert something. Deterministic,
         // no coverage driver (bounded — does not prove per-branch coverage). Default OFF => name-presence stands

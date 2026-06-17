@@ -113,4 +113,65 @@ final class AtlasLoopComprehensionSamplingTest extends TestCase
 
         $this->assertFalse($r['generated'], 'no fabricated task when no reading is genuinely red');
     }
+
+    // --- ACDE U3: sample-N objective divergence (Jaccard) → abstain-and-ask --------------------
+
+    public function test_u3_off_returns_the_first_red_byte_identical(): void
+    {
+        config(['atlas.loop.comprehension_samples' => 3, 'atlas.loop.objective_divergence_enabled' => false]);
+        // Reading 0 is a genuine RED with a WILDLY different objective from 1/2 — but U3 OFF => first RED wins
+        // immediately (the early return is preserved), so the divergence is never even measured.
+        $driver = $this->driverPerIndex([
+            0 => ['test' => $this->redTest(), 'obj' => "alpha beta gamma\n"],
+            1 => ['test' => $this->greenTest(), 'obj' => "delta epsilon zeta\n"],
+            2 => ['test' => $this->greenTest(), 'obj' => "eta theta iota\n"],
+        ]);
+
+        $r = (new AtlasEvolutionTaskGenerator($driver))->generateBestForTarget($this->base, 'src/Subject.php', ['provider' => 'test', 'index' => 0]);
+
+        $this->assertTrue($r['generated'], 'OFF => the first genuine RED is returned unchanged');
+        $this->assertSame(0, $r['comprehension_sample']);
+    }
+
+    public function test_u3_armed_abstains_when_the_readings_diverge(): void
+    {
+        config([
+            'atlas.loop.comprehension_samples' => 3,
+            'atlas.loop.objective_divergence_enabled' => true,
+            'atlas.loop.objective_divergence_threshold' => 0.85,
+        ]);
+        // Sample 0 IS a genuine RED, but the three independent readings propose DISJOINT objectives (the file is
+        // ambiguous) — U3 refuses to commit to one arbitrary reading and asks the operator instead.
+        $driver = $this->driverPerIndex([
+            0 => ['test' => $this->redTest(), 'obj' => "alpha beta gamma\n"],
+            1 => ['test' => $this->greenTest(), 'obj' => "delta epsilon zeta\n"],
+            2 => ['test' => $this->greenTest(), 'obj' => "eta theta iota\n"],
+        ]);
+
+        $r = (new AtlasEvolutionTaskGenerator($driver))->generateBestForTarget($this->base, 'src/Subject.php', ['provider' => 'test', 'index' => 0]);
+
+        $this->assertFalse($r['generated'], 'divergent readings => abstain, even though a RED existed');
+        $this->assertSame('objective_divergence_ambiguous', $r['reason']);
+        $this->assertGreaterThanOrEqual(0.85, $r['objective_divergence']);
+    }
+
+    public function test_u3_armed_returns_the_red_when_the_readings_agree(): void
+    {
+        config([
+            'atlas.loop.comprehension_samples' => 3,
+            'atlas.loop.objective_divergence_enabled' => true,
+            'atlas.loop.objective_divergence_threshold' => 0.85,
+        ]);
+        // The three readings AGREE on what to improve (high word overlap) => the first genuine RED stands.
+        $driver = $this->driverPerIndex([
+            0 => ['test' => $this->redTest(), 'obj' => "make subject_val return two\n"],
+            1 => ['test' => $this->greenTest(), 'obj' => "make subject_val return two now\n"],
+            2 => ['test' => $this->greenTest(), 'obj' => "make subject_val return two please\n"],
+        ]);
+
+        $r = (new AtlasEvolutionTaskGenerator($driver))->generateBestForTarget($this->base, 'src/Subject.php', ['provider' => 'test', 'index' => 0]);
+
+        $this->assertTrue($r['generated'], 'agreeing readings => the first genuine RED is delivered');
+        $this->assertSame(0, $r['comprehension_sample']);
+    }
 }

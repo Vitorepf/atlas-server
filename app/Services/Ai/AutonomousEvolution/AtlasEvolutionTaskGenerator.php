@@ -139,22 +139,65 @@ final class AtlasEvolutionTaskGenerator
             return $this->generateForTarget($baseWorkspace, $targetRelativePath, $options);
         }
 
+        // ACDE U3 — sample-N objective DIVERGENCE. When armed, keep sampling all K readings (instead of
+        // early-returning the first RED) so the SPREAD of the K proposed objectives can be measured; a wildly
+        // divergent spread means the file is genuinely ambiguous and the loop ASKS the operator rather than
+        // committing to one arbitrary reading. Default OFF => first-RED early-return is preserved => byte-identical.
+        $divergenceEnabled = (bool) config('atlas.loop.objective_divergence_enabled', false);
+
         $baseIndex = max(0, (int) ($options['index'] ?? 0));
         $last = ['generated' => false, 'reason' => 'comprehension_no_red_in_samples'];
+        $firstRed = null;   // U3: the first genuine RED, remembered while the remaining readings are sampled
+        $objectives = [];   // U3: every reading's proposed objective text (the ambiguity signal)
         for ($k = 0; $k < $samples; $k++) {
             $opt = $options;
             $opt['index'] = $baseIndex * $samples + $k; // distinct frozen test file per independent reading
             $candidate = $this->generateForTarget($baseWorkspace, $targetRelativePath, $opt);
+            $objective = $this->objectiveOf($candidate);
+            if ($objective !== '') {
+                $objectives[] = $objective;
+            }
             if (($candidate['generated'] ?? false) === true) {
                 $candidate['comprehension_sample'] = $k;
                 $candidate['comprehension_samples'] = $samples;
-
-                return $candidate; // first genuine (U2-behavioral when armed) RED wins — deterministic
+                if (! $divergenceEnabled) {
+                    return $candidate; // first genuine (U2-behavioral when armed) RED wins — deterministic
+                }
+                $firstRed ??= $candidate; // U3 armed: remember it, keep sampling for the divergence measure
             }
             $last = $candidate;
         }
 
+        if ($divergenceEnabled) {
+            $divergence = new AtlasLoopObjectiveDivergence;
+            $threshold = (float) config('atlas.loop.objective_divergence_threshold', 0.85);
+            if (count($objectives) >= 2 && $divergence->diverges($objectives, $threshold)) {
+                return [
+                    'generated' => false,
+                    'reason' => 'objective_divergence_ambiguous',
+                    'objective_divergence' => $divergence->meanPairwiseJaccardDistance($objectives),
+                    'comprehension_samples' => $samples,
+                ];
+            }
+            if ($firstRed !== null) {
+                return $firstRed; // the readings AGREE enough => the first genuine RED stands
+            }
+        }
+
         return $last; // no sample produced a genuine RED => the last rejection (honest, no fabricated task)
+    }
+
+    /**
+     * The proposed objective text on a generateForTarget result, present on BOTH a success (task.objective)
+     * and a rejection (objective). '' when none. Used by U3 to gather the K readings' objectives.
+     *
+     * @param  array<string,mixed>  $candidate
+     */
+    private function objectiveOf(array $candidate): string
+    {
+        $objective = $candidate['task']['objective'] ?? $candidate['objective'] ?? null;
+
+        return is_string($objective) ? trim($objective) : '';
     }
 
     private function generationIntent(string $target, string $testRel, string $objRel): string
