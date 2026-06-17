@@ -129,4 +129,77 @@ final class AtlasLoopProviderEditApplierTest extends TestCase
         $this->assertFalse($applier->applyFromText('', $this->workspace)['applied']);
         $this->assertFalse($applier->applyFromText('```diff\n--- a/x\n+++ b/x\n```', $this->workspace.'/does-not-exist')['applied']);
     }
+
+    /** A full-file delivery block ({@see AtlasLoopProviderEditApplier} primary path for a weak engine). */
+    private function fullFileBlock(string $rel, string $body): string
+    {
+        return "*** ATLAS_FILE: {$rel} ***\n{$body}\n*** ATLAS_END ***";
+    }
+
+    private const BROKEN_PHP = "<?php\n\nclass Broken\n{\n    public function a()\n    {\n        return 1\n    }\n"; // missing ; + unclosed class brace
+
+    private const VALID_PHP = "<?php\n\nclass Ok\n{\n    public function a(): int\n    {\n        return 42;\n    }\n}\n";
+
+    public function test_parse_gate_OFF_writes_unparseable_php_verbatim_byte_identical(): void
+    {
+        // Default OFF (no config set) => today's behavior exactly: a broken full-file rewrite is written as-is.
+        $reply = $this->fullFileBlock('src/Broken.php', self::BROKEN_PHP);
+
+        $result = (new AtlasLoopProviderEditApplier)->applyFromText($reply, $this->workspace);
+
+        $this->assertTrue($result['applied'], 'with the gate OFF the broken body is written (byte-identical to before X2)');
+        $this->assertSame(['src/Broken.php'], $result['changed_files']);
+        $this->assertStringContainsString('return 1', (string) file_get_contents($this->workspace.'/src/Broken.php'));
+    }
+
+    public function test_parse_gate_ON_rejects_unparseable_php_and_never_writes_it(): void
+    {
+        config(['atlas.loop.parse_gate_enabled' => true]);
+        $reply = $this->fullFileBlock('src/Broken.php', self::BROKEN_PHP);
+
+        $result = (new AtlasLoopProviderEditApplier)->applyFromText($reply, $this->workspace);
+
+        $this->assertFalse($result['applied'], 'an armed gate must reject a body that does not parse');
+        $this->assertSame([], $result['changed_files']);
+        $this->assertSame('parse_gate_rejected', $result['reason']);
+        $this->assertFileDoesNotExist($this->workspace.'/src/Broken.php', 'the poison file must never reach the workspace');
+    }
+
+    public function test_parse_gate_ON_still_applies_valid_php(): void
+    {
+        config(['atlas.loop.parse_gate_enabled' => true]);
+        $reply = $this->fullFileBlock('src/Ok.php', self::VALID_PHP);
+
+        $result = (new AtlasLoopProviderEditApplier)->applyFromText($reply, $this->workspace);
+
+        $this->assertTrue($result['applied'], 'a parseable body passes the gate');
+        $this->assertSame(['src/Ok.php'], $result['changed_files']);
+        $this->assertStringContainsString('return 42;', (string) file_get_contents($this->workspace.'/src/Ok.php'));
+    }
+
+    public function test_parse_gate_ON_only_guards_php_targets(): void
+    {
+        config(['atlas.loop.parse_gate_enabled' => true]);
+        // A .json file with "broken PHP" content is not PHP — the gate must not touch it.
+        $reply = $this->fullFileBlock('config/data.json', self::BROKEN_PHP);
+
+        $result = (new AtlasLoopProviderEditApplier)->applyFromText($reply, $this->workspace);
+
+        $this->assertTrue($result['applied'], 'the gate only applies to .php targets');
+        $this->assertSame(['config/data.json'], $result['changed_files']);
+    }
+
+    public function test_parse_gate_ON_writes_the_valid_file_and_rejects_only_the_broken_one(): void
+    {
+        config(['atlas.loop.parse_gate_enabled' => true]);
+        $reply = $this->fullFileBlock('src/Ok.php', self::VALID_PHP)."\n".$this->fullFileBlock('src/Broken.php', self::BROKEN_PHP);
+
+        $result = (new AtlasLoopProviderEditApplier)->applyFromText($reply, $this->workspace);
+
+        $this->assertTrue($result['applied'], 'the parseable file still lands');
+        $this->assertSame(['src/Ok.php'], $result['changed_files']);
+        $this->assertSame('applied_full_file_partial', $result['status']);
+        $this->assertFileExists($this->workspace.'/src/Ok.php');
+        $this->assertFileDoesNotExist($this->workspace.'/src/Broken.php');
+    }
 }

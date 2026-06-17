@@ -8,6 +8,7 @@ use App\Services\Ai\Programming\AtlasDev\Gate\PatchApplier;
 use App\Services\Ai\Programming\AtlasDev\Gate\PatchApplyResult;
 use App\Services\Ai\Programming\AtlasDev\Provider\DiffParser;
 use App\Services\Ai\Programming\AtlasDev\Provider\DiffParseResult;
+use PhpParser\ParserFactory;
 use Throwable;
 
 /**
@@ -86,6 +87,7 @@ final class AtlasLoopProviderEditApplier
         $root = rtrim((string) (realpath($workspace) ?: $workspace), '/');
         $changed = [];
         $rejected = [];
+        $parseRejected = false;
         foreach ($matches as $block) {
             $rel = $this->normalizeRelativePath((string) $block['path']);
             if ($rel === null || ! $this->withinScope($rel, $allowedFiles)) {
@@ -104,6 +106,17 @@ final class AtlasLoopProviderEditApplier
                 @mkdir($dir, 0o755, true);
             }
             $body = $this->stripTrailingFence((string) $block['body']);
+            // ACDE X2 — deterministic parse-gate. A weak engine emitting a full-file rewrite of a large .php
+            // file routinely introduces a duplicate method / unbalanced brace; written verbatim it poisons the
+            // whole scenario workspace (fatal autoload), so every scenario then scores diff-0 and nothing
+            // certifies. When armed, a .php body that does not parse is REJECTED here (never written) — a free,
+            // zero-model pre-acceptance oracle. Default OFF => the check is skipped => writes are byte-identical.
+            if (str_ends_with($rel, '.php') && (bool) config('atlas.loop.parse_gate_enabled', false) && ! $this->phpBodyParses($body)) {
+                $rejected[] = $rel;
+                $parseRejected = true;
+
+                continue;
+            }
             if (file_put_contents($target, $body) === false) {
                 $rejected[] = $rel;
 
@@ -113,7 +126,9 @@ final class AtlasLoopProviderEditApplier
         }
 
         if ($changed === []) {
-            return ['applied' => false, 'changed_files' => [], 'status' => 'full_file_all_rejected', 'reason' => $rejected === [] ? null : 'out_of_scope_or_unwritable'];
+            $reason = $rejected === [] ? null : ($parseRejected ? 'parse_gate_rejected' : 'out_of_scope_or_unwritable');
+
+            return ['applied' => false, 'changed_files' => [], 'status' => 'full_file_all_rejected', 'reason' => $reason];
         }
 
         return [
@@ -140,6 +155,20 @@ final class AtlasLoopProviderEditApplier
         }
 
         return ['applied' => true, 'changed_files' => array_values($parsed->changedFiles), 'status' => 'applied_diff', 'reason' => null];
+    }
+
+    /**
+     * Deterministic syntax oracle (ACDE X2): does this body parse as PHP? Uses the in-process nikic parser
+     * (no shell-out, no temp file). Fail-CLOSED — any parser Error or Throwable means not-parseable, so the
+     * body is rejected and never written. Only consulted for .php targets when the parse-gate flag is armed.
+     */
+    private function phpBodyParses(string $body): bool
+    {
+        try {
+            return (new ParserFactory)->createForHostVersion()->parse($body) !== null;
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     /** A trailing markdown fence (```) left inside a full-file block body is not file content. */

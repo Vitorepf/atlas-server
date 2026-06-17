@@ -2324,6 +2324,11 @@ return [
         // Best-effort post-commit, wrapped + self-gated: the merge NEVER depends on it. Default OFF => the
         // recorder is a no-op => the merge path is byte-identical (AtlasLoopAutoMergeServiceTest stays green).
         'delivery_brain_feedback_enabled' => (bool) env('ATLAS_LOOP_DELIVERY_BRAIN_FEEDBACK_ENABLED', false),
+        // ACDE X2 — deterministic parse-gate at the provider edit-apply site. When armed, a full-file .php block
+        // that does not parse (nikic, in-process) is REJECTED before it is written, so a weak engine's broken
+        // rewrite never poisons the scenario workspace (the fatal-autoload → diff-0 → certifies-nothing trap).
+        // Default OFF => the check is skipped => writes are byte-identical to today.
+        'parse_gate_enabled' => (bool) env('ATLAS_LOOP_PARSE_GATE_ENABLED', false),
         // ACDE O1 — the in-lane ORIGINATION producer: author a PROPOSE-ONLY origination proposal (structure +
         // decomposition hint, NO frozen acceptance, EMPTY diff, NEVER executeAndProve). Safe by construction:
         // empty diff + no acceptance_contract => the drain reprove fails closed => the row is RETIRED on the
