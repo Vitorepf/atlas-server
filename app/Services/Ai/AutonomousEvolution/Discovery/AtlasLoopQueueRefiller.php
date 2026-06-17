@@ -191,15 +191,24 @@ final class AtlasLoopQueueRefiller
         // mutates NOTHING, and never changes discovered/claimed/enqueued/quarantined/deferred.
         // Flag OFF or detector unresolved => this block is inert and the counters are unchanged.
         $obraCandidates = 0;
+        $obraRanking = null; // ACDE DC7 — populated only when the heavy-ranking flag is armed
         if ((bool) config('atlas.loop.obra_cluster_detection_enabled', false) && $this->obraClusterDetector !== null) {
             try {
-                $obraCandidates = count($this->obraClusterDetector->detect($campaign, $targets));
+                $detected = $this->obraClusterDetector->detect($campaign, $targets);
+                $obraCandidates = count($detected);
+                // ACDE DC7 — de-orphan the HeavyWorkSelector: rank the detected candidates by proven-leap
+                // (REAL measured leverage evidence + REAL per-class accept stats from the decomposition-
+                // outcomes ledger) so the operator's obra review surfaces the highest-value-proven cluster
+                // first. Read-only; default OFF => no ranking key => byte-identical envelope.
+                if ((bool) config('atlas.loop.obra_heavy_ranking_enabled', false) && $detected !== []) {
+                    $obraRanking = (new AtlasLoopObraCandidateRanker)->rank($detected);
+                }
             } catch (Throwable) {
                 $obraCandidates = 0; // fail-open: the producer can never break a refill
             }
         }
 
-        return [
+        $result = [
             'discovered' => (int) $disc['upserted'],
             'claimed' => count($targets),
             'enqueued' => $enqueued,
@@ -207,6 +216,12 @@ final class AtlasLoopQueueRefiller
             'deferred' => $deferred,
             'obra_candidates' => $obraCandidates,
         ];
+        if ($obraRanking !== null) {
+            $result['obra_pick'] = $obraRanking['pick'];
+            $result['obra_ranked'] = $obraRanking['ranked'];
+        }
+
+        return $result;
     }
 
     /**

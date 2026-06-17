@@ -2380,6 +2380,11 @@ return [
         // burned. Independently armed from DC4's hopeless gate; composes with the U5 queue. Default OFF =>
         // byte-identical.
         'change_class_thin_prior_ask_enabled' => (bool) env('ATLAS_LOOP_CHANGE_CLASS_THIN_PRIOR_ASK_ENABLED', false),
+        // ACDE DC7 — de-orphan the HeavyWorkSelector into the live refiller: rank the detected obra-cluster
+        // candidates by proven-leap (measured leverage evidence + per-class accept stats) so the operator's
+        // review surfaces the highest-value-proven cluster first. Read-only ranking over already-parked
+        // candidates. Default OFF => no ranking key on the refill envelope => byte-identical.
+        'obra_heavy_ranking_enabled' => (bool) env('ATLAS_LOOP_OBRA_HEAVY_RANKING_ENABLED', false),
         // ACDE MF2 — hub-first multi-file conversion: when a coupled cluster is detected, route the anchored HUB
         // through the proven single-file refactor lane (its own complexity proof) instead of the all-or-nothing
         // N-file conjunction that drops ~17% of conversions. Only under the known-shape guard (covered>=2, hub
