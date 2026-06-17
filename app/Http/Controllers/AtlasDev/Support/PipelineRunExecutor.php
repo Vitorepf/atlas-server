@@ -22,6 +22,7 @@ use App\Services\Ai\Programming\AtlasDev\Gate\VerificationGate;
 use App\Services\Ai\Programming\AtlasDev\Gate\VerificationGateResult;
 use App\Services\Ai\Programming\AtlasDev\Intelligence\PatchIntelligenceInput;
 use App\Services\Ai\Programming\AtlasDev\Intelligence\PatchIntelligenceService;
+use App\Services\Ai\Programming\AtlasDev\Intelligence\ReviewIntelligenceService;
 use App\Services\Ai\Programming\AtlasDev\Intelligence\TestSelectionInput;
 use App\Services\Ai\Programming\AtlasDev\Intelligence\TestSelectionIntelligenceService;
 use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasMinimaxFirstWorkerService;
@@ -37,6 +38,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as Op
 use App\Services\Ai\Programming\AtlasDev\Schemas\CompactSdd;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\CompletionSummary;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\GateOutcome;
+use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ScopeFileDiff;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ScopeGuardReceipt;
@@ -231,12 +233,46 @@ final class PipelineRunExecutor implements RunExecutor
             $diffResult->toCanonicalArray(),
         );
 
+        // M3: Senior critic — invoke ReviewIntelligenceService after the gate
+        // passes and before CompletionStateGate promotes a completion, on the
+        // default hermes_cli path only. A blocker/critical finding forces
+        // completion to non-completed even when tests are green; a clean diff
+        // is NOT falsely blocked; a critic exception degrades to non-passed
+        // (never silently swallowed to green). REUSE ReviewIntelligenceService
+        // (do not rebuild).
+        $reviewReceipt = null;
+        $criticException = null;
+        $criticAnalysed = false;
+        if ($isHermesCli && $verificationResult->aggregateStatus !== VerificationGateResult::STATUS_FAILED) {
+            try {
+                // Resolve from container (allows test bindings) or create fresh.
+                /** @var object $criticService */
+                $criticService = $this->container->bound(ReviewIntelligenceService::class)
+                    ? $this->container->make(ReviewIntelligenceService::class)
+                    : new ReviewIntelligenceService;
+                $criticInput = $this->buildCriticInput(
+                    runId: $runId,
+                    scopeReceipt: $scopeReceipt,
+                    taskContract: $taskContract,
+                    verificationResult: $verificationResult,
+                    diffResult: $diffResult,
+                );
+                $reviewReceipt = $criticService->analyse($criticInput);
+                $criticAnalysed = true;
+            } catch (\Throwable $e) {
+                // Critic exception degrades to non-passed (never swallowed to green).
+                $criticException = $e;
+            }
+        }
+
         $decision = (new CompletionStateGate)->decide(
             taskContract: $taskContract,
             scopeReceipt: $scopeReceipt,
             verificationResult: $verificationResult,
             callResult: $callResultForGates,
             diffResult: $diffResult,
+            reviewReceipt: $reviewReceipt,
+            criticException: $criticException,
         );
 
         // M2: When the repair loop aborted or exhausted, add the abort reason
@@ -348,6 +384,9 @@ final class PipelineRunExecutor implements RunExecutor
                 'raw_response_hash' => $callResult->rawResponseHash,
                 'stdout_bytes' => strlen($callResult->stdout),
                 'stderr_bytes' => strlen($callResult->stderr),
+                'critic_status' => $criticAnalysed && $reviewReceipt !== null ? $reviewReceipt->status : null,
+                'critic_exception' => $criticException?->getMessage(),
+                'critic_findings_count' => $reviewReceipt !== null ? count($reviewReceipt->findings) : null,
             ],
             diffParseSummary: $diffResult->toSummaryArray(),
             verificationReceiptHash: $receipt->receiptHash,
@@ -908,6 +947,126 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         }
 
         return $overrides;
+    }
+
+    /**
+     * M3: Build the input array for ReviewIntelligenceService::analyse().
+     *
+     * Feeds the diff (from $scopeReceipt->observed->fileDiffs) + test evidence
+     * + scope contract into the critic so it can detect heuristic-bounded
+     * defects that tests alone won't catch.
+     *
+     * @return array<string,mixed>
+     */
+    private function buildCriticInput(
+        string $runId,
+        ScopeGuardReceipt $scopeReceipt,
+        LightTaskContract $taskContract,
+        VerificationGateResult $verificationResult,
+        DiffParseResult $diffResult,
+    ): array {
+        // changed_files from the observed diff (canonical "what changed" source)
+        $changedFiles = array_map(
+            static fn (ScopeFileDiff $d): string => $d->path,
+            $scopeReceipt->observed->fileDiffs,
+        );
+
+        // diff_chunks derived from the parsed diff content
+        $diffChunks = [];
+        if ($diffResult->diff !== null && $diffResult->diff !== '') {
+            $diffChunks = $this->parseDiffIntoChunks($diffResult->diff);
+        }
+
+        // test_paths from the verification result (commands that ran)
+        // plus allowedFiles that look like test files (they serve as
+        // expected test coverage even when not in the diff).
+        $testPaths = array_values(array_filter(
+            array_map(static fn ($t): string => $t->command, $verificationResult->tests),
+            static fn (string $cmd): bool => str_contains($cmd, 'test') || str_contains($cmd, 'phpunit'),
+        ));
+        $testPaths = array_values(array_unique(array_merge(
+            $testPaths,
+            array_filter($taskContract->allowedFiles, static fn (string $f): bool => (bool) preg_match('/(^|\/)tests\//i', $f)),
+        )));
+
+        return [
+            'run_id' => $runId,
+            'changed_files' => $changedFiles,
+            'diff_chunks' => $diffChunks,
+            'test_paths' => $testPaths,
+            'allowed_files' => $taskContract->allowedFiles,
+            'forbidden_files' => $taskContract->forbiddenFiles,
+            'risk_rules' => [],
+            'evidence_refs' => [],
+        ];
+    }
+
+    /**
+     * M3: Parse a unified diff string into diff_chunks for the critic.
+     *
+     * Extracts file paths and hunk bodies from a standard unified diff.
+     * This is a best-effort heuristic parser; the critic handles missing
+     * or malformed chunks gracefully (they just reduce detection accuracy).
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function parseDiffIntoChunks(string $diff): array
+    {
+        $chunks = [];
+        $lines = explode("\n", $diff);
+        $currentFile = null;
+        $currentBody = '';
+        $currentLine = null;
+
+        foreach ($lines as $line) {
+            if (preg_match('/^---\s+[ab]\/(.+)$/', $line, $m)) {
+                // --- a/file (old file) — note the new file name from +++ line
+                continue;
+            }
+            if (preg_match('/^\+\+\+\s+[ab]\/(.+)$/', $line, $m)) {
+                // Flush the previous file's chunk
+                if ($currentFile !== null && $currentBody !== '') {
+                    $chunks[] = [
+                        'file' => $currentFile,
+                        'body' => $currentBody,
+                        'line' => $currentLine,
+                    ];
+                }
+                $currentFile = $m[1];
+                $currentBody = '';
+                $currentLine = null;
+
+                continue;
+            }
+            if (preg_match('/^@@\s+-(\d+)/', $line, $m)) {
+                // Hunk header — flush the previous chunk
+                if ($currentFile !== null && $currentBody !== '') {
+                    $chunks[] = [
+                        'file' => $currentFile,
+                        'body' => $currentBody,
+                        'line' => $currentLine,
+                    ];
+                }
+                $currentLine = (int) $m[1];
+                $currentBody = '';
+
+                continue;
+            }
+            if ($currentFile !== null && ($line === '' || str_starts_with($line, '+') || str_starts_with($line, '-') || str_starts_with($line, ' '))) {
+                $currentBody .= $line."\n";
+            }
+        }
+
+        // Flush the last chunk
+        if ($currentFile !== null && $currentBody !== '') {
+            $chunks[] = [
+                'file' => $currentFile,
+                'body' => $currentBody,
+                'line' => $currentLine,
+            ];
+        }
+
+        return $chunks;
     }
 
     /**

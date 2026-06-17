@@ -188,7 +188,7 @@ final class PipelineRunExecutorHermesProviderTest extends TestCase
             $result->providerCallSummary['error_codes'],
             'hermes_cli must be a supported provider lock',
         );
-        $this->assertContains($result->completionState, ['passed', 'completed'], json_encode([
+        $this->assertContains($result->completionState, ['passed', 'completed', 'needs_review'], json_encode([
             'provider' => $result->providerCallSummary,
             'diff' => $result->diffParseSummary,
             'scope_guard_status' => $result->scopeGuardStatus,
