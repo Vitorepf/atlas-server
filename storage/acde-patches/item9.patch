@@ -1,0 +1,631 @@
+diff --git a/app/Services/Ai/AutonomousEvolution/AtlasLoopSemanticImplementationCertifier.php b/app/Services/Ai/AutonomousEvolution/AtlasLoopSemanticImplementationCertifier.php
+index 197f5a20f..a98a1388c 100644
+--- a/app/Services/Ai/AutonomousEvolution/AtlasLoopSemanticImplementationCertifier.php
++++ b/app/Services/Ai/AutonomousEvolution/AtlasLoopSemanticImplementationCertifier.php
+@@ -28,6 +28,12 @@ public function __construct(
+         private readonly AtlasLoopMutationAdequacyGateService $mutationAdequacyGate,
+         private readonly AtlasLoopCrossFileConsumerGateService $crossFileConsumerGate,
+         private readonly ?AtlasLoopSignalAnalyzer $signalAnalyzer = null,
++        // item9: MACHINE-VERIFIED completeness resolver. LAST + nullable + default null so the 6
++        // container/reflection-built call-sites keep working. Laravel zero-config autowiring does NOT
++        // inject `?Type $x = null` params, so the integrator adds an explicit bind passing all required
++        // deps + a LIVE AtlasLoopSignalAnalyzer + this resolver; under any null path the in-method
++        // fallback (see certify()) constructs one from the deps already on this class.
++        private readonly ?\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopCompletenessCriteriaResolver $completenessResolver = null,
+     ) {}
+ 
+     /**
+@@ -230,6 +236,17 @@ public function certify(string $workspace, array $targetAcceptance, array $optio
+         // covered: every REQUIRED criterion satisfied + coverage >= floor. RECORDED always; a GATE only when
+         // completeness_gate_enabled (global) or per-task — default OFF / empty checklist => byte-identical.
+         // Computed BEFORE consensus so it can serve as the independent completeness-lens judge below.
++        // item9: MACHINE-VERIFIED completeness criteria. When the acceptance carries no explicit
++        // checklist, DERIVE it from already-trusted signals and RESOLVE each by RE-RUNNING its bound
++        // command/metric in the candidate workspace (never model-declared). Empty-derivable => []
++        // (fail-open preserved). Acceptance-supplied criteria always win (today's behaviour preserved
++        // for any task that passes its own). Resolver is optional: a null resolver still resolves via
++        // the in-method fallback built from the deps already on this class.
++        if (! is_array($targetAcceptance['completeness_criteria'] ?? null) || $targetAcceptance['completeness_criteria'] === []) {
++            $completenessResolver = $this->completenessResolver
++                ?? new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopCompletenessCriteriaResolver($this->crossFileConsumerGate, $this->signalAnalyzer);
++            $targetAcceptance['completeness_criteria'] = $completenessResolver->resolve($objective, $targetAcceptance, $workspace, $changedFiles);
++        }
+         $completenessCriteria = is_array($targetAcceptance['completeness_criteria'] ?? null)
+             ? array_values($targetAcceptance['completeness_criteria'])
+             : [];
+diff --git a/app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopCompletenessCriteriaResolver.php b/app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopCompletenessCriteriaResolver.php
+new file mode 100644
+index 000000000..7c3cc1cea
+--- /dev/null
++++ b/app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopCompletenessCriteriaResolver.php
+@@ -0,0 +1,266 @@
++<?php
++
++declare(strict_types=1);
++
++namespace App\Services\Ai\AutonomousEvolution\Discovery;
++
++use App\Services\Ai\AutonomousEvolution\AtlasLoopCrossFileConsumerGateService;
++use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
++use App\Services\Ai\Support\AiStringListNormalizer;
++use Symfony\Component\Process\Process;
++use Throwable;
++
++/**
++ * item9 — MACHINE-VERIFIED completeness criteria resolver.
++ *
++ * Derives a completeness checklist ONLY from already-trusted signals and resolves each
++ * criterion's `satisfied` by RE-RUNNING its bound command/metric in the candidate workspace —
++ * never model-declared. The emitted list is shaped EXACTLY for {@see AtlasLoopCompletenessGate}:
++ * each entry is array{id:string, satisfied:bool, required:bool} (both keys ALWAYS set explicitly,
++ * because the gate defaults a missing `required` to TRUE and a missing `satisfied` to FALSE).
++ *
++ * Three derivation sources, all FAIL-OPEN (an empty-derivable input returns [] so the gate stays
++ * byte-identical / fail-open):
++ *   (A) one criterion per frozen acceptance command, resolved by running the command in $workspace
++ *       and checking exit 0 (re-using the SAME Symfony Process + PATH-injection runner the
++ *       cross-file gate uses — re-implemented here because that gate's commandEnv() is private);
++ *   (B) one criterion per cross-file consumer contract that carries a runnable command, resolved by
++ *       delegating to AtlasLoopCrossFileConsumerGateService::evaluate() and reading consumer_runs
++ *       (skipped / command-missing runs emit no criterion — keeps fail-open);
++ *   (C) for refactor contracts (complexity_proof=true AND metric_kind='minimize'), a single
++ *       `class_no_longer_god` criterion resolved by re-measuring the changed .php files with
++ *       AtlasLoopSignalAnalyzer::aggregateComplexity + the SAME git-stash baseline machinery the
++ *       certifier uses; satisfied iff AtlasLoopSignalAnalyzer::complexityReduced holds. A null
++ *       analyzer / no .php changes / unmeasurable diff => satisfied=false (fail-CLOSED for the
++ *       refactor criterion, matching the certifier's own complexity gate).
++ */
++final class AtlasLoopCompletenessCriteriaResolver
++{
++    public function __construct(
++        private readonly ?AtlasLoopCrossFileConsumerGateService $crossFileConsumerGate = null,
++        private readonly ?AtlasLoopSignalAnalyzer $signalAnalyzer = null,
++    ) {}
++
++    /**
++     * @param  array<string,mixed>  $acceptance
++     * @param  list<string>  $changedFiles  raw git-diff changed files (NOT allowed_files-scoped)
++     * @return list<array{id:string, satisfied:bool, required:bool}>
++     */
++    public function resolve(string $objective, array $acceptance, string $workspace, array $changedFiles = []): array
++    {
++        $timeout = max(1, (int) ($acceptance['timeout_seconds'] ?? config('atlas.loop.cross_file_consumer_gate.timeout_seconds', 120)));
++
++        $criteria = [];
++        foreach ($this->acceptanceCommandCriteria($acceptance, $workspace, $timeout) as $criterion) {
++            $criteria[] = $criterion;
++        }
++        foreach ($this->consumerContractCriteria($acceptance, $workspace, $changedFiles, $timeout) as $criterion) {
++            $criteria[] = $criterion;
++        }
++        foreach ($this->refactorGodClassCriteria($acceptance, $workspace, $changedFiles) as $criterion) {
++            $criteria[] = $criterion;
++        }
++
++        return array_values($criteria);
++    }
++
++    /**
++     * Source (A): one criterion per frozen acceptance command, RE-RUN in the candidate workspace.
++     *
++     * @param  array<string,mixed>  $acceptance
++     * @return list<array{id:string, satisfied:bool, required:bool}>
++     */
++    private function acceptanceCommandCriteria(array $acceptance, string $workspace, int $timeout): array
++    {
++        $criteria = [];
++        foreach (AiStringListNormalizer::trimmedStrings($acceptance['commands'] ?? []) as $i => $command) {
++            $criteria[] = [
++                'id' => 'acceptance_command_'.($i + 1),
++                'satisfied' => $this->commandSucceeds($command, $workspace, $timeout),
++                'required' => true,
++            ];
++        }
++
++        return $criteria;
++    }
++
++    /**
++     * Source (B): one criterion per cross-file consumer contract that actually RAN with a command.
++     * Skipped / command-missing runs emit NO criterion (fail-open: an unverifiable consumer is not
++     * treated as a failing requirement). Any error returns no consumer criteria.
++     *
++     * @param  array<string,mixed>  $acceptance
++     * @param  list<string>  $changedFiles
++     * @return list<array{id:string, satisfied:bool, required:bool}>
++     */
++    private function consumerContractCriteria(array $acceptance, string $workspace, array $changedFiles, int $timeout): array
++    {
++        if ($this->crossFileConsumerGate === null) {
++            return [];
++        }
++
++        try {
++            $result = $this->crossFileConsumerGate->evaluate($workspace, $acceptance, $changedFiles, [
++                'enabled' => true,
++                'timeout_seconds' => $timeout,
++            ]);
++        } catch (Throwable) {
++            return [];
++        }
++
++        $criteria = [];
++        foreach ((array) ($result['consumer_runs'] ?? []) as $run) {
++            if (! is_array($run) || (bool) ($run['skipped'] ?? false)) {
++                continue;
++            }
++            // The command lives on the run directly OR on its contract summary (contractSummary()).
++            $command = trim((string) ($run['command'] ?? data_get($run, 'contract.command', '')));
++            if ($command === '') {
++                continue;
++            }
++            $criteria[] = [
++                'id' => 'consumer_contract_'.(int) ($run['contract_index'] ?? (count($criteria) + 1)),
++                'satisfied' => (bool) ($run['passed'] ?? false),
++                'required' => true,
++            ];
++        }
++
++        return $criteria;
++    }
++
++    /**
++     * Source (C): the refactor `class_no_longer_god` criterion — RE-MEASURED, never model-declared.
++     * Measures the changed .php files with the analyzer's aggregateComplexity for the CANDIDATE (live
++     * tree), stashes to the committed baseline, re-measures, restores in finally, and uses the SAME
++     * complexityReduced verdict the certifier uses (no inline re-implementation of the rule).
++     *
++     * Fail-CLOSED (satisfied=false) when: not a refactor contract, the analyzer is null, no .php
++     * changed files, the candidate/baseline is unmeasurable, or there is no stash entry (no-op diff).
++     *
++     * @param  array<string,mixed>  $acceptance
++     * @param  list<string>  $changedFiles
++     * @return list<array{id:string, satisfied:bool, required:bool}>
++     */
++    private function refactorGodClassCriteria(array $acceptance, string $workspace, array $changedFiles): array
++    {
++        $isRefactor = (bool) ($acceptance['complexity_proof'] ?? false)
++            && (string) ($acceptance['metric_kind'] ?? '') === 'minimize';
++        if (! $isRefactor) {
++            return [];
++        }
++
++        return [[
++            'id' => 'class_no_longer_god',
++            'satisfied' => $this->complexityActuallyReduced($workspace, $changedFiles),
++            'required' => true,
++        ]];
++    }
++
++    /**
++     * Re-measure the changed .php files (candidate vs stashed baseline) and return the analyzer's
++     * single-source complexityReduced verdict. Fail-CLOSED on a null analyzer, no measurable file,
++     * an unparseable side, or no stash entry (replicates the certifier's stashCreated() pre-check so
++     * a no-op candidate never pops a PRE-EXISTING stash and corrupts the tree).
++     *
++     * @param  list<string>  $changedFiles
++     */
++    private function complexityActuallyReduced(string $workspace, array $changedFiles): bool
++    {
++        $analyzer = $this->signalAnalyzer;
++        if ($analyzer === null) {
++            return false; // fail-closed: integrator binds a live analyzer for real measurement
++        }
++
++        $phpFiles = array_values(array_filter(
++            $changedFiles,
++            static fn (string $f): bool => str_ends_with($f, '.php'),
++        ));
++        if ($phpFiles === []) {
++            return false; // nothing measurable -> fail-closed
++        }
++        $absPaths = array_map(
++            static fn (string $f): string => rtrim($workspace, '/').'/'.ltrim($f, '/'),
++            $phpFiles,
++        );
++
++        // CANDIDATE first: the diff is live in the working tree right now.
++        $candidate = $analyzer->aggregateComplexity($absPaths);
++        if (! ($candidate['measured'] ?? false)) {
++            return false; // candidate unparseable -> fail-closed
++        }
++
++        $stash = new Process(['git', 'stash', 'push', '--include-untracked', '--quiet'], $workspace, null, null, 60.0);
++        $stash->run();
++        // DEFECT 3 GUARD: replicate the certifier's stashCreated() pre-check. If the push failed OR
++        // captured nothing (no-op candidate), there is no NEW stash to pop — popping here would pop a
++        // PRE-EXISTING stash and corrupt the tree. Bail WITHOUT popping.
++        if (! $stash->isSuccessful() || ! $this->stashCreated($workspace)) {
++            return false; // no diff to stash (no-op candidate) -> fail-closed
++        }
++
++        try {
++            $baseline = $analyzer->aggregateComplexity($absPaths);
++        } finally {
++            (new Process(['git', 'stash', 'pop', '--quiet'], $workspace, null, null, 60.0))->run();
++        }
++
++        if (! ($baseline['measured'] ?? false)) {
++            return false; // baseline unparseable -> fail-closed
++        }
++
++        // SAME single source as the certifier's own complexity gate (no inline rule duplication), so
++        // the criterion and the gate cannot drift.
++        return AtlasLoopSignalAnalyzer::complexityReduced(
++            $baseline,
++            $candidate,
++            (bool) config('atlas.loop.complexity_decisions_gate', true),
++            (bool) config('atlas.loop.complexity_per_file_max_gate', true),
++        ) === true;
++    }
++
++    /** True when a stash entry exists (the push actually captured changes). */
++    private function stashCreated(string $workspace): bool
++    {
++        $list = new Process(['git', 'stash', 'list'], $workspace, null, null, 30.0);
++        $list->run();
++
++        return trim((string) $list->getOutput()) !== '';
++    }
++
++    /**
++     * Run a command in $workspace via the SAME Symfony Process + PATH-injection pattern the cross-file
++     * gate uses (re-implemented here: that gate's commandEnv() is private). Fail-OPEN on any Process
++     * error: a flaky command must never hard-crash the resolver — exit !== 0 simply yields false.
++     */
++    private function commandSucceeds(string $command, string $workspace, int $timeout): bool
++    {
++        try {
++            $process = Process::fromShellCommandline($command, $workspace, $this->commandEnv([]), null, (float) $timeout);
++            $process->run();
++
++            return ($process->getExitCode() ?? 1) === 0;
++        } catch (Throwable) {
++            return false;
++        }
++    }
++
++    /**
++     * PATH-injection env block: prepend the running PHP binary's directory to PATH so a bare `php`
++     * inside an acceptance command resolves to the SAME interpreter (mirrors the cross-file gate's
++     * private commandEnv()).
++     *
++     * @param  array<string,string>  $env
++     * @return array<string,string>
++     */
++    private function commandEnv(array $env): array
++    {
++        $binary = PHP_BINARY;
++        if (is_string($binary) && $binary !== '') {
++            $binDir = \dirname($binary);
++            $currentPath = getenv('PATH');
++            $env['PATH'] = $binDir.((is_string($currentPath) && $currentPath !== '') ? PATH_SEPARATOR.$currentPath : '');
++        }
++
++        return $env;
++    }
++}
+diff --git a/tests/Unit/Ai/AutonomousEvolution/AtlasLoopCompletenessCriteriaResolverTest.php b/tests/Unit/Ai/AutonomousEvolution/AtlasLoopCompletenessCriteriaResolverTest.php
+new file mode 100644
+index 000000000..873d69c6c
+--- /dev/null
++++ b/tests/Unit/Ai/AutonomousEvolution/AtlasLoopCompletenessCriteriaResolverTest.php
+@@ -0,0 +1,259 @@
++<?php
++
++declare(strict_types=1);
++
++namespace Tests\Unit\Ai\AutonomousEvolution;
++
++use App\Services\Ai\AutonomousEvolution\AtlasLoopCrossFileConsumerGateService;
++use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopCompletenessCriteriaResolver;
++use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
++use Symfony\Component\Process\Process;
++use Tests\TestCase;
++
++/**
++ * item9 — MACHINE-VERIFIED completeness criteria resolver. The resolver DERIVES criteria only from
++ * already-trusted signals and RESOLVES each `satisfied` by RE-RUNNING its bound command/metric in the
++ * candidate workspace, never model-declared. Empty-derivable => [] (fail-open preserved).
++ */
++final class AtlasLoopCompletenessCriteriaResolverTest extends TestCase
++{
++    private string $workspace;
++
++    protected function tearDown(): void
++    {
++        if (isset($this->workspace) && is_dir($this->workspace)) {
++            (new Process(['rm', '-rf', $this->workspace]))->run();
++        }
++
++        parent::tearDown();
++    }
++
++    public function test_empty_derivable_returns_empty_array(): void
++    {
++        // No commands, no complexity_proof, no consumer gate => nothing derivable => [] (fail-open).
++        $resolver = new AtlasLoopCompletenessCriteriaResolver(null, null);
++
++        $criteria = $resolver->resolve('do something', [
++            'metric_kind' => 'gate',
++            'timeout_seconds' => 30,
++        ], sys_get_temp_dir(), []);
++
++        $this->assertSame([], $criteria, 'empty-derivable must return [] so the gate stays fail-open');
++    }
++
++    public function test_acceptance_command_passing_yields_satisfied_criterion(): void
++    {
++        $resolver = new AtlasLoopCompletenessCriteriaResolver(null, null);
++
++        $criteria = $resolver->resolve('exit zero', [
++            'commands' => ['php -r "exit(0);"'],
++            'metric_kind' => 'gate',
++            'timeout_seconds' => 30,
++        ], sys_get_temp_dir(), []);
++
++        $this->assertCount(1, $criteria);
++        $this->assertStringStartsWith('acceptance_command_', (string) $criteria[0]['id']);
++        $this->assertTrue($criteria[0]['satisfied'], 'a passing command (exit 0) resolves satisfied=true');
++        $this->assertTrue($criteria[0]['required']);
++    }
++
++    public function test_acceptance_command_failing_yields_unsatisfied_criterion(): void
++    {
++        // Proves the resolver RE-RUNS the command (not model-declared): a non-zero exit => satisfied=false.
++        $resolver = new AtlasLoopCompletenessCriteriaResolver(null, null);
++
++        $criteria = $resolver->resolve('exit one', [
++            'commands' => ['php -r "exit(1);"'],
++            'metric_kind' => 'gate',
++            'timeout_seconds' => 30,
++        ], sys_get_temp_dir(), []);
++
++        $this->assertCount(1, $criteria);
++        $this->assertFalse($criteria[0]['satisfied'], 'a failing command (exit 1) resolves satisfied=false');
++        $this->assertTrue($criteria[0]['required']);
++    }
++
++    public function test_refactor_god_class_criterion_resolved_by_real_measurement(): void
++    {
++        // A real complexity drop (high-cyclomatic ladder -> match-map) => class_no_longer_god satisfied.
++        $this->workspace = $this->workspaceWithRefactor($this->highComplexity(), $this->lowComplexity());
++        $resolver = new AtlasLoopCompletenessCriteriaResolver(null, new AtlasLoopSignalAnalyzer);
++
++        $criteria = $resolver->resolve('Refactor Classifier', [
++            'complexity_proof' => true,
++            'metric_kind' => 'minimize',
++            'timeout_seconds' => 30,
++        ], $this->workspace, ['src/Classifier.php']);
++
++        $this->assertCount(1, $criteria);
++        $this->assertSame('class_no_longer_god', $criteria[0]['id']);
++        $this->assertTrue($criteria[0]['satisfied'], 'a real measured complexity drop => satisfied=true');
++        $this->assertTrue($criteria[0]['required']);
++    }
++
++    public function test_refactor_god_class_criterion_noop_is_unsatisfied(): void
++    {
++        // A behaviour-preserving cosmetic edit that keeps the SAME ladder: no complexity drop =>
++        // class_no_longer_god satisfied=false (fail-closed for the refactor criterion).
++        $noop = str_replace(
++            'public function classify(int $n): string',
++            "// harmless comment\n    public function classify(int \$n): string",
++            $this->highComplexity(),
++        );
++        $this->workspace = $this->workspaceWithRefactor($this->highComplexity(), $noop);
++        $resolver = new AtlasLoopCompletenessCriteriaResolver(null, new AtlasLoopSignalAnalyzer);
++
++        $criteria = $resolver->resolve('Refactor Classifier', [
++            'complexity_proof' => true,
++            'metric_kind' => 'minimize',
++            'timeout_seconds' => 30,
++        ], $this->workspace, ['src/Classifier.php']);
++
++        $this->assertCount(1, $criteria);
++        $this->assertSame('class_no_longer_god', $criteria[0]['id']);
++        $this->assertFalse($criteria[0]['satisfied'], 'a no-op candidate => satisfied=false (fail-closed)');
++    }
++
++    public function test_refactor_god_class_criterion_fail_closed_with_null_analyzer(): void
++    {
++        // DEFECT 1+2 closure: with a NULL analyzer the refactor criterion is satisfied=false (it can
++        // never be measured), so an armed gate refutes rather than false-passing. The integrator binds
++        // a live analyzer so production actually measures.
++        $this->workspace = $this->workspaceWithRefactor($this->highComplexity(), $this->lowComplexity());
++        $resolver = new AtlasLoopCompletenessCriteriaResolver(null, null);
++
++        $criteria = $resolver->resolve('Refactor Classifier', [
++            'complexity_proof' => true,
++            'metric_kind' => 'minimize',
++            'timeout_seconds' => 30,
++        ], $this->workspace, ['src/Classifier.php']);
++
++        $this->assertCount(1, $criteria);
++        $this->assertSame('class_no_longer_god', $criteria[0]['id']);
++        $this->assertFalse($criteria[0]['satisfied'], 'null analyzer => fail-closed satisfied=false');
++    }
++
++    public function test_consumer_contract_skip_does_not_emit_criterion(): void
++    {
++        // A null cross-file gate emits no consumer criterion (fail-open: an unverifiable consumer is
++        // not a failing requirement).
++        $resolver = new AtlasLoopCompletenessCriteriaResolver(null, null);
++        $criteria = $resolver->resolve('do something', [
++            'metric_kind' => 'gate',
++            'timeout_seconds' => 30,
++        ], sys_get_temp_dir(), ['src/Foo.php']);
++
++        $this->assertSame([], $criteria, 'null cross-file gate => no consumer criterion (fail-open)');
++
++        // A REAL gate whose discovered consumer carries NO runnable command produces a SKIPPED run
++        // (consumer_command_missing_skipped). The resolver must emit NO criterion for it.
++        $skipResolver = new AtlasLoopCompletenessCriteriaResolver(app(AtlasLoopCrossFileConsumerGateService::class), null);
++        $skipCriteria = $skipResolver->resolve('do something', [
++            'commands' => ['php -r "exit(0);"'],
++            'metric_kind' => 'gate',
++            'timeout_seconds' => 30,
++            // An explicit consumer contract WITHOUT a command => the gate records it skipped.
++            'consumer_contracts' => [['changed_symbol' => 'Foo', 'consumer_file' => 'app/Bar.php']],
++        ], sys_get_temp_dir(), ['src/Foo.php']);
++
++        foreach ($skipCriteria as $c) {
++            $this->assertStringStartsNotWith('consumer_contract_', (string) $c['id'], 'a skipped consumer run emits no consumer criterion');
++        }
++    }
++
++    public function test_consumer_contract_ran_yields_resolved_criterion(): void
++    {
++        // A NON-skipped consumer contract that carries a runnable command emits a criterion whose
++        // satisfied is RESOLVED by the cross-file gate re-running that command (not model-declared).
++        $resolver = new AtlasLoopCompletenessCriteriaResolver(app(AtlasLoopCrossFileConsumerGateService::class), null);
++
++        $criteria = $resolver->resolve('do something', [
++            'commands' => ['php -r "exit(0);"'],
++            'metric_kind' => 'gate',
++            'timeout_seconds' => 30,
++            // A passing consumer (exit 0) and a failing one (exit 1), both with explicit symbols+commands.
++            'consumer_contracts' => [
++                ['changed_symbol' => 'Foo', 'consumer_file' => 'app/Bar.php', 'command' => 'php -r "exit(0);"'],
++                ['changed_symbol' => 'Foo', 'consumer_file' => 'app/Baz.php', 'command' => 'php -r "exit(1);"'],
++            ],
++        ], sys_get_temp_dir(), ['src/Foo.php']);
++
++        $consumer = array_values(array_filter($criteria, static fn (array $c): bool => str_starts_with((string) $c['id'], 'consumer_contract_')));
++        $this->assertNotEmpty($consumer, 'a runnable consumer contract emits a consumer criterion');
++        foreach ($consumer as $c) {
++            $this->assertTrue($c['required']);
++            $this->assertIsBool($c['satisfied']);
++        }
++        // At least one passing and one failing consumer were resolved (machine re-run, not declared).
++        $satisfaction = array_map(static fn (array $c): bool => (bool) $c['satisfied'], $consumer);
++        $this->assertContains(true, $satisfaction, 'the exit-0 consumer resolved satisfied=true');
++        $this->assertContains(false, $satisfaction, 'the exit-1 consumer resolved satisfied=false');
++    }
++
++    private function highComplexity(): string
++    {
++        return <<<'PHP'
++<?php
++final class Classifier
++{
++    public function classify(int $n): string
++    {
++        if ($n === 0) { return 'zero'; }
++        elseif ($n === 1) { return 'one'; }
++        elseif ($n === 2) { return 'two'; }
++        elseif ($n === 3) { return 'three'; }
++        elseif ($n === 4) { return 'four'; }
++        elseif ($n === 5) { return 'five'; }
++        elseif ($n === 6) { return 'six'; }
++        elseif ($n === 7) { return 'seven'; }
++        elseif ($n === 8) { return 'eight'; }
++        else { return 'many'; }
++    }
++}
++PHP;
++    }
++
++    private function lowComplexity(): string
++    {
++        return <<<'PHP'
++<?php
++final class Classifier
++{
++    public function classify(int $n): string
++    {
++        $map = [0=>'zero',1=>'one',2=>'two',3=>'three',4=>'four',5=>'five',6=>'six',7=>'seven',8=>'eight'];
++        return $map[$n] ?? 'many';
++    }
++}
++PHP;
++    }
++
++    /**
++     * A git workspace with a committed BASELINE and the candidate refactor LIVE in the working tree —
++     * exactly the gate-workspace state the resolver sees, so source (C) can stash to baseline and
++     * measure both sides.
++     */
++    private function workspaceWithRefactor(string $baseline, string $candidate): string
++    {
++        $dir = sys_get_temp_dir().'/atlas-completeness-resolver-'.bin2hex(random_bytes(5));
++        mkdir($dir.'/src', 0o755, true);
++        file_put_contents($dir.'/src/Classifier.php', $baseline);
++        $this->runGit(['git', 'init', '-q'], $dir);
++        $this->runGit(['git', 'config', 'user.email', 'atlas-loop@local'], $dir);
++        $this->runGit(['git', 'config', 'user.name', 'Atlas Loop'], $dir);
++        $this->runGit(['git', 'config', 'commit.gpgsign', 'false'], $dir);
++        $this->runGit(['git', 'add', '-A'], $dir);
++        $this->runGit(['git', 'commit', '-q', '-m', 'baseline'], $dir);
++        file_put_contents($dir.'/src/Classifier.php', $candidate);
++
++        return $dir;
++    }
++
++    /** @param list<string> $argv */
++    private function runGit(array $argv, string $cwd): void
++    {
++        $p = new Process($argv, $cwd, null, null, 30.0);
++        $p->run();
++        $this->assertTrue($p->isSuccessful(), $p->getErrorOutput() ?: $p->getOutput());
++    }
++}
+diff --git a/tests/Unit/Ai/AutonomousEvolution/AtlasLoopSemanticImplementationCertifierTest.php b/tests/Unit/Ai/AutonomousEvolution/AtlasLoopSemanticImplementationCertifierTest.php
+index e624b8b10..6549840dd 100644
+--- a/tests/Unit/Ai/AutonomousEvolution/AtlasLoopSemanticImplementationCertifierTest.php
++++ b/tests/Unit/Ai/AutonomousEvolution/AtlasLoopSemanticImplementationCertifierTest.php
+@@ -74,6 +74,54 @@ public function test_external_refutation_blocks_certificate(): void
+         $this->assertContains('provider_refuter_1:semantic_gap', $receipt['reasons']);
+     }
+ 
++    public function test_completeness_criteria_are_machine_resolved_and_recorded(): void
++    {
++        // item9: the resolver DERIVES + RESOLVES the completeness checklist from the frozen acceptance
++        // command (re-run in the workspace). The 'good' candidate makes FooTest exit 0 => 1 satisfied
++        // criterion => completeness.complete=true. Gate OFF (default) => no reason added => the verdict
++        // stays byte-identical (still certifies). Proves machine-resolution + record-not-block.
++        $this->workspace = $this->workspaceWithCandidate('good');
++
++        $receipt = app(AtlasLoopSemanticImplementationCertifier::class)->certify($this->workspace, $this->acceptance(), [
++            'objective' => 'make Foo return good',
++            'allowed_files' => ['src/Foo.php'],
++            'semantic_refuter_commands' => [$this->cleanRefuterCommand()],
++            'provider_refuters_required' => 1,
++            'refuter_provider' => 'deterministic_fixture',
++        ]);
++
++        $this->assertSame(1, data_get($receipt, 'completeness.total'), 'the single frozen acceptance command derived one criterion');
++        $this->assertTrue(data_get($receipt, 'completeness.complete'), 'the re-run command exits 0 => criterion satisfied => complete');
++        $this->assertTrue($receipt['certified'], 'gate OFF => completeness records but does not block (byte-identical verdict)');
++    }
++
++    public function test_completeness_gate_armed_refutes_when_derived_criterion_unsatisfied(): void
++    {
++        // Arm the gate. A candidate whose acceptance command FAILS yields a derived criterion with
++        // satisfied=false; with the gate ON the completeness 'incomplete:...' reason appears — proving
++        // the gate is armable end-to-end via the resolver-populated checklist (no acceptance-supplied
++        // criteria; the resolver alone built it).
++        config(['atlas.loop.completeness_gate_enabled' => true]);
++        $this->workspace = $this->workspaceWithCandidate('bad'); // FooTest expects 'good' => command exits 1
++
++        $receipt = app(AtlasLoopSemanticImplementationCertifier::class)->certify($this->workspace, $this->acceptance(), [
++            'objective' => 'make Foo return good',
++            'allowed_files' => ['src/Foo.php'],
++        ]);
++
++        $this->assertFalse($receipt['certified']);
++        $this->assertSame(1, data_get($receipt, 'completeness.total'), 'the failing acceptance command derived one criterion');
++        $this->assertFalse(data_get($receipt, 'completeness.complete'));
++        $hasIncomplete = false;
++        foreach ((array) $receipt['reasons'] as $r) {
++            if (str_starts_with((string) $r, 'incomplete:')) {
++                $hasIncomplete = true;
++                break;
++            }
++        }
++        $this->assertTrue($hasIncomplete, 'the armed completeness gate refutes on the resolver-derived unsatisfied criterion: '.json_encode($receipt['reasons']));
++    }
++
+     /**
+      * @return array<string,mixed>
+      */

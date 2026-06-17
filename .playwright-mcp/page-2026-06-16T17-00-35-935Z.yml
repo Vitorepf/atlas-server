@@ -1,0 +1,767 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - main [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - button "Discover Anything " [ref=e8] [cursor=pointer]:
+            - text: Discover Anything
+            - generic [ref=e9]: 
+          - link "Hackernoon logo Hackernoon" [ref=e11] [cursor=pointer]:
+            - /url: /
+            - img "Hackernoon logo" [ref=e13]
+            - generic [ref=e14]: Hackernoon
+          - generic [ref=e15]:
+            - button "Login" [ref=e17] [cursor=pointer]
+            - generic [ref=e18]:
+              - button "Signup" [ref=e19] [cursor=pointer]
+              - link "Write" [ref=e20] [cursor=pointer]:
+                - /url: /new
+            - text: 
+            - button "" [ref=e21] [cursor=pointer]:
+              - generic [ref=e22]: 
+            - button "" [ref=e23] [cursor=pointer]:
+              - generic [ref=e24]: 
+        - navigation [ref=e26]
+      - generic [ref=e33]:
+        - generic [ref=e36]:
+          - generic [ref=e37]:
+            - generic [ref=e39]:
+              - generic [ref=e40]: 
+              - text: New Story
+            - heading "The Technical Infrastructure of Automated Debugging" [level=1] [ref=e41]
+            - generic [ref=e42]:
+              - generic [ref=e43]:
+                - generic [ref=e44]:
+                  - text: by
+                  - link "View profile of PlayerZero" [ref=e47] [cursor=pointer]:
+                    - /url: /u/playerzero
+                    - strong [ref=e48]: PlayerZero
+                - link "June 15th, 2026" [ref=e51] [cursor=pointer]:
+                  - /url: /archives/2026/06/15
+              - generic [ref=e53]:
+                - generic [ref=e54] [cursor=pointer]:
+                  - text: Terminal Reader
+                  - img "Read on Terminal Reader" [ref=e55]
+                - generic [ref=e56] [cursor=pointer]:
+                  - text: Print this story
+                  - img "Print this story" [ref=e57]
+                - generic [ref=e58] [cursor=pointer]:
+                  - text: Read this story w/o Javascript
+                  - img "Read this story w/o Javascript" [ref=e59]
+          - generic [ref=e61]:
+            - button "TLDR " [ref=e62] [cursor=pointer]:
+              - text: TLDR
+              - generic [ref=e63]: 
+            - generic: Terminal Reader Print this story Read this story w/o Javascript 
+            - generic [ref=e64]:
+              - link "English en-flag EN" [ref=e65] [cursor=pointer]:
+                - /url: /the-technical-infrastructure-of-automated-debugging
+                - text: English
+                - img "en-flag" [ref=e66]
+                - generic [ref=e67]: EN
+              - link "Russian ru-flag RU" [ref=e68] [cursor=pointer]:
+                - /url: /lang/ru/the-technical-infrastructure-of-automated-debugging
+                - text: Russian
+                - img "ru-flag" [ref=e69]
+                - generic [ref=e70]: RU
+              - link "German de-flag DE" [ref=e71] [cursor=pointer]:
+                - /url: /lang/de/the-technical-infrastructure-of-automated-debugging
+                - text: German
+                - img "de-flag" [ref=e72]
+                - generic [ref=e73]: DE
+              - link "Spanish es-flag ES" [ref=e74] [cursor=pointer]:
+                - /url: /lang/es/the-technical-infrastructure-of-automated-debugging
+                - text: Spanish
+                - img "es-flag" [ref=e75]
+                - generic [ref=e76]: ES
+              - link "French fr-flag FR" [ref=e77] [cursor=pointer]:
+                - /url: /lang/fr/the-technical-infrastructure-of-automated-debugging
+                - text: French
+                - img "fr-flag" [ref=e78]
+                - generic [ref=e79]: FR
+              - link "Japanese ja-flag JA" [ref=e80] [cursor=pointer]:
+                - /url: /lang/ja/the-technical-infrastructure-of-automated-debugging
+                - text: Japanese
+                - img "ja-flag" [ref=e81]
+                - generic [ref=e82]: JA
+              - link "Danish da-flag DA" [ref=e83] [cursor=pointer]:
+                - /url: /lang/da/the-technical-infrastructure-of-automated-debugging
+                - text: Danish
+                - img "da-flag" [ref=e84]
+                - generic [ref=e85]: DA
+              - link "Indonesian id-flag ID" [ref=e86] [cursor=pointer]:
+                - /url: /lang/id/the-technical-infrastructure-of-automated-debugging
+                - text: Indonesian
+                - img "id-flag" [ref=e87]
+                - generic [ref=e88]: ID
+              - link "Malagasy mg-flag MG" [ref=e89] [cursor=pointer]:
+                - /url: /lang/mg/the-technical-infrastructure-of-automated-debugging
+                - text: Malagasy
+                - img "mg-flag" [ref=e90]
+                - generic [ref=e91]: MG
+              - link "Polish pl-flag PL" [ref=e92] [cursor=pointer]:
+                - /url: /lang/pl/the-technical-infrastructure-of-automated-debugging
+                - text: Polish
+                - img "pl-flag" [ref=e93]
+                - generic [ref=e94]: PL
+              - link "Catalan ca-flag CA" [ref=e95] [cursor=pointer]:
+                - /url: /lang/ca/the-technical-infrastructure-of-automated-debugging
+                - text: Catalan
+                - img "ca-flag" [ref=e96]
+                - generic [ref=e97]: CA
+              - link "Xhosa xh-flag XH" [ref=e98] [cursor=pointer]:
+                - /url: /lang/xh/the-technical-infrastructure-of-automated-debugging
+                - text: Xhosa
+                - img "xh-flag" [ref=e99]
+                - generic [ref=e100]: XH
+              - link "Armenian hy-flag HY" [ref=e101] [cursor=pointer]:
+                - /url: /lang/hy/the-technical-infrastructure-of-automated-debugging
+                - text: Armenian
+                - img "hy-flag" [ref=e102]
+                - generic [ref=e103]: HY
+        - generic [ref=e106]:
+          - button "" [ref=e107] [cursor=pointer]:
+            - generic [ref=e108]: 
+          - img "featured image - The Technical Infrastructure of Automated Debugging" [ref=e109]
+        - generic [ref=e113]:
+          - button "play/pause" [ref=e114] [cursor=pointer]:
+            - generic [ref=e115]: 
+          - generic "Speed & Voice" [ref=e117]: 
+        - text: Bookmark  Comment  
+        - generic [ref=e125]:
+          - generic [ref=e126]:
+            - img "PlayerZero" [ref=e130]
+            - img "Original Reporting" [ref=e135] [cursor=pointer]
+          - generic [ref=e137]:
+            - generic [ref=e138] [cursor=pointer]:
+              - text: Bookmark
+              - button "" [ref=e139]:
+                - generic [ref=e140]: 
+            - generic [ref=e141] [cursor=pointer]:
+              - text: Comment
+              - button "" [ref=e142]:
+                - generic [ref=e143]: 
+            - generic [ref=e146] [cursor=pointer]: 
+        - link "← Previous Revealing the Hidden Costs of Codebase Complexity" [ref=e150] [cursor=pointer]:
+          - /url: /revealing-the-hidden-costs-of-codebase-complexity
+          - generic [ref=e151]:
+            - text: ← Previous
+            - paragraph [ref=e152]: Revealing the Hidden Costs of Codebase Complexity
+        - generic [ref=e153]:
+          - generic [ref=e155]:
+            - heading "About Author" [level=3] [ref=e156]
+            - generic [ref=e157]:
+              - generic [ref=e158]:
+                - generic [ref=e159]:
+                  - link "PlayerZero HackerNoon profile picture":
+                    - /url: /u/playerzero
+                    - img "PlayerZero HackerNoon profile picture" [ref=e160] [cursor=pointer]
+                - generic [ref=e161]:
+                  - link "PlayerZero | @playerzero" [ref=e164] [cursor=pointer]:
+                    - /url: /u/playerzero
+                    - strong [ref=e165]: PlayerZero
+                    - generic [ref=e166]: "| @playerzero"
+                  - paragraph [ref=e167]: Solve the biggest challenges in your codebase.
+              - generic [ref=e169]:
+                - link "Read my stories" [ref=e170] [cursor=pointer]:
+                  - /url: /u/playerzero
+                - link "About @playerzero" [ref=e171] [cursor=pointer]:
+                  - /url: /about/playerzero
+          - generic [ref=e173]:
+            - heading "Comments" [level=4] [ref=e174]
+            - generic [ref=e176]:
+              - img "avatar" [ref=e178]
+              - textbox "text-input" [ref=e180]:
+                - /placeholder: Share your thoughts...
+          - generic [ref=e181]:
+            - heading "TOPICS" [level=4] [ref=e182]
+            - generic [ref=e183]:
+              - link "hackernoon" [ref=e185] [cursor=pointer]:
+                - /url: /c/hackernoon
+                - img [ref=e186]
+                - generic [ref=e189]: hackernoon
+              - link "#ai-debugging-platform" [ref=e190] [cursor=pointer]:
+                - /url: /tagged/ai-debugging-platform
+              - link "#root-cause-analysis" [ref=e191] [cursor=pointer]:
+                - /url: /tagged/root-cause-analysis
+              - link "#telemetry-driven-debugging" [ref=e192] [cursor=pointer]:
+                - /url: /tagged/telemetry-driven-debugging
+              - link "#reinforcement-learning" [ref=e193] [cursor=pointer]:
+                - /url: /tagged/reinforcement-learning
+              - link "#human-in-the-loop-debugging" [ref=e194] [cursor=pointer]:
+                - /url: /tagged/human-in-the-loop-debugging
+              - link "#enterprise-observability" [ref=e195] [cursor=pointer]:
+                - /url: /tagged/enterprise-observability
+              - link "#software-troubleshooting" [ref=e196] [cursor=pointer]:
+                - /url: /tagged/software-troubleshooting
+              - link "#good-company" [ref=e197] [cursor=pointer]:
+                - /url: /tagged/good-company
+          - generic [ref=e199]:
+            - heading "THIS ARTICLE WAS FEATURED IN" [level=4] [ref=e200]
+            - generic [ref=e201]:
+              - link [ref=e202] [cursor=pointer]:
+                - /url: https://www.arweave.net/2sjZOeHm_GgHtz1Or9kycuVAGYeiPqrDnvo37JffC8E
+              - link [ref=e203] [cursor=pointer]:
+                - /url: https://viewblock.io/arweave/tx/2sjZOeHm_GgHtz1Or9kycuVAGYeiPqrDnvo37JffC8E
+              - link "Terminal Terminal" [ref=e204] [cursor=pointer]:
+                - /url: https://terminal.hackernoon.com/the-technical-infrastructure-of-automated-debugging?ref=hackernoon
+                - img "Terminal" [ref=e205]
+                - generic [ref=e206]: Terminal
+              - link "Lite Lite" [ref=e207] [cursor=pointer]:
+                - /url: /lite/the-technical-infrastructure-of-automated-debugging?ref=hackernoon
+                - img "Lite" [ref=e208]
+                - generic [ref=e209]: Lite
+              - link " Also published here" [ref=e210] [cursor=pointer]:
+                - /url: https://playerzero.ai/resources/technical-infrastructure-of-automated-debugging?ref=hackernoon
+                - generic [ref=e211]: 
+                - text: Also published here
+              - link "X" [ref=e212] [cursor=pointer]:
+                - /url: https://x.com/hackernoon/status/2066562399709094029
+                - generic [ref=e214]: X
+              - link "Threads" [ref=e215] [cursor=pointer]:
+                - /url: https://www.threads.com/@hackernoon/post/DZnRpFOFqKS
+                - generic [ref=e217]: Threads
+              - link "Bsky" [ref=e218] [cursor=pointer]:
+                - /url: https://bsky.app/profile/hackernoon.com/post/3modq6hc7e22u
+                - generic [ref=e220]: Bsky
+          - generic [ref=e221]:
+            - heading "Related Stories" [level=4] [ref=e222]
+            - generic [ref=e225]:
+              - article [ref=e227]:
+                - generic [ref=e228]:
+                  - link "/https://business.hackernoon.com/business-blogging?utm_source=HackerNoon&utm_medium=targeted&utm_campaign=ads feature image":
+                    - /url: https://business.hackernoon.com/business-blogging?utm_source=HackerNoon&utm_medium=targeted&utm_campaign=ads
+                    - img "/https://business.hackernoon.com/business-blogging?utm_source=HackerNoon&utm_medium=targeted&utm_campaign=ads feature image" [ref=e229] [cursor=pointer]
+                - generic [ref=e230]:
+                  - heading "Your company can publish on HackerNoon!" [level=2] [ref=e231]:
+                    - link "Your company can publish on HackerNoon!" [ref=e232] [cursor=pointer]:
+                      - /url: https://business.hackernoon.com/business-blogging?utm_source=HackerNoon&utm_medium=targeted&utm_campaign=ads
+                  - generic [ref=e235]:
+                    - img "author" [ref=e237]
+                    - link "by HackerNoon Business" [ref=e238] [cursor=pointer]:
+                      - /url: https://business.hackernoon.com/business-blogging?utm_source=HackerNoon&utm_medium=targeted&utm_campaign=ads
+                      - generic [ref=e240]:
+                        - generic [ref=e241]: by
+                        - generic [ref=e242]: HackerNoon Business
+                    - link "#SPONSORED" [ref=e243] [cursor=pointer]:
+                      - /url: /tagged/Sponsored
+              - article [ref=e246]:
+                - link "/andros-wongs-wonder-is-providing-daos-with-technical-infrastructure feature image" [ref=e248] [cursor=pointer]:
+                  - /url: /andros-wongs-wonder-is-providing-daos-with-technical-infrastructure
+                  - img "/andros-wongs-wonder-is-providing-daos-with-technical-infrastructure feature image" [ref=e249]
+                - generic [ref=e250]:
+                  - heading "Andros Wong's Wonder is Providing DAOs with Technical Infrastructure" [level=2] [ref=e251]:
+                    - link "Andros Wong's Wonder is Providing DAOs with Technical Infrastructure" [ref=e252] [cursor=pointer]:
+                      - /url: /andros-wongs-wonder-is-providing-daos-with-technical-infrastructure
+                  - generic [ref=e255]:
+                    - img "author" [ref=e257]
+                    - link "by Craig Lebrau @craiglebrau" [ref=e258] [cursor=pointer]:
+                      - /url: /u/craiglebrau
+                      - generic [ref=e259]:
+                        - generic [ref=e260]:
+                          - generic [ref=e261]: by
+                          - generic [ref=e262]: Craig Lebrau
+                        - generic [ref=e263]: "@craiglebrau"
+                    - link "#DAO" [ref=e264] [cursor=pointer]:
+                      - /url: /tagged/dao
+              - article [ref=e267]:
+                - link "/ethereum-dapp-infrastructure-2b4f1e6bfa38 feature image" [ref=e269] [cursor=pointer]:
+                  - /url: /ethereum-dapp-infrastructure-2b4f1e6bfa38
+                  - img "/ethereum-dapp-infrastructure-2b4f1e6bfa38 feature image" [ref=e270]
+                - generic [ref=e271]:
+                  - heading "DApp Infastructure Design (Part I)" [level=2] [ref=e272]:
+                    - link "DApp Infastructure Design (Part I)" [ref=e273] [cursor=pointer]:
+                      - /url: /ethereum-dapp-infrastructure-2b4f1e6bfa38
+                  - generic [ref=e276]:
+                    - img "author" [ref=e278]
+                    - link "by Carlo Las Marias @carlol" [ref=e279] [cursor=pointer]:
+                      - /url: /u/carlol
+                      - generic [ref=e280]:
+                        - generic [ref=e281]:
+                          - generic [ref=e282]: by
+                          - generic [ref=e283]: Carlo Las Marias
+                        - generic [ref=e284]: "@carlol"
+                    - link "#ETHEREUM-EVENT-TRACKING" [ref=e285] [cursor=pointer]:
+                      - /url: /tagged/ethereum-event-tracking
+              - article [ref=e288]:
+                - link "/history-is-rhyming-fitness-functions-comparing-blockchain-tokens-to-the-web-3c117239f4c feature image" [ref=e290] [cursor=pointer]:
+                  - /url: /history-is-rhyming-fitness-functions-comparing-blockchain-tokens-to-the-web-3c117239f4c
+                  - img "/history-is-rhyming-fitness-functions-comparing-blockchain-tokens-to-the-web-3c117239f4c feature image" [ref=e291]
+                - generic [ref=e292]:
+                  - 'heading "History Is Rhyming: Fitness Functions & Comparing Blockchain Tokens To The Web" [level=2] [ref=e293]':
+                    - 'link "History Is Rhyming: Fitness Functions & Comparing Blockchain Tokens To The Web" [ref=e294] [cursor=pointer]':
+                      - /url: /history-is-rhyming-fitness-functions-comparing-blockchain-tokens-to-the-web-3c117239f4c
+                  - generic [ref=e297]:
+                    - img "author" [ref=e299]
+                    - link "by Simon de la Rouviere @simondlr" [ref=e300] [cursor=pointer]:
+                      - /url: /u/simondlr
+                      - generic [ref=e301]:
+                        - generic [ref=e302]:
+                          - generic [ref=e303]: by
+                          - generic [ref=e304]: Simon de la Rouviere
+                        - generic [ref=e305]: "@simondlr"
+                    - link "#ETHEREUM" [ref=e306] [cursor=pointer]:
+                      - /url: /tagged/ethereum
+              - article [ref=e309]:
+                - link "/how-the-choose-the-right-notification-infrastructure-for-your-website-or-app feature image" [ref=e311] [cursor=pointer]:
+                  - /url: /how-the-choose-the-right-notification-infrastructure-for-your-website-or-app
+                  - img "/how-the-choose-the-right-notification-infrastructure-for-your-website-or-app feature image" [ref=e312]
+                - generic [ref=e313]:
+                  - heading "How to Choose the Right Notification Infrastructure for Your Website or App" [level=2] [ref=e314]:
+                    - link "How to Choose the Right Notification Infrastructure for Your Website or App" [ref=e315] [cursor=pointer]:
+                      - /url: /how-the-choose-the-right-notification-infrastructure-for-your-website-or-app
+                  - generic [ref=e318]:
+                    - img "author" [ref=e320]
+                    - link "by Nik L. @suprsend" [ref=e321] [cursor=pointer]:
+                      - /url: /u/suprsend
+                      - generic [ref=e322]:
+                        - generic [ref=e323]:
+                          - generic [ref=e324]: by
+                          - generic [ref=e325]: Nik L.
+                        - generic [ref=e326]: "@suprsend"
+                    - link "#WEB-DESIGN" [ref=e327] [cursor=pointer]:
+                      - /url: /tagged/web-design
+              - article [ref=e330]:
+                - link "/if-ai-is-centralized-today-is-it-a-law-of-nature-no feature image" [ref=e332] [cursor=pointer]:
+                  - /url: /if-ai-is-centralized-today-is-it-a-law-of-nature-no
+                  - img "/if-ai-is-centralized-today-is-it-a-law-of-nature-no feature image" [ref=e333]
+                - generic [ref=e334]:
+                  - heading "If AI is Centralized Today, Is It A Law of Nature? No, It's Not" [level=2] [ref=e335]:
+                    - link "If AI is Centralized Today, Is It A Law of Nature? No, It's Not" [ref=e336] [cursor=pointer]:
+                      - /url: /if-ai-is-centralized-today-is-it-a-law-of-nature-no
+                  - generic [ref=e339]:
+                    - img "author" [ref=e341]
+                    - link "by The Scratchy Cat @thescratchycat" [ref=e342] [cursor=pointer]:
+                      - /url: /u/thescratchycat
+                      - generic [ref=e343]:
+                        - generic [ref=e344]:
+                          - generic [ref=e345]: by
+                          - generic [ref=e346]: The Scratchy Cat
+                        - generic [ref=e347]: "@thescratchycat"
+                    - link "#ARTIFICIAL-INTELLIGENCE" [ref=e348] [cursor=pointer]:
+                      - /url: /tagged/artificial-intelligence
+              - article [ref=e351]:
+                - link "/phineas-fisher-securing-critical-infrastructure-against-hacktivists feature image" [ref=e353] [cursor=pointer]:
+                  - /url: /phineas-fisher-securing-critical-infrastructure-against-hacktivists
+                  - img "/phineas-fisher-securing-critical-infrastructure-against-hacktivists feature image" [ref=e354]
+                - generic [ref=e355]:
+                  - 'heading "Phineas Fisher: Securing Critical Infrastructure Against Hacktivists" [level=2] [ref=e356]':
+                    - 'link "Phineas Fisher: Securing Critical Infrastructure Against Hacktivists" [ref=e357] [cursor=pointer]':
+                      - /url: /phineas-fisher-securing-critical-infrastructure-against-hacktivists
+                  - generic [ref=e360]:
+                    - img "author" [ref=e362]
+                    - link "by Hacktivist @hacktivist" [ref=e363] [cursor=pointer]:
+                      - /url: /u/hacktivist
+                      - generic [ref=e364]:
+                        - generic [ref=e365]:
+                          - generic [ref=e366]: by
+                          - generic [ref=e367]: Hacktivist
+                        - generic [ref=e368]: "@hacktivist"
+                    - link "#CRITICAL-INFRASTRUCTURE" [ref=e369] [cursor=pointer]:
+                      - /url: /tagged/critical-infrastructure
+              - article [ref=e372]:
+                - link "/startup-interview-with-mitja-goroshevsky-co-founder-and-cto-of-ton-labs-r4m37qu feature image" [ref=e374] [cursor=pointer]:
+                  - /url: /startup-interview-with-mitja-goroshevsky-co-founder-and-cto-of-ton-labs-r4m37qu
+                  - img "/startup-interview-with-mitja-goroshevsky-co-founder-and-cto-of-ton-labs-r4m37qu feature image" [ref=e375]
+                - generic [ref=e376]:
+                  - heading "Startup Interview With Mitja Goroshevsky - Co-Founder and CTO of TON Labs" [level=2] [ref=e377]:
+                    - link "Startup Interview With Mitja Goroshevsky - Co-Founder and CTO of TON Labs" [ref=e378] [cursor=pointer]:
+                      - /url: /startup-interview-with-mitja-goroshevsky-co-founder-and-cto-of-ton-labs-r4m37qu
+                  - generic [ref=e381]:
+                    - img "author" [ref=e383]
+                    - link "by TON Labs @tonlabs" [ref=e384] [cursor=pointer]:
+                      - /url: /u/tonlabs
+                      - generic [ref=e385]:
+                        - generic [ref=e386]:
+                          - generic [ref=e387]: by
+                          - generic [ref=e388]: TON Labs
+                        - generic [ref=e389]: "@tonlabs"
+                    - link "#CRYPTO" [ref=e390] [cursor=pointer]:
+                      - /url: /tagged/crypto
+              - article [ref=e393]:
+                - link "/devops-and-technical-debt-a-guide-for-businesses feature image" [ref=e395] [cursor=pointer]:
+                  - /url: /devops-and-technical-debt-a-guide-for-businesses
+                  - img "/devops-and-technical-debt-a-guide-for-businesses feature image" [ref=e396]
+                - generic [ref=e397]:
+                  - 'heading "DevOps and Technical Debt: A Guide for Businesses" [level=2] [ref=e398]':
+                    - 'link "DevOps and Technical Debt: A Guide for Businesses" [ref=e399] [cursor=pointer]':
+                      - /url: /devops-and-technical-debt-a-guide-for-businesses
+                  - generic [ref=e402]:
+                    - img "author" [ref=e404]
+                    - link "by Hiren Dhaduk @hiren-dhaduk" [ref=e405] [cursor=pointer]:
+                      - /url: /u/hiren-dhaduk
+                      - generic [ref=e406]:
+                        - generic [ref=e407]:
+                          - generic [ref=e408]: by
+                          - generic [ref=e409]: Hiren Dhaduk
+                        - generic [ref=e410]: "@hiren-dhaduk"
+                    - link "#TECHNICAL-DEBT" [ref=e411] [cursor=pointer]:
+                      - /url: /tagged/technical-debt
+              - article [ref=e414]:
+                - link "/the-missing-infrastructure-layer-why-ais-next-evolution-requires-distributed-systems-thinking feature image" [ref=e416] [cursor=pointer]:
+                  - /url: /the-missing-infrastructure-layer-why-ais-next-evolution-requires-distributed-systems-thinking
+                  - img "/the-missing-infrastructure-layer-why-ais-next-evolution-requires-distributed-systems-thinking feature image" [ref=e417]
+                - generic [ref=e418]:
+                  - 'heading "The Missing Infrastructure Layer: Why AI''s Next Evolution Requires Distributed Systems Thinking" [level=2] [ref=e419]':
+                    - 'link "The Missing Infrastructure Layer: Why AI''s Next Evolution Requires Distributed Systems Thinking" [ref=e420] [cursor=pointer]':
+                      - /url: /the-missing-infrastructure-layer-why-ais-next-evolution-requires-distributed-systems-thinking
+                  - generic [ref=e423]:
+                    - img "author" [ref=e425]
+                    - link "by John Vester @johnjvester" [ref=e426] [cursor=pointer]:
+                      - /url: /u/johnjvester
+                      - generic [ref=e427]:
+                        - generic [ref=e428]:
+                          - generic [ref=e429]: by
+                          - generic [ref=e430]: John Vester
+                        - generic [ref=e431]: "@johnjvester"
+                    - link "#AI" [ref=e432] [cursor=pointer]:
+                      - /url: /tagged/ai
+              - article [ref=e435]:
+                - link "/social-proof-vs-technical-trust-a-linkedin-story feature image" [ref=e437] [cursor=pointer]:
+                  - /url: /social-proof-vs-technical-trust-a-linkedin-story
+                  - img "/social-proof-vs-technical-trust-a-linkedin-story feature image" [ref=e438]
+                - generic [ref=e439]:
+                  - 'heading "Social Proof vs Technical Trust: A LinkedIn Story" [level=2] [ref=e440]':
+                    - 'link "Social Proof vs Technical Trust: A LinkedIn Story" [ref=e441] [cursor=pointer]':
+                      - /url: /social-proof-vs-technical-trust-a-linkedin-story
+                  - generic [ref=e444]:
+                    - img "author" [ref=e446]
+                    - link "by Jeremy Ray Jewell @jeremyrayjewell" [ref=e447] [cursor=pointer]:
+                      - /url: /u/jeremyrayjewell
+                      - generic [ref=e448]:
+                        - generic [ref=e449]:
+                          - generic [ref=e450]: by
+                          - generic [ref=e451]: Jeremy Ray Jewell
+                        - generic [ref=e452]: "@jeremyrayjewell"
+                    - link "#LINKEDIN" [ref=e453] [cursor=pointer]:
+                      - /url: /tagged/linkedin
+              - article [ref=e456]:
+                - link "/why-public-key-infrastructure-isnt-the-silver-bullet-for-digital-security feature image" [ref=e458] [cursor=pointer]:
+                  - /url: /why-public-key-infrastructure-isnt-the-silver-bullet-for-digital-security
+                  - img "/why-public-key-infrastructure-isnt-the-silver-bullet-for-digital-security feature image" [ref=e459]
+                - generic [ref=e460]:
+                  - heading "Why Public Key Infrastructure Isn’t the Silver Bullet for Digital Security" [level=2] [ref=e461]:
+                    - link "Why Public Key Infrastructure Isn’t the Silver Bullet for Digital Security" [ref=e462] [cursor=pointer]:
+                      - /url: /why-public-key-infrastructure-isnt-the-silver-bullet-for-digital-security
+                  - generic [ref=e465]:
+                    - img "author" [ref=e467]
+                    - 'link "by EScholar: Electronic Academic Papers for Scholars @escholar" [ref=e468] [cursor=pointer]':
+                      - /url: /u/escholar
+                      - generic [ref=e469]:
+                        - generic [ref=e470]:
+                          - generic [ref=e471]: by
+                          - generic [ref=e472]: "EScholar: Electronic Academic Papers for Scholars"
+                        - generic [ref=e473]: "@escholar"
+                    - link "#PUBLIC-KEY-INFRASTRUCTURE" [ref=e474] [cursor=pointer]:
+                      - /url: /tagged/public-key-infrastructure
+              - article [ref=e477]:
+                - link "/the-true-cost-of-technical-decisions feature image" [ref=e479] [cursor=pointer]:
+                  - /url: /the-true-cost-of-technical-decisions
+                  - img "/the-true-cost-of-technical-decisions feature image" [ref=e480]
+                - generic [ref=e481]:
+                  - heading "The True Cost of Technical Decisions" [level=2] [ref=e482]:
+                    - link "The True Cost of Technical Decisions" [ref=e483] [cursor=pointer]:
+                      - /url: /the-true-cost-of-technical-decisions
+                  - generic [ref=e486]:
+                    - img "author" [ref=e488]
+                    - link "by Samuel Oladipupo @soladipupo" [ref=e489] [cursor=pointer]:
+                      - /url: /u/soladipupo
+                      - generic [ref=e490]:
+                        - generic [ref=e491]:
+                          - generic [ref=e492]: by
+                          - generic [ref=e493]: Samuel Oladipupo
+                        - generic [ref=e494]: "@soladipupo"
+                    - link "#TECHNICAL-DEBT" [ref=e495] [cursor=pointer]:
+                      - /url: /tagged/technical-debt
+              - article [ref=e498]:
+                - link "/agent-harnessing-the-non-model-infrastructure-that-makes-ai-agents-actually-work feature image" [ref=e500] [cursor=pointer]:
+                  - /url: /agent-harnessing-the-non-model-infrastructure-that-makes-ai-agents-actually-work
+                  - img "/agent-harnessing-the-non-model-infrastructure-that-makes-ai-agents-actually-work feature image" [ref=e501]
+                - generic [ref=e502]:
+                  - 'heading "Agent Harnessing: The Non-Model Infrastructure That Makes AI Agents Actually Work" [level=2] [ref=e503]':
+                    - 'link "Agent Harnessing: The Non-Model Infrastructure That Makes AI Agents Actually Work" [ref=e504] [cursor=pointer]':
+                      - /url: /agent-harnessing-the-non-model-infrastructure-that-makes-ai-agents-actually-work
+                  - generic [ref=e507]:
+                    - img "author" [ref=e509]
+                    - link "by Tosin Kolawole @teedon" [ref=e510] [cursor=pointer]:
+                      - /url: /u/teedon
+                      - generic [ref=e511]:
+                        - generic [ref=e512]:
+                          - generic [ref=e513]: by
+                          - generic [ref=e514]: Tosin Kolawole
+                        - generic [ref=e515]: "@teedon"
+                    - link "#AI-AGENTS" [ref=e516] [cursor=pointer]:
+                      - /url: /tagged/ai-agents
+    - generic [ref=e521]:
+      - generic [ref=e524]:
+        - link "Search" [ref=e525] [cursor=pointer]:
+          - /url: /search
+          - generic [ref=e526]: 
+        - search [ref=e528]:
+          - searchbox "DISCOVER ANYTHING" [ref=e529]
+          - button "Submit your search query."
+        - button "Close search" [ref=e530] [cursor=pointer]:
+          - generic [ref=e531]: 
+      - generic [ref=e533]:
+        - generic [ref=e534]:
+          - heading "Trending Stories " [level=3] [ref=e535]:
+            - link "Trending Stories" [ref=e536] [cursor=pointer]:
+              - /url: /techbeat
+            - generic [ref=e537]: 
+          - generic [ref=e539] [cursor=pointer]:
+            - generic [ref=e540]:
+              - 'link "Read: The Postgres Developer''s Guide to Vector Index Tradeoffs" [ref=e541]':
+                - /url: /the-postgres-developers-guide-to-vector-index-tradeoffs
+                - paragraph [ref=e542]: The Postgres Developer's Guide to Vector Index Tradeoffs
+              - 'button "Trending rank: 1" [ref=e543]': "#1"
+            - generic [ref=e544]:
+              - generic:
+                - 'link "Read story: The Postgres Developer''s Guide to Vector Index Tradeoffs"':
+                  - /url: /the-postgres-developers-guide-to-vector-index-tradeoffs
+                  - img "The Postgres Developer's Guide to Vector Index Tradeoffs"
+              - generic [ref=e545]:
+                - paragraph [ref=e546]:
+                  - generic [ref=e547]: 
+                  - text: 2.721 new reads
+                - link "View profile of tigerdata" [ref=e549]:
+                  - /url: /the-postgres-developers-guide-to-vector-index-tradeoffs
+                  - generic [ref=e550]:
+                    - img "tigerdata profile image" [ref=e552]
+                    - generic [ref=e553]: by @tigerdata
+          - generic [ref=e555] [cursor=pointer]:
+            - generic [ref=e556]:
+              - 'link "Read: 10 Best Residential Proxies for Developers in 2026" [ref=e557]':
+                - /url: /10-best-residential-proxies-for-developers-2026
+                - paragraph [ref=e558]: 10 Best Residential Proxies for Developers in 2026
+              - 'button "Trending rank: 2" [ref=e559]': "#2"
+            - generic [ref=e560]:
+              - generic:
+                - 'link "Read story: 10 Best Residential Proxies for Developers in 2026"':
+                  - /url: /10-best-residential-proxies-for-developers-2026
+                  - img "10 Best Residential Proxies for Developers in 2026"
+              - generic [ref=e561]:
+                - paragraph [ref=e562]:
+                  - generic [ref=e563]: 
+                  - text: 2.498 new reads
+                - link "View profile of oxylabs" [ref=e565]:
+                  - /url: /10-best-residential-proxies-for-developers-2026
+                  - generic [ref=e566]:
+                    - img "oxylabs profile image" [ref=e568]
+                    - generic [ref=e569]: by @oxylabs
+          - generic [ref=e571] [cursor=pointer]:
+            - generic [ref=e572]:
+              - 'link "Read: Building Knowledge Graphs with Gemini" [ref=e573]':
+                - /url: /building-knowledge-graphs-with-gemini
+                - paragraph [ref=e574]: Building Knowledge Graphs with Gemini
+              - 'button "Trending rank: 3" [ref=e575]': "#3"
+            - generic [ref=e576]:
+              - generic:
+                - 'link "Read story: Building Knowledge Graphs with Gemini"':
+                  - /url: /building-knowledge-graphs-with-gemini
+                  - img "Building Knowledge Graphs with Gemini"
+              - generic [ref=e577]:
+                - paragraph [ref=e578]:
+                  - generic [ref=e579]: 
+                  - text: 2.233 new reads
+                - link "View profile of picardparis" [ref=e581]:
+                  - /url: /building-knowledge-graphs-with-gemini
+                  - generic [ref=e582]:
+                    - img "picardparis profile image" [ref=e584]
+                    - generic [ref=e585]: by @picardparis
+          - generic [ref=e587] [cursor=pointer]:
+            - generic [ref=e588]:
+              - 'link "Read: How MoEngage Achieved Millisecond Personalization with ScyllaDB" [ref=e589]':
+                - /url: /how-moengage-achieved-millisecond-personalization-with-scylladb
+                - paragraph [ref=e590]: How MoEngage Achieved Millisecond Personalization with ScyllaDB
+              - 'button "Trending rank: 4" [ref=e591]': "#4"
+            - generic [ref=e592]:
+              - generic:
+                - 'link "Read story: How MoEngage Achieved Millisecond Personalization with ScyllaDB"':
+                  - /url: /how-moengage-achieved-millisecond-personalization-with-scylladb
+                  - img "How MoEngage Achieved Millisecond Personalization with ScyllaDB"
+              - generic [ref=e593]:
+                - paragraph [ref=e594]:
+                  - generic [ref=e595]: 
+                  - text: 2.095 new reads
+                - link "View profile of scylladb" [ref=e597]:
+                  - /url: /how-moengage-achieved-millisecond-personalization-with-scylladb
+                  - generic [ref=e598]:
+                    - img "scylladb profile image" [ref=e600]
+                    - generic [ref=e601]: by @scylladb
+          - generic [ref=e603] [cursor=pointer]:
+            - generic [ref=e604]:
+              - 'link "Read: Refer and earn up to $5K with Social Discovery Group’s new Employee Referral Program!" [ref=e605]':
+                - /url: /refer-and-earn-up-to-$5k-with-social-discovery-groups-new-employee-referral-program
+                - paragraph [ref=e606]: Refer and earn up to $5K with Social Discovery Group’s new Employee Referral Program!
+              - 'button "Trending rank: 5" [ref=e607]': "#5"
+            - generic [ref=e608]:
+              - generic:
+                - 'link "Read story: Refer and earn up to $5K with Social Discovery Group’s new Employee Referral Program!"':
+                  - /url: /refer-and-earn-up-to-$5k-with-social-discovery-groups-new-employee-referral-program
+                  - img "Refer and earn up to $5K with Social Discovery Group’s new Employee Referral Program!"
+              - generic [ref=e609]:
+                - paragraph [ref=e610]:
+                  - generic [ref=e611]: 
+                  - text: 1.829 new reads
+                - link "View profile of socialdiscoverygroup" [ref=e613]:
+                  - /url: /refer-and-earn-up-to-$5k-with-social-discovery-groups-new-employee-referral-program
+                  - generic [ref=e614]:
+                    - img "socialdiscoverygroup profile image" [ref=e616]
+                    - generic [ref=e617]: by @socialdiscoverygroup
+          - generic [ref=e619] [cursor=pointer]:
+            - generic [ref=e620]:
+              - 'link "Read: How a Weekend MVP Became inDrive''s Cross-Platform Design Token Export Tool" [ref=e621]':
+                - /url: /how-a-weekend-mvp-became-indrives-cross-platform-design-token-export-tool
+                - paragraph [ref=e622]: How a Weekend MVP Became inDrive's Cross-Platform Design Token Export Tool
+              - 'button "Trending rank: 6" [ref=e623]': "#6"
+            - generic [ref=e624]:
+              - generic:
+                - 'link "Read story: How a Weekend MVP Became inDrive''s Cross-Platform Design Token Export Tool"':
+                  - /url: /how-a-weekend-mvp-became-indrives-cross-platform-design-token-export-tool
+                  - img "How a Weekend MVP Became inDrive's Cross-Platform Design Token Export Tool"
+              - generic [ref=e625]:
+                - paragraph [ref=e626]:
+                  - generic [ref=e627]: 
+                  - text: 1.818 new reads
+                - link "View profile of indrivetech" [ref=e629]:
+                  - /url: /how-a-weekend-mvp-became-indrives-cross-platform-design-token-export-tool
+                  - generic [ref=e630]:
+                    - img "indrivetech profile image" [ref=e632]
+                    - generic [ref=e633]: by @indrivetech
+          - generic [ref=e635] [cursor=pointer]:
+            - generic [ref=e636]:
+              - 'link "Read: DinkToPdf C# Alternative: The Hidden Dependency Risk in 2026" [ref=e637]':
+                - /url: /dinktopdf-c-alternative-the-hidden-dependency-risk-in-2026
+                - paragraph [ref=e638]: "DinkToPdf C# Alternative: The Hidden Dependency Risk in 2026"
+              - 'button "Trending rank: 7" [ref=e639]': "#7"
+            - generic [ref=e640]:
+              - generic:
+                - 'link "Read story: DinkToPdf C# Alternative: The Hidden Dependency Risk in 2026"':
+                  - /url: /dinktopdf-c-alternative-the-hidden-dependency-risk-in-2026
+                  - 'img "DinkToPdf C# Alternative: The Hidden Dependency Risk in 2026"'
+              - generic [ref=e641]:
+                - paragraph [ref=e642]:
+                  - generic [ref=e643]: 
+                  - text: 1.785 new reads
+                - link "View profile of ironsoftware" [ref=e645]:
+                  - /url: /dinktopdf-c-alternative-the-hidden-dependency-risk-in-2026
+                  - generic [ref=e646]:
+                    - img "ironsoftware profile image" [ref=e648]
+                    - generic [ref=e649]: by @ironsoftware
+          - generic [ref=e651] [cursor=pointer]:
+            - generic [ref=e652]:
+              - 'link "Read: Understanding the Design Philosophy Behind the Linux Filesystem" [ref=e653]':
+                - /url: /understanding-the-design-philosophy-behind-the-linux-filesystem
+                - paragraph [ref=e654]: Understanding the Design Philosophy Behind the Linux Filesystem
+              - 'button "Trending rank: 8" [ref=e655]': "#8"
+            - generic [ref=e656]:
+              - generic:
+                - 'link "Read story: Understanding the Design Philosophy Behind the Linux Filesystem"':
+                  - /url: /understanding-the-design-philosophy-behind-the-linux-filesystem
+                  - img "Understanding the Design Philosophy Behind the Linux Filesystem"
+              - generic [ref=e657]:
+                - paragraph [ref=e658]:
+                  - generic [ref=e659]: 
+                  - text: 1.413 new reads
+                - link "View profile of techcircumference" [ref=e661]:
+                  - /url: /understanding-the-design-philosophy-behind-the-linux-filesystem
+                  - generic [ref=e662]:
+                    - img "techcircumference profile image" [ref=e664]
+                    - generic [ref=e665]: by @techcircumference
+          - generic [ref=e667] [cursor=pointer]:
+            - generic [ref=e668]:
+              - 'link "Read: Revealing the Hidden Costs of Codebase Complexity" [ref=e669]':
+                - /url: /revealing-the-hidden-costs-of-codebase-complexity
+                - paragraph [ref=e670]: Revealing the Hidden Costs of Codebase Complexity
+              - 'button "Trending rank: 9" [ref=e671]': "#9"
+            - generic [ref=e672]:
+              - generic:
+                - 'link "Read story: Revealing the Hidden Costs of Codebase Complexity"':
+                  - /url: /revealing-the-hidden-costs-of-codebase-complexity
+                  - img "Revealing the Hidden Costs of Codebase Complexity"
+              - generic [ref=e673]:
+                - paragraph [ref=e674]:
+                  - generic [ref=e675]: 
+                  - text: 1.311 new reads
+                - link "View profile of playerzero" [ref=e677]:
+                  - /url: /revealing-the-hidden-costs-of-codebase-complexity
+                  - generic [ref=e678]:
+                    - img "playerzero profile image" [ref=e680]
+                    - generic [ref=e681]: by @playerzero
+          - generic [ref=e683] [cursor=pointer]:
+            - generic [ref=e684]:
+              - 'link "Read: The Architecture of Local-First AI Memory: No Cloud, No Keys, No Read-Time LLMs" [ref=e685]':
+                - /url: /the-architecture-of-local-first-ai-memory-no-cloud-no-keys-no-read-time-llms
+                - paragraph [ref=e686]: "The Architecture of Local-First AI Memory: No Cloud, No Keys, No Read-Time LLMs"
+              - 'button "Trending rank: 10" [ref=e687]': "#10"
+            - generic [ref=e688]:
+              - generic:
+                - 'link "Read story: The Architecture of Local-First AI Memory: No Cloud, No Keys, No Read-Time LLMs"':
+                  - /url: /the-architecture-of-local-first-ai-memory-no-cloud-no-keys-no-read-time-llms
+                  - 'img "The Architecture of Local-First AI Memory: No Cloud, No Keys, No Read-Time LLMs"'
+              - generic [ref=e689]:
+                - paragraph [ref=e690]:
+                  - generic [ref=e691]: 
+                  - text: 821 new reads
+                - link "View profile of oleksiijko" [ref=e693]:
+                  - /url: /the-architecture-of-local-first-ai-memory-no-cloud-no-keys-no-read-time-llms
+                  - generic [ref=e694]:
+                    - img "oleksiijko profile image" [ref=e696]
+                    - generic [ref=e697]: by @oleksiijko
+        - heading "Categories " [level=3] [ref=e699]:
+          - link "Categories" [ref=e700] [cursor=pointer]:
+            - /url: /c
+          - generic [ref=e701]: 
+        - generic [ref=e702]:
+          - heading "Trending Topics " [level=3] [ref=e703]:
+            - link "Trending Topics" [ref=e704] [cursor=pointer]:
+              - /url: /tagged
+            - generic [ref=e705]: 
+          - generic [ref=e706]:
+            - generic [ref=e707] [cursor=pointer]: blockchain
+            - generic [ref=e708] [cursor=pointer]: cryptocurrency
+            - generic [ref=e709] [cursor=pointer]: hackernoon-top-story
+            - generic [ref=e710] [cursor=pointer]: programming
+            - generic [ref=e711] [cursor=pointer]: software-development
+            - generic [ref=e712] [cursor=pointer]: technology
+            - generic [ref=e713] [cursor=pointer]: startup
+            - generic [ref=e714] [cursor=pointer]: hackernoon-books
+            - generic [ref=e715] [cursor=pointer]: Bitcoin
+            - generic [ref=e716] [cursor=pointer]: books
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - text: 
+            - generic:
+              - button "Toggle Navigation":
+                - generic: 
+            - generic:
+              - button "Open Settings":
+                - generic: 
+            - generic:
+              - button "Open Settings":
+                - generic: 
+          - generic:
+            - generic:
+              - button "Login"
+              - button "SignUp"
+    - text: 
+  - alert [ref=e717]
+  - alertdialog "Notice" [ref=e718]:
+    - generic [ref=e720]:
+      - document [ref=e721]:
+        - heading "Notice" [level=2] [ref=e722]
+        - generic [ref=e723]:
+          - paragraph [ref=e724]:
+            - text: We and selected third parties use cookies or similar technologies for technical purposes and, with your consent, for other purposes as specified in the
+            - button "cookie policy" [ref=e725] [cursor=pointer]
+            - text: .
+          - paragraph [ref=e726]: You can freely give, deny, or withdraw your consent at any time by accessing the preferences panel. Denying consent may make related features unavailable.
+          - paragraph
+          - paragraph [ref=e727]: Use the “Accept” button to consent. Use the “Reject” button to continue without accepting.
+      - generic [ref=e728]:
+        - button "Learn more" [ref=e730] [cursor=pointer]
+        - generic [ref=e731]:
+          - button "Reject" [ref=e732] [cursor=pointer]
+          - button "Accept" [ref=e733] [cursor=pointer]

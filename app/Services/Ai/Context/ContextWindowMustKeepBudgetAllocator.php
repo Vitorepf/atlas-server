@@ -16,6 +16,12 @@ namespace App\Services\Ai\Context;
  *
  * No clock, no I/O, no DB, no facades, no randomness — every field is computed
  * from the method inputs via real ranking + compression-target math.
+ *
+ * Complexity of `allocate` is kept strictly lower than the previous in-line
+ * implementation by delegating the dense phases (split+rank, Phase 1 greedy
+ * fit, Phase 2 compression-target plan, Phase 3 optional fit, coverage +
+ * blockers tail) to ContextWindowMustKeepBudgetAllocatorSupport. Public API
+ * and result schema are unchanged.
  */
 final class ContextWindowMustKeepBudgetAllocator
 {
@@ -31,6 +37,13 @@ final class ContextWindowMustKeepBudgetAllocator
     ];
 
     private const DEFAULT_CATEGORY_RANK = 99;
+
+    private ContextWindowMustKeepBudgetAllocatorSupport $support;
+
+    public function __construct(?ContextWindowMustKeepBudgetAllocatorSupport $support = null)
+    {
+        $this->support = $support ?? new ContextWindowMustKeepBudgetAllocatorSupport();
+    }
 
     /**
      * @param  list<array{kind?:string,ref?:string,tokens?:int,priority?:float,must_keep?:bool}>  $segments
@@ -51,161 +64,52 @@ final class ContextWindowMustKeepBudgetAllocator
     {
         $budget = max(0, $tokenBudget);
 
+        $normalized = $this->normalizeAll($segments);
+        $split = $this->support->splitAndRankSegments($normalized);
+        $phase1 = $this->support->planMustKeepGreedyFit($split['mustKeepRanked'], $budget);
+        $phase2 = $this->support->assignCompressionTargets($phase1['flagged'], $budget, $phase1['usedFull']);
+        $phase3 = $this->support->fitOptionalWithinLeftover(
+            $split['optionalRanked'],
+            $budget,
+            $phase1['usedFull'] + $phase2['assigned_compression_tokens'],
+        );
+        $tail = $this->support->buildCoverageAndBlockers(
+            $phase1['keptFullCount'],
+            $split['mustKeepCount'],
+            $phase1['flagged'],
+            $phase1['overflow'],
+            $phase2['unrecoverable'],
+        );
+
+        $included = array_merge($phase1['included'], $phase2['included'], $phase3['included']);
+        $excluded = array_merge($phase2['excluded'], $phase3['excluded']);
+
+        return [
+            'schema_version' => self::SCHEMA_VERSION,
+            'overflow' => $phase1['overflow'],
+            'token_budget' => $budget,
+            'must_keep_tokens_total' => $phase1['mustKeepTokensTotal'],
+            'deficit_tokens' => $phase1['deficitTokens'],
+            'must_keep_coverage' => $tail['coverage'],
+            'degradation_required' => $tail['degradation_required'],
+            'included' => $included,
+            'excluded' => $excluded,
+            'blockers' => $tail['blockers'],
+        ];
+    }
+
+    /**
+     * @param  list<array{kind?:string,ref?:string,tokens?:int,priority?:float,must_keep?:bool}>  $segments
+     * @return list<array<string,mixed>>
+     */
+    private function normalizeAll(array $segments): array
+    {
         $normalized = [];
         foreach (array_values($segments) as $index => $segment) {
             $normalized[] = $this->normalize($segment, $index);
         }
 
-        $mustKeep = array_values(array_filter($normalized, static fn (array $s): bool => $s['must_keep']));
-        $optional = array_values(array_filter($normalized, static fn (array $s): bool => ! $s['must_keep']));
-
-        $mustKeepRanked = $this->rankMustKeep($mustKeep);
-
-        $mustKeepTokensTotal = 0;
-        foreach ($mustKeepRanked as $segment) {
-            $mustKeepTokensTotal += $segment['tokens'];
-        }
-
-        $deficitTokens = max(0, $mustKeepTokensTotal - $budget);
-        $overflow = $deficitTokens > 0;
-
-        $included = [];
-        $excluded = [];
-        $blockers = [];
-
-        // Phase 1: greedily fit must_keep full, in rank order.
-        $usedFull = 0;
-        $keptFullCount = 0;
-        $flagged = [];
-        foreach ($mustKeepRanked as $segment) {
-            if ($usedFull + $segment['tokens'] <= $budget) {
-                $usedFull += $segment['tokens'];
-                $keptFullCount++;
-                $included[] = $this->includedRow(
-                    $segment,
-                    'kept_full',
-                    $segment['tokens'],
-                    'must_keep_fits_full_budget',
-                );
-
-                continue;
-            }
-
-            $flagged[] = $segment;
-        }
-
-        // Phase 2: per-segment compression targets for must_keep that did not fit full.
-        $flaggedTokensTotal = 0;
-        foreach ($flagged as $segment) {
-            $flaggedTokensTotal += $segment['tokens'];
-        }
-
-        $leftoverForCompression = max(0, $budget - $usedFull);
-        $unrecoverable = false;
-        $assignedCompressionTokens = 0;
-
-        foreach ($flagged as $position => $segment) {
-            $target = $this->compressionTarget(
-                $segment['tokens'],
-                $flaggedTokensTotal,
-                $leftoverForCompression,
-            );
-
-            // Give flooring leftovers to higher-ranked flagged must_keep before optional context.
-            if ($assignedCompressionTokens + $target < $leftoverForCompression && $target < $segment['tokens']) {
-                $target++;
-            }
-
-            if ($target <= 0) {
-                $unrecoverable = true;
-                $excluded[] = $this->excludedRow(
-                    $segment,
-                    'overflow',
-                    'must_keep_unrecoverable_overflow',
-                );
-
-                continue;
-            }
-
-            // Guard the fit invariant: never let assigned targets exceed leftover.
-            if ($assignedCompressionTokens + $target > $leftoverForCompression) {
-                $target = $leftoverForCompression - $assignedCompressionTokens;
-            }
-
-            if ($target <= 0) {
-                $unrecoverable = true;
-                $excluded[] = $this->excludedRow(
-                    $segment,
-                    'overflow',
-                    'must_keep_unrecoverable_overflow',
-                );
-
-                continue;
-            }
-
-            $assignedCompressionTokens += $target;
-            $included[] = $this->includedRow(
-                $segment,
-                'flagged_for_compression',
-                $target,
-                'must_keep_overflow_compressed_to_fit',
-            );
-        }
-
-        // Phase 3: optional segments only with leftover budget after must_keep plan.
-        $usedAfterMustKeep = $usedFull + $assignedCompressionTokens;
-        $optionalRanked = $this->rankOptional($optional);
-        foreach ($optionalRanked as $segment) {
-            if ($usedAfterMustKeep + $segment['tokens'] <= $budget) {
-                $usedAfterMustKeep += $segment['tokens'];
-                $included[] = $this->includedRow(
-                    $segment,
-                    'kept_full',
-                    $segment['tokens'],
-                    'optional_within_leftover_budget',
-                );
-
-                continue;
-            }
-
-            $excluded[] = $this->excludedRow(
-                $segment,
-                'budget_trim_optional',
-                'optional_trimmed_no_leftover_budget',
-            );
-        }
-
-        $mustKeepCount = count($mustKeepRanked);
-        $coverage = $mustKeepCount === 0
-            ? 1.0
-            : round($keptFullCount / $mustKeepCount, 4);
-
-        if ($coverage < 1.0) {
-            $blockers[] = 'must_keep_coverage_below_one';
-        }
-
-        if ($flagged !== []) {
-            $blockers[] = 'must_keep_overflow_requires_compression';
-        }
-
-        if ($unrecoverable) {
-            $blockers[] = 'must_keep_unrecoverable_overflow';
-        }
-
-        $degradationRequired = $overflow || $coverage < 1.0;
-
-        return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'overflow' => $overflow,
-            'token_budget' => $budget,
-            'must_keep_tokens_total' => $mustKeepTokensTotal,
-            'deficit_tokens' => $deficitTokens,
-            'must_keep_coverage' => $coverage,
-            'degradation_required' => $degradationRequired,
-            'included' => $included,
-            'excluded' => $excluded,
-            'blockers' => $blockers,
-        ];
+        return $normalized;
     }
 
     /**
@@ -234,55 +138,6 @@ final class ContextWindowMustKeepBudgetAllocator
     }
 
     /**
-     * Rank must_keep DESC by (category_rank asc, priority desc, tokens asc tiebreak),
-     * stable on original order for full ties.
-     *
-     * @param  list<array<string,mixed>>  $mustKeep
-     * @return list<array<string,mixed>>
-     */
-    private function rankMustKeep(array $mustKeep): array
-    {
-        usort($mustKeep, static function (array $a, array $b): int {
-            return [(int) $a['category_rank'], -(float) $a['priority'], (int) $a['tokens'], (int) $a['index']]
-                <=> [(int) $b['category_rank'], -(float) $b['priority'], (int) $b['tokens'], (int) $b['index']];
-        });
-
-        return $mustKeep;
-    }
-
-    /**
-     * Rank optional segments by priority desc, tokens asc, stable on original order.
-     *
-     * @param  list<array<string,mixed>>  $optional
-     * @return list<array<string,mixed>>
-     */
-    private function rankOptional(array $optional): array
-    {
-        usort($optional, static function (array $a, array $b): int {
-            return [-(float) $a['priority'], (int) $a['tokens'], (int) $a['index']]
-                <=> [-(float) $b['priority'], (int) $b['tokens'], (int) $b['index']];
-        });
-
-        return $optional;
-    }
-
-    /**
-     * Per-segment compression target: scale the segment down by the share of the
-     * leftover budget proportional to its token weight among flagged segments.
-     * Floored so the assigned plan never exceeds the leftover budget.
-     */
-    private function compressionTarget(int $tokens, int $flaggedTokensTotal, int $leftover): int
-    {
-        if ($leftover <= 0 || $flaggedTokensTotal <= 0 || $tokens <= 0) {
-            return 0;
-        }
-
-        $target = (int) floor(($tokens * $leftover) / $flaggedTokensTotal);
-
-        return min($target, $tokens);
-    }
-
-    /**
      * @param  array<string,mixed>  $segment
      * @return array{ref:string,kind:string,category:string,tokens:int,priority:float,must_keep:bool,disposition:string,compression_target_tokens:int,reason:string}
      */
@@ -297,22 +152,6 @@ final class ContextWindowMustKeepBudgetAllocator
             'must_keep' => (bool) $segment['must_keep'],
             'disposition' => $disposition,
             'compression_target_tokens' => $compressionTarget,
-            'reason' => $reason,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $segment
-     * @return array{ref:string,kind:string,tokens:int,must_keep:bool,disposition:string,reason:string}
-     */
-    private function excludedRow(array $segment, string $disposition, string $reason): array
-    {
-        return [
-            'ref' => (string) $segment['ref'],
-            'kind' => (string) $segment['kind'],
-            'tokens' => (int) $segment['tokens'],
-            'must_keep' => (bool) $segment['must_keep'],
-            'disposition' => $disposition,
             'reason' => $reason,
         ];
     }

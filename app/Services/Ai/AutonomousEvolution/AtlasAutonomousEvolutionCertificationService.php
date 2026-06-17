@@ -80,15 +80,19 @@ final class AtlasAutonomousEvolutionCertificationService
      */
     private function runtimeSmoke(): array
     {
-        $payload = $this->withoutPersistingSmoke(fn (): array => $this->runtime->runCycle([
+        return $this->runSmokeCycle('runtime_smoke', [
             'objective' => 'Improve Atlas Dev and Forge quality with evidence and rollback',
             'evidence_refs' => ['test:aael_runtime_smoke'],
-        ]));
-        $ok = ($payload['schema_version'] ?? null) === AtlasAutonomousEvolutionLoopService::CYCLE_SCHEMA
-            && ($payload['portfolio_snapshot']['maturity_level'] ?? null) === AtlasAutonomousEvolutionLoopService::LEVEL_MAX
-            && isset($payload['strategic_alignment_gate'], $payload['anti_drift_doctrine_gate'], $payload['audit_report']);
+        ], function (array $payload): array {
+            $ok = ($payload['schema_version'] ?? null) === AtlasAutonomousEvolutionLoopService::CYCLE_SCHEMA
+                && ($payload['portfolio_snapshot']['maturity_level'] ?? null) === AtlasAutonomousEvolutionLoopService::LEVEL_MAX
+                && isset($payload['strategic_alignment_gate'], $payload['anti_drift_doctrine_gate'], $payload['audit_report']);
 
-        return ['id' => 'runtime_smoke', 'status' => $ok ? 'pass' : 'fail', 'evidence' => ['cycle_hash' => $payload['cycle_hash'] ?? null]];
+            return [
+                'status' => $ok ? 'pass' : 'fail',
+                'evidence' => ['cycle_hash' => $payload['cycle_hash'] ?? null],
+            ];
+        });
     }
 
     /**
@@ -96,7 +100,7 @@ final class AtlasAutonomousEvolutionCertificationService
      */
     private function highRiskGateSmoke(): array
     {
-        $payload = $this->withoutPersistingSmoke(fn (): array => $this->runtime->runCycle([
+        return $this->runSmokeCycle('high_risk_gate_smoke', [
             'opportunities' => [[
                 'objective' => 'Change provider topology for Atlas router',
                 'risk_level' => 'high',
@@ -106,11 +110,15 @@ final class AtlasAutonomousEvolutionCertificationService
                 'effort' => 0.2,
             ]],
             'evidence_refs' => ['test:aael_high_risk'],
-        ]));
-        $ok = data_get($payload, 'operator_queue.0.action') === 'human_signature_required'
-            && data_get($payload, 'promotion_decisions.0.trust_level') === 'signature_required';
+        ], function (array $payload): array {
+            $ok = data_get($payload, 'operator_queue.0.action') === 'human_signature_required'
+                && data_get($payload, 'promotion_decisions.0.trust_level') === 'signature_required';
 
-        return ['id' => 'high_risk_gate_smoke', 'status' => $ok ? 'pass' : 'fail', 'evidence' => ['cycle_hash' => $payload['cycle_hash'] ?? null]];
+            return [
+                'status' => $ok ? 'pass' : 'fail',
+                'evidence' => ['cycle_hash' => $payload['cycle_hash'] ?? null],
+            ];
+        });
     }
 
     /**
@@ -118,7 +126,7 @@ final class AtlasAutonomousEvolutionCertificationService
      */
     private function assistedExecutionBridgeSmoke(): array
     {
-        $payload = $this->withoutPersistingSmoke(fn (): array => $this->runtime->runCycle([
+        return $this->runSmokeCycle('assisted_execution_bridge', [
             'opportunities' => [[
                 'objective' => 'Improve AAEL assisted execution bridge with evidence and rollback',
                 'domain' => 'programming',
@@ -130,24 +138,24 @@ final class AtlasAutonomousEvolutionCertificationService
                 'effort' => 0.1,
             ]],
             'evidence_refs' => ['test:aael_assisted_execution_bridge'],
-        ]));
-        $bridge = data_get($payload, 'experiments.0.assisted_execution_quality', []);
-        $promotionGateStatus = data_get($payload, 'promotion_decisions.0.promotion_gate.assisted_execution_quality_status');
-        $ok = ($bridge['schema_version'] ?? null) === AtlasAutonomousEvolutionLoopService::ASSISTED_EXECUTION_BRIDGE_SCHEMA
-            && ($bridge['status'] ?? null) === AtlasAutonomousEvolutionLoopService::STATUS_READY
-            && ($bridge['aedpds_gate_status'] ?? null) === 'passed'
-            && ($bridge['outcome_feedback_status'] ?? null) === 'recorded'
-            && ($bridge['aemor_feedback_status'] ?? null) === 'ready_to_record'
-            && $promotionGateStatus === AtlasAutonomousEvolutionLoopService::STATUS_READY;
+        ], function (array $payload): array {
+            $bridge = data_get($payload, 'experiments.0.assisted_execution_quality', []);
+            $promotionGateStatus = data_get($payload, 'promotion_decisions.0.promotion_gate.assisted_execution_quality_status');
+            $ok = ($bridge['schema_version'] ?? null) === AtlasAutonomousEvolutionLoopService::ASSISTED_EXECUTION_BRIDGE_SCHEMA
+                && ($bridge['status'] ?? null) === AtlasAutonomousEvolutionLoopService::STATUS_READY
+                && ($bridge['aedpds_gate_status'] ?? null) === 'passed'
+                && ($bridge['outcome_feedback_status'] ?? null) === 'recorded'
+                && ($bridge['aemor_feedback_status'] ?? null) === 'ready_to_record'
+                && $promotionGateStatus === AtlasAutonomousEvolutionLoopService::STATUS_READY;
 
-        return [
-            'id' => 'assisted_execution_bridge',
-            'status' => $ok ? 'pass' : 'fail',
-            'evidence' => [
-                'bridge_hash' => $bridge['bridge_hash'] ?? null,
-                'promotion_gate_status' => $promotionGateStatus,
-            ],
-        ];
+            return [
+                'status' => $ok ? 'pass' : 'fail',
+                'evidence' => [
+                    'bridge_hash' => $bridge['bridge_hash'] ?? null,
+                    'promotion_gate_status' => $promotionGateStatus,
+                ],
+            ];
+        });
     }
 
     /**
@@ -155,7 +163,7 @@ final class AtlasAutonomousEvolutionCertificationService
      */
     private function doctrineBlockerSmoke(): array
     {
-        $payload = $this->withoutPersistingSmoke(fn (): array => $this->runtime->runCycle([
+        return $this->runSmokeCycle('doctrine_blocker_smoke', [
             'opportunities' => [[
                 'objective' => 'Create parallel self construction runtime and bypass evidence',
                 'strategic_alignment_score' => 0.9,
@@ -163,11 +171,15 @@ final class AtlasAutonomousEvolutionCertificationService
                 'frequency' => 0.9,
                 'effort' => 0.1,
             ]],
-        ]));
-        $ok = data_get($payload, 'anti_drift_doctrine_gate.status') === AtlasAutonomousEvolutionLoopService::STATUS_BLOCKED
-            && data_get($payload, 'portfolio_snapshot.selected_count') === 0;
+        ], function (array $payload): array {
+            $ok = data_get($payload, 'anti_drift_doctrine_gate.status') === AtlasAutonomousEvolutionLoopService::STATUS_BLOCKED
+                && data_get($payload, 'portfolio_snapshot.selected_count') === 0;
 
-        return ['id' => 'doctrine_blocker_smoke', 'status' => $ok ? 'pass' : 'fail', 'evidence' => ['violations' => data_get($payload, 'anti_drift_doctrine_gate.violations')]];
+            return [
+                'status' => $ok ? 'pass' : 'fail',
+                'evidence' => ['violations' => data_get($payload, 'anti_drift_doctrine_gate.violations')],
+            ];
+        });
     }
 
     /**
@@ -224,6 +236,39 @@ final class AtlasAutonomousEvolutionCertificationService
             DB::rollBack();
 
             throw $throwable;
+        }
+    }
+
+    /**
+     * Run a single AAEL smoke through the runtime's `runCycle(...)` and
+     * convert any \Throwable escaping the call into a deterministic
+     * `status => 'fail'` check payload, so one failing smoke never aborts
+     * the whole `certify()` report.
+     *
+     * @param  array<string,mixed>  $cycleInput
+     * @param  callable(array<string,mixed>):array{status:string,evidence?:array<string,mixed>}  $assert
+     * @return array<string,mixed>
+     */
+    private function runSmokeCycle(string $id, array $cycleInput, callable $assert): array
+    {
+        try {
+            $payload = $this->withoutPersistingSmoke(fn (): array => $this->runtime->runCycle($cycleInput));
+            $verdict = $assert(is_array($payload) ? $payload : []);
+
+            return [
+                'id' => $id,
+                'status' => ($verdict['status'] ?? null) === 'pass' ? 'pass' : 'fail',
+                'evidence' => is_array($verdict['evidence'] ?? null) ? $verdict['evidence'] : [],
+            ];
+        } catch (\Throwable $throwable) {
+            return [
+                'id' => $id,
+                'status' => 'fail',
+                'evidence' => [
+                    'error' => $throwable::class,
+                    'message' => $throwable->getMessage(),
+                ],
+            ];
         }
     }
 

@@ -168,11 +168,8 @@ final class AtlasEvolutionScenarioExplorer
         }
 
         for ($i = 0; $i < $max; $i++) {
-            if ($i >= $min && $best !== null && $noImprove >= $patience) {
-                break; // converged: a winner exists and the last $patience scenarios didn't beat it
-            }
-            if ($timeBudget > 0 && (microtime(true) - $start) >= $timeBudget) {
-                break; // search time budget reached
+            if ($this->shouldBreakSearch($i, $min, $best, $noImprove, $patience, $timeBudget, $start)) {
+                break;
             }
 
             $strategy = $this->strategyFor($task, $i);
@@ -195,12 +192,7 @@ final class AtlasEvolutionScenarioExplorer
                 (string) ($attempt['scenario_id'] ?? ''),
             );
 
-            if ($this->improvesBest($attempt, $best, $metricKind)) {
-                $best = $attempt;
-                $noImprove = 0;
-            } else {
-                $noImprove++;
-            }
+            $best = $this->applyAttemptOutcome($attempt, $best, $noImprove, $metricKind);
         }
 
         return [
@@ -208,6 +200,43 @@ final class AtlasEvolutionScenarioExplorer
             'converged' => $best !== null && $noImprove >= $patience,
             'convergence' => $ledger->convergence(),
         ];
+    }
+
+    /**
+     * Combined convergence + budget break-check used by the serial loop body. Centralises the two
+     * guards so the loop body stays straight-line and the per-method AST max-per-method in this file
+     * drops well below the old 13. Returns true when the loop should stop iterating. Behaviour is
+     * byte-identical to the prior inline guards (convergence: a winner exists and the last $patience
+     * scenarios didn't beat it; budget: the soft time limit elapsed).
+     */
+    private function shouldBreakSearch(int $i, int $min, ?array $best, int $noImprove, int $patience, int $timeBudget, float $start): bool
+    {
+        if ($i >= $min && $best !== null && $noImprove >= $patience) {
+            return true; // converged: a winner exists and the last $patience scenarios didn't beat it
+        }
+
+        return $timeBudget > 0 && (microtime(true) - $start) >= $timeBudget; // search time budget reached
+    }
+
+    /**
+     * Fold a settled attempt into the running best / noImprove counters. Centralises the if/else that
+     * previously sat inline in the serial loop body, so the loop stays straight-line. Behaviour is
+     * byte-identical: passing beats failing, strictly-better metric wins, gate ties break to the
+     * smaller diff (handled inside {@see improvesBest}).
+     *
+     * @param  array<string,mixed>  $attempt
+     * @param  array<string,mixed>|null  $best
+     */
+    private function applyAttemptOutcome(array $attempt, ?array $best, int &$noImprove, string $metricKind): ?array
+    {
+        if ($this->improvesBest($attempt, $best, $metricKind)) {
+            $noImprove = 0;
+
+            return $attempt;
+        }
+        $noImprove++;
+
+        return $best;
     }
 
     /**
@@ -240,12 +269,10 @@ final class AtlasEvolutionScenarioExplorer
         $i = 0;
 
         while ($i < $max) {
-            // Convergence + budget checks at the WAVE boundary (kept identical to the serial guards).
-            if ($i >= $min && $best !== null && $noImprove >= $patience) {
-                break; // converged: a winner exists and the last $patience scenarios didn't beat it
-            }
-            if ($timeBudget > 0 && (microtime(true) - $start) >= $timeBudget) {
-                break; // search time budget reached
+            // Convergence + budget checks at the WAVE boundary (kept identical to the serial guards,
+            // now shared via the same {@see shouldBreakSearch} helper).
+            if ($this->shouldBreakSearch($i, $min, $best, $noImprove, $patience, $timeBudget, $start)) {
+                break;
             }
 
             // WAVE-level guidance: one digest from all PRIOR settled attempts, shared by this wave.
@@ -290,12 +317,7 @@ final class AtlasEvolutionScenarioExplorer
                     (string) ($attempt['scenario_id'] ?? ''),
                 );
 
-                if ($this->improvesBest($attempt, $best, $metricKind)) {
-                    $best = $attempt;
-                    $noImprove = 0;
-                } else {
-                    $noImprove++;
-                }
+                $best = $this->applyAttemptOutcome($attempt, $best, $noImprove, $metricKind);
             }
 
             $i += $waveSize;

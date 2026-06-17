@@ -129,35 +129,33 @@ final class PlanDeliveryCertificationService
         $allAcceptanceMet = $perSliceCertification['all_acceptance_met'];
 
         $dependencyOrderPreserved = PlanSliceReadModel::dependencyOrderPreserved($slices, $sliceStates);
-        if (! $dependencyOrderPreserved) {
-            $blockers[] = 'dependency_order_not_preserved';
-        }
-
         $integrationCheck = is_array($input['integration_check'] ?? null) ? $input['integration_check'] : [];
         $integrationGreen = (bool) ($integrationCheck['green'] ?? false);
-        if (! $integrationGreen) {
-            $blockers[] = 'integration_not_green';
-        }
+
+        $blockers = $support->collectExternalBlockers($blockers, $dependencyOrderPreserved, $integrationGreen);
 
         $completionPct = $totalSlices > 0 ? round($deliveredSlices / $totalSlices * 100, 2) : 0.0;
 
-        $complete = $totalSlices > 0
-            && $deliveredSlices === $totalSlices
-            && $allMergedWithProof
-            && $allAcceptanceMet
-            && $dependencyOrderPreserved
-            && $integrationGreen
-            && $operationalGate === AreaFocusLoopOperationalCertificationService::STATUS_OPERATIONAL
-            && $support->everyRealCycleCertified($perSlice);
+        $complete = $support->isComplete(
+            $totalSlices,
+            $deliveredSlices,
+            $allMergedWithProof,
+            $allAcceptanceMet,
+            $dependencyOrderPreserved,
+            $integrationGreen,
+            $operationalGate,
+            AreaFocusLoopOperationalCertificationService::STATUS_OPERATIONAL,
+            $perSlice,
+        );
 
-        if ($complete) {
-            $status = self::STATUS_COMPLETE;
-        } elseif ($totalSlices === 0) {
-            $status = self::STATUS_BLOCKED;
-            $blockers[] = 'zero_slices';
-        } else {
-            $status = self::STATUS_PARTIAL;
-        }
+        $status = $support->resolveStatus(
+            $complete,
+            $totalSlices,
+            $blockers,
+            self::STATUS_COMPLETE,
+            self::STATUS_BLOCKED,
+            self::STATUS_PARTIAL,
+        );
 
         return $this->finalize([
             'schema_version' => self::CERT_SCHEMA,
@@ -166,8 +164,8 @@ final class PlanDeliveryCertificationService
             'total_slices' => $totalSlices,
             'delivered_slices' => $deliveredSlices,
             'completion_pct' => $completionPct,
-            'all_slices_merged_with_provider_proof' => $totalSlices > 0 && $allMergedWithProof,
-            'all_acceptance_met' => $totalSlices > 0 && $allAcceptanceMet,
+            'all_slices_merged_with_provider_proof' => $support->mergeAndAcceptanceGated($totalSlices, $allMergedWithProof),
+            'all_acceptance_met' => $support->mergeAndAcceptanceGated($totalSlices, $allAcceptanceMet),
             'dependency_order_preserved' => $dependencyOrderPreserved,
             'integration_green' => $integrationGreen,
             'operational_gate' => $operationalGate,

@@ -1,0 +1,949 @@
+diff --git a/app/Console/Commands/AtlasLoopConfidenceCalibrateCommand.php b/app/Console/Commands/AtlasLoopConfidenceCalibrateCommand.php
+new file mode 100644
+index 000000000..9b82398be
+--- /dev/null
++++ b/app/Console/Commands/AtlasLoopConfidenceCalibrateCommand.php
+@@ -0,0 +1,70 @@
++<?php
++
++declare(strict_types=1);
++
++namespace App\Console\Commands;
++
++use App\Models\AtlasLoopConfidenceSample;
++use App\Services\Ai\AutonomousEvolution\AtlasLoopConfidenceCalibrator;
++use Illuminate\Console\Command;
++
++/**
++ * Confidence-calibration flywheel (ITEM10) — REPORT-ONLY.
++ *
++ * Reads every {predicted, correct} sample the auto-merge feeder accrued post-merge and runs
++ * AtlasLoopConfidenceCalibrator::calibrate() to derive the HONEST recommended gate threshold:
++ * the lowest confidence at which observed precision clears the target with enough samples. Until
++ * recommended_threshold is non-null (n large enough at the target precision), there is not enough
++ * evidence to arm — the honest answer is "insufficient evidence".
++ *
++ * This command NEVER mutates config/env and NEVER arms any gate. The confidence gate
++ * (atlas.loop.confidence_gate_enabled) stays operator-armed: the operator reads this number and
++ * arms it deliberately once the evidence is there.
++ */
++class AtlasLoopConfidenceCalibrateCommand extends Command
++{
++    protected $signature = 'atlas:loop:confidence-calibrate {--json : Canonical JSON output}';
++
++    protected $description = 'Report-only: fit the HONEST confidence arm-threshold from real post-merge outcomes (never arms the gate).';
++
++    public function handle(AtlasLoopConfidenceCalibrator $calibrator): int
++    {
++        $samples = AtlasLoopConfidenceSample::query()
++            ->get()
++            ->map(static fn (AtlasLoopConfidenceSample $r): array => [
++                'predicted' => (float) $r->predicted,
++                'correct' => (bool) $r->correct,
++            ])
++            ->all();
++
++        $result = $calibrator->calibrate(
++            $samples,
++            (float) config('atlas.loop.confidence_calibration.target_precision', 0.93),
++            (int) config('atlas.loop.confidence_calibration.min_samples', 20),
++        );
++
++        if ((bool) $this->option('json')) {
++            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
++
++            return self::SUCCESS;
++        }
++
++        $this->components->twoColumnDetail('Samples (n)', (string) ($result['n'] ?? 0));
++        $this->components->twoColumnDetail('Target precision', (string) ($result['target_precision'] ?? 0.0));
++        $this->components->twoColumnDetail('Brier score', (string) ($result['brier'] ?? 0.0));
++        $this->components->twoColumnDetail('Mean predicted', (string) ($result['mean_predicted'] ?? 0.0));
++        $this->components->twoColumnDetail('Observed accuracy', (string) ($result['observed_accuracy'] ?? 0.0));
++        $this->components->twoColumnDetail('Overconfidence', (string) ($result['overconfidence'] ?? 0.0));
++        $this->components->twoColumnDetail('Well calibrated', ($result['well_calibrated'] ?? false) ? 'yes' : 'no');
++
++        if (($result['recommended_threshold'] ?? null) !== null) {
++            $this->components->info('Recommended arm threshold: '.(string) $result['recommended_threshold'].' (operator arms confidence_gate_enabled deliberately; this command never arms it).');
++
++            return self::SUCCESS;
++        }
++
++        $this->components->warn('Insufficient evidence to arm (n='.(string) ($result['n'] ?? 0).'): no threshold reaches the target precision yet — keep the gate OFF.');
++
++        return self::SUCCESS;
++    }
++}
+diff --git a/app/Models/AtlasLoopConfidenceSample.php b/app/Models/AtlasLoopConfidenceSample.php
+new file mode 100644
+index 000000000..784679622
+--- /dev/null
++++ b/app/Models/AtlasLoopConfidenceSample.php
+@@ -0,0 +1,38 @@
++<?php
++
++declare(strict_types=1);
++
++namespace App\Models;
++
++use Illuminate\Database\Eloquent\Concerns\HasUuids;
++use Illuminate\Database\Eloquent\Model;
++
++/**
++ * A POST-MERGE confidence-calibration sample (ITEM10 — the calibration flywheel).
++ *
++ * The auto-merge feeder writes one row per merged proposal: `predicted` is the cert-time
++ * delivery_confidence (0..1) threaded into the proposal's quality json; `correct` is the
++ * canary verdict (ground-truth). atlas:loop:confidence-calibrate reads these as
++ * {predicted, correct} samples and AtlasLoopConfidenceCalibrator fits the honest arm
++ * threshold from REAL outcomes — never a declared number.
++ */
++class AtlasLoopConfidenceSample extends Model
++{
++    use HasUuids;
++
++    protected $table = 'atlas_loop_confidence_samples';
++
++    protected $fillable = [
++        'proposal_id',
++        'predicted',
++        'correct',
++    ];
++
++    protected function casts(): array
++    {
++        return [
++            'predicted' => 'float',
++            'correct' => 'boolean',
++        ];
++    }
++}
+diff --git a/app/Services/Ai/AutonomousEvolution/AtlasLoopAutoMergeService.php b/app/Services/Ai/AutonomousEvolution/AtlasLoopAutoMergeService.php
+index 23c60c141..05233b350 100644
+--- a/app/Services/Ai/AutonomousEvolution/AtlasLoopAutoMergeService.php
++++ b/app/Services/Ai/AutonomousEvolution/AtlasLoopAutoMergeService.php
+@@ -5,6 +5,7 @@
+ namespace App\Services\Ai\AutonomousEvolution;
+ 
+ use App\Models\AtlasLoopCampaign;
++use App\Models\AtlasLoopConfidenceSample;
+ use App\Models\AtlasLoopProposal;
+ use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+ use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+@@ -454,6 +455,27 @@ private function mergeOne(
+                 $proposal->forceFill(['quality' => $quality])->save();
+             });
+ 
++            // ITEM10: feed the confidence-calibration flywheel a {predicted,correct} sample. predicted = the
++            // cert-time delivery_confidence (threaded into proposal.quality by the grinder); correct = the
++            // canary verdict (GREEN, or not-run => treat as correct, the merge gate already passed). Runs
++            // AFTER the durable commit + post-merge governedSave, so it never disturbs reconciliation.
++            // Flag-gated default-OFF, fail-open: a telemetry write NEVER unwinds a completed merge.
++            if ((bool) config('atlas.loop.confidence_calibration.enabled', false)) {
++                try {
++                    $predicted = (float) data_get($proposal->quality, 'delivery_confidence.confidence', 0.0);
++                    if ($predicted > 0.0) {
++                        $correct = ($canary['ran'] ?? false) ? (($canary['passed'] ?? null) === true) : true;
++                        AtlasLoopConfidenceSample::create([
++                            'proposal_id' => $proposal->id,
++                            'predicted' => $predicted,
++                            'correct' => $correct,
++                        ]);
++                    }
++                } catch (Throwable) {
++                    // telemetry never crashes a merge
++                }
++            }
++
+             // L3-4 (legado, só com o gate OFF): fix-forward pós-commit sem reverter. Com o gate
+             // ON o RED já foi tratado pré-commit (revert+retire+fix-forward) e nunca chega aqui.
+             $fixForward = null;
+diff --git a/app/Services/Ai/AutonomousEvolution/AtlasLoopQualityGrader.php b/app/Services/Ai/AutonomousEvolution/AtlasLoopQualityGrader.php
+index 6b87fb4aa..6210ec11a 100644
+--- a/app/Services/Ai/AutonomousEvolution/AtlasLoopQualityGrader.php
++++ b/app/Services/Ai/AutonomousEvolution/AtlasLoopQualityGrader.php
+@@ -89,6 +89,90 @@ public function grade(array $signals, ?float $bar = null): array
+         ], $reasons);
+     }
+ 
++    /**
++     * FEATURE LANE — the ≥9 quality bar for NON-refactor work (a feature/bugfix has no complexity drop,
++     * so {@see grade} does not apply). Grades the measurable signals the certifier already computes for a
++     * feature cert: behavior preserved (frozen suite green), scope clean, the diff EARNED (the new
++     * behaviour failed before / passes after), the frozen suite's mutation kill strength, zero adversarial
++     * refutations, and a bonus for a new/changed pinning test. Same shape contract as {@see grade}
++     * (reuses {@see result}), so existing passes_bar/score consumers and the receipt's quality_grade key
++     * are unchanged. Deterministic + pure (no I/O).
++     *
++     *  - behavior_preserved (frozen suite green) ... HARD GATE: false ⇒ 0 (never deliver broken code)
++     *  - scope_clean (diff within allowed_globs) .... HARD GATE: false ⇒ 2 (structurally untrustworthy)
++     *  - adversarial_refuted_count == 0 ............. HARD GATE: any refute ⇒ 2 (mirrors the cert contract)
++     *  - diff_earned (failed-before/passes-after) ... the VALUE: +1.5
++     *  - mutation_kill_ratio (suite strength) ....... scaled 0..2 by the kill ratio
++     *  - coverage_added (a new pinning test) ........ bonus +0.5
++     *
++     * A fully-evidenced feature (earned + kill 1.0 + cover) = 6+1.5+2+0.5 = 10; a thin feature
++     * (earned, kill 0.0, no cover) = 7.5 < 9 and is correctly rejected as not-high-value-enough.
++     *
++     * @param  array<string,mixed>  $signals
++     * @return array{score:float, passes_bar:bool, bar:float, dimensions:array<string,mixed>, reasons:list<string>}
++     */
++    public function gradeFeature(array $signals, ?float $bar = null): array
++    {
++        $bar = $bar ?? (float) config('atlas.loop.quality_bar', self::DEFAULT_BAR);
++
++        $behaviorPreserved = (bool) ($signals['behavior_preserved'] ?? false);
++        $scopeClean = (bool) ($signals['scope_clean'] ?? false);
++        $diffEarned = (bool) ($signals['diff_earned'] ?? false);
++        $killRatio = max(0.0, min(1.0, (float) ($signals['mutation_kill_ratio'] ?? 0.0)));
++        $refuted = max(0, (int) ($signals['adversarial_refuted_count'] ?? 0));
++        $coverageAdded = (bool) ($signals['coverage_added'] ?? false);
++
++        $reasons = [];
++
++        // HARD GATE 1: broken behavior is never deliverable.
++        if (! $behaviorPreserved) {
++            return $this->result(0.0, $bar, ['behavior_preserved' => false], ['behavior_not_preserved_or_tests_red']);
++        }
++        // HARD GATE 2: an out-of-scope / frozen-tamper diff is structurally untrustworthy.
++        if (! $scopeClean) {
++            return $this->result(2.0, $bar, ['scope_clean' => false], ['out_of_scope_or_frozen_tampered']);
++        }
++        // HARD GATE 3: any adversarial refutation caps the score low (mirrors the cert's refuted_count==0 contract).
++        if ($refuted > 0) {
++            return $this->result(2.0, $bar, ['adversarial_refuted_count' => $refuted], ['adversarial_refuted']);
++        }
++
++        // Base for a green, in-scope, behavior-preserving feature.
++        $score = 6.0;
++
++        // VALUE: a feature must EARN its diff (the new behaviour failed before, passes after) — the core
++        // non-refactor signal. +1.5.
++        $score += $diffEarned ? 1.5 : 0.0;
++        if (! $diffEarned) {
++            $reasons[] = 'diff_not_earned';
++        }
++
++        // STRENGTH: the frozen suite must be strong enough to have killed a behaviour change. Scaled 0..2
++        // by the kill ratio.
++        $killPoints = round(2.0 * $killRatio, 2);
++        $score += $killPoints;
++        if ($killRatio <= 0.0) {
++            $reasons[] = 'no_mutation_kill_signal';
++        }
++
++        // BONUS: a new/changed pinning test for the feature surface.
++        if ($coverageAdded) {
++            $score += 0.5;
++        }
++
++        $score = max(0.0, min(10.0, round($score, 2)));
++
++        return $this->result($score, $bar, [
++            'behavior_preserved' => true,
++            'scope_clean' => true,
++            'diff_earned' => $diffEarned,
++            'mutation_kill_ratio' => round($killRatio, 3),
++            'kill_points' => $killPoints,
++            'adversarial_refuted_count' => 0,
++            'coverage_added' => $coverageAdded,
++        ], $reasons);
++    }
++
+     /**
+      * @param  array<string,mixed>  $dimensions
+      * @param  list<string>  $reasons
+diff --git a/app/Services/Ai/AutonomousEvolution/AtlasLoopSemanticImplementationCertifier.php b/app/Services/Ai/AutonomousEvolution/AtlasLoopSemanticImplementationCertifier.php
+index 197f5a20f..0dad91a48 100644
+--- a/app/Services/Ai/AutonomousEvolution/AtlasLoopSemanticImplementationCertifier.php
++++ b/app/Services/Ai/AutonomousEvolution/AtlasLoopSemanticImplementationCertifier.php
+@@ -176,6 +176,12 @@ public function certify(string $workspace, array $targetAcceptance, array $optio
+         // quality_bar_gate_enabled is ON (default OFF => byte-identical — the score is computed but
+         // never adds a reason). Only meaningful for complexity-proof refactors (cx before/after exist).
+         $qualityGrade = null;
++        // The delivery-confidence model below has ALWAYS read quality_score from the REFACTOR grade only
++        // (the feature lane had no grade and contributed 0.0). The feature-lane grade added below is a
++        // NEW, purely-additive receipt field; it must NOT perturb delivery_confidence for feature certs
++        // (byte-identical OFF — and the confidence value would otherwise change regardless of any flag).
++        // So the confidence model keeps reading this refactor-only score, never the feature grade.
++        $confidenceQualityScore = 0.0;
+         if ($this->complexityProofRequired($targetAcceptance) && is_array($complexityProof)) {
+             // PER-TASK ≥9 (Lever 4 — self-improvement): a task that modifies the loop's OWN pipeline
+             // carries the bar in its acceptance (quality_bar_gate=true [+ quality_bar]) and is gated at
+@@ -191,8 +197,9 @@ public function certify(string $workspace, array $targetAcceptance, array $optio
+                 'cx_after' => (int) ($complexityProof['candidate_max'] ?? 0),
+                 'total_branches_before' => (int) ($complexityProof['baseline_total'] ?? 0),
+                 'total_branches_after' => (int) ($complexityProof['candidate_total'] ?? 0),
+-                'coverage_added' => false,
++                'coverage_added' => $this->coverageAdded($changedFiles),
+             ], $perTaskBar);
++            $confidenceQualityScore = (float) ($qualityGrade['score'] ?? 0.0);
+             $barGate = (bool) ($targetAcceptance['quality_bar_gate'] ?? false)
+                 || (bool) config('atlas.loop.quality_bar_gate_enabled', false);
+             if ($barGate && ! ($qualityGrade['passes_bar'] ?? false)) {
+@@ -200,6 +207,34 @@ public function certify(string $workspace, array $targetAcceptance, array $optio
+             }
+         }
+ 
++        // Sampled-mutant count is needed by BOTH the feature-lane grade (below) and the delivery
++        // confidence model (further below); hoisted here so the feature block can read it. Fail-open: 0.
++        $mutSampled = (int) ($mutationAdequacy['mutants_sampled'] ?? 0);
++
++        // ≥9 QUALITY BAR — FEATURE LANE (non-refactor). The refactor block above only runs for complexity-
++        // proof contracts; a feature/bugfix has no cx drop, so grade it on the signals certify() already
++        // computes (behavior_preserved, scope_clean, diff_earned, mutation_kill_ratio,
++        // adversarial_refuted_count==0, coverage_added). RECORDED always; a GATE only when
++        // delivery_bar.armed (global) or per-task quality_bar_gate is ON. Default OFF => byte-identical
++        // (score computed, never adds a reason). Wrapped in (! complexityProofRequired) so refactor certs —
++        // which already grade via the block above — never enter it (no double-assign / double-reason).
++        if (! $this->complexityProofRequired($targetAcceptance)) {
++            $perTaskBar = isset($targetAcceptance['quality_bar']) ? (float) $targetAcceptance['quality_bar'] : null;
++            $qualityGrade = (new AtlasLoopQualityGrader)->gradeFeature([
++                'behavior_preserved' => (bool) data_get($deterministicGate, 'report.holdouts.target_frozen_passed', false),
++                'scope_clean' => $scopeViolation === [],
++                'diff_earned' => data_get($deterministicGate, 'report.holdouts.diff_earned') === true,
++                'mutation_kill_ratio' => $mutSampled > 0 ? (int) ($mutationAdequacy['mutants_killed'] ?? 0) / $mutSampled : 0.0,
++                'adversarial_refuted_count' => (int) ($panelVerdict['refuted_count'] ?? 0),
++                'coverage_added' => $this->coverageAdded($changedFiles),
++            ], $perTaskBar);
++            $barGate = (bool) ($targetAcceptance['quality_bar_gate'] ?? false)
++                || (bool) config('atlas.loop.delivery_bar.armed', false);
++            if ($barGate && ! ($qualityGrade['passes_bar'] ?? false)) {
++                $reasons[] = 'quality_bar:below_min:'.$qualityGrade['score'];
++            }
++        }
++
+         // CALIBRATED DELIVERY CONFIDENCE (Lever 2): replace the loop's hardcoded confidence theatre with a
+         // PRINCIPLED P(correct) over the cert's measurable signals. RECORDED on EVERY cert (observability —
+         // every proposal now carries an honest, evidence-based confidence). A GATE only when
+@@ -207,7 +242,6 @@ public function certify(string $workspace, array $targetAcceptance, array $optio
+         // NOTE: arming the gate at a TRUSTWORTHY 0.93 is honest only AFTER the self-calibration loop fits the
+         // model's weights to real outcomes; an uncalibrated 0.93 would be the same theatre we are removing.
+         $crossOk = ($crossFileConsumers['certified'] ?? null) !== false && ($crossFileConsumers['passed'] ?? null) !== false;
+-        $mutSampled = (int) ($mutationAdequacy['mutants_sampled'] ?? 0);
+         $deliveryConfidence = (new AtlasLoopDeliveryConfidenceModel)->estimate([
+             'behavior_preserved' => (bool) data_get($deterministicGate, 'report.holdouts.target_frozen_passed', false),
+             'diff_earned' => data_get($deterministicGate, 'report.holdouts.diff_earned') === true,
+@@ -215,7 +249,7 @@ public function certify(string $workspace, array $targetAcceptance, array $optio
+             'complexity_reduced' => is_array($complexityProof) && (bool) ($complexityProof['reduced'] ?? false),
+             'cross_file_consumers_ok' => $crossOk,
+             'mutation_kill_ratio' => $mutSampled > 0 ? (int) ($mutationAdequacy['mutants_killed'] ?? 0) / $mutSampled : 0.0,
+-            'quality_score' => is_array($qualityGrade) ? (float) ($qualityGrade['score'] ?? 0.0) : 0.0,
++            'quality_score' => $confidenceQualityScore,
+             'adversarial_refuted_count' => (int) ($panelVerdict['refuted_count'] ?? 0),
+         ], isset($targetAcceptance['confidence_threshold']) ? (float) $targetAcceptance['confidence_threshold'] : null);
+         $confidenceGate = (bool) ($targetAcceptance['confidence_gate'] ?? false)
+@@ -850,6 +884,28 @@ private function changedFileContents(string $workspace, array $files): array
+         return $contents;
+     }
+ 
++    /**
++     * Deterministic coverage signal from the changed file set (no provider claim): the diff touched a
++     * *Test.php / a tests dir file, so a pinning test rode with the change. Feeds the quality grade's
++     * coverage_added bonus.
++     *
++     * @param  list<string>  $changedFiles
++     */
++    private function coverageAdded(array $changedFiles): bool
++    {
++        foreach ($changedFiles as $f) {
++            $norm = ltrim((string) $f, '/');
++            if (! str_ends_with($norm, '.php')) {
++                continue;
++            }
++            if (str_ends_with($norm, 'Test.php') || str_contains($norm, 'tests/') || str_contains($norm, '/Tests/')) {
++                return true;
++            }
++        }
++
++        return false;
++    }
++
+     /**
+      * @param  array<string,mixed>  $acceptance
+      * @return array<string,mixed>
+diff --git a/app/Services/Ai/AutonomousEvolution/AtlasLoopTaskGrinder.php b/app/Services/Ai/AutonomousEvolution/AtlasLoopTaskGrinder.php
+index d7ded096c..b45e5ba50 100644
+--- a/app/Services/Ai/AutonomousEvolution/AtlasLoopTaskGrinder.php
++++ b/app/Services/Ai/AutonomousEvolution/AtlasLoopTaskGrinder.php
+@@ -646,6 +646,15 @@ private function gateImplementationProposals(array $result, array $explorerTask,
+             if ((bool) ($verdict['certified'] ?? false)) {
+                 $proposal['implementation_gate'] = $deterministicGate['report'] ?? [];
+                 $proposal['semantic_implementation_certification'] = $verdict;
++                // Ride the cert's delivery_confidence + quality_grade inside the proposal's QUALITY json so
++                // they survive persistence (AtlasLoopStore::certifyProposal only persists proposal['quality']).
++                // The post-merge confidence-calibration feeder reads delivery_confidence.confidence as the
++                // predicted outcome; the receipt's grade becomes durable. Purely additive (mirrors the
++                // characterization lane); absent keys store null and the feeder no-ops.
++                $quality = is_array($proposal['quality'] ?? null) ? $proposal['quality'] : [];
++                $quality['delivery_confidence'] = is_array($verdict['delivery_confidence'] ?? null) ? $verdict['delivery_confidence'] : null;
++                $quality['quality_grade'] = is_array($verdict['quality_grade'] ?? null) ? $verdict['quality_grade'] : null;
++                $proposal['quality'] = $quality;
+                 $kept[] = $proposal;
+             }
+         }
+diff --git a/database/migrations/2026_06_15_000100_create_atlas_loop_confidence_samples_table.php b/database/migrations/2026_06_15_000100_create_atlas_loop_confidence_samples_table.php
+new file mode 100644
+index 000000000..1f2f9189c
+--- /dev/null
++++ b/database/migrations/2026_06_15_000100_create_atlas_loop_confidence_samples_table.php
+@@ -0,0 +1,41 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++/**
++ * Atlas Evolution Loop — confidence-calibration flywheel sample store (ITEM10).
++ *
++ * Durable {predicted, correct} samples the auto-merge feeder appends POST-MERGE
++ * (predicted = the cert-time delivery_confidence; correct = the canary verdict).
++ * AtlasLoopConfidenceCalibrator::calibrate() consumes these to fit the HONEST arm
++ * threshold from real outcomes — the calibrated number an operator may later arm the
++ * confidence gate at, never a declared 0.93.
++ *
++ * Idempotent by construction (Schema::hasTable guard) — migrations are never
++ * hand-stamped into the migrations table. Propose-only invariant untouched: this is
++ * a NEW telemetry table that nothing in the never-merge layer depends on.
++ */
++return new class extends Migration
++{
++    public function up(): void
++    {
++        if (! Schema::hasTable('atlas_loop_confidence_samples')) {
++            Schema::create('atlas_loop_confidence_samples', function (Blueprint $table): void {
++                $table->uuid('id')->primary();
++                $table->uuid('proposal_id')->nullable()->index();   // the merged proposal the sample came from
++                $table->float('predicted');                          // cert-time delivery_confidence (0..1)
++                $table->boolean('correct');                          // canary GREEN (ground-truth outcome)
++                $table->timestamps();
++            });
++        }
++    }
++
++    public function down(): void
++    {
++        if (Schema::hasTable('atlas_loop_confidence_samples')) {
++            Schema::dropIfExists('atlas_loop_confidence_samples');
++        }
++    }
++};
+diff --git a/tests/Feature/Loop/AtlasLoopConfidenceCalibrateCommandTest.php b/tests/Feature/Loop/AtlasLoopConfidenceCalibrateCommandTest.php
+new file mode 100644
+index 000000000..fdc48d51b
+--- /dev/null
++++ b/tests/Feature/Loop/AtlasLoopConfidenceCalibrateCommandTest.php
+@@ -0,0 +1,86 @@
++<?php
++
++declare(strict_types=1);
++
++namespace Tests\Feature\Loop;
++
++use App\Models\AtlasLoopConfidenceSample;
++use Illuminate\Support\Facades\Schema;
++use Illuminate\Support\Str;
++use Tests\TestCase;
++
++/**
++ * ITEM10 — the confidence-calibration flywheel command is REPORT-ONLY and HONEST: it returns null
++ * (insufficient evidence) until enough well-calibrated samples accrue, and it never arms the gate.
++ */
++final class AtlasLoopConfidenceCalibrateCommandTest extends TestCase
++{
++    protected function setUp(): void
++    {
++        parent::setUp();
++
++        if (! Schema::hasTable('atlas_loop_confidence_samples')) {
++            (require base_path('database/migrations/2026_06_15_000100_create_atlas_loop_confidence_samples_table.php'))->up();
++        }
++
++        // Mirror the integrator-wired config block so the test does not depend on config/atlas.php.
++        config([
++            'atlas.loop.confidence_calibration.enabled' => true,
++            'atlas.loop.confidence_calibration.target_precision' => 0.93,
++            'atlas.loop.confidence_calibration.min_samples' => 20,
++        ]);
++    }
++
++    private function seedSample(float $predicted, bool $correct): void
++    {
++        AtlasLoopConfidenceSample::create([
++            'proposal_id' => (string) Str::uuid(),
++            'predicted' => $predicted,
++            'correct' => $correct,
++        ]);
++    }
++
++    public function test_insufficient_evidence_cannot_arm(): void
++    {
++        // 10 samples (< the 20 min) — no threshold can clear the bar with enough samples.
++        for ($i = 0; $i < 10; $i++) {
++            $this->seedSample(0.95, true);
++        }
++
++        $this->artisan('atlas:loop:confidence-calibrate --json')
++            ->assertExitCode(0);
++
++        // Re-run capturing the JSON to assert the honest null recommendation.
++        $exit = $this->artisan('atlas:loop:confidence-calibrate');
++        $exit->expectsOutputToContain('Insufficient evidence to arm')->assertExitCode(0);
++    }
++
++    public function test_well_calibrated_evidence_recommends_a_threshold(): void
++    {
++        // 30 high-confidence (0.95) samples, 29 correct (~0.967 precision >= 0.93) => arm at 0.95.
++        for ($i = 0; $i < 30; $i++) {
++            $this->seedSample(0.95, $i !== 0);
++        }
++        // plus 30 low-confidence (0.4) mostly-wrong samples (correctly NOT armed at the low band).
++        for ($i = 0; $i < 30; $i++) {
++            $this->seedSample(0.4, $i < 5);
++        }
++
++        $this->artisan('atlas:loop:confidence-calibrate')
++            ->expectsOutputToContain('Recommended arm threshold')
++            ->assertExitCode(0);
++    }
++
++    public function test_command_never_arms_the_confidence_gate(): void
++    {
++        config(['atlas.loop.confidence_gate_enabled' => false]);
++        for ($i = 0; $i < 30; $i++) {
++            $this->seedSample(0.95, $i !== 0);
++        }
++
++        $this->artisan('atlas:loop:confidence-calibrate --json')->assertExitCode(0);
++
++        // The gate stays operator-armed: the command computes the number but never flips the flag.
++        $this->assertFalse((bool) config('atlas.loop.confidence_gate_enabled'));
++    }
++}
+diff --git a/tests/Feature/Loop/AtlasLoopConfidenceSampleFeederTest.php b/tests/Feature/Loop/AtlasLoopConfidenceSampleFeederTest.php
+new file mode 100644
+index 000000000..b476554a5
+--- /dev/null
++++ b/tests/Feature/Loop/AtlasLoopConfidenceSampleFeederTest.php
+@@ -0,0 +1,178 @@
++<?php
++
++declare(strict_types=1);
++
++namespace Tests\Feature\Loop;
++
++use App\Models\AtlasLoopCampaign;
++use App\Models\AtlasLoopConfidenceSample;
++use App\Models\AtlasLoopProposal;
++use App\Services\Ai\AutonomousEvolution\AtlasLoopAutoMergeService;
++use Illuminate\Support\Facades\Schema;
++use Symfony\Component\Process\Process;
++use Tests\TestCase;
++
++/**
++ * ITEM10 — the confidence-calibration OUTCOME FEEDER. After a REAL merge, with the calibration flag ON,
++ * exactly one {predicted, correct} sample is persisted (predicted = the cert-time delivery_confidence
++ * threaded into proposal.quality; correct = the canary verdict). With the flag OFF, zero rows
++ * (byte-identical). The feeder is fail-open: a telemetry write never unwinds a completed merge.
++ */
++final class AtlasLoopConfidenceSampleFeederTest extends TestCase
++{
++    /** @var list<string> */
++    private array $dirs = [];
++
++    protected function setUp(): void
++    {
++        parent::setUp();
++
++        if (! Schema::hasTable('atlas_loop_campaigns')) {
++            foreach ([
++                '2026_06_02_000100_create_atlas_loop_runtime_tables.php',
++                '2026_06_02_000200_complete_atlas_loop_runtime_schema.php',
++                '2026_06_11_000100_add_quality_columns_to_atlas_loop_tables.php',
++            ] as $file) {
++                (require base_path('database/migrations/'.$file))->up();
++            }
++        }
++        if (! Schema::hasTable('atlas_loop_confidence_samples')) {
++            (require base_path('database/migrations/2026_06_15_000100_create_atlas_loop_confidence_samples_table.php'))->up();
++        }
++
++        config(['atlas.ai.loop.auto_merge_to_main' => true]);
++        config(['atlas.ai.loop.impact_receipts_enabled' => true]);
++        config(['atlas.ai.loop.value_gate_enabled' => false]);
++        config(['atlas.ai.loop.substance_floor_enabled' => false]);
++    }
++
++    protected function tearDown(): void
++    {
++        foreach ($this->dirs as $d) {
++            (new Process(['rm', '-rf', $d]))->run();
++        }
++        parent::tearDown();
++    }
++
++    public function test_feeder_records_one_sample_when_flag_on(): void
++    {
++        config(['atlas.loop.confidence_calibration.enabled' => true]);
++
++        $proposal = $this->mergeFixtureWithPredictedConfidence(0.94);
++        $result = app(AtlasLoopAutoMergeService::class)->drain($this->repoPath, 5);
++
++        $this->assertSame(1, $result['merged_count'], json_encode($result['results']));
++
++        $samples = AtlasLoopConfidenceSample::query()->get();
++        $this->assertCount(1, $samples, 'exactly one calibration sample after a successful merge');
++        $sample = $samples->first();
++        $this->assertEqualsWithDelta(0.94, (float) $sample->predicted, 0.0001);
++        $this->assertTrue((bool) $sample->correct, 'a green/no-run canary is a correct outcome');
++        $this->assertSame((string) $proposal->id, (string) $sample->proposal_id);
++    }
++
++    public function test_feeder_is_inert_when_flag_off(): void
++    {
++        config(['atlas.loop.confidence_calibration.enabled' => false]);
++
++        $this->mergeFixtureWithPredictedConfidence(0.94);
++        $result = app(AtlasLoopAutoMergeService::class)->drain($this->repoPath, 5);
++
++        $this->assertSame(1, $result['merged_count'], json_encode($result['results']));
++        $this->assertSame(0, AtlasLoopConfidenceSample::query()->count(), 'flag OFF => no sampling (byte-identical)');
++    }
++
++    public function test_feeder_no_ops_when_no_predicted_confidence(): void
++    {
++        // The grinder threads delivery_confidence only for graded certs; an old proposal without it
++        // must no-op (predicted 0.0) — safe but inert, never a spurious sample.
++        config(['atlas.loop.confidence_calibration.enabled' => true]);
++
++        $this->mergeFixtureWithPredictedConfidence(null);
++        $result = app(AtlasLoopAutoMergeService::class)->drain($this->repoPath, 5);
++
++        $this->assertSame(1, $result['merged_count'], json_encode($result['results']));
++        $this->assertSame(0, AtlasLoopConfidenceSample::query()->count(), 'no predicted confidence => no sample');
++    }
++
++    private string $repoPath = '';
++
++    private function mergeFixtureWithPredictedConfidence(?float $confidence): AtlasLoopProposal
++    {
++        $original = "<?php\nfunction val(){ return 1; }\n";
++        $modified = "<?php\nfunction val(){ return 2; }\n";
++        $this->repoPath = $this->repo($original);
++        $diff = $this->makeDiff($original, $modified, $this->repoPath);
++
++        $campaign = AtlasLoopCampaign::create([
++            'schema_version' => 'atlas.loop.campaign.v1',
++            'status' => AtlasLoopCampaign::STATUS_RUNNING,
++            'goal' => 'feeder proof',
++            'config' => [],
++            'max_seconds' => 60,
++        ]);
++        AtlasLoopProposal::$governedMergeInProgress = false;
++
++        $quality = ['_acceptance_contract' => [
++            'commands' => ["php -r \"require 'snippet.php'; exit(val()===2?0:1);\""],
++            'allowed_globs' => ['snippet.php'],
++            'frozen_globs' => ['composer.json'],
++            'metric_kind' => 'gate',
++        ]];
++        if ($confidence !== null) {
++            // Mirror the grinder threading delivery_confidence into proposal.quality.
++            $quality['delivery_confidence'] = ['confidence' => $confidence, 'threshold' => 0.93, 'passes' => true];
++        }
++
++        return AtlasLoopProposal::create([
++            'campaign_id' => $campaign->id,
++            'schema_version' => 'atlas.loop.proposal.v1',
++            'status' => AtlasLoopProposal::STATUS_CERTIFIED,
++            'objective' => 'fix val to 2',
++            'target_path' => 'snippet.php',
++            'diff_text' => $diff,
++            'proposal_hash' => 'feeder-'.bin2hex(random_bytes(4)),
++            'metric' => null,
++            'quality' => $quality,
++        ]);
++    }
++
++    private function repo(string $original): string
++    {
++        $d = sys_get_temp_dir().'/atlas-feeder-'.bin2hex(random_bytes(4));
++        mkdir($d, 0o755, true);
++        $this->dirs[] = $d;
++        file_put_contents($d.'/snippet.php', $original);
++        $this->git($d, ['init', '-q']);
++        $this->git($d, ['add', '-A']);
++        $this->git($d, ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'base', '--no-gpg-sign']);
++
++        config(['atlas.ai.loop.multi_repo.enabled' => true]);
++        $allowed = (array) config('atlas.ai.loop.multi_repo.allowed_repos', []);
++        $allowed[] = realpath($d) ?: $d;
++        config(['atlas.ai.loop.multi_repo.allowed_repos' => array_values(array_unique($allowed))]);
++
++        return $d;
++    }
++
++    private function makeDiff(string $original, string $modified, string $repo): string
++    {
++        file_put_contents($repo.'/snippet.php', $modified);
++        $p = new Process(['git', 'diff'], $repo);
++        $p->run();
++        file_put_contents($repo.'/snippet.php', $original);
++
++        return $p->getOutput();
++    }
++
++    /**
++     * @param  list<string>  $argv
++     */
++    private function git(string $cwd, array $argv): string
++    {
++        $p = new Process(array_merge(['git'], $argv), $cwd);
++        $p->run();
++
++        return trim($p->getOutput());
++    }
++}
+diff --git a/tests/Feature/Loop/AtlasLoopFeatureQualityBarTest.php b/tests/Feature/Loop/AtlasLoopFeatureQualityBarTest.php
+new file mode 100644
+index 000000000..b11793608
+--- /dev/null
++++ b/tests/Feature/Loop/AtlasLoopFeatureQualityBarTest.php
+@@ -0,0 +1,141 @@
++<?php
++
++declare(strict_types=1);
++
++namespace Tests\Feature\Loop;
++
++use App\Services\Ai\AutonomousEvolution\AtlasLoopSemanticImplementationCertifier;
++use Symfony\Component\Process\Process;
++use Tests\TestCase;
++
++/**
++ * ITEM10 — the FEATURE-LANE (non-refactor) ≥9 quality bar. A feature cert (complexity_proof ABSENT)
++ * always RECORDS gradeFeature()'s 0-10 score in the receipt; it only GATES when delivery_bar.armed
++ * (or per-task quality_bar_gate) is ON. Default OFF => byte-identical (same cert certifies, grade
++ * still recorded). Also proves the deterministic coverage_added signal from the changed file set.
++ *
++ * ARMING-TIME COUPLING (documented honest limit): feature mutation_kill_ratio is >0 only when the
++ * mutation adequacy gate is armed. With the mutation gate OFF (default), a green in-scope feature
++ * caps at 6 + 1.5 (diff_earned) + 0.5 (coverage) = 8.0 < 9 — so arming delivery_bar.armed WITHOUT
++ * arming the mutation gate is a universal refusal. These tests use a no-coverage diff (score 7.5)
++ * to make the refusal unambiguous and to document the coupling.
++ */
++final class AtlasLoopFeatureQualityBarTest extends TestCase
++{
++    private string $workspace = '';
++
++    protected function tearDown(): void
++    {
++        if ($this->workspace !== '' && is_dir($this->workspace)) {
++            (new Process(['rm', '-rf', $this->workspace]))->run();
++        }
++        parent::tearDown();
++    }
++
++    public function test_feature_lane_records_grade_but_does_not_gate_when_disarmed(): void
++    {
++        config(['atlas.loop.delivery_bar.armed' => false]);
++        $this->workspace = $this->workspaceWithCandidate('good');
++
++        $receipt = app(AtlasLoopSemanticImplementationCertifier::class)->certify($this->workspace, $this->featureAcceptance(), [
++            'objective' => 'make Foo return good',
++            'allowed_files' => ['src/Foo.php'],
++        ]);
++
++        // Disarmed: the SAME feature cert still certifies (byte-identical to before this item).
++        $this->assertTrue($receipt['certified'], json_encode($receipt['reasons']));
++        // But the grade is now RECORDED on the feature lane (the first grade this lane ever had).
++        $this->assertIsArray($receipt['quality_grade']);
++        $this->assertArrayHasKey('score', $receipt['quality_grade']);
++        $this->assertNotContains('quality_bar:below_min:'.$receipt['quality_grade']['score'], $receipt['reasons']);
++    }
++
++    public function test_feature_lane_refuses_thin_feature_when_armed(): void
++    {
++        // ARMED + mutation gate OFF (default): a green, in-scope, diff-earned feature with no test file
++        // caps at 7.5 < 9 => refused with quality_bar:below_min. Documents the arming-time coupling.
++        config(['atlas.loop.delivery_bar.armed' => true]);
++        $this->workspace = $this->workspaceWithCandidate('good');
++
++        $receipt = app(AtlasLoopSemanticImplementationCertifier::class)->certify($this->workspace, $this->featureAcceptance(), [
++            'objective' => 'make Foo return good',
++            'allowed_files' => ['src/Foo.php'],
++        ]);
++
++        $this->assertFalse($receipt['certified']);
++        $score = $receipt['quality_grade']['score'];
++        $this->assertContains('quality_bar:below_min:'.$score, $receipt['reasons']);
++        $this->assertLessThan(9.0, (float) $score);
++    }
++
++    public function test_coverage_added_is_false_without_a_test_file_in_the_diff(): void
++    {
++        config(['atlas.loop.delivery_bar.armed' => false]);
++        $this->workspace = $this->workspaceWithCandidate('good');
++
++        $receipt = app(AtlasLoopSemanticImplementationCertifier::class)->certify($this->workspace, $this->featureAcceptance(), [
++            'objective' => 'make Foo return good',
++            'allowed_files' => ['src/Foo.php'],
++        ]);
++
++        // The diff touches only src/Foo.php (no *Test.php) => deterministic coverage_added is false.
++        $this->assertFalse((bool) data_get($receipt, 'quality_grade.dimensions.coverage_added'));
++    }
++
++    /**
++     * @return array<string,mixed>
++     */
++    private function featureAcceptance(): array
++    {
++        // metric_kind='gate' + NO complexity_proof = the FEATURE lane (the refactor block never runs).
++        return [
++            'commands' => ['php tests/FooTest.php'],
++            'allowed_globs' => ['src/**'],
++            'frozen_globs' => ['tests/**'],
++            'metric_kind' => 'gate',
++            'revert_recheck' => true,
++            'timeout_seconds' => 30,
++        ];
++    }
++
++    private function workspaceWithCandidate(string $candidateValue): string
++    {
++        $dir = sys_get_temp_dir().'/atlas-feature-bar-'.bin2hex(random_bytes(5));
++        mkdir($dir.'/src', 0o755, true);
++        mkdir($dir.'/tests', 0o755, true);
++        file_put_contents($dir.'/src/Foo.php', $this->foo('bad'));
++        file_put_contents($dir.'/tests/FooTest.php', <<<'PHP'
++<?php
++require __DIR__.'/../src/Foo.php';
++
++$foo = new Foo();
++if ($foo->value() !== 'good') {
++    fwrite(STDERR, 'expected good');
++    exit(1);
++}
++PHP);
++        $this->runProcess(['git', 'init'], $dir);
++        $this->runProcess(['git', 'config', 'user.email', 'atlas-loop@local'], $dir);
++        $this->runProcess(['git', 'config', 'user.name', 'Atlas Loop'], $dir);
++        $this->runProcess(['git', 'add', '-A'], $dir);
++        $this->runProcess(['git', 'commit', '-q', '-m', 'baseline'], $dir);
++        file_put_contents($dir.'/src/Foo.php', $this->foo($candidateValue));
++
++        return $dir;
++    }
++
++    private function foo(string $value): string
++    {
++        return "<?php\nfinal class Foo\n{\n    public function value(): string\n    {\n        return '".$value."';\n    }\n}\n";
++    }
++
++    /**
++     * @param  list<string>  $argv
++     */
++    private function runProcess(array $argv, string $cwd): void
++    {
++        $process = new Process($argv, $cwd, null, null, 30.0);
++        $process->run();
++        $this->assertTrue($process->isSuccessful(), $process->getErrorOutput() ?: $process->getOutput());
++    }
++}
+diff --git a/tests/Unit/Ai/AutonomousEvolution/AtlasLoopQualityGraderTest.php b/tests/Unit/Ai/AutonomousEvolution/AtlasLoopQualityGraderTest.php
+index 49f670a98..a7260de56 100644
+--- a/tests/Unit/Ai/AutonomousEvolution/AtlasLoopQualityGraderTest.php
++++ b/tests/Unit/Ai/AutonomousEvolution/AtlasLoopQualityGraderTest.php
+@@ -87,4 +87,90 @@ public function test_inflating_net_branches_is_penalized(): void
+         $this->assertFalse($g['passes_bar'], 'adding net branches must not pass the bar');
+         $this->assertContains('net_branches_increased', $g['reasons']);
+     }
++
++    // ITEM10 — FEATURE LANE (non-refactor) quality grade. Same shape contract, signals that fit a
++    // feature/bugfix (no complexity drop): diff_earned + mutation kill strength + coverage.
++
++    public function test_feature_grade_full_evidence_passes_bar(): void
++    {
++        // 6 (base) + 1.5 (diff_earned) + 2.0 (kill 1.0) + 0.5 (coverage) = 10.0 >= 9.
++        $g = (new AtlasLoopQualityGrader())->gradeFeature([
++            'behavior_preserved' => true,
++            'scope_clean' => true,
++            'diff_earned' => true,
++            'mutation_kill_ratio' => 1.0,
++            'adversarial_refuted_count' => 0,
++            'coverage_added' => true,
++        ], 9.0);
++
++        $this->assertGreaterThanOrEqual(9.5, $g['score'], 'a fully-evidenced feature scores near the top');
++        $this->assertTrue($g['passes_bar']);
++    }
++
++    public function test_feature_grade_thin_feature_below_bar(): void
++    {
++        // 6 (base) + 1.5 (diff_earned) + 0 (no kill) + 0 (no coverage) = 7.5 < 9 — correctly rejected.
++        $g = (new AtlasLoopQualityGrader())->gradeFeature([
++            'behavior_preserved' => true,
++            'scope_clean' => true,
++            'diff_earned' => true,
++            'mutation_kill_ratio' => 0.0,
++            'adversarial_refuted_count' => 0,
++            'coverage_added' => false,
++        ], 9.0);
++
++        $this->assertSame(7.5, $g['score']);
++        $this->assertLessThan(9.0, $g['score']);
++        $this->assertFalse($g['passes_bar']);
++        $this->assertContains('no_mutation_kill_signal', $g['reasons']);
++    }
++
++    public function test_feature_grade_broken_behavior_hard_zero(): void
++    {
++        $g = (new AtlasLoopQualityGrader())->gradeFeature([
++            'behavior_preserved' => false,
++            'scope_clean' => true,
++            'diff_earned' => true,
++            'mutation_kill_ratio' => 1.0,
++            'adversarial_refuted_count' => 0,
++            'coverage_added' => true,
++        ], 9.0);
++
++        $this->assertSame(0.0, $g['score']);
++        $this->assertFalse($g['passes_bar']);
++        $this->assertContains('behavior_not_preserved_or_tests_red', $g['reasons']);
++    }
++
++    public function test_feature_grade_refuted_caps_low(): void
++    {
++        // Otherwise fully green, but ONE adversarial refutation caps the score at 2.0.
++        $g = (new AtlasLoopQualityGrader())->gradeFeature([
++            'behavior_preserved' => true,
++            'scope_clean' => true,
++            'diff_earned' => true,
++            'mutation_kill_ratio' => 1.0,
++            'adversarial_refuted_count' => 1,
++            'coverage_added' => true,
++        ], 9.0);
++
++        $this->assertSame(2.0, $g['score']);
++        $this->assertFalse($g['passes_bar']);
++        $this->assertContains('adversarial_refuted', $g['reasons']);
++    }
++
++    public function test_feature_grade_out_of_scope_capped(): void
++    {
++        $g = (new AtlasLoopQualityGrader())->gradeFeature([
++            'behavior_preserved' => true,
++            'scope_clean' => false,
++            'diff_earned' => true,
++            'mutation_kill_ratio' => 1.0,
++            'adversarial_refuted_count' => 0,
++            'coverage_added' => true,
++        ], 9.0);
++
++        $this->assertSame(2.0, $g['score']);
++        $this->assertFalse($g['passes_bar']);
++        $this->assertContains('out_of_scope_or_frozen_tampered', $g['reasons']);
++    }
+ }

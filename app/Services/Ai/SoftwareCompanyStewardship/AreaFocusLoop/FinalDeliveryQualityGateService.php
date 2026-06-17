@@ -140,6 +140,16 @@ final class FinalDeliveryQualityGateService
             return null;
         }
 
+        return $this->findFirstUnconsumedMatch($matches, $this->extractBaselineCounts($pattern, $baseline), $contents);
+    }
+
+    /**
+     * @param  array<int,array{0:array{0:string,1:int}}>  $matches
+     * @param  array<string,int>  $baselineCounts
+     * @return list<array{0:string,1:int}>
+     */
+    private function extractBaselineCounts(string $pattern, string $baseline): array
+    {
         $baselineCounts = [];
         $baselineMatchCount = $baseline !== '' ? preg_match_all($pattern, $baseline, $baselineMatches, PREG_OFFSET_CAPTURE) : 0;
         if ($baselineMatchCount !== false && $baselineMatchCount > 0) {
@@ -149,17 +159,30 @@ final class FinalDeliveryQualityGateService
             }
         }
 
+        return $baselineCounts;
+    }
+
+    /**
+     * @param  array<int,array{0:array{0:string,1:int}}>  $matches
+     * @param  array<string,int>  $baselineCounts
+     */
+    private function findFirstUnconsumedMatch(array $matches, array $baselineCounts, string $contents): ?string
+    {
         foreach ($matches[0] as $match) {
             $line = $this->lineContainingOffset($contents, (int) $match[1]);
-            $match = (string) $match[0];
-            $key = $this->markerOccurrenceKey($match, $line);
+            $matchText = (string) $match[0];
+            $key = $this->markerOccurrenceKey($matchText, $line);
             if (($baselineCounts[$key] ?? 0) > 0) {
                 $baselineCounts[$key]--;
 
                 continue;
             }
 
-            return $line !== '' ? $line : $match;
+            if ($line !== '') {
+                return $line;
+            }
+
+            return $matchText;
         }
 
         return null;

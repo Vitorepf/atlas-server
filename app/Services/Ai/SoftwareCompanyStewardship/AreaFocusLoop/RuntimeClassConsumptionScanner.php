@@ -29,6 +29,13 @@ final class RuntimeClassConsumptionScanner
 {
     public const SCHEMA_VERSION = 'atlas.software_company_stewardship.runtime_class_consumption_scan.v1';
 
+    private readonly RuntimeClassConsumptionScannerSupport $support;
+
+    public function __construct(?RuntimeClassConsumptionScannerSupport $support = null)
+    {
+        $this->support = $support ?? new RuntimeClassConsumptionScannerSupport($this);
+    }
+
     /**
      * @param  list<string>  $changedFiles  the cycle's committed product files
      * @param  string  $baseRef  the pre-cycle baseline (e.g. main); a class is NEW iff absent there
@@ -44,7 +51,7 @@ final class RuntimeClassConsumptionScanner
         // branch, test fixture), new-ness is undeterminable. Return EMPTY rather
         // than guess — an empty scan makes the gate report runtime_integrated, so
         // a degraded/non-git environment can never produce a FALSE inert block.
-        if ($this->git($repoRoot, ['rev-parse', '--verify', '--quiet', $baseRef])['ok'] !== true) {
+        if ($this->runGit($repoRoot, ['rev-parse', '--verify', '--quiet', $baseRef])['ok'] !== true) {
             return [
                 'schema_version' => self::SCHEMA_VERSION,
                 'new_classes' => [],
@@ -55,46 +62,11 @@ final class RuntimeClassConsumptionScanner
             ];
         }
 
-        // NEW product classes: a changed product .php that did not exist on the
-        // pre-cycle baseline. (The sandbox HEAD already contains the cycle commit,
-        // so HEAD would wrongly classify every new file as pre-existing — compare
-        // against the baseline ref instead.)
-        $newFiles = []; // short name => relpath
-        foreach ($changedFiles as $rel) {
-            $rel = trim((string) $rel);
-            if (! $this->isProductPhpClassPath($rel)) {
-                continue;
-            }
-            // Existed on the baseline => an edit to live code, not a new-class delivery.
-            if ($this->git($repoRoot, ['cat-file', '-e', $baseRef.':'.$rel])['ok'] === true) {
-                continue;
-            }
-            $newFiles[basename($rel, '.php')] = $rel;
-        }
+        $newFiles = $this->collectNewProductClassFiles($repoRoot, $changedFiles, $baseRef);
 
-        $consumed = [];
-        foreach ($newFiles as $short => $ownFile) {
-            // Word-boundary grep narrows candidate consumers cheaply (so 'Port'
-            // does not even list 'Portfolio'); search the WORKTREE so this cycle's
-            // own wiring counts. Tokenizer confirmation rejects comment/string hits.
-            $grep = $this->git($worktree, ['grep', '-l', '-w', '--', $short, '--', 'app']);
-            if ($grep['ok'] !== true) {
-                continue; // grep exit 1 = no match anywhere
-            }
-            foreach (preg_split('/\R/', trim((string) $grep['out'])) ?: [] as $hit) {
-                $hit = trim($hit);
-                if ($hit === '' || $hit === $ownFile || ! $this->isProductPhpClassPath($hit)) {
-                    continue;
-                }
-                $src = @file_get_contents($worktree.'/'.$hit);
-                if (is_string($src) && $this->sourceReferencesClass($src, $short)) {
-                    $consumed[] = $short;
-                    break;
-                }
-            }
-        }
-
-        $consumed = AreaFocusStringListNormalizer::uniqueStringValues($consumed);
+        $consumed = AreaFocusStringListNormalizer::uniqueStringValues(
+            $this->support->findConsumedForNewFiles($newFiles, $worktree)
+        );
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
@@ -103,6 +75,28 @@ final class RuntimeClassConsumptionScanner
             'inert_new_classes' => array_values(array_diff(array_keys($newFiles), $consumed)),
             'new_class_files' => $newFiles,
         ];
+    }
+
+    /**
+     * @param  list<string>  $changedFiles
+     * @return array<string,string>  short name => relpath for product .php that did NOT exist on the baseline
+     */
+    private function collectNewProductClassFiles(string $repoRoot, array $changedFiles, string $baseRef): array
+    {
+        $newFiles = [];
+        foreach ($changedFiles as $rel) {
+            $rel = trim((string) $rel);
+            if (! $this->isProductPhpClassPath($rel)) {
+                continue;
+            }
+            // Existed on the baseline => an edit to live code, not a new-class delivery.
+            if ($this->runGit($repoRoot, ['cat-file', '-e', $baseRef.':'.$rel])['ok'] === true) {
+                continue;
+            }
+            $newFiles[basename($rel, '.php')] = $rel;
+        }
+
+        return $newFiles;
     }
 
     /**
@@ -173,7 +167,7 @@ final class RuntimeClassConsumptionScanner
      * @param  list<string>  $args
      * @return array{ok:bool,out:string,err:string}
      */
-    private function git(string $cwd, array $args): array
+    public function runGit(string $cwd, array $args): array
     {
         $process = new Process(array_merge(['git'], $args), $cwd);
         $process->setTimeout(60);
