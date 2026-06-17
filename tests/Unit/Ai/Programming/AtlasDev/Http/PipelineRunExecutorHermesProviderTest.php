@@ -206,18 +206,22 @@ final class PipelineRunExecutorHermesProviderTest extends TestCase
         // keys workdirForJob() reads, so Hermes would run IN the worktree.
         $this->assertCount(1, $capturedJobs);
         $job = $capturedJobs[0];
-        $this->assertSame($this->tmpWorkspace, data_get($job->payload, 'workspace'));
-        $this->assertSame($this->tmpWorkspace, data_get($job->payload, 'tool_permissions.workspace'));
-        $this->assertSame('acp', data_get($job->payload, 'hermes.execution_transport'));
-        $this->assertSame(1, data_get($job->payload, 'hermes.max_turns'));
-        $this->assertSame('hermes_cli', $job->provider);
+        // Eloquent magic-property access ($job->payload etc.) is replaced by
+        // getAttribute() so larastan (which does not read the Laravel-11 casts()
+        // METHOD form on AiJob) can resolve the property; values are identical
+        // (getAttribute is exactly what the magic __get delegates to).
+        $this->assertSame($this->tmpWorkspace, data_get($job->getAttribute('payload'), 'workspace'));
+        $this->assertSame($this->tmpWorkspace, data_get($job->getAttribute('payload'), 'tool_permissions.workspace'));
+        $this->assertSame('acp', data_get($job->getAttribute('payload'), 'hermes.execution_transport'));
+        $this->assertSame(1, data_get($job->getAttribute('payload'), 'hermes.max_turns'));
+        $this->assertSame('hermes_cli', $job->getAttribute('provider'));
         // Atlas defers sub-model selection to Hermes' own executive runtime: the
         // job carries the Hermes default sentinel (config
         // atlas.ai.providers.hermes_cli.model), NOT the Atlas-Decide-locked family,
         // so Hermes is never handed a non-Hermes model (e.g. 'sonnet'/'minimax-m3')
         // that its CLI rejects with cli_error. The locked family is still recorded
         // in the receipt (asserted above at providerCallSummary['model_family']).
-        $this->assertSame('hermes_cli_default', $job->model);
+        $this->assertSame('hermes_cli_default', $job->getAttribute('model'));
 
         // Hermes is treated as a workspace mutator — the diff is NOT re-applied.
         $apply = $storage->read($runId, ArtifactNames::PATCH_APPLY_RESULT);
