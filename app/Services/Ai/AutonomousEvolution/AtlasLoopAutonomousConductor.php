@@ -24,6 +24,7 @@ final class AtlasLoopAutonomousConductor
 {
     public function __construct(
         private readonly ?AtlasLoopEscalationLadder $ladder = null,
+        private readonly ?AtlasLoopRejectionDimensionRouter $rejectionRouter = null,
     ) {}
 
     /**
@@ -91,7 +92,10 @@ final class AtlasLoopAutonomousConductor
             // A throwing tier executor (provider crash, transient fault) must NOT abort the whole conduct —
             // it is recorded as a failed round so the ladder escalates to a stronger tier (fail-forward).
             try {
-                $outcome = (array) $executor($goal, $ledger->guidance(), $spec, $state['round']);
+                // ACDE X3 — append a DIMENSION-SPECIFIC re-attempt directive routed from the LAST round's
+                // namespaced cert reasons, so the next tier fixes exactly the dimension that failed instead of
+                // re-rolling against generic guidance. Default OFF / round 1 / no reasons => '' => byte-identical.
+                $outcome = (array) $executor($goal, $ledger->guidance().$this->dimensionDirective($lastOutcome), $spec, $state['round']);
             } catch (\Throwable $e) {
                 $outcome = ['certified' => false, 'reason' => 'tier_threw:'.mb_substr($e->getMessage(), 0, 160)];
             }
@@ -109,5 +113,33 @@ final class AtlasLoopAutonomousConductor
             $state['certified'] = $certified;
             $state['thrashing'] = (bool) ($ledger->convergence($thrashThreshold)['thrashing'] ?? false);
         }
+    }
+
+    /**
+     * ACDE X3 — route the previous round's namespaced cert reasons to a dimension-specific re-attempt directive.
+     * Returns '' (so the guidance is byte-identical) when the routing flag is OFF, on the first round (no
+     * lastOutcome), or when no reason maps to a known dimension. Reads the outcome's `reasons` array when
+     * present, else its single `reason` string.
+     *
+     * @param  array<string,mixed>|null  $lastOutcome
+     */
+    private function dimensionDirective(?array $lastOutcome): string
+    {
+        if ($lastOutcome === null || ! (bool) config('atlas.loop.rejection_dimension_routing_enabled', false)) {
+            return '';
+        }
+        $reasons = is_array($lastOutcome['reasons'] ?? null)
+            ? array_map(static fn (mixed $r): string => (string) $r, array_values($lastOutcome['reasons']))
+            : ((string) ($lastOutcome['reason'] ?? '') !== '' ? [(string) $lastOutcome['reason']] : []);
+        if ($reasons === []) {
+            return '';
+        }
+        $routed = ($this->rejectionRouter ?? new AtlasLoopRejectionDimensionRouter)->route($reasons);
+        $directive = (string) ($routed['directive'] ?? '');
+        if ($directive === '') {
+            return '';
+        }
+
+        return "\n\nFIX THIS SPECIFICALLY (the cert rejected on: ".implode(', ', $routed['dimensions'])."):\n".$directive;
     }
 }

@@ -2358,6 +2358,12 @@ return [
         // its caller). The builder's own double meta-flag gate + petreous harness guard still decide
         // admissibility. Default OFF => the vague objective stands => byte-identical.
         'self_improve_grounding_enabled' => (bool) env('ATLAS_LOOP_SELF_IMPROVE_GROUNDING_ENABLED', false),
+        // ACDE X3 — route the certifier's namespaced rejection dimension (complexity_gate / quality_bar /
+        // changed_symbol_uncovered / completeness / delivery_confidence / overfit / behavioral_equivalence) to a
+        // SPECIFIC re-attempt directive the conductor appends to the next round's guidance, so a weak engine
+        // fixes exactly the dimension that failed instead of re-rolling blind. Deterministic (canned per
+        // dimension, never an LLM judge). Default OFF => guidance unchanged => byte-identical.
+        'rejection_dimension_routing_enabled' => (bool) env('ATLAS_LOOP_REJECTION_DIMENSION_ROUTING_ENABLED', false),
         // ACDE O1 — the in-lane ORIGINATION producer: author a PROPOSE-ONLY origination proposal (structure +
         // decomposition hint, NO frozen acceptance, EMPTY diff, NEVER executeAndProve). Safe by construction:
         // empty diff + no acceptance_contract => the drain reprove fails closed => the row is RETIRED on the
