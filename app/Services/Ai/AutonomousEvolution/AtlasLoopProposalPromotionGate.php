@@ -121,6 +121,20 @@ final class AtlasLoopProposalPromotionGate
             return ['ok' => false, 'reason' => 'no_acceptance_contract'];
         }
 
+        // ACDE #8 — CONTRACT-SWAP GUARD (flag-gated, default-OFF => byte-identical). The persisted contract
+        // must hash-match the FROZEN fingerprint the frozen judge stamped on the proposal at grind time; a
+        // mismatch means the acceptance contract changed between cert and merge, so the reprove would be
+        // validating a DIFFERENT contract than the one certified — fail-closed. Single-source hash
+        // (AtlasEvolutionFrozenJudge::acceptanceHash, same namespace) so the assertion can never drift from
+        // what stamped the stored hash. Only enforced when the proposal carries a stored grind-time hash
+        // (legacy pre-hash proposals fall through to the existing re-proof, unchanged).
+        if ((bool) config('atlas.loop.reprove_hash_assert_enabled', false)) {
+            $stored = trim((string) ($proposal->acceptance_hash ?? ''));
+            if ($stored !== '' && ! hash_equals($stored, AtlasEvolutionFrozenJudge::acceptanceHash($this->persistedAcceptanceContract($proposal)))) {
+                return ['ok' => false, 'reason' => 'acceptance_hash_mismatch'];
+            }
+        }
+
         // AUTÓPSIA 12/06: contratos SNIPPET (descoberta self-contained) referenciam
         // arquivos que só existem no workspace da task (`php tests/atlas_generated_0.php`)
         // — re-prová-los num clone do repo falharia sempre. O payload da task é o snapshot

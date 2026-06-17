@@ -72,6 +72,9 @@ final class AtlasLoopHarnessGuardTest extends TestCase
             'AtlasLoopWiredCallerService',         // a fonte de verdade que a régua re-resolve
             'complete_atlas_loop_runtime_schema', // never-merge CHECK+trigger
             'governed_merge_door',                // a porta governada
+            'AtlasLoopNextWorkDecider',            // o priorizador ungameable
+            'AtlasLoopIdeaTreeAccessor',           // ARBOR-GRAFT: substrato de candidatos/árvore
+            'AtlasLoopSelectAdjuster',             // ARBOR-GRAFT: termo de SELECT determinístico
         ] as $critical) {
             $this->assertStringContainsString($critical, $set, "$critical deve estar no conjunto proibido");
         }

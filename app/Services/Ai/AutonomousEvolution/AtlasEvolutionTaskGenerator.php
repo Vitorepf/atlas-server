@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopIdeaDraftingRubric;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -55,7 +56,7 @@ final class AtlasEvolutionTaskGenerator
             return ['generated' => false, 'reason' => 'invalid_base_or_target'];
         }
 
-        $intent = $this->generationIntent($targetRelativePath, $testRel, $objRel);
+        $intent = $this->generationIntent($targetRelativePath, $testRel, $objRel, $this->advisoryContext($options));
         $surfaceHints = ['composer_mode' => 'programming', 'composer_task' => 'review', 'thread_id' => 'atlas-evolution-taskgen'];
         if ($provider !== '') {
             $surfaceHints['provider_choice'] = $provider;
@@ -180,6 +181,13 @@ final class AtlasEvolutionTaskGenerator
                 ];
             }
             if ($firstRed !== null) {
+                // ARBOR-GRAFT TIER 0.1 — expose the K competing readings so the refiller can materialize them
+                // as sibling hypothesis nodes (the tree-producer). Present ONLY on the divergence path (>=2
+                // readings sampled); absent everywhere else => byte-identical.
+                if (count($objectives) >= 2) {
+                    $firstRed['sampled_objectives'] = array_values($objectives);
+                }
+
                 return $firstRed; // the readings AGREE enough => the first genuine RED stands
             }
         }
@@ -200,9 +208,9 @@ final class AtlasEvolutionTaskGenerator
         return is_string($objective) ? trim($objective) : '';
     }
 
-    private function generationIntent(string $target, string $testRel, string $objRel): string
+    private function generationIntent(string $target, string $testRel, string $objRel, string $advisoryContext = ''): string
     {
-        return implode("\n", [
+        $lines = [
             "You are seeding an autonomous improvement task for the file `{$target}` in this workspace.",
             '',
             "1. Read `{$target}` and find ONE genuine, verifiable improvement: a real bug, a missing edge case, or a concrete behavior gap. NOT a style or naming nitpick.",
@@ -210,7 +218,50 @@ final class AtlasEvolutionTaskGenerator
             "3. Write the one-line improvement objective (imperative, specific) to `{$objRel}`.",
             '',
             "Edit ONLY `{$testRel}` and `{$objRel}`. Do NOT modify `{$target}`.",
-        ]);
+        ];
+
+        // ARBOR-GRAFT W1 — advisory ideation context (constraints-block + idea-drafting rubric) appended
+        // below the task. It GUIDES the next draft only; it never changes the task instructions or the
+        // frozen gate. Empty when both flags are OFF => byte-identical prompt.
+        if (trim($advisoryContext) !== '') {
+            $lines[] = '';
+            $lines[] = '--- ADVISORY CONTEXT (guidance for choosing a strong improvement; does NOT change the task above) ---';
+            $lines[] = trim($advisoryContext);
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * ARBOR-GRAFT W1 — assemble the advisory ideation context for the generation prompt. Both layers are
+     * flag-gated default-OFF and fail-safe (no container => OFF, never throws), so the default is empty =>
+     * byte-identical generation. The constraints-block is supplied by the caller (the refiller, which has the
+     * campaign) under $options['constraints_block']; the idea-drafting rubric is static.
+     *
+     * @param  array<string,mixed>  $options
+     */
+    private function advisoryContext(array $options): string
+    {
+        $parts = [];
+        try {
+            if ((bool) config('atlas.loop.idea_drafting_rubric_enabled', false)) {
+                $parts[] = AtlasLoopIdeaDraftingRubric::text();
+            }
+        } catch (Throwable) {
+            // fail-safe: OFF
+        }
+        try {
+            if ((bool) config('atlas.loop.constraints_block_enabled', false)) {
+                $block = trim((string) ($options['constraints_block'] ?? ''));
+                if ($block !== '') {
+                    $parts[] = $block;
+                }
+            }
+        } catch (Throwable) {
+            // fail-safe: OFF
+        }
+
+        return implode("\n\n", $parts);
     }
 
     private function isRed(string $base, string $testRel): bool

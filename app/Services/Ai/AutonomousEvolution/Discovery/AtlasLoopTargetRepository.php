@@ -78,7 +78,43 @@ final class AtlasLoopTargetRepository
             'lineage' => $lineage,
             'attempts' => 0,
             'max_attempts' => 3,
-        ]);
+        ] + $this->treeEdgeFrom($campaignId, $lineage));
+    }
+
+    /**
+     * ARBOR-GRAFT TIER 0.1 — the TREE-PRODUCER. When a child target is born FROM a parent result
+     * (loop-back / neighbor / sibling spawn puts `parent_target_id` into the lineage), stamp the idea-tree
+     * edge (parent / depth / node_kind / tree_status) so the candidate substrate becomes a real hypothesis
+     * tree the SELECT adjuster (SEL1) + constraints-block (CB1) + insight-backprop (T2) can read.
+     *
+     * Flag-gated default-OFF + fail-open: no flag / no parent in lineage / parent missing => returns []
+     * => the create is byte-identical to today (flat ledger). The tree fields are ADVISORY — walled off
+     * from every cert/merge/trust class by AtlasLoopAdvisoryFirewallTest; depth is set once here (immutable).
+     *
+     * @param  array<string,mixed>  $lineage
+     * @return array<string,mixed>
+     */
+    private function treeEdgeFrom(string $campaignId, array $lineage): array
+    {
+        if (! (bool) config('atlas.loop.idea_tree_enabled', false)) {
+            return [];
+        }
+        $parentId = $lineage['parent_target_id'] ?? null;
+        if (! is_string($parentId) || $parentId === '') {
+            return [];
+        }
+        $parent = AtlasLoopTarget::query()->where('campaign_id', $campaignId)->whereKey($parentId)->first();
+        if ($parent === null) {
+            return [];
+        }
+        $depth = (int) ($parent->depth ?? 0) + 1;
+
+        return [
+            'parent_target_id' => $parentId,
+            'depth' => $depth,
+            'node_kind' => $depth <= 1 ? AtlasLoopIdeaTreeAccessor::KIND_DIRECTION : AtlasLoopIdeaTreeAccessor::KIND_IMPLEMENTATION,
+            'tree_status' => AtlasLoopIdeaTreeAccessor::STATUS_PENDING,
+        ];
     }
 
     /**

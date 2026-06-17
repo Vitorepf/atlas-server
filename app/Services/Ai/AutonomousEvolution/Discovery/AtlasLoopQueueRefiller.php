@@ -40,7 +40,83 @@ final class AtlasLoopQueueRefiller
         private readonly ?AtlasLoopMultiFileRefactorSynthesizer $multiFileRefactorSynthesizer = null,
         private readonly ?AtlasLoopNextWorkDecider $nextWorkDecider = null,
         private readonly ?AtlasLoopWorkClassPriorService $workClassPrior = null,
+        private readonly ?AtlasLoopSelectAdjuster $selectAdjuster = null,
+        private readonly ?AtlasLoopConstraintsBlockAssembler $constraintsBlockAssembler = null,
+        private readonly ?AtlasLoopHypothesisTreeProducer $treeProducer = null,
     ) {}
+
+    /**
+     * ARBOR-GRAFT TIER 0.1 — materialize the K competing readings the generator sampled (divergence path)
+     * as sibling hypothesis nodes under the target, so the idea-tree becomes real. Flag-gated default-OFF +
+     * fail-open + only when >=2 distinct readings exist => no producer call on the default path (byte-
+     * identical). ADVISORY: the children are tree-nodes the constraints-block/SELECT/backprop read; they do
+     * not change the grind flow or any gate.
+     *
+     * @param  array<string,mixed>  $gen  the generateBestForTarget result
+     */
+    private function materializeHypothesisTree(AtlasLoopTarget $target, array $gen): void
+    {
+        if ($this->treeProducer === null || ! (bool) config('atlas.loop.idea_tree_enabled', false)) {
+            return;
+        }
+        $objectives = $gen['sampled_objectives'] ?? null;
+        if (! is_array($objectives) || count($objectives) < 2) {
+            return;
+        }
+        try {
+            $this->treeProducer->materialize($target, array_values(array_map('strval', $objectives)));
+        } catch (Throwable) {
+            // advisory production: a failed tree materialization never breaks the refill
+        }
+    }
+
+    /**
+     * ARBOR-GRAFT #2 (companion) — record the objective being enqueued into the target's signals, so a later
+     * metric MISS frames its failure-supply around the REAL objective the generator pursued (not just the
+     * file path). Flag-gated on failure_supply_enabled => NO signal written when OFF (byte-identical). Touches
+     * ONLY the signals column (markStatus owns status/attempts); fail-open — a failed stamp never blocks the
+     * enqueue transition.
+     */
+    private function stampLastObjective(AtlasLoopTarget $target, string $objective): void
+    {
+        $objective = trim($objective);
+        if ($objective === '' || ! (bool) config('atlas.loop.failure_supply_enabled', false)) {
+            return;
+        }
+        try {
+            $signals = is_array($target->signals) ? $target->signals : [];
+            $signals['last_objective'] = mb_substr($objective, 0, 500);
+            $encoded = json_encode($signals);
+            if ($encoded === false) {
+                return;
+            }
+            AtlasLoopTarget::query()->whereKey($target->id)->update(['signals' => $encoded]);
+            $target->setAttribute('signals', $signals); // keep in-memory consistent for any later read
+        } catch (Throwable) {
+            // advisory: a failed stamp never blocks the enqueue transition
+        }
+    }
+
+    /**
+     * ARBOR-GRAFT W1b — assemble the advisory constraints-block (PRUNED LESSONS + VALIDATED FINDINGS + TREE
+     * SHAPE + operator steering note) for the generation prompt. Flag-gated default-OFF + fail-open: returns
+     * '' when OFF / no assembler / error / empty corpora => the generator prompt is byte-identical. CONTEXT
+     * ONLY — never gates (the out-of-process cert is unchanged).
+     */
+    private function constraintsBlockFor(AtlasLoopCampaign $campaign): string
+    {
+        if ($this->constraintsBlockAssembler === null || ! (bool) config('atlas.loop.constraints_block_enabled', false)) {
+            return '';
+        }
+        try {
+            $note = is_array($campaign->config) ? ($campaign->config['steering_note'] ?? null) : null;
+            $operatorNote = is_string($campaign->steering_note ?? null) ? (string) $campaign->steering_note : (is_string($note) ? $note : null);
+
+            return $this->constraintsBlockAssembler->build((string) $campaign->id, [], $operatorNote);
+        } catch (Throwable) {
+            return '';
+        }
+    }
 
     /**
      * ACDE S1 — copy the (operator-armed) self-improvement marker from the discovery signals into a task
@@ -84,6 +160,7 @@ final class AtlasLoopQueueRefiller
         try {
             $d = $this->nextWorkDecider->decide($repoRoot, ltrim((string) $target->target_path, '/'), $signals, (float) $target->score, $shapeHint);
             [$priority, $receipt] = $this->applyWorkClassPrior((int) $d['priority'], (array) $d['receipt'], (string) $target->target_path);
+            [$priority, $receipt] = $this->applySelectAdjuster($campaign, $target, $signals, $priority, $receipt);
 
             return ['priority' => $priority, 'receipt' => $receipt];
         } catch (Throwable) {
@@ -130,6 +207,40 @@ final class AtlasLoopQueueRefiller
             ];
 
             return [$band + max(0, $offset - $penalty), $receipt];
+        } catch (Throwable) {
+            return [$priority, $receipt];
+        }
+    }
+
+    /**
+     * ARBOR-GRAFT SEL1 — the third within-band term: a deterministic DIVERSITY/NOVELTY penalty so the loop
+     * spreads exploration across distinct directions instead of over-committing to near-duplicate work (the
+     * SELECT algorithm Arbor lacks). Operates on the CURRENT offset (priority - band, after the work-class
+     * prior) and only LOWERS within the band — shares the single clamp so SHAPE always dominates. Machine-
+     * resolved only (paths + queued/tree siblings, never a self-report). Flag-gated default-OFF, fail-OPEN.
+     *
+     * @param  array<string,mixed>  $signals
+     * @param  array<string,mixed>  $receipt
+     * @return array{0:int, 1:array<string,mixed>}
+     */
+    private function applySelectAdjuster(AtlasLoopCampaign $campaign, AtlasLoopTarget $target, array $signals, int $priority, array $receipt): array
+    {
+        if ($this->selectAdjuster === null || ! (bool) config('atlas.loop.select_adjuster_enabled', false)) {
+            return [$priority, $receipt];
+        }
+        try {
+            $band = (int) ($receipt['band'] ?? 0);
+            $offset = max(0, $priority - $band); // the CURRENT within-band position (post work-class prior)
+            if ($offset <= 0) {
+                return [$priority, $receipt];
+            }
+            $maxFraction = max(0.0, min(1.0, (float) config('atlas.loop.select_adjuster_max_penalty_fraction', 0.5)));
+            [$newPriority, $fragment] = $this->selectAdjuster->adjust($campaign, $target, $signals, $band, $offset, $maxFraction);
+            if (is_array($fragment)) {
+                $receipt['_select_adjuster'] = $fragment;
+            }
+
+            return [$newPriority, $receipt];
         } catch (Throwable) {
             return [$priority, $receipt];
         }
@@ -309,6 +420,7 @@ final class AtlasLoopQueueRefiller
                         true,
                         $synth['acceptance_hash'],
                     );
+                    $this->stampLastObjective($target, (string) $synth['objective']);
                     $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'multi_file_refactor_task_synthesized');
 
                     return $enq !== null ? 'enqueued' : 'deferred';
@@ -344,9 +456,10 @@ final class AtlasLoopQueueRefiller
             if ($dp['receipt'] !== []) {
                 $payload['_decision'] = $dp['receipt'];
             }
+            $objective = 'Improve '.basename((string) $target->target_path).' guided by its improvement signals (edge gaps, branch density) — framework target.';
             $enq = $this->store->enqueueTask(
                 $campaign->id,
-                'Improve '.basename((string) $target->target_path).' guided by its improvement signals (edge gaps, branch density) — framework target.',
+                $objective,
                 $payload,
                 'discovery',
                 (string) $target->target_path,
@@ -354,6 +467,7 @@ final class AtlasLoopQueueRefiller
                 true,
                 '',
             );
+            $this->stampLastObjective($target, $objective);
             $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'framework_task_enqueued');
 
             return $enq !== null ? 'enqueued' : 'deferred';
@@ -394,6 +508,7 @@ final class AtlasLoopQueueRefiller
                         true,
                         $refactor['acceptance_hash'],
                     );
+                    $this->stampLastObjective($target, (string) $refactor['objective']);
                     $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'refactor_task_synthesized');
 
                     return $enq !== null ? 'enqueued' : 'deferred';
@@ -428,7 +543,13 @@ final class AtlasLoopQueueRefiller
             file_put_contents($base.'/composer.json', "{}\n");
             copy($source, $base.'/'.$targetRel);
 
-            $gen = $this->generator->generateBestForTarget($base, $targetRel, ['provider' => $provider, 'index' => 0]);
+            $genOptions = ['provider' => $provider, 'index' => 0];
+            $constraintsBlock = $this->constraintsBlockFor($campaign); // ARBOR-GRAFT W1b (flag-OFF => '')
+            if ($constraintsBlock !== '') {
+                $genOptions['constraints_block'] = $constraintsBlock;
+            }
+            $gen = $this->generator->generateBestForTarget($base, $targetRel, $genOptions);
+            $this->materializeHypothesisTree($target, $gen); // ARBOR-GRAFT TIER 0.1 (flag-OFF / <2 readings => no-op)
             if (! (bool) ($gen['generated'] ?? false)) {
                 // Not genuinely RED / no real work -> loop-back classifies (quarantine vs requeue).
                 $this->loopBack->reflect($campaign->id, ['target_id' => $target->id, 'status' => 'no_winner', 'reason' => (string) ($gen['reason'] ?? 'not_red')]);
@@ -455,6 +576,7 @@ final class AtlasLoopQueueRefiller
                 (string) ($task['acceptance']['acceptance_hash'] ?? ''),
             );
 
+            $this->stampLastObjective($target, (string) $task['objective']);
             $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'task_generated');
             $cleanup();
 
@@ -532,6 +654,7 @@ final class AtlasLoopQueueRefiller
             true,
             $refactor['acceptance_hash'],
         );
+        $this->stampLastObjective($target, (string) $refactor['objective']);
         $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'framework_refactor_task_synthesized');
 
         return $enq !== null ? 'enqueued' : 'deferred';

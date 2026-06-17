@@ -121,6 +121,46 @@ final class AppendOnlyJsonlStore
     }
 
     /**
+     * ARBOR-GRAFT LED1 — durable atomic rewrite. Unlike rewrite() (which opens the canonical path 'wb' and
+     * can leave a torn file if the process is killed mid-write — a real hazard for the resume ledger of a
+     * 24h soak), this writes the full row set to a temp sibling, flushes it to disk, then atomically
+     * renames it over the canonical path. A crash at any point leaves EITHER the old complete file OR the
+     * new complete file — never a half-written one. Mirrors the in-repo ReceiptStorage::writeAtomic pattern.
+     *
+     * @param  list<array<string,mixed>>  $rows
+     */
+    public static function rewriteAtomic(string $path, array $rows, int $jsonFlags = self::DEFAULT_JSON_FLAGS): void
+    {
+        self::ensureDirectory(dirname($path));
+
+        $tmp = $path.'.tmp.'.bin2hex(random_bytes(6));
+        $fp = fopen($tmp, 'wb');
+        if ($fp === false) {
+            throw new RuntimeException("Could not open {$tmp} for atomic rewrite.");
+        }
+
+        try {
+            foreach ($rows as $row) {
+                fwrite($fp, json_encode($row, $jsonFlags).PHP_EOL);
+            }
+            fflush($fp);
+            // Flush to physical disk before the rename so a power-loss can't leave a torn canonical file.
+            if (function_exists('fdatasync')) {
+                @fdatasync($fp);
+            } elseif (function_exists('fsync')) {
+                @fsync($fp);
+            }
+        } finally {
+            fclose($fp);
+        }
+
+        if (! @rename($tmp, $path)) {
+            @unlink($tmp);
+            throw new RuntimeException("Could not atomically replace {$path}.");
+        }
+    }
+
+    /**
      * Preserve legacy file_put_contents JSONL append semantics: no fopen
      * exception path, caller-provided file write flags, and caller-provided JSON flags.
      *

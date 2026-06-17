@@ -35,6 +35,9 @@ class VentureGrowthLadderService
 
     public const METRIC_LTV_CAC_RATIO = 'ltv_cac_ratio';
 
+    /** Monthly recurring revenue — the success metric for the company success engine. */
+    public const METRIC_MRR = 'mrr';
+
     public const MIN_ACTIVE_RULES_FOR_VALIDATION = 3;
 
     public static function stageKey(string $stage): string

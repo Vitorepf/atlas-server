@@ -97,6 +97,25 @@ final class AtlasEvolutionFrozenJudge
             ], $acceptance);
         }
 
+        // Guard 2b — REQUIRED OUTPUTS (ARBOR-GRAFT MG1): the first POSITIVE merge guard. Every Atlas
+        // guard is negative (don't-touch / stay-inside); Arbor's required_outputs asserts an artifact MUST
+        // exist. DATA-declared in the frozen acceptance (a provider can never author or weaken it — it is
+        // covered by the freeze), CODE-enforced here, CONJUNCTIVE: it runs AFTER tamper+scope (so those
+        // keep precedence) and rejects in ADDITION to — never instead of — the other guards. Absent key =
+        // byte-identical (no required outputs declared => loop unchanged).
+        $requiredOutputs = AiStringListNormalizer::trimmedStrings($acceptance['required_outputs'] ?? []);
+        if ($requiredOutputs !== []) {
+            $missingOutputs = $this->missingRequiredOutputs($workspace, $requiredOutputs);
+            if ($missingOutputs !== []) {
+                return $this->verdict(false, 0.0, [
+                    'rejected' => true,
+                    'reason' => 'missing_required_output',
+                    'missing_required_outputs' => $missingOutputs,
+                    'changed_files' => $changed,
+                ], $acceptance);
+            }
+        }
+
         // Guard 3 — RE-PROOF: the judge re-runs the frozen acceptance ITSELF.
         $commandResults = [];
         $allPassed = true;
@@ -506,6 +525,37 @@ final class AtlasEvolutionFrozenJudge
     /**
      * @param  list<string>  $globs
      */
+    /**
+     * ARBOR-GRAFT MG1 — globs from required_outputs that match NO file/dir present in the workspace.
+     * Literal paths use is_file/is_dir; wildcard patterns use glob() (GLOB_BRACE). required_outputs are
+     * DATA-declared in the frozen acceptance, so concrete artifact paths are the expected shape.
+     *
+     * @param  list<string>  $required
+     * @return list<string>
+     */
+    private function missingRequiredOutputs(string $workspace, array $required): array
+    {
+        $missing = [];
+        $root = rtrim($workspace, '/');
+        foreach ($required as $glob) {
+            $rel = ltrim((string) $glob, '/');
+            if ($rel === '') {
+                continue;
+            }
+            if (! preg_match('/[*?\[{]/', $rel)) {
+                $present = is_file($root.'/'.$rel) || is_dir($root.'/'.$rel);
+            } else {
+                $hits = glob($root.'/'.$rel, GLOB_BRACE);
+                $present = $hits !== false && $hits !== [];
+            }
+            if (! $present) {
+                $missing[] = $glob;
+            }
+        }
+
+        return $missing;
+    }
+
     private function matchesAny(string $path, array $globs): bool
     {
         $path = ltrim($path, '/');
@@ -560,6 +610,25 @@ final class AtlasEvolutionFrozenJudge
      * @param  array<string,mixed>  $acceptance
      * @return array<string,mixed>
      */
+    /**
+     * The canonical FROZEN acceptance fingerprint — SINGLE SOURCE so verdict() (grind-time) and the
+     * merge-boundary reprove (AtlasLoopProposalPromotionGate, ACDE #8) can never drift: a contract swapped
+     * between cert and merge produces a different hash and is caught fail-closed. The composition is FROZEN
+     * (commands / allowed_globs / frozen_globs / metric_kind) — changing it would invalidate every persisted
+     * acceptance_hash, so it must stay byte-identical to what stamped the stored hashes.
+     *
+     * @param  array<string,mixed>  $acceptance
+     */
+    public static function acceptanceHash(array $acceptance): string
+    {
+        return hash('sha256', json_encode([
+            'commands' => AiStringListNormalizer::trimmedStrings($acceptance['commands'] ?? []),
+            'allowed_globs' => AiStringListNormalizer::trimmedStrings($acceptance['allowed_globs'] ?? ['**']),
+            'frozen_globs' => AiStringListNormalizer::trimmedStrings($acceptance['frozen_globs'] ?? []),
+            'metric_kind' => (string) ($acceptance['metric_kind'] ?? self::METRIC_GATE),
+        ], JSON_THROW_ON_ERROR));
+    }
+
     private function verdict(bool $passed, float $metric, array $details, array $acceptance): array
     {
         $metricValue = is_finite($metric) ? $metric : ($metric > 0 ? 1.0e308 : -1.0e308);
@@ -570,12 +639,11 @@ final class AtlasEvolutionFrozenJudge
             'metric' => $metricValue,
             'metric_finite' => is_finite($metric),
             'details' => $details,
-            'acceptance_hash' => hash('sha256', json_encode([
-                'commands' => AiStringListNormalizer::trimmedStrings($acceptance['commands'] ?? []),
-                'allowed_globs' => AiStringListNormalizer::trimmedStrings($acceptance['allowed_globs'] ?? ['**']),
-                'frozen_globs' => AiStringListNormalizer::trimmedStrings($acceptance['frozen_globs'] ?? []),
-                'metric_kind' => (string) ($acceptance['metric_kind'] ?? self::METRIC_GATE),
-            ], JSON_THROW_ON_ERROR)),
+            'acceptance_hash' => self::acceptanceHash($acceptance),
+            // ARBOR-GRAFT J1 — audit-only provenance: this verdict was produced by re-running the frozen
+            // contract OUT-OF-PROCESS, never trusting a self-report. Pure constant, never caller-supplied,
+            // and intentionally OUTSIDE the acceptance_hash above (does not alter the frozen fingerprint).
+            'provenance' => 'verified_by_judge',
         ];
     }
 }

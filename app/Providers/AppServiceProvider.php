@@ -31,8 +31,12 @@ use App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBacklogIntentSource;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBackService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopCompletenessCriteriaResolver;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopConstraintsBlockAssembler;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopEvidenceSignalService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopFrameworkRefactorSynthesizer;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopHypothesisTreeProducer;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopIdeaTreeAccessor;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopInsightBackpropService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopMetaHarnessIntentSource;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopMultiFileRefactorSynthesizer;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopNextWorkDecider;
@@ -40,6 +44,7 @@ use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWorkClassPriorService
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObraClusterDetectorService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopQueueRefiller;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopRefactorObjectiveSynthesizer;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSelectAdjuster;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSiblingTestResolver;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopTargetDiscoveryService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopTargetRepository;
@@ -237,6 +242,22 @@ class AppServiceProvider extends ServiceProvider
                 rescue(fn () => $app->make(AtlasLoopSignalAnalyzer::class), null, false),
             ),
         );
+        // ARBOR-GRAFT: the loop-back service is autowired (made, not bound), so its nullable tree deps
+        // (idea-tree accessor, insight-backprop, failure-supply tree-producer) would all resolve to null —
+        // leaving reflectTreeNode AND the failure-supply expansion DEAD in production regardless of flags
+        // (Laravel does not inject `?Type = null`). Bind it explicitly with the trio resolved. All three are
+        // read-only ADVISORY producers (firewall-walled from every gate); each path is flag-gated default-OFF
+        // and fail-open, so binding them is byte-identical until the operator arms idea_tree_enabled /
+        // insight_backprop_enabled / failure_supply_enabled.
+        $this->app->bind(
+            AtlasLoopBackService::class,
+            fn ($app) => new AtlasLoopBackService(
+                $app->make(AtlasLoopTargetRepository::class),
+                rescue(fn () => $app->make(AtlasLoopIdeaTreeAccessor::class), null, false),
+                rescue(fn () => $app->make(AtlasLoopInsightBackpropService::class), null, false),
+                rescue(fn () => $app->make(AtlasLoopHypothesisTreeProducer::class), null, false),
+            ),
+        );
         // GOVERNED REFACTOR (Phase 1): wire the refactor objective synthesizer + harness guard
         // into the refiller (Laravel does NOT auto-inject `?Type $x = null`). Without this bind
         // the refactor_objectives_enabled flag would be inert even when the operator flips it ON.
@@ -270,6 +291,15 @@ class AppServiceProvider extends ServiceProvider
                 // applyWorkClassPrior is a no-op => byte-identical). Read-only over the existing explorations
                 // ledger; fail-open so a DB-less context never de-prioritizes on no evidence.
                 rescue(fn () => $app->make(AtlasLoopWorkClassPriorService::class), null, false),
+                // Args 14-16 (ARBOR-GRAFT): the idea-tree advisory trio. Previously OMITTED, so the SELECT
+                // re-rank, the constraints-block assembly, and the hypothesis-tree materialization were DEAD
+                // in production even with their flags ON (Laravel does not auto-inject `?Type $x = null`).
+                // All three are read-only ADVISORY producers walled off from every gate by the firewall test;
+                // each is flag-gated default-OFF and fail-open, so binding them is byte-identical until the
+                // operator arms atlas.loop.select_adjust_enabled / constraints_block_enabled / idea_tree_enabled.
+                rescue(fn () => $app->make(AtlasLoopSelectAdjuster::class), null, false),
+                rescue(fn () => $app->make(AtlasLoopConstraintsBlockAssembler::class), null, false),
+                rescue(fn () => $app->make(AtlasLoopHypothesisTreeProducer::class), null, false),
             ),
         );
         // ITEM6 — SCENARIO FAN-OUT wiring (LOAD-BEARING). There is no explicit AtlasEvolutionScenarioExplorer

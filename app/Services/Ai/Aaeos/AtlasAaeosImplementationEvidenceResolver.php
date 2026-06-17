@@ -159,18 +159,30 @@ class AtlasAaeosImplementationEvidenceResolver
 
     /**
      * The single DB read that materializes the index, partitioned in one pass into the COLUMNAR
-     * views the matchers consume — all in the DB's natural load order (no order-by, exactly like
-     * the prior per-ref queries).
+     * views the matchers consume.
+     *
+     * The read is SELECT DISTINCT, NOT a raw scan of every active row. The Code Intelligence
+     * table is re-indexed in place and accumulates exact-duplicate rows (the indexer appends
+     * a fresh row set per run; without a prune it grows unbounded). It has been observed at
+     * ~11.8M active rows that collapse to only ~280k DISTINCT (symbol_name, file_path,
+     * signature, symbol_type) tuples — ~98% duplicates. Loading the raw 11.8M into the columnar
+     * arrays OOMs even a 2GB limit (the array slots alone exceed it); the DISTINCT set is the
+     * actual working set and fits the 512MB index floor. Pushing DISTINCT to Postgres (server-
+     * side hash-aggregate) also slashes the rows transferred over the wire. Every matcher is a
+     * suffix/substring existence check or a sorted-distinct path projection, so collapsing exact
+     * duplicates cannot change any result: duplicate rows share the same name/path/type, and the
+     * matchers were already order-insensitive (no ORDER BY — a leading-wildcard scan never had a
+     * guaranteed order, so "first boundary match" was always "some boundary match").
      *
      * Read via the base query builder (->toBase()) streamed with ->cursor(), NOT Eloquent
-     * ->get(): the index is large (100k+ active rows) and hydrating that many full models at
-     * once exhausts PHP's memory_limit (a 128MB OOM fatal on the create path). cursor() runs
-     * ONE lazy query and yields rows one at a time; each row's columns are appended to parallel
-     * arrays (and only its offset — an int — to the partition views), so no per-row array is
-     * ever retained. None of the four selected columns is cast, so the base-builder raw values
-     * are byte-identical to the Eloquent attribute values. file_path and symbol_type are
-     * interned via small pools so the ~108k rows share one zval per distinct value (most file
-     * paths and all symbol types repeat heavily); the pools are released when this returns.
+     * ->get(): hydrating hundreds of thousands of full models at once exhausts PHP's
+     * memory_limit. cursor() runs ONE lazy query and yields rows one at a time; each row's
+     * columns are appended to parallel arrays (and only its offset — an int — to the partition
+     * views), so no per-row array is ever retained. None of the four selected columns is cast,
+     * so the base-builder raw values are byte-identical to the Eloquent attribute values.
+     * file_path and symbol_type are interned via small pools so the rows share one zval per
+     * distinct value (~26k distinct paths, ~18 distinct types — both repeat heavily across the
+     * ~280k distinct tuples); the pools are released when this returns.
      *
      * @return array{names:array<int,string>, paths:array<int,string>, types:array<int,string>, sig:array<int,string>, symbol:array<int,int>, test:array<int,int>, byType:array<string,array<int,int>>}
      */
@@ -184,9 +196,12 @@ class AtlasAaeosImplementationEvidenceResolver
         $test = [];
         $byType = [];
 
-        // Intern the heavily-repeated columns: ~108k rows resolve to ~9k distinct file paths
-        // and ~12 distinct symbol types, so one shared zval per distinct value replaces one
-        // string per row — the bulk of the memory saving over a tuple-per-row layout.
+        // Intern the heavily-repeated columns: ~280k distinct tuples resolve to ~26k distinct
+        // file paths and ~18 distinct symbol types, so one shared zval per distinct value
+        // replaces one string per row — the bulk of the memory saving over a tuple-per-row
+        // layout. symbol_name is also interned: the ~280k tuples carry only ~141k distinct
+        // names (one symbol appears under several paths), so duplicates share one zval.
+        $namePool = [];
         $pathPool = [];
         $typePool = [];
 
@@ -194,6 +209,7 @@ class AtlasAaeosImplementationEvidenceResolver
             ->toBase()
             ->where('status', 'active')
             ->select(['symbol_name', 'file_path', 'signature', 'symbol_type'])
+            ->distinct()
             ->cursor();
 
         $offset = 0;
@@ -203,7 +219,8 @@ class AtlasAaeosImplementationEvidenceResolver
             $path = trim((string) ($row->file_path ?? ''));
             $path = $pathPool[$path] ??= $path;
 
-            $names[$offset] = (string) $row->symbol_name;
+            $name = (string) $row->symbol_name;
+            $names[$offset] = $namePool[$name] ??= $name;
             $paths[$offset] = $path;
             $types[$offset] = $type;
 
