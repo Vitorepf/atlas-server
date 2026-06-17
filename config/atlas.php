@@ -2344,6 +2344,11 @@ return [
         // bucket => byte-identical. Dilution caveat: finer keys = fewer samples/cell (the bandit's own
         // min-attempts completion gate already guards against acting on thin cells).
         'bandit_compound_workclass_key_enabled' => (bool) env('ATLAS_LOOP_BANDIT_COMPOUND_WORKCLASS_KEY_ENABLED', false),
+        // ACDE U4 — deterministic vagueness pre-screen at the planner goal-ingest boundary: a goal with NO
+        // concrete anchor (no path/symbol/quoted-id/member-ref) skips the expensive structured planner (falls
+        // back to buildPlan) and surfaces the abstention. Conservative (only zero-anchor goals). Default OFF =>
+        // no screen => byte-identical.
+        'vagueness_prescreen_enabled' => (bool) env('ATLAS_LOOP_VAGUENESS_PRESCREEN_ENABLED', false),
         // ACDE U2 — red-REASON discriminator. AtlasEvolutionTaskGenerator::isRed accepts ANY non-zero exit as a
         // real RED task, so a weak engine's structurally-broken test (does not parse / wrong require path) is
         // mistaken for genuine behavioral work. When armed, a generated RED must additionally be BEHAVIORAL

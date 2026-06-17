@@ -12,6 +12,7 @@ use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopNodeInterfaceContract
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopNodeInterfaceVerifier;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObraDecompositionPlanner;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObraPlanValidator;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopVaguenessPreScreener;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopPlanReadinessGate;
 use App\Services\Ai\Obra\AtlasObraExecutor;
 use App\Services\Ai\Obra\ObraNodeDelivery;
@@ -615,6 +616,16 @@ class AtlasLoopObraExecutionAdapter
         }
         $goal = trim((string) ($payload['objective'] ?? ''));
         if ($goal === '') {
+            return null;
+        }
+
+        // ACDE U4 — vagueness pre-screen: a goal with NO concrete anchor cannot be planned correctly by a weak
+        // model; skip the expensive intent->spec->DAG planner (fall back to buildPlan) rather than grind a vague
+        // directive, and surface the abstention. Default OFF => no screen => byte-identical.
+        if ((bool) config('atlas.loop.vagueness_prescreen_enabled', false)
+            && (new AtlasLoopVaguenessPreScreener)->screen($goal)['vague'] === true) {
+            $this->emitPlanAbstention($payload, 'vague_goal_no_anchor');
+
             return null;
         }
 
