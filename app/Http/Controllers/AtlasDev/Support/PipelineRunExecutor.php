@@ -33,7 +33,9 @@ use App\Services\Ai\Programming\AtlasDev\Provider\DiffParser;
 use App\Services\Ai\Programming\AtlasDev\Provider\DiffParseResult;
 use App\Services\Ai\Programming\AtlasDev\Provider\ProviderCallResult;
 use App\Services\Ai\Programming\AtlasDev\Provider\SonnetClaudeCliAdapter;
+use App\Services\Ai\Programming\AtlasDev\Repair\FailureCapsuleBuilder;
 use App\Services\Ai\Programming\AtlasDev\Repair\FailureSignatureHasher;
+use App\Services\Ai\Programming\AtlasDev\Repair\RepairPromptComposer;
 use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\CompactSdd;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\CompletionSummary;
@@ -206,11 +208,24 @@ final class PipelineRunExecutor implements RunExecutor
             }
 
             // M2: Build repair prompt with failure context fed forward.
-            // Reuses buildRepairManifest-style injection (not duplicate).
-            $currentPromptText = $this->buildHermesRepairPrompt(
-                originalPrompt: $promptProjection->renderedPromptText,
+            // REUSES the armed RepairPromptComposer (listed in
+            // library/do-not-rebuild.md) plus FailureCapsuleBuilder to produce
+            // the repair projection. This inherits the composed guard rails
+            // (prompt-enforced stop conditions, operating rules, Repair Capsule
+            // section with the normalized failure signature) instead of the
+            // bypassed custom buildHermesRepairPrompt() that lost them
+            // (LIGAR violation flagged by M2 scrutiny). The REPAIR REQUIRED
+            // marker + "Previous attempt failed" header are preserved so the
+            // hermes path keeps the failure-excerpt structure VAL-M2-008 locks.
+            $currentPromptText = $this->buildComposedHermesRepairPrompt(
+                promptProjection: $promptProjection,
+                taskContract: $taskContract,
+                verificationResult: $verificationResult,
+                scopeReceipt: $scopeReceipt,
+                diffResult: $diffResult,
                 failureExcerpt: $failureExcerpt,
-                failureKind: 'verification_gate_failure',
+                repairAttempt: $repairAttempt,
+                repairCap: $repairCap,
             );
 
             // Revert workspace changes before re-invoking provider.
@@ -1073,7 +1088,15 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
      * M2: Extract a failure excerpt from the verification gate result.
      *
      * Collects the output of all failing test runs into a single excerpt
-     * that can be fed into the next repair attempt's prompt.
+     * that can be fed into the next repair attempt's prompt and the
+     * FailureCapsule's primary_error_excerpt. The excerpt also feeds
+     * FailureSignatureHasher for same-signature-twice detection, so it
+     * is kept to command + exit_code (stable across volatile stdout).
+     * TestRun persists real stdout/stderr to disk at outputPath (see
+     * library/environment.md); enriching the excerpt with it would change
+     * the normalized failure signature, so per feature scope
+     * (misc-m2-reuse-repair-prompt-composer) that enrichment is out of
+     * scope unless RepairPromptComposer naturally surfaces it.
      */
     private function extractFailureExcerpt(VerificationGateResult $result): string
     {
@@ -1091,25 +1114,113 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
     }
 
     /**
-     * M2: Build a repair prompt that feeds the failure context forward.
+     * M2: Build the repair prompt for the hermes path by REUSING the armed
+     * RepairPromptComposer (library/do-not-rebuild.md) instead of a custom
+     * string concatenation.
      *
-     * Reuses the buildRepairManifest-style injection pattern from
-     * AtlasMinimaxFirstWorkerService (not a duplicate — the same semantics).
-     * The repair prompt appends the failure excerpt to the original prompt,
-     * instructing the provider to fix ONLY the failing issue.
+     * Flow:
+     *   1. Build a canonical FailureCapsule from the verification failure
+     *      via FailureCapsuleBuilder (normalizes the excerpt, computes the
+     *      deterministic failure_signature, decides retry/stop/escalate).
+     *   2. Compose the repair ProviderPromptProjection via
+     *      RepairPromptComposer::compose() — this inherits the prompt-enforced
+     *      stop conditions, operating rules and the Repair Capsule section
+     *      the custom buildHermesRepairPrompt() used to bypass (LIGAR
+     *      violation flagged by M2 scrutiny).
+     *   3. Wrap the composed rendered text with the REPAIR REQUIRED marker +
+     *      "Previous attempt failed" header so the hermes path preserves the
+     *      failure-excerpt structure VAL-M2-008 locks, while the composed
+     *      body underneath carries strictly richer guard-rail content.
+     *
+     * The loop's same-signature-twice detection in execute() continues to
+     * compare the FailureSignatureHasher signature of the raw failure
+     * excerpt; that signature equals the capsule's failure_signature
+     * (both go through hasher->normalize() then FailureCapsule::signatureOf).
      */
-    private function buildHermesRepairPrompt(
-        string $originalPrompt,
+    private function buildComposedHermesRepairPrompt(
+        ProviderPromptProjection $promptProjection,
+        LightTaskContract $taskContract,
+        VerificationGateResult $verificationResult,
+        ScopeGuardReceipt $scopeReceipt,
+        DiffParseResult $diffResult,
         string $failureExcerpt,
-        string $failureKind,
+        int $repairAttempt,
+        int $repairCap,
     ): string {
-        $repair = "\n\n--- REPAIR REQUIRED ({$failureKind}) ---\n"
-            ."Previous attempt failed. Error output:\n{$failureExcerpt}\n\n"
-            ."Fix ONLY the failing issue. Do not rewrite unrelated code.\n"
-            ."Do NOT delete or comment out the failing test.\n"
-            .'Produce the corrected code so the failing test passes.';
+        $firstFailing = null;
+        foreach ($verificationResult->tests as $test) {
+            if (! $test->ok) {
+                $firstFailing = $test;
+                break;
+            }
+        }
 
-        return mb_substr($originalPrompt, 0, 20_000).$repair;
+        // The armed RepairPromptComposer enforces a run_id identity chain
+        // (projection == capsule == contract). In a real run these are
+        // consistent (the projection is built from the same envelope as the
+        // contract). We anchor on the contract's run_id (the authoritative
+        // identity that carries task_contract_hash) and build a projection
+        // view with that run_id so the composed service's invariant holds
+        // regardless of how the caller constructed the projection envelope.
+        $compositionProjection = $promptProjection;
+        if ($promptProjection->runId !== $taskContract->runId) {
+            $payload = $promptProjection->toCanonicalArray();
+            $payload['run_id'] = $taskContract->runId;
+            $compositionProjection = ProviderPromptProjection::fromArray($payload);
+        }
+
+        $capsuleBuilder = new FailureCapsuleBuilder(new FailureSignatureHasher);
+        $gate = 'verification_gate';
+        $capsule = $capsuleBuilder->buildInitial(
+            runId: $taskContract->runId,
+            taskContractHash: $taskContract->taskContractHash,
+            gate: $gate,
+            command: $firstFailing?->command,
+            exitCode: $firstFailing?->exitCode,
+            primaryErrorRaw: $failureExcerpt,
+            fullErrorLogPath: $firstFailing?->outputPath,
+            failingTest: $firstFailing?->command,
+            diffHash: $diffResult->diffHash(),
+            changedFiles: array_map(
+                static fn ($d): string => $d->path,
+                $scopeReceipt->observed->fileDiffs,
+            ),
+            policy: $taskContract->repairPolicy,
+        );
+
+        $composer = new RepairPromptComposer;
+        $repairProjection = $composer->compose(
+            original: $compositionProjection,
+            capsule: $capsule,
+            contract: $taskContract,
+            attemptIndex: $repairAttempt,
+            maxAttempts: max(1, $repairCap),
+        );
+
+        // The composed rendered text already carries [original prompt] +
+        // [# Repair Capsule] + [# Primary Error] + [# Stop Conditions]
+        // (strictly richer than the former custom version). Inject the
+        // REPAIR REQUIRED marker + "Previous attempt failed" header right
+        // before the Repair Capsule section so the hermes path preserves
+        // the failure-excerpt structure VAL-M2-008 locks, without
+        // duplicating the original prompt body.
+        $marker = "--- REPAIR REQUIRED ({$gate}) ---\n"
+            ."Previous attempt failed. Error output:\n{$failureExcerpt}\n";
+        $composed = $repairProjection->renderedPromptText;
+        $capsuleHeader = '# Repair Capsule';
+        $capsulePos = strpos($composed, $capsuleHeader);
+        if ($capsulePos !== false) {
+            return substr($composed, 0, $capsulePos)
+                .$marker
+                ."\n"
+                .substr($composed, $capsulePos);
+        }
+
+        // Fallback (defensive): append the marker + composed body tail if the
+        // capsule header was not found (composition contract changed).
+        return mb_substr($promptProjection->renderedPromptText, 0, 20_000)
+            ."\n\n".$marker
+            ."\n".$composed;
     }
 
     /**

@@ -1165,6 +1165,141 @@ final class RepairToGreenTest extends TestCase
         $this->assertSame(1, $providerState->callCount, 'maxAttempts=0 must not retry');
     }
 
+    /**
+     * misc-m2-reuse-repair-prompt-composer: the repair prompt is produced by
+     * the armed RepairPromptComposer (not a custom method), so it inherits the
+     * composed guard rails (Repair Capsule section, stop conditions, operating
+     * rules) AND preserves the REPAIR REQUIRED marker + failure excerpt the
+     * custom version carried. This locks the LIGAR (reuse, do not rebuild)
+     * invariant flagged by M2 scrutiny.
+     */
+    public function test_repair_prompt_is_composed_by_repair_prompt_composer_with_guard_rails(): void
+    {
+        $runId = 'dev-repair-composer-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+        $this->seedRun($storage, $runId, taskKind: 'repair', riskLevel: 'R2');
+        $this->initGitWorkspace();
+
+        $target = $this->tmpWorkspace.'/app/Foo.php';
+        mkdir(dirname($target), 0o755, true);
+        file_put_contents($target, "<?php\nfinal class Foo { public function value(): string { return 'before'; } }\n");
+        $this->git(['add', 'app/Foo.php']);
+        $this->git(['commit', '-m', 'fixture']);
+
+        $providerState = new \stdClass;
+        $providerState->callCount = 0;
+        $providerState->capturedPrompts = [];
+        $fakeHermes = new class($target, $providerState) implements AiProvider
+        {
+            public function __construct(
+                private readonly string $target,
+                private readonly object $state,
+            ) {}
+
+            public function key(): string
+            {
+                return 'hermes_cli';
+            }
+
+            public function run(AiJob $job, string $prompt): AiProviderResult
+            {
+                return $this->runStreaming($job, $prompt);
+            }
+
+            public function runStreaming(AiJob $job, string $prompt, ?callable $onEvent = null): AiProviderResult
+            {
+                $this->state->callCount++;
+                $this->state->capturedPrompts[] = $prompt;
+
+                if ($this->state->callCount === 1) {
+                    file_put_contents($this->target, "<?php\nfinal class Foo { public function value(): string { return 'broken'; } }\n");
+                } else {
+                    file_put_contents($this->target, "<?php\nfinal class Foo { public function value(): string { return 'fixed'; } }\n");
+                }
+
+                return new AiProviderResult(
+                    ok: true, output: 'edited', command: [], exitCode: 0,
+                    durationMs: 100, stdout: 'edited', stderr: '',
+                    errorCode: null, errorMessage: null, metadata: [],
+                );
+            }
+
+            public function health(): AiProviderHealthCheck
+            {
+                return new AiProviderHealthCheck(provider: 'hermes_cli', status: 'online', message: 'fake');
+            }
+        };
+
+        $manager = app(AiProviderManager::class);
+        $manager->registerDriver('hermes_cli', $fakeHermes);
+        app()->instance(AiProviderManager::class, $manager);
+
+        $commandRunner = new FakeCommandRunner;
+        $commandRunner->queue(new VerificationCommandResult(
+            command: '/opt/homebrew/bin/php artisan test tests/Unit/FooTest.php',
+            exitCode: 1,
+            stdout: 'FAILURES! FooTest::test_value AssertionError: expected fixed got broken',
+            stderr: '',
+            durationMs: 100,
+        ));
+        $commandRunner->queue(new VerificationCommandResult(
+            command: '/opt/homebrew/bin/php artisan test tests/Unit/FooTest.php',
+            exitCode: 0, stdout: 'OK', stderr: '', durationMs: 80,
+        ));
+
+        $gateway = new FakeClaudeCliGateway;
+        $container = new Container;
+        $container->instance(ClaudeCliGateway::class, $gateway);
+        $container->instance(VerificationCommandRunner::class, $commandRunner);
+        $executor = new PipelineRunExecutor($container, $storage);
+
+        $envelope = $this->envelope(intent: 'Fix app/Foo.php', providerChoice: 'hermes_cli');
+        $taskContract = $this->taskContractFixture([
+            'allowed_files' => ['app/Foo.php'],
+            'max_files_changed' => 1,
+            'validation_commands' => ['/opt/homebrew/bin/php artisan test tests/Unit/FooTest.php'],
+            'provider_lock' => [
+                'provider' => 'hermes_cli',
+                'model_family' => 'minimax-m3',
+                'fallback_allowed' => false,
+            ],
+            'repair_policy' => [
+                'max_attempts' => 3,
+                'same_provider' => true,
+                'requires_failed_gate_output' => true,
+                'abort_on_same_signature_twice' => true,
+            ],
+        ]);
+
+        $executor->execute(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            promptProjection: $this->buildSendableProjection(envelope: $envelope, taskContract: $taskContract),
+            runId: $runId,
+        );
+
+        /** @var list<string> $prompts */
+        $prompts = $providerState->capturedPrompts;
+        $this->assertGreaterThanOrEqual(2, count($prompts), 'At least 2 prompts should be captured');
+        $repairPrompt = $prompts[1] ?? '';
+
+        // Preserved from the custom version (VAL-M2-008 contract).
+        $this->assertStringContainsString('REPAIR REQUIRED', $repairPrompt);
+        $this->assertStringContainsString('Previous attempt failed', $repairPrompt);
+
+        // Inherited from the armed RepairPromptComposer (guard rails).
+        // These tokens are emitted ONLY by RepairPromptComposer::renderPrompt();
+        // the old custom buildHermesRepairPrompt() never produced them, so their
+        // presence proves the composed service is on the hermes repair path.
+        $this->assertStringContainsString('# Repair Capsule', $repairPrompt);
+        $this->assertStringContainsString('failure_signature:', $repairPrompt);
+        $this->assertStringContainsString('stop_if_same_failure_signature_repeats', $repairPrompt);
+        $this->assertStringContainsString('stop_if_max_repair_attempts_reached', $repairPrompt);
+        $this->assertStringContainsString('stop_if_diff_grows_beyond_previous_attempt', $repairPrompt);
+        // The provider-lock audit line is also composed-only.
+        $this->assertStringContainsString('provider_lock:', $repairPrompt);
+    }
+
     // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------
