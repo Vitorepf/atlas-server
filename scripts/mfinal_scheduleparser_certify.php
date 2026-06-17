@@ -15,9 +15,10 @@
 
 require __DIR__.'/../vendor/autoload.php';
 $app = require __DIR__.'/../bootstrap/app.php';
-$app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+$app->make(Kernel::class)->bootstrap();
 
 use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevRuntimeIntelligenceService;
+use Illuminate\Contracts\Console\Kernel;
 
 $runId = 'm-final-scheduleparser-weeks-delivery';
 $taskId = 'task-mfinal-scheduleparser-weeks';
