@@ -46,6 +46,15 @@ final class AtlasLoopRejectionDimensionRoutingTest extends TestCase
         $this->assertSame('', $r['directive']);
     }
 
+    public function test_mf3_cross_file_consumer_gate_dimension_maps(): void
+    {
+        $r = (new AtlasLoopRejectionDimensionRouter)->route(['cross_file_consumer_gate:consumer_contracts_failed']);
+
+        $this->assertContains('cross_file_consumer_gate', $r['dimensions']);
+        $this->assertStringContainsString('consumer contract', $r['directive']);
+        $this->assertStringContainsString('allowed cluster files', $r['directive']);
+    }
+
     public function test_changed_symbol_and_completeness_dimensions_map(): void
     {
         $r = (new AtlasLoopRejectionDimensionRouter)->route(['changed_symbol_uncovered:Foo::bar', 'completeness:2_of_5']);
