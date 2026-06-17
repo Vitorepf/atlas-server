@@ -21,6 +21,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as Op
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\GitState;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\Preflight;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\SurfaceContext;
+use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
 use Illuminate\Container\Container;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
@@ -1298,6 +1299,175 @@ final class RepairToGreenTest extends TestCase
         $this->assertStringContainsString('stop_if_diff_grows_beyond_previous_attempt', $repairPrompt);
         // The provider-lock audit line is also composed-only.
         $this->assertStringContainsString('provider_lock:', $repairPrompt);
+    }
+
+    /**
+     * misc-m2-restore-repair-prompt-20k-cap-on-composed-path:
+     *
+     * The MAIN composed repair-prompt branch (the one that runs when the
+     * "# Repair Capsule" header IS found) must cap the ORIGINAL prompt body
+     * (the pre-capsule portion) to <=20,000 characters via mb_substr, matching
+     * the prior custom buildHermesRepairPrompt() behavior. The guard-rail
+     * sections (# Repair Capsule / # Primary Error / # Stop Conditions) and
+     * the injected REPAIR REQUIRED marker must be preserved IN FULL — the cap
+     * must never truncate the guard rails.
+     *
+     * Locks: (a) oversized original prompt → pre-capsule portion <=20_000 chars;
+     *        (b) all composed guard-rail tokens + REPAIR REQUIRED marker present.
+     */
+    public function test_composed_repair_prompt_caps_pre_capsule_to_20k_while_preserving_guard_rails(): void
+    {
+        $runId = 'dev-repair-20k-cap-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+        $this->seedRun($storage, $runId, taskKind: 'repair', riskLevel: 'R2');
+        $this->initGitWorkspace();
+
+        $target = $this->tmpWorkspace.'/app/Foo.php';
+        mkdir(dirname($target), 0o755, true);
+        file_put_contents($target, "<?php\nfinal class Foo { public function value(): string { return 'before'; } }\n");
+        $this->git(['add', 'app/Foo.php']);
+        $this->git(['commit', '-m', 'fixture']);
+
+        $providerState = new \stdClass;
+        $providerState->callCount = 0;
+        $providerState->capturedPrompts = [];
+        $fakeHermes = new class($target, $providerState) implements AiProvider
+        {
+            public function __construct(
+                private readonly string $target,
+                private readonly object $state,
+            ) {}
+
+            public function key(): string
+            {
+                return 'hermes_cli';
+            }
+
+            public function run(AiJob $job, string $prompt): AiProviderResult
+            {
+                return $this->runStreaming($job, $prompt);
+            }
+
+            public function runStreaming(AiJob $job, string $prompt, ?callable $onEvent = null): AiProviderResult
+            {
+                $this->state->callCount++;
+                $this->state->capturedPrompts[] = $prompt;
+
+                if ($this->state->callCount === 1) {
+                    file_put_contents($this->target, "<?php\nfinal class Foo { public function value(): string { return 'broken'; } }\n");
+                } else {
+                    file_put_contents($this->target, "<?php\nfinal class Foo { public function value(): string { return 'fixed'; } }\n");
+                }
+
+                return new AiProviderResult(
+                    ok: true, output: 'edited', command: [], exitCode: 0,
+                    durationMs: 100, stdout: 'edited', stderr: '',
+                    errorCode: null, errorMessage: null, metadata: [],
+                );
+            }
+
+            public function health(): AiProviderHealthCheck
+            {
+                return new AiProviderHealthCheck(provider: 'hermes_cli', status: 'online', message: 'fake');
+            }
+        };
+
+        $manager = app(AiProviderManager::class);
+        $manager->registerDriver('hermes_cli', $fakeHermes);
+        app()->instance(AiProviderManager::class, $manager);
+
+        $commandRunner = new FakeCommandRunner;
+        $commandRunner->queue(new VerificationCommandResult(
+            command: '/opt/homebrew/bin/php artisan test tests/Unit/FooTest.php',
+            exitCode: 1,
+            stdout: 'FAILURES! FooTest::test_value AssertionError: expected fixed got broken',
+            stderr: '',
+            durationMs: 100,
+        ));
+        $commandRunner->queue(new VerificationCommandResult(
+            command: '/opt/homebrew/bin/php artisan test tests/Unit/FooTest.php',
+            exitCode: 0, stdout: 'OK', stderr: '', durationMs: 80,
+        ));
+
+        $gateway = new FakeClaudeCliGateway;
+        $container = new Container;
+        $container->instance(ClaudeCliGateway::class, $gateway);
+        $container->instance(VerificationCommandRunner::class, $commandRunner);
+        $executor = new PipelineRunExecutor($container, $storage);
+
+        $envelope = $this->envelope(intent: 'Fix app/Foo.php', providerChoice: 'hermes_cli');
+        $taskContract = $this->taskContractFixture([
+            'allowed_files' => ['app/Foo.php'],
+            'max_files_changed' => 1,
+            'validation_commands' => ['/opt/homebrew/bin/php artisan test tests/Unit/FooTest.php'],
+            'provider_lock' => [
+                'provider' => 'hermes_cli',
+                'model_family' => 'minimax-m3',
+                'fallback_allowed' => false,
+            ],
+            'repair_policy' => [
+                'max_attempts' => 3,
+                'same_provider' => true,
+                'requires_failed_gate_output' => true,
+                'abort_on_same_signature_twice' => true,
+            ],
+        ]);
+
+        // Build a projection whose renderedPromptText is OVERSIZED (>20k chars)
+        // so the main branch's 20k cap is exercised. The original
+        // buildHermesRepairPrompt() applied mb_substr(renderedPromptText, 0, 20_000)
+        // to the original prompt body; this cap must survive on the composed path.
+        $baseProjection = $this->buildSendableProjection(envelope: $envelope, taskContract: $taskContract);
+        $oversizedBody = str_repeat('A', 25_000); // 25k chars, exceeds the 20k cap
+        $oversizedPayload = $baseProjection->toCanonicalArray();
+        $oversizedPayload['rendered_prompt_text'] = $oversizedBody;
+        $oversizedPayload['rendered_prompt_hash'] = hash('sha256', $oversizedBody);
+        $oversizedProjection = ProviderPromptProjection::fromArray($oversizedPayload);
+
+        $executor->execute(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            promptProjection: $oversizedProjection,
+            runId: $runId,
+        );
+
+        /** @var list<string> $prompts */
+        $prompts = $providerState->capturedPrompts;
+        $this->assertGreaterThanOrEqual(2, count($prompts), 'At least 2 prompts should be captured');
+        $repairPrompt = $prompts[1] ?? '';
+
+        // --- (a) Original-prompt portion (pre-capsule, pre-marker) must be capped to <=20,000 chars ---
+        // The cap applies to the ORIGINAL prompt body. The REPAIR REQUIRED marker
+        // is injected BETWEEN the capped original and the capsule, so we measure
+        // the text before the marker to isolate the original-prompt body.
+        $capsuleHeader = '# Repair Capsule';
+        $capsulePos = strpos($repairPrompt, $capsuleHeader);
+        $this->assertNotFalse($capsulePos, 'Repair Capsule header must be present in composed repair prompt');
+        $markerHeader = '--- REPAIR REQUIRED';
+        $markerPos = strpos($repairPrompt, $markerHeader);
+        $this->assertNotFalse($markerPos, 'REPAIR REQUIRED marker must be present before the capsule');
+        $this->assertLessThan($capsulePos, $markerPos, 'Marker must be injected before the capsule section');
+        $originalPromptBody = substr($repairPrompt, 0, $markerPos);
+        $this->assertLessThanOrEqual(
+            20_000,
+            mb_strlen($originalPromptBody),
+            'Original-prompt body (pre-capsule, pre-marker) must be capped to <=20,000 chars. '
+            .'Got: '.mb_strlen($originalPromptBody)
+        );
+
+        // --- (b) Guard-rail tokens + REPAIR REQUIRED marker must ALL be present (never truncated) ---
+        $this->assertStringContainsString('REPAIR REQUIRED', $repairPrompt, 'REPAIR REQUIRED marker must survive the cap');
+        $this->assertStringContainsString('# Repair Capsule', $repairPrompt, 'Repair Capsule section must survive the cap');
+        $this->assertStringContainsString('failure_signature:', $repairPrompt, 'failure_signature must survive the cap');
+        $this->assertStringContainsString('stop_if_same_failure_signature_repeats', $repairPrompt, 'stop condition must survive the cap');
+        $this->assertStringContainsString('stop_if_max_repair_attempts_reached', $repairPrompt, 'stop condition must survive the cap');
+        $this->assertStringContainsString('provider_lock:', $repairPrompt, 'provider_lock must survive the cap');
+
+        // Verify the post-capsule portion (guard rails) is the FULL composed tail,
+        // not truncated. The capsule section + stop conditions should be intact.
+        $postCapsule = substr($repairPrompt, $capsulePos);
+        $this->assertStringContainsString('# Primary Error', $postCapsule, 'Primary Error section must be in the guard-rail tail');
+        $this->assertStringContainsString('# Stop Conditions', $postCapsule, 'Stop Conditions section must be in the guard-rail tail');
     }
 
     // ------------------------------------------------------------------

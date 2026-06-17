@@ -1223,7 +1223,25 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         $capsuleHeader = '# Repair Capsule';
         $capsulePos = strpos($composed, $capsuleHeader);
         if ($capsulePos !== false) {
-            return substr($composed, 0, $capsulePos)
+            // M2-followup: restore the 20,000-char cap on the ORIGINAL prompt
+            // body (the pre-capsule portion). The prior custom
+            // buildHermesRepairPrompt() applied mb_substr(renderedPromptText,
+            // 0, 20_000); that cap survived ONLY in the defensive fallback
+            // branch below, NOT here. Apply it to the pre-capsule portion ONLY
+            // using mb_substr so the original-prompt body is bounded exactly as
+            // before, while the # Repair Capsule / # Primary Error /
+            // # Stop Conditions guard-rail sections (capsulePos onward) and the
+            // injected REPAIR REQUIRED marker are preserved IN FULL (never
+            // truncate the guard rails).
+            //
+            // The capsule header is ASCII, so mb_strpos yields the character
+            // offset matching the byte offset for the header boundary; using
+            // the character offset keeps mb_substr correct for multibyte
+            // pre-capsule bodies.
+            $capsuleCharPos = mb_strpos($composed, $capsuleHeader);
+            $cappedPreCapsule = mb_substr($composed, 0, min($capsuleCharPos, 20_000));
+
+            return $cappedPreCapsule
                 .$marker
                 ."\n"
                 .substr($composed, $capsulePos);
