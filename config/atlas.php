@@ -2334,6 +2334,11 @@ return [
         // sourced in AtlasLoopMutationOperators::map so the gate + characterization verifier agree. Default OFF
         // => the operator map is identical => byte-identical.
         'extra_mutation_operators_enabled' => (bool) env('ATLAS_LOOP_EXTRA_MUTATION_OPERATORS_ENABLED', false),
+        // ACDE MF2 — hub-first multi-file conversion: when a coupled cluster is detected, route the anchored HUB
+        // through the proven single-file refactor lane (its own complexity proof) instead of the all-or-nothing
+        // N-file conjunction that drops ~17% of conversions. Only under the known-shape guard (covered>=2, hub
+        // anchored). Default OFF => the multi-file conjunction stands => byte-identical.
+        'multi_file_hub_first_enabled' => (bool) env('ATLAS_LOOP_MULTI_FILE_HUB_FIRST_ENABLED', false),
         // ACDE U2 — red-REASON discriminator. AtlasEvolutionTaskGenerator::isRed accepts ANY non-zero exit as a
         // real RED task, so a weak engine's structurally-broken test (does not parse / wrong require path) is
         // mistaken for genuine behavioral work. When armed, a generated RED must additionally be BEHAVIORAL
