@@ -1,0 +1,384 @@
+{
+    "schema_version": "atlas-dev-elevation.baseline-signature.v1",
+    "captured_at": "2026-06-17T19:50:00Z",
+    "scope": {
+        "tests": "tests/Feature/Ai/Programming/AtlasDev, tests/Unit/Ai/Programming/AtlasDev",
+        "phpstan": "app/Services/Ai/Programming/AtlasDev",
+        "pint": "app/Services/Ai/Programming/AtlasDev"
+    },
+    "tests": {
+        "count": 4,
+        "entries": [
+            {
+                "id": "tests/Feature/Ai/Programming/AtlasDev/Http/PipelineRunExecutorHttpSmokeTest.php::test_real_executor_composes_receipt_with_task_kind_and_risk_level_from_compact_sdd",
+                "file": "tests/Feature/Ai/Programming/AtlasDev/Http/PipelineRunExecutorHttpSmokeTest.php",
+                "test": "test_real_executor_composes_receipt_with_task_kind_and_risk_level_from_compact_sdd",
+                "reason": "Expected completion state 'passed' but got 'no_patch_needed' (CompactSDD path returns empty patch for the synthetic fixture)."
+            },
+            {
+                "id": "tests/Feature/Ai/Programming/AtlasDev/Http/RunCompactSddMissingTest.php::test_executor_compact_sdd_missing_maps_to_422_with_typed_code",
+                "file": "tests/Feature/Ai/Programming/AtlasDev/Http/RunCompactSddMissingTest.php",
+                "test": "test_executor_compact_sdd_missing_maps_to_422_with_typed_code",
+                "reason": "Expected error code 'COMPACT_SDD_MISSING' but got 'ATLAS_DEV_AWIS_EXECUTION_BLOCKED' (AWIS workspace-readiness gate intercepts before CompactSDD check)."
+            },
+            {
+                "id": "tests/Feature/Ai/Programming/AtlasDev/Http/RunCompactSddMissingTest.php::test_executor_compact_sdd_invalid_maps_to_422_with_invalid_code",
+                "file": "tests/Feature/Ai/Programming/AtlasDev/Http/RunCompactSddMissingTest.php",
+                "test": "test_executor_compact_sdd_invalid_maps_to_422_with_invalid_code",
+                "reason": "Expected error code 'COMPACT_SDD_INVALID' but got 'ATLAS_DEV_AWIS_EXECUTION_BLOCKED' (AWIS workspace-readiness gate intercepts before CompactSDD check)."
+            },
+            {
+                "id": "tests/Feature/Ai/Programming/AtlasDev/AtlasDevDesktopRealSmokeCommandTest.php::test_real_smoke_passes_through_confirmation_token_compact_hash_and_receipt",
+                "file": "tests/Feature/Ai/Programming/AtlasDev/AtlasDevDesktopRealSmokeCommandTest.php",
+                "test": "test_real_smoke_passes_through_confirmation_token_compact_hash_and_receipt",
+                "reason": "Smoke run returns 'no_patch_needed' (synthetic fixture yields no diff) so the acceptance evidence status assertion fails."
+            }
+        ]
+    },
+    "phpstan": {
+        "count": 35,
+        "entries": [
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/ContinuationPack/DevContinuationPackBuilder.php",
+                "line": 368,
+                "message": "Instanceof between App\\Models\\AtlasProgrammingStageReceipt and App\\Models\\AtlasProgrammingStageReceipt will always evaluate to true.",
+                "identifier": "instanceof.alwaysTrue"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Discovery/CodeDiscoveryEngine.php",
+                "line": 120,
+                "message": "Offset 'symbols' on array{path: mixed, reason: mixed, confidence: mixed, symbols: list} on left side of ?? always exists and is not nullable.",
+                "identifier": "nullCoalesce.offset"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Discovery/CodeDiscoveryEngine.php",
+                "line": 124,
+                "message": "Parameter #1 $array (non-empty-list) of array_values is already a list, call has no effect.",
+                "identifier": "arrayValues.list"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Discovery/CodeDiscoveryEngine.php",
+                "line": 163,
+                "message": "Offset 'symbols' on array{path: mixed, reason: mixed, confidence: mixed, symbols: list} on left side of ?? always exists and is not nullable.",
+                "identifier": "nullCoalesce.offset"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Discovery/CodeDiscoveryEngine.php",
+                "line": 163,
+                "message": "Parameter #1 $array (list) of array_values is already a list, call has no effect.",
+                "identifier": "arrayValues.list"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Discovery/OpenBrainProjectionAdapter.php",
+                "line": 147,
+                "message": "Call to function is_array() with array will always evaluate to true.",
+                "identifier": "function.alreadyNarrowedType"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Gate/PatchApplier.php",
+                "line": 118,
+                "message": "Variable $normalisedFallback might not be defined.",
+                "identifier": "variable.undefined"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Gate/ScopeContractFeasibilityClassifier.php",
+                "line": 45,
+                "message": "Parameter #1 $array (list<mixed>) of array_values is already a list, call has no effect.",
+                "identifier": "arrayValues.list"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Intelligence/TestSelectionIntelligenceService.php",
+                "line": 44,
+                "message": "Variable $unmatchedProductionFiles in PHPDoc tag @var does not match assigned variable $unmatched.",
+                "identifier": "varTag.differentVariable"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Pipeline/PlanOnlyResult.php",
+                "line": 187,
+                "message": "Parameter #1 $array (list<string>) of array_values is already a list, call has no effect.",
+                "identifier": "arrayValues.list"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Pipeline/PlanOnlyResult.php",
+                "line": 226,
+                "message": "Offset 1 on array{string, non-falsy-string, non-empty-string} on left side of ?? always exists and is not nullable.",
+                "identifier": "nullCoalesce.offset"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Pipeline/PlanOnlyResult.php",
+                "line": 227,
+                "message": "Offset 2 on array{string, non-falsy-string, non-empty-string} on left side of ?? always exists and is not nullable.",
+                "identifier": "nullCoalesce.offset"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/PlanVisible/AtlasDevPlanProjectionService.php",
+                "line": 48,
+                "message": "Property App\\Models\\AtlasProgrammingWorkItem::$plan_json (string) does not accept array.",
+                "identifier": "assign.propertyType"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Repair/DevRepairLoopService.php",
+                "line": 119,
+                "message": "Using nullsafe property access \"?->failureSignature\" on left side of ?? is unnecessary. Use -> instead.",
+                "identifier": "nullsafe.neverNull"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Repair/DevRepairLoopService.php",
+                "line": 181,
+                "message": "Cannot unset offset 'generated_at' on array{schema_version: 'atlas.programming…', run_id: string, task_contract_hash: string, risk_level: string, attempt_count: int<0, max>, attempts_allowed: int, outcome: string, failure_capture: array<string, mixed>, ...}.",
+                "identifier": "unset.offset"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Runtime/AtlasDevDesktopEfficiencyEvidenceService.php",
+                "line": 156,
+                "message": "Strict comparison using === between array{claude_code: float, codex: float} and array{} will always evaluate to false.",
+                "identifier": "identical.alwaysFalse"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Runtime/AtlasDevDesktopEfficiencyEvidenceService.php",
+                "line": 585,
+                "message": "Offset 'status' on array{case_id: 'frontend_case', task_kind: 'frontend', participant: 'atlas'|'claude_code'|'codex', ref: 'desktop_efficiency…', task_prompt_sha256: non-falsy-string, status: 'blocked'|'passed', blocking_findings: array, write_command: string, ...}|array{case_id: 'frontend_case', task_kind: 'frontend', participant: 'atlas'|'claude_code'|'codex', ref: 'desktop_efficiency…', task_prompt_sha256: non-falsy-string, status: 'missing', blocking_findings: array{'source_missing'}, write_command: string}|array{case_id: 'patch_case', task_kind: 'patch', participant: 'atlas'|'claude_code'|'codex', ref: 'desktop_efficiency…', task_prompt_sha256: non-falsy-string, status: 'blocked'|'passed', blocking_findings: array, write_command: string, ...}|array{case_id: 'patch_case', task_kind: 'patch', participant: 'atlas'|'claude_code'|'codex', ref: 'desktop_efficiency…', task_prompt_sha256: non-falsy-string, status: 'missing', blocking_findings: array{'source_missing'}, write_command: string}|array{case_id: 'question_case', task_kind: 'question', participant: 'atlas'|'claude_code'|'codex', ref: 'desktop_efficiency…', task_prompt_sha256: non-falsy-string, status: 'blocked'|'passed', blocking_findings: array, write_command: string, ...}|array{case_id: 'question_case', task_kind: 'question', participant: 'atlas'|'claude_code'|'codex', ref: 'desktop_efficiency…', task_prompt_sha256: non-falsy-string, status: 'missing', blocking_findings: array{'source_missing'}, write_command: string}|array{case_id: 'repair_case', task_kind: 'repair', participant: 'atlas'|'claude_code'|'codex', ref: 'desktop_efficiency…', task_prompt_sha256: non-falsy-string, status: 'blocked'|'passed', blocking_findings: array, write_command: string, ...}|array{case_id: 'repair_case', task_kind: 'repair', participant: 'atlas'|'claude_code'|'codex', ref: 'desktop_efficiency…', task_prompt_sha256: non-falsy-string, status: 'missing', blocking_findings: array{'source_missing'}, write_command: string}|array{case_id: 'review_case', task_kind: 'review', participant: 'atlas'|'claude_code'|'codex', ref: 'desktop_efficiency…', task_prompt_sha256: non-falsy-string, status: 'blocked'|'passed', blocking_findings: array, write_command: string, ...}|array{case_id: 'review_case', task_kind: 'review', participant: 'atlas'|'claude_code'|'codex', ref: 'desktop_efficiency…', task_prompt_sha256: non-falsy-string, status: 'missing', blocking_findings: array{'source_missing'}, write_command: string} on left side of ?? always exists and is not nullable.",
+                "identifier": "nullCoalesce.offset"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Runtime/AtlasDevDesktopEfficiencyEvidenceService.php",
+                "line": 860,
+                "message": "Parameter #1 $array (list) of array_values is already a list, call has no effect.",
+                "identifier": "arrayValues.list"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Runtime/AtlasDevDesktopEfficiencyEvidenceService.php",
+                "line": 861,
+                "message": "Parameter #1 $array (list) of array_values is already a list, call has no effect.",
+                "identifier": "arrayValues.list"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Runtime/ProcOpenRunWorkerDispatcher.php",
+                "line": 50,
+                "message": "Offset 'pid' on array{command: string, pid: int, running: bool, signaled: bool, stopped: bool, exitcode: int, termsig: int, stopsig: int} in isset() always exists and is not nullable.",
+                "identifier": "isset.offset"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Schemas/CompactSdd.php",
+                "line": 16,
+                "message": "Constant App\\Services\\Ai\\Programming\\AtlasDev\\Schemas\\CompactSdd::HASH_FIELD is unused.",
+                "identifier": "classConstant.unused"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Schemas/Components/ReviewFinding.php",
+                "line": 219,
+                "message": "Offset 'blocker'|'critical'|'high'|'info'|'low'|'medium' on array{blocker: 0, critical: 1, high: 2, medium: 3, low: 4, info: 5} on left side of ?? always exists and is not nullable.",
+                "identifier": "nullCoalesce.offset"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Schemas/PatchIntelligenceReceipt.php",
+                "line": 288,
+                "message": "PHPDoc tag @param for parameter $values with type mixed is not subtype of native type array.",
+                "identifier": "parameter.phpDocType"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Schemas/Support/AtlasDevSchemaArray.php",
+                "line": 97,
+                "message": "Strict comparison using !== between non-empty-array<mixed, mixed> and array{} will always evaluate to true.",
+                "identifier": "notIdentical.alwaysTrue"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Security/ConfirmationTokenService.php",
+                "line": 125,
+                "message": "Cannot call method isPast() on string.",
+                "identifier": "method.nonObject"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/SeniorLoop/SeniorEngineerLoopExecutionReporter.php",
+                "line": 94,
+                "message": "Access to property $attemptIndex on an unknown class App\\Services\\Ai\\Programming\\AtlasDev\\SeniorLoop\\FailureCapsule.",
+                "identifier": "class.notFound"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/SeniorLoop/SeniorEngineerLoopExecutionReporter.php",
+                "line": 95,
+                "message": "Access to property $capsuleHash on an unknown class App\\Services\\Ai\\Programming\\AtlasDev\\SeniorLoop\\FailureCapsule.",
+                "identifier": "class.notFound"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/SeniorLoop/SeniorEngineerLoopExecutionReporter.php",
+                "line": 96,
+                "message": "Access to property $decision on an unknown class App\\Services\\Ai\\Programming\\AtlasDev\\SeniorLoop\\FailureCapsule.",
+                "identifier": "class.notFound"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/SeniorLoop/SeniorEngineerLoopExecutionReporter.php",
+                "line": 97,
+                "message": "Access to property $failureSignature on an unknown class App\\Services\\Ai\\Programming\\AtlasDev\\SeniorLoop\\FailureCapsule.",
+                "identifier": "class.notFound"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/SeniorLoop/SeniorEngineerLoopExecutionReporter.php",
+                "line": 261,
+                "message": "Method App\\Services\\Ai\\Programming\\AtlasDev\\SeniorLoop\\SeniorEngineerLoopExecutionReporter::writeFailureCapsuleIfNeeded() has invalid return type App\\Services\\Ai\\Programming\\AtlasDev\\SeniorLoop\\FailureCapsule.",
+                "identifier": "class.notFound"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/SeniorLoop/SeniorEngineerLoopExecutionReporter.php",
+                "line": 282,
+                "message": "Method App\\Services\\Ai\\Programming\\AtlasDev\\SeniorLoop\\SeniorEngineerLoopExecutionReporter::writeFailureCapsuleIfNeeded() should return array{App\\Services\\Ai\\Programming\\AtlasDev\\SeniorLoop\\FailureCapsule|null, string|null} but returns array{App\\Services\\Ai\\Programming\\AtlasDev\\Schemas\\FailureCapsule, string}.",
+                "identifier": "return.type"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/SeniorLoop/SeniorEngineerLoopExecutionReporter.php",
+                "line": 300,
+                "message": "Method App\\Services\\Ai\\Programming\\AtlasDev\\SeniorLoop\\SeniorEngineerLoopExecutionReporter::exitCode() never returns null so it can be removed from the return type.",
+                "identifier": "return.unusedType"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Support/AtlasDevProcessEnvironment.php",
+                "line": 75,
+                "message": "Call to function is_string() with string will always evaluate to true.",
+                "identifier": "function.alreadyNarrowedType"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Support/AtlasDevProcessEnvironment.php",
+                "line": 75,
+                "message": "Offset 'dir' on array{name: string, passwd: string, uid: int, gid: int, gecos: string, dir: string, shell: string} on left side of ?? always exists and is not nullable.",
+                "identifier": "nullCoalesce.offset"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Surface/HttpResponseRedactor.php",
+                "line": 103,
+                "message": "Strict comparison using !== between non-empty-string and '' will always evaluate to true.",
+                "identifier": "notIdentical.alwaysTrue"
+            }
+        ]
+    },
+    "pint": {
+        "count": 42,
+        "entries": [
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/AtlasDevScopeGuardService.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Escalation/EscalationDecisionEngine.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Escalation/EscalationSignalScorer.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Escalation/EscalationSignalsInput.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Gate/ScopeContractFeasibilityClassifier.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Gate/SymfonyProcessCommandRunner.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Gate/VerificationGateResult.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Intelligence/DebugIntelligenceService.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/MinimaxFirst/AtlasCodexPlannerService.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/MinimaxFirst/AtlasMinimaxContextCompilerService.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/MinimaxFirst/AtlasMinimaxFirstWorkerService.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Persistence/ReceiptStorage.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Pipeline/AtomicSemanticDecomposer.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Pipeline/AtomicStep.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Pipeline/OutOfScopeDelegationDetector.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Pipeline/RiskLevelScorer.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Pipeline/SpecComposer.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Pipeline/TaskClassification.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Provider/SonnetClaudeCliAdapter.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Provider/SymfonyClaudeCliGateway.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Repair/Contracts/RepairAttemptOutcome.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Repair/DevRepairLoopService.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Repair/FailureCapsuleBuilder.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Repair/FailureSignatureHasher.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Repair/RepairLoopResult.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Repair/RepairOrchestrator.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Research/DevResearchPlannerService.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevFailureCapsuleRuntimeService.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevOutcomeMemoryService.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevTaskPacketRuntimeService.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Schemas/Components/CompletionSummary.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Schemas/Components/EscalationSummary.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Schemas/Components/EvidenceRef.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Schemas/Components/GateOutcome.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Schemas/Components/ScopeViolation.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Schemas/EscalationDecision.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Schemas/FailureCapsule.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Schemas/FastPathErrorLedgerEntry.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Schemas/FastPathTelemetry.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Schemas/ScopeGuardReceipt.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/Schemas/VerificationReceipt.php"
+            },
+            {
+                "file": "app/Services/Ai/Programming/AtlasDev/WorkspaceMutatingProviders.php"
+            }
+        ]
+    }
+}

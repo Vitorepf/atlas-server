@@ -163,3 +163,32 @@ Autonomia gradua **só em evidência que o ator não pode autorar**: (1) confian
 2. **Capacidade do modelo:** originação greenfield genuína (escolher vencedor antes de evidência) tem teto — construímos falsificação, não onisciência.
 
 **Veredito da iteração:** o loop pivota agora da metade "correção/honestidade" (world-class, mantida) **para a metade "valor/throughput/mãos"** — que é o que move a nota de 6,5 → mais perto de 10, e é majoritariamente wiring. Próximo: iteração 6 (as mãos).
+
+---
+
+## Iteração 7 — Espinha de throughput/velocidade + biblioteca de arquétipos (a máquina de valor)
+
+**Insight central — separação de DOIS RELÓGIOS:** **relógio-da-verdade** = caixa reconciliado (lento, imutável); **relógio-da-velocidade** = experimentos baratos (rápido, descartável). Compra velocidade **SÓ no estágio pré-build barato, e SÓ depois do kernel de caixa existir** — porque toda gate de honestidade que a velocidade "wira por cima" é design não-construído, e o único campo de receita que existe hoje é `source` free-text default 'operator' lido pelo SuccessEvaluator **sem filtro de source**. Constrói o piso de caixa primeiro; arma paralelismo por último.
+
+### Lei da velocidade (glass-box, default byte-identical-OFF; WIP_validate=0 ⇒ sequencial de hoje)
+Maximizar **dólares-reconciliados-criados-por-token-mês** = (experimentos-de-demanda baratos validados/semana) × (conversão validado→1º-dólar-RECONCILIADO) × (margem NRR-weighted por vencedor) — rodando a frente paralela MAIS LARGA de experimentos de falsificação-de-mercado que os WIP caps + envelope atômico permitem, admitindo a BUILD **só o que um sinal de demanda externo falsificou-IN**, NUNCA alargando estágio relaxando gate de honestidade a jusante.
+
+### Componentes
+| Componente | Papel + salvaguarda |
+|---|---|
+| **`ai_reconciled_cash_events` + DB-CHECK** (clock-starter) | A única coisa que pode **iniciar o relógio de velocidade**. `source ∈ {payment_processor,bank,external_reconciled}` + check de identidade arms-length do counterparty no write-boundary. Rejeita operator/loop/self **no DB**. |
+| **Retrofit do VentureSuccessEvaluator (source-filter)** | Fecha a **armadilha LIVE**: hoje (verificado, linhas 48-66) computa o streak de ≥3 meses **sem filtro de source** → `operator` dispara `succeeded`. Teste frozen: observação self-reported **não pode** produzir succeeded. |
+| **AggregateVentureSpendEnvelope (atômico) + DispatchController + VentureActionClass** | A costura de spend-safety não-negociável (reusa o kernel iter-4). **WIP fica em 1 até isso ser atômico E live** — dependência BLOQUEANTE; experimentos concorrentes não podem dar race no read-modify-write. |
+| **VelocityMetricsLedger** (read-model puro) | Mede time-to-first-RECONCILED-dollar (mean/median/p95) + flow counters, co-reportado com o scorecard triplo. **HARD-FAILS se o store reconciliado ausente** — nunca cai pra AiVentureMetricObservation. Feed vazio ⇒ velocidade=dormente, nunca fabricada. |
+| **DemandSignalValidator + DemandSignalGate** (batch paralelo) | O Polsia-killer pré-build: testa JTBD contra sinal real barato sob **contrato de poder estatístico**; `demand_validated` é sinal de **admissão-a-build**, **nunca sucesso**. Correção de comparações-múltiplas **aperta com a concorrência**. Default-OFF (gasto externo → mandato). |
+| **ExperimentWipScheduler** (1º caller de produção do AtlasLoopBudgetScheduler) | O motor de throughput: roda MUITAS probes baratas concorrentes sob WIP caps duros + **piso de exploração round-robin fora do knapsack**. WIP cap = min(slot do operador, headroom do envelope atômico); WIP de build distinto bounded à capacidade de review humano. |
+| **MonetizableArchetypeRegistry + ArchetypeChainTopologyAdapter** (POR ÚLTIMO) | ~12 padrões frozen closed-enum que tornam a cadeia de valor polimórfica (topologia + template de teste só) — **admission gate + oráculo de caixa ficam archetype-INVARIANT**. Chave desconhecida → BLOCK. Só coorte de receita-reconciliada por arquétipo retira/down-weighta um arquétipo. |
+
+### Anti-Goodhart (mata a armadilha-Polsia)
+Toda métrica de velocidade **termina em caixa reconciliado, nunca em contagem de lançados/shipados**. A separação de dois relógios é **enforced, não só co-reportada**: o relógio de velocidade não pode rodar sem o store reconciliado existir; arquétipos não relaxam o gate; demand_validated nunca vira success.
+
+### Teto residual
+1. **Gap intent-to-paid (o mais profundo):** um sinal de demanda de $20 (cliques/waitlist) é proxy ruidoso que diverge de intent-to-pay por 1-2 ordens de magnitude. Movê-lo pra esquerda só ajuda na medida em que correlaciona com caixa — bound, não eliminado.
+2. Velocidade só vira valor **depois** do plant (caixa real); sem feed, todo o spine fica dormente (correto).
+
+**Veredito:** é a iteração que move Atlas de **"à-frente-na-verdade" → "à-frente-em-valor"** — máquina rápida E honesta, com a regra de ouro reforçada: **piso de caixa primeiro, paralelismo por último.**
