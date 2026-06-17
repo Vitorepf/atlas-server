@@ -2305,6 +2305,11 @@ return [
         // self-grading); the verifier_hash is computed over atoms/acceptance/test_content, never the whole
         // packet, so the key never shifts cert. Default OFF => key absent => byte-identical.
         'feature_completeness_checklist_enabled' => (bool) env('ATLAS_LOOP_FEATURE_COMPLETENESS_CHECKLIST_ENABLED', false),
+        // ACDE F8 (honest, non-Goodhart form) — paraphrase audit over the HUMAN-frozen atoms: flag near-
+        // duplicate criterion pairs as a read-only operator advisory. NEVER infers/authors/weakens/grades an
+        // atom (the literal inferred-atom version is canon-forbidden). Default OFF => key absent => byte-identical.
+        'atom_paraphrase_audit_enabled' => (bool) env('ATLAS_LOOP_ATOM_PARAPHRASE_AUDIT_ENABLED', false),
+        'atom_paraphrase_audit_threshold' => (float) env('ATLAS_LOOP_ATOM_PARAPHRASE_AUDIT_THRESHOLD', 0.85),
         // ACDE F3 — the per-delivery HMAC-signed dossier (feature-outcome ledger). recent() reads the merged
         // deliveries (atlas_loop_proposals) and emits signed dossiers carrying the D2 dimensions + F2 checklist;
         // no new table, no merge-path write. Substrate that compounds when origination (O2) reads it back.

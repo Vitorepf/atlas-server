@@ -66,6 +66,15 @@ final class AtlasLoopObjectiveDivergence
     }
 
     /**
+     * Public Jaccard SIMILARITY (intersection/union of word sets) in [0,1] between two texts — the complement
+     * of the distance used above. Reused by the F8 human-atom paraphrase audit. 1 = identical word sets.
+     */
+    public function jaccardSimilarity(string $a, string $b): float
+    {
+        return round($this->jaccard($this->wordSet($a), $this->wordSet($b)), 4);
+    }
+
+    /**
      * @return list<string>
      */
     private function wordSet(string $text): array

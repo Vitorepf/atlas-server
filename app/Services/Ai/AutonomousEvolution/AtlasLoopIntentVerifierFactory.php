@@ -72,6 +72,16 @@ final class AtlasLoopIntentVerifierFactory
             $packet['completeness_checklist'] = (new AtlasLoopFeatureCompletenessResolver)->resolve($atoms);
         }
 
+        // ACDE F8 (honest, non-Goodhart form) — paraphrase audit over the HUMAN-frozen atoms: flag near-
+        // duplicate criterion pairs (high Jaccard similarity) as a read-only operator ADVISORY. It NEVER
+        // infers, authors, weakens, removes, or grades an atom (the literal "abstain on inferred atoms" is
+        // forbidden by the canon) — it only points at a possible authoring redundancy for the human to
+        // resolve. Additive + flag-gated => OFF => key absent => byte-identical (never touches verifier_hash).
+        if ((bool) config('atlas.loop.atom_paraphrase_audit_enabled', false)) {
+            $threshold = (float) config('atlas.loop.atom_paraphrase_audit_threshold', 0.85);
+            $packet['atom_paraphrase_audit'] = (new AtlasLoopAtomParaphraseAudit)->nearDuplicatePairs($atoms, $threshold);
+        }
+
         // ACDE F1 — carry the SEQUENCED-FEATURE plan: one huge feature's human-frozen atoms partitioned into an
         // ordered chain of small steps (each step's frozen sub-acceptance is exactly its atom subset, compiled
         // by THIS factory). Lets the loop build a big feature incrementally instead of one-shotting it. Pure
