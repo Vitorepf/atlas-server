@@ -2378,6 +2378,12 @@ return [
         'calibrated_confidence_target_precision' => max(0.0, min(1.0, (float) env('ATLAS_LOOP_CALIBRATED_CONFIDENCE_TARGET_PRECISION', 0.93))),
         'calibrated_confidence_min_samples' => max(2, (int) env('ATLAS_LOOP_CALIBRATED_CONFIDENCE_MIN_SAMPLES', 20)),
         'calibrated_confidence_window_days' => max(1, (int) env('ATLAS_LOOP_CALIBRATED_CONFIDENCE_WINDOW_DAYS', 30)),
+        // ACDE DG2 — per-change-class earned-autonomy drain gate. A certified proposal whose change class has not
+        // earned autonomous trust (clean streak below atlas.ai.trust_ladder.thresholds.autonomous) PARKS for
+        // operator review instead of auto-merging. Default OFF => byte-identical. CONSERVATIVE WHEN ARMED: the
+        // trust-ladder thresholds are disabled by default, so a freshly-armed DG2 parks EVERY class until the
+        // operator sets a positive atlas.ai.trust_ladder.thresholds.autonomous AND the class earns that streak.
+        'change_class_drain_gate_enabled' => (bool) env('ATLAS_LOOP_CHANGE_CLASS_DRAIN_GATE_ENABLED', false),
         // ACDE M4 — telemetry window (hours) the obra cost estimator averages real per-provider spend over to
         // de-orphan the budget scheduler's cost input. Read-only; an absent ledger yields an empty cost map
         // (the obra stays honestly deferred). The scheduler itself has no live dispatch caller yet.

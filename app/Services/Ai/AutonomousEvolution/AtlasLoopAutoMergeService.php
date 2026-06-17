@@ -59,6 +59,8 @@ final class AtlasLoopAutoMergeService
         // ACDE DG1 — the calibrated-confidence abstention gate. LAST + nullable (autowiring does not inject
         // `?Type $x = null`, so mergeOne self-resolves it via app() when armed). Default OFF => never consulted.
         private readonly ?AtlasLoopCalibratedConfidenceGate $confidenceGate = null,
+        // ACDE DG2 — the per-change-class earned-autonomy drain gate (same nullable + app() fallback pattern).
+        private readonly ?AtlasLoopChangeClassDrainGate $changeClassGate = null,
     ) {}
 
     /**
@@ -280,6 +282,23 @@ final class AtlasLoopAutoMergeService
                     }
                 } catch (Throwable) {
                     // fail-open — a calibration/DB hiccup must never block an otherwise-mergeable proposal.
+                }
+            }
+
+            // ACDE DG2 — PER-CHANGE-CLASS EARNED-AUTONOMY abstention. Merge authority becomes a function of the
+            // change class's PROVEN clean-merge streak (AtlasChangeClassTrustLadder, fed live by
+            // recordMergeOutcome), not this single diff: a class that has not earned autonomous trust PARKS for
+            // operator review. Default OFF (and inert until a positive autonomous streak threshold is set) =>
+            // byte-identical. Fail-open: any trust-ladder error never blocks the merge.
+            if (! $operatorApproved && (bool) config('atlas.loop.change_class_drain_gate_enabled', false)) {
+                try {
+                    if (($this->changeClassGate ?? app(AtlasLoopChangeClassDrainGate::class))->shouldAbstain((string) $proposal->target_path)) {
+                        $this->markOperatorReview($proposal, 'parked_for_operator_review', 'change_class_unearned_autonomy', 'auto_merge');
+
+                        return array_merge($base, ['reason' => 'change_class_unearned_autonomy (parked_for_operator_review)']);
+                    }
+                } catch (Throwable) {
+                    // fail-open — a trust-ladder hiccup must never block an otherwise-mergeable proposal.
                 }
             }
 
