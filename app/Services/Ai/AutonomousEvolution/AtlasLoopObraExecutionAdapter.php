@@ -623,6 +623,7 @@ class AtlasLoopObraExecutionAdapter
         $compiler = $this->specCompiler ?? new AtlasLoopIntentSpecCompiler;
         $spec = $compiler->compile($goal, $this->specGenerator($payload, $allowed), (int) config('atlas.loop.planning_spec_max_attempts', 3));
         if (($spec['ready'] ?? false) !== true || ! is_array($spec['spec'] ?? null)) {
+            $this->emitPlanAbstention($payload, 'spec_not_ready'); // ACDE P4 — make the abstention VISIBLE
             return null; // refuse-with-gaps -> fall back to buildPlan (never park a vague obra)
         }
 
@@ -646,12 +647,54 @@ class AtlasLoopObraExecutionAdapter
 
         $out = $planner->plan($goal, ['spec' => $spec['spec']], $planAllowed, $this->planGenerator($payload, $allowed, $newFiles, $spec['spec']), (int) config('atlas.loop.planning_plan_max_attempts', 3));
         if (($out['ready'] ?? false) !== true || ! is_array($out['plan'] ?? null)) {
+            $this->emitPlanAbstention($payload, 'plan_not_ready'); // ACDE P4 — make the abstention VISIBLE
             return null; // planner refused -> buildPlan fallback (cheap; never spend on an ill-formed plan)
         }
 
         // The executor walks nodes by SEQ ascending (AtlasObraExecutor::execute), NOT by depends_on —
         // so the create-class node MUST carry seq=0 (the planGenerator assigns it).
         return ['plan' => $out['plan'], 'allowed' => $planAllowed, 'new_files' => $newFiles];
+    }
+
+    /**
+     * ACDE P4 — the plan-abstention RECEIPT. Today when the planner exhausts its attempts maybePlan silently
+     * returns null and the adapter falls back to the dumb one-shot buildPlan — the operator never sees that the
+     * structured planner GAVE UP. This builds a provider-safe receipt (objective kind + family + reason, never
+     * code) so the silent fallback becomes an observable signal. Pure.
+     *
+     * @param  array<string,mixed>  $payload
+     * @return array{abstained:bool, objective_kind:string, family:string, reason:string}
+     */
+    public function planAbstentionReceipt(array $payload, string $reason): array
+    {
+        $kind = trim((string) ($payload['objective_kind'] ?? ''));
+        $family = $kind === '' ? 'unknown' : (string) (explode('_', $kind, 2)[0] ?? $kind);
+
+        return [
+            'abstained' => true,
+            'objective_kind' => $kind,
+            'family' => $family !== '' ? $family : 'unknown',
+            'reason' => trim($reason) !== '' ? trim($reason) : 'unspecified',
+        ];
+    }
+
+    /**
+     * ACDE P4 — emit the plan-abstention receipt to the log when armed, so a planner give-up is VISIBLE rather
+     * than a silent dumb-buildPlan fallback. Default OFF => no log, no behavior change => byte-identical. The
+     * fallback contract itself is unchanged (the operator-routing of an abstention is a separate governance call).
+     *
+     * @param  array<string,mixed>  $payload
+     */
+    protected function emitPlanAbstention(array $payload, string $reason): void
+    {
+        try {
+            if (! (bool) config('atlas.loop.plan_abstention_visible_enabled', false)) {
+                return;
+            }
+            \Illuminate\Support\Facades\Log::info('atlas.loop.plan_abstention', $this->planAbstentionReceipt($payload, $reason));
+        } catch (\Throwable) {
+            // visibility must never break the planning path — a logging hiccup is swallowed.
+        }
     }
 
     /**

@@ -2358,6 +2358,11 @@ return [
         // spec's decomposition_hint before the planner consumes it, so it cannot chase a non-existent file.
         // Default OFF => the spec is unchanged => byte-identical.
         'hint_grounding_enabled' => (bool) env('ATLAS_LOOP_HINT_GROUNDING_ENABLED', false),
+        // ACDE P4 — plan-abstention visibility: when the structured planner gives up and the adapter falls back
+        // to the dumb one-shot buildPlan, emit a provider-safe receipt to the log so the abstention is observable
+        // instead of silent. Default OFF => no log, fallback contract unchanged => byte-identical. (Routing an
+        // abstention to the operator is a separate governance decision.)
+        'plan_abstention_visible_enabled' => (bool) env('ATLAS_LOOP_PLAN_ABSTENTION_VISIBLE_ENABLED', false),
         // ACDE WD4 — split the strategy-bandit UCB bucket by a MEASURED complexity tier (lo/mid/hi on total
         // cyclomatic) so surgical-vs-root_cause efficacy is no longer averaged across a trivial adapter and a
         // 200-method hub. Default OFF => targetType() returns the bare path-prefix bucket, no file read,
