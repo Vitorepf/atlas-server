@@ -259,11 +259,12 @@ final class VerificationFloorTest extends TestCase
             'provider_lock' => ['provider' => 'hermes_cli', 'model_family' => 'minimax-m3'],
         ]);
 
+        // Use base_path() so the floor can detect that pint exists in vendor/bin/
         $result = $this->makeGate($runner)->run(
             taskContract: $task,
             callResult: $this->callResult(),
             scopeReceipt: $scopeReceipt,
-            workspace: '/tmp/atlas-workspace',
+            workspace: base_path(),
         );
 
         // Lint command should be present in executed commands

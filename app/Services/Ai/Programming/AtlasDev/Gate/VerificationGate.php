@@ -70,7 +70,7 @@ final class VerificationGate
         }
 
         // M1: Compute the mandatory verification floor from observed diff
-        $floorCommands = $this->computeFloorCommands($scopeReceipt);
+        $floorCommands = $this->computeFloorCommands($scopeReceipt, $workspace);
 
         // Union of caller commands + floor commands, deduped
         $commands = $this->mergeCommands($taskContract->validationCommands, $floorCommands);
@@ -253,11 +253,11 @@ final class VerificationGate
      * - Impacted existing tests discovered via ProgrammingTestImpactAnalyzer
      *   (using selected_existing_tests, NOT all candidates, to avoid false failures)
      * - `php -l` per touched .php file
-     * - Configured lint (pint)
+     * - Configured lint (pint) - only if pint exists in the workspace
      *
      * @return list<string>
      */
-    private function computeFloorCommands(ScopeGuardReceipt $scopeReceipt): array
+    private function computeFloorCommands(ScopeGuardReceipt $scopeReceipt, string $workspace): array
     {
         $commands = [];
 
@@ -291,13 +291,16 @@ final class VerificationGate
             }
         }
 
-        // Add configured lint command (pint for PHP/Laravel)
+        // Add configured lint command (pint for PHP/Laravel) only if pint exists in workspace.
+        // This prevents false failures on isolated fixture/test workspaces that don't have
+        // full composer dependencies installed.
         $hasPhpFiles = count(array_filter(
             $changedFiles,
             static fn (string $f): bool => str_ends_with(strtolower($f), '.php'),
         )) > 0;
 
-        if ($hasPhpFiles) {
+        $pintPath = rtrim($workspace, '/').'/vendor/bin/pint';
+        if ($hasPhpFiles && file_exists($pintPath)) {
             $commands[] = './vendor/bin/pint --test';
         }
 
