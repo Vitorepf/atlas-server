@@ -382,11 +382,12 @@ class AtlasLoopObraExecutionAdapter
                 return ['certified' => true, 'reason' => 'replay_apply_failed', 'receipt' => null];
             }
 
-            // The obra's HUMAN-FROZEN acceptance. When the obra completeness sub-gate is ON, force
-            // completeness_gate so certify()'s resolver derives one criterion per command + per cross-node
-            // consumer contract and RE-RUNS each on the assembled net diff (empty-derivable => fail-open).
+            // The obra's HUMAN-FROZEN acceptance. The cross-node gate decision (force completeness_gate +
+            // resolve the Code-Intelligence workspace) is a pure function of the changed-file count + flags
+            // (ACDE #7) — extracted so it is testable without git infra.
+            $gate = $this->obraCrossNodeGate($changed, $envelope, $repoRoot);
             $acceptance = $obraAcceptance;
-            if ((bool) config('atlas.loop.obra_completeness_gate_enabled', false)) {
+            if ($gate['completeness_gate']) {
                 $acceptance['completeness_gate'] = true;
             }
 
@@ -394,9 +395,9 @@ class AtlasLoopObraExecutionAdapter
             $verdict = $certifier->certify($ws, $acceptance, array_filter([
                 'allowed_files' => $allowed,
                 'objective' => $objective,
-                // Cross-node consumer contracts ride the existing cross-file gate when the obra carries a
-                // Code-Intelligence workspace; absent => no cross-node criteria (fail-open, never a false-reject).
-                'code_graph_workspace' => $this->stringOrNull($envelope['code_graph_workspace'] ?? null),
+                // Cross-node consumer contracts ride the existing cross-file gate when a Code-Intelligence
+                // workspace is resolvable; absent => no cross-node criteria (fail-open, never a false-reject).
+                'code_graph_workspace' => $gate['code_graph_workspace'],
             ], static fn ($v): bool => $v !== null && $v !== '' && $v !== []));
 
             $certified = (bool) ($verdict['certified'] ?? false);
@@ -411,6 +412,35 @@ class AtlasLoopObraExecutionAdapter
         } finally {
             $this->git($repoRoot, ['worktree', 'remove', '--force', $ws]);
         }
+    }
+
+    /**
+     * ACDE #7 — pure decision for the obra net-diff cross-node gate. Cross-node consumer criteria add the most
+     * value exactly where large-obra gaming hides: a node that silently breaks a SIBLING's contract. So for a
+     * MULTI-FILE net diff (>=2 changed files) we (a) force the completeness gate so certify() derives one
+     * criterion per cross-node consumer contract, and (b) resolve the Code-Intelligence workspace, falling back
+     * to the obra repo when the envelope omits one so the contracts POPULATE instead of fail-open-empty.
+     *
+     * Two engage paths: the global obra_completeness_gate_enabled (unchanged), OR the multi-file default
+     * (obra_cross_node_cert_default, default-OFF => byte-identical). Single-file diffs are NEVER affected by the
+     * new default. Fail-OPEN preserved: an unresolvable contract narrows coverage, never false-rejects.
+     *
+     * @param  list<string>  $changed
+     * @param  array<string,mixed>  $envelope
+     * @return array{completeness_gate:bool, code_graph_workspace:?string}
+     */
+    private function obraCrossNodeGate(array $changed, array $envelope, string $repoRoot): array
+    {
+        $multiFile = count($changed) >= 2;
+        $crossNodeDefault = $multiFile && (bool) config('atlas.loop.obra_cross_node_cert_default', false);
+        $completeness = (bool) config('atlas.loop.obra_completeness_gate_enabled', false) || $crossNodeDefault;
+
+        $codeGraphWs = $this->stringOrNull($envelope['code_graph_workspace'] ?? null);
+        if ($codeGraphWs === null && $crossNodeDefault) {
+            $codeGraphWs = $this->stringOrNull($repoRoot);
+        }
+
+        return ['completeness_gate' => $completeness, 'code_graph_workspace' => $codeGraphWs];
     }
 
     /**

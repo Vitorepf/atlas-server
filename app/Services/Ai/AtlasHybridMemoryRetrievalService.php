@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai;
 
+use App\Models\AiCompoundingMemory;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasVerbatimMemory;
 use App\Models\SemanticNote;
@@ -59,12 +60,15 @@ class AtlasHybridMemoryRetrievalService
         $registry = $this->registryItems($query, $context, $filters, $registryLimit, (bool) ($options['include_registry'] ?? true));
         $verbatim = $this->verbatimItems($query, $context, $filters, $verbatimLimit, (bool) ($options['include_verbatim'] ?? true));
         $semantic = $this->semanticItems($query, $filters, $semanticLimit, (bool) ($options['include_semantic'] ?? true));
+        // ACDE #3 — compounding-recall arm. Flag-gated default-OFF => [] => the 4th source is absent and the
+        // compose call is byte-identical to today. Callers may force-disable with include_compounding=false.
+        $compounding = $this->compoundingItems($query, $limit, (bool) ($options['include_compounding'] ?? true));
 
         $recall = $this->composer->compose($registry, $verbatim, $semantic, [
             'memory_recall_limit' => $limit,
             'memory_recall_budget_chars' => $this->input->budgetChars($options['budget_chars'] ?? null),
             'memory_recall_item_chars' => $this->input->itemChars($options['item_chars'] ?? null),
-        ]);
+        ], $compounding);
         $usage = $this->usage->recordRecallUsages($query, $this->publicContext($context), $recall, [
             'source' => is_scalar($options['requester'] ?? null) ? (string) $options['requester'] : 'atlas_memory_recall',
         ]);
@@ -76,6 +80,7 @@ class AtlasHybridMemoryRetrievalService
                 'registry_candidates' => count($registry),
                 'verbatim_candidates' => count($verbatim),
                 'semantic_candidates' => count($semantic),
+                'compounding_candidates' => count($compounding),
                 'recall_count' => count($recall),
                 'usage_recorded_count' => $usage['recorded_count'],
                 'usage_audit_id' => $usage['audit_id'],
@@ -89,8 +94,74 @@ class AtlasHybridMemoryRetrievalService
                 'registry' => $registry,
                 'verbatim' => $verbatim,
                 'semantic' => $semantic,
+                'compounding' => $compounding,
             ],
         ];
+    }
+
+    /**
+     * ACDE #3 — the compounding-recall arm: PROMOTED compounding learnings (AiCompoundingMemory) surfaced
+     * into the SAME hybrid recall the live provider injection consumes, so every session reads what the loop
+     * already learned. Flag-gated default-OFF => [] (no 4th source => byte-identical recall). PROVIDER-SAFE by
+     * construction: only status=active (promotion is the quality gate that already filtered noise) AND
+     * confidence >= floor; only the provider-safe `claim` is emitted (never the raw payload); count-capped and
+     * lexical-ranked. Fail-open: a missing table / any error yields [] (recall never breaks).
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function compoundingItems(string $query, int $limit, bool $enabled): array
+    {
+        if (! $enabled
+            || ! (bool) config('atlas.semantic_memory.compounding_recall_enabled', false)
+            || ! DatabaseTableAvailability::has('ai_compounding_memories')) {
+            return [];
+        }
+
+        $cap = (int) config('atlas.semantic_memory.compounding_recall_limit', 6);
+        $cap = $cap > 0 ? min($cap, max(1, $limit)) : max(1, $limit);
+        $minConfidence = (int) config('atlas.semantic_memory.compounding_recall_min_confidence', 0);
+
+        try {
+            // Pull a wider active+confident pool, then keep the top-$cap by lexical relevance to the query.
+            $rows = AiCompoundingMemory::query()
+                ->active()
+                ->where('confidence', '>=', $minConfidence)
+                ->orderByDesc('confidence')
+                ->limit(max($cap * 4, 24))
+                ->get();
+        } catch (\Throwable) {
+            return [];
+        }
+
+        $items = $rows
+            ->map(function (AiCompoundingMemory $memory) use ($query): array {
+                $claim = trim((string) $memory->claim);
+
+                return [
+                    'id' => $memory->id,
+                    'type' => (string) ($memory->memory_type ?: 'compounding_learning'),
+                    'scope' => (string) ($memory->scope ?: 'global'),
+                    'scope_type' => (string) ($memory->scope ?: 'global'),
+                    'title' => Str::limit($claim, 80, '...'),
+                    'summary' => '',
+                    'claim' => $claim,
+                    'confidence' => (int) $memory->confidence,
+                    'flow_id' => $memory->flow_id,
+                    'source_type' => 'ai_compounding_memory',
+                    'source_id' => $memory->id,
+                    'source_label' => (string) ($memory->flow_id ?: $memory->memory_type),
+                    'content_hash' => (string) $memory->memory_hash,
+                    'recorded_at' => $memory->last_revalidated_at?->toJSON() ?? $memory->updated_at?->toJSON(),
+                    'reason' => $query !== '' ? 'aprendizado compounding promovido com sinal lexical da consulta' : 'aprendizado compounding promovido (ativo)',
+                    'hybrid_score' => $this->lexicalScore($query, [$claim, $memory->memory_type, $memory->flow_id]),
+                ];
+            })
+            ->sortByDesc('hybrid_score')
+            ->take($cap)
+            ->values()
+            ->all();
+
+        return $items;
     }
 
     /**

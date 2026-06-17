@@ -178,6 +178,14 @@ final class AtlasLoopCampaignSupervisor
             // /tmp scenario orphans a SIGKILL could not clean, and resume the ledger.
             $this->guard(fn () => $this->store->rebuildInFlight($campaign->id), 'rebuild_in_flight');
             $this->resourceGate->sweepOrphans(sys_get_temp_dir(), (int) ($cfg['orphan_ttl_seconds'] ?? 1800));
+            // GAP-2 (24h endurance) — sweepOrphans rm -rf's the DIRS, but a SIGKILL'd materialization leaks the
+            // INDEXED code-symbol rows forever (the ~11.9M-row OOM). Reap leaked atlas-loop-scn-* symbols at
+            // boot, before any worker indexes. Flag-default-OFF (byte-identical) + fail-open; runs once per boot.
+            if ((bool) config('atlas.loop.symbol_gc_on_boot', false)) {
+                $this->guard(fn () => $this->resourceGate->reapLeakedCodeSymbols(
+                    (int) ($cfg['symbol_gc_older_than_seconds'] ?? 7200),
+                ), 'symbol_gc_on_boot');
+            }
             $this->guard(fn () => $campaign->forceFill(['status' => AtlasLoopCampaign::STATUS_RUNNING, 'started_at' => $campaign->started_at ?? now()])->save(), 'campaign_start');
 
             $lastTick = $this->now();

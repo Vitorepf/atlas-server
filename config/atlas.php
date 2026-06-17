@@ -178,6 +178,15 @@ return [
         // rank recall by real pgvector similarity (pgsql-only; falls back to the
         // lexical path on sqlite / when the embedding engine is unavailable).
         'memory_vector_recall_enabled' => (bool) env('ATLAS_SEMANTIC_MEMORY_VECTOR_RECALL_ENABLED', true),
+        // ACDE #3 — compounding-recall arm: surface PROMOTED compounding learnings (AiCompoundingMemory, the
+        // approved learning store) into the SAME hybrid recall the live provider injection consumes, so every
+        // session reads what the loop already learned from prior runs/merges. Default-OFF => byte-identical (no
+        // 4th source). Provider-safe by construction: only status=active PROMOTED claims (promotion is the
+        // quality gate), confidence-floored + count-capped + lexical-ranked; only the provider-safe `claim`
+        // is emitted (never the raw payload). Measure lift A/B before flipping (mirrors the +0.8 semantic flip).
+        'compounding_recall_enabled' => (bool) env('ATLAS_HYBRID_RECALL_INCLUDE_COMPOUNDING', false),
+        'compounding_recall_limit' => max(0, (int) env('ATLAS_HYBRID_RECALL_COMPOUNDING_LIMIT', 6)),
+        'compounding_recall_min_confidence' => max(0, (int) env('ATLAS_HYBRID_RECALL_COMPOUNDING_MIN_CONFIDENCE', 0)),
         'max_embedding_chars' => (int) env('ATLAS_SEMANTIC_MAX_EMBEDDING_CHARS', 12000),
         'activation_daily_limit' => (int) env('ATLAS_SEMANTIC_ACTIVATION_DAILY_LIMIT', 2),
         'activation_pending_limit' => (int) env('ATLAS_SEMANTIC_ACTIVATION_PENDING_LIMIT', 4),
@@ -2207,6 +2216,25 @@ return [
         'failure_supply_enabled' => (bool) env('ATLAS_LOOP_FAILURE_SUPPLY_ENABLED', false),
         'failure_supply_frames' => max(1, (int) env('ATLAS_LOOP_FAILURE_SUPPLY_FRAMES', 3)),
         'failure_supply_max_depth' => max(0, (int) env('ATLAS_LOOP_FAILURE_SUPPLY_MAX_DEPTH', 1)),
+        // ACDE #7 — cross-node consumer-cert by DEFAULT for a multi-file (>=2-node) obra. The bigger the obra,
+        // the more cross-node edges a node can silently break, so derive one criterion per cross-node consumer
+        // contract for EVERY >=2-file net diff (not only when the global completeness flag is on), and fall the
+        // Code-Intelligence workspace back to the obra repo when the envelope omits it (so contracts POPULATE
+        // instead of fail-open-empty). Default-OFF (byte-identical; measure merge-rate before flipping);
+        // fail-OPEN (an unresolvable contract narrows coverage, never false-rejects).
+        'obra_cross_node_cert_default' => (bool) env('ATLAS_LOOP_OBRA_CROSS_NODE_CERT_DEFAULT', false),
+        // GAP-2 (24h endurance) — reap LEAKED atlas-loop-scn-* code-symbol rows at supervisor boot. A SIGKILL'd
+        // materialization leaves indexed symbol rows behind forever (the ~11.9M-row session-bootstrap OOM).
+        // Default-OFF (byte-identical); arm for a long soak. older_than = safety window so a live scenario's
+        // freshly-indexed symbols are never touched (no grind runs longer than ~50min).
+        'symbol_gc_on_boot' => (bool) env('ATLAS_LOOP_SYMBOL_GC_ON_BOOT', false),
+        'symbol_gc_older_than_seconds' => max(0, (int) env('ATLAS_LOOP_SYMBOL_GC_OLDER_THAN_SECONDS', 7200)),
+        // CYCLE CONTRACT (operator mandate) — refuse to launch a campaign whose base_workspace is more than N
+        // commits behind main (the 579-atras incident). Default-OFF (byte-identical); base=main is 0 behind so
+        // the soak always passes. AtlasLoopCycleGitContract::commitsBehindMain powers the check.
+        'base_staleness_guard_enabled' => (bool) env('ATLAS_LOOP_BASE_STALENESS_GUARD_ENABLED', false),
+        'base_staleness_main_ref' => (string) env('ATLAS_LOOP_BASE_STALENESS_MAIN_REF', 'main'),
+        'base_staleness_max_commits_behind' => max(0, (int) env('ATLAS_LOOP_BASE_STALENESS_MAX_COMMITS_BEHIND', 50)),
         // ACDE #8 — merge-boundary CONTRACT-SWAP guard: the reprove asserts the persisted acceptance contract
         // still hashes to the FROZEN fingerprint stamped at grind time. Default-OFF (byte-identical); arm only
         // after confirming real certified proposals hash-match (a false mismatch would fail-close every merge).

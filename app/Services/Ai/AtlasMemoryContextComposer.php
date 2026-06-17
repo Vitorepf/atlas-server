@@ -18,9 +18,13 @@ class AtlasMemoryContextComposer
      * @param  array<int,array<string,mixed>>  $verbatim
      * @param  array<int,array<string,mixed>>  $semantic
      * @param  array<string,mixed>  $options
+     * @param  array<int,array<string,mixed>>  $compounding  ACDE #3 — promoted compounding learnings (4th
+     *                                                        source, LAST + default [] so every existing
+     *                                                        caller is byte-identical; only the recall seam
+     *                                                        passes it, flag-gated)
      * @return array<int,array<string,mixed>>
      */
-    public function compose(array $registry, array $verbatim, array $semantic, array $options = []): array
+    public function compose(array $registry, array $verbatim, array $semantic, array $options = [], array $compounding = []): array
     {
         $limit = $this->input->recallLimit($options['memory_recall_limit'] ?? null);
         $budget = $this->input->budgetChars($options['memory_recall_budget_chars'] ?? null);
@@ -34,6 +38,7 @@ class AtlasMemoryContextComposer
             $this->registryCandidates($registry),
             $this->verbatimCandidates($verbatim),
             $this->semanticCandidates($semantic),
+            $this->compoundingCandidates($compounding),
         );
 
         usort($candidates, fn (array $left, array $right): int => ($right['score'] <=> $left['score'])
@@ -196,6 +201,51 @@ class AtlasMemoryContextComposer
                 $text,
                 $score,
                 'nota semantica provider-safe recuperada por busca local',
+                $item,
+            );
+        }, $items)));
+    }
+
+    /**
+     * ACDE #3 — promoted compounding learnings as recall candidates. The recall seam already filtered to
+     * status=active + confidence-floor + provider-safe `claim` only, so this just maps them into the shared
+     * candidate shape. Source 'compounding' / ref 'ai_compounding_memory'; a blocked item is skipped.
+     *
+     * @param  array<int,array<string,mixed>>  $items
+     * @return array<int,array<string,mixed>>
+     */
+    private function compoundingCandidates(array $items): array
+    {
+        return array_values(array_filter(array_map(function (array $item): ?array {
+            if (($item['blocked'] ?? false) === true) {
+                return null;
+            }
+
+            $text = $this->text($item['claim'] ?? null, $item['summary'] ?? null, $item['title'] ?? null);
+            if ($text === '') {
+                return null;
+            }
+
+            $type = (string) ($item['type'] ?? 'compounding_learning');
+            $score = $this->scorer->score([
+                'source' => 'compounding',
+                'type' => $type,
+                'scope_type' => (string) ($item['scope_type'] ?? $item['scope'] ?? 'global'),
+                'confidence' => $item['confidence'] ?? null,
+                'hybrid_score' => $item['hybrid_score'] ?? null,
+            ]);
+
+            return $this->candidate(
+                'compounding',
+                'ai_compounding_memory',
+                $item['id'] ?? null,
+                $type,
+                (string) ($item['scope'] ?? 'global'),
+                (string) ($item['title'] ?? $type),
+                (string) ($item['summary'] ?? ''),
+                $text,
+                $score,
+                (string) ($item['reason'] ?? 'aprendizado compounding promovido (provider-safe)'),
                 $item,
             );
         }, $items)));

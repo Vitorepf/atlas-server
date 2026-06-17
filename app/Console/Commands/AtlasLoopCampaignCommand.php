@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\AutonomousEvolution\AtlasLoopCycleGitContract;
 use App\Services\Ai\AutonomousEvolution\Campaign\AtlasLoopCampaignSupervisor;
 use Illuminate\Console\Command;
 
@@ -57,6 +58,25 @@ final class AtlasLoopCampaignCommand extends Command
         $maxSeconds = $this->intOption('max-seconds');
         if ($maxSeconds !== null) {
             $input['max_seconds'] = max(1, min(86400, $maxSeconds));
+        }
+
+        // CYCLE CONTRACT (operator mandate 2026-06-17) — NEVER start a cycle on a base too far behind main
+        // (the 579-commits-behind incident: a stale base merges ancient code + wastes every token). Flag-gated
+        // default-OFF (byte-identical); when armed, refuse to launch on a stale base. base=main (the soak
+        // default) is 0 behind => always passes; only a stale worktree base is blocked.
+        if ((bool) config('atlas.loop.base_staleness_guard_enabled', false)) {
+            $base = ((string) ($input['base_workspace'] ?? '')) ?: base_path();
+            $mainRef = (string) config('atlas.loop.base_staleness_main_ref', 'main');
+            $max = max(0, (int) config('atlas.loop.base_staleness_max_commits_behind', 50));
+            $behind = (new AtlasLoopCycleGitContract)->commitsBehindMain($base, 'HEAD', $mainRef);
+            if ($behind !== null && $behind > $max) {
+                $this->error('Recusado: base_workspace esta '.$behind.' commits atras de '.$mainRef.' (limite '.$max.'). Re-sincronize antes de rodar — nunca comecar um ciclo numa base velha (incidente 579-atras).');
+
+                return self::FAILURE;
+            }
+            if ($behind !== null) {
+                $this->info('Cycle-contract preflight OK: base '.$behind.' commits atras de '.$mainRef.' (limite '.$max.').');
+            }
         }
 
         $this->info('Atlas Evolution Loop campaign starting ('.($input['shadow'] ? 'shadow' : 'active').', propose-only, never merges)…');

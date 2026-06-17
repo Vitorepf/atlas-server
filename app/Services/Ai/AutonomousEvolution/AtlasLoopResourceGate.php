@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\Support\DatabaseTableAvailability;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -48,6 +50,46 @@ final class AtlasLoopResourceGate
         }
 
         return ['admit' => true, 'reason' => 'ok', 'free_mb' => $freeMb, 'live' => $live];
+    }
+
+    /**
+     * GAP-2 (24h endurance) — reap LEAKED code-symbol rows from dead loop SCENARIO workspaces. sweepOrphans()
+     * rm -rf's the workspace DIRS, but a SIGKILL'd materialization leaves its indexed
+     * atlas_engineering_code_symbols rows behind FOREVER (the ~11.9M-row session-bootstrap OOM that 97% of
+     * the table was). Every `atlas-loop-scn-*` workspace_id is unique + ephemeral, so any such row older than
+     * the safety window is pure leak — the real `atlas` / `atlas-server` workspaces never match the prefix, and
+     * a row with NULL created_at is spared (can't prove its age). Batched (no giant lock), fail-OPEN (missing
+     * table/column/any error => 0, never fatal). Returns the deleted row count.
+     */
+    public function reapLeakedCodeSymbols(int $olderThanSeconds = 7200, int $batch = 20000, int $maxBatches = 5000): int
+    {
+        if (! DatabaseTableAvailability::has('atlas_engineering_code_symbols')
+            || ! DatabaseTableAvailability::hasColumn('atlas_engineering_code_symbols', 'workspace_id')) {
+            return 0;
+        }
+        try {
+            $cutoff = now()->subSeconds(max(0, $olderThanSeconds))->toDateTimeString();
+            $deletedTotal = 0;
+            for ($i = 0; $i < max(1, $maxBatches); $i++) {
+                $deleted = (int) DB::table('atlas_engineering_code_symbols')
+                    ->whereIn('id', function ($q) use ($cutoff, $batch): void {
+                        $q->select('id')
+                            ->from('atlas_engineering_code_symbols')
+                            ->where('workspace_id', 'like', 'atlas-loop-scn-%')
+                            ->where('created_at', '<', $cutoff)
+                            ->limit(max(1, $batch));
+                    })
+                    ->delete();
+                $deletedTotal += $deleted;
+                if ($deleted === 0) {
+                    break;
+                }
+            }
+
+            return $deletedTotal;
+        } catch (Throwable) {
+            return 0;
+        }
     }
 
     /** rm -rf every loop workspace older than the TTL — reaps the crash-orphaned copies. */
