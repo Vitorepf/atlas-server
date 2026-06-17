@@ -118,9 +118,46 @@ final class AtlasLoopObraPlanValidator
             $reasons[] = 'dependency_cycle_detected';
         }
 
+        // ACDE X4 — NON-VACUITY. The checks above prove the DAG is well-FORMED, not DISTINCT: a plan whose nodes
+        // all carry the SAME change request (the weak engine "decomposes" by copy-pasting one change across N
+        // files) passes them. When armed, refuse a decomposition whose nodes collapse to a single file-agnostic
+        // request. Default OFF => byte-identical. Read defensively so a pure-unit caller never fatals.
+        $nonVacuity = false;
+        try {
+            $nonVacuity = (bool) config('atlas.loop.decomposition_non_vacuity_enabled', false);
+        } catch (\Throwable) {
+            $nonVacuity = false;
+        }
+        if ($nonVacuity && count($nodes) >= 2) {
+            $distinct = [];
+            foreach ($nodes as $node) {
+                $req = is_array($node) ? trim((string) ($node['request'] ?? '')) : '';
+                if ($req !== '') {
+                    $distinct[$this->normalizedRequest($req)] = true;
+                }
+            }
+            if (count($distinct) === 1) {
+                $reasons[] = 'vacuous_decomposition:identical_node_requests';
+            }
+        }
+
         $reasons = array_values(array_unique($reasons));
 
         return ['valid' => $reasons === [], 'reasons' => $reasons, 'node_count' => count($nodes)];
+    }
+
+    /**
+     * ACDE X4 — file-agnostic normalization of a node's change request: lowercased, file-path tokens collapsed
+     * to a placeholder, whitespace squeezed. Two nodes that ask for "the same change" on different files
+     * normalize identically, so a copy-paste decomposition collapses to a single distinct request.
+     */
+    private function normalizedRequest(string $request): string
+    {
+        $r = mb_strtolower(trim($request));
+        $r = (string) preg_replace('/[A-Za-z0-9_\/.\-]+\.php\b/', 'FILE', $r); // file-agnostic
+        $r = (string) preg_replace('/\s+/', ' ', $r);
+
+        return trim($r);
     }
 
     /**

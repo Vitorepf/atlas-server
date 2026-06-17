@@ -2345,6 +2345,10 @@ return [
         // no coverage driver (bounded — does not prove per-branch coverage). Default OFF => name-presence stands
         // => byte-identical.
         'symbol_branch_census_enabled' => (bool) env('ATLAS_LOOP_SYMBOL_BRANCH_CENSUS_ENABLED', false),
+        // ACDE X4 — decomposition non-vacuity: refuse a self-authored DAG whose nodes all carry the SAME
+        // file-agnostic change request (the weak engine "decomposing" by copy-pasting one change across N files).
+        // The structural validator proves well-formed, not distinct. Default OFF => byte-identical.
+        'decomposition_non_vacuity_enabled' => (bool) env('ATLAS_LOOP_DECOMPOSITION_NON_VACUITY_ENABLED', false),
         // ACDE WD4 — split the strategy-bandit UCB bucket by a MEASURED complexity tier (lo/mid/hi on total
         // cyclomatic) so surgical-vs-root_cause efficacy is no longer averaged across a trivial adapter and a
         // 200-method hub. Default OFF => targetType() returns the bare path-prefix bucket, no file read,
