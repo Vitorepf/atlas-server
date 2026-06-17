@@ -102,4 +102,27 @@ final class AtlasLoopMultiFileHubFirstTest extends TestCase
 
         $this->assertNull($out, 'no hub anchor => fail-closed even with hub-first armed');
     }
+
+    public function test_mf5_threshold_is_thrash_only_with_enough_failed_attempts(): void
+    {
+        $syn = new AtlasLoopMultiFileRefactorSynthesizer();
+
+        $this->assertTrue($syn->framingThrashesFromHistory(['total' => 5, 'certified' => 1]), '20% over 5 => thrash');
+        $this->assertFalse($syn->framingThrashesFromHistory(['total' => 5, 'certified' => 2]), '40% => not thrash');
+        $this->assertFalse($syn->framingThrashesFromHistory(['total' => 3, 'certified' => 0]), 'thin evidence (<4) => never thrash');
+        $this->assertFalse($syn->framingThrashesFromHistory(['total' => 0, 'certified' => 0]), 'empty corpus => never thrash');
+    }
+
+    public function test_mf5_without_the_corpus_stays_multi_file_byte_identical(): void
+    {
+        // MF5 armed but the decomposition corpus is OFF (default) => history empty => no degrade => conjunction.
+        config(['atlas.loop.multi_file_hub_first_enabled' => false, 'atlas.loop.cluster_framing_degrade_enabled' => true]);
+        $repo = $this->repo(
+            ['app/Services/Hub.php', 'app/Services/CallerA.php'],
+            ['app/Services/Hub.php', 'app/Services/CallerA.php'],
+        );
+        $out = (new AtlasLoopMultiFileRefactorSynthesizer())->synthesizeMultiFileRefactor($this->candidate('app/Services/Hub.php', ['app/Services/CallerA.php']), $repo);
+
+        $this->assertTrue((bool) $out['payload']['multi_file'], 'no corpus history => MF5 cannot degrade => byte-identical');
+    }
 }

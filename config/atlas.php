@@ -2339,6 +2339,11 @@ return [
         // N-file conjunction that drops ~17% of conversions. Only under the known-shape guard (covered>=2, hub
         // anchored). Default OFF => the multi-file conjunction stands => byte-identical.
         'multi_file_hub_first_enabled' => (bool) env('ATLAS_LOOP_MULTI_FILE_HUB_FIRST_ENABLED', false),
+        // ACDE MF5 — cluster-framing compounding degrade: a cluster framing that has thrashed (>=4 executed
+        // attempts, <30% certified-rate in the decomposition corpus) auto-degrades to hub-only. Double-gated
+        // with decomposition_corpus_enabled (history is empty without it). Default OFF => no degrade =>
+        // byte-identical.
+        'cluster_framing_degrade_enabled' => (bool) env('ATLAS_LOOP_CLUSTER_FRAMING_DEGRADE_ENABLED', false),
         // ACDE DC5 — compound the strategy-bandit UCB key with the work-class (type|tier|work-class) so a
         // strategy is not averaged across different work-classes of the same type+tier. Default OFF => bare
         // bucket => byte-identical. Dilution caveat: finer keys = fewer samples/cell (the bandit's own

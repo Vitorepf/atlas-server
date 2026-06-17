@@ -110,6 +110,14 @@ final class AtlasLoopMultiFileRefactorSynthesizer
                 return $this->hubFirstSingleFileTask($hub, $hubFrozen, $cluster, $provider);
             }
 
+            // ACDE MF5 — cluster-framing COMPOUNDING DEGRADE: if THIS cluster framing has empirically thrashed
+            // (>=4 executed attempts with a <30% certified-rate in the decomposition corpus), degrade to hub-only
+            // automatically — the loop learns to stop re-framing a cluster that never lands. Double-gated (MF5
+            // flag AND the corpus flag); with either OFF history() returns empty => no degrade => byte-identical.
+            if ($hubFrozen !== null && (bool) config('atlas.loop.cluster_framing_degrade_enabled', false) && $this->clusterFramingThrashes($covered)) {
+                return $this->hubFirstSingleFileTask($hub, $hubFrozen, $cluster, $provider);
+            }
+
             // One PHPUnit invocation over EVERY covered file's frozen sibling — behavior preserved
             // across the whole cluster. The path is FROZEN (tests/** the loop can never edit).
             // revert_recheck=false: a behavior-PRESERVING refactor stays green reverted; the
@@ -159,6 +167,42 @@ final class AtlasLoopMultiFileRefactorSynthesizer
             return ['objective' => $objective, 'payload' => $payload, 'acceptance_hash' => $acceptanceHash];
         } catch (Throwable) {
             return null; // fail-closed: never enqueue an unprovable multi-file refactor
+        }
+    }
+
+    /**
+     * ACDE MF5 — PURE threshold over the decomposition-corpus history for a cluster framing: thrashing iff it
+     * has been EXECUTED at least 4 times with a certified-rate below 30%. Unit-testable without a database.
+     *
+     * @param  array{certified?:int, total?:int}  $history
+     */
+    public function framingThrashesFromHistory(array $history): bool
+    {
+        $total = (int) ($history['total'] ?? 0);
+        if ($total < 4) {
+            return false; // never degrade on thin evidence
+        }
+
+        return ((int) ($history['certified'] ?? 0)) / $total < 0.3;
+    }
+
+    /**
+     * ACDE MF5 — read the corpus history for this cluster framing (fingerprinted like an extract sequence) and
+     * decide whether it thrashes. Fail-closed: any error / disabled corpus (history empty) returns false.
+     *
+     * @param  list<string>  $covered
+     */
+    private function clusterFramingThrashes(array $covered): bool
+    {
+        try {
+            $nodes = array_map(static fn (string $f): array => ['target_area' => $f], $covered);
+            $fingerprint = (new AtlasLoopDecompositionShapeFingerprinter)->fingerprint(['nodes' => $nodes]);
+            $history = (new \App\Services\Ai\AutonomousEvolution\AtlasLoopDecompositionOutcomeRecorder)
+                ->history((string) ($fingerprint['hash'] ?? ''));
+
+            return $this->framingThrashesFromHistory($history);
+        } catch (Throwable) {
+            return false;
         }
     }
 
