@@ -38,6 +38,8 @@ class AtlasLoopClarificationRequest extends Model
         'answer',
         'times_seen',
         'answered_at',
+        'surface',
+        'priority',
     ];
 
     protected function casts(): array
@@ -110,6 +112,22 @@ class AtlasLoopClarificationRequest extends Model
         $request->objective_kind = trim((string) ($receipt['objective_kind'] ?? '')) ?: null;
         $request->family = trim((string) ($receipt['family'] ?? '')) ?: null;
         $request->save();
+
+        // ACDE U7 — stamp a deterministic route (surface + priority) so the operator's inbox can sort/route.
+        // Recomputed each sighting because times_seen drives the priority (a recurring abstention climbs).
+        // Default OFF => never routed => surface/priority stay NULL => byte-identical. Fail-open: an
+        // un-migrated routing column must never break the enqueue.
+        if ((bool) config('atlas.loop.clarification_routing_enabled', false)) {
+            try {
+                $route = (new \App\Services\Ai\AutonomousEvolution\AtlasLoopClarificationRouter)
+                    ->route($reason, (string) ($request->family ?? ''), (int) ($request->times_seen ?? 1));
+                $request->surface = $route['surface'];
+                $request->priority = $route['priority'];
+                $request->save();
+            } catch (\Throwable) {
+                // routing is advisory — a stamping hiccup never blocks the queue.
+            }
+        }
 
         return $request;
     }

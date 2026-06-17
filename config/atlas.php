@@ -2362,6 +2362,11 @@ return [
         // already clarified and plans with the missing anchor in hand. Default OFF => goal unchanged =>
         // byte-identical.
         'clarification_cache_enabled' => (bool) env('ATLAS_LOOP_CLARIFICATION_CACHE_ENABLED', false),
+        // ACDE U7 — clarification ROUTING. A deterministic router (reason + family + recurrence) stamps each
+        // queued clarification with a surface (operator_inbox | operator_urgent) and priority (low|normal|
+        // high), so the operator's inbox sorts/routes instead of treating every abstention the same. Default
+        // OFF => the router never runs => surface/priority stay NULL => byte-identical queue.
+        'clarification_routing_enabled' => (bool) env('ATLAS_LOOP_CLARIFICATION_ROUTING_ENABLED', false),
         // ACDE MF2 — hub-first multi-file conversion: when a coupled cluster is detected, route the anchored HUB
         // through the proven single-file refactor lane (its own complexity proof) instead of the all-or-nothing
         // N-file conjunction that drops ~17% of conversions. Only under the known-shape guard (covered>=2, hub
