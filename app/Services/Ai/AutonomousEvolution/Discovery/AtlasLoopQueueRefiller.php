@@ -39,6 +39,7 @@ final class AtlasLoopQueueRefiller
         private readonly ?AtlasLoopWorkShapeRouter $workShapeRouter = null,
         private readonly ?AtlasLoopMultiFileRefactorSynthesizer $multiFileRefactorSynthesizer = null,
         private readonly ?AtlasLoopNextWorkDecider $nextWorkDecider = null,
+        private readonly ?AtlasLoopWorkClassPriorService $workClassPrior = null,
     ) {}
 
     /**
@@ -82,10 +83,55 @@ final class AtlasLoopQueueRefiller
         }
         try {
             $d = $this->nextWorkDecider->decide($repoRoot, ltrim((string) $target->target_path, '/'), $signals, (float) $target->score, $shapeHint);
+            [$priority, $receipt] = $this->applyWorkClassPrior((int) $d['priority'], (array) $d['receipt'], (string) $target->target_path);
 
-            return ['priority' => (int) $d['priority'], 'receipt' => (array) $d['receipt']];
+            return ['priority' => $priority, 'receipt' => $receipt];
         } catch (Throwable) {
             return ['priority' => $legacy, 'receipt' => []];
+        }
+    }
+
+    /**
+     * ACDE M1 — de-prioritize a proven-HOPELESS work-class WITHIN its band, so the loop stops grinding a class
+     * that empirically never lands before it burns budget on yet another file of that class (the per-target
+     * gate only fires AFTER one file has burned N attempts; this generalizes to a brand-new file of the class).
+     * Bounded to the band OFFSET and clamped to priority >= band, so a shape can NEVER cross into a lower band.
+     * Flag-gated, fail-OPEN: OFF / null service / any error / thin evidence returns the inputs unchanged
+     * (byte-identical). The nudge only ever LOWERS priority, never raises it, so it cannot promote bad work.
+     *
+     * @param  array<string,mixed>  $receipt
+     * @return array{0:int, 1:array<string,mixed>}
+     */
+    private function applyWorkClassPrior(int $priority, array $receipt, string $targetPath): array
+    {
+        if ($this->workClassPrior === null || ! (bool) config('atlas.loop.work_class_prior_enabled', false)) {
+            return [$priority, $receipt];
+        }
+        try {
+            $band = (int) ($receipt['band'] ?? 0);
+            $offset = (int) ($receipt['offset'] ?? max(0, $priority - $band));
+            if ($offset <= 0) {
+                return [$priority, $receipt];
+            }
+            $prior = $this->workClassPrior->priorFor($targetPath);
+            $weight = $this->workClassPrior->deprioritizationWeight($prior);
+            if ($weight <= 0.0) {
+                return [$priority, $receipt];
+            }
+            $maxFraction = max(0.0, min(1.0, (float) config('atlas.loop.work_class_prior_max_penalty_fraction', 0.8)));
+            $penalty = (int) round($weight * $maxFraction * $offset);
+            $receipt['_work_class_prior'] = [
+                'work_class' => $prior['work_class'] ?? null,
+                'real_attempts' => $prior['real_attempts'] ?? 0,
+                'certified' => $prior['certified'] ?? 0,
+                'wilson_lower' => $prior['wilson_lower'] ?? 0.0,
+                'hopeless' => $prior['hopeless'] ?? false,
+                'penalty' => $penalty,
+            ];
+
+            return [$band + max(0, $offset - $penalty), $receipt];
+        } catch (Throwable) {
+            return [$priority, $receipt];
         }
     }
 

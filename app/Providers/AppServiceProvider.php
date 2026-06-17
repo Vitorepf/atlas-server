@@ -36,6 +36,7 @@ use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopFrameworkRefactorSynt
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopMetaHarnessIntentSource;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopMultiFileRefactorSynthesizer;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopNextWorkDecider;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWorkClassPriorService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObraClusterDetectorService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopQueueRefiller;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopRefactorObjectiveSynthesizer;
@@ -264,6 +265,11 @@ class AppServiceProvider extends ServiceProvider
                 // callers must be grepped from the SAME tree the cyclomatic is read from, never
                 // base_path()). Default decision_priority_enabled is OFF (frozen per campaign).
                 rescue(fn () => $app->make(AtlasLoopNextWorkDecider::class), null, false),
+                // Arg 13 (ACDE M1): the work-class landing-rate prior. Injected so the DECIDE-front nudge is
+                // LIVE when atlas.loop.work_class_prior_enabled is armed (default OFF => the refiller's
+                // applyWorkClassPrior is a no-op => byte-identical). Read-only over the existing explorations
+                // ledger; fail-open so a DB-less context never de-prioritizes on no evidence.
+                rescue(fn () => $app->make(AtlasLoopWorkClassPriorService::class), null, false),
             ),
         );
         // ITEM6 — SCENARIO FAN-OUT wiring (LOAD-BEARING). There is no explicit AtlasEvolutionScenarioExplorer

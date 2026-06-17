@@ -2342,6 +2342,17 @@ return [
         'bandit_complexity_tier_enabled' => (bool) env('ATLAS_LOOP_BANDIT_COMPLEXITY_TIER_ENABLED', false),
         'bandit_complexity_tier_lo' => max(1, (int) env('ATLAS_LOOP_BANDIT_COMPLEXITY_TIER_LO', 20)),
         'bandit_complexity_tier_hi' => max(2, (int) env('ATLAS_LOOP_BANDIT_COMPLEXITY_TIER_HI', 80)),
+        // ACDE M1 — work-class landing-rate prior at the DECIDE front. Reads the EXISTING explorations ledger,
+        // groups attempts by a derived work-class (path family), and de-prioritizes (WITHIN the band) a class
+        // whose Wilson-LB landing rate is below the floor after enough REAL attempts — so the loop stops
+        // grinding a class that empirically never lands. Default OFF => no DB read, priority unchanged,
+        // byte-identical. min_attempts gates the prior on sufficient real samples; floor_rate is the hopeless
+        // threshold; max_penalty_fraction caps how much of the offset the nudge can remove.
+        'work_class_prior_enabled' => (bool) env('ATLAS_LOOP_WORK_CLASS_PRIOR_ENABLED', false),
+        'work_class_prior_min_attempts' => max(1, (int) env('ATLAS_LOOP_WORK_CLASS_PRIOR_MIN_ATTEMPTS', 8)),
+        'work_class_prior_floor_rate' => max(0.0, min(1.0, (float) env('ATLAS_LOOP_WORK_CLASS_PRIOR_FLOOR_RATE', 0.15))),
+        'work_class_prior_max_penalty_fraction' => max(0.0, min(1.0, (float) env('ATLAS_LOOP_WORK_CLASS_PRIOR_MAX_PENALTY_FRACTION', 0.8))),
+        'work_class_prior_window_hours' => max(1, (int) env('ATLAS_LOOP_WORK_CLASS_PRIOR_WINDOW_HOURS', 336)),
         // ACDE O1 — the in-lane ORIGINATION producer: author a PROPOSE-ONLY origination proposal (structure +
         // decomposition hint, NO frozen acceptance, EMPTY diff, NEVER executeAndProve). Safe by construction:
         // empty diff + no acceptance_contract => the drain reprove fails closed => the row is RETIRED on the
