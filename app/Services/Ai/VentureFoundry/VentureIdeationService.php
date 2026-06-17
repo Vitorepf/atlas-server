@@ -38,12 +38,16 @@ class VentureIdeationService
         self::SOURCE_GENERATED,
     ];
 
-    private const URGENCY_FACTOR = [
+    public const URGENCY_FACTOR = [
         OpportunityRadarService::URGENCY_LOW => 0.25,
         OpportunityRadarService::URGENCY_MEDIUM => 0.5,
         OpportunityRadarService::URGENCY_HIGH => 0.75,
         OpportunityRadarService::URGENCY_CRITICAL => 1.0,
     ];
+
+    public function __construct(
+        private readonly VentureIdeationServiceSupport $support = new VentureIdeationServiceSupport(),
+    ) {}
 
     /**
      * Register an idea candidate with required problem/ICP/pain fields and
@@ -53,59 +57,28 @@ class VentureIdeationService
      */
     public function register(array $args): AiVentureIdea
     {
-        $title = trim((string) ($args['title'] ?? ''));
-        if ($title === '') {
-            throw VentureFoundryException::missingField('idea', 'title');
-        }
-
-        foreach (['problem', 'icp', 'pain'] as $field) {
-            $value = $args[$field] ?? '';
-            if (! is_string($value) || trim($value) === '') {
-                throw VentureFoundryException::missingField('idea', $field);
-            }
-        }
-
-        $urgency = (string) ($args['urgency'] ?? OpportunityRadarService::URGENCY_MEDIUM);
-        if (! array_key_exists($urgency, self::URGENCY_FACTOR)) {
-            throw VentureFoundryException::invalidValue('idea', 'urgency', 'must be one of ['.implode(',', array_keys(self::URGENCY_FACTOR)).']');
-        }
-
-        $source = (string) ($args['source'] ?? self::SOURCE_OPERATOR);
-        if (! in_array($source, self::ALLOWED_SOURCES, true)) {
-            throw VentureFoundryException::invalidValue('idea', 'source', 'must be one of ['.implode(',', self::ALLOWED_SOURCES).']');
-        }
-
-        foreach (['pain_severity', 'founder_fit', 'sovereignty_fit'] as $field) {
-            if (array_key_exists($field, $args)) {
-                $value = (int) $args[$field];
-                if ($value < 0 || $value > 5) {
-                    throw VentureFoundryException::invalidValue('idea', $field, 'must be between 0 and 5');
-                }
-            }
-        }
-
-        $marketSize = isset($args['market_size_usd']) ? (float) $args['market_size_usd'] : null;
-        if ($marketSize !== null && $marketSize < 0) {
-            throw VentureFoundryException::invalidValue('idea', 'market_size_usd', 'must be >= 0');
-        }
+        $validated = $this->support->validateInputs($args);
+        $title = $validated['title'];
+        $urgency = $validated['urgency'];
+        $source = $validated['source'];
+        $painSeverity = $validated['pain_severity'];
+        $founderFit = $validated['founder_fit'];
+        $sovereigntyFit = $validated['sovereignty_fit'];
+        $marketSize = $validated['market_size_usd'];
 
         $ideaId = (string) ($args['idea_id'] ?? Str::slug($title));
         if (AiVentureIdea::query()->where('idea_id', $ideaId)->exists()) {
             throw VentureFoundryException::invalidValue('idea', 'idea_id', "[{$ideaId}] already registered");
         }
 
-        $painSeverity = (int) ($args['pain_severity'] ?? 3);
-        $founderFit = (int) ($args['founder_fit'] ?? 3);
-        $sovereigntyFit = (int) ($args['sovereignty_fit'] ?? 3);
-
         $scoring = $this->score($painSeverity, $urgency, $marketSize, $founderFit, $sovereigntyFit);
 
         $hashInput = [
             'idea_id' => $ideaId,
             'title' => $title,
-            'problem' => $args['problem'],
-            'icp' => $args['icp'],
-            'pain' => $args['pain'],
+            'problem' => $validated['problem'],
+            'icp' => $validated['icp'],
+            'pain' => $validated['pain'],
             'urgency' => $urgency,
             'source' => $source,
             'opportunity_id' => $args['opportunity_id'] ?? null,
@@ -116,9 +89,9 @@ class VentureIdeationService
             'uuid' => (string) Str::uuid(),
             'idea_id' => $ideaId,
             'title' => $title,
-            'problem' => (string) $args['problem'],
-            'icp' => (string) $args['icp'],
-            'pain' => (string) $args['pain'],
+            'problem' => $validated['problem'],
+            'icp' => $validated['icp'],
+            'pain' => $validated['pain'],
             'urgency' => $urgency,
             'source' => $source,
             'opportunity_id' => $args['opportunity_id'] ?? null,
