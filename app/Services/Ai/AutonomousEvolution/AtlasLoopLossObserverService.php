@@ -24,6 +24,7 @@ final class AtlasLoopLossObserverService
         private readonly AtlasLoopFunnelService $funnel,
         private readonly AtlasLoopBacklogManifestService $manifest,
         private readonly ?AtlasLoopHarnessGuard $guard = null,
+        private readonly ?AtlasLoopSelfImprovementGroundingBridge $groundingBridge = null,
     ) {}
 
     /**
@@ -296,6 +297,24 @@ final class AtlasLoopLossObserverService
             $item['is_self_improvement'] = true;
             $item['quality_bar_gate'] = true;
             $item['quality_bar'] = (float) config('atlas.loop.quality_bar', AtlasLoopQualityGrader::DEFAULT_BAR);
+
+            // ACDE C1 — GROUND the vague self_improve directive into the builder's AST-anchored, worst-method-
+            // named, ≥9-frozen extract-class spec (the dead AtlasLoopSelfImprovementObjectiveBuilder finally
+            // gets its caller). Replaces the one-line directive the weak engine misreads with a concrete target.
+            // Default OFF => the vague objective stands (byte-identical). Fail-open: a target the builder's own
+            // gates refuse / an unmeasurable file returns null => the vague intent is kept unchanged.
+            if ((bool) config('atlas.loop.self_improve_grounding_enabled', false)) {
+                $grounded = ($this->groundingBridge ?? new AtlasLoopSelfImprovementGroundingBridge)
+                    ->ground((string) $pattern['target_path']);
+                if (is_array($grounded) && isset($grounded['objective'])) {
+                    $item['objective'] = (string) $grounded['objective'];
+                    $item['grounded'] = true;
+                    $item['worst_method_acceptance_hash'] = (string) ($grounded['acceptance_hash'] ?? '');
+                    if (is_array($grounded['payload']['acceptance'] ?? null)) {
+                        $item['acceptance'] = $grounded['payload']['acceptance'];
+                    }
+                }
+            }
         }
 
         return $this->manifest->append($manifestPath, $item, $manifestLimit, $write);

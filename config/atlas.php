@@ -2353,6 +2353,11 @@ return [
         'work_class_prior_floor_rate' => max(0.0, min(1.0, (float) env('ATLAS_LOOP_WORK_CLASS_PRIOR_FLOOR_RATE', 0.15))),
         'work_class_prior_max_penalty_fraction' => max(0.0, min(1.0, (float) env('ATLAS_LOOP_WORK_CLASS_PRIOR_MAX_PENALTY_FRACTION', 0.8))),
         'work_class_prior_window_hours' => max(1, (int) env('ATLAS_LOOP_WORK_CLASS_PRIOR_WINDOW_HOURS', 336)),
+        // ACDE C1 — ground the loss-observer's vague self_improve directive into the builder's AST-anchored,
+        // worst-method-named, ≥9-frozen extract-class spec (gives the dead AtlasLoopSelfImprovementObjectiveBuilder
+        // its caller). The builder's own double meta-flag gate + petreous harness guard still decide
+        // admissibility. Default OFF => the vague objective stands => byte-identical.
+        'self_improve_grounding_enabled' => (bool) env('ATLAS_LOOP_SELF_IMPROVE_GROUNDING_ENABLED', false),
         // ACDE O1 — the in-lane ORIGINATION producer: author a PROPOSE-ONLY origination proposal (structure +
         // decomposition hint, NO frozen acceptance, EMPTY diff, NEVER executeAndProve). Safe by construction:
         // empty diff + no acceptance_contract => the drain reprove fails closed => the row is RETIRED on the
