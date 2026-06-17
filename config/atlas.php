@@ -2340,6 +2340,11 @@ return [
         // needs (a floor on a 1-mutant receipt is theater). Default OFF => certify over the single kill =>
         // receipt_hash byte-identical (the hash is over status/certified/blockers/sampled/killed/survived).
         'mutation_per_operator_vector_enabled' => (bool) env('ATLAS_LOOP_MUTATION_PER_OPERATOR_VECTOR', false),
+        // ACDE QA2 — EXHAUSTIVE decision probing. The single-mutant lane certifies on the FIRST killed decision,
+        // so a 2nd/3rd added decision line the frozen test does NOT cover slips through uncovered. When armed the
+        // gate probes EVERY added decision line per target (same drift-guard + comment skip); a survivor anywhere
+        // rejects. Default OFF => one decision per target (first-only) => byte-identical to the proven lane.
+        'exhaustive_decision_probing_enabled' => (bool) env('ATLAS_LOOP_EXHAUSTIVE_DECISION_PROBING_ENABLED', false),
         // ACDE MF2 — hub-first multi-file conversion: when a coupled cluster is detected, route the anchored HUB
         // through the proven single-file refactor lane (its own complexity proof) instead of the all-or-nothing
         // N-file conjunction that drops ~17% of conversions. Only under the known-shape guard (covered>=2, hub

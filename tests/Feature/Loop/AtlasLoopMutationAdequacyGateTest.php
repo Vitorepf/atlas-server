@@ -479,6 +479,55 @@ CMD;
         $this->assertSame($on['operator_kill_vector'][0]['sampled'], $on['mutants_sampled']);
     }
 
+    public function test_qa2_off_certifies_despite_an_uncovered_second_decision_byte_identical(): void
+    {
+        // ACDE QA2 — the HOLE the lever closes. The refactor adds TWO decision lines in ONE file: a COVERED
+        // `=== 0` in isZero() (classify exercises it) FIRST, and an UNCOVERED `=== 42` in audit() the test
+        // never calls SECOND. The first-only lane probes only the FIRST decision per file: it kills the
+        // covered `=== 0` and certifies, never reaching the surviving uncovered branch. Default OFF MUST keep
+        // this exact (under-probing) behaviour byte-identical.
+        config(['atlas.loop.extra_mutation_operators_enabled' => false]);
+        config(['atlas.loop.exhaustive_decision_probing_enabled' => false]);
+        $this->workspace = $this->refactorWorkspaceWithCoveredFirstAndUncoveredSecondDecision();
+
+        $off = app(AtlasLoopMutationAdequacyGateService::class)->evaluate(
+            $this->workspace,
+            $this->refactorAcceptance(),
+            ['src/Calc.php'],
+            ['enabled' => true, 'refactor_decision_aware' => true],
+        );
+
+        $this->assertSame('mutation_killed', $off['status'], 'first-only lane kills the covered === and certifies');
+        $this->assertTrue($off['certified'], 'OFF keeps the under-probing certification (the hole QA2 closes)');
+        $this->assertSame('strict_equals', data_get($off, 'mutants.0.operator'));
+        $this->assertSame('decision', $off['decisive_operator_family']);
+    }
+
+    public function test_qa2_armed_rejects_the_uncovered_second_decision(): void
+    {
+        // ACDE QA2 — ARMED: exhaustive probing samples EVERY added decision line, so audit()'s uncovered
+        // `=== 42` is now probed, SURVIVES (the frozen test never calls audit), and hard-rejects the refactor
+        // that the first-only lane would have falsely certified. Same fixture, flag flipped: the only delta is
+        // the surviving second decision is no longer invisible.
+        config(['atlas.loop.extra_mutation_operators_enabled' => false]);
+        config(['atlas.loop.exhaustive_decision_probing_enabled' => true]);
+        $this->workspace = $this->refactorWorkspaceWithCoveredFirstAndUncoveredSecondDecision();
+
+        $on = app(AtlasLoopMutationAdequacyGateService::class)->evaluate(
+            $this->workspace,
+            $this->refactorAcceptance(),
+            ['src/Calc.php'],
+            ['enabled' => true, 'refactor_decision_aware' => true],
+        );
+
+        $this->assertSame('mutation_survived', $on['status'], 'the uncovered second decision must now reject');
+        $this->assertFalse($on['certified']);
+        $this->assertSame(['mutation_survived'], $on['blockers']);
+        $this->assertSame('decision', $on['decisive_operator_family']);
+        $this->assertSame(1, $on['mutants_survived']);
+        $this->assertFalse(data_get($on, 'mutants.0.killed'), 'the deciding mutant is the surviving uncovered branch');
+    }
+
     public function test_refactor_contract_skips_when_no_mutant_is_producible_at_all(): void
     {
         // TIER 3 — no mutant at all (2026-06-14): an extract-method refactor whose added lines contain
@@ -762,6 +811,51 @@ PHP;
 final class Calc {
     public function classify(int $n): string {
         return $n > 0 ? 'pos' : 'nonpos';
+    }
+    public function audit(int $n): bool {
+        return $n === 42;
+    }
+}
+PHP;
+
+        return $this->refactorWorkspace($baseline, $test, $refactor);
+    }
+
+    /**
+     * QA2 fixture: ONE file with TWO added decision lines — a COVERED `=== 0` in isZero() (classify
+     * exercises it) declared FIRST, and an UNCOVERED `=== 42` in audit() the test never calls SECOND.
+     * The first-only lane probes only isZero's `===` (killed) and certifies; exhaustive probing also
+     * probes audit's `=== 42`, which survives and rejects.
+     */
+    private function refactorWorkspaceWithCoveredFirstAndUncoveredSecondDecision(): string
+    {
+        $baseline = <<<'PHP'
+<?php
+final class Calc {
+    public function classify(int $n): string {
+        if ($n === 0) {
+            return 'zero';
+        }
+        return 'nonzero';
+    }
+}
+PHP;
+        $test = <<<'PHP'
+<?php
+require __DIR__.'/../src/Calc.php';
+$c = new Calc();
+if ($c->classify(0) !== 'zero') { fwrite(STDERR, 'classify(0) wrong'); exit(1); }
+if ($c->classify(5) !== 'nonzero') { fwrite(STDERR, 'classify(5) wrong'); exit(1); }
+exit(0);
+PHP;
+        $refactor = <<<'PHP'
+<?php
+final class Calc {
+    public function classify(int $n): string {
+        return $this->isZero($n) ? 'zero' : 'nonzero';
+    }
+    private function isZero(int $n): bool {
+        return $n === 0;
     }
     public function audit(int $n): bool {
         return $n === 42;

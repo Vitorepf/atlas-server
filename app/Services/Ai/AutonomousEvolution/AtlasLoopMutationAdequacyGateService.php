@@ -212,25 +212,34 @@ final class AtlasLoopMutationAdequacyGateService
         // decides once every decision target is proven survivor-free.
         $killedDecision = null;
         $killedDecisions = []; // ACDE RF2+RF4 — every killed decision, so the certify denominator is REAL (>1)
+        // ACDE QA2 — EXHAUSTIVE decision probing. The first-only path certifies on the FIRST killed decision, so
+        // a 2nd/3rd added decision line the test does NOT cover slips through uncovered. When armed, probe EVERY
+        // added decision line per target; a survivor ANYWHERE rejects. Default OFF => single-element list (the
+        // first decision only) => byte-identical to the proven first-only lane.
+        $exhaustiveProbing = (bool) config('atlas.loop.exhaustive_decision_probing_enabled', false);
         foreach ($probeTargets as $target) {
             $path = $workspace.'/'.$target;
             $original = is_file($path) ? (string) file_get_contents($path) : '';
             $map = $addedLineMap[$target] ?? [];
 
-            $decision = $this->firstAddedLineMutation($target, $original, $map, false);
-            if ($decision === null) {
-                continue;
+            if ($exhaustiveProbing) {
+                $decisions = $this->allAddedLineMutations($target, $original, $map, false);
+            } else {
+                $first = $this->firstAddedLineMutation($target, $original, $map, false);
+                $decisions = $first === null ? [] : [$first];
             }
-            $record = $this->runMutant($workspace, $path, $original, $target, $decision, $commands, $timeout, $propertyProbe);
-            if (! $record['killed']) {
-                // A surviving DECISION mutant is a real failure — reject immediately, order-independent,
-                // and never downgrade to a cosmetic skip (that would hide a branch the test misses).
-                return $this->receipt('mutation_survived', false, ['mutation_survived'], [$record], [$baseline], $propertyProbe);
+            foreach ($decisions as $decision) {
+                $record = $this->runMutant($workspace, $path, $original, $target, $decision, $commands, $timeout, $propertyProbe);
+                if (! $record['killed']) {
+                    // A surviving DECISION mutant is a real failure — reject immediately, order-independent,
+                    // and never downgrade to a cosmetic skip (that would hide a branch the test misses).
+                    return $this->receipt('mutation_survived', false, ['mutation_survived'], [$record], [$baseline], $propertyProbe);
+                }
+                // Remember the FIRST kill but keep hunting: a later target may carry a surviving decision the
+                // test misses, which must outrank this kill regardless of git's file ordering.
+                $killedDecision ??= $record;
+                $killedDecisions[] = $record;
             }
-            // Remember the FIRST kill but keep hunting: a later target may carry a surviving decision the
-            // test misses, which must outrank this kill regardless of git's file ordering.
-            $killedDecision ??= $record;
-            $killedDecisions[] = $record;
         }
 
         // Every decision target proven survivor-free: a remembered kill certifies the refactor.
@@ -730,6 +739,65 @@ final class AtlasLoopMutationAdequacyGateService
         }
 
         return null;
+    }
+
+    /**
+     * ACDE QA2 — EXHAUSTIVE sibling of {@see firstAddedLineMutation}: one position-confined decision mutant per
+     * MUTABLE added decision line (not just the first), with the IDENTICAL drift-guard + comment/docblock skip,
+     * so a cosmetic/old-code mutant can never land. Used only when exhaustive probing is armed; the first-only
+     * method is left untouched so the legacy lane stays byte-identical.
+     *
+     * @param  array<int,string>  $addedLineMap  NEW-file line number => added line text
+     * @return list<array{mutation_id:string,operator:string,content:string}>
+     */
+    private function allAddedLineMutations(string $file, string $content, array $addedLineMap, bool $cosmeticOnly = false): array
+    {
+        if ($addedLineMap === []) {
+            return [];
+        }
+        $eol = str_contains($content, "\r\n") ? "\r\n" : "\n";
+        $lines = preg_split('/\r\n|\n|\r/', $content);
+        if (! is_array($lines)) {
+            return [];
+        }
+
+        ksort($addedLineMap);
+        $out = [];
+        foreach ($addedLineMap as $lineNumber => $addedText) {
+            $index = $lineNumber - 1;
+            if ($index < 0 || ! array_key_exists($index, $lines)) {
+                continue;
+            }
+            if ($lines[$index] !== $addedText) {
+                continue;
+            }
+            $trimmedAdded = ltrim($addedText);
+            if ($trimmedAdded !== '' && (
+                str_starts_with($trimmedAdded, '*')
+                || str_starts_with($trimmedAdded, '//')
+                || str_starts_with($trimmedAdded, '/*')
+                || str_starts_with($trimmedAdded, '#')
+            )) {
+                continue;
+            }
+            $lineMutation = $this->mutationForText($file, $addedText, true, $cosmeticOnly);
+            if ($lineMutation === null || $lineMutation['content'] === $addedText) {
+                continue;
+            }
+            $mutatedLines = $lines;
+            $mutatedLines[$index] = $lineMutation['content'];
+            $mutatedContent = implode($eol, $mutatedLines);
+            if ($mutatedContent === $content) {
+                continue;
+            }
+            $out[] = [
+                'mutation_id' => substr(hash('sha256', $file.'|'.$lineMutation['operator'].'|'.$lineNumber.'|'.$mutatedContent), 0, 16),
+                'operator' => $lineMutation['operator'],
+                'content' => $mutatedContent,
+            ];
+        }
+
+        return $out;
     }
 
     /**
