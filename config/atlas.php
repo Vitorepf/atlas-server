@@ -2335,6 +2335,13 @@ return [
         // (deterministic: parses + exercises the target + fails without a load-time structural signature).
         // Default OFF => the gate never runs => task generation is byte-identical.
         'red_reason_gate_enabled' => (bool) env('ATLAS_LOOP_RED_REASON_GATE_ENABLED', false),
+        // ACDE WD4 — split the strategy-bandit UCB bucket by a MEASURED complexity tier (lo/mid/hi on total
+        // cyclomatic) so surgical-vs-root_cause efficacy is no longer averaged across a trivial adapter and a
+        // 200-method hub. Default OFF => targetType() returns the bare path-prefix bucket, no file read,
+        // byte-identical. The lo/hi thresholds band the AtlasLoopSignalAnalyzer total cyclomatic score.
+        'bandit_complexity_tier_enabled' => (bool) env('ATLAS_LOOP_BANDIT_COMPLEXITY_TIER_ENABLED', false),
+        'bandit_complexity_tier_lo' => max(1, (int) env('ATLAS_LOOP_BANDIT_COMPLEXITY_TIER_LO', 20)),
+        'bandit_complexity_tier_hi' => max(2, (int) env('ATLAS_LOOP_BANDIT_COMPLEXITY_TIER_HI', 80)),
         // ACDE O1 — the in-lane ORIGINATION producer: author a PROPOSE-ONLY origination proposal (structure +
         // decomposition hint, NO frozen acceptance, EMPTY diff, NEVER executeAndProve). Safe by construction:
         // empty diff + no acceptance_contract => the drain reprove fails closed => the row is RETIRED on the

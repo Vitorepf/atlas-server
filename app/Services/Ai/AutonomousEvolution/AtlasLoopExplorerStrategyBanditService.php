@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -20,6 +21,13 @@ use Throwable;
 final class AtlasLoopExplorerStrategyBanditService
 {
     public const SCHEMA_VERSION = 'atlas.loop.explorer_strategy_bandit.v1';
+
+    /** @var array<string,string> per-instance memo of relative-path -> measured complexity tier (WD4). */
+    private array $tierCache = [];
+
+    public function __construct(
+        private readonly AtlasLoopSignalAnalyzer $signalAnalyzer = new AtlasLoopSignalAnalyzer,
+    ) {}
 
     /**
      * @return array<string,string>
@@ -412,7 +420,7 @@ final class AtlasLoopExplorerStrategyBanditService
     {
         $path = ltrim(str_replace('\\', '/', trim($targetPath)), '/');
 
-        return match (true) {
+        $type = match (true) {
             $path === '' => 'unknown',
             str_starts_with($path, 'tests/') => 'test',
             str_starts_with($path, 'database/migrations/') => 'migration',
@@ -422,6 +430,53 @@ final class AtlasLoopExplorerStrategyBanditService
             str_starts_with($path, 'app/Services/') => 'service',
             default => 'other',
         };
+
+        // ACDE WD4 — when armed, split the UCB bucket by a MEASURED complexity tier so a trivial adapter and a
+        // 200-method hub (both 'service' today) stop sharing one strategy ranking — surgical wins on the small
+        // file, root_cause on the hub, and averaging them buries both. Default OFF => the bare path-prefix type
+        // is returned with NO file read => byte-identical.
+        if ($type !== 'unknown' && (bool) config('atlas.loop.bandit_complexity_tier_enabled', false)) {
+            $tier = $this->complexityTier($path);
+            if ($tier !== '') {
+                return $type.'|'.$tier;
+            }
+        }
+
+        return $type;
+    }
+
+    /**
+     * ACDE WD4 — the measured complexity tier of a target file, banded on its total cyclomatic score (the SAME
+     * {@see AtlasLoopSignalAnalyzer::fileComplexity} the refactor lane uses, so the band is grounded, not a
+     * guess). Memoized per path. Fail-open: an unreadable/non-PHP/unparseable target returns '' so the caller
+     * falls back to the coarse path-prefix bucket (never a wrong tier).
+     */
+    private function complexityTier(string $relPath): string
+    {
+        if ($relPath === '') {
+            return '';
+        }
+        if (array_key_exists($relPath, $this->tierCache)) {
+            return $this->tierCache[$relPath];
+        }
+
+        $tier = '';
+        try {
+            $abs = base_path($relPath);
+            if (str_ends_with($abs, '.php') && is_file($abs)) {
+                $measured = $this->signalAnalyzer->fileComplexity((string) file_get_contents($abs));
+                if (($measured['measured'] ?? false) === true) {
+                    $total = (int) ($measured['total'] ?? 0);
+                    $hi = max(2, (int) config('atlas.loop.bandit_complexity_tier_hi', 80));
+                    $lo = max(1, min($hi - 1, (int) config('atlas.loop.bandit_complexity_tier_lo', 20)));
+                    $tier = $total >= $hi ? 'hi' : ($total >= $lo ? 'mid' : 'lo');
+                }
+            }
+        } catch (Throwable) {
+            $tier = '';
+        }
+
+        return $this->tierCache[$relPath] = $tier;
     }
 
     /**
