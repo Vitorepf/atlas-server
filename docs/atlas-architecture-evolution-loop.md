@@ -192,3 +192,28 @@ Toda métrica de velocidade **termina em caixa reconciliado, nunca em contagem d
 2. Velocidade só vira valor **depois** do plant (caixa real); sem feed, todo o spine fica dormente (correto).
 
 **Veredito:** é a iteração que move Atlas de **"à-frente-na-verdade" → "à-frente-em-valor"** — máquina rápida E honesta, com a regra de ouro reforçada: **piso de caixa primeiro, paralelismo por último.**
+
+---
+
+## Iteração 8 — Órgãos operacionais faltantes (deliverability, accounting/runway, retenção, back-office/regulatório)
+
+**Insight central + achado de CONVERGÊNCIA:** os 4 órgãos todos "AND-am um sinal" no **VentureHealthGate**, no **WindowedReservationService atômico**, no **source DB-CHECK** e no **ReconciledCashEventStore** — keystones que **as iterações 1/2/4/6/7 também re-derivaram e que NÃO existem**. Ou seja: a fatal-first order não é "qual órgão", é **autorar os keystones compartilhados PRIMEIRO**, senão todo órgão é um gate ligado no vazio (advisory-by-accident).
+
+### Componentes (fatal-first)
+| Ordem | Componente | Papel + salvaguarda |
+|---|---|---|
+| **F0 (BLOCKER)** | **VentureHealthGate + HealthSignal enum** (keystone compartilhado, NÃO existe) | O AND-gate multi-sinal {solvency,churn,concentration,legality,deliverability}. **`unknown` é estado de 1ª classe distinto de `red`**, ambos fail-closed (não marcam succeeded). Monotonic-downgrade-only, thresholds frozen. |
+| **F0** | **source DB-CHECK + actor!=emitter + WindowedReservationService (atômico) + FeedLivenessGate** | As 3 fronteiras de confiança reais. **WindowedReservation** (`lockForUpdate` + `UPDATE...WHERE reserved+n<=cap` + idempotency) substitui o `BudgetEnvelope::consume()` read-modify-write não-atômico (verificado :86) — é o fix de death-by-a-thousand-cuts. **O ator que EMITE nunca escreve a observação que CREDITA.** |
+| **F1 deliverability (LAST a shippar)** | DeliverabilityIncidentGate + AiVentureSendingDomain (ratchet one-way) + DomainWarmupScheduler + SenderReputationMonitor (webhook **signature-verified** + nonce) + RecipientListPreScreen | Hard-stop pré-dispatch: auth (SPF+DKIM pass, DMARC) AND tetos independentes (bounce/complaint **separados**, não score blended gameável). Domínio torrado é **irreversível** → volume de envio é classe irreversível (1º envio exige mandato). Pre-screen é o ÚNICO sinal pré-facto (webhooks são laggards). |
+| **F3 accounting (DAY-1 value)** | VentureBurnReader (thin sobre o substrato real AiProviderCostRate/AiTraceMetricAggregator) + RunwayCalculator (enum c/ `unknown`) + VentureSolvencyHealthSignal | Burn real por venture **sem feed de caixa**: token-cost split input/output, rotulado `cost_mode=token-cost` (o FLOOR do custo operacional). Exige **venture_id stamp na telemetria** (não existe hoje) — até provado, retorna `UNKNOWN`, nunca verde nem número fabricado. |
+| **F2 retention (suggest-only v1)** | RetentionOutcomeReconciler + RetentionTelemetryIngest (source reconciliado) + RetentionHealthSignal + bridge suggest-only | v1 = missões DRAFT suggest-only (zero bytes externos autônomos). Crédito (e avanço de ladder) **só em outcome reconciliado** (caixa recuperado de dunning), **nunca o número-vaidade de churn**. |
+| **F5 regulatory (BLOCKS, never acts)** | `legal_entity_id` em ai_ventures + VentureLegalityGate + bridge de mandato + RequirementMatrix (advisory-ceiling) | `legal_entity_id` NULL → RED → **bloqueia acúmulo de MRR + PAUSE**. Pré-condição de legalidade, **não ator legal** (teste-invariante proíbe qualquer método de execução externa no tracker). Jurisdição/indústria = input operator-reviewed, nunca inferido autonomamente. |
+
+### Anti-Goodhart
+Todo sinal de sucesso de órgão é ligado a outcome **reconciliado, não-self-attestável**, e a evidência que avança confiança é **estruturalmente separada da ação que a produz** (actor≠emitter no DB).
+
+### Teto residual
+1. **Cegueira pré-facto na deliverability:** webhooks são laggards → o 1º envio a domínio frio é bounded só por warmup-cap + pre-screen + mandato, nunca por sinal de reputação que viu aquele envio. É física, não fixável.
+2. **Custo-token ≠ custo-operacional** (ad-spend/COGS/infra) até feed de custo real — burn é FLOOR rotulado.
+
+**Veredito + sinal de CONVERGÊNCIA do loop:** as iterações pararam de produzir keystones NOVOS e passaram a re-derivar os MESMOS 5 (health-gate, reserva-atômica, source-DB-CHECK, reconciled-cash, venture_id-na-telemetria). **Isso é o loop convergindo** — o próximo passo de maior valor não é enumerar mais órgãos (9-12), é **consolidar esses keystones num único spec de fundação** + ordem de build unificada (o que o implementador realmente precisa). Convergência = sinal de que o desenho está ficando "consolidado".
