@@ -217,3 +217,112 @@ Todo sinal de sucesso de órgão é ligado a outcome **reconciliado, não-self-a
 2. **Custo-token ≠ custo-operacional** (ad-spend/COGS/infra) até feed de custo real — burn é FLOOR rotulado.
 
 **Veredito + sinal de CONVERGÊNCIA do loop:** as iterações pararam de produzir keystones NOVOS e passaram a re-derivar os MESMOS 5 (health-gate, reserva-atômica, source-DB-CHECK, reconciled-cash, venture_id-na-telemetria). **Isso é o loop convergindo** — o próximo passo de maior valor não é enumerar mais órgãos (9-12), é **consolidar esses keystones num único spec de fundação** + ordem de build unificada (o que o implementador realmente precisa). Convergência = sinal de que o desenho está ficando "consolidado".
+
+---
+
+## CONSOLIDAÇÃO — O Spec de Fundação Unificado (o que torna o desenho "consolidado")
+
+> Síntese das iterações 1-8 (feita direto, sem fan-out). Resolve a tensão aparente "cada iteração disse construa-X-primeiro" numa **única ordem**. Toda a potência do desenho descansa sobre **6 keystones** + **6 invariantes**. Se só isto for construído, Atlas já opera 1 empresa digital reversível 24/7 com honestidade — o resto (órgãos, velocidade, portfólio, aprendizado) são multiplicadores em cima desta base.
+
+### Os 6 KEYSTONES (a base irredutível — toda iteração depende deles)
+| K | Keystone | Papel (por que é caminho-crítico) | Re-derivado nas iters |
+|---|---|---|---|
+| **K1** | **ReconciledCashEventStore** + `source` DB-CHECK + actor≠emitter | A **única verdade que paga/credita**. Caixa externamente reconciliado (processor/bank), invariante de SCHEMA não string. O ator que emite nunca escreve a observação que credita. | 1,2,4,6,7,8 |
+| **K2** | **venture_id na telemetria → VentureCostAttributionLedger** | O **denominador** (burn real por venture). `UNKNOWN` até atribuição provada — nunca verde fabricado. Token-cost é o FLOOR rotulado. | 2,8 |
+| **K3** | **WindowedReservationService (atômico)** | `lockForUpdate`+`UPDATE…WHERE reserved+n<=cap`+idempotency. O **fix de death-by-a-thousand-cuts**; substitui o BudgetEnvelope read-modify-write não-atômico. | 2,4,8 |
+| **K4** | **VentureHealthGate + HealthSignal enum** | O **AND-gate multi-sinal** {solvency,churn,concentration,legality,deliverability}; `unknown` 1ª-classe fail-closed; monotonic-downgrade. Todo órgão AND-a aqui. | 4,8 |
+| **K5** | **VentureActionDispatchController + VentureActionClass + ReversibilityClassifier** | O **único boundary fail-closed de pré-emissão** por onde TODA ação externa passa; double-kill-recheck no lock de emissão; irreversível sempre com mandato. | 4,7,8 |
+| **K6** | **Connector layer** (as mãos) | Contrato de adapter tipado + webhook-signature + idempotency + feed-liveness + clawback/settlement-horizon. **Alimenta o K1 e liga o plant.** | 6 (em finalização) |
+
+### Os 6 INVARIANTES (regras que todo componente obedece)
+1. **Byte-identical-OFF** — toda flag ausente ⇒ comportamento de hoje (SUGGEST, thresholds PHP_INT_MAX).
+2. **Reconciled-cash-only credit** — aprendizado/sucesso/alocação só contam caixa reconciliado (nunca self-report).
+3. **Observed-vs-inferred** — inferência de LLM forçada a `inferred` + confiança ≤0.5 + blind-spot.
+4. **Human-floor no irreversível** — email/charge/contrato/post nunca auto sem mandato; dead-man heartbeat escrito **só pelo operador**.
+5. **Anti-vaidade** — toda métrica termina em caixa reconciliado, nunca em contagem de lançados/shipados.
+6. **Dormência honesta** — sem plant, o stack fica dormente e recusa fabricar gradiente.
+
+### A ORDEM DE BUILD ÚNICA (resolve todos os "construa-X-primeiro")
+- **Fase 0 — FUNDAÇÃO** (nada funciona sem isto): K1 → K2 → K3 → K4 → K5 → VentureKillAuthority (heartbeat do operador).
+- **Fase 1 — MEDIÇÃO** (torna o ≥70% mensurável): VentureTerminalRewardEvaluator + scorecard triplo + admission gate.
+- **Fase 2 — AS MÃOS**: K6 connector layer (pagamento 1º → caixa reconciliado; email/ads depois sob o K5).
+- **Fase 3 — OPERAÇÃO**: VentureOperationRuntime (despachante ②) + orquestrador de cadeia de valor (③, linear fino).
+- **Fase 4 — VELOCIDADE**: DemandSignalGate + ExperimentWipScheduler + MonetizableArchetypeRegistry.
+- **Fase 5 — ÓRGÃOS**: deliverability + accounting/runway (fatais 1º) → retenção → back-office/regulatório.
+- **Fase 6 — APRENDIZADO** (①, POR ÚLTIMO — só depois de haver caixa reconciliado pra aprender): policy-weight-store + proposer damped + trust-ladder.
+- **Fase 7 — PORTFÓLIO + COCKPIT**: alocador (caixa reconciliado settled) + cockpit-NL.
+
+**Leitura de consolidação:** as 8 iterações **não são 8 sistemas** — são **1 fundação (6 keystones) + camadas em cima**, todas obedecendo 6 invariantes, numa ordem única. *Isto* é o desenho "consolidado": coerente, sem contradição interna, com caminho-crítico explícito. A nota de poder (6,5) sobe ao construir Fase 0→2 (liga o plant) e depois 3-7; a nota de honestidade/segurança (≈9,3) já está na fundação. Falta agora: finalizar iter 6 (K6 detalhe) + iterações de valor 9-12 como multiplicadores — mas a espinha está consolidada.
+
+---
+
+## Iterações 9-12 — multiplicadores de valor (auto-desenhadas, conciso; menos rigor adversarial que 1-8 — aprofundáveis por painel se o operador quiser)
+
+> Os keystones (K1-K6) e invariantes estão travados; estas 4 são **composições em cima da fundação**, não keystones novos. Cada uma: insight · componentes (reusam keystones) · falha-a-evitar · anti-Goodhart · ganho de poder.
+
+### Iteração 9 — Self-construction por venture (multiplicador de breadth) [Fase 6/9]
+- **Insight:** hoje uma venture que bate numa capability faltante (builder de landing, integração Stripe, churn-model, scraper de nicho) roteia pros 4 Domain Runtimes FIXOS e nunca constrói a própria. Plugar o **Self-Construction OS** (ativo provado) como **classe de ação governada `build_capability`**: detect-gap → spec → build (AAEOS/ADEP) → sandbox → **certify (testes frozen)** → wire sob K5.
+- **Componentes:** `VentureCapabilityGapDetector` + `build_capability` action-class no K5 + reuso de AAEOS/ADEP (o builder) + o cert-gate (frozen) + WIP cap.
+- **Falha-a-evitar:** self-construction sem fim (constrói tool-junk); código self-built tocando dinheiro real sem cert; over-build (constrói quando um Domain Runtime já servia).
+- **Anti-Goodhart:** capability só "conta" quando **certificada (frozen-test verde) E usada num caminho de caixa reconciliado**; qualquer coisa que toque K6/connector exige mandato. WIP-capped.
+- **Ganho de poder:** breadth — ventures deixam de ser capadas nos 4 braços pré-construídos. (Blind-spot que a sufficiency review nem levantou.)
+
+### Iteração 10 — Transferência cross-venture + teoria de durabilidade/moat [Fase 7] ⭐ (o moat incopiável)
+- **Insight:** hoje o portfólio é N aprendizes lineares independentes. O compounding **incopiável** é a transferência: um playbook provado (reconciliado) na venture A vira **PRIOR** na admission/demand/rubric da venture B — mas só após de-identificação + corroboração de **≥2 ventures estruturalmente distintas** (o `VenturePlaybookPromotionGuard` da iter 1).
+- **Componentes:** `CrossVentureTransferDrivetrain` (promove playbook A→prior-de-B) + reuso do PromotionGuard + K1 (só playbooks com sucesso de caixa reconciliado) + scope-isolation (anti-exploit-Polsia).
+- **Falha-a-evitar:** o exploit-Polsia (memória compartilhada → contaminação cross-tenant), overfit da idiossincrasia de A no global, correlated-minting (um otimizador finge "2 ventures distintas").
+- **Anti-Goodhart:** transfere só playbook com sucesso de caixa reconciliado em ≥2 ventures distintas; de-identificado; entra em B como **prior down-weightável, nunca regra dura**; o outcome reconciliado de B pode **rebaixá-lo**.
+- **Teoria de durabilidade (o moat):** o moat é o **corpus acumulado de playbooks validados-por-caixa-reconciliado, escopado e governado** — incopiável porque (a) é grounded nos outcomes reais e privados do operador, (b) a governança evita o exploit que forçou a Polsia a **deletar a memória**. O que um concorrente copia num fim de semana = as camadas; o que **não** copia = o corpus governado de outcomes reconciliados.
+- **Ganho de poder:** portfólio **super-linear** (o único lugar onde o compounding é incopiável).
+
+### Iteração 11 — Cockpit de operador em linguagem natural + gramática de mandato-condicional [Fase 7]
+- **Insight:** a interação mais frequente do operador é aprovar mandatos + promover autonomia (form-filling por payload). Cockpit NL: consulta o **decision-receipt ledger** em linguagem natural ("quais ventures esperam por mim? por quê?") + **gramática de mandato permanente condicional** ("auto-aprova ad-spend < R$X/dia pra ventures com ≥3mo MRR reconciliado E margem>Y; o resto pergunta").
+- **Componentes:** parser de predicado sobre primitivos existentes (VentureActionClass, receipts payload-bound, windowed-envelopes K3, ledger) + NL-query read-only sobre o Evidence Ledger.
+- **Falha-a-evitar:** mandate-fatigue → rubber-stamp; mandato permanente largo demais (over-delegação); parser bindando o mandato ao payload errado.
+- **Anti-Goodhart:** mandatos permanentes são predicados sobre os MESMOS gates duros (caixa reconciliado, margem, spend-caps K3) — **narrow, nunca widen** o gate; cada mandato permanente é ele mesmo um receipt revogável, payload-bound, auditado; batch-digest mata a fatigue.
+- **Ganho de poder:** **human-throughput** — o operador governa muitas ventures sem toil por-ação. É o eixo que a tese canônica reivindica supremacia (controle em linguagem natural).
+
+### Iteração 12 — Modelo de adversário externo + aquisição CAC-payback + criação-de-demanda [Fase 7]
+- **Insight:** todo o aparato de risco contém as ações ruins do PRÓPRIO Atlas; nada sente um movimento EXTERNO (concorrente corta preço/copia/outbida keyword, plataforma bane/muda ToS). Adicionar: monitor de sinal externo (preço/posicionamento de concorrente, política de plataforma, custo de keyword) → estrategista; órgão de **aquisição CAC-payback** (a governança já está na classe ad_spend da iter-4); e runtime de **criação-de-demanda** (content/SEO/comunidade que cria demanda, não só captura).
+- **Componentes:** `ExternalSignalMonitor` (advisory → estrategista) + `AcquisitionOrgan` (reusa ad_spend-class + spend-envelope K3) + `DemandCreationRuntime` (output passa o quality-oracle K4).
+- **Falha-a-evitar:** reagir a ruído externo (overfit a um movimento de concorrente); aquisição que compra tráfego-vaidade não caixa; criação-de-demanda virar content-spam (o junk-trap da Polsia).
+- **Anti-Goodhart:** aquisição julgada por **CAC-payback em caixa RECONCILIADO** (não signups); sinais externos são inputs advisory ao estrategista, **nunca auto-ação**; output de criação-de-demanda passa o gate de qualidade K4.
+- **Ganho de poder:** o motor de crescimento + resiliência a movimentos externos (polish de Tier 2/3).
+
+---
+
+## ESTADO TERMINAL DO LOOP DE DESENHO (honesto)
+
+Com 9-12 fechadas (+ iter 6/K6 finalizando), **o backlog de desenho que a iter-5 derivou está EXAURIDO.** O desenho está:
+- **Consolidado** (6 keystones + 6 invariantes + 1 ordem de build, sem contradição interna).
+- **Honesto/seguro: ≈9,3/10** — já realizado na fundação.
+- **Poder de mercado: 6,5/10** — e este número **não sobe mais com desenho**; sobe **construindo a Fase 0→7**.
+
+**Conclusão honesta:** continuar produzindo desenho a partir daqui seria **manufaturar atividade** (a armadilha-Polsia). O loop de DESENHO atingiu seu ponto terminal útil. O próximo multiplicador de poder real é **virar a chave desenho→implementação** — começar a construir a **Fase 0 (os 6 keystones)** — que, na máquina do operador, roda no **Atlas Loop / hermes-MiniMax**, não em painéis Claude. O design-loop entregou o que design-loop pode entregar: uma fundação consolidada, coerente e implementável.
+
+---
+
+## K6 — Connector Layer (completado direto; o workflow da iter-6 morreu 2× por socket-close)
+
+> Escrito a partir dos requisitos já estabelecidos adversarialmente nas iters 2 (clawback/reversal), 7 (webhook-sig + feed-liveness + 2-relógios) e 8 (connector de email + source-DB-CHECK pós-assinatura). Robusto, não-dependente do workflow flaky. Completa a fundação.
+
+**Papel:** as mãos — deixa o desenho tocar o mundo (pagamento, email, ads, hosting, social, github) **com segurança**, alimentando o K1 (ReconciledCashEventStore) e sendo chamado **só pelo K5 (DispatchController)**. É a pré-condição que liga o plant.
+
+**Componentes:**
+| Componente | Regra + salvaguarda |
+|---|---|
+| **Typed connector contract** | Adapter uniforme por serviço com **idempotency-key obrigatória + verificação de webhook-signature + I/O tipado + declaração de capability/scope**. Connector que não prova assinatura/idempotência **falha fechado**. Chamado só via K5. |
+| **FeedLivenessGate** | Cada connector emite sinal de liveness; feed stale/down → **CONGELA os consumidores (alocador/learning loop)**, nunca lê silêncio como zero-real. Distingue dormência de outage (senão os dois são indistinguíveis). |
+| **Settlement/Clawback** | Pagamento **não é final no recebimento**: tipo de evento negativo/reversão no K1 (refund/chargeback/dispute/failed-renewal) com **settlement-horizon**. Caixa só conta como reward **após a janela de clawback fechar**; reversão **flipa succeeded→failed + rebaixa o trust-ladder**; o alocador **nunca dobra aposta em caixa não-settled**. |
+| **Source authenticity** | O tag `source` é setado **server-side SÓ após verificação criptográfica de webhook-signature** (+ nonce anti-replay). Um tag de string não é autenticação — um webhook POSTável externamente não pode cunhar `source='provider_webhook'`. |
+| **Sovereignty/KYC/ban tier** | Quem **detém legalmente** as contas (operator-owned vs partner-tier estilo Blackcell/Sapium/AgentMail). Sob soberania, account-holding + KYC ficam **operator-mandated**. Resposta a ban: quarantine + alerta, nunca silenciosa. |
+
+**Anti-Goodhart:** caixa só credita após settle (clawback-aware); source autenticado por assinatura, não por label; feed-down congela em vez de fabricar zero.
+
+**Teto residual:** `wasCashReceived` é tão honesto quanto a fonte externa (até webhook real, linha confirmada pelo operador é a raiz); ban de plataforma é risco externo bounded por warmup + mandato, não eliminável.
+
+---
+
+## ✅ DESENHO 100% CONSOLIDADO — fim honesto do loop de design
+
+Com K6 escrito, **os 6 keystones estão completos e o backlog 1-12 está exaurido.** O desenho é: consolidado (6 keystones + 6 invariantes + 1 ordem de build), coerente (sem contradição), implementável (caminho-crítico explícito), e honesto (≈9,3 segurança/correção). **Poder-de-mercado 6,5 só sobe com IMPLEMENTAÇÃO (Fase 0→7), não com mais desenho.** Qualquer iteração de design adicional a partir daqui = teatro (viola o invariante 6). **Próximo passo real: construir a Fase 0, no Atlas Loop/hermes.**
