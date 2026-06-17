@@ -528,6 +528,34 @@ CMD;
         $this->assertFalse(data_get($on, 'mutants.0.killed'), 'the deciding mutant is the surviving uncovered branch');
     }
 
+    public function test_rf2_rf4_real_denominator_exceeds_one_with_exhaustive_probing(): void
+    {
+        // The >1-denominator payoff the adversarial verifier flagged as untested in isolation: with BOTH
+        // exhaustive decision probing (QA2) AND the per-operator kill vector (RF2+RF4) armed, a refactor with
+        // TWO covered decisions certifies over BOTH kills — mutants_sampled is genuinely 2, not 1.
+        config(['atlas.loop.extra_mutation_operators_enabled' => false]);
+        config(['atlas.loop.exhaustive_decision_probing_enabled' => true]);
+        config(['atlas.loop.mutation_per_operator_vector_enabled' => true]);
+        $this->workspace = $this->refactorWorkspaceWithTwoCoveredDecisions();
+
+        $on = app(AtlasLoopMutationAdequacyGateService::class)->evaluate(
+            $this->workspace,
+            $this->refactorAcceptance(),
+            ['src/Calc.php'],
+            ['enabled' => true, 'refactor_decision_aware' => true],
+        );
+
+        $this->assertSame('mutation_killed', $on['status']);
+        $this->assertTrue($on['certified']);
+        $this->assertSame(2, $on['mutants_sampled'], 'two covered decisions => the kill denominator is genuinely > 1');
+        $this->assertSame(2, $on['mutants_killed']);
+        $this->assertArrayHasKey('operator_kill_vector', $on);
+        $this->assertSame('strict_equals', $on['operator_kill_vector'][0]['operator']);
+        $this->assertSame(2, $on['operator_kill_vector'][0]['sampled']);
+        $this->assertSame(2, $on['operator_kill_vector'][0]['killed']);
+        $this->assertSame(1.0, (float) $on['operator_kill_vector'][0]['ratio']);
+    }
+
     public function test_refactor_contract_skips_when_no_mutant_is_producible_at_all(): void
     {
         // TIER 3 — no mutant at all (2026-06-14): an extract-method refactor whose added lines contain
@@ -859,6 +887,60 @@ final class Calc {
     }
     public function audit(int $n): bool {
         return $n === 42;
+    }
+}
+PHP;
+
+        return $this->refactorWorkspace($baseline, $test, $refactor);
+    }
+
+    /**
+     * RF2+RF4 / QA2 fixture: ONE file with TWO COVERED added decisions — `=== 0` in isZero() (classify(0)
+     * exercises it) and `=== 1` in isOne() (classify(1) exercises it). With exhaustive probing + the per-
+     * operator vector armed, BOTH are killed, so the certify denominator is genuinely 2 (not 1).
+     */
+    private function refactorWorkspaceWithTwoCoveredDecisions(): string
+    {
+        $baseline = <<<'PHP'
+<?php
+final class Calc {
+    public function classify(int $n): string {
+        if ($n === 0) {
+            return 'zero';
+        }
+        if ($n === 1) {
+            return 'one';
+        }
+        return 'many';
+    }
+}
+PHP;
+        $test = <<<'PHP'
+<?php
+require __DIR__.'/../src/Calc.php';
+$c = new Calc();
+if ($c->classify(0) !== 'zero') { fwrite(STDERR, 'classify(0) wrong'); exit(1); }
+if ($c->classify(1) !== 'one') { fwrite(STDERR, 'classify(1) wrong'); exit(1); }
+if ($c->classify(5) !== 'many') { fwrite(STDERR, 'classify(5) wrong'); exit(1); }
+exit(0);
+PHP;
+        $refactor = <<<'PHP'
+<?php
+final class Calc {
+    public function classify(int $n): string {
+        if ($this->isZero($n)) {
+            return 'zero';
+        }
+        if ($this->isOne($n)) {
+            return 'one';
+        }
+        return 'many';
+    }
+    private function isZero(int $n): bool {
+        return $n === 0;
+    }
+    private function isOne(int $n): bool {
+        return $n === 1;
     }
 }
 PHP;

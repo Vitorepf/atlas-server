@@ -303,6 +303,59 @@ final class AtlasObraExecutorTest extends TestCase
     }
 
     // ------------------------------------------------------------------
+    // ACDE F7 — armed first-pass reorder at the EXECUTOR level (closes the
+    // integration gap the adversarial verifier flagged: prove the ARMED path
+    // both runs end-to-end AND actually reorders independent steps).
+    // ------------------------------------------------------------------
+
+    public function test_f7_armed_executor_reorders_independent_steps_by_first_pass_rate_and_certifies(): void
+    {
+        config()->set('atlas.obra.first_pass_reorder_enabled', true);
+        $now = now();
+
+        // Historical first-pass prior (OTHER plans, terminal rows): 'create:php' lands, 'extract:php' thrashes.
+        for ($i = 0; $i < 5; $i++) {
+            DB::table('atlas_obra_nodes')->insert([
+                'id' => 'hist-create-'.$i, 'plan_id' => 'hist', 'seq' => $i, 'title' => 'h',
+                'request' => 'create something', 'target_area' => 'h'.$i.'.php', 'depends_on' => '[]',
+                'status' => 'done', 'brain_refs' => '[]', 'result' => '{}', 'created_at' => $now, 'updated_at' => $now,
+            ]);
+            DB::table('atlas_obra_nodes')->insert([
+                'id' => 'hist-extract-'.$i, 'plan_id' => 'hist', 'seq' => $i, 'title' => 'h',
+                'request' => 'extract something', 'target_area' => 'h'.$i.'.php', 'depends_on' => '[]',
+                'status' => 'failed', 'brain_refs' => '[]', 'result' => '{}', 'created_at' => $now, 'updated_at' => $now,
+            ]);
+        }
+
+        // A plan with TWO INDEPENDENT nodes: the LOW-rate 'extract' at seq 0, the HIGH-rate 'create' at seq 1.
+        DB::table('atlas_obra_plans')->insert([
+            'id' => 'obra-f7r', 'intent' => 'test', 'workspace_id' => 'atlas-server', 'status' => 'planned',
+            'meta' => '{}', 'created_at' => $now, 'updated_at' => $now,
+        ]);
+        DB::table('atlas_obra_nodes')->insert([
+            'id' => 'obra-f7r:extract', 'plan_id' => 'obra-f7r', 'seq' => 0, 'title' => 'extract',
+            'request' => 'extract the helper', 'target_area' => 'step1.php', 'depends_on' => '[]',
+            'status' => 'pending', 'brain_refs' => '[]', 'result' => '{}', 'created_at' => $now, 'updated_at' => $now,
+        ]);
+        DB::table('atlas_obra_nodes')->insert([
+            'id' => 'obra-f7r:create', 'plan_id' => 'obra-f7r', 'seq' => 1, 'title' => 'create',
+            'request' => 'create the thing', 'target_area' => 'step2.php', 'depends_on' => '[]',
+            'status' => 'pending', 'brain_refs' => '[]', 'result' => '{}', 'created_at' => $now, 'updated_at' => $now,
+        ]);
+
+        $r = (new AtlasObraExecutor($this->accumulatingDelivery(), new GovernedBranchMaterializationService))
+            ->executePlanId('obra-f7r', ['repo_dir' => $this->repo]);
+
+        // 1) The ARMED executor path runs end-to-end and certifies (the integration gap closed).
+        $this->assertSame(AtlasObraExecutor::STATUS_DONE, $r['status'], 'armed F7 executor still certifies: '.($r['reason'] ?? ''));
+        $this->assertTrue($r['certified']);
+        $this->assertSame(2, $r['delivered_nodes']);
+        // 2) The reorder ACTED: the high-first-pass 'create' node ran FIRST despite its higher seq.
+        $this->assertSame('obra-f7r:create', data_get($r, 'nodes.0.id'), 'higher first-pass rate runs first');
+        $this->assertSame('obra-f7r:extract', data_get($r, 'nodes.1.id'));
+    }
+
+    // ------------------------------------------------------------------
     // 2) HALT-ON-FAILURE — a failed node stops the obra (fail-closed).
     // ------------------------------------------------------------------
 
