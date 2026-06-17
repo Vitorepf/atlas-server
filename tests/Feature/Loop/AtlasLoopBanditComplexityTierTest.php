@@ -18,7 +18,7 @@ final class AtlasLoopBanditComplexityTierTest extends TestCase
 
     public function test_off_is_byte_identical_bare_bucket(): void
     {
-        // Default OFF (no config set) => bare path-prefix type, no file read.
+        config(['atlas.loop.bandit_complexity_tier_enabled' => false]); // pin OFF (env-independent)
         $svc = new AtlasLoopExplorerStrategyBanditService;
 
         $this->assertSame('loop_harness', $svc->targetType(self::REAL_LOOP_FILE));

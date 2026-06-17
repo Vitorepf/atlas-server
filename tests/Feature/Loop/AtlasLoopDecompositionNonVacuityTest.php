@@ -28,7 +28,8 @@ final class AtlasLoopDecompositionNonVacuityTest extends TestCase
 
     public function test_off_never_flags_vacuity_byte_identical(): void
     {
-        // default OFF — even an identical-request plan carries no vacuity reason
+        config(['atlas.loop.decomposition_non_vacuity_enabled' => false]); // pin OFF (env-independent)
+        // OFF — even an identical-request plan carries no vacuity reason
         $r = (new AtlasLoopObraPlanValidator)->validate(
             $this->plan('extract Foo from a.php', 'extract Foo from b.php'),
             ['a.php', 'b.php'],

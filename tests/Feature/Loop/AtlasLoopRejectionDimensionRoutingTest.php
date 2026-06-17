@@ -84,7 +84,7 @@ final class AtlasLoopRejectionDimensionRoutingTest extends TestCase
 
     public function test_conductor_guidance_is_byte_identical_when_off(): void
     {
-        // default OFF
+        config(['atlas.loop.rejection_dimension_routing_enabled' => false]); // pin OFF (env-independent)
         $captured = [];
         $exec = $this->uncertifiedExecutor($captured);
 

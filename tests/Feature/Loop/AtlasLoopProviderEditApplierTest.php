@@ -142,7 +142,8 @@ final class AtlasLoopProviderEditApplierTest extends TestCase
 
     public function test_parse_gate_OFF_writes_unparseable_php_verbatim_byte_identical(): void
     {
-        // Default OFF (no config set) => today's behavior exactly: a broken full-file rewrite is written as-is.
+        config(['atlas.loop.parse_gate_enabled' => false]); // pin OFF (env-independent)
+        // OFF => today's behavior exactly: a broken full-file rewrite is written as-is.
         $reply = $this->fullFileBlock('src/Broken.php', self::BROKEN_PHP);
 
         $result = (new AtlasLoopProviderEditApplier)->applyFromText($reply, $this->workspace);
