@@ -619,6 +619,12 @@ class AtlasLoopObraExecutionAdapter
             return null;
         }
 
+        // ACDE U6 — fold a CACHED operator clarification into the goal BEFORE screening/planning. If the
+        // operator already answered this exact goal (U5 queue), the loop must never re-ask: the answer (which
+        // carries the missing anchor) is appended so the goal now passes the vagueness screen and compiles a
+        // richer spec. Default OFF => goal unchanged => byte-identical.
+        $goal = $this->withCachedClarification($goal);
+
         // ACDE U4 — vagueness pre-screen: a goal with NO concrete anchor cannot be planned correctly by a weak
         // model; skip the expensive intent->spec->DAG planner (fall back to buildPlan) rather than grind a vague
         // directive, and surface the abstention. Default OFF => no screen => byte-identical.
@@ -713,6 +719,29 @@ class AtlasLoopObraExecutionAdapter
         } catch (\Throwable) {
             // visibility/queueing must never break the planning path — a logging/DB hiccup is swallowed.
         }
+    }
+
+    /**
+     * ACDE U6 — fold a cached operator clarification into the goal. If the U5 queue holds an ANSWERED request
+     * for this exact goal (fingerprint match), append the operator's answer so the loop plans WITH the
+     * clarification instead of re-asking. Returns the goal unchanged when the flag is OFF, when nothing was
+     * answered, or on any DB hiccup (fail-open). Default OFF => identity => byte-identical.
+     */
+    protected function withCachedClarification(string $goal): string
+    {
+        if (! (bool) config('atlas.loop.clarification_cache_enabled', false)) {
+            return $goal;
+        }
+        try {
+            $answer = \App\Models\AtlasLoopClarificationRequest::cachedAnswerFor($goal);
+            if (is_string($answer) && trim($answer) !== '') {
+                return trim($goal).' '.trim($answer);
+            }
+        } catch (\Throwable) {
+            // fail-open: no cache fold, the goal proceeds (and may abstain) exactly as before.
+        }
+
+        return $goal;
     }
 
     /**

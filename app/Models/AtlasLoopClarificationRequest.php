@@ -58,6 +58,27 @@ class AtlasLoopClarificationRequest extends Model
     }
 
     /**
+     * ACDE U6 — the cached operator answer for a goal: the most-recently-answered request whose fingerprint
+     * matches (any abstention reason — the operator's clarification answers the GOAL, not one reason). Null
+     * if the goal has never been answered (only pending/dismissed, or unseen). This is what lets the loop
+     * fold a prior clarification back in instead of re-asking.
+     */
+    public static function cachedAnswerFor(string $goal): ?string
+    {
+        $row = static::query()
+            ->where('goal_fingerprint', static::fingerprint($goal))
+            ->where('status', self::STATUS_ANSWERED)
+            ->whereNotNull('answer')
+            ->orderByDesc('answered_at')
+            ->orderByDesc('updated_at')
+            ->first();
+
+        $answer = $row?->answer;
+
+        return is_string($answer) && trim($answer) !== '' ? trim($answer) : null;
+    }
+
+    /**
      * Enqueue an abstention as a clarification request. Idempotent on (goal_fingerprint, reason): the first
      * sighting inserts (pending, times_seen=1); a recurrence increments times_seen and refreshes the goal
      * text, but NEVER resets an already-answered/dismissed status (the operator's resolution is sticky).

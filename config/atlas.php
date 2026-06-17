@@ -2357,6 +2357,11 @@ return [
         // guessing. Independently gated from plan_abstention_visible (log). Default OFF => no row enqueued =>
         // byte-identical planning fallback.
         'clarification_queue_enabled' => (bool) env('ATLAS_LOOP_CLARIFICATION_QUEUE_ENABLED', false),
+        // ACDE U6 — clarification ANSWER CACHE. Before screening/planning, fold a cached operator answer for
+        // the SAME goal (U5 queue, status=answered) back into the goal so the loop never re-asks what was
+        // already clarified and plans with the missing anchor in hand. Default OFF => goal unchanged =>
+        // byte-identical.
+        'clarification_cache_enabled' => (bool) env('ATLAS_LOOP_CLARIFICATION_CACHE_ENABLED', false),
         // ACDE MF2 — hub-first multi-file conversion: when a coupled cluster is detected, route the anchored HUB
         // through the proven single-file refactor lane (its own complexity proof) instead of the all-or-nothing
         // N-file conjunction that drops ~17% of conversions. Only under the known-shape guard (covered>=2, hub
