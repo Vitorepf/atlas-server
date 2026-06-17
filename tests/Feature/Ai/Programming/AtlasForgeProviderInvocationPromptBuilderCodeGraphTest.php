@@ -92,7 +92,7 @@ final class AtlasForgeProviderInvocationPromptBuilderCodeGraphTest extends TestC
         $wiredPrompt = $wired->build($obra, $dispatchPlan);
 
         // ... vs a BARE builder with NO dependencies = the pre-seam behaviour reproduced.
-        $bare = new AtlasForgeProviderInvocationPromptBuilder();
+        $bare = new AtlasForgeProviderInvocationPromptBuilder;
         $barePrompt = $bare->build($obra, $dispatchPlan);
 
         // The key must be absent entirely (not present-but-empty) → byte-identical shape.
