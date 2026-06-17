@@ -2354,6 +2354,10 @@ return [
         // structurally-impeccable DAG cannot silently drop a behavioral dimension. Conservative (one shared
         // token => covered). Default OFF / no criteria on the plan => byte-identical.
         'spec_coverage_band_enabled' => (bool) env('ATLAS_LOOP_SPEC_COVERAGE_BAND_ENABLED', false),
+        // ACDE P2 — hint-grounding: strip fictional *.php references (files the weak engine invented) from the
+        // spec's decomposition_hint before the planner consumes it, so it cannot chase a non-existent file.
+        // Default OFF => the spec is unchanged => byte-identical.
+        'hint_grounding_enabled' => (bool) env('ATLAS_LOOP_HINT_GROUNDING_ENABLED', false),
         // ACDE WD4 — split the strategy-bandit UCB bucket by a MEASURED complexity tier (lo/mid/hi on total
         // cyclomatic) so surgical-vs-root_cause efficacy is no longer averaged across a trivial adapter and a
         // 200-method hub. Default OFF => targetType() returns the bare path-prefix bucket, no file read,

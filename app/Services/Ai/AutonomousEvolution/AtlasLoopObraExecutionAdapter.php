@@ -635,6 +635,15 @@ class AtlasLoopObraExecutionAdapter
         );
         $newFiles = $this->plannedNewFiles($spec['spec'], $allowed);
         $planAllowed = array_values(array_unique(array_merge($allowed, $newFiles)));
+
+        // ACDE P2 — HINT-GROUNDING. A weak engine writes a confident-but-fictional decomposition_hint naming
+        // files that do not exist; the planner then chases them into an ill-formed DAG. When armed, strip hint
+        // file-references not in the allowed/new-file scope BEFORE the planner consumes the spec. Default OFF =>
+        // spec unchanged => byte-identical.
+        if ((bool) config('atlas.loop.hint_grounding_enabled', false)) {
+            $spec['spec'] = $this->groundDecompositionHint($spec['spec'], $planAllowed);
+        }
+
         $out = $planner->plan($goal, ['spec' => $spec['spec']], $planAllowed, $this->planGenerator($payload, $allowed, $newFiles, $spec['spec']), (int) config('atlas.loop.planning_plan_max_attempts', 3));
         if (($out['ready'] ?? false) !== true || ! is_array($out['plan'] ?? null)) {
             return null; // planner refused -> buildPlan fallback (cheap; never spend on an ill-formed plan)
@@ -643,6 +652,48 @@ class AtlasLoopObraExecutionAdapter
         // The executor walks nodes by SEQ ascending (AtlasObraExecutor::execute), NOT by depends_on —
         // so the create-class node MUST carry seq=0 (the planGenerator assigns it).
         return ['plan' => $out['plan'], 'allowed' => $planAllowed, 'new_files' => $newFiles];
+    }
+
+    /**
+     * ACDE P2 — strip fictional file references from a spec's decomposition_hint. Every `*.php` token in the
+     * hint that is NOT in the allowed/new-file scope (a file the weak engine invented) is removed, so the
+     * planner cannot chase a non-existent file. Real references are preserved verbatim. Pure string transform.
+     *
+     * @param  array<string,mixed>  $spec
+     * @param  list<string>  $allowedFiles
+     * @return array<string,mixed>
+     */
+    public function groundDecompositionHint(array $spec, array $allowedFiles): array
+    {
+        $hint = $spec['decomposition_hint'] ?? null;
+        if (! is_string($hint) || trim($hint) === '') {
+            return $spec;
+        }
+        $allow = [];
+        foreach ($allowedFiles as $f) {
+            $n = ltrim(mb_strtolower(trim((string) $f)), '/');
+            if ($n !== '') {
+                $allow[$n] = true;
+            }
+        }
+        $stripped = false;
+        $grounded = (string) preg_replace_callback('/[A-Za-z0-9_\/.\-]+\.php\b/', static function (array $m) use ($allow, &$stripped): string {
+            $tok = ltrim(mb_strtolower($m[0]), '/');
+            if (isset($allow[$tok])) {
+                return $m[0];
+            }
+            $stripped = true;
+
+            return ''; // a fictional file reference => removed
+        }, $hint);
+        $grounded = trim((string) preg_replace('/\s{2,}/', ' ', $grounded));
+
+        $spec['decomposition_hint'] = $grounded;
+        if ($stripped) {
+            $spec['decomposition_hint_grounded'] = true;
+        }
+
+        return $spec;
     }
 
     /**
