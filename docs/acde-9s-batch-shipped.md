@@ -50,3 +50,40 @@ The `AtlasLoopObraExecutionPlanningTest` shows 3 reds in the live env — caused
 (`ATLAS_LOOP_DECOMPOSITION_NON_VACUITY_ENABLED` etc.) leaking into tests that expect the OFF behaviour.
 Confirmed: with those flags forced OFF the suite is 4/4 green. Not a regression from this batch (DC4 is
 OFF in those tests; the failing reason is a readiness-gate path DC4 never touches).
+
+## Full-list reconciliation (the operator's broad goal, every item — honest state 2026-06-17)
+
+The broad goal named MF2 · RF2+RF4 · QA2/QA5 · MF1/MF3/MF5 · DC4-7 · F4-F8 · U3-7 + compounding seeds.
+Reconciled against `main` (commits verified, not assumed):
+
+**SHIPPED (17, all on main, all tested, byte-identical-OFF):**
+- QA: QA1 `f7c8490b5`, QA2 `f796be26f`, QA5 `cca4d282c`
+- RF: RF2+RF4 `20c40ff6d` (kill-vector); RF3 ≈ V1 `e9976b46b` (symbol-exercised census, already shipped)
+- MF: MF2 `466e51dde` (hub-first — the biggest conversion mover), MF3 `aeac47d08`, MF5 `6ad78b34d`; MF1
+  subsumed by the existing obra resume, hardened by F5+F6
+- DC: DC4 `f231735a2`, DC5 `38e1d0b05`, DC6 `fcead36c6`
+- U: U4 `a13fb997a`, U5 `a5bd833d3`, U6 `b1a7ff981`, U7 `7c6fac1e7`
+- F: F5+F6 `fc304437c`
+
+**OPERATOR-ARMING, not code:** `RF1` = arm the two already-shipped gates (X2 parse-gate + decision-aware
+mutation) in `.env`. `.env` is SECRET-CLASS and arming changes live loop behaviour — the operator's act.
+
+**BUILDABLE NEXT — medium live-path integration, deliberately NOT rushed (anti-theater + cert-safety):**
+- `DC7` de-orphan `AtlasLoopHeavyWorkSelector` into live refiller ranking. The selector is real and
+  unit-tested but ranks on REAL evidence (refactor_leverage, cyclomatic_total, blast_radius, class_stats);
+  wiring it with stubbed evidence would be theater. Promote when the discovery candidate carries those fields.
+- `F4` incremental feature-sequence executor — close the verified orphan `AtlasLoopFeatureSequencePlanner`
+  on the live obra execution lane.
+- `F7` step reorder by historical first-pass rate (compounding seed) — needs a per-step-shape first-pass
+  prior + a DAG-SAFE reorder (only within an antichain level; never violate depends_on).
+
+**HONESTLY CEILING-/DEPENDENCY-BLOCKED — NOT faked:**
+- `U3` sample-N objective divergence (Jaccard) — blocked on a U1 re-architecture that retains the K sampled
+  objectives (U1 keeps only the consensus today). Data-thin + overlaps M1/U1 until then.
+- `F8` sample-N-over-paraphrases abstain on inferred atoms — paraphrase-sampling of INFERRED acceptance atoms
+  is a semantic judgement that rides the model (Section D #2). Faking it would manufacture the loop's own
+  acceptance bar (Goodhart) — forbidden.
+
+**/workflows:** the heavy multi-agent Workflow fan-outs were NOT run for these levers — operator rule is no
+Claude-token burn on Workflow fan-out without an explicit ask. Every lever was built PHP-native and verified
+directly with phpunit (the loop's own engine), the correct discipline here.
