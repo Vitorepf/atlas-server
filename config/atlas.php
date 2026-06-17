@@ -2339,6 +2339,11 @@ return [
         // N-file conjunction that drops ~17% of conversions. Only under the known-shape guard (covered>=2, hub
         // anchored). Default OFF => the multi-file conjunction stands => byte-identical.
         'multi_file_hub_first_enabled' => (bool) env('ATLAS_LOOP_MULTI_FILE_HUB_FIRST_ENABLED', false),
+        // ACDE DC5 — compound the strategy-bandit UCB key with the work-class (type|tier|work-class) so a
+        // strategy is not averaged across different work-classes of the same type+tier. Default OFF => bare
+        // bucket => byte-identical. Dilution caveat: finer keys = fewer samples/cell (the bandit's own
+        // min-attempts completion gate already guards against acting on thin cells).
+        'bandit_compound_workclass_key_enabled' => (bool) env('ATLAS_LOOP_BANDIT_COMPOUND_WORKCLASS_KEY_ENABLED', false),
         // ACDE U2 — red-REASON discriminator. AtlasEvolutionTaskGenerator::isRed accepts ANY non-zero exit as a
         // real RED task, so a weak engine's structurally-broken test (does not parse / wrong require path) is
         // mistaken for genuine behavioral work. When armed, a generated RED must additionally be BEHAVIORAL

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWorkClassPriorService;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
@@ -431,18 +432,25 @@ final class AtlasLoopExplorerStrategyBanditService
             default => 'other',
         };
 
-        // ACDE WD4 — when armed, split the UCB bucket by a MEASURED complexity tier so a trivial adapter and a
-        // 200-method hub (both 'service' today) stop sharing one strategy ranking — surgical wins on the small
-        // file, root_cause on the hub, and averaging them buries both. Default OFF => the bare path-prefix type
-        // is returned with NO file read => byte-identical.
+        // ACDE WD4 — split the UCB bucket by a MEASURED complexity tier so a trivial adapter and a 200-method
+        // hub (both 'service' today) stop sharing one strategy ranking. ACDE DC5 — compound further with the
+        // work-class so a strategy is not averaged across different work-classes of the same type|tier. Both
+        // default OFF => the bare path-prefix bucket is returned with no file read => byte-identical.
+        $bucket = $type;
         if ($type !== 'unknown' && (bool) config('atlas.loop.bandit_complexity_tier_enabled', false)) {
             $tier = $this->complexityTier($path);
             if ($tier !== '') {
-                return $type.'|'.$tier;
+                $bucket = $type.'|'.$tier;
+            }
+        }
+        if ($type !== 'unknown' && (bool) config('atlas.loop.bandit_compound_workclass_key_enabled', false)) {
+            $workClass = (new AtlasLoopWorkClassPriorService)->workClass($path);
+            if ($workClass !== '' && $workClass !== 'unknown' && $workClass !== 'root') {
+                $bucket .= '|'.$workClass;
             }
         }
 
-        return $type;
+        return $bucket;
     }
 
     /**
