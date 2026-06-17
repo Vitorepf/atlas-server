@@ -24,7 +24,7 @@ final class PromptSections implements AtlasDevSchemaContract
      * @param  list<string>  $escalationConditions
      * @param  list<string>  $outputContract
      * @param  list<string>  $nonGoals  scope-bounding clauses derived from MiniSpec.non_goals;
-     *                                 mandatory non-empty for any write-capable LightTaskContract.
+     *                                  mandatory non-empty for any write-capable LightTaskContract.
      * @param  list<string>  $knownFailureModes  area-scoped, provider-safe, deduped failure
      *                                           capsule entries (M5 compounding memory). Empty by
      *                                           default so a foreign/empty area yields a

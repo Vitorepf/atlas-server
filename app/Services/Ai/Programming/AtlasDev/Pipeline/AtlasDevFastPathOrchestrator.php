@@ -124,15 +124,24 @@ class AtlasDevFastPathOrchestrator
         // M5: Compounding failure memory — feed persisted AtlasDevFailureCapsule
         // rows forward as known failure modes of the area into the prompt
         // projection. Area identity = overlap between the run's allowed_files
-        // and a capsule's changed_files. REUSES AtlasDevFailureCapsule (model)
-        // via DevFailureCapsulePromptInjector (read-only). Injection is
+        // and a capsule's changed_files, AND repository/workspace identity via
+        // the capsule's task_packet.workspace_slug. REUSES AtlasDevFailureCapsule
+        // (model) via DevFailureCapsulePromptInjector (read-only). Injection is
+        // workspace-scoped (foreign-workspace capsule never injects even when
+        // its changed_files overlap — VAL-M5-007 anti cross-repo bleed),
         // area-scoped (foreign-area capsule never injects — VAL-M5-003),
         // provider-safe (secrets redacted — VAL-M5-005), deterministic and
         // deduped on failure_hash (VAL-M5-006). An empty/foreign area yields
         // an empty list and the projection stays byte-identical to the pre-M5
         // baseline (VAL-M5-004 — the renderer omits the section when empty).
+        //
+        // Workspace_slug normalization mirrors DevTaskPacketRuntimeService,
+        // where workspace_slug falls back to the workspace string when no
+        // explicit slug is supplied. The envelope carries the resolved
+        // workspace (path or slug) used by the current run.
+        $workspaceSlug = $envelope->workspace;
         $knownFailureModes = ($this->failureCapsuleInjector ?? new DevFailureCapsulePromptInjector)
-            ->injectFor($taskContract->allowedFiles);
+            ->injectFor($taskContract->allowedFiles, $workspaceSlug);
 
         $promptProjection = $this->promptBuilder->build(
             envelope: $envelope,

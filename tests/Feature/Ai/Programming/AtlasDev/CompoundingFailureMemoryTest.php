@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\Programming\AtlasDev;
 
 use App\Models\AtlasDevFailureCapsule;
-use App\Models\AtlasDevTaskPacket;
 use App\Services\Ai\Programming\AtlasDev\Discovery\CodeDiscoveryEngine;
 use App\Services\Ai\Programming\AtlasDev\Discovery\DocContextTierSelector;
 use App\Services\Ai\Programming\AtlasDev\Discovery\OpenBrainProjectionAdapter;
@@ -17,14 +16,15 @@ use App\Services\Ai\Programming\AtlasDev\Pipeline\RoutingDecisionEngine;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\RunIdGenerator;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\SpecComposer;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\TaskClassifier;
-use App\Services\Ai\Programming\AtlasDev\PromptProjection\ProviderPromptBuilder;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\PromptQualityChecker;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\PromptRenderer;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\PromptSectionsMapper;
+use App\Services\Ai\Programming\AtlasDev\PromptProjection\ProviderPromptBuilder;
 use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsulePromptInjector;
 use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsuleRuntimeService;
 use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevTaskPacketRuntimeService;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
+use Tests\Feature\Ai\Programming\AtlasDev\Http\FakeAtlasOpenBrainService;
 use Tests\TestCase;
 use Tests\Unit\Ai\Programming\AtlasDev\PromptProjection\PromptProjectionFixtures;
 
@@ -124,8 +124,9 @@ final class CompoundingFailureMemoryTest extends TestCase
         string $failureClass = 'test_failure',
         string $error = 'PHPUnit failed assertion in ScheduleParser area',
         string $suggestedRepair = 'restore the weeks plural null symmetry',
+        ?string $workspaceSlug = null,
     ): AtlasDevFailureCapsule {
-        $packet = (new DevTaskPacketRuntimeService)->persist([
+        $packetInput = [
             'run_id' => 'm5-'.bin2hex(random_bytes(2)),
             'task_id' => 'm5-task-'.bin2hex(random_bytes(2)),
             'objective' => 'M5 capsule fixture',
@@ -133,7 +134,11 @@ final class CompoundingFailureMemoryTest extends TestCase
             'task_class' => 'feature',
             'suggested_tests' => ['php artisan test tests/Unit/ScheduleParserTest.php'],
             'expected_files' => $changedFiles,
-        ]);
+        ];
+        if ($workspaceSlug !== null) {
+            $packetInput['workspace_slug'] = $workspaceSlug;
+        }
+        $packet = (new DevTaskPacketRuntimeService)->persist($packetInput);
 
         return (new DevFailureCapsuleRuntimeService)->persist([
             'run_id' => $packet->run_id,
@@ -152,12 +157,11 @@ final class CompoundingFailureMemoryTest extends TestCase
      *
      * @param  list<string>  $targetFiles  the run's allowed_files (its area)
      * @param  list<string>  $forbiddenFiles
-     * @return ProviderPromptProjection
      */
-    private function buildProjectionForArea(array $targetFiles, array $forbiddenFiles = []): ProviderPromptProjection
+    private function buildProjectionForArea(array $targetFiles, array $forbiddenFiles = [], ?string $workspaceSlug = null): ProviderPromptProjection
     {
         $injector = new DevFailureCapsulePromptInjector;
-        $knownFailureModes = $injector->injectFor($targetFiles);
+        $knownFailureModes = $injector->injectFor($targetFiles, $workspaceSlug);
 
         return $this->makeBuilder()->build(
             envelope: $this->envelope(),
@@ -509,7 +513,7 @@ final class CompoundingFailureMemoryTest extends TestCase
             tierSelector: new DocContextTierSelector,
             codeDiscovery: new CodeDiscoveryEngine,
             openBrainAdapter: new OpenBrainProjectionAdapter(
-                new \Tests\Feature\Ai\Programming\AtlasDev\Http\FakeAtlasOpenBrainService,
+                new FakeAtlasOpenBrainService,
             ),
             promptBuilder: new ProviderPromptBuilder(
                 sectionsMapper: new PromptSectionsMapper,
@@ -538,5 +542,131 @@ final class CompoundingFailureMemoryTest extends TestCase
         $this->assertStringNotContainsString('architecture_risk', $rendered);
         $this->assertStringNotContainsString('promote to Forge senior review', $rendered);
         $this->assertStringNotContainsString('FOREIGN_AREA_UNIQUE_TOKEN_9931', $rendered);
+    }
+
+    /**
+     * VAL-M5-007: ANTI-GAMING — a capsule from a DIFFERENT repository/workspace
+     * is never injected (path overlap is not enough).
+     *
+     * Area identity includes repository/workspace, not just file paths. Given
+     * a capsule persisted for a FOREIGN workspace (its task_packet_id resolves
+     * to an atlas_dev_task_packets.workspace_slug different from the current
+     * run's workspace) whose changed_files paths nonetheless OVERLAP the
+     * current run's target set, the capsule MUST NOT be injected. The
+     * otherwise-identical SAME-workspace capsule with the same overlapping
+     * paths IS injected. The injector scopes the capsule query to the current
+     * workspace before applying area overlap and failure_hash dedup.
+     */
+    public function test_anti_gaming_foreign_workspace_capsule_is_never_injected_even_when_paths_overlap(): void
+    {
+        $target = 'app/Services/Scheduling/ScheduleParser.php';
+        $currentWorkspace = '/repos/atlas-server';
+        $foreignWorkspace = '/repos/foreign-repo';
+
+        // Same-workspace capsule: its task_packet workspace_slug matches the
+        // current run. It MUST inject.
+        $sameWorkspaceCapsule = $this->persistCapsule(
+            changedFiles: [$target],
+            failureClass: 'test_failure',
+            suggestedRepair: 'SAME_WORKSPACE_REPAIR_TOKEN_7741 restore plural null symmetry',
+            error: 'SAME_WORKSPACE_ERROR_TOKEN_7741 PHPUnit assertion failed',
+            workspaceSlug: $currentWorkspace,
+        );
+
+        // Foreign-workspace capsule: IDENTICAL overlapping changed_files but
+        // a DIFFERENT task_packet workspace_slug. It MUST NOT inject even
+        // though its changed_files match the current run's target.
+        $foreignWorkspaceCapsule = $this->persistCapsule(
+            changedFiles: [$target],
+            failureClass: 'foreign_repo_leak',
+            suggestedRepair: 'FOREIGN_WORKSPACE_REPAIR_TOKEN_8842 must never leak',
+            error: 'FOREIGN_WORKSPACE_ERROR_TOKEN_8842 leaked cross-repo content',
+            workspaceSlug: $foreignWorkspace,
+        );
+
+        $this->assertNotSame(
+            $sameWorkspaceCapsule->task_packet_id,
+            $foreignWorkspaceCapsule->task_packet_id,
+            'VAL-M5-007: the two capsules must belong to distinct task packets.',
+        );
+
+        // Sanity: the two task packets carry distinct workspace_slugs.
+        // (getAttribute() to satisfy phpstan without touching the baseline —
+        // pre-existing-debt pattern for magic Eloquent property access.)
+        $this->assertSame($currentWorkspace, $sameWorkspaceCapsule->taskPacket->getAttribute('workspace_slug'));
+        $this->assertSame($foreignWorkspace, $foreignWorkspaceCapsule->taskPacket->getAttribute('workspace_slug'));
+
+        $projection = $this->buildProjectionForArea([$target], workspaceSlug: $currentWorkspace);
+
+        // VAL-M5-007 (positive): same-workspace capsule IS injected.
+        $this->assertStringContainsString(
+            'test_failure',
+            $projection->renderedPromptText,
+            'VAL-M5-007: same-workspace capsule failure_class must appear in the rendered prompt',
+        );
+        $this->assertStringContainsString(
+            'SAME_WORKSPACE_REPAIR_TOKEN_7741',
+            $projection->renderedPromptText,
+            'VAL-M5-007: same-workspace capsule suggested_repair must appear in the rendered prompt',
+        );
+
+        // VAL-M5-007 (anti cross-repo bleed): foreign-workspace capsule is ABSENT.
+        $this->assertStringNotContainsString(
+            'foreign_repo_leak',
+            $projection->renderedPromptText,
+            'VAL-M5-007: foreign-workspace capsule failure_class must never leak',
+        );
+        $this->assertStringNotContainsString(
+            'FOREIGN_WORKSPACE_REPAIR_TOKEN_8842',
+            $projection->renderedPromptText,
+            'VAL-M5-007: foreign-workspace capsule suggested_repair must never leak',
+        );
+        $this->assertStringNotContainsString(
+            'FOREIGN_WORKSPACE_ERROR_TOKEN_8842',
+            $projection->renderedPromptText,
+            'VAL-M5-007: foreign-workspace capsule error_excerpt must never leak',
+        );
+    }
+
+    /**
+     * VAL-M5-007 (conservative fallback): when the current workspace_slug is
+     * null/empty, capsules whose task_packet carries a resolvable foreign
+     * workspace_slug MUST NOT leak. Only workspace-unresolvable capsules
+     * (null/empty task_packet workspace_slug) remain eligible.
+     */
+    public function test_anti_gaming_null_current_slug_does_not_leak_foreign_workspace_capsule(): void
+    {
+        $target = 'app/Services/Scheduling/ScheduleParser.php';
+        $foreignWorkspace = '/repos/foreign-repo';
+
+        // Foreign-workspace capsule: its task_packet has a resolvable foreign
+        // workspace_slug. The current run has NO workspace_slug (null) — the
+        // conservative fallback must NOT inject it.
+        $this->persistCapsule(
+            changedFiles: [$target],
+            failureClass: 'foreign_repo_leak_null_slug',
+            suggestedRepair: 'FOREIGN_NULL_FALLBACK_TOKEN_6620 must never leak',
+            error: 'FOREIGN_NULL_FALLBACK_ERROR_TOKEN_6620 cross-repo content',
+            workspaceSlug: $foreignWorkspace,
+        );
+
+        // Current run with no workspace_slug — null-slug conservative fallback.
+        $projection = $this->buildProjectionForArea([$target], workspaceSlug: null);
+
+        $this->assertStringNotContainsString(
+            'foreign_repo_leak_null_slug',
+            $projection->renderedPromptText,
+            'VAL-M5-007: foreign-workspace capsule must never leak on a null-slug run',
+        );
+        $this->assertStringNotContainsString(
+            'FOREIGN_NULL_FALLBACK_TOKEN_6620',
+            $projection->renderedPromptText,
+            'VAL-M5-007: foreign-workspace capsule suggested_repair must never leak on a null-slug run',
+        );
+        $this->assertStringNotContainsString(
+            'FOREIGN_NULL_FALLBACK_ERROR_TOKEN_6620',
+            $projection->renderedPromptText,
+            'VAL-M5-007: foreign-workspace capsule error_excerpt must never leak on a null-slug run',
+        );
     }
 }

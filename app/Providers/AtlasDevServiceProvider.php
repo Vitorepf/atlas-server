@@ -12,6 +12,9 @@ use App\Services\Ai\Programming\AtlasDev\Discovery\DocContextTierSelector;
 use App\Services\Ai\Programming\AtlasDev\Discovery\OpenBrainProjectionAdapter;
 use App\Services\Ai\Programming\AtlasDev\Gate\AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\Gate\SymfonyProcessCommandRunner;
+use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasCodexPlannerService;
+use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasMinimaxContextCompilerService as MinimaxContextCompiler;
+use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasMinimaxFirstWorkerService;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\AtlasDevFastPathOrchestrator;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\IntakeNormalizer;
@@ -24,17 +27,15 @@ use App\Services\Ai\Programming\AtlasDev\PromptProjection\PromptQualityChecker;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\PromptRenderer;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\PromptSectionsMapper;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\ProviderPromptBuilder;
-use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsulePromptInjector;
-use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasMinimaxContextCompilerService as MinimaxContextCompiler;
-use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasMinimaxFirstWorkerService;
-use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasCodexPlannerService;
 use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliGateway;
 use App\Services\Ai\Programming\AtlasDev\Provider\SymfonyClaudeCliGateway;
 use App\Services\Ai\Programming\AtlasDev\Runtime\ProcOpenRunWorkerDispatcher;
 use App\Services\Ai\Programming\AtlasDev\Runtime\RunWorkerDispatcher;
+use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsulePromptInjector;
 use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenService;
 use App\Services\Ai\Programming\AtlasDev\Surface\AtlasCliDevAdapter;
 use App\Services\Ai\Programming\AtlasDev\Surface\SurfaceResponseFormatter;
+use App\Services\Ai\Programming\AtlasMinimaxM27CliRuntimeExecutor;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 
@@ -83,7 +84,7 @@ final class AtlasDevServiceProvider extends ServiceProvider
 
         $this->app->singleton(AtlasMinimaxFirstWorkerService::class, function (): AtlasMinimaxFirstWorkerService {
             return new AtlasMinimaxFirstWorkerService(
-                minimaxExecutor: app(\App\Services\Ai\Programming\AtlasMinimaxM27CliRuntimeExecutor::class),
+                minimaxExecutor: app(AtlasMinimaxM27CliRuntimeExecutor::class),
                 codexPlanner: app(AtlasCodexPlannerService::class),
                 contextCompiler: new MinimaxContextCompiler,
             );

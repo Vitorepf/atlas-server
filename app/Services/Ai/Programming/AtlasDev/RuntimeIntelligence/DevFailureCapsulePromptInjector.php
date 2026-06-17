@@ -17,10 +17,14 @@ use Throwable;
  * of a subsequent run whose area overlaps a capsule's changed_files.
  *
  * Area identity = path overlap between a run's target files (allowed_files /
- * changed files) and a capsule's changed_files. A foreign-area capsule is
- * NEVER injected (VAL-M5-003). An area with zero matching capsules yields an
- * empty list and the projection stays byte-identical to the pre-M5 baseline
- * (VAL-M5-004 — the renderer omits the section entirely when this returns []).
+ * changed files) and a capsule's changed_files, AND repository/workspace
+ * identity via the capsule's task_packet `workspace_slug` (VAL-M5-007).
+ * A foreign-area capsule is NEVER injected (VAL-M5-003) and a
+ * foreign-workspace capsule is NEVER injected even when its changed_files
+ * paths overlap the current run's target set (VAL-M5-007 anti cross-repo
+ * bleed). An area with zero matching capsules yields an empty list and the
+ * projection stays byte-identical to the pre-M5 baseline (VAL-M5-004 — the
+ * renderer omits the section entirely when this returns []).
  *
  * Output contract:
  *   - list<string>, one entry per UNIQUE failure_hash (deduped — VAL-M5-006);
@@ -30,6 +34,20 @@ use Throwable;
  *     failure_class + suggested_repair + truncated, redacted error_excerpt
  *     (VAL-M5-005);
  *   - secret-shaped tokens in error_excerpt are redacted (VAL-M5-005).
+ *
+ * Workspace scoping (VAL-M5-007): the capsule query is restricted to rows
+ * whose `taskPacket.workspace_slug` matches the current run's workspace_slug
+ * BEFORE area overlap + failure_hash dedup. A capsule from a different
+ * workspace_slug must NEVER inject even when its changed_files overlap.
+ *
+ * Null-slug semantics (conservative fallback): when the current run's
+ * workspace_slug cannot be derived (null/empty), the injector still injects
+ * capsules whose `taskPacket.workspace_slug` is ALSO null/empty
+ * (i.e. workspace-unresolvable capsules), but NEVER injects a capsule whose
+ * task_packet carries a resolvable (non-empty) foreign workspace_slug. This
+ * keeps the honest-empty / area-only tests (which never set a workspace_slug
+ * on the persisted packet) working while preventing any confirmed
+ * foreign-workspace leak on an unidentifiable run (anti-gaming).
  *
  * The injector never fabricates content: every emitted entry is derived from a
  * persisted capsule row. No row → no entry (anti-gaming, VAL-M5-004).
@@ -62,9 +80,17 @@ final class DevFailureCapsulePromptInjector
      * @param  list<string>  $targetFiles  the run's target set (allowed_files).
      *                                     Empty list returns [] (no area → no
      *                                     injection — VAL-M5-004 honest empty).
-     * @return list<string>  provider-safe, area-scoped, deduped entries
+     * @param  string|null  $workspaceSlug  the current run's workspace_slug
+     *                                      (matches the AtlasDevTaskPacket
+     *                                      workspace_slug column). Used to scope
+     *                                      capsules to the current workspace
+     *                                      BEFORE area overlap + dedup
+     *                                      (VAL-M5-007 anti cross-repo bleed).
+     *                                      See the class docblock for the
+     *                                      null-slug conservative fallback.
+     * @return list<string> provider-safe, area-scoped, deduped entries
      */
-    public function injectFor(array $targetFiles): array
+    public function injectFor(array $targetFiles, ?string $workspaceSlug = null): array
     {
         $normalizedTargets = $this->normalizePaths($targetFiles);
         if ($normalizedTargets === []) {
@@ -73,6 +99,8 @@ final class DevFailureCapsulePromptInjector
             return [];
         }
 
+        $currentSlug = $this->normalizeWorkspaceSlug($workspaceSlug);
+
         // Fail-open: if the capsules table is absent (e.g. a test workspace
         // that never ran the runtime-intelligence migration, or a DB error),
         // there is no failure memory to inject. Mirrors the
@@ -80,7 +108,41 @@ final class DevFailureCapsulePromptInjector
         // missing read model. An empty list yields an honest baseline
         // projection (VAL-M5-004 — no fabricated content).
         try {
-            $capsules = AtlasDevFailureCapsule::query()->get();
+            $query = AtlasDevFailureCapsule::query()
+                ->leftJoin(
+                    'atlas_dev_task_packets',
+                    'atlas_dev_failure_capsules.task_packet_id',
+                    '=',
+                    'atlas_dev_task_packets.id',
+                );
+
+            // Workspace scoping (VAL-M5-007). A foreign-workspace capsule must
+            // NEVER inject, even when its changed_files overlap the current
+            // run's target set. The capsule's workspace identity is its
+            // task_packet.workspace_slug (task_packet_id -> AtlasDevTaskPacket).
+            //
+            // Null-slug conservative fallback (see class docblock): when the
+            // current run's workspace_slug is unresolvable, only capsules that
+            // are ALSO workspace-unresolvable (null/empty task_packet
+            // workspace_slug) are eligible. A capsule whose task_packet
+            // carries a resolvable foreign workspace_slug is NEVER injected
+            // on an unidentifiable run (no foreign-repo leak).
+            if ($currentSlug !== null) {
+                $query->where(
+                    fn ($q) => $q
+                        ->where('atlas_dev_task_packets.workspace_slug', $currentSlug)
+                        ->orWhereNull('atlas_dev_task_packets.workspace_slug')
+                        ->orWhere('atlas_dev_task_packets.workspace_slug', ''),
+                );
+            } else {
+                $query->where(
+                    fn ($q) => $q
+                        ->whereNull('atlas_dev_task_packets.workspace_slug')
+                        ->orWhere('atlas_dev_task_packets.workspace_slug', ''),
+                );
+            }
+
+            $capsules = $query->get(['atlas_dev_failure_capsules.*']);
         } catch (Throwable) {
             return [];
         }
@@ -114,6 +176,23 @@ final class DevFailureCapsulePromptInjector
         usort($entries, static fn (string $a, string $b): int => strcmp($a, $b));
 
         return AtlasDevStringListNormalizer::uniqueStrings($entries);
+    }
+
+    /**
+     * Normalize the workspace_slug the same way the runtime does
+     * (DevTaskPacketRuntimeService falls back to the workspace string when
+     * no explicit slug is supplied). Empty/whitespace slugs collapse to
+     * null, which triggers the conservative null-slug fallback (no
+     * foreign-workspace injection).
+     */
+    private function normalizeWorkspaceSlug(?string $slug): ?string
+    {
+        if ($slug === null) {
+            return null;
+        }
+        $trimmed = trim($slug);
+
+        return $trimmed === '' ? null : $trimmed;
     }
 
     /**
