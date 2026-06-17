@@ -635,6 +635,24 @@ class AtlasLoopObraExecutionAdapter
             return null;
         }
 
+        // ACDE DC4 — change-class landing prior: a change CLASS (objective_kind family) that empirically never
+        // certifies on this engine should ASK the operator (escalate-not-burn), not grind yet another obra of a
+        // hopeless class. Reads the existing decomposition-outcomes ledger by normalized change-class (no new
+        // table). Default OFF / thin corpus => no abstention => byte-identical. Composes with U5: the abstention
+        // enqueues a clarification.
+        if ((bool) config('atlas.loop.change_class_prior_enabled', false)) {
+            try {
+                $ccPrior = (new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopChangeClassPriorService)->priorFor($kind);
+                if (($ccPrior['hopeless'] ?? false) === true) {
+                    $this->emitPlanAbstention($payload, 'change_class_historically_thrashes');
+
+                    return null;
+                }
+            } catch (\Throwable) {
+                // fail-open: a prior hiccup never blocks planning (proceed to spec/plan as before).
+            }
+        }
+
         // 1) INTENT -> SPEC (iterate-to-ready). generateSpec is hermes_cli spec-only in production;
         //    injected (via the protected provider seam) in tests. fn(string $goal, list<string> $priorGaps): array.
         $compiler = $this->specCompiler ?? new AtlasLoopIntentSpecCompiler;

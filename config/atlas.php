@@ -2367,6 +2367,14 @@ return [
         // high), so the operator's inbox sorts/routes instead of treating every abstention the same. Default
         // OFF => the router never runs => surface/priority stay NULL => byte-identical queue.
         'clarification_routing_enabled' => (bool) env('ATLAS_LOOP_CLARIFICATION_ROUTING_ENABLED', false),
+        // ACDE DC4 — change-class landing prior (objective_kind axis). A change CLASS that empirically never
+        // certifies on this engine abstains-and-asks at planning time instead of grinding another hopeless
+        // obra. Reads the existing decomposition-outcomes ledger by normalized change-class (no new table).
+        // Default OFF / thin corpus => no abstention => byte-identical.
+        'change_class_prior_enabled' => (bool) env('ATLAS_LOOP_CHANGE_CLASS_PRIOR_ENABLED', false),
+        'change_class_prior_min_samples' => (int) env('ATLAS_LOOP_CHANGE_CLASS_PRIOR_MIN_SAMPLES', 8),
+        'change_class_prior_floor_rate' => (float) env('ATLAS_LOOP_CHANGE_CLASS_PRIOR_FLOOR_RATE', 0.15),
+        'change_class_prior_window_hours' => (int) env('ATLAS_LOOP_CHANGE_CLASS_PRIOR_WINDOW_HOURS', 720),
         // ACDE MF2 — hub-first multi-file conversion: when a coupled cluster is detected, route the anchored HUB
         // through the proven single-file refactor lane (its own complexity proof) instead of the all-or-nothing
         // N-file conjunction that drops ~17% of conversions. Only under the known-shape guard (covered>=2, hub
