@@ -24,7 +24,11 @@ final class PromptSections implements AtlasDevSchemaContract
      * @param  list<string>  $escalationConditions
      * @param  list<string>  $outputContract
      * @param  list<string>  $nonGoals  scope-bounding clauses derived from MiniSpec.non_goals;
-     *                                 mandatory non-empty for any write-capable LightTaskContract.
+     *                                  mandatory non-empty for any write-capable LightTaskContract.
+     * @param  list<string>  $knownFailureModes  area-scoped, provider-safe, deduped failure
+     *                                           capsule entries (M5 compounding memory). Empty by
+     *                                           default so a foreign/empty area yields a
+     *                                           byte-identical baseline projection.
      */
     public function __construct(
         public readonly string $objective,
@@ -42,6 +46,7 @@ final class PromptSections implements AtlasDevSchemaContract
         public readonly array $outputContract,
         public readonly bool $providerSafe = true,
         public readonly array $nonGoals = [],
+        public readonly array $knownFailureModes = [],
     ) {}
 
     public function schemaVersion(): string
@@ -59,6 +64,7 @@ final class PromptSections implements AtlasDevSchemaContract
             'escalation_conditions' => array_values($this->escalationConditions),
             'expected_tests' => array_values($this->expectedTests),
             'forbidden_files' => array_values($this->forbiddenFiles),
+            'known_failure_modes' => array_values($this->knownFailureModes),
             'mini_spec_ref' => $this->miniSpecRef,
             'non_goals' => array_values($this->nonGoals),
             'objective' => $this->objective,
@@ -126,6 +132,9 @@ final class PromptSections implements AtlasDevSchemaContract
                 : true,
             nonGoals: array_key_exists('non_goals', $payload)
                 ? AtlasDevSchemaArray::stringList($payload, 'non_goals')
+                : [],
+            knownFailureModes: array_key_exists('known_failure_modes', $payload)
+                ? AtlasDevSchemaArray::stringList($payload, 'known_failure_modes')
                 : [],
         );
     }

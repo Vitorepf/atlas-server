@@ -52,6 +52,7 @@ final class PromptSectionsMapper
         LightTaskContract $taskContract,
         CodeDiscoveryManifest $discovery,
         OpenBrainProgrammingProjection $projection,
+        array $knownFailureModes = [],
     ): PromptSections {
         $miniSpecHash = $miniSpec->miniSpecHash !== '' ? $miniSpec->miniSpecHash : $miniSpec->hash();
         $taskContractHash = $taskContract->taskContractHash !== '' ? $taskContract->taskContractHash : $taskContract->hash();
@@ -74,6 +75,7 @@ final class PromptSectionsMapper
             outputContract: self::OUTPUT_CONTRACT_CLAUSES,
             providerSafe: true,
             nonGoals: AtlasDevStringListNormalizer::uniqueTrimmedStrings($miniSpec->nonGoals),
+            knownFailureModes: AtlasDevStringListNormalizer::uniqueStrings($knownFailureModes),
         );
     }
 

@@ -102,7 +102,7 @@ class ScheduleParser
     private function parseInterval(string $value, bool $prefixRequired): ?int
     {
         $value = trim($value);
-        $pattern = '/^(\d+)\s*(m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days)$/';
+        $pattern = '/^(\d+)\s*(m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|w|week|weeks)$/';
         if (! preg_match($pattern, $value, $matches)) {
             return null;
         }
@@ -117,6 +117,7 @@ class ScheduleParser
             'm', 'min', 'mins', 'minute', 'minutes' => $amount,
             'h', 'hr', 'hrs', 'hour', 'hours' => $amount * 60,
             'd', 'day', 'days' => $amount * 24 * 60,
+            'w', 'week', 'weeks' => $amount * 7 * 24 * 60,
             default => null,
         };
 
@@ -124,7 +125,7 @@ class ScheduleParser
             throw new InvalidArgumentException('Schedule interval is outside the supported range.');
         }
 
-        if (! $prefixRequired && preg_match('/^(minute|minutes|hour|hours|day|days)$/', $unit)) {
+        if (! $prefixRequired && preg_match('/^(minute|minutes|hour|hours|day|days|week|weeks)$/', $unit)) {
             return null;
         }
 

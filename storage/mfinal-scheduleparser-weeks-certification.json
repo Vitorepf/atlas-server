@@ -1,0 +1,151 @@
+{
+    "schema_version": "atlas.dev.mfinal_delivery_dossier.v1",
+    "delivery": {
+        "feature_id": "m-final-scheduleparser-weeks-delivery",
+        "task": "ScheduleParser::parseInterval weeks unit",
+        "production_diff_scope": [
+            "app/Services/Ai/Scheduling/ScheduleParser.php"
+        ],
+        "fulfilled_assertions": [
+            "VAL-MFINAL-001",
+            "VAL-MFINAL-002",
+            "VAL-MFINAL-003",
+            "VAL-MFINAL-004",
+            "VAL-MFINAL-005",
+            "VAL-MFINAL-006",
+            "VAL-MFINAL-007",
+            "VAL-MFINAL-008",
+            "VAL-CROSS-004"
+        ]
+    },
+    "machine_resolved_run_certification": {
+        "id": "019ed725-92d0-721d-8990-733763b094e9",
+        "schema_version": "atlas.dev.run_certification.v1",
+        "uuid": "a867abac795f1e8908d596548400ba603ca2cdaecc89018b9896737c8e68f942",
+        "run_id": "m-final-scheduleparser-weeks-delivery",
+        "task_id": "task-mfinal-scheduleparser-weeks",
+        "task_packet_id": "019ed725-928c-7095-a1ef-586bc31e7aa0",
+        "context_gate_id": "019ed725-929f-71e9-84e7-5163579d9737",
+        "failure_capsule_id": null,
+        "outcome_memory_id": "019ed725-92a6-70ce-b3ea-ea8a89d72479",
+        "status": "ready",
+        "summary": {
+            "total": 17,
+            "pass": 17,
+            "fail": 0,
+            "aedpds_fail": 0,
+            "provider_safe": true,
+            "outcome_status": "success",
+            "aedpds_gate_status": "passed",
+            "aedpds_selected_drivers": [
+                "atdd",
+                "tdd"
+            ],
+            "aedpds_checks": [
+                {
+                    "id": "aedpds_doctrine_selected",
+                    "status": "pass",
+                    "reason": "AEDPDS selected delivery drivers"
+                },
+                {
+                    "id": "aedpds_gate_passed",
+                    "status": "pass",
+                    "reason": "AEDPDS gate passed before Dev run certification"
+                }
+            ]
+        },
+        "checks": [
+            {
+                "id": "task_packet_present",
+                "status": "pass",
+                "reason": "Dev task packet persisted"
+            },
+            {
+                "id": "context_gate_passed",
+                "status": "pass",
+                "reason": "Context gate passed before provider-safe execution"
+            },
+            {
+                "id": "scope_declared",
+                "status": "pass",
+                "reason": "Allowed/expected files declared"
+            },
+            {
+                "id": "verification_declared",
+                "status": "pass",
+                "reason": "Tests or evidence declared"
+            },
+            {
+                "id": "outcome_memory_persisted",
+                "status": "pass",
+                "reason": "Outcome memory persisted"
+            },
+            {
+                "id": "evidence_present",
+                "status": "pass",
+                "reason": "Outcome evidence is present"
+            },
+            {
+                "id": "failed_run_has_failure_capsule",
+                "status": "pass",
+                "reason": "Failed/blocked Dev run requires a failure capsule"
+            },
+            {
+                "id": "test_impact_materialized",
+                "status": "pass",
+                "reason": "Focused/fallback test impact decision materialized"
+            },
+            {
+                "id": "senior_review_materialized",
+                "status": "pass",
+                "reason": "Risk-proportional senior review decision materialized"
+            },
+            {
+                "id": "delegation_route_materialized",
+                "status": "pass",
+                "reason": "Local/subagent/Forge route decision materialized"
+            },
+            {
+                "id": "prompt_projection_guard_materialized",
+                "status": "pass",
+                "reason": "Provider/subagent prompt projection guard materialized"
+            },
+            {
+                "id": "scope_guard_materialized",
+                "status": "pass",
+                "reason": "Task-bound scope guard decision materialized"
+            },
+            {
+                "id": "simulation_materialized",
+                "status": "pass",
+                "reason": "Pre-execution simulation decision materialized"
+            },
+            {
+                "id": "completion_gate_materialized",
+                "status": "pass",
+                "reason": "Completion gate decision materialized"
+            },
+            {
+                "id": "provider_capacity_memory_materialized",
+                "status": "pass",
+                "reason": "Provider capacity/failure memory observation materialized"
+            },
+            {
+                "id": "forge_escalation_policy_materialized",
+                "status": "pass",
+                "reason": "Dev-to-Forge escalation policy decision materialized"
+            },
+            {
+                "id": "decision_materialization_present",
+                "status": "pass",
+                "reason": "Important Dev decisions persisted for replay"
+            }
+        ],
+        "blockers": [],
+        "certification_hash": "a867abac795f1e8908d596548400ba603ca2cdaecc89018b9896737c8e68f942",
+        "created_at": "2026-06-17T19:53:44.000000Z",
+        "updated_at": "2026-06-17T19:53:44.000000Z"
+    },
+    "resolution_note": "Receipt resolved by DevRunCertificationService::certify() over a real persisted AtlasDevTaskPacket + AtlasDevContextGate + AtlasDevOutcomeMemory + AtlasDevDecisionMaterialization set (the same machine path as AtlasDevRuntimeIntelligenceTest). certification_hash is a real SHA-256 over the resolved payload; status is computed by the service, not asserted by hand. NOT a paid e2e hermes+MiniMax run (gated behind operator authorization); this is the machine-resolved certification receipt for the frozen PHP acceptance dossier.",
+    "paid_e2e_hermes_minimax_status": "gated_manual_operator_step_not_executed"
+}

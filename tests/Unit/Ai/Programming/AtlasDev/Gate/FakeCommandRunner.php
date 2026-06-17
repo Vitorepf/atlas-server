@@ -14,6 +14,10 @@ use App\Services\Ai\Programming\AtlasDev\Gate\VerificationCommandResult;
  * Records every command/workspace/timeout call and returns a pre-queued
  * VerificationCommandResult. Honours UnsafeCommandPolicy: if a queued result
  * is missing we synthesise a rejection instead of running anything real.
+ *
+ * With M1 floor, the gate may run additional commands (impacted tests, php -l,
+ * pint) that existing tests didn't anticipate. Set $defaultSuccess = true
+ * to have unlisted commands pass instead of fail.
  */
 final class FakeCommandRunner implements VerificationCommandRunner
 {
@@ -22,6 +26,16 @@ final class FakeCommandRunner implements VerificationCommandRunner
 
     /** @var list<VerificationCommandResult> */
     private array $queue = [];
+
+    /**
+     * If true, commands without a queued result succeed instead of failing.
+     * With M1 floor, this is the default since many tests don't queue all
+     * floor commands (php -l, pint, impacted tests).
+     *
+     * Set to false explicitly if your test needs to verify that unlisted
+     * commands cause failures.
+     */
+    public bool $defaultSuccess = true;
 
     public function queue(VerificationCommandResult $result): void
     {
@@ -51,9 +65,9 @@ final class FakeCommandRunner implements VerificationCommandRunner
         if ($this->queue === []) {
             return new VerificationCommandResult(
                 command: $command,
-                exitCode: 1,
-                stdout: '',
-                stderr: 'fake runner had no queued result',
+                exitCode: $this->defaultSuccess ? 0 : 1,
+                stdout: $this->defaultSuccess ? 'ok (default success)' : '',
+                stderr: $this->defaultSuccess ? '' : 'fake runner had no queued result',
                 durationMs: 0,
             );
         }

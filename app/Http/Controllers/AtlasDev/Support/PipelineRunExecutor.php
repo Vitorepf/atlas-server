@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\AtlasDev\Support;
 
+use App\Models\AiJob;
+use App\Services\Ai\AiProvider;
+use App\Services\Ai\AiProviderManager;
+use App\Services\Ai\Concerns\RunsCliProcesses;
 use App\Services\Ai\Context\AtlasAucriRuntimeEnforcementService;
-use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasMinimaxFirstWorkerService;
-use App\Services\Ai\Programming\AtlasForgeCodexCliInvocationDriver;
-use App\Services\Ai\Programming\AtlasForgeCursorCliInvocationDriver;
-use App\Services\Ai\Programming\AtlasForgeMinimaxM27CliInvocationDriver;
-use App\Services\Ai\Programming\HermesWorkspaceDefaults;
+use App\Services\Ai\HermesCliProvider;
 use App\Services\Ai\Programming\AtlasDev\Gate\AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner;
+use App\Services\Ai\Programming\AtlasDev\Gate\CompletionDecision;
 use App\Services\Ai\Programming\AtlasDev\Gate\CompletionStateGate;
 use App\Services\Ai\Programming\AtlasDev\Gate\PatchApplier;
 use App\Services\Ai\Programming\AtlasDev\Gate\PatchApplyResult;
@@ -21,25 +22,37 @@ use App\Services\Ai\Programming\AtlasDev\Gate\VerificationGate;
 use App\Services\Ai\Programming\AtlasDev\Gate\VerificationGateResult;
 use App\Services\Ai\Programming\AtlasDev\Intelligence\PatchIntelligenceInput;
 use App\Services\Ai\Programming\AtlasDev\Intelligence\PatchIntelligenceService;
+use App\Services\Ai\Programming\AtlasDev\Intelligence\ReviewIntelligenceService;
 use App\Services\Ai\Programming\AtlasDev\Intelligence\TestSelectionInput;
 use App\Services\Ai\Programming\AtlasDev\Intelligence\TestSelectionIntelligenceService;
+use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasMinimaxFirstWorkerService;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliGateway;
 use App\Services\Ai\Programming\AtlasDev\Provider\DiffParser;
 use App\Services\Ai\Programming\AtlasDev\Provider\DiffParseResult;
 use App\Services\Ai\Programming\AtlasDev\Provider\ProviderCallResult;
-use App\Services\Ai\Programming\AtlasDev\WorkspaceMutatingProviders;
 use App\Services\Ai\Programming\AtlasDev\Provider\SonnetClaudeCliAdapter;
+use App\Services\Ai\Programming\AtlasDev\Repair\FailureCapsuleBuilder;
+use App\Services\Ai\Programming\AtlasDev\Repair\FailureSignatureHasher;
+use App\Services\Ai\Programming\AtlasDev\Repair\RepairPromptComposer;
 use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\CompactSdd;
+use App\Services\Ai\Programming\AtlasDev\Schemas\Components\CompletionSummary;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\GateOutcome;
+use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ScopeFileDiff;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ScopeGuardReceipt;
 use App\Services\Ai\Programming\AtlasDev\Schemas\VerificationReceipt;
+use App\Services\Ai\Programming\AtlasDev\WorkspaceMutatingProviders;
+use App\Services\Ai\Programming\AtlasForgeCodexCliInvocationDriver;
+use App\Services\Ai\Programming\AtlasForgeCursorCliInvocationDriver;
+use App\Services\Ai\Programming\AtlasForgeMinimaxM27CliInvocationDriver;
+use App\Services\Ai\Programming\HermesWorkspaceDefaults;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Container\Container;
+use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 
 /**
@@ -98,18 +111,191 @@ final class PipelineRunExecutor implements RunExecutor
             return $this->blockedDueToUnwiredDrivers($envelope, false, true, $taskContract->providerLock->provider, $taskContract->providerLock->modelFamily);
         }
 
+        // M2: Repair-to-green loop. On hermes_cli path, when the verification
+        // gate fails, re-invoke the provider with failure context up to the cap.
+        // Mirrors AtlasMinimaxFirstWorkerService loop semantics. Reuses
+        // FailureSignatureHasher for same-signature-twice abort detection.
+        $isHermesCli = $taskContract->providerLock->provider === 'hermes_cli';
+        $repairCap = $isHermesCli
+            ? max(0, min(3, $taskContract->repairPolicy->maxAttempts))
+            : 0;
+        $repairAttempt = 0;
+        $lastFailureSignature = null;
+        $consecutiveSameSignature = 0;
+        $abortReason = null;
+        $hasher = new FailureSignatureHasher;
+
+        // The current prompt text for this iteration (starts as the original,
+        // becomes the repair prompt on subsequent iterations).
+        $currentPromptText = $promptProjection->renderedPromptText;
+
         $callResult = $deterministicCallResult;
         $providerCalls = 0;
-        if ($callResult === null) {
-            [$callResult, $providerCalls] = $this->executeLockedProvider(
+
+        // M4: Best-of-N (MiniMax-only) on the default hermes path.
+        //
+        // When N>1 and the locked runtime is hermes_cli, generate N candidate
+        // diffs in one synchronous run, run EACH through the M1 floor + gate
+        // (N independent gate evaluations, none skipped), and select the best
+        // PASSING candidate deterministically. A losing/failing/throwing
+        // candidate must NOT abort selection; if NO candidate passes the run
+        // reports non-completed (no manufactured green).
+        //
+        // REUSES the existing executeLockedProvider + DiffParser + ScopeGuard +
+        // applyPatchIfSafe + VerificationGate pipeline per candidate (LIGAR — do
+        // not rebuild). The candidate-selection STRUCTURE is adapted from the
+        // AutonomousEvolution best_of_n tier (AtlasLoopEscalationLadder) and
+        // loop lever #1, kept MiniMax-only (no engine swap).
+        //
+        // DETERMINISTIC TIE-BREAK (documented): among candidates whose gate =
+        // STATUS_PASSED, the LOWEST candidate index wins (first passing
+        // candidate in generation order). Identical fixtures therefore select
+        // the identical winner across runs (VAL-M4-003).
+        //
+        // N=1 (or best-of-N disabled) preserves the pre-M4 single-call path:
+        // the code falls through to the M2 repair loop below unchanged
+        // (VAL-M4-009).
+        //
+        // HONEST CEILING: same-model best-of-N (MiniMax-M3 × N) is WEAKER than
+        // cross-engine decorrelation. The receipt carries an explicit honesty
+        // annotation and makes NO equivalence/parity claim (VAL-M4-007).
+        $bestOfNCandidateCount = $isHermesCli
+            ? max(1, (int) config('atlas_dev.best_of_n.candidate_count', 1))
+            : 1;
+        $bestOfNEnabled = $isHermesCli
+            && $bestOfNCandidateCount > 1
+            && $deterministicCallResult === null;
+        $bestOfNSummary = null;
+
+        $bestOfNran = false;
+        if ($bestOfNEnabled) {
+            $bestOfNOutcome = $this->executeBestOfNHermes(
                 envelope: $envelope,
                 taskContract: $taskContract,
                 promptProjection: $promptProjection,
+                commandRunner: $commandRunner,
+                candidateCount: $bestOfNCandidateCount,
             );
+            $callResult = $bestOfNOutcome['callResult'];
+            $diffResult = $bestOfNOutcome['diffResult'];
+            $scopeReceipt = $bestOfNOutcome['scopeReceipt'];
+            $patchApplyResult = $bestOfNOutcome['patchApplyResult'];
+            $verificationResult = $bestOfNOutcome['verificationResult'];
+            $callResultForGates = $bestOfNOutcome['callResultForGates'];
+            $providerCalls = $bestOfNOutcome['providerCalls'];
+            $bestOfNSummary = $bestOfNOutcome['summary'];
+            // Best-of-N candidates are single-shot (no repair per candidate);
+            // skip the M2 repair loop. The winner flows through M3 critic +
+            // completion below as normal.
+            $bestOfNran = true;
         }
 
-        $diffResult = (new DiffParser)->parse($callResult->stdout);
+        if (! $bestOfNran) {
+            do {
+                if ($callResult === null) {
+                    [$callResult, $iterCalls] = $this->executeLockedProvider(
+                        envelope: $envelope,
+                        taskContract: $taskContract,
+                        promptProjection: $promptProjection,
+                        hermesPromptOverride: $currentPromptText !== $promptProjection->renderedPromptText
+                            ? $currentPromptText
+                            : null,
+                    );
+                    $providerCalls += $iterCalls;
+                }
 
+                $diffResult = (new DiffParser)->parse($callResult->stdout);
+
+                $scopeReceipt = (new ScopeGuard)->check(
+                    envelope: $envelope,
+                    taskContract: $taskContract,
+                    diffResult: $diffResult,
+                );
+
+                $patchApplyResult = $this->applyPatchIfSafe(
+                    diffResult: $diffResult,
+                    scopeStatus: $scopeReceipt->status,
+                    workspace: $envelope->workspace,
+                    callResult: $callResult,
+                );
+                $callResultForGates = $patchApplyResult->ok()
+                    ? $callResult
+                    : $this->withProviderError($callResult, 'patch_apply_failed');
+
+                $verificationResult = $patchApplyResult->ok()
+                    ? (new VerificationGate($commandRunner, $this->verificationReceiptStorage($runId)))->run(
+                        taskContract: $taskContract,
+                        callResult: $callResultForGates,
+                        scopeReceipt: $scopeReceipt,
+                        workspace: $envelope->workspace,
+                    )
+                    : $this->verificationFailedDueToPatchApply($patchApplyResult);
+
+                // Check if repair loop should continue
+                if ($verificationResult->aggregateStatus !== VerificationGateResult::STATUS_FAILED
+                    || ! $isHermesCli
+                    || $repairCap <= 0
+                ) {
+                    // Either green, not hermes, or repair disabled — exit loop.
+                    break;
+                }
+
+                $repairAttempt++;
+
+                // M2: Same-signature-twice abort (reuse FailureSignatureHasher).
+                // Compute the normalized signature from the gate failure output.
+                $failureExcerpt = $this->extractFailureExcerpt($verificationResult);
+                $currentSignature = $hasher->signature('verification_gate', $failureExcerpt);
+
+                if ($taskContract->repairPolicy->abortOnSameSignatureTwice
+                    && $currentSignature === $lastFailureSignature
+                ) {
+                    $consecutiveSameSignature++;
+                    if ($consecutiveSameSignature >= 2) {
+                        $abortReason = 'same_signature_twice';
+                        break;
+                    }
+                } else {
+                    $consecutiveSameSignature = 1;
+                }
+                $lastFailureSignature = $currentSignature;
+
+                if ($repairAttempt > $repairCap) {
+                    // Cap exhausted — anti-spin guarantee.
+                    $abortReason = 'validation_failed_after_max_repairs';
+                    break;
+                }
+
+                // M2: Build repair prompt with failure context fed forward.
+                // REUSES the armed RepairPromptComposer (listed in
+                // library/do-not-rebuild.md) plus FailureCapsuleBuilder to produce
+                // the repair projection. This inherits the composed guard rails
+                // (prompt-enforced stop conditions, operating rules, Repair Capsule
+                // section with the normalized failure signature) instead of the
+                // bypassed custom buildHermesRepairPrompt() that lost them
+                // (LIGAR violation flagged by M2 scrutiny). The REPAIR REQUIRED
+                // marker + "Previous attempt failed" header are preserved so the
+                // hermes path keeps the failure-excerpt structure VAL-M2-008 locks.
+                $currentPromptText = $this->buildComposedHermesRepairPrompt(
+                    promptProjection: $promptProjection,
+                    taskContract: $taskContract,
+                    verificationResult: $verificationResult,
+                    scopeReceipt: $scopeReceipt,
+                    diffResult: $diffResult,
+                    failureExcerpt: $failureExcerpt,
+                    repairAttempt: $repairAttempt,
+                    repairCap: $repairCap,
+                );
+
+                // Revert workspace changes before re-invoking provider.
+                $this->revertWorkspaceChanges($envelope->workspace, $taskContract->allowedFiles);
+
+                // Reset for next iteration — provider will be called again.
+                $callResult = null;
+            } while (true);
+        } // end if (! $bestOfNran)
+
+        // Persist artifacts after the loop exits (final attempt's results).
         $persisted = [];
         $persisted[ArtifactNames::PROVIDER_CALL_RESULT] = $this->storage->writeAtomic(
             $runId,
@@ -122,30 +308,50 @@ final class PipelineRunExecutor implements RunExecutor
             $diffResult->toCanonicalArray(),
         );
 
-        $scopeReceipt = (new ScopeGuard)->check(
-            envelope: $envelope,
-            taskContract: $taskContract,
-            diffResult: $diffResult,
-        );
-
-        $patchApplyResult = $this->applyPatchIfSafe(
-            diffResult: $diffResult,
-            scopeStatus: $scopeReceipt->status,
-            workspace: $envelope->workspace,
-            callResult: $callResult,
-        );
-        $callResultForGates = $patchApplyResult->ok()
-            ? $callResult
-            : $this->withProviderError($callResult, 'patch_apply_failed');
-
-        $verificationResult = $patchApplyResult->ok()
-            ? (new VerificationGate($commandRunner, $this->verificationReceiptStorage($runId)))->run(
-                taskContract: $taskContract,
-                callResult: $callResultForGates,
-                scopeReceipt: $scopeReceipt,
-                workspace: $envelope->workspace,
-            )
-            : $this->verificationFailedDueToPatchApply($patchApplyResult);
+        // M3: Senior critic — invoke ReviewIntelligenceService after the gate
+        // passes and before CompletionStateGate promotes a completion, on the
+        // default hermes_cli path only. A blocker/critical finding forces
+        // completion to non-completed even when tests are green; a clean diff
+        // is NOT falsely blocked; a critic exception degrades to non-passed
+        // (never silently swallowed to green). REUSE ReviewIntelligenceService
+        // (do not rebuild).
+        //
+        // CONTRACT GUARD (VAL-M3-001): the critic runs EXACTLY ONCE after a
+        // PASSED gate, NOT merely a not-failed gate. VerificationGateResult's
+        // aggregateStatus has exactly three possible values after the repair
+        // loop exits: STATUS_PASSED, STATUS_FAILED, STATUS_NEEDS_REVIEW. The
+        // prior guard (!== STATUS_FAILED) was BROADER than the contract: it
+        // also fired on STATUS_NEEDS_REVIEW (e.g. a doc-only diff with no
+        // validationCommands and no no_test_reason → test_skipped_no_reason),
+        // sending diffs to the critic on a non-passed gate. The contract
+        // wording is "after a PASSED gate" — so the guard now keys on the
+        // explicit STATUS_PASSED state. A needs_review / skipped gate no
+        // longer invokes the critic; the completion decision still reflects
+        // the needs_review verification status via CompletionStateGate.
+        $reviewReceipt = null;
+        $criticException = null;
+        $criticAnalysed = false;
+        if ($isHermesCli && $verificationResult->aggregateStatus === VerificationGateResult::STATUS_PASSED) {
+            try {
+                // Resolve from container (allows test bindings) or create fresh.
+                /** @var object $criticService */
+                $criticService = $this->container->bound(ReviewIntelligenceService::class)
+                    ? $this->container->make(ReviewIntelligenceService::class)
+                    : new ReviewIntelligenceService;
+                $criticInput = $this->buildCriticInput(
+                    runId: $runId,
+                    scopeReceipt: $scopeReceipt,
+                    taskContract: $taskContract,
+                    verificationResult: $verificationResult,
+                    diffResult: $diffResult,
+                );
+                $reviewReceipt = $criticService->analyse($criticInput);
+                $criticAnalysed = true;
+            } catch (\Throwable $e) {
+                // Critic exception degrades to non-passed (never swallowed to green).
+                $criticException = $e;
+            }
+        }
 
         $decision = (new CompletionStateGate)->decide(
             taskContract: $taskContract,
@@ -153,7 +359,27 @@ final class PipelineRunExecutor implements RunExecutor
             verificationResult: $verificationResult,
             callResult: $callResultForGates,
             diffResult: $diffResult,
+            reviewReceipt: $reviewReceipt,
+            criticException: $criticException,
         );
+
+        // M2: When the repair loop aborted or exhausted, add the abort reason
+        // to the decision's honesty flags so the receipt carries it honestly.
+        if ($abortReason !== null && $decision->status !== CompletionSummary::STATUS_PASSED) {
+            $decision = new CompletionDecision(
+                status: $decision->status,
+                honestyFlags: array_values(array_unique(array_merge(
+                    $decision->honestyFlags,
+                    ['repair_loop_terminated:'.$abortReason],
+                ))),
+                residualRisks: $decision->residualRisks,
+                reasons: array_values(array_merge(
+                    $decision->reasons,
+                    ['repair_abort:'.$abortReason],
+                    $repairAttempt > 0 ? ["repair_attempts:{$repairAttempt}"] : [],
+                )),
+            );
+        }
 
         $receipt = (new ReceiptComposer)->compose(
             envelope: $envelope,
@@ -235,6 +461,8 @@ final class PipelineRunExecutor implements RunExecutor
                 'provider' => $callResult->actualProvider,
                 'model_family' => $callResult->actualModelFamily,
                 'provider_calls' => $providerCalls,
+                'repair_attempts' => $repairAttempt,
+                'repair_abort_reason' => $abortReason,
                 'exit_code' => $callResultForGates->exitStatus,
                 'duration_ms' => $callResultForGates->durationMs,
                 'tokens_in' => $callResultForGates->tokensIn,
@@ -244,6 +472,10 @@ final class PipelineRunExecutor implements RunExecutor
                 'raw_response_hash' => $callResult->rawResponseHash,
                 'stdout_bytes' => strlen($callResult->stdout),
                 'stderr_bytes' => strlen($callResult->stderr),
+                'critic_status' => $criticAnalysed && $reviewReceipt !== null ? $reviewReceipt->status : null,
+                'critic_exception' => $criticException?->getMessage(),
+                'critic_findings_count' => $reviewReceipt !== null ? count($reviewReceipt->findings) : null,
+                ...$bestOfNSummary !== null ? ['best_of_n' => $bestOfNSummary] : [],
             ],
             diffParseSummary: $diffResult->toSummaryArray(),
             verificationReceiptHash: $receipt->receiptHash,
@@ -259,6 +491,7 @@ final class PipelineRunExecutor implements RunExecutor
         OperationEnvelope $envelope,
         LightTaskContract $taskContract,
         ProviderPromptProjection $promptProjection,
+        ?string $hermesPromptOverride = null,
     ): array {
         if (! $promptProjection->isSendable()) {
             return [
@@ -279,7 +512,7 @@ final class PipelineRunExecutor implements RunExecutor
             AtlasForgeCodexCliInvocationDriver::PROVIDER => $this->executeCodexProvider($envelope, $taskContract, $promptProjection),
             AtlasForgeCursorCliInvocationDriver::PROVIDER => $this->executeCursorProvider($envelope, $taskContract, $promptProjection),
             AtlasForgeMinimaxM27CliInvocationDriver::PROVIDER => $this->executeMinimaxProvider($envelope, $taskContract, $promptProjection),
-            'hermes_cli' => $this->executeHermesProvider($envelope, $taskContract, $promptProjection),
+            'hermes_cli' => $this->executeHermesProvider($envelope, $taskContract, $promptProjection, $hermesPromptOverride),
             default => [
                 $this->blockedProviderCallResult(
                     runId: $promptProjection->runId,
@@ -567,25 +800,25 @@ final class PipelineRunExecutor implements RunExecutor
         }
 
         $finding = [
-            'title'       => mb_substr($envelope->normalizedIntent, 0, 300),
+            'title' => mb_substr($envelope->normalizedIntent, 0, 300),
             'description' => mb_substr($promptProjection->renderedPromptText, 0, 2_000),
-            'spec_seed'   => ['candidate_id' => $taskContract->taskId],
+            'spec_seed' => ['candidate_id' => $taskContract->taskId],
         ];
 
         $startMs = (int) (microtime(true) * 1_000);
-        $result  = $worker->run([
-            'finding'             => $finding,
-            'allowed_files'       => array_values($taskContract->allowedFiles),
+        $result = $worker->run([
+            'finding' => $finding,
+            'allowed_files' => array_values($taskContract->allowedFiles),
             'validation_commands' => array_values($taskContract->validationCommands),
-            'worktree_path'       => $envelope->workspace,
-            'repo_root'           => $envelope->workspace,
-            'max_repairs'         => $taskContract->repairPolicy->maxAttempts,
+            'worktree_path' => $envelope->workspace,
+            'repo_root' => $envelope->workspace,
+            'max_repairs' => $taskContract->repairPolicy->maxAttempts,
         ]);
         $durationMs = (int) (microtime(true) * 1_000) - $startMs;
 
-        $status     = (string) ($result['status'] ?? 'blocked');
+        $status = (string) ($result['status'] ?? 'blocked');
         $tokensUsed = (int) ($result['run_summary']['provider_call']['tokens_used'] ?? 0);
-        $blockers   = array_values(array_filter(array_map(
+        $blockers = array_values(array_filter(array_map(
             static fn (mixed $b): string => is_string($b) ? $b : '',
             (array) ($result['blockers'] ?? []),
         ), static fn (string $b): bool => $b !== ''));
@@ -613,9 +846,9 @@ final class PipelineRunExecutor implements RunExecutor
         // Worker wrote files directly — derive diff like Cursor provider.
         $stdout = $this->workspaceDiff($envelope->workspace, $taskContract->allowedFiles);
         if (trim($stdout) === '') {
-            $stdout = "no_patch_needed: true
+            $stdout = 'no_patch_needed: true
 reason: MiniMax worker completed without a workspace diff in allowed_files.
-";
+';
         }
 
         return [
@@ -638,12 +871,12 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
 
     /**
      * Hermes CLI is the Atlas executive runtime governed through
-     * {@see \App\Services\Ai\HermesCliProvider}. Like Codex/Cursor/MiniMax it
+     * {@see HermesCliProvider}. Like Codex/Cursor/MiniMax it
      * mutates the isolated workspace directly, so Atlas derives the post-run
      * git diff and still runs scope + verification before any completion claim.
      *
      * The provider chooses its own cwd via
-     * {@see \App\Services\Ai\Concerns\RunsCliProcesses::workdirForJob()}, which
+     * {@see RunsCliProcesses::workdirForJob()}, which
      * reads (in order) payload.tool_permissions.workspace, payload.workspace,
      * then config('atlas.ai.workdir') — realpath()'d and required to be a dir.
      * We therefore pin BOTH workspace keys to $envelope->workspace so Hermes
@@ -655,8 +888,9 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         OperationEnvelope $envelope,
         LightTaskContract $taskContract,
         ProviderPromptProjection $promptProjection,
+        ?string $promptOverride = null,
     ): array {
-        $manager = app(\App\Services\Ai\AiProviderManager::class);
+        $manager = app(AiProviderManager::class);
 
         $provider = null;
         try {
@@ -664,7 +898,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         } catch (\Throwable) {
             $provider = null;
         }
-        if (! $provider instanceof \App\Services\Ai\AiProvider) {
+        if (! $provider instanceof AiProvider) {
             return [
                 $this->blockedProviderCallResult(
                     runId: $promptProjection->runId,
@@ -680,18 +914,22 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         $timeoutSeconds = $this->providerTimeoutSeconds($taskContract);
         $hermesOverrides = $this->atlasDevHermesOverrides($taskContract);
 
+        // M2: When a repair attempt overrides the prompt (failure context fed
+        // forward), use the override text instead of the original projection.
+        $promptText = $promptOverride ?? $promptProjection->renderedPromptText;
+
         // workdirForJob() reads tool_permissions.workspace || workspace ||
         // config('atlas.ai.workdir'). Pin both so Hermes runs IN the Dev
         // worktree ($envelope->workspace) and edits files there.
-        $job = new \App\Models\AiJob([
+        $job = new AiJob([
             'trace_id' => 'atlas-dev:'.$promptProjection->runId,
             'kind' => 'atlas_dev_run',
             'provider' => 'hermes_cli',
             // Hermes self-selects its sub-model; the _default sentinel makes its
             // CLI omit --model. Single-sourced so Dev/Forge can't diverge.
             'model' => HermesWorkspaceDefaults::model(),
-            'prompt' => $promptProjection->renderedPromptText,
-            'input_text' => $promptProjection->renderedPromptText,
+            'prompt' => $promptText,
+            'input_text' => $promptText,
             'timeout_seconds' => $timeoutSeconds,
             'payload' => [
                 'workspace' => $envelope->workspace,
@@ -710,7 +948,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
 
         $startMs = (int) (microtime(true) * 1_000);
         try {
-            $result = $provider->run($job, $promptProjection->renderedPromptText);
+            $result = $provider->run($job, $promptText);
         } catch (\Throwable $e) {
             return [
                 ProviderCallResult::fromStdout(
@@ -719,7 +957,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
                     actualModelFamily: $taskContract->providerLock->modelFamily,
                     exitStatus: 1,
                     stdout: '',
-                    stderr: \Illuminate\Support\Str::limit($e->getMessage(), 500, '...'),
+                    stderr: Str::limit($e->getMessage(), 500, '...'),
                     durationMs: (int) (microtime(true) * 1_000) - $startMs,
                     tokensIn: null,
                     tokensOut: null,
@@ -769,7 +1007,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
                 exitStatus: $errors === [] ? 0 : 1,
                 stdout: $stdout,
                 stderr: '',
-                durationMs: (int) ($result->durationMs ?? 0),
+                durationMs: (int) $result->durationMs,
                 tokensIn: null,
                 tokensOut: null,
                 costEstimateUsd: null,
@@ -798,6 +1036,667 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         }
 
         return $overrides;
+    }
+
+    /**
+     * M4: Best-of-N candidate generation + selection on the default hermes path.
+     *
+     * Generates N candidate diffs (N independent single-shot provider calls,
+     * each through the full M1 floor + gate), then selects the best PASSING
+     * candidate deterministically. REUSES executeLockedProvider + DiffParser +
+     * ScopeGuard + applyPatchIfSafe + VerificationGate per candidate (LIGAR —
+     * the existing gate machinery is the floor + gate each candidate must
+     * clear; we do NOT rebuild a per-candidate gate).
+     *
+     * Selection / tie-break (documented, deterministic): among candidates
+     * whose gate aggregateStatus === STATUS_PASSED, the LOWEST candidate
+     * index wins (first passing candidate in generation order). If NO
+     * candidate passes, the FIRST candidate's (failed) results are kept so
+     * the run reports non-completed honestly (no manufactured green).
+     *
+     * Tolerance: a candidate that throws during generation or fails the gate
+     * is RECORDED but does NOT abort the selection loop — the remaining
+     * candidates are still evaluated.
+     *
+     * Workspace handling: the hermes provider mutates the workspace directly,
+     * so between candidates the workspace is reverted (git checkout + clean)
+     * and each candidate's diff TEXT is captured. After selection, the
+     * workspace is reverted once more and the WINNER's diff is re-applied
+     * (git apply) so the persisted diff hash equals the selected candidate's
+     * (VAL-M4-008).
+     *
+     * @return array{
+     *   callResult:ProviderCallResult,
+     *   diffResult:DiffParseResult,
+     *   scopeReceipt:ScopeGuardReceipt,
+     *   patchApplyResult:PatchApplyResult,
+     *   verificationResult:VerificationGateResult,
+     *   callResultForGates:ProviderCallResult,
+     *   providerCalls:int,
+     *   summary:array<string,mixed>,
+     * }
+     */
+    private function executeBestOfNHermes(
+        OperationEnvelope $envelope,
+        LightTaskContract $taskContract,
+        ProviderPromptProjection $promptProjection,
+        VerificationCommandRunner $commandRunner,
+        int $candidateCount,
+    ): array {
+        $candidates = [];
+        $providerCalls = 0;
+
+        for ($i = 0; $i < $candidateCount; $i++) {
+            // Revert any prior candidate's workspace mutation before the next
+            // candidate runs, so each candidate's diff is independent.
+            if ($i > 0) {
+                $this->revertWorkspaceChanges($envelope->workspace, $taskContract->allowedFiles);
+            }
+
+            try {
+                [$callResult, $iterCalls] = $this->executeLockedProvider(
+                    envelope: $envelope,
+                    taskContract: $taskContract,
+                    promptProjection: $promptProjection,
+                );
+                $providerCalls += $iterCalls;
+            } catch (\Throwable $e) {
+                // A throwing candidate must not abort selection. Record it as
+                // a non-passing candidate and continue.
+                $candidates[] = [
+                    'index' => $i,
+                    'passed' => false,
+                    'error' => 'candidate_generation_threw:'.Str::limit($e->getMessage(), 200, '...'),
+                    'callResult' => null,
+                    'diffResult' => null,
+                    'scopeReceipt' => null,
+                    'patchApplyResult' => null,
+                    'verificationResult' => null,
+                    'callResultForGates' => null,
+                ];
+                // Revert partial workspace mutation from the throwing candidate.
+                $this->revertWorkspaceChanges($envelope->workspace, $taskContract->allowedFiles);
+
+                continue;
+            }
+
+            $diffResult = (new DiffParser)->parse($callResult->stdout);
+            $scopeReceipt = (new ScopeGuard)->check(
+                envelope: $envelope,
+                taskContract: $taskContract,
+                diffResult: $diffResult,
+            );
+            $patchApplyResult = $this->applyPatchIfSafe(
+                diffResult: $diffResult,
+                scopeStatus: $scopeReceipt->status,
+                workspace: $envelope->workspace,
+                callResult: $callResult,
+            );
+            $callResultForGates = $patchApplyResult->ok()
+                ? $callResult
+                : $this->withProviderError($callResult, 'patch_apply_failed');
+
+            $verificationResult = $patchApplyResult->ok()
+                ? (new VerificationGate($commandRunner, $this->verificationReceiptStorage($promptProjection->runId)))->run(
+                    taskContract: $taskContract,
+                    callResult: $callResultForGates,
+                    scopeReceipt: $scopeReceipt,
+                    workspace: $envelope->workspace,
+                )
+                : $this->verificationFailedDueToPatchApply($patchApplyResult);
+
+            // Capture this candidate's workspace diff text (the hermes provider
+            // mutates the workspace; the canonical diff is workspace-derived).
+            $candidateDiffText = $this->workspaceDiff($envelope->workspace, $taskContract->allowedFiles);
+
+            $candidates[] = [
+                'index' => $i,
+                'passed' => $verificationResult->aggregateStatus === VerificationGateResult::STATUS_PASSED,
+                'error' => null,
+                'callResult' => $callResult,
+                'diffResult' => $diffResult,
+                'scopeReceipt' => $scopeReceipt,
+                'patchApplyResult' => $patchApplyResult,
+                'verificationResult' => $verificationResult,
+                'callResultForGates' => $callResultForGates,
+                'candidate_diff_text' => $candidateDiffText,
+            ];
+        }
+
+        // Deterministic selection: first passing candidate (lowest index) wins.
+        $winner = null;
+        foreach ($candidates as $candidate) {
+            if ($candidate['passed']) {
+                $winner = $candidate;
+                break;
+            }
+        }
+
+        if ($winner === null) {
+            // No candidate passed: keep the FIRST candidate's results so the
+            // run reports non-completed honestly (anti-gaming: never
+            // manufacture green from all-red candidates).
+            $winner = $candidates[0] ?? null;
+        }
+
+        // Defensive: if no candidate was produced at all (should not happen
+        // with candidateCount >= 1), synthesize a blocked result.
+        if ($winner === null || $winner['callResult'] === null) {
+            $blocked = $this->blockedProviderCallResult(
+                runId: $promptProjection->runId,
+                provider: 'hermes_cli',
+                modelFamily: $taskContract->providerLock->modelFamily,
+                error: 'best_of_n_no_candidate_produced',
+                stderr: 'Best-of-N produced no candidate.',
+            );
+
+            return [
+                'callResult' => $blocked,
+                'diffResult' => DiffParseResult::invalid(['best_of_n_no_candidate_produced']),
+                'scopeReceipt' => (new ScopeGuard)->check(
+                    envelope: $envelope,
+                    taskContract: $taskContract,
+                    diffResult: DiffParseResult::invalid(['best_of_n_no_candidate_produced']),
+                ),
+                'patchApplyResult' => new PatchApplyResult(
+                    status: PatchApplyResult::STATUS_SKIPPED,
+                    exitCode: 0,
+                    durationMs: 0,
+                    stdout: '',
+                    stderr: '',
+                    reason: 'no_candidate',
+                ),
+                'verificationResult' => $this->verificationFailedDueToPatchApply(new PatchApplyResult(
+                    status: PatchApplyResult::STATUS_FAILED,
+                    exitCode: 1,
+                    durationMs: 0,
+                    stdout: '',
+                    stderr: 'No best-of-N candidate produced.',
+                    reason: 'no_candidate',
+                )),
+                'callResultForGates' => $blocked,
+                'providerCalls' => $providerCalls,
+                'summary' => $this->bestOfNSummary(
+                    candidateCount: $candidateCount,
+                    candidates: $candidates,
+                    winnerIndex: -1,
+                ),
+            ];
+        }
+
+        // Re-apply the winner's diff to the workspace so the persisted diff
+        // hash equals the selected candidate's (VAL-M4-008). The workspace was
+        // last mutated by the FINAL candidate; revert then re-apply winner.
+        $this->revertWorkspaceChanges($envelope->workspace, $taskContract->allowedFiles);
+        $reapplyStderr = '';
+        $reapplyOk = $this->reapplyCandidateDiff(
+            workspace: $envelope->workspace,
+            diffText: $winner['candidate_diff_text'] ?? '',
+            callResult: $winner['callResult'],
+            taskContract: $taskContract,
+            stderrRef: $reapplyStderr,
+        );
+
+        // FAIL-CLOSED (m4-fix-reapply-candidate-diff-fail-closed): if the
+        // winner has a non-empty diff and re-apply FAILED, the workspace does
+        // NOT match the selected winner. We MUST NOT return the winner's green
+        // metadata — that would report a GREEN completion whose actual
+        // workspace state differs from the selected winner's diff (fail-open
+        // correctness gap). Instead mirror the no-candidate-produced branch:
+        // a non-completed result with STATUS_FAILED patch_apply carrying the
+        // git apply stderr/reason, and verificationResult via
+        // verificationFailedDueToPatchApply(...) so aggregateStatus is
+        // non-passed. PRESERVE the empty-diff no-op case (the candidate made
+        // no workspace change -> reverted-clean state is correct), which
+        // reapplyCandidateDiff() reports as success.
+        $winnerDiffText = trim((string) ($winner['candidate_diff_text'] ?? ''));
+        if (! $reapplyOk && $winnerDiffText !== '') {
+            $reapplyBlocked = $this->blockedProviderCallResult(
+                runId: $promptProjection->runId,
+                provider: 'hermes_cli',
+                modelFamily: $taskContract->providerLock->modelFamily,
+                error: 'winner_reapply_failed',
+                stderr: $reapplyStderr !== '' ? $reapplyStderr : 'Winner diff re-apply failed.',
+            );
+            $reapplyPatchApply = new PatchApplyResult(
+                status: PatchApplyResult::STATUS_FAILED,
+                exitCode: 1,
+                durationMs: 0,
+                stdout: '',
+                stderr: $reapplyStderr !== '' ? $reapplyStderr : 'Winner diff re-apply failed.',
+                reason: 'winner_reapply_failed',
+            );
+
+            return [
+                'callResult' => $reapplyBlocked,
+                'diffResult' => DiffParseResult::invalid(['winner_reapply_failed']),
+                'scopeReceipt' => (new ScopeGuard)->check(
+                    envelope: $envelope,
+                    taskContract: $taskContract,
+                    diffResult: DiffParseResult::invalid(['winner_reapply_failed']),
+                ),
+                'patchApplyResult' => $reapplyPatchApply,
+                'verificationResult' => $this->verificationFailedDueToPatchApply($reapplyPatchApply),
+                'callResultForGates' => $reapplyBlocked,
+                'providerCalls' => $providerCalls,
+                'summary' => $this->bestOfNSummary(
+                    candidateCount: $candidateCount,
+                    candidates: $candidates,
+                    winnerIndex: -1,
+                ),
+            ];
+        }
+
+        // Rebuild the winner's diff result from the now-applied winner diff so
+        // the persisted diff hash reflects the selected candidate exactly.
+        $winnerDiffResult = (new DiffParser)->parse($winner['callResult']->stdout);
+
+        return [
+            'callResult' => $winner['callResult'],
+            'diffResult' => $winnerDiffResult,
+            'scopeReceipt' => $winner['scopeReceipt'],
+            'patchApplyResult' => $winner['patchApplyResult'],
+            'verificationResult' => $winner['verificationResult'],
+            'callResultForGates' => $winner['callResultForGates'],
+            'providerCalls' => $providerCalls,
+            'summary' => $this->bestOfNSummary(
+                candidateCount: $candidateCount,
+                candidates: $candidates,
+                winnerIndex: $winner['passed'] ? $winner['index'] : -1,
+            ),
+        ];
+    }
+
+    /**
+     * Re-apply a captured candidate's workspace diff after the workspace was
+     * reverted. Hermes mutates the workspace directly, so the canonical diff
+     * is workspace-derived text; we re-apply it via `git apply` so the
+     * selected winner's diff is the one persisted.
+     *
+     * FAIL-CLOSED (m4-fix-reapply-candidate-diff-fail-closed): the return
+     * value reports whether `git apply` succeeded. An empty (no-op) diff is
+     * treated as success — the reverted-clean workspace already matches a
+     * candidate that made no workspace change. A non-empty diff whose
+     * `git apply` fails (non-zero exit, e.g. context drift) returns false so
+     * the caller can refuse to persist a desynced winner's green metadata
+     * (anti-gaming: a workspace that does NOT match the selected winner must
+     * never report green). The captured stderr is exposed via the
+     * `$stderrRef` by-reference parameter for the caller's failure reason.
+     */
+    private function reapplyCandidateDiff(
+        string $workspace,
+        string $diffText,
+        ProviderCallResult $callResult,
+        LightTaskContract $taskContract,
+        string &$stderrRef = '',
+    ): bool {
+        $stderrRef = '';
+        if (! is_dir($workspace)) {
+            $stderrRef = 'reapply_workspace_missing';
+
+            return false;
+        }
+        $diffText = trim($diffText);
+        if ($diffText === '') {
+            // Nothing to re-apply; the candidate made no workspace change.
+            // The reverted (clean) workspace already matches this candidate,
+            // so this is a SUCCESS, not a failure.
+            return true;
+        }
+        $tmp = tempnam(sys_get_temp_dir(), 'atlas_bon_diff_');
+        if ($tmp === false) {
+            $stderrRef = 'reapply_tempnam_failed';
+
+            return false;
+        }
+        file_put_contents($tmp, $diffText."\n");
+        try {
+            $process = new Process(['git', 'apply', '--whitespace=nowarn', $tmp], $workspace, null, null, 15.0);
+            $process->run();
+            if (! $process->isSuccessful()) {
+                // FAIL-CLOSED: surface the git apply stderr so the caller can
+                // refuse to persist a desynced winner's green metadata.
+                $stderrRef = $process->getErrorOutput() !== ''
+                    ? $process->getErrorOutput()
+                    : 'git apply failed with exit code '.$process->getExitCode();
+
+                return false;
+            }
+
+            return true;
+        } finally {
+            @unlink($tmp);
+        }
+    }
+
+    /**
+     * Build the honest best-of-N summary block for the provider call receipt.
+     *
+     * Carries the explicit intra-model-weaker-than-cross-engine annotation
+     * and makes NO equivalence/parity claim (VAL-M4-007).
+     *
+     * @param  list<array<string,mixed>>  $candidates
+     * @return array<string,mixed>
+     */
+    private function bestOfNSummary(int $candidateCount, array $candidates, int $winnerIndex): array
+    {
+        $passing = array_values(array_filter(
+            $candidates,
+            static fn (array $c): bool => (bool) ($c['passed'] ?? false),
+        ));
+
+        return [
+            'enabled' => true,
+            'candidate_count' => $candidateCount,
+            'passing_count' => count($passing),
+            'selected_candidate_index' => $winnerIndex,
+            'tie_break' => 'lowest_index_among_passing',
+            // HONEST ANNOTATION (VAL-M4-007): same-model best-of-N is weaker
+            // than cross-engine decorrelation. No equivalence/parity claim.
+            'intra_model_best_of_n_weaker_than_cross_engine' => true,
+            'provider_lock' => 'hermes_cli',
+            'model_family' => 'minimax-m3',
+        ];
+    }
+
+    /**
+     * M3: Build the input array for ReviewIntelligenceService::analyse().
+     *
+     * Feeds the diff (from $scopeReceipt->observed->fileDiffs) + test evidence
+     * + scope contract into the critic so it can detect heuristic-bounded
+     * defects that tests alone won't catch.
+     *
+     * @return array<string,mixed>
+     */
+    private function buildCriticInput(
+        string $runId,
+        ScopeGuardReceipt $scopeReceipt,
+        LightTaskContract $taskContract,
+        VerificationGateResult $verificationResult,
+        DiffParseResult $diffResult,
+    ): array {
+        // changed_files from the observed diff (canonical "what changed" source)
+        $changedFiles = array_map(
+            static fn (ScopeFileDiff $d): string => $d->path,
+            $scopeReceipt->observed->fileDiffs,
+        );
+
+        // diff_chunks derived from the parsed diff content
+        $diffChunks = [];
+        if ($diffResult->diff !== null && $diffResult->diff !== '') {
+            $diffChunks = $this->parseDiffIntoChunks($diffResult->diff);
+        }
+
+        // test_paths from the verification result (commands that ran)
+        // plus allowedFiles that look like test files (they serve as
+        // expected test coverage even when not in the diff).
+        $testPaths = array_values(array_filter(
+            array_map(static fn ($t): string => $t->command, $verificationResult->tests),
+            static fn (string $cmd): bool => str_contains($cmd, 'test') || str_contains($cmd, 'phpunit'),
+        ));
+        $testPaths = array_values(array_unique(array_merge(
+            $testPaths,
+            array_filter($taskContract->allowedFiles, static fn (string $f): bool => (bool) preg_match('/(^|\/)tests\//i', $f)),
+        )));
+
+        return [
+            'run_id' => $runId,
+            'changed_files' => $changedFiles,
+            'diff_chunks' => $diffChunks,
+            'test_paths' => $testPaths,
+            'allowed_files' => $taskContract->allowedFiles,
+            'forbidden_files' => $taskContract->forbiddenFiles,
+            'risk_rules' => [],
+            'evidence_refs' => [],
+        ];
+    }
+
+    /**
+     * M3: Parse a unified diff string into diff_chunks for the critic.
+     *
+     * Extracts file paths and hunk bodies from a standard unified diff.
+     * This is a best-effort heuristic parser; the critic handles missing
+     * or malformed chunks gracefully (they just reduce detection accuracy).
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function parseDiffIntoChunks(string $diff): array
+    {
+        $chunks = [];
+        $lines = explode("\n", $diff);
+        $currentFile = null;
+        $currentBody = '';
+        $currentLine = null;
+
+        foreach ($lines as $line) {
+            if (preg_match('/^---\s+[ab]\/(.+)$/', $line, $m)) {
+                // --- a/file (old file) — note the new file name from +++ line
+                continue;
+            }
+            if (preg_match('/^\+\+\+\s+[ab]\/(.+)$/', $line, $m)) {
+                // Flush the previous file's chunk
+                if ($currentFile !== null && $currentBody !== '') {
+                    $chunks[] = [
+                        'file' => $currentFile,
+                        'body' => $currentBody,
+                        'line' => $currentLine,
+                    ];
+                }
+                $currentFile = $m[1];
+                $currentBody = '';
+                $currentLine = null;
+
+                continue;
+            }
+            if (preg_match('/^@@\s+-(\d+)/', $line, $m)) {
+                // Hunk header — flush the previous chunk
+                if ($currentFile !== null && $currentBody !== '') {
+                    $chunks[] = [
+                        'file' => $currentFile,
+                        'body' => $currentBody,
+                        'line' => $currentLine,
+                    ];
+                }
+                $currentLine = (int) $m[1];
+                $currentBody = '';
+
+                continue;
+            }
+            if ($currentFile !== null && ($line === '' || str_starts_with($line, '+') || str_starts_with($line, '-') || str_starts_with($line, ' '))) {
+                $currentBody .= $line."\n";
+            }
+        }
+
+        // Flush the last chunk
+        if ($currentFile !== null && $currentBody !== '') {
+            $chunks[] = [
+                'file' => $currentFile,
+                'body' => $currentBody,
+                'line' => $currentLine,
+            ];
+        }
+
+        return $chunks;
+    }
+
+    /**
+     * M2: Extract a failure excerpt from the verification gate result.
+     *
+     * Collects the output of all failing test runs into a single excerpt
+     * that can be fed into the next repair attempt's prompt and the
+     * FailureCapsule's primary_error_excerpt. The excerpt also feeds
+     * FailureSignatureHasher for same-signature-twice detection, so it
+     * is kept to command + exit_code (stable across volatile stdout).
+     * TestRun persists real stdout/stderr to disk at outputPath (see
+     * library/environment.md); enriching the excerpt with it would change
+     * the normalized failure signature, so per feature scope
+     * (misc-m2-reuse-repair-prompt-composer) that enrichment is out of
+     * scope unless RepairPromptComposer naturally surfaces it.
+     */
+    private function extractFailureExcerpt(VerificationGateResult $result): string
+    {
+        $failingTests = array_filter($result->tests, fn ($t) => ! $t->ok);
+        if ($failingTests === []) {
+            return 'Verification gate failed with no specific test output.';
+        }
+
+        $excerpts = [];
+        foreach ($failingTests as $test) {
+            $excerpts[] = "Command: {$test->command}\nExit code: {$test->exitCode}";
+        }
+
+        return implode("\n\n", $excerpts);
+    }
+
+    /**
+     * M2: Build the repair prompt for the hermes path by REUSING the armed
+     * RepairPromptComposer (library/do-not-rebuild.md) instead of a custom
+     * string concatenation.
+     *
+     * Flow:
+     *   1. Build a canonical FailureCapsule from the verification failure
+     *      via FailureCapsuleBuilder (normalizes the excerpt, computes the
+     *      deterministic failure_signature, decides retry/stop/escalate).
+     *   2. Compose the repair ProviderPromptProjection via
+     *      RepairPromptComposer::compose() — this inherits the prompt-enforced
+     *      stop conditions, operating rules and the Repair Capsule section
+     *      the custom buildHermesRepairPrompt() used to bypass (LIGAR
+     *      violation flagged by M2 scrutiny).
+     *   3. Wrap the composed rendered text with the REPAIR REQUIRED marker +
+     *      "Previous attempt failed" header so the hermes path preserves the
+     *      failure-excerpt structure VAL-M2-008 locks, while the composed
+     *      body underneath carries strictly richer guard-rail content.
+     *
+     * The loop's same-signature-twice detection in execute() continues to
+     * compare the FailureSignatureHasher signature of the raw failure
+     * excerpt; that signature equals the capsule's failure_signature
+     * (both go through hasher->normalize() then FailureCapsule::signatureOf).
+     */
+    private function buildComposedHermesRepairPrompt(
+        ProviderPromptProjection $promptProjection,
+        LightTaskContract $taskContract,
+        VerificationGateResult $verificationResult,
+        ScopeGuardReceipt $scopeReceipt,
+        DiffParseResult $diffResult,
+        string $failureExcerpt,
+        int $repairAttempt,
+        int $repairCap,
+    ): string {
+        $firstFailing = null;
+        foreach ($verificationResult->tests as $test) {
+            if (! $test->ok) {
+                $firstFailing = $test;
+                break;
+            }
+        }
+
+        // The armed RepairPromptComposer enforces a run_id identity chain
+        // (projection == capsule == contract). In a real run these are
+        // consistent (the projection is built from the same envelope as the
+        // contract). We anchor on the contract's run_id (the authoritative
+        // identity that carries task_contract_hash) and build a projection
+        // view with that run_id so the composed service's invariant holds
+        // regardless of how the caller constructed the projection envelope.
+        $compositionProjection = $promptProjection;
+        if ($promptProjection->runId !== $taskContract->runId) {
+            $payload = $promptProjection->toCanonicalArray();
+            $payload['run_id'] = $taskContract->runId;
+            $compositionProjection = ProviderPromptProjection::fromArray($payload);
+        }
+
+        $capsuleBuilder = new FailureCapsuleBuilder(new FailureSignatureHasher);
+        $gate = 'verification_gate';
+        $capsule = $capsuleBuilder->buildInitial(
+            runId: $taskContract->runId,
+            taskContractHash: $taskContract->taskContractHash,
+            gate: $gate,
+            command: $firstFailing?->command,
+            exitCode: $firstFailing?->exitCode,
+            primaryErrorRaw: $failureExcerpt,
+            fullErrorLogPath: $firstFailing?->outputPath,
+            failingTest: $firstFailing?->command,
+            diffHash: $diffResult->diffHash(),
+            changedFiles: array_map(
+                static fn ($d): string => $d->path,
+                $scopeReceipt->observed->fileDiffs,
+            ),
+            policy: $taskContract->repairPolicy,
+        );
+
+        $composer = new RepairPromptComposer;
+        $repairProjection = $composer->compose(
+            original: $compositionProjection,
+            capsule: $capsule,
+            contract: $taskContract,
+            attemptIndex: $repairAttempt,
+            maxAttempts: max(1, $repairCap),
+        );
+
+        // The composed rendered text already carries [original prompt] +
+        // [# Repair Capsule] + [# Primary Error] + [# Stop Conditions]
+        // (strictly richer than the former custom version). Inject the
+        // REPAIR REQUIRED marker + "Previous attempt failed" header right
+        // before the Repair Capsule section so the hermes path preserves
+        // the failure-excerpt structure VAL-M2-008 locks, without
+        // duplicating the original prompt body.
+        $marker = "--- REPAIR REQUIRED ({$gate}) ---\n"
+            ."Previous attempt failed. Error output:\n{$failureExcerpt}\n";
+        $composed = $repairProjection->renderedPromptText;
+        $capsuleHeader = '# Repair Capsule';
+        $capsulePos = strpos($composed, $capsuleHeader);
+        if ($capsulePos !== false) {
+            // M2-followup: restore the 20,000-char cap on the ORIGINAL prompt
+            // body (the pre-capsule portion). The prior custom
+            // buildHermesRepairPrompt() applied mb_substr(renderedPromptText,
+            // 0, 20_000); that cap survived ONLY in the defensive fallback
+            // branch below, NOT here. Apply it to the pre-capsule portion ONLY
+            // using mb_substr so the original-prompt body is bounded exactly as
+            // before, while the # Repair Capsule / # Primary Error /
+            // # Stop Conditions guard-rail sections (capsulePos onward) and the
+            // injected REPAIR REQUIRED marker are preserved IN FULL (never
+            // truncate the guard rails).
+            //
+            // The capsule header is ASCII, so mb_strpos yields the character
+            // offset matching the byte offset for the header boundary; using
+            // the character offset keeps mb_substr correct for multibyte
+            // pre-capsule bodies.
+            $capsuleCharPos = mb_strpos($composed, $capsuleHeader);
+            $cappedPreCapsule = mb_substr($composed, 0, min($capsuleCharPos, 20_000));
+
+            return $cappedPreCapsule
+                .$marker
+                ."\n"
+                .substr($composed, $capsulePos);
+        }
+
+        // Fallback (defensive): append the marker + composed body tail if the
+        // capsule header was not found (composition contract changed).
+        return mb_substr($promptProjection->renderedPromptText, 0, 20_000)
+            ."\n\n".$marker
+            ."\n".$composed;
+    }
+
+    /**
+     * M2: Revert workspace changes before a repair re-invocation.
+     *
+     * Checks out the allowed files from HEAD so the next provider
+     * invocation starts from a clean state.
+     *
+     * @param  list<string>  $allowedFiles
+     */
+    private function revertWorkspaceChanges(string $workspace, array $allowedFiles): void
+    {
+        if (! is_dir($workspace)) {
+            return;
+        }
+
+        // Revert all changes in the workspace (git checkout + clean)
+        $process = new Process(['git', 'checkout', '.'], $workspace);
+        $process->run();
+
+        // Also clean untracked files that the provider may have created
+        $process = new Process(['git', 'clean', '-fd'], $workspace);
+        $process->run();
     }
 
     private function blockedProviderCallResult(
@@ -1302,7 +2201,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
                 private readonly string $storageRunId,
             ) {}
 
-            public function writeTestLog(string $runId, int $index, string $output): ?string
+            public function writeTestLog(string $runId, int $index, string $output): string
             {
                 $base = sprintf('test_log_%02d', max(1, $index));
 

@@ -2,11 +2,11 @@
 
 namespace Tests\Unit\Ai;
 
+use App\Services\Ai\AiContextPackBuilder;
 use App\Services\Ai\AtlasHybridMemoryRetrievalService;
 use App\Services\Ai\AtlasMemoryQualityService;
-use App\Services\Ai\AiContextPackBuilder;
-use App\Services\Ai\AtlasOpenBrainService;
 use App\Services\Ai\AtlasOpenBrainContextInjectionService;
+use App\Services\Ai\AtlasOpenBrainService;
 use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use App\Services\Ai\ValueObjects\AiContextPack;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
@@ -1171,14 +1171,14 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
 
     public function test_assert_allowed_does_not_throw_on_injected(): void
     {
+        $this->expectNotToPerformAssertions();
         $this->service->assertAllowed(['status' => 'injected']);
-        $this->assertTrue(true);
     }
 
     public function test_assert_allowed_does_not_throw_on_skipped(): void
     {
+        $this->expectNotToPerformAssertions();
         $this->service->assertAllowed(['status' => 'skipped']);
-        $this->assertTrue(true);
     }
 
     // --- surface detection ---
@@ -1520,7 +1520,7 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
                 parent::__construct(new CodeGraphContextPackAssembler);
             }
 
-            public function packFor(string $query, string $workspaceId, int $budget = self::DEFAULT_BUDGET, array $changedFiles = []): array
+            public function packFor(string $query, string $workspaceId, int $budget = self::DEFAULT_BUDGET, array $changedFiles = [], array $assemblyOptions = []): array
             {
                 $this->calls++;
                 $this->lastQuery = $query;

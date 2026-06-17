@@ -142,7 +142,7 @@ final class AtlasDevSeniorLoopRunCommand extends Command
     private function userConstraints(array $allowedFiles, array $validationCommands): array
     {
         if ($allowedFiles === []) {
-            $allowedFiles = ['src/SmokeSubject.php'];
+            $allowedFiles = ['src/SmokeSubject.php', 'tests/SmokeSubjectTest.php'];
         }
         if ($validationCommands === []) {
             $validationCommands = ['composer test'];

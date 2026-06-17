@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Programming\AtlasDev\PromptProjection;
 
+use App\Http\Controllers\AtlasDev\Support\PipelineRunExecutor;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\PromptQualityChecker;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\PromptRenderer;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\PromptSectionsMapper;
@@ -268,6 +269,7 @@ final class ProviderPromptBuilderTest extends TestCase
             'escalation_conditions',
             'expected_tests',
             'forbidden_files',
+            'known_failure_modes',
             'mini_spec_ref',
             'non_goals',
             'objective',
@@ -280,7 +282,7 @@ final class ProviderPromptBuilderTest extends TestCase
         $this->assertSame(
             $expected,
             array_keys($sections),
-            'PromptSections must expose exactly the 14 canonical sections (13 original + non_goals).',
+            'PromptSections must expose exactly the 15 canonical sections (13 original + non_goals + known_failure_modes for M5 compounding memory).',
         );
         $this->assertInstanceOf(PromptSections::class, $projection->sections);
     }
@@ -358,7 +360,7 @@ final class ProviderPromptBuilderTest extends TestCase
     /**
      * Regression guard for the divergent-pipe bug: codex/minimax/hermes are all
      * registered as workspace-mutating providers in
-     * {@see \App\Http\Controllers\AtlasDev\Support\PipelineRunExecutor::providerMutatedWorkspace()}
+     * {@see PipelineRunExecutor::providerMutatedWorkspace()}
      * (Atlas reads the post-execution git diff and never applies a returned
      * patch), so the prompt they receive MUST instruct in-place mutation — not
      * the default text-diff contract that previously told them to never edit,

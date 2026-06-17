@@ -7,10 +7,12 @@ namespace App\Services\Ai\Programming\AtlasDev\Gate;
 use App\Services\Ai\Programming\AtlasDev\Provider\ProviderCallResult;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\EvidenceRef;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\GateOutcome;
+use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ScopeFileDiff;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\TestRun;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ScopeGuardReceipt;
 use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
+use App\Services\Ai\Programming\ProgrammingTestImpactAnalyzer;
 
 /**
  * Runs the LightTaskContract.validation_commands list and packages the result.
@@ -58,7 +60,6 @@ final class VerificationGate
         string $profile = self::PROFILE_PHP_LARAVEL,
     ): VerificationGateResult {
         $profile = in_array($profile, self::ALLOWED_PROFILES, true) ? $profile : self::PROFILE_PHP_LARAVEL;
-        $commands = $taskContract->validationCommands;
         $honestyFlags = [];
 
         if ($scopeReceipt->status === ScopeGuardReceipt::STATUS_FAILED) {
@@ -68,7 +69,15 @@ final class VerificationGate
             $honestyFlags[] = 'verification_ran_with_provider_errors';
         }
 
-        if ($commands === []) {
+        // M1: Compute the mandatory verification floor from observed diff
+        $floorCommands = $this->computeFloorCommands($scopeReceipt, $workspace);
+
+        // Union of caller commands + floor commands, deduped
+        $commands = $this->mergeCommands($taskContract->validationCommands, $floorCommands);
+
+        // If no commands after floor computation and no impacted tests,
+        // fall back to legacy noCommandsResult behavior (preserving honesty)
+        if ($commands === [] && $floorCommands === []) {
             return $this->noCommandsResult($taskContract, $honestyFlags);
         }
 
@@ -235,5 +244,98 @@ final class VerificationGate
         $index = count($tests) + 1;
 
         return $this->storage->writeTestLog($runId, $index, $result->combinedOutput());
+    }
+
+    /**
+     * M1: Compute the mandatory verification floor from observed diff.
+     *
+     * The floor includes:
+     * - Impacted existing tests discovered via ProgrammingTestImpactAnalyzer
+     *   (using selected_existing_tests, NOT all candidates, to avoid false failures)
+     * - `php -l` per touched .php file
+     * - Configured lint (pint) - only if pint exists in the workspace
+     *
+     * @return list<string>
+     */
+    private function computeFloorCommands(ScopeGuardReceipt $scopeReceipt, string $workspace): array
+    {
+        $commands = [];
+
+        // Extract changed file paths from the observed diff
+        $changedFiles = array_map(
+            static fn (ScopeFileDiff $diff): string => $diff->path,
+            $scopeReceipt->observed->fileDiffs,
+        );
+
+        if ($changedFiles === []) {
+            return [];
+        }
+
+        // Get impacted tests via ProgrammingTestImpactAnalyzer (REUSE, do not rebuild)
+        $analyzer = new ProgrammingTestImpactAnalyzer;
+        $impact = $analyzer->analyze($changedFiles);
+
+        // Add test commands for selected EXISTING tests only
+        // This ensures only existing test files are forced (VAL-M1-008)
+        $selectedExistingTests = $impact['selected_existing_tests'] ?? [];
+        foreach ($selectedExistingTests as $testFile) {
+            if (is_string($testFile) && trim($testFile) !== '') {
+                $commands[] = '/opt/homebrew/bin/php artisan test '.trim($testFile);
+            }
+        }
+
+        // Add php -l per touched .php file
+        foreach ($changedFiles as $file) {
+            if (str_ends_with(strtolower($file), '.php')) {
+                $commands[] = 'php -l '.$file;
+            }
+        }
+
+        // Add configured lint command (pint for PHP/Laravel) only if pint exists in workspace.
+        // This prevents false failures on isolated fixture/test workspaces that don't have
+        // full composer dependencies installed.
+        $hasPhpFiles = count(array_filter(
+            $changedFiles,
+            static fn (string $f): bool => str_ends_with(strtolower($f), '.php'),
+        )) > 0;
+
+        $pintPath = rtrim($workspace, '/').'/vendor/bin/pint';
+        if ($hasPhpFiles && file_exists($pintPath)) {
+            $commands[] = './vendor/bin/pint --test';
+        }
+
+        return array_values(array_unique($commands));
+    }
+
+    /**
+     * Merge caller commands with floor commands, deduped.
+     *
+     * Caller commands are never dropped; floor commands are added.
+     *
+     * @param  list<string>  $callerCommands
+     * @param  list<string>  $floorCommands
+     * @return list<string>
+     */
+    private function mergeCommands(array $callerCommands, array $floorCommands): array
+    {
+        $merged = [];
+
+        // Add caller commands first (preserving their order)
+        foreach ($callerCommands as $cmd) {
+            $trimmed = trim($cmd);
+            if ($trimmed !== '' && ! in_array($trimmed, $merged, true)) {
+                $merged[] = $trimmed;
+            }
+        }
+
+        // Add floor commands (deduped)
+        foreach ($floorCommands as $cmd) {
+            $trimmed = trim($cmd);
+            if ($trimmed !== '' && ! in_array($trimmed, $merged, true)) {
+                $merged[] = $trimmed;
+            }
+        }
+
+        return $merged;
     }
 }
