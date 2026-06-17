@@ -2329,6 +2329,11 @@ return [
         // rewrite never poisons the scenario workspace (the fatal-autoload → diff-0 → certifies-nothing trap).
         // Default OFF => the check is skipped => writes are byte-identical to today.
         'parse_gate_enabled' => (bool) env('ATLAS_LOOP_PARSE_GATE_ENABLED', false),
+        // ACDE QA1 — widen the mutation kill vocabulary with three extra deterministic decision operators
+        // (exception_throw_noop / null_coalesce_null / early_return_delete). Pure static transforms, single-
+        // sourced in AtlasLoopMutationOperators::map so the gate + characterization verifier agree. Default OFF
+        // => the operator map is identical => byte-identical.
+        'extra_mutation_operators_enabled' => (bool) env('ATLAS_LOOP_EXTRA_MUTATION_OPERATORS_ENABLED', false),
         // ACDE U2 — red-REASON discriminator. AtlasEvolutionTaskGenerator::isRed accepts ANY non-zero exit as a
         // real RED task, so a weak engine's structurally-broken test (does not parse / wrong require path) is
         // mistaken for genuine behavioral work. When armed, a generated RED must additionally be BEHAVIORAL

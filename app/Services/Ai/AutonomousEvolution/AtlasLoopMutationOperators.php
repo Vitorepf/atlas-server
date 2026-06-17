@@ -34,7 +34,7 @@ final class AtlasLoopMutationOperators
      */
     public static function map(): array
     {
-        return [
+        $map = [
             'return_string_literal' => static fn (string $source): ?string => self::replaceFirst('/return\s+([\'"])(?:\\\\.|(?!\1).)*\1\s*;/', "return '__atlas_mutant__';", $source),
             'return_true' => static fn (string $source): ?string => self::replaceFirst('/return\s+true\s*;/', 'return false;', $source),
             'return_false' => static fn (string $source): ?string => self::replaceFirst('/return\s+false\s*;/', 'return true;', $source),
@@ -60,6 +60,25 @@ final class AtlasLoopMutationOperators
             'db_insert_noop' => static fn (string $source): ?string => self::replaceFirst('/->insert\(/', "->whereRaw('1 = 0')->update(", $source),
             'string_literal' => static fn (string $source): ?string => self::replaceFirst('/([\'"])(?:\\\\.|(?!\1).){1,160}\1/', "'__atlas_mutant__'", $source),
         ];
+
+        // ACDE QA1 — three extra deterministic DECISION operators that widen the kill vocabulary toward 9.3:
+        // remove a thrown exception, force a `??` fallback to null, delete a void early-return. Non-cosmetic =>
+        // the gate auto-treats each as a decision and joins them to the exhaustive hunt; single-sourced here so
+        // the gate and the characterization verifier (applyOperator) agree. Read defensively (a pure-unit caller
+        // never fatals). Default OFF => map is identical => byte-identical.
+        $extra = false;
+        try {
+            $extra = (bool) config('atlas.loop.extra_mutation_operators_enabled', false);
+        } catch (\Throwable) {
+            $extra = false;
+        }
+        if ($extra) {
+            $map['exception_throw_noop'] = static fn (string $source): ?string => self::replaceFirst('/throw\s+new\b[^;]*;/', ';', $source);
+            $map['null_coalesce_null'] = static fn (string $source): ?string => self::replaceFirst('/\?\?\s*[^;()\[\]{}?:,]+/', '?? null', $source);
+            $map['early_return_delete'] = static fn (string $source): ?string => self::replaceFirst('/(?<![\w$>=])return\s*;/', ';', $source);
+        }
+
+        return $map;
     }
 
     /**
