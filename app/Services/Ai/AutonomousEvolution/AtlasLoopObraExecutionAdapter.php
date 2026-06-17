@@ -699,12 +699,19 @@ class AtlasLoopObraExecutionAdapter
     protected function emitPlanAbstention(array $payload, string $reason): void
     {
         try {
-            if (! (bool) config('atlas.loop.plan_abstention_visible_enabled', false)) {
-                return;
+            $receipt = $this->planAbstentionReceipt($payload, $reason);
+            if ((bool) config('atlas.loop.plan_abstention_visible_enabled', false)) {
+                \Illuminate\Support\Facades\Log::info('atlas.loop.plan_abstention', $receipt);
             }
-            \Illuminate\Support\Facades\Log::info('atlas.loop.plan_abstention', $this->planAbstentionReceipt($payload, $reason));
+            // ACDE U5 — persist the abstention as an operator CLARIFICATION REQUEST (the loop ASKS instead
+            // of silently guessing). Independently gated from the log so the operator can have the queue
+            // without the log noise. Default OFF => no row => byte-identical. The enqueue is fail-open: a DB
+            // hiccup is swallowed below and never breaks the planning fallback.
+            if ((bool) config('atlas.loop.clarification_queue_enabled', false)) {
+                \App\Models\AtlasLoopClarificationRequest::enqueue($receipt, trim((string) ($payload['objective'] ?? '')));
+            }
         } catch (\Throwable) {
-            // visibility must never break the planning path — a logging hiccup is swallowed.
+            // visibility/queueing must never break the planning path — a logging/DB hiccup is swallowed.
         }
     }
 

@@ -2351,6 +2351,12 @@ return [
         // Purely ADDITIVE (never removes a suite). Default OFF => the ledger is never consulted => the
         // gate selects exactly the static map + siblings (byte-identical).
         'coverage_union_test_selection_enabled' => (bool) env('ATLAS_LOOP_COVERAGE_UNION_TEST_SELECTION_ENABLED', false),
+        // ACDE U5 — operator CLARIFICATION QUEUE. When the structured planner abstains (vague goal, un-ready
+        // spec, ill-formed DAG) and would silently fall back to the dumb one-shot, persist the abstention as
+        // a pending clarification request (de-duped on goal_fingerprint+reason) so the loop ASKS instead of
+        // guessing. Independently gated from plan_abstention_visible (log). Default OFF => no row enqueued =>
+        // byte-identical planning fallback.
+        'clarification_queue_enabled' => (bool) env('ATLAS_LOOP_CLARIFICATION_QUEUE_ENABLED', false),
         // ACDE MF2 — hub-first multi-file conversion: when a coupled cluster is detected, route the anchored HUB
         // through the proven single-file refactor lane (its own complexity proof) instead of the all-or-nothing
         // N-file conjunction that drops ~17% of conversions. Only under the known-shape guard (covered>=2, hub
