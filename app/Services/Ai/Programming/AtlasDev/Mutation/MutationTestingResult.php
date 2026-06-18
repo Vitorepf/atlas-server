@@ -46,19 +46,26 @@ namespace App\Services\Ai\Programming\AtlasDev\Mutation;
  *                         the adapter always running the full default
  *                         mutator set (VAL-E3-005).
  *
- *   - {@see $perFileStats}: per-source-file MSI keyed by the source file
- *                         path (VAL-E3-013). Parsed from the --logger-json
- *                         report's per-status arrays (grouped by
- *                         mutator.originalFilePath). A weak file (below
- *                         threshold) among robust ones is NOT masked by a
- *                         high aggregate MSI: the gate trips if ANY source
- *                         file's MSI is below the threshold. Null when the
- *                         report was not available (e.g. a single-file run
- *                         where per-file == aggregate, or a degraded run).
- *
  *   - {@see $rawCounts}:  the raw mutant counts from the summary JSON
  *                         (totalMutantsCount, killedCount, escapedCount,
  *                         etc.) for auditability and anti-gaming evidence.
+ *
+ * Per-file anti-dilution (VAL-E3-013): {@see $perFileStats} carries the
+ * per-source-file MSI breakdown so the gate can enforce that NO single
+ * source file's MSI falls below the threshold, regardless of the aggregate.
+ * A weak file at MSI=40 cannot be masked/diluted by a strong file at MSI=100
+ * yielding an aggregate above threshold. The breakdown is carried in EITHER
+ * of two interchangeable shapes (the gate handles both):
+ *   - an associative array keyed by source-file path, each value
+ *     {msi, killed, escaped, total} — produced by the adapter when it parses
+ *     the infection --logger-json report's per-status arrays (grouped by
+ *     mutator.originalFilePath); or
+ *   - a {@see PerFileMutationStats} list — when a runner hands the adapter a
+ *     ready-made typed breakdown.
+ * Null when the run was skipped/failed (no per-file data to report), or when
+ * per-file data was not available from the report (the gate treats null
+ * perFileStats as "no per-file check possible" — the aggregate check still
+ * applies).
  *
  * The result is a pure data carrier: the gate decides the verdict; the
  * adapter only reports what infection observed.
@@ -67,7 +74,10 @@ final class MutationTestingResult
 {
     /**
      * @param  ?array<string,mixed>  $rawCounts
-     * @param  ?array<string,array{msi:float,killed:int,escaped:int,total:int}>  $perFileStats
+     * @param  array<string,array{msi:float,killed:int,escaped:int,total:int}>|list<PerFileMutationStats>|null  $perFileStats
+     *                                                                                                                         per-source-file MSI breakdown for the anti-dilution check
+     *                                                                                                                         (VAL-E3-013), or null when the run was skipped/failed or
+     *                                                                                                                         per-file data was unavailable.
      */
     public function __construct(
         public readonly bool $skipped,
@@ -108,6 +118,10 @@ final class MutationTestingResult
         );
     }
 
+    /**
+     * @param  ?array<string,mixed>  $rawCounts
+     * @param  array<string,array{msi:float,killed:int,escaped:int,total:int}>|list<PerFileMutationStats>|null  $perFileStats
+     */
     public static function completed(
         float $msi,
         string $summaryPath,

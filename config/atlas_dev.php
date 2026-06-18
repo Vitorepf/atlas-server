@@ -185,9 +185,21 @@ return [
         // or the gate fail-closes on every run. Operators opt into advisory/
         // hard explicitly via ATLAS_DEV_ELEVATION_E3_MODE once pcov is
         // verified present (mission init.sh asserts pcov loaded).
+        //   - threshold: MSI percent floor (default 60.0). A patch whose real
+        //     reported MSI is below this trips the gate. Boundary inclusive
+        //     (MSI == threshold passes, VAL-E3-004).
+        //
+        // m3-e3 scrutiny Defect 3: the env value is read WITHOUT a (float)
+        // cast here. A (float) cast silently turns a non-numeric env value
+        // (e.g. ATLAS_DEV_ELEVATION_E3_THRESHOLD=banana) into 0.0, which
+        // DISABLES the gate (MSI >= 0.0 is always true). The gate's
+        // MutationScoreGate::fromConfig() reads the raw env directly and
+        // validates it (invalid -> safe default 60.0, never 0.0); the config
+        // value here is kept raw (string|null) so the gate can distinguish
+        // 'banana' (invalid) from '0' (operator choice).
         'e3' => [
             'mode' => env('ATLAS_DEV_ELEVATION_E3_MODE', 'off'),
-            'threshold' => (float) env('ATLAS_DEV_ELEVATION_E3_THRESHOLD', 60.0),
+            'threshold' => env('ATLAS_DEV_ELEVATION_E3_THRESHOLD', 60.0),
         ],
 
         // E4: Differential Testing / Shadow-Diff (M5 milestone).

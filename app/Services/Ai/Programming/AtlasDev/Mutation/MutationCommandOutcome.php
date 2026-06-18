@@ -36,6 +36,15 @@ namespace App\Services\Ai\Programming\AtlasDev\Mutation;
  *   - reportPayload:   the full decoded --logger-json report, retained so
  *                       the adapter can compute per-source-file MSI without
  *                       re-reading the file.
+ *   - perFileStats:    OPTIONAL pre-computed per-source-file MSI breakdown
+ *                       ({@see PerFileMutationStats} list), used by the gate
+ *                       for the anti-dilution check (VAL-E3-013: a weak file
+ *                       below threshold cannot be masked by strong files in
+ *                       the aggregate). The production runner leaves this null
+ *                       and surfaces reportPayload instead (the adapter parses
+ *                       per-file MSI from it); this field exists so a runner
+ *                       (e.g. a fake) can hand the adapter a ready-made
+ *                       breakdown directly. Null when neither is available.
  *
  * The summary payload schema is documented at
  * vendor/infection/infection/resources/schema.json (logs.summaryJson) and
@@ -48,6 +57,7 @@ final class MutationCommandOutcome
     /**
      * @param  ?array<string,mixed>  $summaryPayload
      * @param  ?array<string,mixed>  $reportPayload
+     * @param  list<PerFileMutationStats>|null  $perFileStats
      */
     public function __construct(
         public readonly int $exitCode,
@@ -59,6 +69,7 @@ final class MutationCommandOutcome
         public readonly ?array $summaryPayload,
         public readonly ?string $reportPath = null,
         public readonly ?array $reportPayload = null,
+        public readonly ?array $perFileStats = null,
     ) {}
 
     public function ok(): bool

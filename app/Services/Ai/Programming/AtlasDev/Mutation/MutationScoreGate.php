@@ -101,6 +101,16 @@ final class MutationScoreGate
      * Missing/invalid values resolve to the documented safe default without
      * throwing (mirrors the ElevationConfig safe-default convention).
      *
+     * m3-e3 scrutiny Defect 3 (NON-BLOCKING): the config file casts the env
+     * value via `(float)`, which silently turns a non-numeric env value
+     * (e.g. ATLAS_DEV_ELEVATION_E3_THRESHOLD=banana) into 0.0 BEFORE the gate
+     * sees it. A threshold of 0.0 DISABLES the gate (MSI >= 0.0 is always
+     * true). To make the gate robust to BOTH the config-cast layer AND a
+     * missing/invalid env, fromConfig reads the RAW env value (bypassing the
+     * config cast) and validates it: invalid/non-numeric falls back to the
+     * safe default 60.0, never 0.0. An explicit numeric "0" is honored as a
+     * valid operator choice (the operator intentionally disabled the gate).
+     *
      * The $e3Config is taken explicitly so callers resolve the mode through
      * the canonical {@see ElevationConfig::fromConfig('e3')} path (the same
      * path the other elevations use), keeping the resolution single-sourced.
@@ -109,13 +119,36 @@ final class MutationScoreGate
     {
         $threshold = self::DEFAULT_THRESHOLD;
         try {
-            $raw = config('atlas_dev.elevations.e3.threshold');
-            if (is_numeric($raw)) {
+            // m3-e3 Defect 3: read the RAW env value (bypassing the config
+            // (float) cast, which silently zeroes non-numeric values). The
+            // raw env is the source of truth for "did the operator set a
+            // valid numeric threshold?"; the config-cast value cannot
+            // distinguish 'banana' (invalid -> should default) from '0'
+            // (valid -> operator disabled the gate) because both yield 0.0
+            // after the (float) cast.
+            $raw = getenv('ATLAS_DEV_ELEVATION_E3_THRESHOLD');
+            if ($raw === false || $raw === '') {
+                // Fall back to the config-cast value if the env was not set
+                // at all (the config default is DEFAULT_THRESHOLD). This keeps
+                // the documented production default when the operator did not
+                // set the env.
+                $configValue = config('atlas_dev.elevations.e3.threshold');
+                if (is_numeric($configValue)) {
+                    $resolved = (float) $configValue;
+                    if ($resolved >= 0.0 && $resolved <= 100.0) {
+                        $threshold = $resolved;
+                    }
+                }
+            } elseif (is_numeric($raw)) {
                 $resolved = (float) $raw;
                 if ($resolved >= 0.0 && $resolved <= 100.0) {
                     $threshold = $resolved;
                 }
+                // else: out-of-range numeric falls back to the safe default
+                // (never 0.0, never the invalid value).
             }
+            // else: non-numeric raw value (e.g. 'banana') => fall back to the
+            // safe default (never 0.0, never the invalid value).
         } catch (\Throwable) {
             // Degrade to the documented default (no crash, no silent disable).
             $threshold = self::DEFAULT_THRESHOLD;
@@ -202,35 +235,39 @@ final class MutationScoreGate
         // realMsi is unavailable (legacy adapter / degraded run).
         $gatedMsi = $result->realMsi ?? $result->msi;
 
-        // VAL-E3-013: for a multi-test-file patch, check per-source-file MSI.
-        // A weak file (below threshold) among strong ones is NOT masked by a
-        // high aggregate MSI — the gate trips if ANY file is below threshold.
-        $weakFiles = $this->findWeakFiles($result->perFileStats);
+        // VAL-E3-007: gated MSI >= threshold (boundary inclusive) => pass the
+        // AGGREGATE check. But we still need to enforce the per-file
+        // anti-dilution check (VAL-E3-013) before returning a clean pass:
+        // a weak source file (per-file MSI below threshold) MUST trip the
+        // gate even when the aggregate union MSI is above threshold, so it
+        // cannot be masked/diluted by strong files in a multi-file scope.
+        //
+        // The aggregate check is a fast-path: when the aggregate is already
+        // below threshold (VAL-E3-005/006: gatedMsi is the REAL MSI over the
+        // full population, never infection's inflatable reported msi), the
+        // per-file check is redundant — the gate trips regardless via the
+        // aggregate reason below.
+        if ($gatedMsi >= $this->threshold) {
+            $weakFile = $this->findWeakFile($result->perFileStats);
+            if ($weakFile === null) {
+                return MutationScoreVerdict::pass($gatedMsi, $this->threshold);
+            }
 
-        // VAL-E3-007: gated MSI >= threshold (boundary inclusive) AND no weak
-        // file => pass.
-        if ($gatedMsi >= $this->threshold && $weakFiles === []) {
-            return MutationScoreVerdict::pass($gatedMsi, $this->threshold);
+            // VAL-E3-013: a single source file's per-file MSI is below
+            // threshold despite the aggregate being above. Trip the gate
+            // so the weak file is not masked by strong files.
+            return $this->tripOnWeakFile($gatedMsi, $weakFile);
         }
 
-        // Build the trip reason: cite the real MSI and/or the weak files.
-        $reasonParts = [];
-        if ($gatedMsi < $this->threshold) {
-            $reasonParts[] = sprintf(
-                'e3: real MSI %.2f%% is below the configured threshold %.2f%%',
-                $gatedMsi,
-                $this->threshold,
-            );
-        }
-        foreach ($weakFiles as $file => $fileMsi) {
-            $reasonParts[] = sprintf(
-                'e3: source file %s has MSI %.2f%% (below threshold %.2f%%) — weak file not masked by aggregate',
-                $file,
-                $fileMsi,
-                $this->threshold,
-            );
-        }
-        $reason = implode('; ', $reasonParts);
+        // Aggregate fast-path trip: the REAL MSI over the full population is
+        // below threshold (VAL-E3-005/006). Survivor-exclusion / mutator-
+        // skipping cannot inflate gatedMsi above the honest score, so this is
+        // the anti-inflation gate channel.
+        $reason = sprintf(
+            'e3: real MSI %.2f%% is below the configured threshold %.2f%%',
+            $gatedMsi,
+            $this->threshold,
+        );
 
         // VAL-E3-002 / VAL-E3-003: trip.
         //   - advisory => honesty flag only (drives the downgrade, never
@@ -250,27 +287,113 @@ final class MutationScoreGate
     }
 
     /**
-     * Find source files whose per-file MSI is below the threshold
-     * (VAL-E3-013). Returns an associative array [file => msi] for each weak
-     * file. Empty when per-file stats are unavailable (single-file scope,
-     * degraded run) or all files are at/above the threshold.
+     * Find the first source file whose per-file MSI is below the threshold,
+     * or null when all files are at/above threshold (or per-file data is
+     * unavailable — the anti-dilution check is structural, not an LLM
+     * judgment: it applies only when per-file stats ARE available; when they
+     * are null, the aggregate check is the sole gate, preserving backward
+     * compatibility).
      *
-     * @param  ?array<string,array{msi:float,killed:int,escaped:int,total:int}>  $perFileStats
-     * @return array<string,float>
+     * VAL-E3-013: the anti-dilution check is CONSISTENT across advisory and
+     * hard modes (the SAME per-file threshold comparison trips the gate in
+     * both modes; only the verdict channel differs — advisory flag vs hard
+     * STATUS_FAILED — which is resolved by the caller reading
+     * $shouldFailGate).
+     *
+     * The per-file breakdown is accepted in EITHER of two interchangeable
+     * shapes (see {@see MutationTestingResult::$perFileStats}): a
+     * {@see PerFileMutationStats} list, or an associative array keyed by
+     * source-file path whose values carry an `msi` key. Both are normalised
+     * to a {@see PerFileMutationStats} so callers see one shape.
+     *
+     * @param  array<string,array{msi:float,killed?:int,escaped?:int,total?:int}>|list<PerFileMutationStats>|null  $perFileStats
+     * @return PerFileMutationStats|null the first weak file, or null.
      */
-    private function findWeakFiles(?array $perFileStats): array
+    private function findWeakFile(?array $perFileStats): ?PerFileMutationStats
     {
-        if ($perFileStats === null || $perFileStats === []) {
-            return [];
+        if ($perFileStats === null) {
+            // No per-file data available (e.g. the JSON report was not
+            // produced or could not be parsed). The aggregate check is the
+            // sole gate — do not trip on missing per-file data (the aggregate
+            // MSI is still checked above). This preserves backward
+            // compatibility for runs where per-file data was not collected.
+            return null;
         }
-        $weak = [];
-        foreach ($perFileStats as $file => $stats) {
-            $fileMsi = $stats['msi'] ?? 0.0;
-            if ($fileMsi < $this->threshold) {
-                $weak[$file] = $fileMsi;
+
+        foreach ($perFileStats as $key => $stats) {
+            $weak = $this->normalisePerFileStats($key, $stats);
+            if ($weak !== null && $weak->msi < $this->threshold) {
+                return $weak;
             }
         }
 
-        return $weak;
+        return null;
+    }
+
+    /**
+     * Normalise a single per-file stats entry from either supported shape
+     * into a {@see PerFileMutationStats}. Returns null for an unrecognised
+     * entry (defensive — a malformed breakdown must not crash the gate).
+     *
+     * @param  array-key  $key  the array key (the source-file path in the
+     *                          associative-array shape; an int index in the
+     *                          list shape).
+     * @param  PerFileMutationStats|array{msi?:float|int,killed?:int,escaped?:int,total?:int}|mixed  $stats
+     */
+    private function normalisePerFileStats(int|string $key, mixed $stats): ?PerFileMutationStats
+    {
+        if ($stats instanceof PerFileMutationStats) {
+            return $stats;
+        }
+        if (is_array($stats) && isset($stats['msi']) && is_numeric($stats['msi'])) {
+            // Associative-array shape keyed by the source-file path: the key
+            // IS the file path.
+            $filePath = is_string($key) ? $key : (string) $key;
+            $total = isset($stats['total']) && is_numeric($stats['total']) ? (int) $stats['total'] : 0;
+            $killed = isset($stats['killed']) && is_numeric($stats['killed']) ? (int) $stats['killed'] : 0;
+
+            return new PerFileMutationStats(
+                filePath: $filePath,
+                msi: (float) $stats['msi'],
+                killed: $killed,
+                total: $total,
+            );
+        }
+
+        return null;
+    }
+
+    /**
+     * Build the tripped verdict for the anti-dilution case (VAL-E3-013):
+     * a single source file's per-file MSI is below threshold despite the
+     * aggregate union MSI being above threshold.
+     *
+     * The verdict channels mirror the aggregate below-threshold trip:
+     *   - advisory => honesty flag only (never STATUS_FAILED for the flag
+     *     alone, VAL-E3-002).
+     *   - hard     => STATUS_FAILED gate channel (never just downgrades,
+     *     VAL-E3-003).
+     * The flag is retained for auditability in both modes.
+     */
+    private function tripOnWeakFile(float $aggregateMsi, PerFileMutationStats $weakFile): MutationScoreVerdict
+    {
+        $reason = sprintf(
+            'e3: per-file MSI anti-dilution: source file %s has MSI %.2f%% below threshold %.2f%% (aggregate union MSI %.2f%% is above threshold, but the weak file must not be masked)',
+            $weakFile->filePath,
+            $weakFile->msi,
+            $this->threshold,
+            $aggregateMsi,
+        );
+
+        return new MutationScoreVerdict(
+            tripped: true,
+            shouldFailGate: $this->e3Config->isHard(),
+            honestyFlags: [MutationTestingAdapter::FLAG_MUTATION_SCORE_BELOW_THRESHOLD],
+            isNoOp: false,
+            noOpReason: '',
+            reason: $reason,
+            msi: $aggregateMsi,
+            threshold: $this->threshold,
+        );
     }
 }

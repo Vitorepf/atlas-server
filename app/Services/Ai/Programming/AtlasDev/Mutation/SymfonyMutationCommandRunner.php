@@ -71,13 +71,21 @@ final class SymfonyMutationCommandRunner implements MutationCommandRunner
             : null;
         $summaryMsi = $this->extractMsi($summaryPayload);
 
-        // Parse the full --logger-json report path so the adapter can compute
-        // per-source-file MSI (VAL-E3-013: a weak file among strong ones is
-        // not masked by a high aggregate). The adapter always passes
-        // --logger-json=<path> when the run is non-skipped.
+        // VAL-E3-013: parse the full --logger-json report so per-source-file
+        // MSI can be computed for the anti-dilution check (a weak file among
+        // strong ones is not masked by a high aggregate). The adapter always
+        // passes --logger-json=<path> when the run is non-skipped. We surface
+        // BOTH the decoded report payload (so the adapter can group per-file
+        // MSI from the per-status arrays — each entry carries
+        // mutator.originalFilePath) AND a ready-made PerFileMutationStats list
+        // (so a consumer that only wants the typed breakdown does not have to
+        // re-parse the report).
         $reportPath = $this->extractReportPath($command);
         $reportPayload = $reportPath !== null && is_file($reportPath)
             ? $this->decodeSummary($reportPath)
+            : null;
+        $perFileStats = $reportPath !== null && is_file($reportPath)
+            ? $this->computePerFileStats($reportPath)
             : null;
 
         return new MutationCommandOutcome(
@@ -90,6 +98,7 @@ final class SymfonyMutationCommandRunner implements MutationCommandRunner
             summaryPayload: $summaryPayload,
             reportPath: $reportPath,
             reportPayload: $reportPayload,
+            perFileStats: $perFileStats,
         );
     }
 
@@ -162,5 +171,97 @@ final class SymfonyMutationCommandRunner implements MutationCommandRunner
         }
 
         return (float) $msi;
+    }
+
+    /**
+     * Compute per-file mutation stats from the infection JSON report.
+     *
+     * The JSON report (produced by --logger-json) groups mutants by result
+     * category: killed, escaped, errored, syntaxErrors, timeouted, uncovered,
+     * ignored. Each entry carries mutator.originalFilePath. We group by file
+     * and compute per-file MSI using the same formula as the aggregate:
+     * numerator = killed + error + syntaxError + timeout; denominator = total
+     * (all categories combined, anti-gaming: never reduced by patch-supplied
+     * skips).
+     *
+     * @return list<PerFileMutationStats>|null
+     */
+    private function computePerFileStats(string $path): ?array
+    {
+        $raw = @file_get_contents($path);
+        if (! is_string($raw) || $raw === '') {
+            return null;
+        }
+        $decoded = json_decode($raw, true);
+        if (! is_array($decoded)) {
+            return null;
+        }
+
+        // Categories that count as "detected" in the MSI numerator (aligned
+        // with MutationTestingAdapter::computeRealMsi: killed + error +
+        // syntaxError + timeout).
+        $detectedCategories = ['killed', 'errored', 'syntaxErrors', 'timeouted'];
+        // All categories that carry mutants (every category is a potential
+        // mutant source — the denominator is the full applicable population).
+        $allCategories = ['killed', 'escaped', 'errored', 'syntaxErrors', 'timeouted', 'uncovered', 'ignored'];
+
+        /** @var array<string, array{total:int, killed:int}> $byFile */
+        $byFile = [];
+        foreach ($allCategories as $category) {
+            $entries = $decoded[$category] ?? null;
+            if (! is_array($entries)) {
+                continue;
+            }
+            $isDetected = in_array($category, $detectedCategories, true);
+            foreach ($entries as $entry) {
+                if (! is_array($entry)) {
+                    continue;
+                }
+                $filePath = $this->extractFilePath($entry);
+                if ($filePath === null) {
+                    continue;
+                }
+                if (! isset($byFile[$filePath])) {
+                    $byFile[$filePath] = ['total' => 0, 'killed' => 0];
+                }
+                $byFile[$filePath]['total']++;
+                if ($isDetected) {
+                    $byFile[$filePath]['killed']++;
+                }
+            }
+        }
+
+        $stats = [];
+        foreach ($byFile as $filePath => $counts) {
+            $total = $counts['total'];
+            $killed = $counts['killed'];
+            $msi = $total > 0 ? round(100.0 * $killed / $total, 2) : 0.0;
+            $stats[] = new PerFileMutationStats(
+                filePath: $filePath,
+                msi: $msi,
+                killed: $killed,
+                total: $total,
+            );
+        }
+
+        return $stats === [] ? null : $stats;
+    }
+
+    /**
+     * Extract the original file path from a mutant entry in the JSON report.
+     *
+     * @param  array<string,mixed>  $entry
+     */
+    private function extractFilePath(array $entry): ?string
+    {
+        $mutator = $entry['mutator'] ?? null;
+        if (is_array($mutator)) {
+            $path = $mutator['originalFilePath'] ?? null;
+            if (is_string($path) && $path !== '') {
+                return $path;
+            }
+        }
+
+        return null;
     }
 }
