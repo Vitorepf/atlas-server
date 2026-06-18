@@ -52,8 +52,24 @@ use App\Services\Ai\Programming\AtlasDev\Support\Elevations\ElevationConfig;
  * gate appends a honesty flag carrying the failure context; in hard the gate
  * fail-closes (shouldFailGate=true). It never fabricates an MSI.
  *
- * Canonical: mission architecture.md (Atlas Dev Elevation v2, M3 / E3,
- * e3-mutation-score-gate feature).
+ * Anti-gaming (e3-mutation-anti-gaming feature):
+ *
+ *   - VAL-E3-005/006: the gate uses the REAL MSI
+ *     ({@see MutationTestingResult::realMsi}), recomputed over the FULL
+ *     applicable mutant population (totalMutantsCount as denominator), NOT
+ *     infection's self-reported stats.msi (which subtracts skipped/ignored
+ *     from the denominator and can be inflated by a patch config that marks
+ *     survivors as ignored). Mutator-skipping is defeated structurally: the
+ *     adapter never passes --mutators=, so totalMutantsCount IS the full
+ *     population. When realMsi is unavailable (legacy adapter / degraded
+ *     run), the gate falls back to the reported msi.
+ *
+ *   - VAL-E3-013: for a multi-test-file patch, the gate also checks
+ *     per-source-file MSI ({@see MutationTestingResult::perFileStats}). If
+ *     ANY source file's MSI is below the threshold, the gate trips — the
+ *     weak file is NOT masked by a high aggregate MSI.
+ *
+ * Canonical: mission architecture.md (Atlas Dev Elevation v2, M3 / E3).
  */
 final class MutationScoreGate
 {
@@ -117,6 +133,16 @@ final class MutationScoreGate
      * Compute the verdict for a {@see MutationTestingResult}. Pure: same
      * (result, threshold, mode) always yields the same verdict
      * (VAL-E3-007: a pure function of the real reported MSI).
+     *
+     * Anti-gaming (e3-mutation-anti-gaming):
+     *   - The gated MSI is the REAL MSI over the full population
+     *     ({@see MutationTestingResult::realMsi}), recomputed from raw counts
+     *     so survivor-exclusion cannot inflate it (VAL-E3-006). Falls back to
+     *     infection's reported msi when realMsi is unavailable (legacy/
+     *     degraded run).
+     *   - For multi-file patches, if ANY source file's per-file MSI is below
+     *     the threshold, the gate trips (VAL-E3-013: a weak file is not
+     *     masked by a high aggregate MSI).
      */
     public function evaluate(MutationTestingResult $result): MutationScoreVerdict
     {
@@ -168,24 +194,49 @@ final class MutationScoreGate
             );
         }
 
-        $msi = $result->msi;
+        // Anti-gaming (VAL-E3-005/006): the gated MSI is the REAL MSI over
+        // the full applicable population (totalMutantsCount as denominator),
+        // recomputed by the adapter from the raw summary counts. This is
+        // immune to survivor-exclusion (a patch config that marks survivors
+        // as ignored cannot raise it). Falls back to the reported msi when
+        // realMsi is unavailable (legacy adapter / degraded run).
+        $gatedMsi = $result->realMsi ?? $result->msi;
 
-        // VAL-E3-007: MSI >= threshold (boundary inclusive) => pass.
-        if ($msi >= $this->threshold) {
-            return MutationScoreVerdict::pass($msi, $this->threshold);
+        // VAL-E3-013: for a multi-test-file patch, check per-source-file MSI.
+        // A weak file (below threshold) among strong ones is NOT masked by a
+        // high aggregate MSI — the gate trips if ANY file is below threshold.
+        $weakFiles = $this->findWeakFiles($result->perFileStats);
+
+        // VAL-E3-007: gated MSI >= threshold (boundary inclusive) AND no weak
+        // file => pass.
+        if ($gatedMsi >= $this->threshold && $weakFiles === []) {
+            return MutationScoreVerdict::pass($gatedMsi, $this->threshold);
         }
 
-        // VAL-E3-002 / VAL-E3-003: MSI < threshold => trip.
+        // Build the trip reason: cite the real MSI and/or the weak files.
+        $reasonParts = [];
+        if ($gatedMsi < $this->threshold) {
+            $reasonParts[] = sprintf(
+                'e3: real MSI %.2f%% is below the configured threshold %.2f%%',
+                $gatedMsi,
+                $this->threshold,
+            );
+        }
+        foreach ($weakFiles as $file => $fileMsi) {
+            $reasonParts[] = sprintf(
+                'e3: source file %s has MSI %.2f%% (below threshold %.2f%%) — weak file not masked by aggregate',
+                $file,
+                $fileMsi,
+                $this->threshold,
+            );
+        }
+        $reason = implode('; ', $reasonParts);
+
+        // VAL-E3-002 / VAL-E3-003: trip.
         //   - advisory => honesty flag only (drives the downgrade, never
         //     STATUS_FAILED for the flag alone).
         //   - hard     => STATUS_FAILED gate channel (never just downgrades).
         // The flag is retained for auditability in both modes.
-        $reason = sprintf(
-            'e3: real reported MSI %.2f%% is below the configured threshold %.2f%%',
-            $msi,
-            $this->threshold,
-        );
-
         return new MutationScoreVerdict(
             tripped: true,
             shouldFailGate: $this->e3Config->isHard(),
@@ -193,8 +244,33 @@ final class MutationScoreGate
             isNoOp: false,
             noOpReason: '',
             reason: $reason,
-            msi: $msi,
+            msi: $gatedMsi,
             threshold: $this->threshold,
         );
+    }
+
+    /**
+     * Find source files whose per-file MSI is below the threshold
+     * (VAL-E3-013). Returns an associative array [file => msi] for each weak
+     * file. Empty when per-file stats are unavailable (single-file scope,
+     * degraded run) or all files are at/above the threshold.
+     *
+     * @param  ?array<string,array{msi:float,killed:int,escaped:int,total:int}>  $perFileStats
+     * @return array<string,float>
+     */
+    private function findWeakFiles(?array $perFileStats): array
+    {
+        if ($perFileStats === null || $perFileStats === []) {
+            return [];
+        }
+        $weak = [];
+        foreach ($perFileStats as $file => $stats) {
+            $fileMsi = $stats['msi'] ?? 0.0;
+            if ($fileMsi < $this->threshold) {
+                $weak[$file] = $fileMsi;
+            }
+        }
+
+        return $weak;
     }
 }

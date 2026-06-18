@@ -355,4 +355,196 @@ final class MutationScoreGateTest extends TestCase
             ),
         );
     }
+
+    // -- VAL-E3-005/006: gate uses realMsi (recomputed over full population) ---
+
+    public function test_val_e3_006_gate_uses_real_msi_not_infection_reported_msi(): void
+    {
+        // The gate uses realMsi (recomputed over totalMutantsCount), NOT the
+        // infection-reported msi (which subtracts skipped/ignored). A patch
+        // config that marks survivors as ignored inflates infection's msi to
+        // 100% but the real MSI stays at 40%.
+        $result = MutationTestingResult::completed(
+            msi: 100.0,     // infection's inflated MSI (4 killed / 4 tested after excluding 6 ignored)
+            summaryPath: '/tmp/summary.json',
+            scope: new MutationScope(
+                testFiles: ['tests/Unit/FooTest.php'],
+                sourceFiles: ['app/Foo.php'],
+            ),
+            realMsi: 40.0,   // real MSI: 4 killed / 10 total
+            rawCounts: [
+                'totalMutantsCount' => 10,
+                'killedCount' => 4,
+                'escapedCount' => 0,
+                'ignoredCount' => 6,
+            ],
+        );
+
+        $gate = new MutationScoreGate(
+            e3Config: ElevationConfig::for('e3', ['mode' => 'advisory']),
+            threshold: 60.0,
+        );
+        $verdict = $gate->evaluate($result);
+
+        $this->assertTrue(
+            $verdict->tripped,
+            'VAL-E3-006: gate trips on realMsi (40%) despite infection msi=100%',
+        );
+        $this->assertSame(
+            40.0,
+            $verdict->msi,
+            'verdict echoes the gated realMsi, not infection msi',
+        );
+        $this->assertContains(
+            MutationTestingAdapter::FLAG_MUTATION_SCORE_BELOW_THRESHOLD,
+            $verdict->honestyFlags,
+        );
+    }
+
+    public function test_gate_falls_back_to_reported_msi_when_real_msi_unavailable(): void
+    {
+        // Legacy / degraded run: realMsi is null. The gate falls back to the
+        // reported msi (the honest-but-inflatable value). This preserves
+        // backward compatibility with a pre-anti-gaming adapter result.
+        $result = MutationTestingResult::completed(
+            msi: 50.0,
+            summaryPath: '/tmp/summary.json',
+            scope: new MutationScope(
+                testFiles: ['tests/Unit/FooTest.php'],
+                sourceFiles: ['app/Foo.php'],
+            ),
+            realMsi: null,  // legacy / degraded
+        );
+
+        $gate = new MutationScoreGate(
+            e3Config: ElevationConfig::for('e3', ['mode' => 'advisory']),
+            threshold: 60.0,
+        );
+        $verdict = $gate->evaluate($result);
+
+        $this->assertTrue($verdict->tripped, 'falls back to reported msi=50 < 60');
+        $this->assertSame(50.0, $verdict->msi);
+    }
+
+    // -- VAL-E3-013: weak file among strong ones trips despite high aggregate --
+
+    public function test_val_e3_013_weak_file_trips_despite_high_aggregate_msi(): void
+    {
+        // Aggregate realMsi = 60% (at threshold), but Foo has 20% MSI (weak).
+        // The gate trips because Foo is below threshold.
+        $result = MutationTestingResult::completed(
+            msi: 60.0,
+            summaryPath: '/tmp/summary.json',
+            scope: new MutationScope(
+                testFiles: ['tests/Unit/ModuleA/FooTest.php', 'tests/Unit/ModuleB/BarTest.php'],
+                sourceFiles: ['app/ModuleA/Foo.php', 'app/ModuleB/Bar.php'],
+            ),
+            realMsi: 60.0,
+            perFileStats: [
+                'app/ModuleA/Foo.php' => ['msi' => 20.0, 'killed' => 1, 'escaped' => 4, 'total' => 5],
+                'app/ModuleB/Bar.php' => ['msi' => 100.0, 'killed' => 5, 'escaped' => 0, 'total' => 5],
+            ],
+        );
+
+        $gate = new MutationScoreGate(
+            e3Config: ElevationConfig::for('e3', ['mode' => 'advisory']),
+            threshold: 60.0,
+        );
+        $verdict = $gate->evaluate($result);
+
+        $this->assertTrue(
+            $verdict->tripped,
+            'VAL-E3-013: weak file Foo trips despite aggregate 60%',
+        );
+        $this->assertContains(
+            MutationTestingAdapter::FLAG_MUTATION_SCORE_BELOW_THRESHOLD,
+            $verdict->honestyFlags,
+        );
+        $this->assertStringContainsString(
+            'Foo.php',
+            $verdict->reason,
+            'reason cites the weak file by name',
+        );
+    }
+
+    public function test_val_e3_013_all_files_above_threshold_no_trip(): void
+    {
+        // All files above threshold, aggregate above threshold => no trip.
+        $result = MutationTestingResult::completed(
+            msi: 90.0,
+            summaryPath: '/tmp/summary.json',
+            scope: new MutationScope(
+                testFiles: ['tests/Unit/ModuleA/FooTest.php', 'tests/Unit/ModuleB/BarTest.php'],
+                sourceFiles: ['app/ModuleA/Foo.php', 'app/ModuleB/Bar.php'],
+            ),
+            realMsi: 90.0,
+            perFileStats: [
+                'app/ModuleA/Foo.php' => ['msi' => 80.0, 'killed' => 4, 'escaped' => 1, 'total' => 5],
+                'app/ModuleB/Bar.php' => ['msi' => 100.0, 'killed' => 5, 'escaped' => 0, 'total' => 5],
+            ],
+        );
+
+        $gate = new MutationScoreGate(
+            e3Config: ElevationConfig::for('e3', ['mode' => 'advisory']),
+            threshold: 60.0,
+        );
+        $verdict = $gate->evaluate($result);
+
+        $this->assertFalse($verdict->tripped, 'all files above threshold => no trip');
+        $this->assertSame([], $verdict->honestyFlags);
+    }
+
+    public function test_val_e3_013_weak_file_trips_in_hard_mode_status_failed(): void
+    {
+        $result = MutationTestingResult::completed(
+            msi: 60.0,
+            summaryPath: '/tmp/summary.json',
+            scope: new MutationScope(
+                testFiles: ['tests/Unit/ModuleA/FooTest.php'],
+                sourceFiles: ['app/ModuleA/Foo.php', 'app/ModuleB/Bar.php'],
+            ),
+            realMsi: 60.0,
+            perFileStats: [
+                'app/ModuleA/Foo.php' => ['msi' => 20.0, 'killed' => 1, 'escaped' => 4, 'total' => 5],
+                'app/ModuleB/Bar.php' => ['msi' => 100.0, 'killed' => 5, 'escaped' => 0, 'total' => 5],
+            ],
+        );
+
+        $gate = new MutationScoreGate(
+            e3Config: ElevationConfig::for('e3', ['mode' => 'hard']),
+            threshold: 60.0,
+        );
+        $verdict = $gate->evaluate($result);
+
+        $this->assertTrue($verdict->tripped);
+        $this->assertTrue(
+            $verdict->shouldFailGate,
+            'VAL-E3-013 hard: weak file routes to STATUS_FAILED',
+        );
+    }
+
+    public function test_per_file_stats_null_does_not_cause_false_trip(): void
+    {
+        // When per-file stats are unavailable (single-file run, degraded),
+        // the gate relies on the aggregate realMsi alone — no false trip
+        // from missing per-file data.
+        $result = MutationTestingResult::completed(
+            msi: 80.0,
+            summaryPath: '/tmp/summary.json',
+            scope: new MutationScope(
+                testFiles: ['tests/Unit/FooTest.php'],
+                sourceFiles: ['app/Foo.php'],
+            ),
+            realMsi: 80.0,
+            perFileStats: null,
+        );
+
+        $gate = new MutationScoreGate(
+            e3Config: ElevationConfig::for('e3', ['mode' => 'advisory']),
+            threshold: 60.0,
+        );
+        $verdict = $gate->evaluate($result);
+
+        $this->assertFalse($verdict->tripped, 'null per-file stats do not cause a false trip');
+    }
 }

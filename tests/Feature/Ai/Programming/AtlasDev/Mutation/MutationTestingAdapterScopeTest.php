@@ -6,7 +6,6 @@ namespace Tests\Feature\Ai\Programming\AtlasDev\Mutation;
 
 use App\Services\Ai\Programming\AtlasDev\Mutation\MutationTestingAdapter;
 use App\Services\Ai\Programming\AtlasDev\Support\Elevations\ElevationConfig;
-use App\Services\Ai\Programming\AtlasDev\Support\Elevations\ElevationMode;
 use Tests\TestCase;
 use Tests\Unit\Ai\Programming\AtlasDev\Mutation\FakeMutationCommandRunner;
 
@@ -44,7 +43,7 @@ final class MutationTestingAdapterScopeTest extends TestCase
 
     public function test_val_e3_001_single_test_file_patch_scope_is_narrow_and_targeted(): void
     {
-        $runner = new FakeMutationCommandRunner();
+        $runner = new FakeMutationCommandRunner;
         $runner->queueOk(msi: 100.0, summaryPath: '/tmp/s.json');
 
         $adapter = $this->makeAdapter($runner, mode: 'advisory');
@@ -109,7 +108,7 @@ final class MutationTestingAdapterScopeTest extends TestCase
 
     public function test_val_e3_001_multi_file_patch_scopes_to_deduped_union(): void
     {
-        $runner = new FakeMutationCommandRunner();
+        $runner = new FakeMutationCommandRunner;
         $runner->queueOk(msi: 80.0, summaryPath: '/tmp/s.json');
 
         $adapter = $this->makeAdapter($runner, mode: 'advisory');
@@ -145,7 +144,7 @@ final class MutationTestingAdapterScopeTest extends TestCase
 
     public function test_val_e3_008_patch_touching_only_source_skips_with_reason_no_flag_no_fail(): void
     {
-        $runner = new FakeMutationCommandRunner();
+        $runner = new FakeMutationCommandRunner;
         $adapter = $this->makeAdapter($runner, mode: 'advisory');
 
         $result = $adapter->run(
@@ -169,7 +168,7 @@ final class MutationTestingAdapterScopeTest extends TestCase
 
     public function test_val_e3_008_empty_touched_files_skips_with_reason(): void
     {
-        $runner = new FakeMutationCommandRunner();
+        $runner = new FakeMutationCommandRunner;
         $adapter = $this->makeAdapter($runner, mode: 'advisory');
 
         $result = $adapter->run(runId: 'run-e3-008-empty-feat', touchedFiles: []);
@@ -182,7 +181,7 @@ final class MutationTestingAdapterScopeTest extends TestCase
 
     public function test_val_e3_008_skip_reason_cites_no_test_files_explicitly(): void
     {
-        $adapter = $this->makeAdapter(new FakeMutationCommandRunner(), mode: 'advisory');
+        $adapter = $this->makeAdapter(new FakeMutationCommandRunner, mode: 'advisory');
 
         $result = $adapter->run(
             runId: 'run-e3-008-reason',
@@ -206,7 +205,7 @@ final class MutationTestingAdapterScopeTest extends TestCase
 
     public function test_val_e3_010_off_mode_is_byte_identical_no_op_infection_not_invoked(): void
     {
-        $runner = new FakeMutationCommandRunner();
+        $runner = new FakeMutationCommandRunner;
         $adapter = $this->makeAdapter($runner, mode: 'off');
 
         $result = $adapter->run(
@@ -237,7 +236,7 @@ final class MutationTestingAdapterScopeTest extends TestCase
     {
         // Even with empty touched files, the off-mode reason is the one
         // surfaced: the elevation is byte-identical regardless of inputs.
-        $adapter = $this->makeAdapter(new FakeMutationCommandRunner(), mode: 'off');
+        $adapter = $this->makeAdapter(new FakeMutationCommandRunner, mode: 'off');
 
         $result = $adapter->run(runId: 'run-e3-off-empty-feat', touchedFiles: []);
 
@@ -249,7 +248,7 @@ final class MutationTestingAdapterScopeTest extends TestCase
 
     public function test_val_e3_011_missing_coverage_driver_is_surfaced_as_failure_never_fabricated_msi(): void
     {
-        $runner = new FakeMutationCommandRunner();
+        $runner = new FakeMutationCommandRunner;
         $runner->queueFailure(stdout: 'PCOV is not installed; no coverage driver available');
 
         $adapter = $this->makeAdapter($runner, mode: 'advisory');
@@ -276,7 +275,7 @@ final class MutationTestingAdapterScopeTest extends TestCase
 
     public function test_val_e3_011_failed_infection_run_is_surfaced_honestly(): void
     {
-        $runner = new FakeMutationCommandRunner();
+        $runner = new FakeMutationCommandRunner;
         $runner->queueFailure(stdout: 'some unrelated failure during mutation');
 
         $adapter = $this->makeAdapter($runner, mode: 'advisory');
@@ -301,7 +300,7 @@ final class MutationTestingAdapterScopeTest extends TestCase
         // other elevations (E1, E2) do, so the mission's flag tri-state
         // governs E3 uniformly (VAL-CROSS-009 per-elevation independence).
         foreach (['off', 'advisory', 'hard'] as $mode) {
-            $runner = new FakeMutationCommandRunner();
+            $runner = new FakeMutationCommandRunner;
             $runner->queueOk(msi: 100.0, summaryPath: '/tmp/s.json');
 
             $adapter = $this->makeAdapter($runner, mode: $mode);
