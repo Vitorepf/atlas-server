@@ -38,6 +38,10 @@ use App\Services\Ai\Programming\AtlasDev\Provider\DiffParser;
 use App\Services\Ai\Programming\AtlasDev\Provider\DiffParseResult;
 use App\Services\Ai\Programming\AtlasDev\Provider\ProviderCallResult;
 use App\Services\Ai\Programming\AtlasDev\Provider\SonnetClaudeCliAdapter;
+use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineCache;
+use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineGate;
+use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineService;
+use App\Services\Ai\Programming\AtlasDev\Regression\VerificationRegressionBaselineRunner;
 use App\Services\Ai\Programming\AtlasDev\Repair\FailureCapsuleBuilder;
 use App\Services\Ai\Programming\AtlasDev\Repair\FailureSignatureHasher;
 use App\Services\Ai\Programming\AtlasDev\Repair\RepairPromptComposer;
@@ -138,6 +142,49 @@ final class PipelineRunExecutor implements RunExecutor
 
         $callResult = $deterministicCallResult;
         $providerCalls = 0;
+
+        // E5: Pre-Patch Regression Baseline -- capture ONCE on the clean tree.
+        //
+        // VAL-E5-001: before the generated patch is applied, run the scoped
+        // suite and persist a baseline cache (test identifier -> pass/fail)
+        // reflecting the pre-patch/HEAD state. The cache is captured here --
+        // AFTER the command runner is resolved (non-null) but BEFORE any
+        // provider call, repair loop, or best-of-N invocation -- so the
+        // workspace is at HEAD (the clean tree).
+        //
+        // VAL-E5-012: the baseline is captured ONCE and reused byte-identical
+        // across all M2 repair iterations (never recaptured on a patched/
+        // polluted tree). The $regressionBaseline variable holds the immutable
+        // cache; the post-gate E5 block below diffs the final verification
+        // result's tests against this original iteration-0 baseline.
+        //
+        // The scoped suite is the task contract's validation commands (the
+        // caller-specified test commands the verification gate will run post-
+        // patch). The floor commands (impacted tests from the diff) are a
+        // separate concern handled by the caller-test selection feature; the
+        // regression baseline for validation commands is still valuable: it
+        // distinguishes "this validation test was passing before and now fails"
+        // (regression) from "this validation test was already failing" (pre-
+        // existing).
+        //
+        // VAL-E5-011 / VAL-CROSS-010: off mode => the baseline is NOT captured
+        // (no commands run), no regression check happens, and the run is byte-
+        // identical to pre-E5. The `if (! $e5Config->isOff())` guard skips the
+        // capture entirely; the post-gate block checks the same guard before
+        // computing regressions.
+        $regressionBaseline = null;
+        $e5Config = $this->resolveE5Config();
+        if (! $e5Config->isOff()) {
+            $baselineService = $this->resolveRegressionBaselineService();
+            if ($baselineService !== null) {
+                $regressionBaseline = $baselineService->captureBaseline(
+                    runId: $runId,
+                    commands: $taskContract->validationCommands,
+                    workspace: $envelope->workspace,
+                    captureOrder: 0,
+                );
+            }
+        }
 
         // M4: Best-of-N (MiniMax-only) on the default hermes path.
         //
@@ -486,6 +533,69 @@ final class PipelineRunExecutor implements RunExecutor
                     $verificationResult = $verificationResult->withHonestyFlags(
                         $verdict->honestyFlags,
                     );
+                }
+            }
+        }
+
+        // E5: Pre-Patch Regression Baseline -- diff the post-patch results
+        // against the iteration-0 baseline and route the verdict through the
+        // sanctioned channels.
+        //
+        // VAL-E5-002: a test that passed pre-patch and fails post-patch is
+        // classified as a regression. VAL-E5-003: in hard mode the regression
+        // propagates as STATUS_FAILED so completion resolves to failed. VAL-E5-
+        // 004: a pre-existing failure (failed-before, failed-after) is NOT a
+        // regression. VAL-E5-005: a failing->passing transition is a fix, not
+        // a regression.
+        //
+        // VAL-E5-012: the baseline was captured ONCE before the repair loop
+        // (above) on the clean tree. This block diffs the FINAL iteration's
+        // verification result against that original baseline. The baseline
+        // cache is immutable; its contentHash is stable across all iterations.
+        //
+        // Channels (no third way):
+        //   - off      => no surfacing (byte-identical to pre-E5; the baseline
+        //                 was not captured, so there is nothing to diff).
+        //   - advisory => honesty flag only (drives the downgrade, never
+        //                 STATUS_FAILED for the flag alone).
+        //   - hard     => STATUS_FAILED gate (sanctioned hard channel).
+        //
+        // Like E1/E2/E3, this runs for EVERY provider (the regression check is
+        // a property of the test results, not the provider) and covers the
+        // best-of-N winner path through the same post-gate block.
+        if (! $e5Config->isOff() && $regressionBaseline !== null) {
+            $baselineService = $this->resolveRegressionBaselineService();
+            if ($baselineService !== null) {
+                $regressionResult = $baselineService->buildResult(
+                    baseline: $regressionBaseline,
+                    postPatchTests: $verificationResult->tests,
+                );
+                $regressionGate = new RegressionBaselineGate($e5Config);
+                $regressionVerdict = $regressionGate->evaluate($regressionResult);
+
+                if ($regressionVerdict->tripped) {
+                    if ($e5Config->isHard()) {
+                        // Hard => sanctioned hard gate channel (STATUS_FAILED).
+                        // Rebuild the gate result preserving the gathered
+                        // tests/gates while forcing STATUS_FAILED so completion
+                        // resolves to failed/blocked (never silently passed).
+                        $verificationResult = new VerificationGateResult(
+                            tests: $verificationResult->tests,
+                            gates: $verificationResult->gates,
+                            aggregateStatus: VerificationGateResult::STATUS_FAILED,
+                            honestyFlags: $verificationResult->withHonestyFlags(
+                                $regressionVerdict->honestyFlags,
+                            )->honestyFlags,
+                            evidenceRefs: $verificationResult->evidenceRefs,
+                            profile: $verificationResult->profile,
+                        );
+                    } else {
+                        // Advisory => honesty flag only (drives the
+                        // CompletionStateGate PASSED -> needs_review downgrade).
+                        $verificationResult = $verificationResult->withHonestyFlags(
+                            $regressionVerdict->honestyFlags,
+                        );
+                    }
                 }
             }
         }
@@ -2882,6 +2992,52 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         } catch (\Throwable) {
             return ElevationConfig::for('e3', null);
         }
+    }
+
+    /**
+     * E5: resolve the e5 elevation config. Same resolution pattern as E1/E2/E3:
+     * reads the live config kernel when available, otherwise degrades to the
+     * safe default (advisory) so plain-PHPunit unit tests never crash.
+     */
+    private function resolveE5Config(): ElevationConfig
+    {
+        try {
+            return ElevationConfig::fromConfig('e5');
+        } catch (\Throwable) {
+            return ElevationConfig::for('e5', null);
+        }
+    }
+
+    /**
+     * E5: resolve the RegressionBaselineService the regression-baseline gate
+     * consumes.
+     *
+     * Bound through the container via `atlas_dev.e5.regression_baseline_service`
+     * so tests inject a fake {@see RegressionBaselineService} (with a fake
+     * RegressionBaselineRunner) without ever spawning real test subprocesses
+     * during baseline capture. The binding is OPTIONAL: when unbound, this
+     * returns null and the executor skips the baseline capture entirely
+     * (E5 degrades to off for that run). This guarantees the frozen M1-M5
+     * tests (which pre-date E5 and bind their own fake verification command
+     * runner) are byte-identical: the baseline service is only active when
+     * explicitly bound, so it never consumes the frozen tests' queued command
+     * results.
+     *
+     * Production deployments register the binding in a service provider,
+     * wrapping the resolved verification command runner in a
+     * VerificationRegressionBaselineRunner. The container binding convention
+     * mirrors `atlas_dev.e3.mutation_adapter` and `atlas_dev.e1.intent_judge`.
+     */
+    private function resolveRegressionBaselineService(): ?RegressionBaselineService
+    {
+        if ($this->container->bound('atlas_dev.e5.regression_baseline_service')) {
+            $bound = $this->container->make('atlas_dev.e5.regression_baseline_service');
+            if ($bound instanceof RegressionBaselineService) {
+                return $bound;
+            }
+        }
+
+        return null;
     }
 
     /**
