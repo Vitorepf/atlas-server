@@ -38,6 +38,7 @@ use App\Services\Ai\Programming\AtlasDev\Provider\DiffParser;
 use App\Services\Ai\Programming\AtlasDev\Provider\DiffParseResult;
 use App\Services\Ai\Programming\AtlasDev\Provider\ProviderCallResult;
 use App\Services\Ai\Programming\AtlasDev\Provider\SonnetClaudeCliAdapter;
+use App\Services\Ai\Programming\AtlasDev\Regression\CallerTestSelectionService;
 use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineCache;
 use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineGate;
 use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineService;
@@ -282,6 +283,7 @@ final class PipelineRunExecutor implements RunExecutor
                         callResult: $callResultForGates,
                         scopeReceipt: $scopeReceipt,
                         workspace: $envelope->workspace,
+                        codeGraph: $this->resolveCallerTestCodeGraph($scopeReceipt, $envelope->workspace),
                     )
                     : $this->verificationFailedDueToPatchApply($patchApplyResult);
 
@@ -1443,6 +1445,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
                     callResult: $callResultForGates,
                     scopeReceipt: $scopeReceipt,
                     workspace: $envelope->workspace,
+                    codeGraph: $this->resolveCallerTestCodeGraph($scopeReceipt, $envelope->workspace),
                 )
                 : $this->verificationFailedDueToPatchApply($patchApplyResult);
 
@@ -3038,6 +3041,83 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         }
 
         return null;
+    }
+
+    /**
+     * E5: resolve the CallerTestSelectionService the caller-test selection
+     * feature consumes.
+     *
+     * Bound through the container via `atlas_dev.e5.caller_test_selection_service`
+     * so tests inject a fake {@see CallerTestSelectionService} (or seed the
+     * real Code Intelligence tables) without side effects. The binding is
+     * OPTIONAL: when unbound, the executor uses a fresh
+     * {@see CallerTestSelectionService} instance (the service has no
+     * constructor dependencies and resolves the CodeGraph workspace identity
+     * via `app(...)` at call time). This mirrors the
+     * `atlas_dev.e3.mutation_adapter` / `atlas_dev.e1.intent_judge` pattern.
+     *
+     * VAL-E5-009: the service itself degrades safely when CI tables are
+     * absent (DatabaseTableAvailability::has() guard), so a fresh instance
+     * is always safe to call.
+     */
+    private function resolveCallerTestSelectionService(): CallerTestSelectionService
+    {
+        if ($this->container->bound('atlas_dev.e5.caller_test_selection_service')) {
+            $bound = $this->container->make('atlas_dev.e5.caller_test_selection_service');
+            if ($bound instanceof CallerTestSelectionService) {
+                return $bound;
+            }
+        }
+
+        return new CallerTestSelectionService;
+    }
+
+    /**
+     * E5: resolve the `$codeGraph` payload (with `related_tests`) for the
+     * verification gate's caller-test selection.
+     *
+     * VAL-E5-006/007/008: when E5 is enabled (not off), the service discovers
+     * tests of direct callers of changed symbols via the CodeGraph read-model
+     * and returns them as `$codeGraph['related_tests']`. The gate's floor
+     * then merges them into `selected_existing_tests` through the
+     * ProgrammingTestImpactAnalyzer (VAL-E5-008: through the analyzer, not a
+     * side channel), widening the verification floor so a patch that breaks
+     * a caller's test T_C runs T_C and surfaces the failure (VAL-E5-007).
+     *
+     * VAL-E5-009/VAL-E5-011/VAL-CROSS-010: when E5 is OFF, the codeGraph is
+     * empty (byte-identical to pre-E5: no caller expansion, conventional
+     * floor only). When the service degrades (CI tables absent), it returns
+     * an empty `related_tests` list (no crash, conventional fallback).
+     *
+     * The codeGraph is resolved PER GATE RUN from the scopeReceipt's observed
+     * changed files, so both the M2 repair loop and the best-of-N path
+     * expand the floor for each candidate against its own diff.
+     *
+     * @return array<string,mixed>
+     */
+    private function resolveCallerTestCodeGraph(ScopeGuardReceipt $scopeReceipt, string $workspace): array
+    {
+        $e5Config = $this->resolveE5Config();
+        if ($e5Config->isOff()) {
+            // Byte-identical to pre-E5: no caller expansion.
+            return [];
+        }
+
+        try {
+            $changedFiles = array_map(
+                static fn (ScopeFileDiff $diff): string => $diff->path,
+                $scopeReceipt->observed->fileDiffs,
+            );
+
+            return $this->resolveCallerTestSelectionService()->resolveCodeGraph(
+                changedFiles: $changedFiles,
+                workspace: $workspace,
+            );
+        } catch (\Throwable) {
+            // VAL-E5-009: safe degradation -- never crash the pipeline over
+            // caller-test resolution. Empty codeGraph => conventional floor.
+            return [];
+        }
     }
 
     /**

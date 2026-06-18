@@ -51,6 +51,22 @@ final class VerificationGate
         private readonly ?ReceiptStorageAdapter $storage = null,
     ) {}
 
+    /**
+     * Run the verification gate.
+     *
+     * E5 caller-test selection (VAL-E5-006/007/008): the optional
+     * `$codeGraph` payload carries `related_tests` (tests of direct callers
+     * of changed symbols, resolved from the CodeGraph read-model by
+     * {@see CallerTestSelectionService}). When non-empty, the floor's
+     * {@see ProgrammingTestImpactAnalyzer} merges those tests into
+     * `selected_existing_tests`, widening the floor so a patch that breaks a
+     * caller's test T_C runs T_C and surfaces the failure. When empty or
+     * absent (the default), the floor is byte-identical to pre-E5
+     * (conventional impacted-tests selection only).
+     *
+     * @param  array<string,mixed>  $codeGraph  E5 caller-test selection
+     *                                          payload (empty = conventional floor, byte-identical to pre-E5).
+     */
     public function run(
         LightTaskContract $taskContract,
         ProviderCallResult $callResult,
@@ -58,6 +74,7 @@ final class VerificationGate
         string $workspace,
         int $timeoutSeconds = 300,
         string $profile = self::PROFILE_PHP_LARAVEL,
+        array $codeGraph = [],
     ): VerificationGateResult {
         $profile = in_array($profile, self::ALLOWED_PROFILES, true) ? $profile : self::PROFILE_PHP_LARAVEL;
         $honestyFlags = [];
@@ -69,8 +86,10 @@ final class VerificationGate
             $honestyFlags[] = 'verification_ran_with_provider_errors';
         }
 
-        // M1: Compute the mandatory verification floor from observed diff
-        $floorCommands = $this->computeFloorCommands($scopeReceipt, $workspace);
+        // M1: Compute the mandatory verification floor from observed diff.
+        // E5: $codeGraph['related_tests'] widens the floor's impacted-tests
+        // selection to include tests of direct callers (VAL-E5-006/007/008).
+        $floorCommands = $this->computeFloorCommands($scopeReceipt, $workspace, $codeGraph);
 
         // Union of caller commands + floor commands, deduped
         $commands = $this->mergeCommands($taskContract->validationCommands, $floorCommands);
@@ -252,12 +271,17 @@ final class VerificationGate
      * The floor includes:
      * - Impacted existing tests discovered via ProgrammingTestImpactAnalyzer
      *   (using selected_existing_tests, NOT all candidates, to avoid false failures)
+     * - E5 caller-test selection: when `$codeGraph['related_tests']` is
+     *   populated, the analyzer widens selected_existing_tests to include
+     *   tests of direct callers (VAL-E5-006/007/008). Empty codeGraph =>
+     *   byte-identical to pre-E5 conventional floor.
      * - `php -l` per touched .php file
      * - Configured lint (pint) - only if pint exists in the workspace
      *
+     * @param  array<string,mixed>  $codeGraph  E5 caller-test selection payload.
      * @return list<string>
      */
-    private function computeFloorCommands(ScopeGuardReceipt $scopeReceipt, string $workspace): array
+    private function computeFloorCommands(ScopeGuardReceipt $scopeReceipt, string $workspace, array $codeGraph = []): array
     {
         $commands = [];
 
@@ -271,9 +295,12 @@ final class VerificationGate
             return [];
         }
 
-        // Get impacted tests via ProgrammingTestImpactAnalyzer (REUSE, do not rebuild)
+        // Get impacted tests via ProgrammingTestImpactAnalyzer (REUSE, do not rebuild).
+        // E5: $codeGraph flows related_tests (caller tests) into the analyzer so it
+        // widens selected_existing_tests (VAL-E5-008: through the analyzer, not a
+        // side channel). Empty codeGraph => conventional selection (byte-identical).
         $analyzer = new ProgrammingTestImpactAnalyzer;
-        $impact = $analyzer->analyze($changedFiles);
+        $impact = $analyzer->analyze($changedFiles, $codeGraph);
 
         // Add test commands for selected EXISTING tests only
         // This ensures only existing test files are forced (VAL-M1-008)
