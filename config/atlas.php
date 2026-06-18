@@ -2035,6 +2035,20 @@ return [
         'decision_min_refactor_cyclomatic' => max(1, (int) env('ATLAS_LOOP_DECISION_MIN_REFACTOR_CYCLOMATIC', 10)),
         'decision_leverage_floor' => max(0.0, (float) env('ATLAS_LOOP_DECISION_LEVERAGE_FLOOR', 0.6)),
 
+        // SHAPE VOCABULARY BROADENING — let the deterministic work-shape router (AtlasLoopWorkShapeRouter)
+        // NAME the two HEAVIER refactor shapes the refiller already knows how to synthesize, instead of
+        // only ever naming the smallest single-file shape:
+        //   - extract_class : a WIRED, test-backed hub whose worst-method cyclomatic is well above the
+        //     floor (>= extract_class_min_cyclomatic) — routes to synthesizeFrameworkRefactor(extractClass:true),
+        //     the 2-file god-method split (target + <Target>Support.php).
+        //   - multi_file    : a detected COUPLED CLUSTER (hub + >=1 covered caller) carried on the signals
+        //     packet — routes to synthesizeMultiFileRefactor() (the >=2-file cluster refactor).
+        // BOTH DEFAULT-OFF: with both flags off the router output is BYTE-IDENTICAL to today (the heavier
+        // shapes are simply never named), so the rédea ships inert until the operator arms it. Every
+        // downstream RED/structural-cert gate is unchanged — the router only broadens the shape decision.
+        'decision_extract_class_shape_enabled' => (bool) env('ATLAS_LOOP_DECISION_EXTRACT_CLASS_SHAPE_ENABLED', false),
+        'decision_multi_file_shape_enabled' => (bool) env('ATLAS_LOOP_DECISION_MULTI_FILE_SHAPE_ENABLED', false),
+
         // DECISION ("o quê a seguir") — the UNGAMEABLE next-work priority. When ON, the task
         // priority becomes BAND(shape) + OFFSET(leverage re-resolved FRESH from git/graph) instead
         // of the stored `score*100` scalar, so SHAPE dominates (a confirmed orphan can never out-rank

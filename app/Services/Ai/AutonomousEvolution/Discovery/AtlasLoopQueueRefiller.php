@@ -8,8 +8,8 @@ use App\Models\AtlasLoopCampaign;
 use App\Models\AtlasLoopTarget;
 use App\Services\Ai\AutonomousEvolution\AtlasEvolutionTaskGenerator;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopFrameworkRefactorSynthesizer;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -343,10 +343,10 @@ final class AtlasLoopQueueRefiller
     private function touchHeartbeat(AtlasLoopCampaign $campaign): void
     {
         try {
-            \Illuminate\Support\Facades\DB::table('atlas_loop_campaigns')
+            DB::table('atlas_loop_campaigns')
                 ->where('id', $campaign->id)
                 ->update(['heartbeat_at' => now()]);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // liveness ping is best-effort; ignore failures
         }
     }
@@ -374,9 +374,11 @@ final class AtlasLoopQueueRefiller
         // refactor/edge lanes below remain the executors and keep every RED-gate. Flag-gated
         // (default ON); fail-open — the router only skips on a measured orphan, never on missing
         // data, so the cascade is byte-identical for every non-orphan target.
+        $routedShape = null;
         if ((bool) config('atlas.loop.decision_router_enabled', true)) {
-            $decision = ($this->workShapeRouter ?? new AtlasLoopWorkShapeRouter())->decideShape($signals);
-            if (($decision['shape'] ?? '') === AtlasLoopWorkShapeRouter::SHAPE_SKIP) {
+            $decision = ($this->workShapeRouter ?? new AtlasLoopWorkShapeRouter)->decideShape($signals);
+            $routedShape = (string) ($decision['shape'] ?? '');
+            if ($routedShape === AtlasLoopWorkShapeRouter::SHAPE_SKIP) {
                 $this->loopBack->reflect($campaign->id, [
                     'target_id' => $target->id,
                     'status' => 'no_winner',
@@ -384,6 +386,27 @@ final class AtlasLoopQueueRefiller
                 ]);
 
                 return 'deferred';
+            }
+        }
+
+        // SHAPE VOCABULARY BROADENING — when the (broadened) router NAMES a heavier shape, prefer the
+        // heavier synthesizer the rédea already depends on, before the single-file cascade below:
+        //   - extract_class : the 2-file god-method split via synthesizeFrameworkRefactor(extractClass:true)
+        //   - multi_file    : the >=2-file coupled-cluster refactor via synthesizeMultiFileRefactor()
+        // Each is FAIL-OPEN: if the heavier synthesizer returns null the routing falls through to the
+        // existing single-file path, so nothing regresses. Both router shapes are themselves gated
+        // default-OFF inside the router, so on the default path $routedShape is never one of these and
+        // this block is inert (byte-identical). The synthesizers keep every RED/structural-cert gate.
+        if ($routedShape === AtlasLoopWorkShapeRouter::SHAPE_MULTI_FILE) {
+            $outcome = $this->tryRoutedMultiFileRefactor($campaign, $target, $signals, $provider, $repoRoot);
+            if ($outcome !== null) {
+                return $outcome;
+            }
+        }
+        if ($routedShape === AtlasLoopWorkShapeRouter::SHAPE_EXTRACT_CLASS) {
+            $outcome = $this->tryFrameworkRefactor($campaign, $target, $signals, $provider, $repoRoot, true);
+            if ($outcome !== null) {
+                return $outcome;
             }
         }
 
@@ -482,7 +505,7 @@ final class AtlasLoopQueueRefiller
         // normal generator). PETREO: a forbidden self-target is rejected here before enqueue
         // (belt-and-suspenders; discovery's admit() already filters them).
         if ((bool) config('atlas.loop.refactor_objectives_enabled', false) && $this->refactorSynthesizer !== null) {
-            $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard();
+            $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard;
             if (! $guard->isForbiddenSelfTarget((string) $target->target_path)) {
                 $refactor = $this->refactorSynthesizer->synthesize(
                     $repoRoot,
@@ -610,23 +633,29 @@ final class AtlasLoopQueueRefiller
      * self-target is rejected here before enqueue (belt-and-suspenders; discovery already filters).
      *
      * @param  array<string,mixed>  $signals
+     * @param  bool  $forceExtractClass  when the broadened router NAMED the extract_class
+     *                                   shape, request the 2-file extract-class objective
+     *                                   directly (the rédea's heavier-shape origination),
+     *                                   independent of the PATH-B static-flag heuristic
      */
-    private function tryFrameworkRefactor(AtlasLoopCampaign $campaign, AtlasLoopTarget $target, array $signals, string $provider, string $repoRoot): ?string
+    private function tryFrameworkRefactor(AtlasLoopCampaign $campaign, AtlasLoopTarget $target, array $signals, string $provider, string $repoRoot, bool $forceExtractClass = false): ?string
     {
         if (! (bool) config('atlas.loop.framework_refactor_enabled', false)) {
             return null;
         }
-        $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard();
+        $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard;
         if ($guard->isForbiddenSelfTarget((string) $target->target_path)) {
             return null;
         }
-        $synth = $this->frameworkRefactorSynthesizer ?? new AtlasLoopFrameworkRefactorSynthesizer();
+        $synth = $this->frameworkRefactorSynthesizer ?? new AtlasLoopFrameworkRefactorSynthesizer;
         // PATH B: escalate a sufficiently-complex target to a MULTI-FILE extract-class objective
         // (routed to the normal grind via the structural cert, NOT the Obra bridge) when the lane is
         // enabled. Below the threshold — or with the lane OFF — it stays a single-file in-place
         // reduction (byte-identical). The synth reuses the SAME complex/wired/sibling gates for both.
-        $extractClass = (bool) config('atlas.loop.multi_file_refactor_via_normal_lane', false)
-            && (int) ($signals['cyclomatic'] ?? 0) >= max(1, (int) config('atlas.loop.extract_class_min_cyclomatic', 15));
+        // $forceExtractClass: the broadened router already reasoned the extract_class shape (wired +
+        // test-backed + cyclomatic well above the floor), so honor it directly here.
+        $extractClass = $forceExtractClass || ((bool) config('atlas.loop.multi_file_refactor_via_normal_lane', false)
+            && (int) ($signals['cyclomatic'] ?? 0) >= max(1, (int) config('atlas.loop.extract_class_min_cyclomatic', 15)));
         $refactor = $synth->synthesizeFrameworkRefactor(
             $repoRoot,
             ltrim((string) $target->target_path, '/'),
@@ -656,6 +685,56 @@ final class AtlasLoopQueueRefiller
         );
         $this->stampLastObjective($target, (string) $refactor['objective']);
         $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'framework_refactor_task_synthesized');
+
+        return $enq !== null ? 'enqueued' : 'deferred';
+    }
+
+    /**
+     * SHAPE VOCABULARY BROADENING — the multi_file lane reached via the (broadened) router shape.
+     * Resolves the coupled cluster for this hub ({@see AtlasLoopObraClusterDetectorService::candidateFor})
+     * and synthesizes the >=2-file refactor with the SAME machinery the static OPTION-3 cascade uses
+     * (synthesizeMultiFileRefactor → structural cert + every sibling test re-run downstream). Returns the
+     * enqueue outcome, or null when the cluster cannot be resolved / synthesized — so the caller falls
+     * through byte-identical to the single-file cascade (fail-open, nothing regresses). NEVER auto-merges
+     * (the multi-file diff requires operator approval downstream like the existing lane).
+     *
+     * @param  array<string,mixed>  $signals
+     */
+    private function tryRoutedMultiFileRefactor(AtlasLoopCampaign $campaign, AtlasLoopTarget $target, array $signals, string $provider, string $repoRoot): ?string
+    {
+        if ($this->obraClusterDetector === null || $this->multiFileRefactorSynthesizer === null) {
+            return null;
+        }
+        $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard;
+        if ($guard->isForbiddenSelfTarget((string) $target->target_path)) {
+            return null;
+        }
+        $cluster = $this->obraClusterDetector->candidateFor($target, $campaign);
+        if ($cluster === null) {
+            return null;
+        }
+        $synth = $this->multiFileRefactorSynthesizer->synthesizeMultiFileRefactor($cluster, $repoRoot, $signals, $provider);
+        if ($synth === null) {
+            return null;
+        }
+        $dp = $this->decidedPriority($campaign, $target, $signals, $repoRoot, 'multi_file_refactor');
+        $mfPayload = $synth['payload'];
+        if ($dp['receipt'] !== []) {
+            $mfPayload['_decision'] = $dp['receipt'];
+        }
+        $mfPayload = $this->withSelfImprovementMarker($mfPayload, $signals);
+        $enq = $this->store->enqueueTask(
+            $campaign->id,
+            $synth['objective'],
+            $mfPayload,
+            'discovery',
+            (string) $target->target_path,
+            $dp['priority'],
+            true,
+            $synth['acceptance_hash'],
+        );
+        $this->stampLastObjective($target, (string) $synth['objective']);
+        $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'multi_file_refactor_task_synthesized');
 
         return $enq !== null ? 'enqueued' : 'deferred';
     }

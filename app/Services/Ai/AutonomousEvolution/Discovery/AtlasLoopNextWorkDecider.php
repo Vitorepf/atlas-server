@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Discovery;
 
+use App\Services\Ai\AutonomousEvolution\AtlasLoopUtilityGradeService;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
 use Throwable;
 
@@ -12,7 +13,7 @@ use Throwable;
  *
  * The loop used to decide which task to grind NEXT by `priority = round(target.score * 100)` — a
  * stored, WRITABLE scalar trusted blindly at claim time (`ORDER BY priority DESC`). That is exactly
- * the anti-pattern the merge-quality régua ({@see \App\Services\Ai\AutonomousEvolution\AtlasLoopUtilityGradeService})
+ * the anti-pattern the merge-quality régua ({@see AtlasLoopUtilityGradeService})
  * fixed for MERGING: it never trusts a stored receipt field; it RE-RESOLVES wiredness/complexity
  * from git+graph fresh. This decider applies the same standard to the PICK:
  *
@@ -59,6 +60,8 @@ final class AtlasLoopNextWorkDecider
     private const SHAPE_ALLOW = [
         AtlasLoopWorkShapeRouter::SHAPE_SKIP,
         AtlasLoopWorkShapeRouter::SHAPE_REFACTOR,
+        AtlasLoopWorkShapeRouter::SHAPE_EXTRACT_CLASS,
+        AtlasLoopWorkShapeRouter::SHAPE_MULTI_FILE,
         AtlasLoopWorkShapeRouter::SHAPE_EDGE_FIX,
         'obra',
         'obra_candidate',
@@ -73,10 +76,10 @@ final class AtlasLoopNextWorkDecider
     /**
      * Decide the ungameable next-work priority for ONE target.
      *
-     * @param  array<string,mixed>  $signals     the discovery signals packet stamped on the target
-     * @param  float                $storedScore the legacy composite score (capped fallback offset ONLY)
-     * @param  string|null          $shapeHint   the shape of the lane that will actually enqueue this
-     *                                            target; an unknown/forged hint is re-derived, never trusted
+     * @param  array<string,mixed>  $signals  the discovery signals packet stamped on the target
+     * @param  float  $storedScore  the legacy composite score (capped fallback offset ONLY)
+     * @param  string|null  $shapeHint  the shape of the lane that will actually enqueue this
+     *                                  target; an unknown/forged hint is re-derived, never trusted
      * @return array{priority:int, shape:string, band:int, offset:int, receipt:array<string,mixed>}
      */
     public function decide(
@@ -130,7 +133,9 @@ final class AtlasLoopNextWorkDecider
     {
         return match ($shape) {
             AtlasLoopWorkShapeRouter::SHAPE_SKIP => self::BAND_SKIP,
-            AtlasLoopWorkShapeRouter::SHAPE_REFACTOR => self::BAND_REFACTOR,
+            AtlasLoopWorkShapeRouter::SHAPE_REFACTOR,
+            AtlasLoopWorkShapeRouter::SHAPE_EXTRACT_CLASS => self::BAND_REFACTOR,
+            AtlasLoopWorkShapeRouter::SHAPE_MULTI_FILE,
             'obra', 'obra_candidate', 'multi_file_refactor' => self::BAND_OBRA,
             default => self::BAND_EDGE_FIX,
         };
@@ -163,7 +168,7 @@ final class AtlasLoopNextWorkDecider
      * decision_unmeasured_offset_ceiling (default 199) so any genuinely measured target in the same
      * band sorts strictly above any fail-open-degraded one — a forged score cannot buy the slot.
      *
-     * @return array{0:int, 1:bool, 2:?int, 3:?int}  [offset, reResolved, measuredCallers, measuredCyclomatic]
+     * @return array{0:int, 1:bool, 2:?int, 3:?int} [offset, reResolved, measuredCallers, measuredCyclomatic]
      */
     private function reResolvedOffset(string $repoRoot, string $relPath, float $storedScore): array
     {
@@ -219,7 +224,7 @@ final class AtlasLoopNextWorkDecider
 
     private function router(): AtlasLoopWorkShapeRouter
     {
-        return $this->workShapeRouter ?? new AtlasLoopWorkShapeRouter();
+        return $this->workShapeRouter ?? new AtlasLoopWorkShapeRouter;
     }
 
     /**
@@ -235,6 +240,6 @@ final class AtlasLoopNextWorkDecider
 
     private function analyzer(): AtlasLoopSignalAnalyzer
     {
-        return $this->signalAnalyzer ?? new AtlasLoopSignalAnalyzer();
+        return $this->signalAnalyzer ?? new AtlasLoopSignalAnalyzer;
     }
 }
