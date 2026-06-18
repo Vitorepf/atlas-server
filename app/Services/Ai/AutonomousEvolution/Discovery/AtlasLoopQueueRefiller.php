@@ -43,6 +43,7 @@ final class AtlasLoopQueueRefiller
         private readonly ?AtlasLoopSelectAdjuster $selectAdjuster = null,
         private readonly ?AtlasLoopConstraintsBlockAssembler $constraintsBlockAssembler = null,
         private readonly ?AtlasLoopHypothesisTreeProducer $treeProducer = null,
+        private readonly ?AtlasLoopObjectiveProducer $objectiveProducer = null,
     ) {}
 
     /**
@@ -294,6 +295,44 @@ final class AtlasLoopQueueRefiller
             // cannot tell "working" from "hung". Refresh the heartbeat per target (liveness
             // only — never touches elapsed_seconds, so the wall-clock budget is unaffected).
             $this->touchHeartbeat($campaign);
+        }
+
+        // HIGH-LEVERAGE OBJECTIVE PRODUCER (the rédea — default-OFF, fail-open): after the per-target
+        // lanes, read the Atlas brain over the SAME claimed targets and enqueue the single BIGGEST
+        // verifiable leap above the ambition floor (cross-target leverage + the strategic alignment the
+        // per-target lanes don't see). Flag OFF / nothing clears the floor / synthesizer fail-closed =>
+        // inert, every counter unchanged. Wrapped fail-open: it can never break a refill.
+        if ((bool) config('atlas.loop.objective_producer_enabled', false) && $this->objectiveProducer !== null) {
+            try {
+                $relPaths = [];
+                foreach ($targets as $t) {
+                    $p = ltrim((string) $t->target_path, '/');
+                    if ($p !== '') {
+                        $relPaths[] = $p;
+                    }
+                }
+                $built = $this->objectiveProducer->produce($repoRoot, $relPaths, $provider, 'producer:'.$campaign->id);
+                if ($built !== null) {
+                    // Refactor band (4000) + a leverage offset so the biggest leap is ground first.
+                    $priority = 4000 + min(999, (int) round((float) $built['leverage'] * 200));
+                    $hash = (string) ($built['acceptance_hash'] ?? '');
+                    $enq = $this->store->enqueueTask(
+                        $campaign->id,
+                        (string) $built['objective'],
+                        (array) $built['payload'],
+                        'producer:objective',
+                        (string) $built['target_path'],
+                        $priority,
+                        true,
+                        $hash !== '' ? $hash : null,
+                    );
+                    if ($enq !== null) {
+                        $enqueued++;
+                    }
+                }
+            } catch (Throwable) {
+                // fail-open: the rédea can never break a refill.
+            }
         }
 
         // OBRA CANDIDATE PRODUCER (slice-1, default-OFF, fail-open): after discovery+enqueue,
