@@ -75,6 +75,16 @@ final class AtlasLoopHarnessGuardTest extends TestCase
             'AtlasLoopNextWorkDecider',            // o priorizador ungameable
             'AtlasLoopIdeaTreeAccessor',           // ARBOR-GRAFT: substrato de candidatos/árvore
             'AtlasLoopSelectAdjuster',             // ARBOR-GRAFT: termo de SELECT determinístico
+            // LOOP-OS Fase 1 · Slice -1: a closure DELEGADA do juiz + moat + Constituição + back-doors
+            'AtlasEngineeringHonestyGate',         // o gate determinístico que o Certifier DELEGA
+            'AtlasLoopMutationAdequacyGateService',
+            'AtlasLoopCrossFileConsumerGateService',
+            'AtlasLoopJudgeConsensusGate',
+            'AtlasLoopHeldOutDeltaCertifier',
+            'AtlasLoopMutationOperators',          // vocabulário de mutação (moat de detecção)
+            'AutonomousEvolution/Constitution/',   // a subárvore inteira da Constituição
+            'config/atlas.php',                    // back-door: rebaixar os próprios safety-gates
+            'bin/atlas-loop-watchdog.sh',          // gatilho externo de respawn
         ] as $critical) {
             $this->assertStringContainsString($critical, $set, "$critical deve estar no conjunto proibido");
         }
@@ -126,5 +136,47 @@ final class AtlasLoopHarnessGuardTest extends TestCase
 
         $paths = array_column($result['top'], 'path');
         $this->assertNotContains($forbidden, $paths, 'o frozen judge NUNCA é alvo, nem via backlog priorizado');
+    }
+
+    /**
+     * LOOP-OS Fase 1 · Slice -1: a CLOSURE DELEGADA do juiz + a subárvore da Constituição +
+     * os back-doors (config/atlas.php, vocabulário de mutação, gatilho de respawn) são pétreos
+     * em AMBOS os estados de flag. Proteger só o Certifier NÃO protegia o juiz (achado R4):
+     * o veredito é delegado a HonestyGate/MutationAdequacy/CrossFileConsumer/JudgeConsensus/etc.
+     */
+    public function test_phase1_freeze_locks_cert_chain_closure_constitution_and_backdoors(): void
+    {
+        $guard = new AtlasLoopHarnessGuard();
+
+        $frozen = [
+            // closure transitiva do cert-chain (delegados do veredito)
+            'app/Services/Ai/AutonomousEvolution/Verify/AtlasEngineeringHonestyGate.php',
+            'app/Services/Ai/AutonomousEvolution/AtlasLoopMutationAdequacyGateService.php',
+            'app/Services/Ai/AutonomousEvolution/AtlasLoopCrossFileConsumerGateService.php',
+            'app/Services/Ai/AutonomousEvolution/AtlasLoopJudgeConsensusGate.php',
+            'app/Services/Ai/AutonomousEvolution/AtlasLoopHeldOutDeltaCertifier.php',
+            'app/Services/Ai/AutonomousEvolution/AtlasLoopBehavioralEquivalenceGate.php',
+            'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopNodeInterfaceExtractor.php',
+            // moat + back-doors
+            'app/Services/Ai/AutonomousEvolution/AtlasLoopMutationOperators.php',
+            'config/atlas.php',
+            'bin/atlas-loop-watchdog.sh',
+            // arquivo AINDA INEXISTENTE sob a subárvore da Constituição → pétreo por substring,
+            // então a fundação nasce inviolável (o loop não pode tocá-la enquanto é escrita).
+            'app/Services/Ai/AutonomousEvolution/Constitution/AtlasLoopMergeActuator.php',
+            'app/Services/Ai/AutonomousEvolution/Constitution/battery/case-0001-bad.json',
+        ];
+
+        foreach ($frozen as $path) {
+            $this->assertTrue($guard->isForbiddenSelfTarget($path), "$path deve ser pétreo");
+            $this->assertSame('forbidden', $guard->admit($path, false), "$path forbidden com flag OFF");
+            $this->assertSame('forbidden', $guard->admit($path, true), "$path forbidden com flag ON");
+        }
+
+        // O congelamento é CIRÚRGICO, não um freeze do tronco inteiro: um arquivo de harness
+        // NÃO-juiz do loop continua apenas flag-gated (o loop ainda evolui o próprio harness).
+        $nonJudge = 'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopQueueRefiller.php';
+        $this->assertFalse($guard->isForbiddenSelfTarget($nonJudge), 'harness não-juiz não é pétreo');
+        $this->assertSame('admissible', $guard->admit($nonJudge, true), 'harness não-juiz admissível com flag ON');
     }
 }

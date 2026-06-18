@@ -12,6 +12,10 @@ use App\Services\Ai\Context\AtlasAucriRuntimeEnforcementService;
 use App\Services\Ai\HermesCliProvider;
 use App\Services\Ai\Programming\AtlasDev\Differential\CandidateDivergenceGate;
 use App\Services\Ai\Programming\AtlasDev\Differential\DifferentialTestingService;
+use App\Services\Ai\Programming\AtlasDev\Differential\Shadow\ShadowDiffGate;
+use App\Services\Ai\Programming\AtlasDev\Differential\Shadow\ShadowDiffHarness;
+use App\Services\Ai\Programming\AtlasDev\Differential\Shadow\PhpSubprocessShadowDiffHarness;
+use App\Services\Ai\Programming\AtlasDev\Differential\Shadow\ShadowDiffService;
 use App\Services\Ai\Programming\AtlasDev\Gate\AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\Gate\CompletionDecision;
 use App\Services\Ai\Programming\AtlasDev\Gate\CompletionStateGate;
@@ -606,6 +610,90 @@ final class PipelineRunExecutor implements RunExecutor
                         // CompletionStateGate PASSED -> needs_review downgrade).
                         $verificationResult = $verificationResult->withHonestyFlags(
                             $regressionVerdict->honestyFlags,
+                        );
+                    }
+                }
+            }
+        }
+
+        // E4: Shadow-diff for pure functions -- run old vs new implementation
+        // on the same probe inputs and diff outputs; divergence =>
+        // shadow_diff_regression (catches regressions a unit test misses).
+        //
+        // VAL-E4-005: a pure-function change diverging on an input NOT covered
+        // by unit tests (suite stays green) is caught here: shadow-diff runs
+        // old vs new on a generated probe set, observes divergence, and raises
+        // shadow_diff_regression DESPITE the green gate. The honesty flag
+        // drives CompletionStateGate PASSED -> needs_review (advisory) or the
+        // gate is forced to STATUS_FAILED (hard). There is no silent green
+        // over a pure-function regression.
+        //
+        // VAL-E4-006: shadow_diff_regression is a regression verdict, never
+        // silently passed. Advisory => needs_review; hard => STATUS_FAILED.
+        //
+        // VAL-E4-007: conservative pure-function detection -- impure code
+        // (I/O, DB writes, mutation of external/global state, randomness,
+        // time) is NOT classified pure. No shadow-diff runs, no false flag.
+        //
+        // VAL-E4-008: a behavior-preserving pure refactor (identical outputs
+        // across all probed inputs) raises NO shadow_diff_regression.
+        //
+        // VAL-E4-011: a newly-added function with no prior implementation is
+        // skipped with an explicit reason (no baseline to diff). Never a
+        // crash, never a fabricated divergence.
+        //
+        // Channels (no third way): advisory => honesty flag only; hard =>
+        // STATUS_FAILED gate channel. Off => byte-identical no-op (the
+        // ShadowDiffService is not even resolved/invoked, so no subprocess
+        // spawns and no git reads happen).
+        //
+        // Like E1/E2/E3/E5, this runs for EVERY provider (the diff is a
+        // property of the write task, not the provider) and covers the
+        // best-of-N winner path through the same post-gate block
+        // (VAL-CROSS-015). A patch with no PHP files, no functions, all-
+        // impure, or all-newly-added is a documented no-op (VAL-E4-007 /
+        // VAL-E4-011) -- never a false fail.
+        if (! $e4Config->isOff()) {
+            $shadowDiffService = $this->resolveShadowDiffService();
+            if ($shadowDiffService !== null) {
+                // Gather the touched PHP files from the scope receipt. Only
+                // .php files are candidates (the extractor only parses PHP).
+                $changedPhpFiles = array_values(array_filter(
+                    array_map(
+                        static fn (ScopeFileDiff $d): string => $d->path,
+                        $scopeReceipt->observed->fileDiffs,
+                    ),
+                    static fn (string $p): bool => str_ends_with($p, '.php'),
+                ));
+
+                $shadowResult = $shadowDiffService->evaluate(
+                    workspace: $envelope->workspace,
+                    changedPhpFiles: $changedPhpFiles,
+                );
+                $shadowGate = new ShadowDiffGate($e4Config);
+                $shadowVerdict = $shadowGate->evaluate($shadowResult);
+
+                if ($shadowVerdict->tripped) {
+                    if ($e4Config->isHard()) {
+                        // Hard => sanctioned hard gate channel (STATUS_FAILED).
+                        // Rebuild the gate result preserving the gathered
+                        // tests/gates while forcing STATUS_FAILED so completion
+                        // resolves to failed/blocked (never silently passed).
+                        $verificationResult = new VerificationGateResult(
+                            tests: $verificationResult->tests,
+                            gates: $verificationResult->gates,
+                            aggregateStatus: VerificationGateResult::STATUS_FAILED,
+                            honestyFlags: $verificationResult->withHonestyFlags(
+                                $shadowVerdict->honestyFlags,
+                            )->honestyFlags,
+                            evidenceRefs: $verificationResult->evidenceRefs,
+                            profile: $verificationResult->profile,
+                        );
+                    } else {
+                        // Advisory => honesty flag only (drives the
+                        // CompletionStateGate PASSED -> needs_review downgrade).
+                        $verificationResult = $verificationResult->withHonestyFlags(
+                            $shadowVerdict->honestyFlags,
                         );
                     }
                 }
@@ -3218,6 +3306,61 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         }
 
         return new DifferentialTestingService;
+    }
+
+    /**
+     * E4: resolve the ShadowDiffService the shadow-diff gate consumes.
+     *
+     * Bound through the container via `atlas_dev.e4.shadow_diff_service`
+     * so tests inject a fake {@see ShadowDiffService} (with a fake
+     * {@see ShadowDiffHarness}) without spawning real PHP subprocesses.
+     *
+     * The binding is OPTIONAL. When unbound, this method resolves the
+     * {@see ShadowDiffHarness} via the separate `atlas_dev.e4.shadow_diff_harness`
+     * binding (also optional; defaults to {@see PhpSubprocessShadowDiffHarness})
+     * and constructs a fresh ShadowDiffService with it. Returning null is
+     * reserved for environments where neither the service nor the harness can
+     * be constructed; in that case the post-gate block skips shadow-diff
+     * entirely (E4 degrades to off for that run). This mirrors the
+     * `atlas_dev.e5.regression_baseline_service` pattern so the frozen M1-M5
+     * tests (which pre-date E4 shadow-diff) stay byte-identical.
+     */
+    private function resolveShadowDiffService(): ?ShadowDiffService
+    {
+        if ($this->container->bound('atlas_dev.e4.shadow_diff_service')) {
+            $bound = $this->container->make('atlas_dev.e4.shadow_diff_service');
+            if ($bound instanceof ShadowDiffService) {
+                return $bound;
+            }
+        }
+
+        try {
+            $harness = $this->resolveShadowDiffHarness();
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return new ShadowDiffService($harness);
+    }
+
+    /**
+     * E4: resolve the ShadowDiffHarness the default ShadowDiffService uses.
+     *
+     * Bound through the container via `atlas_dev.e4.shadow_diff_harness` so
+     * tests inject a fake harness that returns scripted outputs. When unbound,
+     * a fresh {@see PhpSubprocessShadowDiffHarness} is returned (the production
+     * default that executes old vs new in a sandboxed PHP subprocess).
+     */
+    private function resolveShadowDiffHarness(): ShadowDiffHarness
+    {
+        if ($this->container->bound('atlas_dev.e4.shadow_diff_harness')) {
+            $bound = $this->container->make('atlas_dev.e4.shadow_diff_harness');
+            if ($bound instanceof ShadowDiffHarness) {
+                return $bound;
+            }
+        }
+
+        return new PhpSubprocessShadowDiffHarness;
     }
 
     /**

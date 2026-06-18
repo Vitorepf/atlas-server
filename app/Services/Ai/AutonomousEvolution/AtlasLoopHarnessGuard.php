@@ -63,6 +63,43 @@ final class AtlasLoopHarnessGuard
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopIdeaTreeAccessor.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopSelectAdjuster.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopHypothesisTreeProducer.php',
+
+        // ── LOOP-OS · FASE 1 · SLICE -1 (2026-06-18): CONGELAR A PORTA antes de construir a
+        // Constituição. Hoje o loop JÁ auto-mergeia self-edits (flag ON) — a porta está ABERTA.
+        // Estes descem para `property_gated` quando a ConstitutionGate existir (Slice 4); até lá
+        // são pétreos. Ref: docs/loop-os-architecture.md §7 (zero-window) + §12 (Fase 1).
+        //
+        // (a) CLOSURE TRANSITIVA do cert-chain: o veredito é DELEGADO — proteger só o Certifier
+        //     NÃO protege o juiz (achado R4). Closure reflection-derivada de 17 classes (§3.3);
+        //     16 loop-local + AdversarialProofPanelService (já pétreo acima).
+        'app/Services/Ai/AutonomousEvolution/Verify/AtlasEngineeringHonestyGate.php',
+        'app/Services/Ai/AutonomousEvolution/Verify/AtlasDeadCodeAnalyzer.php',
+        'app/Services/Ai/AutonomousEvolution/Verify/AtlasDeadCodeAnalyzerSupport.php',
+        'app/Services/Ai/AutonomousEvolution/Verify/AtlasLoopSignalAnalyzer.php',
+        'app/Services/Ai/AutonomousEvolution/AtlasLoopBehavioralEquivalenceGate.php',
+        'app/Services/Ai/AutonomousEvolution/AtlasLoopChangedSymbolCoverageCensus.php',
+        'app/Services/Ai/AutonomousEvolution/AtlasLoopQualityGrader.php',
+        'app/Services/Ai/AutonomousEvolution/AtlasLoopDeliveryConfidenceModel.php',
+        'app/Services/Ai/AutonomousEvolution/AtlasLoopCompletenessGate.php',
+        'app/Services/Ai/AutonomousEvolution/AtlasLoopJudgeConsensusGate.php',
+        'app/Services/Ai/AutonomousEvolution/AtlasLoopHeldOutDeltaCertifier.php',
+        'app/Services/Ai/AutonomousEvolution/AtlasLoopMetricHarness.php',
+        'app/Services/Ai/AutonomousEvolution/AtlasLoopMutationAdequacyGateService.php',
+        'app/Services/Ai/AutonomousEvolution/AtlasLoopCrossFileConsumerGateService.php',
+        'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopCompletenessCriteriaResolver.php',
+        'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopNodeInterfaceExtractor.php',
+
+        // (b) Vocabulário de mutação (o moat de detecção). Vira property_gated no Slice 4.
+        'app/Services/Ai/AutonomousEvolution/AtlasLoopMutationOperators.php',
+
+        // (c) A subárvore INTEIRA da Constituição — arquivos nascem pétreos por substring,
+        //     então a fundação (actuator/battery/runner/gate/sentinel) é inviolável ao ser escrita.
+        'app/Services/Ai/AutonomousEvolution/Constitution/',
+
+        // (d) Back-door de config: o loop NÃO pode rebaixar os próprios safety-gates (SEV-2;
+        //     vira property_gated no Slice 4) — e o gatilho EXTERNO de respawn fica fora do alcance.
+        'config/atlas.php',
+        'bin/atlas-loop-watchdog.sh',
     ];
 
     /** Prefixos que identificam um arquivo do harness do loop (candidato a meta-target). */
