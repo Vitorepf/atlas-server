@@ -87,6 +87,16 @@ class SpecComposer
         RiskLevelScorer::R5 => 0,
     ];
 
+    /**
+     * The IntentActionExtractor owns the recognized action-verb vocabulary
+     * (single source of truth, shared with the E1 intent-falsification probe
+     * and the persisted LightTaskContract::intentVerbs field). Defaulted so
+     * existing callers that `new SpecComposer` without args keep working.
+     */
+    public function __construct(
+        private readonly IntentActionExtractor $intentActionExtractor = new IntentActionExtractor,
+    ) {}
+
     public function composeCompactSdd(
         OperationEnvelope $envelope,
         TaskClassification $classification,
@@ -234,6 +244,18 @@ class SpecComposer
         // implies no intent to fold).
         $intentText = $this->resolveIntentText($envelope, $writeAllowed);
 
+        // E1: extract the recognized action-verb set from the normalized
+        // intent and PERSIST it on the contract (new field) so downstream
+        // stages (E2 per-verb ACs, the E1 intent-falsification probe) share
+        // one stable basis instead of each re-detecting and discarding (the
+        // historical behavior). The verb set is extracted unconditionally
+        // (not gated by e1.mode): it is structural data about the intent,
+        // not elevation behavior. The elevation gates the PROBE that consumes
+        // the persisted set; the set itself is always present so the contract
+        // hash reflects the recognized intent shape (mirrors how E2
+        // intent_text is enriched unconditionally). VAL-E1-001/002.
+        $intentVerbs = $this->extractIntentVerbs($envelope->normalizedIntent);
+
         $miniSpecHash = $miniSpec->miniSpecHash !== '' ? $miniSpec->miniSpecHash : $miniSpec->hash();
         $skeleton = new LightTaskContract(
             runId: $envelope->runId,
@@ -253,6 +275,7 @@ class SpecComposer
             taskContractHash: '',
             noTestReason: $miniSpec->verificationPlan->noTestReason,
             intentText: $intentText,
+            intentVerbs: $intentVerbs,
         );
         $hash = $skeleton->hash();
 
@@ -274,6 +297,7 @@ class SpecComposer
             taskContractHash: $hash,
             noTestReason: $skeleton->noTestReason,
             intentText: $skeleton->intentText,
+            intentVerbs: $skeleton->intentVerbs,
         );
     }
 
@@ -1048,41 +1072,14 @@ class SpecComposer
     }
 
     /**
-     * Recognized intent verbs. The map keys are the substrings matched
-     * (case-insensitive) against the normalized intent; the values are the
-     * human-facing verb labels surfaced in the rendered DoD. Mirrors the
-     * {@see IntakeNormalizer::inferClarity} verb list so the SpecComposer
-     * and the intake classify on the same vocabulary.
-     *
-     * E2 (Definition of Done) populates expectedBehavior[] from these
-     * verb-derived behaviors so the rendered DoD carries one observable
-     * behavior per intent verb. The verb set is the same that E1's intent
-     * probe will check the diff against (VAL-CROSS-005).
+     * Recognized intent verbs live in {@see IntentActionExtractor::RECOGNIZED_VERBS},
+     * the single canonical source shared by intake classification
+     * ({@see IntakeNormalizer::inferClarity}), the persisted
+     * LightTaskContract::intentVerbs field (E1), the rendered `## Definition
+     * of Done` (E2), the behavioral acceptance criteria (E2), and the E1
+     * intent-falsification probe. SpecComposer reads them via the injected
+     * IntentActionExtractor so the vocabulary is never duplicated.
      */
-    private const INTENT_VERB_BEHAVIORS = [
-        'corrija' => 'corrigir',
-        'corrigir' => 'corrigir',
-        'fix' => 'corrigir',
-        'ajuste' => 'ajustar',
-        'ajustar' => 'ajustar',
-        'remova' => 'remover',
-        'remove' => 'remover',
-        'remover' => 'remover',
-        'adicione' => 'adicionar',
-        'adicionar' => 'adicionar',
-        'add ' => 'adicionar',
-        'crie' => 'criar',
-        'create' => 'criar',
-        'rename' => 'renomear',
-        'renomeie' => 'renomear',
-        'refator' => 'refatorar',
-        'refactor' => 'refatorar',
-        'extract' => 'extrair',
-        'extraia' => 'extrair',
-        'redirect' => 'redirecionar',
-        'redirecione' => 'redirecionar',
-        'gate' => 'gatear',
-    ];
 
     /**
      * @param  list<string>  $expectedFiles
@@ -1157,29 +1154,18 @@ class SpecComposer
 
     /**
      * Extract the recognized intent verbs present in the normalized intent.
-     * Returns the deduped set of human-facing verb labels (values of
-     * INTENT_VERB_BEHAVIORS), preserving first-occurrence order. Empty when
+     * Delegates to {@see IntentActionExtractor} so the recognized verb
+     * vocabulary lives in exactly one place and is shared verbatim with the
+     * E1 intent-falsification probe and the persisted
+     * LightTaskContract::intentVerbs field. Returns the deduped set of
+     * canonical verb labels, preserving first-occurrence order. Empty when
      * no recognized verb matches.
      *
      * @return list<string>
      */
     private function extractIntentVerbs(string $intentNormalized): array
     {
-        $haystack = strtolower($intentNormalized);
-        if ($haystack === '') {
-            return [];
-        }
-
-        $labels = [];
-        $seen = [];
-        foreach (self::INTENT_VERB_BEHAVIORS as $needle => $label) {
-            if (str_contains($haystack, $needle) && ! isset($seen[$label])) {
-                $labels[] = $label;
-                $seen[$label] = true;
-            }
-        }
-
-        return $labels;
+        return $this->intentActionExtractor->extract($intentNormalized);
     }
 
     /**
