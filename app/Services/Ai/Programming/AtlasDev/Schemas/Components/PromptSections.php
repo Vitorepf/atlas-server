@@ -29,6 +29,13 @@ final class PromptSections implements AtlasDevSchemaContract
      *                                           capsule entries (M5 compounding memory). Empty by
      *                                           default so a foreign/empty area yields a
      *                                           byte-identical baseline projection.
+     * @param  list<string>  $definitionOfDone  E2 Definition of Done bullet lines sourced from
+     *                                          MiniProgrammingSpec.expectedBehavior[] +
+     *                                          completionCriteria[]. Empty by default so an
+     *                                          empty source (or atlas_dev.elevations.e2.mode=off)
+     *                                          yields a byte-identical baseline projection
+     *                                          (conditional-empty pattern, mirrors
+     *                                          $knownFailureModes).
      */
     public function __construct(
         public readonly string $objective,
@@ -47,6 +54,7 @@ final class PromptSections implements AtlasDevSchemaContract
         public readonly bool $providerSafe = true,
         public readonly array $nonGoals = [],
         public readonly array $knownFailureModes = [],
+        public readonly array $definitionOfDone = [],
     ) {}
 
     public function schemaVersion(): string
@@ -61,6 +69,7 @@ final class PromptSections implements AtlasDevSchemaContract
             'allowed_files' => array_values($this->allowedFiles),
             'code_discovery_ref' => $this->codeDiscoveryRef,
             'context_refs' => array_values($this->contextRefs),
+            'definition_of_done' => array_values($this->definitionOfDone),
             'escalation_conditions' => array_values($this->escalationConditions),
             'expected_tests' => array_values($this->expectedTests),
             'forbidden_files' => array_values($this->forbiddenFiles),
