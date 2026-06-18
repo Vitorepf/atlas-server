@@ -2052,6 +2052,10 @@ return [
         // Adversarial critic: if the leverage(ratio)-winner's leap-magnitude (impact×breadth×compounding)
         // is below this fraction of the biggest floor-passer's, the critic promotes the bigger leap.
         'critic_numerator_threshold' => max(0.0, min(1.0, (float) env('ATLAS_LOOP_CRITIC_NUMERATOR_THRESHOLD', 0.6))),
+        // PRODUCER-EXCLUSIVE: when the rédea produces a leap, skip the slow per-target generation so
+        // refill returns fast and the supervisor reaches the grind phase (one biggest leap per cycle).
+        // Default OFF => the per-target lanes are untouched.
+        'producer_exclusive' => (bool) env('ATLAS_LOOP_PRODUCER_EXCLUSIVE', false),
 
         // DECISION ("o quê a seguir") — the UNGAMEABLE next-work priority. When ON, the task
         // priority becomes BAND(shape) + OFFSET(leverage re-resolved FRESH from git/graph) instead

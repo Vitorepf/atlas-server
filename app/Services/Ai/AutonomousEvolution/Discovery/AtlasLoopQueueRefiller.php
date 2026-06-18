@@ -278,6 +278,7 @@ final class AtlasLoopQueueRefiller
         $enqueued = 0;
         $quarantined = 0;
         $deferred = 0;
+        $producerLed = false;
 
         // HIGH-LEVERAGE OBJECTIVE PRODUCER (the rédea — default-OFF, fail-open). It runs FIRST, BEFORE
         // the per-target lanes, because it picks the single BIGGEST verifiable leap across the claimed
@@ -310,6 +311,7 @@ final class AtlasLoopQueueRefiller
                     );
                     if ($enq !== null) {
                         $enqueued++;
+                        $producerLed = true;
                     }
                 }
             } catch (Throwable) {
@@ -318,6 +320,13 @@ final class AtlasLoopQueueRefiller
         }
 
         foreach ($targets as $target) {
+            // PRODUCER-EXCLUSIVE: when the rédea produced this cycle's biggest leap, it is the SOLE
+            // work source — skip the slow per-target generation so the supervisor reaches the GRIND
+            // phase within budget (one biggest leap per cycle = the meta's design). Flag default-OFF
+            // => the per-target lanes run exactly as before.
+            if ($producerLed && (bool) config('atlas.loop.producer_exclusive', false)) {
+                break;
+            }
             $outcome = $this->generateAndEnqueue($campaign, $target, $provider);
             if ($outcome === 'enqueued') {
                 $enqueued++;
