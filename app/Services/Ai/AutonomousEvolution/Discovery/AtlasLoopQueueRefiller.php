@@ -43,6 +43,7 @@ final class AtlasLoopQueueRefiller
         private readonly ?AtlasLoopSelectAdjuster $selectAdjuster = null,
         private readonly ?AtlasLoopConstraintsBlockAssembler $constraintsBlockAssembler = null,
         private readonly ?AtlasLoopHypothesisTreeProducer $treeProducer = null,
+        private readonly ?AtlasLoopObjectiveProducer $objectiveProducer = null,
     ) {}
 
     /**
@@ -277,8 +278,55 @@ final class AtlasLoopQueueRefiller
         $enqueued = 0;
         $quarantined = 0;
         $deferred = 0;
+        $producerLed = false;
+
+        // HIGH-LEVERAGE OBJECTIVE PRODUCER (the rédea — default-OFF, fail-open). It runs FIRST, BEFORE
+        // the per-target lanes, because it picks the single BIGGEST verifiable leap across the claimed
+        // targets (cross-target leverage + the brain's strategic alignment the per-target lanes can't
+        // see) — the loop's priority, not an afterthought starved by a slow per-target grind. It
+        // enqueues in the refactor/obra band so the supervisor grinds the biggest leap first. Flag OFF
+        // / nothing clears the floor / origination fail-closed => inert. Wrapped fail-open.
+        if ((bool) config('atlas.loop.objective_producer_enabled', false) && $this->objectiveProducer !== null) {
+            try {
+                $relPaths = [];
+                foreach ($targets as $t) {
+                    $p = ltrim((string) $t->target_path, '/');
+                    if ($p !== '') {
+                        $relPaths[] = $p;
+                    }
+                }
+                $built = $this->objectiveProducer->produce($repoRoot, $relPaths, $provider, 'producer:'.$campaign->id);
+                if ($built !== null) {
+                    $priority = 4000 + min(999, (int) round((float) $built['leverage'] * 200));
+                    $hash = (string) ($built['acceptance_hash'] ?? '');
+                    $enq = $this->store->enqueueTask(
+                        $campaign->id,
+                        (string) $built['objective'],
+                        (array) $built['payload'],
+                        'producer:objective',
+                        (string) $built['target_path'],
+                        $priority,
+                        (bool) ($built['self_contained'] ?? true), // refactor=self-contained; feature=framework
+                        $hash !== '' ? $hash : null,
+                    );
+                    if ($enq !== null) {
+                        $enqueued++;
+                        $producerLed = true;
+                    }
+                }
+            } catch (Throwable) {
+                // fail-open: the rédea can never break a refill.
+            }
+        }
 
         foreach ($targets as $target) {
+            // PRODUCER-EXCLUSIVE: when the rédea produced this cycle's biggest leap, it is the SOLE
+            // work source — skip the slow per-target generation so the supervisor reaches the GRIND
+            // phase within budget (one biggest leap per cycle = the meta's design). Flag default-OFF
+            // => the per-target lanes run exactly as before.
+            if ($producerLed && (bool) config('atlas.loop.producer_exclusive', false)) {
+                break;
+            }
             $outcome = $this->generateAndEnqueue($campaign, $target, $provider);
             if ($outcome === 'enqueued') {
                 $enqueued++;

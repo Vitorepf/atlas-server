@@ -300,6 +300,11 @@ class AppServiceProvider extends ServiceProvider
                 rescue(fn () => $app->make(AtlasLoopSelectAdjuster::class), null, false),
                 rescue(fn () => $app->make(AtlasLoopConstraintsBlockAssembler::class), null, false),
                 rescue(fn () => $app->make(AtlasLoopHypothesisTreeProducer::class), null, false),
+                // Arg 17 (the rédea): the high-leverage objective producer. Flag-gated default-OFF
+                // (objective_producer_enabled) + fail-open inside refill(), so binding it is
+                // byte-identical until armed. MUST be passed explicitly (Laravel does not auto-inject
+                // `?Type $x = null`).
+                rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObjectiveProducer::class), null, false),
             ),
         );
         // ITEM6 — SCENARIO FAN-OUT wiring (LOAD-BEARING). There is no explicit AtlasEvolutionScenarioExplorer

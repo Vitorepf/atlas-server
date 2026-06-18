@@ -2048,6 +2048,27 @@ return [
         // downstream RED/structural-cert gate is unchanged — the router only broadens the shape decision.
         'decision_extract_class_shape_enabled' => (bool) env('ATLAS_LOOP_DECISION_EXTRACT_CLASS_SHAPE_ENABLED', false),
         'decision_multi_file_shape_enabled' => (bool) env('ATLAS_LOOP_DECISION_MULTI_FILE_SHAPE_ENABLED', false),
+        // PRODUCER (the autonomous high-leverage rédea): AtlasLoopLeverageScorer + objective
+        // producer originate the BIGGEST leap per least time from brain signals. Default OFF,
+        // fail-open (byte-identical when off). The ambition floor is what keeps it off trivia:
+        // a candidate must clear leverage AND a real unblock AND be verifiable, or it is rejected.
+        'objective_producer_enabled' => (bool) env('ATLAS_LOOP_OBJECTIVE_PRODUCER_ENABLED', false),
+        // Trivia rejection is carried mostly by min_unblock (real breadth) + verifiable; the leverage
+        // floor is the secondary filter, calibrated against real files so genuine hubs pass.
+        'producer_leverage_floor' => max(0.0, (float) env('ATLAS_LOOP_PRODUCER_LEVERAGE_FLOOR', 0.2)),
+        'producer_min_unblock' => max(0.0, (float) env('ATLAS_LOOP_PRODUCER_MIN_UNBLOCK', 0.25)),
+        // The expensive brain read (~3s/file) runs only on this many structural finalists per tick.
+        'producer_brain_finalists' => max(1, (int) env('ATLAS_LOOP_PRODUCER_BRAIN_FINALISTS', 3)),
+        // FEATURE ORIGINATION (the ceiling lift): when ON, the producer may originate a NEW-capability
+        // objective (RED-verified) instead of only refactors. Default OFF — refactor-only until armed.
+        'producer_feature_origination_enabled' => (bool) env('ATLAS_LOOP_PRODUCER_FEATURE_ORIGINATION_ENABLED', false),
+        // Adversarial critic: if the leverage(ratio)-winner's leap-magnitude (impact×breadth×compounding)
+        // is below this fraction of the biggest floor-passer's, the critic promotes the bigger leap.
+        'critic_numerator_threshold' => max(0.0, min(1.0, (float) env('ATLAS_LOOP_CRITIC_NUMERATOR_THRESHOLD', 0.6))),
+        // PRODUCER-EXCLUSIVE: when the rédea produces a leap, skip the slow per-target generation so
+        // refill returns fast and the supervisor reaches the grind phase (one biggest leap per cycle).
+        // Default OFF => the per-target lanes are untouched.
+        'producer_exclusive' => (bool) env('ATLAS_LOOP_PRODUCER_EXCLUSIVE', false),
 
         // DECISION ("o quê a seguir") — the UNGAMEABLE next-work priority. When ON, the task
         // priority becomes BAND(shape) + OFFSET(leverage re-resolved FRESH from git/graph) instead
