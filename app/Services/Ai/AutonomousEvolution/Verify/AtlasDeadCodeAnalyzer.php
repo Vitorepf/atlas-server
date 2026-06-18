@@ -47,6 +47,26 @@ final class AtlasDeadCodeAnalyzer
      */
     private const MAX_FILE_BYTES = 512 * 1024;
 
+    /**
+     * @var array<string,array{node:class-string<Node\Stmt>,members:string,used:string,dynamic:string,kind:string}>
+     */
+    private const CLASS_STATEMENT_MEMBER_RULES = [
+        'const' => [
+            'node' => Node\Stmt\ClassConst::class,
+            'members' => 'consts',
+            'used' => 'usedConsts',
+            'dynamic' => 'dynConst',
+            'kind' => 'const',
+        ],
+        'property' => [
+            'node' => Node\Stmt\Property::class,
+            'members' => 'props',
+            'used' => 'usedProps',
+            'dynamic' => 'dynProp',
+            'kind' => 'property',
+        ],
+    ];
+
     private readonly Parser $parser;
 
     private readonly NodeFinder $finder;
@@ -112,47 +132,72 @@ final class AtlasDeadCodeAnalyzer
      */
     private function deadMembers(Node\Stmt\ClassLike $class): array
     {
-        $className = $class->name?->toString() ?? '(anonymous)';
-
-        // --- collect references + dynamic-dispatch signals within THIS class subtree ---
         $usage = $this->support->collectUsage($class->stmts, $this->finder);
-        $usedMethods = $usage['usedMethods'];   // lower-cased (PHP method names are case-insensitive)
-        $usedConsts = $usage['usedConsts'];    // case-sensitive
-        $usedProps = $usage['usedProps'];     // case-sensitive
-        $usedStrings = $usage['usedStrings'];   // every string literal value, lower-cased (callable / dynamic hints)
-        $dynMethod = $usage['dynMethod'];
-        $dynProp = $usage['dynProp'];
-        $dynConst = $usage['dynConst'];
-        // --- declared private members ---
+        $className = $this->className($class);
+
+        return array_merge(
+            $this->deadMethods($class->getMethods(), $usage, $className),
+            $this->deadClassStatementMembers($class->stmts, $usage, $className),
+        );
+    }
+
+    private function className(Node\Stmt\ClassLike $class): string
+    {
+        return $class->name?->toString() ?? '(anonymous)';
+    }
+
+    /**
+     * @param  list<Node\Stmt\ClassMethod>  $methods
+     * @param  array{
+     *     usedMethods:array<string,bool>,
+     *     usedStrings:array<string,bool>,
+     *     dynMethod:bool,
+     * }  $usage
+     * @return list<array{kind:string,name:string,line:int,class:string}>
+     */
+    private function deadMethods(array $methods, array $usage, string $className): array
+    {
         $dead = [];
 
-        foreach ($class->getMethods() as $method) {
+        foreach ($methods as $method) {
             if (! $method->isPrivate() || $method->attrGroups !== [] || $this->isMagic($method->name->toString())) {
                 continue;
             }
-            if ($dynMethod) {
+            if ($usage['dynMethod']) {
                 continue;
             }
             $name = $method->name->toString();
-            if (! isset($usedMethods[strtolower($name)]) && ! isset($usedStrings[strtolower($name)])) {
+            if (! isset($usage['usedMethods'][strtolower($name)]) && ! isset($usage['usedStrings'][strtolower($name)])) {
                 $dead[] = ['kind' => 'method', 'name' => $name, 'line' => $method->getStartLine(), 'class' => $className];
             }
         }
 
-        foreach ($class->stmts as $stmt) {
-            if ($stmt instanceof Node\Stmt\ClassConst && $stmt->isPrivate() && $stmt->attrGroups === [] && ! $dynConst) {
-                foreach ($stmt->consts as $const) {
-                    $name = $const->name->toString();
-                    if (! isset($usedConsts[$name]) && ! isset($usedStrings[strtolower($name)])) {
-                        $dead[] = ['kind' => 'const', 'name' => $name, 'line' => $const->getStartLine(), 'class' => $className];
-                    }
-                }
-            }
-            if ($stmt instanceof Node\Stmt\Property && $stmt->isPrivate() && $stmt->attrGroups === [] && ! $dynProp) {
-                foreach ($stmt->props as $prop) {
-                    $name = $prop->name->toString();
-                    if (! isset($usedProps[$name]) && ! isset($usedStrings[strtolower($name)])) {
-                        $dead[] = ['kind' => 'property', 'name' => $name, 'line' => $prop->getStartLine(), 'class' => $className];
+        return $dead;
+    }
+
+    /**
+     * @param  list<Node\Stmt>  $stmts
+     * @param  array{
+     *     usedConsts:array<string,bool>,
+     *     usedProps:array<string,bool>,
+     *     usedStrings:array<string,bool>,
+     *     dynProp:bool,
+     *     dynConst:bool,
+     * }  $usage
+     * @return list<array{kind:string,name:string,line:int,class:string}>
+     */
+    private function deadClassStatementMembers(array $stmts, array $usage, string $className): array
+    {
+        $dead = [];
+
+        foreach ($stmts as $stmt) {
+            foreach (self::CLASS_STATEMENT_MEMBER_RULES as $rule) {
+                if ($stmt instanceof $rule['node'] && $stmt->isPrivate() && $stmt->attrGroups === [] && ! $usage[$rule['dynamic']]) {
+                    foreach ($stmt->{$rule['members']} as $member) {
+                        $name = $member->name->toString();
+                        if (! isset($usage[$rule['used']][$name]) && ! isset($usage['usedStrings'][strtolower($name)])) {
+                            $dead[] = ['kind' => $rule['kind'], 'name' => $name, 'line' => $member->getStartLine(), 'class' => $className];
+                        }
                     }
                 }
             }
