@@ -299,11 +299,19 @@ final class MutationTestingAdapter
      * tmpDir to a per-run isolated path so concurrent runs do not collide on
      * infection's coverage-xml / junit artifacts.
      *
+     * IMPORTANT: paths in the per-run config are ABSOLUTE. Infection resolves
+     * `source.directories` and `phpUnit.configDir` relative to the per-run
+     * CONFIG FILE's directory (NOT the repo root), so a per-run config under
+     * storage/atlas-dev/mutation/<runId>/ would otherwise point at non-
+     * existent `storage/atlas-dev/mutation/<runId>/app` instead of the real
+     * repo-root `app/`. Using absolute paths is the config-relative path fix
+     * (VAL-E3-011 / VAL-E3-001 precondition).
+     *
      * The per-run config inherits the canonical {@see INFECTION_CONFIG_PATH}
-     * semantically (same phpUnit.configDir, same source base) so the only
-     * per-run variance is tmpDir. Keeping the per-run config minimal (no
-     * mutators, no minMsi — the gate applies those) preserves the canonical
-     * config as the source of truth for global defaults.
+     * semantically (same phpUnit.configDir = repo root, same source base)
+     * so the only per-run variance is tmpDir. Keeping the per-run config
+     * minimal (no mutators, no minMsi — the gate applies those) preserves
+     * the canonical config as the source of truth for global defaults.
      *
      * Returns the absolute path to the written per-run config.
      */
@@ -322,7 +330,10 @@ final class MutationTestingAdapter
         $tmpDir = $this->tmpDir($runId);
         $config = [
             '$schema' => 'vendor/infection/infection/resources/schema.json',
-            'source' => ['directories' => ['app']],
+            // ABSOLUTE path so infection resolves the source base at the
+            // repo root regardless of the per-run config file's location.
+            'source' => ['directories' => [$repoRoot.'/app']],
+            // ABSOLUTE path: PHPUnit's configDir is the repo root.
             'phpUnit' => ['configDir' => $repoRoot],
             'tmpDir' => $tmpDir,
             'threads' => 1,

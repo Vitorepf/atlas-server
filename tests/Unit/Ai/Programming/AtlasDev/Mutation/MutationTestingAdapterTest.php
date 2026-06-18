@@ -513,9 +513,9 @@ final class MutationTestingAdapterTest extends TestCase
             'per-run config pins phpUnit.configDir to the repo root',
         );
         $this->assertSame(
-            ['app'],
+            [$repoRoot.'/app'],
             $decoded['source']['directories'] ?? null,
-            'per-run config inherits the canonical source.directories',
+            'per-run config uses ABSOLUTE source.directories (config-relative path fix)',
         );
     }
 
