@@ -2040,8 +2040,12 @@ return [
         // fail-open (byte-identical when off). The ambition floor is what keeps it off trivia:
         // a candidate must clear leverage AND a real unblock AND be verifiable, or it is rejected.
         'objective_producer_enabled' => (bool) env('ATLAS_LOOP_OBJECTIVE_PRODUCER_ENABLED', false),
-        'producer_leverage_floor' => max(0.0, (float) env('ATLAS_LOOP_PRODUCER_LEVERAGE_FLOOR', 0.6)),
+        // Trivia rejection is carried mostly by min_unblock (real breadth) + verifiable; the leverage
+        // floor is the secondary filter, calibrated against real files so genuine hubs pass.
+        'producer_leverage_floor' => max(0.0, (float) env('ATLAS_LOOP_PRODUCER_LEVERAGE_FLOOR', 0.2)),
         'producer_min_unblock' => max(0.0, (float) env('ATLAS_LOOP_PRODUCER_MIN_UNBLOCK', 0.25)),
+        // The expensive brain read (~3s/file) runs only on this many structural finalists per tick.
+        'producer_brain_finalists' => max(1, (int) env('ATLAS_LOOP_PRODUCER_BRAIN_FINALISTS', 3)),
 
         // DECISION ("o quê a seguir") — the UNGAMEABLE next-work priority. When ON, the task
         // priority becomes BAND(shape) + OFFSET(leverage re-resolved FRESH from git/graph) instead

@@ -80,7 +80,8 @@ final class AtlasLoopObjectiveProducer
                 'shape' => 'refactor',
                 'caller_count' => $callers[$rel] ?? ($callers[ltrim($rel, '/')] ?? 0),
                 'cyclomatic' => $cyclomatic,
-                'strategic_impact' => $this->strategicImpact($rel),
+                // strategic_impact omitted here (cheap pass) → scorer defaults it; the expensive
+                // brain read only enriches the structural FINALISTS in produce().
                 // cost grows with file size; risk drops when a behaviour anchor (sibling test) exists.
                 'cost' => $this->costOf($abs),
                 'risk' => $hasSiblingTest ? 0.4 : 0.85,
@@ -106,7 +107,21 @@ final class AtlasLoopObjectiveProducer
             return null;
         }
 
-        $winner = $this->select($this->gather($repoRoot, $relPaths));
+        // 1. CHEAP structural pass over all candidates (callers+cyclomatic+cost, no brain).
+        $packets = $this->gather($repoRoot, $relPaths);
+
+        // 2. Pre-rank by structural leverage and keep only the FINALISTS — the expensive brain
+        //    read (~3s/file) runs ONLY on these, not every candidate.
+        $finalistCount = max(1, (int) config('atlas.loop.producer_brain_finalists', 3));
+        $finalists = array_slice($this->scorer->rank($packets), 0, $finalistCount);
+
+        // 3. Enrich each finalist with the brain's strategic-alignment signal, then re-select.
+        foreach ($finalists as $i => $f) {
+            $finalists[$i]['strategic_impact'] = $this->strategicImpact((string) $f['path']);
+            unset($finalists[$i]['_score']); // force a re-score with the strategic weight
+        }
+
+        $winner = $this->select($finalists);
         if ($winner === null) {
             return null;
         }
@@ -167,10 +182,16 @@ final class AtlasLoopObjectiveProducer
             $reality = is_countable($ctx['reality_graph_paths'] ?? null) ? count($ctx['reality_graph_paths']) : 0;
             $consumers = is_countable($ctx['consumers'] ?? null) ? count($ctx['consumers']) : 0;
 
-            // memory + reality references dominate strategic weight; consumers add a little.
-            $impact = min(1.0, 0.18 * $mem + 0.14 * $reality + 0.04 * $consumers);
+            // A file Atlas's OWN brain references is where it actually lives/goes. Memory hits are
+            // rare + curated (strong); reality-graph paths (decisions/missions touching the file) are
+            // the broad signal; consumers add a little. Base 0.25 (something the brain knows at all)
+            // up to 1.0; differentiates instead of collapsing to a flat default.
+            $impact = 0.25
+                + 0.40 * min(1.0, (float) $mem)            // any curated memory ref → strong lift
+                + 0.25 * min(1.0, $reality / 2.0)          // 2+ decisions/missions saturate
+                + 0.10 * min(1.0, $consumers / 8.0);       // 8+ consumers saturate
 
-            return $impact > 0.0 ? max(0.30, $impact) : 0.30;
+            return max(0.20, min(1.0, $impact));
         } catch (Throwable) {
             return 0.30;
         }
@@ -202,7 +223,9 @@ final class AtlasLoopObjectiveProducer
         try {
             $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS));
             foreach ($it as $f) {
-                if ($f->getFilename() === $base.'Test.php') {
+                $name = $f->getFilename();
+                // {Base}Test.php OR {Base}<Anything>Test.php (e.g. AiWorkerProviderChoiceTest.php).
+                if (str_starts_with($name, $base) && str_ends_with($name, 'Test.php')) {
                     return true;
                 }
             }
