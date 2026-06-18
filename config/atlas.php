@@ -2182,6 +2182,15 @@ return [
         // lens-judge panel (dedicated provider judges per lens) feeds diverse verdicts. quorum: policy
         // (unanimous|n_of_m), min_pass, required_lenses, min_distinct_providers (independence).
         'judge_consensus_gate_enabled' => (bool) env('ATLAS_LOOP_JUDGE_CONSENSUS_GATE_ENABLED', false),
+        // PHASE 1 (Bloco 2.1 + 3.1) — Arbor-as-engine under governance. Both default-OFF + armed-only:
+        // - iterate_to_metric: the grind runs edit->measure->keep-if-better->repeat (Arbor algo) per
+        //   scenario when the task carries a held_out block; OFF => the loop's one-shot best-of-N is byte-identical.
+        // - held_out_delta_cert: certify() requires the candidate to MOVE the metric on the FROZEN held-out
+        //   (test) split; OFF or unarmed => byte-identical (no task carries a held_out block today).
+        'iterate_to_metric_enabled' => (bool) env('ATLAS_LOOP_ITERATE_TO_METRIC_ENABLED', false),
+        'iterate_to_metric_max_edits' => max(1, (int) env('ATLAS_LOOP_ITERATE_TO_METRIC_MAX_EDITS', 6)),
+        'iterate_to_metric_patience' => max(1, (int) env('ATLAS_LOOP_ITERATE_TO_METRIC_PATIENCE', 2)),
+        'held_out_delta_cert_enabled' => (bool) env('ATLAS_LOOP_HELD_OUT_DELTA_CERT_ENABLED', false),
         'judge_consensus' => [
             'quorum' => [
                 'policy' => (string) env('ATLAS_LOOP_JUDGE_CONSENSUS_POLICY', 'unanimous'),

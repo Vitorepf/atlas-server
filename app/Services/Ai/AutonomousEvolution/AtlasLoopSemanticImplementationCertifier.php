@@ -35,7 +35,15 @@ final class AtlasLoopSemanticImplementationCertifier
         // deps + a LIVE AtlasLoopSignalAnalyzer + this resolver; under any null path the in-method
         // fallback (see certify()) constructs one from the deps already on this class.
         private readonly ?AtlasLoopCompletenessCriteriaResolver $completenessResolver = null,
+        // Phase 1 (Bloco 3.1): held-out delta certifier — nullable trailing so every reflection/container
+        // call-site keeps working; heldOutDeltaCertifier() builds one from a fresh harness when null.
+        private readonly ?AtlasLoopHeldOutDeltaCertifier $heldOutDeltaCertifier = null,
     ) {}
+
+    private function heldOutDeltaCertifier(): AtlasLoopHeldOutDeltaCertifier
+    {
+        return $this->heldOutDeltaCertifier ?? new AtlasLoopHeldOutDeltaCertifier(new AtlasLoopMetricHarness);
+    }
 
     /**
      * @param  array<string,mixed>  $targetAcceptance
@@ -372,6 +380,20 @@ final class AtlasLoopSemanticImplementationCertifier
             $reasons[] = (string) $judgeConsensus['reason'];
         }
 
+        // Phase 1 — HELD-OUT DELTA gate (Bloco 3.1): when the acceptance carries a held_out block
+        // (a dev/test scalar split) and the feature is armed, the candidate must MOVE the metric on
+        // the FROZEN held-out (test) split — the split the optimizer never saw. This is the anti-gaming
+        // core that lets an autonomous metric-optimizing delivery beat Arbor: gaming the dev split is
+        // caught here on the held-out test. Armed-only + flag-gated => byte-identical for every task
+        // without a held_out block (all tasks today), so it never perturbs the existing corpus.
+        $heldOutDelta = null;
+        if ((bool) config('atlas.loop.held_out_delta_cert_enabled', false) && AtlasLoopMetricHarness::isArmed($targetAcceptance)) {
+            $heldOutDelta = $this->heldOutDeltaCertifier()->certifyHeldOut($workspace, $targetAcceptance);
+            if (($heldOutDelta['armed'] ?? false) && ! ($heldOutDelta['improved'] ?? false)) {
+                $reasons[] = 'held_out_delta:'.(string) ($heldOutDelta['reason'] ?? 'not_improved');
+            }
+        }
+
         $reasons = AiStringListNormalizer::uniqueStrings($reasons);
         $certified = $reasons === [];
         $receipt = [
@@ -395,6 +417,7 @@ final class AtlasLoopSemanticImplementationCertifier
             'judge_consensus' => $judgeConsensus,
             'completeness' => $completeness,
             'quality_grade' => $qualityGrade,
+            'held_out_delta' => $heldOutDelta,
             'evidence' => [
                 'target_acceptance_passed' => (bool) data_get($deterministicGate, 'report.holdouts.target_frozen_passed', false),
                 'complexity_proof_required' => $this->complexityProofRequired($targetAcceptance),
