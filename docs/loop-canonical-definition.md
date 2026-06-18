@@ -1,0 +1,46 @@
+# Loop — DEFINIÇÃO CANÔNICA (fonte de verdade; ler ANTES de qualquer trabalho no loop)
+
+> Este é o documento canônico do que o **Atlas Loop** é. O operador repetiu isto 5× até travar, porque IAs (incluindo Claude) erraram o rumo por dias. Espelha as memórias `loop-true-objective-canonical`, `loop-delivery-pipeline-design-dominant`, `loop-endgoal-sole-autonomous-self-engineer`, `loop-not-proxy-cleanup-feedback`. **Qualquer doc/código/IA que divergir disto está errado.**
+
+## O que o Loop NÃO é (zero tolerância)
+- NÃO é ferramenta que roda 24h queimando token removendo linhas/espaços/limpezas pequenas.
+- NÃO é otimizador linear de **PROXY** (landing-rate, ciclomática, test-count — números que NÃO deixam o Atlas mais capaz).
+- NÃO é **one-shot** (tenta N cenários, converge no `patience`, desiste). `patience`/`max-scenarios`/`attempt-cap`/best-of-N são lógica de **orçamento finito** — erradas pra um loop 24/7 de tempo infinito.
+- Refactor que **preserva comportamento** (o cert prova que preservou) = **melhoria ZERO**, mesmo que limpe o código.
+
+## O que o Loop É
+Você dá um **ESCOPO** (ex.: Atlas Dev; Atlas Engineering Software OS; a feature de memória/contexto). O loop **mói nesse escopo 24/7 buscando EVOLUIR ele ao máximo patamar** — usa o cérebro do Atlas pra entender o escopo INTEIRO e o **OBJETIVO** dele (pra que serve, o que deveria ser de verdade).
+
+Entrega = a evolução **mais EXPONENCIAL** possível. Pode ser: refatoração DE VERDADE (elimina vários métodos, simplifica, mais sólido/abstrato); tornar um fluxo probabilístico em **determinístico**; tirar **duplicações/encanações**; adicionar **quality gates / QA / loops de auto-correção** (o que Codex/Claude Code não têm); novas funcionalidades/algoritmos; feature **multi-agente coordenada**; um salto de **alavancagem composta** (1 mês de loop = Atlas-engenharia roda meses melhor).
+
+**Pensa como SISTEMA** (julgamento de alavancagem + 2ª ordem): julga ONDE/QUANDO a melhoria é impactante (contexto? memória? revisão?) e antecipa o gargalo que a própria melhoria cria (ex.: deixou o Atlas Dev gerando código rápido demais → a REVISÃO vira gargalo → adiciona etapa de verificação de PR).
+
+**Régua de valor = TEMPO × NÍVEL:** 1h → avanço real; 5 dias 24/7 → extraordinário; 1 mês → multiplicado. Meta: engenharia da qualidade mais avançada DO MUNDO.
+
+## Como entrega (pipeline; contínuo, commit-por-pedaço, NUNCA one-shot)
+1. **ENTENDER** o escopo + seu objetivo (cérebro do Atlas).
+2. **IDENTIFICAR** a evolução mais exponencial.
+3. **PROJEÇÃO / ARQUITETURA — A FASE QUE DOMINA A QUALIDADE.** IA **frontier** de projetação (a mais top via Hermes / Atlas Code) cria → passa pra **OUTRA IA (não a criadora)** criticar → outra → **volta pra criadora** → detalha. Fica **em loop só nessa fase** até "definido / máximo possível". Quem estrutura tem que ser o mais avançado.
+4. **ORQUESTRAÇÃO**: quais modelos, como coordenar, **quantos agentes em paralelo e onde** (estilo workflow dinâmico do Claude Code — multi-agente coordenado obrigatório).
+5. **IMPLEMENTAÇÃO** multi-agente.
+6. **TESTE** — testa, garante.
+7. **REVISÃO DE LÓGICA + WIRING** — tudo ligado, funcionando do começo ao fim, nada desconectado; deixa tudo conectado e melhorado.
+
+## O TETO (objetivo de vida do loop)
+A implementação do loop **só termina** quando ele é o **ÚNICO** que mexe no código do Atlas: 24/7 sozinho, implementa, **identifica+corrige bugs, refatora, atualiza docs — tudo**, **sem humano e sem Claude Code/Codex/Factory revisando**, garantindo a qualidade com a **própria estrutura**. O Atlas vira um **SO que se autoaprimora**. O operador fica hands-off (no máximo **descreve um pedido → entra numa LISTA** que o loop implementa; só entra por escolha via Atlas Dev / Forge).
+
+**Escada de território:** começa PEQUENO (o loop melhora o **próprio loop**) → prova → sobe pra engenharia (contexto, memória, compactação, o próprio loop) → ganha mais escopo **provando**, não recebendo.
+
+**A pergunta que sempre guia:** *"qual é a próxima coisa — da lista ou que eu identifico — que é exponencialmente melhor e torna o Atlas um SO melhor?"*
+
+## Como garante qualidade SOZINHO (substitui o revisor humano)
+Verificador frozen **out-of-process** + **diff-earned** (mata verde falso) + painel **cross-model** (quem escreveu nunca julga a própria mudança; modelo diferente critica — a real vantagem do Factory) + mutation + merge **fail-closed** + núcleo **FORBIDDEN/pétreo imutável** (pra não serrar o galho onde senta).
+
+## Problemas difíceis honestos (gravar pra NÃO prometer demais)
+1. **Caps model-bound** (engine fraco): originação greenfield-novel, a barra de verificação de feature nova (input humano) e correção semântica/design de comportamento novo NÃO são determinísticos num modelo fraco → núcleo novel vai por **abstain-and-ask** (1 pergunta ao operador — bate com "descrevo→lista") OU **engine forte** sob o mesmo moat (aposta N×M).
+2. **Fechar o ciclo na main sozinho NUNCA foi provado** (delivery ~3/10) — é o gargalo real.
+3. O moat tem que **ESCALAR** de alvo-único pra todo o código (bug/refactor/docs sem barra frozen pré-existente).
+4. **Recursive-safety:** o loop melhorar a própria máquina de qualidade é a etapa mais arriscada — pétreo hoje é cerca, não solução.
+
+## Por que IAs erram (e a regra dura)
+Viés de mensurabilidade → Goodhart: a IA colapsa o objetivo difícil ("Atlas exponencialmente melhor") no escalar fácil de certificar (landing-rate/ciclomática) e debugga o **parâmetro** (qual métrica) quando o operador corrige a **moldura** (o que o loop É). **REGRA:** antes de o loop tocar qualquer coisa, responda — *"isso evolui o escopo exponencialmente de verdade, deixando o Atlas mais capaz?"* Se for edição pequena / faxina / mover um proxy → **PARE, não é trabalho de loop.**

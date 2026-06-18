@@ -158,6 +158,9 @@ next_actions:
   - Tauri commands nativos para mutações Level 7 (HTTP fallback continua válido).
   - Integração Cartografia: drill-down do evidence_refs[] para abrir doc/ledger event correspondente.
 ---
+
+> ⚠️ **DEFINIÇÃO CANÔNICA DO LOOP — leia primeiro: `docs/loop-canonical-definition.md` + memórias `loop-*`.** Este doc descreve IMPLEMENTAÇÃO / ESTADO / HISTÓRICO; parte do framing aqui (refactor / ciclomática / landing-rate / best-of-N / proxy) é o **ALVO ERRADO**. O Loop = evolução autônoma **exponencial** de features REAIS do Atlas (entender escopo → projeção frontier + crítica cross-model → multi-agente → teste → wiring), **nunca faxina / proxy / one-shot**. Objetivo final: ser o ÚNICO que evolui o Atlas 24/7 sozinho.
+
 # Atlas Self-Improvement Closed Loop Level 7 v1
 
 ## Resumo

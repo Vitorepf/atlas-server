@@ -87,6 +87,9 @@ next_actions:
   - Soak-test a multi-hour campaign; exercise non-hermes providers through the driver.
   - Finish framework-coupled (materialized) target grinding; then DB-stateful targets.
 ---
+
+> ⚠️ **DEFINIÇÃO CANÔNICA DO LOOP — leia primeiro: `docs/loop-canonical-definition.md` + memórias `loop-*`.** Este doc descreve IMPLEMENTAÇÃO / ESTADO / HISTÓRICO; parte do framing aqui (refactor / ciclomática / landing-rate / best-of-N / proxy) é o **ALVO ERRADO**. O Loop = evolução autônoma **exponencial** de features REAIS do Atlas (entender escopo → projeção frontier + crítica cross-model → multi-agente → teste → wiring), **nunca faxina / proxy / one-shot**. Objetivo final: ser o ÚNICO que evolui o Atlas 24/7 sozinho.
+
 # Atlas Evolution Loop Runtime Engine
 
 > Status: **canonical · BUILT + PROVEN**. This documents the `AtlasEvolution*` engine + `atlas:loop:*` runtime that powers BOTH the engineering evolution loop AND the [Finance Strategy-Evolution Loop](domains/finance/strategy-evolution-loop-charter.md). Self-contained; if it conflicts with code, fix the doc.

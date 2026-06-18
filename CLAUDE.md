@@ -11,6 +11,13 @@ Regenerate with `atlas memory projection --target=claude --write` after Atlas me
 
 ## Manual Notes
 <!-- atlas:manual:start -->
+### 🎯 Loop — DEFINIÇÃO CANÔNICA (ler ANTES de qualquer trabalho no Loop de evolução autônoma)
+O **Loop** (AutonomousEvolution / ACDE) pega um **ESCOPO** (ex.: Atlas Dev, memória, engenharia) e **mói 24/7 evoluindo-o ao máximo patamar de forma EXPONENCIAL**. Fonte de verdade: `docs/loop-canonical-definition.md` + memórias `loop-*` (objetivo/pipeline/teto/guardrail).
+- **NÃO é:** micro-edição/faxina (remover linhas/espaços), otimizar PROXY (landing-rate, ciclomática, test-count), nem one-shot (patience/best-of-N/desistir). Refactor que preserva comportamento = melhoria ZERO.
+- **É:** entender o escopo+objetivo (cérebro do Atlas) → identificar a evolução mais exponencial → **PROJEÇÃO frontier + crítica cross-model em loop (a fase que garante a qualidade)** → orquestração multi-agente → implementar → testar → revisão de wiring. Contínuo, commit-por-pedaço, nunca one-shot.
+- **Teto/objetivo de vida:** o Loop é o ÚNICO que evolui o Atlas (24/7, sozinho, sem humano e sem Claude Code/Codex/Factory revisando); escopo liberado aos poucos começando pelo próprio loop.
+- **REGRA (anti-Goodhart):** antes de o loop tocar algo, pergunte *"isso evolui o escopo exponencialmente de verdade, deixando o Atlas mais capaz?"* Se for edição pequena/faxina/proxy → **PARE**. (Uma IA derivou pra proxy por dias — não repita: ver `loop-not-proxy-cleanup-feedback`.)
+
 ### Governança de conhecimento
 
 Antes de confiar em Obsidian, Postgres KB, Code Intelligence, AGENTS/CLAUDE ou chat como contexto de implementação, leia `docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md`.

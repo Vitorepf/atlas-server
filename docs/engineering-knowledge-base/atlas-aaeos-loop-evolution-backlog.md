@@ -77,6 +77,9 @@ next_actions:
   - Keep this file out of default AP-790 automatic consumption until broad rows are decomposed into atomic child docs or guarded by a pre-spend filter.
 ---
 
+> ⚠️ **DEFINIÇÃO CANÔNICA DO LOOP — leia primeiro: `docs/loop-canonical-definition.md` + memórias `loop-*`.** Este doc descreve IMPLEMENTAÇÃO / ESTADO / HISTÓRICO; parte do framing aqui (refactor / ciclomática / landing-rate / best-of-N / proxy) é o **ALVO ERRADO**. O Loop = evolução autônoma **exponencial** de features REAIS do Atlas (entender escopo → projeção frontier + crítica cross-model → multi-agente → teste → wiring), **nunca faxina / proxy / one-shot**. Objetivo final: ser o ÚNICO que evolui o Atlas 24/7 sozinho.
+
+
 ## Resumo
 
 Este documento e o **backlog de evolucao do loop** para as duas unicas areas em escopo: o **AAEOS** (toda a area de engenharia de software — specs, tests, memory, context, dev, forge, gates, evidence, governance, surfaces) e a **Factory/loop** (o proprio loop de auto-evolucao 24h de stewardship/area-focus). Nada fora dessas duas areas entra.

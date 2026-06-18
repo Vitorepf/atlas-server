@@ -1,11 +1,13 @@
 ---
 title: Loop supera Arbor — roadmap canônico (features complexas + medição de qualidade extrema, Arbor como motor)
-status: active
+status: superseded-wrong-framing
 owner: operator (Vitor)
 created: 2026-06-18
 layer: 1
 graph_parent: acde-compounding-delivery-engine
 ---
+
+> 🛑 **DOC SUPERADO — FRAMING ERRADO (registro do erro, não seguir).** Este roadmap (criado por uma IA em 18/06) enquadra o Loop como "bater o Arbor em landing-rate" e medir com **proxies** (landing-rate, ciclomática) — exatamente o **erro de rumo** que o operador corrigiu em seguida. Esses números NÃO deixam o Atlas mais capaz. **Fonte de verdade: [`docs/loop-canonical-definition.md`](loop-canonical-definition.md) + memórias `loop-*`** (objetivo/pipeline/teto/guardrail). O Loop = evolução autônoma exponencial de features REAIS, nunca proxy/faxina/one-shot. Mantido apenas como registro histórico do erro.
 
 # Loop supera Arbor — roadmap canônico
 
