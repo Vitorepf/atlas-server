@@ -144,9 +144,9 @@ final class MutationTestingAdapter
      * Run a scoped infection invocation for the patch (or skip).
      *
      * @param  string  $runId  the Atlas Dev run id (used to isolate the
-     *                          infection tmpDir per-run, so concurrent runs
-     *                          like best-of-N candidates do not collide on
-     *                          coverage-xml / junit artifacts).
+     *                         infection tmpDir per-run, so concurrent runs
+     *                         like best-of-N candidates do not collide on
+     *                         coverage-xml / junit artifacts).
      * @param  list<string>  $touchedFiles  repo-relative paths in the patch.
      */
     public function run(string $runId, array $touchedFiles): MutationTestingResult

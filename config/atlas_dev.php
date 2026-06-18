@@ -167,7 +167,28 @@ return [
         'e2' => ['mode' => env('ATLAS_DEV_ELEVATION_E2_MODE', 'advisory')],
 
         // E3: Mutation Testing Gate (M3 milestone).
-        'e3' => ['mode' => env('ATLAS_DEV_ELEVATION_E3_MODE', 'advisory')],
+        //   - mode: tri-state off|advisory|hard governing the mutation-score
+        //     gate. The gate reads the REAL infection-reported MSI (parsed by
+        //     MutationTestingAdapter from the infection summary JSON — never
+        //     a self-declared score, VAL-E3-007) and routes the verdict:
+        //       advisory => honesty flag mutation_score_below_threshold
+        //                   (downgrade PASSED -> needs_review, never green);
+        //       hard     => STATUS_FAILED gate channel (never just downgrades);
+        //       off      => byte-identical to pre-E3 (infection not invoked).
+        //   - threshold: MSI percent floor (default 60.0). A patch whose real
+        //     reported MSI is below this trips the gate. Boundary inclusive
+        //     (MSI == threshold passes, VAL-E3-004).
+        //
+        // DEFAULT is `off`: unlike E1/E2 (pure-PHP logic), E3 spawns a scoped
+        // infection subprocess that requires the pcov coverage driver
+        // (VAL-E3-011). Deployments without pcov installed must keep E3 off
+        // or the gate fail-closes on every run. Operators opt into advisory/
+        // hard explicitly via ATLAS_DEV_ELEVATION_E3_MODE once pcov is
+        // verified present (mission init.sh asserts pcov loaded).
+        'e3' => [
+            'mode' => env('ATLAS_DEV_ELEVATION_E3_MODE', 'off'),
+            'threshold' => (float) env('ATLAS_DEV_ELEVATION_E3_THRESHOLD', 60.0),
+        ],
 
         // E4: Differential Testing / Shadow-Diff (M5 milestone).
         'e4' => ['mode' => env('ATLAS_DEV_ELEVATION_E4_MODE', 'advisory')],

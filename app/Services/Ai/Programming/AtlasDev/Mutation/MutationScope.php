@@ -33,8 +33,8 @@ namespace App\Services\Ai\Programming\AtlasDev\Mutation;
 final class MutationScope
 {
     /**
-     * @param  list<string>  $testFiles   touched PHPUnit test files (tests/...).
-     * @param  list<string>  $sourceFiles covered source files infection will mutate (app/...).
+     * @param  list<string>  $testFiles  touched PHPUnit test files (tests/...).
+     * @param  list<string>  $sourceFiles  covered source files infection will mutate (app/...).
      */
     public function __construct(
         public readonly array $testFiles,

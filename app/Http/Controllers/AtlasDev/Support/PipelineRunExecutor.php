@@ -26,6 +26,9 @@ use App\Services\Ai\Programming\AtlasDev\Intelligence\ReviewIntelligenceService;
 use App\Services\Ai\Programming\AtlasDev\Intelligence\TestSelectionInput;
 use App\Services\Ai\Programming\AtlasDev\Intelligence\TestSelectionIntelligenceService;
 use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasMinimaxFirstWorkerService;
+use App\Services\Ai\Programming\AtlasDev\Mutation\MutationScoreGate;
+use App\Services\Ai\Programming\AtlasDev\Mutation\MutationTestingAdapter;
+use App\Services\Ai\Programming\AtlasDev\Mutation\SymfonyMutationCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\Probe\IntentCoverageProbe;
@@ -419,6 +422,70 @@ final class PipelineRunExecutor implements RunExecutor
                     $verificationResult = $verificationResult->withHonestyFlags([
                         IntentFalsificationProbe::FLAG_INTENT_LIKELY_NOT_ADDRESSED,
                     ]);
+                }
+            }
+        }
+
+        // E3: Mutation-score gate — reads the REAL infection-reported MSI and
+        // routes the verdict through the sanctioned channels.
+        //
+        // Runs AFTER the verification gate (alongside the E2/E1 probes above)
+        // and consumes a MutationTestingResult produced by the
+        // MutationTestingAdapter. The adapter computes the SCOPED infection
+        // invocation (touched test files + their covered source only, never
+        // the full ~3592-file suite — VAL-E3-001) and parses the real MSI
+        // from the infection summary JSON. This block applies the threshold
+        // and routes the verdict: advisory => honesty flag
+        // `mutation_score_below_threshold` (PASSED -> needs_review downgrade,
+        // never green, VAL-E3-002/009); hard => STATUS_FAILED gate channel
+        // (never just downgrades, VAL-E3-003); off => byte-identical no-op
+        // (infection not even invoked, VAL-E3-010).
+        //
+        // The verdict is a PURE function of the real reported MSI vs the
+        // configured threshold (VAL-E3-007): no self-declared score. The
+        // adapter refuses to fabricate an MSI over a failed/unevaluable run
+        // (VAL-E3-011 honest ceiling); the gate then fails-closed in hard
+        // mode / appends a flag in advisory so an unevaluable MSI never
+        // silently greens.
+        //
+        // Like E1/E2, this runs for EVERY provider (the diff is a property
+        // of the write task, not the provider) and covers the best-of-N
+        // winner path through the same post-gate block (VAL-CROSS-015). A
+        // patch with no touched test files (or a skipped result) is a
+        // documented no-op (VAL-E3-008) — never a false fail.
+        $e3Config = $this->resolveE3Config();
+        if (! $e3Config->isOff()) {
+            $adapter = $this->resolveMutationTestingAdapter();
+            $touchedFiles = array_map(
+                static fn (ScopeFileDiff $diff): string => $diff->path,
+                $scopeReceipt->observed->fileDiffs,
+            );
+            $mutationResult = $adapter->run($runId, $touchedFiles);
+            $gate = MutationScoreGate::fromConfig($e3Config);
+            $verdict = $gate->evaluate($mutationResult);
+
+            if ($verdict->tripped) {
+                if ($e3Config->isHard()) {
+                    // Hard => sanctioned hard gate channel (STATUS_FAILED).
+                    // Rebuild the gate result preserving the gathered
+                    // tests/gates while forcing STATUS_FAILED so completion
+                    // resolves to failed/blocked (never silently passed).
+                    $verificationResult = new VerificationGateResult(
+                        tests: $verificationResult->tests,
+                        gates: $verificationResult->gates,
+                        aggregateStatus: VerificationGateResult::STATUS_FAILED,
+                        honestyFlags: $verificationResult->withHonestyFlags(
+                            $verdict->honestyFlags,
+                        )->honestyFlags,
+                        evidenceRefs: $verificationResult->evidenceRefs,
+                        profile: $verificationResult->profile,
+                    );
+                } else {
+                    // Advisory => honesty flag only (drives the
+                    // CompletionStateGate PASSED -> needs_review downgrade).
+                    $verificationResult = $verificationResult->withHonestyFlags(
+                        $verdict->honestyFlags,
+                    );
                 }
             }
         }
@@ -2800,6 +2867,68 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
             return ElevationConfig::fromConfig('e1');
         } catch (\Throwable) {
             return ElevationConfig::for('e1', null);
+        }
+    }
+
+    /**
+     * E3: resolve the e3 elevation config. Same resolution pattern as E1/E2:
+     * reads the live config kernel when available, otherwise degrades to the
+     * safe default (advisory) so plain-PHPunit unit tests never crash.
+     */
+    private function resolveE3Config(): ElevationConfig
+    {
+        try {
+            return ElevationConfig::fromConfig('e3');
+        } catch (\Throwable) {
+            return ElevationConfig::for('e3', null);
+        }
+    }
+
+    /**
+     * E3: resolve the MutationTestingAdapter the mutation-score gate consumes.
+     *
+     * Bound through the container so tests inject a fake
+     * {@see MutationTestingAdapter} (with a FakeMutationCommandRunner) without
+     * ever spawning a real infection subprocess. When no binding exists the
+     * production Symfony-process-backed runner is used with the repo root as
+     * the workspace. The adapter is the SOLE caller of the scoped infection
+     * invocation; the executor only feeds it the touched files.
+     *
+     * The container binding convention is `atlas_dev.e3.mutation_adapter`
+     * (mirrors `atlas_dev.e1.intent_judge`). Resolved via
+     * `$this->container->bound(...) ? make(...) : new ...` so the binding is
+     * optional and degrades to a fresh adapter in production.
+     */
+    private function resolveMutationTestingAdapter(): MutationTestingAdapter
+    {
+        if ($this->container->bound('atlas_dev.e3.mutation_adapter')) {
+            $bound = $this->container->make('atlas_dev.e3.mutation_adapter');
+            if ($bound instanceof MutationTestingAdapter) {
+                return $bound;
+            }
+        }
+
+        $repoRoot = rtrim((string) ($this->workspaceRoot() ?? base_path()), '/');
+
+        return new MutationTestingAdapter(
+            commandRunner: new SymfonyMutationCommandRunner,
+            e3Config: $this->resolveE3Config(),
+            repoRoot: $repoRoot,
+        );
+    }
+
+    /**
+     * E3: best-effort resolution of the repo root for the scoped infection
+     * invocation. Falls back to base_path() (Laravel kernel) and finally to
+     * the CWD so plain-PHPunit contexts never crash. Returns null only when
+     * no resolution path is available.
+     */
+    private function workspaceRoot(): ?string
+    {
+        try {
+            return base_path();
+        } catch (\Throwable) {
+            return getcwd() ?: null;
         }
     }
 

@@ -112,4 +112,46 @@ class AtlasLoopProposalMaterializerTest extends TestCase
         $this->assertFalse($r['materialized']);
         $this->assertSame('base_target_not_found', $r['reason']);
     }
+
+    /**
+     * The real value of the Arbor-ported apply ladder: a certified diff built against
+     * an OLDER base, where main has since drifted (a context line changed). Strict
+     * `git apply` rejects it — that is the ~83% drift waste the loop discards today.
+     * The ladder lands it intact (fuzz/low-context/salvage) and the intact guard keeps
+     * it honest (a garbage apply would fail `php -l` and not be accepted).
+     */
+    public function test_ladder_lands_a_drifted_diff_that_strict_apply_rejects(): void
+    {
+        $diffBase = "<?php\n\nclass Foo\n{\n    // value accessor\n    public function value(): int\n    {\n        return 1;\n    }\n}\n";
+        $modified = "<?php\n\nclass Foo\n{\n    // value accessor\n    public function value(): int\n    {\n        return 2;\n    }\n}\n";
+        $diff = $this->makeDiff('Foo.php', $diffBase, $modified);
+        $this->assertNotSame('', trim($diff), 'precondition: a real git diff was generated');
+
+        // current main drifted: the context comment changed since the diff was built.
+        $currentBase = "<?php\n\nclass Foo\n{\n    // value accessor (cached)\n    public function value(): int\n    {\n        return 1;\n    }\n}\n";
+
+        // precondition: strict `git apply` REJECTS the drifted diff.
+        $probe = $this->tmpDir('probe');
+        file_put_contents($probe.'/Foo.php', $currentBase);
+        $this->git($probe, ['init', '-q']);
+        $this->git($probe, ['add', '-A']);
+        $this->git($probe, ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'b', '--no-gpg-sign']);
+        file_put_contents($probe.'/p.patch', $diff);
+        $strict = new Process(['git', 'apply', '--whitespace=nowarn', 'p.patch'], $probe);
+        $strict->run();
+        $this->assertFalse($strict->isSuccessful(), 'precondition: strict git apply must reject the drifted diff');
+
+        // the materializer's ladder lands it intact.
+        $base = $this->tmpDir('base');
+        file_put_contents($base.'/Foo.php', $currentBase);
+        $r = app(AtlasLoopProposalMaterializer::class)->materialize($this->proposal('Foo.php', $diff), $base);
+        $this->dirs[] = (string) $r['isolated_path'];
+
+        $this->assertTrue($r['materialized'], 'ladder must land the drifted diff; reason: '.(string) $r['reason']);
+        $this->assertTrue($r['applied']);
+        $landed = (string) file_get_contents($r['isolated_path'].'/Foo.php');
+        $this->assertStringContainsString('return 2;', $landed, 'the certified change must be present');
+        // base UNTOUCHED (never merged).
+        $this->assertSame($currentBase, file_get_contents($base.'/Foo.php'));
+    }
 }
