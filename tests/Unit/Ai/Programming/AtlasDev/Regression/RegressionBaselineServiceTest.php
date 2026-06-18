@@ -91,8 +91,8 @@ final class RegressionBaselineServiceTest extends TestCase
         ]);
 
         $postPatch = [
-            $this->testRun('composer test-foo', ok: false),  // NOW FAILS
-            $this->testRun('composer test-bar', ok: false),  // STILL FAILS
+            $this->test_run('composer test-foo', ok: false),  // NOW FAILS
+            $this->test_run('composer test-bar', ok: false),  // STILL FAILS
         ];
 
         $regressions = $service->computeRegressions($baseline, $postPatch);
@@ -114,9 +114,9 @@ final class RegressionBaselineServiceTest extends TestCase
         ]);
 
         $postPatch = [
-            $this->testRun('cmd-a', ok: false),  // regression
-            $this->testRun('cmd-b', ok: true),   // still passing
-            $this->testRun('cmd-c', ok: false),  // regression
+            $this->test_run('cmd-a', ok: false),  // regression
+            $this->test_run('cmd-b', ok: true),   // still passing
+            $this->test_run('cmd-c', ok: false),  // regression
         ];
 
         $regressions = $service->computeRegressions($baseline, $postPatch);
@@ -130,8 +130,8 @@ final class RegressionBaselineServiceTest extends TestCase
         $baseline = $this->cache(['cmd-known' => true]);
 
         $postPatch = [
-            $this->testRun('cmd-known', ok: false),   // in baseline: regression
-            $this->testRun('cmd-new', ok: false),     // NOT in baseline: not comparable
+            $this->test_run('cmd-known', ok: false),   // in baseline: regression
+            $this->test_run('cmd-new', ok: false),     // NOT in baseline: not comparable
         ];
 
         $regressions = $service->computeRegressions($baseline, $postPatch);
@@ -150,8 +150,8 @@ final class RegressionBaselineServiceTest extends TestCase
         ]);
 
         $postPatch = [
-            $this->testRun('cmd-red-before', ok: false),   // still failing
-            $this->testRun('cmd-green-before', ok: true),  // still passing
+            $this->test_run('cmd-red-before', ok: false),   // still failing
+            $this->test_run('cmd-green-before', ok: true),  // still passing
         ];
 
         $regressions = $service->computeRegressions($baseline, $postPatch);
@@ -172,8 +172,8 @@ final class RegressionBaselineServiceTest extends TestCase
         ]);
 
         $postPatch = [
-            $this->testRun('cmd-x', ok: false),
-            $this->testRun('cmd-y', ok: false),
+            $this->test_run('cmd-x', ok: false),
+            $this->test_run('cmd-y', ok: false),
         ];
 
         $this->assertSame(
@@ -194,8 +194,8 @@ final class RegressionBaselineServiceTest extends TestCase
         ]);
 
         $postPatch = [
-            $this->testRun('cmd-was-red', ok: true),    // NOW PASSES (fix!)
-            $this->testRun('cmd-was-green', ok: true),  // still passes
+            $this->test_run('cmd-was-red', ok: true),    // NOW PASSES (fix!)
+            $this->test_run('cmd-was-green', ok: true),  // still passes
         ];
 
         $regressions = $service->computeRegressions($baseline, $postPatch);
@@ -216,8 +216,8 @@ final class RegressionBaselineServiceTest extends TestCase
         ]);
 
         $postPatch = [
-            $this->testRun('cmd-fix', ok: true),      // fixed
-            $this->testRun('cmd-regress', ok: false), // regressed
+            $this->test_run('cmd-fix', ok: true),      // fixed
+            $this->test_run('cmd-regress', ok: false), // regressed
         ];
 
         $regressions = $service->computeRegressions($baseline, $postPatch);
@@ -242,9 +242,9 @@ final class RegressionBaselineServiceTest extends TestCase
         // The baseline cache is immutable; its contentHash MUST be stable
         // no matter how many times computeRegressions is called (the method
         // is pure and never mutates the baseline).
-        $postPatch1 = [$this->testRun('cmd-a', ok: false)];
-        $postPatch2 = [$this->testRun('cmd-a', ok: true)];
-        $postPatch3 = [$this->testRun('cmd-b', ok: true), $this->testRun('cmd-a', ok: false)];
+        $postPatch1 = [$this->test_run('cmd-a', ok: false)];
+        $postPatch2 = [$this->test_run('cmd-a', ok: true)];
+        $postPatch3 = [$this->test_run('cmd-b', ok: true), $this->test_run('cmd-a', ok: false)];
 
         $hashBefore = $baseline->contentHash;
 
