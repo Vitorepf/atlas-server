@@ -230,6 +230,8 @@ final class PipelineRunExecutor implements RunExecutor
                 promptProjection: $promptProjection,
                 commandRunner: $commandRunner,
                 candidateCount: $bestOfNCandidateCount,
+                regressionBaseline: $regressionBaseline,
+                e5Config: $e5Config,
             );
             $callResult = $bestOfNOutcome['callResult'];
             $diffResult = $bestOfNOutcome['diffResult'];
@@ -1385,9 +1387,22 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         ProviderPromptProjection $promptProjection,
         VerificationCommandRunner $commandRunner,
         int $candidateCount,
+        ?RegressionBaselineCache $regressionBaseline = null,
+        ?ElevationConfig $e5Config = null,
     ): array {
         $candidates = [];
         $providerCalls = 0;
+
+        // VAL-E5-013: when E5 is active, every candidate's regression is
+        // diffed against the SAME clean pre-patch baseline (captured once
+        // before the loop). We compute the per-candidate regression set here
+        // and include it in the summary as evidence. The baseline is shared
+        // (not recaptured per candidate); an earlier candidate's applied
+        // patch NEVER contaminates a later candidate's baseline because the
+        // cache is immutable and captured before any candidate runs.
+        $e5Active = $e5Config !== null
+            && ! $e5Config->isOff()
+            && $regressionBaseline !== null;
 
         for ($i = 0; $i < $candidateCount; $i++) {
             // Revert any prior candidate's workspace mutation before the next
@@ -1416,6 +1431,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
                     'patchApplyResult' => null,
                     'verificationResult' => null,
                     'callResultForGates' => null,
+                    'e5_regressions' => [],
                 ];
                 // Revert partial workspace mutation from the throwing candidate.
                 $this->revertWorkspaceChanges($envelope->workspace, $taskContract->allowedFiles);
@@ -1453,6 +1469,24 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
             // mutates the workspace; the canonical diff is workspace-derived).
             $candidateDiffText = $this->workspaceDiff($envelope->workspace, $taskContract->allowedFiles);
 
+            // VAL-E5-013: compute this candidate's regression set against the
+            // shared pre-patch baseline (captured once before the loop). This
+            // proves every candidate is diffed against the SAME clean baseline
+            // regardless of candidate order, and no candidate's applied patch
+            // contaminates a later candidate's baseline (the cache is immutable).
+            // The regression set is recorded for evidence; the verdict is
+            // applied to the WINNER through the post-gate E5 block.
+            $candidateRegressions = [];
+            if ($e5Active) {
+                $baselineService = $this->resolveRegressionBaselineService();
+                if ($baselineService !== null) {
+                    $candidateRegressions = $baselineService->computeRegressions(
+                        $regressionBaseline,
+                        $verificationResult->tests,
+                    );
+                }
+            }
+
             $candidates[] = [
                 'index' => $i,
                 'passed' => $verificationResult->aggregateStatus === VerificationGateResult::STATUS_PASSED,
@@ -1464,6 +1498,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
                 'verificationResult' => $verificationResult,
                 'callResultForGates' => $callResultForGates,
                 'candidate_diff_text' => $candidateDiffText,
+                'e5_regressions' => $candidateRegressions,
             ];
         }
 
@@ -1524,6 +1559,8 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
                     candidateCount: $candidateCount,
                     candidates: $candidates,
                     winnerIndex: -1,
+                    regressionBaseline: $regressionBaseline,
+                    e5Active: $e5Active,
                 ),
             ];
         }
@@ -1587,6 +1624,8 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
                     candidateCount: $candidateCount,
                     candidates: $candidates,
                     winnerIndex: -1,
+                    regressionBaseline: $regressionBaseline,
+                    e5Active: $e5Active,
                 ),
             ];
         }
@@ -1607,6 +1646,8 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
                 candidateCount: $candidateCount,
                 candidates: $candidates,
                 winnerIndex: $winner['passed'] ? $winner['index'] : -1,
+                regressionBaseline: $regressionBaseline,
+                e5Active: $e5Active,
             ),
         ];
     }
@@ -1679,17 +1720,26 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
      * Carries the explicit intra-model-weaker-than-cross-engine annotation
      * and makes NO equivalence/parity claim (VAL-M4-007).
      *
+     * VAL-E5-013: when E5 is active, the summary carries the shared pre-patch
+     * baseline hash and per-candidate regression evidence, proving every
+     * candidate was diffed against the SAME clean baseline.
+     *
      * @param  list<array<string,mixed>>  $candidates
      * @return array<string,mixed>
      */
-    private function bestOfNSummary(int $candidateCount, array $candidates, int $winnerIndex): array
-    {
+    private function bestOfNSummary(
+        int $candidateCount,
+        array $candidates,
+        int $winnerIndex,
+        ?RegressionBaselineCache $regressionBaseline = null,
+        bool $e5Active = false,
+    ): array {
         $passing = array_values(array_filter(
             $candidates,
             static fn (array $c): bool => (bool) ($c['passed'] ?? false),
         ));
 
-        return [
+        $summary = [
             'enabled' => true,
             'candidate_count' => $candidateCount,
             'passing_count' => count($passing),
@@ -1701,6 +1751,30 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
             'provider_lock' => 'hermes_cli',
             'model_family' => 'minimax-m3',
         ];
+
+        // VAL-E5-013: include the shared baseline hash + per-candidate
+        // regression evidence when E5 is active. Every candidate references
+        // the same baseline hash, proving the baseline was not recaptured
+        // per candidate (no contamination).
+        if ($e5Active && $regressionBaseline !== null) {
+            $summary['e5_shared_baseline_hash'] = $regressionBaseline->contentHash;
+            $summary['e5_baseline_capture_order'] = $regressionBaseline->captureOrder;
+
+            $candidateEvidence = [];
+            foreach ($candidates as $candidate) {
+                $regressions = $candidate['e5_regressions'] ?? [];
+                $candidateEvidence[] = [
+                    'index' => $candidate['index'],
+                    'passed' => $candidate['passed'],
+                    'e5_baseline_hash' => $regressionBaseline->contentHash,
+                    'e5_regression_count' => count($regressions),
+                    'e5_regressions' => array_values($regressions),
+                ];
+            }
+            $summary['candidates'] = $candidateEvidence;
+        }
+
+        return $summary;
     }
 
     /**
