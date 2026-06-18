@@ -199,6 +199,134 @@ final class IntentFalsificationProbeTest extends TestCase
         );
     }
 
+    // -- E1 repair-loop feedback: probeReason() ------------------------------
+    // VAL-E1-006, VAL-E1-013, VAL-CROSS-006: the probe reason is the live
+    // input fed into the M2 repair loop as a SEPARATE field (never mutating
+    // $failureExcerpt). These unit tests document the method's direct
+    // contract; the feature test (RepairLoopIntentProbeFeedbackTest) covers
+    // the end-to-end integration with the repair prompt.
+
+    public function test_probe_reason_returns_empty_when_intent_is_addressed(): void
+    {
+        // VAL-E1-005 lineage: a verb-implementing diff => no flag => no reason.
+        $contract = $this->makeContract(intentVerbs: ['corrigir']);
+        $diff = DiffParseResult::patch(
+            diff: "--- a/file\n+++ b/file\n@@\n+    // fix the off-by-one bug\n",
+            changedFiles: ['app/Foo.php'],
+        );
+
+        $probe = new IntentFalsificationProbe;
+        $this->assertFalse($probe->isIntentLikelyNotAddressed($contract, $diff));
+        $this->assertSame(
+            '',
+            $probe->probeReason($contract, $diff),
+            'VAL-E1-006: when the intent IS addressed, no reason is fed forward (byte-identical baseline)',
+        );
+    }
+
+    public function test_probe_reason_returns_empty_when_no_recognized_verb(): void
+    {
+        // No recognized verb => the probe never fires => no reason.
+        $contract = $this->makeContract(intentVerbs: []);
+        $diff = DiffParseResult::patch(
+            diff: "--- a/file\n+++ b/file\n@@\n+    return 42;\n",
+            changedFiles: ['app/Foo.php'],
+        );
+
+        $probe = new IntentFalsificationProbe;
+        $this->assertSame(
+            '',
+            $probe->probeReason($contract, $diff),
+            'No recognized verb => empty reason (byte-identical to pre-E1)',
+        );
+    }
+
+    public function test_probe_reason_references_unaddressed_verbs_when_intent_missing(): void
+    {
+        // VAL-E1-006: the reason is a live input referencing the unaddressed
+        // verb set so the regenerated attempt knows WHAT to implement.
+        $contract = $this->makeContract(intentVerbs: ['corrigir', 'remover']);
+        $diff = DiffParseResult::patch(
+            diff: "--- a/file\n+++ b/file\n@@\n+    return 42;\n",
+            changedFiles: ['app/Foo.php'],
+        );
+
+        $probe = new IntentFalsificationProbe;
+        $this->assertTrue($probe->isIntentLikelyNotAddressed($contract, $diff));
+        $reason = $probe->probeReason($contract, $diff);
+        $this->assertNotSame('', $reason, 'VAL-E1-006: a non-empty reason is fed forward when the intent is missing');
+        $this->assertStringContainsString('corrigir', $reason, 'The reason references the unaddressed verb');
+        $this->assertStringContainsString('remover', $reason, 'The reason references every unaddressed verb');
+    }
+
+    public function test_probe_reason_references_intent_text_subject_when_present(): void
+    {
+        // VAL-E1-013: the reason carries the intent subject (a live input the
+        // regenerated attempt can act on for convergence).
+        $contract = new LightTaskContract(
+            runId: 'run-e1-probe-reason',
+            taskId: 'task-e1-probe-reason',
+            specHash: 'spec-hash-e1-probe-reason',
+            allowedTools: ['read', 'write', 'grep', 'run_test'],
+            blockedActions: ['production_write'],
+            allowedFiles: ['app/Foo.php'],
+            watchedFiles: [],
+            forbiddenFiles: [],
+            maxFilesChanged: 1,
+            validationCommands: ['composer test'],
+            evidenceRequired: ['verification_receipt'],
+            repairPolicy: new RepairPolicy(
+                maxAttempts: 1,
+                sameProvider: true,
+                requiresFailedGateOutput: true,
+                abortOnSameSignatureTwice: true,
+            ),
+            escalationOn: [],
+            providerLock: new ProviderLock(
+                provider: 'hermes_cli',
+                modelFamily: 'minimax-m3',
+                fallbackAllowed: false,
+            ),
+            taskContractHash: 'tch-e1-probe-reason',
+            noTestReason: null,
+            intentText: 'Fix the rate-limit guard in Foo',
+            intentVerbs: ['corrigir'],
+        );
+        $diff = DiffParseResult::patch(
+            diff: "--- a/file\n+++ b/file\n@@\n+    return 42;\n",
+            changedFiles: ['app/Foo.php'],
+        );
+
+        $probe = new IntentFalsificationProbe;
+        $reason = $probe->probeReason($contract, $diff);
+        $this->assertStringContainsString(
+            'Fix the rate-limit guard in Foo',
+            $reason,
+            'VAL-E1-013: the reason carries the intent subject as a live input for convergence',
+        );
+    }
+
+    public function test_probe_reason_is_stable_across_iterations_for_same_unaddressed_intent(): void
+    {
+        // VAL-E1-007/008 lineage: the reason is deterministic for the same
+        // unaddressed intent (it never destabilizes the failure signature
+        // because it lives in its own prompt section, not in the hashed excerpt).
+        $contract = $this->makeContract(intentVerbs: ['corrigir']);
+        $diff = DiffParseResult::patch(
+            diff: "--- a/file\n+++ b/file\n@@\n+    return 42;\n",
+            changedFiles: ['app/Foo.php'],
+        );
+
+        $probe = new IntentFalsificationProbe;
+        $reason1 = $probe->probeReason($contract, $diff);
+        $reason2 = $probe->probeReason($contract, $diff);
+        $this->assertSame(
+            $reason1,
+            $reason2,
+            'The reason is deterministic across iterations for the same unaddressed intent',
+        );
+    }
+
     // -- Helpers -------------------------------------------------------------
 
     /**

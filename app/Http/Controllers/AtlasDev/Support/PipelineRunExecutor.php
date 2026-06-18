@@ -28,6 +28,8 @@ use App\Services\Ai\Programming\AtlasDev\Intelligence\TestSelectionIntelligenceS
 use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasMinimaxFirstWorkerService;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
+use App\Services\Ai\Programming\AtlasDev\Probe\IntentCoverageProbe;
+use App\Services\Ai\Programming\AtlasDev\Probe\IntentFalsificationProbe;
 use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliGateway;
 use App\Services\Ai\Programming\AtlasDev\Provider\DiffParser;
 use App\Services\Ai\Programming\AtlasDev\Provider\DiffParseResult;
@@ -46,8 +48,6 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\MiniProgrammingSpec;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ScopeGuardReceipt;
 use App\Services\Ai\Programming\AtlasDev\Schemas\VerificationReceipt;
-use App\Services\Ai\Programming\AtlasDev\Probe\IntentCoverageProbe;
-use App\Services\Ai\Programming\AtlasDev\Probe\IntentFalsificationProbe;
 use App\Services\Ai\Programming\AtlasDev\Support\Elevations\ElevationConfig;
 use App\Services\Ai\Programming\AtlasDev\WorkspaceMutatingProviders;
 use App\Services\Ai\Programming\AtlasForgeCodexCliInvocationDriver;
@@ -280,6 +280,19 @@ final class PipelineRunExecutor implements RunExecutor
                 // (LIGAR violation flagged by M2 scrutiny). The REPAIR REQUIRED
                 // marker + "Previous attempt failed" header are preserved so the
                 // hermes path keeps the failure-excerpt structure VAL-M2-008 locks.
+                //
+                // E1 repair-loop feedback (VAL-E1-006, VAL-E1-013,
+                // VAL-CROSS-006): when the E1 intent-falsification probe is
+                // active and the diff misses the intent, the probe reason is
+                // fed as a SEPARATE field into the repair prompt (a live input
+                // the regenerated attempt can act on). CRITICAL: the reason is
+                // NOT folded into $failureExcerpt — that would change the
+                // FailureSignatureHasher output and break the cap=3 anti-spin.
+                // The reason lives in its own dedicated prompt section.
+                $intentProbeReason = $this->resolveIntentProbeReasonForRepair(
+                    $taskContract,
+                    $diffResult,
+                );
                 $currentPromptText = $this->buildComposedHermesRepairPrompt(
                     promptProjection: $promptProjection,
                     taskContract: $taskContract,
@@ -289,6 +302,7 @@ final class PipelineRunExecutor implements RunExecutor
                     failureExcerpt: $failureExcerpt,
                     repairAttempt: $repairAttempt,
                     repairCap: $repairCap,
+                    intentProbeReason: $intentProbeReason,
                 );
 
                 // Revert workspace changes before re-invoking provider.
@@ -1693,6 +1707,19 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
      * compare the FailureSignatureHasher signature of the raw failure
      * excerpt; that signature equals the capsule's failure_signature
      * (both go through hasher->normalize() then FailureCapsule::signatureOf).
+     *
+     * E1 repair-loop feedback (VAL-E1-006, VAL-E1-007, VAL-E1-013,
+     * VAL-CROSS-006): when the E1 intent-falsification probe is active and
+     * the diff misses the intent, the probe reason is fed as a SEPARATE field
+     * ($intentProbeReason) and rendered in a DEDICATED `## Intent Not Yet
+     * Addressed` section. CRITICAL: $failureExcerpt is NEVER mutated by the
+     * probe reason — it feeds the FailureSignatureHasher for same-signature-
+     * twice anti-spin and must stay byte-identical regardless of the probe.
+     * The probe reason lives in its own prompt section so the regenerated
+     * attempt can act on it (convergence) without destabilizing the failure
+     * signature. When $intentProbeReason is '' (probe off, or intent
+     * addressed), the dedicated section is omitted entirely (conditional-empty
+     * pattern: byte-identical to the pre-feedback baseline).
      */
     private function buildComposedHermesRepairPrompt(
         ProviderPromptProjection $promptProjection,
@@ -1703,6 +1730,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         string $failureExcerpt,
         int $repairAttempt,
         int $repairCap,
+        string $intentProbeReason = '',
     ): string {
         $firstFailing = null;
         foreach ($verificationResult->tests as $test) {
@@ -1761,8 +1789,19 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         // before the Repair Capsule section so the hermes path preserves
         // the failure-excerpt structure VAL-M2-008 locks, without
         // duplicating the original prompt body.
+        //
+        // E1 repair-loop feedback (VAL-E1-006, VAL-E1-007, VAL-E1-013,
+        // VAL-CROSS-006): the probe reason ($intentProbeReason) is rendered
+        // as a SEPARATE dedicated section right after the failure-excerpt
+        // marker, BEFORE the Repair Capsule. CRITICAL: it is NEVER folded
+        // into $failureExcerpt (which is hashed by FailureSignatureHasher
+        // for same-signature-twice anti-spin). When empty (probe off, or
+        // intent addressed), the section is omitted entirely so the prompt
+        // is byte-identical to the pre-feedback baseline (conditional-empty
+        // pattern, mirroring `## Known Failure Modes`).
         $marker = "--- REPAIR REQUIRED ({$gate}) ---\n"
             ."Previous attempt failed. Error output:\n{$failureExcerpt}\n";
+        $intentSection = $this->renderIntentProbeSection($intentProbeReason);
         $composed = $repairProjection->renderedPromptText;
         $capsuleHeader = '# Repair Capsule';
         $capsulePos = strpos($composed, $capsuleHeader);
@@ -1787,7 +1826,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
 
             return $cappedPreCapsule
                 .$marker
-                ."\n"
+                .$intentSection
                 .substr($composed, $capsulePos);
         }
 
@@ -1795,7 +1834,77 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         // capsule header was not found (composition contract changed).
         return mb_substr($promptProjection->renderedPromptText, 0, 20_000)
             ."\n\n".$marker
-            ."\n".$composed;
+            .$intentSection
+            .$composed;
+    }
+
+    /**
+     * E1 repair-loop feedback (VAL-E1-006, VAL-E1-007, VAL-E1-013,
+     * VAL-CROSS-006): render the intent-probe reason as a DEDICATED prompt
+     * section, separate from $failureExcerpt.
+     *
+     * Conditional-empty pattern (mirrors `## Known Failure Modes`): when the
+     * reason is empty (probe off, or intent addressed), the section is
+     * omitted entirely so the rendered prompt is byte-identical to the
+     * pre-feedback baseline. When non-empty, the section carries the probe
+     * reason as a live input the regenerated attempt can act on (the verb
+     * set the diff failed to implement + the intent subject), positioned
+     * AFTER the REPAIR REQUIRED failure-excerpt marker and BEFORE the
+     * Repair Capsule so the failure-excerpt structure VAL-M2-008 locks is
+     * preserved while the probe feedback is strictly additive.
+     *
+     * CRITICAL: this section NEVER mutates $failureExcerpt. The reason lives
+     * in its own block so FailureSignatureHasher (which hashes only the
+     * excerpt) produces the same signature regardless of the probe — the
+     * cap=3 same-signature-twice anti-spin still fires on a genuinely stuck
+     * repair (VAL-E1-008).
+     */
+    private function renderIntentProbeSection(string $intentProbeReason): string
+    {
+        $reason = trim($intentProbeReason);
+        if ($reason === '') {
+            // Conditional-empty: byte-identical to the pre-feedback baseline.
+            return "\n";
+        }
+
+        return "\n## Intent Not Yet Addressed\n"
+            .$reason."\n\n";
+    }
+
+    /**
+     * E1 repair-loop feedback (VAL-E1-006, VAL-E1-013, VAL-CROSS-006):
+     * resolve the intent-probe reason to feed into the M2 repair prompt as a
+     * SEPARATE field (a live input the regenerated attempt can act on).
+     *
+     * Returns '' when:
+     *   - e1.mode is off (the probe is never consulted; byte-identical to
+     *     pre-E1, VAL-CROSS-010); OR
+     *   - the probe does NOT fire (the diff traceably implements the intent,
+     *     VAL-E1-005 — no reason to feed forward); OR
+     *   - the contract carries no recognized intent verb (nothing to probe).
+     *
+     * When non-empty, the reason references the unaddressed intent verbs and
+     * the intent subject so the next repair iteration knows WHAT to implement
+     * (convergence, VAL-E1-013). The reason is sourced from the
+     * E2-established basis (LightTaskContract::intentVerbs + intentText),
+     * model-irrelevant, and deterministic.
+     *
+     * The reason is NEVER folded into $failureExcerpt (which is hashed by
+     * FailureSignatureHasher for same-signature-twice anti-spin). It flows
+     * through its own dedicated prompt section via
+     * {@see renderIntentProbeSection()} so the failure signature stays
+     * byte-identical regardless of the probe (VAL-E1-007, VAL-E1-008).
+     */
+    private function resolveIntentProbeReasonForRepair(
+        LightTaskContract $taskContract,
+        DiffParseResult $diffResult,
+    ): string {
+        // off mode: byte-identical to pre-E1 (no probe, no reason).
+        if ($this->resolveE1Config()->isOff()) {
+            return '';
+        }
+
+        return (new IntentFalsificationProbe)->probeReason($taskContract, $diffResult);
     }
 
     /**

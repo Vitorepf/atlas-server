@@ -166,6 +166,69 @@ final class IntentFalsificationProbe
     }
 
     /**
+     * E1 repair-loop feedback (VAL-E1-006, VAL-E1-013, VAL-CROSS-006):
+     * produce a human-readable reason when the probe fires, and '' when it
+     * does not. This reason is fed into the M2 repair loop as a SEPARATE
+     * field (a live input the regenerated attempt can act on), NEVER by
+     * mutating $failureExcerpt (which is hashed by
+     * FailureSignatureHasher for same-signature-twice anti-spin).
+     *
+     * The reason references the unaddressed intent verbs and the intent
+     * subject so the next repair iteration knows WHAT to implement. It is a
+     * best-effort structural annotation sourced from the E2-established
+     * basis (intentVerbs + intentText), model-irrelevant, and stable across
+     * iterations for the same unaddressed intent (so it never destabilizes
+     * the failure signature — it lives in its own prompt section, not in the
+     * hashed excerpt).
+     *
+     * Returns '' when:
+     *   - the probe does NOT fire (intent addressed, or no recognized verb);
+     *   - OR no reason can be composed from the persisted basis (defensive:
+     *     the executor treats '' as "no probe reason to feed forward", which
+     *     is byte-identical to the pre-feedback baseline).
+     */
+    public function probeReason(LightTaskContract $taskContract, ?DiffParseResult $diffResult): string
+    {
+        // Mirror isIntentLikelyNotAddressed: only fire for a write task whose
+        // intent is not traceably implemented by the diff. When the probe
+        // does not fire, there is no reason to feed forward.
+        if (! $this->isIntentLikelyNotAddressed($taskContract, $diffResult)) {
+            return '';
+        }
+
+        $intentVerbs = $taskContract->intentVerbs;
+        if ($intentVerbs === []) {
+            // Defensive: isIntentLikelyNotAddressed already returns false for
+            // an empty verb set, so this branch is unreachable. Kept for
+            // total clarity.
+            return '';
+        }
+
+        // Compose the reason from the E2-established basis: the verb set the
+        // diff failed to implement + the intent text (the subject the next
+        // iteration must touch). The reason is intentionally concise and
+        // references the canonical verb labels so the regenerated attempt has
+        // an actionable signal.
+        $verbList = implode(', ', $intentVerbs);
+        $intentText = trim($taskContract->intentText);
+
+        if ($intentText !== '') {
+            return sprintf(
+                'The previous diff did not traceably implement the declared intent verbs (%s). '
+                .'Next attempt must address the intent: "%s".',
+                $verbList,
+                $intentText,
+            );
+        }
+
+        return sprintf(
+            'The previous diff did not traceably implement the declared intent verbs (%s). '
+            .'Next attempt must address at least one of these verbs.',
+            $verbList,
+        );
+    }
+
+    /**
      * Resolve the case-insensitive TIER 1 verb surface-form needles for the
      * given canonical verb labels, sourced from IntentActionExtractor's
      * recognized vocabulary. Includes the canonical labels themselves so a
