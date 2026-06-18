@@ -10,6 +10,7 @@ use App\Services\Ai\AutonomousEvolution\AtlasEvolutionTaskGenerator;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -295,8 +296,25 @@ final class AtlasLoopQueueRefiller
                         $relPaths[] = $p;
                     }
                 }
-                $built = $this->objectiveProducer->produce($repoRoot, $relPaths, $provider, 'producer:'.$campaign->id);
+                $built = $this->objectiveProducer->produce($repoRoot, $relPaths, $provider, (string) $campaign->id);
                 if ($built !== null) {
+                    // The synthesizers stamp payload['_target_id'] with the targetId we passed; the
+                    // grinder's loop-back consumes it as a UUID (atlas_loop_targets.parent_target_id is
+                    // uuid, no FK). The campaign id is a valid uuid so nothing crashes in-flight, but map
+                    // the produced objective back to its REAL claimed-target id so lineage/history link
+                    // correctly (fallback: a fresh uuid — never the non-uuid 'producer:' string that the
+                    // first live run crashed on).
+                    if (is_array($built['payload'] ?? null)) {
+                        $producedPath = ltrim((string) ($built['target_path'] ?? ''), '/');
+                        $realTargetId = null;
+                        foreach ($targets as $t) {
+                            if (ltrim((string) $t->target_path, '/') === $producedPath) {
+                                $realTargetId = (string) $t->id;
+                                break;
+                            }
+                        }
+                        $built['payload']['_target_id'] = $realTargetId ?? (string) Str::uuid();
+                    }
                     $priority = 4000 + min(999, (int) round((float) $built['leverage'] * 200));
                     $hash = (string) ($built['acceptance_hash'] ?? '');
                     $enq = $this->store->enqueueTask(
