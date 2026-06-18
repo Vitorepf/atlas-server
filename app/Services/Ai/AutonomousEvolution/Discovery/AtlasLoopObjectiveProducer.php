@@ -37,6 +37,7 @@ final class AtlasLoopObjectiveProducer
         private readonly ?AtlasLoopSignalAnalyzer $analyzer = null,
         private readonly ?AtlasOpenBrainFileContextService $brainContext = null,
         private readonly ?AtlasLoopRefactorObjectiveSynthesizer $refactorSynth = null,
+        private readonly ?AtlasLoopFrameworkRefactorSynthesizer $frameworkSynth = null,
     ) {}
 
     /**
@@ -236,12 +237,29 @@ final class AtlasLoopObjectiveProducer
         return false;
     }
 
-    /** @return array<string,mixed>|null */
+    /**
+     * Build the verifiable refactor objective for the selected target. Tries the provider-free
+     * plain-php synthesizer first (the narrow but cheapest path), then the framework synthesizer
+     * (the COMMON case — a PHPUnit sibling test). Returns null only if BOTH fail-close, in which
+     * case the target is not provably refactorable and nothing is enqueued.
+     *
+     * @return array<string,mixed>|null
+     */
     private function buildRefactorObjective(string $repoRoot, string $rel, string $provider, string $targetId): ?array
     {
         try {
-            return ($this->refactorSynth ?? new AtlasLoopRefactorObjectiveSynthesizer)
+            $plain = ($this->refactorSynth ?? new AtlasLoopRefactorObjectiveSynthesizer)
                 ->synthesize($repoRoot, $rel, [], $provider, $targetId);
+            if ($plain !== null) {
+                return $plain;
+            }
+        } catch (Throwable) {
+            // fall through to the framework synthesizer
+        }
+
+        try {
+            return ($this->frameworkSynth ?? app(AtlasLoopFrameworkRefactorSynthesizer::class))
+                ->synthesizeFrameworkRefactor($repoRoot, $rel, [], $provider, $targetId);
         } catch (Throwable) {
             return null;
         }
