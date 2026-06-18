@@ -51,10 +51,13 @@ final class AtlasDeadCodeAnalyzer
 
     private readonly NodeFinder $finder;
 
+    private readonly AtlasDeadCodeAnalyzerSupport $support;
+
     public function __construct()
     {
         $this->parser = (new ParserFactory)->createForHostVersion();
         $this->finder = new NodeFinder;
+        $this->support = new AtlasDeadCodeAnalyzerSupport;
     }
 
     /**
@@ -112,56 +115,14 @@ final class AtlasDeadCodeAnalyzer
         $className = $class->name?->toString() ?? '(anonymous)';
 
         // --- collect references + dynamic-dispatch signals within THIS class subtree ---
-        $usedMethods = [];   // lower-cased (PHP method names are case-insensitive)
-        $usedConsts = [];    // case-sensitive
-        $usedProps = [];     // case-sensitive
-        $usedStrings = [];   // every string literal value, lower-cased (callable / dynamic hints)
-        $dynMethod = false;
-        $dynProp = false;
-        $dynConst = false;
-
-        $subtree = $class->stmts;
-
-        foreach ($this->finder->find($subtree, static fn (Node $n): bool => true) as $n) {
-            if ($n instanceof Node\Expr\MethodCall || $n instanceof Node\Expr\StaticCall || $n instanceof Node\Expr\NullsafeMethodCall) {
-                if ($n->name instanceof Node\Identifier) {
-                    $usedMethods[strtolower($n->name->toString())] = true;
-                } else {
-                    $dynMethod = true; // $obj->$name()
-                }
-            } elseif ($n instanceof Node\Expr\PropertyFetch || $n instanceof Node\Expr\StaticPropertyFetch || $n instanceof Node\Expr\NullsafePropertyFetch) {
-                if ($n->name instanceof Node\Expr) {
-                    $dynProp = true; // $obj->$name
-                } else {
-                    $usedProps[$n->name->toString()] = true;
-                }
-            } elseif ($n instanceof Node\Expr\ClassConstFetch) {
-                if ($n->name instanceof Node\Identifier) {
-                    $usedConsts[$n->name->toString()] = true;
-                } else {
-                    $dynConst = true; // Foo::{$name}
-                }
-            } elseif ($n instanceof Node\Scalar\String_) {
-                $usedStrings[strtolower($n->value)] = true;
-            } elseif ($n instanceof Node\Expr\FuncCall && $n->name instanceof Node\Name) {
-                $fn = strtolower($n->name->toString());
-                if (in_array($fn, ['call_user_func', 'call_user_func_array', 'method_exists', 'is_callable', 'func_get_args'], true)) {
-                    $dynMethod = true;
-                }
-                if (in_array($fn, ['property_exists', 'get_object_vars', 'compact', 'extract'], true)) {
-                    $dynProp = true;
-                }
-                if ($fn === 'constant') {
-                    $dynConst = true;
-                }
-            } elseif ($n instanceof Node\Stmt\ClassMethod && $this->isMagicCallProxy($n->name->toString())) {
-                $dynMethod = true; // __call/__callStatic route arbitrary names
-                if (in_array(strtolower($n->name->toString()), ['__get', '__set', '__isset', '__unset'], true)) {
-                    $dynProp = true;
-                }
-            }
-        }
-
+        $usage = $this->support->collectUsage($class->stmts, $this->finder);
+        $usedMethods = $usage['usedMethods'];   // lower-cased (PHP method names are case-insensitive)
+        $usedConsts = $usage['usedConsts'];    // case-sensitive
+        $usedProps = $usage['usedProps'];     // case-sensitive
+        $usedStrings = $usage['usedStrings'];   // every string literal value, lower-cased (callable / dynamic hints)
+        $dynMethod = $usage['dynMethod'];
+        $dynProp = $usage['dynProp'];
+        $dynConst = $usage['dynConst'];
         // --- declared private members ---
         $dead = [];
 
@@ -203,11 +164,6 @@ final class AtlasDeadCodeAnalyzer
     private function isMagic(string $name): bool
     {
         return str_starts_with(strtolower($name), '__');
-    }
-
-    private function isMagicCallProxy(string $name): bool
-    {
-        return in_array(strtolower($name), ['__call', '__callstatic', '__get', '__set', '__isset', '__unset'], true);
     }
 
     /**
