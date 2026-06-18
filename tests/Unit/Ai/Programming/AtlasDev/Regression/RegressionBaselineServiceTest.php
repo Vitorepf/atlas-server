@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Programming\AtlasDev\Regression;
 
-use App\Services\Ai\Programming\AtlasDev\Gate\VerificationCommandResult;
 use App\Services\Ai\Programming\AtlasDev\Gate\UnsafeCommandPolicy;
+use App\Services\Ai\Programming\AtlasDev\Gate\VerificationCommandResult;
 use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineCache;
 use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineRunner;
+use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineService;
+use App\Services\Ai\Programming\AtlasDev\Schemas\Components\TestRun;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -36,7 +38,7 @@ final class RegressionBaselineServiceTest extends TestCase
         $runner = new FakeRegressionBaselineRunner;
         $runner->queueOk('composer test-foo');
         $runner->queueFail('composer test-bar');
-        $service = new \App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineService($runner);
+        $service = new RegressionBaselineService($runner);
 
         $cache = $service->captureBaseline(
             runId: 'run-e5-001',
@@ -65,7 +67,7 @@ final class RegressionBaselineServiceTest extends TestCase
     public function test_val_e5_001_empty_command_list_yields_empty_baseline_not_crash(): void
     {
         $runner = new FakeRegressionBaselineRunner;
-        $service = new \App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineService($runner);
+        $service = new RegressionBaselineService($runner);
 
         $cache = $service->captureBaseline(
             runId: 'run-e5-empty',
@@ -287,7 +289,7 @@ final class RegressionBaselineServiceTest extends TestCase
     {
         $runner = new FakeRegressionBaselineRunner;
         $runner->queueOk('cmd-once');
-        $service = new \App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineService($runner);
+        $service = new RegressionBaselineService($runner);
 
         $cache = $service->captureBaseline(
             runId: 'run-e5-once',
@@ -303,27 +305,27 @@ final class RegressionBaselineServiceTest extends TestCase
 
     // -- Helpers ---------------------------------------------------------------
 
-    private function makeService(): \App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineService
+    private function makeService(): RegressionBaselineService
     {
         // The service requires a runner for captureBaseline(); computeRegressions()
         // and buildResult() are pure and never touch the runner. We pass a
         // throwaway fake so the pure-diff tests don't need to set one up.
-        return new \App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineService(
+        return new RegressionBaselineService(
             new FakeRegressionBaselineRunner,
         );
     }
 
     /**
-     * @param array<string,bool> $results
+     * @param  array<string,bool>  $results
      */
     private function cache(array $results): RegressionBaselineCache
     {
         return RegressionBaselineCache::capture($results, captureOrder: 0);
     }
 
-    private function testRun(string $command, bool $ok): object
+    private function test_run(string $command, bool $ok): object
     {
-        return new \App\Services\Ai\Programming\AtlasDev\Schemas\Components\TestRun(
+        return new TestRun(
             command: $command,
             ok: $ok,
             exitCode: $ok ? 0 : 1,

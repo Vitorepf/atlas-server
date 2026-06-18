@@ -6,12 +6,14 @@ namespace Tests\Feature\Ai\Programming\AtlasDev\Regression;
 
 use App\Services\Ai\Programming\AtlasDev\Gate\CompletionDecision;
 use App\Services\Ai\Programming\AtlasDev\Gate\CompletionStateGate;
+use App\Services\Ai\Programming\AtlasDev\Gate\VerificationCommandResult;
 use App\Services\Ai\Programming\AtlasDev\Gate\VerificationGateResult;
 use App\Services\Ai\Programming\AtlasDev\Provider\DiffParseResult;
 use App\Services\Ai\Programming\AtlasDev\Provider\ProviderCallResult;
 use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineCache;
 use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineGate;
 use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineResult;
+use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineRunner;
 use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineService;
 use App\Services\Ai\Programming\AtlasDev\Regression\RegressionVerdict;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\CompletionSummary;
@@ -129,11 +131,11 @@ final class RegressionBaselineFlagTest extends TestCase
         // computeRegressions is pure and never touches the runner; an
         // anonymous no-op runner satisfies the constructor.
         $service = new RegressionBaselineService(
-            new class implements \App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineRunner
+            new class implements RegressionBaselineRunner
             {
-                public function run(string $command, string $workspace): \App\Services\Ai\Programming\AtlasDev\Gate\VerificationCommandResult
+                public function run(string $command, string $workspace): VerificationCommandResult
                 {
-                    return new \App\Services\Ai\Programming\AtlasDev\Gate\VerificationCommandResult(
+                    return new VerificationCommandResult(
                         command: $command, exitCode: 0, stdout: '', stderr: '', durationMs: 0,
                     );
                 }

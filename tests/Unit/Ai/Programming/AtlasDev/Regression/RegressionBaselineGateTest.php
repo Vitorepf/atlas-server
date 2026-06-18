@@ -7,7 +7,6 @@ namespace Tests\Unit\Ai\Programming\AtlasDev\Regression;
 use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineCache;
 use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineGate;
 use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineResult;
-use App\Services\Ai\Programming\AtlasDev\Regression\RegressionVerdict;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\TestRun;
 use App\Services\Ai\Programming\AtlasDev\Support\Elevations\ElevationConfig;
 use PHPUnit\Framework\TestCase;

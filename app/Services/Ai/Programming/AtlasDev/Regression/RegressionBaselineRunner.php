@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\AtlasDev\Regression;
 
 use App\Services\Ai\Programming\AtlasDev\Gate\VerificationCommandResult;
+use App\Services\Ai\Programming\AtlasDev\Mutation\MutationCommandRunner;
 
 /**
  * E5 -- Runner contract for the regression baseline capture.
@@ -16,7 +17,7 @@ use App\Services\Ai\Programming\AtlasDev\Gate\VerificationCommandResult;
  * commands the gate runs post-patch); tests inject a fake.
  *
  * This is the E5 analog of
- * {@see \App\Services\Ai\Programming\AtlasDev\Mutation\MutationCommandRunner}:
+ * {@see MutationCommandRunner}:
  * a SEPARATE, dedicated contract so the baseline capture evolves
  * independently and the fake is scoped to E5 tests.
  */

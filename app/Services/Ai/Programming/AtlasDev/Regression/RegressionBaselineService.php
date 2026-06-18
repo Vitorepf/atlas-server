@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Regression;
 
-use App\Services\Ai\Programming\AtlasDev\Gate\AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner;
-use App\Services\Ai\Programming\AtlasDev\Gate\VerificationCommandResult;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\TestRun;
 
 /**
@@ -97,7 +95,7 @@ final class RegressionBaselineService
      * always yields the same regression set.
      *
      * @param  list<TestRun>  $postPatchTests  the verification gate's post-patch results.
-     * @return list<string>  the regression commands (passed-before, failed-after).
+     * @return list<string> the regression commands (passed-before, failed-after).
      */
     public function computeRegressions(
         RegressionBaselineCache $baseline,

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Regression;
 
+use App\Services\Ai\Programming\AtlasDev\Mutation\MutationScoreVerdict;
+
 /**
  * E5 -- Verdict returned by {@see RegressionBaselineGate::evaluate()}.
  *
@@ -12,7 +14,7 @@ namespace App\Services\Ai\Programming\AtlasDev\Regression;
  * sanctioned channels (honesty flag for advisory, STATUS_FAILED gate for
  * hard). The verdict itself does NOT mutate any gate result.
  *
- * Mirrors {@see \App\Services\Ai\Programming\AtlasDev\Mutation\MutationScoreVerdict}
+ * Mirrors {@see MutationScoreVerdict}
  * so the executor applies the E5 verdict through the SAME post-gate block
  * pattern used for E1/E2/E3.
  *
