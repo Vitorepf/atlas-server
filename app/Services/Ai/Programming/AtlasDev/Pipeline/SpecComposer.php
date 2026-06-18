@@ -16,6 +16,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\MiniProgrammingSpec;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OpenBrainProgrammingProjection;
 use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
+use App\Services\Ai\Programming\AtlasDev\Support\Elevations\ElevationConfig;
 use App\Services\Ai\Programming\HermesWorkspaceDefaults;
 use InvalidArgumentException;
 
@@ -138,14 +139,16 @@ class SpecComposer
         CompactSdd $compactSdd,
         CodeDiscoveryManifest $discovery,
         OpenBrainProgrammingProjection $projection,
+        ?ElevationConfig $e2Config = null,
     ): MiniProgrammingSpec {
+        $e2 = $e2Config ?? $this->resolveE2Config();
         $allowedFiles = $this->allowedFilesFor($envelope, $compactSdd, $discovery);
         $forbidden = $this->forbiddenFilesFor($compactSdd, $discovery);
         $expectedFiles = $this->expectedFilesFor($discovery);
         $canonicalContext = $this->buildCanonicalContext($discovery, $projection);
         $verificationCommands = $this->buildVerificationCommands($envelope, $compactSdd, $discovery);
 
-        $acceptance = $this->buildAcceptanceCriteria($compactSdd, $verificationCommands, $expectedFiles);
+        $acceptance = $this->buildAcceptanceCriteria($compactSdd, $verificationCommands, $expectedFiles, $envelope, $e2);
         $nonGoals = $this->buildNonGoals($compactSdd);
         $expectedBehavior = $this->buildExpectedBehavior($compactSdd, $expectedFiles);
         $assumptions = $this->buildAssumptions($compactSdd, $discovery);
@@ -805,12 +808,41 @@ class SpecComposer
     }
 
     /**
+     * Build the acceptance criteria for the spec.
+     *
+     * For write tasks (patch/repair/frontend), the AC set is the union of:
+     *
+     *   1. Behavioral ACs (E2): one per recognized intent verb, each carrying
+     *      a real verification_ref pointing at a concrete test command sourced
+     *      from the verification plan (or the profile default when no explicit
+     *      command exists). These describe OBSERVABLE behavior tied to the
+     *      intent verb, distinct from the tautological command/scope backstop.
+     *      Gated by atlas_dev.elevations.e2.mode: off => byte-identical to the
+     *      pre-E2 baseline (no behavioral ACs emitted).
+     *
+     *   2. The command backstop ACs: "command X terminates with exit_code=0"
+     *      per verification command. Always retained (never reduced).
+     *
+     *   3. The scope backstop AC: "diff touches only expected_files". Always
+     *      retained when expected files exist (never reduced).
+     *
+     * AC strength is never reduced: behavioral ACs are ADDITIVE to the
+     * command/scope backstop, never a replacement. A tautology-only AC set
+     * (no behavioral AC despite a write task with verbs) is never silently
+     * produced while E2 is on, so the intent_not_tested flag (sibling
+     * e2-intent-text-contract feature) has a detectable basis.
+     *
      * @param  list<string>  $verificationCommands
      * @param  list<string>  $expectedFiles
      * @return list<array{id: string, description: string, verification: string, verification_ref: ?string}>
      */
-    private function buildAcceptanceCriteria(CompactSdd $compactSdd, array $verificationCommands, array $expectedFiles): array
-    {
+    private function buildAcceptanceCriteria(
+        CompactSdd $compactSdd,
+        array $verificationCommands,
+        array $expectedFiles,
+        ?OperationEnvelope $envelope = null,
+        ?ElevationConfig $e2Config = null,
+    ): array {
         if ($compactSdd->mode === self::MODE_READ_ONLY) {
             return [[
                 'id' => 'ac_1',
@@ -839,25 +871,44 @@ class SpecComposer
         }
 
         $criteria = [];
+
+        // E2: behavioral ACs per recognized intent verb. Emitted BEFORE the
+        // command/scope backstop so the intent-grounded criteria lead the set.
+        // Each behavioral AC carries a real verification_ref (the concrete
+        // test command), never a placeholder. Gated off entirely when e2.mode=off
+        // so the AC set is byte-identical to the pre-E2 baseline.
+        $e2 = $e2Config ?? $this->resolveE2Config();
+        if (! $e2->isOff() && $envelope !== null) {
+            foreach ($this->buildBehavioralAcceptanceCriteria($compactSdd, $envelope, $verificationCommands) as $behavioral) {
+                $criteria[] = $behavioral;
+            }
+        }
+
+        // Command backstop (verifiable): "command X exits 0".
         $i = 1;
         foreach ($verificationCommands as $cmd) {
             $criteria[] = [
-                'id' => 'ac_'.$i,
+                'id' => 'ac_cmd_'.$i,
                 'description' => "comando '{$cmd}' termina com exit_code=0",
                 'verification' => 'test',
                 'verification_ref' => $cmd,
             ];
             $i++;
         }
+
+        // Scope backstop (verifiable): "diff touches only expected files".
         if ($expectedFiles !== []) {
             $criteria[] = [
-                'id' => 'ac_'.$i,
+                'id' => 'ac_scope',
                 'description' => 'diff toca somente arquivos previstos em expected_files',
                 'verification' => 'scope_guard',
                 'verification_ref' => null,
             ];
-            $i++;
         }
+
+        // Fallback only when no command/scope/behavioral AC exists at all:
+        // preserves the pre-E2 manual fallback for edge cases (no tests, no
+        // verbs, no expected files).
         if ($criteria === []) {
             $criteria[] = [
                 'id' => 'ac_1',
@@ -868,6 +919,98 @@ class SpecComposer
         }
 
         return $criteria;
+    }
+
+    /**
+     * Build the behavioral (non-tautological) acceptance criteria, one per
+     * recognized intent verb. Each carries a real verification_ref pointing
+     * at a concrete test command:
+     *   - the first explicit verification command when available;
+     *   - otherwise the profile default (composer test / pnpm test).
+     *
+     * When no verification command is resolvable (e.g. generic_no_test
+     * profile with no explicit commands), no behavioral AC is emitted here;
+     * the sibling intent_not_tested flag owns the "no test backs the intent"
+     * signal, and the command/scope backstop is still emitted by the caller.
+     *
+     * AC ids are namespaced as `ac_behavior_<verb_label>` (slugified) so they
+     * never collide with the command (`ac_cmd_<n>`) or scope (`ac_scope`)
+     * backstop ids, even for multi-verb intents.
+     *
+     * @param  list<string>  $verificationCommands
+     * @return list<array{id: string, description: string, verification: string, verification_ref: ?string}>
+     */
+    private function buildBehavioralAcceptanceCriteria(
+        CompactSdd $compactSdd,
+        OperationEnvelope $envelope,
+        array $verificationCommands,
+    ): array {
+        $verbs = $this->extractIntentVerbs($compactSdd->intentNormalized);
+        if ($verbs === []) {
+            return [];
+        }
+
+        $verificationRef = $this->resolveBehavioralVerificationRef($compactSdd, $verificationCommands);
+        // When no concrete test command can back the behavioral AC, defer: the
+        // sibling intent_not_tested flag owns that signal and the command/scope
+        // backstop still carries the verifiable floor. Emitting a behavioral AC
+        // with an empty/placeholder ref would violate VAL-E2-005.
+        if ($verificationRef === null) {
+            return [];
+        }
+
+        $criteria = [];
+        foreach ($verbs as $verbLabel) {
+            $slug = $this->verbSlug($verbLabel);
+            $criteria[] = [
+                'id' => 'ac_behavior_'.$slug,
+                'description' => "diff implementa observavelmente o verbo de intencao '{$verbLabel}' (coberto por: {$verificationRef})",
+                'verification' => 'test',
+                'verification_ref' => $verificationRef,
+            ];
+        }
+
+        return $criteria;
+    }
+
+    /**
+     * Resolve a concrete test command to back a behavioral AC. Prefers the
+     * first explicit verification command; falls back to the profile default
+     * (composer test / pnpm test) for the write-capable profiles. Returns
+     * null when no executable test command is resolvable (generic_no_test
+     * profile with no explicit commands).
+     *
+     * @param  list<string>  $verificationCommands
+     */
+    private function resolveBehavioralVerificationRef(CompactSdd $compactSdd, array $verificationCommands): ?string
+    {
+        foreach ($verificationCommands as $cmd) {
+            $trimmed = trim($cmd);
+            if ($trimmed !== '') {
+                return $trimmed;
+            }
+        }
+
+        // Profile default fallback so a write task always has a real test
+        // command backing its behavioral ACs when explicit commands are absent.
+        return match ($compactSdd->verificationProfile) {
+            self::PROFILE_PHP_LARAVEL => 'composer test',
+            self::PROFILE_TS_REACT => 'pnpm test',
+            default => null,
+        };
+    }
+
+    /**
+     * Slugify a verb label for use in an AC id. Keeps ids stable, lowercase,
+     * alphanumeric-only, so multi-verb intents never produce id collisions
+     * or characters that break downstream id matching.
+     */
+    private function verbSlug(string $verbLabel): string
+    {
+        $slug = strtolower(trim($verbLabel));
+        $slug = preg_replace('/[^a-z0-9]+/', '_', $slug) ?? $slug;
+
+        return trim($slug, '_');
     }
 
     /**
@@ -979,6 +1122,26 @@ class SpecComposer
         }
 
         return $behaviors;
+    }
+
+    /**
+     * Resolve the E2 elevation config. When the Laravel kernel is available
+     * (feature tests / production) the live config block is read; otherwise
+     * the safe default (advisory) is used so plain-PHPunit unit tests do not
+     * require a bootstrapped app and never crash. Mirrors the resolution
+     * pattern used by PromptSectionsMapper so both layers route identically.
+     */
+    private function resolveE2Config(): ElevationConfig
+    {
+        if (function_exists('config')) {
+            try {
+                return ElevationConfig::fromConfig('e2');
+            } catch (\Throwable) {
+                return ElevationConfig::for('e2', null);
+            }
+        }
+
+        return ElevationConfig::for('e2', null);
     }
 
     /**
