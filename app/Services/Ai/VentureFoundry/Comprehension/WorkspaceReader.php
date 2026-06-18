@@ -83,31 +83,71 @@ class WorkspaceReader
      */
     public function repoRoots(int $maxDepth = 2): array
     {
-        $roots = [];
-        if (is_file($this->root.'/composer.json') || is_file($this->root.'/package.json')) {
-            $roots[] = '';
+        $roots = $this->initialRepoRoots();
+
+        foreach ($this->repoRootDirectoryIterator($maxDepth) as $info) {
+            /** @var \SplFileInfo $info */
+            $this->appendRepoRootIfDiscovered($roots, $info->getPathname());
         }
 
+        return $this->repoRootsOrWorkspaceRoot($roots);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function initialRepoRoots(): array
+    {
+        return $this->hasRepoManifest($this->root) ? [''] : [];
+    }
+
+    private function repoRootDirectoryIterator(int $maxDepth): \RecursiveIteratorIterator
+    {
         $iterator = new \RecursiveIteratorIterator(
             new \RecursiveCallbackFilterIterator(
                 new \RecursiveDirectoryIterator($this->root, \FilesystemIterator::SKIP_DOTS),
-                fn (\SplFileInfo $f) => $f->isDir() && ! $this->isExcludedAbsolute($f->getPathname()),
+                fn (\SplFileInfo $f) => $this->shouldInspectRepoRootDirectory($f),
             ),
             \RecursiveIteratorIterator::SELF_FIRST,
         );
         $iterator->setMaxDepth($maxDepth);
 
-        foreach ($iterator as $info) {
-            /** @var \SplFileInfo $info */
-            $dir = $info->getPathname();
-            if (is_file($dir.'/composer.json') || is_file($dir.'/package.json')) {
-                $rel = $this->toRelative($dir);
-                if ($rel !== '' && ! in_array($rel, $roots, true)) {
-                    $roots[] = $rel;
-                }
-            }
+        return $iterator;
+    }
+
+    private function shouldInspectRepoRootDirectory(\SplFileInfo $file): bool
+    {
+        return $file->isDir() && ! $this->isExcludedAbsolute($file->getPathname());
+    }
+
+    /**
+     * @param  list<string>  $roots
+     */
+    private function appendRepoRootIfDiscovered(array &$roots, string $directory): void
+    {
+        if (! $this->hasRepoManifest($directory)) {
+            return;
         }
 
+        $relative = $this->toRelative($directory);
+        if ($relative === '' || in_array($relative, $roots, true)) {
+            return;
+        }
+
+        $roots[] = $relative;
+    }
+
+    private function hasRepoManifest(string $directory): bool
+    {
+        return is_file($directory.'/composer.json') || is_file($directory.'/package.json');
+    }
+
+    /**
+     * @param  list<string>  $roots
+     * @return list<string>
+     */
+    private function repoRootsOrWorkspaceRoot(array $roots): array
+    {
         return $roots === [] ? [''] : $roots;
     }
 
@@ -209,7 +249,7 @@ class WorkspaceReader
     /**
      * Return a file's lines indexed from 1 (cached).
      *
-     * @return list<string>  0-based array; line N is at index N-1
+     * @return list<string> 0-based array; line N is at index N-1
      */
     public function lines(string $relativePath): array
     {
@@ -353,6 +393,7 @@ class WorkspaceReader
         if ($real === false || ($real !== $this->root && ! str_starts_with($real, $this->root.DIRECTORY_SEPARATOR))) {
             return false;
         }
+
         return ! $this->isExcludedAbsolute($f->getPathname());
     }
 
