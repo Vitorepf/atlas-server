@@ -181,6 +181,45 @@ final class AtlasLoopAutoMergeServiceTest extends TestCase
         ]);
     }
 
+    private function markSelfImprovement(AtlasLoopProposal $p): void
+    {
+        $q = is_array($p->quality) ? $p->quality : [];
+        $q['_is_self_improvement'] = true;
+        $p->forceFill(['quality' => $q])->save();
+    }
+
+    public function test_self_improvement_parks_when_flag_off(): void
+    {
+        // Legacy safe default: a self-edit (the loop improving its own harness) parks for operator review.
+        $original = "<?php\nfunction val(){ return 1; }\n";
+        $repo = $this->repo($original);
+        $p = $this->certifiedProposal($this->makeDiff($original, "<?php\nfunction val(){ return 2; }\n"), 'selfimp-off-1');
+        $this->markSelfImprovement($p);
+        config(['atlas.loop.self_improvement_auto_merge_enabled' => false]);
+
+        $result = app(AtlasLoopAutoMergeService::class)->drain($repo, 5);
+
+        $this->assertSame(0, $result['merged_count'], json_encode($result['results']));
+        $this->assertFalse((bool) $p->fresh()->merged_to_main, 'self-improvement must NOT merge while the flag is off');
+    }
+
+    public function test_self_improvement_auto_merges_when_flag_on(): void
+    {
+        // OPERATOR DIRECTIVE: a legitimate certified self-improvement lands on main AUTONOMOUSLY when the flag
+        // is ON — the cert + canary + reprove gates are the legitimacy proof; no human reviewer required.
+        $original = "<?php\nfunction val(){ return 1; }\n";
+        $repo = $this->repo($original);
+        $p = $this->certifiedProposal($this->makeDiff($original, "<?php\nfunction val(){ return 2; }\n"), 'selfimp-on-1');
+        $this->markSelfImprovement($p);
+        config(['atlas.loop.self_improvement_auto_merge_enabled' => true]);
+
+        $result = app(AtlasLoopAutoMergeService::class)->drain($repo, 5);
+
+        $this->assertSame(1, $result['merged_count'], json_encode($result['results']));
+        $this->assertTrue((bool) $p->fresh()->merged_to_main, 'a certified self-improvement auto-merges with the flag on');
+        $this->assertStringContainsString('atlas loop auto-merge', $this->git($repo, ['log', '-1', '--pretty=%s']));
+    }
+
     /**
      * Build a multi-file patch that MODIFIES snippet.php AND CREATES a new sibling file. `git add -N`
      * marks the new file intent-to-add so `git diff` emits a proper `new file` hunk for it.

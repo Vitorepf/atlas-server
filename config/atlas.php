@@ -2546,6 +2546,13 @@ return [
         // trust-ladder thresholds are disabled by default, so a freshly-armed DG2 parks EVERY class until the
         // operator sets a positive atlas.ai.trust_ladder.thresholds.autonomous AND the class earns that streak.
         'change_class_drain_gate_enabled' => (bool) env('ATLAS_LOOP_CHANGE_CLASS_DRAIN_GATE_ENABLED', false),
+        // OPERATOR DIRECTIVE (2026-06-18) — AUTONOMOUS SELF-IMPROVEMENT MERGE. A legitimate, certified self-edit
+        // (the loop improving its OWN harness on a NON-forbidden target) must land on main autonomously, with NO
+        // human reviewer — the deterministic cert + canary + reprove + net-direction + trust gates ARE the
+        // legitimacy proof. ON => self-improvements skip the human-park gate and flow through the same machine
+        // gates as any proposal. The FORBIDDEN_SELF_TARGETS core (judge, certifier, auto-merge, materializer,
+        // priorizadores) stays pétreo regardless — it parks earlier. Default OFF => byte-identical park behavior.
+        'self_improvement_auto_merge_enabled' => (bool) env('ATLAS_LOOP_SELF_IMPROVEMENT_AUTO_MERGE_ENABLED', false),
         // ACDE M4 — telemetry window (hours) the obra cost estimator averages real per-provider spend over to
         // de-orphan the budget scheduler's cost input. Read-only; an absent ledger yields an empty cost map
         // (the obra stays honestly deferred). The scheduler itself has no live dispatch caller yet.

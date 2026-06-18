@@ -260,7 +260,16 @@ final class AtlasLoopAutoMergeService
             // porque is_self_improvement não era lido por NENHUM gate de merge/segurança. Invariante sempre-ON;
             // como nenhuma proposta carrega o marcador hoje (fromManifest o remove), é byte-identical (os 18
             // testes do auto-merge ficam verdes) até o S1 ligar a produção do marcador.
-            if ($this->isSelfImprovementProposal($proposal) && ! $operatorApproved) {
+            // OPERATOR DIRECTIVE (2026-06-18): a LEGITIMATE, certified self-improvement must land on main
+            // AUTONOMOUSLY — no human reviewer. The cert (deterministic frozen judge) + canary + reprove +
+            // net-direction + trust gates ARE the legitimacy proof. So when `self_improvement_auto_merge_enabled`
+            // is ON, a self-improvement skips the human-park gate and flows through the SAME machine gates as any
+            // other proposal. The FORBIDDEN_SELF_TARGETS core (judge, certifier, auto-merge, materializer, the
+            // priorizadores) is STILL pétreo — it was already parked above (block at isForbiddenSelfTarget), so
+            // the réu can never auto-edit its own judge even with this flag ON. Flag default-OFF => byte-identical
+            // park behavior (the 18 auto-merge tests stay green); the operator turns it ON in .env for autonomy.
+            if ($this->isSelfImprovementProposal($proposal) && ! $operatorApproved
+                && ! (bool) config('atlas.loop.self_improvement_auto_merge_enabled', false)) {
                 $this->markOperatorReview($proposal, 'parked_for_operator_review', 'self_improvement', 'auto_merge');
 
                 return array_merge($base, ['reason' => 'self_improvement (parked_for_operator_review)']);
