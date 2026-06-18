@@ -8,8 +8,8 @@ use App\Models\AtlasLoopCampaign;
 use App\Models\AtlasLoopTarget;
 use App\Services\Ai\AutonomousEvolution\AtlasEvolutionTaskGenerator;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopFrameworkRefactorSynthesizer;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -279,29 +279,12 @@ final class AtlasLoopQueueRefiller
         $quarantined = 0;
         $deferred = 0;
 
-        foreach ($targets as $target) {
-            $outcome = $this->generateAndEnqueue($campaign, $target, $provider);
-            if ($outcome === 'enqueued') {
-                $enqueued++;
-            } elseif ($outcome === 'quarantined') {
-                $quarantined++;
-            } else {
-                $deferred++;
-            }
-            // Liveness during a long refill: generating a batch can take many minutes (a
-            // provider call per self-contained target), but the supervisor only beats AFTER
-            // refill() RETURNS. Without this, a cold-start refill freezes the campaign
-            // heartbeat for 10-20min, so the keepalive watchdog and operator monitoring
-            // cannot tell "working" from "hung". Refresh the heartbeat per target (liveness
-            // only — never touches elapsed_seconds, so the wall-clock budget is unaffected).
-            $this->touchHeartbeat($campaign);
-        }
-
-        // HIGH-LEVERAGE OBJECTIVE PRODUCER (the rédea — default-OFF, fail-open): after the per-target
-        // lanes, read the Atlas brain over the SAME claimed targets and enqueue the single BIGGEST
-        // verifiable leap above the ambition floor (cross-target leverage + the strategic alignment the
-        // per-target lanes don't see). Flag OFF / nothing clears the floor / synthesizer fail-closed =>
-        // inert, every counter unchanged. Wrapped fail-open: it can never break a refill.
+        // HIGH-LEVERAGE OBJECTIVE PRODUCER (the rédea — default-OFF, fail-open). It runs FIRST, BEFORE
+        // the per-target lanes, because it picks the single BIGGEST verifiable leap across the claimed
+        // targets (cross-target leverage + the brain's strategic alignment the per-target lanes can't
+        // see) — the loop's priority, not an afterthought starved by a slow per-target grind. It
+        // enqueues in the refactor/obra band so the supervisor grinds the biggest leap first. Flag OFF
+        // / nothing clears the floor / origination fail-closed => inert. Wrapped fail-open.
         if ((bool) config('atlas.loop.objective_producer_enabled', false) && $this->objectiveProducer !== null) {
             try {
                 $relPaths = [];
@@ -313,7 +296,6 @@ final class AtlasLoopQueueRefiller
                 }
                 $built = $this->objectiveProducer->produce($repoRoot, $relPaths, $provider, 'producer:'.$campaign->id);
                 if ($built !== null) {
-                    // Refactor band (4000) + a leverage offset so the biggest leap is ground first.
                     $priority = 4000 + min(999, (int) round((float) $built['leverage'] * 200));
                     $hash = (string) ($built['acceptance_hash'] ?? '');
                     $enq = $this->store->enqueueTask(
@@ -333,6 +315,24 @@ final class AtlasLoopQueueRefiller
             } catch (Throwable) {
                 // fail-open: the rédea can never break a refill.
             }
+        }
+
+        foreach ($targets as $target) {
+            $outcome = $this->generateAndEnqueue($campaign, $target, $provider);
+            if ($outcome === 'enqueued') {
+                $enqueued++;
+            } elseif ($outcome === 'quarantined') {
+                $quarantined++;
+            } else {
+                $deferred++;
+            }
+            // Liveness during a long refill: generating a batch can take many minutes (a
+            // provider call per self-contained target), but the supervisor only beats AFTER
+            // refill() RETURNS. Without this, a cold-start refill freezes the campaign
+            // heartbeat for 10-20min, so the keepalive watchdog and operator monitoring
+            // cannot tell "working" from "hung". Refresh the heartbeat per target (liveness
+            // only — never touches elapsed_seconds, so the wall-clock budget is unaffected).
+            $this->touchHeartbeat($campaign);
         }
 
         // OBRA CANDIDATE PRODUCER (slice-1, default-OFF, fail-open): after discovery+enqueue,
@@ -382,10 +382,10 @@ final class AtlasLoopQueueRefiller
     private function touchHeartbeat(AtlasLoopCampaign $campaign): void
     {
         try {
-            \Illuminate\Support\Facades\DB::table('atlas_loop_campaigns')
+            DB::table('atlas_loop_campaigns')
                 ->where('id', $campaign->id)
                 ->update(['heartbeat_at' => now()]);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // liveness ping is best-effort; ignore failures
         }
     }
@@ -414,7 +414,7 @@ final class AtlasLoopQueueRefiller
         // (default ON); fail-open — the router only skips on a measured orphan, never on missing
         // data, so the cascade is byte-identical for every non-orphan target.
         if ((bool) config('atlas.loop.decision_router_enabled', true)) {
-            $decision = ($this->workShapeRouter ?? new AtlasLoopWorkShapeRouter())->decideShape($signals);
+            $decision = ($this->workShapeRouter ?? new AtlasLoopWorkShapeRouter)->decideShape($signals);
             if (($decision['shape'] ?? '') === AtlasLoopWorkShapeRouter::SHAPE_SKIP) {
                 $this->loopBack->reflect($campaign->id, [
                     'target_id' => $target->id,
@@ -521,7 +521,7 @@ final class AtlasLoopQueueRefiller
         // normal generator). PETREO: a forbidden self-target is rejected here before enqueue
         // (belt-and-suspenders; discovery's admit() already filters them).
         if ((bool) config('atlas.loop.refactor_objectives_enabled', false) && $this->refactorSynthesizer !== null) {
-            $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard();
+            $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard;
             if (! $guard->isForbiddenSelfTarget((string) $target->target_path)) {
                 $refactor = $this->refactorSynthesizer->synthesize(
                     $repoRoot,
@@ -655,11 +655,11 @@ final class AtlasLoopQueueRefiller
         if (! (bool) config('atlas.loop.framework_refactor_enabled', false)) {
             return null;
         }
-        $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard();
+        $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard;
         if ($guard->isForbiddenSelfTarget((string) $target->target_path)) {
             return null;
         }
-        $synth = $this->frameworkRefactorSynthesizer ?? new AtlasLoopFrameworkRefactorSynthesizer();
+        $synth = $this->frameworkRefactorSynthesizer ?? new AtlasLoopFrameworkRefactorSynthesizer;
         // PATH B: escalate a sufficiently-complex target to a MULTI-FILE extract-class objective
         // (routed to the normal grind via the structural cert, NOT the Obra bridge) when the lane is
         // enabled. Below the threshold — or with the lane OFF — it stays a single-file in-place
