@@ -145,6 +145,9 @@ final class PromptSections implements AtlasDevSchemaContract
             knownFailureModes: array_key_exists('known_failure_modes', $payload)
                 ? AtlasDevSchemaArray::stringList($payload, 'known_failure_modes')
                 : [],
+            definitionOfDone: array_key_exists('definition_of_done', $payload)
+                ? AtlasDevSchemaArray::stringList($payload, 'definition_of_done')
+                : [],
         );
     }
 }

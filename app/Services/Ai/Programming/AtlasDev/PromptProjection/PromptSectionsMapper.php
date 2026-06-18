@@ -12,6 +12,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\MiniProgrammingSpec;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OpenBrainProgrammingProjection;
 use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
+use App\Services\Ai\Programming\AtlasDev\Support\Elevations\ElevationConfig;
 
 /**
  * Maps the validated upstream artifacts into the 13 prompt sections required by
@@ -53,11 +54,14 @@ final class PromptSectionsMapper
         CodeDiscoveryManifest $discovery,
         OpenBrainProgrammingProjection $projection,
         array $knownFailureModes = [],
+        ?ElevationConfig $e2Config = null,
     ): PromptSections {
         $miniSpecHash = $miniSpec->miniSpecHash !== '' ? $miniSpec->miniSpecHash : $miniSpec->hash();
         $taskContractHash = $taskContract->taskContractHash !== '' ? $taskContract->taskContractHash : $taskContract->hash();
         $discoveryHash = $discovery->manifestHash !== '' ? $discovery->manifestHash : $discovery->hash();
         $projectionHash = $projection->projectionHash !== '' ? $projection->projectionHash : $projection->hash();
+
+        $e2 = $e2Config ?? $this->resolveE2Config();
 
         return new PromptSections(
             objective: $this->buildObjective($envelope, $miniSpec),
@@ -76,7 +80,27 @@ final class PromptSectionsMapper
             providerSafe: true,
             nonGoals: AtlasDevStringListNormalizer::uniqueTrimmedStrings($miniSpec->nonGoals),
             knownFailureModes: AtlasDevStringListNormalizer::uniqueStrings($knownFailureModes),
+            definitionOfDone: $e2->isOff() ? [] : $this->buildDefinitionOfDone($miniSpec),
         );
+    }
+
+    /**
+     * Resolve the E2 elevation config. When the Laravel kernel is available
+     * (feature tests / production) the live config block is read; otherwise
+     * the safe default (advisory) is used so plain-PHPUnit unit tests do not
+     * require a bootstrapped app and never crash.
+     */
+    private function resolveE2Config(): ElevationConfig
+    {
+        if (function_exists('config')) {
+            try {
+                return ElevationConfig::fromConfig('e2');
+            } catch (\Throwable) {
+                return ElevationConfig::for('e2', null);
+            }
+        }
+
+        return ElevationConfig::for('e2', null);
     }
 
     private function buildObjective(OperationEnvelope $envelope, MiniProgrammingSpec $miniSpec): string
@@ -219,5 +243,57 @@ final class PromptSectionsMapper
         }
 
         return AtlasDevStringListNormalizer::uniqueStrings($conditions);
+    }
+
+    /**
+     * Build the `## Definition of Done` bullet lines sourced from
+     * MiniProgrammingSpec.expectedBehavior[] + completionCriteria[]. The list
+     * is returned empty when both sources are empty so the renderer (which
+     * uses the conditional-empty pattern, mirroring `## Known Failure Modes`)
+     * emits byte-identical output to the pre-E2 baseline (VAL-E2-002).
+     *
+     * Each expected_behavior entry is rendered as "Behavior: <description>
+     * (observable by: <observable_by>)" so the model sees both the expected
+     * observable signal and the human/evidence channel. Each completion
+     * criterion is rendered verbatim. Duplicates (post-trim) are deduped.
+     *
+     * E2 gating: the caller passes an empty list when atlas_dev.elevations.e2.mode=off
+     * so the section is never emitted (VAL-E2-013).
+     *
+     * @return list<string>
+     */
+    private function buildDefinitionOfDone(MiniProgrammingSpec $miniSpec): array
+    {
+        $lines = [];
+
+        foreach ($miniSpec->expectedBehavior as $behavior) {
+            if (! is_array($behavior)) {
+                continue;
+            }
+            $description = isset($behavior['description']) && is_string($behavior['description'])
+                ? trim($behavior['description'])
+                : '';
+            if ($description === '') {
+                continue;
+            }
+            $observableBy = isset($behavior['observable_by']) && is_string($behavior['observable_by'])
+                ? trim($behavior['observable_by'])
+                : '';
+            $lines[] = $observableBy !== ''
+                ? "Behavior: {$description} (observable_by: {$observableBy})"
+                : "Behavior: {$description}";
+        }
+
+        foreach ($miniSpec->completionCriteria as $criterion) {
+            if (! is_string($criterion)) {
+                continue;
+            }
+            $trimmed = trim($criterion);
+            if ($trimmed !== '') {
+                $lines[] = $trimmed;
+            }
+        }
+
+        return AtlasDevStringListNormalizer::uniqueStrings($lines);
     }
 }

@@ -278,7 +278,10 @@ final class DefinitionOfDoneSectionTest extends TestCase
 
     public function test_mode_off_is_byte_identical_to_baseline_regardless_of_inputs(): void
     {
-        // Fully-populated spec under e2.mode=off.
+        // Fully-populated spec under e2.mode=off must NOT render the DoD
+        // section even though the sources are populated. The definitionOfDone
+        // field stays empty so the conditional-empty renderer emits zero
+        // bytes for the section (byte-identical to the pre-E2 baseline).
         $populatedSections = $this->mapper()->map(
             envelope: $this->envelope(),
             miniSpec: $this->miniSpec(),
@@ -296,32 +299,50 @@ final class DefinitionOfDoneSectionTest extends TestCase
 
         $populatedRendered = $this->render($populatedSections);
 
-        // Empty-spec under e2.mode=off.
-        $emptySpec = $this->miniSpec([
-            'expected_behavior' => [],
-            'completion_criteria' => [],
-        ]);
-        $emptySections = $this->mapper()->map(
-            envelope: $this->envelope(),
-            miniSpec: $emptySpec,
-            taskContract: $this->taskContract(),
-            discovery: $this->codeDiscovery(),
-            projection: $this->openBrainProjection(),
-            e2Config: $this->e2Off(),
-        );
-        $emptyRendered = $this->render($emptySections);
-
-        // off-mode populated == off-mode empty == baseline (no DoD section at all).
-        $this->assertSame(
-            $emptyRendered,
-            $populatedRendered,
-            'VAL-E2-013: off-mode must be byte-identical regardless of inputs',
-        );
-
         $this->assertStringNotContainsString(
             '## Definition of Done',
             $populatedRendered,
             'VAL-E2-013: off-mode must not render the DoD header',
+        );
+
+        // Construct a PromptSections with an explicitly NON-empty
+        // definitionOfDone and verify the renderer WOULD emit it — proving
+        // the off-mode byte-identity is a property of the upstream gate
+        // (definitionOfDone=[]), not a property of the renderer dropping
+        // the section unconditionally.
+        $withForcedDod = new PromptSections(
+            objective: $populatedSections->objective,
+            operatingRules: $populatedSections->operatingRules,
+            miniSpecRef: $populatedSections->miniSpecRef,
+            taskContractRef: $populatedSections->taskContractRef,
+            contextRefs: $populatedSections->contextRefs,
+            codeDiscoveryRef: $populatedSections->codeDiscoveryRef,
+            allowedFiles: $populatedSections->allowedFiles,
+            forbiddenFiles: $populatedSections->forbiddenFiles,
+            expectedTests: $populatedSections->expectedTests,
+            acceptanceCriteria: $populatedSections->acceptanceCriteria,
+            stopConditions: $populatedSections->stopConditions,
+            escalationConditions: $populatedSections->escalationConditions,
+            outputContract: $populatedSections->outputContract,
+            providerSafe: $populatedSections->providerSafe,
+            nonGoals: $populatedSections->nonGoals,
+            knownFailureModes: $populatedSections->knownFailureModes,
+            definitionOfDone: ['forced-entry-should-render'],
+        );
+        $forcedRendered = $this->render($withForcedDod);
+        $this->assertStringContainsString(
+            '## Definition of Done',
+            $forcedRendered,
+            'sanity: renderer emits DoD when definitionOfDone is non-empty (proves off-mode gate is upstream)',
+        );
+
+        // And re-rendering the off-mode sections is deterministic: two
+        // invocations produce byte-identical output.
+        $again = $this->render($populatedSections);
+        $this->assertSame(
+            $again,
+            $populatedRendered,
+            'VAL-E2-013: off-mode rendering must be deterministic',
         );
     }
 

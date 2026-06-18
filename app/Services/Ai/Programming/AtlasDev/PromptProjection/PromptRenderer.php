@@ -188,6 +188,29 @@ final class PromptRenderer
             '',
             '## Acceptance Criteria',
             ...$this->bulletLines($sections['acceptance_criteria']),
+        ] as $line) {
+            $lines[] = $line;
+        }
+
+        // E2: Definition of Done (expected_behavior[] + completion_criteria[]).
+        // Rendered ONLY when the merged, deduped list is non-empty so an
+        // empty source (or atlas_dev.elevations.e2.mode=off, which yields an
+        // empty list upstream) emits byte-identical output to the pre-E2
+        // baseline (conditional-empty pattern, mirrors `## Known Failure Modes`).
+        // VAL-E2-002 / VAL-E2-013.
+        $definitionOfDone = is_array($sections['definition_of_done'] ?? null)
+            ? $sections['definition_of_done']
+            : [];
+        if ($definitionOfDone !== []) {
+            $lines[] = '';
+            $lines[] = '## Definition of Done';
+            $lines[] = '- Behavioral and completion criteria the patch must satisfy before completion.';
+            foreach ($definitionOfDone as $entry) {
+                $lines[] = '- '.$entry;
+            }
+        }
+
+        foreach ([
             '',
             '## Stop Conditions',
             ...$this->bulletLines($sections['stop_conditions']),
@@ -275,6 +298,7 @@ final class PromptRenderer
             'forbidden_files' => $sections->forbiddenFiles,
             'expected_tests' => $sections->expectedTests,
             'acceptance_criteria' => $sections->acceptanceCriteria,
+            'definition_of_done' => $sections->definitionOfDone,
             'stop_conditions' => $sections->stopConditions,
             'escalation_conditions' => $sections->escalationConditions,
             'output_contract' => $sections->outputContract,

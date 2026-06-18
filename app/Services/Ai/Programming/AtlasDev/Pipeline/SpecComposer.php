@@ -893,6 +893,43 @@ class SpecComposer
     }
 
     /**
+     * Recognized intent verbs. The map keys are the substrings matched
+     * (case-insensitive) against the normalized intent; the values are the
+     * human-facing verb labels surfaced in the rendered DoD. Mirrors the
+     * {@see IntakeNormalizer::inferClarity} verb list so the SpecComposer
+     * and the intake classify on the same vocabulary.
+     *
+     * E2 (Definition of Done) populates expectedBehavior[] from these
+     * verb-derived behaviors so the rendered DoD carries one observable
+     * behavior per intent verb. The verb set is the same that E1's intent
+     * probe will check the diff against (VAL-CROSS-005).
+     */
+    private const INTENT_VERB_BEHAVIORS = [
+        'corrija' => 'corrigir',
+        'corrigir' => 'corrigir',
+        'fix' => 'corrigir',
+        'ajuste' => 'ajustar',
+        'ajustar' => 'ajustar',
+        'remova' => 'remover',
+        'remove' => 'remover',
+        'remover' => 'remover',
+        'adicione' => 'adicionar',
+        'adicionar' => 'adicionar',
+        'add ' => 'adicionar',
+        'crie' => 'criar',
+        'create' => 'criar',
+        'rename' => 'renomear',
+        'renomeie' => 'renomear',
+        'refator' => 'refatorar',
+        'refactor' => 'refatorar',
+        'extract' => 'extrair',
+        'extraia' => 'extrair',
+        'redirect' => 'redirecionar',
+        'redirecione' => 'redirecionar',
+        'gate' => 'gatear',
+    ];
+
+    /**
      * @param  list<string>  $expectedFiles
      * @return list<array{description: string, observable_by: string}>
      */
@@ -917,10 +954,57 @@ class SpecComposer
             ]];
         }
 
-        return [[
-            'description' => 'comportamento esperado verificavel pelos comandos de verificacao da spec',
-            'observable_by' => 'test',
-        ]];
+        // E2: derive one observable behavior per recognized intent verb from
+        // the normalized intent. This populates the previously-dark
+        // expectedBehavior[] field so the rendered `## Definition of Done`
+        // carries intent-grounded, observable behavior entries (the basis E1
+        // will probe the diff against). Falls back to a generic verifiable
+        // behavior when no verb matches so a write task always carries at
+        // least one expected behavior.
+        $verbs = $this->extractIntentVerbs($compactSdd->intentNormalized);
+        if ($verbs === []) {
+            return [[
+                'description' => 'comportamento esperado verificavel pelos comandos de verificacao da spec',
+                'observable_by' => 'test',
+            ]];
+        }
+
+        $behaviors = [];
+        foreach ($verbs as $verbLabel) {
+            $behaviors[] = [
+                'description' => "diff implementa o verbo de intenção '{$verbLabel}' de forma observável pelos comandos de verificação da spec",
+                'observable_by' => 'test',
+            ];
+        }
+
+        return $behaviors;
+    }
+
+    /**
+     * Extract the recognized intent verbs present in the normalized intent.
+     * Returns the deduped set of human-facing verb labels (values of
+     * INTENT_VERB_BEHAVIORS), preserving first-occurrence order. Empty when
+     * no recognized verb matches.
+     *
+     * @return list<string>
+     */
+    private function extractIntentVerbs(string $intentNormalized): array
+    {
+        $haystack = strtolower($intentNormalized);
+        if ($haystack === '') {
+            return [];
+        }
+
+        $labels = [];
+        $seen = [];
+        foreach (self::INTENT_VERB_BEHAVIORS as $needle => $label) {
+            if (str_contains($haystack, $needle) && ! isset($seen[$label])) {
+                $labels[] = $label;
+                $seen[$label] = true;
+            }
+        }
+
+        return $labels;
     }
 
     /**

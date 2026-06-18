@@ -175,6 +175,7 @@ final class ProviderPromptBuilder
             providerSafe: $sections->providerSafe,
             nonGoals: $sections->nonGoals,
             knownFailureModes: $sections->knownFailureModes,
+            definitionOfDone: $sections->definitionOfDone,
         );
     }
 
