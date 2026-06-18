@@ -446,7 +446,16 @@ final class PipelineRunExecutor implements RunExecutor
                     verificationResult: $verificationResult,
                     diffResult: $diffResult,
                 );
-                $reviewReceipt = $criticService->analyse($criticInput);
+                // E1: pass the LLM-as-judge sub-layer options to the critic
+                // so detectIntentFalsification() can invoke the (optional,
+                // sub-flag-gated) adversarial judge. The judge is resolved
+                // from the container when bound (allows test fakes); absent
+                // a binding the sub-flag has no judge to call, so the
+                // detector degrades to the deterministic probe only
+                // (VAL-E1-011: judge is strictly doubt-additive, and a
+                // missing judge can never clear the deterministic flag).
+                $criticOptions = $this->resolveE1CriticOptions();
+                $reviewReceipt = $criticService->analyse($criticInput, $criticOptions);
                 $criticAnalysed = true;
             } catch (\Throwable $e) {
                 // Critic exception degrades to non-passed (never swallowed to green).
@@ -1549,6 +1558,18 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
             'forbidden_files' => $taskContract->forbiddenFiles,
             'risk_rules' => [],
             'evidence_refs' => [],
+            // E1: thread the E2-established intent basis so the critic's
+            // detectIntentFalsification() detector (merged into analyse())
+            // can assert the diff implements the intent verb(s) using the
+            // same IntentFalsificationProbe as the post-gate probe — single
+            // source of truth, no re-detection (VAL-CROSS-005). Absent for
+            // read-only paths (intentVerbs empty) so the detector stays
+            // silent and the critic is byte-identical to pre-E1 there.
+            'intent_basis' => [
+                'intent_verbs' => array_values($taskContract->intentVerbs),
+                'intent_text' => $taskContract->intentText,
+                'diff' => $diffResult->diff ?? '',
+            ],
         ];
     }
 
@@ -2671,6 +2692,49 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         } catch (\Throwable) {
             return ElevationConfig::for('e1', null);
         }
+    }
+
+    /**
+     * E1: resolve the optional LLM-as-judge sub-layer options for the critic.
+     *
+     * The sub-flag lives at atlas_dev.elevations.e1.llm_judge (default OFF).
+     * When ON, the judge callable is resolved from the container binding
+     * `atlas_dev.e1.intent_judge` (if bound); tests bind a fake there. When
+     * OFF or no judge is bound, the options enable nothing and the critic
+     * behaves as the pure deterministic probe (byte-identical to pre-E1-judge).
+     *
+     * VAL-E1-011: the judge is strictly doubt-additive — even when enabled,
+     * it can only add doubt/escalate; the critic's detectIntentFalsification()
+     * ignores APPROVE/DOWNGRADE outcomes (the deterministic probe's verdict
+     * is the immovable floor).
+     *
+     * @return array{llm_judge: bool, judge: ?callable}
+     */
+    private function resolveE1CriticOptions(): array
+    {
+        $enabled = false;
+        try {
+            $enabled = (bool) config('atlas_dev.elevations.e1.llm_judge', false);
+        } catch (\Throwable) {
+            $enabled = false;
+        }
+
+        $judge = null;
+        if ($enabled) {
+            try {
+                $bound = $this->container->bound('atlas_dev.e1.intent_judge')
+                    ? $this->container->make('atlas_dev.e1.intent_judge')
+                    : null;
+                $judge = is_callable($bound) ? $bound : null;
+            } catch (\Throwable) {
+                $judge = null;
+            }
+        }
+
+        return [
+            'llm_judge' => $enabled,
+            'judge' => $judge,
+        ];
     }
 
     /**

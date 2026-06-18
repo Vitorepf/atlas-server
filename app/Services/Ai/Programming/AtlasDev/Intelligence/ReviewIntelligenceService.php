@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Intelligence;
 
+use App\Services\Ai\Programming\AtlasDev\Probe\IntentFalsificationProbe;
+use App\Services\Ai\Programming\AtlasDev\Provider\DiffParseResult;
+use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ProviderLock;
+use App\Services\Ai\Programming\AtlasDev\Schemas\Components\RepairPolicy;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ReviewFinding;
+use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ReviewReceipt;
 use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use Illuminate\Support\Str;
@@ -59,8 +64,16 @@ final class ReviewIntelligenceService
 
     /**
      * @param  array<string,mixed>  $input
+     * @param  array{llm_judge?: bool, judge?: ?callable}  $options  E1
+     *                                                               semantic-critic options. `llm_judge` enables the optional
+     *                                                               LLM-as-judge adversarial sub-layer (default off); `judge` is the
+     *                                                               callable invoked when the sub-flag is on. The judge receives an
+     *                                                               array context and MUST return an IntentJudgeOutcome (or null,
+     *                                                               treated as silent). The judge can only ADD doubt/escalate — it
+     *                                                               can never remove the deterministic probe's finding or downgrade
+     *                                                               severity (VAL-E1-011).
      */
-    public function analyse(array $input): ReviewReceipt
+    public function analyse(array $input, array $options = []): ReviewReceipt
     {
         $runId = $this->stringOrThrow($input, 'run_id');
         $changedFiles = AtlasDevStringListNormalizer::trimmedStrings($input['changed_files'] ?? []);
@@ -114,6 +127,21 @@ final class ReviewIntelligenceService
         // {risk_type, severity, file_glob, message}. Matches go through
         // verbatim with the supplied severity.
         $findings = array_merge($findings, $this->applyRiskRules($changedFiles, $diffChunks, $riskRules));
+
+        // 2f. E1 — Intent-falsification detector (semantic critic). Strictly
+        // adversarial: it may emit a finding, escalate, or stay silent — it
+        // NEVER clears an existing flag (the honesty-flag channel lives on
+        // VerificationGateResult, which the critic has no reference to) and
+        // it NEVER upgrades completion to passed (the critic returns a
+        // ReviewReceipt; "passed"/"approved" are not valid receipt statuses).
+        // VAL-E1-009: emits a finding (riskType bug/reliability) referencing
+        // the unaddressed intent. VAL-E1-010: doubt-additive only.
+        // VAL-E1-011: the optional LLM-judge sub-layer (sub-flag) can only
+        // add doubt/escalate; APPROVE/DOWNGRADE outcomes are ignored.
+        $findings = array_merge(
+            $findings,
+            $this->detectIntentFalsification($input, $options, $diffChunks),
+        );
 
         // --- 3. Cap + sort by severity ascending ---------------------------
         usort($findings, static fn (ReviewFinding $a, ReviewFinding $b): int => $a->severityRank() <=> $b->severityRank());
@@ -409,6 +437,333 @@ final class ReviewIntelligenceService
         }
 
         return $findings;
+    }
+
+    /**
+     * E1 — Intent-falsification semantic-critic detector.
+     *
+     * Strictly adversarial (VAL-E1-010): it may emit a finding, escalate, or
+     * stay silent — it NEVER clears an existing flag and NEVER upgrades a
+     * completion to passed. By construction it only RETURNS findings (which
+     * the caller merges into the receipt's findings[]); the caller's receipt
+     * status is decided by {@see decideStatus()} from the (possibly now-
+     * augmented) findings, so the detector can only escalate STATUS_* upward
+     * (no_concerns -> reviewed -> escalate), never the reverse.
+     *
+     * VAL-E1-009: a green-gate-but-misses-intent diff yields a finding with
+     * riskType in {bug, reliability} and a non-empty description referencing
+     * the unaddressed intent.
+     *
+     * The detector reuses {@see IntentFalsificationProbe} as the single
+     * source of truth for the verb-matching heuristic so the critic and the
+     * post-gate probe never disagree on what "implements the intent" means.
+     * The basis is sourced from the optional `intent_basis` payload key
+     * ({intent_verbs, intent_text, diff}) the executor passes via
+     * buildCriticInput(). When the basis is absent the detector stays silent
+     * (nothing to probe; byte-identical to pre-E1 critic for read-only paths).
+     *
+     * VAL-E1-011: the optional LLM-as-judge sub-layer (sub-flag
+     * `atlas_dev.elevations.e1.llm_judge`) runs AFTER the deterministic
+     * verdict. It can ONLY add doubt/escalate:
+     *   - DOUBT     => records an additional judge-attributed finding.
+     *   - ESCALATE  => escalates the deterministic finding's severity (or
+     *                  records a critical/blocker judge finding).
+     *   - APPROVE / DOWNGRADE / SILENT => IGNORED. The judge has no power to
+     *                  clear the deterministic probe's flag or downgrade its
+     *                  severity. A fake judge screaming APPROVE cannot remove
+     *                  the finding.
+     *
+     * @param  array<string,mixed>  $input
+     * @param  array{llm_judge?: bool, judge?: ?callable}  $options
+     * @param  list<array<string,mixed>>  $diffChunks
+     * @return list<ReviewFinding>
+     */
+    private function detectIntentFalsification(array $input, array $options, array $diffChunks): array
+    {
+        // Read the E2-established intent basis carried by the executor.
+        // Absent basis => nothing to probe => stay silent (byte-identical to
+        // pre-E1 critic for read-only / non-write paths).
+        $basis = $input['intent_basis'] ?? null;
+        if (! is_array($basis)) {
+            return [];
+        }
+
+        $intentVerbs = isset($basis['intent_verbs']) && is_array($basis['intent_verbs'])
+            ? array_values(array_filter(
+                array_map('strval', $basis['intent_verbs']),
+                static fn (string $v): bool => trim($v) !== '',
+            ))
+            : [];
+        $intentText = isset($basis['intent_text']) && is_string($basis['intent_text'])
+            ? $basis['intent_text']
+            : '';
+        // No recognized verb => nothing to assert (the probe only fires for
+        // write tasks carrying a recognized verb).
+        if ($intentVerbs === []) {
+            return [];
+        }
+
+        $diffResult = $this->resolveBasisDiffResult($basis, $diffChunks);
+
+        // Build a throwaway contract carrying the E2 basis so the deterministic
+        // probe (single source of truth) decides. The contract's structural
+        // fields are not used by the probe; only intentVerbs/intentText are.
+        $basisContract = new LightTaskContract(
+            runId: (string) ($input['run_id'] ?? 'critic-e1'),
+            taskId: 'critic-e1-intent-basis',
+            specHash: '',
+            allowedTools: [],
+            blockedActions: [],
+            allowedFiles: [],
+            watchedFiles: [],
+            forbiddenFiles: [],
+            maxFilesChanged: 0,
+            validationCommands: [],
+            evidenceRequired: [],
+            repairPolicy: new RepairPolicy(
+                maxAttempts: 0,
+                sameProvider: false,
+                requiresFailedGateOutput: false,
+                abortOnSameSignatureTwice: false,
+            ),
+            escalationOn: [],
+            providerLock: new ProviderLock(
+                provider: '',
+                modelFamily: '',
+                fallbackAllowed: false,
+            ),
+            taskContractHash: '',
+            noTestReason: null,
+            intentText: $intentText,
+            intentVerbs: $intentVerbs,
+        );
+
+        $probe = new IntentFalsificationProbe;
+        $intentMissing = $probe->isIntentLikelyNotAddressed($basisContract, $diffResult);
+
+        $findings = [];
+        if ($intentMissing) {
+            // VAL-E1-009: emit a finding with riskType bug/reliability and a
+            // non-empty description referencing the unaddressed intent.
+            $verbList = implode(', ', $intentVerbs);
+            $intentExcerpt = $this->excerptIntent($intentText);
+            $findings[] = new ReviewFinding(
+                findingId: 'intent_falsification_1',
+                title: 'Intent likely not addressed by the diff',
+                severity: ReviewFinding::SEVERITY_HIGH,
+                riskType: ReviewFinding::RISK_BUG,
+                description: $this->buildIntentFalsificationDescription($verbList, $intentExcerpt),
+                remediation: 'Regenerate the diff so at least one added line implements the declared intent verb(s) ('.$verbList.'); the green gate does not prove the intent was addressed.',
+                confidence: 0.70,
+                evidenceRefKinds: ['diff', 'intent_basis'],
+            );
+        }
+
+        // Optional LLM-as-judge sub-layer (sub-flag). Strictly doubt-additive.
+        $judgeFindings = $this->applyIntentJudge(
+            $options,
+            intentVerbs: $intentVerbs,
+            intentText: $intentText,
+            deterministicMissing: $intentMissing,
+            existingFindings: $findings,
+        );
+
+        return array_merge($findings, $judgeFindings);
+    }
+
+    /**
+     * Resolve the DiffParseResult for the basis: prefer an explicit `diff`
+     * string carried in the intent_basis (the executor threads the parsed
+     * diff), else synthesize a patch from the diff_chunks so the probe still
+     * scans real added lines. Returns a no-patch result when no diff is
+     * available at all (the probe conservatively treats this as not-addressed
+     * for a write task — VAL-E1-014).
+     *
+     * @param  array<string,mixed>  $basis
+     * @param  list<array<string,mixed>>  $diffChunks
+     */
+    private function resolveBasisDiffResult(array $basis, array $diffChunks): ?DiffParseResult
+    {
+        $diff = isset($basis['diff']) && is_string($basis['diff']) ? $basis['diff'] : '';
+        if ($diff !== '') {
+            $changedFiles = array_values(array_filter(array_map(
+                static fn (array $c): string => isset($c['file']) && is_string($c['file']) ? $c['file'] : '',
+                $diffChunks,
+            ), static fn (string $f): bool => $f !== ''));
+
+            return DiffParseResult::patch($diff, $changedFiles !== [] ? $changedFiles : ['unknown']);
+        }
+        // No diff string — synthesize from diff_chunks if any carry bodies.
+        $synthetic = '';
+        foreach ($diffChunks as $chunk) {
+            $file = isset($chunk['file']) && is_string($chunk['file']) ? $chunk['file'] : 'unknown';
+            $body = isset($chunk['body']) && is_string($chunk['body']) ? $chunk['body'] : '';
+            if ($body === '') {
+                continue;
+            }
+            $synthetic .= "--- a/{$file}\n+++ b/{$file}\n";
+            foreach (preg_split('/\r\n|\n|\r/', $body) ?: [] as $line) {
+                if ($line === '') {
+                    continue;
+                }
+                $marker = str_starts_with($line, '+') || str_starts_with($line, '-')
+                    ? $line
+                    : '+'.$line;
+                $synthetic .= $marker."\n";
+            }
+        }
+        if ($synthetic === '') {
+            return null;
+        }
+        $changedFiles = array_values(array_unique(array_filter(array_map(
+            static fn (array $c): string => isset($c['file']) && is_string($c['file']) ? $c['file'] : '',
+            $diffChunks,
+        ), static fn (string $f): bool => $f !== '')));
+
+        return DiffParseResult::patch($synthetic, $changedFiles !== [] ? $changedFiles : ['unknown']);
+    }
+
+    /**
+     * Build the human-readable description for the intent-falsification
+     * finding, referencing the unaddressed intent verb(s) and an excerpt of
+     * the intent text (VAL-E1-009: "referencing the unaddressed intent").
+     */
+    private function buildIntentFalsificationDescription(string $verbList, string $intentExcerpt): string
+    {
+        $core = "The diff does not traceably implement the declared intent verb(s) ({$verbList}); the green gate does not prove the intent was addressed.";
+        if ($intentExcerpt !== '') {
+            $core .= " Intent: \"{$intentExcerpt}\".";
+        }
+
+        return $core.' intent_likely_not_addressed.';
+    }
+
+    /**
+     * Truncate the intent text to a reviewable excerpt for the finding
+     * description (keeps the receipt readable when the intent is long).
+     */
+    private function excerptIntent(string $intentText, int $max = 160): string
+    {
+        $trimmed = trim($intentText);
+        if ($trimmed === '') {
+            return '';
+        }
+        if (mb_strlen($trimmed) <= $max) {
+            return $trimmed;
+        }
+
+        return mb_substr($trimmed, 0, $max - 1).'…';
+    }
+
+    /**
+     * E1 — Apply the optional LLM-as-judge adversarial sub-layer.
+     *
+     * VAL-E1-011: the judge can ONLY add doubt/escalate. It returns an
+     * IntentJudgeOutcome; APPROVE / DOWNGRADE / SILENT outcomes are IGNORED
+     * (the deterministic probe's verdict is the immovable floor — a fake
+     * judge screaming APPROVE cannot clear it).
+     *
+     * When the judge returns DOUBT, an additional judge-attributed finding is
+     * recorded. When the judge returns ESCALATE and the deterministic finding
+     * is present, the deterministic finding's severity is RAISED (never
+     * lowered) by emitting a new finding at the escalated severity; the
+     * caller's sort by severityRank places the escalated finding first.
+     *
+     * @param  array{llm_judge?: bool, judge?: ?callable}  $options
+     * @param  list<string>  $intentVerbs
+     * @param  list<ReviewFinding>  $existingFindings
+     * @return list<ReviewFinding>
+     */
+    private function applyIntentJudge(
+        array $options,
+        array $intentVerbs,
+        string $intentText,
+        bool $deterministicMissing,
+        array $existingFindings,
+    ): array {
+        $enabled = isset($options['llm_judge']) && (bool) $options['llm_judge'];
+        if (! $enabled) {
+            return [];
+        }
+        $judge = $options['judge'] ?? null;
+        if (! is_callable($judge)) {
+            return [];
+        }
+
+        $context = [
+            'intent_verbs' => array_values($intentVerbs),
+            'intent_text' => $intentText,
+            'deterministic_missing' => $deterministicMissing,
+        ];
+
+        try {
+            $outcomeRaw = $judge($context);
+        } catch (\Throwable $e) {
+            $outcomeRaw = null;
+        }
+        if (! $outcomeRaw instanceof IntentJudgeOutcome) {
+            return [];
+        }
+
+        // VAL-E1-011: only DOUBT/ESCALATE mutate the receipt. APPROVE /
+        // DOWNGRADE / SILENT are ignored (deterministic verdict is the floor).
+        if (! $outcomeRaw->isDoubtAdditive()) {
+            return [];
+        }
+
+        $verbList = implode(', ', $intentVerbs);
+        $note = $outcomeRaw->note !== null && trim($outcomeRaw->note) !== ''
+            ? trim($outcomeRaw->note)
+            : 'judge-attributed doubt';
+
+        if ($outcomeRaw->kind === IntentJudgeOutcome::ESCALATE && $deterministicMissing) {
+            // Escalate the deterministic finding to the judge-requested
+            // severity (validated against ALLOWED_SEVERITIES; default critical).
+            $severity = $this->resolveJudgeSeverity($outcomeRaw->escalateSeverity);
+
+            return [
+                new ReviewFinding(
+                    findingId: 'intent_falsification_judge_escalate',
+                    title: 'Judge escalated intent-falsification severity',
+                    severity: $severity,
+                    riskType: ReviewFinding::RISK_RELIABILITY,
+                    description: "LLM-judge escalated the intent-falsification finding (verbs: {$verbList}); the diff does not traceably implement the intent. Judge note: {$note}",
+                    remediation: 'Regenerate the diff so at least one added line implements the declared intent verb(s) ('.$verbList.'); treat the judge escalation as a strong signal the intent is unaddressed.',
+                    confidence: 0.80,
+                    evidenceRefKinds: ['diff', 'intent_basis', 'llm_judge'],
+                ),
+            ];
+        }
+
+        // DOUBT (or ESCALATE without a deterministic miss): record an
+        // additional judge-attributed finding that adds doubt without clearing
+        // the deterministic verdict.
+        return [
+            new ReviewFinding(
+                findingId: 'intent_falsification_judge_doubt',
+                title: 'Judge-attributed intent doubt',
+                severity: ReviewFinding::SEVERITY_HIGH,
+                riskType: ReviewFinding::RISK_RELIABILITY,
+                description: "LLM-judge adds doubt over the intent coverage (verbs: {$verbList}); the diff may not fully implement the intent. Judge note: {$note}",
+                remediation: 'Review the diff against the declared intent verb(s) ('.$verbList.') and address any uncovered aspect.',
+                confidence: 0.65,
+                evidenceRefKinds: ['diff', 'intent_basis', 'llm_judge'],
+            ),
+        ];
+    }
+
+    /**
+     * Resolve the judge-requested escalate severity, defaulting to critical
+     * and validating against ReviewFinding::ALLOWED_SEVERITIES. An invalid
+     * severity collapses to critical (the safe default for an escalation).
+     */
+    private function resolveJudgeSeverity(?string $severity): string
+    {
+        if ($severity !== null && in_array($severity, ReviewFinding::ALLOWED_SEVERITIES, true)) {
+            return $severity;
+        }
+
+        return ReviewFinding::SEVERITY_CRITICAL;
     }
 
     /**

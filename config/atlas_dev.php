@@ -147,7 +147,21 @@ return [
     // ----------------------------------------------------------------------
     'elevations' => [
         // E1: Intent Probe + Semantic Critic (M2 milestone).
-        'e1' => ['mode' => env('ATLAS_DEV_ELEVATION_E1_MODE', 'advisory')],
+        //   - mode: tri-state off|advisory|hard governing the deterministic
+        //     intent-falsification probe + the detectIntentFalsification
+        //     critic detector.
+        //   - llm_judge: OPTIONAL adversarial LLM-as-judge sub-layer (default
+        //     OFF). When ON, a judge callable is resolved from the container
+        //     binding 'atlas_dev.e1.intent_judge' and invoked by the critic's
+        //     detectIntentFalsification() AFTER the deterministic probe. The
+        //     judge is strictly doubt-additive: it can only add doubt or
+        //     escalate (VAL-E1-011). APPROVE/DOWNGRADE outcomes are ignored
+        //     — the deterministic probe's verdict is the immovable floor and
+        //     a fake judge screaming APPROVE cannot clear intent_likely_not_addressed.
+        'e1' => [
+            'mode' => env('ATLAS_DEV_ELEVATION_E1_MODE', 'advisory'),
+            'llm_judge' => (bool) env('ATLAS_DEV_ELEVATION_E1_LLM_JUDGE', false),
+        ],
 
         // E2: Definition of Done + Semantic Acceptance Criteria (M1 milestone).
         'e2' => ['mode' => env('ATLAS_DEV_ELEVATION_E2_MODE', 'advisory')],
