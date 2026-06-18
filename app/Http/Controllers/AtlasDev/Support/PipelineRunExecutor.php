@@ -47,6 +47,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ScopeGuardReceipt;
 use App\Services\Ai\Programming\AtlasDev\Schemas\VerificationReceipt;
 use App\Services\Ai\Programming\AtlasDev\Probe\IntentCoverageProbe;
+use App\Services\Ai\Programming\AtlasDev\Probe\IntentFalsificationProbe;
 use App\Services\Ai\Programming\AtlasDev\Support\Elevations\ElevationConfig;
 use App\Services\Ai\Programming\AtlasDev\WorkspaceMutatingProviders;
 use App\Services\Ai\Programming\AtlasForgeCodexCliInvocationDriver;
@@ -342,6 +343,69 @@ final class PipelineRunExecutor implements RunExecutor
                 $verificationResult = $verificationResult->withHonestyFlags([
                     IntentCoverageProbe::FLAG_INTENT_NOT_TESTED,
                 ]);
+            }
+        }
+
+        // E1: Intent-falsification probe — deterministic post-gate check.
+        //
+        // Runs AFTER the verification gate (alongside the E2 probe above) and
+        // asserts at least one ADDED line of the diff implements the
+        // E2-established intent verb set (LightTaskContract::intentVerbs,
+        // populated by IntentActionExtractor). When none does, the diff is
+        // flagged `intent_likely_not_addressed` EVEN ON A GREEN GATE so the
+        // CompletionStateGate auto-downgrades PASSED -> needs_review (advisory)
+        // or the gate is forced to STATUS_FAILED (hard). There is no silent
+        // green over an intent-missing diff (VAL-E1-003, VAL-E1-012).
+        //
+        // The probe is deterministic and model-irrelevant: it scans ALL hunks
+        // of a many-file diff (position-independent, VAL-E1-015) against the
+        // persisted intentVerbs basis — it does NOT re-detect the verbs
+        // (VAL-CROSS-005: E1 checks against the E2-established intent). An
+        // empty/no-patch write task (verbs present, no added lines) fires the
+        // flag (VAL-E1-014: never silently green over an unaddressed intent).
+        //
+        // Channels (no third way):
+        //   - off      => no surfacing at all (byte-identical to pre-E1).
+        //   - advisory => honesty flag only (drives the downgrade, never
+        //                 STATUS_FAILED for the flag alone).
+        //   - hard     => STATUS_FAILED gate (sanctioned hard channel).
+        //
+        // The probe runs for EVERY provider (not just hermes_cli): the diff
+        // is a property of the write task, not the provider, and the honesty-
+        // flag / STATUS_FAILED channels are provider-agnostic by design. This
+        // also covers the best-of-N winner path (VAL-CROSS-015) which flows
+        // through the same post-gate block.
+        $e1Config = $this->resolveE1Config();
+        if (! $e1Config->isOff()) {
+            $intentMissing = (new IntentFalsificationProbe)->isIntentLikelyNotAddressed(
+                $taskContract,
+                $diffResult,
+            );
+            if ($intentMissing) {
+                if ($e1Config->isHard()) {
+                    // Hard mode => sanctioned hard gate channel (STATUS_FAILED).
+                    // The verification gate becomes red so completion resolves
+                    // to failed/blocked (never silently passed). Rebuild the
+                    // gate result preserving the gathered tests/gates while
+                    // forcing the aggregate to STATUS_FAILED and recording
+                    // the flag for auditability.
+                    $verificationResult = new VerificationGateResult(
+                        tests: $verificationResult->tests,
+                        gates: $verificationResult->gates,
+                        aggregateStatus: VerificationGateResult::STATUS_FAILED,
+                        honestyFlags: $verificationResult->withHonestyFlags([
+                            IntentFalsificationProbe::FLAG_INTENT_LIKELY_NOT_ADDRESSED,
+                        ])->honestyFlags,
+                        evidenceRefs: $verificationResult->evidenceRefs,
+                        profile: $verificationResult->profile,
+                    );
+                } else {
+                    // Advisory => honesty flag only (drives the
+                    // CompletionStateGate PASSED -> needs_review downgrade).
+                    $verificationResult = $verificationResult->withHonestyFlags([
+                        IntentFalsificationProbe::FLAG_INTENT_LIKELY_NOT_ADDRESSED,
+                    ]);
+                }
             }
         }
 
@@ -2592,6 +2656,20 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
             return ElevationConfig::fromConfig('e2');
         } catch (\Throwable) {
             return ElevationConfig::for('e2', null);
+        }
+    }
+
+    /**
+     * E1: resolve the e1 elevation config. Same resolution pattern as E2:
+     * reads the live config kernel when available, otherwise degrades to the
+     * safe default (advisory) so plain-PHPunit unit tests never crash.
+     */
+    private function resolveE1Config(): ElevationConfig
+    {
+        try {
+            return ElevationConfig::fromConfig('e1');
+        } catch (\Throwable) {
+            return ElevationConfig::for('e1', null);
         }
     }
 
