@@ -10,6 +10,8 @@ use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\Concerns\RunsCliProcesses;
 use App\Services\Ai\Context\AtlasAucriRuntimeEnforcementService;
 use App\Services\Ai\HermesCliProvider;
+use App\Services\Ai\Programming\AtlasDev\Differential\CandidateDivergenceGate;
+use App\Services\Ai\Programming\AtlasDev\Differential\DifferentialTestingService;
 use App\Services\Ai\Programming\AtlasDev\Gate\AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\Gate\CompletionDecision;
 use App\Services\Ai\Programming\AtlasDev\Gate\CompletionStateGate;
@@ -187,6 +189,11 @@ final class PipelineRunExecutor implements RunExecutor
             }
         }
 
+        // E4: resolve the e4 elevation config once so the best-of-N path can
+        // compare candidates and route the divergence verdict through the
+        // sanctioned channels. off => byte-identical (no comparison, no flag).
+        $e4Config = $this->resolveE4Config();
+
         // M4: Best-of-N (MiniMax-only) on the default hermes path.
         //
         // When N>1 and the locked runtime is hermes_cli, generate N candidate
@@ -232,6 +239,7 @@ final class PipelineRunExecutor implements RunExecutor
                 candidateCount: $bestOfNCandidateCount,
                 regressionBaseline: $regressionBaseline,
                 e5Config: $e5Config,
+                e4Config: $e4Config,
             );
             $callResult = $bestOfNOutcome['callResult'];
             $diffResult = $bestOfNOutcome['diffResult'];
@@ -1389,6 +1397,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         int $candidateCount,
         ?RegressionBaselineCache $regressionBaseline = null,
         ?ElevationConfig $e5Config = null,
+        ?ElevationConfig $e4Config = null,
     ): array {
         $candidates = [];
         $providerCalls = 0;
@@ -1634,12 +1643,82 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         // the persisted diff hash reflects the selected candidate exactly.
         $winnerDiffResult = (new DiffParser)->parse($winner['callResult']->stdout);
 
+        // E4: DifferentialTestingService -- compare all N candidates and route
+        // the divergence verdict through the sanctioned channels.
+        //
+        // VAL-E4-001: agreeing candidates => high confidence, no flag, passed
+        // allowed. VAL-E4-002: divergent candidates => candidate_divergence
+        // flag carrying the divergent diffs as evidence. VAL-E4-003: advisory
+        // divergence => needs_review (never silently accepted). VAL-E4-010:
+        // off => byte-identical (no comparison, no flag); advisory => flag +
+        // needs_review; hard => STATUS_FAILED on divergence.
+        //
+        // The comparison runs AFTER the winner is selected and re-applied so
+        // the verdict applies to the WINNER's verificationResult (the one that
+        // flows through the shared post-gate block + CompletionStateGate).
+        // Channels (no third way): advisory => honesty flag only; hard =>
+        // STATUS_FAILED gate channel. Off => byte-identical no-op (the service
+        // is not even invoked).
+        $winnerVerificationResult = $winner['verificationResult'];
+        $e4SummaryData = null;
+        if ($e4Config !== null && ! $e4Config->isOff()) {
+            $diffService = $this->resolveDifferentialTestingService();
+            $diffResult4 = $diffService->compare($candidates);
+            $diffGate = new CandidateDivergenceGate($e4Config);
+            $e4Verdict = $diffGate->evaluate($diffResult4);
+
+            if ($e4Verdict->tripped) {
+                if ($e4Config->isHard()) {
+                    // Hard => sanctioned hard gate channel (STATUS_FAILED).
+                    // Rebuild the gate result preserving the gathered
+                    // tests/gates while forcing STATUS_FAILED so completion
+                    // resolves to failed/blocked (never silently passed).
+                    $winnerVerificationResult = new VerificationGateResult(
+                        tests: $winnerVerificationResult->tests,
+                        gates: $winnerVerificationResult->gates,
+                        aggregateStatus: VerificationGateResult::STATUS_FAILED,
+                        honestyFlags: $winnerVerificationResult->withHonestyFlags(
+                            $e4Verdict->honestyFlags,
+                        )->honestyFlags,
+                        evidenceRefs: $winnerVerificationResult->evidenceRefs,
+                        profile: $winnerVerificationResult->profile,
+                    );
+                } else {
+                    // Advisory => honesty flag only (drives the
+                    // CompletionStateGate PASSED -> needs_review downgrade).
+                    $winnerVerificationResult = $winnerVerificationResult->withHonestyFlags(
+                        $e4Verdict->honestyFlags,
+                    );
+                }
+            }
+
+            // Build the E4 summary fragment for the best-of-N summary. On
+            // agreement or skip, the flag is null so the summary stays clean
+            // (no evidence keys), and only the boolean agreement indicator is
+            // added. On divergence, the flag + divergent diffs are carried.
+            $e4SummaryData = [
+                'agreed' => $diffResult4->agreed,
+                'divergent_diffs' => $e4Verdict->tripped
+                    ? array_map(
+                        static fn (array $d): array => [
+                            'index' => $d['index'],
+                            'diff' => mb_substr($d['diff'], 0, 2000),
+                        ],
+                        $e4Verdict->divergentDiffs,
+                    )
+                    : [],
+                'flag' => $e4Verdict->tripped
+                    ? $e4Verdict->honestyFlags[0] ?? null
+                    : null,
+            ];
+        }
+
         return [
             'callResult' => $winner['callResult'],
             'diffResult' => $winnerDiffResult,
             'scopeReceipt' => $winner['scopeReceipt'],
             'patchApplyResult' => $winner['patchApplyResult'],
-            'verificationResult' => $winner['verificationResult'],
+            'verificationResult' => $winnerVerificationResult,
             'callResultForGates' => $winner['callResultForGates'],
             'providerCalls' => $providerCalls,
             'summary' => $this->bestOfNSummary(
@@ -1648,6 +1727,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
                 winnerIndex: $winner['passed'] ? $winner['index'] : -1,
                 regressionBaseline: $regressionBaseline,
                 e5Active: $e5Active,
+                e4Summary: $e4SummaryData,
             ),
         ];
     }
@@ -1724,7 +1804,11 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
      * baseline hash and per-candidate regression evidence, proving every
      * candidate was diffed against the SAME clean baseline.
      *
+     * VAL-E4-002: when E4 is active, the summary carries the candidate
+     * divergence verdict and the divergent diffs as evidence.
+     *
      * @param  list<array<string,mixed>>  $candidates
+     * @param  ?array{agreed: bool, divergent_diffs: list<array{index: int, diff: string}>, flag: ?string}  $e4Summary
      * @return array<string,mixed>
      */
     private function bestOfNSummary(
@@ -1733,6 +1817,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         int $winnerIndex,
         ?RegressionBaselineCache $regressionBaseline = null,
         bool $e5Active = false,
+        ?array $e4Summary = null,
     ): array {
         $passing = array_values(array_filter(
             $candidates,
@@ -1772,6 +1857,19 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
                 ];
             }
             $summary['candidates'] = $candidateEvidence;
+        }
+
+        // VAL-E4-002: include the candidate divergence verdict + divergent
+        // diffs as evidence when E4 is active. On agreement or off-mode the
+        // $e4Summary is null so the summary stays byte-identical to pre-E4.
+        if ($e4Summary !== null) {
+            $summary['e4_candidate_agreed'] = $e4Summary['agreed'];
+            if ($e4Summary['flag'] !== null) {
+                $summary['e4_flag'] = $e4Summary['flag'];
+            }
+            if ($e4Summary['divergent_diffs'] !== []) {
+                $summary['e4_divergent_diffs'] = $e4Summary['divergent_diffs'];
+            }
         }
 
         return $summary;
@@ -3083,6 +3181,43 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         } catch (\Throwable) {
             return ElevationConfig::for('e5', null);
         }
+    }
+
+    /**
+     * E4: resolve the e4 elevation config. Same resolution pattern as
+     * E1/E2/E3/E5: reads the live config kernel when available, otherwise
+     * degrades to the safe default (advisory) so plain-PHPunit unit tests
+     * never crash.
+     */
+    private function resolveE4Config(): ElevationConfig
+    {
+        try {
+            return ElevationConfig::fromConfig('e4');
+        } catch (\Throwable) {
+            return ElevationConfig::for('e4', null);
+        }
+    }
+
+    /**
+     * E4: resolve the DifferentialTestingService the candidate-divergence
+     * gate consumes.
+     *
+     * Bound through the container via `atlas_dev.e4.differential_testing_service`
+     * so tests inject a fake {@see DifferentialTestingService} if needed. The
+     * binding is OPTIONAL: when unbound, a fresh instance is returned (the
+     * service has no constructor dependencies and is a pure comparison). This
+     * mirrors the `atlas_dev.e5.caller_test_selection_service` pattern.
+     */
+    private function resolveDifferentialTestingService(): DifferentialTestingService
+    {
+        if ($this->container->bound('atlas_dev.e4.differential_testing_service')) {
+            $bound = $this->container->make('atlas_dev.e4.differential_testing_service');
+            if ($bound instanceof DifferentialTestingService) {
+                return $bound;
+            }
+        }
+
+        return new DifferentialTestingService;
     }
 
     /**
