@@ -54,6 +54,22 @@ final class LightTaskContract implements AtlasDevSchemaContract
          * compat default '' for pre-E2 payloads reconstructed via fromArray.
          */
         public readonly string $intentText = '',
+        /**
+         * E1: the recognized action-verb set extracted from the normalized
+         * intent by IntentActionExtractor (reusing the
+         * IntakeNormalizer::inferClarity verb list as the recognized set).
+         * Persisted on the contract so downstream stages (E2 per-verb ACs,
+         * the E1 intent-falsification probe) share one stable basis instead
+         * of each re-detecting and discarding (the historical behavior).
+         *
+         * Folded into task_contract_hash via toCanonicalArray() so two
+         * contracts with different verb sets carry different hashes.
+         * Back-compat default [] for pre-E1 payloads reconstructed via
+         * fromArray. Empty when the intent carries no recognized verb.
+         *
+         * @var list<string>
+         */
+        public readonly array $intentVerbs = [],
     ) {}
 
     public function schemaVersion(): string
@@ -71,6 +87,7 @@ final class LightTaskContract implements AtlasDevSchemaContract
             'evidence_required' => array_values($this->evidenceRequired),
             'forbidden_files' => array_values($this->forbiddenFiles),
             'intent_text' => $this->intentText,
+            'intent_verbs' => array_values($this->intentVerbs),
             'max_files_changed' => $this->maxFilesChanged,
             'no_test_reason' => $this->noTestReason,
             'owner' => self::OWNER,
@@ -132,6 +149,7 @@ final class LightTaskContract implements AtlasDevSchemaContract
             taskContractHash: (string) ($payload['task_contract_hash'] ?? ''),
             noTestReason: $payload['no_test_reason'] ?? null,
             intentText: (string) ($payload['intent_text'] ?? ''),
+            intentVerbs: array_values((array) ($payload['intent_verbs'] ?? [])),
         );
     }
 }
