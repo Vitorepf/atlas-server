@@ -148,7 +148,11 @@ final class AtlasLoopAutoMergeServiceTest extends TestCase
         return $proposal->fresh();
     }
 
-    private function certifiedProposal(string $diff, string $hash): AtlasLoopProposal
+    /**
+     * @param  list<string>|null  $allowedGlobs
+     * @param  list<string>|null  $commands
+     */
+    private function certifiedProposal(string $diff, string $hash, ?array $allowedGlobs = null, ?array $commands = null): AtlasLoopProposal
     {
         $campaign = AtlasLoopCampaign::create([
             'schema_version' => 'atlas.loop.campaign.v1',
@@ -169,12 +173,64 @@ final class AtlasLoopAutoMergeServiceTest extends TestCase
             'proposal_hash' => $hash,
             'metric' => null,
             'quality' => ['_acceptance_contract' => [
-                'commands' => ["php -r \"require 'snippet.php'; exit(val()===2?0:1);\""],
-                'allowed_globs' => ['snippet.php'],
+                'commands' => $commands ?? ["php -r \"require 'snippet.php'; exit(val()===2?0:1);\""],
+                'allowed_globs' => $allowedGlobs ?? ['snippet.php'],
                 'frozen_globs' => ['composer.json'],
                 'metric_kind' => 'gate',
             ]],
         ]);
+    }
+
+    /**
+     * Build a multi-file patch that MODIFIES snippet.php AND CREATES a new sibling file. `git add -N`
+     * marks the new file intent-to-add so `git diff` emits a proper `new file` hunk for it.
+     */
+    private function makeRefactorDiff(string $snippetModified, string $newFile, string $newContent): string
+    {
+        $repo = $this->repo("<?php\nfunction val(){ return 2; }\n");
+        file_put_contents($repo.'/snippet.php', $snippetModified);
+        file_put_contents($repo.'/'.$newFile, $newContent);
+        $this->git($repo, ['add', '-N', $newFile]);
+        $p = new Process(['git', 'diff'], $repo);
+        $p->run();
+
+        return $p->getOutput();
+    }
+
+    public function test_extracted_new_sibling_file_is_committed_not_left_untracked(): void
+    {
+        // REGRESSION (real main corruption observed 2026-06-17): an EXTRACT-class refactor creates a NEW
+        // sibling file that `git diff --name-only` never lists. The pre-fix drain `git add`ed only the
+        // tracked target, so main landed a commit that REFERENCES an UNCOMMITTED class — green on the dirty
+        // work tree (false canary), RED on a fresh checkout (`Class ... not found`). The fix teaches
+        // changedPhpFiles to also surface untracked files; scopeToPatch still keeps only THIS patch's files.
+        $modified = "<?php\nrequire __DIR__.'/support.php';\nfunction val(){ return sup(); }\n";
+        $newContent = "<?php\nfunction sup(){ return 2; }\n";
+        $repo = $this->repo("<?php\nfunction val(){ return 2; }\n");
+        $diff = $this->makeRefactorDiff($modified, 'support.php', $newContent);
+
+        $proposal = $this->certifiedProposal(
+            $diff,
+            'newfile-extract-1',
+            ['snippet.php', 'support.php'],
+            ["php -r \"require 'snippet.php'; exit(val()===2?0:1);\""],
+        );
+
+        $result = app(AtlasLoopAutoMergeService::class)->drain($repo, 5);
+
+        $this->assertSame(1, $result['merged_count'], json_encode($result['results']));
+        $this->assertTrue((bool) $proposal->fresh()->merged_to_main);
+        // The extracted sibling is COMMITTED (tracked), not merely present on a dirty work tree.
+        $headTree = $this->git($repo, ['ls-tree', '-r', '--name-only', 'HEAD']);
+        $this->assertStringContainsString('support.php', $headTree, 'extracted sibling MUST be in the commit, not left untracked');
+        $this->assertStringContainsString('snippet.php', $headTree);
+        // Decisive proof: a pristine checkout of HEAD into a clean dir is self-consistent (green).
+        $checkout = sys_get_temp_dir().'/atlas-automerge-co-'.bin2hex(random_bytes(4));
+        $this->dirs[] = $checkout;
+        $this->git($repo, ['worktree', 'add', '--detach', $checkout, 'HEAD']);
+        $probe = new Process(['php', '-r', "require 'snippet.php'; exit(val()===2?0:1);"], $checkout);
+        $probe->run();
+        $this->assertSame(0, $probe->getExitCode(), 'fresh checkout of HEAD must be GREEN — no dangling uncommitted dependency');
     }
 
     public function test_fix_forward_routes_to_live_supervisor_not_dead_originating_campaign(): void

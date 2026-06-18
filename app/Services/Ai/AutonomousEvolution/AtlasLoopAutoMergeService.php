@@ -1186,17 +1186,29 @@ final class AtlasLoopAutoMergeService
      */
     private function changedPhpFiles(string $repoRoot): array
     {
-        $p = new Process(['git', 'diff', '--name-only', '--no-ext-diff'], $repoRoot, null, null, 30.0);
-        $p->run();
+        // Tracked modifications.
+        $diff = new Process(['git', 'diff', '--name-only', '--no-ext-diff'], $repoRoot, null, null, 30.0);
+        $diff->run();
+        // Newly-created (untracked) files. CRITICAL: a refactor that EXTRACTS a cohesive cluster into a
+        // NEW sibling class creates a file `git diff` never lists. Without it, scopeToPatch's intersection
+        // drops the new file, `git add` (block 5) never stages it, and main lands a commit that references
+        // an UNCOMMITTED class — green on the dirty work tree (false canary), RED on a fresh checkout.
+        // `--exclude-standard` honors .gitignore so genuine junk never rides in; scopeToPatch then keeps
+        // only the files THIS proposal's patch declares, so foreign untracked leftovers are still excluded.
+        $untracked = new Process(['git', 'ls-files', '--others', '--exclude-standard'], $repoRoot, null, null, 30.0);
+        $untracked->run();
+
         $files = [];
-        foreach (preg_split('/\R/', trim($p->getOutput())) ?: [] as $line) {
-            $line = trim($line);
-            if ($line !== '') {
-                $files[] = $line;
+        foreach ([$diff->getOutput(), $untracked->getOutput()] as $out) {
+            foreach (preg_split('/\R/', trim($out)) ?: [] as $line) {
+                $line = trim($line);
+                if ($line !== '') {
+                    $files[] = $line;
+                }
             }
         }
 
-        return $files;
+        return array_values(array_unique($files));
     }
 
     /**
