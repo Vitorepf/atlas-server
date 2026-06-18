@@ -6,6 +6,7 @@ namespace App\Services\Ai\Programming\AtlasDev\Mutation;
 
 use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use App\Services\Ai\Programming\AtlasDev\Support\Elevations\ElevationConfig;
+use Infection\Metrics\Calculator;
 
 /**
  * E3 — MutationTestingAdapter.
@@ -215,11 +216,116 @@ final class MutationTestingAdapter
             );
         }
 
+        // m3-e3 scrutiny Defect 2 (BLOCKING): recompute the REAL MSI from the
+        // raw stats so the gate consumes an honest, anti-gaming value. For an
+        // HONEST run realMsi equals infection's reported msi (within
+        // rounding); for an inflation attempt (skipped mutators / denominator
+        // exclusion) realMsi diverges DOWNWARD only — the gate uses realMsi
+        // (never the inflated reported value), preserving VAL-E3-005/006/013.
+        $realMsi = $this->computeRealMsi($outcome->summaryPayload);
+        if ($realMsi === null) {
+            // Defensive: the summary had an MSI but the raw stats could not
+            // back it — refuse to fabricate a score (VAL-E3-011 honest ceiling).
+            return MutationTestingResult::failed(
+                'e3: infection reported an MSI but the raw summary stats could not '
+                .'back it (refusing to fabricate a score).',
+            );
+        }
+
         return MutationTestingResult::completed(
-            msi: $outcome->summaryMsi,
+            msi: $realMsi,
             summaryPath: $summaryPath,
             scope: $scope,
         );
+    }
+
+    /**
+     * Recompute the REAL mutation-score indicator (MSI) from the raw infection
+     * summary stats, aligned with Infection's own MSI definition.
+     *
+     * m3-e3 scrutiny Defect 2 (BLOCKING): the previous read path silently
+     * diverged from Infection's reported MSI because it treated syntaxError
+     * mutants inconsistently. Infection counts a syntaxError mutant in the
+     * DETECTED numerator (it is a mutant that, when applied, broke the code
+     * so badly it produced a syntax error — that counts as "killed" for MSI
+     * purposes, mirroring {@see Calculator::fromMetrics()}
+     * which folds `getSyntaxErrorCount()` into the error count that goes into
+     * the MSI numerator). Omitting it under/mis-reports the real MSI.
+     *
+     * Infection's MSI formula (verified against vendor source):
+     *   numerator   = killedCount + errorCount + syntaxErrorCount
+     *                 + timeOutCount        (default timeoutsAsEscaped = false)
+     *   denominator = totalMutantsCount - skippedCount - ignoredCount
+     *   MSI         = 100 * numerator / denominator   (0 when denominator==0)
+     *
+     * Guarantees:
+     *   - HONEST run (no patch-supplied skip/ignore/exclusion): realMsi equals
+     *     infection's reported `stats.msi` within rounding, because both
+     *     compute over the same population with the same syntaxError/timeout
+     *     handling. This is the parity invariant for an honest run.
+     *   - ANTI-GAMING (downward-only divergence): a patch that attempts to
+     *     inflate MSI via skipped mutators or denominator exclusion would see
+     *     its reported `stats.msi` rise (skipped/ignored are excluded from
+     *     Infection's denominator), but realMsi is computed over the FULL
+     *     applicable mutant population (denominator = totalMutantsCount, never
+     *     reduced by patch-supplied skips). Therefore realMsi <= reportedMsi
+     *     whenever a patch attempts inflation, and realMsi diverges DOWNWARD
+     *     only — never upward. This preserves VAL-E3-005/006/013.
+     *
+     * @param  ?array<string,mixed>  $payload  the decoded infection summary JSON.
+     * @return ?float the real MSI in [0,100], or null when the payload is
+     *                missing/empty (the adapter never fabricates a score over
+     *                an unevaluable run — VAL-E3-011 honest ceiling).
+     */
+    public function computeRealMsi(?array $payload): ?float
+    {
+        if ($payload === null) {
+            return null;
+        }
+        $stats = $payload['stats'] ?? null;
+        if (! is_array($stats)) {
+            return null;
+        }
+
+        $total = $this->intStat($stats, 'totalMutantsCount');
+        // ANTI-GAMING: the denominator is the FULL applicable mutant
+        // population. Infection's reported MSI reduces the denominator by
+        // skippedCount + ignoredCount (those mutants were not evaluated),
+        // so a patch that skips mutators to inflate its reported score WOULD
+        // see reported MSI rise. realMsi keeps the FULL denominator so it is
+        // the honest floor: a patch cannot raise realMsi above the honest
+        // score by skipping/excluding mutants. This is the downward-only
+        // divergence invariant (VAL-E3-005/006/013).
+        if ($total <= 0) {
+            return null;
+        }
+
+        $killed = $this->intStat($stats, 'killedCount');
+        $error = $this->intStat($stats, 'errorCount');
+        $syntaxError = $this->intStat($stats, 'syntaxErrorCount');
+        $timeout = $this->intStat($stats, 'timeOutCount');
+
+        // Infection's numerator: killed + error + syntaxError (all counted as
+        // detected) + timeout (default timeoutsAsEscaped = false => timeout
+        // counts as covered/detected in the MSI numerator). See
+        // vendor/infection/infection/src/Metrics/Calculator.php.
+        $numerator = $killed + $error + $syntaxError + $timeout;
+
+        return round(100.0 * $numerator / $total, 2);
+    }
+
+    /**
+     * Read an integer stat from the infection summary, defaulting to 0 when
+     * missing or non-numeric (defensive: infection's schema is int, but a
+     * malformed payload must not crash the recomputation).
+     *
+     * @param  array<string,mixed>  $stats
+     */
+    private function intStat(array $stats, string $key): int
+    {
+        $value = $stats[$key] ?? 0;
+
+        return is_numeric($value) ? (int) $value : 0;
     }
 
     /**
@@ -237,8 +343,11 @@ final class MutationTestingAdapter
      *     relative path issue: phpUnit.configDir = "." (the per-run config's
      *     own directory's parent is the repo root).
      *   - --filter=<src1.php,src2.php> (mutation scope = touched source only)
-     *   - --initial-tests-php-options with -d pcov.directory=<dir> per touched dir
-     *     (coverage instrumentation scope = touched dirs only, never repo root)
+     *   - --initial-tests-php-options with a SINGLE -d pcov.directory=<LCA>
+     *     (coverage instrumentation scope = lowest common ancestor of every
+     *     scoped source dir; pcov.directory is single-valued so a SINGLE LCA
+     *     entry spans the whole scope — never one per dir, which would drop
+     *     all but the last, m3-e3 scrutiny Defect 1)
      *   - --test-framework-options scoping PHPUnit to the touched test files
      *   - --logger-summary-json=<summaryPath> (real reported MSI source)
      *   - --no-interaction --no-progress (deterministic CI-friendly run)
@@ -265,10 +374,16 @@ final class MutationTestingAdapter
             '--logger-summary-json='.escapeshellarg($summaryPath),
         ];
 
-        // VAL-E3-011 + VAL-E3-001: scope pcov coverage instrumentation to the
-        // touched source directories ONLY. One -d pcov.directory=<dir> entry
-        // per scoped directory; never '.' (the repo root), which would
-        // instrument the full ~3592-file tree (~40s+ unscoped baseline).
+        // VAL-E3-011 + VAL-E3-001 + m3-e3 Defect 1: scope pcov coverage
+        // instrumentation to the SINGLE lowest common ancestor directory of
+        // every scoped source file. pcov.directory is a single-valued ini
+        // directive, so MutationScope::pcovDirectories() returns exactly ONE
+        // directory (the LCA) — emitting multiple entries would silently
+        // drop every dir except the last. The LCA is always an app/ subtree
+        // (never the bare repo root '.', which would instrument the full
+        // ~3592-file tree at ~40s+ unscoped baseline). The MUTATED set stays
+        // narrowed to the exact touched source via --filter above, so the
+        // wider instrumentation does not widen what infection mutates.
         $phpOptions = [];
         foreach ($scope->pcovDirectories() as $dir) {
             $phpOptions[] = '-d';

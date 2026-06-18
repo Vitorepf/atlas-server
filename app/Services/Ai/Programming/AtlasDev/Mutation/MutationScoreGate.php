@@ -85,6 +85,16 @@ final class MutationScoreGate
      * Missing/invalid values resolve to the documented safe default without
      * throwing (mirrors the ElevationConfig safe-default convention).
      *
+     * m3-e3 scrutiny Defect 3 (NON-BLOCKING): the config file casts the env
+     * value via `(float)`, which silently turns a non-numeric env value
+     * (e.g. ATLAS_DEV_ELEVATION_E3_THRESHOLD=banana) into 0.0 BEFORE the gate
+     * sees it. A threshold of 0.0 DISABLES the gate (MSI >= 0.0 is always
+     * true). To make the gate robust to BOTH the config-cast layer AND a
+     * missing/invalid env, fromConfig reads the RAW env value (bypassing the
+     * config cast) and validates it: invalid/non-numeric falls back to the
+     * safe default 60.0, never 0.0. An explicit numeric "0" is honored as a
+     * valid operator choice (the operator intentionally disabled the gate).
+     *
      * The $e3Config is taken explicitly so callers resolve the mode through
      * the canonical {@see ElevationConfig::fromConfig('e3')} path (the same
      * path the other elevations use), keeping the resolution single-sourced.
@@ -93,13 +103,36 @@ final class MutationScoreGate
     {
         $threshold = self::DEFAULT_THRESHOLD;
         try {
-            $raw = config('atlas_dev.elevations.e3.threshold');
-            if (is_numeric($raw)) {
+            // m3-e3 Defect 3: read the RAW env value (bypassing the config
+            // (float) cast, which silently zeroes non-numeric values). The
+            // raw env is the source of truth for "did the operator set a
+            // valid numeric threshold?"; the config-cast value cannot
+            // distinguish 'banana' (invalid -> should default) from '0'
+            // (valid -> operator disabled the gate) because both yield 0.0
+            // after the (float) cast.
+            $raw = getenv('ATLAS_DEV_ELEVATION_E3_THRESHOLD');
+            if ($raw === false || $raw === '') {
+                // Fall back to the config-cast value if the env was not set
+                // at all (the config default is DEFAULT_THRESHOLD). This keeps
+                // the documented production default when the operator did not
+                // set the env.
+                $configValue = config('atlas_dev.elevations.e3.threshold');
+                if (is_numeric($configValue)) {
+                    $resolved = (float) $configValue;
+                    if ($resolved >= 0.0 && $resolved <= 100.0) {
+                        $threshold = $resolved;
+                    }
+                }
+            } elseif (is_numeric($raw)) {
                 $resolved = (float) $raw;
                 if ($resolved >= 0.0 && $resolved <= 100.0) {
                     $threshold = $resolved;
                 }
+                // else: out-of-range numeric falls back to the safe default
+                // (never 0.0, never the invalid value).
             }
+            // else: non-numeric raw value (e.g. 'banana') => fall back to the
+            // safe default (never 0.0, never the invalid value).
         } catch (\Throwable) {
             // Degrade to the documented default (no crash, no silent disable).
             $threshold = self::DEFAULT_THRESHOLD;
