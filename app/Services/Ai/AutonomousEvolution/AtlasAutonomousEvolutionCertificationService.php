@@ -201,20 +201,11 @@ final class AtlasAutonomousEvolutionCertificationService
      */
     private function integrationWiring(): array
     {
-        $path = 'app/Services/Ai/AutonomousEvolution/AtlasAutonomousEvolutionLoopService.php';
-        $tokens = ['AtlasAutonomousWorkExecutionService', 'AtlasIntelligenceFactoryRuntimeService'];
-        $contents = File::exists(base_path($path)) ? (string) File::get(base_path($path)) : '';
-        $missing = array_values(array_filter(
-            $tokens,
-            fn (string $token): bool => trim($token) === '' || ! str_contains($contents, $token)
-        ));
-
-        return [
-            'id' => 'integration_wiring',
-            'status' => $missing === [] ? 'pass' : 'fail',
-            'evidence' => [$path],
-            'missing' => $missing,
-        ];
+        return $this->fileCheck(
+            'integration_wiring',
+            'app/Services/Ai/AutonomousEvolution/AtlasAutonomousEvolutionLoopService.php',
+            ['AtlasAutonomousWorkExecutionService', 'AtlasIntelligenceFactoryRuntimeService'],
+        );
     }
 
     /**
