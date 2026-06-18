@@ -465,17 +465,20 @@ final class MutationTestingAdapterTest extends TestCase
 
     public function test_invoked_command_uses_repo_root_infection_config_with_phputil_configdir(): void
     {
-        // The repo-root infection.json5 sets phpUnit.configDir = "." so
-        // infection resolves the PHPUnit config relative to the repo root
-        // (resolving the config-relative path issue). The adapter passes
-        // --configuration pointing at the repo-root infection.json5.
+        // The adapter writes a per-run infection.json5 that pins
+        // phpUnit.configDir to the repo root (resolving the config-relative
+        // path issue) and inherits the canonical source.directories. The
+        // adapter passes --configuration pointing at the per-run config.
+        $repoRoot = sys_get_temp_dir().'/e3-cfg-test-'.uniqid();
+        @mkdir($repoRoot, 0o775, true);
+
         $runner = new FakeMutationCommandRunner();
         $runner->queueOk(msi: 100.0, summaryPath: '/tmp/summary.json');
 
         $adapter = new MutationTestingAdapter(
             commandRunner: $runner,
             e3Config: ElevationConfig::for('e3', ['mode' => 'advisory']),
-            repoRoot: '/repo',
+            repoRoot: $repoRoot,
         );
 
         $adapter->run(
@@ -496,7 +499,23 @@ final class MutationTestingAdapterTest extends TestCase
         $this->assertStringContainsString(
             'infection.json5',
             $command,
-            'adapter uses the repo-root infection.json5',
+            'adapter uses an infection.json5 config',
+        );
+
+        // The per-run config file was written and pins phpUnit.configDir to
+        // the repo root, resolving the config-relative path issue.
+        $perRunConfig = $this->extractConfigurationPath($command);
+        $this->assertFileExists($perRunConfig, 'per-run config was written');
+        $decoded = json_decode((string) file_get_contents($perRunConfig), true);
+        $this->assertSame(
+            $repoRoot,
+            $decoded['phpUnit']['configDir'] ?? null,
+            'per-run config pins phpUnit.configDir to the repo root',
+        );
+        $this->assertSame(
+            ['app'],
+            $decoded['source']['directories'] ?? null,
+            'per-run config inherits the canonical source.directories',
         );
     }
 
@@ -504,14 +523,19 @@ final class MutationTestingAdapterTest extends TestCase
     {
         // Each E3 run uses an isolated tmpDir so concurrent runs (e.g. best-
         // of-N candidates, VAL-E5-013 shared baseline pattern) do not collide
-        // on infection's coverage-xml / junit artifacts.
+        // on infection's coverage-xml / junit artifacts. The tmpDir is set
+        // in the per-run config file (NOT a CLI flag; --tmp-dir does not
+        // exist on infection 0.33.x).
+        $repoRoot = sys_get_temp_dir().'/e3-tmp-test-'.uniqid();
+        @mkdir($repoRoot, 0o775, true);
+
         $runner = new FakeMutationCommandRunner();
         $runner->queueOk(msi: 100.0, summaryPath: '/tmp/summary.json');
 
         $adapter = new MutationTestingAdapter(
             commandRunner: $runner,
             e3Config: ElevationConfig::for('e3', ['mode' => 'advisory']),
-            repoRoot: '/repo',
+            repoRoot: $repoRoot,
         );
 
         $adapter->run(
@@ -523,12 +547,28 @@ final class MutationTestingAdapterTest extends TestCase
         );
 
         $command = $runner->calls[0]['command'];
-
+        $perRunConfig = $this->extractConfigurationPath($command);
+        $this->assertFileExists($perRunConfig);
+        $decoded = json_decode((string) file_get_contents($perRunConfig), true);
         $this->assertStringContainsString(
             'run-e3-tmpdir',
-            $command,
-            'tmpDir is scoped under the runId',
+            $decoded['tmpDir'] ?? '',
+            'tmpDir is scoped under the runId (per-run isolation)',
         );
+    }
+
+    private function extractConfigurationPath(string $command): string
+    {
+        if (preg_match('/--configuration=([^\s]+)/', $command, $m) !== 1) {
+            return '';
+        }
+        $value = $m[1];
+        if (strlen($value) >= 2 && $value[0] === "'" && substr($value, -1) === "'") {
+            $value = substr($value, 1, -1);
+            $value = str_replace("'\\''", "'", $value);
+        }
+
+        return $value;
     }
 
     public function test_result_carries_scope_for_evidence_and_anti_gaming_checks(): void

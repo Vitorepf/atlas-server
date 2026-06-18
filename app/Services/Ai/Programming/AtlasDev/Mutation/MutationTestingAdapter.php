@@ -229,34 +229,40 @@ final class MutationTestingAdapter
      *
      * The command is the canonical infection binary (resolved by the runner
      * workspace's vendor/bin/infection) with:
-     *   - --configuration=<repoRoot>/infection.json5 (config-relative path fix)
+     *   - --configuration=<per-run-config> (a per-run infection.json5 written
+     *     by {@see writePerRunConfig()} that pins phpUnit.configDir to the repo
+     *     root, sets source.directories=app, and overrides tmpDir to a per-run
+     *     isolated path so concurrent runs do not collide on coverage-xml /
+     *     junit artifacts). The per-run config also resolves the config-
+     *     relative path issue: phpUnit.configDir = "." (the per-run config's
+     *     own directory's parent is the repo root).
      *   - --filter=<src1.php,src2.php> (mutation scope = touched source only)
      *   - --initial-tests-php-options with -d pcov.directory=<dir> per touched dir
      *     (coverage instrumentation scope = touched dirs only, never repo root)
      *   - --test-framework-options scoping PHPUnit to the touched test files
      *   - --logger-summary-json=<summaryPath> (real reported MSI source)
-     *   - --tmp-dir scoped under the runId (per-run isolation)
      *   - --no-interaction --no-progress (deterministic CI-friendly run)
+     *
+     * NOTE: --tmp-dir is NOT a CLI option (it is config-file-only in
+     * infection 0.33.x), so per-run tmpDir isolation is achieved via the
+     * per-run config file, not via a CLI flag.
      */
     private function buildCommand(string $runId, MutationScope $scope, string $summaryPath): string
     {
         $php = '/opt/homebrew/bin/php';
         $infection = $this->repoRoot.'/vendor/bin/infection';
-        $configuration = rtrim($this->repoRoot, '/').'/'.self::INFECTION_CONFIG_PATH;
-        $tmpDir = $this->tmpDir($runId);
+        $perRunConfig = $this->writePerRunConfig($runId);
 
         $parts = [
             $php,
             escapeshellarg($infection),
             '--no-interaction',
             '--no-progress',
-            '--configuration='.escapeshellarg($configuration),
+            '--configuration='.escapeshellarg($perRunConfig),
             // VAL-E3-001: mutation scope = touched source only.
             '--filter='.escapeshellarg(implode(',', $scope->sourceFiles)),
             // VAL-E3-007: read the REAL reported MSI from the summary JSON.
             '--logger-summary-json='.escapeshellarg($summaryPath),
-            // Per-run isolation (best-of-N / repair-loop concurrency safety).
-            '--tmp-dir='.escapeshellarg($tmpDir),
         ];
 
         // VAL-E3-011 + VAL-E3-001: scope pcov coverage instrumentation to the
@@ -285,6 +291,48 @@ final class MutationTestingAdapter
         }
 
         return implode(' ', $parts);
+    }
+
+    /**
+     * Write a per-run infection.json5 that pins the canonical settings
+     * (phpUnit.configDir = repo root, source.directories = app) and overrides
+     * tmpDir to a per-run isolated path so concurrent runs do not collide on
+     * infection's coverage-xml / junit artifacts.
+     *
+     * The per-run config inherits the canonical {@see INFECTION_CONFIG_PATH}
+     * semantically (same phpUnit.configDir, same source base) so the only
+     * per-run variance is tmpDir. Keeping the per-run config minimal (no
+     * mutators, no minMsi — the gate applies those) preserves the canonical
+     * config as the source of truth for global defaults.
+     *
+     * Returns the absolute path to the written per-run config.
+     */
+    private function writePerRunConfig(string $runId): string
+    {
+        $dir = dirname($this->summaryPath($runId));
+        if (! is_dir($dir) && ! @mkdir($dir, 0o775, true) && ! is_dir($dir)) {
+            // Fall back to the canonical config if the per-run directory
+            // cannot be created (the runner will surface the failure
+            // honestly rather than fabricate a score).
+            return rtrim($this->repoRoot, '/').'/'.self::INFECTION_CONFIG_PATH;
+        }
+
+        $path = $dir.'/infection.json5';
+        $repoRoot = rtrim($this->repoRoot, '/');
+        $tmpDir = $this->tmpDir($runId);
+        $config = [
+            '$schema' => 'vendor/infection/infection/resources/schema.json',
+            'source' => ['directories' => ['app']],
+            'phpUnit' => ['configDir' => $repoRoot],
+            'tmpDir' => $tmpDir,
+            'threads' => 1,
+        ];
+        $json = json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n";
+        if (@file_put_contents($path, $json) === false) {
+            return rtrim($this->repoRoot, '/').'/'.self::INFECTION_CONFIG_PATH;
+        }
+
+        return $path;
     }
 
     /**
