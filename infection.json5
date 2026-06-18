@@ -1,0 +1,55 @@
+{
+  // Atlas Dev Elevation v2 — E3 mutation testing configuration (canonical).
+  //
+  // This is the canonical infection config used by the E3 MutationTestingAdapter.
+  // The adapter scopes each run to the patch's touched test files + their covered
+  // source via --filter (mutation scope), --initial-tests-php-options (pcov.directory
+  // coverage instrumentation scope) and --test-framework-options (PHPUnit initial
+  // run scope). The scope is computed per-patch; this file only sets the GLOBAL
+  // defaults.
+  //
+  // Mission boundary: infection MUST be scoped to touched files only. NEVER run
+  // mutation/coverage across the full ~3592-file suite (~40s+ unscoped baseline).
+  //
+  // phpUnit.configDir = '.' resolves the PHPUnit config relative to the REPO ROOT
+  // (the directory containing this file), regardless of the cwd the infection
+  // subprocess was spawned from. This resolves the config-relative path issue:
+  // when the adapter spawns infection from a workspace under storage/atlas-dev/...,
+  // the PHPUnit config is still found at the repo root.
+  // The adapter passes --configuration=<repoRoot>/infection.json5 explicitly so
+  // infection resolves this file's directory as the project root.
+  //
+  // source.directories is the GLOBAL mutation candidate search base. The adapter
+  // narrows it per-run via --filter=<src1.php,src2.php> so infection only mutates
+  // the patch's touched covered source files. The absolute path 'app' matches the
+  // Laravel application code root; tests under tests/ are the test corpus (not
+  // mutated).
+  //
+  // Coverage is collected via the installed pcov 1.0.12 driver. The adapter scopes
+  // pcov.directory per-run to the touched source directories ONLY so pcov does not
+  // instrument the full tree (VAL-E3-001, VAL-E3-011).
+  //
+  // pcov.directory is NOT set here as a default: when the ini pcov.directory is
+  // empty, infection would itself set it to '.' (full repo root). The adapter
+  // pre-sets it via --initial-tests-php-options so infection's
+  // PCOVDirectoryProvider::shallProvide returns false and infection does NOT
+  // override the scoped value.
+  //
+  // No global minMsi here: the E3 gate (e3-mutation-score-gate feature) reads the
+  // real reported MSI from the summary JSON and applies the threshold itself,
+  // routing the verdict through the sanctioned honesty-flag / STATUS_FAILED
+  // channels. Setting minMsi here would let infection itself exit non-zero on a
+  // below-threshold score, which would short-circuit the gate's advisory/hard
+  // mode routing.
+  //
+  // The adapter overrides tmpDir per-run via --tmp-dir=<repoRoot>/storage/atlas-dev/
+  // mutation/<runId>/.infection-tmp so concurrent runs (best-of-N candidates,
+  // repair loop iterations) do not collide on coverage-xml / junit artifacts.
+
+  "$schema": "vendor/infection/infection/resources/schema.json",
+  "source": { "directories": ["app"] },
+  "phpUnit": { "configDir": "." },
+  "threads": 1,
+  "logs": { "summaryJson": "storage/atlas-dev/mutation/infection-summary.json" },
+  "tmpDir": "storage/atlas-dev/mutation/.infection-tmp"
+}

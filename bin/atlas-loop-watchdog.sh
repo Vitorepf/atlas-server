@@ -42,8 +42,14 @@ while true; do
   # 1. Drain certified → main (deterministic; re-proves + canary; never -A, scoped add).
   $PHP -d memory_limit=3072M artisan atlas:loop:automerge --limit=10 --json >> "$LOG" 2>&1
 
-  # 2. Respawn a dead supervisor (resume; kill_switch-aware so a stopped campaign stays stopped).
-  $PHP -d memory_limit=2048M artisan atlas:loop:keepalive --stale-minutes=3 --json >> "$LOG" 2>&1
+  # 2. Respawn a dead supervisor — ONLY if no campaign process is actually alive. Guard against the
+  # observed DUPLICATE: a long grind makes the heartbeat look stale, and the keepalive's own liveness
+  # check raced into spawning a SECOND campaign for the same id (two supervisors => double grinds =>
+  # double GLM spend). A live `artisan atlas:loop:campaign` process means nothing to respawn.
+  if ! pgrep -f 'artisan atlas:loop:campaign' >/dev/null 2>&1; then
+    echo "[$(date '+%H:%M:%S')] no live campaign — running keepalive" >> "$LOG"
+    $PHP -d memory_limit=2048M artisan atlas:loop:keepalive --stale-minutes=3 --json >> "$LOG" 2>&1
+  fi
 
   # 3. Top up the queue (anti-starvation supply).
   $PHP -d memory_limit=2048M artisan atlas:loop:backlog-feed --json >> "$LOG" 2>&1
