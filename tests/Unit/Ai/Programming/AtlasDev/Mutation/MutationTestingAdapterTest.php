@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\Programming\AtlasDev\Mutation;
 
 use App\Services\Ai\Programming\AtlasDev\Mutation\MutationTestingAdapter;
-use App\Services\Ai\Programming\AtlasDev\Mutation\MutationTestingResult;
 use App\Services\Ai\Programming\AtlasDev\Support\Elevations\ElevationConfig;
 use PHPUnit\Framework\TestCase;
 
@@ -45,7 +44,7 @@ final class MutationTestingAdapterTest extends TestCase
     public function test_val_e3_001_scope_is_touched_test_files_plus_covered_source_cardinality_below_3592(): void
     {
         $adapter = new MutationTestingAdapter(
-            commandRunner: new FakeMutationCommandRunner(),
+            commandRunner: new FakeMutationCommandRunner,
             e3Config: ElevationConfig::for('e3', ['mode' => 'advisory']),
             repoRoot: '/repo',
         );
@@ -89,7 +88,7 @@ final class MutationTestingAdapterTest extends TestCase
     public function test_val_e3_001_multi_test_file_patch_scopes_to_deduped_union(): void
     {
         $adapter = new MutationTestingAdapter(
-            commandRunner: new FakeMutationCommandRunner(),
+            commandRunner: new FakeMutationCommandRunner,
             e3Config: ElevationConfig::for('e3', ['mode' => 'advisory']),
             repoRoot: '/repo',
         );
@@ -123,7 +122,7 @@ final class MutationTestingAdapterTest extends TestCase
         // A test file touched without its source in the patch still scopes
         // the covered source via the convention (the unit-under-test path).
         $adapter = new MutationTestingAdapter(
-            commandRunner: new FakeMutationCommandRunner(),
+            commandRunner: new FakeMutationCommandRunner,
             e3Config: ElevationConfig::for('e3', ['mode' => 'advisory']),
             repoRoot: '/repo',
         );
@@ -144,7 +143,7 @@ final class MutationTestingAdapterTest extends TestCase
 
     public function test_val_e3_008_no_test_files_touched_is_skipped_with_reason_no_flag_no_fail(): void
     {
-        $runner = new FakeMutationCommandRunner();
+        $runner = new FakeMutationCommandRunner;
         $adapter = new MutationTestingAdapter(
             commandRunner: $runner,
             e3Config: ElevationConfig::for('e3', ['mode' => 'advisory']),
@@ -173,7 +172,7 @@ final class MutationTestingAdapterTest extends TestCase
 
     public function test_val_e3_008_empty_touched_files_is_skipped_with_reason(): void
     {
-        $runner = new FakeMutationCommandRunner();
+        $runner = new FakeMutationCommandRunner;
         $adapter = new MutationTestingAdapter(
             commandRunner: $runner,
             e3Config: ElevationConfig::for('e3', ['mode' => 'advisory']),
@@ -192,7 +191,7 @@ final class MutationTestingAdapterTest extends TestCase
 
     public function test_val_e3_001_invoked_command_scopes_filter_to_touched_source_only(): void
     {
-        $runner = new FakeMutationCommandRunner();
+        $runner = new FakeMutationCommandRunner;
         $runner->queueOk(msi: 100.0, summaryPath: '/tmp/summary.json');
 
         $adapter = new MutationTestingAdapter(
@@ -233,7 +232,7 @@ final class MutationTestingAdapterTest extends TestCase
 
     public function test_val_e3_011_command_scopes_pcov_directory_to_touched_dirs_only(): void
     {
-        $runner = new FakeMutationCommandRunner();
+        $runner = new FakeMutationCommandRunner;
         $runner->queueOk(msi: 100.0, summaryPath: '/tmp/summary.json');
 
         $adapter = new MutationTestingAdapter(
@@ -289,7 +288,7 @@ final class MutationTestingAdapterTest extends TestCase
 
     public function test_val_e3_001_invoked_command_scopes_phpunit_to_touched_test_files(): void
     {
-        $runner = new FakeMutationCommandRunner();
+        $runner = new FakeMutationCommandRunner;
         $runner->queueOk(msi: 100.0, summaryPath: '/tmp/summary.json');
 
         $adapter = new MutationTestingAdapter(
@@ -334,7 +333,7 @@ final class MutationTestingAdapterTest extends TestCase
 
     public function test_val_e3_001_invoked_command_writes_summary_json_for_real_msi_parsing(): void
     {
-        $runner = new FakeMutationCommandRunner();
+        $runner = new FakeMutationCommandRunner;
         // The fake simulates infection writing MSI=73.5 to whichever summary
         // path the adapter told infection to use. The adapter chooses the
         // deterministic per-run path; the fake's reported MSI is the parsed
@@ -386,7 +385,7 @@ final class MutationTestingAdapterTest extends TestCase
         // loaded. If pcov is missing, the adapter reports the infection
         // invocation outcome honestly (failed=true) so the gate (next
         // feature) cannot green over a missing-driver false-pass.
-        $runner = new FakeMutationCommandRunner();
+        $runner = new FakeMutationCommandRunner;
         $runner->queueFailure(stdout: 'no coverage driver available');
 
         $adapter = new MutationTestingAdapter(
@@ -413,7 +412,7 @@ final class MutationTestingAdapterTest extends TestCase
 
     public function test_val_e3_010_off_mode_does_not_invoke_infection_byte_identical(): void
     {
-        $runner = new FakeMutationCommandRunner();
+        $runner = new FakeMutationCommandRunner;
         $adapter = new MutationTestingAdapter(
             commandRunner: $runner,
             e3Config: ElevationConfig::for('e3', ['mode' => 'off']),
@@ -450,7 +449,7 @@ final class MutationTestingAdapterTest extends TestCase
         // mode reason is the one surfaced: the elevation is byte-identical
         // regardless of inputs (VAL-E3-010), not "skipped because no tests".
         $adapter = new MutationTestingAdapter(
-            commandRunner: new FakeMutationCommandRunner(),
+            commandRunner: new FakeMutationCommandRunner,
             e3Config: ElevationConfig::for('e3', ['mode' => 'off']),
             repoRoot: '/repo',
         );
@@ -472,7 +471,7 @@ final class MutationTestingAdapterTest extends TestCase
         $repoRoot = sys_get_temp_dir().'/e3-cfg-test-'.uniqid();
         @mkdir($repoRoot, 0o775, true);
 
-        $runner = new FakeMutationCommandRunner();
+        $runner = new FakeMutationCommandRunner;
         $runner->queueOk(msi: 100.0, summaryPath: '/tmp/summary.json');
 
         $adapter = new MutationTestingAdapter(
@@ -529,7 +528,7 @@ final class MutationTestingAdapterTest extends TestCase
         $repoRoot = sys_get_temp_dir().'/e3-tmp-test-'.uniqid();
         @mkdir($repoRoot, 0o775, true);
 
-        $runner = new FakeMutationCommandRunner();
+        $runner = new FakeMutationCommandRunner;
         $runner->queueOk(msi: 100.0, summaryPath: '/tmp/summary.json');
 
         $adapter = new MutationTestingAdapter(
@@ -573,7 +572,7 @@ final class MutationTestingAdapterTest extends TestCase
 
     public function test_result_carries_scope_for_evidence_and_anti_gaming_checks(): void
     {
-        $runner = new FakeMutationCommandRunner();
+        $runner = new FakeMutationCommandRunner;
         $runner->queueOk(msi: 80.0, summaryPath: '/tmp/summary.json');
 
         $adapter = new MutationTestingAdapter(
@@ -597,5 +596,147 @@ final class MutationTestingAdapterTest extends TestCase
         $this->assertNotNull($result->scope);
         $this->assertSame(['tests/Unit/CalculatorTest.php'], $result->scope->testFiles);
         $this->assertContains('app/Calculator.php', $result->scope->sourceFiles);
+    }
+
+    // -- VAL-E3-005/006: realMsi recomputed over the full population ----------
+
+    public function test_val_e3_006_real_msi_recomputed_over_full_population_ignores_exclusions(): void
+    {
+        // The adapter recomputes realMsi from raw counts: killed/totalMutants,
+        // NOT killed/(total - skipped - ignored). A patch config that marks
+        // 5 escaped mutants as ignored inflates infection's msi to 100% but
+        // the real MSI stays at 25%.
+        $runner = new FakeMutationCommandRunner;
+        $runner->queueRawStats(
+            totalMutantsCount: 20,
+            killedCount: 5,
+            escapedCount: 5,
+            ignoredCount: 5,
+            skippedCount: 5,
+            perFile: [
+                'app/Foo.php' => ['killed' => 5, 'escaped' => 5, 'ignored' => 5, 'skipped' => 5],
+            ],
+        );
+
+        $adapter = new MutationTestingAdapter(
+            commandRunner: $runner,
+            e3Config: ElevationConfig::for('e3', ['mode' => 'advisory']),
+            repoRoot: '/repo',
+        );
+
+        $result = $adapter->run(
+            runId: 'run-e3-006-unit',
+            touchedFiles: ['tests/Unit/FooTest.php', 'app/Foo.php'],
+        );
+
+        $this->assertSame(25.0, $result->realMsi, 'real MSI = 5 killed / 20 total = 25%');
+        $this->assertNotSame(
+            $result->msi,
+            $result->realMsi,
+            'infection msi (inflated) differs from realMsi',
+        );
+        $this->assertSame(20, $result->rawCounts['totalMutantsCount']);
+        $this->assertSame(5, $result->rawCounts['killedCount']);
+        $this->assertSame(5, $result->rawCounts['ignoredCount']);
+    }
+
+    public function test_val_e3_005_command_never_carries_mutators_flag(): void
+    {
+        // The adapter never passes --mutators= on the CLI and the per-run
+        // config carries no mutators key. A patch cannot reduce the mutator
+        // set to inflate the MSI.
+        $runner = new FakeMutationCommandRunner;
+        $runner->queueRawStats(
+            totalMutantsCount: 4,
+            killedCount: 4,
+            escapedCount: 0,
+            perFile: ['app/Calc.php' => ['killed' => 4, 'escaped' => 0]],
+        );
+
+        $adapter = new MutationTestingAdapter(
+            commandRunner: $runner,
+            e3Config: ElevationConfig::for('e3', ['mode' => 'advisory']),
+            repoRoot: '/repo',
+        );
+
+        $adapter->run(
+            runId: 'run-e3-005-unit',
+            touchedFiles: ['tests/Unit/CalcTest.php', 'app/Calc.php'],
+        );
+
+        $command = $runner->calls[0]['command'];
+        $this->assertStringNotContainsString(
+            '--mutators=',
+            $command,
+            'VAL-E3-005: adapter never passes --mutators=',
+        );
+    }
+
+    public function test_val_e3_013_per_file_stats_computed_from_report(): void
+    {
+        // The adapter computes per-source-file MSI from the --logger-json
+        // report so a weak file among strong ones is not masked.
+        $runner = new FakeMutationCommandRunner;
+        $runner->queueRawStats(
+            totalMutantsCount: 10,
+            killedCount: 6,
+            escapedCount: 4,
+            perFile: [
+                'app/Foo.php' => ['killed' => 1, 'escaped' => 4],  // 20% MSI (weak)
+                'app/Bar.php' => ['killed' => 5, 'escaped' => 0],  // 100% MSI (strong)
+            ],
+        );
+
+        $adapter = new MutationTestingAdapter(
+            commandRunner: $runner,
+            e3Config: ElevationConfig::for('e3', ['mode' => 'advisory']),
+            repoRoot: '/repo',
+        );
+
+        $result = $adapter->run(
+            runId: 'run-e3-013-unit',
+            touchedFiles: [
+                'tests/Unit/FooTest.php',
+                'tests/Unit/BarTest.php',
+                'app/Foo.php',
+                'app/Bar.php',
+            ],
+        );
+
+        $this->assertNotNull($result->perFileStats);
+        $this->assertArrayHasKey('app/Foo.php', $result->perFileStats);
+        $this->assertSame(20.0, $result->perFileStats['app/Foo.php']['msi']);
+        $this->assertSame(100.0, $result->perFileStats['app/Bar.php']['msi']);
+        // Aggregate realMsi is 60% (6 killed / 10 total).
+        $this->assertSame(60.0, $result->realMsi);
+    }
+
+    public function test_command_carries_logger_json_for_per_file_analysis(): void
+    {
+        $runner = new FakeMutationCommandRunner;
+        $runner->queueRawStats(
+            totalMutantsCount: 2,
+            killedCount: 2,
+            escapedCount: 0,
+            perFile: ['app/Foo.php' => ['killed' => 2, 'escaped' => 0]],
+        );
+
+        $adapter = new MutationTestingAdapter(
+            commandRunner: $runner,
+            e3Config: ElevationConfig::for('e3', ['mode' => 'advisory']),
+            repoRoot: '/repo',
+        );
+
+        $adapter->run(
+            runId: 'run-e3-json',
+            touchedFiles: ['tests/Unit/FooTest.php', 'app/Foo.php'],
+        );
+
+        $command = $runner->calls[0]['command'];
+        $this->assertStringContainsString(
+            '--logger-json=',
+            $command,
+            'command carries --logger-json for per-file MSI analysis',
+        );
     }
 }

@@ -182,10 +182,12 @@ final class MutationTestingAdapter
         }
 
         $summaryPath = $this->summaryPath($runId);
+        $reportPath = $this->reportPath($runId);
         $command = $this->buildCommand(
             runId: $runId,
             scope: $scope,
             summaryPath: $summaryPath,
+            reportPath: $reportPath,
         );
 
         $outcome = $this->commandRunner->run(
@@ -215,10 +217,31 @@ final class MutationTestingAdapter
             );
         }
 
+        // Anti-gaming (VAL-E3-005/006): recompute the REAL MSI over the FULL
+        // applicable mutant population from the raw summary counts.
+        // Infection's own stats.msi divides by (totalMutantsCount - skipped -
+        // ignored), so a patch config that marks survivors as IGNORED
+        // inflates infection's MSI. The real MSI divides by totalMutantsCount
+        // (the full population), immune to skipped/ignored inflation.
+        // Mutator-skipping is defeated structurally: the adapter never passes
+        // --mutators= and the per-run config carries no mutators key, so the
+        // full default mutator set always runs (the totalMutantsCount IS the
+        // full applicable population).
+        $rawCounts = $this->extractRawCounts($outcome->summaryPayload);
+        $realMsi = $this->computeRealMsi($rawCounts);
+
+        // Anti-gaming (VAL-E3-013): parse per-source-file MSI from the full
+        // --logger-json report so a weak file among strong ones is not masked
+        // by a high aggregate MSI.
+        $perFileStats = $this->computePerFileStats($outcome->reportPayload);
+
         return MutationTestingResult::completed(
             msi: $outcome->summaryMsi,
             summaryPath: $summaryPath,
             scope: $scope,
+            realMsi: $realMsi,
+            rawCounts: $rawCounts,
+            perFileStats: $perFileStats,
         );
     }
 
@@ -241,13 +264,19 @@ final class MutationTestingAdapter
      *     (coverage instrumentation scope = touched dirs only, never repo root)
      *   - --test-framework-options scoping PHPUnit to the touched test files
      *   - --logger-summary-json=<summaryPath> (real reported MSI source)
+     *   - --logger-json=<reportPath> (full mutation report for per-file MSI,
+     *     VAL-E3-013: a weak file among strong ones is not masked)
      *   - --no-interaction --no-progress (deterministic CI-friendly run)
      *
      * NOTE: --tmp-dir is NOT a CLI option (it is config-file-only in
      * infection 0.33.x), so per-run tmpDir isolation is achieved via the
      * per-run config file, not via a CLI flag.
+     *
+     * VAL-E3-005: the command NEVER carries --mutators= and the per-run
+     * config carries NO mutators key, so the full default mutator set always
+     * runs. A patch cannot reduce the mutator set to inflate the MSI.
      */
-    private function buildCommand(string $runId, MutationScope $scope, string $summaryPath): string
+    private function buildCommand(string $runId, MutationScope $scope, string $summaryPath, string $reportPath): string
     {
         $php = '/opt/homebrew/bin/php';
         $infection = $this->repoRoot.'/vendor/bin/infection';
@@ -263,6 +292,9 @@ final class MutationTestingAdapter
             '--filter='.escapeshellarg(implode(',', $scope->sourceFiles)),
             // VAL-E3-007: read the REAL reported MSI from the summary JSON.
             '--logger-summary-json='.escapeshellarg($summaryPath),
+            // VAL-E3-013: full mutation report for per-source-file MSI so a
+            // weak file among strong ones is not masked by a high aggregate.
+            '--logger-json='.escapeshellarg($reportPath),
         ];
 
         // VAL-E3-011 + VAL-E3-001: scope pcov coverage instrumentation to the
@@ -439,6 +471,179 @@ final class MutationTestingAdapter
         $safeRunId = preg_replace('/[^A-Za-z0-9_.-]/', '_', $runId) ?: 'run';
 
         return rtrim($this->repoRoot, '/').'/storage/atlas-dev/mutation/'.$safeRunId.'/infection-summary.json';
+    }
+
+    /**
+     * Per-run path for the full --logger-json mutation report. Carries
+     * per-status arrays with mutator.originalFilePath so the adapter can
+     * compute per-source-file MSI (VAL-E3-013).
+     */
+    private function reportPath(string $runId): string
+    {
+        $safeRunId = preg_replace('/[^A-Za-z0-9_.-]/', '_', $runId) ?: 'run';
+
+        return rtrim($this->repoRoot, '/').'/storage/atlas-dev/mutation/'.$safeRunId.'/infection-report.json';
+    }
+
+    /**
+     * Extract the raw mutant counts from the infection summary JSON stats
+     * block. These are the FULL population counts infection observed (before
+     * any skipped/ignored subtraction), used to recompute the REAL MSI
+     * (VAL-E3-006: immune to survivor-exclusion inflation).
+     *
+     * @param  ?array<string,mixed>  $summaryPayload
+     * @return ?array<string,int>
+     */
+    private function extractRawCounts(?array $summaryPayload): ?array
+    {
+        if ($summaryPayload === null) {
+            return null;
+        }
+        $stats = $summaryPayload['stats'] ?? null;
+        if (! is_array($stats)) {
+            return null;
+        }
+
+        $pull = static function (string $key) use ($stats): int {
+            $val = $stats[$key] ?? 0;
+
+            return is_numeric($val) ? (int) $val : 0;
+        };
+
+        return [
+            'totalMutantsCount' => $pull('totalMutantsCount'),
+            'killedCount' => $pull('killedCount'),
+            'escapedCount' => $pull('escapedCount'),
+            'errorCount' => $pull('errorCount'),
+            'syntaxErrorCount' => $pull('syntaxErrorCount'),
+            'skippedCount' => $pull('skippedCount'),
+            'ignoredCount' => $pull('ignoredCount'),
+            'timeOutCount' => $pull('timeOutCount'),
+            'notCoveredCount' => $pull('notCoveredCount'),
+        ];
+    }
+
+    /**
+     * Recompute the REAL MSI over the FULL applicable mutant population.
+     *
+     * Infection's own stats.msi divides by (totalMutantsCount - skipped -
+     * ignored) via Calculator::fromMetrics, so a patch config that marks
+     * survivors as IGNORED inflates infection's MSI (VAL-E3-006 gaming
+     * vector). The REAL MSI divides by totalMutantsCount — the full
+     * applicable population — and counts (killed + error [+ timeout]) as
+     * the numerator, mirroring infection's Calculator formula but over the
+     * un-reduced denominator.
+     *
+     * Mutator-skipping (VAL-E3-005) is defeated structurally: the adapter
+     * never passes --mutators= and the per-run config has no mutators key,
+     * so totalMutantsCount IS the full applicable population. A patch
+     * cannot reduce it.
+     *
+     * Returns null when the raw counts are unavailable (degrade to
+     * infection's reported MSI, which is still the honest-but-inflatable
+     * value — the gate then checks both).
+     *
+     * @param  ?array<string,int>  $rawCounts
+     */
+    private function computeRealMsi(?array $rawCounts): ?float
+    {
+        if ($rawCounts === null) {
+            return null;
+        }
+        $total = $rawCounts['totalMutantsCount'] ?? 0;
+        if ($total <= 0) {
+            return null;
+        }
+        $killed = $rawCounts['killedCount'] ?? 0;
+        $error = $rawCounts['errorCount'] ?? 0;
+        $timeout = $rawCounts['timeOutCount'] ?? 0;
+        // MSI numerator = killed + error + timeout (detected mutants).
+        // Matches infection's Calculator::getMutationScoreIndicator except
+        // for the denominator: infection uses testedCount (total - skipped -
+        // ignored); we use total (the full population).
+        $detected = $killed + $error + $timeout;
+
+        return round(100.0 * $detected / $total, 2);
+    }
+
+    /**
+     * Compute per-source-file MSI from the full --logger-json report's
+     * per-status arrays (VAL-E3-013). Each status array (killed, escaped,
+     * errored, timeouted, ignored, uncovered) carries entries with
+     * mutator.originalFilePath. We group by source file and compute the
+     * real per-file MSI using the same full-population denominator
+     * (total per file, including any ignored/skipped mutants in that file).
+     *
+     * Returns null when the report payload is unavailable. In that case the
+     * gate falls back to the aggregate realMsi alone (single-file scope or
+     * a degraded run where per-file == aggregate).
+     *
+     * @param  ?array<string,mixed>  $reportPayload
+     * @return ?array<string,array{msi:float,killed:int,escaped:int,total:int}>
+     */
+    private function computePerFileStats(?array $reportPayload): ?array
+    {
+        if ($reportPayload === null) {
+            return null;
+        }
+
+        // Map each status array key to its contribution to the per-file
+        // killed / escaped / total counts. The report uses 'killed',
+        // 'escaped', 'errored', 'timeouted', 'ignored', 'uncovered'.
+        $statusMap = [
+            'killed' => 'killed',
+            'escaped' => 'escaped',
+            'errored' => 'killed',    // errors count as detected (killed-equivalent)
+            'timeouted' => 'killed',  // timeouts count as detected (per Calculator)
+            'ignored' => null,        // ignored: counted in total, not in killed
+            'uncovered' => null,      // not-covered: counted in total, not in killed
+            'syntaxErrors' => 'killed', // syntax errors count as detected
+        ];
+
+        /** @var array<string,array{killed:int,escaped:int,total:int}> $perFile */
+        $perFile = [];
+
+        foreach ($statusMap as $reportKey => $contribution) {
+            $entries = $reportPayload[$reportKey] ?? null;
+            if (! is_array($entries)) {
+                continue;
+            }
+            foreach ($entries as $entry) {
+                $path = $entry['mutator']['originalFilePath']
+                    ?? $entry['mutator']['originalPath']
+                    ?? null;
+                if (! is_string($path) || $path === '') {
+                    continue;
+                }
+                if (! isset($perFile[$path])) {
+                    $perFile[$path] = ['killed' => 0, 'escaped' => 0, 'total' => 0];
+                }
+                $perFile[$path]['total']++;
+                if ($contribution === 'killed') {
+                    $perFile[$path]['killed']++;
+                } elseif ($contribution === 'escaped') {
+                    $perFile[$path]['escaped']++;
+                }
+            }
+        }
+
+        if ($perFile === []) {
+            return null;
+        }
+
+        $result = [];
+        foreach ($perFile as $path => $counts) {
+            $total = $counts['total'];
+            $msi = $total > 0 ? round(100.0 * $counts['killed'] / $total, 2) : 0.0;
+            $result[$path] = [
+                'msi' => $msi,
+                'killed' => $counts['killed'],
+                'escaped' => $counts['escaped'],
+                'total' => $total,
+            ];
+        }
+
+        return $result;
     }
 
     private function describeFailure(MutationCommandOutcome $outcome): string

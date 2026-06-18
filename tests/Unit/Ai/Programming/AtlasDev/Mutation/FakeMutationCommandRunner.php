@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\Programming\AtlasDev\Mutation;
 
 use App\Services\Ai\Programming\AtlasDev\Gate\UnsafeCommandPolicy;
-use App\Services\Ai\Programming\AtlasDev\Mutation\MutationCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\Mutation\MutationCommandOutcome;
+use App\Services\Ai\Programming\AtlasDev\Mutation\MutationCommandRunner;
 
 /**
  * In-memory runner for MutationTestingAdapter tests.
@@ -35,10 +35,19 @@ final class FakeMutationCommandRunner implements MutationCommandRunner
 
     /**
      * Queue a successful infection run that wrote the given MSI to its
-     * summary JSON at $summaryPath.
+     * summary JSON at $summaryPath. The raw counts (totalMutantsCount,
+     * killedCount) are derived to be CONSISTENT with the MSI so the
+     * adapter's recomputed realMsi matches the reported MSI (no gaming
+     * vector in this default happy-path helper). Use {@see queueRawStats()}
+     * for explicit raw counts / anti-gaming scenarios.
      */
     public function queueOk(float $msi, string $summaryPath): void
     {
+        // Derive consistent counts: total=10, killed = MSI% of 10.
+        $total = 10;
+        $killed = (int) round($msi * $total / 100.0);
+        $escaped = $total - $killed;
+
         $this->queue(new MutationCommandOutcome(
             exitCode: 0,
             stdout: 'infection ok',
@@ -48,10 +57,10 @@ final class FakeMutationCommandRunner implements MutationCommandRunner
             summaryMsi: $msi,
             summaryPayload: [
                 'stats' => [
-                    'totalMutantsCount' => 2,
-                    'killedCount' => 2,
+                    'totalMutantsCount' => $total,
+                    'killedCount' => $killed,
                     'notCoveredCount' => 0,
-                    'escapedCount' => 0,
+                    'escapedCount' => $escaped,
                     'errorCount' => 0,
                     'syntaxErrorCount' => 0,
                     'skippedCount' => 0,
@@ -79,6 +88,110 @@ final class FakeMutationCommandRunner implements MutationCommandRunner
             summaryMsi: null,
             summaryPayload: null,
         ));
+    }
+
+    /**
+     * Queue a successful infection run with explicit raw mutant counts and
+     * per-file mutant breakdown. The summary stats.msi is computed by
+     * infection's OWN formula (which subtracts skipped/ignored from the
+     * denominator — the gaming vector), so callers can simulate an attack
+     * (e.g. ignoredCount > 0 inflates infection's stats.msi) and prove the
+     * adapter recomputes the REAL MSI over the full population.
+     *
+     * The per-file breakdown simulates the --logger-json report: each file
+     * gets killed/escaped/error/timeout/ignored/skipped counts, from which
+     * the adapter computes per-source-file MSI (VAL-E3-013).
+     *
+     * @param  array<string,array{killed?:int,escaped?:int,error?:int,timeout?:int,ignored?:int,skipped?:int,notCovered?:int}>  $perFile
+     */
+    public function queueRawStats(
+        int $totalMutantsCount,
+        int $killedCount,
+        int $escapedCount,
+        int $ignoredCount = 0,
+        int $skippedCount = 0,
+        int $errorCount = 0,
+        int $timeOutCount = 0,
+        int $notCoveredCount = 0,
+        array $perFile = [],
+    ): void {
+        // infection's OWN MSI: (killed + error [+ timeout]) / (total - skipped - ignored).
+        // This is the value infection writes to stats.msi and the gaming vector.
+        $testedTotal = max(0, $totalMutantsCount - $skippedCount - $ignoredCount);
+        $coveredTotal = $killedCount + $errorCount + $timeOutCount;
+        $infectionMsi = $testedTotal > 0 ? round(100.0 * $coveredTotal / $testedTotal, 2) : 0.0;
+
+        $summaryPayload = [
+            'stats' => [
+                'totalMutantsCount' => $totalMutantsCount,
+                'killedCount' => $killedCount,
+                'notCoveredCount' => $notCoveredCount,
+                'escapedCount' => $escapedCount,
+                'errorCount' => $errorCount,
+                'syntaxErrorCount' => 0,
+                'skippedCount' => $skippedCount,
+                'ignoredCount' => $ignoredCount,
+                'timeOutCount' => $timeOutCount,
+                'msi' => $infectionMsi,
+                'mutationCodeCoverage' => $totalMutantsCount > 0
+                    ? round(100.0 * ($totalMutantsCount - $notCoveredCount) / $totalMutantsCount, 2)
+                    : 0.0,
+                'coveredCodeMsi' => $infectionMsi,
+            ],
+        ];
+
+        // Build the --logger-json report payload (per-status arrays with
+        // mutator.originalFilePath). The adapter parses per-file MSI from this.
+        $reportPayload = $this->buildReportPayload($perFile);
+
+        $this->queue(new MutationCommandOutcome(
+            exitCode: 0,
+            stdout: 'infection ok',
+            stderr: '',
+            durationMs: 0,
+            summaryPath: '/tmp/fake-summary.json',
+            summaryMsi: $infectionMsi,
+            summaryPayload: $summaryPayload,
+            reportPath: '/tmp/fake-report.json',
+            reportPayload: $reportPayload,
+        ));
+    }
+
+    /**
+     * Build a simulated --logger-json report payload from a per-file
+     * breakdown. Each status array carries entries with
+     * mutator.originalFilePath so the adapter can group by source file.
+     *
+     * @param  array<string,array{killed?:int,escaped?:int,error?:int,timeout?:int,ignored?:int,skipped?:int,notCovered?:int}>  $perFile
+     * @return array<string,mixed>
+     */
+    private function buildReportPayload(array $perFile): array
+    {
+        $byStatus = ['killed' => [], 'escaped' => [], 'errored' => [], 'timeouted' => [], 'ignored' => [], 'uncovered' => []];
+        foreach ($perFile as $file => $counts) {
+            foreach (['killed', 'escaped', 'error', 'timeout', 'ignored', 'notCovered'] as $status) {
+                $count = $counts[$status] ?? 0;
+                $key = match ($status) {
+                    'killed' => 'killed',
+                    'escaped' => 'escaped',
+                    'error' => 'errored',
+                    'timeout' => 'timeouted',
+                    'ignored' => 'ignored',
+                    'notCovered' => 'uncovered',
+                };
+                for ($i = 0; $i < $count; $i++) {
+                    $byStatus[$key][] = [
+                        'mutator' => [
+                            'mutatorName' => 'Fake',
+                            'originalFilePath' => $file,
+                            'originalStartLine' => 1,
+                        ],
+                    ];
+                }
+            }
+        }
+
+        return $byStatus;
     }
 
     public function run(string $command, string $workspace, int $timeoutSeconds): MutationCommandOutcome

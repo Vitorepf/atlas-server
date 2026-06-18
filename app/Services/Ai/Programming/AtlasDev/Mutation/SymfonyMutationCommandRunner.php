@@ -37,6 +37,8 @@ final class SymfonyMutationCommandRunner implements MutationCommandRunner
                 summaryPath: null,
                 summaryMsi: null,
                 summaryPayload: null,
+                reportPath: null,
+                reportPayload: null,
             );
         }
 
@@ -69,6 +71,15 @@ final class SymfonyMutationCommandRunner implements MutationCommandRunner
             : null;
         $summaryMsi = $this->extractMsi($summaryPayload);
 
+        // Parse the full --logger-json report path so the adapter can compute
+        // per-source-file MSI (VAL-E3-013: a weak file among strong ones is
+        // not masked by a high aggregate). The adapter always passes
+        // --logger-json=<path> when the run is non-skipped.
+        $reportPath = $this->extractReportPath($command);
+        $reportPayload = $reportPath !== null && is_file($reportPath)
+            ? $this->decodeSummary($reportPath)
+            : null;
+
         return new MutationCommandOutcome(
             exitCode: $exitCode,
             stdout: $stdout,
@@ -77,6 +88,8 @@ final class SymfonyMutationCommandRunner implements MutationCommandRunner
             summaryPath: $summaryPath,
             summaryMsi: $summaryMsi,
             summaryPayload: $summaryPayload,
+            reportPath: $reportPath,
+            reportPayload: $reportPayload,
         );
     }
 
@@ -91,6 +104,24 @@ final class SymfonyMutationCommandRunner implements MutationCommandRunner
         }
         $value = $m[1];
         // Unescape a shell-quoted value if present.
+        if (strlen($value) >= 2 && $value[0] === "'" && substr($value, -1) === "'") {
+            $value = substr($value, 1, -1);
+            $value = str_replace("'\\''", "'", $value);
+        }
+
+        return $value;
+    }
+
+    /**
+     * Extract the --logger-json=<path> value from the command line.
+     * Returns null when the flag is absent.
+     */
+    private function extractReportPath(string $command): ?string
+    {
+        if (preg_match('/--logger-json=([^\s]+)/', $command, $m) !== 1) {
+            return null;
+        }
+        $value = $m[1];
         if (strlen($value) >= 2 && $value[0] === "'" && substr($value, -1) === "'") {
             $value = substr($value, 1, -1);
             $value = str_replace("'\\''", "'", $value);

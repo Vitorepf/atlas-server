@@ -27,15 +27,27 @@ namespace App\Services\Ai\Programming\AtlasDev\Mutation;
  *                       anti-gaming checks (VAL-E3-005/006: mutator-skipping
  *                       and survivor-exclusion attempts) can inspect the
  *                       totalMutantsCount / killedCount / escapedCount etc.
+ *   - reportPath:      absolute path to the --logger-json full mutation
+ *                       report file infection wrote (or null if absent).
+ *                       Carries per-status arrays with
+ *                       mutator.originalFilePath so the adapter can compute
+ *                       per-source-file MSI (VAL-E3-013: weak file among
+ *                       strong ones is not masked by a high aggregate).
+ *   - reportPayload:   the full decoded --logger-json report, retained so
+ *                       the adapter can compute per-source-file MSI without
+ *                       re-reading the file.
  *
  * The summary payload schema is documented at
  * vendor/infection/infection/resources/schema.json (logs.summaryJson) and
  * matches the sample produced by `infection --logger-summary-json=...`.
+ * The full report schema matches logs.json (the JsonReporter: per-status
+ * arrays with mutator.originalFilePath per mutant).
  */
 final class MutationCommandOutcome
 {
     /**
      * @param  ?array<string,mixed>  $summaryPayload
+     * @param  ?array<string,mixed>  $reportPayload
      */
     public function __construct(
         public readonly int $exitCode,
@@ -45,6 +57,8 @@ final class MutationCommandOutcome
         public readonly ?string $summaryPath,
         public readonly ?float $summaryMsi,
         public readonly ?array $summaryPayload,
+        public readonly ?string $reportPath = null,
+        public readonly ?array $reportPayload = null,
     ) {}
 
     public function ok(): bool
