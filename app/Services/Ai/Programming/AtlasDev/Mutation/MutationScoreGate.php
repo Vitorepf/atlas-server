@@ -203,9 +203,25 @@ final class MutationScoreGate
 
         $msi = $result->msi;
 
-        // VAL-E3-007: MSI >= threshold (boundary inclusive) => pass.
+        // VAL-E3-007: MSI >= threshold (boundary inclusive) => pass the
+        // AGGREGATE check. But we still need to enforce the per-file
+        // anti-dilution check (VAL-E3-013) before returning a clean pass:
+        // a weak source file (per-file MSI below threshold) MUST trip the
+        // gate even when the aggregate union MSI is above threshold, so it
+        // cannot be masked/diluted by strong files in a multi-file scope.
+        // The aggregate check above is a fast-path: when the aggregate is
+        // already below threshold, the per-file check is redundant (the gate
+        // trips regardless). We only reach here when aggregate >= threshold.
         if ($msi >= $this->threshold) {
-            return MutationScoreVerdict::pass($msi, $this->threshold);
+            $weakFile = $this->findWeakFile($result);
+            if ($weakFile === null) {
+                return MutationScoreVerdict::pass($msi, $this->threshold);
+            }
+
+            // VAL-E3-013: a single source file's per-file MSI is below
+            // threshold despite the aggregate being above. Trip the gate
+            // so the weak file is not masked by strong files.
+            return $this->tripOnWeakFile($msi, $weakFile);
         }
 
         // VAL-E3-002 / VAL-E3-003: MSI < threshold => trip.
@@ -227,6 +243,78 @@ final class MutationScoreGate
             noOpReason: '',
             reason: $reason,
             msi: $msi,
+            threshold: $this->threshold,
+        );
+    }
+
+    /**
+     * Find the first source file whose per-file MSI is below the threshold,
+     * or null when all files are at/above threshold (or per-file data is
+     * unavailable — the anti-dilution check is structural, not an LLM
+     * judgment: it applies only when per-file stats ARE available; when they
+     * are null, the aggregate check is the sole gate, preserving backward
+     * compatibility).
+     *
+     * VAL-E3-013: the anti-dilution check is CONSISTENT across advisory and
+     * hard modes (the SAME per-file threshold comparison trips the gate in
+     * both modes; only the verdict channel differs — advisory flag vs hard
+     * STATUS_FAILED — which is resolved by the caller reading
+     * $shouldFailGate).
+     *
+     * @param  MutationTestingResult  $result  a COMPLETED result (msi != null).
+     * @return PerFileMutationStats|null the first weak file, or null.
+     */
+    private function findWeakFile(MutationTestingResult $result): ?PerFileMutationStats
+    {
+        $perFileStats = $result->perFileStats;
+        if ($perFileStats === null) {
+            // No per-file data available (e.g. the JSON report was not
+            // produced or could not be parsed). The aggregate check is the
+            // sole gate — do not trip on missing per-file data (the aggregate
+            // MSI is still checked above). This preserves backward
+            // compatibility for runs where per-file data was not collected.
+            return null;
+        }
+
+        foreach ($perFileStats as $stats) {
+            if ($stats->msi < $this->threshold) {
+                return $stats;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Build the tripped verdict for the anti-dilution case (VAL-E3-013):
+     * a single source file's per-file MSI is below threshold despite the
+     * aggregate union MSI being above threshold.
+     *
+     * The verdict channels mirror the aggregate below-threshold trip:
+     *   - advisory => honesty flag only (never STATUS_FAILED for the flag
+     *     alone, VAL-E3-002).
+     *   - hard     => STATUS_FAILED gate channel (never just downgrades,
+     *     VAL-E3-003).
+     * The flag is retained for auditability in both modes.
+     */
+    private function tripOnWeakFile(float $aggregateMsi, PerFileMutationStats $weakFile): MutationScoreVerdict
+    {
+        $reason = sprintf(
+            'e3: per-file MSI anti-dilution: source file %s has MSI %.2f%% below threshold %.2f%% (aggregate union MSI %.2f%% is above threshold, but the weak file must not be masked)',
+            $weakFile->filePath,
+            $weakFile->msi,
+            $this->threshold,
+            $aggregateMsi,
+        );
+
+        return new MutationScoreVerdict(
+            tripped: true,
+            shouldFailGate: $this->e3Config->isHard(),
+            honestyFlags: [MutationTestingAdapter::FLAG_MUTATION_SCORE_BELOW_THRESHOLD],
+            isNoOp: false,
+            noOpReason: '',
+            reason: $reason,
+            msi: $aggregateMsi,
             threshold: $this->threshold,
         );
     }

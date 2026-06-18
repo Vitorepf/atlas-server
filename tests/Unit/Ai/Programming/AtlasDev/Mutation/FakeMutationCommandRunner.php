@@ -7,6 +7,7 @@ namespace Tests\Unit\Ai\Programming\AtlasDev\Mutation;
 use App\Services\Ai\Programming\AtlasDev\Gate\UnsafeCommandPolicy;
 use App\Services\Ai\Programming\AtlasDev\Mutation\MutationCommandOutcome;
 use App\Services\Ai\Programming\AtlasDev\Mutation\MutationCommandRunner;
+use App\Services\Ai\Programming\AtlasDev\Mutation\PerFileMutationStats;
 
 /**
  * In-memory runner for MutationTestingAdapter tests.
@@ -43,8 +44,10 @@ final class FakeMutationCommandRunner implements MutationCommandRunner
      * run). The default fixture is an all-killed honest run at the requested
      * MSI: we pick a small total and compute the killed count so the recomputed
      * MSI rounds to the queued value.
+     *
+     * @param  list<PerFileMutationStats>|null  $perFileStats
      */
-    public function queueOk(float $msi, string $summaryPath): void
+    public function queueOk(float $msi, string $summaryPath, ?array $perFileStats = null): void
     {
         // Pick the smallest denominator (up to a sane cap) that represents
         // the queued MSI within rounding, so the recomputed MSI (Defect 2:
@@ -87,6 +90,7 @@ final class FakeMutationCommandRunner implements MutationCommandRunner
                     'coveredCodeMsi' => $recomputed,
                 ],
             ],
+            perFileStats: $perFileStats,
         ));
     }
 

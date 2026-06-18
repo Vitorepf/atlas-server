@@ -31,11 +31,25 @@ namespace App\Services\Ai\Programming\AtlasDev\Mutation;
  *                         scoped to (anti-gaming evidence for VAL-E3-005/006
  *                         and VAL-E3-012/013).
  *
+ * Per-file anti-dilution (VAL-E3-013): {@see $perFileStats} carries the
+ * per-source-file MSI breakdown so the gate can enforce that NO single
+ * source file's MSI falls below the threshold, regardless of the aggregate.
+ * A weak file at MSI=40 cannot be masked/diluted by a strong file at MSI=100
+ * yielding an aggregate above threshold. Null when the run was skipped/
+ * failed (no per-file data to report), or when per-file data was not
+ * available from the report (the gate treats null perFileStats as "no
+ * per-file check possible" — the aggregate check still applies).
+ *
  * The result is a pure data carrier: the gate decides the verdict; the
  * adapter only reports what infection observed.
  */
 final class MutationTestingResult
 {
+    /**
+     * @param  list<PerFileMutationStats>|null  $perFileStats  per-source-file
+     *                                                         MSI breakdown for the anti-dilution check (VAL-E3-013), or null
+     *                                                         when the run was skipped/failed or per-file data unavailable.
+     */
     public function __construct(
         public readonly bool $skipped,
         public readonly string $skipReason,
@@ -44,6 +58,7 @@ final class MutationTestingResult
         public readonly ?float $msi,
         public readonly ?string $summaryPath,
         public readonly ?MutationScope $scope,
+        public readonly ?array $perFileStats = null,
     ) {}
 
     public static function skipped(string $reason): self
@@ -72,10 +87,14 @@ final class MutationTestingResult
         );
     }
 
+    /**
+     * @param  list<PerFileMutationStats>|null  $perFileStats
+     */
     public static function completed(
         float $msi,
         string $summaryPath,
         MutationScope $scope,
+        ?array $perFileStats = null,
     ): self {
         return new self(
             skipped: false,
@@ -85,6 +104,7 @@ final class MutationTestingResult
             msi: $msi,
             summaryPath: $summaryPath,
             scope: $scope,
+            perFileStats: $perFileStats,
         );
     }
 }

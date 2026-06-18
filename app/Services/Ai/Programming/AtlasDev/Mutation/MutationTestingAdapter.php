@@ -232,10 +232,20 @@ final class MutationTestingAdapter
             );
         }
 
+        // VAL-E3-013: compute per-file MSI from the infection JSON report
+        // (--logger-json) so the gate can enforce the anti-dilution check:
+        // a weak source file (per-file MSI below threshold) MUST trip the
+        // gate even when the aggregate union MSI is above threshold.
+        // $perFileStats is null when the report was not produced or could
+        // not be parsed — the gate treats null as "no per-file check
+        // possible" and falls back to the aggregate check only.
+        $perFileStats = $outcome->perFileStats;
+
         return MutationTestingResult::completed(
             msi: $realMsi,
             summaryPath: $summaryPath,
             scope: $scope,
+            perFileStats: $perFileStats,
         );
     }
 
@@ -372,6 +382,12 @@ final class MutationTestingAdapter
             '--filter='.escapeshellarg(implode(',', $scope->sourceFiles)),
             // VAL-E3-007: read the REAL reported MSI from the summary JSON.
             '--logger-summary-json='.escapeshellarg($summaryPath),
+            // VAL-E3-013: write the per-mutant JSON report so the runner can
+            // compute per-file MSI for the anti-dilution check. The JSON
+            // report groups mutants by result category (killed/escaped/etc.)
+            // and each entry carries mutator.originalFilePath, so per-file
+            // MSI is computed by grouping on the source file path.
+            '--logger-json='.escapeshellarg($this->jsonReportPath($runId)),
         ];
 
         // VAL-E3-011 + VAL-E3-001 + m3-e3 Defect 1: scope pcov coverage
@@ -554,6 +570,21 @@ final class MutationTestingAdapter
         $safeRunId = preg_replace('/[^A-Za-z0-9_.-]/', '_', $runId) ?: 'run';
 
         return rtrim($this->repoRoot, '/').'/storage/atlas-dev/mutation/'.$safeRunId.'/infection-summary.json';
+    }
+
+    /**
+     * The per-run path for the infection JSON report (--logger-json).
+     *
+     * The JSON report groups mutants by result category (killed, escaped,
+     * errored, syntaxErrors, timeouted, uncovered, ignored) and each entry
+     * carries mutator.originalFilePath, so the runner can compute per-file
+     * MSI by grouping on the source file path (VAL-E3-013 anti-dilution).
+     */
+    private function jsonReportPath(string $runId): string
+    {
+        $safeRunId = preg_replace('/[^A-Za-z0-9_.-]/', '_', $runId) ?: 'run';
+
+        return rtrim($this->repoRoot, '/').'/storage/atlas-dev/mutation/'.$safeRunId.'/infection-report.json';
     }
 
     private function describeFailure(MutationCommandOutcome $outcome): string

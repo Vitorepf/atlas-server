@@ -27,6 +27,12 @@ namespace App\Services\Ai\Programming\AtlasDev\Mutation;
  *                       anti-gaming checks (VAL-E3-005/006: mutator-skipping
  *                       and survivor-exclusion attempts) can inspect the
  *                       totalMutantsCount / killedCount / escapedCount etc.
+ *   - perFileStats:    per-source-file MSI breakdown parsed from the
+ *                       infection JSON report (--logger-json), used by the
+ *                       gate for the anti-dilution check (VAL-E3-013: a weak
+ *                       file below threshold cannot be masked by strong
+ *                       files in the aggregate). Null when the JSON report
+ *                       was not produced or could not be parsed.
  *
  * The summary payload schema is documented at
  * vendor/infection/infection/resources/schema.json (logs.summaryJson) and
@@ -36,6 +42,7 @@ final class MutationCommandOutcome
 {
     /**
      * @param  ?array<string,mixed>  $summaryPayload
+     * @param  list<PerFileMutationStats>|null  $perFileStats
      */
     public function __construct(
         public readonly int $exitCode,
@@ -45,6 +52,7 @@ final class MutationCommandOutcome
         public readonly ?string $summaryPath,
         public readonly ?float $summaryMsi,
         public readonly ?array $summaryPayload,
+        public readonly ?array $perFileStats = null,
     ) {}
 
     public function ok(): bool
