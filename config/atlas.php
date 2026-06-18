@@ -2046,6 +2046,12 @@ return [
         'producer_min_unblock' => max(0.0, (float) env('ATLAS_LOOP_PRODUCER_MIN_UNBLOCK', 0.25)),
         // The expensive brain read (~3s/file) runs only on this many structural finalists per tick.
         'producer_brain_finalists' => max(1, (int) env('ATLAS_LOOP_PRODUCER_BRAIN_FINALISTS', 3)),
+        // FEATURE ORIGINATION (the ceiling lift): when ON, the producer may originate a NEW-capability
+        // objective (RED-verified) instead of only refactors. Default OFF — refactor-only until armed.
+        'producer_feature_origination_enabled' => (bool) env('ATLAS_LOOP_PRODUCER_FEATURE_ORIGINATION_ENABLED', false),
+        // Adversarial critic: if the leverage(ratio)-winner's leap-magnitude (impact×breadth×compounding)
+        // is below this fraction of the biggest floor-passer's, the critic promotes the bigger leap.
+        'critic_numerator_threshold' => max(0.0, min(1.0, (float) env('ATLAS_LOOP_CRITIC_NUMERATOR_THRESHOLD', 0.6))),
 
         // DECISION ("o quê a seguir") — the UNGAMEABLE next-work priority. When ON, the task
         // priority becomes BAND(shape) + OFFSET(leverage re-resolved FRESH from git/graph) instead

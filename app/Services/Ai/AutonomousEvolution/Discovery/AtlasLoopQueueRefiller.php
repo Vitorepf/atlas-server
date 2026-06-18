@@ -323,7 +323,7 @@ final class AtlasLoopQueueRefiller
                         'producer:objective',
                         (string) $built['target_path'],
                         $priority,
-                        true,
+                        (bool) ($built['self_contained'] ?? true), // refactor=self-contained; feature=framework
                         $hash !== '' ? $hash : null,
                     );
                     if ($enq !== null) {
