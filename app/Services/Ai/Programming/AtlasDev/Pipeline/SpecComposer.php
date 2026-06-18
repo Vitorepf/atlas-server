@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\AtlasDev\Pipeline;
 
 use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
-use App\Services\Ai\Programming\HermesWorkspaceDefaults;
 use App\Services\Ai\Programming\AtlasDev\Schemas\CodeDiscoveryManifest;
 use App\Services\Ai\Programming\AtlasDev\Schemas\CompactSdd;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ContextBudget;
@@ -17,6 +16,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\MiniProgrammingSpec;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OpenBrainProgrammingProjection;
 use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
+use App\Services\Ai\Programming\HermesWorkspaceDefaults;
 use InvalidArgumentException;
 
 /**
@@ -649,6 +649,7 @@ class SpecComposer
         foreach ($discovery->likelyFiles as $candidate) {
             $paths[] = $candidate->path;
         }
+
         return AtlasDevStringListNormalizer::uniqueSortedStrings($paths);
     }
 

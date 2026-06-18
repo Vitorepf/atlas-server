@@ -52,9 +52,9 @@ final class PromptSectionsTest extends TestCase
 
         $expected = [
             'acceptance_criteria', 'allowed_files', 'code_discovery_ref', 'context_refs',
-            'escalation_conditions', 'expected_tests', 'forbidden_files', 'known_failure_modes',
-            'mini_spec_ref', 'non_goals', 'objective', 'operating_rules', 'output_contract',
-            'stop_conditions', 'task_contract_ref',
+            'definition_of_done', 'escalation_conditions', 'expected_tests', 'forbidden_files',
+            'known_failure_modes', 'mini_spec_ref', 'non_goals', 'objective', 'operating_rules',
+            'output_contract', 'stop_conditions', 'task_contract_ref',
         ];
         $this->assertSame($expected, array_keys($sections->toCanonicalArray()));
     }

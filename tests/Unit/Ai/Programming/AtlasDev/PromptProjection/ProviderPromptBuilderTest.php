@@ -266,6 +266,7 @@ final class ProviderPromptBuilderTest extends TestCase
             'allowed_files',
             'code_discovery_ref',
             'context_refs',
+            'definition_of_done',
             'escalation_conditions',
             'expected_tests',
             'forbidden_files',
@@ -282,7 +283,7 @@ final class ProviderPromptBuilderTest extends TestCase
         $this->assertSame(
             $expected,
             array_keys($sections),
-            'PromptSections must expose exactly the 15 canonical sections (13 original + non_goals + known_failure_modes for M5 compounding memory).',
+            'PromptSections must expose exactly the 16 canonical sections (13 original + non_goals + known_failure_modes for M5 compounding memory + definition_of_done for E2).',
         );
         $this->assertInstanceOf(PromptSections::class, $projection->sections);
     }
