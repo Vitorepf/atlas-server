@@ -32,6 +32,7 @@
         "node_modules/*",
         ".env"
     ],
+    "intent_text": "",
     "max_files_changed": 2,
     "no_test_reason": null,
     "owner": "atlas_dev_sonnet",

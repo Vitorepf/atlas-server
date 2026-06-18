@@ -51,6 +51,7 @@ final class RepairFixtureFactory
             'escalation_on' => ['scope_explosion'],
             'evidence_required' => ['verification_log'],
             'forbidden_files' => array_values($forbiddenFiles),
+            'intent_text' => '',
             'max_files_changed' => 2,
             'no_test_reason' => $noTestReason,
             'owner' => LightTaskContract::OWNER,

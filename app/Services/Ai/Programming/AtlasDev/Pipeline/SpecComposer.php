@@ -225,6 +225,15 @@ class SpecComposer
 
         $providerLock = $this->resolveProviderLock($envelope);
 
+        // E2: intent_text sourced from the normalized intent. For write tasks
+        // (the only path that mutates the workspace), never empty: fall back
+        // to the raw intent when the normalized form is blank, then to a
+        // stable placeholder so a write task always carries a non-empty
+        // intent_text folded into the contract hash. Read-only / review /
+        // escalate-preview tasks may carry an empty intent_text (no write
+        // implies no intent to fold).
+        $intentText = $this->resolveIntentText($envelope, $writeAllowed);
+
         $miniSpecHash = $miniSpec->miniSpecHash !== '' ? $miniSpec->miniSpecHash : $miniSpec->hash();
         $skeleton = new LightTaskContract(
             runId: $envelope->runId,
@@ -243,6 +252,7 @@ class SpecComposer
             providerLock: $providerLock,
             taskContractHash: '',
             noTestReason: $miniSpec->verificationPlan->noTestReason,
+            intentText: $intentText,
         );
         $hash = $skeleton->hash();
 
@@ -263,6 +273,7 @@ class SpecComposer
             providerLock: $skeleton->providerLock,
             taskContractHash: $hash,
             noTestReason: $skeleton->noTestReason,
+            intentText: $skeleton->intentText,
         );
     }
 
@@ -1334,5 +1345,37 @@ class SpecComposer
     private function deriveTaskId(OperationEnvelope $envelope, MiniProgrammingSpec $miniSpec): string
     {
         return 'task-'.substr($envelope->runId, 0, 32);
+    }
+
+    /**
+     * Resolve the intent_text for the LightTaskContract. Sourced from the
+     * envelope's normalized intent; for write tasks (writeAllowed=true) the
+     * result is NEVER empty: the raw intent is the first fallback and a
+     * stable sentinel is the final floor, so a write task always carries a
+     * non-empty intent_text folded into the contract hash. Read-only / review
+     * / escalate-preview tasks may carry an empty intent_text (no write
+     * implies no intent-mutation to fold).
+     *
+     * VAL-E2-006 / VAL-E2-012: intent_text is non-empty for write tasks
+     * including sparse single-verb intents ("corrija", "fix").
+     */
+    private function resolveIntentText(OperationEnvelope $envelope, bool $writeAllowed): string
+    {
+        $normalized = trim($envelope->normalizedIntent);
+        if ($normalized !== '') {
+            return $normalized;
+        }
+
+        if (! $writeAllowed) {
+            return '';
+        }
+
+        $raw = trim($envelope->rawIntent);
+        if ($raw !== '') {
+            return $raw;
+        }
+
+        // Final floor for a write task with a blank intent: never empty.
+        return 'write_task_intent_unavailable';
     }
 }

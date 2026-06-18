@@ -74,4 +74,33 @@ final class VerificationGateResult
     {
         return $this->aggregateStatus === self::STATUS_PASSED;
     }
+
+    /**
+     * Return a copy with the additional honesty flags appended (deduped,
+     * order-preserving). Used by elevation probes (E2 intent_not_tested,
+     * E1 intent_likely_not_addressed, E4 candidate_divergence, etc.) to
+     * surface advisory signals through the sanctioned honesty-flag channel
+     * so the CompletionStateGate auto-downgrades PASSED -> needs_review.
+     *
+     * The aggregate status and all other fields are preserved unchanged:
+     * the honesty flag drives the downgrade, not a status mutation.
+     *
+     * @param  list<string>  $flags
+     */
+    public function withHonestyFlags(array $flags): self
+    {
+        $merged = array_values(array_unique(array_merge(
+            $this->honestyFlags,
+            array_values(array_filter($flags, static fn ($f): bool => is_string($f) && $f !== '')),
+        )));
+
+        return new self(
+            tests: $this->tests,
+            gates: $this->gates,
+            aggregateStatus: $this->aggregateStatus,
+            honestyFlags: $merged,
+            evidenceRefs: $this->evidenceRefs,
+            profile: $this->profile,
+        );
+    }
 }

@@ -45,6 +45,15 @@ final class LightTaskContract implements AtlasDevSchemaContract
         public readonly ProviderLock $providerLock,
         public readonly string $taskContractHash,
         public readonly ?string $noTestReason = null,
+        /**
+         * E2: the normalized intent text that drove this task. Folded into
+         * task_contract_hash via toCanonicalArray() so two contracts with
+         * different intents carry different hashes. Never empty for write
+         * tasks (populated by SpecComposer::composeTaskContract from
+         * envelope->normalizedIntent, with rawIntent as the floor). Back-
+         * compat default '' for pre-E2 payloads reconstructed via fromArray.
+         */
+        public readonly string $intentText = '',
     ) {}
 
     public function schemaVersion(): string
@@ -61,6 +70,7 @@ final class LightTaskContract implements AtlasDevSchemaContract
             'escalation_on' => array_values($this->escalationOn),
             'evidence_required' => array_values($this->evidenceRequired),
             'forbidden_files' => array_values($this->forbiddenFiles),
+            'intent_text' => $this->intentText,
             'max_files_changed' => $this->maxFilesChanged,
             'no_test_reason' => $this->noTestReason,
             'owner' => self::OWNER,
@@ -121,6 +131,7 @@ final class LightTaskContract implements AtlasDevSchemaContract
             providerLock: ProviderLock::fromArray((array) $payload['provider_lock']),
             taskContractHash: (string) ($payload['task_contract_hash'] ?? ''),
             noTestReason: $payload['no_test_reason'] ?? null,
+            intentText: (string) ($payload['intent_text'] ?? ''),
         );
     }
 }

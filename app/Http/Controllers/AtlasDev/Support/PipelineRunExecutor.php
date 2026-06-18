@@ -42,9 +42,12 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Components\CompletionSummary;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\GateOutcome;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ScopeFileDiff;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
+use App\Services\Ai\Programming\AtlasDev\Schemas\MiniProgrammingSpec;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ScopeGuardReceipt;
 use App\Services\Ai\Programming\AtlasDev\Schemas\VerificationReceipt;
+use App\Services\Ai\Programming\AtlasDev\Probe\IntentCoverageProbe;
+use App\Services\Ai\Programming\AtlasDev\Support\Elevations\ElevationConfig;
 use App\Services\Ai\Programming\AtlasDev\WorkspaceMutatingProviders;
 use App\Services\Ai\Programming\AtlasForgeCodexCliInvocationDriver;
 use App\Services\Ai\Programming\AtlasForgeCursorCliInvocationDriver;
@@ -307,6 +310,40 @@ final class PipelineRunExecutor implements RunExecutor
             ArtifactNames::DIFF_PARSE_RESULT,
             $diffResult->toCanonicalArray(),
         );
+
+        // E2: Intent coverage probe — advisory honesty flag intent_not_tested.
+        //
+        // When a write task's intent is NOT backed by any behavioral AC
+        // carrying a real verification_ref (only tautological command/scope
+        // ACs, or no behavioral AC at all), append the `intent_not_tested`
+        // honesty flag so the CompletionStateGate auto-downgrades PASSED ->
+        // needs_review (the passed-forbids-flags invariant guarantees no
+        // green-with-flag). This is the advisory channel: no STATUS_FAILED,
+        // no critic escalate; the flag alone drives the downgrade.
+        //
+        // VAL-E2-009: fires when only tautological ACs back the intent.
+        // VAL-E2-010: absent when a behavioral AC with a real verification_ref
+        // backs the intent (the intent IS tested).
+        // VAL-E2-013: off => no flag raised (byte-identical to pre-E2).
+        //
+        // The probe reads the persisted MiniProgrammingSpec (the source of
+        // acceptanceCriteria) from storage. When the spec is unreadable, a
+        // write task's intent is conservatively treated as not-tested (never
+        // silently green over an unevaluable intent), mirroring the E5
+        // DatabaseTableAvailability safe-degradation pattern.
+        //
+        // This runs for EVERY provider (not just hermes_cli): the intent
+        // coverage check is a property of the SPEC, not the provider, and
+        // the honesty-flag channel is provider-agnostic by design.
+        $e2Config = $this->resolveE2Config();
+        if ($e2Config->isAdvisory()) {
+            $intentNotTested = $this->probeIntentCoverage($runId, $taskContract);
+            if ($intentNotTested) {
+                $verificationResult = $verificationResult->withHonestyFlags([
+                    IntentCoverageProbe::FLAG_INTENT_NOT_TESTED,
+                ]);
+            }
+        }
 
         // M3: Senior critic — invoke ReviewIntelligenceService after the gate
         // passes and before CompletionStateGate promotes a completion, on the
@@ -2541,5 +2578,47 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
                 'compact_sdd_hash does not match the hash pinned by mini_programming_spec',
             );
         }
+    }
+
+    /**
+     * E2: resolve the e2 elevation config. Reads the live config kernel when
+     * available (feature tests / production); otherwise degrades to the safe
+     * default (advisory) so plain-PHPunit unit tests never crash. Mirrors
+     * the resolution pattern used by SpecComposer and PromptSectionsMapper.
+     */
+    private function resolveE2Config(): ElevationConfig
+    {
+        try {
+            return ElevationConfig::fromConfig('e2');
+        } catch (\Throwable) {
+            return ElevationConfig::for('e2', null);
+        }
+    }
+
+    /**
+     * E2: probe whether the write task's intent is NOT backed by any
+     * behavioral AC with a real verification_ref. Reads the persisted
+     * MiniProgrammingSpec (the source of acceptanceCriteria) from storage.
+     * Returns true when the intent is untested (flag should fire); false
+     * when the intent is tested OR the task is not a write task (empty
+     * intent_text). When the spec is unreadable, a write task's intent is
+     * conservatively treated as not-tested (never silently green over an
+     * unevaluable intent).
+     */
+    private function probeIntentCoverage(string $runId, LightTaskContract $taskContract): bool
+    {
+        $miniSpec = null;
+        try {
+            $payload = $this->storage->read($runId, ArtifactNames::MINI_PROGRAMMING_SPEC);
+            if (is_array($payload)) {
+                $miniSpec = MiniProgrammingSpec::fromArray($payload);
+            }
+        } catch (\Throwable) {
+            // Degrade to "untested" for a write task (the probe will return
+            // true for a write task when miniSpec is null, mirroring safe
+            // degradation: never silently green over an unevaluable intent).
+        }
+
+        return (new IntentCoverageProbe)->isIntentNotTested($taskContract, $miniSpec);
     }
 }
