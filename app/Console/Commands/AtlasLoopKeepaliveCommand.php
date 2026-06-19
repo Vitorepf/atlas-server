@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\AutonomousEvolution\AtlasLoopDriftRestartDebounce;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMorningDigestService;
 use App\Services\Ai\AutonomousEvolution\Campaign\AtlasLoopPipelineDrift;
 use App\Support\AtlasPhpBinary;
@@ -30,6 +31,11 @@ class AtlasLoopKeepaliveCommand extends Command
         {--json : Saída JSON canônica}';
 
     protected $description = 'Respawn automático do supervisor do Loop: campanha running com heartbeat velho e sem processo vivo é relançada (resume, nunca perde estado).';
+
+    public function __construct(private ?AtlasLoopDriftRestartDebounce $driftRestartDebounce = null)
+    {
+        parent::__construct();
+    }
 
     public function handle(): int
     {
@@ -87,6 +93,28 @@ class AtlasLoopKeepaliveCommand extends Command
                     if ($inFlight > 0) {
                         $out['drift_deferred'][] = ['campaign_id' => $id, 'running' => (int) $inFlight, 'reason' => 'code_drift_recycle_deferred_in_flight_grinds'];
                     } else {
+                        // DEBOUNCE the external drift restart (LOOP-OS Slice 13): a process must not
+                        // edit its own respawn logic and storm-restart. This watchdog is the EXTERNAL
+                        // trigger; gate the recycle to at most one restart per window AND only when
+                        // real drift LANDED (≥N self-merges to main since this supervisor booted).
+                        // Boot-anchored: $aliveSeconds ≈ seconds since the supervisor started =
+                        // seconds since the last restart; self-merges after $bootEpoch = drift landed.
+                        if ((bool) config('atlas.loop.drift_restart_debounce_enabled', true)) {
+                            $selfMergesSinceBoot = $bootEpoch !== null
+                                ? (int) DB::table('atlas_loop_proposals')->where('merged_to_main', true)->where('updated_at', '>=', date('Y-m-d H:i:s', $bootEpoch))->count()
+                                : 0;
+                            $debounce = ($this->driftRestartDebounce ??= new AtlasLoopDriftRestartDebounce())->decide(
+                                secondsSinceLastRestart: $aliveSeconds,
+                                selfMergesSinceLastRestart: $selfMergesSinceBoot,
+                                windowSeconds: max(1, (int) config('atlas.loop.drift_restart_debounce_window_seconds', 600)),
+                                minSelfMerges: max(1, (int) config('atlas.loop.drift_restart_debounce_min_self_merges', 1)),
+                            );
+                            if (! $debounce['allowed']) {
+                                $out['drift_debounced'][] = ['campaign_id' => $id, 'reason' => $debounce['reason'], 'seconds_since_last' => $debounce['seconds_since_last'], 'self_merges_since_last' => $debounce['self_merges_since_last']];
+
+                                continue;
+                            }
+                        }
                         $this->killSupervisor($id);
                         $this->respawn($id);
                         $out['respawned'][] = [

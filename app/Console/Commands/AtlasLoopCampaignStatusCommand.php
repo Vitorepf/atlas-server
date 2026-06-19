@@ -67,6 +67,9 @@ final class AtlasLoopCampaignStatusCommand extends Command
             'lock' => $lock,
             'merged_to_main' => false,
             'ledger_tail' => $supervisor->readLedger($campaign->id, 10),
+            'observability' => (bool) config('atlas.loop.observability_digest_enabled', true)
+                ? app(\App\Services\Ai\AutonomousEvolution\AtlasLoopObservabilityDigest::class)->section($campaign->id)
+                : ['status' => 'disabled', 'reason' => 'observability_digest_disabled'],
         ];
 
         if ((bool) $this->option('json')) {

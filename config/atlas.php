@@ -1905,6 +1905,27 @@ return [
         // Default OFF de fábrica; o operador liga via .env. Fail-open (fonte vazia ⇒ no-op).
         'discovery_backlog_intents' => (bool) env('ATLAS_LOOP_DISCOVERY_BACKLOG_INTENTS', false),
 
+        // LOOP-OS Grupos B/C — wiring das 11 capacidades no feed vivo. Default ON ("deixa tudo
+        // ligado", diretiva do operador). Cada wire é additive + fail-open/self-gating, então
+        // default-ON é byte-identical no caminho default quando o alimentador correspondente ainda
+        // não está presente (ex.: bug-repro só dispara com failure-signature; perf-proof só com
+        // contrato perf; research só com search tool armado). Flags planas em atlas.loop.* .
+        'bug_reproduction_lane_enabled' => (bool) env('ATLAS_LOOP_BUG_REPRODUCTION_LANE_ENABLED', true),
+        'discovery_coverage_deficit_enabled' => (bool) env('ATLAS_LOOP_DISCOVERY_COVERAGE_DEFICIT_ENABLED', true),
+        'discovery_clone_dedup_enabled' => (bool) env('ATLAS_LOOP_DISCOVERY_CLONE_DEDUP_ENABLED', true),
+        'clone_similarity_threshold' => (float) env('ATLAS_LOOP_CLONE_SIMILARITY_THRESHOLD', 0.9),
+        'obra_earned_red_enabled' => (bool) env('ATLAS_LOOP_OBRA_EARNED_RED_ENABLED', true),
+        'comprehension_grounding_gate_enabled' => (bool) env('ATLAS_LOOP_COMPREHENSION_GROUNDING_GATE_ENABLED', true),
+        'external_research_enabled' => (bool) env('ATLAS_LOOP_EXTERNAL_RESEARCH_ENABLED', true),
+        'external_research_tool_available' => (bool) env('ATLAS_LOOP_EXTERNAL_RESEARCH_TOOL_AVAILABLE', false),
+        'refactor_performance_proof' => (bool) env('ATLAS_LOOP_REFACTOR_PERFORMANCE_PROOF', true),
+        'park_escalation_enabled' => (bool) env('ATLAS_LOOP_PARK_ESCALATION_ENABLED', true),
+        'territory_ladder_enabled' => (bool) env('ATLAS_LOOP_TERRITORY_LADDER_ENABLED', true),
+        'drift_restart_debounce_enabled' => (bool) env('ATLAS_LOOP_DRIFT_RESTART_DEBOUNCE_ENABLED', true),
+        'drift_restart_debounce_window_seconds' => (int) env('ATLAS_LOOP_DRIFT_RESTART_DEBOUNCE_WINDOW_SECONDS', 600),
+        'drift_restart_debounce_min_self_merges' => (int) env('ATLAS_LOOP_DRIFT_RESTART_DEBOUNCE_MIN_SELF_MERGES', 1),
+        'observability_digest_enabled' => (bool) env('ATLAS_LOOP_OBSERVABILITY_DIGEST_ENABLED', true),
+
         // L4-1: ranking anti-Goodhart. O score estrutural continua sendo a base, mas ganha
         // boost limitado por impacto real: surface no code graph, evidência de falha e backlog.
         'impact_ranking_enabled' => (bool) env('ATLAS_LOOP_IMPACT_RANKING_ENABLED', true),

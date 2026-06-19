@@ -64,6 +64,9 @@ class AtlasLoopObraExecutionAdapter
         // ACDE Leap 5 — the decomposition outcome corpus recorder. Nullable + last (use-site falls back to a
         // fresh instance). No-op when atlas.loop.decomposition_corpus_enabled is OFF (byte-identical).
         private readonly ?AtlasLoopDecompositionOutcomeRecorder $outcomeRecorder = null,
+        // §11.3 EARNED-RED — the producer that proves a behavior-changing obra's frozen acceptance is RED
+        // against the pre-implementation tree. Nullable + last (the gate falls back to an inline `new`).
+        private readonly ?\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopAcceptanceRedProducer $acceptanceRedProducer = null,
     ) {}
 
     /**
@@ -87,6 +90,32 @@ class AtlasLoopObraExecutionAdapter
         $repoRoot = rtrim((string) ($payload['target_repo_path'] ?? base_path()), '/');
         if (! is_dir($repoRoot.'/.git')) {
             return $this->fail('repo_root_not_a_git_tree');
+        }
+
+        // §11.3 EARNED-RED GATE — for a behavior-CHANGING obra (feature_*/bug_fix), the obra's frozen
+        // acceptance must be provably RED against the PRE-implementation tree, else there is no bar to
+        // earn: a green-on-arrival command is a no-op the implementation satisfies by changing nothing
+        // (the Goodhart hole the bug-fix lane closed). refactor_* obras are behavior-PRESERVING — their
+        // acceptance is a frozen sibling test that must stay GREEN — so they are deliberately EXEMPT.
+        // Default ON; only engages when the obra is behavior-changing AND names a runnable command.
+        // §11.3 EARNED-RED GATE — for a behavior-CHANGING obra (feature_*/bug_fix), the obra's frozen
+        // acceptance must be provably RED against the PRE-implementation tree, else there is no bar to
+        // earn: a green-on-arrival command is a no-op the implementation satisfies by changing nothing
+        // (the Goodhart hole the bug-fix lane closed). refactor_* obras are behavior-PRESERVING — their
+        // acceptance is a frozen sibling test that must stay GREEN — so they are deliberately EXEMPT.
+        // Default ON; only engages when the obra is behavior-changing AND names a runnable command.
+        if ((bool) config('atlas.loop.obra_earned_red_enabled', true)) {
+            $kind = trim((string) ($payload['objective_kind'] ?? ''));
+            $behaviorChanging = str_starts_with($kind, 'feature_') || $kind === 'bug_fix';
+            $acc = is_array($payload['acceptance'] ?? null) ? (array) $payload['acceptance'] : [];
+            $cmds = array_values(array_filter((array) ($acc['commands'] ?? []), static fn ($c): bool => is_string($c) && trim($c) !== ''));
+            if ($behaviorChanging && $cmds !== []) {
+                $earned = ($this->acceptanceRedProducer ?? new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopAcceptanceRedProducer)
+                    ->toEarnedRedAcceptance(['objective' => (string) ($payload['objective'] ?? ''), 'acceptance_command' => $cmds[0]], $repoRoot);
+                if ($earned === null || ($earned['earned_red'] ?? false) !== true) {
+                    return $this->fail('acceptance_not_earned_red:'.$kind);
+                }
+            }
         }
 
         $delivery ??= app(ProviderObraNodeDelivery::class);

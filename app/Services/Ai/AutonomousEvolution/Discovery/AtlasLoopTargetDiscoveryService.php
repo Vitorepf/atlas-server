@@ -45,6 +45,8 @@ final class AtlasLoopTargetDiscoveryService
         private readonly ?AtlasLoopWiredCallerService $wiredCallers = null,
         private readonly ?AtlasLoopSiblingTestResolver $siblingTests = null,
         private readonly ?\App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer $signalAnalyzer = null,
+        private readonly ?AtlasLoopCoverageDeficitSource $coverageDeficit = null,
+        private readonly ?AtlasLoopCloneDetector $cloneDetector = null,
     ) {}
 
     /** Lazily-built deterministic AST cyclomatic analyzer (the honest complexity signal). */
@@ -130,6 +132,93 @@ final class AtlasLoopTargetDiscoveryService
                         'score' => $score, 'self_contained' => 0.0, 'improvement' => (float) $bk['priority'],
                         'novelty' => 1.0, 'evidence' => 0.0, 'signals' => $signals,
                     ]];
+                }
+            }
+        }
+
+        // §11.6 COVERAGE-DEFICIT: score every admissible row on its OWN mutation-survival
+        // density (un-killed frozen mutants with NO sibling characterization test = coverage
+        // debt). De-parasitizes characterization-test work from the refactor lane. Flag-gated
+        // + fail-open: no flag / no source / no sibling resolver => no-op (byte-identical).
+        if ((bool) config('atlas.loop.discovery_coverage_deficit_enabled', true)
+            && $this->coverageDeficit !== null
+            && $this->siblingTests !== null) {
+            foreach ($scoredRows as &$row) {
+                $rel = (string) $row['path'];
+                if (isset($alreadyProposed[$rel])) {
+                    continue;
+                }
+                $hasSibling = $this->siblingTests->hasSibling($rel);
+                $cov = $this->coverageDeficit->score((string) $row['abs'], $hasSibling);
+                $signals = is_array($row['scored']['signals'] ?? null) ? $row['scored']['signals'] : [];
+                $signals['coverage_deficit'] = (float) $cov['deficit'];
+                $signals['coverage_deficit_mutants'] = (int) $cov['mutants'];
+                $signals['has_sibling_test'] = (bool) $cov['has_sibling_test'];
+                $obj = $this->coverageDeficit->deficitObjective($rel, $cov);
+                if ($obj !== null) {
+                    $signals['coverage_objective'] = $obj['objective'];
+                    $signals['shape'] = $obj['shape'];
+                    $row['scored']['score'] = round(max(
+                        (float) $row['scored']['score'],
+                        min(1.0, 0.55 + 0.40 * (float) $cov['deficit']),
+                    ), 4);
+                }
+                $row['scored']['signals'] = $signals;
+            }
+            unset($row);
+        }
+
+        // §11.6 CLONE-DEDUP: detect cross-file structural duplication (name/whitespace-
+        // insensitive token Jaccard) so the loop can propose a real dedupe (extract shared
+        // logic) instead of letting copy-paste rot. Targets the FIRST file of each pair.
+        // Flag-gated + fail-open: no flag / no detector / no clone pairs => no-op.
+        if ((bool) config('atlas.loop.discovery_clone_dedup_enabled', true)
+            && $this->cloneDetector !== null) {
+            $byPath = [];
+            foreach ($scoredRows as $i => $row) {
+                $byPath[$row['path']] = $i;
+            }
+            $sources = [];
+            foreach ($scoredRows as $row) {
+                $src = @file_get_contents((string) $row['abs']);
+                if ($src !== false) {
+                    $sources[(string) $row['path']] = $src;
+                }
+            }
+            $threshold = max(0.5, min(1.0, (float) config('atlas.loop.clone_similarity_threshold', 0.9)));
+            foreach ($this->cloneDetector->detectClones($sources, $threshold) as $pair) {
+                $relA = (string) $pair['a'];
+                if (isset($alreadyProposed[$relA])) {
+                    continue;
+                }
+                $similarity = (float) ($pair['similarity'] ?? 0.0);
+                $signals = [
+                    'clone_dedup' => 1.0,
+                    'clone_partner' => (string) $pair['b'],
+                    'clone_similarity' => round($similarity, 4),
+                    'dedup_objective' => $this->cloneDetector->dedupObjective($pair)['objective'],
+                    'work_shape' => 'dedup',
+                ];
+                $promoted = min(1.0, 0.85 + 0.15 * $similarity);
+                if (isset($byPath[$relA])) {
+                    $idx = $byPath[$relA];
+                    $scoredRows[$idx]['scored']['signals'] = array_merge(
+                        $scoredRows[$idx]['scored']['signals'] ?? [],
+                        $signals,
+                    );
+                    $scoredRows[$idx]['scored']['score'] = round(max(
+                        (float) $scoredRows[$idx]['scored']['score'],
+                        $promoted,
+                    ), 4);
+                } else {
+                    $absA = $repoRoot.'/'.$relA;
+                    if (is_file($absA)) {
+                        $scoredRows[] = ['path' => $relA, 'abs' => $absA, 'scored' => [
+                            'score' => round($promoted, 4), 'self_contained' => 0.0, 'improvement' => 1.0,
+                            'novelty' => 1.0, 'evidence' => 0.0, 'signals' => $signals,
+                        ]];
+                        $byPath[$relA] = array_key_last($scoredRows);
+                    }
                 }
             }
         }

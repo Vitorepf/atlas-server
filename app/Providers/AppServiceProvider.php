@@ -30,7 +30,10 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopSemanticImplementationCertifier
 use App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBacklogIntentSource;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBackService;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBugReproductionLane;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopCloneDetector;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopCompletenessCriteriaResolver;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopCoverageDeficitSource;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopConstraintsBlockAssembler;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopEvidenceSignalService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopFrameworkRefactorSynthesizer;
@@ -240,6 +243,8 @@ class AppServiceProvider extends ServiceProvider
                 rescue(fn () => $app->make(AtlasLoopWiredCallerService::class), null, false),
                 rescue(fn () => $app->make(AtlasLoopSiblingTestResolver::class), null, false),
                 rescue(fn () => $app->make(AtlasLoopSignalAnalyzer::class), null, false),
+                rescue(fn () => $app->make(AtlasLoopCoverageDeficitSource::class), null, false),
+                rescue(fn () => $app->make(AtlasLoopCloneDetector::class), null, false),
             ),
         );
         // ARBOR-GRAFT: the loop-back service is autowired (made, not bound), so its nullable tree deps
@@ -305,6 +310,13 @@ class AppServiceProvider extends ServiceProvider
                 // byte-identical until armed. MUST be passed explicitly (Laravel does not auto-inject
                 // `?Type $x = null`).
                 rescue(fn () => $app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObjectiveProducer::class), null, false),
+                // §11.4 — the bug-fix reproduction lane (turns a runnable failure handle into a
+                // RED-required reproduce-then-fix objective). Flag-gated default-ON + fail-closed
+                // inside the lane, but on the live default path nothing stamps a failure handle into
+                // discovery signals yet, so binding it is byte-identical until a failure source feeds
+                // signals['failure_test_path']/['failure_command']. MUST be passed explicitly (Laravel
+                // does not auto-inject `?Type $x = null`).
+                rescue(fn () => $app->make(AtlasLoopBugReproductionLane::class), null, false),
             ),
         );
         // ITEM6 — SCENARIO FAN-OUT wiring (LOAD-BEARING). There is no explicit AtlasEvolutionScenarioExplorer
