@@ -46,12 +46,37 @@ final class AtlasEvolutionTaskGenerator
      */
     public function generateForTarget(string $baseWorkspace, string $targetRelativePath, array $options = []): array
     {
+        [$provider, $testRel, $objRel] = $this->taskGenerationInputs($options);
+
+        return $this->generateForResolvedTarget(
+            $baseWorkspace,
+            $targetRelativePath,
+            $options,
+            $provider,
+            $testRel,
+            $objRel,
+            $this->resolveTargetBase($baseWorkspace, $targetRelativePath),
+        );
+    }
+
+    /**
+     * @param  array{provider?: ?string, index?: int}  $options
+     * @return array{0: string, 1: string, 2: string}
+     */
+    private function taskGenerationInputs(array $options): array
+    {
         $index = (int) ($options['index'] ?? 0);
         $provider = trim((string) ($options['provider'] ?? config('atlas.loop.default_provider', '')));
-        $testRel = 'tests/atlas_generated_'.$index.'.php';
-        $objRel = 'GENERATED_OBJECTIVE_'.$index.'.txt';
 
-        $base = $this->resolveTargetBase($baseWorkspace, $targetRelativePath);
+        return [$provider, 'tests/atlas_generated_'.$index.'.php', 'GENERATED_OBJECTIVE_'.$index.'.txt'];
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    private function generateForResolvedTarget(string $baseWorkspace, string $targetRelativePath, array $options, string $provider, string $testRel, string $objRel, string|false $base): array
+    {
         if ($base === false) {
             return ['generated' => false, 'reason' => 'invalid_base_or_target'];
         }
@@ -204,6 +229,17 @@ final class AtlasEvolutionTaskGenerator
             $last = $candidate;
         }
 
+        return $this->finishBestGeneration($divergenceEnabled, $objectives, $firstRed, $last, $samples);
+    }
+
+    /**
+     * @param  list<string>  $objectives
+     * @param  array<string,mixed>|null  $firstRed
+     * @param  array<string,mixed>  $last
+     * @return array<string,mixed>
+     */
+    private function finishBestGeneration(bool $divergenceEnabled, array $objectives, ?array $firstRed, array $last, int $samples): array
+    {
         if ($divergenceEnabled) {
             $divergence = new AtlasLoopObjectiveDivergence;
             $threshold = (float) config('atlas.loop.objective_divergence_threshold', 0.85);
