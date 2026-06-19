@@ -146,11 +146,19 @@ O próximo avanço de desenho é o `LoopPatternRegistry`: ele entra antes da
 originação como seleção governada de estrutura de execução. Em vez de o loop
 improvisar, ele escolhe um padrão provável para o tipo de trabalho
 (`docs_sweep`, `ticket_to_pr_ready`, `loop_harness_verification`,
-`self_improving_champion`, `devils_advocate`, `fresh_clone`, baseline, avaliação
-completa etc.) e compila esse padrão para `ExecutionContract`: params, outputs,
-durability, sandbox, agent lanes, acceptance, terminal states, orçamento,
-rollback e evidência. O aprendizado de MachinaOS entra aqui como padrão de
-schema/plugin/durable-execution/worktree/sandbox, não como autoridade runtime.
+`self_improving_champion`, `devils_advocate`, `fresh_clone`,
+`control_plane_orchestrator`, `decision_ready_handoff`,
+`live_proof_release_gate`, baseline, avaliação completa etc.) e compila esse
+padrão para `ExecutionContract`: params, outputs, durability, sandbox, agent
+lanes, authorization lattice, acceptance, terminal states, orçamento, rollback
+e evidência. O aprendizado de MachinaOS entra aqui como padrão de
+schema/plugin/durable-execution/worktree/sandbox. O aprendizado do
+`maintainer-orchestrator` entra como padrão de control-plane, separação
+orquestrador/worker, handoff decision-ready, live proof e release gate. Nenhum
+deles entra como autoridade runtime. O aprendizado de DeerFlow entra como
+disciplina de harness: run journal, deferred tools, subagentes nao-recursivos,
+sandbox virtual-path, output budget, MCP sessions, memory hygiene e reload
+boundaries; tambem sem autoridade runtime.
 No estado atual isto é design/documentação, não runtime provado.
 
 ## Contratos
@@ -237,6 +245,9 @@ No estado atual isto é design/documentação, não runtime provado.
 - Pattern externo, skill externa ou agent workflow OS externo nunca decide por
   si. O Atlas só consome a forma depois de normalizar para contrato, quarentena,
   eval battery fresca e verificação independente.
+- Handoff humano nao pode ser prematuro: o Loop deve preparar artefato, prova,
+  riscos, alternativas e a escolha exata antes de pedir acesso, waiver,
+  land/delete ou decisao de produto.
 
 ## Escopo de Implementacao
 

@@ -16,6 +16,8 @@ tags:
   - obra
   - compounding
   - loop-pattern-registry
+  - maintainer-orchestrator-source-material
+  - deerflow-source-material
 capabilities:
   - frozen_judge_acceptance
   - semantic_implementation_certification
@@ -29,6 +31,8 @@ decisions:
   - The Arbor idea-tree (hypothesis tree, constraints-block, SELECT re-rank, insight-backprop, failure-supply) is ADVISORY — walled off from every cert/merge/trust class by AtlasLoopAdvisoryFirewallTest; it may never gate.
   - The ORIGINATION ceiling (greenfield decomposition origination + deep semantic correctness) is model-bound; closing it deterministically is Goodhart-forbidden. The EXTRACTION ceiling (flow multipliers) is what Atlas builds.
   - External agent workflow OSs such as MachinaOS are source material for pattern intake only; ACDE keeps Atlas certifiers, evidence, merge governance and memory authority.
+  - External maintainer orchestration skills such as steipete/agent-scripts maintainer-orchestrator are source material for control-plane patterns only; ACDE absorbs decision-ready handoff, authorization separation, live-proof and release gates without importing personal repo scope, credentials workflow or GitHub-only authority.
+  - External super-agent harnesses such as bytedance/deer-flow are source material for runtime discipline only; ACDE may absorb run journal, deferred tools, subagent non-recursion, virtual sandbox paths, stateful MCP sessions, output budgeting, memory hygiene and config reload boundaries without importing external memory authority, stream durability, provider auth or UI/chat authority.
   - Every new lever ships flag-default-OFF + byte-identical-OFF; arm in .env after measuring, never by changing the config default.
   - Loop-internal files are pétreo (AtlasLoopHarnessGuard::FORBIDDEN_SELF_TARGETS) — the loop may never edit its own judge/harness/metric.
 maintenance:
@@ -64,7 +68,10 @@ related_paths:
   - app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopIdeaTreeAccessor.php
   - app/Services/Ai/AutonomousEvolution/Campaign/AtlasLoopCampaignSupervisor.php
   - docs/engineering-knowledge-base/atlas-loop-pattern-registry.md
+  - docs/engineering-knowledge-base/atlas-loop-deerflow-harness-analysis.md
   - https://github.com/zeenie-ai/MachinaOS
+  - https://github.com/steipete/agent-scripts/blob/main/skills/maintainer-orchestrator/SKILL.md
+  - https://github.com/bytedance/deer-flow
   - tests/Feature/Architecture/AtlasLoopAdvisoryFirewallTest.php
 repo_paths:
   - docs/engineering-knowledge-base/atlas-evolution-loop-acde-runtime.md
@@ -104,7 +111,7 @@ requires_evidence: true
 risk_level: high
 next_actions:
   - Implementar LoopPatternRegistry como read-only antes de qualquer promocao runtime.
-  - Criar source-intake para MachinaOS/Loop Library com snapshot/hash e quarentena.
+  - Criar source-intake para MachinaOS/Loop Library/DeerFlow com snapshot/hash e quarentena.
   - Provar PatternSpec selection por eval battery antes de promover candidate para ready/default.
 ---
 
@@ -168,7 +175,7 @@ StateOfAtlas
 ## Regras para IA
 
 - Reuse as familias existentes; nao crie runtime paralelo.
-- Trate MachinaOS, Loop Library, papers e repos como source material, nunca como
+- Trate MachinaOS, Loop Library, DeerFlow, papers e repos como source material, nunca como
   autoridade acima do Atlas.
 - Nunca aceite autonomia prompt-only, execucao insegura ou fallback de sucesso
   desconhecido como input runnable.
@@ -182,7 +189,7 @@ StateOfAtlas
 Ativo: grind/cert, discovery/work-supply, escalation conductor, obra, auto-merge
 governado, Arbor advisory graft, campaign runtime e advisory firewall.
 Planejado: `LoopPatternRegistry` runtime read-only, PatternSpec compiler,
-source-intake de catalogs/agent workflow OSs e PatternChampionGate.
+source-intake de catalogs/agent workflow OSs/super-agent harnesses e PatternChampionGate.
 
 ## Dependencias
 
@@ -244,7 +251,7 @@ engine (MiniMax via Hermes) and a stronger engine becomes a clean multiplier (th
 |---|---|---|
 | Grind + cert | one task → scenarios → frozen judge → semantic cert → kept winners | `AtlasLoopTaskGrinder`, `AtlasEvolutionFrozenJudge`, `AtlasLoopSemanticImplementationCertifier` |
 | Discovery / work-supply | targets → RED-verified tasks; results→sources self-feed (the #1 bottleneck) | `AtlasLoopQueueRefiller`, `AtlasLoopBackService` |
-| Pattern selection | choose the governed execution structure before origination; Loop Library, MachinaOS and other catalogs remain source material until Atlas evidence promotes a pattern | `atlas-loop-pattern-registry.md` |
+| Pattern selection | choose the governed execution structure before origination; Loop Library, MachinaOS, maintainer-orchestrator, DeerFlow and other catalogs/harnesses remain source material until Atlas evidence promotes a pattern | `atlas-loop-pattern-registry.md` |
 | Escalation conductor | a no-winner round escalates STRUCTURALLY (best_of_n→repair→decompose→escalate) | `AtlasLoopAutonomousConductor` |
 | Obra (large work) | multi-node DAG executed in an isolated worktree; net-diff cert across nodes | `AtlasLoopObraExecutionAdapter` |
 | Auto-merge governance | governed crossing to main; obra crossing with trust-ladder interlock | `AtlasLoopProposalPromotionGate`, `AtlasLoopObraAutoMergeService` |
@@ -275,10 +282,40 @@ profiles. These shapes must compile into Atlas contracts before use:
 `params_schema`, `output_schema`, `durability_mode`, `sandbox_profile`,
 `agent_lane_policy`, `terminal_states`, `success_gate` and rollback.
 
+Maintainer-orchestrator contributes control-plane shapes: root orchestrator vs
+worker separation, no-subdelegation worker contract, queue triage into
+autonomous/needs-owner/ignored-by-owner, decision-ready owner handoff,
+authorization lattice, live-proof pre-land gate, public-surface leak gate,
+release readiness and compact cross-lane reporting. These shapes must compile
+into Atlas `ExecutionContract` fields and cannot authorize push, merge, close,
+release, credential use or public mutation by implication.
+
+DeerFlow contributes harness/runtime-discipline shapes: run manager, run
+journal, deferred tool promotion, loop repetition guard, tool output
+externalization, non-recursive subagents, stateful MCP sessions, virtual sandbox
+paths, skill evolution guard, provider-safety tool suppression, memory hygiene
+and config reload boundaries. These shapes must compile into Atlas
+`ExecutionContract` fields and cannot import DeerFlow memory, stream bridge,
+provider auth, UI/chat authority or scanner-only security as Atlas authority.
+
 The following are explicitly rejected as ACDE inputs: prompt-only autonomy,
 unsafe code execution as a security boundary, unknown-node success fallbacks,
-manual status counts without generated proof and any memory authority outside
-Atlas canonical docs/Evidence/AEMOR.
+manual status counts without generated proof, premature human decision requests
+with no prepared artifact/proof, permission bleed between triage/edit/push/merge
+and any memory authority outside Atlas canonical docs/Evidence/AEMOR.
+
+**Runtime nucleus status (Slice 1, 2026-06-19, implemented + tested).** The registry/selector/
+compiler/source-intake/learning-ledger/champion-gate now exist as deterministic, provider-free PHP in
+`app/Services/Ai/AutonomousEvolution/Pattern/` and are wired ADVISORY into
+`AtlasLoopObjectiveProducer::produce()` (flag `atlas.loop.pattern_advisory_enabled`, default ON,
+fail-open) — it attaches a selected pattern + `ExecutionContract` but NEVER reorders or gates origination.
+What is proven: external material cannot auto-activate; a creator cannot approve its own challenger; the
+compiler fails closed without a gate/terminal/sandbox; cosmetic/negligible work is rejected by the
+selector. What is still DESIGN: the fresh eval battery, the ledger fed by the real certifier/Evidence
+outcome, and the live champion/challenger self-optimization loop. See
+`docs/engineering-knowledge-base/atlas-loop-pattern-registry.md` for the per-class status table and
+`docs/engineering-knowledge-base/atlas-loop-deerflow-harness-analysis.md` for the DeerFlow source-material
+dissection.
 
 ## 4. The Arbor graft (idea-tree)
 
@@ -328,5 +365,6 @@ surfaces promoted learnings into the live recall.
 4. Anti-refragmentation — reuse the existing table/service; do not rebuild a parallel one.
 5. Pattern governance — imported skills/catalogs are candidate patterns, never default authority; promotion requires fresh gates and independent verification.
 6. Pattern contracts are schema-first — no pattern runs without declared params, outputs, durability, sandbox, terminal states and evidence writeback.
-7. Pétreo — the loop never edits its own judge/harness/metric (`FORBIDDEN_SELF_TARGETS`).
-8. Honest status only — resolved-evidence, never a rounded effective grade.
+7. Decision-ready handoff — ask the operator only after autonomous preparation reaches the exact remaining decision/access/waiver boundary.
+8. Pétreo — the loop never edits its own judge/harness/metric (`FORBIDDEN_SELF_TARGETS`).
+9. Honest status only — resolved-evidence, never a rounded effective grade.

@@ -33,6 +33,37 @@ final class SuiteRedTestHandleHarvester
         return $this->triage ?? new SuiteRedTriageHelper();
     }
 
+    /**
+     * The SINGLE source of truth for "is the failure-handle harvest armed?". The CANONICAL key is
+     * the nested `atlas.loop.failure_handle_harvest.enabled` (config/atlas.php). The legacy FLAT key
+     * `atlas.loop.failure_handle_harvest_enabled` is honored ONLY when explicitly set (e.g. a test
+     * or runtime override) — when present it WINS, so older overrides keep working; when absent
+     * (the production default, where the flat key is undefined) it falls through to the canonical
+     * nested flag. This is read in harvest() AND the live refill integration so the answer is
+     * identical everywhere (no 5-place drift).
+     */
+    public static function harvestEnabled(): bool
+    {
+        $legacyFlat = config('atlas.loop.failure_handle_harvest_enabled');
+        if ($legacyFlat !== null) {
+            return (bool) $legacyFlat; // explicit legacy override wins (test/runtime compat)
+        }
+
+        return (bool) config('atlas.loop.failure_handle_harvest.enabled', false);
+    }
+
+    /**
+     * The canonical configured phpunit-report path (`atlas.loop.failure_handle_harvest.report_path`),
+     * or null when unset/empty. Shared by the manual command (when `--report-path` is omitted) and
+     * the live refill integration so both resolve the SAME default — a single source of truth.
+     */
+    public static function configuredReportPath(): ?string
+    {
+        $path = trim((string) config('atlas.loop.failure_handle_harvest.report_path', ''));
+
+        return $path === '' ? null : $path;
+    }
+
     private function handles(): AtlasLoopFailureHandleSource
     {
         return $this->handles ?? new AtlasLoopFailureHandleSource();
@@ -54,8 +85,7 @@ final class SuiteRedTestHandleHarvester
      */
     public function harvest(?string $reportPath, bool $force = false): array
     {
-        $enabled = (bool) config('atlas.loop.failure_handle_harvest_enabled', false);
-        if (! $enabled && ! $force) {
+        if (! self::harvestEnabled() && ! $force) {
             return $this->report('disabled');
         }
         if ($reportPath === null || $reportPath === '' || ! is_file($reportPath)) {

@@ -4,6 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Discovery;
 
+use App\Services\Ai\AutonomousEvolution\Pattern\AtlasLoopExecutionContract;
+use App\Services\Ai\AutonomousEvolution\Pattern\AtlasLoopPatternCompiler;
+use App\Services\Ai\AutonomousEvolution\Pattern\AtlasLoopPatternDecisionDriver;
+use App\Services\Ai\AutonomousEvolution\Pattern\AtlasLoopPatternRegistry;
+use App\Services\Ai\AutonomousEvolution\Pattern\AtlasLoopPatternSelector;
+use App\Services\Ai\AutonomousEvolution\Pattern\AtlasLoopPatternSpec;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
 use Throwable;
 
@@ -35,6 +41,17 @@ final class AtlasLoopObjectiveProducer
         private readonly ?AtlasLoopSystemAxisService $axis = null,
         private readonly ?AtlasLoopTouchesAxesProducer $touches = null,
         private readonly ?AtlasLoopExpectedValueDecider $ev = null,
+        // LOOP-PATTERN-REGISTRY Slice 1 — advisory pattern selection + ExecutionContract. Nullable (same
+        // DI caveat as above: `?Type $x = null` is not auto-injected, so the `?? new` accessors are the
+        // mandatory backstop). Read-only/advisory: they never reorder or gate origination.
+        private readonly ?AtlasLoopPatternRegistry $patternRegistry = null,
+        private readonly ?AtlasLoopPatternSelector $patternSelector = null,
+        private readonly ?AtlasLoopPatternCompiler $patternCompiler = null,
+        // LOOP-PATTERN-REGISTRY A0 — the DECISION DRIVER. Same nullable DI caveat (the `?? new` accessor is
+        // the mandatory backstop). When atlas.loop.pattern_driver_enabled is ON this DRIVES origination:
+        // the selector/registry filter/reorder/gate the floor-passers BEFORE a goal is built. OFF (default)
+        // it never runs and the legacy advisory path below is byte-identical.
+        private readonly ?AtlasLoopPatternDecisionDriver $patternDriver = null,
     ) {}
 
     /**
@@ -161,6 +178,18 @@ final class AtlasLoopObjectiveProducer
             }
         }
 
+        // LOOP-PATTERN-REGISTRY A0 — the PatternRegistry DECISION DRIVER (flag pattern_driver_enabled).
+        // When ON, the selector/registry DRIVE the choice over the EV-ordered floor-passers BEFORE any goal
+        // is originated: a cosmetic / negligible-impact / non-finite-impact top candidate is REJECTED and the
+        // next acceptable candidate wins; if NONE is acceptable the producer emits NO objective (governed
+        // null, never an invented one). Fail-CLOSED: a selector/compile failure under the driver returns
+        // null rather than falling through to ungoverned origination. When the flag is OFF this returns the
+        // DISABLED terminal and the legacy advisory path below runs byte-identically.
+        $driverDecision = $this->driveCandidateDecision($floorPassers);
+        if ((string) ($driverDecision['state'] ?? '') !== AtlasLoopPatternDecisionDriver::STATE_DISABLED) {
+            return $this->produceViaPatternDriver($state, $driverDecision, $repoRoot, $provider, $targetId, $evPick);
+        }
+
         // Adversarial self-critique: pick the biggest genuine leap, not the cheapest-looking one.
         $verdict = $this->critic()->challenge($floorPassers[0], $floorPassers);
         $winner = $verdict['pick'];
@@ -179,16 +208,273 @@ final class AtlasLoopObjectiveProducer
             $rationale .= ' [ev: binding='.$evPick['binding_axis'].' relief='.round($evPick['relief'], 3).']';
         }
 
+        // LOOP-PATTERN-REGISTRY Slice 1 — advisory pattern + ExecutionContract on the originated objective.
+        // Read-only: the selected pattern and compiled contract are ATTACHED, never used to reorder or gate
+        // (the EV brain + adversarial critic above remain the sole deciders). Fail-open: any hiccup leaves
+        // the objective exactly as it was.
+        [$patternAttachment, $contractAttachment] = $this->attachPatternAdvisory($winner, $built);
+
+        $payload = (array) $built['payload'];
+        if ($patternAttachment !== null) {
+            $payload['pattern'] = $patternAttachment;
+            $payload['execution_contract'] = $contractAttachment;
+        }
+
         return [
             'objective' => (string) $built['objective'],
-            'payload' => (array) $built['payload'],
+            'payload' => $payload,
             'acceptance_hash' => (string) $built['acceptance_hash'],
             'target_path' => (string) $built['target_path'],
             'shape' => (string) $built['shape'],
             'self_contained' => (bool) $built['self_contained'],
             'leverage' => (float) $winner['_score']['leverage'],
             'rationale' => $rationale,
+            'pattern' => $patternAttachment,
+            'execution_contract' => $contractAttachment,
         ];
+    }
+
+    /**
+     * LOOP-PATTERN-REGISTRY Slice 1 — advisory selection. Maps the originated winner to a selector
+     * descriptor, asks the selector for the best SELECTABLE pattern, and compiles it into an
+     * ExecutionContract. Returns [pattern|null, contract|null]. Pure-advisory and fail-OPEN: disabled by
+     * flag or any throw yields [null, null], never altering origination. When the selector REJECTS
+     * (e.g. cosmetic), it returns the honest rejection note as the pattern attachment with a null contract.
+     *
+     * @param  array<string,mixed>  $winner
+     * @param  array<string,mixed>  $built
+     * @return array{0:?array<string,mixed>, 1:?array<string,mixed>}
+     */
+    private function attachPatternAdvisory(array $winner, array $built): array
+    {
+        if (! (bool) config('atlas.loop.pattern_advisory_enabled', true)) {
+            return [null, null];
+        }
+
+        try {
+            $descriptor = $this->patternDescriptor($winner, $built);
+            $selection = $this->patternSelector()->select($descriptor, $this->patternRegistry());
+
+            $pattern = $selection['pattern'] ?? null;
+            if ($pattern === null) {
+                return [[
+                    'selected' => null,
+                    'rejected' => (bool) ($selection['rejected'] ?? true),
+                    'reason' => (string) ($selection['reason'] ?? ''),
+                ], null];
+            }
+
+            $contract = $this->patternCompiler()->compile($pattern, [
+                'objective' => (string) ($built['objective'] ?? ''),
+                'allowed_scope' => [(string) ($built['target_path'] ?? '')],
+                'required_inputs' => ['target_path'],
+                'expected_outputs' => $pattern->outputSchema,
+                'budget' => [],
+            ]);
+
+            return [
+                [
+                    'selected' => $pattern->id,
+                    'version' => $pattern->version,
+                    'score' => (float) ($selection['score'] ?? 0.0),
+                    'spec' => $pattern->toArray(),
+                ],
+                $contract->toArray(),
+            ];
+        } catch (Throwable) {
+            return [null, null]; // fail-open — the advisory never blocks a real objective.
+        }
+    }
+
+    /**
+     * LOOP-PATTERN-REGISTRY A0 — run the DECISION DRIVER over the floor-passers (EV order). Gated by
+     * atlas.loop.pattern_driver_enabled: OFF returns the DISABLED terminal (the caller falls back to the
+     * legacy advisory path, byte-identical); ON hands the candidates + a PRE-ORIGINATION descriptor builder
+     * to {@see AtlasLoopPatternDecisionDriver::decide()}, which returns the first selector-acceptable
+     * candidate (rejecting cosmetic / negligible / non-finite-impact ones) or a governed terminal.
+     *
+     * Public so the decision can be driven directly under test with REAL packet signals — exactly the code
+     * produce() runs — proving the driver changes the chosen candidate BEFORE origination, provider-free.
+     *
+     * @param  list<array<string,mixed>>  $floorPassers
+     * @return array{state:string, selected:?array<string,mixed>, selected_index:?int, pattern:?AtlasLoopPatternSpec, score:float, rejections:list<array{index:int,path:string,reason:string}>}
+     */
+    public function driveCandidateDecision(array $floorPassers): array
+    {
+        if (! (bool) config('atlas.loop.pattern_driver_enabled', false)) {
+            return [
+                'state' => AtlasLoopPatternDecisionDriver::STATE_DISABLED,
+                'selected' => null,
+                'selected_index' => null,
+                'pattern' => null,
+                'score' => 0.0,
+                'rejections' => [],
+            ];
+        }
+
+        return $this->patternDriver()->decide(
+            $floorPassers,
+            fn (array $candidate): array => $this->driverDescriptorFor($candidate),
+            $this->patternSelector(),
+            $this->patternRegistry(),
+        );
+    }
+
+    /**
+     * LOOP-PATTERN-REGISTRY A0 — origination on the DRIVER's chosen candidate, then compile the contract
+     * with the DRIVER-selected pattern (never re-selecting a different pattern post-origination, which would
+     * mask the decision). Fail-CLOSED: any non-SELECTED terminal, a null build, or a compile failure returns
+     * null so the loop never emits ungoverned work under the driver.
+     *
+     * @param  array{state:string, selected:?array<string,mixed>, pattern:?AtlasLoopPatternSpec, score:float, rejections:list<array<string,mixed>>}  $decision
+     * @param  array{binding_axis:string, relief:float}|null  $evPick
+     * @return array{objective:string, payload:array<string,mixed>, acceptance_hash:string, target_path:string, shape:string, self_contained:bool, leverage:float, rationale:string, pattern:array<string,mixed>, execution_contract:array<string,mixed>}|null
+     */
+    private function produceViaPatternDriver(StateOfAtlas $state, array $decision, string $repoRoot, string $provider, string $targetId, ?array $evPick): ?array
+    {
+        $winner = $decision['selected'] ?? null;
+        $pattern = $decision['pattern'] ?? null;
+        if (($decision['state'] ?? '') !== AtlasLoopPatternDecisionDriver::STATE_SELECTED
+            || ! is_array($winner) || ! $pattern instanceof AtlasLoopPatternSpec) {
+            return null; // governed: rejected_all / selector_failed / no_candidates — emit NO objective.
+        }
+
+        $built = $this->origination()->build($state, $winner, $repoRoot, $provider, $targetId);
+        if ($built === null) {
+            return null;
+        }
+
+        // Compile the contract with the SAME pattern the driver selected pre-origination — fail-closed.
+        [$contract, $compileError] = $this->patternDriver()->compileContract($pattern, [
+            'objective' => (string) ($built['objective'] ?? ''),
+            'allowed_scope' => [(string) ($built['target_path'] ?? '')],
+            'required_inputs' => ['target_path'],
+            'expected_outputs' => $pattern->outputSchema,
+            'budget' => [],
+        ], $this->patternCompiler());
+
+        if (! $contract instanceof AtlasLoopExecutionContract) {
+            return null; // FAIL-CLOSED: driver ON + compile failed ⇒ no ungoverned objective ($compileError).
+        }
+
+        $rejections = is_array($decision['rejections'] ?? null) ? (array) $decision['rejections'] : [];
+        $patternAttachment = [
+            'mode' => 'driver',
+            'selected' => $pattern->id,
+            'version' => $pattern->version,
+            'score' => (float) ($decision['score'] ?? 0.0),
+            'spec' => $pattern->toArray(),
+            'rejection_count' => count($rejections),
+            'rejections' => array_values($rejections),
+        ];
+        $contractAttachment = $contract->toArray();
+
+        $rationale = (string) ($winner['_score']['rationale'] ?? '');
+        $rationale .= ' [pattern-driver: selected='.$pattern->id.' rejected='.count($rejections).']';
+        if ($evPick !== null) {
+            $rationale .= ' [ev: binding='.$evPick['binding_axis'].' relief='.round((float) $evPick['relief'], 3).']';
+        }
+
+        $payload = (array) $built['payload'];
+        $payload['pattern'] = $patternAttachment;
+        $payload['execution_contract'] = $contractAttachment;
+
+        return [
+            'objective' => (string) $built['objective'],
+            'payload' => $payload,
+            'acceptance_hash' => (string) $built['acceptance_hash'],
+            'target_path' => (string) $built['target_path'],
+            'shape' => (string) $built['shape'],
+            'self_contained' => (bool) $built['self_contained'],
+            'leverage' => (float) ($winner['_score']['leverage'] ?? 0.0),
+            'rationale' => $rationale,
+            'pattern' => $patternAttachment,
+            'execution_contract' => $contractAttachment,
+        ];
+    }
+
+    /**
+     * LOOP-PATTERN-REGISTRY A0 — the PRE-ORIGINATION selector descriptor, built from the candidate packet
+     * (NOT from $built, which only exists after origination). Unlike {@see patternDescriptor()} (the
+     * advisory descriptor that forces cosmetic=false because the EV PARK already removed proxy-only work),
+     * this one DETECTS cosmetic/proxy from the candidate's own signals and lets the selector veto it. A
+     * non-finite leverage maps to ZERO expected_impact so the selector's negligible-impact gate rejects it
+     * (absence of reliable impact tends to rejection, never approval — same NaN/INF stance as the selector).
+     *
+     * @param  array<string,mixed>  $candidate
+     * @return array<string,mixed>
+     */
+    private function driverDescriptorFor(array $candidate): array
+    {
+        $shape = (string) ($candidate['shape'] ?? 'refactor');
+        $kind = match (true) {
+            str_contains($shape, 'feature') => 'feature',
+            str_contains($shape, 'bug') => 'bug',
+            default => 'refactor',
+        };
+
+        $leverage = (float) ($candidate['_score']['leverage'] ?? 0.0);
+        $expectedImpact = is_finite($leverage) ? ($this->leverageToValue($leverage) / 100.0) : 0.0;
+        $cosmetic = (bool) ($candidate['cosmetic'] ?? false) || (bool) ($candidate['proxy'] ?? false);
+
+        return [
+            'objective_kind' => $kind,
+            'expected_impact' => $expectedImpact,
+            'evidence' => ((bool) ($candidate['verifiable'] ?? false)) ? 0.8 : 0.3,
+            'risk' => (float) ($candidate['risk'] ?? 0.5),
+            'cost' => (float) ($candidate['cost'] ?? 0.5),
+            'cosmetic' => $cosmetic,
+            'touches_loop' => true,
+        ];
+    }
+
+    private function patternDriver(): AtlasLoopPatternDecisionDriver
+    {
+        return $this->patternDriver ?? new AtlasLoopPatternDecisionDriver;
+    }
+
+    /**
+     * Build the selector descriptor from the originated winner. expected_impact comes from the producer's
+     * OWN leverage measure (so a real floor/EV/critic-cleared objective reads as real impact, not a guess);
+     * cosmetic is false because proxy-only candidates were already PARKed upstream by the EV brain.
+     *
+     * @param  array<string,mixed>  $winner
+     * @param  array<string,mixed>  $built
+     * @return array<string,mixed>
+     */
+    private function patternDescriptor(array $winner, array $built): array
+    {
+        $shape = (string) ($built['shape'] ?? 'refactor');
+        $kind = match (true) {
+            str_contains($shape, 'feature') => 'feature',
+            str_contains($shape, 'bug') => 'bug',
+            default => 'refactor',
+        };
+
+        return [
+            'objective_kind' => $kind,
+            'expected_impact' => $this->leverageToValue((float) ($winner['_score']['leverage'] ?? 0.0)) / 100.0,
+            'evidence' => ((bool) ($winner['verifiable'] ?? false)) ? 0.8 : 0.3,
+            'risk' => (float) ($winner['risk'] ?? 0.5),
+            'cost' => (float) ($winner['cost'] ?? 0.5),
+            'cosmetic' => false,
+            'touches_loop' => true,
+        ];
+    }
+
+    private function patternRegistry(): AtlasLoopPatternRegistry
+    {
+        return $this->patternRegistry ?? new AtlasLoopPatternRegistry;
+    }
+
+    private function patternSelector(): AtlasLoopPatternSelector
+    {
+        return $this->patternSelector ?? new AtlasLoopPatternSelector;
+    }
+
+    private function patternCompiler(): AtlasLoopPatternCompiler
+    {
+        return $this->patternCompiler ?? new AtlasLoopPatternCompiler;
     }
 
     /**

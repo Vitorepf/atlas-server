@@ -21,8 +21,10 @@ AtlasLoopSelfEvolutionOrchestrator::runCycle(campaign)
                   → the winning leap (target + shape: refactor | feature) above the ambition floor
   3. PATTERN    LoopPatternRegistry::select(leap, state, risk)             [the execution structure]
                   → docs sweep | ticket-to-PR | devil's advocate | harness verification
-                  → self-improving champion | fresh clone | baseline | full eval | custom challenger
-                  → ExecutionContract(params, outputs, durability, sandbox, lanes, gates, rollback)
+                  → self-improving champion | fresh clone | control-plane orchestrator
+                  → run journal | deferred tools | subagent non-recursion | sandbox virtual-path
+                  → decision-ready handoff | live-proof/release gate | baseline | full eval | custom challenger
+                  → ExecutionContract(params, outputs, durability, sandbox, lanes, authorization, gates, rollback)
   4. ORIGINATE  AtlasLoopOriginationBuilder::build(leap, state, pattern)   [the CEILING LIFT]
                   → refactor: heavy structural objective w/ behavior anchor (existing synthesizers)
                   → feature : NEW capability objective w/ an authored RED acceptance test
@@ -43,7 +45,7 @@ on kill-switch/budget. Every cycle writes a receipt to the living report.
 | `AtlasLoopStateOfAtlasReader` + `StateOfAtlas` | deep brain comprehension → structured state | OpenBrain context pack, AtlasAiDomainCatalogService, DomainMaturity, code-graph, reality-graph, memory recall |
 | `AtlasLoopLeverageScorer` ✅ | the leverage math + ambition floor | (done) |
 | `AtlasLoopObjectiveProducer` ✅ (extend) | the rédea: select the biggest leap | LeverageScorer + State + brain |
-| `LoopPatternRegistry` | choose the governed execution structure for the leap | Atlas Skill System, Loop Library + MachinaOS source material, Self-Construction outcomes, Evidence |
+| `LoopPatternRegistry` | choose the governed execution structure for the leap | Atlas Skill System, Loop Library + MachinaOS + maintainer-orchestrator + DeerFlow source material, Self-Construction outcomes, Evidence |
 | `AtlasLoopAdversarialCritic` | self-critique: biggest leap or easy-looking? | pure reasoning over scored candidates |
 | `AtlasLoopOriginationBuilder` | the ceiling lift: originate a BIG objective under the selected pattern | RefactorObjectiveSynthesizer, FrameworkRefactorSynthesizer, FeatureObjectiveBuilder |
 | `AtlasLoopSelfEvolutionOrchestrator` | drive one closed cycle | producer + builder + ADEP + gate + auto-merge |
@@ -56,9 +58,12 @@ on kill-switch/budget. Every cycle writes a receipt to the living report.
 - build on existing; respect petreo/proibido/local-first; every component flag-gated default-OFF,
   fail-open, byte-identical until armed.
 - honesty: each leap proven with a real delta; potential is never sold as fact.
-- external inspiration is quarantined: Loop Library, MachinaOS and other systems
+- external inspiration is quarantined: Loop Library, MachinaOS, maintainer-orchestrator, DeerFlow and other systems
   may seed patterns, but only Atlas contracts, gates and evidence can promote
   them into runtime use.
+- control-plane patterns must separate coordinator authority from worker
+  execution, and must not let triage imply edit, push, merge, release or
+  credential authority.
 
 ## Delivery mode
 Assemble ALL the logic + architecture first (this doc → all components, wired). Test + PROVE at the

@@ -3,7 +3,7 @@ id: atlas-loop-pattern-registry
 type: engineering_knowledge
 title: Atlas Loop Pattern Registry
 status: planned
-implementation_state: design_only
+implementation_state: partially_implemented
 category: autonomous-evolution
 priority: 99
 summary: Design canonico do registry que transforma skills, loop catalogs, agent workflow OSs e aprendizados internos em padroes governados de execucao para o Atlas Loop escolher, provar e otimizar.
@@ -15,6 +15,8 @@ tags:
   - self-construction
   - pattern-registry
   - machinaos-source-material
+  - maintainer-orchestrator-source-material
+  - deerflow-source-material
 capabilities:
   - loop_pattern_registry
   - governed_pattern_selection
@@ -24,10 +26,18 @@ capabilities:
   - schema_driven_execution_contracts
   - sandbox_profile_selection
   - cli_agent_worktree_patterns
+  - control_plane_orchestrator_patterns
+  - decision_ready_handoff
+  - authorization_lattice
+  - live_proof_gate
+  - deferred_tool_promotion
+  - run_journal_pattern
 decisions:
   - O LoopPatternRegistry e repertorio governado de estruturas de execucao; nao e runtime paralelo, prompt book ou permissao de autonomia sem gates.
   - Skills externas e catalogs entram como source material/candidate; so viram ready/default depois de avaliacao Atlas, evidencia e rollback.
   - MachinaOS entra como agent workflow OS source material: absorver NodeSpec/plugin/durable-execution/CLI-agent/sandbox patterns, nunca copiar autonomia prompt-only ou runtime inseguro.
+  - Maintainer Orchestrator entra como source material de control-plane: absorver root-orchestrator/worker-contract, decision-ready handoff, authorization lattice, live-proof gate e release gate; nunca copiar escopo pessoal, credenciais ou GitHub-only workflow como autoridade Atlas.
+  - DeerFlow entra como super-agent harness source material: absorver run journal, deferred tools, subagent non-recursion, sandbox virtual paths, MCP session state, tool output budgeting, memory hygiene e config reload boundaries; nunca copiar memoria externa, stream in-memory ou provider auth como autoridade Atlas.
   - O loop escolhe o menor padrao capaz de produzir o maior avanco comprovavel no escopo atual.
   - O loop pode criar ou otimizar padroes proprios, mas a melhoria so e aceita por champion/challenger com gate fresco e verificador independente.
 maintenance:
@@ -42,9 +52,12 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-skill-system.md
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
   - docs/engineering-knowledge-base/atlas-self-improvement-governance-ladder.md
+  - docs/engineering-knowledge-base/atlas-loop-deerflow-harness-analysis.md
   - https://signals.forwardfuture.ai/loop-library/
   - https://github.com/zeenie-ai/MachinaOS
   - https://www.npmjs.com/package/machinaos
+  - https://github.com/steipete/agent-scripts/blob/main/skills/maintainer-orchestrator/SKILL.md
+  - https://github.com/bytedance/deer-flow
 doc_schema: atlas_canonical_module_doc.v1
 
 graph_id: atlas-loop-pattern-registry
@@ -97,6 +110,8 @@ evidence:
   - https://signals.forwardfuture.ai/loop-library/catalog.json
   - https://github.com/zeenie-ai/MachinaOS
   - https://www.npmjs.com/package/machinaos
+  - https://github.com/steipete/agent-scripts/blob/main/skills/maintainer-orchestrator/SKILL.md
+  - https://github.com/bytedance/deer-flow
 
 required_tests:
   - "php artisan atlas:docs:lint-file --path=docs/engineering-knowledge-base/atlas-loop-pattern-registry.md --json"
@@ -133,6 +148,13 @@ Loop. O Atlas absorve o padrao, traduz para contrato Atlas e descarta qualquer
 parte que dependa de autonomia prompt-only, execucao insegura ou sucesso
 auto-declarado.
 
+Super-agent harnesses externos, como DeerFlow, tambem entram apenas como source
+material. Eles podem ensinar run journal, lifecycle de runs, deferred tools,
+subagentes nao-recursivos, sandbox virtual-path, MCP sessions, tool output
+budget, hygiene de memoria e reload boundaries; nao podem importar memoria
+externa, stream in-memory, provider auth, UI/chat authority ou scanner LLM como
+fronteira unica de seguranca.
+
 ## Papel no Atlas
 
 O registry fica entre EV selection e origination no Loop. Ele escolhe a
@@ -168,6 +190,10 @@ ACDE executa/certifica, e Self-Construction governa autoevolucao.
 | `sandbox_profile` | Capacidades explicitamente permitidas: read-only, worktree-write, command, network, credentials, external-egress. |
 | `agent_lane_policy` | Como dividir designer, implementer, verifier, critic e repair sem permitir autoaprovacao. |
 | `source_snapshot` | Fonte, versao/hash/data e observacoes de drift do material externo. |
+| `authorization_lattice` | Permissoes separadas para triage, monitoramento, edicao local, push, CI repair, merge, release, credencial e egress. |
+| `decision_ready_boundary` | Condicao minima antes de pedir decisao humana: artefato preparado, prova rodada, tradeoffs claros e escolha exata. |
+| `live_proof_gate` | Prova no caminho real afetado; mocks, fixtures e CI complementam, mas nao substituem boundary vivo quando aplicavel. |
+| `public_surface_gate` | Varredura de identificadores, provider details, prompts, traces, segredos e dados privados antes de qualquer mutacao publica. |
 
 ## MachinaOS Absorption 2026-06-19
 
@@ -196,10 +222,80 @@ O que nao deve ser copiado:
 - `.env` ou credenciais como material de exemplo versionado.
 - Um frontend/workflow OS paralelo para decidir o que o Loop deve fazer.
 
+## Maintainer Orchestrator Absorption 2026-06-19
+
+O `maintainer-orchestrator` de `steipete/agent-scripts` foi dissecado como
+skill de control-plane para manutencao multi-repositorio. A conclusao
+arquitetural e: ele nao e executor de Loop nem runtime Atlas; ele e um padrao
+operacional de coordenacao, autorizacao, prova e decisao humana tardia que deve
+alimentar o `LoopPatternRegistry`.
+
+| Valor observado | Adaptacao Atlas | Estado |
+|---|---|---|
+| Root orchestrator leve + workers por repositorio | `control_plane_orchestrator`: o Loop coordenador observa, delega, monitora e registra; work pesado fica em lanes/workers escopados. | candidate |
+| Regra de nao-subdelegacao | `agent_lane_policy` deve impedir worker de criar subworker ou gerenciar outro chat/processo sem permissao do control-plane. | candidate |
+| Classificacao `Autonomous` / `Needs owner` / `Ignored by owner` | Queue triage do Loop separa trabalho executavel, decisao humana e excecao explicita do operador. | candidate |
+| Decision-ready queue rule | `decision_ready_handoff`: antes de pedir decisao, o Loop prepara PR/patch/prova/tradeoffs ate o limite autonomo. | candidate |
+| Owner Decision Brief | `output_schema` para pedidos humanos: URL/titulo, mudanca, beneficio, prova, riscos, recomendacao e escolhas exatas. | candidate |
+| Monitoring protocol conservador | Worker so recebe intervencao se ha blocker, conclusao, desvio grosseiro, risco ou conflito com instrucao nova. | candidate |
+| Permissoes separadas | `authorization_lattice`: triage, monitoramento, implementacao, push, CI repair, merge/close e release nao implicam uns aos outros. | candidate |
+| Credential access minimizado | Pattern declara capability/credential requirement; nao enumera segredos, nao transfere valor entre lanes e pede acesso exato. | candidate |
+| Live proof pre-land | `live_proof_gate`: caminho real afetado antes de merge/release; waiver precisa ser explicito e item-specific. | candidate |
+| Public Model Identifier Gate | `public_surface_gate`: bloqueia vazamento de model IDs nao publicos, provider details, prompts, traces, segredos e dados sensiveis. | candidate |
+| Release gate | `release_readiness_gate`: release so com fila efetiva zerada, CI verde, prova/waiver, checkout limpo, SemVer correto e autorizacao atual. | candidate |
+| Compact reporting ledger | `PatternLearningLedger` e report do Loop usam estados `Active`, `Intervened`, `Needs owner`, `Ignored`, `Released`, `Ready next`. | candidate |
+
+O que nao deve ser copiado:
+
+- Escopo pessoal de repositorios, organizacoes excluidas ou regras de ownership
+  do autor original.
+- GitHub/Codex threads como unica abstracao de worker; Atlas deve usar adapter.
+- 1Password/tmux/npm/macOS release como contrato universal.
+- Polling fixo de cinco minutos como default global.
+- Merge, close, push ou release implicitos por monitoramento ou triage.
+- Pergunta humana prematura com link cru, status label ou `land/delete` sem
+  briefing decisorio completo.
+
+## DeerFlow Harness Absorption 2026-06-19
+
+`bytedance/deer-flow` foi dissecado como super-agent harness LangGraph/FastAPI:
+lead agent, middleware chain, run manager, journal, subagentes, sandbox, MCP,
+tools, skills, memoria, gateway e configuracao. A conclusao arquitetural e:
+ele nao e o Atlas Loop; ele fornece disciplina de harness para patterns que o
+Atlas deve absorver pelo `LoopPatternRegistry`.
+
+Doc dedicada: `docs/engineering-knowledge-base/atlas-loop-deerflow-harness-analysis.md`.
+
+| Valor observado | Adaptacao Atlas | Estado |
+|---|---|---|
+| Run manager + RunJournal | `deerflow_run_journal`: cada ciclo do Loop registra objective, PatternSpec, diff, testes, token/custo, terminal state, learning e next bottleneck. | source_material |
+| Deferred tool search + catalog hash | `deerflow_deferred_tool_promotion`: tools entram por schema sob demanda, hash e terminal `blocked` em drift/ausencia. | source_material |
+| Loop detection middleware | `deerflow_loop_repetition_guard`: repeticao de tool/action vira warn, hard stop ou `stagnated`, com receipt. | source_material |
+| Tool output budget/externalization | `deerflow_tool_output_externalization`: output grande vira artifact/path verificavel, nao truncamento de prova load-bearing. | source_material |
+| Subagent task tool sem recursao | `deerflow_subagent_nonrecursive_contract`: worker lane nao cria worker; fan-out e autoridade ficam no control-plane. | source_material |
+| Stateful MCP sessions por scope | `deerflow_stateful_mcp_session`: tool/MCP session escopada por workspace/run, com leak cross-workspace bloqueado. | source_material |
+| Sandbox virtual paths | `deerflow_sandbox_virtual_path`: paths virtuais e deny-by-default viram `sandbox_profile` Atlas. | source_material |
+| Skill evolution guard | `deerflow_skill_evolution_guard`: criar/patchar skill/pattern so por eval fresca, objective score e sem self-approval. | source_material |
+| Safety finish/tool suppression | `deerflow_provider_safety_tool_suppression`: provider safety/refusal nunca executa tool args truncados. | source_material |
+| Memory debounce/dedupe/budget | `deerflow_memory_hygiene_debounce`: writeback governado, allowlistado e provider-safe; memoria canonica continua Atlas. | source_material |
+| Config reload boundary | `deerflow_runtime_config_boundary`: campo de config do Loop declara hot-reload, restart, blocked ou approval-required. | source_material |
+
+O que nao deve ser copiado:
+
+- Stream bridge in-memory como fundacao 24/7.
+- Memoria JSON como canonica.
+- Scanner LLM como unica fronteira de seguranca.
+- Skill evolution prompt-only.
+- UI/chat/IM channels como nucleo do Loop.
+- Direct provider CLI/OAuth sem governanca Atlas.
+- Subagente recursivo.
+- Fallback de tool desconhecida como sucesso.
+- Status manual sem Evidence/test/receipt gerado.
+
 ## Source Intake
 
 ```text
-External source (Loop Library, MachinaOS, paper, repo, skill)
+External source (Loop Library, MachinaOS, maintainer-orchestrator, DeerFlow, paper, repo, skill)
 -> snapshot/hash + freshness note
 -> PatternSourceIntake (provider-safe summary, no Atlas secret/code egress)
 -> quarantine as source_material
@@ -246,6 +342,11 @@ ao vocabulario Atlas antes de executar:
 | The fresh-clone loop | Provar setup, docs e onboarding em ambiente limpo. |
 | The post-release baseline loop | Registrar baseline apos entrega para medir regressao/evolucao. |
 | The full product evaluation loop / The quality streak loop | Avaliar capacidade ampla com cenarios frescos e streak honesto. |
+| Maintainer control-plane orchestrator | Coordenar lanes/workers sem subdelegacao, com autorizacao separada, prova viva e handoff decision-ready. |
+| Maintainer live-proof/release gate | Bloquear merge/release ate prova real, CI, fila efetiva, waiver explicito ou decisao humana preparada. |
+| DeerFlow runtime harness discipline | Registrar cada ciclo como run/journal, controlar tools, subagentes, sandbox, output budget e terminal states. |
+| DeerFlow deferred tool promotion | Resolver schemas de tools sob demanda com hash/catalogo e bloquear drift em vez de improvisar. |
+| DeerFlow subagent non-recursion | Impedir worker de criar worker; fan-out e autoridade pertencem ao control-plane do Loop. |
 
 O catalog completo pode ficar como `source_material`. Virar `ready/default` exige
 casos Atlas, resultado comparavel e rollback.
@@ -318,8 +419,40 @@ Primeiro territorio: o proprio Loop. O registry so deve ganhar escopo maior
 depois de provar que melhora selecao, execucao, verificacao e documentacao do
 Loop sem rebaixar a Constituicao.
 
+## Slice 1 — Runtime Nucleus (implementado + testado 2026-06-19)
+
+O primeiro slice runtime existe em `app/Services/Ai/AutonomousEvolution/Pattern/` e e advisory
+no produtor. NAO e o registry 24/7 completo; e o nucleo deterministico que permite o proximo salto.
+
+Implementado e testado (phpunit verde, provider-free):
+
+| Classe | Papel | Garantia testada |
+|---|---|---|
+| `AtlasLoopPatternSpec` | VO imutavel do pattern | fail-closed: sem gate/terminal/sandbox nao constroi; fonte externa nasce `candidate` (nunca selecionavel) |
+| `AtlasLoopExecutionContract` | VO do contrato compilado | fail-closed: 14 campos; sem gate/terminal-success/sandbox lanca |
+| `AtlasLoopPatternRegistry` | repertorio deterministico | 8 seeds (`docs_sweep`, `loop_harness_verification`, `ticket_to_pr_ready`, `self_improving_champion`, `fresh_clone`, `production_error_sweep`, `devils_advocate`, `post_release_baseline`) + 1 externo em quarentena + 1 tombstone cosmetico depreciado; `selectable()` so devolve `ready/default` |
+| `AtlasLoopPatternSelector` | escolhe pattern por objetivo | rejeita trabalho cosmetico/`expected_impact` desprezivel (inclui NaN/±INF); so considera selecionaveis; prefere verificacao forte; roteia por tipo |
+| `AtlasLoopPatternCompiler` | Spec + objetivo -> contrato | fail-closed; objetivo vazio lanca; nunca fabrica gate placeholder |
+| `AtlasLoopPatternSourceIntake` | ingestao de material externo | sempre `source_material` (no maximo `candidate`); nunca executa/instala/fetch; preserva resumo/fonte/data/rationale |
+| `AtlasLoopPatternLearningLedger` | outcomes provider-safe | JSONL fail-closed; descarta chaves nao-allowlistadas (sem prompt/segredo/diff) |
+| `AtlasLoopPatternChampionGate` | promocao governada | bloqueia self-approval (proposer==approver), exige eval fresca + vitoria estrita por margem + zero regressao de guardrail; fail-closed |
+
+Integracao (advisory/read-only): `AtlasLoopObjectiveProducer::produce()` anexa `pattern` +
+`execution_contract` ao objetivo originado (top-level e no `payload`), atras do flag
+`atlas.loop.pattern_advisory_enabled` (default ON, fail-open). NAO reordena nem porta a originacao —
+o EV brain + o critico adversarial continuam os unicos decisores. Verificado por
+`AtlasLoopObjectiveProducerPatternSelectionTest` e o regression `...EvPickTest`.
+
+Ainda DESIGN (nao implementado neste slice): eval battery fresca real, normalizer de material externo
+para vocabulario Atlas, ledger ligado ao certifier/Evidence runtime, e o loop de auto-otimizacao
+champion/challenger rodando vivo. O selector e champion gate sao honestos mas dependem de numeros
+auto-reportados (impacto/score) ate o eval battery e o outcome real estarem ligados.
+
 ## Proximas Acoes
 
-1. Criar AP/spec de implementacao com storage, selector, compiler e eval battery.
-2. Seedar primeiro os patterns necessarios para o proprio Loop.
-3. Rodar champion/challenger antes de qualquer promocao para `ready/default`.
+1. Campanha curta do PROPRIO Loop rodando com PatternRegistry + ExecutionContract, medindo se ele
+   escolhe melhor trabalho e nao faz cosmetica (a prova viva que falta).
+2. Ligar o `AtlasLoopPatternLearningLedger` ao outcome real do certifier/Evidence (fechar o feedback).
+3. Construir o eval battery fresco que o `AtlasLoopPatternChampionGate` consome antes de qualquer
+   promocao para `ready/default`.
+4. Normalizer de source-intake (vocabulario Atlas) antes de promover material externo de `candidate`.

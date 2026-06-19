@@ -10,6 +10,7 @@ use App\Services\Ai\AutonomousEvolution\AtlasEvolutionTaskGenerator;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopDeliveryPipeline;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
+use App\Services\Ai\Cognitive\Failure\SuiteRedTestHandleHarvester;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
@@ -48,6 +49,12 @@ final class AtlasLoopQueueRefiller
         private readonly ?AtlasLoopObjectiveProducer $objectiveProducer = null,
         private readonly ?AtlasLoopBugReproductionLane $bugReproductionLane = null,
         private readonly ?\App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopDeliveryPipeline $pipeline = null,
+        // B0 — REAL WORK SUPPLY: the deterministic-RED handle harvester, run at the FRONT of the
+        // refill so a configured phpunit JSON report becomes durable bug handles BEFORE discovery
+        // stamps them onto target signals. Nullable + lazily resolved in refill() (mirrors the
+        // pipeline arg, which is also not passed by the AppServiceProvider DI binding), so existing
+        // refiller constructions (18 positional args) stay valid and the harvester self-resolves.
+        private readonly ?SuiteRedTestHandleHarvester $failureHandleHarvester = null,
     ) {}
 
     /**
@@ -269,12 +276,20 @@ final class AtlasLoopQueueRefiller
     /**
      * Discover + generate + enqueue up to $want new tasks for a campaign.
      *
-     * @return array{discovered:int, claimed:int, enqueued:int, quarantined:int, deferred:int, obra_candidates:int}
+     * @return array{discovered:int, claimed:int, enqueued:int, quarantined:int, deferred:int, obra_candidates:int, failure_handle_harvest:array{status:string, scanned:int, harvested:int, dropped_environmental:int, dropped_unknown:int, dropped_unrunnable:int, dropped_ambiguous_target:int, write_failed:int}}
      */
     public function refill(AtlasLoopCampaign $campaign, int $want): array
     {
         $repoRoot = rtrim((string) $campaign->base_workspace, '/');
         $provider = (string) $campaign->provider; // '' => loop default (provider-agnostic)
+
+        // B0 — REAL WORK SUPPLY: harvest deterministic-RED handles from the configured phpunit JSON
+        // report BEFORE discovery runs, so a freshly-harvested handle is in atlas_loop_failure_handles
+        // when the discovery FAILURE-HANDLE STAMP reads it this same cycle => the bug-fix lane is fed
+        // live instead of starved. FAIL-OPEN by total contract (disabled / no path / missing report /
+        // DB-less => a no-op receipt), so it can NEVER break a refill. Surfaced as a sibling receipt
+        // key; the legacy counters (discovered/claimed/enqueued/quarantined/deferred) are untouched.
+        $failureHandleHarvest = $this->harvestFailureHandles();
 
         $disc = $this->discovery->discover($repoRoot, $campaign->id, ['limit' => max($want * 2, $want + 4)]);
         $targets = $this->repository->claimTop($campaign->id, $want);
@@ -423,6 +438,7 @@ final class AtlasLoopQueueRefiller
             'quarantined' => $quarantined,
             'deferred' => $deferred,
             'obra_candidates' => $obraCandidates,
+            'failure_handle_harvest' => $failureHandleHarvest,
         ];
         if ($obraRanking !== null) {
             $result['obra_pick'] = $obraRanking['pick'];
@@ -430,6 +446,41 @@ final class AtlasLoopQueueRefiller
         }
 
         return $result;
+    }
+
+    /**
+     * B0 — run the deterministic-RED handle harvester at the FRONT of the refill so a configured
+     * phpunit JSON report becomes durable bug handles BEFORE discovery stamps them. The "enabled"
+     * decision + the report-path default both live in {@see SuiteRedTestHandleHarvester} (single
+     * source of truth: harvestEnabled() honors the legacy flat override then the canonical nested
+     * flag; configuredReportPath() reads the canonical report_path). This method only DELEGATES and
+     * surfaces a compact receipt. FAIL-OPEN by total contract: harvest disabled => the harvester
+     * returns a 'disabled' no-op; an empty/missing report or DB-less context => 'report_missing' /
+     * fail-open no-op rows; ANY thrown error => a compact 'error' receipt — it can NEVER break refill.
+     *
+     * @return array{status:string, scanned:int, harvested:int, dropped_environmental:int, dropped_unknown:int, dropped_unrunnable:int, dropped_ambiguous_target:int, write_failed:int}
+     */
+    private function harvestFailureHandles(): array
+    {
+        try {
+            $harvester = $this->failureHandleHarvester ?? app(SuiteRedTestHandleHarvester::class);
+
+            // Always delegate: the harvester short-circuits to a 'disabled' receipt when OFF (cheap,
+            // no IO), so the enabled-decision is never re-implemented here (no config drift). The
+            // configured report_path is the canonical default; a null path yields 'report_missing'.
+            return $harvester->harvest(SuiteRedTestHandleHarvester::configuredReportPath());
+        } catch (Throwable) {
+            return [
+                'status' => 'error',
+                'scanned' => 0,
+                'harvested' => 0,
+                'dropped_environmental' => 0,
+                'dropped_unknown' => 0,
+                'dropped_unrunnable' => 0,
+                'dropped_ambiguous_target' => 0,
+                'write_failed' => 0,
+            ];
+        }
     }
 
     /**

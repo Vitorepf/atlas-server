@@ -24,7 +24,13 @@ class AtlasLoopFailureHandleHarvestCommand extends Command
 
     public function handle(SuiteRedTestHandleHarvester $harvester): int
     {
-        $reportPath = $this->option('report-path') !== null ? (string) $this->option('report-path') : null;
+        // The explicit --report-path option WINS; when omitted (or empty) fall back to the canonical
+        // config('atlas.loop.failure_handle_harvest.report_path') so an operator who armed the path
+        // via env does not get a `report_missing` from a bare `php artisan atlas:loop:failure-handle-harvest`.
+        $option = $this->option('report-path');
+        $reportPath = ($option !== null && (string) $option !== '')
+            ? (string) $option
+            : SuiteRedTestHandleHarvester::configuredReportPath();
 
         $report = $harvester->harvest($reportPath, (bool) $this->option('force'));
 

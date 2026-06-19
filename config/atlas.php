@@ -1926,6 +1926,12 @@ return [
         'drift_restart_debounce_min_self_merges' => (int) env('ATLAS_LOOP_DRIFT_RESTART_DEBOUNCE_MIN_SELF_MERGES', 1),
         'observability_digest_enabled' => (bool) env('ATLAS_LOOP_OBSERVABILITY_DIGEST_ENABLED', true),
 
+        // C0 · Real-Work Campaign Scorecard — read-only honesty ruler embedded in campaign status. It
+        // classifies a campaign's tasks (real bug_fix/feature/verification vs proxy refactor vs cosmetic
+        // vs unknown) and emits a conservative claim policy, so a campaign can never call proxy/cosmetic
+        // work "real evolution" without evidence. Default ON (zero provider spend, no side effects).
+        'real_work_scorecard_enabled' => (bool) env('ATLAS_LOOP_REAL_WORK_SCORECARD_ENABLED', true),
+
         // L4-1: ranking anti-Goodhart. O score estrutural continua sendo a base, mas ganha
         // boost limitado por impacto real: surface no code graph, evidência de falha e backlog.
         'impact_ranking_enabled' => (bool) env('ATLAS_LOOP_IMPACT_RANKING_ENABLED', true),
@@ -2112,6 +2118,23 @@ return [
             'enabled' => (bool) env('ATLAS_LOOP_FAILURE_HANDLE_HARVEST_ENABLED', false),
             'report_path' => (string) env('ATLAS_LOOP_FAILURE_HANDLE_HARVEST_REPORT_PATH', ''),
         ],
+        // PATTERN-REGISTRY (Slice 1) — advisory pattern selection + ExecutionContract on the produced
+        // objective. ADVISORY/read-only: the AtlasLoopPatternSelector picks the best SELECTABLE pattern
+        // for the originated objective and the AtlasLoopPatternCompiler compiles it into a typed contract,
+        // attached to produce()'s return as `pattern` + `execution_contract`. It NEVER gates or reorders
+        // origination (fail-open: any hiccup leaves the objective untouched). Default ON because it only
+        // ADDS read-only context; flip OFF for byte-identical legacy output.
+        'pattern_advisory_enabled' => (bool) env('ATLAS_LOOP_PATTERN_ADVISORY_ENABLED', true),
+        // PATTERN-REGISTRY DECISION DRIVER (A0) — the step UP from advisory. When OFF (default) the
+        // PatternRegistry/Selector stay read-only: they may ATTACH a pattern + contract AFTER the EV
+        // brain/critic already chose the work (the advisory above), preserving today's behaviour exactly.
+        // When ON, the AtlasLoopPatternDecisionDriver runs over the floor-passers BEFORE origination and is
+        // the DECIDER: it filters/reorders/gates the candidates, REJECTS a cosmetic / negligible-impact /
+        // non-finite-impact top candidate and selects the next acceptable one, or emits NO objective when
+        // none is acceptable (governed null). It is FAIL-CLOSED (a selector/compile failure stops the cycle
+        // rather than producing ungoverned work) — distinct from the fail-OPEN advisory above and NOT a
+        // reuse of pattern_advisory_enabled. Default OFF: arm only when supply is ready to feed it.
+        'pattern_driver_enabled' => (bool) env('ATLAS_LOOP_PATTERN_DRIVER_ENABLED', false),
 
         // DECISION ("o quê a seguir") — the UNGAMEABLE next-work priority. When ON, the task
         // priority becomes BAND(shape) + OFFSET(leverage re-resolved FRESH from git/graph) instead

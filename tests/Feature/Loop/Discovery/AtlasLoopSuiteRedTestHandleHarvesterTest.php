@@ -125,4 +125,83 @@ final class AtlasLoopSuiteRedTestHandleHarvesterTest extends TestCase
         $this->assertSame('disabled', $report['status']);
         $this->assertSame(0, DB::table(AtlasLoopFailureHandleSource::TABLE)->count());
     }
+
+    /**
+     * CONFIG-MISMATCH REGRESSION: the CANONICAL nested flag arms the harvester. Before the B0 fix the
+     * harvester read only the FLAT `failure_handle_harvest_enabled`, so the canonical config key
+     * (`failure_handle_harvest.enabled`, the one config/atlas.php defines) silently armed NOTHING.
+     */
+    public function test_canonical_nested_flag_arms_the_harvester(): void
+    {
+        config(['atlas.loop.failure_handle_harvest.enabled' => true]); // canonical key only (no flat)
+
+        $path = $this->reportPath([
+            'tests' => [[
+                'name' => 'test_divide_guards_against_zero', 'status' => 'failed',
+                'message' => 'Failed asserting that 0 matches expected 1.',
+                'test_path' => 'tests/Feature/Services/CalculatorTest.php',
+                'target_path' => 'app/Services/Calculator.php',
+            ]],
+        ]);
+
+        $report = (new SuiteRedTestHandleHarvester())->harvest($path);
+        $this->assertSame('ok', $report['status'], 'the canonical nested flag arms the harvest');
+        $this->assertSame(1, $report['harvested']);
+        $this->assertSame(['app/Services/Calculator.php'], DB::table(AtlasLoopFailureHandleSource::TABLE)->pluck('path')->all());
+    }
+
+    /**
+     * LEGACY COMPAT: an explicitly-set FLAT override still wins (so old tests/runtime overrides keep
+     * working). Here the canonical nested flag is OFF but the flat flag is ON => the harvest runs.
+     */
+    public function test_legacy_flat_override_still_arms_when_nested_off(): void
+    {
+        config([
+            'atlas.loop.failure_handle_harvest.enabled' => false, // canonical OFF
+            'atlas.loop.failure_handle_harvest_enabled' => true,   // legacy flat override ON => wins
+        ]);
+
+        $path = $this->reportPath([
+            'tests' => [[
+                'name' => 'test_divide_guards_against_zero', 'status' => 'failed',
+                'message' => 'Failed asserting that 0 matches expected 1.',
+                'test_path' => 'tests/Feature/Services/CalculatorTest.php',
+                'target_path' => 'app/Services/Calculator.php',
+            ]],
+        ]);
+
+        $report = (new SuiteRedTestHandleHarvester())->harvest($path);
+        $this->assertSame('ok', $report['status'], 'an explicit legacy flat override wins over the nested flag');
+        $this->assertSame(1, $report['harvested']);
+    }
+
+    /**
+     * CONFIG-MISMATCH REGRESSION (command): with NO --report-path option, the command falls back to
+     * the canonical `failure_handle_harvest.report_path`. Before the B0 fix a bare run gave
+     * `report_missing` even when the operator armed the path via env.
+     */
+    public function test_command_uses_configured_report_path_when_option_absent(): void
+    {
+        $path = $this->reportPath([
+            'tests' => [[
+                'name' => 'test_divide_guards_against_zero', 'status' => 'failed',
+                'message' => 'Failed asserting that 0 matches expected 1.',
+                'test_path' => 'tests/Feature/Services/CalculatorTest.php',
+                'target_path' => 'app/Services/Calculator.php',
+            ]],
+        ]);
+        config([
+            'atlas.loop.failure_handle_harvest.enabled' => true,
+            'atlas.loop.failure_handle_harvest.report_path' => $path,
+        ]);
+
+        // No --report-path: the command must resolve the configured path, not report_missing.
+        $this->artisan('atlas:loop:failure-handle-harvest', ['--json' => true])->assertExitCode(0);
+
+        $this->assertSame(
+            ['app/Services/Calculator.php'],
+            DB::table(AtlasLoopFailureHandleSource::TABLE)->pluck('path')->all(),
+            'the command harvested from the configured report_path with no --report-path option',
+        );
+    }
 }

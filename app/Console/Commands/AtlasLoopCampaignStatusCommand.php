@@ -70,6 +70,7 @@ final class AtlasLoopCampaignStatusCommand extends Command
             'observability' => (bool) config('atlas.loop.observability_digest_enabled', true)
                 ? app(\App\Services\Ai\AutonomousEvolution\AtlasLoopObservabilityDigest::class)->section($campaign->id)
                 : ['status' => 'disabled', 'reason' => 'observability_digest_disabled'],
+            'real_work_scorecard' => $this->realWorkScorecardSection((string) $campaign->id),
         ];
 
         if ((bool) $this->option('json')) {
@@ -96,5 +97,35 @@ final class AtlasLoopCampaignStatusCommand extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * C0 · embed the Real-Work Campaign Scorecard. Flag-gated (default ON, it is read-only). Fail-safe:
+     * any error yields a well-formed `unavailable` section whose claim is structurally refused, so the
+     * status command never crashes on a scorecard hiccup and a broken ruler can never read as "real work".
+     *
+     * @return array<string,mixed>
+     */
+    private function realWorkScorecardSection(string $campaignId): array
+    {
+        if (! (bool) config('atlas.loop.real_work_scorecard_enabled', true)) {
+            return [
+                'schema_version' => \App\Services\Ai\AutonomousEvolution\AtlasLoopRealWorkScorecardService::SCHEMA_VERSION,
+                'status' => 'disabled',
+                'reason' => 'real_work_scorecard_disabled',
+                'claim_policy' => ['loop_real_work_claim_allowed' => false, 'blockers' => ['scorecard_disabled']],
+            ];
+        }
+
+        try {
+            return app(\App\Services\Ai\AutonomousEvolution\AtlasLoopRealWorkScorecardService::class)->scorecard($campaignId);
+        } catch (\Throwable $e) {
+            return [
+                'schema_version' => \App\Services\Ai\AutonomousEvolution\AtlasLoopRealWorkScorecardService::SCHEMA_VERSION,
+                'status' => 'unavailable',
+                'reason' => 'scorecard_error',
+                'claim_policy' => ['loop_real_work_claim_allowed' => false, 'blockers' => ['scorecard_unavailable']],
+            ];
+        }
     }
 }
