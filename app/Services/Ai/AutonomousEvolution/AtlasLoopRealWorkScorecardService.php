@@ -89,11 +89,25 @@ final class AtlasLoopRealWorkScorecardService
         $breakdown = [];
 
         foreach ($rows as $row) {
-            $payload = $this->decodePayload($row->payload ?? null);
-            $objectiveText = (string) ($row->objective ?? '');
-
-            $classification = $this->classify($payload, $objectiveText);
             $counts['tasks_total']++;
+
+            // All payload-shape-dependent work is computed BEFORE any counting, so a malformed/off-nominal
+            // row throws here and the catch degrades it to a single UNKNOWN + pattern-missing row — keeping
+            // both partitions exact and honouring the never-crash contract (defence in depth; the scalar-safe
+            // accessors already prevent the known Array-to-string hazards).
+            try {
+                $payload = $this->decodePayload($row->payload ?? null);
+                $objectiveText = $this->scalarString($row->objective ?? '');
+                $classification = $this->classify($payload, $objectiveText);
+                $mode = $this->patternMode($payload);
+                $selected = $this->patternSelected($payload);
+                $objectiveKind = $this->objectiveKind($payload);
+            } catch (Throwable) {
+                $counts['unknown_tasks']++;
+                $pattern['missing']++;
+
+                continue;
+            }
 
             switch ($classification['bucket']) {
                 case self::BUCKET_REAL:
@@ -112,8 +126,7 @@ final class AtlasLoopRealWorkScorecardService
             }
 
             // Pattern signals — present-but-undriven (no `pattern.mode`) counts as missing, so
-            // driver + advisory + missing always partitions tasks_total. Absence never throws.
-            $mode = $this->patternMode($payload);
+            // driver + advisory + missing always partitions tasks_total.
             if ($mode === 'driver') {
                 $pattern['driver']++;
             } elseif ($mode === 'advisory') {
@@ -121,15 +134,14 @@ final class AtlasLoopRealWorkScorecardService
             } else {
                 $pattern['missing']++;
             }
-            $selected = $this->patternSelected($payload);
             if ($selected !== null) {
                 $patternsSelected[$selected] = true;
             }
 
             if (count($breakdown) < self::BREAKDOWN_CAP) {
                 $breakdown[] = [
-                    'task_id' => (string) ($row->id ?? ''),
-                    'objective_kind' => $this->objectiveKind($payload),
+                    'task_id' => $this->scalarString($row->id ?? ''),
+                    'objective_kind' => $objectiveKind,
                     'bucket' => $classification['bucket'],
                     'real_kind' => $classification['real_kind'],
                     'reasons' => $classification['reasons'],
@@ -192,7 +204,11 @@ final class AtlasLoopRealWorkScorecardService
         $revertRecheck = $this->isTrue(data_get($payload, 'revert_recheck'))
             || $this->isTrue(data_get($payload, 'acceptance.revert_recheck'));
         $concreteAcceptance = $this->hasConcreteAcceptance($payload, $redRequired);
-        $featureSignal = str_starts_with($kind, 'feature') || $this->isTrue(data_get($payload, 'feature'));
+        // A feature KIND is a proper `feature` / `feature_*` / `feature-*` token — NOT any string that merely
+        // starts with the 7 chars "feature" (which would swallow `featured` / `featureless_refactor`). There
+        // is deliberately NO bare `feature` payload flag: the spec's real-work signal is the objective_kind,
+        // and a self-asserted boolean with no kind is exactly a laundering vector the honesty gate forbids.
+        $featureKind = $kind === 'feature' || str_starts_with($kind, 'feature_') || str_starts_with($kind, 'feature-');
         $failureOrBugSignal = $redRequired
             || str_contains($kind, 'bug')
             || $this->present(data_get($payload, 'failure_handle'))
@@ -200,13 +216,16 @@ final class AtlasLoopRealWorkScorecardService
             || $this->present(data_get($payload, 'red_handle'));
 
         // ── 1. COSMETIC (hard blocker — checked before any real-looking signal) ──────────────────────────
-        if ($this->cosmeticSignal($payload, $objectiveText, $kind, $concreteAcceptance)) {
+        if ($this->cosmeticSignal($payload, $objectiveText, $kind, $concreteAcceptance, $redRequired)) {
             return $this->bucket(self::BUCKET_COSMETIC, null, ['cosmetic_signal']);
         }
 
         // ── 2. REAL WORK (behaviour-changing with a concrete contract) ──────────────────────────────────
-        if ($featureSignal) {
-            return $this->bucket(self::BUCKET_REAL, self::REAL_KIND_FEATURE, ['feature_signal:'.$kind]);
+        // Feature, like verification/characterization, requires a CONCRETE acceptance contract (consistent
+        // with this class's invariant): an empty `feature` stub with no runnable acceptance is NOT proven
+        // real work — it falls through to UNKNOWN, which refuses the claim.
+        if ($featureKind && $concreteAcceptance) {
+            return $this->bucket(self::BUCKET_REAL, self::REAL_KIND_FEATURE, ['feature+concrete_acceptance:'.$kind]);
         }
         if ($kind === 'bug_fix') {
             return $this->bucket(self::BUCKET_REAL, self::REAL_KIND_BUG_FIX, ['objective_kind=bug_fix']);
@@ -225,7 +244,7 @@ final class AtlasLoopRealWorkScorecardService
         }
 
         // ── 3. PROXY REFACTOR (behaviour-preserving — no red, no revert, no bug/feature signal) ──────────
-        if (str_starts_with($kind, 'refactor') && ! $revertRecheck && ! $redRequired && ! $failureOrBugSignal && ! $featureSignal) {
+        if (str_starts_with($kind, 'refactor') && ! $revertRecheck && ! $redRequired && ! $failureOrBugSignal && ! $featureKind) {
             return $this->bucket(self::BUCKET_PROXY, null, ['refactor_behavior_preserving:'.$kind]);
         }
 
@@ -236,7 +255,7 @@ final class AtlasLoopRealWorkScorecardService
     /**
      * @param  array<string,mixed>  $payload
      */
-    private function cosmeticSignal(array $payload, string $objectiveText, string $kind, bool $concreteAcceptance): bool
+    private function cosmeticSignal(array $payload, string $objectiveText, string $kind, bool $concreteAcceptance, bool $redRequired): bool
     {
         if ($this->isTrue(data_get($payload, 'cosmetic'))) {
             return true;
@@ -248,10 +267,20 @@ final class AtlasLoopRealWorkScorecardService
             return true;
         }
 
-        // Format/whitespace/comment-only text is cosmetic ONLY when there is no real acceptance contract —
-        // a genuine bug_fix that merely mentions "fix typo in error message" but carries red_required is NOT
-        // demoted to cosmetic (concreteAcceptance gates the heuristic).
-        return ! $concreteAcceptance && $this->textLooksCosmetic($objectiveText);
+        if (! $this->textLooksCosmetic($objectiveText)) {
+            return false;
+        }
+
+        // The objective text is explicitly format/whitespace/comment-only. A verified-RED failing command
+        // (red_required) proves real behaviour change and overrides the text. Otherwise the text is a
+        // cosmetic signal when there is no concrete acceptance contract at all, OR when the kind is a
+        // behaviour-preserving refactor (a frozen-sibling command does NOT make whitespace work real —
+        // closing the no-op/sibling-command laundering vector for cosmetic refactors).
+        if ($redRequired) {
+            return false;
+        }
+
+        return ! $concreteAcceptance || str_starts_with($kind, 'refactor');
     }
 
     /**
@@ -271,7 +300,8 @@ final class AtlasLoopRealWorkScorecardService
         // first-class cosmetic signal about the task itself (the selector's anti-cosmetic gate fired).
         $selected = $pattern['selected'] ?? null;
         $rejected = $this->isTrue($pattern['rejected'] ?? null) || $selected === null || $selected === '';
-        $reason = strtolower((string) ($pattern['reason'] ?? ''));
+        $reasonRaw = $pattern['reason'] ?? '';
+        $reason = is_scalar($reasonRaw) ? strtolower((string) $reasonRaw) : '';
 
         return $rejected && $reason !== '' && preg_match('/cosmetic|trivial|negligible|proxy/', $reason) === 1;
     }
@@ -296,24 +326,60 @@ final class AtlasLoopRealWorkScorecardService
     private function hasConcreteAcceptance(array $payload, bool $redRequired): bool
     {
         if ($redRequired) {
-            return true;
+            return true; // a verified-RED failing command is the strongest concrete contract.
         }
         $commands = data_get($payload, 'acceptance.commands');
         if (is_array($commands)) {
             foreach ($commands as $c) {
-                if (is_string($c) && trim($c) !== '') {
+                if ($this->isRunnableCommand($c)) {
                     return true;
                 }
             }
         }
         foreach (['acceptance.command', 'acceptance_command', 'acceptance.command_line'] as $path) {
-            $v = data_get($payload, $path);
-            if (is_string($v) && trim($v) !== '') {
+            if ($this->isRunnableCommand(data_get($payload, $path))) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * A command counts as a concrete acceptance contract only if it invokes a recognised test/build runner.
+     *
+     * This is a fail-CLOSED ALLOW-LIST, not a no-op blocklist: a blocklist is a losing game (`:`, `true`,
+     * `true && true`, `:; true`, `exit  0`, `sleep 0`, `pwd`, `cat /dev/null`, `return 0`, bare `echo` … are
+     * endless no-op variants, and the loop's own data already contains literal `true` placeholders). Instead,
+     * a command is "runnable" ONLY when it matches a known runner shape; everything else is treated as NOT a
+     * concrete contract, so a degenerate/fake acceptance can never flip on the concrete-acceptance flag and
+     * launder cosmetic/proxy work into a real-work claim. The scorecard only string-classifies (never
+     * executes), so it judges the SHAPE of the command, not its exit code. Calibrated against the loop's real
+     * acceptance shapes: the dominant `php <path>.php` (running a generated/frozen test file) and
+     * `./vendor/bin/phpunit …`. Over-rejecting an unrecognised command is the safe direction (it refuses the
+     * claim) — the conservative posture the C0 honesty gate requires.
+     */
+    private function isRunnableCommand(mixed $command): bool
+    {
+        if (! is_string($command)) {
+            return false;
+        }
+        $cmd = strtolower(trim($command));
+        if ($cmd === '' || str_starts_with($cmd, '#')) {
+            return false;
+        }
+
+        // The loop's dominant acceptance shape: `php <path>.php` (run a generated/frozen test file).
+        if (preg_match('/\bphp\s+\S+\.php\b/', $cmd) === 1) {
+            return true;
+        }
+
+        // A recognised test/build runner anywhere in the command. `vendor/bin/` covers phpunit/pest/pint/
+        // phpstan/psalm/rector; `bin/atlas` is the project CLI. Bare no-op binaries match none of these.
+        return preg_match(
+            '#\b(phpunit|pest|artisan\s+test|pytest|go\s+test|cargo\s+test|dotnet\s+test|rspec|jest|vitest|phpstan|psalm|rector|pint|gradle|mvn|composer\s+(test|run)|(npm|yarn|pnpm)\s+(test|run)|make)\b|vendor/bin/|(^|\s)\.?/?bin/atlas\b#',
+            $cmd
+        ) === 1;
     }
 
     /**
@@ -418,7 +484,9 @@ final class AtlasLoopRealWorkScorecardService
      */
     private function objectiveKind(array $payload): string
     {
-        return strtolower(trim((string) data_get($payload, 'objective_kind', '')));
+        $v = data_get($payload, 'objective_kind', '');
+
+        return is_scalar($v) ? strtolower(trim((string) $v)) : '';
     }
 
     /**
@@ -426,7 +494,14 @@ final class AtlasLoopRealWorkScorecardService
      */
     private function patternMode(array $payload): string
     {
-        return strtolower(trim((string) data_get($payload, 'pattern.mode', '')));
+        $v = data_get($payload, 'pattern.mode', '');
+
+        return is_scalar($v) ? strtolower(trim((string) $v)) : '';
+    }
+
+    private function scalarString(mixed $v): string
+    {
+        return is_scalar($v) ? (string) $v : '';
     }
 
     /**

@@ -10,6 +10,7 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopRealWorkScorecardService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
@@ -382,6 +383,224 @@ final class AtlasLoopRealWorkScorecardTest extends TestCase
         $this->assertSame(0, $sc['pattern_signals']['pattern_advisory_tasks']);
         $this->assertSame(1, $sc['pattern_signals']['pattern_missing_tasks']);
         $this->assertSame([], $sc['pattern_signals']['patterns_selected']);
+    }
+
+    // ── adversarial regressions (holes found + closed by the verify pass) ──────
+
+    public function test_feature_kind_without_acceptance_is_unknown_not_real(): void
+    {
+        // Feature, like verification, requires a concrete acceptance contract — an empty feature stub is
+        // NOT proven real work (anti-laundering: a bare 'feature_add' label cannot mint a real claim).
+        $campaign = $this->makeCampaign();
+        $this->makeTask($campaign->id, ['objective_kind' => 'feature_add']);
+
+        $sc = $this->service()->scorecard($campaign->id);
+
+        $this->assertSame(0, $sc['real_work_tasks']);
+        $this->assertSame(0, $sc['feature_tasks']);
+        $this->assertSame(1, $sc['unknown_tasks']);
+        $this->assertFalse($sc['claim_policy']['loop_real_work_claim_allowed']);
+    }
+
+    public function test_featurelike_kinds_do_not_match_the_feature_lane(): void
+    {
+        // 'featured' / 'featureless_refactor' must NOT be classified feature — the lane matches the proper
+        // `feature` / `feature_*` / `feature-*` token, never a bare 7-char prefix.
+        $campaign = $this->makeCampaign();
+        $this->makeTask($campaign->id, [
+            'objective_kind' => 'featured',
+            'acceptance' => ['commands' => ['./vendor/bin/phpunit --filter X']],
+        ]);
+        $this->makeTask($campaign->id, [
+            'objective_kind' => 'featureless_refactor',
+            'acceptance' => ['commands' => ['./vendor/bin/phpunit --filter Y']],
+        ]);
+
+        $sc = $this->service()->scorecard($campaign->id);
+
+        $this->assertSame(0, $sc['feature_tasks']);
+        $this->assertSame(0, $sc['real_work_tasks'], 'neither featurelike kind is real work');
+        $this->assertFalse($sc['claim_policy']['loop_real_work_claim_allowed']);
+    }
+
+    public function test_bare_feature_flag_does_not_launder_proxy_refactor(): void
+    {
+        // A behaviour-preserving refactor with a bolted-on `feature:true` flag must stay PROXY, never REAL.
+        $campaign = $this->makeCampaign();
+        $this->makeTask($campaign->id, [
+            'objective_kind' => 'refactor_extract_method',
+            'feature' => true,
+            'acceptance' => ['commands' => ['./vendor/bin/phpunit --filter Frozen']],
+        ]);
+
+        $sc = $this->service()->scorecard($campaign->id);
+
+        $this->assertSame(0, $sc['real_work_tasks']);
+        $this->assertSame(1, $sc['proxy_refactor_tasks']);
+        $this->assertFalse($sc['claim_policy']['loop_real_work_claim_allowed']);
+    }
+
+    public function test_revert_recheck_with_concrete_acceptance_alone_is_real_bug_fix(): void
+    {
+        // Pins the spec's distinct REAL trigger in isolation (no objective_kind, no red_required).
+        $campaign = $this->makeCampaign();
+        $this->makeTask($campaign->id, [
+            'revert_recheck' => true,
+            'acceptance' => ['commands' => ['./vendor/bin/phpunit --filter Repro']],
+        ]);
+
+        $sc = $this->service()->scorecard($campaign->id);
+
+        $this->assertSame(1, $sc['real_work_tasks']);
+        $this->assertSame(1, $sc['bug_fix_tasks']);
+        $this->assertTrue($sc['claim_policy']['loop_real_work_claim_allowed']);
+    }
+
+    public function test_acceptance_revert_recheck_alias_counts_as_real(): void
+    {
+        $campaign = $this->makeCampaign();
+        $this->makeTask($campaign->id, [
+            'acceptance' => ['revert_recheck' => true, 'commands' => ['./vendor/bin/phpunit --filter Alias']],
+        ]);
+
+        $sc = $this->service()->scorecard($campaign->id);
+
+        $this->assertSame(1, $sc['real_work_tasks']);
+        $this->assertSame(1, $sc['bug_fix_tasks']);
+        $this->assertTrue($sc['claim_policy']['loop_real_work_claim_allowed']);
+    }
+
+    public function test_revert_recheck_without_acceptance_on_refactor_is_not_real(): void
+    {
+        // The dangerous false-positive direction: a self-asserted revert_recheck on a refactor WITHOUT a
+        // runnable acceptance command must NOT be laundered into real work.
+        $campaign = $this->makeCampaign();
+        $this->makeTask($campaign->id, ['objective_kind' => 'refactor_x', 'revert_recheck' => true]);
+
+        $sc = $this->service()->scorecard($campaign->id);
+
+        $this->assertSame(0, $sc['real_work_tasks']);
+        $this->assertFalse($sc['claim_policy']['loop_real_work_claim_allowed']);
+    }
+
+    public function test_noop_command_does_not_satisfy_concrete_acceptance(): void
+    {
+        // A no-op placeholder command (`:`) is NOT a concrete acceptance contract, so it cannot suppress the
+        // cosmetic-text guard nor satisfy the revert_recheck real lane.
+        $campaign = $this->makeCampaign();
+        // verification kind + no-op command + cosmetic text ⇒ cosmetic (not real verification).
+        $this->makeTask($campaign->id, [
+            'objective_kind' => 'verification',
+            'acceptance' => ['command' => ':'],
+        ], 'remove trailing whitespace and reformat comments only');
+        // refactor + revert_recheck + no-op command + cosmetic text ⇒ cosmetic (not real bug_fix).
+        $this->makeTask($campaign->id, [
+            'objective_kind' => 'refactor_x',
+            'revert_recheck' => true,
+            'acceptance' => ['command' => ':'],
+        ], 'fix typo in comment, whitespace cleanup');
+
+        $sc = $this->service()->scorecard($campaign->id);
+
+        $this->assertSame(0, $sc['real_work_tasks'], 'no-op commands never mint real work');
+        $this->assertSame(2, $sc['cosmetic_tasks']);
+        $this->assertFalse($sc['claim_policy']['loop_real_work_claim_allowed']);
+        $this->assertContains('cosmetic_work_observed', $sc['claim_policy']['blockers']);
+    }
+
+    /**
+     * @return array<int,array{0:string}>
+     */
+    public static function noOpCommandProvider(): array
+    {
+        return [
+            ['true'],            // literal no-op present in real loop data
+            ['true && true'],    // compound no-op
+            [':; true'],         // separator-joined no-ops
+            ['exit  0'],         // double-space defeats a naive 'exit 0' literal
+            ['sleep 0'],
+            ['pwd'],
+            ['cat /dev/null'],
+            ['/usr/bin/true'],
+            ['echo ok'],
+        ];
+    }
+
+    #[DataProvider('noOpCommandProvider')]
+    public function test_noop_command_variants_never_mint_real_work(string $command): void
+    {
+        // A feature lane is the cleanest single-task path to claim=true, so prove a no-op acceptance command
+        // there is NOT a concrete contract: the task degrades to unknown and the claim is refused.
+        $campaign = $this->makeCampaign();
+        $this->makeTask($campaign->id, [
+            'objective_kind' => 'feature_add',
+            'acceptance' => ['commands' => [$command]],
+        ], 'add a new capability');
+
+        $sc = $this->service()->scorecard($campaign->id);
+
+        $this->assertSame(0, $sc['real_work_tasks'], "no-op command '{$command}' must not mint real work");
+        $this->assertSame(0, $sc['feature_tasks']);
+        $this->assertFalse($sc['claim_policy']['loop_real_work_claim_allowed']);
+    }
+
+    public function test_real_php_test_file_command_is_a_concrete_contract(): void
+    {
+        // The loop's DOMINANT real acceptance shape (`php tests/<file>.php`) MUST be recognised as concrete —
+        // the allow-list closes the no-op hole without rejecting the loop's own commands.
+        $campaign = $this->makeCampaign();
+        $this->makeTask($campaign->id, [
+            'objective_kind' => 'feature_add',
+            'acceptance' => ['commands' => ['php tests/atlas_generated_0.php']],
+        ], 'add a new capability');
+
+        $sc = $this->service()->scorecard($campaign->id);
+
+        $this->assertSame(1, $sc['real_work_tasks']);
+        $this->assertSame(1, $sc['feature_tasks']);
+        $this->assertTrue($sc['claim_policy']['loop_real_work_claim_allowed']);
+    }
+
+    public function test_cosmetic_false_flag_keeps_real_work_real(): void
+    {
+        // An explicit non-true cosmetic flag must NOT trip the cosmetic blocker (truthy-coercion contract).
+        $campaign = $this->makeCampaign();
+        $this->makeTask($campaign->id, $this->bugFixPayload() + ['cosmetic' => false]);
+
+        $sc = $this->service()->scorecard($campaign->id);
+
+        $this->assertSame(0, $sc['cosmetic_tasks']);
+        $this->assertSame(1, $sc['real_work_tasks']);
+        $this->assertTrue($sc['claim_policy']['loop_real_work_claim_allowed']);
+    }
+
+    public function test_non_scalar_payload_fields_do_not_crash_and_refuse_claim(): void
+    {
+        // The never-crash fail-safe: array-valued objective_kind / pattern.mode / pattern.reason must NOT
+        // throw an Array-to-string ErrorException out of the per-row loop. The row degrades to a safe class
+        // and the claim is refused — the scorecard stays well-formed (status ok, no exception).
+        $campaign = $this->makeCampaign();
+        $this->makeTask($campaign->id, ['objective_kind' => ['feature']]);
+        $this->makeTask($campaign->id, ['objective_kind' => 'refactor', 'pattern' => ['mode' => ['a', 'b'], 'selected' => ['x']]]);
+        $this->makeTask($campaign->id, ['objective_kind' => 'refactor', 'pattern' => ['rejected' => true, 'reason' => ['cosmetic']]]);
+
+        $sc = $this->service()->scorecard($campaign->id);
+
+        $this->assertSame('ok', $sc['status'], 'scorecard never crashes on malformed payloads');
+        $this->assertSame(3, $sc['tasks_total']);
+        $this->assertSame(0, $sc['real_work_tasks']);
+        $this->assertFalse($sc['claim_policy']['loop_real_work_claim_allowed']);
+        // partition invariant survives malformed rows
+        $this->assertSame(
+            $sc['tasks_total'],
+            $sc['real_work_tasks'] + $sc['proxy_refactor_tasks'] + $sc['cosmetic_tasks'] + $sc['unknown_tasks'],
+        );
+        $this->assertSame(
+            $sc['tasks_total'],
+            $sc['pattern_signals']['pattern_driver_tasks']
+                + $sc['pattern_signals']['pattern_advisory_tasks']
+                + $sc['pattern_signals']['pattern_missing_tasks'],
+        );
     }
 
     // ── command parity + receipt ──────────────────────────────────────────────
