@@ -153,47 +153,63 @@ final class AtlasLoopTaxa2DialOverlayService
      */
     private function suggest(array $base, array $limits, array $m): array
     {
-        $scenarioDelta = 0;
-        $watermarkDelta = 0;
-        $refillDelta = 0;
-        $reasons = [];
-
-        if (is_float($m['certification_rate']) && $m['certification_rate'] < (float) $limits['min_certification_rate']) {
-            $scenarioDelta++;
-            $reasons[] = 'certification_rate_below_floor';
-        }
-
-        if ((int) $m['canary_failed_24h'] > (int) $limits['max_canary_failures_24h']) {
-            $scenarioDelta++;
-            $reasons[] = 'red_canaries_in_loop_window';
-        }
-
-        if ((float) $m['impact_receipt_coverage_pct_24h'] > 0.0
-            && (float) $m['impact_receipt_coverage_pct_24h'] < (float) $limits['min_impact_receipt_coverage_pct']) {
-            $scenarioDelta++;
-            $reasons[] = 'impact_receipt_coverage_below_floor';
-        }
-
-        if (is_float($m['certified_to_merged']) && $m['certified_to_merged'] < (float) $limits['min_certified_to_merged']) {
-            $watermarkDelta++;
-            $refillDelta++;
-            $reasons[] = 'certified_to_merged_below_floor';
-        }
-
-        if ((int) $m['pending_tasks'] < $base['queue_low_watermark']) {
-            $watermarkDelta++;
-            $refillDelta++;
-            $reasons[] = 'pending_queue_below_base_watermark';
-        }
-
-        if ((int) $m['retired_stale'] > max(0, (int) $m['merged'])) {
-            $refillDelta++;
-            $reasons[] = 'stale_retirements_exceed_merges';
-        }
-
-        if ((int) $m['cost_events_24h'] > 0 && (float) $m['cost_coverage_pct_24h'] < (float) $limits['min_cost_coverage_pct']) {
-            $reasons[] = 'cost_coverage_too_low_for_downshift';
-        }
+        $signals = [
+            [
+                'active' => is_float($m['certification_rate']) && $m['certification_rate'] < (float) $limits['min_certification_rate'],
+                'reason' => 'certification_rate_below_floor',
+                'scenario_delta' => 1,
+                'watermark_delta' => 0,
+                'refill_delta' => 0,
+            ],
+            [
+                'active' => (int) $m['canary_failed_24h'] > (int) $limits['max_canary_failures_24h'],
+                'reason' => 'red_canaries_in_loop_window',
+                'scenario_delta' => 1,
+                'watermark_delta' => 0,
+                'refill_delta' => 0,
+            ],
+            [
+                'active' => (float) $m['impact_receipt_coverage_pct_24h'] > 0.0
+                    && (float) $m['impact_receipt_coverage_pct_24h'] < (float) $limits['min_impact_receipt_coverage_pct'],
+                'reason' => 'impact_receipt_coverage_below_floor',
+                'scenario_delta' => 1,
+                'watermark_delta' => 0,
+                'refill_delta' => 0,
+            ],
+            [
+                'active' => is_float($m['certified_to_merged']) && $m['certified_to_merged'] < (float) $limits['min_certified_to_merged'],
+                'reason' => 'certified_to_merged_below_floor',
+                'scenario_delta' => 0,
+                'watermark_delta' => 1,
+                'refill_delta' => 1,
+            ],
+            [
+                'active' => (int) $m['pending_tasks'] < $base['queue_low_watermark'],
+                'reason' => 'pending_queue_below_base_watermark',
+                'scenario_delta' => 0,
+                'watermark_delta' => 1,
+                'refill_delta' => 1,
+            ],
+            [
+                'active' => (int) $m['retired_stale'] > max(0, (int) $m['merged']),
+                'reason' => 'stale_retirements_exceed_merges',
+                'scenario_delta' => 0,
+                'watermark_delta' => 0,
+                'refill_delta' => 1,
+            ],
+            [
+                'active' => (int) $m['cost_events_24h'] > 0 && (float) $m['cost_coverage_pct_24h'] < (float) $limits['min_cost_coverage_pct'],
+                'reason' => 'cost_coverage_too_low_for_downshift',
+                'scenario_delta' => 0,
+                'watermark_delta' => 0,
+                'refill_delta' => 0,
+            ],
+        ];
+        $activeSignals = array_filter($signals, static fn (array $signal): bool => $signal['active']);
+        $scenarioDelta = (int) array_sum(array_column($activeSignals, 'scenario_delta'));
+        $watermarkDelta = (int) array_sum(array_column($activeSignals, 'watermark_delta'));
+        $refillDelta = (int) array_sum(array_column($activeSignals, 'refill_delta'));
+        $reasons = array_column($activeSignals, 'reason');
 
         $maxDelta = (int) $limits['max_delta_per_run'];
         $suggested = [
