@@ -78,6 +78,7 @@ final class AtlasLoopHarnessGuardTest extends TestCase
             'AtlasLoopSystemAxisService',          // LOOP-OS EV-brain: vetor de eixo-sistema (gargalo)
             'AtlasLoopTouchesAxesProducer',        // LOOP-OS EV-brain: relief machine-computável
             'AtlasLoopExpectedValueDecider',       // LOOP-OS EV-brain: argmax do salto exponencial
+            'AtlasLoopProjectionEngine',           // LOOP-OS Slice 9: contrato de obrigações (content-fixpoint)
             // LOOP-OS Fase 1 · Slice -1: a closure DELEGADA do juiz + moat + Constituição + back-doors
             'AtlasEngineeringHonestyGate',         // o gate determinístico que o Certifier DELEGA
             'AtlasLoopMutationAdequacyGateService',

@@ -99,6 +99,11 @@ final class AtlasLoopHarnessGuard
         // (b) Vocabulário de mutação (o moat de detecção). Vira property_gated no Slice 4.
         'app/Services/Ai/AutonomousEvolution/AtlasLoopMutationOperators.php',
 
+        // LOOP-OS Fase 2 · Slice 9: o motor de PROJEÇÃO produz o CONTRATO de obrigações que a cadeia de
+        // cert exige (content-fixpoint sobre tuplas tipadas). O réu nunca pode editá-lo — senão afrouxaria
+        // o próprio contrato de qualidade. Pétreo pelo mesmo princípio do cert-chain.
+        'app/Services/Ai/AutonomousEvolution/AtlasLoopProjectionEngine.php',
+
         // (c) A subárvore INTEIRA da Constituição — arquivos nascem pétreos por substring,
         //     então a fundação (actuator/battery/runner/gate/sentinel) é inviolável ao ser escrita.
         'app/Services/Ai/AutonomousEvolution/Constitution/',
