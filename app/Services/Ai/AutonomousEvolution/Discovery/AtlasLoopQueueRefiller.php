@@ -8,6 +8,8 @@ use App\Models\AtlasLoopCampaign;
 use App\Models\AtlasLoopTarget;
 use App\Services\Ai\AutonomousEvolution\AtlasEvolutionTaskGenerator;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopMutationOperators;
+use App\Services\Ai\AutonomousEvolution\Constitution\Frozen\AtlasLoopFrozenMutationOperators;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopDeliveryPipeline;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
 use App\Services\Ai\Cognitive\Failure\SuiteRedTestHandleHarvester;
@@ -289,9 +291,15 @@ final class AtlasLoopQueueRefiller
         // live instead of starved. FAIL-OPEN by total contract (disabled / no path / missing report /
         // DB-less => a no-op receipt), so it can NEVER break a refill. Surfaced as a sibling receipt
         // key; the legacy counters (discovered/claimed/enqueued/quarantined/deferred) are untouched.
+        $this->touchHeartbeat($campaign);
         $failureHandleHarvest = $this->harvestFailureHandles();
+        $this->touchHeartbeat($campaign);
 
-        $disc = $this->discovery->discover($repoRoot, $campaign->id, ['limit' => max($want * 2, $want + 4)]);
+        $disc = $this->discovery->discover($repoRoot, $campaign->id, [
+            'limit' => max($want * 2, $want + 4),
+            'heartbeat_campaign_id' => (string) $campaign->id,
+        ]);
+        $this->touchHeartbeat($campaign);
         $targets = $this->repository->claimTop($campaign->id, $want);
 
         $enqueued = 0;
@@ -491,6 +499,12 @@ final class AtlasLoopQueueRefiller
     private function touchHeartbeat(AtlasLoopCampaign $campaign): void
     {
         try {
+            $dir = storage_path('atlas-loop/campaign/'.(string) $campaign->id);
+            if (! is_dir($dir)) {
+                @mkdir($dir, 0o755, true);
+            }
+            @file_put_contents($dir.'/heartbeat', (string) time());
+
             DB::table('atlas_loop_campaigns')
                 ->where('id', $campaign->id)
                 ->update(['heartbeat_at' => now()]);
@@ -567,7 +581,8 @@ final class AtlasLoopQueueRefiller
         // multi-file task would fall through to the single-file grind at route time and a >=2-file
         // diff could reach main with only a single-target canary. With either flag OFF, or any
         // null, the lane is inert and the cascade below is byte-identical.
-        if ((bool) config('atlas.loop.multi_file_refactor_objectives_enabled', false)
+        if ($this->proxyRefactorSupplyEnabled()
+            && (bool) config('atlas.loop.multi_file_refactor_objectives_enabled', false)
             && (bool) config('atlas.loop.refactor_multi_file_via_obra', false)
             && $this->obraClusterDetector !== null
             && $this->multiFileRefactorSynthesizer !== null) {
@@ -599,6 +614,11 @@ final class AtlasLoopQueueRefiller
             }
         }
 
+        $coverageOutcome = $this->tryCoverageDeficitCharacterization($campaign, $target, $signals, $provider, $source);
+        if ($coverageOutcome !== null) {
+            return $coverageOutcome;
+        }
+
         // §11.4 BUG-FIX REPRODUCTION LANE: when this target's discovery signals carry a runnable
         // FAILURE handle (a reproducing test path or an explicit failing command), shape a
         // reproduce-then-fix RED-required objective and enqueue it as a FIRST-CLASS bug_fix —
@@ -626,35 +646,37 @@ final class AtlasLoopQueueRefiller
                 return $outcome;
             }
 
-            $payload = [
-                'materializer' => 'framework',
-                'intent_verifier_factory' => true,
-                'target_relative_path' => ltrim((string) $target->target_path, '/'),
-                'allowed_files' => [ltrim((string) $target->target_path, '/')],
-                '_target_id' => $target->id,
-            ];
-            if ($provider !== '') {
-                $payload['provider'] = $provider;
-            }
-            $dp = $this->decidedPriority($campaign, $target, $signals, $repoRoot, AtlasLoopWorkShapeRouter::SHAPE_EDGE_FIX);
-            if ($dp['receipt'] !== []) {
-                $payload['_decision'] = $dp['receipt'];
-            }
-            $objective = 'Improve '.basename((string) $target->target_path).' guided by its improvement signals (edge gaps, branch density) — framework target.';
-            $enq = $this->store->enqueueTask(
-                $campaign->id,
-                $objective,
-                $payload,
-                'discovery',
-                (string) $target->target_path,
-                $dp['priority'],
-                true,
-                '',
-            );
-            $this->stampLastObjective($target, $objective);
-            $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'framework_task_enqueued');
+            if ((bool) config('atlas.loop.framework_edge_gap_fallback_enabled', true)) {
+                $payload = [
+                    'materializer' => 'framework',
+                    'intent_verifier_factory' => true,
+                    'target_relative_path' => ltrim((string) $target->target_path, '/'),
+                    'allowed_files' => [ltrim((string) $target->target_path, '/')],
+                    '_target_id' => $target->id,
+                ];
+                if ($provider !== '') {
+                    $payload['provider'] = $provider;
+                }
+                $dp = $this->decidedPriority($campaign, $target, $signals, $repoRoot, AtlasLoopWorkShapeRouter::SHAPE_EDGE_FIX);
+                if ($dp['receipt'] !== []) {
+                    $payload['_decision'] = $dp['receipt'];
+                }
+                $objective = 'Improve '.basename((string) $target->target_path).' guided by its improvement signals (edge gaps, branch density) — framework target.';
+                $enq = $this->store->enqueueTask(
+                    $campaign->id,
+                    $objective,
+                    $payload,
+                    'discovery',
+                    (string) $target->target_path,
+                    $dp['priority'],
+                    true,
+                    '',
+                );
+                $this->stampLastObjective($target, $objective);
+                $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'framework_task_enqueued');
 
-            return $enq !== null ? 'enqueued' : 'deferred';
+                return $enq !== null ? 'enqueued' : 'deferred';
+            }
         }
 
         // GOVERNED REFACTOR (Phase 1 · within-file): BEFORE the provider-call generator, try
@@ -665,7 +687,9 @@ final class AtlasLoopQueueRefiller
         // drops. Default OFF; fail-closed (synthesizer returns null => fall through to the
         // normal generator). PETREO: a forbidden self-target is rejected here before enqueue
         // (belt-and-suspenders; discovery's admit() already filters them).
-        if ((bool) config('atlas.loop.refactor_objectives_enabled', false) && $this->refactorSynthesizer !== null) {
+        if ($this->proxyRefactorSupplyEnabled()
+            && (bool) config('atlas.loop.refactor_objectives_enabled', false)
+            && $this->refactorSynthesizer !== null) {
             $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard;
             if (! $guard->isForbiddenSelfTarget((string) $target->target_path)) {
                 $refactor = $this->refactorSynthesizer->synthesize(
@@ -711,6 +735,17 @@ final class AtlasLoopQueueRefiller
         $outcome = $this->tryFrameworkRefactor($campaign, $target, $signals, $provider, $repoRoot);
         if ($outcome !== null) {
             return $outcome;
+        }
+
+        if (! (bool) config('atlas.loop.generic_provider_fallback_enabled', true)) {
+            $this->loopBack->reflect($campaign->id, [
+                'target_id' => $target->id,
+                'status' => 'no_winner',
+                'reason' => 'generic_provider_fallback_disabled',
+            ]);
+            $this->repository->quarantine($target->id, 'generic_provider_fallback_disabled');
+
+            return 'quarantined';
         }
 
         $base = sys_get_temp_dir().'/atlas-loop-gen-'.bin2hex(random_bytes(5));
@@ -801,6 +836,9 @@ final class AtlasLoopQueueRefiller
      */
     private function tryFrameworkRefactor(AtlasLoopCampaign $campaign, AtlasLoopTarget $target, array $signals, string $provider, string $repoRoot, bool $forceExtractClass = false): ?string
     {
+        if (! $this->proxyRefactorSupplyEnabled()) {
+            return null;
+        }
         if (! (bool) config('atlas.loop.framework_refactor_enabled', false)) {
             return null;
         }
@@ -848,6 +886,77 @@ final class AtlasLoopQueueRefiller
         $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'framework_refactor_task_synthesized');
 
         return $enq !== null ? 'enqueued' : 'deferred';
+    }
+
+    /**
+     * §11.6 EXECUTOR WIRING: discovery can stamp shape=characterization_test for a real coverage
+     * deficit (decision-dense production file with no sibling test). That was only a SOURCE signal;
+     * without this lane the refiller fell through to the generic generator and live campaigns ended
+     * with targets>0/tasks=0. Convert the stamped shape into the already-governed characterization
+     * task: production target frozen, new sibling test allowed, downstream mutant-kill verifier proves
+     * the test is not theatre. Flag-gated by characterization_test_lane_enabled because the grinder's
+     * cert branch must be armed before such tasks can be safe.
+     *
+     * @param  array<string,mixed>  $signals
+     */
+    private function tryCoverageDeficitCharacterization(AtlasLoopCampaign $campaign, AtlasLoopTarget $target, array $signals, string $provider, string $source): ?string
+    {
+        if (! (bool) config('atlas.loop.characterization_test_lane_enabled', false)) {
+            return null;
+        }
+        if ((string) ($signals['shape'] ?? '') !== AtlasLoopCoverageDeficitSource::SHAPE) {
+            return null;
+        }
+        if (! is_file($source)) {
+            return null;
+        }
+
+        $operator = trim((string) ($signals['coverage_operator'] ?? $signals['coverage_deficit_operator'] ?? ''));
+        if ($operator === '' || AtlasLoopMutationOperators::isCosmetic($operator)) {
+            $operator = $this->firstNonCosmeticFrozenOperator($source);
+        }
+        if ($operator === '') {
+            $this->repository->quarantine($target->id, 'coverage_deficit_no_non_cosmetic_operator');
+
+            return 'quarantined';
+        }
+
+        $sibling = is_string($signals['sibling_test_path'] ?? null) ? trim((string) $signals['sibling_test_path']) : '';
+        $taskId = app(AtlasLoopCoverageGapFeeder::class)->feedGap((string) $campaign->id, [
+            'target_file' => ltrim((string) $target->target_path, '/'),
+            'decision_operator' => $operator,
+            'mutation_id' => 'coverage_deficit:'.$operator,
+            'sibling_test' => $sibling !== '' ? $sibling : null,
+        ], $provider !== '' ? $provider : null, true);
+
+        if ($taskId === null) {
+            $this->repository->quarantine($target->id, 'coverage_deficit_unfeedable');
+
+            return 'quarantined';
+        }
+
+        $objective = is_string($signals['coverage_objective'] ?? null) && trim((string) $signals['coverage_objective']) !== ''
+            ? (string) $signals['coverage_objective']
+            : 'Create a characterization test for '.ltrim((string) $target->target_path, '/');
+        $this->stampLastObjective($target, $objective);
+        $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'coverage_deficit_characterization_task_enqueued');
+
+        return 'enqueued';
+    }
+
+    private function firstNonCosmeticFrozenOperator(string $source): string
+    {
+        $body = @file_get_contents($source);
+        if (! is_string($body) || $body === '') {
+            return '';
+        }
+        foreach (array_keys(AtlasLoopFrozenMutationOperators::neighborhood($body)) as $operator) {
+            if (! AtlasLoopMutationOperators::isCosmetic($operator)) {
+                return (string) $operator;
+            }
+        }
+
+        return '';
     }
 
     /**
@@ -940,6 +1049,9 @@ final class AtlasLoopQueueRefiller
      */
     private function tryRoutedMultiFileRefactor(AtlasLoopCampaign $campaign, AtlasLoopTarget $target, array $signals, string $provider, string $repoRoot): ?string
     {
+        if (! $this->proxyRefactorSupplyEnabled()) {
+            return null;
+        }
         if ($this->obraClusterDetector === null || $this->multiFileRefactorSynthesizer === null) {
             return null;
         }
@@ -975,6 +1087,11 @@ final class AtlasLoopQueueRefiller
         $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'multi_file_refactor_task_synthesized');
 
         return $enq !== null ? 'enqueued' : 'deferred';
+    }
+
+    private function proxyRefactorSupplyEnabled(): bool
+    {
+        return (bool) config('atlas.loop.proxy_refactor_supply_enabled', true);
     }
 
     private function snapshotPayload(string $base, array $task, string $targetRel, string $provider, string $targetId): array

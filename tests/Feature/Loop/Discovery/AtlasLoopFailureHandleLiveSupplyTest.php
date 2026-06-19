@@ -183,6 +183,10 @@ final class AtlasLoopFailureHandleLiveSupplyTest extends TestCase
         // THE LIVE PATH: one call to the SAME refill() the supervisor drives.
         $result = $this->refiller()->refill($campaign, 4);
 
+        $heartbeatPath = storage_path('atlas-loop/campaign/'.$campaign->id.'/heartbeat');
+        $this->assertFileExists($heartbeatPath, 'live refill writes the heartbeat file consumed by campaign:status');
+        $this->assertGreaterThan(0, (int) trim((string) file_get_contents($heartbeatPath)));
+
         // (1) the harvester ran INSIDE refill and colhe exactly 1 handle from the real_failure red.
         $this->assertSame('ok', $result['failure_handle_harvest']['status'] ?? null);
         $this->assertSame(1, $result['failure_handle_harvest']['harvested'] ?? null, 'exactly 1 handle harvested in-refill');

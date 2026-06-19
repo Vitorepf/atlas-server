@@ -40,6 +40,7 @@ final class AtlasLoopFrameworkRefactorSynthesizerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        config(['atlas.loop.proxy_refactor_supply_enabled' => true]);
         if (! Schema::hasTable('atlas_loop_targets')) {
             foreach ([
                 '2026_06_02_000100_create_atlas_loop_runtime_tables.php',
@@ -115,6 +116,7 @@ PHP;
     public function test_synthesizes_a_well_formed_framework_refactor_payload(): void
     {
         config([
+            'atlas.loop.extract_sequence_enabled' => false,
             'atlas.loop.framework_refactor_min_cyclomatic' => 8,
             'atlas.loop.framework_refactor_min_callers' => 1,
         ]);
@@ -150,6 +152,7 @@ PHP;
         // ACDE lever #6: armed, the in-place worst-method reduction is tagged as one bounded step of an
         // extract sequence; OFF (default) the payload is untouched (byte-identical).
         config([
+            'atlas.loop.extract_sequence_enabled' => false,
             'atlas.loop.framework_refactor_min_cyclomatic' => 8,
             'atlas.loop.framework_refactor_min_callers' => 1,
         ]);
@@ -223,7 +226,10 @@ PHP;
 
     public function test_default_off_refiller_emits_edge_gap_not_refactor_when_flag_off(): void
     {
-        config(['atlas.loop.framework_refactor_enabled' => false]);
+        config([
+            'atlas.loop.framework_refactor_enabled' => false,
+            'atlas.loop.framework_edge_gap_fallback_enabled' => true,
+        ]);
         $repo = $this->repoWithComplexFrameworkTargetAndSibling();
 
         $campaign = AtlasLoopCampaign::create([
@@ -251,6 +257,36 @@ PHP;
             $this->assertNotSame('refactor_reduce_complexity', $payload['objective_kind'] ?? null, 'flag OFF => no refactor objective (default-inert)');
             $this->assertTrue((bool) ($payload['intent_verifier_factory'] ?? false), 'flag OFF => the byte-identical edge-gap path runs');
         }
+    }
+
+    public function test_refiller_can_disable_unverifiable_framework_edge_gap_fallback(): void
+    {
+        config([
+            'atlas.loop.framework_refactor_enabled' => false,
+            'atlas.loop.framework_edge_gap_fallback_enabled' => false,
+        ]);
+        $repo = $this->repoWithComplexFrameworkTargetAndSibling();
+
+        $campaign = AtlasLoopCampaign::create([
+            'schema_version' => 'atlas.loop.campaign.v1',
+            'status' => 'running',
+            'goal' => 'test',
+            'base_workspace' => $repo,
+            'provider' => '',
+            'config' => [],
+        ]);
+        $target = app(AtlasLoopTargetRepository::class)->upsert(
+            $campaign->id,
+            'app/Services/Router.php',
+            hash('sha256', 'x'),
+            $this->scored(['cyclomatic' => 10, 'framework_reach' => 1, 'impact_real_callers' => 3]),
+            ['origin' => 'discovery'],
+        );
+
+        $outcome = $this->invokeGenerateAndEnqueue($this->refiller(), $campaign, $target);
+
+        $this->assertSame('quarantined', $outcome, 'with the legacy fallback off, unverifiable edge-gap work falls through to RED generation');
+        $this->assertSame(0, DB::table('atlas_loop_tasks')->where('campaign_id', $campaign->id)->count(), 'no task without executable verification atom is queued');
     }
 
     public function test_flag_on_refiller_emits_a_framework_refactor_task(): void
@@ -286,6 +322,40 @@ PHP;
         $this->assertSame('refactor_reduce_complexity', $payload['objective_kind'] ?? null, 'flag ON + eligible => a framework refactor objective');
         $this->assertSame('framework', $payload['materializer'] ?? null);
         $this->assertTrue((bool) ($payload['acceptance']['complexity_proof'] ?? false));
+    }
+
+    public function test_real_work_supply_profile_suppresses_framework_refactor_proxy_tasks(): void
+    {
+        config([
+            'atlas.loop.proxy_refactor_supply_enabled' => false,
+            'atlas.loop.framework_refactor_enabled' => true,
+            'atlas.loop.framework_edge_gap_fallback_enabled' => false,
+            'atlas.loop.generic_provider_fallback_enabled' => false,
+            'atlas.loop.framework_refactor_min_cyclomatic' => 8,
+            'atlas.loop.framework_refactor_min_callers' => 1,
+        ]);
+        $repo = $this->repoWithComplexFrameworkTargetAndSibling();
+
+        $campaign = AtlasLoopCampaign::create([
+            'schema_version' => 'atlas.loop.campaign.v1',
+            'status' => 'running',
+            'goal' => 'test',
+            'base_workspace' => $repo,
+            'provider' => '',
+            'config' => [],
+        ]);
+        $target = app(AtlasLoopTargetRepository::class)->upsert(
+            $campaign->id,
+            'app/Services/Router.php',
+            hash('sha256', 'x'),
+            $this->scored(['cyclomatic' => 10, 'framework_reach' => 1, 'impact_real_callers' => 3]),
+            ['origin' => 'discovery'],
+        );
+
+        $outcome = $this->invokeGenerateAndEnqueue($this->refiller(), $campaign, $target);
+
+        $this->assertSame('quarantined', $outcome);
+        $this->assertSame(0, DB::table('atlas_loop_tasks')->where('campaign_id', $campaign->id)->count());
     }
 
     public function test_self_contained_phpunit_backed_target_routes_to_framework_refactor(): void

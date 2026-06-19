@@ -29,11 +29,16 @@ final class AtlasLoopCoverageGapFeeder
      * @param  array{target_file?:string, decision_operator?:string, mutation_id?:string, sibling_test?:?string}  $gap
      * @return string|null  the task id, or null when the gap is unactionable / the store loses a dedup race
      */
-    public function feedGap(string $campaignId, array $gap, ?string $provider = null): ?string
+    public function feedGap(string $campaignId, array $gap, ?string $provider = null, bool $allowNewSibling = false): ?string
     {
         $target = trim((string) ($gap['target_file'] ?? ''));
         $sibling = trim((string) ($gap['sibling_test'] ?? ''));
         $operator = trim((string) ($gap['decision_operator'] ?? ''));
+        $newSibling = false;
+        if ($sibling === '' && $allowNewSibling && $target !== '') {
+            $sibling = $this->suggestSiblingTestPath($target);
+            $newSibling = $sibling !== '';
+        }
         // A characterization task with no sibling test to strengthen — or no target/operator to pin —
         // is unactionable; never enqueue a task the verifier can only reject.
         if ($target === '' || $sibling === '' || $operator === '') {
@@ -64,6 +69,7 @@ final class AtlasLoopCoverageGapFeeder
             'characterization_sibling_test' => $sibling,
             'characterization_operator' => $operator,
             'characterization_mutation_id' => (string) ($gap['mutation_id'] ?? ''),
+            'characterization_mode' => $newSibling ? 'create_new_sibling' : 'strengthen_existing_sibling',
             'characterization_timeout_seconds' => $timeout,
             'target_relative_path' => $target,
             'target_repo_path' => $target,
@@ -98,7 +104,7 @@ final class AtlasLoopCoverageGapFeeder
 
         $task = $this->store->enqueueTask(
             $campaignId,
-            $this->objectiveText($target, $sibling, $operator),
+            $this->objectiveText($target, $sibling, $operator, $newSibling),
             $payload,
             'coverage_gap_characterization',
             $target,
@@ -149,8 +155,16 @@ final class AtlasLoopCoverageGapFeeder
         }
     }
 
-    private function objectiveText(string $target, string $sibling, string $operator): string
+    private function objectiveText(string $target, string $sibling, string $operator, bool $newSibling): string
     {
+        if ($newSibling) {
+            return "Create a CHARACTERIZATION TEST at {$sibling} that pins the existing behaviour of {$target}. "
+                ."The target has no convention sibling test and carries an uncovered `{$operator}` decision mutant. "
+                ."Add focused assertions that exercise BOTH sides of that decision so flipping it makes the suite red. "
+                ."Edit ONLY {$sibling}; do NOT modify {$target} or any other production file — this is a "
+                ."coverage-only change. Your change is correct only when {$sibling} passes on the unchanged code.";
+        }
+
         return "Add a CHARACTERIZATION TEST to {$sibling} that pins the existing behaviour of {$target}. "
             ."The test must FAIL if the `{$operator}` decision in {$target} is flipped (the mutation-adequacy "
             ."gate found a `{$operator}` mutant SURVIVING — the current tests do not kill it). Add focused "
@@ -158,5 +172,22 @@ final class AtlasLoopCoverageGapFeeder
             ."Edit ONLY {$sibling}; do NOT modify {$target} or any other production file — this is a "
             ."coverage-only change. Preserve all existing tests. Your change is correct only when "
             ."{$sibling} still passes on the unchanged code.";
+    }
+
+    private function suggestSiblingTestPath(string $target): string
+    {
+        $target = ltrim(str_replace('\\', '/', $target), '/');
+        if ($target === '' || ! str_ends_with($target, '.php')) {
+            return '';
+        }
+
+        if (str_starts_with($target, 'app/Services/')) {
+            return 'tests/Unit/'.substr($target, strlen('app/Services/'), -4).'Test.php';
+        }
+        if (str_starts_with($target, 'app/')) {
+            return 'tests/Unit/'.substr($target, strlen('app/'), -4).'Test.php';
+        }
+
+        return 'tests/Unit/'.substr($target, 0, -4).'Test.php';
     }
 }

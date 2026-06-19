@@ -44,7 +44,17 @@ final class AtlasLoopWiredCallerService
 
     private bool $scopeResolved = false;
 
+    private ?\Closure $progressCallback = null;
+
     public function __construct(private readonly ?string $repoRoot = null) {}
+
+    public function withProgressCallback(?\Closure $callback): self
+    {
+        $clone = clone $this;
+        $clone->progressCallback = $callback;
+
+        return $clone;
+    }
 
     /**
      * Measured production caller counts per file. Returns ONLY measured paths (null
@@ -133,6 +143,7 @@ final class AtlasLoopWiredCallerService
 
         $out = [];
         foreach ($relPaths as $rel) {
+            $this->pulse();
             $rel = ltrim($rel, '/');
             $fqcn = $fqcnByPath[$rel] ?? null;
             $grep = ($fqcn !== null && $dirs !== []) ? $this->grepCallerCount($fqcn, $rel, $root, $dirs) : null;
@@ -141,6 +152,7 @@ final class AtlasLoopWiredCallerService
             $out[$rel] = ($grep === null && $graphCount === null)
                 ? null // unmeasured — neither source produced a signal
                 : max($grep ?? 0, $graphCount ?? 0);
+            $this->pulse();
         }
 
         return $out;
@@ -298,7 +310,8 @@ final class AtlasLoopWiredCallerService
      */
     private function grepFiles(array $argv, string $root): ?array
     {
-        $process = new Process($argv, $root, $this->pathSafeEnv(), null, 30.0);
+        $timeout = max(1.0, (float) config('atlas.loop.wired_caller_grep_timeout_seconds', 30.0));
+        $process = new Process($argv, $root, $this->pathSafeEnv(), null, $timeout);
         $process->run();
         $exit = $process->getExitCode();
         if ($exit === null || $exit > 1) {
@@ -314,6 +327,19 @@ final class AtlasLoopWiredCallerService
         }
 
         return $out;
+    }
+
+    private function pulse(): void
+    {
+        if (! $this->progressCallback instanceof \Closure) {
+            return;
+        }
+
+        try {
+            ($this->progressCallback)();
+        } catch (Throwable) {
+            // Liveness callbacks are best-effort; caller resolution must stay fail-open.
+        }
     }
 
     /**

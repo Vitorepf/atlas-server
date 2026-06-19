@@ -1935,6 +1935,12 @@ return [
         // L4-1: ranking anti-Goodhart. O score estrutural continua sendo a base, mas ganha
         // boost limitado por impacto real: surface no code graph, evidência de falha e backlog.
         'impact_ranking_enabled' => (bool) env('ATLAS_LOOP_IMPACT_RANKING_ENABLED', true),
+        // Discovery lints every candidate before it can be safely ground. Keep the per-file lint bounded
+        // and heartbeat-pulsed so cold-start discovery stays observable during a 24h soak.
+        'discovery_php_lint_timeout_seconds' => (float) env('ATLAS_LOOP_DISCOVERY_PHP_LINT_TIMEOUT_SECONDS', 20.0),
+        // Caller resolution is intentionally fail-open. Keep the per-grep timeout bounded so a cold-start
+        // discovery cannot hold the 24h supervisor in "lock alive, no heartbeat, no tasks" limbo.
+        'wired_caller_grep_timeout_seconds' => (float) env('ATLAS_LOOP_WIRED_CALLER_GREP_TIMEOUT_SECONDS', 30.0),
 
         // WIRED targeting (impact upgrade): demote/exclude orphan scaffolding (0 real
         // production callers + 0 failure evidence + 0 backlog reach) so the provider
@@ -1985,6 +1991,22 @@ return [
         // broader-regression gate. Heavy multi-statement diffs are NOT rejected by any small-diff cap
         // for refactor objectives — the certification measure is complexity drop, not diff size.
         'framework_refactor_enabled' => (bool) env('ATLAS_LOOP_FRAMEWORK_REFACTOR_ENABLED', false),
+        // Legacy fallback for framework-reach targets that are NOT eligible for the heavy refactor
+        // synthesizer. When ON (default) the refiller emits the old provider-authored edge-gap task.
+        // When OFF, it falls through to the RED-generating path instead of queuing a framework task
+        // with no executable verification atom. This is the soak/real-work supply gate: no unverifiable
+        // framework edge-gap tasks should enter a campaign that is measuring real work.
+        'framework_edge_gap_fallback_enabled' => (bool) env('ATLAS_LOOP_FRAMEWORK_EDGE_GAP_FALLBACK_ENABLED', true),
+        // Generic provider fallback inside refill(). This legacy path asks a provider to invent a
+        // self-contained RED test BEFORE the campaign has a durable task, so a slow executor can freeze
+        // the supervisor with targets claimed, refills=0 and no task/heartbeat progress. Keep it ON for
+        // byte-identical legacy behavior; turn it OFF for controlled soaks that must measure only
+        // deterministic real-supply lanes and keep provider work in the grind phase.
+        'generic_provider_fallback_enabled' => (bool) env('ATLAS_LOOP_GENERIC_PROVIDER_FALLBACK_ENABLED', true),
+        // Supply-side gate for behavior-preserving refactor lanes. Keep ON for legacy/evolution
+        // campaigns; turn OFF for real-work smoke so proxy refactors cannot dominate the campaign
+        // scorecard while coverage, bug-fix and feature/verification lanes remain armed.
+        'proxy_refactor_supply_enabled' => (bool) env('ATLAS_LOOP_PROXY_REFACTOR_SUPPLY_ENABLED', true),
         // Cert-integrity lock for a future structural (extract-to-new-file) lane: a net-new candidate
         // file has no baseline worst-method, so its complexity win is UNPROVABLE. Default ON fails the
         // complexity verdict closed for any net-new file (blocks "god method relocated intact + cosmetic
@@ -2619,6 +2641,10 @@ return [
         'bandit_complexity_tier_enabled' => (bool) env('ATLAS_LOOP_BANDIT_COMPLEXITY_TIER_ENABLED', false),
         'bandit_complexity_tier_lo' => max(1, (int) env('ATLAS_LOOP_BANDIT_COMPLEXITY_TIER_LO', 20)),
         'bandit_complexity_tier_hi' => max(2, (int) env('ATLAS_LOOP_BANDIT_COMPLEXITY_TIER_HI', 80)),
+        // Endurance guard: WD4's AST measurement is advisory, so never spend unbounded memory parsing
+        // giant historical targets (notably config/atlas.php). Oversize/unwanted files fall back to the
+        // coarse path-prefix bucket.
+        'bandit_complexity_tier_max_bytes' => max(1024, (int) env('ATLAS_LOOP_BANDIT_COMPLEXITY_TIER_MAX_BYTES', 200000)),
         // ACDE M1 — work-class landing-rate prior at the DECIDE front. Reads the EXISTING explorations ledger,
         // groups attempts by a derived work-class (path family), and de-prioritizes (WITHIN the band) a class
         // whose Wilson-LB landing rate is below the floor after enough REAL attempts — so the loop stops

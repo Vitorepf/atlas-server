@@ -6,6 +6,8 @@ namespace App\Services\Ai\AutonomousEvolution\Parallel;
 
 use App\Services\Ai\AutonomousEvolution\AtlasEvolutionScenarioExplorer;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopResourceGate;
+use Closure;
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -35,7 +37,10 @@ use Throwable;
  */
 final class ScenarioWaveDispatcher implements ScenarioWaveDispatcherContract
 {
-    public function __construct(private readonly AtlasLoopResourceGate $resourceGate) {}
+    public function __construct(
+        private readonly AtlasLoopResourceGate $resourceGate,
+        private readonly ?Closure $childFactory = null,
+    ) {}
 
     /**
      * Run a bounded wave of scenario specs in-flight together.
@@ -89,6 +94,17 @@ final class ScenarioWaveDispatcher implements ScenarioWaveDispatcherContract
         while ($running !== []) {
             foreach ($running as $index => $process) {
                 if ($process->isRunning()) {
+                    try {
+                        $process->checkTimeout();
+                    } catch (ProcessTimedOutException $e) {
+                        $this->stopProcessTree($process);
+                        $results[$index] = $this->erroredAttempt(
+                            $specs[$this->specOffsetForIndex($specs, $index)],
+                            'wave_child_timed_out: '.mb_substr($e->getMessage(), 0, 240),
+                        );
+                        unset($running[$index]);
+                    }
+
                     continue;
                 }
                 $results[$index] = $this->harvestChild($process, $specs[$this->specOffsetForIndex($specs, $index)]);
@@ -134,6 +150,13 @@ final class ScenarioWaveDispatcher implements ScenarioWaveDispatcherContract
      */
     private function spawnChild(array $spec, float $timeout): Process
     {
+        if ($this->childFactory instanceof Closure) {
+            $process = ($this->childFactory)($spec, $timeout);
+            if ($process instanceof Process) {
+                return $process;
+            }
+        }
+
         $argv = [
             PHP_BINARY, 'artisan', 'atlas:loop:run-scenario',
             '--spec='.base64_encode((string) json_encode($spec)),
@@ -141,6 +164,28 @@ final class ScenarioWaveDispatcher implements ScenarioWaveDispatcherContract
         ];
 
         return new Process($argv, base_path(), null, null, $timeout);
+    }
+
+    private function stopProcessTree(Process $process): void
+    {
+        $pid = $process->getPid();
+        if (is_int($pid) && $pid > 0 && function_exists('posix_kill')) {
+            // atlas:loop:run-scenario calls posix_setsid(), so the child pid is also
+            // the process-group id; kill the group first to reap provider grandchildren.
+            @posix_kill(-$pid, SIGTERM);
+            @posix_kill($pid, SIGTERM);
+            usleep(200_000);
+            if ($process->isRunning()) {
+                @posix_kill(-$pid, SIGKILL);
+                @posix_kill($pid, SIGKILL);
+            }
+        }
+
+        try {
+            $process->stop(0.2, SIGKILL);
+        } catch (Throwable) {
+            // Best effort: timeout already converts this scenario to an errored attempt.
+        }
     }
 
     /**

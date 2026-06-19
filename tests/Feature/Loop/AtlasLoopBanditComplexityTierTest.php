@@ -73,4 +73,21 @@ final class AtlasLoopBanditComplexityTierTest extends TestCase
         // A path that does not exist on disk => unmeasurable => '' tier => bare bucket (never a wrong tier).
         $this->assertSame('service', $svc->targetType('app/Services/DoesNotExist/Nope.php'));
     }
+
+    public function test_config_targets_do_not_enter_ast_complexity_tiering(): void
+    {
+        config(['atlas.loop.bandit_complexity_tier_enabled' => true]);
+
+        $this->assertSame('config', (new AtlasLoopExplorerStrategyBanditService)->targetType('config/atlas.php'));
+    }
+
+    public function test_oversized_php_target_falls_back_to_the_coarse_bucket(): void
+    {
+        config([
+            'atlas.loop.bandit_complexity_tier_enabled' => true,
+            'atlas.loop.bandit_complexity_tier_max_bytes' => 1024,
+        ]);
+
+        $this->assertSame('loop_harness', (new AtlasLoopExplorerStrategyBanditService)->targetType(self::REAL_LOOP_FILE));
+    }
 }

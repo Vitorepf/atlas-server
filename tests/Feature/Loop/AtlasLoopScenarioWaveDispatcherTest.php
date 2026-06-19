@@ -146,4 +146,30 @@ final class AtlasLoopScenarioWaveDispatcherTest extends TestCase
         $this->assertSame(['files' => 0, 'lines' => 0], $attempt['diff_size'] ?? null);
         $this->assertArrayHasKey('error', $attempt);
     }
+
+    public function test_timed_out_child_yields_errored_attempt_instead_of_hanging_wave(): void
+    {
+        Config::set('atlas.loop.campaign.min_free_mb', 0);
+
+        $processes = [];
+        $dispatcher = new ScenarioWaveDispatcher(
+            new AtlasLoopResourceGate,
+            function () use (&$processes): Process {
+                $process = new Process([PHP_BINARY, '-r', 'usleep(5000000);'], base_path(), null, null, 0.2);
+                $processes[] = $process;
+
+                return $process;
+            },
+        );
+
+        $started = microtime(true);
+        $results = $dispatcher->dispatch($this->specs([0]));
+
+        $this->assertLessThan(3.0, microtime(true) - $started, 'a timed-out child must not wedge the wave harvest loop');
+        $this->assertCount(1, $results);
+        $this->assertSame('errored', $results[0]['loop_status'] ?? null);
+        $this->assertStringContainsString('wave_child_timed_out', (string) ($results[0]['error'] ?? ''));
+        $this->assertNotEmpty($processes);
+        $this->assertFalse($processes[0]->isRunning(), 'the timed-out child process must be stopped');
+    }
 }

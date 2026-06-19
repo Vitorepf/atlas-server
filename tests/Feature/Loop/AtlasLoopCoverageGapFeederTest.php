@@ -84,6 +84,32 @@ final class AtlasLoopCoverageGapFeederTest extends TestCase
         $this->assertSame(0, AtlasLoopTask::query()->where('campaign_id', $campaign->id)->count());
     }
 
+    public function test_coverage_deficit_can_create_a_new_sibling_characterization_task(): void
+    {
+        $campaign = $this->campaign();
+        $feeder = app(AtlasLoopCoverageGapFeeder::class);
+
+        $taskId = $feeder->feedGap((string) $campaign->id, [
+            'target_file' => 'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopBacklogAutoFeederService.php',
+            'decision_operator' => 'strict_equals',
+            'mutation_id' => 'coverage_deficit:strict_equals',
+            'sibling_test' => null,
+        ], null, true);
+
+        $this->assertNotNull($taskId);
+        $task = AtlasLoopTask::query()->find($taskId);
+        $this->assertNotNull($task);
+        $payload = is_array($task->payload) ? $task->payload : (array) json_decode((string) $task->payload, true);
+
+        $expectedSibling = 'tests/Unit/Ai/AutonomousEvolution/Discovery/AtlasLoopBacklogAutoFeederServiceTest.php';
+        $this->assertSame('create_new_sibling', $payload['characterization_mode'] ?? null);
+        $this->assertSame($expectedSibling, $payload['characterization_sibling_test'] ?? null);
+        $this->assertSame([$expectedSibling], $payload['allowed_files'] ?? null);
+        $this->assertSame([$expectedSibling], $payload['acceptance']['allowed_globs'] ?? null);
+        $this->assertContains('app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopBacklogAutoFeederService.php', $payload['acceptance']['frozen_globs']);
+        $this->assertStringContainsString('Create a CHARACTERIZATION TEST', (string) $task->objective);
+    }
+
     public function test_bounded_retry_re_enqueues_a_failed_gap_until_the_cap(): void
     {
         config(['atlas.loop.characterization_max_attempts_per_gap' => 3]);

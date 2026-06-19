@@ -437,7 +437,7 @@ final class AtlasLoopExplorerStrategyBanditService
         // work-class so a strategy is not averaged across different work-classes of the same type|tier. Both
         // default OFF => the bare path-prefix bucket is returned with no file read => byte-identical.
         $bucket = $type;
-        if ($type !== 'unknown' && (bool) config('atlas.loop.bandit_complexity_tier_enabled', false)) {
+        if ($this->canMeasureComplexityTier($type) && (bool) config('atlas.loop.bandit_complexity_tier_enabled', false)) {
             $tier = $this->complexityTier($path);
             if ($tier !== '') {
                 $bucket = $type.'|'.$tier;
@@ -451,6 +451,11 @@ final class AtlasLoopExplorerStrategyBanditService
         }
 
         return $bucket;
+    }
+
+    private function canMeasureComplexityTier(string $type): bool
+    {
+        return in_array($type, ['loop_harness', 'service', 'generated_service'], true);
     }
 
     /**
@@ -471,7 +476,8 @@ final class AtlasLoopExplorerStrategyBanditService
         $tier = '';
         try {
             $abs = base_path($relPath);
-            if (str_ends_with($abs, '.php') && is_file($abs)) {
+            $size = is_file($abs) ? filesize($abs) : false;
+            if (str_ends_with($abs, '.php') && is_int($size) && $size <= max(1024, (int) config('atlas.loop.bandit_complexity_tier_max_bytes', 200000))) {
                 $measured = $this->signalAnalyzer->fileComplexity((string) file_get_contents($abs));
                 if (($measured['measured'] ?? false) === true) {
                     $total = (int) ($measured['total'] ?? 0);

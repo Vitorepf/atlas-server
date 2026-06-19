@@ -70,6 +70,33 @@ final class AtlasLoopWiredTargetingTest extends TestCase
         $this->assertArrayNotHasKey('app/Services/Ai/DefinitelyNotARealClass99.php', $svc->callerCounts(['app/Services/Ai/DefinitelyNotARealClass99.php']));
     }
 
+    public function test_wired_caller_progress_callback_pulses_during_batch_resolution(): void
+    {
+        $root = sys_get_temp_dir().'/atlas_wired_progress_'.bin2hex(random_bytes(5));
+        @mkdir($root.'/app/Svc', 0700, true);
+        @mkdir($root.'/app/Callers', 0700, true);
+
+        file_put_contents($root.'/app/Svc/ProgressOneService.php', "<?php\nnamespace App\\Svc;\nclass ProgressOneService {}\n");
+        file_put_contents($root.'/app/Svc/ProgressTwoService.php', "<?php\nnamespace App\\Svc;\nclass ProgressTwoService {}\n");
+        file_put_contents($root.'/app/Callers/ProgressConsumer.php', "<?php\nuse App\\Svc\\ProgressOneService;\nnew ProgressOneService();\n");
+
+        $pulses = 0;
+        $svc = (new AtlasLoopWiredCallerService($root))->withProgressCallback(static function () use (&$pulses): void {
+            $pulses++;
+        });
+
+        $counts = $svc->callerCounts([
+            'app/Svc/ProgressOneService.php',
+            'app/Svc/ProgressTwoService.php',
+        ]);
+
+        $this->assertSame(1, $counts['app/Svc/ProgressOneService.php']);
+        $this->assertSame(0, $counts['app/Svc/ProgressTwoService.php']);
+        $this->assertGreaterThanOrEqual(2, $pulses, 'batch caller resolution emits progress pulses for campaign heartbeat liveness');
+
+        @exec('rm -rf '.escapeshellarg($root));
+    }
+
     public function test_utility_grade_reproduces_low_baseline_on_orphan_trivial_ledger(): void
     {
         for ($i = 0; $i < 6; $i++) {
@@ -120,6 +147,8 @@ final class AtlasLoopWiredTargetingTest extends TestCase
 
     public function test_value_gate_blocks_orphan_passes_wired_and_fails_open_on_degraded_infra(): void
     {
+        config(['atlas.ai.loop.substance_floor_enabled' => false]);
+
         $proposal = AtlasLoopProposal::create([
             'campaign_id' => $this->campaign()->id,
             'schema_version' => 'atlas.loop.proposal.v1',

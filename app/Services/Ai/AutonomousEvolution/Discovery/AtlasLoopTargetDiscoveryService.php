@@ -67,6 +67,8 @@ final class AtlasLoopTargetDiscoveryService
         $limit = max(1, (int) ($options['limit'] ?? 12));
         $maxFiles = max(1, (int) ($options['max_files'] ?? 1200));
         $alreadyProposed = array_flip($options['already_proposed_paths'] ?? $this->repository->alreadyProposedPaths($campaignId));
+        $heartbeatCampaignId = (string) ($options['heartbeat_campaign_id'] ?? $campaignId);
+        $this->touchHeartbeat($heartbeatCampaignId);
 
         $scanned = 0;
         $admissible = 0;
@@ -76,12 +78,14 @@ final class AtlasLoopTargetDiscoveryService
             $scanned++;
             $rel = ltrim(str_replace($repoRoot, '', $abs), '/');
             $scored = $this->scoreCandidate($abs, $rel, ['already_proposed' => $alreadyProposed]);
+            $this->touchHeartbeat($heartbeatCampaignId);
             if ($scored === null) {
                 continue;
             }
             $admissible++;
             $scoredRows[] = ['path' => $rel, 'abs' => $abs, 'scored' => $scored];
         }
+        $this->touchHeartbeat($heartbeatCampaignId);
 
         // O-2 slice (b): blend a REAL-evidence term into the structural score so the loop
         // discovers what actually breaks. evidence = recurrence in the failure corpus.
@@ -264,7 +268,7 @@ final class AtlasLoopTargetDiscoveryService
         // gate, but the final order now gets a bounded IMPACT boost from real read-model
         // signal (code-indexed symbol surface, failure evidence, and backlog reach).
         if ((bool) config('atlas.loop.impact_ranking_enabled', true)) {
-            $this->applyImpactRanking($scoredRows);
+            $this->applyImpactRanking($scoredRows, $heartbeatCampaignId);
         }
 
         // L?-impact: orphan gate. A target with ZERO real production callers AND no
@@ -316,6 +320,7 @@ final class AtlasLoopTargetDiscoveryService
             $this->repository->upsert($campaignId, $row['path'], $contentHash, $row['scored'], ['origin' => 'discovery']);
             $upserted++;
         }
+        $this->touchHeartbeat($heartbeatCampaignId);
 
         return [
             'schema_version' => self::SCHEMA,
@@ -329,7 +334,7 @@ final class AtlasLoopTargetDiscoveryService
     /**
      * @param  list<array{path:string,abs:string,scored:array<string,mixed>}>  $scoredRows
      */
-    private function applyImpactRanking(array &$scoredRows): void
+    private function applyImpactRanking(array &$scoredRows, ?string $heartbeatCampaignId = null): void
     {
         if ($scoredRows === []) {
             return;
@@ -399,7 +404,13 @@ final class AtlasLoopTargetDiscoveryService
             }
             $resolvePaths = array_values(array_unique($resolveSet));
         }
-        $callerCounts = $this->wiredCallers?->callerCounts($resolvePaths) ?? [];
+        $wiredCallers = $this->wiredCallers;
+        if ($wiredCallers !== null && is_string($heartbeatCampaignId) && $heartbeatCampaignId !== '') {
+            $wiredCallers = $wiredCallers->withProgressCallback(function () use ($heartbeatCampaignId): void {
+                $this->touchHeartbeat($heartbeatCampaignId);
+            });
+        }
+        $callerCounts = $wiredCallers?->callerCounts($resolvePaths) ?? [];
         $maxCallers = max(4, (int) max($callerCounts ?: [0]));
 
         foreach ($scoredRows as &$row) {
@@ -578,6 +589,27 @@ final class AtlasLoopTargetDiscoveryService
         return max(0.0, min(1.0, $value));
     }
 
+    private function touchHeartbeat(?string $campaignId): void
+    {
+        if (! is_string($campaignId) || $campaignId === '') {
+            return;
+        }
+
+        try {
+            $dir = storage_path('atlas-loop/campaign/'.$campaignId);
+            if (! is_dir($dir)) {
+                @mkdir($dir, 0o755, true);
+            }
+            @file_put_contents($dir.'/heartbeat', (string) time());
+
+            DB::table('atlas_loop_campaigns')
+                ->where('id', $campaignId)
+                ->update(['heartbeat_at' => now()]);
+        } catch (Throwable) {
+            // Liveness ping is best-effort; discovery stays fail-open.
+        }
+    }
+
     /**
      * Pure, side-effect-free scoring. Returns null if inadmissible (the cp -R + plain-`php`
      * grind could not honestly run it), else the S/I/N composite + signals.
@@ -721,7 +753,7 @@ final class AtlasLoopTargetDiscoveryService
     private function phpLintClean(string $absPath): bool
     {
         $process = new Process([PHP_BINARY, '-l', $absPath]);
-        $process->setTimeout(20.0);
+        $process->setTimeout(max(1.0, (float) config('atlas.loop.discovery_php_lint_timeout_seconds', 20.0)));
         $process->run();
 
         return $process->isSuccessful();
