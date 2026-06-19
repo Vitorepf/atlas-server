@@ -109,4 +109,66 @@ final class AtlasLoopMergeActuator
 
         return true;
     }
+
+    /**
+     * LOOP-OS · SLICE 4 — the merge-time COMMIT-SPINE: under the exclusive lock, stage the candidate's
+     * changed files, recompute the POST-APPLY tree sha, and verify the Constitution PASS-token re-binds to
+     * (post-apply-tree, current battery root, PASS, a fresh nonce). Commit ONLY if the token re-verifies AND
+     * the cheap php -l floor passes — so a property_gated edit lands iff the gate said PASS for THIS exact
+     * tree against THIS exact battery, once. Any divergence (tree moved since the gate, battery bumped,
+     * replayed nonce, parse error) ⇒ NO commit. This is what makes the gate's verdict enforceable at merge.
+     *
+     * @param  list<string>  $changedFiles    repo-relative paths the candidate touched
+     * @param  list<string>  $consumedNonces  nonces already spent (replay defense)
+     * @return array{committed:bool, reason:string, commit:?string, tree_sha?:string}
+     */
+    public function commitWithConstitutionToken(string $repoRoot, array $changedFiles, string $message, string $token, string $batteryRootHash, string $nonce, array $consumedNonces = []): array
+    {
+        $repoRoot = rtrim($repoRoot, '/');
+        $locked = $this->withMainMergeLock($repoRoot, function () use ($repoRoot, $changedFiles, $message, $token, $batteryRootHash, $nonce, $consumedNonces): array {
+            $this->git($repoRoot, array_merge(['add', '--'], $changedFiles));
+
+            [$treeOk, $treeOut] = $this->git($repoRoot, ['write-tree']);
+            if (! $treeOk) {
+                return ['committed' => false, 'reason' => 'write_tree_failed', 'commit' => null];
+            }
+            $postApplyTreeSha = trim($treeOut);
+
+            $verdict = (new AtlasLoopConstitutionGateToken)->verify($token, $postApplyTreeSha, $batteryRootHash, $nonce, $consumedNonces);
+            if (! $verdict['valid']) {
+                return ['committed' => false, 'reason' => 'constitution_token_invalid:'.$verdict['reason'], 'commit' => null, 'tree_sha' => $postApplyTreeSha];
+            }
+
+            $abs = array_map(static fn (string $f): string => $repoRoot.'/'.ltrim($f, '/'), $changedFiles);
+            if (! $this->phpLintOk($abs)) {
+                return ['committed' => false, 'reason' => 'php_lint_failed', 'commit' => null, 'tree_sha' => $postApplyTreeSha];
+            }
+
+            [$cok] = $this->git($repoRoot, ['-c', 'user.email=loop@atlas', '-c', 'user.name=atlas-loop', 'commit', '-q', '-m', $message !== '' ? $message : 'atlas loop constitution commit', '--no-gpg-sign']);
+            if (! $cok) {
+                return ['committed' => false, 'reason' => 'commit_failed', 'commit' => null, 'tree_sha' => $postApplyTreeSha];
+            }
+            [, $sha] = $this->git($repoRoot, ['rev-parse', 'HEAD']);
+
+            return ['committed' => true, 'reason' => 'constitution_token_verified', 'commit' => trim($sha), 'tree_sha' => $postApplyTreeSha];
+        });
+
+        if (($locked['acquired'] ?? false) !== true) {
+            return ['committed' => false, 'reason' => 'lock_'.((string) ($locked['reason'] ?? 'unavailable')), 'commit' => null];
+        }
+
+        return $locked['result'];
+    }
+
+    /**
+     * @param  list<string>  $args
+     * @return array{0:bool,1:string}
+     */
+    private function git(string $repoRoot, array $args): array
+    {
+        $p = new Process(array_merge(['git'], array_values($args)), $repoRoot, null, null, 60.0);
+        $p->run();
+
+        return [$p->isSuccessful(), $p->getOutput().$p->getErrorOutput()];
+    }
 }
