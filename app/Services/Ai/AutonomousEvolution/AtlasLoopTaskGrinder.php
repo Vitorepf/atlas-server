@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Models\AtlasLoopTask;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopParkEscalation;
 use App\Services\Ai\AutonomousEvolution\Framework\AtlasLoopFrameworkMaterializer;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopRunPersister;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
+use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopComprehensionGroundingGate;
 use App\Services\Ai\Cognitive\PredictiveFailure\AtlasLoopPredictiveOutcomeBridge;
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
 use App\Services\Ai\Support\AiStringListNormalizer;
@@ -51,6 +53,18 @@ final class AtlasLoopTaskGrinder
         // ONLY inside the decompose tier AND only when atlas.loop.planning_enabled is ON (default OFF) —
         // OFF => the decompose tier degrades to its prior scenario-width closure (byte-identical).
         private readonly ?AtlasLoopObraExecutionAdapter $obraAdapter = null,
+        // COMPREHENSION GROUNDING GATE (stage-1 UNDERSTAND): a keep-conjunct on the implementation cert.
+        // A certified proposal whose allowed/affected files cite a symbol that resolves NOWHERE in the repo
+        // is a tell that the stated objective is hallucinated — drop it. FAIL-OPEN (empty citations or an
+        // unreadable root => grounded=true), so it can only refute a positively-fabricated citation, never
+        // block a real one. Nullable + LAST (Laravel does not inject `?Type = null`); the use-site falls
+        // back to a fresh instance. Touched ONLY when comprehension_grounding_gate_enabled is ON.
+        private readonly ?AtlasLoopComprehensionGroundingGate $comprehensionGroundingGate = null,
+        // PARK-LEDGER ESCALATION: when a target is parked as hopeless after >=1 REAL attempt, escalate its
+        // priority and re-enqueue an escalated shadow follow-up so a high-EV item cannot be starved forever.
+        // Nullable + LAST (Laravel does not inject `?Type = null`); the park seam falls back to a fresh
+        // instance. Touched ONLY when park_escalation_enabled is ON.
+        private readonly ?AtlasLoopParkEscalation $parkEscalation = null,
     ) {}
 
     /**
@@ -118,6 +132,43 @@ final class AtlasLoopTaskGrinder
             // there is no workspace to clean. Flag OFF => verdict is always 'open' => byte-identical.
             if ((string) data_get($strategyBanditDecision, 'target_verdict.verdict') === 'hopeless') {
                 $tv = (array) ($strategyBanditDecision['target_verdict'] ?? []);
+                // PARK-LEDGER ESCALATION — a hopeless target that has burned >=1 REAL attempt is parked, not
+                // forgotten: escalate its priority and re-enqueue an escalated SHADOW follow-up so a high-EV
+                // item cannot be starved forever behind a wall of cheaper, freshly-discovered work. The
+                // priority column is an INTEGER (default ~100), so normalize /1000 into [0,1], let the pure
+                // escalator add 0.05/reattempt (clamped [0,1]), then *1000 back. The follow-up's objective
+                // carries a ' [park-escalated]' suffix so its dedupe_key is DISTINCT (it actually lands), and
+                // it records park_escalated provenance. Only enqueue when the escalated INTEGER strictly
+                // exceeds the base (so a saturated priority is a no-op). Flag OFF => skipped => byte-identical.
+                if ((bool) config('atlas.loop.park_escalation_enabled', true)
+                    && (int) ($tv['real_attempts'] ?? 0) >= 1) {
+                    try {
+                        $escalator = $this->parkEscalation ?? new AtlasLoopParkEscalation;
+                        $baseInt = max(0, (int) $task->priority);
+                        $escalatedUnit = $escalator->escalatePriority(
+                            $baseInt / 1000.0,
+                            (int) ($tv['real_attempts'] ?? 0),
+                        );
+                        $escalatedInt = (int) round($escalatedUnit * 1000.0);
+                        if ($escalatedInt > $baseInt) {
+                            $escalatedPayload = $payload;
+                            $escalatedPayload['park_escalated'] = true;
+                            $escalatedPayload['park_escalated_from_priority'] = $baseInt;
+                            $this->store->enqueueTask(
+                                (string) $task->campaign_id,
+                                (string) $task->objective.' [park-escalated]',
+                                $escalatedPayload,
+                                'park_escalation',
+                                $task->target_path !== null ? (string) $task->target_path : null,
+                                $escalatedInt,
+                                (bool) $task->self_contained,
+                                $task->acceptance_hash !== null ? (string) $task->acceptance_hash : null,
+                            );
+                        }
+                    } catch (Throwable) {
+                        // Escalation is a best-effort re-prioritization — never crash the honest skip.
+                    }
+                }
                 $this->store->completeTask($task->id, $workerId, [
                     'status' => 'skipped_hopeless_target',
                     'reason' => 'per_target_skip:'.(int) ($tv['real_attempts'] ?? 0).'_real_attempts_0_certified',
@@ -728,7 +779,28 @@ final class AtlasLoopTaskGrinder
                 'cross_file_consumer_gate' => $verdict['cross_file_consumer_gate'] ?? [],
                 'receipt' => $verdict,
             ];
-            if ((bool) ($verdict['certified'] ?? false)) {
+            // COMPREHENSION GROUNDING GATE — keep-conjunct on the cert. A certified proposal whose declared
+            // files cite a symbol resolving NOWHERE in the repo is treated as hallucinated comprehension and
+            // dropped. FAIL-OPEN: no citations or an unreadable root => grounded=true (the gate can only
+            // refute a positively-fabricated citation, never block a real one). Flag OFF => grounded forced
+            // true => byte-identical to the pre-wire keep decision. The receipt rides onto THIS proposal's
+            // certification report (the last one appended above) for provenance.
+            $grounded = true;
+            if ((bool) config('atlas.loop.comprehension_grounding_gate_enabled', true)) {
+                $gate = $this->comprehensionGroundingGate ?? new AtlasLoopComprehensionGroundingGate;
+                $citations = $this->comprehensionCitations($payload, $explorerTask);
+                $groundingReceipt = $gate->ground(
+                    (string) ($proposal['objective'] ?? $explorerTask['objective'] ?? ''),
+                    $citations,
+                    (string) ($payload['code_graph_workspace'] ?? base_path()),
+                );
+                $grounded = (bool) ($groundingReceipt['grounded'] ?? true);
+                $lastReportKey = array_key_last($certificationReports);
+                if ($lastReportKey !== null) {
+                    $certificationReports[$lastReportKey]['comprehension_grounding'] = $groundingReceipt;
+                }
+            }
+            if ((bool) ($verdict['certified'] ?? false) && $grounded) {
                 $proposal['implementation_gate'] = $deterministicGate['report'] ?? [];
                 $proposal['semantic_implementation_certification'] = $verdict;
                 // Ride the cert's delivery_confidence + quality_grade inside the proposal's QUALITY json so
@@ -1202,6 +1274,34 @@ final class AtlasLoopTaskGrinder
         }
 
         return AiStringListNormalizer::uniqueStrings($files);
+    }
+
+    /**
+     * COMPREHENSION GROUNDING GATE inputs — the concrete symbols the proposal's stated objective rests on.
+     * Each declared file (the allowed/affected source files for THIS task) becomes a cited symbol via its
+     * class-name shape: basename minus the `.php` extension. The gate resolves each against the repo (autoload
+     * OR file scan OR code index); a basename that resolves nowhere is the tell of a hallucinated objective.
+     * Empty => the gate fails OPEN (grounded=true), so a task without declared files is never refuted.
+     *
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $explorerTask
+     * @return list<string>
+     */
+    private function comprehensionCitations(array $payload, array $explorerTask): array
+    {
+        $citations = [];
+        foreach ($this->semanticAllowedFiles($payload, $explorerTask) as $file) {
+            $base = basename(trim($file));
+            if (str_ends_with($base, '.php')) {
+                $base = substr($base, 0, -4);
+            }
+            $base = trim($base);
+            if ($base !== '') {
+                $citations[] = $base;
+            }
+        }
+
+        return AiStringListNormalizer::uniqueStrings($citations);
     }
 
     /**

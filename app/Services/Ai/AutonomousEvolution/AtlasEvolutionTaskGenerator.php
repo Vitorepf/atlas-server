@@ -33,6 +33,7 @@ final class AtlasEvolutionTaskGenerator
     public function __construct(
         private readonly LoopExecutionDriver $driver,
         private readonly AtlasLoopRedReasonGate $redReasonGate = new AtlasLoopRedReasonGate,
+        private ?\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopExternalResearchService $research = null,
     ) {}
 
     /**
@@ -260,6 +261,19 @@ final class AtlasEvolutionTaskGenerator
         } catch (Throwable) {
             // fail-safe: OFF
         }
+
+        try {
+            if ((bool) config('atlas.loop.external_research_enabled', true)) {
+                $topic = trim((string) ($options['research_topic'] ?? ''));
+                $repoRoot = (string) ($options['repo_root'] ?? '');
+                if ($topic !== '' && $repoRoot !== '') {
+                    $res = ($this->research ??= new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopExternalResearchService(searchToolAvailable: (bool) config('atlas.loop.external_research_tool_available', false)))->research($topic, $repoRoot);
+                    if (($res['researched'] ?? false) === true && ($res['note'] ?? null) !== null) {
+                        $parts[] = "EXTERNAL RESEARCH (advisory, sovereignty-filtered; guidance only, does NOT certify):\n".$res['note'];
+                    }
+                }
+            }
+        } catch (\Throwable) { /* fail-safe: advisory OFF on any error */ }
 
         return implode("\n\n", $parts);
     }

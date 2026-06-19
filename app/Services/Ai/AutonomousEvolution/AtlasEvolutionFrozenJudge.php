@@ -36,6 +36,14 @@ final class AtlasEvolutionFrozenJudge
 
     public const METRIC_MAXIMIZE = 'maximize'; // a number to drive up (higher = better)
 
+    public function __construct(private ?AtlasLoopBenchmarkHarness $benchmark = null) {}
+
+    /** Lazily-built deterministic PERF-CERT harness — the judge's OWN speedup measure. */
+    private function benchmark(): AtlasLoopBenchmarkHarness
+    {
+        return $this->benchmark ??= new AtlasLoopBenchmarkHarness();
+    }
+
     /**
      * Score a candidate workspace.
      *
@@ -187,12 +195,48 @@ final class AtlasEvolutionFrozenJudge
             }
         }
 
+        // Guard 4c — PERFORMANCE-EARNED (governed perf-cert, default-inert). When the FROZEN
+        // acceptance is a `refactor_performance_proof` contract (metric_kind=minimize AND
+        // performance_proof=true) AND the operator flag is ON, certification is a CONJUNCTION:
+        // behavior MUST be preserved (Guard 3 above re-ran the FROZEN sibling command — which the
+        // loop can never edit, frozen_globs — and it stayed GREEN) AND a REAL, variance-guarded
+        // speedup MUST be proven by the judge's OWN benchmark harness over the FROZEN
+        // benchmark_command's stdout samples (never a provider-claimed speedup number). The
+        // variance guard (candidate_median + candidate_iqr < baseline_median) is what makes it
+        // REAL not no-op: a noisy candidate whose band reaches past baseline is rejected. Missing
+        // or garbled samples fail CLOSED. When the flag is OFF the branch is never entered and the
+        // judge is BYTE-IDENTICAL to today.
+        $perfProof = null;
+        $wantPerformanceProof = $allPassed
+            && (bool) ($acceptance['performance_proof'] ?? false)
+            && $metricKind === self::METRIC_MINIMIZE
+            && (bool) config('atlas.loop.refactor_performance_proof', true);
+        if ($wantPerformanceProof) {
+            $perfProof = $this->performanceEarned($workspace, $acceptance, $timeout);
+            $significant = is_array($perfProof) ? ($perfProof['significant'] ?? null) : null;
+            if ($significant !== true) {
+                return $this->verdict(false, 0.0, [
+                    'rejected' => true,
+                    // fail-closed: not significant, OR null/garbled samples (could not verify).
+                    'reason' => 'performance_not_proven',
+                    'performance_proof' => $perfProof,
+                    'changed_files' => $changed,
+                    'command_results' => $commandResults,
+                ], $acceptance);
+            }
+        }
+
         $metric = $this->computeMetric($metricKind, $allPassed, $lastStdout, $metricPattern);
         // For a verified refactor, the candidate's own AST max-per-method is the honest
         // ranking number — never trust a metric_pattern parse of provider stdout for the
         // ORDER either (the gate decision already used the AST; keep ordering consistent).
         if ($wantComplexityProof && is_array($complexityProof) && ($complexityProof['reduced'] ?? false)) {
             $metric = (float) $complexityProof['candidate_max'];
+        }
+        // Honest ranking for a verified perf-cert: the candidate's OWN benchmarked median
+        // (lower = faster = better for MINIMIZE), never a provider-claimed speedup number.
+        if ($wantPerformanceProof && is_array($perfProof) && ($perfProof['significant'] ?? false)) {
+            $metric = (float) ($perfProof['candidate']['median_ns'] ?? $metric);
         }
 
         return $this->verdict($allPassed, $metric, [
@@ -296,6 +340,71 @@ final class AtlasEvolutionFrozenJudge
     private function signalAnalyzer(): AtlasLoopSignalAnalyzer
     {
         return new AtlasLoopSignalAnalyzer();
+    }
+
+    /**
+     * The ungameable perf-cert proof: did the candidate genuinely run FASTER (Guard 3 already
+     * proved behavior with the frozen sibling command)? Runs the FROZEN benchmark_command
+     * OUT-OF-PROCESS in the candidate workspace; the command must emit JSON
+     * {"baseline":[int ns...],"candidate":[int ns...]} on stdout. The judge then summarizes both
+     * sample sets with its OWN harness and certifies via the harness's threshold + variance guard
+     * (candidate_median + candidate_iqr < baseline_median). NEVER trusts a provider-claimed
+     * speedup number — only the benchmark_command's measured samples, which are covered by the
+     * frozen acceptance (the loop can never author or weaken them).
+     *
+     * @param  array<string,mixed>  $acceptance
+     * @return array{faster:bool,speedup:float,significant:bool,baseline:array<string,mixed>,candidate:array<string,mixed>}|null
+     *                                  null = could not verify (no/garbled/empty samples) -> fail closed
+     */
+    private function performanceEarned(string $workspace, array $acceptance, int $timeout): ?array
+    {
+        $command = trim((string) ($acceptance['benchmark_command'] ?? ''));
+        if ($command === '') {
+            return null; // no benchmark command declared -> fail closed
+        }
+
+        $result = $this->runFrozenCommand($command, $workspace, $timeout);
+        if (! $result['passed']) {
+            return null; // benchmark command itself failed -> fail closed
+        }
+
+        $decoded = json_decode($result['stdout'], true);
+        if (! is_array($decoded)) {
+            return null; // garbled stdout -> fail closed
+        }
+
+        $baseline = $this->intSamples($decoded['baseline'] ?? null);
+        $candidate = $this->intSamples($decoded['candidate'] ?? null);
+        if ($baseline === null || $candidate === null) {
+            return null; // missing / non-numeric / empty samples -> fail closed
+        }
+
+        $b = $this->benchmark()->summarize($baseline);
+        $c = $this->benchmark()->summarize($candidate);
+
+        return $this->benchmark()->certify($b, $c, (float) ($acceptance['min_speedup'] ?? 1.10));
+    }
+
+    /**
+     * Coerce a decoded JSON value into a non-empty list of int nanosecond samples, or null
+     * (fail-closed) when it is not an array, is empty, or holds a non-numeric element.
+     *
+     * @return list<int>|null
+     */
+    private function intSamples(mixed $value): ?array
+    {
+        if (! is_array($value) || $value === []) {
+            return null;
+        }
+        $samples = [];
+        foreach ($value as $item) {
+            if (! is_numeric($item)) {
+                return null;
+            }
+            $samples[] = (int) $item;
+        }
+
+        return $samples;
     }
 
     /**
