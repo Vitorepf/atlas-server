@@ -89,6 +89,7 @@ final class AtlasLoopHarnessGuardTest extends TestCase
             'AutonomousEvolution/Constitution/',   // a subárvore inteira da Constituição
             'config/atlas.php',                    // back-door: rebaixar os próprios safety-gates
             'bin/atlas-loop-watchdog.sh',          // gatilho externo de respawn
+            'tests/Feature/Loop/Constitution/',    // a suíte-sentinela §3.6 (descarga build-time) é pétrea
         ] as $critical) {
             $this->assertStringContainsString($critical, $set, "$critical deve estar no conjunto proibido");
         }

@@ -112,6 +112,12 @@ final class AtlasLoopHarnessGuard
         //     vira property_gated no Slice 4) — e o gatilho EXTERNO de respawn fica fora do alcance.
         'config/atlas.php',
         'bin/atlas-loop-watchdog.sh',
+
+        // LOOP-OS Fase 3 · Slice 4.5: a suíte-SENTINELA da Constituição (§3.6) É a descarga build-time que
+        // admite (ou rejeita) um self-edit property_gated. Se o loop pudesse editá-la, enfraqueceria o próprio
+        // portão de admissão e um blinder passaria. tests/ não estava em FORBIDDEN (furo SEV-1 que o doc deixou
+        // aberto) — a subárvore de testes da Constituição vira pétrea atômica com a criação da sentinela.
+        'tests/Feature/Loop/Constitution/',
     ];
 
     /** Prefixos que identificam um arquivo do harness do loop (candidato a meta-target). */
