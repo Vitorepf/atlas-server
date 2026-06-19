@@ -45,6 +45,7 @@ final class AtlasLoopQueueRefiller
         private readonly ?AtlasLoopConstraintsBlockAssembler $constraintsBlockAssembler = null,
         private readonly ?AtlasLoopHypothesisTreeProducer $treeProducer = null,
         private readonly ?AtlasLoopObjectiveProducer $objectiveProducer = null,
+        private readonly ?AtlasLoopBugReproductionLane $bugReproductionLane = null,
     ) {}
 
     /**
@@ -517,6 +518,19 @@ final class AtlasLoopQueueRefiller
             }
         }
 
+        // §11.4 BUG-FIX REPRODUCTION LANE: when this target's discovery signals carry a runnable
+        // FAILURE handle (a reproducing test path or an explicit failing command), shape a
+        // reproduce-then-fix RED-required objective and enqueue it as a FIRST-CLASS bug_fix —
+        // BEFORE the refactor/framework cascade (a known break beats speculative complexity work).
+        // The lane is fail-closed (it returns null unless target_path + a runnable handle exist), so
+        // an ordinary target with no failure handle falls through byte-identical. Flag-gated default-ON.
+        // NOTE: nothing currently STAMPS failure_test_path/failure_command into discovery signals, so
+        // on the live default path this branch is inert until a failure source populates them.
+        $bugOutcome = $this->tryBugReproduction($campaign, $target, $signals, $provider, $repoRoot);
+        if ($bugOutcome !== null) {
+            return $bugOutcome;
+        }
+
         if ((int) ($signals['framework_reach'] ?? 0) > 0) {
             // FRAMEWORK REFACTOR (heavy, behavior-preserving): BEFORE the edge-gap objective, try
             // to synthesize a `refactor_reduce_complexity` objective STRUCTURALLY (no provider
@@ -751,6 +765,83 @@ final class AtlasLoopQueueRefiller
         );
         $this->stampLastObjective($target, (string) $refactor['objective']);
         $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'framework_refactor_task_synthesized');
+
+        return $enq !== null ? 'enqueued' : 'deferred';
+    }
+
+    /**
+     * §11.4 BUG-FIX REPRODUCTION LANE seam. When the target's discovery signals carry a runnable
+     * failure handle (`failure_test_path` or `failure_command`, optionally with the failing
+     * assertion/message for objective context), ask {@see AtlasLoopBugReproductionLane} to shape a
+     * reproduce-then-fix objective. On a non-null result, enqueue a FIRST-CLASS `bug_fix` task whose
+     * acceptance is the lane's RED-required failing command, tagged `revert_recheck=true` (a bug-fix
+     * is behavior-CHANGING — the inversion of a refactor's behavior-preserving frozen sibling) and
+     * `objective_kind=bug_fix`, then return the enqueue outcome. Fail-closed: a target with no runnable
+     * failure handle (the lane returns null) falls through byte-identical to the cascade. Flag-gated by
+     * `bug_reproduction_lane_enabled` (default ON). PETREO: a forbidden self-target is rejected before
+     * enqueue (belt-and-suspenders; discovery's admit() already filters them).
+     *
+     * @param  array<string,mixed>  $signals
+     */
+    private function tryBugReproduction(AtlasLoopCampaign $campaign, AtlasLoopTarget $target, array $signals, string $provider, string $repoRoot): ?string
+    {
+        if (! (bool) config('atlas.loop.bug_reproduction_lane_enabled', true) || $this->bugReproductionLane === null) {
+            return null;
+        }
+        // A runnable failure handle MUST be present (a reproducing test path or an explicit command);
+        // without it the lane is the model-bound repro-synthesis half we never fake here => null.
+        $testPath = $signals['failure_test_path'] ?? null;
+        $command = $signals['failure_command'] ?? null;
+        if (! (is_string($testPath) && trim($testPath) !== '') && ! (is_string($command) && trim($command) !== '')) {
+            return null;
+        }
+        $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard;
+        if ($guard->isForbiddenSelfTarget((string) $target->target_path)) {
+            return null;
+        }
+
+        $repro = $this->bugReproductionLane->toReproductionObjective([
+            'target_path' => ltrim((string) $target->target_path, '/'),
+            'test_path' => is_string($testPath) ? $testPath : null,
+            'command' => is_string($command) ? $command : null,
+            'failing_assertion' => is_string($signals['failing_assertion'] ?? null) ? $signals['failing_assertion'] : null,
+            'message' => is_string($signals['failure_message'] ?? null) ? $signals['failure_message'] : null,
+        ]);
+        if ($repro === null) {
+            return null;
+        }
+
+        $acceptance = $repro['acceptance'];
+        $acceptance['revert_recheck'] = true; // behavior-CHANGING: a bug-fix is NOT a frozen-sibling refactor
+        $dp = $this->decidedPriority($campaign, $target, $signals, $repoRoot, AtlasLoopBugReproductionLane::SHAPE);
+        $payload = [
+            'target_relative_path' => $repro['target_path'],
+            'allowed_files' => [$repro['target_path']],
+            'acceptance' => $acceptance,
+            'revert_recheck' => true,
+            'objective_kind' => AtlasLoopBugReproductionLane::SHAPE,
+            '_target_id' => $target->id,
+        ];
+        if ($provider !== '') {
+            $payload['provider'] = $provider;
+        }
+        if ($dp['receipt'] !== []) {
+            $payload['_decision'] = $dp['receipt'];
+        }
+        $payload = $this->withSelfImprovementMarker($payload, $signals);
+        $acceptanceHash = hash('sha256', json_encode($acceptance) ?: $repro['target_path']);
+        $enq = $this->store->enqueueTask(
+            $campaign->id,
+            $repro['objective'],
+            $payload,
+            'discovery',
+            (string) $target->target_path,
+            $dp['priority'],
+            true,
+            $acceptanceHash,
+        );
+        $this->stampLastObjective($target, (string) $repro['objective']);
+        $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'bug_reproduction_task_synthesized');
 
         return $enq !== null ? 'enqueued' : 'deferred';
     }
