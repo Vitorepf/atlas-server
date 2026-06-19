@@ -51,6 +51,18 @@ final class AtlasLoopDbResilience
         'php_network_getaddresses',
     ];
 
+    private const TRANSIENT_SQLSTATE_CLASSES = [
+        '08' => true,
+    ];
+
+    private const TRANSIENT_SQLSTATE_CODES = [
+        '57P01' => true,
+        '57P02' => true,
+        '57P03' => true,
+        '53300' => true,
+        '53400' => true,
+    ];
+
     private int $maxAttempts = 5;
 
     private int $baseDelayMs = 500;
@@ -148,33 +160,35 @@ final class AtlasLoopDbResilience
     public static function isTransient(Throwable $e): bool
     {
         $pdo = $e instanceof PDOException ? $e : $e->getPrevious();
-        if (! $e instanceof QueryException && ! $e instanceof PDOException && ! ($pdo instanceof PDOException)) {
+        if (! self::isDbLayerThrowable($e, $pdo)) {
             return false; // only DB-layer errors are eligible
         }
 
-        $sqlState = '';
-        foreach ([$e, $pdo] as $candidate) {
-            if ($candidate instanceof Throwable) {
-                $code = (string) $candidate->getCode();
-                if (preg_match('/^[0-9A-Z]{5}$/', $code) === 1) {
-                    $sqlState = $code;
-                    break;
-                }
-            }
-        }
-        if ($sqlState !== '') {
-            if (str_starts_with($sqlState, '08')) {
-                return true; // connection_exception family (08006 = connection failure)
-            }
-            if (in_array($sqlState, ['57P01', '57P02', '57P03', '53300', '53400'], true)) {
-                return true; // admin/crash shutdown, cannot_connect_now, too_many_connections
-            }
+        if (self::hasTransientSqlState($e, $pdo)) {
+            return true; // connection_exception/admin/resource SQLSTATE family
         }
 
         $message = $e->getMessage().' '.($pdo instanceof Throwable ? $pdo->getMessage() : '');
         foreach (self::TRANSIENT_NEEDLES as $needle) {
             if (stripos($message, $needle) !== false) {
                 return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function isDbLayerThrowable(Throwable $e, ?Throwable $pdo): bool
+    {
+        return $e instanceof QueryException || $e instanceof PDOException || $pdo instanceof PDOException;
+    }
+
+    private static function hasTransientSqlState(Throwable $e, ?Throwable $pdo): bool
+    {
+        foreach (array_filter([$e, $pdo]) as $candidate) {
+            $code = (string) $candidate->getCode();
+            if (preg_match('/^[0-9A-Z]{5}$/', $code) === 1) {
+                return isset(self::TRANSIENT_SQLSTATE_CODES[$code]) || isset(self::TRANSIENT_SQLSTATE_CLASSES[substr($code, 0, 2)]);
             }
         }
 
