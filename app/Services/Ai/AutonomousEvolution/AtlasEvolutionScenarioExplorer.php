@@ -262,11 +262,24 @@ final class AtlasEvolutionScenarioExplorer
      */
     private function shouldBreakSearch(int $i, int $min, ?array $best, int $noImprove, int $patience, int $timeBudget, float $start): bool
     {
-        if ($i >= $min && $best !== null && $noImprove >= $patience) {
-            return true; // converged: a winner exists and the last $patience scenarios didn't beat it
+        // The TIME BUDGET is the authoritative hard stop (never overrun the campaign deadline).
+        if ($timeBudget > 0 && (microtime(true) - $start) >= $timeBudget) {
+            return true;
         }
 
-        return $timeBudget > 0 && (microtime(true) - $start) >= $timeBudget; // search time budget reached
+        // CONVERGENCE (patience). LOOP-OS Slice 10 — the anti-one-shot persistence: when caps_advisory is ON
+        // AND a positive time budget is set, patience is a HINT, not a hard stop — keep searching for a
+        // better solution while budget REMAINS (the canon's "nunca desistir / nunca one-shot"). Crucially,
+        // with NO budget (timeBudget==0) the patience stop is the only terminator besides the hard $max, so it
+        // MUST stay hard there — caps_advisory can never create an unbounded search. Flag OFF (default) ⇒ the
+        // patience stop fires exactly as before ⇒ byte-identical (the frozen convergence-count tests hold).
+        if ($i >= $min && $best !== null && $noImprove >= $patience) {
+            $persistPastPatience = $timeBudget > 0 && (bool) config('atlas.loop.scenario_caps_advisory', false);
+
+            return ! $persistPastPatience;
+        }
+
+        return false;
     }
 
     /**
