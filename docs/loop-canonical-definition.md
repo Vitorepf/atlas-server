@@ -26,6 +26,11 @@ Entrega = a evolução **mais EXPONENCIAL** possível. Pode ser: refatoração D
 6. **TESTE** — testa, garante.
 7. **REVISÃO DE LÓGICA + WIRING** — tudo ligado, funcionando do começo ao fim, nada desconectado; deixa tudo conectado e melhorado.
 
+## LoopPatternRegistry (como o loop escolhe a estrutura certa)
+Entre **ENTENDER/IDENTIFICAR** e **PROJEÇÃO**, o loop deve consultar o `LoopPatternRegistry`: um repertório governado de padrões de execução que transforma skills, loop catalogs e aprendizados internos em contratos Atlas. Ele não copia prompt cru. Ele escolhe a menor estrutura capaz de gerar o maior avanço comprovável: docs sweep, ticket-to-PR, devil's advocate, loop harness verification, self-improving champion, fresh clone, baseline, full eval etc.
+
+O registry é também parte do trabalho do próprio loop: se nenhum padrão serve, o loop propõe um padrão novo; se um padrão existente falha ou perde para um challenger, ele propõe otimização. Mas pattern novo só vira padrão após gate fresco, comparação champion/challenger e verificação independente. O mesmo agente que cria a estrutura não pode aprová-la.
+
 ## O TETO (objetivo de vida do loop)
 A implementação do loop **só termina** quando ele é o **ÚNICO** que mexe no código do Atlas: 24/7 sozinho, implementa, **identifica+corrige bugs, refatora, atualiza docs — tudo**, **sem humano e sem Claude Code/Codex/Factory revisando**, garantindo a qualidade com a **própria estrutura**. O Atlas vira um **SO que se autoaprimora**. O operador fica hands-off (no máximo **descreve um pedido → entra numa LISTA** que o loop implementa; só entra por escolha via Atlas Dev / Forge).
 

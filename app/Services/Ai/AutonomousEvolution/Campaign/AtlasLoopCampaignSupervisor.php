@@ -69,6 +69,8 @@ final class AtlasLoopCampaignSupervisor
         private readonly LoopWorkerCountPlanner $workerPlanner,
         private readonly AtlasLoopObraBridgeService $obraBridge,
         private readonly ?AtlasLoopTerritoryLadder $territoryLadder = null,
+        private readonly ?\App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopDeliveryPipeline $pipeline = null,
+        private readonly ?\App\Services\Ai\AutonomousEvolution\AtlasLoopProjectionWorker $projectionWorker = null,
     ) {}
 
     public function setClockForTesting(Closure $clock): void
@@ -268,7 +270,11 @@ final class AtlasLoopCampaignSupervisor
                         $refill = $this->refiller->refill($campaign, $refillBatch);
                         $this->guard(fn () => $campaign->increment('refills'), 'campaign_refills');
                         $this->beat($campaign, $this->now() - $refillStart);
-                        if ((int) $refill['enqueued'] === 0 && (int) $this->guard(fn () => $this->store->countOpen($campaign->id), 'count_open') === 0) {
+                        // S2 — drain any DISPATCHED projections this tick (severed designer↔critic engine):
+                        // a converged projection mints its task here, a non-converged one parks. Gated by
+                        // flag + non-null pipeline; a no-op when projection_stage is OFF.
+                        $this->drainProjections($campaign);
+                        if ((int) $refill['enqueued'] === 0 && (int) $this->guard(fn () => $this->store->countOpen($campaign->id), 'count_open') === 0 && $this->openProjections($campaign->id) === 0) {
                             // SLICE C-territory-ladder — at supply exhaustion, the most DANGEROUS loop act:
                             // widen the discovery scope. CONSERVATIVE by design: the gate is always LIVE +
                             // evaluated + logged, but it only ACTUATES into an OPERATOR-DEFINED rung. With no
@@ -345,7 +351,8 @@ final class AtlasLoopCampaignSupervisor
                         ]);
                         $this->guard(fn () => $this->store->reclaimExpiredTasks($campaign->id), 'reclaim_cycle');
                         if ((int) ($tick['spawned'] ?? 0) === 0 && (int) ($tick['in_flight'] ?? 0) === 0
-                            && (int) $this->guard(fn () => $this->store->countOpen($campaign->id), 'count_open') === 0) {
+                            && (int) $this->guard(fn () => $this->store->countOpen($campaign->id), 'count_open') === 0
+                            && $this->openProjections($campaign->id) === 0) {
                             $stop = 'queue_exhausted';
                             break;
                         }
@@ -358,7 +365,8 @@ final class AtlasLoopCampaignSupervisor
                     // Claim + grind one task (serial, in-process — the proven v1 default).
                     $task = $this->guard(fn () => $this->store->claimNextTask($campaign->id, $workerId, $taskLease), 'claim_next');
                     if ($task === null) {
-                        if ((int) $this->guard(fn () => $this->store->countOpen($campaign->id), 'count_open') === 0) {
+                        if ((int) $this->guard(fn () => $this->store->countOpen($campaign->id), 'count_open') === 0
+                            && $this->openProjections($campaign->id) === 0) {
                             $stop = 'queue_exhausted';
                             break;
                         }
@@ -466,6 +474,67 @@ final class AtlasLoopCampaignSupervisor
         }
 
         return $this->finish($this->safeFresh($campaign), $stop, $cycles);
+    }
+
+    /**
+     * S2 — PROJECTION-STAGE drainer. Each tick, claim up to projection_drain_per_tick dispatched projection
+     * rows and delegate each to the {@see \App\Services\Ai\AutonomousEvolution\AtlasLoopProjectionWorker}
+     * (the severed designer↔critic engine), which either MINTS a task (converged) or PARKS (non-converged).
+     * reclaimExpired runs first so a worker that died mid-projection frees its lease. Gated by flag +
+     * non-null pipeline; a no-op (no claims, no reclaim) when projection_stage is OFF or the pipeline is
+     * unwired, so the OLD path is byte-identical. Fail-OPEN: a drain hiccup is swallowed (the loop never
+     * stalls on the projection stage). The claim owner is per-tick unique so two ticks never collide.
+     */
+    private function drainProjections(AtlasLoopCampaign $campaign): void
+    {
+        $pipeline = $this->pipeline;
+        if ($pipeline === null || ! (bool) config('atlas.loop.projection_stage_enabled', true)) {
+            return;
+        }
+        try {
+            $this->guard(fn () => $pipeline->reclaimExpired($campaign->id), 'projection_reclaim_expired');
+            $worker = $this->projectionWorker ?? new \App\Services\Ai\AutonomousEvolution\AtlasLoopProjectionWorker($this->store, $pipeline);
+            $perTick = max(1, (int) config('atlas.loop.projection_drain_per_tick', 2));
+            $owner = 'projection-'.$campaign->id.'-'.getmypid().'-'.$this->now();
+            for ($i = 0; $i < $perTick; $i++) {
+                $row = $this->guard(fn () => $pipeline->claimNextProjection($campaign->id, $owner, max(60, (int) config('atlas.loop.projection_lease_seconds', 300))), 'projection_claim_next');
+                if (! is_array($row)) {
+                    break;
+                }
+                $outcome = $worker->process($row);
+                $this->appendLedger($campaign->id, [
+                    'event' => 'projection_drained',
+                    'objective_id' => (string) ($outcome['objective_id'] ?? ''),
+                    'outcome' => (string) ($outcome['outcome'] ?? 'unknown'),
+                    'status' => $outcome['status'] ?? null,
+                    'reason' => $outcome['reason'] ?? null,
+                ]);
+                $this->writeHeartbeat($campaign->id); // a long projection keeps the campaign "alive"
+            }
+        } catch (Throwable) {
+            // fail-open: the projection drain must never be able to stall the 24h loop.
+        }
+    }
+
+    /**
+     * S2 — the supervisor's anti-starvation signal for the projection stage: in-flight (dispatched,
+     * not-yet-parked/completed) projections count as OPEN work, so severing produce() into a µs-returning
+     * dispatch never trips queue_starved/queue_exhausted while a projection is still being run. Returns 0
+     * when the flag is OFF or the pipeline is unwired — so the three starvation clauses stay byte-identical
+     * (… && 0 === 0 ⇒ … && true) on the OLD path. Best-effort: a read failure conservatively yields 0
+     * (never wedges the loop open on a DB blip).
+     */
+    private function openProjections(string $campaignId): int
+    {
+        $pipeline = $this->pipeline;
+        if ($pipeline === null || ! (bool) config('atlas.loop.projection_stage_enabled', true)) {
+            return 0;
+        }
+        try {
+            return (int) $this->guard(fn () => $pipeline->countOpenProjections($campaignId), 'count_open_projections');
+        } catch (Throwable) {
+            return 0;
+        }
     }
 
     // --- read-only observability (for the status command + an external watchdog) ---

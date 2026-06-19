@@ -34,6 +34,7 @@ related_paths:
   - app/Services/Ai/AutonomousEvolution/Verify/AtlasEngineeringHonestyGate.php
   - app/Console/Commands/AtlasLoopCompileVerifierCommand.php
   - app/Console/Commands/AtlasLoopCertifyImplementationCommand.php
+  - docs/engineering-knowledge-base/atlas-loop-pattern-registry.md
   - tests/Unit/Ai/AutonomousEvolution/AtlasLoopIntentVerifierFactoryTest.php
   - tests/Feature/Loop/AtlasLoopGrindTaskCommandTest.php
 graph_id: atlas-unified-evolution-loop
@@ -141,6 +142,17 @@ status dela no mesmo painel. O dispatcher `AtlasP3FindingDispatcher` é a ponte 
 os quatro pontos: uma varredura emite achados tipados que ou fecham aqui (auto-loop) ou
 são roteados para o arm certo (humano/Forge para implementação e julgamento).
 
+O próximo avanço de desenho é o `LoopPatternRegistry`: ele entra antes da
+originação como seleção governada de estrutura de execução. Em vez de o loop
+improvisar, ele escolhe um padrão provável para o tipo de trabalho
+(`docs_sweep`, `ticket_to_pr_ready`, `loop_harness_verification`,
+`self_improving_champion`, `devils_advocate`, `fresh_clone`, baseline, avaliação
+completa etc.) e compila esse padrão para `ExecutionContract`: params, outputs,
+durability, sandbox, agent lanes, acceptance, terminal states, orçamento,
+rollback e evidência. O aprendizado de MachinaOS entra aqui como padrão de
+schema/plugin/durable-execution/worktree/sandbox, não como autoridade runtime.
+No estado atual isto é design/documentação, não runtime provado.
+
 ## Contratos
 
 - Entrada: raiz do repo + lista de modos (`deadcode`, `docs_structure`) + provider.
@@ -199,6 +211,12 @@ são roteados para o arm certo (humano/Forge para implementação e julgamento).
    vencedor em uma worktree limpa de gate e só mantém a proposta se o certificado
    semântico passar. Se `provider_refuters_required > 0` e os refutadores não rodarem,
    o certificado falha fechado.
+9. Pattern selection futuro: antes do passo 7/8, o `LoopPatternRegistry` deve
+   escolher a estrutura de execução e fornecer o contrato que o Intent Verifier,
+   Projection Engine e Certifier precisam provar. Pattern externo nunca vira
+   default sem eval Atlas. O contrato deve declarar `params_schema`,
+   `output_schema`, `durability_mode`, `sandbox_profile`, `agent_lane_policy`,
+   `success_gate`, `terminal_states` e `memory_writeback`.
 
 ## Regras para IA
 
@@ -216,6 +234,9 @@ são roteados para o arm certo (humano/Forge para implementação e julgamento).
 - O Intent Verifier Factory só compila intenções estreitas e executáveis; intenção
   ampla/sem átomo mensurável vira blocker (`no_executable_verification_atom`), não
   teste fabricado. Refutadores do verificador recebem `ATLAS_INTENT_VERIFIER_PACKET`.
+- Pattern externo, skill externa ou agent workflow OS externo nunca decide por
+  si. O Atlas só consome a forma depois de normalizar para contrato, quarentena,
+  eval battery fresca e verificação independente.
 
 ## Escopo de Implementacao
 
@@ -325,3 +346,5 @@ touch storage/atlas/loop/unified/STOP   # kill-switch
   RED-preflight.
 - Adicionar refutadores externos reais por provider para P4 acima do fixture local.
 - Expandir slots cross-domínio de readiness para scanners/verifiers frozen específicos.
+- Implementar o `LoopPatternRegistry` como camada read-only primeiro, com seed
+  externo em quarentena e promoção por champion/challenger.

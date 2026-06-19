@@ -28,6 +28,7 @@ capabilities:
   - research_intelligence_runtime
   - spec_operating_system
   - programming_governance_system
+  - loop_pattern_registry
   - programming_forge_flow
   - forge_operating_system
   - self_construction_os
@@ -95,6 +96,7 @@ decisions:
   - Toda IA nova deve ler Atlas AI Router Runtime Enterprise Upgrade antes de implementar Router Runtime, specialist flows, delegation ou telemetry de flow.
   - Toda IA nova deve ler Atlas Programming Governance System antes de implementar ou alterar placement, spec antes do codigo, task contracts, Code Intelligence, evidence, learning ou cartografia de programacao.
   - Toda IA nova deve ler Atlas Programming Self-Construction Forge Map v1 antes de explicar a relacao entre Atlas Code, Forge Continuum, Self-Construction OS, Self-Programming OS, Obras de Programacao ou multi-provider.
+  - Toda IA nova deve ler Atlas Loop Pattern Registry antes de integrar skill externa, loop catalog, pattern de execucao ou auto-otimizacao de padroes no Loop.
   - Toda IA nova deve ler Atlas Dual-Core Engineering System antes de explicar, implementar ou alterar a fronteira entre Atlas Dev e Atlas Forge.
   - Toda IA nova deve ler Atlas AI Conversation Surface And Atlas Dev v1 antes de explicar ou implementar Consultas, Atlas AI mobile/desktop, Atlas Dev, bug rapido, fluxo mobile->Mac ou promocao para Obra.
   - Toda IA nova deve ler Atlas Programming Forge Flow antes de explicar, planejar ou alterar programacao pesada, programming.forge, Forge Workspace, Engineering Harness, Agentic RAG, graphs, tools, repair loop, Evidence ou cartografia de codigo.
@@ -158,6 +160,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-multi-domain-implementation-sequence.md
   - docs/engineering-knowledge-base/atlas-ai-router-runtime-enterprise-upgrade.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md
+  - docs/engineering-knowledge-base/atlas-loop-pattern-registry.md
   - docs/engineering-knowledge-base/atlas-dual-core-engineering-system.md
   - docs/engineering-knowledge-base/atlas-ai-conversation-surface-and-atlas-dev-v1.md
   - docs/engineering-knowledge-base/atlas-programming-forge-flow.md

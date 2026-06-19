@@ -47,6 +47,7 @@ final class AtlasLoopTargetDiscoveryService
         private readonly ?\App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer $signalAnalyzer = null,
         private readonly ?AtlasLoopCoverageDeficitSource $coverageDeficit = null,
         private readonly ?AtlasLoopCloneDetector $cloneDetector = null,
+        private readonly ?AtlasLoopFailureHandleSource $failureHandles = null,
     ) {}
 
     /** Lazily-built deterministic AST cyclomatic analyzer (the honest complexity signal). */
@@ -94,6 +95,42 @@ final class AtlasLoopTargetDiscoveryService
             $row['scored']['score'] = round(0.72 * (float) $row['scored']['score'] + 0.28 * $ev, 4);
         }
         unset($row);
+
+        // S3 FAILURE-HANDLE STAMP: the REAL bug-fix work-supply seam. A target whose path matches a
+        // harvested DETERMINISTIC-RED handle gets the runnable failure handle stamped onto its
+        // discovery signals (failure_test_path / failure_command / failing_assertion / failure_message).
+        // Those signals persist via repository->upsert(...$row['scored']) into atlas_loop_targets.signals,
+        // which is EXACTLY what the already-wired AtlasLoopQueueRefiller::tryBugReproduction reads to
+        // enqueue a FIRST-CLASS bug_fix (red_required + revert_recheck). Without this stamp that lane is
+        // STARVED (documented at the refiller gap): nothing else populates those signals on the live path.
+        // Flag-gated + fail-open: no flag / no source / no matching handle => NO source call, signals
+        // untouched, byte-identical to today.
+        if ((bool) config('atlas.loop.discovery_failure_handle_stamp_enabled', false)) {
+            $handleSource = $this->failureHandles ?? new AtlasLoopFailureHandleSource();
+            $handlesByPath = $handleSource->handlesByPath(array_column($scoredRows, 'path'));
+            if ($handlesByPath !== []) {
+                foreach ($scoredRows as &$row) {
+                    $handle = $handlesByPath[(string) $row['path']] ?? null;
+                    if ($handle === null) {
+                        continue;
+                    }
+                    $signals = is_array($row['scored']['signals'] ?? null) ? $row['scored']['signals'] : [];
+                    $signals['failure_test_path'] = $handle['failure_test_path'];
+                    if ($handle['failure_command'] !== null) {
+                        $signals['failure_command'] = $handle['failure_command'];
+                    }
+                    if ($handle['failing_assertion'] !== null) {
+                        $signals['failing_assertion'] = $handle['failing_assertion'];
+                    }
+                    if ($handle['failure_message'] !== null) {
+                        $signals['failure_message'] = $handle['failure_message'];
+                    }
+                    $signals['failure_handle_recurrence'] = $handle['recurrence_count'];
+                    $row['scored']['signals'] = $signals;
+                }
+                unset($row);
+            }
+        }
 
         // L3-2: backlog REAL guiando os intents — em vez de só varrer arquivos ao acaso,
         // injeta alvos com OBJETIVO ESPECÍFICO (manifesto curado + corpus de falhas) e os

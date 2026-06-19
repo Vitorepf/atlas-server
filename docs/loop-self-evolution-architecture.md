@@ -19,14 +19,18 @@ AtlasLoopSelfEvolutionOrchestrator::runCycle(campaign)
                   → leverage = (impact × breadth × compounding) / (cost × risk)  [LeverageScorer]
                   → AtlasLoopAdversarialCritic::challenge(pick, runnerUp)   "biggest or easy-looking?"
                   → the winning leap (target + shape: refactor | feature) above the ambition floor
-  3. ORIGINATE  AtlasLoopOriginationBuilder::build(leap, state)            [the CEILING LIFT]
+  3. PATTERN    LoopPatternRegistry::select(leap, state, risk)             [the execution structure]
+                  → docs sweep | ticket-to-PR | devil's advocate | harness verification
+                  → self-improving champion | fresh clone | baseline | full eval | custom challenger
+                  → ExecutionContract(params, outputs, durability, sandbox, lanes, gates, rollback)
+  4. ORIGINATE  AtlasLoopOriginationBuilder::build(leap, state, pattern)   [the CEILING LIFT]
                   → refactor: heavy structural objective w/ behavior anchor (existing synthesizers)
                   → feature : NEW capability objective w/ an authored RED acceptance test
                   → a verifiable objective contract (scope + plan + acceptance: RED→GREEN / metric)
-  4. IMPLEMENT  ADEP iterate-to-green                                       [exists] strong engine
-  5. GATE       diff-earned (revert_recheck) + real suite green             [exists] the MOAT
-  6. MERGE      auto-merge to main                                          [exists]
-  7. REPEAT     fresh main → next cycle
+  5. IMPLEMENT  ADEP iterate-to-green                                       [exists] strong engine
+  6. GATE       diff-earned (revert_recheck) + real suite green             [exists] the MOAT
+  7. MERGE      auto-merge to main                                          [exists]
+  8. REPEAT     fresh main → next cycle
 ```
 
 `AtlasLoopAutonomousRunner` drives `runCycle` for hours: health, budget, fresh-main contract, stop
@@ -39,8 +43,9 @@ on kill-switch/budget. Every cycle writes a receipt to the living report.
 | `AtlasLoopStateOfAtlasReader` + `StateOfAtlas` | deep brain comprehension → structured state | OpenBrain context pack, AtlasAiDomainCatalogService, DomainMaturity, code-graph, reality-graph, memory recall |
 | `AtlasLoopLeverageScorer` ✅ | the leverage math + ambition floor | (done) |
 | `AtlasLoopObjectiveProducer` ✅ (extend) | the rédea: select the biggest leap | LeverageScorer + State + brain |
+| `LoopPatternRegistry` | choose the governed execution structure for the leap | Atlas Skill System, Loop Library + MachinaOS source material, Self-Construction outcomes, Evidence |
 | `AtlasLoopAdversarialCritic` | self-critique: biggest leap or easy-looking? | pure reasoning over scored candidates |
-| `AtlasLoopOriginationBuilder` | the ceiling lift: originate a BIG objective (refactor OR feature) | RefactorObjectiveSynthesizer, FrameworkRefactorSynthesizer, FeatureObjectiveBuilder |
+| `AtlasLoopOriginationBuilder` | the ceiling lift: originate a BIG objective under the selected pattern | RefactorObjectiveSynthesizer, FrameworkRefactorSynthesizer, FeatureObjectiveBuilder |
 | `AtlasLoopSelfEvolutionOrchestrator` | drive one closed cycle | producer + builder + ADEP + gate + auto-merge |
 | `AtlasLoopAutonomousRunner` | run the cycle for hours, healthy | orchestrator + budget/health |
 
@@ -51,6 +56,9 @@ on kill-switch/budget. Every cycle writes a receipt to the living report.
 - build on existing; respect petreo/proibido/local-first; every component flag-gated default-OFF,
   fail-open, byte-identical until armed.
 - honesty: each leap proven with a real delta; potential is never sold as fact.
+- external inspiration is quarantined: Loop Library, MachinaOS and other systems
+  may seed patterns, but only Atlas contracts, gates and evidence can promote
+  them into runtime use.
 
 ## Delivery mode
 Assemble ALL the logic + architecture first (this doc → all components, wired). Test + PROVE at the

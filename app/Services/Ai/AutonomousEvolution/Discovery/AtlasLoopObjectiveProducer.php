@@ -118,13 +118,47 @@ final class AtlasLoopObjectiveProducer
             return null;
         }
 
-        // LOOP-OS Fase 4 — EV / theory-of-constraints refinement (flag-gated, default-OFF ⇒ byte-identical).
+        // LOOP-OS Fase 4 — EV / theory-of-constraints refinement.
         // Reorders the floor-passers so the candidate that most relieves the BINDING system axis (Slice 6
         // fresh axis vector × Slice 7.5 machine touches_axes) leads; the adversarial critic below still
         // confirms the leap. Fail-open: any axis/EV hiccup leaves the leverage order untouched.
+        //
+        // S1 (ev_live_decision_enabled, default ON) — the EV ranking runs on the LIVE default, not just behind
+        // the legacy producer_ev_pick_enabled flag. The legacy reorder path is byte-identical: when only
+        // producer_ev_pick_enabled is set the SAME reorder runs and the new PARK/shape block is skipped.
+        $evLive = (bool) config('atlas.loop.ev_live_decision_enabled', true);
         $evPick = null;
-        if ((bool) config('atlas.loop.producer_ev_pick_enabled', false)) {
+        if ($evLive || (bool) config('atlas.loop.producer_ev_pick_enabled', false)) {
             [$floorPassers, $evPick] = $this->reorderByExpectedValue($floorPassers, $repoRoot);
+        }
+
+        // S1 — HONEST PARK + shape hint on the live default. Capture the FULL EV decision: the binding axis
+        // (from the reorder) and EACH floor-passer's REAL machine touches_axes. If the binding axis is a VALUE
+        // axis (non_trivial/compounding/real_target) and NO originatable objective relieves it — i.e. every
+        // floor-passer is a behaviour-preserving proxy refactor with no value contribution — RETURN null
+        // (emit NO proxy refactor this cycle). When a value candidate exists, pass an explicit shape hint:
+        // 'feature' ONLY when feature signals say so AND producer_feature_origination_enabled is armed.
+        if ($evLive && $evPick !== null) {
+            $bindingAxis = (string) ($evPick['binding_axis'] ?? '');
+            $valueAxes = ['non_trivial', 'compounding', 'real_target'];
+            if (in_array($bindingAxis, $valueAxes, true)) {
+                $relieves = false;
+                foreach ($floorPassers as $packet) {
+                    if (in_array($bindingAxis, $this->touchesProducer()->forPacket($packet), true)) {
+                        $relieves = true;
+                        break;
+                    }
+                }
+                if (! $relieves) {
+                    return null; // PARK — every floor-passer is proxy-only; no value candidate to originate.
+                }
+            }
+
+            // Explicit shape hint on the EV winner: feature only when the area says so AND the arm is on.
+            if ((bool) config('atlas.loop.producer_feature_origination_enabled', false)
+                && $this->featureSignalsSay($state, (string) ($floorPassers[0]['path'] ?? ''))) {
+                $floorPassers[0]['shape'] = 'feature';
+            }
         }
 
         // Adversarial self-critique: pick the biggest genuine leap, not the cheapest-looking one.
@@ -155,6 +189,22 @@ final class AtlasLoopObjectiveProducer
             'leverage' => (float) $winner['_score']['leverage'],
             'rationale' => $rationale,
         ];
+    }
+
+    /**
+     * S1 — do the area's feature signals say this target is a NEW-capability leap (not a refactor)? Mirrors
+     * {@see AtlasLoopOriginationBuilder::decideShape()}: a strategically-aligned target in an area with
+     * maturity HEADROOM is where a feature is the bigger jump. Read-only over the State; never a hard-coded
+     * 'feature' — when this is false the shape stays unset and build() falls back to a refactor.
+     */
+    private function featureSignalsSay(StateOfAtlas $state, string $path): bool
+    {
+        $path = ltrim($path, '/');
+        if ($path === '') {
+            return false;
+        }
+
+        return $state->strategicWeightFor($path) >= 0.60 && $state->maturityFor($path) <= 0.70;
     }
 
     private function stateReader(): AtlasLoopStateOfAtlasReader

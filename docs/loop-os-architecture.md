@@ -33,7 +33,7 @@ The Loop becomes the **sole, autonomous, exponential self-engineer of Atlas** �
 
 1. **Recursive-safety = a minimal IMMUTABLE CONSTITUTION, not a fence.** The loop may rewrite *everything* incl. its own judge/cert/selector/pipeline. The only immutable thing is a property checker: any new quality-machinery version must still REFUTE a frozen battery of known-bad changes (incl. robustness breakages) AND still CERTIFY a frozen battery of known-good changes — else *that* change is REJECTED. It checks a **property** (detection power), never an implementation. A strictly-better judge PASSES; only a blinder/weaker one is REJECTED. *(Operator's hard constraint: "regras de regressão, mas o loop não pode quebrar do jeito que está nem ser impedido de melhorar se for realmente melhor.")*
 2. **Design/projection engine = gpt-5.5 (Codex) via Hermes**, cross-model critique with GLM-5.2 / MiniMax-M3. **NEVER pin the model** — use the `hermes_cli_default` sentinel so Hermes's native fallback chain stays intact. *(The architecture-of-today was authored with Claude Code multi-agent; the BUILT loop's runtime projection engine is gpt-5.5-via-Hermes.)*
-3. **External research = read-only** (web/GitHub/papers). ZERO Atlas code or secrets leave the machine. Local-first sovereignty; fail-**closed** on any egress doubt.
+3. **External research + external loop catalogs = read-only source material.** Web/GitHub/papers/skill catalogs can inform `LoopPatternRegistry`, but ZERO Atlas code or secrets leave the machine. Local-first sovereignty; fail-**closed** on any egress doubt.
 4. **Autonomy = maximum.** The loop depends on no one but itself. No abstain-that-BLOCKS on the human: what it cannot crack it **PARKS** (full analysis recorded) and CONTINUES. Live, no shadow. The single, narrow, non-blocking human touch is the `battery:retire` two-key (weakening the safety floor is the only non-autonomous act).
 
 ---
@@ -161,7 +161,7 @@ Merge-floor flags to protect (both namespaces, verified): `atlas.ai.loop.{boot_s
 
 **LANE A — Supervisor (`AtlasLoopCampaignSupervisor::run()`, PROPOSE-ONLY, "NEVER merges", doc-block :28-39):**
 1. wake / acquire supervisor lock-lease.
-2. **REFILL** (`AtlasLoopQueueRefiller::refill()` @ supervisor:265) = **UNDERSTAND** (`StateOfAtlasReader` + frontier comprehension) + **IDENTIFY** (EV argmax). Inside: `AtlasLoopObjectiveProducer::produce()` (@ `QueueRefiller:299`, gated `atlas.loop.objective_producer_enabled`) → `scorer->rank` → ambition floor → EV pick → `origination()->build()`. *(`produce()` has NO other caller — verified.)*
+2. **REFILL** (`AtlasLoopQueueRefiller::refill()` @ supervisor:265) = **UNDERSTAND** (`StateOfAtlasReader` + frontier comprehension) + **IDENTIFY** (EV argmax) + **PATTERN** (`LoopPatternRegistry` chooses the governed execution structure). Inside: `AtlasLoopObjectiveProducer::produce()` (@ `QueueRefiller:299`, gated `atlas.loop.objective_producer_enabled`) → `scorer->rank` → ambition floor → EV pick → pattern selection → `origination()->build()`. *(`produce()` has NO other caller — verified.)*
 3. **[Slice 8]** severed async **PROJECTION** stage (`AtlasLoopProjectionEngine`, designer↔critic content-fixpoint) with its OWN claim/lease on `atlas_loop_pipeline_state`, so the zombie-detector never reclaims a "0-grinds" worker.
 4. **CLAIM** a task (`store->claimNextTask` @ supervisor:298/:345).
 5. **ORCHESTRATION + IMPLEMENT** (`AtlasLoopTaskGrinder`, N decorrelated attempts).
@@ -197,7 +197,7 @@ Merge-floor flags to protect (both namespaces, verified): `atlas.ai.loop.{boot_s
 
 **Branch flows & return edges** (trigger stage → store → re-consuming stage):
 - **PARK** → `AtlasLoopParkLedger` → re-attempt-escalation re-enters via the refiller's candidate scoring on the next refill (step 2).
-- **RESEARCH** → `atlas_loop_research_notes` → consumed by `AtlasLoopProjectionEngine` at PROJECTION (advisory; never gates a cert).
+- **RESEARCH / PATTERN-SOURCE** → `atlas_loop_research_notes` + quarantined pattern source material → consumed by `LoopPatternRegistry` and `AtlasLoopProjectionEngine` as advisory input; never gates a cert by itself.
 - **WANT-INTAKE** → `atlas:loop:want` writes manifest rows → read by `TargetDiscoveryService:100` on the next refill.
 - **CODE-DRIFT restart** → checkpoint in `atlas_loop_pipeline_state` → resumed by the supervisor on watchdog-triggered respawn (debounced ≤1/window).
 
@@ -205,18 +205,21 @@ Merge-floor flags to protect (both namespaces, verified): `atlas.ai.loop.{boot_s
 
 ### 4.1 Decision brain — pick the most-exponential next evolution
 - **[REUSE+WIRE] `AtlasLoopExpectedValueDecider`** wired into `AtlasLoopObjectiveProducer::produce()` after `scorer->rank` + ambition floor, before `origination()->build()`. Objective: `argmax  P_success(class) · value · bottleneck_relief − cost`.
+- **[NEW] `LoopPatternRegistry`** sits after EV selection and before origination. It maps a leap to a governed execution pattern (`docs_sweep`, `ticket_to_pr_ready`, `loop_harness_verification`, `self_improving_champion`, `devils_advocate`, `fresh_clone`, etc.) and compiles that pattern into an `ExecutionContract`. External skills/catalogs/agent workflow OSs (Loop Library, MachinaOS, papers, repos) are source material until Atlas evidence promotes them.
+- **[NEW] `PatternSpec` schema** is backend-owned and projection-only to surfaces: `params_schema`, `output_schema`, `durability_mode`, `sandbox_profile`, `agent_lane_policy`, `success_gate`, `terminal_states`, `budget`, `rollback`, `memory_writeback`, `source_snapshot`. This intentionally absorbs the useful MachinaOS shape (schema-driven plugins + durable modes + CLI-agent worktrees + sandbox profiles) without importing its runtime authority.
 - **[NEW] `AtlasLoopSystemAxisService`** (NOT an edit of the FORBIDDEN `UtilityGradeService` — it *consumes* its re-resolution discipline) emits the per-cycle **system-axis vector** (re-resolved from git/graph every cycle ⇒ a *moving* objective: relieving the binding axis auto-pivots to the next — the "made code-gen fast → review is now the bottleneck" emergent, not hand-coded).
 - **[NEW, Slice 7.5] `touches_axes` deterministic producer** — derives which axis an *unbuilt* candidate moves from target-path + change-class via the same taxonomy (`WiredCallerService`), so `bottleneck_relief` is machine-computable (verified today it has NO producer). Any axis needing model prediction is labeled advisory/model-bound and excluded from the machine-checkable claim.
 - **Robustness axis is continuous & re-violatable:** `1 − incidents_per_window` from the outcome ledger — a failure class can regress and must be *continuously* defended; box-checking finite toggles never earns ladder promotion.
 - **Branches:** IMPLEMENT (`OriginationBuilder`, RED-verified) / REFACTOR / RESEARCH (§4.3) / **PARK** (`AtlasLoopParkLedger` with re-attempt-escalation + a "high-EV parking faster than delivered" loop-health regression flag — park-everything is autonomy theater).
+- **Rejected sources:** prompt-only autonomy, unknown-node success fallbacks, unsafe code execution as a security boundary, unpinned skills, unverified manual status counts and external memory authority all compile to `blocked`, not to a runnable pattern.
 
-### 4.2 The 7-stage pipeline as infinite-time runtime (one-shot retired)
+### 4.2 The pattern-guided 7-stage pipeline as infinite-time runtime (one-shot retired)
 **[NEW] `AtlasLoopDeliveryPipeline`** — a persistent, resumable per-objective state machine (`atlas_loop_pipeline_state`). **Critical topology fix:** `produce()` becomes a **dispatcher** that enqueues a projection job and returns in microseconds — the unbounded designer↔critic Hermes loop runs in its **own async stage** with its own claim/lease, NEVER on the synchronous refiller hot-loop (else the zombie-detector reclaims a "0-grinds" worker, reintroducing the stall).
 
 | Stage | Engine | One-shot mechanism RETIRED |
 |---|---|---|
 | 1 UNDERSTAND | `StateOfAtlasReader` + frontier comprehension (advisory, fail-open) | `strategicWeightFor` keyword proxy |
-| 2 IDENTIFY | EV argmax over moving axes | — |
+| 2 IDENTIFY | EV argmax over moving axes + `LoopPatternRegistry` pattern selection | — |
 | 3 **PROJECTION** | **[NEW] `AtlasLoopProjectionEngine`**: gpt-5.5 designs → GLM/MiniMax critiques (writer≠judge) → revise → loop until **content-fixpoint** | `max_scenarios=18`, `search_patience=4`, single-shot `challenge()`; **smallest-diff tie-break INVERTED** to higher-leverage |
 | 4 ORCHESTRATION | **[NEW] `AtlasLoopOrchestrator`** model-role sequencer; Hermes-down → PARK (never ship un-critiqued) | — |
 | 5 IMPLEMENT | `AtlasLoopTaskGrinder` / ADEP, N decorrelated attempts; explorer demoted to resource-hinted impl engine | explorer's finite *decision* role |
@@ -286,6 +289,7 @@ Owner column: **O** = operator/Claude-built (bootstrap foundation, loop frozen o
 | **6** | **`AtlasLoopSystemAxisService`** | O/L | per-cycle re-resolved axis vector. *Proof:* recomputes from a fresh commit, never a stored field. |
 | **7** | **Wire `AtlasLoopExpectedValueDecider`** | L | EV pick in `produce()`. *Proof:* re-pivots to next-binding axis after relief. |
 | **7.5** | **`touches_axes` producer** | L | makes `bottleneck_relief` machine-computable. *Proof:* recomputes with no provider call; EV-plateau becomes meaningful. |
+| **7.6** | **`LoopPatternRegistry`** | L | seed read-only patterns, quarantine external catalogs, select pattern after EV pick, compile `ExecutionContract`. *Proof:* same objective chooses different contracts for docs/bug/refactor/self-improvement; external pattern cannot become default without fresh eval. |
 | **8** ⚑ | **`AtlasLoopDeliveryPipeline` (async) + sever `produce()`** | L | `atlas_loop_pipeline_state` (DDL §10.1); `produce()` (sole caller `QueueRefiller::refill()`) → dispatcher returns in µs. *Proof:* refiller microsecond-returns while a projection runs async; zombie-detector doesn't reclaim it. |
 | **9** ⚑ | **`AtlasLoopProjectionEngine` + feed real `judge_verdicts`** | L | designer↔critic content-fixpoint + quality-stall PARK. *Proof:* empty→populated verdicts don't change the non-self-mod threshold; a CERTIFY-panel cannot lift a deterministic REFUTE; cert-chain changes fail-closed→PARK when panel down. |
 | **10** | **Kill one-shot in the explorer** | L | remove smallest-diff tie-break; invert to leverage; demote patience/max-scenarios to hints. *Proof:* higher-leverage of two maxed designs wins. |

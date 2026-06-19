@@ -25,6 +25,7 @@ decisions:
   - Self-Directed Evolution Layer is a composition/read-model layer above this OS; it must reuse Self-Construction proposal primitives instead of creating a new self-construction authority.
   - `AtlasSelfConstructionSubsystemBuilderService` is the existing owner for subsystem gap detection, subsystem proposal, approval/rejection receipt and scaffold skeletons.
   - Self-Programming OS remains a maturity/safety patamar, not a free runtime; command surfaces and tests must keep self-programming blocked unless safety contracts, receipts, gates and operator approval explicitly promote it.
+  - LoopPatternRegistry is the governed bridge from skills/catalogs/outcomes into execution structures; it may guide self-construction but cannot approve itself.
 maintenance:
   - Read before changing Atlas core, self-improvement, SDD runtime, memory, research automation, autonomous coding or governance.
   - Update when a new self-programming loop, maturity level, build dependency or core safety gate is promoted.
@@ -83,6 +84,7 @@ related_paths:
   - docs/engineering-knowledge-base/self-construction/autonomous-implementation-loop.md
   - docs/engineering-knowledge-base/self-construction/self-programming-safety-contract.md
   - docs/engineering-knowledge-base/self-construction/quality-bar-and-metrics.md
+  - docs/engineering-knowledge-base/atlas-loop-pattern-registry.md
   - docs/engineering-knowledge-base/self-construction/failure-modes.md
   - docs/engineering-knowledge-base/self-construction/builder-persona-and-handoff.md
   - docs/engineering-knowledge-base/self-construction/runtime-implementation-roadmap.md
@@ -289,6 +291,7 @@ layer becomes compounding engineering power.
 | Maturity levels | `self-construction/capability-maturity-ladder.md` |
 | Build dependencies | `self-construction/build-graph.md` |
 | Priority engine | `self-construction/implementation-priority-engine.md` |
+| Loop pattern selection | `atlas-loop-pattern-registry.md` |
 | Autonomous loop | `self-construction/autonomous-implementation-loop.md` |
 | Safety contract | `self-construction/self-programming-safety-contract.md` |
 | Quality bar | `self-construction/quality-bar-and-metrics.md` |
@@ -298,17 +301,18 @@ layer becomes compounding engineering power.
 ```text
 1. Detect gap or opportunity.
 2. Classify layer and risk.
-3. Research source-backed state of the art.
-4. Promote durable findings to docs.
-5. Compile Meta-SDD spec.
-6. Build plan and tasks.
-7. Sign Decision Receipt.
-8. Execute smallest safe block.
-9. Run gates.
-10. Append evidence.
-11. Detect drift.
-12. Propose learning.
-13. Promote maturity only if metrics prove it.
+3. Select a governed loop pattern or create a pattern challenger when no ready pattern fits.
+4. Research source-backed state of the art.
+5. Promote durable findings to docs.
+6. Compile Meta-SDD spec.
+7. Build plan and tasks.
+8. Sign Decision Receipt.
+9. Execute smallest safe block.
+10. Run gates.
+11. Append evidence.
+12. Detect drift.
+13. Propose learning.
+14. Promote maturity only if metrics prove it.
 ```
 ## Maturity Target
 Atlas is elite when a new AI session can ask:

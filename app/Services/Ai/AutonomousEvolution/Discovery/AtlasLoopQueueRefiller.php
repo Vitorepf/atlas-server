@@ -8,6 +8,7 @@ use App\Models\AtlasLoopCampaign;
 use App\Models\AtlasLoopTarget;
 use App\Services\Ai\AutonomousEvolution\AtlasEvolutionTaskGenerator;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
+use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopDeliveryPipeline;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -46,6 +47,7 @@ final class AtlasLoopQueueRefiller
         private readonly ?AtlasLoopHypothesisTreeProducer $treeProducer = null,
         private readonly ?AtlasLoopObjectiveProducer $objectiveProducer = null,
         private readonly ?AtlasLoopBugReproductionLane $bugReproductionLane = null,
+        private readonly ?\App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopDeliveryPipeline $pipeline = null,
     ) {}
 
     /**
@@ -318,19 +320,47 @@ final class AtlasLoopQueueRefiller
                     }
                     $priority = 4000 + min(999, (int) round((float) $built['leverage'] * 200));
                     $hash = (string) ($built['acceptance_hash'] ?? '');
-                    $enq = $this->store->enqueueTask(
-                        $campaign->id,
-                        (string) $built['objective'],
-                        (array) $built['payload'],
-                        'producer:objective',
-                        (string) $built['target_path'],
-                        $priority,
-                        (bool) ($built['self_contained'] ?? true), // refactor=self-contained; feature=framework
-                        $hash !== '' ? $hash : null,
-                    );
-                    if ($enq !== null) {
-                        $enqueued++;
+
+                    // S2 — PROJECTION STAGE LIVE (flag default-ON). The rédea's biggest leap is NOT minted
+                    // straight into a task: it is DISPATCHED into the async projection stage (a µs-returning
+                    // pipeline row), where a separate worker runs the FROZEN designer↔critic engine to a
+                    // content-fixpoint over typed obligations. Only a CONVERGED projection becomes a task;
+                    // a non-converging one PARKS and never enters the queue. The objective id is STABLE
+                    // (campaignId|target_path|acceptance_hash) so a re-dispatch every refill is idempotent.
+                    // Flag OFF ⇒ the legacy direct-enqueue path below runs byte-identical.
+                    $pipeline = $this->pipeline ?? app(AtlasLoopDeliveryPipeline::class);
+                    if ((bool) config('atlas.loop.projection_stage_enabled', true) && $pipeline !== null) {
+                        $realTargetId = is_array($built['payload'] ?? null) ? (string) ($built['payload']['_target_id'] ?? '') : '';
+                        $objectiveId = hash('sha256', $campaign->id.'|'.((string) $built['target_path']).'|'.$hash);
+                        $pipeline->dispatchProjection(
+                            (string) $campaign->id,
+                            $objectiveId,
+                            (float) ($built['leverage'] ?? 0.0),
+                            [
+                                'built' => $built,
+                                'repoRoot' => $repoRoot,
+                                'priority' => $priority,
+                                'real_target_id' => $realTargetId,
+                            ],
+                        );
+                        // A projection row is OPEN work, not a task — mark the cycle producer-led so the
+                        // per-target lanes can be skipped, but do NOT increment $enqueued (no task minted yet).
                         $producerLed = true;
+                    } else {
+                        $enq = $this->store->enqueueTask(
+                            $campaign->id,
+                            (string) $built['objective'],
+                            (array) $built['payload'],
+                            'producer:objective',
+                            (string) $built['target_path'],
+                            $priority,
+                            (bool) ($built['self_contained'] ?? true), // refactor=self-contained; feature=framework
+                            $hash !== '' ? $hash : null,
+                        );
+                        if ($enq !== null) {
+                            $enqueued++;
+                            $producerLed = true;
+                        }
                     }
                 }
             } catch (Throwable) {

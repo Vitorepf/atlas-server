@@ -26,6 +26,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-continuity-session-state.md
   - docs/engineering-knowledge-base/atlas-skill-evolution-runtime.md
+  - docs/engineering-knowledge-base/atlas-loop-pattern-registry.md
   - resolver-o-que-vale-a-pena/root-md/Atlas_AI_Skill_System_v1.md
 doc_schema: atlas_canonical_module_doc.v1
 
@@ -132,6 +133,8 @@ versionada, provider-neutral, medida contra baseline e melhorada com evidencia.
 - Metadados leves entram primeiro; corpo da skill so entra quando necessario.
 - Skills pedem context packs pequenos e provider-safe.
 - Skill externa e dependencia de software: precisa revisao, pinning e rollback.
+- Skill externa que descreve loops entra primeiro como source material para
+  `LoopPatternRegistry`; nao vira default nem autoridade sem eval Atlas.
 - Toda resposta relevante deve poder registrar skill principal, versao/hash,
   provider, context refs e outcome.
 - Conflito entre skills deve ser resolvido por Output Governor, Kernel policy
@@ -158,6 +161,14 @@ Regra: o runtime pode propor ou registrar capability candidate na Intelligence
 Factory; ele nao instala skill ativa, nao promove default e nao chama provider.
 Use `docs/engineering-knowledge-base/atlas-skill-evolution-runtime.md` como owner
 doc antes de alterar esse fluxo.
+
+## LoopPatternRegistry
+
+`LoopPatternRegistry` consome skills e catalogs como fonte de padroes de ciclo:
+gatilho, acao, prova, memoria, terminal states e guardrails. A skill continua
+dona de permissao, versao, pinning e eval; o pattern registry decide quando uma
+estrutura de execucao e adequada ao Loop. Pattern externo so pode ser
+`source_material` ou `candidate` ate vencer baseline Atlas com evidencia.
 
 ## Source Material
 

@@ -2091,6 +2091,28 @@ return [
         // Default OFF => the per-target lanes are untouched.
         'producer_exclusive' => (bool) env('ATLAS_LOOP_PRODUCER_EXCLUSIVE', false),
 
+        // ════════ VALUE-WIRING (ligar a máquina de valor no caminho vivo) ════════
+        // S1 — EV brain na decisão viva. O reorder/EV-rank já existe mas estava atrás de um flag
+        // não-registrado (producer_ev_pick_enabled, literal-false). ev_live_decision_enabled (default ON)
+        // dirige o EV-rank + o PARK honesto: quando TODO floor-passer é proxy-only (refactor
+        // behavior-preserving sem relief de eixo de valor), o producer retorna null (não emite proxy).
+        'ev_live_decision_enabled' => (bool) env('ATLAS_LOOP_EV_LIVE_DECISION_ENABLED', true),
+        'producer_ev_pick_enabled' => (bool) env('ATLAS_LOOP_PRODUCER_EV_PICK_ENABLED', false),
+        'producer_ev_leverage_halfsat' => max(0.1, (float) env('ATLAS_LOOP_PRODUCER_EV_LEVERAGE_HALFSAT', 8.0)),
+        // S2 — projeção async live. Em vez de enfileirar task one-shot, o refiller despacha uma projeção
+        // (AtlasLoopDeliveryPipeline); um worker roda o ProjectionEngine (frozen) até content-fixpoint,
+        // PARKa se não converge, e só enfileira a task COM obrigações tipadas quando converge.
+        'projection_stage_enabled' => (bool) env('ATLAS_LOOP_PROJECTION_STAGE_ENABLED', true),
+        'projection_drain_per_tick' => max(1, (int) env('ATLAS_LOOP_PROJECTION_DRAIN_PER_TICK', 2)),
+        // S3 — supply de bug REAL. O harvester colhe reds DETERMINÍSTICOS (filtra flaky/ambiental via
+        // SuiteRedTriageHelper) pra atlas_loop_failure_handles; a discovery estampa o handle no signal do
+        // alvo → a bug-fix lane (já ligada) enfileira objective_kind=bug_fix, revert_recheck=true.
+        'discovery_failure_handle_stamp_enabled' => (bool) env('ATLAS_LOOP_DISCOVERY_FAILURE_HANDLE_STAMP_ENABLED', false),
+        'failure_handle_harvest' => [
+            'enabled' => (bool) env('ATLAS_LOOP_FAILURE_HANDLE_HARVEST_ENABLED', false),
+            'report_path' => (string) env('ATLAS_LOOP_FAILURE_HANDLE_HARVEST_REPORT_PATH', ''),
+        ],
+
         // DECISION ("o quê a seguir") — the UNGAMEABLE next-work priority. When ON, the task
         // priority becomes BAND(shape) + OFFSET(leverage re-resolved FRESH from git/graph) instead
         // of the stored `score*100` scalar, so SHAPE dominates (a confirmed orphan can never out-rank
