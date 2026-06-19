@@ -6,6 +6,7 @@ namespace Tests\Feature\Loop;
 
 use App\Models\AtlasLoopProposal;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopObraAutoMergeService;
+use App\Services\Ai\AutonomousEvolution\Constitution\AtlasLoopMergeActuator;
 use App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract;
 use App\Services\Ai\Governance\AtlasChangeClassTrustLadder;
 use App\Services\Ai\Obra\AtlasObraExecutor;
@@ -217,8 +218,9 @@ final class AtlasLoopObraAutoMergeServiceTest extends TestCase
     {
         $this->bindGate(passed: true);
         [$repo, $branch] = $this->repoWithObraBranch('obra-locked');
-        // Simulate another crossing already holding the exclusive lock.
-        $held = fopen($repo.'/.git/atlas-obra-automerge.lock', 'c');
+        // Simulate another crossing already holding the SINGLE main-merge lock (collapsed from the old
+        // per-path locks in LOOP-OS Slice 1 — obra now shares atlas-main-merge.lock with the drain + cycle).
+        $held = fopen($repo.'/.git/'.AtlasLoopMergeActuator::LOCK_BASENAME, 'c');
         $this->assertNotFalse($held);
         $this->assertTrue(flock($held, LOCK_EX | LOCK_NB));
 

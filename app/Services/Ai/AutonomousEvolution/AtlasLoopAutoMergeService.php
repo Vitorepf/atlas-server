@@ -7,6 +7,7 @@ namespace App\Services\Ai\AutonomousEvolution;
 use App\Models\AtlasLoopCampaign;
 use App\Models\AtlasLoopConfidenceSample;
 use App\Models\AtlasLoopProposal;
+use App\Services\Ai\AutonomousEvolution\Constitution\AtlasLoopMergeActuator;
 use App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSiblingTestResolver;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWiredCallerService;
@@ -202,9 +203,83 @@ final class AtlasLoopAutoMergeService
     }
 
     /**
+     * LOOP-OS · FASE 1 · SLICE 1 — the WHOLE base_path apply→floors→canary→commit→attribution span runs
+     * under the SINGLE path-stable {@see AtlasLoopMergeActuator} lock, so this drain can never interleave
+     * with any other main writer (a parallel drain, the obra/cycle crossings). This is what makes the
+     * actuator a LIVE primitive instead of a zero-caller artifact. Reprove clones a temp repo, so holding
+     * the lock across it costs CADENCE under contention (single sequential drain today), never CORRECTNESS.
+     *
+     * A contended crossing DEFERS (re-queues, never silently drops): {@see handleMainMergeLockMiss}.
+     *
      * @return array<string,mixed>
      */
     private function mergeOne(
+        AtlasLoopProposal $proposal,
+        string $repoRoot,
+        bool $operatorApproved = false,
+        ?string $operatorId = null,
+        ?string $operatorReason = null,
+        ?string $authorizedCanonical = null,
+    ): array {
+        $locked = app(AtlasLoopMergeActuator::class)->withMainMergeLock(
+            $repoRoot,
+            fn (): array => $this->mergeOneCritical($proposal, $repoRoot, $operatorApproved, $operatorId, $operatorReason, $authorizedCanonical),
+            (float) config('atlas.loop.main_merge_lock_timeout_seconds', 8.0),
+        );
+        if (($locked['acquired'] ?? false) === true) {
+            return $locked['result'];
+        }
+
+        return $this->handleMainMergeLockMiss($proposal, $repoRoot, (string) ($locked['reason'] ?? 'lock_unavailable'));
+    }
+
+    /**
+     * A crossing could not take the single main-merge lock. NEVER a silent drop: a `lock_timeout` is a
+     * DEFERRAL — the row stays CERTIFIED / merged_to_main=false / reviewed_at=NULL, so it is re-drainable
+     * next pass. A `_lock_deferrals` counter guards against pathological starvation: K consecutive misses
+     * PARK the proposal for operator review (never an infinite spin). Structural reasons (repo_not_git /
+     * lock_open_failed) surface as-is; the row stays drainable. Mirrors the actuator's never-drop contract.
+     *
+     * @return array<string,mixed>
+     */
+    private function handleMainMergeLockMiss(AtlasLoopProposal $proposal, string $repoRoot, string $reason): array
+    {
+        $base = [
+            'proposal_id' => (string) $proposal->getKey(),
+            'target_path' => (string) $proposal->target_path,
+            'merged' => false,
+            'reason' => null,
+            'commit' => null,
+            'canary' => null,
+        ];
+
+        if ($reason !== 'lock_timeout') {
+            return array_merge($base, ['reason' => 'main_merge_'.$reason.' (re-drainable next pass)']);
+        }
+
+        $deferrals = 1 + (int) data_get($proposal->quality, '_lock_deferrals.count', 0);
+        $max = max(1, (int) config('atlas.loop.main_merge_lock_max_deferrals', 5));
+        if ($deferrals >= $max) {
+            $this->markOperatorReview($proposal, 'parked_for_operator_review', 'lock_contention_starvation', 'auto_merge');
+
+            return array_merge($base, ['reason' => 'lock_contention_starvation (parked_for_operator_review after '.$deferrals.' deferrals)']);
+        }
+
+        // Persist the deferral counter WITHOUT stamping reviewed_at (the row must stay re-drainable). The
+        // governed scope is the only sanctioned writer; it keeps merged_to_main=false by construction.
+        $this->governedSave(function () use ($proposal, $deferrals): void {
+            $quality = is_array($proposal->quality) ? $proposal->quality : [];
+            $quality['_lock_deferrals'] = ['count' => $deferrals, 'last_at' => now()->toIso8601String()];
+            $proposal->forceFill(['quality' => $quality])->save();
+        });
+
+        return array_merge($base, ['reason' => 'main_merge_lock_timeout_requeued (deferral '.$deferrals.'/'.$max.')']);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function mergeOneCritical(
         AtlasLoopProposal $proposal,
         string $repoRoot,
         bool $operatorApproved = false,

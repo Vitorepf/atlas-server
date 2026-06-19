@@ -42,6 +42,13 @@ while true; do
   # 1. Drain certified → main (deterministic; re-proves + canary; never -A, scoped add).
   $PHP -d memory_limit=3072M artisan atlas:loop:automerge --limit=10 --json >> "$LOG" 2>&1
 
+  # 1b. POST-MERGE HEALTH NET (LOOP-OS Slice 1.5). The per-merge canary only proves the changed file's own
+  # sibling; this re-runs the IMPACTED suite over the window's freshly-landed loop commits against post-merge
+  # main and git-reverts (NEVER reset) a commit that is green-in-isolation but RED-in-combination. External by
+  # design: a process must not health-check-then-revert inside its own edit surface. Holds the single
+  # main-merge lock so it never reverts mid-crossing.
+  $PHP -d memory_limit=3072M artisan atlas:loop:main-health --window=10 --json >> "$LOG" 2>&1
+
   # 2. Respawn a dead supervisor — ONLY if no campaign process is actually alive. Guard against the
   # observed DUPLICATE: a long grind makes the heartbeat look stale, and the keepalive's own liveness
   # check raced into spawning a SECOND campaign for the same id (two supervisors => double grinds =>

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Loop;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopCycleGitContract;
+use App\Services\Ai\AutonomousEvolution\Constitution\AtlasLoopMergeActuator;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
@@ -168,8 +169,9 @@ final class AtlasLoopCycleGitContractTest extends TestCase
         $start = $c->startCycle($this->repo, 'locked');
         $c->commitCycle($this->repo, (string) $start['branch'], 'x', fn (string $wt) => @file_put_contents($wt.'/z.txt', "z\n"));
 
-        // Simulate a concurrent crossing holding the exclusive lock.
-        $lock = fopen($this->repo.'/.git/atlas-cycle-merge.lock', 'c');
+        // Simulate a concurrent crossing holding the SINGLE main-merge lock (collapsed from the old per-path
+        // locks in LOOP-OS Slice 1 — the cycle contract now shares atlas-main-merge.lock with drain + obra).
+        $lock = fopen($this->repo.'/.git/'.AtlasLoopMergeActuator::LOCK_BASENAME, 'c');
         $this->assertTrue(flock($lock, LOCK_EX | LOCK_NB));
         $mainBefore = $this->mainHead();
 

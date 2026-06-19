@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Models\AtlasLoopProposal;
+use App\Services\Ai\AutonomousEvolution\Constitution\AtlasLoopMergeActuator;
 use App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract;
 use App\Services\Ai\Governance\AtlasChangeClassTrustLadder;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
@@ -332,7 +333,10 @@ final class AtlasLoopObraAutoMergeService
      */
     private function acquireMergeLock(string $repoRoot)
     {
-        $handle = @fopen($repoRoot.'/.git/atlas-obra-automerge.lock', 'c');
+        // LOOP-OS Slice 1 — the SINGLE main-merge lock (collapsed from the old per-path locks). Sharing the
+        // actuator's lock FILE makes this obra crossing mutually-exclusive with the single-file drain and the
+        // cycle contract: whoever holds atlas-main-merge.lock, the others refuse/defer (no concurrent main write).
+        $handle = @fopen($repoRoot.'/.git/'.AtlasLoopMergeActuator::LOCK_BASENAME, 'c');
         if ($handle === false) {
             return null;
         }

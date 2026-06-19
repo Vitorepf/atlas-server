@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\AutonomousEvolution\Constitution\AtlasLoopMergeActuator;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -296,7 +297,9 @@ final class AtlasLoopCycleGitContract
      */
     private function acquireMergeLock(string $repoRoot)
     {
-        $handle = @fopen($repoRoot.'/.git/atlas-cycle-merge.lock', 'c');
+        // LOOP-OS Slice 1 — the SINGLE main-merge lock (collapsed from the old per-path locks). Sharing the
+        // actuator's lock FILE serializes this cycle merge against the single-file drain and the obra crossing.
+        $handle = @fopen($repoRoot.'/.git/'.AtlasLoopMergeActuator::LOCK_BASENAME, 'c');
         if ($handle === false) {
             return null;
         }
