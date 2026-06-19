@@ -63,6 +63,13 @@ final class AtlasLoopHarnessGuard
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopIdeaTreeAccessor.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopSelectAdjuster.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopHypothesisTreeProducer.php',
+        // LOOP-OS · FASE 4 · cérebro EV (Slices 6/7/7.5): o vetor de eixo-sistema, o produtor de
+        // touches_axes e o decisor de Expected-Value FORMAM o priorizador de "salto mais exponencial".
+        // Mesmo princípio do NextWorkDecider: o réu nunca pode editar o próprio cérebro de decisão —
+        // senão lavaria qualquer alvo trivial para o topo cegando a detecção do gargalo (o eixo binding).
+        'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopSystemAxisService.php',
+        'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopTouchesAxesProducer.php',
+        'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopExpectedValueDecider.php',
 
         // ── LOOP-OS · FASE 1 · SLICE -1 (2026-06-18): CONGELAR A PORTA antes de construir a
         // Constituição. Hoje o loop JÁ auto-mergeia self-edits (flag ON) — a porta está ABERTA.

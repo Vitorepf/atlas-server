@@ -75,6 +75,9 @@ final class AtlasLoopHarnessGuardTest extends TestCase
             'AtlasLoopNextWorkDecider',            // o priorizador ungameable
             'AtlasLoopIdeaTreeAccessor',           // ARBOR-GRAFT: substrato de candidatos/árvore
             'AtlasLoopSelectAdjuster',             // ARBOR-GRAFT: termo de SELECT determinístico
+            'AtlasLoopSystemAxisService',          // LOOP-OS EV-brain: vetor de eixo-sistema (gargalo)
+            'AtlasLoopTouchesAxesProducer',        // LOOP-OS EV-brain: relief machine-computável
+            'AtlasLoopExpectedValueDecider',       // LOOP-OS EV-brain: argmax do salto exponencial
             // LOOP-OS Fase 1 · Slice -1: a closure DELEGADA do juiz + moat + Constituição + back-doors
             'AtlasEngineeringHonestyGate',         // o gate determinístico que o Certifier DELEGA
             'AtlasLoopMutationAdequacyGateService',
