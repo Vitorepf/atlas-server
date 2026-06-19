@@ -51,17 +51,13 @@ final class AtlasEvolutionTaskGenerator
         $testRel = 'tests/atlas_generated_'.$index.'.php';
         $objRel = 'GENERATED_OBJECTIVE_'.$index.'.txt';
 
-        $base = realpath($baseWorkspace);
-        $target = $base === false ? false : realpath($base.'/'.$targetRelativePath);
-        if ($base === false || $target === false || ! is_file($target) || ! str_starts_with($target, $base.'/')) {
+        $base = $this->resolveTargetBase($baseWorkspace, $targetRelativePath);
+        if ($base === false) {
             return ['generated' => false, 'reason' => 'invalid_base_or_target'];
         }
 
         $intent = $this->generationIntent($targetRelativePath, $testRel, $objRel, $this->advisoryContext($options));
-        $surfaceHints = ['composer_mode' => 'programming', 'composer_task' => 'review', 'thread_id' => 'atlas-evolution-taskgen'];
-        if ($provider !== '') {
-            $surfaceHints['provider_choice'] = $provider;
-        }
+        $surfaceHints = $this->taskGenerationSurfaceHints($provider);
 
         try {
             $this->driver->attempt(
@@ -76,7 +72,7 @@ final class AtlasEvolutionTaskGenerator
         }
 
         $base = rtrim($baseWorkspace, '/');
-        $objective = is_file($base.'/'.$objRel) ? trim((string) file_get_contents($base.'/'.$objRel)) : '';
+        $objective = $this->generatedObjective($base, $objRel);
         if (! is_file($base.'/'.$testRel) || $objective === '') {
             return ['generated' => false, 'reason' => 'provider_did_not_emit_test_or_objective'];
         }
@@ -87,10 +83,48 @@ final class AtlasEvolutionTaskGenerator
             return ['generated' => false, 'reason' => 'generated_test_is_not_red (no real work / fabricated target)', 'objective' => $objective];
         }
 
-        // ACDE U2 — when armed, additionally prove the RED is BEHAVIORAL (the test pins the claimed improvement),
-        // not a STRUCTURAL defect (a non-parsing test or a wrong require path) that merely exits non-zero. Default
-        // OFF => the gate never runs => byte-identical (the any-non-zero isRed remains the sole guard). The flag
-        // read is fail-safe: with no Laravel container (pure unit context) it resolves OFF, never throwing.
+        return $this->verifiedTask($base, $targetRelativePath, $provider, $testRel, $objRel, $objective);
+    }
+
+    private function resolveTargetBase(string $baseWorkspace, string $targetRelativePath): string|false
+    {
+        $base = realpath($baseWorkspace);
+        $target = realpath($baseWorkspace.'/'.$targetRelativePath);
+        if ($base === false || $target === false || ! is_file($target) || ! str_starts_with($target, $base.'/')) {
+            return false;
+        }
+
+        return $base;
+    }
+
+    /**
+     * @return array<string,string>
+     */
+    private function taskGenerationSurfaceHints(string $provider): array
+    {
+        return array_filter([
+            'composer_mode' => 'programming',
+            'composer_task' => 'review',
+            'thread_id' => 'atlas-evolution-taskgen',
+            'provider_choice' => $provider,
+        ], static fn (string $value): bool => $value !== '');
+    }
+
+    private function generatedObjective(string $base, string $objRel): string
+    {
+        return is_file($base.'/'.$objRel) ? trim((string) file_get_contents($base.'/'.$objRel)) : '';
+    }
+
+    /**
+     * ACDE U2 — when armed, additionally prove the RED is BEHAVIORAL (the test pins the claimed improvement),
+     * not a STRUCTURAL defect (a non-parsing test or a wrong require path) that merely exits non-zero. Default
+     * OFF => the gate never runs => byte-identical (the any-non-zero isRed remains the sole guard). The flag
+     * read is fail-safe: with no Laravel container (pure unit context) it resolves OFF, never throwing.
+     *
+     * @return array<string,mixed>
+     */
+    private function verifiedTask(string $base, string $targetRelativePath, string $provider, string $testRel, string $objRel, string $objective): array
+    {
         $redReasonGateEnabled = false;
         try {
             $redReasonGateEnabled = (bool) config('atlas.loop.red_reason_gate_enabled', false);
@@ -262,6 +296,16 @@ final class AtlasEvolutionTaskGenerator
             // fail-safe: OFF
         }
 
+        return implode("\n\n", $this->withExternalResearchContext($parts, $options));
+    }
+
+    /**
+     * @param  array<int,string>  $parts
+     * @param  array<string,mixed>  $options
+     * @return array<int,string>
+     */
+    private function withExternalResearchContext(array $parts, array $options): array
+    {
         try {
             if ((bool) config('atlas.loop.external_research_enabled', true)) {
                 $topic = trim((string) ($options['research_topic'] ?? ''));
@@ -275,7 +319,7 @@ final class AtlasEvolutionTaskGenerator
             }
         } catch (\Throwable) { /* fail-safe: advisory OFF on any error */ }
 
-        return implode("\n\n", $parts);
+        return $parts;
     }
 
     private function isRed(string $base, string $testRel): bool
