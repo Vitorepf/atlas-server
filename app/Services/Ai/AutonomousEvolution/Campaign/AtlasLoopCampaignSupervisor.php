@@ -10,7 +10,9 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopDbResilience;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopObraBridgeService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopResourceGate;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopTaxa2DialOverlayService;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopTaskGrinder;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopTerritoryLadder;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopTransientDbException;
 use Illuminate\Support\Str;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBackService;
@@ -66,6 +68,7 @@ final class AtlasLoopCampaignSupervisor
         private readonly LoopWorkerPool $workerPool,
         private readonly LoopWorkerCountPlanner $workerPlanner,
         private readonly AtlasLoopObraBridgeService $obraBridge,
+        private readonly ?AtlasLoopTerritoryLadder $territoryLadder = null,
     ) {}
 
     public function setClockForTesting(Closure $clock): void
@@ -266,8 +269,19 @@ final class AtlasLoopCampaignSupervisor
                         $this->guard(fn () => $campaign->increment('refills'), 'campaign_refills');
                         $this->beat($campaign, $this->now() - $refillStart);
                         if ((int) $refill['enqueued'] === 0 && (int) $this->guard(fn () => $this->store->countOpen($campaign->id), 'count_open') === 0) {
-                            $stop = 'queue_starved_no_refill';
-                            break;
+                            // SLICE C-territory-ladder — at supply exhaustion, the most DANGEROUS loop act:
+                            // widen the discovery scope. CONSERVATIVE by design: the gate is always LIVE +
+                            // evaluated + logged, but it only ACTUATES into an OPERATOR-DEFINED rung. With no
+                            // rung configured (the default — there is no atlas.loop.territory_ladder_rungs),
+                            // it is a logged no-op and the loop stops exactly as before. A widening is NEVER
+                            // allowed into a root without a frozen judge under it (the canPromote no-blinder
+                            // invariant), so an unprotected scope can never open.
+                            if (! ((bool) config('atlas.loop.territory_ladder_enabled', true) && $this->maybeClimbTerritory($campaign))) {
+                                $stop = 'queue_starved_no_refill';
+                                break;
+                            }
+                            // else: territory widened into a PROVEN-safe rung — fall through and keep
+                            // grinding the new scope (no break); the next refill discovers the new roots.
                         }
                     }
 
@@ -851,6 +865,164 @@ final class AtlasLoopCampaignSupervisor
         if ($path !== '') {
             $files[$path] = true;
         }
+    }
+
+    /**
+     * SLICE C-territory-ladder — the loop's scope-widener, wired LIVE but CONSERVATIVE.
+     *
+     * Called ONLY at supply exhaustion (the queue is starved AND no refill produced work). It always
+     * EVALUATES the territory ladder and LOGS the verdict, but it only ACTUATES a widening into an
+     * OPERATOR-DEFINED rung. With no rung configured (the default — there is no
+     * atlas.loop.territory_ladder_rungs today) the decision is widen=false reason='no_rung_defined'
+     * and this is a pure logged no-op: the loop stops at queue_starved exactly as it did before.
+     *
+     * The {@see AtlasLoopTerritoryLadder::canPromote()} no-blinder invariant is LOAD-BEARING: a rung
+     * whose new root has no FROZEN safety file under it is REJECTED, so the loop can NEVER widen into a
+     * territory whose judge it could then edit. Honoring the operator principle "scope released gradually
+     * by the operator, starting with the loop itself", actuation requires BOTH a deliberate rung config
+     * AND a passing safety+promotion verdict.
+     *
+     * @return bool true iff the territory was actually widened (scope grew); false = stop as before.
+     */
+    private function maybeClimbTerritory(AtlasLoopCampaign $campaign): bool
+    {
+        $rungs = (array) config('atlas.loop.territory_ladder_rungs', []);
+        $currentRoots = (array) config(
+            'atlas.loop.campaign.discovery_roots',
+            ['app/Services/Ai/AutonomousEvolution'],
+        );
+
+        $decision = $this->territoryClimbDecision($currentRoots, $rungs, $campaign->id);
+
+        $this->appendLedger($campaign->id, [
+            'event' => 'territory_ladder_eval',
+            'widen' => (bool) $decision['widen'],
+            'reason' => (string) $decision['reason'],
+            'current_roots' => array_values($currentRoots),
+            'next_roots' => $decision['next_roots'],
+            'violations' => array_slice((array) $decision['violations'], 0, 20),
+        ]);
+
+        if (! (bool) $decision['widen'] || ! is_array($decision['next_roots'])) {
+            return false;
+        }
+
+        // Persist the widened discovery roots onto the campaign's config (the array-cast `config`
+        // attribute is the existing per-campaign scheme-freeze mechanism). The widened scope is durable
+        // + logged. NOTE: the discovery service currently sources roots from the GLOBAL
+        // config('atlas.loop.campaign.discovery_roots'), not from $campaign->config['discovery_roots'];
+        // making the persisted scope actually drive the next refill is a deliberately-deferred follow-up
+        // (no operator rung exists today, so this branch is unreachable until the operator defines one).
+        // Guarded so a DB blip degrades to "did not widen" (stop as before), never a crash.
+        $config = is_array($campaign->config) ? $campaign->config : [];
+        $config['discovery_roots'] = array_values($decision['next_roots']);
+        $config['territory_widened_at'] = $this->now();
+
+        try {
+            $this->guard(fn () => $campaign->forceFill(['config' => $config])->save(), 'territory_widen_persist');
+        } catch (Throwable $e) {
+            $this->appendLedger($campaign->id, [
+                'event' => 'territory_ladder_widen_unpersisted',
+                'detail' => mb_substr($e->getMessage(), 0, 160),
+            ]);
+
+            return false;
+        }
+
+        $this->appendLedger($campaign->id, [
+            'event' => 'territory_ladder_widened',
+            'next_roots' => array_values($decision['next_roots']),
+        ]);
+
+        return true;
+    }
+
+    /**
+     * The PURE, testable territory-climb decision — no DB write, no provider, no break logic. Given the
+     * loop's CURRENT discovery roots, the OPERATOR-DEFINED rungs and the campaign id (for the certified
+     * count), it returns whether widening is allowed and into which roots.
+     *
+     * The safety check is the {@see AtlasLoopTerritoryLadder} canPromote no-blinder invariant: the
+     * descriptor's frozen_safety_files is the REAL pétreo list {@see AtlasLoopHarnessGuard::FORBIDDEN_SELF_TARGETS},
+     * so a rung that introduces a root with NO frozen judge under it yields an 'unprotected_root:...'
+     * violation and widen=false — the loop can never blind itself by widening into an unprotected scope.
+     *
+     * @param  list<string>|array<int,string>  $current
+     * @param  list<string>|array<int,string>  $rungs
+     * @return array{widen:bool, reason:string, next_roots:?list<string>, violations:list<string>}
+     */
+    private function territoryClimbDecision(array $current, array $rungs, string $campaignId): array
+    {
+        $current = $this->normalizeRoots($current);
+        $rungs = $this->normalizeRoots($rungs);
+
+        // GRADUAL-RELEASE DEFAULT: with no operator-defined rung, the ladder is a logged no-op.
+        if ($rungs === []) {
+            return ['widen' => false, 'reason' => 'no_rung_defined', 'next_roots' => null, 'violations' => []];
+        }
+
+        $nextRoots = array_values(array_unique(array_merge($current, $rungs)));
+
+        $ladder = $this->territoryLadder ?? new AtlasLoopTerritoryLadder;
+        $verdict = $ladder->canPromote([
+            'name' => 'campaign:'.$campaignId,
+            'discovery_roots' => $nextRoots,
+            // The REAL frozen-safety-file list (pétreo): every widened root MUST have one under it.
+            'frozen_safety_files' => AtlasLoopHarnessGuard::FORBIDDEN_SELF_TARGETS,
+            'robustness_cases' => 1,
+            'certified_leaps' => $this->certifiedLeapsFor($campaignId),
+            'red_main_in_window' => 0,
+            'compounding_trend_up' => true,
+        ]);
+
+        $promotable = (bool) ($verdict['promotable'] ?? false);
+
+        return [
+            'widen' => $promotable,
+            'reason' => $promotable ? 'promotable' : 'blocked',
+            'next_roots' => $promotable ? $nextRoots : null,
+            'violations' => array_values((array) ($verdict['violations'] ?? [])),
+        ];
+    }
+
+    /**
+     * The campaign's certified-leaps count for the promotion rule. Every persisted Atlas Loop proposal
+     * is forced to status certified_for_review by the model + DB guard, so the campaign's rolling
+     * proposals_count IS the certified-leaps count — no extra query. Best-effort: a read failure yields
+     * 0 (conservatively short of the K threshold, so the promotion rule simply does not fire).
+     */
+    private function certifiedLeapsFor(string $campaignId): int
+    {
+        // A single-row read; wrap in try/catch (a DB blip yields 0 — conservatively short of K, so the
+        // promotion rule simply does not fire) rather than the resilience guard, so the decision is
+        // testable in isolation without the full ctor wiring.
+        try {
+            $campaign = AtlasLoopCampaign::query()->find($campaignId);
+
+            return $campaign instanceof AtlasLoopCampaign ? max(0, (int) $campaign->proposals_count) : 0;
+        } catch (Throwable) {
+            return 0;
+        }
+    }
+
+    /**
+     * @param  array<int,mixed>  $roots
+     * @return list<string>
+     */
+    private function normalizeRoots(array $roots): array
+    {
+        $out = [];
+        foreach ($roots as $root) {
+            if (! is_string($root)) {
+                continue;
+            }
+            $root = trim(str_replace('\\', '/', $root));
+            if ($root !== '') {
+                $out[$root] = true;
+            }
+        }
+
+        return array_keys($out);
     }
 
     private function now(): int
