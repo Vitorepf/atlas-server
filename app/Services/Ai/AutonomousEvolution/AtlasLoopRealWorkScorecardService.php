@@ -433,6 +433,14 @@ final class AtlasLoopRealWorkScorecardService
             if ($counts['real_work_tasks'] === 0) {
                 $blockers[] = 'no_real_work_tasks';
             }
+            // Honest-claim gate: verification/characterization is REAL work but NOT substantive evolution.
+            // A campaign whose entire real-work mix is verification (zero bug_fix / feature /
+            // self_improvement) may NOT claim the loop "delivered real value" — coverage padding can run a
+            // perfect funnel while the scope's capability is unchanged. Substantive == bug + feature + self.
+            $substantive = $counts['bug_fix_tasks'] + $counts['feature_tasks'] + $counts['self_improvement_tasks'];
+            if ($counts['real_work_tasks'] > 0 && $substantive === 0) {
+                $blockers[] = 'verification_only_no_substantive_value';
+            }
             if ($counts['cosmetic_tasks'] > 0) {
                 $blockers[] = 'cosmetic_work_observed';
             }
@@ -447,8 +455,9 @@ final class AtlasLoopRealWorkScorecardService
         return [
             'loop_real_work_claim_allowed' => $blockers === [],
             'blockers' => $blockers,
-            'rule' => 'Allowed only when: tasks_total>0 AND real_work_tasks>=1 AND cosmetic_tasks=0 AND '
-                .'proxy_refactor_tasks<real_work_tasks AND unknown_tasks=0.',
+            'rule' => 'Allowed only when: tasks_total>0 AND real_work_tasks>=1 AND '
+                .'(bug_fix+feature+self_improvement)>=1 (verification alone is not substantive) AND '
+                .'cosmetic_tasks=0 AND proxy_refactor_tasks<real_work_tasks AND unknown_tasks=0.',
             'caveat' => 'A true claim means only "this campaign slice produced real work by task '
                 .'classification". It does NOT prove 24h unattended autonomy, merge quality, or that the '
                 .'Atlas became measurably more capable.',

@@ -66,6 +66,9 @@ final class AtlasLoopQueueRefiller
         private readonly ?SuiteRedTestHandleHarvester $failureHandleHarvester = null,
     ) {}
 
+    /** C — characterization/coverage tasks minted in the CURRENT refill (reset each refill); the portfolio cap. */
+    private int $coverageMintedThisRefill = 0;
+
     /**
      * ARBOR-GRAFT TIER 0.1 — materialize the K competing readings the generator sampled (divergence path)
      * as sibling hypothesis nodes under the target, so the idea-tree becomes real. Flag-gated default-OFF +
@@ -291,6 +294,7 @@ final class AtlasLoopQueueRefiller
     {
         $repoRoot = rtrim((string) $campaign->base_workspace, '/');
         $provider = (string) $campaign->provider; // '' => loop default (provider-agnostic)
+        $this->coverageMintedThisRefill = 0; // C — reset the per-refill coverage portfolio cap
 
         // B0 — REAL WORK SUPPLY: harvest deterministic-RED handles from the configured phpunit JSON
         // report BEFORE discovery runs, so a freshly-harvested handle is in atlas_loop_failure_handles
@@ -1059,6 +1063,21 @@ final class AtlasLoopQueueRefiller
             return null;
         }
 
+        // C — PORTFOLIO CAP: characterization is verification, not evolution. Once this refill has minted the
+        // allowed number of coverage tasks, DEFER further coverage-deficit targets so the bug / feature /
+        // self-improvement / material-refactor lanes keep their slots (the r24 coverage-monopoly fix). The
+        // deferred target reopens next cycle. Fail-open: gate OFF ⇒ no cap (byte-identical legacy).
+        if ((bool) config('atlas.loop.coverage_portfolio_gate_enabled', true)
+            && $this->coverageMintedThisRefill >= (int) config('atlas.loop.coverage_characterization_max_per_refill', 2)) {
+            $this->loopBack->reflect($campaign->id, [
+                'target_id' => $target->id,
+                'status' => 'no_winner',
+                'reason' => 'coverage_portfolio_cap_reached',
+            ]);
+
+            return 'deferred';
+        }
+
         $operator = trim((string) ($signals['coverage_operator'] ?? $signals['coverage_deficit_operator'] ?? ''));
         if ($operator === '' || AtlasLoopMutationOperators::isCosmetic($operator)) {
             $operator = $this->firstNonCosmeticFrozenOperator($source);
@@ -1092,7 +1111,12 @@ final class AtlasLoopQueueRefiller
 
         $task = AtlasLoopTask::query()->find($taskId);
 
-        return $this->completeTargetEnqueue($target, $task, 'coverage_deficit_characterization_task_enqueued');
+        $outcome = $this->completeTargetEnqueue($target, $task, 'coverage_deficit_characterization_task_enqueued');
+        if ($outcome === 'enqueued') {
+            $this->coverageMintedThisRefill++; // C — count it against this refill's coverage portfolio cap
+        }
+
+        return $outcome;
     }
 
     private function firstNonCosmeticFrozenOperator(string $source): string

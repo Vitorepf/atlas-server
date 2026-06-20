@@ -2170,6 +2170,23 @@ return [
         // reuse of pattern_advisory_enabled. Default OFF: arm only when supply is ready to feed it.
         'pattern_driver_enabled' => (bool) env('ATLAS_LOOP_PATTERN_DRIVER_ENABLED', false),
 
+        // HONEST CANDIDATE VALUE SIGNAL (A) — gather() stamps proxy / cosmetic / work_value_class / shape /
+        // proxy_reasons on every candidate from REAL signals so the DecisionDriver's veto is no longer
+        // starved (the driver reads candidate['proxy']/['cosmetic']). A refactor candidate is MATERIAL
+        // (real value) only when it has a behaviour anchor (verifiable), real complexity to reduce
+        // (cyclomatic >= material_refactor_min_cyclomatic) AND is wired (>=1 caller). Otherwise it is
+        // proxy/cosmetic with auditable reasons. This is inert metadata unless pattern_driver_enabled is ON
+        // (the advisory path forces cosmetic=false; the scorecard reads payload.objective_kind, not the packet).
+        'material_refactor_min_cyclomatic' => (int) env('ATLAS_LOOP_MATERIAL_REFACTOR_MIN_CYCLOMATIC', 12),
+
+        // COVERAGE PORTFOLIO CAP (C) — characterization/coverage work is useful verification but must NEVER
+        // monopolize a campaign whose objective is loop evolution (the r24 soak minted 146 characterization
+        // proposals). When the gate is ON, a single refill may mint at most coverage_characterization_max_per_refill
+        // characterization tasks; further coverage-deficit targets are DEFERRED that cycle so bug / feature /
+        // self-improvement / material-refactor lanes keep their slots. Default ON with a small cap.
+        'coverage_portfolio_gate_enabled' => (bool) env('ATLAS_LOOP_COVERAGE_PORTFOLIO_GATE_ENABLED', true),
+        'coverage_characterization_max_per_refill' => max(0, (int) env('ATLAS_LOOP_COVERAGE_CHARACTERIZATION_MAX_PER_REFILL', 2)),
+
         // DECISION ("o quê a seguir") — the UNGAMEABLE next-work priority. When ON, the task
         // priority becomes BAND(shape) + OFFSET(leverage re-resolved FRESH from git/graph) instead
         // of the stored `score*100` scalar, so SHAPE dominates (a confirmed orphan can never out-rank

@@ -230,4 +230,89 @@ final class AtlasLoopObjectiveProducerPatternSelectionTest extends TestCase
             $this->assertNull($decision['pattern']);
         }
     }
+
+    // ───────────────────────────────────────────────────────────────────────────────────────────────
+    // A — the HONEST candidate value signal that feeds the driver. These prove the veto on signals
+    // computed by the REAL classifier from raw (cyclomatic, caller_count, verifiable) tuples — NOT the
+    // synthetic ['cosmetic' => true] flags above — which was the gap that made the armed driver theater.
+    // ───────────────────────────────────────────────────────────────────────────────────────────────
+
+    /** Build a packet whose proxy/cosmetic/work_value_class come from the REAL classifier, not by hand. */
+    private function packetVia(AtlasLoopObjectiveProducer $p, string $path, int $cx, int $callers, bool $verif, float $leverage): array
+    {
+        $m = new ReflectionMethod(AtlasLoopObjectiveProducer::class, 'classifyCandidateValue');
+        $m->setAccessible(true);
+        $signal = $m->invoke($p, $cx, $callers, $verif);
+
+        return ['path' => $path, 'cyclomatic' => $cx, 'caller_count' => $callers, 'verifiable' => $verif, '_score' => ['leverage' => $leverage, 'rationale' => 'r']] + $signal;
+    }
+
+    public function test_classifier_stamps_honest_value_from_raw_signals(): void
+    {
+        $p = $this->driverProducer();
+        $m = new ReflectionMethod(AtlasLoopObjectiveProducer::class, 'classifyCandidateValue');
+        $m->setAccessible(true);
+
+        // material: behaviour anchor + real complexity + wired ⇒ real value, no proxy reasons.
+        $material = $m->invoke($p, 19, 4, true);
+        $this->assertFalse($material['proxy']);
+        $this->assertFalse($material['cosmetic']);
+        $this->assertSame('material_refactor', $material['work_value_class']);
+        $this->assertSame([], $material['proxy_reasons']);
+
+        // complex + wired but NO sibling-test anchor ⇒ proxy (the gate can't prove it), auditable reason.
+        $noAnchor = $m->invoke($p, 27, 2, false);
+        $this->assertTrue($noAnchor['proxy']);
+        $this->assertFalse($noAnchor['cosmetic']);
+        $this->assertSame('proxy_refactor', $noAnchor['work_value_class']);
+        $this->assertContains('no_behavior_anchor', $noAnchor['proxy_reasons']);
+
+        // trivial + orphan ⇒ cosmetic (the unambiguous faxina).
+        $cosmetic = $m->invoke($p, 5, 0, false);
+        $this->assertTrue($cosmetic['proxy']);
+        $this->assertTrue($cosmetic['cosmetic']);
+        $this->assertSame('cosmetic', $cosmetic['work_value_class']);
+        $this->assertContains('orphan_not_wired', $cosmetic['proxy_reasons']);
+        $this->assertContains('low_complexity_not_material', $cosmetic['proxy_reasons']);
+    }
+
+    public function test_driver_rejects_real_classifier_proxy_top_and_picks_material(): void
+    {
+        config(['atlas.loop.pattern_driver_enabled' => true]);
+        $p = $this->driverProducer();
+
+        $floorPassers = [
+            $this->packetVia($p, 'app/Svc/NoAnchor.php', 27, 2, false, 20.0), // proxy per REAL classifier
+            $this->packetVia($p, 'app/Svc/Material.php', 19, 4, true, 12.0),   // material per REAL classifier
+        ];
+        // guards: the signal is classifier-computed, not hand-flagged.
+        $this->assertTrue($floorPassers[0]['proxy']);
+        $this->assertFalse($floorPassers[1]['proxy']);
+
+        $decision = $p->driveCandidateDecision($floorPassers);
+
+        $this->assertSame(AtlasLoopPatternDecisionDriver::STATE_SELECTED, $decision['state']);
+        $this->assertSame('app/Svc/Material.php', $decision['selected']['path'], 'the classifier-proxy top is skipped; the material runner-up wins');
+        $this->assertSame(1, count($decision['rejections']));
+        $this->assertSame('app/Svc/NoAnchor.php', $decision['rejections'][0]['path']);
+    }
+
+    public function test_driver_rejected_all_when_classifier_marks_every_candidate_proxy(): void
+    {
+        config(['atlas.loop.pattern_driver_enabled' => true]);
+        $p = $this->driverProducer();
+
+        $floorPassers = [
+            $this->packetVia($p, 'app/Svc/A.php', 9, 3, false, 20.0), // proxy (no anchor, low complexity)
+            $this->packetVia($p, 'app/Svc/B.php', 5, 0, false, 15.0), // cosmetic (trivial orphan)
+        ];
+        foreach ($floorPassers as $fp) {
+            $this->assertTrue($fp['proxy'], 'guard: every candidate is classifier-marked proxy');
+        }
+
+        $decision = $p->driveCandidateDecision($floorPassers);
+
+        $this->assertSame(AtlasLoopPatternDecisionDriver::STATE_REJECTED_ALL, $decision['state'], 'all-proxy ⇒ the rédea emits NO objective');
+        $this->assertNull($decision['pattern']);
+    }
 }

@@ -175,9 +175,49 @@ final class AtlasLoopRealWorkScorecardTest extends TestCase
 
         $sc = $this->service()->scorecard($campaign->id);
 
+        // It IS verification real-work by classification …
         $this->assertSame(1, $sc['real_work_tasks']);
         $this->assertSame(1, $sc['verification_tasks']);
+        // … but a verification-ONLY campaign may NOT claim the loop delivered real value (the honest gate).
+        $this->assertFalse($sc['claim_policy']['loop_real_work_claim_allowed']);
+        $this->assertContains('verification_only_no_substantive_value', $sc['claim_policy']['blockers']);
+    }
+
+    public function test_verification_only_campaign_refuses_the_real_value_claim(): void
+    {
+        $campaign = $this->makeCampaign();
+        // Three characterization/verification tasks, nothing substantive — the r24-style coverage monopoly.
+        for ($i = 0; $i < 3; $i++) {
+            $this->makeTask($campaign->id, [
+                'objective_kind' => 'characterization_test',
+                'acceptance' => ['commands' => ['./vendor/bin/phpunit --filter Char'.$i]],
+            ]);
+        }
+
+        $sc = $this->service()->scorecard($campaign->id);
+
+        $this->assertSame(3, $sc['verification_tasks']);
+        $this->assertSame(0, $sc['bug_fix_tasks'] + $sc['feature_tasks'] + $sc['self_improvement_tasks']);
+        $this->assertFalse($sc['claim_policy']['loop_real_work_claim_allowed'], '100% verification is not real value');
+        $this->assertContains('verification_only_no_substantive_value', $sc['claim_policy']['blockers']);
+    }
+
+    public function test_verification_plus_one_substantive_task_allows_the_claim(): void
+    {
+        $campaign = $this->makeCampaign();
+        $this->makeTask($campaign->id, [
+            'objective_kind' => 'characterization_test',
+            'acceptance' => ['commands' => ['./vendor/bin/phpunit --filter Char']],
+        ]);
+        $this->makeTask($campaign->id, $this->bugFixPayload()); // one real bug_fix lifts it to substantive
+
+        $sc = $this->service()->scorecard($campaign->id);
+
+        $this->assertSame(2, $sc['real_work_tasks']);
+        $this->assertSame(1, $sc['bug_fix_tasks']);
+        $this->assertSame(1, $sc['verification_tasks']);
         $this->assertTrue($sc['claim_policy']['loop_real_work_claim_allowed']);
+        $this->assertNotContains('verification_only_no_substantive_value', $sc['claim_policy']['blockers']);
     }
 
     public function test_characterization_test_without_acceptance_is_unknown(): void

@@ -92,19 +92,66 @@ final class AtlasLoopObjectiveProducer
             $abs = rtrim($repoRoot, '/').'/'.$rel;
             $cyclomatic = $this->cyclomaticOf($abs);
             $hasSiblingTest = $this->hasSiblingTest($repoRoot, $rel);
+            $callerCount = $callers[$rel] ?? ($callers[ltrim($rel, '/')] ?? 0);
+            $verifiable = $hasSiblingTest && $cyclomatic >= (int) config('atlas.loop.decision_min_refactor_cyclomatic', 10);
 
             $packets[] = [
                 'path' => $rel,
-                'caller_count' => $callers[$rel] ?? ($callers[ltrim($rel, '/')] ?? 0),
+                'caller_count' => $callerCount,
                 'cyclomatic' => $cyclomatic,
                 'strategic_impact' => $state->strategicWeightFor($rel),
                 'cost' => $this->costOf($abs),
                 'risk' => $hasSiblingTest ? 0.4 : 0.85,
-                'verifiable' => $hasSiblingTest && $cyclomatic >= (int) config('atlas.loop.decision_min_refactor_cyclomatic', 10),
-            ];
+                'verifiable' => $verifiable,
+                // A — honest value signal (feeds the DecisionDriver's pre-origination veto). Computed from
+                // REAL signals: a refactor candidate is MATERIAL only with a behaviour anchor + real
+                // complexity + wiredness; else proxy/cosmetic with auditable reasons.
+            ] + $this->classifyCandidateValue($cyclomatic, (int) $callerCount, $verifiable);
         }
 
         return $packets;
+    }
+
+    /**
+     * A — classify a refactor candidate's WORK VALUE from real signals, the input the DecisionDriver's
+     * anti-cosmetic veto needs (without it the veto is starved and rubber-stamps every floor-passer).
+     *
+     * Honest rule (matches the goal's own "valor real É: refactor material com queda real de
+     * complexidade/acoplamento e prova de comportamento"):
+     *   - MATERIAL (real value) ⟺ behaviour anchor (verifiable) AND real complexity to reduce
+     *     (cyclomatic ≥ material_refactor_min_cyclomatic) AND wired (≥1 caller).
+     *   - everything else is PROXY (behaviour-preserving without proof/materiality) with auditable reasons;
+     *     the unambiguously-trivial subset (no complexity AND orphan) is additionally COSMETIC.
+     * A candidate with no reliable signal tends to rejection, never approval.
+     *
+     * @return array{proxy:bool, cosmetic:bool, work_value_class:string, shape:string, proxy_reasons:list<string>}
+     */
+    private function classifyCandidateValue(int $cyclomatic, int $callerCount, bool $verifiable): array
+    {
+        $materialMin = max(1, (int) config('atlas.loop.material_refactor_min_cyclomatic', 12));
+
+        $reasons = [];
+        if (! $verifiable) {
+            $reasons[] = 'no_behavior_anchor'; // no sibling test / sub-threshold cyclomatic ⇒ gate can't prove it
+        }
+        if ($cyclomatic < $materialMin) {
+            $reasons[] = 'low_complexity_not_material';
+        }
+        if ($callerCount < 1) {
+            $reasons[] = 'orphan_not_wired';
+        }
+
+        $material = $reasons === [];
+        // Cosmetic = the unambiguous faxina: nothing material to reduce AND not a wired target.
+        $cosmetic = $cyclomatic < $materialMin && $callerCount < 1;
+
+        return [
+            'proxy' => ! $material,
+            'cosmetic' => $cosmetic,
+            'work_value_class' => $material ? 'material_refactor' : ($cosmetic ? 'cosmetic' : 'proxy_refactor'),
+            'shape' => 'refactor', // gather() originates refactors; the feature shape is decided downstream
+            'proxy_reasons' => $reasons,
+        ];
     }
 
     /**
