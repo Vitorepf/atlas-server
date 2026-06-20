@@ -176,9 +176,13 @@ PHP;
         $this->assertStringContainsString('ONE bounded extract-sequence step', $on['objective']);
         $this->assertStringContainsString('lowers Router.php::route() below its current cyclomatic', $on['objective']);
         $this->assertStringContainsString('total cyclomatic/branch count flat or lower', $on['objective']);
-        $this->assertStringContainsString('collapse repeated boolean-chain guards', $on['objective']);
+        $this->assertStringNotContainsString('collapse repeated boolean-chain guards', $on['objective']);
+        $this->assertStringNotContainsString('strict `in_array`', $on['objective']);
+        $this->assertStringContainsString('complexity metric laundering', $on['objective']);
+        $this->assertStringContainsString('Do NOT hide boolean guard chains', $on['objective']);
+        $this->assertStringContainsString('lookup/dispatch table', $on['objective']);
         $this->assertStringContainsString('preserve the exact falsey behavior', $on['objective']);
-        $this->assertStringContainsString('helper methods when they are branch-free', $on['objective']);
+        $this->assertStringContainsString('helper methods only when they are branch-free', $on['objective']);
     }
 
     public function test_returns_null_below_the_complexity_floor(): void

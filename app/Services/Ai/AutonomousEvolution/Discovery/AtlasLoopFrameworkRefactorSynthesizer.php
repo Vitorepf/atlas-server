@@ -322,12 +322,12 @@ final class AtlasLoopFrameworkRefactorSynthesizer
 
         return 'Refactor '.$base.' to REDUCE the cyclomatic complexity of its worst method, '.$where
             .' (cyclomatic '.$cyclomatic.', the file max). Drive DOWN the decision/branch count of THAT '
-            .'method specifically — first try the smallest in-method reduction: collapse repeated boolean-chain guards '
-            .'(`||` / `&&`) into equivalent data-driven checks such as lookup sets or `in_array`, then prefer replacing long '
-            .'if/elseif or switch chains with a lookup/dispatch table. When collapsing guards that use truthiness or '
-            .'null-coalescing (`??`), preserve the exact falsey behavior (for example with `empty(...)`) instead of '
-            .'placing raw nullable/falsey values in a strict `in_array`, '
-            .'and only extract helper methods when they are branch-free or remove enough existing branches to keep total complexity flat — so the file\'s AST '
+            .'method specifically. Prefer genuine simplifications that REMOVE decision points: replace long literal '
+            .'value-mapping if/elseif or switch chains with a lookup/dispatch table, merge duplicated branch bodies, '
+            .'or extract helper methods only when they are branch-free or remove enough existing branches to keep total complexity flat. '
+            .'Do NOT hide boolean guard chains in arrays, lookup sets, or membership checks (`in_array(true|false, [...])`, '
+            .'`[condition, ...] === [true, ...]`, or equivalent condition arrays); that is complexity metric laundering and will be rejected. '
+            .'When simplifying guards that use truthiness or null-coalescing (`??`), preserve the exact falsey behavior — so the file\'s AST '
             .'max-per-method drops below '.$cyclomatic.'. '.$sequenceInstruction
             // ALIGN-WITH-GATE (in the prompt, not just a comment): the certifier scores DECISION POINTS
             // (the file's TOTAL branch count, extract-method-neutral), not raw method count. A refactor
