@@ -112,7 +112,7 @@ final class AtlasLoopComprehensionGroundingGate
         // so the file oracle cannot run. We still try class_exists + the index, but if a
         // symbol resolves on neither we MUST NOT refute it on the basis of a blind scan:
         // an unreadable root makes the whole check inconclusive → grounded=true, logged.
-        $rootReadable = $normalizedRoot !== null && is_dir($normalizedRoot);
+        $rootReadable = is_dir((string) $normalizedRoot);
 
         $resolved = [];
         $ungrounded = [];
@@ -139,21 +139,20 @@ final class AtlasLoopComprehensionGroundingGate
 
         $grounded = $ungrounded === [];
 
-        $note = $grounded
-            ? sprintf(
+        if ($grounded) {
+            $note = sprintf(
                 'grounded: all %d cited symbol(s) resolve. %s',
                 $citationCount,
                 $this->objectiveTag($statedObjective)
-            )
-            : sprintf(
+            );
+        } else {
+            $note = sprintf(
                 'UNGROUNDED: %d of %d cited symbol(s) resolve nowhere [%s] — stated objective may be hallucinated. %s',
                 count($ungrounded),
                 $citationCount,
                 implode(', ', $ungrounded),
                 $this->objectiveTag($statedObjective)
             );
-
-        if (! $grounded) {
             $this->logUngrounded($note);
         }
 
