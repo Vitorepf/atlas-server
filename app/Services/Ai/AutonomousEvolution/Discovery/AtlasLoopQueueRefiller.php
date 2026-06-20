@@ -69,6 +69,9 @@ final class AtlasLoopQueueRefiller
     /** C — characterization/coverage tasks minted in the CURRENT refill (reset each refill); the portfolio cap. */
     private int $coverageMintedThisRefill = 0;
 
+    /** D2 — substantive (bug/feature/self-improvement/material-refactor) tasks minted this refill; the relative-cap base. */
+    private int $substantiveMintedThisRefill = 0;
+
     /**
      * ARBOR-GRAFT TIER 0.1 — materialize the K competing readings the generator sampled (divergence path)
      * as sibling hypothesis nodes under the target, so the idea-tree becomes real. Flag-gated default-OFF +
@@ -295,6 +298,7 @@ final class AtlasLoopQueueRefiller
         $repoRoot = rtrim((string) $campaign->base_workspace, '/');
         $provider = (string) $campaign->provider; // '' => loop default (provider-agnostic)
         $this->coverageMintedThisRefill = 0; // C — reset the per-refill coverage portfolio cap
+        $this->substantiveMintedThisRefill = 0; // D2 — reset the per-refill substantive-work counter
 
         // B0 — REAL WORK SUPPLY: harvest deterministic-RED handles from the configured phpunit JSON
         // report BEFORE discovery runs, so a freshly-harvested handle is in atlas_loop_failure_handles
@@ -401,6 +405,7 @@ final class AtlasLoopQueueRefiller
                         if ($enq !== null) {
                             $enqueued++;
                             $producerLed = true;
+                            $this->substantiveMintedThisRefill++; // D2 — the rédea's driver-governed leap is substantive
                         }
                     }
                 }
@@ -534,8 +539,36 @@ final class AtlasLoopQueueRefiller
 
     private function completeTargetEnqueue(AtlasLoopTarget $target, ?AtlasLoopTask $task, string $queuedReason): string
     {
+        // D2 — MATERIAL-SUPPLY GATE. A per-target REFACTOR task that carries no material proof is a
+        // behaviour-preserving PROXY refactor (the same rule the honest scorecard uses). The driver only
+        // governs the rédea; here the per-target lane refuses proxy too: the synthesized task is DROPPED so
+        // it never enters the queue or gets ground, and the target is deferred. Coverage/bug/feature pass.
+        // Fail-open: gate OFF, or a delete hiccup, falls through to the normal enqueue (byte-identical).
+        if ($task instanceof AtlasLoopTask
+            && (bool) config('atlas.loop.material_supply_gate_enabled', true)
+            && $this->isProxyRefactorTask($task)) {
+            try {
+                $task->delete();
+                $this->loopBack->reflect($target->campaign_id, [
+                    'target_id' => $target->id,
+                    'status' => 'no_winner',
+                    'reason' => 'material_supply_gate:proxy_refactor_dropped',
+                ]);
+                $this->releaseDuplicateOrMissingTaskTarget($target, 'material_supply_gate_proxy_refactor');
+
+                return 'deferred';
+            } catch (Throwable) {
+                // fail-open: never let the gate break a refill — fall through to the normal enqueue.
+            }
+        }
+
         if ($this->taskIsLiveForTarget($task, $target)) {
             $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, $queuedReason);
+            // D2 — count a NON-coverage enqueue as substantive (coverage has its own counter), so the
+            // relative coverage cap can keep coverage at or below the substantive work of this refill.
+            if ($task instanceof AtlasLoopTask && ! $this->taskIsCoverage($task)) {
+                $this->substantiveMintedThisRefill++;
+            }
 
             return 'enqueued';
         }
@@ -581,6 +614,46 @@ final class AtlasLoopQueueRefiller
             'novelty_score' => max(0.0, (float) $target->novelty_score - 0.34),
             'score' => max(0.0, (float) $target->score - 0.1),
         ])->save();
+    }
+
+    /**
+     * D2 — a refactor task that carries NO material proof is a behaviour-preserving PROXY refactor. Mirrors
+     * the honest scorecard rule exactly: material iff revert_recheck OR red_required OR complexity_proof OR
+     * the governed self-improvement triple (self-marked + complexity_proof + quality_bar). Non-refactor
+     * kinds (coverage / bug / feature) are never proxy here — only the behaviour-preserving refactor is.
+     */
+    private function isProxyRefactorTask(AtlasLoopTask $task): bool
+    {
+        $p = is_array($task->payload) ? $task->payload : [];
+        $kind = mb_strtolower(trim((string) ($p['objective_kind'] ?? '')));
+        if (! str_starts_with($kind, 'refactor')) {
+            return false;
+        }
+
+        $isTrue = static fn ($v): bool => $v === true || $v === 1
+            || (is_string($v) && in_array(mb_strtolower(trim($v)), ['1', 'true', 'yes'], true));
+
+        $material = $isTrue($p['revert_recheck'] ?? null)
+            || $isTrue(data_get($p, 'acceptance.revert_recheck'))
+            || $isTrue(data_get($p, 'acceptance.red_required'))
+            || $isTrue($p['complexity_proof'] ?? null)
+            || $isTrue(data_get($p, 'acceptance.complexity_proof'))
+            || (
+                $isTrue($p['is_self_improvement'] ?? null)
+                && ($isTrue($p['complexity_proof'] ?? null) || $isTrue(data_get($p, 'acceptance.complexity_proof')))
+                && ($isTrue($p['quality_bar_gate'] ?? null) || $isTrue(data_get($p, 'acceptance.quality_bar_gate')))
+            );
+
+        return ! $material;
+    }
+
+    /** D2 — is this a characterization/coverage task (counted against the coverage cap, not substantive)? */
+    private function taskIsCoverage(AtlasLoopTask $task): bool
+    {
+        $p = is_array($task->payload) ? $task->payload : [];
+        $kind = mb_strtolower(trim((string) ($p['objective_kind'] ?? '')));
+
+        return $kind === AtlasLoopCoverageDeficitSource::SHAPE || str_contains($kind, 'characterization');
     }
 
     private function generateAndEnqueue(AtlasLoopCampaign $campaign, AtlasLoopTarget $target, string $provider): string
@@ -1063,12 +1136,18 @@ final class AtlasLoopQueueRefiller
             return null;
         }
 
-        // C — PORTFOLIO CAP: characterization is verification, not evolution. Once this refill has minted the
-        // allowed number of coverage tasks, DEFER further coverage-deficit targets so the bug / feature /
-        // self-improvement / material-refactor lanes keep their slots (the r24 coverage-monopoly fix). The
-        // deferred target reopens next cycle. Fail-open: gate OFF ⇒ no cap (byte-identical legacy).
+        // C/D2 — PORTFOLIO CAP: characterization is verification, not evolution, and must never dominate a
+        // campaign whose objective is loop evolution. The effective cap = the absolute per-refill ceiling
+        // AND (when coverage_relative_to_substantive is ON) the substantive work minted this refill, floor 1
+        // (so a pure-coverage cycle still moves). Once reached, further coverage-deficit targets are DEFERRED
+        // so the bug / feature / self-improvement / material-refactor lanes keep their slots. The deferred
+        // target reopens next cycle. Fail-open: portfolio gate OFF ⇒ no cap (byte-identical legacy).
+        $coverageCap = (int) config('atlas.loop.coverage_characterization_max_per_refill', 2);
+        if ((bool) config('atlas.loop.coverage_relative_to_substantive', true)) {
+            $coverageCap = min($coverageCap, max(1, $this->substantiveMintedThisRefill));
+        }
         if ((bool) config('atlas.loop.coverage_portfolio_gate_enabled', true)
-            && $this->coverageMintedThisRefill >= (int) config('atlas.loop.coverage_characterization_max_per_refill', 2)) {
+            && $this->coverageMintedThisRefill >= $coverageCap) {
             $this->loopBack->reflect($campaign->id, [
                 'target_id' => $target->id,
                 'status' => 'no_winner',

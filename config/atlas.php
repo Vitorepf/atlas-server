@@ -2187,6 +2187,19 @@ return [
         'coverage_portfolio_gate_enabled' => (bool) env('ATLAS_LOOP_COVERAGE_PORTFOLIO_GATE_ENABLED', true),
         'coverage_characterization_max_per_refill' => max(0, (int) env('ATLAS_LOOP_COVERAGE_CHARACTERIZATION_MAX_PER_REFILL', 2)),
 
+        // MATERIAL-SUPPLY GATE (D2) — the driver only governs the rédea; the PER-TARGET refactor lanes
+        // (extract_class / multi_file / framework / single_file) can still mint behaviour-preserving PROXY
+        // refactors (a synthesized refactor that carries NO material proof: no revert_recheck, no
+        // red_required, no complexity_proof, no governed self-improvement triple). When ON, such a proxy
+        // refactor task is DROPPED before it enters the queue (and the target deferred) — the same honest
+        // rule the scorecard uses to classify proxy, applied at supply time so the loop never GRINDS proxy.
+        // Coverage/bug/feature tasks are untouched. Default ON; OFF => byte-identical legacy supply.
+        'material_supply_gate_enabled' => (bool) env('ATLAS_LOOP_MATERIAL_SUPPLY_GATE_ENABLED', true),
+        // Coverage may not exceed the substantive (bug/feature/self-improvement/material-refactor) work
+        // minted in the SAME refill — the "rebaixado quando há trabalho de valor" rule (floor of 1 so a
+        // pure-coverage cycle is not fully starved). The absolute cap above is the additional hard ceiling.
+        'coverage_relative_to_substantive' => (bool) env('ATLAS_LOOP_COVERAGE_RELATIVE_TO_SUBSTANTIVE', true),
+
         // DECISION ("o quê a seguir") — the UNGAMEABLE next-work priority. When ON, the task
         // priority becomes BAND(shape) + OFFSET(leverage re-resolved FRESH from git/graph) instead
         // of the stored `score*100` scalar, so SHAPE dominates (a confirmed orphan can never out-rank
