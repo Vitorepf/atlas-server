@@ -577,6 +577,7 @@ final class AtlasLoopSignalAnalyzer
                 || $node instanceof Node\Stmt\Do_
                 || $node instanceof Node\Stmt\Case_
                 || $node instanceof Node\Stmt\Catch_
+                || $node instanceof Node\MatchArm
                 || $node instanceof Node\Expr\Ternary
                 || $node instanceof Node\Expr\BinaryOp\BooleanAnd
                 || $node instanceof Node\Expr\BinaryOp\BooleanOr

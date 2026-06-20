@@ -47,6 +47,29 @@ final class AtlasLoopSignalAnalyzerTest extends TestCase
         $this->assertSame('flag', $scan['flags'][0]['disposition']);
     }
 
+    public function test_file_complexity_counts_match_expressions_as_decision_points(): void
+    {
+        $src = <<<'PHP'
+        <?php
+        final class UsesMatch
+        {
+            public function classify(string $kind): string
+            {
+                return match ($kind) {
+                    'bug' => 'fix',
+                    'feature' => 'build',
+                    default => 'review',
+                };
+            }
+        }
+        PHP;
+
+        $complexity = (new AtlasLoopSignalAnalyzer)->fileComplexity($src);
+
+        $this->assertSame(4, $complexity['max_per_method']);
+        $this->assertSame(4, $complexity['total']);
+    }
+
     private function writeFixture(): void
     {
         $clone = <<<'PHP'
