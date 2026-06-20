@@ -227,17 +227,11 @@ final class AtlasLoopPatternSpec
      */
     public static function validationErrors(array $data): array
     {
-        $errors = [];
-
-        if (trim((string) ($data['id'] ?? '')) === '') {
-            $errors[] = 'id is required';
-        }
-        if (trim((string) ($data['version'] ?? '')) === '') {
-            $errors[] = 'version is required';
-        }
-        if (trim((string) ($data['intent'] ?? '')) === '') {
-            $errors[] = 'intent is required';
-        }
+        $errors = array_values(array_filter([
+            'id' => 'id is required',
+            'version' => 'version is required',
+            'intent' => 'intent is required',
+        ], static fn (string $error, string $field): bool => trim((string) ($data[$field] ?? '')) === '', ARRAY_FILTER_USE_BOTH));
 
         $gates = array_values(array_filter(array_map(
             static fn ($g): string => trim((string) $g),
