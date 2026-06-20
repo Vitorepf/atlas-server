@@ -303,7 +303,7 @@ final class AtlasLoopCampaignSupervisor
                         }
                         $openTasks = (int) $this->guard(fn () => $this->store->countOpen($campaign->id), 'count_open');
                         $openProjections = $this->openProjections($campaign->id);
-                        if ((int) $refill['enqueued'] === 0 && $openTasks === 0 && $openProjections === 0) {
+                        if ([(int) $refill['enqueued'], $openTasks, $openProjections] === [0, 0, 0]) {
                             // SLICE C-territory-ladder — at supply exhaustion, the most DANGEROUS loop act:
                             // widen the discovery scope. CONSERVATIVE by design: the gate is always LIVE +
                             // evaluated + logged, but it only ACTUATES into an OPERATOR-DEFINED rung. With no
