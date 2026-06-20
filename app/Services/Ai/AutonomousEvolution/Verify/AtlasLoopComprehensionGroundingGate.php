@@ -114,16 +114,10 @@ final class AtlasLoopComprehensionGroundingGate
         // an unreadable root makes the whole check inconclusive → grounded=true, logged.
         $rootReadable = is_dir((string) $normalizedRoot);
 
-        $resolved = [];
-        $ungrounded = [];
-
-        foreach ($symbols as $symbol) {
-            if ($this->resolves($symbol, $rootReadable ? $normalizedRoot : null)) {
-                $resolved[] = $symbol;
-            } else {
-                $ungrounded[] = $symbol;
-            }
-        }
+        [$resolved, $ungrounded] = $this->partitionResolvedSymbols(
+            $symbols,
+            $rootReadable ? $normalizedRoot : null
+        );
 
         if (! $rootReadable && $ungrounded !== []) {
             $note = 'fail-open: repoRoot is not a readable directory ('
@@ -157,6 +151,27 @@ final class AtlasLoopComprehensionGroundingGate
         }
 
         return $this->result($grounded, $resolved, $ungrounded, $citationCount, $note);
+    }
+
+    /**
+     * @param list<string> $symbols
+     *
+     * @return array{0:list<string>,1:list<string>}
+     */
+    private function partitionResolvedSymbols(array $symbols, ?string $repoRoot): array
+    {
+        $resolved = [];
+        $ungrounded = [];
+
+        foreach ($symbols as $symbol) {
+            if ($this->resolves($symbol, $repoRoot)) {
+                $resolved[] = $symbol;
+            } else {
+                $ungrounded[] = $symbol;
+            }
+        }
+
+        return [$resolved, $ungrounded];
     }
 
     /**

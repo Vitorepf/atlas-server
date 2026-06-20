@@ -78,7 +78,7 @@ final class AtlasLoopCharacterizationTestVerifier
             return $this->verdict(false, 'target_unreadable:'.$targetFile, true, false, $operator);
         }
         $mutated = AtlasLoopMutationOperators::applyOperator($operator, $original);
-        if ($mutated === null || $mutated === $original) {
+        if (in_array($mutated, [null, $original], true)) {
             return $this->verdict(false, 'mutant_not_reproducible:'.$operator, true, false, $operator);
         }
 
