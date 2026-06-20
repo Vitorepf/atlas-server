@@ -633,11 +633,14 @@ final class AtlasLoopQueueRefiller
         $isTrue = static fn ($v): bool => $v === true || $v === 1
             || (is_string($v) && in_array(mb_strtolower(trim($v)), ['1', 'true', 'yes'], true));
 
+        // EXACTLY the honest scorecard's real-work rule for a refactor: behaviour proof (revert_recheck /
+        // red_required) OR the GOVERNED self-improvement triple (self-marked + complexity_proof + quality_bar).
+        // A standalone complexity_proof is deliberately NOT material — the scorecard classifies such a
+        // refactor as proxy, so the supply gate must drop it too (otherwise gate and ruler disagree and a
+        // proxy still reaches the queue, which the live AFTER run exposed).
         $material = $isTrue($p['revert_recheck'] ?? null)
             || $isTrue(data_get($p, 'acceptance.revert_recheck'))
             || $isTrue(data_get($p, 'acceptance.red_required'))
-            || $isTrue($p['complexity_proof'] ?? null)
-            || $isTrue(data_get($p, 'acceptance.complexity_proof'))
             || (
                 $isTrue($p['is_self_improvement'] ?? null)
                 && ($isTrue($p['complexity_proof'] ?? null) || $isTrue(data_get($p, 'acceptance.complexity_proof')))

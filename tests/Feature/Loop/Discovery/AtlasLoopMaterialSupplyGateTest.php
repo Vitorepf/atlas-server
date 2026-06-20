@@ -55,13 +55,25 @@ final class AtlasLoopMaterialSupplyGateTest extends TestCase
         $this->assertFalse($this->isProxy(['objective_kind' => 'refactor_x', 'revert_recheck' => true]));
         // red_required
         $this->assertFalse($this->isProxy(['objective_kind' => 'refactor_x', 'acceptance' => ['red_required' => true]]));
-        // complexity proof
-        $this->assertFalse($this->isProxy(['objective_kind' => 'refactor_x', 'acceptance' => ['complexity_proof' => true]]));
-        // the governed self-improvement triple (the live extract_class that was correctly classified self_improvement)
+        // the governed self-improvement triple (the live extract_class correctly classified self_improvement)
         $this->assertFalse($this->isProxy([
             'objective_kind' => 'refactor_extract_class',
             'is_self_improvement' => true,
             'acceptance' => ['complexity_proof' => true, 'quality_bar_gate' => true],
+        ]));
+    }
+
+    public function test_complexity_proof_alone_is_still_proxy_aligned_with_the_scorecard(): void
+    {
+        // The honest scorecard classifies a refactor with ONLY complexity_proof (no behaviour proof, no
+        // governed self-improvement triple) as PROXY. The supply gate MUST agree, or a proxy reaches the
+        // queue while the scorecard refuses it — the exact gate↔ruler disagreement the live AFTER run exposed.
+        $this->assertTrue($this->isProxy(['objective_kind' => 'refactor_extract_class', 'acceptance' => ['complexity_proof' => true]]));
+        // self-improvement marker WITHOUT the full triple (no quality_bar) is also still proxy.
+        $this->assertTrue($this->isProxy([
+            'objective_kind' => 'refactor_extract_class',
+            'is_self_improvement' => true,
+            'acceptance' => ['complexity_proof' => true],
         ]));
     }
 
