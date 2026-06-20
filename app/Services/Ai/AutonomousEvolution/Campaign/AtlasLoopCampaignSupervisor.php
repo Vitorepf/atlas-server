@@ -278,7 +278,8 @@ final class AtlasLoopCampaignSupervisor
                     // Parallel in-flight work counts toward the watermark, but a single
                     // long worker should not starve otherwise-idle slots.
                     $pendingTasks = (int) $this->guard(fn () => $this->store->countPending($campaign->id), 'count_pending');
-                    if ($this->shouldRefillQueue($pendingTasks, $watermark, $pool)) {
+                    $refillWatermark = $this->refillWatermark($watermark, $effectiveWorkers, $pool);
+                    if ($this->shouldRefillQueue($pendingTasks, $refillWatermark, $pool)) {
                         if ($this->stopRequested($campaign)) {
                             $stop = 'kill_switch';
                             break;
@@ -873,6 +874,16 @@ final class AtlasLoopCampaignSupervisor
         }
 
         return ($pendingTasks + $pool->inFlight()) < $watermark;
+    }
+
+    private function refillWatermark(int $watermark, int $effectiveWorkers, ?LoopWorkerPool $pool): int
+    {
+        $watermark = max(1, $watermark);
+        if (! $pool instanceof LoopWorkerPool) {
+            return $watermark;
+        }
+
+        return max($watermark, max(1, $effectiveWorkers));
     }
 
     private function beat(AtlasLoopCampaign $campaign, int $deltaSeconds, int $addSpendCents = 0): void

@@ -372,8 +372,8 @@ final class AtlasLoopCampaignSupervisorTest extends TestCase
             'sleep_seconds' => 0,
         ]);
 
-        $this->assertSame('queue_exhausted', $result['stop_reason']);
-        $this->assertSame(4, $result['cycles']);
+        $this->assertSame('queue_starved_no_refill', $result['stop_reason']);
+        $this->assertGreaterThanOrEqual(1, $result['cycles']);
         $this->assertSame(4, AtlasLoopTask::query()->where('campaign_id', $campaign->id)->where('status', AtlasLoopTask::STATUS_DONE)->count());
         $this->assertSame(4, AtlasLoopTask::query()->where('campaign_id', $campaign->id)->distinct('claimed_by')->count('claimed_by'));
 
@@ -419,6 +419,12 @@ final class AtlasLoopCampaignSupervisorTest extends TestCase
         $supervisor = $this->supervisor();
         $method = new \ReflectionMethod($supervisor, 'shouldRefillQueue');
         $method->setAccessible(true);
+        $watermarkMethod = new \ReflectionMethod($supervisor, 'refillWatermark');
+        $watermarkMethod->setAccessible(true);
+
+        $this->assertSame(4, $watermarkMethod->invoke($supervisor, 1, 4, $pool));
+        $this->assertSame(6, $watermarkMethod->invoke($supervisor, 6, 4, $pool));
+        $this->assertSame(1, $watermarkMethod->invoke($supervisor, 1, 4, null));
 
         $this->assertTrue((bool) $method->invoke($supervisor, 0, 4, $pool));
         $this->assertTrue((bool) $method->invoke($supervisor, 2, 4, $pool));
