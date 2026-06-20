@@ -1139,30 +1139,49 @@ final class AtlasLoopQueueRefiller
             return null;
         }
 
-        // C/D2 — PORTFOLIO CAP: characterization is verification, not evolution, and must never dominate a
-        // campaign whose objective is loop evolution. The effective cap = the absolute per-refill ceiling
-        // AND (when coverage_relative_to_substantive is ON) the substantive work minted this refill, floor 1
-        // (so a pure-coverage cycle still moves). Once reached, further coverage-deficit targets are DEFERRED
-        // so the bug / feature / self-improvement / material-refactor lanes keep their slots. The deferred
-        // target reopens next cycle. Fail-open: portfolio gate OFF ⇒ no cap (byte-identical legacy).
-        $coverageCap = (int) config('atlas.loop.coverage_characterization_max_per_refill', 2);
-        if ((bool) config('atlas.loop.coverage_relative_to_substantive', true)) {
-            // Coverage must stay STRICTLY BELOW the substantive work of this refill (not merely ≤ it) so the
-            // campaign is substantive-LED, not at parity: coverage ≤ floor(substantive/2), with a floor of 1
-            // only while substantive is 0–1 (so a low-substantive cycle still gets one verification, never
-            // starved to zero). At substantive ≥ 2 this yields coverage < substantive by construction.
-            $relCap = $this->substantiveMintedThisRefill <= 1 ? 1 : intdiv($this->substantiveMintedThisRefill, 2);
-            $coverageCap = min($coverageCap, $relCap);
-        }
-        if ((bool) config('atlas.loop.coverage_portfolio_gate_enabled', true)
-            && $this->coverageMintedThisRefill >= $coverageCap) {
-            $this->loopBack->reflect($campaign->id, [
-                'target_id' => $target->id,
-                'status' => 'no_winner',
-                'reason' => 'coverage_portfolio_cap_reached',
-            ]);
+        // C/D2 — PORTFOLIO CAP (CAMPAIGN-cumulative + per-refill inner bound). Characterization is
+        // verification, not evolution, and must never dominate a campaign whose objective is loop evolution.
+        // A per-refill cap is not enough — coverage ACCUMULATES across refills while substantive may stay
+        // sparse. So the cap is measured over the WHOLE campaign: substantive == every non-coverage task
+        // (the material gate already dropped proxy refactors), and coverage is DEFERRED once it reaches
+        // floor(substantive/2) (floor 1 so a cold-start campaign still gets one verification). At
+        // substantive ≥ 2 this keeps coverage STRICTLY below substantive by construction. The per-refill
+        // counter is the cheap inner ceiling. Fail-open: portfolio gate OFF ⇒ no cap (byte-identical legacy).
+        if ((bool) config('atlas.loop.coverage_portfolio_gate_enabled', true)) {
+            $perRefillCap = (int) config('atlas.loop.coverage_characterization_max_per_refill', 2);
+            $campaignCap = $perRefillCap; // when not relative, only the per-refill absolute cap applies
+            if ((bool) config('atlas.loop.coverage_relative_to_substantive', true)) {
+                $coverageCount = (int) AtlasLoopTask::query()
+                    ->where('campaign_id', $campaign->id)
+                    ->where('payload->objective_kind', AtlasLoopCoverageDeficitSource::SHAPE)
+                    ->count();
+                $substantiveCount = (int) AtlasLoopTask::query()
+                    ->where('campaign_id', $campaign->id)
+                    ->where(function ($q): void {
+                        $q->where('payload->objective_kind', '!=', AtlasLoopCoverageDeficitSource::SHAPE)
+                            ->orWhereNull('payload->objective_kind');
+                    })
+                    ->count();
+                $campaignCap = max(1, intdiv($substantiveCount, 2));
+                if ($coverageCount >= $campaignCap) {
+                    $this->loopBack->reflect($campaign->id, [
+                        'target_id' => $target->id,
+                        'status' => 'no_winner',
+                        'reason' => 'coverage_portfolio_cap_reached_campaign',
+                    ]);
 
-            return 'deferred';
+                    return 'deferred';
+                }
+            }
+            if ($this->coverageMintedThisRefill >= $perRefillCap) {
+                $this->loopBack->reflect($campaign->id, [
+                    'target_id' => $target->id,
+                    'status' => 'no_winner',
+                    'reason' => 'coverage_portfolio_cap_reached',
+                ]);
+
+                return 'deferred';
+            }
         }
 
         $operator = trim((string) ($signals['coverage_operator'] ?? $signals['coverage_deficit_operator'] ?? ''));

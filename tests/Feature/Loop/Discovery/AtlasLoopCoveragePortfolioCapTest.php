@@ -130,4 +130,50 @@ final class AtlasLoopCoveragePortfolioCapTest extends TestCase
         // counter below the cap ⇒ the cap does not fire; the lane proceeds (quarantines the trivial file).
         $this->assertNotSame('deferred', $this->invokeLane(0));
     }
+
+    private function makeTask(string $campaignId, string $kind): void
+    {
+        \App\Models\AtlasLoopTask::query()->create([
+            'campaign_id' => $campaignId,
+            'schema_version' => 'atlas.loop.task.v1',
+            'status' => 'pending',
+            'source' => 'discovery',
+            'self_contained' => false,
+            'target_path' => 'app/Svc/X.php',
+            'objective' => 'x',
+            'payload' => ['objective_kind' => $kind],
+            'priority' => 0,
+            'max_attempts' => 1,
+            'dedupe_key' => 'dk-'.bin2hex(random_bytes(5)),
+        ]);
+    }
+
+    public function test_campaign_cumulative_cap_defers_coverage_once_it_reaches_half_of_substantive(): void
+    {
+        config([
+            'atlas.loop.characterization_test_lane_enabled' => true,
+            'atlas.loop.coverage_portfolio_gate_enabled' => true,
+            'atlas.loop.coverage_relative_to_substantive' => true,
+            'atlas.loop.coverage_characterization_max_per_refill' => 99, // isolate the campaign-cumulative cap
+        ]);
+
+        $refiller = app(AtlasLoopQueueRefiller::class);
+        $counter = new ReflectionProperty($refiller, 'coverageMintedThisRefill');
+        $counter->setAccessible(true);
+        $counter->setValue($refiller, 0); // per-refill counter not the constraint here
+
+        $m = new ReflectionMethod($refiller, 'tryCoverageDeficitCharacterization');
+        $m->setAccessible(true);
+
+        $c = $this->campaign();
+        // 2 substantive (non-coverage) tasks already minted, plus 1 coverage already minted.
+        $this->makeTask($c->id, 'refactor_extract_class');
+        $this->makeTask($c->id, 'self_improvement');
+        $this->makeTask($c->id, AtlasLoopCoverageDeficitSource::SHAPE); // coverageCount=1
+
+        // campaignCap = max(1, intdiv(2,2)) = 1; coverageCount(1) >= 1 ⇒ the NEXT coverage is DEFERRED.
+        $t = $this->target($c);
+        $outcome = (string) $m->invoke($refiller, $c, $t, ['shape' => AtlasLoopCoverageDeficitSource::SHAPE], '', $this->tmpSource);
+        $this->assertSame('deferred', $outcome, 'coverage already at floor(substantive/2) ⇒ deferred');
+    }
 }
