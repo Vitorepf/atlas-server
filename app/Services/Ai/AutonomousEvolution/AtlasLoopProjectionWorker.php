@@ -195,6 +195,16 @@ final class AtlasLoopProjectionWorker
         $targetPath = (string) ($envelope['target_path'] ?? ($payload['target_repo_path'] ?? ''));
         $payload = $this->markProjectedLoopSelfImprovement($payload, $targetPath);
 
+        // Stamp objective_kind from the producer's SHAPE so the honest scorecard can classify projected
+        // work: a missing kind lands as 'unknown' and blocks the real-work claim (the rédea's
+        // projection path was minting feature/refactor tasks with no kind). feature → feature; any
+        // refactor shape → a refactor kind (the self-improvement markers above then classify a loop
+        // self-edit as self_improvement; the driver already vetoed proxy upstream of the projection).
+        if (! isset($payload['objective_kind']) || trim((string) $payload['objective_kind']) === '') {
+            $shape = (string) ($envelope['shape'] ?? 'refactor');
+            $payload['objective_kind'] = str_contains($shape, 'feature') ? 'feature' : 'refactor_reduce_complexity';
+        }
+
         $leverage = (float) ($envelope['leverage'] ?? 0.0);
         $priority = (int) ($checkpoint['priority'] ?? (4000 + min(999, (int) round($leverage * 200))));
         $hash = (string) ($envelope['acceptance_hash'] ?? '');
