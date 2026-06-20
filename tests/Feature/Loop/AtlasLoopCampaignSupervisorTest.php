@@ -7,11 +7,14 @@ namespace Tests\Feature\Loop;
 use App\Models\AtlasLoopCampaign;
 use App\Models\AtlasLoopExploration;
 use App\Models\AtlasLoopProposal;
+use App\Models\AtlasLoopTarget;
 use App\Models\AtlasLoopTask;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopDbResilience;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopResourceGate;
 use App\Services\Ai\AutonomousEvolution\Campaign\AtlasLoopCampaignSupervisor;
 use App\Services\Ai\AutonomousEvolution\LoopExecutionDriver;
 use App\Services\Ai\AutonomousEvolution\Parallel\LoopWorkerHandle;
+use App\Services\Ai\AutonomousEvolution\Parallel\LoopWorkerPool;
 use App\Services\Ai\AutonomousEvolution\Parallel\LoopWorkerSpawnerContract;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
 use Closure;
@@ -386,10 +389,68 @@ final class AtlasLoopCampaignSupervisorTest extends TestCase
         $this->assertSame(4, max(array_map(static fn (array $e): int => (int) ($e['in_flight'] ?? 0), $ticks)));
     }
 
+    public function test_parallel_refill_decision_keeps_free_slots_fed_while_a_worker_is_in_flight(): void
+    {
+        $pool = new LoopWorkerPool(new class implements LoopWorkerSpawnerContract
+        {
+            public function spawn(
+                string $campaignId,
+                string $taskId,
+                string $workerId,
+                int $leaseSeconds,
+                string $workspaceRoot,
+                int $timeoutSeconds,
+                int $scenarios,
+            ): LoopWorkerHandle {
+                $process = new Process([PHP_BINARY, '-r', 'usleep(500000);']);
+                $process->start();
+
+                return new LoopWorkerHandle($process, $taskId, $workerId);
+            }
+        }, new AtlasLoopResourceGate);
+        $queue = [(new AtlasLoopTask)->forceFill(['id' => 'in-flight-one', 'claimed_by' => 'worker-one'])];
+        $claimNext = function () use (&$queue): ?AtlasLoopTask {
+            return array_shift($queue);
+        };
+
+        $pool->tick(4, 'campaign-one', $claimNext, 600, 60);
+        $this->assertSame(1, $pool->inFlight());
+
+        $supervisor = $this->supervisor();
+        $method = new \ReflectionMethod($supervisor, 'shouldRefillQueue');
+        $method->setAccessible(true);
+
+        $this->assertTrue((bool) $method->invoke($supervisor, 0, 4, $pool));
+        $this->assertTrue((bool) $method->invoke($supervisor, 2, 4, $pool));
+        $this->assertFalse((bool) $method->invoke($supervisor, 3, 4, $pool));
+        $this->assertFalse((bool) $method->invoke($supervisor, 0, 1, $pool));
+        $this->assertTrue((bool) $method->invoke($supervisor, 0, 4, null));
+        $this->assertFalse((bool) $method->invoke($supervisor, 4, 4, null));
+
+        $pool->drain(0.1);
+    }
+
     public function test_parallel_worker_timeout_settle_fails_task_without_waiting_for_lease_expiry(): void
     {
         $campaign = $this->seedCampaign();
+        $target = AtlasLoopTarget::create([
+            'campaign_id' => $campaign->id,
+            'schema_version' => 'atlas.loop.target.v1',
+            'target_path' => 'src/TimeoutCase.php',
+            'target_key' => 'timeout-case',
+            'content_hash' => 'timeout-hash',
+            'status' => AtlasLoopTarget::STATUS_QUEUED,
+            'score' => 1.0,
+            'self_contained_score' => 1.0,
+            'improvement_score' => 1.0,
+            'novelty_score' => 1.0,
+            'signals' => [],
+            'lineage' => [],
+            'attempts' => 1,
+            'max_attempts' => 3,
+        ]);
         $task = $this->seedTask($campaign->id, 'TimeoutCase');
+        $task->forceFill(['payload' => array_merge($task->payload, ['_target_id' => $target->id])])->save();
         $worker = 'pool-timeout-worker';
         $claimed = $this->app->make(AtlasLoopStore::class)->claimNextTask($campaign->id, $worker, 3600);
         $this->assertSame($task->id, $claimed?->id);
@@ -397,19 +458,79 @@ final class AtlasLoopCampaignSupervisorTest extends TestCase
         $supervisor = $this->supervisor();
         $method = new \ReflectionMethod($supervisor, 'settleTimedOutParallelWorkers');
         $method->setAccessible(true);
-        $method->invoke($supervisor, [[
+        $settled = [[
             'task_id' => $task->id,
             'worker_id' => $worker,
             'timed_out' => true,
             'exit_code' => null,
             'duration_ms' => 1234,
-        ]]);
+        ]];
+        $method->invoke($supervisor, $settled);
+
+        $reflect = new \ReflectionMethod($supervisor, 'reflectParallelSettledTargets');
+        $reflect->setAccessible(true);
+        $reflect->invoke($supervisor, $campaign, $settled);
 
         $task->refresh();
         $this->assertSame(AtlasLoopTask::STATUS_FAILED, $task->status);
         $this->assertSame('parallel_worker_timeout', data_get($task->result, 'reason'));
         $this->assertSame(1234, data_get($task->result, 'duration_ms'));
         $this->assertNull($task->lease_expires_at);
+
+        $target->refresh();
+        $this->assertSame(AtlasLoopTarget::STATUS_CANDIDATE, $target->status);
+        $this->assertSame('requeued_metric_miss', $target->reason);
+        $this->assertNull($target->claimed_by);
+        $campaign->refresh();
+        $this->assertSame(1, $campaign->loopbacks);
+    }
+
+    public function test_reconciles_terminal_parallel_task_targets_left_queued_by_previous_run(): void
+    {
+        $campaign = $this->seedCampaign();
+        $target = AtlasLoopTarget::create([
+            'campaign_id' => $campaign->id,
+            'schema_version' => 'atlas.loop.target.v1',
+            'target_path' => 'src/StuckQueued.php',
+            'target_key' => 'stuck-queued',
+            'content_hash' => 'stuck-hash',
+            'status' => AtlasLoopTarget::STATUS_QUEUED,
+            'score' => 1.0,
+            'self_contained_score' => 1.0,
+            'improvement_score' => 1.0,
+            'novelty_score' => 1.0,
+            'signals' => [],
+            'lineage' => [],
+            'attempts' => 1,
+            'max_attempts' => 3,
+        ]);
+        $task = $this->seedTask($campaign->id, 'StuckQueued');
+        $task->forceFill([
+            'status' => AtlasLoopTask::STATUS_FAILED,
+            'payload' => array_merge($task->payload, ['_target_id' => $target->id]),
+            'result' => ['status' => 'failed', 'reason' => 'parallel_worker_timeout'],
+        ])->save();
+
+        $supervisor = $this->supervisor();
+        $method = new \ReflectionMethod($supervisor, 'reconcileUnreflectedParallelTargets');
+        $method->setAccessible(true);
+        $method->invoke($supervisor, $campaign);
+
+        $target->refresh();
+        $this->assertSame(AtlasLoopTarget::STATUS_CANDIDATE, $target->status);
+        $this->assertSame('requeued_metric_miss', $target->reason);
+        $this->assertNull($target->claimed_by);
+        $campaign->refresh();
+        $this->assertSame(1, $campaign->loopbacks);
+
+        $events = array_filter(
+            $supervisor->readLedger($campaign->id, 20),
+            static fn (array $event): bool => ($event['event'] ?? null) === 'parallel_loop_back_reconcile'
+        );
+        $this->assertNotEmpty($events);
+        $event = array_values($events)[0];
+        $this->assertSame(1, $event['scanned']);
+        $this->assertSame(1, $event['reflected']);
     }
 
     public function test_parallel_inflight_work_burns_time_budget_and_drains_task_terminally(): void

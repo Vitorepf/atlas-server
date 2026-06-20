@@ -256,7 +256,6 @@ PHP;
             $this->scored(['cyclomatic' => 10, 'framework_reach' => 1, 'impact_real_callers' => 3]),
             ['origin' => 'discovery'],
         );
-
         $this->invokeGenerateAndEnqueue($this->refiller(), $campaign, $target);
 
         $tasks = DB::table('atlas_loop_tasks')->where('campaign_id', $campaign->id)->get();
@@ -322,7 +321,6 @@ PHP;
             $this->scored(['cyclomatic' => 10, 'framework_reach' => 1, 'impact_real_callers' => 3]),
             ['origin' => 'discovery'],
         );
-
         $this->invokeGenerateAndEnqueue($this->refiller(), $campaign, $target);
 
         $tasks = DB::table('atlas_loop_tasks')->where('campaign_id', $campaign->id)->get();
@@ -540,6 +538,70 @@ PHP;
         $this->assertCount(1, $payload['allowed_files'] ?? []);
         $this->assertTrue((bool) ($payload['acceptance']['quality_bar_gate'] ?? false));
         $this->assertSame(9.0, (float) ($payload['acceptance']['quality_bar'] ?? 0));
+    }
+
+    public function test_refiller_backs_off_extract_class_after_recent_timeouts(): void
+    {
+        config([
+            'atlas.loop.framework_refactor_enabled' => true,
+            'atlas.loop.framework_refactor_min_cyclomatic' => 8,
+            'atlas.loop.framework_refactor_min_callers' => 1,
+            'atlas.loop.multi_file_refactor_via_normal_lane' => true,
+            'atlas.loop.extract_class_min_cyclomatic' => 8,
+            'atlas.loop.extract_class_timeout_backoff_enabled' => true,
+            'atlas.loop.extract_class_timeout_backoff_min_timeouts' => 3,
+            'atlas.loop.extract_class_timeout_backoff_window_hours' => 6,
+        ]);
+        $repo = $this->repoWithComplexFrameworkTargetAndSibling();
+        $campaign = AtlasLoopCampaign::create([
+            'schema_version' => 'atlas.loop.campaign.v1', 'status' => 'running', 'goal' => 'test',
+            'base_workspace' => $repo, 'provider' => '', 'config' => [],
+        ]);
+        for ($i = 0; $i < 3; $i++) {
+            DB::table('atlas_loop_tasks')->insert([
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'campaign_id' => $campaign->id,
+                'schema_version' => 'atlas.loop.task.v1',
+                'status' => 'failed',
+                'source' => 'discovery',
+                'self_contained' => true,
+                'target_path' => 'app/Services/TimedOut'.$i.'.php',
+                'objective' => 'timed out extract class',
+                'payload' => json_encode(['objective_kind' => 'refactor_extract_class'], JSON_THROW_ON_ERROR),
+                'priority' => 1,
+                'attempts' => 1,
+                'max_attempts' => 2,
+                'dedupe_key' => 'timeout-'.$i,
+                'acceptance_hash' => 'timeout-'.$i,
+                'result' => json_encode(['reason' => 'parallel_worker_timeout'], JSON_THROW_ON_ERROR),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+        $target = app(AtlasLoopTargetRepository::class)->upsert(
+            $campaign->id,
+            'app/Services/Router.php',
+            hash('sha256', 'x'),
+            $this->scored(['cyclomatic' => 10, 'framework_reach' => 1, 'impact_real_callers' => 3]),
+            ['origin' => 'discovery'],
+        );
+
+        $this->invokeGenerateAndEnqueue($this->refiller(), $campaign, $target);
+
+        $row = DB::table('atlas_loop_tasks')
+            ->where('campaign_id', $campaign->id)
+            ->where('target_path', 'app/Services/Router.php')
+            ->orderByDesc('created_at')
+            ->first();
+        $payload = (array) json_decode((string) $row->payload, true);
+        $this->assertSame(
+            'refactor_reduce_complexity',
+            $payload['objective_kind'] ?? null,
+            'timeout backoff falls back to the smaller single-file refactor: '.json_encode($payload, JSON_UNESCAPED_SLASHES),
+        );
+        $this->assertSame(['app/Services/Router.php'], $payload['allowed_files'] ?? []);
+        $this->assertTrue((bool) data_get($payload, '_extract_class_backoff.active'));
+        $this->assertSame(3, (int) data_get($payload, '_extract_class_backoff.timeouts'));
     }
 
     /** @param array<string,mixed> $signals */

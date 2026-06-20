@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution\Campaign;
 
 use App\Models\AtlasLoopCampaign;
+use App\Models\AtlasLoopTarget;
 use App\Models\AtlasLoopTask;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopDbResilience;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopObraBridgeService;
@@ -196,6 +197,7 @@ final class AtlasLoopCampaignSupervisor
                 ), 'symbol_gc_on_boot');
             }
             $this->guard(fn () => $this->markCampaignRunning($campaign, $input, $baseWorkspace), 'campaign_start');
+            $this->guard(fn () => $this->reconcileUnreflectedParallelTargets($campaign), 'parallel_loop_back_reconcile');
 
             $lastTick = $this->now();
             while (true) {
@@ -272,9 +274,11 @@ final class AtlasLoopCampaignSupervisor
                         $this->guard(fn () => $campaign->forceFill(['status' => AtlasLoopCampaign::STATUS_RUNNING, 'paused_at' => null])->save(), 'campaign_resume');
                     }
 
-                    // Self-feed: keep the queue above the low watermark (discover + generate).
-                    if ((int) $this->guard(fn () => $this->store->countPending($campaign->id), 'count_pending') < $watermark
-                        && ! ($pool instanceof LoopWorkerPool && $pool->inFlight() > 0)) {
+                    // Self-feed: keep total schedulable work above the low watermark.
+                    // Parallel in-flight work counts toward the watermark, but a single
+                    // long worker should not starve otherwise-idle slots.
+                    $pendingTasks = (int) $this->guard(fn () => $this->store->countPending($campaign->id), 'count_pending');
+                    if ($this->shouldRefillQueue($pendingTasks, $watermark, $pool)) {
                         if ($this->stopRequested($campaign)) {
                             $stop = 'kill_switch';
                             break;
@@ -402,6 +406,7 @@ final class AtlasLoopCampaignSupervisor
                         );
                         $settled = array_values((array) ($tick['settled'] ?? []));
                         $this->settleTimedOutParallelWorkers($settled);
+                        $this->reflectParallelSettledTargets($campaign, $settled);
                         $cycles += count($settled);
                         $settledSpendCents = $this->spendCentsFromWorkerSummaries($settled);
                         $tickEnd = $this->now();
@@ -858,6 +863,18 @@ final class AtlasLoopCampaignSupervisor
         ];
     }
 
+    private function shouldRefillQueue(int $pendingTasks, int $watermark, ?LoopWorkerPool $pool): bool
+    {
+        $pendingTasks = max(0, $pendingTasks);
+        $watermark = max(1, $watermark);
+
+        if (! $pool instanceof LoopWorkerPool) {
+            return $pendingTasks < $watermark;
+        }
+
+        return ($pendingTasks + $pool->inFlight()) < $watermark;
+    }
+
     private function beat(AtlasLoopCampaign $campaign, int $deltaSeconds, int $addSpendCents = 0): void
     {
         $this->guard(fn () => $campaign->beat(max(0, $deltaSeconds), max(0, $addSpendCents)), 'campaign_beat');
@@ -977,6 +994,106 @@ final class AtlasLoopCampaignSupervisor
                 'exit_code' => $summary['exit_code'] ?? null,
                 'duration_ms' => (int) ($summary['duration_ms'] ?? 0),
             ], false), 'parallel_worker_timeout_complete');
+        }
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $settled
+     */
+    private function reflectParallelSettledTargets(AtlasLoopCampaign $campaign, array $settled): void
+    {
+        foreach ($settled as $summary) {
+            $taskId = trim((string) ($summary['task_id'] ?? ''));
+            if ($taskId === '') {
+                continue;
+            }
+
+            $task = AtlasLoopTask::query()->find($taskId);
+            $targetId = (string) (is_array($task?->payload) ? ($task->payload['_target_id'] ?? '') : '');
+            if ($targetId === '') {
+                continue;
+            }
+
+            $result = is_array($summary['result'] ?? null) ? $summary['result'] : [];
+            $status = trim((string) ($result['status'] ?? ''));
+            $reason = trim((string) ($result['reason'] ?? ''));
+            if ($status === '' && (bool) ($summary['timed_out'] ?? false)) {
+                $status = 'failed';
+                $reason = 'parallel_worker_timeout';
+            }
+            if ($status === '' && array_key_exists('has_winner', $result)) {
+                $status = (bool) $result['has_winner'] ? 'winner' : 'no_winner';
+            }
+            if ($status === '') {
+                continue;
+            }
+
+            $this->guard(fn () => $this->loopBack->reflect($campaign->id, [
+                'target_id' => $targetId,
+                'status' => $status,
+                'reason' => $reason,
+            ]), 'parallel_loop_back');
+            $this->guard(fn () => $campaign->increment('loopbacks'), 'campaign_parallel_loopbacks');
+        }
+    }
+
+    private function reconcileUnreflectedParallelTargets(AtlasLoopCampaign $campaign): void
+    {
+        $limit = max(1, (int) config('atlas.loop.parallel_loop_back_reconcile_limit', 64));
+        $scanned = 0;
+        $reflected = 0;
+
+        $tasks = AtlasLoopTask::query()
+            ->where('campaign_id', $campaign->id)
+            ->whereIn('status', [AtlasLoopTask::STATUS_DONE, AtlasLoopTask::STATUS_FAILED])
+            ->whereRaw("payload->>'_target_id' IS NOT NULL")
+            ->orderByDesc('updated_at')
+            ->limit($limit)
+            ->get();
+
+        foreach ($tasks as $task) {
+            $scanned++;
+            $targetId = (string) (is_array($task->payload) ? ($task->payload['_target_id'] ?? '') : '');
+            if ($targetId === '') {
+                continue;
+            }
+            $target = AtlasLoopTarget::query()
+                ->where('campaign_id', $campaign->id)
+                ->whereKey($targetId)
+                ->first();
+            if (! $target instanceof AtlasLoopTarget || $target->status !== AtlasLoopTarget::STATUS_QUEUED) {
+                continue;
+            }
+
+            $result = is_array($task->result) ? $task->result : [];
+            $status = trim((string) ($result['status'] ?? ''));
+            $reason = trim((string) ($result['reason'] ?? ''));
+            if ($status === '' && $task->status === AtlasLoopTask::STATUS_DONE) {
+                $status = ((bool) ($result['has_winner'] ?? false) || (int) ($result['proposals'] ?? 0) > 0) ? 'winner' : 'no_winner';
+            }
+            if ($status === '' && $task->status === AtlasLoopTask::STATUS_FAILED) {
+                $status = 'failed';
+                $reason = $reason !== '' ? $reason : 'parallel_task_failed';
+            }
+            if ($status === '') {
+                continue;
+            }
+
+            $this->loopBack->reflect($campaign->id, [
+                'target_id' => $targetId,
+                'status' => $status,
+                'reason' => $reason,
+            ]);
+            $campaign->increment('loopbacks');
+            $reflected++;
+        }
+
+        if ($scanned > 0 || $reflected > 0) {
+            $this->appendLedger($campaign->id, [
+                'event' => 'parallel_loop_back_reconcile',
+                'scanned' => $scanned,
+                'reflected' => $reflected,
+            ]);
         }
     }
 

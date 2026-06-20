@@ -108,7 +108,12 @@ final class AtlasLoopBackService
                 ])->save();
                 $spawned = 1;
             } else {
-                $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_PROPOSED, 'attempt_cap_reached');
+                $target->forceFill([
+                    'status' => AtlasLoopTarget::STATUS_PROPOSED,
+                    'reason' => 'attempt_cap_reached',
+                    'claimed_by' => null,
+                    'lease_expires_at' => null,
+                ])->save();
             }
 
             return ['spawned' => $spawned, 'quarantined' => 0, 'requeued' => 0];
@@ -140,7 +145,12 @@ final class AtlasLoopBackService
             return ['spawned' => 0, 'quarantined' => 0, 'requeued' => 1];
         }
 
-        $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_EXHAUSTED, 'attempt_cap_no_winner');
+        $target->forceFill([
+            'status' => AtlasLoopTarget::STATUS_EXHAUSTED,
+            'reason' => 'attempt_cap_no_winner',
+            'claimed_by' => null,
+            'lease_expires_at' => null,
+        ])->save();
 
         return ['spawned' => 0, 'quarantined' => 0, 'requeued' => 0];
     }

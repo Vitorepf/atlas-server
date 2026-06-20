@@ -180,6 +180,30 @@ final class AtlasLoopGuardsTest extends TestCase
         $this->assertSame($first->id, $reclaimed->id);
     }
 
+    public function test_store_atomic_claim_skips_duplicate_live_target(): void
+    {
+        $store = $this->app->make(AtlasLoopStore::class);
+        $campaign = $store->openCampaign('target anti-dup claim test', sys_get_temp_dir(), ['max_seconds' => 0]);
+
+        $a1 = $store->enqueueTask($campaign->id, 'a-one', ['target_relative_path' => 'src/A.php', 'target_content' => 'x', 'acceptance' => ['commands' => ['true']]], AtlasLoopTask::SOURCE_SEED, 'src/A.php', 300);
+        $a2 = $store->enqueueTask($campaign->id, 'a-two', ['target_relative_path' => 'src/A.php', 'target_content' => 'x', 'acceptance' => ['commands' => ['true']]], AtlasLoopTask::SOURCE_SEED, 'src/A.php', 200);
+        $b = $store->enqueueTask($campaign->id, 'b', ['target_relative_path' => 'src/B.php', 'target_content' => 'x', 'acceptance' => ['commands' => ['true']]], AtlasLoopTask::SOURCE_SEED, 'src/B.php', 100);
+        $this->assertNotNull($a1);
+        $this->assertNotNull($a2);
+        $this->assertNotNull($b);
+
+        $first = $store->claimNextTask($campaign->id, 'w1', 600);
+        $second = $store->claimNextTask($campaign->id, 'w2', 600);
+
+        $this->assertSame($a1->id, $first?->id);
+        $this->assertSame($b->id, $second?->id, 'a lower-priority different target should run before a duplicate live target');
+
+        $this->assertTrue($store->completeTask($a1->id, 'w1', ['ok' => true], true));
+        $third = $store->claimNextTask($campaign->id, 'w3', 600);
+
+        $this->assertSame($a2->id, $third?->id, 'the duplicate target is claimable again once the active target finishes');
+    }
+
     public function test_store_complete_by_non_owner_is_rejected(): void
     {
         $store = $this->app->make(AtlasLoopStore::class);

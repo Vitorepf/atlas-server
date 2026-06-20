@@ -142,12 +142,23 @@ final class AtlasLoopStore
                        attempts = attempts + 1,
                        updated_at = NOW()
                  WHERE id = (
-                       SELECT id FROM atlas_loop_tasks
-                        WHERE campaign_id = ?
-                          AND (status = 'pending' OR (status IN ('claimed','running') AND lease_expires_at < NOW()))
-                          AND attempts < max_attempts
-                          AND (self_contained = true OR payload->>'materializer' = 'framework')
-                        ORDER BY priority DESC, created_at ASC
+                       SELECT candidate.id FROM atlas_loop_tasks candidate
+                        WHERE candidate.campaign_id = ?
+                          AND (candidate.status = 'pending' OR (candidate.status IN ('claimed','running') AND candidate.lease_expires_at < NOW()))
+                          AND candidate.attempts < candidate.max_attempts
+                          AND (candidate.self_contained = true OR candidate.payload->>'materializer' = 'framework')
+                          AND (
+                              candidate.target_path IS NULL
+                              OR NOT EXISTS (
+                                  SELECT 1 FROM atlas_loop_tasks active
+                                   WHERE active.campaign_id = candidate.campaign_id
+                                     AND active.id <> candidate.id
+                                     AND active.target_path = candidate.target_path
+                                     AND active.status IN ('claimed','running')
+                                     AND (active.lease_expires_at IS NULL OR active.lease_expires_at >= NOW())
+                              )
+                          )
+                        ORDER BY candidate.priority DESC, candidate.created_at ASC
                         FOR UPDATE SKIP LOCKED
                         LIMIT 1
                  )
@@ -178,6 +189,21 @@ final class AtlasLoopStore
                 ->where(function ($q): void {
                     $q->where('self_contained', true)
                         ->orWhere('payload->materializer', 'framework');
+                })
+                ->where(function ($q): void {
+                    $q->whereNull('target_path')
+                        ->orWhereNotExists(function ($sub): void {
+                            $sub->selectRaw('1')
+                                ->from('atlas_loop_tasks as active')
+                                ->whereColumn('active.campaign_id', 'atlas_loop_tasks.campaign_id')
+                                ->whereColumn('active.target_path', 'atlas_loop_tasks.target_path')
+                                ->whereColumn('active.id', '<>', 'atlas_loop_tasks.id')
+                                ->whereIn('active.status', [AtlasLoopTask::STATUS_CLAIMED, AtlasLoopTask::STATUS_RUNNING])
+                                ->where(function ($lease): void {
+                                    $lease->whereNull('active.lease_expires_at')
+                                        ->orWhere('active.lease_expires_at', '>=', Carbon::now());
+                                });
+                        });
                 })
                 ->orderByDesc('priority')->orderBy('created_at')
                 ->lockForUpdate()

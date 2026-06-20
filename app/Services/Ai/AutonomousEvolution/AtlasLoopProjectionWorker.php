@@ -91,9 +91,15 @@ final class AtlasLoopProjectionWorker
             // producer envelope as a first-class task (rebuilt from the checkpoint, NOT re-produced).
             $obligations = is_array($result['obligations'] ?? null) ? array_values((array) $result['obligations']) : [];
             $task = $this->enqueueFromEnvelope($campaignId, $envelope, $checkpoint, $obligations, $bindingAxis);
+            if (! $task instanceof AtlasLoopTask) {
+                $pipeline->park($objectiveId, 'projection_enqueue_no_live_task');
+
+                return ['outcome' => 'enqueue_failed', 'objective_id' => $objectiveId, 'status' => 'converged', 'reason' => 'projection_enqueue_no_live_task'];
+            }
+
             $pipeline->complete($objectiveId);
 
-            return ['outcome' => $task !== null ? 'enqueued' : 'enqueue_failed', 'objective_id' => $objectiveId, 'status' => 'converged'];
+            return ['outcome' => 'enqueued', 'objective_id' => $objectiveId, 'status' => 'converged'];
         } catch (Throwable $e) {
             // Fail-closed: an unprojectable objective is PARKED, never minted as a task.
             try {
@@ -204,11 +210,18 @@ final class AtlasLoopProjectionWorker
             $hash !== '' ? $hash : null,
         );
 
-        if ($task instanceof AtlasLoopTask) {
-            $this->reopenRetryableTerminalDuplicate($task);
+        if ($task instanceof AtlasLoopTask && $this->isTerminalDuplicate($task)) {
+            if (! $this->reopenRetryableTerminalDuplicate($task)) {
+                return null;
+            }
         }
 
         return $task instanceof AtlasLoopTask ? $task->fresh() : $task;
+    }
+
+    private function isTerminalDuplicate(AtlasLoopTask $task): bool
+    {
+        return in_array((string) $task->status, [AtlasLoopTask::STATUS_DONE, AtlasLoopTask::STATUS_FAILED, AtlasLoopTask::STATUS_DEFERRED], true);
     }
 
     /**

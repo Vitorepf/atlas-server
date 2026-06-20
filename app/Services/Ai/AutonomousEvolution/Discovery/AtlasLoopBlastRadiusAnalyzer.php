@@ -75,12 +75,13 @@ final class AtlasLoopBlastRadiusAnalyzer
         // analysis cap (maxNodes) — otherwise the same hub would change risk band just by changing the cap.
         $countSeverity = min(1.0, $count / self::HIGH_FAN_OUT);
         $riskScore = round(min(1.0, $countSeverity * 0.7 + ($depthReached / $maxDepth) * 0.3), 4);
-        $risk = match (true) {
-            $truncated || $riskScore >= 0.75 => 'critical',
-            $riskScore >= 0.4 => 'high',
-            $riskScore >= 0.15 => 'medium',
-            default => 'low',
-        };
+        $riskBands = ['low', 'medium', 'high', 'critical'];
+        $risk = $riskBands[max(
+            (int) ($riskScore >= 0.15),
+            (int) ($riskScore >= 0.4) * 2,
+            (int) ($riskScore >= 0.75) * 3,
+            (int) $truncated * 3,
+        )];
 
         return [
             'target' => $target,

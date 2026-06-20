@@ -256,7 +256,13 @@ final class AtlasLoopTargetRepository
                 && (bool) config('atlas.loop.refactor_multi_file_via_obra', false))
             || (bool) config('atlas.loop.multi_file_refactor_via_normal_lane', false);
 
-        return $refactorEnabled && (int) ($signals['cyclomatic'] ?? 0) > 0;
+        if (! $refactorEnabled) {
+            return false;
+        }
+
+        $minCyclomatic = max(8, (int) config('atlas.loop.framework_refactor_min_cyclomatic', 10));
+
+        return (int) ($signals['cyclomatic'] ?? 0) >= $minCyclomatic;
     }
 
     public function markStatus(string $targetId, string $status, ?string $reason = null): void

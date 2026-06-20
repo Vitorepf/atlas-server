@@ -2211,6 +2211,13 @@ return [
         // — no Obra ceremony. Default OFF = byte-identical (single-file in-place reduction only).
         'multi_file_refactor_via_normal_lane' => (bool) env('ATLAS_LOOP_MULTI_FILE_REFACTOR_VIA_NORMAL_LANE', false),
         'extract_class_min_cyclomatic' => max(1, (int) env('ATLAS_LOOP_EXTRACT_CLASS_MIN_CYCLOMATIC', 15)),
+        // Live soak backoff: if extract-class tasks are timing out repeatedly in THIS campaign, stop
+        // escalating the next refactor candidates to the two-file lane and fall back to the smaller
+        // single-file complexity reduction. This preserves real work while avoiding a 24h loop that
+        // burns every parallel slot on known-overlarge tasks. Fail-open: DB/read errors disable backoff.
+        'extract_class_timeout_backoff_enabled' => (bool) env('ATLAS_LOOP_EXTRACT_CLASS_TIMEOUT_BACKOFF_ENABLED', true),
+        'extract_class_timeout_backoff_window_hours' => max(1, (int) env('ATLAS_LOOP_EXTRACT_CLASS_TIMEOUT_BACKOFF_WINDOW_HOURS', 6)),
+        'extract_class_timeout_backoff_min_timeouts' => max(1, (int) env('ATLAS_LOOP_EXTRACT_CLASS_TIMEOUT_BACKOFF_MIN_TIMEOUTS', 3)),
         // ADEP keystone — ITERATE-TO-GREEN: after the provider attempt, the LOOP runs the acceptance
         // test and, on red, re-invokes the provider WITH the exact failure until green or budget (the
         // test-fix-retest loop codex/Claude use; the loop's single-shot lane never had it). Default

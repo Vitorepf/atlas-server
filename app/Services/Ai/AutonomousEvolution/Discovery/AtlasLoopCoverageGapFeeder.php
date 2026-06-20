@@ -89,6 +89,9 @@ final class AtlasLoopCoverageGapFeeder
         if (is_string($gap['target_content'] ?? null) && $gap['target_content'] !== '') {
             $payload['target_content'] = $gap['target_content'];
         }
+        if (is_string($gap['_target_id'] ?? null) && $gap['_target_id'] !== '') {
+            $payload['_target_id'] = $gap['_target_id'];
+        }
         if ($provider !== null && $provider !== '') {
             $payload['provider'] = $provider;
         }

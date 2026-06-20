@@ -200,6 +200,41 @@ final class AtlasLoopProjectionStageLiveTest extends TestCase
         $this->assertNull($tasks->first()->result, 'stale terminal result is cleared before retry');
     }
 
+    public function test_a_converged_projection_parks_exhausted_terminal_duplicate_instead_of_reporting_phantom_enqueue(): void
+    {
+        $campaign = $this->campaign();
+        $this->refiller()->refill($campaign, 4);
+
+        $pipeline = new AtlasLoopDeliveryPipeline;
+        $row = $pipeline->claimNextProjection($campaign->id, 'worker-A', 300);
+        $this->assertIsArray($row);
+
+        $worker = new AtlasLoopProjectionWorker($this->store(), $pipeline, new AtlasLoopProjectionEngine, $this->fixedAxis('wired'));
+        $this->assertSame('enqueued', $worker->process($row)['outcome']);
+
+        $task = AtlasLoopTask::query()->where('campaign_id', $campaign->id)->firstOrFail();
+        $task->forceFill([
+            'status' => AtlasLoopTask::STATUS_FAILED,
+            'attempts' => 2,
+            'max_attempts' => 2,
+            'result' => ['status' => 'failed', 'reason' => 'parallel_worker_timeout'],
+        ])->save();
+
+        $pipeline->dispatchProjection($campaign->id, (string) $row['objective_id'], 1.0, (array) $row['checkpoint']);
+        $retryRow = $pipeline->claimNextProjection($campaign->id, 'worker-B', 300);
+        $this->assertIsArray($retryRow);
+
+        $outcome = $worker->process($retryRow);
+
+        $this->assertSame('enqueue_failed', $outcome['outcome']);
+        $this->assertSame('projection_enqueue_no_live_task', $outcome['reason']);
+        $task->refresh();
+        $this->assertSame(AtlasLoopTask::STATUS_FAILED, (string) $task->status);
+        $this->assertSame(2, (int) $task->attempts);
+        $this->assertSame(0, $pipeline->countOpenProjections($campaign->id), 'parked duplicate is terminal, not phantom open work');
+        $this->assertSame('parked', (string) DB::table('atlas_loop_pipeline_state')->where('objective_id', $row['objective_id'])->value('stage'));
+    }
+
     public function test_projected_loop_harness_complexity_refactor_counts_as_governed_self_improvement(): void
     {
         $campaign = $this->store()->openCampaign('S2 loop self-improvement projection', $this->repoRoot, ['max_seconds' => 3600], [], '');

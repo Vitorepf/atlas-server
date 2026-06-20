@@ -136,6 +136,42 @@ final class AtlasLoopFailureSupplyTest extends TestCase
         $this->assertCount(3, $this->children($t->id), 'content-addressed siblings de-duplicate across misses');
     }
 
+    public function test_winner_at_attempt_cap_marks_proposed_without_incrementing_past_cap(): void
+    {
+        $c = $this->campaign();
+        $t = $this->target($c);
+        $t->forceFill(['attempts' => 3, 'max_attempts' => 3])->save();
+
+        $out = $this->backService()->reflect($c->id, ['target_id' => $t->id, 'status' => 'winner']);
+
+        $this->assertSame(['spawned' => 0, 'quarantined' => 0, 'requeued' => 0], $out);
+        $t->refresh();
+        $this->assertSame(AtlasLoopTarget::STATUS_PROPOSED, $t->status);
+        $this->assertSame('attempt_cap_reached', $t->reason);
+        $this->assertSame(3, (int) $t->attempts);
+        $this->assertSame(3, (int) $t->max_attempts);
+    }
+
+    public function test_miss_at_attempt_cap_marks_exhausted_without_incrementing_past_cap(): void
+    {
+        $c = $this->campaign();
+        $t = $this->target($c);
+        $t->forceFill(['attempts' => 3, 'max_attempts' => 3])->save();
+
+        $out = $this->backService()->reflect($c->id, [
+            'target_id' => $t->id,
+            'status' => 'no_winner',
+            'reason' => 'metric_miss',
+        ]);
+
+        $this->assertSame(['spawned' => 0, 'quarantined' => 0, 'requeued' => 0], $out);
+        $t->refresh();
+        $this->assertSame(AtlasLoopTarget::STATUS_EXHAUSTED, $t->status);
+        $this->assertSame('attempt_cap_no_winner', $t->reason);
+        $this->assertSame(3, (int) $t->attempts);
+        $this->assertSame(3, (int) $t->max_attempts);
+    }
+
     public function test_depth_clamp_blocks_runaway_fanout(): void
     {
         config()->set('atlas.loop.failure_supply_enabled', true);

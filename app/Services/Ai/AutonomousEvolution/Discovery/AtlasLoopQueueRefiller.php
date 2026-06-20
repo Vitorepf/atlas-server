@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution\Discovery;
 
 use App\Models\AtlasLoopCampaign;
+use App\Models\AtlasLoopTask;
 use App\Models\AtlasLoopTarget;
 use App\Services\Ai\AutonomousEvolution\AtlasEvolutionTaskGenerator;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
@@ -32,6 +33,11 @@ use Throwable;
  */
 final class AtlasLoopQueueRefiller
 {
+    private const EXTRACT_CLASS_OBJECTIVE_KIND = 'refactor_extract_class';
+
+    /** @var array<string,array{active:bool, timeouts:int, successes:int, window_hours:int}> */
+    private array $extractClassBackoffCache = [];
+
     public function __construct(
         private readonly AtlasLoopTargetDiscoveryService $discovery,
         private readonly AtlasLoopTargetRepository $repository,
@@ -358,7 +364,7 @@ final class AtlasLoopQueueRefiller
                     if ((bool) config('atlas.loop.projection_stage_enabled', true) && $pipeline !== null) {
                         $realTargetId = is_array($built['payload'] ?? null) ? (string) ($built['payload']['_target_id'] ?? '') : '';
                         $objectiveId = hash('sha256', $campaign->id.'|'.((string) $built['target_path']).'|'.$hash);
-                        $pipeline->dispatchProjection(
+                        $dispatched = $pipeline->dispatchProjection(
                             (string) $campaign->id,
                             $objectiveId,
                             (float) ($built['leverage'] ?? 0.0),
@@ -371,7 +377,12 @@ final class AtlasLoopQueueRefiller
                         );
                         // A projection row is OPEN work, not a task — mark the cycle producer-led so the
                         // per-target lanes can be skipped, but do NOT increment $enqueued (no task minted yet).
-                        $producerLed = true;
+                        // If insertOrIgnore says the objective already exists (for example parked/exhausted),
+                        // do not suppress the target lanes; otherwise the loop can starvation-spin on a
+                        // duplicate projection that cannot mint live work.
+                        if ($dispatched) {
+                            $producerLed = true;
+                        }
                     } else {
                         $enq = $this->store->enqueueTask(
                             $campaign->id,
@@ -517,6 +528,57 @@ final class AtlasLoopQueueRefiller
         }
     }
 
+    private function completeTargetEnqueue(AtlasLoopTarget $target, ?AtlasLoopTask $task, string $queuedReason): string
+    {
+        if ($this->taskIsLiveForTarget($task, $target)) {
+            $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, $queuedReason);
+
+            return 'enqueued';
+        }
+
+        $this->releaseDuplicateOrMissingTaskTarget(
+            $target,
+            $task instanceof AtlasLoopTask ? 'duplicate_task_not_live_for_target' : 'task_enqueue_missing',
+        );
+
+        return 'deferred';
+    }
+
+    private function taskIsLiveForTarget(?AtlasLoopTask $task, AtlasLoopTarget $target): bool
+    {
+        if (! $task instanceof AtlasLoopTask) {
+            return false;
+        }
+        if (! in_array((string) $task->status, [
+            AtlasLoopTask::STATUS_PENDING,
+            AtlasLoopTask::STATUS_CLAIMED,
+            AtlasLoopTask::STATUS_RUNNING,
+        ], true)) {
+            return false;
+        }
+        $payload = is_array($task->payload) ? $task->payload : [];
+
+        return (string) ($payload['_target_id'] ?? '') === (string) $target->id;
+    }
+
+    private function releaseDuplicateOrMissingTaskTarget(AtlasLoopTarget $target, string $reason): void
+    {
+        $attempts = (int) $target->attempts + 1;
+        $maxAttempts = max(1, (int) $target->max_attempts);
+        $status = $attempts >= $maxAttempts ? AtlasLoopTarget::STATUS_EXHAUSTED : AtlasLoopTarget::STATUS_CANDIDATE;
+
+        $target->forceFill([
+            'status' => $status,
+            'attempts' => min($attempts, $maxAttempts),
+            'reason' => $status === AtlasLoopTarget::STATUS_EXHAUSTED ? 'attempt_cap_'.$reason : $reason,
+            'claimed_by' => null,
+            'claimed_at' => null,
+            'lease_expires_at' => null,
+            'novelty_score' => max(0.0, (float) $target->novelty_score - 0.34),
+            'score' => max(0.0, (float) $target->score - 0.1),
+        ])->save();
+    }
+
     private function generateAndEnqueue(AtlasLoopCampaign $campaign, AtlasLoopTarget $target, string $provider): string
     {
         $repoRoot = rtrim((string) $campaign->base_workspace, '/');
@@ -611,9 +673,8 @@ final class AtlasLoopQueueRefiller
                         $synth['acceptance_hash'],
                     );
                     $this->stampLastObjective($target, (string) $synth['objective']);
-                    $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'multi_file_refactor_task_synthesized');
 
-                    return $enq !== null ? 'enqueued' : 'deferred';
+                    return $this->completeTargetEnqueue($target, $enq, 'multi_file_refactor_task_synthesized');
                 }
             }
         }
@@ -686,9 +747,8 @@ final class AtlasLoopQueueRefiller
                     '',
                 );
                 $this->stampLastObjective($target, $objective);
-                $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'framework_task_enqueued');
 
-                return $enq !== null ? 'enqueued' : 'deferred';
+                return $this->completeTargetEnqueue($target, $enq, 'framework_task_enqueued');
             }
         }
 
@@ -730,9 +790,8 @@ final class AtlasLoopQueueRefiller
                         $refactor['acceptance_hash'],
                     );
                     $this->stampLastObjective($target, (string) $refactor['objective']);
-                    $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'refactor_task_synthesized');
 
-                    return $enq !== null ? 'enqueued' : 'deferred';
+                    return $this->completeTargetEnqueue($target, $enq, 'refactor_task_synthesized');
                 }
             }
         }
@@ -809,10 +868,9 @@ final class AtlasLoopQueueRefiller
             );
 
             $this->stampLastObjective($target, (string) $task['objective']);
-            $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'task_generated');
             $cleanup();
 
-            return $enq !== null ? 'enqueued' : 'deferred';
+            return $this->completeTargetEnqueue($target, $enq, 'task_generated');
         } catch (Throwable $e) {
             $cleanup();
             $this->loopBack->reflect($campaign->id, ['target_id' => $target->id, 'status' => 'no_winner', 'reason' => 'materialize_'.mb_substr($e->getMessage(), 0, 60)]);
@@ -866,8 +924,10 @@ final class AtlasLoopQueueRefiller
         // reduction (byte-identical). The synth reuses the SAME complex/wired/sibling gates for both.
         // $forceExtractClass: the broadened router already reasoned the extract_class shape (wired +
         // test-backed + cyclomatic well above the floor), so honor it directly here.
-        $extractClass = $forceExtractClass || ((bool) config('atlas.loop.multi_file_refactor_via_normal_lane', false)
-            && (int) ($signals['cyclomatic'] ?? 0) >= max(1, (int) config('atlas.loop.extract_class_min_cyclomatic', 15)));
+        $backoff = $this->extractClassTimeoutBackoff((string) $campaign->id);
+        $extractClass = ! $backoff['active']
+            && ($forceExtractClass || ((bool) config('atlas.loop.multi_file_refactor_via_normal_lane', false)
+                && (int) ($signals['cyclomatic'] ?? 0) >= max(1, (int) config('atlas.loop.extract_class_min_cyclomatic', 15))));
         $refactor = $synth->synthesizeFrameworkRefactor(
             $repoRoot,
             ltrim((string) $target->target_path, '/'),
@@ -881,6 +941,9 @@ final class AtlasLoopQueueRefiller
         }
         $dp = $this->decidedPriority($campaign, $target, $signals, $repoRoot, AtlasLoopWorkShapeRouter::SHAPE_REFACTOR);
         $frPayload = $refactor['payload'];
+        if ($backoff['active']) {
+            $frPayload['_extract_class_backoff'] = $backoff;
+        }
         if ($dp['receipt'] !== []) {
             $frPayload['_decision'] = $dp['receipt'];
         }
@@ -896,9 +959,81 @@ final class AtlasLoopQueueRefiller
             $refactor['acceptance_hash'],
         );
         $this->stampLastObjective($target, (string) $refactor['objective']);
-        $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'framework_refactor_task_synthesized');
 
-        return $enq !== null ? 'enqueued' : 'deferred';
+        return $this->completeTargetEnqueue($target, $enq, 'framework_refactor_task_synthesized');
+    }
+
+    /**
+     * Back off from two-file extract-class when the live campaign has already proven that shape is
+     * burning the time budget. The fallback still emits a governed refactor task for the same target,
+     * only smaller. Fail-open: any read issue leaves the lane available.
+     *
+     * @return array{active:bool, timeouts:int, successes:int, window_hours:int}
+     */
+    private function extractClassTimeoutBackoff(string $campaignId): array
+    {
+        if (! (bool) config('atlas.loop.extract_class_timeout_backoff_enabled', true)) {
+            return ['active' => false, 'timeouts' => 0, 'successes' => 0, 'window_hours' => 0];
+        }
+        if (isset($this->extractClassBackoffCache[$campaignId])) {
+            return $this->extractClassBackoffCache[$campaignId];
+        }
+
+        $windowHours = max(1, (int) config('atlas.loop.extract_class_timeout_backoff_window_hours', 6));
+        $minTimeouts = max(1, (int) config('atlas.loop.extract_class_timeout_backoff_min_timeouts', 3));
+        $backoff = ['active' => false, 'timeouts' => 0, 'successes' => 0, 'window_hours' => $windowHours];
+
+        $since = now()->subHours($windowHours)->toDateTimeString();
+        try {
+            $rows = DB::table('atlas_loop_tasks')
+                ->where('campaign_id', $campaignId)
+                ->where('updated_at', '>=', $since)
+                ->get(['status', 'payload', 'result']);
+        } catch (Throwable) {
+            return $this->extractClassBackoffCache[$campaignId] = $backoff;
+        }
+
+        foreach ($rows as $row) {
+            $payload = $this->jsonObject($row->payload ?? null);
+            if (($payload['objective_kind'] ?? null) !== self::EXTRACT_CLASS_OBJECTIVE_KIND) {
+                continue;
+            }
+
+            if ((string) ($row->status ?? '') === 'done') {
+                $backoff['successes']++;
+                continue;
+            }
+
+            $result = $this->jsonObject($row->result ?? null);
+            if (($result['reason'] ?? null) === 'parallel_worker_timeout') {
+                $backoff['timeouts']++;
+            }
+        }
+
+        $backoff['active'] = $backoff['timeouts'] >= $minTimeouts
+            && $backoff['timeouts'] > $backoff['successes'];
+
+        return $this->extractClassBackoffCache[$campaignId] = $backoff;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function jsonObject(mixed $value): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+        if ($value instanceof \stdClass) {
+            return (array) $value;
+        }
+        if (! is_string($value) || trim($value) === '') {
+            return [];
+        }
+
+        $decoded = json_decode($value, true);
+
+        return is_array($decoded) ? $decoded : [];
     }
 
     /**
@@ -941,6 +1076,7 @@ final class AtlasLoopQueueRefiller
             'decision_operator' => $operator,
             'mutation_id' => 'coverage_deficit:'.$operator,
             'sibling_test' => $sibling !== '' ? $sibling : null,
+            '_target_id' => (string) $target->id,
         ], $provider !== '' ? $provider : null, true);
 
         if ($taskId === null) {
@@ -953,9 +1089,10 @@ final class AtlasLoopQueueRefiller
             ? (string) $signals['coverage_objective']
             : 'Create a characterization test for '.ltrim((string) $target->target_path, '/');
         $this->stampLastObjective($target, $objective);
-        $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'coverage_deficit_characterization_task_enqueued');
 
-        return 'enqueued';
+        $task = AtlasLoopTask::query()->find($taskId);
+
+        return $this->completeTargetEnqueue($target, $task, 'coverage_deficit_characterization_task_enqueued');
     }
 
     private function firstNonCosmeticFrozenOperator(string $source): string
@@ -1030,9 +1167,8 @@ final class AtlasLoopQueueRefiller
             (string) $grounded['acceptance_hash'],
         );
         $this->stampLastObjective($target, (string) $grounded['objective']);
-        $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'self_improvement_task_synthesized');
 
-        return $enq !== null ? 'enqueued' : 'deferred';
+        return $this->completeTargetEnqueue($target, $enq, 'self_improvement_task_synthesized');
     }
 
     /**
@@ -1121,9 +1257,8 @@ final class AtlasLoopQueueRefiller
             $acceptanceHash,
         );
         $this->stampLastObjective($target, (string) $repro['objective']);
-        $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'bug_reproduction_task_synthesized');
 
-        return $enq !== null ? 'enqueued' : 'deferred';
+        return $this->completeTargetEnqueue($target, $enq, 'bug_reproduction_task_synthesized');
     }
 
     /**
@@ -1174,9 +1309,8 @@ final class AtlasLoopQueueRefiller
             $synth['acceptance_hash'],
         );
         $this->stampLastObjective($target, (string) $synth['objective']);
-        $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'multi_file_refactor_task_synthesized');
 
-        return $enq !== null ? 'enqueued' : 'deferred';
+        return $this->completeTargetEnqueue($target, $enq, 'multi_file_refactor_task_synthesized');
     }
 
     private function proxyRefactorSupplyEnabled(): bool

@@ -469,4 +469,41 @@ PHP;
         $this->assertSame(AtlasLoopTarget::STATUS_CANDIDATE, $target->status);
         $this->assertSame('policy_unblocked_reopened', $target->reason);
     }
+
+    public function test_policy_blocked_refactor_target_below_complexity_floor_stays_quarantined(): void
+    {
+        config([
+            'atlas.loop.generic_provider_fallback_enabled' => false,
+            'atlas.loop.characterization_test_lane_enabled' => false,
+            'atlas.loop.framework_refactor_enabled' => true,
+            'atlas.loop.framework_refactor_min_cyclomatic' => 10,
+            'atlas.loop.refactor_objectives_enabled' => true,
+            'atlas.loop.proxy_refactor_supply_enabled' => true,
+        ]);
+        $campaign = $this->campaign($this->repo());
+        $target = app(AtlasLoopTargetRepository::class)->upsert(
+            (string) $campaign->id,
+            'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopBacklogAutoFeederService.php',
+            hash('sha256', $this->source()),
+            [
+                'score' => 0.95,
+                'self_contained' => 0.45,
+                'improvement' => 1.0,
+                'novelty' => 1.0,
+                'signals' => [
+                    'framework_reach' => 1,
+                    'has_sibling_test' => true,
+                    'sibling_test_path' => 'tests/Unit/Ai/AutonomousEvolution/Discovery/AtlasLoopBacklogAutoFeederServiceTest.php',
+                    'cyclomatic' => 8,
+                ],
+            ],
+            ['origin' => 'discovery'],
+        );
+        app(AtlasLoopTargetRepository::class)->quarantine($target->id, 'generic_provider_fallback_disabled');
+
+        $this->assertSame(0, app(AtlasLoopTargetRepository::class)->reopenPolicyBlockedForStructuredSupply((string) $campaign->id, 4));
+        $target->refresh();
+        $this->assertSame(AtlasLoopTarget::STATUS_QUARANTINED, $target->status);
+        $this->assertSame('generic_provider_fallback_disabled', $target->reason);
+    }
 }
