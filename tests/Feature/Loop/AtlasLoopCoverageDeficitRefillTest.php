@@ -364,6 +364,38 @@ PHP;
         $this->assertSame(0, $scorecard['proxy_refactor_tasks']);
     }
 
+    public function test_meta_harness_self_improvement_wins_when_coverage_deficit_also_matches(): void
+    {
+        config([
+            'atlas.loop.meta_harness_targets' => true,
+            'atlas.loop.meta_harness_self_improve.enabled' => true,
+            'atlas.loop.self_improve_grounding_enabled' => true,
+            'atlas.loop.characterization_test_lane_enabled' => true,
+            'atlas.loop.generic_provider_fallback_enabled' => false,
+            'atlas.loop.proxy_refactor_supply_enabled' => false,
+            'atlas.loop.quality_bar' => 9.0,
+        ]);
+        $campaign = $this->campaign($this->repoWithSelfImprovementTarget());
+        $target = $this->selfImprovementTarget($campaign);
+        $signals = is_array($target->signals) ? $target->signals : [];
+        $signals['shape'] = 'characterization_test';
+        $signals['coverage_objective'] = 'ADD a characterization test for FooLoopHarness';
+        $signals['coverage_deficit'] = 1.0;
+        $signals['coverage_deficit_mutants'] = 8;
+        $target->forceFill(['signals' => $signals])->save();
+
+        $outcome = $this->invokeEnqueue($campaign, $target);
+
+        $this->assertSame('enqueued', $outcome);
+        $this->assertSame('self_improvement_task_synthesized', $target->fresh()->reason);
+        $task = AtlasLoopTask::query()->where('campaign_id', $campaign->id)->first();
+        $this->assertNotNull($task);
+        $this->assertSame('self_improvement', $task->source);
+        $payload = is_array($task->payload) ? $task->payload : (array) json_decode((string) $task->payload, true);
+        $this->assertTrue((bool) ($payload['is_self_improvement'] ?? false));
+        $this->assertNotSame('characterization_test', $payload['objective_kind'] ?? null);
+    }
+
     public function test_generic_provider_fallback_can_be_disabled_for_soak_supply(): void
     {
         config([

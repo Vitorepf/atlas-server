@@ -679,11 +679,6 @@ final class AtlasLoopQueueRefiller
             }
         }
 
-        $coverageOutcome = $this->tryCoverageDeficitCharacterization($campaign, $target, $signals, $provider, $source);
-        if ($coverageOutcome !== null) {
-            return $coverageOutcome;
-        }
-
         // §11.4 BUG-FIX REPRODUCTION LANE: when this target's discovery signals carry a runnable
         // FAILURE handle (a reproducing test path or an explicit failing command), shape a
         // reproduce-then-fix RED-required objective and enqueue it as a FIRST-CLASS bug_fix —
@@ -704,6 +699,11 @@ final class AtlasLoopQueueRefiller
         $selfOutcome = $this->tryGroundedSelfImprovement($campaign, $target, $signals, $provider, $repoRoot);
         if ($selfOutcome !== null) {
             return $selfOutcome;
+        }
+
+        $coverageOutcome = $this->tryCoverageDeficitCharacterization($campaign, $target, $signals, $provider, $source);
+        if ($coverageOutcome !== null) {
+            return $coverageOutcome;
         }
 
         if ((int) ($signals['framework_reach'] ?? 0) > 0) {
