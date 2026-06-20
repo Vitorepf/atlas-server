@@ -39,7 +39,12 @@ final class AtlasLoopFrameworkMaterializer
         $canonical = rtrim($canonicalRepoRoot, '/');
         $targetRel = $this->normalizeRelative((string) ($payload['target_relative_path'] ?? ''));
         $acceptance = is_array($payload['acceptance'] ?? null) ? $payload['acceptance'] : [];
-        if ($targetRel === '' || ! is_file($canonical.'/'.$targetRel) || ($acceptance['commands'] ?? []) === []) {
+        $requirementsMet = [
+            $targetRel !== '',
+            is_file($canonical.'/'.$targetRel),
+            ($acceptance['commands'] ?? []) !== [],
+        ];
+        if (in_array(false, $requirementsMet, true)) {
             throw new RuntimeException('framework materialize: payload requires target_relative_path (existing) + acceptance.commands');
         }
 
