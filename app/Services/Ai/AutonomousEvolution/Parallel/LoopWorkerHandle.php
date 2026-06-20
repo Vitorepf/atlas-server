@@ -16,16 +16,34 @@ final class LoopWorkerHandle
 {
     private readonly float $startedAt;
 
+    private readonly ?int $pid;
+
+    private bool $timedOut = false;
+
     public function __construct(
         private readonly Process $process,
         public readonly string $taskId,
         public readonly string $workerId,
     ) {
         $this->startedAt = microtime(true);
+        $this->pid = $process->getPid();
     }
 
     public function isFinished(): bool
     {
+        if (! $this->process->isRunning()) {
+            return true;
+        }
+
+        try {
+            $this->process->checkTimeout();
+        } catch (Throwable) {
+            $this->timedOut = true;
+            $this->terminateTree(0.2);
+
+            return true;
+        }
+
         return ! $this->process->isRunning();
     }
 
@@ -36,11 +54,18 @@ final class LoopWorkerHandle
 
     public function timedOut(): bool
     {
+        if ($this->timedOut) {
+            return true;
+        }
+
         try {
             $this->process->checkTimeout();
 
             return false;
         } catch (Throwable) {
+            $this->timedOut = true;
+            $this->terminateTree(0.2);
+
             return true;
         }
     }
@@ -53,6 +78,22 @@ final class LoopWorkerHandle
     /** SIGTERM the worker (and its process group via posix_setsid in the worker) for kill-switch drain. */
     public function kill(float $graceSeconds = 5.0): void
     {
+        $this->terminateTree($graceSeconds);
+    }
+
+    private function terminateTree(float $graceSeconds = 5.0): void
+    {
+        $pid = $this->pid;
+        if (is_int($pid) && $pid > 0 && function_exists('posix_kill')) {
+            @posix_kill(-$pid, SIGTERM);
+            @posix_kill($pid, SIGTERM);
+            if ($graceSeconds > 0) {
+                usleep((int) min(5_000_000, max(0, $graceSeconds * 1_000_000)));
+            }
+            @posix_kill(-$pid, SIGKILL);
+            @posix_kill($pid, SIGKILL);
+        }
+
         try {
             $this->process->stop($graceSeconds, SIGTERM);
         } catch (Throwable) {

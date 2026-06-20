@@ -147,6 +147,35 @@ final class AtlasEvolutionFrozenJudgeTest extends TestCase
         $this->assertSame(0.0, $v['metric']);
     }
 
+    public function test_acceptance_commands_force_hermetic_testing_database_env(): void
+    {
+        file_put_contents($this->ws.'/src/Subject.php', "<?php\nfunction greet(){ return 'hello'; }\n");
+
+        $oldAppEnv = getenv('APP_ENV');
+        $oldDbConnection = getenv('DB_CONNECTION');
+        $oldDbDatabase = getenv('DB_DATABASE');
+        putenv('APP_ENV=local');
+        putenv('DB_CONNECTION=pgsql');
+        putenv('DB_DATABASE=atlas');
+
+        try {
+            $acceptance = $this->acceptance();
+            $acceptance['commands'] = [
+                'php -r '.escapeshellarg(
+                    "exit(getenv('APP_ENV') === 'testing' && getenv('DB_CONNECTION') === 'sqlite' && getenv('DB_DATABASE') === ':memory:' && getenv('DB_URL') === '' ? 0 : 1);"
+                ),
+            ];
+
+            $v = (new AtlasEvolutionFrozenJudge)->score($this->ws, $acceptance);
+        } finally {
+            $this->restoreEnv('APP_ENV', $oldAppEnv);
+            $this->restoreEnv('DB_CONNECTION', $oldDbConnection);
+            $this->restoreEnv('DB_DATABASE', $oldDbDatabase);
+        }
+
+        $this->assertTrue($v['passed'], json_encode($v['details']));
+    }
+
     public function test_strictly_better_prefers_pass_over_fail_and_breaks_no_ties_on_gate(): void
     {
         $judge = new AtlasEvolutionFrozenJudge;
@@ -163,5 +192,16 @@ final class AtlasEvolutionFrozenJudgeTest extends TestCase
             ['passed' => true, 'metric' => 5.0],
             AtlasEvolutionFrozenJudge::METRIC_MINIMIZE,
         ));
+    }
+
+    private function restoreEnv(string $key, string|false $value): void
+    {
+        if ($value === false) {
+            putenv($key);
+
+            return;
+        }
+
+        putenv($key.'='.$value);
     }
 }

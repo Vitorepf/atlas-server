@@ -263,6 +263,7 @@ final class AtlasLoopStore
         return AtlasLoopTask::query()
             ->whereKey($taskId)
             ->where('claimed_by', $workerId)
+            ->whereIn('status', [AtlasLoopTask::STATUS_CLAIMED, AtlasLoopTask::STATUS_RUNNING])
             ->update([
                 'lease_expires_at' => Carbon::now()->addSeconds(max(30, $leaseSeconds)),
                 'heartbeat_at' => Carbon::now(),

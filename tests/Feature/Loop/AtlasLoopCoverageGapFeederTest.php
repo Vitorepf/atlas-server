@@ -7,6 +7,7 @@ namespace Tests\Feature\Loop;
 use App\Models\AtlasLoopCampaign;
 use App\Models\AtlasLoopTask;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopCoverageGapFeeder;
+use App\Services\Ai\AutonomousEvolution\Pattern\AtlasLoopExecutionContract;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -19,6 +20,10 @@ final class AtlasLoopCoverageGapFeederTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        config([
+            'atlas.loop.pattern_advisory_enabled' => true,
+            'atlas.loop.pattern_driver_enabled' => false,
+        ]);
         if (! Schema::hasTable('atlas_loop_campaigns')) {
             foreach ([
                 '2026_06_02_000100_create_atlas_loop_runtime_tables.php',
@@ -65,7 +70,35 @@ final class AtlasLoopCoverageGapFeederTest extends TestCase
         $this->assertSame(['tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/L7PromotionRequestBuilderTest.php'], $payload['acceptance']['allowed_globs']);
         // ...the production target is FROZEN (coverage-only change).
         $this->assertContains('app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/L7PromotionRequestBuilder.php', $payload['acceptance']['frozen_globs']);
+        $this->assertSame('advisory', data_get($payload, 'pattern.mode'));
+        $this->assertSame('loop_harness_verification', data_get($payload, 'pattern.selected'));
+        $this->assertSame([], AtlasLoopExecutionContract::missingFields((array) ($payload['execution_contract'] ?? [])));
+        $this->assertSame('loop_harness_verification', data_get($payload, 'execution_contract.pattern_id'));
+        $this->assertContains('tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/L7PromotionRequestBuilderTest.php', data_get($payload, 'execution_contract.allowed_scope'));
+        $this->assertContains('mutant_flip_makes_suite_red', data_get($payload, 'execution_contract.expected_outputs'));
         $this->assertStringContainsString('CHARACTERIZATION TEST', (string) $task->objective);
+    }
+
+    public function test_pattern_driver_flag_marks_the_characterization_contract_as_driver_governed(): void
+    {
+        config(['atlas.loop.pattern_driver_enabled' => true]);
+        $campaign = $this->campaign();
+        $feeder = app(AtlasLoopCoverageGapFeeder::class);
+
+        $taskId = $feeder->feedGap((string) $campaign->id, [
+            'target_file' => 'app/Services/Ai/Z.php',
+            'decision_operator' => 'return_false',
+            'mutation_id' => 'coverage_deficit:return_false',
+            'sibling_test' => 'tests/Unit/Ai/ZTest.php',
+        ]);
+
+        $this->assertNotNull($taskId);
+        $task = AtlasLoopTask::query()->find($taskId);
+        $payload = is_array($task?->payload) ? $task->payload : (array) json_decode((string) $task?->payload, true);
+
+        $this->assertSame('driver', data_get($payload, 'pattern.mode'));
+        $this->assertSame('loop_harness_verification', data_get($payload, 'pattern.selected'));
+        $this->assertSame([], AtlasLoopExecutionContract::missingFields((array) ($payload['execution_contract'] ?? [])));
     }
 
     public function test_unactionable_gap_without_sibling_test_is_not_enqueued(): void

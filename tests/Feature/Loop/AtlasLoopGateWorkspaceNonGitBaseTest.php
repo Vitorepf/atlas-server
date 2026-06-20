@@ -114,4 +114,30 @@ final class AtlasLoopGateWorkspaceNonGitBaseTest extends TestCase
         $this->assertFileExists($ws.'/.git');
         $this->assertFalse(is_dir($ws.'/.git'), 'base git continua via worktree (não regrediu)');
     }
+
+    public function test_git_file_worktree_base_is_not_copied_into_hooked_baseline_commit(): void
+    {
+        $base = $this->nonGitBase();
+        foreach ([
+            ['git', '-C', $base, 'init', '-q'],
+            ['git', '-C', $base, 'add', '-A'],
+            ['git', '-C', $base, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '--no-verify', '-m', 'b'],
+        ] as $cmd) {
+            (new Process($cmd))->run();
+        }
+
+        $diff = $this->realDiffAgainst($base);
+
+        $worktree = sys_get_temp_dir().'/atlas-gate-worktree-'.bin2hex(random_bytes(4));
+        $this->dirs[] = $worktree;
+        (new Process(['git', '-C', $base, 'worktree', 'add', '--detach', $worktree, 'HEAD']))->mustRun();
+        File::put($base.'/.git/hooks/pre-commit', "#!/usr/bin/env bash\nexit 42\n");
+        chmod($base.'/.git/hooks/pre-commit', 0o755);
+
+        $ws = $this->materialize($worktree, $diff);
+
+        $this->assertStringContainsString('return 2;', (string) File::get($ws.'/src/Snippet.php'));
+        $this->assertFileExists($ws.'/.git');
+        $this->assertFalse(is_dir($ws.'/.git'), 'git-file worktree base must stay on the worktree path, not copy+commit through hooks');
+    }
 }

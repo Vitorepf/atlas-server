@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Discovery;
 
+use App\Models\AtlasLoopTarget;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\Process\Process;
@@ -311,12 +312,17 @@ final class AtlasLoopTargetDiscoveryService
             static fn (array $row): bool => $guard->admit((string) $row['path'], $metaHarness) === 'admissible',
         ));
 
-        // Highest score first; upsert the top-N as candidates.
+        // Highest score first; upsert the top-N as candidates. Crucially, choose from rows
+        // that can become claimable now. A long propose-only soak otherwise keeps selecting
+        // the same already-consumed top scorers (queued/quarantined with identical content),
+        // reports "upserted", and then claimTop() finds zero candidates while lower-ranked
+        // untouched files never enter the ledger.
+        $scoredRows = $this->claimableRows($campaignId, $scoredRows);
         usort($scoredRows, static fn (array $a, array $b): int => $b['scored']['score'] <=> $a['scored']['score']);
         $top = array_slice($scoredRows, 0, $limit);
         $upserted = 0;
         foreach ($top as $row) {
-            $contentHash = hash('sha256', (string) @file_get_contents($row['abs']));
+            $contentHash = (string) ($row['content_hash'] ?? hash('sha256', (string) @file_get_contents($row['abs'])));
             $this->repository->upsert($campaignId, $row['path'], $contentHash, $row['scored'], ['origin' => 'discovery']);
             $upserted++;
         }
@@ -329,6 +335,49 @@ final class AtlasLoopTargetDiscoveryService
             'upserted' => $upserted,
             'top' => array_map(static fn (array $r): array => ['path' => $r['path'], 'score' => round($r['scored']['score'], 4)], $top),
         ];
+    }
+
+    /**
+     * @param  list<array{path:string,abs:string,scored:array<string,mixed>}>  $scoredRows
+     * @return list<array{path:string,abs:string,scored:array<string,mixed>,content_hash?:string}>
+     */
+    private function claimableRows(string $campaignId, array $scoredRows): array
+    {
+        if ($scoredRows === []) {
+            return [];
+        }
+
+        $paths = array_values(array_unique(array_map(
+            static fn (array $row): string => (string) $row['path'],
+            $scoredRows,
+        )));
+        $existing = AtlasLoopTarget::query()
+            ->where('campaign_id', $campaignId)
+            ->whereIn('target_path', $paths)
+            ->get(['target_path', 'content_hash', 'status', 'attempts', 'max_attempts'])
+            ->keyBy('target_path');
+
+        $claimable = [];
+        foreach ($scoredRows as $row) {
+            $hash = hash('sha256', (string) @file_get_contents($row['abs']));
+            $row['content_hash'] = $hash;
+            $prior = $existing->get((string) $row['path']);
+            if (! $prior instanceof AtlasLoopTarget) {
+                $claimable[] = $row;
+
+                continue;
+            }
+            if ((string) $prior->content_hash !== $hash) {
+                $claimable[] = $row;
+
+                continue;
+            }
+            if ($prior->status === AtlasLoopTarget::STATUS_CANDIDATE && (int) $prior->attempts < (int) $prior->max_attempts) {
+                $claimable[] = $row;
+            }
+        }
+
+        return $claimable;
     }
 
     /**

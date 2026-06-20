@@ -21,7 +21,9 @@ use Throwable;
  * It reads each task's payload (the SPEC the loop committed to) and classifies it into exactly one of four
  * mutually-exclusive buckets:
  *   - REAL WORK     — bug_fix / feature / verification with a CONCRETE acceptance contract (red_required,
- *                     revert_recheck + commands, characterization with acceptance). Behaviour-CHANGING.
+ *                     revert_recheck + commands, characterization with acceptance), plus governed
+ *                     self-improvement only when it carries a concrete acceptance, complexity proof, and
+ *                     per-task quality bar. Behaviour-changing or measurably capability-changing.
  *   - PROXY REFACTOR— a behaviour-PRESERVING refactor (revert stays green, no red, no bug/feature signal).
  *                     Useful sometimes, but proxy when it dominates a short campaign.
  *   - COSMETIC      — explicit cosmetic flag, cosmetic objective_kind, an advisory pattern refused as
@@ -55,6 +57,8 @@ final class AtlasLoopRealWorkScorecardService
     public const REAL_KIND_FEATURE = 'feature';
 
     public const REAL_KIND_VERIFICATION = 'verification';
+
+    public const REAL_KIND_SELF_IMPROVEMENT = 'self_improvement';
 
     /** Per-task audit detail is bounded so a huge campaign cannot bloat the payload. */
     private const BREAKDOWN_CAP = 200;
@@ -164,6 +168,7 @@ final class AtlasLoopRealWorkScorecardService
             'bug_fix_tasks' => $counts['bug_fix_tasks'],
             'feature_tasks' => $counts['feature_tasks'],
             'verification_tasks' => $counts['verification_tasks'],
+            'self_improvement_tasks' => $counts['self_improvement_tasks'],
             'proxy_refactor_tasks' => $counts['proxy_refactor_tasks'],
             'cosmetic_tasks' => $counts['cosmetic_tasks'],
             'unknown_tasks' => $counts['unknown_tasks'],
@@ -242,6 +247,9 @@ final class AtlasLoopRealWorkScorecardService
         if ($revertRecheck && $concreteAcceptance) {
             return $this->bucket(self::BUCKET_REAL, self::REAL_KIND_BUG_FIX, ['revert_recheck+concrete_acceptance']);
         }
+        if ($this->isGovernedSelfImprovement($payload, $kind, $concreteAcceptance)) {
+            return $this->bucket(self::BUCKET_REAL, self::REAL_KIND_SELF_IMPROVEMENT, ['self_improvement+complexity_proof+quality_bar']);
+        }
 
         // ── 3. PROXY REFACTOR (behaviour-preserving — no red, no revert, no bug/feature signal) ──────────
         if (str_starts_with($kind, 'refactor') && ! $revertRecheck && ! $redRequired && ! $failureOrBugSignal && ! $featureKind) {
@@ -250,6 +258,33 @@ final class AtlasLoopRealWorkScorecardService
 
         // ── 4. UNKNOWN ──────────────────────────────────────────────────────────────────────────────────
         return $this->bucket(self::BUCKET_UNKNOWN, null, ['insufficient_signal'.($kind !== '' ? ':'.$kind : '')]);
+    }
+
+    /**
+     * A self-edit is real work only when it is more than a behaviour-preserving refactor label: it must carry
+     * the self-improvement marker, a runnable acceptance command, the complexity-proof metric, and the
+     * per-task quality bar gate. This keeps generic refactors proxy-classified while allowing the loop's own
+     * measured capability-improvement lane to be reported honestly.
+     *
+     * @param  array<string,mixed>  $payload
+     */
+    private function isGovernedSelfImprovement(array $payload, string $kind, bool $concreteAcceptance): bool
+    {
+        if (! str_starts_with($kind, 'refactor')) {
+            return false;
+        }
+        if (! $concreteAcceptance) {
+            return false;
+        }
+
+        $selfMarked = $this->isTrue(data_get($payload, 'is_self_improvement'))
+            || $this->isTrue(data_get($payload, '_is_self_improvement'));
+        $complexityProof = $this->isTrue(data_get($payload, 'acceptance.complexity_proof'))
+            || $this->isTrue(data_get($payload, 'complexity_proof'));
+        $qualityBarGate = $this->isTrue(data_get($payload, 'acceptance.quality_bar_gate'))
+            || $this->isTrue(data_get($payload, 'quality_bar_gate'));
+
+        return $selfMarked && $complexityProof && $qualityBarGate;
     }
 
     /**
@@ -431,11 +466,12 @@ final class AtlasLoopRealWorkScorecardService
         }
 
         $mix = sprintf(
-            '%d real (%d bug_fix / %d feature / %d verification), %d proxy, %d cosmetic, %d unknown of %d tasks',
+            '%d real (%d bug_fix / %d feature / %d verification / %d self_improvement), %d proxy, %d cosmetic, %d unknown of %d tasks',
             $counts['real_work_tasks'],
             $counts['bug_fix_tasks'],
             $counts['feature_tasks'],
             $counts['verification_tasks'],
+            $counts['self_improvement_tasks'],
             $counts['proxy_refactor_tasks'],
             $counts['cosmetic_tasks'],
             $counts['unknown_tasks'],
@@ -522,6 +558,7 @@ final class AtlasLoopRealWorkScorecardService
         return match ($realKind) {
             self::REAL_KIND_FEATURE => 'feature_tasks',
             self::REAL_KIND_VERIFICATION => 'verification_tasks',
+            self::REAL_KIND_SELF_IMPROVEMENT => 'self_improvement_tasks',
             default => 'bug_fix_tasks',
         };
     }
@@ -546,6 +583,7 @@ final class AtlasLoopRealWorkScorecardService
             'bug_fix_tasks' => 0,
             'feature_tasks' => 0,
             'verification_tasks' => 0,
+            'self_improvement_tasks' => 0,
             'proxy_refactor_tasks' => 0,
             'cosmetic_tasks' => 0,
             'unknown_tasks' => 0,

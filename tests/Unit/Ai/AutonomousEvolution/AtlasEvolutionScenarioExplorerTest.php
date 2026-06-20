@@ -146,8 +146,12 @@ final class AtlasEvolutionScenarioExplorerTest extends TestCase
         // identical minimal fix every time -> all pass, all tie -> no improvement
         $fake = new class implements LoopExecutionDriver
         {
+            /** @var array<string,mixed> */
+            public array $surfaceHints = [];
+
             public function attempt(string $surfaceId, string $workspace, string $intent, array $userConstraints, array $surfaceHints): array
             {
+                $this->surfaceHints = $surfaceHints;
                 file_put_contents($workspace.'/src/Subject.php', "<?php\nfunction greet(){ return 'hello'; }\n");
 
                 return ['status' => 'completed'];
@@ -408,5 +412,74 @@ final class AtlasEvolutionScenarioExplorerTest extends TestCase
         $this->assertStringContainsString('MINIMAL SURGICAL', $joined);
         $this->assertStringContainsString('CLEAN REDESIGN', $joined);
         $this->assertStringContainsString('ROOT CAUSE', $joined);
+    }
+
+    public function test_fixed_scenario_mode_still_passes_task_budget_to_attempt(): void
+    {
+        $fake = new class implements LoopExecutionDriver
+        {
+            public ?int $attemptTimeout = null;
+
+            public function attempt(string $surfaceId, string $workspace, string $intent, array $userConstraints, array $surfaceHints): array
+            {
+                $this->attemptTimeout = is_numeric($surfaceHints['attempt_timeout_seconds'] ?? null)
+                    ? (int) $surfaceHints['attempt_timeout_seconds']
+                    : null;
+
+                return ['status' => 'completed'];
+            }
+        };
+
+        $task = $this->task();
+        $task['search_time_budget_seconds'] = 7;
+
+        (new AtlasEvolutionScenarioExplorer($fake, new AtlasEvolutionFrozenJudge))->explore($task, 1);
+
+        $this->assertNotNull($fake->attemptTimeout);
+        $this->assertGreaterThan(0, $fake->attemptTimeout);
+        $this->assertLessThanOrEqual(7, $fake->attemptTimeout);
+    }
+
+    public function test_progress_callback_wraps_serial_attempt_without_affecting_scoring(): void
+    {
+        $capturedHints = null;
+        $fake = new class($capturedHints) implements LoopExecutionDriver
+        {
+            /** @var array<string,mixed>|null */
+            private $capturedHints;
+
+            /**
+             * @param  array<string,mixed>|null  $capturedHints
+             */
+            public function __construct(?array &$capturedHints)
+            {
+                $this->capturedHints = &$capturedHints;
+            }
+
+            public function attempt(string $surfaceId, string $workspace, string $intent, array $userConstraints, array $surfaceHints): array
+            {
+                $this->capturedHints = $surfaceHints;
+                file_put_contents($workspace.'/src/Subject.php', "<?php\nfunction greet(){ return 'hello'; }\n");
+
+                return ['status' => 'completed'];
+            }
+        };
+
+        $events = [];
+        $result = (new AtlasEvolutionScenarioExplorer($fake, new AtlasEvolutionFrozenJudge))->explore(
+            $this->task(),
+            1,
+            function (array $event) use (&$events): void {
+                $events[] = (string) ($event['stage'] ?? '');
+            },
+        );
+
+        $this->assertSame(1, $result['scenarios_explored']);
+        $this->assertTrue((bool) data_get($result, 'winner.verdict.passed'));
+        $this->assertContains('scenario_attempt_start', $events);
+        $this->assertContains('scenario_attempt_driver_returned', $events);
+        $this->assertIsArray($capturedHints);
+        $this->assertArrayHasKey('_progress_callback', $capturedHints);
+        $this->assertIsCallable($capturedHints['_progress_callback']);
     }
 }

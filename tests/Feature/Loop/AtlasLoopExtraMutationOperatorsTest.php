@@ -57,6 +57,16 @@ final class AtlasLoopExtraMutationOperatorsTest extends TestCase
         $this->assertStringNotContainsString('default', (string) $r, 'the non-null fallback is killed => a test covering it dies');
     }
 
+    public function test_null_coalesce_skips_equivalent_false_fallback_inside_bool_cast(): void
+    {
+        config(['atlas.loop.extra_mutation_operators_enabled' => true]);
+
+        $this->assertNull(
+            AtlasLoopMutationOperators::applyOperator('null_coalesce_null', "<?php\n\$ok = (bool) (\$row['has_sibling'] ?? false);\n"),
+            'inside a bool cast, ?? false and ?? null are equivalent and must not become a false mutation survivor',
+        );
+    }
+
     public function test_early_return_delete_removes_a_void_return(): void
     {
         config(['atlas.loop.extra_mutation_operators_enabled' => true]);

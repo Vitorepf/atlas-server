@@ -137,4 +137,28 @@ final class AtlasLoopConductorEscalationWiringTest extends TestCase
         $this->assertSame([], $out['proposals'] ?? ['x'], 'no fix across all tiers => no winner');
         $this->assertFalse($out['conductor_escalation']['certified'] ?? true);
     }
+
+    public function test_escalation_does_not_reopen_an_exhausted_task_time_budget(): void
+    {
+        $box = $this->bindDriver(function (): void {
+            $this->fail('exhausted task budget must not launch another provider attempt');
+        });
+        $task = $this->task();
+        $task['search_time_budget_seconds'] = 1;
+        $m = (new ReflectionClass($this->grinder()))->getMethod('escalateViaConductor');
+        $m->setAccessible(true);
+
+        $out = $m->invoke(
+            $this->grinder(),
+            ['proposals' => [], 'elapsed_seconds' => 1.0, 'explorations' => [['rejected_reasons' => ['no_passing_candidate']]]],
+            $task,
+            [],
+            false,
+            false,
+            ['scenarios_per_task' => 1],
+        );
+
+        $this->assertSame(0, $box->calls, 'elapsed first round must consume the shared task budget before conductor tiers run');
+        $this->assertFalse($out['conductor_escalation']['certified'] ?? true);
+    }
 }

@@ -27,8 +27,8 @@ trait RunsCliProcesses
         $processEnv = $this->cliProcessEnv();
         if (is_array($extraEnv)) {
             foreach ($extraEnv as $envKey => $envValue) {
-                if (is_string($envKey) && (is_string($envValue) || is_numeric($envValue))) {
-                    $processEnv[$envKey] = (string) $envValue;
+                if (is_string($envKey) && (is_string($envValue) || is_numeric($envValue) || $envValue === false)) {
+                    $processEnv[$envKey] = $envValue === false ? false : (string) $envValue;
                 }
             }
         }
@@ -84,7 +84,7 @@ trait RunsCliProcesses
                 $process->checkTimeout();
 
                 if ($earlyErrorCode !== null) {
-                    $process->stop(1, 15);
+                    $this->reapCliProcess($process);
                     $durationMs = (int) ((hrtime(true) - $started) / 1_000_000);
                     $stdout = $stdout ?: AtlasSecurity::redactString($process->getOutput());
                     $stderr = $stderr ?: AtlasSecurity::redactString($process->getErrorOutput());
@@ -109,7 +109,7 @@ trait RunsCliProcesses
                 }
 
                 if ($this->jobWasCancelled($job)) {
-                    $process->stop(1, 15);
+                    $this->reapCliProcess($process);
                     $durationMs = (int) ((hrtime(true) - $started) / 1_000_000);
                     $stdout = $stdout ?: AtlasSecurity::redactString($process->getOutput());
                     $stderr = $stderr ?: AtlasSecurity::redactString($process->getErrorOutput());
@@ -134,8 +134,9 @@ trait RunsCliProcesses
                 }
             }
 
-            $process->wait();
+            $this->reapCliProcess($process);
         } catch (ProcessTimedOutException $exception) {
+            $this->reapCliProcess($process);
             $durationMs = (int) ((hrtime(true) - $started) / 1_000_000);
             $stdout = $stdout ?: AtlasSecurity::redactString($process->getOutput());
             $stderr = $stderr ?: AtlasSecurity::redactString($process->getErrorOutput());
@@ -156,6 +157,10 @@ trait RunsCliProcesses
                 errorCode: 'timeout',
                 errorMessage: AtlasSecurity::redactString($exception->getMessage()),
             );
+        } catch (\Throwable $exception) {
+            $this->reapCliProcess($process);
+
+            throw $exception;
         }
 
         $durationMs = (int) ((hrtime(true) - $started) / 1_000_000);
@@ -200,6 +205,23 @@ trait RunsCliProcesses
             errorMessage: $errorCode ? AtlasSecurity::redactString(trim($stderr) ?: trim($stdout) ?: $errorCode) : null,
             metadata: $metadata,
         );
+    }
+
+    protected function reapCliProcess(Process $process): void
+    {
+        try {
+            if ($process->isRunning()) {
+                $process->stop(1, 15);
+            }
+        } catch (\Throwable) {
+            // Best-effort cleanup; callers still need to return the provider error.
+        }
+
+        try {
+            $process->wait();
+        } catch (\Throwable) {
+            // Symfony can throw when the process was already collected.
+        }
     }
 
     /**

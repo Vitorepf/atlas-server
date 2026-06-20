@@ -33,6 +33,8 @@ final class AtlasLoopCampaignCommand extends Command
         {--workers= : Parallel grind workers (default: atlas.loop.campaign.workers; only active when atlas.loop.parallel.enabled)}
         {--provider= : Pin a provider key (default: empty = loop default / Atlas Decide)}
         {--sleep-seconds= : Rate-limit: seconds between cycles}
+        {--idle-on-starvation : Keep a long soak alive by idling and re-scanning when supply is temporarily empty}
+        {--starvation-idle-seconds= : Seconds to sleep between starved re-scans when --idle-on-starvation is enabled}
         {--no-shadow : Run active instead of the shadow default}
         {--json : Print the canonical JSON result}';
 
@@ -51,8 +53,12 @@ final class AtlasLoopCampaignCommand extends Command
             'workers' => $this->intOption('workers'),
             'provider' => trim((string) ($this->option('provider') ?: '')),
             'sleep_seconds' => $this->intOption('sleep-seconds'),
+            'starvation_idle_seconds' => $this->intOption('starvation-idle-seconds'),
             'shadow' => ! (bool) $this->option('no-shadow'),
         ], static fn (mixed $v): bool => $v !== null && $v !== '');
+        if ((bool) $this->option('idle-on-starvation')) {
+            $input['idle_on_starvation'] = true;
+        }
 
         // Wall-clock budget is a HARD ceiling, clamped to a real day.
         $maxSeconds = $this->intOption('max-seconds');

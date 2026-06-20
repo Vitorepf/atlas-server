@@ -71,6 +71,24 @@ final class AtlasLoopQualityGraderTest extends TestCase
         $this->assertFalse($g['passes_bar']);
     }
 
+    public function test_surgical_branch_drop_sequence_step_passes_the_bar(): void
+    {
+        // Live loop case: a small in-method guard simplification lowered both max and total branches.
+        $g = (new AtlasLoopQualityGrader)->grade([
+            'behavior_preserved' => true,
+            'scope_clean' => true,
+            'cx_before' => 18,
+            'cx_after' => 16,
+            'total_branches_before' => 28,
+            'total_branches_after' => 26,
+            'coverage_added' => false,
+        ], 9.0);
+
+        $this->assertGreaterThanOrEqual(9.0, $g['score']);
+        $this->assertTrue($g['passes_bar']);
+        $this->assertSame(2, $g['dimensions']['branch_drop']);
+    }
+
     public function test_inflating_net_branches_is_penalized(): void
     {
         // Drops the worst method but ADDS net branches elsewhere (gaming) — penalized below the bar.

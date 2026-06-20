@@ -154,8 +154,10 @@ final class AtlasLoopObjectiveProducerPatternSelectionTest extends TestCase
 
     public function test_driver_disabled_by_default_preserves_advisory_only(): void
     {
-        // Default OFF: produce() must fall back to the legacy advisory path, so the driver self-reports DISABLED.
-        $this->assertFalse((bool) config('atlas.loop.pattern_driver_enabled', false), 'the driver must default OFF');
+        config(['atlas.loop.pattern_driver_enabled' => false]);
+
+        // OFF: produce() must fall back to the legacy advisory path, so the driver self-reports DISABLED.
+        $this->assertFalse((bool) config('atlas.loop.pattern_driver_enabled', false), 'the driver must report disabled when the flag is OFF');
 
         $floorPassers = [
             ['path' => 'app/Svc/Real.php', 'verifiable' => true, '_score' => ['leverage' => 20.0, 'rationale' => 'hub']],

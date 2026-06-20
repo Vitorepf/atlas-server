@@ -31,9 +31,7 @@ final class AtlasLoopCharacterizationTestVerifierTest extends TestCase
 
     protected function tearDown(): void
     {
-        @unlink($this->dir.'/'.$this->rel);
-        @rmdir($this->dir.'/app');
-        @rmdir($this->dir);
+        $this->rmDir($this->dir);
         parent::tearDown();
     }
 
@@ -97,5 +95,65 @@ final class AtlasLoopCharacterizationTestVerifierTest extends TestCase
 
         $this->assertFalse($r['certified']);
         $this->assertStringContainsString('target_missing', $r['reason']);
+    }
+
+    public function test_default_runner_forces_hermetic_testing_database_env(): void
+    {
+        mkdir($this->dir.'/vendor/bin', 0o755, true);
+        mkdir($this->dir.'/tests/Unit', 0o755, true);
+        file_put_contents($this->dir.'/vendor/bin/phpunit', <<<'PHP'
+#!/usr/bin/env php
+<?php
+file_put_contents(__DIR__.'/../../env-seen.txt', getenv('APP_ENV').'|'.getenv('DB_CONNECTION').'|'.getenv('DB_DATABASE').'|'.getenv('DB_URL'));
+$src = (string) file_get_contents(__DIR__.'/../../app/Subject.php');
+exit(str_contains($src, '===') ? 0 : 1);
+PHP);
+        chmod($this->dir.'/vendor/bin/phpunit', 0o755);
+
+        $oldAppEnv = getenv('APP_ENV');
+        $oldDbConnection = getenv('DB_CONNECTION');
+        $oldDbDatabase = getenv('DB_DATABASE');
+        putenv('APP_ENV=local');
+        putenv('DB_CONNECTION=pgsql');
+        putenv('DB_DATABASE=atlas');
+
+        try {
+            $r = (new AtlasLoopCharacterizationTestVerifier)
+                ->verify($this->dir, $this->rel, 'tests/Unit/SubjectTest.php', 'strict_equals');
+        } finally {
+            $this->restoreEnv('APP_ENV', $oldAppEnv);
+            $this->restoreEnv('DB_CONNECTION', $oldDbConnection);
+            $this->restoreEnv('DB_DATABASE', $oldDbDatabase);
+        }
+
+        $this->assertTrue($r['certified'], $r['reason']);
+        $this->assertSame('testing|sqlite|:memory:|', (string) file_get_contents($this->dir.'/env-seen.txt'));
+    }
+
+    private function restoreEnv(string $key, string|false $value): void
+    {
+        if ($value === false) {
+            putenv($key);
+
+            return;
+        }
+
+        putenv($key.'='.$value);
+    }
+
+    private function rmDir(string $dir): void
+    {
+        if (! is_dir($dir)) {
+            return;
+        }
+
+        $it = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST,
+        );
+        foreach ($it as $path) {
+            $path->isDir() ? @rmdir($path->getPathname()) : @unlink($path->getPathname());
+        }
+        @rmdir($dir);
     }
 }

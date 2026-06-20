@@ -249,6 +249,29 @@ final class WorkspaceProviderLoopCodeGraphSeamTest extends TestCase
         );
     }
 
+    public function test_allowed_test_file_does_not_emit_contradictory_tests_frozen_scope_prompt(): void
+    {
+        config()->set('atlas.code_graph.auto_context', false);
+
+        $text = $this->runAttemptAndCapturePromptText(
+            'create a characterization test',
+            ['tests/Unit/Ai/AutonomousEvolution/AtlasLoopBacklogAutoFeederServiceTest.php'],
+        );
+
+        $this->assertStringContainsString(
+            'Edit ONLY these files: tests/Unit/Ai/AutonomousEvolution/AtlasLoopBacklogAutoFeederServiceTest.php.',
+            $text,
+        );
+        $this->assertStringContainsString(
+            'Do NOT modify composer.json or any file outside the Edit ONLY list; frozen acceptance files not listed above must stay untouched.',
+            $text,
+        );
+        $this->assertStringNotContainsString(
+            'Do NOT modify anything under tests/ or composer.json',
+            $text,
+        );
+    }
+
     public function test_flag_on_prompt_is_exactly_the_off_prompt_plus_the_appended_section(): void
     {
         $this->symbol(

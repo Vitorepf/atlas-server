@@ -60,7 +60,13 @@ final class AtlasLoopRedReasonGate
         }
 
         // (3) run it.
-        $process = Process::fromShellCommandline('php '.escapeshellarg($testRel), $base, null, null, $timeoutSeconds);
+        $process = Process::fromShellCommandline(
+            'php '.escapeshellarg($testRel),
+            $base,
+            AtlasLoopHermeticCommandEnvironment::forAcceptance(),
+            null,
+            $timeoutSeconds,
+        );
         try {
             $process->run();
         } catch (Throwable) {

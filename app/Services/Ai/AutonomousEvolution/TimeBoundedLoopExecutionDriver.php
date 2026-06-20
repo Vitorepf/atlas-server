@@ -36,7 +36,8 @@ final class TimeBoundedLoopExecutionDriver implements LoopExecutionDriver
         array $userConstraints,
         array $surfaceHints,
     ): array {
-        $deadline = max(1, $this->hardSeconds);
+        $deadline = $this->deadlineSeconds($surfaceHints);
+        $progress = $this->progressCallback($surfaceHints);
 
         if (! function_exists('pcntl_async_signals')) {
             // No pcntl: honest post-hoc timeout. We cannot interrupt a synchronous call,
@@ -54,18 +55,29 @@ final class TimeBoundedLoopExecutionDriver implements LoopExecutionDriver
         $self = $this;
         $timedOut = false;
         $previous = function_exists('pcntl_signal_get_handler') ? pcntl_signal_get_handler(SIGALRM) : SIG_DFL;
+        $start = microtime(true);
+        $progressEvery = $this->progressTickSeconds($surfaceHints);
         pcntl_async_signals(true);
-        pcntl_signal(SIGALRM, function () use (&$timedOut, $self): void {
-            $timedOut = true;
-            $self->killChildren();
-            throw new LoopAttemptTimedOut;
+        pcntl_signal(SIGALRM, function () use (&$timedOut, $self, $start, $deadline, $progressEvery, $progress): void {
+            $elapsed = microtime(true) - $start;
+            if ($elapsed >= $deadline) {
+                $timedOut = true;
+                $self->terminateChildren();
+                throw new LoopAttemptTimedOut;
+            }
+
+            $self->emitProgress($progress, 'attempt_heartbeat', [
+                'elapsed_seconds' => (int) ceil($elapsed),
+                'remaining_seconds' => max(0, $deadline - (int) floor($elapsed)),
+            ]);
+            $self->scheduleAlarm($deadline, $start, $progressEvery);
         });
 
-        $start = microtime(true);
-        pcntl_alarm($deadline);
+        $this->scheduleAlarm($deadline, $start, $progressEvery);
         try {
             $result = $this->inner->attempt($surfaceId, $workspace, $intent, $userConstraints, $surfaceHints);
         } catch (LoopAttemptTimedOut) {
+            $this->killChildren();
             $result = ['status' => 'timed_out', 'timed_out' => true];
             $timedOut = true;
         } catch (Throwable $e) {
@@ -90,11 +102,84 @@ final class TimeBoundedLoopExecutionDriver implements LoopExecutionDriver
     }
 
     /**
+     * The configured hard limit is the ceiling; a caller may pass a smaller
+     * per-attempt budget when it is carrying the remaining task/campaign time.
+     *
+     * @param  array<string,mixed>  $surfaceHints
+     */
+    private function deadlineSeconds(array $surfaceHints): int
+    {
+        $deadline = max(1, $this->hardSeconds);
+        $requested = $surfaceHints['attempt_timeout_seconds'] ?? null;
+
+        if (is_numeric($requested) && (int) $requested > 0) {
+            return max(1, min($deadline, (int) $requested));
+        }
+
+        return $deadline;
+    }
+
+    /**
+     * @param  array<string,mixed>  $surfaceHints
+     */
+    private function progressCallback(array $surfaceHints): ?callable
+    {
+        $callback = $surfaceHints['_progress_callback'] ?? null;
+
+        return is_callable($callback) ? $callback : null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $surfaceHints
+     */
+    private function progressTickSeconds(array $surfaceHints): int
+    {
+        $requested = $surfaceHints['_progress_tick_seconds'] ?? null;
+        if (is_numeric($requested) && (int) $requested > 0) {
+            return max(1, (int) $requested);
+        }
+
+        try {
+            return max(5, min(30, (int) config('atlas.loop.campaign.heartbeat_seconds', 30)));
+        } catch (Throwable) {
+            return 30;
+        }
+    }
+
+    private function scheduleAlarm(int $deadline, float $start, int $progressEvery): void
+    {
+        $remaining = $deadline - (int) floor(microtime(true) - $start);
+        pcntl_alarm(max(1, min($progressEvery, $remaining)));
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     */
+    private function emitProgress(?callable $progress, string $stage, array $context): void
+    {
+        if ($progress === null) {
+            return;
+        }
+
+        try {
+            $progress(['stage' => $stage] + $context);
+        } catch (Throwable) {
+            // Progress is advisory: never change attempt correctness.
+        }
+    }
+
+    /**
      * Best-effort kill of the hung provider subprocess tree spawned under this PHP
      * process. Direct children are reaped by ppid; the parallel worker additionally
      * runs in its own process group (posix_setsid) so a group kill catches grandchildren.
      */
     public function killChildren(): void
+    {
+        $this->terminateChildren();
+        $this->reapChildren();
+    }
+
+    private function terminateChildren(): void
     {
         $pid = function_exists('getmypid') ? getmypid() : false;
         if ($pid === false) {
@@ -107,5 +192,27 @@ final class TimeBoundedLoopExecutionDriver implements LoopExecutionDriver
                 // pkill absent or nothing to kill — best effort only.
             }
         }
+    }
+
+    private function reapChildren(): void
+    {
+        if (! function_exists('pcntl_waitpid')) {
+            return;
+        }
+
+        $deadline = microtime(true) + 1.0;
+        do {
+            $reaped = false;
+            do {
+                $pid = @pcntl_waitpid(-1, $status, WNOHANG);
+                if ($pid > 0) {
+                    $reaped = true;
+                }
+            } while ($pid > 0);
+
+            if (! $reaped) {
+                usleep(50_000);
+            }
+        } while (microtime(true) < $deadline);
     }
 }

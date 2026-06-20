@@ -70,10 +70,11 @@ final class AtlasLoopTaskGrinder
     /**
      * @return array{status:string, has_winner:bool, proposals:int, scenarios_explored:int, elapsed_seconds:int, cost_estimate_usd?:?float, cost_cents?:int, tokens_used?:?int, reason?:string}
      */
-    public function grind(AtlasLoopTask $task, string $workerId, ?int $scenarios = null, string $workspaceRoot = '', ?int $timeBudgetSeconds = null): array
+    public function grind(AtlasLoopTask $task, string $workerId, ?int $scenarios = null, string $workspaceRoot = '', ?int $timeBudgetSeconds = null, ?callable $onProgress = null): array
     {
         $started = microtime(true);
         $this->store->markRunning($task->id, $workerId);
+        $this->emitProgress($onProgress, 'grind_running', $task);
 
         $tmpRoot = $workspaceRoot !== '' ? $workspaceRoot : sys_get_temp_dir();
         $admit = $this->gate->admitScenario(
@@ -205,6 +206,7 @@ final class AtlasLoopTaskGrinder
             [$explorerTask, $cleanup] = $frameworkTask
                 ? $this->frameworkMaterializer->materializeBase(base_path(), (string) $task->objective, $payload)
                 : $this->materializer->materialize((string) $task->objective, $payload);
+            $this->emitProgress($onProgress, 'grind_materialized', $task);
             if ($workspaceRoot !== '') {
                 $explorerTask['workspace_root'] = $workspaceRoot; // namespace + reapable scenario copies
             }
@@ -216,8 +218,12 @@ final class AtlasLoopTaskGrinder
             if ($scenarios !== null && $scenarios > 0) {
                 $options['scenarios_per_task'] = $scenarios;
             }
+            if ($onProgress !== null) {
+                $options['progress_callback'] = $onProgress;
+            }
 
             $result = $this->runner->run([$explorerTask], $options);
+            $this->emitProgress($onProgress, 'grind_runner_returned', $task);
             if (is_array($strategyBanditDecision)) {
                 $result['explorer_strategy_bandit'] = $this->summariseStrategyBanditDecision($strategyBanditDecision);
             }
@@ -253,6 +259,7 @@ final class AtlasLoopTaskGrinder
                 $result = $this->escalateViaConductor($result, $explorerTask, $payload, $frameworkTask, $universal, $options);
             }
             $summary = $this->persister->persist($task, $workerId, $result);
+            $this->emitProgress($onProgress, 'grind_persisted', $task);
             $cleanup();
 
             $grindResult = [
@@ -285,6 +292,23 @@ final class AtlasLoopTaskGrinder
             $this->recordPredictiveOutcome($task, $grindResult);
 
             return $grindResult;
+        }
+    }
+
+    private function emitProgress(?callable $onProgress, string $stage, AtlasLoopTask $task): void
+    {
+        if ($onProgress === null) {
+            return;
+        }
+
+        try {
+            $onProgress([
+                'stage' => $stage,
+                'task_id' => (string) $task->id,
+                'target_path' => $task->target_path !== null ? (string) $task->target_path : null,
+            ]);
+        } catch (Throwable) {
+            // Lease/heartbeat progress is advisory and must never change grind correctness.
         }
     }
 
@@ -947,9 +971,32 @@ final class AtlasLoopTaskGrinder
         try {
             $conductor = $this->conductor ?? new AtlasLoopAutonomousConductor;
             $winning = $result;
+            $taskBudgetSeconds = is_numeric($explorerTask['search_time_budget_seconds'] ?? null)
+                ? max(0, (int) $explorerTask['search_time_budget_seconds'])
+                : 0;
+            $elapsedBeforeEscalation = is_numeric($result['elapsed_seconds'] ?? null)
+                ? max(0.0, (float) $result['elapsed_seconds'])
+                : 0.0;
+            $escalationStartedAt = microtime(true);
+            $remainingTaskBudget = static function () use ($taskBudgetSeconds, $elapsedBeforeEscalation, $escalationStartedAt): ?int {
+                if ($taskBudgetSeconds <= 0) {
+                    return null;
+                }
 
-            $runTier = function (array $tierOptions, string $guidance, string $providerOverride = '') use (&$winning, $explorerTask, $payload, $frameworkTask, $universal): array {
+                $elapsed = $elapsedBeforeEscalation + (microtime(true) - $escalationStartedAt);
+
+                return max(0, $taskBudgetSeconds - (int) ceil($elapsed));
+            };
+
+            $runTier = function (array $tierOptions, string $guidance, string $providerOverride = '') use (&$winning, $explorerTask, $payload, $frameworkTask, $universal, $remainingTaskBudget): array {
                 $task = $explorerTask;
+                $remaining = $remainingTaskBudget();
+                if ($remaining !== null) {
+                    if ($remaining <= 0) {
+                        return ['certified' => false, 'reason' => 'task_time_budget_exhausted'];
+                    }
+                    $task['search_time_budget_seconds'] = $remaining;
+                }
                 if (trim($guidance) !== '') {
                     $task['objective'] = (string) ($task['objective'] ?? '')."\n\n".$guidance;
                 }
@@ -1094,7 +1141,7 @@ final class AtlasLoopTaskGrinder
         }
 
         $workspace = sys_get_temp_dir().'/atlas-loop-fw-gate-'.bin2hex(random_bytes(5));
-        if (is_dir($baseWorkspace.'/.git')) {
+        if ($this->isGitWorkspace($baseWorkspace)) {
             $this->mustRun(['git', '-C', $baseWorkspace, 'worktree', 'add', '--detach', $workspace, 'HEAD'], 'framework_gate_worktree_add_failed', 120.0);
         } else {
             // AUTÓPSIA 12/06 (a causa-raiz do "0 propostas"): no caminho DISCOVERY o
@@ -1107,9 +1154,10 @@ final class AtlasLoopTaskGrinder
             $this->mustRun(['bash', '-lc', 'cp -R '.escapeshellarg($baseWorkspace).' '.escapeshellarg($workspace)], 'framework_gate_copy_failed', 120.0);
             $this->mustRun(['git', '-C', $workspace, 'init', '-q'], 'framework_gate_git_init_failed', 30.0);
             $this->mustRun(['git', '-C', $workspace, 'add', '-A'], 'framework_gate_baseline_add_failed', 60.0);
-            $this->mustRun(['git', '-C', $workspace, '-c', 'user.email=atlas-loop@local', '-c', 'user.name=Atlas Loop', '-c', 'commit.gpgsign=false', 'commit', '-q', '--allow-empty', '-m', 'gate baseline'], 'framework_gate_baseline_commit_failed', 60.0);
+            $this->mustRun(['git', '-C', $workspace, '-c', 'user.email=atlas-loop@local', '-c', 'user.name=Atlas Loop', '-c', 'commit.gpgsign=false', 'commit', '-q', '--allow-empty', '--no-verify', '-m', 'gate baseline'], 'framework_gate_baseline_commit_failed', 60.0);
         }
         $this->copyLocalSupport($baseWorkspace, $workspace);
+        AtlasLoopHermeticCommandEnvironment::writeTestingEnv($workspace, $baseWorkspace.'/.env');
 
         $apply = new Process(['git', 'apply', '--whitespace=nowarn', '-'], $workspace, null, null, 60.0);
         $apply->setInput($diff);
@@ -1120,6 +1168,18 @@ final class AtlasLoopTaskGrinder
         }
 
         return $workspace;
+    }
+
+    private function isGitWorkspace(string $workspace): bool
+    {
+        if ($workspace === '' || ! is_dir($workspace)) {
+            return false;
+        }
+
+        $process = new Process(['git', '-C', $workspace, 'rev-parse', '--is-inside-work-tree'], null, null, null, 10.0);
+        $process->run();
+
+        return $process->isSuccessful() && trim($process->getOutput()) === 'true';
     }
 
     private function removeGateWorkspace(string $baseWorkspace, string $workspace): void

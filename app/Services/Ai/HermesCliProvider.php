@@ -200,7 +200,8 @@ class HermesCliProvider implements AiProvider
             // AiProviderResult that feeds the SAME packet factory + governance gates
             // below — so memory/schedule/procedure candidate extraction runs
             // identically regardless of transport.
-            $result = $this->maybeRunViaAcp($job, $mission, $prompt, $invocation, $cwd, $managedConfigPath, $provider, $timeout)
+            $processEnv = $this->forgeProviderProcessEnv($job, $managedConfigPath);
+            $result = ($this->hasForgeProviderProcessEnv($job) ? null : $this->maybeRunViaAcp($job, $mission, $prompt, $invocation, $cwd, $managedConfigPath, $provider, $timeout))
                 ?? $this->runProcessStreaming(
                     command: $command,
                     input: '',
@@ -208,7 +209,7 @@ class HermesCliProvider implements AiProvider
                     cwd: $cwd,
                     onEvent: $onEvent,
                     job: $job,
-                    extraEnv: $managedConfigPath !== null ? ['HERMES_HOME' => $managedConfigPath] : null,
+                    extraEnv: $processEnv,
                 );
         } finally {
             if ((bool) data_get($hookBridgeReceipt, 'hooks_registered', false)) {
@@ -282,6 +283,35 @@ class HermesCliProvider implements AiProvider
                 ],
             ]),
         );
+    }
+
+    private function hasForgeProviderProcessEnv(AiJob $job): bool
+    {
+        return is_array(data_get($job->payload, 'forge_provider_invocation_env'));
+    }
+
+    /**
+     * @return array<string,string|int|float|false>|null
+     */
+    private function forgeProviderProcessEnv(AiJob $job, ?string $managedConfigPath): ?array
+    {
+        $env = [];
+        $requested = data_get($job->payload, 'forge_provider_invocation_env');
+        if (is_array($requested)) {
+            foreach ($requested as $key => $value) {
+                if (! is_string($key) || $key === '') {
+                    continue;
+                }
+                if (is_string($value) || is_numeric($value) || $value === false) {
+                    $env[$key] = $value;
+                }
+            }
+        }
+        if ($managedConfigPath !== null) {
+            $env['HERMES_HOME'] = $managedConfigPath;
+        }
+
+        return $env !== [] ? $env : null;
     }
 
     /**

@@ -81,7 +81,9 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
             'cwd' => $workspace,
             'timeout_seconds' => $timeout,
             'max_output_chars' => self::MAX_PROVIDER_OUTPUT_CHARS,
+            'env' => AtlasLoopHermeticCommandEnvironment::forAcceptance(),
         ]);
+        $result = $this->resetProviderProjectionNoise($result, $workspace, $allowedFiles);
 
         if (! (bool) config('atlas.loop.text_provider_edit_apply', true)
             || ! (bool) ($result['provider_called'] ?? false)
@@ -97,7 +99,7 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
             $result['changed_files'] = $applied['changed_files'];
         }
 
-        return $result;
+        return $this->resetProviderProjectionNoise($result, $workspace, $allowedFiles);
     }
 
     public function attempt(
@@ -118,7 +120,7 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
         // iterate-to-green drive toward the JUDGE's bar instead of a raw exit-0 proxy. Absent => the
         // raw-command path is used (byte-identical).
         $acceptance = is_array($surfaceHints['acceptance'] ?? null) ? $surfaceHints['acceptance'] : [];
-        $prompt = $this->buildPrompt($intent, $allowedFiles, $validationCommands, $workspace);
+        $prompt = $this->buildPrompt($intent, $allowedFiles, $validationCommands, $workspace, $provider);
         $model = $this->resolveModel($provider);
         $timeout = max(60, (int) config('atlas.loop.campaign.attempt_hard_seconds', 900));
 
@@ -160,18 +162,20 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
 
                     return ['passed' => $green, 'output' => $green ? 'judge_green' : ('judge_rejected: '.(string) ($v['details']['reason'] ?? ''))];
                 }
-                $p = new Process(['bash', '-lc', $cmd], $workspace, null, null, (float) $timeout);
+                $p = new Process(['bash', '-lc', $cmd], $workspace, AtlasLoopHermeticCommandEnvironment::forAcceptance(), null, (float) $timeout);
                 $p->run();
 
                 return ['passed' => $p->isSuccessful(), 'output' => mb_substr($p->getOutput()."\n".$p->getErrorOutput(), -4000)];
             };
             $reinvoke = function (string $failure) use ($provider, $model, $intent, $allowedFiles, $validationCommands, $workspace, $timeout, &$result): void {
-                $result = $this->invokeWithEditApply($provider, $model, $this->buildFixPrompt($intent, $allowedFiles, $validationCommands, $failure, $workspace), $workspace, $timeout, $allowedFiles);
+                $result = $this->invokeWithEditApply($provider, $model, $this->buildFixPrompt($intent, $allowedFiles, $validationCommands, $failure, $workspace, $provider), $workspace, $timeout, $allowedFiles);
             };
             $iterateMeta = (new AtlasLoopIterateToGreenExecutor)->pursue($runTest, $reinvoke, $maxIter);
         }
 
         $called = (bool) ($result['provider_called'] ?? false);
+        $providerOutput = (string) ($result['stdout'] ?? $result['stdout_excerpt'] ?? $result['output_excerpt'] ?? '');
+        $providerError = (string) ($result['stderr'] ?? $result['stderr_excerpt'] ?? '');
 
         return [
             'status' => $called ? 'completed' : 'blocked',
@@ -185,7 +189,15 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
             // engine-independence path actually fired (and which status when it did not).
             'edits_applied_from_text' => (bool) ($result['edits_applied_from_text'] ?? false),
             'edit_apply_status' => $result['edit_apply_status'] ?? null,
+            'provider_projection_noise_reset' => (bool) ($result['provider_projection_noise_reset'] ?? false),
+            'provider_projection_noise_files' => is_array($result['provider_projection_noise_files'] ?? null) ? array_values($result['provider_projection_noise_files']) : [],
             'iterate_to_green' => $iterateMeta,
+            'provider_output_present' => trim($providerOutput) !== '',
+            'provider_output_bytes' => strlen($providerOutput),
+            'provider_error_present' => trim($providerError) !== '',
+            'provider_error_bytes' => strlen($providerError),
+            'provider_failure_type' => is_string($result['failure_type'] ?? null) ? mb_substr((string) $result['failure_type'], 0, 120) : null,
+            'provider_note' => is_string($result['note'] ?? null) ? mb_substr((string) $result['note'], 0, 160) : null,
             // L6-3 live-evidence wire: forward the REAL token count + cost the router
             // surfaced (numeric only when the provider actually reported usage; null
             // otherwise — never fabricated) so the runner persists them into
@@ -198,11 +210,123 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
     }
 
     /**
+     * Provider projection files are bootstrap/read-model artifacts. If a CLI provider or
+     * its hooks refresh them inside a disposable scenario workspace, reset only those
+     * files before judging the candidate, unless the task explicitly allowed editing them.
+     *
+     * @param  array<string,mixed>  $result
+     * @param  list<string>  $allowedFiles
+     * @return array<string,mixed>
+     */
+    private function resetProviderProjectionNoise(array $result, string $workspace, array $allowedFiles): array
+    {
+        if (! (bool) config('atlas.loop.provider_projection_noise_reset', true)
+            || ! is_dir($workspace)) {
+            return $result;
+        }
+
+        $changed = $this->stringList($result['changed_files'] ?? []);
+        $noise = array_values(array_filter(
+            $this->providerProjectionNoiseFiles(),
+            fn (string $file): bool => in_array($file, $changed, true)
+                && ! in_array($file, $allowedFiles, true),
+        ));
+        if ($noise === []) {
+            return $result;
+        }
+
+        foreach ($noise as $file) {
+            $this->restoreWorkspacePath($workspace, $file);
+        }
+
+        $result['provider_projection_noise_reset'] = true;
+        $result['provider_projection_noise_files'] = $noise;
+        $result['changed_files'] = $this->workspaceChangedFiles($workspace);
+
+        return $result;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function providerProjectionNoiseFiles(): array
+    {
+        $configured = config('atlas.loop.provider_projection_noise_files', ['AGENTS.md', 'CLAUDE.md']);
+        if (is_string($configured)) {
+            $configured = explode(',', $configured);
+        }
+
+        return array_values(array_unique(array_filter(array_map(
+            static fn (mixed $value): string => trim((string) $value),
+            is_array($configured) ? $configured : [],
+        ))));
+    }
+
+    private function restoreWorkspacePath(string $workspace, string $path): void
+    {
+        if ($path === '' || str_contains($path, "\0") || str_starts_with($path, '/')
+            || str_contains($path, '..')) {
+            return;
+        }
+
+        $tracked = new Process(['git', 'ls-files', '--error-unmatch', '--', $path], $workspace, null, null, 30.0);
+        $tracked->run();
+        $restore = $tracked->isSuccessful()
+            ? new Process(['git', 'checkout', '--', $path], $workspace, null, null, 30.0)
+            : new Process(['git', 'clean', '-f', '--', $path], $workspace, null, null, 30.0);
+        $restore->run();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function workspaceChangedFiles(string $workspace): array
+    {
+        $status = new Process(['git', 'status', '--porcelain', '--untracked-files=all'], $workspace, null, null, 30.0);
+        $status->run();
+        if (! $status->isSuccessful()) {
+            return [];
+        }
+
+        $files = [];
+        foreach (preg_split('/\R/', rtrim($status->getOutput())) ?: [] as $line) {
+            if (! is_string($line) || strlen($line) < 4) {
+                continue;
+            }
+            $path = trim(substr($line, 3));
+            if (str_contains($path, ' -> ')) {
+                $path = trim(substr($path, (int) strrpos($path, ' -> ') + 4));
+            }
+            $path = trim($path, "\"'");
+            if ($path !== '') {
+                $files[] = $path;
+            }
+        }
+
+        return array_values(array_unique($files));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function stringList(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            static fn (mixed $item): string => trim((string) $item),
+            $value,
+        ), static fn (string $item): bool => $item !== ''));
+    }
+
+    /**
      * @param  list<string>  $allowedFiles
      * @param  list<string>  $validationCommands
      * @return array<string,mixed>
      */
-    private function buildPrompt(string $intent, array $allowedFiles, array $validationCommands, string $workspace = ''): array
+    private function buildPrompt(string $intent, array $allowedFiles, array $validationCommands, string $workspace = '', string $provider = ''): array
     {
         $lines = [
             'You are autonomously improving code in an ISOLATED throwaway workspace. Make the change directly by editing files in place.',
@@ -213,12 +337,15 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
         if ($allowedFiles !== []) {
             $lines[] = 'Edit ONLY these files: '.implode(', ', $allowedFiles).'.';
         }
-        $lines[] = 'Do NOT modify anything under tests/ or composer.json — those are the frozen acceptance and must stay untouched.';
+        $lines[] = $this->frozenScopeInstruction($allowedFiles);
         if ($validationCommands !== []) {
             $lines[] = 'Your change is correct only when this passes: '.implode(' && ', $validationCommands).'.';
         }
         $lines[] = 'Preserve all existing behavior; make the smallest change that satisfies the objective.';
-        foreach ($this->editProtocolLines($allowedFiles, $workspace) as $line) {
+        foreach ($this->cliProviderToolHintLines($provider) as $line) {
+            $lines[] = $line;
+        }
+        foreach ($this->editProtocolLines($allowedFiles, $workspace, $provider) as $line) {
             $lines[] = $line;
         }
 
@@ -241,7 +368,7 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
      * @param  list<string>  $validationCommands
      * @return array<string,mixed>
      */
-    private function buildFixPrompt(string $intent, array $allowedFiles, array $validationCommands, string $failure, string $workspace = ''): array
+    private function buildFixPrompt(string $intent, array $allowedFiles, array $validationCommands, string $failure, string $workspace = '', string $provider = ''): array
     {
         $lines = [
             'Your previous change did NOT pass the acceptance test. Fix the code IN PLACE so it passes — read the failure, find the cause, and correct it (create any file the objective requires; a missing/mis-namespaced class is a common cause).',
@@ -256,8 +383,11 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
         if ($allowedFiles !== []) {
             $lines[] = 'Edit ONLY these files (and CREATE any the objective requires among them): '.implode(', ', $allowedFiles).'.';
         }
-        $lines[] = 'Do NOT modify anything under tests/ or composer.json. Make the smallest change that turns the test GREEN while preserving existing behavior.';
-        foreach ($this->editProtocolLines($allowedFiles, $workspace) as $line) {
+        $lines[] = $this->frozenScopeInstruction($allowedFiles, ' Make the smallest change that turns the test GREEN while preserving existing behavior.');
+        foreach ($this->cliProviderToolHintLines($provider) as $line) {
+            $lines[] = $line;
+        }
+        foreach ($this->editProtocolLines($allowedFiles, $workspace, $provider) as $line) {
             $lines[] = $line;
         }
 
@@ -272,6 +402,34 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
         $text = implode("\n", $lines);
 
         return ['text' => $text, 'instruction' => $text, 'messages' => [['role' => 'user', 'content' => $text]]];
+    }
+
+    /**
+     * @param  list<string>  $allowedFiles
+     */
+    private function frozenScopeInstruction(array $allowedFiles, string $suffix = ''): string
+    {
+        foreach ($allowedFiles as $file) {
+            if (str_starts_with(ltrim((string) $file, './'), 'tests/')) {
+                return 'Do NOT modify composer.json or any file outside the Edit ONLY list; frozen acceptance files not listed above must stay untouched.'.$suffix;
+            }
+        }
+
+        return 'Do NOT modify anything under tests/ or composer.json — those are the frozen acceptance and must stay untouched.'.$suffix;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function cliProviderToolHintLines(string $provider): array
+    {
+        if ($provider !== AtlasForgeProviderInvocationDriverRouter::DRIVER_HERMES_CLI) {
+            return [];
+        }
+
+        return [
+            'Hermes CLI note: if a native patch/write_file/edit tool refuses the path as sensitive, do not retry that tool; use the terminal shell in this throwaway workspace to edit the allowed file, then run the validation command.',
+        ];
     }
 
     /**
@@ -290,9 +448,10 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
      * @param  list<string>  $allowedFiles
      * @return list<string>
      */
-    private function editProtocolLines(array $allowedFiles, string $workspace): array
+    private function editProtocolLines(array $allowedFiles, string $workspace, string $provider): array
     {
-        if (! (bool) config('atlas.loop.text_provider_edit_apply', true)) {
+        if (! (bool) config('atlas.loop.text_provider_edit_apply', true)
+            || ! $this->usesTextEditProtocol($provider)) {
             return [];
         }
 
@@ -312,6 +471,26 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
         }
 
         return $lines;
+    }
+
+    private function usesTextEditProtocol(string $provider): bool
+    {
+        $provider = trim($provider);
+        if ($provider === '') {
+            return false;
+        }
+
+        $configured = config('atlas.loop.text_provider_edit_apply_providers', [AtlasForgeProviderInvocationDriverRouter::DRIVER_MINIMAX_M27]);
+        if (is_string($configured)) {
+            $configured = explode(',', $configured);
+        }
+
+        $providers = array_values(array_filter(array_map(
+            static fn (mixed $value): string => trim((string) $value),
+            is_array($configured) ? $configured : [],
+        )));
+
+        return in_array($provider, $providers, true);
     }
 
     /**

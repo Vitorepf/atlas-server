@@ -5,6 +5,7 @@ namespace App\Services\Ai;
 use App\Models\AiJob;
 use App\Models\AiJobAttempt;
 use App\Models\AiProviderHealthSnapshot;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Collection;
 
 class AiProviderHealthService
@@ -71,10 +72,15 @@ class AiProviderHealthService
     private function stats(string $provider): array
     {
         $since = now()->subDay();
-        $attempts = AiJobAttempt::query()
-            ->where('provider', $provider)
-            ->where('started_at', '>=', $since)
-            ->get();
+        $jobsAvailable = DatabaseTableAvailability::has('ai_jobs');
+        $attemptsAvailable = DatabaseTableAvailability::has('ai_job_attempts');
+
+        $attempts = $attemptsAvailable
+            ? AiJobAttempt::query()
+                ->where('provider', $provider)
+                ->where('started_at', '>=', $since)
+                ->get()
+            : collect();
 
         $latencies = $attempts
             ->where('status', 'succeeded')
@@ -88,25 +94,33 @@ class AiProviderHealthService
             : (int) $latencies[(int) floor(($latencies->count() - 1) / 2)];
 
         return [
-            'total_jobs_24h' => AiJob::query()
-                ->where('provider', $provider)
-                ->where('created_at', '>=', $since)
-                ->count(),
-            'failed_jobs_24h' => AiJob::query()
-                ->where('provider', $provider)
-                ->where('status', 'failed')
-                ->where('updated_at', '>=', $since)
-                ->count(),
-            'last_success_at' => AiJobAttempt::query()
-                ->where('provider', $provider)
-                ->where('status', 'succeeded')
-                ->latest('finished_at')
-                ->value('finished_at'),
-            'last_failure_at' => AiJobAttempt::query()
-                ->where('provider', $provider)
-                ->whereIn('status', ['failed', 'timeout'])
-                ->latest('finished_at')
-                ->value('finished_at'),
+            'total_jobs_24h' => $jobsAvailable
+                ? AiJob::query()
+                    ->where('provider', $provider)
+                    ->where('created_at', '>=', $since)
+                    ->count()
+                : 0,
+            'failed_jobs_24h' => $jobsAvailable
+                ? AiJob::query()
+                    ->where('provider', $provider)
+                    ->where('status', 'failed')
+                    ->where('updated_at', '>=', $since)
+                    ->count()
+                : 0,
+            'last_success_at' => $attemptsAvailable
+                ? AiJobAttempt::query()
+                    ->where('provider', $provider)
+                    ->where('status', 'succeeded')
+                    ->latest('finished_at')
+                    ->value('finished_at')
+                : null,
+            'last_failure_at' => $attemptsAvailable
+                ? AiJobAttempt::query()
+                    ->where('provider', $provider)
+                    ->whereIn('status', ['failed', 'timeout'])
+                    ->latest('finished_at')
+                    ->value('finished_at')
+                : null,
             'p50_latency_ms' => $p50,
         ];
     }

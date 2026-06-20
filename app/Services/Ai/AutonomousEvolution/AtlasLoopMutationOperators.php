@@ -74,7 +74,7 @@ final class AtlasLoopMutationOperators
         }
         if ($extra) {
             $map['exception_throw_noop'] = static fn (string $source): ?string => self::replaceFirst('/throw\s+new\b[^;]*;/', ';', $source);
-            $map['null_coalesce_null'] = static fn (string $source): ?string => self::replaceFirst('/\?\?\s*[^;()\[\]{}?:,]+/', '?? null', $source);
+            $map['null_coalesce_null'] = static fn (string $source): ?string => self::replaceFirstNullCoalesceNull($source);
             $map['early_return_delete'] = static fn (string $source): ?string => self::replaceFirst('/(?<![\w$>=])return\s*;/', ';', $source);
         }
 
@@ -201,6 +201,35 @@ final class AtlasLoopMutationOperators
         $mutated = preg_replace($pattern, $replacement, $source, 1, $count);
 
         return $count > 0 && is_string($mutated) ? $mutated : null;
+    }
+
+    private static function replaceFirstNullCoalesceNull(string $source): ?string
+    {
+        $pattern = '/\?\?\s*[^;()\[\]{}?:,]+/';
+        if (preg_match($pattern, $source, $match, PREG_OFFSET_CAPTURE) !== 1) {
+            return null;
+        }
+
+        $operator = (string) $match[0][0];
+        $offset = (int) $match[0][1];
+        if (self::isEquivalentBooleanCoalesceFallback($source, $operator, $offset)) {
+            return null;
+        }
+
+        $mutated = substr_replace($source, '?? null', $offset, strlen($operator));
+
+        return $mutated !== $source ? $mutated : null;
+    }
+
+    private static function isEquivalentBooleanCoalesceFallback(string $source, string $operator, int $offset): bool
+    {
+        if (preg_match('/\?\?\s*false\b/i', $operator) !== 1) {
+            return false;
+        }
+
+        $prefix = substr($source, max(0, $offset - 120), min(120, $offset));
+
+        return preg_match('/\(\s*bool\s*\)\s*\([^\n]*$/i', $prefix) === 1;
     }
 
     /**

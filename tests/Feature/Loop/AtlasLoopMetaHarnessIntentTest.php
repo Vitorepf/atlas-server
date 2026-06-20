@@ -151,8 +151,8 @@ final class AtlasLoopMetaHarnessIntentTest extends TestCase
 
         // Adiciona TODO o conjunto pétreo conhecido à árvore — nenhum pode ser emitido.
         foreach (AtlasLoopHarnessGuard::FORBIDDEN_SELF_TARGETS as $forbidden) {
-            if (! str_starts_with($forbidden, 'app/')) {
-                continue; // migrations etc. ficam fora do diretório de harness
+            if (! str_starts_with($forbidden, 'app/') || ! str_ends_with($forbidden, '.php')) {
+                continue; // migrations, directory substrings etc. ficam fora da fixture de arquivo PHP
             }
             File::ensureDirectoryExists(dirname($repo.'/'.$forbidden));
             File::put($repo.'/'.$forbidden, $this->harnessFixture(basename($forbidden, '.php')));

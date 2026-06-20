@@ -166,6 +166,94 @@ final class AtlasLoopWorkerPoolTest extends TestCase
         $this->assertSame(0, $r['in_flight']);
     }
 
+    public function test_tick_harvests_worker_timeout_without_waiting_for_process_exit(): void
+    {
+        $spawner = new class implements LoopWorkerSpawnerContract
+        {
+            public function spawn(
+                string $campaignId,
+                string $taskId,
+                string $workerId,
+                int $leaseSeconds,
+                string $workspaceRoot,
+                int $timeoutSeconds,
+                int $scenarios,
+            ): LoopWorkerHandle {
+                $process = new Process([PHP_BINARY, '-r', 'usleep(500000);'], null, null, null, 0.05);
+                $process->start();
+
+                return new LoopWorkerHandle($process, $taskId, $workerId);
+            }
+        };
+        $pool = new LoopWorkerPool($spawner, new AtlasLoopResourceGate);
+        $queue = [$this->task('timeout-task')];
+        $claimNext = function () use (&$queue): ?AtlasLoopTask { return array_shift($queue); };
+
+        $first = $pool->tick(1, 'c', $claimNext, 600, 60);
+        $this->assertSame(1, $first['spawned']);
+        $this->assertSame(1, $first['in_flight']);
+
+        usleep(120000);
+        $second = $pool->tick(1, 'c', $claimNext, 600, 60);
+
+        $this->assertSame(0, $second['in_flight']);
+        $this->assertCount(1, $second['settled']);
+        $this->assertTrue((bool) $second['settled'][0]['timed_out']);
+        $this->assertSame('timeout-task', $second['settled'][0]['task_id']);
+    }
+
+    public function test_timeout_kills_worker_process_group_children(): void
+    {
+        if (! function_exists('posix_setsid') || ! function_exists('posix_kill')) {
+            $this->markTestSkipped('POSIX process groups are unavailable on this runtime.');
+        }
+
+        $childPidFile = tempnam(sys_get_temp_dir(), 'atlas-loop-child-');
+        $this->assertIsString($childPidFile);
+
+        $script = <<<'PHP'
+if (function_exists('posix_setsid')) {
+    @posix_setsid();
+}
+$child = trim((string) shell_exec('sleep 30 >/dev/null 2>&1 & echo $!'));
+file_put_contents($argv[1], $child);
+sleep(30);
+PHP;
+        $process = new Process([PHP_BINARY, '-r', $script, $childPidFile], null, null, null, 0.05);
+        $process->start();
+        $handle = new LoopWorkerHandle($process, 'timeout-tree-task', 'timeout-tree-worker');
+
+        $deadline = microtime(true) + 2.0;
+        do {
+            $childPid = trim((string) @file_get_contents($childPidFile));
+            if ($childPid !== '') {
+                break;
+            }
+            usleep(20_000);
+        } while (microtime(true) < $deadline);
+
+        $this->assertNotSame('', $childPid, 'child process pid was not recorded');
+        $this->assertTrue($this->processExists((int) $childPid), 'child process should be alive before timeout harvest');
+
+        usleep(120_000);
+        $this->assertTrue($handle->isFinished());
+        $this->assertTrue($handle->timedOut());
+
+        $deadline = microtime(true) + 2.0;
+        do {
+            if (! $this->processExists((int) $childPid)) {
+                @unlink($childPidFile);
+                $this->assertTrue(true);
+
+                return;
+            }
+            usleep(50_000);
+        } while (microtime(true) < $deadline);
+
+        @unlink($childPidFile);
+        $this->fail('timed-out worker left its child process alive');
+    }
+
     public function test_worker_count_planner_clamps_to_cpu_and_ceiling(): void
     {
         Config::set('atlas.loop.parallel.max_workers', 4);
@@ -284,5 +372,17 @@ final class AtlasLoopWorkerPoolTest extends TestCase
             (string) file_get_contents(config_path('atlas.php')),
             'o fallback de fábrica da frota deve ser false (ligar = ato do operador via env)'
         );
+    }
+
+    private function processExists(int $pid): bool
+    {
+        if ($pid <= 0) {
+            return false;
+        }
+
+        $probe = new Process(['ps', '-p', (string) $pid, '-o', 'pid=']);
+        $probe->run();
+
+        return trim($probe->getOutput()) !== '';
     }
 }

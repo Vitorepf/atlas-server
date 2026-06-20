@@ -577,38 +577,16 @@ final class AtlasEvolutionFrozenJudge
     /**
      * Environment for frozen acceptance commands.
      *
-     * Acceptance commands run `php …` directly, and `./vendor/bin/*` shebangs
-     * resolve through `/usr/bin/env php`. When the reprove pass is spawned by a
-     * minimal-PATH parent (launchd/cron), `/bin/sh -c "php …"` cannot find php
-     * and exits 127 — which the gate mis-reported as a transient `reproof_failed`
-     * (the real "scheduled drain merges 0 but manual merges work" cause: the
-     * interactive shell had php on PATH, launchd did not). PHP_BINARY is the
-     * absolute path of the interpreter actually running this code, so prepending
-     * its directory to PATH makes the subprocess resolve the same php regardless
-     * of who spawned us. Prepend (not replace) so every other tool on the
-     * inherited PATH still resolves. Returns null (inherit parent env) only when
-     * PHP_BINARY is unavailable.
+     * Acceptance commands can run generated PHPUnit/Artisan tests. They must
+     * resolve the same PHP binary AND must never inherit the operator's real DB
+     * settings, otherwise a schema-destructive test in a throwaway worktree can
+     * mutate the live loop runtime database.
      *
-     * @return array<string, string>|null
+     * @return array<string,string|false>
      */
-    private function frozenCommandEnv(): ?array
+    private function frozenCommandEnv(): array
     {
-        $binary = PHP_BINARY;
-        if (! is_string($binary) || $binary === '') {
-            return null;
-        }
-
-        $binDir = \dirname($binary);
-        if ($binDir === '' || $binDir === '.' || $binDir === DIRECTORY_SEPARATOR) {
-            return null;
-        }
-
-        $currentPath = getenv('PATH');
-        $path = (! is_string($currentPath) || $currentPath === '')
-            ? $binDir
-            : $binDir.PATH_SEPARATOR.$currentPath;
-
-        return ['PATH' => $path];
+        return AtlasLoopHermeticCommandEnvironment::forAcceptance();
     }
 
     private function computeMetric(string $kind, bool $passed, string $stdout, ?string $pattern): float

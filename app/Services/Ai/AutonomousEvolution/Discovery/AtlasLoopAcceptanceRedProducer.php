@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Discovery;
 
+use App\Services\Ai\AutonomousEvolution\AtlasLoopHermeticCommandEnvironment;
 use Symfony\Component\Process\Process;
 
 /**
@@ -49,7 +50,7 @@ final class AtlasLoopAcceptanceRedProducer
         $process = Process::fromShellCommandline(
             $acceptanceCommand,
             $cwd,
-            null,
+            AtlasLoopHermeticCommandEnvironment::forAcceptance(),
             null,
             (float) self::COMMAND_TIMEOUT_SECONDS,
         );

@@ -9,6 +9,7 @@ use App\Models\AtlasLoopTarget;
 use App\Services\Ai\AutonomousEvolution\AtlasEvolutionTaskGenerator;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMutationOperators;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopSelfImprovementGroundingBridge;
 use App\Services\Ai\AutonomousEvolution\Constitution\Frozen\AtlasLoopFrozenMutationOperators;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopDeliveryPipeline;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
@@ -278,7 +279,7 @@ final class AtlasLoopQueueRefiller
     /**
      * Discover + generate + enqueue up to $want new tasks for a campaign.
      *
-     * @return array{discovered:int, claimed:int, enqueued:int, quarantined:int, deferred:int, obra_candidates:int, failure_handle_harvest:array{status:string, scanned:int, harvested:int, dropped_environmental:int, dropped_unknown:int, dropped_unrunnable:int, dropped_ambiguous_target:int, write_failed:int}}
+     * @return array{discovered:int, reopened:int, claimed:int, enqueued:int, quarantined:int, deferred:int, obra_candidates:int, failure_handle_harvest:array{status:string, scanned:int, harvested:int, dropped_environmental:int, dropped_unknown:int, dropped_unrunnable:int, dropped_ambiguous_target:int, write_failed:int}}
      */
     public function refill(AtlasLoopCampaign $campaign, int $want): array
     {
@@ -299,6 +300,8 @@ final class AtlasLoopQueueRefiller
             'limit' => max($want * 2, $want + 4),
             'heartbeat_campaign_id' => (string) $campaign->id,
         ]);
+        $this->touchHeartbeat($campaign);
+        $reopened = $this->repository->reopenPolicyBlockedForStructuredSupply($campaign->id, $want);
         $this->touchHeartbeat($campaign);
         $targets = $this->repository->claimTop($campaign->id, $want);
 
@@ -441,6 +444,7 @@ final class AtlasLoopQueueRefiller
 
         $result = [
             'discovered' => (int) $disc['upserted'],
+            'reopened' => $reopened,
             'claimed' => count($targets),
             'enqueued' => $enqueued,
             'quarantined' => $quarantined,
@@ -630,6 +634,15 @@ final class AtlasLoopQueueRefiller
         $bugOutcome = $this->tryBugReproduction($campaign, $target, $signals, $provider, $repoRoot);
         if ($bugOutcome !== null) {
             return $bugOutcome;
+        }
+
+        // C1/L6-1 LIVE SUPPLY: meta-harness/backlog self-improvement candidates must not fall through to
+        // the generic provider fallback (which is deliberately OFF in real-work soaks). Ground them through
+        // the measured self-improvement bridge into an executable extract-class contract: sibling test frozen,
+        // complexity proof required, quality bar stamped, and self-edit marker preserved for park gates.
+        $selfOutcome = $this->tryGroundedSelfImprovement($campaign, $target, $signals, $provider, $repoRoot);
+        if ($selfOutcome !== null) {
+            return $selfOutcome;
         }
 
         if ((int) ($signals['framework_reach'] ?? 0) > 0) {
@@ -924,6 +937,7 @@ final class AtlasLoopQueueRefiller
         $sibling = is_string($signals['sibling_test_path'] ?? null) ? trim((string) $signals['sibling_test_path']) : '';
         $taskId = app(AtlasLoopCoverageGapFeeder::class)->feedGap((string) $campaign->id, [
             'target_file' => ltrim((string) $target->target_path, '/'),
+            'target_content' => (string) @file_get_contents($source),
             'decision_operator' => $operator,
             'mutation_id' => 'coverage_deficit:'.$operator,
             'sibling_test' => $sibling !== '' ? $sibling : null,
@@ -957,6 +971,82 @@ final class AtlasLoopQueueRefiller
         }
 
         return '';
+    }
+
+    /**
+     * Ground a meta/backlog self-improvement target into the hard self-edit contract instead of letting it
+     * die at `generic_provider_fallback_disabled`. This is intentionally narrower than the ordinary refactor
+     * lanes: it fires only for explicit self-improvement signals and only when the grounding bridge can name a
+     * concrete worst method + sibling test under the HarnessGuard gates.
+     *
+     * @param  array<string,mixed>  $signals
+     */
+    private function tryGroundedSelfImprovement(AtlasLoopCampaign $campaign, AtlasLoopTarget $target, array $signals, string $provider, string $repoRoot): ?string
+    {
+        if (! $this->isSelfImprovementCandidate($signals)) {
+            return null;
+        }
+        if (! (bool) config('atlas.loop.self_improve_grounding_enabled', false)) {
+            return null;
+        }
+
+        $rel = ltrim((string) $target->target_path, '/');
+        $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard;
+        if ($guard->isForbiddenSelfTarget($rel) || ! $guard->isHarnessTarget($rel)) {
+            return null;
+        }
+
+        $grounded = (new AtlasLoopSelfImprovementGroundingBridge)
+            ->ground($rel, $repoRoot, $provider !== '' ? $provider : null);
+        if (! is_array($grounded) || ($grounded['admitted'] ?? false) !== true) {
+            return null;
+        }
+        if (! isset($grounded['objective'], $grounded['payload'], $grounded['acceptance_hash']) || ! is_array($grounded['payload'])) {
+            return null;
+        }
+
+        $markerSignals = $signals;
+        $markerSignals['is_self_improvement'] = true;
+        if (isset($grounded['quality_bar'])) {
+            $markerSignals['quality_bar'] = $grounded['quality_bar'];
+        }
+
+        $dp = $this->decidedPriority($campaign, $target, $signals, $repoRoot, AtlasLoopWorkShapeRouter::SHAPE_EXTRACT_CLASS);
+        $payload = $this->withSelfImprovementMarker((array) $grounded['payload'], $markerSignals);
+        $payload['_target_id'] = $target->id;
+        $payload['self_improvement_source'] = (string) ($signals['backlog_source'] ?? 'self_improvement');
+        if ($dp['receipt'] !== []) {
+            $payload['_decision'] = $dp['receipt'];
+        }
+
+        $enq = $this->store->enqueueTask(
+            $campaign->id,
+            (string) $grounded['objective'],
+            $payload,
+            'self_improvement',
+            (string) $target->target_path,
+            $dp['priority'],
+            true,
+            (string) $grounded['acceptance_hash'],
+        );
+        $this->stampLastObjective($target, (string) $grounded['objective']);
+        $this->repository->markStatus($target->id, AtlasLoopTarget::STATUS_QUEUED, 'self_improvement_task_synthesized');
+
+        return $enq !== null ? 'enqueued' : 'deferred';
+    }
+
+    /**
+     * @param  array<string,mixed>  $signals
+     */
+    private function isSelfImprovementCandidate(array $signals): bool
+    {
+        if (($signals['is_self_improvement'] ?? false) === true) {
+            return true;
+        }
+
+        $source = trim((string) ($signals['backlog_source'] ?? ''));
+
+        return in_array($source, ['self_improve', 'meta_harness_self_improve'], true);
     }
 
     /**

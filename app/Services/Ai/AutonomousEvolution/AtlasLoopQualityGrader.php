@@ -16,10 +16,11 @@ namespace App\Services\Ai\AutonomousEvolution;
  *  - scope_clean (diff within allowed_globs) ..... HARD GATE: false ⇒ ≤2 (structurally untrustworthy)
  *  - complexity_reduction (worst-method cx drop) . the VALUE: scaled to the relative drop
  *  - no_net_branches_added (total ≤ before) ...... anti-gaming: relocate, don't inflate
+ *  - absolute_branch_drop (total before−after) .... rewards small surgical reductions that compound
  *  - coverage_added (a new pinning test) ......... bonus
  *
  * A real extract-class (cx 27→8, total 42→24, +new test, in scope, green) scores 10; a marginal
- * 7%-drop refactor scores <9 and is correctly rejected as not-high-value-enough.
+ * 7%-drop refactor with no total branch drop scores <9 and is correctly rejected as not-high-value-enough.
  */
 final class AtlasLoopQualityGrader
 {
@@ -70,6 +71,13 @@ final class AtlasLoopQualityGrader
             $reasons[] = 'net_branches_increased';
         }
 
+        // COMPOUNDING SMALL WINS: a sequence step can be tiny in relative worst-method terms but still
+        // remove real decision points from the file. Reward absolute total-branch drops so bounded
+        // surgical reductions can clear the bar when they genuinely make the loop simpler.
+        $branchDrop = $netBranchesOk ? max(0, $totalBefore - $totalAfter) : 0;
+        $branchDropPoints = round(min(2.0, (float) $branchDrop), 2);
+        $score += $branchDropPoints;
+
         // BONUS: a new pinning test for the extracted/changed surface.
         if ($coverageAdded) {
             $score += 0.5;
@@ -85,6 +93,8 @@ final class AtlasLoopQualityGrader
             'relative_cx_drop' => round($relDrop, 3),
             'cx_points' => $cxPoints,
             'net_branches_ok' => $netBranchesOk,
+            'branch_drop' => $branchDrop,
+            'branch_drop_points' => $branchDropPoints,
             'coverage_added' => $coverageAdded,
         ], $reasons);
     }

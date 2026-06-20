@@ -177,6 +177,88 @@ final class AtlasLoopTargetRepository
         });
     }
 
+    public function reopenPolicyBlockedForStructuredSupply(string $campaignId, int $limit = 12): int
+    {
+        $limit = max(1, $limit);
+        $targets = AtlasLoopTarget::query()
+            ->where('campaign_id', $campaignId)
+            ->where('status', AtlasLoopTarget::STATUS_QUARANTINED)
+            ->where('reason', 'generic_provider_fallback_disabled')
+            ->whereColumn('attempts', '<', 'max_attempts')
+            ->orderByDesc('score')
+            ->orderBy('created_at')
+            ->limit($limit * 2)
+            ->get();
+
+        $reopened = 0;
+        foreach ($targets as $target) {
+            $signals = is_array($target->signals) ? $target->signals : [];
+            if (! $this->structuredLaneCanHandlePolicyBlockedTarget($signals)) {
+                continue;
+            }
+
+            $updated = AtlasLoopTarget::query()
+                ->whereKey($target->id)
+                ->where('status', AtlasLoopTarget::STATUS_QUARANTINED)
+                ->where('reason', 'generic_provider_fallback_disabled')
+                ->update([
+                    'status' => AtlasLoopTarget::STATUS_CANDIDATE,
+                    'reason' => 'policy_unblocked_reopened',
+                    'claimed_by' => null,
+                    'claimed_at' => null,
+                    'lease_expires_at' => null,
+                    'updated_at' => Carbon::now(),
+                ]);
+
+            if ($updated > 0) {
+                $reopened++;
+            }
+            if ($reopened >= $limit) {
+                break;
+            }
+        }
+
+        return $reopened;
+    }
+
+    /**
+     * `generic_provider_fallback_disabled` is a policy block, not evidence that the target is forever
+     * ungrindable. Reopen only when a non-generic, structurally governed lane is currently armed.
+     *
+     * @param  array<string,mixed>  $signals
+     */
+    private function structuredLaneCanHandlePolicyBlockedTarget(array $signals): bool
+    {
+        if ((string) ($signals['shape'] ?? '') === AtlasLoopCoverageDeficitSource::SHAPE
+            && (bool) config('atlas.loop.characterization_test_lane_enabled', false)) {
+            return true;
+        }
+
+        if ((($signals['is_self_improvement'] ?? false) === true
+                || str_contains((string) ($signals['backlog_source'] ?? ''), 'self_improve'))
+            && (bool) config('atlas.loop.self_improve_grounding_enabled', false)) {
+            return true;
+        }
+
+        if (! (bool) config('atlas.loop.proxy_refactor_supply_enabled', true)) {
+            return false;
+        }
+
+        $hasSibling = ($signals['has_sibling_test'] ?? false) === true
+            || trim((string) ($signals['sibling_test_path'] ?? '')) !== '';
+        if (! $hasSibling) {
+            return false;
+        }
+
+        $refactorEnabled = (bool) config('atlas.loop.framework_refactor_enabled', false)
+            || (bool) config('atlas.loop.refactor_objectives_enabled', false)
+            || ((bool) config('atlas.loop.multi_file_refactor_objectives_enabled', false)
+                && (bool) config('atlas.loop.refactor_multi_file_via_obra', false))
+            || (bool) config('atlas.loop.multi_file_refactor_via_normal_lane', false);
+
+        return $refactorEnabled && (int) ($signals['cyclomatic'] ?? 0) > 0;
+    }
+
     public function markStatus(string $targetId, string $status, ?string $reason = null): void
     {
         AtlasLoopTarget::query()->whereKey($targetId)->update(array_filter([

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution\Discovery;
 
 use App\Services\Ai\AutonomousEvolution\AtlasEvolutionFrozenJudge;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopQualityGrader;
 
 /**
  * Builds the task spec for an EXTRACT-CLASS (ENORMOUS) refactor: move a cohesive cluster of methods
@@ -46,6 +47,8 @@ final class AtlasLoopExtractClassObjectiveBuilder
             'metric_kind' => AtlasEvolutionFrozenJudge::METRIC_MINIMIZE,
             'complexity_proof' => true,   // fires the existing complexity branch in judge + certifier
             'structural_proof' => true,   // swaps the verdict to the per-method-identity (anti-relocation) gate
+            'quality_bar_gate' => true,
+            'quality_bar' => (float) config('atlas.loop.quality_bar', AtlasLoopQualityGrader::DEFAULT_BAR),
             'revert_recheck' => false,    // behavior-preserving: stays green when reverted (proof is the AST drop)
             'timeout_seconds' => max(60, (int) config('atlas.loop.framework_refactor_timeout_seconds', 300)),
         ];

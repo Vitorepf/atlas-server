@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Models\AtlasLoopTask;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSystemAxisService;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopDeliveryPipeline;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
+use Illuminate\Support\Carbon;
 use Throwable;
 
 /**
@@ -184,11 +186,14 @@ final class AtlasLoopProjectionWorker
         $acceptance['obligations'] = $obligations;
         $payload['acceptance'] = $acceptance;
 
+        $targetPath = (string) ($envelope['target_path'] ?? ($payload['target_repo_path'] ?? ''));
+        $payload = $this->markProjectedLoopSelfImprovement($payload, $targetPath);
+
         $leverage = (float) ($envelope['leverage'] ?? 0.0);
         $priority = (int) ($checkpoint['priority'] ?? (4000 + min(999, (int) round($leverage * 200))));
         $hash = (string) ($envelope['acceptance_hash'] ?? '');
 
-        return $this->store->enqueueTask(
+        $task = $this->store->enqueueTask(
             $campaignId,
             (string) ($envelope['objective'] ?? ''),
             $payload,
@@ -198,6 +203,88 @@ final class AtlasLoopProjectionWorker
             (bool) ($envelope['self_contained'] ?? true),
             $hash !== '' ? $hash : null,
         );
+
+        if ($task instanceof AtlasLoopTask) {
+            $this->reopenRetryableTerminalDuplicate($task);
+        }
+
+        return $task instanceof AtlasLoopTask ? $task->fresh() : $task;
+    }
+
+    /**
+     * enqueueTask is intentionally idempotent, but a projection drain must not treat an old terminal
+     * no-winner duplicate as fresh supply. If the same projected task still has attempt budget, reopen
+     * it as pending so the live loop can retry after newly-learned gates/prompts without queue starvation.
+     */
+    private function reopenRetryableTerminalDuplicate(AtlasLoopTask $task): bool
+    {
+        if (! in_array((string) $task->status, [AtlasLoopTask::STATUS_DONE, AtlasLoopTask::STATUS_FAILED, AtlasLoopTask::STATUS_DEFERRED], true)) {
+            return false;
+        }
+        $result = is_array($task->result) ? $task->result : [];
+        if (($result['has_winner'] ?? null) === true) {
+            return false;
+        }
+        if ((int) $task->attempts >= max(1, (int) $task->max_attempts)) {
+            return false;
+        }
+
+        return $task->forceFill([
+            'status' => AtlasLoopTask::STATUS_PENDING,
+            'claimed_by' => null,
+            'claimed_at' => null,
+            'lease_expires_at' => null,
+            'heartbeat_at' => null,
+            'result' => null,
+            'updated_at' => Carbon::now(),
+        ])->save();
+    }
+
+    /**
+     * Projection-produced complexity refactors against the loop's own harness are governed
+     * self-improvement, not ordinary proxy refactors. Keep the marker narrow so generic
+     * behavior-preserving refactors cannot launder themselves as real work.
+     *
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function markProjectedLoopSelfImprovement(array $payload, string $targetPath): array
+    {
+        $targetPath = ltrim(str_replace('\\', '/', $targetPath), '/');
+        $kind = (string) ($payload['objective_kind'] ?? '');
+        $acceptance = is_array($payload['acceptance'] ?? null) ? (array) $payload['acceptance'] : [];
+
+        $hasCommand = array_values(array_filter(
+            (array) ($acceptance['commands'] ?? []),
+            static fn (mixed $command): bool => is_string($command) && trim($command) !== '',
+        )) !== [];
+        $complexityProof = $this->truthy($acceptance['complexity_proof'] ?? null)
+            || $this->truthy($payload['complexity_proof'] ?? null);
+        $guard = new AtlasLoopHarnessGuard;
+
+        if ($targetPath === ''
+            || ! str_starts_with($kind, 'refactor')
+            || ! $complexityProof
+            || ! $hasCommand
+            || ! $guard->isHarnessTarget($targetPath)) {
+            return $payload;
+        }
+
+        $bar = (float) ($acceptance['quality_bar'] ?? $payload['quality_bar'] ?? config('atlas.loop.quality_bar', AtlasLoopQualityGrader::DEFAULT_BAR));
+        $bar = max($bar, AtlasLoopQualityGrader::DEFAULT_BAR);
+
+        $acceptance['quality_bar_gate'] = true;
+        $acceptance['quality_bar'] = $bar;
+        $payload['acceptance'] = $acceptance;
+        $payload['is_self_improvement'] = true;
+        $payload['quality_bar'] = $bar;
+
+        return $payload;
+    }
+
+    private function truthy(mixed $value): bool
+    {
+        return $value === true || $value === 1 || $value === '1' || $value === 'true';
     }
 
     /**

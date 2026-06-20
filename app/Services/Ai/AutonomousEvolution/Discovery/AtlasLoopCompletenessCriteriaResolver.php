@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution\Discovery;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopCrossFileConsumerGateService;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopHermeticCommandEnvironment;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use Symfony\Component\Process\Process;
@@ -245,22 +246,14 @@ final class AtlasLoopCompletenessCriteriaResolver
     }
 
     /**
-     * PATH-injection env block: prepend the running PHP binary's directory to PATH so a bare `php`
-     * inside an acceptance command resolves to the SAME interpreter (mirrors the cross-file gate's
-     * private commandEnv()).
+     * Hermetic env block: keep acceptance commands on the same PHP binary while forcing
+     * generated PHPUnit/Artisan runs onto sqlite :memory: instead of the operator DB.
      *
      * @param  array<string,string>  $env
-     * @return array<string,string>
+     * @return array<string,string|false>
      */
     private function commandEnv(array $env): array
     {
-        $binary = PHP_BINARY;
-        if (is_string($binary) && $binary !== '') {
-            $binDir = \dirname($binary);
-            $currentPath = getenv('PATH');
-            $env['PATH'] = $binDir.((is_string($currentPath) && $currentPath !== '') ? PATH_SEPARATOR.$currentPath : '');
-        }
-
-        return $env;
+        return AtlasLoopHermeticCommandEnvironment::forAcceptance($env);
     }
 }

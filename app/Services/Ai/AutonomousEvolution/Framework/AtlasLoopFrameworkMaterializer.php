@@ -31,7 +31,7 @@ final class AtlasLoopFrameworkMaterializer
     public const SCHEMA = 'atlas.loop.framework_materialization.v1';
 
     /**
-     * @param  array<string,mixed>  $payload  { target_relative_path, frozen_tests:[{path,content}], acceptance, support_files? }
+     * @param  array<string,mixed>  $payload  { target_relative_path, target_content?, frozen_tests:[{path,content}], acceptance, support_files? }
      * @return array{0: array<string,mixed>, 1: callable}  [explorerTask, cleanup]
      */
     public function materializeBase(string $canonicalRepoRoot, string $objective, array $payload): array
@@ -79,7 +79,13 @@ final class AtlasLoopFrameworkMaterializer
             $this->writeHermeticTestingEnv($canonical, $base);
             $this->ensureLaravelWritableDirs($base);
 
-            // 5. Write the frozen PHPUnit test(s) + any support files into the worktree.
+            // 5. Write the task snapshot into the worktree. When target_content is present it is the
+            // durable baseline captured at enqueue time, which lets a live babysitter run the loop from a
+            // dirty repo without falsely comparing HEAD's clean worktree against the operator's current file.
+            $targetSnapshot = is_string($payload['target_content'] ?? null) ? (string) $payload['target_content'] : null;
+            if ($targetSnapshot !== null && $targetSnapshot !== '') {
+                $this->writeFile($base, $targetRel, $targetSnapshot);
+            }
             foreach ((is_array($payload['frozen_tests'] ?? null) ? $payload['frozen_tests'] : []) as $test) {
                 if (is_array($test) && is_string($test['path'] ?? null) && is_string($test['content'] ?? null)) {
                     $this->writeFile($base, $this->normalizeRelative($test['path']), $test['content']);
@@ -91,8 +97,13 @@ final class AtlasLoopFrameworkMaterializer
                 }
             }
 
-            // 6. Reproducibility pin: the worktree target must be byte-identical to canonical HEAD.
-            if (hash_file('sha256', $base.'/'.$targetRel) !== hash_file('sha256', $canonical.'/'.$targetRel)) {
+            // 6. Reproducibility pin: the worktree target must be byte-identical to the task snapshot when
+            // present, otherwise to canonical HEAD (legacy payloads). A mismatch means the worktree baseline
+            // is not the code the task promised to verify.
+            $expectedTargetHash = $targetSnapshot !== null && $targetSnapshot !== ''
+                ? hash('sha256', $targetSnapshot)
+                : hash_file('sha256', $canonical.'/'.$targetRel);
+            if (hash_file('sha256', $base.'/'.$targetRel) !== $expectedTargetHash) {
                 throw new RuntimeException('framework materialize: target drifted between canonical and worktree');
             }
 
@@ -103,7 +114,7 @@ final class AtlasLoopFrameworkMaterializer
             // 8. Baseline commit on the detached HEAD (vendor + .env are gitignored -> only the test shows).
             $this->git(['-C', $base, 'add', '-A'], 'baseline_add');
             if ($this->hasStagedChanges($base)) {
-                $this->git(['-C', $base, '-c', 'user.email=atlas-loop@local', '-c', 'user.name=Atlas Loop', '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'scenario baseline'], 'baseline_commit');
+                $this->git(['-C', $base, '-c', 'user.email=atlas-loop@local', '-c', 'user.name=Atlas Loop', '-c', 'commit.gpgsign=false', 'commit', '-q', '--no-verify', '-m', 'scenario baseline'], 'baseline_commit');
             }
         } catch (Throwable $e) {
             $cleanup();

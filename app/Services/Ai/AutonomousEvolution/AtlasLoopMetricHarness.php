@@ -55,7 +55,13 @@ final class AtlasLoopMetricHarness
     public function __construct(?\Closure $runner = null)
     {
         $this->runner = $runner ?? function (string $command, string $workspace, int $timeout): array {
-            $process = Process::fromShellCommandline($command, $workspace, null, null, (float) $timeout);
+            $process = Process::fromShellCommandline(
+                $command,
+                $workspace,
+                AtlasLoopHermeticCommandEnvironment::forAcceptance(),
+                null,
+                (float) $timeout,
+            );
             $process->run();
 
             return [

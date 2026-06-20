@@ -101,6 +101,77 @@ final class AtlasLoopQualityPersistenceTest extends TestCase
         $this->assertStringNotContainsString('SECRET-', $json);
     }
 
+    public function test_summarise_exploration_emits_safe_provider_diagnostics_without_raw_output(): void
+    {
+        $summary = $this->summarise([
+            'objective' => 'obj',
+            'attempts' => [[
+                'scenario_id' => 'scn-diag',
+                'verdict' => [
+                    'passed' => false,
+                    'metric' => 0.0,
+                    'details' => [
+                        'rejected' => true,
+                        'reason' => 'out_of_scope_change',
+                        'changed_files' => [
+                            'tests/Unit/Ai/AutonomousEvolution/AtlasLoopBacklogAutoFeederServiceTest.php',
+                            'app/Services/Ai/AutonomousEvolution/AtlasLoopBacklogAutoFeederService.php',
+                        ],
+                        'out_of_scope_files' => [
+                            'app/Services/Ai/AutonomousEvolution/AtlasLoopBacklogAutoFeederService.php',
+                        ],
+                        'command_results' => [['stdout' => 'SECRET-NESTED-STDOUT', 'stderr' => 'SECRET-NESTED-STDERR']],
+                    ],
+                ],
+                'diff_size' => ['files' => 0, 'lines' => 0],
+                'provider_invoked' => true,
+                'edits_applied_from_text' => false,
+                'zero_diff_retry' => true,
+                'provider_exit_code' => '2',
+                'provider_output_present' => true,
+                'provider_output_bytes' => '1234',
+                'provider_error_present' => true,
+                'provider_error_bytes' => '98',
+                'edit_apply_status' => 'not_applicable',
+                'provider_failure_type' => 'timeout',
+                'provider_note' => str_repeat('n', 200),
+                'provider_projection_noise_reset' => true,
+                'provider_projection_noise_files' => ['AGENTS.md', 'CLAUDE.md'],
+                'stdout' => 'SECRET-PROVIDER-STDOUT',
+                'stderr' => 'SECRET-PROVIDER-STDERR',
+                'diff_text' => 'SECRET-DIFF-TEXT',
+            ]],
+        ]);
+
+        $metric = $summary['attempt_metrics'][0];
+        $this->assertSame(true, $metric['provider_invoked']);
+        $this->assertSame(false, $metric['edits_applied_from_text']);
+        $this->assertSame(true, $metric['zero_diff_retry']);
+        $this->assertSame(2, $metric['provider_exit_code']);
+        $this->assertSame(true, $metric['provider_output_present']);
+        $this->assertSame(1234, $metric['provider_output_bytes']);
+        $this->assertSame(true, $metric['provider_error_present']);
+        $this->assertSame(98, $metric['provider_error_bytes']);
+        $this->assertSame('not_applicable', $metric['edit_apply_status']);
+        $this->assertSame('timeout', $metric['provider_failure_type']);
+        $this->assertSame(160, mb_strlen((string) $metric['provider_note']));
+        $this->assertSame(true, $metric['provider_projection_noise_reset']);
+        $this->assertSame(['AGENTS.md', 'CLAUDE.md'], $metric['provider_projection_noise_files']);
+        $this->assertSame('out_of_scope_change', $metric['judge_reason']);
+        $this->assertSame([
+            'tests/Unit/Ai/AutonomousEvolution/AtlasLoopBacklogAutoFeederServiceTest.php',
+            'app/Services/Ai/AutonomousEvolution/AtlasLoopBacklogAutoFeederService.php',
+        ], $metric['changed_files']);
+        $this->assertSame([
+            'app/Services/Ai/AutonomousEvolution/AtlasLoopBacklogAutoFeederService.php',
+        ], $metric['out_of_scope_files']);
+
+        $json = json_encode($summary, JSON_THROW_ON_ERROR);
+        $this->assertStringNotContainsString('stdout', $json);
+        $this->assertStringNotContainsString('stderr', $json);
+        $this->assertStringNotContainsString('SECRET-', $json);
+    }
+
     public function test_attempt_metrics_are_capped_at_24_entries(): void
     {
         $attempts = [];

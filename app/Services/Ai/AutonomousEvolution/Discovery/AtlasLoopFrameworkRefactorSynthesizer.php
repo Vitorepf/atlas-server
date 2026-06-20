@@ -6,6 +6,7 @@ namespace App\Services\Ai\AutonomousEvolution\Discovery;
 
 use App\Services\Ai\AutonomousEvolution\AtlasEvolutionFrozenJudge;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopDecompositionOutcomeRecorder;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopQualityGrader;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
 use Throwable;
 
@@ -63,6 +64,10 @@ final class AtlasLoopFrameworkRefactorSynthesizer
             if (! is_file($absTarget) || ! str_ends_with($targetRepoRelPath, '.php')) {
                 return null;
             }
+            $targetBody = (string) @file_get_contents($absTarget);
+            if ($targetBody === '') {
+                return null;
+            }
 
             // (a) Complexity gate — only worth refactoring a genuinely complex file. Prefer the
             // AST signal already in the packet; re-measure from source if absent (fail-open).
@@ -74,7 +79,7 @@ final class AtlasLoopFrameworkRefactorSynthesizer
             // absent (one AST parse covers both; fail-open -> null name just yields the file-level text).
             $worstMethod = is_string($signals['worst_method'] ?? null) ? (string) $signals['worst_method'] : null;
             if ($cyclomatic <= 0 || $worstMethod === null) {
-                $measure = $this->analyzer()->fileComplexity((string) @file_get_contents($absTarget));
+                $measure = $this->analyzer()->fileComplexity($targetBody);
                 if ($cyclomatic <= 0) {
                     $cyclomatic = (int) ($measure['max_per_method'] ?? 0);
                 }
@@ -147,8 +152,11 @@ final class AtlasLoopFrameworkRefactorSynthesizer
                         $provider !== '' ? $provider : null,
                         $step,
                     );
+                    $built['payload']['target_content'] = $targetBody;
                     $built['payload']['frozen_tests'] = [['path' => $siblingRel, 'content' => $siblingBody]];
                     $built['payload']['_target_id'] = $targetId;
+                    $built['payload']['acceptance']['quality_bar_gate'] = true;
+                    $built['payload']['acceptance']['quality_bar'] = $this->qualityBar();
                     if ($sequenceOn) {
                         $built['payload']['extract_sequence_id'] = (new AtlasLoopExtractSequencePlanner)->sequenceId($targetRepoRelPath);
                         $built['payload']['extract_sequence_step'] = $step;
@@ -173,11 +181,12 @@ final class AtlasLoopFrameworkRefactorSynthesizer
                 'metric_kind' => AtlasEvolutionFrozenJudge::METRIC_MINIMIZE,
                 'complexity_proof' => true,
                 'complexity_aggregation' => 'max_per_method_primary_total_non_increasing',
+                'quality_bar_gate' => true,
+                'quality_bar' => $this->qualityBar(),
                 'revert_recheck' => false,
                 'timeout_seconds' => max(60, (int) config('atlas.loop.framework_refactor_timeout_seconds', 300)),
             ];
 
-            $objective = $this->objectiveText($targetRepoRelPath, $cyclomatic, $worstMethod);
             $acceptanceHash = hash('sha256', json_encode([
                 'commands' => $acceptance['commands'],
                 'allowed_globs' => $acceptance['allowed_globs'],
@@ -193,6 +202,7 @@ final class AtlasLoopFrameworkRefactorSynthesizer
                 'objective_kind' => self::OBJECTIVE_KIND,
                 'target_relative_path' => $targetRepoRelPath,
                 'target_repo_path' => $targetRepoRelPath,
+                'target_content' => $targetBody,
                 'frozen_tests' => [
                     ['path' => $siblingRel, 'content' => $siblingBody],
                 ],
@@ -201,6 +211,8 @@ final class AtlasLoopFrameworkRefactorSynthesizer
                 'validation_commands' => [$command],
                 '_target_id' => $targetId,
             ];
+            $sequenceStep = null;
+            $sequenceThreshold = null;
             // ACDE lever #6 — tag this in-place worst-method reduction as one STEP of a bounded extract
             // sequence. The weak engine cannot one-shot a whole god-class, but each grind wave's discovery
             // re-selects the still-complex file and the synthesizer pins its CURRENT worst method, so the
@@ -212,7 +224,7 @@ final class AtlasLoopFrameworkRefactorSynthesizer
             // re-measure is the discovery re-scan, so a step that simplified a DIFFERENT method self-corrects).
             if ((bool) config('atlas.loop.extract_sequence_enabled', false)) {
                 $planner = new AtlasLoopExtractSequencePlanner;
-                $census = $this->analyzer()->fileComplexity((string) @file_get_contents($absTarget));
+                $census = $this->analyzer()->fileComplexity($targetBody);
                 $perMethod = is_array($census['per_method'] ?? null) ? $census['per_method'] : [];
                 $threshold = max(1, (int) config('atlas.loop.extract_sequence_tractable_cyclomatic', $minCyclomatic));
                 $maxSteps = max(1, (int) config('atlas.loop.extract_sequence_max_steps', 6));
@@ -239,6 +251,7 @@ final class AtlasLoopFrameworkRefactorSynthesizer
                 $payload['extract_sequence_id'] = $planner->sequenceId($targetRepoRelPath);
                 $payload['extract_sequence_plan'] = $planner->plan($perMethod, $threshold, $maxSteps);
                 $payload['extract_sequence_tractable_cyclomatic'] = $threshold;
+                $sequenceThreshold = $threshold;
                 // ACDE R1 (slice 2/2): de-orphan nextStep() onto the LIVE synthesis path (it was dead
                 // outside tests). It pins THIS step's worst-above-threshold method, carrying the bare name
                 // (via the identity shim) that the objective builder + the in-lane re-discovery chain
@@ -248,8 +261,10 @@ final class AtlasLoopFrameworkRefactorSynthesizer
                 $step = $planner->nextStep($perMethod, $threshold);
                 if ($step !== null) {
                     $payload['extract_sequence_step'] = $step;
+                    $sequenceStep = $step;
                 }
             }
+            $objective = $this->objectiveText($targetRepoRelPath, $cyclomatic, $worstMethod, $sequenceStep, $sequenceThreshold);
             if ($provider !== '') {
                 $payload['provider'] = $provider;
             }
@@ -278,7 +293,10 @@ final class AtlasLoopFrameworkRefactorSynthesizer
         return $service->callerCount($targetRepoRelPath);
     }
 
-    private function objectiveText(string $targetRepoRelPath, int $cyclomatic, ?string $worstMethod): string
+    /**
+     * @param  array{target_method?:string,target_method_bare?:string,cyclomatic?:int}|null  $sequenceStep
+     */
+    private function objectiveText(string $targetRepoRelPath, int $cyclomatic, ?string $worstMethod, ?array $sequenceStep = null, ?int $sequenceThreshold = null): string
     {
         // Stable per-kind template (dedupe is on objective text). The worst-method NAME + its cyclomatic
         // are deterministic for a given file state, so re-measuring the SAME file yields the SAME
@@ -287,20 +305,39 @@ final class AtlasLoopFrameworkRefactorSynthesizer
         // decision-count-reduction techniques is the lever that turns broad no-AST-drop diffs into
         // certifiable ones (the cert independently re-measures the drop, so this text only AIMS the work).
         $base = basename($targetRepoRelPath);
-        $where = $worstMethod !== null ? $base.'::'.$worstMethod.'()' : 'the file\'s most complex method';
+        $stepMethod = is_string($sequenceStep['target_method_bare'] ?? null) && trim((string) $sequenceStep['target_method_bare']) !== ''
+            ? trim((string) $sequenceStep['target_method_bare'])
+            : null;
+        $stepCyclomatic = isset($sequenceStep['cyclomatic']) ? max(1, (int) $sequenceStep['cyclomatic']) : null;
+        $method = $stepMethod ?? $worstMethod;
+        $methodCyclomatic = $stepCyclomatic ?? $cyclomatic;
+        $where = $method !== null ? $base.'::'.$method.'()' : 'the file\'s most complex method';
+        $sequenceInstruction = '';
+        if ($sequenceStep !== null) {
+            $target = $sequenceThreshold !== null ? ' toward the tractable threshold '.$sequenceThreshold : '';
+            $sequenceInstruction = 'This is ONE bounded extract-sequence step'.$target.': do not redesign the whole file. '
+                .'Land the smallest certifiable behavior-preserving edit that lowers '.$where.' below its current '
+                .'cyclomatic '.$methodCyclomatic.' while keeping the file total cyclomatic/branch count flat or lower. ';
+        }
+
         return 'Refactor '.$base.' to REDUCE the cyclomatic complexity of its worst method, '.$where
             .' (cyclomatic '.$cyclomatic.', the file max). Drive DOWN the decision/branch count of THAT '
-            .'method specifically — extract cohesive private helpers that MOVE existing branches out of it, '
-            .'and replace long if/elseif or switch chains with a lookup/dispatch table — so the file\'s AST '
-            .'max-per-method drops below '.$cyclomatic.'. '
+            .'method specifically — first try the smallest in-method reduction: collapse repeated boolean-chain guards '
+            .'(`||` / `&&`) into equivalent data-driven checks such as lookup sets or `in_array`, then prefer replacing long '
+            .'if/elseif or switch chains with a lookup/dispatch table. When collapsing guards that use truthiness or '
+            .'null-coalescing (`??`), preserve the exact falsey behavior (for example with `empty(...)`) instead of '
+            .'placing raw nullable/falsey values in a strict `in_array`, '
+            .'and only extract helper methods when they are branch-free or remove enough existing branches to keep total complexity flat — so the file\'s AST '
+            .'max-per-method drops below '.$cyclomatic.'. '.$sequenceInstruction
             // ALIGN-WITH-GATE (in the prompt, not just a comment): the certifier scores DECISION POINTS
             // (the file's TOTAL branch count, extract-method-neutral), not raw method count. A refactor
             // that drops the max but ADDS net conditionals is rejected as complexity_not_reduced. This
             // constraint is exactly what made the controlled cx19->cx4 run certify (decisions 21->21).
             .'CRITICAL CONSTRAINT: do NOT increase the file\'s TOTAL decision/branch count. Do not add new '
             .'conditionals, guard clauses, loops, ternaries, or && / || beyond those already present — only '
-            .'RELOCATE existing branches into the extracted helpers, and collapse if/elseif chains into a '
-            .'single lookup/dispatch table. The file\'s total number of branches must stay flat or fall; '
+            .'collapse if/elseif chains into a single lookup/dispatch table or move branches only when the '
+            .'same change removes at least as much total complexity. The file\'s total cyclomatic count and '
+            .'total number of branches must stay flat or fall; '
             .'only the worst method\'s SHARE of them should shrink. A version that lowers the max but adds '
             .'net branches will be REJECTED. '
             .'Edit ONLY '.$base.'; do not modify any other '
@@ -310,5 +347,10 @@ final class AtlasLoopFrameworkRefactorSynthesizer
     private function analyzer(): AtlasLoopSignalAnalyzer
     {
         return $this->signalAnalyzer ?? new AtlasLoopSignalAnalyzer();
+    }
+
+    private function qualityBar(): float
+    {
+        return (float) config('atlas.loop.quality_bar', AtlasLoopQualityGrader::DEFAULT_BAR);
     }
 }

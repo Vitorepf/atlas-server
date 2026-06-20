@@ -85,6 +85,31 @@ final class AtlasLoopFrameworkMaterializerTest extends TestCase
         $this->assertFalse(is_dir($workspace));
     }
 
+    public function test_materializes_target_snapshot_when_canonical_worktree_is_dirty(): void
+    {
+        $dirtyTarget = "<?php\nnamespace App;\nfinal class Subject { public function value(): string { return 'dirty'; } }\n";
+        file_put_contents($this->repo.'/app/Subject.php', $dirtyTarget);
+
+        [$task, $cleanup] = (new AtlasLoopFrameworkMaterializer)->materializeBase($this->repo, 'prove dirty snapshot materialization', [
+            'target_relative_path' => 'app/Subject.php',
+            'target_content' => $dirtyTarget,
+            'acceptance' => [
+                'commands' => ['php -r "require \'vendor/autoload.php\'; exit((new App\\\\Subject)->value() === \'dirty\' ? 0 : 1);"'],
+                'allowed_globs' => ['app/Subject.php'],
+                'frozen_globs' => ['tests/**'],
+                'metric_kind' => 'gate',
+            ],
+        ]);
+
+        $workspace = (string) $task['base_workspace'];
+
+        try {
+            $this->assertSame($dirtyTarget, (string) file_get_contents($workspace.'/app/Subject.php'));
+        } finally {
+            $cleanup();
+        }
+    }
+
     /**
      * REGRESSION (HIGH false-reject): the class-name extractor used a comment-blind regex that took
      * the first `class|interface|trait|enum <word>` anywhere in the source — so a docblock line like

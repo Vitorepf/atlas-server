@@ -44,6 +44,8 @@ final class AtlasLoopExtractClassObjectiveBuilderTest extends TestCase
         // BOTH proofs set: complexity (fires the branch) + structural (swaps to the identity gate).
         $this->assertTrue($acc['complexity_proof']);
         $this->assertTrue($acc['structural_proof']);
+        $this->assertTrue($acc['quality_bar_gate']);
+        $this->assertSame(9.0, (float) $acc['quality_bar']);
         $this->assertSame('minimize', $acc['metric_kind']);
         // Behavior-preserving: revert-recheck off (proof is the AST drop, not diff-earned).
         $this->assertFalse($acc['revert_recheck']);

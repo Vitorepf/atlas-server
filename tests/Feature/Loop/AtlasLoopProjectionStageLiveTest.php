@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Tests\Feature\Loop;
 
 use App\Models\AtlasLoopCampaign;
+use App\Models\AtlasLoopTask;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProjectionEngine;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProjectionWorker;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopRealWorkScorecardService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBackService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObjectiveProducer;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopOriginationBuilder;
@@ -161,9 +163,88 @@ final class AtlasLoopProjectionStageLiveTest extends TestCase
         $payload = json_decode((string) $tasks->first()->payload, true);
         $this->assertNotEmpty($payload['_obligations'] ?? [], 'the engine typed obligations ride on the task payload');
         $this->assertNotEmpty($payload['acceptance']['obligations'] ?? [], 'and on the acceptance contract');
+        $this->assertArrayNotHasKey('is_self_improvement', $payload, 'a generic non-harness projection refactor must not be laundered as self-improvement');
 
         // The completed projection left the pipeline (no longer open work).
         $this->assertSame(0, DB::table('atlas_loop_pipeline_state')->where('objective_id', $row['objective_id'])->count());
+    }
+
+    public function test_a_converged_projection_reopens_retryable_terminal_duplicate_instead_of_starving(): void
+    {
+        $campaign = $this->campaign();
+        $this->refiller()->refill($campaign, 4);
+
+        $pipeline = new AtlasLoopDeliveryPipeline;
+        $row = $pipeline->claimNextProjection($campaign->id, 'worker-A', 300);
+        $this->assertIsArray($row);
+
+        $worker = new AtlasLoopProjectionWorker($this->store(), $pipeline, new AtlasLoopProjectionEngine, $this->fixedAxis('wired'));
+        $this->assertSame('enqueued', $worker->process($row)['outcome']);
+
+        $task = AtlasLoopTask::query()->where('campaign_id', $campaign->id)->firstOrFail();
+        $task->forceFill([
+            'status' => AtlasLoopTask::STATUS_DONE,
+            'attempts' => 1,
+            'max_attempts' => 2,
+            'result' => ['has_winner' => false, 'reason' => 'quality_bar:below_min:7.33'],
+        ])->save();
+
+        $pipeline->dispatchProjection($campaign->id, (string) $row['objective_id'], 1.0, (array) $row['checkpoint']);
+        $retryRow = $pipeline->claimNextProjection($campaign->id, 'worker-B', 300);
+        $this->assertIsArray($retryRow);
+        $this->assertSame('enqueued', $worker->process($retryRow)['outcome']);
+
+        $tasks = AtlasLoopTask::query()->where('campaign_id', $campaign->id)->get();
+        $this->assertCount(1, $tasks, 'dedupe keeps one task row');
+        $this->assertSame(AtlasLoopTask::STATUS_PENDING, (string) $tasks->first()->status, 'terminal no-winner was reopened as live supply');
+        $this->assertNull($tasks->first()->result, 'stale terminal result is cleared before retry');
+    }
+
+    public function test_projected_loop_harness_complexity_refactor_counts_as_governed_self_improvement(): void
+    {
+        $campaign = $this->store()->openCampaign('S2 loop self-improvement projection', $this->repoRoot, ['max_seconds' => 3600], [], '');
+        $pipeline = new AtlasLoopDeliveryPipeline;
+        $target = 'app/Services/Ai/AutonomousEvolution/DemoLoopHarness.php';
+
+        $pipeline->dispatchProjection($campaign->id, 'obj-loop-self-improve', 0.9, [
+            'built' => [
+                'objective' => 'Reduce DemoLoopHarness complexity with a frozen behavior harness.',
+                'payload' => [
+                    'objective_kind' => 'refactor_reduce_complexity',
+                    'target_repo_path' => $target,
+                    'target_relative_path' => $target,
+                    'acceptance' => [
+                        'commands' => ['./vendor/bin/phpunit tests/Unit/DemoLoopHarnessTest.php'],
+                        'complexity_proof' => true,
+                        'metric_kind' => 'minimize',
+                    ],
+                ],
+                'acceptance_hash' => 'hash-loop-self-improve',
+                'target_path' => $target,
+                'self_contained' => true,
+                'leverage' => 0.9,
+            ],
+            'repoRoot' => $this->repoRoot,
+            'priority' => 4100,
+            'real_target_id' => 'target-loop-self-improve',
+        ]);
+        $row = $pipeline->claimNextProjection($campaign->id, 'worker-A', 300);
+        $this->assertIsArray($row);
+
+        $worker = new AtlasLoopProjectionWorker($this->store(), $pipeline, new AtlasLoopProjectionEngine, $this->fixedAxis('wired'));
+        $outcome = $worker->process($row);
+
+        $this->assertSame('enqueued', $outcome['outcome']);
+        $payload = json_decode((string) DB::table('atlas_loop_tasks')->where('campaign_id', $campaign->id)->value('payload'), true);
+        $this->assertTrue((bool) ($payload['is_self_improvement'] ?? false));
+        $this->assertTrue((bool) ($payload['acceptance']['quality_bar_gate'] ?? false));
+        $this->assertGreaterThanOrEqual(9.0, (float) ($payload['acceptance']['quality_bar'] ?? 0));
+
+        $scorecard = app(AtlasLoopRealWorkScorecardService::class)->scorecard($campaign->id);
+        $this->assertSame(1, $scorecard['real_work_tasks']);
+        $this->assertSame(1, $scorecard['self_improvement_tasks']);
+        $this->assertSame(0, $scorecard['proxy_refactor_tasks']);
+        $this->assertTrue($scorecard['claim_policy']['loop_real_work_claim_allowed']);
     }
 
     public function test_a_dispatched_projection_is_open_work_for_the_starvation_clause(): void
@@ -182,12 +263,10 @@ final class AtlasLoopProjectionStageLiveTest extends TestCase
         $campaign = $this->campaign();
         $this->refiller()->refill($campaign, 4); // dispatches exactly one projection (proven above)
 
-        // The nullable pipeline ctor arg is readonly, so wire it through the container at CONSTRUCTION
-        // (AppServiceProvider does NOT auto-inject `?Type $x = null`, so it must be passed explicitly). This
-        // is the exact value the three starvation clauses read in their new `&& openProjections === 0` term.
-        $supervisor = app()->make(\App\Services\Ai\AutonomousEvolution\Campaign\AtlasLoopCampaignSupervisor::class, [
-            'pipeline' => new AtlasLoopDeliveryPipeline,
-        ]);
+        // The production supervisor is resolved by the container, where nullable constructor args default to
+        // null. It must still resolve the pipeline internally; otherwise live projections are invisible to
+        // the starvation clause and never drain.
+        $supervisor = app(\App\Services\Ai\AutonomousEvolution\Campaign\AtlasLoopCampaignSupervisor::class);
         $open = (new \ReflectionClass($supervisor))->getMethod('openProjections');
         $open->setAccessible(true);
 

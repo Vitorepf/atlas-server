@@ -34,7 +34,13 @@ final class AtlasLoopCharacterizationTestVerifier
     public function __construct(?callable $runner = null)
     {
         $this->runner = $runner ?? static function (string $workspace, string $command, int $timeout): array {
-            $process = Process::fromShellCommandline($command, $workspace, null, null, (float) $timeout);
+            $process = Process::fromShellCommandline(
+                $command,
+                $workspace,
+                AtlasLoopHermeticCommandEnvironment::forAcceptance(),
+                null,
+                (float) $timeout,
+            );
             $process->run();
 
             return [

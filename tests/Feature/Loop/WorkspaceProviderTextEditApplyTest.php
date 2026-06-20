@@ -33,6 +33,8 @@ final class WorkspaceProviderTextEditApplyTest extends TestCase
         $this->git(['git', 'config', 'user.email', 't@local']);
         $this->git(['git', 'config', 'user.name', 'T']);
         file_put_contents($this->workspace.'/Subject.php', "<?php\n\nreturn 1;\n");
+        file_put_contents($this->workspace.'/AGENTS.md', "provider projection\n");
+        file_put_contents($this->workspace.'/CLAUDE.md', "provider projection\n");
         $this->git(['git', 'add', '-A']);
         $this->git(['git', 'commit', '-q', '-m', 'seed']);
     }
@@ -88,6 +90,68 @@ final class WorkspaceProviderTextEditApplyTest extends TestCase
         $this->app->instance(AtlasForgeProviderInvocationDriverRouter::class, $fake);
     }
 
+    private function bindProjectionNoiseRouter(): void
+    {
+        $fake = new class extends AtlasForgeProviderInvocationDriverRouter
+        {
+            public function __construct() {}
+
+            public function isConfigured(?string $provider): bool
+            {
+                return true;
+            }
+
+            public function invoke(?string $provider, ?string $model, array $prompt, array $context = []): array
+            {
+                $cwd = (string) ($context['cwd'] ?? '');
+                file_put_contents($cwd.'/Subject.php', "<?php\n\nreturn 42;\n");
+                file_put_contents($cwd.'/AGENTS.md', "provider projection refreshed\n");
+                file_put_contents($cwd.'/CLAUDE.md', "provider projection refreshed\n");
+
+                return [
+                    'provider_called' => true,
+                    'changed_files' => ['Subject.php', 'AGENTS.md', 'CLAUDE.md'],
+                    'exit_code' => 0,
+                ];
+            }
+        };
+        $this->app->instance(AtlasForgeProviderInvocationDriverRouter::class, $fake);
+    }
+
+    private function bindPromptCapturingRouter(): object
+    {
+        $box = new class
+        {
+            /** @var array<string,mixed>|null */
+            public ?array $prompt = null;
+        };
+
+        $fake = new class($box) extends AtlasForgeProviderInvocationDriverRouter
+        {
+            public function __construct(private readonly object $box) {}
+
+            public function isConfigured(?string $provider): bool
+            {
+                return true;
+            }
+
+            public function invoke(?string $provider, ?string $model, array $prompt, array $context = []): array
+            {
+                $this->box->prompt = $prompt;
+
+                return [
+                    'provider_called' => true,
+                    'changed_files' => ['Subject.php'],
+                    'exit_code' => 0,
+                ];
+            }
+        };
+
+        $this->app->instance(AtlasForgeProviderInvocationDriverRouter::class, $fake);
+
+        return $box;
+    }
+
     public function test_text_provider_diff_is_applied_and_changed_files_surface(): void
     {
         $diff = $this->realDiffChanging('Subject.php', "<?php\n\nreturn 99;\n");
@@ -102,6 +166,73 @@ final class WorkspaceProviderTextEditApplyTest extends TestCase
         $this->assertSame(['Subject.php'], $result['changed_files']);
         $this->assertFalse($result['zero_diff_retry'], 'a successfully applied diff is NOT a zero-diff');
         $this->assertStringContainsString('return 99;', (string) file_get_contents($this->workspace.'/Subject.php'));
+    }
+
+    public function test_provider_projection_noise_is_reset_before_changed_files_surface(): void
+    {
+        config()->set('atlas.loop.provider_projection_noise_reset', true);
+        config()->set('atlas.loop.provider_projection_noise_files', ['AGENTS.md', 'CLAUDE.md']);
+        $this->bindProjectionNoiseRouter();
+
+        $result = app(WorkspaceProviderLoopExecutionDriver::class)->attempt(
+            'loop',
+            $this->workspace,
+            'change Subject.php',
+            ['allowed_files=Subject.php'],
+            ['provider_choice' => 'hermes_cli'],
+        );
+
+        $this->assertSame(['Subject.php'], $result['changed_files']);
+        $this->assertTrue($result['provider_projection_noise_reset']);
+        $this->assertSame(['AGENTS.md', 'CLAUDE.md'], $result['provider_projection_noise_files']);
+        $this->assertSame("provider projection\n", (string) file_get_contents($this->workspace.'/AGENTS.md'));
+        $this->assertSame("provider projection\n", (string) file_get_contents($this->workspace.'/CLAUDE.md'));
+        $this->assertStringContainsString('return 42;', (string) file_get_contents($this->workspace.'/Subject.php'));
+    }
+
+    public function test_cli_provider_prompt_does_not_receive_text_only_edit_protocol(): void
+    {
+        config()->set('atlas.loop.text_provider_edit_apply', true);
+        config()->set('atlas.loop.text_provider_edit_apply_providers', ['minimax_m27']);
+        $box = $this->bindPromptCapturingRouter();
+
+        app(WorkspaceProviderLoopExecutionDriver::class)->attempt(
+            'loop',
+            $this->workspace,
+            'edit Subject.php',
+            ['allowed_files=Subject.php'],
+            ['provider_choice' => 'hermes_cli'],
+        );
+
+        $text = (string) data_get($box->prompt, 'text', '');
+        $this->assertStringContainsString('Make the change directly by editing files in place.', $text);
+        $this->assertStringContainsString('if a native patch/write_file/edit tool refuses the path as sensitive', $text);
+        $this->assertStringNotContainsString('OUTPUT PROTOCOL', $text);
+        $this->assertStringNotContainsString('NO filesystem access', $text);
+        $this->assertStringNotContainsString('CURRENT FILE CONTENTS (edit these exactly):', $text);
+    }
+
+    public function test_text_provider_prompt_keeps_full_file_edit_protocol_and_current_contents(): void
+    {
+        config()->set('atlas.loop.text_provider_edit_apply', true);
+        config()->set('atlas.loop.text_provider_edit_apply_providers', ['minimax_m27']);
+        $box = $this->bindPromptCapturingRouter();
+
+        app(WorkspaceProviderLoopExecutionDriver::class)->attempt(
+            'loop',
+            $this->workspace,
+            'edit Subject.php',
+            ['allowed_files=Subject.php'],
+            ['provider_choice' => 'minimax_m27'],
+        );
+
+        $text = (string) data_get($box->prompt, 'text', '');
+        $this->assertStringContainsString('OUTPUT PROTOCOL', $text);
+        $this->assertStringContainsString('NO filesystem access', $text);
+        $this->assertStringContainsString('CURRENT FILE CONTENTS (edit these exactly):', $text);
+        $this->assertStringContainsString('*** ATLAS_FILE: Subject.php ***', $text);
+        $this->assertStringContainsString("<?php\n\nreturn 1;", $text);
+        $this->assertStringContainsString('*** ATLAS_END ***', $text);
     }
 
     public function test_text_provider_with_no_diff_stays_zero_diff(): void

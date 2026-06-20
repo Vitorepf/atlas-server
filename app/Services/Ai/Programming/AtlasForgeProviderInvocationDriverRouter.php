@@ -354,6 +354,7 @@ class AtlasForgeProviderInvocationDriverRouter
             'cwd' => $context['cwd'] ?? null,
             'timeout_seconds' => $context['timeout_seconds'] ?? 120,
             'max_output_chars' => $context['max_output_chars'] ?? 12000,
+            'env' => $context['env'] ?? null,
             'obra_id' => $context['obra_id'] ?? null,
             'role' => $context['role'] ?? null,
             'dispatch_id' => $context['dispatch_id'] ?? null,

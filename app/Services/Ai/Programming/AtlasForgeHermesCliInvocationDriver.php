@@ -165,6 +165,10 @@ class AtlasForgeHermesCliInvocationDriver implements AtlasForgeProviderInvocatio
                 'decision_receipt_hash' => $request['decision_receipt_hash'] ?? null,
             ], static fn (mixed $value): bool => $value !== null)),
         ];
+        $env = $this->processEnv($request);
+        if ($env !== []) {
+            $payload['forge_provider_invocation_env'] = $env;
+        }
         if ($cwd !== null) {
             $payload['workspace'] = $cwd;
             // mode 'danger' → HermesCliProvider passes --yolo (autonomous edit);
@@ -218,6 +222,30 @@ class AtlasForgeHermesCliInvocationDriver implements AtlasForgeProviderInvocatio
         }
 
         return $this->mapResult($result, $request, $model, $cwd, $timeout, $maxOutputChars);
+    }
+
+    /**
+     * @param  array<string,mixed>  $request
+     * @return array<string,string|int|float|false>
+     */
+    private function processEnv(array $request): array
+    {
+        $env = $request['env'] ?? null;
+        if (! is_array($env)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($env as $key => $value) {
+            if (! is_string($key) || $key === '') {
+                continue;
+            }
+            if (is_string($value) || is_numeric($value) || $value === false) {
+                $out[$key] = $value;
+            }
+        }
+
+        return $out;
     }
 
     /**

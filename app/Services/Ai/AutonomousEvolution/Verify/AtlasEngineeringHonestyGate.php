@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution\Verify;
 
 use App\Services\Ai\AutonomousEvolution\AtlasEvolutionFrozenJudge;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopHermeticCommandEnvironment;
 use PhpParser\Node;
 use PhpParser\NodeFinder;
 use PhpParser\Parser;
@@ -636,7 +637,13 @@ final class AtlasEngineeringHonestyGate
      */
     private function runHoldoutCommand(string $command, string $workspace, int $timeout): array
     {
-        $process = Process::fromShellCommandline($command, $workspace, null, null, (float) $timeout);
+        $process = Process::fromShellCommandline(
+            $command,
+            $workspace,
+            AtlasLoopHermeticCommandEnvironment::forAcceptance(),
+            null,
+            (float) $timeout,
+        );
         $process->run();
         $exit = $process->getExitCode() ?? 1;
 

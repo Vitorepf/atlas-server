@@ -26,7 +26,15 @@ use Throwable;
 final class AtlasLoopBackService
 {
     /** Reasons that mean "this file can never be honestly ground" — quarantine, don't retry. */
-    private const QUARANTINE_REASONS = ['materialize', 'not_red', 'invalid_task', 'self_contain', 'no_real_work', 'fabricated'];
+    private const QUARANTINE_REASONS = [
+        'materialize',
+        'not_red',
+        'invalid_task',
+        'self_contain',
+        'no_real_work',
+        'fabricated',
+        'generic_provider_fallback_disabled',
+    ];
 
     public function __construct(
         private readonly AtlasLoopTargetRepository $repository,

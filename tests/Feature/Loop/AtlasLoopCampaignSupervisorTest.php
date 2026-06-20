@@ -39,7 +39,16 @@ final class AtlasLoopCampaignSupervisorTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        config(['atlas.loop.parallel.enabled' => false]);
+        config([
+            'atlas.loop.parallel.enabled' => false,
+            'atlas.loop.scenario_fanout.enabled' => false,
+            'atlas.loop.universal_certification' => false,
+            'atlas.loop.conductor_escalation_enabled' => false,
+            'atlas.loop.cross_provider_best_of_n' => false,
+            'atlas.loop.deep_strategy_portfolio' => false,
+            'atlas.loop.refactor_multi_file_via_obra' => false,
+            'atlas.loop.pattern_driver_enabled' => false,
+        ]);
         if (! Schema::hasTable('atlas_loop_campaigns')) {
             foreach (['2026_06_02_000100_create_atlas_loop_runtime_tables.php', '2026_06_02_000200_complete_atlas_loop_runtime_schema.php'] as $f) {
                 (require base_path('database/migrations/'.$f))->up();
@@ -173,6 +182,27 @@ final class AtlasLoopCampaignSupervisorTest extends TestCase
         $this->assertSame(2, $campaign->proposals_count);
         $this->assertSame(AtlasLoopCampaign::STATUS_COMPLETED, $campaign->status);
         $this->assertSame(0, AtlasLoopTask::query()->where('campaign_id', $campaign->id)->where('status', AtlasLoopTask::STATUS_PENDING)->count());
+    }
+
+    public function test_starvation_idle_mode_keeps_long_soak_alive_until_budget(): void
+    {
+        config([
+            'atlas.loop.campaign.idle_on_starvation' => true,
+            'atlas.loop.campaign.starvation_idle_seconds' => 5,
+            'atlas.loop.territory_ladder_enabled' => false,
+            'atlas.loop.taxa2_dials.enabled' => false,
+        ]);
+        $campaign = $this->seedCampaign(maxSeconds: 120);
+
+        $result = $this->supervisor()->run(['campaign_id' => $campaign->id, 'scenarios' => 1]);
+
+        $this->assertSame('time_budget_reached', $result['stop_reason']);
+        $ledger = $this->supervisor()->readLedger($campaign->id, 100);
+        $this->assertNotEmpty(array_filter($ledger, static fn (array $e): bool => ($e['event'] ?? null) === 'starvation_idle'));
+
+        $campaign->refresh();
+        $this->assertSame(AtlasLoopCampaign::STATUS_COMPLETED, $campaign->status);
+        $this->assertSame('time_budget_reached', $campaign->stop_reason);
     }
 
     public function test_taxa2_overlay_records_effective_dials_on_supervisor_boot(): void
@@ -319,7 +349,7 @@ final class AtlasLoopCampaignSupervisorTest extends TestCase
                     'scenarios_explored' => $scenarios,
                     'cost_cents' => 0,
                 ], JSON_UNESCAPED_SLASHES);
-                $process = new Process([PHP_BINARY, '-r', 'usleep(120000); echo '.var_export(is_string($payload) ? $payload : '{}', true).';']);
+                $process = new Process([PHP_BINARY, '-r', 'echo '.var_export(is_string($payload) ? $payload : '{}', true).';']);
                 $process->start();
 
                 return new LoopWorkerHandle($process, $taskId, $workerId);
@@ -354,6 +384,154 @@ final class AtlasLoopCampaignSupervisorTest extends TestCase
         $this->assertNotEmpty($ticks);
         $this->assertSame(4, max(array_map(static fn (array $e): int => (int) ($e['spawned'] ?? 0), $ticks)));
         $this->assertSame(4, max(array_map(static fn (array $e): int => (int) ($e['in_flight'] ?? 0), $ticks)));
+    }
+
+    public function test_parallel_worker_timeout_settle_fails_task_without_waiting_for_lease_expiry(): void
+    {
+        $campaign = $this->seedCampaign();
+        $task = $this->seedTask($campaign->id, 'TimeoutCase');
+        $worker = 'pool-timeout-worker';
+        $claimed = $this->app->make(AtlasLoopStore::class)->claimNextTask($campaign->id, $worker, 3600);
+        $this->assertSame($task->id, $claimed?->id);
+
+        $supervisor = $this->supervisor();
+        $method = new \ReflectionMethod($supervisor, 'settleTimedOutParallelWorkers');
+        $method->setAccessible(true);
+        $method->invoke($supervisor, [[
+            'task_id' => $task->id,
+            'worker_id' => $worker,
+            'timed_out' => true,
+            'exit_code' => null,
+            'duration_ms' => 1234,
+        ]]);
+
+        $task->refresh();
+        $this->assertSame(AtlasLoopTask::STATUS_FAILED, $task->status);
+        $this->assertSame('parallel_worker_timeout', data_get($task->result, 'reason'));
+        $this->assertSame(1234, data_get($task->result, 'duration_ms'));
+        $this->assertNull($task->lease_expires_at);
+    }
+
+    public function test_parallel_inflight_work_burns_time_budget_and_drains_task_terminally(): void
+    {
+        config([
+            'atlas.loop.parallel.enabled' => true,
+            'atlas.loop.parallel.max_workers' => 2,
+            'atlas.loop.campaign.workers' => 2,
+            'atlas.loop.campaign.queue_low_watermark' => 1,
+            'atlas.loop.territory_ladder_enabled' => false,
+            'atlas.loop.taxa2_dials.enabled' => false,
+            'atlas.loop.cost_governor.enabled' => false,
+        ]);
+        $this->app->bind(LoopWorkerSpawnerContract::class, fn () => new class implements LoopWorkerSpawnerContract
+        {
+            public function spawn(
+                string $campaignId,
+                string $taskId,
+                string $workerId,
+                int $leaseSeconds,
+                string $workspaceRoot,
+                int $timeoutSeconds,
+                int $scenarios,
+            ): LoopWorkerHandle {
+                $process = new Process([PHP_BINARY, '-r', 'sleep(30);']);
+                $process->start();
+
+                return new LoopWorkerHandle($process, $taskId, $workerId);
+            }
+        });
+
+        $campaign = $this->seedCampaign(maxSeconds: 120);
+        $task = $this->seedTask($campaign->id, 'BudgetDrain');
+
+        $supervisor = $this->supervisor();
+        $result = $supervisor->run([
+            'campaign_id' => $campaign->id,
+            'workers' => 2,
+            'scenarios' => 1,
+            'sleep_seconds' => 0,
+        ]);
+
+        $this->assertSame('time_budget_reached', $result['stop_reason']);
+        $campaign->refresh();
+        $this->assertGreaterThanOrEqual(120, $campaign->elapsed_seconds);
+
+        $task->refresh();
+        $this->assertSame(AtlasLoopTask::STATUS_FAILED, $task->status);
+        $this->assertSame('parallel_worker_budget_stop', data_get($task->result, 'reason'));
+        $this->assertNull($task->lease_expires_at);
+
+        $ledger = $supervisor->readLedger($campaign->id, 1000);
+        $this->assertNotEmpty(array_filter($ledger, static fn (array $e): bool => ($e['event'] ?? null) === 'parallel_pool_drain'));
+    }
+
+    public function test_parallel_idle_on_starvation_keeps_campaign_alive_after_pool_drains(): void
+    {
+        config([
+            'atlas.loop.parallel.enabled' => true,
+            'atlas.loop.parallel.max_workers' => 2,
+            'atlas.loop.campaign.workers' => 2,
+            'atlas.loop.campaign.queue_low_watermark' => 1,
+            'atlas.loop.campaign.idle_on_starvation' => true,
+            'atlas.loop.campaign.starvation_idle_seconds' => 5,
+            'atlas.loop.territory_ladder_enabled' => false,
+            'atlas.loop.taxa2_dials.enabled' => false,
+            'atlas.loop.cost_governor.enabled' => false,
+        ]);
+        $this->app->bind(LoopWorkerSpawnerContract::class, fn ($app) => new class($app->make(AtlasLoopStore::class)) implements LoopWorkerSpawnerContract
+        {
+            public function __construct(private readonly AtlasLoopStore $store) {}
+
+            public function spawn(
+                string $campaignId,
+                string $taskId,
+                string $workerId,
+                int $leaseSeconds,
+                string $workspaceRoot,
+                int $timeoutSeconds,
+                int $scenarios,
+            ): LoopWorkerHandle {
+                $this->store->completeTask($taskId, $workerId, [
+                    'has_winner' => false,
+                    'scenarios_explored' => $scenarios,
+                    'proposals' => 0,
+                ], true);
+                AtlasLoopCampaign::query()->whereKey($campaignId)->increment('tasks_processed');
+                AtlasLoopCampaign::query()->whereKey($campaignId)->increment('scenarios_explored', $scenarios);
+
+                $payload = json_encode([
+                    'task_id' => $taskId,
+                    'worker' => $workerId,
+                    'status' => 'no_winner',
+                    'has_winner' => false,
+                    'proposals' => 0,
+                    'scenarios_explored' => $scenarios,
+                    'cost_cents' => 0,
+                ], JSON_UNESCAPED_SLASHES);
+                $process = new Process([PHP_BINARY, '-r', 'echo '.var_export(is_string($payload) ? $payload : '{}', true).';']);
+                $process->start();
+
+                return new LoopWorkerHandle($process, $taskId, $workerId);
+            }
+        });
+
+        $campaign = $this->seedCampaign(maxSeconds: 600);
+        $this->seedTask($campaign->id, 'AfterDrain');
+
+        $supervisor = $this->supervisor();
+        $result = $supervisor->run([
+            'campaign_id' => $campaign->id,
+            'workers' => 2,
+            'scenarios' => 1,
+            'sleep_seconds' => 0,
+        ]);
+
+        $this->assertSame('time_budget_reached', $result['stop_reason']);
+        $ledger = $supervisor->readLedger($campaign->id, 1000);
+        $this->assertNotEmpty(array_filter(
+            $ledger,
+            static fn (array $e): bool => ($e['event'] ?? null) === 'starvation_idle'
+        ));
     }
 
     public function test_crash_resume_reclaims_inflight_task_and_does_not_duplicate_proposal(): void
@@ -418,6 +596,107 @@ final class AtlasLoopCampaignSupervisorTest extends TestCase
         $ledger = $supervisor->readLedger($campaign->id, 20);
         $this->assertNotEmpty(array_filter($ledger, static fn (array $e): bool => ($e['event'] ?? null) === 'boot_git_head' && ($e['head'] ?? null) === $headA));
         $this->assertNotEmpty(array_filter($ledger, static fn (array $e): bool => ($e['event'] ?? null) === 'code_drift_restart' && ($e['boot_head'] ?? null) === $headA && ($e['current_head'] ?? null) === $headB));
+    }
+
+    public function test_restarting_completed_campaign_clears_terminal_fields_and_persists_current_contract(): void
+    {
+        config(['atlas.loop.campaign.restart_on_code_drift' => true]);
+        $campaign = $this->seedCampaign();
+        $this->seedTask($campaign->id, 'Alpha');
+
+        $first = $this->supervisor()->run(['campaign_id' => $campaign->id, 'scenarios' => 1]);
+        $this->assertSame('queue_starved_no_refill', $first['stop_reason']);
+
+        $campaign->refresh();
+        $this->assertSame(AtlasLoopCampaign::STATUS_COMPLETED, $campaign->status);
+        $this->assertNotNull($campaign->finished_at);
+        $this->assertNotNull($campaign->completed_at);
+
+        $this->seedTask($campaign->id, 'Bravo');
+
+        $headA = str_repeat('a', 40);
+        $headB = str_repeat('b', 40);
+        $calls = 0;
+        $supervisor = $this->supervisor();
+        $supervisor->setGitHeadResolverForTesting(function () use (&$calls, $headA, $headB): string {
+            $calls++;
+
+            return $calls < 3 ? $headA : $headB;
+        });
+        $supervisor->setChangedFilesResolverForTesting(static fn (): array => [
+            'app/Services/Ai/AutonomousEvolution/AtlasLoopTaskGrinder.php',
+        ]);
+
+        $result = $supervisor->run([
+            'campaign_id' => $campaign->id,
+            'goal' => 'resumed live contract',
+            'base_workspace' => $this->emptyRepo,
+            'max_seconds' => 7200,
+            'max_usd_cents' => 123,
+            'scenarios' => 1,
+            'workers' => 2,
+            'shadow' => false,
+        ]);
+
+        $this->assertSame('code_drift_restart', $result['stop_reason']);
+        $this->assertTrue($result['restartable']);
+
+        $campaign->refresh();
+        $this->assertSame(AtlasLoopCampaign::STATUS_RUNNING, $campaign->status);
+        $this->assertSame('code_drift_restart', $campaign->stop_reason);
+        $this->assertNull($campaign->finished_at);
+        $this->assertNull($campaign->completed_at);
+        $this->assertSame('resumed live contract', $campaign->goal);
+        $this->assertSame($this->emptyRepo, $campaign->base_workspace);
+        $this->assertSame(7200, (int) $campaign->max_seconds);
+        $this->assertSame(123, (int) $campaign->max_usd_cents);
+        $this->assertFalse((bool) data_get($campaign->config, 'shadow'));
+        $this->assertSame(2, (int) data_get($campaign->config, 'workers'));
+    }
+
+    public function test_kill_switch_set_mid_tick_stops_before_claiming_next_task(): void
+    {
+        config([
+            'atlas.loop.campaign.restart_on_code_drift' => true,
+            'atlas.loop.campaign.queue_low_watermark' => 1,
+            'atlas.loop.taxa2_dials.enabled' => false,
+        ]);
+        $campaign = $this->seedCampaign();
+        $task = $this->seedTask($campaign->id, 'Alpha');
+
+        $headA = str_repeat('a', 40);
+        $headB = str_repeat('b', 40);
+        $calls = 0;
+        $supervisor = $this->supervisor();
+        $supervisor->setGitHeadResolverForTesting(function () use (&$calls, $headA, $headB): string {
+            $calls++;
+
+            return $calls === 1 ? $headA : $headB;
+        });
+        $supervisor->setChangedFilesResolverForTesting(function () use ($campaign): array {
+            AtlasLoopCampaign::query()
+                ->whereKey($campaign->id)
+                ->update(['kill_switch' => true]);
+
+            return [];
+        });
+
+        $result = $supervisor->run(['campaign_id' => $campaign->id, 'scenarios' => 1]);
+
+        $this->assertSame('kill_switch', $result['stop_reason']);
+        $this->assertSame(0, $result['cycles']);
+        $this->assertFalse($result['merged_to_main']);
+
+        $task->refresh();
+        $this->assertSame(AtlasLoopTask::STATUS_PENDING, $task->status);
+        $this->assertSame(0, $task->attempts);
+        $this->assertNull($task->claimed_by);
+        $this->assertSame(0, AtlasLoopProposal::query()->where('campaign_id', $campaign->id)->count());
+        $this->assertFileDoesNotExist($this->storageRoot.'/'.$campaign->id.'/lock.json');
+
+        $campaign->refresh();
+        $this->assertSame(AtlasLoopCampaign::STATUS_ABORTED, $campaign->status);
+        $this->assertTrue((bool) $campaign->kill_switch);
     }
 
     /**

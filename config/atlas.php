@@ -1856,13 +1856,25 @@ return [
         // precisão (só as formas inequívocas), gateia TODA cert. Default ON: pegar isso É o moat.
         'overfit_probe_enabled' => (bool) env('ATLAS_LOOP_OVERFIT_PROBE_ENABLED', true),
 
-        // ACDE engine-independence: um provider de TEXTO/HTTP (MiniMax M3) não edita arquivos
-        // — devolve a mudança como unified diff no corpo da resposta. Com este flag ON, o
-        // WorkspaceProviderLoopExecutionDriver parseia e APLICA esse diff no workspace via o
-        // caminho provado DiffParser+PatchApplier, transformando um motor de texto em agente
-        // que edita repo. Guardado por changed_files===[] (CLI providers não são afetados).
-        // Default ON: é a capacidade que destrava rodar o loop no motor mais fraco/barato.
+        // ACDE engine-independence: providers de TEXTO/HTTP (default: MiniMax M3 API) não editam
+        // arquivos — devolvem a mudança no corpo da resposta. Com este flag ON, o driver parseia
+        // e APLICA esse texto no workspace via DiffParser+PatchApplier/full-file blocks. CLI
+        // providers NÃO recebem esse protocolo no prompt, porque têm filesystem e devem editar
+        // em place.
         'text_provider_edit_apply' => (bool) env('ATLAS_LOOP_TEXT_PROVIDER_EDIT_APPLY', true),
+        'text_provider_edit_apply_providers' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('ATLAS_LOOP_TEXT_PROVIDER_EDIT_APPLY_PROVIDERS', 'minimax_m27')),
+        ))),
+        // Hermes/Codex/Claude provider bootstraps may refresh provider projections inside the
+        // disposable scenario workspace. Those files are Atlas memory projections, not the
+        // candidate implementation, so reset them before the frozen judge unless the task
+        // explicitly allowed editing them. This keeps out-of-scope gates strict for real code.
+        'provider_projection_noise_reset' => (bool) env('ATLAS_LOOP_PROVIDER_PROJECTION_NOISE_RESET', true),
+        'provider_projection_noise_files' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('ATLAS_LOOP_PROVIDER_PROJECTION_NOISE_FILES', 'AGENTS.md,CLAUDE.md')),
+        ))),
 
         // ACDE Tier-1 #7: DEPENDENCY-BODY grounding. The code-graph seam injects only callee SIGNATURES;
         // a weak engine then hallucinates the callee CONTRACT (confident wrong calls). With this ON, the
@@ -3081,6 +3093,12 @@ return [
         // FAILS on the gate's surviving mutant. Raises refactor conversion by closing coverage gaps,
         // never by lowering the mutation bar. Inert while OFF — the normal grind path is unchanged.
         'characterization_test_lane_enabled' => (bool) env('ATLAS_LOOP_CHARACTERIZATION_TEST_LANE_ENABLED', false),
+        // Controlled-soak first-proof mode. In the first self-scope 24h campaign, small
+        // characterization tasks give fast, measurable evidence that the loop is alive before a
+        // heavy self-improvement refactor can spend many minutes. Default OFF preserves the normal
+        // EV/band ordering; ON promotes characterization tasks above the refactor band.
+        'characterization_first_proof_priority_enabled' => (bool) env('ATLAS_LOOP_CHARACTERIZATION_FIRST_PROOF_PRIORITY_ENABLED', false),
+        'characterization_first_proof_priority' => max(1, (int) env('ATLAS_LOOP_CHARACTERIZATION_FIRST_PROOF_PRIORITY', 5_200)),
 
         // L6-11: predictive outcome bridge. When ON, every terminal loop grind records a
         // real prediction + observed outcome into the predictive-failure calibration
@@ -3161,6 +3179,12 @@ return [
             'orphan_ttl_seconds' => max(60, (int) env('ATLAS_LOOP_ORPHAN_TTL_SECONDS', 1800)),
             // Rate limit between cycles (0 = no sleep).
             'sleep_seconds' => max(0, (int) env('ATLAS_LOOP_SLEEP_SECONDS', 0)),
+            // Long-soak liveness mode. Default-OFF preserves the historical clean
+            // queue_starved stop for tests/short campaigns. When armed for a supervised
+            // 24h soak, empty supply becomes a bounded idle/re-scan loop until budget,
+            // kill switch, or newly discovered work ends the idle.
+            'idle_on_starvation' => (bool) env('ATLAS_LOOP_IDLE_ON_STARVATION', false),
+            'starvation_idle_seconds' => max(5, (int) env('ATLAS_LOOP_STARVATION_IDLE_SECONDS', 60)),
             // Transient-DB resilience: a brief Postgres blip during a 24h run is a
             // recoverable hiccup, not a fatal crash. Each durable hot-path write is
             // retried with reconnect + exponential backoff; a per-cycle DB failure that

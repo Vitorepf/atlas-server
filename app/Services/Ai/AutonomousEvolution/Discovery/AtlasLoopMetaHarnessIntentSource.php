@@ -79,6 +79,8 @@ final class AtlasLoopMetaHarnessIntentSource
                     .' (cobrir edge-cases/guards faltantes; meta-melhoria L6-1, alvo de harness não-segurança).',
                 'priority' => $priority,
                 'source' => 'meta_harness_self_improve',
+                'is_self_improvement' => true,
+                'quality_bar' => (float) config('atlas.loop.quality_bar', 9.0),
             ];
         }
 

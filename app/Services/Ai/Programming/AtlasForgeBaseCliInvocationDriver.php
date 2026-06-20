@@ -394,7 +394,11 @@ abstract class AtlasForgeBaseCliInvocationDriver implements AtlasForgeProviderIn
      */
     protected function processEnv(array $request): ?array
     {
-        return null;
+        $env = $request['env'] ?? null;
+
+        return is_array($env)
+            ? array_filter($env, static fn (mixed $value): bool => is_string($value) || is_numeric($value) || $value === false)
+            : null;
     }
 
     /**

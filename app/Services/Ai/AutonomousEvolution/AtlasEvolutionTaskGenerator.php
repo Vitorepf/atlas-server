@@ -360,7 +360,13 @@ final class AtlasEvolutionTaskGenerator
 
     private function isRed(string $base, string $testRel): bool
     {
-        $process = Process::fromShellCommandline('php '.escapeshellarg($testRel), $base, null, null, 120.0);
+        $process = Process::fromShellCommandline(
+            'php '.escapeshellarg($testRel),
+            $base,
+            AtlasLoopHermeticCommandEnvironment::forAcceptance(),
+            null,
+            120.0,
+        );
         $process->run();
 
         return ($process->getExitCode() ?? 1) !== 0; // RED = non-zero

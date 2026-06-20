@@ -68,6 +68,60 @@ final class AtlasLoopGuardsTest extends TestCase
         $this->assertArrayNotHasKey('timed_out', $result);
     }
 
+    public function test_time_bounded_driver_honors_smaller_attempt_timeout_hint(): void
+    {
+        $slow = new class implements LoopExecutionDriver
+        {
+            public function attempt(string $surfaceId, string $workspace, string $intent, array $userConstraints, array $surfaceHints): array
+            {
+                sleep(2);
+
+                return ['status' => 'completed'];
+            }
+        };
+
+        $start = microtime(true);
+        $result = (new TimeBoundedLoopExecutionDriver($slow, 30))->attempt('s', sys_get_temp_dir(), 'i', [], [
+            'attempt_timeout_seconds' => 1,
+        ]);
+        $elapsed = microtime(true) - $start;
+
+        $this->assertSame('timed_out', $result['status']);
+        $this->assertTrue($result['timed_out'] ?? false);
+        $this->assertLessThan(3.0, $elapsed);
+    }
+
+    public function test_time_bounded_driver_emits_progress_heartbeats_during_long_attempt(): void
+    {
+        if (! function_exists('pcntl_async_signals')) {
+            $this->markTestSkipped('pcntl is required to emit in-flight attempt heartbeats.');
+        }
+
+        $slow = new class implements LoopExecutionDriver
+        {
+            public function attempt(string $surfaceId, string $workspace, string $intent, array $userConstraints, array $surfaceHints): array
+            {
+                $until = microtime(true) + 2.2;
+                while (microtime(true) < $until) {
+                    usleep(100_000);
+                }
+
+                return ['status' => 'completed'];
+            }
+        };
+        $events = [];
+
+        $result = (new TimeBoundedLoopExecutionDriver($slow, 5))->attempt('s', sys_get_temp_dir(), 'i', [], [
+            '_progress_tick_seconds' => 1,
+            '_progress_callback' => function (array $event) use (&$events): void {
+                $events[] = $event;
+            },
+        ]);
+
+        $this->assertSame('completed', $result['status']);
+        $this->assertContains('attempt_heartbeat', array_map(static fn (array $event): string => (string) ($event['stage'] ?? ''), $events));
+    }
+
     public function test_resource_gate_refuses_below_disk_floor_and_reaps_orphans(): void
     {
         $gate = new AtlasLoopResourceGate;

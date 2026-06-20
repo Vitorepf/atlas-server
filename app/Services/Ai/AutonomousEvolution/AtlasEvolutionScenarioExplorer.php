@@ -97,7 +97,7 @@ final class AtlasEvolutionScenarioExplorer
      * }  $task
      * @return array<string,mixed> atlas.evolution.scenario_exploration.v1
      */
-    public function explore(array $task, ?int $scenarios = null): array
+    public function explore(array $task, ?int $scenarios = null, ?callable $onProgress = null): array
     {
         [
             $objective,
@@ -121,7 +121,7 @@ final class AtlasEvolutionScenarioExplorer
 
         [$min, $max, $patience, $timeBudget] = $this->searchParams($task, $scenarios);
         $workspaceRoot = $this->scenarioRoot($task); // honor a per-worker root; defaults to sys_get_temp_dir
-        $search = $this->exploreAttempts($min, $max, $patience, $timeBudget, $objective, $baseWorkspace, $task, $acceptance, $metricKind, $surfaceId, $userConstraints, $surfaceHints, $provider, $keepWorkspaces, $workspaceRoot);
+        $search = $this->exploreAttempts($min, $max, $patience, $timeBudget, $objective, $baseWorkspace, $task, $acceptance, $metricKind, $surfaceId, $userConstraints, $surfaceHints, $provider, $keepWorkspaces, $workspaceRoot, $onProgress);
         $attempts = $search['attempts'];
 
         $winner = $this->pickWinner($attempts, $metricKind);
@@ -145,7 +145,7 @@ final class AtlasEvolutionScenarioExplorer
      * @param  array<string,mixed>  $surfaceHints
      * @return array{attempts:list<array<string,mixed>>,converged:bool}
      */
-    private function exploreAttempts(int $min, int $max, int $patience, int $timeBudget, string $objective, string $baseWorkspace, array $task, array $acceptance, string $metricKind, string $surfaceId, array $userConstraints, array $surfaceHints, string $provider, bool $keepWorkspaces, string $workspaceRoot): array
+    private function exploreAttempts(int $min, int $max, int $patience, int $timeBudget, string $objective, string $baseWorkspace, array $task, array $acceptance, string $metricKind, string $surfaceId, array $userConstraints, array $surfaceHints, string $provider, bool $keepWorkspaces, string $workspaceRoot, ?callable $onProgress = null): array
     {
         $start = microtime(true);
         $portfolio = $this->portfolio ?? new AtlasLoopScenarioProviderPortfolio;
@@ -161,10 +161,10 @@ final class AtlasEvolutionScenarioExplorer
         // frozen unit test, which `new`s the explorer directly — never even reads config() and
         // falls straight through to the unchanged serial path.
         if ($this->isWaveFanoutEnabled()) {
-            return $this->exploreAttemptsInWaves($min, $max, $patience, $timeBudget, $objective, $baseWorkspace, $task, $acceptance, $metricKind, $surfaceId, $userConstraints, $surfaceHints, $provider, $keepWorkspaces, $workspaceRoot, $portfolio, $ledger);
+            return $this->exploreAttemptsInWaves($min, $max, $patience, $timeBudget, $objective, $baseWorkspace, $task, $acceptance, $metricKind, $surfaceId, $userConstraints, $surfaceHints, $provider, $keepWorkspaces, $workspaceRoot, $portfolio, $ledger, $onProgress);
         }
 
-        return $this->runSerialAttempts($min, $max, $patience, $timeBudget, $objective, $baseWorkspace, $task, $acceptance, $metricKind, $surfaceId, $userConstraints, $surfaceHints, $provider, $keepWorkspaces, $workspaceRoot, $portfolio, $ledger, $start);
+        return $this->runSerialAttempts($min, $max, $patience, $timeBudget, $objective, $baseWorkspace, $task, $acceptance, $metricKind, $surfaceId, $userConstraints, $surfaceHints, $provider, $keepWorkspaces, $workspaceRoot, $portfolio, $ledger, $start, $onProgress);
     }
 
     /**
@@ -191,7 +191,7 @@ final class AtlasEvolutionScenarioExplorer
      * @param  array<string,mixed>  $surfaceHints
      * @return array{attempts:list<array<string,mixed>>,converged:bool,convergence:array<string,mixed>}
      */
-    private function runSerialAttempts(int $min, int $max, int $patience, int $timeBudget, string $objective, string $baseWorkspace, array $task, array $acceptance, string $metricKind, string $surfaceId, array $userConstraints, array $surfaceHints, string $provider, bool $keepWorkspaces, string $workspaceRoot, AtlasLoopScenarioProviderPortfolio $portfolio, AtlasLoopAttemptLedger $ledger, float $start): array
+    private function runSerialAttempts(int $min, int $max, int $patience, int $timeBudget, string $objective, string $baseWorkspace, array $task, array $acceptance, string $metricKind, string $surfaceId, array $userConstraints, array $surfaceHints, string $provider, bool $keepWorkspaces, string $workspaceRoot, AtlasLoopScenarioProviderPortfolio $portfolio, AtlasLoopAttemptLedger $ledger, float $start, ?callable $onProgress = null): array
     {
         $attempts = [];
         $best = null;
@@ -212,7 +212,12 @@ final class AtlasEvolutionScenarioExplorer
             // Feed prior failed approaches forward (empty on the first attempt => byte-identical).
             $guidance = $ledger->guidance();
             $strategyText = $guidance === '' ? $strategy['text'] : trim($strategy['text']."\n\n".$guidance);
-            $attempt = $this->runScenario($i, $objective, $strategyText, $strategy['key'], $baseWorkspace, $acceptance, $surfaceId, $userConstraints, $attemptHints, $attemptProvider, $keepWorkspaces, $workspaceRoot, $this->scenarioCloneMode($task));
+            $attemptTimeout = $this->remainingAttemptTimeoutSeconds($timeBudget, $start);
+            if ($attemptTimeout !== null && $attemptTimeout <= 0) {
+                break;
+            }
+
+            $attempt = $this->runScenario($i, $objective, $strategyText, $strategy['key'], $baseWorkspace, $acceptance, $surfaceId, $userConstraints, $attemptHints, $attemptProvider, $keepWorkspaces, $workspaceRoot, $this->scenarioCloneMode($task), $attemptTimeout, $onProgress);
             $attempts[] = $attempt;
             $ledger->record(
                 $strategy['key'],
@@ -251,6 +256,22 @@ final class AtlasEvolutionScenarioExplorer
         $noImprove++;
 
         return $best;
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     */
+    private function emitProgress(?callable $onProgress, string $stage, array $context = []): void
+    {
+        if ($onProgress === null) {
+            return;
+        }
+
+        try {
+            $onProgress(['stage' => $stage] + $context);
+        } catch (Throwable) {
+            // Progress callbacks keep leases/heartbeats fresh; they must never affect scoring.
+        }
     }
 
     /**
@@ -302,7 +323,7 @@ final class AtlasEvolutionScenarioExplorer
      * @param  array<string,mixed>  $surfaceHints
      * @return array{attempts:list<array<string,mixed>>,converged:bool,convergence:array<string,mixed>}
      */
-    private function exploreAttemptsInWaves(int $min, int $max, int $patience, int $timeBudget, string $objective, string $baseWorkspace, array $task, array $acceptance, string $metricKind, string $surfaceId, array $userConstraints, array $surfaceHints, string $provider, bool $keepWorkspaces, string $workspaceRoot, AtlasLoopScenarioProviderPortfolio $portfolio, AtlasLoopAttemptLedger $ledger): array
+    private function exploreAttemptsInWaves(int $min, int $max, int $patience, int $timeBudget, string $objective, string $baseWorkspace, array $task, array $acceptance, string $metricKind, string $surfaceId, array $userConstraints, array $surfaceHints, string $provider, bool $keepWorkspaces, string $workspaceRoot, AtlasLoopScenarioProviderPortfolio $portfolio, AtlasLoopAttemptLedger $ledger, ?callable $onProgress = null): array
     {
         $attempts = [];
         $best = null;
@@ -324,6 +345,11 @@ final class AtlasEvolutionScenarioExplorer
             // Build this wave's scenario specs (indices ascending => stable scn-ids/strategy/provider).
             $waveSpecs = [];
             $waveSize = min($width, $max - $i);
+            $attemptTimeout = $this->remainingAttemptTimeoutSeconds($timeBudget, $start);
+            if ($attemptTimeout !== null && $attemptTimeout <= 0) {
+                break;
+            }
+            $this->emitProgress($onProgress, 'scenario_wave_start', ['index' => $i, 'wave_size' => $waveSize]);
             for ($k = 0; $k < $waveSize; $k++) {
                 $idx = $i + $k;
                 $strategy = $this->strategyFor($task, $idx);
@@ -344,12 +370,14 @@ final class AtlasEvolutionScenarioExplorer
                     'keep_workspaces' => $keepWorkspaces,
                     'workspace_root' => $workspaceRoot,
                     'clone_mode' => $this->scenarioCloneMode($task),
+                    'attempt_timeout_seconds' => $attemptTimeout,
                 ];
             }
 
             // Run the wave in-flight together; the dispatcher returns one attempt per spec ORDERED by
             // index, so the fold order is deterministic and matches the serial scn ordering.
             $settled = $this->waveDispatcher->dispatch($waveSpecs);
+            $this->emitProgress($onProgress, 'scenario_wave_end', ['index' => $i, 'settled' => count($settled)]);
             foreach ($settled as $attempt) {
                 $attempts[] = $attempt;
                 $ledger->record(
@@ -401,6 +429,7 @@ final class AtlasEvolutionScenarioExplorer
             (bool) ($spec['keep_workspaces'] ?? false),
             (string) ($spec['workspace_root'] ?? ''),
             (string) ($spec['clone_mode'] ?? 'copy'),
+            is_numeric($spec['attempt_timeout_seconds'] ?? null) ? (int) $spec['attempt_timeout_seconds'] : null,
         );
     }
 
@@ -447,17 +476,26 @@ final class AtlasEvolutionScenarioExplorer
      * @param  array<string,mixed>  $surfaceHints
      * @return array<string,mixed>
      */
-    private function runScenario(int $index, string $objective, string $strategy, string $strategyKey, string $baseWorkspace, array $acceptance, string $surfaceId, array $userConstraints, array $surfaceHints, string $provider, bool $keepWorkspaces, string $workspaceRoot = '', string $cloneMode = 'copy'): array
+    private function runScenario(int $index, string $objective, string $strategy, string $strategyKey, string $baseWorkspace, array $acceptance, string $surfaceId, array $userConstraints, array $surfaceHints, string $provider, bool $keepWorkspaces, string $workspaceRoot = '', string $cloneMode = 'copy', ?int $attemptTimeoutSeconds = null, ?callable $onProgress = null): array
     {
         $scenarioId = 'scn-'.($index + 1);
         $workspace = null;
         try {
+            $this->emitProgress($onProgress, 'scenario_attempt_start', ['scenario_id' => $scenarioId, 'provider' => $provider]);
             $workspace = $this->prepareScenarioWorkspace($baseWorkspace, $index, $workspaceRoot, $cloneMode);
             // Forceful per-attempt framing (decorrelation) + the global anti-overfit clause on EVERY
             // attempt. "Approach hint" was too soft for a weak engine — it collapsed the N attempts.
             $intent = $strategy === ''
                 ? $objective."\n\n".self::ANTI_OVERFIT
                 : $objective."\n\nMANDATORY DISTINCT APPROACH (this is one of several independent attempts — do NOT produce the generic fix; commit fully to THIS angle):\n".$strategy."\n\n".self::ANTI_OVERFIT;
+
+            $driverHints = $surfaceHints + ['acceptance' => $acceptance];
+            if ($attemptTimeoutSeconds !== null) {
+                $driverHints['attempt_timeout_seconds'] = max(1, $attemptTimeoutSeconds);
+            }
+            if ($onProgress !== null) {
+                $driverHints['_progress_callback'] = $onProgress;
+            }
 
             $loopSummary = $this->driver->attempt(
                 surfaceId: $surfaceId,
@@ -466,8 +504,9 @@ final class AtlasEvolutionScenarioExplorer
                 userConstraints: $userConstraints,
                 // ACDE Tier-0 #2: hand the driver the FROZEN acceptance so iterate-to-green can drive
                 // toward the JUDGE's bar (when armed), not a raw exit-0 proxy a gamed candidate satisfies.
-                surfaceHints: $surfaceHints + ['acceptance' => $acceptance],
+                surfaceHints: $driverHints,
             );
+            $this->emitProgress($onProgress, 'scenario_attempt_driver_returned', ['scenario_id' => $scenarioId, 'provider' => $provider]);
 
             // The judge is AUTHORITATIVE — it re-proves independently in the workspace,
             // never trusting the loop's self-reported verification (Goodhart-guard #3).
@@ -488,6 +527,17 @@ final class AtlasEvolutionScenarioExplorer
                 // provider_invoked:false even when the provider fired — masking the live signal).
                 'provider_invoked' => (bool) ($loopSummary['provider_invoked'] ?? false),
                 'edits_applied_from_text' => (bool) ($loopSummary['edits_applied_from_text'] ?? false),
+                'edit_apply_status' => $this->boundedString($loopSummary['edit_apply_status'] ?? null, 80),
+                'zero_diff_retry' => (bool) ($loopSummary['zero_diff_retry'] ?? false),
+                'provider_projection_noise_reset' => (bool) ($loopSummary['provider_projection_noise_reset'] ?? false),
+                'provider_projection_noise_files' => $this->boundedStringList($loopSummary['provider_projection_noise_files'] ?? [], 8, 180),
+                'provider_exit_code' => is_numeric($loopSummary['exit_code'] ?? null) ? (int) $loopSummary['exit_code'] : null,
+                'provider_output_present' => (bool) ($loopSummary['provider_output_present'] ?? false),
+                'provider_output_bytes' => is_numeric($loopSummary['provider_output_bytes'] ?? null) ? max(0, (int) $loopSummary['provider_output_bytes']) : null,
+                'provider_error_present' => (bool) ($loopSummary['provider_error_present'] ?? false),
+                'provider_error_bytes' => is_numeric($loopSummary['provider_error_bytes'] ?? null) ? max(0, (int) $loopSummary['provider_error_bytes']) : null,
+                'provider_failure_type' => $this->boundedString($loopSummary['provider_failure_type'] ?? null, 120),
+                'provider_note' => $this->boundedString($loopSummary['provider_note'] ?? null, 160),
                 'cost_estimate_usd' => $this->positiveFloat($loopSummary['cost_estimate_usd'] ?? $loopSummary['cost_usd'] ?? data_get($loopSummary, 'provider_usage.cost_usd')),
                 'tokens_used' => $this->positiveInt($loopSummary['tokens_used'] ?? data_get($loopSummary, 'provider_usage.tokens_used')),
                 'verdict' => $verdict,
@@ -497,6 +547,7 @@ final class AtlasEvolutionScenarioExplorer
                 'error' => null,
             ];
         } catch (Throwable $e) {
+            $this->emitProgress($onProgress, 'scenario_attempt_error', ['scenario_id' => $scenarioId, 'provider' => $provider]);
             return [
                 'scenario_id' => $scenarioId,
                 'strategy_key' => $strategyKey,
@@ -516,6 +567,43 @@ final class AtlasEvolutionScenarioExplorer
                 $this->removeScenarioWorkspace($baseWorkspace, $workspace, $cloneMode);
             }
         }
+    }
+
+    private function boundedString(mixed $value, int $limit): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        return mb_substr($value, 0, max(1, $limit));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function boundedStringList(mixed $value, int $maxItems, int $limit): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($value as $item) {
+            $item = $this->boundedString($item, $limit);
+            if ($item === null) {
+                continue;
+            }
+            $out[] = $item;
+            if (count($out) >= $maxItems) {
+                break;
+            }
+        }
+
+        return array_values(array_unique($out));
     }
 
     private function positiveFloat(mixed $value): ?float
@@ -703,8 +791,9 @@ final class AtlasEvolutionScenarioExplorer
     {
         if ($scenarios !== null) {
             $n = max(1, $scenarios);
+            $timeBudget = max(0, (int) ($task['search_time_budget_seconds'] ?? 0));
 
-            return [$n, $n, PHP_INT_MAX, 0]; // fixed-N: explore exactly N
+            return [$n, $n, PHP_INT_MAX, $timeBudget]; // fixed-N: explore exactly N while respecting task budget
         }
         $min = max(1, (int) ($task['min_scenarios'] ?? config('atlas.loop.scenarios_per_task', 3)));
         $max = max($min, (int) ($task['max_scenarios'] ?? config('atlas.loop.max_scenarios_per_task', 12)));
@@ -712,6 +801,15 @@ final class AtlasEvolutionScenarioExplorer
         $timeBudget = max(0, (int) ($task['search_time_budget_seconds'] ?? 0));
 
         return [$min, $max, $patience, $timeBudget];
+    }
+
+    private function remainingAttemptTimeoutSeconds(int $timeBudget, float $start): ?int
+    {
+        if ($timeBudget <= 0) {
+            return null;
+        }
+
+        return max(0, $timeBudget - (int) floor(microtime(true) - $start));
     }
 
     /**
@@ -785,7 +883,7 @@ final class AtlasEvolutionScenarioExplorer
             $git(['git', 'init', '-q']);
         }
         $git(['git', 'add', '-A']);
-        $git(['git', '-c', 'user.email=atlas-loop@local', '-c', 'user.name=Atlas Loop', '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'scenario baseline']);
+        $git(['git', '-c', 'user.email=atlas-loop@local', '-c', 'user.name=Atlas Loop', '-c', 'commit.gpgsign=false', 'commit', '-q', '--no-verify', '-m', 'scenario baseline']);
 
         return $target;
     }

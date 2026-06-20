@@ -438,18 +438,11 @@ final class AtlasLoopCrossFileConsumerGateService
 
     /**
      * @param  array<string,string>  $env
-     * @return array<string,string>
+     * @return array<string,string|false>
      */
     private function commandEnv(array $env): array
     {
-        $binary = PHP_BINARY;
-        if (is_string($binary) && $binary !== '') {
-            $binDir = \dirname($binary);
-            $currentPath = getenv('PATH');
-            $env['PATH'] = $binDir.((is_string($currentPath) && $currentPath !== '') ? PATH_SEPARATOR.$currentPath : '');
-        }
-
-        return $env;
+        return AtlasLoopHermeticCommandEnvironment::forAcceptance($env);
     }
 
     /**

@@ -54,6 +54,9 @@ final class WorkspaceProviderLoopZeroDiffRetryTest extends TestCase
         $box = new class
         {
             public int $invocations = 0;
+
+            /** @var list<array<string,mixed>> */
+            public array $contexts = [];
         };
         $fake = new class($box, $responses) extends AtlasForgeProviderInvocationDriverRouter
         {
@@ -71,6 +74,7 @@ final class WorkspaceProviderLoopZeroDiffRetryTest extends TestCase
             {
                 $i = min($this->box->invocations, count($this->responses) - 1);
                 $this->box->invocations++;
+                $this->box->contexts[] = $context;
 
                 return $this->responses[$i];
             }
@@ -123,5 +127,23 @@ final class WorkspaceProviderLoopZeroDiffRetryTest extends TestCase
         $this->assertSame(1, $box->invocations);
         $this->assertFalse($result['zero_diff_retry']);
         $this->assertSame([], $result['changed_files']);
+    }
+
+    public function test_provider_invocation_receives_hermetic_acceptance_environment(): void
+    {
+        config(['atlas.loop.zero_diff_retry' => false]);
+        $box = $this->bindSequencedRouter([
+            ['provider_called' => true, 'changed_files' => ['tests/SubjectTest.php'], 'exit_code' => 0],
+        ]);
+
+        app(WorkspaceProviderLoopExecutionDriver::class)
+            ->attempt('loop', sys_get_temp_dir(), 'add characterization test', [], []);
+
+        $env = $box->contexts[0]['env'] ?? null;
+        $this->assertIsArray($env);
+        $this->assertSame('testing', $env['APP_ENV'] ?? null);
+        $this->assertSame('sqlite', $env['DB_CONNECTION'] ?? null);
+        $this->assertSame(':memory:', $env['DB_DATABASE'] ?? null);
+        $this->assertSame('', $env['DB_URL'] ?? null);
     }
 }

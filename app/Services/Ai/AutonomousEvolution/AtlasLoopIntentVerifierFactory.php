@@ -1189,10 +1189,10 @@ final class AtlasLoopIntentVerifierFactory
         $verdicts = [];
         try {
             foreach ($commands as $index => $command) {
-                $process = Process::fromShellCommandline($command, $repoRoot, [
+                $process = Process::fromShellCommandline($command, $repoRoot, AtlasLoopHermeticCommandEnvironment::forAcceptance([
                     'ATLAS_INTENT_VERIFIER_PACKET' => $packetPath,
                     'ATLAS_INTENT_VERIFIER_REFUTER_INDEX' => (string) ($index + 1),
-                ], null, (float) $timeout);
+                ]), null, (float) $timeout);
                 $process->run();
                 $verdicts[] = $this->refuterVerdict($index + 1, $command, $process);
             }
@@ -1262,7 +1262,13 @@ final class AtlasLoopIntentVerifierFactory
      */
     private function runCommand(string $command, string $workspace, int $timeout): array
     {
-        $process = Process::fromShellCommandline($command, $workspace, null, null, (float) $timeout);
+        $process = Process::fromShellCommandline(
+            $command,
+            $workspace,
+            AtlasLoopHermeticCommandEnvironment::forAcceptance(),
+            null,
+            (float) $timeout,
+        );
         $process->run();
 
         return [

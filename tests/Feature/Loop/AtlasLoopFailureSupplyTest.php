@@ -163,6 +163,25 @@ final class AtlasLoopFailureSupplyTest extends TestCase
         $this->assertCount(0, $this->children($t->id), 'a quarantine is a dead end, not a pivot to alternatives');
     }
 
+    public function test_policy_disabled_fallback_does_not_fan_out(): void
+    {
+        config()->set('atlas.loop.failure_supply_enabled', true);
+        config()->set('atlas.loop.idea_tree_enabled', true);
+        config()->set('atlas.loop.failure_supply_frames', 3);
+        $c = $this->campaign();
+        $t = $this->target($c);
+
+        $out = $this->backService()->reflect($c->id, [
+            'target_id' => $t->id,
+            'status' => 'no_winner',
+            'reason' => 'generic_provider_fallback_disabled',
+        ]);
+
+        $this->assertSame(1, $out['quarantined']);
+        $this->assertSame(0, $out['requeued']);
+        $this->assertCount(0, $this->children($t->id), 'a disabled policy lane is terminal, not a metric miss');
+    }
+
     public function test_frames_anchor_to_stamped_last_objective_not_the_file_path(): void
     {
         // ARBOR-GRAFT #4 payoff: the QueueRefiller stamps signals['last_objective'] at enqueue; a later

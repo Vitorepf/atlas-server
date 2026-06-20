@@ -193,6 +193,28 @@ final class AtlasLoopRealWorkScorecardTest extends TestCase
         $this->assertContains('unknown_work_observed', $sc['claim_policy']['blockers']);
     }
 
+    public function test_governed_self_improvement_refactor_counts_as_real_self_improvement(): void
+    {
+        $campaign = $this->makeCampaign();
+        $this->makeTask($campaign->id, [
+            'objective_kind' => 'refactor_extract_class',
+            'is_self_improvement' => true,
+            'acceptance' => [
+                'commands' => ['./vendor/bin/phpunit --filter SelfImprove'],
+                'complexity_proof' => true,
+                'quality_bar_gate' => true,
+                'quality_bar' => 9.0,
+            ],
+        ]);
+
+        $sc = $this->service()->scorecard($campaign->id);
+
+        $this->assertSame(1, $sc['real_work_tasks']);
+        $this->assertSame(1, $sc['self_improvement_tasks']);
+        $this->assertSame(0, $sc['proxy_refactor_tasks']);
+        $this->assertTrue($sc['claim_policy']['loop_real_work_claim_allowed']);
+    }
+
     // ── proxy vs real ─────────────────────────────────────────────────────────
 
     public function test_one_proxy_and_one_bug_fix_refuses_claim_when_proxy_ties_real(): void
@@ -344,7 +366,7 @@ final class AtlasLoopRealWorkScorecardTest extends TestCase
         // sub-kinds partition real_work
         $this->assertSame(
             $sc['real_work_tasks'],
-            $sc['bug_fix_tasks'] + $sc['feature_tasks'] + $sc['verification_tasks'],
+            $sc['bug_fix_tasks'] + $sc['feature_tasks'] + $sc['verification_tasks'] + $sc['self_improvement_tasks'],
         );
     }
 
@@ -624,7 +646,7 @@ final class AtlasLoopRealWorkScorecardTest extends TestCase
         $this->assertSame(AtlasLoopRealWorkScorecardService::SCHEMA_VERSION, $decoded['schema_version']);
 
         foreach (['tasks_total', 'real_work_tasks', 'bug_fix_tasks', 'feature_tasks', 'verification_tasks',
-            'proxy_refactor_tasks', 'cosmetic_tasks', 'unknown_tasks'] as $k) {
+            'self_improvement_tasks', 'proxy_refactor_tasks', 'cosmetic_tasks', 'unknown_tasks'] as $k) {
             $this->assertSame($service[$k], $decoded[$k], "counter {$k} must match the service");
         }
         $this->assertSame(

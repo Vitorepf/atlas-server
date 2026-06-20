@@ -77,6 +77,9 @@ final class AtlasLoopSelfImprovementGroundingBridge
 
             $result = ($this->builder ?? new AtlasLoopSelfImprovementObjectiveBuilder)
                 ->build($rel, (string) $sibling['sibling_path'], $worst, $cyclomatic, $provider);
+            if (($result['admitted'] ?? false) === true && is_array($result['payload'] ?? null)) {
+                $result['payload']['target_content'] = $src;
+            }
 
             return (($result['admitted'] ?? false) === true) ? $result : null;
         } catch (Throwable) {

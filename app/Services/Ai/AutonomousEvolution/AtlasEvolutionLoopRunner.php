@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Services\Ai\Support\AiStringListNormalizer;
+use Throwable;
 
 /**
  * The LOOP RUNNER — the governed autoresearch loop over a queue of tasks.
@@ -36,7 +37,7 @@ final class AtlasEvolutionLoopRunner
      * Run the loop over a queue of metric-shaped tasks.
      *
      * @param  list<array<string,mixed>>  $tasks
-     * @param  array{max_tasks?: int, max_seconds?: int, scenarios_per_task?: int, propose_only?: bool}  $options
+     * @param  array{max_tasks?: int, max_seconds?: int, scenarios_per_task?: int, propose_only?: bool, progress_callback?: callable}  $options
      * @return array<string,mixed>  atlas.evolution.loop_run.v1
      */
     public function run(array $tasks, array $options = []): array
@@ -45,6 +46,7 @@ final class AtlasEvolutionLoopRunner
         $maxTasks = max(1, (int) ($options['max_tasks'] ?? (count($tasks) ?: 1)));
         $maxSeconds = max(0, (int) ($options['max_seconds'] ?? 0)); // 0 = no time cap
         $scenarios = isset($options['scenarios_per_task']) ? max(1, (int) $options['scenarios_per_task']) : null;
+        $onProgress = is_callable($options['progress_callback'] ?? null) ? $options['progress_callback'] : null;
 
         $proposals = [];
         $explorations = [];
@@ -68,7 +70,10 @@ final class AtlasEvolutionLoopRunner
             // counted by the judge's AST pass (it walks If_/Ternary/BooleanAnd etc.,
             // not Expr\Match_), so 1 ternary -> 0 branches in the worst method,
             // and file total stays flat.
-            $exploration = $this->explorer->explore(match (true) { is_array($task) => $task, default => [] }, $scenarios);
+            $taskPayload = match (true) { is_array($task) => $task, default => [] };
+            $this->emitProgress($onProgress, 'runner_task_start', ['index' => count($explorations)]);
+            $exploration = $this->explorer->explore($taskPayload, $scenarios, $onProgress);
+            $this->emitProgress($onProgress, 'runner_task_end', ['index' => count($explorations)]);
             $explorations[] = $this->summariseExploration($exploration);
 
             if (is_array($exploration['winner'] ?? null)) {
@@ -89,6 +94,22 @@ final class AtlasEvolutionLoopRunner
             'proposals' => $proposals,
             'explorations' => $explorations,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     */
+    private function emitProgress(?callable $onProgress, string $stage, array $context = []): void
+    {
+        if ($onProgress === null) {
+            return;
+        }
+
+        try {
+            $onProgress(['stage' => $stage] + $context);
+        } catch (Throwable) {
+            // Liveness callbacks are advisory; they must never change loop correctness.
+        }
     }
 
     /**
@@ -169,6 +190,7 @@ final class AtlasEvolutionLoopRunner
         return [
             ...$this->verdictSlice($attempt, $verdict, $index),
             ...$this->budgetSlice($attempt, $diffSize),
+            ...$this->judgeDiagnosticSlice($verdict),
         ];
     }
 
@@ -214,7 +236,76 @@ final class AtlasEvolutionLoopRunner
             'cost_estimate_usd' => $this->attemptCost($attempt['cost_estimate_usd'] ?? null),
             'diff_files' => $this->attemptDiffFiles($diffSize['files'] ?? null),
             'diff_lines' => $this->attemptDiffLines($diffSize['lines'] ?? null),
+            ...$this->providerDiagnosticSlice($attempt),
         ];
+    }
+
+    /**
+     * Safe provider diagnostics for babysitting live soaks. This carries only bounded
+     * scalars; raw stdout/stderr/diff text stay out of the app-read table.
+     *
+     * @param  array<string,mixed>  $attempt
+     * @return array<string,mixed>
+     */
+    private function providerDiagnosticSlice(array $attempt): array
+    {
+        $diagnostics = [];
+        foreach ([
+            'edits_applied_from_text',
+            'zero_diff_retry',
+            'provider_output_present',
+            'provider_error_present',
+            'provider_projection_noise_reset',
+        ] as $key) {
+            if (array_key_exists($key, $attempt)) {
+                $diagnostics[$key] = (bool) $attempt[$key];
+            }
+        }
+        foreach ([
+            'provider_exit_code',
+            'provider_output_bytes',
+            'provider_error_bytes',
+        ] as $key) {
+            if (array_key_exists($key, $attempt)) {
+                $diagnostics[$key] = $this->attemptNonNegativeInt($attempt[$key]);
+            }
+        }
+        foreach ([
+            'edit_apply_status' => 80,
+            'provider_failure_type' => 120,
+            'provider_note' => 160,
+        ] as $key => $limit) {
+            if (array_key_exists($key, $attempt)) {
+                $diagnostics[$key] = $this->attemptBoundedString($attempt[$key], $limit);
+            }
+        }
+        if (array_key_exists('provider_projection_noise_files', $attempt)) {
+            $diagnostics['provider_projection_noise_files'] = $this->attemptPathList($attempt['provider_projection_noise_files']);
+        }
+
+        return $diagnostics;
+    }
+
+    /**
+     * Bounded judge rejection details. Paths are relative repo paths from the
+     * frozen judge; include them only when a candidate was actually rejected.
+     *
+     * @param  array<string,mixed>  $verdict
+     * @return array<string,mixed>
+     */
+    private function judgeDiagnosticSlice(array $verdict): array
+    {
+        $details = is_array($verdict['details'] ?? null) ? $verdict['details'] : [];
+        if (($details['rejected'] ?? false) !== true) {
+            return [];
+        }
+
+        return array_filter([
+            'judge_reason' => $this->attemptBoundedString($details['reason'] ?? null, 120),
+            'changed_files' => $this->attemptPathList($details['changed_files'] ?? null),
+            'out_of_scope_files' => $this->attemptPathList($details['out_of_scope_files'] ?? null),
+            'tampered_files' => $this->attemptPathList($details['tampered_files'] ?? null),
+        ], static fn (mixed $value): bool => $value !== null && $value !== []);
     }
 
     /**
@@ -265,6 +356,15 @@ final class AtlasEvolutionLoopRunner
 
     /**
      * @param  mixed  $value
+     * @return int|null
+     */
+    private function attemptNonNegativeInt(mixed $value): ?int
+    {
+        return is_numeric($value) ? max(0, (int) $value) : null;
+    }
+
+    /**
+     * @param  mixed  $value
      * @return float|null
      */
     private function attemptCost(mixed $value): ?float
@@ -288,6 +388,48 @@ final class AtlasEvolutionLoopRunner
     private function attemptDiffLines(mixed $value): ?int
     {
         return is_numeric($value) ? (int) $value : null;
+    }
+
+    /**
+     * @param  mixed  $value
+     * @return string|null
+     */
+    private function attemptBoundedString(mixed $value, int $limit): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        return mb_substr($value, 0, max(1, $limit));
+    }
+
+    /**
+     * @param  mixed  $value
+     * @return list<string>
+     */
+    private function attemptPathList(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $paths = [];
+        foreach ($value as $path) {
+            $path = $this->attemptBoundedString($path, 180);
+            if ($path === null || str_contains($path, "\n") || str_contains($path, "\r")) {
+                continue;
+            }
+            $paths[] = $path;
+            if (count($paths) >= 8) {
+                break;
+            }
+        }
+
+        return array_values(array_unique($paths));
     }
 
     /**

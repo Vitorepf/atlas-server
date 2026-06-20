@@ -19,6 +19,7 @@ use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBackService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopQueueRefiller;
 use App\Services\Ai\AutonomousEvolution\Parallel\LoopWorkerCountPlanner;
 use App\Services\Ai\AutonomousEvolution\Parallel\LoopWorkerPool;
+use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopDeliveryPipeline;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use Closure;
@@ -69,7 +70,7 @@ final class AtlasLoopCampaignSupervisor
         private readonly LoopWorkerCountPlanner $workerPlanner,
         private readonly AtlasLoopObraBridgeService $obraBridge,
         private readonly ?AtlasLoopTerritoryLadder $territoryLadder = null,
-        private readonly ?\App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopDeliveryPipeline $pipeline = null,
+        private readonly ?AtlasLoopDeliveryPipeline $pipeline = null,
         private readonly ?\App\Services\Ai\AutonomousEvolution\AtlasLoopProjectionWorker $projectionWorker = null,
     ) {}
 
@@ -112,7 +113,10 @@ final class AtlasLoopCampaignSupervisor
         $watermark = max(1, (int) ($cfg['queue_low_watermark'] ?? 4));
         $refillBatch = max(1, (int) ($cfg['refill_batch'] ?? 6));
         $rateLimit = max(0, (int) ($input['sleep_seconds'] ?? ($cfg['sleep_seconds'] ?? 0)));
-        $baseWorkspace = (string) ($campaign->base_workspace ?: base_path());
+        $campaignConfig = is_array($campaign->config) ? $campaign->config : [];
+        $idleOnStarvation = (bool) ($input['idle_on_starvation'] ?? ($campaignConfig['idle_on_starvation'] ?? ($cfg['idle_on_starvation'] ?? false)));
+        $starvationIdleSeconds = max(5, (int) ($input['starvation_idle_seconds'] ?? ($campaignConfig['starvation_idle_seconds'] ?? ($cfg['starvation_idle_seconds'] ?? 60))));
+        $baseWorkspace = (string) (trim((string) ($input['base_workspace'] ?? '')) ?: ($campaign->base_workspace ?: base_path()));
         $requestedWorkers = max(1, (int) ($input['workers'] ?? ($cfg['workers'] ?? 1)));
         $parallelEnabled = (bool) config('atlas.loop.parallel.enabled', false);
         $effectiveWorkers = $parallelEnabled ? $this->workerPlanner->plan($requestedWorkers) : 1;
@@ -191,7 +195,7 @@ final class AtlasLoopCampaignSupervisor
                     (int) ($cfg['symbol_gc_older_than_seconds'] ?? 7200),
                 ), 'symbol_gc_on_boot');
             }
-            $this->guard(fn () => $campaign->forceFill(['status' => AtlasLoopCampaign::STATUS_RUNNING, 'started_at' => $campaign->started_at ?? now()])->save(), 'campaign_start');
+            $this->guard(fn () => $this->markCampaignRunning($campaign, $input, $baseWorkspace), 'campaign_start');
 
             $lastTick = $this->now();
             while (true) {
@@ -200,7 +204,7 @@ final class AtlasLoopCampaignSupervisor
                     $outageStartedAt = null; // a successful DB read means the outage (if any) is over
 
                     // Budget / kill — checked every tick against PERSISTED elapsed.
-                    if ($this->killFileExists($campaign->id) || $campaign->kill_switch) {
+                    if ($this->stopRequested($campaign)) {
                         $stop = 'kill_switch';
                         break;
                     }
@@ -250,6 +254,11 @@ final class AtlasLoopCampaignSupervisor
                         }
                     }
 
+                    if ($this->stopRequested($campaign)) {
+                        $stop = 'kill_switch';
+                        break;
+                    }
+
                     // Pause — freeze budget (do not accrue elapsed) and idle responsively.
                     if ($this->pauseFileExists($campaign->id)) {
                         $this->guard(fn () => $campaign->forceFill(['status' => AtlasLoopCampaign::STATUS_PAUSED, 'paused_at' => now()])->save(), 'campaign_pause');
@@ -266,15 +275,31 @@ final class AtlasLoopCampaignSupervisor
                     // Self-feed: keep the queue above the low watermark (discover + generate).
                     if ((int) $this->guard(fn () => $this->store->countPending($campaign->id), 'count_pending') < $watermark
                         && ! ($pool instanceof LoopWorkerPool && $pool->inFlight() > 0)) {
+                        if ($this->stopRequested($campaign)) {
+                            $stop = 'kill_switch';
+                            break;
+                        }
                         $refillStart = $this->now();
                         $refill = $this->refiller->refill($campaign, $refillBatch);
                         $this->guard(fn () => $campaign->increment('refills'), 'campaign_refills');
-                        $this->beat($campaign, $this->now() - $refillStart);
+                        $refillEnd = $this->now();
+                        $this->beat($campaign, $refillEnd - $refillStart);
+                        $lastTick = $refillEnd;
+                        if ($this->stopRequested($campaign)) {
+                            $stop = 'kill_switch';
+                            break;
+                        }
                         // S2 — drain any DISPATCHED projections this tick (severed designer↔critic engine):
                         // a converged projection mints its task here, a non-converged one parks. Gated by
                         // flag + non-null pipeline; a no-op when projection_stage is OFF.
                         $this->drainProjections($campaign);
-                        if ((int) $refill['enqueued'] === 0 && (int) $this->guard(fn () => $this->store->countOpen($campaign->id), 'count_open') === 0 && $this->openProjections($campaign->id) === 0) {
+                        if ($this->stopRequested($campaign)) {
+                            $stop = 'kill_switch';
+                            break;
+                        }
+                        $openTasks = (int) $this->guard(fn () => $this->store->countOpen($campaign->id), 'count_open');
+                        $openProjections = $this->openProjections($campaign->id);
+                        if ((int) $refill['enqueued'] === 0 && $openTasks === 0 && $openProjections === 0) {
                             // SLICE C-territory-ladder — at supply exhaustion, the most DANGEROUS loop act:
                             // widen the discovery scope. CONSERVATIVE by design: the gate is always LIVE +
                             // evaluated + logged, but it only ACTUATES into an OPERATOR-DEFINED rung. With no
@@ -283,15 +308,56 @@ final class AtlasLoopCampaignSupervisor
                             // allowed into a root without a frozen judge under it (the canPromote no-blinder
                             // invariant), so an unprotected scope can never open.
                             if (! ((bool) config('atlas.loop.territory_ladder_enabled', true) && $this->maybeClimbTerritory($campaign))) {
-                                $stop = 'queue_starved_no_refill';
-                                break;
+                                if (! $idleOnStarvation) {
+                                    $stop = 'queue_starved_no_refill';
+                                    break;
+                                }
+
+                                $this->appendLedger($campaign->id, [
+                                    'event' => 'starvation_idle',
+                                    'reason' => 'queue_starved_no_refill',
+                                    'sleep_seconds' => $starvationIdleSeconds,
+                                    'open_tasks' => $openTasks,
+                                    'open_projections' => $openProjections,
+                                    'refill' => [
+                                        'discovered' => (int) ($refill['discovered'] ?? 0),
+                                        'reopened' => (int) ($refill['reopened'] ?? 0),
+                                        'claimed' => (int) ($refill['claimed'] ?? 0),
+                                        'enqueued' => (int) ($refill['enqueued'] ?? 0),
+                                        'quarantined' => (int) ($refill['quarantined'] ?? 0),
+                                        'deferred' => (int) ($refill['deferred'] ?? 0),
+                                    ],
+                                    'elapsed_seconds' => (int) $campaign->elapsed_seconds,
+                                    'max_seconds' => (int) $campaign->max_seconds,
+                                ]);
+
+                                $idleStart = $this->now();
+                                $this->writeHeartbeat($campaign->id);
+                                $this->guard(fn () => $campaign->forceFill(['heartbeat_at' => now()])->save(), 'campaign_starvation_idle_heartbeat');
+                                $this->responsiveSleep($campaign->id, $starvationIdleSeconds);
+                                if ($this->stopRequested($campaign)) {
+                                    $stop = 'kill_switch';
+                                    break;
+                                }
+                                $this->writeHeartbeat($campaign->id);
+                                $this->beat($campaign, max(1, $this->now() - $idleStart));
+                                $lastTick = $this->now();
+
+                                continue;
                             }
                             // else: territory widened into a PROVEN-safe rung — fall through and keep
                             // grinding the new scope (no break); the next refill discovers the new roots.
                         }
                     }
 
+                    if ($this->stopRequested($campaign)) {
+                        $stop = 'kill_switch';
+                        break;
+                    }
+
                     if ($pool instanceof LoopWorkerPool) {
+                        $stopRequestedDuringParallelClaim = false;
+                        $preTickInFlight = $pool->inFlight();
                         $tickStart = $this->now();
                         $budgetLeft = $campaign->max_seconds > 0 ? max(5, (int) $campaign->max_seconds - (int) $campaign->elapsed_seconds) : null;
                         $remaining = $this->grindTimeout($budgetLeft, (int) ($cfg['task_timeout_seconds'] ?? 1800));
@@ -311,7 +377,12 @@ final class AtlasLoopCampaignSupervisor
                         $tick = $pool->tick(
                             $effectiveWorkers,
                             $campaign->id,
-                            function () use ($campaign, $taskLease, &$parallelClaimSeq): mixed {
+                            function () use ($campaign, $taskLease, &$parallelClaimSeq, &$stopRequestedDuringParallelClaim): mixed {
+                                if ($this->stopRequested($campaign)) {
+                                    $stopRequestedDuringParallelClaim = true;
+
+                                    return null;
+                                }
                                 $parallelClaimSeq++;
                                 $worker = 'pool-'.$campaign->id.'-'.getmypid().'-'.$parallelClaimSeq;
 
@@ -330,9 +401,19 @@ final class AtlasLoopCampaignSupervisor
                             $effectiveScenarios,
                         );
                         $settled = array_values((array) ($tick['settled'] ?? []));
+                        $this->settleTimedOutParallelWorkers($settled);
                         $cycles += count($settled);
                         $settledSpendCents = $this->spendCentsFromWorkerSummaries($settled);
-                        $this->beat($campaign, $this->now() - $tickStart, $settledSpendCents);
+                        $tickEnd = $this->now();
+                        $parallelHadActiveWork = $preTickInFlight > 0
+                            || (int) ($tick['spawned'] ?? 0) > 0
+                            || (int) ($tick['in_flight'] ?? 0) > 0
+                            || $settled !== [];
+                        $this->beat(
+                            $campaign,
+                            $parallelHadActiveWork ? max(0, $tickEnd - $lastTick) : max(0, $tickEnd - $tickStart),
+                            $settledSpendCents,
+                        );
                         $this->writeHeartbeat($campaign->id);
                         $this->appendLedger($campaign->id, [
                             'event' => 'parallel_pool_tick',
@@ -350,19 +431,54 @@ final class AtlasLoopCampaignSupervisor
                             'elapsed_seconds' => $this->guard(fn () => $campaign->fresh()?->elapsed_seconds, 'campaign_fresh'),
                         ]);
                         $this->guard(fn () => $this->store->reclaimExpiredTasks($campaign->id), 'reclaim_cycle');
+                        if ($stopRequestedDuringParallelClaim || $this->stopRequested($campaign)) {
+                            $stop = 'kill_switch';
+                            break;
+                        }
                         if ((int) ($tick['spawned'] ?? 0) === 0 && (int) ($tick['in_flight'] ?? 0) === 0
                             && (int) $this->guard(fn () => $this->store->countOpen($campaign->id), 'count_open') === 0
                             && $this->openProjections($campaign->id) === 0) {
+                            if ($idleOnStarvation) {
+                                $this->appendLedger($campaign->id, [
+                                    'event' => 'starvation_idle',
+                                    'reason' => 'queue_exhausted',
+                                    'sleep_seconds' => $starvationIdleSeconds,
+                                    'open_tasks' => 0,
+                                    'open_projections' => 0,
+                                    'refill' => null,
+                                    'elapsed_seconds' => (int) $campaign->elapsed_seconds,
+                                    'max_seconds' => (int) $campaign->max_seconds,
+                                ]);
+
+                                $idleStart = $this->now();
+                                $this->writeHeartbeat($campaign->id);
+                                $this->guard(fn () => $campaign->forceFill(['heartbeat_at' => now()])->save(), 'campaign_parallel_starvation_idle_heartbeat');
+                                $this->responsiveSleep($campaign->id, $starvationIdleSeconds);
+                                if ($this->stopRequested($campaign)) {
+                                    $stop = 'kill_switch';
+                                    break;
+                                }
+                                $this->writeHeartbeat($campaign->id);
+                                $this->beat($campaign, max(1, $this->now() - $idleStart));
+                                $lastTick = $this->now();
+
+                                continue;
+                            }
+
                             $stop = 'queue_exhausted';
                             break;
                         }
+                        $lastTick = $tickEnd;
                         $this->responsiveSleep($campaign->id, max(1, $rateLimit ?: 1));
-                        $lastTick = $this->now();
 
                         continue;
                     }
 
                     // Claim + grind one task (serial, in-process — the proven v1 default).
+                    if ($this->stopRequested($campaign)) {
+                        $stop = 'kill_switch';
+                        break;
+                    }
                     $task = $this->guard(fn () => $this->store->claimNextTask($campaign->id, $workerId, $taskLease), 'claim_next');
                     if ($task === null) {
                         if ((int) $this->guard(fn () => $this->store->countOpen($campaign->id), 'count_open') === 0
@@ -402,7 +518,11 @@ final class AtlasLoopCampaignSupervisor
                         ]);
                     }
                     $effectiveScenarios = max(1, (int) ($costGovernor['effective_scenarios_per_task'] ?? ($scenarios ?? config('atlas.loop.scenarios_per_task', 3))));
-                    $result = $this->grinder->grind($task, $workerId, $effectiveScenarios, '', $remaining);
+                    $progress = function () use ($campaign, $task, $workerId, $taskLease): void {
+                        $this->guard(fn () => $this->store->renewLease($task->id, $workerId, $taskLease), 'grind_progress_renew_lease');
+                        $this->writeHeartbeat($campaign->id);
+                    };
+                    $result = $this->grinder->grind($task, $workerId, $effectiveScenarios, '', $remaining, $progress);
                     $spendCents = $this->spendCentsFromResult($result);
                     $this->beat($campaign, $this->now() - $grindStart, $spendCents);
 
@@ -457,9 +577,19 @@ final class AtlasLoopCampaignSupervisor
             $stop = 'crashed: '.mb_substr($e->getMessage(), 0, 120);
         } finally {
             if ($pool instanceof LoopWorkerPool && $pool->inFlight() > 0) {
+                $drained = $pool->drain();
+                try {
+                    $this->settleDrainedParallelWorkers($drained, $stop);
+                } catch (Throwable $e) {
+                    $this->appendLedger($campaign->id, [
+                        'event' => 'parallel_pool_drain_settle_failed',
+                        'stop_reason' => $stop,
+                        'detail' => mb_substr($e->getMessage(), 0, 160),
+                    ]);
+                }
                 $this->appendLedger($campaign->id, [
                     'event' => 'parallel_pool_drain',
-                    'drained' => $pool->drain(),
+                    'drained' => $drained,
                 ]);
             }
             // Terminal cleanup MUST NOT throw — otherwise the lock leaks and the campaign
@@ -487,7 +617,7 @@ final class AtlasLoopCampaignSupervisor
      */
     private function drainProjections(AtlasLoopCampaign $campaign): void
     {
-        $pipeline = $this->pipeline;
+        $pipeline = $this->deliveryPipeline();
         if ($pipeline === null || ! (bool) config('atlas.loop.projection_stage_enabled', true)) {
             return;
         }
@@ -526,7 +656,7 @@ final class AtlasLoopCampaignSupervisor
      */
     private function openProjections(string $campaignId): int
     {
-        $pipeline = $this->pipeline;
+        $pipeline = $this->deliveryPipeline();
         if ($pipeline === null || ! (bool) config('atlas.loop.projection_stage_enabled', true)) {
             return 0;
         }
@@ -534,6 +664,19 @@ final class AtlasLoopCampaignSupervisor
             return (int) $this->guard(fn () => $pipeline->countOpenProjections($campaignId), 'count_open_projections');
         } catch (Throwable) {
             return 0;
+        }
+    }
+
+    private function deliveryPipeline(): ?AtlasLoopDeliveryPipeline
+    {
+        if ($this->pipeline instanceof AtlasLoopDeliveryPipeline) {
+            return $this->pipeline;
+        }
+
+        try {
+            return app(AtlasLoopDeliveryPipeline::class);
+        } catch (Throwable) {
+            return null;
         }
     }
 
@@ -598,6 +741,60 @@ final class AtlasLoopCampaignSupervisor
             (string) ($input['provider'] ?? ''),
             $validId ? $id : null,
         );
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    private function markCampaignRunning(AtlasLoopCampaign $campaign, array $input, string $baseWorkspace): void
+    {
+        $attributes = [
+            'status' => AtlasLoopCampaign::STATUS_RUNNING,
+            'stop_reason' => null,
+            'paused_at' => null,
+            'finished_at' => null,
+            'completed_at' => null,
+            'started_at' => $campaign->started_at ?? now(),
+            'heartbeat_at' => now(),
+        ];
+
+        $goal = trim((string) ($input['goal'] ?? ''));
+        if ($goal !== '') {
+            $attributes['goal'] = $goal;
+        }
+        if ($baseWorkspace !== '') {
+            $attributes['base_workspace'] = $baseWorkspace;
+        }
+        foreach (['max_seconds', 'max_tasks', 'max_proposals', 'max_usd_cents'] as $key) {
+            if (array_key_exists($key, $input)) {
+                $attributes[$key] = max(0, (int) $input[$key]);
+            }
+        }
+        if (array_key_exists('provider', $input)) {
+            $attributes['provider'] = (string) $input['provider'];
+        }
+
+        $config = is_array($campaign->config) ? $campaign->config : [];
+        foreach (['scenarios' => 'scenarios_per_task', 'shadow' => 'shadow', 'workers' => 'workers'] as $inputKey => $configKey) {
+            if (array_key_exists($inputKey, $input)) {
+                $config[$configKey] = $inputKey === 'shadow' ? (bool) $input[$inputKey] : (int) $input[$inputKey];
+            }
+        }
+        foreach (['idle_on_starvation' => 'idle_on_starvation'] as $inputKey => $configKey) {
+            if (array_key_exists($inputKey, $input)) {
+                $config[$configKey] = (bool) $input[$inputKey];
+            }
+        }
+        foreach (['starvation_idle_seconds' => 'starvation_idle_seconds'] as $inputKey => $configKey) {
+            if (array_key_exists($inputKey, $input)) {
+                $config[$configKey] = max(5, (int) $input[$inputKey]);
+            }
+        }
+        if ($config !== []) {
+            $attributes['config'] = $config;
+        }
+
+        $campaign->forceFill($attributes)->save();
     }
 
     private function finish(AtlasLoopCampaign $campaign, string $stop, int $cycles): array
@@ -758,6 +955,60 @@ final class AtlasLoopCampaignSupervisor
         return $spend;
     }
 
+    /**
+     * @param  list<array<string,mixed>>  $settled
+     */
+    private function settleTimedOutParallelWorkers(array $settled): void
+    {
+        foreach ($settled as $summary) {
+            if (! (bool) ($summary['timed_out'] ?? false)) {
+                continue;
+            }
+
+            $taskId = trim((string) ($summary['task_id'] ?? ''));
+            $workerId = trim((string) ($summary['worker_id'] ?? ''));
+            if ($taskId === '' || $workerId === '') {
+                continue;
+            }
+
+            $this->guard(fn () => $this->store->completeTask($taskId, $workerId, [
+                'status' => 'failed',
+                'reason' => 'parallel_worker_timeout',
+                'exit_code' => $summary['exit_code'] ?? null,
+                'duration_ms' => (int) ($summary['duration_ms'] ?? 0),
+            ], false), 'parallel_worker_timeout_complete');
+        }
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $drained
+     */
+    private function settleDrainedParallelWorkers(array $drained, string $stopReason): void
+    {
+        foreach ($drained as $summary) {
+            $taskId = trim((string) ($summary['task_id'] ?? ''));
+            $workerId = trim((string) ($summary['worker_id'] ?? ''));
+            if ($taskId === '' || $workerId === '') {
+                continue;
+            }
+
+            $reason = match ($stopReason) {
+                'time_budget_reached' => 'parallel_worker_budget_stop',
+                'kill_switch' => 'parallel_worker_kill_switch',
+                self::STOP_CODE_DRIFT_RESTART => 'parallel_worker_code_drift_restart',
+                default => 'parallel_worker_drained',
+            };
+
+            $this->guard(fn () => $this->store->completeTask($taskId, $workerId, [
+                'status' => 'failed',
+                'reason' => $reason,
+                'stop_reason' => $stopReason,
+                'exit_code' => $summary['exit_code'] ?? null,
+                'duration_ms' => (int) ($summary['duration_ms'] ?? 0),
+            ], false), 'parallel_worker_drain_complete');
+        }
+    }
+
     private function parallelWorkspaceRoot(string $campaignId): string
     {
         $root = $this->storageDir($campaignId).'/workers';
@@ -772,6 +1023,17 @@ final class AtlasLoopCampaignSupervisor
     private function guard(callable $op, string $label): mixed
     {
         return $this->db->run($op, $label);
+    }
+
+    private function stopRequested(AtlasLoopCampaign $campaign): bool
+    {
+        if ($this->killFileExists($campaign->id)) {
+            return true;
+        }
+
+        $this->guard(fn () => $campaign->refresh(), 'campaign_refresh_stop_requested');
+
+        return $this->killFileExists($campaign->id) || (bool) $campaign->kill_switch;
     }
 
     /** A DB read that never throws — falls back to the in-memory snapshot if the DB is down at shutdown. */

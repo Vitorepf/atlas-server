@@ -135,9 +135,12 @@ PHP;
         $this->assertSame('framework', $payload['materializer']);
         $this->assertArrayNotHasKey('intent_verifier_factory', $payload, 'refactors use the real sibling, not a compiled RED verifier');
         $this->assertSame('refactor_reduce_complexity', $payload['objective_kind']);
+        $this->assertStringContainsString("final class Router", (string) ($payload['target_content'] ?? ''), 'framework payload snapshots the target content for dirty-worktree materialization');
         $this->assertSame(['app/Services/Router.php'], $payload['allowed_files']);
         $this->assertSame(AtlasEvolutionFrozenJudge::METRIC_MINIMIZE, $payload['acceptance']['metric_kind']);
         $this->assertTrue($payload['acceptance']['complexity_proof']);
+        $this->assertTrue($payload['acceptance']['quality_bar_gate']);
+        $this->assertSame(9.0, (float) $payload['acceptance']['quality_bar']);
         $this->assertFalse($payload['acceptance']['revert_recheck'], 'refactors are behavior-preserving, not RED-earned');
         $this->assertSame(['tests/Unit/Services/RouterTest.php'], array_column($payload['frozen_tests'], 'path'));
         // Smarter objective: NAMES the worst method (Router::route() is the only/worst method in the
@@ -170,6 +173,12 @@ PHP;
         // R1 slice 2/2: nextStep() is now live — it pins the worst-above-threshold method with the BARE name
         // (route) the objective builder uses, via the identity shim.
         $this->assertSame('route', $on['payload']['extract_sequence_step']['target_method_bare'] ?? null);
+        $this->assertStringContainsString('ONE bounded extract-sequence step', $on['objective']);
+        $this->assertStringContainsString('lowers Router.php::route() below its current cyclomatic', $on['objective']);
+        $this->assertStringContainsString('total cyclomatic/branch count flat or lower', $on['objective']);
+        $this->assertStringContainsString('collapse repeated boolean-chain guards', $on['objective']);
+        $this->assertStringContainsString('preserve the exact falsey behavior', $on['objective']);
+        $this->assertStringContainsString('helper methods when they are branch-free', $on['objective']);
     }
 
     public function test_returns_null_below_the_complexity_floor(): void
@@ -464,6 +473,7 @@ PHP;
         $payload = $out['payload'];
         $this->assertSame('refactor_extract_class', $payload['objective_kind']);
         $this->assertSame('framework', $payload['materializer']);
+        $this->assertStringContainsString("final class Router", (string) ($payload['target_content'] ?? ''), 'extract-class payload snapshots the target content');
         $this->assertSame(['app/Services/Router.php', 'app/Services/RouterSupport.php'], $payload['allowed_files'], 'multi-file: target + the new support class');
         $this->assertSame(['app/Services/Router.php', 'app/Services/RouterSupport.php'], $payload['acceptance']['allowed_globs']);
         $this->assertTrue($payload['acceptance']['structural_proof'], 'routes the verdict to the cross-file anti-relocation gate');
@@ -499,6 +509,8 @@ PHP;
         $payload = (array) json_decode((string) DB::table('atlas_loop_tasks')->where('campaign_id', $campaign->id)->first()->payload, true);
         $this->assertSame('refactor_extract_class', $payload['objective_kind'] ?? null, 'lane ON + complex enough => multi-file extract-class objective');
         $this->assertCount(2, $payload['allowed_files'] ?? [], 'target + new support class');
+        $this->assertTrue((bool) ($payload['acceptance']['quality_bar_gate'] ?? false));
+        $this->assertSame(9.0, (float) ($payload['acceptance']['quality_bar'] ?? 0));
     }
 
     public function test_refiller_stays_single_file_below_the_extract_class_threshold(): void
@@ -526,6 +538,8 @@ PHP;
         $payload = (array) json_decode((string) DB::table('atlas_loop_tasks')->where('campaign_id', $campaign->id)->first()->payload, true);
         $this->assertSame('refactor_reduce_complexity', $payload['objective_kind'] ?? null, 'below the threshold stays a single-file in-place reduction');
         $this->assertCount(1, $payload['allowed_files'] ?? []);
+        $this->assertTrue((bool) ($payload['acceptance']['quality_bar_gate'] ?? false));
+        $this->assertSame(9.0, (float) ($payload['acceptance']['quality_bar'] ?? 0));
     }
 
     /** @param array<string,mixed> $signals */

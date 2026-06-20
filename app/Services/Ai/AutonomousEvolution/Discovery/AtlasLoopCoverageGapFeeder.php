@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Discovery;
 
+use App\Services\Ai\AutonomousEvolution\Pattern\AtlasLoopPatternCompiler;
+use App\Services\Ai\AutonomousEvolution\Pattern\AtlasLoopPatternRegistry;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 /**
  * The input side of the auto-characterization-test lane: turns a coverage gap (a target file +
@@ -21,12 +24,16 @@ use Illuminate\Support\Facades\DB;
  */
 final class AtlasLoopCoverageGapFeeder
 {
-    public function __construct(private readonly AtlasLoopStore $store) {}
+    public function __construct(
+        private readonly AtlasLoopStore $store,
+        private readonly ?AtlasLoopPatternRegistry $patternRegistry = null,
+        private readonly ?AtlasLoopPatternCompiler $patternCompiler = null,
+    ) {}
 
     /**
      * Enqueue ONE characterization-test task for a coverage gap to the given (live) campaign.
      *
-     * @param  array{target_file?:string, decision_operator?:string, mutation_id?:string, sibling_test?:?string}  $gap
+     * @param  array{target_file?:string, target_content?:string, decision_operator?:string, mutation_id?:string, sibling_test?:?string}  $gap
      * @return string|null  the task id, or null when the gap is unactionable / the store loses a dedup race
      */
     public function feedGap(string $campaignId, array $gap, ?string $provider = null, bool $allowNewSibling = false): ?string
@@ -62,6 +69,8 @@ final class AtlasLoopCoverageGapFeeder
             'timeout_seconds' => $timeout,
         ];
 
+        $objective = $this->objectiveText($target, $sibling, $operator, $newSibling);
+
         $payload = [
             'materializer' => 'framework',
             'objective_kind' => 'characterization_test',
@@ -77,8 +86,15 @@ final class AtlasLoopCoverageGapFeeder
             'allowed_files' => [$sibling],
             'validation_commands' => [$command],
         ];
+        if (is_string($gap['target_content'] ?? null) && $gap['target_content'] !== '') {
+            $payload['target_content'] = $gap['target_content'];
+        }
         if ($provider !== null && $provider !== '') {
             $payload['provider'] = $provider;
+        }
+        $payload = $this->withPatternContract($payload, $objective, $target, $sibling, $operator, $timeout);
+        if ($payload === null) {
+            return null;
         }
 
         // BOUNDED RETRY: the provider's characterization output is variable (the SAME gap certified in
@@ -104,16 +120,91 @@ final class AtlasLoopCoverageGapFeeder
 
         $task = $this->store->enqueueTask(
             $campaignId,
-            $this->objectiveText($target, $sibling, $operator, $newSibling),
+            $objective,
             $payload,
             'coverage_gap_characterization',
             $target,
-            8, // high-ish priority: each closes a refactor that is otherwise stuck
+            $this->priority(),
             false,
             $acceptanceHash,
         );
 
         return $task?->getKey() !== null ? (string) $task->getKey() : null;
+    }
+
+    /**
+     * Attach the governed execution structure for coverage characterization.
+     *
+     * Coverage supply already decides the work item from concrete mutation evidence; the registry chooses
+     * the execution pattern that governs that item. Advisory mode records the contract fail-open. Driver
+     * mode fails closed: no coverage task is enqueued without a complete contract.
+     *
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>|null
+     */
+    private function withPatternContract(array $payload, string $objective, string $target, string $sibling, string $operator, int $timeout): ?array
+    {
+        $driver = (bool) config('atlas.loop.pattern_driver_enabled', false);
+        $advisory = (bool) config('atlas.loop.pattern_advisory_enabled', true);
+        if (! $driver && ! $advisory) {
+            return $payload;
+        }
+
+        try {
+            $pattern = $this->patternRegistry()->find('loop_harness_verification');
+            if ($pattern === null) {
+                return $driver ? null : $payload;
+            }
+
+            $contract = $this->patternCompiler()->compile($pattern, [
+                'objective' => $objective,
+                'allowed_scope' => [$sibling],
+                'required_inputs' => ['target_file', 'sibling_test', 'decision_operator', 'mutation_id'],
+                'expected_outputs' => [
+                    'sibling_test_green_on_unchanged_code',
+                    'mutant_flip_makes_suite_red',
+                    'production_target_frozen',
+                ],
+                'budget' => [
+                    'timeout_seconds' => $timeout,
+                    'decision_operator' => $operator,
+                    'frozen_target' => $target,
+                ],
+            ]);
+
+            $payload['pattern'] = [
+                'mode' => $driver ? 'driver' : 'advisory',
+                'selected' => $pattern->id,
+                'version' => $pattern->version,
+                'score' => 1.0,
+                'selection_reason' => 'coverage characterization is governed by the independent loop harness verification pattern',
+                'spec' => $pattern->toArray(),
+            ];
+            $payload['execution_contract'] = $contract->toArray();
+
+            return $payload;
+        } catch (Throwable) {
+            return $driver ? null : $payload;
+        }
+    }
+
+    private function patternRegistry(): AtlasLoopPatternRegistry
+    {
+        return $this->patternRegistry ?? new AtlasLoopPatternRegistry;
+    }
+
+    private function patternCompiler(): AtlasLoopPatternCompiler
+    {
+        return $this->patternCompiler ?? new AtlasLoopPatternCompiler;
+    }
+
+    private function priority(): int
+    {
+        if ((bool) config('atlas.loop.characterization_first_proof_priority_enabled', false)) {
+            return max(1, (int) config('atlas.loop.characterization_first_proof_priority', 5200));
+        }
+
+        return 8; // legacy high-ish priority: closes a refactor that is otherwise stuck
     }
 
     /**
@@ -150,7 +241,7 @@ final class AtlasLoopCoverageGapFeeder
                 ->whereIn('status', ['done', 'failed'])
                 ->where('payload', 'like', '%"characterization_operator":"'.$operator.'"%')
                 ->count();
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return 0;
         }
     }

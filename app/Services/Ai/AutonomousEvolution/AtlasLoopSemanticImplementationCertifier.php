@@ -556,11 +556,11 @@ final class AtlasLoopSemanticImplementationCertifier
         $verdicts = [];
         try {
             foreach ($commands as $index => $command) {
-                $process = Process::fromShellCommandline($command, $workspace, [
+                $process = Process::fromShellCommandline($command, $workspace, AtlasLoopHermeticCommandEnvironment::forAcceptance([
                     'ATLAS_SEMANTIC_REFUTER_PACKET' => $packetPath,
                     'ATLAS_SEMANTIC_REFUTER_INDEX' => (string) ($index + 1),
                     'ATLAS_SEMANTIC_REFUTER_PROVIDER' => (string) ($config['provider'] ?? ''),
-                ], null, (float) $timeout);
+                ]), null, (float) $timeout);
                 $process->run();
                 $verdicts[] = $this->refuterVerdict($index + 1, $command, $process);
             }

@@ -77,6 +77,42 @@ final class AtlasLoopRefactorDiscoveryTest extends TestCase
         return $d;
     }
 
+    private function repoWithRankedSupplyFiles(): string
+    {
+        $d = sys_get_temp_dir().'/atlas-supply-window-'.bin2hex(random_bytes(4));
+        $this->dirs[] = $d;
+        File::ensureDirectoryExists($d.'/app/Services');
+        $pad = implode("\n", array_map(static fn (int $i): string => '    // pad '.$i, range(1, 45)));
+        $highTodos = implode("\n", array_map(static fn (int $i): string => '    // TODO: high leverage '.$i, range(1, 8)));
+
+        File::put($d.'/app/Services/HighLeverage.php', <<<PHP
+        <?php
+        final class HighLeverage
+        {
+        {$highTodos}
+        {$pad}
+            public function value(): int
+            {
+                return 1;
+            }
+        }
+        PHP);
+        File::put($d.'/app/Services/LowerLeverage.php', <<<PHP
+        <?php
+        final class LowerLeverage
+        {
+            // TODO: lower leverage
+        {$pad}
+            public function value(): int
+            {
+                return 2;
+            }
+        }
+        PHP);
+
+        return $d;
+    }
+
     public function test_exposes_the_ast_cyclomatic_signal(): void
     {
         $repo = $this->repoWithComplexFile();
@@ -94,6 +130,29 @@ final class AtlasLoopRefactorDiscoveryTest extends TestCase
         $this->assertGreaterThanOrEqual(6, (int) $signals['cyclomatic'], 'the if/elseif ladder is measured');
         $this->assertArrayHasKey('cyclomatic_total', $signals);
         $this->assertArrayHasKey('refactor_leverage', $signals, 'the leverage composite is always stamped for audit');
+    }
+
+    public function test_discovery_skips_consumed_unchanged_top_candidate_to_feed_lower_claimable_supply(): void
+    {
+        $repo = $this->repoWithRankedSupplyFiles();
+        $campaignId = 'camp-supply-window-'.bin2hex(random_bytes(4));
+        $discovery = new AtlasLoopTargetDiscoveryService(app(AtlasLoopTargetRepository::class));
+
+        $first = $discovery->discover($repo, $campaignId, ['roots' => ['app/Services'], 'limit' => 1]);
+        $this->assertSame('app/Services/HighLeverage.php', $first['top'][0]['path'] ?? null);
+
+        DB::table('atlas_loop_targets')
+            ->where('campaign_id', $campaignId)
+            ->where('target_path', 'app/Services/HighLeverage.php')
+            ->update(['status' => 'queued', 'updated_at' => now()]);
+
+        $second = $discovery->discover($repo, $campaignId, ['roots' => ['app/Services'], 'limit' => 1]);
+
+        $this->assertSame('app/Services/LowerLeverage.php', $second['top'][0]['path'] ?? null);
+        $this->assertSame('candidate', DB::table('atlas_loop_targets')
+            ->where('campaign_id', $campaignId)
+            ->where('target_path', 'app/Services/LowerLeverage.php')
+            ->value('status'));
     }
 
     /**
