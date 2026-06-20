@@ -16,6 +16,7 @@ namespace App\Services\Ai\AutonomousEvolution;
  *  - scope_clean (diff within allowed_globs) ..... HARD GATE: false ⇒ ≤2 (structurally untrustworthy)
  *  - complexity_reduction (worst-method cx drop) . the VALUE: scaled to the relative drop
  *  - no_net_branches_added (total ≤ before) ...... anti-gaming: relocate, don't inflate
+ *  - no_metric_laundering ......................... anti-gaming: don't hide decisions in boolean arrays
  *  - absolute_branch_drop (total before−after) .... rewards small surgical reductions that compound
  *  - coverage_added (a new pinning test) ......... bonus
  *
@@ -41,6 +42,7 @@ final class AtlasLoopQualityGrader
         $totalBefore = max(0, (int) ($signals['total_branches_before'] ?? 0));
         $totalAfter = max(0, (int) ($signals['total_branches_after'] ?? 0));
         $coverageAdded = (bool) ($signals['coverage_added'] ?? false);
+        $complexityGamingReasons = $this->stringList($signals['complexity_gaming_reasons'] ?? []);
 
         $reasons = [];
 
@@ -51,6 +53,17 @@ final class AtlasLoopQualityGrader
         // HARD GATE 2: an out-of-scope / frozen-tamper diff is structurally untrustworthy.
         if (! $scopeClean) {
             return $this->result(2.0, $bar, ['scope_clean' => false], ['out_of_scope_or_frozen_tampered']);
+        }
+        // HARD GATE 3: a refactor that lowers AST complexity by encoding boolean branches into data
+        // literals is metric laundering, not maintainability improvement. The detector is diff-scoped
+        // and supplied by the certifier, so existing honest refactors stay on the normal path.
+        if ($complexityGamingReasons !== []) {
+            return $this->result(2.0, $bar, [
+                'behavior_preserved' => true,
+                'scope_clean' => true,
+                'complexity_metric_laundering' => true,
+                'complexity_gaming_reasons' => $complexityGamingReasons,
+            ], ['complexity_metric_laundering:'.$complexityGamingReasons[0]]);
         }
 
         // Base for a green, in-scope, behavior-preserving change.
@@ -197,5 +210,21 @@ final class AtlasLoopQualityGrader
             'dimensions' => $dimensions,
             'reasons' => $reasons,
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function stringList(mixed $value): array
+    {
+        $out = [];
+        foreach ((array) $value as $item) {
+            $item = trim((string) $item);
+            if ($item !== '') {
+                $out[$item] = true;
+            }
+        }
+
+        return array_keys($out);
     }
 }

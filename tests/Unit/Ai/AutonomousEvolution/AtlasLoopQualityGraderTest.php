@@ -106,6 +106,27 @@ final class AtlasLoopQualityGraderTest extends TestCase
         $this->assertContains('net_branches_increased', $g['reasons']);
     }
 
+    public function test_complexity_metric_laundering_is_capped_low(): void
+    {
+        // Green + in-scope + lower AST complexity is still not high-quality when the reduction
+        // comes from hiding boolean decisions inside data literals.
+        $g = (new AtlasLoopQualityGrader)->grade([
+            'behavior_preserved' => true,
+            'scope_clean' => true,
+            'cx_before' => 18,
+            'cx_after' => 14,
+            'total_branches_before' => 28,
+            'total_branches_after' => 24,
+            'coverage_added' => false,
+            'complexity_gaming_reasons' => ['boolean_literal_in_array_conditions'],
+        ], 9.0);
+
+        $this->assertSame(2.0, $g['score']);
+        $this->assertFalse($g['passes_bar']);
+        $this->assertContains('complexity_metric_laundering:boolean_literal_in_array_conditions', $g['reasons']);
+        $this->assertTrue($g['dimensions']['complexity_metric_laundering']);
+    }
+
     // ITEM10 — FEATURE LANE (non-refactor) quality grade. Same shape contract, signals that fit a
     // feature/bugfix (no complexity drop): diff_earned + mutation kill strength + coverage.
 

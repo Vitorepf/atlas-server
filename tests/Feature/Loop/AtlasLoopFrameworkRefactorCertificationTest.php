@@ -305,6 +305,52 @@ PHP;
         $this->assertSame(9.0, data_get($receipt, 'quality_grade.bar'));
     }
 
+    public function test_per_task_quality_bar_rejects_boolean_array_complexity_laundering(): void
+    {
+        config(['atlas.loop.quality_bar_gate_enabled' => false]);
+        $launderedCandidate = <<<'PHP'
+<?php
+final class Classifier
+{
+    public function classify(int $n): string
+    {
+        if (in_array(true, [
+            $n === 0,
+            $n === 1,
+            $n === 2,
+            $n === 3,
+            $n === 4,
+            $n === 5,
+            $n === 6,
+            $n === 7,
+            $n === 8,
+        ], true)) {
+            return [0 => 'zero', 1 => 'one', 2 => 'two', 3 => 'three', 4 => 'four', 5 => 'five', 6 => 'six', 7 => 'seven', 8 => 'eight'][$n];
+        }
+
+        return 'many';
+    }
+}
+PHP;
+        $this->workspace = $this->workspaceWithRefactor($this->highComplexity(), $launderedCandidate);
+
+        $acceptance = $this->refactorAcceptance();
+        $acceptance['quality_bar_gate'] = true;
+        $acceptance['quality_bar'] = 9.0;
+
+        $receipt = app(AtlasLoopSemanticImplementationCertifier::class)->certify(
+            $this->workspace,
+            $acceptance,
+            ['objective' => 'Self-improve the loop pipeline', 'allowed_files' => ['src/Classifier.php']],
+        );
+
+        $this->assertFalse($receipt['certified'], 'boolean-array laundering must not certify as high-quality self-improvement');
+        $this->assertTrue((bool) data_get($receipt, 'complexity_proof.reduced'), 'the guard proves this was not rejected for missing AST reduction');
+        $this->assertSame(2.0, data_get($receipt, 'quality_grade.score'));
+        $this->assertContains('complexity_metric_laundering:boolean_literal_in_array_conditions', data_get($receipt, 'quality_grade.reasons'));
+        $this->assertContains('quality_bar:below_min:2', $receipt['reasons']);
+    }
+
     public function test_not_certified_when_a_refactor_breaks_a_real_test(): void
     {
         // candidate has WRONG behavior (everything -> 'zero'): the real frozen test goes RED, so the

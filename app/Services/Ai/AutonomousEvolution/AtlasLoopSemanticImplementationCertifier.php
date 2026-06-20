@@ -67,6 +67,9 @@ final class AtlasLoopSemanticImplementationCertifier
         // Extraímos as linhas ADICIONADAS pelo diff (a única coisa que a proposta pode
         // sujar) para o painel escanear o delta, não o passivo histórico do arquivo.
         $changedAddedLines = $this->addedLines($workspace, $changedFiles);
+        $complexityGamingReasons = $this->complexityProofRequired($targetAcceptance)
+            ? $this->complexityMetricLaunderingReasons($changedAddedLines)
+            : [];
         $panelVerdict = $this->adversarialPanel->refute($this->panelCycle(
             $workspace,
             $objective,
@@ -250,6 +253,7 @@ final class AtlasLoopSemanticImplementationCertifier
                 'total_branches_before' => (int) ($complexityProof['baseline_total'] ?? 0),
                 'total_branches_after' => (int) ($complexityProof['candidate_total'] ?? 0),
                 'coverage_added' => $this->coverageAdded($changedFiles),
+                'complexity_gaming_reasons' => $complexityGamingReasons,
             ], $perTaskBar);
             $confidenceQualityScore = (float) ($qualityGrade['score'] ?? 0.0);
             $barGate = (bool) ($targetAcceptance['quality_bar_gate'] ?? false)
@@ -950,6 +954,29 @@ final class AtlasLoopSemanticImplementationCertifier
         }
 
         return $out;
+    }
+
+    /**
+     * Diff-scoped complexity gaming detector for refactor contracts. It intentionally catches only
+     * boolean-chain laundering shapes, not legitimate value membership such as in_array($kind, [...]).
+     *
+     * @param  array<string,string>  $changedAddedLines
+     * @return list<string>
+     */
+    private function complexityMetricLaunderingReasons(array $changedAddedLines): array
+    {
+        $reasons = [];
+        foreach ($changedAddedLines as $body) {
+            $body = (string) $body;
+            if (preg_match('/\bin_array\s*\(\s*(?:true|false)\s*,\s*\[/i', $body) === 1) {
+                $reasons['boolean_literal_in_array_conditions'] = true;
+            }
+            if (preg_match('/\[[^\]\n]*(?:===|!==|<=|>=|<|>|&&|\|\|)[^\]\n]*\]\s*={2,3}\s*\[\s*(?:true|false)\b/i', $body) === 1) {
+                $reasons['boolean_condition_array_comparison'] = true;
+            }
+        }
+
+        return array_keys($reasons);
     }
 
     private function changedFiles(string $workspace): array
