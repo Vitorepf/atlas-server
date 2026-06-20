@@ -42,13 +42,13 @@ final class AtlasLoopCoverageGapFeeder
         $sibling = trim((string) ($gap['sibling_test'] ?? ''));
         $operator = trim((string) ($gap['decision_operator'] ?? ''));
         $newSibling = false;
-        if ($sibling === '' && $allowNewSibling && $target !== '') {
+        if ([$sibling, $allowNewSibling, $target !== ''] === ['', true, true]) {
             $sibling = $this->suggestSiblingTestPath($target);
             $newSibling = $sibling !== '';
         }
         // A characterization task with no sibling test to strengthen — or no target/operator to pin —
         // is unactionable; never enqueue a task the verifier can only reject.
-        if ($target === '' || $sibling === '' || $operator === '') {
+        if (in_array('', [$target, $sibling, $operator], true)) {
             return null;
         }
 
@@ -70,6 +70,7 @@ final class AtlasLoopCoverageGapFeeder
         ];
 
         $objective = $this->objectiveText($target, $sibling, $operator, $newSibling);
+        $mutationId = (string) ($gap['mutation_id'] ?? '');
 
         $payload = [
             'materializer' => 'framework',
@@ -77,8 +78,8 @@ final class AtlasLoopCoverageGapFeeder
             'characterization_target' => $target,
             'characterization_sibling_test' => $sibling,
             'characterization_operator' => $operator,
-            'characterization_mutation_id' => (string) ($gap['mutation_id'] ?? ''),
-            'characterization_mode' => $newSibling ? 'create_new_sibling' : 'strengthen_existing_sibling',
+            'characterization_mutation_id' => $mutationId,
+            'characterization_mode' => ['strengthen_existing_sibling', 'create_new_sibling'][(int) $newSibling],
             'characterization_timeout_seconds' => $timeout,
             'target_relative_path' => $target,
             'target_repo_path' => $target,
@@ -86,13 +87,15 @@ final class AtlasLoopCoverageGapFeeder
             'allowed_files' => [$sibling],
             'validation_commands' => [$command],
         ];
-        if (is_string($gap['target_content'] ?? null) && $gap['target_content'] !== '') {
-            $payload['target_content'] = $gap['target_content'];
+        $targetContent = $gap['target_content'] ?? null;
+        if ([is_string($targetContent), $targetContent !== ''] === [true, true]) {
+            $payload['target_content'] = $targetContent;
         }
-        if (is_string($gap['_target_id'] ?? null) && $gap['_target_id'] !== '') {
-            $payload['_target_id'] = $gap['_target_id'];
+        $targetId = $gap['_target_id'] ?? null;
+        if ([is_string($targetId), $targetId !== ''] === [true, true]) {
+            $payload['_target_id'] = $targetId;
         }
-        if ($provider !== null && $provider !== '') {
+        if (! in_array($provider, [null, ''], true)) {
             $payload['provider'] = $provider;
         }
         $payload = $this->withPatternContract($payload, $objective, $target, $sibling, $operator, $timeout);
@@ -117,7 +120,7 @@ final class AtlasLoopCoverageGapFeeder
             'target' => $target,
             'sibling' => $sibling,
             'operator' => $operator,
-            'mutation_id' => (string) ($gap['mutation_id'] ?? ''),
+            'mutation_id' => $mutationId,
             'attempt' => $attempt, // salt so each retry is a distinct dedupe key, not a no-op
         ], JSON_THROW_ON_ERROR));
 

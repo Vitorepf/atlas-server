@@ -30,7 +30,12 @@ final class AtlasLoopSelfImprovementGroundingBridgeTest extends TestCase
         @mkdir($this->root.'/'.self::HARNESS_DIR, 0o755, true);
         @mkdir($this->root.'/tests/Unit', 0o755, true);
         // Both meta flags ON so the builder admits a harness target; tests flip OFF where needed.
-        config(['atlas.loop.meta_harness_targets' => true, 'atlas.loop.meta_harness_self_improve.enabled' => true]);
+        config([
+            'atlas.loop.framework_refactor_min_cyclomatic' => 3,
+            'atlas.loop.meta_harness_targets' => true,
+            'atlas.loop.meta_harness_self_improve.enabled' => true,
+            'atlas.loop.self_improve_single_file_refactor_enabled' => true,
+        ]);
     }
 
     protected function tearDown(): void
@@ -55,6 +60,12 @@ final class AtlasLoopSelfImprovementGroundingBridgeTest extends TestCase
         file_put_contents($this->root."/tests/Unit/{$name}Test.php", "<?php\n\nclass {$name}Test\n{\n    public function test_it(): void {}\n}\n");
     }
 
+    private function seedProductionCaller(string $basename): void
+    {
+        $name = pathinfo($basename, PATHINFO_FILENAME);
+        file_put_contents($this->root.'/'.self::HARNESS_DIR."/{$name}Caller.php", "<?php\n\nnamespace App\\Services\\Ai\\AutonomousEvolution;\n\nfinal class {$name}Caller\n{\n    public function target(): string\n    {\n        return \\\\App\\\\Services\\\\Ai\\\\AutonomousEvolution\\\\{$name}::class;\n    }\n}\n");
+    }
+
     public function test_grounds_an_armed_harness_target_naming_the_worst_method(): void
     {
         $rel = $this->seedHarness('FooHarness.php');
@@ -66,6 +77,25 @@ final class AtlasLoopSelfImprovementGroundingBridgeTest extends TestCase
         $this->assertTrue($r['admitted']);
         $this->assertGreaterThan(0.0, (float) $r['quality_bar'], 'the ≥9 bar is stamped');
         $this->assertStringContainsString('complexZone', json_encode($r), 'the grounded spec names the measured worst method');
+    }
+
+    public function test_prefers_single_file_self_improvement_when_the_harness_target_is_wired(): void
+    {
+        $rel = $this->seedHarness('FooHarness.php');
+        $this->seedSibling('FooHarness.php');
+        $this->seedProductionCaller('FooHarness.php');
+
+        $r = (new AtlasLoopSelfImprovementGroundingBridge)->ground($rel, $this->root);
+
+        $this->assertIsArray($r, 'a wired harness target should ground into a certifiable self-edit');
+        $this->assertTrue($r['admitted']);
+        $this->assertSame('refactor_reduce_complexity', $r['payload']['objective_kind']);
+        $this->assertSame('single_file_refactor', $r['payload']['self_improvement_mode']);
+        $this->assertTrue($r['payload']['is_self_improvement']);
+        $this->assertArrayNotHasKey('_target_id', $r['payload'], 'synthetic self-improvement tasks must not fake a DB target UUID');
+        $this->assertSame([$rel], $r['payload']['allowed_files']);
+        $this->assertStringContainsString('SELF-IMPROVEMENT:', $r['objective']);
+        $this->assertStringContainsString('complexZone', $r['objective']);
     }
 
     public function test_returns_null_when_meta_flags_off(): void

@@ -2680,6 +2680,10 @@ return [
         // its caller). The builder's own double meta-flag gate + petreous harness guard still decide
         // admissibility. Default OFF => the vague objective stands => byte-identical.
         'self_improve_grounding_enabled' => (bool) env('ATLAS_LOOP_SELF_IMPROVE_GROUNDING_ENABLED', false),
+        // ACDE C1b — when grounding is armed, try the smallest certifiable self-edit first: a single-file
+        // framework refactor with a real sibling test, real caller, complexity proof and the ≥9 bar. Heavy
+        // extract-class remains the fallback. Default ON is scoped behind self_improve_grounding_enabled.
+        'self_improve_single_file_refactor_enabled' => (bool) env('ATLAS_LOOP_SELF_IMPROVE_SINGLE_FILE_REFACTOR_ENABLED', true),
         // ACDE X3 — route the certifier's namespaced rejection dimension (complexity_gate / quality_bar /
         // changed_symbol_uncovered / completeness / delivery_confidence / overfit / behavioral_equivalence) to a
         // SPECIFIC re-attempt directive the conductor appends to the next round's guidance, so a weak engine

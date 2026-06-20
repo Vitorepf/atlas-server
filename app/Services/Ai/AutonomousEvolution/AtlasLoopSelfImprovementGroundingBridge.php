@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSelfImprovementObjectiveBuilder;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopFrameworkRefactorSynthesizer;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSiblingTestResolver;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopQualityGrader;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
 use Throwable;
 
@@ -33,6 +35,7 @@ final class AtlasLoopSelfImprovementGroundingBridge
     public function __construct(
         private readonly ?AtlasLoopSignalAnalyzer $analyzer = null,
         private readonly ?AtlasLoopSelfImprovementObjectiveBuilder $builder = null,
+        private readonly ?AtlasLoopFrameworkRefactorSynthesizer $frameworkRefactor = null,
     ) {}
 
     /**
@@ -75,6 +78,16 @@ final class AtlasLoopSelfImprovementGroundingBridge
                 return null;
             }
 
+            $admission = $this->selfImprovementAdmission($rel);
+            if ($admission !== 'admissible') {
+                return null;
+            }
+
+            $singleFile = $this->singleFileSelfImprovement($root, $rel, $worst, $cyclomatic, $provider);
+            if ($singleFile !== null) {
+                return $singleFile;
+            }
+
             $result = ($this->builder ?? new AtlasLoopSelfImprovementObjectiveBuilder)
                 ->build($rel, (string) $sibling['sibling_path'], $worst, $cyclomatic, $provider);
             if (($result['admitted'] ?? false) === true && is_array($result['payload'] ?? null)) {
@@ -85,5 +98,70 @@ final class AtlasLoopSelfImprovementGroundingBridge
         } catch (Throwable) {
             return null;
         }
+    }
+
+    private function selfImprovementAdmission(string $rel): string
+    {
+        $guard = new AtlasLoopHarnessGuard;
+        if ($guard->isForbiddenSelfTarget($rel)) {
+            return 'forbidden';
+        }
+        if (! $guard->isHarnessTarget($rel)) {
+            return 'not_harness';
+        }
+
+        $metaEnabled = (bool) config('atlas.loop.meta_harness_targets', false)
+            && (bool) config('atlas.loop.meta_harness_self_improve.enabled', false);
+
+        return $metaEnabled ? 'admissible' : 'harness_gated';
+    }
+
+    /**
+     * Prefer the smallest certifiable self-edit when it is provable: one harness file, one real sibling test,
+     * one measured caller path, and the same complexity/quality gates as ordinary framework refactors. Heavy
+     * extract-class remains the fallback for targets that cannot pass this tighter single-file lane.
+     *
+     * @return array{admitted:bool, admission:string, target:string, objective:string, payload:array<string,mixed>, acceptance_hash:string, quality_bar:float}|null
+     */
+    private function singleFileSelfImprovement(string $root, string $rel, string $worst, int $cyclomatic, ?string $provider): ?array
+    {
+        if (! (bool) config('atlas.loop.self_improve_single_file_refactor_enabled', true)) {
+            return null;
+        }
+
+        $built = ($this->frameworkRefactor ?? new AtlasLoopFrameworkRefactorSynthesizer($this->analyzer))
+            ->synthesizeFrameworkRefactor(
+                $root,
+                $rel,
+                [
+                    'cyclomatic' => $cyclomatic,
+                    'worst_method' => $worst,
+                ],
+                $provider ?? '',
+                'self-improve-'.substr(hash('sha256', $rel.'|'.$worst.'|'.$cyclomatic), 0, 24),
+                false,
+            );
+
+        if ($built === null || ! is_array($built['payload'] ?? null)) {
+            return null;
+        }
+
+        $bar = (float) config('atlas.loop.quality_bar', AtlasLoopQualityGrader::DEFAULT_BAR);
+        $payload = $built['payload'];
+        unset($payload['_target_id']);
+        $payload['is_self_improvement'] = true;
+        $payload['self_improvement_mode'] = 'single_file_refactor';
+        $payload['acceptance']['quality_bar_gate'] = true;
+        $payload['acceptance']['quality_bar'] = $bar;
+
+        return [
+            'admitted' => true,
+            'admission' => 'admissible',
+            'target' => $rel,
+            'objective' => 'SELF-IMPROVEMENT: '.$built['objective'],
+            'payload' => $payload,
+            'acceptance_hash' => $built['acceptance_hash'],
+            'quality_bar' => $bar,
+        ];
     }
 }
