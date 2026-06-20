@@ -1147,7 +1147,12 @@ final class AtlasLoopQueueRefiller
         // target reopens next cycle. Fail-open: portfolio gate OFF ⇒ no cap (byte-identical legacy).
         $coverageCap = (int) config('atlas.loop.coverage_characterization_max_per_refill', 2);
         if ((bool) config('atlas.loop.coverage_relative_to_substantive', true)) {
-            $coverageCap = min($coverageCap, max(1, $this->substantiveMintedThisRefill));
+            // Coverage must stay STRICTLY BELOW the substantive work of this refill (not merely ≤ it) so the
+            // campaign is substantive-LED, not at parity: coverage ≤ floor(substantive/2), with a floor of 1
+            // only while substantive is 0–1 (so a low-substantive cycle still gets one verification, never
+            // starved to zero). At substantive ≥ 2 this yields coverage < substantive by construction.
+            $relCap = $this->substantiveMintedThisRefill <= 1 ? 1 : intdiv($this->substantiveMintedThisRefill, 2);
+            $coverageCap = min($coverageCap, $relCap);
         }
         if ((bool) config('atlas.loop.coverage_portfolio_gate_enabled', true)
             && $this->coverageMintedThisRefill >= $coverageCap) {
