@@ -31,6 +31,7 @@ final class AtlasLoopDedupSupplyLane
     public function __construct(
         private readonly ?AtlasLoopSiblingTestResolver $siblings = null,
         private readonly ?AtlasLoopDedupProof $dedupProof = null,
+        private readonly ?\App\Services\Ai\AutonomousEvolution\AtlasLoopLeverageSelector $leverage = null,
     ) {
     }
 
@@ -120,6 +121,15 @@ final class AtlasLoopDedupSupplyLane
                 'acceptance_hash' => hash('sha256', (string) (json_encode($acceptance) ?: $objective)),
                 'members' => $members,
             ];
+        }
+
+        // §3 LEVERAGE SELECTION (flag-gated, fail-closed) — same as the orphan-wiring lane: when capped, land
+        // the highest-leverage dedup FIRST. The model only reorders the real grounded specs; off/no-provider ⇒
+        // the deterministic mint order.
+        if (count($specs) > 1 && (bool) config('atlas.loop.leverage_selection_enabled', false)) {
+            $selector = $this->leverage ?? new \App\Services\Ai\AutonomousEvolution\AtlasLoopLeverageSelector;
+
+            return $selector->rank($specs);
         }
 
         return $specs;
