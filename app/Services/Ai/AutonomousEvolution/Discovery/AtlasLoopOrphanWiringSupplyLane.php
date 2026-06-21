@@ -24,7 +24,10 @@ final class AtlasLoopOrphanWiringSupplyLane
 {
     public const OBJECTIVE_KIND = 'orphan_wiring';
 
-    public function __construct(private readonly ?AtlasLoopSiblingTestResolver $siblings = null) {}
+    public function __construct(
+        private readonly ?AtlasLoopSiblingTestResolver $siblings = null,
+        private readonly ?\App\Services\Ai\AutonomousEvolution\AtlasLoopLeverageSelector $leverage = null,
+    ) {}
 
     /**
      * Mint one orphan-wiring directive per admissible orphan in the model.
@@ -79,6 +82,16 @@ final class AtlasLoopOrphanWiringSupplyLane
                 ],
                 'members' => [$rel],
             ];
+        }
+
+        // §3 LEVERAGE SELECTION (flag-gated, fail-closed): when the refiller caps the directives per refill,
+        // the brain should land the HIGHEST-leverage orphan-wiring FIRST, not whatever inventory order yields.
+        // The model picks among these REAL grounded directives (it can only reorder — never fabricate); no
+        // provider / off ⇒ the deterministic mint order is preserved.
+        if (count($specs) > 1 && (bool) config('atlas.loop.leverage_selection_enabled', false)) {
+            $selector = $this->leverage ?? new \App\Services\Ai\AutonomousEvolution\AtlasLoopLeverageSelector;
+
+            return $selector->rank($specs);
         }
 
         return $specs;
