@@ -19,7 +19,16 @@ final class AtlasLoopResearchOriginatorTest extends TestCase
 {
     private function originator(bool $backend): AtlasLoopResearchOriginator
     {
-        return new AtlasLoopResearchOriginator(new AtlasLoopExternalResearchService($backend));
+        // "backend present" now means a real (here faked) pull is wired — a flag alone no longer researches
+        // (the stub note was removed). "no backend" stays fail-closed.
+        $service = $backend
+            ? new AtlasLoopExternalResearchService(
+                searchToolAvailable: true,
+                backend: static fn (string $topic): string => "advisory state-of-the-art note for: {$topic}",
+            )
+            : new AtlasLoopExternalResearchService(searchToolAvailable: false);
+
+        return new AtlasLoopResearchOriginator($service);
     }
 
     public function test_fail_closed_no_backend_mints_nothing(): void

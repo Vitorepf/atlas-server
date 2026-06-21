@@ -70,7 +70,10 @@ final class AtlasLoopExternalResearchWiringTest extends TestCase
         $gen = new AtlasEvolutionTaskGenerator(
             $driver,
             new AtlasLoopRedReasonGate,
-            new AtlasLoopExternalResearchService(searchToolAvailable: true),
+            new AtlasLoopExternalResearchService(
+                searchToolAvailable: true,
+                backend: static fn (string $topic): string => "STATE-OF-THE-ART NOTE for: {$topic}",
+            ),
         );
 
         $gen->generateForTarget($this->base, 'src/Subject.php', [
@@ -81,7 +84,7 @@ final class AtlasLoopExternalResearchWiringTest extends TestCase
         ]);
 
         $this->assertStringContainsString('EXTERNAL RESEARCH (advisory', $captured);
-        $this->assertStringContainsString('research:theory of constraints', $captured);
+        $this->assertStringContainsString('STATE-OF-THE-ART NOTE for: theory of constraints', $captured);
     }
 
     public function test_case2_a_real_repo_path_fragment_is_egress_blocked_no_note(): void
@@ -94,7 +97,12 @@ final class AtlasLoopExternalResearchWiringTest extends TestCase
         $gen = new AtlasEvolutionTaskGenerator(
             $driver,
             new AtlasLoopRedReasonGate,
-            new AtlasLoopExternalResearchService(searchToolAvailable: true),
+            // A working backend is wired, so this proves the egress filter BLOCKS even with a live tool —
+            // not merely that a missing backend fail-closes.
+            new AtlasLoopExternalResearchService(
+                searchToolAvailable: true,
+                backend: static fn (string $topic): string => "NOTE for: {$topic}",
+            ),
         );
 
         // a REAL repo path fragment as the topic + the REAL repo root => the egress filter resolves it and BLOCKS.

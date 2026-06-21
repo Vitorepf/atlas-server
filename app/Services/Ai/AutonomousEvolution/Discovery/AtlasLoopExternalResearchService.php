@@ -14,6 +14,14 @@ namespace App\Services\Ai\AutonomousEvolution\Discovery;
  * tool is read-only (output is advisory research notes that NEVER gate a cert), and FAIL-CLOSED: when no
  * search tool is wired (the default here), no research happens — never a silent fallback that emits the
  * topic anyway. Bounded cadence by design; never a constant crawl.
+ *
+ * THE REAL PULL IS A PLUGGABLE BACKEND (sovereignty-honest): the note comes from an injected `$backend`
+ * callable `fn(string $topic): ?string` — the live wiring passes a Hermes-web-backed pull; tests inject a
+ * fake. There is NO hardcoded stub note: arming the flag WITHOUT a wired backend FAIL-CLOSES (a flag is not
+ * research). This forbids the old `'research:'.$topic` placeholder from laundering a fake note as evidence.
+ * The egress filter ({@see egressCheck}) is unchanged and still runs BEFORE the backend, so a topic that
+ * would leak the repo never reaches the pull. The backend's returned note is advisory ingress only — it
+ * NEVER gates a cert (the out-of-process FrozenJudge remains the sole authority).
  */
 final class AtlasLoopExternalResearchService
 {
@@ -28,10 +36,24 @@ final class AtlasLoopExternalResearchService
         '/\b(api[_-]?key|secret|token|password|passwd|bearer)\b\s*[:=]/i',
     ];
 
-    public function __construct(private readonly bool $searchToolAvailable = false) {}
+    /** @var (callable(string):?string)|null the real pull: clean topic -> advisory note (null/'' => nothing). */
+    private $backend;
 
     /**
-     * Attempt to research a topic. Returns the egress verdict + (when allowed AND a tool is wired) a note.
+     * @param  bool  $searchToolAvailable  whether the research tool is armed (the operator's gate)
+     * @param  (callable(string):?string)|null  $backend  the real pull. When null, the service has NO wired
+     *         backend and FAIL-CLOSES even with $searchToolAvailable=true — a flag without a backend is not
+     *         research (no stub launder). Injected as a fake in tests; live wiring passes a Hermes-web pull.
+     */
+    public function __construct(
+        private readonly bool $searchToolAvailable = false,
+        ?callable $backend = null,
+    ) {
+        $this->backend = $backend;
+    }
+
+    /**
+     * Attempt to research a topic. Returns the egress verdict + (when allowed AND a backend is wired) a note.
      *
      * @return array{schema_version:string, researched:bool, blocked:bool, reason:string, topic:string, note:?string}
      */
@@ -51,13 +73,29 @@ final class AtlasLoopExternalResearchService
         }
 
         if (! $this->searchToolAvailable) {
-            // FAIL-CLOSED: no wired search tool ⇒ no research, never a silent fallback that emits the topic.
+            // FAIL-CLOSED: tool not armed ⇒ no research, never a silent fallback that emits the topic.
             return array_merge($base, ['reason' => 'no_search_tool (fail-closed)']);
         }
 
-        // Tool present + topic clean: the actual pull is the model-bound integration; the note is advisory
-        // and NEVER gates a cert (consumed only by the projection designer).
-        return array_merge($base, ['researched' => true, 'reason' => 'topic_clean', 'note' => 'research:'.$topic]);
+        if ($this->backend === null) {
+            // FAIL-CLOSED: armed but no real backend wired ⇒ no research. A flag is not a research tool;
+            // never launder a placeholder note as if the web were actually consulted.
+            return array_merge($base, ['reason' => 'no_research_backend (fail-closed)']);
+        }
+
+        // Topic clean + armed + backend wired: do the REAL pull. The note is advisory ingress and NEVER
+        // gates a cert (consumed only as authoring guidance). Any backend failure fail-closes (no fake note).
+        try {
+            $note = ($this->backend)($topic);
+        } catch (\Throwable) {
+            return array_merge($base, ['reason' => 'backend_error (fail-closed)']);
+        }
+        $note = is_string($note) ? trim($note) : '';
+        if ($note === '') {
+            return array_merge($base, ['reason' => 'backend_empty (fail-closed)']);
+        }
+
+        return array_merge($base, ['researched' => true, 'reason' => 'topic_clean', 'note' => $note]);
     }
 
     /**
