@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Models\AtlasLoopTask;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModelBuilder;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSystemAxisService;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopDeliveryPipeline;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
@@ -44,6 +46,7 @@ final class AtlasLoopProjectionWorker
         private readonly ?AtlasLoopDeliveryPipeline $pipeline = null,
         private readonly ?AtlasLoopProjectionEngine $engine = null,
         private readonly ?AtlasLoopSystemAxisService $axisService = null,
+        private readonly ?AtlasLoopScopeComprehensionModel $scopeModel = null,
     ) {}
 
     /**
@@ -75,8 +78,13 @@ final class AtlasLoopProjectionWorker
             $axis = $this->axisService ?? new AtlasLoopSystemAxisService;
             $bindingAxis = (string) (($axis->vector($repoRoot))['binding_axis'] ?? 'wired');
 
-            $designer = $this->designerFor($bindingAxis, $envelope);
-            $critic = $this->criticClosure();
+            // §3 ARCHITECT PHASE — when armed, run the GROUNDED design↔critique critic (it raises a
+            // consumer_intact obligation for every REAL caller of the target, so the contract provably
+            // protects them and a high-fan-out target parks). Fail-OPEN to the scripted roles: a missing
+            // model / unresolved target never blocks a projection, it just falls back to the v1 floor.
+            $grounded = $this->groundedRolesFor($repoRoot, $this->targetSymbol($envelope));
+            $designer = $grounded['designer'] ?? $this->designerFor($bindingAxis, $envelope);
+            $critic = $grounded['critic'] ?? $this->criticClosure();
 
             $engine = $this->engine ?? new AtlasLoopProjectionEngine;
             $result = $engine->project($bindingAxis, $designer, $critic, (int) config('atlas.loop.projection_max_rounds', 8));
@@ -110,6 +118,46 @@ final class AtlasLoopProjectionWorker
 
             return ['outcome' => 'parked', 'objective_id' => $objectiveId, 'status' => 'error', 'reason' => mb_substr($e->getMessage(), 0, 120)];
         }
+    }
+
+    /**
+     * §3 ARCHITECT PHASE — the GROUNDED designer/critic pair, or [] (use the scripted v1 floor) when the
+     * grounded phase is disabled, the target is unresolved, or the comprehension model cannot be obtained.
+     * Building the model is heavy (~seconds), so it runs ONLY here — once per claimed projection, off the
+     * refiller hot-loop — and only when the flag is armed; an injected model (tests) skips the build.
+     * Fail-OPEN: any failure returns [] so a projection is never blocked, only downgraded to the v1 floor.
+     *
+     * @return array{designer?: callable, critic?: callable}
+     */
+    private function groundedRolesFor(string $repoRoot, string $target): array
+    {
+        if (! (bool) config('atlas.loop.grounded_projection_enabled', false) || trim($target) === '') {
+            return [];
+        }
+
+        try {
+            $model = $this->scopeModel ?? $this->buildScopeModel($repoRoot);
+            if (! $model instanceof AtlasLoopScopeComprehensionModel) {
+                return [];
+            }
+
+            $roles = (new AtlasLoopGroundedProjectionRoles($model))->forTarget($target);
+
+            return ['designer' => $roles['designer'], 'critic' => $roles['critic']];
+        } catch (Throwable) {
+            return []; // grounded phase is best-effort; never let a model failure block a projection
+        }
+    }
+
+    private function buildScopeModel(string $repoRoot): ?AtlasLoopScopeComprehensionModel
+    {
+        $repoRoot = rtrim($repoRoot, '/');
+        if ($repoRoot === '' || ! is_dir($repoRoot)) {
+            return null;
+        }
+        $scopeRoot = (string) config('atlas.loop.grounded_projection_scope_root', 'app/Services/Ai/AutonomousEvolution');
+
+        return (new AtlasLoopScopeComprehensionModelBuilder)->build($repoRoot, $scopeRoot, ['docs_roots' => []]);
     }
 
     /**

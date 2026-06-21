@@ -2199,6 +2199,12 @@ return [
         // PARKa se não converge, e só enfileira a task COM obrigações tipadas quando converge.
         'projection_stage_enabled' => (bool) env('ATLAS_LOOP_PROJECTION_STAGE_ENABLED', true),
         'projection_drain_per_tick' => max(1, (int) env('ATLAS_LOOP_PROJECTION_DRAIN_PER_TICK', 2)),
+        // §3 ARCHITECT PHASE — when ON, the projection worker runs the GROUNDED design↔critique critic
+        // (AtlasLoopGroundedProjectionRoles) instead of the scripted raise-then-resolve: the critic raises a
+        // consumer_intact obligation for every REAL caller of the target (from the comprehension model's
+        // who-calls-who edges), so the projected contract provably protects every real caller and a
+        // high-fan-out target PARKS. Default-OFF ⇒ the worker is byte-identical to the scripted roles.
+        'grounded_projection_enabled' => (bool) env('ATLAS_LOOP_GROUNDED_PROJECTION_ENABLED', false),
         // S3 — supply de bug REAL. O harvester colhe reds DETERMINÍSTICOS (filtra flaky/ambiental via
         // SuiteRedTriageHelper) pra atlas_loop_failure_handles; a discovery estampa o handle no signal do
         // alvo → a bug-fix lane (já ligada) enfileira objective_kind=bug_fix, revert_recheck=true.

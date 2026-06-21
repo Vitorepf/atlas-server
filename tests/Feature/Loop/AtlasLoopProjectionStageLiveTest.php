@@ -9,6 +9,7 @@ use App\Models\AtlasLoopTask;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProjectionEngine;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProjectionWorker;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopRealWorkScorecardService;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBackService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObjectiveProducer;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopOriginationBuilder;
@@ -314,7 +315,93 @@ final class AtlasLoopProjectionStageLiveTest extends TestCase
         $this->assertSame(0, $open->invoke($supervisor, $campaign->id), 'flag-OFF ⇒ helper is 0 ⇒ starvation clauses byte-identical');
     }
 
+    public function test_armed_grounded_phase_attaches_a_consumer_intact_obligation_for_a_real_caller(): void
+    {
+        // §3 ARCHITECT PHASE armed: the worker runs the GROUNDED critic, which raises a consumer_intact
+        // obligation for the target's REAL caller (from the injected comprehension model's edges). The
+        // minted task's acceptance contract therefore PROVABLY protects that caller — proof the architect
+        // phase emits a grounded contract, not the scripted v1 floor.
+        config()->set('atlas.loop.grounded_projection_enabled', true);
+        $campaign = $this->store()->openCampaign('S2 grounded projection', $this->repoRoot, ['max_seconds' => 3600], [], '');
+        $pipeline = new AtlasLoopDeliveryPipeline;
+        $target = 'app/Services/Ai/AutonomousEvolution/GroundedDemo.php';
+        $caller = 'app/Services/Ai/AutonomousEvolution/GroundedCaller.php';
+
+        $pipeline->dispatchProjection($campaign->id, 'obj-grounded', 0.9, [
+            'built' => [
+                'objective' => 'Refactor GroundedDemo, preserving its caller.',
+                'payload' => ['objective_kind' => 'refactor_reduce_complexity', 'target_repo_path' => $target, 'target_relative_path' => $target, 'acceptance' => ['commands' => ['./vendor/bin/phpunit']]],
+                'acceptance_hash' => 'hash-grounded',
+                'target_path' => $target,
+                'self_contained' => true,
+                'leverage' => 0.9,
+            ],
+            'repoRoot' => $this->repoRoot,
+            'priority' => 4100,
+            'real_target_id' => 'target-grounded',
+        ]);
+        $row = $pipeline->claimNextProjection($campaign->id, 'worker-A', 300);
+        $this->assertIsArray($row);
+
+        // Inject a fixture model (skips the heavy build) whose edges give the target ONE real caller.
+        $worker = new AtlasLoopProjectionWorker($this->store(), $pipeline, new AtlasLoopProjectionEngine, $this->fixedAxis('wired'), $this->fixtureModel($target, [$caller]));
+        $outcome = $worker->process($row);
+
+        $this->assertSame('enqueued', $outcome['outcome'], (string) ($outcome['reason'] ?? ''));
+        $payload = json_decode((string) DB::table('atlas_loop_tasks')->where('campaign_id', $campaign->id)->value('payload'), true);
+        $obligations = (array) ($payload['acceptance']['obligations'] ?? []);
+        $consumerTargets = array_values(array_map(
+            static fn (array $o): string => (string) ($o['target_symbol'] ?? ''),
+            array_filter($obligations, static fn (array $o): bool => ($o['kind'] ?? '') === 'consumer_intact'),
+        ));
+        $this->assertContains(strtolower($caller), $consumerTargets, 'the grounded contract protects the real caller');
+    }
+
+    public function test_grounded_phase_off_is_byte_identical_to_the_scripted_floor(): void
+    {
+        // Flag OFF (default) ⇒ the worker uses the scripted roles even with a model injected: the minted
+        // contract carries the scripted obligations, NOT a grounded consumer_intact for the caller.
+        config()->set('atlas.loop.grounded_projection_enabled', false);
+        $campaign = $this->store()->openCampaign('S2 grounded off', $this->repoRoot, ['max_seconds' => 3600], [], '');
+        $pipeline = new AtlasLoopDeliveryPipeline;
+        $target = 'app/Services/Ai/AutonomousEvolution/GroundedDemo.php';
+        $caller = 'app/Services/Ai/AutonomousEvolution/GroundedCaller.php';
+
+        $pipeline->dispatchProjection($campaign->id, 'obj-grounded-off', 0.9, [
+            'built' => ['objective' => 'x', 'payload' => ['objective_kind' => 'refactor_reduce_complexity', 'target_repo_path' => $target, 'acceptance' => ['commands' => ['./vendor/bin/phpunit']]], 'acceptance_hash' => 'hash-off', 'target_path' => $target, 'self_contained' => true, 'leverage' => 0.9],
+            'repoRoot' => $this->repoRoot,
+            'priority' => 4100,
+            'real_target_id' => 'target-grounded-off',
+        ]);
+        $row = $pipeline->claimNextProjection($campaign->id, 'worker-A', 300);
+        $this->assertIsArray($row);
+
+        $worker = new AtlasLoopProjectionWorker($this->store(), $pipeline, new AtlasLoopProjectionEngine, $this->fixedAxis('wired'), $this->fixtureModel($target, [$caller]));
+        $this->assertSame('enqueued', $worker->process($row)['outcome']);
+
+        $payload = json_decode((string) DB::table('atlas_loop_tasks')->where('campaign_id', $campaign->id)->value('payload'), true);
+        $consumerTargets = array_filter((array) ($payload['acceptance']['obligations'] ?? []), static fn (array $o): bool => ($o['kind'] ?? '') === 'consumer_intact' && str_contains((string) ($o['target_symbol'] ?? ''), 'groundedcaller'));
+        $this->assertSame([], $consumerTargets, 'flag-OFF ⇒ no grounded caller obligation (scripted floor, byte-identical)');
+    }
+
     // --- fixtures / wiring ---
+
+    /** A fixture comprehension model whose edges give $target the given real callers. */
+    private function fixtureModel(string $target, array $callers): AtlasLoopScopeComprehensionModel
+    {
+        $paths = array_values(array_unique(array_merge([$target], $callers)));
+        $inventory = array_map(static fn (string $p): array => [
+            'rel_path' => $p, 'fqcn' => 'App\\'.str_replace('/', '\\', substr($p, 0, -4)),
+            'public_methods' => ['run'], 'is_orphan' => false, 'is_forbidden' => false, 'clone_cluster_id' => null,
+        ], $paths);
+
+        return new AtlasLoopScopeComprehensionModel(
+            inventory: $inventory,
+            edges: [$target => $callers],
+            orphans: [], cloneClusters: [], forbidden: [], docPurposes: [], docStatedGaps: [],
+            snapshotId: hash('sha256', $target),
+        );
+    }
 
     private function campaign(): AtlasLoopCampaign
     {
