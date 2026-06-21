@@ -253,6 +253,36 @@ final class AtlasEvolutionFrozenJudge
             }
         }
 
+        // Guard 4e — WIRED-EARNED (governed orphan-wiring, default-inert). When the FROZEN acceptance is a
+        // wiring contract (wired_proof=true) AND the operator flag is ON, certification is a CONJUNCTION:
+        //   (a) WAS-DEAD/NOW-WIRED — the orphan went from ZERO production callers (git-stashed baseline) to >=1
+        //       (candidate), measured by the judge's OWN caller grep, never a provider claim; AND
+        //   (b) MEANINGFULLY LOAD-BEARING — neutralizing the orphan's METHOD bodies (a throw injected first; the
+        //       constructor left intact) turns a FROZEN command RED. A cosmetic `new Orphan()` never calls a
+        //       method (constructor intact => green => REJECTED); a hardcoded test value doesn't call the orphan
+        //       (=> REJECTED); only a wiring that genuinely INVOKES the orphan's behavior breaks => certified.
+        // This is the sound replacement for the farmable wiredEarned+revert_recheck (which a hardcode+cosmetic-
+        // ref could pass). Flag OFF => never entered => the judge is BYTE-IDENTICAL to today.
+        $wiredProof = null;
+        $wantWiredProof = $allPassed
+            && (bool) ($acceptance['wired_proof'] ?? false)
+            && (bool) config('atlas.loop.refactor_wired_proof', false);
+        if ($wantWiredProof) {
+            $orphanPath = is_array($acceptance['wired_target'] ?? null) ? (string) ($acceptance['wired_target']['orphan_path'] ?? '') : '';
+            $wiredProof = $this->wiredEarned($workspace, $orphanPath, $commands, $timeout);
+            if (($wiredProof['earned'] ?? null) !== true) {
+                return $this->verdict(false, 0.0, [
+                    'rejected' => true,
+                    // fail-closed: orphan still 0 callers, OR neutralization did not kill the test (cosmetic), OR
+                    // null/error measuring (could not verify).
+                    'reason' => 'wiring_not_earned',
+                    'wired_proof' => $wiredProof,
+                    'changed_files' => $changed,
+                    'command_results' => $commandResults,
+                ], $acceptance);
+            }
+        }
+
         $metric = $this->computeMetric($metricKind, $allPassed, $lastStdout, $metricPattern);
         // For a verified refactor, the candidate's own AST max-per-method is the honest
         // ranking number — never trust a metric_pattern parse of provider stdout for the
@@ -416,6 +446,95 @@ final class AtlasEvolutionFrozenJudge
         }
 
         return (new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopDedupProof)->evaluate($baseline, $candidate);
+    }
+
+    /**
+     * The ungameable wiring proof (Guard 4e): is a former ORPHAN now MEANINGFULLY wired? CONJUNCTION of
+     *   (a) was-dead/now-wired — the orphan's production callers went 0 (git-stashed baseline) -> >=1 (candidate),
+     *       via the same FQCN caller oracle the discovery model uses; AND
+     *   (b) load-bearing — neutralizing the orphan's method bodies turns a FROZEN command RED ({@see orphanMethodKills}).
+     * null on any unverifiable leg => fail closed (earned=false).
+     *
+     * @param  list<string>  $commands
+     * @return array{baseline_callers:int,candidate_callers:int,method_kills:bool,earned:bool}|null
+     */
+    private function wiredEarned(string $workspace, string $orphanRel, array $commands, int $timeout): ?array
+    {
+        $orphanRel = ltrim($orphanRel, '/');
+        if ($orphanRel === '' || ! str_ends_with($orphanRel, '.php')) {
+            return null;
+        }
+
+        // (b) MEANINGFUL first, on the live candidate tree (no git surgery): neutralize the orphan, re-run.
+        $methodKills = $this->orphanMethodKills($workspace, $orphanRel, $commands, $timeout);
+
+        // (a) WAS-DEAD/NOW-WIRED: candidate callers (live), then git-stash to the committed baseline.
+        $candidate = (new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWiredCallerService($workspace))
+            ->callerPaths([$orphanRel])[$orphanRel] ?? null;
+        if (! is_array($candidate)) {
+            return null;
+        }
+        $stash = new Process(['git', 'stash', 'push', '--include-untracked', '--quiet'], $workspace, null, null, 60.0);
+        $stash->run();
+        if (! $stash->isSuccessful() || ! $this->stashCreated($workspace)) {
+            return null;
+        }
+        try {
+            $baseline = (new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWiredCallerService($workspace))
+                ->callerPaths([$orphanRel])[$orphanRel] ?? null;
+        } finally {
+            (new Process(['git', 'stash', 'pop', '--quiet'], $workspace, null, null, 60.0))->run();
+        }
+        if (! is_array($baseline)) {
+            return null;
+        }
+
+        $wasOrphanNowWired = count($baseline) === 0 && count($candidate) >= 1;
+
+        return [
+            'baseline_callers' => count($baseline),
+            'candidate_callers' => count($candidate),
+            'method_kills' => $methodKills,
+            'earned' => $wasOrphanNowWired && $methodKills === true,
+        ];
+    }
+
+    /**
+     * The meaningful-wiring probe: neutralize the orphan's METHOD bodies ({@see AtlasLoopMethodNeutralizer} —
+     * a throw injected first, constructor untouched) IN PLACE, re-run the frozen commands, and report whether
+     * ANY went RED. A genuine wiring that invokes the orphan diverges (RED = killed); a cosmetic instantiation
+     * or a hardcoded value never calls a method (GREEN = not killed). Always restores the original source.
+     * Returns false (not killed) on any error — fail-closed.
+     *
+     * @param  list<string>  $commands
+     */
+    private function orphanMethodKills(string $workspace, string $orphanRel, array $commands, int $timeout): bool
+    {
+        $abs = $workspace.'/'.ltrim($orphanRel, '/');
+        $original = @file_get_contents($abs);
+        if (! is_string($original) || $original === '') {
+            return false; // can't read the orphan -> cannot prove load-bearing -> fail closed
+        }
+        $neutralized = (new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopMethodNeutralizer)->neutralize($original);
+        if ($neutralized === null || $neutralized === $original) {
+            return false; // unparseable / nothing to neutralize -> cannot prove -> fail closed
+        }
+
+        $red = false;
+        try {
+            file_put_contents($abs, $neutralized);
+            foreach ($commands as $command) {
+                $result = $this->runFrozenCommand($command, $workspace, $timeout);
+                if (! $result['passed']) {
+                    $red = true; // neutralizing the orphan broke a frozen command => the orphan is load-bearing
+                    break;
+                }
+            }
+        } finally {
+            file_put_contents($abs, $original); // ALWAYS restore the candidate's real source
+        }
+
+        return $red;
     }
 
     /**

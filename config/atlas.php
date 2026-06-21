@@ -1974,6 +1974,11 @@ return [
         // Guard 4d is never entered => the judge is byte-identical. The clone-unification SUPPLY lane (the brain
         // minting these tasks from the comprehension model's clone clusters) is separately gated below.
         'refactor_dedup_proof' => (bool) env('ATLAS_LOOP_REFACTOR_DEDUP_PROOF', false),
+        // §5.6 ORPHAN-WIRING — the frozen-judge Guard 4e. When ON, a `wired_proof` acceptance certifies ONLY
+        // when a former orphan went 0->>=1 production callers AND is MEANINGFULLY load-bearing (neutralizing the
+        // orphan's methods turns a frozen command RED — a cosmetic new Orphan() or a hardcoded value cannot
+        // pass). Default-OFF => Guard 4e never entered => the judge is byte-identical.
+        'refactor_wired_proof' => (bool) env('ATLAS_LOOP_REFACTOR_WIRED_PROOF', false),
         'park_escalation_enabled' => (bool) env('ATLAS_LOOP_PARK_ESCALATION_ENABLED', true),
         'territory_ladder_enabled' => (bool) env('ATLAS_LOOP_TERRITORY_LADDER_ENABLED', true),
         'drift_restart_debounce_enabled' => (bool) env('ATLAS_LOOP_DRIFT_RESTART_DEBOUNCE_ENABLED', true),
