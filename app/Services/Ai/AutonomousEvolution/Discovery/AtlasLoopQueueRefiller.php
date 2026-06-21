@@ -1158,15 +1158,20 @@ final class AtlasLoopQueueRefiller
                 // blocked step 1 and STARVED the loop into idling on its own untested files — the loop must
                 // keep evolving (test → refactor across the whole codebase), never idle. Fail-OPEN (allow
                 // coverage) on any query hiccup: doing real verification work beats idling.
+                // Only a CONCRETELY-shaped substantive target blocks coverage — shape PRESENT and not the
+                // coverage shape. A null/unclassified shape must NOT count: those route through the rédea/driver
+                // which routinely DEFERS them (no leap / proxy), so they never mint — and if allowed to block
+                // coverage, an unmintable null-shape backlog would DEADLOCK every coverage target forever (the
+                // exact 26-coverage-starved-by-11-null-shape idle observed live). Excluding null means: when
+                // only coverage + unmintable-null targets remain, the loop DOES the coverage (test-then-refactor
+                // step 1) instead of idling on its own untested files.
                 try {
                     $substantiveTargetAvailable = AtlasLoopTarget::query()
                         ->where('campaign_id', $campaign->id)
                         ->whereIn('status', [AtlasLoopTarget::STATUS_CANDIDATE, AtlasLoopTarget::STATUS_QUEUED])
                         ->where('target_path', '!=', $target->target_path)
-                        ->where(function ($q): void {
-                            $q->whereNull('signals->shape')
-                                ->orWhere('signals->shape', '!=', AtlasLoopCoverageDeficitSource::SHAPE);
-                        })
+                        ->whereNotNull('signals->shape')
+                        ->where('signals->shape', '!=', AtlasLoopCoverageDeficitSource::SHAPE)
                         ->exists();
                 } catch (Throwable) {
                     $substantiveTargetAvailable = false; // fail-open: allow coverage rather than idle

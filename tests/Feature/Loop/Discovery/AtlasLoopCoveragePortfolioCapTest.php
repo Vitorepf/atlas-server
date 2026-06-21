@@ -203,4 +203,43 @@ final class AtlasLoopCoveragePortfolioCapTest extends TestCase
         // never idle. This is the fix for the loop starving itself on its own untested files.
         $this->assertNotSame('deferred', $this->coverageOutcomeWith(AtlasLoopCoverageDeficitSource::SHAPE));
     }
+
+    public function test_null_or_unclassified_shape_targets_do_not_block_coverage(): void
+    {
+        // REGRESSION (live deadlock): 26 coverage targets + 11 null-shape targets ⇒ the null-shape ones route
+        // through the driver, which DEFERS them, so they never mint; if a null shape counted as "substantive
+        // available" it would block every coverage target FOREVER → permanent idle. A null/unclassified shape
+        // must NOT block coverage — only a concretely refactor-shaped target does.
+        config([
+            'atlas.loop.characterization_test_lane_enabled' => true,
+            'atlas.loop.coverage_portfolio_gate_enabled' => true,
+            'atlas.loop.coverage_relative_to_substantive' => true,
+            'atlas.loop.coverage_characterization_max_per_refill' => 99,
+        ]);
+        $refiller = app(AtlasLoopQueueRefiller::class);
+        $counter = new ReflectionProperty($refiller, 'coverageMintedThisRefill');
+        $counter->setAccessible(true);
+        $counter->setValue($refiller, 0);
+        $m = new ReflectionMethod($refiller, 'tryCoverageDeficitCharacterization');
+        $m->setAccessible(true);
+
+        $c = $this->campaign();
+        // an open target with NO shape key (unclassified / null) — must not block coverage.
+        \App\Models\AtlasLoopTarget::query()->create([
+            'campaign_id' => $c->id,
+            'schema_version' => 'atlas.loop.target.v1',
+            'target_path' => 'app/Svc/Unclassified.php',
+            'target_key' => hash('sha256', $c->id.'|unclassified'),
+            'content_hash' => 'h0',
+            'status' => \App\Models\AtlasLoopTarget::STATUS_CANDIDATE,
+            'score' => 0.9,
+            'novelty_score' => 1.0,
+            'signals' => ['cyclomatic' => 9], // no 'shape' key
+            'attempts' => 0,
+            'max_attempts' => 3,
+        ]);
+        $t = $this->target($c);
+        $outcome = (string) $m->invoke($refiller, $c, $t, ['shape' => AtlasLoopCoverageDeficitSource::SHAPE], '', $this->tmpSource);
+        $this->assertNotSame('deferred', $outcome, 'null-shape backlog must NOT deadlock coverage');
+    }
 }
