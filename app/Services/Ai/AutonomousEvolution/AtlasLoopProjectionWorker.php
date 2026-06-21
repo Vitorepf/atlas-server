@@ -83,6 +83,16 @@ final class AtlasLoopProjectionWorker
             // protects them and a high-fan-out target parks). Fail-OPEN to the scripted roles: a missing
             // model / unresolved target never blocks a projection, it just falls back to the v1 floor.
             $grounded = $this->groundedRolesFor($repoRoot, $this->targetSymbol($envelope));
+
+            // §3 PÉTREO CONSTITUTION GUARD — the architect phase refuses to project a change to a cert organ
+            // (frozen judge / projection engine / harness guard). Park it explicitly, mint no task: the loop
+            // must never design its way into weakening the gate that judges it.
+            if (($grounded['forbidden'] ?? false) === true) {
+                $pipeline->park($objectiveId, 'forbidden_target_petreo');
+
+                return ['outcome' => 'parked', 'objective_id' => $objectiveId, 'status' => 'parked', 'reason' => 'forbidden_target_petreo'];
+            }
+
             $designer = $grounded['designer'] ?? $this->designerFor($bindingAxis, $envelope);
             $critic = $grounded['critic'] ?? $this->criticClosure();
 
@@ -144,7 +154,7 @@ final class AtlasLoopProjectionWorker
 
             $roles = (new AtlasLoopGroundedProjectionRoles($model))->forTarget($target);
 
-            return ['designer' => $roles['designer'], 'critic' => $roles['critic'], 'consumers' => $roles['consumers'] ?? []];
+            return ['designer' => $roles['designer'], 'critic' => $roles['critic'], 'consumers' => $roles['consumers'] ?? [], 'forbidden' => (bool) ($roles['forbidden'] ?? false)];
         } catch (Throwable) {
             return []; // grounded phase is best-effort; never let a model failure block a projection
         }

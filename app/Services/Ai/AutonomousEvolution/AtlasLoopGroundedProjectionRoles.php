@@ -50,12 +50,13 @@ final class AtlasLoopGroundedProjectionRoles
      * keys they emit collide exactly with what the engine stores.
      *
      * @param  string  $relTarget  the evolution's target file (the producer envelope's target_path)
-     * @return array{designer: callable(int, list<array<string,mixed>>): list<array<string,mixed>>, critic: callable(list<array<string,mixed>>): array{add: list<array<string,mixed>>, resolved: list<string>}, consumer_count: int, consumers: list<string>}
+     * @return array{designer: callable(int, list<array<string,mixed>>): list<array<string,mixed>>, critic: callable(list<array<string,mixed>>): array{add: list<array<string,mixed>>, resolved: list<string>}, consumer_count: int, consumers: list<string>, forbidden: bool}
      */
     public function forTarget(string $relTarget): array
     {
         $engine = new AtlasLoopProjectionEngine;
         $target = $this->norm($relTarget);
+        $forbidden = $this->isForbiddenTarget($relTarget);
         $realMutop = (string) array_key_first(AtlasLoopMutationOperators::map());
         $originalConsumers = $this->realConsumerPaths($relTarget);
         $consumers = array_map(fn (string $c): string => $this->norm($c), $originalConsumers);
@@ -118,7 +119,30 @@ final class AtlasLoopGroundedProjectionRoles
             return ['add' => [], 'resolved' => array_keys($raised)];
         };
 
-        return ['designer' => $designer, 'critic' => $critic, 'consumer_count' => count($consumers), 'consumers' => $originalConsumers];
+        return ['designer' => $designer, 'critic' => $critic, 'consumer_count' => count($consumers), 'consumers' => $originalConsumers, 'forbidden' => $forbidden];
+    }
+
+    /**
+     * Is the evolution target a pétreo/FORBIDDEN cert organ (the frozen judge, the projection engine, the
+     * harness guard, …)? The model's `forbidden` set IS {@see AtlasLoopHarnessGuard::isForbiddenSelfTarget}.
+     * A principal engineer never designs a change to the gate that judges them — so the architect phase must
+     * refuse to project one (the worker parks it explicitly), not rely on the incidental caller fan-out of a
+     * heavily-used organ. This is the design-time mirror of the cert-time harness guard: the constitution
+     * holds at BOTH ends, so the loop can never improve its way into sawing off the branch it sits on.
+     */
+    private function isForbiddenTarget(string $relTarget): bool
+    {
+        $targetNorm = $this->norm($relTarget);
+        if ($targetNorm === '') {
+            return false;
+        }
+        foreach ($this->model->forbidden as $forbidden) {
+            if ($this->norm((string) $forbidden) === $targetNorm) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

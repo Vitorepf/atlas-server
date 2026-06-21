@@ -98,10 +98,26 @@ final class AtlasLoopGroundedProjectionRolesTest extends TestCase
         $this->assertSame(12, $roles['consumer_count']);
     }
 
+    public function test_a_forbidden_cert_organ_target_is_flagged_petreo_for_the_worker_to_park(): void
+    {
+        // The architect phase must refuse to design a change to a cert organ EVEN when it has few callers —
+        // not rely on the incidental fan-out of a heavily-used one. A forbidden target is flagged so the
+        // worker parks it explicitly (the design-time mirror of the cert-time harness guard).
+        $target = 'app/Services/Ai/AutonomousEvolution/AtlasEvolutionFrozenJudge.php';
+        $model = $this->model($target, ['app/Services/Ai/AutonomousEvolution/OneCaller.php'], forbidden: [$target]);
+        $roles = (new AtlasLoopGroundedProjectionRoles($model))->forTarget($target);
+
+        $this->assertTrue($roles['forbidden'], 'a pétreo cert-organ target is flagged forbidden regardless of fan-out');
+        // a non-forbidden target with the same fan-out is NOT flagged.
+        $clean = (new AtlasLoopGroundedProjectionRoles($this->model('app/Services/Ai/AutonomousEvolution/Plain.php', ['app/Services/Ai/AutonomousEvolution/OneCaller.php'])))->forTarget('app/Services/Ai/AutonomousEvolution/Plain.php');
+        $this->assertFalse($clean['forbidden']);
+    }
+
     /**
      * @param  list<string>  $callers
+     * @param  list<string>  $forbidden
      */
-    private function model(string $target, array $callers): AtlasLoopScopeComprehensionModel
+    private function model(string $target, array $callers, array $forbidden = []): AtlasLoopScopeComprehensionModel
     {
         $paths = array_values(array_unique(array_merge([$target], $callers)));
         $inventory = array_map(static fn (string $p): array => [
@@ -109,7 +125,7 @@ final class AtlasLoopGroundedProjectionRolesTest extends TestCase
             'fqcn' => 'App\\'.str_replace('/', '\\', substr($p, 0, -4)),
             'public_methods' => ['run'],
             'is_orphan' => false,
-            'is_forbidden' => false,
+            'is_forbidden' => in_array($p, $forbidden, true),
             'clone_cluster_id' => null,
         ], $paths);
 
@@ -118,7 +134,7 @@ final class AtlasLoopGroundedProjectionRolesTest extends TestCase
             edges: [$target => $callers],
             orphans: [],
             cloneClusters: [],
-            forbidden: [],
+            forbidden: $forbidden,
             docPurposes: [],
             docStatedGaps: [],
             snapshotId: hash('sha256', $target.implode('', $callers)),

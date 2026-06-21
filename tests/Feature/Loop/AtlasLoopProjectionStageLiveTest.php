@@ -357,6 +357,33 @@ final class AtlasLoopProjectionStageLiveTest extends TestCase
         $this->assertContains(strtolower($caller), $consumerTargets, 'the grounded contract protects the real caller');
     }
 
+    public function test_armed_grounded_phase_parks_a_petreo_cert_organ_target_and_mints_no_task(): void
+    {
+        // §3 constitution guard: the architect phase refuses to project a change to a forbidden cert organ —
+        // it PARKS explicitly and mints no task, so the loop can never design its way into weakening its judge.
+        config()->set('atlas.loop.grounded_projection_enabled', true);
+        $campaign = $this->store()->openCampaign('S2 petreo park', $this->repoRoot, ['max_seconds' => 3600], [], '');
+        $pipeline = new AtlasLoopDeliveryPipeline;
+        $target = 'app/Services/Ai/AutonomousEvolution/AtlasEvolutionFrozenJudge.php';
+
+        $pipeline->dispatchProjection($campaign->id, 'obj-petreo', 0.9, [
+            'built' => ['objective' => 'x', 'payload' => ['objective_kind' => 'refactor_reduce_complexity', 'target_repo_path' => $target, 'acceptance' => ['commands' => ['./vendor/bin/phpunit']]], 'acceptance_hash' => 'hash-petreo', 'target_path' => $target, 'self_contained' => true, 'leverage' => 0.9],
+            'repoRoot' => $this->repoRoot,
+            'priority' => 4100,
+            'real_target_id' => 'target-petreo',
+        ]);
+        $row = $pipeline->claimNextProjection($campaign->id, 'worker-A', 300);
+        $this->assertIsArray($row);
+
+        // A fixture model that marks the target forbidden (the real model gets it from the harness guard).
+        $worker = new AtlasLoopProjectionWorker($this->store(), $pipeline, new AtlasLoopProjectionEngine, $this->fixedAxis('wired'), $this->forbiddenModel($target));
+        $outcome = $worker->process($row);
+
+        $this->assertSame('parked', $outcome['outcome']);
+        $this->assertSame('forbidden_target_petreo', $outcome['reason']);
+        $this->assertSame(0, DB::table('atlas_loop_tasks')->where('campaign_id', $campaign->id)->count(), 'a pétreo cert-organ target never becomes work');
+    }
+
     public function test_grounded_phase_off_is_byte_identical_to_the_scripted_floor(): void
     {
         // Flag OFF (default) ⇒ the worker uses the scripted roles even with a model injected: the minted
@@ -385,6 +412,17 @@ final class AtlasLoopProjectionStageLiveTest extends TestCase
     }
 
     // --- fixtures / wiring ---
+
+    /** A fixture comprehension model that marks $target pétreo/forbidden (a cert organ). */
+    private function forbiddenModel(string $target): AtlasLoopScopeComprehensionModel
+    {
+        return new AtlasLoopScopeComprehensionModel(
+            inventory: [['rel_path' => $target, 'fqcn' => 'App\\Frozen', 'public_methods' => ['run'], 'is_orphan' => false, 'is_forbidden' => true, 'clone_cluster_id' => null]],
+            edges: [$target => ['app/Services/Ai/AutonomousEvolution/OneCaller.php']],
+            orphans: [], cloneClusters: [], forbidden: [$target], docPurposes: [], docStatedGaps: [],
+            snapshotId: hash('sha256', $target),
+        );
+    }
 
     /** A fixture comprehension model whose edges give $target the given real callers. */
     private function fixtureModel(string $target, array $callers): AtlasLoopScopeComprehensionModel
