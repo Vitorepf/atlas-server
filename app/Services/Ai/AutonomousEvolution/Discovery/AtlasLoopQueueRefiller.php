@@ -466,6 +466,12 @@ final class AtlasLoopQueueRefiller
         // Flag OFF => returns 0 before any model build (refill byte-identical to today). Wrapped fail-open.
         $enqueued += $this->tryDedupSupply($campaign, $provider, $repoRoot, $want);
 
+        // §5.6 ORPHAN-WIRING SUPPLY LANE (default-OFF, fail-open): the BRAIN drives selection — the comprehension
+        // model's ORPHANS (tested, built-but-unwired capabilities the proxy scan never surfaces) become wiring
+        // DIRECTIVES the grinder routes to AtlasLoopOrphanWiringExecutionAdapter (engine authors the earned-RED
+        // test + wiring; Guard 4e certifies). Flag OFF => returns 0 before any model build (byte-identical).
+        $enqueued += $this->tryOrphanWiringSupply($campaign, $provider, $repoRoot, $want);
+
         // OBRA CANDIDATE PRODUCER (slice-1, default-OFF, fail-open): after discovery+enqueue,
         // scan the SAME claimed targets for high-leverage multi-file HUB clusters and park them
         // as operator-review obra CANDIDATES. It enqueues NO loop task, calls NO provider,
@@ -812,6 +818,127 @@ final class AtlasLoopQueueRefiller
         $this->stampLastObjective($target, (string) ($spec['objective'] ?? ''));
 
         $ok = $this->completeTargetEnqueue($target, $enq, 'dedup_supply_unification') === 'enqueued';
+        if (! $ok) {
+            $target->forceFill([
+                'status' => $priorStatus,
+                'claimed_by' => null,
+                'claimed_at' => null,
+                'lease_expires_at' => null,
+            ])->save();
+        }
+
+        return $ok;
+    }
+
+    /**
+     * §5.6 ORPHAN-WIRING supply lane (mirrors {@see tryDedupSupply}). The comprehension model's ORPHANS become
+     * wiring DIRECTIVES — net-new work the proxy scan can't surface (an unwired class has no high cyclomatic /
+     * missing-coverage signal; it simply isn't called). Flag OFF => no model build, no mint (byte-identical).
+     * Fail-open: it can NEVER break a refill.
+     */
+    private function tryOrphanWiringSupply(AtlasLoopCampaign $campaign, string $provider, string $repoRoot, int $want): int
+    {
+        if (! (bool) config('atlas.loop.orphan_wiring_supply_enabled', false)) {
+            return 0;
+        }
+
+        try {
+            $cap = max(1, min(max(1, $want), (int) config('atlas.loop.orphan_wiring_supply_max_per_refill', 2)));
+            $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard;
+            $builder = new AtlasLoopScopeComprehensionModelBuilder;
+            $lane = new AtlasLoopOrphanWiringSupplyLane;
+
+            $minted = 0;
+            foreach ((array) config('atlas.loop.campaign.discovery_roots', ['app/Services']) as $root) {
+                if ($minted >= $cap) {
+                    break;
+                }
+                $root = trim(str_replace('\\', '/', (string) $root), '/');
+                if ($root === '' || ! is_dir($repoRoot.'/'.$root)) {
+                    continue;
+                }
+                $model = $builder->build($repoRoot, $root, ['docs_roots' => []]);
+                $this->touchHeartbeat($campaign);
+                foreach ($lane->mint($model, $repoRoot) as $spec) {
+                    if ($minted >= $cap) {
+                        break;
+                    }
+                    $anchor = (string) (array_values(array_filter((array) ($spec['members'] ?? []), 'is_string'))[0] ?? '');
+                    if ($anchor === '' || $guard->isForbiddenSelfTarget($anchor)) {
+                        continue;
+                    }
+                    // CONFLICT GUARD: no two workers on the orphan file at once.
+                    if ($this->fileHasInflightTask((string) $campaign->id, $anchor)) {
+                        continue;
+                    }
+                    if ($this->mintOrphanWiringTask($campaign, $spec, $repoRoot)) {
+                        $minted++;
+                    }
+                    $this->touchHeartbeat($campaign);
+                }
+            }
+
+            return $minted;
+        } catch (Throwable) {
+            return 0; // fail-open: the orphan-wiring lane can never break a refill
+        }
+    }
+
+    /**
+     * Enqueue ONE orphan-wiring DIRECTIVE (source='orphan_wiring') anchored on the orphan file. Unlike the dedup
+     * task, the acceptance is NOT pre-baked — the grinder's orphan-wiring route + the engine author the earned-RED
+     * test and the wiring; Guard 4e is the sole authority on whether the wiring is real. Restore the row on a
+     * non-live enqueue. Fail-closed: any error => false.
+     */
+    private function mintOrphanWiringTask(AtlasLoopCampaign $campaign, array $spec, string $repoRoot): bool
+    {
+        $anchor = (string) (array_values(array_filter((array) ($spec['members'] ?? []), 'is_string'))[0] ?? '');
+        if ($anchor === '') {
+            return false;
+        }
+
+        $contentHash = hash('sha256', (string) @file_get_contents($repoRoot.'/'.$anchor));
+        $target = $this->repository->upsert(
+            (string) $campaign->id,
+            $anchor,
+            $contentHash,
+            [
+                'score' => 0.5,
+                'self_contained' => 0.0,
+                'improvement' => 1.0,
+                'novelty' => 0.5,
+                'signals' => ['orphan_wiring_supply' => true, 'orphan_path' => $anchor],
+            ],
+            ['origin' => AtlasLoopTarget::ORIGIN_DISCOVERY],
+        );
+        $priorStatus = (string) $target->status;
+        $target->forceFill([
+            'status' => AtlasLoopTarget::STATUS_CLAIMED,
+            'claimed_by' => 'orphan_wiring_supply',
+            'claimed_at' => now(),
+            'lease_expires_at' => now()->addSeconds(600),
+        ])->save();
+
+        $payload = is_array($spec['payload'] ?? null) ? $spec['payload'] : [];
+        $payload['_target_id'] = (string) $target->id;
+        $dp = $this->decidedPriority($campaign, $target, ['orphan_wiring_supply' => true], $repoRoot, AtlasLoopWorkShapeRouter::SHAPE_REFACTOR);
+        if ($dp['receipt'] !== []) {
+            $payload['_decision'] = $dp['receipt'];
+        }
+
+        $enq = $this->store->enqueueTask(
+            (string) $campaign->id,
+            (string) ($spec['objective'] ?? ''),
+            $payload,
+            'orphan_wiring',
+            $anchor,
+            $dp['priority'],
+            false,
+            '',
+        );
+        $this->stampLastObjective($target, (string) ($spec['objective'] ?? ''));
+
+        $ok = $this->completeTargetEnqueue($target, $enq, 'orphan_wiring_supply_directive') === 'enqueued';
         if (! $ok) {
             $target->forceFill([
                 'status' => $priorStatus,

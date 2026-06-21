@@ -1979,6 +1979,13 @@ return [
         // orphan's methods turns a frozen command RED — a cosmetic new Orphan() or a hardcoded value cannot
         // pass). Default-OFF => Guard 4e never entered => the judge is byte-identical.
         'refactor_wired_proof' => (bool) env('ATLAS_LOOP_REFACTOR_WIRED_PROOF', false),
+        // §5.6 ORPHAN-WIRING supply lane — when ON, the refiller mints wiring directives from the comprehension
+        // model's tested orphans, and the grinder routes them to the orphan-wiring executor. Default-OFF =>
+        // no model build, no mint, no route (byte-identical). Co-gated with refactor_wired_proof (the cert) +
+        // orphan_wiring_execution_enabled (the live engine route).
+        'orphan_wiring_supply_enabled' => (bool) env('ATLAS_LOOP_ORPHAN_WIRING_SUPPLY_ENABLED', false),
+        'orphan_wiring_supply_max_per_refill' => (int) env('ATLAS_LOOP_ORPHAN_WIRING_SUPPLY_MAX_PER_REFILL', 2),
+        'orphan_wiring_execution_enabled' => (bool) env('ATLAS_LOOP_ORPHAN_WIRING_EXECUTION_ENABLED', false),
         'park_escalation_enabled' => (bool) env('ATLAS_LOOP_PARK_ESCALATION_ENABLED', true),
         'territory_ladder_enabled' => (bool) env('ATLAS_LOOP_TERRITORY_LADDER_ENABLED', true),
         'drift_restart_debounce_enabled' => (bool) env('ATLAS_LOOP_DRIFT_RESTART_DEBOUNCE_ENABLED', true),
