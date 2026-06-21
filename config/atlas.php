@@ -1937,6 +1937,18 @@ return [
         // sub-refactors a single multi-method complex file may flood into one refill. Each sub-target is
         // material-by-construction (cyclomatic >= material_refactor_min_cyclomatic); this only bounds the count.
         'decompose_max_subtargets' => max(1, (int) env('ATLAS_LOOP_DECOMPOSE_MAX_SUBTARGETS', 8)),
+        // NET-NEW MATERIAL SUPPLY LANE (AtlasLoopQueueRefiller decompose lane). The loop surfaces ONE refactor
+        // per complex file (its worst method); after refactoring ~the first wave of files it runs out of
+        // single-objective substantive targets and fills every refill with coverage. A per-method census shows
+        // many more material refactor methods (cyclomatic >= material_refactor_min_cyclomatic) still untapped in
+        // those same multi-method files. When this flag is ON, the refiller drains that untapped material supply:
+        // for each complex file in the discovery scope with NO in-flight task it re-mints a governed refactor
+        // task (the SAME framework-refactor synthesizer + complexity-proof cert as a normal refactor — never a
+        // proxy, never coverage), serialized at most ONE in-flight task per file so two workers never grind the
+        // same file. Default-OFF: with it off refill() is byte-identical to today (the lane early-returns before
+        // any work). The per-file count is bounded by decompose_supply_max_files_per_refill.
+        'decompose_supply_enabled' => (bool) env('ATLAS_LOOP_DECOMPOSE_SUPPLY_ENABLED', false),
+        'decompose_supply_max_files_per_refill' => max(1, (int) env('ATLAS_LOOP_DECOMPOSE_SUPPLY_MAX_FILES_PER_REFILL', 8)),
         'obra_earned_red_enabled' => (bool) env('ATLAS_LOOP_OBRA_EARNED_RED_ENABLED', true),
         'comprehension_grounding_gate_enabled' => (bool) env('ATLAS_LOOP_COMPREHENSION_GROUNDING_GATE_ENABLED', true),
         'external_research_enabled' => (bool) env('ATLAS_LOOP_EXTERNAL_RESEARCH_ENABLED', true),

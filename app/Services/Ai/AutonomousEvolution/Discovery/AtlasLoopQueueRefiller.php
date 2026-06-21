@@ -64,6 +64,11 @@ final class AtlasLoopQueueRefiller
         // pipeline arg, which is also not passed by the AppServiceProvider DI binding), so existing
         // refiller constructions (18 positional args) stay valid and the harvester self-resolves.
         private readonly ?SuiteRedTestHandleHarvester $failureHandleHarvester = null,
+        // NET-NEW MATERIAL SUPPLY: the per-method complexity decomposer that finds the UNTAPPED material
+        // refactor methods (cyclomatic >= the material bar) the single-objective lane abandons. Nullable +
+        // lazily resolved in the lane (mirrors the harvester/pipeline args, also not DI-passed), so every
+        // existing positional refiller construction stays valid and the decomposer self-resolves.
+        private readonly ?AtlasLoopComplexTargetDecomposer $complexTargetDecomposer = null,
     ) {}
 
     /** C — characterization/coverage tasks minted in the CURRENT refill (reset each refill); the portfolio cap. */
@@ -439,6 +444,19 @@ final class AtlasLoopQueueRefiller
             $this->touchHeartbeat($campaign);
         }
 
+        // NET-NEW MATERIAL SUPPLY LANE (default-OFF, fail-open): the per-target claim loop above mints at
+        // most ONE refactor per file (its worst method). After the first wave of files, single-objective
+        // substantive supply runs dry and the loop fills every refill with coverage — yet the SAME
+        // multi-method complex files still hold many untapped material methods (cyclomatic >= the material
+        // bar). This lane drains that supply: for each complex file in the discovery scope with NO in-flight
+        // task it re-mints a governed refactor task (the SAME framework-refactor synthesizer + complexity-proof
+        // cert as a normal refactor; never proxy, never coverage), serialized at most ONE in-flight task per
+        // file. It runs AFTER the per-target lanes so substantive single-objective work is preferred and
+        // BEFORE coverage would dominate (coverage is minted in the per-target loop, so re-running discovery
+        // is not needed; the cap below prefers material over the next refill's coverage). Flag OFF => the
+        // method early-returns 0 (refill byte-identical to today). Wrapped fail-open: it can NEVER break a refill.
+        $enqueued += $this->tryDecomposeMaterialSupply($campaign, $provider, $repoRoot, $want);
+
         // OBRA CANDIDATE PRODUCER (slice-1, default-OFF, fail-open): after discovery+enqueue,
         // scan the SAME claimed targets for high-leverage multi-file HUB clusters and park them
         // as operator-review obra CANDIDATES. It enqueues NO loop task, calls NO provider,
@@ -478,6 +496,253 @@ final class AtlasLoopQueueRefiller
         }
 
         return $result;
+    }
+
+    /**
+     * NET-NEW MATERIAL SUPPLY LANE — drain the UNTAPPED material refactor methods the single-objective lane
+     * abandons. The per-target loop mints ONE refactor per file (its worst method); after the first wave of
+     * files, substantive single-objective supply runs dry and the loop fills every refill with coverage —
+     * yet those SAME multi-method complex files still hold many methods at/above the loop's own material bar.
+     * For each complex file in the discovery scope this lane re-mints a governed refactor task through the
+     * EXACT framework-refactor synthesizer + enqueue path the per-target lane uses (so the acceptance,
+     * complexity-proof and cert are byte-identical to a normal refactor; it is material-by-construction —
+     * the file qualifies ONLY because the decomposer found a method >= the material bar, never proxy, never
+     * coverage). Returns the number of NEW tasks minted (added to the refill's enqueued count).
+     *
+     * CONFLICT-FREE: it mints AT MOST ONE in-flight task per file — a file with any existing pending/claimed/
+     * running task is skipped — so two workers never grind the same file (worktree conflict) and same-file
+     * work is serialized across cycles. The framework synthesizer re-mints fine: it certifies on ANY complex
+     * method's reduction (total decisions + max-gate), so a still-complex already-touched file is valid supply.
+     *
+     * GATING: flag-gated default-OFF (config decompose_supply_enabled). With the flag OFF this method
+     * RETURNS 0 IMMEDIATELY before touching anything, so {@see refill()} is byte-identical to today (the call
+     * site only adds 0 to $enqueued). The whole body is wrapped fail-open so it can NEVER break a refill.
+     */
+    private function tryDecomposeMaterialSupply(AtlasLoopCampaign $campaign, string $provider, string $repoRoot, int $want): int
+    {
+        // BYTE-IDENTICAL GUARD: OFF => no work, no DB read, no glob — refill() is exactly today's behaviour.
+        if (! (bool) config('atlas.loop.decompose_supply_enabled', false)) {
+            return 0;
+        }
+
+        try {
+            $decomposer = $this->complexTargetDecomposer ?? new AtlasLoopComplexTargetDecomposer;
+            $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard;
+            $materialMin = max(1, (int) config('atlas.loop.material_refactor_min_cyclomatic', 12));
+            // Bound how many files this lane mints per refill (the want/refill ceiling AND a hard cap), so a
+            // huge codebase cannot flood one refill — same spirit as the coverage portfolio cap.
+            $cap = max(1, min(
+                max(1, $want),
+                (int) config('atlas.loop.decompose_supply_max_files_per_refill', 8),
+            ));
+
+            $minted = 0;
+            foreach ($this->discoveryScopeFiles($repoRoot) as $relPath) {
+                if ($minted >= $cap) {
+                    break;
+                }
+                // PETREO: never re-mint a forbidden self-target (belt-and-suspenders; the synthesizer rejects
+                // it too, but skip early so the lane spends no work on it).
+                if ($guard->isForbiddenSelfTarget($relPath)) {
+                    continue;
+                }
+                // CONFLICT GUARD: at most ONE in-flight task per file — skip a file already being ground so two
+                // workers never collide on the same worktree, and same-file work is serialized across cycles.
+                if ($this->fileHasInflightTask((string) $campaign->id, $relPath)) {
+                    continue;
+                }
+
+                $source = $repoRoot.'/'.$relPath;
+                $body = @file_get_contents($source);
+                if (! is_string($body) || trim($body) === '') {
+                    continue;
+                }
+
+                // The decomposer IS the untapped-supply detector: a non-empty result means >=1 method at/above
+                // the material bar. Worst method first; its cyclomatic + name aim the synthesizer surgically.
+                $subs = $decomposer->decompose($relPath, $body, 1);
+                if ($subs === []) {
+                    continue; // fail-closed: no method clears the material bar => not supply (never proxy)
+                }
+                $worst = $subs[0];
+                $worstMethod = (string) ($worst['method'] ?? '');
+                $cyclomatic = (int) ($worst['cyclomatic'] ?? 0);
+                if ($cyclomatic < $materialMin) {
+                    continue; // defensive: the decomposer already enforces this, but the bar is load-bearing
+                }
+
+                if ($this->mintDecomposeRefactorTask($campaign, $relPath, $worstMethod, $cyclomatic, $provider, $repoRoot)) {
+                    $minted++;
+                }
+                $this->touchHeartbeat($campaign); // liveness: a scope scan + synth per file can take a while
+            }
+
+            return $minted;
+        } catch (Throwable) {
+            return 0; // fail-open: the material-supply lane can never break a refill
+        }
+    }
+
+    /**
+     * Enqueue ONE governed refactor task for a complex file through the SAME framework-refactor synthesizer
+     * + enqueue + completeTargetEnqueue path the per-target lane uses, so the acceptance + complexity-proof
+     * cert are identical to a normal refactor. The supply signals (worst method + its cyclomatic) aim the
+     * synthesizer exactly as discovery's stamped signals do. A real candidate target row is upserted (so the
+     * task has a live _target_id for loop-back and same-file serialization) and CLAIMED before the enqueue so
+     * completeTargetEnqueue's QUEUED transition is valid. The task carries source='decompose' +
+     * decompose_supply=true for provenance; everything else mirrors tryFrameworkRefactor exactly. Returns true
+     * only when a live task was minted. Fail-closed: a null synth / non-live enqueue / any error => false.
+     */
+    private function mintDecomposeRefactorTask(AtlasLoopCampaign $campaign, string $relPath, string $worstMethod, int $cyclomatic, string $provider, string $repoRoot): bool
+    {
+        // Aim the synthesizer with the same signal shape discovery stamps (cyclomatic + worst_method); this is
+        // ALSO the per-method complexity that makes the refactor material-by-construction.
+        $signals = [
+            'cyclomatic' => $cyclomatic,
+            'worst_method' => $worstMethod,
+            'decompose_supply' => true,
+        ];
+
+        // Upsert a real candidate target for this file (idempotent: an already-discovered candidate is just
+        // refreshed, a non-candidate keeps its historical state) so the minted task has a live _target_id and
+        // same-file work stays serialized through the normal target lifecycle.
+        $contentHash = hash('sha256', (string) @file_get_contents($repoRoot.'/'.$relPath));
+        $target = $this->repository->upsert(
+            (string) $campaign->id,
+            $relPath,
+            $contentHash,
+            [
+                'score' => 0.5,
+                'self_contained' => 1.0,
+                'improvement' => 1.0,
+                'novelty' => 0.5,
+                'signals' => $signals,
+            ],
+            ['origin' => AtlasLoopTarget::ORIGIN_DISCOVERY],
+        );
+        // The conflict guard (the in-flight-TASK check in the caller) is the real same-file serializer, so the
+        // lane is the authority on a file that has untapped material methods and NO live task — REGARDLESS of
+        // the target row's current status. The per-target pass routinely consumes this same row (e.g. it
+        // quarantines a complex file when the per-target refactor lanes are inert, or queues it for its WORST
+        // method only); the row's OTHER material methods are still untapped supply. So revive the row to drive
+        // the new refactor: remember its prior status, claim it (so completeTargetEnqueue's markStatus(QUEUED)
+        // is valid), and restore the prior status untouched if no task is minted (never thrash its attempts).
+        $priorStatus = (string) $target->status;
+        $target->forceFill([
+            'status' => AtlasLoopTarget::STATUS_CLAIMED,
+            'claimed_by' => 'decompose_supply',
+            'claimed_at' => now(),
+            'lease_expires_at' => now()->addSeconds(600),
+        ])->save();
+
+        // Synthesize via the framework-refactor synthesizer (the right tool for ANY file with a PHPUnit
+        // anchor — framework-reach AND pure-logic), falling back to the Phase-1 plain-`php` synthesizer for a
+        // require-style sibling. Either way the acceptance carries complexity_proof so the cert is identical
+        // to a normal refactor. Null (no real behaviour anchor / below floor) => no proxy reaches the queue.
+        $synth = ($this->frameworkRefactorSynthesizer ?? new AtlasLoopFrameworkRefactorSynthesizer)
+            ->synthesizeFrameworkRefactor($repoRoot, $relPath, $signals, $provider, (string) $target->id);
+        if ($synth === null && $this->refactorSynthesizer !== null) {
+            $synth = $this->refactorSynthesizer->synthesize($repoRoot, $relPath, $signals, $provider, (string) $target->id);
+        }
+        if ($synth === null) {
+            // No honest anchor for this file (no sibling test / below floor / not wired) — restore the row to
+            // exactly the status the lane found it in, with no attempt bump, so the lane is a pure no-op on a
+            // file it cannot honestly mint for.
+            $target->forceFill([
+                'status' => $priorStatus,
+                'claimed_by' => null,
+                'claimed_at' => null,
+                'lease_expires_at' => null,
+            ])->save();
+
+            return false;
+        }
+
+        $dp = $this->decidedPriority($campaign, $target, $signals, $repoRoot, AtlasLoopWorkShapeRouter::SHAPE_REFACTOR);
+        $payload = $synth['payload'];
+        $payload['decompose_supply'] = true; // provenance: this refactor came from the material-supply lane
+        if ($dp['receipt'] !== []) {
+            $payload['_decision'] = $dp['receipt'];
+        }
+        $payload = $this->withSelfImprovementMarker($payload, $signals);
+        $enq = $this->store->enqueueTask(
+            (string) $campaign->id,
+            (string) $synth['objective'],
+            $payload,
+            'decompose',
+            $relPath,
+            $dp['priority'],
+            true,
+            (string) $synth['acceptance_hash'],
+        );
+        $this->stampLastObjective($target, (string) $synth['objective']);
+
+        return $this->completeTargetEnqueue($target, $enq, 'decompose_supply_refactor_synthesized') === 'enqueued';
+    }
+
+    /**
+     * The set of .php files under the campaign's discovery scope (the SAME roots discovery scans —
+     * config atlas.loop.campaign.discovery_roots under the campaign's base workspace), so the material-supply
+     * lane mines exactly the territory discovery covers. Deterministic order (roots in declared order, files
+     * sorted) so a re-run is stable. Returns repo-relative paths.
+     *
+     * @return list<string>
+     */
+    private function discoveryScopeFiles(string $repoRoot): array
+    {
+        $roots = (array) config('atlas.loop.campaign.discovery_roots', ['app/Services']);
+        $out = [];
+        $seen = [];
+        foreach ($roots as $root) {
+            $root = trim((string) $root, "/ \t\n\r\0\x0B");
+            if ($root === '') {
+                continue;
+            }
+            $absRoot = $repoRoot.'/'.$root;
+            if (! is_dir($absRoot)) {
+                continue;
+            }
+            $found = [];
+            $it = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($absRoot, \FilesystemIterator::SKIP_DOTS),
+            );
+            foreach ($it as $file) {
+                if (! $file instanceof \SplFileInfo || ! $file->isFile() || $file->getExtension() !== 'php') {
+                    continue;
+                }
+                $abs = $file->getPathname();
+                if (! str_starts_with($abs, $repoRoot.'/')) {
+                    continue;
+                }
+                $found[] = ltrim(substr($abs, strlen($repoRoot) + 1), '/');
+            }
+            sort($found); // stable, deterministic per-root order
+            foreach ($found as $rel) {
+                if ($rel !== '' && ! isset($seen[$rel])) {
+                    $seen[$rel] = true;
+                    $out[] = $rel;
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * True when the file already has an in-flight (pending/claimed/running) task in this campaign — the
+     * conflict guard that serializes same-file work so the lane mints at most ONE concurrent task per file.
+     */
+    private function fileHasInflightTask(string $campaignId, string $relPath): bool
+    {
+        return AtlasLoopTask::query()
+            ->where('campaign_id', $campaignId)
+            ->where('target_path', $relPath)
+            ->whereIn('status', [
+                AtlasLoopTask::STATUS_PENDING,
+                AtlasLoopTask::STATUS_CLAIMED,
+                AtlasLoopTask::STATUS_RUNNING,
+            ])
+            ->exists();
     }
 
     /**
