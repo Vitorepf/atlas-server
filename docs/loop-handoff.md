@@ -169,6 +169,57 @@ class lane.
 
 ---
 
+## 3.5 Concrete examples (make it tangible — GOOD vs BAD, end-to-end)
+
+Illustrative, not exhaustive. They draw the exact line so there is no doubt what "real value" means.
+
+### Example A — ONE complete real evolution, end-to-end (the ideal single iteration)
+*This is what one good Loop cycle looks like; the Loop does a continuous stream of these, 24/7.*
+1. **Understand** — the Loop measures its own scope and sees `AtlasLoopSemanticImplementationCertifier` has a
+   method at **cyclomatic ~66** (a god-method): high coupling, the kind of thing that makes every future
+   evolution riskier.
+2. **Identify (highest leverage)** — simplifying that method beats padding a test somewhere: it's the cert's
+   core, so cleaning it makes everything downstream safer to evolve. (Pick the most exponential, not the
+   easiest.)
+3. **Research (only if it doesn't already know how)** — if unsure of the cleanest pattern, it **researches the
+   internet**: "replace conditional dispatch with a lookup/strategy table in PHP", and how mature OSS
+   certifiers/validators structure similar logic (**public repositories**). The note is advisory — never proof.
+4. **Implement** — extract the branch dispatch into a lookup table + branch-free helpers, dropping the worst
+   method below 12 **while keeping the file's TOTAL decision count flat**. (Hiding branches in
+   `in_array(true, [...])` arrays = laundering = **rejected**, see §2.)
+5. **Test (RED-first)** — a failing-test-first anchor pins the exact prior behavior, so the refactor MUST
+   preserve it.
+6. **Certify** — the cert re-measures the AST complexity drop + the mutation gate proves the test isn't empty
+   and behavior is preserved.
+7. **Measure** — the scorecard classes it `self_improvement` (material); `proxy=0`, `cosmetic=0`.
+8. **Document + commit** — update the method's docblock / any design doc describing the old shape; one focused
+   commit. → repeat, forever.
+
+### Example B — the internet-research reflex (the Loop reaching OUT for knowledge)
+The Loop wants a capability it doesn't fully know how to build — say a new **mutation operator** that catches a
+bug class its current operators miss. It does NOT guess: it **researches** — "mutation testing operators
+state-of-the-art", how **Infection (PHP)** and **Stryker** implement them (their public repos), recent papers —
+brings back an advisory, source-quarantined note, then **implements the operator + a RED test proving it kills
+a mutant the old set missed**, and certifies. *That* is "pesquisar na internet quando precisa" — patterns,
+repositories, anything that makes it better.
+
+### Example C — REAL value vs PROXY (the exact line — memorize it)
+| ✅ REAL value (the Loop SHOULD do) | ❌ PROXY / not-value (the Loop MUST reject) |
+|---|---|
+| Extract a cx40 god-method into a dispatch table; total decisions flat; behavior pinned by a RED test; cert proves the drop → `self_improvement` | Rename vars / reformat / "reduce cyclomatic" by hiding guards in `in_array(true, [...])` (laundering) |
+| Fix a real bug (e.g. a wrong null-guard) with a RED test that fails before & passes after → `bug_fix` | Add a characterization test on a trivial file to bump coverage % **while real work exists** → coverage-padding |
+| Add a NEW capability (e.g. a research-backed mutation operator) that catches bugs it couldn't before → `feature` | Write a roadmap/plan doc without implementing anything |
+| A coupled ≥2-file cluster refactor that cuts real cross-file coupling, behavior proven | A behavior-preserving refactor with **no proof** the code got materially better |
+
+### Example D — a "new level / patamar" (the exponential leap — not just a refactor)
+The biggest moves are **capabilities that make the Loop better at its own job**, not refactors of existing
+code. E.g.: wiring the **internet-research lane** so the Loop originates research-backed evolutions (§5.5); or a
+stronger **origination engine** so the Loop *decides* higher-leverage work instead of only refactoring what's
+already complex (§5.6). These bend the curve UP — the Loop evolving its own ability to evolve. This is where the
+"exponential" in §0.3 actually comes from.
+
+---
+
 ## 4. What was built/changed this session (all committed on `main` = `b48cd20b1`, NOT pushed)
 
 The branch `feat/loop-honest-value-signal` was fast-forwarded into local `main` (19 commits ahead of
