@@ -47,6 +47,7 @@ final class AtlasLoopProjectionWorker
         private readonly ?AtlasLoopProjectionEngine $engine = null,
         private readonly ?AtlasLoopSystemAxisService $axisService = null,
         private readonly ?AtlasLoopScopeComprehensionModel $scopeModel = null,
+        private readonly ?AtlasLoopProjectionOutcomeLedger $ledger = null,
     ) {}
 
     /**
@@ -82,12 +83,25 @@ final class AtlasLoopProjectionWorker
             // consumer_intact obligation for every REAL caller of the target, so the contract provably
             // protects them and a high-fan-out target parks). Fail-OPEN to the scripted roles: a missing
             // model / unresolved target never blocks a projection, it just falls back to the v1 floor.
-            $grounded = $this->groundedRolesFor($repoRoot, $this->targetSymbol($envelope), $bindingAxis);
+            $target = $this->targetSymbol($envelope);
+
+            // §5 LEARNING — a target this campaign ALREADY parked as a pétreo cert organ is permanently
+            // off-limits; skip the ~8s comprehension-model rebuild and park immediately. The only safe
+            // self-suppression (forbidden = logically certain), flag-gated, fail-open.
+            if ((bool) config('atlas.loop.projection_outcome_learning_enabled', false)
+                && ($this->ledger ?? new AtlasLoopProjectionOutcomeLedger)->wasForbidden($campaignId, $target)) {
+                $pipeline->park($objectiveId, 'forbidden_target_petreo');
+
+                return ['outcome' => 'parked', 'objective_id' => $objectiveId, 'status' => 'parked', 'reason' => 'forbidden_target_petreo_learned'];
+            }
+
+            $grounded = $this->groundedRolesFor($repoRoot, $target, $bindingAxis);
 
             // §3 PÉTREO CONSTITUTION GUARD — the architect phase refuses to project a change to a cert organ
             // (frozen judge / projection engine / harness guard). Park it explicitly, mint no task: the loop
             // must never design its way into weakening the gate that judges it.
             if (($grounded['forbidden'] ?? false) === true) {
+                $this->recordOutcome($campaignId, $target, AtlasLoopProjectionOutcomeLedger::STATUS_PARKED, 'forbidden_target_petreo');
                 $pipeline->park($objectiveId, 'forbidden_target_petreo');
 
                 return ['outcome' => 'parked', 'objective_id' => $objectiveId, 'status' => 'parked', 'reason' => 'forbidden_target_petreo'];
@@ -100,6 +114,7 @@ final class AtlasLoopProjectionWorker
             $result = $engine->project($bindingAxis, $designer, $critic, (int) config('atlas.loop.projection_max_rounds', 8));
 
             if (($result['status'] ?? '') !== 'converged') {
+                $this->recordOutcome($campaignId, $target, AtlasLoopProjectionOutcomeLedger::STATUS_PARKED, (string) ($result['reason'] ?? 'not_converged'));
                 $pipeline->park($objectiveId, (string) ($result['reason'] ?? 'not_converged'));
 
                 return ['outcome' => 'parked', 'objective_id' => $objectiveId, 'status' => (string) ($result['status'] ?? 'parked'), 'reason' => (string) ($result['reason'] ?? 'not_converged')];
@@ -116,6 +131,7 @@ final class AtlasLoopProjectionWorker
                 return ['outcome' => 'enqueue_failed', 'objective_id' => $objectiveId, 'status' => 'converged', 'reason' => 'projection_enqueue_no_live_task'];
             }
 
+            $this->recordOutcome($campaignId, $target, AtlasLoopProjectionOutcomeLedger::STATUS_CONVERGED, null);
             $pipeline->complete($objectiveId);
 
             return ['outcome' => 'enqueued', 'objective_id' => $objectiveId, 'status' => 'converged'];
@@ -192,6 +208,18 @@ final class AtlasLoopProjectionWorker
         };
 
         return (new AtlasLoopProjectionObligationContracts)->toConsumerContracts($obligations, $consumers, $changedSymbol, $commandFor);
+    }
+
+    /**
+     * §5 LEARNING — append a projection outcome to the campaign ledger (flag-gated, best-effort). Off ⇒ a
+     * pure no-op (byte-identical), so the worker is unchanged until the operator arms the learning.
+     */
+    private function recordOutcome(string $campaignId, string $target, string $status, ?string $reason): void
+    {
+        if (! (bool) config('atlas.loop.projection_outcome_learning_enabled', false)) {
+            return;
+        }
+        ($this->ledger ?? new AtlasLoopProjectionOutcomeLedger)->record($campaignId, $target, $status, $reason);
     }
 
     private function buildScopeModel(string $repoRoot): ?AtlasLoopScopeComprehensionModel

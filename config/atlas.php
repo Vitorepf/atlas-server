@@ -2215,6 +2215,11 @@ return [
         // lands the biggest step. The model can only REORDER the real set (validated in-range), never fabricate
         // work; fail-closed (no provider ⇒ the producer's deterministic order). Default-OFF.
         'leverage_selection_enabled' => (bool) env('ATLAS_LOOP_LEVERAGE_SELECTION_ENABLED', false),
+        // §5 LEARNING — the architect phase records each projection outcome (converged/parked+reason) per
+        // campaign; the ONE safe feedback is skipping the ~8s model rebuild for a target already parked as a
+        // pétreo cert organ (permanently off-limits). Blast-radius/non-converged parks are audit-only, never
+        // auto-suppressed (that is the #4 Goodhart surface). Default-OFF ⇒ the worker is byte-identical.
+        'projection_outcome_learning_enabled' => (bool) env('ATLAS_LOOP_PROJECTION_OUTCOME_LEARNING_ENABLED', false),
         // S3 — supply de bug REAL. O harvester colhe reds DETERMINÍSTICOS (filtra flaky/ambiental via
         // SuiteRedTriageHelper) pra atlas_loop_failure_handles; a discovery estampa o handle no signal do
         // alvo → a bug-fix lane (já ligada) enfileira objective_kind=bug_fix, revert_recheck=true.
