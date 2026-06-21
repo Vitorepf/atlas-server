@@ -238,7 +238,7 @@ final class AtlasLoopScopeComprehensionModelBuilder
         $argv = array_merge($argv, ['-f', $listFile], $dirs);
 
         try {
-            $proc = new Process($argv, $repoRoot, null, null, 90.0);
+            $proc = new Process($argv, $repoRoot, $this->grepEnv(), null, 90.0);
             $proc->run();
             $exit = $proc->getExitCode();
             if ($exit === null || $exit > 1) {
@@ -333,7 +333,7 @@ final class AtlasLoopScopeComprehensionModelBuilder
             return [];
         }
         try {
-            $proc = new Process(array_merge(['grep', '-rlF', '--include=*.php', $pattern], $dirs), $repoRoot, null, null, 90.0);
+            $proc = new Process(array_merge(['grep', '-rlF', '--include=*.php', $pattern], $dirs), $repoRoot, $this->grepEnv(), null, 90.0);
             $proc->run();
             $exit = $proc->getExitCode();
             if ($exit === null || $exit > 1) {
@@ -387,6 +387,25 @@ final class AtlasLoopScopeComprehensionModelBuilder
         $d = str_replace('\\', '/', \dirname($rel));
 
         return $d === '.' ? '' : trim($d, '/');
+    }
+
+    /**
+     * PATH-safe env so the SYSTEM grep binary (BSD/GNU) is resolved even from a launchd/cron-spawned loop —
+     * matching {@see AtlasLoopWiredCallerService::pathSafeEnv} so the builder grep == the trusted oracle grep
+     * (and never a shell-aliased/`ugrep` substitute with different `-f`/`-w` semantics).
+     *
+     * @return array<string,string>
+     */
+    private function grepEnv(): array
+    {
+        $binDir = \dirname(PHP_BINARY);
+        $base = getenv('PATH');
+        $base = is_string($base) && $base !== '' ? $base : '/usr/bin:/bin:/usr/sbin:/sbin';
+        $path = ($binDir !== '' && $binDir !== '.' && $binDir !== DIRECTORY_SEPARATOR)
+            ? $binDir.PATH_SEPARATOR.$base
+            : $base;
+
+        return ['PATH' => '/usr/bin'.PATH_SEPARATOR.'/bin'.PATH_SEPARATOR.$path];
     }
 
     /**
