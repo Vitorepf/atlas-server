@@ -55,7 +55,7 @@ final class AtlasLoopGroundedProjectionRoles
      *                                                  ungrounded one is harmless. [] ⇒ the deterministic floor alone.
      * @return array{designer: callable(int, list<array<string,mixed>>): list<array<string,mixed>>, critic: callable(list<array<string,mixed>>): array{add: list<array<string,mixed>>, resolved: list<string>}, consumer_count: int, consumers: list<string>, forbidden: bool}
      */
-    public function forTarget(string $relTarget, array $extraSeeds = []): array
+    public function forTarget(string $relTarget, array $extraSeeds = [], ?string $objectiveKind = null): array
     {
         $engine = new AtlasLoopProjectionEngine;
         $target = $this->norm($relTarget);
@@ -66,17 +66,29 @@ final class AtlasLoopGroundedProjectionRoles
         $testPath = 'tests/'.$this->classOf($relTarget).'Test.php';
         $raised = []; // engine-obligation-key => true (everything the critic raised, for the resolve step)
 
-        $designer = static function (int $round, array $current) use ($target, $realMutop, $testPath, $extraSeeds): array {
+        // §2 WORK-TYPE CONTRACT — seed the obligation this work TYPE owes (a dedup→complexity_reduced, a
+        // bug-fix→red_to_green, a perf→perf_bound), so the projected contract provably commits the evolution
+        // to its own anti-Goodhart proof. Unknown/absent kind ⇒ no extra obligation (floor unchanged).
+        $typeSeeds = [];
+        if ($objectiveKind !== null && trim($objectiveKind) !== '') {
+            $mandatory = (new AtlasLoopWorkTypeContract)->mandatoryObligation($objectiveKind, $target, $testPath);
+            if ($mandatory !== null) {
+                $typeSeeds[] = $mandatory;
+            }
+        }
+
+        $designer = static function (int $round, array $current) use ($target, $realMutop, $testPath, $extraSeeds, $typeSeeds): array {
             if ($round !== 1) {
                 return []; // later rounds let the critic engage; the design only seeds the floor once
             }
 
-            // The deterministic floor + the cross-model critique's grounded deepening (engine re-validates
-            // every tuple on admit, so an ungrounded extra seed is silently dropped — never a weakening).
+            // The deterministic floor + the work-type's mandatory proof + the cross-model critique's grounded
+            // deepening (the engine re-validates every tuple on admit, so an ungrounded seed is silently
+            // dropped — never a weakening).
             return array_merge([
                 ['kind' => 'behavior_preserved', 'target_symbol' => $target, 'assertion_ref' => 'mutop:'.$realMutop],
                 ['kind' => 'contract_upheld', 'target_symbol' => $target, 'assertion_ref' => 'chartest:'.$testPath.'::test_contract'],
-            ], array_values($extraSeeds));
+            ], array_values($typeSeeds), array_values($extraSeeds));
         };
 
         $critic = function (array $current) use ($engine, $target, $consumers, $realMutop, &$raised): array {

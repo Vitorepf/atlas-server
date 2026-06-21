@@ -95,7 +95,9 @@ final class AtlasLoopProjectionWorker
                 return ['outcome' => 'parked', 'objective_id' => $objectiveId, 'status' => 'parked', 'reason' => 'forbidden_target_petreo_learned'];
             }
 
-            $grounded = $this->groundedRolesFor($repoRoot, $target, $bindingAxis);
+            $payloadKind = is_array($envelope['payload'] ?? null) ? (string) (($envelope['payload']['objective_kind'] ?? '')) : '';
+            $objectiveKind = $payloadKind !== '' ? $payloadKind : (string) ($envelope['shape'] ?? '');
+            $grounded = $this->groundedRolesFor($repoRoot, $target, $bindingAxis, $objectiveKind);
 
             // §3 PÉTREO CONSTITUTION GUARD — the architect phase refuses to project a change to a cert organ
             // (frozen judge / projection engine / harness guard). Park it explicitly, mint no task: the loop
@@ -156,7 +158,7 @@ final class AtlasLoopProjectionWorker
      *
      * @return array{designer?: callable, critic?: callable}
      */
-    private function groundedRolesFor(string $repoRoot, string $target, string $bindingAxis = 'wired'): array
+    private function groundedRolesFor(string $repoRoot, string $target, string $bindingAxis = 'wired', string $objectiveKind = ''): array
     {
         if (! (bool) config('atlas.loop.grounded_projection_enabled', false) || trim($target) === '') {
             return [];
@@ -175,7 +177,7 @@ final class AtlasLoopProjectionWorker
                 ? (new AtlasLoopModelProjectionCritic)->additionalObligations($target, $bindingAxis)
                 : [];
 
-            $roles = (new AtlasLoopGroundedProjectionRoles($model))->forTarget($target, $extraSeeds);
+            $roles = (new AtlasLoopGroundedProjectionRoles($model))->forTarget($target, $extraSeeds, $objectiveKind);
 
             return ['designer' => $roles['designer'], 'critic' => $roles['critic'], 'consumers' => $roles['consumers'] ?? [], 'forbidden' => (bool) ($roles['forbidden'] ?? false)];
         } catch (Throwable) {
