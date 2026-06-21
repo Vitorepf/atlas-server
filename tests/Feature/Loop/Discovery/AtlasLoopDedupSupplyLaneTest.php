@@ -94,4 +94,23 @@ final class AtlasLoopDedupSupplyLaneTest extends TestCase
         $specs = (new AtlasLoopDedupSupplyLane)->mint($this->model($repo), $repo);
         $this->assertSame([], $specs, 'a clone member without an asserting sibling is never minted');
     }
+
+    public function test_armed_architect_gate_designs_the_dedup_before_minting(): void
+    {
+        // §1 UNIFICATION: with the architect gate ON, the dedup directive is DESIGNED before it becomes work —
+        // the minted spec carries the architect-phase contract (typed obligations incl. the dedup work-type's
+        // mandatory complexity_reduced proof). OFF (default) the spec has no such contract (byte-identical).
+        $repo = $this->repo();
+        $model = $this->model($repo);
+
+        config()->set('atlas.loop.architect_gate_enabled', false);
+        $off = (new AtlasLoopDedupSupplyLane)->mint($model, $repo);
+        $this->assertArrayNotHasKey('obligations', $off[0]['payload']['acceptance'], 'OFF ⇒ no design contract (byte-identical)');
+
+        config()->set('atlas.loop.architect_gate_enabled', true);
+        $on = (new AtlasLoopDedupSupplyLane)->mint($model, $repo);
+        $this->assertCount(1, $on, 'a convergent dedup is still minted, now designed');
+        $obligations = $on[0]['payload']['acceptance']['obligations'] ?? [];
+        $this->assertContains('complexity_reduced', array_column($obligations, 'kind'), 'ON ⇒ the spec carries the architect contract with the dedup mandatory proof');
+    }
 }

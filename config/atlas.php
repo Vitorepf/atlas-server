@@ -2215,6 +2215,12 @@ return [
         // lands the biggest step. The model can only REORDER the real set (validated in-range), never fabricate
         // work; fail-closed (no provider ⇒ the producer's deterministic order). Default-OFF.
         'leverage_selection_enabled' => (bool) env('ATLAS_LOOP_LEVERAGE_SELECTION_ENABLED', false),
+        // §1 ARCHITECT-PHASE GATE — when ON, a supply lane DESIGNS each directive through the architect phase
+        // (AtlasLoopArchitectPhaseGate) before minting: it attaches the converged design contract (typed
+        // obligations + enforceable consumer_contracts protecting the target's real callers) or SUPPRESSES a
+        // directive it cannot converge (pétreo / blast-radius). Default-OFF ⇒ the lane is byte-identical (the
+        // work type's own cert still guards behaviour). The path to "design EVERY evolution before it grinds".
+        'architect_gate_enabled' => (bool) env('ATLAS_LOOP_ARCHITECT_GATE_ENABLED', false),
         // §5 LEARNING — the architect phase records each projection outcome (converged/parked+reason) per
         // campaign; the ONE safe feedback is skipping the ~8s model rebuild for a target already parked as a
         // pétreo cert organ (permanently off-limits). Blast-radius/non-converged parks are audit-only, never

@@ -32,6 +32,7 @@ final class AtlasLoopDedupSupplyLane
         private readonly ?AtlasLoopSiblingTestResolver $siblings = null,
         private readonly ?AtlasLoopDedupProof $dedupProof = null,
         private readonly ?\App\Services\Ai\AutonomousEvolution\AtlasLoopLeverageSelector $leverage = null,
+        private readonly ?\App\Services\Ai\AutonomousEvolution\AtlasLoopArchitectPhaseGate $architect = null,
     ) {
     }
 
@@ -105,6 +106,23 @@ final class AtlasLoopDedupSupplyLane
             ];
             $objective = 'Unify the structural clone across '.implode(', ', $members)
                 .' behind one implementation: remove the duplication (behavior preserved on every member sibling).';
+            // §1 ARCHITECT-PHASE GATE (flag-gated) — design the unification as a principal engineer BEFORE it
+            // becomes work: the gate protects the unification member's real callers (consumer_intact contracts)
+            // and SUPPRESSES a directive it cannot converge (blast-radius too large / pétreo). Off ⇒ the
+            // deterministic mint is byte-identical (the dedup cert already guards behaviour per member).
+            if ((bool) config('atlas.loop.architect_gate_enabled', false)) {
+                $gate = $this->architect ?? new \App\Services\Ai\AutonomousEvolution\AtlasLoopArchitectPhaseGate;
+                $verdict = $gate->admit($model, $members[0], self::OBJECTIVE_KIND, $repoRoot);
+                if (($verdict['admitted'] ?? false) !== true) {
+                    continue; // un-designable directive never becomes work
+                }
+                $acceptance['obligations'] = $verdict['obligations'];
+                if (($verdict['consumer_contracts'] ?? []) !== []) {
+                    $existing = is_array($acceptance['consumer_contracts'] ?? null) ? (array) $acceptance['consumer_contracts'] : [];
+                    $acceptance['consumer_contracts'] = array_merge($existing, $verdict['consumer_contracts']);
+                }
+            }
+
             $payload = [
                 'objective_kind' => self::OBJECTIVE_KIND,
                 'materializer' => 'framework',

@@ -32,6 +32,7 @@ final class AtlasLoopWorkTypeContract
     private const CONTRACTS = [
         'clone_unification' => ['non_trivial', 'complexity_reduced'],
         'dedup' => ['non_trivial', 'complexity_reduced'],
+        'refactor_dedup' => ['non_trivial', 'complexity_reduced'], // the dedup supply lane's objective_kind
         'orphan_wiring' => ['wired', 'consumer_intact'],
         'bug_fix' => ['real_target', 'red_to_green'],
         'feature' => ['real_target', 'red_to_green'],
