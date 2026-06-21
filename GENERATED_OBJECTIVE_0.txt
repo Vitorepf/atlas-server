@@ -1,0 +1,1 @@
+Reject unified-diff provider edits whose parsed changed files are outside the allowed-files scope before invoking PatchApplier.

@@ -62,17 +62,18 @@ final class AtlasLoopEvidenceSignalService
             $base = mb_strtolower(basename($path));
             // Basename alone is too loose (e.g. Service.php); only count basename matches
             // for distinctive names (>= 6 chars before extension) to avoid false evidence.
-            $distinctiveBase = mb_strlen(preg_replace('/\.[a-z0-9]+$/i', '', $base) ?? '') >= 6;
+            $distinctiveBase = mb_strlen(pathinfo($base, PATHINFO_FILENAME)) >= 6;
             $hits = 0;
             foreach ($haystacks as $hay) {
-                if (str_contains($hay, $needlePath) || ($distinctiveBase && str_contains($hay, $base))) {
-                    $hits++;
-                }
+                $hits += max(
+                    (int) str_contains($hay, $needlePath),
+                    (int) $distinctiveBase * (int) str_contains($hay, $base),
+                );
             }
-            if ($hits > 0) {
-                $counts[$path] = $hits;
-            }
+            $counts[$path] = $hits;
         }
+
+        $counts = array_filter($counts);
 
         if ($counts === []) {
             return [];

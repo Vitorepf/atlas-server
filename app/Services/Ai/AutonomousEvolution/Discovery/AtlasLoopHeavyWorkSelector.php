@@ -78,11 +78,7 @@ final class AtlasLoopHeavyWorkSelector
             $row['class'] = $class;
             $row['panel_value'] = $meta[$id]['panel_value'] ?? null;
             $row['trust'] = $t;
-            // The leap may auto-merge ONLY if its required tier permits AND the class earned autonomy.
-            $needsTrust = ($row['required_verification']['autonomous_merge_requires'] ?? '') === 'trust_ladder_autonomous';
-            $row['gate'] = (! $needsTrust || $t['can_auto_merge'])
-                ? ($t['can_auto_merge'] ? 'autonomous_merge_eligible' : 'operator_review')
-                : 'park_for_operator_until_trust_earned';
+            $row['gate'] = $this->resolveGate($row, $t);
         }
         unset($row);
 
@@ -101,5 +97,20 @@ final class AtlasLoopHeavyWorkSelector
         $f = max(0, (int) ($stats['failures'] ?? 0));
 
         return ($s + 1) / ($s + $f + 2);
+    }
+
+    /**
+     * The leap may auto-merge ONLY if its required tier permits AND the class earned autonomy.
+     *
+     * @param  array<string,mixed>  $row
+     * @param  array<string,mixed>  $trust
+     */
+    private function resolveGate(array $row, array $trust): string
+    {
+        $needsTrust = ($row['required_verification']['autonomous_merge_requires'] ?? '') === 'trust_ladder_autonomous';
+
+        return (! $needsTrust || $trust['can_auto_merge'])
+            ? ($trust['can_auto_merge'] ? 'autonomous_merge_eligible' : 'operator_review')
+            : 'park_for_operator_until_trust_earned';
     }
 }

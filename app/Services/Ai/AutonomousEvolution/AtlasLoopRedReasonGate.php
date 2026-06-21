@@ -46,7 +46,7 @@ final class AtlasLoopRedReasonGate
     {
         $base = rtrim($base, '/');
         $testPath = $base.'/'.$testRel;
-        $src = is_file($testPath) ? (string) file_get_contents($testPath) : '';
+        $src = (string) @file_get_contents($testPath);
 
         // (1) syntactic validity — a non-parsing test "fails" structurally, not behaviorally.
         if ($src === '' || ! $this->phpParses($src)) {
@@ -55,7 +55,8 @@ final class AtlasLoopRedReasonGate
 
         // (2) the test must exercise the target — require/include it by basename.
         $targetBase = basename($targetRel);
-        if ($targetBase === '' || preg_match('/\b(require|include)(_once)?\b/i', $src) !== 1 || ! str_contains($src, $targetBase)) {
+        $exercisePattern = '/(?=.*\\b(require|include)(_once)?\\b)(?=.*'.preg_quote($targetBase, '/').')/is';
+        if (preg_match('/.+/', $targetBase) !== 1 || preg_match($exercisePattern, $src) !== 1) {
             return ['is_red' => false, 'reason' => 'test_does_not_exercise_target'];
         }
 

@@ -31,6 +31,7 @@ final class AtlasLoopWorkspaceMaterializer
      */
     public function materialize(string $objective, array $payload): array
     {
+        $support = new AtlasLoopWorkspaceMaterializerSupport2;
         $targetRel = $this->normalizeRelative((string) ($payload['target_relative_path'] ?? ''));
         $targetContent = $payload['target_content'] ?? null;
         $acceptance = is_array($payload['acceptance'] ?? null) ? $payload['acceptance'] : [];
@@ -47,49 +48,16 @@ final class AtlasLoopWorkspaceMaterializer
         };
 
         try {
-            $this->writeFile($base, $targetRel, $targetContent);
-
-            // A self-contained PHP workspace needs a composer.json present (the engine's
-            // scenario baseline + the frozen `php` tests assume it). Honor an override.
-            $support = is_array($payload['support_files'] ?? null) ? $payload['support_files'] : [];
-            if (! $this->supportHas($support, 'composer.json')) {
-                $this->writeFile($base, 'composer.json', "{}\n");
-            }
-            foreach ($support as $file) {
-                if (is_array($file) && is_string($file['path'] ?? null) && is_string($file['content'] ?? null)) {
-                    $this->writeFile($base, $this->normalizeRelative($file['path']), $file['content']);
-                }
-            }
+            $support->writeWorkspaceFiles($base, $targetRel, $targetContent, $payload);
 
             // The frozen acceptance tests — durable bodies the loop cannot edit (the judge
             // re-runs them; the explorer treats tests/** as frozen).
-            foreach ((is_array($payload['frozen_tests'] ?? null) ? $payload['frozen_tests'] : []) as $test) {
-                if (is_array($test) && is_string($test['path'] ?? null) && is_string($test['content'] ?? null)) {
-                    $this->writeFile($base, $this->normalizeRelative($test['path']), $test['content']);
-                }
-            }
         } catch (\Throwable $e) {
             $cleanup();
             throw $e;
         }
 
-        $explorerTask = [
-            'objective' => $objective,
-            'base_workspace' => $base,
-            'acceptance' => $acceptance,
-            'allowed_files' => $this->stringList($payload['allowed_files'] ?? [$targetRel]),
-            'validation_commands' => $this->stringList($payload['validation_commands'] ?? []),
-        ];
-        $this->armCrossProviderScope($explorerTask, $acceptance, (bool) ($payload['cross_provider_best_of_n'] ?? false));
-        $provider = trim((string) ($payload['provider'] ?? ''));
-        if ($provider !== '') {
-            $explorerTask['provider'] = $provider; // per-task pin; else loop default (provider-agnostic)
-        }
-        foreach (['scenario_strategies', 'scenario_strategy_keys', 'deep_strategy_portfolio', 'min_scenarios', 'max_scenarios', 'search_patience', 'search_time_budget_seconds', 'keep_workspaces'] as $passthrough) {
-            if (array_key_exists($passthrough, $payload)) {
-                $explorerTask[$passthrough] = $payload[$passthrough];
-            }
-        }
+        $explorerTask = $support->buildExplorerTask($objective, $base, $acceptance, $payload, $targetRel);
 
         return [$explorerTask, $cleanup];
     }
@@ -105,15 +73,7 @@ final class AtlasLoopWorkspaceMaterializer
      */
     private function armCrossProviderScope(array &$explorerTask, array $acceptance, bool $enabled): void
     {
-        if (! $enabled) {
-            return;
-        }
-        $globs = is_array($acceptance['allowed_globs'] ?? null)
-            ? array_filter($acceptance['allowed_globs'], static fn ($g): bool => is_string($g) && trim($g) !== '')
-            : [];
-        if ($globs === [] && ($explorerTask['allowed_files'] ?? []) !== []) {
-            $explorerTask['acceptance']['allowed_globs'] = $explorerTask['allowed_files'];
-        }
+        (new AtlasLoopWorkspaceMaterializerSupport2)->armCrossProviderScope($explorerTask, $acceptance, $enabled);
     }
 
     /**
@@ -121,29 +81,12 @@ final class AtlasLoopWorkspaceMaterializer
      */
     private function supportHas(array $support, string $path): bool
     {
-        foreach ($support as $file) {
-            if (is_array($file) && $this->normalizeRelative((string) ($file['path'] ?? '')) === $path) {
-                return true;
-            }
-        }
-
-        return false;
+        return (new AtlasLoopWorkspaceMaterializerSupport2)->supportHas($support, $path);
     }
 
     private function writeFile(string $base, string $relative, string $content): void
     {
-        $relative = $this->normalizeRelative($relative);
-        if ($relative === '') {
-            return;
-        }
-        $full = $base.'/'.$relative;
-        $dir = dirname($full);
-        if (! is_dir($dir) && ! mkdir($dir, 0o755, true) && ! is_dir($dir)) {
-            throw new RuntimeException('materialize: cannot create dir '.$dir);
-        }
-        if (file_put_contents($full, $content) === false) {
-            throw new RuntimeException('materialize: cannot write '.$relative);
-        }
+        (new AtlasLoopWorkspaceMaterializerSupport2)->writeFile($base, $relative, $content);
     }
 
     /**
@@ -152,22 +95,7 @@ final class AtlasLoopWorkspaceMaterializer
      */
     private function normalizeRelative(string $path): string
     {
-        $path = str_replace('\\', '/', trim($path));
-        $path = ltrim($path, '/');
-        $segments = [];
-        foreach (explode('/', $path) as $segment) {
-            if ($segment === '' || $segment === '.') {
-                continue;
-            }
-            if ($segment === '..') {
-                array_pop($segments);
-
-                continue;
-            }
-            $segments[] = $segment;
-        }
-
-        return implode('/', $segments);
+        return (new AtlasLoopWorkspaceMaterializerSupport2)->normalizeRelative($path);
     }
 
     /**
@@ -176,9 +104,6 @@ final class AtlasLoopWorkspaceMaterializer
      */
     private function stringList(mixed $value): array
     {
-        return array_values(array_filter(array_map(
-            static fn (mixed $v): string => is_string($v) ? trim($v) : '',
-            is_array($value) ? $value : [],
-        ), static fn (string $v): bool => $v !== ''));
+        return (new AtlasLoopWorkspaceMaterializerSupport2)->stringList($value);
     }
 }

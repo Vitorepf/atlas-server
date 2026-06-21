@@ -109,45 +109,63 @@ final class AtlasLoopWorkClassPriorService
         /** @var array<string, array{real:int, certified:int}> $tally */
         $tally = [];
         foreach ($rows as $row) {
-            $class = $this->workClass((string) ($row['target_path'] ?? ''));
-            foreach ($this->arrayPayload($row['attempt_metrics'] ?? null) as $attempt) {
-                if (! is_array($attempt)) {
-                    continue;
-                }
-                $providerInvoked = ($attempt['provider_invoked'] ?? null) === true;
-                $tokens = is_numeric($attempt['tokens_used'] ?? null) ? max(0, (int) $attempt['tokens_used']) : null;
-                if (! $providerInvoked || $tokens === null || $tokens < $minRealTokens) {
-                    continue; // only REAL attempts count (anti-gaming, identical to the bandit's rule)
-                }
-                $tally[$class] ??= ['real' => 0, 'certified' => 0];
-                $tally[$class]['real']++;
-                if ((bool) ($attempt['passed'] ?? false)) {
-                    $tally[$class]['certified']++;
-                }
-            }
+            $row += ['target_path' => '', 'attempt_metrics' => null];
+            $class = $this->workClass((string) $row['target_path']);
+            $counts = $this->countRealAttempts($row['attempt_metrics'], $minRealTokens);
+            $tally[$class] ??= ['real' => 0, 'certified' => 0];
+            $tally[$class]['real'] += $counts['real'];
+            $tally[$class]['certified'] += $counts['certified'];
         }
 
         $out = [];
-        foreach ($tally as $class => $t) {
-            $real = (int) $t['real'];
-            $certified = (int) $t['certified'];
-            $wilson = $this->wilsonLower($certified, $real);
-            $enough = $real >= $minAttempts;
-            $out[$class] = [
-                'work_class' => $class,
-                'real_attempts' => $real,
-                'certified' => $certified,
-                'landing_rate' => $real > 0 ? round($certified / $real, 4) : 0.0,
-                'wilson_lower' => round($wilson, 4),
-                'enough_samples' => $enough,
-                // HOPELESS only with enough REAL samples AND a Wilson-LB below the floor — never on a thin cell.
-                'hopeless' => $enough && $wilson < $floorRate,
-                'min_attempts' => $minAttempts,
-                'floor_rate' => $floorRate,
-            ];
+        foreach (array_filter($tally, static fn (array $t): bool => $t['real'] > 0) as $class => $t) {
+            $out[$class] = $this->summarizeClassPrior($class, (int) $t['real'], (int) $t['certified'], $minAttempts, $floorRate);
         }
 
         return $out;
+    }
+
+    /**
+     * @return array{real:int, certified:int}
+     */
+    private function countRealAttempts(mixed $attemptMetrics, int $minRealTokens): array
+    {
+        $counts = ['real' => 0, 'certified' => 0];
+        foreach ($this->arrayPayload($attemptMetrics) as $attempt) {
+            $attempt += ['provider_invoked' => null, 'tokens_used' => null, 'passed' => false];
+            $providerInvoked = $attempt['provider_invoked'] === true;
+            $tokens = is_numeric($attempt['tokens_used']) ? max(0, (int) $attempt['tokens_used']) : null;
+            if (! $providerInvoked || $tokens === null || $tokens < $minRealTokens) {
+                continue; // only REAL attempts count (anti-gaming, identical to the bandit's rule)
+            }
+            $counts['real']++;
+            $counts['certified'] += (int) (bool) $attempt['passed'];
+        }
+
+        return $counts;
+    }
+
+    /**
+     * @return array{work_class:string, real_attempts:int, certified:int, landing_rate:float, wilson_lower:float,
+     *               enough_samples:bool, hopeless:bool, min_attempts:int, floor_rate:float}
+     */
+    private function summarizeClassPrior(string $class, int $real, int $certified, int $minAttempts, float $floorRate): array
+    {
+        $wilson = $this->wilsonLower($certified, $real);
+        $enough = $real >= $minAttempts;
+
+        return [
+            'work_class' => $class,
+            'real_attempts' => $real,
+            'certified' => $certified,
+            'landing_rate' => $real > 0 ? round($certified / $real, 4) : 0.0,
+            'wilson_lower' => round($wilson, 4),
+            'enough_samples' => $enough,
+            // HOPELESS only with enough REAL samples AND a Wilson-LB below the floor — never on a thin cell.
+            'hopeless' => $enough && $wilson < $floorRate,
+            'min_attempts' => $minAttempts,
+            'floor_rate' => $floorRate,
+        ];
     }
 
     /**
@@ -209,13 +227,15 @@ final class AtlasLoopWorkClassPriorService
     private function arrayPayload(mixed $payload): array
     {
         if (is_array($payload)) {
-            return array_values($payload);
+            return array_values(array_filter($payload, static fn (mixed $item): bool => is_array($item)));
         }
         if (! is_string($payload) || trim($payload) === '') {
             return [];
         }
         $decoded = json_decode($payload, true);
 
-        return is_array($decoded) ? array_values($decoded) : [];
+        return is_array($decoded)
+            ? array_values(array_filter($decoded, static fn (mixed $item): bool => is_array($item)))
+            : [];
     }
 }

@@ -223,7 +223,7 @@ final class AtlasDocClaimAnalyzer
      */
     private function buildCommandIndex(string $root): void
     {
-        if ($this->commandIndex !== null && $this->indexedRoot === $root) {
+        if ($this->hasCommandIndexForRoot($root)) {
             return;
         }
         $this->commandIndex = [];
@@ -234,7 +234,7 @@ final class AtlasDocClaimAnalyzer
         if (is_dir($appConsole)) {
             $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($appConsole, \FilesystemIterator::SKIP_DOTS));
             foreach ($it as $file) {
-                if ($file instanceof \SplFileInfo && $file->isFile() && $file->getExtension() === 'php') {
+                if ($this->isPhpFile($file)) {
                     $scanFiles[] = $file->getPathname();
                 }
             }
@@ -246,16 +246,32 @@ final class AtlasDocClaimAnalyzer
 
         foreach ($scanFiles as $abs) {
             $code = (string) @file_get_contents($abs);
-            if (str_contains($code, '$signature')
-                && preg_match_all('/\$signature\s*=\s*[\'"]([^\s\'"]+)/', $code, $m) > 0) {
-                foreach ($m[1] as $name) {
-                    $this->commandIndex[strtolower($name)] = true;
-                }
+            $this->indexCommandNamesFromCode($code);
+        }
+    }
+
+    private function hasCommandIndexForRoot(string $root): bool
+    {
+        return $this->commandIndex !== null && $this->indexedRoot === $root;
+    }
+
+    private function isPhpFile(mixed $file): bool
+    {
+        return $file instanceof \SplFileInfo
+            && $file->isFile()
+            && $file->getExtension() === 'php';
+    }
+
+    private function indexCommandNamesFromCode(string $code): void
+    {
+        if (preg_match_all('/\$signature\s*=\s*[\'"]([^\s\'"]+)/', $code, $matches) > 0) {
+            foreach ($matches[1] as $name) {
+                $this->commandIndex[strtolower($name)] = true;
             }
-            if (preg_match_all('/Artisan::command\(\s*[\'"]([^\s\'"]+)/', $code, $m2) > 0) {
-                foreach ($m2[1] as $name) {
-                    $this->commandIndex[strtolower($name)] = true;
-                }
+        }
+        if (preg_match_all('/Artisan::command\(\s*[\'"]([^\s\'"]+)/', $code, $matches) > 0) {
+            foreach ($matches[1] as $name) {
+                $this->commandIndex[strtolower($name)] = true;
             }
         }
     }

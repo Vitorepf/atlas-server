@@ -229,14 +229,11 @@ final class AtlasLoopTargetRepository
      */
     private function structuredLaneCanHandlePolicyBlockedTarget(array $signals): bool
     {
-        if ((string) ($signals['shape'] ?? '') === AtlasLoopCoverageDeficitSource::SHAPE
-            && (bool) config('atlas.loop.characterization_test_lane_enabled', false)) {
+        if ($this->structuredLaneUsesCharacterizationTestLane($signals)) {
             return true;
         }
 
-        if ((($signals['is_self_improvement'] ?? false) === true
-                || str_contains((string) ($signals['backlog_source'] ?? ''), 'self_improve'))
-            && (bool) config('atlas.loop.self_improve_grounding_enabled', false)) {
+        if ($this->structuredLaneUsesSelfImproveGrounding($signals)) {
             return true;
         }
 
@@ -244,25 +241,54 @@ final class AtlasLoopTargetRepository
             return false;
         }
 
-        $hasSibling = ($signals['has_sibling_test'] ?? false) === true
-            || trim((string) ($signals['sibling_test_path'] ?? '')) !== '';
-        if (! $hasSibling) {
+        if (! $this->structuredLaneHasSiblingTestSignal($signals)) {
             return false;
         }
 
-        $refactorEnabled = (bool) config('atlas.loop.framework_refactor_enabled', false)
-            || (bool) config('atlas.loop.refactor_objectives_enabled', false)
-            || ((bool) config('atlas.loop.multi_file_refactor_objectives_enabled', false)
-                && (bool) config('atlas.loop.refactor_multi_file_via_obra', false))
-            || (bool) config('atlas.loop.multi_file_refactor_via_normal_lane', false);
-
-        if (! $refactorEnabled) {
+        if (! $this->structuredLaneHasRefactorSupplyEnabled()) {
             return false;
         }
 
         $minCyclomatic = max(8, (int) config('atlas.loop.framework_refactor_min_cyclomatic', 10));
 
         return (int) ($signals['cyclomatic'] ?? 0) >= $minCyclomatic;
+    }
+
+    /**
+     * @param  array<string,mixed>  $signals
+     */
+    private function structuredLaneUsesCharacterizationTestLane(array $signals): bool
+    {
+        return (string) ($signals['shape'] ?? '') === AtlasLoopCoverageDeficitSource::SHAPE
+            && (bool) config('atlas.loop.characterization_test_lane_enabled', false);
+    }
+
+    /**
+     * @param  array<string,mixed>  $signals
+     */
+    private function structuredLaneUsesSelfImproveGrounding(array $signals): bool
+    {
+        return ((($signals['is_self_improvement'] ?? false) === true)
+                || str_contains((string) ($signals['backlog_source'] ?? ''), 'self_improve'))
+            && (bool) config('atlas.loop.self_improve_grounding_enabled', false);
+    }
+
+    /**
+     * @param  array<string,mixed>  $signals
+     */
+    private function structuredLaneHasSiblingTestSignal(array $signals): bool
+    {
+        return ($signals['has_sibling_test'] ?? false) === true
+            || trim((string) ($signals['sibling_test_path'] ?? '')) !== '';
+    }
+
+    private function structuredLaneHasRefactorSupplyEnabled(): bool
+    {
+        return (bool) config('atlas.loop.framework_refactor_enabled', false)
+            || (bool) config('atlas.loop.refactor_objectives_enabled', false)
+            || ((bool) config('atlas.loop.multi_file_refactor_objectives_enabled', false)
+                && (bool) config('atlas.loop.refactor_multi_file_via_obra', false))
+            || (bool) config('atlas.loop.multi_file_refactor_via_normal_lane', false);
     }
 
     public function markStatus(string $targetId, string $status, ?string $reason = null): void

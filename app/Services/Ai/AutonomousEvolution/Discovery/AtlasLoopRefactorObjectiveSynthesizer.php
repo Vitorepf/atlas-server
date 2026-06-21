@@ -55,47 +55,30 @@ final class AtlasLoopRefactorObjectiveSynthesizer
     public function synthesize(string $repoRoot, string $targetRepoRelPath, array $signals, string $provider, string $targetId): ?array
     {
         try {
-            $repoRoot = rtrim($repoRoot, '/');
-            $targetRepoRelPath = ltrim($targetRepoRelPath, '/');
-            $absTarget = $repoRoot.'/'.$targetRepoRelPath;
-            if (! is_file($absTarget) || ! str_ends_with($targetRepoRelPath, '.php')) {
+            $target = $this->resolveTargetContext($repoRoot, $targetRepoRelPath, $signals);
+            if ($target === null) {
                 return null;
             }
 
-            // Complexity gate: only worth refactoring a genuinely complex file. Prefer the AST
-            // signal already in the packet; re-measure from source if absent (fail-open).
-            $cyclomatic = (int) ($signals['cyclomatic'] ?? 0);
-            if ($cyclomatic <= 0) {
-                $source = (string) @file_get_contents($absTarget);
-                $cyclomatic = (int) ($this->analyzer()->fileComplexity($source)['max_per_method'] ?? 0);
-            }
-            if ($cyclomatic < self::MIN_CYCLOMATIC) {
-                return null; // not complex enough — refactoring it is low-value noise
-            }
+            $repoRoot = $target['repo_root'];
+            $targetRepoRelPath = $target['repo_rel_path'];
+            $absTarget = $target['abs_target'];
+            $cyclomatic = $target['cyclomatic'];
 
             // Behavior anchor: the file MUST have a real sibling test (fail-closed in resolver).
             // Build the resolver against THIS campaign's repo root so "what the resolver finds"
             // == "what the canary runs" by construction (the resolver mirrors the canary glob).
-            $sib = (new AtlasLoopSiblingTestResolver($repoRoot))->resolve($targetRepoRelPath);
-            if (! ($sib['has_sibling'] ?? false) || ! is_string($sib['sibling_path'] ?? null)) {
-                return null;
-            }
-            $siblingAbs = $repoRoot.'/'.ltrim((string) $sib['sibling_path'], '/');
-            $siblingBody = is_file($siblingAbs) ? (string) @file_get_contents($siblingAbs) : '';
-            if ($siblingBody === '') {
-                return null;
-            }
+            $sibling = $this->resolveSiblingHarness($repoRoot, $targetRepoRelPath);
 
-            $basename = basename($targetRepoRelPath);
-            $targetRel = 'src/'.$basename; // the file the loop is allowed to edit
-            $frozenTestRel = 'tests/'.basename((string) $sib['sibling_path']);
+            $targetRel = $target['target_relative_path'];
+            $frozenTestRel = 'tests/'.basename($sibling['path']);
 
             // The frozen behavior harness must run under plain `php` in the isolated,
             // self-contained grind workspace (no framework boot): point any `require`/`include`
             // of the production file at the materialized target. If the sibling is NOT
             // plain-`php` runnable (a framework-booted Feature test), bail — Phase 1 only covers
             // files whose sibling can pin behavior without a framework, by design.
-            $harness = $this->rewriteSiblingToWorkspace($siblingBody, $basename, $targetRel);
+            $harness = $this->rewriteSiblingToWorkspace($sibling['body'], $target['basename'], $targetRel);
             if ($harness === null) {
                 return null;
             }
@@ -147,6 +130,42 @@ final class AtlasLoopRefactorObjectiveSynthesizer
     }
 
     /**
+     * @param  array<string,mixed>  $signals
+     * @return array{repo_root:string,repo_rel_path:string,abs_target:string,cyclomatic:int,basename:string,target_relative_path:string}|null
+     */
+    private function resolveTargetContext(string $repoRoot, string $targetRepoRelPath, array $signals): ?array
+    {
+        $repoRoot = rtrim($repoRoot, '/');
+        $targetRepoRelPath = ltrim($targetRepoRelPath, '/');
+        $absTarget = $repoRoot.'/'.$targetRepoRelPath;
+        if (! is_file($absTarget) || ! str_ends_with($targetRepoRelPath, '.php')) {
+            return null;
+        }
+
+        // Complexity gate: only worth refactoring a genuinely complex file. Prefer the AST
+        // signal already in the packet; re-measure from source if absent (fail-open).
+        $cyclomatic = (int) ($signals['cyclomatic'] ?? 0);
+        if ($cyclomatic <= 0) {
+            $source = (string) @file_get_contents($absTarget);
+            $cyclomatic = (int) ($this->analyzer()->fileComplexity($source)['max_per_method'] ?? 0);
+        }
+        if ($cyclomatic < self::MIN_CYCLOMATIC) {
+            return null; // not complex enough — refactoring it is low-value noise
+        }
+
+        $basename = basename($targetRepoRelPath);
+
+        return [
+            'repo_root' => $repoRoot,
+            'repo_rel_path' => $targetRepoRelPath,
+            'abs_target' => $absTarget,
+            'cyclomatic' => $cyclomatic,
+            'basename' => $basename,
+            'target_relative_path' => 'src/'.$basename,
+        ];
+    }
+
+    /**
      * Rewrite a sibling test body so it `require`s the MATERIALIZED target (src/<basename>)
      * from the workspace tests/ dir, and runs under plain `php`. Returns null when the
      * sibling is not plain-`php` runnable (no require of the production file we can retarget,
@@ -157,10 +176,6 @@ final class AtlasLoopRefactorObjectiveSynthesizer
     {
         // A framework/PHPUnit Feature test cannot pin behavior under plain `php` — bail.
         if (preg_match('/\b(extends\s+TestCase|use\s+(PHPUnit|Illuminate|Tests)\\\\|RefreshDatabase|->assert|\$this->)/i', $body) === 1) {
-            return null;
-        }
-        // It must directly require/include the production file (the only seam we can retarget).
-        if (preg_match('/\b(require|require_once|include|include_once)\b/', $body) !== 1) {
             return null;
         }
 
@@ -180,6 +195,26 @@ final class AtlasLoopRefactorObjectiveSynthesizer
         }
 
         return $rewritten;
+    }
+
+    /**
+     * @return array{path:string, body:string}
+     */
+    private function resolveSiblingHarness(string $repoRoot, string $targetRepoRelPath): array
+    {
+        $sib = (new AtlasLoopSiblingTestResolver($repoRoot))->resolve($targetRepoRelPath);
+        if (empty($sib['has_sibling'])) {
+            throw new \RuntimeException('Sibling test missing.');
+        }
+
+        $siblingPath = ltrim((string) ($sib['sibling_path'] ?? throw new \RuntimeException('Sibling test missing.')), '/');
+        $siblingAbs = $repoRoot.'/'.$siblingPath;
+        $siblingBody = (string) @file_get_contents($siblingAbs);
+        if ($siblingBody === '') {
+            throw new \RuntimeException('Sibling test body unreadable.');
+        }
+
+        return ['path' => $siblingPath, 'body' => $siblingBody];
     }
 
     private function objectiveText(string $targetRepoRelPath, int $cyclomatic): string

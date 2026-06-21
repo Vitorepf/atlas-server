@@ -85,11 +85,9 @@ final class AtlasLoopTerritoryLadder
         if ($compoundingTrendUp !== true) {
             $promotionViolations[] = 'compounding_trend_not_up';
         }
-        $promotionRuleMet = $promotionViolations === [];
 
-        foreach ($promotionViolations as $v) {
-            $violations[] = $v;
-        }
+        $promotionRuleMet = $promotionViolations === [];
+        $violations = array_merge($violations, $promotionViolations);
 
         // PROMOTABLE only when BOTH the safety invariant holds AND the promotion rule is met.
         $promotable = $invariantHolds && $promotionRuleMet;

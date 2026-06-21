@@ -1,0 +1,61 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Ai\AutonomousEvolution;
+
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopExternalResearchService;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopResearchOriginator;
+use Tests\TestCase;
+
+/**
+ * P27 slice-1 invariants — the research-to-RED chain must be honest in CODE, not by trust:
+ *   1. FAIL-CLOSED: no search backend wired ⇒ NO objective is ever minted (the bare topic is not laundered).
+ *   2. SOURCE-QUARANTINE: when an objective IS produced, the research note is stamped advisory and the
+ *      objective text says so — the cert never treats it as proof.
+ *   3. RED-REQUIRED: every minted objective demands the loop's own failing-test-first proof.
+ */
+final class AtlasLoopResearchOriginatorTest extends TestCase
+{
+    private function originator(bool $backend): AtlasLoopResearchOriginator
+    {
+        return new AtlasLoopResearchOriginator(new AtlasLoopExternalResearchService($backend));
+    }
+
+    public function test_fail_closed_no_backend_mints_nothing(): void
+    {
+        // default state: no search tool wired ⇒ research() returns researched=false ⇒ ZERO origination.
+        $this->assertNull(
+            $this->originator(false)->originate('reduce coupling in the planner', base_path(), ['app/Svc/X.php']),
+            'an unresearched topic must never be laundered into an objective',
+        );
+    }
+
+    public function test_backend_present_mints_a_red_required_source_quarantined_objective(): void
+    {
+        $obj = $this->originator(true)->originate('idempotency for queue refill', base_path(), ['app/Svc/X.php']);
+
+        $this->assertIsArray($obj);
+        $this->assertTrue($obj['acceptance']['red_required'], 'research work must carry its OWN red requirement');
+        $this->assertTrue($obj['source_quarantined'], 'the research note must be quarantined as advisory');
+        $this->assertSame('research', $obj['shape']);
+        $this->assertSame('idempotency for queue refill', $obj['research_source']['topic']);
+        $this->assertSame(['app/Svc/X.php'], $obj['acceptance']['allowed_globs']);
+        $this->assertStringContainsStringIgnoringCase('advisory', $obj['objective']);
+        $this->assertStringContainsStringIgnoringCase('red', $obj['objective']);
+    }
+
+    public function test_empty_topic_or_empty_scope_mints_nothing(): void
+    {
+        $this->assertNull($this->originator(true)->originate('   ', base_path(), ['app/Svc/X.php']));
+        $this->assertNull($this->originator(true)->originate('a clean topic', base_path(), []));
+    }
+
+    public function test_egress_blocked_topic_mints_nothing_even_with_a_backend(): void
+    {
+        // a topic carrying a repo path fragment is egress-blocked by the research service ⇒ no objective,
+        // even though a backend is present (no repo internals are ever shipped to a research tool).
+        $blocked = $this->originator(true)->originate('leak app/Services/Ai/Secret.php internals', base_path(), ['app/Svc/X.php']);
+        $this->assertNull($blocked, 'egress-blocked research must not produce an objective');
+    }
+}

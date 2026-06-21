@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Discovery;
 
-use App\Models\AiCodebaseWorldModel;
-use App\Models\AiCodebaseWorldModelEdge;
-use App\Models\AiCodebaseWorldModelNode;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
@@ -56,84 +53,7 @@ final class AtlasLoopBlastRadiusReader
         $maxNodes = max(1, $maxNodes);
 
         try {
-            $modelId = AiCodebaseWorldModel::query()->orderByDesc('updated_at')->value('id');
-            if ($modelId === null) {
-                return [];
-            }
-
-            $targetNodeIds = AiCodebaseWorldModelNode::query()
-                ->where('world_model_id', $modelId)
-                ->where('path', $targetPath)
-                ->limit(50)
-                ->pluck('node_id')
-                ->map(static fn ($id): string => trim((string) $id))
-                ->filter(static fn (string $id): bool => $id !== '')
-                ->values()
-                ->all();
-            if ($targetNodeIds === []) {
-                return [];
-            }
-
-            // Reverse-dependency edge query, bounded per node — the analyzer caps total nodes walked, so the
-            // number of these queries is bounded by $maxNodes. Mirrors CodeGraphAdjacencyIndex::incoming().
-            $consumersOf = function (string $nodeId) use ($modelId): array {
-                return AiCodebaseWorldModelEdge::query()
-                    ->where('world_model_id', $modelId)
-                    ->where('to_node_id', $nodeId)
-                    ->limit(200)
-                    ->pluck('from_node_id')
-                    ->map(static fn ($id): array => ['to' => (string) $id])
-                    ->all();
-            };
-
-            $analyzer = new AtlasLoopBlastRadiusAnalyzer;
-            $blastNodeIds = [];
-            $worstScore = 0.0;
-            $truncated = false;
-            foreach ($targetNodeIds as $seed) {
-                $result = $analyzer->analyze($seed, $consumersOf, $maxDepth, $maxNodes);
-                foreach ($result['blast_radius'] as $consumerNodeId) {
-                    $blastNodeIds[(string) $consumerNodeId] = true;
-                }
-                $worstScore = max($worstScore, (float) $result['risk_score']);
-                $truncated = $truncated || (bool) $result['truncated'];
-            }
-            // The target's own symbol nodes are never their own consumers.
-            foreach ($targetNodeIds as $seed) {
-                unset($blastNodeIds[$seed]);
-            }
-            if ($blastNodeIds === []) {
-                return [];
-            }
-
-            // Translate impacted node ids -> distinct repo paths (provider-safe), excluding the edited file.
-            $paths = AiCodebaseWorldModelNode::query()
-                ->where('world_model_id', $modelId)
-                ->whereIn('node_id', array_keys($blastNodeIds))
-                ->pluck('path')
-                ->map(static fn ($p): string => trim((string) $p))
-                ->filter(static fn (string $p): bool => $p !== '' && $p !== $targetPath)
-                ->unique()
-                ->values()
-                ->all();
-            if ($paths === []) {
-                return [];
-            }
-
-            sort($paths, SORT_NATURAL | SORT_FLAG_CASE);
-            $risk = match (true) {
-                $truncated || $worstScore >= 0.75 => 'critical',
-                $worstScore >= 0.4 => 'high',
-                $worstScore >= 0.15 => 'medium',
-                default => 'low',
-            };
-
-            return [
-                'consumer_count' => count($paths),
-                'risk' => $risk,
-                'consumers' => array_slice($paths, 0, 12),
-                'truncated' => $truncated,
-            ];
+            return (new AtlasLoopBlastRadiusReaderSupport)->readFromIndexedGraph($targetPath, $maxDepth, $maxNodes);
         } catch (Throwable) {
             return [];
         }

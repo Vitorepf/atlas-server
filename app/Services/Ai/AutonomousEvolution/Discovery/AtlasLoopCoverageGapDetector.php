@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Discovery;
 
-use App\Services\Ai\AutonomousEvolution\AtlasLoopMutationOperators;
-
 /**
  * Turns the buried mutation-survival evidence in a refactor grind RESULT into the precise,
  * actionable coverage gaps that BLOCKED certification: the (target file, surviving decision
@@ -32,107 +30,8 @@ final class AtlasLoopCoverageGapDetector
             return [];
         }
 
-        $gaps = [];
-        $seen = [];
-        foreach ($reports as $report) {
-            if (! is_array($report) || ($report['certified'] ?? null) !== false) {
-                continue;
-            }
-            // Only the mutation-adequacy coverage gap — NOT every rejection (a decisions-gate or
-            // cross-file refusal is a different problem the test lane cannot fix).
-            $reasons = is_array($report['reasons'] ?? null) ? $report['reasons'] : [];
-            if (! in_array('mutation_adequacy_gate:mutation_survived', $reasons, true)) {
-                continue;
-            }
-            if (data_get($report, 'mutation_adequacy_gate.status') !== 'mutation_survived') {
-                continue;
-            }
+        $support = new AtlasLoopCoverageGapDetectorSupport();
 
-            $mutants = data_get($report, 'mutation_adequacy_gate.mutants');
-            if (! is_array($mutants)) {
-                continue;
-            }
-            foreach ($mutants as $mutant) {
-                if (! is_array($mutant) || ($mutant['survived'] ?? null) !== true) {
-                    continue;
-                }
-                $file = (string) ($mutant['file'] ?? '');
-                $operator = (string) ($mutant['operator'] ?? '');
-                $mutationId = (string) ($mutant['mutation_id'] ?? '');
-                // Never emit a partial gap — a downstream test task with no target/mutant is unactionable.
-                if ($file === '' || $operator === '' || $mutationId === '') {
-                    continue;
-                }
-                // A surviving COSMETIC mutant is not a behavior gap — skip (the decision-aware gate
-                // should not even reject on it). Single source: the shared operators class.
-                if (AtlasLoopMutationOperators::isCosmetic($operator)) {
-                    continue;
-                }
-                $sibling = $this->siblingTestFromCommands($mutant['command_results'] ?? null);
-                // Drop self-contained-synth FIXTURE noise (src/* targets, generated siblings) and the
-                // meaningless case of "refactoring a test file" — none of these is a real refactor of
-                // production code a characterization test should chase.
-                if (! $this->isActionableTarget($file, $sibling)) {
-                    continue;
-                }
-                $key = $file.'|'.$mutationId;
-                if (isset($seen[$key])) {
-                    continue;
-                }
-                $seen[$key] = true;
-
-                $gaps[] = [
-                    'target_file' => $file,
-                    'decision_operator' => $operator,
-                    'mutation_id' => $mutationId,
-                    'mutant_hash' => (string) ($mutant['mutant_hash'] ?? ''),
-                    'sibling_test' => $this->siblingTestFromCommands($mutant['command_results'] ?? null),
-                ];
-            }
-        }
-
-        return $gaps;
-    }
-
-    /**
-     * Is this a real refactor of production code worth a characterization test? Excludes the
-     * self-contained-synth FIXTURE workspace (src/* targets + generated `atlas_generated_*` siblings)
-     * and the meaningless "refactor of a test file" case.
-     */
-    private function isActionableTarget(string $file, ?string $sibling): bool
-    {
-        $norm = str_replace('\\', '/', $file);
-        if (str_ends_with($norm, 'Test.php')) {
-            return false; // refactoring a test file is not a production-code refactor
-        }
-        if (str_starts_with($norm, 'src/')) {
-            return false; // self-contained materialized fixture, not a real repo file
-        }
-        if ($sibling !== null && str_contains(str_replace('\\', '/', $sibling), 'atlas_generated_')) {
-            return false; // generated fixture test, not a real sibling to strengthen
-        }
-
-        return true;
-    }
-
-    /**
-     * The sibling test the gate actually ran (the one that FAILED to kill the mutant) — the file a
-     * characterization test must strengthen. Parsed from the recorded phpunit invocation.
-     *
-     * @param  mixed  $commandResults
-     */
-    private function siblingTestFromCommands($commandResults): ?string
-    {
-        if (! is_array($commandResults)) {
-            return null;
-        }
-        foreach ($commandResults as $cr) {
-            $cmd = is_array($cr) ? (string) ($cr['command'] ?? '') : '';
-            if (preg_match('#(tests/[^\s\'"]+\.php)#', $cmd, $m)) {
-                return $m[1];
-            }
-        }
-
-        return null;
+        return $support->gapsFromReports($reports);
     }
 }

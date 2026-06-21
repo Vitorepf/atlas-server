@@ -25,6 +25,10 @@ final class AtlasLoopVaguenessPreScreener
         'optimize', 'optimise', 'optimized', 'nicer', 'simpler', 'enhance', 'polish', 'refine', 'modernize', 'tidy',
     ];
 
+    private const ANCHOR_PATTERN = '/(?:[A-Za-z0-9_\/]+\.php\b|\b[A-Z][a-z0-9]+[A-Z][A-Za-z0-9]*\b|::|->|[`\'"][A-Za-z_][A-Za-z0-9_]{2,}[`\'"])/';
+
+    private const UNBOUNDED_QUALIFIER_PATTERN = '/\b(?:better|faster|robust|robustness|clean|cleaner|improve|improved|improvement|optimize|optimise|optimized|nicer|simpler|enhance|polish|refine|modernize|tidy)\b/';
+
     private const MIN_WORDS = 4;
 
     /**
@@ -42,24 +46,16 @@ final class AtlasLoopVaguenessPreScreener
 
         // A concrete anchor the planner can ground against: a path/.php token, a CamelCase symbol, a member
         // reference (::/->), or a quoted identifier. ANY of these means the goal is NOT vague.
-        $hasAnchor = preg_match('/[A-Za-z0-9_\/]+\.php\b/', $g) === 1
-            || preg_match('/\b[A-Z][a-z0-9]+[A-Z][A-Za-z0-9]*\b/', $g) === 1
-            || preg_match('/::|->/', $g) === 1
-            || preg_match('/[`\'"][A-Za-z_][A-Za-z0-9_]{2,}[`\'"]/', $g) === 1;
+        $hasAnchor = preg_match(self::ANCHOR_PATTERN, $g) === 1;
         if (! $hasAnchor) {
             $reasons[] = 'no_concrete_anchor';
         }
 
-        $lower = mb_strtolower($g);
-        $hasQualifier = false;
-        foreach (self::UNBOUNDED_QUALIFIERS as $q) {
-            if (preg_match('/\b'.preg_quote($q, '/').'\b/', $lower) === 1) {
-                $hasQualifier = true;
-                break;
+        if (! $hasAnchor) {
+            $lower = mb_strtolower($g);
+            if (preg_match(self::UNBOUNDED_QUALIFIER_PATTERN, $lower) === 1) {
+                $reasons[] = 'unbounded_qualifier_without_anchor';
             }
-        }
-        if ($hasQualifier && ! $hasAnchor) {
-            $reasons[] = 'unbounded_qualifier_without_anchor';
         }
 
         // The SOLE trigger is the absence of a concrete anchor (conservative — never abstain on a concrete goal).

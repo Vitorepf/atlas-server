@@ -173,51 +173,48 @@ final class AtlasLoopObraClusterDetectorService
         float $leverageFloor,
         int $maxClusterFiles,
     ): ?AtlasLoopObraClusterCandidate {
-        $hubPath = ltrim((string) $target->target_path, '/');
-        if ($hubPath === '') {
-            return null;
-        }
+        return $this->candidateForHubPath(
+            ltrim((string) $target->target_path, '/'),
+            data_get($target, 'signals', []),
+            $guard,
+            $wired,
+            $minCallers,
+            $minCyclomatic,
+            $leverageFloor,
+            $maxClusterFiles,
+        );
+    }
+
+    /**
+     * @param  array<string,mixed>  $signals
+     */
+    private function candidateForHubPath(
+        string $hubPath,
+        array $signals,
+        AtlasLoopHarnessGuard $guard,
+        AtlasLoopWiredCallerService $wired,
+        int $minCallers,
+        int $minCyclomatic,
+        float $leverageFloor,
+        int $maxClusterFiles,
+    ): ?AtlasLoopObraClusterCandidate {
         // PÉTREO: the loop never proposes work on its own gates/judge/never-merge/harness guard.
-        if ($guard->isForbiddenSelfTarget($hubPath)) {
+        if ($hubPath === '' || $guard->isForbiddenSelfTarget($hubPath)) {
             return null;
         }
 
-        $signals = is_array($target->signals) ? $target->signals : [];
-
-        // HUB qualification: a MEASURED caller count (never the null/unmeasured tri-state),
-        // a high per-method cyclomatic, and a high refactor leverage — all already stamped by
-        // AtlasLoopTargetDiscoveryService's impact ranking this pass.
-        $impactCallers = $signals['impact_real_callers'] ?? null;
-        if (! is_int($impactCallers) || $impactCallers < $minCallers) {
+        $hubMetrics = $this->qualifyingHubMetrics($signals, $minCallers, $minCyclomatic, $leverageFloor);
+        if ($hubMetrics === null) {
             return null;
         }
-        $cyclomatic = (int) ($signals['cyclomatic'] ?? 0);
-        if ($cyclomatic < $minCyclomatic) {
-            return null;
-        }
-        $leverage = (float) ($signals['refactor_leverage'] ?? 0.0);
-        if ($leverage < $leverageFloor) {
-            return null;
-        }
+        ['impact_callers' => $impactCallers, 'cyclomatic' => $cyclomatic, 'leverage' => $leverage] = $hubMetrics;
 
         // CLUSTER formation from GREP caller PATHS (working-tree truth). Required even though the
         // impact count qualified the hub: callerCounts() takes MAX(grep, code-graph) and the graph
         // can be stale, so a hub can show impact_real_callers>=floor with ZERO real working-tree
         // callers. Requiring >=1 grep caller path here means a stale-graph-only hub produces NO
         // candidate (closes the phantom-cluster hole). Absent key = unmeasured grep => reject.
-        $resolved = $wired->callerPaths([$hubPath]);
-        if (! array_key_exists($hubPath, $resolved)) {
-            return null; // grep unmeasured — cannot honestly assemble a cluster
-        }
-        $callerPaths = $resolved[$hubPath];
-
-        // PÉTREO: ANY forbidden-self-target member rejects the WHOLE cluster (caller paths were
-        // never discovery-admit()-filtered, so they MUST be guarded here).
-        foreach ($callerPaths as $caller) {
-            if ($guard->isForbiddenSelfTarget((string) $caller)) {
-                return null;
-            }
-        }
+        $callerPaths = $this->resolvedCallerPathsForHub($hubPath, $wired, $guard);
 
         // Bound the obra size deterministically (sorted slice — callerPaths is already sorted).
         $cappedCallers = array_slice($callerPaths, 0, max(1, $maxClusterFiles - 1));
@@ -234,13 +231,68 @@ final class AtlasLoopObraClusterDetectorService
         ];
         $leverageSignals = [
             'cyclomatic' => $cyclomatic,
-            'cyclomatic_total' => (int) ($signals['cyclomatic_total'] ?? 0),
+            'cyclomatic_total' => (int) data_get($signals, 'cyclomatic_total'),
             'refactor_leverage' => round($leverage, 4),
             'measured_caller_count' => $impactCallers,
         ];
 
         // fromHub enforces the >=2-file invariant (single source of truth for that floor).
         return AtlasLoopObraClusterCandidate::fromHub($hubPath, $cappedCallers, $leverageSignals, $routingRationale);
+    }
+
+    /**
+     * @param  array<string,mixed>  $signals
+     * @return array{impact_callers:int,cyclomatic:int,leverage:float}|null
+     */
+    private function qualifyingHubMetrics(array $signals, int $minCallers, int $minCyclomatic, float $leverageFloor): ?array
+    {
+        // HUB qualification: a MEASURED caller count (never the null/unmeasured tri-state),
+        // a high per-method cyclomatic, and a high refactor leverage — all already stamped by
+        // AtlasLoopTargetDiscoveryService's impact ranking this pass.
+        $impactCallers = $signals['impact_real_callers'] ?? null;
+        if (! is_int($impactCallers) || $impactCallers < $minCallers) {
+            return null;
+        }
+
+        $cyclomatic = (int) ($signals['cyclomatic'] ?? 0);
+        if ($cyclomatic < $minCyclomatic) {
+            return null;
+        }
+
+        $leverage = (float) ($signals['refactor_leverage'] ?? 0.0);
+        if ($leverage < $leverageFloor) {
+            return null;
+        }
+
+        return [
+            'impact_callers' => $impactCallers,
+            'cyclomatic' => $cyclomatic,
+            'leverage' => $leverage,
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function resolvedCallerPathsForHub(string $hubPath, AtlasLoopWiredCallerService $wired, AtlasLoopHarnessGuard $guard): array
+    {
+        $resolved = $wired->callerPaths([$hubPath]);
+        if (! array_key_exists($hubPath, $resolved)) {
+            return []; // grep unmeasured — cannot honestly assemble a cluster
+        }
+
+        $callerPaths = $resolved[$hubPath];
+
+        // PÉTREO: ANY forbidden-self-target member rejects the WHOLE cluster (caller paths were
+        // never discovery-admit()-filtered, so they MUST be guarded here).
+        if (array_filter(
+            $callerPaths,
+            static fn (mixed $caller): bool => $guard->isForbiddenSelfTarget((string) $caller),
+        ) !== []) {
+            return [];
+        }
+
+        return $callerPaths;
     }
 
     /**

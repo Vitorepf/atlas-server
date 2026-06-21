@@ -80,7 +80,7 @@ final class AtlasLoopProviderEditApplier
      */
     private function applyFullFileBlocks(string $stdout, string $workspace, array $allowedFiles): ?array
     {
-        if (preg_match_all(self::FULL_FILE_PATTERN, $stdout, $matches, PREG_SET_ORDER) === false || $matches === []) {
+        if ((int) preg_match_all(self::FULL_FILE_PATTERN, $stdout, $matches, PREG_SET_ORDER) < 1) {
             return null;
         }
 
@@ -89,40 +89,7 @@ final class AtlasLoopProviderEditApplier
         $rejected = [];
         $parseRejected = false;
         foreach ($matches as $block) {
-            $rel = $this->normalizeRelativePath((string) $block['path']);
-            if ($rel === null || ! $this->withinScope($rel, $allowedFiles)) {
-                $rejected[] = (string) $block['path'];
-
-                continue;
-            }
-            $target = $root.'/'.$rel;
-            if (! $this->isContained($root, $target)) {
-                $rejected[] = $rel;
-
-                continue;
-            }
-            $dir = dirname($target);
-            if (! is_dir($dir)) {
-                @mkdir($dir, 0o755, true);
-            }
-            $body = $this->stripTrailingFence((string) $block['body']);
-            // ACDE X2 — deterministic parse-gate. A weak engine emitting a full-file rewrite of a large .php
-            // file routinely introduces a duplicate method / unbalanced brace; written verbatim it poisons the
-            // whole scenario workspace (fatal autoload), so every scenario then scores diff-0 and nothing
-            // certifies. When armed, a .php body that does not parse is REJECTED here (never written) — a free,
-            // zero-model pre-acceptance oracle. Default OFF => the check is skipped => writes are byte-identical.
-            if (str_ends_with($rel, '.php') && (bool) config('atlas.loop.parse_gate_enabled', false) && ! $this->phpBodyParses($body)) {
-                $rejected[] = $rel;
-                $parseRejected = true;
-
-                continue;
-            }
-            if (file_put_contents($target, $body) === false) {
-                $rejected[] = $rel;
-
-                continue;
-            }
-            $changed[] = $rel;
+            $this->applyFullFileBlock($block, $root, $allowedFiles, $changed, $rejected, $parseRejected);
         }
 
         if ($changed === []) {
@@ -137,6 +104,52 @@ final class AtlasLoopProviderEditApplier
             'status' => $rejected === [] ? 'applied_full_file' : 'applied_full_file_partial',
             'reason' => null,
         ];
+    }
+
+    /**
+     * @param  array{path: string, body: string}  $block
+     * @param  list<string>  $allowedFiles
+     * @param  list<string>  $changed
+     * @param  list<string>  $rejected
+     */
+    private function applyFullFileBlock(array $block, string $root, array $allowedFiles, array &$changed, array &$rejected, bool &$parseRejected): void
+    {
+        $rel = $this->normalizeRelativePath((string) $block['path']);
+        if ($rel === null || ! $this->withinScope($rel, $allowedFiles)) {
+            $rejected[] = (string) $block['path'];
+
+            return;
+        }
+
+        $target = $root.'/'.$rel;
+        if (! $this->isContained($root, $target)) {
+            $rejected[] = $rel;
+
+            return;
+        }
+
+        $dir = dirname($target);
+        @mkdir($dir, 0o755, true);
+        $body = $this->stripTrailingFence((string) $block['body']);
+        // ACDE X2 — deterministic parse-gate. A weak engine emitting a full-file rewrite of a large .php
+        // file routinely introduces a duplicate method / unbalanced brace; written verbatim it poisons the
+        // whole scenario workspace (fatal autoload), so every scenario then scores diff-0 and nothing
+        // certifies. When armed, a .php body that does not parse is REJECTED here (never written) — a free,
+        // zero-model pre-acceptance oracle. Default OFF => the check is skipped => writes are byte-identical.
+        if (str_ends_with($rel, '.php') && (bool) config('atlas.loop.parse_gate_enabled', false) && ! $this->phpBodyParses($body)) {
+            $rejected[] = $rel;
+            $parseRejected = true;
+
+            return;
+        }
+
+        if (file_put_contents($target, $body) === false) {
+            $rejected[] = $rel;
+
+            return;
+        }
+
+        $changed[] = $rel;
     }
 
     /**
