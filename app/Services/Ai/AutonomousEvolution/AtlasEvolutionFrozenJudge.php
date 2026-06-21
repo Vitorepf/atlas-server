@@ -226,6 +226,33 @@ final class AtlasEvolutionFrozenJudge
             }
         }
 
+        // Guard 4d — DEDUP-EARNED (governed clone-unification, default-inert). When the FROZEN acceptance is a
+        // dedup contract (metric_kind=minimize AND dedup_proof=true) AND the operator flag is ON, certification
+        // is a CONJUNCTION: behavior MUST be preserved (Guard 3 above re-ran the FROZEN per-member sibling tests
+        // — frozen_globs, which the loop can never edit — and they stayed GREEN) AND the targeted clone
+        // duplication MUST be REMOVED (a count-drop measured by the judge's OWN parser, never a provider number):
+        // a no-op "dedup" that adds a helper but leaves both bodies keeps the shared count >=2 => rejected here.
+        // When the flag is OFF the branch is never entered and the judge is BYTE-IDENTICAL to today.
+        $dedupProof = null;
+        $wantDedupProof = $allPassed
+            && (bool) ($acceptance['dedup_proof'] ?? false)
+            && $metricKind === self::METRIC_MINIMIZE
+            && (bool) config('atlas.loop.refactor_dedup_proof', false);
+        if ($wantDedupProof) {
+            $dedupProof = $this->dedupEarned($workspace, (array) ($acceptance['clone_target'] ?? []));
+            $removed = is_array($dedupProof) ? ($dedupProof['removed'] ?? null) : null;
+            if ($removed !== true) {
+                return $this->verdict(false, 0.0, [
+                    'rejected' => true,
+                    // fail-closed: not removed, OR null/error measuring (could not verify).
+                    'reason' => 'dedup_not_earned',
+                    'dedup_proof' => $dedupProof,
+                    'changed_files' => $changed,
+                    'command_results' => $commandResults,
+                ], $acceptance);
+            }
+        }
+
         $metric = $this->computeMetric($metricKind, $allPassed, $lastStdout, $metricPattern);
         // For a verified refactor, the candidate's own AST max-per-method is the honest
         // ranking number — never trust a metric_pattern parse of provider stdout for the
@@ -340,6 +367,55 @@ final class AtlasEvolutionFrozenJudge
     private function signalAnalyzer(): AtlasLoopSignalAnalyzer
     {
         return new AtlasLoopSignalAnalyzer();
+    }
+
+    /**
+     * The ungameable dedup proof: did the candidate genuinely REMOVE the targeted clone duplication (behavior
+     * already proven by Guard 3's frozen per-member sibling tests)? Mirrors complexityEarned's git-stash
+     * machinery: the candidate diff is live, so read the member files' CANDIDATE source, stash to the committed
+     * BASELINE, read it, restore — then the PURE {@see \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopDedupProof}
+     * count-drop measure decides with the judge's OWN parser (never a provider-claimed number). A no-op that
+     * leaves both clone bodies keeps the shared count >=2 => removed=false. null = could not verify (no clone /
+     * <2 members / git error / no-op-no-diff) -> fail closed.
+     *
+     * @param  array<string,mixed>  $cloneTarget  acceptance.clone_target {members:[{path,...}|path], ...}
+     * @return array{target_hash:string,baseline_count:int,candidate_count:int,removed:bool}|null
+     */
+    private function dedupEarned(string $workspace, array $cloneTarget): ?array
+    {
+        $members = [];
+        foreach ((array) ($cloneTarget['members'] ?? []) as $m) {
+            $rel = ltrim(is_array($m) ? (string) ($m['path'] ?? '') : (string) $m, '/');
+            if ($rel !== '' && str_ends_with($rel, '.php')) {
+                $members[$rel] = true;
+            }
+        }
+        $members = array_keys($members);
+        if (count($members) < 2) {
+            return null; // need >=2 member files to have a duplication to remove -> fail closed
+        }
+
+        // CANDIDATE source first: the diff is live in the working tree right now.
+        $candidate = [];
+        foreach ($members as $rel) {
+            $candidate[$rel] = (string) @file_get_contents($workspace.'/'.$rel);
+        }
+
+        $stash = new Process(['git', 'stash', 'push', '--include-untracked', '--quiet'], $workspace, null, null, 60.0);
+        $stash->run();
+        if (! $stash->isSuccessful() || ! $this->stashCreated($workspace)) {
+            return null; // no diff to stash (no-op candidate) -> fail closed
+        }
+        try {
+            $baseline = [];
+            foreach ($members as $rel) {
+                $baseline[$rel] = (string) @file_get_contents($workspace.'/'.$rel);
+            }
+        } finally {
+            (new Process(['git', 'stash', 'pop', '--quiet'], $workspace, null, null, 60.0))->run();
+        }
+
+        return (new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopDedupProof)->evaluate($baseline, $candidate);
     }
 
     /**

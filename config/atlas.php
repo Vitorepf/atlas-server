@@ -1962,6 +1962,12 @@ return [
         // + external_research_tool_available + a wired research backend (otherwise the service fail-closes).
         'research_authoring_enabled' => (bool) env('ATLAS_LOOP_RESEARCH_AUTHORING_ENABLED', false),
         'refactor_performance_proof' => (bool) env('ATLAS_LOOP_REFACTOR_PERFORMANCE_PROOF', true),
+        // §5.6 DEDUP — the frozen-judge Guard 4d clone-unification proof. When ON, a `dedup_proof` acceptance
+        // certifies ONLY when behavior is preserved (Guard 3 frozen per-member siblings green) AND the targeted
+        // clone duplication is REMOVED (the judge's OWN count-drop, never a provider number). Default-OFF =>
+        // Guard 4d is never entered => the judge is byte-identical. The clone-unification SUPPLY lane (the brain
+        // minting these tasks from the comprehension model's clone clusters) is separately gated below.
+        'refactor_dedup_proof' => (bool) env('ATLAS_LOOP_REFACTOR_DEDUP_PROOF', false),
         'park_escalation_enabled' => (bool) env('ATLAS_LOOP_PARK_ESCALATION_ENABLED', true),
         'territory_ladder_enabled' => (bool) env('ATLAS_LOOP_TERRITORY_LADDER_ENABLED', true),
         'drift_restart_debounce_enabled' => (bool) env('ATLAS_LOOP_DRIFT_RESTART_DEBOUNCE_ENABLED', true),
