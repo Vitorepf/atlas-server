@@ -2205,6 +2205,11 @@ return [
         // who-calls-who edges), so the projected contract provably protects every real caller and a
         // high-fan-out target PARKS. Default-OFF ⇒ the worker is byte-identical to the scripted roles.
         'grounded_projection_enabled' => (bool) env('ATLAS_LOOP_GROUNDED_PROJECTION_ENABLED', false),
+        // §3 CROSS-MODEL CRITIQUE — when ON (and grounded_projection_enabled), a frontier model proposes
+        // ADDITIONAL grounded obligations on top of the deterministic floor (AtlasLoopModelProjectionCritic).
+        // The engine's grounding gate rejects any ungrounded one, so it can only DEEPEN the contract, never
+        // weaken it; fail-closed (no provider ⇒ the deterministic floor alone). Default-OFF.
+        'grounded_projection_model_critic_enabled' => (bool) env('ATLAS_LOOP_GROUNDED_PROJECTION_MODEL_CRITIC_ENABLED', false),
         // S3 — supply de bug REAL. O harvester colhe reds DETERMINÍSTICOS (filtra flaky/ambiental via
         // SuiteRedTriageHelper) pra atlas_loop_failure_handles; a discovery estampa o handle no signal do
         // alvo → a bug-fix lane (já ligada) enfileira objective_kind=bug_fix, revert_recheck=true.

@@ -82,7 +82,7 @@ final class AtlasLoopProjectionWorker
             // consumer_intact obligation for every REAL caller of the target, so the contract provably
             // protects them and a high-fan-out target parks). Fail-OPEN to the scripted roles: a missing
             // model / unresolved target never blocks a projection, it just falls back to the v1 floor.
-            $grounded = $this->groundedRolesFor($repoRoot, $this->targetSymbol($envelope));
+            $grounded = $this->groundedRolesFor($repoRoot, $this->targetSymbol($envelope), $bindingAxis);
 
             // §3 PÉTREO CONSTITUTION GUARD — the architect phase refuses to project a change to a cert organ
             // (frozen judge / projection engine / harness guard). Park it explicitly, mint no task: the loop
@@ -140,7 +140,7 @@ final class AtlasLoopProjectionWorker
      *
      * @return array{designer?: callable, critic?: callable}
      */
-    private function groundedRolesFor(string $repoRoot, string $target): array
+    private function groundedRolesFor(string $repoRoot, string $target, string $bindingAxis = 'wired'): array
     {
         if (! (bool) config('atlas.loop.grounded_projection_enabled', false) || trim($target) === '') {
             return [];
@@ -152,7 +152,14 @@ final class AtlasLoopProjectionWorker
                 return [];
             }
 
-            $roles = (new AtlasLoopGroundedProjectionRoles($model))->forTarget($target);
+            // §3 cross-model critique (flag-gated, fail-closed): a frontier model proposes ADDITIONAL grounded
+            // obligations on top of the deterministic floor; the engine's grounding gate rejects any
+            // ungrounded one, so a garbage completion is harmless and no-provider ⇒ [] ⇒ the floor alone.
+            $extraSeeds = (bool) config('atlas.loop.grounded_projection_model_critic_enabled', false)
+                ? (new AtlasLoopModelProjectionCritic)->additionalObligations($target, $bindingAxis)
+                : [];
+
+            $roles = (new AtlasLoopGroundedProjectionRoles($model))->forTarget($target, $extraSeeds);
 
             return ['designer' => $roles['designer'], 'critic' => $roles['critic'], 'consumers' => $roles['consumers'] ?? [], 'forbidden' => (bool) ($roles['forbidden'] ?? false)];
         } catch (Throwable) {
