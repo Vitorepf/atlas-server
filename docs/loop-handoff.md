@@ -241,7 +241,48 @@ decomposition of a big evolution into provable pieces.
 5. Work the canonical way: understand → project the evolution + critique it cross-model → implement → test →
    verify the wiring. Commit-by-piece. Prove each piece is real value, not proxy.
 
-**Definition of done (the operator's bar):** live evidence that the loop can autonomously **choose, execute,
-certify and measure real-value work in its own scope, without falling into proxy/cosmetic/coverage-only
-domination** — and research the internet when it needs to. Not "a base is built." Not "tests pass." *The loop
-demonstrably evolving itself, well.*
+---
+
+## 8. Definition of COMPLETE — exactly when the loop is "done" in its own scope
+
+The loop is **complete/finished within its own scope** (and *only then* earns the next block) when ALL of A–E
+hold under a **skeptical audit of a sustained live campaign** on `app/Services/Ai/AutonomousEvolution/`. This
+is the bar. "A base is built", "tests pass", "it ran once" are explicitly NOT complete.
+
+- **A — Full cycle, autonomous, repeated.** The loop runs a campaign with **no human and no external (Claude
+  Code/Codex) review** and produces a **continuous stream of CERTIFIED real-value evolutions of its own code**
+  (choose → execute → certify → measure → commit → repeat). A *stream*, sustained — not a single landing.
+- **B — Real value DOMINATES; proxy/cosmetic/coverage never take over.** Over the campaign, measurably:
+  `proxy = 0`, `cosmetic = 0`, and **substantive (bug-fix / material-refactor / self-improvement / feature) ≥
+  verification (coverage/characterization)**. The scorecard's "real work" claim survives an adversarial audit
+  — no laundered proxy, no coverage masquerading as evolution.
+- **C — Never stuck, never busywork.** When the obvious work runs out, the loop does NOT idle or coverage-pad —
+  it **researches the internet** for what it lacks and **originates** the next real evolution. Supply never
+  decays into proxy.
+- **D — It gets BETTER over the run (exponential, not flat).** The loop's own capability **improves measurably**
+  across the campaign (higher real-work throughput, better origination, fewer wasted grinds). It is evolving
+  *itself* into a better evolver. A campaign with the same capability start-to-end is NOT complete.
+- **E — Self-governed honesty holds under attack.** Every gate (frozen judge, mutation cert, scorecard,
+  pattern-driver veto) **actually bites**: a skeptic trying to slip proxy / cosmetic / behavior-breaking work
+  through is **rejected**. No gate is governance veneer.
+
+If a campaign passes A–E under a skeptical audit → **the loop is complete in its own scope.** That is the only
+"finished".
+
+---
+
+## 9. The strategy: confidence-gated BLOCK expansion (the meta-plan — do not skip blocks)
+
+> Operator's directive: *"começar com o próprio loop e ele garantir que consegue tudo o que ele deve fazer
+> dentro do próprio loop, e ir aumentando os blocos aos poucos enquanto ele garante confiança."*
+
+1. **Block 1 = the loop's OWN scope** (`app/Services/Ai/AutonomousEvolution/`). Make the loop COMPLETE here
+   (§8 A–E), proven by an **audited live campaign**. This is the entire job right now — nothing else.
+2. **Only when Block 1 is proven-with-confidence** — audited live evidence, never "it worked once" — do you
+   widen to **Block 2** (a small adjacent scope). Each block is **EARNED by proof**, not assumed.
+3. **Confidence = audited live evidence, never optimism.** A loop that games its own gates or coverage-pads has
+   *not* earned the next block — it has proven the opposite, and that's the signal to harden, not expand.
+
+**Why this exact order:** a loop that cannot reliably and *honestly* evolve the very code it is built from
+cannot be trusted with anything larger. Proving the smallest, most-instrumented scope first turns every later
+block into a clean multiplier on a **trusted base** instead of a gamble. Expand only on earned trust.
