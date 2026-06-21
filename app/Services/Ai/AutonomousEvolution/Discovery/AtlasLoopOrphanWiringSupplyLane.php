@@ -27,6 +27,7 @@ final class AtlasLoopOrphanWiringSupplyLane
     public function __construct(
         private readonly ?AtlasLoopSiblingTestResolver $siblings = null,
         private readonly ?\App\Services\Ai\AutonomousEvolution\AtlasLoopLeverageSelector $leverage = null,
+        private readonly ?\App\Services\Ai\AutonomousEvolution\AtlasLoopArchitectPhaseGate $architect = null,
     ) {}
 
     /**
@@ -67,19 +68,33 @@ final class AtlasLoopOrphanWiringSupplyLane
                 continue;
             }
 
+            $payload = [
+                'objective_kind' => self::OBJECTIVE_KIND,
+                'source' => self::OBJECTIVE_KIND,
+                'orphan_path' => $rel,
+                'orphan_fqcn' => $fqcn,
+                'public_methods' => $publicMethods,
+                'sibling_test' => $sib['sibling_path'],
+                // The executor + Guard 4e contract; the acceptance commands are engine-authored (earned-RED).
+                'wired_proof' => true,
+                'wired_target' => ['orphan_path' => $rel],
+            ];
+
+            // §1 ARCHITECT-PHASE GATE (flag-gated) — design the wiring before it becomes work: the pétreo
+            // guard + convergence run, and the projected obligations ride on the directive. A directive the
+            // architect cannot converge never becomes work. Off ⇒ byte-identical (Guard 4e still proves it).
+            if ((bool) config('atlas.loop.architect_gate_enabled', false)) {
+                $gate = $this->architect ?? new \App\Services\Ai\AutonomousEvolution\AtlasLoopArchitectPhaseGate;
+                $verdict = $gate->admit($model, $rel, self::OBJECTIVE_KIND, $repoRoot);
+                if (($verdict['admitted'] ?? false) !== true) {
+                    continue; // un-designable wiring never becomes work
+                }
+                $payload['_architect_obligations'] = $verdict['obligations'];
+            }
+
             $specs[] = [
                 'objective' => sprintf('Wire the orphaned capability %s into a production caller and prove it load-bearing.', $fqcn),
-                'payload' => [
-                    'objective_kind' => self::OBJECTIVE_KIND,
-                    'source' => self::OBJECTIVE_KIND,
-                    'orphan_path' => $rel,
-                    'orphan_fqcn' => $fqcn,
-                    'public_methods' => $publicMethods,
-                    'sibling_test' => $sib['sibling_path'],
-                    // The executor + Guard 4e contract; the acceptance commands are engine-authored (earned-RED).
-                    'wired_proof' => true,
-                    'wired_target' => ['orphan_path' => $rel],
-                ],
+                'payload' => $payload,
                 'members' => [$rel],
             ];
         }
