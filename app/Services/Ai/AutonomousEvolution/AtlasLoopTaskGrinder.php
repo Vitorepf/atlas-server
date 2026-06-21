@@ -125,6 +125,17 @@ final class AtlasLoopTaskGrinder
                 return $obraRoute;
             }
 
+            // §5.6 ORPHAN-WIRING execution route (flag-gated, default OFF => inert/byte-identical). A
+            // source='orphan_wiring' directive (the brain's tested-orphan supply) is routed to the engine-
+            // authored executor inside a CONCURRENCY-SAFE standalone workspace; a certified wiring PARKS its net
+            // diff (propose-only, never merge). Any other task => null (fall-through to the normal path).
+            $orphanWiringRoute = $this->maybeRouteOrphanWiringToExecutor($task, $payload, $workerId, $started);
+            if ($orphanWiringRoute !== null) {
+                $cleanup();
+
+                return $orphanWiringRoute;
+            }
+
             $strategyBanditDecision = $this->strategyBanditDecision($task, $payload, $scenarios);
             // ACDE lever #7 — if THIS exact target has gone N real attempts with ZERO certs it is hopeless
             // (already-clean / unfixable-as-framed); skip BEFORE best-of-N burns the budget. A skip is an
@@ -325,6 +336,80 @@ final class AtlasLoopTaskGrinder
      * @param  array<string,mixed>  $payload
      * @return array<string,mixed>|null
      */
+    /**
+     * §5.6 ORPHAN-WIRING execution route — the thin grinder wrapper around {@see AtlasLoopOrphanWiringRouteHandler}.
+     * Routes a source='orphan_wiring' directive to the engine-authored executor: resolve the §9 authoring engine
+     * ({@see AtlasLoopOrphanWiringAuthoringEngine}, app()-bound so a fixture can supply a double), run the handler
+     * in a concurrency-safe standalone workspace, and PARK the certified net diff (propose-only, never merge).
+     * Returns a terminal grind result when it fires, or null (flag OFF / non-orphan-wiring / no base) to fall
+     * through. The authoring engine returning null (live provider-authoring not yet built) => honest no_winner,
+     * NEVER a fabricated cert. Flag OFF => this method is inert and the grind is byte-identical to today.
+     *
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>|null
+     */
+    private function maybeRouteOrphanWiringToExecutor(AtlasLoopTask $task, array $payload, string $workerId, float $started): ?array
+    {
+        if (! (bool) config('atlas.loop.orphan_wiring_execution_enabled', false)) {
+            return null;
+        }
+        if (trim((string) ($payload['objective_kind'] ?? '')) !== 'orphan_wiring') {
+            return null;
+        }
+        $orphanRel = trim((string) ($payload['orphan_path'] ?? ''));
+        if ($orphanRel === '') {
+            return null;
+        }
+        $campaign = \App\Models\AtlasLoopCampaign::query()->find($task->campaign_id);
+        $baseWorkspace = trim((string) ($campaign->base_workspace ?? ''));
+        if ($baseWorkspace === '' || ! is_dir($baseWorkspace)) {
+            return null;
+        }
+
+        // The §9 authoring seam: a real provider call in prod, a fixture double in tests. null => honest no_winner.
+        $authoring = app(AtlasLoopOrphanWiringAuthoringEngine::class)->author($payload, $baseWorkspace);
+        if (! is_array($authoring) || ! is_callable($authoring['author_test'] ?? null) || ! is_callable($authoring['author_wiring'] ?? null)) {
+            $this->store->releaseClaim($task->id, $workerId);
+
+            return $this->orphanWiringTerminal($started, 'no_winner', 'orphan_wiring_authoring_unavailable', 0);
+        }
+
+        $outcome = (new AtlasLoopOrphanWiringRouteHandler)->handle($orphanRel, $baseWorkspace, $authoring['author_test'], $authoring['author_wiring']);
+        if (($outcome['certified'] ?? false) !== true) {
+            $this->store->releaseClaim($task->id, $workerId);
+
+            return $this->orphanWiringTerminal($started, 'no_winner', 'orphan_wiring_not_certified:'.(string) ($outcome['reason'] ?? '?'), 0);
+        }
+
+        // PARK (propose-only): terminal-DONE, never a winner, never merged — the operator reviews the net diff.
+        $this->store->completeTask($task->id, $workerId, [
+            'status' => 'proposal_created_orphan_wiring',
+            'orphan_path' => $orphanRel,
+            'proposal_diff' => (string) ($outcome['proposal_diff'] ?? ''),
+        ], true);
+
+        return $this->orphanWiringTerminal($started, 'proposal_created_orphan_wiring', null, 1);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function orphanWiringTerminal(float $started, string $status, ?string $reason, int $proposals): array
+    {
+        $out = [
+            'status' => $status,
+            'has_winner' => false,
+            'proposals' => $proposals,
+            'scenarios_explored' => 0,
+            'elapsed_seconds' => (int) ceil(microtime(true) - $started),
+        ];
+        if ($reason !== null) {
+            $out['reason'] = $reason;
+        }
+
+        return $out;
+    }
+
     private function maybeRouteMultiFileRefactorToObra(AtlasLoopTask $task, array $payload, string $workerId, float $started): ?array
     {
         // PATH B (default lane for big refactors): when multi_file_refactor_via_normal_lane is ON, a
