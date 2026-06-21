@@ -54,6 +54,13 @@ final class AtlasLoopComprehensionGroundingWiringTest extends TestCase
         $this->dirs[] = $base;
         File::ensureDirectoryExists($base.'/src');
         File::put($base.'/src/Calc.php', "<?php\nfunction calc_value() { return 1; }\n");
+        // Mirror the REAL repo shape: the discovery base_workspace is a cp -R of a Laravel repo whose
+        // .gitignore ignores .env* — so the .env.testing that the gate's materializeGateWorkspace writes
+        // (AtlasLoopHermeticCommandEnvironment::writeTestingEnv) is excluded from the FrozenJudge scope
+        // census (git ls-files --others --exclude-standard). Without it, .env.testing leaks into the
+        // census as an untracked, non-ignored file => out_of_scope_change => the cert fails BEFORE the
+        // grounding conjunct can be exercised, so every case wrongly returns 0 proposals.
+        File::put($base.'/.gitignore', ".env\n.env.*\n");
         // A FROZEN acceptance script (referenced by the command, so the judge freezes it). It exits 0
         // only when the SOURCE returns 2 — so the proposal's diff EARNS its green (reverting the diff
         // restores `return 1` => the frozen script exits non-zero => diff_earned passes).
