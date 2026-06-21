@@ -50,14 +50,15 @@ final class AtlasLoopGroundedProjectionRoles
      * keys they emit collide exactly with what the engine stores.
      *
      * @param  string  $relTarget  the evolution's target file (the producer envelope's target_path)
-     * @return array{designer: callable(int, list<array<string,mixed>>): list<array<string,mixed>>, critic: callable(list<array<string,mixed>>): array{add: list<array<string,mixed>>, resolved: list<string>}, consumer_count: int}
+     * @return array{designer: callable(int, list<array<string,mixed>>): list<array<string,mixed>>, critic: callable(list<array<string,mixed>>): array{add: list<array<string,mixed>>, resolved: list<string>}, consumer_count: int, consumers: list<string>}
      */
     public function forTarget(string $relTarget): array
     {
         $engine = new AtlasLoopProjectionEngine;
         $target = $this->norm($relTarget);
         $realMutop = (string) array_key_first(AtlasLoopMutationOperators::map());
-        $consumers = $this->realConsumers($relTarget);
+        $originalConsumers = $this->realConsumerPaths($relTarget);
+        $consumers = array_map(fn (string $c): string => $this->norm($c), $originalConsumers);
         $testPath = 'tests/'.$this->classOf($relTarget).'Test.php';
         $raised = []; // engine-obligation-key => true (everything the critic raised, for the resolve step)
 
@@ -117,28 +118,31 @@ final class AtlasLoopGroundedProjectionRoles
             return ['add' => [], 'resolved' => array_keys($raised)];
         };
 
-        return ['designer' => $designer, 'critic' => $critic, 'consumer_count' => count($consumers)];
+        return ['designer' => $designer, 'critic' => $critic, 'consumer_count' => count($consumers), 'consumers' => $originalConsumers];
     }
 
     /**
-     * The target's measured production callers, normalized to the engine's key form and de-duplicated. An
-     * unmeasured target (no edges entry) yields [] — the critic then falls to the mutation-killed floor
-     * rather than fabricating a caller.
+     * The target's measured production callers in ORIGINAL case (the obligation key is lossy-lowercased, but
+     * the downstream consumer-contract command resolver needs the real file path), de-duplicated by their
+     * normalized form. An unmeasured target (no edges entry) yields [] — the critic then falls to the
+     * mutation-killed floor rather than fabricating a caller.
      *
      * @return list<string>
      */
-    private function realConsumers(string $relTarget): array
+    private function realConsumerPaths(string $relTarget): array
     {
         $callers = $this->model->callerPathsFor($relTarget) ?? [];
+        $targetNorm = $this->norm($relTarget);
         $out = [];
         foreach ($callers as $caller) {
-            $norm = $this->norm((string) $caller);
-            if ($norm !== '' && $norm !== $this->norm($relTarget)) {
-                $out[$norm] = true; // a self-edge is not an external caller to protect
+            $caller = ltrim(trim((string) $caller), '/');
+            $norm = $this->norm($caller);
+            if ($norm !== '' && $norm !== $targetNorm && ! isset($out[$norm])) {
+                $out[$norm] = $caller; // a self-edge is not an external caller to protect
             }
         }
 
-        return array_keys($out);
+        return array_values($out);
     }
 
     /** Mirror {@see AtlasLoopProjectionEngine}'s fqcn normalization so emitted keys collide with stored ones. */

@@ -98,7 +98,8 @@ final class AtlasLoopProjectionWorker
             // CONVERGED — attach the engine's typed obligations into the task spec, then enqueue the original
             // producer envelope as a first-class task (rebuilt from the checkpoint, NOT re-produced).
             $obligations = is_array($result['obligations'] ?? null) ? array_values((array) $result['obligations']) : [];
-            $task = $this->enqueueFromEnvelope($campaignId, $envelope, $checkpoint, $obligations, $bindingAxis);
+            $consumerContracts = $this->consumerContractsFor($obligations, (array) ($grounded['consumers'] ?? []), $this->targetSymbol($envelope), $repoRoot);
+            $task = $this->enqueueFromEnvelope($campaignId, $envelope, $checkpoint, $obligations, $bindingAxis, $consumerContracts);
             if (! $task instanceof AtlasLoopTask) {
                 $pipeline->park($objectiveId, 'projection_enqueue_no_live_task');
 
@@ -143,10 +144,37 @@ final class AtlasLoopProjectionWorker
 
             $roles = (new AtlasLoopGroundedProjectionRoles($model))->forTarget($target);
 
-            return ['designer' => $roles['designer'], 'critic' => $roles['critic']];
+            return ['designer' => $roles['designer'], 'critic' => $roles['critic'], 'consumers' => $roles['consumers'] ?? []];
         } catch (Throwable) {
             return []; // grounded phase is best-effort; never let a model failure block a projection
         }
+    }
+
+    /**
+     * §3 ARCHITECT PHASE — translate the grounded projection's consumer_intact obligations into the explicit
+     * consumer_contracts the cross-file consumer gate ENFORCES (it replays each caller's test in the
+     * candidate workspace), so the projected contract is a real veto, not a seal. Empty when the phase is
+     * off / no callers / no grounded consumer obligation.
+     *
+     * @param  list<array<string,mixed>>  $obligations
+     * @param  list<string>  $consumers
+     * @return list<array<string,mixed>>
+     */
+    private function consumerContractsFor(array $obligations, array $consumers, string $target, string $repoRoot): array
+    {
+        if ($consumers === []) {
+            return [];
+        }
+        $changedSymbol = $this->classOf($target);
+        $resolver = new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSiblingTestResolver(rtrim($repoRoot, '/') ?: null);
+        $commandFor = static function (string $caller) use ($resolver): ?string {
+            $sibling = $resolver->resolve($caller);
+            $path = (string) ($sibling['sibling_path'] ?? '');
+
+            return ($sibling['has_sibling'] ?? false) && $path !== '' ? './vendor/bin/phpunit '.escapeshellarg($path) : null;
+        };
+
+        return (new AtlasLoopProjectionObligationContracts)->toConsumerContracts($obligations, $consumers, $changedSymbol, $commandFor);
     }
 
     private function buildScopeModel(string $repoRoot): ?AtlasLoopScopeComprehensionModel
@@ -226,8 +254,9 @@ final class AtlasLoopProjectionWorker
      * @param  array<string,mixed>  $envelope
      * @param  array<string,mixed>  $checkpoint
      * @param  list<array<string,mixed>>  $obligations
+     * @param  list<array<string,mixed>>  $consumerContracts
      */
-    private function enqueueFromEnvelope(string $campaignId, array $envelope, array $checkpoint, array $obligations, string $bindingAxis): mixed
+    private function enqueueFromEnvelope(string $campaignId, array $envelope, array $checkpoint, array $obligations, string $bindingAxis, array $consumerContracts = []): mixed
     {
         $payload = is_array($envelope['payload'] ?? null) ? (array) $envelope['payload'] : [];
         $payload['_obligations'] = $obligations;
@@ -238,6 +267,13 @@ final class AtlasLoopProjectionWorker
 
         $acceptance = is_array($payload['acceptance'] ?? null) ? (array) $payload['acceptance'] : [];
         $acceptance['obligations'] = $obligations;
+        // §3 close "selo sem veto": the grounded consumer_intact obligations become explicit
+        // consumer_contracts the certifier's cross-file consumer gate replays — so a refactor that breaks a
+        // real caller is REFUSED certification. Merge (never clobber) any contracts the producer attached.
+        if ($consumerContracts !== []) {
+            $existing = is_array($acceptance['consumer_contracts'] ?? null) ? (array) $acceptance['consumer_contracts'] : [];
+            $acceptance['consumer_contracts'] = array_merge($existing, $consumerContracts);
+        }
         $payload['acceptance'] = $acceptance;
 
         $targetPath = (string) ($envelope['target_path'] ?? ($payload['target_repo_path'] ?? ''));
