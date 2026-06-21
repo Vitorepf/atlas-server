@@ -1949,6 +1949,12 @@ return [
         // any work). The per-file count is bounded by decompose_supply_max_files_per_refill.
         'decompose_supply_enabled' => (bool) env('ATLAS_LOOP_DECOMPOSE_SUPPLY_ENABLED', false),
         'decompose_supply_max_files_per_refill' => max(1, (int) env('ATLAS_LOOP_DECOMPOSE_SUPPLY_MAX_FILES_PER_REFILL', 8)),
+        // §5.6 DEDUP-SUPPLY — the comprehension brain DRIVING selection: build the scope-comprehension model and
+        // mint CERTIFIABLE clone-unification tasks from its clone clusters (net-new work the proxy scan cannot
+        // produce). Default-OFF => the refiller builds no model and mints nothing (byte-identical). Needs the
+        // judge's Guard 4d armed (refactor_dedup_proof) for the minted task to certify. Pair both to go live.
+        'dedup_supply_enabled' => (bool) env('ATLAS_LOOP_DEDUP_SUPPLY_ENABLED', false),
+        'dedup_supply_max_per_refill' => max(1, (int) env('ATLAS_LOOP_DEDUP_SUPPLY_MAX_PER_REFILL', 4)),
         'obra_earned_red_enabled' => (bool) env('ATLAS_LOOP_OBRA_EARNED_RED_ENABLED', true),
         'comprehension_grounding_gate_enabled' => (bool) env('ATLAS_LOOP_COMPREHENSION_GROUNDING_GATE_ENABLED', true),
         'external_research_enabled' => (bool) env('ATLAS_LOOP_EXTERNAL_RESEARCH_ENABLED', true),

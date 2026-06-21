@@ -461,6 +461,11 @@ final class AtlasLoopQueueRefiller
         // method early-returns 0 (refill byte-identical to today). Wrapped fail-open: it can NEVER break a refill.
         $enqueued += $this->tryDecomposeMaterialSupply($campaign, $provider, $repoRoot, $want);
 
+        // §5.6 DEDUP-SUPPLY LANE (default-OFF, fail-open): the BRAIN drives selection — the comprehension model's
+        // clone clusters become CERTIFIABLE clone-unification tasks the proxy scan structurally cannot produce.
+        // Flag OFF => returns 0 before any model build (refill byte-identical to today). Wrapped fail-open.
+        $enqueued += $this->tryDedupSupply($campaign, $provider, $repoRoot, $want);
+
         // OBRA CANDIDATE PRODUCER (slice-1, default-OFF, fail-open): after discovery+enqueue,
         // scan the SAME claimed targets for high-leverage multi-file HUB clusters and park them
         // as operator-review obra CANDIDATES. It enqueues NO loop task, calls NO provider,
@@ -682,6 +687,141 @@ final class AtlasLoopQueueRefiller
         $this->stampLastObjective($target, (string) $synth['objective']);
 
         return $this->completeTargetEnqueue($target, $enq, 'decompose_supply_refactor_synthesized') === 'enqueued';
+    }
+
+    /**
+     * §5.6 DEDUP-SUPPLY LANE — the BRAIN driving selection. Build the grounded scope-comprehension model and
+     * let {@see AtlasLoopDedupSupplyLane} mint CERTIFIABLE clone-unification tasks from its clone clusters —
+     * net-new work the proxy discovery (cyclomatic/coverage) STRUCTURALLY cannot produce. Each task carries
+     * dedup_proof + the frozen member siblings, so the frozen judge's Guard 4d count-drop (behaviour preserved
+     * AND duplication removed) is the sole authority. Conflict-free (at most one in-flight task across a
+     * cluster's members). Flag default-OFF => returns 0 before any model build => refill() is byte-identical.
+     * Wrapped fail-open so it can NEVER break a refill.
+     */
+    private function tryDedupSupply(AtlasLoopCampaign $campaign, string $provider, string $repoRoot, int $want): int
+    {
+        // BYTE-IDENTICAL GUARD: OFF => no model build, no mint — refill() is exactly today's behaviour.
+        if (! (bool) config('atlas.loop.dedup_supply_enabled', false)) {
+            return 0;
+        }
+
+        try {
+            $cap = max(1, min(max(1, $want), (int) config('atlas.loop.dedup_supply_max_per_refill', 4)));
+            $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard;
+            $builder = new AtlasLoopScopeComprehensionModelBuilder;
+            $lane = new AtlasLoopDedupSupplyLane;
+
+            $minted = 0;
+            foreach ((array) config('atlas.loop.campaign.discovery_roots', ['app/Services']) as $root) {
+                if ($minted >= $cap) {
+                    break;
+                }
+                $root = trim(str_replace('\\', '/', (string) $root), '/');
+                if ($root === '' || ! is_dir($repoRoot.'/'.$root)) {
+                    continue;
+                }
+                $model = $builder->build($repoRoot, $root, ['docs_roots' => []]);
+                $this->touchHeartbeat($campaign); // the model build can take a few seconds on a large scope
+                foreach ($lane->mint($model, $repoRoot) as $spec) {
+                    if ($minted >= $cap) {
+                        break;
+                    }
+                    $members = array_values(array_filter((array) ($spec['members'] ?? []), 'is_string'));
+                    $anchor = $members[0] ?? '';
+                    if ($anchor === '' || $guard->isForbiddenSelfTarget($anchor)) {
+                        continue;
+                    }
+                    // CONFLICT GUARD: skip if ANY member has an in-flight task (no two workers on a shared file).
+                    $conflict = false;
+                    foreach ($members as $m) {
+                        if ($this->fileHasInflightTask((string) $campaign->id, $m)) {
+                            $conflict = true;
+                            break;
+                        }
+                    }
+                    if ($conflict) {
+                        continue;
+                    }
+                    if ($this->mintDedupTask($campaign, $spec, $repoRoot)) {
+                        $minted++;
+                    }
+                    $this->touchHeartbeat($campaign);
+                }
+            }
+
+            return $minted;
+        } catch (Throwable) {
+            return 0; // fail-open: the dedup-supply lane can never break a refill
+        }
+    }
+
+    /**
+     * Enqueue ONE clone-unification task from a {@see AtlasLoopDedupSupplyLane} spec, anchored on the first
+     * member (a real claimed target row for loop-back + same-file serialization), the SAME upsert+claim+enqueue
+     * +completeTargetEnqueue path the decompose lane uses. The frozen acceptance (dedup_proof + clone_target +
+     * member siblings) comes straight from the spec — the provider can never author it. Restore the row
+     * untouched on a non-live enqueue (never thrash attempts). Fail-closed: any error => false.
+     */
+    private function mintDedupTask(AtlasLoopCampaign $campaign, array $spec, string $repoRoot): bool
+    {
+        $members = array_values(array_filter((array) ($spec['members'] ?? []), 'is_string'));
+        $anchor = $members[0] ?? '';
+        if ($anchor === '') {
+            return false;
+        }
+
+        $contentHash = hash('sha256', (string) @file_get_contents($repoRoot.'/'.$anchor));
+        $target = $this->repository->upsert(
+            (string) $campaign->id,
+            $anchor,
+            $contentHash,
+            [
+                'score' => 0.5,
+                'self_contained' => 0.0,
+                'improvement' => 1.0,
+                'novelty' => 0.5,
+                'signals' => ['dedup_supply' => true, 'clone_members' => $members],
+            ],
+            ['origin' => AtlasLoopTarget::ORIGIN_DISCOVERY],
+        );
+        $priorStatus = (string) $target->status;
+        $target->forceFill([
+            'status' => AtlasLoopTarget::STATUS_CLAIMED,
+            'claimed_by' => 'dedup_supply',
+            'claimed_at' => now(),
+            'lease_expires_at' => now()->addSeconds(600),
+        ])->save();
+
+        $payload = is_array($spec['payload'] ?? null) ? $spec['payload'] : [];
+        $payload['_target_id'] = (string) $target->id;
+        $dp = $this->decidedPriority($campaign, $target, ['dedup_supply' => true], $repoRoot, AtlasLoopWorkShapeRouter::SHAPE_REFACTOR);
+        if ($dp['receipt'] !== []) {
+            $payload['_decision'] = $dp['receipt'];
+        }
+
+        $enq = $this->store->enqueueTask(
+            (string) $campaign->id,
+            (string) ($spec['objective'] ?? ''),
+            $payload,
+            'dedup',
+            $anchor,
+            $dp['priority'],
+            false,
+            (string) ($spec['acceptance_hash'] ?? ''),
+        );
+        $this->stampLastObjective($target, (string) ($spec['objective'] ?? ''));
+
+        $ok = $this->completeTargetEnqueue($target, $enq, 'dedup_supply_unification') === 'enqueued';
+        if (! $ok) {
+            $target->forceFill([
+                'status' => $priorStatus,
+                'claimed_by' => null,
+                'claimed_at' => null,
+                'lease_expires_at' => null,
+            ])->save();
+        }
+
+        return $ok;
     }
 
     /**
@@ -910,6 +1050,10 @@ final class AtlasLoopQueueRefiller
         $material = $isTrue($p['revert_recheck'] ?? null)
             || $isTrue(data_get($p, 'acceptance.revert_recheck'))
             || $isTrue(data_get($p, 'acceptance.red_required'))
+            // §5.6 DEDUP — a clone-unification is behaviour-preserving (revert_recheck=false) but MATERIAL: its
+            // value is duplication-removed, proven by the frozen judge's Guard 4d count-drop. The dedup_proof
+            // pair (payload + frozen acceptance, which the provider cannot author) is the honest material mark.
+            || ($isTrue($p['dedup_proof'] ?? null) && $isTrue(data_get($p, 'acceptance.dedup_proof')))
             || (
                 $isTrue($p['is_self_improvement'] ?? null)
                 && ($isTrue($p['complexity_proof'] ?? null) || $isTrue(data_get($p, 'acceptance.complexity_proof')))
