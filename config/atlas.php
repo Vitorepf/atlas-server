@@ -1953,6 +1953,14 @@ return [
         'comprehension_grounding_gate_enabled' => (bool) env('ATLAS_LOOP_COMPREHENSION_GROUNDING_GATE_ENABLED', true),
         'external_research_enabled' => (bool) env('ATLAS_LOOP_EXTERNAL_RESEARCH_ENABLED', true),
         'external_research_tool_available' => (bool) env('ATLAS_LOOP_EXTERNAL_RESEARCH_TOOL_AVAILABLE', false),
+        // §5.5 — the research TOPIC producer (AtlasLoopResearchTopicDeriver). When ON, the per-target authoring
+        // lane derives an egress-safe public-concept research topic from the target's work-shape and feeds the
+        // generator's advisory EXTERNAL-RESEARCH slot, so research guides authoring a STRONGER real improvement
+        // (the obligation stays a genuinely RED-verified test on the real target — research never gates a cert).
+        // Default-OFF => no topic is ever derived => the generator options are byte-identical to today. For a
+        // note to actually reach the prompt the whole chain must be armed: this flag + external_research_enabled
+        // + external_research_tool_available + a wired research backend (otherwise the service fail-closes).
+        'research_authoring_enabled' => (bool) env('ATLAS_LOOP_RESEARCH_AUTHORING_ENABLED', false),
         'refactor_performance_proof' => (bool) env('ATLAS_LOOP_REFACTOR_PERFORMANCE_PROOF', true),
         'park_escalation_enabled' => (bool) env('ATLAS_LOOP_PARK_ESCALATION_ENABLED', true),
         'territory_ladder_enabled' => (bool) env('ATLAS_LOOP_TERRITORY_LADDER_ENABLED', true),

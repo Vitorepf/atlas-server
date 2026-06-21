@@ -69,6 +69,10 @@ final class AtlasLoopQueueRefiller
         // lazily resolved in the lane (mirrors the harvester/pipeline args, also not DI-passed), so every
         // existing positional refiller construction stays valid and the decomposer self-resolves.
         private readonly ?AtlasLoopComplexTargetDecomposer $complexTargetDecomposer = null,
+        // §5.5 — the egress-safe research TOPIC producer. Nullable + lazily resolved at the authoring site
+        // (mirrors the harvester/decomposer args, also not DI-passed), so every existing positional refiller
+        // construction stays valid and the deriver self-resolves. Default-OFF => returns [] => byte-identical.
+        private readonly ?AtlasLoopResearchTopicDeriver $researchTopicDeriver = null,
     ) {}
 
     /** C — characterization/coverage tasks minted in the CURRENT refill (reset each refill); the portfolio cap. */
@@ -1184,6 +1188,14 @@ final class AtlasLoopQueueRefiller
             if ($constraintsBlock !== '') {
                 $genOptions['constraints_block'] = $constraintsBlock;
             }
+            // §5.5 — research-as-assist: when armed, derive an egress-safe research topic from the target's
+            // work-shape so the generator's withExternalResearchContext slot guides the authoring of a STRONGER
+            // real improvement. Default-OFF => options() returns [] => $genOptions is byte-identical. The
+            // obligation stays a genuinely RED-verified test on the real target (research only informs, never gates).
+            $genOptions = array_merge(
+                $genOptions,
+                ($this->researchTopicDeriver ?? new AtlasLoopResearchTopicDeriver)->options($signals, $repoRoot),
+            );
             $gen = $this->generator->generateBestForTarget($base, $targetRel, $genOptions);
             $this->materializeHypothesisTree($target, $gen); // ARBOR-GRAFT TIER 0.1 (flag-OFF / <2 readings => no-op)
             if (! (bool) ($gen['generated'] ?? false)) {
