@@ -70,8 +70,20 @@ final class AtlasLoopHungSupervisorGuardCommand extends Command
             $this->writeMarker($cid, $decision['marker']);
         }
 
-        if ($decision['verdict'] === 'hung' && $this->supervisorAlive($cid)) {
-            $out['killed'] = $this->killSupervisor($cid);
+        if ($decision['verdict'] === 'hung') {
+            // CRITICAL safety: frozen completed-work is NOT a wedge if grind workers are actually running.
+            // Under heavy swap thrashing a single grind can take far longer than the stall window, so progress
+            // legitimately stalls while the loop crawls forward with live workers. Only a freeze with NO live
+            // worker for this campaign (and an alive supervisor) is a true wedge worth restarting — otherwise a
+            // false kill would throw away a slow-but-working grind. (Learned the hard way: a broken `pgrep -fc`
+            // once read live grinds as zero.)
+            $live = $this->liveGrindWorkerCount($cid);
+            $out['live_workers'] = $live;
+            if ($live > 0) {
+                $out['verdict'] = 'grinding_slowly';
+            } elseif ($this->supervisorAlive($cid)) {
+                $out['killed'] = $this->killSupervisor($cid);
+            }
         }
 
         $this->emit($out);
@@ -149,6 +161,23 @@ final class AtlasLoopHungSupervisorGuardCommand extends Command
         $raw = @shell_exec('pgrep -f '.escapeshellarg('atlas:loop:campaign').' 2>/dev/null');
 
         return is_string($raw) && trim($raw) !== '';
+    }
+
+    /** Count grind-task worker processes for THIS campaign (their cmdline carries the campaign id). */
+    private function liveGrindWorkerCount(string $cid): int
+    {
+        $raw = @shell_exec('pgrep -fl grind-task 2>/dev/null');
+        if (! is_string($raw) || trim($raw) === '') {
+            return 0;
+        }
+        $count = 0;
+        foreach (explode("\n", $raw) as $line) {
+            if (trim($line) !== '' && str_contains($line, $cid)) {
+                $count++;
+            }
+        }
+
+        return $count;
     }
 
     private function killSupervisor(string $cid): bool
