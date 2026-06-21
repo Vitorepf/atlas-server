@@ -53,9 +53,12 @@ final class AtlasLoopResearchOriginatorTest extends TestCase
 
     public function test_egress_blocked_topic_mints_nothing_even_with_a_backend(): void
     {
-        // a topic carrying a repo path fragment is egress-blocked by the research service ⇒ no objective,
-        // even though a backend is present (no repo internals are ever shipped to a research tool).
-        $blocked = $this->originator(true)->originate('leak app/Services/Ai/Secret.php internals', base_path(), ['app/Svc/X.php']);
+        // a topic carrying a REAL repo file path is egress-blocked by the research service (it only blocks
+        // fragments that resolve to an actual file — never shipping real repo internals to a research tool),
+        // so no objective is produced even with a backend present.
+        $real = 'app/Services/Ai/AutonomousEvolution/AtlasLoopResearchContract.php';
+        $this->assertFileExists(base_path($real)); // guard: the egress block is only meaningful on a real path
+        $blocked = $this->originator(true)->originate("leak {$real} internals", base_path(), ['app/Svc/X.php']);
         $this->assertNull($blocked, 'egress-blocked research must not produce an objective');
     }
 }
