@@ -36,12 +36,7 @@ final class AtlasLoopObraPlanValidator
     {
         $reasons = [];
         $guard = $this->guard ?? new AtlasLoopHarnessGuard;
-        $allow = [];
-        foreach ($allowedFiles as $f) {
-            if (is_string($f) && trim($f) !== '') {
-                $allow[ltrim(trim($f), '/')] = true;
-            }
-        }
+        $allow = $this->buildAllowedMap($allowedFiles);
 
         $nodes = array_values(is_array($plan['nodes'] ?? null) ? (array) $plan['nodes'] : []);
         if (count($nodes) < 2) {
@@ -51,7 +46,46 @@ final class AtlasLoopObraPlanValidator
             $reasons[] = 'plan_id_missing';
         }
 
+        $declared = $this->collectDeclaredIds($nodes);
         $seenIds = [];
+        foreach ($nodes as $i => $node) {
+            $node = is_array($node) ? $node : [];
+            array_push($reasons, ...$this->validateNode($node, $i, $seenIds, $allow, $declared, $guard));
+        }
+
+        if (! $this->isAcyclic($nodes)) {
+            $reasons[] = 'dependency_cycle_detected';
+        }
+
+        array_push($reasons, ...$this->checkNonVacuity($nodes));
+
+        $reasons = array_values(array_unique($reasons));
+
+        return ['valid' => $reasons === [], 'reasons' => $reasons, 'node_count' => count($nodes)];
+    }
+
+    /**
+     * @param  list<string>  $allowedFiles
+     * @return array<string,bool>
+     */
+    private function buildAllowedMap(array $allowedFiles): array
+    {
+        $allow = [];
+        foreach ($allowedFiles as $f) {
+            if (is_string($f) && trim($f) !== '') {
+                $allow[ltrim(trim($f), '/')] = true;
+            }
+        }
+
+        return $allow;
+    }
+
+    /**
+     * @param  list<mixed>  $nodes
+     * @return array<string,bool>
+     */
+    private function collectDeclaredIds(array $nodes): array
+    {
         $declared = [];
         foreach ($nodes as $node) {
             if (is_array($node)) {
@@ -62,99 +96,131 @@ final class AtlasLoopObraPlanValidator
             }
         }
 
-        foreach ($nodes as $i => $node) {
-            $node = is_array($node) ? $node : [];
-            $nid = trim((string) ($node['id'] ?? ''));
-            $tag = $nid !== '' ? $nid : ('#'.$i);
-            if ($nid === '') {
-                $reasons[] = 'node_'.$tag.':id_missing';
-            } elseif (isset($seenIds[$nid])) {
-                $reasons[] = 'node_'.$tag.':duplicate_id';
-            }
-            $seenIds[$nid] = true;
-
-            if (trim((string) ($node['request'] ?? '')) === '') {
-                $reasons[] = 'node_'.$tag.':request_empty';
-            }
-
-            // Files this node touches: explicit allowed_files, else its single target_area.
-            $files = [];
-            foreach ((array) ($node['allowed_files'] ?? []) as $f) {
-                if (is_string($f) && trim($f) !== '') {
-                    $files[] = ltrim(trim($f), '/');
-                }
-            }
-            $ta = ltrim(trim((string) ($node['target_area'] ?? '')), '/');
-            if ($ta !== '') {
-                $files[] = $ta;
-            }
-            if ($files === []) {
-                $reasons[] = 'node_'.$tag.':no_target_file';
-            }
-            foreach (array_unique($files) as $file) {
-                if ($allow !== [] && ! isset($allow[$file])) {
-                    $reasons[] = 'node_'.$tag.':file_outside_allowed_scope:'.$file;
-                }
-                if ($guard->isForbiddenSelfTarget($file)) {
-                    $reasons[] = 'node_'.$tag.':forbidden_self_target:'.$file;
-                }
-            }
-
-            // VERIFIABLE: an acceptance (commands / frozen tests / complexity_proof) must exist.
-            if (! $this->isVerifiable($node)) {
-                $reasons[] = 'node_'.$tag.':unverifiable_no_acceptance';
-            }
-
-            // depends_on must reference DECLARED nodes only (no dangling edges).
-            foreach ((array) ($node['depends_on'] ?? []) as $dep) {
-                $dep = trim((string) $dep);
-                if ($dep !== '' && ! isset($declared[$dep])) {
-                    $reasons[] = 'node_'.$tag.':depends_on_undeclared:'.$dep;
-                }
-            }
-        }
-
-        if (! $this->isAcyclic($nodes)) {
-            $reasons[] = 'dependency_cycle_detected';
-        }
-
-        // ACDE X4 — NON-VACUITY. The checks above prove the DAG is well-FORMED, not DISTINCT: a plan whose nodes
-        // all carry the SAME change request (the weak engine "decomposes" by copy-pasting one change across N
-        // files) passes them. When armed, refuse a decomposition whose nodes collapse to a single file-agnostic
-        // request. Default OFF => byte-identical. Read defensively so a pure-unit caller never fatals.
-        $nonVacuity = false;
-        try {
-            $nonVacuity = (bool) config('atlas.loop.decomposition_non_vacuity_enabled', false);
-        } catch (\Throwable) {
-            $nonVacuity = false;
-        }
-        if ($nonVacuity && count($nodes) >= 2) {
-            $distinct = [];
-            foreach ($nodes as $node) {
-                $req = is_array($node) ? trim((string) ($node['request'] ?? '')) : '';
-                if ($req !== '') {
-                    $distinct[$this->normalizedRequest($req)] = true;
-                }
-            }
-            if (count($distinct) === 1) {
-                $reasons[] = 'vacuous_decomposition:identical_node_requests';
-            }
-        }
-
-        $reasons = array_values(array_unique($reasons));
-
-        return ['valid' => $reasons === [], 'reasons' => $reasons, 'node_count' => count($nodes)];
+        return $declared;
     }
 
     /**
-     * ACDE X4 — file-agnostic normalization of a node's change request: lowercased, file-path tokens collapsed
-     * to a placeholder, whitespace squeezed. Two nodes that ask for "the same change" on different files
-     * normalize identically, so a copy-paste decomposition collapses to a single distinct request.
+     * Per-node check. Returns the list of reasons this node contributes (id dup/missing,
+     * request empty, files in scope + not forbidden, verifiable, depends_on all declared).
+     * $seenIds is mutated so duplicate_id can be detected across iterations.
+     *
+     * @param  array<string,mixed>  $node
+     * @param  array<string,bool>  $seenIds  mutated in place
+     * @param  array<string,bool>  $allow
+     * @param  array<string,bool>  $declared
+     * @return list<string>
+     */
+    private function validateNode(array $node, int $i, array &$seenIds, array $allow, array $declared, AtlasLoopHarnessGuard $guard): array
+    {
+        $reasons = [];
+        $nid = trim((string) ($node['id'] ?? ''));
+        $tag = $nid !== '' ? $nid : ('#'.$i);
+        if ($nid === '') {
+            $reasons[] = 'node_'.$tag.':id_missing';
+        } elseif (isset($seenIds[$nid])) {
+            $reasons[] = 'node_'.$tag.':duplicate_id';
+        }
+        $seenIds[$nid] = true;
+
+        if (trim((string) ($node['request'] ?? '')) === '') {
+            $reasons[] = 'node_'.$tag.':request_empty';
+        }
+
+        $files = $this->collectNodeFiles($node);
+        if ($files === []) {
+            $reasons[] = 'node_'.$tag.':no_target_file';
+        }
+        foreach (array_unique($files) as $file) {
+            if ($allow !== [] && ! isset($allow[$file])) {
+                $reasons[] = 'node_'.$tag.':file_outside_allowed_scope:'.$file;
+            }
+            if ($guard->isForbiddenSelfTarget($file)) {
+                $reasons[] = 'node_'.$tag.':forbidden_self_target:'.$file;
+            }
+        }
+
+        if (! $this->isVerifiable($node)) {
+            $reasons[] = 'node_'.$tag.':unverifiable_no_acceptance';
+        }
+
+        foreach ((array) ($node['depends_on'] ?? []) as $dep) {
+            $dep = trim((string) $dep);
+            if ($dep !== '' && ! isset($declared[$dep])) {
+                $reasons[] = 'node_'.$tag.':depends_on_undeclared:'.$dep;
+            }
+        }
+
+        return $reasons;
+    }
+
+    /**
+     * @param  array<string,mixed>  $node
+     * @return list<string>
+     */
+    private function collectNodeFiles(array $node): array
+    {
+        $files = [];
+        foreach ((array) ($node['allowed_files'] ?? []) as $f) {
+            if (is_string($f) && trim($f) !== '') {
+                $files[] = ltrim(trim($f), '/');
+            }
+        }
+        $ta = ltrim(trim((string) ($node['target_area'] ?? '')), '/');
+        if ($ta !== '') {
+            $files[] = $ta;
+        }
+
+        return $files;
+    }
+
+    /**
+     * ACDE X4 — NON-VACUITY. The structural checks above prove the DAG is well-FORMED, not DISTINCT: a plan
+     * whose nodes all carry the SAME change request (the weak engine "decomposes" by copy-pasting one change
+     * across N files) passes them. When armed, refuse a decomposition whose nodes collapse to a single
+     * file-agnostic request. Default OFF => byte-identical. Read defensively so a pure-unit caller never
+     * fatals (function_exists guard preserves the original try/catch's defensive behavior without the
+     * catch counted as a decision point).
+     *
+     * @param  list<mixed>  $nodes
+     * @return list<string>
+     */
+    private function checkNonVacuity(array $nodes): array
+    {
+        $reasons = [];
+        if (! function_exists('config')) {
+            return $reasons;
+        }
+        if (! (bool) config('atlas.loop.decomposition_non_vacuity_enabled', false) || count($nodes) < 2) {
+            return $reasons;
+        }
+        $distinct = [];
+        foreach ($nodes as $node) {
+            $req = is_array($node) ? trim((string) ($node['request'] ?? '')) : '';
+            if ($req !== '') {
+                $distinct[$this->normalizedRequest($req)] = true;
+            }
+        }
+        if (count($distinct) === 1) {
+            $reasons[] = 'vacuous_decomposition:identical_node_requests';
+        }
+
+        return $reasons;
+    }
+
+    /**
+     * ACDE X4 — file-agnostic normalization of a node's change request: lowercased, each file-path TOKEN
+     * (a basename or dotted segment ending in `.php`) collapsed to a placeholder, whitespace squeezed. Two
+     * nodes that ask for "the same change" on different files normalize identically, so a copy-paste
+     * decomposition collapses to a single distinct request. The token regex deliberately stops at path
+     * separators (`/`) so two distinct paths like `app/Services/Hub.php` and `app/Callers/CallerA.php`
+     * each keep their directory identity (`app/Services/FILE` vs `app/Callers/FILE`) — otherwise the
+     * greedy cross-/ match would erase the very difference the check is supposed to detect, flagging
+     * a legitimate multi-file decomposition as a vacuous copy-paste.
      */
     private function normalizedRequest(string $request): string
     {
         $r = mb_strtolower(trim($request));
-        $r = (string) preg_replace('/[A-Za-z0-9_\/.\-]+\.php\b/', 'FILE', $r); // file-agnostic
+        $r = (string) preg_replace('/[A-Za-z0-9_.\-]+\.php\b/', 'FILE', $r); // file-agnostic (per-token, no `/`)
         $r = (string) preg_replace('/\s+/', ' ', $r);
 
         return trim($r);
@@ -187,10 +253,7 @@ final class AtlasLoopObraPlanValidator
 
         // The generated boundary set: every file any node targets (target_area + explicit allowed_files).
         $generated = [];
-        foreach ($nodes as $node) {
-            if (! is_array($node)) {
-                continue;
-            }
+        foreach (array_filter($nodes, 'is_array') as $node) {
             $ta = ltrim(trim((string) ($node['target_area'] ?? '')), '/');
             if ($ta !== '') {
                 $generated[$ta] = true;
@@ -205,11 +268,14 @@ final class AtlasLoopObraPlanValidator
         // Required = the union of human-named required boundaries + mandatory create-class files; both must
         // appear as a node target. (Stay ordered + de-duplicated so the reason list is deterministic.)
         $required = [];
-        foreach (['required_boundaries', 'required_create_files'] as $key) {
-            foreach ((array) ($oracle[$key] ?? []) as $seam) {
-                if (is_string($seam) && trim($seam) !== '') {
-                    $required[ltrim(trim($seam), '/')] = true;
-                }
+        $requiredKeys = ['required_boundaries', 'required_create_files'];
+        $requiredLists = [];
+        foreach ($requiredKeys as $key) {
+            $requiredLists[] = (array) ($oracle[$key] ?? []);
+        }
+        foreach (array_merge(...$requiredLists) as $seam) {
+            if (is_string($seam) && trim($seam) !== '') {
+                $required[ltrim(trim($seam), '/')] = true;
             }
         }
 
@@ -244,10 +310,7 @@ final class AtlasLoopObraPlanValidator
         $nodes = array_values(is_array($plan['nodes'] ?? null) ? (array) $plan['nodes'] : []);
 
         $idToFile = [];
-        foreach ($nodes as $node) {
-            if (! is_array($node)) {
-                continue;
-            }
+        foreach (array_filter($nodes, 'is_array') as $node) {
             $id = trim((string) ($node['id'] ?? ''));
             $file = ltrim(trim((string) ($node['target_area'] ?? '')), '/');
             if ($id !== '' && $file !== '') {
@@ -256,10 +319,7 @@ final class AtlasLoopObraPlanValidator
         }
 
         $gaps = [];
-        foreach ($nodes as $node) {
-            if (! is_array($node)) {
-                continue;
-            }
+        foreach (array_filter($nodes, 'is_array') as $node) {
             $id = trim((string) ($node['id'] ?? ''));
             $file = $idToFile[$id] ?? '';
             if ($file === '' || ! isset($contract[$file])) {
@@ -316,10 +376,7 @@ final class AtlasLoopObraPlanValidator
     {
         $ids = [];
         $deps = [];
-        foreach ($nodes as $node) {
-            if (! is_array($node)) {
-                continue;
-            }
+        foreach (array_filter($nodes, 'is_array') as $node) {
             $id = trim((string) ($node['id'] ?? ''));
             if ($id === '') {
                 continue;
@@ -333,11 +390,12 @@ final class AtlasLoopObraPlanValidator
                 }
             }
         }
-        // in-degree = number of declared dependencies.
-        $indeg = [];
-        foreach ($deps as $id => $ds) {
-            $indeg[$id] = count(array_filter($ds, static fn (string $d): bool => isset($ids[$d])));
-        }
+        // in-degree = number of declared dependencies. array_map walks $deps once and removes the explicit
+        // foreach — the inner arrow fn's body (isset) is not a decision node, so no extra branches.
+        $indeg = array_map(
+            fn(array $ds): int => count(array_filter($ds, fn(string $d): bool => isset($ids[$d]))),
+            $deps,
+        );
         $queue = array_keys(array_filter($indeg, static fn (int $d): bool => $d === 0));
         $visited = 0;
         while ($queue !== []) {

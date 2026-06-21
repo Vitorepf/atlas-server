@@ -275,6 +275,61 @@ final class AtlasLoopProjectionWorkerTest extends TestCase
         $this->assertNotNull($task->updated_at);
     }
 
+    public function test_reopen_retryable_terminal_duplicate_clamps_max_attempts_to_at_least_one_before_deciding_retryability(): void
+    {
+        $retryableTask = new class extends AtlasLoopTask
+        {
+            public bool $saveCalled = false;
+
+            public function save(array $options = []): bool
+            {
+                $this->saveCalled = true;
+
+                return true;
+            }
+        };
+        $retryableTask->status = AtlasLoopTask::STATUS_FAILED;
+        $retryableTask->attempts = 0;
+        $retryableTask->max_attempts = 0;
+        $retryableTask->claimed_by = 'worker-zero-budget';
+        $retryableTask->result = ['has_winner' => false, 'reason' => 'quality_bar:below_min:7.33'];
+
+        $this->assertTrue(
+            $this->invoke('reopenRetryableTerminalDuplicate', [$retryableTask]),
+            'max_attempts=0 is clamped up to one attempt, so an untouched terminal duplicate is still retryable once',
+        );
+        $this->assertTrue($retryableTask->saveCalled);
+        $this->assertSame(AtlasLoopTask::STATUS_PENDING, $retryableTask->status);
+        $this->assertNull($retryableTask->claimed_by);
+        $this->assertNull($retryableTask->result);
+
+        $exhaustedTask = new class extends AtlasLoopTask
+        {
+            public bool $saveCalled = false;
+
+            public function save(array $options = []): bool
+            {
+                $this->saveCalled = true;
+
+                return true;
+            }
+        };
+        $exhaustedTask->status = AtlasLoopTask::STATUS_FAILED;
+        $exhaustedTask->attempts = 1;
+        $exhaustedTask->max_attempts = 0;
+        $exhaustedTask->claimed_by = 'worker-floor-hit';
+        $exhaustedTask->result = ['has_winner' => false, 'reason' => 'quality_bar:below_min:7.33'];
+
+        $this->assertFalse(
+            $this->invoke('reopenRetryableTerminalDuplicate', [$exhaustedTask]),
+            'once the clamped single attempt is consumed, the same no-winner terminal duplicate must stay terminal',
+        );
+        $this->assertFalse($exhaustedTask->saveCalled);
+        $this->assertSame(AtlasLoopTask::STATUS_FAILED, $exhaustedTask->status);
+        $this->assertSame('worker-floor-hit', $exhaustedTask->claimed_by);
+        $this->assertSame(['has_winner' => false, 'reason' => 'quality_bar:below_min:7.33'], $exhaustedTask->result);
+    }
+
     public function test_mark_projected_loop_self_improvement_leaves_non_harness_targets_unchanged(): void
     {
         $payload = [
