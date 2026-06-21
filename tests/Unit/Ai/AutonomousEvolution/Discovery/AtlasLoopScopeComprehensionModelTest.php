@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\AutonomousEvolution\Discovery;
 
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModelBuilder;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWiredCallerService;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
@@ -149,6 +150,26 @@ final class AtlasLoopScopeComprehensionModelTest extends TestCase
         $this->assertStringContainsString('keystone', (string) ($m->docPurposes['App\\Scope\\Orphan'] ?? ''));
         // ...but EVERY structural fact + the snapshot id are byte-identical. Prose is never a structural fact.
         $this->assertSame($baseline, $m->structuralProjection(), 'doc prose must not change any structural fact (anti-Goodhart)');
+    }
+
+    public function test_fast_edge_resolver_matches_the_trusted_caller_oracle(): void
+    {
+        // The builder's one-pass edge resolver must produce EXACTLY the same caller sets as the trusted
+        // per-target AtlasLoopWiredCallerService::callerPaths oracle — correctness pinned, not re-derived.
+        $m = $this->model();
+
+        $relPaths = array_map(static fn (array $i): string => $i['rel_path'], $m->inventory);
+        $oracle = (new AtlasLoopWiredCallerService($this->fixtureRoot()))->callerPaths($relPaths);
+        ksort($oracle);
+        foreach ($oracle as &$callers) {
+            sort($callers);
+        }
+        unset($callers);
+
+        $modelEdges = $m->edges;
+        ksort($modelEdges);
+
+        $this->assertSame($oracle, $modelEdges, 'fast resolver must equal the trusted callerPaths oracle');
     }
 
     public function test_descriptor_carries_only_descriptive_fields(): void

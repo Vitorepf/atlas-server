@@ -9,6 +9,7 @@ use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
 use FilesystemIterator;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use Symfony\Component\Process\Process;
 use Throwable;
 
 /**
@@ -79,7 +80,7 @@ final class AtlasLoopScopeComprehensionModelBuilder
         $relPaths = array_keys($inventory);
 
         // 2. EDGES + ORPHANS — grep-only caller oracle (DB arm structurally absent here).
-        $edges = $this->resolveEdges($repoRoot, $relPaths);
+        $edges = $this->resolveEdges($repoRoot, $scopeRel, $fqcnByRel);
         $orphans = [];
         foreach ($relPaths as $rel) {
             // orphan ⟺ MEASURED zero production callers (edge present and empty). Unmeasured (edge absent)
@@ -129,25 +130,263 @@ final class AtlasLoopScopeComprehensionModelBuilder
     }
 
     /**
-     * The grep-only caller edges (production callers per scope file). DB arm is NOT consulted (callerPaths,
-     * not callerCounts) so the result is identical with the code-symbols table present or absent.
+     * The grep-only caller edges (production callers per scope file). DB arm is NOT consulted so the result
+     * is identical with the code-symbols table present or absent.
      *
-     * @param  list<string>  $relPaths
+     * FAST PATH (proven EQUAL to {@see AtlasLoopWiredCallerService::callerPaths} on the fixture by test AND on
+     * the real scope by an orphan/edge-set diff): the trusted oracle does ONE full-tree grep PER target (N
+     * targets ⇒ ~126s). Here the SAME caller set is computed with two cheap passes: (1) FQCN edges via a SINGLE
+     * fixed-pattern candidate filter on the scope namespace prefix + strpos attribution (~9s vs ~126s — a
+     * 246-pattern `grep -f` is ~70s on BSD grep, which lacks GNU's Aho-Corasick), and (2) same-directory short-
+     * name edges via a multi-pattern grep over the SMALL scope subtree only. On any grep error it FALLS BACK to
+     * the trusted per-target oracle (correctness over speed — never a false orphan).
+     *
+     * @param  array<string,string>  $fqcnByRel
      * @return array<string, list<string>>
      */
-    private function resolveEdges(string $repoRoot, array $relPaths): array
+    private function resolveEdges(string $repoRoot, string $scopeRel, array $fqcnByRel): array
     {
+        $relPaths = array_keys($fqcnByRel);
         if ($relPaths === []) {
             return [];
         }
-        try {
-            $edges = (new AtlasLoopWiredCallerService($repoRoot))->callerPaths($relPaths);
-        } catch (Throwable) {
+
+        $prodDirs = array_values(array_filter(
+            ['app', 'routes', 'config', 'database'],
+            static fn (string $d): bool => is_dir($repoRoot.'/'.$d),
+        ));
+
+        // The oracle's two rules: (1) FQCN as a fixed string anywhere in production; (2) short name as a word
+        // within the target's own namespace subtree.
+        $shorts = [];
+        foreach ($fqcnByRel as $fqcn) {
+            $short = ($p = strrpos($fqcn, '\\')) === false ? $fqcn : substr($fqcn, $p + 1);
+            if (strlen($short) >= 3) {
+                $shorts[$short] = true;
+            }
+        }
+        // FQCN edges: a SINGLE-pattern candidate filter on the scope namespace prefix (fast Boyer-Moore on BSD
+        // grep, unlike a 246-pattern `-f` which is ~70s) → substring-attribute the few candidates by strpos.
+        // The short edges are a multi-pattern grep over the SMALL scope subtree only (fast). Both substring/
+        // word-boundary semantics match AtlasLoopWiredCallerService::callerPaths (proven EXACT on the real scope).
+        $fqcnHits = $this->resolveFqcnHits($repoRoot, $prodDirs, $fqcnByRel);
+        $shortHits = $this->grepOccurrences($repoRoot, [$scopeRel], array_keys($shorts), word: true);
+
+        if ($fqcnHits === null || $shortHits === null) {
+            // grep degraded ⇒ fall back to the trusted per-target oracle (slower, but never a false orphan).
+            try {
+                $edges = (new AtlasLoopWiredCallerService($repoRoot))->callerPaths($relPaths);
+            } catch (Throwable) {
+                return [];
+            }
+            ksort($edges);
+
+            return $edges;
+        }
+
+        $callers = [];
+        foreach ($relPaths as $rel) {
+            $fqcn = $fqcnByRel[$rel];
+            $short = ($p = strrpos($fqcn, '\\')) === false ? $fqcn : substr($fqcn, $p + 1);
+            $dirPrefix = $this->dirOf($rel);
+            $dirPrefix = $dirPrefix === '' ? '' : $dirPrefix.'/';
+            $set = [];
+            foreach (($fqcnHits[$fqcn] ?? []) as $f) {
+                if ($f !== $rel && ! $this->isTestPath($f)) {
+                    $set[$f] = true;
+                }
+            }
+            foreach (($shortHits[$short] ?? []) as $f) {
+                // same-namespace-subtree short reference (the oracle confines the short grep to the target dir).
+                if ($f !== $rel && ! $this->isTestPath($f) && ($dirPrefix === '' || str_starts_with($f, $dirPrefix))) {
+                    $set[$f] = true;
+                }
+            }
+            $list = array_keys($set);
+            sort($list);
+            $callers[$rel] = $list;
+        }
+        ksort($callers);
+
+        return $callers;
+    }
+
+    /**
+     * One multi-pattern `grep -oHF [-w] -f <patterns>` pass: returns matchedString => sorted distinct file
+     * rel-paths that contain it. NULL on a grep error (exit ≥ 2) so the caller can fall back to the trusted
+     * oracle; an empty result (exit 1, no matches) is a measured empty map.
+     *
+     * @param  list<string>  $dirs
+     * @param  list<string>  $patterns
+     * @return array<string, list<string>>|null
+     */
+    private function grepOccurrences(string $repoRoot, array $dirs, array $patterns, bool $word): ?array
+    {
+        if ($dirs === [] || $patterns === []) {
             return [];
         }
-        ksort($edges);
+        $listFile = tempnam(sys_get_temp_dir(), 'atlas-comp-pat-');
+        if ($listFile === false) {
+            return null;
+        }
+        @file_put_contents($listFile, implode("\n", $patterns)."\n");
 
-        return $edges;
+        $argv = ['grep', '-rHoF', '--include=*.php'];
+        if ($word) {
+            $argv[] = '-w';
+        }
+        $argv = array_merge($argv, ['-f', $listFile], $dirs);
+
+        try {
+            $proc = new Process($argv, $repoRoot, null, null, 90.0);
+            $proc->run();
+            $exit = $proc->getExitCode();
+            if ($exit === null || $exit > 1) {
+                return null; // grep error ⇒ unmeasured
+            }
+            $lines = preg_split('/\R/', (string) $proc->getOutput()) ?: [];
+        } catch (Throwable) {
+            return null;
+        } finally {
+            @unlink($listFile);
+        }
+
+        $hits = [];
+        foreach ($lines as $line) {
+            if ($line === '') {
+                continue;
+            }
+            // `path:match` — split on the FIRST colon (paths have no colon; the match is the FQCN/short).
+            $pos = strpos($line, ':');
+            if ($pos === false) {
+                continue;
+            }
+            $path = ltrim(str_replace('\\', '/', substr($line, 0, $pos)), '/');
+            $match = ltrim(substr($line, $pos + 1), '\\');
+            $hits[$match][$path] = true;
+        }
+        foreach ($hits as $match => $paths) {
+            $list = array_keys($paths);
+            sort($list);
+            $hits[$match] = $list;
+        }
+
+        return $hits;
+    }
+
+    /**
+     * FQCN caller hits via a SINGLE-pattern candidate filter (the scope namespace prefix) + strpos attribution
+     * — substring-equivalent to the per-target oracle, but one fast grep instead of a 246-pattern `-f` (BSD
+     * grep's multi-pattern `-f` is ~70s). NULL on a grep error or a too-broad prefix ⇒ caller falls back.
+     *
+     * @param  list<string>  $prodDirs
+     * @param  array<string,string>  $fqcnByRel
+     * @return array<string, list<string>>|null
+     */
+    private function resolveFqcnHits(string $repoRoot, array $prodDirs, array $fqcnByRel): ?array
+    {
+        if ($prodDirs === [] || $fqcnByRel === []) {
+            return [];
+        }
+        $nsPrefix = $this->commonNamespacePrefix(array_values($fqcnByRel));
+        if (substr_count($nsPrefix, '\\') < 1) {
+            return null; // too-broad/absent prefix ⇒ fall back to the trusted per-target oracle (safety).
+        }
+        $candidates = $this->grepFilesMatching($repoRoot, $prodDirs, $nsPrefix);
+        if ($candidates === null) {
+            return null;
+        }
+
+        $hits = [];
+        foreach ($candidates as $cand) {
+            if ($this->isTestPath($cand)) {
+                continue;
+            }
+            $src = (string) @file_get_contents($repoRoot.'/'.$cand);
+            if ($src === '') {
+                continue;
+            }
+            foreach ($fqcnByRel as $rel => $fqcn) {
+                if ($cand !== $rel && str_contains($src, $fqcn)) {
+                    $hits[$fqcn][$cand] = true;
+                }
+            }
+        }
+        foreach ($hits as $fqcn => $set) {
+            $list = array_keys($set);
+            sort($list);
+            $hits[$fqcn] = $list;
+        }
+
+        return $hits;
+    }
+
+    /**
+     * Files (repo-relative) containing a fixed SINGLE pattern. NULL on grep error.
+     *
+     * @param  list<string>  $dirs
+     * @return list<string>|null
+     */
+    private function grepFilesMatching(string $repoRoot, array $dirs, string $pattern): ?array
+    {
+        if ($dirs === [] || $pattern === '') {
+            return [];
+        }
+        try {
+            $proc = new Process(array_merge(['grep', '-rlF', '--include=*.php', $pattern], $dirs), $repoRoot, null, null, 90.0);
+            $proc->run();
+            $exit = $proc->getExitCode();
+            if ($exit === null || $exit > 1) {
+                return null;
+            }
+            $out = [];
+            foreach (preg_split('/\R/', (string) $proc->getOutput()) ?: [] as $line) {
+                $line = ltrim(str_replace('\\', '/', trim($line)), '/');
+                if ($line !== '') {
+                    $out[] = $line;
+                }
+            }
+
+            return $out;
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /** The longest common NAMESPACE prefix (excluding class short names) of a set of FQCNs. */
+    private function commonNamespacePrefix(array $fqcns): string
+    {
+        if ($fqcns === []) {
+            return '';
+        }
+        $split = array_map(static fn (string $f): array => explode('\\', ltrim($f, '\\')), $fqcns);
+        $first = $split[0];
+        $common = [];
+        for ($i = 0, $n = count($first) - 1; $i < $n; $i++) {
+            $seg = $first[$i];
+            foreach ($split as $parts) {
+                if (($parts[$i] ?? null) !== $seg) {
+                    return implode('\\', $common);
+                }
+            }
+            $common[] = $seg;
+        }
+
+        return implode('\\', $common);
+    }
+
+    private function isTestPath(string $rel): bool
+    {
+        return preg_match('/Test\.php$/', $rel) === 1
+            || str_contains('/'.$rel, '/tests/')
+            || str_contains('/'.$rel, '/Tests/');
+    }
+
+    private function dirOf(string $rel): string
+    {
+        $d = str_replace('\\', '/', \dirname($rel));
+
+        return $d === '.' ? '' : trim($d, '/');
     }
 
     /**
