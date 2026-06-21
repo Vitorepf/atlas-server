@@ -47,6 +47,12 @@ final class AtlasLoopResearchAuthoringWiringTest extends TestCase
                 (require base_path('database/migrations/'.$file))->up();
             }
         }
+        // Pin the research-context chain so the armed/off assertion depends ONLY on research_authoring_enabled
+        // (no reliance on a default that a sibling suite could perturb under a cold co-run).
+        config([
+            'atlas.loop.external_research_enabled' => true,
+            'atlas.loop.external_research_tool_available' => true,
+        ]);
         // Route the target straight to the generic provider authoring path (generateBestForTarget): every
         // substantive lane OFF, the shape router disabled (no skip/heavy-route), generic fallback ON.
         config([
