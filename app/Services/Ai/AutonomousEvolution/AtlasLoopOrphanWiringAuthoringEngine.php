@@ -155,12 +155,39 @@ class AtlasLoopOrphanWiringAuthoringEngine
     }
 
     /**
-     * The live provider call — the ONLY empirical piece. Wrapping the loop's provider router with the exact
-     * prompt-array contract is the final wiring step; until it lands this returns null (honest no-op: the route
-     * degrades to no_winner, never a fabricated cert). A configured provider double is injected for tests.
+     * The live provider call — the ONLY empirical piece. Wraps the loop's canonical provider router with its
+     * prompt-array contract (the SAME shape {@see WorkspaceProviderLoopExecutionDriver::buildPrompt} produces).
+     * FAIL-CLOSED at every step: an empty/unconfigured provider, a non-call, or empty output ⇒ null ⇒ the route
+     * degrades to no_winner. It is NOT a cert — Guard 4e still gates the authored wiring, so a wrong/garbage
+     * completion can never certify; the worst case is a wasted attempt, never a fabricated pass. The exact
+     * prompt that makes a given provider reliably emit the marker structure is tuned empirically over live runs
+     * (parse() rejects anything malformed); tests exercise parse()/apply() via the injected completion double.
      */
     private function liveCompletion(string $provider, string $prompt): ?string
     {
-        return null;
+        if ($provider === '') {
+            return null;
+        }
+
+        $router = app(\App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter::class);
+        if (! $router->isConfigured($provider)) {
+            return null; // honest no-op when the provider isn't configured on this host
+        }
+
+        $result = $router->invoke($provider, null, [
+            'text' => $prompt,
+            'instruction' => $prompt,
+            'messages' => [['role' => 'user', 'content' => $prompt]],
+        ], [
+            'timeout_seconds' => max(120, (int) config('atlas.loop.campaign.attempt_hard_seconds', 900)),
+            'max_output_chars' => 24000,
+        ]);
+
+        if (($result['provider_called'] ?? false) !== true) {
+            return null;
+        }
+        $stdout = (string) ($result['stdout'] ?? $result['output_excerpt'] ?? '');
+
+        return $stdout !== '' ? $stdout : null;
     }
 }

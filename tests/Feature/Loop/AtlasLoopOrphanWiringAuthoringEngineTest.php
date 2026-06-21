@@ -96,9 +96,11 @@ final class AtlasLoopOrphanWiringAuthoringEngineTest extends TestCase
         $this->assertNull($engine->parse($bad2), 'a test outside tests/ is fenced out');
     }
 
-    public function test_no_completion_yields_no_authoring(): void
+    public function test_no_configured_provider_yields_no_authoring_fail_closed(): void
     {
-        // default engine: live completion is an honest null no-op => no authoring (route -> no_winner).
+        // default engine + no provider configured => liveCompletion returns null (no router call) => no authoring
+        // (route degrades to no_winner). Guarantees the live seam is fail-closed without a provider.
+        config(['atlas.loop.default_provider' => '']);
         $this->assertNull((new AtlasLoopOrphanWiringAuthoringEngine)->author($this->payload(), $this->ws));
     }
 }
