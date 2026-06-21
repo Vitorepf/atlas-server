@@ -104,6 +104,18 @@ final class AtlasLoopHarnessGuard
         // o próprio contrato de qualidade. Pétreo pelo mesmo princípio do cert-chain.
         'app/Services/Ai/AutonomousEvolution/AtlasLoopProjectionEngine.php',
 
+        // ── FASE ARQUITETO (2026-06-21): os ÓRGÃOS DE QUALIDADE/DECISÃO desta obra. Pelo MESMO princípio do
+        // cert-chain + do priorizador (NextWorkDecider): o réu NUNCA pode editar o próprio crítico de design,
+        // o gate de admissão, o contrato de prova por tipo, a ponte de veto, a crítica cross-model nem o
+        // decisor de alavancagem — senão a "fase que garante a qualidade" voltaria a ser teatro a um self-edit
+        // de distância. Aperto sancionado pelo engenheiro (só adiciona, nunca afrouxa).
+        'app/Services/Ai/AutonomousEvolution/AtlasLoopGroundedProjectionRoles.php',     // o crítico que morde os chamadores reais
+        'app/Services/Ai/AutonomousEvolution/AtlasLoopArchitectPhaseGate.php',          // o gate de admissão "projetar antes de moer"
+        'app/Services/Ai/AutonomousEvolution/AtlasLoopWorkTypeContract.php',            // a prova anti-Goodhart obrigatória por tipo
+        'app/Services/Ai/AutonomousEvolution/AtlasLoopProjectionObligationContracts.php', // a ponte que torna o contrato um VETO real
+        'app/Services/Ai/AutonomousEvolution/AtlasLoopModelProjectionCritic.php',       // a crítica cross-model (só aprofunda, nunca afrouxa)
+        'app/Services/Ai/AutonomousEvolution/AtlasLoopLeverageSelector.php',            // o decisor "o MAIOR passo" (mesmo princípio do NextWorkDecider)
+
         // (c) A subárvore INTEIRA da Constituição — arquivos nascem pétreos por substring,
         //     então a fundação (actuator/battery/runner/gate/sentinel) é inviolável ao ser escrita.
         'app/Services/Ai/AutonomousEvolution/Constitution/',
