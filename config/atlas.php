@@ -1932,6 +1932,11 @@ return [
         // loop's grind engine (Hermes) has native browser/web tools, so an armed backend lets the grind
         // research a topic live and prove the improvement with its own RED change (source stays advisory).
         'research_backend_enabled' => (bool) env('ATLAS_LOOP_RESEARCH_BACKEND_ENABLED', false),
+
+        // Net-new MATERIAL supply via decomposition (AtlasLoopComplexTargetDecomposer): how many independent
+        // sub-refactors a single multi-method complex file may flood into one refill. Each sub-target is
+        // material-by-construction (cyclomatic >= material_refactor_min_cyclomatic); this only bounds the count.
+        'decompose_max_subtargets' => max(1, (int) env('ATLAS_LOOP_DECOMPOSE_MAX_SUBTARGETS', 8)),
         'obra_earned_red_enabled' => (bool) env('ATLAS_LOOP_OBRA_EARNED_RED_ENABLED', true),
         'comprehension_grounding_gate_enabled' => (bool) env('ATLAS_LOOP_COMPREHENSION_GROUNDING_GATE_ENABLED', true),
         'external_research_enabled' => (bool) env('ATLAS_LOOP_EXTERNAL_RESEARCH_ENABLED', true),
