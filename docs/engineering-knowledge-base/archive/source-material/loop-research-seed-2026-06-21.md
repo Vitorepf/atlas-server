@@ -16,14 +16,23 @@ verification + supply, grounded in 2025 mutation-testing research.
 
 ## Actionable, RED-provable improvement candidates (each maps to real loop code)
 
-### C1 — Equivalent-mutant handling in kill_ratio (HIGHEST value, fixes a real false-negative)
-The cert gates on kill_ratio ≥ 0.5 (surviving mutants = test gap). But some surviving mutants are EQUIVALENT
-(they don't change behaviour) — penalising them is a false-negative that rejects honest material work. Research:
-an LLM equivalent-mutant detector rose from precision 0.79 / recall 0.47 to **0.95 / 0.96 with simple
-pre-processing**. CANDIDATE: pre-filter equivalent mutants before computing kill_ratio so the cert stops
-penalising provably-equivalent survivors. RED proof: a fixture with a known equivalent mutant whose current
-cert wrongly fails and passes after. Loop code: the SemanticImplementationCertifier / mutation-cert path.
-Source: https://link.springer.com/chapter/10.1007/978-3-031-94544-1_12
+### C1 — Equivalent-mutant handling in kill_ratio — ⛔ INVESTIGATED 2026-06-21 → DEAD-END, DO NOT PURSUE
+Hypothesis: the kill-ratio gate penalises EQUIVALENT survivors (false-negative). Investigation of the real
+code (`AtlasLoopBehavioralEquivalenceGate` + `AtlasLoopSemanticImplementationCertifier:164` +
+`AtlasLoopMutationAdequacyGateService`) DISPROVED it on two independent grounds:
+  1. **No live false-negative to fix.** The kill-ratio strength gate is FAIL-OPEN and `mutation_kill_ratio_floor`
+     defaults to **0.0 ⇒ the gate is OFF by default** (the certifier comment: "default 0.0 => OFF => byte-identical
+     until armed"). It penalises nothing today. The primary anti-empty-test gate is BINARY (any surviving DECISION
+     mutant hard-rejects) — not a ratio — and already skips cosmetics/comments and is decision-position-confined.
+  2. **The valuable form is a GAMING HOLE.** Excluding "equivalent" survivors from the denominator is textbook
+     mutation testing ONLY with GLOBAL equivalence. Global equivalence is ~undecidable in PHP; the tractable
+     proxy (byte-identical output under the *suite's own inputs*) lets a NARROW test exclude everything it doesn't
+     exercise and inflate its ratio to 1.0 — directly defeating the anti-Goodhart cert. The safe (provably-global)
+     form fires ~never. So: near-zero value safe, or a hole. Either way NOT a loop improvement.
+RULE for the regime: do not re-mint this topic. Equivalent-mutant handling only becomes worth it as a
+PREREQUISITE if the operator ever wants to ARM the kill-ratio floor — and only with a gate-controlled,
+reachability-proven differential oracle, which is its own obra, not a quick cert tweak.
+Source (why it's subtle): https://link.springer.com/chapter/10.1007/978-3-031-94544-1_12
 
 ### C2 — Scientific-debugging mutation killing (improves cert CONVERSION, not the bar)
 Naive LLM test generation imitates training-data tests instead of reasoning about execution semantics — weak at
