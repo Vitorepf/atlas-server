@@ -1149,25 +1149,33 @@ final class AtlasLoopQueueRefiller
         // counter is the cheap inner ceiling. Fail-open: portfolio gate OFF ⇒ no cap (byte-identical legacy).
         if ((bool) config('atlas.loop.coverage_portfolio_gate_enabled', true)) {
             $perRefillCap = (int) config('atlas.loop.coverage_characterization_max_per_refill', 2);
-            $campaignCap = $perRefillCap; // when not relative, only the per-refill absolute cap applies
             if ((bool) config('atlas.loop.coverage_relative_to_substantive', true)) {
-                $coverageCount = (int) AtlasLoopTask::query()
-                    ->where('campaign_id', $campaign->id)
-                    ->where('payload->objective_kind', AtlasLoopCoverageDeficitSource::SHAPE)
-                    ->count();
-                $substantiveCount = (int) AtlasLoopTask::query()
-                    ->where('campaign_id', $campaign->id)
-                    ->where(function ($q): void {
-                        $q->where('payload->objective_kind', '!=', AtlasLoopCoverageDeficitSource::SHAPE)
-                            ->orWhereNull('payload->objective_kind');
-                    })
-                    ->count();
-                $campaignCap = max(1, intdiv($substantiveCount, 2));
-                if ($coverageCount >= $campaignCap) {
+                // AVAILABILITY-based, not count-based. Coverage must never crowd out a refactor/bug/feature
+                // target — so DEFER coverage WHILE a genuine substantive (non-coverage-shaped) target is still
+                // open to do instead. But when substantive targets are EXHAUSTED, a characterization test is
+                // NOT padding: it PINS an untested file's behaviour, the mandatory test-then-refactor STEP 1
+                // (next cycle the now-tested file becomes a material refactor target). The old count-based cap
+                // blocked step 1 and STARVED the loop into idling on its own untested files — the loop must
+                // keep evolving (test → refactor across the whole codebase), never idle. Fail-OPEN (allow
+                // coverage) on any query hiccup: doing real verification work beats idling.
+                try {
+                    $substantiveTargetAvailable = AtlasLoopTarget::query()
+                        ->where('campaign_id', $campaign->id)
+                        ->whereIn('status', [AtlasLoopTarget::STATUS_CANDIDATE, AtlasLoopTarget::STATUS_QUEUED])
+                        ->where('target_path', '!=', $target->target_path)
+                        ->where(function ($q): void {
+                            $q->whereNull('signals->shape')
+                                ->orWhere('signals->shape', '!=', AtlasLoopCoverageDeficitSource::SHAPE);
+                        })
+                        ->exists();
+                } catch (Throwable) {
+                    $substantiveTargetAvailable = false; // fail-open: allow coverage rather than idle
+                }
+                if ($substantiveTargetAvailable) {
                     $this->loopBack->reflect($campaign->id, [
                         'target_id' => $target->id,
                         'status' => 'no_winner',
-                        'reason' => 'coverage_portfolio_cap_reached_campaign',
+                        'reason' => 'coverage_deferred_substantive_target_available',
                     ]);
 
                     return 'deferred';

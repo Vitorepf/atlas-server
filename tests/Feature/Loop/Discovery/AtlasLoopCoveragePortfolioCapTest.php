@@ -148,32 +148,59 @@ final class AtlasLoopCoveragePortfolioCapTest extends TestCase
         ]);
     }
 
-    public function test_campaign_cumulative_cap_defers_coverage_once_it_reaches_half_of_substantive(): void
+    private function makeOpenTarget(string $campaignId, string $shape, string $path): void
+    {
+        \App\Models\AtlasLoopTarget::query()->create([
+            'campaign_id' => $campaignId,
+            'schema_version' => 'atlas.loop.target.v1',
+            'target_path' => $path,
+            'target_key' => hash('sha256', $campaignId.'|'.$path),
+            'content_hash' => 'h0',
+            'status' => \App\Models\AtlasLoopTarget::STATUS_CANDIDATE,
+            'score' => 0.9,
+            'novelty_score' => 1.0,
+            'signals' => ['shape' => $shape],
+            'attempts' => 0,
+            'max_attempts' => 3,
+        ]);
+    }
+
+    /** @return string outcome of the coverage lane with the given open-target landscape. */
+    private function coverageOutcomeWith(string $shapeOfOtherOpenTarget): string
     {
         config([
             'atlas.loop.characterization_test_lane_enabled' => true,
             'atlas.loop.coverage_portfolio_gate_enabled' => true,
             'atlas.loop.coverage_relative_to_substantive' => true,
-            'atlas.loop.coverage_characterization_max_per_refill' => 99, // isolate the campaign-cumulative cap
+            'atlas.loop.coverage_characterization_max_per_refill' => 99, // isolate the availability gate
         ]);
 
         $refiller = app(AtlasLoopQueueRefiller::class);
         $counter = new ReflectionProperty($refiller, 'coverageMintedThisRefill');
         $counter->setAccessible(true);
-        $counter->setValue($refiller, 0); // per-refill counter not the constraint here
+        $counter->setValue($refiller, 0);
 
         $m = new ReflectionMethod($refiller, 'tryCoverageDeficitCharacterization');
         $m->setAccessible(true);
 
         $c = $this->campaign();
-        // 2 substantive (non-coverage) tasks already minted, plus 1 coverage already minted.
-        $this->makeTask($c->id, 'refactor_extract_class');
-        $this->makeTask($c->id, 'self_improvement');
-        $this->makeTask($c->id, AtlasLoopCoverageDeficitSource::SHAPE); // coverageCount=1
+        $this->makeOpenTarget($c->id, $shapeOfOtherOpenTarget, 'app/Svc/Other.php'); // the "other" open target
+        $t = $this->target($c); // the coverage target under evaluation
 
-        // campaignCap = max(1, intdiv(2,2)) = 1; coverageCount(1) >= 1 ⇒ the NEXT coverage is DEFERRED.
-        $t = $this->target($c);
-        $outcome = (string) $m->invoke($refiller, $c, $t, ['shape' => AtlasLoopCoverageDeficitSource::SHAPE], '', $this->tmpSource);
-        $this->assertSame('deferred', $outcome, 'coverage already at floor(substantive/2) ⇒ deferred');
+        return (string) $m->invoke($refiller, $c, $t, ['shape' => AtlasLoopCoverageDeficitSource::SHAPE], '', $this->tmpSource);
+    }
+
+    public function test_coverage_deferred_while_a_substantive_target_is_available(): void
+    {
+        // a non-coverage (refactor-shaped) open target exists ⇒ coverage must yield to it.
+        $this->assertSame('deferred', $this->coverageOutcomeWith('single_file_refactor'));
+    }
+
+    public function test_coverage_allowed_when_only_coverage_targets_remain(): void
+    {
+        // every other open target is also coverage-shaped (substantive exhausted) ⇒ coverage is NOT padding,
+        // it is test-then-refactor STEP 1; the loop must do it (proceeds → quarantines the trivial file),
+        // never idle. This is the fix for the loop starving itself on its own untested files.
+        $this->assertNotSame('deferred', $this->coverageOutcomeWith(AtlasLoopCoverageDeficitSource::SHAPE));
     }
 }
