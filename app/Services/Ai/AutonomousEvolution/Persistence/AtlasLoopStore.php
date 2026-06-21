@@ -317,6 +317,44 @@ final class AtlasLoopStore
     }
 
     /**
+     * Reclaim specific claimed/running tasks whose GRIND WORKER PROCESS is dead — the fast counterpart to the
+     * lease-based reclaim above. A worker that crashes/OOMs/hangs-then-dies leaves its task "running" until the
+     * full lease (here 90min) elapses, which holds a worker slot hostage and throttles the loop to a trickle.
+     * The CALLER proves liveness out-of-band (is a `grind-task --task-id=<id>` process alive?) and passes the
+     * DEAD ids here; this only flips them, scoped by id + a grace floor on heartbeat_at so a just-claimed task
+     * whose worker has not yet appeared in the process table is NEVER reclaimed (no double-grind race). Mirrors
+     * the attempt-reversal invariant exactly: an incomplete attempt must give its increment back, else the task
+     * zombies pending@max. Real failures finalize via completeTask(FAILED) and never pass through here.
+     *
+     * @param  list<string>  $deadTaskIds  ids whose worker process the caller has confirmed is NOT alive
+     */
+    public function reclaimDeadWorkerTasks(string $campaignId, array $deadTaskIds, int $minHeartbeatAgeSeconds): int
+    {
+        $deadTaskIds = array_values(array_filter(array_unique($deadTaskIds), static fn ($id): bool => (string) $id !== ''));
+        if ($deadTaskIds === []) {
+            return 0;
+        }
+        $cutoff = Carbon::now()->subSeconds(max(30, $minHeartbeatAgeSeconds));
+
+        return AtlasLoopTask::query()
+            ->where('campaign_id', $campaignId)
+            ->whereIn('id', $deadTaskIds)
+            ->whereIn('status', [AtlasLoopTask::STATUS_CLAIMED, AtlasLoopTask::STATUS_RUNNING])
+            // anti-race grace: a task claimed seconds ago whose worker has not yet shown up in the process
+            // table must not be reclaimed. heartbeat_at is stamped at claim and refreshed during the grind,
+            // so "no heartbeat within the grace window" + "no live process" (caller) = a genuinely dead worker.
+            ->where(function ($q) use ($cutoff): void {
+                $q->whereNull('heartbeat_at')->orWhere('heartbeat_at', '<', $cutoff);
+            })
+            ->update([
+                'status' => AtlasLoopTask::STATUS_PENDING,
+                'claimed_by' => null,
+                'lease_expires_at' => null,
+                'attempts' => DB::raw('CASE WHEN attempts > 0 THEN attempts - 1 ELSE 0 END'),
+            ]);
+    }
+
+    /**
      * Reclaim ALL in-flight tasks (claimed/running) back to pending — for SUPERVISOR STARTUP only,
      * where the predecessor that claimed them is DEAD, so every in-flight task is orphaned REGARDLESS
      * of lease. The old lease-only reclaim left a respawned supervisor's predecessor tasks "running"
