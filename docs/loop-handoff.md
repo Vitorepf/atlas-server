@@ -7,27 +7,72 @@
 
 ---
 
-## 0. Your mission (read this twice)
+## 0. The Loop — zero-ambiguity definition (read until there is NO doubt)
 
-Make the **Atlas Loop** (AutonomousEvolution engine) **fully autonomous at evolving its OWN code scope**:
-`app/Services/Ai/AutonomousEvolution/` (244 PHP files — the loop's own machinery).
+This section exists so there is **no possibility of confusion**. Four questions, answered flatly. If anything
+below ever seems to conflict with a habit or a shortcut, **this wins**.
 
-"Fully autonomous in its own scope" means the loop, by itself, can:
-1. **Understand** the scope + its goal (what the loop is for, what would make it better).
-2. **Identify** the highest-leverage evolution available right now (not the easiest — the most exponential).
-3. **Implement** it — a new feature, an evolution, a *new level/patamar* of capability, or a robust refactor.
-4. **Test + certify + measure** it honestly (real improvement proven, behavior preserved).
-5. **Research the internet** when it hits the edge of its understanding — when it doesn't understand
-   something, or needs information/state-of-the-art it doesn't have, it goes and finds it.
-6. Do all of the above **in the least time**, **commit-by-piece**, **without any human or external (Claude
-   Code/Codex) review**.
+### 0.1 — What the Loop IS
+The **Atlas Loop** (a.k.a. **AutonomousEvolution / ACDE**) is **Atlas's single, sole, autonomous software
+engineer**. It takes a SCOPE of code and **evolves it to the maximum possible level, exponentially, by itself,
+running 24/7** — with **NO human and NO external tool (Claude Code / Codex / Cursor / Factory / Gemini)
+reviewing, driving, or correcting it**.
 
-**Why this scope first:** the loop perfecting *itself* is the proving ground. The moment it demonstrably does
-its own job well in its own scope, it earns the right to be pointed at other scopes (Atlas Dev, engineering,
-trading, etc.). So: **make it excellent here, on itself.**
+It is meant to be **THE ONLY THING that engineers Atlas.** Not a helper, not a linter, not a one-off batch job,
+not a "Claude with extra steps". The end-state: *the Loop is the one entity that builds, fixes, refactors,
+evolves, and documents Atlas — alone, forever, around the clock.*
 
-This is an **engineering** job. You are improving the loop *as a system*. Think: what is structurally missing
-or weak that prevents the loop from autonomously finding-and-landing real evolutions of its own code?
+It is **NOT** (zero tolerance — an earlier AI drifted into this for days): micro-editing, whitespace/cleanup,
+proxy optimization (landing-rate / cyclomatic-count / test-count / coverage %), coverage-padding,
+planning-without-building, or one-shot attempts. **A behavior-preserving refactor with no PROVEN material
+improvement is worth ZERO.**
+
+### 0.2 — What the Loop SHOULD DO (its job, concretely and completely)
+Given a scope, the Loop does ALL of this, continuously, on its own, **24/7**:
+- **Understands** the scope and what would genuinely make it better.
+- **Finds what to improve** — and when it does **not** know, does not understand something, or lacks the
+  information/knowledge it needs, it **RESEARCHES THE INTERNET**: patterns, **public repositories**, papers,
+  state-of-the-art **implementations**, libraries, prior art — **anything that helps it become better**.
+  Internal discovery alone is NOT enough; the Loop reaches OUT for knowledge whenever it hits the edge of what
+  it knows.
+- **Implements everything**, within scope: new **features**, **evolutions**, **new levels/patamares** of
+  capability, robust **refactors**, real **bug fixes**, and **any fix** — *tudo do Loop*.
+- **Updates the documentation** to match every change it lands (docs are part of the deliverable, never an
+  afterthought).
+- **Tests, certifies, measures, and commits** each piece honestly — commit-by-piece, never one big dump.
+- **Never stops** at "looks better", "tests pass", or "a base is built" — it keeps going, around the clock.
+
+### 0.3 — How the Loop SHOULD BE
+- **Fully autonomous** — zero human/external review in the steady state. It governs itself.
+- **Exponential** — it doesn't only do work; it makes **itself better at doing work** (it evolves its own
+  ability to evolve), so the curve bends UP over time. Flat ≠ acceptable.
+- **Honest / anti-Goodhart** — its gates **actually reject** proxy / cosmetic / behavior-breaking work; it
+  never games its own cert or scorecard. Real value or nothing.
+- **Sovereign + local-first** — it reaches OUT for knowledge (research), but **nothing about the repo leaks
+  out** (egress-protected). Atlas runs on the operator's machine and owns its own brain.
+- **Fast** — the best evolution in the **least time**.
+
+### 0.4 — The Loop's OBJECTIVE in Atlas
+Atlas is the operator's **sovereign personal AI** (local, on his Mac). Providers (Claude Code, Codex, etc.) are
+**rented muscle**; Atlas is the **brain**. **The Loop is HOW Atlas engineers itself.** The objective:
+**the Loop becomes the ONLY thing that evolves Atlas** — it programs, fixes, refactors, evolves, levels-up, and
+documents the entire system, **24/7, alone**, with no human and no external tool in the loop. Scope is unlocked
+**one block at a time, starting with the Loop's OWN code**, and expands **only as the Loop earns proven
+confidence** (see §9). When the Loop can fully and honestly do its whole job in its own scope, it has proven it
+can be trusted to do it anywhere.
+
+---
+
+## 0.5 Your mission (the next Claude — the engineer of the Loop)
+
+You are NOT running the Loop. You are **building/structuring/perfecting the Loop as a system** so it becomes
+everything in §0 — starting with **Block 1: its own code scope** `app/Services/Ai/AutonomousEvolution/`
+(244 PHP files — the Loop's own machinery). Concretely, make the Loop able to, by itself: understand its scope →
+pick the highest-leverage evolution (not the easiest) → research the internet when it lacks knowledge →
+implement (feature / evolution / new level / robust refactor / bug-fix) → update docs → test + certify + measure
+→ commit — in the least time, commit-by-piece, with zero human/external review, **24/7**, getting better as it
+goes. Ask yourself constantly: *what is structurally missing or weak that stops the Loop from autonomously
+finding-and-landing REAL evolutions (not proxy) of its own code?* — and build that.
 
 ---
 
