@@ -1926,6 +1926,12 @@ return [
         'discovery_coverage_deficit_enabled' => (bool) env('ATLAS_LOOP_DISCOVERY_COVERAGE_DEFICIT_ENABLED', true),
         'discovery_clone_dedup_enabled' => (bool) env('ATLAS_LOOP_DISCOVERY_CLONE_DEDUP_ENABLED', true),
         'clone_similarity_threshold' => (float) env('ATLAS_LOOP_CLONE_SIMILARITY_THRESHOLD', 0.9),
+
+        // P27 — the research-to-RED origination BACKEND gate (AtlasLoopResearchOriginator). Default-OFF =>
+        // fail-closed (no objective minted from research). Arm it only when the 24/7 regime is wanted: the
+        // loop's grind engine (Hermes) has native browser/web tools, so an armed backend lets the grind
+        // research a topic live and prove the improvement with its own RED change (source stays advisory).
+        'research_backend_enabled' => (bool) env('ATLAS_LOOP_RESEARCH_BACKEND_ENABLED', false),
         'obra_earned_red_enabled' => (bool) env('ATLAS_LOOP_OBRA_EARNED_RED_ENABLED', true),
         'comprehension_grounding_gate_enabled' => (bool) env('ATLAS_LOOP_COMPREHENSION_GROUNDING_GATE_ENABLED', true),
         'external_research_enabled' => (bool) env('ATLAS_LOOP_EXTERNAL_RESEARCH_ENABLED', true),

@@ -26,8 +26,21 @@ namespace App\Services\Ai\AutonomousEvolution\Discovery;
 final class AtlasLoopResearchOriginator
 {
     public function __construct(
-        private readonly AtlasLoopExternalResearchService $research = new AtlasLoopExternalResearchService(),
+        private readonly ?AtlasLoopExternalResearchService $research = null,
     ) {
+    }
+
+    /**
+     * The (config-gated, default-OFF) research backend. The loop's grind engine (Hermes) ships native
+     * browser/web/web_extract tools, so arming `ATLAS_LOOP_RESEARCH_BACKEND_ENABLED` lets the grind research a
+     * topic LIVE and prove the improvement with its OWN red change. Default-OFF keeps the whole chain
+     * fail-closed until the operator arms the 24/7 regime.
+     */
+    private function service(): AtlasLoopExternalResearchService
+    {
+        return $this->research ?? new AtlasLoopExternalResearchService(
+            (bool) config('atlas.loop.research_backend_enabled', false),
+        );
     }
 
     /**
@@ -45,7 +58,7 @@ final class AtlasLoopResearchOriginator
             return null;
         }
 
-        $verdict = $this->research->research($topic, $repoRoot);
+        $verdict = $this->service()->research($topic, $repoRoot);
         // FAIL-CLOSED: egress-blocked or no backend ⇒ no objective. The bare topic is NEVER laundered through.
         if (($verdict['researched'] ?? false) !== true) {
             return null;
