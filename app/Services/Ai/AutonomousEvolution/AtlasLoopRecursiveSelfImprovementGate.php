@@ -33,34 +33,48 @@ final class AtlasLoopRecursiveSelfImprovementGate
     {
     }
 
+    /** A self-improvement proposal HARDENS the brain (adds a guard/test/forbidden — only-adds-never-loosens). */
+    public const KIND_HARDEN = 'harden';
+
+    /** A self-improvement proposal IMPROVES a non-pétreo brain file's behaviour (riskier than hardening). */
+    public const KIND_IMPROVE = 'improve';
+
     /**
-     * @return array{admitted:bool, auto_apply:bool, status:string, reason:?string}
+     * @param  string  $intent  the proposal's stated kind (harden|improve) — metadata for the policy, NEVER a
+     *                          bypass: the constitution is checked FIRST and is intent-independent.
+     * @return array{admitted:bool, auto_apply:bool, status:string, reason:?string, kind:?string}
      */
-    public function evaluate(string $targetPath): array
+    public function evaluate(string $targetPath, string $intent = self::KIND_IMPROVE): array
     {
         $target = ltrim(trim($targetPath), '/');
         if ($target === '') {
-            return $this->verdict(false, false, 'refused_no_target', 'no_target');
+            return $this->verdict(false, false, 'refused_no_target', 'no_target', null);
         }
 
-        // (1) CONSTITUTION FIRST — flag-independent. Even with auto-apply ARMED, a cert organ is untouchable.
+        // (1) CONSTITUTION FIRST — flag- AND intent-independent. Even a "harden" intent with auto-apply ARMED
+        // cannot edit a cert organ: a self-edit to the judge is refused no matter how it is framed.
         if (($this->guard ?? new AtlasLoopHarnessGuard)->isForbiddenSelfTarget($target)) {
-            return $this->verdict(false, false, self::STATUS_REFUSED_PETREO, 'constitution_forbids_editing_a_cert_organ');
+            return $this->verdict(false, false, self::STATUS_REFUSED_PETREO, 'constitution_forbids_editing_a_cert_organ', null);
         }
 
-        // (2) POLICY — a non-pétreo brain file is a legal self-improvement; applying it needs operator policy.
+        // (2) CLASSIFY — hardening (add-only: a new guard/test/forbidden) is the SAFE exponential direction;
+        // improving a non-pétreo file's behaviour is riskier. Both are LEGAL but policy-gated; the kind lets a
+        // future operator policy auto-apply ONLY hardening while still parking behaviour changes.
+        $kind = strtolower(trim($intent)) === self::KIND_HARDEN ? self::KIND_HARDEN : self::KIND_IMPROVE;
+
+        // (3) POLICY — applying ANY self-edit unattended needs explicit operator policy (default-OFF ⇒ park).
         $autoApply = (bool) config('atlas.loop.recursive_self_improvement_auto_apply', false);
 
         return $autoApply
-            ? $this->verdict(true, true, self::STATUS_AUTO_APPLY_ARMED, null)
-            : $this->verdict(true, false, self::STATUS_PARKED, null);
+            ? $this->verdict(true, true, self::STATUS_AUTO_APPLY_ARMED, null, $kind)
+            : $this->verdict(true, false, self::STATUS_PARKED, null, $kind);
     }
 
     /**
-     * @return array{admitted:bool, auto_apply:bool, status:string, reason:?string}
+     * @return array{admitted:bool, auto_apply:bool, status:string, reason:?string, kind:?string}
      */
-    private function verdict(bool $admitted, bool $autoApply, string $status, ?string $reason): array
+    private function verdict(bool $admitted, bool $autoApply, string $status, ?string $reason, ?string $kind): array
     {
-        return ['admitted' => $admitted, 'auto_apply' => $autoApply, 'status' => $status, 'reason' => $reason];
+        return ['admitted' => $admitted, 'auto_apply' => $autoApply, 'status' => $status, 'reason' => $reason, 'kind' => $kind];
     }
 }

@@ -48,6 +48,24 @@ final class AtlasLoopRecursiveSelfImprovementGateTest extends TestCase
         $this->assertSame(AtlasLoopRecursiveSelfImprovementGate::STATUS_PARKED, $v['status']);
     }
 
+    public function test_constitution_first_is_intent_independent_even_for_a_harden_proposal(): void
+    {
+        // a "harden" intent must NOT bypass the constitution to edit the judge — flag- AND intent-independent.
+        config()->set('atlas.loop.recursive_self_improvement_auto_apply', true);
+        $v = $this->gate->evaluate('app/Services/Ai/AutonomousEvolution/AtlasEvolutionFrozenJudge.php', AtlasLoopRecursiveSelfImprovementGate::KIND_HARDEN);
+        $this->assertFalse($v['admitted'], 'a harden intent cannot reach past the constitution to a cert organ');
+        $this->assertSame(AtlasLoopRecursiveSelfImprovementGate::STATUS_REFUSED_PETREO, $v['status']);
+    }
+
+    public function test_a_harden_proposal_on_a_non_petreo_file_is_classified_and_gated(): void
+    {
+        config()->set('atlas.loop.recursive_self_improvement_auto_apply', false);
+        $v = $this->gate->evaluate('app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopOrphanWiringSupplyLane.php', AtlasLoopRecursiveSelfImprovementGate::KIND_HARDEN);
+        $this->assertTrue($v['admitted'], 'hardening a non-pétreo file is the safe exponential direction');
+        $this->assertSame(AtlasLoopRecursiveSelfImprovementGate::KIND_HARDEN, $v['kind']);
+        $this->assertSame(AtlasLoopRecursiveSelfImprovementGate::STATUS_PARKED, $v['status'], 'still parked without operator policy');
+    }
+
     public function test_operator_policy_arms_auto_apply_for_a_legal_target_only(): void
     {
         config()->set('atlas.loop.recursive_self_improvement_auto_apply', true);
