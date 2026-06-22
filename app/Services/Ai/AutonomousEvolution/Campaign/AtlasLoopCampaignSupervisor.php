@@ -64,6 +64,15 @@ final class AtlasLoopCampaignSupervisor
 
     private ?string $storageRoot = null;
 
+    /**
+     * L4 — origination-on-starvation seam. null (default) => build the grounded comprehension model + call the
+     * real {@see AtlasLoopOriginationPipeline} (the writer is model-bound, §9-fenced). A deterministic test
+     * injects a fake via setOriginationProducerForTesting, so the seam is provable WITHOUT a provider call.
+     *
+     * @var (Closure(string $repoRoot, string $scopeRoot, list<string> $priorAttempts): array<string,mixed>)|null
+     */
+    private ?Closure $originationProducer = null;
+
     public function __construct(
         private readonly AtlasLoopStore $store,
         private readonly AtlasLoopTaskGrinder $grinder,
@@ -103,6 +112,11 @@ final class AtlasLoopCampaignSupervisor
     public function setStorageRootForTesting(string $root): void
     {
         $this->storageRoot = rtrim($root, '/');
+    }
+
+    public function setOriginationProducerForTesting(Closure $producer): void
+    {
+        $this->originationProducer = $producer;
     }
 
     /**
@@ -346,6 +360,16 @@ final class AtlasLoopCampaignSupervisor
                             // allowed into a root without a frozen judge under it (the canPromote no-blinder
                             // invariant), so an unprotected scope can never open.
                             if (! ((bool) config('atlas.loop.territory_ladder_enabled', true) && $this->maybeClimbTerritory($campaign))) {
+                                // L4 — origination-on-starvation: before stopping/idling, ORIGINATE the next
+                                // leap. A fresh minted task => loop back and grind it (the loop NEVER stalls at
+                                // "terminei a lista"). Flag-OFF => maybeOriginate returns false => unchanged.
+                                if ($this->maybeOriginate($campaign)) {
+                                    $this->writeHeartbeat($campaign->id);
+                                    $this->beat($campaign, 1);
+                                    $lastTick = $this->now();
+
+                                    continue;
+                                }
                                 if (! $idleOnStarvation) {
                                     $stop = 'queue_starved_no_refill';
                                     break;
@@ -786,6 +810,72 @@ final class AtlasLoopCampaignSupervisor
     /**
      * @param  array<string,mixed>  $input
      */
+    /**
+     * L4 — KILL THE STALL (the loop-BURRO fix). At supply exhaustion (reactive backlog dry AND no territory
+     * rung opened), ORIGINATE the next leap instead of stopping at "terminei a lista". Returns true iff it
+     * minted a fresh task (then the caller loops back and grinds it). Flag-default-OFF => byte-identical (the
+     * supervisor stops/idles exactly as before). The origination writer is model-bound (the live soak's
+     * provider); the deterministic test injects a fake producer, so NO provider is touched here.
+     */
+    private function maybeOriginate(AtlasLoopCampaign $campaign): bool
+    {
+        if (! (bool) config('atlas.loop.origination_on_starvation_enabled', false)) {
+            return false;
+        }
+
+        $producer = $this->originationProducer ?? static function (string $repoRoot, string $scopeRoot, array $prior): array {
+            $model = (new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModelBuilder)->build($repoRoot, $scopeRoot);
+
+            return (new \App\Services\Ai\AutonomousEvolution\AtlasLoopOriginationPipeline)->produce($model, $repoRoot, $prior);
+        };
+
+        $repoRoot = base_path();
+        $scopeRoot = (string) config('atlas.loop.origination_scope_root', 'app/Services/Ai/AutonomousEvolution');
+        $prior = (array) ($this->guard(
+            fn () => AtlasLoopTask::query()->where('campaign_id', $campaign->id)
+                ->whereNotNull('target_path')->distinct()->limit(50)->pluck('target_path')->all(),
+            'origination_prior_attempts',
+        ) ?? []);
+
+        try {
+            $result = (array) $producer($repoRoot, $scopeRoot, array_values(array_filter($prior, 'is_string')));
+        } catch (Throwable $e) {
+            $this->appendLedger($campaign->id, ['event' => 'origination_error', 'error' => mb_substr($e->getMessage(), 0, 160)]);
+
+            return false;
+        }
+
+        $objective = is_string($result['objective'] ?? null) ? trim((string) $result['objective']) : '';
+        if (($result['produced'] ?? false) !== true || ($result['action'] ?? '') !== 'proceed' || $objective === '') {
+            // produced=false / abstain (park + ask operator) / empty objective => do NOT enqueue; let the
+            // caller fall through to stop/idle (abstain is the honest "ask the operator", never a fake leap).
+            $this->appendLedger($campaign->id, [
+                'event' => 'origination_attempt',
+                'produced' => (bool) ($result['produced'] ?? false),
+                'action' => $result['action'] ?? null,
+                'reason' => $result['reason'] ?? null,
+            ]);
+
+            return false;
+        }
+
+        $task = $this->store->enqueueTask(
+            $campaign->id,
+            $objective,
+            ['_origination' => true, 'obligations' => (array) ($result['obligations'] ?? [])],
+            'origination',
+            is_string($result['target_path'] ?? null) ? (string) $result['target_path'] : null,
+        );
+        $this->appendLedger($campaign->id, [
+            'event' => 'originated_on_starvation',
+            'objective' => mb_substr($objective, 0, 120),
+            'target_path' => $result['target_path'] ?? null,
+            'enqueued' => $task instanceof AtlasLoopTask,
+        ]);
+
+        return $task instanceof AtlasLoopTask;
+    }
+
     /**
      * DETERMINISTIC dead-code supply (provider-LESS). When `atlas.loop.deterministic_deadcode_supply_enabled`
      * is ON, certify + persist removals of provably-dead private members as PROPOSE-ONLY proposals for this
