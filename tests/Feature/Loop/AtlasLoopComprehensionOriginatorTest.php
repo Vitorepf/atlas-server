@@ -67,6 +67,31 @@ final class AtlasLoopComprehensionOriginatorTest extends TestCase
         $this->assertSame('no_proposal', $res['reason']);
     }
 
+    public function test_prior_attempts_inform_the_writer_as_context(): void
+    {
+        // §5 learning realimenting comprehension: the campaign's non-converged history reaches the writer.
+        $seen = '';
+        $writer = function (string $p) use (&$seen): array {
+            $seen = $p;
+
+            return ['objective' => 'Wire AtlasLoopResearchOriginator.', 'cited_symbols' => ['AtlasLoopResearchOriginator']];
+        };
+        (new AtlasLoopComprehensionOriginator($writer))->originate($this->model(), ['App\\X\\AlreadyParked']);
+
+        $this->assertStringContainsString('did NOT converge', $seen, 'the writer is told what already failed');
+        $this->assertStringContainsString('App\\X\\AlreadyParked', $seen);
+    }
+
+    public function test_prior_attempt_is_context_not_a_veto(): void
+    {
+        // a parked target is NOT suppressed — the writer may re-cite it (with a better design) and it originates.
+        $writer = fn (string $p): array => ['objective' => 'Re-approach AtlasLoopResearchOriginator with a better design.', 'cited_symbols' => ['AtlasLoopResearchOriginator']];
+        $res = (new AtlasLoopComprehensionOriginator($writer))->originate($this->model(), ['AtlasLoopResearchOriginator']);
+
+        $this->assertTrue($res['originated'], 'the prior-attempt context informs but never vetoes a re-cite');
+        $this->assertSame([], $res['refuted']);
+    }
+
     public function test_strict_parse_of_the_writer_marker_format(): void
     {
         $originator = new AtlasLoopComprehensionOriginator;

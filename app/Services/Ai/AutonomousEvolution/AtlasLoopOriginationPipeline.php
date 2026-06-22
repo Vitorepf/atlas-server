@@ -28,11 +28,13 @@ final class AtlasLoopOriginationPipeline
     }
 
     /**
+     * @param  list<string>  $priorAttempts  campaign targets that did not converge — passed to the originator
+     *                                        as CONTEXT (informs the writer, never vetoes). §5 learning.
      * @return array{produced:bool, objective:?string, target_path:?string, obligations:list<array<string,mixed>>, reason:?string}
      */
-    public function produce(AtlasLoopScopeComprehensionModel $model, string $repoRoot): array
+    public function produce(AtlasLoopScopeComprehensionModel $model, string $repoRoot, array $priorAttempts = []): array
     {
-        $origination = ($this->originator ?? new AtlasLoopComprehensionOriginator)->originate($model);
+        $origination = ($this->originator ?? new AtlasLoopComprehensionOriginator)->originate($model, $priorAttempts);
         if (($origination['originated'] ?? false) !== true) {
             return $this->refuse((string) ($origination['reason'] ?? 'not_originated'));
         }

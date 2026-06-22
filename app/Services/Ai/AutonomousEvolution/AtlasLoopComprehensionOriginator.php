@@ -39,12 +39,17 @@ final class AtlasLoopComprehensionOriginator
     /**
      * Originate ONE grounded evolution from the comprehension substrate, or a refusal.
      *
+     * @param  list<string>  $priorAttempts  targets that already parked / did not converge THIS campaign —
+     *                                        passed to the writer as CONTEXT (informing, NEVER a veto: the
+     *                                        model stays free to re-cite one with a genuinely better design).
+     *                                        §5 learning realimenting comprehension WITHOUT the #4 Goodhart
+     *                                        surface of autonomously suppressing non-converged work.
      * @return array{originated:bool, objective:?string, cited_symbols:list<string>, refuted:list<string>, reason:?string}
      */
-    public function originate(AtlasLoopScopeComprehensionModel $model): array
+    public function originate(AtlasLoopScopeComprehensionModel $model, array $priorAttempts = []): array
     {
         $writer = $this->writer ?? fn (string $p): ?array => $this->liveWriter($p);
-        $proposal = $writer($this->buildPrompt($model));
+        $proposal = $writer($this->buildPrompt($model, $priorAttempts));
         if (! is_array($proposal)) {
             return $this->refuse([], 'no_proposal'); // fail-closed: no writer / no completion
         }
@@ -98,17 +103,27 @@ final class AtlasLoopComprehensionOriginator
         ], $model->inventory);
     }
 
-    private function buildPrompt(AtlasLoopScopeComprehensionModel $model): string
+    /** @param list<string> $priorAttempts */
+    private function buildPrompt(AtlasLoopScopeComprehensionModel $model, array $priorAttempts = []): string
     {
         $orphans = implode(', ', array_slice($model->orphans, 0, 12)) ?: '(none)';
         $gaps = implode(', ', array_slice($model->docStatedGaps, 0, 12)) ?: '(none)';
         $cloneCount = count($model->cloneClusters);
 
+        $learned = '';
+        $prior = array_values(array_unique(array_filter(array_map('trim', $priorAttempts), static fn (string $s): bool => $s !== '')));
+        if ($prior !== []) {
+            $list = implode(', ', array_slice($prior, 0, 12));
+            // INFORM, never veto — the writer may still re-cite one of these if it has a genuinely better design.
+            $learned = "\n\nAlready attempted this campaign and did NOT converge: {$list}. Prefer a FRESH "
+                ."evolution; only re-cite one of these if you have a genuinely better design than last time.";
+        }
+
         return <<<PROMPT
             You reason over the loop's OWN comprehension model and ORIGINATE the single highest-LEVERAGE
             evolution of its scope — a real capability, a structural improvement, a removed coupling — NOT a
             cosmetic or proxy change. Facts: built-but-unwired orphans: {$orphans}. Capabilities the canonical
-            docs demand but no symbol provides: {$gaps}. Structural clone clusters: {$cloneCount}.
+            docs demand but no symbol provides: {$gaps}. Structural clone clusters: {$cloneCount}.{$learned}
 
             Propose ONE evolution. Every symbol you cite MUST be a REAL member of the scope (it is checked
             against the inventory — a cited symbol that does not exist REFUTES your whole proposal). Output
