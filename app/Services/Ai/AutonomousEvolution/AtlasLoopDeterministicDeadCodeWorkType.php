@@ -88,4 +88,51 @@ final class AtlasLoopDeterministicDeadCodeWorkType
             'provider_used' => false,
         ];
     }
+
+    /**
+     * Sweep a directory tree: produce a CERTIFIED removal for every file with provably-dead private members,
+     * with ZERO provider calls. Propose-only — it never writes or merges; it returns what the work-type WOULD
+     * deliver. This is the runnable "mill→certify real value, no provider" proof over the real repo.
+     *
+     * @return array{scanned:int, certified:list<array{rel_path:string,removed:list<array{kind:string,name:string,line:int}>}>, provider_used:false}
+     */
+    public function sweepDirectory(string $repoRoot, string $relDir, int $limit = 50): array
+    {
+        $root = rtrim($repoRoot, '/');
+        $absDir = $root.'/'.trim($relDir, '/');
+        $scanned = 0;
+        $certified = [];
+
+        foreach ($this->phpFilesIn($absDir) as $abs) {
+            $scanned++;
+            $rel = ltrim(substr($abs, strlen($root)), '/');
+            $result = $this->produceCertifiedRemoval($repoRoot, $rel);
+            if ($result !== null) {
+                $certified[] = ['rel_path' => $result['rel_path'], 'removed' => $result['removed']];
+                if (count($certified) >= $limit) {
+                    break;
+                }
+            }
+        }
+
+        return ['scanned' => $scanned, 'certified' => $certified, 'provider_used' => false];
+    }
+
+    /**
+     * @return iterable<string>
+     */
+    private function phpFilesIn(string $absDir): iterable
+    {
+        if (! is_dir($absDir)) {
+            return;
+        }
+        $it = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($absDir, \FilesystemIterator::SKIP_DOTS),
+        );
+        foreach ($it as $file) {
+            if ($file->isFile() && $file->getExtension() === 'php') {
+                yield $file->getPathname();
+            }
+        }
+    }
 }

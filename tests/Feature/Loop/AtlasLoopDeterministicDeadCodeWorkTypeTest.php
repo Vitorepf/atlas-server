@@ -27,9 +27,20 @@ final class AtlasLoopDeterministicDeadCodeWorkTypeTest extends TestCase
 
     protected function tearDown(): void
     {
-        array_map('unlink', glob($this->dir.'/*') ?: []);
-        @rmdir($this->dir);
+        $this->rmrf($this->dir);
         parent::tearDown();
+    }
+
+    private function rmrf(string $path): void
+    {
+        if (is_dir($path)) {
+            foreach (glob($path.'/*') ?: [] as $child) {
+                $this->rmrf($child);
+            }
+            @rmdir($path);
+        } elseif (is_file($path)) {
+            @unlink($path);
+        }
     }
 
     public function test_mills_authors_and_certifies_a_dead_code_removal_with_no_provider(): void
@@ -74,6 +85,52 @@ PHP);
         // the proposed content is real, mergeable PHP
         $parses = (new ParserFactory)->createForHostVersion()->parse($result['proposed']) !== null;
         $this->assertTrue($parses, 'the certified proposal is valid PHP');
+    }
+
+    public function test_sweeps_a_directory_certifying_only_files_with_dead_code(): void
+    {
+        @mkdir($this->dir.'/sub', 0777, true);
+        file_put_contents($this->dir.'/Dead.php', <<<'PHP'
+<?php
+
+class Dead
+{
+    public function go(): int
+    {
+        return $this->live();
+    }
+
+    private function live(): int
+    {
+        return 1;
+    }
+
+    private const UNUSED = 'x';
+}
+PHP);
+        file_put_contents($this->dir.'/sub/Clean.php', <<<'PHP'
+<?php
+
+class Clean
+{
+    public function go(): int
+    {
+        return $this->live();
+    }
+
+    private function live(): int
+    {
+        return 2;
+    }
+}
+PHP);
+
+        $sweep = (new AtlasLoopDeterministicDeadCodeWorkType)->sweepDirectory($this->dir, '', 50);
+
+        $this->assertSame(2, $sweep['scanned'], 'both files scanned (recursively)');
+        $this->assertFalse($sweep['provider_used'], 'the sweep used NO provider');
+        $this->assertCount(1, $sweep['certified'], 'only the file with dead code yields a certified removal');
+        $this->assertSame('Dead.php', $sweep['certified'][0]['rel_path']);
     }
 
     public function test_returns_null_on_a_clean_file_no_silent_noop(): void
