@@ -2869,6 +2869,26 @@ return [
         // gates as any proposal. The FORBIDDEN_SELF_TARGETS core (judge, certifier, auto-merge, materializer,
         // priorizadores) stays pétreo regardless — it parks earlier. Default OFF => byte-identical park behavior.
         'self_improvement_auto_merge_enabled' => (bool) env('ATLAS_LOOP_SELF_IMPROVEMENT_AUTO_MERGE_ENABLED', false),
+        // ── FIBONACCI COMPOUNDING SEAMS (2026-06-22) — make f(n) feed f(n+1) so the loop EVOLVES the scope
+        //    exponentially instead of running linearly. Each default-OFF => byte-identical; arming them all
+        //    (in capability order) is what turns the linear loop into a compounding one. See the four tests:
+        //    Origination-on-starvation, CapabilityRungGrowth/CapabilitySignal, CompoundingFrontier,
+        //    RegressionWatcher/MainHealthRepairWiring.
+        // L4 — KILL THE STALL: when reactive supply dries the supervisor ORIGINATES the next leap (via the
+        // grounded origination pipeline) instead of stopping at queue_starved. Abstain still parks (never fakes).
+        'origination_on_starvation_enabled' => (bool) env('ATLAS_LOOP_ORIGINATION_ON_STARVATION_ENABLED', false),
+        'origination_scope_root' => (string) env('ATLAS_LOOP_ORIGINATION_SCOPE_ROOT', 'app/Services/Ai/AutonomousEvolution'),
+        // L3 — THE RUNG GROWS: proven capability (CapabilityTrendService upward bend) lowers the ambition
+        // risk-tolerance toward pure-magnitude, so the loop dares a BIGGER leap only once it has earned it.
+        // slope_full = the trend slope at which the loop is fully risk-seeking (the [0,1] normaliser).
+        'capability_ambition_enabled' => (bool) env('ATLAS_LOOP_CAPABILITY_AMBITION_ENABLED', false),
+        'capability_slope_full' => max(1e-9, (float) env('ATLAS_LOOP_CAPABILITY_SLOPE_FULL', 1.0)),
+        // L2/L5 — MERGE EXPANDS THE FRONTIER: the StateOfAtlas the picker reads each cycle now includes the
+        // loop's own merged deliveries (proposals.merged_to_main), so cycle n+1 builds HIGHER on cycle n's gains.
+        'compounding_frontier_enabled' => (bool) env('ATLAS_LOOP_COMPOUNDING_FRONTIER_ENABLED', false),
+        // L6 — ANTI-REGRESSION NET: a post-merge regression is triaged to the loop's own merge and re-attempted
+        // as a fix-forward repair, so a long run never silently knocks down a lower rung. Cert-moat untouched.
+        'regression_sentinel_enabled' => (bool) env('ATLAS_LOOP_REGRESSION_SENTINEL_ENABLED', false),
         // ACDE M4 — telemetry window (hours) the obra cost estimator averages real per-provider spend over to
         // de-orphan the budget scheduler's cost input. Read-only; an absent ledger yields an empty cost map
         // (the obra stays honestly deferred). The scheduler itself has no live dispatch caller yet.
