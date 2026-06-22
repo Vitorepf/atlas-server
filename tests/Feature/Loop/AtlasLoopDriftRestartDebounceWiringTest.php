@@ -20,11 +20,16 @@ use Tests\TestCase;
  */
 final class AtlasLoopDriftRestartDebounceWiringTest extends TestCase
 {
+    use ArmsAtlasLoopMaster;
+
     private string $workspace = '';
 
     protected function setUp(): void
     {
         parent::setUp();
+        // §0 master switch defaults OFF (fail-closed) — arm ON to exercise the keepalive's active drift path.
+        $this->armLoopMasterOn();
+        $this->beforeApplicationDestroyed(fn () => $this->disarmLoopMaster());
         if (! Schema::hasTable('atlas_loop_campaigns')) {
             foreach ([
                 '2026_06_02_000100_create_atlas_loop_runtime_tables.php',

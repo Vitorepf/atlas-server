@@ -14,11 +14,16 @@ use Tests\TestCase;
 
 final class AtlasLoopMorningDigestTest extends TestCase
 {
+    use ArmsAtlasLoopMaster;
+
     private string $tmp;
 
     protected function setUp(): void
     {
         parent::setUp();
+        // §0 master switch defaults OFF (fail-closed) — arm ON to exercise the live keepalive event path.
+        $this->armLoopMasterOn();
+        $this->beforeApplicationDestroyed(fn () => $this->disarmLoopMaster());
 
         Carbon::setTestNow(Carbon::parse('2026-06-12 08:00:00'));
         $this->tmp = sys_get_temp_dir().'/atlas-loop-digest-test-'.bin2hex(random_bytes(4));
