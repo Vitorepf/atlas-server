@@ -25,10 +25,13 @@ final class AtlasLoopSoakPlanService
         'territory_widened_roots_drive_refill',
     ];
 
-    /** Deterministic cleanup substrates that are the FAXINA magnet — they MUST stay OFF in a material soak. */
+    /**
+     * The FAXINA magnet — the deterministic cleanup substrate that MUST stay OFF in a material soak. A single
+     * flag gates BOTH provider-less cleanup work-types (dead-code AND unused-import run under it in the
+     * supervisor), so this one entry covers the whole proxy substrate.
+     */
     public const PROXY_WORKTYPE_FLAGS = [
         'deterministic_deadcode_supply_enabled',
-        'unused_import_supply_enabled',
     ];
 
     public function __construct(private readonly ?Closure $masterEnabledResolver = null) {}

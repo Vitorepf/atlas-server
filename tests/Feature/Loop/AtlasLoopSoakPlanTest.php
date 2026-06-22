@@ -26,7 +26,6 @@ final class AtlasLoopSoakPlanTest extends TestCase
             'atlas.loop.regression_sentinel_enabled' => true,
             'atlas.loop.territory_widened_roots_drive_refill' => true,
             'atlas.loop.deterministic_deadcode_supply_enabled' => false,
-            'atlas.loop.unused_import_supply_enabled' => false,
             'atlas.loop.self_improvement_auto_merge_enabled' => false,
             'atlas.loop.obra_auto_merge_enabled' => false,
         ]);
@@ -110,6 +109,13 @@ final class AtlasLoopSoakPlanTest extends TestCase
         $this->assertStringContainsString('--max-tasks=12', $plan['launch_command']);
         $this->assertStringContainsString('--no-shadow', $plan['launch_command']);
         $this->assertSame(7200, $plan['launch_args']['--max-seconds']);
+    }
+
+    public function test_faxina_worktype_is_off_by_default(): void
+    {
+        // ANTI-PROXY: the deterministic dead-code + unused-import substrate (one flag gates both) is dormant by
+        // default, so a soak runs on MATERIAL work and never drifts to faxina unless the operator arms it.
+        $this->assertFalse((bool) config('atlas.loop.deterministic_deadcode_supply_enabled'), 'the faxina magnet must default OFF');
     }
 
     public function test_command_preflights_and_launches_nothing_without_confirm(): void

@@ -2901,6 +2901,12 @@ return [
             explode(',', (string) env('ATLAS_LOOP_TERRITORY_LADDER_RUNGS', '')),
         ), static fn (string $r): bool => $r !== '')),
         'territory_widened_roots_drive_refill' => (bool) env('ATLAS_LOOP_TERRITORY_WIDENED_ROOTS_DRIVE_REFILL', false),
+        // ANTI-PROXY (soak safety) — the FAXINA MAGNET. This single flag gates BOTH provider-less cleanup
+        // work-types (deterministic dead-code AND unused-import; the supervisor runs both under it). It MUST
+        // stay OFF for a material self-evolution soak — armed, the loop's path of least resistance becomes
+        // cosmetic cleanup (the forbidden Goodhart proxy). Default OFF; atlas:loop:soak's arm-check refuses to
+        // launch while it is on, and atlas:loop:soak-report's proxy_alarm watches for drift if it slips on.
+        'deterministic_deadcode_supply_enabled' => (bool) env('ATLAS_LOOP_DETERMINISTIC_DEADCODE_SUPPLY_ENABLED', false),
         // ACDE M4 — telemetry window (hours) the obra cost estimator averages real per-provider spend over to
         // de-orphan the budget scheduler's cost input. Read-only; an absent ledger yields an empty cost map
         // (the obra stays honestly deferred). The scheduler itself has no live dispatch caller yet.
