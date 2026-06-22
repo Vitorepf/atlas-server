@@ -26,6 +26,9 @@ namespace App\Services\Ai\AutonomousEvolution;
  */
 final class AtlasLoopModelProjectionCritic
 {
+    /** The independent perspectives the cross-model critique reasons from (deeper than a single pass). */
+    public const DEFAULT_LENSES = ['correctness', 'security', 'performance', 'maintainability'];
+
     /** @var (callable(string,string): ?string)|null  (provider, prompt) -> raw response text */
     private $complete;
 
@@ -44,7 +47,7 @@ final class AtlasLoopModelProjectionCritic
      * @param  list<array<string,mixed>>  $deterministicObligations  the floor the model is asked to deepen (for the prompt)
      * @return list<array{kind:string, target_symbol:string, assertion_ref:string}>
      */
-    public function additionalObligations(string $relTarget, string $bindingAxis, array $publicMethods = [], array $deterministicObligations = []): array
+    public function additionalObligations(string $relTarget, string $bindingAxis, array $publicMethods = [], array $deterministicObligations = [], string $lens = ''): array
     {
         $relTarget = trim($relTarget);
         if ($relTarget === '') {
@@ -52,7 +55,7 @@ final class AtlasLoopModelProjectionCritic
         }
 
         $provider = trim((string) config('atlas.loop.default_provider', ''));
-        $prompt = $this->buildPrompt($relTarget, $bindingAxis, $publicMethods, $deterministicObligations);
+        $prompt = $this->buildPrompt($relTarget, $bindingAxis, $publicMethods, $deterministicObligations, $lens);
         $complete = $this->complete ?? fn (string $p, string $pr): ?string => $this->liveCompletion($p, $pr);
 
         $response = $complete($provider, $prompt);
@@ -96,21 +99,53 @@ final class AtlasLoopModelProjectionCritic
     }
 
     /**
+     * Run the critique across MULTIPLE independent LENSES — each a distinct perspective (correctness,
+     * security, performance, maintainability) the frontier model reasons from — and UNION the grounded
+     * obligations, deduped by the frozen engine's key. More lenses ⇒ a deeper, multi-perspective contract
+     * (the canon's "crítica cross-model em loop", made multi-lens). Fail-closed per lens: a lens with no /
+     * garbage completion contributes nothing; the union can only DEEPEN, never weaken (every tuple is
+     * re-validated by obligationKey).
+     *
+     * @param  list<string>  $publicMethods
+     * @param  list<array<string,mixed>>  $deterministicObligations
+     * @param  list<string>  $lenses
+     * @return list<array{kind:string, target_symbol:string, assertion_ref:string}>
+     */
+    public function lensedObligations(string $relTarget, string $bindingAxis, array $publicMethods = [], array $deterministicObligations = [], array $lenses = self::DEFAULT_LENSES): array
+    {
+        $engine = new AtlasLoopProjectionEngine;
+        $seen = [];
+        $out = [];
+        foreach (($lenses === [] ? [''] : $lenses) as $lens) {
+            foreach ($this->additionalObligations($relTarget, $bindingAxis, $publicMethods, $deterministicObligations, (string) $lens) as $ob) {
+                $key = $engine->obligationKey($ob);
+                if ($key !== null && ! isset($seen[$key])) {
+                    $seen[$key] = true;
+                    $out[] = $ob;
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * @param  list<string>  $publicMethods
      * @param  list<array<string,mixed>>  $deterministicObligations
      */
-    private function buildPrompt(string $relTarget, string $bindingAxis, array $publicMethods, array $deterministicObligations): string
+    private function buildPrompt(string $relTarget, string $bindingAxis, array $publicMethods, array $deterministicObligations, string $lens = ''): string
     {
         $kinds = implode(', ', AtlasLoopProjectionEngine::KINDS);
         $ops = implode(', ', array_keys(AtlasLoopMutationOperators::map()));
         $methods = $publicMethods === [] ? '(unknown)' : implode(', ', $publicMethods);
         $floor = implode(', ', array_map(static fn (array $o): string => (string) ($o['kind'] ?? ''), $deterministicObligations)) ?: '(none yet)';
+        $lensLine = trim($lens) === '' ? '' : "\n            Reason specifically through the {$lens} lens — the obligations that lens demands.";
 
         return <<<PROMPT
             You are the INDEPENDENT critic in a design↔critique loop (you did NOT write the design). The
             evolution targets {$relTarget} (public methods: {$methods}); the binding system axis is
             {$bindingAxis}. The deterministic floor already covers: {$floor}. Raise ADDITIONAL obligations a
-            principal engineer would require before this change is safe — ONLY ones a machine can later check.
+            principal engineer would require before this change is safe — ONLY ones a machine can later check.{$lensLine}
 
             Output ONLY this marker format, nothing else; one block per obligation:
             <<<OBLIGATION>>>

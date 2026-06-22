@@ -42,6 +42,31 @@ final class AtlasLoopModelProjectionCriticTest extends TestCase
         $this->assertSame('app/x/foo.php', strtolower($grounded[0]['target_symbol']));
     }
 
+    public function test_lensed_critique_unions_grounded_obligations_across_independent_lenses(): void
+    {
+        $mutop = $this->realMutop;
+        // each lens reasons from a distinct perspective ⇒ a distinct grounded obligation; other lenses
+        // contribute nothing (fail-closed). The union is deduped by the frozen engine key.
+        $double = function (string $p, string $pr) use ($mutop): string {
+            if (str_contains($pr, 'security')) {
+                return "<<<OBLIGATION>>>\nkind=mutation_killed\nassertion=mutop:".$mutop."\n<<<END>>>";
+            }
+            if (str_contains($pr, 'performance')) {
+                return "<<<OBLIGATION>>>\nkind=perf_bound\nassertion=chartest:tests/FooTest.php::test_perf\n<<<END>>>";
+            }
+
+            return ''; // correctness/maintainability lenses add nothing here
+        };
+
+        $obs = (new AtlasLoopModelProjectionCritic($double))
+            ->lensedObligations('app/X/Foo.php', 'non_trivial', [], [], ['correctness', 'security', 'performance', 'maintainability']);
+
+        $kinds = array_column($obs, 'kind');
+        $this->assertContains('mutation_killed', $kinds, 'the security lens deepened the contract');
+        $this->assertContains('perf_bound', $kinds, 'the performance lens deepened the contract');
+        $this->assertCount(2, $obs, 'union across lenses, deduped — empty lenses contribute nothing');
+    }
+
     public function test_no_provider_yields_no_extra_obligations_fail_closed(): void
     {
         config(['atlas.loop.default_provider' => '']);
