@@ -9,6 +9,7 @@ use App\Models\AtlasLoopTarget;
 use App\Models\AtlasLoopTask;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopDbResilience;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopObraBridgeService;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopFleetGovernor;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderCircuitBreaker;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopResourceGate;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopTaxa2DialOverlayService;
@@ -122,6 +123,13 @@ final class AtlasLoopCampaignSupervisor
         $requestedWorkers = max(1, (int) ($input['workers'] ?? ($cfg['workers'] ?? 1)));
         $parallelEnabled = (bool) config('atlas.loop.parallel.enabled', false);
         $effectiveWorkers = $parallelEnabled ? $this->workerPlanner->plan($requestedWorkers) : 1;
+        // §4 FLEET GOVERNOR — cap this campaign's worker pool by the GLOBAL in-flight grind headroom across all
+        // campaigns, so a respawn storm or many concurrent campaigns never swamp the Mac (a soft cap: always
+        // ≥1 so a campaign makes progress, but bounded by fleet headroom). Flag/cap<=0 ⇒ unlimited (byte-identical).
+        $fleetCap = (int) config('atlas.loop.fleet_global_worker_cap', 0);
+        if ($fleetCap > 0) {
+            $effectiveWorkers = max(1, (new AtlasLoopFleetGovernor)->admit($effectiveWorkers, $fleetCap)['admitted']);
+        }
         $pool = $parallelEnabled && $effectiveWorkers > 1 ? $this->workerPool : null;
         $parallelClaimSeq = 0;
         $restartOnCodeDrift = (bool) ($cfg['restart_on_code_drift'] ?? true);

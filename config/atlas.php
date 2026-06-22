@@ -2219,6 +2219,9 @@ return [
         // dead provider. Default-OFF ⇒ record-only, never pauses (byte-identical). A soak-safety guard.
         'provider_circuit_breaker_enabled' => (bool) env('ATLAS_LOOP_PROVIDER_CIRCUIT_BREAKER_ENABLED', false),
         'provider_circuit_breaker_threshold' => (int) env('ATLAS_LOOP_PROVIDER_CIRCUIT_BREAKER_THRESHOLD', 5),
+        // §4 FLEET GOVERNOR — global cap on in-flight grinds across ALL campaigns (soft per-campaign cap by
+        // fleet headroom), so a respawn storm / many campaigns never swamp the Mac. <=0 ⇒ unlimited (byte-identical).
+        'fleet_global_worker_cap' => (int) env('ATLAS_LOOP_FLEET_GLOBAL_WORKER_CAP', 0),
         'grounded_projection_enabled' => (bool) env('ATLAS_LOOP_GROUNDED_PROJECTION_ENABLED', false),
         // §3 CROSS-MODEL CRITIQUE — when ON (and grounded_projection_enabled), a frontier model proposes
         // ADDITIONAL grounded obligations on top of the deterministic floor (AtlasLoopModelProjectionCritic).
