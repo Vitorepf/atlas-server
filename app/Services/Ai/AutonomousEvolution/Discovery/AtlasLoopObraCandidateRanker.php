@@ -23,7 +23,39 @@ use Throwable;
  */
 final class AtlasLoopObraCandidateRanker
 {
-    public function __construct(private readonly ?AtlasLoopHeavyWorkSelector $selector = null) {}
+    public function __construct(
+        private readonly ?AtlasLoopHeavyWorkSelector $selector = null,
+        // L3 — the capability signal source. null => derive from AtlasLoopCapabilityTrendService.trend(). A
+        // deterministic test injects a fake (the trend service reads the DB; this keeps the seam provable).
+        private readonly ?\Closure $capabilityResolver = null,
+    ) {}
+
+    /**
+     * L3 — the capability_factor [0,1] fed into the selector's ambition (the rung grows with PROVEN
+     * capability). null when the flag is OFF => no capability_factor key => the selector keeps its §3 default
+     * => byte-identical. ON: a proven UPWARD capability bend (CapabilityTrendService.trend slope, bending)
+     * maps into [0,1]; not-rising => 0 (start/stay at the baseline rung).
+     */
+    private function capabilityFactorForContext(): ?float
+    {
+        if (! (bool) config('atlas.loop.capability_ambition_enabled', false)) {
+            return null;
+        }
+        $resolver = $this->capabilityResolver ?? static function (): float {
+            try {
+                $trend = (new \App\Services\Ai\AutonomousEvolution\AtlasLoopCapabilityTrendService)->trend();
+            } catch (Throwable) {
+                return 0.0;
+            }
+            if (($trend['enabled'] ?? false) !== true || ($trend['bending'] ?? false) !== true) {
+                return 0.0;
+            }
+
+            return min(1.0, max(0.0, (float) ($trend['slope'] ?? 0.0)) / max(1e-9, (float) config('atlas.loop.capability_slope_full', 1.0)));
+        };
+
+        return max(0.0, min(1.0, (float) $resolver()));
+    }
 
     /**
      * Rank loop-detected obra candidate payloads (each a {@see AtlasLoopObraClusterCandidate::toBacklogProposalPayload}).
@@ -46,7 +78,12 @@ final class AtlasLoopObraCandidateRanker
 
         try {
             $selector = $this->selector ?? new AtlasLoopHeavyWorkSelector;
-            $result = $selector->select($candidates, ['class_stats' => $this->classStats()]);
+            $context = ['class_stats' => $this->classStats()];
+            $capability = $this->capabilityFactorForContext();
+            if ($capability !== null) {
+                $context['capability_factor'] = $capability; // L3 — the rung grows with proven capability
+            }
+            $result = $selector->select($candidates, $context);
         } catch (Throwable) {
             return ['pick' => null, 'ranked' => []];
         }

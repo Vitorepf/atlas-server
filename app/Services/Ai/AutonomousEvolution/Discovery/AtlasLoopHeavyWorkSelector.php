@@ -76,6 +76,11 @@ final class AtlasLoopHeavyWorkSelector
         // Absent => the §3 default risk-seeking (0.35) stands, so the producer's flag-OFF is byte-identical.
         $rt = isset($context['risk_tolerance']) ? (float) $context['risk_tolerance'] : null;
         if (array_key_exists('capability_factor', $context)) {
+            // L3 FIBONACCI LADDER: at cap=0 the loop starts at the EV-OPTIMAL (smallest-safe) rung — rt=1 is
+            // risk-neutral EV (magnitude·P(land)), which prefers the high-P(land) small leap; each PROVEN
+            // delivery lifts capability => rt falls toward pure-magnitude (rt=0) => the loop DARES the bigger,
+            // lower-P(land) leap. The operator's "start small, compound to bigger". Flag-OFF (no
+            // capability_factor) => the §3 default risk-seeking (0.35) stands => byte-identical.
             $cap = max(0.0, min(1.0, (float) $context['capability_factor']));
             $rt = max(0.0, 1.0 - $cap);
         }
