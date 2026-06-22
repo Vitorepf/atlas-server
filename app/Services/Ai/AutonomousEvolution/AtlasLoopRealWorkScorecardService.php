@@ -261,6 +261,24 @@ final class AtlasLoopRealWorkScorecardService
         if ($featureKind && $concreteAcceptance) {
             return $this->bucket(self::BUCKET_REAL, self::REAL_KIND_FEATURE, ['feature+concrete_acceptance:'.$kind]);
         }
+
+        // ── REFACTOR KINDS ARE DECIDED HERE, before the generic red/revert shortcuts below ──────────────
+        // A behaviour-preserving refactor (refactor_reduce_complexity, refactor_extract_class, …) is REAL
+        // only when it clears the governed self-improvement bar (self-marked + complexity proof + quality
+        // bar). A `revert_recheck` / `complexity_proof` / `quality_bar_gate` signal ALONE proves only that
+        // the refactor is non-trivial and test-covered — NOT that it is material. Without this guard a
+        // cyclomatic-reduction refactor (revert_recheck=true, is_self_improvement unset) was laundered into
+        // a `bug_fix` by the revert_recheck shortcut below — exactly the Goodhart hole this scorecard exists
+        // to close (the loop must never bank cyclomatic faxina as "real work"). A refactor that also carries
+        // a genuine bug/feature signal is excluded here and handled by the real branches that follow.
+        if (str_starts_with($kind, 'refactor') && ! $failureOrBugSignal && ! $featureKind) {
+            if ($this->isGovernedSelfImprovement($payload, $kind, $concreteAcceptance)) {
+                return $this->bucket(self::BUCKET_REAL, self::REAL_KIND_SELF_IMPROVEMENT, ['self_improvement+complexity_proof+quality_bar']);
+            }
+
+            return $this->bucket(self::BUCKET_PROXY, null, ['refactor_behavior_preserving:'.$kind]);
+        }
+
         if ($kind === 'bug_fix') {
             return $this->bucket(self::BUCKET_REAL, self::REAL_KIND_BUG_FIX, ['objective_kind=bug_fix']);
         }
