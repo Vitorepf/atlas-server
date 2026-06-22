@@ -12,6 +12,7 @@ use App\Http\Controllers\AiQualityActionController;
 use App\Http\Controllers\AiTelemetryController;
 use App\Http\Controllers\AiTelemetryMetricsController;
 use App\Http\Controllers\AiThreadController;
+use App\Http\Controllers\AtlasAgentGovernanceController;
 use App\Http\Controllers\AtlasAiAgentBehaviorReportController;
 use App\Http\Controllers\AtlasAiArchitectureOperationsController;
 use App\Http\Controllers\AtlasAiArchitectureValidateController;
@@ -250,6 +251,15 @@ Route::prefix('v1/mobile')->group(function () use ($registerAtlasVoiceRoutes): v
 
 Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRoutes): void {
     Route::apiResource('domains', AtlasDomainController::class)->only(['index', 'store', 'update', 'destroy']);
+
+    // AGENT GOVERNANCE — the fleet visibility + DESLIGAR surface the mobile/desktop apps poll. Read endpoints
+    // (active/status/history) never start/stop anything; the only writes turn agents OFF (per-agent or the
+    // off-all panic) — there is deliberately no turn-ON endpoint, so a tapped app can only reduce spend.
+    Route::get('/agents/active', [AtlasAgentGovernanceController::class, 'active']);
+    Route::get('/agents/status', [AtlasAgentGovernanceController::class, 'status']);
+    Route::get('/agents/history', [AtlasAgentGovernanceController::class, 'history']);
+    Route::post('/agents/off-all', [AtlasAgentGovernanceController::class, 'offAll']);
+    Route::post('/agents/{key}/off', [AtlasAgentGovernanceController::class, 'off']);
     Route::get('/inbox', [InboxController::class, 'index']);
     Route::get('/inbox/health', [InboxController::class, 'health']);
     Route::post('/inbox/bulk', [InboxController::class, 'bulk']);
