@@ -50,8 +50,23 @@ final class AtlasLoopOriginationPipeline
             return $this->refuse((string) ($verdict['reason'] ?? 'design_not_converged'));
         }
 
+        // §5 ABSTAIN-AND-ASK — the frontier cerca. A free cross-model origination is grounded + designed, but
+        // it is a NOVEL decision (the model proposed it freely). The honest move is to PARK + ASK the operator
+        // unless the target already has real consumers (a modification WITH precedent, not greenfield). The
+        // loop never fabricates a confident "proceed" on a greenfield origination.
+        $hasPrecedent = count((array) ($verdict['consumer_contracts'] ?? [])) > 0;
+        $frontier = (new AtlasLoopAbstainAndAsk)->evaluate([
+            'grounded' => true,             // it cleared the inventory grounding-veto
+            'confidence' => 1.0,            // the deterministic gates (grounding + design) are satisfied
+            'novel' => true,               // a free origination has no supply-lane precedent of its own
+            'has_precedent' => $hasPrecedent,
+            'summary' => (string) ($origination['objective'] ?? ''),
+        ]);
+
         return [
             'produced' => true,
+            'action' => $frontier['action'],                       // proceed | abstain (park + ask the operator)
+            'operator_question' => $frontier['operator_question'], // non-null ⇒ the loop is asking, not guessing
             'objective' => (string) ($origination['objective'] ?? ''),
             'target_path' => $target,
             'obligations' => array_values((array) ($verdict['obligations'] ?? [])),

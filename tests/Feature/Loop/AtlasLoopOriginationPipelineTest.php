@@ -49,6 +49,19 @@ final class AtlasLoopOriginationPipelineTest extends TestCase
         $this->assertContains('red_to_green', array_column($res['obligations'], 'kind'), 'a feature origination carries its mandatory red→green proof');
     }
 
+    public function test_greenfield_origination_abstains_and_asks_the_operator(): void
+    {
+        // §5 ABSTAIN-AND-ASK wired live: the cited target is an ORPHAN (no consumers ⇒ no precedent), so this
+        // free origination is a greenfield frontier decision — the pipeline PARKS + ASKS, never auto-proceeds.
+        $writer = fn (string $p): array => ['objective' => 'Wire AtlasLoopResearchOriginator into the discovery feed.', 'cited_symbols' => ['AtlasLoopResearchOriginator']];
+        $res = $this->pipeline($writer)->produce($this->model(), sys_get_temp_dir());
+
+        $this->assertTrue($res['produced']);
+        $this->assertSame('abstain', $res['action'], 'a greenfield origination asks the operator, never guesses');
+        $this->assertNotNull($res['operator_question']);
+        $this->assertStringContainsString('ABSTAINED', (string) $res['operator_question']);
+    }
+
     public function test_a_hallucinated_origination_never_produces_work(): void
     {
         $writer = fn (string $p): array => ['objective' => 'Wire AtlasLoopGhost.', 'cited_symbols' => ['AtlasLoopGhost']];

@@ -37,6 +37,10 @@ final class AtlasLoopHarnessGuard
         'app/Services/Ai/AutonomousEvolution/AtlasLoopProposalMaterializer.php',
         'app/Services/Ai/AutonomousEvolution/AtlasLoopNetDirectionGuard.php',
         'app/Services/Ai/AutonomousEvolution/AtlasLoopHarnessGuard.php',
+        // §5 ABSTAIN-AND-ASK — the frontier honesty cerca. The loop can NEVER edit its own abstain gate (it
+        // could lower the confidence floor / drop the novelty trigger to fake-proceed on a greenfield decision
+        // it should have asked about). Same principle as the grounding-veto and the priorizadores. Só-adiciona.
+        'app/Services/Ai/AutonomousEvolution/AtlasLoopAbstainAndAsk.php',
         // §0 MASTER ON/OFF SWITCH — the loop can NEVER edit its own master switch (it could never turn itself
         // back on, nor weaken the fail-closed gate). The flag is operator-only. Same principle as the judge:
         // the réu never edits the gate that decides whether it is allowed to run at all. Aperto só-adiciona.
