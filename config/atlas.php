@@ -2210,6 +2210,10 @@ return [
         // consumer_intact obligation for every REAL caller of the target (from the comprehension model's
         // who-calls-who edges), so the projected contract provably protects every real caller and a
         // high-fan-out target PARKS. Default-OFF ⇒ the worker is byte-identical to the scripted roles.
+        // §3 ANTI-FARM FLOOR — when ON, a certified proposal must be LOAD-BEARING (revert→red bite-proof) to
+        // auto-merge; a cosmetic flip that bites nothing is blocked at the merge boundary. Default-OFF =
+        // byte-identical (the 18 auto-merge tests stay green). AtlasLoopAntiFarmFloor, wired in valueGateVerdict.
+        'anti_farm_floor_enabled' => (bool) env('ATLAS_LOOP_ANTI_FARM_FLOOR_ENABLED', false),
         'grounded_projection_enabled' => (bool) env('ATLAS_LOOP_GROUNDED_PROJECTION_ENABLED', false),
         // §3 CROSS-MODEL CRITIQUE — when ON (and grounded_projection_enabled), a frontier model proposes
         // ADDITIONAL grounded obligations on top of the deterministic floor (AtlasLoopModelProjectionCritic).

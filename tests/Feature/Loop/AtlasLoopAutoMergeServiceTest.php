@@ -136,6 +136,52 @@ final class AtlasLoopAutoMergeServiceTest extends TestCase
         $this->assertStringNotContainsString('substance_floor', $off['reason']);
     }
 
+    public function test_anti_farm_floor_blocks_cosmetic_but_clears_load_bearing(): void
+    {
+        // §3 ANTI-FARM FLOOR: a certified diff must BITE (revert→red) to auto-merge. A cosmetic flip (no
+        // bite-proof in the frozen contract) is blocked at the merge boundary; a load-bearing one (diff_earned
+        // =true, the certifier's universal bite-proof) clears it. Default-OFF ⇒ the floor never runs.
+        $original = "<?php\nfunction val(){ return 1; }\n";
+        $body = implode("\n", array_map(static fn (int $i): string => '    $x'.$i.' = '.$i.';', range(1, 15)));
+        $modified = "<?php\nfunction val(){\n".$body."\n    return 2;\n}\n";
+        $diff = $this->makeDiff($original, $modified);
+
+        $svc = app(AtlasLoopAutoMergeService::class);
+        $m = new \ReflectionMethod($svc, 'valueGateVerdict');
+        $m->setAccessible(true);
+
+        // COSMETIC (no bite-proof stamped) + flag ON ⇒ blocked by the anti-farm floor.
+        config(['atlas.loop.anti_farm_floor_enabled' => true]);
+        $cosmetic = $this->certifiedProposal($diff, 'af-cosmetic-1');
+        $cVerdict = $m->invoke($svc, $cosmetic, ['snippet.php'], 5);
+        $this->assertFalse($cVerdict['passed'], json_encode($cVerdict));
+        $this->assertStringContainsString('anti_farm_floor', $cVerdict['reason']);
+        $this->assertFalse((bool) ($cVerdict['anti_farm_floor']['bites'] ?? true), 'a cosmetic flip bites nothing');
+
+        // LOAD-BEARING (diff_earned=true: revert→red) ⇒ the floor clears it.
+        $earned = $this->earnedProposal($diff, 'af-earned-1');
+        $eVerdict = $m->invoke($svc, $earned, ['snippet.php'], 5);
+        $this->assertTrue((bool) ($eVerdict['anti_farm_floor']['bites'] ?? false), 'a real fix bites');
+        $this->assertStringNotContainsString('anti_farm_floor', $eVerdict['reason']);
+
+        // FLAG OFF (default) ⇒ the floor never runs (byte-identical to legacy).
+        config(['atlas.loop.anti_farm_floor_enabled' => false]);
+        $off = $m->invoke($svc, $this->certifiedProposal($diff, 'af-off-1'), ['snippet.php'], 5);
+        $this->assertFalse((bool) ($off['anti_farm_floor']['enabled'] ?? false));
+        $this->assertStringNotContainsString('anti_farm_floor', $off['reason']);
+    }
+
+    private function earnedProposal(string $diff, string $hash): AtlasLoopProposal
+    {
+        $proposal = $this->certifiedProposal($diff, $hash);
+        $quality = $proposal->quality;
+        $quality['_acceptance_contract']['diff_earned'] = true; // the certifier's universal bite-proof (revert→red)
+        $proposal->quality = $quality;
+        $proposal->save();
+
+        return $proposal->fresh();
+    }
+
     private function refactorContractProposal(string $diff, string $hash): AtlasLoopProposal
     {
         $proposal = $this->certifiedProposal($diff, $hash);

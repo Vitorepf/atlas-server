@@ -1155,6 +1155,27 @@ final class AtlasLoopAutoMergeService
             $substanceFloor = ['enabled' => true, 'touched_lines' => $touched, 'is_refactor' => $isRefactor];
         }
 
+        // §3 ANTI-FARM FLOOR (flag-OFF default → byte-identical). After value+substance, require the merge to
+        // be LOAD-BEARING: a certified diff that BITES NOTHING (revert→still-green = cosmetic) must never reach
+        // main. Reads ONLY the frozen acceptance evidence the certifier already stamped (diff_earned / method_
+        // kills / count_drop / wired_proof+production_caller) — no provider, deterministic. The certifier stamps
+        // diff_earned for every real fix (revert→red), so legitimate work clears it; a cosmetic flip does not.
+        // STRENGTHENS the gate (only-adds, never loosens); fail-CLOSED at the merge boundary (blocked =
+        // re-discoverable, no loss). {@see AtlasLoopAntiFarmFloor}.
+        $antiFarm = ['enabled' => false];
+        if ($passed && (bool) config('atlas.loop.anti_farm_floor_enabled', false)) {
+            $quality = is_array($proposal->quality ?? null)
+                ? $proposal->quality
+                : (array) json_decode((string) ($proposal->quality ?? '{}'), true);
+            $contract = is_array($quality['_acceptance_contract'] ?? null) ? $quality['_acceptance_contract'] : [];
+            $floor = (new AtlasLoopAntiFarmFloor)->eligibleToMerge($contract);
+            $antiFarm = ['enabled' => true, 'bites' => $floor['bites'], 'production_path_proven' => $floor['production_path_proven']];
+            if (! $floor['eligible']) {
+                $passed = false;
+                $reason = 'anti_farm_floor:'.implode(',', $floor['reasons']);
+            }
+        }
+
         return [
             'passed' => $passed,
             'impact_score' => $impactScore,
@@ -1163,6 +1184,7 @@ final class AtlasLoopAutoMergeService
             'min_impact_score' => $minScore,
             'min_callers' => $minCallers,
             'substance_floor' => $substanceFloor,
+            'anti_farm_floor' => $antiFarm,
             'reason' => $reason,
         ];
     }
