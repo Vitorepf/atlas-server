@@ -2214,6 +2214,11 @@ return [
         // auto-merge; a cosmetic flip that bites nothing is blocked at the merge boundary. Default-OFF =
         // byte-identical (the 18 auto-merge tests stay green). AtlasLoopAntiFarmFloor, wired in valueGateVerdict.
         'anti_farm_floor_enabled' => (bool) env('ATLAS_LOOP_ANTI_FARM_FLOOR_ENABLED', false),
+        // §4 PROVIDER CIRCUIT-BREAKER — when ON, after N consecutive provider-down grinds (no winner, 0
+        // scenarios explored) the supervisor pauses the campaign + alerts instead of burning CPU for hours on a
+        // dead provider. Default-OFF ⇒ record-only, never pauses (byte-identical). A soak-safety guard.
+        'provider_circuit_breaker_enabled' => (bool) env('ATLAS_LOOP_PROVIDER_CIRCUIT_BREAKER_ENABLED', false),
+        'provider_circuit_breaker_threshold' => (int) env('ATLAS_LOOP_PROVIDER_CIRCUIT_BREAKER_THRESHOLD', 5),
         'grounded_projection_enabled' => (bool) env('ATLAS_LOOP_GROUNDED_PROJECTION_ENABLED', false),
         // §3 CROSS-MODEL CRITIQUE — when ON (and grounded_projection_enabled), a frontier model proposes
         // ADDITIONAL grounded obligations on top of the deterministic floor (AtlasLoopModelProjectionCritic).

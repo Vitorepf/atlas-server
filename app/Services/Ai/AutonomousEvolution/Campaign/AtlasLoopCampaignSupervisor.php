@@ -9,6 +9,7 @@ use App\Models\AtlasLoopTarget;
 use App\Models\AtlasLoopTask;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopDbResilience;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopObraBridgeService;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderCircuitBreaker;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopResourceGate;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopTaxa2DialOverlayService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
@@ -258,6 +259,21 @@ final class AtlasLoopCampaignSupervisor
 
                     if ($this->stopRequested($campaign)) {
                         $stop = 'kill_switch';
+                        break;
+                    }
+
+                    // §4 PROVIDER CIRCUIT-BREAKER (flag-OFF default ⇒ never trips). The authoring provider has
+                    // been DOWN for N consecutive grinds (no winner, 0 scenarios explored) — stop grinding into
+                    // a void: alert + pause + clean-stop, so an unattended soak never burns CPU for hours on a
+                    // dead provider. A paused campaign is NOT keepalive-respawned (keepalive only revives running).
+                    if ($this->breakerWantsPause($campaign)) {
+                        $this->appendLedger($campaign->id, [
+                            'event' => 'provider_circuit_open',
+                            'consecutive_provider_failures' => (new AtlasLoopProviderCircuitBreaker)->streak((string) $campaign->id),
+                            'action' => 'pause_and_alert',
+                        ]);
+                        $this->guard(fn () => $campaign->forceFill(['status' => AtlasLoopCampaign::STATUS_PAUSED, 'paused_at' => now()])->save(), 'campaign_circuit_pause');
+                        $stop = 'provider_circuit_open';
                         break;
                     }
 
@@ -531,6 +547,7 @@ final class AtlasLoopCampaignSupervisor
                     $result = $this->grinder->grind($task, $workerId, $effectiveScenarios, '', $remaining, $progress);
                     $spendCents = $this->spendCentsFromResult($result);
                     $this->beat($campaign, $this->now() - $grindStart, $spendCents);
+                    $this->recordBreaker((string) $campaign->id, is_array($result) ? $result : []); // §4 provider health tick
 
                     // Results -> Sources, so the queue self-sustains.
                     $targetId = (string) (is_array($task->payload) ? ($task->payload['_target_id'] ?? '') : '');
@@ -1011,6 +1028,32 @@ final class AtlasLoopCampaignSupervisor
     /**
      * @param  list<array<string,mixed>>  $settled
      */
+    /**
+     * §4 Record one grind outcome's provider-health into the circuit-breaker. Flag-OFF ⇒ no-op (the breaker is
+     * never written, so it can never open ⇒ byte-identical). A provider-down grind (no winner, 0 scenarios)
+     * increments the streak; a healthy grind resets it.
+     *
+     * @param  array<string,mixed>  $outcome
+     */
+    private function recordBreaker(string $campaignId, array $outcome): void
+    {
+        if (! (bool) config('atlas.loop.provider_circuit_breaker_enabled', false)) {
+            return;
+        }
+        (new AtlasLoopProviderCircuitBreaker)->record($campaignId, $outcome);
+    }
+
+    /** §4 Should the loop pause NOW because the provider has been down for >= threshold consecutive grinds? */
+    private function breakerWantsPause(AtlasLoopCampaign $campaign): bool
+    {
+        if (! (bool) config('atlas.loop.provider_circuit_breaker_enabled', false)) {
+            return false;
+        }
+        $threshold = max(1, (int) config('atlas.loop.provider_circuit_breaker_threshold', 5));
+
+        return (new AtlasLoopProviderCircuitBreaker)->isOpen((string) $campaign->id, $threshold);
+    }
+
     private function reflectParallelSettledTargets(AtlasLoopCampaign $campaign, array $settled): void
     {
         foreach ($settled as $summary) {
@@ -1038,6 +1081,8 @@ final class AtlasLoopCampaignSupervisor
             if ($status === '') {
                 continue;
             }
+
+            $this->recordBreaker((string) $campaign->id, $result + ['status' => $status]); // §4 provider health tick
 
             $this->guard(fn () => $this->loopBack->reflect($campaign->id, [
                 'target_id' => $targetId,
