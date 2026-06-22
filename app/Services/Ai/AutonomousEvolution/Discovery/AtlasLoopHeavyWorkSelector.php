@@ -68,7 +68,18 @@ final class AtlasLoopHeavyWorkSelector
             $meta[$id] = ['class' => $class, 'node_count' => $nodes, 'panel_value' => $valueById[$id]];
         }
 
-        $ranked = $ambition->rank($ambitionInputs, isset($context['risk_tolerance']) ? (float) $context['risk_tolerance'] : null)['ranked'] ?? [];
+        // L3 — THE FIBONACCI WIRE: the rung grows with PROVEN capability. A rising capability_factor (fed by
+        // CapabilityTrendService.trend() + per-class clean-streak) lowers the risk-tolerance dial toward
+        // pure-magnitude (rt→0), so the loop DARES a bigger, lower-P(land) leap — the SELECTED pick's scope
+        // climbs as capability is proven. This is REAL compounding (the SELECTION shifts to bigger work),
+        // never a number bump (a uniform magnitude scale would not change the pick = the forbidden proxy).
+        // Absent => the §3 default risk-seeking (0.35) stands, so the producer's flag-OFF is byte-identical.
+        $rt = isset($context['risk_tolerance']) ? (float) $context['risk_tolerance'] : null;
+        if (array_key_exists('capability_factor', $context)) {
+            $cap = max(0.0, min(1.0, (float) $context['capability_factor']));
+            $rt = max(0.0, 1.0 - $cap);
+        }
+        $ranked = $ambition->rank($ambitionInputs, $rt)['ranked'] ?? [];
 
         // 3 + 4. Stamp each ranked candidate with its trust verdict (gate) and required verification.
         foreach ($ranked as &$row) {
@@ -77,6 +88,7 @@ final class AtlasLoopHeavyWorkSelector
             $t = $trust->assess($classStats[$class] ?? []);
             $row['class'] = $class;
             $row['panel_value'] = $meta[$id]['panel_value'] ?? null;
+            $row['node_count'] = $meta[$id]['node_count'] ?? null; // the leap's scope (the rung size)
             $row['trust'] = $t;
             $row['gate'] = $this->resolveGate($row, $t);
         }
