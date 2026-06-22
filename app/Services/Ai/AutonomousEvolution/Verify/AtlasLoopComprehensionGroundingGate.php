@@ -154,6 +154,87 @@ final class AtlasLoopComprehensionGroundingGate
     }
 
     /**
+     * §2 GROUNDING VETO — the STRICT, fail-CLOSED grounding for comprehension-originated work. Unlike
+     * {@see ground} (fail-open + a repo-wide basename scan that false-positives on the 56 *Builder.php), this
+     * resolves every citation against MEMBERSHIP in the brain's own inventory: an exact FQCN or rel-path, or
+     * the class-name of an inventory member — NEVER a blind repo scan. A citation that matches NO inventory
+     * member is REFUTED, and grounded=false is a HARD VETO (the objective rests on a symbol the brain's map
+     * does not contain ⇒ likely hallucinated). Empty citations ⇒ refuted (a comprehension objective with no
+     * grounded citation is not grounded). This is the anti-hallucination floor the fail-open gate cannot give.
+     *
+     * @param  array<int|string,mixed>  $citedSymbols
+     * @param  list<array{rel_path?:string, fqcn?:string}>  $inventory  the comprehension model's inventory
+     * @return array{schema:string, grounded:bool, resolved:list<string>, refuted:list<string>, citation_count:int, note:string}
+     */
+    public function groundAgainstInventory(string $statedObjective, array $citedSymbols, array $inventory): array
+    {
+        $symbols = $this->normalizeCitations($citedSymbols);
+        $citationCount = count($symbols);
+
+        $fqcnSet = [];
+        $pathSet = [];
+        $classSet = []; // class-name (last segment) of every inventory member — scoped, NOT a repo-wide scan
+        foreach ($inventory as $item) {
+            $fq = strtolower(ltrim((string) ($item['fqcn'] ?? ''), '\\'));
+            $rp = strtolower(ltrim((string) ($item['rel_path'] ?? ''), '/'));
+            if ($fq !== '') {
+                $fqcnSet[$fq] = true;
+                $classSet[$this->citationSegment($fq)] = true;
+            }
+            if ($rp !== '') {
+                $pathSet[$rp] = true;
+                $classSet[$this->citationSegment($rp)] = true;
+            }
+        }
+
+        $resolved = [];
+        $refuted = [];
+        foreach ($symbols as $symbol) {
+            $n = strtolower(ltrim(trim($symbol), '\\/'));
+            $last = $this->citationSegment($n);
+            if (isset($fqcnSet[$n]) || isset($pathSet[$n]) || isset($fqcnSet[$last]) || isset($classSet[$last])) {
+                $resolved[] = $symbol;
+            } else {
+                $refuted[] = $symbol; // resolves to NO inventory member ⇒ refuted (vetoed)
+            }
+        }
+
+        // FAIL-CLOSED: grounded ONLY when there is ≥1 citation and NONE is refuted.
+        $grounded = $citationCount > 0 && $refuted === [];
+        $note = $grounded
+            ? sprintf('grounded(inventory): all %d cited symbol(s) are inventory members. %s', $citationCount, $this->objectiveTag($statedObjective))
+            : ($citationCount === 0
+                ? 'REFUTED(inventory): no symbols cited — a comprehension objective must cite a real inventory member. '.$this->objectiveTag($statedObjective)
+                : sprintf('REFUTED(inventory): %d of %d cited symbol(s) are NOT inventory members [%s] — VETOED as likely hallucinated. %s', count($refuted), $citationCount, implode(', ', $refuted), $this->objectiveTag($statedObjective)));
+        if (! $grounded) {
+            $this->logUngrounded($note);
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'grounded' => $grounded,
+            'resolved' => $resolved,
+            'refuted' => $refuted,
+            'citation_count' => $citationCount,
+            'note' => $note,
+        ];
+    }
+
+    /** The last `\`- or `/`-delimited segment of a citation, lowercased, sans a trailing `.php`. */
+    private function citationSegment(string $value): string
+    {
+        $value = strtolower(trim($value));
+        foreach (['\\', '/'] as $sep) {
+            $pos = strrpos($value, $sep);
+            if ($pos !== false) {
+                $value = substr($value, $pos + 1);
+            }
+        }
+
+        return str_ends_with($value, '.php') ? substr($value, 0, -4) : $value;
+    }
+
+    /**
      * @param list<string> $symbols
      *
      * @return array{0:list<string>,1:list<string>}
