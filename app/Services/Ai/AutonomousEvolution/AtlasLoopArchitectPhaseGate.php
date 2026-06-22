@@ -6,6 +6,7 @@ namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSiblingTestResolver;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWiredCallerService;
 
 /**
  * §1/§3 · ARCHITECT PHASE as a REUSABLE GATE — "projetar cada evolução como principal engineer ANTES de
@@ -76,6 +77,45 @@ final class AtlasLoopArchitectPhaseGate
         $consumerContracts = $this->consumerContracts($obligations, (array) ($roles['consumers'] ?? []), $relTarget, $repoRoot);
 
         return ['admitted' => true, 'reason' => null, 'obligations' => $obligations, 'consumer_contracts' => $consumerContracts];
+    }
+
+    /**
+     * Design a single FILE target through the architect phase WITHOUT a pre-built scope model — for callers
+     * (the per-target refiller lanes) that have a target path but not the ~8s full comprehension model. It
+     * builds a MINIMAL model (the target + its REAL production callers via the non-gameable caller oracle +
+     * the pétreo set), which is all the grounded roles need to protect callers + guard pétreo/anchor. Cheap:
+     * one caller grep, not a full-scope build. Same ADMIT/SUPPRESS contract as {@see admit}.
+     *
+     * @return array{admitted:bool, reason:?string, obligations:list<array<string,mixed>>, consumer_contracts:list<array<string,mixed>>}
+     */
+    public function admitForFile(string $repoRoot, string $relTarget, string $objectiveKind, int $maxRounds = 8): array
+    {
+        $relTarget = ltrim(trim($relTarget), '/');
+        if ($relTarget === '') {
+            return $this->suppress('no_target');
+        }
+        // PÉTREO — the HarnessGuard substring authority (the minimal model's exact-match forbidden cannot
+        // see substring organs), so check it directly here before designing.
+        if ((new AtlasLoopHarnessGuard)->isForbiddenSelfTarget($relTarget)) {
+            return $this->suppress('forbidden_target_petreo');
+        }
+
+        $root = rtrim($repoRoot, '/');
+        $callers = [];
+        try {
+            $callers = array_values((array) ((new AtlasLoopWiredCallerService($root ?: null))->callerPaths([$relTarget])[$relTarget] ?? []));
+        } catch (\Throwable) {
+            $callers = []; // unmeasured callers ⇒ the grounded critic falls to the mutation floor (fail-open)
+        }
+
+        $fqcn = 'App\\'.str_replace('/', '\\', (string) preg_replace('/\.php$/', '', $relTarget));
+        $model = new AtlasLoopScopeComprehensionModel(
+            inventory: [['rel_path' => $relTarget, 'fqcn' => $fqcn, 'public_methods' => [], 'is_orphan' => false, 'is_forbidden' => false, 'clone_cluster_id' => null]],
+            edges: [$relTarget => $callers],
+            orphans: [], cloneClusters: [], forbidden: [], docPurposes: [], docStatedGaps: [], snapshotId: 'minimal:'.$relTarget,
+        );
+
+        return $this->admit($model, $relTarget, $objectiveKind, $repoRoot, $maxRounds);
     }
 
     /**

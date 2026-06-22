@@ -76,6 +76,31 @@ final class AtlasLoopArchitectPhaseGateTest extends TestCase
         }
     }
 
+    public function test_admit_for_file_builds_a_minimal_model_and_protects_real_callers(): void
+    {
+        // The per-target lanes have a file path but not the ~8s full model. admitForFile builds a MINIMAL
+        // model (target + its real callers via the oracle) so the refactor is still designed: caller protected.
+        $ws = sys_get_temp_dir().'/atlas-aff-'.bin2hex(random_bytes(5));
+        @mkdir($ws.'/app/Services/Ai/AutonomousEvolution', 0o755, true);
+        @mkdir($ws.'/tests/Unit', 0o755, true);
+        $rel = 'app/Services/Ai/AutonomousEvolution/Hubbed.php';
+        file_put_contents($ws.'/'.$rel, "<?php\nnamespace App\\Services\\Ai\\AutonomousEvolution;\nclass Hubbed { public function v(): int { return 7; } }\n");
+        file_put_contents($ws.'/tests/Unit/HubbedTest.php', "<?php\nclass HubbedTest extends \\PHPUnit\\Framework\\TestCase { public function test_v(): void { \$this->assertSame(7, (new \\App\\Services\\Ai\\AutonomousEvolution\\Hubbed)->v()); } }\n");
+        file_put_contents($ws.'/app/Services/Ai/AutonomousEvolution/HubCaller.php', "<?php\nnamespace App\\Services\\Ai\\AutonomousEvolution;\nclass HubCaller { public function go(): int { return (new Hubbed)->v(); } }\n");
+
+        $v = (new AtlasLoopArchitectPhaseGate)->admitForFile($ws, $rel, 'refactor_reduce_complexity');
+        $this->assertTrue($v['admitted'], (string) ($v['reason'] ?? ''));
+        $consumerTargets = array_column($v['consumer_contracts'], 'consumer_file');
+        $this->assertContains('app/Services/Ai/AutonomousEvolution/HubCaller.php', $consumerTargets, 'the minimal-model gate protects the real caller');
+
+        // a pétreo cert-organ file is suppressed even via the minimal path.
+        $petreo = (new AtlasLoopArchitectPhaseGate)->admitForFile($ws, 'app/Services/Ai/AutonomousEvolution/AtlasEvolutionFrozenJudge.php', 'refactor_reduce_complexity');
+        $this->assertFalse($petreo['admitted']);
+        $this->assertSame('forbidden_target_petreo', $petreo['reason']);
+
+        (new \Symfony\Component\Process\Process(['rm', '-rf', $ws]))->run();
+    }
+
     private function workspace(string $target, bool $withSibling): string
     {
         $ws = sys_get_temp_dir().'/atlas-anchor-'.bin2hex(random_bytes(5));
