@@ -94,12 +94,17 @@ campaign's `elapsed` clock and it never hits its `--max-seconds` budget. **Prove
 on a `hermes chat --quiet` call for 15+ min, supervisor blocked, 0 progress** (the same live-hermes hang the
 materializer-sandbox investigation found).
 
-So launch the soak WITH the watchdog, which kills any grind older than a wall-clock ceiling:
+So launch the soak WITH the watchdog, which kills any grind older than a wall-clock ceiling. **Prefer the
+SUPERVISOR wrapper** — it respawns the watchdog if the watchdog process itself is OOM-killed or crashes
+mid-soak (otherwise hung grinds would never be reaped again and the machine thrashes silently):
 ```
-nohup bin/atlas-loop-watchdog.sh <campaign-id> > /tmp/loop-watchdog.log 2>&1 &   # honors the master switch
+nohup bin/atlas-loop-watchdog-supervised.sh <campaign-id> > /tmp/loop-watchdog-sup.log 2>&1 &   # master-gated
 ```
-It runs `ATLAS_LOOP_GRIND_MAX_SECONDS` (default 1800) and SIGKILLs an over-budget grind + its hermes call, so
-the supervisor records the attempt failed and moves on. Without it, a single hung hermes call stalls the soak.
+(The bare `bin/atlas-loop-watchdog.sh <campaign-id>` is the un-supervised form — fine for a quick check, but a
+multi-hour soak should use the supervised wrapper.) Either runs `ATLAS_LOOP_GRIND_MAX_SECONDS` (default 1800)
+and SIGKILLs an over-budget grind + its hermes call, so the supervisor records the attempt failed and moves on.
+Without the watchdog, a single hung hermes call stalls the soak. **To stop a supervised run:** `atlas:loop:off`
+(the canonical kill — the supervisor exits, respawns nothing) or `touch storage/atlas-loop/WATCHDOG_SUPERVISOR_STOP`.
 
 ## 6. Caveats (honest)
 
