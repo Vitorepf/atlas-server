@@ -2889,6 +2889,18 @@ return [
         // L6 — ANTI-REGRESSION NET: a post-merge regression is triaged to the loop's own merge and re-attempted
         // as a fix-forward repair, so a long run never silently knocks down a lower rung. Cert-moat untouched.
         'regression_sentinel_enabled' => (bool) env('ATLAS_LOOP_REGRESSION_SENTINEL_ENABLED', false),
+        // L3 (SUPPLY half) — TERRITORY LADDER: the autonomous scope-widener. `territory_ladder_rungs` are the
+        // operator-released roots the loop may climb INTO once capability is proven (canPromote: >=3 certified
+        // leaps + compounding trend + a frozen judge under EVERY widened root — the no-blinder invariant).
+        // Default [] => the ladder is a logged no-op (gradual scope-release; the operator defines rungs). And
+        // `territory_widened_roots_drive_refill` makes the persisted widening actually DRIVE the next refill
+        // (the QueueRefiller scans the widened roots) — default OFF => the refiller sources the global roots
+        // exactly as before => byte-identical. Arming BOTH is what lets a proven leap grow the SUPPLY frontier.
+        'territory_ladder_rungs' => array_values(array_filter(array_map(
+            static fn ($r): string => trim((string) $r),
+            explode(',', (string) env('ATLAS_LOOP_TERRITORY_LADDER_RUNGS', '')),
+        ), static fn (string $r): bool => $r !== '')),
+        'territory_widened_roots_drive_refill' => (bool) env('ATLAS_LOOP_TERRITORY_WIDENED_ROOTS_DRIVE_REFILL', false),
         // ACDE M4 — telemetry window (hours) the obra cost estimator averages real per-provider spend over to
         // de-orphan the budget scheduler's cost input. Read-only; an absent ledger yields an empty cost map
         // (the obra stays honestly deferred). The scheduler itself has no live dispatch caller yet.
