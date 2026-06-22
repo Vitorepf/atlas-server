@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
+use App\Services\Ai\AgentGovernance\FleetDriver;
+use App\Services\Ai\AgentGovernance\SystemFleetDriver;
 use App\Services\Ai\AiContextPackBuilder;
 use App\Services\Ai\AiGatewayService;
 use App\Services\Ai\AiProviderManager;
@@ -206,6 +208,10 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(SkillBundleStore::class);
         $this->app->bind(LoopWorkerSpawnerContract::class, LoopWorkerSpawner::class);
+
+        // Agent-governance control plane: the fleet-driver seam → the real pgrep/launchctl impl. Tests swap a
+        // FakeFleetDriver. Constructing it is FREE — it only touches processes when reconcile/status actually run.
+        $this->app->bind(FleetDriver::class, SystemFleetDriver::class);
 
         // Obra-auto-merge broader-regression gate seam: the production gate runs the affected
         // suites + never-merge invariant + boot-smoke + php -l; tests substitute a deterministic

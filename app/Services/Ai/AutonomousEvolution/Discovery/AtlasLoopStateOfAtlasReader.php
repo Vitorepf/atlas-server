@@ -59,7 +59,40 @@ final class AtlasLoopStateOfAtlasReader
             $proven,
             self::FORBIDDEN_FRAGMENTS,
             (int) ((microtime(true) - $t0) * 1000),
+            $this->readDeliveredCapabilities(),
         );
+    }
+
+    /**
+     * L2/L5 — the COMPOUNDING frontier: target paths of capabilities the loop already MERGED to main
+     * (proposals.merged_to_main — the governed gain surface). This is what lets cycle n+1 PERCEIVE cycle n's
+     * gains in what is selectable, instead of re-discovering an exhausted scope (the ARBOR feedback was
+     * advisory-prompt-only). Fail-OPEN empty (no table / DB hiccup). Flag default-OFF => empty => byte-identical.
+     *
+     * @return list<string>
+     */
+    private function readDeliveredCapabilities(): array
+    {
+        if (! (bool) config('atlas.loop.compounding_frontier_enabled', false)) {
+            return [];
+        }
+        if (! \App\Services\Ai\Support\DatabaseTableAvailability::has('atlas_loop_proposals')) {
+            return [];
+        }
+        try {
+            return \App\Models\AtlasLoopProposal::query()
+                ->where('merged_to_main', true)
+                ->whereNotNull('target_path')
+                ->orderByDesc('updated_at')
+                ->limit(500)
+                ->pluck('target_path')
+                ->filter(static fn ($p): bool => is_string($p) && $p !== '')
+                ->unique()
+                ->values()
+                ->all();
+        } catch (Throwable) {
+            return [];
+        }
     }
 
     /**

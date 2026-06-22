@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopIdeaDraftingRubric;
 use Symfony\Component\Process\Process;
 use Throwable;
 

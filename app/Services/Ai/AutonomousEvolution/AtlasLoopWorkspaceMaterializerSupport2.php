@@ -100,12 +100,52 @@ final class AtlasLoopWorkspaceMaterializerSupport2
             return;
         }
         $full = $base.'/'.$relative;
+        self::assertOutsideLiveSource($full);
         $dir = dirname($full);
         if (! is_dir($dir) && ! mkdir($dir, 0o755, true) && ! is_dir($dir)) {
             throw new RuntimeException('materialize: cannot create dir '.$dir);
         }
         if (file_put_contents($full, $content) === false) {
             throw new RuntimeException('materialize: cannot write '.$relative);
+        }
+    }
+
+    /**
+     * SANDBOX FLOOR — defense in depth shared by every loop workspace writer.
+     *
+     * A materialized loop workspace is ALWAYS a scoped, throwaway copy (a `sys_get_temp_dir()`
+     * temp dir or a git worktree); the live edit is later applied by the auto-merge service via
+     * git, never by these writers. So a write whose resolved target lands inside the live
+     * application source tree (`app_path()`) can only be a MISCONFIGURED base — most dangerously
+     * a test that hands `base_path()` to a materializer and clobbers a real (often pétreo) source
+     * organ. Fail CLOSED on that: a corrupted base must throw, never silently overwrite a real
+     * file. Outside an app context (no `app_path()` helper) the guard is a no-op.
+     */
+    public static function assertOutsideLiveSource(string $absolutePath): void
+    {
+        if (! function_exists('app_path')) {
+            return; // not running inside a Laravel app => nothing to protect
+        }
+        $appRoot = realpath(app_path());
+        if ($appRoot === false) {
+            return;
+        }
+        // Resolve the deepest EXISTING ancestor so a not-yet-created file still canonicalizes
+        // (and `..`/symlink games cannot smuggle the path back into the source tree).
+        $probe = dirname($absolutePath);
+        while ($probe !== '' && $probe !== '/' && $probe !== '.' && ! is_dir($probe)) {
+            $probe = dirname($probe);
+        }
+        $realDir = realpath($probe);
+        if ($realDir === false) {
+            return;
+        }
+        if ($realDir === $appRoot || str_starts_with($realDir, $appRoot.DIRECTORY_SEPARATOR)) {
+            throw new RuntimeException(
+                'materialize: refusing to write inside the live application source tree ('
+                .$absolutePath.'). A loop workspace base must be a scoped temp/worktree copy, '
+                ."never base_path('app'); this floor protects pétreo cert organs from a misconfigured base."
+            );
         }
     }
 

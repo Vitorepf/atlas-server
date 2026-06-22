@@ -345,20 +345,9 @@ final class AtlasEvolutionFrozenJudge
             return null; // candidate unparseable -> fail closed
         }
 
-        $stash = new Process(['git', 'stash', 'push', '--include-untracked', '--quiet'], $workspace, null, null, 60.0);
-        $stash->run();
-        if (! $stash->isSuccessful() || ! $this->stashCreated($workspace)) {
-            return null; // no diff to stash (no-op candidate) -> fail closed
-        }
-
-        try {
-            $baseline = $analyzer->aggregateComplexity($absPaths);
-        } finally {
-            (new Process(['git', 'stash', 'pop', '--quiet'], $workspace, null, null, 60.0))->run();
-        }
-
-        if (! $baseline['measured']) {
-            return null; // baseline unparseable -> fail closed
+        $baseline = $this->withStashedToBaseline($workspace, fn (): array => $analyzer->aggregateComplexity($absPaths));
+        if ($baseline === null || ! $baseline['measured']) {
+            return null; // no diff to stash (no-op candidate), or baseline unparseable -> fail closed
         }
 
         // Secondary "no new complexity" guard compares DECISION POINTS (total − methods), not raw
@@ -431,18 +420,16 @@ final class AtlasEvolutionFrozenJudge
             $candidate[$rel] = (string) @file_get_contents($workspace.'/'.$rel);
         }
 
-        $stash = new Process(['git', 'stash', 'push', '--include-untracked', '--quiet'], $workspace, null, null, 60.0);
-        $stash->run();
-        if (! $stash->isSuccessful() || ! $this->stashCreated($workspace)) {
-            return null; // no diff to stash (no-op candidate) -> fail closed
-        }
-        try {
-            $baseline = [];
+        $baseline = $this->withStashedToBaseline($workspace, function () use ($members, $workspace): array {
+            $files = [];
             foreach ($members as $rel) {
-                $baseline[$rel] = (string) @file_get_contents($workspace.'/'.$rel);
+                $files[$rel] = (string) @file_get_contents($workspace.'/'.$rel);
             }
-        } finally {
-            (new Process(['git', 'stash', 'pop', '--quiet'], $workspace, null, null, 60.0))->run();
+
+            return $files;
+        });
+        if ($baseline === null) {
+            return null; // no diff to stash (no-op candidate) -> fail closed
         }
 
         return (new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopDedupProof)->evaluate($baseline, $candidate);
@@ -474,19 +461,10 @@ final class AtlasEvolutionFrozenJudge
         if (! is_array($candidate)) {
             return null;
         }
-        $stash = new Process(['git', 'stash', 'push', '--include-untracked', '--quiet'], $workspace, null, null, 60.0);
-        $stash->run();
-        if (! $stash->isSuccessful() || ! $this->stashCreated($workspace)) {
-            return null;
-        }
-        try {
-            $baseline = (new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWiredCallerService($workspace))
-                ->callerPaths([$orphanRel])[$orphanRel] ?? null;
-        } finally {
-            (new Process(['git', 'stash', 'pop', '--quiet'], $workspace, null, null, 60.0))->run();
-        }
+        $baseline = $this->withStashedToBaseline($workspace, fn () => (new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWiredCallerService($workspace))
+            ->callerPaths([$orphanRel])[$orphanRel] ?? null);
         if (! is_array($baseline)) {
-            return null;
+            return null; // no diff to stash, or callers unverifiable -> fail closed
         }
 
         $wasOrphanNowWired = count($baseline) === 0 && count($candidate) >= 1;
@@ -613,15 +591,9 @@ final class AtlasEvolutionFrozenJudge
      */
     private function diffEarned(string $workspace, array $commands, int $timeout): ?bool
     {
-        $stash = new Process(['git', 'stash', 'push', '--include-untracked', '--quiet'], $workspace, null, null, 60.0);
-        $stash->run();
-        // No local changes to save => the candidate was a no-op; a "passing" no-op is fake by
-        // definition (the test was green without any change). Fail closed.
-        if (! $stash->isSuccessful() || ! $this->stashCreated($workspace)) {
-            return null;
-        }
-
-        try {
+        // No local changes to save => the candidate was a no-op; a "passing" no-op is fake by definition
+        // (the test was green without any change) => withStashedToBaseline returns null. Fail closed.
+        return $this->withStashedToBaseline($workspace, function () use ($commands, $workspace, $timeout): bool {
             foreach ($commands as $command) {
                 $result = $this->runFrozenCommand($command, $workspace, $timeout);
                 if (! $result['passed']) {
@@ -630,6 +602,32 @@ final class AtlasEvolutionFrozenJudge
             }
 
             return false; // baseline still GREEN with the diff reverted -> fake
+        });
+    }
+
+    /**
+     * Run $measureBaseline against the COMMITTED baseline: stash the live candidate diff
+     * (push --include-untracked), run the closure, then ALWAYS restore the candidate (finally pop).
+     * Returns the closure's value, or null when there is NO diff to stash (a no-op candidate) — the four
+     * cert measurers (complexity / dedup / wired / diff-earned) each fail CLOSED on that null. This
+     * stash-push → guard → try/finally-pop lifecycle lived in 4 byte-identical copies; centralizing it
+     * means a stash-lifecycle bug (a missed pop, a guard gap) can never be fixed in only 3 of the 4.
+     *
+     * @template T
+     *
+     * @param  callable(): T  $measureBaseline
+     * @return T|null
+     */
+    private function withStashedToBaseline(string $workspace, callable $measureBaseline): mixed
+    {
+        $stash = new Process(['git', 'stash', 'push', '--include-untracked', '--quiet'], $workspace, null, null, 60.0);
+        $stash->run();
+        if (! $stash->isSuccessful() || ! $this->stashCreated($workspace)) {
+            return null; // no diff to stash (no-op candidate) -> fail closed
+        }
+
+        try {
+            return $measureBaseline();
         } finally {
             (new Process(['git', 'stash', 'pop', '--quiet'], $workspace, null, null, 60.0))->run();
         }

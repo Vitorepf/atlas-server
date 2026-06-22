@@ -172,6 +172,12 @@ final class AtlasLoopRealWorkScorecardService
             'proxy_refactor_tasks' => $counts['proxy_refactor_tasks'],
             'cosmetic_tasks' => $counts['cosmetic_tasks'],
             'unknown_tasks' => $counts['unknown_tasks'],
+            // The DETERMINISTIC dead-code work-type produces certified removals as PROPOSALS (not grind
+            // TASKS), so the task buckets above never see them. Surface their REAL value separately: each is
+            // a provider-less, net-reduction, holdout-certified removal of provably-dead code — real by
+            // construction, ungameable (the gate re-derives deadness from the fresh original). Additive +
+            // fail-safe; never affects the task partition above.
+            'deterministic_real_work_proposals' => $this->deterministicRealWorkProposals($campaignId),
             'real_work_ratio' => $this->ratio($counts['real_work_tasks'], $counts['tasks_total']),
             'proxy_ratio' => $this->ratio($counts['proxy_refactor_tasks'], $counts['tasks_total']),
             'cosmetic_ratio' => $this->ratio($counts['cosmetic_tasks'], $counts['tasks_total']),
@@ -198,6 +204,29 @@ final class AtlasLoopRealWorkScorecardService
      * @param  array<string,mixed>  $payload
      * @return array{bucket:string, real_kind:?string, reasons:list<string>}
      */
+    /**
+     * Count the campaign's DETERMINISTIC dead-code-removal proposals (provider='deterministic', written by
+     * {@see AtlasLoopDeadCodeProducer}) — real by construction (provider-less, holdout-certified removals of
+     * provably-dead private members). Read-only + fail-safe: a missing table or any DB hiccup yields 0, never
+     * a crash (the scorecard's never-crash contract).
+     */
+    private function deterministicRealWorkProposals(?string $campaignId): int
+    {
+        if (! DatabaseTableAvailability::has('atlas_loop_proposals')) {
+            return 0;
+        }
+        try {
+            $query = \App\Models\AtlasLoopProposal::query()->where('provider', 'deterministic');
+            if ($campaignId !== null) {
+                $query->where('campaign_id', $campaignId);
+            }
+
+            return (int) $query->count();
+        } catch (Throwable) {
+            return 0;
+        }
+    }
+
     private function classify(array $payload, string $objectiveText): array
     {
         if ($payload === []) {

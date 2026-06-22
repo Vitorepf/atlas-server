@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Ai\AutonomousEvolution\Discovery;
+namespace App\Services\Ai\AutonomousEvolution;
 
 /**
  * ARBOR-GRAFT DD1 (text) — the engineering-translated idea_drafting rubric, injected at the generation

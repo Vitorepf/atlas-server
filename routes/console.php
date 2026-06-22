@@ -432,6 +432,17 @@ Schedule::command('atlas:loop:keepalive --stale-minutes=2 --json')
     ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled()
         && (bool) config('atlas.loop.keepalive_enabled', true));
 
+// AGENT GOVERNANCE — the BABÁ. Converge the whole fleet toward the operator's DESIRED-STATE: start
+// desired+gated agents that died, STOP anything alive the operator did not sanction, auto-OFF runs past their
+// TTL/budget FREIO. It reads desired-state, NEVER orphan `status=running` rows. Gated by
+// atlas.agents.reconciler_enabled (DEFAULT OFF) so it is INERT until the operator arms it; start actions are
+// themselves hard-gated (loop/fleet master, both default OFF), so even armed a tick can only reduce
+// unsanctioned spend by default. This is the standing "babá vigiando o loop".
+Schedule::command('atlas:agents:reconcile --json')
+    ->everyMinute()
+    ->withoutOverlapping(2)
+    ->when(static fn (): bool => (bool) config('atlas.agents.reconciler_enabled', false));
+
 // NOTE: the Sunday digest (the ONLY weekly notification) is scheduled ONCE in
 // bootstrap/app.php (weeklyOn(0, …), timezone-aware, gated by atlas.ai.weekly_memory_digest.enabled).
 // Do NOT add a second Sunday schedule here — one report, one time.

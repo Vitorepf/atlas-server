@@ -94,12 +94,38 @@ campaign's `elapsed` clock and it never hits its `--max-seconds` budget. **Prove
 on a `hermes chat --quiet` call for 15+ min, supervisor blocked, 0 progress** (the same live-hermes hang the
 materializer-sandbox investigation found).
 
-So launch the soak WITH the watchdog, which kills any grind older than a wall-clock ceiling:
+So launch the soak WITH the watchdog, which kills any grind older than a wall-clock ceiling. **Prefer the
+SUPERVISOR wrapper** — it respawns the watchdog if the watchdog process itself is OOM-killed or crashes
+mid-soak (otherwise hung grinds would never be reaped again and the machine thrashes silently):
 ```
-nohup bin/atlas-loop-watchdog.sh <campaign-id> > /tmp/loop-watchdog.log 2>&1 &   # honors the master switch
+nohup bin/atlas-loop-watchdog-supervised.sh <campaign-id> > /tmp/loop-watchdog-sup.log 2>&1 &   # master-gated
 ```
-It runs `ATLAS_LOOP_GRIND_MAX_SECONDS` (default 1800) and SIGKILLs an over-budget grind + its hermes call, so
-the supervisor records the attempt failed and moves on. Without it, a single hung hermes call stalls the soak.
+(The bare `bin/atlas-loop-watchdog.sh <campaign-id>` is the un-supervised form — fine for a quick check, but a
+multi-hour soak should use the supervised wrapper.) Either runs `ATLAS_LOOP_GRIND_MAX_SECONDS` (default 1800)
+and SIGKILLs an over-budget grind + its hermes call, so the supervisor records the attempt failed and moves on.
+Without the watchdog, a single hung hermes call stalls the soak. **To stop a supervised run:** `atlas:loop:off`
+(the canonical kill — the supervisor exits, respawns nothing) or `touch storage/atlas-loop/WATCHDOG_SUPERVISOR_STOP`.
+
+## 5c. Provider-FREE soak-readiness check (deterministic — run it anytime, even master-OFF)
+
+Before (or alongside) a provider soak, prove the loop CERTIFIES real value without the provider:
+```
+php artisan atlas:loop:deadcode-sweep --json          # or --path=<dir> --limit=N
+```
+It mills the scope, surgically removes provably-dead `private` members (AST, fail-closed — never a live
+sibling), and runs the holdout cert — all with ZERO provider calls. PROVEN live over the loop's own ~276-file
+scope: 2 certified removals, `provider_used=false`.
+
+**IN-CAMPAIGN form (attaches certified removals to a campaign as propose-only proposals):**
+```
+php artisan atlas:loop:deadcode-sweep --persist --campaign=<id> --json
+```
+Each certified removal is persisted `status=certified_for_review` (OPERATOR REVIEW — never auto-merges; it
+carries no `_acceptance_contract`, so the drain re-prove fails closed even if auto-merge were ON). PROVEN
+live end-to-end: a real campaign milled 276 files → certified + persisted 2 dead-code-removal proposals
+(`provider=deterministic`, `provider_used=false`), no thrash, clean. This is `1 campanha mói→certifica valor
+real ao vivo` for the DETERMINISTIC work-type — no hermes. (The provider work-types' in-campaign live proof
+is unblocked by the separately-landing hermes one-shot fix; the operational ring above keeps either safe.)
 
 ## 6. Caveats (honest)
 

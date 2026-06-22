@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\AgentGovernance\AtlasAgentDesiredStateStore;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopDriftRestartDebounce;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMorningDigestService;
@@ -33,9 +34,16 @@ class AtlasLoopKeepaliveCommand extends Command
 
     protected $description = 'Respawn automático do supervisor do Loop: campanha running com heartbeat velho e sem processo vivo é relançada (resume, nunca perde estado).';
 
-    public function __construct(private ?AtlasLoopDriftRestartDebounce $driftRestartDebounce = null)
-    {
+    public function __construct(
+        private ?AtlasLoopDriftRestartDebounce $driftRestartDebounce = null,
+        private ?AtlasAgentDesiredStateStore $desiredStore = null,
+    ) {
         parent::__construct();
+    }
+
+    private function desiredStore(): AtlasAgentDesiredStateStore
+    {
+        return $this->desiredStore ??= new AtlasAgentDesiredStateStore();
     }
 
     public function handle(): int
@@ -76,6 +84,16 @@ class AtlasLoopKeepaliveCommand extends Command
             $stale = $heartbeat < (time() - $staleMinutes * 60);
             $alive = $this->supervisorAlive($id);
 
+            // DESIRED-STATE GATE (the root-cause cut). Respawn authority comes from what the operator
+            // EXPLICITLY launched — authorizesCampaign() = loop desired-ON, not braked by TTL/budget, AND
+            // target_ref == this campaign id — NEVER from the row's status=running. An orphan/sibling/old
+            // campaign row is unauthorized and is never recycled/respawned/revived below. This is the precise
+            // end of "the graveyard wakes up every cadence": master ON no longer means "resurrect everything",
+            // it means "keep alive only the one campaign the operator turned on".
+            $launchEpoch = $campaign->started_at ? strtotime((string) $campaign->started_at)
+                : ($campaign->created_at ? strtotime((string) $campaign->created_at) : null);
+            $authorized = $this->desiredStore()->authorizesCampaign($id, $launchEpoch ?: null);
+
             // Out-of-process CODE-DRIFT recycle (belt-and-suspenders for the in-process
             // restart_on_code_drift, which only fires at the top of the supervisor loop → starved
             // during a long grind, and goes dark entirely if the boot-time git HEAD read returned
@@ -85,7 +103,7 @@ class AtlasLoopKeepaliveCommand extends Command
             // SAME flag so the operator's one churn-vs-autonomy choice governs both checks; only
             // ENGINE drift counts (target merges never match), and the decision self-clears (the
             // respawn's start is after the commit). Lossless: respawn resumes by campaign-id.
-            if ($alive && (bool) config('atlas.loop.campaign.restart_on_code_drift', true)) {
+            if ($authorized && $alive && (bool) config('atlas.loop.campaign.restart_on_code_drift', true)) {
                 $bootEpoch = $this->supervisorStartedAt($id);
                 $driftWorkspace = (string) ($campaign->base_workspace ?: base_path());
                 $latestPipelineCommit = AtlasLoopPipelineDrift::latestPipelineCommitEpoch($driftWorkspace);
@@ -149,7 +167,7 @@ class AtlasLoopKeepaliveCommand extends Command
             // previously treated as "healthy" forever — the gap that let a frozen soak hang for
             // hours unattended, defeating the 24/7 goal.)
             $frozenMinutes = max($staleMinutes + 5, (int) config('atlas.loop.keepalive_frozen_kill_minutes', 15));
-            if ($alive && $heartbeat > 0 && $heartbeat < (time() - $frozenMinutes * 60)) {
+            if ($authorized && $alive && $heartbeat > 0 && $heartbeat < (time() - $frozenMinutes * 60)) {
                 $this->killSupervisor($id);
                 $this->respawn($id);
                 $out['respawned'][] = ['campaign_id' => $id, 'reason' => 'frozen_alive_killed_and_respawned', 'heartbeat_age_minutes' => (int) floor((time() - $heartbeat) / 60)];
@@ -190,6 +208,15 @@ class AtlasLoopKeepaliveCommand extends Command
                 continue;
             }
 
+            // Unauthorized + not reaped (a FRESH dead orphan, or an alive-but-unsanctioned run): NEVER respawn.
+            // This is exactly where the fresh orphan `running` row that used to be resurrected each cadence now
+            // becomes a logged no-op. The reconciler (the babá) is what STOPS an alive-but-unsanctioned run.
+            if (! $authorized) {
+                $out['skipped_unauthorized'][] = ['campaign_id' => $id, 'process_alive' => $alive, 'stale' => $stale];
+
+                continue;
+            }
+
             if (! $stale || $alive) {
                 $out['healthy'][] = ['campaign_id' => $id, 'stale' => $stale, 'process_alive' => $alive];
 
@@ -223,6 +250,14 @@ class AtlasLoopKeepaliveCommand extends Command
             foreach ($starved as $campaign) {
                 $id = (string) $campaign->id;
                 $out['checked']++;
+                // Same desired-state gate: never revive a starved soak the operator did not explicitly turn on.
+                $reviveLaunch = $campaign->started_at ? strtotime((string) $campaign->started_at)
+                    : ($campaign->created_at ? strtotime((string) $campaign->created_at) : null);
+                if (! $this->desiredStore()->authorizesCampaign($id, $reviveLaunch ?: null)) {
+                    $out['skipped_unauthorized'][] = ['campaign_id' => $id, 'lane' => 'starved_revive'];
+
+                    continue;
+                }
                 $touchedAgo = $campaign->updated_at ? (time() - strtotime((string) $campaign->updated_at)) : PHP_INT_MAX;
                 if ($touchedAgo < $reviveAfter * 60 || $this->supervisorAlive($id)) {
                     continue; // throttle: ainda no cooldown, ou já vivo

@@ -6,9 +6,13 @@ namespace App\Services\Ai\AutonomousEvolution\Campaign;
 
 use App\Models\AtlasLoopCampaign;
 use App\Models\AtlasLoopTarget;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopDeadCodeProducer;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopDeterministicDeadCodeWorkType;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopUnusedImportWorkType;
 use App\Models\AtlasLoopTask;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopDbResilience;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopObraBridgeService;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopFleetGovernor;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderCircuitBreaker;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopResourceGate;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopTaxa2DialOverlayService;
@@ -60,6 +64,15 @@ final class AtlasLoopCampaignSupervisor
 
     private ?string $storageRoot = null;
 
+    /**
+     * L4 — origination-on-starvation seam. null (default) => build the grounded comprehension model + call the
+     * real {@see AtlasLoopOriginationPipeline} (the writer is model-bound, §9-fenced). A deterministic test
+     * injects a fake via setOriginationProducerForTesting, so the seam is provable WITHOUT a provider call.
+     *
+     * @var (Closure(string $repoRoot, string $scopeRoot, list<string> $priorAttempts): array<string,mixed>)|null
+     */
+    private ?Closure $originationProducer = null;
+
     public function __construct(
         private readonly AtlasLoopStore $store,
         private readonly AtlasLoopTaskGrinder $grinder,
@@ -101,6 +114,11 @@ final class AtlasLoopCampaignSupervisor
         $this->storageRoot = rtrim($root, '/');
     }
 
+    public function setOriginationProducerForTesting(Closure $producer): void
+    {
+        $this->originationProducer = $producer;
+    }
+
     /**
      * @param  array<string,mixed>  $input  { campaign_id?, goal?, base_workspace?, caps..., scenarios?, workers?, shadow?, provider? }
      * @return array<string,mixed> atlas.loop.campaign_run.v1
@@ -122,6 +140,13 @@ final class AtlasLoopCampaignSupervisor
         $requestedWorkers = max(1, (int) ($input['workers'] ?? ($cfg['workers'] ?? 1)));
         $parallelEnabled = (bool) config('atlas.loop.parallel.enabled', false);
         $effectiveWorkers = $parallelEnabled ? $this->workerPlanner->plan($requestedWorkers) : 1;
+        // §4 FLEET GOVERNOR — cap this campaign's worker pool by the GLOBAL in-flight grind headroom across all
+        // campaigns, so a respawn storm or many concurrent campaigns never swamp the Mac (a soft cap: always
+        // ≥1 so a campaign makes progress, but bounded by fleet headroom). Flag/cap<=0 ⇒ unlimited (byte-identical).
+        $fleetCap = (int) config('atlas.loop.fleet_global_worker_cap', 0);
+        if ($fleetCap > 0) {
+            $effectiveWorkers = max(1, (new AtlasLoopFleetGovernor)->admit($effectiveWorkers, $fleetCap)['admitted']);
+        }
         $pool = $parallelEnabled && $effectiveWorkers > 1 ? $this->workerPool : null;
         $parallelClaimSeq = 0;
         $restartOnCodeDrift = (bool) ($cfg['restart_on_code_drift'] ?? true);
@@ -198,6 +223,12 @@ final class AtlasLoopCampaignSupervisor
                 ), 'symbol_gc_on_boot');
             }
             $this->guard(fn () => $this->markCampaignRunning($campaign, $input, $baseWorkspace), 'campaign_start');
+            // DETERMINISTIC dead-code supply (provider-LESS; flag-default-OFF, fail-open, once per boot —
+            // mirrors symbol_gc_on_boot above): at campaign start, certify + persist removals of provably-dead
+            // private members as PROPOSE-ONLY proposals (status='certified_for_review', operator review, never
+            // auto-merge). This is the loop's hermes-FREE value stream — a campaign certifies real value with
+            // ZERO provider calls. OFF (default) => byte-identical.
+            $this->guard(fn () => $this->runDeterministicDeadCodeSupply($campaign), 'deterministic_deadcode_supply');
             $this->guard(fn () => $this->reconcileUnreflectedParallelTargets($campaign), 'parallel_loop_back_reconcile');
 
             $lastTick = $this->now();
@@ -329,6 +360,16 @@ final class AtlasLoopCampaignSupervisor
                             // allowed into a root without a frozen judge under it (the canPromote no-blinder
                             // invariant), so an unprotected scope can never open.
                             if (! ((bool) config('atlas.loop.territory_ladder_enabled', true) && $this->maybeClimbTerritory($campaign))) {
+                                // L4 — origination-on-starvation: before stopping/idling, ORIGINATE the next
+                                // leap. A fresh minted task => loop back and grind it (the loop NEVER stalls at
+                                // "terminei a lista"). Flag-OFF => maybeOriginate returns false => unchanged.
+                                if ($this->maybeOriginate($campaign)) {
+                                    $this->writeHeartbeat($campaign->id);
+                                    $this->beat($campaign, 1);
+                                    $lastTick = $this->now();
+
+                                    continue;
+                                }
                                 if (! $idleOnStarvation) {
                                     $stop = 'queue_starved_no_refill';
                                     break;
@@ -769,6 +810,103 @@ final class AtlasLoopCampaignSupervisor
     /**
      * @param  array<string,mixed>  $input
      */
+    /**
+     * L4 — KILL THE STALL (the loop-BURRO fix). At supply exhaustion (reactive backlog dry AND no territory
+     * rung opened), ORIGINATE the next leap instead of stopping at "terminei a lista". Returns true iff it
+     * minted a fresh task (then the caller loops back and grinds it). Flag-default-OFF => byte-identical (the
+     * supervisor stops/idles exactly as before). The origination writer is model-bound (the live soak's
+     * provider); the deterministic test injects a fake producer, so NO provider is touched here.
+     */
+    private function maybeOriginate(AtlasLoopCampaign $campaign): bool
+    {
+        if (! (bool) config('atlas.loop.origination_on_starvation_enabled', false)) {
+            return false;
+        }
+
+        $producer = $this->originationProducer ?? static function (string $repoRoot, string $scopeRoot, array $prior): array {
+            $model = (new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModelBuilder)->build($repoRoot, $scopeRoot);
+
+            return (new \App\Services\Ai\AutonomousEvolution\AtlasLoopOriginationPipeline)->produce($model, $repoRoot, $prior);
+        };
+
+        $repoRoot = base_path();
+        $scopeRoot = (string) config('atlas.loop.origination_scope_root', 'app/Services/Ai/AutonomousEvolution');
+        $prior = (array) ($this->guard(
+            fn () => AtlasLoopTask::query()->where('campaign_id', $campaign->id)
+                ->whereNotNull('target_path')->distinct()->limit(50)->pluck('target_path')->all(),
+            'origination_prior_attempts',
+        ) ?? []);
+
+        try {
+            $result = (array) $producer($repoRoot, $scopeRoot, array_values(array_filter($prior, 'is_string')));
+        } catch (Throwable $e) {
+            $this->appendLedger($campaign->id, ['event' => 'origination_error', 'error' => mb_substr($e->getMessage(), 0, 160)]);
+
+            return false;
+        }
+
+        $objective = is_string($result['objective'] ?? null) ? trim((string) $result['objective']) : '';
+        if (($result['produced'] ?? false) !== true || ($result['action'] ?? '') !== 'proceed' || $objective === '') {
+            // produced=false / abstain (park + ask operator) / empty objective => do NOT enqueue; let the
+            // caller fall through to stop/idle (abstain is the honest "ask the operator", never a fake leap).
+            $this->appendLedger($campaign->id, [
+                'event' => 'origination_attempt',
+                'produced' => (bool) ($result['produced'] ?? false),
+                'action' => $result['action'] ?? null,
+                'reason' => $result['reason'] ?? null,
+            ]);
+
+            return false;
+        }
+
+        $task = $this->store->enqueueTask(
+            $campaign->id,
+            $objective,
+            ['_origination' => true, 'obligations' => (array) ($result['obligations'] ?? [])],
+            'origination',
+            is_string($result['target_path'] ?? null) ? (string) $result['target_path'] : null,
+        );
+        $this->appendLedger($campaign->id, [
+            'event' => 'originated_on_starvation',
+            'objective' => mb_substr($objective, 0, 120),
+            'target_path' => $result['target_path'] ?? null,
+            'enqueued' => $task instanceof AtlasLoopTask,
+        ]);
+
+        return $task instanceof AtlasLoopTask;
+    }
+
+    /**
+     * DETERMINISTIC dead-code supply (provider-LESS). When `atlas.loop.deterministic_deadcode_supply_enabled`
+     * is ON, certify + persist removals of provably-dead private members as PROPOSE-ONLY proposals for this
+     * campaign (status='certified_for_review' ⇒ operator review; never auto-merge — no _acceptance_contract).
+     * OFF (default) => byte-identical no-op. Root/scope/limit are config-overridable so it is testable in
+     * isolation. Returns the count persisted.
+     */
+    private function runDeterministicDeadCodeSupply(AtlasLoopCampaign $campaign): int
+    {
+        if (! (bool) config('atlas.loop.deterministic_deadcode_supply_enabled', false)) {
+            return 0;
+        }
+        $root = (string) config('atlas.loop.deterministic_deadcode_root', base_path());
+        $scope = (string) config('atlas.loop.deterministic_deadcode_scope', 'app/Services/Ai/AutonomousEvolution');
+        $limit = max(1, (int) config('atlas.loop.deterministic_deadcode_limit', 25));
+
+        // Run EVERY deterministic (provider-less) work-type through the one generic producer.
+        $persisted = 0;
+        foreach ([new AtlasLoopDeterministicDeadCodeWorkType, new AtlasLoopUnusedImportWorkType] as $workType) {
+            $out = (new AtlasLoopDeadCodeProducer($workType))->persistSweep((string) $campaign->id, $root, $scope, $limit);
+            $persisted += (int) $out['persisted'];
+        }
+        $this->appendLedger($campaign->id, [
+            'event' => 'deterministic_supply',
+            'persisted' => $persisted,
+            'provider_used' => false,
+        ]);
+
+        return $persisted;
+    }
+
     private function markCampaignRunning(AtlasLoopCampaign $campaign, array $input, string $baseWorkspace): void
     {
         $attributes = [

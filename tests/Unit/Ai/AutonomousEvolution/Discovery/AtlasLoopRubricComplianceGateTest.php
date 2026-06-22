@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\AutonomousEvolution\Discovery;
 
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopIdeaDraftingRubric;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopIdeaDraftingRubric;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopRubricComplianceGate as Gate;
 use PHPUnit\Framework\TestCase;
 

@@ -558,7 +558,7 @@ final class AtlasLoopQueueRefiller
             ));
 
             $minted = 0;
-            foreach ($this->discoveryScopeFiles($repoRoot) as $relPath) {
+            foreach ($this->discoveryScopeFiles($repoRoot, $campaign) as $relPath) {
                 if ($minted >= $cap) {
                     break;
                 }
@@ -702,6 +702,36 @@ final class AtlasLoopQueueRefiller
     }
 
     /**
+     * L3 (territory supply-widening) — the discovery roots the next refill actually scans. The supervisor's
+     * territory ladder persists a WIDER root set onto the campaign (`config['discovery_roots']`) once
+     * capability is proven (canPromote: K certified leaps + compounding trend up + a frozen judge under every
+     * new root — the no-blinder invariant). This makes that persisted widening DRIVE the refill, so a proven
+     * leap grows the SUPPLY frontier — the other half of the Fibonacci rung-growth (the ambition dial dares the
+     * biggest AVAILABLE candidate; this grows what's available). Flag default-OFF => the global roots exactly
+     * as before => byte-identical. The persisted set already ⊇ the global roots (the ladder only ever widens);
+     * the defensive union keeps the base scope even if the global config later changes.
+     *
+     * @return list<string>
+     */
+    private function effectiveDiscoveryRoots(AtlasLoopCampaign $campaign): array
+    {
+        $global = array_values((array) config('atlas.loop.campaign.discovery_roots', ['app/Services']));
+        if (! (bool) config('atlas.loop.territory_widened_roots_drive_refill', false)) {
+            return $global;
+        }
+        $config = is_array($campaign->config) ? $campaign->config : [];
+        $widened = array_values(array_filter(
+            (array) ($config['discovery_roots'] ?? []),
+            static fn ($r): bool => is_string($r) && trim($r) !== '',
+        ));
+        if ($widened === []) {
+            return $global;
+        }
+
+        return array_values(array_unique(array_merge($global, $widened)));
+    }
+
+    /**
      * §5.6 DEDUP-SUPPLY LANE — the BRAIN driving selection. Build the grounded scope-comprehension model and
      * let {@see AtlasLoopDedupSupplyLane} mint CERTIFIABLE clone-unification tasks from its clone clusters —
      * net-new work the proxy discovery (cyclomatic/coverage) STRUCTURALLY cannot produce. Each task carries
@@ -724,7 +754,7 @@ final class AtlasLoopQueueRefiller
             $lane = new AtlasLoopDedupSupplyLane;
 
             $minted = 0;
-            foreach ((array) config('atlas.loop.campaign.discovery_roots', ['app/Services']) as $root) {
+            foreach ($this->effectiveDiscoveryRoots($campaign) as $root) {
                 if ($minted >= $cap) {
                     break;
                 }
@@ -855,7 +885,7 @@ final class AtlasLoopQueueRefiller
             $lane = new AtlasLoopOrphanWiringSupplyLane;
 
             $minted = 0;
-            foreach ((array) config('atlas.loop.campaign.discovery_roots', ['app/Services']) as $root) {
+            foreach ($this->effectiveDiscoveryRoots($campaign) as $root) {
                 if ($minted >= $cap) {
                     break;
                 }
@@ -975,7 +1005,7 @@ final class AtlasLoopQueueRefiller
             $docsRoots = array_values(array_filter((array) config('atlas.loop.doc_gap_supply_docs_roots', []), 'is_string'));
 
             $minted = 0;
-            foreach ((array) config('atlas.loop.campaign.discovery_roots', ['app/Services']) as $root) {
+            foreach ($this->effectiveDiscoveryRoots($campaign) as $root) {
                 if ($minted >= $cap) {
                     break;
                 }
@@ -1070,9 +1100,9 @@ final class AtlasLoopQueueRefiller
      *
      * @return list<string>
      */
-    private function discoveryScopeFiles(string $repoRoot): array
+    private function discoveryScopeFiles(string $repoRoot, AtlasLoopCampaign $campaign): array
     {
-        $roots = (array) config('atlas.loop.campaign.discovery_roots', ['app/Services']);
+        $roots = $this->effectiveDiscoveryRoots($campaign);
         $out = [];
         $seen = [];
         foreach ($roots as $root) {

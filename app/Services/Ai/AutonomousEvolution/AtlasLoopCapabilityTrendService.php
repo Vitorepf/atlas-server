@@ -61,7 +61,10 @@ final class AtlasLoopCapabilityTrendService
             $quality = json_decode((string) $row->quality, true);
             $quality = is_array($quality) ? $quality : [];
             $dim = $resolver->resolve(['attempted' => true, 'committed' => true, 'canary' => $this->canary($quality)]);
-            $ageHours = (int) $now->diffInHours(Carbon::parse((string) $row->updated_at));
+            // ABSOLUTE elapsed hours: Carbon 3's diffInHours is SIGNED (a past instant => negative), which
+            // would invert the age→bucket math and collapse EVERY merged proposal into the newest bucket
+            // (1 non-empty bucket => slope 0 => the trend can never bend => the capability signal is dead).
+            $ageHours = (int) abs((float) $now->diffInHours(Carbon::parse((string) $row->updated_at)));
             $idx = (int) min($bucketCount - 1, max(0, $bucketCount - 1 - intdiv($ageHours, $windowHours)));
             $buckets[$idx]['total']++;
             if ($dim['clean']) {

@@ -147,6 +147,7 @@ class AtlasLoopOrphanWiringAuthoringEngine
     private function writeFile(string $workspace, string $rel, string $content): void
     {
         $abs = rtrim($workspace, '/').'/'.ltrim($rel, '/');
+        AtlasLoopWorkspaceMaterializerSupport2::assertOutsideLiveSource($abs);
         $dir = dirname($abs);
         if (! is_dir($dir)) {
             @mkdir($dir, 0o755, true);
