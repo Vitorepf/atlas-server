@@ -76,19 +76,33 @@ final class AtlasAgentDesiredStateStore
     }
 
     /**
-     * Respawn authority for a SPECIFIC loop campaign. True ONLY when the loop is desired-ON (not braked) AND
-     * this campaign id is the one the operator explicitly launched (target_ref). A null target_ref authorizes
-     * NO campaign — fail-closed, so a generic flag can never resurrect the campaign graveyard. THIS is what
-     * the keepalive consults instead of "is the row status=running?".
+     * Respawn authority for a SPECIFIC loop campaign — THIS is what the keepalive consults instead of "is the
+     * row status=running?". True only when the loop is desired-ON (not braked) AND one of:
+     *   - the operator pinned this exact campaign (target_ref === id), or
+     *   - the campaign was LAUNCHED AT/AFTER the operator turned the loop on (created/started ≥ set_at floor).
+     *
+     * Orphans from the graveyard were created BEFORE the operator's explicit ON, so they sit below the floor
+     * and are never authorized — the precise cut. A missing launch time or a loop with neither a pin nor a
+     * floor authorizes nothing (fail-closed).
      */
-    public function authorizesCampaign(string $campaignId, float $spentUsd = 0.0): bool
+    public function authorizesCampaign(string $campaignId, ?int $campaignLaunchedAtEpoch = null, float $spentUsd = 0.0): bool
     {
         $record = $this->record(AtlasFleetCatalog::LOOP);
         if ($record === null || ! $record->effectivelyOn(now()->timestamp, $spentUsd)) {
             return false;
         }
 
-        return $record->targetRef !== null && $record->targetRef === $campaignId;
+        // A pinned target authorizes exactly that campaign and nothing else.
+        if ($record->targetRef !== null) {
+            return $record->targetRef === $campaignId;
+        }
+
+        // Otherwise: only campaigns launched at/after the operator's explicit ON (the set_at floor).
+        if ($record->setAtEpoch === null || $campaignLaunchedAtEpoch === null) {
+            return false;
+        }
+
+        return $campaignLaunchedAtEpoch >= $record->setAtEpoch;
     }
 
     /**

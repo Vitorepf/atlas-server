@@ -90,7 +90,9 @@ class AtlasLoopKeepaliveCommand extends Command
             // campaign row is unauthorized and is never recycled/respawned/revived below. This is the precise
             // end of "the graveyard wakes up every cadence": master ON no longer means "resurrect everything",
             // it means "keep alive only the one campaign the operator turned on".
-            $authorized = $this->desiredStore()->authorizesCampaign($id);
+            $launchEpoch = $campaign->started_at ? strtotime((string) $campaign->started_at)
+                : ($campaign->created_at ? strtotime((string) $campaign->created_at) : null);
+            $authorized = $this->desiredStore()->authorizesCampaign($id, $launchEpoch ?: null);
 
             // Out-of-process CODE-DRIFT recycle (belt-and-suspenders for the in-process
             // restart_on_code_drift, which only fires at the top of the supervisor loop → starved
@@ -249,7 +251,9 @@ class AtlasLoopKeepaliveCommand extends Command
                 $id = (string) $campaign->id;
                 $out['checked']++;
                 // Same desired-state gate: never revive a starved soak the operator did not explicitly turn on.
-                if (! $this->desiredStore()->authorizesCampaign($id)) {
+                $reviveLaunch = $campaign->started_at ? strtotime((string) $campaign->started_at)
+                    : ($campaign->created_at ? strtotime((string) $campaign->created_at) : null);
+                if (! $this->desiredStore()->authorizesCampaign($id, $reviveLaunch ?: null)) {
                     $out['skipped_unauthorized'][] = ['campaign_id' => $id, 'lane' => 'starved_revive'];
 
                     continue;

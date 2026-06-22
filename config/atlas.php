@@ -6,6 +6,14 @@ return [
     'storage_path' => env('ATLAS_STORAGE_PATH', '/var/atlas/storage'),
     'max_upload_bytes' => (int) env('ATLAS_MAX_UPLOAD_BYTES', 100 * 1024 * 1024),
 
+    // AGENT GOVERNANCE — the fleet control plane (desired-state + the babá/reconciler).
+    'agents' => [
+        // The standing babá. DEFAULT OFF (fail-closed): the scheduled reconcile is INERT until the operator
+        // arms it. Even armed, its START actions are hard-gated (loop/fleet master, both default OFF), so it
+        // can only ever reduce unsanctioned spend by default. Flip with ATLAS_AGENTS_RECONCILER_ENABLED=true.
+        'reconciler_enabled' => (bool) env('ATLAS_AGENTS_RECONCILER_ENABLED', false),
+    ],
+
     'transcription' => [
         'enabled' => (bool) env('TRANSCRIPTION_ENABLED', false),
         'bin_path' => env('WHISPER_BIN_PATH', '/usr/local/bin/whisper-cli'),
@@ -1426,6 +1434,19 @@ return [
                 // diff-0) é tratado como fallback-required → cai no CLI provado, com razão
                 // auditável. Default ON; permite reativar o transporte acp warm com segurança.
                 'acp_empty_output_fallback' => (bool) env('ATLAS_AI_HERMES_ACP_EMPTY_OUTPUT_FALLBACK', true),
+                // Non-interactive one-shot CLI mode. `hermes chat` is the INTERACTIVE
+                // subcommand and blocks waiting on input without a TTY — the exact hang
+                // that stalled the autonomous loop (every grind ate the full attempt
+                // budget with zero output). The top-level `hermes -z PROMPT` one-shot is
+                // non-interactive ("intended for scripts / pipes", approvals auto-bypassed)
+                // and still loads config.yaml/tools/memory normally, so the model fallback
+                // chain + reasoning_effort + max_turns are honored from config. Forge
+                // provider invocations (loop/missions) carry a per-call env the warm ACP
+                // pool can't reuse, so they MUST take this CLI path → default them to
+                // one-shot. Other CLI callers stay on `chat` unless this is turned on.
+                // Session continuity (resume/continue) always forces `chat` regardless.
+                'cli_oneshot_for_forge' => (bool) env('ATLAS_AI_HERMES_CLI_ONESHOT_FOR_FORGE', true),
+                'cli_oneshot' => (bool) env('ATLAS_AI_HERMES_CLI_ONESHOT', false),
                 'model' => env('ATLAS_AI_HERMES_MODEL', 'gpt-5.5'),
                 'model_label' => env('ATLAS_AI_HERMES_MODEL_LABEL', env('ATLAS_AI_HERMES_MODEL') ?: 'Hermes Executive Runtime'),
                 'model_tier' => env('ATLAS_AI_HERMES_MODEL_TIER', 'executive_runtime'),

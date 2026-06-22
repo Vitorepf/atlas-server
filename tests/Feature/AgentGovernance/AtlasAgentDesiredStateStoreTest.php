@@ -103,7 +103,20 @@ final class AtlasAgentDesiredStateStoreTest extends TestCase
         $s = $this->store();
         $s->setOn(AtlasFleetCatalog::LOOP); // generic ON, no target_ref
         $this->assertTrue($s->authorizes(AtlasFleetCatalog::LOOP), 'the agent itself is ON');
-        $this->assertFalse($s->authorizesCampaign('camp-A'), 'but no explicit target => no campaign respawn (fail-closed)');
+        $this->assertFalse($s->authorizesCampaign('camp-A'), 'no target + no launch time => no campaign respawn (fail-closed)');
+    }
+
+    public function test_generic_on_authorizes_only_campaigns_launched_after_the_floor(): void
+    {
+        Carbon::setTestNow('2026-06-22 12:00:00');
+        $s = $this->store();
+        $s->setOn(AtlasFleetCatalog::LOOP); // generic ON; set_at floor = 12:00:00
+
+        $before = Carbon::parse('2026-06-22 11:00:00')->timestamp; // an orphan from before the operator turned it on
+        $after = Carbon::parse('2026-06-22 12:05:00')->timestamp;  // a campaign launched after
+
+        $this->assertFalse($s->authorizesCampaign('orphan', $before), 'orphans from before the ON floor are NEVER authorized');
+        $this->assertTrue($s->authorizesCampaign('fresh', $after), 'a campaign launched after the operator turned it on IS authorized');
     }
 
     public function test_authorizes_campaign_false_when_loop_off(): void
