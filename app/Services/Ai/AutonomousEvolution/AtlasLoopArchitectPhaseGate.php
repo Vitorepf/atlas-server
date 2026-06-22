@@ -35,17 +35,32 @@ final class AtlasLoopArchitectPhaseGate
     /**
      * Design a single evolution directive through the architect phase.
      *
+     * @param  list<array<string,mixed>>  $extraSeeds  the cross-model critique's grounded deepening (the
+     *                                                  frontier model's additional obligations); [] = floor only.
      * @return array{admitted:bool, reason:?string, obligations:list<array<string,mixed>>, consumer_contracts:list<array<string,mixed>>}
      */
-    public function admit(AtlasLoopScopeComprehensionModel $model, string $relTarget, string $objectiveKind, string $repoRoot, int $maxRounds = 8): array
+    public function admit(AtlasLoopScopeComprehensionModel $model, string $relTarget, string $objectiveKind, string $repoRoot, int $maxRounds = 8, array $extraSeeds = []): array
     {
         $contract = $this->contract ?? new AtlasLoopWorkTypeContract;
-        $roles = (new AtlasLoopGroundedProjectionRoles($model))->forTarget($relTarget, [], $objectiveKind);
+        $roles = (new AtlasLoopGroundedProjectionRoles($model))->forTarget($relTarget, $extraSeeds, $objectiveKind);
 
         // PÉTREO constitution guard — never design a change to a cert organ (the lane should also exclude it,
         // but the gate is the single authority so adoption is uniform).
         if (($roles['forbidden'] ?? false) === true) {
             return $this->suppress('forbidden_target_petreo');
+        }
+
+        // BEHAVIOR-ANCHOR guard — a principal engineer never refactors UNTESTED code blind: a
+        // behavior-PRESERVING evolution (its mandatory proof is a complexity/perf bound, not a red→green)
+        // whose target exists but has NO sibling test cannot be safely designed — SUPPRESS it (escalate to
+        // first add a characterization anchor). Behavior-CHANGING types (bug_fix/feature ⇒ red_to_green) and
+        // orphan-wiring (the engine authors the wired test) are exempt. Skipped when the target is not on disk
+        // (a pure-model fixture), where the model is the authority.
+        if (in_array($contract->mandatoryKind($objectiveKind), ['complexity_reduced', 'perf_bound'], true)) {
+            $abs = rtrim($repoRoot, '/').'/'.ltrim($relTarget, '/');
+            if (is_file($abs) && (new AtlasLoopSiblingTestResolver(rtrim($repoRoot, '/') ?: null))->resolve($relTarget)['has_sibling'] !== true) {
+                return $this->suppress('no_behavior_anchor');
+            }
         }
 
         $axis = $contract->bindingAxis($objectiveKind) ?? 'wired';

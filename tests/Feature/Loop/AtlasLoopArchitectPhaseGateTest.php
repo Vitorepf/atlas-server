@@ -54,6 +54,41 @@ final class AtlasLoopArchitectPhaseGateTest extends TestCase
         $this->assertFalse($verdict['admitted'], 'a 12-caller blast radius cannot be designed as one safe step');
     }
 
+    public function test_suppresses_a_behavior_preserving_refactor_of_untested_code(): void
+    {
+        $target = 'app/X/Untested.php';
+        $model = $this->model($target, []);
+        $gate = new AtlasLoopArchitectPhaseGate;
+
+        // a behavior-PRESERVING refactor of a target with NO sibling test cannot be designed.
+        $untested = $this->workspace($target, withSibling: false);
+        $v = $gate->admit($model, $target, 'refactor_reduce_complexity', $untested);
+        $this->assertFalse($v['admitted']);
+        $this->assertSame('no_behavior_anchor', $v['reason']);
+
+        // the SAME refactor with a behavior anchor present ⇒ designable.
+        $tested = $this->workspace($target, withSibling: true);
+        $v2 = $gate->admit($model, $target, 'refactor_reduce_complexity', $tested);
+        $this->assertTrue($v2['admitted'], (string) ($v2['reason'] ?? ''));
+
+        foreach ([$untested, $tested] as $ws) {
+            (new \Symfony\Component\Process\Process(['rm', '-rf', $ws]))->run();
+        }
+    }
+
+    private function workspace(string $target, bool $withSibling): string
+    {
+        $ws = sys_get_temp_dir().'/atlas-anchor-'.bin2hex(random_bytes(5));
+        @mkdir($ws.'/app/X', 0o755, true);
+        file_put_contents($ws.'/'.$target, "<?php\nnamespace App\\X;\nclass Untested { public function go(): int { return 1; } }\n");
+        if ($withSibling) {
+            @mkdir($ws.'/tests/Unit', 0o755, true);
+            file_put_contents($ws.'/tests/Unit/UntestedTest.php', "<?php\nclass UntestedTest extends \\PHPUnit\\Framework\\TestCase {\n    public function test_go(): void { \$this->assertSame(1, (new \\App\\X\\Untested)->go()); }\n}\n");
+        }
+
+        return $ws;
+    }
+
     /**
      * @param  list<string>  $callers
      * @param  list<string>  $forbidden
