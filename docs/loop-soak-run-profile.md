@@ -106,6 +106,19 @@ and SIGKILLs an over-budget grind + its hermes call, so the supervisor records t
 Without the watchdog, a single hung hermes call stalls the soak. **To stop a supervised run:** `atlas:loop:off`
 (the canonical kill — the supervisor exits, respawns nothing) or `touch storage/atlas-loop/WATCHDOG_SUPERVISOR_STOP`.
 
+## 5c. Provider-FREE soak-readiness check (deterministic — run it anytime, even master-OFF)
+
+Before (or alongside) a provider soak, prove the loop CERTIFIES real value without the provider:
+```
+php artisan atlas:loop:deadcode-sweep --json          # or --path=<dir> --limit=N
+```
+It mills the scope, surgically removes provably-dead `private` members (AST, fail-closed — never a live
+sibling), and runs the holdout cert — all with ZERO provider calls, propose-only (never writes/merges).
+PROVEN live over the loop's own 275-file scope: 2 certified removals, `provider_used=false`. This is the
+hermes-free demonstration that `mói→certifica valor real` works, no thrash, clean exit. (Wiring this
+work-type INTO the campaign supply — so its certified removals flow through the governed merge path — is the
+remaining slice; the standalone proof is done.)
+
 ## 6. Caveats (honest)
 
 - **Provider:** the loop runs on Hermes (GLM-5.2 / MiniMax fallback), NOT Claude. A soak consumes the Hermes
