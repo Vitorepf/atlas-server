@@ -25,7 +25,7 @@ use Throwable;
  *     ZERO times. Any failure ⇒ null (fail-closed). A removal of a truly-unused import cannot break tests,
  *     and the holdout suite (when run in-loop) is the backstop.
  */
-final class AtlasLoopUnusedImportWorkType
+final class AtlasLoopUnusedImportWorkType implements AtlasLoopDeterministicWorkType
 {
     private readonly Parser $parser;
 

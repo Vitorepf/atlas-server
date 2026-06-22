@@ -24,7 +24,7 @@ use App\Services\Ai\AutonomousEvolution\Verify\AtlasEngineeringHonestyGate;
  * flag-OFF). The "tests-still-green" backstop (revert-recheck) belongs to that full-loop wiring; this proves
  * the deterministic content chain certifies on its own.
  */
-final class AtlasLoopDeterministicDeadCodeWorkType
+final class AtlasLoopDeterministicDeadCodeWorkType implements AtlasLoopDeterministicWorkType
 {
     private readonly AtlasDeadCodeAnalyzer $analyzer;
 

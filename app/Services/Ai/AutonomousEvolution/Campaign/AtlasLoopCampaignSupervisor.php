@@ -7,6 +7,8 @@ namespace App\Services\Ai\AutonomousEvolution\Campaign;
 use App\Models\AtlasLoopCampaign;
 use App\Models\AtlasLoopTarget;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopDeadCodeProducer;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopDeterministicDeadCodeWorkType;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopUnusedImportWorkType;
 use App\Models\AtlasLoopTask;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopDbResilience;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopObraBridgeService;
@@ -800,15 +802,19 @@ final class AtlasLoopCampaignSupervisor
         $scope = (string) config('atlas.loop.deterministic_deadcode_scope', 'app/Services/Ai/AutonomousEvolution');
         $limit = max(1, (int) config('atlas.loop.deterministic_deadcode_limit', 25));
 
-        $out = (new AtlasLoopDeadCodeProducer)->persistSweep((string) $campaign->id, $root, $scope, $limit);
+        // Run EVERY deterministic (provider-less) work-type through the one generic producer.
+        $persisted = 0;
+        foreach ([new AtlasLoopDeterministicDeadCodeWorkType, new AtlasLoopUnusedImportWorkType] as $workType) {
+            $out = (new AtlasLoopDeadCodeProducer($workType))->persistSweep((string) $campaign->id, $root, $scope, $limit);
+            $persisted += (int) $out['persisted'];
+        }
         $this->appendLedger($campaign->id, [
-            'event' => 'deterministic_deadcode_supply',
-            'scanned' => $out['scanned'],
-            'persisted' => $out['persisted'],
+            'event' => 'deterministic_supply',
+            'persisted' => $persisted,
             'provider_used' => false,
         ]);
 
-        return $out['persisted'];
+        return $persisted;
     }
 
     private function markCampaignRunning(AtlasLoopCampaign $campaign, array $input, string $baseWorkspace): void

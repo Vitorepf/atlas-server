@@ -25,9 +25,9 @@ use Throwable;
  */
 final class AtlasLoopDeadCodeProducer
 {
-    private readonly AtlasLoopDeterministicDeadCodeWorkType $workType;
+    private readonly AtlasLoopDeterministicWorkType $workType;
 
-    public function __construct(?AtlasLoopDeterministicDeadCodeWorkType $workType = null)
+    public function __construct(?AtlasLoopDeterministicWorkType $workType = null)
     {
         $this->workType = $workType ?? new AtlasLoopDeterministicDeadCodeWorkType;
     }
@@ -44,8 +44,10 @@ final class AtlasLoopDeadCodeProducer
         }
 
         try {
-            $members = implode(', ', array_map(
-                static fn (array $m): string => $m['kind'].' '.$m['name'],
+            $summary = implode(', ', array_map(
+                static fn ($m): string => is_array($m)
+                    ? trim(((string) ($m['kind'] ?? '')).' '.((string) ($m['name'] ?? '')))
+                    : (string) $m,
                 $result['removed'],
             ));
 
@@ -54,19 +56,19 @@ final class AtlasLoopDeadCodeProducer
                 'task_id' => null,
                 'schema_version' => 'atlas.loop.proposal.v1',
                 'status' => AtlasLoopProposal::STATUS_CERTIFIED,
-                'objective' => mb_substr('Remove dead private member(s): '.$members, 0, 250),
+                'objective' => mb_substr('Deterministic removal: '.$summary, 0, 250),
                 'provider' => 'deterministic',
                 'target_path' => $result['rel_path'],
                 'diff_text' => $this->unifiedDiff($result['original'], $result['proposed'], $result['rel_path']),
-                'proposal_hash' => substr(hash('sha256', 'deadcode|'.$result['rel_path'].'|'.$result['proposed']), 0, 40),
+                'proposal_hash' => substr(hash('sha256', 'deterministic|'.$result['rel_path'].'|'.$result['proposed']), 0, 40),
                 'metric' => null,
                 // NO _acceptance_contract => never auto-merges (drain re-prove fails closed); operator-review only.
                 'quality' => [
-                    '_deadcode_removal' => [
-                        'schema' => 'atlas.loop.deadcode.v1',
+                    '_deterministic_removal' => [
+                        'schema' => 'atlas.loop.deterministic_removal.v1',
                         'provider_used' => false,
                         'removed' => $result['removed'],
-                        'cert_reasons' => $result['gate_reasons'],
+                        'cert_reasons' => $result['gate_reasons'] ?? [],
                     ],
                 ],
                 'acceptance_hash' => '',
@@ -85,16 +87,42 @@ final class AtlasLoopDeadCodeProducer
      */
     public function persistSweep(string $campaignId, string $repoRoot, string $relDir, int $limit = 50): array
     {
-        $sweep = $this->workType->sweepDirectory($repoRoot, $relDir, $limit);
+        $root = rtrim($repoRoot, '/');
+        $absDir = $root.'/'.trim($relDir, '/');
+        $scanned = 0;
         $ids = [];
-        foreach ($sweep['certified'] as $removal) {
-            $id = $this->persistCertifiedRemoval($campaignId, $repoRoot, $removal['rel_path']);
+
+        foreach ($this->phpFilesIn($absDir) as $abs) {
+            $scanned++;
+            $rel = ltrim(substr($abs, strlen($root)), '/');
+            $id = $this->persistCertifiedRemoval($campaignId, $repoRoot, $rel);
             if ($id !== null) {
                 $ids[] = $id;
+                if (count($ids) >= $limit) {
+                    break;
+                }
             }
         }
 
-        return ['scanned' => $sweep['scanned'], 'persisted' => count($ids), 'proposal_ids' => $ids, 'provider_used' => false];
+        return ['scanned' => $scanned, 'persisted' => count($ids), 'proposal_ids' => $ids, 'provider_used' => false];
+    }
+
+    /**
+     * @return iterable<string>
+     */
+    private function phpFilesIn(string $absDir): iterable
+    {
+        if (! is_dir($absDir)) {
+            return;
+        }
+        $it = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($absDir, \FilesystemIterator::SKIP_DOTS),
+        );
+        foreach ($it as $file) {
+            if ($file->isFile() && $file->getExtension() === 'php') {
+                yield $file->getPathname();
+            }
+        }
     }
 
     private function unifiedDiff(string $original, string $proposed, string $label): string

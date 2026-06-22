@@ -95,10 +95,10 @@ PHP);
         $this->assertSame('deterministic', $proposal->provider);
         $this->assertStringContainsString('deadHelper', (string) $proposal->diff_text, 'the diff shows the removed member');
         $quality = (array) $proposal->quality;
-        $this->assertArrayHasKey('_deadcode_removal', $quality);
+        $this->assertArrayHasKey('_deterministic_removal', $quality);
         $this->assertArrayNotHasKey('_acceptance_contract', $quality, 'no acceptance contract => never rides the value-gate / auto-merge');
-        $this->assertFalse($quality['_deadcode_removal']['provider_used'], 'the whole chain used NO provider');
-        $this->assertCount(2, $quality['_deadcode_removal']['removed']);
+        $this->assertFalse($quality['_deterministic_removal']['provider_used'], 'the whole chain used NO provider');
+        $this->assertCount(2, $quality['_deterministic_removal']['removed']);
     }
 
     public function test_real_work_scorecard_credits_the_deterministic_removal(): void
@@ -139,6 +139,42 @@ PHP);
             $scorecard['deterministic_real_work_proposals'],
             'the real-work scorecard credits the deterministic removal as REAL value (not coverage)'
         );
+    }
+
+    public function test_same_producer_persists_an_unused_import_removal_generalized(): void
+    {
+        $campaign = $this->campaign();
+        $dir = $this->fixtureDir(<<<'PHP'
+<?php
+
+namespace Foo;
+
+use App\Used\Thing;
+use App\Unused\Gone;
+
+class Sample
+{
+    public function go(): Thing
+    {
+        return new Thing();
+    }
+}
+PHP);
+
+        // The SAME AtlasLoopDeadCodeProducer, given a DIFFERENT deterministic work-type, persists its removal —
+        // proving the producer/persist/scorecard path is generic to any AtlasLoopDeterministicWorkType.
+        $producer = new AtlasLoopDeadCodeProducer(new \App\Services\Ai\AutonomousEvolution\AtlasLoopUnusedImportWorkType);
+        $id = $producer->persistCertifiedRemoval((string) $campaign->id, $dir, 'Sample.php');
+
+        @unlink($dir.'/Sample.php');
+        @rmdir($dir);
+
+        $this->assertNotNull($id, 'the generic producer persists an unused-import removal');
+        $proposal = AtlasLoopProposal::find($id);
+        $this->assertSame('deterministic', $proposal->provider);
+        $this->assertSame(AtlasLoopProposal::STATUS_CERTIFIED, $proposal->status);
+        $this->assertStringContainsString('Gone', (string) $proposal->diff_text, 'the unused import is in the diff');
+        $this->assertArrayHasKey('_deterministic_removal', (array) $proposal->quality);
     }
 
     public function test_persist_fails_closed_on_a_clean_file(): void
