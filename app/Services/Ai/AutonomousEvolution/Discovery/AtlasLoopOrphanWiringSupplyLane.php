@@ -41,32 +41,19 @@ final class AtlasLoopOrphanWiringSupplyLane
         $siblings = $this->siblings ?? new AtlasLoopSiblingTestResolver($repoRoot);
         $orphanFqcns = array_fill_keys($model->orphans, true);
         $forbidden = array_fill_keys($model->forbidden, true);
+        $supporter = new AtlasLoopOrphanWiringSupplyLaneSupport;
 
         $specs = [];
         foreach ($model->inventory as $node) {
-            $rel = ltrim((string) ($node['rel_path'] ?? ''), '/');
-            $fqcn = ltrim((string) ($node['fqcn'] ?? ''), '\\');
-            if ($rel === '' || $fqcn === '') {
+            $admitted = $supporter->evaluateNodeAdmissibility($node, $orphanFqcns, $forbidden, $siblings);
+            if ($admitted === null) {
                 continue;
             }
 
-            // (1) real orphan + (2) not pétreo (model flag AND rel_path forbidden list, defense-in-depth).
-            $isOrphan = ($node['is_orphan'] ?? false) === true && isset($orphanFqcns[$fqcn]);
-            if (! $isOrphan || ($node['is_forbidden'] ?? false) === true || isset($forbidden[$rel])) {
-                continue;
-            }
-
-            // (3) something to invoke.
-            $publicMethods = array_values(array_filter((array) ($node['public_methods'] ?? []), 'is_string'));
-            if ($publicMethods === []) {
-                continue;
-            }
-
-            // (4) tested, working capability (not dead scaffolding to delete).
-            $sib = $siblings->resolve($rel);
-            if (($sib['has_sibling'] ?? false) !== true || ($sib['asserted_methods'] ?? []) === []) {
-                continue;
-            }
+            $rel = $admitted['rel'];
+            $fqcn = $admitted['fqcn'];
+            $publicMethods = $admitted['public_methods'];
+            $sib = $admitted['sibling'];
 
             $payload = [
                 'objective_kind' => self::OBJECTIVE_KIND,
