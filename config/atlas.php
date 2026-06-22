@@ -2221,6 +2221,12 @@ return [
         // directive it cannot converge (pétreo / blast-radius). Default-OFF ⇒ the lane is byte-identical (the
         // work type's own cert still guards behaviour). The path to "design EVERY evolution before it grinds".
         'architect_gate_enabled' => (bool) env('ATLAS_LOOP_ARCHITECT_GATE_ENABLED', false),
+        // §4 RECURSIVE SELF-IMPROVEMENT — the brain may PROPOSE improvements to its own NON-pétreo code, but
+        // auto-APPLYING a self-edit needs explicit operator policy. Default-OFF ⇒ every self-improvement
+        // proposal is PARKED (propose-only); the loop never edits itself unattended. The constitution
+        // (AtlasLoopHarnessGuard pétreo) refuses cert-organ edits REGARDLESS of this flag — the gate is the
+        // policy lever, never a bypass of the constitution. Max-Goodhart surface: keep OFF until policy is set.
+        'recursive_self_improvement_auto_apply' => (bool) env('ATLAS_LOOP_RECURSIVE_SELF_IMPROVEMENT_AUTO_APPLY', false),
         // §5 LEARNING — the architect phase records each projection outcome (converged/parked+reason) per
         // campaign; the ONE safe feedback is skipping the ~8s model rebuild for a target already parked as a
         // pétreo cert organ (permanently off-limits). Blast-radius/non-converged parks are audit-only, never
