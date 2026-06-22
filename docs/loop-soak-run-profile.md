@@ -85,6 +85,22 @@ php artisan atlas:loop:off                                 # master OFF — noth
 Always finish with `atlas:loop:off`. The loop can never turn its own master switch back on (it's pétreo in the
 constitution), so once OFF it stays OFF until you arm it again.
 
+## 5b. REQUIRED for a soak: run the watchdog (it kills HUNG grinds)
+
+The circuit-breaker catches a provider that is DOWN (grinds fail fast → pause after N). It does NOT catch a
+provider that HANGS — a `hermes chat` call that blocks forever. The supervisor does not enforce a wall-clock
+grind timeout on the hermes_cli path (it bounds by `--max-turns`, not time), so a hung grind freezes the
+campaign's `elapsed` clock and it never hits its `--max-seconds` budget. **Proven live: a refactor grind hung
+on a `hermes chat --quiet` call for 15+ min, supervisor blocked, 0 progress** (the same live-hermes hang the
+materializer-sandbox investigation found).
+
+So launch the soak WITH the watchdog, which kills any grind older than a wall-clock ceiling:
+```
+nohup bin/atlas-loop-watchdog.sh <campaign-id> > /tmp/loop-watchdog.log 2>&1 &   # honors the master switch
+```
+It runs `ATLAS_LOOP_GRIND_MAX_SECONDS` (default 1800) and SIGKILLs an over-budget grind + its hermes call, so
+the supervisor records the attempt failed and moves on. Without it, a single hung hermes call stalls the soak.
+
 ## 6. Caveats (honest)
 
 - **Provider:** the loop runs on Hermes (GLM-5.2 / MiniMax fallback), NOT Claude. A soak consumes the Hermes
