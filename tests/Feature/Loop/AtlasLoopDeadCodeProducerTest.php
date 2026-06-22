@@ -101,6 +101,46 @@ PHP);
         $this->assertCount(2, $quality['_deadcode_removal']['removed']);
     }
 
+    public function test_real_work_scorecard_credits_the_deterministic_removal(): void
+    {
+        $campaign = $this->campaign();
+        $dir = $this->fixtureDir(<<<'PHP'
+<?php
+
+class Sample
+{
+    public function entry(): int
+    {
+        return $this->live();
+    }
+
+    private function deadHelper(): string
+    {
+        return 'never called';
+    }
+
+    private function live(): int
+    {
+        return 1;
+    }
+}
+PHP);
+
+        (new AtlasLoopDeadCodeProducer)->persistCertifiedRemoval((string) $campaign->id, $dir, 'Sample.php');
+        @unlink($dir.'/Sample.php');
+        @rmdir($dir);
+
+        $scorecard = app(\App\Services\Ai\AutonomousEvolution\AtlasLoopRealWorkScorecardService::class)
+            ->scorecard((string) $campaign->id);
+
+        $this->assertSame('ok', $scorecard['status']);
+        $this->assertGreaterThanOrEqual(
+            1,
+            $scorecard['deterministic_real_work_proposals'],
+            'the real-work scorecard credits the deterministic removal as REAL value (not coverage)'
+        );
+    }
+
     public function test_persist_fails_closed_on_a_clean_file(): void
     {
         $campaign = $this->campaign();
