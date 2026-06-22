@@ -472,6 +472,12 @@ final class AtlasLoopQueueRefiller
         // test + wiring; Guard 4e certifies). Flag OFF => returns 0 before any model build (byte-identical).
         $enqueued += $this->tryOrphanWiringSupply($campaign, $provider, $repoRoot, $want);
 
+        // §2 DOC-GAP SUPPLY LANE (default-OFF, fail-open): the BRAIN originates a capability the canonical
+        // docs DEMAND but no symbol provides — a red→green feature directive (Guard 4 diff_earned certifies;
+        // authoring is model-bound, §9-fenced). The proxy scan can NEVER surface it (it only sees code that
+        // exists). Flag OFF => returns 0 before any model build (byte-identical). Wrapped fail-open.
+        $enqueued += $this->tryDocGapSupply($campaign, $provider, $repoRoot, $want);
+
         // OBRA CANDIDATE PRODUCER (slice-1, default-OFF, fail-open): after discovery+enqueue,
         // scan the SAME claimed targets for high-leverage multi-file HUB clusters and park them
         // as operator-review obra CANDIDATES. It enqueues NO loop task, calls NO provider,
@@ -946,6 +952,111 @@ final class AtlasLoopQueueRefiller
                 'claimed_at' => null,
                 'lease_expires_at' => null,
             ])->save();
+        }
+
+        return $ok;
+    }
+
+    /**
+     * §2 DOC-GAP supply lane (mirrors {@see tryOrphanWiringSupply}). The comprehension model's doc-stated
+     * gaps (a capability the canonical docs NAME but no symbol provides) become red→green feature directives.
+     * Built WITH docs_roots so gaps are detected; flag OFF => no model build (byte-identical). Fail-open.
+     */
+    private function tryDocGapSupply(AtlasLoopCampaign $campaign, string $provider, string $repoRoot, int $want): int
+    {
+        if (! (bool) config('atlas.loop.doc_gap_supply_enabled', false)) {
+            return 0;
+        }
+
+        try {
+            $cap = max(1, min(max(1, $want), (int) config('atlas.loop.doc_gap_supply_max_per_refill', 1)));
+            $builder = new AtlasLoopScopeComprehensionModelBuilder;
+            $lane = new AtlasLoopDocGapSupplyLane;
+            $docsRoots = array_values(array_filter((array) config('atlas.loop.doc_gap_supply_docs_roots', []), 'is_string'));
+
+            $minted = 0;
+            foreach ((array) config('atlas.loop.campaign.discovery_roots', ['app/Services']) as $root) {
+                if ($minted >= $cap) {
+                    break;
+                }
+                $root = trim(str_replace('\\', '/', (string) $root), '/');
+                if ($root === '' || ! is_dir($repoRoot.'/'.$root)) {
+                    continue;
+                }
+                $model = $builder->build($repoRoot, $root, ['docs_roots' => $docsRoots]);
+                $this->touchHeartbeat($campaign);
+                foreach ($lane->mint($model, $repoRoot) as $spec) {
+                    if ($minted >= $cap) {
+                        break;
+                    }
+                    if ($this->mintDocGapTask($campaign, $spec, $repoRoot)) {
+                        $minted++;
+                    }
+                    $this->touchHeartbeat($campaign);
+                }
+            }
+
+            return $minted;
+        } catch (Throwable) {
+            return 0; // fail-open: the doc-gap lane can never break a refill
+        }
+    }
+
+    /**
+     * Enqueue ONE doc-gap DIRECTIVE (source='doc_gap'), anchored on the EXPECTED path of the capability to be
+     * created (scope-consistent + deterministic). The acceptance is engine-authored (red→green; Guard 4
+     * diff_earned is the deterministic gate). A pétreo expected-path is refused; a non-live enqueue restores.
+     *
+     * @param  array<string,mixed>  $spec
+     */
+    private function mintDocGapTask(AtlasLoopCampaign $campaign, array $spec, string $repoRoot): bool
+    {
+        $payload = is_array($spec['payload'] ?? null) ? $spec['payload'] : [];
+        $capability = trim((string) ($payload['capability'] ?? ''));
+        if ($capability === '' || ! preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $capability)) {
+            return false; // only a clean class-name maps to a deterministic expected path
+        }
+        $anchor = 'app/Services/Ai/AutonomousEvolution/'.$capability.'.php';
+
+        $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard;
+        if ($guard->isForbiddenSelfTarget($anchor) || $this->fileHasInflightTask((string) $campaign->id, $anchor)) {
+            return false;
+        }
+
+        $contentHash = hash('sha256', (string) @file_get_contents($repoRoot.'/'.$anchor));
+        $target = $this->repository->upsert(
+            (string) $campaign->id,
+            $anchor,
+            $contentHash,
+            [
+                'score' => 0.5,
+                'self_contained' => 0.0,
+                'improvement' => 1.0,
+                'novelty' => 0.7,
+                'signals' => ['doc_gap_supply' => true, 'capability' => $capability],
+            ],
+            ['origin' => AtlasLoopTarget::ORIGIN_DISCOVERY],
+        );
+        $priorStatus = (string) $target->status;
+        $target->forceFill([
+            'status' => AtlasLoopTarget::STATUS_CLAIMED,
+            'claimed_by' => 'doc_gap_supply',
+            'claimed_at' => now(),
+            'lease_expires_at' => now()->addSeconds(600),
+        ])->save();
+
+        $payload['_target_id'] = (string) $target->id;
+        $dp = $this->decidedPriority($campaign, $target, ['doc_gap_supply' => true], $repoRoot, AtlasLoopWorkShapeRouter::SHAPE_REFACTOR);
+        if ($dp['receipt'] !== []) {
+            $payload['_decision'] = $dp['receipt'];
+        }
+
+        $enq = $this->store->enqueueTask((string) $campaign->id, (string) ($spec['objective'] ?? ''), $payload, 'doc_gap', $anchor, $dp['priority'], false, '');
+        $this->stampLastObjective($target, (string) ($spec['objective'] ?? ''));
+
+        $ok = $this->completeTargetEnqueue($target, $enq, 'doc_gap_supply_directive') === 'enqueued';
+        if (! $ok) {
+            $target->forceFill(['status' => $priorStatus, 'claimed_by' => null, 'claimed_at' => null, 'lease_expires_at' => null])->save();
         }
 
         return $ok;

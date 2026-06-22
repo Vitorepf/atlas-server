@@ -1986,6 +1986,12 @@ return [
         'orphan_wiring_supply_enabled' => (bool) env('ATLAS_LOOP_ORPHAN_WIRING_SUPPLY_ENABLED', false),
         'orphan_wiring_supply_max_per_refill' => (int) env('ATLAS_LOOP_ORPHAN_WIRING_SUPPLY_MAX_PER_REFILL', 2),
         'orphan_wiring_execution_enabled' => (bool) env('ATLAS_LOOP_ORPHAN_WIRING_EXECUTION_ENABLED', false),
+        // §2 DOC-GAP supply: the brain originates a capability the canonical docs DEMAND but no symbol
+        // provides (red→green feature; FrozenJudge Guard 4 diff_earned certifies; authoring is model-bound,
+        // §9-fenced, like orphan-wiring). Default-OFF ⇒ no model build, byte-identical refill.
+        'doc_gap_supply_enabled' => (bool) env('ATLAS_LOOP_DOC_GAP_SUPPLY_ENABLED', false),
+        'doc_gap_supply_max_per_refill' => (int) env('ATLAS_LOOP_DOC_GAP_SUPPLY_MAX_PER_REFILL', 1),
+        'doc_gap_supply_docs_roots' => array_values(array_filter(array_map('trim', explode(',', (string) env('ATLAS_LOOP_DOC_GAP_SUPPLY_DOCS_ROOTS', 'docs/engineering-knowledge-base'))))),
         'park_escalation_enabled' => (bool) env('ATLAS_LOOP_PARK_ESCALATION_ENABLED', true),
         'territory_ladder_enabled' => (bool) env('ATLAS_LOOP_TERRITORY_LADDER_ENABLED', true),
         'drift_restart_debounce_enabled' => (bool) env('ATLAS_LOOP_DRIFT_RESTART_DEBOUNCE_ENABLED', true),
