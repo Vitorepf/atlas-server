@@ -113,11 +113,19 @@ Before (or alongside) a provider soak, prove the loop CERTIFIES real value witho
 php artisan atlas:loop:deadcode-sweep --json          # or --path=<dir> --limit=N
 ```
 It mills the scope, surgically removes provably-dead `private` members (AST, fail-closed — never a live
-sibling), and runs the holdout cert — all with ZERO provider calls, propose-only (never writes/merges).
-PROVEN live over the loop's own 275-file scope: 2 certified removals, `provider_used=false`. This is the
-hermes-free demonstration that `mói→certifica valor real` works, no thrash, clean exit. (Wiring this
-work-type INTO the campaign supply — so its certified removals flow through the governed merge path — is the
-remaining slice; the standalone proof is done.)
+sibling), and runs the holdout cert — all with ZERO provider calls. PROVEN live over the loop's own ~276-file
+scope: 2 certified removals, `provider_used=false`.
+
+**IN-CAMPAIGN form (attaches certified removals to a campaign as propose-only proposals):**
+```
+php artisan atlas:loop:deadcode-sweep --persist --campaign=<id> --json
+```
+Each certified removal is persisted `status=certified_for_review` (OPERATOR REVIEW — never auto-merges; it
+carries no `_acceptance_contract`, so the drain re-prove fails closed even if auto-merge were ON). PROVEN
+live end-to-end: a real campaign milled 276 files → certified + persisted 2 dead-code-removal proposals
+(`provider=deterministic`, `provider_used=false`), no thrash, clean. This is `1 campanha mói→certifica valor
+real ao vivo` for the DETERMINISTIC work-type — no hermes. (The provider work-types' in-campaign live proof
+is unblocked by the separately-landing hermes one-shot fix; the operational ring above keeps either safe.)
 
 ## 6. Caveats (honest)
 
