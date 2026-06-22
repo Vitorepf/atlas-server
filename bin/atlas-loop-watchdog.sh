@@ -21,9 +21,19 @@ LOG="/tmp/atlas-loop-watchdog.log"
 STOP="storage/atlas-loop/WATCHDOG_STOP"
 INTERVAL="${ATLAS_LOOP_WATCHDOG_INTERVAL:-60}"
 
+# §0 MASTER SWITCH — fail-closed. Mirrors AtlasLoopMasterSwitch::enabled() (direct .env read, never config).
+# Absent/unreadable/not-truthy ATLAS_LOOP_MASTER_ENABLED ⇒ the loop is globally OFF: respawn nothing, exit.
+# The loop can never re-enable itself — the flag is operator-only (pétreo in the constitution).
+master_enabled() {
+  local v
+  v=$(grep -E "^ATLAS_LOOP_MASTER_ENABLED=" .env 2>/dev/null | tail -1 | cut -d'=' -f2- | tr -d " \"'" | tr '[:upper:]' '[:lower:]')
+  case "$v" in 1|true|on|yes|enabled) return 0 ;; *) return 1 ;; esac
+}
+
 echo "[$(date '+%H:%M:%S')] watchdog START campaign=$CID interval=${INTERVAL}s" >> "$LOG"
 while true; do
   [ -f "$STOP" ] && { echo "[$(date '+%H:%M:%S')] STOP file present — exiting" >> "$LOG"; rm -f "$STOP"; break; }
+  master_enabled || { echo "[$(date '+%H:%M:%S')] MASTER SWITCH off — watchdog exiting (respawns nothing)" >> "$LOG"; break; }
 
   # 0. ENFORCE per-grind wall-clock ceiling. The configured atlas.loop.campaign.attempt_hard_seconds
   # (900s) is NOT enforced on the hermes_cli grind path (it bounds by --max-turns 90, not wall-clock),

@@ -140,7 +140,9 @@ Schedule::command('atlas:loop:automerge --limit=10 --json')
     ->everyFifteenMinutes()
     ->withoutOverlapping(10)
     ->appendOutputTo(storage_path('logs/loop-automerge.log'))
-    ->when(static fn (): bool => (bool) config('atlas.ai.loop.auto_merge_to_main', false));
+    // §0 MASTER SWITCH AND the merge flag — OFF ⇒ never write main, even on stale certified proposals.
+    ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled()
+        && (bool) config('atlas.ai.loop.auto_merge_to_main', false));
 
 // Conversion flywheel: feed a characterization_test task per REAL coverage gap (a refactor blocked
 // by mutation_survived on a still-uncovered decision) to the live supervisor. The command itself is
@@ -151,7 +153,9 @@ Schedule::command('atlas:loop:coverage-gaps --hours=24 --feed --json')
     ->everyThirtyMinutes()
     ->withoutOverlapping(20)
     ->appendOutputTo(storage_path('logs/loop-coverage-gaps-feed.log'))
-    ->when(static fn (): bool => (bool) config('atlas.loop.characterization_test_lane_enabled', false));
+    // §0 MASTER SWITCH AND the lane flag — OFF ⇒ never feed the live supervisor.
+    ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled()
+        && (bool) config('atlas.loop.characterization_test_lane_enabled', false));
 
 // L3-11 · Mint de green-run receipts da dimensão pipeline do ACOS, em cadência. Mira os
 // subsistemas `partial` (cada receipt verde flipa partial→ready) e sobe o scorecard com
@@ -262,7 +266,9 @@ Schedule::command('atlas:loop:loss-observer --json')
 Schedule::command('atlas:loop:backlog-feed --json')
     ->dailyAt((string) config('atlas.loop.backlog_auto_feed.schedule_time', '05:25'))
     ->withoutOverlapping()
-    ->when(static fn (): bool => (bool) config('atlas.loop.backlog_auto_feed.enabled', true));
+    // §0 MASTER SWITCH AND the feed flag — OFF ⇒ never top up the queue.
+    ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled()
+        && (bool) config('atlas.loop.backlog_auto_feed.enabled', true));
 
 // L4-6 · Painel 24h no digest matinal: um comando responde "o que Atlas fez
 // sozinho ontem?" com funil, merges+impacto, canários, custo, keepalive e fila
@@ -354,7 +360,9 @@ $autoArchitectureCommand = (bool) config('atlas.loop.auto_architecture_proposals
 Schedule::command($autoArchitectureCommand)
     ->dailyAt((string) config('atlas.loop.auto_architecture_proposals.schedule_time', '06:30'))
     ->withoutOverlapping()
-    ->when(static fn (): bool => (bool) config('atlas.loop.auto_architecture_proposals.enabled', true)
+    // §0 MASTER SWITCH AND the proposal flags — OFF ⇒ never create architecture proposals.
+    ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled()
+        && (bool) config('atlas.loop.auto_architecture_proposals.enabled', true)
         && (bool) config('atlas.loop.auto_architecture_proposals.schedule_enabled', true));
 
 // L6-5 · Mutation adequacy proof. The live semantic certifier uses this gate
@@ -419,7 +427,10 @@ Schedule::command('atlas:loop:keepalive --stale-minutes=2 --json')
     // 24h (default), ele pararia de respawnar o supervisor morto = independência perdida.
     // Expiry de 5min (= sua própria cadência) destrava sozinho se um passe crashar.
     ->withoutOverlapping(5)
-    ->when(static fn (): bool => (bool) config('atlas.loop.keepalive_enabled', true));
+    // §0 MASTER SWITCH (fail-closed) AND the legacy keepalive flag. OFF ⇒ the scheduler never even dispatches
+    // the keepalive (the command itself also no-ops; defense-in-depth). The definitive auto-respawn cut.
+    ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled()
+        && (bool) config('atlas.loop.keepalive_enabled', true));
 
 // NOTE: the Sunday digest (the ONLY weekly notification) is scheduled ONCE in
 // bootstrap/app.php (weeklyOn(0, …), timezone-aware, gated by atlas.ai.weekly_memory_digest.enabled).

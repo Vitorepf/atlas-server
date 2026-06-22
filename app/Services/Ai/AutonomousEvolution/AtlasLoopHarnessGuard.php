@@ -37,6 +37,10 @@ final class AtlasLoopHarnessGuard
         'app/Services/Ai/AutonomousEvolution/AtlasLoopProposalMaterializer.php',
         'app/Services/Ai/AutonomousEvolution/AtlasLoopNetDirectionGuard.php',
         'app/Services/Ai/AutonomousEvolution/AtlasLoopHarnessGuard.php',
+        // §0 MASTER ON/OFF SWITCH — the loop can NEVER edit its own master switch (it could never turn itself
+        // back on, nor weaken the fail-closed gate). The flag is operator-only. Same principle as the judge:
+        // the réu never edits the gate that decides whether it is allowed to run at all. Aperto só-adiciona.
+        'app/Services/Ai/AutonomousEvolution/AtlasLoopMasterSwitch.php',
         'app/Models/AtlasLoopProposal.php',
         // A cadeia de CERTIFICAÇÃO fora de AutonomousEvolution/ (achado 12/06: o soak
         // certificou proposta editando o PRÓPRIO painel-juiz — réu editando o juiz).

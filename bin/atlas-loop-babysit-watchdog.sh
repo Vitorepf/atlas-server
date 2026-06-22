@@ -14,8 +14,20 @@ CID="${1:?campaign-id required}"
 PHP="${ATLAS_PHP_BIN:-/opt/homebrew/bin/php}"
 INTERVAL="${BABYSIT_INTERVAL:-60}"
 LOG="storage/logs/babysit-watchdog-${CID}.log"
+ENV_FILE="${ATLAS_ENV_FILE:-/Users/vitorepf/develop/Atlas/atlas-server/.env}"
+
+# §0 MASTER SWITCH — fail-closed. Mirrors AtlasLoopMasterSwitch::enabled() (direct .env read, never config).
+# Absent/unreadable/not-truthy ATLAS_LOOP_MASTER_ENABLED ⇒ the loop is globally OFF: respawn nothing, exit.
+# The loop can never re-enable itself — the flag is operator-only (pétreo in the constitution).
+master_enabled() {
+  local v
+  v=$(grep -E "^ATLAS_LOOP_MASTER_ENABLED=" "$ENV_FILE" 2>/dev/null | tail -1 | cut -d'=' -f2- | tr -d " \"'" | tr '[:upper:]' '[:lower:]')
+  case "$v" in 1|true|on|yes|enabled) return 0 ;; *) return 1 ;; esac
+}
+
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] babysit watchdog START campaign=$CID interval=${INTERVAL}s (NO automerge)" >> "$LOG"
 while true; do
+  master_enabled || { echo "[$(date '+%Y-%m-%d %H:%M:%S')] MASTER SWITCH off — babysit exiting (respawns nothing)" >> "$LOG"; break; }
   # kill a hung-but-heartbeating supervisor FIRST (completed-work frozen 20min while work waits) so the
   # keepalive below respawns a fresh one in the same cycle. No-op verdict on a healthy/idle supervisor.
   $PHP -d memory_limit=2048M artisan atlas:loop:hung-supervisor-guard --campaign-id="$CID" --stall-seconds=1200 --json >> "$LOG" 2>&1

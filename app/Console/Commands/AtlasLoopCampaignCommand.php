@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopCycleGitContract;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Campaign\AtlasLoopCampaignSupervisor;
 use Illuminate\Console\Command;
 
@@ -42,6 +43,15 @@ final class AtlasLoopCampaignCommand extends Command
 
     public function handle(AtlasLoopCampaignSupervisor $supervisor): int
     {
+        // §0 MASTER SWITCH — fail-closed global gate. OFF ⇒ refuse to launch any campaign (no supervisor, no
+        // grind workers). The operator runs `atlas:loop:on` first; until then the loop cannot start, even by a
+        // manual or scheduled invocation. Clean no-op exit (SUCCESS, not error → no scheduler/watchdog retry-storm).
+        if (! AtlasLoopMasterSwitch::enabled()) {
+            $this->line((string) json_encode(['schema_version' => 'atlas.loop.campaign.v1', 'master' => 'off', 'launched' => false]));
+
+            return self::SUCCESS;
+        }
+
         $input = array_filter([
             'campaign_id' => trim((string) ($this->option('campaign-id') ?: '')),
             'goal' => trim((string) ($this->option('goal') ?: '')),

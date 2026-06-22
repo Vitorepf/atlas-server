@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopDriftRestartDebounce;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMorningDigestService;
 use App\Services\Ai\AutonomousEvolution\Campaign\AtlasLoopPipelineDrift;
 use App\Support\AtlasPhpBinary;
@@ -39,6 +40,16 @@ class AtlasLoopKeepaliveCommand extends Command
 
     public function handle(): int
     {
+        // §0 MASTER SWITCH — fail-closed global gate. OFF ⇒ the loop is globally disabled: respawn NOTHING.
+        // This is the definitive cut of the auto-respawn token-burn (was: keepalive resurrected stuck campaigns
+        // every 5 min with no operator request). Byte-identical no-op when OFF.
+        if (! AtlasLoopMasterSwitch::enabled()) {
+            $out = ['schema_version' => 'atlas.loop.keepalive.v1', 'master' => 'off', 'checked' => 0, 'respawned' => [], 'reaped' => [], 'healthy' => []];
+            $this->line((string) json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            return self::SUCCESS;
+        }
+
         $out = ['schema_version' => 'atlas.loop.keepalive.v1', 'checked' => 0, 'respawned' => [], 'reaped' => [], 'healthy' => []];
         $staleMinutes = max(2, (int) $this->option('stale-minutes'));
 
