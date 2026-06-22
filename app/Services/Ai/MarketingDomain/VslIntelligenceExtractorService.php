@@ -13,8 +13,12 @@ use Throwable;
 /**
  * Pillar 1 — VSL intelligence extraction. Reads a transcribed VSL and runs a
  * focused multi-pass LLM analysis (governed provider, never a pinned model) to
- * fill the offer anatomy: niche, problem/solution mechanism, avatar, offer,
- * persuasion, plus the Google-Search funnel kit and compliance flags.
+ * fill the offer anatomy, the Google-Search funnel kit, and the campaign assets.
+ *
+ * Quality layers:
+ *  - entity normalization pass (fixes ASR errors in names/brands/drugs)
+ *  - multi-run consensus on the critical market/mechanism pass
+ *  - a comprehension critic that scores each field and re-runs the weak passes
  *
  * Uses an UNSAVED AiJob so it does not depend on the ai_jobs runtime table.
  */
@@ -22,11 +26,14 @@ class VslIntelligenceExtractorService
 {
     public ?string $lastModel = null;
 
+    /** @var array<int,string> */
+    private const PASSES = ['entities', 'market', 'offer', 'funnel', 'keywords', 'creative'];
+
     public function __construct(
         private readonly AiProviderManager $providers,
     ) {}
 
-    public function extract(AiMarketingVslAsset $asset): AiMarketingVslAsset
+    public function extract(AiMarketingVslAsset $asset, int $criticalConsensus = 2): AiMarketingVslAsset
     {
         $transcript = trim((string) $asset->transcript);
         if ($transcript === '') {
@@ -39,76 +46,72 @@ class VslIntelligenceExtractorService
             'top_terms' => $this->computeTopTerms($transcript),
         ])->save();
 
+        $errors = [];
+        $ok = [];
+
+        // Entity normalization first → downstream passes use canonical names.
+        $this->safe('entities', $errors, $ok, function () use ($asset, $transcript): void {
+            $this->runAndApply('entities', $asset, $transcript);
+        });
+        $asset->refresh();
+
+        // Critical pass (market/mechanism) → multi-run consensus.
+        $this->safe('market', $errors, $ok, function () use ($asset, $transcript, $criticalConsensus): void {
+            $this->runCritical('market', $asset, $transcript, max(1, $criticalConsensus));
+        });
+        $asset->refresh();
+
+        // Remaining passes — each is independent; one failure must not lose the rest.
+        foreach (['offer', 'funnel', 'keywords', 'creative'] as $key) {
+            $this->safe($key, $errors, $ok, function () use ($key, $asset, $transcript): void {
+                $this->runAndApply($key, $asset, $transcript);
+            });
+            $asset->refresh();
+        }
+
+        if ($ok === []) {
+            return $this->markFailed($asset, 'All extraction passes failed: '.Str::limit(json_encode($errors) ?: '', 400, ''));
+        }
+
+        // Comprehension critic → score + auto-improve weak passes (best-effort).
         try {
-            // Pass A — market & mechanism
-            $a = $this->callModel($this->systemMarket(), $this->userTranscript($transcript), 'atlas.vsl.market.v1');
-            $asset->forceFill([
-                'niche' => $this->str($a['niche'] ?? null, 290) ?? $asset->niche,
-                'sub_niche' => $this->str($a['sub_niche'] ?? null, 390),
-                'problem_mechanism' => $this->str($a['problem_mechanism'] ?? null),
-                'solution_mechanism' => $this->str($a['solution_mechanism'] ?? null),
-                'big_idea' => $this->str($a['big_idea'] ?? null),
-                'core_promise' => $this->str($a['core_promise'] ?? null),
-                'awareness_level' => $this->str($a['awareness_level'] ?? null, 150),
-                'sophistication_level' => $this->str($a['sophistication_level'] ?? null, 70),
-                'avatar' => is_array($a['avatar'] ?? null) ? $a['avatar'] : null,
-            ])->save();
-
-            // Pass B — offer & persuasion
-            $b = $this->callModel($this->systemOffer(), $this->userTranscript($transcript), 'atlas.vsl.offer.v1');
-            $asset->forceFill([
-                'essential_summary' => $this->str($b['essential_summary'] ?? null),
-                'offer' => is_array($b['offer'] ?? null) ? $b['offer'] : null,
-                'persuasion' => is_array($b['persuasion'] ?? null) ? $b['persuasion'] : null,
-                'pitch_starts_at_seconds' => isset($b['pitch_starts_at_seconds']) ? (int) $b['pitch_starts_at_seconds'] : null,
-                'claims' => is_array($b['claims'] ?? null) ? $b['claims'] : null,
-            ])->save();
-
-            // Pass C — funnel kit (grounded on A+B)
-            $c = $this->callModel($this->systemFunnel(), $this->groundedUser($asset, $transcript), 'atlas.vsl.funnel.v1');
-            $asset->forceFill([
-                'funnel_kit' => is_array($c['funnel_kit'] ?? null) ? $c['funnel_kit'] : null,
-                'levers' => is_array($c['levers'] ?? null) ? $c['levers'] : null,
-            ])->save();
-
-            // Pass D — keywords, targeting & named mechanism (grounded + VSL frequency)
-            $d = $this->callModel($this->systemKeywords(), $this->groundedUser($asset, $transcript), 'atlas.vsl.keywords.v1');
-            $asset->forceFill([
-                'mechanism_name' => $this->str($d['mechanism_name'] ?? null, 290),
-                'target_geo' => $this->str($d['target_geo'] ?? null, 110),
-                'keywords' => is_array($d['keywords'] ?? null) ? $d['keywords'] : null,
-            ])->save();
-
-            // Pass E — campaign creative kit (advertorial brief, RSA assets, CTA, rebuttals, beats)
-            $e = $this->callModel($this->systemCreative(), $this->groundedUser($asset, $transcript), 'atlas.vsl.creative.v1');
-            $asset->forceFill([
-                'value_equation' => is_array($e['value_equation'] ?? null) ? $e['value_equation'] : null,
-                'advertorial_brief' => is_array($e['advertorial_brief'] ?? null) ? $e['advertorial_brief'] : null,
-                'ad_assets' => is_array($e['ad_assets'] ?? null) ? $e['ad_assets'] : null,
-                'cta' => is_array($e['cta'] ?? null) ? $e['cta'] : null,
-                'objection_rebuttals' => is_array($e['objection_rebuttals'] ?? null) ? $e['objection_rebuttals'] : null,
-                'power_phrases' => is_array($e['power_phrases'] ?? null) ? $e['power_phrases'] : null,
-                'beat_timestamps' => is_array($e['beat_timestamps'] ?? null) ? $e['beat_timestamps'] : null,
-            ])->save();
-
-            $asset->forceFill([
-                'status' => 'structured',
-                'structure_status' => 'ready',
-                'structured_at' => now(),
-                'extraction_model' => $this->lastModel ?? 'hermes_cli',
-                'reason' => null,
-            ])->save();
-
-            return $asset->refresh();
+            $this->runCritic($asset, $transcript);
         } catch (Throwable $e) {
-            return $this->markFailed($asset, Str::limit($e->getMessage(), 480, ''));
+            $errors['critic'] = Str::limit($e->getMessage(), 200, '');
+        }
+        $asset->refresh();
+
+        $diagnostics = is_array($asset->diagnostics) ? $asset->diagnostics : [];
+        $asset->forceFill([
+            'status' => 'structured',
+            'structure_status' => $errors === [] ? 'ready' : 'partial',
+            'structured_at' => now(),
+            'extraction_model' => $this->lastModel ?? 'hermes_cli',
+            'reason' => $errors === [] ? null : 'passes com erro: '.implode(', ', array_keys($errors)),
+            'diagnostics' => array_merge($diagnostics, ['pass_errors' => $errors ?: null, 'passes_ok' => $ok]),
+        ])->save();
+
+        return $asset->refresh();
+    }
+
+    /**
+     * Run a pass, recording success/failure without aborting the pipeline.
+     *
+     * @param  array<string,string>  $errors
+     * @param  array<int,string>  $ok
+     */
+    private function safe(string $key, array &$errors, array &$ok, callable $fn): void
+    {
+        try {
+            $fn();
+            $ok[] = $key;
+        } catch (Throwable $e) {
+            $errors[$key] = Str::limit($e->getMessage(), 200, '');
         }
     }
 
     private function markFailed(AiMarketingVslAsset $asset, string $reason): AiMarketingVslAsset
     {
-        // Direct keyed update — never re-save the model, whose dirty attributes
-        // from a failed pass would re-trigger the very write error we caught.
         AiMarketingVslAsset::query()->whereKey($asset->getKey())->update([
             'status' => $asset->transcript ? 'transcribed' : 'failed',
             'structure_status' => 'failed',
@@ -118,33 +121,185 @@ class VslIntelligenceExtractorService
         return $asset->fresh() ?? $asset;
     }
 
+    // ---- orchestration -----------------------------------------------------
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function runAndApply(string $key, AiMarketingVslAsset $asset, string $transcript): array
+    {
+        $result = $this->callModel($this->systemFor($key), $this->groundedUser($asset, $transcript), $this->schemaFor($key));
+        $this->applyPass($key, $asset, $result);
+
+        return $result;
+    }
+
+    private function runCritical(string $key, AiMarketingVslAsset $asset, string $transcript, int $n): void
+    {
+        if ($n <= 1) {
+            $this->runAndApply($key, $asset, $transcript);
+
+            return;
+        }
+
+        $runs = [];
+        for ($i = 0; $i < $n; $i++) {
+            $runs[] = $this->callModel($this->systemFor($key), $this->groundedUser($asset, $transcript), $this->schemaFor($key));
+        }
+
+        $reconciled = $this->callModel(
+            $this->systemReconcile($this->schemaFor($key)),
+            'EXTRAÇÕES INDEPENDENTES ('.count($runs).'x):'."\n".json_encode($runs, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)."\n\n=== TRANSCRIÇÃO ===\n".$transcript,
+            $this->schemaFor($key)
+        );
+        $this->applyPass($key, $asset, $reconciled);
+    }
+
+    private function runCritic(AiMarketingVslAsset $asset, string $transcript): void
+    {
+        $critique = $this->callModel(
+            $this->systemCritic(),
+            "ESTRUTURA EXTRAÍDA:\n".$this->snapshotJson($asset)."\n\n=== TRANSCRIÇÃO ===\n".$transcript,
+            'atlas.vsl.quality.v1'
+        );
+        $asset->forceFill(['structure_quality' => $critique])->save();
+
+        $weak = array_values(array_filter(
+            is_array($critique['weak_passes'] ?? null) ? $critique['weak_passes'] : [],
+            static fn ($k): bool => is_string($k) && in_array($k, self::PASSES, true)
+        ));
+        $weak = array_slice(array_values(array_unique($weak)), 0, 3);
+        if ($weak === []) {
+            return;
+        }
+
+        foreach ($weak as $key) {
+            $this->runAndApply($key, $asset, $transcript);
+            $asset->refresh();
+        }
+
+        $rescore = $this->callModel(
+            $this->systemCritic(),
+            'ESTRUTURA EXTRAÍDA (revisada após re-rodar '.implode(', ', $weak).'):'."\n".$this->snapshotJson($asset)."\n\n=== TRANSCRIÇÃO ===\n".$transcript,
+            'atlas.vsl.quality.v1'
+        );
+        $rescore['reran_passes'] = $weak;
+        $asset->forceFill(['structure_quality' => $rescore])->save();
+    }
+
+    private function applyPass(string $key, AiMarketingVslAsset $asset, array $r): void
+    {
+        match ($key) {
+            'entities' => $asset->forceFill([
+                'entities' => is_array($r['entities'] ?? null) ? $r['entities'] : $asset->entities,
+            ]),
+            'market' => $asset->forceFill([
+                'niche' => $this->str($r['niche'] ?? null, 290) ?? $asset->niche,
+                'sub_niche' => $this->str($r['sub_niche'] ?? null, 390),
+                'problem_mechanism' => $this->str($r['problem_mechanism'] ?? null),
+                'solution_mechanism' => $this->str($r['solution_mechanism'] ?? null),
+                'big_idea' => $this->str($r['big_idea'] ?? null),
+                'core_promise' => $this->str($r['core_promise'] ?? null),
+                'awareness_level' => $this->str($r['awareness_level'] ?? null, 150),
+                'sophistication_level' => $this->str($r['sophistication_level'] ?? null, 70),
+                'avatar' => is_array($r['avatar'] ?? null) ? $r['avatar'] : $asset->avatar,
+            ]),
+            'offer' => $asset->forceFill([
+                'essential_summary' => $this->str($r['essential_summary'] ?? null),
+                'offer' => is_array($r['offer'] ?? null) ? $r['offer'] : $asset->offer,
+                'persuasion' => is_array($r['persuasion'] ?? null) ? $r['persuasion'] : $asset->persuasion,
+                'pitch_starts_at_seconds' => isset($r['pitch_starts_at_seconds']) ? (int) $r['pitch_starts_at_seconds'] : $asset->pitch_starts_at_seconds,
+                'claims' => is_array($r['claims'] ?? null) ? $r['claims'] : $asset->claims,
+            ]),
+            'funnel' => $asset->forceFill([
+                'funnel_kit' => is_array($r['funnel_kit'] ?? null) ? $r['funnel_kit'] : $asset->funnel_kit,
+                'levers' => is_array($r['levers'] ?? null) ? $r['levers'] : $asset->levers,
+            ]),
+            'keywords' => $asset->forceFill([
+                'mechanism_name' => $this->str($r['mechanism_name'] ?? null, 290) ?? $asset->mechanism_name,
+                'target_geo' => $this->str($r['target_geo'] ?? null, 110) ?? $asset->target_geo,
+                'keywords' => is_array($r['keywords'] ?? null) ? $r['keywords'] : $asset->keywords,
+            ]),
+            'creative' => $asset->forceFill([
+                'value_equation' => is_array($r['value_equation'] ?? null) ? $r['value_equation'] : $asset->value_equation,
+                'advertorial_brief' => is_array($r['advertorial_brief'] ?? null) ? $r['advertorial_brief'] : $asset->advertorial_brief,
+                'ad_assets' => is_array($r['ad_assets'] ?? null) ? $r['ad_assets'] : $asset->ad_assets,
+                'cta' => is_array($r['cta'] ?? null) ? $r['cta'] : $asset->cta,
+                'objection_rebuttals' => is_array($r['objection_rebuttals'] ?? null) ? $r['objection_rebuttals'] : $asset->objection_rebuttals,
+                'power_phrases' => is_array($r['power_phrases'] ?? null) ? $r['power_phrases'] : $asset->power_phrases,
+                'beat_timestamps' => is_array($r['beat_timestamps'] ?? null) ? $r['beat_timestamps'] : $asset->beat_timestamps,
+            ]),
+            default => null,
+        };
+
+        $asset->save();
+    }
+
+    private function systemFor(string $key): string
+    {
+        return match ($key) {
+            'entities' => $this->systemEntities(),
+            'market' => $this->systemMarket(),
+            'offer' => $this->systemOffer(),
+            'funnel' => $this->systemFunnel(),
+            'keywords' => $this->systemKeywords(),
+            'creative' => $this->systemCreative(),
+            default => throw new RuntimeException("Unknown pass [{$key}]"),
+        };
+    }
+
+    private function schemaFor(string $key): string
+    {
+        return match ($key) {
+            'entities' => 'atlas.vsl.entities.v1',
+            'market' => 'atlas.vsl.market.v1',
+            'offer' => 'atlas.vsl.offer.v1',
+            'funnel' => 'atlas.vsl.funnel.v1',
+            'keywords' => 'atlas.vsl.keywords.v1',
+            'creative' => 'atlas.vsl.creative.v1',
+            default => throw new RuntimeException("Unknown pass [{$key}]"),
+        };
+    }
+
+    // ---- provider plumbing -------------------------------------------------
+
     /**
      * @return array<string,mixed>
      */
     private function callModel(string $system, string $user, string $schemaVersion, int $timeoutSeconds = 600): array
     {
-        $job = new AiJob([
-            'trace_id' => (string) Str::ulid(),
-            'kind' => 'vsl_intelligence_extraction',
-            'status' => 'pending',
-            'input_text' => $user,
-            'prompt' => $system,
-            'payload' => ['model_identity_source' => 'provider_default_identity'],
-            'timeout_seconds' => $timeoutSeconds,
-        ]);
-        $job->id = (string) Str::uuid();
+        $lastError = 'unknown error';
+        for ($attempt = 1; $attempt <= 2; $attempt++) {
+            $payload = $attempt === 1
+                ? $user
+                : $user."\n\nIMPORTANTE: a resposta anterior não pôde ser lida. Responda SOMENTE com UM bloco json VÁLIDO e COMPLETO (sem truncar, sem texto fora do bloco json).";
 
-        $result = $this->providers->get()->run($job, $system."\n\n".$user);
-        if (! $result->ok) {
-            throw new RuntimeException('LLM call failed: '.($result->errorMessage ?: ($result->stderr ?: 'unknown error')));
+            $job = new AiJob([
+                'trace_id' => (string) Str::ulid(),
+                'kind' => 'vsl_intelligence_extraction',
+                'status' => 'pending',
+                'input_text' => $payload,
+                'prompt' => $system,
+                'payload' => ['model_identity_source' => 'provider_default_identity'],
+                'timeout_seconds' => $timeoutSeconds,
+            ]);
+            $job->id = (string) Str::uuid();
+
+            $result = $this->providers->get()->run($job, $system."\n\n".$payload);
+            if (! $result->ok) {
+                $lastError = $result->errorMessage ?: ($result->stderr ?: 'provider error');
+
+                continue;
+            }
+
+            $parsed = $this->parseJson($result->output, $schemaVersion);
+            if ($parsed !== null) {
+                return $parsed;
+            }
+            $lastError = "could not parse JSON ({$schemaVersion})";
         }
 
-        $parsed = $this->parseJson($result->output, $schemaVersion);
-        if ($parsed === null) {
-            throw new RuntimeException("Could not parse JSON ({$schemaVersion}) from model output.");
-        }
-
-        return $parsed;
+        throw new RuntimeException('LLM call failed: '.$lastError);
     }
 
     /**
@@ -197,9 +352,157 @@ class VslIntelligenceExtractorService
         return $value === '' ? null : Str::limit($value, $limit, '');
     }
 
-    private function userTranscript(string $transcript): string
+    private function groundedUser(AiMarketingVslAsset $asset, string $transcript): string
     {
-        return "=== TRANSCRIÇÃO COMPLETA DA VSL ===\n".$transcript;
+        $prior = json_encode([
+            'entities' => $asset->entities,
+            'niche' => $asset->niche,
+            'sub_niche' => $asset->sub_niche,
+            'mechanism_name' => $asset->mechanism_name,
+            'problem_mechanism' => $asset->problem_mechanism,
+            'solution_mechanism' => $asset->solution_mechanism,
+            'big_idea' => $asset->big_idea,
+            'core_promise' => $asset->core_promise,
+            'awareness_level' => $asset->awareness_level,
+            'avatar' => $asset->avatar,
+            'offer' => $asset->offer,
+            'persuasion' => $asset->persuasion,
+            'top_terms' => $asset->top_terms,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}';
+
+        return "ESTRUTURA EXTRAÍDA (entities = nomes canônicos; top_terms = termos mais repetidos da VSL — use-os):\n{$prior}\n\n=== TRANSCRIÇÃO COMPLETA DA VSL ===\n{$transcript}";
+    }
+
+    private function snapshotJson(AiMarketingVslAsset $asset): string
+    {
+        return json_encode([
+            'niche' => $asset->niche,
+            'sub_niche' => $asset->sub_niche,
+            'mechanism_name' => $asset->mechanism_name,
+            'problem_mechanism' => $asset->problem_mechanism,
+            'solution_mechanism' => $asset->solution_mechanism,
+            'big_idea' => $asset->big_idea,
+            'core_promise' => $asset->core_promise,
+            'awareness_level' => $asset->awareness_level,
+            'sophistication_level' => $asset->sophistication_level,
+            'pitch_starts_at_seconds' => $asset->pitch_starts_at_seconds,
+            'essential_summary' => $asset->essential_summary,
+            'avatar' => $asset->avatar,
+            'offer' => $asset->offer,
+            'persuasion' => $asset->persuasion,
+            'claims' => $asset->claims,
+            'funnel_kit' => $asset->funnel_kit,
+            'keywords' => $asset->keywords,
+            'value_equation' => $asset->value_equation,
+            'advertorial_brief' => $asset->advertorial_brief,
+            'ad_assets' => $asset->ad_assets,
+            'cta' => $asset->cta,
+            'objection_rebuttals' => $asset->objection_rebuttals,
+            'power_phrases' => $asset->power_phrases,
+            'beat_timestamps' => $asset->beat_timestamps,
+            'entities' => $asset->entities,
+            'target_geo' => $asset->target_geo,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}';
+    }
+
+    /**
+     * Deterministic word/phrase frequency over the transcript (stopword-filtered).
+     * The exact "most-used keywords" — not an LLM guess.
+     *
+     * @return array<string,mixed>
+     */
+    private function computeTopTerms(string $transcript, int $words = 20, int $phrases = 15): array
+    {
+        $text = mb_strtolower($transcript);
+        $text = (string) preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', $text);
+        $tokens = array_values(array_filter(
+            preg_split('/\s+/u', $text) ?: [],
+            static fn (string $t): bool => $t !== ''
+        ));
+
+        $stop = $this->stopwords();
+        $meaningful = static fn (string $t): bool => mb_strlen($t) >= 3 && ! isset($stop[$t]) && ! ctype_digit($t);
+
+        $uni = [];
+        foreach ($tokens as $t) {
+            if ($meaningful($t)) {
+                $uni[$t] = ($uni[$t] ?? 0) + 1;
+            }
+        }
+        arsort($uni);
+        $topWords = [];
+        foreach (array_slice($uni, 0, $words, true) as $term => $count) {
+            $topWords[] = ['term' => $term, 'count' => $count];
+        }
+
+        $bi = [];
+        $n = count($tokens);
+        for ($i = 0; $i < $n - 1; $i++) {
+            // skip repeated adjacent words (transcription stutter: "mix mix")
+            if ($tokens[$i] !== $tokens[$i + 1]
+                && $meaningful($tokens[$i])
+                && $meaningful($tokens[$i + 1])) {
+                $key = $tokens[$i].' '.$tokens[$i + 1];
+                $bi[$key] = ($bi[$key] ?? 0) + 1;
+            }
+        }
+        arsort($bi);
+        $topPhrases = [];
+        foreach (array_slice($bi, 0, $phrases, true) as $term => $count) {
+            if ($count < 2) {
+                continue;
+            }
+            $topPhrases[] = ['term' => $term, 'count' => $count];
+        }
+
+        return ['top_words' => $topWords, 'top_phrases' => $topPhrases];
+    }
+
+    /**
+     * @return array<string,bool>
+     */
+    private function stopwords(): array
+    {
+        $list = [
+            // EN
+            'the', 'and', 'for', 'you', 'your', 'that', 'this', 'with', 'are', 'was', 'were', 'have', 'has', 'had',
+            'not', 'but', 'they', 'them', 'their', 'there', 'here', 'also', 'very', 'much', 'only', 'even', 'because',
+            'from', 'out', 'now', 'can', 'will', 'just', 'about', 'what', 'all', 'more', 'when', 'who', 'how', 'one',
+            'two', 'like', 'then', 'get', 'got', 'our', 'its', 'his', 'her', 'him', 'she', 'too', 'any', 'some', 'than',
+            'into', 'over', 'off', 'been', 'being', 'does', 'did', 'doing', 'would', 'could', 'should', 'while', 'where',
+            'which', 'these', 'those', 'don', 'didn', 'doesn', 'isn', 'aren', 'wasn',
+            // PT
+            'que', 'nao', 'uma', 'com', 'para', 'por', 'dos', 'das', 'isso', 'esse', 'essa', 'este', 'esta', 'mais',
+            'muito', 'como', 'quando', 'onde', 'porque', 'sobre', 'ate', 'mas', 'tambem', 'entao', 'voce', 'eles',
+            'elas', 'ele', 'ela', 'seu', 'sua', 'meu', 'minha', 'nas', 'aos', 'foi', 'sao', 'ser', 'ter', 'tem',
+            'estao', 'pelo', 'pela', 'num', 'numa', 'aqui', 'ali', 'sim', 'vai', 'vou', 'fazer', 'coisa', 'agora',
+            'todo', 'toda', 'todos', 'todas', 'uns', 'umas', 'sem', 'seus', 'suas', 'meus', 'minhas', 'nossa', 'nosso',
+            'deste', 'desta', 'disso', 'nos',
+        ];
+
+        return array_fill_keys($list, true);
+    }
+
+    // ---- prompts -----------------------------------------------------------
+
+    private function systemEntities(): string
+    {
+        return <<<'PROMPT'
+Você analisa a transcrição de uma VSL gerada por ASR (pode conter erros em nomes próprios, marcas e fármacos).
+Extraia e NORMALIZE as entidades-chave, corrigindo erros prováveis de transcrição.
+
+Responda APENAS com UM bloco de código json:
+```json
+{
+  "schema_version": "atlas.vsl.entities.v1",
+  "entities": [
+    {"type": "pessoa|marca|produto|ingrediente|empresa|lugar|claim_numerico", "raw": "como apareceu no transcript", "canonical": "forma correta/canônica", "note": "contexto"}
+  ]
+}
+```
+Ex.: {"type":"pessoa","raw":"atiyah","canonical":"Dr. Peter Attia","note":"autoridade citada"}.
+Inclua pessoas, marcas, produtos, ingredientes/fármacos (ex.: Ozempic, Mounjaro, retatrutide), empresas e números de claim relevantes. Não escreva nada fora do json.
+PROMPT;
     }
 
     private function systemMarket(): string
@@ -314,104 +617,6 @@ Não escreva nada fora do json.
 PROMPT;
     }
 
-    private function groundedUser(AiMarketingVslAsset $asset, string $transcript): string
-    {
-        $prior = json_encode([
-            'niche' => $asset->niche,
-            'sub_niche' => $asset->sub_niche,
-            'mechanism_name' => $asset->mechanism_name,
-            'problem_mechanism' => $asset->problem_mechanism,
-            'solution_mechanism' => $asset->solution_mechanism,
-            'big_idea' => $asset->big_idea,
-            'core_promise' => $asset->core_promise,
-            'awareness_level' => $asset->awareness_level,
-            'avatar' => $asset->avatar,
-            'offer' => $asset->offer,
-            'persuasion' => $asset->persuasion,
-            'top_terms' => $asset->top_terms,
-        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}';
-
-        return "ESTRUTURA EXTRAÍDA (top_terms = termos mais repetidos da VSL, use-os):\n{$prior}\n\n=== TRANSCRIÇÃO COMPLETA DA VSL ===\n{$transcript}";
-    }
-
-    /**
-     * Deterministic word/phrase frequency over the transcript (stopword-filtered).
-     * The exact "most-used keywords" — not an LLM guess.
-     *
-     * @return array<string,mixed>
-     */
-    private function computeTopTerms(string $transcript, int $words = 20, int $phrases = 15): array
-    {
-        $text = mb_strtolower($transcript);
-        $text = (string) preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', $text);
-        $tokens = array_values(array_filter(
-            preg_split('/\s+/u', $text) ?: [],
-            static fn (string $t): bool => $t !== ''
-        ));
-
-        $stop = $this->stopwords();
-        $meaningful = static fn (string $t): bool => mb_strlen($t) >= 3 && ! isset($stop[$t]) && ! ctype_digit($t);
-
-        $uni = [];
-        foreach ($tokens as $t) {
-            if ($meaningful($t)) {
-                $uni[$t] = ($uni[$t] ?? 0) + 1;
-            }
-        }
-        arsort($uni);
-        $topWords = [];
-        foreach (array_slice($uni, 0, $words, true) as $term => $count) {
-            $topWords[] = ['term' => $term, 'count' => $count];
-        }
-
-        $bi = [];
-        $n = count($tokens);
-        for ($i = 0; $i < $n - 1; $i++) {
-            // skip repeated adjacent words (transcription stutter: "mix mix")
-            if ($tokens[$i] !== $tokens[$i + 1]
-                && $meaningful($tokens[$i])
-                && $meaningful($tokens[$i + 1])) {
-                $key = $tokens[$i].' '.$tokens[$i + 1];
-                $bi[$key] = ($bi[$key] ?? 0) + 1;
-            }
-        }
-        arsort($bi);
-        $topPhrases = [];
-        foreach (array_slice($bi, 0, $phrases, true) as $term => $count) {
-            if ($count < 2) {
-                continue;
-            }
-            $topPhrases[] = ['term' => $term, 'count' => $count];
-        }
-
-        return ['top_words' => $topWords, 'top_phrases' => $topPhrases];
-    }
-
-    /**
-     * @return array<string,bool>
-     */
-    private function stopwords(): array
-    {
-        $list = [
-            // EN
-            'the', 'and', 'for', 'you', 'your', 'that', 'this', 'with', 'are', 'was', 'were', 'have', 'has', 'had',
-            'not', 'but', 'they', 'them', 'their', 'there', 'here', 'also', 'very', 'much', 'only', 'even', 'because',
-            'from', 'out', 'now', 'can', 'will', 'just', 'about', 'what', 'all', 'more', 'when', 'who', 'how', 'one',
-            'two', 'like', 'then', 'get', 'got', 'our', 'its', 'his', 'her', 'him', 'she', 'too', 'any', 'some', 'than',
-            'into', 'over', 'off', 'been', 'being', 'does', 'did', 'doing', 'would', 'could', 'should', 'while', 'where',
-            'which', 'these', 'those', 'don', 'didn', 'doesn', 'isn', 'aren', 'wasn', 'them', 'were',
-            // PT
-            'que', 'nao', 'uma', 'com', 'para', 'por', 'dos', 'das', 'isso', 'esse', 'essa', 'este', 'esta', 'mais',
-            'muito', 'como', 'quando', 'onde', 'porque', 'sobre', 'ate', 'mas', 'tambem', 'entao', 'voce', 'eles',
-            'elas', 'ele', 'ela', 'seu', 'sua', 'meu', 'minha', 'nas', 'aos', 'foi', 'sao', 'ser', 'ter', 'tem',
-            'estao', 'pelo', 'pela', 'num', 'numa', 'aqui', 'ali', 'sim', 'vai', 'vou', 'fazer', 'coisa', 'agora',
-            'todo', 'toda', 'todos', 'todas', 'uns', 'umas', 'sem', 'seus', 'suas', 'meus', 'minhas', 'nossa', 'nosso',
-            'deste', 'desta', 'disso', 'nos',
-        ];
-
-        return array_fill_keys($list, true);
-    }
-
     private function systemKeywords(): string
     {
         return <<<'PROMPT'
@@ -434,7 +639,7 @@ Responda APENAS com UM bloco de código json:
   }
 }
 ```
-Seja exaustivo nos terms (long-tail incluso). SEMPRE preencha negatives. Não escreva nada fora do json.
+Limites pra NÃO truncar o json: no máximo 6 clusters, até 12 terms por cluster, até 15 negatives, até 12 high_intent_from_vsl. SEMPRE preencha negatives. Não escreva nada fora do json.
 PROMPT;
     }
 
@@ -459,6 +664,36 @@ Responda APENAS com UM bloco de código json:
 }
 ```
 headlines com no maximo 30 caracteres; descriptions com no maximo 90 caracteres. timestamps em segundos. Nao escreva nada fora do json.
+PROMPT;
+    }
+
+    private function systemReconcile(string $schemaVersion): string
+    {
+        return 'Você recebe N extrações independentes (mesmo schema) da MESMA VSL. '
+            .'Reconcilie-as na versão mais PRECISA, COMPLETA e CONSISTENTE — resolva divergências pela evidência do transcript, mantenha o que é consenso e descarte o que parece alucinação de uma run só. '
+            ."Responda APENAS com UM bloco de código json com schema_version \"{$schemaVersion}\", mantendo EXATAMENTE a mesma estrutura de campos das extrações. Não escreva nada fora do json.";
+    }
+
+    private function systemCritic(): string
+    {
+        return <<<'PROMPT'
+Você é um auditor de qualidade de extração. Recebe a ESTRUTURA extraída de uma VSL + a transcrição completa.
+Pontue cada grupo de campos de 0 a 10 por COMPLETUDE e CONFIANÇA (fidelidade ao transcript), aponte campos fracos/faltando, e diga quais PASSADAS precisam re-rodar.
+Passadas válidas (use exatamente estas chaves em weak_passes): entities, market, offer, funnel, keywords, creative.
+
+Responda APENAS com UM bloco de código json:
+```json
+{
+  "schema_version": "atlas.vsl.quality.v1",
+  "overall_score": 0.0,
+  "field_scores": [
+    {"field": "nome_do_campo", "score": 0.0, "completeness": 0.0, "confidence": 0.0, "issue": "o que está fraco/faltando ou '' se ok"}
+  ],
+  "weak_passes": ["apenas as chaves das passadas que precisam re-rodar; vazio se tudo bom"],
+  "notes": "resumo da qualidade"
+}
+```
+Seja rigoroso e honesto: só marque uma passada em weak_passes se ela estiver realmente fraca, incompleta ou inconsistente com o transcript. Não escreva nada fora do json.
 PROMPT;
     }
 }

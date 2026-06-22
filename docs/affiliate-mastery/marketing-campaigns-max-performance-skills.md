@@ -1,3 +1,129 @@
+# 🎯 MARKETING CAMPAIGNS — MAX PERFORMANCE SKILLS (arquivo único)
+
+> **O que é:** UM arquivo com **TODAS as skills** pra máxima performance em campanhas de marketing de
+> afiliado (VSL no Google Ads — Search + YouTube/Demand Gen). Cole em qualquer IA (Claude Code, Codex,
+> Cursor, ChatGPT, Gemini) como system prompt / regra de projeto, ou anexe como contexto.
+>
+> **Estrutura:** **Parte 1** = registro de todas as skills (o que cada uma faz). **Parte 2** = playbook
+> operacional por etapa de campanha (como rodar). **Parte 3** = referência completa com fontes (a
+> profundidade de cada item).
+>
+> **Regra-mãe (sobre tudo):** maximize **lucro por unidade econômica**, nunca um proxy (CTR/QS/cliques).
+> E rode o **policy-guard ANTES de qualquer go-live** — conta banida = zero.
+
+---
+
+# PARTE 1 — REGISTRO DE TODAS AS SKILLS
+
+Cada "skill" é uma capacidade acionável. Use a que resolve o sintoma; não faça trabalho à toa.
+
+| # | Skill | O que faz | Quando usar |
+|---|-------|-----------|-------------|
+| **OFERTA & ECONOMIA** |
+| 1 | `offer-scout` | Escolhe/score de oferta por EPC, payout, refund, qualidade da VSL, fit | Antes de tudo — 80% do resultado é seleção |
+| 2 | `offer-spy` | Engenharia reversa do que JÁ lucra (ângulo/lead/bridge/oferta) | Antes de criar do zero |
+| 3 | `unit-economics` | Calcula Max CPA, breakeven CPC, ROAS-alvo, ponto de escala/kill | Antes de definir lance e antes de escalar/matar |
+| 4 | `offer-doctor` | Pontua a oferta na Value Equation (Hormozi) + LF8 + pricing psych | Quando "não converte" / antes de escalar |
+| 5 | `grand-slam-builder` | Empilha bônus + garantia + escassez + naming | Subir CVR sem mexer no tráfego |
+| **MENSAGEM & COPY** |
+| 6 | `awareness-router` | Classifica audiência/keyword e prescreve o lead (Schwartz + 6 lead types) | Antes de escrever qualquer abertura |
+| 7 | `persuasion-auditor` | Audita Cialdini 7 + LF8 + Blair Warren + gatilhos | Revisar VSL/landing |
+| 8 | `vsl-architect` | Escreve/audita roteiro de VSL bloco a bloco (reluctant-hero) | Criar/consertar a VSL |
+| 9 | `copy-framework` | Gera/critica por AIDA/PAS/PASTOR/BAB; headlines (4U) | Qualquer peça de copy |
+| 10 | `email-arc` | Soap Opera Sequence → Seinfeld + deliverability (SPF/DKIM/DMARC) | Backend/lista (multiplica EPC) |
+| **PÁGINAS & CRIATIVO** |
+| 11 | `policy-guard` ⚠️ | Pré-voo de compliance (bridge test + circumventing + claims) | **SEMPRE antes de subir** |
+| 12 | `bridge-builder` | Gera advertorial/listicle compliant por ângulo | Página entre anúncio e oferta |
+| 13 | `page-architect` | Monta/audita landing (message-match, hero, CTA, trust, velocidade) | Construir/otimizar página |
+| 14 | `quiz-funnel-builder` | Quiz de captura (30%+ conv) + pontos de opt-in | Captura de lead de alta conversão |
+| 15 | `funnel-architect` | Desenha o funil (advertorial→squeeze→oferta) + value ladder | Arquitetura do funil |
+| 16 | `video-ad-architect` | Roteiro do ANÚNCIO YouTube (hook 0-5s→amplify→bridge→CTA) | Criar anúncio de vídeo |
+| 17 | `creative-pipeline` | Gera N variações de hook/ângulo (HeyGen/Arcads/Creatify) | Velocidade de teste de criativo |
+| 18 | `cro-tester` | Prioriza hipóteses (ICE) + desenha A/B com significância | Otimizar conversão |
+| **TRÁFEGO (GOOGLE ADS)** |
+| 19 | `keyword-intent-mapper` | Clusteriza keywords por intenção + audiências (RLSA/Custom) | Montar Search |
+| 20 | `account-structurer` | Estrutura (Hagakure/STAG/Alpha-Beta) + n-gram | Organizar a conta p/ Smart Bidding |
+| 21 | `rsa-writer` | 15 headlines/4 descriptions + pin map + QS | Escrever anúncios de Search |
+| 22 | `bidding-strategist` | Estratégia por dados (eCPC→MaxConv→tCPA→tROAS/VBB) + seasonality/data-exclusions | Definir/ajustar lance |
+| 23 | `demand-gen-architect` | Campanha YouTube (tROAS, audience signals, 5 vídeos, NCA) | Rodar VSL no YouTube |
+| **TRACKING & ESCALA** |
+| 24 | `conversion-pipeline` | Liga a VENDA real ao Google (OCI/Enhanced/Data Manager API/postback) | Sem isso o Smart Bidding cega |
+| 25 | `tracking-setup` | Escolhe tracker/atribuição (Voluum/RedTrack/Binom/Hyros) | Montar a fonte de verdade |
+| 26 | `scale-operator` | Decide vertical/horizontal + incremento seguro (10-20%/7-14d) | Escalar sem quebrar |
+| **SOBREVIVÊNCIA & CONTA** |
+| 27 | `appeal-builder` | Monta appeal documentado (85-90% sucesso) | Conta suspensa |
+| 28 | `account-survival` ⚠️ | Guard de circumventing/multi-conta/MCC billing | Sempre — conta = o ativo |
+
+---
+
+# PARTE 2 — PLAYBOOK OPERACIONAL (por etapa da campanha)
+
+A sequência de máxima performance. Cada etapa: a skill, a alavanca e a regra numérica.
+
+## Etapa 0 — PRÉ-VOO (sempre) ⚠️
+**`policy-guard` + `account-survival`.** Teste decisivo: *"a página ajudaria o usuário se TODOS os links
+de saída sumissem?"* Se não → thin/bridge → reprovado. **Circumventing systems** (cloaking, redirect
+enganoso, nova conta após ban) = **suspensão sem aviso, permanente**. Nunca evadir multi-conta (Google
+liga por payment/IP/email/domínio). Guarde evidência ANTES (página compliant + substanciação).
+
+## Etapa 1 — ESCOLHER A OFERTA
+**`offer-spy` → `offer-scout` → `unit-economics`.** Copie o que já roda há semanas (= lucra). Score por
+**EPC**. Calcule **Max CPA = payout × CVR_venda × (1−refund) × (1−margem)** → daí o breakeven CPC e o
+ROAS-alvo. Verticais VSL = health/nutra/finance (mercado nutra $458B→$986B).
+
+## Etapa 2 — MOLDAR A MENSAGEM
+**`awareness-router` → `offer-doctor` → `vsl-architect`.** Case o **lead** com a consciência (Schwartz +
+6 lead types: Offer/Promise/Problem-Solution/Big Secret/Proclamation/Story). Suba o valor pela **Value
+Equation** (foque o denominador: imediato/sem esforço). Ataque ≥1 **Life Force 8**. VSL: Hook(5s) →
+Agitate → Mecanismo único → Prova → Oferta → Garantia → Escassez → CTA único. Frame Blair Warren
+(encoraja sonhos / justifica fracassos / acalma medos / confirma suspeitas / pedras nos inimigos).
+
+## Etapa 3 — CONSTRUIR OS ATIVOS
+**`bridge-builder` → `page-architect`/`quiz-funnel-builder` → `video-ad-architect` + `creative-pipeline`.**
+- **Bridge = advertorial listicle** (5-10 itens, 500-1.500 palavras) com conteúdo original (compliance).
+- **Página:** **message-match** (H1 = headline do anúncio — alavanca nº1), hero 3-5s (value-prop numérico),
+  CTA 2-4× (regra do contraste), trust abaixo do hero, **load <2,5s** (mobile = 83% do tráfego), **1
+  objetivo por página**. Mediana 6,6% / top quartile >10%.
+- **Quiz** (captura): 30%+ conv; capture email antes de revelar o resultado; 3-7 perguntas.
+- **Anúncio YouTube:** Hook(0-5s, sem logo nos 2s) → Amplify(5-20s) → Bridge(20-45s+prova) → CTA(10-15s);
+  UGC bate polido 3×; double-hook + pattern-interrupt no 4s. IA: **HeyGen** (avatar PT-BR), **Arcads**
+  (50+ hooks/semana).
+
+## Etapa 4 — LANÇAR O TRÁFEGO (Google Ads)
+**`keyword-intent-mapper` → `account-structurer` → `rsa-writer` → `bidding-strategist` / `demand-gen-architect`.**
+- **Search:** keywords por intenção + audiências (RLSA/Customer Match). Estrutura **consolidada** (STAG/
+  Alpha-Beta) p/ alimentar Smart Bidding; **broad + Smart Bidding** é o meta (com conversão confiável).
+- **Lance:** cold→MaxConv; **tCPA ≥30 conv/30d**; **tROAS ≥15** (VBB = +14% valor). **Seasonality** só
+  1-7 dias; **Data Exclusions** quando o tracking quebra.
+- **YouTube/Demand Gen:** **tROAS** (mudança 2025), 1 campanha consolidada, audience signals (+20%), 5
+  vídeos, meta NCA. Adotar ≥3 das 4 best-practices = +40% conv.
+
+## Etapa 5 — RASTREAR A VENDA REAL
+**`conversion-pipeline` → `tracking-setup`.** Mande a **venda** (não o lead) de volta: **OCI via GCLID +
+Enhanced Conversions for leads** (+10%) → **Data Manager API** (OCI migra pra lá em **15/jun/2026**,
+bloqueia na Google Ads API). Postback ClickBank S2S (financeiro). Tracker por volume (Binom/Voluum/
+RedTrack); atribuição pós-iOS14 (Hyros/TripleWhale/Wicked). **Sem esse loop a escala trava.**
+
+## Etapa 6 — ESCALAR SEM QUEBRAR
+**`scale-operator` + `cro-tester` + `creative-pipeline`.** Vertical: **+10-20% por passo, a cada 7-14
+dias** (pulo grande sobe CPA 25-50% + reseta learning). Horizontal: novas audiências/geos. **Criativo é
+a alavanca nº1 de escala** no YouTube. **Decisão de teste:** ≥95% confiança, ~50 conv/variação + 7 dias
+(lift 20% ⇒ ~400/variante); aplicar vencedor em 3-5 dias; **nunca cortar o teste cedo**.
+
+## Etapa 7 — BACKEND (multiplicar EPC)
+**`email-arc`.** Capture o não-comprador → **Soap Opera Sequence** (7-10 dias, personagem + open loops) →
+**daily Seinfeld**. Deliverability: SPF+DKIM+DMARC (2,7× inbox), warmup 2-3 sem, bounce <2%.
+
+## Etapa 8 — SOBREVIVER
+**`account-survival` + `appeal-builder`.** Compliance É a infra (suspensões +300% em 2024). Se suspender:
+appeal **documentado** = 85-90% (vs <30% genérico), 6 meses de janela. MCC↔cliente: billing consistente.
+
+---
+
+# PARTE 3 — REFERÊNCIA COMPLETA (catálogo + fontes)
+
+> O detalhe de cada item acima, com os números e as fontes citadas (incl. docs primários Google/ClickBank/FTC).
+
 # Affiliate × Google Ads × VSL — Master Mastery Catalog
 
 > **Propósito:** catalogar TODA skill / técnica / framework / tática de alto poder em

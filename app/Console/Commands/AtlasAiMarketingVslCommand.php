@@ -17,6 +17,7 @@ class AtlasAiMarketingVslCommand extends Command
         {--niche= : Optional niche label}
         {--campaign= : Optional campaign tag}
         {--language=pt : Transcription language}
+        {--consensus=2 : Multi-run consensus on the critical market pass (2-3 = more reliable)}
         {--sync : Transcribe inline now instead of queueing (blocks)}
         {--force : Re-ingest even if this file was already transcribed}
         {--id= : VSL asset id (show)}
@@ -51,9 +52,9 @@ class AtlasAiMarketingVslCommand extends Command
             return $this->respondError("asset [{$asset->id}] has no transcript yet (status={$asset->status})");
         }
 
-        $asset = $extractor->extract($asset);
+        $asset = $extractor->extract($asset, max(1, (int) $this->option('consensus')));
 
-        return $this->emitAsset($asset, $asset->structure_status === 'ready' ? 'structured' : 'extract_failed');
+        return $this->emitAsset($asset, in_array($asset->structure_status, ['ready', 'partial'], true) ? 'structured' : 'extract_failed');
     }
 
     private function resolveAsset(): ?AiMarketingVslAsset
