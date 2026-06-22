@@ -430,6 +430,7 @@ final class AtlasLoopFrameworkMaterializer
         if ($relative === '') {
             return;
         }
+        \App\Services\Ai\AutonomousEvolution\AtlasLoopWorkspaceMaterializerSupport2::assertOutsideLiveSource($base.'/'.$relative);
         $dir = dirname($base.'/'.$relative);
         if (! is_dir($dir) && ! mkdir($dir, 0o755, true) && ! is_dir($dir)) {
             throw new RuntimeException('framework materialize: cannot create dir '.$dir);

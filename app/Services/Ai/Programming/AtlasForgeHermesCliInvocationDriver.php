@@ -111,7 +111,12 @@ class AtlasForgeHermesCliInvocationDriver implements AtlasForgeProviderInvocatio
             'schema_version' => 'atlas.forge.provider_driver_plan.v1',
             'provider' => self::PROVIDER,
             'model' => $request['model'] ?? null,
-            'argv_preview' => [(string) config('atlas.ai.providers.hermes_cli.binary', 'hermes'), 'chat', '--quiet'],
+            // Forge provider invocations default to the non-interactive one-shot
+            // CLI form (`hermes -z PROMPT`); the interactive `chat` subcommand
+            // blocks without a TTY. {@see \App\Services\Ai\HermesCliProvider::useCliOneShot}
+            'argv_preview' => (bool) config('atlas.ai.providers.hermes_cli.cli_oneshot_for_forge', true)
+                ? [(string) config('atlas.ai.providers.hermes_cli.binary', 'hermes'), '-z']
+                : [(string) config('atlas.ai.providers.hermes_cli.binary', 'hermes'), 'chat', '--quiet'],
             'cwd' => is_string($request['cwd'] ?? null) ? $request['cwd'] : null,
             'configured' => (bool) $config['configured'],
             'allowlist_passed' => true,

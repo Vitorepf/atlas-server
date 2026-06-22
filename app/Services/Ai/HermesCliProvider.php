@@ -147,18 +147,38 @@ class HermesCliProvider implements AiProvider
             $args[] = $model;
         }
 
+        // CLI invocation mode. `hermes chat` is the INTERACTIVE subcommand: in a
+        // headless run (no TTY) it can block waiting on input — exactly the hang
+        // that stalled the autonomous loop (every grind burned the full attempt
+        // budget with zero output). The top-level `hermes -z PROMPT` one-shot is
+        // non-interactive ("send a single prompt and print ONLY the final
+        // response … intended for scripts / pipes"; approvals auto-bypassed) and
+        // still loads config.yaml/tools/memory/AGENTS.md as normal, so the model
+        // fallback chain, reasoning_effort and max_turns are honored from config.
+        // Forge provider invocations (loop/missions) MUST take the CLI path (they
+        // carry a per-call process env the warm ACP pool cannot) and never reuse a
+        // session, so they default to one-shot; session continuity (resume/
+        // continue) always forces `chat`. {@see useCliOneShot}
+        // The session source tag is recorded in the invocation fingerprint either
+        // way (audit), but is only passed as a `--source` arg on the chat path —
+        // the top-level one-shot parser has no `--source` flag.
         $source = $this->cleanString(data_get($job->payload, 'hermes.source') ?: ($provider['source'] ?? 'tool')) ?: 'tool';
-        $args = $this->withArgValue($args, '--source', $source);
 
-        $maxTurns = $this->positiveInt(data_get($job->payload, 'hermes.max_turns') ?: ($provider['max_turns'] ?? null));
-        if ($maxTurns !== null) {
-            $args = $this->withArgValue($args, '--max-turns', (string) $maxTurns);
+        if ($this->useCliOneShot($job, $provider)) {
+            $command = $this->buildOneShotCommand($binary, $args, $prompt);
+        } else {
+            $args = $this->withArgValue($args, '--source', $source);
+
+            $maxTurns = $this->positiveInt(data_get($job->payload, 'hermes.max_turns') ?: ($provider['max_turns'] ?? null));
+            if ($maxTurns !== null) {
+                $args = $this->withArgValue($args, '--max-turns', (string) $maxTurns);
+            }
+
+            $args[] = '--query';
+            $args[] = $prompt;
+
+            $command = array_values(array_merge([$binary], $args));
         }
-
-        $args[] = '--query';
-        $args[] = $prompt;
-
-        $command = array_values(array_merge([$binary], $args));
         $cwd = $this->workdirForJob($job);
         $timeout = $job->timeout_seconds > 0
             ? $job->timeout_seconds
@@ -312,6 +332,91 @@ class HermesCliProvider implements AiProvider
         }
 
         return $env !== [] ? $env : null;
+    }
+
+    private function hasForgeProviderInvocation(AiJob $job): bool
+    {
+        return is_array(data_get($job->payload, 'forge_provider_invocation'));
+    }
+
+    /**
+     * Whether the CLI path should invoke the top-level one-shot `hermes -z PROMPT`
+     * form instead of the interactive `hermes chat` subcommand.
+     *
+     * `hermes chat` starts an interactive session; headless (no TTY) it can block
+     * waiting on input, which is exactly the hang that stalled the autonomous loop
+     * (every grind ate the full attempt budget with zero output). The top-level
+     * `-z`/`--oneshot` flag is non-interactive — "send a single prompt and print
+     * ONLY the final response … intended for scripts / pipes", approvals
+     * auto-bypassed — and loads config.yaml/tools/memory/AGENTS.md as normal.
+     *
+     * Scope (fail-safe, smallest blast radius):
+     *   - resume/continue requested  → false (session continuity needs `chat`);
+     *   - explicit `hermes.cli_oneshot` payload bool → honored verbatim;
+     *   - Forge provider invocation  → `…cli_oneshot_for_forge` (default ON);
+     *   - any other CLI caller       → `…cli_oneshot` (default OFF, `chat` as before).
+     *
+     * @param  array<string,mixed>  $provider
+     */
+    private function useCliOneShot(AiJob $job, array $provider): bool
+    {
+        // Session continuity is only available through the `chat` subcommand's
+        // session handling; never one-shot a resume/continue request.
+        if ($this->cleanString(data_get($job->payload, 'hermes.resume')) !== null
+            || data_get($job->payload, 'hermes.continue') !== null) {
+            return false;
+        }
+
+        $explicit = data_get($job->payload, 'hermes.cli_oneshot');
+        if (is_bool($explicit)) {
+            return $explicit;
+        }
+
+        if ($this->hasForgeProviderInvocation($job)) {
+            return (bool) ($provider['cli_oneshot_for_forge']
+                ?? config('atlas.ai.providers.hermes_cli.cli_oneshot_for_forge', true));
+        }
+
+        return (bool) ($provider['cli_oneshot']
+            ?? config('atlas.ai.providers.hermes_cli.cli_oneshot', false));
+    }
+
+    /**
+     * Convert the fully-resolved `chat` arg list into the top-level one-shot
+     * command: drop the `chat` positional and every chat-only flag the top-level
+     * parser does not accept, then express the prompt via `-z PROMPT`.
+     *
+     * Dropped bare: `chat`, `--quiet`/`-Q`, `--checkpoints`. Dropped with their
+     * value: `--query`/`-q`, `--source`, `--max-turns`, `--image`. Everything else
+     * (`--provider`, `--model`/`-m`, `--toolsets`/`-t`, `--skills`/`-s`,
+     * `--worktree`, `--accept-hooks`, `--yolo`, `--ignore-rules`, …) is a valid
+     * top-level flag and passes through unchanged.
+     *
+     * @param  array<int,string>  $args
+     * @return array<int,string>
+     */
+    private function buildOneShotCommand(string $binary, array $args, string $prompt): array
+    {
+        $dropBare = ['chat', '--quiet', '-Q', '--checkpoints'];
+        $dropWithValue = ['--query', '-q', '--source', '--max-turns', '--image'];
+
+        $clean = [];
+        $args = array_values($args);
+        $count = count($args);
+        for ($i = 0; $i < $count; $i++) {
+            $arg = $args[$i];
+            if (in_array($arg, $dropBare, true)) {
+                continue;
+            }
+            if (in_array($arg, $dropWithValue, true)) {
+                $i++; // skip the flag's value as well
+
+                continue;
+            }
+            $clean[] = $arg;
+        }
+
+        return array_values(array_merge([$binary, '-z', $prompt], $clean));
     }
 
     /**

@@ -219,6 +219,125 @@ class AiCliProviderRuntimeArgsTest extends TestCase
         $this->assertSame('skipped_by_policy', data_get($result->metadata, 'hermes_runtime.procedure_adapter_status'));
     }
 
+    /**
+     * The hang fix: a Forge provider invocation (the autonomous loop / missions)
+     * must invoke the top-level NON-INTERACTIVE one-shot `hermes -z PROMPT` form,
+     * NOT the interactive `chat` subcommand that blocks waiting on input in a
+     * headless run. Chat-only flags the top-level parser rejects (`--quiet`,
+     * `--query`, `--source`, `--max-turns`, `--checkpoints`) are dropped; the
+     * top-level-valid flags (`--provider`, `--toolsets`, `--skills`, `--model`,
+     * `--accept-hooks`, `--yolo`) pass through.
+     */
+    public function test_hermes_forge_invocation_uses_oneshot_z_form(): void
+    {
+        $binary = $this->fakeHermesBinary();
+
+        config([
+            'atlas.ai.providers.hermes_cli.binary' => $binary,
+            'atlas.ai.providers.hermes_cli.args' => ['chat', '--quiet'],
+            'atlas.ai.providers.hermes_cli.execution_transport' => 'cli',
+            'atlas.ai.providers.hermes_cli.accept_hooks' => true,
+            'atlas.ai.providers.hermes_cli.checkpoints' => true,
+        ]);
+
+        $job = $this->job([
+            // Presence of forge_provider_invocation marks this as a Forge/loop
+            // invocation → one-shot by default. The env makes HermesCliProvider
+            // skip ACP and take the CLI path deterministically.
+            'forge_provider_invocation' => ['role' => 'primary_builder'],
+            'forge_provider_invocation_env' => ['ATLAS_FORGE_TEST' => '1'],
+            'hermes' => [
+                'provider' => 'openrouter',
+                'toolsets' => 'shell,filesystem',
+                'skills' => 'hermes-agent',
+                'source' => 'tool',
+                'max_turns' => 7,
+            ],
+        ]);
+        $job->provider = 'hermes_cli';
+        $job->model = 'glm-5.2';
+
+        $result = app(HermesCliProvider::class)->runStreaming($job, 'implement the numeric guard');
+
+        $this->assertTrue($result->ok, $result->errorMessage ?? '');
+        // One-shot, non-interactive: top-level -z carries the (redacted) prompt.
+        $this->assertContains('-z', $result->command);
+        $this->assertSame('[prompt:redacted]', $result->command[array_search('-z', $result->command, true) + 1]);
+        // The interactive subcommand and chat-only flags are gone.
+        $this->assertNotContains('chat', $result->command);
+        $this->assertNotContains('--quiet', $result->command);
+        $this->assertNotContains('-Q', $result->command);
+        $this->assertNotContains('--query', $result->command);
+        $this->assertNotContains('--source', $result->command);
+        $this->assertNotContains('--max-turns', $result->command);
+        $this->assertNotContains('--checkpoints', $result->command);
+        // Top-level-valid flags survive.
+        $this->assertContains('--yolo', $result->command);
+        $this->assertContains('--accept-hooks', $result->command);
+        $this->assertSame('openrouter', $result->command[array_search('--provider', $result->command, true) + 1]);
+        $this->assertSame('shell,filesystem', $result->command[array_search('--toolsets', $result->command, true) + 1]);
+        $this->assertSame('glm-5.2', $result->command[array_search('--model', $result->command, true) + 1]);
+    }
+
+    /**
+     * Session continuity is only available through `chat` — a Forge invocation that
+     * asks to continue a session must NOT be one-shot (which has no session).
+     */
+    public function test_hermes_forge_invocation_with_continue_stays_on_chat(): void
+    {
+        $binary = $this->fakeHermesBinary();
+
+        config([
+            'atlas.ai.providers.hermes_cli.binary' => $binary,
+            'atlas.ai.providers.hermes_cli.args' => ['chat', '--quiet'],
+            'atlas.ai.providers.hermes_cli.execution_transport' => 'cli',
+        ]);
+
+        $job = $this->job([
+            'forge_provider_invocation' => ['role' => 'primary_builder'],
+            'forge_provider_invocation_env' => ['ATLAS_FORGE_TEST' => '1'],
+            'hermes' => [
+                'continue' => true,
+            ],
+        ]);
+        $job->provider = 'hermes_cli';
+
+        $result = app(HermesCliProvider::class)->runStreaming($job, 'resume the work');
+
+        $this->assertTrue($result->ok, $result->errorMessage ?? '');
+        $this->assertContains('chat', $result->command);
+        $this->assertContains('--query', $result->command);
+        $this->assertContains('--continue', $result->command);
+        $this->assertNotContains('-z', $result->command);
+    }
+
+    /**
+     * Blast-radius guard: a non-Forge CLI caller is UNCHANGED by the fix — it keeps
+     * the `chat … --query` invocation unless `cli_oneshot` is explicitly turned on.
+     */
+    public function test_hermes_non_forge_invocation_stays_on_chat_by_default(): void
+    {
+        $binary = $this->fakeHermesBinary();
+
+        config([
+            'atlas.ai.providers.hermes_cli.binary' => $binary,
+            'atlas.ai.providers.hermes_cli.args' => ['chat', '--quiet'],
+            'atlas.ai.providers.hermes_cli.execution_transport' => 'cli',
+        ]);
+
+        $job = $this->job([
+            'hermes' => ['source' => 'tool'],
+        ]);
+        $job->provider = 'hermes_cli';
+
+        $result = app(HermesCliProvider::class)->runStreaming($job, 'a plain hermes job');
+
+        $this->assertTrue($result->ok, $result->errorMessage ?? '');
+        $this->assertContains('chat', $result->command);
+        $this->assertContains('--query', $result->command);
+        $this->assertNotContains('-z', $result->command);
+    }
+
     public function test_hermes_memory_adapter_persists_candidates_for_atlas_review(): void
     {
         Schema::dropIfExists('ai_memory_deltas');
