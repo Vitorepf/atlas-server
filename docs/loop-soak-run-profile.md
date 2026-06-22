@@ -28,7 +28,20 @@ ATLAS_LOOP_PROPOSE_ONLY=true
 
 Or just use the CLI: `php artisan atlas:loop:on` flips the master flag; arm the supply lanes in `.env`.
 
-## 2. Launch ONE campaign (scoped, bounded)
+## 2. Clean start (preflight) — never resurrect a graveyard
+
+Before arming, reap any abandoned `running` rows from prior sessions. If you skip this, the master-ON
+keepalive will RESURRECT every stale row (dead process, row still says `running`) into live processes — the
+exact auto-respawn that burned tokens. (Proven live: arming with 27 stale rows spawned 45 processes.)
+
+```
+php artisan atlas:loop:reap-orphans --grace-minutes=30 --json   # stops dead orphan rows; spares fresh ones
+```
+For the soak itself, also tighten the keepalive's own reaper so a killed soak is reaped within hours, not
+24h: `ATLAS_LOOP_KEEPALIVE_REAP_AFTER_MINUTES=180` (a genuine crash with a fresh heartbeat is still resumed
+within 5 min — only hours-dead zombies are reaped).
+
+## 3. Launch ONE campaign (scoped, bounded)
 
 ```
 php artisan atlas:loop:campaign \
