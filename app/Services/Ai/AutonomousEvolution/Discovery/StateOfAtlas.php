@@ -19,6 +19,8 @@ final class StateOfAtlas
      * @param  array<string,float>  $areaMaturity  area path-prefix => maturity 0..1 (LOWER = bigger opportunity)
      * @param  list<string>  $realityProvenPaths  paths the reality graph proves actually run
      * @param  list<string>  $forbiddenPrefixes  petreo / forbidden self-target path fragments
+     * @param  list<string>  $deliveredCapabilities  L2/L5 — paths of capabilities the loop already MERGED
+     *     (proposals.merged_to_main). The COMPOUNDING surface: cycle n+1 perceives cycle n's gains here.
      */
     public function __construct(
         public readonly array $strategic = [],
@@ -26,7 +28,34 @@ final class StateOfAtlas
         public readonly array $realityProvenPaths = [],
         public readonly array $forbiddenPrefixes = [],
         public readonly int $elapsedMs = 0,
+        public readonly array $deliveredCapabilities = [],
     ) {}
+
+    /**
+     * L2/L5 — the COMPOUNDING frontier: the capabilities the loop has already MERGED. Cycle n+1 reads THIS,
+     * so a gain delivered in cycle n is in the SELECTABLE foundation — the loop builds HIGHER on it instead of
+     * re-discovering an exhausted scope. Empty until the reader's flag arms it (then byte-identical OFF).
+     *
+     * @return list<string>
+     */
+    public function deliveredCapabilities(): array
+    {
+        return array_values(array_filter($this->deliveredCapabilities, static fn ($d): bool => is_string($d) && $d !== ''));
+    }
+
+    /** Has a capability at/under this path already been DELIVERED (merged) — a foundation to build higher on? */
+    public function isDeliveredFoundation(string $path): bool
+    {
+        $p = ltrim($path, '/');
+        foreach ($this->deliveredCapabilities() as $d) {
+            $d = ltrim($d, '/');
+            if ($p === $d || ($p !== '' && (str_contains($p, $d) || str_contains($d, $p)))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /**
      * Strategic alignment of a path with where Atlas is actually going (active goals + decisions),
