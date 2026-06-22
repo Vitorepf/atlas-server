@@ -4,12 +4,43 @@ namespace App\Services\Ai\MarketingDomain;
 
 use App\Models\AiMarketingArtifact;
 use App\Models\AiMarketingRun;
+use App\Services\Ai\MarketingDomain\Knowledge\MarketingPlaybook;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 class CopyBriefService
 {
+    public function __construct(private readonly MarketingPlaybook $playbook = new MarketingPlaybook) {}
+
+    /**
+     * Deterministic VSL/copy brief skeleton — the vsl-architect + copy-framework +
+     * awareness-router + persuasion-auditor skills, encoded. Given the awareness of the
+     * traffic, it returns the lead to open with, the canonical VSL anatomy (each block + the
+     * rule that makes it convert + the funnel symptom it causes when weak), and the persuasion
+     * checklist to satisfy. The LLM fills the actual lines; the structure is decided here.
+     *
+     * @return array<string,mixed>
+     */
+    public function blueprint(?string $awareness = null): array
+    {
+        $route = $this->playbook->routeAwareness($awareness);
+
+        return [
+            'skill' => 'vsl-architect + copy-framework + awareness-router + persuasion-auditor',
+            'awareness_routing' => $route,
+            'vsl_anatomy' => $this->playbook->vslAnatomy(),
+            'headline_formula' => '4U: Useful, Urgent, Unique, Ultra-specific — gerar 20, pontuar por especificidade',
+            'copy_frameworks' => ['AIDA', 'PAS (Problem-Agitate-Solve)', 'PASTOR', 'BAB', 'SSO (Story-Solution-Offer) p/ frio'],
+            'persuasion_checklist' => [
+                'cialdini_7' => $this->playbook->persuasionPrinciples(),
+                'life_force_8' => $this->playbook->lifeForce8(),
+                'emotional_frames' => $this->playbook->emotionalFrames(),
+            ],
+            'reluctant_hero' => 'Jon Benson: o copy mostra que é igual à audiência + história dramática (reluctant hero).',
+        ];
+    }
+
     /**
      * @param  array<string,mixed>  $payload
      */

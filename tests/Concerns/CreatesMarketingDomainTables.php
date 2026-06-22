@@ -60,6 +60,29 @@ trait CreatesMarketingDomainTables
             $table->timestamps();
         });
 
+        Schema::create('ai_marketing_decision_ledger', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('schema_version', 120)->default('atlas.ai.marketing_decision.v1');
+            $table->string('campaign_ref', 200)->nullable()->index();
+            $table->uuid('vsl_asset_id')->nullable()->index();
+            $table->string('niche', 80)->nullable()->index();
+            $table->string('stage', 60)->index();
+            $table->text('symptom');
+            $table->string('action', 60)->index();
+            $table->string('lever', 200);
+            $table->string('vsl_block', 60)->nullable();
+            $table->text('numeric_rule')->nullable();
+            $table->text('predicted_effect')->nullable();
+            $table->json('offer_state')->nullable();
+            $table->timestamp('decided_at')->nullable()->index();
+            $table->string('outcome', 30)->nullable()->index();
+            $table->json('result_metrics')->nullable();
+            $table->text('result_note')->nullable();
+            $table->timestamp('measured_at')->nullable();
+            $table->string('decision_hash', 64)->index();
+            $table->timestamps();
+        });
+
         Schema::create('ai_marketing_approval_gates', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->string('schema_version', 120)->default('atlas.ai.marketing_approval_gate.v1');
@@ -83,6 +106,7 @@ trait CreatesMarketingDomainTables
     protected function dropMarketingDomainTables(): void
     {
         foreach ([
+            'ai_marketing_decision_ledger',
             'ai_marketing_approval_gates',
             'ai_marketing_experiments',
             'ai_marketing_artifacts',

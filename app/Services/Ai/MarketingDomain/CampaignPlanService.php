@@ -4,12 +4,51 @@ namespace App\Services\Ai\MarketingDomain;
 
 use App\Models\AiMarketingArtifact;
 use App\Models\AiMarketingRun;
+use App\Services\Ai\MarketingDomain\Knowledge\MarketingPlaybook;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 class CampaignPlanService
 {
+    public function __construct(private readonly MarketingPlaybook $playbook = new MarketingPlaybook) {}
+
+    /**
+     * Deterministic traffic brief — keyword-intent-mapper + account-structurer + rsa-writer +
+     * bidding-strategist (+ demand-gen-architect for YouTube). Account structure for Smart Bidding,
+     * keyword intent → bridge lead, RSA spec, audience signals, and the VBB/seasonality/data-exclusion
+     * bidding knowledge. For channel=youtube it returns the Demand Gen 2025 playbook instead of Search.
+     *
+     * @return array<string,mixed>
+     */
+    public function blueprint(string $channel = 'google_search'): array
+    {
+        $common = [
+            'audience_signals' => $this->playbook->audienceSignals(),
+            'bidding_knowledge' => [
+                'value_based_bidding' => $this->playbook->valueBasedBidding(),
+                'seasonality_adjustments' => $this->playbook->seasonalityAdjustments(),
+                'data_exclusions' => $this->playbook->dataExclusions(),
+            ],
+        ];
+
+        if ($channel === 'youtube' || $channel === 'demand_gen') {
+            return array_merge([
+                'skill' => 'demand-gen-architect',
+                'channel' => 'youtube_demand_gen',
+                'demand_gen' => $this->playbook->demandGen(),
+            ], $common);
+        }
+
+        return array_merge([
+            'skill' => 'keyword-intent-mapper + account-structurer + rsa-writer + bidding-strategist',
+            'channel' => 'google_search',
+            'account_structures' => $this->playbook->accountStructures(),
+            'keyword_intent_buckets' => $this->playbook->keywordIntentBuckets(),
+            'rsa_spec' => $this->playbook->rsaSpec(),
+        ], $common);
+    }
+
     /**
      * @param  array<string,mixed>  $payload
      */

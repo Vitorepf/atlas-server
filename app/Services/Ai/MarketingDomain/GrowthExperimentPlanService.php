@@ -4,12 +4,32 @@ namespace App\Services\Ai\MarketingDomain;
 
 use App\Models\AiMarketingExperiment;
 use App\Models\AiMarketingRun;
+use App\Services\Ai\MarketingDomain\Knowledge\MarketingPlaybook;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 class GrowthExperimentPlanService
 {
+    public function __construct(private readonly MarketingPlaybook $playbook = new MarketingPlaybook) {}
+
+    /**
+     * Deterministic experiment/scale brief — cro-tester + scale-operator. The statistical decision
+     * math (≥95% confidence, sample sizes, never cut early) and the safe scale ramp (10-20%/7-14d).
+     * Anti-Goodhart: optimize profit per unit-economics, never a proxy — and never act on noise.
+     *
+     * @return array<string,mixed>
+     */
+    public function blueprint(): array
+    {
+        return [
+            'skill' => 'cro-tester + scale-operator',
+            'test_math' => $this->playbook->testMath(),
+            'scale_rules' => $this->playbook->scaleRules(),
+            'anti_goodhart' => 'Decida por LUCRO por unidade econômica (Max CPA), nunca por proxy (CTR/QS/cliques). Não corte o teste antes da significância.',
+        ];
+    }
+
     /**
      * @param  array<string,mixed>  $payload
      */
