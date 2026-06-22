@@ -6,6 +6,7 @@ namespace App\Services\Ai\AutonomousEvolution\Campaign;
 
 use App\Models\AtlasLoopCampaign;
 use App\Models\AtlasLoopTarget;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopDeadCodeProducer;
 use App\Models\AtlasLoopTask;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopDbResilience;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopObraBridgeService;
@@ -206,6 +207,12 @@ final class AtlasLoopCampaignSupervisor
                 ), 'symbol_gc_on_boot');
             }
             $this->guard(fn () => $this->markCampaignRunning($campaign, $input, $baseWorkspace), 'campaign_start');
+            // DETERMINISTIC dead-code supply (provider-LESS; flag-default-OFF, fail-open, once per boot —
+            // mirrors symbol_gc_on_boot above): at campaign start, certify + persist removals of provably-dead
+            // private members as PROPOSE-ONLY proposals (status='certified_for_review', operator review, never
+            // auto-merge). This is the loop's hermes-FREE value stream — a campaign certifies real value with
+            // ZERO provider calls. OFF (default) => byte-identical.
+            $this->guard(fn () => $this->runDeterministicDeadCodeSupply($campaign), 'deterministic_deadcode_supply');
             $this->guard(fn () => $this->reconcileUnreflectedParallelTargets($campaign), 'parallel_loop_back_reconcile');
 
             $lastTick = $this->now();
@@ -777,6 +784,33 @@ final class AtlasLoopCampaignSupervisor
     /**
      * @param  array<string,mixed>  $input
      */
+    /**
+     * DETERMINISTIC dead-code supply (provider-LESS). When `atlas.loop.deterministic_deadcode_supply_enabled`
+     * is ON, certify + persist removals of provably-dead private members as PROPOSE-ONLY proposals for this
+     * campaign (status='certified_for_review' ⇒ operator review; never auto-merge — no _acceptance_contract).
+     * OFF (default) => byte-identical no-op. Root/scope/limit are config-overridable so it is testable in
+     * isolation. Returns the count persisted.
+     */
+    private function runDeterministicDeadCodeSupply(AtlasLoopCampaign $campaign): int
+    {
+        if (! (bool) config('atlas.loop.deterministic_deadcode_supply_enabled', false)) {
+            return 0;
+        }
+        $root = (string) config('atlas.loop.deterministic_deadcode_root', base_path());
+        $scope = (string) config('atlas.loop.deterministic_deadcode_scope', 'app/Services/Ai/AutonomousEvolution');
+        $limit = max(1, (int) config('atlas.loop.deterministic_deadcode_limit', 25));
+
+        $out = (new AtlasLoopDeadCodeProducer)->persistSweep((string) $campaign->id, $root, $scope, $limit);
+        $this->appendLedger($campaign->id, [
+            'event' => 'deterministic_deadcode_supply',
+            'scanned' => $out['scanned'],
+            'persisted' => $out['persisted'],
+            'provider_used' => false,
+        ]);
+
+        return $out['persisted'];
+    }
+
     private function markCampaignRunning(AtlasLoopCampaign $campaign, array $input, string $baseWorkspace): void
     {
         $attributes = [
