@@ -171,8 +171,30 @@ HTML;
             $result = $this->esc((string) ($t['result'] ?? ''));
             $quote = $this->esc((string) ($t['quote'] ?? $t['text'] ?? ''));
             $resultHtml = $result !== '' ? '<span class="result">'.$result.'</span>' : '';
-            $cards .= "<figure class=\"tcard\"><blockquote>“{$quote}”</blockquote><figcaption>{$name} {$resultHtml}</figcaption></figure>";
+            // Optional real profile photo (producer/operator supplied); only rendered when a real URL exists.
+            $avatar = $this->imgUrl($t['avatar_url'] ?? $t['photo'] ?? '');
+            $head = $avatar !== ''
+                ? '<figcaption class="thead"><img class="tav" src="'.$avatar.'" alt="" loading="lazy"><span>'.$name.' '.$resultHtml.'</span></figcaption>'
+                : "<figcaption>{$name} {$resultHtml}</figcaption>";
+            $cards .= "<figure class=\"tcard\">{$head}<blockquote>“{$quote}”</blockquote></figure>";
         }
+        // Optional before/after grid — only emitted when real release-approved image URLs are supplied.
+        $baHtml = '';
+        foreach (array_slice(is_array($proof['transformations'] ?? null) ? $proof['transformations'] : [], 0, 3) as $tr) {
+            if (! is_array($tr)) {
+                continue;
+            }
+            $before = $this->imgUrl($tr['before_url'] ?? '');
+            $after = $this->imgUrl($tr['after_url'] ?? '');
+            if ($before === '' || $after === '') {
+                continue;
+            }
+            $res = $this->esc((string) ($tr['result'] ?? ''));
+            $cap = $this->esc((string) ($tr['name'] ?? ''));
+            $resB = $res !== '' ? '<span class="bares">'.$res.'</span>' : '';
+            $baHtml .= '<div class="bacard"><div class="baph"><img src="'.$before.'" alt="before" loading="lazy"><img src="'.$after.'" alt="after" loading="lazy">'.$resB.'</div><div class="bacap">'.$cap.'</div></div>';
+        }
+        $baBlock = $baHtml !== '' ? '<div class="bagrid">'.$baHtml.'</div>' : '';
         $statHtml = '';
         foreach (array_slice($stats, 0, 4) as $st) {
             $txt = is_array($st) ? (string) ($st['text'] ?? reset($st)) : (string) $st;
@@ -182,11 +204,19 @@ HTML;
         }
         $statBlock = $statHtml !== '' ? '<ul class="stats">'.$statHtml.'</ul>' : '';
         $cardBlock = $cards !== '' ? '<div class="tgrid">'.$cards.'</div>' : '';
-        if ($statBlock === '' && $cardBlock === '') {
+        if ($statBlock === '' && $cardBlock === '' && $baBlock === '') {
             return '';
         }
 
-        return '<section class="proof"><h2>'.$this->esc($L['proof_h']).'</h2>'.$statBlock.$cardBlock.'</section>';
+        return '<section class="proof"><h2>'.$this->esc($L['proof_h']).'</h2>'.$statBlock.$baBlock.$cardBlock.'</section>';
+    }
+
+    /** Accept only safe absolute http(s) image URLs (producer/operator supplied); reject everything else. */
+    private function imgUrl(mixed $u): string
+    {
+        $u = is_string($u) ? trim($u) : '';
+
+        return preg_match('~^https://[^\s"\'<>]+$~i', $u) === 1 ? $this->esc($u) : '';
     }
 
     /**
@@ -344,6 +374,11 @@ HTML;
             .'.tgrid{display:grid;gap:12px}.tcard{margin:0;background:var(--soft);border-radius:12px;padding:14px 16px}'
             .'.tcard blockquote{margin:0 0 8px;font-size:15.5px}.tcard figcaption{font-size:13px;color:var(--mut);font-weight:700}'
             .'.tcard .result{color:var(--accent2);font-weight:800}'
+            .'.tcard .thead{display:flex;align-items:center;gap:10px;margin-bottom:8px}.tcard .tav{width:44px;height:44px;border-radius:50%;object-fit:cover;flex:none}'
+            .'.bagrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:0 0 14px}.bacard{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}'
+            .'.baph{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:2px}.baph img{width:100%;height:128px;object-fit:cover;display:block}'
+            .'.baph .bares{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;color:var(--accent2);font-weight:800;font-size:14px;padding:3px 9px;border-radius:20px;box-shadow:0 2px 8px rgba(0,0,0,.22);white-space:nowrap}'
+            .'.bacap{padding:8px 10px;font-size:12.5px;color:var(--ink);font-weight:700}'
             .'.objections{margin:26px 0}.obj{border-bottom:1px solid var(--line);padding:10px 0}.obj summary{font-weight:800;cursor:pointer;font-size:16px}.obj p{margin:8px 0 0;color:var(--mut)}'
             .'.ps{background:var(--soft);border-radius:12px;padding:14px 16px;font-size:15px;margin:24px 0}'
             .'.foot{border-top:1px solid var(--line);padding:18px 16px 90px;color:var(--mut)}.disclosure{max-width:680px;margin:0 auto;font-size:12px;line-height:1.5}'
