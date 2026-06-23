@@ -1446,8 +1446,14 @@ final class AtlasLoopQueueRefiller
         // BEFORE the refactor/framework cascade (a known break beats speculative complexity work).
         // The lane is fail-closed (it returns null unless target_path + a runnable handle exist), so
         // an ordinary target with no failure handle falls through byte-identical. Flag-gated default-ON.
-        // NOTE: nothing currently STAMPS failure_test_path/failure_command into discovery signals, so
-        // on the live default path this branch is inert until a failure source populates them.
+        // NOTE: failure_test_path/failure_command ARE stamped into discovery signals by
+        // AtlasLoopTargetDiscoveryService (lines ~106-138, behind discovery_failure_handle_stamp_enabled).
+        // This lane is therefore fully wired end-to-end. It stays inert ONLY because the failure-handle
+        // CORPUS is empty: the harvester keeps real_failure reds, and a self-evolving loop whose scope is
+        // its OWN code keeps that scope GREEN by construction — a green suite harvests zero handles. So the
+        // lane is DRY-by-construction, not unwired. Do NOT "fix" it by manufacturing synthetic/flaky reds
+        // (that launders fake work as REAL_KIND_BUG_FIX — worse than cyclomatic faxina); feed it only from
+        // an organically-red real scope with a provenance gate.
         $bugOutcome = $this->tryBugReproduction($campaign, $target, $signals, $provider, $repoRoot);
         if ($bugOutcome !== null) {
             return $bugOutcome;
