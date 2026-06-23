@@ -67,11 +67,42 @@ class AggressionAmplifier
             }
         }
 
+        // Last pass: persona-driven fixes. The auditor already simulated 3 personas; if the audience
+        // score is low, inject the targeted snippet for the worst-rejecting persona's "what she needs
+        // next" — that goes deeper than marker absence (which is what the main loop already covered).
+        $current = $this->personaFix($current, $asset);
+
         $after = $this->auditor->audit($this->copyOf($current), '', $niche, $pageKind);
         $hollowness = $this->guard->inspect($this->copyOf($current))['hollowness'];
 
         return ['bridge' => $current, 'before' => $before, 'after' => $after, 'injected' => $injected,
             'iterations' => $i, 'rejected' => $rejected, 'hollowness' => $hollowness];
+    }
+
+    /**
+     * Use the PersonaSimulator output baked into the audit to apply 1 targeted fix per the worst
+     * persona's "what she needs next". Cheap, deterministic, additive — only fires when audience<60.
+     *
+     * @param  array<string,mixed>  $bridge
+     * @return array<string,mixed>
+     */
+    private function personaFix(array $bridge, AiMarketingVslAsset $asset): array
+    {
+        $audit = $this->auditor->audit($this->copyOf($bridge));
+        if (($audit['audience_score'] ?? 100) >= 60) {
+            return $bridge;
+        }
+        $personas = (array) ($audit['personas'] ?? []);
+        if ($personas === []) {
+            return $bridge;
+        }
+        uasort($personas, fn ($a, $b) => $b['will_close'] <=> $a['will_close']);
+        $worst = array_key_first($personas);
+        $bridge['ps'] = (string) ($bridge['ps'] ?? '') !== ''
+            ? $bridge['ps']
+            : 'P.S. '.$personas[$worst]['what_she_needs_next'];
+
+        return $bridge;
     }
 
     /**
