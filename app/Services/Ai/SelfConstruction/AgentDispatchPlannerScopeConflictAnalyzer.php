@@ -144,7 +144,7 @@ final class AgentDispatchPlannerScopeConflictAnalyzer
     {
         $conflicts = [];
         foreach ($leaseWriteSets as $leaseId => $leaseWriteSet) {
-            $overlap = array_values(array_intersect($writeSet, $leaseWriteSet));
+            $overlap = WriteSetOverlap::collidingPaths($writeSet, $leaseWriteSet); // A5/MF-12: prefix-aware dir-vs-file
             if ($overlap !== []) {
                 $conflicts[] = [
                     'lease_id' => $leaseId,

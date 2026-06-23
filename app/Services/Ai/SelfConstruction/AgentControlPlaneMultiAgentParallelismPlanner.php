@@ -57,7 +57,7 @@ final class AgentControlPlaneMultiAgentParallelismPlanner
                 $rightAllowed = (array) data_get($right, 'normalized_scope.allowed_files', []);
                 $rightAxes = (array) data_get($right, 'normalized_scope.forbidden_axis_hits', []);
 
-                $writeOverlap = array_values(array_intersect($leftAllowed, $rightAllowed));
+                $writeOverlap = WriteSetOverlap::collidingPaths($leftAllowed, $rightAllowed); // A5/MF-12: prefix-aware dir-vs-file
                 $axisOverlap = $leftAxes !== [] && $rightAxes !== [];
 
                 $entry = [

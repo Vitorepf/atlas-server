@@ -76,7 +76,7 @@ final class AgentControlPlaneTaskPacketBuilder
             $blockingReasons[] = 'scope_empty';
         }
 
-        $forbiddenInAllowed = array_values(array_intersect($allowed, $forbidden));
+        $forbiddenInAllowed = WriteSetOverlap::collidingPaths($allowed, $forbidden); // A5/MF-12: prefix-aware dir-vs-file
         if ($forbiddenInAllowed !== []) {
             $blockingReasons[] = 'forbidden_files_inside_allowed_files';
         }

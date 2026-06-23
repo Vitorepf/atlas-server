@@ -263,7 +263,7 @@ final class AtlasSelfConstructionReservationRepository
                 continue;
             }
 
-            $overlap = array_values(array_intersect($allowedFiles, (array) ($reservation['allowed_files'] ?? [])));
+            $overlap = WriteSetOverlap::collidingPaths($allowedFiles, (array) ($reservation['allowed_files'] ?? [])); // A5/MF-12: prefix-aware dir-vs-file
             if ($overlap !== []) {
                 $blockers[] = 'allowed_files_overlap_active_reservation';
                 break;

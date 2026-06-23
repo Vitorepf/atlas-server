@@ -357,7 +357,7 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             sort($writeSet);
 
             foreach ($writeSets as $other) {
-                if (array_intersect($writeSet, $other) !== []) {
+                if (WriteSetOverlap::collidingPaths($writeSet, $other) !== []) { // A5/MF-12: prefix-aware dir-vs-file
                     $writeSetCollisions++;
                     break;
                 }

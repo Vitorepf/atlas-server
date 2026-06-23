@@ -88,7 +88,7 @@ final class AgentControlPlaneScopeLockPlanner
             }
         }
 
-        $forbiddenInWrite = array_values(array_intersect($writeSet, $forbidden));
+        $forbiddenInWrite = WriteSetOverlap::collidingPaths($writeSet, $forbidden); // A5/MF-12: prefix-aware dir-vs-file
 
         $blockingReasons = [];
         if ($packetStatus !== 'planned') {

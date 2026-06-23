@@ -40,7 +40,7 @@ final class AgentControlPlaneClaimLeaseSimulator
         $conflicts = [];
         foreach ($existingLeases as $existing) {
             $existingAllowed = (array) ($existing['allowed_files'] ?? []);
-            $overlap = array_values(array_intersect($allowed, $existingAllowed));
+            $overlap = WriteSetOverlap::collidingPaths($allowed, $existingAllowed); // A5/MF-12: prefix-aware dir-vs-file
             if ($overlap !== []) {
                 $conflicts[] = [
                     'lease_id' => (string) ($existing['lease_id'] ?? 'unknown'),

@@ -40625,7 +40625,7 @@ final class AtlasSelfConstructionReadinessService
                 $rightEntry = $entries[$right];
                 $leftAllowed = array_filter((array) data_get($leftEntry, 'allowed_files', []));
                 $rightAllowed = array_filter((array) data_get($rightEntry, 'allowed_files', []));
-                $overlap = array_values(array_intersect($leftAllowed, $rightAllowed));
+                $overlap = WriteSetOverlap::collidingPaths($leftAllowed, $rightAllowed); // A5/MF-12: prefix-aware dir-vs-file
                 $leftDepends = (array) data_get($leftEntry, 'depends_on', []);
                 $rightDepends = (array) data_get($rightEntry, 'depends_on', []);
                 $dependencyRelated = in_array(data_get($leftEntry, 'packet_id'), $rightDepends, true)
