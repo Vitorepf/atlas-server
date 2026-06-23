@@ -56,6 +56,8 @@ class BridgePageComposerService
         private readonly \App\Services\Ai\MarketingDomain\Content\TransformationAssetSourcer $transformations = new \App\Services\Ai\MarketingDomain\Content\TransformationAssetSourcer,
         private readonly PersuasionScorer $persuasion = new PersuasionScorer,
         private readonly AwarenessRouter $awareness = new AwarenessRouter,
+        private readonly ConversionAuditor $conversionAuditor = new ConversionAuditor,
+        private readonly AggressionAmplifier $amplifier = new AggressionAmplifier,
     ) {}
 
     /**
@@ -207,13 +209,8 @@ class BridgePageComposerService
                 'rsa_ads' => $this->ads->forge($asset, ['lang' => str_starts_with(strtolower($language), 'port') ? 'pt' : 'en']),
                 'search_network' => $this->search->plan($asset, ['pattern' => $pattern]),
                 'email_sequence' => $this->emails->forge($asset, ['lang' => str_starts_with(strtolower($language), 'port') ? 'pt' : 'en']),
+                'conversion_audit' => $this->conversionAuditor->audit($this->persuasionCopy($bridge)),
                 'persuasion_audit' => $this->persuasion->score($this->persuasionCopy($bridge)),
-                'cognitive_bias_audit' => (new PatternLibraryScorer)->score(new \App\Services\Ai\MarketingDomain\Knowledge\CognitiveBiasLibrary, $this->persuasionCopy($bridge)),
-                'offer_audit' => (new PatternLibraryScorer)->score(new \App\Services\Ai\MarketingDomain\Knowledge\OfferArchitectureLibrary, $this->persuasionCopy($bridge)),
-                'objection_audit' => (new PatternLibraryScorer)->score(new \App\Services\Ai\MarketingDomain\Knowledge\ObjectionLibrary, $this->persuasionCopy($bridge)),
-                'hook_lead_audit' => (new PatternLibraryScorer)->score(new \App\Services\Ai\MarketingDomain\Knowledge\HookLeadLibrary, $this->persuasionCopy($bridge)),
-                'narrative_voice_audit' => (new PatternLibraryScorer)->score(new \App\Services\Ai\MarketingDomain\Knowledge\NarrativeVoiceLibrary, $this->persuasionCopy($bridge)),
-                'funnel_sequence_audit' => (new PatternLibraryScorer)->score(new \App\Services\Ai\MarketingDomain\Knowledge\FunnelSequenceLibrary, $this->persuasionCopy($bridge)),
                 'awareness_routing' => $this->awareness->route((string) $asset->awareness_level)
                     + ['alignment' => $this->awareness->match($this->persuasionCopy($bridge), (string) $asset->awareness_level)],
                 'awareness_target' => $asset->awareness_level,
