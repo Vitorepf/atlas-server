@@ -37,7 +37,8 @@ class VisualAndFunnelLibrariesTest extends TestCase
         $r = (new PatternLibraryScorer)->score(new VisualPersuasionLibrary, $html);
 
         $this->assertSame('visual_persuasion', $r['library']);
-        $this->assertGreaterThanOrEqual(70, $r['score']);
+        // Library deepened in Volta 2 (+10 rare visual patterns); the fixture covers cores but not all.
+        $this->assertGreaterThanOrEqual(55, $r['score']);
         foreach (['cta_contrast', 'cta_repeated', 'sticky_cta', 'visual_hierarchy', 'trust_bar',
             'social_proof_volume', 'before_after_grid', 'video_first', 'thumbnail_compelling',
             'urgency_visual', 'notification_stream', 'mobile_thumb_zone'] as $k) {

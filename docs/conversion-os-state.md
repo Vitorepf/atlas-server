@@ -2,13 +2,33 @@
 
 Loop: Claude Code destila os padrões de conversão mais brutais do mundo e cristaliza no motor de marketing do Atlas como bibliotecas determinísticas, mensuráveis (PatternLibraryScorer único) e auditáveis. Métrica: FORÇA DE CONVERSÃO real, provada cross-nicho (não overfit a um nicho). Campo de prova: OT169 (saúde) + finanças + relacionamento.
 
-Régua atual (piso de maturidade): **75** / teto 100. — **VOLTA 1 COMPLETA** (todas as 9 bibliotecas ≥75, ciclos 1-8). Régua sobe pra 80.
+Régua atual (piso de maturidade): **85** / teto 100. — **VOLTA 2 COMPLETA** (todas as 10 bibliotecas ≥85, ciclos 9-22). Régua sobe pra 90.
 
-## Volta 2 (piso 80) — próximos saltos
-- **AggressionAmplifier** — pega o output dos 8 scorers e injeta os padrões ausentes na página (medir→corrigir→re-medir até `killer`). Fecha o loop generator+verifier.
-- **ConversionAuditor unificado** — comando que roda as 8 libs sobre uma página e devolve raio-X multidimensional + receita do que falta.
-- **Flywheel de pesos aprendidos** — quando venda real voltar pelo ledger, pesos dos padrões viram aprendidos por nicho (LATENTE).
-- Aprofundar libs com padrões mais raros (gray-hat avançado, swipe files de elite).
+## Volta 2 — entregue (14 ciclos, 9-22)
+| Ciclo | Entrega |
+|---|---|
+| 9 | ConversionAuditor + AggressionAmplifier (loop fechado) |
+| 10 | Composer consolidado no auditor unificado |
+| 11 | CLI `atlas:ai:marketing:audit` (raio-X humano) |
+| 12 | CLI `atlas:ai:marketing:amplify` (loop fechado humano) |
+| 13 | Persuasion +10 SOTA mestres (21→31) |
+| 14 | AngleBigIdea +10 swipe files de elite (12→22) |
+| 15 | OfferArchitecture +10 alavancas raras Hormozi (16→26) |
+| 16 | HookLead +10 (Bencivenga/Halbert/Carlton) (14→24) |
+| 17 | Objection +10 neutralizadores avançados (12→22) |
+| 18 | CognitiveBias +10 vieses raros (13→23) |
+| 19 | NarrativeVoice +10 voice signatures mestres (14→24) |
+| 20 | Awareness +10 engenharia de transição (10→20) |
+| 21 | FunnelSequence +10 jornada multistep (16→26) |
+| 22 | VisualPersuasion +10 design persuasivo raro (15→25) |
+
+**Conversion OS no fim da Volta 2:** ~243 padrões (vs 146 fim Volta 1) × 10 libs × scorer único × ConversionAuditor × AggressionAmplifier × 2 CLIs. Todas libs maduras ≥85.
+
+## Volta 3 (piso 90) — próximos saltos
+- **Flywheel de pesos aprendidos** — conectar ao ledger decisão→resultado quando o operador rodar campanha (LATENTE até dado real chegar).
+- **Orquestrador final** — combina as 10 libs num pipeline de geração de página partindo do zero (audit → amplify → render → re-audit).
+- **Padrões anti-Goodhart explícitos** — detector de copy "parecendo bom mas sem efeito" (frases que disparam markers mas não persuadem).
+- Aprofundamento contínuo das libs com swipe files novos do mês corrente.
 
 ## Fundação
 - `PatternLibrary` (contrato): toda lib = `name()` + `all()` (padrão = key/name/category/weight/trigger/lever/markers) + `categories()`.
@@ -25,7 +45,7 @@ Régua atual (piso de maturidade): **75** / teto 100. — **VOLTA 1 COMPLETA** (
 | 6 | **ObjectionLibrary** | **90** ✅ | **22** | APROFUNDADA ciclo 17: +10 neutralizadores avançados — desqualificação preemptiva (Cialdini scarcity de identidade), agita falhas passadas sem culpar, prova em camadas (estudo+médico+caso), reframe do custo afundado, normaliza o ceticismo ("eu também não acreditei"), mostra a matemática do custo/dia, aborda a objeção óbvia ("você deve estar pensando…"), garantia com consequência real, objeção pela voz de 3ª pessoa, meta-objeção "bom demais pra ser verdade". |
 | 7 | **HookLeadLibrary** | **88** ✅ | **24** | APROFUNDADA ciclo 16: +10 fórmulas raras dos mestres — cena em uma frase (Bencivenga), confissão incompleta (cliffhanger íntimo), justaposição estranha, avatar nomeado (Carlton), convite condicional, formato de carta (Halbert), formato de diário com data, verdade desconfortável (taboo), cadeia de perguntas (Cialdini consistência), gap de curiosidade específico ("o #1 ingrediente"). |
 | 8 | **NarrativeVoiceLibrary** | **92** ✅ | **24** | APROFUNDADA ciclo 19: +10 técnicas dos mestres — hipnose conversacional (Milton Erickson em copy), micro-cliffhanger de linha (Sugarman/Schwartz: cada parágrafo aponta pro próximo), anti-clímax cômico, **3 voice signatures dos mestres** (Halbert cru-direto / Bencivenga educado-crível / Carlton íntimo-conspiracional), tempo presente imersivo (cena no presente), regra de 3 com clímax (Lincoln/MLK), aparte proibido em parênteses íntimos, arco narrativo completo (Save the Cat). |
-| 9a | **VisualPersuasionLibrary** | **85** ✅ | 15 | RESOLVIDO ciclo 8: 15 padrões da decisão visual — CTA contraste/repetido/sticky, eye-direction, hierarquia, trust bar, prova social em volume, before/after grid, vídeo acima da dobra, thumbnail conversiva, countdown, notificações flutuantes, mobile thumb-zone, fricção, white-space pacing. Bridge elite v3 scoreia 100 (15/15). grounding indireto via auditor multi-lib. |
+| 9a | **VisualPersuasionLibrary** | **92** ✅ | **25** | APROFUNDADA ciclo 22: +10 padrões visuais raros — grifo amarelo Halbert, seta direcionando CTA, player de vídeo fixado ao rolar (mantém VTR), revelação progressiva da oferta, contrato imagem-texto, tabela comparativa com checks, selo visual de garantia, play button gigante pulsando, barra sticky de oferta, tipografia mobile-first generosa. |
 | 9b | **FunnelSequenceLibrary** | **90** ✅ | **26** | APROFUNDADA ciclo 21: +10 padrões raros de jornada multistep — tripwire→continuity bridge (LTV), pilha de OTOs em sequência (3-5), refund-saver flow (resgata 20-40%), coreografia VSL→checkout (CTA sincronizado), camada SMS de re-engajamento (98% open), sequência de retargeting pago, milestone na comunidade (D+30/60/90), funil REVERSO (high-ticket primeiro), cross-sell no pico de felicidade, winback narrativo (não desconto). |
 
 ## Pós-bibliotecas (faculdade de ambição)
