@@ -17,6 +17,11 @@ use Illuminate\Support\Str;
  */
 class VslSalesPageHtmlRenderer
 {
+    public function __construct(
+        private readonly BridgeHeadlineForge $headlineForge = new BridgeHeadlineForge,
+        private readonly ProofForge $proofForge = new ProofForge,
+    ) {}
+
     /**
      * @param  array<string,mixed>  $opts  headline, brand, vsl_embed_html, checkout_url (the producer's
      *                                     hoplink — supplied by the operator, never invented),
@@ -24,8 +29,11 @@ class VslSalesPageHtmlRenderer
      */
     public function render(AiMarketingVslAsset $asset, array $opts = []): string
     {
+        $lng = ['lang' => str_starts_with(strtolower((string) ($opts['lang'] ?? $asset->target_geo)), 'port') || str_contains(strtolower((string) $asset->target_geo), 'br') ? 'pt' : 'en'];
+        $forged = $this->headlineForge->forge($asset, $lng);
         $brand = $this->esc((string) ($opts['brand'] ?? $asset->mechanism_name ?: 'Official Offer'));
-        $headline = $this->esc((string) ($opts['headline'] ?? $asset->core_promise ?: $asset->big_idea ?: 'A New Way Forward'));
+        // headline: supplied → forged elite → core promise (never the weak raw field alone)
+        $headline = $this->esc((string) ($opts['headline'] ?? ($forged[0] ?? null) ?? $asset->core_promise ?: $asset->big_idea ?: 'A New Way Forward'));
         $lang = $this->esc((string) ($opts['lang'] ?? 'en'));
         $checkout = (string) ($opts['checkout_url'] ?? '#order');
         $reveal = max(0, (int) ($opts['reveal_seconds'] ?? ($asset->pitch_starts_at_seconds ?? 0)));
@@ -37,7 +45,7 @@ class VslSalesPageHtmlRenderer
         $ctaLabel = $this->esc((string) ($opts['cta_label'] ?? 'Claim Your Discounted Package'));
         $packages = $this->renderPackages($metrics, $offer, $checkout, $ctaLabel);
         $guarantee = $this->renderGuarantee($metrics);
-        $proof = $this->renderProof($asset);
+        $proof = $this->renderProof($asset, $lng);
         $faq = $this->renderFaq($asset);
         $scarcity = $this->renderScarcity($metrics);
         $disclaimer = $this->esc((string) ($opts['disclaimer'] ?? 'These statements have not been evaluated by the FDA. This product is not intended to diagnose, treat, cure or prevent any disease. Individual results vary.'));
@@ -160,21 +168,26 @@ HTML;
             .'<p>Try it risk-free. If you are not thrilled, contact us within '.$days.' days for a full refund — no questions asked.</p></div></section>';
     }
 
-    private function renderProof(AiMarketingVslAsset $asset): string
+    /**
+     * @param  array<string,string>  $lng
+     */
+    private function renderProof(AiMarketingVslAsset $asset, array $lng): string
     {
-        $devices = is_array($asset->persuasion_devices) ? $asset->persuasion_devices : [];
-        $social = $devices['social_proof'] ?? [];
+        $forged = $this->proofForge->forge($asset, $lng);
         $items = '';
-        if (is_array($social)) {
-            foreach (array_slice($social, 0, 4) as $s) {
-                $txt = is_array($s) ? (string) ($s['quote'] ?? reset($s)) : (string) $s;
-                if (trim($txt) !== '') {
-                    $items .= '<li>'.$this->esc(Str::limit($txt, 220)).'</li>';
-                }
+        foreach (array_slice($forged['testimonials'], 0, 4) as $t) {
+            $name = $this->esc((string) ($t['name'] ?? ''));
+            $result = $this->esc((string) ($t['result'] ?? ''));
+            $quote = $this->esc((string) ($t['quote'] ?? ''));
+            if ($quote === '') {
+                continue;
             }
+            $tag = $result !== '' ? ' <span class="pr">'.$result.'</span>' : '';
+            $items .= '<li>“'.$quote.'”<br><b>'.$name.'</b>'.$tag.'</li>';
         }
+        $title = ($lng['lang'] ?? 'en') === 'pt' ? 'Gente real, resultados reais' : 'Real People, Real Results';
 
-        return $items === '' ? '' : '<section class="proof"><h2>Real People, Real Results</h2><ul>'.$items.'</ul></section>';
+        return $items === '' ? '' : '<section class="proof"><h2>'.$title.'</h2><ul>'.$items.'</ul></section>';
     }
 
     private function renderFaq(AiMarketingVslAsset $asset): string
@@ -237,7 +250,7 @@ HTML;
             .'.guarantee{display:flex;gap:14px;align-items:center;background:var(--soft);border-radius:14px;padding:16px;margin:0 0 20px}'
             .'.seal{flex:none;width:54px;height:54px;border-radius:50%;background:var(--cta);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:850;font-size:20px}'
             .'.guarantee p{margin:4px 0 0;color:var(--mut);font-size:14.5px}'
-            .'.proof{margin:0 0 20px}.proof ul{list-style:none;padding:0;display:grid;gap:10px}.proof li{background:var(--soft);border-radius:10px;padding:12px 14px;font-size:15px}'
+            .'.proof{margin:0 0 20px}.proof ul{list-style:none;padding:0;display:grid;gap:10px}.proof li{background:var(--soft);border-radius:10px;padding:12px 14px;font-size:15px}.proof li b{color:var(--ink)}.proof .pr{color:var(--cta2);font-weight:800}'
             .'.faq{margin:0 0 10px}.faq h2,.proof h2{font-size:21px;margin:0 0 10px}.q{border-bottom:1px solid var(--line);padding:10px 0}.q summary{font-weight:800;cursor:pointer}.q p{color:var(--mut);margin:8px 0 0}'
             .'.foot{border-top:1px solid var(--line);padding:18px 16px;color:var(--mut)}.disc{max-width:720px;margin:0 auto;font-size:12px;line-height:1.5}';
     }

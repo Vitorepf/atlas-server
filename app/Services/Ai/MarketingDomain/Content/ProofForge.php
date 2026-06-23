@@ -25,11 +25,12 @@ class ProofForge
         $failed = $this->failed($asset, $pt);
         $reversal = $this->painReversal($asset, $pt);
 
+        $default = ['n' => 34, 'label' => $pt ? '-15 kg' : '-34 lbs', 'time' => ''];
         $testimonials = [];
         $count = min(4, max(count($results), 3));
         for ($i = 0; $i < $count; $i++) {
             $name = $names[$i] ?? $this->fallbackName($i, $pt);
-            $result = $results[$i] ?? $results[$i % max(1, count($results))] ?? ($pt ? '-34 kg' : '-34 lbs');
+            $result = $results[$i] ?? ($results !== [] ? $results[$i % count($results)] : $default);
             $testimonials[] = [
                 'name' => $name,
                 'result' => $result['label'],
