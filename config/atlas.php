@@ -39,6 +39,21 @@ return [
         // extractor keeps the head (hook/lead/mechanism) and tail (offer/price/CTA) intact and marks
         // the omitted middle, so a long VSL never silently loses its pitch. ~80k chars ≈ 20k tokens.
         'extraction_max_transcript_chars' => (int) env('ATLAS_MARKETING_EXTRACTION_MAX_TRANSCRIPT_CHARS', 80000),
+
+        // Where the engine stores per-offer creative assets (producer before/after, generated images).
+        'assets_root' => env('ATLAS_MARKETING_ASSETS_ROOT', storage_path('app/marketing/assets')),
+
+        // Pluggable image-generation backend for LEGITIMATE creatives (product mockup, mechanism
+        // illustration, lifestyle, thumbnail bg) — never result-proof. Off until the operator wires a
+        // provider endpoint + key via env; off = the pipeline simply skips generated creatives.
+        'image_generation' => [
+            'enabled' => (bool) env('ATLAS_MARKETING_IMAGE_GEN_ENABLED', false),
+            'endpoint' => env('ATLAS_MARKETING_IMAGE_GEN_ENDPOINT', ''),
+            'api_key' => env('ATLAS_MARKETING_IMAGE_GEN_KEY', ''),
+            'response_path' => env('ATLAS_MARKETING_IMAGE_GEN_RESPONSE_PATH', 'data.0.url'),
+            'size' => env('ATLAS_MARKETING_IMAGE_GEN_SIZE', '1024x1024'),
+            'timeout' => (int) env('ATLAS_MARKETING_IMAGE_GEN_TIMEOUT', 60),
+        ],
     ],
 
     'youtube' => [
