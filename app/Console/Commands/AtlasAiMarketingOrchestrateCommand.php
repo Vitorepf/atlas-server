@@ -18,7 +18,9 @@ class AtlasAiMarketingOrchestrateCommand extends Command
         {--out= : HTML output path (defaults to storage/app/marketing/orchestrated/<asset>.html)}
         {--until=strong : target grade (flat|weak|decent|strong|killer)}
         {--iterations=3 : max amplifier iterations}
-        {--brand= : brand name shown in the masthead}';
+        {--brand= : brand name shown in the masthead}
+        {--niche= : niche key (weight_loss, finance, …) — if set, the audit uses learned weights from the ledger when available}
+        {--page-kind=bridge : bridge|vsl_page|rsa|email (for niche-scoped learned weights)}';
 
     protected $description = 'Pipeline end-to-end: asset → bridge amplificada → HTML pronta pra subir.';
 
@@ -37,6 +39,8 @@ class AtlasAiMarketingOrchestrateCommand extends Command
             'until' => (string) $this->option('until'),
             'max_iterations' => (int) $this->option('iterations'),
             'brand' => (string) ($this->option('brand') ?: 'The Daily Wellness Report'),
+            'niche' => (string) ($this->option('niche') ?: ''),
+            'page_kind' => (string) ($this->option('page-kind') ?: 'bridge'),
         ]);
 
         $outPath = (string) ($this->option('out') ?: storage_path('app/marketing/orchestrated/'.$asset->id.'.html'));

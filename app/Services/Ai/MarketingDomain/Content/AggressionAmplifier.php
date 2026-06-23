@@ -26,14 +26,16 @@ class AggressionAmplifier
     {
         $targetGrade = (string) ($opts['until'] ?? 'killer');
         $maxIters = (int) ($opts['max_iterations'] ?? 3);
+        $niche = (string) ($opts['niche'] ?? '');     // when set + auditor has hybrid scorer wired → learned weights kick in
+        $pageKind = (string) ($opts['page_kind'] ?? 'bridge');
 
-        $before = $this->auditor->audit($this->copyOf($bridge));
+        $before = $this->auditor->audit($this->copyOf($bridge), '', $niche, $pageKind);
         $current = $bridge;
         $injected = [];
         $rejected = [];
 
         for ($i = 1; $i <= $maxIters; $i++) {
-            $audit = $i === 1 ? $before : $this->auditor->audit($this->copyOf($current));
+            $audit = $i === 1 ? $before : $this->auditor->audit($this->copyOf($current), '', $niche, $pageKind);
             if ($this->meets($audit['grade'], $targetGrade)) {
                 break;
             }
@@ -65,7 +67,7 @@ class AggressionAmplifier
             }
         }
 
-        $after = $this->auditor->audit($this->copyOf($current));
+        $after = $this->auditor->audit($this->copyOf($current), '', $niche, $pageKind);
         $hollowness = $this->guard->inspect($this->copyOf($current))['hollowness'];
 
         return ['bridge' => $current, 'before' => $before, 'after' => $after, 'injected' => $injected,

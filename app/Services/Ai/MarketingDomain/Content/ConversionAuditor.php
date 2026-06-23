@@ -29,8 +29,16 @@ class ConversionAuditor
     /** @var array<int,PatternLibrary> Libraries that score on HTML structure. */
     private array $structureLibraries;
 
-    public function __construct(private readonly PatternLibraryScorer $scorer = new PatternLibraryScorer)
-    {
+    private HybridPatternScorer $hybrid;
+
+    public function __construct(
+        private readonly PatternLibraryScorer $scorer = new PatternLibraryScorer,
+        ?HybridPatternScorer $hybrid = null,
+    ) {
+        // When the auditor is built without an explicit hybrid scorer, wire one by default — this
+        // way passing a niche to audit() activates learned weights automatically (no rewiring needed
+        // anywhere). The hybrid quietly returns craft-only when the ledger has no data.
+        $this->hybrid = $hybrid ?? new HybridPatternScorer;
         $this->copyLibraries = [
             new AngleBigIdeaLibrary,
             new AwarenessSophisticationLibrary,
@@ -48,20 +56,28 @@ class ConversionAuditor
     /**
      * @return array{overall_score:int,grade:string,by_library:array<string,array<string,mixed>>,top_missing:array<int,array{key:string,name:string,lever:string,library:string,weight:int}>}
      */
-    public function audit(string $copy, string $html = ''): array
+    public function audit(string $copy, string $html = '', string $niche = '', string $pageKind = 'bridge'): array
     {
         $byLibrary = [];
         $sum = 0;
         $count = 0;
 
+        // When a niche is given AND a HybridPatternScorer is wired, the audit blends MY craft weights
+        // with the niche's learned weights from the ledger. Otherwise it's pure craft (sane default).
+        $useHybrid = $niche !== '' && $this->hybrid !== null;
+
         foreach ($this->copyLibraries as $lib) {
-            $r = $this->scorer->score($lib, $copy);
+            $r = $useHybrid
+                ? $this->hybrid->score($lib, $copy, $niche, $pageKind)
+                : $this->scorer->score($lib, $copy);
             $byLibrary[$lib->name()] = $r;
             $sum += $r['score'];
             $count++;
         }
         foreach ($this->structureLibraries as $lib) {
-            $r = $this->scorer->score($lib, $html !== '' ? $html : $copy);
+            $r = $useHybrid
+                ? $this->hybrid->score($lib, $html !== '' ? $html : $copy, $niche, $pageKind)
+                : $this->scorer->score($lib, $html !== '' ? $html : $copy);
             $byLibrary[$lib->name()] = $r;
             $sum += $r['score'];
             $count++;

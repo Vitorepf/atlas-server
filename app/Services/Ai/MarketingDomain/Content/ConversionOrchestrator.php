@@ -29,6 +29,8 @@ class ConversionOrchestrator
         $amp = $this->amplifier->amplify($bridge, $asset, [
             'until' => (string) ($opts['until'] ?? 'strong'),
             'max_iterations' => (int) ($opts['max_iterations'] ?? 3),
+            'niche' => (string) ($opts['niche'] ?? ''),
+            'page_kind' => (string) ($opts['page_kind'] ?? 'bridge'),
         ]);
         $finalBridge = $amp['bridge'];
         $finalBridge['meta'] = is_array($finalBridge['meta'] ?? null) ? $finalBridge['meta'] : [];
