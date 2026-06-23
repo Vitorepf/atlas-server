@@ -9,6 +9,7 @@ use App\Services\Ai\SelfConstruction\AgentControlPlaneScopeLockRuntimeValidator;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketBuilder;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -65,6 +66,27 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest ex
         $this->assertSame('claimed', $result['event']);
         $this->assertSame('claim-next-a', $result['task_packet_id']);
         $this->assertNotEmpty($result['lease_id']);
+    }
+
+    public function test_a3_claim_next_presweeps_expired_lease_and_reserves_to_new_agent(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-06-01T10:00:00Z'));
+        $svc = $this->orchestrator();
+        $svc->prepareAndEnqueue(['task_packet' => $this->input('reap-presweep')]);
+
+        // Agent claims the task (queue -> claimed), then dies. Short TTL.
+        $claim = $svc->claimNext('agent-dead', ['ttl_seconds' => 60]);
+        $this->assertSame('claimed', $claim['event']);
+
+        // TTL passes with no renewal — the lease is dead and the task is stranded in `claimed`.
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-06-01T11:00:00Z'));
+
+        // A3/MF-05: the next claimNext PRE-SWEEPS the expired lease (claimed -> claimable) and re-serves it.
+        $reclaim = $svc->claimNext('agent-fresh');
+        $this->assertSame('claimed', $reclaim['event'], 'the stranded task is recovered and served to a new agent');
+        $this->assertSame('reap-presweep', $reclaim['task_packet_id']);
+
+        CarbonImmutable::setTestNow();
     }
 
     public function test_claim_next_with_multiple_tags_requires_all_tags(): void

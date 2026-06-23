@@ -6,6 +6,7 @@ namespace Tests\Feature\Ai;
 
 use App\Services\Ai\SelfConstruction\AgentControlPlaneClaimLeaseRepository;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -152,5 +153,15 @@ final class AtlasAiSelfConstructionClaimHardeningTest extends TestCase
             'status' => 'planned',
         ]);
         $this->assertSame('claimable', $ok['record_status'] ?? null);
+    }
+
+    // --- A3 (MF-05): the scheduled reaper command is wired and runs green ---------------------------------
+
+    public function test_a3_reap_leases_command_runs_green(): void
+    {
+        // The command must exist (auto-discovered) and run without error even on an empty registry.
+        $exit = Artisan::call('atlas:acp:reap-leases', ['--json' => true]);
+        $this->assertSame(0, $exit, 'atlas:acp:reap-leases is wired and runs');
+        $this->assertStringContainsString('"ok": true', Artisan::output());
     }
 }

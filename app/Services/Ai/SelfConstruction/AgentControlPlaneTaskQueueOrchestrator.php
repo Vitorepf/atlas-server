@@ -4,6 +4,7 @@ namespace App\Services\Ai\SelfConstruction;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * Orchestrates the first persistent runtime layer of the Agent Control
@@ -111,6 +112,11 @@ final class AgentControlPlaneTaskQueueOrchestrator
             return $this->envelope('claim_blocked', ['reason' => 'agent_id_missing']);
         }
 
+        // A3/MF-05: reclaim dead-agent leases BEFORE listing, so a task stranded in `claimed` by an expired
+        // lease is visible (and serveable) again this very call — R2 recovery on the hot path, not just by
+        // the scheduled reaper. Best-effort: a hiccup in recovery never blocks a claim.
+        $this->reapExpiredBeforeListing();
+
         $candidates = $this->queue->list(array_merge(['status' => 'claimable'], $filters));
         foreach ($candidates as $candidate) {
             if (! $this->candidateCanBeClaimedByWorker($candidate)) {
@@ -160,6 +166,22 @@ final class AgentControlPlaneTaskQueueOrchestrator
             'agent_id' => $agentId,
             'candidate_count' => count($candidates),
         ]);
+    }
+
+    /**
+     * A3/MF-05 — return any dead-agent (expired-lease / orphaned) task to `claimable` before the claim scan,
+     * reusing this orchestrator's OWN queue + lease repos (same disk/lock config). Best-effort + fail-open:
+     * recovery never throws into the claim path. Equivalent to the scheduled reaper, on the hot path.
+     */
+    private function reapExpiredBeforeListing(): void
+    {
+        try {
+            $recovery = new AgentControlPlaneTaskLeaseRecoveryService($this->queue, $this->leases);
+            $recovery->recoverExpiredLeases(['actor' => 'claim_next_presweep']);
+            $recovery->recoverOrphanedClaims(['actor' => 'claim_next_presweep']);
+        } catch (Throwable) {
+            // Pre-sweep is best-effort; a recovery hiccup must never block serving a claim.
+        }
     }
 
     /** @param array<string, mixed> $candidate */

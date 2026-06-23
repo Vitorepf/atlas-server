@@ -454,3 +454,12 @@ Schedule::command('atlas:loop:confidence-calibrate --json')
     ->daily()
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas.loop.confidence_calibration.enabled', false));
+
+// PART 2 · A3/MF-05 — reap expired Agent Control Plane leases every minute so a dead client's task returns
+// to claimable (R2 dead-agent recovery). Gated by the loop MASTER SWITCH => OFF = never fires (byte-identical
+// no-op; the loop never reanimates itself). Read-only-safe: only releases stranded work, never dispatches.
+Schedule::command('atlas:acp:reap-leases --json')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled()
+        && (bool) config('atlas.loop.acp_reaper_enabled', true));
