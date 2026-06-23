@@ -14,10 +14,13 @@ use App\Models\AiMarketingVslAsset;
  */
 class AggressionAmplifier
 {
-    public function __construct(private readonly ConversionAuditor $auditor = new ConversionAuditor) {}
+    public function __construct(
+        private readonly ConversionAuditor $auditor = new ConversionAuditor,
+        private readonly AntiGoodhartGuard $guard = new AntiGoodhartGuard,
+    ) {}
 
     /**
-     * @return array{bridge:array<string,mixed>,before:array<string,mixed>,after:array<string,mixed>,injected:array<int,string>,iterations:int}
+     * @return array{bridge:array<string,mixed>,before:array<string,mixed>,after:array<string,mixed>,injected:array<int,string>,iterations:int,rejected:array<int,string>,hollowness:int}
      */
     public function amplify(array $bridge, AiMarketingVslAsset $asset, array $opts = []): array
     {
@@ -27,6 +30,7 @@ class AggressionAmplifier
         $before = $this->auditor->audit($this->copyOf($bridge));
         $current = $bridge;
         $injected = [];
+        $rejected = [];
 
         for ($i = 1; $i <= $maxIters; $i++) {
             $audit = $i === 1 ? $before : $this->auditor->audit($this->copyOf($current));
@@ -39,7 +43,17 @@ class AggressionAmplifier
                 if ($snippet === null || in_array($missing['key'], $injected, true)) {
                     continue;
                 }
-                $current = $this->inject($current, $snippet);
+                $candidate = $this->inject($current, $snippet);
+                // Anti-Goodhart gate: reject the injection if it raises hollowness materially —
+                // we never trade real persuasion for marker stuffing.
+                $hollowBefore = $this->guard->inspect($this->copyOf($current))['hollowness'];
+                $hollowAfter = $this->guard->inspect($this->copyOf($candidate))['hollowness'];
+                if ($hollowAfter - $hollowBefore > 15) {
+                    $rejected[] = $missing['key'];
+
+                    continue;
+                }
+                $current = $candidate;
                 $injected[] = $missing['key'];
                 $applied = true;
                 if (count($injected) >= 5 * $i) {
@@ -52,8 +66,10 @@ class AggressionAmplifier
         }
 
         $after = $this->auditor->audit($this->copyOf($current));
+        $hollowness = $this->guard->inspect($this->copyOf($current))['hollowness'];
 
-        return ['bridge' => $current, 'before' => $before, 'after' => $after, 'injected' => $injected, 'iterations' => $i];
+        return ['bridge' => $current, 'before' => $before, 'after' => $after, 'injected' => $injected,
+            'iterations' => $i, 'rejected' => $rejected, 'hollowness' => $hollowness];
     }
 
     /**

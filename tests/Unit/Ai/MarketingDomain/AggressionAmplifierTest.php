@@ -81,4 +81,15 @@ class AggressionAmplifierTest extends TestCase
         }
         $this->assertTrue($touched, 'Amplifier must actually mutate at least one bridge slot');
     }
+
+    public function test_amplifier_reports_hollowness_and_rejected(): void
+    {
+        $out = (new AggressionAmplifier)->amplify($this->weakBridge(), $this->asset());
+
+        // The amplifier MUST now report the Goodhart gate's view of the result:
+        $this->assertArrayHasKey('hollowness', $out, 'Amplifier must report hollowness of the final copy');
+        $this->assertArrayHasKey('rejected', $out, 'Amplifier must report patterns rejected by the Goodhart gate');
+        $this->assertLessThanOrEqual(50, $out['hollowness'],
+            'Final amplified copy should not be hollow — the gate must keep us below 50');
+    }
 }
