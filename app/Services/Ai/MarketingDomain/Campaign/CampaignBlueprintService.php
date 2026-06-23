@@ -26,6 +26,8 @@ class CampaignBlueprintService
     public function __construct(
         private readonly CampaignEconomicsCalculator $economics,
         private readonly BidStrategyDecider $bids,
+        private readonly KeywordIntentMapper $intentMapper = new KeywordIntentMapper,
+        private readonly NegativeListMiner $negativeMiner = new NegativeListMiner,
     ) {}
 
     /**
@@ -110,15 +112,22 @@ class CampaignBlueprintService
         }
         usort($adGroups, static fn (array $a, array $b): int => $a['priority'] <=> $b['priority']);
 
+        // Intent mapping (proven sellers first) + negatives mined from real Nivor performance.
+        $intentMapped = $this->intentMapper->map($clusters, $pattern);
+        $mined = $this->negativeMiner->mine($pattern);
+
         $negatives = array_values(array_unique(array_merge(
             $this->standardNegatives(),
+            (array) ($mined['combined'] ?? []),
             array_filter((array) ($kw['negatives'] ?? []), 'is_string'),
         )));
 
         return [
             'ad_groups' => $adGroups,
             'launch_order' => array_map(static fn (array $g): string => $g['name'], $adGroups),
+            'intent_mapped' => $intentMapped,
             'negatives' => $negatives,
+            'mined_negatives' => $mined,
             'high_intent_from_vsl' => array_values(array_filter((array) ($kw['high_intent_from_vsl'] ?? []), 'is_string')),
             'proven_keywords' => $pattern !== null ? array_slice((array) $pattern->converting_keywords, 0, 30) : [],
             'proven_keywords_note' => $pattern !== null

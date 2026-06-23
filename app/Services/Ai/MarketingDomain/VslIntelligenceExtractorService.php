@@ -27,7 +27,7 @@ class VslIntelligenceExtractorService
     public ?string $lastModel = null;
 
     /** @var array<int,string> */
-    private const PASSES = ['entities', 'market', 'offer', 'funnel', 'keywords', 'creative'];
+    private const PASSES = ['entities', 'market', 'lead', 'offer', 'funnel', 'keywords', 'creative'];
 
     public function __construct(
         private readonly AiProviderManager $providers,
@@ -62,7 +62,9 @@ class VslIntelligenceExtractorService
         $asset->refresh();
 
         // Remaining passes — each is independent; one failure must not lose the rest.
-        foreach (['offer', 'funnel', 'keywords', 'creative'] as $key) {
+        // 'lead' runs right after market (it needs the awareness/sophistication) and isolates the
+        // lead/hook/angle/trick from the persuasion devices (authority/government/conspiracy).
+        foreach (['lead', 'offer', 'funnel', 'keywords', 'creative'] as $key) {
             $this->safe($key, $errors, $ok, function () use ($key, $asset, $transcript): void {
                 $this->runAndApply($key, $asset, $transcript);
             });
@@ -204,6 +206,14 @@ class VslIntelligenceExtractorService
                 'sophistication_level' => $this->str($r['sophistication_level'] ?? null, 70),
                 'avatar' => is_array($r['avatar'] ?? null) ? $r['avatar'] : $asset->avatar,
             ]),
+            'lead' => $asset->forceFill([
+                'lead' => is_array($r['lead'] ?? null) ? $r['lead'] : $asset->lead,
+                'hook' => $this->str($r['hook'] ?? null) ?? $asset->hook,
+                'angle' => $this->str($r['angle'] ?? null) ?? $asset->angle,
+                'trick' => $this->str($r['trick'] ?? null) ?? $asset->trick,
+                'metrics' => is_array($r['metrics'] ?? null) ? $r['metrics'] : $asset->metrics,
+                'persuasion_devices' => is_array($r['persuasion_devices'] ?? null) ? $r['persuasion_devices'] : $asset->persuasion_devices,
+            ]),
             'offer' => $asset->forceFill([
                 'essential_summary' => $this->str($r['essential_summary'] ?? null),
                 'offer' => is_array($r['offer'] ?? null) ? $r['offer'] : $asset->offer,
@@ -240,6 +250,7 @@ class VslIntelligenceExtractorService
         return match ($key) {
             'entities' => $this->systemEntities(),
             'market' => $this->systemMarket(),
+            'lead' => $this->systemLead(),
             'offer' => $this->systemOffer(),
             'funnel' => $this->systemFunnel(),
             'keywords' => $this->systemKeywords(),
@@ -253,6 +264,7 @@ class VslIntelligenceExtractorService
         return match ($key) {
             'entities' => 'atlas.vsl.entities.v1',
             'market' => 'atlas.vsl.market.v1',
+            'lead' => 'atlas.vsl.lead.v1',
             'offer' => 'atlas.vsl.offer.v1',
             'funnel' => 'atlas.vsl.funnel.v1',
             'keywords' => 'atlas.vsl.keywords.v1',
@@ -536,7 +548,55 @@ Responda APENAS com UM bloco de código json, exatamente neste formato:
   }
 }
 ```
+REGRA CRÍTICA (anti-erro): NÃO confunda DISPOSITIVO DE PERSUASÃO com MECANISMO/BIG IDEA. "Aprovado pelo governo/FDA", "a Melania/médico famoso recomenda", "a big pharma quer esconder", "notícia bombástica", "de graça por tempo limitado" = DEVICES de autoridade/conspiração/urgência — NÃO são o big_idea, o mechanism nem o ângulo. O big_idea e os mechanisms são o que a pessoa FAZ e POR QUE funciona (o ritual/ingredientes + a biologia/lógica única). Ex. CERTO: big_idea = "versão caseira em gotas da retatrutida, feita misturando 4 ingredientes naturais"; ERRADO: big_idea = "o governo está distribuindo de graça".
+
 REGRAS DE FORMATO: "niche" e "sub_niche" devem ser CURTOS (máx ~10 palavras cada — um rótulo, não um parágrafo). "awareness_level" = APENAS um token do enum (ex.: solution_aware). "sophistication_level" = APENAS o dígito de 1 a 5. Não escreva nada fora do bloco json.
+PROMPT;
+    }
+
+    private function systemLead(): string
+    {
+        return <<<'PROMPT'
+Você é um copywriter-chefe de resposta direta (nível Stefan Georgi / Jon Benson), especialista em DISSECAR a LEAD e a mecânica de uma VSL.
+
+REGRA-MÃE (não viole — é o erro mais comum e mais grave):
+NÃO confunda os DISPOSITIVOS DE PERSUASÃO com o TRUQUE/MECANISMO/ÂNGULO.
+- "Aprovado pelo governo", "a Melania/FDA/médico famoso recomenda", "a big pharma quer esconder", "notícia bombástica", "estoque acabando" → isso é DEVICE (autoridade, conspiração, urgência, prova social). Vai em "persuasion_devices". NUNCA é o ângulo/truque/big_idea.
+- O TRUQUE/MECANISMO/ÂNGULO é O QUE A PESSOA REALMENTE FAZ e POR QUE funciona: o ritual/ação caseira + o mecanismo biológico/lógico único. Ex.: "misturar 4 ingredientes naturais numa receita líquida antes de dormir que replica a retatrutida (agonista triplo GLP-1/GIP/glucagon)".
+
+Escreva a análise em PORTUGUÊS; mantenha nomes/termos da oferta como estão. Responda APENAS com UM bloco de código json:
+```json
+{
+  "schema_version": "atlas.vsl.lead.v1",
+  "lead": {
+    "type": "offer|promise|problem_solution|big_secret|proclamation|story",
+    "type_reason": "por que esse é o tipo de lead (Great Leads), dado o nível de consciência",
+    "format": "o formato da abertura (ex.: entrevista de TV encenada, documentário, carta pessoal, story do herói relutante, notícia/fake-news, reportagem)",
+    "opening_text": "RESUMO FIEL da abertura/lead — do primeiro segundo até começar o pitch (o que acontece, em ordem: o que é dito, qual promessa, que prova entra)",
+    "first_line": "a primeira frase dita na VSL, o mais literal possível"
+  },
+  "hook": "o GANCHO exato — a frase/ideia dos primeiros 5-15s que prende e impede o skip",
+  "angle": "o ÂNGULO DE VENDA REAL = mecanismo único + promessa diferenciada (NÃO o device de autoridade/governo). A 'razão pela qual ISSO funciona quando nada mais funcionou'",
+  "trick": "o NOME do truque/ritual/solução que a pessoa executa, como a VSL o batiza (ex.: 'at-home retatrutide protocol', 'the pink salt trick'). Se nomeado, use o nome exato",
+  "metrics": {
+    "price": "preço principal e por unidade se houver (ex.: '6 frascos x US$49')",
+    "currency": "USD|BRL|...",
+    "guarantee_days": 0,
+    "result_claims": ["números de resultado prometidos (ex.: '-2 lbs/dia', '44 lbs em 8 semanas', '96% perderam 35+ lbs')"],
+    "scarcity_numbers": ["números de escassez (ex.: '84 frascos restantes', 'só 15 primeiros')"],
+    "study_claims": ["estudos/estatísticas citados com números"]
+  },
+  "persuasion_devices": {
+    "authority": ["autoridades/figuras citadas como prova (governo, FDA, médicos, celebridades)"],
+    "conspiracy": "o vilão/segredo (ex.: 'big pharma esconde pra vender injeção cara')",
+    "social_proof": ["depoimentos/casos usados"],
+    "urgency": "a urgência usada",
+    "scarcity": "a escassez usada",
+    "free_or_gift": "se há ângulo de grátis/presente e qual"
+  }
+}
+```
+"guarantee_days" = APENAS o número (0 se não houver). Não escreva nada fora do json.
 PROMPT;
     }
 

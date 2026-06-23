@@ -25,8 +25,13 @@ return [
             ? rtrim(env('WHISPER_MODELS_DIR', '/opt/whisper-models'), '/').'/ggml-large-v3-turbo.bin'
             : '/opt/whisper-models/ggml-large-v3-turbo.bin',
         'engine' => 'whisper-cpp-large-v3-turbo',
-        'timeout_seconds' => (int) env('WHISPER_TIMEOUT_SECONDS', 3600),
-        'normalize_timeout_seconds' => (int) env('WHISPER_NORMALIZE_TIMEOUT_SECONDS', 300),
+        'timeout_seconds' => (int) env('WHISPER_TIMEOUT_SECONDS', 7200),
+        'normalize_timeout_seconds' => (int) env('WHISPER_NORMALIZE_TIMEOUT_SECONDS', 1200),
+        // Anti-hallucination guards for the whisper-cli decoder (consumed by WhisperTranscriber).
+        'max_context' => (int) env('WHISPER_MAX_CONTEXT', 0),
+        'entropy_thold' => env('WHISPER_ENTROPY_THOLD', '2.4'),
+        'no_speech_thold' => env('WHISPER_NO_SPEECH_THOLD', '0.6'),
+        'suppress_non_speech' => (bool) env('WHISPER_SUPPRESS_NON_SPEECH', true),
     ],
 
     'youtube' => [

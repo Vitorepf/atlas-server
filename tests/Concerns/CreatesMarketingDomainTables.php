@@ -60,6 +60,54 @@ trait CreatesMarketingDomainTables
             $table->timestamps();
         });
 
+        Schema::create('ai_marketing_winning_patterns', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('schema_version', 120)->default('atlas.ai.marketing_winning_pattern.v1');
+            $table->string('niche', 80)->unique();
+            $table->string('source', 40)->default('nivor');
+            $table->decimal('real_cvr', 8, 5)->nullable();
+            $table->json('cvr_stats')->nullable();
+            $table->json('converting_keywords')->nullable();
+            $table->json('winning_pages')->nullable();
+            $table->json('winning_funnels')->nullable();
+            $table->json('campaigns_sample')->nullable();
+            $table->unsignedInteger('campaigns_count')->default(0);
+            $table->unsignedInteger('sales_total')->default(0);
+            $table->unsignedInteger('clicks_total')->default(0);
+            $table->timestamp('computed_at')->nullable();
+            $table->json('economics_real')->nullable();
+            $table->json('keyword_performance')->nullable();
+            $table->json('device_split')->nullable();
+            $table->json('network_split')->nullable();
+            $table->json('match_type_split')->nullable();
+            $table->json('geo')->nullable();
+            $table->json('timing')->nullable();
+            $table->json('funnel_profile')->nullable();
+            $table->json('bidding_of_winners')->nullable();
+            $table->json('winner_commonalities')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('ai_marketing_economics_ledger', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('schema_version', 120)->default('atlas.ai.marketing_economics.v1');
+            $table->string('campaign_ref', 200)->nullable()->index();
+            $table->string('niche', 80)->index();
+            $table->string('offer_type', 60)->nullable();
+            $table->decimal('payout', 12, 2)->nullable();
+            $table->decimal('cvr_actual', 8, 5)->nullable();
+            $table->decimal('refund_rate_actual', 6, 4)->nullable();
+            $table->decimal('max_cpa_set', 12, 2)->nullable();
+            $table->decimal('max_cpa_achieved', 12, 2)->nullable();
+            $table->decimal('roas_actual', 10, 4)->nullable();
+            $table->decimal('margin_actual', 6, 4)->nullable();
+            $table->decimal('epc', 10, 4)->nullable();
+            $table->decimal('revenue', 14, 2)->nullable();
+            $table->decimal('cost', 14, 2)->nullable();
+            $table->timestamp('recorded_at')->nullable();
+            $table->timestamps();
+        });
+
         Schema::create('ai_marketing_decision_ledger', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->string('schema_version', 120)->default('atlas.ai.marketing_decision.v1');
@@ -106,6 +154,8 @@ trait CreatesMarketingDomainTables
     protected function dropMarketingDomainTables(): void
     {
         foreach ([
+            'ai_marketing_economics_ledger',
+            'ai_marketing_winning_patterns',
             'ai_marketing_decision_ledger',
             'ai_marketing_approval_gates',
             'ai_marketing_experiments',

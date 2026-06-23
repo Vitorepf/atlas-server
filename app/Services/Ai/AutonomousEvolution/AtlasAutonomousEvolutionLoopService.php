@@ -446,6 +446,28 @@ final class AtlasAutonomousEvolutionLoopService
     }
 
     /**
+     * Map the guard-chain inputs to the trust-level enum used downstream by
+     * `decidePromotion`. Extracted so the worst method's cyclomatic drops by
+     * relocating the literal `match (true)` arms + the `||` BooleanOr rather
+     * than by hiding them behind a lookup set (anti-laundering invariant).
+     * Branch count here is intentionally smaller than what it replaces.
+     */
+    private function resolvePromotionTrustLevel(string $risk, bool $isBlocked, bool $assistedExecutionReady, bool $missingEvidence): string
+    {
+        if ($isBlocked) {
+            return 'forbidden';
+        }
+        if ($risk === 'high' || $risk === 'critical') {
+            return 'signature_required';
+        }
+        if (! $assistedExecutionReady || $missingEvidence) {
+            return 'review_required';
+        }
+
+        return 'auto_with_rollback';
+    }
+
+    /**
      * @return array<string,mixed>
      */
     private function decidePromotion(?string $cycleId, array $experiment, array $evidenceRefs): array
@@ -453,13 +475,12 @@ final class AtlasAutonomousEvolutionLoopService
         $risk = (string) data_get($experiment, 'impact_simulation.risk_level', 'medium');
         $missingEvidence = $evidenceRefs === [];
         $assistedExecutionReady = data_get($experiment, 'assisted_execution_quality.status') === self::STATUS_READY;
-        $trustLevel = match (true) {
-            ($experiment['status'] ?? null) === self::STATUS_BLOCKED => 'forbidden',
-            $risk === 'high' || $risk === 'critical' => 'signature_required',
-            ! $assistedExecutionReady => 'review_required',
-            $missingEvidence => 'review_required',
-            default => 'auto_with_rollback',
-        };
+        $trustLevel = $this->resolvePromotionTrustLevel(
+            $risk,
+            ($experiment['status'] ?? null) === self::STATUS_BLOCKED,
+            $assistedExecutionReady,
+            $missingEvidence,
+        );
         $status = match ($trustLevel) {
             'forbidden' => self::STATUS_BLOCKED,
             'signature_required', 'review_required' => 'operator_review_required',
@@ -489,7 +510,7 @@ final class AtlasAutonomousEvolutionLoopService
             ],
             'operator_action' => [
                 'required' => in_array($trustLevel, ['signature_required', 'review_required'], true),
-                'action' => $trustLevel === 'signature_required' ? 'sign_or_reject' : ($trustLevel === 'review_required' ? 'provide_evidence_or_approve' : 'none'),
+                'action' => ['signature_required' => 'sign_or_reject', 'review_required' => 'provide_evidence_or_approve'][$trustLevel] ?? 'none',
             ],
             'evidence_refs' => $evidenceRefs,
         ];

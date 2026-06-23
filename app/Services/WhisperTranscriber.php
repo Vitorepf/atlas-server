@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Services\Ai\Transcription\TranscriptQualityGate;
 use RuntimeException;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
@@ -42,44 +43,99 @@ class WhisperTranscriber
         try {
             $this->normalizeAudio($ffmpegPath, $audioPath, $normalizedAudioPath);
 
-            $args = [
-                $binPath,
-                '-m',
-                $modelPath,
-                '-f',
-                $normalizedAudioPath,
-                '-otxt',
-                '-of',
-                $outputBase,
-                '-nt',
-            ];
-            if ($language !== '') {
-                array_splice($args, 5, 0, ['-l', $language]);
+            // Quality-gated transcription: run, assess, and if the decoder degenerated (loops /
+            // dropped audio) re-transcribe with a harder profile. NEVER return a poisoned transcript
+            // silently — fail closed so the caller marks the asset failed instead of storing garbage.
+            $durationSeconds = $this->estimateDurationSeconds($normalizedAudioPath);
+            $gate = new TranscriptQualityGate;
+            $profiles = ['normal', 'aggressive'];
+            $lastQuality = null;
+
+            foreach ($profiles as $profile) {
+                $args = $this->buildArgs($binPath, $modelPath, $normalizedAudioPath, $outputBase, $language, $profile);
+
+                $process = new Process($args);
+                $timeout = max(600, (int) config('atlas.transcription.timeout_seconds', 1800));
+                $process->setTimeout($timeout);
+                try {
+                    $process->run();
+                } catch (ProcessTimedOutException) {
+                    throw new RuntimeException("Whisper transcription timed out after {$timeout}s.");
+                }
+
+                if (! $process->isSuccessful()) {
+                    throw new RuntimeException($this->processError($process, 'Whisper transcription failed.'));
+                }
+
+                $textPath = $outputBase.'.txt';
+                $text = is_file($textPath) ? trim((string) file_get_contents($textPath)) : '';
+
+                $quality = $gate->assess($text, $durationSeconds);
+                $lastQuality = $quality;
+                if ($quality['passed']) {
+                    return $text;
+                }
+                // not passed → loop to the harder profile (or fall through to fail-closed)
             }
 
-            $process = new Process($args);
-            $timeout = max(600, (int) config('atlas.transcription.timeout_seconds', 1800));
-            $process->setTimeout($timeout);
-            try {
-                $process->run();
-            } catch (ProcessTimedOutException) {
-                throw new RuntimeException("Whisper transcription timed out after {$timeout}s.");
-            }
-
-            if (! $process->isSuccessful()) {
-                throw new RuntimeException($this->processError($process, 'Whisper transcription failed.'));
-            }
-
-            $textPath = $outputBase.'.txt';
-
-            if (! is_file($textPath)) {
-                return '';
-            }
-
-            return trim((string) file_get_contents($textPath));
+            throw new RuntimeException(
+                'Transcrição reprovou no gate de qualidade após retry — não foi salva pra não envenenar as métricas. Problemas: '
+                .implode(' | ', (array) ($lastQuality['issues'] ?? ['desconhecido']))
+            );
         } finally {
             $this->removeWorkDir($workDir);
         }
+    }
+
+    /**
+     * Build whisper-cli args. The 'aggressive' profile lowers the entropy threshold (triggers the
+     * temperature fallback sooner, which breaks the decoder out of loops) on top of the standard
+     * anti-hallucination guards (-mc 0 carry-over cut, -sns non-speech suppression).
+     *
+     * @return array<int,string>
+     */
+    private function buildArgs(string $binPath, string $modelPath, string $audioPath, string $outputBase, string $language, string $profile): array
+    {
+        $entropy = $profile === 'aggressive' ? '2.2' : (string) config('atlas.transcription.entropy_thold', '2.4');
+
+        $args = [
+            $binPath,
+            '-m', $modelPath,
+            '-f', $audioPath,
+            '-otxt', '-of', $outputBase,
+            '-nt',
+            '-mc', (string) config('atlas.transcription.max_context', 0),
+            '-et', $entropy,
+            '-nth', (string) config('atlas.transcription.no_speech_thold', '0.6'),
+        ];
+        if ((bool) config('atlas.transcription.suppress_non_speech', true)) {
+            $args[] = '-sns';
+        }
+        if ($profile === 'aggressive') {
+            // greedy-ish decode + bigger temperature steps to escape any residual loop
+            array_push($args, '-tp', '0.0', '-tpi', '0.4');
+        }
+        if ($language !== '') {
+            array_push($args, '-l', $language);
+        }
+
+        return $args;
+    }
+
+    /**
+     * Estimate audio length from the normalized 16kHz mono pcm_s16le WAV (32000 bytes/sec).
+     */
+    private function estimateDurationSeconds(string $wavPath): ?int
+    {
+        if (! is_file($wavPath)) {
+            return null;
+        }
+        $bytes = (int) filesize($wavPath);
+        if ($bytes <= 44) { // WAV header only
+            return null;
+        }
+
+        return (int) round(($bytes - 44) / 32000);
     }
 
     private function normalizeAudio(string $ffmpegPath, string $inputPath, string $outputPath): void

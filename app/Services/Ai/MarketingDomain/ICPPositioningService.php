@@ -4,7 +4,10 @@ namespace App\Services\Ai\MarketingDomain;
 
 use App\Models\AiMarketingArtifact;
 use App\Models\AiMarketingRun;
+use App\Models\AiMarketingVslAsset;
+use App\Models\AiMarketingWinningPattern;
 use App\Services\Ai\MarketingDomain\Knowledge\MarketingPlaybook;
+use App\Services\Ai\MarketingDomain\Offer\OfferScoutScorer;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -30,6 +33,40 @@ class ICPPositioningService
             'grand_slam' => $this->playbook->grandSlam(),
             'life_force_8' => $this->playbook->lifeForce8(),
             'sophistication_stages' => $this->playbook->sophisticationStages(),
+        ];
+    }
+
+    /**
+     * Rank a set of candidate offers by EPC (offer-scout). Diagnostic only — orders, never refuses.
+     *
+     * @param  array<int,array<string,mixed>>  $offers  each: payout, network, refund_rate(optional)
+     * @return array<string,mixed>
+     */
+    public function offerQualityDiagnosis(
+        array $offers,
+        AiMarketingVslAsset $vsl,
+        ?AiMarketingWinningPattern $pattern = null,
+        ?OfferScoutScorer $scout = null,
+    ): array {
+        $scout ??= new OfferScoutScorer;
+
+        $ranked = [];
+        foreach ($offers as $offer) {
+            $score = $scout->score((array) $offer, $vsl, $pattern);
+            $ranked[] = [
+                'offer' => $offer,
+                'verdict' => $score['verdict'],
+                'estimated_epc' => $score['estimated_epc'],
+                'max_cpa' => $score['max_cpa'],
+                'confidence' => $score['confidence'],
+            ];
+        }
+        usort($ranked, static fn (array $a, array $b): int => $b['estimated_epc'] <=> $a['estimated_epc']);
+
+        return [
+            'ranked' => $ranked,
+            'best' => $ranked[0] ?? null,
+            'note' => 'Ranking diagnóstico por EPC (métrica-rei). Atlas ordena e informa — nunca recusa rodar.',
         ];
     }
 

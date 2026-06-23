@@ -42,6 +42,18 @@ class CopyBriefService
     }
 
     /**
+     * Deterministic backend email-arc brief — the email-arc skill (was a 🔲 gap). Soap Opera
+     * Sequence → daily Seinfeld + the deliverability setup that gets it to the inbox. Captures the
+     * non-buyer and monetizes again — multiplies EPC without more traffic.
+     *
+     * @return array<string,mixed>
+     */
+    public function emailArcBlueprint(): array
+    {
+        return array_merge(['skill' => 'email-arc'], $this->playbook->emailArc());
+    }
+
+    /**
      * @param  array<string,mixed>  $payload
      */
     public function draft(AiMarketingRun $run, array $payload): AiMarketingArtifact

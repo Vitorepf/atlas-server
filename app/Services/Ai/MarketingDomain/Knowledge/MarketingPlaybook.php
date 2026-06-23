@@ -295,6 +295,30 @@ final class MarketingPlaybook
         ];
     }
 
+    /**
+     * Common purchase objections by vertical — each becomes a bonus/guarantee/proof in the stack.
+     *
+     * @return array<int,string>
+     */
+    public function commonObjectionsByVertical(?string $niche): array
+    {
+        $key = strtolower((string) $niche);
+        $generic = ['preço/posso pagar?', 'funciona pra mim?', 'é seguro?', 'e se não der certo?', 'tenho tempo/é difícil?'];
+        $map = [
+            'weight_loss' => ['já tentei de tudo e falhei', 'sem dieta/exercício mesmo?', 'efeito sanfona?', 'é seguro pro meu corpo?', 'quanto tempo até ver resultado?'],
+            'emagrecimento' => ['já tentei de tudo e falhei', 'sem dieta/exercício mesmo?', 'efeito sanfona?', 'é seguro?', 'quanto tempo até resultado?'],
+            'finance' => ['é golpe?', 'preciso de muito capital?', 'e se eu perder dinheiro?', 'é complicado demais?', 'funciona no meu país?'],
+            'mens_health' => ['é seguro?', 'funciona na minha idade?', 'preciso de receita?', 'é discreto?', 'e se não funcionar?'],
+        ];
+        foreach ($map as $needle => $objections) {
+            if ($key !== '' && str_contains($key, $needle)) {
+                return $objections;
+            }
+        }
+
+        return $generic;
+    }
+
     // ─────────────────────────────────────────────────────────────────────────────
     // PAGES & BRIDGE — bridge-builder, page-architect, quiz-funnel-builder, funnel-architect
     // ─────────────────────────────────────────────────────────────────────────────
