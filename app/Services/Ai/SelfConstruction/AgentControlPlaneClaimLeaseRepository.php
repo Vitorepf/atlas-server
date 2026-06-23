@@ -33,6 +33,12 @@ final class AgentControlPlaneClaimLeaseRepository
 
     public const LOCK_PATH = self::STORAGE_PREFIX.'/.lock';
 
+    /** A1/MF-06 — exclusive-lock acquisition budget. FAIL-CLOSED on timeout: the caller re-queues, never drops. */
+    public const LOCK_TIMEOUT_SECONDS = 8.0;
+
+    /** Poll between non-blocking flock attempts (50ms): responsive without busy-spin. */
+    private const LOCK_POLL_MICROSECONDS = 50_000;
+
     public const DEFAULT_DISK = 'local';
 
     public const DEFAULT_TTL_SECONDS = 1800;
@@ -59,9 +65,16 @@ final class AgentControlPlaneClaimLeaseRepository
 
     public const RECEIPT_LEASE_EXPIRED = 'lease_expired';
 
+    private readonly float $lockTimeoutSeconds;
+
     public function __construct(
         private readonly ?string $disk = null,
-    ) {}
+        ?float $lockTimeoutSeconds = null,
+    ) {
+        $this->lockTimeoutSeconds = ($lockTimeoutSeconds !== null && $lockTimeoutSeconds > 0.0)
+            ? $lockTimeoutSeconds
+            : self::LOCK_TIMEOUT_SECONDS;
+    }
 
     /**
      * @param  array<string, mixed>  $scopeLock
@@ -785,33 +798,91 @@ final class AgentControlPlaneClaimLeaseRepository
      * @param  callable(): T  $callback
      * @return T
      */
+    /**
+     * A1/MF-06 — run $callback holding a REAL exclusive OS lock (`flock(LOCK_EX)`), FAIL-CLOSED.
+     *
+     * Replaces the old `Storage::exists/put` check-then-act, whose 4s break ran the mutation UNLOCKED and
+     * whose `finally` deleted the lock file unconditionally (a foreign lock). Now: a bounded non-blocking
+     * poll; on timeout the callback is NEVER run (returns a blocked envelope — the caller re-queues); the
+     * `finally` releases ONLY this call's handle and never deletes the lock file. Mirrors
+     * {@see \App\Services\Ai\AutonomousEvolution\Constitution\AtlasLoopMergeActuator::withMainMergeLock}.
+     *
+     * @template T
+     *
+     * @param  callable(): T  $callback
+     * @return T|array<string, mixed>
+     */
     private function withLock(callable $callback): mixed
     {
-        $disk = $this->disk();
-        $start = microtime(true);
-        $lockToken = (string) Str::uuid();
+        $path = $this->lockFilePath();
+        $dir = \dirname($path);
+        if (! is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
 
+        $handle = @fopen($path, 'c');
+        if ($handle === false) {
+            // FAIL-CLOSED: cannot open the lock file => NEVER run the mutation unlocked.
+            return $this->lockContentionEnvelope('lock_open_failed');
+        }
+
+        $start = hrtime(true);
+        $deadline = $start + (int) ($this->lockTimeoutSeconds * 1_000_000_000);
+        $acquired = false;
         while (true) {
-            if (! $disk->exists(self::LOCK_PATH)) {
-                $disk->put(self::LOCK_PATH, $lockToken);
-                $current = (string) $disk->get(self::LOCK_PATH);
-                if ($current === $lockToken) {
-                    break;
-                }
-            }
-            if ((microtime(true) - $start) > 4.0) {
+            if (flock($handle, LOCK_EX | LOCK_NB)) {
+                $acquired = true;
                 break;
             }
-            usleep(50_000);
+            if (hrtime(true) >= $deadline) {
+                break;
+            }
+            usleep(self::LOCK_POLL_MICROSECONDS);
+        }
+
+        if (! $acquired) {
+            @fclose($handle);
+
+            // FAIL-CLOSED: contention within the budget => abort; caller re-queues. NEVER run unlocked.
+            return $this->lockContentionEnvelope('lock_timeout');
         }
 
         try {
             return $callback();
         } finally {
-            if ($disk->exists(self::LOCK_PATH)) {
-                $disk->delete(self::LOCK_PATH);
-            }
+            // Release ONLY the handle THIS call owns; keep the flock target file (never delete a foreign lock).
+            @flock($handle, LOCK_UN);
+            @fclose($handle);
         }
+    }
+
+    /** Absolute filesystem path of the exclusive lock file (flock needs a real local path). */
+    private function lockFilePath(): string
+    {
+        $disk = $this->disk();
+
+        return method_exists($disk, 'path')
+            ? $disk->path(self::LOCK_PATH)
+            : storage_path('app/'.self::LOCK_PATH);
+    }
+
+    /**
+     * The FAIL-CLOSED result when the exclusive lock cannot be acquired: a blocked, NON-mutating envelope the
+     * callers surface honestly (no lease written, nothing dispatched). The critical callback never runs.
+     *
+     * @return array<string, mixed>
+     */
+    private function lockContentionEnvelope(string $reason): array
+    {
+        return [
+            'schema_version' => self::SCHEMA_VERSION,
+            'status' => 'blocked',
+            'event' => 'blocked',
+            'reason' => $reason,
+            'runtime_execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+        ];
     }
 
     private function leasePath(string $leaseId): string
