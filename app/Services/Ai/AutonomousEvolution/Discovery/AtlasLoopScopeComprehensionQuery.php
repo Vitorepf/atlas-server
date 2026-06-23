@@ -62,6 +62,7 @@ final class AtlasLoopScopeComprehensionQuery implements ScopeComprehensionQuery
         private readonly string $repoRoot,
         private readonly array $opts = [],
         private readonly ?ScopeRuntimeFacts $runtimeFacts = null,
+        private readonly ?AtlasLoopScopeComprehensionReadModel $readModel = null,
     ) {
     }
 
@@ -76,6 +77,8 @@ final class AtlasLoopScopeComprehensionQuery implements ScopeComprehensionQuery
             $this->memo[$key] = $this->builder->build($this->repoRoot, $scopeRoot, $this->opts);
             $this->builtMeta[$key] = ['built_at' => $this->now(), 'mtimes' => $this->inputMtimes($scopeRoot)];
             $this->buildCount++;
+            // B1/P1-B: write-through the proven facts to the persistent read-model (durable time-series record).
+            $this->readModel?->put($this->memo[$key], $scopeRoot, $this->builtMeta[$key]['built_at']);
         }
 
         return $this->memo[$key];

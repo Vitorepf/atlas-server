@@ -115,6 +115,26 @@ final class AtlasLoopScopeComprehensionModel
         return null;
     }
 
+    /**
+     * PART 2 · B1 — rehydrate a model from its {@see toArray} serialization (the P1-B read-model round-trip).
+     * The inverse is byte-identical: `fromArray($m->toArray())->toArray() === $m->toArray()` (the provenance
+     * constants are re-emitted by toArray, so they survive the round-trip). No structural fact is re-derived
+     * here — it is pure deserialization of facts already proven by the builder.
+     */
+    public static function fromArray(array $data): self
+    {
+        return new self(
+            inventory: array_values((array) ($data['inventory'] ?? [])),
+            edges: (array) ($data['edges'] ?? []),
+            orphans: array_values((array) ($data['orphans'] ?? [])),
+            cloneClusters: array_values((array) ($data['clone_clusters'] ?? [])),
+            forbidden: array_values((array) ($data['forbidden'] ?? [])),
+            docPurposes: (array) ($data['doc_purposes'] ?? []),
+            docStatedGaps: array_values((array) ($data['doc_stated_gaps'] ?? [])),
+            snapshotId: (string) ($data['snapshot_id'] ?? ''),
+        );
+    }
+
     /** Deterministic serialization (for equality / determinism proofs). */
     public function toArray(): array
     {
