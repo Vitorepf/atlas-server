@@ -51,6 +51,7 @@ class BridgePageComposerService
         private readonly ProofForge $proof = new ProofForge,
         private readonly RsaAdForge $ads = new RsaAdForge,
         private readonly \App\Services\Ai\MarketingDomain\Campaign\SearchNetworkPlanner $search = new \App\Services\Ai\MarketingDomain\Campaign\SearchNetworkPlanner,
+        private readonly LeadForge $leadForge = new LeadForge,
     ) {}
 
     /**
@@ -147,6 +148,13 @@ class BridgePageComposerService
         $forgedProof = $this->proof->forge($asset, ['lang' => str_starts_with(strtolower($language), 'port') ? 'pt' : 'en']);
         if (count($forgedProof['testimonials']) >= 3) {
             $bridge['proof_block'] = $forgedProof;
+        }
+
+        // Lead override: a forged elite opening (avatar callout + concrete agitation + common enemy +
+        // mechanism plant + open loop) beats a journalistic LLM lead. The opening decides if they read on.
+        $forgedLead = $this->leadForge->forge($asset, ['lang' => str_starts_with(strtolower($language), 'port') ? 'pt' : 'en']);
+        if ($this->leadStrength((string) ($bridge['lead_paragraph'] ?? ''), $asset) < $this->leadStrength($forgedLead, $asset)) {
+            $bridge['lead_paragraph'] = $forgedLead;
         }
 
         // --- deterministic validation -------------------------------------------------------
@@ -418,6 +426,30 @@ TXT;
                 $s += 1;
                 break;
             }
+        }
+
+        return $s;
+    }
+
+    /** Conversion-strength of a lead: direct address + common enemy + mechanism plant + concrete scene + length. */
+    private function leadStrength(string $lead, AiMarketingVslAsset $asset): int
+    {
+        $l = mb_strtolower($lead);
+        $s = 0;
+        $words = str_word_count($lead);
+        $s += $words >= 60 ? 2 : ($words >= 35 ? 1 : 0);
+        if (preg_match('/\b(you|your|você|voce|sua|seu|te)\b/u', $l)) {
+            $s += 2;       // speaks TO the reader, not about a phenomenon
+        }
+        if (preg_match('/\b(ozempic|mounjaro|wegovy|injection|injeç|needle|agulha|pharma|farmac|billion|bilh)\b|\$\d/u', $l)) {
+            $s += 2;       // common enemy / failed solution
+        }
+        $mech = mb_strtolower(trim((string) preg_replace('/\s*\(.*$/u', '', (string) $asset->mechanism_name)));
+        if ($mech !== '' && str_contains($l, mb_substr($mech, 0, 12))) {
+            $s += 2;       // plants the named mechanism
+        }
+        if (preg_match('/\b(mirror|scale|clothes|photos?|espelho|balança|balanca|roupa|foto)\b/u', $l)) {
+            $s += 1;       // concrete sensory scene, not abstraction
         }
 
         return $s;

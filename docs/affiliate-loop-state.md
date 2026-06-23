@@ -9,7 +9,7 @@ Régua atual (piso): **80** / teto 95.
 | Recurso | Nota atual | Maior fraqueza | Status |
 |---|---|---|---|
 | Bridge — headline/above-fold | **83** ✅ | RESOLVIDO ciclo 1: `BridgeHeadlineForge` força a headline de elite (número+autoridade+inimigo+mecanismo), override de headline fraca do hermes (força 2→8) | FEITO (commit 1b6aa0319) |
-| Bridge — lead/corpo | 65 | bom início, mas vira "reportagem sobre fenômeno", repetitivo, faltam números/cenas | pendente |
+| Bridge — lead/corpo | **82** ✅ | RESOLVIDO ciclo 6: `LeadForge` forja a abertura de elite (callout do avatar + agitação concreta com espelho/balança/roupa + inimigo comum + plant do mecanismo + open loop pro vídeo); override no composer por `leadStrength` (só entra se mais forte que o do hermes). Mata o tom jornalístico-distante. | FEITO |
 | Bridge — prova/depoimentos | **82** ✅ | RESOLVIDO ciclo 2: `ProofForge` usa nomes reais (Melissa McCarthy/Amy/Jennifer/Sarah) + números reais críveis (faixa 30-90, rejeita os 200 que soam fake) + voz humana de elite + stats reais; `marketLang` normaliza PT→EN (dissecação PT vs mercado EN) | FEITO |
 | VSL sales page | **82** ✅ | RESOLVIDO ciclo 5: liga `BridgeHeadlineForge` (headline de elite, não core_promise cru) + `ProofForge` (depoimentos reais com nome/número/quote humana) à VSL page; reusa as peças dos ciclos 1-2. | FEITO |
 | Thumbnail | 70 | tipográfica forte, mas sem rosto/antes-depois; 1 ângulo só | pendente |
