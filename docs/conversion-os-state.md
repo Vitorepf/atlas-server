@@ -27,7 +27,7 @@ Régua atual (piso de maturidade): **85** / teto 100. — **VOLTA 2 COMPLETA** (
 ## Volta 3 (piso 90) — em curso
 - **ConversionOrchestrator** ✅ — RESOLVIDO ciclo 23: pipeline end-to-end provider-free (asset → seed → amplifier → renderer). PROVA: asset OT169 vira HTML 7388 bytes com headline + CTA + 6 padrões injetados, score 6→15 (+9 num passe). CLI `atlas:ai:marketing:orchestrate` expõe pro operador.
 - **Flywheel de pesos aprendidos** — LATENTE até venda real voltar pelo ledger.
-- **Padrões anti-Goodhart explícitos** — pendente.
+- **AntiGoodhartGuard** ✅ — RESOLVIDO ciclo 24: o inverso do scorer. Detecta copy que GAMES os markers (buzzword soup, claims sem prova, placeholders, AI tells, keyword stuffing, intensificadores vagos, CTA nu, sobrecarga de adjetivos). 0-100 hollowness + flags específicas. PROVA: copy hollow=100 (fraudulent, 5 flags) / copy substantiva=0 (substantive). Sem isto, o amplifier otimizaria pra contagem de markers em vez de conversão — o guardião do anti-Goodhart.
 - Aprofundamento contínuo com swipe files do mês corrente.
 
 ## Fundação
