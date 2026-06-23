@@ -55,7 +55,12 @@ final class AtlasLoopOriginationPipeline
         // unless the target already has real consumers (a modification WITH precedent, not greenfield). The
         // loop never fabricates a confident "proceed" on a greenfield origination.
         $hasPrecedent = count((array) ($verdict['consumer_contracts'] ?? [])) > 0;
-        $frontier = (new AtlasLoopAbstainAndAsk)->evaluate([
+        // The operator's autonomous-self-engineer directive: on a GREEN scope the loop ORIGINATES the next
+        // material leap instead of parking-and-asking. With proceed_on_grounded_novelty ON, a grounded +
+        // designed (architect-admitted) novel origination PROCEEDS; the red→green obligation + cert/refute
+        // downstream are the Goodhart floor. Default OFF ⇒ byte-identical (novelty parks-and-asks).
+        $proceedOnNovelty = (bool) config('atlas.loop.proceed_on_grounded_novelty_enabled', false);
+        $frontier = (new AtlasLoopAbstainAndAsk(0.7, $proceedOnNovelty))->evaluate([
             'grounded' => true,             // it cleared the inventory grounding-veto
             'confidence' => 1.0,            // the deterministic gates (grounding + design) are satisfied
             'novel' => true,               // a free origination has no supply-lane precedent of its own

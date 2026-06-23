@@ -2877,6 +2877,10 @@ return [
         // L4 — KILL THE STALL: when reactive supply dries the supervisor ORIGINATES the next leap (via the
         // grounded origination pipeline) instead of stopping at queue_starved. Abstain still parks (never fakes).
         'origination_on_starvation_enabled' => (bool) env('ATLAS_LOOP_ORIGINATION_ON_STARVATION_ENABLED', false),
+        // Autonomous self-engineer: a GROUNDED + designed NOVEL origination PROCEEDS (the loop originates the
+        // leap) instead of parking-and-asking. Floor = architect red→green + cert/refute downstream. Default
+        // OFF = byte-identical (novelty parks). See AtlasLoopAbstainAndAsk.
+        'proceed_on_grounded_novelty_enabled' => (bool) env('ATLAS_LOOP_PROCEED_ON_GROUNDED_NOVELTY_ENABLED', false),
         'origination_scope_root' => (string) env('ATLAS_LOOP_ORIGINATION_SCOPE_ROOT', 'app/Services/Ai/AutonomousEvolution'),
         // L3 — THE RUNG GROWS: proven capability (CapabilityTrendService upward bend) lowers the ambition
         // risk-tolerance toward pure-magnitude, so the loop dares a BIGGER leap only once it has earned it.
