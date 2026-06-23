@@ -152,6 +152,71 @@ final class AtlasTaskSwarmProofService
     }
 
     /**
+     * Judge a two-phase give-back→reclaim run: phase A clients claim AND report give_back (releasing the
+     * task), phase B clients pull. Proves the live serving path re-admits a given-back task instead of
+     * stranding it — every packet given back in A must be reclaimed (re-served) in B, each phase conflict-free.
+     *
+     * @param  list<array<string,mixed>>  $enqueued
+     * @param  list<array<string,mixed>>  $phaseAObservations
+     * @param  list<array<string,mixed>>  $phaseBObservations
+     * @return array<string, mixed>
+     */
+    public function analyzeReclaim(array $enqueued, array $phaseAObservations, array $phaseBObservations): array
+    {
+        $phaseA = $this->analyze([['round' => 0, 'enqueued' => $enqueued, 'observations' => $phaseAObservations]]);
+        $phaseB = $this->analyze([['round' => 1, 'enqueued' => $enqueued, 'observations' => $phaseBObservations]]);
+
+        $givenBack = $this->distinctServedPackets($phaseAObservations);
+        $reclaimed = $this->distinctServedPackets($phaseBObservations);
+        $missing = array_values(array_diff($givenBack, $reclaimed));
+
+        // Phase A clients give back, so the SAME packet is legitimately re-served SERIALLY within the phase
+        // (claim → give_back → another client reclaims). The lease repo STRUCTURALLY forbids two ACTIVE leases
+        // on one packet (hasActiveLeaseFor + flock), so a re-serve can only be serial, never a simultaneous
+        // double-hold — hence exactly-once does NOT apply to phase A. Its honest invariants are: no held-overlap
+        // (no two write-colliding packets), no R2 breach, no phantom. Phase B is a pure pull (everyone HOLDS at
+        // once), so exactly-once DOES apply there — that is where the reclaim conflict-freedom is proven.
+        $phaseAClean = $phaseA['held_overlaps'] === [] && $phaseA['r2_breaches'] === [] && $phaseA['phantom_serves'] === [];
+
+        $passed = $missing === [] && $givenBack !== [] && $phaseAClean && $phaseB['passed'];
+
+        return [
+            'schema' => self::SCHEMA,
+            'mode' => 'give_back_reclaim',
+            'passed' => $passed,
+            'given_back' => $givenBack,
+            'reclaimed' => $reclaimed,
+            'missing_reclaim' => $missing,
+            'phase_a_clean' => $phaseAClean,
+            'phase_a' => $phaseA,
+            'phase_b' => $phaseB,
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $observations
+     * @return list<string>
+     */
+    private function distinctServedPackets(array $observations): array
+    {
+        $ids = [];
+        foreach ($observations as $obs) {
+            $envelope = (array) ($obs['envelope'] ?? []);
+            if ((string) ($envelope['status'] ?? '') !== 'served') {
+                continue;
+            }
+            $id = (string) data_get($envelope, 'task.task_packet_id', '');
+            if ($id !== '') {
+                $ids[$id] = true;
+            }
+        }
+        $out = array_keys($ids);
+        sort($out);
+
+        return $out;
+    }
+
+    /**
      * Index enqueued specs by task_packet_id with normalized write/read sets.
      *
      * @param  list<array<string,mixed>>  $enqueued

@@ -41,13 +41,14 @@ class AtlasTaskSwarmProofCommand extends Command
     protected $signature = 'atlas:task:swarm-proof
         {--clients=8 : number of concurrent client processes per round}
         {--rounds=2 : independent contention rounds (fresh root each round)}
-        {--scenario=mixed : disjoint|mixed — mixed adds a write-set-colliding pair to stress conflict rejection}
+        {--scenario=mixed : disjoint|mixed|give-back-reclaim — mixed stresses conflict rejection; give-back-reclaim proves a given-back task is re-served}
         {--lead=1.5 : seconds the coordinator waits so all workers reach the barrier before it releases}
         {--artifact= : path to write the X-ray JSON (default: storage/app/atlas/swarm-proof/xray-<run>.json)}
         {--keep : keep the temp roots after the run (default: cleaned up)}
         {--json : print the X-ray JSON}
 
         {--worker : INTERNAL — run as a single concurrent client (spawned by the coordinator)}
+        {--report=none : INTERNAL — none|give_back: what the worker does after a successful next}
         {--root= : INTERNAL — isolated storage root for this worker}
         {--client= : INTERNAL — opaque client id for this worker}
         {--master-env= : INTERNAL — temp .env path that flips the master switch ON for this run}
@@ -80,7 +81,9 @@ class AtlasTaskSwarmProofCommand extends Command
             AtlasLoopMasterSwitch::$envPathOverride = $masterEnv;
         }
 
+        $report = (string) $this->option('report');
         $envelope = ['status' => 'error', 'reason' => 'worker_uninitialized'];
+        $reportEnvelope = null;
         $firedAt = 0.0;
         try {
             $serving = new AtlasTaskServingService($this->isolatedOrchestrator($root));
@@ -90,11 +93,20 @@ class AtlasTaskSwarmProofCommand extends Command
             }
             $firedAt = microtime(true);
             $envelope = $serving->next($client);
+            // give_back: hand the claimed task straight back, so the next phase must reclaim it (R1/R2).
+            if ($report === 'give_back' && (string) ($envelope['status'] ?? '') === 'served') {
+                $reportEnvelope = $serving->report(
+                    $client,
+                    (string) data_get($envelope, 'task.task_packet_id', ''),
+                    (string) data_get($envelope, 'task.lease_id', ''),
+                    ['outcome' => 'give_back'],
+                );
+            }
         } catch (Throwable $e) {
             $envelope = ['status' => 'error', 'reason' => 'worker_exception', 'message' => $e->getMessage()];
         }
 
-        $observation = ['client_id' => $client, 'fired_at' => $firedAt, 'barrier_at' => $barrierAt, 'envelope' => $envelope];
+        $observation = ['client_id' => $client, 'fired_at' => $firedAt, 'barrier_at' => $barrierAt, 'envelope' => $envelope, 'report' => $reportEnvelope];
         if ($out !== '') {
             @file_put_contents($out, (string) json_encode($observation, JSON_UNESCAPED_SLASHES));
         }
@@ -117,16 +129,19 @@ class AtlasTaskSwarmProofCommand extends Command
         @mkdir($swarmRoot, 0775, true);
         @file_put_contents($masterEnv, AtlasLoopMasterSwitch::KEY."=true\n");
 
-        $roundResults = [];
-        for ($r = 0; $r < $rounds; $r++) {
-            $roundResults[] = $this->runRound($r, $clients, $scenario, $lead, $swarmRoot, $masterEnv);
+        if ($scenario === 'give-back-reclaim') {
+            $xray = $this->runGiveBackReclaim($analyzer, $clients, $lead, $swarmRoot, $masterEnv);
+        } else {
+            $roundResults = [];
+            for ($r = 0; $r < $rounds; $r++) {
+                $roundResults[] = $this->runRound($r, $clients, $scenario, $lead, $swarmRoot, $masterEnv);
+            }
+            $xray = $analyzer->analyze($roundResults);
+            $xray['barrier_spread'] = $this->barrierSpread($roundResults);
         }
-
-        $xray = $analyzer->analyze($roundResults);
         $xray['run_id'] = $runId;
         $xray['clients_per_round'] = $clients;
         $xray['scenario'] = $scenario;
-        $xray['barrier_spread'] = $this->barrierSpread($roundResults);
 
         $artifact = (string) ($this->option('artifact') ?: storage_path('app/atlas/swarm-proof/xray-'.$runId.'.json'));
         @mkdir(\dirname($artifact), 0775, true);
@@ -159,18 +174,57 @@ class AtlasTaskSwarmProofCommand extends Command
         $specs = $this->packetSpecs($scenario, $round);
         $this->seedPackets($root, $round, $specs);
 
+        $observations = $this->spawnPhase($root, 'swarm-client-'.$round, $clients, 'none', $lead, $masterEnv);
+
+        return ['round' => $round, 'enqueued' => $specs, 'observations' => $observations];
+    }
+
+    /**
+     * Give-back→reclaim proof (R1/R2): ONE shared root. Phase A clients claim AND report give_back (releasing
+     * each task); phase B clients pull. Proves the serving path re-admits a given-back task — every packet
+     * given back in A is reclaimed in B — instead of stranding it. TTL-free (no reaper wait).
+     *
+     * @return array<string, mixed>
+     */
+    private function runGiveBackReclaim(AtlasTaskSwarmProofService $analyzer, int $clients, float $lead, string $swarmRoot, string $masterEnv): array
+    {
+        $root = $swarmRoot.'/give-back-reclaim';
+        $this->ensureStorageDirs($root);
+        $specs = $this->packetSpecs('disjoint', 0);
+        $this->seedPackets($root, 0, $specs);
+
+        $phaseA = $this->spawnPhase($root, 'giveback-A', $clients, 'give_back', $lead, $masterEnv);
+        $phaseB = $this->spawnPhase($root, 'pull-B', $clients, 'none', $lead, $masterEnv);
+
+        $xray = $analyzer->analyzeReclaim($specs, $phaseA, $phaseB);
+        $xray['barrier_spread'] = $this->barrierSpread([
+            ['observations' => $phaseA], ['observations' => $phaseB],
+        ]);
+
+        return $xray;
+    }
+
+    /**
+     * Spawn N worker processes that all fire `next` (and optionally `report`) at one wall-clock barrier against
+     * the shared $root, then collect their observations.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function spawnPhase(string $root, string $clientPrefix, int $clients, string $report, float $lead, string $masterEnv): array
+    {
         $barrierAt = microtime(true) + $lead;
-        $outDir = $root.'/observations';
+        $outDir = $root.'/observations/'.$clientPrefix;
         @mkdir($outDir, 0775, true);
 
         /** @var array<int, array{process: Process, client: string, out: string}> $running */
         $running = [];
         for ($k = 0; $k < $clients; $k++) {
-            $client = 'swarm-client-'.$round.'-'.$k;
+            $client = $clientPrefix.'-'.$k;
             $outFile = $outDir.'/'.$client.'.json';
             $process = new Process([
                 PHP_BINARY, base_path('artisan'), 'atlas:task:swarm-proof',
                 '--worker',
+                '--report='.$report,
                 '--root='.$root,
                 '--client='.$client,
                 '--master-env='.$masterEnv,
@@ -196,7 +250,7 @@ class AtlasTaskSwarmProofCommand extends Command
             ];
         }
 
-        return ['round' => $round, 'enqueued' => $specs, 'observations' => $observations];
+        return $observations;
     }
 
     /**
@@ -282,6 +336,18 @@ class AtlasTaskSwarmProofCommand extends Command
     private function renderSummary(array $xray): void
     {
         $this->line('');
+        if (($xray['mode'] ?? '') === 'give_back_reclaim') {
+            $this->line('  <fg=cyan>SWARM PROOF — give-back→reclaim (R1/R2)</> ('.$xray['clients_per_round'].' clients/phase)');
+            $this->line('  given_back='.count($xray['given_back']).'  reclaimed='.count($xray['reclaimed']).'  missing_reclaim='.count($xray['missing_reclaim']));
+            $this->line('  phase_a clean='.($xray['phase_a_clean'] ? 'yes' : 'NO').' (serial re-serve OK)  phase_b conflict_free='.($xray['phase_b']['conflict_free'] ? 'yes' : 'NO'));
+            $this->line('  barrier_spread_max='.($xray['barrier_spread']['max_ms'] ?? 'n/a').'ms  artifact='.($xray['artifact'] ?? ''));
+            $this->line($xray['passed']
+                ? '  <fg=black;bg=green> PASS </> every given-back task was reclaimed, conflict-free'
+                : '  <fg=white;bg=red> FAIL </> a given-back task was stranded or a phase broke — see the X-ray');
+            $this->line('');
+
+            return;
+        }
         $this->line('  <fg=cyan>SWARM PROOF — conflict-free X-ray</> ('.$xray['rounds'].' rounds × '.$xray['clients_per_round'].' clients, scenario='.$xray['scenario'].')');
         $this->line('  served='.$xray['totals']['served'].'  no_claimable='.$xray['totals']['no_claimable_task'].'  observations='.$xray['totals']['observations']);
         $this->line('  double_claims='.count($xray['double_claims']).'  held_overlaps='.count($xray['held_overlaps']).'  r2_breaches='.count($xray['r2_breaches']).'  phantom='.count($xray['phantom_serves']));

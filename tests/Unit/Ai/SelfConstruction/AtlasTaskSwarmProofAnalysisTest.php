@@ -144,6 +144,49 @@ final class AtlasTaskSwarmProofAnalysisTest extends TestCase
         $this->assertSame('ghost-packet', $xray['phantom_serves'][0]['task_packet_id']);
     }
 
+    public function test_reclaim_passes_when_every_given_back_packet_is_reclaimed(): void
+    {
+        $enqueued = [$this->spec('p1', ['app/A/One.php']), $this->spec('p2', ['app/B/Two.php'])];
+        // Phase A: give-back. p1 is legitimately re-served SERIALLY (c1 gave it back, c3 reclaimed it) — NOT a
+        // double-claim, because the lease repo forbids two active leases. The analyzer must NOT fail on this.
+        $phaseA = [$this->served('c1', 'p1'), $this->served('c2', 'p2'), $this->served('c3', 'p1'), $this->empty('c4')];
+        $phaseB = [$this->served('d1', 'p1'), $this->served('d2', 'p2'), $this->empty('d3')];
+
+        $xray = (new AtlasTaskSwarmProofService)->analyzeReclaim($enqueued, $phaseA, $phaseB);
+
+        $this->assertTrue($xray['passed'], 'serial re-serve in phase A is OK; both given-back packets reclaimed in B');
+        $this->assertTrue($xray['phase_a_clean']);
+        $this->assertSame([], $xray['missing_reclaim']);
+        $this->assertEqualsCanonicalizing(['p1', 'p2'], $xray['given_back']);
+        $this->assertEqualsCanonicalizing(['p1', 'p2'], $xray['reclaimed']);
+    }
+
+    public function test_reclaim_fails_when_a_given_back_packet_is_stranded(): void
+    {
+        // The ORIGINAL bug: p2 was given back but never re-served (stranded in `released`).
+        $enqueued = [$this->spec('p1', ['app/A/One.php']), $this->spec('p2', ['app/B/Two.php'])];
+        $phaseA = [$this->served('c1', 'p1'), $this->served('c2', 'p2')];
+        $phaseB = [$this->served('d1', 'p1'), $this->empty('d2')];
+
+        $xray = (new AtlasTaskSwarmProofService)->analyzeReclaim($enqueued, $phaseA, $phaseB);
+
+        $this->assertFalse($xray['passed'], 'a stranded give-back must fail the reclaim proof');
+        $this->assertSame(['p2'], $xray['missing_reclaim']);
+    }
+
+    public function test_reclaim_fails_when_phase_b_double_claims(): void
+    {
+        // Phase B is a pure pull (everyone holds at once), so exactly-once MUST hold there.
+        $enqueued = [$this->spec('p1', ['app/A/One.php'])];
+        $phaseA = [$this->served('c1', 'p1')];
+        $phaseB = [$this->served('d1', 'p1'), $this->served('d2', 'p1')];
+
+        $xray = (new AtlasTaskSwarmProofService)->analyzeReclaim($enqueued, $phaseA, $phaseB);
+
+        $this->assertFalse($xray['passed'], 'a double-claim during the reclaim pull is a hard failure');
+        $this->assertNotSame([], $xray['phase_b']['double_claims']);
+    }
+
     public function test_analysis_is_deterministic(): void
     {
         $rounds = [[

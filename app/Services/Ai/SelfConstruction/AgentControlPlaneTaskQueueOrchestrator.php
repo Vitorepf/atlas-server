@@ -112,9 +112,10 @@ final class AgentControlPlaneTaskQueueOrchestrator
             return $this->envelope('claim_blocked', ['reason' => 'agent_id_missing']);
         }
 
-        // A3/MF-05: reclaim dead-agent leases BEFORE listing, so a task stranded in `claimed` by an expired
-        // lease is visible (and serveable) again this very call — R2 recovery on the hot path, not just by
-        // the scheduled reaper. Best-effort: a hiccup in recovery never blocks a claim.
+        // A3/MF-05: reclaim stranded leases BEFORE listing, so a task stranded by an expired lease, an orphaned
+        // claim, OR a client give-back (status `released`) is visible (and serveable) again this very call —
+        // R1/R2 recovery on the hot path, not just by the scheduled reaper. Best-effort: a hiccup in recovery
+        // never blocks a claim.
         $this->reapExpiredBeforeListing();
 
         $candidates = $this->queue->list(array_merge(['status' => 'claimable'], $filters));
@@ -169,9 +170,15 @@ final class AgentControlPlaneTaskQueueOrchestrator
     }
 
     /**
-     * A3/MF-05 — return any dead-agent (expired-lease / orphaned) task to `claimable` before the claim scan,
-     * reusing this orchestrator's OWN queue + lease repos (same disk/lock config). Best-effort + fail-open:
-     * recovery never throws into the claim path. Equivalent to the scheduled reaper, on the hot path.
+     * A3/MF-05 — return any stranded task to `claimable` before the claim scan, reusing this orchestrator's OWN
+     * queue + lease repos (same disk/lock config). Best-effort + fail-open: recovery never throws into the
+     * claim path. Equivalent to the scheduled reaper, on the hot path. Three strands:
+     *   - EXPIRED leases (dead client past TTL) — `recoverExpiredLeases`.
+     *   - ORPHANED claims (queue stuck `claimed` with a missing/non-active lease) — `recoverOrphanedClaims`.
+     *   - RELEASED tasks (a client reported give_back/failed) — `recoverReleasedTasks`. WITHOUT this, a
+     *     give-back stranded the task in `released` forever (never re-listed), silently draining the queue
+     *     (R1) and failing to re-serve recoverable work (R2). The recovery itself SKIPS released-with-blocker
+     *     reasons (operator-investigation), so only transient give-backs are re-admitted.
      */
     private function reapExpiredBeforeListing(): void
     {
@@ -179,6 +186,7 @@ final class AgentControlPlaneTaskQueueOrchestrator
             $recovery = new AgentControlPlaneTaskLeaseRecoveryService($this->queue, $this->leases);
             $recovery->recoverExpiredLeases(['actor' => 'claim_next_presweep']);
             $recovery->recoverOrphanedClaims(['actor' => 'claim_next_presweep']);
+            $recovery->recoverReleasedTasks(['actor' => 'claim_next_presweep']);
         } catch (Throwable) {
             // Pre-sweep is best-effort; a recovery hiccup must never block serving a claim.
         }

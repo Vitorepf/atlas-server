@@ -50,4 +50,32 @@ final class AtlasTaskSwarmProofConcurrencyTest extends TestCase
         $this->assertSame(8, $xray['totals']['served'], '4 served/round × 2 rounds — the colliding pair was serialized');
         $this->assertGreaterThanOrEqual(12, $xray['totals']['observations'], '6 clients × 2 rounds of real processes ran');
     }
+
+    public function test_given_back_tasks_are_reclaimed_under_real_concurrency(): void
+    {
+        // Phase A: 6 concurrent clients each claim AND report give_back. Phase B: 6 concurrent clients pull.
+        // Every task given back in A must be reclaimed in B — proving the live serving path re-admits give-backs
+        // (the R1/R2 fix) under real OS-level concurrency, not just in-process.
+        $exit = Artisan::call('atlas:task:swarm-proof', [
+            '--scenario' => 'give-back-reclaim',
+            '--clients' => 6,
+            '--lead' => 2.0,
+            '--json' => true,
+        ]);
+
+        $xray = json_decode(Artisan::output(), true);
+        $this->assertIsArray($xray);
+        if (is_string($xray['artifact'] ?? null) && is_file($xray['artifact'])) {
+            @unlink($xray['artifact']);
+        }
+
+        $this->assertSame(0, $exit, 'the give-back→reclaim proof PASSES');
+        $this->assertSame('give_back_reclaim', $xray['mode']);
+        $this->assertTrue($xray['passed']);
+        $this->assertNotEmpty($xray['given_back'], 'phase A actually claimed-and-gave-back tasks');
+        $this->assertSame([], $xray['missing_reclaim'], 'every given-back task was reclaimed (not stranded)');
+        $this->assertTrue($xray['phase_a_clean'], 'phase A had no held-overlap / R2 / phantom breach');
+        $this->assertTrue($xray['phase_b']['conflict_free'], 'the reclaim pull stayed conflict-free');
+        $this->assertEqualsCanonicalizing($xray['given_back'], $xray['reclaimed']);
+    }
 }
