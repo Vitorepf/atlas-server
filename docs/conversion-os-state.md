@@ -24,11 +24,11 @@ Régua atual (piso de maturidade): **85** / teto 100. — **VOLTA 2 COMPLETA** (
 
 **Conversion OS no fim da Volta 2:** ~243 padrões (vs 146 fim Volta 1) × 10 libs × scorer único × ConversionAuditor × AggressionAmplifier × 2 CLIs. Todas libs maduras ≥85.
 
-## Volta 3 (piso 90) — próximos saltos
-- **Flywheel de pesos aprendidos** — conectar ao ledger decisão→resultado quando o operador rodar campanha (LATENTE até dado real chegar).
-- **Orquestrador final** — combina as 10 libs num pipeline de geração de página partindo do zero (audit → amplify → render → re-audit).
-- **Padrões anti-Goodhart explícitos** — detector de copy "parecendo bom mas sem efeito" (frases que disparam markers mas não persuadem).
-- Aprofundamento contínuo das libs com swipe files novos do mês corrente.
+## Volta 3 (piso 90) — em curso
+- **ConversionOrchestrator** ✅ — RESOLVIDO ciclo 23: pipeline end-to-end provider-free (asset → seed → amplifier → renderer). PROVA: asset OT169 vira HTML 7388 bytes com headline + CTA + 6 padrões injetados, score 6→15 (+9 num passe). CLI `atlas:ai:marketing:orchestrate` expõe pro operador.
+- **Flywheel de pesos aprendidos** — LATENTE até venda real voltar pelo ledger.
+- **Padrões anti-Goodhart explícitos** — pendente.
+- Aprofundamento contínuo com swipe files do mês corrente.
 
 ## Fundação
 - `PatternLibrary` (contrato): toda lib = `name()` + `all()` (padrão = key/name/category/weight/trigger/lever/markers) + `categories()`.
