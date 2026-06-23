@@ -239,6 +239,42 @@ final class AgentControlPlaneTaskQueueOrchestrator
     }
 
     /**
+     * Axis 8 — QUARANTINE a claimed packet that is NOT self-sufficient: a cold client could never implement or
+     * prove it (e.g. no acceptance criteria / no required evidence / a bare-dir write scope). Release the lease
+     * and move the queue record `claimed → blocked` so it is never re-offered to a client until an operator
+     * fixes it (recovery never auto-reopens `blocked`). The deficiencies are recorded on the receipt. This is
+     * how the serving path guarantees a client only ever receives an implementable task.
+     *
+     * @param  list<string>  $deficiencies
+     * @return array<string, mixed>
+     */
+    public function quarantineClaimed(string $taskPacketId, string $leaseId, string $agentId, array $deficiencies = []): array
+    {
+        // Release the lease (registry only) so no active lease lingers; the queue record stays `claimed`.
+        $this->leases->release($leaseId, $agentId, ['reason' => 'packet_not_self_sufficient']);
+
+        $transition = $this->queue->updateStatus($taskPacketId, 'blocked', [
+            'lease_id' => $leaseId,
+            'agent_id' => $agentId,
+            'reason' => 'packet_not_self_sufficient',
+            'blocking_deficiencies' => array_values($deficiencies),
+        ]);
+        $this->queue->appendReceipt($taskPacketId, [
+            'receipt_kind' => 'packet_quarantined_not_self_sufficient',
+            'lease_id' => $leaseId,
+            'agent_id' => $agentId,
+            'blocking_deficiencies' => array_values($deficiencies),
+        ]);
+
+        return $this->envelope('packet_quarantined', [
+            'task_packet_id' => $taskPacketId,
+            'lease_id' => $leaseId,
+            'blocking_deficiencies' => array_values($deficiencies),
+            'queue_transition' => (string) ($transition['status'] ?? ''),
+        ]);
+    }
+
+    /**
      * Finalises the dry-run cycle: the lease is released and the queue
      * record moves to `completed_dry_run`. Real completion remains forbidden.
      *

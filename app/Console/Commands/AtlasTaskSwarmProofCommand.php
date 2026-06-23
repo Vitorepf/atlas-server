@@ -16,6 +16,7 @@ use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
 use App\Services\Ai\SelfConstruction\AtlasTaskSwarmProofService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -147,6 +148,13 @@ class AtlasTaskSwarmProofCommand extends Command
         @mkdir(\dirname($artifact), 0775, true);
         @file_put_contents($artifact, (string) json_encode($xray, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         $xray['artifact'] = $artifact;
+
+        // Forget the disks this coordinator registered so they never leak into the global config/Storage
+        // manager (which would pollute later tests/commands that resolve the default disk).
+        foreach (array_unique($this->registeredDisks) as $disk) {
+            Storage::forgetDisk($disk);
+            Config::set('filesystems.disks.'.$disk, null);
+        }
 
         if (! $this->option('keep')) {
             $this->rmrf($swarmRoot);
@@ -295,10 +303,14 @@ class AtlasTaskSwarmProofCommand extends Command
         }
     }
 
+    /** @var list<string> disk names this coordinator registered, so they can be forgotten (no global leak). */
+    private array $registeredDisks = [];
+
     private function isolatedOrchestrator(string $root): AgentControlPlaneTaskQueueOrchestrator
     {
         $disk = 'swarm_proof_'.substr(md5($root), 0, 10);
         Config::set('filesystems.disks.'.$disk, ['driver' => 'local', 'root' => $root, 'throw' => false]);
+        $this->registeredDisks[] = $disk;
 
         return new AgentControlPlaneTaskQueueOrchestrator(
             new AgentControlPlaneTaskPacketBuilder,

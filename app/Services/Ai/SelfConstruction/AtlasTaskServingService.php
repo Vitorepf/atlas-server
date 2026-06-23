@@ -32,13 +32,21 @@ final class AtlasTaskServingService
 
     public const DEFAULT_RETRY_AFTER_SECONDS = 30;
 
+    /** Bound on how many unservable packets `next` will quarantine-and-skip in one call (anti-storm). */
+    private const MAX_QUARANTINE_SKIPS = 25;
+
     /** The ONLY client-supplied filters honoured — neutral, never engine-typed. */
     private const ALLOWED_FILTER_KEYS = ['tags', 'ttl_seconds'];
+
+    private readonly AtlasTaskPacketQualityInspector $inspector;
 
     public function __construct(
         private readonly AgentControlPlaneTaskQueueOrchestrator $orchestrator,
         private readonly ?AtlasTaskServingSentinel $sentinel = null,
-    ) {}
+        ?AtlasTaskPacketQualityInspector $inspector = null,
+    ) {
+        $this->inspector = $inspector ?? new AtlasTaskPacketQualityInspector;
+    }
 
     /**
      * PULL the next claimable task for an opaque client. Atomic claim on the canonical stack; a self-sufficient
@@ -57,18 +65,58 @@ final class AtlasTaskServingService
             return $this->served('', $this->envelope('invalid_client', '', null, ['reason' => 'client_id_required']));
         }
 
-        $claim = $this->orchestrator->claimNext($clientId, $this->safeFilters($filters));
+        $filters = $this->safeFilters($filters);
+        $lastDeficiencies = [];
 
-        if ((string) ($claim['event'] ?? '') !== 'claimed') {
-            // Honest empty: NOT an error. The queue is dry; the brain must originate (model-bound — see R1).
-            return $this->served($clientId, $this->envelope('no_claimable_task', $clientId, null, [
-                'retry_after_seconds' => self::DEFAULT_RETRY_AFTER_SECONDS,
-                'escalation' => 'needs_brain_origination',
-                'candidate_count' => (int) ($claim['candidate_count'] ?? 0),
-            ]));
+        // Quarantine-and-skip loop: a cold client must only ever receive an IMPLEMENTABLE packet. If a claimed
+        // packet is not self-sufficient (axis 8), block it out of the pool and try the next candidate. Bounded.
+        for ($skip = 0; $skip < self::MAX_QUARANTINE_SKIPS; $skip++) {
+            $claim = $this->orchestrator->claimNext($clientId, $filters);
+
+            if ((string) ($claim['event'] ?? '') !== 'claimed') {
+                // If we quarantined ≥1 doomed packet this call and the queue is now dry, the honest signal is
+                // `no_self_sufficient_task` (there WAS work, all of it unimplementable), not an empty queue.
+                if ($skip > 0) {
+                    return $this->served($clientId, $this->envelope('no_self_sufficient_task', $clientId, null, [
+                        'retry_after_seconds' => self::DEFAULT_RETRY_AFTER_SECONDS,
+                        'escalation' => 'needs_brain_origination',
+                        'blocking_deficiencies' => array_values(array_unique($lastDeficiencies)),
+                        'quarantined_this_call' => $skip,
+                    ]));
+                }
+
+                // Honest empty: NOT an error. The queue is dry; the brain must originate (model-bound — see R1).
+                return $this->served($clientId, $this->envelope('no_claimable_task', $clientId, null, [
+                    'retry_after_seconds' => self::DEFAULT_RETRY_AFTER_SECONDS,
+                    'escalation' => 'needs_brain_origination',
+                    'candidate_count' => (int) ($claim['candidate_count'] ?? 0),
+                ]));
+            }
+
+            $task = $this->projectTask($claim);
+            $quality = $this->inspector->inspect($task);
+
+            if ((bool) $quality['self_sufficient']) {
+                $task['packet_quality'] = $quality; // advisory facts travel with the served packet
+                return $this->served($clientId, $this->envelope('served', $clientId, $task, []));
+            }
+
+            // Doomed packet: quarantine it (claimed → blocked) so it is never served, then claim the next.
+            $lastDeficiencies = (array) $quality['blocking_deficiencies'];
+            $this->orchestrator->quarantineClaimed(
+                (string) $task['task_packet_id'],
+                (string) $task['lease_id'],
+                $clientId,
+                $lastDeficiencies,
+            );
         }
 
-        return $this->served($clientId, $this->envelope('served', $clientId, $this->projectTask($claim), []));
+        // Every candidate this call was unservable — honest, with the deficiencies that blocked them.
+        return $this->served($clientId, $this->envelope('no_self_sufficient_task', $clientId, null, [
+            'retry_after_seconds' => self::DEFAULT_RETRY_AFTER_SECONDS,
+            'escalation' => 'needs_brain_origination',
+            'blocking_deficiencies' => array_values(array_unique($lastDeficiencies)),
+        ]));
     }
 
     /** Record the serve outcome on the R2 sentinel (if wired), then return the envelope unchanged. */
@@ -158,7 +206,10 @@ final class AtlasTaskServingService
             'forbidden_files' => array_values((array) data_get($packet, 'normalized_scope.forbidden_files', data_get($packet, 'forbidden_files', []))),
             'scope_in' => array_values((array) data_get($packet, 'normalized_scope.scope_in', data_get($packet, 'scope_in', []))),
             'acceptance_criteria' => array_values((array) data_get($packet, 'acceptance_criteria', [])),
-            'required_evidence' => array_values((array) data_get($packet, 'required_evidence', [])),
+            // The builder stores the evidence list under `evidence_requirements.required` — projecting the bare
+            // `required_evidence` key (absent) left the served packet WITHOUT the evidence a cold client must
+            // produce. Read the real path (fallback to the projection shape).
+            'required_evidence' => array_values((array) data_get($packet, 'evidence_requirements.required', data_get($packet, 'required_evidence', []))),
             'risk_level' => (string) data_get($packet, 'risk_level', 'unspecified'),
         ];
     }

@@ -30,8 +30,9 @@ final class AtlasTaskServingSentinel
 
     public const DEFAULT_MIN_CLAIMABLE = 1;
 
-    /** Outcomes that are HONEST (not an R2 breach). An empty queue is honest; an error is not. */
-    private const HONEST_SERVE_OUTCOMES = ['served', 'no_claimable_task', 'disabled', 'invalid_client'];
+    /** Outcomes that are HONEST (not an R2 breach). An empty queue — or a queue of only doomed packets — is
+     *  honest; an error is not. */
+    private const HONEST_SERVE_OUTCOMES = ['served', 'no_claimable_task', 'no_self_sufficient_task', 'disabled', 'invalid_client'];
 
     private ?string $logPathOverride = null;
 

@@ -31,8 +31,8 @@ final class AtlasTaskSwarmProofService
 {
     public const SCHEMA = 'atlas.task_serving.swarm_proof.v1';
 
-    /** Envelope statuses that are HONEST for a `next` call (empty queue is honest; an error is not). */
-    public const HONEST_NEXT_STATUSES = ['served', 'no_claimable_task'];
+    /** Envelope statuses that are HONEST for a `next` call (empty/all-doomed queue is honest; an error is not). */
+    public const HONEST_NEXT_STATUSES = ['served', 'no_claimable_task', 'no_self_sufficient_task'];
 
     /**
      * Judge a multi-round, multi-client run. Pure: same observations ⇒ byte-identical verdict.

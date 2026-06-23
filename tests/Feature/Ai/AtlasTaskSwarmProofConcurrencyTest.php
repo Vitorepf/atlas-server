@@ -76,6 +76,8 @@ final class AtlasTaskSwarmProofConcurrencyTest extends TestCase
         $this->assertSame([], $xray['missing_reclaim'], 'every given-back task was reclaimed (not stranded)');
         $this->assertTrue($xray['phase_a_clean'], 'phase A had no held-overlap / R2 / phantom breach');
         $this->assertTrue($xray['phase_b']['conflict_free'], 'the reclaim pull stayed conflict-free');
-        $this->assertEqualsCanonicalizing($xray['given_back'], $xray['reclaimed']);
+        // Every given-back packet is reclaimed (given_back ⊆ reclaimed). Phase B MAY also serve packets that
+        // were never claimed in phase A (still sitting claimable), so reclaimed can be a strict superset.
+        $this->assertEmpty(array_diff($xray['given_back'], $xray['reclaimed']));
     }
 }
