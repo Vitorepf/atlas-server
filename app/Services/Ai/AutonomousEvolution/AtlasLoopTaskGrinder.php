@@ -1226,7 +1226,8 @@ final class AtlasLoopTaskGrinder
         }
 
         $workspace = sys_get_temp_dir().'/atlas-loop-fw-gate-'.bin2hex(random_bytes(5));
-        if ($this->isGitWorkspace($baseWorkspace)) {
+        $gateBaseIsGit = $this->isGitWorkspace($baseWorkspace);
+        if ($gateBaseIsGit) {
             $this->mustRun(['git', '-C', $baseWorkspace, 'worktree', 'add', '--detach', $workspace, 'HEAD'], 'framework_gate_worktree_add_failed', 120.0);
         } else {
             // AUTÓPSIA 12/06 (a causa-raiz do "0 propostas"): no caminho DISCOVERY o
@@ -1238,11 +1239,23 @@ final class AtlasLoopTaskGrinder
             // e o diff aplica sobre um baseline real.
             $this->mustRun(['bash', '-lc', 'cp -R '.escapeshellarg($baseWorkspace).' '.escapeshellarg($workspace)], 'framework_gate_copy_failed', 120.0);
             $this->mustRun(['git', '-C', $workspace, 'init', '-q'], 'framework_gate_git_init_failed', 30.0);
+        }
+        // Provision support + hermetic .env.testing BEFORE the baseline so the FrozenJudge scope census
+        // never counts harness infrastructure as a candidate change. AUTÓPSIA 06-23 (the SECOND "0 propostas"
+        // root, downstream of the 12/06 one): in the non-git path the fresh `git init` has NO shared
+        // .git/info/exclude, so a .env.testing written AFTER the baseline commit showed up as an untracked
+        // out-of-scope change and KILLED every self-contained proposal at the gate
+        // (proposals_in=1, certified=0, reason target_acceptance_failed(out_of_scope_change)). The worktree
+        // path already ignores it via the canonical repo's info/exclude — so this only bit DISCOVERY tasks.
+        $this->copyLocalSupport($baseWorkspace, $workspace);
+        AtlasLoopHermeticCommandEnvironment::writeTestingEnv($workspace, $baseWorkspace.'/.env');
+        if (! $gateBaseIsGit) {
+            // Commit the provisioned env + support INTO the baseline so they are not a "change". A candidate
+            // diff that LATER edits one of them still shows as a tracked modification and is correctly flagged
+            // out_of_scope by the FrozenJudge — the judge's scope/tamper guard is fully preserved.
             $this->mustRun(['git', '-C', $workspace, 'add', '-A'], 'framework_gate_baseline_add_failed', 60.0);
             $this->mustRun(['git', '-C', $workspace, '-c', 'user.email=atlas-loop@local', '-c', 'user.name=Atlas Loop', '-c', 'commit.gpgsign=false', 'commit', '-q', '--allow-empty', '--no-verify', '-m', 'gate baseline'], 'framework_gate_baseline_commit_failed', 60.0);
         }
-        $this->copyLocalSupport($baseWorkspace, $workspace);
-        AtlasLoopHermeticCommandEnvironment::writeTestingEnv($workspace, $baseWorkspace.'/.env');
 
         $apply = new Process(['git', 'apply', '--whitespace=nowarn', '-'], $workspace, null, null, 60.0);
         $apply->setInput($diff);
