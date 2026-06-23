@@ -130,6 +130,7 @@ class AtlasLoopSoakCommand extends Command
             $this->components->twoColumnDetail('  '.$flag, $on ? '<fg=green>ON</>' : '<fg=red>OFF</>');
         }
         $this->components->twoColumnDetail('  faxina work-types OFF', ($arm['proxy_worktypes_off'] ?? false) ? '<fg=green>yes</>' : '<fg=red>NO — proxy magnet armed</>');
+        $this->components->twoColumnDetail('  proxy supply lanes OFF', ($arm['proxy_supply_lanes_off'] ?? false) ? '<fg=green>yes</>' : '<fg=red>NO — cyclomatic farm: '.implode(', ', (array) ($arm['proxy_supply_armed'] ?? [])).'</>');
         $this->components->twoColumnDetail('  merge mode', $arm['merge_mode'] === 'auto_merge' ? '<fg=yellow>AUTO-MERGE</>' : 'propose-only');
         $this->components->twoColumnDetail('<options=bold>READY</>', ($arm['ready'] ?? false) ? '<fg=green;options=bold>YES</>' : '<fg=red;options=bold>NO: '.implode('; ', (array) $arm['blocking']).'</>');
 

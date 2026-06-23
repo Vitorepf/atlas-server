@@ -26,6 +26,13 @@ final class AtlasLoopSoakPlanTest extends TestCase
             'atlas.loop.regression_sentinel_enabled' => true,
             'atlas.loop.territory_widened_roots_drive_refill' => true,
             'atlas.loop.deterministic_deadcode_supply_enabled' => false,
+            // the cyclomatic-refactor supply FARMS must be OFF for a material soak (proxy_refactor_supply
+            // defaults TRUE, so a material soak must explicitly cut it; objective_producer mints proxy
+            // unless feature-origination is armed)
+            'atlas.loop.decompose_supply_enabled' => false,
+            'atlas.loop.proxy_refactor_supply_enabled' => false,
+            'atlas.loop.self_improve_grounding_enabled' => false,
+            'atlas.loop.objective_producer_enabled' => false,
             'atlas.loop.self_improvement_auto_merge_enabled' => false,
             'atlas.loop.obra_auto_merge_enabled' => false,
         ]);
@@ -56,8 +63,50 @@ final class AtlasLoopSoakPlanTest extends TestCase
         $this->assertTrue($plan['arm_check']['ready'], 'master on + all seams on + proxy off + propose-only => ready; blocking='.json_encode($plan['arm_check']['blocking']));
         $this->assertTrue($plan['arm_check']['fibonacci_all_on']);
         $this->assertTrue($plan['arm_check']['proxy_worktypes_off']);
+        $this->assertTrue($plan['arm_check']['proxy_supply_lanes_off'], 'cyclomatic-refactor supply farms must read OFF');
         $this->assertSame('propose_only', $plan['arm_check']['merge_mode']);
         $this->assertSame([], $plan['arm_check']['blocking']);
+    }
+
+    public function test_armed_proxy_supply_farm_blocks_the_material_soak(): void
+    {
+        // LIVE-SOAK REGRESSION. With these cyclomatic-refactor supply lanes ON, the loop's first wave was
+        // 6/8 refactor_reduce_complexity, yet the OLD arm-check reported proxy OFF / ready (it only checked
+        // the dead-code flag). Each armed farm must now block a MATERIAL soak by name.
+        foreach (AtlasLoopSoakPlanService::PROXY_SUPPLY_FLAGS as $farm) {
+            $this->armAllFibonacci();
+            config(['atlas.loop.'.$farm => true]);
+            $plan = $this->planner(true)->plan(2.0, 5.0, 0, false);
+
+            $this->assertFalse($plan['arm_check']['proxy_supply_lanes_off'], $farm.' armed => not off');
+            $this->assertFalse($plan['arm_check']['ready'], $farm.' armed => NOT ready');
+            $this->assertContains(
+                'proxy_supply_lane_armed:'.$farm.' (cyclomatic-refactor farm — must be OFF for a MATERIAL soak)',
+                $plan['arm_check']['blocking'],
+                $farm.' must appear by name in blocking',
+            );
+        }
+    }
+
+    public function test_objective_producer_without_feature_origination_blocks_but_with_it_is_ok(): void
+    {
+        // The objective producer is a proxy farm ONLY when it is not emitting features: armed-without-feature
+        // it mints "REDUCE complexity" objectives directly (proven live, source=producer:objective). Armed
+        // WITH producer_feature_origination it emits material features, so it must NOT block.
+        $this->armAllFibonacci();
+        config(['atlas.loop.objective_producer_enabled' => true, 'atlas.loop.producer_feature_origination_enabled' => false]);
+        $blocked = $this->planner(true)->plan(2.0, 5.0, 0, false);
+        $this->assertFalse($blocked['arm_check']['ready']);
+        $this->assertContains(
+            'proxy_supply_lane_armed:objective_producer_enabled (without producer_feature_origination) (cyclomatic-refactor farm — must be OFF for a MATERIAL soak)',
+            $blocked['arm_check']['blocking'],
+        );
+
+        $this->armAllFibonacci();
+        config(['atlas.loop.objective_producer_enabled' => true, 'atlas.loop.producer_feature_origination_enabled' => true]);
+        $ok = $this->planner(true)->plan(2.0, 5.0, 0, false);
+        $this->assertTrue($ok['arm_check']['proxy_supply_lanes_off'], 'producer emitting features is not a proxy farm');
+        $this->assertTrue($ok['arm_check']['ready'], 'blocking='.json_encode($ok['arm_check']['blocking']));
     }
 
     public function test_master_off_or_seam_off_is_not_ready(): void
