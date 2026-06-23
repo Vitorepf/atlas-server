@@ -52,6 +52,7 @@ class BridgePageComposerService
         private readonly RsaAdForge $ads = new RsaAdForge,
         private readonly \App\Services\Ai\MarketingDomain\Campaign\SearchNetworkPlanner $search = new \App\Services\Ai\MarketingDomain\Campaign\SearchNetworkPlanner,
         private readonly LeadForge $leadForge = new LeadForge,
+        private readonly EmailFollowupForge $emails = new EmailFollowupForge,
     ) {}
 
     /**
@@ -191,6 +192,7 @@ class BridgePageComposerService
                 'elite_headlines' => array_slice($eliteHeadlines, 0, 7),
                 'rsa_ads' => $this->ads->forge($asset, ['lang' => str_starts_with(strtolower($language), 'port') ? 'pt' : 'en']),
                 'search_network' => $this->search->plan($asset, ['pattern' => $pattern]),
+                'email_sequence' => $this->emails->forge($asset, ['lang' => str_starts_with(strtolower($language), 'port') ? 'pt' : 'en']),
                 'awareness_target' => $asset->awareness_level,
                 'sophistication' => $asset->sophistication_level,
                 'audience_gender' => $profile['gender'] ?? null,
