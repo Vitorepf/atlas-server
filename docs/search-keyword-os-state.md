@@ -10,7 +10,7 @@
 | Camada | Componente | Status |
 |---|---|---|
 | **1. Geração qualificada** | `QualifiedKeywordPatternEngine` — colhe 6 artefatos do asset → 6 tiers (mechanism/slogan/celebrity/power-phrase/category/objection) por exposure-exclusivity; KEEP/KILL law; nega produto/genérico/droga-bare | ✅ ciclo 52 (7 testes) |
-| **2. Índice de qualidade** | `KeywordQualityIndex` — pontua cada keyword 0-100 (exposure-exclusivity + commercial-intent + QS-proxy + waste-risk + message-match) e elimina as ruins antes do gasto | ⏳ pesquisa em andamento |
+| **2. Índice de qualidade** | `KeywordQualityIndex` — pontua 0-100 (6 componentes: owned-root-provenance .24 / intent-class .20 / predicted-QS-proxy .22 / profit-headroom .14 / specificity-match .10 / signal-fit .05) + elimina lixo ANTES do gasto + banda de ação (scale/launch/test/kill). Grounded em pesquisa real do Google QS (expected CTR/ad relevance/LP experience) | ✅ ciclo 53 (5 testes; CLI mostra score+banda) |
 | **3. Mineração de desperdício** | search-term/n-gram miner → negativas automáticas (waste elimination contínua) | ⬜ |
 | **4. Quality Score engineering** | maximizar os 3 levers reais do Google (expected CTR / ad relevance / LP experience) via message-match keyword=ad=H1 | ⬜ (parcial no MessageMatchScorer) |
 | **5. Estrutura agressiva** | STAG por família + match-type por tier + bidding faseado (já no CampaignBlueprintService) | 🟡 existe, falta ligar o motor qualificado |
