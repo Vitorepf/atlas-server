@@ -54,6 +54,7 @@ class BridgePageComposerService
         private readonly LeadForge $leadForge = new LeadForge,
         private readonly EmailFollowupForge $emails = new EmailFollowupForge,
         private readonly \App\Services\Ai\MarketingDomain\Content\TransformationAssetSourcer $transformations = new \App\Services\Ai\MarketingDomain\Content\TransformationAssetSourcer,
+        private readonly PersuasionScorer $persuasion = new PersuasionScorer,
     ) {}
 
     /**
@@ -205,6 +206,7 @@ class BridgePageComposerService
                 'rsa_ads' => $this->ads->forge($asset, ['lang' => str_starts_with(strtolower($language), 'port') ? 'pt' : 'en']),
                 'search_network' => $this->search->plan($asset, ['pattern' => $pattern]),
                 'email_sequence' => $this->emails->forge($asset, ['lang' => str_starts_with(strtolower($language), 'port') ? 'pt' : 'en']),
+                'persuasion_audit' => $this->persuasion->score($this->persuasionCopy($bridge)),
                 'awareness_target' => $asset->awareness_level,
                 'sophistication' => $asset->sophistication_level,
                 'audience_gender' => $profile['gender'] ?? null,
@@ -443,6 +445,33 @@ TXT;
         }
 
         return $s;
+    }
+
+    /** Flatten the bridge's visible copy into one blob for the persuasion audit. */
+    private function persuasionCopy(array $bridge): string
+    {
+        $parts = [
+            (string) ($bridge['headline'] ?? ''),
+            (string) ($bridge['kicker'] ?? ''),
+            (string) ($bridge['subheadline'] ?? ''),
+            (string) ($bridge['lead_paragraph'] ?? ''),
+            (string) ($bridge['mechanism_tease'] ?? ''),
+            (string) ($bridge['ps'] ?? ''),
+        ];
+        foreach ((array) ($bridge['body_sections'] ?? []) as $s) {
+            $parts[] = is_array($s) ? (string) ($s['heading'] ?? '').' '.(string) ($s['body'] ?? $s['text'] ?? '') : (string) $s;
+        }
+        foreach ((array) ($bridge['cta_blocks'] ?? []) as $c) {
+            $parts[] = is_array($c) ? (string) ($c['label'] ?? '') : (string) $c;
+        }
+        foreach ((array) (($bridge['proof_block']['testimonials'] ?? [])) as $t) {
+            $parts[] = is_array($t) ? (string) ($t['quote'] ?? '').' '.(string) ($t['result'] ?? '') : (string) $t;
+        }
+        foreach ((array) (($bridge['proof_block']['stat_callouts'] ?? [])) as $st) {
+            $parts[] = is_string($st) ? $st : '';
+        }
+
+        return trim(implode("\n", array_filter($parts)));
     }
 
     /** Conversion-strength of a lead: direct address + common enemy + mechanism plant + concrete scene + length. */
