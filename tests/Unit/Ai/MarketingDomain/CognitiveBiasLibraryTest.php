@@ -22,7 +22,8 @@ class CognitiveBiasLibraryTest extends TestCase
         $r = (new PatternLibraryScorer)->score(new CognitiveBiasLibrary, $this->strong);
 
         $this->assertSame('cognitive_bias', $r['library']);
-        $this->assertGreaterThanOrEqual(50, $r['score']);
+        // Library deepened in Volta 2 (+10 advanced biases); short copy hits cores but not all.
+        $this->assertGreaterThanOrEqual(30, $r['score']);
         $this->assertContains('anchoring', $r['present']);
         $this->assertContains('loss_aversion', $r['present']);
         $this->assertContains('decoy_effect', $r['present']);
@@ -34,6 +35,29 @@ class CognitiveBiasLibraryTest extends TestCase
         $r = (new PatternLibraryScorer)->score(new CognitiveBiasLibrary, 'Our product is good. It helps people. Buy it on our website.');
         $this->assertSame(0, $r['score']);
         $this->assertSame('flat', $r['grade']);
+    }
+
+    public function test_volta_2_advanced_biases_fire(): void
+    {
+        $master = 'Just last week, Maria from Tampa told us her story. '
+            .'One last thing before you go — imagine waking up six months from now... '
+            .'Stop the Yo-Yo. It\'s a no-brainer. '
+            .'Doing nothing is also a choice — tomorrow you wake up the same. '
+            ."I know it's uncomfortable. Face it now. "
+            .'9,847 women joined this month. Going viral. '
+            .'Take the quiz to build your personalized plan, tailored to you. '
+            .'You decide. No pressure. See for yourself. '
+            .'Less than one dinner out per month, less than Netflix. '
+            ."You're 80% of the way — step 3 of 4, last step.";
+
+        $r = (new \App\Services\Ai\MarketingDomain\Content\PatternLibraryScorer)
+            ->score(new \App\Services\Ai\MarketingDomain\Knowledge\CognitiveBiasLibrary, $master);
+
+        foreach (['availability_heuristic', 'recency_effect', 'fluency_bias', 'status_quo_bias',
+            'ostrich_effect', 'bandwagon_explicit', 'ikea_effect', 'reactance_avoidance',
+            'mental_accounting', 'goal_gradient'] as $k) {
+            $this->assertContains($k, $r['present'], "Volta 2 advanced bias {$k} should fire");
+        }
     }
 
     public function test_generalizes_to_finance(): void
