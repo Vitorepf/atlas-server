@@ -35,6 +35,7 @@ class ConversionAuditor
         private readonly PatternLibraryScorer $scorer = new PatternLibraryScorer,
         ?HybridPatternScorer $hybrid = null,
         private readonly PersonaSimulator $personas = new PersonaSimulator,
+        private readonly CopySmellDetector $smells = new CopySmellDetector,
     ) {
         // When the auditor is built without an explicit hybrid scorer, wire one by default — this
         // way passing a niche to audit() activates learned weights automatically (no rewiring needed
@@ -86,6 +87,8 @@ class ConversionAuditor
 
         $overall = $count > 0 ? (int) round($sum / $count) : 0;
 
+        $smellReport = $this->smells->inspect($copy);
+
         return [
             'overall_score' => $overall,
             'grade' => $this->grade($overall),
@@ -93,6 +96,8 @@ class ConversionAuditor
             'top_missing' => $this->topMissing($byLibrary),
             'personas' => $this->personas->simulate($copy, $html),
             'audience_score' => round($this->personas->audienceScore($copy) * 100),
+            'smells' => $smellReport['smells'],
+            'smells_count' => $smellReport['n'],
         ];
     }
 

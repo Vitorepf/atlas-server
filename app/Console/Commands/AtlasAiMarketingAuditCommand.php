@@ -57,6 +57,20 @@ class AtlasAiMarketingAuditCommand extends Command
             }
             $this->line('');
         }
+        if (! empty($audit['smells'])) {
+            $this->line('  <fg=red;options=bold>Smells de copy VSL ('.$audit['smells_count'].'):</>');
+            foreach ($audit['smells'] as $s) {
+                $sevColor = match ($s['severity']) {
+                    'critical' => '<fg=red;options=bold>['.$s['severity'].']</>',
+                    'high' => '<fg=red>['.$s['severity'].']</>',
+                    'medium' => '<fg=yellow>['.$s['severity'].']</>',
+                    default => '<fg=gray>['.$s['severity'].']</>',
+                };
+                $this->line('    '.$sevColor.' <fg=white;options=bold>'.$s['key'].'</> <fg=gray>("'.$s['evidence'].'")</>');
+                $this->line('      <fg=gray>→ '.$s['fix'].'</>');
+            }
+            $this->line('');
+        }
         $this->line('  <fg=red;options=bold>O que falta (top 10, ponderado):</>');
         foreach ($audit['top_missing'] as $m) {
             $this->line('    <fg=red>•</> <fg=white;options=bold>'.$m['name'].'</> <fg=gray>['.$m['library'].']</>');
