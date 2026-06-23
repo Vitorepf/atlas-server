@@ -29,8 +29,8 @@ Régua atual (piso de maturidade): **75** / teto 100. — **VOLTA 1 COMPLETA** (
 | 9b | **FunnelSequenceLibrary** | **78** ✅ | 16 | RESOLVIDO ciclo 8: 16 padrões da jornada (não da página) — message-match, alinhamento awareness→step, micro-commit, value ladder, tripwire, order bump, OTO, downsell, abandoned cart, reengage, post-purchase upsell, winback, onboarding quick-win, subscription, referral. grounding.funnel_sequence_audit. |
 
 ## Pós-bibliotecas (faculdade de ambição)
-- `AggressionAmplifier` — medir → injetar o que falta → re-medir até `killer`.
-- `ConversionAuditor` — roda o scorer sobre TODAS as libs → raio-X multidimensional de uma página.
+- **`ConversionAuditor`** ✅ — RESOLVIDO ciclo 9: raio-X unificado das 10 libs (9 copy + 1 estrutura) → score overall + grade + top_missing ponderado cross-OS.
+- **`AggressionAmplifier`** ✅ — RESOLVIDO ciclo 9: loop generator+verifier fechado. Audita → pega top_missing → gera snippets de elite (~30 padrões com injeção pré-escrita) → injeta nos slots (kicker/mechanism_tease/body_sections/cta_blocks/objection_flips/ps) → re-audita. PROVA: bridge fraca 4 → 21 (+17 overall), 8 das 10 dimensões com lift, 7 padrões injetados em 3 iter.
 - Flywheel de pesos aprendidos do resultado real (LATENTE — aguarda venda voltando pelo ledger; só liga quando o operador rodar campanha).
 
 ## Ciclos
