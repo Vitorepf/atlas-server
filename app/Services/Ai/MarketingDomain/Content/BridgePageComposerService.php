@@ -55,6 +55,7 @@ class BridgePageComposerService
         private readonly EmailFollowupForge $emails = new EmailFollowupForge,
         private readonly \App\Services\Ai\MarketingDomain\Content\TransformationAssetSourcer $transformations = new \App\Services\Ai\MarketingDomain\Content\TransformationAssetSourcer,
         private readonly PersuasionScorer $persuasion = new PersuasionScorer,
+        private readonly AwarenessRouter $awareness = new AwarenessRouter,
     ) {}
 
     /**
@@ -207,6 +208,8 @@ class BridgePageComposerService
                 'search_network' => $this->search->plan($asset, ['pattern' => $pattern]),
                 'email_sequence' => $this->emails->forge($asset, ['lang' => str_starts_with(strtolower($language), 'port') ? 'pt' : 'en']),
                 'persuasion_audit' => $this->persuasion->score($this->persuasionCopy($bridge)),
+                'awareness_routing' => $this->awareness->route((string) $asset->awareness_level)
+                    + ['alignment' => $this->awareness->match($this->persuasionCopy($bridge), (string) $asset->awareness_level)],
                 'awareness_target' => $asset->awareness_level,
                 'sophistication' => $asset->sophistication_level,
                 'audience_gender' => $profile['gender'] ?? null,
