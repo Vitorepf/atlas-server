@@ -7,6 +7,8 @@ namespace Tests\Unit\Ai\AutonomousEvolution\Discovery;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModelBuilder;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionQuery;
+use App\Services\Ai\AutonomousEvolution\Discovery\ScopeComprehensionQuery;
+use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 /**
@@ -30,6 +32,15 @@ final class AtlasLoopScopeComprehensionQueryTest extends TestCase
     private function query(array $opts = ['docs_roots' => ['docs']]): AtlasLoopScopeComprehensionQuery
     {
         return new AtlasLoopScopeComprehensionQuery(new AtlasLoopScopeComprehensionModelBuilder, $this->fixtureRoot(), $opts);
+    }
+
+    /** A query that has already comprehended app/Scope — the honest order: build comprehension, then ask. */
+    private function comprehended(): AtlasLoopScopeComprehensionQuery
+    {
+        $q = $this->query();
+        $q->model('app/Scope');
+
+        return $q;
     }
 
     public function test_model_is_byte_identical_to_a_fresh_build_characterization(): void
@@ -81,5 +92,142 @@ final class AtlasLoopScopeComprehensionQueryTest extends TestCase
 
         $this->assertNotEmpty($withDocs->model('app/Scope')->docStatedGaps, 'docs_roots build detects the stated gap');
         $this->assertSame([], $noDocs->model('app/Scope')->docStatedGaps, 'empty-docs build has no gaps — a genuinely different model');
+    }
+
+    // --- Item 2: the ScopeComprehensionQuery contract (interface + staleness) -----------------------------
+
+    public function test_query_implements_the_scope_comprehension_contract(): void
+    {
+        $this->assertInstanceOf(ScopeComprehensionQuery::class, $this->query());
+    }
+
+    public function test_staleness_of_a_freshly_built_scope_is_not_stale(): void
+    {
+        $root = $this->copyFixture();
+        $query = new AtlasLoopScopeComprehensionQuery(new AtlasLoopScopeComprehensionModelBuilder, $root, ['docs_roots' => ['docs']]);
+        $query->model('app/Scope');
+
+        $st = $query->staleness('app/Scope');
+        $this->assertSame(['stale', 'changed_units', 'snapshot_age_s'], array_keys($st), 'exactly the contract keys');
+        $this->assertFalse($st['stale'], 'nothing changed on disk since the build');
+        $this->assertSame([], $st['changed_units']);
+        $this->assertIsInt($st['snapshot_age_s']);
+        $this->assertGreaterThanOrEqual(0, $st['snapshot_age_s']);
+    }
+
+    public function test_staleness_bites_when_a_scope_file_changes_after_the_build(): void
+    {
+        $root = $this->copyFixture();
+        $query = new AtlasLoopScopeComprehensionQuery(new AtlasLoopScopeComprehensionModelBuilder, $root, ['docs_roots' => ['docs']]);
+        $query->model('app/Scope');
+
+        // Touch a scope file to a future mtime — the live scope drifted past the snapshot.
+        touch($root.'/app/Scope/Callee.php', time() + 120);
+
+        $st = $query->staleness('app/Scope');
+        $this->assertTrue($st['stale'], 'a changed scope file makes the memoized snapshot stale (never served silently)');
+        $this->assertContains('app/Scope/Callee.php', $st['changed_units']);
+    }
+
+    public function test_staleness_of_a_never_built_scope_reports_stale(): void
+    {
+        // No model built yet => there is no fresh snapshot to serve => honestly stale.
+        $st = $this->query()->staleness('app/Scope');
+        $this->assertTrue($st['stale']);
+        $this->assertSame([], $st['changed_units']);
+        $this->assertSame(0, $st['snapshot_age_s']);
+    }
+
+    // --- Item 3 (structural part): level_vector booleans + the fixed fact->transition map ------------------
+
+    public function test_level_vector_is_only_booleans_no_scalar_rank(): void
+    {
+        $lv = $this->comprehended()->levelVector('App\\Scope\\Orphan');
+        $this->assertSame(
+            ['has_test', 'gate_clean', 'orphan', 'in_clone', 'doc_gap_open', 'last_merge_clean'],
+            array_keys($lv),
+            'the exact level_vector fields, in order',
+        );
+        foreach ($lv as $field => $value) {
+            $this->assertIsBool($value, "level_vector.$field must be a boolean (FACTS, never a number)");
+        }
+    }
+
+    public function test_level_vector_structural_facts_match_the_model(): void
+    {
+        $q = $this->comprehended();
+
+        $orphan = $q->levelVector('App\\Scope\\Orphan');
+        $this->assertTrue($orphan['orphan']);
+        $this->assertFalse($orphan['in_clone']);
+        $this->assertFalse($orphan['doc_gap_open']);
+
+        $clone = $q->levelVector('App\\Scope\\CloneOne');
+        $this->assertTrue($clone['in_clone']);
+        $this->assertFalse($clone['orphan']);
+
+        // A doc-stated gap (named by the docs, no symbol provides it) is an open gap.
+        $gap = $q->levelVector('App\\Scope\\MissingCapability');
+        $this->assertTrue($gap['doc_gap_open']);
+        $this->assertFalse($gap['orphan']);
+        $this->assertFalse($gap['in_clone']);
+    }
+
+    public function test_transitions_for_an_orphan_name_the_orphan_to_wired_transition(): void
+    {
+        $tr = $this->comprehended()->transitionsFor('App\\Scope\\Orphan');
+        $names = array_column($tr, 'transition');
+        $this->assertContains('orphan->wired', $names);
+
+        // Every transition carries a from_fact + grounded evidence; NONE carries a score/rank (anti-Goodhart:
+        // the substrate says WHICH transitions exist, never which is worth more).
+        foreach ($tr as $t) {
+            $this->assertSame(['transition', 'from_fact', 'evidence'], array_keys($t));
+            $this->assertArrayNotHasKey('score', $t);
+        }
+        $orphanT = array_values(array_filter($tr, static fn (array $t): bool => $t['transition'] === 'orphan->wired'))[0];
+        $this->assertSame('orphan', $orphanT['from_fact']);
+    }
+
+    public function test_transitions_for_a_clone_member_name_the_clone_to_unified_transition(): void
+    {
+        $names = array_column($this->comprehended()->transitionsFor('App\\Scope\\CloneOne'), 'transition');
+        $this->assertContains('clone->unified', $names);
+    }
+
+    public function test_transitions_for_a_doc_gap_name_the_gap_to_satisfied_transition(): void
+    {
+        $names = array_column($this->comprehended()->transitionsFor('App\\Scope\\MissingCapability'), 'transition');
+        $this->assertContains('gap->satisfied', $names);
+    }
+
+    public function test_transitions_for_a_healthy_wired_class_emit_no_structural_transition(): void
+    {
+        // Callee is wired (not orphan), not a clone, not a gap => no orphan/clone/gap transition.
+        $names = array_column($this->comprehended()->transitionsFor('App\\Scope\\Callee'), 'transition');
+        $this->assertNotContains('orphan->wired', $names);
+        $this->assertNotContains('clone->unified', $names);
+        $this->assertNotContains('gap->satisfied', $names);
+    }
+
+    /** @var list<string> */
+    private array $tmp = [];
+
+    /** A throwaway copy of the fixture (never mutate the committed fixture). */
+    private function copyFixture(): string
+    {
+        $dst = sys_get_temp_dir().'/atlas-comp-query-'.bin2hex(random_bytes(5));
+        $this->tmp[] = $dst;
+        (new Process(['cp', '-R', $this->fixtureRoot(), $dst]))->run();
+
+        return $dst;
+    }
+
+    protected function tearDown(): void
+    {
+        foreach ($this->tmp as $d) {
+            (new Process(['rm', '-rf', $d]))->run();
+        }
+        parent::tearDown();
     }
 }
