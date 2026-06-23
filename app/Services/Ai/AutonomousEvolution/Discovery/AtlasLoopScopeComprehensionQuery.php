@@ -53,11 +53,15 @@ final class AtlasLoopScopeComprehensionQuery implements ScopeComprehensionQuery
 
     /**
      * @param  array{docs_roots?:list<string>, max_files?:int}  $opts  the build options, FIXED for this query instance
+     * @param  ?ScopeRuntimeFacts  $runtimeFacts  the FREE runtime-fact source; null => the safe "no evidence"
+     *                                            defaults (gate_clean true, last_merge_clean false). A Part-2
+     *                                            consumer passes the live {@see AtlasLoopScopeRuntimeFacts}.
      */
     public function __construct(
         private readonly AtlasLoopScopeComprehensionModelBuilder $builder,
         private readonly string $repoRoot,
         private readonly array $opts = [],
+        private readonly ?ScopeRuntimeFacts $runtimeFacts = null,
     ) {
     }
 
@@ -199,22 +203,37 @@ final class AtlasLoopScopeComprehensionQuery implements ScopeComprehensionQuery
 
     // --- runtime facts (SAFE defaults here; the runtime-facts step wires the real sources) -------------------
 
-    /** Does the unit have a test? No runtime source wired in this layer => the safe "no evidence of absence". */
+    /**
+     * Does the unit have a test? Honestly DEFERRED: neither free signal (gate-block / merge-clean) attests
+     * test ABSENCE, so there is no zero-cost "untested" oracle. It degrades to the safe "no evidence of
+     * absence" (true) — untested->tested stays inert until a costed test-presence oracle is wired (mirrors the
+     * architecture's treatment of real line-coverage as a future costed sub-slice). Never a fabricated fact.
+     */
     private function hasTest(string $fqcn, ?AtlasLoopScopeComprehensionModel $model): bool
     {
         return true;
     }
 
-    /** Did the unit's gate stay clean (no mutation-adequacy block)? No source wired => the safe "clean". */
+    /** Did the unit's gate stay clean (no mutation-adequacy block)? Sourced from {@see ScopeRuntimeFacts}. */
     private function gateClean(string $fqcn, ?AtlasLoopScopeComprehensionModel $model): bool
     {
-        return true;
+        if ($this->runtimeFacts === null || $model === null) {
+            return true; // no source / no comprehension => safe "clean" (never a spurious regressed->green)
+        }
+        $rel = $this->relPathFor($model, $fqcn);
+
+        return $rel === null ? true : ! $this->runtimeFacts->hasGateBlock($rel);
     }
 
-    /** Was the unit's last merge to main clean? No source wired => "no clean merge recorded" (informational). */
+    /** Was the unit's last merge to main clean? Sourced from {@see ScopeRuntimeFacts} (default "none recorded"). */
     private function lastMergeClean(string $fqcn, ?AtlasLoopScopeComprehensionModel $model): bool
     {
-        return false;
+        if ($this->runtimeFacts === null || $model === null) {
+            return false;
+        }
+        $rel = $this->relPathFor($model, $fqcn);
+
+        return $rel !== null && $this->runtimeFacts->lastMergeClean($rel);
     }
 
     // --- helpers ---------------------------------------------------------------------------------------------

@@ -8,6 +8,7 @@ use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionMod
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModelBuilder;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionQuery;
 use App\Services\Ai\AutonomousEvolution\Discovery\ScopeComprehensionQuery;
+use App\Services\Ai\AutonomousEvolution\Discovery\ScopeRuntimeFacts;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
@@ -208,6 +209,58 @@ final class AtlasLoopScopeComprehensionQueryTest extends TestCase
         $this->assertNotContains('orphan->wired', $names);
         $this->assertNotContains('clone->unified', $names);
         $this->assertNotContains('gap->satisfied', $names);
+    }
+
+    // --- Item 4: runtime facts wire gate_clean / last_merge_clean (+ their transitions) -------------------
+
+    /** A fake ScopeRuntimeFacts so the runtime wiring is provable with NO database. */
+    private function fakeFacts(array $gateBlocked, array $mergeClean): ScopeRuntimeFacts
+    {
+        return new class($gateBlocked, $mergeClean) implements ScopeRuntimeFacts
+        {
+            public function __construct(private array $gateBlocked, private array $mergeClean) {}
+
+            public function hasGateBlock(string $relPath): bool
+            {
+                return in_array($relPath, $this->gateBlocked, true);
+            }
+
+            public function lastMergeClean(string $relPath): bool
+            {
+                return in_array($relPath, $this->mergeClean, true);
+            }
+        };
+    }
+
+    public function test_runtime_facts_flip_gate_clean_and_emit_regressed_to_green(): void
+    {
+        $facts = $this->fakeFacts(['app/Scope/Callee.php'], ['app/Scope/Caller.php']);
+        $q = new AtlasLoopScopeComprehensionQuery(new AtlasLoopScopeComprehensionModelBuilder, $this->fixtureRoot(), ['docs_roots' => ['docs']], $facts);
+        $q->model('app/Scope');
+
+        // gate-blocked file => gate_clean FALSE => the regressed->green transition fires (the re-green lane).
+        $callee = $q->levelVector('App\\Scope\\Callee');
+        $this->assertFalse($callee['gate_clean']);
+        $this->assertContains('regressed->green', array_column($q->transitionsFor('App\\Scope\\Callee'), 'transition'));
+
+        // merge-clean file => last_merge_clean TRUE (informational; not a transition trigger).
+        $caller = $q->levelVector('App\\Scope\\Caller');
+        $this->assertTrue($caller['last_merge_clean']);
+
+        // a file with neither runtime fact keeps the safe defaults.
+        $orphan = $q->levelVector('App\\Scope\\Orphan');
+        $this->assertTrue($orphan['gate_clean']);
+        $this->assertFalse($orphan['last_merge_clean']);
+    }
+
+    public function test_without_runtime_facts_the_runtime_fields_degrade_safely(): void
+    {
+        // No runtime source => gate_clean true (no spurious regressed->green), last_merge_clean false.
+        $q = $this->comprehended();
+        $lv = $q->levelVector('App\\Scope\\Callee');
+        $this->assertTrue($lv['gate_clean']);
+        $this->assertFalse($lv['last_merge_clean']);
+        $this->assertNotContains('regressed->green', array_column($q->transitionsFor('App\\Scope\\Callee'), 'transition'));
     }
 
     /** @var list<string> */
