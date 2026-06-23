@@ -43,7 +43,6 @@ class BridgePageHtmlRenderer
         $objections = $this->renderObjections($bridge['objection_flips'] ?? [], $L);
         $ctaBlocks = $this->renderCtaBlocks($bridge['cta_blocks'] ?? [], $heroCtaLabel);
         $ps = $this->renderPs((string) ($bridge['ps'] ?? ''), $L);
-        $tagLabel = $this->esc($L['tag']);
         $disclosure = $this->esc((string) ($bridge['disclosure'] ?? $L['disclosure']));
 
         $css = $this->css();
@@ -60,7 +59,7 @@ class BridgePageHtmlRenderer
 <style>{$css}</style>
 </head>
 <body>
-<header class="topbar"><span class="brand">{$brand}</span><span class="tag">{$tagLabel}</span></header>
+<header class="topbar"><span class="brand">{$brand}</span></header>
 
 <main>
   <article class="wrap">
