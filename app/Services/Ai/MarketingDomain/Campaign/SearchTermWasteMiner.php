@@ -69,31 +69,46 @@ class SearchTermWasteMiner
             }
         }
 
-        // N-gram performance mining (only meaningful when metrics exist): cost > 0, conversions == 0.
-        // SAFETY: never emit a single-word negative, and never a negative that co-occurs with an
-        // owned-root or converting term — that would block our own best keywords.
+        // N-gram performance mining. SAFETY: never a single-word performance negative, and never one
+        // that co-occurs with an owned-root/converting term. SIGNIFICANCE GATE (Brainlabs): an n-gram
+        // must clear impressions + query-count + cost floors (AND-combined). NARROWEST-BLOCK
+        // (RevenueHero): emit the SHORTEST wasteful n-gram and drop any longer n-gram it already covers.
+        $impFloor = (int) ($opts['impression_threshold'] ?? 10);
+        $qcFloor = (int) ($opts['query_count_threshold'] ?? 2);
         $grams = $this->aggregateNgrams($rows, $ownedTokens);
+        $perf = [];
         foreach ($grams as $g) {
-            if ($g['cost'] >= $threshold && $g['conversions'] === 0 && $g['n_terms'] >= 2
-                && ! $g['protected'] && str_word_count($g['ngram']) >= 2) {
-                $key = $g['ngram'];
-                if (isset($seen[$key])) {
-                    continue;
-                }
-                $seen[$key] = true;
-                $negatives[] = [
-                    'ngram' => $g['ngram'],
-                    'match' => str_word_count($g['ngram']) > 1 ? 'phrase' : 'exact',
-                    'reason' => 'zero_conversions_with_cost',
-                    'category' => 'performance',
-                    'cost' => round($g['cost'], 2),
-                    'n_terms' => $g['n_terms'],
-                    'evidence' => array_slice($g['terms'], 0, 4),
-                ];
-                $wasteCost += $g['cost'];
+            $significant = $g['cost'] >= $threshold && $g['n_terms'] >= $qcFloor
+                && ($g['impressions'] === 0 || $g['impressions'] >= $impFloor);
+            if ($significant && $g['conversions'] === 0 && ! $g['protected'] && str_word_count($g['ngram']) >= 2) {
+                $perf[] = $g;
             }
         }
+        // narrowest-block: keep shorter n-grams first; drop a longer one whose words contain a kept one.
+        usort($perf, fn ($a, $b) => str_word_count($a['ngram']) <=> str_word_count($b['ngram']));
+        $kept = [];
+        foreach ($perf as $g) {
+            foreach ($kept as $k) {
+                if ($this->covers($k['ngram'], $g['ngram'])) {
+                    continue 2;
+                }
+            }
+            $kept[] = $g;
+            if (isset($seen[$g['ngram']])) {
+                continue;
+            }
+            $seen[$g['ngram']] = true;
+            $negatives[] = [
+                'ngram' => $g['ngram'], 'match' => 'phrase', 'reason' => 'zero_conversions_with_cost',
+                'category' => 'performance', 'state' => 'active', 'cost' => round($g['cost'], 2),
+                'n_terms' => $g['n_terms'], 'evidence' => array_slice($g['terms'], 0, 4),
+            ];
+            $wasteCost += $g['cost'];
+        }
 
+        // Plural/singular expansion (Google negatives don't match close variants) + probation state for
+        // broad concept negatives (validate against the STR for ~7 days before locking).
+        $negatives = $this->expandAndStage($negatives);
         usort($negatives, fn ($a, $b) => ($b['cost'] ?? 0) <=> ($a['cost'] ?? 0));
 
         return [
@@ -115,7 +130,7 @@ class SearchTermWasteMiner
     private function normalize(string|array $t): array
     {
         if (is_string($t)) {
-            return ['term' => mb_strtolower(trim($t)), 'clicks' => 0, 'cost' => 0.0, 'conversions' => 0];
+            return ['term' => mb_strtolower(trim($t)), 'clicks' => 0, 'cost' => 0.0, 'conversions' => 0, 'impressions' => 0];
         }
 
         return [
@@ -123,6 +138,7 @@ class SearchTermWasteMiner
             'clicks' => (int) ($t['clicks'] ?? 0),
             'cost' => (float) ($t['cost'] ?? 0),
             'conversions' => (int) ($t['conversions'] ?? 0),
+            'impressions' => (int) ($t['impressions'] ?? 0),
         ];
     }
 
@@ -168,11 +184,12 @@ class SearchTermWasteMiner
             }
             foreach (array_unique($grams) as $g) {
                 if (! isset($acc[$g])) {
-                    $acc[$g] = ['ngram' => $g, 'n_terms' => 0, 'cost' => 0.0, 'conversions' => 0, 'terms' => [], 'protected' => false];
+                    $acc[$g] = ['ngram' => $g, 'n_terms' => 0, 'cost' => 0.0, 'conversions' => 0, 'impressions' => 0, 'terms' => [], 'protected' => false];
                 }
                 $acc[$g]['n_terms']++;
                 $acc[$g]['cost'] += $r['cost'];
                 $acc[$g]['conversions'] += $r['conversions'];
+                $acc[$g]['impressions'] += $r['impressions'];
                 $acc[$g]['terms'][] = $r['term'];
                 $acc[$g]['protected'] = $acc[$g]['protected'] || $protected;
             }
@@ -208,6 +225,66 @@ class SearchTermWasteMiner
         }
 
         return false;
+    }
+
+    /** True if the longer n-gram contains the shorter one as a contiguous phrase (narrowest-block). */
+    private function covers(string $short, string $long): bool
+    {
+        return $short !== $long && str_contains(' '.$long.' ', ' '.$short.' ');
+    }
+
+    /**
+     * Set match-type + probation state and emit singular/plural variants (Google negatives don't match
+     * close variants). Single-word lexical concepts → broad match (block the whole concept).
+     *
+     * @param  array<int,array<string,mixed>>  $negatives
+     * @return array<int,array<string,mixed>>
+     */
+    private function expandAndStage(array $negatives): array
+    {
+        $out = [];
+        $seen = [];
+        foreach ($negatives as $n) {
+            $n['state'] ??= 'active';
+            if (($n['category'] ?? '') === 'lexical' && str_word_count((string) $n['ngram']) === 1) {
+                $n['match'] = 'broad';
+            }
+            $key = $n['ngram'].'|'.$n['match'];
+            if (! isset($seen[$key])) {
+                $seen[$key] = true;
+                $out[] = $n;
+            }
+            $variant = $this->pluralVariant((string) $n['ngram']);
+            $vkey = $variant.'|'.$n['match'];
+            if ($variant !== '' && ! isset($seen[$vkey])) {
+                $seen[$vkey] = true;
+                $out[] = ['ngram' => $variant, 'match' => $n['match'], 'reason' => $n['reason'],
+                    'category' => $n['category'], 'state' => $n['state'], 'cost' => 0.0,
+                    'evidence' => [], 'variant_of' => $n['ngram']];
+            }
+        }
+
+        return $out;
+    }
+
+    /** Toggle the head word singular↔plural (so the negative covers both forms). */
+    private function pluralVariant(string $ngram): string
+    {
+        $words = explode(' ', $ngram);
+        $last = (string) end($words);
+        if ($last === '' || mb_strlen($last) < 3) {
+            return '';
+        }
+        if (str_ends_with($last, 'ies')) {
+            $last = mb_substr($last, 0, -3).'y';
+        } elseif (str_ends_with($last, 's') && ! str_ends_with($last, 'ss')) {
+            $last = mb_substr($last, 0, -1);
+        } else {
+            $last .= 's';
+        }
+        $words[count($words) - 1] = $last;
+
+        return implode(' ', $words);
     }
 
     /** @return array<int,string> */

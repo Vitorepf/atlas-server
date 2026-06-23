@@ -82,4 +82,34 @@ class SearchTermWasteMinerTest extends TestCase
         // Not lexical junk, but no owned root → surfaced for review.
         $this->assertContains('generic supplement store', $r['no_owned_root']);
     }
+
+    public function test_narrowest_block_drops_longer_ngram_covered_by_shorter(): void
+    {
+        $terms = [
+            ['term' => 'green tea fat burner', 'cost' => 30, 'conversions' => 0, 'impressions' => 50],
+            ['term' => 'green tea fat pills', 'cost' => 25, 'conversions' => 0, 'impressions' => 40],
+        ];
+        $ng = array_column((new SearchTermWasteMiner)->mine($terms, $this->artifacts(), ['cost_threshold' => 20])['negatives'], 'ngram');
+        $this->assertContains('green tea', $ng);
+        $this->assertNotContains('green tea fat', $ng); // covered by the shorter "green tea"
+    }
+
+    public function test_significance_gate_ignores_low_impression_noise(): void
+    {
+        $terms = [
+            ['term' => 'noise phrase here', 'cost' => 50, 'conversions' => 0, 'impressions' => 3], // below imp floor
+            ['term' => 'noise phrase there', 'cost' => 50, 'conversions' => 0, 'impressions' => 4],
+        ];
+        $perf = array_filter((new SearchTermWasteMiner)->mine($terms, $this->artifacts(), ['cost_threshold' => 20, 'impression_threshold' => 10])['negatives'],
+            fn ($n) => ($n['reason'] ?? '') === 'zero_conversions_with_cost');
+        $this->assertSame([], array_values($perf), 'low-impression n-grams must not become negatives');
+    }
+
+    public function test_single_word_concept_is_broad_and_plural_expanded(): void
+    {
+        $r = (new SearchTermWasteMiner)->mine([['term' => 'weight loss jobs', 'cost' => 10, 'conversions' => 0]], $this->artifacts());
+        $byNg = collect($r['negatives'])->keyBy('ngram');
+        $this->assertSame('broad', $byNg['jobs']['match']);     // single-word concept → broad
+        $this->assertArrayHasKey('job', $byNg);                  // plural/singular variant emitted
+    }
 }
