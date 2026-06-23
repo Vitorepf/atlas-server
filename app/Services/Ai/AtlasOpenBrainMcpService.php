@@ -1191,6 +1191,37 @@ class AtlasOpenBrainMcpService
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
             [
+                'name' => 'atlas_next_task',
+                'title' => 'Atlas Next Task (PART 2 · the serving contract)',
+                'description' => 'PART 2 — o Atlas OFERECE a próxima task. PULL de UM task packet auto-suficiente (id, lease, allowed_files/escopo, critério de aceite, required_evidence, régua) da fila canônica, via claim ATÔMICO conflict-free. `client_id` é OPACO (qualquer IA/harness passa o seu; o servidor nunca ramifica em plataforma). Gated no loop master switch (OFF => disabled). Fila seca => no_claimable_task honesto + escalation needs_brain_origination (NÃO é erro). Dois client_id distintos recebem packets DISJUNTOS. Pareie com atlas_task_report ao terminar.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'client_id' => ['type' => 'string', 'description' => 'Id OPACO do cliente (qualquer string; encaminhado verbatim e ecoado, nunca interpretado).'],
+                        'tags' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Opcional — filtra a fila por tags neutras (única dimensão de filtro honrada).'],
+                    ],
+                    'required' => ['client_id'],
+                ],
+                'annotations' => ['readOnlyHint' => false, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_task_report',
+                'title' => 'Atlas Task Report (PART 2 · the serving contract)',
+                'description' => 'PART 2 — devolve o resultado de uma task servida e fecha/libera o lease. outcome=success roda o gate de completion dry-run (evidência validada); failed/give_back libera o lease pra task voltar a claimable. NÃO faz merge real (gated, obra à parte). Pareie com atlas_next_task.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'client_id' => ['type' => 'string', 'description' => 'Id OPACO do cliente (o mesmo que recebeu a task).'],
+                        'task_packet_id' => ['type' => 'string', 'description' => 'O task_packet_id servido por atlas_next_task.'],
+                        'lease_id' => ['type' => 'string', 'description' => 'O lease_id servido por atlas_next_task.'],
+                        'outcome' => ['type' => 'string', 'description' => 'success | failed | give_back (default success).'],
+                        'evidence' => ['type' => 'object', 'description' => 'Envelope de evidência de completion (só para outcome=success).'],
+                    ],
+                    'required' => ['client_id', 'task_packet_id', 'lease_id'],
+                ],
+                'annotations' => ['readOnlyHint' => false, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
                 'name' => 'atlas_obra_status',
                 'title' => 'Atlas Obra Status (AOBG N3.F4)',
                 'description' => 'AOBG N3 (a INVERSÃO): lista as OBRAS recentes que o Atlas comissionou — o cérebro DIRIGE (o operador declara um intent e o Atlas decompõe num plano-DAG e executa governado numa ÚNICA branch pronta-pra-merge). Lê os nós obra do AURG (o cérebro fundido), cada um com seu nó evidence (status certified/needs_review) e o ref da BRANCH (atlas/obra/<id>; NUNCA um merge). Read-only. PROVIDER-BOUND É FORÇADO: só obras provider_safe/não-sensíveis (a saída pode cair num prompt). NÃO existe tool de deliver via MCP — comissionar uma obra GASTA + escreve e fica só no CLI (atlas:obra:deliver). Use depois de uma entrega p/ confirmar que a obra foi gravada de volta no cérebro (compounding), ou p/ ver o que já foi construído.',
@@ -1308,6 +1339,9 @@ class AtlasOpenBrainMcpService
                 'atlas_workspace_activate' => $this->toolResponse($id, $this->workspaceActivate($arguments)),
                 'atlas_claim_task' => $this->toolResponse($id, $this->claimTask($arguments)),
                 'atlas_blackboard_status' => $this->toolResponse($id, $this->blackboardStatus($arguments)),
+                // PART 2 · A7 — the task-serving contract over MCP (same service as `atlas:task`, platform-free).
+                'atlas_next_task' => $this->toolResponse($id, $this->nextTask($arguments)),
+                'atlas_task_report' => $this->toolResponse($id, $this->taskReport($arguments)),
                 default => $this->error($id, -32602, "Unknown Atlas MCP tool [{$name}]."),
             };
         } catch (Throwable $exception) {
@@ -1316,6 +1350,42 @@ class AtlasOpenBrainMcpService
                 'exception' => class_basename($exception),
             ]);
         }
+    }
+
+    /**
+     * PART 2 · A7 — MCP `atlas_next_task`: PULL the next task for an opaque client. Thin wrapper over the
+     * SAME {@see \App\Services\Ai\SelfConstruction\AtlasTaskServingService} the `atlas:task` CLI uses;
+     * platform-free, client_id opaque, master-switch gated.
+     *
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function nextTask(array $arguments): array
+    {
+        $client = trim((string) ($arguments['client_id'] ?? $arguments['client'] ?? ''));
+
+        return app(\App\Services\Ai\SelfConstruction\AtlasTaskServingService::class)->next($client, [
+            'tags' => array_values((array) ($arguments['tags'] ?? [])),
+        ]);
+    }
+
+    /**
+     * PART 2 · A7 — MCP `atlas_task_report`: hand back a served task's outcome and close/release the lease.
+     *
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function taskReport(array $arguments): array
+    {
+        return app(\App\Services\Ai\SelfConstruction\AtlasTaskServingService::class)->report(
+            trim((string) ($arguments['client_id'] ?? $arguments['client'] ?? '')),
+            (string) ($arguments['task_packet_id'] ?? $arguments['task'] ?? ''),
+            (string) ($arguments['lease_id'] ?? $arguments['lease'] ?? ''),
+            [
+                'outcome' => (string) ($arguments['outcome'] ?? 'success'),
+                'evidence' => (array) ($arguments['evidence'] ?? []),
+            ],
+        );
     }
 
     /**

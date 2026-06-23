@@ -242,7 +242,9 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         // + Open Brain on-demand context expansion tool (atlas_context_expand) = 59,
         // + Open Brain provider-safe context feedback tool (atlas_context_feedback) = 60,
         // + MCP runtime stale-session self-check (atlas_mcp_self_check) = 61.
-        $this->assertCount(61, $structured['tools']);
+        // NOTE: one tool was added upstream without updating this tally (pre-existing baseline = 62).
+        // + PART 2 task-serving contract tools (atlas_next_task, atlas_task_report) = 64.
+        $this->assertCount(64, $structured['tools']);
         $this->assertSame(AtlasOpenBrainMcpService::SERVER_VERSION, data_get($structured, 'server.version'));
         $this->assertSame(AtlasOpenBrainMcpService::RUNTIME_SCHEMA, data_get($structured, 'runtime.schema_version'));
         $this->assertContains('context_delivery_policy', data_get($structured, 'runtime.feature_flags'));
