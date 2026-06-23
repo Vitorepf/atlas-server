@@ -338,14 +338,19 @@ class AggressionAmplifier
     private function enemy(AiMarketingVslAsset $asset): string
     {
         $devices = is_array($asset->persuasion_devices) ? $asset->persuasion_devices : [];
+        $conspiracy = $devices['conspiracy'] ?? '';
+        $present = is_array($conspiracy) ? $conspiracy !== [] : (string) $conspiracy !== '';
 
-        return (string) ($devices['conspiracy'] ?? '') !== '' ? 'Big Pharma' : 'The industry';
+        return $present ? 'Big Pharma' : 'The industry';
     }
 
     private function number(AiMarketingVslAsset $asset): string
     {
         $metrics = is_array($asset->metrics) ? $asset->metrics : [];
         foreach ((array) ($metrics['result_claims'] ?? []) as $c) {
+            if (! is_scalar($c)) {
+                continue; // nested/array claim → skip (was an "Array to string conversion" warning + silent miss)
+            }
             if (preg_match('/(\d{2,3})\s*(lbs?|pounds|libras|kg)/iu', (string) $c, $m) && (int) $m[1] >= 30 && (int) $m[1] <= 90) {
                 return $m[1].' lbs';
             }
