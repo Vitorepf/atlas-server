@@ -209,6 +209,7 @@ class BridgePageComposerService
                 'email_sequence' => $this->emails->forge($asset, ['lang' => str_starts_with(strtolower($language), 'port') ? 'pt' : 'en']),
                 'persuasion_audit' => $this->persuasion->score($this->persuasionCopy($bridge)),
                 'cognitive_bias_audit' => (new PatternLibraryScorer)->score(new \App\Services\Ai\MarketingDomain\Knowledge\CognitiveBiasLibrary, $this->persuasionCopy($bridge)),
+                'offer_audit' => (new PatternLibraryScorer)->score(new \App\Services\Ai\MarketingDomain\Knowledge\OfferArchitectureLibrary, $this->persuasionCopy($bridge)),
                 'awareness_routing' => $this->awareness->route((string) $asset->awareness_level)
                     + ['alignment' => $this->awareness->match($this->persuasionCopy($bridge), (string) $asset->awareness_level)],
                 'awareness_target' => $asset->awareness_level,

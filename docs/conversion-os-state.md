@@ -15,7 +15,7 @@ Régua atual (piso de maturidade): **70** / teto 100.
 | 2 | **AwarenessSophisticationLibrary** | **75** ✅ | 10 | RESOLVIDO ciclo 2: 5 níveis de consciência + 5 estágios de sofisticação (Schwartz) com markers, + `AwarenessRouter` (route() prescreve lead/ângulos/prova/CTA por nível; detect() infere o nível da copy; match() flagga o mismatch que mata conversão). Integrado em grounding.awareness_routing. |
 | 3 | **PersuasionPatternLibrary** | **80** ✅ | ~24 | FEITO (sessão anterior) — agora adota o contrato PatternLibrary; aprofundar depois |
 | 4 | **CognitiveBiasLibrary** | **75** ✅ | 13 | RESOLVIDO ciclo 3: 13 vieses comportamentais (Kahneman/Ariely) além de Cialdini — ancoragem, loss aversion, decoy, sunk cost, endowment, framing, Zeigarnik, peak-end, contraste, fluência cognitiva, simplicidade de escolha, charm pricing (regex), viés do padrão. Cross-nicho provado (saúde 63 / finanças 53). grounding.cognitive_bias_audit. |
-| 5 | OfferArchitectureLibrary | 0 | — | pendente — Grand Slam Offer, pricing psychology, garantias, urgência real |
+| 5 | **OfferArchitectureLibrary** | **78** ✅ | 16 | RESOLVIDO ciclo 4: 16 alavancas do Grand Slam Offer de Hormozi (dream concreto regex, proof stack, time/effort encolhidos, bonus stack, named package, value ancorado regex, risk reversal forte, melhor-que-grátis, escassez quant/temp, fast-action bonus, premium signals, termos pgto, tripwire, upsell). Cross-nicho provado (saúde 78 / finanças 75 / commodity 0). grounding.offer_audit. |
 | 6 | ObjectionLibrary | 0 | — | pendente — objeções universais + neutralização |
 | 7 | HookLeadLibrary | 0 | — | pendente — fórmulas de headline/hook + 6 arquétipos de lead |
 | 8 | NarrativeVoiceLibrary | 0 | — | pendente — storytelling + ritmo/cadência (o "escorregar") |
