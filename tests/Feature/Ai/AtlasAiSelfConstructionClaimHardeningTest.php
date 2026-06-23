@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai;
 
 use App\Services\Ai\SelfConstruction\AgentControlPlaneClaimLeaseRepository;
+use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
@@ -73,5 +75,82 @@ final class AtlasAiSelfConstructionClaimHardeningTest extends TestCase
         $this->assertTrue(flock($h, LOCK_EX | LOCK_NB), 'lock is released after the critical section');
         flock($h, LOCK_UN);
         fclose($h);
+    }
+
+    // --- A2 (MF-16): atomic select+reserve — compare-and-swap claimable->claimed + queue flock fail-closed ---
+
+    private function enqueueClaimable(AgentControlPlaneTaskPacketQueueRepository $queue, string $id): void
+    {
+        $res = $queue->enqueue([
+            'task_packet_id' => $id,
+            'task_packet_hash' => hash('sha256', $id),
+            'status' => 'planned', // planned => initial queue status 'claimable'
+        ]);
+        $this->assertSame('claimable', $res['record_status'] ?? null, 'precondition: packet enqueued as claimable');
+    }
+
+    private function queueLockPath(): string
+    {
+        return Storage::disk('local')->path(AgentControlPlaneTaskPacketQueueRepository::LOCK_PATH);
+    }
+
+    public function test_a2_compare_and_swap_status_serves_exactly_one_winner(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository(null, 0.3);
+        $id = 'packet-cas-'.Str::uuid();
+        $this->enqueueClaimable($queue, $id);
+
+        $meta = ['lease_id' => 'lease-1', 'agent_id' => 'agent-A'];
+
+        // First client wins the reservation.
+        $first = $queue->compareAndSwapStatus($id, 'claimable', 'claimed', $meta);
+        $this->assertTrue($first['swapped'] ?? false, 'first CAS claimable->claimed wins');
+        $this->assertSame('claimed', $first['record_status'] ?? null);
+
+        // Second client (stale selection of the same packet) loses — never a double reservation.
+        $second = $queue->compareAndSwapStatus($id, 'claimable', 'claimed', ['lease_id' => 'lease-2', 'agent_id' => 'agent-B']);
+        $this->assertFalse($second['swapped'] ?? true, 'second CAS on the same packet must NOT swap (one winner)');
+        $this->assertSame('cas_status_mismatch', $second['reason'] ?? null);
+    }
+
+    public function test_a2_compare_and_swap_requires_claim_transition_metadata(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository(null, 0.3);
+        $id = 'packet-cas-meta-'.Str::uuid();
+        $this->enqueueClaimable($queue, $id);
+
+        // claimed transition still requires lease_id + agent_id — the contract is not weakened by CAS.
+        $res = $queue->compareAndSwapStatus($id, 'claimable', 'claimed', []);
+        $this->assertFalse($res['swapped'] ?? true);
+        $this->assertSame('transition_metadata_missing', $res['reason'] ?? null);
+    }
+
+    public function test_a2_queue_mutation_fails_closed_under_external_lock(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository(null, 0.3);
+
+        $path = $this->queueLockPath();
+        @mkdir(\dirname($path), 0775, true);
+        $external = fopen($path, 'c');
+        $this->assertTrue(flock($external, LOCK_EX | LOCK_NB), 'precondition: external holder owns the queue lock');
+
+        // FAIL-CLOSED: while the queue lock is held, a mutation returns queue_lock_busy and does NOT write.
+        $res = $queue->enqueue([
+            'task_packet_id' => 'packet-blocked',
+            'task_packet_hash' => hash('sha256', 'packet-blocked'),
+            'status' => 'planned',
+        ]);
+        $this->assertSame('queue_lock_busy', $res['reason'] ?? null, 'queue mutation must fail closed under contention');
+
+        flock($external, LOCK_UN);
+        fclose($external);
+
+        // After release, the same enqueue succeeds (nothing was half-written under contention).
+        $ok = $queue->enqueue([
+            'task_packet_id' => 'packet-blocked',
+            'task_packet_hash' => hash('sha256', 'packet-blocked'),
+            'status' => 'planned',
+        ]);
+        $this->assertSame('claimable', $ok['record_status'] ?? null);
     }
 }

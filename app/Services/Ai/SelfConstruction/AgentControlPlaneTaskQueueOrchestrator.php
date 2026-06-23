@@ -127,10 +127,18 @@ final class AgentControlPlaneTaskQueueOrchestrator
                 'ttl_seconds' => (int) ($filters['ttl_seconds'] ?? 1800),
             ]);
             if ((string) $claim['status'] === 'ok') {
-                $this->queue->updateStatus($taskPacketId, 'claimed', [
+                // A2/MF-16: the lease (A1) already serialized the winner; the ATOMIC compare-and-swap
+                // claimable->claimed guarantees the queue record can never be double-flipped by a stale
+                // selection. If the record moved under us, release the lease we just took and try the next.
+                $swap = $this->queue->compareAndSwapStatus($taskPacketId, 'claimable', 'claimed', [
                     'lease_id' => (string) $claim['lease_id'],
                     'agent_id' => $agentId,
                 ]);
+                if (($swap['swapped'] ?? false) !== true) {
+                    $this->leases->release((string) $claim['lease_id'], $agentId, ['reason' => 'queue_status_moved']);
+
+                    continue;
+                }
                 $this->queue->appendReceipt($taskPacketId, [
                     'receipt_kind' => 'claim_acquired_by_orchestrator',
                     'lease_id' => (string) $claim['lease_id'],

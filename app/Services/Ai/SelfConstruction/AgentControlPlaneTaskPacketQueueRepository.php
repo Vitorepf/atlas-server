@@ -37,9 +37,12 @@ final class AgentControlPlaneTaskPacketQueueRepository
 
     public const DEFAULT_REGISTRY_CAP = 200;
 
-    public const LOCK_ACQUIRE_TIMEOUT_SECONDS = 4.0;
+    public const LOCK_ACQUIRE_TIMEOUT_SECONDS = 8.0;
 
     public const LOCK_STALE_AFTER_SECONDS = 60;
+
+    /** A2/MF-16 — poll between non-blocking flock attempts (50ms): responsive without busy-spin. */
+    private const LOCK_POLL_MICROSECONDS = 50_000;
 
     public const STATUSES = [
         'queued',
@@ -63,9 +66,16 @@ final class AgentControlPlaneTaskPacketQueueRepository
         'cancelled' => [],
     ];
 
+    private readonly float $lockTimeoutSeconds;
+
     public function __construct(
         private readonly ?string $disk = null,
-    ) {}
+        ?float $lockTimeoutSeconds = null,
+    ) {
+        $this->lockTimeoutSeconds = ($lockTimeoutSeconds !== null && $lockTimeoutSeconds > 0.0)
+            ? $lockTimeoutSeconds
+            : self::LOCK_ACQUIRE_TIMEOUT_SECONDS;
+    }
 
     /**
      * Enqueue a task packet. Idempotent on (task_packet_id, task_packet_hash):
@@ -257,6 +267,85 @@ final class AgentControlPlaneTaskPacketQueueRepository
             $this->updateRegistryEntry($taskPacketId, $record);
 
             return $this->envelopeOk('status_updated', $record);
+        });
+    }
+
+    /**
+     * A2/MF-16 — ATOMIC compare-and-swap of a packet's status under the exclusive lock: flip
+     * $expectedStatus → $newStatus ONLY if the record is still exactly $expectedStatus. This is the
+     * single-winner reservation primitive: two clients that both selected the same claimable packet can
+     * never both flip it to claimed (the loser gets `swapped=false`/`cas_status_mismatch`). The whole
+     * read-compare-write happens inside the flock, so it is genuinely atomic across N clients.
+     *
+     * @param  array<string, mixed>  $metadata
+     * @return array<string, mixed>
+     */
+    public function compareAndSwapStatus(string $taskPacketId, string $expectedStatus, string $newStatus, array $metadata = []): array
+    {
+        return $this->withLock(function () use ($taskPacketId, $expectedStatus, $newStatus, $metadata): array {
+            if (! in_array($newStatus, self::STATUSES, true)) {
+                return $this->envelopeError('invalid_status', $taskPacketId, [
+                    'requested_status' => $newStatus,
+                    'allowed_statuses' => self::STATUSES,
+                    'swapped' => false,
+                ]);
+            }
+
+            $record = $this->readTaskFile($taskPacketId);
+            if ($record === null) {
+                return $this->envelopeError('task_packet_not_found', $taskPacketId, ['swapped' => false]);
+            }
+
+            $current = (string) ($record['status'] ?? '');
+            if ($current !== $expectedStatus) {
+                // The status moved since the caller selected it — the reservation is LOST to another winner.
+                return $this->envelopeError('cas_status_mismatch', $taskPacketId, [
+                    'expected_status' => $expectedStatus,
+                    'actual_status' => $current,
+                    'swapped' => false,
+                ]);
+            }
+
+            if (! $this->statusTransitionAllowed($current, $newStatus)) {
+                return $this->envelopeError('invalid_status_transition', $taskPacketId, [
+                    'from' => $current,
+                    'to' => $newStatus,
+                    'allowed_next_statuses' => self::ALLOWED_STATUS_TRANSITIONS[$current] ?? [],
+                    'transition_policy_hash' => $this->transitionPolicyHash(),
+                    'swapped' => false,
+                ]);
+            }
+
+            // Same transition-metadata contract as updateStatus (e.g. claimed requires lease_id + agent_id).
+            $transitionValidation = $this->validateTransitionMetadata($newStatus, $metadata);
+            if ($transitionValidation !== []) {
+                return $this->envelopeError('transition_metadata_missing', $taskPacketId, array_merge([
+                    'from' => $current,
+                    'to' => $newStatus,
+                    'transition_policy_hash' => $this->transitionPolicyHash(),
+                    'swapped' => false,
+                ], $transitionValidation));
+            }
+
+            $now = CarbonImmutable::now()->toIso8601String();
+            $record['status'] = $newStatus;
+            $record['updated_at'] = $now;
+            $record['history'][] = [
+                'event' => 'status_compare_and_swapped',
+                'at' => $now,
+                'from' => $current,
+                'to' => $newStatus,
+                'metadata' => $metadata,
+                'transition_policy_hash' => $this->transitionPolicyHash(),
+            ];
+            if ($metadata !== []) {
+                $record['metadata'] = array_merge((array) ($record['metadata'] ?? []), $metadata);
+            }
+
+            $this->writeTaskFile($taskPacketId, $record);
+            $this->updateRegistryEntry($taskPacketId, $record);
+
+            return $this->envelopeOk('status_compare_and_swapped', $record, ['swapped' => true]);
         });
     }
 
@@ -491,98 +580,81 @@ final class AgentControlPlaneTaskPacketQueueRepository
      * @param  callable(): T  $callback
      * @return T
      */
+    /**
+     * A2/MF-16 — run $callback holding a REAL exclusive OS lock (`flock(LOCK_EX)`), FAIL-CLOSED.
+     *
+     * Replaces the old `Storage::exists/put` check-then-act, whose non-atomic check window let two processes
+     * both pass `! exists` before either `put` => concurrent writers to the shared registry.json lost updates
+     * (the select+claim+updateStatus TOCTOU). A real flock makes the whole select→reserve→status-flip path
+     * serialized. On timeout it returns the SAME `queue_lock_busy` blocked envelope as before (never runs the
+     * mutation unlocked); the `finally` releases only THIS call's handle and never deletes a foreign lock.
+     *
+     * @template T
+     *
+     * @param  callable(): T  $callback
+     * @return T|array<string, mixed>
+     */
     private function withLock(callable $callback): mixed
     {
-        $disk = $this->disk();
-        $start = microtime(true);
-        $lockToken = (string) Str::uuid();
+        $path = $this->lockFilePath();
+        $dir = \dirname($path);
+        if (! is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+
+        $handle = @fopen($path, 'c');
+        if ($handle === false) {
+            return $this->queueLockBusyEnvelope();
+        }
+
+        $start = hrtime(true);
+        $deadline = $start + (int) ($this->lockTimeoutSeconds * 1_000_000_000);
         $acquired = false;
-
         while (true) {
-            if (! $disk->exists(self::LOCK_PATH)) {
-                $disk->put(self::LOCK_PATH, $this->encodeLockPayload($lockToken));
-                $currentToken = $this->lockTokenFromContent((string) $disk->get(self::LOCK_PATH));
-                if ($currentToken === $lockToken) {
-                    $acquired = true;
-                    break;
-                }
+            if (flock($handle, LOCK_EX | LOCK_NB)) {
+                $acquired = true;
+                break;
             }
-            if ($disk->exists(self::LOCK_PATH) && $this->lockIsStale()) {
-                $disk->delete(self::LOCK_PATH);
+            if (hrtime(true) >= $deadline) {
+                break;
+            }
+            usleep(self::LOCK_POLL_MICROSECONDS);
+        }
 
-                continue;
-            }
-            if ((microtime(true) - $start) > self::LOCK_ACQUIRE_TIMEOUT_SECONDS) {
-                return $this->envelopeError('queue_lock_busy', '', [
-                    'lock_path' => self::LOCK_PATH,
-                    'lock_acquire_timeout_seconds' => self::LOCK_ACQUIRE_TIMEOUT_SECONDS,
-                    'lock_stale_after_seconds' => self::LOCK_STALE_AFTER_SECONDS,
-                    'queue_write_lock_required' => true,
-                    'mutation_blocked_until_lock_acquired' => true,
-                    'lock_owner_token_required_for_release' => true,
-                ]);
-            }
-            usleep(50_000);
+        if (! $acquired) {
+            @fclose($handle);
+
+            return $this->queueLockBusyEnvelope();
         }
 
         try {
             return $callback();
         } finally {
-            if (
-                $acquired
-                && $disk->exists(self::LOCK_PATH)
-                && $this->lockTokenFromContent((string) $disk->get(self::LOCK_PATH)) === $lockToken
-            ) {
-                $disk->delete(self::LOCK_PATH);
-            }
+            @flock($handle, LOCK_UN);
+            @fclose($handle);
         }
     }
 
-    private function encodeLockPayload(string $lockToken): string
+    /** Absolute filesystem path of the exclusive lock file (flock needs a real local path). */
+    private function lockFilePath(): string
     {
-        return $this->encode([
-            'schema_version' => self::SCHEMA_VERSION,
-            'lock_token' => $lockToken,
-            'acquired_at' => CarbonImmutable::now()->toIso8601String(),
-            'acquired_at_unix' => CarbonImmutable::now()->getTimestamp(),
-            'stale_after_seconds' => self::LOCK_STALE_AFTER_SECONDS,
-            'owner_token_required_for_release' => true,
+        $disk = $this->disk();
+
+        return method_exists($disk, 'path')
+            ? $disk->path(self::LOCK_PATH)
+            : storage_path('app/'.self::LOCK_PATH);
+    }
+
+    /** @return array<string, mixed> the FAIL-CLOSED blocked envelope when the queue lock can't be acquired */
+    private function queueLockBusyEnvelope(): array
+    {
+        return $this->envelopeError('queue_lock_busy', '', [
+            'lock_path' => self::LOCK_PATH,
+            'lock_acquire_timeout_seconds' => $this->lockTimeoutSeconds,
+            'lock_stale_after_seconds' => self::LOCK_STALE_AFTER_SECONDS,
+            'queue_write_lock_required' => true,
+            'mutation_blocked_until_lock_acquired' => true,
         ]);
-    }
-
-    private function lockTokenFromContent(string $content): string
-    {
-        try {
-            $decoded = json_decode($content, true, flags: JSON_THROW_ON_ERROR);
-            if (is_array($decoded)) {
-                return trim((string) ($decoded['lock_token'] ?? ''));
-            }
-        } catch (Throwable) {
-            // Backward-compatible with legacy plain-token lock files.
-        }
-
-        return trim($content);
-    }
-
-    private function lockIsStale(): bool
-    {
-        try {
-            $decoded = json_decode((string) $this->disk()->get(self::LOCK_PATH), true, flags: JSON_THROW_ON_ERROR);
-            if (is_array($decoded) && (int) ($decoded['acquired_at_unix'] ?? 0) > 0) {
-                return (CarbonImmutable::now()->getTimestamp() - (int) $decoded['acquired_at_unix']) > self::LOCK_STALE_AFTER_SECONDS;
-            }
-        } catch (Throwable) {
-            // Fall back to filesystem metadata for legacy plain-token locks.
-        }
-
-        try {
-            $modifiedAt = $this->disk()->lastModified(self::LOCK_PATH);
-        } catch (Throwable) {
-            return false;
-        }
-
-        return $modifiedAt > 0
-            && (CarbonImmutable::now()->getTimestamp() - $modifiedAt) > self::LOCK_STALE_AFTER_SECONDS;
     }
 
     /**
