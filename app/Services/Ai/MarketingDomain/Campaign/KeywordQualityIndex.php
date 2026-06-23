@@ -138,6 +138,13 @@ class KeywordQualityIndex
             $score = min($score, 39);
         }
 
+        // LEARNING LOOP: apply the Bayesian-shrunk proven lift from real outcomes (KeywordLearningLoop)
+        // — keywords/families that actually sold rise; proven money-losers fall. Bounded, data-driven.
+        $lift = $this->provenLift($kl, $family, $econ['proven_lift'] ?? []);
+        if ($lift !== 1.0) {
+            $score = (int) round(max(0, min(100, $score * $lift)));
+        }
+
         return [
             'keyword' => $kw,
             'family' => $family,
@@ -274,6 +281,34 @@ class KeywordQualityIndex
         $headroom = $this->clamp01(($targetCpc - $forecastCpc) / max($targetCpc, 0.01));
 
         return [$headroom, false];
+    }
+
+    /**
+     * Look up the learned lift for this keyword: prefer the most specific matching root, else family.
+     *
+     * @param  array<string,float>  $liftMap  from KeywordLearningLoop::calibrate()['proven_lift']
+     */
+    private function provenLift(string $kw, string $family, array $liftMap): float
+    {
+        if ($liftMap === []) {
+            return 1.0;
+        }
+        $best = null;
+        $bestLen = -1;
+        foreach ($liftMap as $key => $mult) {
+            if (str_starts_with($key, 'root:')) {
+                $root = mb_substr($key, 5);
+                if ($root !== '' && str_contains($kw, $root) && mb_strlen($root) > $bestLen) {
+                    $best = (float) $mult;
+                    $bestLen = mb_strlen($root);
+                }
+            }
+        }
+        if ($best !== null) {
+            return $best;
+        }
+
+        return (float) ($liftMap['family:'.$family] ?? 1.0);
     }
 
     private function band(int $score): string

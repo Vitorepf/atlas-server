@@ -14,7 +14,7 @@
 | **3. Mineração de desperdício** | search-term/n-gram miner → negativas automáticas (waste elimination contínua) | ⬜ |
 | **4. Quality Score engineering** | `MessageMatchAdForge` — gera RSA (≤15 HL/30char, ≤4 desc/90char) message-matched keyword=headline=H1; gates de keyword-coverage (≥3) + uniqueness + CTA + compliance lexicon (weight-loss sensitive) + ad-strength proxy. Maximiza os 3 levers do QS de uma vez | ✅ ciclo 57 (7 testes; OT169 mechanism → Excellent/mm 1.0) |
 | **5. Estrutura agressiva** | STAG por família + match-type por tier + bidding faseado; **motor qualificado + Quality Index LIGADOS no `CampaignBlueprintService`** (bloco `qualified` no plano; launch_order = mechanism→slogan→celebrity, não mais marca-first; produto proibido; negativas mescladas com as eliminadas) | ✅ ciclo 54 |
-| **6. Loop de aprendizado** | ledger keyword→venda real (Nivor) realimenta os pesos do índice | 🟡 NivorWinningPatternMiner existe; falta fechar o loop no índice |
+| **6. Loop de aprendizado** | `KeywordLearningLoop` — outcomes reais (keyword→cost/conversions/revenue) → lift Bayesian-shrunk por family/root → realimenta o `KeywordQualityIndex` (vendeu sobe, gastou-sem-vender desce). **Flywheel FECHADO** | ✅ ciclo 58 (5 testes; slogan 83→100, mechanism 86→52) |
 
 ## O que existe hoje (namespace `Campaign/`)
 KeywordIntentMapper · SearchNetworkPlanner · CampaignBlueprintService · CampaignEconomicsCalculator · BidStrategyDecider · NegativeListMiner · BroadMatchStrategist · AccountStructurer · RSAWriter · KeywordRelevanceGate · SmartBiddingReadinessDiagnostic · ConversionPipelineValidator · TrackingStackDecider · **QualifiedKeywordPatternEngine** (novo).
