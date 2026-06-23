@@ -14,7 +14,7 @@ Régua atual (piso de maturidade): **70** / teto 100.
 | 1 | **AngleBigIdeaLibrary** | **75** ✅ | 12 | RESOLVIDO ciclo 1: 12 arquétipos de big idea (causa oculta, inimigo, descoberta proibida, verdade contra-intuitiva, nova oportunidade, segredo/atalho, terceira via, nós-vs-eles, ameaça iminente, história de virada, brecha, onda que vem). Generalização provada cross-nicho. |
 | 2 | **AwarenessSophisticationLibrary** | **75** ✅ | 10 | RESOLVIDO ciclo 2: 5 níveis de consciência + 5 estágios de sofisticação (Schwartz) com markers, + `AwarenessRouter` (route() prescreve lead/ângulos/prova/CTA por nível; detect() infere o nível da copy; match() flagga o mismatch que mata conversão). Integrado em grounding.awareness_routing. |
 | 3 | **PersuasionPatternLibrary** | **80** ✅ | ~24 | FEITO (sessão anterior) — agora adota o contrato PatternLibrary; aprofundar depois |
-| 4 | CognitiveBiasLibrary | 0 | — | pendente — vieses (ancoragem, loss aversion, decoy, sunk cost, peak-end, Zeigarnik…) |
+| 4 | **CognitiveBiasLibrary** | **75** ✅ | 13 | RESOLVIDO ciclo 3: 13 vieses comportamentais (Kahneman/Ariely) além de Cialdini — ancoragem, loss aversion, decoy, sunk cost, endowment, framing, Zeigarnik, peak-end, contraste, fluência cognitiva, simplicidade de escolha, charm pricing (regex), viés do padrão. Cross-nicho provado (saúde 63 / finanças 53). grounding.cognitive_bias_audit. |
 | 5 | OfferArchitectureLibrary | 0 | — | pendente — Grand Slam Offer, pricing psychology, garantias, urgência real |
 | 6 | ObjectionLibrary | 0 | — | pendente — objeções universais + neutralização |
 | 7 | HookLeadLibrary | 0 | — | pendente — fórmulas de headline/hook + 6 arquétipos de lead |
