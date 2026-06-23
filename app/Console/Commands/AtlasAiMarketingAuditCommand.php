@@ -46,6 +46,17 @@ class AtlasAiMarketingAuditCommand extends Command
             $this->line(sprintf('    %-26s %s %3d (%s)', $name, $bar, $r['score'], $r['grade']));
         }
         $this->line('');
+        if (! empty($audit['personas'])) {
+            $this->line('  <fg=magenta>Como cada persona reage (audience: '.$audit['audience_score'].'%):</>');
+            foreach ($audit['personas'] as $name => $p) {
+                $watchBar = str_repeat('▰', (int) round($p['will_watch'] * 10));
+                $closeBar = str_repeat('▱', (int) round($p['will_close'] * 10));
+                $this->line(sprintf('    %-26s watch %s%s close %s%s',
+                    $name, $watchBar, str_repeat('·', 10 - mb_strlen($watchBar, 'UTF-8') / 3), $closeBar, str_repeat('·', 10 - mb_strlen($closeBar, 'UTF-8') / 3)));
+                $this->line('      <fg=gray>obj: '.$p['first_objection'].'</>');
+            }
+            $this->line('');
+        }
         $this->line('  <fg=red;options=bold>O que falta (top 10, ponderado):</>');
         foreach ($audit['top_missing'] as $m) {
             $this->line('    <fg=red>•</> <fg=white;options=bold>'.$m['name'].'</> <fg=gray>['.$m['library'].']</>');

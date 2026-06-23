@@ -34,6 +34,7 @@ class ConversionAuditor
     public function __construct(
         private readonly PatternLibraryScorer $scorer = new PatternLibraryScorer,
         ?HybridPatternScorer $hybrid = null,
+        private readonly PersonaSimulator $personas = new PersonaSimulator,
     ) {
         // When the auditor is built without an explicit hybrid scorer, wire one by default — this
         // way passing a niche to audit() activates learned weights automatically (no rewiring needed
@@ -90,6 +91,8 @@ class ConversionAuditor
             'grade' => $this->grade($overall),
             'by_library' => $byLibrary,
             'top_missing' => $this->topMissing($byLibrary),
+            'personas' => $this->personas->simulate($copy, $html),
+            'audience_score' => round($this->personas->audienceScore($copy) * 100),
         ];
     }
 
