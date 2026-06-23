@@ -26,7 +26,7 @@ class AtlasAiMarketingAuditCommand extends Command
         } else {
             $html = $raw;
         }
-        $copy = trim((string) preg_replace('/\s+/', ' ', strip_tags($html)));
+        $copy = \App\Services\Ai\MarketingDomain\Content\HtmlCopyExtractor::plainText($html);
 
         $audit = $auditor->audit($copy, $html);
 

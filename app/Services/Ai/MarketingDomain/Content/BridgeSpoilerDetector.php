@@ -129,8 +129,12 @@ class BridgeSpoilerDetector
             $cat[] = ['term' => $ing, 'category' => 'named_ingredient', 'severity' => 'critical'];
         }
 
-        // Price (HIGH)
-        $cat[] = ['term' => '/\$\s?\d{1,4}(?:[.,]\d{2})?\b/', 'category' => 'price', 'severity' => 'high', 'is_regex' => true];
+        // Price (HIGH) — but NOT the competitor's anchor price ("$1,000 a month" injection), which is
+        // warmup-safe (the VSL itself uses it). The negative lookahead excludes month-anchored prices.
+        // Proper number shape (\d{1,3}(,\d{3})*) + (?![,\d]) forbids stopping mid-number ("$1" out of
+        // "$1,000"), so the month-anchor lookahead can't be tricked into clearing the enemy's
+        // "$1,000-a-month" while still catching a real product price like "$49".
+        $cat[] = ['term' => '/\$\s?\d{1,3}(?:,\d{3})*(?:\.\d{2})?(?![,\d])(?!\s?(?:[-\s]?a[-\s]?month|\/mo\b|\s?per\s?month|[-\s]?monthly))/i', 'category' => 'price', 'severity' => 'high', 'is_regex' => true];
         foreach (['per bottle', 'a bottle', '6-bottle', 'six-bottle', '6 bottles', 'bogo', 'buy 3 get', 'pay 3 get', 'pay 2 get', 'free shipping'] as $p) {
             $cat[] = ['term' => $p, 'category' => 'price', 'severity' => 'high'];
         }

@@ -24,7 +24,7 @@ class WinningPatternScout
      */
     public function scout(string $html): array
     {
-        $copy = trim((string) preg_replace('/\s+/u', ' ', strip_tags($html)));
+        $copy = HtmlCopyExtractor::plainText($html);
         $audit = $this->auditor->audit($copy, $html);
         $hollow = $this->guard->inspect($copy);
 

@@ -69,12 +69,16 @@ class EliteAdvertorialRenderer
         $h[] = '<div class="scar">⚠ '.$scarcity.'</div>';
         $h[] = '</div>';
 
-        // Trust chips
-        $chips = (array) ($deck['trust_bar'] ?? []);
-        $h[] = '<div class="chips"><span>✔ As seen on national news</span><span>✔ 4 natural ingredients</span><span>✔ No needles</span><span>✔ 60-day money-back</span></div>';
+        // Trust chips — spoiler-safe defaults (NO guarantee number, NO product details). Override via deck['chips'].
+        $chips = (array) ($deck['chips'] ?? ['As seen on national news', 'No injection, no needle', 'Free presentation', 'For women 40+']);
+        $h[] = '<div class="chips">'.implode('', array_map(fn ($c) => '<span>✔ '.$this->esc((string) $c).'</span>', $chips)).'</div>';
 
-        // TL;DR skim path (for busy_mom)
-        if (! empty($deck['mechanism']['why_diets_fail'])) {
+        // Curiosity skim path (for busy_mom) — spoiler-safe: curiosity lines, not answers.
+        $skim = (array) ($deck['skim'] ?? []);
+        if ($skim !== []) {
+            $h[] = '<aside class="tldr"><div class="tldr-h">No time? The 30-second version</div>'
+                .implode('', array_map(fn ($s) => '<p>'.$this->esc((string) $s).'</p>', $skim)).'</aside>';
+        } elseif (! empty($deck['mechanism']['why_diets_fail'])) {
             $h[] = '<aside class="tldr"><div class="tldr-h">The 30-second version</div><p>'
                 .$this->esc((string) $deck['mechanism']['why_diets_fail']).'</p></aside>';
         }
@@ -92,12 +96,27 @@ class EliteAdvertorialRenderer
             $h[] = '<blockquote class="scenes">'.implode('', array_map(fn ($s) => '<p>'.$this->esc((string) $s).'</p>', $scenes)).'</blockquote>';
         }
 
-        // Mechanism — hormones + ingredient cards
+        // The intrigue (spoiler-safe): the Melania/government/Big-Pharma curiosity + TEASED concept.
+        foreach (['the_intrigue', 'why_it_was_hidden'] as $blockKey) {
+            $blk = (array) ($deck[$blockKey] ?? []);
+            if (! empty($blk['heading']) || ! empty($blk['body'])) {
+                $h[] = '<section class="mech">';
+                if (! empty($blk['heading'])) {
+                    $h[] = '<h2>'.$this->esc((string) $blk['heading']).'</h2>';
+                }
+                foreach ((array) ($blk['body'] ?? []) as $p) {
+                    $h[] = '<p>'.$this->esc((string) $p).'</p>';
+                }
+                $h[] = '</section>';
+            }
+        }
+
+        // Mechanism — hormones + ingredient cards (ONLY rendered if present; a spoiler-safe bridge omits these).
         $mech = (array) ($deck['mechanism'] ?? []);
         if (! empty($mech['hormones']) || ! empty($mech['ingredients'])) {
             $h[] = '<section class="mech">';
             if (! empty($mech['name'])) {
-                $h[] = '<h2>The '.$this->esc((string) $mech['name']).'</h2>';
+                $h[] = '<h2>'.$this->esc((string) $mech['name']).'</h2>';
             }
             foreach (['hormones' => 'The three hormones', 'ingredients' => 'The four ingredients'] as $k => $title) {
                 if (! empty($mech[$k])) {
@@ -111,7 +130,17 @@ class EliteAdvertorialRenderer
             $h[] = '</section>';
         }
 
-        $h[] = $cta('Watch the Free Presentation →', 'See the mechanism explained →');
+        // What the presentation reveals — open-loop curiosity bullets pointing INTO the video.
+        $reveals = (array) ($deck['what_the_presentation_reveals'] ?? []);
+        if ($reveals !== []) {
+            $h[] = '<aside class="reveals"><div class="reveals-h">Inside the free presentation, you\'ll discover</div><ul>';
+            foreach ($reveals as $r) {
+                $h[] = '<li>'.$this->esc((string) $r).'</li>';
+            }
+            $h[] = '</ul></aside>';
+        }
+
+        $h[] = $cta('Watch the Free Presentation →', 'Get the at-home method →');
 
         // Numbered sections with pull-quotes
         foreach ((array) ($deck['sections'] ?? []) as $idx => $sec) {
@@ -136,14 +165,22 @@ class EliteAdvertorialRenderer
             $h[] = '</div>';
         }
 
-        // Before/after — labeled PRODUCER SLOTS (integrity line)
+        // Before/after — real <img> elements, labeled PRODUCER SLOTS (integrity line). The producer
+        // swaps the src for release-approved photos; until then these are clearly-marked placeholders.
         $ba = (array) ($opts['before_after'] ?? []);
         if ($ba !== []) {
             $h[] = '<div class="ba">';
             foreach ($ba as $t) {
-                $h[] = '<div class="ba-card"><div class="ba-imgs"><span class="ba-b">BEFORE</span><span class="ba-a">AFTER</span><span class="ba-tag">'.$this->esc((string) ($t['result'] ?? '')).'</span></div><div class="ba-name">'.$this->esc((string) ($t['name'] ?? '')).' · '.$this->esc((string) ($t['weeks'] ?? '')).'</div></div>';
+                $before = $this->esc((string) ($t['before'] ?? ''));
+                $after = $this->esc((string) ($t['after'] ?? ''));
+                $imgs = $before !== '' && $after !== ''
+                    ? '<img class="ba-img" src="'.$before.'" alt="before" loading="lazy"><img class="ba-img" src="'.$after.'" alt="after" loading="lazy">'
+                    : '<div class="ba-ph"></div><div class="ba-ph ba-ph2"></div>';
+                $h[] = '<figure class="ba-card"><div class="ba-imgs">'.$imgs
+                    .'<span class="ba-b">BEFORE</span><span class="ba-a">AFTER</span><span class="ba-tag">'.$this->esc((string) ($t['result'] ?? '')).'</span></div>'
+                    .'<figcaption class="ba-name">'.$this->esc((string) ($t['name'] ?? '')).' · '.$this->esc((string) ($t['weeks'] ?? '')).'</figcaption></figure>';
             }
-            $h[] = '</div><p class="slot-note">▲ Before/after slots — producer-supplied, release-approved photos go here.</p>';
+            $h[] = '</div><p class="slot-note">▲ Before/after are producer-supplied, release-approved photo slots — swap the image src for the real photos.</p>';
         }
 
         // Testimonials — verified-buyer cards
@@ -183,9 +220,11 @@ class EliteAdvertorialRenderer
         // Final CTA
         $h[] = $cta('Watch the Free Presentation →', 'See the 4-ingredient protocol →');
 
-        // PS
-        foreach ((array) ($deck['ps'] ?? []) as $ps) {
-            $h[] = '<p class="ps"><strong>P.S.</strong> '.$this->esc((string) $ps).'</p>';
+        // PS — strip any leading "P.S./P.P.S." the copy already included so we don't double it.
+        foreach ((array) ($deck['ps'] ?? []) as $i => $ps) {
+            $clean = preg_replace('/^\s*P\.?\s?P?\.?S\.?\s*[—:-]?\s*/iu', '', (string) $ps);
+            $label = $i === 0 ? 'P.S.' : 'P.P.S.';
+            $h[] = '<p class="ps"><strong>'.$label.'</strong> '.$this->esc((string) $clean).'</p>';
         }
 
         $h[] = '<footer class="foot">This is an advertorial. Individual results vary. Statements have not been evaluated by the FDA. '
@@ -196,11 +235,12 @@ class EliteAdvertorialRenderer
         $h[] = '<div class="sticky-cta"><a href="'.$vsl.'">Watch the Free Presentation →</a></div>';
 
         // Social-proof toasts + countdown JS
+        // Spoiler-safe toasts — about WATCHING the presentation, never about ordering/bottles/price.
         $toasts = (array) ($opts['toasts'] ?? [
-            ['Donna from Mesa, AZ', 'started the protocol'],
-            ['Patricia from Akron, OH', 'ordered the 6-bottle kit'],
-            ['Linda from Tampa, FL', 'started the protocol'],
-            ['Susan from Boise, ID', 'ordered the 6-bottle kit'],
+            ['Donna from Mesa, AZ', 'is watching the free presentation'],
+            ['Patricia from Akron, OH', 'just started the presentation'],
+            ['Linda from Tampa, FL', 'requested the free protocol'],
+            ['Susan from Boise, ID', 'is watching the presentation now'],
         ]);
         $h[] = '<div id="toast" class="toast" style="display:none"><span class="t-av"></span><span><b id="t-name"></b><br><span id="t-act" class="t-act"></span> · just now</span></div>';
         $h[] = '<script>'.$this->js($cd, $toasts).'</script>';
@@ -271,7 +311,14 @@ body{margin:0;font-family:Georgia,'Times New Roman',serif;color:#1a1a1a;backgrou
 .chips{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;background:#f5f5f5;padding:14px;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;color:#2a7a3a;font-weight:700;margin-bottom:26px}
 .tldr{background:#fff8e6;border-left:4px solid #f5a623;padding:14px 18px;border-radius:0 6px 6px 0;margin:0 0 26px}
 .tldr-h{font-family:Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;color:#b8860b;text-transform:uppercase;margin-bottom:4px}
-.tldr p{margin:0;font-size:17px}
+.tldr p{margin:0 0 8px;font-size:17px}
+.tldr p:last-child{margin:0}
+.reveals{background:#0f1c2e;color:#eaf0f7;border-radius:10px;padding:20px 22px;margin:8px 0 22px}
+.reveals-h{font-family:Arial,sans-serif;font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#f5a623;margin-bottom:12px}
+.reveals ul{margin:0;padding-left:0;list-style:none}
+.reveals li{font-family:Arial,sans-serif;font-size:16px;padding:8px 0 8px 28px;position:relative;border-bottom:1px solid rgba(255,255,255,.08)}
+.reveals li:last-child{border-bottom:0}
+.reveals li::before{content:'▸';position:absolute;left:6px;color:#f5a623}
 .lead{font-size:19px;margin:0 0 18px}
 .dropcap::first-letter{font-size:62px;line-height:48px;float:left;font-weight:700;padding:4px 10px 0 0;color:#c0231f}
 .scenes{border-left:3px solid #ddd;margin:0 0 24px;padding:6px 0 6px 20px;color:#444}
@@ -293,7 +340,11 @@ body{margin:0;font-family:Georgia,'Times New Roman',serif;color:#1a1a1a;backgrou
 .stat-l{font-family:Arial,sans-serif;font-size:12px;color:#777;margin-top:4px}
 .ba{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:18px 0 6px}
 .ba-card{border:1px solid #eee;border-radius:8px;overflow:hidden}
-.ba-imgs{position:relative;height:130px;background:linear-gradient(90deg,#cdd5da 0 50%,#9fb4c2 50% 100%)}
+.ba-imgs{position:relative;height:160px;display:flex;background:#e8edf0;overflow:hidden}
+.ba-img{width:50%;height:160px;object-fit:cover;display:block}
+.ba-ph{width:50%;height:160px;background:#cdd5da}
+.ba-ph2{background:#9fb4c2}
+.ba-card figcaption{margin:0}
 .ba-b,.ba-a{position:absolute;bottom:6px;font-family:Arial,sans-serif;font-size:10px;font-weight:700;color:#fff;background:rgba(0,0,0,.55);padding:2px 6px;border-radius:3px}
 .ba-b{left:6px}.ba-a{right:6px}
 .ba-tag{position:absolute;top:8px;left:50%;transform:translateX(-50%);background:#fff;color:#2a7a3a;font-family:Arial,sans-serif;font-size:13px;font-weight:700;padding:3px 10px;border-radius:20px}

@@ -45,7 +45,7 @@ class AtlasAiMarketingRecordOutcomeCommand extends Command
         }
 
         $html = (string) file_get_contents($page);
-        $copy = trim((string) preg_replace('/\s+/u', ' ', strip_tags($html)));
+        $copy = \App\Services\Ai\MarketingDomain\Content\HtmlCopyExtractor::plainText($html);
 
         $audit = $auditor->audit($copy, $html);
         $hollow = $guard->inspect($copy);
