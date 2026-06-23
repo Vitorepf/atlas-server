@@ -35,7 +35,10 @@ final class AtlasTaskServingService
     /** The ONLY client-supplied filters honoured — neutral, never engine-typed. */
     private const ALLOWED_FILTER_KEYS = ['tags', 'ttl_seconds'];
 
-    public function __construct(private readonly AgentControlPlaneTaskQueueOrchestrator $orchestrator) {}
+    public function __construct(
+        private readonly AgentControlPlaneTaskQueueOrchestrator $orchestrator,
+        private readonly ?AtlasTaskServingSentinel $sentinel = null,
+    ) {}
 
     /**
      * PULL the next claimable task for an opaque client. Atomic claim on the canonical stack; a self-sufficient
@@ -47,25 +50,33 @@ final class AtlasTaskServingService
     public function next(string $clientId, array $filters = []): array
     {
         if (! AtlasLoopMasterSwitch::enabled()) {
-            return $this->envelope('disabled', $clientId, null, ['reason' => 'loop_master_switch_off']);
+            return $this->served($clientId, $this->envelope('disabled', $clientId, null, ['reason' => 'loop_master_switch_off']));
         }
         $clientId = trim($clientId);
         if ($clientId === '') {
-            return $this->envelope('invalid_client', '', null, ['reason' => 'client_id_required']);
+            return $this->served('', $this->envelope('invalid_client', '', null, ['reason' => 'client_id_required']));
         }
 
         $claim = $this->orchestrator->claimNext($clientId, $this->safeFilters($filters));
 
         if ((string) ($claim['event'] ?? '') !== 'claimed') {
             // Honest empty: NOT an error. The queue is dry; the brain must originate (model-bound — see R1).
-            return $this->envelope('no_claimable_task', $clientId, null, [
+            return $this->served($clientId, $this->envelope('no_claimable_task', $clientId, null, [
                 'retry_after_seconds' => self::DEFAULT_RETRY_AFTER_SECONDS,
                 'escalation' => 'needs_brain_origination',
                 'candidate_count' => (int) ($claim['candidate_count'] ?? 0),
-            ]);
+            ]));
         }
 
-        return $this->envelope('served', $clientId, $this->projectTask($claim), []);
+        return $this->served($clientId, $this->envelope('served', $clientId, $this->projectTask($claim), []));
+    }
+
+    /** Record the serve outcome on the R2 sentinel (if wired), then return the envelope unchanged. */
+    private function served(string $clientId, array $envelope): array
+    {
+        $this->sentinel?->recordServe($clientId, (string) ($envelope['status'] ?? ''));
+
+        return $envelope;
     }
 
     /**

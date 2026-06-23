@@ -72,6 +72,18 @@ final class AtlasAgentControlPlaneSafetyInvariantsService
     ];
 
     /**
+     * PART 2 · A8 — the SERVING invariants (R1/R2), proposed NEW and MEASURED by the task-serving sentinel
+     * ({@see \App\Services\Ai\SelfConstruction\AtlasTaskServingSentinel}). DISTINCT from the 16 dry-run
+     * hard-laws above (which stay exactly 16, doc-bound) — these govern the LIVE serving contract. Evidence is
+     * the sentinel posture, never a self-report. They are DETECTORS, not mechanical guarantees (R1 is a
+     * model-bound cap; the sentinel surfaces the dry-queue state honestly rather than pretending it cannot dry).
+     */
+    public const SERVING_INVARIANTS = [
+        ['id' => 'I-17', 'name' => 'R1: the queue never dries below the floor', 'evidence' => 'queue_fill_sentinel', 'measured' => true],
+        ['id' => 'I-18', 'name' => 'R2: serving never fails to deliver (empty is honest, error is a breach)', 'evidence' => 'serving_sla_sentinel', 'measured' => true],
+    ];
+
+    /**
      * I-06 is non-negotiable: if a slice declares ANY of these write surfaces
      * over Atlas code, the invariant is violated regardless of the
      * `self_programming_disabled` evidence value. (Doc I-06 violations list.)
@@ -219,6 +231,17 @@ final class AtlasAgentControlPlaneSafetyInvariantsService
      *
      * @return array<string, mixed>
      */
+    /**
+     * The proposed SERVING invariants (I-17/I-18). Returned SEPARATELY from the 16 dry-run hard-laws so the
+     * doc-bound count stays exactly 16 while the live-serving invariants are declared + discoverable.
+     *
+     * @return list<array{id:string, name:string, evidence:string, measured:bool}>
+     */
+    public function servingInvariants(): array
+    {
+        return self::SERVING_INVARIANTS;
+    }
+
     public function describe(): array
     {
         $green = $this->fullySatisfiedSlice('slice-worked-green');
