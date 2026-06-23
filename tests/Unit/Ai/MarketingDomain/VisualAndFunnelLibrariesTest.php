@@ -57,10 +57,35 @@ class VisualAndFunnelLibrariesTest extends TestCase
         $r = (new PatternLibraryScorer)->score(new FunnelSequenceLibrary, $plan);
 
         $this->assertSame('funnel_sequence', $r['library']);
-        $this->assertGreaterThanOrEqual(65, $r['score']);
+        // Library deepened in Volta 2 (+10 advanced multistep patterns); short plan hits cores
+        // but not the rare ones — asserts pin the cores explicitly.
+        $this->assertGreaterThanOrEqual(40, $r['score']);
         foreach (['micro_commit', 'tripwire_offer', 'order_bump', 'oto_upsell',
             'abandoned_cart', 'subscription_lock', 'referral_loop'] as $k) {
             $this->assertContains($k, $r['present'], "Expected funnel pattern {$k}");
+        }
+    }
+
+    public function test_volta_2_advanced_funnel_patterns_fire(): void
+    {
+        $master = 'After your starter, continue with monthly subscription — bridge to subscription. '
+            .'OTO 1: upgrade. OTO 2: accelerator. OTO 3: concierge. '
+            .'Before you cancel — wait, give us 30 more days, extra month free, downgrade option. '
+            .'Pitch starts at 22:15 — CTA unlocks synchronized. '
+            .'SMS reminder: we will text you within 1h. Phone optional. '
+            .'Retargeting pixel fired — warm traffic gets the testimonial ad. '
+            .'Day 30: milestone reached — congratulations, level up to elite tier. '
+            ."Premium tier first: \$1,997 flagship. If that's too much, lite version. "
+            .'Now that you lost 10 lbs, often bought together with collagen. '
+            ."Karen came back to us — here's what she did. Second chance: 38 lbs comeback story.";
+
+        $r = (new \App\Services\Ai\MarketingDomain\Content\PatternLibraryScorer)
+            ->score(new \App\Services\Ai\MarketingDomain\Knowledge\FunnelSequenceLibrary, $master);
+
+        foreach (['tripwire_to_continuity', 'oto_stack', 'refund_saver', 'vsl_to_checkout_choreography',
+            'sms_followup_layer', 'paid_retargeting_sequence', 'community_milestone',
+            'reverse_funnel', 'cross_sell_at_peak', 'win_back_with_story'] as $k) {
+            $this->assertContains($k, $r['present'], "Volta 2 advanced funnel pattern {$k} should fire");
         }
     }
 
