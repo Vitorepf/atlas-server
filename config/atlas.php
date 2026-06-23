@@ -2885,6 +2885,13 @@ return [
         // CrossTypeLeverageSelector), drop clone-unification PROXY, originate the top MATERIAL (orphan-wiring)
         // candidate. Default OFF = the free-text writer path (slice 1a) byte-identical.
         'leverage_first_origination_enabled' => (bool) env('ATLAS_LOOP_LEVERAGE_FIRST_ORIGINATION_ENABLED', false),
+        // ANCHORED grounding — the inventory grounding gate (AtlasLoopComprehensionGroundingGate) admits an
+        // objective when at least this FRACTION of its cited symbols are real inventory members (and >=1 is),
+        // dropping the loose minority instead of vetoing the whole leap. The old all-or-nothing rule (1.0)
+        // wrongly refuted "6 real symbols + 1 doc" as hallucinated, starving the material lane. 0.5 = majority
+        // must be real; 1.0 = strict fail-closed all-or-nothing. Defence-in-depth: the materializer still
+        // hard-requires an EXISTING edit target, so a loosely-grounded objective never reaches a fake file.
+        'grounding_inventory_min_resolved_ratio' => (float) env('ATLAS_LOOP_GROUNDING_INVENTORY_MIN_RESOLVED_RATIO', 0.5),
         'origination_scope_root' => (string) env('ATLAS_LOOP_ORIGINATION_SCOPE_ROOT', 'app/Services/Ai/AutonomousEvolution'),
         // L3 — THE RUNG GROWS: proven capability (CapabilityTrendService upward bend) lowers the ambition
         // risk-tolerance toward pure-magnitude, so the loop dares a BIGGER leap only once it has earned it.

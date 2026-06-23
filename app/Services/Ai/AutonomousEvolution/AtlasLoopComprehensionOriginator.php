@@ -78,7 +78,22 @@ final class AtlasLoopComprehensionOriginator
             ];
         }
 
-        return ['originated' => true, 'objective' => $objective, 'cited_symbols' => $cited, 'refuted' => [], 'reason' => null];
+        // ANCHORED origination: proceed on the citations the judge RESOLVED, dropping any loose ones it
+        // refuted (kept in `refuted` as provenance, never acted on). The objective is anchored in the real
+        // map; the downstream target is chosen from resolved symbols, and the materializer still requires
+        // that target to EXIST — so a dropped loose citation can never reach a hallucinated edit.
+        $resolved = array_values(array_filter(array_map(
+            static fn (mixed $s): string => is_string($s) ? trim($s) : '',
+            (array) ($verdict['resolved'] ?? $cited),
+        ), static fn (string $s): bool => $s !== ''));
+
+        return [
+            'originated' => true,
+            'objective' => $objective,
+            'cited_symbols' => $resolved !== [] ? $resolved : $cited,
+            'refuted' => array_values((array) ($verdict['refuted'] ?? [])),
+            'reason' => null,
+        ];
     }
 
     /**

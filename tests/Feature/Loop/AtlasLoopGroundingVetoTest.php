@@ -63,4 +63,37 @@ final class AtlasLoopGroundingVetoTest extends TestCase
         $this->assertFalse($res['grounded'], 'fail-CLOSED: a comprehension objective with no citation is not grounded');
         $this->assertSame(0, $res['citation_count']);
     }
+
+    public function test_majority_anchored_objective_grounds_dropping_the_loose_minority(): void
+    {
+        // ANCHORED (default 0.5): 2 real inventory members + 1 loose citation (ratio 0.67) is grounded, not
+        // vetoed — the old all-or-nothing rule strangled exactly this (a real objective citing a doc/helper).
+        $res = (new AtlasLoopComprehensionGroundingGate)->groundAgainstInventory('wire it', [
+            'AtlasLoopResearchOriginator',
+            'app/Services/Ai/AutonomousEvolution/AtlasLoopTransferGate.php',
+            'docs/loop-os-architecture.md', // a doc — never an inventory code member
+        ], $this->inventory());
+
+        $this->assertTrue($res['grounded'], 'a majority-anchored objective grounds');
+        $this->assertContains('docs/loop-os-architecture.md', $res['refuted'], 'the loose citation is surfaced');
+        $this->assertCount(2, $res['resolved'], 'both real members resolve');
+    }
+
+    public function test_minority_resolved_is_still_vetoed(): void
+    {
+        // 1 real among 3 fakes (ratio 0.25 < 0.5) is the hallucination tell — still VETOED.
+        $res = (new AtlasLoopComprehensionGroundingGate)->groundAgainstInventory('x', [
+            'AtlasLoopResearchOriginator', 'GhostA', 'GhostB', 'GhostC',
+        ], $this->inventory());
+        $this->assertFalse($res['grounded'], 'a minority-resolved citation set is still hallucination-vetoed');
+    }
+
+    public function test_threshold_one_restores_strict_all_or_nothing(): void
+    {
+        config(['atlas.loop.grounding_inventory_min_resolved_ratio' => 1.0]);
+        $res = (new AtlasLoopComprehensionGroundingGate)->groundAgainstInventory('x', [
+            'AtlasLoopResearchOriginator', 'GhostA',
+        ], $this->inventory());
+        $this->assertFalse($res['grounded'], 'at ratio 1.0 a single loose citation vetoes again (fail-closed restored)');
+    }
 }
