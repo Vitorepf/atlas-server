@@ -2,7 +2,13 @@
 
 Loop: Claude Code destila os padrões de conversão mais brutais do mundo e cristaliza no motor de marketing do Atlas como bibliotecas determinísticas, mensuráveis (PatternLibraryScorer único) e auditáveis. Métrica: FORÇA DE CONVERSÃO real, provada cross-nicho (não overfit a um nicho). Campo de prova: OT169 (saúde) + finanças + relacionamento.
 
-Régua atual (piso de maturidade): **70** / teto 100.
+Régua atual (piso de maturidade): **75** / teto 100. — **VOLTA 1 COMPLETA** (todas as 9 bibliotecas ≥75, ciclos 1-8). Régua sobe pra 80.
+
+## Volta 2 (piso 80) — próximos saltos
+- **AggressionAmplifier** — pega o output dos 8 scorers e injeta os padrões ausentes na página (medir→corrigir→re-medir até `killer`). Fecha o loop generator+verifier.
+- **ConversionAuditor unificado** — comando que roda as 8 libs sobre uma página e devolve raio-X multidimensional + receita do que falta.
+- **Flywheel de pesos aprendidos** — quando venda real voltar pelo ledger, pesos dos padrões viram aprendidos por nicho (LATENTE).
+- Aprofundar libs com padrões mais raros (gray-hat avançado, swipe files de elite).
 
 ## Fundação
 - `PatternLibrary` (contrato): toda lib = `name()` + `all()` (padrão = key/name/category/weight/trigger/lever/markers) + `categories()`.
@@ -19,7 +25,8 @@ Régua atual (piso de maturidade): **70** / teto 100.
 | 6 | **ObjectionLibrary** | **80** ✅ | 12 | RESOLVIDO ciclo 5: as 12 objeções universais (preço, "não posso pagar", "não funciona pra mim", "tentei tudo", "é golpe?", "sem tempo", "é seguro?", "marido/esposa concorda?", "e suporte?", "vou pensar", "e a concorrência?", "não sou esse tipo") com o padrão de neutralização. Cross-nicho provado (saúde 100 / finanças 93 / sem trato 0). grounding.objection_audit. |
 | 7 | **HookLeadLibrary** | **80** ✅ | 14 | RESOLVIDO ciclo 6: 7 fórmulas de HOOK (callout específico Halbert, aviso, pergunta, stat chocante regex, contrarian, gancho de notícia, abertura de história in-media-res) + 7 arquétipos de LEAD (Bencivenga: oferta, promessa regex, problema-solução, segredo, história, proclamação, prova). Cross-nicho provado (saúde 83 / finanças 69 / fraca 7). grounding.hook_lead_audit. |
 | 8 | **NarrativeVoiceLibrary** | **85** ✅ | 14 | RESOLVIDO ciclo 7: 14 técnicas do "escorregar" — slippery slide (bucket brigade Sugarman, uma ideia/frase regex, variação), voz (you-focus, conversa, espelho de empatia), imagery (detalhe sensorial, especificidade radical regex timestamp, show-dont-tell), ritmo (regra de 3 regex, paralelismo, momentum), assinaturas (callback, metáfora-âncora). Voz de elite 100 / institucional 8. grounding.narrative_voice_audit. |
-| 9 | VisualPersuasionLibrary + FunnelSequenceLibrary | 0 | — | pendente — conversão sem texto + a jornada |
+| 9a | **VisualPersuasionLibrary** | **85** ✅ | 15 | RESOLVIDO ciclo 8: 15 padrões da decisão visual — CTA contraste/repetido/sticky, eye-direction, hierarquia, trust bar, prova social em volume, before/after grid, vídeo acima da dobra, thumbnail conversiva, countdown, notificações flutuantes, mobile thumb-zone, fricção, white-space pacing. Bridge elite v3 scoreia 100 (15/15). grounding indireto via auditor multi-lib. |
+| 9b | **FunnelSequenceLibrary** | **78** ✅ | 16 | RESOLVIDO ciclo 8: 16 padrões da jornada (não da página) — message-match, alinhamento awareness→step, micro-commit, value ladder, tripwire, order bump, OTO, downsell, abandoned cart, reengage, post-purchase upsell, winback, onboarding quick-win, subscription, referral. grounding.funnel_sequence_audit. |
 
 ## Pós-bibliotecas (faculdade de ambição)
 - `AggressionAmplifier` — medir → injetar o que falta → re-medir até `killer`.

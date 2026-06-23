@@ -213,6 +213,7 @@ class BridgePageComposerService
                 'objection_audit' => (new PatternLibraryScorer)->score(new \App\Services\Ai\MarketingDomain\Knowledge\ObjectionLibrary, $this->persuasionCopy($bridge)),
                 'hook_lead_audit' => (new PatternLibraryScorer)->score(new \App\Services\Ai\MarketingDomain\Knowledge\HookLeadLibrary, $this->persuasionCopy($bridge)),
                 'narrative_voice_audit' => (new PatternLibraryScorer)->score(new \App\Services\Ai\MarketingDomain\Knowledge\NarrativeVoiceLibrary, $this->persuasionCopy($bridge)),
+                'funnel_sequence_audit' => (new PatternLibraryScorer)->score(new \App\Services\Ai\MarketingDomain\Knowledge\FunnelSequenceLibrary, $this->persuasionCopy($bridge)),
                 'awareness_routing' => $this->awareness->route((string) $asset->awareness_level)
                     + ['alignment' => $this->awareness->match($this->persuasionCopy($bridge), (string) $asset->awareness_level)],
                 'awareness_target' => $asset->awareness_level,
