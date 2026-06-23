@@ -2881,6 +2881,10 @@ return [
         // leap) instead of parking-and-asking. Floor = architect red→green + cert/refute downstream. Default
         // OFF = byte-identical (novelty parks). See AtlasLoopAbstainAndAsk.
         'proceed_on_grounded_novelty_enabled' => (bool) env('ATLAS_LOOP_PROCEED_ON_GROUNDED_NOVELTY_ENABLED', false),
+        // Directive #2/#3 — LEVERAGE-FIRST origination: rank grounded candidates by leverage (the parked
+        // CrossTypeLeverageSelector), drop clone-unification PROXY, originate the top MATERIAL (orphan-wiring)
+        // candidate. Default OFF = the free-text writer path (slice 1a) byte-identical.
+        'leverage_first_origination_enabled' => (bool) env('ATLAS_LOOP_LEVERAGE_FIRST_ORIGINATION_ENABLED', false),
         'origination_scope_root' => (string) env('ATLAS_LOOP_ORIGINATION_SCOPE_ROOT', 'app/Services/Ai/AutonomousEvolution'),
         // L3 — THE RUNG GROWS: proven capability (CapabilityTrendService upward bend) lowers the ambition
         // risk-tolerance toward pure-magnitude, so the loop dares a BIGGER leap only once it has earned it.
