@@ -23,6 +23,8 @@ class PersonaSimulator
         $personas['woman_40_diet_fatigue'] = $this->woman40($text);
         $personas['ex_ozempic_buyer'] = $this->exOzempic($text);
         $personas['busy_mom_no_time'] = $this->busyMom($text);
+        $personas['skeptic_husband'] = $this->skepticHusband($text);
+        $personas['early_adopter'] = $this->earlyAdopter($text);
 
         return $personas;
     }
@@ -120,6 +122,66 @@ class PersonaSimulator
             'first_objection' => $obj,
             'what_she_needs_next' => $next,
             'reason' => 'Mãe ocupada: tempo + rotina simples + cena de mãe específica; copy longa sem TL;DR a perde imediato.',
+        ];
+    }
+
+    /**
+     * Skeptic husband: the approval gate many 40+ women run things by ("vou perguntar pro meu marido").
+     * Sells safety + ROI + zero-risk + no monthly cost, not transformation. Decides in seconds.
+     *
+     * @return array{will_watch:float,will_close:float,first_objection:string,what_she_needs_next:string,reason:string}
+     */
+    private function skepticHusband(string $text): array
+    {
+        $guarantee = $this->any($text, ['money-back', 'reembolso', '60-day', '60 dias', '90-day', 'no questions', 'sem perguntas']);
+        $oneTime = $this->any($text, ['one-time', 'única vez', 'lifetime', 'no subscription', 'sem assinatura', 'no monthly', 'sem mensalidade']);
+        $proof = $this->any($text, ['study', 'estudo', 'doctor', 'médic', 'fda', 'as seen on', 'visto na']);
+        $price = $this->any($text, ['$1,000 a month', '$1000 a month', '1 mil por mês', '$200 billion']);
+        $vague = $this->any($text, ['change your life', 'transform', 'incredible', 'amazing']) && ! $proof;
+
+        $watch = 0.1 + ($guarantee ? 0.25 : 0) + ($oneTime ? 0.15 : 0) + ($proof ? 0.2 : 0) + ($price ? 0.15 : 0) - ($vague ? 0.2 : 0);
+        $close = 0.6 - ($guarantee ? 0.15 : 0) - ($proof ? 0.15 : 0) + ($vague ? 0.2 : 0);
+        $obj = ! $guarantee ? 'cadê a garantia? sem isso é cilada'
+            : (! $proof ? 'cadê o estudo de verdade?' : (! $oneTime ? 'isto vira uma cobrança mensal eterna?' : 'tudo bem, mas qual o risco real disto?'));
+        $next = ! $guarantee ? 'precisa de "60-day money-back guarantee" visível'
+            : (! $proof ? 'precisa de "Dr. X" ou estudo nomeado' : (! $oneTime ? 'precisa de "one-time purchase, no subscription"' : 'precisa de "made in USA, FDA-registered" ou similar'));
+
+        return [
+            'will_watch' => round(max(0.0, min(1.0, $watch)), 2),
+            'will_close' => round(max(0.0, min(1.0, $close)), 2),
+            'first_objection' => $obj,
+            'what_she_needs_next' => $next,
+            'reason' => 'Marido cético/gate de aprovação: ROI + garantia + zero risco recorrente; hype solto = veto imediato.',
+        ];
+    }
+
+    /**
+     * Early adopter: opposite end of the skeptic spectrum. Already convinced of the category, hates
+     * basic pitches, wants to feel ahead-of-the-curve. Validates that copy doesn't ALSO alienate the
+     * enthusiast. If she rolls her eyes, the operator is over-cheesing.
+     *
+     * @return array{will_watch:float,will_close:float,first_objection:string,what_she_needs_next:string,reason:string}
+     */
+    private function earlyAdopter(string $text): array
+    {
+        $deep = $this->any($text, ['mechanism', 'mecanismo', 'glp-1', 'gip', 'glucagon', 'protocol', 'protocolo', 'hormones', 'hormôn']);
+        $contrarian = $this->any($text, ['unlike', 'instead of', 'everything you know', 'tudo que você sabe', 'is wrong', 'está errado', 'opposite']);
+        $premium = $this->any($text, ['ahead of', 'à frente', 'inner circle', 'membros', 'founder', 'fundador', 'early', 'antes de todos']);
+        $cheesy = $this->any($text, ['miracle', 'milagre', 'magic', 'mágica', 'just take', 'change your life forever', 'transforme sua vida']);
+
+        $watch = 0.2 + ($deep ? 0.25 : 0) + ($contrarian ? 0.2 : 0) + ($premium ? 0.15 : 0) - ($cheesy ? 0.25 : 0);
+        $close = 0.45 - ($deep ? 0.15 : 0) - ($contrarian ? 0.1 : 0) + ($cheesy ? 0.25 : 0);
+        $obj = $cheesy ? 'piegas demais, parece pirâmide'
+            : (! $deep ? 'cadê a profundidade técnica? superficial demais' : (! $contrarian ? 'igual a 100 outras propagandas' : 'tudo bem, mas onde acesso o whitepaper?'));
+        $next = $cheesy ? 'cortar miracle/transform/just take — voz mais sóbria'
+            : (! $deep ? 'precisa de detalhe técnico (GLP-1/GIP/glucagon explicado)' : (! $contrarian ? 'precisa de "unlike X" diferenciador específico' : 'precisa de link pra estudo/whitepaper'));
+
+        return [
+            'will_watch' => round(max(0.0, min(1.0, $watch)), 2),
+            'will_close' => round(max(0.0, min(1.0, $close)), 2),
+            'first_objection' => $obj,
+            'what_she_needs_next' => $next,
+            'reason' => 'Early adopter: já entende o nicho, valida que a copy não é piegas; sua reação cobre o flanco oposto ao cético.',
         ];
     }
 

@@ -105,6 +105,8 @@ class AggressionAmplifier
             'busy_mom_no_time' => 'kicker',           // top of page = first thing she sees
             'ex_ozempic_buyer' => 'body_sections',    // mid-body explanation/comparison
             'woman_40_diet_fatigue' => 'ps',          // bottom emotional close
+            'skeptic_husband' => 'body_sections',     // body-section that hammers guarantee + proof
+            'early_adopter' => 'body_sections',       // body-section with technical depth
         ];
         $applied = 0;
         foreach ($personas as $name => $p) {
@@ -121,9 +123,15 @@ class AggressionAmplifier
                 $applied++;
             } elseif ($slot === 'body_sections') {
                 $sections = is_array($bridge['body_sections'] ?? null) ? $bridge['body_sections'] : [];
+                $headingForPersona = match ($name) {
+                    'ex_ozempic_buyer' => 'Why this beats the injection',
+                    'skeptic_husband' => 'Why this is zero-risk',
+                    'early_adopter' => 'The mechanism, in detail',
+                    default => 'For you specifically',
+                };
                 $headings = array_map(fn ($s) => is_array($s) ? (string) ($s['heading'] ?? '') : '', $sections);
-                if (! in_array('For you specifically', $headings, true)) {
-                    $sections[] = ['heading' => 'For you specifically', 'body' => $fixText];
+                if (! in_array($headingForPersona, $headings, true)) {
+                    $sections[] = ['heading' => $headingForPersona, 'body' => $fixText];
                     $bridge['body_sections'] = $sections;
                     $applied++;
                 }
