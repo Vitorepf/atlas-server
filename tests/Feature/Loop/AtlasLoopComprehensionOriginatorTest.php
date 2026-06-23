@@ -50,13 +50,29 @@ final class AtlasLoopComprehensionOriginatorTest extends TestCase
         $this->assertSame('citations_refuted_by_inventory_judge', $res['reason']);
     }
 
-    public function test_any_refuted_citation_in_a_mix_kills_the_origination(): void
+    public function test_majority_anchored_mix_originates_dropping_the_loose_citation(): void
     {
-        $writer = fn (string $p): array => ['objective' => 'x', 'cited_symbols' => ['AtlasLoopResearchOriginator', 'AtlasLoopGhost']];
+        // ANCHORED, not all-or-nothing: an objective resting on a REAL symbol + one loose citation (a doc, a
+        // helper outside the class inventory) is no longer vetoed as hallucinated — it originates on the
+        // resolved symbol and DROPS the loose one (kept as provenance, never acted on). This is the strangle
+        // the old "any-refuted-kills-it" rule imposed on the material lane.
+        $writer = fn (string $p): array => ['objective' => 'Wire AtlasLoopResearchOriginator (per docs/loop-os-architecture.md).', 'cited_symbols' => ['AtlasLoopResearchOriginator', 'docs/loop-os-architecture.md']];
         $res = (new AtlasLoopComprehensionOriginator($writer))->originate($this->model());
 
-        $this->assertFalse($res['originated'], 'one hallucinated citation refutes the whole proposal');
-        $this->assertContains('AtlasLoopGhost', $res['refuted']);
+        $this->assertTrue($res['originated'], 'a real-symbol-anchored objective with one loose citation still originates');
+        $this->assertSame(['AtlasLoopResearchOriginator'], $res['cited_symbols'], 'it proceeds on the RESOLVED symbol only');
+        $this->assertContains('docs/loop-os-architecture.md', $res['refuted'], 'the loose citation is surfaced as dropped provenance');
+    }
+
+    public function test_minority_resolved_is_still_refuted_as_hallucinated(): void
+    {
+        // The veto still BITES when the objective is mostly invented: 1 real among 3 fakes (ratio 0.25 < 0.5)
+        // is the "1 real symbol smuggling a fabricated objective" tell and is REFUSED.
+        $writer = fn (string $p): array => ['objective' => 'x', 'cited_symbols' => ['AtlasLoopResearchOriginator', 'GhostOne', 'GhostTwo', 'GhostThree']];
+        $res = (new AtlasLoopComprehensionOriginator($writer))->originate($this->model());
+
+        $this->assertFalse($res['originated'], 'a minority-resolved citation set is still vetoed as likely hallucinated');
+        $this->assertSame('citations_refuted_by_inventory_judge', $res['reason']);
     }
 
     public function test_no_writer_yields_no_origination_fail_closed(): void

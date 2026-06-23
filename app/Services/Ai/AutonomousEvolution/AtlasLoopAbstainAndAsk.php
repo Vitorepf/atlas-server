@@ -27,8 +27,18 @@ final class AtlasLoopAbstainAndAsk
     /** Hand the wheel to the operator (park + ask) — the loop is at its honest frontier. NEVER fabricate. */
     public const ACTION_ABSTAIN = 'abstain';
 
-    public function __construct(private readonly float $confidenceFloor = 0.7)
-    {
+    /**
+     * @param  bool  $proceedOnGroundedNovelty  When true, NOVELTY alone no longer forces an abstain: a GROUNDED
+     *   + CONFIDENT novel decision PROCEEDS (the loop ORIGINATES the leap — green scope is the trigger to
+     *   originate, not to ask). The honest floor moves DOWNSTREAM: the architect gate designs it red→green and
+     *   the cert/refute pipeline proves it is actually behaviour-changing — a fabricated leap fails there.
+     *   Genuine ambiguity (ungrounded / low-confidence) STILL abstains. Default false = byte-identical: novelty
+     *   parks-and-asks. This is the operator's autonomous-self-engineer directive (2026-06-22).
+     */
+    public function __construct(
+        private readonly float $confidenceFloor = 0.7,
+        private readonly bool $proceedOnGroundedNovelty = false,
+    ) {
     }
 
     /**
@@ -51,8 +61,11 @@ final class AtlasLoopAbstainAndAsk
         if ($confidence < $this->confidenceFloor) {
             $reasons[] = 'low_confidence:'.rtrim(rtrim(number_format($confidence, 2), '0'), '.').'<'.$this->confidenceFloor;
         }
-        if ($novel && ! $hasPrecedent) {
-            $reasons[] = 'novel_no_precedent'; // greenfield with no certified precedent to lean on
+        if ($novel && ! $hasPrecedent && ! $this->proceedOnGroundedNovelty) {
+            // greenfield with no certified precedent. By default this parks-and-asks. With
+            // proceedOnGroundedNovelty the loop ORIGINATES it instead (still grounded + confident above);
+            // the architect red→green design + cert/refute downstream are what prove it is real material.
+            $reasons[] = 'novel_no_precedent';
         }
 
         if ($reasons !== []) {

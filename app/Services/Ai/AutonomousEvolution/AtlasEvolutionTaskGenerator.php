@@ -58,6 +58,16 @@ final class AtlasEvolutionTaskGenerator
         );
     }
 
+    /** A repo-relative path to a TEST file — not a valid MATERIAL (behaviour-changing production) target. */
+    private function isTestPath(string $rel): bool
+    {
+        $rel = ltrim(str_replace('\\', '/', $rel), '/');
+
+        return str_starts_with($rel, 'tests/')
+            || str_contains($rel, '/tests/')
+            || str_ends_with($rel, 'Test.php');
+    }
+
     /**
      * @param  array{provider?: ?string, index?: int}  $options
      * @return array{0: string, 1: string, 2: string}
@@ -76,6 +86,12 @@ final class AtlasEvolutionTaskGenerator
      */
     private function generateForResolvedTarget(string $baseWorkspace, string $targetRelativePath, array $options, string $provider, string $testRel, string $objRel, string|false $base): array
     {
+        // Defence in depth (the QueueRefiller already filters test paths from the producer's candidates):
+        // a TEST file is not a MATERIAL target — generating for it yields added assertions (coverage = PROXY),
+        // and stamping the red_required real-work signal on it would launder coverage as a bug_fix. Refuse.
+        if ($this->isTestPath($targetRelativePath)) {
+            return ['generated' => false, 'reason' => 'test_file_target_not_material'];
+        }
         if ($base === false) {
             return ['generated' => false, 'reason' => 'invalid_base_or_target'];
         }
@@ -176,6 +192,13 @@ final class AtlasEvolutionTaskGenerator
                     'allowed_globs' => [dirname($targetRelativePath).'/**', $targetRelativePath],
                     'frozen_globs' => ['tests/**', $objRel, 'composer.json'],
                     'metric_kind' => AtlasEvolutionFrozenJudge::METRIC_GATE,
+                    // HONEST real-work signal for the scorecard: this generator returns generated=false unless
+                    // the frozen test is VERIFIED RED against the current code (the is_red guard above), so
+                    // every task it emits genuinely earns a RED→GREEN. red_required=true records that proven
+                    // fact so AtlasLoopRealWorkScorecardService classifies the certified delivery as bug_fix
+                    // instead of UNKNOWN (it was refusing real material deliveries — 0 real / N unknown — for
+                    // lack of this signal). NOT laundering: the cert still requires diff_earned to bank it.
+                    'red_required' => true,
                 ],
             ],
         ];

@@ -199,13 +199,26 @@ final class AtlasLoopComprehensionGroundingGate
             }
         }
 
-        // FAIL-CLOSED: grounded ONLY when there is ≥1 citation and NONE is refuted.
-        $grounded = $citationCount > 0 && $refuted === [];
+        // ANCHORED, not all-or-nothing: this gate's job is to catch a FABRICATED objective (one resting on
+        // invented symbols), NOT to veto a real objective because one of its citations is a doc path or a
+        // helper outside the class inventory. The historical rule (refuted === []) vetoed an objective that
+        // cited 6 real symbols + 1 doc as "likely hallucinated" — our own engineering strangling the model.
+        // So an objective is grounded when it is ANCHORED in the brain's map: ≥1 citation resolves AND a
+        // configurable majority of them do. The minority that does NOT resolve is surfaced in `refuted` and
+        // DROPPED by the caller (never acted on); the downstream materializer still hard-requires an EXISTING
+        // edit target, so a loosely-grounded objective can never reach a hallucinated file (defence in depth).
+        // Threshold 1.0 restores the strict fail-closed all-or-nothing.
+        $resolvedCount = count($resolved);
+        $minRatio = $this->minResolvedRatio();
+        $ratio = $citationCount > 0 ? $resolvedCount / $citationCount : 0.0;
+        $grounded = $resolvedCount >= 1 && $ratio + 1e-9 >= $minRatio;
         $note = $grounded
-            ? sprintf('grounded(inventory): all %d cited symbol(s) are inventory members. %s', $citationCount, $this->objectiveTag($statedObjective))
+            ? ($refuted === []
+                ? sprintf('grounded(inventory): all %d cited symbol(s) are inventory members. %s', $citationCount, $this->objectiveTag($statedObjective))
+                : sprintf('grounded(inventory, anchored): %d of %d cited symbol(s) are inventory members (>= %.2f); %d loose citation(s) [%s] dropped, not fatal. %s', $resolvedCount, $citationCount, $minRatio, count($refuted), implode(', ', $refuted), $this->objectiveTag($statedObjective)))
             : ($citationCount === 0
                 ? 'REFUTED(inventory): no symbols cited — a comprehension objective must cite a real inventory member. '.$this->objectiveTag($statedObjective)
-                : sprintf('REFUTED(inventory): %d of %d cited symbol(s) are NOT inventory members [%s] — VETOED as likely hallucinated. %s', count($refuted), $citationCount, implode(', ', $refuted), $this->objectiveTag($statedObjective)));
+                : sprintf('REFUTED(inventory): only %d of %d cited symbol(s) are inventory members (< %.2f anchor) [%s] — VETOED as likely hallucinated. %s', $resolvedCount, $citationCount, $minRatio, implode(', ', $refuted), $this->objectiveTag($statedObjective)));
         if (! $grounded) {
             $this->logUngrounded($note);
         }
@@ -218,6 +231,20 @@ final class AtlasLoopComprehensionGroundingGate
             'citation_count' => $citationCount,
             'note' => $note,
         ];
+    }
+
+    /**
+     * The minimum fraction of an objective's citations that must resolve to inventory members for it to be
+     * ANCHORED (not hallucinated). Default 0.5 — a majority must be real, which still refuses the
+     * "1 real symbol among many invented ones" hallucination while admitting the common "N real + 1 doc/helper"
+     * objective the old all-or-nothing rule wrongly vetoed. Clamped to [0,1]; 1.0 = strict all-or-nothing.
+     */
+    private function minResolvedRatio(): float
+    {
+        $raw = config('atlas.loop.grounding_inventory_min_resolved_ratio', 0.5);
+        $ratio = is_numeric($raw) ? (float) $raw : 0.5;
+
+        return max(0.0, min(1.0, $ratio));
     }
 
     /** The last `\`- or `/`-delimited segment of a citation, lowercased, sans a trailing `.php`. */

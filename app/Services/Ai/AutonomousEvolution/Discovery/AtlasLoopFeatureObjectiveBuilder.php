@@ -51,6 +51,12 @@ final class AtlasLoopFeatureObjectiveBuilder
             'materializer' => 'framework',
             'objective_kind' => self::OBJECTIVE_KIND,
             'feature_name' => $featureName,
+            // The framework materializer requires an EXISTING target_relative_path (the primary file the grind
+            // edits) + acceptance.commands. Without it every seeded feature died at materialize
+            // ("framework materialize: payload requires target_relative_path (existing) + acceptance.commands").
+            // Pick the first impl file that exists on disk (a feature editing an existing class); fall back to
+            // the first declared impl file so a brand-new-file feature still carries a target.
+            'target_relative_path' => $this->primaryTarget($implFiles),
             'acceptance' => $acceptance,
             'allowed_files' => $implFiles,
             'validation_commands' => [$command],
@@ -79,6 +85,25 @@ final class AtlasLoopFeatureObjectiveBuilder
     /**
      * @param  list<string>  $implFiles
      */
+    /**
+     * The primary target the framework materializer edits: the first impl file that EXISTS on disk (a feature
+     * editing an existing class), else the first declared impl file (a brand-new-file feature still needs a
+     * target_relative_path the materializer can seed).
+     *
+     * @param  list<string>  $implFiles
+     */
+    private function primaryTarget(array $implFiles): string
+    {
+        foreach ($implFiles as $f) {
+            $rel = ltrim(str_replace('\\', '/', (string) $f), '/');
+            if ($rel !== '' && is_file(base_path($rel))) {
+                return $rel;
+            }
+        }
+
+        return ltrim(str_replace('\\', '/', (string) ($implFiles[0] ?? '')), '/');
+    }
+
     private function objectiveText(string $featureName, string $featureSpec, string $acceptanceTestRel, array $implFiles): string
     {
         $files = implode(', ', $implFiles);

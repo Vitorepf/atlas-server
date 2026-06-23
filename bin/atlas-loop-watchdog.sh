@@ -13,11 +13,18 @@
 # Usage: bin/atlas-loop-watchdog.sh <campaign-id>
 # Stop:  touch storage/atlas-loop/WATCHDOG_STOP   (or kill the process)
 set -u
-cd /Users/vitorepf/develop/Atlas/atlas-server || exit 1
+# SELF-LOCATE to THIS script's own repo root (two levels up from the script file), NEVER a hardcoded
+# checkout. Run from the worktree copy ⇒ operates the worktree; run from the main checkout ⇒ operates
+# that. Hardcoding `cd .../atlas-server` made an ISOLATED-WORKTREE soak's watchdog run automerge /
+# main-health / keepalive against the operator's MAIN checkout — the single repo an isolated soak must
+# never touch (it could merge loop proposals into `main` or break worktree isolation). base_path() then
+# resolves to this repo for every php command below, and `.env`/STOP are read worktree-relative.
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." 2>/dev/null && pwd)"
+cd "$REPO_ROOT" || exit 1
 
 CID="${1:-}"
 PHP="/opt/homebrew/bin/php"
-LOG="/tmp/atlas-loop-watchdog.log"
+LOG="/tmp/atlas-loop-watchdog-$(basename "$REPO_ROOT").log"
 STOP="storage/atlas-loop/WATCHDOG_STOP"
 INTERVAL="${ATLAS_LOOP_WATCHDOG_INTERVAL:-60}"
 

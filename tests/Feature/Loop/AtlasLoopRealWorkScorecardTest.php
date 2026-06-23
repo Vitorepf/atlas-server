@@ -545,6 +545,91 @@ final class AtlasLoopRealWorkScorecardTest extends TestCase
         $this->assertFalse($sc['claim_policy']['loop_real_work_claim_allowed']);
     }
 
+    public function test_complexity_refactor_with_revert_recheck_is_proxy_not_bug_fix(): void
+    {
+        // THE LIVE-SOAK REGRESSION (caught grinding the loop on itself). A cyclomatic-reduction refactor
+        // stamps revert_recheck + complexity_proof + quality_bar_gate to prove the refactor is non-trivial
+        // and test-covered — but it is NOT self-marked. The generic `revert_recheck && concrete => bug_fix`
+        // shortcut laundered it into REAL bug_fix, so a soak grinding pure cyclomatic faxina reported
+        // real_work_ratio=1.0 / proxy_alarm=false. It is behaviour-preserving proxy and MUST classify so, or
+        // the honest material-vs-proxy signal is a lie (the one thing this scorecard exists to prevent).
+        $campaign = $this->makeCampaign();
+        $this->makeTask($campaign->id, [
+            'objective_kind' => 'refactor_reduce_complexity',
+            'revert_recheck' => true,
+            'acceptance' => [
+                'commands' => ['./vendor/bin/phpunit --filter Frozen'],
+                'complexity_proof' => true,
+                'quality_bar_gate' => true,
+                'quality_bar' => 9.0,
+            ],
+        ], 'Refactor Foo.php to REDUCE the cyclomatic complexity of its worst method');
+
+        $sc = $this->service()->scorecard($campaign->id);
+
+        $this->assertSame(0, $sc['real_work_tasks'], 'a non-self-marked cyclomatic refactor is NOT real work');
+        $this->assertSame(0, $sc['bug_fix_tasks'], 'revert_recheck must not launder a refactor into a bug_fix');
+        $this->assertSame(1, $sc['proxy_refactor_tasks']);
+        $this->assertFalse($sc['claim_policy']['loop_real_work_claim_allowed']);
+    }
+
+    public function test_complexity_refactor_becomes_real_only_when_self_marked(): void
+    {
+        // The legit narrow lane survives: the SAME refactor, explicitly self-marked, IS the loop's measured
+        // capability-improvement work and classifies real self_improvement (governed: self-mark + complexity
+        // proof + quality bar). That is the ONLY door from a refactor kind to real work.
+        $campaign = $this->makeCampaign();
+        $this->makeTask($campaign->id, [
+            'objective_kind' => 'refactor_reduce_complexity',
+            'is_self_improvement' => true,
+            'revert_recheck' => true,
+            'acceptance' => [
+                'commands' => ['./vendor/bin/phpunit --filter Frozen'],
+                'complexity_proof' => true,
+                'quality_bar_gate' => true,
+                'quality_bar' => 9.0,
+            ],
+        ]);
+
+        $sc = $this->service()->scorecard($campaign->id);
+
+        $this->assertSame(1, $sc['real_work_tasks']);
+        $this->assertSame(1, $sc['self_improvement_tasks']);
+        $this->assertSame(0, $sc['proxy_refactor_tasks']);
+    }
+
+    public function test_live_soak_proxy_heavy_queue_refuses_the_real_claim(): void
+    {
+        // Mirrors the first live soak wave exactly: 6 cyclomatic refactors (revert_recheck, NOT self-marked)
+        // + 1 extract-class refactor + 1 characterization test. The honest verdict is proxy-DOMINATED, claim
+        // REFUSED — never the fabricated "8 real, proxy_alarm:false" the unfixed scorecard reported.
+        $campaign = $this->makeCampaign();
+        for ($i = 0; $i < 6; $i++) {
+            $this->makeTask($campaign->id, [
+                'objective_kind' => 'refactor_reduce_complexity',
+                'revert_recheck' => true,
+                'acceptance' => ['commands' => ['./vendor/bin/phpunit --filter F'.$i], 'complexity_proof' => true, 'quality_bar_gate' => true],
+            ], 'Refactor to REDUCE cyclomatic complexity');
+        }
+        $this->makeTask($campaign->id, [
+            'objective_kind' => 'refactor_extract_class',
+            'revert_recheck' => true,
+            'acceptance' => ['commands' => ['./vendor/bin/phpunit --filter Ex'], 'complexity_proof' => true, 'quality_bar_gate' => true],
+        ], 'Refactor by EXTRACTING a class');
+        $this->makeTask($campaign->id, [
+            'objective_kind' => 'characterization_test',
+            'acceptance' => ['commands' => ['./vendor/bin/phpunit --filter Char']],
+        ]);
+
+        $sc = $this->service()->scorecard($campaign->id);
+
+        $this->assertSame(7, $sc['proxy_refactor_tasks'], 'all 7 behaviour-preserving refactors are proxy');
+        $this->assertSame(1, $sc['verification_tasks']);
+        $this->assertSame(0, $sc['bug_fix_tasks']);
+        $this->assertFalse($sc['claim_policy']['loop_real_work_claim_allowed']);
+        $this->assertContains('proxy_refactor_dominates', $sc['claim_policy']['blockers']);
+    }
+
     public function test_noop_command_does_not_satisfy_concrete_acceptance(): void
     {
         // A no-op placeholder command (`:`) is NOT a concrete acceptance contract, so it cannot suppress the
@@ -739,5 +824,57 @@ final class AtlasLoopRealWorkScorecardTest extends TestCase
         $this->assertTrue(File::exists($decoded['receipt_path']));
 
         File::delete($decoded['receipt_path']);
+    }
+
+    // ── discovery objective-producer task (red_required, NO objective_kind) ─────────────────────────────
+
+    /**
+     * The objective-producer (AtlasEvolutionTaskGenerator) emits verified-RED bug-fix tasks but stamps NO
+     * objective_kind — only the FrozenJudge-shaped acceptance. Before red_required was stamped, the scorecard
+     * REFUSED a genuinely material, certified delivery as UNKNOWN ("0 real / N unknown"), so the loop could
+     * never bank or compound its own real work. With acceptance.red_required=true (an honest fact: the
+     * generator returns generated=false unless the test is verified RED) it classifies as a real bug_fix.
+     */
+    public function test_discovery_generator_red_required_task_is_real_bug_fix_not_unknown(): void
+    {
+        $campaign = $this->makeCampaign();
+        $this->makeTask($campaign->id, [
+            // exactly the shape AtlasEvolutionTaskGenerator now emits — no objective_kind, FrozenJudge acceptance
+            'allowed_files' => ['src/Foo.php'],
+            'validation_commands' => ['php tests/atlas_generated_0.php'],
+            'acceptance' => [
+                'commands' => ['php tests/atlas_generated_0.php'],
+                'allowed_globs' => ['src/**', 'src/Foo.php'],
+                'frozen_globs' => ['tests/**', 'GENERATED_OBJECTIVE_0.txt', 'composer.json'],
+                'metric_kind' => 'gate',
+                'red_required' => true,
+            ],
+        ], 'Shell-escape derived phpunit test_path values.');
+
+        $sc = $this->service()->scorecard($campaign->id);
+
+        $this->assertSame(1, $sc['real_work_tasks'], 'a verified-RED discovery task is real work');
+        $this->assertSame(1, $sc['bug_fix_tasks']);
+        $this->assertSame(0, $sc['unknown_tasks'], 'it is NO LONGER refused as unknown');
+        $this->assertTrue($sc['claim_policy']['loop_real_work_claim_allowed']);
+    }
+
+    /**
+     * Anti-Goodhart guard: the fix is SCOPED to the bug-fix lane (the objective-producer). The natural
+     * behaviour-preserving refactor shape — a refactor_* kind with revert_recheck and NO red_required (the
+     * only shape the refactor synthesizers actually emit) — STAYS proxy. red_required is never stamped on a
+     * refactor lane, so the bug-fix stamp cannot leak there. (A "refactor" that DID carry a genuinely RED
+     * test would not be behaviour-preserving, and the scorecard already treats that as real work by design.)
+     */
+    public function test_natural_behavior_preserving_refactor_stays_proxy(): void
+    {
+        $campaign = $this->makeCampaign();
+        $this->makeTask($campaign->id, $this->proxyRefactorPayload());
+
+        $sc = $this->service()->scorecard($campaign->id);
+
+        $this->assertSame(0, $sc['bug_fix_tasks'], 'a behaviour-preserving refactor is never a bug_fix');
+        $this->assertSame(1, $sc['proxy_refactor_tasks']);
+        $this->assertFalse($sc['claim_policy']['loop_real_work_claim_allowed'], 'proxy alone cannot claim real work');
     }
 }

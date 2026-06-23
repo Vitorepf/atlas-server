@@ -74,4 +74,42 @@ final class AtlasLoopAbstainAndAskTest extends TestCase
             $this->assertNotNull($v['operator_question']);
         }
     }
+
+    // ── proceedOnGroundedNovelty: the autonomous-self-engineer directive (2026-06-22) ──────────────────────
+    // Green scope = the TRIGGER to ORIGINATE a grounded novel leap, NOT to park-and-ask. The Goodhart floor
+    // moves downstream (architect red→green + cert/refute prove materiality). Genuine ambiguity still abstains.
+
+    private function originatingGate(): AtlasLoopAbstainAndAsk
+    {
+        return new AtlasLoopAbstainAndAsk(confidenceFloor: 0.7, proceedOnGroundedNovelty: true);
+    }
+
+    public function test_grounded_confident_novelty_PROCEEDS_when_originating(): void
+    {
+        // The exact case the default gate parks (novel + no precedent) — now the loop ORIGINATES it.
+        $v = $this->originatingGate()->evaluate(['grounded' => true, 'confidence' => 0.95, 'novel' => true, 'has_precedent' => false, 'summary' => 'add capability X']);
+        $this->assertSame(AtlasLoopAbstainAndAsk::ACTION_PROCEED, $v['action'], 'grounded+confident novelty ORIGINATES, not parks');
+        $this->assertSame([], $v['reasons']);
+        $this->assertNull($v['operator_question']);
+    }
+
+    public function test_originating_still_abstains_on_genuine_ambiguity(): void
+    {
+        // Originating mode relaxes ONLY novelty — ungrounded and low-confidence are real ambiguity and STILL park.
+        $ungrounded = $this->originatingGate()->evaluate(['grounded' => false, 'confidence' => 0.99, 'novel' => true, 'has_precedent' => false]);
+        $this->assertSame(AtlasLoopAbstainAndAsk::ACTION_ABSTAIN, $ungrounded['action'], 'ungrounded is genuine ambiguity → still abstain');
+        $this->assertContains('ungrounded', $ungrounded['reasons']);
+
+        $lowConf = $this->originatingGate()->evaluate(['grounded' => true, 'confidence' => 0.5, 'novel' => true, 'has_precedent' => false]);
+        $this->assertSame(AtlasLoopAbstainAndAsk::ACTION_ABSTAIN, $lowConf['action'], 'low-confidence is genuine ambiguity → still abstain');
+        $this->assertTrue((bool) preg_grep('/^low_confidence/', $lowConf['reasons']));
+    }
+
+    public function test_originating_flag_default_off_is_byte_identical(): void
+    {
+        // Default constructor (flag off) parks novelty exactly as before — the change is byte-identical when OFF.
+        $input = ['grounded' => true, 'confidence' => 0.95, 'novel' => true, 'has_precedent' => false];
+        $this->assertSame(AtlasLoopAbstainAndAsk::ACTION_ABSTAIN, $this->gate()->evaluate($input)['action']);
+        $this->assertSame(AtlasLoopAbstainAndAsk::ACTION_PROCEED, $this->originatingGate()->evaluate($input)['action']);
+    }
 }

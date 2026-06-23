@@ -34,6 +34,23 @@ final class AtlasLoopSoakPlanService
         'deterministic_deadcode_supply_enabled',
     ];
 
+    /**
+     * Cyclomatic-refactor SUPPLY lanes — the structurally-abundant proxy FARMS (every method >= CC10 is a
+     * target) that flood the queue with behaviour-preserving complexity-reduction work, so the loop never
+     * genuinely starves and origination-on-starvation almost never fires. A MATERIAL soak requires these OFF.
+     *
+     * Live-proven 2026-06-22: with these ON, the loop's first wave was 6/8 refactor_reduce_complexity while
+     * the arm-check still reported "proxy OFF / ready" (it only checked the dead-code flag above). The config
+     * even labels decompose_supply a "material-supply lane" — but a complexity_proof refactor is cyclomatic
+     * faxina laundered as material (canonical loop definition: a behaviour-preserving refactor is melhoria
+     * ZERO). So a material self-evolution soak must verify these are OFF, not assume it.
+     */
+    public const PROXY_SUPPLY_FLAGS = [
+        'decompose_supply_enabled',
+        'proxy_refactor_supply_enabled',
+        'self_improve_grounding_enabled',
+    ];
+
     public function __construct(private readonly ?Closure $masterEnabledResolver = null) {}
 
     /**
@@ -61,6 +78,22 @@ final class AtlasLoopSoakPlanService
         }
         $proxyOff = $proxyArmed === [];
 
+        // Cyclomatic-refactor SUPPLY farms — any armed one floods the queue with proxy refactors, so the soak
+        // grinds faxina instead of material work. The objective producer is a proxy farm ONLY when it is NOT
+        // emitting features (producer_feature_origination off) — armed-without-feature it mints "REDUCE
+        // complexity" objectives directly.
+        $proxySupplyArmed = [];
+        foreach (self::PROXY_SUPPLY_FLAGS as $f) {
+            if ((bool) config('atlas.loop.'.$f, false)) {
+                $proxySupplyArmed[] = $f;
+            }
+        }
+        if ((bool) config('atlas.loop.objective_producer_enabled', false)
+            && ! (bool) config('atlas.loop.producer_feature_origination_enabled', false)) {
+            $proxySupplyArmed[] = 'objective_producer_enabled (without producer_feature_origination)';
+        }
+        $proxySupplyOff = $proxySupplyArmed === [];
+
         $masterOn = $this->masterEnabled();
         $selfMergeArmed = (bool) config('atlas.loop.self_improvement_auto_merge_enabled', false);
         $obraMergeArmed = (bool) config('atlas.loop.obra_auto_merge_enabled', false);
@@ -77,6 +110,9 @@ final class AtlasLoopSoakPlanService
         }
         foreach ($proxyArmed as $flag) {
             $blocking[] = 'proxy_worktype_armed:'.$flag.' (must be OFF — it is the faxina magnet)';
+        }
+        foreach ($proxySupplyArmed as $flag) {
+            $blocking[] = 'proxy_supply_lane_armed:'.$flag.' (cyclomatic-refactor farm — must be OFF for a MATERIAL soak)';
         }
         if ($withSelfMerge && ! $selfMergeArmed) {
             $blocking[] = 'self_merge_requested_but_flag_off (set ATLAS_LOOP_SELF_IMPROVEMENT_AUTO_MERGE_ENABLED=true)';
@@ -102,6 +138,8 @@ final class AtlasLoopSoakPlanService
                 'fibonacci_flags' => $fib,
                 'fibonacci_all_on' => $fibAllOn,
                 'proxy_worktypes_off' => $proxyOff,
+                'proxy_supply_lanes_off' => $proxySupplyOff,
+                'proxy_supply_armed' => $proxySupplyArmed,
                 'self_merge_armed' => $selfMergeArmed,
                 'merge_mode' => $mergeMode,
                 'ready' => $blocking === [],

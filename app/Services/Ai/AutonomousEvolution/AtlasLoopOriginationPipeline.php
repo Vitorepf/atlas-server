@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopComprehensionOriginationCandidates;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
 
 /**
@@ -24,6 +25,7 @@ final class AtlasLoopOriginationPipeline
     public function __construct(
         private readonly ?AtlasLoopComprehensionOriginator $originator = null,
         private readonly ?AtlasLoopArchitectPhaseGate $gate = null,
+        private readonly ?AtlasLoopCrossTypeLeverageSelector $selector = null,
     ) {
     }
 
@@ -34,14 +36,29 @@ final class AtlasLoopOriginationPipeline
      */
     public function produce(AtlasLoopScopeComprehensionModel $model, string $repoRoot, array $priorAttempts = []): array
     {
-        $origination = ($this->originator ?? new AtlasLoopComprehensionOriginator)->originate($model, $priorAttempts);
-        if (($origination['originated'] ?? false) !== true) {
-            return $this->refuse((string) ($origination['reason'] ?? 'not_originated'));
+        // Directive #2/#3 — LEVERAGE-FIRST, MATERIAL-ONLY origination. Rank the grounded candidates by leverage
+        // (wiring the parked CrossTypeLeverageSelector — the loop's OWN self-chosen evolution), DROP the
+        // behaviour-preserving clone-unification PROXY, and originate the TOP material candidate. Flag-gated;
+        // OFF ⇒ the free-text writer path (slice 1a) is byte-identical.
+        $objective = '';
+        $target = null;
+        if ((bool) config('atlas.loop.leverage_first_origination_enabled', false)) {
+            $picked = $this->leverageFirstMaterialTarget($model, $repoRoot);
+            if ($picked !== null) {
+                [$objective, $target] = $picked;
+            }
         }
 
-        $target = $this->resolveTarget($model, (array) ($origination['cited_symbols'] ?? []));
-        if ($target === null) {
-            return $this->refuse('no_resolvable_inventory_target'); // cited a real symbol but none maps to a scope path
+        if ($objective === '' || $target === null) {
+            $origination = ($this->originator ?? new AtlasLoopComprehensionOriginator)->originate($model, $priorAttempts);
+            if (($origination['originated'] ?? false) !== true) {
+                return $this->refuse((string) ($origination['reason'] ?? 'not_originated'));
+            }
+            $objective = (string) ($origination['objective'] ?? '');
+            $target = $this->resolveTarget($model, (array) ($origination['cited_symbols'] ?? []));
+            if ($target === null) {
+                return $this->refuse('no_resolvable_inventory_target'); // cited a real symbol but none maps to a scope path
+            }
         }
 
         // DESIGN the originated evolution as a feature (red→green) — caller protection + work-type proof, or PARK.
@@ -55,19 +72,24 @@ final class AtlasLoopOriginationPipeline
         // unless the target already has real consumers (a modification WITH precedent, not greenfield). The
         // loop never fabricates a confident "proceed" on a greenfield origination.
         $hasPrecedent = count((array) ($verdict['consumer_contracts'] ?? [])) > 0;
-        $frontier = (new AtlasLoopAbstainAndAsk)->evaluate([
+        // The operator's autonomous-self-engineer directive: on a GREEN scope the loop ORIGINATES the next
+        // material leap instead of parking-and-asking. With proceed_on_grounded_novelty ON, a grounded +
+        // designed (architect-admitted) novel origination PROCEEDS; the red→green obligation + cert/refute
+        // downstream are the Goodhart floor. Default OFF ⇒ byte-identical (novelty parks-and-asks).
+        $proceedOnNovelty = (bool) config('atlas.loop.proceed_on_grounded_novelty_enabled', false);
+        $frontier = (new AtlasLoopAbstainAndAsk(0.7, $proceedOnNovelty))->evaluate([
             'grounded' => true,             // it cleared the inventory grounding-veto
             'confidence' => 1.0,            // the deterministic gates (grounding + design) are satisfied
             'novel' => true,               // a free origination has no supply-lane precedent of its own
             'has_precedent' => $hasPrecedent,
-            'summary' => (string) ($origination['objective'] ?? ''),
+            'summary' => $objective,
         ]);
 
         return [
             'produced' => true,
             'action' => $frontier['action'],                       // proceed | abstain (park + ask the operator)
             'operator_question' => $frontier['operator_question'], // non-null ⇒ the loop is asking, not guessing
-            'objective' => (string) ($origination['objective'] ?? ''),
+            'objective' => $objective,
             'target_path' => $target,
             'obligations' => array_values((array) ($verdict['obligations'] ?? [])),
             'reason' => null,
@@ -80,6 +102,39 @@ final class AtlasLoopOriginationPipeline
     private function refuse(string $reason): array
     {
         return ['produced' => false, 'objective' => null, 'target_path' => null, 'obligations' => [], 'reason' => $reason];
+    }
+
+    /**
+     * Directive #2/#3 — the highest-leverage MATERIAL origination candidate, or null. Wires the parked
+     * {@see AtlasLoopCrossTypeLeverageSelector} to RANK the grounded candidates by leverage, then takes the
+     * top one whose kind is behaviour-CHANGING (orphan-wiring — a built-but-unwired capability) with a
+     * resolvable target. The behaviour-PRESERVING clone-unification class is PROXY (canon: preserva
+     * comportamento = melhoria ZERO) and is DROPPED here; doc-gap has no target file yet so it is skipped on
+     * this deterministic path. The selector can only REORDER the grounded set (never fabricate), so this is
+     * leverage-first WITHOUT a self-scored proxy.
+     *
+     * @return array{0:string, 1:string}|null  [objective, target_relative_path]
+     */
+    private function leverageFirstMaterialTarget(AtlasLoopScopeComprehensionModel $model, string $repoRoot): ?array
+    {
+        $ranked = ($this->selector ?? new AtlasLoopCrossTypeLeverageSelector)->rankedForModel($model);
+        foreach ($ranked as $candidate) {
+            if (! is_array($candidate)) {
+                continue;
+            }
+            if ((string) ($candidate['kind'] ?? '') !== AtlasLoopComprehensionOriginationCandidates::KIND_ORPHAN_WIRING) {
+                continue; // clone_unification = proxy (dropped); doc_gap has no target file (skipped here)
+            }
+            $objective = trim((string) ($candidate['summary'] ?? ''));
+            $rel = is_string($candidate['target_path'] ?? null) ? ltrim((string) $candidate['target_path'], '/') : '';
+            if ($objective === '' || $rel === '' || ! is_file(rtrim($repoRoot, '/').'/'.$rel)) {
+                continue;
+            }
+
+            return [$objective, $rel];
+        }
+
+        return null;
     }
 
     /**

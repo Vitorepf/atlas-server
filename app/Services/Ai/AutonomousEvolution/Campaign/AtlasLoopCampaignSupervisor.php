@@ -862,7 +862,7 @@ final class AtlasLoopCampaignSupervisor
         $task = $this->store->enqueueTask(
             $campaign->id,
             $objective,
-            ['_origination' => true, 'obligations' => (array) ($result['obligations'] ?? [])],
+            $this->originationGrindPayload($result, $repoRoot),
             'origination',
             is_string($result['target_path'] ?? null) ? (string) $result['target_path'] : null,
         );
@@ -874,6 +874,65 @@ final class AtlasLoopCampaignSupervisor
         ]);
 
         return $task instanceof AtlasLoopTask;
+    }
+
+    /**
+     * Build the MATERIALIZABLE grind payload for an originated leap. The materializer requires
+     * target_relative_path + target_content + acceptance.commands; the originator returns only objective +
+     * obligations + target_path, so without this the task dies at materialize (observed live:
+     * "payload requires target_relative_path, target_content and acceptance.commands"). We resolve the cited
+     * target file, snapshot its content, and attach the target's sibling test as the acceptance command + a
+     * frozen guard (so the grind cannot weaken it). The architect obligations (red_to_green / behavior_preserved
+     * / mutation_killed) ride along for the cert/refute floor. A genuine red→green acceptance for NEW behaviour
+     * (the model authoring a failing test) is the follow-up slice; this makes the leap materializable + guarded.
+     *
+     * @param  array<string,mixed>  $result
+     * @return array<string,mixed>
+     */
+    private function originationGrindPayload(array $result, string $repoRoot): array
+    {
+        $payload = ['_origination' => true, 'obligations' => (array) ($result['obligations'] ?? [])];
+        $rel = is_string($result['target_path'] ?? null) ? ltrim((string) $result['target_path'], '/') : '';
+        $abs = $rel !== '' ? $repoRoot.'/'.$rel : '';
+        if ($rel === '' || ! is_file($abs)) {
+            return $payload; // unresolvable target — enqueue lean; the grind fails soft rather than silently
+        }
+        $payload['target_relative_path'] = $rel;
+        $payload['target_repo_path'] = $rel;
+        $payload['target_content'] = (string) @file_get_contents($abs);
+        $payload['allowed_files'] = [$rel];
+
+        $test = $this->resolveSiblingTest($rel, $repoRoot);
+        if ($test !== null) {
+            $payload['acceptance'] = ['commands' => ['./vendor/bin/phpunit '.$test]];
+            $payload['validation_commands'] = ['./vendor/bin/phpunit '.$test];
+            $payload['frozen_tests'] = [['path' => $test, 'content' => (string) @file_get_contents($repoRoot.'/'.$test)]];
+        }
+
+        return $payload;
+    }
+
+    /** Resolve a `<ClassName>Test.php` sibling anywhere under tests/ for a target rel-path. Null if none. */
+    private function resolveSiblingTest(string $targetRel, string $repoRoot): ?string
+    {
+        $class = pathinfo($targetRel, PATHINFO_FILENAME);
+        $testsDir = $repoRoot.'/tests';
+        if ($class === '' || ! is_dir($testsDir)) {
+            return null;
+        }
+        $needle = $class.'Test.php';
+        try {
+            $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($testsDir, \FilesystemIterator::SKIP_DOTS));
+            foreach ($it as $f) {
+                if ($f->isFile() && $f->getFilename() === $needle) {
+                    return ltrim(str_replace($repoRoot.'/', '', $f->getPathname()), '/');
+                }
+            }
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return null;
     }
 
     /**

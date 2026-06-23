@@ -344,7 +344,12 @@ final class AtlasLoopQueueRefiller
                 $relPaths = [];
                 foreach ($targets as $t) {
                     $p = ltrim((string) $t->target_path, '/');
-                    if ($p !== '') {
+                    // Material work targets PRODUCTION code. A TEST file as the objective-producer's target
+                    // yields only added assertions (characterization/coverage = PROXY, forbidden by the
+                    // canonical def). Live drift seen 06-23: 3 of 5 soak tasks targeted *Test.php and emitted
+                    // "Assert that …" coverage proposals. Keep test files out of the candidate set so the
+                    // producer can only originate behaviour-changing production fixes.
+                    if ($p !== '' && ! self::isTestPath($p)) {
                         $relPaths[] = $p;
                     }
                 }
@@ -1331,6 +1336,16 @@ final class AtlasLoopQueueRefiller
         return ! $material;
     }
 
+    /** A repo-relative path to a TEST file — not a valid MATERIAL (behaviour-changing production) target. */
+    private static function isTestPath(string $rel): bool
+    {
+        $rel = ltrim(str_replace('\\', '/', $rel), '/');
+
+        return str_starts_with($rel, 'tests/')
+            || str_contains($rel, '/tests/')
+            || str_ends_with($rel, 'Test.php');
+    }
+
     /** D2 — is this a characterization/coverage task (counted against the coverage cap, not substantive)? */
     private function taskIsCoverage(AtlasLoopTask $task): bool
     {
@@ -1446,8 +1461,14 @@ final class AtlasLoopQueueRefiller
         // BEFORE the refactor/framework cascade (a known break beats speculative complexity work).
         // The lane is fail-closed (it returns null unless target_path + a runnable handle exist), so
         // an ordinary target with no failure handle falls through byte-identical. Flag-gated default-ON.
-        // NOTE: nothing currently STAMPS failure_test_path/failure_command into discovery signals, so
-        // on the live default path this branch is inert until a failure source populates them.
+        // NOTE: failure_test_path/failure_command ARE stamped into discovery signals by
+        // AtlasLoopTargetDiscoveryService (lines ~106-138, behind discovery_failure_handle_stamp_enabled).
+        // This lane is therefore fully wired end-to-end. It stays inert ONLY because the failure-handle
+        // CORPUS is empty: the harvester keeps real_failure reds, and a self-evolving loop whose scope is
+        // its OWN code keeps that scope GREEN by construction — a green suite harvests zero handles. So the
+        // lane is DRY-by-construction, not unwired. Do NOT "fix" it by manufacturing synthetic/flaky reds
+        // (that launders fake work as REAL_KIND_BUG_FIX — worse than cyclomatic faxina); feed it only from
+        // an organically-red real scope with a provenance gate.
         $bugOutcome = $this->tryBugReproduction($campaign, $target, $signals, $provider, $repoRoot);
         if ($bugOutcome !== null) {
             return $bugOutcome;
