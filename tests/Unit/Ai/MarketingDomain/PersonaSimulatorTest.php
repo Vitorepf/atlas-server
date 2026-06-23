@@ -54,4 +54,36 @@ class PersonaSimulatorTest extends TestCase
             $this->assertNotEmpty($p['what_she_needs_next']);
         }
     }
+
+    public function test_panel_includes_all_five_personas(): void
+    {
+        $sim = (new PersonaSimulator)->simulate($this->strong);
+        foreach (['woman_40_diet_fatigue', 'ex_ozempic_buyer', 'busy_mom_no_time', 'skeptic_husband', 'early_adopter'] as $p) {
+            $this->assertArrayHasKey($p, $sim, "Persona panel must include {$p}.");
+        }
+    }
+
+    public function test_skeptic_husband_demands_guarantee_and_proof(): void
+    {
+        $noGuarantee = 'Get amazing results fast. Change your life today.';
+        $sim = (new PersonaSimulator)->simulate($noGuarantee)['skeptic_husband'];
+        $this->assertGreaterThan(0.4, $sim['will_close']);
+        $this->assertStringContainsString('garantia', $sim['first_objection']);
+
+        $solid = 'Backed by 60-day money-back guarantee. As seen on CBS. Dr. Attia. One-time purchase, no subscription.';
+        $sim2 = (new PersonaSimulator)->simulate($solid)['skeptic_husband'];
+        $this->assertGreaterThan($sim['will_watch'], $sim2['will_watch']);
+    }
+
+    public function test_early_adopter_rejects_cheesy_pitch(): void
+    {
+        $cheesy = 'A magic miracle that will transform your life forever. Just take it.';
+        $sim = (new PersonaSimulator)->simulate($cheesy)['early_adopter'];
+        $this->assertGreaterThan(0.5, $sim['will_close']);
+        $this->assertStringContainsString('piegas', $sim['first_objection']);
+
+        $deep = 'Unlike Ozempic, this targets all three hormones: GLP-1, GIP, and glucagon. The mechanism is in the protocol.';
+        $sim2 = (new PersonaSimulator)->simulate($deep)['early_adopter'];
+        $this->assertGreaterThan($sim['will_watch'], $sim2['will_watch']);
+    }
 }
