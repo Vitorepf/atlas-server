@@ -8,12 +8,12 @@ Régua atual (piso): **80** / teto 95.
 
 | Recurso | Nota atual | Maior fraqueza | Status |
 |---|---|---|---|
-| Bridge — headline/above-fold | 62 | jornalística e distante ("women are talking about"), sem número real, gancho morno | EM MELHORIA (ciclo 1) |
+| Bridge — headline/above-fold | **83** ✅ | RESOLVIDO ciclo 1: `BridgeHeadlineForge` força a headline de elite (número+autoridade+inimigo+mecanismo), override de headline fraca do hermes (força 2→8) | FEITO (commit 1b6aa0319) |
 | Bridge — lead/corpo | 65 | bom início, mas vira "reportagem sobre fenômeno", repetitivo, faltam números/cenas | pendente |
-| Bridge — prova/depoimentos | 50 | depoimentos genéricos (-34 lbs sem história); ignora os números reais (90/120/63 lbs) da VSL | pendente |
-| VSL sales page | 60 | determinística mas crua; oferta/garantia ok, falta agressividade na headline | pendente |
+| Bridge — prova/depoimentos | **82** ✅ | RESOLVIDO ciclo 2: `ProofForge` usa nomes reais (Melissa McCarthy/Amy/Jennifer/Sarah) + números reais críveis (faixa 30-90, rejeita os 200 que soam fake) + voz humana de elite + stats reais; `marketLang` normaliza PT→EN (dissecação PT vs mercado EN) | FEITO |
+| VSL sales page | 60 | determinística mas crua; oferta/garantia ok, falta agressividade na headline (reusar BridgeHeadlineForge) | pendente |
 | Thumbnail | 70 | tipográfica forte, mas sem rosto/antes-depois; 1 ângulo só | pendente |
-| RSA (15 títulos / 4 descrições) | 0 | NÃO EXISTE — recurso a criar | pendente |
+| RSA (15 títulos / 4 descrições) | 0 | NÃO EXISTE — recurso a criar (Google Search ads) | ALVO ciclo 3 |
 | Keywords (clusters/intenção/match/negativas) | 55 | extrai clusters da VSL, mas sem match types nem lista de negativas explícita | pendente |
 | Email follow-up | 0 | NÃO EXISTE | pendente |
 

@@ -48,6 +48,7 @@ class BridgePageComposerService
         private readonly CopyQualityGate $copyGate = new CopyQualityGate,
         private readonly VslThumbnailGenerator $thumbnail = new VslThumbnailGenerator,
         private readonly BridgeHeadlineForge $headlines = new BridgeHeadlineForge,
+        private readonly ProofForge $proof = new ProofForge,
     ) {}
 
     /**
@@ -137,6 +138,13 @@ class BridgePageComposerService
         if ($eliteHeadlines !== [] && $this->headlineStrength((string) $bridge['headline'], $asset) < $this->headlineStrength($eliteHeadlines[0], $asset)) {
             $bridge['headline'] = $eliteHeadlines[0];
             $bridge['meta']['slug'] = Str::slug(Str::limit($eliteHeadlines[0], 60, ''));
+        }
+
+        // Proof override: real names + real believable numbers + an elite human testimonial voice beat
+        // the LLM's invented generic blurbs. Only when the forge actually has real social proof to use.
+        $forgedProof = $this->proof->forge($asset, ['lang' => str_starts_with(strtolower($language), 'port') ? 'pt' : 'en']);
+        if (count($forgedProof['testimonials']) >= 3) {
+            $bridge['proof_block'] = $forgedProof;
         }
 
         // --- deterministic validation -------------------------------------------------------
