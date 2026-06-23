@@ -24,11 +24,32 @@ class HookLeadLibraryTest extends TestCase
         $r = (new PatternLibraryScorer)->score(new HookLeadLibrary, $this->strong);
 
         $this->assertSame('hook_lead', $r['library']);
-        $this->assertGreaterThanOrEqual(70, $r['score']);
+        // Library deepened in Volta 2; short opening hits the core patterns but not the rare ones.
+        $this->assertGreaterThanOrEqual(40, $r['score']);
 
         foreach (['hook_callout_specific', 'hook_warning', 'hook_question', 'hook_shocking_stat',
             'hook_contrarian', 'hook_story_open', 'lead_secret', 'lead_story', 'lead_problem_solution'] as $k) {
             $this->assertContains($k, $r['present'], "Expected pattern {$k}");
+        }
+    }
+
+    public function test_volta_2_master_opening_patterns_fire(): void
+    {
+        $master = 'Dear friend, '
+            .'Tuesday, 11:47pm. Karen, 47, in Phoenix opened the freezer and stared. '
+            ."I'm about to admit something I never told anyone. "
+            .'The endocrinologist who still eats pizza every day taught me something. '
+            ."This is not for everyone — walk away if you're not over 40. "
+            .'Are you tired of diets? Have you tried injections? Do you feel betrayed by your own body? '
+            ."Nobody talks about it, but let's be honest: after 40, most women quit in silence. "
+            .'The #1 ingredient sabotaging your metabolism is hiding in your breakfast. '
+            .'Sincerely, your friend';
+        $r = (new PatternLibraryScorer)->score(new HookLeadLibrary, $master);
+
+        foreach (['hook_one_sentence_movie', 'hook_unfinished_confession', 'hook_strange_juxtaposition',
+            'hook_named_avatar', 'lead_invitation_only', 'lead_letter_format', 'lead_diary_entry',
+            'hook_uncomfortable_truth', 'lead_question_chain', 'hook_curiosity_gap_specific'] as $k) {
+            $this->assertContains($k, $r['present'], "Volta 2 master pattern {$k} should fire");
         }
     }
 
@@ -46,7 +67,7 @@ class HookLeadLibraryTest extends TestCase
             .'The real reason is published in Forbes.';
         $r = (new PatternLibraryScorer)->score(new HookLeadLibrary, $finance);
 
-        $this->assertGreaterThanOrEqual(50, $r['score']);
+        $this->assertGreaterThanOrEqual(30, $r['score']);
         $this->assertContains('hook_callout_specific', $r['present']);
         $this->assertContains('hook_warning', $r['present']);
         $this->assertContains('lead_secret', $r['present']);
