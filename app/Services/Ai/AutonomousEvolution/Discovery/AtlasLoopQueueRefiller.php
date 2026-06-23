@@ -82,6 +82,17 @@ final class AtlasLoopQueueRefiller
     private int $substantiveMintedThisRefill = 0;
 
     /**
+     * P1-A — the request-scoped memoizing comprehension queries, keyed by (repoRoot, opts) signature. The
+     * dedup and orphan-wiring lanes build with IDENTICAL empty-docs opts, so they share ONE query and the
+     * ~9s model build runs ONCE for both instead of once per lane; the doc-gap lane (docs_roots set => a
+     * genuinely different model) gets its own. Reset at the top of refill() so a model is never served stale
+     * across refills.
+     *
+     * @var array<string, AtlasLoopScopeComprehensionQuery>
+     */
+    private array $comprehensionQueries = [];
+
+    /**
      * ARBOR-GRAFT TIER 0.1 — materialize the K competing readings the generator sampled (divergence path)
      * as sibling hypothesis nodes under the target, so the idea-tree becomes real. Flag-gated default-OFF +
      * fail-open + only when >=2 distinct readings exist => no producer call on the default path (byte-
@@ -308,6 +319,7 @@ final class AtlasLoopQueueRefiller
         $provider = (string) $campaign->provider; // '' => loop default (provider-agnostic)
         $this->coverageMintedThisRefill = 0; // C — reset the per-refill coverage portfolio cap
         $this->substantiveMintedThisRefill = 0; // D2 — reset the per-refill substantive-work counter
+        $this->comprehensionQueries = []; // P1-A — fresh comprehension memo per refill (never serve a stale model)
 
         // B0 — REAL WORK SUPPLY: harvest deterministic-RED handles from the configured phpunit JSON
         // report BEFORE discovery runs, so a freshly-harvested handle is in atlas_loop_failure_handles
@@ -737,6 +749,26 @@ final class AtlasLoopQueueRefiller
     }
 
     /**
+     * P1-A — the request-scoped memoizing comprehension query for (repoRoot, opts). Lanes with identical
+     * inputs share ONE query => the ~9s model build runs once per (scopeRoot, opts) per refill, not once per
+     * lane. The signature is opts-order-stable (ksort) so `['docs_roots' => []]` always hits the same entry.
+     *
+     * @param  array{docs_roots?:list<string>, max_files?:int}  $opts
+     */
+    private function comprehensionQuery(string $repoRoot, array $opts): AtlasLoopScopeComprehensionQuery
+    {
+        $optsKey = $opts;
+        ksort($optsKey);
+        $sig = $repoRoot.'|'.json_encode($optsKey);
+
+        return $this->comprehensionQueries[$sig] ??= new AtlasLoopScopeComprehensionQuery(
+            new AtlasLoopScopeComprehensionModelBuilder,
+            $repoRoot,
+            $opts,
+        );
+    }
+
+    /**
      * §5.6 DEDUP-SUPPLY LANE — the BRAIN driving selection. Build the grounded scope-comprehension model and
      * let {@see AtlasLoopDedupSupplyLane} mint CERTIFIABLE clone-unification tasks from its clone clusters —
      * net-new work the proxy discovery (cyclomatic/coverage) STRUCTURALLY cannot produce. Each task carries
@@ -755,7 +787,7 @@ final class AtlasLoopQueueRefiller
         try {
             $cap = max(1, min(max(1, $want), (int) config('atlas.loop.dedup_supply_max_per_refill', 4)));
             $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard;
-            $builder = new AtlasLoopScopeComprehensionModelBuilder;
+            $query = $this->comprehensionQuery($repoRoot, ['docs_roots' => []]);
             $lane = new AtlasLoopDedupSupplyLane;
 
             $minted = 0;
@@ -767,7 +799,7 @@ final class AtlasLoopQueueRefiller
                 if ($root === '' || ! is_dir($repoRoot.'/'.$root)) {
                     continue;
                 }
-                $model = $builder->build($repoRoot, $root, ['docs_roots' => []]);
+                $model = $query->model($root);
                 $this->touchHeartbeat($campaign); // the model build can take a few seconds on a large scope
                 foreach ($lane->mint($model, $repoRoot) as $spec) {
                     if ($minted >= $cap) {
@@ -886,7 +918,7 @@ final class AtlasLoopQueueRefiller
         try {
             $cap = max(1, min(max(1, $want), (int) config('atlas.loop.orphan_wiring_supply_max_per_refill', 2)));
             $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard;
-            $builder = new AtlasLoopScopeComprehensionModelBuilder;
+            $query = $this->comprehensionQuery($repoRoot, ['docs_roots' => []]);
             $lane = new AtlasLoopOrphanWiringSupplyLane;
 
             $minted = 0;
@@ -898,7 +930,7 @@ final class AtlasLoopQueueRefiller
                 if ($root === '' || ! is_dir($repoRoot.'/'.$root)) {
                     continue;
                 }
-                $model = $builder->build($repoRoot, $root, ['docs_roots' => []]);
+                $model = $query->model($root);
                 $this->touchHeartbeat($campaign);
                 foreach ($lane->mint($model, $repoRoot) as $spec) {
                     if ($minted >= $cap) {
@@ -1005,9 +1037,9 @@ final class AtlasLoopQueueRefiller
 
         try {
             $cap = max(1, min(max(1, $want), (int) config('atlas.loop.doc_gap_supply_max_per_refill', 1)));
-            $builder = new AtlasLoopScopeComprehensionModelBuilder;
             $lane = new AtlasLoopDocGapSupplyLane;
             $docsRoots = array_values(array_filter((array) config('atlas.loop.doc_gap_supply_docs_roots', []), 'is_string'));
+            $query = $this->comprehensionQuery($repoRoot, ['docs_roots' => $docsRoots]);
 
             $minted = 0;
             foreach ($this->effectiveDiscoveryRoots($campaign) as $root) {
@@ -1018,7 +1050,7 @@ final class AtlasLoopQueueRefiller
                 if ($root === '' || ! is_dir($repoRoot.'/'.$root)) {
                     continue;
                 }
-                $model = $builder->build($repoRoot, $root, ['docs_roots' => $docsRoots]);
+                $model = $query->model($root);
                 $this->touchHeartbeat($campaign);
                 foreach ($lane->mint($model, $repoRoot) as $spec) {
                     if ($minted >= $cap) {
