@@ -25,12 +25,34 @@ class OfferArchitectureLibraryTest extends TestCase
         $r = (new PatternLibraryScorer)->score(new OfferArchitectureLibrary, $this->grandSlam);
 
         $this->assertSame('offer_architecture', $r['library']);
-        $this->assertGreaterThanOrEqual(70, $r['score']);
-        $this->assertContains($r['grade'], ['strong', 'killer']);
+        // Library deepened in Volta 2 (+10 rare levers); short grand-slam fires the core but
+        // not the rare ones — asserts pin core levers explicitly (anti-Goodhart).
+        $this->assertGreaterThanOrEqual(45, $r['score']);
+        $this->assertContains($r['grade'], ['weak', 'decent', 'strong', 'killer']);
 
         foreach (['dream_outcome_concrete', 'proof_stack', 'bonus_stack', 'named_package',
             'value_anchored', 'risk_reversal_strong', 'scarcity_quantity', 'scarcity_time'] as $k) {
             $this->assertContains($k, $r['present'], "Expected lever {$k}");
+        }
+    }
+
+    public function test_volta_2_rare_offer_levers_fire(): void
+    {
+        $elite = 'Total value: $4,997. Today only $97. The Triple Hormone Protocol™ — patented. '
+            .'Bonus alone worth more than the product. Even if just for Bonus 3 this is a no-brainer. '
+            .'Because we only produce 500 kits per month — small batch. '
+            .'Why so cheap? Mission to break this barrier — covering costs. '
+            .'Pay nothing today, pay $X when you see results. '
+            .'My private contact at the lab — proprietary data nobody has. '
+            .'Private community with 9,400 members + Q&A weekly with me. '
+            .'After that, never again — price goes up to $497 next week. '
+            ."If it doesn't work we pay you \$200 on top.";
+        $r = (new PatternLibraryScorer)->score(new OfferArchitectureLibrary, $elite);
+
+        foreach (['value_explosion_ratio', 'reverse_risk', 'naming_premium', 'bonus_supremacy',
+            'scarcity_logic', 'price_drop_reason', 'split_payment', 'unfair_advantage_offer',
+            'community_inclusion', 'declared_decline_terms'] as $k) {
+            $this->assertContains($k, $r['present'], "Volta 2 rare offer lever {$k} should fire");
         }
     }
 
@@ -48,7 +70,7 @@ class OfferArchitectureLibraryTest extends TestCase
             .'90-day money-back guarantee, risk-free. Limited spots, deadline tonight. Premium tier with annual upgrade.';
         $r = (new PatternLibraryScorer)->score(new OfferArchitectureLibrary, $finance);
 
-        $this->assertGreaterThanOrEqual(60, $r['score']);
+        $this->assertGreaterThanOrEqual(40, $r['score']);
         $this->assertContains('bonus_stack', $r['present']);
         $this->assertContains('risk_reversal_strong', $r['present']);
         $this->assertContains('named_package', $r['present']);
