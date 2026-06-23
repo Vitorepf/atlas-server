@@ -89,18 +89,49 @@ class AggressionAmplifier
     private function personaFix(array $bridge, AiMarketingVslAsset $asset): array
     {
         $audit = $this->auditor->audit($this->copyOf($bridge));
-        if (($audit['audience_score'] ?? 100) >= 60) {
+        if (($audit['audience_score'] ?? 100) >= 70) {
             return $bridge;
         }
         $personas = (array) ($audit['personas'] ?? []);
         if ($personas === []) {
             return $bridge;
         }
-        uasort($personas, fn ($a, $b) => $b['will_close'] <=> $a['will_close']);
-        $worst = array_key_first($personas);
-        $bridge['ps'] = (string) ($bridge['ps'] ?? '') !== ''
-            ? $bridge['ps']
-            : 'P.S. '.$personas[$worst]['what_she_needs_next'];
+
+        // Multi-persona injection by slot: each rejecting persona's fix lands in the slot
+        // best suited to her (mom → kicker/TL;DR; ex-Ozempic → mid-body comparison; woman 40+ → ps).
+        // We only inject when the persona is actually rejecting (will_close >= 0.3) AND we leave
+        // existing operator content alone (only append/fill empty slots, never overwrite).
+        $slotMap = [
+            'busy_mom_no_time' => 'kicker',           // top of page = first thing she sees
+            'ex_ozempic_buyer' => 'body_sections',    // mid-body explanation/comparison
+            'woman_40_diet_fatigue' => 'ps',          // bottom emotional close
+        ];
+        $applied = 0;
+        foreach ($personas as $name => $p) {
+            if (($p['will_close'] ?? 0.0) < 0.3) {
+                continue;
+            }
+            $slot = $slotMap[$name] ?? 'ps';
+            $fixText = (string) $p['what_she_needs_next'];
+            if ($fixText === '') {
+                continue;
+            }
+            if ($slot === 'kicker' && empty($bridge['kicker'])) {
+                $bridge['kicker'] = mb_strimwidth($fixText, 0, 80, '');
+                $applied++;
+            } elseif ($slot === 'body_sections') {
+                $sections = is_array($bridge['body_sections'] ?? null) ? $bridge['body_sections'] : [];
+                $headings = array_map(fn ($s) => is_array($s) ? (string) ($s['heading'] ?? '') : '', $sections);
+                if (! in_array('For you specifically', $headings, true)) {
+                    $sections[] = ['heading' => 'For you specifically', 'body' => $fixText];
+                    $bridge['body_sections'] = $sections;
+                    $applied++;
+                }
+            } elseif ($slot === 'ps' && empty($bridge['ps'])) {
+                $bridge['ps'] = 'P.S. '.$fixText;
+                $applied++;
+            }
+        }
 
         return $bridge;
     }
