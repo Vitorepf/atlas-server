@@ -111,7 +111,7 @@ final class AgentControlPlaneClaimLeaseRepository
                 ]);
             }
 
-            $conflict = $this->detectWriteOverlap($writeSet, $taskPacketId);
+            $conflict = $this->detectWriteOverlap($writeSet, $readSet, $taskPacketId);
             if ($conflict !== []) {
                 $blockedReceipt = $this->buildReceipt(self::RECEIPT_CLAIM_BLOCKED_CONFLICT, [
                     'task_packet_id' => $taskPacketId,
@@ -344,6 +344,7 @@ final class AgentControlPlaneClaimLeaseRepository
     public function conflictCheck(array $scopeLock, array $options = []): array
     {
         $writeSet = $this->normalizeSet((array) ($scopeLock['write_set'] ?? []));
+        $readSet = $this->normalizeSet((array) ($scopeLock['read_set'] ?? []));
         $taskPacketId = (string) ($options['task_packet_id'] ?? '');
 
         $this->withLock(function (): array {
@@ -352,7 +353,7 @@ final class AgentControlPlaneClaimLeaseRepository
             return [];
         });
 
-        $conflicts = $this->detectWriteOverlap($writeSet, $taskPacketId);
+        $conflicts = $this->detectWriteOverlap($writeSet, $readSet, $taskPacketId);
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
@@ -577,12 +578,18 @@ final class AgentControlPlaneClaimLeaseRepository
     }
 
     /**
+     * A4/MF-07 — conflict detection across ALL active leases, prefix-aware (dir-vs-file) and read-vs-write,
+     * via the single {@see WriteSetOverlap::conflicts} predicate. A conflict exists when the candidate and an
+     * existing lease share a path that AT LEAST ONE of them writes (write∩write, write∩read, read∩write) —
+     * the old `array_intersect` saw only write∩write and never a bare directory.
+     *
      * @param  list<string>  $writeSet
+     * @param  list<string>  $readSet
      * @return list<array<string, mixed>>
      */
-    private function detectWriteOverlap(array $writeSet, string $excludeTaskPacketId = ''): array
+    private function detectWriteOverlap(array $writeSet, array $readSet = [], string $excludeTaskPacketId = ''): array
     {
-        if ($writeSet === []) {
+        if ($writeSet === [] && $readSet === []) {
             return [];
         }
         $registry = $this->loadRegistry();
@@ -600,7 +607,8 @@ final class AgentControlPlaneClaimLeaseRepository
                 continue;
             }
             $existingWriteSet = (array) ($lease['write_set'] ?? $entry['write_set'] ?? []);
-            $overlap = array_values(array_intersect($writeSet, $existingWriteSet));
+            $existingReadSet = (array) ($lease['read_set'] ?? []);
+            $overlap = WriteSetOverlap::conflicts($writeSet, $readSet, $existingWriteSet, $existingReadSet);
             if ($overlap !== []) {
                 $conflicts[] = [
                     'lease_id' => (string) ($entry['lease_id'] ?? ''),

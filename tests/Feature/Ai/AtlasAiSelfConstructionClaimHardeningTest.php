@@ -164,4 +164,47 @@ final class AtlasAiSelfConstructionClaimHardeningTest extends TestCase
         $this->assertSame(0, $exit, 'atlas:acp:reap-leases is wired and runs');
         $this->assertStringContainsString('"ok": true', Artisan::output());
     }
+
+    // --- A4 (MF-07): read-vs-write + dir-vs-file conflict detection at the claim chokepoint ----------------
+
+    public function test_a4_read_vs_write_conflict_blocks_the_claim(): void
+    {
+        $leases = new AgentControlPlaneClaimLeaseRepository(null, 0.3);
+
+        // A WRITES app/Shared/X.php.
+        $a = $leases->claim('task-A', 'agent-A', ['write_set' => ['app/Shared/X.php'], 'read_set' => []]);
+        $this->assertSame('ok', $a['status'] ?? null);
+
+        // B only READS app/Shared/X.php (disjoint write_set). The old write-vs-write check missed this; now
+        // it is a conflict — B's behaviour was proven against the pre-A tree.
+        $b = $leases->claim('task-B', 'agent-B', ['write_set' => ['app/Only-B.php'], 'read_set' => ['app/Shared/X.php']]);
+        $this->assertSame('blocked', $b['status'] ?? null);
+        $this->assertSame('write_set_overlap', $b['reason'] ?? null);
+        $this->assertContains('app/Shared/X.php', $b['conflict'][0]['overlap_files']);
+    }
+
+    public function test_a4_directory_vs_file_conflict_blocks_the_claim(): void
+    {
+        $leases = new AgentControlPlaneClaimLeaseRepository(null, 0.3);
+
+        // C reserves the whole directory app/Shared.
+        $c = $leases->claim('task-C', 'agent-C', ['write_set' => ['app/Shared'], 'read_set' => []]);
+        $this->assertSame('ok', $c['status'] ?? null);
+
+        // D writes a file BENEATH that directory — the old array_intersect never caught dir-vs-file.
+        $d = $leases->claim('task-D', 'agent-D', ['write_set' => ['app/Shared/Y.php'], 'read_set' => []]);
+        $this->assertSame('blocked', $d['status'] ?? null);
+        $this->assertSame('write_set_overlap', $d['reason'] ?? null);
+    }
+
+    public function test_a4_read_only_disjoint_tasks_do_not_conflict(): void
+    {
+        $leases = new AgentControlPlaneClaimLeaseRepository(null, 0.3);
+
+        // Two tasks that only READ the same file never conflict (read ∩ read is safe).
+        $a = $leases->claim('task-RA', 'agent-A', ['write_set' => ['app/WA.php'], 'read_set' => ['app/Common.php']]);
+        $b = $leases->claim('task-RB', 'agent-B', ['write_set' => ['app/WB.php'], 'read_set' => ['app/Common.php']]);
+        $this->assertSame('ok', $a['status'] ?? null);
+        $this->assertSame('ok', $b['status'] ?? null, 'shared READ-only paths are not a conflict');
+    }
 }
