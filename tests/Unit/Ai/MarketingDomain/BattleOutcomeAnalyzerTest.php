@@ -59,4 +59,20 @@ class BattleOutcomeAnalyzerTest extends TestCase
         $this->assertNull($r['winner']);
         $this->assertNull($r['recommendation']['promote']);
     }
+
+    public function test_pair_lift_surfaces_dominant_combinations(): void
+    {
+        // common_enemy × h_warning wins regardless of awareness — pattern, not luck.
+        $r = (new BattleOutcomeAnalyzer)->analyze([
+            ['variant_id' => 'v1', 'axes' => ['angle' => 'common_enemy', 'hook' => 'h_warning', 'awareness' => 'problem'], 'cvr' => 0.09],
+            ['variant_id' => 'v2', 'axes' => ['angle' => 'common_enemy', 'hook' => 'h_warning', 'awareness' => 'solution'], 'cvr' => 0.10],
+            ['variant_id' => 'v3', 'axes' => ['angle' => 'common_enemy', 'hook' => 'h_callout', 'awareness' => 'problem'], 'cvr' => 0.04],
+            ['variant_id' => 'v4', 'axes' => ['angle' => 'hidden_cause', 'hook' => 'h_warning', 'awareness' => 'problem'], 'cvr' => 0.03],
+        ]);
+
+        $this->assertArrayHasKey('pair_lift', $r);
+        $this->assertNotEmpty($r['pair_lift']);
+        $this->assertStringContainsString('common_enemy', $r['pair_lift'][0]['pair']);
+        $this->assertStringContainsString('h_warning', $r['pair_lift'][0]['pair']);
+    }
 }

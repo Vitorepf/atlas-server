@@ -64,7 +64,40 @@ class BattleOutcomeAnalyzer
             'n' => $n,
             'winner' => ['variant_id' => $winner['variant_id'], 'cvr' => $winner['cvr'], 'axes' => $winner['axes']],
             'axis_lift' => $axisLift,
+            'pair_lift' => $this->pairLift($outcomes),
             'recommendation' => ['promote' => $winner['variant_id'], 'axis_insights' => $insights],
         ];
+    }
+
+    /**
+     * Cross-axis pair detection: identifies combinations like (angle×hook) that DOMINATE across the
+     * third axis — that's a real interaction pattern, not a single lucky variant. Returns top 3 pairs.
+     *
+     * @param  array<int,array{variant_id:string,axes:array{angle:string,hook:string,awareness:string},cvr:float}>  $outcomes
+     * @return array<int,array{pair:string,avg_cvr:float,n:int}>
+     */
+    private function pairLift(array $outcomes): array
+    {
+        $pairs = [];
+        foreach ([['angle', 'hook'], ['angle', 'awareness'], ['hook', 'awareness']] as [$a, $b]) {
+            $bucket = [];
+            foreach ($outcomes as $o) {
+                $va = (string) ($o['axes'][$a] ?? '');
+                $vb = (string) ($o['axes'][$b] ?? '');
+                if ($va === '' || $vb === '') {
+                    continue;
+                }
+                $bucket["{$a}={$va} × {$b}={$vb}"][] = (float) $o['cvr'];
+            }
+            foreach ($bucket as $key => $cvrs) {
+                if (count($cvrs) < 2) {
+                    continue;
+                }
+                $pairs[] = ['pair' => $key, 'avg_cvr' => round(array_sum($cvrs) / count($cvrs), 4), 'n' => count($cvrs)];
+            }
+        }
+        usort($pairs, fn ($a, $b) => $b['avg_cvr'] <=> $a['avg_cvr']);
+
+        return array_slice($pairs, 0, 3);
     }
 }
