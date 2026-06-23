@@ -94,8 +94,8 @@ class ConversionAuditor
             'grade' => $this->grade($overall),
             'by_library' => $byLibrary,
             'top_missing' => $this->topMissing($byLibrary),
-            'personas' => $this->personas->simulate($copy, $html),
-            'audience_score' => round($this->personas->audienceScore($copy) * 100),
+            'personas' => $this->personas->simulate($copy, $html, $niche),
+            'audience_score' => round($this->personas->audienceScore($copy, $niche) * 100),
             'smells' => $smellReport['smells'],
             'smells_count' => $smellReport['n'],
         ];

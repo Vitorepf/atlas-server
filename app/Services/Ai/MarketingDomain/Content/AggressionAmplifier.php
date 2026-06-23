@@ -67,10 +67,10 @@ class AggressionAmplifier
             }
         }
 
-        // Last pass: persona-driven fixes. The auditor already simulated 3 personas; if the audience
-        // score is low, inject the targeted snippet for the worst-rejecting persona's "what she needs
-        // next" — that goes deeper than marker absence (which is what the main loop already covered).
-        $current = $this->personaFix($current, $asset);
+        // Last pass: persona-driven fixes. The auditor already simulated the niche's panel; if the
+        // audience score is low, inject the targeted snippet for the worst-rejecting persona's "what
+        // she needs next" — that goes deeper than marker absence (which the main loop already covered).
+        $current = $this->personaFix($current, $asset, $niche);
 
         $after = $this->auditor->audit($this->copyOf($current), '', $niche, $pageKind);
         $hollowness = $this->guard->inspect($this->copyOf($current))['hollowness'];
@@ -86,9 +86,9 @@ class AggressionAmplifier
      * @param  array<string,mixed>  $bridge
      * @return array<string,mixed>
      */
-    private function personaFix(array $bridge, AiMarketingVslAsset $asset): array
+    private function personaFix(array $bridge, AiMarketingVslAsset $asset, string $niche = ''): array
     {
-        $audit = $this->auditor->audit($this->copyOf($bridge));
+        $audit = $this->auditor->audit($this->copyOf($bridge), '', $niche);
         if (($audit['audience_score'] ?? 100) >= 70) {
             return $bridge;
         }
@@ -97,8 +97,9 @@ class AggressionAmplifier
             return $bridge;
         }
 
-        // Multi-persona injection by slot: each rejecting persona's fix lands in the slot
-        // best suited to her (mom → kicker/TL;DR; ex-Ozempic → mid-body comparison; woman 40+ → ps).
+        // Multi-persona injection by slot: each rejecting persona's fix lands in the slot best suited
+        // to her. Health personas (no 'slot' field) use the hand-tuned map below — byte-identical.
+        // Niche personas (finance/relationship/generic) carry their own 'slot' + 'fix_heading'.
         // We only inject when the persona is actually rejecting (will_close >= 0.3) AND we leave
         // existing operator content alone (only append/fill empty slots, never overwrite).
         $slotMap = [
@@ -113,7 +114,7 @@ class AggressionAmplifier
             if (($p['will_close'] ?? 0.0) < 0.3) {
                 continue;
             }
-            $slot = $slotMap[$name] ?? 'ps';
+            $slot = (string) ($p['slot'] ?? $slotMap[$name] ?? 'ps');
             $fixText = (string) $p['what_she_needs_next'];
             if ($fixText === '') {
                 continue;
@@ -123,12 +124,12 @@ class AggressionAmplifier
                 $applied++;
             } elseif ($slot === 'body_sections') {
                 $sections = is_array($bridge['body_sections'] ?? null) ? $bridge['body_sections'] : [];
-                $headingForPersona = match ($name) {
+                $headingForPersona = (string) ($p['fix_heading'] ?? match ($name) {
                     'ex_ozempic_buyer' => 'Why this beats the injection',
                     'skeptic_husband' => 'Why this is zero-risk',
                     'early_adopter' => 'The mechanism, in detail',
                     default => 'For you specifically',
-                };
+                });
                 $headings = array_map(fn ($s) => is_array($s) ? (string) ($s['heading'] ?? '') : '', $sections);
                 if (! in_array($headingForPersona, $headings, true)) {
                     $sections[] = ['heading' => $headingForPersona, 'body' => $fixText];

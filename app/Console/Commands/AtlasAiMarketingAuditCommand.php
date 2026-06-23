@@ -14,6 +14,7 @@ class AtlasAiMarketingAuditCommand extends Command
 {
     protected $signature = 'atlas:ai:marketing:audit
         {target : path to an HTML/text file OR raw inline text}
+        {--niche= : niche para o painel de personas + pesos aprendidos (weight_loss, finance, relationship, …)}
         {--json : machine output}';
 
     protected $description = 'Audita uma página em 10 dimensões de conversão (Conversion Pattern OS).';
@@ -28,7 +29,7 @@ class AtlasAiMarketingAuditCommand extends Command
         }
         $copy = \App\Services\Ai\MarketingDomain\Content\HtmlCopyExtractor::plainText($html);
 
-        $audit = $auditor->audit($copy, $html);
+        $audit = $auditor->audit($copy, $html, (string) ($this->option('niche') ?? ''));
 
         if ($this->option('json')) {
             $this->line((string) json_encode($audit, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));

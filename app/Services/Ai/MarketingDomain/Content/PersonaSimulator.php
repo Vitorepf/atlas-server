@@ -3,20 +3,37 @@
 namespace App\Services\Ai\MarketingDomain\Content;
 
 /**
- * PersonaSimulator — em vez de medir markers (o que a página TEM), simula a reação de 3 personas
- * céticas à página (o que cada CABEÇA REAL faria): mulher 40+ desgastada de dietas, ex-compradora
- * de Ozempic frustrada, mãe sem tempo. Para cada persona, devolve: prob de clicar play (0-1), prob
- * de fechar a aba, a primeira objeção que ela pensa, e o que ela precisaria ler em seguida pra
- * continuar. É o brief original ("eu mesmo julgo como painel brutal") cristalizado — vai além do
- * que markers detectam pra um modelo computacional da reação humana. Provider-free, heurístico.
+ * PersonaSimulator — em vez de medir markers (o que a página TEM), simula a reação de personas
+ * céticas à página (o que cada CABEÇA REAL faria). Para cada persona, devolve: prob de clicar play
+ * (0-1), prob de fechar a aba, a primeira objeção que ela pensa, e o que ela precisaria ler em
+ * seguida pra continuar. É o brief original ("eu mesmo julgo como painel brutal") cristalizado — vai
+ * além do que markers detectam pra um modelo computacional da reação humana. Provider-free, heurístico.
+ *
+ * NICHE-AWARE: o painel de saúde (mulher 40+, ex-Ozempic, mãe sem tempo, marido cético, early
+ * adopter) vive aqui em métodos hand-tuned. Mas o cérebro de um leitor de FINANÇAS ou RELACIONAMENTO
+ * é outro — o medo é PERDER dinheiro / ficar só, não "mais uma dieta". Quando um niche não-saúde é
+ * passado, o painel correto vem do PersonaLibrary (data-driven). Sem isso, a prova cross-nicho do
+ * loop era inválida: as personas de saúde davam audience≈0 em QUALQUER página de finanças, boa ou má.
  */
 class PersonaSimulator
 {
+    public function __construct(
+        private readonly PersonaLibrary $library = new PersonaLibrary,
+        private readonly CopySubstanceProbe $substance = new CopySubstanceProbe,
+    ) {}
+
     /**
      * @return array<string,array{will_watch:float,will_close:float,first_objection:string,what_she_needs_next:string,reason:string}>
      */
-    public function simulate(string $copy, string $html = ''): array
+    public function simulate(string $copy, string $html = '', string $niche = ''): array
     {
+        $family = $this->library->resolveFamily($niche);
+        if ($family !== 'health') {
+            // Non-health niche → the niche's real skeptic panel (finance/relationship/generic).
+            return $this->library->simulate($family, $copy);
+        }
+
+        // Health / unlabeled (the OT169 proving ground) → the hand-tuned panel, byte-identical.
         $text = mb_strtolower($copy);
         $personas = [];
 
@@ -30,20 +47,28 @@ class PersonaSimulator
     }
 
     /**
-     * Aggregated "audience" score — average will_watch minus average will_close, clipped to [0,1].
+     * Aggregated "audience" score in [0,1]. Niche-aware: simulates the right panel for the niche, then
+     * aggregates with two fixes the brutal cross-niche panel forced (it proved the old formula made
+     * keyword-salad out-score real elite copy, and collapsed every non-stuffed page to exactly 0):
+     *   - FLOOR-PENETRATING MAP: mean(watch−close) ∈ [−1,1] mapped to [0,1] so the bottom of the scale
+     *     keeps ranking power — real copy the markers can't "see" lands at a neutral baseline, not 0.
+     *   - SUBSTANCE GATE: multiplied by CopySubstanceProbe so a vacuous page (salad / bare-label
+     *     stuffing) cannot out-score real craft just by firing the right vocabulary.
      */
-    public function audienceScore(string $copy): float
+    public function audienceScore(string $copy, string $niche = ''): float
     {
-        $sim = $this->simulate($copy);
-        $watch = 0.0;
-        $close = 0.0;
-        foreach ($sim as $p) {
-            $watch += $p['will_watch'];
-            $close += $p['will_close'];
-        }
+        $sim = $this->simulate($copy, '', $niche);
         $n = max(1, count($sim));
+        $raw = 0.0;
+        foreach ($sim as $p) {
+            $raw += $p['will_watch'] - $p['will_close'];
+        }
+        $raw /= $n;                       // mean reaction ∈ [-1, 1]
 
-        return max(0.0, min(1.0, ($watch - $close) / $n));
+        $mapped = ($raw + 1.0) / 2.0;     // floor-penetrating → [0, 1]
+        $mapped *= $this->substance->substance($copy);
+
+        return max(0.0, min(1.0, $mapped));
     }
 
     /**
