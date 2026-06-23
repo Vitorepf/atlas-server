@@ -13,7 +13,7 @@
 | **2. Índice de qualidade** | `KeywordQualityIndex` — pontua 0-100 (6 componentes: owned-root-provenance .24 / intent-class .20 / predicted-QS-proxy .22 / profit-headroom .14 / specificity-match .10 / signal-fit .05) + elimina lixo ANTES do gasto + banda de ação (scale/launch/test/kill). Grounded em pesquisa real do Google QS (expected CTR/ad relevance/LP experience) | ✅ ciclo 53 (5 testes; CLI mostra score+banda) |
 | **3. Mineração de desperdício** | search-term/n-gram miner → negativas automáticas (waste elimination contínua) | ⬜ |
 | **4. Quality Score engineering** | maximizar os 3 levers reais do Google (expected CTR / ad relevance / LP experience) via message-match keyword=ad=H1 | ⬜ (parcial no MessageMatchScorer) |
-| **5. Estrutura agressiva** | STAG por família + match-type por tier + bidding faseado (já no CampaignBlueprintService) | 🟡 existe, falta ligar o motor qualificado |
+| **5. Estrutura agressiva** | STAG por família + match-type por tier + bidding faseado; **motor qualificado + Quality Index LIGADOS no `CampaignBlueprintService`** (bloco `qualified` no plano; launch_order = mechanism→slogan→celebrity, não mais marca-first; produto proibido; negativas mescladas com as eliminadas) | ✅ ciclo 54 |
 | **6. Loop de aprendizado** | ledger keyword→venda real (Nivor) realimenta os pesos do índice | 🟡 NivorWinningPatternMiner existe; falta fechar o loop no índice |
 
 ## O que existe hoje (namespace `Campaign/`)

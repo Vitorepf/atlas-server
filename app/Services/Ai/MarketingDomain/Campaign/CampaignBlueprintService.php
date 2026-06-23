@@ -28,6 +28,8 @@ class CampaignBlueprintService
         private readonly BidStrategyDecider $bids,
         private readonly KeywordIntentMapper $intentMapper = new KeywordIntentMapper,
         private readonly NegativeListMiner $negativeMiner = new NegativeListMiner,
+        private readonly QualifiedKeywordPatternEngine $qualifiedEngine = new QualifiedKeywordPatternEngine,
+        private readonly KeywordQualityIndex $qualityIndex = new KeywordQualityIndex,
     ) {}
 
     /**
@@ -116,13 +118,32 @@ class CampaignBlueprintService
         $intentMapped = $this->intentMapper->map($clusters, $pattern);
         $mined = $this->negativeMiner->mine($pattern);
 
+        // ELITE LAYER — memory-recall arbitrage: harvest owned-root keywords (mechanism/slogan/
+        // celebrity/…), score each on the Keyword Quality Index, eliminate waste before spend. This
+        // is the RECOMMENDED keyword source; the cluster ad_groups above stay for back-compat.
+        $qualifiedRaw = $this->qualifiedEngine->build($vsl);
+        $quality = $this->qualityIndex->scoreEngineResult($qualifiedRaw, $vsl);
+        $qualified = [
+            'tiers' => $qualifiedRaw['tiers'],
+            'scored' => $quality['scored'],
+            'bands' => $quality['bands'],
+            'avg_score' => $quality['avg_score'],
+            'eliminated' => $quality['killed'],
+            'launch_order' => array_map(static fn (array $t): string => $t['family'], $qualifiedRaw['tiers']),
+            'forbidden_product_name' => $qualifiedRaw['artifacts']['product_name'] ?? null,
+            'note' => 'Fonte recomendada: re-finders pos-exposicao (raiz propria x modificador). Nome do produto NUNCA bidado. Pontuado/eliminado pelo Quality Index.',
+        ];
+
         $negatives = array_values(array_unique(array_merge(
             $this->standardNegatives(),
             (array) ($mined['combined'] ?? []),
+            (array) ($qualifiedRaw['negatives'] ?? []),
+            array_map(static fn (array $k): string => (string) ($k['keyword'] ?? ''), $quality['killed']),
             array_filter((array) ($kw['negatives'] ?? []), 'is_string'),
         )));
 
         return [
+            'qualified' => $qualified,
             'ad_groups' => $adGroups,
             'launch_order' => array_map(static fn (array $g): string => $g['name'], $adGroups),
             'intent_mapped' => $intentMapped,
