@@ -176,6 +176,13 @@ final class AtlasEvolutionTaskGenerator
                     'allowed_globs' => [dirname($targetRelativePath).'/**', $targetRelativePath],
                     'frozen_globs' => ['tests/**', $objRel, 'composer.json'],
                     'metric_kind' => AtlasEvolutionFrozenJudge::METRIC_GATE,
+                    // HONEST real-work signal for the scorecard: this generator returns generated=false unless
+                    // the frozen test is VERIFIED RED against the current code (the is_red guard above), so
+                    // every task it emits genuinely earns a RED→GREEN. red_required=true records that proven
+                    // fact so AtlasLoopRealWorkScorecardService classifies the certified delivery as bug_fix
+                    // instead of UNKNOWN (it was refusing real material deliveries — 0 real / N unknown — for
+                    // lack of this signal). NOT laundering: the cert still requires diff_earned to bank it.
+                    'red_required' => true,
                 ],
             ],
         ];

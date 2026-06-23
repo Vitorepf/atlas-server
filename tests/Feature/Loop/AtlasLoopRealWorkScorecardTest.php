@@ -825,4 +825,56 @@ final class AtlasLoopRealWorkScorecardTest extends TestCase
 
         File::delete($decoded['receipt_path']);
     }
+
+    // ── discovery objective-producer task (red_required, NO objective_kind) ─────────────────────────────
+
+    /**
+     * The objective-producer (AtlasEvolutionTaskGenerator) emits verified-RED bug-fix tasks but stamps NO
+     * objective_kind — only the FrozenJudge-shaped acceptance. Before red_required was stamped, the scorecard
+     * REFUSED a genuinely material, certified delivery as UNKNOWN ("0 real / N unknown"), so the loop could
+     * never bank or compound its own real work. With acceptance.red_required=true (an honest fact: the
+     * generator returns generated=false unless the test is verified RED) it classifies as a real bug_fix.
+     */
+    public function test_discovery_generator_red_required_task_is_real_bug_fix_not_unknown(): void
+    {
+        $campaign = $this->makeCampaign();
+        $this->makeTask($campaign->id, [
+            // exactly the shape AtlasEvolutionTaskGenerator now emits — no objective_kind, FrozenJudge acceptance
+            'allowed_files' => ['src/Foo.php'],
+            'validation_commands' => ['php tests/atlas_generated_0.php'],
+            'acceptance' => [
+                'commands' => ['php tests/atlas_generated_0.php'],
+                'allowed_globs' => ['src/**', 'src/Foo.php'],
+                'frozen_globs' => ['tests/**', 'GENERATED_OBJECTIVE_0.txt', 'composer.json'],
+                'metric_kind' => 'gate',
+                'red_required' => true,
+            ],
+        ], 'Shell-escape derived phpunit test_path values.');
+
+        $sc = $this->service()->scorecard($campaign->id);
+
+        $this->assertSame(1, $sc['real_work_tasks'], 'a verified-RED discovery task is real work');
+        $this->assertSame(1, $sc['bug_fix_tasks']);
+        $this->assertSame(0, $sc['unknown_tasks'], 'it is NO LONGER refused as unknown');
+        $this->assertTrue($sc['claim_policy']['loop_real_work_claim_allowed']);
+    }
+
+    /**
+     * Anti-Goodhart guard: the fix is SCOPED to the bug-fix lane (the objective-producer). The natural
+     * behaviour-preserving refactor shape — a refactor_* kind with revert_recheck and NO red_required (the
+     * only shape the refactor synthesizers actually emit) — STAYS proxy. red_required is never stamped on a
+     * refactor lane, so the bug-fix stamp cannot leak there. (A "refactor" that DID carry a genuinely RED
+     * test would not be behaviour-preserving, and the scorecard already treats that as real work by design.)
+     */
+    public function test_natural_behavior_preserving_refactor_stays_proxy(): void
+    {
+        $campaign = $this->makeCampaign();
+        $this->makeTask($campaign->id, $this->proxyRefactorPayload());
+
+        $sc = $this->service()->scorecard($campaign->id);
+
+        $this->assertSame(0, $sc['bug_fix_tasks'], 'a behaviour-preserving refactor is never a bug_fix');
+        $this->assertSame(1, $sc['proxy_refactor_tasks']);
+        $this->assertFalse($sc['claim_policy']['loop_real_work_claim_allowed'], 'proxy alone cannot claim real work');
+    }
 }
