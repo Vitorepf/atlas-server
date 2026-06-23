@@ -58,6 +58,16 @@ final class AtlasEvolutionTaskGenerator
         );
     }
 
+    /** A repo-relative path to a TEST file — not a valid MATERIAL (behaviour-changing production) target. */
+    private function isTestPath(string $rel): bool
+    {
+        $rel = ltrim(str_replace('\\', '/', $rel), '/');
+
+        return str_starts_with($rel, 'tests/')
+            || str_contains($rel, '/tests/')
+            || str_ends_with($rel, 'Test.php');
+    }
+
     /**
      * @param  array{provider?: ?string, index?: int}  $options
      * @return array{0: string, 1: string, 2: string}
@@ -76,6 +86,12 @@ final class AtlasEvolutionTaskGenerator
      */
     private function generateForResolvedTarget(string $baseWorkspace, string $targetRelativePath, array $options, string $provider, string $testRel, string $objRel, string|false $base): array
     {
+        // Defence in depth (the QueueRefiller already filters test paths from the producer's candidates):
+        // a TEST file is not a MATERIAL target — generating for it yields added assertions (coverage = PROXY),
+        // and stamping the red_required real-work signal on it would launder coverage as a bug_fix. Refuse.
+        if ($this->isTestPath($targetRelativePath)) {
+            return ['generated' => false, 'reason' => 'test_file_target_not_material'];
+        }
         if ($base === false) {
             return ['generated' => false, 'reason' => 'invalid_base_or_target'];
         }

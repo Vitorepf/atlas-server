@@ -344,7 +344,12 @@ final class AtlasLoopQueueRefiller
                 $relPaths = [];
                 foreach ($targets as $t) {
                     $p = ltrim((string) $t->target_path, '/');
-                    if ($p !== '') {
+                    // Material work targets PRODUCTION code. A TEST file as the objective-producer's target
+                    // yields only added assertions (characterization/coverage = PROXY, forbidden by the
+                    // canonical def). Live drift seen 06-23: 3 of 5 soak tasks targeted *Test.php and emitted
+                    // "Assert that …" coverage proposals. Keep test files out of the candidate set so the
+                    // producer can only originate behaviour-changing production fixes.
+                    if ($p !== '' && ! self::isTestPath($p)) {
                         $relPaths[] = $p;
                     }
                 }
@@ -1329,6 +1334,16 @@ final class AtlasLoopQueueRefiller
             );
 
         return ! $material;
+    }
+
+    /** A repo-relative path to a TEST file — not a valid MATERIAL (behaviour-changing production) target. */
+    private static function isTestPath(string $rel): bool
+    {
+        $rel = ltrim(str_replace('\\', '/', $rel), '/');
+
+        return str_starts_with($rel, 'tests/')
+            || str_contains($rel, '/tests/')
+            || str_ends_with($rel, 'Test.php');
     }
 
     /** D2 — is this a characterization/coverage task (counted against the coverage cap, not substantive)? */
