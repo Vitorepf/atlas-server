@@ -10,8 +10,13 @@ namespace App\Services\Ai\MarketingDomain\Knowledge;
  * text markers used to detect whether a page already pulls that lever. This is encoded craft
  * knowledge — used to MEASURE and STRENGTHEN persuasion, so Atlas understands *why* a page converts.
  */
-class PersuasionPatternLibrary
+class PersuasionPatternLibrary implements PatternLibrary
 {
+    public function name(): string
+    {
+        return 'persuasion';
+    }
+
     /**
      * @return array<int,array{key:string,name:string,category:string,weight:int,trigger:string,lever:string,markers:array<int,string>}>
      */
