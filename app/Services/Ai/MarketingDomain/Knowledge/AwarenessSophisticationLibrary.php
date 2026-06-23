@@ -66,6 +66,52 @@ class AwarenessSophisticationLibrary implements PatternLibrary
                 'trigger' => 'Mercado esgotado de mecanismo: vende-se identidade, pertencimento e experiência.',
                 'lever' => 'Fale com quem ela é/quer ser; tribo, história, estilo de vida.',
                 'markers' => ['for women who', 'para mulheres que', 'join', 'junte-se', 'people like us', 'gente como', 'you deserve', 'você merece', 'become', 'torne-se', 'movement', 'movimento']],
+
+            // ── Aprofundamento Volta 2: micro-transições entre níveis (a engenharia fina) ───
+            ['key' => 'unaware_to_problem_bridge', 'name' => 'Ponte unaware → problem-aware', 'category' => 'transition', 'weight' => 4,
+                'trigger' => 'Tráfego frio precisa ser ENSINADO que tem um problema antes de qualquer venda — sem isso, "buy now" não converte.',
+                'lever' => 'Cena/história + revelação: "você notou que…?" → planta o sintoma → nomeia o problema.',
+                'markers' => ['did you notice', 'você notou', 'have you been feeling', 'tem sentido', 'something most people don\'t realize', 'algo que a maioria não percebe', 'what they don\'t tell you', 'o que não te contam', 'the symptom', 'o sintoma']],
+            ['key' => 'problem_to_solution_bridge', 'name' => 'Ponte problem → solution-aware', 'category' => 'transition', 'weight' => 4,
+                'trigger' => 'Já entende a dor — agora precisa SABER QUE EXISTE uma solução nova/diferente. "Há uma forma" abre o salto.',
+                'lever' => '"E se eu te dissesse que existe uma forma de…" → categoria nova + esperança.',
+                'markers' => ['what if i told you', 'e se eu te dissesse', 'there is a way', 'existe uma forma', 'imagine if you could', 'imagine se você pudesse', 'a new approach', 'uma nova abordagem', "what if there was", 'e se houvesse']],
+            ['key' => 'solution_to_product_bridge', 'name' => 'Ponte solution → product-aware', 'category' => 'transition', 'weight' => 4,
+                'trigger' => 'Conhece soluções e compara — agora precisa saber POR QUE ESTE produto específico é a melhor encarnação.',
+                'lever' => '"Existem várias formas de fazer X. Esta é a única que…" → diferenciação concreta.',
+                'markers' => ['there are many', 'existem várias', 'this is the only', 'esta é a única', 'unlike other', 'ao contrário de outros', 'what makes this different', 'o que torna isto diferente', 'while everyone else', 'enquanto todos os outros']],
+            ['key' => 'product_to_most_bridge', 'name' => 'Ponte product → most-aware', 'category' => 'transition', 'weight' => 3,
+                'trigger' => 'Conhece o produto, decide pelo deal — empurrão final é oferta/escassez/garantia, não argumento.',
+                'lever' => '"Ok, você já sabe. Aqui está o melhor preço pelos próximos X" → CTA direto.',
+                'markers' => ['you already know', 'você já sabe', "let's get to it", 'vamos ao que interessa', 'here is the deal', 'eis o acordo', "no need to explain", 'não precisa explicar', 'just click', 'é só clicar']],
+
+            // ── Padrões raros de sofisticação ────────────────────────────────────────────────
+            ['key' => 'meta_sophistication', 'name' => 'Meta-sofisticação (vencer pelo cansaço)', 'category' => 'sophistication', 'weight' => 4,
+                'trigger' => 'Mercado tão saturado que todo claim/mecanismo já foi feito — vencer reconhecendo a fadiga: "eu sei, mais um?".',
+                'lever' => '"Eu sei o que você está pensando: mais uma solução milagrosa? Justo. Vou te mostrar por que esta é diferente — e se eu não convencer em 2 min, feche."',
+                'markers' => ['i know what you', 'eu sei o que você', 'another ', 'mais um ', 'tired of all', 'cansad de todos', 'yet another', 'mais uma', 'fair enough', 'justo', "you've heard it all", 'você já ouviu de tudo']],
+            ['key' => 'mismatch_self_correction', 'name' => 'Auto-correção de mismatch', 'category' => 'transition', 'weight' => 3,
+                'trigger' => 'Quando a página detecta que o leitor pode estar no nível errado, redireciona ela: "se você está procurando X, isto é Y".',
+                'lever' => '"Se você ainda está procurando o problema, leia o artigo X. Se já sabe o problema e quer a solução, continue."',
+                'markers' => ['if you are still', 'se você ainda está', 'if you already know', 'se você já sabe', 'wrong page if', 'página errada se', 'this is the right page if', 'esta é a página certa se', 'go here instead', 'vá para lá']],
+            ['key' => 'awareness_layering', 'name' => 'Camadas (mesma página atende vários níveis)', 'category' => 'transition', 'weight' => 3,
+                'trigger' => 'Página premium serve várias awareness simultaneamente: TL;DR pra most-aware, história pra unaware, prova pra solution.',
+                'lever' => 'Box "Já conhece? Pule para [oferta]" no topo + história completa abaixo + tabela técnica no fim.',
+                'markers' => ['tldr', 'tl;dr', 'skip to', 'pule para', 'in a hurry', 'com pressa', 'for the curious', 'para os curiosos', 'jump to', 'pule para', 'short version', 'versão curta']],
+            ['key' => 'lateral_awareness_shift', 'name' => 'Mudança lateral de awareness (pivô)', 'category' => 'transition', 'weight' => 3,
+                'trigger' => 'Pegar tráfego de uma awareness pra OUTRO problema relacionado — "você veio aqui por X, mas X é só sintoma de Y".',
+                'lever' => '"Você procurou por dieta. Mas dieta não é o problema — é hormônio. E isto resolve hormônio."',
+                'markers' => ['you came here for', 'você veio aqui por', 'but actually', 'mas na verdade', "what you're really", 'o que você realmente', "isn't the real", 'não é o real', "the bigger picture", 'o quadro maior']],
+
+            // ── Padrões raros de sofisticação de mercado ───────────────────────────────────
+            ['key' => 'sophistication_collapse', 'name' => 'Colapso de sofisticação (voltar ao básico)', 'category' => 'sophistication', 'weight' => 3,
+                'trigger' => 'Quando o mercado está exausto de mecanismos elaborados, voltar à promessa simples e direta surpreende — "Hey Schwartz, e se a gente desfizer isto?".',
+                'lever' => '"Esquece protocolos. Esquece hormônios. É isso: você toma, você emagrece. Olha os resultados."',
+                'markers' => ['forget all the', 'esqueça todos os', 'no fancy ', 'sem nada chique ', 'no science talk', 'sem papo científico', 'just take it', 'só tome', "let's keep it simple", 'vamos simplificar', 'back to basics', 'volta ao básico']],
+            ['key' => 'category_creation', 'name' => 'Criação de nova categoria', 'category' => 'sophistication', 'weight' => 4,
+                'trigger' => 'Quando todas as 5 sofisticações foram exauridas, a saída é CRIAR uma categoria nova — "isto não é dieta, é X".',
+                'lever' => '"Isto não é um suplemento. É um protocolo. É a primeira [categoria nova]."',
+                'markers' => ['this is not a', 'isto não é um', "we're not a", 'não somos um', 'introducing the first', 'apresentando o primeiro', 'a new category', 'uma nova categoria', 'we invented', 'nós inventamos', 'category-creating']],
         ];
     }
 
@@ -74,6 +120,6 @@ class AwarenessSophisticationLibrary implements PatternLibrary
      */
     public function categories(): array
     {
-        return ['awareness', 'sophistication'];
+        return ['awareness', 'sophistication', 'transition'];
     }
 }
