@@ -190,9 +190,12 @@ HTML;
                 continue;
             }
             $res = $this->esc((string) ($tr['result'] ?? ''));
-            $cap = $this->esc((string) ($tr['name'] ?? ''));
+            $name = $this->esc((string) ($tr['name'] ?? ''));
+            $weeks = $this->esc((string) ($tr['weeks'] ?? ''));
+            $cap = trim($name.($name !== '' && $weeks !== '' ? ' · ' : '').$weeks);
             $resB = $res !== '' ? '<span class="bares">'.$res.'</span>' : '';
-            $baHtml .= '<div class="bacard"><div class="baph"><img src="'.$before.'" alt="before" loading="lazy"><img src="'.$after.'" alt="after" loading="lazy">'.$resB.'</div><div class="bacap">'.$cap.'</div></div>';
+            $capB = $cap !== '' ? '<div class="bacap">'.$cap.'</div>' : '';
+            $baHtml .= '<div class="bacard"><div class="baph"><img src="'.$before.'" alt="before" loading="lazy"><img src="'.$after.'" alt="after" loading="lazy">'.$resB.'</div>'.$capB.'</div>';
         }
         $baBlock = $baHtml !== '' ? '<div class="bagrid">'.$baHtml.'</div>' : '';
         $statHtml = '';

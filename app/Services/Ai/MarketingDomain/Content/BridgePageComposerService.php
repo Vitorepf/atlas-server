@@ -53,6 +53,7 @@ class BridgePageComposerService
         private readonly \App\Services\Ai\MarketingDomain\Campaign\SearchNetworkPlanner $search = new \App\Services\Ai\MarketingDomain\Campaign\SearchNetworkPlanner,
         private readonly LeadForge $leadForge = new LeadForge,
         private readonly EmailFollowupForge $emails = new EmailFollowupForge,
+        private readonly \App\Services\Ai\MarketingDomain\Content\TransformationAssetSourcer $transformations = new \App\Services\Ai\MarketingDomain\Content\TransformationAssetSourcer,
     ) {}
 
     /**
@@ -149,6 +150,17 @@ class BridgePageComposerService
         $forgedProof = $this->proof->forge($asset, ['lang' => str_starts_with(strtolower($language), 'port') ? 'pt' : 'en']);
         if (count($forgedProof['testimonials']) >= 3) {
             $bridge['proof_block'] = $forgedProof;
+        }
+        // Before/after: the engine sources the offer's real creative assets (producer resource center
+        // dropped into the assets dir, or a manifest/explicit opts) and fills the proof block itself.
+        $bridge['proof_block'] = is_array($bridge['proof_block'] ?? null) ? $bridge['proof_block'] : [];
+        $forgedTransformations = $this->transformations->source($asset, [
+            'transformations' => $opts['transformations'] ?? null,
+            'assets_dir' => $opts['assets_dir'] ?? null,
+            'base_url' => $opts['assets_base_url'] ?? null,
+        ]);
+        if ($forgedTransformations !== []) {
+            $bridge['proof_block']['transformations'] = $forgedTransformations;
         }
 
         // Lead override: a forged elite opening (avatar callout + concrete agitation + common enemy +
