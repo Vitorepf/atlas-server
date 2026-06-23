@@ -65,6 +65,8 @@ class AiMarketingVslAsset extends Model
         'structured_at',
         'transcription_ms',
         'transcription_engine',
+        'transcription_confidence',
+        'transcription_coverage_pct',
         'diagnostics',
         'last_ingested_at',
     ];
@@ -76,6 +78,8 @@ class AiMarketingVslAsset extends Model
             'transcript_chars' => 'integer',
             'pitch_starts_at_seconds' => 'integer',
             'transcription_ms' => 'integer',
+            'transcription_confidence' => 'integer',
+            'transcription_coverage_pct' => 'float',
             'transcript_segments' => 'array',
             'lead' => 'array',
             'metrics' => 'array',

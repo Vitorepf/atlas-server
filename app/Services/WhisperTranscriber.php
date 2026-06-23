@@ -10,7 +10,25 @@ use Throwable;
 
 class WhisperTranscriber
 {
+    /**
+     * Back-compat string API — returns just the transcript text.
+     */
     public function transcribe(string $audioPath, ?string $languageOverride = null): string
+    {
+        return (string) $this->transcribeDetailed($audioPath, $languageOverride)['text'];
+    }
+
+    /**
+     * Full-fidelity transcription: returns the text PLUS the decoder's own audited fidelity —
+     * real per-segment timestamps, a 0-100 decoder confidence, real time-coverage of the audio, the
+     * largest silence gap, and the exact low-confidence spans. Fail-closed on text loops/hallucination
+     * AND on acoustic unreliability (low confidence / dropped coverage), retrying a harder profile
+     * before refusing. This is the honest fidelity contract: never a silent error.
+     *
+     * @return array<string,mixed>  text, segments[], confidence, coverage_pct, max_gap_seconds,
+     *                              low_confidence_segments[], duration_seconds, profile, quality, acoustic
+     */
+    public function transcribeDetailed(string $audioPath, ?string $languageOverride = null): array
     {
         $binPath = (string) config('atlas.transcription.bin_path');
         $modelPath = (string) config('atlas.transcription.model_path');
@@ -40,16 +58,22 @@ class WhisperTranscriber
             mkdir($workDir, 0775, true);
         }
 
+        // The -ojf JSON for a long VSL decodes into a large PHP structure (every token is an object).
+        // Give the parse headroom so a 2h transcript never dies with an OOM mid-pipeline.
+        $this->ensureMemoryHeadroom();
+
         try {
             $this->normalizeAudio($ffmpegPath, $audioPath, $normalizedAudioPath);
 
-            // Quality-gated transcription: run, assess, and if the decoder degenerated (loops /
-            // dropped audio) re-transcribe with a harder profile. NEVER return a poisoned transcript
-            // silently — fail closed so the caller marks the asset failed instead of storing garbage.
+            // Quality-gated transcription: run, assess (text loops + acoustic confidence/coverage), and
+            // if the decoder degenerated re-transcribe with a harder profile. NEVER return a poisoned
+            // transcript silently — fail closed so the caller marks the asset failed instead of storing garbage.
             $durationSeconds = $this->estimateDurationSeconds($normalizedAudioPath);
             $gate = new TranscriptQualityGate;
             $profiles = ['normal', 'aggressive'];
             $lastQuality = null;
+            $lastAcoustic = null;
+            $best = null;
 
             foreach ($profiles as $profile) {
                 $args = $this->buildArgs($binPath, $modelPath, $normalizedAudioPath, $outputBase, $language, $profile);
@@ -69,22 +93,114 @@ class WhisperTranscriber
 
                 $textPath = $outputBase.'.txt';
                 $text = is_file($textPath) ? trim((string) file_get_contents($textPath)) : '';
+                $segments = $this->parseWhisperJson($outputBase.'.json');
 
                 $quality = $gate->assess($text, $durationSeconds);
+                $acoustic = $gate->assessAcoustic($segments, $durationSeconds);
                 $lastQuality = $quality;
-                if ($quality['passed']) {
-                    return $text;
+                $lastAcoustic = $acoustic;
+
+                $payload = [
+                    'text' => $text,
+                    'segments' => $segments,
+                    'confidence' => $acoustic['confidence'],
+                    'coverage_pct' => $acoustic['coverage_pct'],
+                    'max_gap_seconds' => $acoustic['max_gap_seconds'],
+                    'low_confidence_segments' => $acoustic['low_confidence_segments'],
+                    'duration_seconds' => $durationSeconds,
+                    'profile' => $profile,
+                    'quality' => $quality,
+                    'acoustic' => $acoustic,
+                ];
+                // keep the best attempt (highest confidence) in case both fail → richer error
+                if ($best === null || (($acoustic['confidence'] ?? -1) > ($best['confidence'] ?? -1))) {
+                    $best = $payload;
+                }
+
+                if ($quality['passed'] && $acoustic['passed']) {
+                    return $payload;
                 }
                 // not passed → loop to the harder profile (or fall through to fail-closed)
             }
 
+            $issues = array_merge(
+                (array) ($lastQuality['issues'] ?? []),
+                (array) ($lastAcoustic['issues'] ?? []),
+            );
             throw new RuntimeException(
                 'Transcrição reprovou no gate de qualidade após retry — não foi salva pra não envenenar as métricas. Problemas: '
-                .implode(' | ', (array) ($lastQuality['issues'] ?? ['desconhecido']))
+                .implode(' | ', $issues ?: ['desconhecido'])
             );
         } finally {
             $this->removeWorkDir($workDir);
         }
+    }
+
+    /**
+     * Parse the whisper-cli -ojf JSON into segments with real timestamps and a mean token confidence.
+     * Special/non-text tokens ("[_BEG_]", timestamp tokens) are excluded from the confidence average.
+     *
+     * @return array<int,array{from_ms:int,to_ms:int,text:string,confidence:float|null}>
+     */
+    private function parseWhisperJson(string $jsonPath): array
+    {
+        if (! is_file($jsonPath)) {
+            return [];
+        }
+        // Guard against a pathologically large JSON (a multi-hour VSL): degrade gracefully to estimated
+        // segments rather than risk an OOM. 96MB of -ojf JSON is well beyond a 2h talk.
+        if (filesize($jsonPath) > 96 * 1024 * 1024) {
+            return [];
+        }
+        $raw = (string) file_get_contents($jsonPath);
+        $data = json_decode($raw, true);
+        unset($raw);
+        if (! is_array($data)) {
+            return [];
+        }
+        $rows = is_array($data['transcription'] ?? null) ? $data['transcription'] : [];
+        if ($rows === []) {
+            return [];
+        }
+
+        $segments = [];
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $fromMs = (int) ($row['offsets']['from'] ?? 0);
+            $toMs = (int) ($row['offsets']['to'] ?? $fromMs);
+            $text = trim((string) ($row['text'] ?? ''));
+
+            $confidence = null;
+            if (is_array($row['tokens'] ?? null)) {
+                $ps = [];
+                foreach ($row['tokens'] as $tok) {
+                    if (! is_array($tok)) {
+                        continue;
+                    }
+                    $tt = trim((string) ($tok['text'] ?? ''));
+                    if ($tt === '' || str_starts_with($tt, '[_') || (str_starts_with($tt, '<|') && str_ends_with($tt, '|>'))) {
+                        continue; // special / timestamp token
+                    }
+                    if (isset($tok['p']) && is_numeric($tok['p'])) {
+                        $ps[] = (float) $tok['p'];
+                    }
+                }
+                if ($ps !== []) {
+                    $confidence = array_sum($ps) / count($ps);
+                }
+            }
+
+            $segments[] = [
+                'from_ms' => $fromMs,
+                'to_ms' => $toMs,
+                'text' => $text,
+                'confidence' => $confidence,
+            ];
+        }
+
+        return $segments;
     }
 
     /**
@@ -102,7 +218,7 @@ class WhisperTranscriber
             $binPath,
             '-m', $modelPath,
             '-f', $audioPath,
-            '-otxt', '-of', $outputBase,
+            '-otxt', '-ojf', '-of', $outputBase,   // -ojf = JSON with per-token probabilities + real timestamps
             '-nt',
             '-mc', (string) config('atlas.transcription.max_context', 0),
             '-et', $entropy,
@@ -181,6 +297,36 @@ class WhisperTranscriber
         $output = trim($process->getOutput());
 
         return $error !== '' ? $error : ($output !== '' ? $output : $fallback);
+    }
+
+    /**
+     * Raise the memory limit (if currently lower) so decoding a large -ojf JSON never OOMs the
+     * pipeline. Transcription is a heavy, single-purpose operation; ~1.5GB headroom is safe.
+     */
+    private function ensureMemoryHeadroom(int $floorBytes = 1610612736): void // 1536 MB
+    {
+        $current = trim((string) ini_get('memory_limit'));
+        if ($current === '' || $current === '-1') {
+            return; // already unlimited
+        }
+        $bytes = $this->parseBytes($current);
+        if ($bytes > 0 && $bytes < $floorBytes) {
+            @ini_set('memory_limit', (string) $floorBytes);
+        }
+    }
+
+    private function parseBytes(string $value): int
+    {
+        $value = trim($value);
+        $unit = strtolower((string) substr($value, -1));
+        $num = (int) $value;
+
+        return match ($unit) {
+            'g' => $num * 1024 * 1024 * 1024,
+            'm' => $num * 1024 * 1024,
+            'k' => $num * 1024,
+            default => (int) $value,
+        };
     }
 
     private function removeWorkDir(string $workDir): void

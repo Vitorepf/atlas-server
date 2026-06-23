@@ -84,7 +84,8 @@ class VslAssetIngestionService
         $language = (string) $asset->language;
         $language = in_array(strtolower(trim($language)), ['auto', ''], true) ? '' : $language;
         try {
-            $text = trim($this->whisper->transcribe($path, $language));
+            $result = $this->whisper->transcribeDetailed($path, $language);
+            $text = trim((string) $result['text']);
         } catch (Throwable $e) {
             return $this->markFailed($asset, Str::limit($e->getMessage(), 480, ''));
         }
@@ -93,13 +94,32 @@ class VslAssetIngestionService
             return $this->markFailed($asset, 'Whisper returned an empty transcript.');
         }
 
+        // Prefer the decoder's REAL per-segment timestamps; fall back to proportional estimate only
+        // when the JSON had no segments (older binary / no -ojf support).
+        $realSegments = $this->mapRealSegments(is_array($result['segments'] ?? null) ? $result['segments'] : []);
+        $segments = $realSegments !== [] ? $realSegments : $this->segmentTranscript($text, $asset->duration_seconds);
+
+        $diagnostics = is_array($asset->diagnostics) ? $asset->diagnostics : [];
+        $diagnostics['transcription'] = [
+            'confidence' => $result['confidence'] ?? null,
+            'coverage_pct' => $result['coverage_pct'] ?? null,
+            'max_gap_seconds' => $result['max_gap_seconds'] ?? null,
+            'low_confidence_segments' => $result['low_confidence_segments'] ?? [],
+            'segment_timestamps' => $realSegments !== [] ? 'real' : 'estimated',
+            'profile' => $result['profile'] ?? null,
+            'engine' => (string) config('atlas.transcription.engine', 'whisper'),
+        ];
+
         $asset->forceFill([
             'status' => 'transcribed',
             'transcript' => $text,
             'transcript_chars' => mb_strlen($text),
-            'transcript_segments' => $this->segmentTranscript($text, $asset->duration_seconds),
+            'transcript_segments' => $segments,
             'transcription_ms' => (int) round((microtime(true) - $startedAt) * 1000),
             'transcription_engine' => (string) config('atlas.transcription.engine', 'whisper'),
+            'transcription_confidence' => $result['confidence'] ?? null,
+            'transcription_coverage_pct' => $result['coverage_pct'] ?? null,
+            'diagnostics' => $diagnostics,
             'reason' => null,
             'last_ingested_at' => now(),
         ])->save();
@@ -182,6 +202,34 @@ class VslAssetIngestionService
      *
      * @return array<int,array<string,mixed>>
      */
+    /**
+     * Map the decoder's real segments (from whisper -ojf) into the stored shape, with REAL per-segment
+     * start/end seconds and confidence — replacing the proportional estimate.
+     *
+     * @param  array<int,array{from_ms:int,to_ms:int,text:string,confidence:float|null}>  $segments
+     * @return array<int,array<string,mixed>>
+     */
+    private function mapRealSegments(array $segments): array
+    {
+        $out = [];
+        $index = 0;
+        foreach ($segments as $s) {
+            $text = trim((string) ($s['text'] ?? ''));
+            if ($text === '') {
+                continue;
+            }
+            $out[] = [
+                'index' => ++$index,
+                'text' => $text,
+                'start_seconds' => (int) round((int) ($s['from_ms'] ?? 0) / 1000),
+                'end_seconds' => (int) round((int) ($s['to_ms'] ?? 0) / 1000),
+                'confidence' => isset($s['confidence']) && $s['confidence'] !== null ? round((float) $s['confidence'], 3) : null,
+            ];
+        }
+
+        return $out;
+    }
+
     private function segmentTranscript(string $text, ?int $durationSeconds): array
     {
         $parts = preg_split('/(?<=[.!?。！？])\s+/u', trim($text)) ?: [];

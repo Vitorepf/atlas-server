@@ -32,6 +32,18 @@ class TranscriptQualityGate
 
     public const EXPECTED_WPM = 140;
 
+    /** Mean decoder token-probability (0-100) below which the transcription is acoustically unreliable. */
+    public const MIN_DECODER_CONFIDENCE = 55;
+
+    /** Speech segments must cover at least this share of the audio timeline (else stretches were dropped). */
+    public const MIN_TIME_COVERAGE = 0.50;
+
+    /** A silence gap longer than this between consecutive speech segments flags possible dropped audio. */
+    public const MAX_SILENCE_GAP_SECONDS = 45;
+
+    /** A segment whose mean token probability is below this is "low confidence" and is surfaced (not hidden). */
+    public const LOW_CONFIDENCE_SEGMENT = 0.50;
+
     /** Stopwords dominate any short text naturally — they are not a hallucination signal. */
     private const STOPWORDS = [
         'the', 'a', 'an', 'and', 'or', 'of', 'to', 'in', 'for', 'on', 'with', 'is', 'are', 'was', 'were',
@@ -117,6 +129,97 @@ class TranscriptQualityGate
             'words_per_min' => $wpm !== null ? round($wpm, 1) : null,
             'duration_coverage' => $coverage !== null ? round($coverage, 3) : null,
         ]);
+    }
+
+    /**
+     * Acoustic fidelity from the decoder's own token probabilities + real segment timestamps. This is
+     * the AUDITABLE fidelity number: a mean decoder confidence and a real time-coverage of the audio,
+     * plus the exact low-confidence spans (surfaced, never hidden). Fail-closed below the floors so a
+     * genuinely unreliable transcription is re-run instead of trusted.
+     *
+     * @param  array<int,array{from_ms:int,to_ms:int,text:string,confidence?:float|null}>  $segments
+     * @return array<string,mixed>
+     */
+    public function assessAcoustic(array $segments, ?int $durationSeconds = null): array
+    {
+        $segments = array_values(array_filter($segments, static fn ($s): bool => is_array($s) && isset($s['from_ms'], $s['to_ms'])));
+        if ($segments === []) {
+            return [
+                'verdict' => 'unknown', 'passed' => true, 'confidence' => null, 'coverage_pct' => null,
+                'max_gap_seconds' => null, 'low_confidence_segments' => [], 'segments' => 0,
+                'note' => 'sem segmentos com timestamp (JSON do decoder ausente) — confiança acústica não medida',
+            ];
+        }
+
+        // Mean decoder confidence, weighted by spoken duration (long segments matter more).
+        $confSum = 0.0;
+        $confWeight = 0.0;
+        $spokenMs = 0;
+        $low = [];
+        foreach ($segments as $s) {
+            $dur = max(0, (int) $s['to_ms'] - (int) $s['from_ms']);
+            $spokenMs += $dur;
+            $c = $s['confidence'] ?? null;
+            if ($c !== null) {
+                $w = max(1, $dur);
+                $confSum += $c * $w;
+                $confWeight += $w;
+                if ($c < self::LOW_CONFIDENCE_SEGMENT) {
+                    $low[] = [
+                        'from_s' => (int) round((int) $s['from_ms'] / 1000),
+                        'to_s' => (int) round((int) $s['to_ms'] / 1000),
+                        'confidence' => round((float) $c, 3),
+                        'text' => mb_substr(trim((string) ($s['text'] ?? '')), 0, 120),
+                    ];
+                }
+            }
+        }
+        $confidence = $confWeight > 0 ? (int) round($confSum / $confWeight * 100) : null;
+
+        // Real time coverage + largest silence gap between consecutive segments.
+        $coveragePct = null;
+        $maxGapSeconds = null;
+        if ($durationSeconds !== null && $durationSeconds > 0) {
+            $coveragePct = round(min(100, $spokenMs / ($durationSeconds * 1000) * 100), 1);
+            $maxGap = 0;
+            $prevEnd = 0;
+            foreach ($segments as $s) {
+                $gap = max(0, (int) $s['from_ms'] - $prevEnd);
+                $maxGap = max($maxGap, $gap);
+                $prevEnd = max($prevEnd, (int) $s['to_ms']);
+            }
+            $maxGap = max($maxGap, $durationSeconds * 1000 - $prevEnd); // trailing gap after last segment
+            $maxGapSeconds = (int) round($maxGap / 1000);
+        }
+
+        $issues = [];
+        if ($confidence !== null && $confidence < self::MIN_DECODER_CONFIDENCE) {
+            $issues[] = "confiança do decoder {$confidence}/100 abaixo do piso ".self::MIN_DECODER_CONFIDENCE.' — áudio difícil ou transcrição não confiável';
+        }
+        if ($coveragePct !== null && $coveragePct < self::MIN_TIME_COVERAGE * 100) {
+            $issues[] = "cobertura temporal {$coveragePct}% — trechos de áudio sem transcrição (perda)";
+        }
+        if ($maxGapSeconds !== null && $maxGapSeconds > self::MAX_SILENCE_GAP_SECONDS) {
+            $issues[] = "lacuna de {$maxGapSeconds}s sem fala transcrita — possível trecho perdido";
+        }
+
+        $hardFail = ($confidence !== null && $confidence < self::MIN_DECODER_CONFIDENCE)
+            || ($coveragePct !== null && $coveragePct < self::MIN_TIME_COVERAGE * 100);
+
+        return [
+            'verdict' => $hardFail ? 'retry' : 'pass',
+            'passed' => ! $hardFail,
+            'confidence' => $confidence,
+            'coverage_pct' => $coveragePct,
+            'max_gap_seconds' => $maxGapSeconds,
+            'low_confidence_segments' => array_slice($low, 0, 40),
+            'low_confidence_count' => count($low),
+            'segments' => count($segments),
+            'issues' => $issues,
+            'note' => $hardFail
+                ? 'Fidelidade acústica abaixo do piso — re-transcrever (fail-closed).'
+                : 'Fidelidade acústica dentro do piso; trechos incertos sinalizados para revisão.',
+        ];
     }
 
     /**

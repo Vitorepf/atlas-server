@@ -44,6 +44,10 @@ class VslIntelligenceExtractorService
             'status' => 'analyzing',
             'structure_status' => 'pending',
             'top_terms' => $this->computeTopTerms($transcript),
+            'diagnostics' => array_merge(
+                is_array($asset->diagnostics) ? $asset->diagnostics : [],
+                ['transcript_input' => $this->transcriptInputDiagnostics($transcript)],
+            ),
         ])->save();
 
         $errors = [];
@@ -130,7 +134,8 @@ class VslIntelligenceExtractorService
      */
     private function runAndApply(string $key, AiMarketingVslAsset $asset, string $transcript): array
     {
-        $result = $this->callModel($this->systemFor($key), $this->groundedUser($asset, $transcript), $this->schemaFor($key));
+        $prepared = $this->prepareForExtraction($transcript, $key);
+        $result = $this->callModel($this->systemFor($key), $this->groundedUser($asset, $prepared), $this->schemaFor($key));
         $this->applyPass($key, $asset, $result);
 
         return $result;
@@ -144,14 +149,15 @@ class VslIntelligenceExtractorService
             return;
         }
 
+        $prepared = $this->prepareForExtraction($transcript, $key);
         $runs = [];
         for ($i = 0; $i < $n; $i++) {
-            $runs[] = $this->callModel($this->systemFor($key), $this->groundedUser($asset, $transcript), $this->schemaFor($key));
+            $runs[] = $this->callModel($this->systemFor($key), $this->groundedUser($asset, $prepared), $this->schemaFor($key));
         }
 
         $reconciled = $this->callModel(
             $this->systemReconcile($this->schemaFor($key)),
-            'EXTRAÇÕES INDEPENDENTES ('.count($runs).'x):'."\n".json_encode($runs, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)."\n\n=== TRANSCRIÇÃO ===\n".$transcript,
+            'EXTRAÇÕES INDEPENDENTES ('.count($runs).'x):'."\n".json_encode($runs, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)."\n\n=== TRANSCRIÇÃO ===\n".$prepared,
             $this->schemaFor($key)
         );
         $this->applyPass($key, $asset, $reconciled);
@@ -159,9 +165,10 @@ class VslIntelligenceExtractorService
 
     private function runCritic(AiMarketingVslAsset $asset, string $transcript): void
     {
+        $prepared = $this->prepareForExtraction($transcript, 'critic');
         $critique = $this->callModel(
             $this->systemCritic(),
-            "ESTRUTURA EXTRAÍDA:\n".$this->snapshotJson($asset)."\n\n=== TRANSCRIÇÃO ===\n".$transcript,
+            "ESTRUTURA EXTRAÍDA:\n".$this->snapshotJson($asset)."\n\n=== TRANSCRIÇÃO ===\n".$prepared,
             'atlas.vsl.quality.v1'
         );
         $asset->forceFill(['structure_quality' => $critique])->save();
@@ -415,6 +422,58 @@ class VslIntelligenceExtractorService
             'entities' => $asset->entities,
             'target_geo' => $asset->target_geo,
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}';
+    }
+
+    /**
+     * Fit a long transcript into the model context WITHOUT losing the field-dense anchors. A 2-hour
+     * VSL (~110k+ chars) dumped raw into every pass risks the provider silently truncating the END —
+     * which is exactly where the offer, price, scarcity and CTA live. So above a safe budget we keep
+     * the HEAD (hook/lead/big-idea/mechanism) and the TAIL (offer/price/CTA) verbatim, marking the
+     * omitted middle. offer/creative passes weight the tail (pricing lives at the end); the rest
+     * weight the head. Short transcripts pass through untouched (the common case).
+     */
+    private function prepareForExtraction(string $transcript, string $key): string
+    {
+        $max = max(20000, (int) config('atlas.marketing.extraction_max_transcript_chars', 80000));
+        $len = mb_strlen($transcript);
+        if ($len <= $max) {
+            return $transcript;
+        }
+
+        $tailHeavy = in_array($key, ['offer', 'creative'], true);
+        $headBudget = (int) round($max * ($tailHeavy ? 0.45 : 0.60));
+        $tailBudget = $max - $headBudget;
+        $head = mb_substr($transcript, 0, $headBudget);
+        $tail = mb_substr($transcript, $len - $tailBudget);
+        $omitted = $len - $headBudget - $tailBudget;
+
+        return $head
+            ."\n\n[[...MEIO DA VSL OMITIDO PARA CABER NO CONTEXTO — {$omitted} caracteres. "
+            ."INÍCIO (gancho/lead/big idea/mecanismo) e FIM (oferta/preço/escassez/CTA) preservados INTEGRALMENTE abaixo/acima...]]\n\n"
+            .$tail;
+    }
+
+    /**
+     * Honest record of how the transcript was fed to extraction — so a 2h VSL that had to be anchored
+     * is visible, not silently degraded.
+     *
+     * @return array<string,mixed>
+     */
+    private function transcriptInputDiagnostics(string $transcript): array
+    {
+        $max = max(20000, (int) config('atlas.marketing.extraction_max_transcript_chars', 80000));
+        $len = mb_strlen($transcript);
+        $anchored = $len > $max;
+
+        return [
+            'chars' => $len,
+            'approx_tokens' => (int) round($len / 4),
+            'budget_chars' => $max,
+            'mode' => $anchored ? 'anchored' : 'full',
+            'note' => $anchored
+                ? 'VSL longa: extração usou janela ancorada (início+fim integrais, meio condensado). Campos de oferta/preço (fim) e lead (início) preservados; prova do meio pode ser parcial.'
+                : 'Transcrição coube inteira no contexto de extração — cobertura integral.',
+        ];
     }
 
     /**

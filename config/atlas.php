@@ -34,6 +34,13 @@ return [
         'suppress_non_speech' => (bool) env('WHISPER_SUPPRESS_NON_SPEECH', true),
     ],
 
+    'marketing' => [
+        // Max transcript chars fed verbatim to EACH extraction pass. Above this (a ~2h+ VSL), the
+        // extractor keeps the head (hook/lead/mechanism) and tail (offer/price/CTA) intact and marks
+        // the omitted middle, so a long VSL never silently loses its pitch. ~80k chars ≈ 20k tokens.
+        'extraction_max_transcript_chars' => (int) env('ATLAS_MARKETING_EXTRACTION_MAX_TRANSCRIPT_CHARS', 80000),
+    ],
+
     'youtube' => [
         'enabled' => (bool) env('ATLAS_YOUTUBE_INGESTION_ENABLED', true),
         'data_api_enabled' => (bool) env('ATLAS_YOUTUBE_DATA_API_ENABLED', false),
