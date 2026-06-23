@@ -49,6 +49,7 @@ class BridgePageComposerService
         private readonly VslThumbnailGenerator $thumbnail = new VslThumbnailGenerator,
         private readonly BridgeHeadlineForge $headlines = new BridgeHeadlineForge,
         private readonly ProofForge $proof = new ProofForge,
+        private readonly RsaAdForge $ads = new RsaAdForge,
     ) {}
 
     /**
@@ -179,6 +180,7 @@ class BridgePageComposerService
                 'niche' => $asset->niche,
                 'vsl_keywords_used' => array_slice($vslKeywords, 0, 14),
                 'elite_headlines' => array_slice($eliteHeadlines, 0, 7),
+                'rsa_ads' => $this->ads->forge($asset, ['lang' => str_starts_with(strtolower($language), 'port') ? 'pt' : 'en']),
                 'awareness_target' => $asset->awareness_level,
                 'sophistication' => $asset->sophistication_level,
                 'audience_gender' => $profile['gender'] ?? null,

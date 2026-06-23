@@ -13,8 +13,8 @@ Régua atual (piso): **80** / teto 95.
 | Bridge — prova/depoimentos | **82** ✅ | RESOLVIDO ciclo 2: `ProofForge` usa nomes reais (Melissa McCarthy/Amy/Jennifer/Sarah) + números reais críveis (faixa 30-90, rejeita os 200 que soam fake) + voz humana de elite + stats reais; `marketLang` normaliza PT→EN (dissecação PT vs mercado EN) | FEITO |
 | VSL sales page | 60 | determinística mas crua; oferta/garantia ok, falta agressividade na headline (reusar BridgeHeadlineForge) | pendente |
 | Thumbnail | 70 | tipográfica forte, mas sem rosto/antes-depois; 1 ângulo só | pendente |
-| RSA (15 títulos / 4 descrições) | 0 | NÃO EXISTE — recurso a criar (Google Search ads) | ALVO ciclo 3 |
-| Keywords (clusters/intenção/match/negativas) | 55 | extrai clusters da VSL, mas sem match types nem lista de negativas explícita | pendente |
+| RSA (15 títulos / 4 descrições) | **80** ✅ | RESOLVIDO ciclo 3: `RsaAdForge` — 15 títulos ≤30 + 4 descrições ≤90, mix keyword-match + ângulos (número/curiosidade/CTA), siglas (GLP-1/GIP) corrigidas, hard-cap nos limites do Google, exposto em grounding.rsa_ads | FEITO |
+| Keywords (clusters/intenção/match/negativas) | 55 | extrai clusters da VSL, mas sem match types nem lista de negativas explícita | ALVO ciclo 4 |
 | Email follow-up | 0 | NÃO EXISTE | pendente |
 
 ## Diagnóstico-raiz (por que parece IA)
