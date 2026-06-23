@@ -14,7 +14,7 @@ Régua atual (piso): **80** / teto 95.
 | VSL sales page | 60 | determinística mas crua; oferta/garantia ok, falta agressividade na headline (reusar BridgeHeadlineForge) | pendente |
 | Thumbnail | 70 | tipográfica forte, mas sem rosto/antes-depois; 1 ângulo só | pendente |
 | RSA (15 títulos / 4 descrições) | **80** ✅ | RESOLVIDO ciclo 3: `RsaAdForge` — 15 títulos ≤30 + 4 descrições ≤90, mix keyword-match + ângulos (número/curiosidade/CTA), siglas (GLP-1/GIP) corrigidas, hard-cap nos limites do Google, exposto em grounding.rsa_ads | FEITO |
-| Keywords (clusters/intenção/match/negativas) | 55 | extrai clusters da VSL, mas sem match types nem lista de negativas explícita | ALVO ciclo 4 |
+| Keywords (clusters/intenção/match/negativas) | **85** ✅ | RESOLVIDO ciclo 4: `SearchNetworkPlanner` LIGA a VSL às peças existentes (KeywordIntentMapper/AccountStructurer/BroadMatchStrategist/NegativeListMiner) — ad groups por intenção da VSL + match types + 33 negativas curadas (anti-clique-que-não-compra) + match mix seguro (broad só com loop de conversão). Anti-refragmentação: orquestra o que existia. | FEITO |
 | Email follow-up | 0 | NÃO EXISTE | pendente |
 
 ## Diagnóstico-raiz (por que parece IA)
