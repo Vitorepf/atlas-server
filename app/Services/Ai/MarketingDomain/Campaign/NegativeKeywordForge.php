@@ -63,6 +63,15 @@ class NegativeKeywordForge
             ));
         }
 
+        // negativos aterrados no WASTE REAL (BlackinkNegativeMiner) — mesma trava de owned-root das camadas léxicas
+        $mined = array_values(array_filter(
+            array_map(fn ($s) => mb_strtolower(trim((string) $s)), (array) ($opts['mined'] ?? [])),
+            fn (string $t) => $t !== '' && ! $this->protectedByOwnedRoot($t, $protect),
+        ));
+        if ($mined !== []) {
+            $layers['mined_real_waste'] = array_values(array_unique($mined));
+        }
+
         $flat = array_values(array_unique(array_merge(...array_values($layers))));
 
         return [

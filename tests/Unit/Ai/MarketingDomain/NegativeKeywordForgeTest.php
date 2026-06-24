@@ -48,4 +48,16 @@ class NegativeKeywordForgeTest extends TestCase
         // with no owned root to protect, "recipe" is correctly negated.
         $this->assertContains('recipe', $this->f->forge()['flat']);
     }
+
+    public function test_merges_mined_real_waste_negatives_under_same_root_safety(): void
+    {
+        $r = $this->f->forge([
+            'protect' => ['gelatin trick'],
+            'mined' => ['recipe weight', 'blueberry trick', 'gelatin trick'], // último = owned root
+        ]);
+        $this->assertContains('recipe weight', $r['flat'], 'negativo do waste real entra');
+        $this->assertContains('blueberry trick', $r['flat'], 'mecanismo concorrente entra');
+        $this->assertNotContains('gelatin trick', $r['flat'], 'mined que é owned root é protegido');
+        $this->assertArrayHasKey('mined_real_waste', $r['layers']);
+    }
 }

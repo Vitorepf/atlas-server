@@ -81,6 +81,16 @@ class KeywordIntelligencePipelineTest extends TestCase
         $this->assertSame(array_column($a['scored'], 'keyword'), array_column($b['scored'], 'keyword'));
     }
 
+    public function test_mined_real_waste_negatives_flow_into_the_pipeline(): void
+    {
+        $p = new KeywordIntelligencePipeline;
+        $r = $p->run($this->asset(), ['payout' => 120, 'cvr' => 0.012], [
+            'mined_negatives' => ['recipe weight', 'blueberry trick'],
+        ]);
+        $this->assertContains('recipe weight', $r['negatives']['flat'], 'negativo do waste real entra no deliverable');
+        $this->assertArrayHasKey('mined_real_waste', $r['negatives']['layers']);
+    }
+
     public function test_fingerprint_changes_with_economics(): void
     {
         $p = new KeywordIntelligencePipeline;

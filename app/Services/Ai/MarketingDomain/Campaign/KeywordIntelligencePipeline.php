@@ -50,8 +50,11 @@ class KeywordIntelligencePipeline
             array_merge($econ, ['outcome_calibration' => (array) ($opts['outcome_calibration'] ?? [])]), // L10 flywheel real
         );
 
-        // L6 — negativas (protege os owned roots: anti-campeã)
-        $negatives = $this->negativeForge->forge(['protect' => $roots]);
+        // L6 — negativas (protege os owned roots: anti-campeã) + negativos aterrados no waste real (miner)
+        $negatives = $this->negativeForge->forge([
+            'protect' => $roots,
+            'mined' => (array) ($opts['mined_negatives'] ?? []),
+        ]);
 
         // L12 — seleção launch-ready + Decision-Receipt por keyword
         $launch = $this->dossier->select($quality['scored']);
