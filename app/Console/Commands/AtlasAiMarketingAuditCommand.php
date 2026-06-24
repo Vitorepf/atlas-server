@@ -86,6 +86,10 @@ class AtlasAiMarketingAuditCommand extends Command
             $this->line('      <fg=gray>'.$m['lever'].'</>');
         }
         $this->line('');
+        if (! empty($audit['signal_confidence']['note'])) {
+            $this->line('  <fg=gray;options=bold>Confiança do sinal:</> <fg=gray>'.$audit['signal_confidence']['note'].'</>');
+            $this->line('');
+        }
 
         return self::SUCCESS;
     }

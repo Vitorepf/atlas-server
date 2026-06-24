@@ -100,6 +100,17 @@ class ConversionAuditor
             'structural_flaws' => $this->leaks->detect($copy)['flaws'],
             'smells' => $smellReport['smells'],
             'smells_count' => $smellReport['n'],
+            // Honesty layer (cycles 43-45 meta-lesson): never let a vocabulary prior pass as proven
+            // conversion. Each signal is labeled by how much it can be trusted.
+            'signal_confidence' => [
+                'structural_truth' => ['structural_flaws', 'smells'],
+                'heuristic_prior' => ['by_library', 'audience_score', 'top_missing'],
+                'calibrated' => $useHybrid ? ['by_library (niche='.$niche.', se ledger ≥30 outcomes)'] : [],
+                'note' => 'structural_flaws = FATOS estruturais true-positive (vazamento de reveal/CTA). '
+                    .'by_library + audience_score = PRIORS heurísticos (presença de padrão / reação de persona simulada), '
+                    .'NÃO conversão provada — viram calibrados só quando o LearnedWeightLedger receber ≥30 outcomes reais por nicho. '
+                    .'top_missing prioriza por peso de craft, não por lift provado. overall_score é média de priors: tratar como bússola, não verdade.',
+            ],
         ];
     }
 
