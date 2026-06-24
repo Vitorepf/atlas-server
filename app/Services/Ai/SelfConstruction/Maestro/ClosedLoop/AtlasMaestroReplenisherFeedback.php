@@ -16,6 +16,8 @@ namespace App\Services\Ai\SelfConstruction\Maestro\ClosedLoop;
  */
 final class AtlasMaestroReplenisherFeedback
 {
+    private ?AtlasMaestroLearningPolicyGuard $policyGuard = null;
+
     public function __construct(private readonly object $miner)
     {
     }
@@ -26,6 +28,7 @@ final class AtlasMaestroReplenisherFeedback
             return '';
         }
 
+        $supported = [];
         $lines = [];
         foreach ((array) $this->miner->mine() as $dimension => $buckets) {
             foreach ((array) $buckets as $bucket => $entry) {
@@ -38,6 +41,7 @@ final class AtlasMaestroReplenisherFeedback
                 }
                 $delivered = (int) ($entry['delivered'] ?? 0);
                 $rate = $entry['delivery_rate'] ?? ($total > 0 ? $delivered / $total : 0.0);
+                $supported[] = $entry;
                 $lines[] = sprintf(
                     '%s=%s: %d delivered / %d total (rate %.2f, support>=%d)',
                     (string) $dimension,
@@ -50,6 +54,20 @@ final class AtlasMaestroReplenisherFeedback
             }
         }
 
-        return $lines === [] ? '' : implode("\n", $lines);
+        if ($lines === []) {
+            return '';
+        }
+
+        $block = implode("\n", $lines);
+        // PÉTREO: every learning artifact passes the anti-Goodhart guard before it can reach the Replenisher.
+        // A violating artifact throws here and NEVER reaches the rendered output.
+        $this->guard()->assertSafe(['facts' => $supported, 'block' => $block]);
+
+        return $block;
+    }
+
+    private function guard(): AtlasMaestroLearningPolicyGuard
+    {
+        return $this->policyGuard ??= new AtlasMaestroLearningPolicyGuard;
     }
 }
