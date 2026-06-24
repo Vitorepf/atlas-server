@@ -72,6 +72,13 @@ class AtlasAiMarketingFunnelCommand extends Command
             }
         }
         $this->line('');
+        if (! empty($r['requires_proof'])) {
+            $this->line('  <fg=yellow;options=bold>Claims que EXIGEM prova real antes de subir (linha moral):</>');
+            foreach ($r['requires_proof'] as $c) {
+                $this->line('    <fg=yellow>•</> <fg=gray>['.$c['stage'].'] '.$c['name'].': "'.$c['evidence'].'"</>');
+            }
+            $this->line('');
+        }
 
         return self::SUCCESS;
     }
