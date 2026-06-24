@@ -25,6 +25,9 @@ namespace App\Services\Ai\MarketingDomain\Campaign;
  */
 class KeywordInvestmentGate
 {
+    /** L0 KnowledgeCore: as leis que ESTE motor aplica (proveniência por decisão). */
+    public const LAWS = ['breakeven-epc', 'rule-of-three'];
+
     /** rule-of-three multipliers: 95% → 3.0, 97% → 3.51, 99% → 4.61 (0-success upper bound). */
     private const RULE_OF_THREE = ['95' => 3.0, '97' => 3.51, '99' => 4.61];
 

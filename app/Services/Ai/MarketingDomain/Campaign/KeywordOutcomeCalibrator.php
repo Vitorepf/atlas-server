@@ -15,6 +15,9 @@ namespace App\Services\Ai\MarketingDomain\Campaign;
  */
 class KeywordOutcomeCalibrator
 {
+    /** L0 KnowledgeCore: as leis que ESTE motor aplica (proveniência por decisão). */
+    public const LAWS = ['offline-conversion-upstream', 'dda-default-2023'];
+
     private const W_FLOOR = 0.2;
 
     private const W_CEIL = 2.5;

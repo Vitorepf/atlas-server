@@ -13,6 +13,9 @@ namespace App\Services\Ai\MarketingDomain\Campaign;
  */
 class KeywordClusterer
 {
+    /** L0 KnowledgeCore: as leis que ESTE motor aplica (proveniência por decisão). */
+    public const LAWS = ['priority-exact-identical', 'exact-by-intent', 'pareto-peel-stick'];
+
     /**
      * @param  array<int,array{keyword:string,root?:string,tier_hint?:string}>  $rows  e.g. KeywordUniverseEnumerator::enumerate()['keywords']
      * @return array{clusters:array<int,array<string,mixed>>,count:int,keywords_total:int,no_holes:bool}

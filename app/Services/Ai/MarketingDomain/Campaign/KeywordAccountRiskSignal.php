@@ -17,6 +17,9 @@ namespace App\Services\Ai\MarketingDomain\Campaign;
  */
 class KeywordAccountRiskSignal
 {
+    /** L0 KnowledgeCore: as leis que ESTE motor aplica (proveniência por decisão). */
+    public const LAWS = ['restricted-drug-suspension'];
+
     /** Restricted drug terms — name in keyword/ad/landing without LegitScript certification = suspension. */
     private const RESTRICTED_DRUGS = [
         'retatrutide', 'semaglutide', 'tirzepatide', 'ozempic', 'wegovy', 'mounjaro', 'zepbound',

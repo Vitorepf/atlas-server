@@ -60,6 +60,30 @@ class KeywordDecisionReceiptTest extends TestCase
         $this->assertContains('expected-ctr-king', $ids);   // base QS de toda decisão
     }
 
+    public function test_each_motor_is_the_single_source_of_its_laws(): void
+    {
+        // L0: o recibo cita exatamente as leis que os motores DECLARAM (const LAWS), não ids soltos.
+        $ids = array_column($this->r->issue($this->row())['provenance'], 'id');
+        foreach (\App\Services\Ai\MarketingDomain\Campaign\IntentLadderClassifier::LAWS as $law) {
+            $this->assertContains($law, $ids);
+        }
+        foreach (\App\Services\Ai\MarketingDomain\Campaign\KeywordClusterer::LAWS as $law) {
+            $this->assertContains($law, $ids); // match_type presente → cita as leis de estrutura/match
+        }
+    }
+
+    public function test_flywheel_weighted_keyword_cites_the_real_sale_law(): void
+    {
+        $row = $this->row();
+        $row['outcome_weight'] = 0.3; // L10 aplicou peso de venda real
+        $ids = array_column($this->r->issue($row)['provenance'], 'id');
+        $this->assertContains('offline-conversion-upstream', $ids, 'keyword calibrada pela venda real cita a lei da venda real');
+
+        // sem peso aplicado (neutro) → não cita a lei do flywheel (proveniência honesta)
+        $clean = array_column($this->r->issue($this->row())['provenance'], 'id');
+        $this->assertNotContains('offline-conversion-upstream', $clean);
+    }
+
     public function test_clean_keyword_does_not_cite_drug_law(): void
     {
         $ids = array_column($this->r->issue($this->row(90, 'none'))['provenance'], 'id');

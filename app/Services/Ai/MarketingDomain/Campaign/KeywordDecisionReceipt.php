@@ -42,9 +42,10 @@ class KeywordDecisionReceipt
             'mind_awareness' => $kw['mind_state']['awareness'] ?? null,
         ];
 
+        $outcomeApplied = isset($kw['outcome_weight']) && (float) $kw['outcome_weight'] !== 1.0;
         $provenance = array_values(array_filter(array_map(
             fn (string $id) => $this->knowledge->cite($id),
-            $this->relevantLaws($decision),
+            $this->relevantLaws($decision, $outcomeApplied),
         )));
 
         return [
@@ -63,19 +64,24 @@ class KeywordDecisionReceipt
      * @param  array<string,mixed>  $d
      * @return array<int,string>
      */
-    private function relevantLaws(array $d): array
+    private function relevantLaws(array $d, bool $outcomeApplied = false): array
     {
-        $ids = ['expected-ctr-king']; // every keyword decision rests on the QS/CTR economics
+        // Cada motor é a FONTE ÚNICA das leis que aplica (const LAWS) — o recibo não duplica ids soltos.
+        $ids = ['expected-ctr-king']; // toda decisão de keyword repousa na economia QS/CTR
         if ($d['intent_tier'] !== null) {
-            $ids[] = 'schwartz-awareness';
-            $ids[] = 'text-intent-ceiling';
+            $ids = array_merge($ids, IntentLadderClassifier::LAWS);
         }
         if ($d['investment'] !== null) {
-            $ids[] = 'breakeven-epc';
-            $ids[] = 'rule-of-three';
+            $ids = array_merge($ids, KeywordInvestmentGate::LAWS);
+        }
+        if ($outcomeApplied) {
+            $ids = array_merge($ids, KeywordOutcomeCalibrator::LAWS); // L10 flywheel: cita a venda real
         }
         if (($d['account_risk'] ?? 'none') !== 'none') {
-            $ids[] = 'restricted-drug-suspension';
+            $ids = array_merge($ids, KeywordAccountRiskSignal::LAWS);
+        }
+        if (($d['match_type'] ?? null) !== null) {
+            $ids = array_merge($ids, KeywordClusterer::LAWS); // estrutura/match-priority
         }
 
         return array_values(array_unique($ids));

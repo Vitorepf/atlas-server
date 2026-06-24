@@ -34,6 +34,9 @@ namespace App\Services\Ai\MarketingDomain\Campaign;
  */
 class IntentLadderClassifier
 {
+    /** L0 KnowledgeCore: as leis que ESTE motor aplica (proveniência por decisão). */
+    public const LAWS = ['schwartz-awareness', 'text-intent-ceiling'];
+
     // T0 — informational / Know-Simple (curioso): wants to KNOW, not resolve → exclude.
     private const INFO = [
         'o que é', 'o que e', 'o que sao', 'o que são', 'o que significa', 'o que causa', 'para que serve',
