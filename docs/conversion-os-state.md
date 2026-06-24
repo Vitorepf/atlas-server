@@ -116,6 +116,10 @@ ROADMAP do blueprint: 8 de 11 entregues (#1,2,4,5,6,7,8,9; #3 coberto). Restam: 
 
 - **Integração: believability lever no cérebro 1→25** ✅ — em vez do #10 Voss (medium, refinamento), o salto de maior FORÇA: compor o que construí no ConversionLeverageDiagnostic. Liguei o ProofAdjacencyAuditor como 6º lever (tier 5) — a believability é o killer #1 dos pais (claim sem prova externa adjacente = a venda morre na descrença), e o cérebro agora a sinaliza como gargalo candidato. Apertei o isClaim (imagine/finally saíram — são future-pacing, não claim provável → evita falso-órfão). Cérebro 1→25 agora vê: mecanismo+prova+oferta+watch-through+fricção+BELIEVABILITY. 448/448.
 
+- **Roadmap #10: TacticalNegotiationLibrary (Voss) — ARSENAL DOS PAIS COMPLETO** ✅ — o gap nomeado pelo blueprint (Voss só tinha 1 referência solta). 7 jogadas de empatia tática distintas: accusation-audit (diga a pior objeção primeiro), labeling (nomeie a emoção), calibrated how/what questions (o leitor argumenta a favor), no-oriented question (um "não" que é "sim"), tactical empathy, that-is-right anchor. sales_moment-tagged (objection/close/lead/agitation), scoreável, indexada. Sem freio. 451/451.
+
+**BLUEPRINT DOS 3 PILARES: COMPLETO (10/11; #3 coberto).** Único restante = #11 VideoAdScriptGenerator + HookArchetypeForge, GATED na biblioteca de criativos (chega 25/06). Cérebro 1→25 com 6 levers; pilar 1 (poder de venda) + pilar 3 (few-shot ROI) + simulação fiel todos com capacidade nova; arsenal dos pais (Halbert/Bencivenga/Hopkins/Kennedy/Belfort/Voss/Cialdini/Fogg) destilado.
+
 ## Pontos pra próxima sessão (faculdade de ambição)
 - **Multi-persona injection por slot** — TL;DR pra mãe ocupada no topo, vs-Ozempic perto do CTA, prova específica embaixo, em vez de 1 fix em `ps`.
 - **LLM-driven persona refinement** — quando o operador plugar LLM, refinar `simulate()` por avatar real do produto (não só os 3 fixos hardcoded). Framework está pronto, contrato é o `PersonaSimulator`.
