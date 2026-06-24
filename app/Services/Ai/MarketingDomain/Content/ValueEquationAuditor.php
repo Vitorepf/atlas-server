@@ -116,8 +116,9 @@ class ValueEquationAuditor
     /** Named removed effort ("no gym", "without dieting") or a concrete low time-cost ("just 10 minutes a day"). */
     private function hasEaseSubstance(string $text): bool
     {
-        // "just N minutes (a/per day)" — a concrete, small effort cost.
-        if (preg_match('/\b(?:just|only|apenas|s[óo])\s+\d+\s+(?:minutes?|min|minutos?)\b/u', $text)) {
+        // A concrete small time-cost is a real ease claim — with OR without "just" ("10 minutes a day").
+        if (preg_match('/\b(?:just|only|apenas|s[óo])\s+\d+\s+(?:minutes?|min|minutos?)\b/u', $text)
+            || preg_match('/\b\d+\s+(?:minutes?|min|hours?|minutos?|horas?)\s+(?:a|per|por)\s+(?:day|week|dia|semana)\b/u', $text)) {
             return true;
         }
         // Removal of a CONCRETE effort: a negator immediately followed by an effort-domain word.

@@ -170,6 +170,26 @@ class StructuredFunnelComposerTest extends TestCase
         $this->assertStringNotContainsString('PROOF SLOT', $blob);
     }
 
+    public function test_rich_funnel_is_self_consistent_across_every_niche_family(): void
+    {
+        // "Generaliza cross-niche sempre": a rich asset must generate a winner (no bottleneck) in EVERY
+        // niche family, not just weight-loss (a brutal panel flagged finance/relationship as weak).
+        $composer = new StructuredFunnelComposer;
+        $diag = new \App\Services\Ai\MarketingDomain\Content\ConversionLeverageDiagnostic;
+        foreach (['weight loss' => 'lose the weight', 'finance' => 'grow your money', 'relationship' => 'win them back', 'health' => 'feel young again', 'generic' => 'change your life'] as $niche => $promise) {
+            $a = $this->asset([
+                'niche' => $niche, 'awareness_level' => 'problem_aware', 'sophistication_level' => 4,
+                'core_promise' => $promise, 'mechanism_name' => 'The Core Method',
+                'claims' => ['Dr Lee tracked 312 people; 9 out of 10 won in 6 weeks'],
+                'metrics' => ['result_claims' => ['results in 21 days']],
+                'offer' => ['price' => '97', 'guarantee' => '60-day money-back guarantee', 'ease' => ['no extra work', '10 minutes a day']],
+            ]);
+            $f = $composer->compose($a);
+            $r = $diag->diagnose($this->asset(['niche' => $niche, 'mechanism_name' => 'The Core Method']), $f['page'].' '.$f['checkout']);
+            $this->assertNull($r['bottleneck'], "funnel for {$niche} should be self-consistent (no bottleneck)");
+        }
+    }
+
     public function test_proof_lever_is_planted_only_from_real_asset_proof(): void
     {
         // Eixo 7 end-to-end: a concrete claim on the asset → the page carries CONCRETE proof; a thin
