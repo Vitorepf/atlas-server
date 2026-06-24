@@ -35,6 +35,12 @@ final class AtlasLoopSoakReportTest extends TestCase
         }
     }
 
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
+
     private function campaign(): AtlasLoopCampaign
     {
         return AtlasLoopCampaign::create([
@@ -86,6 +92,37 @@ final class AtlasLoopSoakReportTest extends TestCase
     private function report(string $campaignId, int $hours = 6): array
     {
         return app(AtlasLoopSoakReportService::class)->report($hours, $campaignId);
+    }
+
+    private function seedTaskAt(string $campaignId, string $objectiveKind, int $nodeCount, int $i, Carbon $at, string $status = 'done'): string
+    {
+        $taskId = $this->task($campaignId, $objectiveKind, $nodeCount, $i);
+        DB::table('atlas_loop_tasks')->where('id', $taskId)->update([
+            'status' => $status,
+            'created_at' => $at,
+            'updated_at' => $at,
+        ]);
+
+        return $taskId;
+    }
+
+    private function seedCertifiedProposalAt(string $campaignId, string $taskId, Carbon $at, int $i, string $provider = 'glm'): void
+    {
+        $proposal = AtlasLoopProposal::create([
+            'campaign_id' => $campaignId,
+            'task_id' => $taskId,
+            'schema_version' => 'atlas.loop.proposal.v1',
+            'status' => AtlasLoopProposal::STATUS_CERTIFIED,
+            'objective' => "proposal #{$i}",
+            'provider' => $provider,
+            'target_path' => "app/Target{$i}.php",
+            'diff_text' => 'diff',
+            'proposal_hash' => substr(hash('sha256', $campaignId.'proposal'.$i), 0, 40),
+        ]);
+        DB::table('atlas_loop_proposals')->where('id', $proposal->id)->update([
+            'created_at' => $at,
+            'updated_at' => $at,
+        ]);
     }
 
     public function test_deliveries_count_work_type_and_size(): void
@@ -167,12 +204,70 @@ final class AtlasLoopSoakReportTest extends TestCase
         $this->assertSame(2, $s['regressions_caught']);
     }
 
+    public function test_lever_impact_flags_starvation_when_admission_collapses_after_the_split(): void
+    {
+        $now = Carbon::parse('2026-06-24 12:00:00');
+        Carbon::setTestNow($now);
+
+        $c = $this->campaign();
+        $beforeAt = $now->copy()->subHours(5);
+        $afterAt = $now->copy()->subHour();
+        for ($i = 1; $i <= 4; $i++) {
+            $taskId = $this->seedTaskAt((string) $c->id, 'feature', 2, $i, $beforeAt, 'done');
+            $this->seedCertifiedProposalAt((string) $c->id, $taskId, $beforeAt, $i);
+        }
+        for ($i = 5; $i <= 8; $i++) {
+            $taskId = $this->seedTaskAt((string) $c->id, 'feature', 2, $i, $afterAt, 'done');
+            if ($i === 5) {
+                $this->seedCertifiedProposalAt((string) $c->id, $taskId, $afterAt, $i);
+            }
+        }
+
+        $lever = $this->report((string) $c->id)['lever_impact'];
+        $this->assertSame('starved', $lever['verdict']);
+        $this->assertTrue($lever['starvation_risk']);
+        $this->assertSame(4, $lever['before']['admitted']);
+        $this->assertSame(1, $lever['after']['admitted']);
+    }
+
+    public function test_lever_impact_marks_improved_when_certification_rate_rises_without_starving_supply(): void
+    {
+        $now = Carbon::parse('2026-06-24 12:00:00');
+        Carbon::setTestNow($now);
+
+        $c = $this->campaign();
+        $beforeAt = $now->copy()->subHours(5);
+        $afterAt = $now->copy()->subHour();
+        for ($i = 1; $i <= 4; $i++) {
+            $taskId = $this->seedTaskAt((string) $c->id, 'feature', 2, $i, $beforeAt, 'done');
+            if ($i === 1) {
+                $this->seedCertifiedProposalAt((string) $c->id, $taskId, $beforeAt, $i);
+            }
+        }
+        for ($i = 5; $i <= 8; $i++) {
+            $taskId = $this->seedTaskAt((string) $c->id, 'feature', 2, $i, $afterAt, 'done');
+            if ($i <= 7) {
+                $this->seedCertifiedProposalAt((string) $c->id, $taskId, $afterAt, $i);
+            }
+        }
+
+        $lever = $this->report((string) $c->id)['lever_impact'];
+        $this->assertSame('improved', $lever['verdict']);
+        $this->assertFalse($lever['starvation_risk']);
+        $this->assertGreaterThan(0.02, $lever['conversion_delta']);
+        $this->assertSame(4, $lever['before']['generated']);
+        $this->assertSame(4, $lever['after']['generated']);
+    }
+
     public function test_empty_window_is_idle_not_crash(): void
     {
         $c = $this->campaign();
         $report = $this->report((string) $c->id);
 
         $this->assertSame(0, $report['deliveries']['merged_count']);
+        $this->assertSame('flat', $report['lever_impact']['verdict']);
+        $this->assertSame(0.0, $report['lever_impact']['admission_before']);
+        $this->assertSame(0.0, $report['lever_impact']['conversion_after']);
         $this->assertFalse($report['verdict']['evolving']);
         $this->assertContains('no_deliveries', $report['verdict']['flags']);
         $this->assertSame('atlas.loop.soak_report.v1', $report['schema_version']);

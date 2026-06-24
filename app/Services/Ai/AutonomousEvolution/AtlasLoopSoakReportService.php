@@ -52,6 +52,7 @@ final class AtlasLoopSoakReportService
         $quality = $this->quality($campaignId);
         $compounding = $this->compounding($hours, $since, $campaignId);
         $spend = $this->spend($since, $campaignId);
+        $leverImpact = $this->leverImpact($since, $campaignId);
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
@@ -62,6 +63,7 @@ final class AtlasLoopSoakReportService
             'quality' => $quality,
             'compounding' => $compounding,
             'spend' => $spend,
+            'lever_impact' => $leverImpact,
             'verdict' => $this->verdict($deliveries, $quality, $compounding, $spend),
         ];
     }
@@ -253,6 +255,41 @@ final class AtlasLoopSoakReportService
         ];
     }
 
+    /**
+     * The anti-starvation lever read: compare the first and second halves of the soak window using the
+     * same funnel semantics as AtlasLoopFunnelService, but windowed directly over the runtime tables.
+     * Fail-open to a degraded, zeroed block.
+     *
+     * @return array<string,mixed>
+     */
+    private function leverImpact(Carbon $since, ?string $campaignId): array
+    {
+        $emptyCounts = ['generated' => 0, 'admitted' => 0, 'attempted' => 0, 'certified' => 0];
+        $degraded = AtlasLoopLeverImpactMeter::impact($emptyCounts, $emptyCounts) + [
+            'available' => false,
+            'before' => $emptyCounts,
+            'after' => $emptyCounts,
+        ];
+        if (! DatabaseTableAvailability::has('atlas_loop_tasks') || ! DatabaseTableAvailability::has('atlas_loop_proposals')) {
+            return $degraded;
+        }
+
+        try {
+            $now = Carbon::now();
+            $mid = $since->copy()->addSeconds((int) floor($since->diffInSeconds($now) / 2));
+            $before = $this->windowedFunnelCounts($since, $mid, false, $campaignId);
+            $after = $this->windowedFunnelCounts($mid, $now, true, $campaignId);
+
+            return AtlasLoopLeverImpactMeter::impact($before, $after) + [
+                'available' => true,
+                'before' => $before,
+                'after' => $after,
+            ];
+        } catch (Throwable) {
+            return $degraded;
+        }
+    }
+
     /** @return array<string,float> provider => mean cost from exploration attempt telemetry (best-effort). */
     private function providerCost(Carbon $since, ?string $campaignId): array
     {
@@ -295,6 +332,42 @@ final class AtlasLoopSoakReportService
         } catch (Throwable) {
             return 0;
         }
+    }
+
+    /**
+     * Windowed counts with the same semantics as AtlasLoopFunnelService::snapshot():
+     * generated=tasks discovered, admitted=proposals created, attempted=running+done tasks,
+     * certified=certified proposals.
+     *
+     * @return array{generated:int, admitted:int, attempted:int, certified:int}
+     */
+    private function windowedFunnelCounts(Carbon $from, Carbon $to, bool $includeEnd, ?string $campaignId): array
+    {
+        $taskWindow = function (string $column) use ($from, $to, $includeEnd, $campaignId) {
+            $q = DB::table('atlas_loop_tasks')->where($column, '>=', $from)
+                ->where($column, $includeEnd ? '<=' : '<', $to);
+            if ($campaignId !== null) {
+                $q->where('campaign_id', $campaignId);
+            }
+
+            return $q;
+        };
+        $proposalWindow = function (string $column) use ($from, $to, $includeEnd, $campaignId) {
+            $q = DB::table('atlas_loop_proposals')->where($column, '>=', $from)
+                ->where($column, $includeEnd ? '<=' : '<', $to);
+            if ($campaignId !== null) {
+                $q->where('campaign_id', $campaignId);
+            }
+
+            return $q;
+        };
+
+        return [
+            'generated' => (int) $taskWindow('created_at')->count(),
+            'admitted' => (int) $proposalWindow('created_at')->count(),
+            'attempted' => (int) $taskWindow('updated_at')->whereIn('status', [AtlasLoopTask::STATUS_DONE, AtlasLoopTask::STATUS_RUNNING])->count(),
+            'certified' => (int) $proposalWindow('updated_at')->where('status', AtlasLoopProposal::STATUS_CERTIFIED)->count(),
+        ];
     }
 
     // ───────────────────────── verdict ─────────────────────────
