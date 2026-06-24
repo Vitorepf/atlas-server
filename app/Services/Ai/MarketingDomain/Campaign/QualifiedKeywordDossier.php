@@ -19,9 +19,12 @@ class QualifiedKeywordDossier
 {
     private KeywordKnowledgeCore $knowledge;
 
-    public function __construct(?KeywordKnowledgeCore $knowledge = null)
+    private KeywordDecisionReceipt $receipt;
+
+    public function __construct(?KeywordKnowledgeCore $knowledge = null, ?KeywordDecisionReceipt $receipt = null)
     {
         $this->knowledge = $knowledge ?? new KeywordKnowledgeCore;
+        $this->receipt = $receipt ?? new KeywordDecisionReceipt($this->knowledge);
     }
 
     /**
@@ -95,6 +98,7 @@ class QualifiedKeywordDossier
             'page_angle' => $s['mind_state']['page_angle'] ?? null,
             'account_risk' => $s['account_risk']['risk_level'] ?? 'none',
             'why' => $why,
+            'receipt' => $this->receipt->issue($s), // proveniência + hash reproduzível por keyword (L12)
         ];
     }
 
