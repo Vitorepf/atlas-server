@@ -14,7 +14,9 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopDbResilience;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopObraBridgeService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopFleetGovernor;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderCircuitBreaker;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderEffortPolicy;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderHealthProbe;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderSwapPolicy;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopResourceGate;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopTaxa2DialOverlayService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
@@ -74,6 +76,12 @@ final class AtlasLoopCampaignSupervisor
      */
     private ?Closure $originationProducer = null;
 
+    /** §W40 reversible provider-swap policy (test-injectable; defaults to a fresh instance per use). */
+    private ?AtlasLoopProviderSwapPolicy $swapPolicy = null;
+
+    /** §W40 provider reasoning-effort policy (test-injectable; defaults to a fresh instance per use). */
+    private ?AtlasLoopProviderEffortPolicy $effortPolicy = null;
+
     public function __construct(
         private readonly AtlasLoopStore $store,
         private readonly AtlasLoopTaskGrinder $grinder,
@@ -113,6 +121,17 @@ final class AtlasLoopCampaignSupervisor
     public function setStorageRootForTesting(string $root): void
     {
         $this->storageRoot = rtrim($root, '/');
+    }
+
+    /** Test seam: inject a swap policy whose probe is pre-seeded, so the §W40 selection is provable. */
+    public function setProviderSwapPolicyForTesting(AtlasLoopProviderSwapPolicy $policy): void
+    {
+        $this->swapPolicy = $policy;
+    }
+
+    public function setProviderEffortPolicyForTesting(AtlasLoopProviderEffortPolicy $policy): void
+    {
+        $this->effortPolicy = $policy;
     }
 
     public function setOriginationProducerForTesting(Closure $producer): void
@@ -586,6 +605,8 @@ final class AtlasLoopCampaignSupervisor
                         $this->guard(fn () => $this->store->renewLease($task->id, $workerId, $taskLease), 'grind_progress_renew_lease');
                         $this->writeHeartbeat($campaign->id);
                     };
+                    $this->applyProviderEffort($task); // §W40 reasoning_effort hint, flag-gated default-OFF
+                    $this->applyProviderSwap($campaign, $task); // §W40 reversible swap overrides primary when degraded
                     $result = $this->grinder->grind($task, $workerId, $effectiveScenarios, '', $remaining, $progress);
                     $spendCents = $this->spendCentsFromResult($result);
                     $this->beat($campaign, $this->now() - $grindStart, $spendCents);
@@ -1268,6 +1289,84 @@ final class AtlasLoopCampaignSupervisor
             ]);
         } catch (Throwable) {
             // fail-safe: the provider-health probe never breaks a grind
+        }
+    }
+
+    /**
+     * §W40-S5 Select the provider reasoning_effort for the next provider invocation. Flag-OFF preserves the
+     * configured default effort; flag-ON resolves by task class. Best-effort and payload-only: the driver
+     * decorator enforces the final hint at invocation time, while this receipt makes the supervisor's choice
+     * auditable without requiring the grinder to know the policy.
+     */
+    private function applyProviderEffort(AtlasLoopTask $task): void
+    {
+        try {
+            $policy = $this->effortPolicy ?? new AtlasLoopProviderEffortPolicy;
+            $payload = is_array($task->payload) ? $task->payload : [];
+            $enabled = (bool) config('atlas.loop.provider_effort_policy_enabled', false);
+            $decision = $enabled
+                ? $policy->resolve([
+                    'objective_kind' => (string) ($payload['objective_kind'] ?? ''),
+                    'target_kind' => (string) ($payload['target_kind'] ?? ''),
+                    'attempt_index' => (int) ($task->attempts ?? 0),
+                    'prior_failures' => (int) ($payload['prior_failures'] ?? 0),
+                    'routed_provider_tier' => (string) ($payload['provider_tier'] ?? $payload['routed_provider_tier'] ?? 'unknown'),
+                ])
+                : [
+                    'schema' => AtlasLoopProviderEffortPolicy::SCHEMA,
+                    'effort' => $policy->defaultEffort(),
+                    'reason' => 'configured_default',
+                    'routed_provider_tier' => (string) ($payload['provider_tier'] ?? $payload['routed_provider_tier'] ?? 'unknown'),
+                ];
+
+            $payload['reasoning_effort'] = $decision['effort'];
+            $payload['provider_effort_policy'] = $decision + ['enabled' => $enabled];
+            $task->payload = $payload;
+        } catch (Throwable) {
+            // fail-safe: effort policy must never block the grind.
+        }
+    }
+
+    /**
+     * §W40 Apply the reversible PROVIDER-SWAP policy to the NEXT grind. Flag-OFF ⇒ no-op (no decision, no
+     * payload mutation, no ledger event ⇒ byte-identical). When ON, it runs the policy for this campaign's
+     * primary against the configured fallback chain and, on a swap/revert (or a held swap already in effect),
+     * pins the EFFECTIVE provider onto the task payload so the grinder uses it instead of the default route.
+     * Records a `provider_swap` ledger fact so the decision is auditable. Best-effort: never breaks a grind.
+     */
+    private function applyProviderSwap(AtlasLoopCampaign $campaign, AtlasLoopTask $task): void
+    {
+        if (! (bool) config('atlas.loop.provider_swap_policy_enabled', false)) {
+            return;
+        }
+        try {
+            $primary = trim((string) ($campaign->provider ?? ''));
+            if ($primary === '') {
+                $primary = (string) config('atlas.loop.default_provider', (string) config('atlas.ai.default_provider', ''));
+            }
+            $chain = array_values(array_map('strval', (array) config('atlas.loop.provider_fallback_chain', [])));
+
+            $policy = $this->swapPolicy ?? new AtlasLoopProviderSwapPolicy;
+            $decision = $policy->decide((string) $campaign->id, $primary, $chain);
+            $effective = $policy->activeProvider((string) $campaign->id, $primary);
+
+            if ($effective !== '') {
+                $payload = is_array($task->payload) ? $task->payload : [];
+                $payload['provider'] = $effective;
+                $task->payload = $payload;
+            }
+
+            $this->appendLedger((string) $campaign->id, [
+                'event' => 'provider_swap',
+                'action' => $decision['action'],
+                'from_provider' => $decision['from_provider'],
+                'to_provider' => $decision['to_provider'],
+                'effective_provider' => $effective,
+                'reason' => $decision['reason'],
+                'consecutive_rounds' => $decision['consecutive_rounds'],
+            ]);
+        } catch (Throwable) {
+            // fail-safe: provider-swap selection never breaks a grind
         }
     }
 

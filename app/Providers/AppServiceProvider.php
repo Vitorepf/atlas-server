@@ -41,6 +41,8 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopOriginationDeliveryBridge;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProposalDiffReconstructor;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProposalOutOfProcessVerifier;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderContextOptimizer;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderEffortPolicy;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderEffortPolicyDriverDecorator;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopScenarioProviderPortfolio;
 use App\Services\Ai\AutonomousEvolution\Recovery\AtlasLoopReceiptReplayer;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopSemanticImplementationCertifier;
@@ -588,6 +590,18 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             LoopExecutionDriver::class,
             WorkspaceProviderLoopExecutionDriver::class,
+        );
+
+        // W40-S5 — provider effort policy sits BELOW provider routing: the router chooses the provider/tier,
+        // this decorator only sets the Hermes reasoning_effort hint. Flag OFF preserves the configured
+        // default effort; flag ON lets task class lower/raise effort deterministically.
+        $this->app->singleton(AtlasLoopProviderEffortPolicy::class);
+        $this->app->extend(
+            LoopExecutionDriver::class,
+            static fn (LoopExecutionDriver $inner, $app): LoopExecutionDriver => new AtlasLoopProviderEffortPolicyDriverDecorator(
+                $inner,
+                $app->make(AtlasLoopProviderEffortPolicy::class),
+            ),
         );
 
         // CRITIC GUARD: decorate the bound driver with a per-attempt wall-clock kill so a
