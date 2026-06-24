@@ -11,6 +11,8 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMorningDigestService;
 use App\Services\Ai\AutonomousEvolution\Campaign\AtlasLoopPipelineDrift;
 use App\Support\AtlasPhpBinary;
+use DateTimeImmutable;
+use DateTimeZone;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\Process\Process;
@@ -52,7 +54,7 @@ class AtlasLoopKeepaliveCommand extends Command
         // §0 MASTER SWITCH — fail-closed global gate. OFF ⇒ the loop is globally disabled: respawn NOTHING.
         // This is the definitive cut of the auto-respawn token-burn (was: keepalive resurrected stuck campaigns
         // every 5 min with no operator request). Byte-identical no-op when OFF.
-        if (! AtlasLoopMasterSwitch::enabled()) {
+        if (! $this->masterSwitchEnabled()) {
             $out = ['schema_version' => 'atlas.loop.keepalive.v1', 'master' => 'off', 'checked' => 0, 'respawned' => [], 'reaped' => [], 'healthy' => []];
             $this->line((string) json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
@@ -60,6 +62,20 @@ class AtlasLoopKeepaliveCommand extends Command
         }
 
         $out = ['schema_version' => 'atlas.loop.keepalive.v1', 'checked' => 0, 'respawned' => [], 'reaped' => [], 'healthy' => []];
+        $selfDeadline = $this->armSelfDeadline($out);
+
+        try {
+            return $this->runKeepalive($out);
+        } finally {
+            $this->cancelSelfDeadline($selfDeadline);
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $out
+     */
+    protected function runKeepalive(array &$out): int
+    {
         $staleMinutes = max(2, (int) $this->option('stale-minutes'));
 
         $campaigns = DB::table('atlas_loop_campaigns')
@@ -288,6 +304,120 @@ class AtlasLoopKeepaliveCommand extends Command
         $this->line((string) json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
         return self::SUCCESS;
+    }
+
+    protected function masterSwitchEnabled(): bool
+    {
+        return AtlasLoopMasterSwitch::enabled();
+    }
+
+    /**
+     * @param  array<string,mixed>  $out
+     */
+    protected function armSelfDeadline(array &$out): string
+    {
+        if (! $this->selfDeadlineAvailable()) {
+            $out['self_deadline'] = 'unavailable';
+
+            return 'unavailable';
+        }
+
+        $seconds = max(1, (int) config('atlas.loop.keepalive_self_deadline_seconds', 90));
+        $out['self_deadline'] = 'armed';
+        $out['self_deadline_seconds'] = $seconds;
+        $out['self_deadline_log'] = $this->selfDeadlineLogPath();
+
+        $this->pcntlAsyncSignals(true);
+        $this->pcntlSignal(SIGALRM, function () use ($seconds): void {
+            $this->handleSelfDeadlineExceeded($seconds);
+        });
+        $this->pcntlAlarm($seconds);
+
+        return 'armed';
+    }
+
+    protected function cancelSelfDeadline(string $state): void
+    {
+        if ($state === 'armed') {
+            $this->pcntlAlarm(0);
+        }
+    }
+
+    protected function selfDeadlineAvailable(): bool
+    {
+        return function_exists('pcntl_async_signals')
+            && function_exists('pcntl_signal')
+            && function_exists('pcntl_alarm')
+            && function_exists('posix_kill')
+            && defined('SIGALRM')
+            && defined('SIGTERM');
+    }
+
+    protected function pcntlAsyncSignals(bool $enabled): void
+    {
+        pcntl_async_signals($enabled);
+    }
+
+    protected function pcntlSignal(int $signal, callable $handler): void
+    {
+        pcntl_signal($signal, $handler);
+    }
+
+    protected function pcntlAlarm(int $seconds): void
+    {
+        pcntl_alarm($seconds);
+    }
+
+    protected function handleSelfDeadlineExceeded(int $deadlineSeconds): void
+    {
+        $this->appendSelfDeadlineLog([
+            'schema_version' => 'atlas.loop.keepalive_self_deadline.v1',
+            'pid' => $this->currentPid(),
+            'timestamp' => $this->selfDeadlineTimestamp(),
+            'reason' => 'self_deadline_exceeded',
+            'deadline_seconds' => $deadlineSeconds,
+        ]);
+        $this->terminateSelfProcess();
+    }
+
+    protected function appendSelfDeadlineLog(array $payload): void
+    {
+        $path = $this->selfDeadlineLogPath();
+        $dir = dirname($path);
+        if (! is_dir($dir)) {
+            @mkdir($dir, 0777, true);
+        }
+
+        @file_put_contents(
+            $path,
+            (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL,
+            FILE_APPEND | LOCK_EX,
+        );
+    }
+
+    protected function selfDeadlineLogPath(): string
+    {
+        return storage_path('logs/loop-keepalive-self-deadline.log');
+    }
+
+    protected function selfDeadlineTimestamp(): string
+    {
+        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeImmutable::ATOM);
+    }
+
+    protected function currentPid(): ?int
+    {
+        $pid = getmypid();
+
+        return $pid === false ? null : $pid;
+    }
+
+    protected function terminateSelfProcess(): void
+    {
+        $pid = $this->currentPid();
+        if ($pid !== null) {
+            @posix_kill($pid, SIGTERM);
+        }
     }
 
     protected function supervisorAlive(string $campaignId): bool
