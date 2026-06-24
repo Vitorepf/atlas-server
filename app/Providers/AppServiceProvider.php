@@ -32,6 +32,7 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopCrossFileConsumerGateService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMutationAdequacyGateService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopOriginationDeliveryBridge;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderContextOptimizer;
 use App\Services\Ai\AutonomousEvolution\Recovery\AtlasLoopReceiptReplayer;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopSemanticImplementationCertifier;
 use App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract;
@@ -213,6 +214,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(SkillBundleStore::class);
         $this->app->singleton(AtlasLoopReceiptReplayer::class);
+        $this->app->singleton(AtlasLoopProviderContextOptimizer::class);
         $this->app->bind(LoopWorkerSpawnerContract::class, LoopWorkerSpawner::class);
 
         // PART 2 — the operator-facing task-serving contract resolves on the DEDICATED serving queue

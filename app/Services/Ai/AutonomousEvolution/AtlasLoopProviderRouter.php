@@ -46,4 +46,18 @@ final class AtlasLoopProviderRouter
 
         return ['provider' => $cheapProvider, 'model' => $cheapModel !== '' ? $cheapModel : null, 'tier' => 'cheap'];
     }
+
+    /**
+     * Provider-specific pre-prompt context cap used by {@see AtlasLoopProviderContextOptimizer}.
+     *
+     * @param  array<string,mixed>  $routing
+     */
+    public function contextTokenLimit(string $provider, array $routing = []): int
+    {
+        $provider = trim($provider) !== '' ? trim($provider) : 'default';
+        $limits = (array) ($routing['context_token_limits'] ?? $routing['provider_context_token_limits'] ?? []);
+        $raw = $limits[$provider] ?? $limits['default'] ?? $routing['context_token_limit'] ?? 6000;
+
+        return max(256, min(200000, (int) $raw));
+    }
 }
