@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModelBuilder;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionQuery;
 use Throwable;
@@ -168,33 +169,181 @@ final class AtlasTaskBrainReplenisher
             );
         }
 
-        // ORPHANS — built-but-unwired capabilities. The wiring target is a DIFFERENT file the comprehension can't
-        // pin deterministically, so an in-scope task tends to give_back. OFF by default (opt-in) — surfaced only
-        // when the operator wants the multi-file frontier. Honest: these are the model-bound hard ones.
+        // ORPHANS — built-but-unwired capabilities (the Loop's REAL evolution debt). The naive task "wire it in"
+        // is multi-file and the correct site sits OUTSIDE a single-file scope → guaranteed give_back. So each
+        // orphan is shaped RESOLVABLE: its allowed_files carry the orphan PLUS the GROUNDED integration site(s)
+        // — the production callers of an analogous, already-wired SIBLING (same role + namespace). "Wire it the
+        // way its sibling is wired, here." The serving serializes any two orphan tasks that share a site, so
+        // concurrent workers never collide on the same integrator. An orphan with no grounded site is DEFERRED
+        // (null), never emitted as give-back-bait. OFF by default (opt-in) — the model-bound frontier.
         if ($includeOrphans) {
             foreach ($model->inventory as $item) {
                 if ((bool) ($item['is_orphan'] ?? false) !== true) {
                     continue;
                 }
-                $relPath = (string) ($item['rel_path'] ?? '');
-                $fqcn = (string) ($item['fqcn'] ?? '');
-                if ($relPath === '' || $fqcn === '') {
-                    continue;
+                $task = $this->resolvableOrphanTask($model, $item);
+                if ($task !== null) {
+                    $out[] = $task;
                 }
-                $callers = array_values(array_filter((array) ($model->callerPathsFor($relPath) ?? []), 'is_string'));
-                $allowed = array_values(array_unique(array_merge([$relPath], $callers)));
-                $short = $this->shortName($fqcn);
-
-                $out[] = $this->packet(
-                    id: 'brain-orphan-'.substr(md5($fqcn), 0, 12),
-                    objective: "Make the built-but-unused class {$short} ({$fqcn}) genuinely used. It exists in {$relPath} but no caller invokes it. Wire it into the right call site; if the only correct wiring is in a file outside your allowed_files, give_back noting that file.",
-                    allowed: $allowed,
-                    accept: ["{$short} is invoked by a real caller (no longer an orphan)", 'the scope test suite passes'],
-                );
             }
         }
 
         return $out;
+    }
+
+    /**
+     * Shape a built-but-unwired ORPHAN into a RESOLVABLE wiring task, or return null to DEFER it honestly.
+     *
+     * The worker receives the orphan's own file PLUS the grounded integration site(s): the production files
+     * where an analogous, already-wired sibling (same role token + namespace) is invoked. That converts the
+     * unresolvable "wire this in, but the site is outside your scope" into "wire this in HERE, the way its
+     * sibling is wired". Conflict-safe by construction: several orphans may target the same integrator; the
+     * serving's write-set overlap check serializes them (never two at once). No grounded site ⇒ null (deferred).
+     *
+     * @param  array{rel_path?:string, fqcn?:string, public_methods?:list<string>, is_orphan?:bool, is_forbidden?:bool, clone_cluster_id?:?string}  $item
+     * @return array<string,mixed>|null
+     */
+    private function resolvableOrphanTask(AtlasLoopScopeComprehensionModel $model, array $item): ?array
+    {
+        $relPath = (string) ($item['rel_path'] ?? '');
+        $fqcn = (string) ($item['fqcn'] ?? '');
+        if ($relPath === '' || $fqcn === '') {
+            return null;
+        }
+        $inference = $this->inferIntegrationSites($model, $item);
+        if ($inference === null) {
+            return null; // no grounded wiring site → not single-pass resolvable; defer, never fake it.
+        }
+        $sibling = $this->shortName($inference['sibling']);
+        $sites = $inference['sites'];
+        $short = $this->shortName($fqcn);
+        $methods = array_values(array_filter((array) ($item['public_methods'] ?? []), 'is_string'));
+        $api = $methods === [] ? 'no public methods' : (implode('(), ', array_slice($methods, 0, 8)).'()');
+        $allowed = array_values(array_unique(array_merge([$relPath], $sites)));
+        $sitesList = implode(', ', $sites);
+
+        return $this->packet(
+            id: 'brain-orphan-'.substr(md5($fqcn), 0, 12),
+            objective: "Wire the built-but-unused capability {$short} ({$fqcn}) into the live flow. It exists at {$relPath} "
+                ."with ZERO production callers (a confirmed orphan). Its public API: {$api}. The analogous capability "
+                ."{$sibling} — same role — is ALREADY wired and is invoked from: {$sitesList}. Integrate {$short} the same "
+                ."way at that site (edit the site file, and {$relPath} only if its API needs adjusting). Edit ONLY your "
+                ."allowed_files. Prove it with a test that exercises {$short} through the new call path. If, after reading "
+                ."the site, the correct wiring genuinely belongs in a different file, give_back noting that file.",
+            allowed: $allowed,
+            accept: [
+                "{$short} is invoked by real production code (no longer an orphan)",
+                'a test exercises the new call path',
+                'the scope test suite passes',
+            ],
+        );
+    }
+
+    /**
+     * The grounded integration site(s) for an orphan: the production callers of the BEST analogous already-
+     * wired sibling — same role token, same-namespace preferred, most-wired exemplar. Falls back to a wired
+     * neighbour in the same directory. Returns null when nothing grounded exists (the orphan is then deferred).
+     *
+     * @param  array{rel_path?:string, fqcn?:string, ...}  $orphan
+     * @return array{sibling:string, sites:list<string>}|null
+     */
+    private function inferIntegrationSites(AtlasLoopScopeComprehensionModel $model, array $orphan): ?array
+    {
+        $orphanFqcn = (string) ($orphan['fqcn'] ?? '');
+        $orphanRel = (string) ($orphan['rel_path'] ?? '');
+        $role = $this->roleToken($this->shortName($orphanFqcn));
+        $ns = $this->namespaceOf($orphanFqcn);
+        $forbidden = array_fill_keys(array_map(static fn ($p): string => ltrim((string) $p, '/'), $model->forbidden), true);
+
+        $wiredCallers = function (string $candRel) use ($model, $forbidden, $orphanRel): array {
+            $callers = array_values(array_filter((array) ($model->callerPathsFor($candRel) ?? []), 'is_string'));
+
+            return array_values(array_filter(
+                $callers,
+                static fn (string $c): bool => $c !== $orphanRel && ! isset($forbidden[ltrim($c, '/')]),
+            ));
+        };
+
+        // Best analogous sibling by ROLE token (same-namespace wins, then most-wired).
+        $bestScore = -1;
+        $bestSibling = null;
+        $bestSites = [];
+        if ($role !== '') {
+            foreach ($model->inventory as $cand) {
+                if ((bool) ($cand['is_orphan'] ?? false) === true || (bool) ($cand['is_forbidden'] ?? false) === true) {
+                    continue;
+                }
+                $cf = (string) ($cand['fqcn'] ?? '');
+                $cr = (string) ($cand['rel_path'] ?? '');
+                if ($cf === '' || $cr === '' || $cr === $orphanRel) {
+                    continue;
+                }
+                if ($this->roleToken($this->shortName($cf)) !== $role) {
+                    continue;
+                }
+                $callers = $wiredCallers($cr);
+                if ($callers === []) {
+                    continue;
+                }
+                $score = ($this->namespaceOf($cf) === $ns ? 1000 : 0) + count($callers);
+                if ($score > $bestScore) {
+                    $bestScore = $score;
+                    $bestSibling = $cf;
+                    $bestSites = $callers;
+                }
+            }
+        }
+
+        // Fallback: any wired neighbour in the same directory (a grounded, if weaker, integration pattern).
+        if ($bestSibling === null) {
+            $dir = $this->dirOf($orphanRel);
+            foreach ($model->inventory as $cand) {
+                if ((bool) ($cand['is_orphan'] ?? false) === true || (bool) ($cand['is_forbidden'] ?? false) === true) {
+                    continue;
+                }
+                $cr = (string) ($cand['rel_path'] ?? '');
+                $cf = (string) ($cand['fqcn'] ?? '');
+                if ($cf === '' || $cr === '' || $cr === $orphanRel || $this->dirOf($cr) !== $dir) {
+                    continue;
+                }
+                $callers = $wiredCallers($cr);
+                if ($callers === []) {
+                    continue;
+                }
+                $bestSibling = $cf;
+                $bestSites = $callers;
+                break;
+            }
+        }
+
+        if ($bestSibling === null) {
+            return null;
+        }
+
+        return ['sibling' => $bestSibling, 'sites' => array_slice(array_values(array_unique($bestSites)), 0, 3)];
+    }
+
+    /** The role suffix of a class name — its last CamelCase token, lowercased (Gate, Bridge, Ledger, Service…). */
+    private function roleToken(string $short): string
+    {
+        $spaced = preg_replace('/(?<=[a-z0-9])(?=[A-Z])/', ' ', $short) ?? $short;
+        $parts = array_values(array_filter(preg_split('/\s+/', strtolower(trim($spaced))) ?: [], static fn (string $t): bool => $t !== ''));
+
+        return $parts === [] ? '' : (string) end($parts);
+    }
+
+    private function namespaceOf(string $fqcn): string
+    {
+        $pos = strrpos($fqcn, '\\');
+
+        return $pos === false ? '' : substr($fqcn, 0, $pos);
+    }
+
+    private function dirOf(string $relPath): string
+    {
+        $pos = strrpos($relPath, '/');
+
+        return $pos === false ? '' : substr($relPath, 0, $pos);
     }
 
     /**

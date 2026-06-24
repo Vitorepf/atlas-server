@@ -44,13 +44,26 @@ final class AtlasTaskBrainReplenisherTest extends TestCase
         }
     }
 
-    public function test_orphans_are_opt_in(): void
+    public function test_orphans_are_opt_in_and_shaped_resolvable(): void
     {
         $tasks = (new AtlasTaskBrainReplenisher($this->orchestrator()))->structureTasks($this->model(), includeOrphans: true);
 
         $orphan = array_values(array_filter($tasks, fn (array $t): bool => str_starts_with($t['task_packet_id'], 'brain-orphan-')));
-        $this->assertCount(2, $orphan, 'orphan tasks appear only when explicitly requested');
-        $this->assertStringContainsString('Orphan', $orphan[0]['objective']);
+
+        // RESOLVABLE shaping: only an orphan with a GROUNDED integration site becomes a task. AlphaGate (role
+        // "gate") inherits the wiring of its analogous wired sibling BetaGate — invoked from Caller.php — so the
+        // task carries [orphan, that production caller] and names the sibling. LonelyMeter has no role-sibling
+        // and no wired neighbour in its directory → DEFERRED (never emitted as give-back-bait).
+        $this->assertCount(1, $orphan, 'only orphans with a grounded wiring site are emitted; siteless ones defer');
+        $t = $orphan[0];
+        $this->assertContains('app/Demo/AlphaGate.php', $t['allowed_files']);
+        $this->assertContains('app/Demo/Caller.php', $t['allowed_files'], 'the wiring site = the analogous sibling’s production caller');
+        $this->assertStringContainsString('BetaGate', $t['objective'], 'the task points to the analogous already-wired sibling');
+        $this->assertStringContainsString('Wire', $t['objective']);
+
+        // And it is opt-in: the default (doc-gaps only) emits zero orphan tasks.
+        $defaultTasks = (new AtlasTaskBrainReplenisher($this->orchestrator()))->structureTasks($this->model());
+        $this->assertSame([], array_values(array_filter($defaultTasks, fn (array $x): bool => str_starts_with($x['task_packet_id'], 'brain-orphan-'))));
     }
 
     public function test_doc_gap_is_skipped_when_the_capability_already_exists_anywhere_in_the_repo(): void
@@ -143,15 +156,19 @@ final class AtlasTaskBrainReplenisherTest extends TestCase
     private function model(): AtlasLoopScopeComprehensionModel
     {
         $inventory = [
-            ['rel_path' => 'app/Demo/OrphanOne.php', 'fqcn' => 'App\\Demo\\OrphanOne', 'is_orphan' => true, 'clone_cluster_id' => null],
-            ['rel_path' => 'app/Demo/OrphanTwo.php', 'fqcn' => 'App\\Demo\\OrphanTwo', 'is_orphan' => true, 'clone_cluster_id' => null],
-            ['rel_path' => 'app/Demo/Used.php', 'fqcn' => 'App\\Demo\\Used', 'is_orphan' => false, 'clone_cluster_id' => null],
+            // AlphaGate is an orphan; BetaGate is the analogous WIRED sibling (same "gate" role + namespace),
+            // invoked from Caller.php → AlphaGate's grounded wiring site is Caller.php.
+            ['rel_path' => 'app/Demo/AlphaGate.php', 'fqcn' => 'App\\Demo\\AlphaGate', 'public_methods' => ['allows'], 'is_orphan' => true, 'is_forbidden' => false, 'clone_cluster_id' => null],
+            ['rel_path' => 'app/Demo/BetaGate.php', 'fqcn' => 'App\\Demo\\BetaGate', 'public_methods' => ['allows'], 'is_orphan' => false, 'is_forbidden' => false, 'clone_cluster_id' => null],
+            ['rel_path' => 'app/Demo/Caller.php', 'fqcn' => 'App\\Demo\\Caller', 'public_methods' => [], 'is_orphan' => false, 'is_forbidden' => false, 'clone_cluster_id' => null],
+            // LonelyMeter is an orphan with no role-sibling and no wired neighbour in its directory → DEFERRED.
+            ['rel_path' => 'app/Other/LonelyMeter.php', 'fqcn' => 'App\\Other\\LonelyMeter', 'public_methods' => ['measure'], 'is_orphan' => true, 'is_forbidden' => false, 'clone_cluster_id' => null],
         ];
 
         return new AtlasLoopScopeComprehensionModel(
             inventory: $inventory,
-            edges: [],
-            orphans: ['App\\Demo\\OrphanOne', 'App\\Demo\\OrphanTwo'],
+            edges: ['app/Demo/BetaGate.php' => ['app/Demo/Caller.php']],
+            orphans: ['App\\Demo\\AlphaGate', 'App\\Other\\LonelyMeter'],
             cloneClusters: [],
             forbidden: [],
             docPurposes: [],
