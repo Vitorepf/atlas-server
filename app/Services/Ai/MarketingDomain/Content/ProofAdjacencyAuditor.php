@@ -65,8 +65,9 @@ class ProofAdjacencyAuditor
     {
         $t = mb_strtolower($s);
 
-        // Promise framing aimed at the reader's future.
-        if (preg_match('/\b(you (?:will|can|could|\x27ll)|you are going to|finally|guaranteed to|watch as|imagine)\b/u', $t)) {
+        // Promise framing aimed at the reader's future. NOT "imagine/finally" — those are future-pacing /
+        // dream lines, not provable claims, and flagging them as orphan would be a false positive.
+        if (preg_match('/\b(you (?:will|can|could|\x27ll)|you are going to|guaranteed to)\b/u', $t)) {
             return true;
         }
         // A result/transformation verb tied to a number.

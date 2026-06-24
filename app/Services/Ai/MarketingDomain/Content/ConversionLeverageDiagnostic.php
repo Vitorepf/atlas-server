@@ -24,6 +24,7 @@ class ConversionLeverageDiagnostic
         private readonly WatchThroughLeakDetector $watch = new WatchThroughLeakDetector,
         private readonly MechanismNameForge $forge = new MechanismNameForge,
         private readonly FrictionAbilityAuditor $friction = new FrictionAbilityAuditor,
+        private readonly ProofAdjacencyAuditor $believability = new ProofAdjacencyAuditor,
     ) {}
 
     /**
@@ -37,6 +38,7 @@ class ConversionLeverageDiagnostic
             $this->offerLever($copy),
             $this->watchThroughLever($copy),
             $this->frictionLever($copy),
+            $this->believabilityLever($copy),
         ];
 
         // Bottleneck = the highest-leverage lever that is WEAK. Ties broken by the DR tier.
@@ -97,6 +99,20 @@ class ConversionLeverageDiagnostic
             'status' => $strong ? 'strong' : 'weak',
             'finding' => $strong ? 'oferta cobre as alavancas de alta-leverage' : 'oferta deixa alavanca crítica aberta: '.implode(', ', array_map(static fn ($g) => $g['key'], $highGap)),
             'fix' => $strong ? '' : 'fechar a(s) alavanca(s): '.implode(', ', array_map(static fn ($g) => $g['asks'], $highGap)),
+        ];
+    }
+
+    /** Believability (the masters' unanimous lever) — a bold claim with no EXTERNAL proof beside it dies. */
+    private function believabilityLever(string $copy): array
+    {
+        $a = $this->believability->audit($copy);
+        $orphans = count($a['orphan_claims']);
+
+        return [
+            'key' => 'believability', 'eixo' => 7, 'tier' => 5,
+            'status' => $a['has_orphan_claim'] ? 'weak' : 'strong',
+            'finding' => $a['has_orphan_claim'] ? $orphans.' claim(s) sem prova externa ao lado — '.$a['note'] : 'todo claim forte tem prova adjacente',
+            'fix' => $a['has_orphan_claim'] ? 'encaixar autoridade/número-de-gente/ratio/demo JUNTO de cada claim órfão' : '',
         ];
     }
 

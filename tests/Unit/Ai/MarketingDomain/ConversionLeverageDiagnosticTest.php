@@ -38,6 +38,19 @@ class ConversionLeverageDiagnosticTest extends TestCase
         $this->assertSame('proof', $r['bottleneck']['key']);
     }
 
+    public function test_believability_lever_catches_an_orphan_claim(): void
+    {
+        // Named mechanism present, but a bold promise with NO external proof beside it = believability hole.
+        $d = new ConversionLeverageDiagnostic;
+        $r = $d->diagnose(
+            new AiMarketingVslAsset(['niche' => 'finance', 'mechanism_name' => 'The Allocation Rule']),
+            'Here is how The Allocation Rule works. You will double your money in 30 days. Order now.'
+        );
+        $believability = collect($r['levers'])->firstWhere('key', 'believability');
+        $this->assertNotNull($believability, 'the diagnostic must include the believability lever');
+        $this->assertSame('weak', $believability['status']);
+    }
+
     public function test_a_strong_page_has_no_high_leverage_bottleneck(): void
     {
         $d = new ConversionLeverageDiagnostic;

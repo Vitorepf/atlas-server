@@ -114,6 +114,8 @@ Régua atual (piso de maturidade): **85** / teto 100. — **VOLTA 2 COMPLETA** (
 
 ROADMAP do blueprint: 8 de 11 entregues (#1,2,4,5,6,7,8,9; #3 coberto). Restam: #10 Voss (TacticalNegotiation), #11 HookArchetypeForge + VideoAdScriptGenerator (gated na biblioteca de criativos).
 
+- **Integração: believability lever no cérebro 1→25** ✅ — em vez do #10 Voss (medium, refinamento), o salto de maior FORÇA: compor o que construí no ConversionLeverageDiagnostic. Liguei o ProofAdjacencyAuditor como 6º lever (tier 5) — a believability é o killer #1 dos pais (claim sem prova externa adjacente = a venda morre na descrença), e o cérebro agora a sinaliza como gargalo candidato. Apertei o isClaim (imagine/finally saíram — são future-pacing, não claim provável → evita falso-órfão). Cérebro 1→25 agora vê: mecanismo+prova+oferta+watch-through+fricção+BELIEVABILITY. 448/448.
+
 ## Pontos pra próxima sessão (faculdade de ambição)
 - **Multi-persona injection por slot** — TL;DR pra mãe ocupada no topo, vs-Ozempic perto do CTA, prova específica embaixo, em vez de 1 fix em `ps`.
 - **LLM-driven persona refinement** — quando o operador plugar LLM, refinar `simulate()` por avatar real do produto (não só os 3 fixos hardcoded). Framework está pronto, contrato é o `PersonaSimulator`.
