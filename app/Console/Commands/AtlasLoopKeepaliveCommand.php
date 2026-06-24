@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AgentGovernance\AtlasAgentDesiredStateStore;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopDriftRestartDebounce;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopFleetGovernor;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMorningDigestService;
 use App\Services\Ai\AutonomousEvolution\Campaign\AtlasLoopPipelineDrift;
@@ -145,6 +146,9 @@ class AtlasLoopKeepaliveCommand extends Command
                             }
                         }
                         $this->killSupervisor($id);
+                        if ($this->fleetCapBlocksRespawn($id, 'code_drift_recycle', $out)) {
+                            continue;
+                        }
                         $this->respawn($id);
                         $out['respawned'][] = [
                             'campaign_id' => $id,
@@ -169,6 +173,9 @@ class AtlasLoopKeepaliveCommand extends Command
             $frozenMinutes = max($staleMinutes + 5, (int) config('atlas.loop.keepalive_frozen_kill_minutes', 15));
             if ($authorized && $alive && $heartbeat > 0 && $heartbeat < (time() - $frozenMinutes * 60)) {
                 $this->killSupervisor($id);
+                if ($this->fleetCapBlocksRespawn($id, 'frozen_kill', $out)) {
+                    continue;
+                }
                 $this->respawn($id);
                 $out['respawned'][] = ['campaign_id' => $id, 'reason' => 'frozen_alive_killed_and_respawned', 'heartbeat_age_minutes' => (int) floor((time() - $heartbeat) / 60)];
 
@@ -224,6 +231,9 @@ class AtlasLoopKeepaliveCommand extends Command
             }
 
             // Evidência dupla (heartbeat velho + processo ausente) → relança detached.
+            if ($this->fleetCapBlocksRespawn($id, 'dead_respawn', $out)) {
+                continue;
+            }
             $this->respawn($id);
             $out['respawned'][] = ['campaign_id' => $id, 'heartbeat_age_minutes' => $heartbeat > 0 ? (int) floor((time() - $heartbeat) / 60) : null];
         }
@@ -265,6 +275,9 @@ class AtlasLoopKeepaliveCommand extends Command
                 // Volta a running e relança — o supervisor re-descobre (discovery + backlog).
                 DB::table('atlas_loop_campaigns')->where('id', $id)
                     ->update(['status' => 'running', 'updated_at' => now()]);
+                if ($this->fleetCapBlocksRespawn($id, 'starved_revive', $out)) {
+                    continue;
+                }
                 $this->respawn($id);
                 $out['revived_starved'][] = ['campaign_id' => $id, 'prior_stop' => (string) $campaign->stop_reason, 'starved_minutes' => (int) floor($touchedAgo / 60)];
             }
@@ -289,6 +302,31 @@ class AtlasLoopKeepaliveCommand extends Command
     protected function supervisorPattern(string $campaignId): string
     {
         return 'atlas:loop:campaign.*'.preg_quote($campaignId, '/');
+    }
+
+    /**
+     * @param  array<string,mixed>  $out
+     */
+    protected function fleetCapBlocksRespawn(string $campaignId, string $lane, array &$out): bool
+    {
+        $cap = (int) config('atlas.loop.fleet_global_worker_cap', 0);
+        if ($cap <= 0) {
+            return false;
+        }
+
+        $inFlight = (new AtlasLoopFleetGovernor)->fleetInFlight();
+        if ($inFlight < $cap) {
+            return false;
+        }
+
+        $out['skipped_by_fleet_cap'][] = [
+            'campaign_id' => $campaignId,
+            'fleet_in_flight' => $inFlight,
+            'cap' => $cap,
+            'lane' => $lane,
+        ];
+
+        return true;
     }
 
     /**
