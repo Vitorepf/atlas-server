@@ -75,11 +75,21 @@ class KeywordIntelligencePipeline
         ];
     }
 
-    /** @return array<int,string> owned roots = coined mechanism/trick (post-VSL-exposure). */
+    /**
+     * @return array<int,string> owned roots = artefatos coined pós-exposição-VSL (re-finder roots). Inclui
+     * mechanism/trick E os SLOGANS coined (power_phrases) — alinhado com a tese e o QualifiedKeywordPattern-
+     * Engine; antes só mechanism+trick deixava oferta coined-por-slogan com universo VAZIO (buraco achado no
+     * painel adversarial, ciclo 36).
+     */
     private function ownedRoots(AiMarketingVslAsset $asset): array
     {
+        $raw = array_merge(
+            [$asset->mechanism_name, $asset->trick],
+            array_values((array) ($asset->power_phrases ?? [])),
+        );
+
         return array_values(array_unique(array_filter(
-            array_map(fn ($s) => mb_strtolower(trim((string) $s)), [$asset->mechanism_name, $asset->trick]),
+            array_map(fn ($s) => mb_strtolower(trim((string) $s)), $raw),
             fn ($s) => $s !== '',
         )));
     }

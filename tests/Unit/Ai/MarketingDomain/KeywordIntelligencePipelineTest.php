@@ -91,6 +91,28 @@ class KeywordIntelligencePipelineTest extends TestCase
         $this->assertArrayHasKey('mined_real_waste', $r['negatives']['layers']);
     }
 
+    public function test_slogan_coined_offer_is_covered_not_empty(): void
+    {
+        // oferta SEM mechanism/trick mas com SLOGAN coined → deve ter cobertura (buraco do painel adversarial)
+        $asset = new AiMarketingVslAsset([
+            'mechanism_name' => '', 'trick' => '', 'niche' => 'weight loss',
+            'power_phrases' => ['make america skinny again'],
+            'offer' => ['product_name' => 'SlimX'],
+        ]);
+        $r = (new KeywordIntelligencePipeline)->run($asset, ['payout' => 100, 'cvr' => 0.01]);
+        $this->assertGreaterThan(0, $r['universe']['count'], 'oferta coined-por-slogan tem cobertura, não zero');
+        $this->assertGreaterThan(0, count($r['scored']));
+    }
+
+    public function test_offer_without_any_coined_lever_is_honestly_empty(): void
+    {
+        // sem mechanism/trick/slogan: product-name é PROIBIDO (tese) → não há o que bidar honestamente.
+        $bare = new AiMarketingVslAsset(['mechanism_name' => '', 'trick' => '', 'niche' => 'weight loss', 'offer' => ['product_name' => 'SlimX']]);
+        $r = (new KeywordIntelligencePipeline)->run($bare, ['payout' => 100, 'cvr' => 0.01]);
+        $this->assertSame(0, $r['universe']['count']);
+        $this->assertFalse($r['universe']['complete'], 'sem alavanca coined o OS sinaliza incompleto — não finge cobertura');
+    }
+
     public function test_fingerprint_changes_with_economics(): void
     {
         $p = new KeywordIntelligencePipeline;
