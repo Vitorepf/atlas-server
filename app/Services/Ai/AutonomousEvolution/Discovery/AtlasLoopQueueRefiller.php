@@ -1113,6 +1113,9 @@ final class AtlasLoopQueueRefiller
         ])->save();
 
         $payload['_target_id'] = (string) $target->id;
+        if (is_array($spec['payload']['acceptance'] ?? null)) {
+            $payload['acceptance'] = $spec['payload']['acceptance'];
+        }
         $dp = $this->decidedPriority($campaign, $target, ['doc_gap_supply' => true], $repoRoot, AtlasLoopWorkShapeRouter::SHAPE_REFACTOR);
         if ($dp['receipt'] !== []) {
             $payload['_decision'] = $dp['receipt'];

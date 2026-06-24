@@ -38,7 +38,11 @@ final class AtlasLoopDocGapSupplyLane
             if ($cap === '' || isset($seen[$cap])) {
                 continue;
             }
+            if (! preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $cap)) {
+                continue;
+            }
             $seen[$cap] = true;
+            $expectedTestPath = 'tests/Feature/Loop/'.$cap.'Test.php';
 
             $specs[] = [
                 'objective' => sprintf(
@@ -54,6 +58,12 @@ final class AtlasLoopDocGapSupplyLane
                     // The new capability's test must be RED first, GREEN after — FrozenJudge Guard 4 (diff_earned)
                     // proves the diff is load-bearing; an always-green test certifies nothing.
                     'red_required' => true,
+                    'acceptance' => [
+                        'commands' => ['./vendor/bin/phpunit '.$expectedTestPath],
+                        'red_required' => true,
+                        'revert_recheck' => false,
+                        'expected_test_path' => $expectedTestPath,
+                    ],
                     'comprehension_originated' => true,     // provenance: the brain, not the proxy scan
                     'provenance' => AtlasLoopScopeComprehensionModel::PROVENANCE_WRITABLE_PROSE,
                 ],
