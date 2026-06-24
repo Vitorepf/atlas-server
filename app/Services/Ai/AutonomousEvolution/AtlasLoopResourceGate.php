@@ -53,6 +53,30 @@ final class AtlasLoopResourceGate
     }
 
     /**
+     * RESPAWN disk-floor gate — the keepalive must NOT resurrect a dead supervisor onto a near-full disk: a
+     * campaign booted below the floor admits ZERO scenarios in a tight busy-fail loop, burning CPU + log lines
+     * until a reap frees space. Unlike {@see admitScenario} this is a SUPERVISOR-level check, so it carries NO
+     * live-workspace count — we are deciding only whether there is room to bring the supervisor BACK at all.
+     *
+     * Pure + side-effect-free: the SAME @disk_free_space probe + MB floor as admitScenario, no DB, no
+     * filesystem mutation. A probe failure (false) ⇒ free_mb=PHP_INT_MAX ⇒ admit (fail-open, mirrors
+     * admitScenario — never wedge the loop on an unreadable disk stat).
+     *
+     * @return array{admit:bool, reason:string, free_mb:int}
+     */
+    public function admitRespawn(string $tmpRoot, int $minFreeMb): array
+    {
+        $freeBytes = @disk_free_space($tmpRoot);
+        $freeMb = $freeBytes === false ? PHP_INT_MAX : (int) floor($freeBytes / (1024 * 1024));
+
+        if ($freeMb < max(0, $minFreeMb)) {
+            return ['admit' => false, 'reason' => 'disk_floor', 'free_mb' => $freeMb];
+        }
+
+        return ['admit' => true, 'reason' => 'ok', 'free_mb' => $freeMb];
+    }
+
+    /**
      * GAP-2 (24h endurance) — reap LEAKED code-symbol rows from dead loop SCENARIO workspaces. sweepOrphans()
      * rm -rf's the workspace DIRS, but a SIGKILL'd materialization leaves its indexed
      * atlas_engineering_code_symbols rows behind FOREVER (the ~11.9M-row session-bootstrap OOM that 97% of
