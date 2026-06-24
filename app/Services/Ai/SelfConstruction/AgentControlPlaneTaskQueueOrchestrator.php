@@ -120,7 +120,7 @@ final class AgentControlPlaneTaskQueueOrchestrator
 
         $candidates = $this->queue->list(array_merge(['status' => 'claimable'], $filters));
         foreach ($candidates as $candidate) {
-            if (! $this->candidateCanBeClaimedByWorker($candidate)) {
+            if (! $this->candidateCanBeClaimedByWorker($candidate, $agentId)) {
                 continue;
             }
 
@@ -193,12 +193,18 @@ final class AgentControlPlaneTaskQueueOrchestrator
     }
 
     /** @param array<string, mixed> $candidate */
-    private function candidateCanBeClaimedByWorker(array $candidate): bool
+    private function candidateCanBeClaimedByWorker(array $candidate, string $agentId = ''): bool
     {
         if ((bool) data_get($candidate, 'task_packet.continuation_context.worker_executable', true) === false) {
             return false;
         }
         if ((bool) data_get($candidate, 'task_packet.continuation_context.operator_handoff_required', false)) {
+            return false;
+        }
+        // ANTI-LOOP: never re-serve a task to the SAME worker that just gave it back (else it pulls its own
+        // give-back instantly and spins forever). It stays available to OTHER workers.
+        $lastGiver = (string) data_get($candidate, 'metadata.last_give_back_by', '');
+        if ($lastGiver !== '' && $agentId !== '' && $lastGiver === $agentId) {
             return false;
         }
 
@@ -236,6 +242,55 @@ final class AgentControlPlaneTaskQueueOrchestrator
         }
 
         return $this->envelope('lease_release', ['release' => $release]);
+    }
+
+    /** A task given back this many times is DOOMED (no worker can do it as scoped) — quarantine it. The
+     *  per-worker re-serve is already prevented by the last-giver skip; this caps cross-worker bouncing. */
+    public const MAX_GIVE_BACKS = 8;
+
+    /**
+     * ANTI-LOOP give-back: release the task so ANOTHER worker can try, recording the giver (so it is never
+     * re-served to the same worker) and the count. After {@see MAX_GIVE_BACKS}, the task is DOOMED as scoped —
+     * quarantine it (blocked) instead of re-admitting it, so it can never cycle forever.
+     *
+     * @return array<string, mixed>
+     */
+    public function reportGiveBack(string $taskPacketId, string $leaseId, string $agentId, string $reason = 'client_reported_give_back'): array
+    {
+        $record = $this->queue->get($taskPacketId);
+        $count = (int) data_get($record, 'metadata.give_back_count', 0) + 1;
+
+        if ($count >= self::MAX_GIVE_BACKS) {
+            $this->quarantineClaimed($taskPacketId, $leaseId, $agentId, ['repeated_give_back_'.$count]);
+
+            return $this->envelope('give_back_quarantined', [
+                'task_packet_id' => $taskPacketId,
+                'give_back_count' => $count,
+                'reason' => 'doomed_after_repeated_give_back',
+            ]);
+        }
+
+        $release = $this->leases->release($leaseId, $agentId, ['reason' => $reason]);
+        if ((string) data_get($release, 'task_packet_id', $taskPacketId) !== '' && (string) ($release['status'] ?? '') === 'ok') {
+            $this->queue->updateStatus($taskPacketId, 'released', [
+                'lease_id' => $leaseId,
+                'release_reason' => $reason,
+                'give_back_count' => $count,
+                'last_give_back_by' => $agentId,
+            ]);
+            $this->queue->appendReceipt($taskPacketId, [
+                'receipt_kind' => 'task_given_back',
+                'agent_id' => $agentId,
+                'give_back_count' => $count,
+            ]);
+        }
+
+        return $this->envelope('given_back', [
+            'task_packet_id' => $taskPacketId,
+            'give_back_count' => $count,
+            'lease_released' => (string) ($release['status'] ?? '') === 'ok',
+            'release' => $release,
+        ]);
     }
 
     /**

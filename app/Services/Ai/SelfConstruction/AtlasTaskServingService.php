@@ -195,12 +195,16 @@ final class AtlasTaskServingService
             ]);
         }
 
-        // failed / give_back => release the lease; the reaper/CAS guarantees the task is reclaimable.
-        $result = $this->orchestrator->releaseLease($leaseId, $clientId, ['reason' => 'client_reported_'.$outcome]);
+        // failed / give_back => anti-loop release: another worker can retry, but NEVER the same worker that just
+        // gave it back, and a task given back MAX times is quarantined (never cycles forever).
+        $result = $this->orchestrator->reportGiveBack($taskPacketId, $leaseId, $clientId, 'client_reported_'.$outcome);
+        $event = (string) ($result['event'] ?? '');
 
         return $this->reportEnvelope('reported', $clientId, [
             'outcome' => $outcome,
-            'lease_released' => (string) data_get($result, 'release.status', '') === 'ok',
+            'lease_released' => in_array($event, ['given_back', 'give_back_quarantined'], true),
+            'quarantined' => $event === 'give_back_quarantined',
+            'give_back_count' => (int) ($result['give_back_count'] ?? 0),
             'task_packet_id' => $taskPacketId,
             'lease_id' => $leaseId,
             'result' => $result,

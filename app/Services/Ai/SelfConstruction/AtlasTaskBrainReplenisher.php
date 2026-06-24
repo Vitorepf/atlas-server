@@ -49,7 +49,7 @@ final class AtlasTaskBrainReplenisher
      * @param  array{docs_roots?:list<string>, max_files?:int}  $opts  comprehension build options for the scope
      * @return array<string, mixed>
      */
-    public function replenish(string $scopeRoot, int $targetMin = self::DEFAULT_TARGET_MIN_CLAIMABLE, int $maxPerRun = self::DEFAULT_MAX_PER_RUN, array $opts = []): array
+    public function replenish(string $scopeRoot, int $targetMin = self::DEFAULT_TARGET_MIN_CLAIMABLE, int $maxPerRun = self::DEFAULT_MAX_PER_RUN, array $opts = [], bool $includeOrphans = false): array
     {
         $targetMin = max(1, $targetMin);
         $maxPerRun = max(1, $maxPerRun);
@@ -67,7 +67,7 @@ final class AtlasTaskBrainReplenisher
             return array_merge($this->summary($scopeRoot, $before, $before, [], 'comprehension_failed'), ['error' => $e->getMessage()]);
         }
 
-        return $this->replenishFromModel($model, $scopeRoot, $targetMin, $maxPerRun, $before, $inspector);
+        return $this->replenishFromModel($model, $scopeRoot, $targetMin, $maxPerRun, $before, $inspector, $includeOrphans);
     }
 
     /**
@@ -83,10 +83,11 @@ final class AtlasTaskBrainReplenisher
         int $maxPerRun,
         ?int $before = null,
         ?AtlasTaskPacketQualityInspector $inspector = null,
+        bool $includeOrphans = false,
     ): array {
         $inspector ??= new AtlasTaskPacketQualityInspector;
         $before ??= $this->claimableDepth();
-        $candidates = $this->structureTasks($model);
+        $candidates = $this->structureTasks($model, $includeOrphans);
 
         $enqueued = [];
         $skippedExisting = 0;
@@ -136,45 +137,51 @@ final class AtlasTaskBrainReplenisher
      *
      * @return list<array<string,mixed>>
      */
-    public function structureTasks(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel $model): array
+    public function structureTasks(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel $model, bool $includeOrphans = false): array
     {
         $out = [];
 
-        // ORPHANS — built-but-unwired capabilities. Real evolution: make them genuinely used/complete.
-        foreach ($model->inventory as $item) {
-            if ((bool) ($item['is_orphan'] ?? false) !== true) {
-                continue;
-            }
-            $relPath = (string) ($item['rel_path'] ?? '');
-            $fqcn = (string) ($item['fqcn'] ?? '');
-            if ($relPath === '' || $fqcn === '') {
-                continue;
-            }
-            $callers = array_values(array_filter((array) ($model->callerPathsFor($relPath) ?? []), 'is_string'));
-            $allowed = array_values(array_unique(array_merge([$relPath], $callers)));
-            $short = $this->shortName($fqcn);
-
-            $out[] = $this->packet(
-                id: 'brain-orphan-'.substr(md5($fqcn), 0, 12),
-                objective: "Make the built-but-unused class {$short} ({$fqcn}) genuinely used. It exists in {$relPath} but no caller invokes it. Wire it into the right call site so the capability is actually exercised; if the only correct wiring is in a file outside your allowed_files, hand the task back (give_back) noting that file.",
-                allowed: $allowed,
-                accept: ["{$short} is invoked by a real caller (no longer an orphan)", 'the scope test suite passes'],
-            );
-        }
-
-        // DOC-STATED GAPS — capabilities the canonical docs demand but no symbol provides. Real evolution: build it.
+        // DOC-STATED GAPS — capabilities the canonical docs demand but no symbol provides. RESOLVABLE in-scope:
+        // a NEW class + its NEW test, both inside allowed_files (conflict-free; nothing existing to wire).
         foreach ($model->docStatedGaps as $gap) {
             $gap = trim((string) $gap);
             if ($gap === '') {
                 continue;
             }
             $newFile = $this->proposedPathForGap($gap);
+            $testFile = $this->proposedTestPathForGap($gap);
             $out[] = $this->packet(
                 id: 'brain-docgap-'.substr(md5($gap), 0, 12),
-                objective: "Implement the capability the canonical docs require but no symbol provides yet: \"{$gap}\". Create it as a new, tested class.",
-                allowed: [$newFile],
-                accept: ["a new class implementing \"{$gap}\" exists at {$newFile}", 'it has a passing test'],
+                objective: "Implement the capability the canonical docs require but no symbol provides yet: \"{$gap}\". Create a new class at {$newFile} (choose a sensible final name/namespace) AND a passing PHPUnit test at {$testFile}. Edit ONLY those two files.",
+                allowed: [$newFile, $testFile],
+                accept: ["a new class implementing \"{$gap}\" exists", "a PHPUnit test at {$testFile} passes"],
             );
+        }
+
+        // ORPHANS — built-but-unwired capabilities. The wiring target is a DIFFERENT file the comprehension can't
+        // pin deterministically, so an in-scope task tends to give_back. OFF by default (opt-in) — surfaced only
+        // when the operator wants the multi-file frontier. Honest: these are the model-bound hard ones.
+        if ($includeOrphans) {
+            foreach ($model->inventory as $item) {
+                if ((bool) ($item['is_orphan'] ?? false) !== true) {
+                    continue;
+                }
+                $relPath = (string) ($item['rel_path'] ?? '');
+                $fqcn = (string) ($item['fqcn'] ?? '');
+                if ($relPath === '' || $fqcn === '') {
+                    continue;
+                }
+                $callers = array_values(array_filter((array) ($model->callerPathsFor($relPath) ?? []), 'is_string'));
+                $allowed = array_values(array_unique(array_merge([$relPath], $callers)));
+                $short = $this->shortName($fqcn);
+
+                $out[] = $this->packet(
+                    id: 'brain-orphan-'.substr(md5($fqcn), 0, 12),
+                    objective: "Make the built-but-unused class {$short} ({$fqcn}) genuinely used. It exists in {$relPath} but no caller invokes it. Wire it into the right call site; if the only correct wiring is in a file outside your allowed_files, give_back noting that file.",
+                    allowed: $allowed,
+                    accept: ["{$short} is invoked by a real caller (no longer an orphan)", 'the scope test suite passes'],
+                );
+            }
         }
 
         return $out;
@@ -238,6 +245,15 @@ final class AtlasTaskBrainReplenisher
         $studly = $studly === '' ? 'Capability'.substr(md5($gap), 0, 6) : substr($studly, 0, 60);
 
         return 'app/Services/Ai/AutonomousEvolution/Generated/'.$studly.'.php';
+    }
+
+    private function proposedTestPathForGap(string $gap): string
+    {
+        $name = preg_replace('/[^A-Za-z0-9]+/', ' ', $gap) ?? $gap;
+        $studly = str_replace(' ', '', ucwords(trim((string) $name)));
+        $studly = $studly === '' ? 'Capability'.substr(md5($gap), 0, 6) : substr($studly, 0, 60);
+
+        return 'tests/Unit/Ai/AutonomousEvolution/Generated/'.$studly.'Test.php';
     }
 
     /**

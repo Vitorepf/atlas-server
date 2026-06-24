@@ -71,6 +71,47 @@ final class AtlasTaskServingGiveBackReclaimTest extends TestCase
         $this->assertNotSame($lease, $b['task']['lease_id'], 'the reclaim issues a fresh lease');
     }
 
+    public function test_a_worker_never_re_pulls_its_own_give_back(): void
+    {
+        // THE BUG: a give-back returned the task to claimable and the SAME worker pulled it again instantly,
+        // gave it back again, forever. Now the giver is skipped — it gets the next task (or honest empty).
+        $orch = $this->orchestrator();
+        $orch->prepareAndEnqueue(['task_packet' => $this->input('loop-1')]);
+        $serving = new AtlasTaskServingService($orch);
+
+        $a = $serving->next('worker-x');
+        $this->assertSame('served', $a['status']);
+        $serving->report('worker-x', $a['task']['task_packet_id'], $a['task']['lease_id'], ['outcome' => 'give_back']);
+
+        // The SAME worker pulls again — it must NOT get its own give-back back (no infinite loop).
+        $b = $serving->next('worker-x');
+        $this->assertSame('no_claimable_task', $b['status'], 'the worker does not get its own give-back re-served');
+
+        // But ANOTHER worker still can reclaim it.
+        $c = $serving->next('worker-y');
+        $this->assertSame('served', $c['status']);
+        $this->assertSame('loop-1', $c['task']['task_packet_id']);
+    }
+
+    public function test_a_task_given_back_too_many_times_is_quarantined(): void
+    {
+        $orch = $this->orchestrator();
+        $orch->prepareAndEnqueue(['task_packet' => $this->input('doomed-1')]);
+        $serving = new AtlasTaskServingService($orch);
+
+        // Bounce it across distinct workers until it crosses MAX_GIVE_BACKS → quarantined (no longer served).
+        for ($i = 0; $i < 12; $i++) {
+            $res = $serving->next('w'.$i);
+            if ($res['status'] !== 'served') {
+                break;
+            }
+            $serving->report('w'.$i, $res['task']['task_packet_id'], $res['task']['lease_id'], ['outcome' => 'give_back']);
+        }
+
+        $blocked = (new AgentControlPlaneTaskPacketQueueRepository)->get('doomed-1');
+        $this->assertSame('blocked', (string) ($blocked['status'] ?? ''), 'a perpetually-given-back task is quarantined, never cycles forever');
+    }
+
     private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator
     {
         return new AgentControlPlaneTaskQueueOrchestrator(

@@ -24,6 +24,7 @@ class AtlasTaskReplenishCommand extends Command
         {--target=20 : keep the queue at >= this many claimable tasks}
         {--max=40 : max tasks to mint per pass}
         {--docs-root=* : optional docs roots for the comprehension (doc-stated gaps)}
+        {--with-orphans : ALSO mint orphan-wiring tasks (multi-file, model-bound — often give_back; OFF by default)}
         {--dry-run : structure tasks and report, but enqueue nothing}
         {--watch : keep topping up on an interval (Ctrl-C to stop)}
         {--every=120 : seconds between passes in --watch}
@@ -54,7 +55,7 @@ class AtlasTaskReplenishCommand extends Command
         }
 
         do {
-            $result = $replenisher->replenish($scope, $target, $max, $opts);
+            $result = $replenisher->replenish($scope, $target, $max, $opts, (bool) $this->option('with-orphans'));
             $this->report($result);
             if ($this->option('watch')) {
                 sleep(max(10, (int) $this->option('every')));
@@ -80,7 +81,7 @@ class AtlasTaskReplenishCommand extends Command
 
             return self::FAILURE;
         }
-        $tasks = $replenisher->structureTasks($model);
+        $tasks = $replenisher->structureTasks($model, (bool) $this->option('with-orphans'));
 
         if ($this->option('json')) {
             $this->line((string) json_encode(['scope' => $scope, 'structured' => count($tasks), 'tasks' => $tasks], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));

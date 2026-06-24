@@ -28,29 +28,29 @@ final class AtlasTaskBrainReplenisherTest extends TestCase
         Storage::fake('local');
     }
 
-    public function test_structures_real_tasks_from_orphans_and_doc_gaps(): void
+    public function test_structures_resolvable_doc_gap_tasks_by_default(): void
     {
-        $model = $this->model();
-        $tasks = (new AtlasTaskBrainReplenisher($this->orchestrator()))->structureTasks($model);
+        $tasks = (new AtlasTaskBrainReplenisher($this->orchestrator()))->structureTasks($this->model());
 
-        $byId = [];
+        // DEFAULT = doc-gaps only — RESOLVABLE in-scope (new class + new test, both in allowed_files). Orphans
+        // (multi-file, give_back-prone) are excluded by default. NO proxy/coverage tasks (anti-Goodhart).
+        $this->assertCount(3, $tasks, 'one task per doc-gap');
         foreach ($tasks as $t) {
-            $byId[(string) $t['task_packet_id']] = $t;
+            $this->assertStringStartsWith('brain-docgap-', $t['task_packet_id']);
+            // Resolvable: the new class file AND its new test file are BOTH in allowed_files (nothing to wire).
+            $this->assertCount(2, $t['allowed_files']);
+            $this->assertStringContainsString('tests/', implode(' ', $t['allowed_files']));
+            $this->assertSame(['tests_or_gates_result'], $t['required_evidence']);
         }
+    }
 
-        // 2 orphans + 1 doc-gap = 3 grounded tasks. NO test/coverage proxy tasks (anti-Goodhart).
-        $this->assertCount(3, $tasks);
+    public function test_orphans_are_opt_in(): void
+    {
+        $tasks = (new AtlasTaskBrainReplenisher($this->orchestrator()))->structureTasks($this->model(), includeOrphans: true);
+
         $orphan = array_values(array_filter($tasks, fn (array $t): bool => str_starts_with($t['task_packet_id'], 'brain-orphan-')));
-        $gap = array_values(array_filter($tasks, fn (array $t): bool => str_starts_with($t['task_packet_id'], 'brain-docgap-')));
-        $this->assertCount(2, $orphan);
-        $this->assertCount(1, $gap);
-
-        // An orphan task is grounded in the real symbol + its own file, and is self-sufficient.
-        $o = $orphan[0];
-        $this->assertStringContainsString('Orphan', $o['objective']);
-        $this->assertContains('app/Demo/OrphanOne.php', array_merge(...array_map(fn (array $t): array => $t['allowed_files'], $orphan)));
-        $this->assertNotEmpty($o['acceptance_criteria']);
-        $this->assertSame(['tests_or_gates_result'], $o['required_evidence']);
+        $this->assertCount(2, $orphan, 'orphan tasks appear only when explicitly requested');
+        $this->assertStringContainsString('Orphan', $orphan[0]['objective']);
     }
 
     public function test_replenish_fills_the_serving_queue_and_is_idempotent(): void
@@ -98,7 +98,11 @@ final class AtlasTaskBrainReplenisherTest extends TestCase
             cloneClusters: [],
             forbidden: [],
             docPurposes: [],
-            docStatedGaps: ['a durable retry budget for provider calls'],
+            docStatedGaps: [
+                'a durable retry budget for provider calls',
+                'a circuit breaker for the lease registry',
+                'an append-only audit of every served packet',
+            ],
             snapshotId: 'test-snap',
         );
     }

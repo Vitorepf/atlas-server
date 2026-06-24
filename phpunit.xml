@@ -25,6 +25,7 @@
         <ini name="memory_limit" value="4096M"/>
         <env name="APP_ENV" value="testing"/>
         <env name="ATLAS_TOKEN" value="testing-atlas-token-with-enough-length"/>
+        <env name="ATLAS_TASK_SERVING_QUEUE_DISK" value="local"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="ATLAS_AI_PROVIDER_PROJECTION_LEAN_NESTED" value="false"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
