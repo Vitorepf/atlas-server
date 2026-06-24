@@ -32,9 +32,9 @@ class MarketSophisticationRouter
         4 => ['strategy' => 'new_unique_mechanism', 'forge_mechanism' => true,
             'moves' => ['mechanism_tease', 'contrarian_truth', 'forbidden_discovery'],
             'why' => 'O mecanismo comum saturou: precisa de um mecanismo NOVO/proprietário e diferenciado.'],
-        5 => ['strategy' => 'identify_and_experience', 'forge_mechanism' => false,
-            'moves' => ['hook_story_open', 'identity_threat', 'common_enemy', 'new_category'],
-            'why' => 'Mercado exausto, cético de tudo: pare de argumentar o mecanismo — IDENTIFIQUE-SE (vire o leitor), história, nova categoria, inimigo comum.'],
+        5 => ['strategy' => 'identify_and_experience', 'forge_mechanism' => true,
+            'moves' => ['hook_story_open', 'identity_threat', 'common_enemy', 'new_category', 'mechanism_tease'],
+            'why' => 'Mercado exausto, cético de tudo: NÃO abandone o mecanismo — ENVELOPE-O na identidade/história. Lidera com identificação (vire o leitor), inimigo comum, nova categoria, e o mecanismo proprietário repaginado por dentro (nicho saúde top está aqui e ainda lidera com mecanismo).'],
     ];
 
     public function normalize(int|string $level): int

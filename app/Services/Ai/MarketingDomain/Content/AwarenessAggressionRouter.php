@@ -15,11 +15,15 @@ class AwarenessAggressionRouter
 {
     /** awareness stage → ordered aggressive tactic keys that fit it (highest-fit first). */
     private const ROUTE = [
-        'unaware' => ['fear_amplification', 'conspiracy_enemy', 'social_proof_pressure', 'future_pacing_vivid', 'guilt_shame_trigger'],
-        'problem_aware' => ['fear_amplification', 'guilt_shame_trigger', 'conspiracy_enemy', 'social_proof_pressure', 'future_pacing_vivid'],
+        // unaware: story/enemy/dream FIRST (make them recognize the problem); fear after; NO social
+        // proof (it presupposes the reader already owns the problem).
+        'unaware' => ['conspiracy_enemy', 'future_pacing_vivid', 'fear_amplification', 'guilt_shame_trigger'],
+        // problem_aware: the external ENEMY mobilizes (above guilt, which demobilizes).
+        'problem_aware' => ['fear_amplification', 'conspiracy_enemy', 'guilt_shame_trigger', 'future_pacing_vivid', 'social_proof_pressure'],
         'solution_aware' => ['authority_borrowing', 'social_proof_pressure', 'future_pacing_vivid', 'price_anchoring_extreme', 'identity_threat'],
         'product_aware' => ['price_anchoring_extreme', 'risk_reversal_aggressive', 'manufactured_scarcity', 'rival_loss', 'identity_threat'],
-        'most_aware' => ['manufactured_scarcity', 'false_deadline', 'price_anchoring_extreme', 'risk_reversal_aggressive', 'rival_loss'],
+        // most_aware compares the DEAL: lead with price/offer/risk-reversal; scarcity+deadline CLOSE.
+        'most_aware' => ['price_anchoring_extreme', 'risk_reversal_aggressive', 'rival_loss', 'manufactured_scarcity', 'false_deadline'],
     ];
 
     private const RATIONALE = [
