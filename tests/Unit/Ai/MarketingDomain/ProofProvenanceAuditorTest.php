@@ -44,6 +44,22 @@ class ProofProvenanceAuditorTest extends TestCase
         $this->assertSame(0, $r['count']);
     }
 
+    public function test_bare_claims_are_flagged_as_highest_risk(): void
+    {
+        // Pure label-claims, nothing checkable anywhere → bare (highest fabrication/compliance risk).
+        $r = (new ProofProvenanceAuditor)->audit('As seen on CBS. Dr. Smith confirms this works.');
+        $this->assertGreaterThanOrEqual(1, $r['bare_count']);
+        $this->assertFalse($r['requires_proof'][0]['anchored'], 'bare claim must be tagged not-anchored');
+    }
+
+    public function test_a_checkable_anchor_lowers_the_risk_tag(): void
+    {
+        // A year + journal reference gives something to verify → anchored (still needs backing, lower risk).
+        $r = (new ProofProvenanceAuditor)->audit('Dr. Smith, in a 2019 study published in a peer-reviewed journal, confirmed it.');
+        $this->assertSame(0, $r['bare_count']);
+        $this->assertTrue($r['requires_proof'][0]['anchored']);
+    }
+
     public function test_counts_multiple_distinct_claim_types(): void
     {
         $copy = 'Dr. Smith confirms it. As seen on NBC. "It changed my life" — Ana, 52. '
