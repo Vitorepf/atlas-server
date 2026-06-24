@@ -56,8 +56,9 @@ class KeywordIntelligencePipeline
             'mined' => (array) ($opts['mined_negatives'] ?? []),
         ]);
 
-        // L12 — seleção launch-ready + Decision-Receipt por keyword
-        $launch = $this->dossier->select($quality['scored']);
+        // L12 — seleção launch-ready + Decision-Receipt por keyword. compliance_mode default OFF: o motor
+        // recomenda a malícia agressiva; quarentena de risco-de-conta só quando o operador pede o fluxo.
+        $launch = $this->dossier->select($quality['scored'], 5, ['compliance_mode' => (bool) ($opts['compliance_mode'] ?? false)]);
 
         $fingerprint = $this->fingerprint($asset, $econ);
 

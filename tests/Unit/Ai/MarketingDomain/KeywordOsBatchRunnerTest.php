@@ -51,9 +51,10 @@ class KeywordOsBatchRunnerTest extends TestCase
             }
             $this->assertSame(40, strlen($row['run_hash']));
         }
-        // the weight-loss offer (retatrutide) must surface high-risk keywords for the operator.
-        $highRisk = array_sum(array_column($a['ledger'], 'high_risk_count'));
-        $this->assertGreaterThan(0, $highRisk);
+        // por padrão NADA é quarentenado: a malícia agressiva (retatrutide) é RECOMENDADA (compliance é
+        // fluxo separado que o operador invoca) — coerente com a constituição anti-limite no motor.
+        $this->assertSame(0, array_sum(array_column($a['ledger'], 'high_risk_count')));
+        $this->assertGreaterThan(0, array_sum(array_column($a['ledger'], 'recommended_count')));
     }
 
     public function test_changing_economics_changes_the_batch(): void

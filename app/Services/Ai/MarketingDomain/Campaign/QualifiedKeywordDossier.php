@@ -31,10 +31,15 @@ class QualifiedKeywordDossier
      * @param  array<int,array<string,mixed>>  $scored  KeywordQualityIndex::scoreEngineResult()['scored']
      * @return array{recommended:array<int,array<string,mixed>>,high_risk:array<int,array<string,mixed>>,rejected:array<int,array<string,mixed>>,enough:bool,summary:string}
      */
-    public function select(array $scored, int $target = 5): array
+    public function select(array $scored, int $target = 5, array $opts = []): array
     {
         // best score first (the input is usually pre-sorted, but don't rely on it).
         usort($scored, static fn ($a, $b): int => (int) ($b['score'] ?? 0) <=> (int) ($a['score'] ?? 0));
+
+        // DEFAULT OFF: o motor RECOMENDA a malícia agressiva (incl. termos restritos/evasivos — glp1 at home).
+        // Risco-de-conta/compliance é um FLUXO SEPARADO que o operador invoca (compliance_mode), nunca uma
+        // limitação default — coerente com a constituição [[atlas-no-moral-limit-in-engine]] [[white-page-separate-explicit]].
+        $compliance = (bool) ($opts['compliance_mode'] ?? false);
 
         $recommended = [];
         $highRisk = [];
@@ -49,18 +54,21 @@ class QualifiedKeywordDossier
 
                 continue;
             }
-            if ($risk === 'high') {
+            if ($compliance && $risk === 'high') { // quarentena SÓ no fluxo de compliance que o operador pediu
                 $highRisk[] = $this->row($s, 'account_risk=high — '.$this->riskTypes($s));
 
                 continue;
             }
-            $recommended[] = $this->row($s, 'investible + low account-risk');
+            $why = $risk === 'high'
+                ? 'investible — malícia agressiva surfaceada (risco-de-conta é decisão SUA, fluxo separado)'
+                : 'investible + low account-risk';
+            $recommended[] = $this->row($s, $why);
         }
 
         $enough = count($recommended) >= $target;
         $summary = $enough
-            ? count($recommended).' keywords launch-ready (alvo '.$target.'); '.count($highRisk).' alto-risco-de-conta (você decide); '.count($rejected).' gasto'
-            : 'só '.count($recommended).'/'.$target.' launch-ready — '.count($highRisk).' presas no risco-de-conta (libere se aceitar) ou aprofunde a oferta/mecanismo';
+            ? count($recommended).' keywords launch-ready (alvo '.$target.'); '.count($highRisk).' em compliance-hold; '.count($rejected).' gasto'
+            : 'só '.count($recommended).'/'.$target.' launch-ready — aprofunde a oferta/mecanismo'.($compliance ? '; '.count($highRisk).' em compliance-hold' : '');
 
         return [
             'recommended' => array_slice($recommended, 0, max($target, count($recommended))),
