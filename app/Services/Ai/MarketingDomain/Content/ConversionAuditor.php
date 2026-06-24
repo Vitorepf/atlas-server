@@ -39,6 +39,7 @@ class ConversionAuditor
         private readonly CopySmellDetector $smells = new CopySmellDetector,
         private readonly WatchThroughLeakDetector $leaks = new WatchThroughLeakDetector,
         private readonly DecisionClarityAuditor $decision = new DecisionClarityAuditor,
+        private readonly ValueEquationAuditor $valueEquation = new ValueEquationAuditor,
     ) {
         // When the auditor is built without an explicit hybrid scorer, wire one by default — this
         // way passing a niche to audit() activates learned weights automatically (no rewiring needed
@@ -105,11 +106,13 @@ class ConversionAuditor
             // social/authority/value/identity pressure). A CAPABILITY signal — spy competitors + a deploy
             // target — NOT a guard. No brake; what ships is the operator's call.
             'aggression' => $this->scorer->score(new AggressiveConversionTacticsLibrary, $copy),
+            // Value Equation completeness (Hormozi, Eixo 5): which of the 4 levers the offer leaves unanswered.
+            'value_equation' => $this->valueEquation->audit($copy),
             'smells_count' => $smellReport['n'],
             // Confidence layer (cycles 43-45 meta-lesson): never let a vocabulary prior pass as proven
             // conversion. Each signal is labeled by how much it can be trusted.
             'signal_confidence' => [
-                'structural_truth' => ['structural_flaws', 'decision_flaws', 'smells'],
+                'structural_truth' => ['structural_flaws', 'decision_flaws', 'value_equation (gaps)', 'smells'],
                 'heuristic_prior' => ['by_library', 'audience_score', 'top_missing'],
                 'calibrated' => $useHybrid ? ['by_library (niche='.$niche.', se ledger ≥30 outcomes)'] : [],
                 'note' => 'structural_flaws = FATOS estruturais true-positive (vazamento de reveal/CTA). '
