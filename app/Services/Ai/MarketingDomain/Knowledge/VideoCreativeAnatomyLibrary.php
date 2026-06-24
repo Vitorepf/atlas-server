@@ -27,7 +27,7 @@ class VideoCreativeAnatomyLibrary implements PatternLibrary
 
     public function categories(): array
     {
-        return ['hook_3s', 'pattern_interrupt', 'format', 'proof_device', 'malicia', 'cta'];
+        return ['hook_3s', 're_hook', 'pattern_interrupt', 'format', 'proof_device', 'malicia', 'cta'];
     }
 
     /**
@@ -61,6 +61,20 @@ class VideoCreativeAnatomyLibrary implements PatternLibrary
                 'trigger' => 'Entrar no clímax de uma cena/história prende — o cérebro precisa do contexto.',
                 'lever' => 'Abre no pico emocional ("The day my doctor said…") sem setup.',
                 'markers' => ['the day ', 'no dia em que', 'i remember', 'eu lembro', 'there i was', 'lá estava eu', 'my doctor said', 'meu médico disse']],
+
+            // ── RE-HOOKS / OPEN LOOPS (retention curve — the cure for the flat middle) ───────────
+            ['key' => 'vc_rehook_escalation', 'name' => 'Escalada de stakes ("it gets worse")', 'category' => 're_hook', 'weight' => 5,
+                'trigger' => 'Reabrir um loop maior bem quando o anterior fecha mantém o cérebro preso — a curva de retenção não cai.',
+                'lever' => '"Mas espera, fica pior…", "e essa nem é a pior parte", "plot twist" — escala a aposta a cada trecho.',
+                'markers' => ['it gets worse', 'gets worse', 'but wait', 'plot twist', 'here is where it gets', 'and that is not even', 'the worst part', 'mas espera', 'fica pior', 'e não é nem o pior', 'a pior parte']],
+            ['key' => 'vc_rehook_forward_promise', 'name' => 'Promessa adiada (open loop no meio)', 'category' => 're_hook', 'weight' => 4,
+                'trigger' => 'Prometer uma revelação logo à frente faz o espectador ficar pra fechar o loop.',
+                'lever' => '"Em um segundo eu te mostro…", "antes disso, você precisa ver…", "continue assistindo".',
+                'markers' => ['in a second', 'in just a moment', 'before i show you', 'keep watching', 'stay with me', 'wait until you see', 'coming up', 'em um segundo', 'antes disso', 'continue assistindo', 'fica até o fim']],
+            ['key' => 'vc_rehook_callback', 'name' => 'Callback / "lembra disso?"', 'category' => 're_hook', 'weight' => 3,
+                'trigger' => 'Retomar uma pergunta/loop aberto antes reativa a atenção e prova que vale ficar.',
+                'lever' => '"Lembra daquilo que falei no início? Agora faz sentido…" — paga um loop e abre outro.',
+                'markers' => ['remember what i said', 'remember that', 'told you earlier', 'now it makes sense', 'lembra do que', 'lá no início', 'agora faz sentido']],
 
             // ── PACING / STRUCTURE ───────────────────────────────────────────────────────────────
             ['key' => 'vc_pattern_interrupt_visual', 'name' => 'Cortes/zoom/legenda dinâmica', 'category' => 'pattern_interrupt', 'weight' => 3,
