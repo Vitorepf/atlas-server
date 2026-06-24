@@ -17,6 +17,13 @@ namespace App\Services\Ai\MarketingDomain\Campaign;
  */
 class QualifiedKeywordDossier
 {
+    private KeywordKnowledgeCore $knowledge;
+
+    public function __construct(?KeywordKnowledgeCore $knowledge = null)
+    {
+        $this->knowledge = $knowledge ?? new KeywordKnowledgeCore;
+    }
+
     /**
      * @param  array<int,array<string,mixed>>  $scored  KeywordQualityIndex::scoreEngineResult()['scored']
      * @return array{recommended:array<int,array<string,mixed>>,high_risk:array<int,array<string,mixed>>,rejected:array<int,array<string,mixed>>,enough:bool,summary:string}
@@ -58,7 +65,19 @@ class QualifiedKeywordDossier
             'rejected' => $rejected,
             'enough' => $enough,
             'summary' => $summary,
+            'knowledge' => $this->knowledgeBasis(), // proveniência: as leis canônicas (L0) em que a decisão se apoia
         ];
+    }
+
+    /** The canonical laws (KeywordKnowledgeCore) the launch decision rests on — provenance / Decision-Receipt seed. */
+    private function knowledgeBasis(): array
+    {
+        $cites = array_values(array_filter(array_map(
+            fn (string $id) => $this->knowledge->cite($id),
+            ['breakeven-epc', 'rule-of-three', 'restricted-drug-suspension', 'exclusion-over-attraction'],
+        )));
+
+        return ['core_version' => KeywordKnowledgeCore::VERSION, 'laws' => $cites];
     }
 
     /** @param array<string,mixed> $s @return array<string,mixed> */
