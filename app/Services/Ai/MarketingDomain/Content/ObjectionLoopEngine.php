@@ -51,7 +51,7 @@ class ObjectionLoopEngine
         // 3. Take-away (reactance + status scarcity).
         $takeaway = "And to be honest, this is not for everyone — only for the people actually ready for {$dream}. If that is not you yet, no hard feelings.";
         // 4. Re-ask (assumptive next step, loops back to the offer).
-        $reask = "But if it is — does that make sense so far? Then the only next step is to watch the free presentation and see it for yourself.";
+        $reask = "But if it is — does that make sense so far? Then the next step is simple: watch the free presentation and see it for yourself.";
 
         $steps = ['acknowledge' => $acknowledge, 'reframe' => $reframe, 'takeaway' => $takeaway, 'reask' => $reask];
 

@@ -52,6 +52,9 @@ class StructuredFunnelComposer
         $timeframe = $this->timeframe($asset);
         $timeLine = $timeframe !== '' ? "The first changes can show in {$timeframe}." : '';
         $easeLine = $this->easeClaim($asset);
+        // Pillar 1: handle the top objection with a Belfort re-close loop (sell to the resistant) — the
+        // generated page doesn't just pitch, it reframes the hesitation right before the ask.
+        $objectionLoop = (new ObjectionLoopEngine)->loop($asset)['loop'];
         // Eixo 7: plant REAL concrete proof from the asset when it has any; else keep the producer slot.
         $proof = $this->proof($asset);
         $proofLine = $proof !== '' ? $proof : '[PROOF SLOT: o caso/depoimento/estudo mais forte da oferta]';
@@ -86,6 +89,7 @@ class StructuredFunnelComposer
             "Imagine {$wound['dream']}.",                                                  // future pacing (niche dream / Value Eq: dream outcome)
             $timeLine,                                                                      // Value Eq: time delay ↓ — ONLY if the asset gives a real timeframe
             $easeLine,                                                                      // Value Eq: effort ↓ — ONLY if the asset names a removed effort
+            $objectionLoop,                                                                 // Pillar 1: Belfort re-close loop for the top objection (sell to the resistant), before the ask
             'Watch the free presentation now — spots are limited.',                         // single CTA (end) + scarcity
         ])));
 
