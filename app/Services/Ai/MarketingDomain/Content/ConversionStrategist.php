@@ -22,6 +22,8 @@ class ConversionStrategist
         private readonly ValueEquationAuditor $valueEquation = new ValueEquationAuditor,
         private readonly MechanismNameForge $forge = new MechanismNameForge,
         private readonly ProofSubstanceAuditor $proof = new ProofSubstanceAuditor,
+        private readonly BigIdeaLeadForge $lead = new BigIdeaLeadForge,
+        private readonly ObjectionLoopEngine $objectionLoop = new ObjectionLoopEngine,
     ) {}
 
     /**
@@ -70,6 +72,10 @@ class ConversionStrategist
             // Proof is the #1 lever — surface its CONCRETENESS, not just whether the offer mentions it.
             'proof' => ['concrete' => $proof['concrete'], 'vague' => $proof['vague'], 'has_concrete' => $proof['has_concrete'], 'note' => $proof['note']],
             'aggression_order' => $aggressionOrder,
+            // The raw author-ready material so this plan is a COMPLETE brief (pillar 2: hand the muscle a
+            // perfect package — the lead variants to open with, and the Belfort loop for the top objection).
+            'lead' => $this->lead->forge($asset),
+            'objection_loop' => $this->objectionLoop->loop($asset),
             'summary' => $summary.($proof['has_concrete'] ? '' : ' ⚠ PROVA fraca: '.$proof['note']),
         ];
     }

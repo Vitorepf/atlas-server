@@ -53,6 +53,20 @@ class ConversionStrategistTest extends TestCase
         $this->assertTrue($plan['offer_gaps'][0]['high_leverage']);
     }
 
+    public function test_plan_is_a_complete_author_brief_with_lead_and_objection_loop(): void
+    {
+        // Pillar 2: the plan must hand the author a COMPLETE package — the lead to open with and the
+        // Belfort loop for the top objection — not just the strategy.
+        $plan = (new ConversionStrategist)->plan(new AiMarketingVslAsset([
+            'niche' => 'finance', 'awareness_level' => 'problem_aware', 'sophistication_level' => 4,
+            'core_promise' => 'grow your money', 'mechanism_name' => 'The Allocation Rule',
+        ]));
+        $this->assertArrayHasKey('lead', $plan);
+        $this->assertNotEmpty($plan['lead']['best']);
+        $this->assertArrayHasKey('objection_loop', $plan);
+        $this->assertArrayHasKey('reframe', $plan['objection_loop']['steps']);
+    }
+
     public function test_plan_surfaces_proof_concreteness_the_number_one_lever(): void
     {
         $strategist = new ConversionStrategist;
