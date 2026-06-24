@@ -88,6 +88,9 @@ final class AtlasLoopQueueRefiller
     /** D2 — substantive (bug/feature/self-improvement/material-refactor) tasks minted this refill; the relative-cap base. */
     private int $substantiveMintedThisRefill = 0;
 
+    /** P1 observability — bug-reproduction tasks minted in the current refill. */
+    private int $bugReproductionMintedThisRefill = 0;
+
     /**
      * P1-A — the request-scoped memoizing comprehension queries, keyed by (repoRoot, opts) signature. The
      * dedup and orphan-wiring lanes build with IDENTICAL empty-docs opts, so they share ONE query and the
@@ -318,7 +321,7 @@ final class AtlasLoopQueueRefiller
     /**
      * Discover + generate + enqueue up to $want new tasks for a campaign.
      *
-     * @return array{discovered:int, reopened:int, claimed:int, enqueued:int, quarantined:int, deferred:int, obra_candidates:int, failure_handle_harvest:array{status:string, scanned:int, harvested:int, dropped_environmental:int, dropped_unknown:int, dropped_unrunnable:int, dropped_ambiguous_target:int, write_failed:int}}
+     * @return array{discovered:int, reopened:int, claimed:int, enqueued:int, quarantined:int, deferred:int, dedup_minted:int, orphan_wiring_minted:int, doc_gap_minted:int, bug_reproduction_minted:int, obra_candidates:int, failure_handle_harvest:array{status:string, scanned:int, harvested:int, dropped_environmental:int, dropped_unknown:int, dropped_unrunnable:int, dropped_ambiguous_target:int, write_failed:int}}
      */
     public function refill(AtlasLoopCampaign $campaign, int $want): array
     {
@@ -326,6 +329,7 @@ final class AtlasLoopQueueRefiller
         $provider = (string) $campaign->provider; // '' => loop default (provider-agnostic)
         $this->coverageMintedThisRefill = 0; // C — reset the per-refill coverage portfolio cap
         $this->substantiveMintedThisRefill = 0; // D2 — reset the per-refill substantive-work counter
+        $this->bugReproductionMintedThisRefill = 0; // P1 — reset per-lane minted telemetry
         $this->comprehensionQueries = []; // P1-A — fresh comprehension memo per refill (never serve a stale model)
 
         // B0 — REAL WORK SUPPLY: harvest deterministic-RED handles from the configured phpunit JSON
@@ -494,19 +498,22 @@ final class AtlasLoopQueueRefiller
         // §5.6 DEDUP-SUPPLY LANE (default-OFF, fail-open): the BRAIN drives selection — the comprehension model's
         // clone clusters become CERTIFIABLE clone-unification tasks the proxy scan structurally cannot produce.
         // Flag OFF => returns 0 before any model build (refill byte-identical to today). Wrapped fail-open.
-        $enqueued += $this->tryDedupSupply($campaign, $provider, $repoRoot, $want);
+        $dedupMinted = $this->tryDedupSupply($campaign, $provider, $repoRoot, $want);
+        $enqueued += $dedupMinted;
 
         // §5.6 ORPHAN-WIRING SUPPLY LANE (default-OFF, fail-open): the BRAIN drives selection — the comprehension
         // model's ORPHANS (tested, built-but-unwired capabilities the proxy scan never surfaces) become wiring
         // DIRECTIVES the grinder routes to AtlasLoopOrphanWiringExecutionAdapter (engine authors the earned-RED
         // test + wiring; Guard 4e certifies). Flag OFF => returns 0 before any model build (byte-identical).
-        $enqueued += $this->tryOrphanWiringSupply($campaign, $provider, $repoRoot, $want);
+        $orphanWiringMinted = $this->tryOrphanWiringSupply($campaign, $provider, $repoRoot, $want);
+        $enqueued += $orphanWiringMinted;
 
         // §2 DOC-GAP SUPPLY LANE (default-OFF, fail-open): the BRAIN originates a capability the canonical
         // docs DEMAND but no symbol provides — a red→green feature directive (Guard 4 diff_earned certifies;
         // authoring is model-bound, §9-fenced). The proxy scan can NEVER surface it (it only sees code that
         // exists). Flag OFF => returns 0 before any model build (byte-identical). Wrapped fail-open.
-        $enqueued += $this->tryDocGapSupply($campaign, $provider, $repoRoot, $want);
+        $docGapMinted = $this->tryDocGapSupply($campaign, $provider, $repoRoot, $want);
+        $enqueued += $docGapMinted;
 
         // OBRA CANDIDATE PRODUCER (slice-1, default-OFF, fail-open): after discovery+enqueue,
         // scan the SAME claimed targets for high-leverage multi-file HUB clusters and park them
@@ -538,6 +545,10 @@ final class AtlasLoopQueueRefiller
             'enqueued' => $enqueued,
             'quarantined' => $quarantined,
             'deferred' => $deferred,
+            'dedup_minted' => $dedupMinted,
+            'orphan_wiring_minted' => $orphanWiringMinted,
+            'doc_gap_minted' => $docGapMinted,
+            'bug_reproduction_minted' => $this->bugReproductionMintedThisRefill,
             'obra_candidates' => $obraCandidates,
             'failure_handle_harvest' => $failureHandleHarvest,
             'failure_handle_external_stamp' => $failureHandleExternalStamp,
@@ -1835,7 +1846,12 @@ final class AtlasLoopQueueRefiller
         );
         $this->stampLastObjective($target, (string) $repro['objective']);
 
-        return $this->completeTargetEnqueue($target, $enq, 'bug_reproduction_task_synthesized');
+        $outcome = $this->completeTargetEnqueue($target, $enq, 'bug_reproduction_task_synthesized');
+        if ($outcome === 'enqueued') {
+            $this->bugReproductionMintedThisRefill++;
+        }
+
+        return $outcome;
     }
 
     /**
