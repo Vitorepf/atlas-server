@@ -56,4 +56,16 @@ class KeywordKnowledgeCoreTest extends TestCase
 
         $this->assertNull($this->k->cite('lei-inexistente'));
     }
+
+    public function test_has_the_ai_max_keywordless_law_web_verified_2025(): void
+    {
+        $law = $this->k->cite('ai-max-keywordless-2025');
+        $this->assertNotNull($law, 'AI Max for Search (mai/2025) é mecânica canônica do L0');
+        $this->assertStringContainsString('support.google.com', $law['source']);
+        $this->assertStringContainsString('keywordless', mb_strtolower($law['statement']));
+
+        // é descoberta/match (L2) e carrega a implicação de risco-de-conta (landing dirige a expansão)
+        $this->assertContains('ai-max-keywordless-2025', array_column($this->k->byLayer('L2'), 'id'));
+        $this->assertContains('ai-max-keywordless-2025', array_column($this->k->byTopic('account_risk'), 'id'));
+    }
 }

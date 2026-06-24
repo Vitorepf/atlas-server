@@ -17,7 +17,7 @@ namespace App\Services\Ai\MarketingDomain\Campaign;
  */
 class KeywordKnowledgeCore
 {
-    public const VERSION = '2025-06-24';
+    public const VERSION = '2026-06-24'; // +ai-max-keywordless-2025 (pesquisa web verificada na doc Google)
 
     /** @return array<int,array{id:string,layer:string,kind:string,topic:array<int,string>,statement:string,source:string,verified:string}> */
     public function entries(): array
@@ -71,6 +71,9 @@ class KeywordKnowledgeCore
             ['id' => 'text-intent-ceiling', 'layer' => 'L3', 'kind' => 'decision_rule', 'topic' => ['intent'],
                 'statement' => 'Classificar intenção só pelo texto tem teto de ~74% vs humano (Jansen/Booth/Spink 2008, 1,5M queries). O rótulo é PRIOR fraco; a SERP ao vivo é o oráculo. Intenção é DISTRIBUIÇÃO, não rótulo único.',
                 'source' => 'https://dl.acm.org/doi/10.1016/j.ipm.2007.07.015', 'verified' => '2008'],
+            ['id' => 'ai-max-keywordless-2025', 'layer' => 'L2', 'kind' => 'google_mechanic', 'topic' => ['match_type', 'account_risk', 'scale'],
+                'statement' => 'AI Max for Search (mai/2025): upgrade 1-clique que liga search-term matching = broad + KEYWORDLESS — expande além das keywords explícitas analisando a landing/VSL + criativos + URL (+ final-URL-expansion + text-customization). Uplift típico 27% em contas mais exact/phrase. PORÉM cede o controle de keyword e a LANDING passa a dirigir a expansão. Para afiliado: (a) keywordless gasta como broad abaixo do limiar 30-conv (queima exploração); (b) a VSL dirigindo a expansão ALARGA a superfície de droga-restrita (Google expande pra termos do conteúdo). Controles que viram a alavanca (verificado na doc): desligar search-term-matching (no ad group) e final-URL-expansion; brand inclusions/exclusions; URL inclusions/exclusions; locations of interest; negativas ainda valem, mas o sistema empurra exclusões de brand/URL como a precisão "que antes era keyword". Opt-in de olhos abertos, NÃO default p/ afiliado sub-limiar.',
+                'source' => 'https://support.google.com/google-ads/answer/15910187', 'verified' => '2025'],
         ];
     }
 
