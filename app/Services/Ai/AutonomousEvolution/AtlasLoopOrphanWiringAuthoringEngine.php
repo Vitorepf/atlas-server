@@ -21,6 +21,8 @@ namespace App\Services\Ai\AutonomousEvolution;
  */
 class AtlasLoopOrphanWiringAuthoringEngine
 {
+    private const MAX_WIRINGS = 4;
+
     /** @var (callable(string,string): ?string)|null  (provider, prompt) -> raw response text */
     private $complete;
 
@@ -64,7 +66,9 @@ class AtlasLoopOrphanWiringAuthoringEngine
                 return ['test_rel' => $parsed['test_rel'], 'test_command' => $parsed['test_command'], 'allowed_globs' => $parsed['allowed_globs']];
             },
             'author_wiring' => function () use ($workspace, $parsed): void {
-                $this->writeFile($workspace, $parsed['wiring_rel'], $parsed['wiring_content']);
+                foreach ($parsed['wirings'] as $wiring) {
+                    $this->writeFile($workspace, $wiring['rel'], $wiring['content']);
+                }
             },
             'meta' => ['test_rel' => $parsed['test_rel'], 'wiring_rel' => $parsed['wiring_rel']],
         ];
@@ -74,11 +78,11 @@ class AtlasLoopOrphanWiringAuthoringEngine
      * The strict, deterministic response contract: the provider MUST emit exactly these marker-delimited fields.
      * A malformed / partial response => null (the route degrades to no_winner). Returns the parsed authoring spec.
      *
-     * @return array{test_rel:string, test_command:string, test_content:string, wiring_rel:string, wiring_content:string, allowed_globs:list<string>}|null
+     * @return array{test_rel:string, test_command:string, test_content:string, wiring_rel:string, wiring_content:string, wirings:list<array{rel:string, content:string}>, allowed_globs:list<string>}|null
      */
     public function parse(string $response): ?array
     {
-        $fields = ['TEST_REL', 'TEST_COMMAND', 'TEST_CONTENT', 'WIRING_REL', 'WIRING_CONTENT'];
+        $fields = ['TEST_REL', 'TEST_COMMAND', 'TEST_CONTENT'];
         $out = [];
         foreach ($fields as $i => $field) {
             $open = '<<<'.$field.'>>>';
@@ -87,7 +91,10 @@ class AtlasLoopOrphanWiringAuthoringEngine
                 return null;
             }
             $start += strlen($open);
-            $closeMarker = '<<<'.($fields[$i + 1] ?? 'END').'>>>';
+            $closeMarker = '<<<'.($fields[$i + 1] ?? 'WIRING_REL').'>>>';
+            if ($field === 'TEST_CONTENT') {
+                $closeMarker = strpos($response, '<<<WIRING_REL_1>>>') !== false ? '<<<WIRING_REL_1>>>' : '<<<WIRING_REL>>>';
+            }
             $end = strpos($response, $closeMarker, $start);
             if ($end === false) {
                 return null;
@@ -96,13 +103,14 @@ class AtlasLoopOrphanWiringAuthoringEngine
         }
 
         $testRel = ltrim($out['TEST_REL'], '/');
-        $wiringRel = ltrim($out['WIRING_REL'], '/');
-        if ($testRel === '' || $out['TEST_CONTENT'] === '' || $wiringRel === '' || $out['WIRING_CONTENT'] === '') {
+        if ($testRel === '' || $out['TEST_CONTENT'] === '') {
             return null;
         }
-        // FENCE: the engine may only author a test under tests/ and wire a production file under app/ — never
-        // touch the judge/cert organs or escape the scope. A violating response is rejected (null).
-        if (! str_starts_with($testRel, 'tests/') || ! str_starts_with($wiringRel, 'app/')) {
+        $wirings = $this->parseWirings($response);
+        if ($wirings === null) {
+            return null;
+        }
+        if (! str_starts_with($testRel, 'tests/')) {
             return null;
         }
 
@@ -110,10 +118,87 @@ class AtlasLoopOrphanWiringAuthoringEngine
             'test_rel' => $testRel,
             'test_command' => $out['TEST_COMMAND'] !== '' ? $out['TEST_COMMAND'] : 'php '.$testRel,
             'test_content' => $out['TEST_CONTENT'],
-            'wiring_rel' => $wiringRel,
-            'wiring_content' => $out['WIRING_CONTENT'],
+            'wiring_rel' => $wirings[0]['rel'],
+            'wiring_content' => $wirings[0]['content'],
+            'wirings' => $wirings,
             'allowed_globs' => ['app/**'],
         ];
+    }
+
+    /**
+     * @return list<array{rel:string, content:string}>|null
+     */
+    private function parseWirings(string $response): ?array
+    {
+        if (strpos($response, '<<<WIRING_REL_1>>>') === false) {
+            return $this->parseLegacyWiring($response);
+        }
+
+        $wirings = [];
+        for ($i = 1; $i <= self::MAX_WIRINGS; $i++) {
+            $relMarker = '<<<WIRING_REL_'.$i.'>>>';
+            $contentMarker = '<<<WIRING_CONTENT_'.$i.'>>>';
+            if (strpos($response, $relMarker) === false) {
+                if ($i === 1) {
+                    return null;
+                }
+                break;
+            }
+            $rel = $this->between($response, $relMarker, $contentMarker);
+            $nextRelMarker = '<<<WIRING_REL_'.($i + 1).'>>>';
+            $contentClose = strpos($response, $nextRelMarker) !== false ? $nextRelMarker : '<<<END>>>';
+            $content = $this->between($response, $contentMarker, $contentClose);
+            if ($rel === null || $content === null) {
+                return null;
+            }
+            $rel = ltrim($rel, '/');
+            if ($rel === '' || $content === '' || ! str_starts_with($rel, 'app/')) {
+                return null;
+            }
+            $wirings[] = ['rel' => $rel, 'content' => $content];
+        }
+
+        if ($wirings === []) {
+            return null;
+        }
+        if (strpos($response, '<<<WIRING_REL_'.(self::MAX_WIRINGS + 1).'>>>') !== false) {
+            return null;
+        }
+
+        return $wirings;
+    }
+
+    /**
+     * @return list<array{rel:string, content:string}>|null
+     */
+    private function parseLegacyWiring(string $response): ?array
+    {
+        $rel = $this->between($response, '<<<WIRING_REL>>>', '<<<WIRING_CONTENT>>>');
+        $content = $this->between($response, '<<<WIRING_CONTENT>>>', '<<<END>>>');
+        if ($rel === null || $content === null) {
+            return null;
+        }
+        $rel = ltrim($rel, '/');
+        if ($rel === '' || $content === '' || ! str_starts_with($rel, 'app/')) {
+            return null;
+        }
+
+        return [['rel' => $rel, 'content' => $content]];
+    }
+
+    private function between(string $response, string $open, string $close): ?string
+    {
+        $start = strpos($response, $open);
+        if ($start === false) {
+            return null;
+        }
+        $start += strlen($open);
+        $end = strpos($response, $close, $start);
+        if ($end === false) {
+            return null;
+        }
+
+        return trim(substr($response, $start, $end - $start));
     }
 
     /**
