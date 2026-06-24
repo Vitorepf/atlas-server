@@ -46,6 +46,12 @@ class StructuredFunnelComposer
         // Default = MAXIMUM aggression (operator: sem freio). The market's raw wound/dream is woven in
         // niche-flavored, so the scaffold ships aggressive by construction (not generic).
         $wound = (new \App\Services\Ai\MarketingDomain\Knowledge\AggressiveConversionTacticsLibrary)->nicheWound((string) $asset->niche);
+        // Schwartz market sophistication picks the opener: an exhausted market (level 5) is deaf to
+        // claims/mechanism and only responds to IDENTIFICATION; earlier levels open with curiosity.
+        $exhausted = (new MarketSophisticationRouter)->strategy((string) $asset->sophistication_level)['strategy'] === 'identify_and_experience';
+        $pageHook = $exhausted
+            ? "{$avatar} I was exactly where you are with {$promise}{$heroLine} — and tired of everyone selling the same thing."
+            : "{$avatar} have you wondered why {$promise} stays out of reach{$heroLine}?";
 
         // ── AD: callout + hero promise (carries hero number) + soft CTA (free CONTENT, not the product).
         $ad = trim("{$avatar} {$promise}{$heroLine}. Watch the free presentation to see how — before it comes down.");
@@ -56,7 +62,7 @@ class StructuredFunnelComposer
 
         // ── PAGE: carries hero, builds before the reveal (mechanism named LATE), single CTA at the end.
         $page = trim(implode(' ', array_filter([
-            "{$avatar} have you wondered why {$promise} stays out of reach{$heroLine}?",   // hook (opening)
+            $pageHook,                                                                     // hook (sophistication-aware)
             'Most advice has it backwards, and it is not your fault.',                     // build
             "Every day you wait is another day {$wound['pain']}.",                         // fear (niche wound)
             'For a long time the real cause stayed hidden in plain sight.',                // build
