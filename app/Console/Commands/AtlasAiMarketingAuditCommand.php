@@ -58,6 +58,14 @@ class AtlasAiMarketingAuditCommand extends Command
             }
             $this->line('');
         }
+        if (! empty($audit['structural_flaws'])) {
+            $this->line('  <fg=yellow;options=bold>Vazamentos de watch-through (estrutura):</>');
+            foreach ($audit['structural_flaws'] as $f) {
+                $this->line('    <fg=yellow>⚠</> <fg=white;options=bold>'.$f['name'].'</> <fg=gray>(~'.$f['position'].'%)</>');
+                $this->line('      <fg=gray>'.$f['detail'].'</>');
+            }
+            $this->line('');
+        }
         if (! empty($audit['smells'])) {
             $this->line('  <fg=red;options=bold>Smells de copy VSL ('.$audit['smells_count'].'):</>');
             foreach ($audit['smells'] as $s) {
