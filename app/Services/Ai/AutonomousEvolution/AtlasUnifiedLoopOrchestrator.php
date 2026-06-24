@@ -531,11 +531,59 @@ final class AtlasUnifiedLoopOrchestrator
 
     private function heartbeat(string $runDir, int $cycle, array $cycleResult): void
     {
+        $threshold = max(1, (int) config('atlas.loop.unified.heartbeat_stale_seconds', 600));
         $this->writeJson($runDir.'/heartbeat.json', [
             'at' => time(),
             'cycle' => $cycle,
             'last_cycle' => $cycleResult,
+            'stale_threshold_seconds' => $threshold,
+            'process_pid' => getmypid(),
+            'wall_time_iso' => gmdate('c'),
         ]);
+        $this->touchAliveMarker($runDir.'/LIVE');
+    }
+
+    /**
+     * @return array{stale:bool, age_seconds:int, threshold:int, last_cycle:int, reason?:string}
+     */
+    public function staleness(string $runDir): array
+    {
+        $heartbeatPath = rtrim($runDir, '/').'/heartbeat.json';
+        $threshold = max(1, (int) config('atlas.loop.unified.heartbeat_stale_seconds', 600));
+        if (! is_file($heartbeatPath)) {
+            return [
+                'stale' => true,
+                'age_seconds' => 0,
+                'threshold' => $threshold,
+                'last_cycle' => 0,
+                'reason' => 'heartbeat_missing',
+            ];
+        }
+
+        $heartbeat = $this->readJson($heartbeatPath);
+        $threshold = max(1, (int) ($heartbeat['stale_threshold_seconds'] ?? $threshold));
+        $heartbeatMtime = @filemtime($heartbeatPath);
+        $ageSeconds = $heartbeatMtime === false ? 0 : max(0, time() - (int) $heartbeatMtime);
+
+        return [
+            'stale' => $ageSeconds > $threshold,
+            'age_seconds' => $ageSeconds,
+            'threshold' => $threshold,
+            'last_cycle' => max(0, (int) ($heartbeat['cycle'] ?? 0)),
+            'reason' => $ageSeconds > $threshold ? 'heartbeat_stale' : 'heartbeat_fresh',
+        ];
+    }
+
+    private function touchAliveMarker(string $path): void
+    {
+        @mkdir(dirname($path), 0o755, true);
+        $now = time();
+        $currentMtime = @filemtime($path);
+        $nextMtime = $currentMtime === false ? $now : max($now, ((int) $currentMtime) + 1);
+        if (! is_file($path)) {
+            @file_put_contents($path, "live\n");
+        }
+        @touch($path, $nextMtime);
     }
 
     // ---- persistence helpers ----
