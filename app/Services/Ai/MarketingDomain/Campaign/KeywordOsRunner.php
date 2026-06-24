@@ -15,26 +15,81 @@ use App\Models\AiMarketingVslAsset;
  */
 class KeywordOsRunner
 {
+    /** heads descritivos comuns que NÃO são nome coined (evita gerar mistype-junk de frase). */
+    private const COMMON_HEAD = ['triple', 'double', 'simple', 'natural', 'advanced', 'ultimate', 'premium', 'best', 'home', 'daily', 'super', 'secret'];
+
     public function __construct(
         private readonly KeywordIntelligencePipeline $pipeline = new KeywordIntelligencePipeline,
         private readonly BlackinkKeywordOutcomeFeed $outcomeFeed = new BlackinkKeywordOutcomeFeed,
         private readonly BlackinkSearchTermHarvester $harvester = new BlackinkSearchTermHarvester,
         private readonly BlackinkNegativeMiner $negativeMiner = new BlackinkNegativeMiner,
+        private readonly PhoneticMistypeForge $mistypeForge = new PhoneticMistypeForge,
+        private readonly CelebrityLaneForge $celebrityForge = new CelebrityLaneForge,
     ) {}
 
     /**
-     * PURO/determinístico: roda o pipeline com os feeds já materializados.
+     * PURO/determinístico: roda o pipeline com os feeds já materializados + a GERAÇÃO ofensiva (mistype do
+     * nome coined + celebrity-lane do ativo — regras #1 e #3 da dissecação das vendas reais).
      *
      * @param  array{calibration?:array<string,mixed>,discovered_terms?:array<int,string>,mined_negatives?:array<int,string>}  $feeds
      * @return array<string,mixed>
      */
     public function assemble(AiMarketingVslAsset $asset, array $econ, array $feeds): array
     {
+        $discovered = array_values(array_unique(array_merge(
+            array_values((array) ($feeds['discovered_terms'] ?? [])),
+            $this->generated($asset), // mistypes + celebrity-lane (puro ataque, gerado do ativo)
+        )));
+
         return $this->pipeline->run($asset, $econ, [
             'outcome_calibration' => (array) ($feeds['calibration'] ?? []),
-            'discovered_terms' => array_values((array) ($feeds['discovered_terms'] ?? [])),
+            'discovered_terms' => $discovered,
             'mined_negatives' => array_values((array) ($feeds['mined_negatives'] ?? [])),
         ]);
+    }
+
+    /**
+     * Geração ofensiva a partir do ativo: cone de mistype dos nomes coined (#1) + matriz celebrity-lane (#3).
+     *
+     * @return array<int,string>
+     */
+    public function generated(AiMarketingVslAsset $asset): array
+    {
+        $out = [];
+
+        // #1 mistypes do nome coined (head do owned-root), só quando o head parece coined (não frase comum)
+        foreach ($this->coinedRoots($asset) as $root) {
+            $tokens = preg_split('/\s+/', $root) ?: [];
+            $head = (string) ($tokens[0] ?? '');
+            $suffix = trim(mb_substr($root, mb_strlen($head)));
+            if (mb_strlen($head) >= 5 && preg_match('/^[a-z]+$/', $head) && ! in_array($head, self::COMMON_HEAD, true)) {
+                foreach ($this->mistypeForge->forge($head, $suffix !== '' ? [$suffix] : []) as $kw) {
+                    $out[] = $kw;
+                }
+            }
+        }
+
+        // #3 celebrity-lane (autoridade × domínio-do-nicho × substantivo-de-posse)
+        $celebs = (array) (($asset->persuasion_devices['authority'] ?? []));
+        if ($celebs !== []) {
+            $domain = mb_strtolower(trim((string) $asset->niche));
+            foreach ($this->celebrityForge->forge($celebs, $domain !== '' ? [$domain] : []) as $row) {
+                $out[] = $row['keyword'];
+            }
+        }
+
+        return array_values(array_unique($out));
+    }
+
+    /** @return array<int,string> owned-roots coined (mechanism/trick/slogans), normalizados. */
+    private function coinedRoots(AiMarketingVslAsset $asset): array
+    {
+        $raw = array_merge([$asset->mechanism_name, $asset->trick], array_values((array) ($asset->power_phrases ?? [])));
+
+        return array_values(array_unique(array_filter(
+            array_map(fn ($s) => mb_strtolower(trim((string) $s)), $raw),
+            fn ($s) => $s !== '',
+        )));
     }
 
     /**

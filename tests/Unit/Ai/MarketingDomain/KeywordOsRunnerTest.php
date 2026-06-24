@@ -40,6 +40,27 @@ class KeywordOsRunnerTest extends TestCase
         $this->assertContains('recipe weight', $r['negatives']['flat'], 'o negativo do waste real entra no dossiê');
     }
 
+    public function test_generates_mistypes_and_celebrity_lane_from_the_asset(): void
+    {
+        $asset = new AiMarketingVslAsset([
+            'mechanism_name' => 'orivelle', 'trick' => '', 'niche' => 'nail fungus',
+            'persuasion_devices' => ['authority' => ['Sanjay Gupta']],
+            'offer' => ['product_name' => 'X'],
+        ]);
+        $gen = (new KeywordOsRunner)->generated($asset);
+
+        $this->assertContains('orvelle', $gen, 'gera o mistype que vendeu 335×');
+        $this->assertContains('orville', $gen, 'gera o mistype que vendeu 138×');
+        $this->assertNotEmpty(array_filter($gen, fn ($k) => str_contains($k, 'sanjay gupta') && str_contains($k, 'supplement')));
+    }
+
+    public function test_does_not_generate_junk_from_descriptive_phrase_heads(): void
+    {
+        // "Triple Hormone Drops Protocol" — head "triple" é frase comum, não nome coined → sem mistype-junk
+        $gen = (new KeywordOsRunner)->generated($this->asset());
+        $this->assertEmpty(array_filter($gen, fn ($k) => str_starts_with($k, 'triple') || str_starts_with($k, 'trip')));
+    }
+
     public function test_assemble_is_deterministic(): void
     {
         $runner = new KeywordOsRunner;
