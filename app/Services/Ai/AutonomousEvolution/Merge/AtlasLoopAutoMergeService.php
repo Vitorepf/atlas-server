@@ -22,7 +22,41 @@ final class AtlasLoopAutoMergeService
         private readonly AtlasLoopAutoMergePreFlightGate $preFlight,
         private readonly ?AtlasLoopAutoMergeConflictDetector $conflictDetector = null,
         private readonly ?AtlasLoopAutoMergeReverseAuditor $reverseAuditor = null,
+        private readonly ?AtlasLoopAutoMergeReceiptLedger $receiptLedger = null,
     ) {}
+
+    /**
+     * Build + write one receipt covering the just-decided outcome. Every return path of {@see autoMerge()}
+     * calls this exactly once before returning, so the ledger reflects every allow / refuse / merge / rollback.
+     *
+     * @param  array<string,mixed>  $preflight
+     * @param  array<string,mixed>  $proposal
+     * @param  array<string,mixed>|null  $reverseAudit
+     */
+    private function recordReceipt(
+        array $preflight,
+        array $proposal,
+        ?string $conflictVerdict,
+        ?array $reverseAudit,
+        string $outcome,
+        ?string $headShaAfter,
+    ): void {
+        if ($this->receiptLedger === null) {
+            return;
+        }
+        $this->receiptLedger->record([
+            'proposal_id' => (string) ($proposal['proposal_id'] ?? ($proposal['branch'] ?? '')),
+            'base_sha' => (string) ($proposal['base_sha'] ?? ''),
+            'head_sha_before' => $preflight['head_sha'] ?? null,
+            'head_sha_after' => $headShaAfter,
+            'gate_verdicts' => [
+                'preflight' => (string) ($preflight['allow'] ?? false ? 'allow' : ($preflight['reason'] ?? 'refuse')),
+                'conflict' => $conflictVerdict,
+                'reverse' => $reverseAudit === null ? null : (string) ($reverseAudit['verdict'] ?? ''),
+            ],
+            'outcome' => $outcome,
+        ]);
+    }
 
     /**
      * Attempt an auto-merge for $proposal, gated by the pre-flight check AND (when wired) the conflict
@@ -40,6 +74,8 @@ final class AtlasLoopAutoMergeService
 
         if (($preflight['allow'] ?? false) !== true) {
             // Fail-closed: the merge executor is NEVER invoked when the pre-flight gate refuses.
+            $this->recordReceipt($preflight, $proposal, null, null, AtlasLoopAutoMergeReceiptLedger::OUTCOME_ALLOW_REFUSED_PREFLIGHT, $preflight['head_sha'] ?? null);
+
             return [
                 'merged' => false,
                 'reason' => (string) ($preflight['reason'] ?? 'preflight_refused'),
@@ -57,6 +93,8 @@ final class AtlasLoopAutoMergeService
             $conflictReportArray = $report->toArray();
             if (! $report->clean) {
                 // Fail-closed: a non-clean conflict report refuses the merge with reason=conflict.
+                $this->recordReceipt($preflight, $proposal, 'conflict', null, AtlasLoopAutoMergeReceiptLedger::OUTCOME_REFUSED_CONFLICT, $preflight['head_sha'] ?? null);
+
                 return [
                     'merged' => false,
                     'reason' => 'conflict',
@@ -79,16 +117,22 @@ final class AtlasLoopAutoMergeService
 
         $merged = true;
         $reason = null;
+        $outcome = AtlasLoopAutoMergeReceiptLedger::OUTCOME_MERGED;
         if ($reverseAudit !== null) {
             $verdict = (string) ($reverseAudit['verdict'] ?? '');
             if ($verdict === AtlasLoopAutoMergeReverseAuditor::VERDICT_ROLLED_BACK) {
                 $merged = false;
                 $reason = 'reverse_audit_rolled_back';
+                $outcome = AtlasLoopAutoMergeReceiptLedger::OUTCOME_ROLLED_BACK;
             } elseif ($verdict === AtlasLoopAutoMergeReverseAuditor::VERDICT_REVERT_FAILED) {
                 $merged = false;
                 $reason = 'reverse_audit_revert_failed';
+                $outcome = AtlasLoopAutoMergeReceiptLedger::OUTCOME_REVERT_FAILED;
             }
         }
+
+        $headShaAfter = $reverseAudit['post_merge_sha'] ?? ($mergeResult['merge_sha'] ?? ($preflight['head_sha'] ?? null));
+        $this->recordReceipt($preflight, $proposal, 'clean', $reverseAudit, $outcome, $headShaAfter === null ? null : (string) $headShaAfter);
 
         return [
             'merged' => $merged,
