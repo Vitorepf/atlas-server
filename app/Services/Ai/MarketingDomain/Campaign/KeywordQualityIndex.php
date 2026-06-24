@@ -44,6 +44,13 @@ class KeywordQualityIndex
 
     private const STOPWORDS = ['the', 'a', 'an', 'to', 'for', 'of', 'and', 'or', 'with', 'without', 'in', 'on', 'at', 'is', 'it', 'your', 'you', 'my'];
 
+    private IntentLadderClassifier $intent;
+
+    public function __construct(?IntentLadderClassifier $intent = null)
+    {
+        $this->intent = $intent ?? new IntentLadderClassifier;
+    }
+
     /**
      * Score every keyword the QualifiedKeywordPatternEngine produced, eliminating waste first.
      *
@@ -216,32 +223,28 @@ class KeywordQualityIndex
                 return 'skeptic_without_owned_root';
             }
         }
+        // Defensive intent (cancel / refund / complaint / lawsuit) is a NON-buyer even WITH an owned
+        // root — kill it before it rides the provenance override (intent=100) to a high score.
+        if ($this->intent->classify($kw)['polarity'] === 'negative') {
+            return 'defensive_polarity';
+        }
 
         return null;
     }
 
+    /**
+     * Intent class 0-100. Owned-root keywords (post-VSL-exposure, most-aware) keep the provenance
+     * override of 100; everything else is graded by the compositional, multilingual (PT+EN)
+     * IntentLadderClassifier (journey × pain × specificity + negative-polarity), replacing the
+     * single-axis EN-only token-spotter.
+     */
     private function intentClass(string $kl, float $provenance): int
     {
         if ($provenance >= 0.78) {
-            return 100; // branded/navigational — owned root
-        }
-        foreach (['buy', 'order', 'where to buy', 'price', 'cost', 'official', ' try ', 'drops', 'protocol'] as $t) {
-            if (str_contains(' '.$kl.' ', $t)) {
-                return 85; // transactional
-            }
-        }
-        foreach (['reviews', 'review', ' vs ', 'versus', 'alternative', 'does it work', 'worth it', 'results', 'before after', 'legit', 'real or fake'] as $t) {
-            if (str_contains($kl, $t)) {
-                return 65; // commercial investigation
-            }
-        }
-        foreach (['belly fat', 'lose weight', 'menopause', 'over 40', 'over 50'] as $t) {
-            if (str_contains($kl, $t)) {
-                return 45; // problem aware
-            }
+            return 100; // owned root — post-VSL-exposure, most-aware
         }
 
-        return 10; // informational/unknown
+        return $this->intent->intentScore($kl);
     }
 
     private function specificity(string $kl, array $toks): float

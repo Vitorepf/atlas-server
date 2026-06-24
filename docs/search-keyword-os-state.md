@@ -31,3 +31,17 @@ KeywordIntentMapper · SearchNetworkPlanner · CampaignBlueprintService · Campa
 4. QS-engineering: gerar o trio keyword=RSA-headline=advertorial-H1 por família (message match máximo)
 5. CLI `atlas:ai:marketing:keywords` (rodar o OS inteiro sobre um asset)
 6. Fechar o loop de aprendizado (keyword→venda real recalibra pesos)
+
+---
+
+# 🔁 Loop Keyword Intelligence OS (nova volta — /goal Claude Code) — fonte de verdade: relatório `docs/affiliate-mastery/search-network-keyword-decision-report.md` + memória `search-keyword-os`
+
+Métrica: TAXA DE ACERTO de keyword qualificada, provada cross-nicho (NÃO contagem). "Provado" hoje = painel brutal + decisão-matemática + backtest vs winners; calibração por VENDA real fica DORMANT até live (gated). Fila priorizada na memória `search-keyword-os`.
+
+## Ciclo 1 ✅ — `IntentLadderClassifier` (escada de intenção composicional)
+**Maior alavancagem provável agora:** o motor entender a INTENÇÃO (coração da meta "≥5 keywords de primeira"). Substituiu o token-spotter EN-only (`KeywordQualityIndex::intentClass` legado) por um modelo composicional **PT-BR + EN**: `intent_score = tier_base(T0~10..T4~92) + 14·dor + 8·especificidade`, 3 eixos (jornada × dor/urgência × especificidade), polaridade-negativa, campo `confidence` (materializa o teto de ~74% texto-only). Wirado no `KeywordQualityIndex` (owned-root≥0.78 mantém 100; `eliminate()` agora mata polaridade-negativa mesmo com owned-root). **Corrige os 3 bugs verificados:** `funciona`=comprador≠scam; "how to [ação]"≠informacional; sem o kill global cego. **527/527 verdes** (22 testes novos).
+- **Painel brutal (3 lentes adversariais)** deu `fix_then_commit` ×3 (high) — estrutura generaliza cross-nicho CONFIRMADA (finanças/relacionamento via "como [ação]", sem léxico de saúde). 10 fixes aplicados: review/reviews=proof-buyer; qualificador→T2; prazo "em 7 dias"=dor; cortes de ação tier-sensíveis; tokens de segurança ambíguos fora do hard-negative; `eliminate` mata defensivo; `coinedMechanism` sem tokens genéricos; hasInfo→T0 antes de mecanismo; `confidence`; docblock honesto.
+- **DEFERIDO (dormant até dado live / honesto, NÃO faxina):** dor como multiplicador-de-WTP separado do tier (recalibração); urgência=WTP validada por nicho; specificity além de token-count; polarity como escala 0-1; wiring do contexto owned-root completo no `eliminate`. Todos exigem ledger calibrado (venda real) ou são prior heurístico assumido — rotulados como prior, não verdade estrutural.
+
+## Próximo alvo (ciclo 2, candidato): `MechanismExtractor` T4 da VSL dissecada
+O `trick`/`mechanism_name` do asset (ex.: "at-home retatrutide protocol") deve fluir automático como keyword-herói T4 + alimentar o `mechanism_lexicon` do `IntentLadderClassifier` (hoje o classificador aceita o ctx mas ninguém passa). Fecha o elo VSL→keyword. (Alternativa de maior alavancagem: o gate de decisão estatístico — rule-of-three/EPC>CPC — se o operador priorizar prova-de-investimento sobre geração.)
