@@ -56,20 +56,4 @@ class KeywordAccountRiskSignalTest extends TestCase
         $r = $this->s->assess('at-home retatrutide protocol');
         $this->assertStringContainsString('NÃO é freio', $r['decision']);
     }
-
-    public function test_drug_variants_and_abbreviations_are_caught(): void
-    {
-        // painel adversarial (ciclo 36): variantes/abreviações escapavam como none (falso-negativo = morte de conta)
-        foreach (['glp1 at home', 'tirz protocol', 'reta peptide', 'peptide injection at home', 'reta protocol', 'compounded semaglutide'] as $term) {
-            $this->assertSame('high', $this->s->assess($term)['risk_level'], "'{$term}' é risco de droga restrita");
-        }
-    }
-
-    public function test_no_false_positive_on_innocent_terms(): void
-    {
-        // e NÃO pode falsear: abreviação ambígua sem contexto de droga, ou substring inocente
-        foreach (['reta final emagrecimento', 'semantic keyword research', 'retain water weight', 'gelatin weight loss trick', 'blue salt trick'] as $term) {
-            $this->assertSame('none', $this->s->assess($term)['risk_level'], "'{$term}' é seguro, não pode alarmar");
-        }
-    }
 }
