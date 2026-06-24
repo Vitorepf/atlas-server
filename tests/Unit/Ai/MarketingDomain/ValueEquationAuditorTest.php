@@ -33,6 +33,16 @@ class ValueEquationAuditorTest extends TestCase
         $this->assertNotContains('dream_outcome', $keys);
     }
 
+    public function test_a_delivery_or_past_timeframe_is_not_the_time_to_result_lever(): void
+    {
+        $ve = new ValueEquationAuditor;
+        // Shipping window and a past reference are NOT "how soon do I see results".
+        $this->assertNotContains('time_delay', $ve->audit('Your order ships in 3 days to your door.')['covered']);
+        $this->assertNotContains('time_delay', $ve->audit('Just 3 days ago a reader wrote to me.')['covered']);
+        // A real time-to-result still counts.
+        $this->assertContains('time_delay', $ve->audit('You will see results in 21 days.')['covered']);
+    }
+
     public function test_high_leverage_gaps_are_surfaced_first(): void
     {
         // Has dream + timeframe, but no proof (likelihood) and no ease (effort) → both high-leverage.

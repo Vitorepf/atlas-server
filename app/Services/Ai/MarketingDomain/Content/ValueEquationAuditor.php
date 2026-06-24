@@ -63,7 +63,11 @@ class ValueEquationAuditor
         return ['covered' => $covered, 'gaps' => $gaps, 'score' => (int) round(count($covered) / count($check) * 100)];
     }
 
-    /** A concrete timeframe: number/ordinal + time unit, a weekday, or overnight/immediately (not negated). */
+    /**
+     * A concrete timeframe to RESULT — number/ordinal + time unit, weekday, or overnight. A second brutal
+     * panel's lesson (a number is only proof tied to a result) applies here: a timeframe in a DELIVERY,
+     * guarantee or PAST context ("ships in 3 days", "3 days ago") is not the time-to-result lever — exclude it.
+     */
     private function hasTimeframe(string $text): bool
     {
         $patterns = [
@@ -72,8 +76,25 @@ class ValueEquationAuditor
             '/\bby\s+(?:next\s+|this\s+|the\s+'.self::NUM.'\s+)?(?:'.self::WEEKDAY.'|'.self::TIMEUNIT.'|tomorrow|amanh[ãa])\b/u',
             '/\b(?:overnight|immediately|imediatamente|da noite pro dia|in minutes|em minutos)\b/u',
         ];
+        foreach ($patterns as $re) {
+            if (! preg_match_all($re, $text, $ms, PREG_OFFSET_CAPTURE)) {
+                continue;
+            }
+            foreach ($ms[0] as [$match, $off]) {
+                if ($this->negatedAt($text, $off)) {
+                    continue;
+                }
+                $window = substr($text, max(0, $off - 30), strlen($match) + 60);
+                // Not a time-to-RESULT if it's a shipping/guarantee window or a past reference.
+                if (preg_match('/\b(?:ships?|shipping|deliver(?:y|ed)?|arrives?|guarantee|money[- ]?back|refund|warranty|ago|atr[áa]s|h[áa] \d|entrega|envio)\b/u', $window)) {
+                    continue;
+                }
 
-        return $this->anyMatch($text, $patterns);
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** Real proof substance: a count of people, a ratio/%, a named authority, or a money-back guarantee. */
