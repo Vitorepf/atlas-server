@@ -90,6 +90,8 @@ Régua atual (piso de maturidade): **85** / teto 100. — **VOLTA 2 COMPLETA** (
 
 - **AD/bridge viram elite + congruentes (Eixo 6 ponta-a-ponta)** ✅ — dogfooding da cadeia inteira mostrou: "sound" mas congruência fraca (ad→bridge 40, bridge→page 32) — o lead de elite na página não ecoava no AD fino ("Finance: grow your money"). Adicionei `BigIdeaLeadForge::hook()` (scroll-stopper curto que compartilha cena+inimigo com o lead) e liguei no ad+bridge. Resultado MEDIDO: ad→bridge 40→82, bridge→page 32→69; o AD virou scroll-stopper aterrado (cena "card declined the day before payday" + inimigo Wall Street) que ecoa a página. Top-de-funil agora é elite E message-match travado. 407/407 verdes.
 
+- **Checkout recapitula valor antes do preço + limite honesto de congruência** ✅ — o checkout abre recapitulando mecanismo+sonho antes do preço (técnica de fechamento DR real: reduz o salto problema→preço). Realização honesta ANTI-GOODHART: o hop page→checkout é intrinsecamente divergente (linguagem de OFERTA ≠ linguagem de PROBLEMA); forçar o score a 80 seria enfiar palavra-de-problema na oferta = copy PIOR. Verdict "sound" + recap legítimo = ponto certo de parar; NÃO perseguir esse número. 407/407 verdes.
+
 ## Pontos pra próxima sessão (faculdade de ambição)
 - **Multi-persona injection por slot** — TL;DR pra mãe ocupada no topo, vs-Ozempic perto do CTA, prova específica embaixo, em vez de 1 fix em `ps`.
 - **LLM-driven persona refinement** — quando o operador plugar LLM, refinar `simulate()` por avatar real do produto (não só os 3 fixos hardcoded). Framework está pronto, contrato é o `PersonaSimulator`.

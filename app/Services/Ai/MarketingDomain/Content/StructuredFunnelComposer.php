@@ -100,6 +100,9 @@ class StructuredFunnelComposer
             ? "Everything here is worth {$anchored} — today it is yours for {$price}."
             : ($price !== '' ? "Today only: {$price}." : '');
         $checkout = trim(implode(' ', array_filter([
+            // Recap the value (mechanism + dream) before the price — a real DR close move that also keeps
+            // the page→checkout hop congruent (the reader sees the same anchors they just agitated on).
+            "You have seen why nothing worked — {$mechanism} is how you finally reach {$wound['dream']}.",
             "Get the complete {$mechanism} system for {$promise}{$heroLine}.",
             $bonusN > 0 ? "Plus {$bonusN} bonuses — each one removes a reason people hesitate." : '',
             $valueLine,
