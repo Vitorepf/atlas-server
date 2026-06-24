@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Foundry\Rsi;
 
+use App\Services\Ai\AutonomousEvolution\AtlasLoopEarnedAutonomyDecisionTrace;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopRecursiveSelfImprovementGate;
 use App\Services\Ai\Foundry\Rsi\EarnedAutonomy\EarnedAutonomyGateService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
@@ -61,6 +62,9 @@ final class RsiSelfImprovementProposalGate
         private readonly RsiInvariantGuardService $guard,
         private readonly ?EarnedAutonomyGateService $earnedAutonomy = null,
         private readonly ?AtlasLoopRecursiveSelfImprovementGate $constitution = null,
+        // OBSERVE-ONLY decision-trace recorder — nullable LAST arg (back-compat: legacy callers autowire null
+        // ⇒ a default recorder). It NEVER actuates (no apply/merge/canonize) and NEVER influences routing.
+        private readonly ?AtlasLoopEarnedAutonomyDecisionTrace $decisionTrace = null,
     ) {}
 
     /**
@@ -126,26 +130,40 @@ final class RsiSelfImprovementProposalGate
         $ea = $this->earnedAutonomy ?? app(EarnedAutonomyGateService::class);
         $decision = $ea->decide($proposal, $input);
 
+        // OBSERVE-ONLY: append the gate decision to the provider-safe audit JSONL (changed paths + decision
+        // metadata ONLY, NEVER raw diff). Reached for BOTH guard-PASSED branches; NEVER on a guard reject
+        // (those return above, before $decision). [] when the flag is OFF. Attached to the envelope AFTER
+        // emit() so the gate_hash (and every existing field) is byte-identical — the trace rides outside the
+        // hash and can never influence routing/status.
+        $trace = ($this->decisionTrace ?? new AtlasLoopEarnedAutonomyDecisionTrace)
+            ->record($decision, array_values((array) ($diff['changed_paths'] ?? [])));
+
         if (($decision['decision'] ?? '') === EarnedAutonomyGateService::DECISION_AUTO_APPLY
             && ($decision['auto_applied'] ?? false) === true) {
-            return $this->emit(
+            $emitted = $this->emit(
                 status: self::STATUS_AUTO_APPLIED_EARNED,
                 screening: $screening,
                 detail: 'guard passed; earned-autonomy auto-apply authorized (kill armed, within earned tier, drift-clean, red-team survived)',
                 routedToHumanGate: false,
                 earnedDecision: $decision,
             );
+            $emitted['earned_autonomy_trace'] = $trace;
+
+            return $emitted;
         }
 
         // Default / human_gate => byte-identical to today: proposal-only, routed to
         // the operator's existing human gate.
-        return $this->emit(
+        $emitted = $this->emit(
             status: self::STATUS_ROUTED_TO_HUMAN_GATE,
             screening: $screening,
             detail: 'guard passed; proposal routed to operator human gate (proposal-only, no auto-apply)',
             routedToHumanGate: true,
             earnedDecision: $decision,
         );
+        $emitted['earned_autonomy_trace'] = $trace;
+
+        return $emitted;
     }
 
     /**
