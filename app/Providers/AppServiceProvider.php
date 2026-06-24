@@ -45,6 +45,7 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderContextOptimizer;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderEffortPolicy;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderEffortPolicyDriverDecorator;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopScenarioProviderPortfolio;
+use App\Services\Ai\AutonomousEvolution\Merge\AtlasLoopAutoMergeConflictDetector;
 use App\Services\Ai\AutonomousEvolution\Merge\AtlasLoopAutoMergePreFlightGate;
 use App\Services\Ai\AutonomousEvolution\Merge\AtlasLoopAutoMergeService as AtlasLoopMergeService;
 use App\Services\Ai\AutonomousEvolution\Recovery\AtlasLoopReceiptReplayer;
@@ -231,9 +232,17 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(SkillBundleStore::class);
         $this->app->singleton(AtlasLoopReceiptReplayer::class);
-        // WAVE-14 auto-merge hardening: the pre-flight gate + the gated merge entry.
+        // WAVE-14 auto-merge hardening: the pre-flight gate + the conflict detector + the gated merge entry
+        // (the conflict detector refuses any merge whose 3-way merge-tree probe is non-clean).
         $this->app->singleton(AtlasLoopAutoMergePreFlightGate::class);
-        $this->app->singleton(AtlasLoopMergeService::class);
+        $this->app->singleton(AtlasLoopAutoMergeConflictDetector::class);
+        $this->app->singleton(
+            AtlasLoopMergeService::class,
+            fn ($app) => new AtlasLoopMergeService(
+                $app->make(AtlasLoopAutoMergePreFlightGate::class),
+                $app->make(AtlasLoopAutoMergeConflictDetector::class),
+            ),
+        );
         $this->app->singleton(AtlasLoopProviderContextOptimizer::class);
         $this->app->singleton(AtlasLoopAdversarialVerifierPool::class);
         $this->app->singleton(AtlasLoopCrossModelTriangulator::class);
