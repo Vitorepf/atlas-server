@@ -362,8 +362,13 @@ final class AtlasLoopTaskGrinder
         }
         $campaign = \App\Models\AtlasLoopCampaign::query()->find($task->campaign_id);
         $baseWorkspace = trim((string) ($campaign->base_workspace ?? ''));
-        if ($baseWorkspace === '' || ! is_dir($baseWorkspace)) {
-            return null;
+        if (! $campaign instanceof \App\Models\AtlasLoopCampaign || $baseWorkspace === '' || ! is_dir($baseWorkspace)) {
+            $this->store->completeTask($task->id, $workerId, [
+                'status' => 'no_winner',
+                'reason' => 'orphan_wiring_base_workspace_unavailable',
+            ], false);
+
+            return $this->orphanWiringTerminal($started, 'no_winner', 'orphan_wiring_base_workspace_unavailable', 0);
         }
 
         // The §9 authoring seam: a real provider call in prod, a fixture double in tests. null => honest no_winner.
