@@ -334,6 +334,16 @@ final class AgentControlPlaneClaimLeaseRepository
     }
 
     /**
+     * Rebuild the registry index from the durable per-lease files.
+     *
+     * @return array<string, mixed>
+     */
+    public function rebuildRegistryFromLeaseFiles(): array
+    {
+        return $this->withLock(fn (): array => $this->rebuildRegistryFromLeaseFilesInternal(), false);
+    }
+
+    /**
      * @param  array<string, mixed>  $filters
      * @return list<array<string, mixed>>
      */
@@ -739,17 +749,7 @@ final class AgentControlPlaneClaimLeaseRepository
     private function registerLease(array $lease): void
     {
         $registry = $this->loadRegistry();
-        $registry['entries'][] = [
-            'lease_id' => (string) ($lease['lease_id'] ?? ''),
-            'task_packet_id' => (string) ($lease['task_packet_id'] ?? ''),
-            'agent_id' => (string) ($lease['agent_id'] ?? ''),
-            'lease_status' => (string) ($lease['lease_status'] ?? ''),
-            'acquired_at' => (string) ($lease['acquired_at'] ?? ''),
-            'expires_at' => (string) ($lease['expires_at'] ?? ''),
-            'expires_at_unix' => (int) ($lease['expires_at_unix'] ?? 0),
-            'write_set' => (array) ($lease['write_set'] ?? []),
-            'read_set' => (array) ($lease['read_set'] ?? []),
-        ];
+        $registry['entries'][] = $this->registryEntryFromLease($lease);
         $this->saveRegistry($registry);
     }
 
@@ -802,6 +802,92 @@ final class AgentControlPlaneClaimLeaseRepository
     private function saveRegistry(array $registry): void
     {
         $this->disk()->put(self::REGISTRY_PATH, $this->encode($this->compactRegistry($registry)));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function rebuildRegistryFromLeaseFilesInternal(): array
+    {
+        $entriesByLeaseId = [];
+        $skippedCorrupt = 0;
+
+        foreach ($this->disk()->files(self::STORAGE_PREFIX) as $path) {
+            $basename = basename((string) $path);
+            if (! str_starts_with($basename, 'lease_') || ! str_ends_with($basename, '.json')) {
+                continue;
+            }
+
+            try {
+                $decoded = json_decode((string) $this->disk()->get((string) $path), true, flags: JSON_THROW_ON_ERROR);
+            } catch (Throwable) {
+                $skippedCorrupt++;
+
+                continue;
+            }
+
+            if (! is_array($decoded) || trim((string) ($decoded['lease_id'] ?? '')) === '') {
+                $skippedCorrupt++;
+
+                continue;
+            }
+
+            $entry = $this->registryEntryFromLease($decoded);
+            $entriesByLeaseId[(string) $entry['lease_id']] = $entry;
+        }
+
+        $entries = array_values($entriesByLeaseId);
+        usort($entries, static fn (array $a, array $b): int => strcmp((string) ($a['lease_id'] ?? ''), (string) ($b['lease_id'] ?? '')));
+
+        $activeCount = 0;
+        foreach ($entries as $entry) {
+            if ((string) ($entry['lease_status'] ?? '') === self::LEASE_STATUS_ACTIVE) {
+                $activeCount++;
+            }
+        }
+
+        $registry = [
+            'entries' => $entries,
+            'rebuilt_at' => CarbonImmutable::now()->toIso8601String(),
+            'rebuilt_from_file_count' => count($entries),
+            'recovered_active_count' => $activeCount,
+            'skipped_corrupt_lease_files' => $skippedCorrupt,
+        ];
+        $this->saveRegistry($registry);
+
+        return array_merge([
+            'schema_version' => self::SCHEMA_VERSION,
+            'status' => 'rebuilt',
+            'runtime_execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+        ], $registry);
+    }
+
+    /**
+     * @param  array<string, mixed>  $lease
+     * @return array<string, mixed>
+     */
+    private function registryEntryFromLease(array $lease): array
+    {
+        return [
+            'lease_id' => (string) ($lease['lease_id'] ?? ''),
+            'task_packet_id' => (string) ($lease['task_packet_id'] ?? ''),
+            'agent_id' => (string) ($lease['agent_id'] ?? ''),
+            'lease_status' => (string) ($lease['lease_status'] ?? ''),
+            'acquired_at' => (string) ($lease['acquired_at'] ?? ''),
+            'expires_at' => (string) ($lease['expires_at'] ?? ''),
+            'expires_at_unix' => (int) ($lease['expires_at_unix'] ?? 0),
+            'write_set' => (array) ($lease['write_set'] ?? []),
+            'read_set' => (array) ($lease['read_set'] ?? []),
+        ];
+    }
+
+    private function rebuildCorruptRegistryIfNeeded(): void
+    {
+        if ((bool) ($this->loadRegistry()['corrupt'] ?? false)) {
+            $this->rebuildRegistryFromLeaseFilesInternal();
+        }
     }
 
     /**
@@ -879,7 +965,7 @@ final class AgentControlPlaneClaimLeaseRepository
      * @param  callable(): T  $callback
      * @return T|array<string, mixed>
      */
-    private function withLock(callable $callback): mixed
+    private function withLock(callable $callback, bool $rebuildCorruptRegistry = true): mixed
     {
         $path = $this->lockFilePath();
         $dir = \dirname($path);
@@ -915,6 +1001,10 @@ final class AgentControlPlaneClaimLeaseRepository
         }
 
         try {
+            if ($rebuildCorruptRegistry) {
+                $this->rebuildCorruptRegistryIfNeeded();
+            }
+
             return $callback();
         } finally {
             // Release ONLY the handle THIS call owns; keep the flock target file (never delete a foreign lock).
