@@ -247,6 +247,20 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(AtlasLoopReceiptReplayer::class);
         // §W40-S6 substrate-receipt ledger — single shared append-only journal across supervisor + keepalive.
         $this->app->singleton(\App\Services\Ai\AutonomousEvolution\AtlasLoopSubstrateReceiptLedger::class);
+        // Cortex Council — single registry shared by lens packets + the triangulator, pre-populated with the 5
+        // built-in lenses (callgraph, dataflow, githistory, testcoverage, docintent). Triangulator + CLI are
+        // gated upstream by config('atlas.cortex.council.enabled') — see AtlasLoopCortexCouncilCommand.
+        $this->app->singleton(\App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Council\AtlasCortexLensRegistry::class, function (): \App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Council\AtlasCortexLensRegistry {
+            $registry = new \App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Council\AtlasCortexLensRegistry;
+            $registry->register(new \App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Council\AtlasCortexCallGraphLens);
+            $registry->register(new \App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Council\AtlasCortexDataFlowLens);
+            $registry->register(new \App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Council\AtlasCortexGitHistoryLens);
+            $registry->register(new \App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Council\AtlasCortexTestCoverageLens);
+            $registry->register(new \App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Council\AtlasCortexDocIntentLens);
+
+            return $registry;
+        });
+        $this->app->singleton(\App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Council\AtlasCortexCouncilTriangulator::class);
         // Net-diff cert ledger — single shared instance so verify/history see the same JSONL spool.
         $this->app->singleton(AtlasLoopNetDiffCertReceiptLedger::class);
         // Cycle-receipt chain — singletons so the CLI + any callers share one ledger/signer pair.
