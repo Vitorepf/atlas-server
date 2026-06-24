@@ -14,6 +14,7 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopDbResilience;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopObraBridgeService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopFleetGovernor;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderCircuitBreaker;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderHealthProbe;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopResourceGate;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopTaxa2DialOverlayService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
@@ -589,6 +590,7 @@ final class AtlasLoopCampaignSupervisor
                     $spendCents = $this->spendCentsFromResult($result);
                     $this->beat($campaign, $this->now() - $grindStart, $spendCents);
                     $this->recordBreaker((string) $campaign->id, is_array($result) ? $result : []); // §4 provider health tick
+                    $this->recordProviderHealth((string) $campaign->id, $task, is_array($result) ? $result : [], (string) $campaign->id.':'.$task->id.':'.$grindStart.':'.$workerId); // §W40 provider-health probe
 
                     // Results -> Sources, so the queue self-sustains.
                     $targetId = (string) (is_array($task->payload) ? ($task->payload['_target_id'] ?? '') : '');
@@ -1240,6 +1242,35 @@ final class AtlasLoopCampaignSupervisor
         (new AtlasLoopProviderCircuitBreaker)->record($campaignId, $outcome);
     }
 
+    /**
+     * §W40 Emit ONE provider-health probe sample per grind outcome — the latency/cost/ok FACT the swap policy,
+     * fleet autotuner and effort policy read downstream. Flag-OFF ⇒ no-op (the probe writes no JSONL ⇒
+     * byte-identical). Best-effort: a probe write must NEVER break a grind (Throwable swallowed). The provider
+     * key/model are read from the grinder result or the task payload's routed provider; latency derives from the
+     * grind elapsed time; cost is the result's cost_cents (nullable).
+     *
+     * @param  array<string,mixed>  $result  the grinder's terminal result
+     */
+    private function recordProviderHealth(string $campaignId, ?AtlasLoopTask $task, array $result, string $grindId): void
+    {
+        if (! (bool) config('atlas.loop.provider_health_probe_enabled', false)) {
+            return;
+        }
+        try {
+            $payload = is_array($task?->payload) ? $task->payload : [];
+            $providerKey = trim((string) ($result['provider'] ?? $payload['provider'] ?? ''));
+            $model = isset($result['model']) ? (string) $result['model'] : (isset($payload['model']) ? (string) $payload['model'] : null);
+            (new AtlasLoopProviderHealthProbe)->record($providerKey === '' ? 'unknown' : $providerKey, $model, [
+                'ok' => AtlasLoopProviderCircuitBreaker::outcomeIsProviderHealthy($result),
+                'latency_ms' => max(0, (int) ($result['elapsed_seconds'] ?? 0)) * 1000,
+                'cost_cents' => array_key_exists('cost_cents', $result) && is_numeric($result['cost_cents']) ? (int) $result['cost_cents'] : null,
+                'grind_id' => $grindId,
+            ]);
+        } catch (Throwable) {
+            // fail-safe: the provider-health probe never breaks a grind
+        }
+    }
+
     /** §4 Should the loop pause NOW because the provider has been down for >= threshold consecutive grinds? */
     private function breakerWantsPause(AtlasLoopCampaign $campaign): bool
     {
@@ -1280,6 +1311,7 @@ final class AtlasLoopCampaignSupervisor
             }
 
             $this->recordBreaker((string) $campaign->id, $result + ['status' => $status]); // §4 provider health tick
+            $this->recordProviderHealth((string) $campaign->id, $task, $result + ['status' => $status], (string) $campaign->id.':'.$taskId.':'.(string) ($summary['worker_id'] ?? 'parallel').':'.(string) ($result['elapsed_seconds'] ?? '0')); // §W40 provider-health probe
 
             $this->guard(fn () => $this->loopBack->reflect($campaign->id, [
                 'target_id' => $targetId,
