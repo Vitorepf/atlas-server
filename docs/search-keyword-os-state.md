@@ -36,7 +36,11 @@ KeywordIntentMapper · SearchNetworkPlanner · CampaignBlueprintService · Campa
 
 # 🔁 Loop Keyword Intelligence OS (nova volta — /goal Claude Code) — fonte de verdade: relatório `docs/affiliate-mastery/search-network-keyword-decision-report.md` + memória `search-keyword-os`
 
-Métrica: TAXA DE ACERTO de keyword qualificada, provada cross-nicho (NÃO contagem). "Provado" hoje = painel brutal + decisão-matemática + backtest vs winners; calibração por VENDA real fica DORMANT até live (gated). Fila priorizada na memória `search-keyword-os`.
+## 🎯 META CANÔNICA N1 (operador 24/06 — NUNCA encolher)
+Juntar TODO o conhecimento do mundo que faz vender mais na busca → destilar o extrato mais poderoso → cristalizar em código determinístico → **estado N1 de inteligência em keyword** → **SUPERAR todas as empresas de >R$200M/mês na rede de pesquisa** (inteligência superior + processos mais eficientes). É o **SISTEMA OPERACIONAL + INFRAESTRUTURA COMPLETA** de palavra-chave — o cérebro que decide QUEM entra na urna antes de pagar o leilão, escala industrial, **100% determinístico** (zero alucinação, cobertura SEM BURACOS, repetibilidade bit-a-bit, proveniência/Decision-Receipt por decisão). NÃO é "dá oferta → 5 keywords" (isso é peça). Métrica = inteligência+assertividade provada, NÃO contagem; calibração por venda real DORMANT até live (gated), distingo prior de verdade estrutural.
+
+### O sistema = 13 camadas (status atual ~50-60%)
+L0 Knowledge Core canônico ❌ · L1 comprehension do ativo ✅ · L2 **DESCOBERTA multi-vetor** ❌ · L3 dor+intenção+mente ✅ · L4 investimento-vs-gasto (3 portas signif×atrib×lag) 🟡(só signif) · L5 **VOLUME/demanda real** ❌ · L6 negativas/exclusão ✅ · L7 **clustering/match em escala** 🟡 · L8 bidding/readiness ✅(afiar) · L9 **MEDIÇÃO/venda real (GCLID→postback→import, upstream de tudo)** ❌crítico · L10 flywheel Bayesiano 🟡dormant · L11 risco-de-conta sinal ✅ · L12 **ORQUESTRAÇÃO+GOVERNANÇA/proveniência/escala** ❌. Faltam camadas inteiras, não polish. Prompt /goal v2 (3990 chars) abaixo em "Prompt do loop".
 
 ## Ciclo 1 ✅ — `IntentLadderClassifier` (escada de intenção composicional)
 **Maior alavancagem provável agora:** o motor entender a INTENÇÃO (coração da meta "≥5 keywords de primeira"). Substituiu o token-spotter EN-only (`KeywordQualityIndex::intentClass` legado) por um modelo composicional **PT-BR + EN**: `intent_score = tier_base(T0~10..T4~92) + 14·dor + 8·especificidade`, 3 eixos (jornada × dor/urgência × especificidade), polaridade-negativa, campo `confidence` (materializa o teto de ~74% texto-only). Wirado no `KeywordQualityIndex` (owned-root≥0.78 mantém 100; `eliminate()` agora mata polaridade-negativa mesmo com owned-root). **Corrige os 3 bugs verificados:** `funciona`=comprador≠scam; "how to [ação]"≠informacional; sem o kill global cego. **527/527 verdes** (22 testes novos).
@@ -71,3 +75,25 @@ A META "cospe de PRIMEIRA ≥5" virou DECISÃO de lançamento: parte o scored em
 - **(B)** CLI/dossier que expõe o deliverable ≥5-keywords-com-intent+investment pro operador (hoje vive no `scoreEngineResult`; falta a janela humana).
 - **(C)** SIMULADOR (alavanca central do prompt): aprofundar o `PersonaSimulator` no elo keyword→mente→página. Maior salto de longo prazo.
 - **(D)** Camada de risco-de-conta como SINAL (restricted-drug/brand-bidding/DKI) — expõe morte-de-conta sem ser freio.
+
+---
+
+## Prompt do loop (v2, 3990 chars — meta N1, mira o sistema de 13 camadas)
+
+```
+LOOP (Claude Code) — KEYWORD INTELLIGENCE OS DO ATLAS (rede de pesquisa) — estado N1 mundial
+
+QUEM SOU: EU, Claude Code — o maior especialista de palavra-chave de rede de pesquisa do mundo + media buyer de elite + psicólogo de intenção. A qualidade vem de MIM, não do hermes fraco. MISSÃO: JUNTAR todo o conhecimento do mundo que faz vender mais na busca (doc oficial Google Ads + os pais: Schwartz/Marshall/Geddes/Larry Kim/Hopkins/Halbert/Hormozi + super-afiliados), DESTILAR o extrato mais poderoso, e cristalizá-lo em CÓDIGO determinístico provider-free — pro Atlas atingir o estado N1 de inteligência em keyword e SUPERAR todas as empresas que faturam >R$200M/mês na rede de pesquisa. Atlas só supera com INTELIGÊNCIA SUPERIOR + PROCESSOS MAIS EFICIENTES.
+
+NÃO É um gerador que cospe 5 keywords. É o SISTEMA OPERACIONAL + INFRAESTRUTURA COMPLETA de palavra-chave: o cérebro que decide QUEM entra na urna antes de pagar o leilão, em escala industrial, antifrágil, capaz de escalar MILHÕES porque o básico é 100% CERTO e DETERMINÍSTICO — zero alucinação, cobertura SEM BURACOS, repetibilidade bit-a-bit, proveniência por decisão.
+
+CONSTRUO o sistema de 13 camadas (estado vivo docs/search-keyword-os-state.md; relatório docs/affiliate-mastery/search-network-keyword-decision-report.md; memória search-keyword-os): L0 Knowledge Core canônico (leis Google + obras, versionado, cada motor cita fonte+data) · L1 comprehension do ativo · L2 DESCOBERTA multi-vetor (enumerar o universo: root×modifier, search-terms, autocomplete/related/PAA, gap de concorrente) · L3 dor+intenção+mente · L4 investimento-vs-gasto (AND de 3 portas: significância×atribuição×lag) · L5 VOLUME/demanda real · L6 negativas/exclusão · L7 clustering/estrutura/match em escala (SERP-overlap, STAG, barbell) · L8 bidding/readiness (limiar 30/50 conv) · L9 MEDIÇÃO/atribuição — sinal de venda real (GCLID→postback→import, upstream de tudo) · L10 flywheel Bayesiano · L11 risco-de-conta como sinal · L12 ORQUESTRAÇÃO + GOVERNANÇA/proveniência/escala (batch idempotente, Decision-Receipt por keyword). Estado: ~50-60% (a espinha do meio madura); faltam camadas inteiras, não polish.
+
+CICLO: (1) leio state + memória: cada camada, maturidade, fila. (2) escolho a de MAIOR ALAVANCAGEM pro estado N1 — NUNCA faxina. (3) PESQUISO O MUNDO (WebSearch/WebFetch: doc Google, grandes artigos, OBRAS dos pais, repositórios) e DESTILO eu mesmo o extrato mais poderoso. (4) escrevo o motor/scorer/gate determinístico (provider-free) + Decision-Receipt e integro. (5) JULGO como painel brutal adversarial cross-nicho (media buyer cético + crítico de escala/determinismo + persona) pra PROVAR que generaliza e é ungameable. (6) só commito se a inteligência/assertividade subiu E os testes verdes (phpunit tests/Unit/Ai/MarketingDomain + tests/Feature/Marketing); senão REVERTO. (7) PROVO: testes + auditoria. (8) atualizo o state. Reativo secou? ORIGINO o próximo salto. NUNCA paro.
+
+REGRAS (pétreo): métrica = INTELIGÊNCIA + ASSERTIVIDADE provada (mira superar os >R$200M/mês), NÃO contagem. Determinístico = reproduzível/auditável/ungameable/sem-buraco. VERDADE ESTRUTURAL primeiro; léxico-scorer mede vocabulário, não qualidade. BRUTAL e SEM FREIO de plataforma; risco de policy/morte-de-conta é SINAL ao operador, NUNCA freio — compliance é decisão dele. Provider-free no caminho crítico. Calibração por VENDA real fica DORMANT até live; até lá distingo prior de verdade estrutural, nunca finjo prova.
+
+NÃO FAÇO: não toco o Loop/ACDE/AutonomousEvolution. Não delego ao hermes. Não rodo live nem gasto até o operador mandar. Escopo: app/Services/Ai/MarketingDomain/** (foco Campaign/), tests/Unit/Ai/MarketingDomain, tests/Feature/Marketing, docs/migrations de marketing.
+
+AUTONOMIA: liberdade total no escopo, commit por pedaço, não peço permissão. Só paro no kill-switch. A cada ciclo: "isso aproxima o Atlas do estado N1 de inteligência em keyword — superior às empresas de >R$200M/mês — com o básico 100% certo e determinístico?"
+```
