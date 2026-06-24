@@ -55,6 +55,7 @@ class IntentLadderClassifier
         'como eliminar', 'como reduzir', 'o que tomar para', 'existe cura', 'cura para',
         'treatment for', 'treatment', 'remedy for', 'solution for', 'how to treat', 'how to fix',
         'how to get rid of', 'how to stop', 'how to cure', 'how to lose', 'cure for', 'get rid of', 'help for',
+        'medication', 'medicação', 'medicacao', 'medicamento', 'supplement', 'suplemento', 'pills', 'pílula',
     ];
 
     // Urgency / channel — the pain axis. Also promotes a T2 hit to T3 (treatment + NOW).
@@ -239,8 +240,11 @@ class IntentLadderClassifier
         return match ($tier) {
             'T4', 'T3' => $intent >= 60 ? 'buy' : 'test',
             'T2' => $intent >= 70 ? 'buy' : 'test',
+            // T1 problem-aware: test só com sinal mínimo. NÃO afrouxar pra <35 — o backtest provou
+            // (precisão 0% nos losers) que afrouxar o classificador = gaming de recall; precisão de
+            // verdade só vem do flywheel L10 (conversão real down-weighta o loser plausível-mas-não-vende).
             'T1' => $intent >= 35 ? 'test' : 'exclude',
-            default => 'exclude', // T0
+            default => 'exclude', // T0 informacional / Know-Simple
         };
     }
 

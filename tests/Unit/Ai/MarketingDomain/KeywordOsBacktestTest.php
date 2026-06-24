@@ -18,7 +18,7 @@ class KeywordOsBacktestTest extends TestCase
             'niche' => 'weight_loss',
             'converting_keywords' => [
                 ['term' => 'gelatin trick', 'conversions' => 10], // mechanism → qualified
-                ['term' => 'memory loss', 'conversions' => 5],     // bare symptom → OS excludes (miss)
+                ['term' => 'what is gelatin', 'conversions' => 5], // informational T0 → OS excludes (miss)
                 ['term' => '{keyword}', 'conversions' => 3],        // DKI placeholder → ignored
             ],
         ]];
@@ -29,7 +29,7 @@ class KeywordOsBacktestTest extends TestCase
         $this->assertSame(1, $r['qualified']);
         $this->assertEqualsWithDelta(0.5, $r['overall_hit_rate'], 0.001);
         $this->assertArrayHasKey('weight_loss', $r['per_niche']);
-        $this->assertSame('memory loss', $r['misses'][0]['term']);
+        $this->assertSame('what is gelatin', $r['misses'][0]['term']);
     }
 
     public function test_empty_patterns_is_zero_not_crash(): void
