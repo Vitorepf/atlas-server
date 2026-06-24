@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Foundry\Rsi;
 
+use App\Services\Ai\AutonomousEvolution\AtlasLoopRecursiveSelfImprovementGate;
 use App\Services\Ai\Foundry\Rsi\EarnedAutonomy\EarnedAutonomyGateService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 
@@ -53,9 +54,13 @@ final class RsiSelfImprovementProposalGate
      */
     public const STATUS_AUTO_APPLIED_EARNED = 'auto_applied_under_earned_autonomy';
 
+    /** Test seam only: observe whether the invariant guard screen was actually invoked. */
+    public static $screenObserver = null;
+
     public function __construct(
         private readonly RsiInvariantGuardService $guard,
         private readonly ?EarnedAutonomyGateService $earnedAutonomy = null,
+        private readonly ?AtlasLoopRecursiveSelfImprovementGate $constitution = null,
     ) {}
 
     /**
@@ -78,8 +83,30 @@ final class RsiSelfImprovementProposalGate
         }
 
         $diff = is_array($proposal['diff'] ?? null) ? $proposal['diff'] : [];
+        foreach ((array) ($diff['changed_paths'] ?? []) as $path) {
+            if (! is_string($path)) {
+                continue;
+            }
+            $constitution = $this->constitution ?? new AtlasLoopRecursiveSelfImprovementGate;
+            $verdict = $constitution->evaluate($path, AtlasLoopRecursiveSelfImprovementGate::KIND_IMPROVE);
+            if (($verdict['status'] ?? null) === AtlasLoopRecursiveSelfImprovementGate::STATUS_REFUSED_PETREO) {
+                return $this->emit(
+                    status: self::STATUS_BLOCKED_BY_INVARIANT,
+                    screening: [
+                        'constitution_refused' => true,
+                        'refused_path' => $path,
+                        'reason' => 'constitution_forbids_editing_a_cert_organ',
+                    ],
+                    detail: 'constitution refused: self-edit to cert organ blocked before invariant guard',
+                    routedToHumanGate: false,
+                );
+            }
+        }
 
         // SAFETY FIRST: guard before anything else.
+        if (is_callable(self::$screenObserver)) {
+            (self::$screenObserver)($diff);
+        }
         $screening = $this->guard->screen($diff);
 
         if (($screening['verdict'] ?? '') === RsiInvariantGuardService::VERDICT_REJECTED) {
