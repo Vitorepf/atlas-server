@@ -27,6 +27,9 @@ class StructuredFunnelComposer
     /**
      * @return array{ad:string,bridge:string,page:string,checkout:string}
      */
+    /** Producer placeholder for proof — language-neutral English (never PT-BR leaking into EN copy). */
+    private const PROOF_PLACEHOLDER = '[PROOF: insert the strongest case, testimonial or study here]';
+
     public function compose(AiMarketingVslAsset $asset): array
     {
         $promise = $this->firstNonEmpty([(string) $asset->core_promise, (string) $asset->big_idea, 'a real change']);
@@ -57,7 +60,9 @@ class StructuredFunnelComposer
         $objectionLoop = (new ObjectionLoopEngine)->loop($asset)['loop'];
         // Eixo 7: plant REAL concrete proof from the asset when it has any; else keep the producer slot.
         $proof = $this->proof($asset);
-        $proofLine = $proof !== '' ? $proof : '[PROOF SLOT: o caso/depoimento/estudo mais forte da oferta]';
+        $proofLine = $proof !== '' ? $proof : self::PROOF_PLACEHOLDER;
+        // Nominalize the promise so it fits noun slots in the reveal/checkout without breaking grammar.
+        $promiseNoun = $this->promiseAsNoun($promise);
         // The LEAD is the biggest conversion multiplier (1→25). Open with an elite, awareness-routed lead
         // forged from the asset's real wound/dream/enemy/promise — it grips and opens a curiosity loop
         // while HOLDING the mechanism (no premature reveal). Falls back to a curiosity hook if empty.
@@ -81,10 +86,8 @@ class StructuredFunnelComposer
             $pageHook,                                                                     // hook (sophistication-aware)
             'Most advice has it backwards, and it is not your fault.',                     // build
             "Every day you wait is another day {$wound['pain']}.",                         // fear (niche wound)
-            'For a long time the real cause stayed hidden in plain sight.',                // build
-            'It gets clearer once you see what is actually happening.',                    // forward pull
-            'But first, understand what everyone else got wrong about this.',              // forward pull (mid)
-            "Here is how {$mechanism} finally makes {$promise}{$heroLine} work.",          // REVEAL (late) — carries the hero claim
+            "The real cause hid in plain sight — and it has nothing to do with what you have been blamed for.", // ONE concrete pull (not 3 empty open-loops)
+            "Here is the missing piece — {$mechanism}. That is the real reason {$promiseNoun} finally happens{$heroLine}.", // REVEAL (late), grammatical (promise nominalized)
             $proofLine,                                                                     // proof ADJACENT to the claim (believability: a claim must be backed at the point of assertion)
             "Imagine {$wound['dream']}.",                                                  // future pacing (niche dream / Value Eq: dream outcome)
             $timeLine,                                                                      // Value Eq: time delay ↓ — ONLY if the asset gives a real timeframe
@@ -107,7 +110,7 @@ class StructuredFunnelComposer
             // Recap the value (mechanism + dream) before the price — a real DR close move that also keeps
             // the page→checkout hop congruent (the reader sees the same anchors they just agitated on).
             "You have seen why nothing worked — {$mechanism} is how you finally reach {$wound['dream']}{$heroLine}.",
-            "Get the complete {$mechanism} system for {$promise}.",
+            "Get the complete {$mechanism} system for {$promiseNoun}.",
             $bonusN > 0 ? "Plus {$bonusN} bonuses — each one removes a reason people hesitate." : '',
             $valueLine,
             $guarantee !== '' ? rtrim($guarantee, '.').'.' : '',
@@ -146,7 +149,7 @@ class StructuredFunnelComposer
             .($timeframe !== '' ? " The first changes can show in {$timeframe}." : '')
             .($this->easeClaim($asset) !== '' ? ' '.$this->easeClaim($asset) : ''));
         $proof = $this->proof($asset);
-        $proofBody = $proof !== '' ? $proof : '[PROOF SLOT: o caso/depoimento/estudo mais forte da oferta]';
+        $proofBody = $proof !== '' ? $proof : self::PROOF_PLACEHOLDER;
 
         return [
             'kicker' => rtrim($avatar, ':'),
@@ -315,6 +318,31 @@ class StructuredFunnelComposer
         }
 
         return '';
+    }
+
+    /**
+     * Turn a verb-phrase promise into a noun phrase so it fits object slots ("lose the weight" → "losing
+     * the weight"). Keeps it grammatical wherever the promise is the object of a sentence in the copy.
+     */
+    private function promiseAsNoun(string $promise): string
+    {
+        $promise = trim($promise);
+        $parts = preg_split('/\s+/', $promise) ?: [];
+        $first = mb_strtolower($parts[0] ?? '');
+        $gerund = [
+            'lose' => 'losing', 'grow' => 'growing', 'win' => 'winning', 'get' => 'getting', 'make' => 'making',
+            'build' => 'building', 'earn' => 'earning', 'save' => 'saving', 'attract' => 'attracting',
+            'drop' => 'dropping', 'melt' => 'melting', 'burn' => 'burning', 'reverse' => 'reversing',
+            'heal' => 'healing', 'fix' => 'fixing', 'beat' => 'beating', 'stop' => 'stopping', 'cut' => 'cutting',
+            'find' => 'finding', 'keep' => 'keeping', 'double' => 'doubling',
+        ];
+        if (isset($gerund[$first])) {
+            $parts[0] = $gerund[$first];
+
+            return implode(' ', $parts);
+        }
+
+        return $promise; // already nominal (or unknown verb) — leave as-is
     }
 
     /**

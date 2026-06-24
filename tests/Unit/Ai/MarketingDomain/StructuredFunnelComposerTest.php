@@ -151,6 +151,25 @@ class StructuredFunnelComposerTest extends TestCase
         $this->assertNull($diag['bottleneck'], 'the generated funnel should have no high-leverage bottleneck');
     }
 
+    public function test_verb_promise_is_nominalized_no_broken_grammar(): void
+    {
+        // A brutal panel caught "makes lose the weight work" — the verb-phrase promise in a noun slot.
+        $f = (new StructuredFunnelComposer)->compose($this->asset(['niche' => 'weight loss', 'core_promise' => 'lose the weight', 'mechanism_name' => 'The 3-Hormone Reset']));
+        $blob = $f['page'].' '.$f['checkout'];
+        $this->assertStringNotContainsString('makes lose the weight', $blob);
+        $this->assertStringNotContainsString('for lose the weight', $blob);
+        $this->assertStringContainsString('losing the weight', $blob); // nominalized
+    }
+
+    public function test_no_portuguese_placeholder_leaks_into_english_copy(): void
+    {
+        // Thin asset (no real proof) must NOT ship the PT-BR "[PROOF SLOT: …oferta]" mid-English-body.
+        $f = (new StructuredFunnelComposer)->compose($this->asset(['niche' => 'relationship', 'core_promise' => 'win them back']));
+        $blob = $f['page'].' '.$f['checkout'];
+        $this->assertStringNotContainsString('oferta', $blob);
+        $this->assertStringNotContainsString('PROOF SLOT', $blob);
+    }
+
     public function test_proof_lever_is_planted_only_from_real_asset_proof(): void
     {
         // Eixo 7 end-to-end: a concrete claim on the asset → the page carries CONCRETE proof; a thin
