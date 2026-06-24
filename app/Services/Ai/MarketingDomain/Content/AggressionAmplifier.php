@@ -95,7 +95,7 @@ class AggressionAmplifier
         // the asset, through the same structure + anti-Goodhart gates. No brake; the operator derives a
         // compliant version downstream if/when he chooses.
         if (($opts['aggressive'] ?? true) !== false) {
-            $current = $this->aggressionPass($current, $asset);
+            $current = $this->aggressionPass($current, $asset, $niche);
         }
 
         $after = $this->auditor->audit($this->copyOf($current), '', $niche, $pageKind);
@@ -187,7 +187,7 @@ class AggressionAmplifier
      * @param  array<string,mixed>  $bridge
      * @return array<string,mixed>
      */
-    private function aggressionPass(array $bridge, AiMarketingVslAsset $asset): array
+    private function aggressionPass(array $bridge, AiMarketingVslAsset $asset, string $niche = ''): array
     {
         $audit = $this->scorer->score($this->aggressiveLib, $this->copyOf($bridge));
         $applied = 0;
@@ -195,7 +195,7 @@ class AggressionAmplifier
             if ($applied >= 4) {
                 break;
             }
-            $snippet = $this->aggressiveSnippet($missing['key'], $asset);
+            $snippet = $this->aggressiveSnippet($missing['key'], $asset, $niche);
             if ($snippet === null) {
                 continue;
             }
@@ -223,12 +223,17 @@ class AggressionAmplifier
      *
      * @return array{slot:string,value:mixed,mode:string}|null
      */
-    private function aggressiveSnippet(string $key, AiMarketingVslAsset $asset): ?array
+    private function aggressiveSnippet(string $key, AiMarketingVslAsset $asset, string $niche = ''): ?array
     {
         $mech = $this->mechanism($asset);
         $enemy = $this->enemy($asset);
         $num = $this->number($asset);
         $gain = $num !== '' ? $num : 'the result';
+
+        // Niche-flavored pain/dream so the aggression hits the market's real wound, not generic.
+        $wound = $this->aggressiveLib->nicheWound($niche);
+        $pain = $wound['pain'];
+        $dream = $wound['dream'];
 
         return match ($key) {
             'manufactured_scarcity' => ['slot' => 'cta_blocks', 'mode' => 'append', 'value' => [
@@ -237,7 +242,7 @@ class AggressionAmplifier
                 'label' => 'Act before this closes', 'sub' => 'This page comes down soon — do not count on it being here tomorrow.']],
             'fear_amplification' => ['slot' => 'body_sections', 'mode' => 'prepend_section', 'value' => [
                 'heading' => 'What waiting really costs you',
-                'body' => 'Every day you put this off, the hole gets deeper — and '.$enemy.' is counting on you to wait.']],
+                'body' => 'Every day you put this off is another day '.$pain.' — and '.$enemy.' is counting on you to wait.']],
             'social_proof_pressure' => ['slot' => 'body_sections', 'mode' => 'prepend_section', 'value' => [
                 'heading' => 'You are not the first', 'body' => 'People are quietly moving on this every single day while everyone else stays stuck.']],
             'rival_loss' => ['slot' => 'ps', 'mode' => 'set', 'value' => 'P.S. While you are deciding, the people who already acted are pulling further ahead.'],
@@ -247,9 +252,9 @@ class AggressionAmplifier
                 'heading' => 'Why you were never told this', 'body' => $enemy.' has every reason to keep this quiet — there is too much on the line for them.']],
             'identity_threat' => ['slot' => 'ps', 'mode' => 'set', 'value' => 'P.S. The people who act on this are a certain kind of person. The rest keep scrolling.'],
             'future_pacing_vivid' => ['slot' => 'body_sections', 'mode' => 'prepend_section', 'value' => [
-                'heading' => 'Picture 30 days from now', 'body' => 'Imagine waking up with '.$gain.' already behind you — that is what is on the table.']],
+                'heading' => 'Picture 30 days from now', 'body' => 'Imagine '.$dream.' — '.($num !== '' ? $num.' ' : '').'just 30 days from now. That is what is on the table.']],
             'guilt_shame_trigger' => ['slot' => 'body_sections', 'mode' => 'prepend_section', 'value' => [
-                'heading' => 'You owe yourself this', 'body' => 'You have carried this long enough. Staying where you are is a choice too.']],
+                'heading' => 'You owe yourself this', 'body' => 'You have carried this long enough. Another month '.$pain.' is a choice too.']],
             default => null,
         };
     }

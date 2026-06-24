@@ -22,6 +22,39 @@ class AggressiveConversionTacticsLibrary implements PatternLibrary
         return 'aggressive_tactics';
     }
 
+    /**
+     * The market's raw WOUND and DREAM, so aggression hits where it actually hurts/pulls per niche
+     * (not generic). Knowledge of the avatar's core pain/desire by market family. DB-free, deterministic.
+     *
+     * @return array{family:string,pain:string,dream:string}
+     */
+    public function nicheWound(string $niche): array
+    {
+        $n = mb_strtolower($niche);
+        $family = match (true) {
+            (bool) preg_match('/financ|money|invest|trad|crypto|forex|income|renda|dinheiro|wealth|stock/u', $n) => 'finance',
+            (bool) preg_match('/relacion|dating|love|marriage|romance|\bex\b|namoro|casamento|amor|paquera/u', $n) => 'relationship',
+            (bool) preg_match('/health|weight|diet|fitness|saude|saúde|emagrec|metabol|hormon/u', $n) => 'health',
+            default => 'generic',
+        };
+
+        return [
+            'family' => $family,
+            'pain' => match ($family) {
+                'finance' => 'watching your savings shrink while everyone else compounds',
+                'relationship' => 'lying awake while they slip further away',
+                'health' => 'watching your body and energy slip a little more each month',
+                default => 'staying stuck exactly where you are',
+            },
+            'dream' => match ($family) {
+                'finance' => 'your balance finally working FOR you',
+                'relationship' => 'them choosing you again, for real this time',
+                'health' => 'waking up lighter, sharper, in control of your body',
+                default => 'the version of you that already solved this',
+            },
+        ];
+    }
+
     public function categories(): array
     {
         return ['scarcity_pressure', 'fear_pressure', 'social_pressure', 'authority_pressure', 'value_pressure', 'identity_pressure', 'forbidden_pressure'];

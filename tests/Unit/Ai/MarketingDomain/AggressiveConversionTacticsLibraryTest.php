@@ -50,6 +50,24 @@ class AggressiveConversionTacticsLibraryTest extends TestCase
         $this->assertGreaterThan(40, $scorer->score($lib, $relationship)['score']);
     }
 
+    public function test_niche_wound_hits_the_market_specific_pain_and_dream(): void
+    {
+        $lib = new AggressiveConversionTacticsLibrary;
+        $fin = $lib->nicheWound('finance day trading');
+        $rel = $lib->nicheWound('get your ex back');
+        $health = $lib->nicheWound('weight loss');
+
+        $this->assertSame('finance', $fin['family']);
+        $this->assertStringContainsString('savings', $fin['pain']);
+        $this->assertSame('relationship', $rel['family']);
+        $this->assertStringContainsString('slip', $rel['pain']);
+        $this->assertSame('health', $health['family']);
+        // Each market gets a distinct wound — the aggression is not generic.
+        $this->assertNotSame($fin['pain'], $rel['pain']);
+        $this->assertNotSame($fin['dream'], $rel['dream']);
+        $this->assertSame('generic', $lib->nicheWound('underwater basket weaving')['family']);
+    }
+
     public function test_library_contract_is_valid(): void
     {
         $lib = new AggressiveConversionTacticsLibrary;
