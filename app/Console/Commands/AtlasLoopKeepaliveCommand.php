@@ -10,6 +10,7 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopFleetGovernor;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMorningDigestService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopSoakPlanService;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopWorkspaceFloorAutotuner;
 use App\Services\Ai\AutonomousEvolution\Campaign\AtlasLoopPipelineDrift;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
@@ -44,6 +45,9 @@ class AtlasLoopKeepaliveCommand extends Command
         private ?AtlasLoopDriftRestartDebounce $driftRestartDebounce = null,
         private ?AtlasAgentDesiredStateStore $desiredStore = null,
         private ?AtlasLoopSoakPlanService $soakPlanner = null,
+        // W40-S4: advisory workspace-disk-floor autotuner. Nullable + last so existing callers are unaffected;
+        // default-constructed at use. ADVISORY-ONLY (writes a snapshot, never deletes/changes config).
+        private ?AtlasLoopWorkspaceFloorAutotuner $floorAutotuner = null,
     ) {
         parent::__construct();
     }
@@ -85,6 +89,7 @@ class AtlasLoopKeepaliveCommand extends Command
         // is armed, the 24/7 keepalive would silently grind faxina instead of material work. This NEVER blocks
         // or kills — it only logs + stamps an Evidence-Ledger receipt so the operator sees the drift.
         $this->emitArmCheckAdvisory();
+        $this->emitWorkspaceFloorAdvisory();
 
         $staleMinutes = max(2, (int) $this->option('stale-minutes'));
 
@@ -367,6 +372,87 @@ class AtlasLoopKeepaliveCommand extends Command
             );
         } catch (\Throwable) {
             // advisory receipt is best-effort; keepalive never depends on it
+        }
+    }
+
+    /**
+     * W40-S4 ADVISORY workspace-disk-floor autotune. Default OFF ⇒ byte-identical no-op. When ON it gathers
+     * READ-ONLY facts (workspace footprint p95, running-campaign count) and asks the autotuner to write a
+     * recommended-floor snapshot. ADVISORY-ONLY: never deletes a workspace, never changes config.
+     */
+    protected function emitWorkspaceFloorAdvisory(): void
+    {
+        if (! (bool) config('atlas.loop.workspace_floor_autotuner_enabled', false)) {
+            return; // default OFF — never even constructs the autotuner
+        }
+
+        try {
+            $sizes = $this->workspaceFootprintSamplesMb();
+            $sample = [
+                'footprint_p95_mb' => $sizes === [] ? null : $this->percentileMb($sizes, 0.95),
+                'history_count' => count($sizes),
+                'concurrent_campaigns' => $this->runningCampaignCountForAdvisory(),
+            ];
+            $currentFloorMb = (int) config('atlas.loop.workspace_floor_mb', 0);
+            ($this->floorAutotuner ?? new AtlasLoopWorkspaceFloorAutotuner)->writeAdvisorySnapshot($currentFloorMb, $sample);
+        } catch (\Throwable) {
+            // advisory only — a footprint/snapshot failure must never affect keepalive
+        }
+    }
+
+    /**
+     * Per-workspace footprint sizes in MB (read-only scan of the workspaces tree). Empty when none exist.
+     *
+     * @return list<float>
+     */
+    private function workspaceFootprintSamplesMb(): array
+    {
+        $base = storage_path('app/atlas/loop/workspaces');
+        if (! is_dir($base)) {
+            return [];
+        }
+        $sizes = [];
+        foreach (glob($base.'/*', GLOB_ONLYDIR) ?: [] as $dir) {
+            $sizes[] = $this->dirSizeMb($dir);
+        }
+
+        return $sizes;
+    }
+
+    private function dirSizeMb(string $dir): float
+    {
+        $bytes = 0;
+        try {
+            $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS));
+            foreach ($it as $file) {
+                if ($file->isFile()) {
+                    $bytes += (int) $file->getSize();
+                }
+            }
+        } catch (\Throwable) {
+            // best-effort read-only scan
+        }
+
+        return round($bytes / 1048576, 4);
+    }
+
+    /**
+     * @param  list<float>  $values
+     */
+    private function percentileMb(array $values, float $p): float
+    {
+        sort($values);
+        $idx = (int) ceil($p * count($values)) - 1;
+
+        return (float) $values[max(0, min(count($values) - 1, $idx))];
+    }
+
+    private function runningCampaignCountForAdvisory(): int
+    {
+        try {
+            return (int) DB::table('atlas_loop_campaigns')->where('status', 'running')->count();
+        } catch (\Throwable) {
+            return 0; // advisory: DB unavailability never affects keepalive
         }
     }
 
