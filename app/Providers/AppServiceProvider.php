@@ -261,6 +261,28 @@ class AppServiceProvider extends ServiceProvider
             return $registry;
         });
         $this->app->singleton(\App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Council\AtlasCortexCouncilTriangulator::class);
+        // Cortex v+infinity universal contract — the portable interface every backend implements. The default
+        // binding is an inline adapter that delegates to AtlasLoopScopeComprehensionModelBuilder so the
+        // returned FACTS array is byte-identical to the existing model's toArray() output.
+        $this->app->singleton(\App\Services\Ai\AutonomousEvolution\Cortex\AtlasCortexUniversalContract::class, function ($app): \App\Services\Ai\AutonomousEvolution\Cortex\AtlasCortexUniversalContract {
+            return new class($app->make(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModelBuilder::class)) implements \App\Services\Ai\AutonomousEvolution\Cortex\AtlasCortexUniversalContract
+            {
+                public function __construct(private readonly \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModelBuilder $builder) {}
+
+                public function comprehend(string $repoRoot, array $config): array
+                {
+                    $scopeRoot = (string) ($config['scope_root'] ?? $repoRoot);
+                    $opts = is_array($config['opts'] ?? null) ? $config['opts'] : [];
+
+                    return $this->builder->build($repoRoot, $scopeRoot, $opts)->toArray();
+                }
+
+                public function contractSchemaId(): string
+                {
+                    return 'atlas.cortex.facts.v1';
+                }
+            };
+        });
         // Net-diff cert ledger — single shared instance so verify/history see the same JSONL spool.
         $this->app->singleton(AtlasLoopNetDiffCertReceiptLedger::class);
         // Cycle-receipt chain — singletons so the CLI + any callers share one ledger/signer pair.
