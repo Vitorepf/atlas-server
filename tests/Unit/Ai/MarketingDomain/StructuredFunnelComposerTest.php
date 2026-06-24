@@ -75,4 +75,21 @@ class StructuredFunnelComposerTest extends TestCase
             ->amplify($bridge, $asset, ['until' => 'killer', 'max_iterations' => 3]);
         $this->assertSame(0, $out['structural_defects']);
     }
+
+    public function test_generated_funnel_closes_all_four_value_equation_levers_cross_niche(): void
+    {
+        // "A construção é que vende": the scaffold must bake the COMPLETE offer in — dream outcome,
+        // perceived likelihood, time delay, effort/sacrifice — so the page is born with zero offer gaps.
+        $composer = new StructuredFunnelComposer;
+        $ve = new \App\Services\Ai\MarketingDomain\Content\ValueEquationAuditor;
+        foreach ([
+            ['niche' => 'weight loss', 'core_promise' => 'lose the weight', 'sophistication_level' => 3],
+            ['niche' => 'finance', 'core_promise' => 'grow your money', 'sophistication_level' => 4],
+            ['niche' => 'relationship', 'core_promise' => 'win them back', 'sophistication_level' => 2],
+        ] as $attrs) {
+            $f = $composer->compose($this->asset($attrs));
+            $r = $ve->audit($f['page'].' '.$f['checkout']);
+            $this->assertSame([], $r['gaps'], "funnel for {$attrs['niche']} left an offer lever unanswered");
+        }
+    }
 }

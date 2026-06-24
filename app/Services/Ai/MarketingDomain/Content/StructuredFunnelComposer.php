@@ -69,8 +69,10 @@ class StructuredFunnelComposer
             'It gets clearer once you see what is actually happening.',                    // forward pull
             'But first, understand what everyone else got wrong about this.',              // forward pull (mid)
             "Here is how {$mechanism} finally makes {$promise}{$heroLine} work.",          // REVEAL (late)
-            "Imagine {$wound['dream']} — 30 days from now.",                               // future pacing (niche dream)
-            '[PROOF SLOT: o caso/depoimento/estudo mais forte da oferta]',                  // proof slot
+            "Imagine {$wound['dream']} — 30 days from now.",                               // future pacing (niche dream / Value Eq: dream outcome)
+            'And it is simple — without turning your whole life upside down.',              // Value Eq: effort/sacrifice ↓ (honest, no fabricated claim)
+            'Starting today, not someday.',                                                // Value Eq: time delay ↓ (addresses "how soon" honestly)
+            '[PROOF SLOT: o caso/depoimento/estudo mais forte da oferta]',                  // proof slot (Value Eq: perceived likelihood ↑)
             'Watch the free presentation now — spots are limited.',                         // single CTA (end) + scarcity
         ])));
 
@@ -108,6 +110,7 @@ class StructuredFunnelComposer
         $avatar = $this->avatarCallout($asset);
         $hero = $this->heroClaim($asset);
         $heroLine = $hero !== '' ? " — {$hero}" : '';
+        $wound = (new \App\Services\Ai\MarketingDomain\Knowledge\AggressiveConversionTacticsLibrary)->nicheWound((string) $asset->niche);
 
         return [
             'kicker' => rtrim($avatar, ':'),
@@ -119,6 +122,8 @@ class StructuredFunnelComposer
                 ['heading' => 'What everyone got wrong', 'body' => 'For a long time the wrong thing got all the attention. It gets clearer once you see what is actually happening.'],
                 ['heading' => 'But first', 'body' => 'Before the how, understand the one shift that changes everything — wait until you see it.'],
                 ['heading' => 'The mechanism', 'body' => "Here is how {$mechanism} finally makes {$promise}{$heroLine} work."], // REVEAL, late
+                // After the reveal: close the Value-Equation levers — dream outcome, effort↓, time↓.
+                ['heading' => 'What it means for you', 'body' => "Imagine {$wound['dream']}. And it is simple — without turning your whole life upside down. Starting today, not someday."],
                 ['heading' => 'The proof', 'body' => '[PROOF SLOT: o caso/depoimento/estudo mais forte da oferta]'],
             ],
             'cta_blocks' => [
