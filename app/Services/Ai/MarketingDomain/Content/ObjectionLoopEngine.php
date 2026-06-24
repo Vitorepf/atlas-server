@@ -40,18 +40,27 @@ class ObjectionLoopEngine
         $label = $this->label($objectionKey);
         $axis = self::AXIS[$objectionKey] ?? 'product';
 
-        $wound = (new AggressiveConversionTacticsLibrary)->nicheWound((string) $asset->niche);
-        $mech = trim((string) $asset->mechanism_name) ?: (string) ($this->forge->forge($asset)['best'] ?? 'the method');
-        $dream = $wound['dream'] ?? 'the result you want';
+        $lang = $this->lang($asset);
+        $pt = $lang === 'pt';
+        $wound = (new AggressiveConversionTacticsLibrary)->nicheWound((string) $asset->niche, $lang);
+        $mech = trim((string) $asset->mechanism_name) ?: (string) ($this->forge->forge($asset)['best'] ?? ($pt ? 'o método' : 'the method'));
+        $dream = $wound['dream'] ?? ($pt ? 'o resultado que você quer' : 'the result you want');
 
-        // 1. Acknowledge (feel-felt-found / fair question) — disarm without confronting.
-        $acknowledge = "Fair question — and you are right to ask. Plenty of people thought the same before they saw how it actually works.";
-        // 2. Reframe the dropped certainty axis with NEW proof.
-        $reframe = $this->reframe($objectionKey, $axis, $mech, $wound);
-        // 3. Take-away (reactance + status scarcity).
-        $takeaway = "And to be honest, this is not for everyone — only for the people actually ready for {$dream}. If that is not you yet, no hard feelings.";
-        // 4. Re-ask (assumptive next step, loops back to the offer).
-        $reask = "But if it is — does that make sense so far? Then the next step is simple: watch the free presentation and see it for yourself.";
+        if ($pt) {
+            $acknowledge = 'Pergunta justa — e você tem todo o direito de perguntar. Muita gente pensou o mesmo antes de ver como funciona de verdade.';
+            $reframe = $this->reframe($objectionKey, $axis, $mech, $wound, $lang);
+            $takeaway = "E, sendo honesto, isso não é pra todo mundo — só pra quem está realmente pronto pra {$dream}. Se ainda não é você, sem ressentimentos.";
+            $reask = 'Mas se for — faz sentido até aqui? Então o próximo passo é simples: assista à apresentação gratuita e veja você mesmo.';
+        } else {
+            // 1. Acknowledge (feel-felt-found / fair question) — disarm without confronting.
+            $acknowledge = "Fair question — and you are right to ask. Plenty of people thought the same before they saw how it actually works.";
+            // 2. Reframe the dropped certainty axis with NEW proof.
+            $reframe = $this->reframe($objectionKey, $axis, $mech, $wound, $lang);
+            // 3. Take-away (reactance + status scarcity).
+            $takeaway = "And to be honest, this is not for everyone — only for the people actually ready for {$dream}. If that is not you yet, no hard feelings.";
+            // 4. Re-ask (assumptive next step, loops back to the offer).
+            $reask = "But if it is — does that make sense so far? Then the next step is simple: watch the free presentation and see it for yourself.";
+        }
 
         $steps = ['acknowledge' => $acknowledge, 'reframe' => $reframe, 'takeaway' => $takeaway, 'reask' => $reask];
 
@@ -63,9 +72,21 @@ class ObjectionLoopEngine
         ];
     }
 
-    private function reframe(string $key, string $axis, string $mech, array $wound): string
+    private function reframe(string $key, string $axis, string $mech, array $wound, string $lang = ''): string
     {
-        $pain = $wound['pain'] ?? 'the problem';
+        $pain = $wound['pain'] ?? ($lang === 'pt' ? 'o problema' : 'the problem');
+
+        if ($lang === 'pt') {
+            return match ($key) {
+                'price_too_high', 'cant_afford' => "Pense no custo real de não fazer nada — mais um ano {$pain}, e a conta só cresce. {$mech} custa menos do que você já desperdiça no que não funciona. A escolha cara é continuar onde está.",
+                'wont_work_for_me' => "É exatamente por isso que funciona pra você — tudo que você tentou antes consertava a coisa errada. {$mech} ataca a causa real, e foi feito pra quem está exatamente na sua situação.",
+                'tried_everything' => "Claro que já — e é esse o ponto. Você tentou tudo, menos a única coisa que ataca a causa real. {$mech} não é mais uma versão do que já te decepcionou.",
+                'is_it_scam' => "Inteligente ser cético — a maioria por aí é ruído. Então não acredite em mim: assista à apresentação, veja a prova você mesmo, e você tem garantia total de reembolso. O risco é todo nosso.",
+                'is_it_safe' => "Sua segurança vem primeiro — por isso {$mech} trabalha COM o seu corpo, não contra ele, e você está protegido por garantia total de reembolso se um dia não for pra você.",
+                'no_time' => "Se o problema é tempo, isso foi feito pra isso — cabe em minutos por dia, sem virar sua vida de cabeça pra baixo. Não fazer nada te custa muito mais tempo do que isso jamais vai custar.",
+                default => "Eis o que muda: {$mech} ataca o verdadeiro motivo {$pain} — e você tem garantia total de reembolso, então o risco é nosso, não seu.",
+            };
+        }
 
         return match ($key) {
             'price_too_high', 'cant_afford' => "Think about the real cost of doing nothing — another year of {$pain}, and the bill only grows. {$mech} costs less than what you already waste on what does not work. The expensive choice is staying where you are.",
@@ -96,5 +117,14 @@ class ObjectionLoopEngine
         }
 
         return $key;
+    }
+
+    /** Asset language — PT when geo/language/niche/promise says so, else EN. */
+    private function lang(AiMarketingVslAsset $asset): string
+    {
+        $blob = mb_strtolower((string) $asset->language.' '.(string) $asset->target_geo.' '.(string) $asset->niche);
+
+        return (str_contains($blob, 'pt') || str_contains($blob, 'br') || str_contains($blob, 'portug')
+            || str_contains($blob, 'emagrec') || (bool) preg_match('/[ãâáàéêíóôõúç]/u', (string) $asset->core_promise)) ? 'pt' : 'en';
     }
 }
