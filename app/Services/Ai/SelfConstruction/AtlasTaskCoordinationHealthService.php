@@ -40,6 +40,7 @@ final class AtlasTaskCoordinationHealthService
     public function snapshot(): array
     {
         $queue = $this->queueRepo();
+        $queueDiskMismatch = $this->queueDiskName($queue) !== AtlasTaskServingStack::disk();
 
         $distribution = [];
         foreach (self::QUEUE_STATUSES as $status) {
@@ -80,11 +81,15 @@ final class AtlasTaskCoordinationHealthService
             'lease_leak_detected' => $leaseLeak,
             'r2_breach' => (bool) ($serving['r2_breach'] ?? false),
             'recoverable_backlog' => $recoverableTotal > 0,
+            'queue_disk_mismatch_detected' => $queueDiskMismatch,
         ];
 
         // HEALTHY = no integrity breach. A dry queue, a recoverable backlog, or an advancing-ladder wait are
         // operational states, not breaches; a lease leak, an R2 breach, or a true serving JAM are failures.
-        $healthy = ! $flags['lease_leak_detected'] && ! $flags['r2_breach'] && ! $flags['serving_jammed'];
+        $healthy = ! $flags['lease_leak_detected']
+            && ! $flags['r2_breach']
+            && ! $flags['serving_jammed']
+            && ! $flags['queue_disk_mismatch_detected'];
 
         return [
             'schema' => self::SCHEMA,
@@ -128,6 +133,15 @@ final class AtlasTaskCoordinationHealthService
     private function queueRepo(): AgentControlPlaneTaskPacketQueueRepository
     {
         return $this->queue ?? new AgentControlPlaneTaskPacketQueueRepository(AtlasTaskServingStack::disk());
+    }
+
+    private function queueDiskName(AgentControlPlaneTaskPacketQueueRepository $queue): string
+    {
+        $property = new \ReflectionProperty($queue, 'disk');
+        $property->setAccessible(true);
+        $disk = $property->getValue($queue);
+
+        return is_string($disk) && $disk !== '' ? $disk : AgentControlPlaneTaskPacketQueueRepository::DEFAULT_DISK;
     }
 
     private function leaseRepo(): AgentControlPlaneClaimLeaseRepository
