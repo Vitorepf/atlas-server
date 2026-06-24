@@ -123,6 +123,12 @@ final class AgentControlPlaneTaskQueueOrchestrator
         $this->reapExpiredBeforeListing();
 
         $candidates = $this->queue->list(array_merge(['status' => 'claimable'], $filters));
+        // ORDER (soft): serve lower waves first so the version-ladder advances v1 → v2 → v3 in sequence. This is
+        // a stable preference, not a hard gate (depends_on is the hard gate); a stable sort preserves the prior
+        // ordering within a wave, so same-wave disjoint tasks still flow in parallel.
+        usort($candidates, static function (array $a, array $b): int {
+            return ((int) data_get($a, 'metadata.wave', 0)) <=> ((int) data_get($b, 'metadata.wave', 0));
+        });
         foreach ($candidates as $candidate) {
             if (! $this->candidateCanBeClaimedByWorker($candidate, $agentId)) {
                 continue;
