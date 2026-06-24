@@ -16,31 +16,35 @@ php artisan atlas:task:serving status     # confirma: task-serving: ON
 
 O switch é independente do `atlas:loop:on` (que governa o loop autônomo). Pra desligar tudo: `atlas:task:serving off`.
 
-## 2. Operador — abastecer a fila com tasks reais
+## 2. Abastecer a fila — o ATLAS estrutura a lista sozinho (a Parte 2)
 
-Uma task por comando:
+O Atlas **lê a sua compreensão completa de um escopo e estrutura a lista de tasks ele mesmo** — você NÃO descreve
+task por task. Defina o escopo e deixe o runtime encher a fila e mantê-la cheia:
+
 ```bash
-php artisan atlas:task:enqueue \
-  --objective="implementar X em Y" \
-  --allow=app/Services/Foo/Bar.php \
-  --allow=app/Services/Foo/Baz.php \
-  --read=app/Services/Foo/Contract.php \
-  --accept="o teste FooBarTest passa" \
-  --evidence=tests_or_gates_result \
-  --json
+# o RUNTIME do cérebro: lê a compreensão do escopo, estrutura tasks reais (orphans + doc-gaps), enche a fila
+# e a mantém >= --target, pra sempre. (precisa de -d memory_limit pelo build da compreensão)
+php artisan -d memory_limit=4096M atlas:task:replenish --scope=app/Services/Ai/AutonomousEvolution --target=20 --watch --every=120
+
+# ver o que ele estruturaria, sem enfileirar nada:
+php artisan -d memory_limit=4096M atlas:task:replenish --scope=app/Services/Ai/SelfConstruction --dry-run
 ```
 
-Ou em lote (`tasks.json` = `[{objective, allowed_files, acceptance_criteria, required_evidence, scope_in?}]`):
+Cada task que ele estrutura é **fundada num símbolo REAL do escopo** (a compreensão é o oráculo — nunca cita algo
+que não existe), auto-suficiente (objetivo + allowed_files exato + aceite + evidência). Tipos de evolução REAL que
+ele extrai: **orphan** (classe construída mas sem nenhum caller — capacidade parada) e **doc-gap** (capacidade que
+os docs canônicos exigem e nenhum símbolo provê). **Anti-Goodhart:** ele NUNCA cria task de proxy/faxina
+(cobertura/ciclomática) — só evolução de capacidade real. Dedup + watermark: re-rodar não duplica; para no alvo.
+
+**Limite honesto:** a lista é tão vasta quanto o material real do escopo num snapshot (ex.: SelfConstruction →
+74 tasks; AutonomousEvolution → dezenas), e se re-deriva conforme o código evolui. Não é literalmente infinita
+sem o originador model-bound (um booster à parte) ou um escopo maior — mas é vasta e se reabastece sozinha.
+
+### (Opcional) override manual — você descreve uma task específica
 ```bash
-php artisan atlas:task:enqueue --file=tasks.json --json
+php artisan atlas:task:enqueue --objective="..." --allow=app/Services/Foo/Bar.php --accept="..." --evidence=tests_or_gates_result --json
 ```
-
-**Quality gate:** uma task sem objetivo/`allow`/aceite/evidência, ou com diretório no `--allow` (em vez de arquivo
-concreto), é **rejeitada na porta** com as deficiências — você corrige o spec em vez de encalhar uma IA depois.
-
-> **Fonte complementar (model-bound):** o cérebro também pode originar tasks de material óbvio do escopo
-> (orphans/clones/doc-gaps). Em código maduro isso **seca rápido** — por isso o enqueue manual é a fonte
-> principal. Não conte com fila infinita automática.
+Mesmo quality-gate. Use só quando quiser injetar uma task pontual fora do que o cérebro estrutura.
 
 ## 3. Cada IA — VOCÊ SÓ COLA UM PROMPT
 
