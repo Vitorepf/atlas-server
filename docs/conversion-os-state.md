@@ -124,6 +124,8 @@ ROADMAP do blueprint: 8 de 11 entregues (#1,2,4,5,6,7,8,9; #3 coberto). Restam: 
 
 - **Pilar 1+2: loop de objeção (Belfort) LIGADO na geração** ✅ — a página gerada não só lança o pitch, ela TRATA a objeção do resistente antes do ask: `ObjectionLoopEngine` injetado no StructuredFunnelComposer (acknowledge→reframe-com-mecanismo/custo-da-inação→take-away→re-pede) pra a top objection do nicho. Dogfood pegou e consertei 1 falso-órfão ("the only next step" disparava superlativo→reescrito "the next step is simple"). A página autônoma segue passando nos 6 levers do cérebro (auto-consistência intacta). Pilar 1 (vender pra quem não quer) materializado na saída autônoma. 452/452.
 
+- **CLI atlas:ai:marketing:diagnose — o cérebro 1→25 INVOCÁVEL (pilar 2)** ✅ — instrumento que não roda entrega zero força; expus o suite de decisão num comando: gargalo #1 + status dos 6 levers (ConversionLeverageDiagnostic) + veredito de audiência (AudiencePanelVerdict) + onde a aba fecha (AbandonPointSimulator) + KILL/SCALE com poucos dados (BayesianKillScaleDecider, quando vêm --clicks/--conversions/--spend/--payout). Output humano colorido + --json. Provado ponta-a-ponta (200clk/0v→KILL P(perda)=100%). 455/455.
+
 ## Pontos pra próxima sessão (faculdade de ambição)
 - **Multi-persona injection por slot** — TL;DR pra mãe ocupada no topo, vs-Ozempic perto do CTA, prova específica embaixo, em vez de 1 fix em `ps`.
 - **LLM-driven persona refinement** — quando o operador plugar LLM, refinar `simulate()` por avatar real do produto (não só os 3 fixos hardcoded). Framework está pronto, contrato é o `PersonaSimulator`.
