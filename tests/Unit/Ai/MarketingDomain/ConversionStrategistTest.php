@@ -56,7 +56,7 @@ class ConversionStrategistTest extends TestCase
     public function test_full_copy_overrides_asset_text_for_offer_audit(): void
     {
         $asset = new AiMarketingVslAsset(['niche' => 'relationship', 'awareness_level' => 'product_aware', 'sophistication_level' => 3]);
-        $copy = 'Imagine reconnecting. Proven by a money-back guarantee, results in days, with no awkward texts — simple.';
+        $copy = 'Imagine reconnecting. Proven by a 60-day money-back guarantee, results in 14 days, with no texting and just 10 minutes a day.';
         $plan = (new ConversionStrategist)->plan($asset, $copy);
         $this->assertSame([], $plan['offer_gaps']); // a complete offer has no gaps
     }

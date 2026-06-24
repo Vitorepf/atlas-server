@@ -76,20 +76,31 @@ class StructuredFunnelComposerTest extends TestCase
         $this->assertSame(0, $out['structural_defects']);
     }
 
-    public function test_generated_funnel_closes_all_four_value_equation_levers_cross_niche(): void
+    public function test_generated_funnel_closes_levers_only_with_real_asset_substance(): void
     {
-        // "A construção é que vende": the scaffold must bake the COMPLETE offer in — dream outcome,
-        // perceived likelihood, time delay, effort/sacrifice — so the page is born with zero offer gaps.
+        // A brutal panel proved v1 closed the levers with fixed FILLER + an empty PROOF SLOT (Goodhart).
+        // Honest contract now: when the asset carries real substance (timeframe, proof/guarantee, named
+        // effort removal), the page covers the levers; when it does NOT, the page leaves an HONEST gap.
         $composer = new StructuredFunnelComposer;
         $ve = new \App\Services\Ai\MarketingDomain\Content\ValueEquationAuditor;
+
         foreach ([
             ['niche' => 'weight loss', 'core_promise' => 'lose the weight', 'sophistication_level' => 3],
             ['niche' => 'finance', 'core_promise' => 'grow your money', 'sophistication_level' => 4],
             ['niche' => 'relationship', 'core_promise' => 'win them back', 'sophistication_level' => 2],
-        ] as $attrs) {
-            $f = $composer->compose($this->asset($attrs));
-            $r = $ve->audit($f['page'].' '.$f['checkout']);
-            $this->assertSame([], $r['gaps'], "funnel for {$attrs['niche']} left an offer lever unanswered");
+        ] as $base) {
+            $rich = $composer->compose($this->asset($base + [
+                'metrics' => ['result_claims' => ['real results in 21 days'], 'timeframe' => ['21 days']],
+                'offer' => ['guarantee' => '60-day money-back guarantee', 'ease' => ['no gym', 'just 10 minutes a day']],
+            ]));
+            $this->assertSame([], $ve->audit($rich['page'].' '.$rich['checkout'])['gaps'],
+                "rich {$base['niche']} asset should close every lever with real substance");
         }
+
+        // Thin asset: no proof, no timeframe, no effort claim → the proof lever stays an honest gap
+        // (the empty PROOF SLOT must NOT auto-cover it).
+        $thin = $composer->compose($this->asset(['niche' => 'weight loss', 'core_promise' => 'lose the weight']));
+        $gapKeys = array_column($ve->audit($thin['page'].' '.$thin['checkout'])['gaps'], 'key');
+        $this->assertContains('perceived_likelihood', $gapKeys, 'an empty proof slot must NOT count as proof');
     }
 }

@@ -46,6 +46,12 @@ class StructuredFunnelComposer
         // Default = MAXIMUM aggression (operator: sem freio). The market's raw wound/dream is woven in
         // niche-flavored, so the scaffold ships aggressive by construction (not generic).
         $wound = (new \App\Services\Ai\MarketingDomain\Knowledge\AggressiveConversionTacticsLibrary)->nicheWound((string) $asset->niche);
+        // Value Equation (Eixo 5): only CLAIM the time/effort levers when the ASSET gives real substance.
+        // A brutal panel proved fixed filler ("starting today", "simple, without…") just gamed the auditor.
+        // No substance → leave an HONEST gap for the producer to fill, never plant generic filler.
+        $timeframe = $this->timeframe($asset);
+        $timeLine = $timeframe !== '' ? "You can start seeing the change in {$timeframe}." : '';
+        $easeLine = $this->easeClaim($asset);
         // Schwartz market sophistication picks the opener: an exhausted market (level 5) is deaf to
         // claims/mechanism and only responds to IDENTIFICATION; earlier levels open with curiosity.
         $exhausted = (new MarketSophisticationRouter)->strategy((string) $asset->sophistication_level)['strategy'] === 'identify_and_experience';
@@ -69,10 +75,10 @@ class StructuredFunnelComposer
             'It gets clearer once you see what is actually happening.',                    // forward pull
             'But first, understand what everyone else got wrong about this.',              // forward pull (mid)
             "Here is how {$mechanism} finally makes {$promise}{$heroLine} work.",          // REVEAL (late)
-            "Imagine {$wound['dream']} — 30 days from now.",                               // future pacing (niche dream / Value Eq: dream outcome)
-            'And it is simple — without turning your whole life upside down.',              // Value Eq: effort/sacrifice ↓ (honest, no fabricated claim)
-            'Starting today, not someday.',                                                // Value Eq: time delay ↓ (addresses "how soon" honestly)
-            '[PROOF SLOT: o caso/depoimento/estudo mais forte da oferta]',                  // proof slot (Value Eq: perceived likelihood ↑)
+            "Imagine {$wound['dream']}.",                                                  // future pacing (niche dream / Value Eq: dream outcome)
+            $timeLine,                                                                      // Value Eq: time delay ↓ — ONLY if the asset gives a real timeframe
+            $easeLine,                                                                      // Value Eq: effort ↓ — ONLY if the asset names a removed effort
+            '[PROOF SLOT: o caso/depoimento/estudo mais forte da oferta]',                  // proof slot — producer fills with REAL proof (does NOT auto-cover likelihood)
             'Watch the free presentation now — spots are limited.',                         // single CTA (end) + scarcity
         ])));
 
@@ -111,6 +117,10 @@ class StructuredFunnelComposer
         $hero = $this->heroClaim($asset);
         $heroLine = $hero !== '' ? " — {$hero}" : '';
         $wound = (new \App\Services\Ai\MarketingDomain\Knowledge\AggressiveConversionTacticsLibrary)->nicheWound((string) $asset->niche);
+        $timeframe = $this->timeframe($asset);
+        $meansBody = trim("Imagine {$wound['dream']}."
+            .($timeframe !== '' ? " You can start seeing the change in {$timeframe}." : '')
+            .($this->easeClaim($asset) !== '' ? ' '.$this->easeClaim($asset) : ''));
 
         return [
             'kicker' => rtrim($avatar, ':'),
@@ -122,8 +132,9 @@ class StructuredFunnelComposer
                 ['heading' => 'What everyone got wrong', 'body' => 'For a long time the wrong thing got all the attention. It gets clearer once you see what is actually happening.'],
                 ['heading' => 'But first', 'body' => 'Before the how, understand the one shift that changes everything — wait until you see it.'],
                 ['heading' => 'The mechanism', 'body' => "Here is how {$mechanism} finally makes {$promise}{$heroLine} work."], // REVEAL, late
-                // After the reveal: close the Value-Equation levers — dream outcome, effort↓, time↓.
-                ['heading' => 'What it means for you', 'body' => "Imagine {$wound['dream']}. And it is simple — without turning your whole life upside down. Starting today, not someday."],
+                // After the reveal: dream outcome (always) + time/effort levers ONLY when the asset gives
+                // real substance (no fixed filler — a brutal panel proved filler just games the auditor).
+                ['heading' => 'What it means for you', 'body' => $meansBody],
                 ['heading' => 'The proof', 'body' => '[PROOF SLOT: o caso/depoimento/estudo mais forte da oferta]'],
             ],
             'cta_blocks' => [
@@ -181,10 +192,56 @@ class StructuredFunnelComposer
 
     private function guarantee(AiMarketingVslAsset $asset): string
     {
+        // No DEFAULT guarantee — a brutal panel showed a hard-coded "60-day money-back guarantee." was
+        // auto-satisfying the proof lever on every page. Only state the guarantee the offer actually has.
         $offer = is_array($asset->offer) ? $asset->offer : [];
-        $g = trim((string) ($offer['guarantee'] ?? ''));
 
-        return $g !== '' ? $g : '60-day money-back guarantee.';
+        return trim((string) ($offer['guarantee'] ?? ''));
+    }
+
+    /** A real timeframe from the asset (e.g. "21 days"), for the time-delay lever — '' if none. */
+    private function timeframe(AiMarketingVslAsset $asset): string
+    {
+        $metrics = is_array($asset->metrics) ? $asset->metrics : [];
+        $pool = [(string) $asset->core_promise, (string) $asset->big_idea];
+        foreach (['result_claims', 'headline_numbers', 'claims', 'timeframe'] as $k) {
+            foreach ((array) ($metrics[$k] ?? []) as $c) {
+                if (is_scalar($c)) {
+                    $pool[] = (string) $c;
+                }
+            }
+        }
+        $offer = is_array($asset->offer) ? $asset->offer : [];
+        foreach (['timeframe', 'time_to_result'] as $k) {
+            if (is_scalar($offer[$k] ?? null)) {
+                $pool[] = (string) $offer[$k];
+            }
+        }
+        foreach ($pool as $s) {
+            if (preg_match('/\b\d+\s*(?:days?|weeks?|months?|hours?|minutes?|dias?|semanas?|meses|m[eê]s)\b/iu', $s, $m)) {
+                return trim($m[0]);
+            }
+        }
+
+        return '';
+    }
+
+    /** A real ease/effort-removal claim the offer carries (e.g. "no gym, no calorie counting") — '' if none. */
+    private function easeClaim(AiMarketingVslAsset $asset): string
+    {
+        $offer = is_array($asset->offer) ? $asset->offer : [];
+        foreach (['ease', 'effort', 'removes', 'no_more'] as $k) {
+            $v = $offer[$k] ?? null;
+            if (is_array($v)) {
+                $v = implode(', ', array_filter(array_map(static fn ($x) => is_scalar($x) ? (string) $x : '', $v)));
+            }
+            $v = trim((string) $v);
+            if ($v !== '') {
+                return rtrim($v, '.').'.';
+            }
+        }
+
+        return '';
     }
 
     /**

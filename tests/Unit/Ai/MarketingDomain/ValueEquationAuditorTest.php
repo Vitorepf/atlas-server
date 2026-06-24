@@ -44,7 +44,7 @@ class ValueEquationAuditorTest extends TestCase
     public function test_cross_niche_finance_offer(): void
     {
         $copy = 'Picture your account compounding. Audited track record, money-back guarantee, results in '
-            .'weeks, and it takes just minutes a day — no experience.';
+            .'3 weeks, and it takes just 10 minutes a day — no experience.';
         $this->assertSame(100, (new ValueEquationAuditor)->audit($copy)['score']);
     }
 }
