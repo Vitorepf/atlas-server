@@ -24,7 +24,7 @@ class AtlasTaskReplenishCommand extends Command
         {--target=20 : keep the queue at >= this many claimable tasks}
         {--max=40 : max tasks to mint per pass}
         {--docs-root=* : optional docs roots for the comprehension (doc-stated gaps)}
-        {--with-orphans : ALSO mint orphan-wiring tasks (multi-file, model-bound — often give_back; OFF by default)}
+        {--with-orphans : ALSO mint orphan-wiring tasks, shaped RESOLVABLE (allowed_files carry the orphan + its grounded integration site); OFF by default — this is the complete-list mode}
         {--dry-run : structure tasks and report, but enqueue nothing}
         {--watch : keep topping up on an interval (Ctrl-C to stop)}
         {--every=120 : seconds between passes in --watch}

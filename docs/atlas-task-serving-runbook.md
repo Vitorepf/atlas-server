@@ -30,19 +30,29 @@ O Atlas **lê a sua compreensão completa de um escopo e estrutura a lista de ta
 task por task. Defina o escopo e deixe o runtime encher a fila e mantê-la cheia:
 
 ```bash
-# o RUNTIME do cérebro: lê a compreensão do escopo, estrutura tasks reais (orphans + doc-gaps), enche a fila
-# e a mantém >= --target, pra sempre. (precisa de -d memory_limit pelo build da compreensão)
-php artisan -d memory_limit=4096M atlas:task:replenish --scope=app/Services/Ai/AutonomousEvolution --target=20 --watch --every=120
+# LISTA COMPLETA (recomendado): doc-gaps + órfãos resolvíveis — o espelho completo do que o escopo precisa evoluir
+php artisan -d memory_limit=4096M atlas:task:replenish --scope=app/Services/Ai/AutonomousEvolution --with-orphans --target=50
+
+# manter cheia pra sempre (watch): re-deriva conforme o código evolui
+php artisan -d memory_limit=4096M atlas:task:replenish --scope=app/Services/Ai/AutonomousEvolution --with-orphans --target=50 --watch --every=120
 
 # ver o que ele estruturaria, sem enfileirar nada:
-php artisan -d memory_limit=4096M atlas:task:replenish --scope=app/Services/Ai/SelfConstruction --dry-run
+php artisan -d memory_limit=4096M atlas:task:replenish --scope=app/Services/Ai/AutonomousEvolution --with-orphans --dry-run
 ```
 
 Cada task que ele estrutura é **fundada num símbolo REAL do escopo** (a compreensão é o oráculo — nunca cita algo
 que não existe), auto-suficiente (objetivo + allowed_files exato + aceite + evidência). Tipos de evolução REAL que
-ele extrai: **orphan** (classe construída mas sem nenhum caller — capacidade parada) e **doc-gap** (capacidade que
-os docs canônicos exigem e nenhum símbolo provê). **Anti-Goodhart:** ele NUNCA cria task de proxy/faxina
-(cobertura/ciclomática) — só evolução de capacidade real. Dedup + watermark: re-rodar não duplica; para no alvo.
+ele extrai:
+- **doc-gap** — capacidade que os docs canônicos exigem e nenhum símbolo provê. Task = classe + teste novos
+  (single-file-resolvível). Filtro repo-wide mata o falso-positivo (classe que já existe fora do escopo ou sob
+  nome mais completo) — sem give-back-bait.
+- **orphan** — classe construída mas sem nenhum caller (a dívida de wiring real). Moldada **resolvível**: o
+  `allowed_files` carrega o órfão **+ o sítio de integração aterrado** (os callers de produção do irmão análogo já
+  ligado — "ligue do jeito que o irmão dele está ligado, aqui"). Conflict-safe: o serving serializa órfãos que
+  miram o mesmo integrador. Órfão sem sítio aterrado é **deferido** (não vira give-back-bait).
+
+**Anti-Goodhart:** ele NUNCA cria task de proxy/faxina (cobertura/ciclomática) — só evolução de capacidade real.
+Dedup + watermark: re-rodar não duplica; para no alvo.
 
 **Limite honesto:** a lista é tão vasta quanto o material real do escopo num snapshot (ex.: SelfConstruction →
 74 tasks; AutonomousEvolution → dezenas), e se re-deriva conforme o código evolui. Não é literalmente infinita
