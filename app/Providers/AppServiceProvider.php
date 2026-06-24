@@ -34,6 +34,7 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopCrossModelTriangulator;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopCrossFileConsumerGateService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHardCaseHarness;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopModelFloorReceiptLedger;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMutationAdequacyGateService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopOriginationDeliveryBridge;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProposalDiffReconstructor;
@@ -227,6 +228,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(AtlasLoopAdversarialVerifierPool::class);
         $this->app->singleton(AtlasLoopCrossModelTriangulator::class);
         $this->app->singleton(AtlasLoopHardCaseHarness::class);
+        // Floor-receipt audit substrate: one append-only, sha256-chained ledger proving the §0 floor
+        // invariants held across cross-model triangulation events. Nullable-default ctor autowires to the
+        // canonical storage path; pure I/O + hashing, so constructing it is free.
+        $this->app->singleton(AtlasLoopModelFloorReceiptLedger::class);
         $this->app->singleton(
             AtlasLoopBenchmarkHarness::class,
             fn ($app) => new AtlasLoopBenchmarkHarness(
