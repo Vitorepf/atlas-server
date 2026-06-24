@@ -104,6 +104,20 @@ class StructuredFunnelComposerTest extends TestCase
         $this->assertContains('perceived_likelihood', $gapKeys, 'an empty proof slot must NOT count as proof');
     }
 
+    public function test_checkout_stacks_a_grand_slam_offer_not_a_thin_line(): void
+    {
+        // Eixo 5: the checkout must STACK the offer (bonuses mapped to objections + value anchoring),
+        // reusing GrandSlamBuilder — not just "today only: $97".
+        $checkout = (new StructuredFunnelComposer)->compose($this->asset([
+            'niche' => 'weight loss', 'core_promise' => 'lose the weight',
+            'offer' => ['price' => '97', 'guarantee' => '60-day money-back guarantee'],
+        ]))['checkout'];
+        $this->assertStringContainsString('bonuses', $checkout);
+        $this->assertStringContainsString('worth $', $checkout);   // value anchor
+        $this->assertStringContainsString('$97', $checkout);
+        $this->assertStringContainsString('guarantee.', $checkout); // punctuation healed
+    }
+
     public function test_proof_lever_is_planted_only_from_real_asset_proof(): void
     {
         // Eixo 7 end-to-end: a concrete claim on the asset → the page carries CONCRETE proof; a thin

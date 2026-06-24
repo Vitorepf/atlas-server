@@ -84,12 +84,22 @@ class StructuredFunnelComposer
             'Watch the free presentation now — spots are limited.',                         // single CTA (end) + scarcity
         ])));
 
-        // ── CHECKOUT: the offer + price + single purchase CTA. No "free" on the core product → no bait.
+        // ── CHECKOUT: a GRAND-SLAM stacked offer (Eixo 5). Reuses the existing GrandSlamBuilder for the
+        // intelligence (bonuses mapped 1:1 to objections + value anchoring) instead of a thin one-liner —
+        // the offer is a top 1→25 lever. Rendered in EN from the builder's DATA (no language leak); the
+        // guarantee is only stated when the offer really has one (no fabricated risk-reversal).
+        $gs = (new \App\Services\Ai\MarketingDomain\Decision\GrandSlamBuilder)->build($asset);
+        $bonusN = is_array($gs['bonus_stack'] ?? null) ? count($gs['bonus_stack']) : 0;
+        $anchored = (string) ($gs['total_anchored_value'] ?? '');
+        $valueLine = ($anchored !== '' && $anchored !== '$0' && $price !== '')
+            ? "Everything here is worth {$anchored} — today it is yours for {$price}."
+            : ($price !== '' ? "Today only: {$price}." : '');
         $checkout = trim(implode(' ', array_filter([
             "Get the complete {$mechanism} system for {$promise}{$heroLine}.",
-            $price !== '' ? "Today only: {$price}." : '',
-            $guarantee !== '' ? $guarantee : '',
-            'Order now to get instant access — before this closes.',
+            $bonusN > 0 ? "Plus {$bonusN} bonuses — each one removes a reason people hesitate." : '',
+            $valueLine,
+            $guarantee !== '' ? rtrim($guarantee, '.').'.' : '',
+            'Order now to get instant access — before this window closes.',
         ])));
 
         return ['ad' => $ad, 'bridge' => $bridge, 'page' => $page, 'checkout' => $checkout];
