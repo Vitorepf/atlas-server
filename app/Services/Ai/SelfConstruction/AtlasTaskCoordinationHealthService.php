@@ -29,6 +29,7 @@ final class AtlasTaskCoordinationHealthService
         private readonly ?AgentControlPlaneClaimLeaseRepository $leases = null,
         private readonly ?AgentControlPlaneTaskLeaseRecoveryService $recovery = null,
         private readonly ?AtlasTaskServingSentinel $sentinel = null,
+        private readonly ?AgentControlPlaneTaskQueueOrchestrator $orchestrator = null,
     ) {}
 
     /**
@@ -60,22 +61,37 @@ final class AtlasTaskCoordinationHealthService
 
         $serving = $this->sentinelObject()->status();
 
+        // SERVABILITY — the claimable depth is RAW; it counts dependency-gated and probe records that a worker
+        // can NOT actually pull. The breakdown comes from the orchestrator's OWN claim predicate, so health,
+        // the orchestrator, the service and the CLI agree on `servable_now` by construction (no reimplementation).
+        $servable = $this->orchestratorObject()->servabilityBreakdown();
+        $servableNow = (int) ($servable['servable_now'] ?? 0);
+        $waitingInflight = (int) ($servable['waiting_on_inflight_deps'] ?? 0);
+
         $flags = [
             'dry_queue' => $claimable === 0,
+            // JAMMED: claimable tasks exist but NONE are servable and NONE are advancing (gated only by dead
+            // prereqs / probes / non-executable) AND there is no recoverable backlog. The recoverable clause is
+            // load-bearing: `claimNext` runs reapExpiredBeforeListing FIRST, re-admitting released/expired-lease/
+            // orphan work to claimable — exactly what `recoverableTotal` counts — so that work is NOT a jam (the
+            // next claim serves it). Without this clause a dead worker's released task read as a false DEGRADED.
+            'serving_jammed' => $claimable > 0 && $servableNow === 0 && $waitingInflight === 0 && $recoverableTotal === 0,
             'has_quarantined_packets' => $quarantined > 0,
             'lease_leak_detected' => $leaseLeak,
             'r2_breach' => (bool) ($serving['r2_breach'] ?? false),
             'recoverable_backlog' => $recoverableTotal > 0,
         ];
 
-        // HEALTHY = no integrity breach. A dry queue or a recoverable backlog are operational states, not
-        // breaches; a lease leak or an R2 breach are integrity failures.
-        $healthy = ! $flags['lease_leak_detected'] && ! $flags['r2_breach'];
+        // HEALTHY = no integrity breach. A dry queue, a recoverable backlog, or an advancing-ladder wait are
+        // operational states, not breaches; a lease leak, an R2 breach, or a true serving JAM are failures.
+        $healthy = ! $flags['lease_leak_detected'] && ! $flags['r2_breach'] && ! $flags['serving_jammed'];
 
         return [
             'schema' => self::SCHEMA,
             'healthy' => $healthy,
             'claimable_depth' => $claimable,
+            'servable_now' => $servableNow,
+            'servability' => $servable,
             'quarantined_count' => $quarantined,
             'queue_status_distribution' => $distribution,
             'active_leases' => $activeLeases,
@@ -95,14 +111,28 @@ final class AtlasTaskCoordinationHealthService
         ];
     }
 
+    private function orchestratorObject(): AgentControlPlaneTaskQueueOrchestrator
+    {
+        // Default: build an orchestrator over the SAME repos this panel reads, so `servable_now` is computed
+        // against the exact queue health is reporting on (no disk/instance divergence).
+        return $this->orchestrator ?? new AgentControlPlaneTaskQueueOrchestrator(
+            new AgentControlPlaneTaskPacketBuilder,
+            new AgentControlPlaneScopeLockRuntimeValidator,
+            $this->queueRepo(),
+            $this->leaseRepo(),
+            new AgentControlPlaneEvidenceLedgerDryRun,
+            new AgentControlPlaneContinuationSummaryBuilder,
+        );
+    }
+
     private function queueRepo(): AgentControlPlaneTaskPacketQueueRepository
     {
-        return $this->queue ?? new AgentControlPlaneTaskPacketQueueRepository;
+        return $this->queue ?? new AgentControlPlaneTaskPacketQueueRepository(AtlasTaskServingStack::disk());
     }
 
     private function leaseRepo(): AgentControlPlaneClaimLeaseRepository
     {
-        return $this->leases ?? new AgentControlPlaneClaimLeaseRepository;
+        return $this->leases ?? new AgentControlPlaneClaimLeaseRepository(AtlasTaskServingStack::disk());
     }
 
     private function recoveryService(): AgentControlPlaneTaskLeaseRecoveryService
