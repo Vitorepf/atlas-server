@@ -7,6 +7,7 @@ namespace App\Services\Ai\SelfConstruction;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModelBuilder;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionQuery;
+use App\Services\Ai\AutonomousEvolution\Feedback\AtlasLoopGiveBackToReplenisherFeedback;
 use Throwable;
 
 /**
@@ -44,6 +45,9 @@ final class AtlasTaskBrainReplenisher
         private readonly ?AtlasLoopScopeComprehensionQuery $query = null,
         private readonly ?string $repoRootOverride = null,
         private readonly ?string $servingDisk = null,
+        // W16: the give_back→replenisher feedback wire (additive, flag-gated default-OFF). Nullable + last
+        // so every existing positional caller is unaffected; default-constructed at use when absent.
+        private readonly ?AtlasLoopGiveBackToReplenisherFeedback $giveBackFeedback = null,
     ) {}
 
     /**
@@ -129,10 +133,15 @@ final class AtlasTaskBrainReplenisher
 
         $exhausted = $depth < $targetMin && count($enqueued) < $maxPerRun;
 
-        return array_merge(
+        $context = array_merge(
             $this->summary($scopeRoot, $before, $depth, $enqueued, $exhausted ? 'material_exhausted' : 'topped_up'),
             ['skipped_existing' => $skippedExisting, 'skipped_deficient' => $skippedDeficient, 'candidates_considered' => count($candidates)],
         );
+
+        // W16 give_back→replenisher feedback (additive, flag-gated atlas.loop.feedback.replenisher_enabled,
+        // default OFF ⇒ byte-identical). ON ⇒ surfaces the mined give_back FACTs as a give_back_facts sub-array
+        // so next-round structuring can learn from what got handed back. Default-constructed when not injected.
+        return ($this->giveBackFeedback ?? new AtlasLoopGiveBackToReplenisherFeedback)->augment($context);
     }
 
     /**
@@ -219,7 +228,9 @@ final class AtlasTaskBrainReplenisher
         $short = $this->shortName($fqcn);
         $methods = array_values(array_filter((array) ($item['public_methods'] ?? []), 'is_string'));
         $api = $methods === [] ? 'no public methods' : (implode('(), ', array_slice($methods, 0, 8)).'()');
-        $allowed = array_values(array_unique(array_merge([$relPath], $sites)));
+        // A wiring task asks the worker to author proof, so its write scope includes a mirrored test path.
+        $orphanTestPath = $this->mirroredTestPath($relPath, 'WiringWiredTest');
+        $allowed = array_values(array_unique(array_merge([$relPath], $sites, [$orphanTestPath])));
         $sitesList = implode(', ', $sites);
 
         return $this->packet(
@@ -344,6 +355,27 @@ final class AtlasTaskBrainReplenisher
         $pos = strrpos($relPath, '/');
 
         return $pos === false ? '' : substr($relPath, 0, $pos);
+    }
+
+    /**
+     * The mirrored PHPUnit test path for an `app/...` file (the conventional layout in this repo).
+     * `app/Services/Foo/Bar.php` ⇒ `tests/Unit/Services/Foo/Bar{$suffix}.php`. Used to grant a wiring task
+     * the test scope it needs when the task asks the worker to author proof — see the inspector's
+     * `test_evidence_without_test_in_allowed_files` invariant.
+     */
+    private function mirroredTestPath(string $relPath, string $suffix): string
+    {
+        $norm = ltrim(str_replace('\\', '/', trim($relPath)), '/');
+        if (str_starts_with($norm, 'app/')) {
+            $tail = substr($norm, 4);
+        } else {
+            $tail = $norm;
+        }
+        if (str_ends_with($tail, '.php')) {
+            $tail = substr($tail, 0, -4);
+        }
+
+        return 'tests/Unit/'.$tail.$suffix.'.php';
     }
 
     /**
