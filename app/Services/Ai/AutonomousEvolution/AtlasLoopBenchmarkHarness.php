@@ -26,6 +26,21 @@ namespace App\Services\Ai\AutonomousEvolution;
  */
 final class AtlasLoopBenchmarkHarness
 {
+    public function __construct(private ?AtlasLoopHardCaseHarness $hardCaseHarness = null) {}
+
+    /**
+     * Frozen replay deck for historically-hard model-bound cases. Default-OFF through the harness.
+     *
+     * @param  list<array<string,mixed>>  $taskPackets
+     * @param  array<string,mixed>  $options
+     * @return list<array<string,mixed>>
+     */
+    public function hardCaseDeck(array $taskPackets = [], ?AtlasLoopAttemptLedger $ledger = null, array $options = []): array
+    {
+        return ($this->hardCaseHarness ?? new AtlasLoopHardCaseHarness)
+            ->curate($taskPackets, $ledger, $options);
+    }
+
     /**
      * Run $fn (warmup + iterations) and reduce the KEPT samples to a deterministic statistical shape.
      *

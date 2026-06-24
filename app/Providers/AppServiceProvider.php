@@ -28,9 +28,11 @@ use App\Services\Ai\AutonomousEvolution\AtlasEvolutionFrozenJudge;
 use App\Services\Ai\AutonomousEvolution\AtlasEvolutionScenarioExplorer;
 use App\Services\Ai\AutonomousEvolution\AtlasEvolutionTaskGenerator;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopAdversarialVerifierPool;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopBenchmarkHarness;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopBroaderRegressionGate;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopCrossFileConsumerGateService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopHardCaseHarness;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMutationAdequacyGateService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopOriginationDeliveryBridge;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProposalDiffReconstructor;
@@ -222,6 +224,13 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(AtlasLoopReceiptReplayer::class);
         $this->app->singleton(AtlasLoopProviderContextOptimizer::class);
         $this->app->singleton(AtlasLoopAdversarialVerifierPool::class);
+        $this->app->singleton(AtlasLoopHardCaseHarness::class);
+        $this->app->singleton(
+            AtlasLoopBenchmarkHarness::class,
+            fn ($app) => new AtlasLoopBenchmarkHarness(
+                rescue(fn () => $app->make(AtlasLoopHardCaseHarness::class), null, false),
+            ),
+        );
         $this->app->singleton(AtlasLoopTaskDecompositionAmplifier::class);
         $this->app->singleton(
             AtlasLoopScenarioProviderPortfolio::class,

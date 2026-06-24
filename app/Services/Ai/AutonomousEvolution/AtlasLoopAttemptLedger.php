@@ -44,6 +44,16 @@ final class AtlasLoopAttemptLedger
     }
 
     /**
+     * Deterministic fixture snapshot for downstream harnesses. Read-only copy: callers cannot mutate the ledger.
+     *
+     * @return list<array{round:int, strategy:string, provider:string, passed:bool, reason:string, signature:string}>
+     */
+    public function attempts(): array
+    {
+        return $this->attempts;
+    }
+
+    /**
      * A "do NOT repeat" digest of the failed approaches so far — fed into the next attempt's intent.
      */
     public function guidance(int $max = 8): string

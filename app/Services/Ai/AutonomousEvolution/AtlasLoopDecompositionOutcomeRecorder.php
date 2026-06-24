@@ -88,6 +88,57 @@ final class AtlasLoopDecompositionOutcomeRecorder
         }
     }
 
+    /**
+     * Historically-hard objective kinds from the decomposition outcome corpus.
+     *
+     * @return list<array{family:string, attempts:int, failed:int, failure_rate:float, source:string}>
+     */
+    public function hardObjectiveKinds(float $failureRateThreshold = 0.5, int $minAttempts = 3): array
+    {
+        $failureRateThreshold = max(0.0, min(1.0, $failureRateThreshold));
+        $minAttempts = max(1, $minAttempts);
+        if (! $this->enabled() || ! $this->dbAvailable()) {
+            return [];
+        }
+
+        try {
+            $rows = AtlasLoopDecompositionOutcome::query()
+                ->selectRaw('objective_kind, COUNT(*) as total, SUM(CASE WHEN certified THEN 1 ELSE 0 END) as certified_count')
+                ->whereNotNull('objective_kind')
+                ->groupBy('objective_kind')
+                ->get();
+        } catch (Throwable) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($rows as $row) {
+            $family = trim((string) ($row->objective_kind ?? ''));
+            $total = (int) ($row->total ?? 0);
+            $certified = (int) ($row->certified_count ?? 0);
+            $failed = max(0, $total - $certified);
+            $failureRate = $total > 0 ? round($failed / $total, 4) : 0.0;
+            if ($family === '' || $total < $minAttempts || $failureRate <= $failureRateThreshold) {
+                continue;
+            }
+            $out[] = [
+                'family' => $family,
+                'attempts' => $total,
+                'failed' => $failed,
+                'failure_rate' => $failureRate,
+                'source' => 'decomposition_outcome_recorder',
+            ];
+        }
+
+        usort($out, static function (array $a, array $b): int {
+            return ((float) $b['failure_rate'] <=> (float) $a['failure_rate'])
+                ?: ((int) $b['attempts'] <=> (int) $a['attempts'])
+                ?: strcmp((string) $a['family'], (string) $b['family']);
+        });
+
+        return $out;
+    }
+
     /** Is the corpus flag ON? Read defensively so a container-less caller never fatals (=> treated OFF). */
     public function enabled(): bool
     {
