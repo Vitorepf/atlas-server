@@ -22,6 +22,7 @@ class KeywordIntelligencePipeline
         private readonly QualifiedKeywordDossier $dossier = new QualifiedKeywordDossier,
         private readonly KeywordClusterer $clusterer = new KeywordClusterer,
         private readonly KeywordVolumeSignal $volumeSignal = new KeywordVolumeSignal,
+        private readonly KeywordRegimeClassifier $regimes = new KeywordRegimeClassifier,
     ) {}
 
     /**
@@ -68,6 +69,7 @@ class KeywordIntelligencePipeline
             'discovered_count' => $discovered === null ? 0 : count($discovered['keywords']), // L2: termos reais novos mesclados
             'clusters' => $this->clusterer->cluster((array) ($universe['keywords'] ?? [])), // L7 STAG ad groups
             'volume_priority' => $this->volumeSignal->prioritize($quality['scored'], (array) ($opts['volume_map'] ?? [])), // L5 demanda×intenção
+            'regimes' => $this->regimes->partition($quality['scored']), // #6: colheita/semeadura/sonda isolados (alavanca de escala)
             'scored' => $quality['scored'],
             'launch_selection' => $launch,
             'negatives' => $negatives,
