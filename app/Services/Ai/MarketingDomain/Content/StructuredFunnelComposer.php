@@ -30,6 +30,9 @@ class StructuredFunnelComposer
     /** Producer placeholder for proof — language-neutral English (never PT-BR leaking into EN copy). */
     private const PROOF_PLACEHOLDER = '[PROOF: insert the strongest case, testimonial or study here]';
 
+    /** PT-BR proof placeholder (the operator runs PT campaigns; no EN slot under a PT page). */
+    private const PROOF_PLACEHOLDER_PT = '[PROVA: insira aqui o caso, depoimento ou estudo mais forte]';
+
     public function compose(AiMarketingVslAsset $asset): array
     {
         $promise = $this->firstNonEmpty([(string) $asset->core_promise, (string) $asset->big_idea, 'a real change']);
@@ -41,6 +44,10 @@ class StructuredFunnelComposer
             (string) ((new MechanismNameForge)->forge($asset)['best'] ?? ''),
             'the method',
         ]);
+        // Language: the operator runs PT campaigns; the forges already emit PT, so the composer's own
+        // template prose must follow the asset's language (never an EN body under a PT lead).
+        $lang = $this->isPt($asset) ? 'pt' : 'en';
+        $pt = $lang === 'pt';
         $avatar = $this->avatarCallout($asset);
         $hero = $this->heroClaim($asset);                 // e.g. "30 lbs" or "" if none
         $heroLine = $hero !== '' ? " — {$hero}" : '';
@@ -48,19 +55,19 @@ class StructuredFunnelComposer
         $guarantee = $this->guarantee($asset);
         // Default = MAXIMUM aggression (operator: sem freio). The market's raw wound/dream is woven in
         // niche-flavored, so the scaffold ships aggressive by construction (not generic).
-        $wound = (new \App\Services\Ai\MarketingDomain\Knowledge\AggressiveConversionTacticsLibrary)->nicheWound((string) $asset->niche);
+        $wound = (new \App\Services\Ai\MarketingDomain\Knowledge\AggressiveConversionTacticsLibrary)->nicheWound((string) $asset->niche, $lang);
         // Value Equation (Eixo 5): only CLAIM the time/effort levers when the ASSET gives real substance.
         // A brutal panel proved fixed filler ("starting today", "simple, without…") just gamed the auditor.
         // No substance → leave an HONEST gap for the producer to fill, never plant generic filler.
         $timeframe = $this->timeframe($asset);
-        $timeLine = $timeframe !== '' ? "The first changes can show in {$timeframe}." : '';
+        $timeLine = $timeframe !== '' ? ($pt ? "As primeiras mudanças podem aparecer em {$timeframe}." : "The first changes can show in {$timeframe}.") : '';
         $easeLine = $this->easeClaim($asset);
         // Pillar 1: handle the top objection with a Belfort re-close loop (sell to the resistant) — the
         // generated page doesn't just pitch, it reframes the hesitation right before the ask.
         $objectionLoop = (new ObjectionLoopEngine)->loop($asset)['loop'];
         // Eixo 7: plant REAL concrete proof from the asset when it has any; else keep the producer slot.
         $proof = $this->proof($asset);
-        $proofLine = $proof !== '' ? $proof : self::PROOF_PLACEHOLDER;
+        $proofLine = $proof !== '' ? $proof : ($pt ? self::PROOF_PLACEHOLDER_PT : self::PROOF_PLACEHOLDER);
         // Nominalize the promise so it fits noun slots in the reveal/checkout without breaking grammar.
         $promiseNoun = $this->promiseAsNoun($promise);
         // The LEAD is the biggest conversion multiplier (1→25). Open with an elite, awareness-routed lead
@@ -75,14 +82,31 @@ class StructuredFunnelComposer
 
         // ── AD: elite scroll-stopper (shares the page lead's scene+enemy → congruent) + hero promise
         // (carries hero number) + soft CTA (free CONTENT, not the product).
-        $ad = trim("{$hook} {$promise}{$heroLine} — watch the free presentation before it comes down.");
+        $ad = $pt
+            ? trim("{$hook} {$promise}{$heroLine} — assista à apresentação gratuita antes que ela saia do ar.")
+            : trim("{$hook} {$promise}{$heroLine} — watch the free presentation before it comes down.");
 
         // ── BRIDGE: echoes the ad's scene+enemy (congruent hop) + curiosity, NO reveal, soft forward CTA.
-        $bridge = trim("{$hook} What they never explain is the one thing that changes {$promise}{$heroLine}. "
-            .'Keep reading — it gets clearer in a moment, and then you will see exactly how.');
+        $bridge = $pt
+            ? trim("{$hook} O que nunca te explicam é a única coisa que muda {$promise}{$heroLine}. "
+                .'Continue lendo — fica mais claro daqui a pouco, e então você vai ver exatamente como.')
+            : trim("{$hook} What they never explain is the one thing that changes {$promise}{$heroLine}. "
+                .'Keep reading — it gets clearer in a moment, and then you will see exactly how.');
 
         // ── PAGE: carries hero, builds before the reveal (mechanism named LATE), single CTA at the end.
-        $page = trim(implode(' ', array_filter([
+        $page = $pt ? trim(implode(' ', array_filter([
+            $pageHook,                                                                     // hook (PT via BigIdeaLeadForge)
+            'A maioria dos conselhos está de cabeça pra baixo — e a culpa não é sua.',     // build
+            "Cada dia que você espera é mais um dia {$wound['pain']}.",                    // fear (niche wound, PT)
+            'A causa real estava escondida à vista de todos — e não tem nada a ver com aquilo de que te culparam.', // ONE concrete pull
+            "Aqui está a peça que faltava — {$mechanism}. Esse é o verdadeiro motivo de {$promiseNoun} finalmente acontecer{$heroLine}.", // REVEAL (late)
+            $proofLine,                                                                     // proof ADJACENT (PT placeholder if none)
+            "Imagine {$wound['dream']}.",                                                  // future pacing (niche dream, PT)
+            $timeLine,                                                                      // Value Eq: time delay ↓
+            $easeLine,                                                                      // Value Eq: effort ↓ (operator's words)
+            $objectionLoop,                                                                 // Pillar 1: Belfort re-close loop (PT)
+            'Assista à apresentação gratuita agora — as vagas são limitadas.',             // single CTA (end) + scarcity
+        ]))) : trim(implode(' ', array_filter([
             $pageHook,                                                                     // hook (sophistication-aware)
             'Most advice has it backwards, and it is not your fault.',                     // build
             "Every day you wait is another day {$wound['pain']}.",                         // fear (niche wound)
@@ -103,10 +127,22 @@ class StructuredFunnelComposer
         $gs = (new \App\Services\Ai\MarketingDomain\Decision\GrandSlamBuilder)->build($asset);
         $bonusN = is_array($gs['bonus_stack'] ?? null) ? count($gs['bonus_stack']) : 0;
         $anchored = (string) ($gs['total_anchored_value'] ?? '');
-        $valueLine = ($anchored !== '' && $anchored !== '$0' && $price !== '')
-            ? "Everything here is worth {$anchored} — today it is yours for {$price}."
-            : ($price !== '' ? "Today only: {$price}." : '');
-        $checkout = trim(implode(' ', array_filter([
+        $valueLine = $pt
+            ? (($anchored !== '' && $anchored !== '$0' && $price !== '')
+                ? "Tudo isso vale {$anchored} — hoje é seu por {$price}."
+                : ($price !== '' ? "Só hoje: {$price}." : ''))
+            : (($anchored !== '' && $anchored !== '$0' && $price !== '')
+                ? "Everything here is worth {$anchored} — today it is yours for {$price}."
+                : ($price !== '' ? "Today only: {$price}." : ''));
+        $checkout = $pt ? trim(implode(' ', array_filter([
+            // Recap (mechanism + dream) before the price — keeps the page→checkout hop congruent.
+            "Você já viu por que nada funcionava — {$mechanism} é como você finalmente chega a {$wound['dream']}{$heroLine}.",
+            "Garanta o sistema completo {$mechanism} para {$promiseNoun}.",
+            $bonusN > 0 ? "Mais {$bonusN} bônus — cada um remove um motivo pra hesitar." : '',
+            $valueLine,
+            $guarantee !== '' ? rtrim($guarantee, '.').'.' : '',
+            'Garanta agora e tenha acesso imediato — antes que essa janela feche.',
+        ]))) : trim(implode(' ', array_filter([
             // Recap the value (mechanism + dream) before the price — a real DR close move that also keeps
             // the page→checkout hop congruent (the reader sees the same anchors they just agitated on).
             "You have seen why nothing worked — {$mechanism} is how you finally reach {$wound['dream']}{$heroLine}.",
@@ -140,16 +176,41 @@ class StructuredFunnelComposer
             (string) ((new MechanismNameForge)->forge($asset)['best'] ?? ''),
             'the method',
         ]);
+        $lang = $this->isPt($asset) ? 'pt' : 'en';
+        $pt = $lang === 'pt';
         $avatar = $this->avatarCallout($asset);
         $hero = $this->heroClaim($asset);
         $heroLine = $hero !== '' ? " — {$hero}" : '';
-        $wound = (new \App\Services\Ai\MarketingDomain\Knowledge\AggressiveConversionTacticsLibrary)->nicheWound((string) $asset->niche);
+        $wound = (new \App\Services\Ai\MarketingDomain\Knowledge\AggressiveConversionTacticsLibrary)->nicheWound((string) $asset->niche, $lang);
         $timeframe = $this->timeframe($asset);
-        $meansBody = trim("Imagine {$wound['dream']}."
-            .($timeframe !== '' ? " The first changes can show in {$timeframe}." : '')
-            .($this->easeClaim($asset) !== '' ? ' '.$this->easeClaim($asset) : ''));
+        $meansBody = $pt
+            ? trim("Imagine {$wound['dream']}."
+                .($timeframe !== '' ? " As primeiras mudanças podem aparecer em {$timeframe}." : '')
+                .($this->easeClaim($asset) !== '' ? ' '.$this->easeClaim($asset) : ''))
+            : trim("Imagine {$wound['dream']}."
+                .($timeframe !== '' ? " The first changes can show in {$timeframe}." : '')
+                .($this->easeClaim($asset) !== '' ? ' '.$this->easeClaim($asset) : ''));
         $proof = $this->proof($asset);
-        $proofBody = $proof !== '' ? $proof : self::PROOF_PLACEHOLDER;
+        $proofBody = $proof !== '' ? $proof : ($pt ? self::PROOF_PLACEHOLDER_PT : self::PROOF_PLACEHOLDER);
+
+        if ($pt) {
+            return [
+                'kicker' => rtrim($avatar, ':'),
+                'headline' => "Você já se perguntou por que {$promise} continua fora de alcance{$heroLine}?",
+                'subheadline' => "{$promise}{$heroLine} está mais perto do que a indústria quer que você acredite.",
+                'lead_paragraph' => 'A maioria dos conselhos está de cabeça pra baixo — e a culpa não é sua: a causa real ficou escondida à vista de todos.',
+                'body_sections' => [
+                    ['heading' => 'O que todo mundo entendeu errado', 'body' => 'Por muito tempo a coisa errada levou toda a atenção. Fica mais claro quando você vê o que realmente acontece.'],
+                    ['heading' => 'Mas antes', 'body' => 'Antes do como, entenda a única virada que muda tudo — espere até ver.'],
+                    ['heading' => 'O mecanismo', 'body' => "Eis como {$mechanism} finalmente faz {$promise}{$heroLine} funcionar."], // REVEAL, late
+                    ['heading' => 'O que isso significa pra você', 'body' => $meansBody],
+                    ['heading' => 'A prova', 'body' => $proofBody],
+                ],
+                'cta_blocks' => [
+                    ['label' => 'Assista à apresentação gratuita', 'sub' => 'Veja o método completo em ação.'],
+                ],
+            ];
+        }
 
         return [
             'kicker' => rtrim($avatar, ':'),
@@ -318,6 +379,15 @@ class StructuredFunnelComposer
         }
 
         return '';
+    }
+
+    /** Asset language — PT when geo/language/niche/promise says so (mirrors the forges), else EN. */
+    private function isPt(AiMarketingVslAsset $asset): bool
+    {
+        $blob = mb_strtolower((string) $asset->language.' '.(string) $asset->target_geo.' '.(string) $asset->niche);
+
+        return str_contains($blob, 'pt') || str_contains($blob, 'br') || str_contains($blob, 'portug')
+            || str_contains($blob, 'emagrec') || (bool) preg_match('/[ãâáàéêíóôõúç]/u', (string) $asset->core_promise);
     }
 
     /**

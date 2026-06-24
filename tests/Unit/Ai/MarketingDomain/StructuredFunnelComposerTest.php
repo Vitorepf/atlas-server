@@ -224,4 +224,50 @@ class StructuredFunnelComposerTest extends TestCase
         $thin = $composer->compose($this->asset(['niche' => 'weight loss', 'core_promise' => 'lose the weight']));
         $this->assertFalse($proof->audit($thin['page'])['has_concrete'], 'no asset proof → no fabricated proof, only the slot');
     }
+
+    public function test_pt_asset_generates_a_fully_portuguese_funnel_with_zero_english_fragments(): void
+    {
+        // The operator runs PT campaigns: a PT asset must yield a NATIVE PT funnel end to end — never an
+        // EN body under a PT lead (Frankenstein). Locks the PT-BR obra (composer + nicheWound + lead +
+        // objection-loop) against any English template re-leaking on a future edit.
+        $composer = new StructuredFunnelComposer;
+        // Telltale EN template phrases that must NEVER appear in a PT funnel.
+        $enFragments = ['watch the', 'the real reason', 'here is the missing', 'every day you wait',
+            'get the complete', 'order now', 'today it is yours', 'spots are limited', 'most advice has it',
+            'what they never explain', 'is closer than the industry', 'see the full method'];
+
+        foreach ([
+            ['niche' => 'emagrecimento', 'core_promise' => 'perder o peso', 'mechanism_name' => 'O Reset Hormonal'],
+            ['niche' => 'finanças', 'core_promise' => 'multiplicar seu dinheiro', 'mechanism_name' => 'A Regra da Alocação'],
+            ['niche' => 'relacionamento', 'core_promise' => 'reconquistar seu amor', 'mechanism_name' => 'O Protocolo do Recontato'],
+        ] as $fields) {
+            $asset = $this->asset($fields + ['language' => 'pt', 'target_geo' => 'BR', 'awareness_level' => 'problem_aware', 'offer' => ['price' => '197']]);
+            $funnel = $composer->compose($asset);
+            $blob = mb_strtolower(implode(' ', $funnel));
+            foreach ($enFragments as $frag) {
+                $this->assertStringNotContainsString($frag, $blob, "PT funnel ({$fields['niche']}) leaked EN fragment: {$frag}");
+            }
+            // And it positively reads as PT (the close + scarcity are present in PT).
+            $this->assertStringContainsString('apresentação gratuita', $blob);
+            $this->assertStringContainsString('garanta', $blob);
+
+            // The slot schema (composeBridge) is PT too.
+            $bridge = $composer->composeBridge($asset);
+            $this->assertStringContainsString('apresentação gratuita', mb_strtolower($bridge['cta_blocks'][0]['label']));
+        }
+    }
+
+    public function test_en_asset_keeps_a_fully_english_funnel_no_pt_leak(): void
+    {
+        // The mirror guard: an EN asset must stay 100% English (the PT branch is gated on language).
+        $funnel = (new StructuredFunnelComposer)->compose($this->asset([
+            'niche' => 'weight loss', 'core_promise' => 'lose the weight', 'mechanism_name' => 'The 3-Hormone Reset',
+            'offer' => ['price' => '97'],
+        ]));
+        $blob = mb_strtolower(implode(' ', $funnel));
+        foreach (['assista', 'apresentação', 'garanta', 'você', 'gratuita', 'agora mesmo'] as $ptWord) {
+            $this->assertStringNotContainsString($ptWord, $blob, "EN funnel leaked PT word: {$ptWord}");
+        }
+        $this->assertStringContainsString('free presentation', $blob);
+    }
 }
