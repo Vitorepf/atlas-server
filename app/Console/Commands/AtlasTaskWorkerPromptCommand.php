@@ -55,6 +55,7 @@ THE LOOP — repeat until told to stop:
    `{$php} artisan atlas:task next --client="{$client}" --json`
    - `status: "served"` → you got a task. Read `task.objective`, `task.allowed_files`, `task.acceptance_criteria`, `task.required_evidence`, `task.lease_id`, `task.task_packet_id`.
    - `status: "no_claimable_task"` or `"no_self_sufficient_task"` → the queue is empty. {$onEmpty}
+   - `status: "waiting_on_dependencies"` → tasks remain but their prerequisites aren't done yet (the ordered ladder is still advancing). WAIT 30s and retry step 1 — do NOT stop, do NOT invent work.
    - `status: "disabled"` → serving is off; tell the operator to run `atlas:task:serving on`.
 
 2. IMPLEMENT the `objective`, editing **ONLY** the files listed in `allowed_files`. Do NOT touch any other file — another worker is editing the rest of the tree right now.
