@@ -28,7 +28,7 @@ class AggressiveConversionTacticsLibrary implements PatternLibrary
      *
      * @return array{family:string,pain:string,dream:string}
      */
-    public function nicheWound(string $niche): array
+    public function nicheWound(string $niche, string $lang = ''): array
     {
         $n = mb_strtolower($niche);
         $family = match (true) {
@@ -37,16 +37,27 @@ class AggressiveConversionTacticsLibrary implements PatternLibrary
             (bool) preg_match('/health|weight|diet|fitness|saude|saúde|emagrec|metabol|hormon/u', $n) => 'health',
             default => 'generic',
         };
+        $pt = mb_strtolower($lang) === 'pt';
 
         return [
             'family' => $family,
-            'pain' => match ($family) {
+            'pain' => $pt ? match ($family) {
+                'finance' => 'vendo suas economias minguarem enquanto todo mundo multiplica',
+                'relationship' => 'acordando de madrugada enquanto a pessoa se afasta cada vez mais',
+                'health' => 'vendo seu corpo e sua energia escaparem um pouco a cada mês',
+                default => 'preso exatamente onde você está',
+            } : match ($family) {
                 'finance' => 'watching your savings shrink while everyone else compounds',
                 'relationship' => 'lying awake while they slip further away',
                 'health' => 'watching your body and energy slip a little more each month',
                 default => 'staying stuck exactly where you are',
             },
-            'dream' => match ($family) {
+            'dream' => $pt ? match ($family) {
+                'finance' => 'seu saldo finalmente trabalhando PRA você',
+                'relationship' => 'a pessoa te escolhendo de novo, de verdade dessa vez',
+                'health' => 'acordar mais leve, mais afiado, no controle do seu corpo',
+                default => 'a versão de você que já resolveu isso',
+            } : match ($family) {
                 'finance' => 'your balance finally working FOR you',
                 'relationship' => 'them choosing you again, for real this time',
                 'health' => 'waking up lighter, sharper, in control of your body',
