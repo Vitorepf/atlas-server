@@ -3,36 +3,34 @@
 namespace App\Services\Ai\MarketingDomain\Content;
 
 /**
- * ProofSubstanceAuditor — proof CONCRETENESS as structural truth (Eixo 7).
+ * ProofSubstanceAuditor — proof CONCRETENESS as structural truth (Eixo 7), the #1 conversion lever.
  *
- * Proof is the #1 conversion lever, and the difference between proof that converts and proof that does
- * nothing is CONCRETENESS: "Dr. Aronson ran this on 312 women; 9 of 10 dropped a dress size in 6 weeks"
- * converts; "studies show it works, thousands love it" does not. This measures, as a FACT, which CONCRETE
- * proof anchors a page carries (named authority, a specific count of people, a ratio/percentage, a
- * mechanism-of-action that explains WHY, a demonstration) and which VAGUE proof-tells it leans on instead
- * ("studies show", "experts agree", "clinically proven" with no number/name, "thousands of"). It does NOT
- * grade quality and is NOT a moral/compliance gate — vague proof is WEAK proof (converts worse), and
- * upgrading vague→concrete is pure conversion advice; what is true is the operator's call. Built with the
- * cycles-43/value-equation lesson baked in: word-boundary matching, negation-aware, placeholders stripped.
- * Provider-free, niche-agnostic.
+ * v2, after a second brutal panel proved v1 was still a vocabulary proxy one level down: an OR of loose
+ * tokens certified hype/discount/CTA/guarantee as "concrete" ("50% off", "Ships in 3 days", "60-day
+ * money-back guarantee", "activates your inner confidence") while marking the proof that ACTUALLY converts
+ * as weak (first-person transformation "lost 34 pounds" / "A1c 9.2 to 5.6", credentialed authority
+ * "cardiac surgeon" / "Harvard-trained", written-out ratios). And it leaked: the composer used it as an
+ * oracle and planted the guarantee while discarding the real testimonial.
+ *
+ * v2 fixes the core: a number is proof ONLY when tied to a RESULT/transformation in the same sentence
+ * (kills discount/delivery/recipe/mailing-list); it recognizes first-person transformation, before/after,
+ * income receipts, and authority by title OR credential; mechanism must name a concrete causal object (not
+ * an abstract feeling); a guarantee is risk-reduction, NOT efficacy proof (dropped from concrete); negation
+ * is sentence-scoped over ALL matches. Each anchor carries a STRENGTH tier so the composer can plant the
+ * STRONGEST proof, not the first. Still structural truth, no moral gate. Provider-free, niche-agnostic.
  */
 class ProofSubstanceAuditor
 {
-    private const NEGATORS = ['no', 'not', 'never', 'without', 'sem', 'não', 'nao', 'nenhum', 'nenhuma'];
+    /** A result/transformation word — the thing a real number must be tied to. */
+    private const RESULT = '(?:lost|shed|dropped|drop|gained|regrew|regrow|reversed|reverse|cut|lowered|slashed|melted|shrank|shrunk|banked|earned|made|pulled|saved|cleared|healed|replaced|grew|doubled|tripled|booked|closed|kept off|came off|went from|down to|fell to|rose to|dress size|sizes?|pounds?|lbs?|kg|inches|a1c|cholesterol|blood sugar|glucose|salary|commission|income|profit|revenue|points?|regrowth|results?)';
 
-    /** Concrete proof anchors — each is a real, checkable specific. key => regex. */
-    private const CONCRETE = [
-        'named_authority' => '/\b(?:dr\.?|doctor|professor|prof\.?|ph\.?d|m\.?d|university|universidade|clinic|cl[íi]nica|hospital|institute|instituto|laborat[óo]r(?:y|io)|journal|peer[- ]reviewed|nobel)\b/u',
-        'specific_count' => '/\b\d{2,}[\d,.]*\s*(?:women|men|people|persons|students|customers|clients|users|patients|members|families|mulheres|homens|pessoas|alunos|clientes|pacientes|fam[íi]lias)\b/u',
-        'ratio_or_percent' => '/\b\d+\s*(?:out of|in|de|em)\s*(?:cada\s*)?\d+\b|\b\d{1,3}\s?%/u',
-        'mechanism_of_action' => '/\b(?:because it|works by|it works because|triggers|activates|switches on|blocks|targets the|porque|funciona ao|ativa|bloqueia|aciona)\b/u',
-        // Proof-by-showing — NOT the generic "watch the presentation" CTA (which is on every funnel page).
-        'demonstration' => '/\b(?:before and after|on camera|in this video|live demo|watch it work|watch me do|see it work|see for yourself|antes e depois|na c[âa]mera|veja funcionar)\b/u',
-        'dated_result' => '/\b(?:in|by|within|em|at[ée])\s+(?:\d+|the\s+\w+)\s+(?:days?|weeks?|months?|dias?|semanas?|meses)\b/u',
-        'guarantee_terms' => '/\b\d+[- ]?day\b[^.]{0,40}\b(?:guarantee|money[- ]?back|refund|garantia|reembolso)\b/u',
-    ];
+    /** A concrete causal object — what a real mechanism acts on (vs an abstract feeling). */
+    private const CAUSAL = '(?:hormones?|ghrelin|insulin|cortisol|leptin|metabolism|metabolic|inflammation|blood sugar|glucose|gut|microbiome|receptors?|enzymes?|nerves?|set point|fat|cells?|arter(?:y|ies)|plaque|thyroid|liver|nervous system|compound interest|interest|portfolio|allocation|capital|cravings?|appetite)';
 
-    /** Vague proof-tells — a proof CLAIM with no concrete anchor. These convert poorly; flag to upgrade. */
+    /** Negators that, at the head of a clause, mean the proof is ABSENT (not rhetorical "cannot ignore"). */
+    private const CLAUSE_NEG = ['no ', 'not a', 'nobody', 'no one', "didn't", 'did not', 'failed', 'there is no', 'there are no', 'without ', 'never ', 'sem ', 'nenhum', 'nenhuma', 'não há', 'nao ha', 'não tem'];
+
+    /** Vague proof-tells — a proof CLAIM with no concrete anchor. Convert poorly; flag to upgrade. */
     private const VAGUE = [
         'studies_show' => '/\b(?:studies show|research shows|science says|studies have shown|estudos mostram|a ci[êe]ncia (?:diz|mostra)|pesquisas mostram)\b/u',
         'experts_agree' => '/\b(?:experts agree|doctors recommend|scientists say|especialistas (?:concordam|recomendam)|m[ée]dicos recomendam)\b/u',
@@ -41,31 +39,63 @@ class ProofSubstanceAuditor
         'everyone_loves' => '/\b(?:everyone(?:\'s| is) (?:loving|raving)|people love|all our customers|todo mundo (?:ama|adora)|nossos clientes amam)\b/u',
     ];
 
+    /** Concrete anchor => [regex, strength tier]. Result-tied ones are validated in matchesAnchor(). */
+    private function anchors(): array
+    {
+        return [
+            // tier 5: transformation / before-after / income receipt
+            'transformation' => ['/\b(?:went from|from)\b[^\n]{0,30}?\bto\b/u', 5], // validated: needs a digit/result
+            'result_number' => ['/\b(?:lost|shed|dropped|regrew|reversed|cut|lowered|slashed|melted|banked|earned|made|pulled|saved|gained|doubled|tripled|replaced|grew)\b[^.?!]*?\d/u', 5],
+            'income_receipt' => ['/\$\s?\d[\d,.]*/u', 5], // validated: needs earn/first-period context
+            // tier 4: credentialed authority (title MUST be followed by a name/word — kills "Doctor. Clinic." stuffing) + studied count
+            'credentialed_authority' => ['/\b(?:(?:dr\.?|doctor|professor|surgeon|cardiologist|biochemist|physician|researcher|scientist|nutritionist|endocrinologist|dermatologist)\s+[a-z]{2,}|board[- ]certified|harvard|yale|stanford|oxford|johns hopkins|cardiology|phd|m\.?d\.?|\d+\s+years\s+(?:in|of)\s+\w+)\b/u', 4],
+            'study_count' => ['/\b\d+\s*(?:people|men|women|patients|participants|subjects|volunteers|users|students|customers|clients|members|moms|guys|adults|families)\b/u', 4],
+            // tier 3: ratio tied to result + concrete mechanism
+            'ratio_result' => ['/\b\d+\s*(?:out of|in|of)\s*\d+\b|\b\d{1,3}\s?%/u', 3],
+            'mechanism_of_action' => ['/\b(?:works by|because it|the reason it works|triggers|activates|blocks|targets|shuts down|raises|lowers|resets)\b/u', 3],
+            // tier 2: demonstration (proof by showing) — NOT the generic "watch the presentation" CTA
+            'demonstration' => ['/\b(?:before and after|before-and-after|on camera|in this video|watch it work|see my photos|photos from)\b/u', 2],
+        ];
+    }
+
     /**
-     * @return array{concrete:array<int,string>,vague:array<int,string>,concrete_count:int,has_concrete:bool,note:string}
+     * @return array{concrete:array<int,string>,vague:array<int,string>,concrete_count:int,has_concrete:bool,strength:int,note:string}
      */
     public function audit(string $copy): array
     {
-        $text = mb_strtolower((string) preg_replace('/\[[^\]]*\]/u', ' ', $copy)); // strip producer placeholders
+        $text = mb_strtolower((string) preg_replace('/\[[^\]]*\]/u', ' ', $copy));
+        // Protect abbreviation dots ("Dr." / "Prof.") so they don't split a sentence away from the name.
+        $text = (string) preg_replace('/\b(dr|mr|mrs|ms|prof|vs|inc|st)\.\s*/u', '$1 ', $text);
+        // Split on real sentence enders only — NOT a decimal point ("9.2") nor an abbreviation dot.
+        $sentences = preg_split('/(?<![0-9])[.!?]+(?![0-9])|\n+/u', $text) ?: [];
 
         $concrete = [];
-        foreach (self::CONCRETE as $key => $re) {
-            if ($this->matchesUnnegated($text, $re)) {
-                $concrete[] = $key;
+        $strength = 0;
+        foreach ($sentences as $s) {
+            $s = trim($s);
+            if ($s === '' || $this->clauseNegated($s)) {
+                continue;
+            }
+            foreach ($this->anchors() as $key => [$re, $tier]) {
+                if (! in_array($key, $concrete, true) && $this->matchesAnchor($key, $re, $s)) {
+                    $concrete[] = $key;
+                    $strength = max($strength, $tier);
+                }
             }
         }
+
         $vague = [];
         foreach (self::VAGUE as $key => $re) {
-            if ($this->matchesUnnegated($text, $re)) {
+            if (preg_match($re, $text)) {
                 $vague[] = $key;
             }
         }
 
         $note = match (true) {
-            $concrete === [] && $vague !== [] => 'Prova só VAGA ('.implode(', ', $vague).') — não converte. Trocar por concreto: número específico, nome de autoridade, ratio, ou mecanismo-de-ação.',
-            $concrete === [] => 'Sem prova concreta. A alavanca #1 está vazia — adicionar autoridade nomeada / contagem específica / ratio / mecanismo.',
-            $vague !== [] => 'Tem prova concreta ('.implode(', ', $concrete).') mas ainda apoia em vaga ('.implode(', ', $vague).') — substituir a vaga, não somar.',
-            default => 'Prova concreta: '.implode(', ', $concrete).'.',
+            $concrete === [] && $vague !== [] => 'Prova só VAGA ('.implode(', ', $vague).') — não converte. Trocar por concreto: transformação real, número AMARRADO a resultado, autoridade com credencial, ou mecanismo causal.',
+            $concrete === [] => 'Sem prova concreta. A alavanca #1 está vazia — adicionar transformação/before-after, autoridade credenciada, contagem ligada a resultado, ou mecanismo causal.',
+            $vague !== [] => 'Tem prova concreta ('.implode(', ', $concrete).') mas ainda apoia em vaga ('.implode(', ', $vague).') — substituir a vaga.',
+            default => 'Prova concreta (força '.$strength.'): '.implode(', ', $concrete).'.',
         };
 
         return [
@@ -73,23 +103,48 @@ class ProofSubstanceAuditor
             'vague' => $vague,
             'concrete_count' => count($concrete),
             'has_concrete' => $concrete !== [],
+            'strength' => $strength,
             'note' => $note,
         ];
     }
 
-    private function matchesUnnegated(string $text, string $re): bool
+    /** Strength tier (0 = no concrete proof) — lets the composer plant the STRONGEST proof, not the first. */
+    public function strength(string $copy): int
     {
-        if (! preg_match($re, $text, $m, PREG_OFFSET_CAPTURE)) {
+        return $this->audit($copy)['strength'];
+    }
+
+    /** Anchor matches in a sentence, with the result/substance co-occurrence each anchor requires. */
+    private function matchesAnchor(string $key, string $re, string $sentence): bool
+    {
+        if (! preg_match($re, $sentence)) {
             return false;
         }
-        $offset = $m[0][1];
-        $window = substr($text, max(0, $offset - 16), min(16, $offset));
-        foreach (self::NEGATORS as $neg) {
-            if (str_contains($window, $neg.' ') || str_ends_with(trim($window), $neg)) {
-                return false;
+
+        return match ($key) {
+            // A number alone is not proof — it must sit with a RESULT word in the same sentence.
+            'study_count', 'ratio_result' => (bool) preg_match('/\b'.self::RESULT.'\b/u', $sentence)
+                && ! preg_match('/\b(?:off|discount|save \d|coupon|desconto|ships?|shipping|delivery|entrega|mailing|newsletter|hotline|call \d)\b/u', $sentence),
+            // Transformation: "from X to Y" only counts as proof with a number or a result word present.
+            'transformation' => (bool) preg_match('/\d/u', $sentence) || (bool) preg_match('/\b'.self::RESULT.'\b/u', $sentence),
+            // Income receipt: a $ figure tied to earning / a first period.
+            'income_receipt' => (bool) preg_match('/\b(?:made|pulled|banked|earned|profit|in (?:my|the) first|per (?:month|week|day)|a (?:month|week|day))\b/u', $sentence),
+            // Mechanism must act on a concrete causal object, not an abstract feeling.
+            'mechanism_of_action' => (bool) preg_match('/\b'.self::CAUSAL.'\b/u', $sentence),
+            default => true,
+        };
+    }
+
+    /** True if the clause opens with / carries a negator that means the proof is ABSENT. */
+    private function clauseNegated(string $sentence): bool
+    {
+        $head = ' '.$sentence;
+        foreach (self::CLAUSE_NEG as $neg) {
+            if (str_contains($head, ' '.$neg) || str_starts_with($sentence, $neg)) {
+                return true;
             }
         }
 
-        return true;
+        return false;
     }
 }

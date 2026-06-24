@@ -259,14 +259,23 @@ class StructuredFunnelComposer
                 $candidates[] = (string) $offer[$k];
             }
         }
+        // Plant the STRONGEST proof (transformation/receipt/credential > count > ratio/mechanism), not the
+        // first that matches — a brutal panel caught the ordinal pick planting a guarantee over a real receipt.
+        $best = '';
+        $bestStrength = 0;
         foreach ($candidates as $c) {
             $c = trim($c);
-            if ($c !== '' && $oracle->audit($c)['has_concrete']) {
-                return rtrim($c, '.').'.';
+            if ($c === '') {
+                continue;
+            }
+            $s = $oracle->audit($c)['strength'];
+            if ($s > $bestStrength) {
+                $bestStrength = $s;
+                $best = rtrim($c, '.').'.';
             }
         }
 
-        return '';
+        return $best;
     }
 
     /** A real ease/effort-removal claim the offer carries (e.g. "no gym, no calorie counting") — '' if none. */
