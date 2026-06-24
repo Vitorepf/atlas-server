@@ -58,7 +58,9 @@ class KeywordQualityIndex
 
     private KeywordPainModifierSignal $painModifier;
 
-    public function __construct(?IntentLadderClassifier $intent = null, ?KeywordInvestmentGate $gate = null, ?KeywordMindState $mindState = null, ?KeywordAccountRiskSignal $accountRisk = null, ?KeywordOutcomeCalibrator $calibrator = null, ?KeywordSuffixGate $suffixGate = null, ?KeywordPainModifierSignal $painModifier = null)
+    private KeywordPageRouter $pageRouter;
+
+    public function __construct(?IntentLadderClassifier $intent = null, ?KeywordInvestmentGate $gate = null, ?KeywordMindState $mindState = null, ?KeywordAccountRiskSignal $accountRisk = null, ?KeywordOutcomeCalibrator $calibrator = null, ?KeywordSuffixGate $suffixGate = null, ?KeywordPainModifierSignal $painModifier = null, ?KeywordPageRouter $pageRouter = null)
     {
         $this->intent = $intent ?? new IntentLadderClassifier;
         $this->gate = $gate ?? new KeywordInvestmentGate;
@@ -67,6 +69,7 @@ class KeywordQualityIndex
         $this->calibrator = $calibrator ?? new KeywordOutcomeCalibrator;
         $this->suffixGate = $suffixGate ?? new KeywordSuffixGate;
         $this->painModifier = $painModifier ?? new KeywordPainModifierSignal;
+        $this->pageRouter = $pageRouter ?? new KeywordPageRouter;
     }
 
     /**
@@ -215,6 +218,7 @@ class KeywordQualityIndex
             'outcome_weight' => round($outcomeWeight, 3), // L10: peso da venda real aplicado (1.0 = sem dado)
             'suffix_regime' => $suffix['regime'], // POSSE/INFORMAÇÃO/owned/neutral (regra #2 da dissecação)
             'pain_modifier' => $pain['has_pain_modifier'], // qualificador de dor liftou o score (regra #7)
+            'page_route' => $this->pageRouter->route(['keyword' => $kw, 'suffix_regime' => $suffix['regime'], 'family' => $family])['page'], // #5 order_page/bridge/advertorial
             'components' => [
                 'owned_root_provenance' => round($provenance, 2),
                 'intent_class' => $intent,
