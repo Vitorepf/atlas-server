@@ -18,13 +18,18 @@ final class AtlasMaestroReplenisherFeedback
 {
     private ?AtlasMaestroLearningPolicyGuard $policyGuard = null;
 
-    public function __construct(private readonly object $miner)
-    {
+    public function __construct(
+        private readonly object $miner,
+        private readonly ?AtlasMaestroClosedLoopReceiptLedger $receiptLedger = null,
+    ) {
     }
 
     public function renderFactsBlock(): string
     {
-        if (! (bool) config('atlas.maestro.closed_loop.feedback_enabled', false)) {
+        $flagEnabled = (bool) config('atlas.maestro.closed_loop.feedback_enabled', false);
+        if (! $flagEnabled) {
+            $this->recordReceipt('', 0, 'reject', false, $flagEnabled);
+
             return '';
         }
 
@@ -55,13 +60,23 @@ final class AtlasMaestroReplenisherFeedback
         }
 
         if ($lines === []) {
+            $this->recordReceipt('', 0, 'reject', false, $flagEnabled);
+
             return '';
         }
 
         $block = implode("\n", $lines);
         // PÉTREO: every learning artifact passes the anti-Goodhart guard before it can reach the Replenisher.
         // A violating artifact throws here and NEVER reaches the rendered output.
-        $this->guard()->assertSafe(['facts' => $supported, 'block' => $block]);
+        try {
+            $this->guard()->assertSafe(['facts' => $supported, 'block' => $block]);
+        } catch (\Throwable $exception) {
+            $this->recordReceipt($block, count($supported), 'reject', false, $flagEnabled);
+
+            throw $exception;
+        }
+
+        $this->recordReceipt($block, count($supported), 'pass', true, $flagEnabled);
 
         return $block;
     }
@@ -69,5 +84,16 @@ final class AtlasMaestroReplenisherFeedback
     private function guard(): AtlasMaestroLearningPolicyGuard
     {
         return $this->policyGuard ??= new AtlasMaestroLearningPolicyGuard;
+    }
+
+    private function recordReceipt(string $block, int $minedBucketCount, string $guarded, bool $consumed, bool $flagEnabled): void
+    {
+        ($this->receiptLedger ?? new AtlasMaestroClosedLoopReceiptLedger)->recordCycle([
+            'feedback_block' => $block,
+            'mined_bucket_count' => $minedBucketCount,
+            'guarded_pass_or_reject' => $guarded,
+            'replenisher_consumed' => $consumed,
+            'flag_enabled' => $flagEnabled,
+        ]);
     }
 }
