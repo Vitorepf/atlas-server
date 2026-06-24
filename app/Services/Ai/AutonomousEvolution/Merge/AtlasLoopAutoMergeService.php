@@ -21,6 +21,7 @@ final class AtlasLoopAutoMergeService
     public function __construct(
         private readonly AtlasLoopAutoMergePreFlightGate $preFlight,
         private readonly ?AtlasLoopAutoMergeConflictDetector $conflictDetector = null,
+        private readonly ?AtlasLoopAutoMergeReverseAuditor $reverseAuditor = null,
     ) {}
 
     /**
@@ -69,12 +70,33 @@ final class AtlasLoopAutoMergeService
         $merger ??= fn (array $p, string $root): array => ['status' => 'merge_executor_default_noop'];
         $mergeResult = $merger($proposal, $repoRoot);
 
+        $reverseAudit = null;
+        if ($this->reverseAuditor !== null) {
+            $preMergeSha = (string) ($preflight['head_sha'] ?? '');
+            $mergeSha = (string) ($mergeResult['merge_sha'] ?? '');
+            $reverseAudit = $this->reverseAuditor->audit($repoRoot, $preMergeSha, $mergeSha);
+        }
+
+        $merged = true;
+        $reason = null;
+        if ($reverseAudit !== null) {
+            $verdict = (string) ($reverseAudit['verdict'] ?? '');
+            if ($verdict === AtlasLoopAutoMergeReverseAuditor::VERDICT_ROLLED_BACK) {
+                $merged = false;
+                $reason = 'reverse_audit_rolled_back';
+            } elseif ($verdict === AtlasLoopAutoMergeReverseAuditor::VERDICT_REVERT_FAILED) {
+                $merged = false;
+                $reason = 'reverse_audit_revert_failed';
+            }
+        }
+
         return [
-            'merged' => true,
-            'reason' => null,
+            'merged' => $merged,
+            'reason' => $reason,
             'preflight' => $preflight,
             'conflict_report' => $conflictReportArray,
             'merge_result' => $mergeResult,
+            'reverse_audit' => $reverseAudit,
         ];
     }
 }

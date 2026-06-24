@@ -47,6 +47,7 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderEffortPolicyDriverDecor
 use App\Services\Ai\AutonomousEvolution\AtlasLoopScenarioProviderPortfolio;
 use App\Services\Ai\AutonomousEvolution\Merge\AtlasLoopAutoMergeConflictDetector;
 use App\Services\Ai\AutonomousEvolution\Merge\AtlasLoopAutoMergePreFlightGate;
+use App\Services\Ai\AutonomousEvolution\Merge\AtlasLoopAutoMergeReverseAuditor;
 use App\Services\Ai\AutonomousEvolution\Merge\AtlasLoopAutoMergeService as AtlasLoopMergeService;
 use App\Services\Ai\AutonomousEvolution\Recovery\AtlasLoopReceiptReplayer;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopSemanticImplementationCertifier;
@@ -236,11 +237,13 @@ class AppServiceProvider extends ServiceProvider
         // (the conflict detector refuses any merge whose 3-way merge-tree probe is non-clean).
         $this->app->singleton(AtlasLoopAutoMergePreFlightGate::class);
         $this->app->singleton(AtlasLoopAutoMergeConflictDetector::class);
+        $this->app->singleton(AtlasLoopAutoMergeReverseAuditor::class);
         $this->app->singleton(
             AtlasLoopMergeService::class,
             fn ($app) => new AtlasLoopMergeService(
                 $app->make(AtlasLoopAutoMergePreFlightGate::class),
                 $app->make(AtlasLoopAutoMergeConflictDetector::class),
+                $app->make(AtlasLoopAutoMergeReverseAuditor::class),
             ),
         );
         $this->app->singleton(AtlasLoopProviderContextOptimizer::class);
