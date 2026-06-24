@@ -8,6 +8,7 @@ use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionMod
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModelBuilder;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionQuery;
 use App\Services\Ai\AutonomousEvolution\Feedback\AtlasLoopGiveBackToReplenisherFeedback;
+use DomainException;
 use Throwable;
 
 /**
@@ -197,7 +198,32 @@ final class AtlasTaskBrainReplenisher
             }
         }
 
+        // FAIL-CLOSED self-inspection: every emitted packet MUST self-pass the quality inspector before it is
+        // returned. Today's emit branches already pass; this guard locks the invariant so a FUTURE branch can
+        // never silently mint a packet the enqueue gate would block (e.g. requires tests_or_gates_result yet
+        // grants no tests/ path → test_evidence_without_test_in_allowed_files).
+        foreach ($out as $packet) {
+            $this->validateAgainstInspector($packet);
+        }
+
         return $out;
+    }
+
+    /**
+     * Assert a minted packet self-passes AtlasTaskPacketQualityInspector; throw fail-closed on any BLOCKING
+     * deficiency so a regressing emit branch is caught at the source, never served.
+     *
+     * @param  array<string,mixed>  $packet
+     */
+    private function validateAgainstInspector(array $packet): void
+    {
+        $blocking = (array) (($this->inspector ?? new AtlasTaskPacketQualityInspector)->inspect($packet)['blocking_deficiencies'] ?? []);
+        if ($blocking !== []) {
+            throw new DomainException(
+                'AtlasTaskBrainReplenisher minted a packet that fails its own quality inspector ('
+                .(string) ($packet['task_packet_id'] ?? '<no-id>').'): '.implode(', ', $blocking),
+            );
+        }
     }
 
     /**
