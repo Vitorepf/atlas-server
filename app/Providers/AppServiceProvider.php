@@ -31,6 +31,8 @@ use App\Services\Ai\AutonomousEvolution\AtlasEvolutionScenarioExplorer;
 use App\Services\Ai\AutonomousEvolution\AtlasEvolutionTaskGenerator;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopAdversarialVerifierPool;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopNetDiffCertReceiptLedger;
+use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Council\AtlasCortexCallGraphLens;
+use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Council\AtlasCortexLensRegistry;
 use App\Services\Ai\AutonomousEvolution\Receipts\AtlasLoopCycleReceiptLedger;
 use App\Services\Ai\AutonomousEvolution\Receipts\AtlasLoopCycleReceiptSigner;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopBenchmarkHarness;
@@ -1163,6 +1165,28 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->registerLoopSentinels();
+        $this->registerCortexCouncilLenses();
+    }
+
+    /**
+     * CORTEX COUNCIL LENSES — register each lens listed in `cortex.council.lenses` with the council registry.
+     * Byte-identical no-op when the config key is absent or does not list a lens id. Today we only know about
+     * 'callgraph' (lens #1 of 5); future lens packets extend this conditional with their own ids.
+     */
+    private function registerCortexCouncilLenses(): void
+    {
+        $lenses = (array) config('cortex.council.lenses', []);
+        if ($lenses === []) {
+            return;
+        }
+        $this->app->singleton(AtlasCortexLensRegistry::class);
+
+        if (in_array('callgraph', $lenses, true)) {
+            $this->app->singleton(AtlasCortexCallGraphLens::class);
+            $this->app->resolving(AtlasCortexLensRegistry::class, function (AtlasCortexLensRegistry $registry, $app): void {
+                $registry->register($app->make(AtlasCortexCallGraphLens::class));
+            });
+        }
     }
 
     /**
