@@ -44,9 +44,10 @@ class AtlasLoopOrphanWiringAuthoringEngine
         if ($fqcn === '' || $orphanRel === '') {
             return null;
         }
+        $obligations = $this->architectObligations($payload);
 
         $provider = trim((string) config('atlas.loop.default_provider', ''));
-        $prompt = $this->buildPrompt($fqcn, $orphanRel, $methods, (string) ($payload['sibling_test'] ?? ''));
+        $prompt = $this->buildPrompt($fqcn, $orphanRel, $methods, (string) ($payload['sibling_test'] ?? ''), $obligations);
         $complete = $this->complete ?? fn (string $p, string $pr): ?string => $this->liveCompletion($p, $pr);
 
         $response = $complete($provider, $prompt);
@@ -203,17 +204,24 @@ class AtlasLoopOrphanWiringAuthoringEngine
 
     /**
      * @param  list<string>  $methods
+     * @param  list<string>  $obligations
      */
-    private function buildPrompt(string $fqcn, string $orphanRel, array $methods, string $siblingTest): string
+    private function buildPrompt(string $fqcn, string $orphanRel, array $methods, string $siblingTest, array $obligations = []): string
     {
         $methodList = $methods === [] ? '(none public)' : implode(', ', $methods);
+        $architectBlock = '';
+        if ($obligations !== []) {
+            $architectBlock = "ARCHITECT OBLIGATIONS (MUST be satisfied by your wiring):\n"
+                .implode("\n", $obligations)
+                ."\n\n";
+        }
 
         return <<<PROMPT
             You are wiring a built-but-unused capability into the codebase. The class {$fqcn} (file {$orphanRel},
             public methods: {$methodList}) is fully implemented and unit-tested ({$siblingTest}) but has ZERO
             production callers. Wire it into a REAL production call path so its behavior is actually used.
 
-            Output EXACTLY this marker format and nothing else:
+            {$architectBlock}Output EXACTLY this marker format and nothing else:
             <<<TEST_REL>>>
             tests/Feature/Loop/Wiring/<Name>Test.php
             <<<TEST_COMMAND>>>
@@ -227,6 +235,31 @@ class AtlasLoopOrphanWiringAuthoringEngine
             <?php  // the FULL new contents of that production file, now invoking {$fqcn}.
             <<<END>>>
             PROMPT;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return list<string>
+     */
+    private function architectObligations(array $payload): array
+    {
+        $raw = $payload['_architect_obligations'] ?? [];
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($raw as $item) {
+            if (! is_string($item)) {
+                continue;
+            }
+            $item = trim($item);
+            if ($item !== '') {
+                $out[] = $item;
+            }
+        }
+
+        return $out;
     }
 
     private function writeFile(string $workspace, string $rel, string $content): void
