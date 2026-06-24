@@ -11,6 +11,7 @@ use App\Services\Ai\AutonomousEvolution\AtlasEvolutionTaskGenerator;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMutationOperators;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopSelfImprovementGroundingBridge;
+use App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerSupplyLaneCoordinator;
 use App\Services\Ai\AutonomousEvolution\Constitution\Frozen\AtlasLoopFrozenMutationOperators;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopDeliveryPipeline;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
@@ -37,6 +38,8 @@ final class AtlasLoopQueueRefiller
 
     /** @var array<string,array{active:bool, timeouts:int, successes:int, window_hours:int}> */
     private array $extractClassBackoffCache = [];
+
+    private ?AtlasLoopRefillerSupplyLaneCoordinator $supplyLaneCoordinator = null;
 
     public function __construct(
         private readonly AtlasLoopTargetDiscoveryService $discovery,
@@ -536,186 +539,14 @@ final class AtlasLoopQueueRefiller
         return $result;
     }
 
-    /**
-     * NET-NEW MATERIAL SUPPLY LANE — drain the UNTAPPED material refactor methods the single-objective lane
-     * abandons. The per-target loop mints ONE refactor per file (its worst method); after the first wave of
-     * files, substantive single-objective supply runs dry and the loop fills every refill with coverage —
-     * yet those SAME multi-method complex files still hold many methods at/above the loop's own material bar.
-     * For each complex file in the discovery scope this lane re-mints a governed refactor task through the
-     * EXACT framework-refactor synthesizer + enqueue path the per-target lane uses (so the acceptance,
-     * complexity-proof and cert are byte-identical to a normal refactor; it is material-by-construction —
-     * the file qualifies ONLY because the decomposer found a method >= the material bar, never proxy, never
-     * coverage). Returns the number of NEW tasks minted (added to the refill's enqueued count).
-     *
-     * CONFLICT-FREE: it mints AT MOST ONE in-flight task per file — a file with any existing pending/claimed/
-     * running task is skipped — so two workers never grind the same file (worktree conflict) and same-file
-     * work is serialized across cycles. The framework synthesizer re-mints fine: it certifies on ANY complex
-     * method's reduction (total decisions + max-gate), so a still-complex already-touched file is valid supply.
-     *
-     * GATING: flag-gated default-OFF (config decompose_supply_enabled). With the flag OFF this method
-     * RETURNS 0 IMMEDIATELY before touching anything, so {@see refill()} is byte-identical to today (the call
-     * site only adds 0 to $enqueued). The whole body is wrapped fail-open so it can NEVER break a refill.
-     */
     private function tryDecomposeMaterialSupply(AtlasLoopCampaign $campaign, string $provider, string $repoRoot, int $want): int
     {
-        // BYTE-IDENTICAL GUARD: OFF => no work, no DB read, no glob — refill() is exactly today's behaviour.
-        if (! (bool) config('atlas.loop.decompose_supply_enabled', false)) {
-            return 0;
-        }
-
-        try {
-            $decomposer = $this->complexTargetDecomposer ?? new AtlasLoopComplexTargetDecomposer;
-            $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard;
-            $materialMin = max(1, (int) config('atlas.loop.material_refactor_min_cyclomatic', 12));
-            // Bound how many files this lane mints per refill (the want/refill ceiling AND a hard cap), so a
-            // huge codebase cannot flood one refill — same spirit as the coverage portfolio cap.
-            $cap = max(1, min(
-                max(1, $want),
-                (int) config('atlas.loop.decompose_supply_max_files_per_refill', 8),
-            ));
-
-            $minted = 0;
-            foreach ($this->discoveryScopeFiles($repoRoot, $campaign) as $relPath) {
-                if ($minted >= $cap) {
-                    break;
-                }
-                // PETREO: never re-mint a forbidden self-target (belt-and-suspenders; the synthesizer rejects
-                // it too, but skip early so the lane spends no work on it).
-                if ($guard->isForbiddenSelfTarget($relPath)) {
-                    continue;
-                }
-                // CONFLICT GUARD: at most ONE in-flight task per file — skip a file already being ground so two
-                // workers never collide on the same worktree, and same-file work is serialized across cycles.
-                if ($this->fileHasInflightTask((string) $campaign->id, $relPath)) {
-                    continue;
-                }
-
-                $source = $repoRoot.'/'.$relPath;
-                $body = @file_get_contents($source);
-                if (! is_string($body) || trim($body) === '') {
-                    continue;
-                }
-
-                // The decomposer IS the untapped-supply detector: a non-empty result means >=1 method at/above
-                // the material bar. Worst method first; its cyclomatic + name aim the synthesizer surgically.
-                $subs = $decomposer->decompose($relPath, $body, 1);
-                if ($subs === []) {
-                    continue; // fail-closed: no method clears the material bar => not supply (never proxy)
-                }
-                $worst = $subs[0];
-                $worstMethod = (string) ($worst['method'] ?? '');
-                $cyclomatic = (int) ($worst['cyclomatic'] ?? 0);
-                if ($cyclomatic < $materialMin) {
-                    continue; // defensive: the decomposer already enforces this, but the bar is load-bearing
-                }
-
-                if ($this->mintDecomposeRefactorTask($campaign, $relPath, $worstMethod, $cyclomatic, $provider, $repoRoot)) {
-                    $minted++;
-                }
-                $this->touchHeartbeat($campaign); // liveness: a scope scan + synth per file can take a while
-            }
-
-            return $minted;
-        } catch (Throwable) {
-            return 0; // fail-open: the material-supply lane can never break a refill
-        }
+        return $this->supplyLaneCoordinator()->trySupply($campaign, $provider, $repoRoot, $want, 'decompose');
     }
 
-    /**
-     * Enqueue ONE governed refactor task for a complex file through the SAME framework-refactor synthesizer
-     * + enqueue + completeTargetEnqueue path the per-target lane uses, so the acceptance + complexity-proof
-     * cert are identical to a normal refactor. The supply signals (worst method + its cyclomatic) aim the
-     * synthesizer exactly as discovery's stamped signals do. A real candidate target row is upserted (so the
-     * task has a live _target_id for loop-back and same-file serialization) and CLAIMED before the enqueue so
-     * completeTargetEnqueue's QUEUED transition is valid. The task carries source='decompose' +
-     * decompose_supply=true for provenance; everything else mirrors tryFrameworkRefactor exactly. Returns true
-     * only when a live task was minted. Fail-closed: a null synth / non-live enqueue / any error => false.
-     */
     private function mintDecomposeRefactorTask(AtlasLoopCampaign $campaign, string $relPath, string $worstMethod, int $cyclomatic, string $provider, string $repoRoot): bool
     {
-        // Aim the synthesizer with the same signal shape discovery stamps (cyclomatic + worst_method); this is
-        // ALSO the per-method complexity that makes the refactor material-by-construction.
-        $signals = [
-            'cyclomatic' => $cyclomatic,
-            'worst_method' => $worstMethod,
-            'decompose_supply' => true,
-        ];
-
-        // Upsert a real candidate target for this file (idempotent: an already-discovered candidate is just
-        // refreshed, a non-candidate keeps its historical state) so the minted task has a live _target_id and
-        // same-file work stays serialized through the normal target lifecycle.
-        $contentHash = hash('sha256', (string) @file_get_contents($repoRoot.'/'.$relPath));
-        $target = $this->repository->upsert(
-            (string) $campaign->id,
-            $relPath,
-            $contentHash,
-            [
-                'score' => 0.5,
-                'self_contained' => 1.0,
-                'improvement' => 1.0,
-                'novelty' => 0.5,
-                'signals' => $signals,
-            ],
-            ['origin' => AtlasLoopTarget::ORIGIN_DISCOVERY],
-        );
-        // The conflict guard (the in-flight-TASK check in the caller) is the real same-file serializer, so the
-        // lane is the authority on a file that has untapped material methods and NO live task — REGARDLESS of
-        // the target row's current status. The per-target pass routinely consumes this same row (e.g. it
-        // quarantines a complex file when the per-target refactor lanes are inert, or queues it for its WORST
-        // method only); the row's OTHER material methods are still untapped supply. So revive the row to drive
-        // the new refactor: remember its prior status, claim it (so completeTargetEnqueue's markStatus(QUEUED)
-        // is valid), and restore the prior status untouched if no task is minted (never thrash its attempts).
-        $priorStatus = (string) $target->status;
-        $target->forceFill([
-            'status' => AtlasLoopTarget::STATUS_CLAIMED,
-            'claimed_by' => 'decompose_supply',
-            'claimed_at' => now(),
-            'lease_expires_at' => now()->addSeconds(600),
-        ])->save();
-
-        // Synthesize via the framework-refactor synthesizer (the right tool for ANY file with a PHPUnit
-        // anchor — framework-reach AND pure-logic), falling back to the Phase-1 plain-`php` synthesizer for a
-        // require-style sibling. Either way the acceptance carries complexity_proof so the cert is identical
-        // to a normal refactor. Null (no real behaviour anchor / below floor) => no proxy reaches the queue.
-        $synth = ($this->frameworkRefactorSynthesizer ?? new AtlasLoopFrameworkRefactorSynthesizer)
-            ->synthesizeFrameworkRefactor($repoRoot, $relPath, $signals, $provider, (string) $target->id);
-        if ($synth === null && $this->refactorSynthesizer !== null) {
-            $synth = $this->refactorSynthesizer->synthesize($repoRoot, $relPath, $signals, $provider, (string) $target->id);
-        }
-        if ($synth === null) {
-            // No honest anchor for this file (no sibling test / below floor / not wired) — restore the row to
-            // exactly the status the lane found it in, with no attempt bump, so the lane is a pure no-op on a
-            // file it cannot honestly mint for.
-            $target->forceFill([
-                'status' => $priorStatus,
-                'claimed_by' => null,
-                'claimed_at' => null,
-                'lease_expires_at' => null,
-            ])->save();
-
-            return false;
-        }
-
-        $dp = $this->decidedPriority($campaign, $target, $signals, $repoRoot, AtlasLoopWorkShapeRouter::SHAPE_REFACTOR);
-        $payload = $synth['payload'];
-        $payload['decompose_supply'] = true; // provenance: this refactor came from the material-supply lane
-        if ($dp['receipt'] !== []) {
-            $payload['_decision'] = $dp['receipt'];
-        }
-        $payload = $this->withSelfImprovementMarker($payload, $signals);
-        $enq = $this->store->enqueueTask(
-            (string) $campaign->id,
-            (string) $synth['objective'],
-            $payload,
-            'decompose',
-            $relPath,
-            $dp['priority'],
-            true,
-            (string) $synth['acceptance_hash'],
-        );
-        $this->stampLastObjective($target, (string) $synth['objective']);
-
-        return $this->completeTargetEnqueue($target, $enq, 'decompose_supply_refactor_synthesized') === 'enqueued';
+        return $this->supplyLaneCoordinator()->mintDecomposeRefactorTask($campaign, $relPath, $worstMethod, $cyclomatic, $provider, $repoRoot);
     }
 
     /**
@@ -768,368 +599,59 @@ final class AtlasLoopQueueRefiller
         );
     }
 
-    /**
-     * §5.6 DEDUP-SUPPLY LANE — the BRAIN driving selection. Build the grounded scope-comprehension model and
-     * let {@see AtlasLoopDedupSupplyLane} mint CERTIFIABLE clone-unification tasks from its clone clusters —
-     * net-new work the proxy discovery (cyclomatic/coverage) STRUCTURALLY cannot produce. Each task carries
-     * dedup_proof + the frozen member siblings, so the frozen judge's Guard 4d count-drop (behaviour preserved
-     * AND duplication removed) is the sole authority. Conflict-free (at most one in-flight task across a
-     * cluster's members). Flag default-OFF => returns 0 before any model build => refill() is byte-identical.
-     * Wrapped fail-open so it can NEVER break a refill.
-     */
     private function tryDedupSupply(AtlasLoopCampaign $campaign, string $provider, string $repoRoot, int $want): int
     {
-        // BYTE-IDENTICAL GUARD: OFF => no model build, no mint — refill() is exactly today's behaviour.
-        if (! (bool) config('atlas.loop.dedup_supply_enabled', false)) {
-            return 0;
-        }
-
-        try {
-            $cap = max(1, min(max(1, $want), (int) config('atlas.loop.dedup_supply_max_per_refill', 4)));
-            $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard;
-            $query = $this->comprehensionQuery($repoRoot, ['docs_roots' => []]);
-            $lane = new AtlasLoopDedupSupplyLane;
-
-            $minted = 0;
-            foreach ($this->effectiveDiscoveryRoots($campaign) as $root) {
-                if ($minted >= $cap) {
-                    break;
-                }
-                $root = trim(str_replace('\\', '/', (string) $root), '/');
-                if ($root === '' || ! is_dir($repoRoot.'/'.$root)) {
-                    continue;
-                }
-                $model = $query->model($root);
-                $this->touchHeartbeat($campaign); // the model build can take a few seconds on a large scope
-                foreach ($lane->mint($model, $repoRoot) as $spec) {
-                    if ($minted >= $cap) {
-                        break;
-                    }
-                    $members = array_values(array_filter((array) ($spec['members'] ?? []), 'is_string'));
-                    $anchor = $members[0] ?? '';
-                    if ($anchor === '' || $guard->isForbiddenSelfTarget($anchor)) {
-                        continue;
-                    }
-                    // CONFLICT GUARD: skip if ANY member has an in-flight task (no two workers on a shared file).
-                    $conflict = false;
-                    foreach ($members as $m) {
-                        if ($this->fileHasInflightTask((string) $campaign->id, $m)) {
-                            $conflict = true;
-                            break;
-                        }
-                    }
-                    if ($conflict) {
-                        continue;
-                    }
-                    if ($this->mintDedupTask($campaign, $spec, $repoRoot)) {
-                        $minted++;
-                    }
-                    $this->touchHeartbeat($campaign);
-                }
-            }
-
-            return $minted;
-        } catch (Throwable) {
-            return 0; // fail-open: the dedup-supply lane can never break a refill
-        }
+        return $this->supplyLaneCoordinator()->trySupply($campaign, $provider, $repoRoot, $want, 'dedup');
     }
 
-    /**
-     * Enqueue ONE clone-unification task from a {@see AtlasLoopDedupSupplyLane} spec, anchored on the first
-     * member (a real claimed target row for loop-back + same-file serialization), the SAME upsert+claim+enqueue
-     * +completeTargetEnqueue path the decompose lane uses. The frozen acceptance (dedup_proof + clone_target +
-     * member siblings) comes straight from the spec — the provider can never author it. Restore the row
-     * untouched on a non-live enqueue (never thrash attempts). Fail-closed: any error => false.
-     */
     private function mintDedupTask(AtlasLoopCampaign $campaign, array $spec, string $repoRoot): bool
     {
-        $members = array_values(array_filter((array) ($spec['members'] ?? []), 'is_string'));
-        $anchor = $members[0] ?? '';
-        if ($anchor === '') {
-            return false;
-        }
-
-        $contentHash = hash('sha256', (string) @file_get_contents($repoRoot.'/'.$anchor));
-        $target = $this->repository->upsert(
-            (string) $campaign->id,
-            $anchor,
-            $contentHash,
-            [
-                'score' => 0.5,
-                'self_contained' => 0.0,
-                'improvement' => 1.0,
-                'novelty' => 0.5,
-                'signals' => ['dedup_supply' => true, 'clone_members' => $members],
-            ],
-            ['origin' => AtlasLoopTarget::ORIGIN_DISCOVERY],
-        );
-        $priorStatus = (string) $target->status;
-        $target->forceFill([
-            'status' => AtlasLoopTarget::STATUS_CLAIMED,
-            'claimed_by' => 'dedup_supply',
-            'claimed_at' => now(),
-            'lease_expires_at' => now()->addSeconds(600),
-        ])->save();
-
-        $payload = is_array($spec['payload'] ?? null) ? $spec['payload'] : [];
-        $payload['_target_id'] = (string) $target->id;
-        $dp = $this->decidedPriority($campaign, $target, ['dedup_supply' => true], $repoRoot, AtlasLoopWorkShapeRouter::SHAPE_REFACTOR);
-        if ($dp['receipt'] !== []) {
-            $payload['_decision'] = $dp['receipt'];
-        }
-
-        $enq = $this->store->enqueueTask(
-            (string) $campaign->id,
-            (string) ($spec['objective'] ?? ''),
-            $payload,
-            'dedup',
-            $anchor,
-            $dp['priority'],
-            false,
-            (string) ($spec['acceptance_hash'] ?? ''),
-        );
-        $this->stampLastObjective($target, (string) ($spec['objective'] ?? ''));
-
-        $ok = $this->completeTargetEnqueue($target, $enq, 'dedup_supply_unification') === 'enqueued';
-        if (! $ok) {
-            $target->forceFill([
-                'status' => $priorStatus,
-                'claimed_by' => null,
-                'claimed_at' => null,
-                'lease_expires_at' => null,
-            ])->save();
-        }
-
-        return $ok;
+        return $this->supplyLaneCoordinator()->mintDedupTask($campaign, $spec, $repoRoot);
     }
 
-    /**
-     * §5.6 ORPHAN-WIRING supply lane (mirrors {@see tryDedupSupply}). The comprehension model's ORPHANS become
-     * wiring DIRECTIVES — net-new work the proxy scan can't surface (an unwired class has no high cyclomatic /
-     * missing-coverage signal; it simply isn't called). Flag OFF => no model build, no mint (byte-identical).
-     * Fail-open: it can NEVER break a refill.
-     */
     private function tryOrphanWiringSupply(AtlasLoopCampaign $campaign, string $provider, string $repoRoot, int $want): int
     {
-        if (! (bool) config('atlas.loop.orphan_wiring_supply_enabled', false)) {
-            return 0;
-        }
-
-        try {
-            $cap = max(1, min(max(1, $want), (int) config('atlas.loop.orphan_wiring_supply_max_per_refill', 2)));
-            $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard;
-            $query = $this->comprehensionQuery($repoRoot, ['docs_roots' => []]);
-            $lane = new AtlasLoopOrphanWiringSupplyLane;
-
-            $minted = 0;
-            foreach ($this->effectiveDiscoveryRoots($campaign) as $root) {
-                if ($minted >= $cap) {
-                    break;
-                }
-                $root = trim(str_replace('\\', '/', (string) $root), '/');
-                if ($root === '' || ! is_dir($repoRoot.'/'.$root)) {
-                    continue;
-                }
-                $model = $query->model($root);
-                $this->touchHeartbeat($campaign);
-                foreach ($lane->mint($model, $repoRoot) as $spec) {
-                    if ($minted >= $cap) {
-                        break;
-                    }
-                    $anchor = (string) (array_values(array_filter((array) ($spec['members'] ?? []), 'is_string'))[0] ?? '');
-                    if ($anchor === '' || $guard->isForbiddenSelfTarget($anchor)) {
-                        continue;
-                    }
-                    // CONFLICT GUARD: no two workers on the orphan file at once.
-                    if ($this->fileHasInflightTask((string) $campaign->id, $anchor)) {
-                        continue;
-                    }
-                    if ($this->mintOrphanWiringTask($campaign, $spec, $repoRoot)) {
-                        $minted++;
-                    }
-                    $this->touchHeartbeat($campaign);
-                }
-            }
-
-            return $minted;
-        } catch (Throwable) {
-            return 0; // fail-open: the orphan-wiring lane can never break a refill
-        }
+        return $this->supplyLaneCoordinator()->trySupply($campaign, $provider, $repoRoot, $want, 'orphan_wiring');
     }
 
-    /**
-     * Enqueue ONE orphan-wiring DIRECTIVE (source='orphan_wiring') anchored on the orphan file. Unlike the dedup
-     * task, the acceptance is NOT pre-baked — the grinder's orphan-wiring route + the engine author the earned-RED
-     * test and the wiring; Guard 4e is the sole authority on whether the wiring is real. Restore the row on a
-     * non-live enqueue. Fail-closed: any error => false.
-     */
     private function mintOrphanWiringTask(AtlasLoopCampaign $campaign, array $spec, string $repoRoot): bool
     {
-        $anchor = (string) (array_values(array_filter((array) ($spec['members'] ?? []), 'is_string'))[0] ?? '');
-        if ($anchor === '') {
-            return false;
-        }
-
-        $contentHash = hash('sha256', (string) @file_get_contents($repoRoot.'/'.$anchor));
-        $target = $this->repository->upsert(
-            (string) $campaign->id,
-            $anchor,
-            $contentHash,
-            [
-                'score' => 0.5,
-                'self_contained' => 0.0,
-                'improvement' => 1.0,
-                'novelty' => 0.5,
-                'signals' => ['orphan_wiring_supply' => true, 'orphan_path' => $anchor],
-            ],
-            ['origin' => AtlasLoopTarget::ORIGIN_DISCOVERY],
-        );
-        $priorStatus = (string) $target->status;
-        $target->forceFill([
-            'status' => AtlasLoopTarget::STATUS_CLAIMED,
-            'claimed_by' => 'orphan_wiring_supply',
-            'claimed_at' => now(),
-            'lease_expires_at' => now()->addSeconds(600),
-        ])->save();
-
-        $payload = is_array($spec['payload'] ?? null) ? $spec['payload'] : [];
-        $payload['_target_id'] = (string) $target->id;
-        $dp = $this->decidedPriority($campaign, $target, ['orphan_wiring_supply' => true], $repoRoot, AtlasLoopWorkShapeRouter::SHAPE_REFACTOR);
-        if ($dp['receipt'] !== []) {
-            $payload['_decision'] = $dp['receipt'];
-        }
-
-        $enq = $this->store->enqueueTask(
-            (string) $campaign->id,
-            (string) ($spec['objective'] ?? ''),
-            $payload,
-            'orphan_wiring',
-            $anchor,
-            $dp['priority'],
-            false,
-            '',
-        );
-        $this->stampLastObjective($target, (string) ($spec['objective'] ?? ''));
-
-        $ok = $this->completeTargetEnqueue($target, $enq, 'orphan_wiring_supply_directive') === 'enqueued';
-        if (! $ok) {
-            $target->forceFill([
-                'status' => $priorStatus,
-                'claimed_by' => null,
-                'claimed_at' => null,
-                'lease_expires_at' => null,
-            ])->save();
-        }
-
-        return $ok;
+        return $this->supplyLaneCoordinator()->mintOrphanWiringTask($campaign, $spec, $repoRoot);
     }
 
-    /**
-     * §2 DOC-GAP supply lane (mirrors {@see tryOrphanWiringSupply}). The comprehension model's doc-stated
-     * gaps (a capability the canonical docs NAME but no symbol provides) become red→green feature directives.
-     * Built WITH docs_roots so gaps are detected; flag OFF => no model build (byte-identical). Fail-open.
-     */
     private function tryDocGapSupply(AtlasLoopCampaign $campaign, string $provider, string $repoRoot, int $want): int
     {
-        if (! (bool) config('atlas.loop.doc_gap_supply_enabled', false)) {
-            return 0;
-        }
-
-        try {
-            $cap = max(1, min(max(1, $want), (int) config('atlas.loop.doc_gap_supply_max_per_refill', 1)));
-            $lane = new AtlasLoopDocGapSupplyLane;
-            $docsRoots = array_values(array_filter((array) config('atlas.loop.doc_gap_supply_docs_roots', []), 'is_string'));
-            $query = $this->comprehensionQuery($repoRoot, ['docs_roots' => $docsRoots]);
-
-            $minted = 0;
-            foreach ($this->effectiveDiscoveryRoots($campaign) as $root) {
-                if ($minted >= $cap) {
-                    break;
-                }
-                $root = trim(str_replace('\\', '/', (string) $root), '/');
-                if ($root === '' || ! is_dir($repoRoot.'/'.$root)) {
-                    continue;
-                }
-                $model = $query->model($root);
-                $this->touchHeartbeat($campaign);
-                foreach ($lane->mint($model, $repoRoot) as $spec) {
-                    if ($minted >= $cap) {
-                        break;
-                    }
-                    if ($this->mintDocGapTask($campaign, $spec, $repoRoot)) {
-                        $minted++;
-                    }
-                    $this->touchHeartbeat($campaign);
-                }
-            }
-
-            return $minted;
-        } catch (Throwable) {
-            return 0; // fail-open: the doc-gap lane can never break a refill
-        }
+        return $this->supplyLaneCoordinator()->trySupply($campaign, $provider, $repoRoot, $want, 'doc_gap');
     }
 
-    /**
-     * Enqueue ONE doc-gap DIRECTIVE (source='doc_gap'), anchored on the EXPECTED path of the capability to be
-     * created (scope-consistent + deterministic). The acceptance is engine-authored (red→green; Guard 4
-     * diff_earned is the deterministic gate). A pétreo expected-path is refused; a non-live enqueue restores.
-     *
-     * @param  array<string,mixed>  $spec
-     */
     private function mintDocGapTask(AtlasLoopCampaign $campaign, array $spec, string $repoRoot): bool
     {
-        $payload = is_array($spec['payload'] ?? null) ? $spec['payload'] : [];
-        $capability = trim((string) ($payload['capability'] ?? ''));
-        if ($capability === '' || ! preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $capability)) {
-            return false; // only a clean class-name maps to a deterministic expected path
-        }
-        $anchor = 'app/Services/Ai/AutonomousEvolution/'.$capability.'.php';
+        return $this->supplyLaneCoordinator()->mintDocGapTask($campaign, $spec, $repoRoot);
+    }
 
-        $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard;
-        if ($guard->isForbiddenSelfTarget($anchor) || $this->fileHasInflightTask((string) $campaign->id, $anchor)) {
-            return false;
-        }
-
-        $contentHash = hash('sha256', (string) @file_get_contents($repoRoot.'/'.$anchor));
-        $target = $this->repository->upsert(
-            (string) $campaign->id,
-            $anchor,
-            $contentHash,
-            [
-                'score' => 0.5,
-                'self_contained' => 0.0,
-                'improvement' => 1.0,
-                'novelty' => 0.7,
-                'signals' => ['doc_gap_supply' => true, 'capability' => $capability],
-            ],
-            ['origin' => AtlasLoopTarget::ORIGIN_DISCOVERY],
+    private function supplyLaneCoordinator(): AtlasLoopRefillerSupplyLaneCoordinator
+    {
+        return $this->supplyLaneCoordinator ??= new AtlasLoopRefillerSupplyLaneCoordinator(
+            repository: $this->repository,
+            store: $this->store,
+            refactorSynthesizer: $this->refactorSynthesizer,
+            harnessGuard: $this->harnessGuard,
+            frameworkRefactorSynthesizer: $this->frameworkRefactorSynthesizer,
+            complexTargetDecomposer: $this->complexTargetDecomposer,
+            discoveryScopeFiles: fn (string $repoRoot, AtlasLoopCampaign $campaign): array => $this->discoveryScopeFiles($repoRoot, $campaign),
+            fileHasInflightTask: fn (string $campaignId, string $relPath): bool => $this->fileHasInflightTask($campaignId, $relPath),
+            touchHeartbeat: function (AtlasLoopCampaign $campaign): void {
+                $this->touchHeartbeat($campaign);
+            },
+            decidedPriority: fn (AtlasLoopCampaign $campaign, AtlasLoopTarget $target, array $signals, string $repoRoot, string $shapeHint): array => $this->decidedPriority($campaign, $target, $signals, $repoRoot, $shapeHint),
+            withSelfImprovementMarker: fn (array $payload, array $signals): array => $this->withSelfImprovementMarker($payload, $signals),
+            stampLastObjective: function (AtlasLoopTarget $target, string $objective): void {
+                $this->stampLastObjective($target, $objective);
+            },
+            completeTargetEnqueue: fn (AtlasLoopTarget $target, ?AtlasLoopTask $task, string $queuedReason): string => $this->completeTargetEnqueue($target, $task, $queuedReason),
+            effectiveDiscoveryRoots: fn (AtlasLoopCampaign $campaign): array => $this->effectiveDiscoveryRoots($campaign),
+            comprehensionQuery: fn (string $repoRoot, array $opts): AtlasLoopScopeComprehensionQuery => $this->comprehensionQuery($repoRoot, $opts),
         );
-        $priorStatus = (string) $target->status;
-        $target->forceFill([
-            'status' => AtlasLoopTarget::STATUS_CLAIMED,
-            'claimed_by' => 'doc_gap_supply',
-            'claimed_at' => now(),
-            'lease_expires_at' => now()->addSeconds(600),
-        ])->save();
-
-        $payload['_target_id'] = (string) $target->id;
-        if (is_array($spec['payload']['acceptance'] ?? null)) {
-            $payload['acceptance'] = $spec['payload']['acceptance'];
-        }
-        $dp = $this->decidedPriority($campaign, $target, ['doc_gap_supply' => true], $repoRoot, AtlasLoopWorkShapeRouter::SHAPE_REFACTOR);
-        if ($dp['receipt'] !== []) {
-            $payload['_decision'] = $dp['receipt'];
-        }
-
-        $enq = $this->store->enqueueTask((string) $campaign->id, (string) ($spec['objective'] ?? ''), $payload, 'doc_gap', $anchor, $dp['priority'], false, '');
-        $this->stampLastObjective($target, (string) ($spec['objective'] ?? ''));
-
-        $ok = $this->completeTargetEnqueue($target, $enq, 'doc_gap_supply_directive') === 'enqueued';
-        if (! $ok) {
-            $target->forceFill(['status' => $priorStatus, 'claimed_by' => null, 'claimed_at' => null, 'lease_expires_at' => null])->save();
-        }
-
-        return $ok;
     }
 
     /**
