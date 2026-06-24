@@ -9,7 +9,10 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopDriftRestartDebounce;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopFleetGovernor;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMorningDigestService;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopSoakPlanService;
 use App\Services\Ai\AutonomousEvolution\Campaign\AtlasLoopPipelineDrift;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Support\AtlasPhpBinary;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -40,6 +43,7 @@ class AtlasLoopKeepaliveCommand extends Command
     public function __construct(
         private ?AtlasLoopDriftRestartDebounce $driftRestartDebounce = null,
         private ?AtlasAgentDesiredStateStore $desiredStore = null,
+        private ?AtlasLoopSoakPlanService $soakPlanner = null,
     ) {
         parent::__construct();
     }
@@ -76,6 +80,12 @@ class AtlasLoopKeepaliveCommand extends Command
      */
     protected function runKeepalive(array &$out): int
     {
+        // ADVISORY ARM-CHECK (default OFF ⇒ byte-identical). Before any restart decision, capture the soak
+        // arm-check ONCE: if a campaign is being kept alive while a PROXY-SUPPLY lane (cyclomatic-refactor farm)
+        // is armed, the 24/7 keepalive would silently grind faxina instead of material work. This NEVER blocks
+        // or kills — it only logs + stamps an Evidence-Ledger receipt so the operator sees the drift.
+        $this->emitArmCheckAdvisory();
+
         $staleMinutes = max(2, (int) $this->option('stale-minutes'));
 
         $campaigns = DB::table('atlas_loop_campaigns')
@@ -310,6 +320,54 @@ class AtlasLoopKeepaliveCommand extends Command
     protected function masterSwitchEnabled(): bool
     {
         return AtlasLoopMasterSwitch::enabled();
+    }
+
+    /**
+     * ADVISORY soak arm-check. Default OFF ⇒ no SoakPlanService call at all (byte-identical). When ON and the
+     * arm-check is NOT ready (e.g. a proxy-supply farm is armed), emit ONE warning log + ONE Evidence-Ledger
+     * receipt (decision=keepalive_arm_check_advisory, payload.blocking). It is PÉTREO-ADVISORY: it never blocks,
+     * delays, or kills the supervisor — both side-effects are best-effort and wrapped.
+     */
+    protected function emitArmCheckAdvisory(): void
+    {
+        if (! (bool) config('atlas.loop.keepalive_arm_check_enabled', false)) {
+            return; // default OFF — never even constructs/calls the planner
+        }
+
+        try {
+            $plan = ($this->soakPlanner ?? new AtlasLoopSoakPlanService)->plan(1.0, 0.0, 0, false);
+        } catch (\Throwable) {
+            return; // advisory only — a planning failure must never affect keepalive
+        }
+
+        $armCheck = is_array($plan['arm_check'] ?? null) ? $plan['arm_check'] : [];
+        if (($armCheck['ready'] ?? false) === true) {
+            return; // armed/ready ⇒ nothing to warn
+        }
+
+        $blocking = array_values((array) ($armCheck['blocking'] ?? []));
+
+        try {
+            $logPath = storage_path('logs/loop-keepalive-arm-check.log');
+            @mkdir(dirname($logPath), 0o775, true);
+            @file_put_contents(
+                $logPath,
+                '['.gmdate('Y-m-d\TH:i:s\Z').'] keepalive_arm_check_advisory blocking='.json_encode($blocking, JSON_UNESCAPED_SLASHES).PHP_EOL,
+                FILE_APPEND | LOCK_EX,
+            );
+        } catch (\Throwable) {
+            // advisory log is best-effort
+        }
+
+        try {
+            app(AtlasEvidenceLedger::class)->record(
+                LedgerEventType::DecisionIssued,
+                ['decision' => 'keepalive_arm_check_advisory', 'blocking' => $blocking],
+                ['operator_id' => 'atlas-loop-keepalive', 'emitter_stage' => 'atlas.loop.keepalive.arm_check'],
+            );
+        } catch (\Throwable) {
+            // advisory receipt is best-effort; keepalive never depends on it
+        }
     }
 
     /**
