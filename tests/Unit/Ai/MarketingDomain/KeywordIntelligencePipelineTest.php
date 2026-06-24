@@ -56,6 +56,31 @@ class KeywordIntelligencePipelineTest extends TestCase
         $this->assertSame($hashesA, $hashesB);
     }
 
+    public function test_discovered_real_terms_are_merged_scored_and_deduped(): void
+    {
+        $p = new KeywordIntelligencePipeline;
+        $base = $p->run($this->asset(), ['payout' => 120, 'cvr' => 0.012]);
+        $existing = $base['scored'][0]['keyword']; // um termo que o grid sintético já tem
+
+        $r = $p->run($this->asset(), ['payout' => 120, 'cvr' => 0.012], [
+            'discovered_terms' => ['bariatric gelatin trick', 'pink gelatin trick', $existing],
+        ]);
+
+        $this->assertSame(2, $r['discovered_count'], 'os 2 termos novos entram; o duplicado do grid é deduplicado');
+        $scoredKw = array_column($r['scored'], 'keyword');
+        $this->assertContains('bariatric gelatin trick', $scoredKw, 'o termo real descoberto é pontuado pelo OS');
+        $this->assertGreaterThan(count($base['scored']), count($r['scored']), 'a descoberta real amplia o universo pontuado');
+    }
+
+    public function test_discovery_is_idempotent(): void
+    {
+        $p = new KeywordIntelligencePipeline;
+        $opts = ['discovered_terms' => ['bariatric gelatin trick', 'pink gelatin trick']];
+        $a = $p->run($this->asset(), ['payout' => 120, 'cvr' => 0.012], $opts);
+        $b = $p->run($this->asset(), ['payout' => 120, 'cvr' => 0.012], $opts);
+        $this->assertSame(array_column($a['scored'], 'keyword'), array_column($b['scored'], 'keyword'));
+    }
+
     public function test_fingerprint_changes_with_economics(): void
     {
         $p = new KeywordIntelligencePipeline;

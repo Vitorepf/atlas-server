@@ -36,9 +36,16 @@ class KeywordIntelligencePipeline
         // L2 — origina o universo (sem buracos, determinístico)
         $universe = $this->enumerator->enumerate($roots);
 
+        // L2 — junta o grid sintético com os search-terms REAIS descobertos (harvester), deduplicados
+        $scorable = $this->enumerator->asScorableTier($universe, $product);
+        $discovered = $this->discoveredTier($roots, (array) ($opts['discovered_terms'] ?? []), $universe);
+        if ($discovered !== null) {
+            $scorable['tiers'][] = $discovered;
+        }
+
         // L3/L4/L11 — pontua + intenção + investimento + mente + risco-de-conta (elimina lixo antes)
         $quality = $this->qualityIndex->scoreEngineResult(
-            $this->enumerator->asScorableTier($universe, $product),
+            $scorable,
             $asset,
             array_merge($econ, ['outcome_calibration' => (array) ($opts['outcome_calibration'] ?? [])]), // L10 flywheel real
         );
@@ -54,6 +61,7 @@ class KeywordIntelligencePipeline
         return [
             'offer_fingerprint' => $fingerprint,
             'universe' => ['count' => $universe['count'], 'complete' => $universe['complete'], 'roots' => $universe['roots']],
+            'discovered_count' => $discovered === null ? 0 : count($discovered['keywords']), // L2: termos reais novos mesclados
             'clusters' => $this->clusterer->cluster((array) ($universe['keywords'] ?? [])), // L7 STAG ad groups
             'volume_priority' => $this->volumeSignal->prioritize($quality['scored'], (array) ($opts['volume_map'] ?? [])), // L5 demanda×intenção
             'scored' => $quality['scored'],
@@ -71,6 +79,44 @@ class KeywordIntelligencePipeline
             array_map(fn ($s) => mb_strtolower(trim((string) $s)), [$asset->mechanism_name, $asset->trick]),
             fn ($s) => $s !== '',
         )));
+    }
+
+    /**
+     * L2 — transforma os search-terms REAIS colhidos (BlackinkSearchTermHarvester) num tier pontuável,
+     * deduplicado contra o grid sintético pra nada contar em dobro. Passam pelos mesmos gates (intenção/
+     * investimento/risco) + recibos. Determinístico: mesmos termos → mesma saída.
+     *
+     * @param  array<int,string>  $roots
+     * @param  array<int,string>  $terms
+     * @param  array<string,mixed>  $universe
+     * @return array<string,mixed>|null
+     */
+    private function discoveredTier(array $roots, array $terms, array $universe): ?array
+    {
+        $existing = [];
+        foreach ((array) ($universe['keywords'] ?? []) as $row) {
+            $existing[mb_strtolower(trim((string) ($row['keyword'] ?? '')))] = true;
+        }
+        $fresh = [];
+        foreach ($terms as $t) {
+            $t = mb_strtolower(trim((string) $t));
+            if ($t === '' || isset($existing[$t]) || isset($fresh[$t])) {
+                continue;
+            }
+            $fresh[$t] = true;
+        }
+        if ($fresh === []) {
+            return null;
+        }
+
+        return [
+            'family' => 'discovered_real', // veio de busca real, não do grid sintético
+            'qualification' => 'high',
+            'match_type' => 'phrase',
+            'roots' => $roots,
+            'keywords' => array_keys($fresh),
+            'tier_hint' => 'discovered',
+        ];
     }
 
     private function product(AiMarketingVslAsset $asset): string
