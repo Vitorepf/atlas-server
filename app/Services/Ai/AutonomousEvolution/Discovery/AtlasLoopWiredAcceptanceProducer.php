@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Discovery;
 
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+use Throwable;
+
 /**
  * §5.6 · ORPHAN-WIRING · grind-time acceptance authoring (the keystone bridge).
  *
@@ -18,6 +22,8 @@ namespace App\Services\Ai\AutonomousEvolution\Discovery;
  */
 final class AtlasLoopWiredAcceptanceProducer
 {
+    private const MAX_PRODUCTION_CALLER_FILES = 200;
+
     public function __construct(private readonly ?AtlasLoopAcceptanceRedProducer $redProducer = null) {}
 
     /**
@@ -49,6 +55,8 @@ final class AtlasLoopWiredAcceptanceProducer
             return null;
         }
 
+        $productionCaller = $this->productionCaller($orphanRel, $testRel, $baselineCwd);
+
         return [
             'commands' => [$testCommand],
             'allowed_globs' => array_values(array_filter($allowedGlobs, 'is_string')),
@@ -56,8 +64,67 @@ final class AtlasLoopWiredAcceptanceProducer
             'frozen_globs' => array_values(array_unique([$testRel, 'tests/**'])),
             'metric_kind' => 'gate',
             'wired_proof' => true,
+            'production_caller' => $productionCaller,
             'wired_target' => ['orphan_path' => $orphanRel],
             'earned_red' => true,
         ];
+    }
+
+    public function productionCaller(string $orphanRel, string $testRel, string $repoRoot): bool
+    {
+        return self::detectProductionCaller($orphanRel, $testRel, $repoRoot);
+    }
+
+    private static function detectProductionCaller(string $orphanRel, string $testRel, string $repoRoot): bool
+    {
+        try {
+            $orphanRel = ltrim(trim($orphanRel), '/');
+            $testRel = ltrim(trim($testRel), '/');
+            $repoRoot = rtrim(trim($repoRoot), '/');
+            if ($orphanRel === '' || $testRel === '' || $repoRoot === '') {
+                return false;
+            }
+            if (str_starts_with($testRel, 'tests/')) {
+                $basename = pathinfo($orphanRel, PATHINFO_FILENAME);
+                if ($basename === '') {
+                    return false;
+                }
+
+                $scanned = 0;
+                foreach (['app', 'src'] as $root) {
+                    $dir = $repoRoot.'/'.$root;
+                    if (! is_dir($dir)) {
+                        continue;
+                    }
+                    $iterator = new RecursiveIteratorIterator(
+                        new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS)
+                    );
+                    foreach ($iterator as $file) {
+                        if (! $file->isFile()) {
+                            continue;
+                        }
+                        $relative = str_replace('\\', '/', substr($file->getPathname(), strlen($repoRoot) + 1));
+                        if ($relative === $orphanRel) {
+                            continue;
+                        }
+                        $scanned++;
+                        if ($scanned > self::MAX_PRODUCTION_CALLER_FILES) {
+                            return false;
+                        }
+                        $contents = @file_get_contents($file->getPathname());
+                        if (! is_string($contents)) {
+                            return false;
+                        }
+                        if (str_contains($contents, $basename)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        } catch (Throwable) {
+            return false;
+        }
+
+        return false;
     }
 }

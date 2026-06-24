@@ -54,6 +54,11 @@ final class AtlasLoopOrphanWiringSupplyLane
             $fqcn = $admitted['fqcn'];
             $publicMethods = $admitted['public_methods'];
             $sib = $admitted['sibling'];
+            $productionCaller = (new AtlasLoopWiredAcceptanceProducer)->productionCaller(
+                $rel,
+                (string) $sib['sibling_path'],
+                $repoRoot,
+            );
 
             $payload = [
                 'objective_kind' => self::OBJECTIVE_KIND,
@@ -64,6 +69,7 @@ final class AtlasLoopOrphanWiringSupplyLane
                 'sibling_test' => $sib['sibling_path'],
                 // The executor + Guard 4e contract; the acceptance commands are engine-authored (earned-RED).
                 'wired_proof' => true,
+                'production_caller' => $productionCaller,
                 'wired_target' => ['orphan_path' => $rel],
             ];
 
