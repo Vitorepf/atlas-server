@@ -54,6 +54,21 @@ final class AtlasAaelLoopExecutionBridge
                 && is_array($task['acceptance'] ?? null);
 
             if ($hasMetric) {
+                $contract = AtlasLoopResearchContract::fromAcceptance($task['acceptance'], [
+                    'ambition' => (string) ($opportunity['ambition'] ?? AtlasLoopResearchContract::AMBITION_BEAT),
+                    'scope' => (string) ($opportunity['scope'] ?? AtlasLoopResearchContract::SCOPE_MIXED),
+                ]);
+                if (! $contract->isComplete()) {
+                    $deferred[] = [
+                        'objective' => (string) ($task['objective'] ?? $opportunity['objective'] ?? ''),
+                        'opportunity_id' => $opportunity['opportunity_id'] ?? null,
+                        'reason' => 'incomplete_research_contract:'.implode(',', $contract->missingComponents()),
+                    ];
+
+                    continue;
+                }
+
+                $task['research_contract'] = $contract->toArray();
                 $verdict = $prover->prove($task);
                 if ((bool) $verdict['passed']) {
                     $tasks[] = $task;
@@ -123,6 +138,10 @@ final class AtlasAaelLoopExecutionBridge
             'opportunities_total' => count($opportunities),
             'executed_tasks' => (int) ($loopRun['tasks_processed'] ?? 0),
             'deferred_count' => count($deferred),
+            'incomplete_contracts_deferred' => count(array_filter(
+                $deferred,
+                static fn (array $item): bool => str_starts_with((string) ($item['reason'] ?? ''), 'incomplete_research_contract:'),
+            )),
             'deferred' => $deferred,
             'prover_rejected' => $proverRejected,
             'drift_audit' => $driftAudit,
