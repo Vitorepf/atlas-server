@@ -190,6 +190,24 @@ class StructuredFunnelComposerTest extends TestCase
         }
     }
 
+    public function test_full_chain_holds_continuity_and_congruence_cross_niche(): void
+    {
+        // After the lead/objection-loop/proof-reorder/grammar edits, the whole ad→bridge→page→checkout
+        // chain must still carry the promise (no scent break) and stay congruent, in every niche.
+        $composer = new StructuredFunnelComposer;
+        $continuity = new \App\Services\Ai\MarketingDomain\Content\FunnelContinuityAuditor;
+        $congruence = new \App\Services\Ai\MarketingDomain\Content\FunnelCongruenceAuditor;
+        foreach (['weight loss' => 'lose the weight', 'finance' => 'grow your money', 'relationship' => 'win them back'] as $niche => $promise) {
+            $f = $composer->compose($this->asset([
+                'niche' => $niche, 'awareness_level' => 'problem_aware', 'sophistication_level' => 4,
+                'core_promise' => $promise, 'mechanism_name' => 'The Core Method',
+                'metrics' => ['result_claims' => ['lost 30 lbs in 21 days']], 'offer' => ['price' => '97'],
+            ]));
+            $this->assertSame([], $continuity->audit($f)['breaks'], "scent break in {$niche}");
+            $this->assertSame('sound', $congruence->audit($f)['verdict'], "incongruent chain in {$niche}");
+        }
+    }
+
     public function test_proof_lever_is_planted_only_from_real_asset_proof(): void
     {
         // Eixo 7 end-to-end: a concrete claim on the asset → the page carries CONCRETE proof; a thin

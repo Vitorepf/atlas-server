@@ -134,6 +134,8 @@ ROADMAP do blueprint: 8 de 11 entregues (#1,2,4,5,6,7,8,9; #3 coberto). Restam: 
 
 - **Generalização cross-nicho PROVADA (5 famílias auto-consistentes)** ✅ — dogfood across families pegou gap real: finance/relacionamento/generic davam gargalo `offer` mesmo com asset rico — o ValueEquationAuditor só reconhecia esforço via "just N minutes"/domínio-fixo; weight/health passavam só porque o LeadForge-health diz "no starving" (no domínio). Fix honesto: "N minutos por dia" (com/sem "just") É substância de esforço → reconhecido. Agora as 5 famílias (weight/finance/relationship/health/generic) geram funil que passa nos 6 levers (gargalo=NENHUM). Regressão cross-nicho travada. 461/461. (regra do operador "generaliza cross-niche sempre" provada, não assumida.)
 
+- **Cadeia inteira verificada + travada (continuidade+congruência cross-nicho)** ✅ — dogfood honesto: as edições recentes (loop de objeção, reorder de prova, fix de gramática) podiam ter quebrado o scent da cadeia ad→bridge→page→checkout. Verifiquei nos 3 nichos: continuidade 100% (0 breaks), congruência "sound" — NÃO houve regressão. Não fabriquei fix onde não há quebra; em vez disso travei a propriedade como guarda de regressão (a cadeia pode quebrar com edições futuras). 462/462. Padrão honesto do platô: dogfood mais duro > manufaturar instrumento.
+
 ## Pontos pra próxima sessão (faculdade de ambição)
 - **Multi-persona injection por slot** — TL;DR pra mãe ocupada no topo, vs-Ozempic perto do CTA, prova específica embaixo, em vez de 1 fix em `ps`.
 - **LLM-driven persona refinement** — quando o operador plugar LLM, refinar `simulate()` por avatar real do produto (não só os 3 fixos hardcoded). Framework está pronto, contrato é o `PersonaSimulator`.
