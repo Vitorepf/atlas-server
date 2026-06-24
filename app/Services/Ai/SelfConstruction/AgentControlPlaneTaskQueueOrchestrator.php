@@ -61,6 +61,10 @@ final class AgentControlPlaneTaskQueueOrchestrator
             'metadata' => [
                 'scope_lock_hash' => (string) $validation['scope_lock_hash'],
                 'validation_hash' => (string) $validation['validation_hash'],
+                // ORDER: a task is only servable once every depends_on task is completed; wave is a human-readable
+                // ordering hint (the version-ladder phase). The serving enforces depends_on at claim time.
+                'depends_on' => array_values(array_filter((array) data_get($packetInput, 'depends_on', []), 'is_string')),
+                'wave' => (int) data_get($packetInput, 'wave', 0),
             ],
             'priority' => (int) ($queueOptions['priority'] ?? 5),
             'tags' => (array) ($queueOptions['tags'] ?? []),
@@ -208,7 +212,53 @@ final class AgentControlPlaneTaskQueueOrchestrator
             return false;
         }
 
+        // ORDER: a task with unmet prerequisites is not yet servable. Every depends_on must be completed.
+        if ($this->dependenciesUnmet($candidate)) {
+            return false;
+        }
+
         return true;
+    }
+
+    /**
+     * True when the candidate declares depends_on task(s) that are NOT yet completed — it must wait. A dep that
+     * is absent from the queue is treated as SATISFIED (fail-open), so a typo or a pruned dep never strands a
+     * task forever; ordering is enforced among co-enqueued tasks, which is the real version-ladder case.
+     *
+     * @param  array<string, mixed>  $candidate
+     */
+    private function dependenciesUnmet(array $candidate): bool
+    {
+        $dependsOn = array_values(array_filter((array) data_get($candidate, 'metadata.depends_on', []), 'is_string'));
+        foreach ($dependsOn as $depId) {
+            $dep = $this->queue->get($depId);
+            if ($dep === null) {
+                continue; // unknown dep → fail-open (never strand).
+            }
+            if ((string) ($dep['status'] ?? '') !== 'completed_dry_run') {
+                return true; // a real prerequisite is still open → not servable yet.
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Is there at least one claimable task held back ONLY by unmet dependencies? The serving uses this to tell a
+     * worker to WAIT (the ordered ladder is still flowing) instead of stopping as if the queue were drained.
+     */
+    public function hasDependencyGatedClaimableTasks(string $agentId = ''): bool
+    {
+        foreach ($this->queue->list(['status' => 'claimable']) as $candidate) {
+            if ((string) data_get($candidate, 'metadata.last_give_back_by', '') === $agentId && $agentId !== '') {
+                continue;
+            }
+            if ($this->dependenciesUnmet($candidate)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

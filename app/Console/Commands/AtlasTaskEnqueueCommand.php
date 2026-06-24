@@ -142,6 +142,9 @@ class AtlasTaskEnqueueCommand extends Command
             'scope_in' => $scopeIn,
             'acceptance_criteria' => array_values((array) ($spec['acceptance_criteria'] ?? [])),
             'required_evidence' => array_values((array) ($spec['required_evidence'] ?? [])),
+            // ORDER: prerequisite task ids + the version-ladder wave (the serving gates a claim on depends_on).
+            'depends_on' => array_values(array_filter((array) ($spec['depends_on'] ?? []), 'is_string')),
+            'wave' => (int) ($spec['wave'] ?? 0),
         ];
     }
 }

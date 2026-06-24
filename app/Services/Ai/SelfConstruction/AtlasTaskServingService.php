@@ -87,6 +87,16 @@ final class AtlasTaskServingService
                     ]));
                 }
 
+                // ORDER: distinguish a truly dry queue from one still flowing — if claimable tasks remain held
+                // back ONLY by unmet prerequisites, the worker must WAIT (the ladder is advancing), not stop.
+                if ($skip === 0 && $this->orchestrator->hasDependencyGatedClaimableTasks($clientId)) {
+                    return $this->served($clientId, $this->envelope('waiting_on_dependencies', $clientId, null, [
+                        'retry_after_seconds' => self::DEFAULT_RETRY_AFTER_SECONDS,
+                        'escalation' => 'none',
+                        'reason' => 'prerequisite_tasks_not_yet_completed',
+                    ]));
+                }
+
                 // Honest empty: NOT an error. The queue is dry; the brain must originate (model-bound — see R1).
                 return $this->served($clientId, $this->envelope('no_claimable_task', $clientId, null, [
                     'retry_after_seconds' => self::DEFAULT_RETRY_AFTER_SECONDS,
