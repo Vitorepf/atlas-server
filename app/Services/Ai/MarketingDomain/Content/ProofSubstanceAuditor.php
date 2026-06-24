@@ -48,7 +48,7 @@ class ProofSubstanceAuditor
             'result_number' => ['/\b(?:lost|shed|dropped|regrew|reversed|cut|lowered|slashed|melted|banked|earned|made|pulled|saved|gained|doubled|tripled|replaced|grew)\b[^.?!]*?\d/u', 5],
             'income_receipt' => ['/\$\s?\d[\d,.]*/u', 5], // validated: needs earn/first-period context
             // tier 4: credentialed authority (title MUST be followed by a name/word — kills "Doctor. Clinic." stuffing) + studied count
-            'credentialed_authority' => ['/\b(?:(?:dr\.?|doctor|professor|surgeon|cardiologist|biochemist|physician|researcher|scientist|nutritionist|endocrinologist|dermatologist)\s+[a-z]{2,}|board[- ]certified|harvard|yale|stanford|oxford|johns hopkins|cardiology|phd|m\.?d\.?|\d+\s+years\s+(?:in|of)\s+\w+)\b/u', 4],
+            'credentialed_authority' => ['/\b(?:(?:dr\.?|doctor|professor|surgeon|cardiologist|biochemist|physician|researcher|scientist|nutritionist|endocrinologist|dermatologist|nurse|trader|analyst|strategist|coach|consultant|founder|ceo|manager)\s+[a-z]{2,}|board[- ]certified|harvard|yale|stanford|oxford|johns hopkins|cardiology|phd|m\.?d\.?|\d+\s+years\s+(?:in|of)\s+\w+)\b/u', 4],
             'study_count' => ['/\b\d+\s*(?:people|men|women|patients|participants|subjects|volunteers|users|students|customers|clients|members|moms|guys|adults|families)\b/u', 4],
             // tier 3: ratio tied to result + concrete mechanism
             'ratio_result' => ['/\b\d+\s*(?:out of|in|of)\s*\d+\b|\b\d{1,3}\s?%/u', 3],
