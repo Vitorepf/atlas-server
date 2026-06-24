@@ -55,12 +55,11 @@ class StructuredFunnelComposer
         // Eixo 7: plant REAL concrete proof from the asset when it has any; else keep the producer slot.
         $proof = $this->proof($asset);
         $proofLine = $proof !== '' ? $proof : '[PROOF SLOT: o caso/depoimento/estudo mais forte da oferta]';
-        // Schwartz market sophistication picks the opener: an exhausted market (level 5) is deaf to
-        // claims/mechanism and only responds to IDENTIFICATION; earlier levels open with curiosity.
-        $exhausted = (new MarketSophisticationRouter)->strategy((string) $asset->sophistication_level)['strategy'] === 'identify_and_experience';
-        $pageHook = $exhausted
-            ? "{$avatar} I was exactly where you are with {$promise}{$heroLine} — and tired of everyone selling the same thing."
-            : "{$avatar} have you wondered why {$promise} stays out of reach{$heroLine}?";
+        // The LEAD is the biggest conversion multiplier (1→25). Open with an elite, awareness-routed lead
+        // forged from the asset's real wound/dream/enemy/promise — it grips and opens a curiosity loop
+        // while HOLDING the mechanism (no premature reveal). Falls back to a curiosity hook if empty.
+        $pageHook = (new BigIdeaLeadForge)->forge($asset)['best']
+            ?? "{$avatar} have you wondered why {$promise} stays out of reach{$heroLine}?";
 
         // ── AD: callout + hero promise (carries hero number) + soft CTA (free CONTENT, not the product).
         $ad = trim("{$avatar} {$promise}{$heroLine}. Watch the free presentation to see how — before it comes down.");
