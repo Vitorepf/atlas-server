@@ -300,6 +300,7 @@ class AtlasLoopKeepaliveCommand extends Command
 
         $out['generated_at'] = now()->toIso8601String();
         AtlasLoopMorningDigestService::appendKeepaliveEvent($out);
+        $this->applyRunawayRespawnSentinel($out);
 
         $this->line((string) json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
@@ -309,6 +310,67 @@ class AtlasLoopKeepaliveCommand extends Command
     protected function masterSwitchEnabled(): bool
     {
         return AtlasLoopMasterSwitch::enabled();
+    }
+
+    /**
+     * Count keepalive respawns from the digest JSONL that appendKeepaliveEvent writes.
+     */
+    public function recentRespawnEvents(int $windowSeconds): int
+    {
+        if (! (bool) config('atlas.loop.morning_digest.keepalive_event_log_enabled', true)) {
+            return 0;
+        }
+
+        $windowSeconds = max(1, $windowSeconds);
+        $path = (string) config('atlas.loop.morning_digest.keepalive_event_log_path');
+        if ($path === '' || ! is_file($path)) {
+            return 0;
+        }
+
+        $cutoff = now()->getTimestamp() - $windowSeconds;
+        $count = 0;
+        $lines = @file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if (! is_array($lines)) {
+            return 0;
+        }
+
+        foreach ($lines as $line) {
+            $event = json_decode((string) $line, true);
+            if (! is_array($event)) {
+                continue;
+            }
+
+            $timestamp = strtotime((string) ($event['recorded_at'] ?? $event['generated_at'] ?? ''));
+            if ($timestamp === false || $timestamp < $cutoff) {
+                continue;
+            }
+
+            $count += count((array) ($event['respawned'] ?? []));
+        }
+
+        return $count;
+    }
+
+    /**
+     * @param  array<string,mixed>  $out
+     */
+    protected function applyRunawayRespawnSentinel(array &$out): void
+    {
+        $threshold = max(0, (int) config('atlas.loop.keepalive_runaway_threshold', 30));
+        $windowSeconds = max(1, (int) config('atlas.loop.keepalive_runaway_window_seconds', 3600));
+        $observed = $this->recentRespawnEvents($windowSeconds);
+
+        if ($observed <= $threshold) {
+            return;
+        }
+
+        AtlasLoopMasterSwitch::off();
+        $out['runaway_auto_off'] = [
+            'threshold' => $threshold,
+            'window_seconds' => $windowSeconds,
+            'observed_count' => $observed,
+            'reason' => 'keepalive_respawn_events_exceeded_threshold',
+        ];
     }
 
     /**
