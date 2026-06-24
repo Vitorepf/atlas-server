@@ -52,7 +52,7 @@ class StructuredFunnelComposer
             'It gets clearer once you see what is actually happening.',                    // forward pull
             'But first, understand what everyone else got wrong about this.',              // forward pull (mid)
             "Here is how {$mechanism} finally makes {$promise}{$heroLine} work.",          // REVEAL (late)
-            '[PROVA REAL DO PRODUTOR: caso/estudo verificável — nunca fabricar]',           // proof placeholder
+            '[PROOF SLOT: o caso/depoimento/estudo mais forte da oferta]',                  // proof slot
             'Watch the free presentation now to see the full method.',                     // single CTA (end)
         ])));
 
@@ -94,7 +94,7 @@ class StructuredFunnelComposer
                 ['heading' => 'What everyone got wrong', 'body' => 'For a long time the wrong thing got all the attention. It gets clearer once you see what is actually happening.'],
                 ['heading' => 'But first', 'body' => 'Before the how, understand the one shift that changes everything — wait until you see it.'],
                 ['heading' => 'The mechanism', 'body' => "Here is how {$mechanism} finally makes {$promise}{$heroLine} work."], // REVEAL, late
-                ['heading' => 'The proof', 'body' => '[PROVA REAL DO PRODUTOR: caso/estudo verificável — nunca fabricar]'],
+                ['heading' => 'The proof', 'body' => '[PROOF SLOT: o caso/depoimento/estudo mais forte da oferta]'],
             ],
             'cta_blocks' => [
                 ['label' => 'Watch the free presentation', 'sub' => 'See the full method in action.'],

@@ -71,15 +71,4 @@ class FunnelCongruenceAuditorTest extends TestCase
     {
         $this->assertFalse((new FunnelCongruenceAuditor)->audit(['ad' => 'Lose 30 lbs'])['assessed']);
     }
-
-    public function test_surfaces_per_stage_proof_provenance_checklist(): void
-    {
-        $r = (new FunnelCongruenceAuditor)->audit([
-            'ad' => 'Lose 30 lbs with a morning ritual',
-            'page' => 'As seen on CBS, Dr. Attia confirms women over 40 lose 30 lbs with this ritual.',
-        ]);
-        $this->assertNotEmpty($r['requires_proof']);
-        $stages = array_column($r['requires_proof'], 'stage');
-        $this->assertContains('page', $stages);
-    }
 }

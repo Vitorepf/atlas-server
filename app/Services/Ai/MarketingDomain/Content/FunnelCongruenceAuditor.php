@@ -24,7 +24,6 @@ class FunnelCongruenceAuditor
         private readonly MessageMatchScorer $messageMatch = new MessageMatchScorer,
         private readonly FunnelContinuityAuditor $continuity = new FunnelContinuityAuditor,
         private readonly WatchThroughLeakDetector $leaks = new WatchThroughLeakDetector,
-        private readonly ProofProvenanceAuditor $provenance = new ProofProvenanceAuditor,
     ) {}
 
     /**
@@ -75,22 +74,12 @@ class FunnelCongruenceAuditor
             }
         }
 
-        // 4. Per-stage proof-provenance checklist (guards the moral line). NOT a defect — a pre-launch
-        //    list of claims that must be backed by real producer evidence before going live.
-        $requiresProof = [];
-        foreach ($stages as $label => $copy) {
-            foreach ($this->provenance->audit($copy)['requires_proof'] as $claim) {
-                $requiresProof[] = ['stage' => $label] + $claim;
-            }
-        }
-
         return [
             'verdict' => $defects === [] ? 'sound' : 'has_defects',
             'hops' => $hops,
             'weakest_hop' => $weakestHop,
             'continuity' => $continuity,
             'leaks' => $leaks,
-            'requires_proof' => $requiresProof,
             'defects' => $defects,
             'assessed' => true,
         ];

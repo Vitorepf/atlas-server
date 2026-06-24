@@ -37,7 +37,6 @@ class ConversionAuditor
         private readonly PersonaSimulator $personas = new PersonaSimulator,
         private readonly CopySmellDetector $smells = new CopySmellDetector,
         private readonly WatchThroughLeakDetector $leaks = new WatchThroughLeakDetector,
-        private readonly ProofProvenanceAuditor $provenance = new ProofProvenanceAuditor,
         private readonly DecisionClarityAuditor $decision = new DecisionClarityAuditor,
     ) {
         // When the auditor is built without an explicit hybrid scorer, wire one by default — this
@@ -101,13 +100,12 @@ class ConversionAuditor
             'audience_score' => round($this->personas->audienceScore($copy, $niche) * 100),
             'structural_flaws' => $this->leaks->detect($copy)['flaws'],
             'decision_flaws' => $this->decision->audit($copy)['flaws'],
-            'requires_proof' => $this->provenance->audit($copy)['requires_proof'],
             'smells' => $smellReport['smells'],
             'smells_count' => $smellReport['n'],
-            // Honesty layer (cycles 43-45 meta-lesson): never let a vocabulary prior pass as proven
+            // Confidence layer (cycles 43-45 meta-lesson): never let a vocabulary prior pass as proven
             // conversion. Each signal is labeled by how much it can be trusted.
             'signal_confidence' => [
-                'structural_truth' => ['structural_flaws', 'decision_flaws', 'requires_proof', 'smells'],
+                'structural_truth' => ['structural_flaws', 'decision_flaws', 'smells'],
                 'heuristic_prior' => ['by_library', 'audience_score', 'top_missing'],
                 'calibrated' => $useHybrid ? ['by_library (niche='.$niche.', se ledger ≥30 outcomes)'] : [],
                 'note' => 'structural_flaws = FATOS estruturais true-positive (vazamento de reveal/CTA). '

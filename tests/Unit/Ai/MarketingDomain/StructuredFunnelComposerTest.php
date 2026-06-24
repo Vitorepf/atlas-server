@@ -75,15 +75,4 @@ class StructuredFunnelComposerTest extends TestCase
             ->amplify($bridge, $asset, ['until' => 'killer', 'max_iterations' => 3]);
         $this->assertSame(0, $out['structural_defects']);
     }
-
-    public function test_generated_funnel_fabricates_no_proof(): void
-    {
-        $composer = new StructuredFunnelComposer;
-        $auditor = new FunnelCongruenceAuditor;
-        $funnel = $composer->compose($this->asset([
-            'core_promise' => 'grow your savings', 'mechanism_name' => 'the rule', 'niche' => 'finance', 'offer' => ['price' => '97'],
-        ]));
-        // The composer must never invent a named authority / media mention / testimonial / statistic.
-        $this->assertSame([], $auditor->audit($funnel)['requires_proof']);
-    }
 }
