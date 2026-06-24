@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Console\Commands\AtlasLoopMigrateCommand;
+use App\Console\Commands\AtlasLoopFrozenContractCommand;
 use App\Console\Commands\AtlasLoopRollingWindowCli;
 use App\Console\Commands\AtlasLoopSchemaFuzzCommand;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
@@ -45,6 +46,7 @@ use App\Services\Ai\AutonomousEvolution\Recovery\AtlasLoopReceiptReplayer;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopSemanticImplementationCertifier;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopTaskDecompositionAmplifier;
 use App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract;
+use App\Services\Ai\AutonomousEvolution\Frozen\AtlasLoopFrozenContractReceiptLedger;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBacklogIntentSource;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBackService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBugReproductionLane;
@@ -228,6 +230,12 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(AtlasLoopAdversarialVerifierPool::class);
         $this->app->singleton(AtlasLoopCrossModelTriangulator::class);
         $this->app->singleton(AtlasLoopHardCaseHarness::class);
+        $this->app->singleton(
+            AtlasLoopFrozenContractReceiptLedger::class,
+            fn () => new AtlasLoopFrozenContractReceiptLedger(
+                (string) env('ATLAS_LOOP_FROZEN_CONTRACT_RECEIPT_LEDGER_PATH', '') ?: null,
+            ),
+        );
         // Floor-receipt audit substrate: one append-only, sha256-chained ledger proving the §0 floor
         // invariants held across cross-model triangulation events. Nullable-default ctor autowires to the
         // canonical storage path; pure I/O + hashing, so constructing it is free.
@@ -1113,6 +1121,7 @@ class AppServiceProvider extends ServiceProvider
 
         if ($this->app->runningInConsole()) {
             $this->commands([
+                AtlasLoopFrozenContractCommand::class,
                 AtlasLoopMigrateCommand::class,
                 AtlasLoopRollingWindowCli::class,
                 AtlasLoopSchemaFuzzCommand::class,
