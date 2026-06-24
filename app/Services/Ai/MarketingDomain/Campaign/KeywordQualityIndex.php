@@ -48,10 +48,13 @@ class KeywordQualityIndex
 
     private KeywordInvestmentGate $gate;
 
-    public function __construct(?IntentLadderClassifier $intent = null, ?KeywordInvestmentGate $gate = null)
+    private KeywordMindState $mindState;
+
+    public function __construct(?IntentLadderClassifier $intent = null, ?KeywordInvestmentGate $gate = null, ?KeywordMindState $mindState = null)
     {
         $this->intent = $intent ?? new IntentLadderClassifier;
         $this->gate = $gate ?? new KeywordInvestmentGate;
+        $this->mindState = $mindState ?? new KeywordMindState;
     }
 
     /**
@@ -174,6 +177,7 @@ class KeywordQualityIndex
             'match_type' => $match,
             'intent' => $intentResult, // WHY this keyword qualifies: tier/journey/pain/polarity/confidence/action
             'investment' => $investment, // WHY it is investimento vs gasto: breakeven / rule-of-three / EPC
+            'mind_state' => $this->mindState->project($intentResult), // keyword→MENTE: awareness/driver/page-angle
             'components' => [
                 'owned_root_provenance' => round($provenance, 2),
                 'intent_class' => $intent,
