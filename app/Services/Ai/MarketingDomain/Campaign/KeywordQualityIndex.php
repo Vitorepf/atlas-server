@@ -46,9 +46,12 @@ class KeywordQualityIndex
 
     private IntentLadderClassifier $intent;
 
-    public function __construct(?IntentLadderClassifier $intent = null)
+    private KeywordInvestmentGate $gate;
+
+    public function __construct(?IntentLadderClassifier $intent = null, ?KeywordInvestmentGate $gate = null)
     {
         $this->intent = $intent ?? new IntentLadderClassifier;
+        $this->gate = $gate ?? new KeywordInvestmentGate;
     }
 
     /**
@@ -134,7 +137,7 @@ class KeywordQualityIndex
         $qsProxy = 0.39 * $ctrPrior + 0.39 * $lp + 0.22 * $adRel;
 
         // 4) profit_per_click_headroom (.14)
-        [$headroom, $unprofitable] = $this->headroom($qsProxy, $intent, $econ);
+        [$headroom, $unprofitable, $forecastCpc] = $this->headroom($qsProxy, $intent, $econ);
 
         // 5) specificity_and_match_discipline (.10)
         $matchDisc = ['exact/phrase' => 0.9, 'phrase' => 0.8, 'exact' => 1.0, 'broad' => 0.2][$match] ?? 0.7;
@@ -157,6 +160,12 @@ class KeywordQualityIndex
             $score = (int) round(max(0, min(100, $score * $lift)));
         }
 
+        // INVESTIMENTO vs GASTO: the decision math (breakeven / rule-of-three / EPC). Forecast PRIOR until
+        // the operator runs a campaign (the gate labels basis=forecast_prior vs proven, never fakes proof).
+        $investment = ($forecastCpc > 0 && isset($econ['payout']))
+            ? $this->gate->decide(array_merge($econ, ['cpc' => $forecastCpc]))
+            : null;
+
         return [
             'keyword' => $kw,
             'family' => $family,
@@ -164,6 +173,7 @@ class KeywordQualityIndex
             'band' => $this->band($score),
             'match_type' => $match,
             'intent' => $intentResult, // WHY this keyword qualifies: tier/journey/pain/polarity/confidence/action
+            'investment' => $investment, // WHY it is investimento vs gasto: breakeven / rule-of-three / EPC
             'components' => [
                 'owned_root_provenance' => round($provenance, 2),
                 'intent_class' => $intent,
@@ -267,12 +277,12 @@ class KeywordQualityIndex
 
     /**
      * @param  array<string,mixed>  $econ
-     * @return array{0:float,1:bool}
+     * @return array{0:float,1:bool,2:float}  [headroom, unprofitable, forecast_cpc]
      */
     private function headroom(float $qsProxy, int $intent, array $econ): array
     {
         if ($econ === [] || ! isset($econ['payout'])) {
-            return [0.5, false]; // neutral when economics not supplied (no fabrication)
+            return [0.5, false, 0.0]; // neutral when economics not supplied (no fabrication)
         }
         $payout = (float) $econ['payout'];
         $margin = (float) ($econ['margin'] ?? 0.30);
@@ -288,11 +298,11 @@ class KeywordQualityIndex
         $forecastCpc = $baseCpc * $mult;
 
         if ($forecastCpc > $breakevenCpc) {
-            return [0.0, true];
+            return [0.0, true, $forecastCpc];
         }
         $headroom = $this->clamp01(($targetCpc - $forecastCpc) / max($targetCpc, 0.01));
 
-        return [$headroom, false];
+        return [$headroom, false, $forecastCpc];
     }
 
     /**
