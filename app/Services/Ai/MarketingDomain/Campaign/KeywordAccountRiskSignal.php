@@ -23,8 +23,15 @@ class KeywordAccountRiskSignal
     /** Restricted drug terms — name in keyword/ad/landing without LegitScript certification = suspension. */
     private const RESTRICTED_DRUGS = [
         'retatrutide', 'semaglutide', 'tirzepatide', 'ozempic', 'wegovy', 'mounjaro', 'zepbound',
-        'saxenda', 'victoza', 'glp-1', 'glp 1', 'hcg', 'ephedra',
+        'saxenda', 'victoza', 'glp-1', 'glp 1', 'glp1', 'hcg', 'ephedra',
+        // variantes/abreviações inequívocas + peptídeo/composto injetável (mesma política restrita)
+        'tirz', 'peptide', 'peptides', 'compounded', 'injectable',
     ];
+
+    /** Abreviações AMBÍGUAS (colidem com palavras reais: "reta final", "semantic") — só com contexto de droga. */
+    private const AMBIGUOUS_ABBREV = ['reta', 'sema'];
+
+    private const DRUG_CONTEXT = ['peptide', 'inject', 'protocol', 'drops', 'weight loss', 'shot', 'vial', 'dose', 'at home'];
 
     /**
      * @param  array<string,mixed>  $ctx  brand_lexicon[] (own/competitor brands), celebrity_lexicon[]
@@ -43,6 +50,27 @@ class KeywordAccountRiskSignal
                     'level' => 'high',
                     'why' => "nome de fármaco restrito ('{$d}') — sem certificação LegitScript em keyword/copy/landing = SUSPENSÃO de conta (pode escalar a domain-flagging)",
                 ];
+            }
+        }
+
+        // abreviações ambíguas: só disparam com contexto de droga adjacente + match de palavra-inteira
+        $hasDrugContext = false;
+        foreach (self::DRUG_CONTEXT as $cx) {
+            if (str_contains($k, $cx)) {
+                $hasDrugContext = true;
+                break;
+            }
+        }
+        if ($hasDrugContext) {
+            foreach (self::AMBIGUOUS_ABBREV as $d) {
+                if (str_contains($k, ' '.$d.' ')) { // palavra-inteira só (não casa "semantic"/"retain")
+                    $flags[] = [
+                        'type' => 'restricted_drug',
+                        'term' => $d,
+                        'level' => 'high',
+                        'why' => "abreviação de fármaco restrito ('{$d}') em contexto de droga — sem LegitScript em keyword/copy/landing = SUSPENSÃO de conta",
+                    ];
+                }
             }
         }
 
