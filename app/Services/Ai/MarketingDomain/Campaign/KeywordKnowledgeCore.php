@@ -48,8 +48,8 @@ class KeywordKnowledgeCore
                 'statement' => 'Restricted drug terms (semaglutide/tirzepatide/retatrutide/GLP-1) em keyword/copy/landing sem LegitScript = SUSPENSÃO de conta (escala a domain-flagging). A keyword de maior intenção do nicho é a mais perigosa.',
                 'source' => 'https://support.google.com/adspolicy/answer/176031', 'verified' => '2025'],
             ['id' => 'offline-conversion-upstream', 'layer' => 'L9', 'kind' => 'decision_rule', 'topic' => ['measurement', 'scale'],
-                'statement' => 'PRÉ-CONDIÇÃO upstream de TUDO: a venda acontece na página do anunciante; sem GCLID→postback→offline import (Enhanced Conversions for Leads), nenhuma keyword tem dado e o Smart Bidding aprende com lixo. UploadClickConversions morre 15/jun/2026 → Data Manager API.',
-                'source' => 'https://support.google.com/google-ads/answer/15081888', 'verified' => '2025'],
+                'statement' => 'PRÉ-CONDIÇÃO upstream de TUDO: a venda acontece na página do anunciante; sem GCLID→postback→offline import (Enhanced Conversions for Leads), nenhuma keyword tem dado e o Smart Bidding aprende com lixo. ATUALIZADO 2026: desde 15/jun/2026 a Google Ads API NÃO aceita NOVOS adotantes de offline import via UploadClickConversions — só developer-tokens que já importavam (dez/2025–mai/2026) seguem, temporário, enquanto migram; novo adotante recebe erro CUSTOMER_NOT_ALLOWLISTED_FOR_THIS_FEATURE. Caminho de ingestão agora = Data Manager API (a MEDIÇÃO não acabou, só o path). Afiliado começando hoje vai DIRETO pra Data Manager API.',
+                'source' => 'https://ads-developers.googleblog.com/2026/05/changes-to-offline-click-conversion.html', 'verified' => '2026'],
             ['id' => 'rule-of-three', 'layer' => 'L4', 'kind' => 'decision_rule', 'topic' => ['investment', 'significance'],
                 'statement' => 'Rule of three: com 0 conversões em n cliques, 95% de confiança que o CVR < 3/n. Corte = ceil(3 / breakeven_cvr) cliques de prova sem venda → GASTO.',
                 'source' => 'https://en.wikipedia.org/wiki/Rule_of_three_(statistics)', 'verified' => 'clássico'],
@@ -101,5 +101,27 @@ class KeywordKnowledgeCore
         }
 
         return null;
+    }
+
+    /**
+     * Gate "fonte-mudou" (L0 — a peça que faltava) — o corpo de conhecimento é VIVO: mecânicas DATADAS do
+     * Google envelhecem e precisam ser re-validadas contra a doc oficial; leis de math/psicologia (rule-of-
+     * three, Schwartz, 'clássico'/'obra') são ATEMPORAIS e nunca entram na fila de revisão. Surfacia o que
+     * checar, mais velho primeiro — é o que mantém o L0 honesto ao longo do tempo, não foto fixa.
+     *
+     * @return array<int,array{id:string,verified:string,years_old:int}>
+     */
+    public function needsReview(int $currentYear, int $staleAfterYears = 2): array
+    {
+        $out = [];
+        foreach ($this->entries() as $e) {
+            $year = (int) preg_replace('/\D/', '', (string) $e['verified']);
+            if ($e['kind'] === 'google_mechanic' && $year > 0 && ($currentYear - $year) > $staleAfterYears) {
+                $out[] = ['id' => $e['id'], 'verified' => $e['verified'], 'years_old' => $currentYear - $year];
+            }
+        }
+        usort($out, fn ($a, $b) => $b['years_old'] <=> $a['years_old']);
+
+        return $out;
     }
 }

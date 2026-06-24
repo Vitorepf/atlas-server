@@ -57,6 +57,26 @@ class KeywordKnowledgeCoreTest extends TestCase
         $this->assertNull($this->k->cite('lei-inexistente'));
     }
 
+    public function test_review_gate_flags_stale_dated_mechanics_only(): void
+    {
+        // num futuro, as mecânicas DATADAS do Google entram na fila de re-validação...
+        $stale = array_column($this->k->needsReview(2030, 2), 'id');
+        $this->assertContains('broad-default-2024', $stale, 'mecânica datada do Google envelhece');
+        // ...mas math/psicologia (os pais) são ATEMPORAIS e nunca entram
+        $this->assertNotContains('rule-of-three', $stale);
+        $this->assertNotContains('schwartz-awareness', $stale);
+
+        // em 2026, com o L0 recém-revalidado (AI Max + offline atualizados), nada urgente
+        $this->assertSame([], $this->k->needsReview(2026, 2), 'L0 está fresco em 2026');
+    }
+
+    public function test_offline_conversion_law_is_current_2026(): void
+    {
+        $law = $this->k->cite('offline-conversion-upstream');
+        $this->assertSame('2026', $law['verified'], 'lei re-validada pós-cutoff de 15/jun/2026');
+        $this->assertStringContainsString('Data Manager API', $law['statement']);
+    }
+
     public function test_has_the_ai_max_keywordless_law_web_verified_2025(): void
     {
         $law = $this->k->cite('ai-max-keywordless-2025');
