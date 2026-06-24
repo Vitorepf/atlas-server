@@ -24,7 +24,7 @@ class AggressiveConversionTacticsLibrary implements PatternLibrary
 
     public function categories(): array
     {
-        return ['scarcity_pressure', 'fear_pressure', 'social_pressure', 'authority_pressure', 'value_pressure', 'identity_pressure'];
+        return ['scarcity_pressure', 'fear_pressure', 'social_pressure', 'authority_pressure', 'value_pressure', 'identity_pressure', 'forbidden_pressure'];
     }
 
     /**
@@ -92,6 +92,27 @@ class AggressiveConversionTacticsLibrary implements PatternLibrary
                 'trigger' => 'Simulação mental — viver o resultado no presente cria desejo e posse antecipada.',
                 'lever' => '"Imagine acordar em 30 dias e..."; coloca o leitor dentro da transformação como se já fosse real.',
                 'markers' => ['imagine', 'imagine só', 'picture yourself', 'se veja', 'in 30 days you', 'em 30 dias você', 'wake up', 'acordar', 'how it feels', 'como é sentir', 'your new', 'sua nova']],
+
+            // ── FORBIDDEN pressure — as táticas que NÃO são liberadas, aqui como CONHECIMENTO PURO ────
+            // O Atlas precisa entender e DETECTAR como/por que essas mecânicas vendem (espiar o
+            // concorrente, mapear o jogo inteiro). Sem guarda, sem julgamento. O que SOBE é a versão
+            // que o operador libera por cima — esta camada é só o conhecimento extremo do campo.
+            ['key' => 'celebrity_face_borrowing', 'name' => 'Empréstimo de rosto de famoso', 'category' => 'forbidden_pressure', 'weight' => 5,
+                'trigger' => 'Familiaridade + autoridade — um rosto famoso transfere confiança e atenção instantânea.',
+                'lever' => 'Associar a oferta a uma celebridade (foto, nome, "como visto com", endosso implícito) — converte muito; é o que muitos rodam mesmo sem liberação.',
+                'markers' => ['celebrity', 'celebridade', 'famous', 'famoso', 'as endorsed by', 'endossado por', 'as seen with', 'visto com', 'shark tank', 'oprah', 'elon', 'celebrity secret', 'segredo das famosas', 'the stars use', 'as famosas usam']],
+            ['key' => 'fabricated_proof_pattern', 'name' => 'Padrão de prova fabricada', 'category' => 'forbidden_pressure', 'weight' => 5,
+                'trigger' => 'Crença concreta — antes/depois e depoimento específico fazem o leitor acreditar no resultado.',
+                'lever' => 'Foto antes/depois, depoimento nominal com número, "comprador verificado" — converte pela concretude; muito usado mesmo sem ser real (a versão real vem do produtor).',
+                'markers' => ['before and after', 'antes e depois', 'real customer', 'cliente real', 'verified buyer', 'comprador verificado', 'real results', 'resultados reais', 'actual photo', 'foto real', 'unedited', 'sem edição', 'screenshot of', 'print do']],
+            ['key' => 'authority_impersonation', 'name' => 'Personificação de autoridade/mídia', 'category' => 'forbidden_pressure', 'weight' => 4,
+                'trigger' => 'O formato de notícia/órgão oficial empresta credibilidade e baixa a guarda do leitor.',
+                'lever' => 'Imitar layout de portal de notícias, "advertorial" disfarçado de matéria, selo de órgão; converte por parecer jornalismo/oficial.',
+                'markers' => ['breaking news', 'última hora', 'health news', 'special report', 'reportagem especial', 'official notice', 'aviso oficial', 'investigation reveals', 'investigação revela', 'this site is not', 'advertorial']],
+            ['key' => 'extreme_outcome_claim', 'name' => 'Promessa de resultado extremo', 'category' => 'forbidden_pressure', 'weight' => 4,
+                'trigger' => 'O cérebro fisga em promessas absolutas/curativas mesmo sabendo que são boas demais.',
+                'lever' => 'Cura implícita, garantia de resultado absoluto, "funciona pra todos em X dias"; converte pelo tamanho da promessa (área não-liberada).',
+                'markers' => ['cure', 'cura', 'guaranteed results', 'resultado garantido', 'works for everyone', 'funciona pra todos', 'eliminate', 'elimina', 'reverse', 'reverte', 'overnight', 'da noite pro dia', '100% effective', '100% eficaz', 'permanent', 'permanente']],
         ];
     }
 }

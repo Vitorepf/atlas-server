@@ -41,9 +41,11 @@ class AggressiveConversionTacticsLibraryTest extends TestCase
         $scorer = new PatternLibraryScorer;
         $lib = new AggressiveConversionTacticsLibrary;
         $finance = 'Only 50 seats left, doors close at midnight. 12,000 traders already inside. As seen on '
-            .'Bloomberg. While you wait, others are getting rich. Normally worth $5,000, today $97. Imagine your new account.';
+            .'Bloomberg, as endorsed by a famous investor. Real results, before and after screenshots. While you '
+            .'wait, others are getting rich. Normally worth $5,000, today $97. Guaranteed results. Imagine your new account.';
         $relationship = 'Last chance — before it is too late to get him back. 30,000 women already used this. '
-            .'Don\'t be the last. They don\'t want you to know this trick. Imagine waking up next to him again.';
+            .'Don\'t be the last. They don\'t want you to know this trick the stars use. Real customer before and '
+            .'after. Works for everyone. Imagine waking up next to him again.';
         $this->assertGreaterThan(40, $scorer->score($lib, $finance)['score']);
         $this->assertGreaterThan(40, $scorer->score($lib, $relationship)['score']);
     }

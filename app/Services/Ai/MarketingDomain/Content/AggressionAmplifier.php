@@ -19,6 +19,8 @@ class AggressionAmplifier
         private readonly AntiGoodhartGuard $guard = new AntiGoodhartGuard,
         private readonly WatchThroughLeakDetector $leaks = new WatchThroughLeakDetector,
         private readonly DecisionClarityAuditor $decision = new DecisionClarityAuditor,
+        private readonly PatternLibraryScorer $scorer = new PatternLibraryScorer,
+        private readonly \App\Services\Ai\MarketingDomain\Knowledge\AggressiveConversionTacticsLibrary $aggressiveLib = new \App\Services\Ai\MarketingDomain\Knowledge\AggressiveConversionTacticsLibrary,
     ) {}
 
     /** Count of structural defects (watch-through leaks + decision-clarity flaws) in a piece of copy. */
@@ -87,6 +89,14 @@ class AggressionAmplifier
         // audience score is low, inject the targeted snippet for the worst-rejecting persona's "what
         // she needs next" — that goes deeper than marker absence (which the main loop already covered).
         $current = $this->personaFix($current, $asset, $niche);
+
+        // Aggression pass — ON by default (the base page is maximum-conversion). Pushes the aggressive
+        // playbook (manufactured scarcity, fear, social/authority/value/identity pressure) grounded in
+        // the asset, through the same structure + anti-Goodhart gates. No brake; the operator derives a
+        // compliant version downstream if/when he chooses.
+        if (($opts['aggressive'] ?? true) !== false) {
+            $current = $this->aggressionPass($current, $asset);
+        }
 
         $after = $this->auditor->audit($this->copyOf($current), '', $niche, $pageKind);
         $hollowness = $this->guard->inspect($this->copyOf($current))['hollowness'];
@@ -169,6 +179,81 @@ class AggressionAmplifier
      *
      * @return array{slot:string,value:mixed,mode:string}|null
      */
+    /**
+     * Aggression pass: audit the bridge against the AggressiveConversionTacticsLibrary, then inject the
+     * top missing aggressive levers (grounded in the asset) through the same structure-safety +
+     * anti-Goodhart gates. Default-on; pushes the page toward maximum conversion.
+     *
+     * @param  array<string,mixed>  $bridge
+     * @return array<string,mixed>
+     */
+    private function aggressionPass(array $bridge, AiMarketingVslAsset $asset): array
+    {
+        $audit = $this->scorer->score($this->aggressiveLib, $this->copyOf($bridge));
+        $applied = 0;
+        foreach ($audit['missing_high_leverage'] as $missing) {
+            if ($applied >= 4) {
+                break;
+            }
+            $snippet = $this->aggressiveSnippet($missing['key'], $asset);
+            if ($snippet === null) {
+                continue;
+            }
+            $candidate = $this->inject($bridge, $snippet);
+            $hollowBefore = $this->guard->inspect($this->copyOf($bridge))['hollowness'];
+            $hollowAfter = $this->guard->inspect($this->copyOf($candidate))['hollowness'];
+            if ($hollowAfter - $hollowBefore > 15) {
+                continue;
+            }
+            if ($this->structuralDefects($this->copyOf($candidate)) > $this->structuralDefects($this->copyOf($bridge))) {
+                continue;
+            }
+            $bridge = $candidate;
+            $applied++;
+        }
+
+        return $bridge;
+    }
+
+    /**
+     * Concrete aggressive-lever snippets, grounded in the asset. Aggressive persuasion framing (scarcity,
+     * fear, social/value/identity pressure) — the base-page default. Returns null for tactics the engine
+     * does not auto-author (e.g. anything that would forge a specific fake — those are the operator's
+     * real assets / downstream call, not an auto-generated string).
+     *
+     * @return array{slot:string,value:mixed,mode:string}|null
+     */
+    private function aggressiveSnippet(string $key, AiMarketingVslAsset $asset): ?array
+    {
+        $mech = $this->mechanism($asset);
+        $enemy = $this->enemy($asset);
+        $num = $this->number($asset);
+        $gain = $num !== '' ? $num : 'the result';
+
+        return match ($key) {
+            'manufactured_scarcity' => ['slot' => 'cta_blocks', 'mode' => 'append', 'value' => [
+                'label' => 'Claim your spot while they last', 'sub' => 'Only a limited number are released — when they are gone, they are gone.']],
+            'false_deadline' => ['slot' => 'cta_blocks', 'mode' => 'append', 'value' => [
+                'label' => 'Act before this closes', 'sub' => 'This page comes down soon — do not count on it being here tomorrow.']],
+            'fear_amplification' => ['slot' => 'body_sections', 'mode' => 'prepend_section', 'value' => [
+                'heading' => 'What waiting really costs you',
+                'body' => 'Every day you put this off, the hole gets deeper — and '.$enemy.' is counting on you to wait.']],
+            'social_proof_pressure' => ['slot' => 'body_sections', 'mode' => 'prepend_section', 'value' => [
+                'heading' => 'You are not the first', 'body' => 'People are quietly moving on this every single day while everyone else stays stuck.']],
+            'rival_loss' => ['slot' => 'ps', 'mode' => 'set', 'value' => 'P.S. While you are deciding, the people who already acted are pulling further ahead.'],
+            'price_anchoring_extreme' => ['slot' => 'body_sections', 'mode' => 'prepend_section', 'value' => [
+                'heading' => 'What this is really worth', 'body' => 'Stack up what '.$mech.' would normally cost — then look at what you pay today. It is not close.']],
+            'conspiracy_enemy' => ['slot' => 'body_sections', 'mode' => 'prepend_section', 'value' => [
+                'heading' => 'Why you were never told this', 'body' => $enemy.' has every reason to keep this quiet — there is too much on the line for them.']],
+            'identity_threat' => ['slot' => 'ps', 'mode' => 'set', 'value' => 'P.S. The people who act on this are a certain kind of person. The rest keep scrolling.'],
+            'future_pacing_vivid' => ['slot' => 'body_sections', 'mode' => 'prepend_section', 'value' => [
+                'heading' => 'Picture 30 days from now', 'body' => 'Imagine waking up with '.$gain.' already behind you — that is what is on the table.']],
+            'guilt_shame_trigger' => ['slot' => 'body_sections', 'mode' => 'prepend_section', 'value' => [
+                'heading' => 'You owe yourself this', 'body' => 'You have carried this long enough. Staying where you are is a choice too.']],
+            default => null,
+        };
+    }
+
     private function snippet(string $key, AiMarketingVslAsset $asset): ?array
     {
         $mech = $this->mechanism($asset);
