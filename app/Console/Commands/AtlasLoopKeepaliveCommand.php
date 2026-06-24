@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\AgentGovernance\AtlasAgentDesiredStateStore;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopDriftRestartDebounce;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopFleetGovernor;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopFleetSizeAutotuner;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMorningDigestService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopSoakPlanService;
@@ -48,6 +49,7 @@ class AtlasLoopKeepaliveCommand extends Command
         // W40-S4: advisory workspace-disk-floor autotuner. Nullable + last so existing callers are unaffected;
         // default-constructed at use. ADVISORY-ONLY (writes a snapshot, never deletes/changes config).
         private ?AtlasLoopWorkspaceFloorAutotuner $floorAutotuner = null,
+        private ?AtlasLoopFleetSizeAutotuner $fleetSizeAutotuner = null,
     ) {
         parent::__construct();
     }
@@ -90,6 +92,7 @@ class AtlasLoopKeepaliveCommand extends Command
         // or kills — it only logs + stamps an Evidence-Ledger receipt so the operator sees the drift.
         $this->emitArmCheckAdvisory();
         $this->emitWorkspaceFloorAdvisory();
+        $this->emitFleetSizeAdvisory();
 
         $staleMinutes = max(2, (int) $this->option('stale-minutes'));
 
@@ -397,6 +400,24 @@ class AtlasLoopKeepaliveCommand extends Command
             ($this->floorAutotuner ?? new AtlasLoopWorkspaceFloorAutotuner)->writeAdvisorySnapshot($currentFloorMb, $sample);
         } catch (\Throwable) {
             // advisory only — a footprint/snapshot failure must never affect keepalive
+        }
+    }
+
+    /**
+     * W40-S3 ADVISORY fleet-size autotune. Default OFF => byte-identical no-op. When ON it writes one
+     * recommendation snapshot and never changes config, never admits/blocks workers, never alters spawn logic.
+     */
+    protected function emitFleetSizeAdvisory(): void
+    {
+        if (! (bool) config('atlas.loop.fleet_autotuner_enabled', false)) {
+            return;
+        }
+
+        try {
+            $currentCap = (int) config('atlas.loop.fleet_global_worker_cap', 0);
+            ($this->fleetSizeAutotuner ?? new AtlasLoopFleetSizeAutotuner)->writeAdvisorySnapshot($currentCap);
+        } catch (\Throwable) {
+            // advisory only — a pressure/snapshot failure must never affect keepalive
         }
     }
 
