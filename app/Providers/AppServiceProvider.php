@@ -31,6 +31,8 @@ use App\Services\Ai\AutonomousEvolution\AtlasEvolutionScenarioExplorer;
 use App\Services\Ai\AutonomousEvolution\AtlasEvolutionTaskGenerator;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopAdversarialVerifierPool;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopNetDiffCertReceiptLedger;
+use App\Services\Ai\AutonomousEvolution\Receipts\AtlasLoopCycleReceiptLedger;
+use App\Services\Ai\AutonomousEvolution\Receipts\AtlasLoopCycleReceiptSigner;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopBenchmarkHarness;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopBroaderRegressionGate;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopCrossModelTriangulator;
@@ -243,6 +245,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(AtlasLoopReceiptReplayer::class);
         // Net-diff cert ledger — single shared instance so verify/history see the same JSONL spool.
         $this->app->singleton(AtlasLoopNetDiffCertReceiptLedger::class);
+        // Cycle-receipt chain — singletons so the CLI + any callers share one ledger/signer pair.
+        $this->app->singleton(AtlasLoopCycleReceiptSigner::class);
+        $this->app->singleton(AtlasLoopCycleReceiptLedger::class);
         // WAVE-14 auto-merge hardening: the pre-flight gate + the conflict detector + the gated merge entry
         // (the conflict detector refuses any merge whose 3-way merge-tree probe is non-clean).
         $this->app->singleton(AtlasLoopAutoMergePreFlightGate::class);
