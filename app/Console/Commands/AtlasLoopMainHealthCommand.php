@@ -62,7 +62,7 @@ class AtlasLoopMainHealthCommand extends Command
      * @param  array<string,mixed>  $result  the sentinel verify() output
      * @return array{attributed:int, enqueued:int, unattributed:int}
      */
-    private function maybeEnqueueRepair(AtlasLoopRegressionWatcher $watcher, array $result): array
+    private function maybeEnqueueRepair(AtlasLoopRegressionWatcher $watcher, array $result, ?int $windowSize = null): array
     {
         $none = ['attributed' => 0, 'enqueued' => 0, 'unattributed' => 0];
         $sha = trim((string) ($result['reverted_sha'] ?? ''));
@@ -79,6 +79,15 @@ class AtlasLoopMainHealthCommand extends Command
             }
             $files = array_values(array_filter((array) ($result['changed_files'] ?? []), static fn ($f): bool => is_string($f) && $f !== ''));
 
+            $windowResult = $watcher->enqueueRepairsForWindow(
+                (string) $campaign->id,
+                [['id' => 'main-health:'.substr($sha, 0, 12), 'related_files' => $files, 'detail' => (string) ($result['reason'] ?? '')]],
+                $this->resolveRepairWindowSize($windowSize),
+            );
+            if (($windowResult['attributed'] ?? 0) > 0 || ($windowResult['enqueued'] ?? 0) > 0) {
+                return $windowResult;
+            }
+
             return $watcher->enqueueRepairs(
                 (string) $campaign->id,
                 [['id' => 'main-health:'.substr($sha, 0, 12), 'related_files' => $files, 'detail' => (string) ($result['reason'] ?? '')]],
@@ -87,5 +96,18 @@ class AtlasLoopMainHealthCommand extends Command
         } catch (Throwable) {
             return $none;
         }
+    }
+
+    private function resolveRepairWindowSize(?int $windowSize): int
+    {
+        if ($windowSize !== null) {
+            return max(1, $windowSize);
+        }
+
+        if ($this->input !== null) {
+            return max(1, (int) $this->option('window'));
+        }
+
+        return 10;
     }
 }
