@@ -6,6 +6,7 @@ namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\Aael\AtlasAaelExecutionPlanProver;
 use App\Services\Ai\AutonomousEvolution\Aael\AtlasAaelExecutionDriftAuditor;
+use App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight\AtlasAaelInFlightStepValidator;
 
 /**
  * The bridge that turns the existing AAEL (Atlas Autonomous Evolution Loop)
@@ -30,6 +31,7 @@ final class AtlasAaelLoopExecutionBridge
         private readonly object $runner,
         private readonly ?AtlasAaelExecutionPlanProver $prover = null,
         private readonly ?AtlasAaelExecutionDriftAuditor $driftAuditor = null,
+        private readonly ?AtlasAaelInFlightStepValidator $inFlightStepValidator = null,
     ) {}
 
     /**
@@ -44,6 +46,7 @@ final class AtlasAaelLoopExecutionBridge
         $proverRejected = [];
         $prover = $this->prover ?? new AtlasAaelExecutionPlanProver;
         $driftAuditor = $this->driftAuditor ?? new AtlasAaelExecutionDriftAuditor;
+        $inFlightStepValidator = $this->inFlightStepValidator ?? new AtlasAaelInFlightStepValidator;
 
         foreach ($opportunities as $opportunity) {
             $task = is_array($opportunity['task'] ?? null) ? $opportunity['task'] : null;
@@ -71,38 +74,145 @@ final class AtlasAaelLoopExecutionBridge
             }
         }
 
-        $loopRun = $tasks === []
-            ? [
-                'schema_version' => AtlasEvolutionLoopRunner::SCHEMA,
-                'propose_only' => (bool) ($options['propose_only'] ?? true),
-                'merged_to_main' => false,
-                'tasks_processed' => 0,
-                'proposals_certified_for_review' => 0,
-                'stop_reason' => 'no_proven_tasks',
-                'elapsed_seconds' => 0.0,
-                'proposals' => [],
-                'explorations' => [],
-            ]
-            : $this->runner->run($tasks, $options);
-
+        $loopRun = $this->emptyLoopRun($options, $tasks === [] ? 'no_proven_tasks' : 'queue_exhausted');
         $driftAudit = [];
-        $explorations = is_array($loopRun['explorations'] ?? null) ? $loopRun['explorations'] : [];
+        $validationCalls = [];
+        $validationHaltReason = null;
+        $previousStepReceipt = null;
+        $previousWorldSnapshot = null;
+
         foreach ($tasks as $index => $task) {
+            if ($previousStepReceipt !== null) {
+                $validation = $inFlightStepValidator->validate($previousStepReceipt, $previousWorldSnapshot ?? [], $index);
+                $validationCalls[] = $validation;
+
+                if (($validation['passed'] ?? false) !== true) {
+                    $validationHaltReason = is_array($validation['reason'] ?? null)
+                        ? $validation['reason']
+                        : ['code' => 'in_flight_invariant_failed', 'step_index' => $index];
+                    $loopRun['stop_reason'] = 'in_flight_invariant_failed';
+                    break;
+                }
+            }
+
+            $stepRun = $this->runner->run([$task], $options + ['max_tasks' => 1]);
+            $stepExplorations = is_array($stepRun['explorations'] ?? null) ? $stepRun['explorations'] : [];
+            $exploration = is_array($stepExplorations[0] ?? null) ? $stepExplorations[0] : [];
+
+            $loopRun['tasks_processed']++;
+            $loopRun['proposals_certified_for_review'] += (int) ($stepRun['proposals_certified_for_review'] ?? 0);
+            $loopRun['elapsed_seconds'] = round((float) ($loopRun['elapsed_seconds'] ?? 0.0) + (float) ($stepRun['elapsed_seconds'] ?? 0.0), 1);
+            $loopRun['proposals'] = array_values(array_merge(
+                is_array($loopRun['proposals'] ?? null) ? $loopRun['proposals'] : [],
+                is_array($stepRun['proposals'] ?? null) ? $stepRun['proposals'] : [],
+            ));
+            $loopRun['explorations'] = array_values(array_merge(
+                is_array($loopRun['explorations'] ?? null) ? $loopRun['explorations'] : [],
+                $stepExplorations,
+            ));
+            $loopRun['stop_reason'] = (string) ($stepRun['stop_reason'] ?? $loopRun['stop_reason']);
+
             $taskId = (string) ($task['objective'] ?? 'task-'.$index);
-            $driftAudit[$taskId] = $driftAuditor->audit($task, is_array($explorations[$index] ?? null) ? $explorations[$index] : []);
+            $driftAudit[$taskId] = $driftAuditor->audit($task, $exploration);
+            $previousStepReceipt = $this->buildStepReceipt($task, $exploration, $index);
+            $previousWorldSnapshot = $this->extractWorldSnapshot($stepRun, $exploration);
         }
 
         return [
             'schema_version' => self::SCHEMA,
             'opportunities_total' => count($opportunities),
-            'executed_tasks' => count($tasks),
+            'executed_tasks' => (int) ($loopRun['tasks_processed'] ?? 0),
             'deferred_count' => count($deferred),
             'deferred' => $deferred,
             'prover_rejected' => $proverRejected,
             'drift_audit' => $driftAudit,
+            'in_flight_validation' => [
+                'calls' => $validationCalls,
+                'halted' => $validationHaltReason !== null,
+                'halt_reason' => $validationHaltReason,
+            ],
             // the loop NEVER merges — proposals are certified-for-review.
             'merged_to_main' => false,
             'loop_run' => $loopRun,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    private function emptyLoopRun(array $options, string $stopReason): array
+    {
+        return [
+            'schema_version' => AtlasEvolutionLoopRunner::SCHEMA,
+            'propose_only' => (bool) ($options['propose_only'] ?? true),
+            'merged_to_main' => false,
+            'tasks_processed' => 0,
+            'proposals_certified_for_review' => 0,
+            'stop_reason' => $stopReason,
+            'elapsed_seconds' => 0.0,
+            'proposals' => [],
+            'explorations' => [],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $task
+     * @param  array<string,mixed>  $exploration
+     * @return array<string,mixed>
+     */
+    private function buildStepReceipt(array $task, array $exploration, int $stepIndex): array
+    {
+        return [
+            'objective' => (string) ($task['objective'] ?? $exploration['objective'] ?? ''),
+            'step_index' => $stepIndex,
+            'declared_invariants' => $this->normalizeInvariantMap(
+                $task['declared_invariants'] ?? $task['invariants'] ?? [],
+            ),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $stepRun
+     * @param  array<string,mixed>  $exploration
+     * @return array<string,mixed>
+     */
+    private function extractWorldSnapshot(array $stepRun, array $exploration): array
+    {
+        if (is_array($exploration['world_snapshot'] ?? null)) {
+            return $exploration['world_snapshot'];
+        }
+
+        return is_array($stepRun['world_snapshot'] ?? null) ? $stepRun['world_snapshot'] : [];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function normalizeInvariantMap(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        if (array_is_list($value)) {
+            $normalized = [];
+            foreach ($value as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+
+                $invariantId = (string) ($row['invariant_id'] ?? '');
+                if ($invariantId === '') {
+                    continue;
+                }
+
+                $normalized[$invariantId] = $row['declared_value'] ?? $row['value'] ?? null;
+            }
+
+            return $normalized;
+        }
+
+        return $value;
     }
 }
