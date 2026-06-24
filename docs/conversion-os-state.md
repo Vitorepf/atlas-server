@@ -53,6 +53,10 @@ Régua atual (piso de maturidade): **85** / teto 100. — **VOLTA 2 COMPLETA** (
 
 - **Guarda da única linha moral: ProofProvenanceAuditor** ✅ — ciclo 48: checklist estrutural (warnings-only, sem score → ungameable) que sinaliza os claims que EXIGEM prova real do produtor antes de subir: autoridade nomeada (Dr. X/Harvard), menção de mídia (as seen on/Forbes), depoimento atribuído com resultado, estatística citada. Não detecta fabricação (impossível determinístico) — lista o que precisa de lastro, guardando a linha "persuadir sim, fabricar prova não" + a sobrevivência da conta. Surfado como `requires_proof` (classe structural_truth) no Auditor. 334/334 verdes.
 
+- **Clareza do ponto de decisão: DecisionClarityAuditor** ✅ — ciclo 50: fato estrutural onde a conversão acontece — `no_cta` (sem ação reconhecível = não converte) + `competing_ctas` (≥3 CATEGORIAS de ação distintas competindo = choice overload / Hick's law; repetir a MESMA ação não conta). Warnings-only, conta categorias não repetições → ungameable. Surfado como `decision_flaws` (structural_truth). 340/340 verdes.
+
+> **Camada estrutural-verdade do OS (ciclos 43-50) — o que é FATO confiável vs PRIOR de vocabulário:** structural_flaws (vazamento reveal/CTA), decision_flaws (no-cta/overload), requires_proof (linha moral), continuity (promessa), congruence por hop, smells = FATOS. by_library + audience_score = priors heurísticos (calibram só com ledger ≥30 outcomes). `signal_confidence` no audit rotula tudo. Raio-X de funil inteiro: `FunnelCongruenceAuditor` + CLI `atlas:ai:marketing:funnel`.
+
 ## Pontos pra próxima sessão (faculdade de ambição — exigem mais que continuar o reativo)
 - **Multi-persona injection por slot** — TL;DR pra mãe ocupada no topo, vs-Ozempic perto do CTA, prova específica embaixo, em vez de 1 fix em `ps`.
 - **LLM-driven persona refinement** — quando o operador plugar LLM, refinar `simulate()` por avatar real do produto (não só os 3 fixos hardcoded). Framework está pronto, contrato é o `PersonaSimulator`.
