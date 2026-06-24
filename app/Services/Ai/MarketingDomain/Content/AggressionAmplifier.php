@@ -21,6 +21,7 @@ class AggressionAmplifier
         private readonly DecisionClarityAuditor $decision = new DecisionClarityAuditor,
         private readonly PatternLibraryScorer $scorer = new PatternLibraryScorer,
         private readonly \App\Services\Ai\MarketingDomain\Knowledge\AggressiveConversionTacticsLibrary $aggressiveLib = new \App\Services\Ai\MarketingDomain\Knowledge\AggressiveConversionTacticsLibrary,
+        private readonly AwarenessAggressionRouter $awarenessRouter = new AwarenessAggressionRouter,
     ) {}
 
     /** Count of structural defects (watch-through leaks + decision-clarity flaws) in a piece of copy. */
@@ -190,8 +191,13 @@ class AggressionAmplifier
     private function aggressionPass(array $bridge, AiMarketingVslAsset $asset, string $niche = ''): array
     {
         $audit = $this->scorer->score($this->aggressiveLib, $this->copyOf($bridge));
+        // Route by the reader's awareness stage — fire the aggressive levers that FIT first (Schwartz):
+        // a cold/unaware reader gets fear/enemy/story; a most-aware reader gets scarcity/deadline/price.
+        $missingList = $audit['missing_high_leverage'];
+        $order = array_flip($this->awarenessRouter->prioritize(array_column($missingList, 'key'), (string) $asset->awareness_level));
+        usort($missingList, static fn (array $a, array $b): int => ($order[$a['key']] ?? 99) <=> ($order[$b['key']] ?? 99));
         $applied = 0;
-        foreach ($audit['missing_high_leverage'] as $missing) {
+        foreach ($missingList as $missing) {
             if ($applied >= 4) {
                 break;
             }
