@@ -143,18 +143,25 @@ final class AtlasTaskBrainReplenisher
 
         // DOC-STATED GAPS — capabilities the canonical docs demand but no symbol provides. RESOLVABLE in-scope:
         // a NEW class + its NEW test, both inside allowed_files (conflict-free; nothing existing to wire).
+        // FALSE-POSITIVE GUARD: skip a "gap" whose name already matches a real inventory symbol (the doc
+        // mentions a capability that DOES exist) — so a worker never creates a redundant duplicate class.
+        $existing = $this->inventoryShortNames($model);
         foreach ($model->docStatedGaps as $gap) {
             $gap = trim((string) $gap);
-            if ($gap === '') {
+            if ($gap === '' || $this->gapAlreadyExists($gap, $existing)) {
                 continue;
             }
-            $newFile = $this->proposedPathForGap($gap);
-            $testFile = $this->proposedTestPathForGap($gap);
+            $className = $this->classNameForGap($gap);
+            $newFile = 'app/Services/Ai/AutonomousEvolution/Generated/'.$className.'.php';
+            $testFile = 'tests/Unit/Ai/AutonomousEvolution/Generated/'.$className.'Test.php';
             $out[] = $this->packet(
                 id: 'brain-docgap-'.substr(md5($gap), 0, 12),
-                objective: "Implement the capability the canonical docs require but no symbol provides yet: \"{$gap}\". Create a new class at {$newFile} (choose a sensible final name/namespace) AND a passing PHPUnit test at {$testFile}. Edit ONLY those two files.",
+                objective: "Implement the capability the canonical docs require but no symbol provides yet: \"{$gap}\". "
+                    ."Create the class `App\\Services\\Ai\\AutonomousEvolution\\Generated\\{$className}` at the EXACT path {$newFile} "
+                    ."AND a passing PHPUnit test at the EXACT path {$testFile}. Edit ONLY those two files (do not rename the paths — "
+                    ."they are your commit scope). If the capability already exists elsewhere, give_back.",
                 allowed: [$newFile, $testFile],
-                accept: ["a new class implementing \"{$gap}\" exists", "a PHPUnit test at {$testFile} passes"],
+                accept: ["the class {$className} exists at {$newFile}", "the PHPUnit test at {$testFile} passes"],
             );
         }
 
@@ -237,23 +244,38 @@ final class AtlasTaskBrainReplenisher
         return (string) end($parts);
     }
 
-    private function proposedPathForGap(string $gap): string
+    /** A deterministic StudlyCase class name derived from the gap text. */
+    private function classNameForGap(string $gap): string
     {
-        // Derive a plausible new-file path from the gap text (best-effort; the AI confirms the final location).
         $name = preg_replace('/[^A-Za-z0-9]+/', ' ', $gap) ?? $gap;
         $studly = str_replace(' ', '', ucwords(trim((string) $name)));
         $studly = $studly === '' ? 'Capability'.substr(md5($gap), 0, 6) : substr($studly, 0, 60);
 
-        return 'app/Services/Ai/AutonomousEvolution/Generated/'.$studly.'.php';
+        return $studly;
     }
 
-    private function proposedTestPathForGap(string $gap): string
+    /**
+     * Lowercased short class names already in the scope inventory — used to skip false-positive doc-gaps.
+     *
+     * @return array<string, true>
+     */
+    private function inventoryShortNames(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel $model): array
     {
-        $name = preg_replace('/[^A-Za-z0-9]+/', ' ', $gap) ?? $gap;
-        $studly = str_replace(' ', '', ucwords(trim((string) $name)));
-        $studly = $studly === '' ? 'Capability'.substr(md5($gap), 0, 6) : substr($studly, 0, 60);
+        $names = [];
+        foreach ($model->inventory as $item) {
+            $short = strtolower($this->shortName((string) ($item['fqcn'] ?? '')));
+            if ($short !== '') {
+                $names[$short] = true;
+            }
+        }
 
-        return 'tests/Unit/Ai/AutonomousEvolution/Generated/'.$studly.'Test.php';
+        return $names;
+    }
+
+    /** True when the gap's derived class name already exists in the inventory (the capability is NOT missing). */
+    private function gapAlreadyExists(string $gap, array $existingShortNames): bool
+    {
+        return isset($existingShortNames[strtolower($this->classNameForGap($gap))]);
     }
 
     /**

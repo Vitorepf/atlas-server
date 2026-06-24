@@ -34,6 +34,10 @@ class AtlasTaskReplenishCommand extends Command
 
     public function handle(): int
     {
+        // The comprehension build is memory-heavy; self-raise so the command never OOMs without a -d flag.
+        if ((int) ini_get('memory_limit') !== -1) {
+            @ini_set('memory_limit', '4096M');
+        }
         $scope = trim((string) ($this->option('scope') ?? ''));
         if ($scope === '') {
             $this->error('--scope is required (the area the brain comprehends + structures tasks from)');
