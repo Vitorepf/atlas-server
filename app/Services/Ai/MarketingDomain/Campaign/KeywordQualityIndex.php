@@ -50,11 +50,14 @@ class KeywordQualityIndex
 
     private KeywordMindState $mindState;
 
-    public function __construct(?IntentLadderClassifier $intent = null, ?KeywordInvestmentGate $gate = null, ?KeywordMindState $mindState = null)
+    private KeywordAccountRiskSignal $accountRisk;
+
+    public function __construct(?IntentLadderClassifier $intent = null, ?KeywordInvestmentGate $gate = null, ?KeywordMindState $mindState = null, ?KeywordAccountRiskSignal $accountRisk = null)
     {
         $this->intent = $intent ?? new IntentLadderClassifier;
         $this->gate = $gate ?? new KeywordInvestmentGate;
         $this->mindState = $mindState ?? new KeywordMindState;
+        $this->accountRisk = $accountRisk ?? new KeywordAccountRiskSignal;
     }
 
     /**
@@ -178,6 +181,7 @@ class KeywordQualityIndex
             'intent' => $intentResult, // WHY this keyword qualifies: tier/journey/pain/polarity/confidence/action
             'investment' => $investment, // WHY it is investimento vs gasto: breakeven / rule-of-three / EPC
             'mind_state' => $this->mindState->project($intentResult), // keyword→MENTE: awareness/driver/page-angle
+            'account_risk' => $this->accountRisk->assess($kw, $offerCtx), // SINAL de morte-de-conta (não freio)
             'components' => [
                 'owned_root_provenance' => round($provenance, 2),
                 'intent_class' => $intent,
@@ -266,8 +270,13 @@ class KeywordQualityIndex
             fn ($s) => $s !== '',
         ));
         $brand = $product === '' ? [] : [mb_strtolower(trim($product))];
+        $devices = (array) ($asset->persuasion_devices ?? []);
+        $celebs = array_values(array_filter(
+            array_map(fn ($s) => mb_strtolower(trim((string) $s)), (array) ($devices['authority'] ?? [])),
+            fn ($s) => $s !== '',
+        ));
 
-        return ['mechanism_lexicon' => $mech, 'brand_lexicon' => $brand];
+        return ['mechanism_lexicon' => $mech, 'brand_lexicon' => $brand, 'celebrity_lexicon' => $celebs];
     }
 
     private function specificity(string $kl, array $toks): float

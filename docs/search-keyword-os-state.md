@@ -55,7 +55,12 @@ O pipeline asset→≥5 keywords-qualificadas-com-intenção-e-veredito existe e
 ## Ciclo 4 ✅ — `KeywordMindState` (o elo keyword→MENTE — alavanca central do prompt)
 Projeta a intenção de cada keyword no ESTADO MENTAL do buscador: **awareness de Schwartz** (T4→most_aware … T0→unaware) + **driver emocional** (urgency_relief / desire_confirmation / distrust / problem_tension / curiosity) + **page_angle** que fisga aquela mente (direct_offer_reminder / mechanism_proof_and_close / mechanism_differentiation / agitate_then_reveal / curiosity_hook_educate) + heat. Provider-free, niche-agnóstico por construção (lê só o intent estrutural). Anexado em cada keyword pontuada (`mind_state`). Primeiro elo do `keyword→mente→página→venda`; o page_angle é o que o construtor de bridge/VSL deve mirar; a reação simulada profunda fica pro `PersonaSimulator` downstream. **545/545 verdes** (7 testes, incl. end-to-end cross-nicho saúde/finanças/relacionamento). Honesto: projeção do prior (teto ~74% texto), não leitura provada de mente.
 
-## Próximos alvos (ciclo 5+, por alavancagem)
+## Ciclo 5 ✅ — `KeywordAccountRiskSignal` (morte-de-conta como SINAL, nunca freio)
+Relatório §6 ("conta morta = CPA infinito") em código: por keyword, flaga **restricted-drug** (retatrutide/ozempic/glp-1/… sem LegitScript = suspensão — pega o que a eliminação NÃO pega: o fármaco EMBUTIDO num owned-root que sobrevive, ex.: o próprio herói "at-home retatrutide protocol"), **brand-bidding** (clawback de contrato), **celebridade** (trademark/direito de imagem). Anexado por keyword (`account_risk`={risk_level, flags, decision}). **Constituição respeitada:** é SINAL ao operador, o motor constrói/pontua normal, compliance é decisão dele por cima — NUNCA freio. Celebrity_lexicon extraído do `persuasion_devices.authority` do asset. **550/550 verdes** (5 testes).
+
+> **Deliverable por keyword agora carrega:** score+band+family · `intent` (tier/jornada/dor/polaridade/confidence/action) · `investment` (breakeven/rule-of-three/EPC, prior-vs-proven) · `mind_state` (awareness/driver/page_angle/heat) · `account_risk` (morte-de-conta como sinal). O "entende perfeitamente o que está fazendo" virou auditável ponta-a-ponta.
+
+## Próximos alvos (ciclo 6+, por alavancagem)
 - **(A)** `SearchTermWasteMiner` ligado no `CampaignBlueprintService` + gate anti-campeã (camada 3 do OS ⬜ desarmada — o miner existe e não é chamado): fecha o lado "remover o desqualificado" (que sob budget-cap rende MAIS que atrair).
 - **(B)** CLI/dossier que expõe o deliverable ≥5-keywords-com-intent+investment pro operador (hoje vive no `scoreEngineResult`; falta a janela humana).
 - **(C)** SIMULADOR (alavanca central do prompt): aprofundar o `PersonaSimulator` no elo keyword→mente→página. Maior salto de longo prazo.
