@@ -25,6 +25,7 @@ class KeywordOsRunner
         private readonly BlackinkNegativeMiner $negativeMiner = new BlackinkNegativeMiner,
         private readonly PhoneticMistypeForge $mistypeForge = new PhoneticMistypeForge,
         private readonly CelebrityLaneForge $celebrityForge = new CelebrityLaneForge,
+        private readonly DescriptorMatrixForge $descriptorForge = new DescriptorMatrixForge,
     ) {}
 
     /**
@@ -57,13 +58,24 @@ class KeywordOsRunner
     {
         $out = [];
 
-        // #1 mistypes do nome coined (head do owned-root), só quando o head parece coined (não frase comum)
+        $nicheWords = array_values(array_filter(preg_split('/\s+/', mb_strtolower(trim((string) $asset->niche))) ?: []));
+
         foreach ($this->coinedRoots($asset) as $root) {
             $tokens = preg_split('/\s+/', $root) ?: [];
             $head = (string) ($tokens[0] ?? '');
             $suffix = trim(mb_substr($root, mb_strlen($head)));
-            if (mb_strlen($head) >= 5 && preg_match('/^[a-z]+$/', $head) && ! in_array($head, self::COMMON_HEAD, true)) {
-                foreach ($this->mistypeForge->forge($head, $suffix !== '' ? [$suffix] : []) as $kw) {
+            if (mb_strlen($head) < 5 || ! preg_match('/^[a-z]+$/', $head) || in_array($head, self::COMMON_HEAD, true)) {
+                continue; // head não parece nome coined → não gera (evita junk de frase descritiva)
+            }
+            // #1 mistypes do nome coined
+            foreach ($this->mistypeForge->forge($head, $suffix !== '' ? [$suffix] : []) as $kw) {
+                $out[] = $kw;
+            }
+            // #4 descriptor-matrix: head × [descritores-do-root + nicho] × buy-intent (aterrado no vocab REAL,
+            // sem forms adivinhados); o nome nu já vem do enumerator
+            $cats = array_values(array_unique(array_merge(array_slice($tokens, 1), $nicheWords)));
+            if ($cats !== []) {
+                foreach ($this->descriptorForge->forge($head, $cats, [], null, 40) as $kw) {
                     $out[] = $kw;
                 }
             }
