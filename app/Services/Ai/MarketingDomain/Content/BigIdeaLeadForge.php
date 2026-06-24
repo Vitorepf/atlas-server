@@ -67,23 +67,64 @@ class BigIdeaLeadForge
         'generic' => 'the industry that profits from your problem',
     ];
 
+    /** PT-BR mirrors (the operator runs PT campaigns; an EN body under a PT lead is unusable). */
+    private const SCENE_PT = [
+        'weight' => 'a balança não desce, a roupa aperta mais, e cada espelho vira uma má notícia',
+        'health' => 'você acorda cansado, os sintomas voltam, e o médico só dá de ombros',
+        'finance' => 'seu saldo despenca na véspera do pagamento e o cartão é recusado na pior hora',
+        'money' => 'seu saldo despenca na véspera do pagamento e o cartão é recusado na pior hora',
+        'relationship' => 'as mensagens não são respondidas, as ligações vão pra caixa postal, e o outro lado da cama fica frio',
+        'generic' => 'o que você quer continua escapando por mais que você tente',
+    ];
+
+    private const FAILED_PT = [
+        'weight' => 'toda dieta e mais um suplemento',
+        'health' => 'cada remédio, cada especialista, cada protocolo',
+        'finance' => 'os apps de orçamento, os bicos, e economizar o pouco que sobrava',
+        'money' => 'os apps de orçamento, os bicos, e economizar o pouco que sobrava',
+        'relationship' => 'as longas conversas, o dar espaço, o se esforçar mais',
+        'generic' => 'tudo que os especialistas mandaram você tentar',
+    ];
+
+    private const BLAME_PT = [
+        'weight' => 'força de vontade', 'health' => 'você não se esforçar o bastante', 'finance' => 'disciplina',
+        'money' => 'disciplina', 'relationship' => 'não amar o suficiente', 'generic' => 'esforço',
+    ];
+
+    private const ENEMY_PT = [
+        'weight' => 'a indústria das dietas',
+        'health' => 'a indústria dos suplementos',
+        'finance' => 'o sistema financeiro',
+        'money' => 'os bancos',
+        'relationship' => 'a indústria dos coaches de relacionamento',
+        'generic' => 'a indústria que lucra com o seu problema',
+    ];
+
     /**
      * @return array{leads:array<int,array{archetype:string,text:string}>,best:?string,best_archetype:?string}
      */
     public function forge(AiMarketingVslAsset $asset): array
     {
-        $wound = (new AggressiveConversionTacticsLibrary)->nicheWound((string) $asset->niche);
+        $lang = $this->lang($asset);
+        $pt = $lang === 'pt';
+        $wound = (new AggressiveConversionTacticsLibrary)->nicheWound((string) $asset->niche, $lang);
         $family = (string) ($wound['family'] ?? 'generic');
-        $scene = self::SCENE[$family] ?? self::SCENE['generic'];
-        $enemy = $this->enemy($asset, $family);
-        $who = $this->avatar($asset);
-        $dream = $wound['dream'] ?? 'the life you want';
+        $scene = ($pt ? self::SCENE_PT : self::SCENE)[$family] ?? ($pt ? self::SCENE_PT : self::SCENE)['generic'];
+        $enemy = $this->enemy($asset, $family, $lang);
+        $who = $this->avatar($asset, $lang);
+        $dream = $wound['dream'] ?? ($pt ? 'a vida que você quer' : 'the life you want');
         $promise = $this->firstNonEmpty([(string) $asset->core_promise, (string) $asset->big_idea, $dream]);
         $hero = $this->hero($asset);
         $heroTail = $hero !== '' ? " — {$hero}" : '';
-        $close = $this->openLoop($asset);
+        $close = $this->openLoop($asset, $lang);
 
-        $built = [
+        $built = $pt ? [
+            'secret' => "Se você é {$who}, existe um motivo pouco conhecido por que {$scene} — e não é o que te contaram. {$close}",
+            'story' => "Se você é {$who}, eu já estive exatamente aí: {$scene}. Eu tinha tentado de tudo. Então uma coisa ignorada mudou isso — e {$dream}. {$close}",
+            'problem_agitate' => "Se você é {$who} e {$scene}, entenda: a culpa não é sua. O verdadeiro motivo é algo que {$enemy} nunca deixou claro. {$close}",
+            'proclamation' => "Se você é {$who}, {$promise}{$heroTail} está ao seu alcance — muito mais rápido e simples do que te fizeram acreditar. {$close}",
+            'enemy' => "Se você é {$who}, saiba: {$enemy} tem todo o interesse em te impedir de descobrir por que {$scene}. {$close}",
+        ] : [
             'secret' => "If you are {$who}, there is a little-known reason {$scene} — and it is not what you have been told. {$close}",
             'story' => "If you are {$who}, I have been right where you are: {$scene}. I had tried everything. Then one overlooked thing changed it — and {$dream}. {$close}",
             'problem_agitate' => "If you are {$who} and {$scene}, understand this: it is not your fault. The real reason is something {$enemy} never made clear. {$close}",
@@ -107,7 +148,7 @@ class BigIdeaLeadForge
         } else {
             // Other niches: a 3-beat elite lead (identity+scene → failed attempts + blame-shift to enemy →
             // mechanism plant + open loop), bringing them to LeadForge-grade richness cross-niche.
-            $best = $this->eliteLead($who, $scene, $enemy, $family, $close);
+            $best = $this->eliteLead($who, $scene, $enemy, $family, $close, $lang);
             $bestArch = 'elite_3beat';
         }
 
@@ -115,12 +156,18 @@ class BigIdeaLeadForge
     }
 
     /** A 3-beat elite lead (LeadForge-grade) for non-health niches: identity+scene → failed+enemy → loop. */
-    private function eliteLead(string $who, string $scene, string $enemy, string $family, string $close): string
+    private function eliteLead(string $who, string $scene, string $enemy, string $family, string $close, string $lang = ''): string
     {
-        $failed = self::FAILED[$family] ?? self::FAILED['generic'];
-        $blame = self::BLAME[$family] ?? self::BLAME['generic'];
-        $p1 = "If you are {$who} and {$scene}, you are not imagining it — and it is not your fault.";
-        $p2 = "You have tried {$failed} and still nothing changed. What if the real reason was never {$blame}? What {$enemy} will not tell you is the one thing that actually changes it.";
+        $pt = $lang === 'pt';
+        $failed = ($pt ? self::FAILED_PT : self::FAILED)[$family] ?? ($pt ? self::FAILED_PT : self::FAILED)['generic'];
+        $blame = ($pt ? self::BLAME_PT : self::BLAME)[$family] ?? ($pt ? self::BLAME_PT : self::BLAME)['generic'];
+        if ($pt) {
+            $p1 = "Se você é {$who} e {$scene}, você não está imaginando coisas — e a culpa não é sua.";
+            $p2 = "Você já tentou {$failed} e mesmo assim nada mudou. E se o verdadeiro motivo nunca foi {$blame}? O que {$enemy} não vai te contar é a única coisa que realmente muda isso.";
+        } else {
+            $p1 = "If you are {$who} and {$scene}, you are not imagining it — and it is not your fault.";
+            $p2 = "You have tried {$failed} and still nothing changed. What if the real reason was never {$blame}? What {$enemy} will not tell you is the one thing that actually changes it.";
+        }
 
         return $this->tidy($p1)."\n\n".$this->tidy($p2)."\n\n".$this->tidy($close);
     }
@@ -131,20 +178,30 @@ class BigIdeaLeadForge
      */
     public function hook(AiMarketingVslAsset $asset): string
     {
-        $wound = (new AggressiveConversionTacticsLibrary)->nicheWound((string) $asset->niche);
+        $lang = $this->lang($asset);
+        $pt = $lang === 'pt';
+        $wound = (new AggressiveConversionTacticsLibrary)->nicheWound((string) $asset->niche, $lang);
         $family = (string) ($wound['family'] ?? 'generic');
-        $scene = self::SCENE[$family] ?? self::SCENE['generic'];
-        $enemy = $this->enemy($asset, $family);
+        $scene = ($pt ? self::SCENE_PT : self::SCENE)[$family] ?? ($pt ? self::SCENE_PT : self::SCENE)['generic'];
+        $enemy = $this->enemy($asset, $family, $lang);
+        $who = $this->avatar($asset, $lang);
 
-        return $this->tidy("If you are {$this->avatar($asset)} and {$scene}, the real reason is not what {$enemy} told you.");
+        return $pt
+            ? $this->tidy("Se você é {$who} e {$scene}, o verdadeiro motivo não é o que {$enemy} te contou.")
+            : $this->tidy("If you are {$who} and {$scene}, the real reason is not what {$enemy} told you.");
     }
 
     /** Open loop anchored on the named mechanism — closed only by the video; never reveals the how. */
-    private function openLoop(AiMarketingVslAsset $asset): string
+    private function openLoop(AiMarketingVslAsset $asset, string $lang = ''): string
     {
         $mech = trim((string) preg_replace('/\s*\(.*$/u', '', (string) $asset->mechanism_name));
         if ($mech === '') {
             $mech = (string) ((new MechanismNameForge)->forge($asset)['best'] ?? '');
+        }
+        if ($lang === 'pt') {
+            return $mech !== ''
+                ? "Tem um nome — {$mech} — e o motivo exato de funcionar está na apresentação acima."
+                : 'O motivo exato de funcionar está na apresentação acima.';
         }
 
         return $mech !== ''
@@ -152,30 +209,47 @@ class BigIdeaLeadForge
             : 'The exact reason it works is in the presentation above.';
     }
 
-    private function enemy(AiMarketingVslAsset $asset, string $family): string
+    private function enemy(AiMarketingVslAsset $asset, string $family, string $lang = ''): string
     {
+        $pt = $lang === 'pt';
         // The asset's REAL enemy wins: a conspiracy device means Big-Pharma-grade framing (congruence with
         // the VSL), not a generic family label.
         $devices = (array) ($asset->persuasion_devices ?? []);
         if (! empty($devices['conspiracy'] ?? null)) {
-            return in_array($family, ['weight', 'health'], true)
-                ? 'the people making billions on $1,000-a-month injections'
-                : 'the people who profit while you stay stuck';
+            if (in_array($family, ['weight', 'health'], true)) {
+                return $pt ? 'quem fatura bilhões com injeções de milhares por mês' : 'the people making billions on $1,000-a-month injections';
+            }
+
+            return $pt ? 'quem lucra enquanto você continua travado' : 'the people who profit while you stay stuck';
         }
 
-        return self::ENEMY[$family] ?? self::ENEMY['generic'];
+        return ($pt ? self::ENEMY_PT : self::ENEMY)[$family] ?? ($pt ? self::ENEMY_PT : self::ENEMY)['generic'];
     }
 
-    /** Identity callout ("a woman over 40"), mirroring LeadForge — NEVER the raw niche name as a greeting. */
-    private function avatar(AiMarketingVslAsset $asset): string
+    /** Identity callout ("a woman over 40" / "uma mulher acima dos 40"), never the raw niche name. */
+    private function avatar(AiMarketingVslAsset $asset, string $lang = ''): string
     {
         $blob = mb_strtolower(json_encode($asset->avatar, JSON_UNESCAPED_UNICODE).' '.(string) $asset->niche);
         $woman = (bool) preg_match('/\b(women|woman|mulher|female)\b/u', $blob);
         $man = (bool) preg_match('/\b(men|man|homem|male)\b/u', $blob);
         $age = preg_match('/\b([456]0)\b/u', $blob, $m) ? $m[1] : '40';
+        if ($lang === 'pt') {
+            $base = $woman ? 'uma mulher' : ($man ? 'um homem' : '');
+
+            return $base === '' ? 'alguém que já tentou de tudo' : "{$base} acima dos {$age}";
+        }
         $base = $woman ? 'a woman' : ($man ? 'a man' : 'someone');
 
         return $base === 'someone' ? 'someone who has tried everything' : "{$base} over {$age}";
+    }
+
+    /** Asset language — PT when geo/language/niche/promise says so, else EN. */
+    private function lang(AiMarketingVslAsset $asset): string
+    {
+        $blob = mb_strtolower((string) $asset->language.' '.(string) $asset->target_geo.' '.(string) $asset->niche);
+
+        return (str_contains($blob, 'pt') || str_contains($blob, 'br') || str_contains($blob, 'portug')
+            || str_contains($blob, 'emagrec') || (bool) preg_match('/[ãâáàéêíóôõúç]/u', (string) $asset->core_promise)) ? 'pt' : 'en';
     }
 
     private function hero(AiMarketingVslAsset $asset): string
