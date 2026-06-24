@@ -30,7 +30,14 @@ class StructuredFunnelComposer
     public function compose(AiMarketingVslAsset $asset): array
     {
         $promise = $this->firstNonEmpty([(string) $asset->core_promise, (string) $asset->big_idea, 'a real change']);
-        $mechanism = $this->firstNonEmpty([(string) $asset->mechanism_name, (string) $asset->solution_mechanism, 'the method']);
+        // Eixo 2: name the mechanism. If the asset has no named mechanism, FORGE one (Schwartz level-4
+        // proprietary mechanism that reopens a saturated market) instead of a flat "the method".
+        $mechanism = $this->firstNonEmpty([
+            (string) $asset->mechanism_name,
+            (string) $asset->solution_mechanism,
+            (string) ((new MechanismNameForge)->forge($asset)['best'] ?? ''),
+            'the method',
+        ]);
         $avatar = $this->avatarCallout($asset);
         $hero = $this->heroClaim($asset);                 // e.g. "30 lbs" or "" if none
         $heroLine = $hero !== '' ? " — {$hero}" : '';
@@ -84,7 +91,14 @@ class StructuredFunnelComposer
     public function composeBridge(AiMarketingVslAsset $asset): array
     {
         $promise = $this->firstNonEmpty([(string) $asset->core_promise, (string) $asset->big_idea, 'a real change']);
-        $mechanism = $this->firstNonEmpty([(string) $asset->mechanism_name, (string) $asset->solution_mechanism, 'the method']);
+        // Eixo 2: name the mechanism. If the asset has no named mechanism, FORGE one (Schwartz level-4
+        // proprietary mechanism that reopens a saturated market) instead of a flat "the method".
+        $mechanism = $this->firstNonEmpty([
+            (string) $asset->mechanism_name,
+            (string) $asset->solution_mechanism,
+            (string) ((new MechanismNameForge)->forge($asset)['best'] ?? ''),
+            'the method',
+        ]);
         $avatar = $this->avatarCallout($asset);
         $hero = $this->heroClaim($asset);
         $heroLine = $hero !== '' ? " — {$hero}" : '';
