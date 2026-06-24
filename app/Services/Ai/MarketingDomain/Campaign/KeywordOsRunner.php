@@ -26,7 +26,29 @@ class KeywordOsRunner
         private readonly PhoneticMistypeForge $mistypeForge = new PhoneticMistypeForge,
         private readonly CelebrityLaneForge $celebrityForge = new CelebrityLaneForge,
         private readonly DescriptorMatrixForge $descriptorForge = new DescriptorMatrixForge,
+        private readonly CoinedTokenForge $tokenForge = new CoinedTokenForge,
+        private readonly ReFinderFabricationPlanner $moatPlanner = new ReFinderFabricationPlanner,
     ) {}
+
+    /**
+     * MOAT (regra #8) operável: dado o(s) ingrediente(s)/benefício da oferta, gera os candidatos a token
+     * coinável (ranqueados por defensibilidade) E o plano de FABRICAÇÃO do melhor (plantio + posse-no-
+     * instante do espaço de busca + tracking). É "ingrediente → o nome pra plantar + como possuir a busca".
+     *
+     * @param  array<int,string>  $ingredients
+     * @param  array{categories?:array<int,string>,forms?:array<int,string>}  $opts
+     * @return array{candidates:array<int,array<string,mixed>>,fabrication_plan:array<string,mixed>}
+     */
+    public function moatPlan(array $ingredients, array $opts = []): array
+    {
+        $candidates = $this->tokenForge->forge($ingredients);
+        $top = $candidates[0]['token'] ?? '';
+
+        return [
+            'candidates' => array_slice($candidates, 0, 15),
+            'fabrication_plan' => $top !== '' ? $this->moatPlanner->plan($top, $opts) : ['plantable' => false],
+        ];
+    }
 
     /**
      * PURO/determinístico: roda o pipeline com os feeds já materializados + a GERAÇÃO ofensiva (mistype do

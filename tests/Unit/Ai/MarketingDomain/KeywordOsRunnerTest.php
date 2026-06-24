@@ -61,6 +61,18 @@ class KeywordOsRunnerTest extends TestCase
         $this->assertEmpty(array_filter($gen, fn ($k) => str_starts_with($k, 'triple') || str_starts_with($k, 'trip')));
     }
 
+    public function test_moat_plan_fabricates_token_and_pre_owns_search(): void
+    {
+        $r = (new KeywordOsRunner)->moatPlan(['gelatin'], ['categories' => ['weight loss', 'bariatric'], 'forms' => ['drops']]);
+
+        $this->assertNotEmpty($r['candidates'], 'gera candidatos a token coinável');
+        $this->assertContains('gelatin diet', array_column($r['candidates'], 'token'), 'o padrão jello-diet');
+        $this->assertTrue($r['fabrication_plan']['plantable']);
+        // o plano já pré-possui o espaço de busca do token plantado
+        $this->assertNotEmpty($r['fabrication_plan']['own_now']['mistype_cone']);
+        $this->assertNotEmpty($r['fabrication_plan']['own_now']['descriptor_matrix']);
+    }
+
     public function test_assemble_is_deterministic(): void
     {
         $runner = new KeywordOsRunner;
