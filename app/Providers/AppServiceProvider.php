@@ -45,6 +45,8 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderContextOptimizer;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderEffortPolicy;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderEffortPolicyDriverDecorator;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopScenarioProviderPortfolio;
+use App\Services\Ai\AutonomousEvolution\Merge\AtlasLoopAutoMergePreFlightGate;
+use App\Services\Ai\AutonomousEvolution\Merge\AtlasLoopAutoMergeService as AtlasLoopMergeService;
 use App\Services\Ai\AutonomousEvolution\Recovery\AtlasLoopReceiptReplayer;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopSemanticImplementationCertifier;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopTaskDecompositionAmplifier;
@@ -229,6 +231,9 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(SkillBundleStore::class);
         $this->app->singleton(AtlasLoopReceiptReplayer::class);
+        // WAVE-14 auto-merge hardening: the pre-flight gate + the gated merge entry.
+        $this->app->singleton(AtlasLoopAutoMergePreFlightGate::class);
+        $this->app->singleton(AtlasLoopMergeService::class);
         $this->app->singleton(AtlasLoopProviderContextOptimizer::class);
         $this->app->singleton(AtlasLoopAdversarialVerifierPool::class);
         $this->app->singleton(AtlasLoopCrossModelTriangulator::class);
