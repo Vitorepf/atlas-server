@@ -46,7 +46,9 @@ class FunnelCongruenceAuditor
         // 1. Per-hop congruence (adjacent stages must echo each other's promise keywords).
         $hops = [];
         for ($i = 0; $i < count($texts) - 1; $i++) {
-            $congruence = (int) ($this->messageMatch->score($texts[$i], $texts[$i + 1], $texts[$i + 1])['dimension_scores']['message_match'] ?? 0);
+            // Overlap-coefficient congruence: does the next stage carry the previous stage's vocabulary?
+            // (Jaccard would false-flag every ad→page hop because the page is always longer.)
+            $congruence = $this->messageMatch->congruence($texts[$i], $texts[$i + 1]);
             $hop = ['from' => $labels[$i], 'to' => $labels[$i + 1], 'congruence' => $congruence];
             $hops[] = $hop;
             if ($congruence < self::WEAK_HOP) {

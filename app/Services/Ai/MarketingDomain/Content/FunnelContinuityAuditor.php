@@ -31,8 +31,12 @@ class FunnelContinuityAuditor
     /** A price that is NOT a charge for the core offer: optional/secondary, OR a value-anchor ("worth $X"). */
     private const OPTIONAL_PRICE_CTX = '/\b(?:optional|add[- ]?on|order bump|bonus|upsell|upgrade|workbook|toolkit|also get|add the|adicione|opcional|b[oô]nus|worth|normally|value|regularly|regular price|vale)\b/iu';
 
-    /** "free" that does not promise the core offer is free (idiom, shipping, trial, value-anchor). */
-    private const NONCORE_FREE_CTX = '/\bfeel free\b|\bfree to\b|\bfree shipping\b|\bfree trial\b|\bday free trial\b|\bfree \d+[- ]?day\b|\bcancel anytime\b|\bfor \d+[- ]?(?:day|days|week|weeks|month|months)\b|\bworth\b|\bnormally\b|\bvalue\b|\bregularly\b/iu';
+    /**
+     * "free" that does not promise the CORE OFFER is free — so charging downstream is no contradiction:
+     * idiom, shipping, trial, value-anchor, AND free CONTENT/lead-magnet (the standard VSL funnel: a free
+     * presentation/video/guide leading to a paid product — the content is free, the product is not).
+     */
+    private const NONCORE_FREE_CTX = '/\bfeel free\b|\bfree to\b|\bfree shipping\b|\bfree trial\b|\bday free trial\b|\bfree \d+[- ]?day\b|\bcancel anytime\b|\bfor \d+[- ]?(?:day|days|week|weeks|month|months)\b|\bworth\b|\bnormally\b|\bvalue\b|\bregularly\b|\bfree (?:presentation|video|training|webinar|masterclass|workshop|guide|report|ebook|e-book|pdf|cheat ?sheet|demo|consultation|trial|sample|apresenta[çc][ãa]o|v[ií]deo|treinamento|webin[áa]rio|aula|guia|relat[óo]rio|amostra)\b/iu';
 
     /**
      * @param  array<string,string>  $stages  ordered [label => copy]; first entry = top of funnel (ad/headline)

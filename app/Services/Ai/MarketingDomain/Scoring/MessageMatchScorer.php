@@ -51,6 +51,26 @@ class MessageMatchScorer
     }
 
     /**
+     * Funnel-hop congruence via OVERLAP COEFFICIENT (|A∩B| / min(|A|,|B|)), not Jaccard. For an
+     * ad→page hop the page is always far longer than the ad, which collapses Jaccard (it divides by the
+     * union) even when the page fully echoes the ad's promise. Overlap coefficient asks the real scent
+     * question — "does the shorter stage's vocabulary survive into the other stage?" — independent of
+     * length asymmetry. Returns 0-100.
+     */
+    public function congruence(string $a, string $b): int
+    {
+        $ta = $this->tokens($a);
+        $tb = $this->tokens($b);
+        if ($ta === [] || $tb === []) {
+            return 0;
+        }
+        $inter = count(array_intersect($ta, $tb));
+        $min = min(count($ta), count($tb));
+
+        return $min > 0 ? (int) round($inter / $min * 100) : 0;
+    }
+
+    /**
      * Classify the mismatch and recommend H1 angles from the extracted VSL fields.
      *
      * @return array<string,mixed>

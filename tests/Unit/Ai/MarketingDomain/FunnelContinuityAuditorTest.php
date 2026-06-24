@@ -52,12 +52,24 @@ class FunnelContinuityAuditorTest extends TestCase
 
     public function test_flags_core_bait_and_switch(): void
     {
+        // The CORE product is called free, then charged — a real bait-and-switch.
+        $r = (new FunnelContinuityAuditor)->audit([
+            'ad' => 'Get the complete program completely free',
+            'page' => 'Your free program is ready.',
+            'checkout' => 'Get full access to the program today for just $97.',
+        ]);
+        $this->assertContains('price_scent_break', $this->keys($r));
+    }
+
+    public function test_free_content_then_paid_product_is_the_legit_vsl_funnel(): void
+    {
+        // Free PRESENTATION (content) leading to a paid product is the standard honest funnel — NOT bait.
         $r = (new FunnelContinuityAuditor)->audit([
             'ad' => 'Watch the free presentation',
             'page' => 'Discover the method on the next page.',
             'checkout' => 'Get full access today for just $97.',
         ]);
-        $this->assertContains('price_scent_break', $this->keys($r));
+        $this->assertNotContains('price_scent_break', $this->keys($r));
     }
 
     public function test_substring_collision_is_not_laundered_as_carried(): void
