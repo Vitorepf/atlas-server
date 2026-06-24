@@ -110,6 +110,10 @@ Régua atual (piso de maturidade): **85** / teto 100. — **VOLTA 2 COMPLETA** (
 
 - **Roadmap #8: RetentionCurveLeakDetector (flat-middle — maior lever de watch-through pós-hook)** ✅ — modelado byte-a-byte na filosofia do WatchThroughLeakDetector (WARNING true-positive, ZERO score — porque score de vocabulário INVERTE, lição do NarrativeTensionScorer morto). Segmenta o transcript em terços; avisa quando um segmento do MEIO (nem abertura nem fechamento) não reabre nenhum loop/re-hook → é onde a audiência desliza pro skip. Reusa markers da VideoCreativeAnatomyLibrary (nova categoria `re_hook`: escalada "it gets worse"/promessa-adiada/callback + curiosity-gap). Provado: meio chato → flat_middle; meio com re-hook → limpo. Estrutural, provider-free. 444/444.
 
+- **Roadmap #7: AudiencePanelVerdict (veredito de audiência)** ✅ — o ConversionLeverageDiagnostic aplicado à dimensão AUDIÊNCIA: agrega o painel de personas num veredito acionável — lost_count/total, dominant_failure_mode (o fix que MAIS personas pedem independentemente), shared_fix, would_buy. Vira "5 opiniões" em UMA decisão ("perde 3/5; gargalo compartilhado = sem risk-reversal → adicionar garantia"). Reusa PersonaSimulator. Ligado no ConversionAuditor (dim audience_verdict). Provado: oco perde 5/5 com fix dominante; aterrado retém ≥1 buyer. É o sinal few-shot que o flywheel calibra com venda real. 447/447.
+
+ROADMAP do blueprint: 8 de 11 entregues (#1,2,4,5,6,7,8,9; #3 coberto). Restam: #10 Voss (TacticalNegotiation), #11 HookArchetypeForge + VideoAdScriptGenerator (gated na biblioteca de criativos).
+
 ## Pontos pra próxima sessão (faculdade de ambição)
 - **Multi-persona injection por slot** — TL;DR pra mãe ocupada no topo, vs-Ozempic perto do CTA, prova específica embaixo, em vez de 1 fix em `ps`.
 - **LLM-driven persona refinement** — quando o operador plugar LLM, refinar `simulate()` por avatar real do produto (não só os 3 fixos hardcoded). Framework está pronto, contrato é o `PersonaSimulator`.

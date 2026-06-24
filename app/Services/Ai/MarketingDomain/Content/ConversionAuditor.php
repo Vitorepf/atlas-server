@@ -43,6 +43,7 @@ class ConversionAuditor
         private readonly ProofSubstanceAuditor $proof = new ProofSubstanceAuditor,
         private readonly ProofAdjacencyAuditor $proofAdjacency = new ProofAdjacencyAuditor,
         private readonly FrictionAbilityAuditor $friction = new FrictionAbilityAuditor,
+        private readonly AudiencePanelVerdict $audienceVerdict = new AudiencePanelVerdict,
     ) {
         // When the auditor is built without an explicit hybrid scorer, wire one by default — this
         // way passing a niche to audit() activates learned weights automatically (no rewiring needed
@@ -103,6 +104,8 @@ class ConversionAuditor
             'top_missing' => $this->topMissing($byLibrary),
             'personas' => $this->personas->simulate($copy, $html, $niche),
             'audience_score' => round($this->personas->audienceScore($copy, $niche) * 100),
+            // Audience verdict: how many personas the page loses + the shared fix they ask for.
+            'audience_verdict' => $this->audienceVerdict->assess($copy, $niche),
             'structural_flaws' => $this->leaks->detect($copy)['flaws'],
             'decision_flaws' => $this->decision->audit($copy)['flaws'],
             // Aggression: how hard the page pushes the aggressive playbook (manufactured scarcity, fear,
