@@ -50,6 +50,7 @@ use App\Services\Ai\AutonomousEvolution\Merge\AtlasLoopAutoMergePreFlightGate;
 use App\Services\Ai\AutonomousEvolution\Merge\AtlasLoopAutoMergeReceiptLedger;
 use App\Services\Ai\AutonomousEvolution\Merge\AtlasLoopAutoMergeReverseAuditor;
 use App\Services\Ai\AutonomousEvolution\Merge\AtlasLoopAutoMergeService as AtlasLoopMergeService;
+use App\Services\Ai\AutonomousEvolution\Merge\AtlasLoopAutoMergeStalenessRefuser;
 use App\Services\Ai\AutonomousEvolution\Recovery\AtlasLoopReceiptReplayer;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopSemanticImplementationCertifier;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopTaskDecompositionAmplifier;
@@ -240,6 +241,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(AtlasLoopAutoMergeConflictDetector::class);
         $this->app->singleton(AtlasLoopAutoMergeReverseAuditor::class);
         $this->app->singleton(AtlasLoopAutoMergeReceiptLedger::class);
+        $this->app->singleton(AtlasLoopAutoMergeStalenessRefuser::class);
         $this->app->singleton(
             AtlasLoopMergeService::class,
             fn ($app) => new AtlasLoopMergeService(
@@ -247,6 +249,7 @@ class AppServiceProvider extends ServiceProvider
                 $app->make(AtlasLoopAutoMergeConflictDetector::class),
                 $app->make(AtlasLoopAutoMergeReverseAuditor::class),
                 $app->make(AtlasLoopAutoMergeReceiptLedger::class),
+                $app->make(AtlasLoopAutoMergeStalenessRefuser::class),
             ),
         );
         $this->app->singleton(AtlasLoopProviderContextOptimizer::class);

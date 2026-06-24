@@ -23,6 +23,7 @@ final class AtlasLoopAutoMergeService
         private readonly ?AtlasLoopAutoMergeConflictDetector $conflictDetector = null,
         private readonly ?AtlasLoopAutoMergeReverseAuditor $reverseAuditor = null,
         private readonly ?AtlasLoopAutoMergeReceiptLedger $receiptLedger = null,
+        private readonly ?AtlasLoopAutoMergeStalenessRefuser $stalenessRefuser = null,
     ) {}
 
     /**
@@ -70,6 +71,23 @@ final class AtlasLoopAutoMergeService
     public function autoMerge(array $proposal, string $repoRoot, ?callable $merger = null): array
     {
         $baseSha = trim((string) ($proposal['base_sha'] ?? ''));
+
+        // §W14-05 STALENESS — cheapest fail-fast, runs BEFORE PreFlightGate/ConflictDetector/ReverseAuditor.
+        // A base SHA more than N commits behind main is refused immediately (FACT: commits_behind via rev-list).
+        if ($this->stalenessRefuser !== null) {
+            $staleness = $this->stalenessRefuser->check($baseSha, $repoRoot);
+            if (($staleness['allow'] ?? false) !== true) {
+                return [
+                    'merged' => false,
+                    'reason' => (string) ($staleness['reason'] ?? 'stale_base'),
+                    'preflight' => null,
+                    'staleness' => $staleness,
+                    'conflict_report' => null,
+                    'merge_result' => null,
+                ];
+            }
+        }
+
         $preflight = $this->preFlight->check($baseSha, $repoRoot);
 
         if (($preflight['allow'] ?? false) !== true) {
