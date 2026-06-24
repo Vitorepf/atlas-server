@@ -48,6 +48,9 @@ final class AtlasLoopProjectionWorker
         private readonly ?AtlasLoopSystemAxisService $axisService = null,
         private readonly ?AtlasLoopScopeComprehensionModel $scopeModel = null,
         private readonly ?AtlasLoopProjectionOutcomeLedger $ledger = null,
+        // P5 lensed-critique seam — nullable LAST arg (back-compat: legacy callers autowire null ⇒ a default
+        // critic, byte-identical). Injectable so a test can count the per-lens passes without a real provider.
+        private readonly ?AtlasLoopModelProjectionCritic $critic = null,
     ) {}
 
     /**
@@ -173,9 +176,17 @@ final class AtlasLoopProjectionWorker
             // §3 cross-model critique (flag-gated, fail-closed): a frontier model proposes ADDITIONAL grounded
             // obligations on top of the deterministic floor; the engine's grounding gate rejects any
             // ungrounded one, so a garbage completion is harmless and no-provider ⇒ [] ⇒ the floor alone.
-            $extraSeeds = (bool) config('atlas.loop.grounded_projection_model_critic_enabled', false)
-                ? (new AtlasLoopModelProjectionCritic)->additionalObligations($target, $bindingAxis)
-                : [];
+            $extraSeeds = [];
+            if ((bool) config('atlas.loop.grounded_projection_model_critic_enabled', false)) {
+                $critic = $this->critic ?? new AtlasLoopModelProjectionCritic;
+                // P5 (MITIGA, NÃO ELIMINA): when armed, run the critique across MULTIPLE lenses (the depth the
+                // critic ALREADY has via lensedObligations, fail-closed per lens) instead of a single pass.
+                // Default OFF ⇒ the exact single-pass additionalObligations as before (byte-identical). Depth
+                // diversifies the angle but the model stays single-provider — true cross-model is still open.
+                $extraSeeds = (bool) config('atlas.loop.grounded_projection_lensed_critique_enabled', false)
+                    ? $critic->lensedObligations($target, $bindingAxis, [], [], $this->configuredLenses())
+                    : $critic->additionalObligations($target, $bindingAxis);
+            }
 
             $roles = (new AtlasLoopGroundedProjectionRoles($model))->forTarget($target, $extraSeeds, $objectiveKind);
 
@@ -183,6 +194,23 @@ final class AtlasLoopProjectionWorker
         } catch (Throwable) {
             return []; // grounded phase is best-effort; never let a model failure block a projection
         }
+    }
+
+    /**
+     * The operator-configured critique lenses (CSV) for the lensed-critique path; empty ⇒ the critic's
+     * DEFAULT_LENSES. Each lens is a distinct angle the (single-provider) model reasons from — depth, not
+     * independence. Read via config() with a code default so no config/atlas.php edit is required.
+     *
+     * @return list<string>
+     */
+    private function configuredLenses(): array
+    {
+        $lenses = array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) config('atlas.loop.grounded_projection_lenses', 'correctness,security,performance,maintainability')),
+        )));
+
+        return $lenses === [] ? AtlasLoopModelProjectionCritic::DEFAULT_LENSES : $lenses;
     }
 
     /**
