@@ -3,6 +3,13 @@
 return [
     'version' => env('ATLAS_VERSION'),
     'token' => env('ATLAS_TOKEN'),
+
+    // PART 2 — the operator-facing task-serving queue. A DEDICATED disk isolates it from the certification
+    // probe pollution in the shared Agent Control Plane queue. Default 'local' keeps the legacy shared queue.
+    'task_serving' => [
+        'queue_disk' => env('ATLAS_TASK_SERVING_QUEUE_DISK', 'local'),
+    ],
+
     'storage_path' => env('ATLAS_STORAGE_PATH', '/var/atlas/storage'),
     'max_upload_bytes' => (int) env('ATLAS_MAX_UPLOAD_BYTES', 100 * 1024 * 1024),
 

@@ -39,6 +39,7 @@ final class AtlasTaskBrainReplenisher
         private readonly ?AtlasTaskPacketQualityInspector $inspector = null,
         private readonly ?AtlasLoopScopeComprehensionQuery $query = null,
         private readonly ?string $repoRootOverride = null,
+        private readonly ?string $servingDisk = null,
     ) {}
 
     /**
@@ -210,7 +211,7 @@ final class AtlasTaskBrainReplenisher
 
     private function queueRepo(): AgentControlPlaneTaskPacketQueueRepository
     {
-        return new AgentControlPlaneTaskPacketQueueRepository;
+        return new AgentControlPlaneTaskPacketQueueRepository($this->servingDisk);
     }
 
     private function buildQuery(array $opts): AtlasLoopScopeComprehensionQuery

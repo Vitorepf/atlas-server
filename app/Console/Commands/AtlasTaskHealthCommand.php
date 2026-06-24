@@ -18,9 +18,10 @@ class AtlasTaskHealthCommand extends Command
 
     protected $description = 'Coordination health of the task-serving stack (read-only): queue distribution, leases, recoverable backlog, integrity flags.';
 
-    public function handle(AtlasTaskCoordinationHealthService $health): int
+    public function handle(): int
     {
-        $snapshot = $health->snapshot();
+        // Read the DEDICATED serving queue's health (not the polluted Agent Control Plane queue).
+        $snapshot = \App\Services\Ai\SelfConstruction\AtlasTaskServingStack::coordinationHealth()->snapshot();
 
         if ($this->option('json')) {
             $this->line((string) json_encode($snapshot, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));

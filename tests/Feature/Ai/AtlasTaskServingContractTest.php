@@ -34,11 +34,14 @@ final class AtlasTaskServingContractTest extends TestCase
         $this->envFile = sys_get_temp_dir().'/atlas-task-env-'.bin2hex(random_bytes(5)).'.env';
         file_put_contents($this->envFile, "ATLAS_LOOP_MASTER_ENABLED=true\n");
         AtlasLoopMasterSwitch::$envPathOverride = $this->envFile;
+        // Isolate the dedicated serving switch from the real .env too (serving = master OR serving-flag).
+        \App\Services\Ai\SelfConstruction\AtlasTaskServingSwitch::$envPathOverride = $this->envFile;
     }
 
     protected function tearDown(): void
     {
         AtlasLoopMasterSwitch::$envPathOverride = null;
+        \App\Services\Ai\SelfConstruction\AtlasTaskServingSwitch::$envPathOverride = null;
         if ($this->envFile !== '') {
             @unlink($this->envFile);
         }

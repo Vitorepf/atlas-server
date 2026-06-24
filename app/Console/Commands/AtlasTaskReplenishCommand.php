@@ -31,7 +31,7 @@ class AtlasTaskReplenishCommand extends Command
 
     protected $description = 'Atlas structures the task list from its comprehension of a scope and keeps the serving queue full (the runtime that never dries).';
 
-    public function handle(AgentControlPlaneTaskQueueOrchestrator $orchestrator): int
+    public function handle(): int
     {
         $scope = trim((string) ($this->option('scope') ?? ''));
         if ($scope === '') {
@@ -47,7 +47,7 @@ class AtlasTaskReplenishCommand extends Command
             $opts['docs_roots'] = $docRoots;
         }
 
-        $replenisher = new AtlasTaskBrainReplenisher($orchestrator);
+        $replenisher = \App\Services\Ai\SelfConstruction\AtlasTaskServingStack::replenisher();
 
         if ($this->option('dry-run')) {
             return $this->dryRun($replenisher, $scope, $opts);

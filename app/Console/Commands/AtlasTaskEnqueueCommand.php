@@ -36,8 +36,10 @@ class AtlasTaskEnqueueCommand extends Command
 
     protected $description = 'Enqueue a real task for AIs to pull (atlas:task next). Quality-gated: an underspecified task is rejected.';
 
-    public function handle(AgentControlPlaneTaskQueueOrchestrator $orchestrator, AtlasTaskPacketQualityInspector $inspector): int
+    public function handle(AtlasTaskPacketQualityInspector $inspector): int
     {
+        // Enqueue onto the DEDICATED serving queue (isolated from the certification-probe pollution).
+        $orchestrator = \App\Services\Ai\SelfConstruction\AtlasTaskServingStack::orchestrator();
         $specs = $this->collectSpecs();
         if ($specs === []) {
             $this->error('nothing to enqueue: pass --objective + --allow (+ --accept --evidence) or --file=tasks.json');

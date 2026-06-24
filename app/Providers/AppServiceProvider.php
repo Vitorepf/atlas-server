@@ -209,6 +209,13 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(SkillBundleStore::class);
         $this->app->bind(LoopWorkerSpawnerContract::class, LoopWorkerSpawner::class);
 
+        // PART 2 — the operator-facing task-serving contract resolves on the DEDICATED serving queue
+        // (isolated from the Agent Control Plane certification-probe pollution). See AtlasTaskServingStack.
+        $this->app->bind(
+            \App\Services\Ai\SelfConstruction\AtlasTaskServingService::class,
+            fn () => \App\Services\Ai\SelfConstruction\AtlasTaskServingStack::servingService(),
+        );
+
         // Agent-governance control plane: the fleet-driver seam → the real pgrep/launchctl impl. Tests swap a
         // FakeFleetDriver. Constructing it is FREE — it only touches processes when reconcile/status actually run.
         $this->app->bind(FleetDriver::class, SystemFleetDriver::class);

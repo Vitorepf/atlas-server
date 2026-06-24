@@ -14,6 +14,14 @@ php artisan atlas:task:serving on
 php artisan atlas:task:serving status     # confirma: task-serving: ON
 ```
 
+**IMPORTANTE — fila dedicada (isola do lixo de certificação):** a fila do Agent Control Plane está afogada em
+centenas de milhares de registros de probe de certificação. Pra o serving NÃO servir esse lixo, ponha no `.env`:
+```
+ATLAS_TASK_SERVING_QUEUE_DISK=atlas_serving
+```
+Isso dá ao serving (next/report/enqueue/replenish/health) a PRÓPRIA fila limpa em `storage/app/atlas/task-serving/`.
+Sem isso (default `local`), o serving usa a fila compartilhada poluída.
+
 O switch é independente do `atlas:loop:on` (que governa o loop autônomo). Pra desligar tudo: `atlas:task:serving off`.
 
 ## 2. Abastecer a fila — o ATLAS estrutura a lista sozinho (a Parte 2)
