@@ -23,6 +23,7 @@ class ConversionLeverageDiagnostic
         private readonly ValueEquationAuditor $value = new ValueEquationAuditor,
         private readonly WatchThroughLeakDetector $watch = new WatchThroughLeakDetector,
         private readonly MechanismNameForge $forge = new MechanismNameForge,
+        private readonly FrictionAbilityAuditor $friction = new FrictionAbilityAuditor,
     ) {}
 
     /**
@@ -35,6 +36,7 @@ class ConversionLeverageDiagnostic
             $this->proofLever($copy),
             $this->offerLever($copy),
             $this->watchThroughLever($copy),
+            $this->frictionLever($copy),
         ];
 
         // Bottleneck = the highest-leverage lever that is WEAK. Ties broken by the DR tier.
@@ -95,6 +97,19 @@ class ConversionLeverageDiagnostic
             'status' => $strong ? 'strong' : 'weak',
             'finding' => $strong ? 'oferta cobre as alavancas de alta-leverage' : 'oferta deixa alavanca crítica aberta: '.implode(', ', array_map(static fn ($g) => $g['key'], $highGap)),
             'fix' => $strong ? '' : 'fechar a(s) alavanca(s): '.implode(', ', array_map(static fn ($g) => $g['asks'], $highGap)),
+        ];
+    }
+
+    /** Fogg Ability — a page that maxes desire but never lowers action friction leaves money on the table. */
+    private function frictionLever(string $copy): array
+    {
+        $f = $this->friction->audit($copy);
+
+        return [
+            'key' => 'friction', 'eixo' => 0, 'tier' => 3,
+            'status' => $f['addresses_friction'] ? 'strong' : 'weak',
+            'finding' => $f['addresses_friction'] ? 'fricção de ação reduzida ('.implode(', ', $f['ability_signals']).')' : 'nada reduz a fricção de agir — '.$f['note'],
+            'fix' => $f['addresses_friction'] ? '' : 'adicionar sinais de baixo-esforço no CTA: acesso imediato / sem cartão / cancele quando quiser / leva 30s',
         ];
     }
 

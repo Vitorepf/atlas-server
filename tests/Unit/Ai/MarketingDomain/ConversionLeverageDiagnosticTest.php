@@ -45,7 +45,8 @@ class ConversionLeverageDiagnosticTest extends TestCase
         $copy = 'Have you wondered why the weight stays? It is not your fault. '
             .'Imagine your body back. You will see results in 21 days, with no gym. '
             .'Dr. Aronson ran this on 312 women; 9 out of 10 dropped a dress size in 6 weeks. '
-            .'Here is how The 3-Hormone Reset finally makes it work. Watch the free presentation now.';
+            .'Here is how The 3-Hormone Reset finally makes it work. '
+            .'Get instant access, no credit card, cancel anytime. Watch the free presentation now.';
         $r = $d->diagnose(new AiMarketingVslAsset(['niche' => 'weight loss', 'mechanism_name' => 'The 3-Hormone Reset']), $copy);
         $this->assertNull($r['bottleneck'], 'a funnel strong on every high-leverage lever has no bottleneck');
         $this->assertSame([], $r['roadmap']);

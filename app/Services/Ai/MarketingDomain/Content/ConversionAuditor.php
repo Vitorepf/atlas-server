@@ -42,6 +42,7 @@ class ConversionAuditor
         private readonly ValueEquationAuditor $valueEquation = new ValueEquationAuditor,
         private readonly ProofSubstanceAuditor $proof = new ProofSubstanceAuditor,
         private readonly ProofAdjacencyAuditor $proofAdjacency = new ProofAdjacencyAuditor,
+        private readonly FrictionAbilityAuditor $friction = new FrictionAbilityAuditor,
     ) {
         // When the auditor is built without an explicit hybrid scorer, wire one by default — this
         // way passing a niche to audit() activates learned weights automatically (no rewiring needed
@@ -114,11 +115,13 @@ class ConversionAuditor
             'proof_substance' => $this->proof->audit($copy),
             // Believability: each bold claim must have EXTERNAL proof ADJACENT (orphan claims kill the sale).
             'proof_adjacency' => $this->proofAdjacency->audit($copy),
+            // Fogg Ability: does the page LOWER the cost of acting (instant access / no card / cancel anytime)?
+            'friction_ability' => $this->friction->audit($copy),
             'smells_count' => $smellReport['n'],
             // Confidence layer (cycles 43-45 meta-lesson): never let a vocabulary prior pass as proven
             // conversion. Each signal is labeled by how much it can be trusted.
             'signal_confidence' => [
-                'structural_truth' => ['structural_flaws', 'decision_flaws', 'value_equation (gaps)', 'proof_substance', 'proof_adjacency (orphan claims)', 'smells'],
+                'structural_truth' => ['structural_flaws', 'decision_flaws', 'value_equation (gaps)', 'proof_substance', 'proof_adjacency (orphan claims)', 'friction_ability', 'smells'],
                 'heuristic_prior' => ['by_library', 'audience_score', 'top_missing'],
                 'calibrated' => $useHybrid ? ['by_library (niche='.$niche.', se ledger ≥30 outcomes)'] : [],
                 'note' => 'structural_flaws = FATOS estruturais true-positive (vazamento de reveal/CTA). '
