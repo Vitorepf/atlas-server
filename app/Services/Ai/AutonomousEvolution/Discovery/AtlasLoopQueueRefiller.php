@@ -336,6 +336,12 @@ final class AtlasLoopQueueRefiller
         // key; the legacy counters (discovered/claimed/enqueued/quarantined/deferred) are untouched.
         $this->touchHeartbeat($campaign);
         $failureHandleHarvest = $this->harvestFailureHandles();
+        // P1 MATERIAL-FUEL CONNECTION — immediately after harvesting the loop's OWN red handles, merge any
+        // operator-supplied EXTERNAL failure handles (a CI artifact dropped in storage/atlas-loop/) onto the
+        // matching, already-discovered target rows BEFORE discovery+claim, so a freshly-stamped
+        // signals['failure_test_path'] is live for the bug-fix lane this same cycle. Default-OFF =>
+        // {stamped:0, source:'disabled'} and byte-identical. Fail-open: it can NEVER break a refill.
+        $failureHandleExternalStamp = $this->stampExternalFailureHandles($campaign);
         $this->touchHeartbeat($campaign);
 
         $disc = $this->discovery->discover($repoRoot, $campaign->id, [
@@ -534,6 +540,7 @@ final class AtlasLoopQueueRefiller
             'deferred' => $deferred,
             'obra_candidates' => $obraCandidates,
             'failure_handle_harvest' => $failureHandleHarvest,
+            'failure_handle_external_stamp' => $failureHandleExternalStamp,
         ];
         if ($obraRanking !== null) {
             $result['obra_pick'] = $obraRanking['pick'];
@@ -893,6 +900,24 @@ final class AtlasLoopQueueRefiller
                 'dropped_ambiguous_target' => 0,
                 'write_failed' => 0,
             ];
+        }
+    }
+
+    /**
+     * P1 MATERIAL-FUEL CONNECTION — merge operator-supplied EXTERNAL failure handles (a dropped CI artifact)
+     * onto matching campaign targets, run at the FRONT of refill (right after the in-repo harvest) so a
+     * stamped signal is live for discovery+claim this same cycle. The stamper owns the enabled-decision +
+     * admissibility (no config drift here). Fail-open by total contract: any error => a 0-count receipt,
+     * never a broken refill.
+     *
+     * @return array{stamped:int, source:string}
+     */
+    private function stampExternalFailureHandles(AtlasLoopCampaign $campaign): array
+    {
+        try {
+            return app(AtlasLoopFailureHandleSignalStamper::class)->stamp($campaign);
+        } catch (Throwable) {
+            return ['stamped' => 0, 'source' => 'error'];
         }
     }
 
