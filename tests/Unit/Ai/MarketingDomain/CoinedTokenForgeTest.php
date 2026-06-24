@@ -36,6 +36,15 @@ class CoinedTokenForgeTest extends TestCase
         $this->assertGreaterThan(0, $r[0]['mistype_cone']);
     }
 
+    public function test_proven_vehicle_ranks_above_unproven(): void
+    {
+        $r = $this->f->forge(['gelatin']);
+        $this->assertContains($r[0]['vehicle'], ['diet', 'trick', 'loophole', 'protocol', 'salt trick'], 'o default é um veículo com venda real provada, não alfabético');
+        $diet = array_values(array_filter($r, fn ($x) => $x['vehicle'] === 'diet'))[0]['ownability'];
+        $code = array_values(array_filter($r, fn ($x) => $x['vehicle'] === 'code'))[0]['ownability'];
+        $this->assertGreaterThan($code, $diet, "'gelatin diet' (vendeu 32%) > 'gelatin code'");
+    }
+
     public function test_deterministic_and_empty_safe(): void
     {
         $this->assertSame($this->f->forge(['gelatin']), $this->f->forge(['gelatin']));

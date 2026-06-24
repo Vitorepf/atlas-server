@@ -19,6 +19,9 @@ class CoinedTokenForge
     /** veículos coined que a venda real provou (sufixo que vira parte do nome do mecanismo). */
     private const VEHICLES = ['diet', 'trick', 'protocol', 'method', 'ritual', 'hack', 'formula', 'secret', 'code', 'loophole', 'drops', 'salt trick'];
 
+    /** veículos com VENDA REAL provada (jello diet 32%, gelatin trick, coffee loophole) — rankeiam primeiro. */
+    private const PROVEN_VEHICLES = ['diet', 'trick', 'loophole', 'protocol', 'salt trick'];
+
     public function __construct(
         private readonly PhoneticMistypeForge $mistype = new PhoneticMistypeForge,
     ) {}
@@ -42,7 +45,7 @@ class CoinedTokenForge
                     'ingredient' => $ing,
                     'vehicle' => $v,
                     'mistype_cone' => $cone,
-                    'ownability' => $this->ownability($ing, $cone),
+                    'ownability' => $this->ownability($ing, $cone) + (in_array($v, self::PROVEN_VEHICLES, true) ? 30 : 0),
                 ];
             }
         }
