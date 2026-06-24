@@ -53,6 +53,31 @@ class ConversionStrategistTest extends TestCase
         $this->assertTrue($plan['offer_gaps'][0]['high_leverage']);
     }
 
+    public function test_thin_asset_reports_missing_ammunition_instead_of_faking(): void
+    {
+        // Pillar 2 (understanding): a thin asset must NAME the missing fields, not ship generic filler.
+        $thin = (new ConversionStrategist)->plan(new AiMarketingVslAsset([
+            'niche' => 'finance', 'awareness_level' => 'problem_aware', 'sophistication_level' => 4,
+        ]));
+        $this->assertNotEmpty($thin['needs']);
+        $needsBlob = implode(' ', $thin['needs']);
+        $this->assertStringContainsString('prova concreta', $needsBlob);
+        $this->assertStringContainsString('mechanism_name', $needsBlob);
+        $this->assertStringContainsString('FALTA', $thin['summary']);
+    }
+
+    public function test_rich_asset_has_no_missing_ammunition(): void
+    {
+        $rich = (new ConversionStrategist)->plan(new AiMarketingVslAsset([
+            'niche' => 'weight loss', 'awareness_level' => 'problem_aware', 'sophistication_level' => 4,
+            'core_promise' => 'lose the weight', 'mechanism_name' => 'The 3-Hormone Reset',
+            'claims' => ['Dr Lee tracked 312 women; 9 of 10 dropped a size in 6 weeks'],
+            'metrics' => ['result_claims' => ['results in 21 days']],
+            'offer' => ['ease' => ['no gym', 'just 10 minutes a day']],
+        ]));
+        $this->assertSame([], $rich['needs']);
+    }
+
     public function test_plan_is_a_complete_author_brief_with_lead_and_objection_loop(): void
     {
         // Pillar 2: the plan must hand the author a COMPLETE package — the lead to open with and the
