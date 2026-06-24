@@ -20,6 +20,41 @@ class KeywordOsIntentValidator
     ) {}
 
     /**
+     * Compara o lift intenção→CVR ENTRE nichos. Achado pétreo (ciclo 26): o tier-ouro é NICHE-DEPENDENT
+     * — weight_loss converte no mecanismo coined (T4, lift 3.9x) mas niche de sintoma (tinnitus/blood_sugar/
+     * prostate) converte no problem-aware (T1). Logo NÃO hard-codar T4>T1 nem T1>T4 no scorer; deixar o
+     * FLYWHEEL (KeywordOutcomeCalibrator) aprender o valor real por-termo, que pega a dependência de nicho.
+     *
+     * @param  array<string,array<int,array{term:string,clicks:int|float,conversions:int|float}>>  $byNiche
+     * @return array{per_niche:array<string,mixed>,niches:int,high_intent_wins:int,low_intent_wins:int,tier_value_is_niche_dependent:bool}
+     */
+    public function compareNiches(array $byNiche, int $minClicks = 30): array
+    {
+        $perNiche = [];
+        $withLift = 0;
+        $highWins = 0;
+        foreach ($byNiche as $niche => $rows) {
+            $res = $this->validate((array) $rows, $minClicks);
+            $perNiche[$niche] = $res;
+            if ($res['lift'] !== null) {
+                $withLift++;
+                if ($res['lift'] >= 1.0) {
+                    $highWins++;
+                }
+            }
+        }
+
+        return [
+            'per_niche' => $perNiche,
+            'niches' => $withLift,
+            'high_intent_wins' => $highWins,
+            'low_intent_wins' => $withLift - $highWins,
+            // uns com lift>1 e outros <1 ⇒ o melhor tier MUDA por nicho ⇒ não hard-codar, deixar o flywheel
+            'tier_value_is_niche_dependent' => $highWins > 0 && $highWins < $withLift,
+        ];
+    }
+
+    /**
      * @param  array<int,array{term:string,clicks:int|float,conversions:int|float}>  $rows
      * @return array{by_tier:array<string,array{clicks:int,conversions:int,cvr:float|null}>,high_cvr:float,low_cvr:float,lift:float|null,monotonic_pairs:int,total_pairs:int}
      */

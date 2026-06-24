@@ -26,6 +26,24 @@ class KeywordOsIntentValidatorTest extends TestCase
         $this->assertGreaterThan(1.0, $r['lift'], 'lift > 1 = a intenção classificada prediz a venda real');
     }
 
+    public function test_detects_niche_dependent_tier_value(): void
+    {
+        // weight_loss-like: mecanismo coined (T4) converte mais; symptom-like: problem-aware (T1) converte mais.
+        $r = (new KeywordOsIntentValidator)->compareNiches([
+            'weight_loss' => [
+                ['term' => 'gelatin weight loss trick', 'clicks' => 1000, 'conversions' => 50], // T4 wins
+                ['term' => 'what is gelatin', 'clicks' => 1000, 'conversions' => 5],
+            ],
+            'tinnitus' => [
+                ['term' => 'gelatin trick', 'clicks' => 1000, 'conversions' => 3],              // T4 weak
+                ['term' => 'ringing in my ears wont stop', 'clicks' => 1000, 'conversions' => 40], // T1 wins
+            ],
+        ]);
+
+        $this->assertSame(2, $r['niches']);
+        $this->assertTrue($r['tier_value_is_niche_dependent'], 'o tier-ouro muda por nicho → não hard-codar, deixar o flywheel');
+    }
+
     public function test_cvr_is_null_below_min_clicks(): void
     {
         $r = (new KeywordOsIntentValidator)->validate([
