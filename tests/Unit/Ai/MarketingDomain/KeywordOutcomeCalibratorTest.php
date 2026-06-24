@@ -53,6 +53,34 @@ class KeywordOutcomeCalibratorTest extends TestCase
         $this->assertLessThan(40, $flopped, 'o loser cai abaixo da qualificação');
     }
 
+    public function test_per_niche_fixes_cross_niche_distortion(): void
+    {
+        // niche de SINTOMA (CVR-base baixa) + niche de MECANISMO (CVR-base alta). Um winner do nicho de
+        // sintoma tem CVR baixa em absoluto, mas ALTA pro nicho dele — o baseline global o puniria errado.
+        $byNiche = [
+            'symptom' => [
+                ['term' => 'symptom winner', 'clicks' => 1000, 'conversions' => 8],  // 0.8% — winner do nicho
+                ['term' => 'symptom loser', 'clicks' => 1000, 'conversions' => 2],   // 0.2%
+            ],
+            'mechanism' => [
+                ['term' => 'mech winner', 'clicks' => 1000, 'conversions' => 60],    // 6%
+                ['term' => 'mech loser', 'clicks' => 1000, 'conversions' => 20],     // 2%
+            ],
+        ];
+        $allRows = array_merge(...array_values($byNiche));
+
+        $global = $this->c->calibrate($allRows);
+        $perNiche = $this->c->calibrateByNiche($byNiche);
+
+        // GLOBAL (errado): 0.8% < média global 2.25% → o winner do nicho de sintoma é down-weighted
+        $this->assertLessThan(1.0, $this->c->weightFor('symptom winner', $global));
+        // PER-NICHE (certo): 0.8% > baseline do nicho de sintoma (0.5%) → up-weighted como o winner que é
+        $this->assertGreaterThan(1.0, $this->c->weightFor('symptom winner', $perNiche));
+
+        $this->assertArrayHasKey('symptom', $perNiche['niches']);
+        $this->assertArrayHasKey('mechanism', $perNiche['niches']);
+    }
+
     public function test_low_sample_does_not_overfit(): void
     {
         // 1 lucky sale in 2 clicks must NOT explode to a huge weight (Bayesian shrinkage).

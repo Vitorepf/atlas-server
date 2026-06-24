@@ -43,6 +43,51 @@ class BlackinkKeywordOutcomeFeed
         return $this->calibrationFromRows($this->readOutcomes($topTerms));
     }
 
+    /**
+     * Pull READ-ONLY PER-NICHE: agrupa os outcomes pelo nicho (inferido do nome da campanha, já que
+     * campaigns.niche é NULL no Blackink) e calibra cada termo vs o baseline do SEU nicho — conserta a
+     * distorção cross-nicho que o ciclo 26 provou. Só SELECT; nunca escreve.
+     *
+     * @return array{weights:array<string,float>,niches:array<string,mixed>,terms:int}
+     */
+    public function pullByNiche(int $minClicks = 5): array
+    {
+        $db = DB::connection(self::CONNECTION);
+        $rows = $db->table('tracking_sessions as ts')
+            ->join('campaigns as c', 'c.id_campaign', '=', 'ts.campaign_id')
+            ->whereNotNull('ts.utm_term')->where('ts.utm_term', '<>', '')
+            ->select('c.name as cname', 'ts.utm_term', DB::raw('count(*) as clicks'), DB::raw('sum((ts.is_converted)::int) as conv'))
+            ->groupBy('c.name', 'ts.utm_term')->get();
+
+        $byNiche = [];
+        foreach ($rows as $r) {
+            $clicks = (int) $r->clicks;
+            if ($clicks < $minClicks) {
+                continue;
+            }
+            $byNiche[$this->inferNiche((string) $r->cname)][] = [
+                'term' => (string) $r->utm_term, 'clicks' => $clicks, 'conversions' => (int) $r->conv,
+            ];
+        }
+
+        return $this->calibrator->calibrateByNiche($byNiche);
+    }
+
+    /** Nicho heurístico pelo nome da campanha (campaigns.niche vem NULL no Blackink). Determinístico. */
+    private function inferNiche(string $name): string
+    {
+        $n = mb_strtolower($name);
+        return match (true) {
+            (bool) preg_match('/weight|gelatin|skinny|fat |lean|emagre|peso|jello/', $n) => 'weight_loss',
+            (bool) preg_match('/memor|brain|mente|cogni|alzhe|visao|vision|eye|olho/', $n) => 'memory_vision',
+            (bool) preg_match('/prosta/', $n) => 'prostate',
+            (bool) preg_match('/copd|lung|pulm|respir/', $n) => 'copd',
+            (bool) preg_match('/tinnitus|ear|ouvido|zumbido/', $n) => 'tinnitus',
+            (bool) preg_match('/sugar|glucos|diabet|a1c|blood/', $n) => 'blood_sugar',
+            default => 'other',
+        };
+    }
+
     /** @return array<int,array{term:string,clicks:int,conversions:int}> */
     private function readOutcomes(int $topTerms): array
     {

@@ -57,6 +57,30 @@ class KeywordOutcomeCalibrator
         return ['baseline_cvr' => round($baseline, 5), 'prior' => $prior, 'terms' => count($weights), 'weights' => $weights];
     }
 
+    /**
+     * Calibração PER-NICHE — corrige o buraco que o ciclo 26 provou: o tier-ouro (e a CVR-base) é
+     * niche-dependent. Com baseline global, um winner de weight_loss (CVR alta PRO nicho dele mas baixa
+     * vs a média global dominada por nichos de sintoma) seria down-weighted ERRADO. Aqui cada termo é
+     * pesado contra o baseline do PRÓPRIO nicho → o flywheel finalmente trata a dependência de nicho.
+     *
+     * @param  array<string,array<int,array{term:string,clicks:int|float,conversions:int|float}>>  $byNiche
+     * @return array{weights:array<string,float>,niches:array<string,array{baseline_cvr:float,terms:int}>,terms:int}
+     */
+    public function calibrateByNiche(array $byNiche, int $prior = 30): array
+    {
+        $weights = [];
+        $niches = [];
+        foreach ($byNiche as $niche => $rows) {
+            $cal = $this->calibrate((array) $rows, $prior); // baseline + pesos DESTE nicho
+            $niches[(string) $niche] = ['baseline_cvr' => $cal['baseline_cvr'], 'terms' => $cal['terms']];
+            foreach ($cal['weights'] as $term => $w) {
+                $weights[$term] = $w; // termo pesado vs o baseline do seu nicho
+            }
+        }
+
+        return ['weights' => $weights, 'niches' => $niches, 'terms' => count($weights)];
+    }
+
     /** Peso aprendido pro termo (1.0 neutro se nunca medido — o flywheel não inventa precisão). */
     public function weightFor(string $term, array $calibration): float
     {
