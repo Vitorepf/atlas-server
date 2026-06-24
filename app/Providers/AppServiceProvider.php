@@ -31,6 +31,7 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopBroaderRegressionGate;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopCrossFileConsumerGateService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMutationAdequacyGateService;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopOriginationDeliveryBridge;
 use App\Services\Ai\AutonomousEvolution\Recovery\AtlasLoopReceiptReplayer;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopSemanticImplementationCertifier;
 use App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract;
@@ -335,6 +336,11 @@ class AppServiceProvider extends ServiceProvider
                 // signals['failure_test_path']/['failure_command']. MUST be passed explicitly (Laravel
                 // does not auto-inject `?Type $x = null`).
                 rescue(fn () => $app->make(AtlasLoopBugReproductionLane::class), null, false),
+                null, // pipeline: preserve the refiller's lazy/default behavior.
+                null, // failureHandleHarvester: preserve the refiller's lazy/default behavior.
+                null, // complexTargetDecomposer: preserve the refiller's lazy/default behavior.
+                null, // researchTopicDeriver: preserve the refiller's lazy/default behavior.
+                rescue(fn () => $app->make(AtlasLoopOriginationDeliveryBridge::class), null, false),
             ),
         );
         // ITEM6 — SCENARIO FAN-OUT wiring (LOAD-BEARING). There is no explicit AtlasEvolutionScenarioExplorer
