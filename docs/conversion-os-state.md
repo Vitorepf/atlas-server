@@ -51,6 +51,8 @@ Régua atual (piso de maturidade): **85** / teto 100. — **VOLTA 2 COMPLETA** (
 
 - **Camada de honestidade do audit** ✅ — ciclo 47: a meta-lição operacionalizada NO código. `ConversionAuditor.audit()` agora retorna `signal_confidence` rotulando cada sinal: `structural_truth` (structural_flaws, smells = fatos) vs `heuristic_prior` (by_library, audience_score, top_missing = presença de vocabulário/reação simulada, NÃO conversão provada até o ledger calibrar ≥30 outcomes). Nota honesta no JSON + CLI audit. Impede o OS de apresentar prior de vocabulário como verdade — anti-Goodhart estrutural, impossível de fingir. 328/328 verdes.
 
+- **Guarda da única linha moral: ProofProvenanceAuditor** ✅ — ciclo 48: checklist estrutural (warnings-only, sem score → ungameable) que sinaliza os claims que EXIGEM prova real do produtor antes de subir: autoridade nomeada (Dr. X/Harvard), menção de mídia (as seen on/Forbes), depoimento atribuído com resultado, estatística citada. Não detecta fabricação (impossível determinístico) — lista o que precisa de lastro, guardando a linha "persuadir sim, fabricar prova não" + a sobrevivência da conta. Surfado como `requires_proof` (classe structural_truth) no Auditor. 334/334 verdes.
+
 ## Pontos pra próxima sessão (faculdade de ambição — exigem mais que continuar o reativo)
 - **Multi-persona injection por slot** — TL;DR pra mãe ocupada no topo, vs-Ozempic perto do CTA, prova específica embaixo, em vez de 1 fix em `ps`.
 - **LLM-driven persona refinement** — quando o operador plugar LLM, refinar `simulate()` por avatar real do produto (não só os 3 fixos hardcoded). Framework está pronto, contrato é o `PersonaSimulator`.
