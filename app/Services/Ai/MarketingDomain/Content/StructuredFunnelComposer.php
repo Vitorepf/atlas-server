@@ -52,6 +52,9 @@ class StructuredFunnelComposer
         $timeframe = $this->timeframe($asset);
         $timeLine = $timeframe !== '' ? "You can start seeing the change in {$timeframe}." : '';
         $easeLine = $this->easeClaim($asset);
+        // Eixo 7: plant REAL concrete proof from the asset when it has any; else keep the producer slot.
+        $proof = $this->proof($asset);
+        $proofLine = $proof !== '' ? $proof : '[PROOF SLOT: o caso/depoimento/estudo mais forte da oferta]';
         // Schwartz market sophistication picks the opener: an exhausted market (level 5) is deaf to
         // claims/mechanism and only responds to IDENTIFICATION; earlier levels open with curiosity.
         $exhausted = (new MarketSophisticationRouter)->strategy((string) $asset->sophistication_level)['strategy'] === 'identify_and_experience';
@@ -78,7 +81,7 @@ class StructuredFunnelComposer
             "Imagine {$wound['dream']}.",                                                  // future pacing (niche dream / Value Eq: dream outcome)
             $timeLine,                                                                      // Value Eq: time delay ↓ — ONLY if the asset gives a real timeframe
             $easeLine,                                                                      // Value Eq: effort ↓ — ONLY if the asset names a removed effort
-            '[PROOF SLOT: o caso/depoimento/estudo mais forte da oferta]',                  // proof slot — producer fills with REAL proof (does NOT auto-cover likelihood)
+            $proofLine,                                                                     // REAL concrete proof from the asset, or the producer slot (honest gap) if none
             'Watch the free presentation now — spots are limited.',                         // single CTA (end) + scarcity
         ])));
 
@@ -121,6 +124,8 @@ class StructuredFunnelComposer
         $meansBody = trim("Imagine {$wound['dream']}."
             .($timeframe !== '' ? " You can start seeing the change in {$timeframe}." : '')
             .($this->easeClaim($asset) !== '' ? ' '.$this->easeClaim($asset) : ''));
+        $proof = $this->proof($asset);
+        $proofBody = $proof !== '' ? $proof : '[PROOF SLOT: o caso/depoimento/estudo mais forte da oferta]';
 
         return [
             'kicker' => rtrim($avatar, ':'),
@@ -135,7 +140,7 @@ class StructuredFunnelComposer
                 // After the reveal: dream outcome (always) + time/effort levers ONLY when the asset gives
                 // real substance (no fixed filler — a brutal panel proved filler just games the auditor).
                 ['heading' => 'What it means for you', 'body' => $meansBody],
-                ['heading' => 'The proof', 'body' => '[PROOF SLOT: o caso/depoimento/estudo mais forte da oferta]'],
+                ['heading' => 'The proof', 'body' => $proofBody],
             ],
             'cta_blocks' => [
                 ['label' => 'Watch the free presentation', 'sub' => 'See the full method in action.'],
@@ -220,6 +225,44 @@ class StructuredFunnelComposer
         foreach ($pool as $s) {
             if (preg_match('/\b\d+\s*(?:days?|weeks?|months?|hours?|minutes?|dias?|semanas?|meses|m[eê]s)\b/iu', $s, $m)) {
                 return trim($m[0]);
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * The strongest CONCRETE proof the asset actually carries (Eixo 7), or '' if none. Reuses the
+     * ProofSubstanceAuditor as the oracle so the composer plants only proof the auditor would certify as
+     * concrete — never fabricated, never a vague tell. '' → the page keeps the producer PROOF SLOT (honest gap).
+     */
+    private function proof(AiMarketingVslAsset $asset): string
+    {
+        $oracle = new ProofSubstanceAuditor;
+        $metrics = is_array($asset->metrics) ? $asset->metrics : [];
+        $offer = is_array($asset->offer) ? $asset->offer : [];
+        $candidates = [];
+        foreach ((array) $asset->claims as $c) {
+            if (is_scalar($c)) {
+                $candidates[] = (string) $c;
+            }
+        }
+        foreach (['result_claims', 'proof', 'testimonials', 'authority'] as $k) {
+            foreach ((array) ($metrics[$k] ?? []) as $c) {
+                if (is_scalar($c)) {
+                    $candidates[] = (string) $c;
+                }
+            }
+        }
+        foreach (['proof', 'authority', 'guarantee'] as $k) {
+            if (is_scalar($offer[$k] ?? null)) {
+                $candidates[] = (string) $offer[$k];
+            }
+        }
+        foreach ($candidates as $c) {
+            $c = trim($c);
+            if ($c !== '' && $oracle->audit($c)['has_concrete']) {
+                return rtrim($c, '.').'.';
             }
         }
 

@@ -26,7 +26,8 @@ class ProofSubstanceAuditor
         'specific_count' => '/\b\d{2,}[\d,.]*\s*(?:women|men|people|persons|students|customers|clients|users|patients|members|families|mulheres|homens|pessoas|alunos|clientes|pacientes|fam[íi]lias)\b/u',
         'ratio_or_percent' => '/\b\d+\s*(?:out of|in|de|em)\s*(?:cada\s*)?\d+\b|\b\d{1,3}\s?%/u',
         'mechanism_of_action' => '/\b(?:because it|works by|it works because|triggers|activates|switches on|blocks|targets the|porque|funciona ao|ativa|bloqueia|aciona)\b/u',
-        'demonstration' => '/\b(?:watch (?:the|this|how|me)|see (?:the|it|for yourself)|in this video|on camera|live demo|veja (?:o|como)|assista)\b/u',
+        // Proof-by-showing — NOT the generic "watch the presentation" CTA (which is on every funnel page).
+        'demonstration' => '/\b(?:before and after|on camera|in this video|live demo|watch it work|watch me do|see it work|see for yourself|antes e depois|na c[âa]mera|veja funcionar)\b/u',
         'dated_result' => '/\b(?:in|by|within|em|at[ée])\s+(?:\d+|the\s+\w+)\s+(?:days?|weeks?|months?|dias?|semanas?|meses)\b/u',
         'guarantee_terms' => '/\b\d+[- ]?day\b[^.]{0,40}\b(?:guarantee|money[- ]?back|refund|garantia|reembolso)\b/u',
     ];

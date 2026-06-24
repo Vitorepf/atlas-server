@@ -51,6 +51,14 @@ class ProofSubstanceAuditorTest extends TestCase
         $this->assertContains('specific_count', $r['concrete']);
     }
 
+    public function test_the_watch_presentation_cta_is_not_proof(): void
+    {
+        // Every funnel page ends with "Watch the free presentation" — that CTA must NOT register as
+        // proof-by-demonstration (caught dogfooding the composer).
+        $r = (new ProofSubstanceAuditor)->audit('Watch the free presentation now — spots are limited.');
+        $this->assertFalse($r['has_concrete']);
+    }
+
     public function test_mixed_keeps_concrete_and_still_flags_the_vague(): void
     {
         $r = (new ProofSubstanceAuditor)->audit('Studies show it helps, but Dr. Lee tracked 200 men and 80% kept it off.');

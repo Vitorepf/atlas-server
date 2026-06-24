@@ -103,4 +103,21 @@ class StructuredFunnelComposerTest extends TestCase
         $gapKeys = array_column($ve->audit($thin['page'].' '.$thin['checkout'])['gaps'], 'key');
         $this->assertContains('perceived_likelihood', $gapKeys, 'an empty proof slot must NOT count as proof');
     }
+
+    public function test_proof_lever_is_planted_only_from_real_asset_proof(): void
+    {
+        // Eixo 7 end-to-end: a concrete claim on the asset → the page carries CONCRETE proof; a thin
+        // asset → the page carries only the producer slot (no fabricated proof), which is NOT concrete.
+        $composer = new StructuredFunnelComposer;
+        $proof = new \App\Services\Ai\MarketingDomain\Content\ProofSubstanceAuditor;
+
+        $rich = $composer->compose($this->asset([
+            'niche' => 'weight loss', 'core_promise' => 'lose the weight',
+            'claims' => ['Dr. Lee tracked 312 women; 9 out of 10 dropped a size in 6 weeks'],
+        ]));
+        $this->assertTrue($proof->audit($rich['page'])['has_concrete'], 'real asset proof must reach the page');
+
+        $thin = $composer->compose($this->asset(['niche' => 'weight loss', 'core_promise' => 'lose the weight']));
+        $this->assertFalse($proof->audit($thin['page'])['has_concrete'], 'no asset proof → no fabricated proof, only the slot');
+    }
 }
