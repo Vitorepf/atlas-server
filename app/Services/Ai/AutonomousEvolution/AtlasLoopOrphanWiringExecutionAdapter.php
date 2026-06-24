@@ -68,8 +68,16 @@ class AtlasLoopOrphanWiringExecutionAdapter
         $this->git($workspace, ['add', '-A']);
         $this->git($workspace, ['-c', 'user.email=loop@atlas', '-c', 'user.name=loop', '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'orphan-wiring: freeze earned-RED test']);
 
-        // 4. ENGINE authors the wiring (the only candidate diff).
+        // 4. ENGINE authors the wiring (the only candidate diff). With the engine now authoring N wiring files
+        //    (not just one), $authorWiring() may write SEVERAL files into the working tree.
         $authorWiring();
+
+        // 4b. STAGE every authored wiring file (1 or N) into the index BEFORE the judge runs. A Guard 4e shape
+        //     that inspects the INDEX (rather than only HEAD-vs-working-tree) would otherwise miss the extra
+        //     un-staged files of a multi-file wiring. This idempotent `git add -A` guarantees ALL authored files
+        //     are visible to the cert. It does NOT commit (the downstream handler still diffs staged+working),
+        //     and it leaves the step-3 frozen-test commit untouched.
+        $this->git($workspace, ['add', '-A']);
 
         // 5. CERTIFY — Guard 4e (wiredEarned ∧ orphanMethodKills) is author-blind.
         $verdict = $judge->score($workspace, $acceptance);
