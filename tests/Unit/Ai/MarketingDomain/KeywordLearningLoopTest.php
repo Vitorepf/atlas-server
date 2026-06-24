@@ -67,4 +67,25 @@ class KeywordLearningLoopTest extends TestCase
         $b = $idx->score('triple hormone drops', 'mechanism_trick', ['triple hormone drops'], 'phrase', [], ['triple'], ['proven_lift' => []]);
         $this->assertSame($a['score'], $b['score']);
     }
+
+    public function test_per_niche_family_lift_separates_what_global_blends(): void
+    {
+        // mesma família 'mechanism_trick' arrasa num nicho e morre noutro — o global mistura, o per-nicho não.
+        $byNiche = [
+            'weight_loss' => [
+                ['keyword' => 'gelatin trick', 'family' => 'mechanism_trick', 'cost' => 100, 'conversions' => 6, 'revenue' => 600],
+            ],
+            'tinnitus' => [
+                ['keyword' => 'ear ringing trick', 'family' => 'mechanism_trick', 'cost' => 100, 'conversions' => 0, 'revenue' => 0],
+            ],
+        ];
+        $loop = new KeywordLearningLoop;
+        $perNiche = $loop->calibrateByNiche($byNiche, ['target_roas' => 1.0]);
+
+        $wl = $perNiche['proven_lift_by_niche']['weight_loss']['family:mechanism_trick'];
+        $tn = $perNiche['proven_lift_by_niche']['tinnitus']['family:mechanism_trick'];
+        $this->assertGreaterThan($tn, $wl, 'a família vencedora no nicho que vende não é arrastada pelo nicho que não vende');
+        $this->assertGreaterThan(1.0, $wl);
+        $this->assertLessThan(1.0, $tn);
+    }
 }

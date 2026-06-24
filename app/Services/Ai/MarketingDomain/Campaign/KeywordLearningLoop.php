@@ -90,6 +90,29 @@ class KeywordLearningLoop
     }
 
     /**
+     * Calibração PER-NICHE (ciclo 29) — conserta a MESMA armadilha do flywheel (ciclo 28): o family-lift
+     * de `calibrate()` mistura nichos (toda nicho tem 'mechanism_trick'/'slogan'), então uma família que
+     * arrasa em weight_loss e morre em tinnitus vira um lift médio enganoso. Aqui cada nicho gera seu
+     * proven_lift, e o family-lift reflete o ROAS DAQUELE nicho. (O root-lift de calibrate já era niche-safe:
+     * root é niche-specific.) Determinístico.
+     *
+     * @param  array<string,array<int,array<string,mixed>>>  $byNiche
+     * @return array{by_niche:array<string,mixed>,proven_lift_by_niche:array<string,array<string,float>>}
+     */
+    public function calibrateByNiche(array $byNiche, array $opts = []): array
+    {
+        $byNicheResult = [];
+        $liftByNiche = [];
+        foreach ($byNiche as $niche => $outcomes) {
+            $res = $this->calibrate((array) $outcomes, $opts);
+            $byNicheResult[(string) $niche] = $res;
+            $liftByNiche[(string) $niche] = $res['proven_lift'];
+        }
+
+        return ['by_niche' => $byNicheResult, 'proven_lift_by_niche' => $liftByNiche];
+    }
+
+    /**
      * @param  array<string,array<string,float|int>>  $acc
      */
     private function acc(array &$acc, string $key, float $cost, float $rev, int $conv): void
