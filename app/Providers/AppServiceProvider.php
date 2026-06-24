@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Console\Commands\AtlasLoopMigrateCommand;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use App\Services\Ai\AgentGovernance\FleetDriver;
 use App\Services\Ai\AgentGovernance\SystemFleetDriver;
@@ -1058,6 +1059,12 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         JsonResource::withoutWrapping();
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                AtlasLoopMigrateCommand::class,
+            ]);
+        }
 
         // AP-819 Obra B — overlay da Harness Surface: reaplica overrides de
         // harness_config APROVADOS (allowlist+bounds revalidados a cada boot;
