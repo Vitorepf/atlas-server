@@ -67,6 +67,41 @@ class StructuredFunnelComposer
         return ['ad' => $ad, 'bridge' => $bridge, 'page' => $page, 'checkout' => $checkout];
     }
 
+    /**
+     * Emit the PAGE stage as a bridge-structured array (the slot schema the AggressionAmplifier and the
+     * BridgePageHtmlRenderer consume), so the generated scaffold plugs straight into the polish+render
+     * pipeline. Built so that when flattened it stays structurally sound: the mechanism REVEAL sits in
+     * the LAST body section (late in the flatten order), and there is a SINGLE cta block — so the
+     * watch-through and decision-clarity detectors see no premature reveal / CTA and no choice overload.
+     *
+     * @return array<string,mixed>
+     */
+    public function composeBridge(AiMarketingVslAsset $asset): array
+    {
+        $promise = $this->firstNonEmpty([(string) $asset->core_promise, (string) $asset->big_idea, 'a real change']);
+        $mechanism = $this->firstNonEmpty([(string) $asset->mechanism_name, (string) $asset->solution_mechanism, 'the method']);
+        $avatar = $this->avatarCallout($asset);
+        $hero = $this->heroClaim($asset);
+        $heroLine = $hero !== '' ? " — {$hero}" : '';
+
+        return [
+            'kicker' => rtrim($avatar, ':'),
+            'headline' => "Have you wondered why {$promise} stays out of reach{$heroLine}?",
+            'subheadline' => "{$promise}{$heroLine} is closer than the industry wants you to believe.",
+            'lead_paragraph' => 'Most advice has it backwards, and it is not your fault — the real cause stayed hidden in plain sight.',
+            // NOTE: mechanism_tease left empty on purpose — it flattens EARLY; a reveal there would leak.
+            'body_sections' => [
+                ['heading' => 'What everyone got wrong', 'body' => 'For a long time the wrong thing got all the attention. It gets clearer once you see what is actually happening.'],
+                ['heading' => 'But first', 'body' => 'Before the how, understand the one shift that changes everything — wait until you see it.'],
+                ['heading' => 'The mechanism', 'body' => "Here is how {$mechanism} finally makes {$promise}{$heroLine} work."], // REVEAL, late
+                ['heading' => 'The proof', 'body' => '[PROVA REAL DO PRODUTOR: caso/estudo verificável — nunca fabricar]'],
+            ],
+            'cta_blocks' => [
+                ['label' => 'Watch the free presentation', 'sub' => 'See the full method in action.'],
+            ],
+        ];
+    }
+
     private function avatarCallout(AiMarketingVslAsset $asset): string
     {
         $avatar = is_array($asset->avatar) ? $asset->avatar : [];

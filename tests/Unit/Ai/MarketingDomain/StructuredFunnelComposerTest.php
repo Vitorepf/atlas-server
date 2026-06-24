@@ -50,6 +50,32 @@ class StructuredFunnelComposerTest extends TestCase
         }
     }
 
+    public function test_compose_bridge_is_structurally_sound_and_survives_polish(): void
+    {
+        $composer = new StructuredFunnelComposer;
+        $leaks = new \App\Services\Ai\MarketingDomain\Content\WatchThroughLeakDetector;
+        $decision = new \App\Services\Ai\MarketingDomain\Content\DecisionClarityAuditor;
+        $asset = $this->asset(['niche' => 'weight loss', 'core_promise' => 'lose belly fat',
+            'mechanism_name' => 'the morning ritual', 'metrics' => ['result_claims' => ['lost 30 lbs']]]);
+
+        $bridge = $composer->composeBridge($asset);
+        $flat = trim(implode("\n", array_filter([
+            (string) $bridge['headline'], (string) $bridge['kicker'], (string) $bridge['subheadline'],
+            (string) $bridge['lead_paragraph'],
+            implode(' ', array_map(fn ($s) => $s['heading'].' '.$s['body'], $bridge['body_sections'])),
+            implode(' ', array_map(fn ($c) => $c['label'].' '.$c['sub'], $bridge['cta_blocks'])),
+        ])));
+
+        // Generated scaffold is structurally clean: reveal held late, single CTA, no premature leak.
+        $this->assertSame([], $leaks->detect($flat)['flaws']);
+        $this->assertSame([], $decision->audit($flat)['flaws']);
+
+        // And the structure-safe amplifier polishes it WITHOUT introducing a structural defect.
+        $out = (new \App\Services\Ai\MarketingDomain\Content\AggressionAmplifier)
+            ->amplify($bridge, $asset, ['until' => 'killer', 'max_iterations' => 3]);
+        $this->assertSame(0, $out['structural_defects']);
+    }
+
     public function test_generated_funnel_fabricates_no_proof(): void
     {
         $composer = new StructuredFunnelComposer;
