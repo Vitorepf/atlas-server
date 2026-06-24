@@ -245,6 +245,8 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(SkillBundleStore::class);
         $this->app->singleton(AtlasLoopReceiptReplayer::class);
+        // §W40-S6 substrate-receipt ledger — single shared append-only journal across supervisor + keepalive.
+        $this->app->singleton(\App\Services\Ai\AutonomousEvolution\AtlasLoopSubstrateReceiptLedger::class);
         // Net-diff cert ledger — single shared instance so verify/history see the same JSONL spool.
         $this->app->singleton(AtlasLoopNetDiffCertReceiptLedger::class);
         // Cycle-receipt chain — singletons so the CLI + any callers share one ledger/signer pair.

@@ -50,8 +50,29 @@ class AtlasLoopKeepaliveCommand extends Command
         // default-constructed at use. ADVISORY-ONLY (writes a snapshot, never deletes/changes config).
         private ?AtlasLoopWorkspaceFloorAutotuner $floorAutotuner = null,
         private ?AtlasLoopFleetSizeAutotuner $fleetSizeAutotuner = null,
+        private ?\App\Services\Ai\AutonomousEvolution\AtlasLoopSubstrateReceiptLedger $substrateLedger = null,
     ) {
         parent::__construct();
+    }
+
+    /**
+     * Flag-gated per-tick substrate-sovereignty FACT emission. Default OFF ⇒ byte-identical no-op.
+     *
+     * @param  array<string,mixed>  $fields
+     */
+    private function emitSubstrateReceipt(array $fields): void
+    {
+        if ($this->substrateLedger === null) {
+            return;
+        }
+        if (! (bool) config('atlas.loop.substrate_receipt_ledger_enabled', false)) {
+            return;
+        }
+        try {
+            $this->substrateLedger->append($fields);
+        } catch (\Throwable) {
+            // ledger failure must NEVER block keepalive
+        }
     }
 
     private function desiredStore(): AtlasAgentDesiredStateStore
@@ -93,6 +114,8 @@ class AtlasLoopKeepaliveCommand extends Command
         $this->emitArmCheckAdvisory();
         $this->emitWorkspaceFloorAdvisory();
         $this->emitFleetSizeAdvisory();
+        // §W40-S6 SUBSTRATE-RECEIPT-LEDGER — flag-gated, default OFF, byte-identical no-op when off.
+        $this->emitSubstrateReceipt(['event' => 'keepalive_tick']);
 
         $staleMinutes = max(2, (int) $this->option('stale-minutes'));
 
