@@ -291,6 +291,41 @@ final class AgentControlPlaneClaimLeaseRepository
     }
 
     /**
+     * Expire active leases and return the task packet ids that became reclaimable in this call.
+     *
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function reclaimExpiredLeases(array $options = []): array
+    {
+        return $this->withLock(function () use ($options): array {
+            $expirations = $this->collectExpirations(CarbonImmutable::now()->getTimestamp());
+            $tasks = [];
+            $seen = [];
+            foreach ($expirations as $expiration) {
+                $taskPacketId = (string) ($expiration['task_packet_id'] ?? '');
+                if ($taskPacketId === '' || isset($seen[$taskPacketId])) {
+                    continue;
+                }
+                $seen[$taskPacketId] = true;
+                $tasks[] = $taskPacketId;
+            }
+
+            return [
+                'schema_version' => self::SCHEMA_VERSION,
+                'status' => $expirations === [] ? 'no_expirations' : 'ok',
+                'expired_count' => count($expirations),
+                'expired_lease_ids' => array_values(array_map(static fn (array $expiration): string => (string) ($expiration['lease_id'] ?? ''), $expirations)),
+                'expired_leases' => $expirations,
+                'reclaimable_tasks' => $tasks,
+                'runtime_execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'ledger_write_allowed' => false,
+            ];
+        });
+    }
+
+    /**
      * @return array<string, mixed>|null
      */
     public function get(string $leaseId): ?array
@@ -503,10 +538,31 @@ final class AgentControlPlaneClaimLeaseRepository
      */
     private function expireLeasesInternal(array $options = []): array
     {
-        $now = CarbonImmutable::now()->getTimestamp();
+        $expirations = $this->collectExpirations(CarbonImmutable::now()->getTimestamp());
+        $expiredIds = array_values(array_map(static fn (array $expiration): string => (string) ($expiration['lease_id'] ?? ''), $expirations));
+
+        return [
+            'schema_version' => self::SCHEMA_VERSION,
+            'status' => $expiredIds === [] ? 'no_expirations' : 'expired',
+            'expired_count' => count($expiredIds),
+            'expired_lease_ids' => $expiredIds,
+            'expired_leases' => $expirations,
+            'runtime_execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+        ];
+    }
+
+    /**
+     * Transition only leases that expire during THIS call and return their task-rich reclaim facts.
+     *
+     * @return list<array{lease_id:string, task_packet_id:string, agent_id:string, expires_at_unix:int}>
+     */
+    private function collectExpirations(int $now): array
+    {
         $registry = $this->loadRegistry();
         $entries = (array) ($registry['entries'] ?? []);
-        $expiredIds = [];
+        $expirations = [];
 
         foreach ($entries as $i => $entry) {
             if ((string) ($entry['lease_status'] ?? '') !== self::LEASE_STATUS_ACTIVE) {
@@ -519,7 +575,12 @@ final class AgentControlPlaneClaimLeaseRepository
                 $entries[$i]['lease_status'] = self::LEASE_STATUS_EXPIRED;
                 $entries[$i]['orphaned_at'] = CarbonImmutable::now()->toIso8601String();
                 $entries[$i]['orphaned_reason'] = 'lease_file_missing';
-                $expiredIds[] = $leaseId;
+                $expirations[] = [
+                    'lease_id' => $leaseId,
+                    'task_packet_id' => (string) ($entry['task_packet_id'] ?? ''),
+                    'agent_id' => (string) ($entry['agent_id'] ?? ''),
+                    'expires_at_unix' => $expiresAt,
+                ];
 
                 continue;
             }
@@ -535,6 +596,7 @@ final class AgentControlPlaneClaimLeaseRepository
                     'task_packet_id' => (string) $lease['task_packet_id'],
                     'agent_id' => (string) $lease['agent_id'],
                     'lease_id' => $leaseId,
+                    'reclaim_eligible' => true,
                 ]);
                 $lease['receipts'][] = $receipt;
                 $lease['history'][] = [
@@ -544,22 +606,19 @@ final class AgentControlPlaneClaimLeaseRepository
                 ];
                 $this->writeLeaseFile($lease);
                 $entries[$i]['lease_status'] = self::LEASE_STATUS_EXPIRED;
-                $expiredIds[] = $leaseId;
+                $expirations[] = [
+                    'lease_id' => $leaseId,
+                    'task_packet_id' => (string) $lease['task_packet_id'],
+                    'agent_id' => (string) $lease['agent_id'],
+                    'expires_at_unix' => $expiresAt,
+                ];
             }
         }
 
         $registry['entries'] = $entries;
         $this->saveRegistry($registry);
 
-        return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'status' => $expiredIds === [] ? 'no_expirations' : 'expired',
-            'expired_count' => count($expiredIds),
-            'expired_lease_ids' => $expiredIds,
-            'runtime_execution_allowed' => false,
-            'dispatch_allowed' => false,
-            'ledger_write_allowed' => false,
-        ];
+        return $expirations;
     }
 
     private function hasActiveLeaseFor(string $taskPacketId): bool
