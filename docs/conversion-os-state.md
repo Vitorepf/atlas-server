@@ -92,6 +92,8 @@ Régua atual (piso de maturidade): **85** / teto 100. — **VOLTA 2 COMPLETA** (
 
 - **Checkout recapitula valor antes do preço + limite honesto de congruência** ✅ — o checkout abre recapitulando mecanismo+sonho antes do preço (técnica de fechamento DR real: reduz o salto problema→preço). Realização honesta ANTI-GOODHART: o hop page→checkout é intrinsecamente divergente (linguagem de OFERTA ≠ linguagem de PROBLEMA); forçar o score a 80 seria enfiar palavra-de-problema na oferta = copy PIOR. Verdict "sound" + recap legítimo = ponto certo de parar; NÃO perseguir esse número. 407/407 verdes.
 
+- **Lead de elite 3-beat cross-nicho (generalização do LeadForge)** ✅ — não-health saiu de 1 linha pra estrutura de elite de 3 beats (identidade+cena → tentativas-falhas+blame-shift ao inimigo → mecanismo+open-loop), o beat de tentativas-falhas ("budgeting apps, side hustles" / "the long talks, giving them space") que faltava. Health continua delegando ao LeadForge provado (anti-dup). Finanças/relacionamento agora têm lead no nível rico, não só template. 0 leak watch-through. 407/407.
+
 ## Pontos pra próxima sessão (faculdade de ambição)
 - **Multi-persona injection por slot** — TL;DR pra mãe ocupada no topo, vs-Ozempic perto do CTA, prova específica embaixo, em vez de 1 fix em `ps`.
 - **LLM-driven persona refinement** — quando o operador plugar LLM, refinar `simulate()` por avatar real do produto (não só os 3 fixos hardcoded). Framework está pronto, contrato é o `PersonaSimulator`.

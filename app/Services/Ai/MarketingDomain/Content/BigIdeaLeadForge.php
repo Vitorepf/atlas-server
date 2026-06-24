@@ -41,6 +41,22 @@ class BigIdeaLeadForge
         'generic' => 'the thing you want keeps slipping further away no matter what you try',
     ];
 
+    /** Niche family → the failed attempts the reader has already burned through (identification beat). */
+    private const FAILED = [
+        'weight' => 'every diet and one more supplement',
+        'health' => 'every pill, every specialist, every protocol',
+        'finance' => 'the budgeting apps, the side hustles, and saving what little was left',
+        'money' => 'the budgeting apps, the side hustles, and saving what little was left',
+        'relationship' => 'the long talks, the giving them space, the trying harder',
+        'generic' => 'everything the experts told you to try',
+    ];
+
+    /** Niche family → the false self-blame the lead removes. */
+    private const BLAME = [
+        'weight' => 'willpower', 'health' => 'you not trying hard enough', 'finance' => 'discipline',
+        'money' => 'discipline', 'relationship' => 'not loving them enough', 'generic' => 'effort',
+    ];
+
     /** Niche family → the common enemy a lead rallies against. */
     private const ENEMY = [
         'weight' => 'the diet industry',
@@ -83,17 +99,30 @@ class BigIdeaLeadForge
 
         // Reuse, not duplicate: for the weight/health family, the proven LeadForge is the elite headline
         // lead. Use it as `best`; keep the routed archetypes as cross-niche variants.
-        $best = $leads[0]['text'] ?? null;
-        $bestArch = $leads[0]['archetype'] ?? null;
         if (in_array($family, ['weight', 'health'], true)) {
+            // Health/weight: reuse the proven elite LeadForge (no duplication).
             $elite = trim((new LeadForge)->forge($asset));
-            if ($elite !== '') {
-                $best = $elite;
-                $bestArch = 'leadforge_elite';
-            }
+            $best = $elite !== '' ? $elite : ($leads[0]['text'] ?? null);
+            $bestArch = $elite !== '' ? 'leadforge_elite' : ($leads[0]['archetype'] ?? null);
+        } else {
+            // Other niches: a 3-beat elite lead (identity+scene → failed attempts + blame-shift to enemy →
+            // mechanism plant + open loop), bringing them to LeadForge-grade richness cross-niche.
+            $best = $this->eliteLead($who, $scene, $enemy, $family, $close);
+            $bestArch = 'elite_3beat';
         }
 
         return ['leads' => $leads, 'best' => $best, 'best_archetype' => $bestArch];
+    }
+
+    /** A 3-beat elite lead (LeadForge-grade) for non-health niches: identity+scene → failed+enemy → loop. */
+    private function eliteLead(string $who, string $scene, string $enemy, string $family, string $close): string
+    {
+        $failed = self::FAILED[$family] ?? self::FAILED['generic'];
+        $blame = self::BLAME[$family] ?? self::BLAME['generic'];
+        $p1 = "If you are {$who} and {$scene}, you are not imagining it — and it is not your fault.";
+        $p2 = "You have tried {$failed} and still nothing changed. What if the real reason was never {$blame}? What {$enemy} will not tell you is the one thing that actually changes it.";
+
+        return $this->tidy($p1)."\n\n".$this->tidy($p2)."\n\n".$this->tidy($close);
     }
 
     /**

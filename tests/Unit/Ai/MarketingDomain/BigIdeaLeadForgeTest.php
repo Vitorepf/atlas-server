@@ -16,10 +16,13 @@ class BigIdeaLeadForgeTest extends TestCase
     public function test_routes_archetype_to_awareness(): void
     {
         $f = new BigIdeaLeadForge;
-        // The routed archetype leads the variants list (weight family's `best` delegates to LeadForge).
+        // The routed archetype leads the variants list; the shipped `best` is the elite multi-beat lead
+        // (3-beat for non-health, LeadForge for health) — so assert routing on the variants.
         $this->assertSame('story', $f->forge($this->asset('weight loss', 'unaware'))['leads'][0]['archetype']);
-        $this->assertSame('problem_agitate', $f->forge($this->asset('finance', 'problem_aware'))['best_archetype']);
-        $this->assertSame('proclamation', $f->forge($this->asset('relationship', 'most_aware'))['best_archetype']);
+        $this->assertSame('problem_agitate', $f->forge($this->asset('finance', 'problem_aware'))['leads'][0]['archetype']);
+        $this->assertSame('proclamation', $f->forge($this->asset('relationship', 'most_aware'))['leads'][0]['archetype']);
+        // Non-health ships the 3-beat elite lead.
+        $this->assertSame('elite_3beat', $f->forge($this->asset('finance', 'problem_aware'))['best_archetype']);
     }
 
     public function test_weight_family_reuses_the_proven_leadforge_no_duplication(): void
