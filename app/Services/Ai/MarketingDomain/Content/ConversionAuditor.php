@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\MarketingDomain\Content;
 
+use App\Services\Ai\MarketingDomain\Knowledge\AggressiveConversionTacticsLibrary;
 use App\Services\Ai\MarketingDomain\Knowledge\AngleBigIdeaLibrary;
 use App\Services\Ai\MarketingDomain\Knowledge\AwarenessSophisticationLibrary;
 use App\Services\Ai\MarketingDomain\Knowledge\CognitiveBiasLibrary;
@@ -100,7 +101,10 @@ class ConversionAuditor
             'audience_score' => round($this->personas->audienceScore($copy, $niche) * 100),
             'structural_flaws' => $this->leaks->detect($copy)['flaws'],
             'decision_flaws' => $this->decision->audit($copy)['flaws'],
-            'smells' => $smellReport['smells'],
+            // Aggression: how hard the page pushes the aggressive playbook (manufactured scarcity, fear,
+            // social/authority/value/identity pressure). A CAPABILITY signal — spy competitors + a deploy
+            // target — NOT a guard. No brake; what ships is the operator's call.
+            'aggression' => $this->scorer->score(new AggressiveConversionTacticsLibrary, $copy),
             'smells_count' => $smellReport['n'],
             // Confidence layer (cycles 43-45 meta-lesson): never let a vocabulary prior pass as proven
             // conversion. Each signal is labeled by how much it can be trusted.

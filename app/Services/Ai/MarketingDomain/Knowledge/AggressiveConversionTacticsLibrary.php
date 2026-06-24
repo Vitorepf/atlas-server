@@ -1,0 +1,97 @@
+<?php
+
+namespace App\Services\Ai\MarketingDomain\Knowledge;
+
+/**
+ * AggressiveConversionTacticsLibrary — the dirty-playbook the Atlas must MASTER, not be shielded from.
+ *
+ * The operator's rule (pétreo): the Atlas is the BRAIN with NO limit. It must UNDERSTAND perfectly and
+ * be CAPABLE of building the most aggressive — including dishonest/"problematic" — conversion mechanics
+ * that elite operators actually use to sell, because whoever dictates conversion has to own the whole
+ * game, the clean side and the dirty side. Whether any of this ships (white/compliant) is the operator's
+ * downstream call, never a brake in the engine. This is a CAPABILITY (detect in competitor swipe files +
+ * deploy), not a guard.
+ *
+ * Canonical PatternLibrary format (pattern = human trigger + the lever elite copy pulls + detection
+ * markers). Scored by the single PatternLibraryScorer like every other library. Provider-free.
+ */
+class AggressiveConversionTacticsLibrary implements PatternLibrary
+{
+    public function name(): string
+    {
+        return 'aggressive_tactics';
+    }
+
+    public function categories(): array
+    {
+        return ['scarcity_pressure', 'fear_pressure', 'social_pressure', 'authority_pressure', 'value_pressure', 'identity_pressure'];
+    }
+
+    /**
+     * @return array<int,array{key:string,name:string,category:string,weight:int,trigger:string,lever:string,markers:array<int,string>}>
+     */
+    public function all(): array
+    {
+        return [
+            // ── SCARCITY / URGENCY pressure ───────────────────────────────────────────────────────
+            ['key' => 'manufactured_scarcity', 'name' => 'Escassez manufaturada', 'category' => 'scarcity_pressure', 'weight' => 5,
+                'trigger' => 'Medo de perder (FOMO) — o cérebro superavalia o que pode acabar.',
+                'lever' => 'Quantidade limitada explícita e visível ("só 100 vagas", estoque que cai); a escassez não precisa ser natural, é construída.',
+                'markers' => ['only', 'apenas', 'somente', 'restam', 'spots left', 'vagas', 'limited', 'limitad', 'while supplies last', 'enquanto durar', 'last chance', 'última chance', 'sold out', 'esgotad']],
+            ['key' => 'false_deadline', 'name' => 'Prazo / contagem regressiva', 'category' => 'scarcity_pressure', 'weight' => 5,
+                'trigger' => 'Deadline força decisão agora — adiar vira perder.',
+                'lever' => 'Contador regressivo, "fecha hoje à meia-noite", carrinho que expira; o relógio é a alavanca, evergreen pode usar deadline rotativo por visitante.',
+                'markers' => ['ends tonight', 'termina hoje', 'midnight', 'meia-noite', 'expires', 'expira', 'countdown', 'timer', 'cart closes', 'doors close', 'enrollment closes', 'last day', 'último dia', '24 hours', '24 horas']],
+
+            // ── FEAR pressure ─────────────────────────────────────────────────────────────────────
+            ['key' => 'fear_amplification', 'name' => 'Amplificação de medo', 'category' => 'fear_pressure', 'weight' => 5,
+                'trigger' => 'Medo visceral (morte, ruína, abandono) domina a atenção e a ação.',
+                'lever' => 'Pintar a consequência terrível em cena concreta e sensorial antes de oferecer a saída — agita a ferida fundo.',
+                'markers' => ['before it is too late', 'antes que seja tarde', 'silent killer', 'assassino silencioso', 'warning', 'aviso', 'danger', 'perigo', 'destroying', 'destruindo', 'time bomb', 'bomba-relógio', 'you could lose', 'você pode perder']],
+            ['key' => 'guilt_shame_trigger', 'name' => 'Gatilho de culpa/vergonha', 'category' => 'fear_pressure', 'weight' => 4,
+                'trigger' => 'Culpa e vergonha movem ação para aliviar a dor moral.',
+                'lever' => '"Você deve isso aos seus filhos / a si mesma"; mira a auto-imagem e o dever — pressão emocional pesada.',
+                'markers' => ['you owe it to', 'você deve isso', 'your family deserves', 'sua família merece', 'still struggling', 'ainda sofrendo', "don't let them down", 'não decepcione', 'what kind of', 'que tipo de']],
+
+            // ── SOCIAL pressure ───────────────────────────────────────────────────────────────────
+            ['key' => 'social_proof_pressure', 'name' => 'Pressão de prova social', 'category' => 'social_pressure', 'weight' => 5,
+                'trigger' => 'Manada — "todo mundo está fazendo" reduz risco percebido e ativa pertencimento.',
+                'lever' => 'Contagem grande e específica ("47.000 já entraram"), notificações de compra ao vivo, "junte-se a milhares"; o número é a alavanca.',
+                'markers' => ['already joined', 'já entraram', 'people are', 'pessoas estão', 'join thousands', 'junte-se a', 'others bought', 'outros compraram', 'trending', 'most popular', 'mais vendido', 'everyone is', 'todo mundo']],
+            ['key' => 'rival_loss', 'name' => 'Medo do rival / ficar pra trás', 'category' => 'social_pressure', 'weight' => 4,
+                'trigger' => 'Inveja/comparação — ver o outro ganhando o que você não tem dói e move.',
+                'lever' => '"Enquanto você hesita, eles já estão na frente"; ativa status e perda relativa.',
+                'markers' => ['while you wait', 'enquanto você espera', 'others are getting', 'outros estão', "don't get left behind", 'não fique pra trás', 'ahead of you', 'na sua frente', 'they already', 'eles já']],
+
+            // ── AUTHORITY pressure ────────────────────────────────────────────────────────────────
+            ['key' => 'authority_borrowing', 'name' => 'Empréstimo de autoridade', 'category' => 'authority_pressure', 'weight' => 5,
+                'trigger' => 'Heurística de autoridade — endosso de especialista/mídia transfere credibilidade.',
+                'lever' => 'Citar médico/veículo/instituição, jaleco, selos; o endosso implícito ("visto na mídia") carrega a confiança.',
+                'markers' => ['as seen on', 'visto na', 'doctor', 'médic', 'dr.', 'scientist', 'cientista', 'study shows', 'estudo mostra', 'clinically', 'clinicamente', 'fda', 'harvard', 'expert', 'especialista', 'endorsed', 'recomendado por']],
+            ['key' => 'conspiracy_enemy', 'name' => 'Inimigo comum / conspiração', 'category' => 'authority_pressure', 'weight' => 4,
+                'trigger' => 'Inimigo externo explica o fracasso sem culpar o leitor e cria urgência de "saber antes que tirem do ar".',
+                'lever' => '"Big Pharma/o sistema esconde isso de você"; une leitor+autor contra um vilão poderoso.',
+                'markers' => ['they don\'t want you to know', 'não querem que você saiba', 'big pharma', 'the industry hides', 'a indústria esconde', 'banned', 'banido', 'censored', 'censurado', 'before it is taken down', 'antes que tirem do ar', 'cover-up', 'acobertam']],
+
+            // ── VALUE pressure ────────────────────────────────────────────────────────────────────
+            ['key' => 'price_anchoring_extreme', 'name' => 'Ancoragem de preço extrema', 'category' => 'value_pressure', 'weight' => 5,
+                'trigger' => 'Ancoragem — o primeiro número molda a percepção do que é caro/barato.',
+                'lever' => 'Empilhar "valor total" absurdo ($4.997) e cortar pra uma fração ($47); o desconto gigante é a alavanca.',
+                'markers' => ['value', 'valor de', 'normally', 'normalmente', 'worth', 'vale', 'today only', 'só hoje', 'regular price', 'preço normal', '/\$\d{3,}/', 'a fraction of', 'uma fração', 'save', 'economize']],
+            ['key' => 'risk_reversal_aggressive', 'name' => 'Reversão de risco agressiva', 'category' => 'value_pressure', 'weight' => 4,
+                'trigger' => 'Aversão à perda — tirar o risco do comprador derruba a última barreira.',
+                'lever' => '"Garantia 200%, te pago pra tentar"; quanto mais ousada a reversão, mais a objeção de risco some.',
+                'markers' => ['money-back', 'garantia', 'guarantee', 'refund', 'reembolso', 'no questions', 'sem perguntas', 'double your money back', 'risk-free', 'sem risco', 'or it is free', 'ou é grátis', 'i will pay you', 'eu te pago']],
+
+            // ── IDENTITY pressure ─────────────────────────────────────────────────────────────────
+            ['key' => 'identity_threat', 'name' => 'Ameaça de identidade', 'category' => 'identity_pressure', 'weight' => 4,
+                'trigger' => 'Identidade — pessoas agem pra confirmar quem acham que são (ou temem não ser).',
+                'lever' => '"Pessoas inteligentes já sabem disso / não seja o último"; comprar vira prova de identidade.',
+                'markers' => ['smart people', 'pessoas inteligentes', "don't be the last", 'não seja o último', 'people like you', 'pessoas como você', 'are you the type', 'você é do tipo', 'winners', 'vencedores', 'serious about', 'que leva a sério']],
+            ['key' => 'future_pacing_vivid', 'name' => 'Future pacing vívido', 'category' => 'identity_pressure', 'weight' => 4,
+                'trigger' => 'Simulação mental — viver o resultado no presente cria desejo e posse antecipada.',
+                'lever' => '"Imagine acordar em 30 dias e..."; coloca o leitor dentro da transformação como se já fosse real.',
+                'markers' => ['imagine', 'imagine só', 'picture yourself', 'se veja', 'in 30 days you', 'em 30 dias você', 'wake up', 'acordar', 'how it feels', 'como é sentir', 'your new', 'sua nova']],
+        ];
+    }
+}
