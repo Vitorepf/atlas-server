@@ -42,7 +42,21 @@ concreto), é **rejeitada na porta** com as deficiências — você corrige o sp
 > (orphans/clones/doc-gaps). Em código maduro isso **seca rápido** — por isso o enqueue manual é a fonte
 > principal. Não conte com fila infinita automática.
 
-## 3. Cada IA — o loop (harness-agnóstico)
+## 3. Cada IA — VOCÊ SÓ COLA UM PROMPT
+
+A sua única ação numa sessão Claude Code / Codex / qualquer: **colar um prompt**. Gere-o (client id único por sessão):
+
+```bash
+php artisan atlas:task:worker-prompt                 # imprime o prompt pronto pra colar (id auto-único)
+php artisan atlas:task:worker-prompt --client=codex-1 # ou com um id seu
+php artisan atlas:task:worker-prompt --keep-polling   # worker espera 60s e tenta de novo quando a fila esvazia
+```
+
+Cole a saída numa sessão de IA. Ela passa a rodar o loop sozinha: puxa task → implementa só os `allowed_files` →
+roda os testes → `report --commit` (o Atlas commita o escopo dela) → próxima — até a fila secar. Rode o comando
+1× por sessão que você abrir (cada uma recebe um id distinto, nunca colidem).
+
+## 3b. O loop que o prompt executa (referência — a IA faz isso sozinha)
 
 ```bash
 # 1) PUXA a próxima task (id opaco seu; qualquer string)
