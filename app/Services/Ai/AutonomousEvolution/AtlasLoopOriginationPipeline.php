@@ -6,6 +6,9 @@ namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopComprehensionOriginationCandidates;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\File;
+use Throwable;
 
 /**
  * §5.6 · LAYER 2 — the full "decide by ORIGINATING, then DESIGN" flow.
@@ -118,23 +121,116 @@ final class AtlasLoopOriginationPipeline
     private function leverageFirstMaterialTarget(AtlasLoopScopeComprehensionModel $model, string $repoRoot): ?array
     {
         $ranked = ($this->selector ?? new AtlasLoopCrossTypeLeverageSelector)->rankedForModel($model);
+        $dropped = [];
+        $picked = null;
         foreach ($ranked as $candidate) {
             if (! is_array($candidate)) {
                 continue;
             }
             if ((string) ($candidate['kind'] ?? '') !== AtlasLoopComprehensionOriginationCandidates::KIND_ORPHAN_WIRING) {
+                $this->recordDroppedLeverageCandidate($dropped, $candidate, $this->skippedReason($candidate));
+
                 continue; // clone_unification = proxy (dropped); doc_gap has no target file (skipped here)
             }
             $objective = trim((string) ($candidate['summary'] ?? ''));
             $rel = is_string($candidate['target_path'] ?? null) ? ltrim((string) $candidate['target_path'], '/') : '';
             if ($objective === '' || $rel === '' || ! is_file(rtrim($repoRoot, '/').'/'.$rel)) {
+                $this->recordDroppedLeverageCandidate($dropped, $candidate, 'target_path_missing');
+
                 continue;
             }
 
-            return [$objective, $rel];
+            $picked ??= [$objective, $rel];
         }
 
-        return null;
+        $this->appendLeverageDroppedCandidates($dropped);
+
+        return $picked;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $dropped
+     * @param  array<string,mixed>  $candidate
+     */
+    private function recordDroppedLeverageCandidate(array &$dropped, array $candidate, string $reason): void
+    {
+        if (count($dropped) >= 20) {
+            return;
+        }
+
+        $target = is_string($candidate['target_path'] ?? null)
+            ? ltrim((string) $candidate['target_path'], '/')
+            : null;
+
+        $dropped[] = [
+            'kind' => (string) ($candidate['kind'] ?? 'unknown'),
+            'summary' => trim((string) ($candidate['summary'] ?? '')),
+            'target_path' => $target !== '' ? $target : null,
+            'skipped_reason' => $reason,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $candidate
+     */
+    private function skippedReason(array $candidate): string
+    {
+        return match ((string) ($candidate['kind'] ?? '')) {
+            AtlasLoopComprehensionOriginationCandidates::KIND_CLONE_UNIFICATION => 'proxy_clone_unification',
+            AtlasLoopComprehensionOriginationCandidates::KIND_DOC_GAP_CAPABILITY => 'doc_gap_no_target',
+            default => 'target_path_missing',
+        };
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $records
+     */
+    private function appendLeverageDroppedCandidates(array $records): void
+    {
+        if ($records === [] || ! (bool) config('atlas.loop.leverage_first_origination_enabled', false)) {
+            return;
+        }
+
+        $path = (string) config(
+            'atlas.loop.morning_digest.leverage_dropped_log_path',
+            storage_path('app/atlas/loop/leverage-dropped-candidates.jsonl'),
+        );
+        if ($path === '') {
+            return;
+        }
+
+        try {
+            File::ensureDirectoryExists(dirname($path));
+            $handle = @fopen($path, 'ab');
+            if ($handle === false) {
+                return;
+            }
+
+            try {
+                if (! flock($handle, LOCK_EX)) {
+                    return;
+                }
+
+                foreach ($records as $record) {
+                    $payload = array_merge([
+                        'schema_version' => 'atlas.loop.leverage_dropped_candidates.v1',
+                        'recorded_at' => Carbon::now()->toIso8601String(),
+                    ], $record);
+                    fwrite($handle, json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
+                }
+                fflush($handle);
+                flock($handle, LOCK_UN);
+            } finally {
+                fclose($handle);
+            }
+
+            AtlasLoopMorningDigestService::trimJsonl(
+                $path,
+                (int) config('atlas.loop.leverage_dropped_candidates_max_lines', 1000),
+            );
+        } catch (Throwable) {
+            // Operator visibility is best-effort; origination must never fail because the digest log is unavailable.
+        }
     }
 
     /**

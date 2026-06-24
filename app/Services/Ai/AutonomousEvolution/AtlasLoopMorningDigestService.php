@@ -38,6 +38,7 @@ final class AtlasLoopMorningDigestService
         $canaries = $this->canaries($since);
         $cost = $this->cost($since, $merges);
         $keepalive = $this->keepalive($since);
+        $leverageDropped = $this->leverageDroppedCandidates($since);
         $operatorReview = $this->operatorReview();
 
         return [
@@ -56,6 +57,7 @@ final class AtlasLoopMorningDigestService
                 'canaries' => $canaries,
                 'cost' => $cost,
                 'keepalive' => $keepalive,
+                'leverage_dropped_candidates' => $leverageDropped,
                 'operator_review' => $operatorReview,
             ],
             'sources' => [
@@ -64,6 +66,10 @@ final class AtlasLoopMorningDigestService
                 'canaries' => 'atlas_loop_proposals.quality._canary',
                 'cost' => 'ai_programming_runtime_telemetry_events.cost_estimate_usd + atlas_loop_campaigns.spend_usd_cents',
                 'keepalive' => (string) config('atlas.loop.morning_digest.keepalive_event_log_path'),
+                'leverage_dropped_candidates' => (string) config(
+                    'atlas.loop.morning_digest.leverage_dropped_log_path',
+                    storage_path('app/atlas/loop/leverage-dropped-candidates.jsonl'),
+                ),
                 'operator_review' => 'AtlasLoopOperatorReviewQueueService::queue()',
             ],
             'claim_policy' => [
@@ -480,6 +486,76 @@ final class AtlasLoopMorningDigestService
     }
 
     /**
+     * @return array<string,mixed>
+     */
+    private function leverageDroppedCandidates(Carbon $since): array
+    {
+        $path = (string) config(
+            'atlas.loop.morning_digest.leverage_dropped_log_path',
+            storage_path('app/atlas/loop/leverage-dropped-candidates.jsonl'),
+        );
+        $base = [
+            'status' => 'ok',
+            'event_log_path' => $path,
+            'records_24h' => 0,
+            'top_kinds' => [],
+            'counts_by_skipped_reason' => [],
+        ];
+
+        if (! (bool) config('atlas.loop.morning_digest.leverage_dropped_log_enabled', true)) {
+            return array_merge($base, ['status' => 'disabled']);
+        }
+        if ($path === '' || ! is_file($path)) {
+            return array_merge($base, ['status' => 'missing', 'reason' => 'leverage_dropped_log_missing']);
+        }
+
+        try {
+            $kinds = [];
+            $reasons = [];
+            $count = 0;
+            foreach (preg_split('/\r?\n/', (string) file_get_contents($path)) ?: [] as $line) {
+                $line = trim($line);
+                if ($line === '') {
+                    continue;
+                }
+                $decoded = json_decode($line, true);
+                if (! is_array($decoded)) {
+                    continue;
+                }
+                $at = Carbon::parse((string) ($decoded['recorded_at'] ?? '1970-01-01T00:00:00Z'));
+                if ($at->lessThan($since)) {
+                    continue;
+                }
+
+                $count++;
+                $kind = trim((string) ($decoded['kind'] ?? 'unknown')) ?: 'unknown';
+                $reason = trim((string) ($decoded['skipped_reason'] ?? 'unknown')) ?: 'unknown';
+                $kinds[$kind] = ($kinds[$kind] ?? 0) + 1;
+                $reasons[$reason] = ($reasons[$reason] ?? 0) + 1;
+            }
+
+            arsort($kinds);
+            ksort($reasons);
+            $topKinds = [];
+            foreach (array_slice($kinds, 0, 5, true) as $kind => $kindCount) {
+                $topKinds[] = ['kind' => $kind, 'count' => $kindCount];
+            }
+
+            return array_merge($base, [
+                'records_24h' => $count,
+                'top_kinds' => $topKinds,
+                'counts_by_skipped_reason' => $reasons,
+            ]);
+        } catch (Throwable $e) {
+            return array_merge($base, [
+                'status' => 'unavailable',
+                'reason' => 'leverage_dropped_log_unreadable',
+                'error' => mb_substr($e->getMessage(), 0, 160),
+            ]);
+        }
+    }
+
+    /**
      * @param  array<string,mixed>  $payload
      */
     public static function appendKeepaliveEvent(array $payload): void
@@ -505,7 +581,7 @@ final class AtlasLoopMorningDigestService
         }
     }
 
-    private static function trimJsonl(string $path, int $maxLines): void
+    public static function trimJsonl(string $path, int $maxLines): void
     {
         $maxLines = max(100, min(10000, $maxLines));
         $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
