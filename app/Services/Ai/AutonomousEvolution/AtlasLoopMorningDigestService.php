@@ -39,6 +39,7 @@ final class AtlasLoopMorningDigestService
         $cost = $this->cost($since, $merges);
         $keepalive = $this->keepalive($since);
         $leverageDropped = $this->leverageDroppedCandidates($since);
+        $regressionTriage = $this->regressionTriage($since);
         $operatorReview = $this->operatorReview();
 
         return [
@@ -58,6 +59,7 @@ final class AtlasLoopMorningDigestService
                 'cost' => $cost,
                 'keepalive' => $keepalive,
                 'leverage_dropped_candidates' => $leverageDropped,
+                'regression_triage' => $regressionTriage,
                 'operator_review' => $operatorReview,
             ],
             'sources' => [
@@ -71,6 +73,10 @@ final class AtlasLoopMorningDigestService
                     storage_path('app/atlas/loop/leverage-dropped-candidates.jsonl'),
                 ),
                 'operator_review' => 'AtlasLoopOperatorReviewQueueService::queue()',
+                'regression_triage' => (string) config(
+                    'atlas.loop.morning_digest.regression_triage_log_path',
+                    storage_path('app/atlas/loop/regression-triage.jsonl'),
+                ),
             ],
             'claim_policy' => [
                 'read_only' => true,
@@ -550,6 +556,85 @@ final class AtlasLoopMorningDigestService
             return array_merge($base, [
                 'status' => 'unavailable',
                 'reason' => 'leverage_dropped_log_unreadable',
+                'error' => mb_substr($e->getMessage(), 0, 160),
+            ]);
+        }
+    }
+
+    /**
+     * REGRESSION TRIAGE — surface the RegressionWatcher's triage JSONL: counts of attributed / unattributed /
+     * repairs-enqueued in the digest window, plus the top-5 UNATTRIBUTED failure ids (external/pre-existing
+     * breakage the loop will not auto-repair — the explicit operator alert). Read-only; mirrors the
+     * leverage-dropped reader. Filters records by their `ts` against the window.
+     *
+     * @return array<string,mixed>
+     */
+    private function regressionTriage(Carbon $since): array
+    {
+        $path = (string) config(
+            'atlas.loop.morning_digest.regression_triage_log_path',
+            storage_path('app/atlas/loop/regression-triage.jsonl'),
+        );
+        $base = [
+            'status' => 'ok',
+            'event_log_path' => $path,
+            'attributed' => 0,
+            'unattributed' => 0,
+            'repairs_enqueued' => 0,
+            'top_unattributed_failure_ids' => [],
+        ];
+
+        if ($path === '' || ! is_file($path)) {
+            return array_merge($base, ['status' => 'missing', 'reason' => 'regression_triage_log_missing']);
+        }
+
+        try {
+            $attributed = 0;
+            $unattributed = 0;
+            $repairs = 0;
+            $unattributedIds = [];
+            foreach (preg_split('/\r?\n/', (string) file_get_contents($path)) ?: [] as $line) {
+                $line = trim($line);
+                if ($line === '') {
+                    continue;
+                }
+                $decoded = json_decode($line, true);
+                if (! is_array($decoded)) {
+                    continue;
+                }
+                $at = Carbon::parse((string) ($decoded['ts'] ?? '1970-01-01T00:00:00Z'));
+                if ($at->lessThan($since)) {
+                    continue;
+                }
+                switch (trim((string) ($decoded['kind'] ?? ''))) {
+                    case 'attributed':
+                        $attributed++;
+                        break;
+                    case 'unattributed':
+                        $unattributed++;
+                        $fid = trim((string) ($decoded['failure_id'] ?? ''));
+                        if ($fid !== '') {
+                            $unattributedIds[$fid] = ($unattributedIds[$fid] ?? 0) + 1;
+                        }
+                        break;
+                    case 'repair_enqueued':
+                        $repairs++;
+                        break;
+                }
+            }
+
+            arsort($unattributedIds);
+
+            return array_merge($base, [
+                'attributed' => $attributed,
+                'unattributed' => $unattributed,
+                'repairs_enqueued' => $repairs,
+                'top_unattributed_failure_ids' => array_values(array_slice(array_keys($unattributedIds), 0, 5)),
+            ]);
+        } catch (Throwable $e) {
+            return array_merge($base, [
+                'status' => 'unavailable',
+                'reason' => 'regression_triage_log_unreadable',
                 'error' => mb_substr($e->getMessage(), 0, 160),
             ]);
         }

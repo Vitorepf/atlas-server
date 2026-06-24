@@ -103,6 +103,7 @@ final class AtlasLoopRegressionWatcher
         $triage = ($this->sentinel ?? new AtlasLoopRegressionSentinel)->triage($failures, $recentMerges);
 
         $enqueued = 0;
+        $enqueuedRepairs = [];
         foreach ($triage['repairs'] as $repair) {
             if (! is_array($repair) || trim((string) ($repair['objective'] ?? '')) === '') {
                 continue;
@@ -120,13 +121,71 @@ final class AtlasLoopRegressionWatcher
             );
             if ($task !== null) {
                 $enqueued++;
+                $enqueuedRepairs[] = $repair;
             }
         }
+
+        // SURFACE the triage to the morning digest: append a record per attribution, per unattributed (external/
+        // pre-existing breakage the loop will NOT auto-repair — otherwise invisible to the operator), and per
+        // enqueued repair. Only reached when regression_sentinel_enabled is ON (the public entrypoints early-
+        // return when OFF), so OFF ⇒ no file written ⇒ byte-identical.
+        $this->recordTriageToDigestLog($campaignId, $triage, $enqueuedRepairs);
 
         return [
             'attributed' => count($triage['attributed']),
             'enqueued' => $enqueued,
             'unattributed' => count($triage['unattributed']),
         ];
+    }
+
+    /**
+     * Append the triage outcome to the regression-triage JSONL the morning digest reads. Best-effort: a logging
+     * failure must NEVER break the repair wire. Schema `atlas.loop.regression_triage.v1`.
+     *
+     * @param  array{attributed:list<array<string,mixed>>, unattributed:list<string>, repairs:list<array<string,mixed>>}  $triage
+     * @param  list<array<string,mixed>>  $enqueuedRepairs  the repairs that were actually enqueued
+     */
+    private function recordTriageToDigestLog(string $campaignId, array $triage, array $enqueuedRepairs): void
+    {
+        $path = (string) config(
+            'atlas.loop.morning_digest.regression_triage_log_path',
+            storage_path('app/atlas/loop/regression-triage.jsonl'),
+        );
+        if ($path === '') {
+            return;
+        }
+
+        try {
+            $ts = now()->toIso8601String();
+            $records = [];
+            foreach ($triage['attributed'] as $attribution) {
+                if (! is_array($attribution)) {
+                    continue;
+                }
+                $records[] = ['kind' => 'attributed', 'failure_id' => (string) ($attribution['failure_id'] ?? ''), 'commit' => (string) ($attribution['commit'] ?? '')];
+            }
+            foreach ($triage['unattributed'] as $failureId) {
+                $records[] = ['kind' => 'unattributed', 'failure_id' => (string) $failureId];
+            }
+            foreach ($enqueuedRepairs as $repair) {
+                $records[] = ['kind' => 'repair_enqueued', 'failure_id' => (string) ($repair['failure_id'] ?? ''), 'source_key' => (string) ($repair['source_key'] ?? '')];
+            }
+            if ($records === []) {
+                return;
+            }
+
+            @mkdir(dirname($path), 0o775, true);
+            $blob = '';
+            foreach ($records as $record) {
+                $blob .= json_encode(
+                    ['schema_version' => 'atlas.loop.regression_triage.v1', 'ts' => $ts, 'campaign_id' => $campaignId] + $record,
+                    JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+                )."\n";
+            }
+            file_put_contents($path, $blob, FILE_APPEND | LOCK_EX);
+            AtlasLoopMorningDigestService::trimJsonl($path, (int) config('atlas.loop.morning_digest.regression_triage_log_max_lines', 2000));
+        } catch (\Throwable) {
+            // Digest evidence is best-effort; the repair wire must never fail on logging.
+        }
     }
 }
