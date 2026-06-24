@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Console\Commands\AtlasLoopMigrateCommand;
+use App\Console\Commands\AtlasLoopRollingWindowCli;
 use App\Console\Commands\AtlasLoopSchemaFuzzCommand;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use App\Services\Ai\AgentGovernance\FleetDriver;
@@ -1066,6 +1067,7 @@ class AppServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 AtlasLoopMigrateCommand::class,
+                AtlasLoopRollingWindowCli::class,
                 AtlasLoopSchemaFuzzCommand::class,
             ]);
         }
