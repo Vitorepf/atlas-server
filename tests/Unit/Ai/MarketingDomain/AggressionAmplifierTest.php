@@ -92,4 +92,31 @@ class AggressionAmplifierTest extends TestCase
         $this->assertLessThanOrEqual(50, $out['hollowness'],
             'Final amplified copy should not be hollow — the gate must keep us below 50');
     }
+
+    public function test_amplification_never_increases_structural_defects(): void
+    {
+        $amplifier = new AggressionAmplifier;
+        $detector = new \App\Services\Ai\MarketingDomain\Content\DecisionClarityAuditor;
+        $leaks = new \App\Services\Ai\MarketingDomain\Content\WatchThroughLeakDetector;
+
+        $bridge = $this->weakBridge();
+        $copyOf = function (array $b) use ($detector, $leaks): int {
+            // Mirror the amplifier's flatten well enough for the invariant check.
+            $text = trim(implode("\n", array_filter([
+                (string) ($b['headline'] ?? ''), (string) ($b['kicker'] ?? ''), (string) ($b['subheadline'] ?? ''),
+                (string) ($b['lead_paragraph'] ?? ''), (string) ($b['mechanism_tease'] ?? ''), (string) ($b['ps'] ?? ''),
+                implode(' ', array_map(fn ($s) => is_array($s) ? (($s['heading'] ?? '').' '.($s['body'] ?? '')) : (string) $s, (array) ($b['body_sections'] ?? []))),
+                implode(' ', array_map(fn ($c) => is_array($c) ? (($c['label'] ?? '').' '.($c['sub'] ?? '')) : (string) $c, (array) ($b['cta_blocks'] ?? []))),
+            ])));
+
+            return count($detector->audit($text)['flaws']) + count($leaks->detect($text)['flaws']);
+        };
+
+        $before = $copyOf($bridge);
+        $out = $amplifier->amplify($bridge, $this->asset(), ['until' => 'killer', 'max_iterations' => 3]);
+
+        $this->assertArrayHasKey('structural_defects', $out);
+        $this->assertLessThanOrEqual($before, $copyOf($out['bridge']),
+            'The structure-safety gate must ensure amplification never ADDS a structural defect (leak / choice overload)');
+    }
 }

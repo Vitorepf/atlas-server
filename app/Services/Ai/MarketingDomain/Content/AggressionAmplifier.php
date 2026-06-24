@@ -17,7 +17,15 @@ class AggressionAmplifier
     public function __construct(
         private readonly ConversionAuditor $auditor = new ConversionAuditor,
         private readonly AntiGoodhartGuard $guard = new AntiGoodhartGuard,
+        private readonly WatchThroughLeakDetector $leaks = new WatchThroughLeakDetector,
+        private readonly DecisionClarityAuditor $decision = new DecisionClarityAuditor,
     ) {}
+
+    /** Count of structural defects (watch-through leaks + decision-clarity flaws) in a piece of copy. */
+    private function structuralDefects(string $copy): int
+    {
+        return count($this->leaks->detect($copy)['flaws']) + count($this->decision->audit($copy)['flaws']);
+    }
 
     /**
      * @return array{bridge:array<string,mixed>,before:array<string,mixed>,after:array<string,mixed>,injected:array<int,string>,iterations:int,rejected:array<int,string>,hollowness:int}
@@ -55,6 +63,14 @@ class AggressionAmplifier
 
                     continue;
                 }
+                // Structure-safety gate: never trade persuasion for a structural defect — reject an
+                // injection that introduces a watch-through leak (premature reveal/CTA) or choice
+                // overload (a competing CTA category). Mirrors the anti-Goodhart hollowness gate.
+                if ($this->structuralDefects($this->copyOf($candidate)) > $this->structuralDefects($this->copyOf($current))) {
+                    $rejected[] = $missing['key'];
+
+                    continue;
+                }
                 $current = $candidate;
                 $injected[] = $missing['key'];
                 $applied = true;
@@ -76,7 +92,8 @@ class AggressionAmplifier
         $hollowness = $this->guard->inspect($this->copyOf($current))['hollowness'];
 
         return ['bridge' => $current, 'before' => $before, 'after' => $after, 'injected' => $injected,
-            'iterations' => $i, 'rejected' => $rejected, 'hollowness' => $hollowness];
+            'iterations' => $i, 'rejected' => $rejected, 'hollowness' => $hollowness,
+            'structural_defects' => $this->structuralDefects($this->copyOf($current))];
     }
 
     /**
