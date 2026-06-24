@@ -20,6 +20,7 @@ class KeywordIntelligencePipeline
         private readonly KeywordQualityIndex $qualityIndex = new KeywordQualityIndex,
         private readonly NegativeKeywordForge $negativeForge = new NegativeKeywordForge,
         private readonly QualifiedKeywordDossier $dossier = new QualifiedKeywordDossier,
+        private readonly KeywordClusterer $clusterer = new KeywordClusterer,
     ) {}
 
     /**
@@ -52,6 +53,7 @@ class KeywordIntelligencePipeline
         return [
             'offer_fingerprint' => $fingerprint,
             'universe' => ['count' => $universe['count'], 'complete' => $universe['complete'], 'roots' => $universe['roots']],
+            'clusters' => $this->clusterer->cluster((array) ($universe['keywords'] ?? [])), // L7 STAG ad groups
             'scored' => $quality['scored'],
             'launch_selection' => $launch,
             'negatives' => $negatives,
