@@ -80,6 +80,16 @@ class AtlasAiMarketingAuditCommand extends Command
             }
             $this->line('');
         }
+        if (! empty($audit['aggression'])) {
+            $agg = $audit['aggression'];
+            $bar = str_repeat('█', max(0, (int) round($agg['score'] / 5))).str_repeat('░', 20 - (int) round($agg['score'] / 5));
+            $this->line('  <fg=red;options=bold>Agressão (playbook agressivo): '.$bar.' '.$agg['score'].'/100 ('.$agg['grade'].')</>');
+            $this->line('      <fg=gray>presentes: '.(empty($agg['present']) ? '—' : implode(', ', $agg['present'])).'</>');
+            if (! empty($agg['missing_high_leverage'])) {
+                $this->line('      <fg=gray>alavancas pra subir: '.implode(', ', array_map(fn ($m) => $m['key'], array_slice($agg['missing_high_leverage'], 0, 5))).'</>');
+            }
+            $this->line('');
+        }
         $this->line('  <fg=red;options=bold>O que falta (top 10, ponderado):</>');
         foreach ($audit['top_missing'] as $m) {
             $this->line('    <fg=red>•</> <fg=white;options=bold>'.$m['name'].'</> <fg=gray>['.$m['library'].']</>');
