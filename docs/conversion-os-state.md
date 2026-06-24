@@ -120,6 +120,8 @@ ROADMAP do blueprint: 8 de 11 entregues (#1,2,4,5,6,7,8,9; #3 coberto). Restam: 
 
 **BLUEPRINT DOS 3 PILARES: COMPLETO (10/11; #3 coberto).** Único restante = #11 VideoAdScriptGenerator + HookArchetypeForge, GATED na biblioteca de criativos (chega 25/06). Cérebro 1→25 com 6 levers; pilar 1 (poder de venda) + pilar 3 (few-shot ROI) + simulação fiel todos com capacidade nova; arsenal dos pais (Halbert/Bencivenga/Hopkins/Kennedy/Belfort/Voss/Cialdini/Fogg) destilado.
 
+- **🔁 DOGFOOD: a página gerada pelo Atlas passa no próprio cérebro 1→25 (pilar 2)** ✅ — rodei o ConversionLeverageDiagnostic (6 levers) na saída do StructuredFunnelComposer: gargalo=believability (claim do reveal com prova não-adjacente; timeLine "you can" virando falso-claim). Fixes: (1) proof injetada ADJACENTE ao reveal (claim↔prova no ponto da afirmação); (2) heroLine movido do offer-line pro recap do checkout (offer deixa de ser claim-órfão, hero continua no checkout); (3) timeLine reescrito "The first changes can show in X" (não dispara "you can"); (4) isClaim não trata timeframe solto ("in 21 days") como claim. RESULTADO: a página gerada passa nos 6 levers, ZERO gargalo — o loop análise→geração fechou e ficou auto-consistente. Regressão travada. 452/452.
+
 ## Pontos pra próxima sessão (faculdade de ambição)
 - **Multi-persona injection por slot** — TL;DR pra mãe ocupada no topo, vs-Ozempic perto do CTA, prova específica embaixo, em vez de 1 fix em `ps`.
 - **LLM-driven persona refinement** — quando o operador plugar LLM, refinar `simulate()` por avatar real do produto (não só os 3 fixos hardcoded). Framework está pronto, contrato é o `PersonaSimulator`.

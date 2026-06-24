@@ -74,8 +74,9 @@ class ProofAdjacencyAuditor
         if (preg_match('/\b(?:lose|lost|drop|dropped|melt|burn|make|earn|made|pull|gain|cut|lower|double|triple|add)\b[^.?!]*?\d/u', $t)) {
             return true;
         }
-        // Absolute / superlative promise.
-        if (preg_match('/\b(the only|the #?1|number one|fastest|easiest|the secret to|never again|once and for all|melts? away|skyrocket|wipe out|in (?:just )?\d+ days?)\b/u', $t)) {
+        // Absolute / superlative promise. (A bare timeframe like "in 21 days" is NOT a claim — it is a
+        // process/future-pacing line; the result+number branch above already catches result-tied claims.)
+        if (preg_match('/\b(the only|the #?1|number one|fastest|easiest|the secret to|never again|once and for all|melts? away|skyrocket|wipe out)\b/u', $t)) {
             return true;
         }
 

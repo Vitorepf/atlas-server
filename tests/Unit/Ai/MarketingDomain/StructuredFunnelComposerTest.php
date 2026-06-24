@@ -134,6 +134,23 @@ class StructuredFunnelComposerTest extends TestCase
         $this->assertStringContainsString('guarantee.', $checkout); // punctuation healed
     }
 
+    public function test_a_rich_generated_funnel_passes_the_1_to_25_brain(): void
+    {
+        // Autonomy (pillar 2): given a rich asset, the Atlas's own generated funnel must pass its OWN
+        // ConversionLeverageDiagnostic — no high-leverage bottleneck (mechanism/proof/offer/watch/friction/
+        // believability all strong). The analysis→generation loop is closed and self-consistent.
+        $funnel = (new StructuredFunnelComposer)->compose($this->asset([
+            'niche' => 'weight loss', 'awareness_level' => 'problem_aware', 'sophistication_level' => 4,
+            'core_promise' => 'lose the weight', 'mechanism_name' => 'The 3-Hormone Reset',
+            'claims' => ['Dr. Lee tracked 312 women; 9 out of 10 dropped a size in 6 weeks'],
+            'metrics' => ['result_claims' => ['results in 21 days']],
+            'offer' => ['price' => '97', 'guarantee' => '60-day money-back guarantee', 'ease' => ['no gym', 'just 10 minutes a day']],
+        ]));
+        $diag = (new \App\Services\Ai\MarketingDomain\Content\ConversionLeverageDiagnostic)
+            ->diagnose($this->asset(['niche' => 'weight loss', 'mechanism_name' => 'The 3-Hormone Reset']), $funnel['page'].' '.$funnel['checkout']);
+        $this->assertNull($diag['bottleneck'], 'the generated funnel should have no high-leverage bottleneck');
+    }
+
     public function test_proof_lever_is_planted_only_from_real_asset_proof(): void
     {
         // Eixo 7 end-to-end: a concrete claim on the asset → the page carries CONCRETE proof; a thin

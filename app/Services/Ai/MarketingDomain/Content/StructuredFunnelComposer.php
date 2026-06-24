@@ -50,7 +50,7 @@ class StructuredFunnelComposer
         // A brutal panel proved fixed filler ("starting today", "simple, without…") just gamed the auditor.
         // No substance → leave an HONEST gap for the producer to fill, never plant generic filler.
         $timeframe = $this->timeframe($asset);
-        $timeLine = $timeframe !== '' ? "You can start seeing the change in {$timeframe}." : '';
+        $timeLine = $timeframe !== '' ? "The first changes can show in {$timeframe}." : '';
         $easeLine = $this->easeClaim($asset);
         // Eixo 7: plant REAL concrete proof from the asset when it has any; else keep the producer slot.
         $proof = $this->proof($asset);
@@ -81,11 +81,11 @@ class StructuredFunnelComposer
             'For a long time the real cause stayed hidden in plain sight.',                // build
             'It gets clearer once you see what is actually happening.',                    // forward pull
             'But first, understand what everyone else got wrong about this.',              // forward pull (mid)
-            "Here is how {$mechanism} finally makes {$promise}{$heroLine} work.",          // REVEAL (late)
+            "Here is how {$mechanism} finally makes {$promise}{$heroLine} work.",          // REVEAL (late) — carries the hero claim
+            $proofLine,                                                                     // proof ADJACENT to the claim (believability: a claim must be backed at the point of assertion)
             "Imagine {$wound['dream']}.",                                                  // future pacing (niche dream / Value Eq: dream outcome)
             $timeLine,                                                                      // Value Eq: time delay ↓ — ONLY if the asset gives a real timeframe
             $easeLine,                                                                      // Value Eq: effort ↓ — ONLY if the asset names a removed effort
-            $proofLine,                                                                     // REAL concrete proof from the asset, or the producer slot (honest gap) if none
             'Watch the free presentation now — spots are limited.',                         // single CTA (end) + scarcity
         ])));
 
@@ -102,8 +102,8 @@ class StructuredFunnelComposer
         $checkout = trim(implode(' ', array_filter([
             // Recap the value (mechanism + dream) before the price — a real DR close move that also keeps
             // the page→checkout hop congruent (the reader sees the same anchors they just agitated on).
-            "You have seen why nothing worked — {$mechanism} is how you finally reach {$wound['dream']}.",
-            "Get the complete {$mechanism} system for {$promise}{$heroLine}.",
+            "You have seen why nothing worked — {$mechanism} is how you finally reach {$wound['dream']}{$heroLine}.",
+            "Get the complete {$mechanism} system for {$promise}.",
             $bonusN > 0 ? "Plus {$bonusN} bonuses — each one removes a reason people hesitate." : '',
             $valueLine,
             $guarantee !== '' ? rtrim($guarantee, '.').'.' : '',
@@ -139,7 +139,7 @@ class StructuredFunnelComposer
         $wound = (new \App\Services\Ai\MarketingDomain\Knowledge\AggressiveConversionTacticsLibrary)->nicheWound((string) $asset->niche);
         $timeframe = $this->timeframe($asset);
         $meansBody = trim("Imagine {$wound['dream']}."
-            .($timeframe !== '' ? " You can start seeing the change in {$timeframe}." : '')
+            .($timeframe !== '' ? " The first changes can show in {$timeframe}." : '')
             .($this->easeClaim($asset) !== '' ? ' '.$this->easeClaim($asset) : ''));
         $proof = $this->proof($asset);
         $proofBody = $proof !== '' ? $proof : '[PROOF SLOT: o caso/depoimento/estudo mais forte da oferta]';
