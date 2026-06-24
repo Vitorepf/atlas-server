@@ -25,6 +25,7 @@ final class AtlasLoopProposalOutOfProcessVerifier
         private readonly AtlasLoopProposalDiffReconstructor $diffReconstructor,
         private readonly AtlasEngineeringHonestyGate $gate,
         private readonly AtlasDeadCodeAnalyzer $deadCode,
+        private readonly ?AtlasLoopAdversarialVerifierPool $adversarialVerifierPool = null,
     ) {}
 
     /**
@@ -286,7 +287,7 @@ final class AtlasLoopProposalOutOfProcessVerifier
                 ], $base);
             }
 
-            return $this->verdict('independently_verified', ['independently_verified'], [
+            return $this->adversarialReview($record, $this->verdict('independently_verified', ['independently_verified'], [
                 'clean_checkout' => true,
                 'baseline_red' => true,
                 'diff_applies_clean' => true,
@@ -297,10 +298,22 @@ final class AtlasLoopProposalOutOfProcessVerifier
                 'proposed_acceptance' => $proposed,
                 'revert_acceptance' => $revert,
                 'gate_report' => $gateVerdict['report'],
-            ], $base);
+            ], $base), $options);
         } finally {
             $this->removeWorktree($repoRoot, $worktreePath);
         }
+    }
+
+    /**
+     * @param  array<string,mixed>  $record
+     * @param  array<string,mixed>  $primaryVerdict
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    private function adversarialReview(array $record, array $primaryVerdict, array $options): array
+    {
+        return ($this->adversarialVerifierPool ?? new AtlasLoopAdversarialVerifierPool)
+            ->reviewVerdict($record, $primaryVerdict, $options);
     }
 
     /**

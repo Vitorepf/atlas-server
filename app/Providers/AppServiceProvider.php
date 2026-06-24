@@ -27,11 +27,14 @@ use App\Services\Ai\AtlasDecideService;
 use App\Services\Ai\AutonomousEvolution\AtlasEvolutionFrozenJudge;
 use App\Services\Ai\AutonomousEvolution\AtlasEvolutionScenarioExplorer;
 use App\Services\Ai\AutonomousEvolution\AtlasEvolutionTaskGenerator;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopAdversarialVerifierPool;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopBroaderRegressionGate;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopCrossFileConsumerGateService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMutationAdequacyGateService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopOriginationDeliveryBridge;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopProposalDiffReconstructor;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopProposalOutOfProcessVerifier;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderContextOptimizer;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopScenarioProviderPortfolio;
 use App\Services\Ai\AutonomousEvolution\Recovery\AtlasLoopReceiptReplayer;
@@ -71,6 +74,7 @@ use App\Services\Ai\AutonomousEvolution\Parallel\ScenarioWaveDispatcherContract;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
 use App\Services\Ai\AutonomousEvolution\TimeBoundedLoopExecutionDriver;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasEngineeringHonestyGate;
+use App\Services\Ai\AutonomousEvolution\Verify\AtlasDeadCodeAnalyzer;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
 use App\Services\Ai\AutonomousEvolution\WorkspaceProviderLoopExecutionDriver;
 use App\Services\Ai\Caching\AiCallCostGuard;
@@ -217,11 +221,21 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(SkillBundleStore::class);
         $this->app->singleton(AtlasLoopReceiptReplayer::class);
         $this->app->singleton(AtlasLoopProviderContextOptimizer::class);
+        $this->app->singleton(AtlasLoopAdversarialVerifierPool::class);
         $this->app->singleton(AtlasLoopTaskDecompositionAmplifier::class);
         $this->app->singleton(
             AtlasLoopScenarioProviderPortfolio::class,
             fn ($app) => new AtlasLoopScenarioProviderPortfolio(
                 rescue(fn () => $app->make(AtlasLoopTaskDecompositionAmplifier::class), null, false),
+            ),
+        );
+        $this->app->bind(
+            AtlasLoopProposalOutOfProcessVerifier::class,
+            fn ($app) => new AtlasLoopProposalOutOfProcessVerifier(
+                $app->make(AtlasLoopProposalDiffReconstructor::class),
+                $app->make(AtlasEngineeringHonestyGate::class),
+                $app->make(AtlasDeadCodeAnalyzer::class),
+                rescue(fn () => $app->make(AtlasLoopAdversarialVerifierPool::class), null, false),
             ),
         );
         $this->app->bind(LoopWorkerSpawnerContract::class, LoopWorkerSpawner::class);
