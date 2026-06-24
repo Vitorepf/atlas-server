@@ -40,7 +40,7 @@ class KeywordIntelligencePipeline
         $quality = $this->qualityIndex->scoreEngineResult(
             $this->enumerator->asScorableTier($universe, $product),
             $asset,
-            $econ,
+            array_merge($econ, ['outcome_calibration' => (array) ($opts['outcome_calibration'] ?? [])]), // L10 flywheel real
         );
 
         // L6 — negativas (protege os owned roots: anti-campeã)

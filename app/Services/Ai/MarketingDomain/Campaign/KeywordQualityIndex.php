@@ -52,12 +52,15 @@ class KeywordQualityIndex
 
     private KeywordAccountRiskSignal $accountRisk;
 
-    public function __construct(?IntentLadderClassifier $intent = null, ?KeywordInvestmentGate $gate = null, ?KeywordMindState $mindState = null, ?KeywordAccountRiskSignal $accountRisk = null)
+    private KeywordOutcomeCalibrator $calibrator;
+
+    public function __construct(?IntentLadderClassifier $intent = null, ?KeywordInvestmentGate $gate = null, ?KeywordMindState $mindState = null, ?KeywordAccountRiskSignal $accountRisk = null, ?KeywordOutcomeCalibrator $calibrator = null)
     {
         $this->intent = $intent ?? new IntentLadderClassifier;
         $this->gate = $gate ?? new KeywordInvestmentGate;
         $this->mindState = $mindState ?? new KeywordMindState;
         $this->accountRisk = $accountRisk ?? new KeywordAccountRiskSignal;
+        $this->calibrator = $calibrator ?? new KeywordOutcomeCalibrator;
     }
 
     /**
@@ -166,6 +169,13 @@ class KeywordQualityIndex
             $score = (int) round(max(0, min(100, $score * $lift)));
         }
 
+        // L10 FLYWHEEL: peso CVR-lift do RESULTADO REAL (Blackink, read-only) — dá a PRECISÃO que o texto
+        // não dá: o loser plausível-mas-não-vende desce. Neutro (1.0) sem dado → determinístico intacto.
+        $outcomeWeight = $this->calibrator->weightFor($kl, (array) ($econ['outcome_calibration'] ?? []));
+        if ($outcomeWeight !== 1.0) {
+            $score = (int) round(max(0, min(100, $score * $outcomeWeight)));
+        }
+
         // INVESTIMENTO vs GASTO: the decision math (breakeven / rule-of-three / EPC). Forecast PRIOR until
         // the operator runs a campaign (the gate labels basis=forecast_prior vs proven, never fakes proof).
         $investment = ($forecastCpc > 0 && isset($econ['payout']))
@@ -182,6 +192,7 @@ class KeywordQualityIndex
             'investment' => $investment, // WHY it is investimento vs gasto: breakeven / rule-of-three / EPC
             'mind_state' => $this->mindState->project($intentResult), // keyword→MENTE: awareness/driver/page-angle
             'account_risk' => $this->accountRisk->assess($kw, $offerCtx), // SINAL de morte-de-conta (não freio)
+            'outcome_weight' => round($outcomeWeight, 3), // L10: peso da venda real aplicado (1.0 = sem dado)
             'components' => [
                 'owned_root_provenance' => round($provenance, 2),
                 'intent_class' => $intent,

@@ -112,6 +112,20 @@ class KeywordQualityIndexTest extends TestCase
         }
     }
 
+    public function test_outcome_calibration_down_weights_a_losing_keyword(): void
+    {
+        $idx = new KeywordQualityIndex;
+        $econ = ['payout' => 120, 'cvr' => 0.012];
+        $base = $idx->scoreEngineResult($this->engineResult(), $this->asset(), $econ);
+        $cal = $idx->scoreEngineResult($this->engineResult(), $this->asset(), array_merge($econ, [
+            'outcome_calibration' => ['weights' => ['triple hormone drops protocol' => 0.3]],
+        ]));
+        $baseScore = collect($base['scored'])->firstWhere('keyword', 'triple hormone drops protocol')['score'];
+        $calRow = collect($cal['scored'])->firstWhere('keyword', 'triple hormone drops protocol');
+        $this->assertLessThan($baseScore, $calRow['score'], 'peso de venda-real baixo derruba o score (precisão)');
+        $this->assertSame(0.3, $calRow['outcome_weight']);
+    }
+
     public function test_owned_root_intent_is_most_aware(): void
     {
         $r = (new KeywordQualityIndex)->scoreEngineResult($this->engineResult(), $this->asset(), ['payout' => 120, 'cvr' => 0.012]);
