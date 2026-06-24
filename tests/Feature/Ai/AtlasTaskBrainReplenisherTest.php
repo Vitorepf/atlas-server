@@ -53,6 +53,63 @@ final class AtlasTaskBrainReplenisherTest extends TestCase
         $this->assertStringContainsString('Orphan', $orphan[0]['objective']);
     }
 
+    public function test_doc_gap_is_skipped_when_the_capability_already_exists_anywhere_in_the_repo(): void
+    {
+        // THE LIVE FALSE-POSITIVE the worker kept giving back: the comprehension scrapes a class name from docs
+        // that is a "gap" only relative to the NARROW scope — but the class exists elsewhere in the repo, either
+        // OUTSIDE the scope dir or under a FULLER name. Minting those yields nothing but give-backs. A repo-wide
+        // token-subset oracle must skip them while keeping genuinely-missing capabilities.
+        $repo = sys_get_temp_dir().'/atlas-docgap-repo-'.bin2hex(random_bytes(5));
+        $this->writeClass($repo, 'app/Models/AtlasLoopProposal.php', 'App\\Models', 'AtlasLoopProposal');                 // exists OUTSIDE the scope
+        $this->writeClass($repo, 'app/Services/X/AtlasUnifiedLoopOrchestrator.php', 'App\\Services\\X', 'AtlasUnifiedLoopOrchestrator'); // exists under a FULLER name
+
+        $model = new AtlasLoopScopeComprehensionModel(
+            inventory: [],
+            edges: [],
+            orphans: [],
+            cloneClusters: [],
+            forbidden: [],
+            docPurposes: [],
+            docStatedGaps: [
+                'AtlasLoopProposal',                       // out-of-scope existing → must be skipped
+                'AtlasLoopOrchestrator',                   // concept exists as AtlasUnifiedLoopOrchestrator → skipped
+                'AtlasLoopGenuinelyMissingCapabilityXyz',  // nothing matches → KEPT (a real task)
+            ],
+            snapshotId: 'docgap-filter',
+        );
+
+        try {
+            $tasks = (new AtlasTaskBrainReplenisher($this->orchestrator(), null, null, $repo))->structureTasks($model);
+
+            $this->assertCount(1, $tasks, 'both already-existing capabilities are filtered; only the genuine gap survives');
+            $this->assertStringContainsString('AtlasLoopGenuinelyMissingCapabilityXyz', (string) $tasks[0]['objective']);
+        } finally {
+            $this->rmrf($repo);
+        }
+    }
+
+    private function writeClass(string $repo, string $rel, string $namespace, string $class): void
+    {
+        $path = $repo.'/'.$rel;
+        @mkdir(\dirname($path), 0775, true);
+        @file_put_contents($path, "<?php\n\nnamespace {$namespace};\n\nfinal class {$class} {}\n");
+    }
+
+    private function rmrf(string $dir): void
+    {
+        if (! is_dir($dir)) {
+            return;
+        }
+        foreach (scandir($dir) ?: [] as $i) {
+            if ($i === '.' || $i === '..') {
+                continue;
+            }
+            $p = $dir.'/'.$i;
+            is_dir($p) ? $this->rmrf($p) : @unlink($p);
+        }
+        @rmdir($dir);
+    }
+
     public function test_replenish_fills_the_serving_queue_and_is_idempotent(): void
     {
         $orch = $this->orchestrator();

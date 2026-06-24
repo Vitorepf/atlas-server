@@ -34,6 +34,9 @@ final class AtlasTaskBrainReplenisher
 
     public const DEFAULT_MAX_PER_RUN = 40;
 
+    /** @var list<array<string,true>>|null memoized token-sets of every class file under the repo's app/ tree */
+    private ?array $repoClassTokenSets = null;
+
     public function __construct(
         private readonly AgentControlPlaneTaskQueueOrchestrator $orchestrator,
         private readonly ?AtlasTaskPacketQualityInspector $inspector = null,
@@ -272,10 +275,115 @@ final class AtlasTaskBrainReplenisher
         return $names;
     }
 
-    /** True when the gap's derived class name already exists in the inventory (the capability is NOT missing). */
+    /**
+     * True when the gap names a capability that ALREADY EXISTS — so minting it would only yield a give-back.
+     *
+     * Two reality checks, because the comprehension's gap scraper emits doc-mentioned class names that are a
+     * gap ONLY relative to the narrow comprehended scope:
+     *   1. fast path — the gap's derived name matches a scope-inventory short name; and
+     *   2. repo-wide — the gap's tokens are a subset of SOME class anywhere under app/. This catches the two
+     *      live false-positive shapes the worker kept giving back: a class that exists OUTSIDE the scope
+     *      (e.g. App\Models\AtlasLoopProposal), and a concept named in docs that exists under a FULLER name
+     *      (AtlasLoopOrchestrator ⊆ AtlasUnifiedLoopOrchestrator). Bias-to-skip is deliberate: an honest
+     *      smaller queue beats give-back-bait. A genuinely-missing capability keeps all its discriminating
+     *      tokens, so it stays a task.
+     */
     private function gapAlreadyExists(string $gap, array $existingShortNames): bool
     {
-        return isset($existingShortNames[strtolower($this->classNameForGap($gap))]);
+        if (isset($existingShortNames[strtolower($this->classNameForGap($gap))])) {
+            return true;
+        }
+        $gapTokens = $this->tokens($this->gapShortName($gap));
+        if ($gapTokens === []) {
+            return false;
+        }
+        foreach ($this->repoClassTokenSets() as $classTokens) {
+            if ($this->isSubsetOf($gapTokens, $classTokens)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The gap's class short-name. The comprehension scraper only emits class-name tokens (App\...\Name or
+     * AtlasLoop*); strip any namespace, and fall back to the studly-derived name for free-prose gaps.
+     */
+    private function gapShortName(string $gap): string
+    {
+        $gap = trim($gap);
+        if (($pos = strrpos($gap, '\\')) !== false) {
+            $gap = substr($gap, $pos + 1);
+        }
+
+        return $gap !== '' ? $gap : $this->classNameForGap($gap);
+    }
+
+    /** Lowercased CamelCase / non-alnum word tokens of a name. */
+    private function tokens(string $name): array
+    {
+        $spaced = preg_replace('/(?<=[a-z0-9])(?=[A-Z])/', ' ', $name) ?? $name;
+        $spaced = preg_replace('/[^A-Za-z0-9]+/', ' ', $spaced) ?? $spaced;
+        $out = [];
+        foreach (preg_split('/\s+/', strtolower(trim($spaced))) ?: [] as $t) {
+            if ($t !== '') {
+                $out[$t] = true;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  array<string,true>  $needle
+     * @param  array<string,true>  $haystack
+     */
+    private function isSubsetOf(array $needle, array $haystack): bool
+    {
+        foreach ($needle as $k => $_) {
+            if (! isset($haystack[$k])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Token-sets of every PHP class file under the repo's app/ AND tests/ trees — the repo-wide existence
+     * oracle for the doc-gap false-positive guard. tests/ is included because docs mention TEST class names
+     * (e.g. AtlasLoopAutoMergeServiceTest) that exist only under tests/; without it the scraper would mint a
+     * "create this test class" gap the worker just gives back. Memoized (one walk per replenisher instance).
+     *
+     * @return list<array<string,true>>
+     */
+    private function repoClassTokenSets(): array
+    {
+        if ($this->repoClassTokenSets !== null) {
+            return $this->repoClassTokenSets;
+        }
+        $base = $this->repoRootOverride ?? base_path();
+        $sets = [];
+        foreach (['app', 'tests'] as $sub) {
+            $root = $base.'/'.$sub;
+            if (! is_dir($root)) {
+                continue;
+            }
+            try {
+                $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS));
+                foreach ($it as $info) {
+                    if (! $info->isFile() || $info->getExtension() !== 'php') {
+                        continue;
+                    }
+                    $sets[] = $this->tokens(pathinfo((string) $info->getFilename(), PATHINFO_FILENAME));
+                }
+            } catch (Throwable) {
+                // best-effort: a partial/empty oracle just means fewer skips, never a crash.
+            }
+        }
+
+        return $this->repoClassTokenSets = $sets;
     }
 
     /**
