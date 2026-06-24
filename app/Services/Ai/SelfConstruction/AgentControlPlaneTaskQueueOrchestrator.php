@@ -275,6 +275,60 @@ final class AgentControlPlaneTaskQueueOrchestrator
     }
 
     /**
+     * Server-side TRUTH of a task's commit scope (never trust the client's echo). The shared-main resolve
+     * commits exactly these files.
+     *
+     * @return array{allowed_files:list<string>, objective:string}
+     */
+    public function taskScope(string $taskPacketId): array
+    {
+        $record = $this->queue->get($taskPacketId);
+        $packet = (array) data_get($record, 'task_packet', []);
+
+        return [
+            'allowed_files' => array_values((array) data_get($packet, 'normalized_scope.allowed_files', data_get($packet, 'allowed_files', []))),
+            'objective' => (string) data_get($packet, 'objective', ''),
+        ];
+    }
+
+    /**
+     * Shared-main RESOLVE close: after the scoped commit landed the work, release the lease and move the queue
+     * record to its terminal `completed_dry_run` state, recording the commit SHA. The evidence gate of
+     * {@see completeDryRun} is bypassed here because the COMMIT itself is the proof of work (the AI ran its
+     * gates before reporting — see the runbook); the scope was enforced by {@see AtlasTaskScopedCommitter}.
+     *
+     * @return array<string, mixed>
+     */
+    public function markResolved(string $taskPacketId, string $leaseId, string $agentId, string $commitSha): array
+    {
+        $lease = $this->leases->get($leaseId);
+        if ($lease === null || (string) $lease['task_packet_id'] !== $taskPacketId) {
+            return $this->envelope('resolve_blocked', ['reason' => 'lease_not_found_or_mismatch', 'task_packet_id' => $taskPacketId]);
+        }
+
+        $this->leases->release($leaseId, $agentId, ['reason' => 'resolved_committed']);
+        $transition = $this->queue->updateStatus($taskPacketId, 'completed_dry_run', [
+            'lease_id' => $leaseId,
+            'agent_id' => $agentId,
+            'resolution' => 'committed_to_main',
+            'commit_sha' => $commitSha,
+        ]);
+        $this->queue->appendReceipt($taskPacketId, [
+            'receipt_kind' => 'task_resolved_committed',
+            'lease_id' => $leaseId,
+            'agent_id' => $agentId,
+            'commit_sha' => $commitSha,
+        ]);
+
+        return $this->envelope('task_resolved', [
+            'task_packet_id' => $taskPacketId,
+            'lease_id' => $leaseId,
+            'commit_sha' => $commitSha,
+            'queue_transition' => (string) ($transition['status'] ?? ''),
+        ]);
+    }
+
+    /**
      * Finalises the dry-run cycle: the lease is released and the queue
      * record moves to `completed_dry_run`. Real completion remains forbidden.
      *

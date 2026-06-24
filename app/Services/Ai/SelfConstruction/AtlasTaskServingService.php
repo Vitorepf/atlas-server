@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction;
 
-use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
-
 /**
  * PART 2 · A7 — THE CONTRACT (the heart): "the Atlas OFFERS the tasks".
  *
@@ -40,12 +38,16 @@ final class AtlasTaskServingService
 
     private readonly AtlasTaskPacketQualityInspector $inspector;
 
+    private readonly AtlasTaskScopedCommitter $committer;
+
     public function __construct(
         private readonly AgentControlPlaneTaskQueueOrchestrator $orchestrator,
         private readonly ?AtlasTaskServingSentinel $sentinel = null,
         ?AtlasTaskPacketQualityInspector $inspector = null,
+        ?AtlasTaskScopedCommitter $committer = null,
     ) {
         $this->inspector = $inspector ?? new AtlasTaskPacketQualityInspector;
+        $this->committer = $committer ?? new AtlasTaskScopedCommitter;
     }
 
     /**
@@ -57,8 +59,8 @@ final class AtlasTaskServingService
      */
     public function next(string $clientId, array $filters = []): array
     {
-        if (! AtlasLoopMasterSwitch::enabled()) {
-            return $this->served($clientId, $this->envelope('disabled', $clientId, null, ['reason' => 'loop_master_switch_off']));
+        if (! AtlasTaskServingSwitch::enabled()) {
+            return $this->served($clientId, $this->envelope('disabled', $clientId, null, ['reason' => 'task_serving_switch_off']));
         }
         $clientId = trim($clientId);
         if ($clientId === '') {
@@ -137,8 +139,8 @@ final class AtlasTaskServingService
      */
     public function report(string $clientId, string $taskPacketId, string $leaseId, array $payload = []): array
     {
-        if (! AtlasLoopMasterSwitch::enabled()) {
-            return $this->reportEnvelope('disabled', $clientId, ['reason' => 'loop_master_switch_off']);
+        if (! AtlasTaskServingSwitch::enabled()) {
+            return $this->reportEnvelope('disabled', $clientId, ['reason' => 'task_serving_switch_off']);
         }
         $clientId = trim($clientId);
         if ($clientId === '' || $taskPacketId === '' || $leaseId === '') {
@@ -146,6 +148,37 @@ final class AtlasTaskServingService
         }
 
         $outcome = (string) ($payload['outcome'] ?? 'success');
+
+        // SHARED-MAIN resolve: commit EXACTLY this task's allowed_files (server-truth scope) as the AI's own
+        // commit, then close. Only when the client asks to commit (the runbook flow); otherwise the legacy
+        // dry-run path stays intact.
+        if ($outcome === 'success' && (bool) ($payload['commit'] ?? false)) {
+            $scope = $this->orchestrator->taskScope($taskPacketId);
+            $commit = $this->committer->commitScope((array) $scope['allowed_files'], $taskPacketId, $clientId, (string) $scope['objective']);
+
+            if (($commit['committed'] ?? false) !== true) {
+                // Commit did not land — KEEP the lease so the AI can fix and re-report (no work lost).
+                return $this->reportEnvelope('commit_failed', $clientId, [
+                    'outcome' => 'success',
+                    'lease_closed' => false,
+                    'task_packet_id' => $taskPacketId,
+                    'lease_id' => $leaseId,
+                    'commit' => $commit,
+                ]);
+            }
+
+            $resolved = $this->orchestrator->markResolved($taskPacketId, $leaseId, $clientId, (string) ($commit['commit_sha'] ?? ''));
+
+            return $this->reportEnvelope('resolved', $clientId, [
+                'outcome' => 'success',
+                'lease_closed' => (string) ($resolved['event'] ?? '') === 'task_resolved',
+                'task_packet_id' => $taskPacketId,
+                'lease_id' => $leaseId,
+                'commit_sha' => (string) ($commit['commit_sha'] ?? ''),
+                'files_committed' => array_values((array) ($commit['files_committed'] ?? [])),
+                'result' => $resolved,
+            ]);
+        }
 
         if ($outcome === 'success') {
             $result = $this->orchestrator->completeDryRun($taskPacketId, $leaseId, (array) ($payload['evidence'] ?? []));

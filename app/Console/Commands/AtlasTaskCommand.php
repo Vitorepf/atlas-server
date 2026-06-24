@@ -25,6 +25,7 @@ class AtlasTaskCommand extends Command
         {--task= : task_packet_id (report)}
         {--lease= : lease_id (report)}
         {--outcome=success : success|failed|give_back (report)}
+        {--commit : SHARED-MAIN resolve — commit the task allowed_files as your own commit (report success)}
         {--evidence= : JSON evidence, or - to read STDIN (report)}
         {--tag=* : optional queue tag filter (next)}
         {--json : Print machine-readable JSON}';
@@ -43,7 +44,7 @@ class AtlasTaskCommand extends Command
                     $client,
                     (string) ($this->option('task') ?? ''),
                     (string) ($this->option('lease') ?? ''),
-                    ['outcome' => (string) $this->option('outcome'), 'evidence' => $this->evidence()],
+                    ['outcome' => (string) $this->option('outcome'), 'commit' => (bool) $this->option('commit'), 'evidence' => $this->evidence()],
                 ),
                 default => ['schema' => 'atlas.task_serving.error.v1', 'status' => 'unknown_action', 'action' => $action],
             };
@@ -53,7 +54,7 @@ class AtlasTaskCommand extends Command
 
         $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
 
-        $ok = in_array((string) ($result['status'] ?? ''), ['served', 'no_claimable_task', 'no_self_sufficient_task', 'reported', 'disabled'], true);
+        $ok = in_array((string) ($result['status'] ?? ''), ['served', 'no_claimable_task', 'no_self_sufficient_task', 'reported', 'resolved', 'disabled'], true);
 
         return $ok ? self::SUCCESS : self::FAILURE;
     }

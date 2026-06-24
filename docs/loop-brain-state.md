@@ -30,6 +30,15 @@
 - **Merge real cross-cliente**: certificação hoje prova NÃO-execução; `completeReal` é gated default-OFF; flip ≠ destrava (re-arquitetura do contrato de segurança).
 - **Verifier multi-arquivo**: single-file hoje; multi-file = obra custeada.
 
+## 🚀 ENTREGA READY-TODAY (operador: "IAs buscam tasks e resolvem hoje", branch main compartilhada)
+Fluxo end-to-end VIVO + provado, decisões do operador: (1) **IA commita direto** na main compartilhada — cada IA edita só seus `allowed_files` e commita SÓ os dela (seguro pelo conflict-free: scopes disjuntos); (2) **manual + origination** pra encher a fila. Entregue:
+- `AtlasTaskServingSwitch` + `atlas:task:serving on|off` — liga o serving SEM armar o loop autônomo (zero token-burn). Gate de `next/report` migrou pro switch dedicado (ORa o master → testes antigos verdes).
+- `atlas:task:enqueue` — front-door manual do operador (quality-gated: task malformada rejeitada na porta).
+- `AtlasTaskScopedCommitter` + `report --commit` — commit ESCOPADO (`git commit -- <allowed_files>`, impossível varrer arquivo alheio; recusa alvo pétreo; flock serializa) → `markResolved` fecha a task com o commit_sha.
+- `docs/atlas-task-serving-runbook.md` — protocolo (operador liga+enfileira; IA pull→edita-só-seu-escopo→report --commit; regra dura: IA NUNCA roda git).
+- PROVA E2E REAL (repo git temp): 2 IAs puxam tasks disjuntas, editam a MESMA árvore, cada `report --commit` gera 1 commit só com os arquivos da IA; tree limpa no fim; fila drena. 50/50 serving + 55/55 ACP verde.
+- HONESTO: a IA roda os testes (Atlas não re-executa server-side; confia no gate da IA + escopo do commit); origination seca em código maduro (enqueue manual é a fonte principal).
+
 ## Log de ciclos (o que originei, provado end-to-end)
 - _(início)_ Baseline: 15/15 verde (`AtlasTaskServingContractTest`, `…SentinelTest`, `WriteSetOverlap*Test`). Stacks/gap A6 mapeados acima.
 - **Ciclo 1 (eixo 7: 50→70)** — `AtlasTaskSwarmProofService` (analisador frozen do raio-X conflict-free) + `atlas:task:swarm-proof` (ferramenta própria: spawna N processos `php artisan` reais contendo no MESMO flock/fila isolada, barreira wall-clock sub-ms). PROVA AO VIVO: 30 processos, spread 0.166ms, 0 double-claim/overlap/breach/phantom, rejeição-de-conflito do lease firando. 18/18 verde. Commit `5d9eb05fd`. A ferramenta vira a JUÍZA de todo ciclo de serving futuro.
