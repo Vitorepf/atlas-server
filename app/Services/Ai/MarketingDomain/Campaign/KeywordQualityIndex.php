@@ -56,7 +56,9 @@ class KeywordQualityIndex
 
     private KeywordSuffixGate $suffixGate;
 
-    public function __construct(?IntentLadderClassifier $intent = null, ?KeywordInvestmentGate $gate = null, ?KeywordMindState $mindState = null, ?KeywordAccountRiskSignal $accountRisk = null, ?KeywordOutcomeCalibrator $calibrator = null, ?KeywordSuffixGate $suffixGate = null)
+    private KeywordPainModifierSignal $painModifier;
+
+    public function __construct(?IntentLadderClassifier $intent = null, ?KeywordInvestmentGate $gate = null, ?KeywordMindState $mindState = null, ?KeywordAccountRiskSignal $accountRisk = null, ?KeywordOutcomeCalibrator $calibrator = null, ?KeywordSuffixGate $suffixGate = null, ?KeywordPainModifierSignal $painModifier = null)
     {
         $this->intent = $intent ?? new IntentLadderClassifier;
         $this->gate = $gate ?? new KeywordInvestmentGate;
@@ -64,6 +66,7 @@ class KeywordQualityIndex
         $this->accountRisk = $accountRisk ?? new KeywordAccountRiskSignal;
         $this->calibrator = $calibrator ?? new KeywordOutcomeCalibrator;
         $this->suffixGate = $suffixGate ?? new KeywordSuffixGate;
+        $this->painModifier = $painModifier ?? new KeywordPainModifierSignal;
     }
 
     /**
@@ -186,6 +189,13 @@ class KeywordQualityIndex
             $score = (int) round(max(0, min(100, $score * $suffix['multiplier'])));
         }
 
+        // PAIN MODIFIER: qualificador de dor/clínico/meta-explícita LIFTA o CVR mesmo em sufixo de informação
+        // (bariatric gelatin recipe 14% vs pink gelatin recipe 2% = 7×); compõe com o suffix-gate. Regra #7.
+        $pain = $this->painModifier->assess($kw);
+        if ($pain['multiplier'] !== 1.0) {
+            $score = (int) round(max(0, min(100, $score * $pain['multiplier'])));
+        }
+
         // INVESTIMENTO vs GASTO: the decision math (breakeven / rule-of-three / EPC). Forecast PRIOR until
         // the operator runs a campaign (the gate labels basis=forecast_prior vs proven, never fakes proof).
         $investment = ($forecastCpc > 0 && isset($econ['payout']))
@@ -204,6 +214,7 @@ class KeywordQualityIndex
             'account_risk' => $this->accountRisk->assess($kw, $offerCtx), // SINAL de morte-de-conta (não freio)
             'outcome_weight' => round($outcomeWeight, 3), // L10: peso da venda real aplicado (1.0 = sem dado)
             'suffix_regime' => $suffix['regime'], // POSSE/INFORMAÇÃO/owned/neutral (regra #2 da dissecação)
+            'pain_modifier' => $pain['has_pain_modifier'], // qualificador de dor liftou o score (regra #7)
             'components' => [
                 'owned_root_provenance' => round($provenance, 2),
                 'intent_class' => $intent,
