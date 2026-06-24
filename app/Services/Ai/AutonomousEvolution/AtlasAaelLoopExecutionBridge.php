@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\Aael\AtlasAaelExecutionPlanProver;
+use App\Services\Ai\AutonomousEvolution\Aael\AtlasAaelExecutionDriftAuditor;
 
 /**
  * The bridge that turns the existing AAEL (Atlas Autonomous Evolution Loop)
@@ -28,6 +29,7 @@ final class AtlasAaelLoopExecutionBridge
     public function __construct(
         private readonly object $runner,
         private readonly ?AtlasAaelExecutionPlanProver $prover = null,
+        private readonly ?AtlasAaelExecutionDriftAuditor $driftAuditor = null,
     ) {}
 
     /**
@@ -41,6 +43,7 @@ final class AtlasAaelLoopExecutionBridge
         $deferred = [];
         $proverRejected = [];
         $prover = $this->prover ?? new AtlasAaelExecutionPlanProver;
+        $driftAuditor = $this->driftAuditor ?? new AtlasAaelExecutionDriftAuditor;
 
         foreach ($opportunities as $opportunity) {
             $task = is_array($opportunity['task'] ?? null) ? $opportunity['task'] : null;
@@ -82,6 +85,13 @@ final class AtlasAaelLoopExecutionBridge
             ]
             : $this->runner->run($tasks, $options);
 
+        $driftAudit = [];
+        $explorations = is_array($loopRun['explorations'] ?? null) ? $loopRun['explorations'] : [];
+        foreach ($tasks as $index => $task) {
+            $taskId = (string) ($task['objective'] ?? 'task-'.$index);
+            $driftAudit[$taskId] = $driftAuditor->audit($task, is_array($explorations[$index] ?? null) ? $explorations[$index] : []);
+        }
+
         return [
             'schema_version' => self::SCHEMA,
             'opportunities_total' => count($opportunities),
@@ -89,6 +99,7 @@ final class AtlasAaelLoopExecutionBridge
             'deferred_count' => count($deferred),
             'deferred' => $deferred,
             'prover_rejected' => $proverRejected,
+            'drift_audit' => $driftAudit,
             // the loop NEVER merges — proposals are certified-for-review.
             'merged_to_main' => false,
             'loop_run' => $loopRun,
