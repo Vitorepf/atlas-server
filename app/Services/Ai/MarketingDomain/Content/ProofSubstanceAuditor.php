@@ -73,14 +73,20 @@ class ProofSubstanceAuditor
         $strength = 0;
         foreach ($sentences as $s) {
             $s = trim($s);
-            if ($s === '' || $this->clauseNegated($s)) {
+            if ($s === '') {
                 continue;
             }
             foreach ($this->anchors() as $key => [$re, $tier]) {
-                if (! in_array($key, $concrete, true) && $this->matchesAnchor($key, $re, $s)) {
-                    $concrete[] = $key;
-                    $strength = max($strength, $tier);
+                if (in_array($key, $concrete, true) || ! $this->matchesAnchor($key, $re, $s)) {
+                    continue;
                 }
+                // Negation is CLAUSE-scoped to the anchor's own match — so "no gym" in a later clause does
+                // not nuke "Dr. Aronson ... 312 women" earlier in the same sentence (panel-caught bug).
+                if (preg_match($re, $s, $m, PREG_OFFSET_CAPTURE) && $this->clauseNegatedAt($s, (int) $m[0][1])) {
+                    continue;
+                }
+                $concrete[] = $key;
+                $strength = max($strength, $tier);
             }
         }
 
@@ -135,12 +141,19 @@ class ProofSubstanceAuditor
         };
     }
 
-    /** True if the clause opens with / carries a negator that means the proof is ABSENT. */
-    private function clauseNegated(string $sentence): bool
+    /** True if a negator sits in the SAME clause as the anchor match (between the clause start and $offset). */
+    private function clauseNegatedAt(string $sentence, int $offset): bool
     {
-        $head = ' '.$sentence;
+        $clauseStart = 0;
+        foreach ([';', ','] as $sep) {
+            $p = strrpos(substr($sentence, 0, $offset), $sep);
+            if ($p !== false) {
+                $clauseStart = max($clauseStart, $p + 1);
+            }
+        }
+        $clause = ' '.trim(substr($sentence, $clauseStart, $offset - $clauseStart));
         foreach (self::CLAUSE_NEG as $neg) {
-            if (str_contains($head, ' '.$neg) || str_starts_with($sentence, $neg)) {
+            if (str_contains($clause, ' '.$neg)) {
                 return true;
             }
         }
