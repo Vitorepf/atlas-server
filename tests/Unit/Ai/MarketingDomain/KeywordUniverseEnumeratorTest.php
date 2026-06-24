@@ -59,6 +59,17 @@ class KeywordUniverseEnumeratorTest extends TestCase
         }
     }
 
+    public function test_expands_short_re_finder_root_variant(): void
+    {
+        // "triple hormone drops protocol" → the re-finder also types "triple hormone drops".
+        $u = $this->e->enumerate(['triple hormone drops protocol']);
+        $this->assertContains('triple hormone drops', $u['roots']);
+        $this->assertContains('triple hormone drops', array_column($u['keywords'], 'keyword'));
+        // but the core device ("trick") is NOT stripped (stripping it loses the mechanism).
+        $u2 = $this->e->enumerate(['blue salt trick']);
+        $this->assertNotContains('blue salt', $u2['roots']);
+    }
+
     public function test_universe_feeds_the_grading_pipeline_end_to_end(): void
     {
         $asset = new AiMarketingVslAsset(['mechanism_name' => 'Blue Salt Trick', 'niche' => 'weight loss']);

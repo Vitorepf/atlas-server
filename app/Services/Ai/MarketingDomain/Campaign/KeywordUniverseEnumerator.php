@@ -25,16 +25,19 @@ class KeywordUniverseEnumerator
 
     private const TIER_OF = ['transactional' => 'T4', 'mechanism_suffix' => 'T4', 'solution' => 'T2', 'urgency' => 'T3', 'bare' => 'T4'];
 
+    /** trailing device-noun suffixes stripped to get the short re-finder variant ("...drops protocol" → "...drops"). */
+    private const DEVICE_SUFFIX = ['protocol', 'protocolo', 'method', 'metodo', 'método', 'system', 'sistema', 'formula', 'fórmula', 'ritual', 'routine', 'rotina', 'hack', 'recipe', 'receita', 'solution', 'program', 'programa', 'drops'];
+
     /**
      * @param  array<int,string>  $roots  owned roots (mechanism/trick/slogan) from the dissected asset
      * @return array{keywords:array<int,array{keyword:string,root:string,modifier_class:string,modifier:string,tier_hint:string}>,count:int,roots:array<int,string>,coverage:array<string,array<string,bool>>,complete:bool}
      */
     public function enumerate(array $roots, array $opts = []): array
     {
-        $roots = array_values(array_unique(array_filter(array_map(
+        $roots = $this->expandRoots(array_values(array_unique(array_filter(array_map(
             fn ($r) => mb_strtolower(trim((string) $r)),
             $roots,
-        ), fn ($r) => $r !== '')));
+        ), fn ($r) => $r !== ''))));
         sort($roots);
 
         $byKw = [];
@@ -108,5 +111,30 @@ class KeywordUniverseEnumerator
             'artifacts' => ['product_name' => $product],
             'flat' => array_column((array) ($enumeration['keywords'] ?? []), 'keyword'),
         ];
+    }
+
+    /**
+     * Expand each owned root with its short re-finder variant (drop one trailing device-noun suffix):
+     * "triple hormone drops protocol" → also "triple hormone drops" — what a re-finder also types.
+     *
+     * @param  array<int,string>  $roots
+     * @return array<int,string>
+     */
+    private function expandRoots(array $roots): array
+    {
+        $out = [];
+        foreach ($roots as $r) {
+            $out[$r] = true;
+            $words = explode(' ', $r);
+            if (count($words) >= 3 && in_array(end($words), self::DEVICE_SUFFIX, true)) {
+                array_pop($words);
+                $short = implode(' ', $words);
+                if ($short !== '') {
+                    $out[$short] = true;
+                }
+            }
+        }
+
+        return array_keys($out);
     }
 }
