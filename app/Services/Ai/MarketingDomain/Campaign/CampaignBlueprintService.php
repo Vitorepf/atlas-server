@@ -31,6 +31,7 @@ class CampaignBlueprintService
         private readonly QualifiedKeywordPatternEngine $qualifiedEngine = new QualifiedKeywordPatternEngine,
         private readonly KeywordQualityIndex $qualityIndex = new KeywordQualityIndex,
         private readonly NegativeKeywordForge $negativeForge = new NegativeKeywordForge,
+        private readonly QualifiedKeywordDossier $dossier = new QualifiedKeywordDossier,
     ) {}
 
     /**
@@ -127,6 +128,7 @@ class CampaignBlueprintService
         $qualified = [
             'tiers' => $qualifiedRaw['tiers'],
             'scored' => $quality['scored'],
+            'launch_selection' => $this->dossier->select($quality['scored']),
             'bands' => $quality['bands'],
             'avg_score' => $quality['avg_score'],
             'eliminated' => $quality['killed'],

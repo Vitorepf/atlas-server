@@ -63,7 +63,10 @@ Relatório §6 ("conta morta = CPA infinito") em código: por keyword, flaga **r
 ## Ciclo 6 ✅ — `NegativeKeywordForge` (remover o desqualificado, camada 3 → ✅)
 Relatório §4 em código: 4 camadas de negativas (junk/informacional-T0/preço-freebie/polaridade) **com expansão morfológica** (negativa não pega plural — enumera as formas) + **gate anti-campeã** (nunca negativa um token dentro de uma raiz própria). **Wirado no `CampaignBlueprintService`** (negatives merge agora inclui `forged['flat']`, protegendo os owned-roots do engine). De quebra **resolve a colisão `recipe`** estruturalmente (se "...trick recipe" é raiz própria, "recipe" não é negativado). **553/553 verdes** (3 testes). O lado "remover" (que sob budget-cap rende mais que atrair) ficou armado no build-time.
 
-## Próximos alvos (ciclo 7+, por alavancagem)
+## Ciclo 7 ✅ — `QualifiedKeywordDossier` (a seleção launch-ready dos ≥5)
+A META "cospe de PRIMEIRA ≥5" virou DECISÃO de lançamento: parte o scored em **recommended** (investible + baixo risco-de-conta), **high_risk** (investible MAS morte-de-conta = operador decide, nunca dropado — constituição), **rejected** (investment=gasto). Wirado no `CampaignBlueprintService` (`qualified.launch_selection`) — não parkado. PROVA end-to-end: o herói "at-home retatrutide protocol" é investible MAS vai pro balde high_risk (retatrutide), surfaceado pro operador decidir, nada perdido (cada keyword cai em exatamente 1 balde). **555/555 verdes** (2 testes).
+
+## Próximos alvos (ciclo 8+, por alavancagem)
 - **(A)** `SearchTermWasteMiner` ligado no `CampaignBlueprintService` + gate anti-campeã (camada 3 do OS ⬜ desarmada — o miner existe e não é chamado): fecha o lado "remover o desqualificado" (que sob budget-cap rende MAIS que atrair).
 - **(B)** CLI/dossier que expõe o deliverable ≥5-keywords-com-intent+investment pro operador (hoje vive no `scoreEngineResult`; falta a janela humana).
 - **(C)** SIMULADOR (alavanca central do prompt): aprofundar o `PersonaSimulator` no elo keyword→mente→página. Maior salto de longo prazo.
