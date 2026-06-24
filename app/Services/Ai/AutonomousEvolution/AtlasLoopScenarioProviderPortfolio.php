@@ -22,6 +22,10 @@ namespace App\Services\Ai\AutonomousEvolution;
  */
 final class AtlasLoopScenarioProviderPortfolio
 {
+    public function __construct(
+        private readonly ?AtlasLoopTaskDecompositionAmplifier $decompositionAmplifier = null,
+    ) {}
+
     /**
      * @param  array<string,mixed>  $task
      * @return list<string> non-empty; each entry is a provider key ('' = engine default)
@@ -55,6 +59,29 @@ final class AtlasLoopScenarioProviderPortfolio
         $portfolio = $this->resolve($task, $defaultProvider);
 
         return $portfolio[$i % count($portfolio)];
+    }
+
+    /**
+     * @param  array<string,mixed>  $task
+     * @return list<array<string,mixed>>
+     */
+    public function decompositionsFor(array $task): array
+    {
+        return ($this->decompositionAmplifier ?? new AtlasLoopTaskDecompositionAmplifier)->amplify($task);
+    }
+
+    /**
+     * The decomposition shape paired with attempt #$i. This is the portfolio-side surface that lets
+     * future callers rotate provider and decomposition indices together without weakening acceptance.
+     *
+     * @param  array<string,mixed>  $task
+     * @return array<string,mixed>
+     */
+    public function decompositionFor(array $task, int $i): array
+    {
+        $decompositions = $this->decompositionsFor($task);
+
+        return $decompositions[$i % count($decompositions)];
     }
 
     /**

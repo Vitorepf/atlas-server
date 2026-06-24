@@ -58,17 +58,29 @@ final class AtlasLoopDecompositionOutcomeRecorder
      */
     public function history(string $fingerprintHash): array
     {
+        return $this->historyForObjectiveKind($fingerprintHash, null);
+    }
+
+    /**
+     * The {certified, total} tally for a structural fingerprint, optionally scoped to an objective kind.
+     *
+     * @return array{certified:int, total:int}
+     */
+    public function historyForObjectiveKind(string $fingerprintHash, ?string $objectiveKind): array
+    {
         $fingerprintHash = trim($fingerprintHash);
         if ($fingerprintHash === '' || ! $this->enabled() || ! $this->dbAvailable()) {
             return ['certified' => 0, 'total' => 0];
         }
 
         try {
-            $total = AtlasLoopDecompositionOutcome::query()->where('fingerprint_hash', $fingerprintHash)->count();
-            $certified = AtlasLoopDecompositionOutcome::query()
-                ->where('fingerprint_hash', $fingerprintHash)
-                ->where('certified', true)
-                ->count();
+            $query = AtlasLoopDecompositionOutcome::query()->where('fingerprint_hash', $fingerprintHash);
+            $objectiveKind = is_string($objectiveKind) ? trim($objectiveKind) : '';
+            if ($objectiveKind !== '') {
+                $query->where('objective_kind', $objectiveKind);
+            }
+            $total = (clone $query)->count();
+            $certified = (clone $query)->where('certified', true)->count();
 
             return ['certified' => (int) $certified, 'total' => (int) $total];
         } catch (Throwable) {

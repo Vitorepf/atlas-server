@@ -33,8 +33,10 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMutationAdequacyGateService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopOriginationDeliveryBridge;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderContextOptimizer;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopScenarioProviderPortfolio;
 use App\Services\Ai\AutonomousEvolution\Recovery\AtlasLoopReceiptReplayer;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopSemanticImplementationCertifier;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopTaskDecompositionAmplifier;
 use App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBacklogIntentSource;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBackService;
@@ -215,6 +217,13 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(SkillBundleStore::class);
         $this->app->singleton(AtlasLoopReceiptReplayer::class);
         $this->app->singleton(AtlasLoopProviderContextOptimizer::class);
+        $this->app->singleton(AtlasLoopTaskDecompositionAmplifier::class);
+        $this->app->singleton(
+            AtlasLoopScenarioProviderPortfolio::class,
+            fn ($app) => new AtlasLoopScenarioProviderPortfolio(
+                rescue(fn () => $app->make(AtlasLoopTaskDecompositionAmplifier::class), null, false),
+            ),
+        );
         $this->app->bind(LoopWorkerSpawnerContract::class, LoopWorkerSpawner::class);
 
         // PART 2 — the operator-facing task-serving contract resolves on the DEDICATED serving queue
@@ -348,9 +357,9 @@ class AppServiceProvider extends ServiceProvider
         // ITEM6 — SCENARIO FAN-OUT wiring (LOAD-BEARING). There is no explicit AtlasEvolutionScenarioExplorer
         // bind today (zero-config autowired), so its new nullable 4th arg would resolve to null and the
         // parallel-wave path would never engage even with atlas.loop.scenario_fanout.enabled ON. Bind the
-        // dispatcher contract to its concrete and construct the explorer WITH the dispatcher. Portfolio is
-        // passed null to preserve the explorer's internal `?? new` default exactly (byte-identical). The
-        // finance evolve command (a second consumer) also becomes fan-out-capable but stays serial OFF.
+        // dispatcher contract to its concrete and construct the explorer WITH the dispatcher and the wired
+        // portfolio. The portfolio's decomposition amplifier is flag-gated default-OFF, so provider rotation
+        // remains byte-identical until the operator arms it.
         $this->app->bind(
             ScenarioWaveDispatcherContract::class,
             ScenarioWaveDispatcher::class,
@@ -360,7 +369,7 @@ class AppServiceProvider extends ServiceProvider
             fn ($app) => new AtlasEvolutionScenarioExplorer(
                 $app->make(LoopExecutionDriver::class),
                 $app->make(AtlasEvolutionFrozenJudge::class),
-                null,
+                rescue(fn () => $app->make(AtlasLoopScenarioProviderPortfolio::class), null, false),
                 rescue(fn () => $app->make(ScenarioWaveDispatcherContract::class), null, false),
             ),
         );
