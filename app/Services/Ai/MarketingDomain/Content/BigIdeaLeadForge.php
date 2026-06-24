@@ -6,21 +6,23 @@ use App\Models\AiMarketingVslAsset;
 use App\Services\Ai\MarketingDomain\Knowledge\AggressiveConversionTacticsLibrary;
 
 /**
- * BigIdeaLeadForge — ORIGINATES the lead, the single biggest conversion multiplier (Eixo 4 / "a
- * construção é que vende").
+ * BigIdeaLeadForge — ORIGINATES the lead, the single biggest conversion multiplier (1→25), GENERALIZED
+ * cross-niche.
  *
- * The first ~10% of a VSL/advertorial — the LEAD — decides watch-through and carries the big idea; it is
- * what takes a funnel from 1% to 25%. A commodity opener ("have you wondered why X?") converts at 1%; an
- * elite lead grips by the throat. This distills the cardinal direct-response lead archetypes (Bencivenga's
- * four + Halbert/Schwartz) into grounded variants built from the asset's REAL ammunition — the niche wound
- * and dream, the common enemy, the promise — and OPENS a curiosity loop while HOLDING the mechanism back
- * (no premature reveal → watch-through stays intact). It routes the best archetype to the reader's
- * awareness stage. Deterministic, provider-free, niche-agnostic, no moral gate. The amplifier/composer
- * consume the chosen lead as the page opener.
+ * The first ~10% (the lead) decides watch-through and carries the big idea. A sibling, LeadForge, already
+ * forges an elite lead but is hard-wired to the weight-loss/GLP-1 asset (OT169). This is the general
+ * engine: it routes the cardinal direct-response archetypes (Bencivenga's four + Halbert/Schwartz) to the
+ * reader's awareness and builds each from the asset's REAL ammunition — a CONCRETE sensory scene (not an
+ * abstract pain), the asset's REAL enemy (Big Pharma when a conspiracy device is present, not a generic
+ * "industry"), a proper identity callout ("a woman over 40", never the raw niche name), and an open loop
+ * ANCHORED on the named mechanism (closed only by the video) — so it never reveals the mechanism early
+ * (watch-through stays intact). For the weight/health family it DELEGATES the headline lead to the proven
+ * LeadForge (no duplication of that elite treatment). A brutal panel (cycle: lead-forge) drove these
+ * upgrades. Deterministic, provider-free, no moral gate.
  */
 class BigIdeaLeadForge
 {
-    /** Awareness stage → the lead archetypes that fit it, best first. */
+    /** Awareness stage → lead archetypes that fit it, best first. */
     private const ROUTE = [
         'unaware' => ['story', 'secret', 'enemy'],
         'problem_aware' => ['problem_agitate', 'enemy', 'secret'],
@@ -29,10 +31,20 @@ class BigIdeaLeadForge
         'most_aware' => ['proclamation'],
     ];
 
-    /** Niche → the common enemy a lead can rally against (external villain mobilizes). */
+    /** Niche family → a CONCRETE sensory scene the cold reader sees themselves in (not abstract pain). */
+    private const SCENE = [
+        'weight' => 'the scale will not move, your clothes keep getting tighter, and every mirror feels like bad news',
+        'health' => 'you wake up tired, the symptoms creep back, and the doctor just shrugs',
+        'finance' => 'your balance drops the day before payday and the card gets declined at the worst moment',
+        'money' => 'your balance drops the day before payday and the card gets declined at the worst moment',
+        'relationship' => 'the texts go unanswered, the calls go to voicemail, and the other side of the bed stays cold',
+        'generic' => 'the thing you want keeps slipping further away no matter what you try',
+    ];
+
+    /** Niche family → the common enemy a lead rallies against. */
     private const ENEMY = [
-        'health' => 'the supplement industry',
         'weight' => 'the diet industry',
+        'health' => 'the supplement industry',
         'finance' => 'Wall Street',
         'money' => 'the banks',
         'relationship' => 'the dating-advice industry',
@@ -45,21 +57,22 @@ class BigIdeaLeadForge
     public function forge(AiMarketingVslAsset $asset): array
     {
         $wound = (new AggressiveConversionTacticsLibrary)->nicheWound((string) $asset->niche);
-        $pain = $wound['pain'] ?? 'this keeps holding you back';
+        $family = (string) ($wound['family'] ?? 'generic');
+        $scene = self::SCENE[$family] ?? self::SCENE['generic'];
+        $enemy = $this->enemy($asset, $family);
+        $who = $this->avatar($asset);
         $dream = $wound['dream'] ?? 'the life you want';
-        $enemy = $this->enemy((string) $asset->niche, (string) ($wound['family'] ?? ''));
-        $avatar = $this->avatar($asset);
         $promise = $this->firstNonEmpty([(string) $asset->core_promise, (string) $asset->big_idea, $dream]);
         $hero = $this->hero($asset);
         $heroTail = $hero !== '' ? " — {$hero}" : '';
+        $close = $this->openLoop($asset);
 
-        // Every archetype OPENS a loop and HOLDS the mechanism (no reveal here → watch-through intact).
         $built = [
-            'secret' => "{$avatar} there is a little-known reason {$pain} — and it is not what you have been told. Once you see it, {$promise}{$heroTail} stops being a fight.",
-            'story' => "{$avatar} not long ago I was right where you are: {$pain}. I had tried everything. Then one overlooked thing changed it — and {$dream}. Let me show you what it was.",
-            'problem_agitate' => "{$avatar} if {$pain}, understand this: it is not your fault. The real reason is something {$enemy} never made clear — and it changes everything.",
-            'proclamation' => "{$avatar} {$promise}{$heroTail} — and far faster and simpler than you have been led to believe. It sounds impossible until you see the one reason it works.",
-            'enemy' => "{$avatar} {$enemy} has quietly buried the real reason {$pain}. What they do not want you to find is exactly what finally makes {$dream} possible.",
+            'secret' => "If you are {$who}, there is a little-known reason {$scene} — and it is not what you have been told. {$close}",
+            'story' => "If you are {$who}, I have been right where you are: {$scene}. I had tried everything. Then one overlooked thing changed it — and {$dream}. {$close}",
+            'problem_agitate' => "If you are {$who} and {$scene}, understand this: it is not your fault. The real reason is something {$enemy} never made clear. {$close}",
+            'proclamation' => "If you are {$who}, {$promise}{$heroTail} is within reach — far faster and simpler than you have been led to believe. {$close}",
+            'enemy' => "If you are {$who}, know this: {$enemy} has every reason to keep you from finding why {$scene}. {$close}",
         ];
 
         $order = self::ROUTE[$this->normalizeAwareness((string) $asset->awareness_level)] ?? self::ROUTE['problem_aware'];
@@ -68,35 +81,58 @@ class BigIdeaLeadForge
             $leads[] = ['archetype' => $arch, 'text' => $this->tidy($built[$arch])];
         }
 
-        return [
-            'leads' => $leads,
-            'best' => $leads[0]['text'] ?? null,
-            'best_archetype' => $leads[0]['archetype'] ?? null,
-        ];
-    }
-
-    private function enemy(string $niche, string $family): string
-    {
-        $n = mb_strtolower($niche.' '.$family);
-        foreach (self::ENEMY as $key => $enemy) {
-            if ($key !== 'generic' && str_contains($n, $key)) {
-                return $enemy;
+        // Reuse, not duplicate: for the weight/health family, the proven LeadForge is the elite headline
+        // lead. Use it as `best`; keep the routed archetypes as cross-niche variants.
+        $best = $leads[0]['text'] ?? null;
+        $bestArch = $leads[0]['archetype'] ?? null;
+        if (in_array($family, ['weight', 'health'], true)) {
+            $elite = trim((new LeadForge)->forge($asset));
+            if ($elite !== '') {
+                $best = $elite;
+                $bestArch = 'leadforge_elite';
             }
         }
 
-        return self::ENEMY['generic'];
+        return ['leads' => $leads, 'best' => $best, 'best_archetype' => $bestArch];
     }
 
+    /** Open loop anchored on the named mechanism — closed only by the video; never reveals the how. */
+    private function openLoop(AiMarketingVslAsset $asset): string
+    {
+        $mech = trim((string) preg_replace('/\s*\(.*$/u', '', (string) $asset->mechanism_name));
+        if ($mech === '') {
+            $mech = (string) ((new MechanismNameForge)->forge($asset)['best'] ?? '');
+        }
+
+        return $mech !== ''
+            ? "It has a name — {$mech} — and the exact reason it works is in the presentation above."
+            : 'The exact reason it works is in the presentation above.';
+    }
+
+    private function enemy(AiMarketingVslAsset $asset, string $family): string
+    {
+        // The asset's REAL enemy wins: a conspiracy device means Big-Pharma-grade framing (congruence with
+        // the VSL), not a generic family label.
+        $devices = (array) ($asset->persuasion_devices ?? []);
+        if (! empty($devices['conspiracy'] ?? null)) {
+            return in_array($family, ['weight', 'health'], true)
+                ? 'the people making billions on $1,000-a-month injections'
+                : 'the people who profit while you stay stuck';
+        }
+
+        return self::ENEMY[$family] ?? self::ENEMY['generic'];
+    }
+
+    /** Identity callout ("a woman over 40"), mirroring LeadForge — NEVER the raw niche name as a greeting. */
     private function avatar(AiMarketingVslAsset $asset): string
     {
-        $avatar = is_array($asset->avatar) ? $asset->avatar : [];
-        $who = trim((string) ($avatar['who'] ?? $avatar['label'] ?? ''));
-        if ($who !== '') {
-            return rtrim($who, '.:').':';
-        }
-        $niche = trim((string) $asset->niche);
+        $blob = mb_strtolower(json_encode($asset->avatar, JSON_UNESCAPED_UNICODE).' '.(string) $asset->niche);
+        $woman = (bool) preg_match('/\b(women|woman|mulher|female)\b/u', $blob);
+        $man = (bool) preg_match('/\b(men|man|homem|male)\b/u', $blob);
+        $age = preg_match('/\b([456]0)\b/u', $blob, $m) ? $m[1] : '40';
+        $base = $woman ? 'a woman' : ($man ? 'a man' : 'someone');
 
-        return $niche !== '' ? ucfirst($niche).':' : 'Listen:';
+        return $base === 'someone' ? 'someone who has tried everything' : "{$base} over {$age}";
     }
 
     private function hero(AiMarketingVslAsset $asset): string

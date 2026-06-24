@@ -16,9 +16,28 @@ class BigIdeaLeadForgeTest extends TestCase
     public function test_routes_archetype_to_awareness(): void
     {
         $f = new BigIdeaLeadForge;
-        $this->assertSame('story', $f->forge($this->asset('weight loss', 'unaware'))['best_archetype']);
+        // The routed archetype leads the variants list (weight family's `best` delegates to LeadForge).
+        $this->assertSame('story', $f->forge($this->asset('weight loss', 'unaware'))['leads'][0]['archetype']);
         $this->assertSame('problem_agitate', $f->forge($this->asset('finance', 'problem_aware'))['best_archetype']);
         $this->assertSame('proclamation', $f->forge($this->asset('relationship', 'most_aware'))['best_archetype']);
+    }
+
+    public function test_weight_family_reuses_the_proven_leadforge_no_duplication(): void
+    {
+        $best = (new BigIdeaLeadForge)->forge($this->asset('weight loss', 'unaware'))['best_archetype'];
+        $this->assertSame('leadforge_elite', $best, 'health/weight should reuse the proven LeadForge, not a generic template');
+    }
+
+    public function test_lead_uses_concrete_scene_and_mechanism_anchored_loop(): void
+    {
+        $r = (new BigIdeaLeadForge)->forge(new AiMarketingVslAsset([
+            'niche' => 'finance', 'awareness_level' => 'problem_aware', 'core_promise' => 'grow your money',
+            'mechanism_name' => 'The Allocation Rule',
+        ]));
+        // Concrete sensory scene (not abstract pain) + open loop anchored on the named mechanism.
+        $this->assertStringContainsString('card gets declined', $r['best']);
+        $this->assertStringContainsString('The Allocation Rule', $r['best']);
+        $this->assertStringNotContainsString('it changes everything', $r['best']); // no vague 1% close
     }
 
     public function test_lead_holds_the_mechanism_no_watch_through_leak(): void
