@@ -92,6 +92,14 @@ final class AtlasLoopDeliveryDossierService
             'cyclomatic_drop' => $this->numeric($quality, ['cyclomatic_drop']),
         ]);
 
+        // SURFACE the AtlasLoopFeatureSequenceWalker's step-by-step plan (produced into quality by
+        // AtlasLoopIntentVerifierFactory) so the operator sees a multi-atom feature's progress, not just the
+        // completeness checklist. The walker step shape is {step, active_atoms, regression_atoms,
+        // cumulative_atoms, is_last}; the LAST step's is_last===true means its cumulative atoms ARE the whole
+        // feature. Absent / non-array quality key ⇒ empty surfacing (byte-identical dossier under verify()).
+        $featureSteps = is_array($quality['feature_sequence_steps'] ?? null) ? array_values($quality['feature_sequence_steps']) : [];
+        $lastStep = $featureSteps === [] ? null : end($featureSteps);
+
         $body = [
             'schema_version' => self::SCHEMA,
             'proposal_id' => (string) ($delivery['proposal_id'] ?? ''),
@@ -100,6 +108,9 @@ final class AtlasLoopDeliveryDossierService
             'delivered_at' => (string) ($delivery['delivered_at'] ?? ''),
             'dimensions' => $dimensions,
             'completeness_checklist' => is_array($quality['completeness_checklist'] ?? null) ? $quality['completeness_checklist'] : [],
+            'feature_sequence_steps' => $featureSteps,
+            'feature_sequence_total_steps' => count($featureSteps),
+            'feature_sequence_last_is_full' => is_array($lastStep) && ($lastStep['is_last'] ?? false) === true,
         ];
         $body['signature'] = $this->sign($body);
 
