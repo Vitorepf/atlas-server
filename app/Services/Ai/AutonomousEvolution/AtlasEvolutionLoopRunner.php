@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Services\Ai\Support\AiStringListNormalizer;
+use Symfony\Component\Process\Process;
 use Throwable;
 
 /**
@@ -31,6 +32,7 @@ final class AtlasEvolutionLoopRunner
 
     public function __construct(
         private readonly AtlasEvolutionScenarioExplorer $explorer,
+        private readonly ?AtlasLoopTransferGate $transferGate = null,
     ) {}
 
     /**
@@ -64,14 +66,25 @@ final class AtlasEvolutionLoopRunner
             }
 
             $taskPayload = is_array($task) ? $task : [];
+            $transferAcceptance = $this->transferAcceptance($taskPayload);
+            $transferGateActive = $transferAcceptance !== null && $this->transferGateEnabled();
+            $forcedKeepWorkspaces = $transferGateActive && ! (bool) ($taskPayload['keep_workspaces'] ?? false);
+            $explorerPayload = $forcedKeepWorkspaces ? array_replace($taskPayload, ['keep_workspaces' => true]) : $taskPayload;
             $this->emitProgress($onProgress, 'runner_task_start', ['index' => count($explorations)]);
-            $exploration = $this->explorer->explore($taskPayload, $scenarios, $onProgress);
+            $exploration = $this->explorer->explore($explorerPayload, $scenarios, $onProgress);
             $this->emitProgress($onProgress, 'runner_task_end', ['index' => count($explorations)]);
+            if ($transferGateActive) {
+                $acceptance = is_array($taskPayload['acceptance'] ?? null) ? $taskPayload['acceptance'] : [];
+                $exploration = $this->applyTransferGate($exploration, $acceptance, $transferAcceptance);
+            }
             $explorations[] = $this->summariseExploration($exploration);
 
             if (is_array($exploration['winner'] ?? null)) {
                 $acceptance = is_array($taskPayload['acceptance'] ?? null) ? $taskPayload['acceptance'] : [];
                 $proposals[] = $this->toProposal($exploration, $acceptance);
+            }
+            if ($forcedKeepWorkspaces) {
+                $this->cleanupExplorationWorkspaces($exploration, $explorerPayload);
             }
         }
 
@@ -87,6 +100,219 @@ final class AtlasEvolutionLoopRunner
             'proposals' => $proposals,
             'explorations' => $explorations,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $task
+     * @return array<string,mixed>|null
+     */
+    private function transferAcceptance(array $task): ?array
+    {
+        $acceptance = is_array($task['acceptance'] ?? null) ? $task['acceptance'] : [];
+        $transfer = $acceptance['transfer'] ?? null;
+
+        return is_array($transfer) && $transfer !== [] ? $transfer : null;
+    }
+
+    private function transferGateEnabled(): bool
+    {
+        try {
+            return (bool) config('atlas.loop.transfer_gate_enabled', false);
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    private function transferGate(): AtlasLoopTransferGate
+    {
+        return $this->transferGate ?? new AtlasLoopTransferGate(app(AtlasEvolutionFrozenJudge::class));
+    }
+
+    /**
+     * @param  array<string,mixed>  $exploration
+     * @param  array<string,mixed>  $acceptance
+     * @param  array<string,mixed>  $transferAcceptance
+     * @return array<string,mixed>
+     */
+    private function applyTransferGate(array $exploration, array $acceptance, array $transferAcceptance): array
+    {
+        $attempts = is_array($exploration['attempts'] ?? null) ? $exploration['attempts'] : [];
+        foreach ($attempts as $index => $attempt) {
+            if (! is_array($attempt) || ! (bool) ($attempt['verdict']['passed'] ?? false)) {
+                continue;
+            }
+            $attempts[$index] = $this->applyTransferGateToAttempt($attempt, $acceptance, $transferAcceptance);
+        }
+
+        $metricKind = (string) ($exploration['metric_kind'] ?? AtlasEvolutionFrozenJudge::METRIC_GATE);
+        $exploration['attempts'] = $attempts;
+        $exploration['scenarios_accepted'] = $this->countPassedAttempts($attempts);
+        $exploration['winner'] = $this->bestPassingAttempt($attempts, $metricKind);
+        $exploration['status'] = $this->transferGatedStatus($exploration);
+
+        return $exploration;
+    }
+
+    /**
+     * @param  array<string,mixed>  $attempt
+     * @param  array<string,mixed>  $acceptance
+     * @param  array<string,mixed>  $transferAcceptance
+     * @return array<string,mixed>
+     */
+    private function applyTransferGateToAttempt(array $attempt, array $acceptance, array $transferAcceptance): array
+    {
+        $workspace = is_string($attempt['workspace'] ?? null) ? $attempt['workspace'] : '';
+        $transferVerdict = $workspace !== '' && is_dir($workspace)
+            ? $this->transferGate()->verify($workspace, $acceptance, $transferAcceptance)
+            : $this->missingWorkspaceTransferVerdict();
+
+        $attempt['transfer_verdict'] = $transferVerdict;
+        if (($transferVerdict['ok'] ?? false) === true) {
+            return $attempt;
+        }
+
+        return $this->rejectAttemptWithTransferReason($attempt, (string) ($transferVerdict['reason'] ?? 'transfer_failed'));
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function missingWorkspaceTransferVerdict(): array
+    {
+        return [
+            'ok' => false,
+            'reason' => 'transfer_workspace_missing',
+            'main' => [
+                'passed' => false,
+                'metric' => 0.0,
+                'details' => [
+                    'rejected' => true,
+                    'reason' => 'workspace_missing',
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $attempt
+     * @return array<string,mixed>
+     */
+    private function rejectAttemptWithTransferReason(array $attempt, string $reason): array
+    {
+        $verdict = is_array($attempt['verdict'] ?? null) ? $attempt['verdict'] : [];
+        $details = is_array($verdict['details'] ?? null) ? $verdict['details'] : [];
+        $details['rejected'] = true;
+        $details['reason'] = $reason;
+        $verdict['passed'] = false;
+        $verdict['metric'] = 0.0;
+        $verdict['details'] = $details;
+        $attempt['verdict'] = $verdict;
+
+        return $attempt;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>|array<int,mixed>  $attempts
+     */
+    private function countPassedAttempts(array $attempts): int
+    {
+        return count(array_filter($attempts, static fn (mixed $attempt): bool => is_array($attempt) && (bool) ($attempt['verdict']['passed'] ?? false)));
+    }
+
+    /**
+     * @param  list<array<string,mixed>>|array<int,mixed>  $attempts
+     * @return array<string,mixed>|null
+     */
+    private function bestPassingAttempt(array $attempts, string $metricKind): ?array
+    {
+        $best = null;
+        foreach ($attempts as $attempt) {
+            if (! is_array($attempt) || ! (bool) ($attempt['verdict']['passed'] ?? false)) {
+                continue;
+            }
+            if ($best === null || $this->attemptBeats($attempt, $best, $metricKind)) {
+                $best = $attempt;
+            }
+        }
+
+        return $best;
+    }
+
+    /**
+     * @param  array<string,mixed>  $attempt
+     * @param  array<string,mixed>  $best
+     */
+    private function attemptBeats(array $attempt, array $best, string $metricKind): bool
+    {
+        $metric = $this->attemptMetric($attempt['verdict']['metric'] ?? null);
+        $bestMetric = $this->attemptMetric($best['verdict']['metric'] ?? null);
+        if ($metric !== null && $bestMetric !== null) {
+            if ($metricKind === AtlasEvolutionFrozenJudge::METRIC_MINIMIZE && $metric < $bestMetric) {
+                return true;
+            }
+            if ($metricKind === AtlasEvolutionFrozenJudge::METRIC_MAXIMIZE && $metric > $bestMetric) {
+                return true;
+            }
+        }
+
+        return $metric === $bestMetric && $this->attemptDiffLinesValue($attempt) < $this->attemptDiffLinesValue($best);
+    }
+
+    /**
+     * @param  array<string,mixed>  $attempt
+     */
+    private function attemptDiffLinesValue(array $attempt): int
+    {
+        $diffSize = is_array($attempt['diff_size'] ?? null) ? $attempt['diff_size'] : [];
+        $lines = $this->attemptDiffLines($diffSize['lines'] ?? null);
+
+        return $lines ?? PHP_INT_MAX;
+    }
+
+    /**
+     * @param  array<string,mixed>  $exploration
+     * @return array<string,mixed>
+     */
+    private function transferGatedStatus(array $exploration): array
+    {
+        $status = is_array($exploration['status'] ?? null) ? $exploration['status'] : [];
+        $status['reason'] = is_array($exploration['winner'] ?? null) ? 'winner_selected' : 'no_passing_candidate';
+
+        return $status;
+    }
+
+    /**
+     * @param  array<string,mixed>  $exploration
+     * @param  array<string,mixed>  $task
+     */
+    private function cleanupExplorationWorkspaces(array $exploration, array $task): void
+    {
+        $attempts = is_array($exploration['attempts'] ?? null) ? $exploration['attempts'] : [];
+        foreach ($attempts as $attempt) {
+            if (! is_array($attempt)) {
+                continue;
+            }
+            $workspace = is_string($attempt['workspace'] ?? null) ? $attempt['workspace'] : '';
+            if ($workspace === '' || ! is_dir($workspace)) {
+                continue;
+            }
+            $this->cleanupScenarioWorkspace($workspace, $task);
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $task
+     */
+    private function cleanupScenarioWorkspace(string $workspace, array $task): void
+    {
+        $base = (string) ($task['base_workspace'] ?? '');
+        if (trim((string) ($task['scenario_clone_mode'] ?? 'copy')) === 'worktree' && $base !== '') {
+            (new Process(['git', '-C', $base, 'worktree', 'remove', '--force', $workspace], null, null, null, 60.0))->run();
+            (new Process(['git', '-C', $base, 'worktree', 'prune'], null, null, null, 30.0))->run();
+        }
+        if (is_dir($workspace)) {
+            (new Process(['rm', '-rf', $workspace]))->run();
+        }
     }
 
     /**
@@ -184,6 +410,7 @@ final class AtlasEvolutionLoopRunner
             ...$this->verdictSlice($attempt, $verdict, $index),
             ...$this->budgetSlice($attempt, $diffSize),
             ...$this->judgeDiagnosticSlice($verdict),
+            ...$this->transferDiagnosticSlice($attempt),
         ];
     }
 
@@ -299,6 +526,29 @@ final class AtlasEvolutionLoopRunner
             'out_of_scope_files' => $this->attemptPathList($details['out_of_scope_files'] ?? null),
             'tampered_files' => $this->attemptPathList($details['tampered_files'] ?? null),
         ], static fn (mixed $value): bool => $value !== null && $value !== []);
+    }
+
+    /**
+     * @param  array<string,mixed>  $attempt
+     * @return array<string,mixed>
+     */
+    private function transferDiagnosticSlice(array $attempt): array
+    {
+        $verdict = is_array($attempt['transfer_verdict'] ?? null) ? $attempt['transfer_verdict'] : [];
+        if ($verdict === []) {
+            return [];
+        }
+        $main = is_array($verdict['main'] ?? null) ? $verdict['main'] : [];
+        $transfer = is_array($verdict['transfer'] ?? null) ? $verdict['transfer'] : [];
+
+        return [
+            'transfer_verdict' => array_filter([
+                'ok' => (bool) ($verdict['ok'] ?? false),
+                'reason' => $this->attemptBoundedString($verdict['reason'] ?? null, 120),
+                'main_passed' => $main === [] ? null : (bool) ($main['passed'] ?? false),
+                'transfer_passed' => $transfer === [] ? null : (bool) ($transfer['passed'] ?? false),
+            ], static fn (mixed $value): bool => $value !== null),
+        ];
     }
 
     /**
