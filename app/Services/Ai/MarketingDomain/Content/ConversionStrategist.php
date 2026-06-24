@@ -21,6 +21,7 @@ class ConversionStrategist
         private readonly MarketSophisticationRouter $sophistication = new MarketSophisticationRouter,
         private readonly ValueEquationAuditor $valueEquation = new ValueEquationAuditor,
         private readonly MechanismNameForge $forge = new MechanismNameForge,
+        private readonly ProofSubstanceAuditor $proof = new ProofSubstanceAuditor,
     ) {}
 
     /**
@@ -39,8 +40,12 @@ class ConversionStrategist
         $offerText = $copy !== '' ? $copy : trim(implode(' ', array_filter([
             (string) $asset->big_idea, (string) $asset->core_promise,
             is_array($asset->offer) ? implode(' ', array_map(static fn ($v) => is_scalar($v) ? (string) $v : '', $asset->offer)) : (string) $asset->offer,
+            // Include the asset's proof/claim ammunition so the brain audits ALL selling material.
+            implode(' ', array_filter(array_map(static fn ($v) => is_scalar($v) ? (string) $v : '', (array) $asset->claims))),
+            implode(' ', array_filter(array_map(static fn ($v) => is_scalar($v) ? (string) $v : '', (array) (is_array($asset->metrics) ? ($asset->metrics['result_claims'] ?? []) : [])))),
         ])));
         $ve = $this->valueEquation->audit($offerText);
+        $proof = $this->proof->audit($offerText);
 
         $awarenessNorm = $this->awareness->normalize($awarenessLevel);
         // The forge always yields a name; the sophistication move decides whether to LEAD with it.
@@ -62,8 +67,10 @@ class ConversionStrategist
             'sophistication' => $soph,
             'mechanism' => ['lead_with_mechanism' => $soph['forge_mechanism'], 'name' => $mechName, 'candidates' => $mech['candidates']],
             'offer_gaps' => $ve['gaps'],
+            // Proof is the #1 lever — surface its CONCRETENESS, not just whether the offer mentions it.
+            'proof' => ['concrete' => $proof['concrete'], 'vague' => $proof['vague'], 'has_concrete' => $proof['has_concrete'], 'note' => $proof['note']],
             'aggression_order' => $aggressionOrder,
-            'summary' => $summary,
+            'summary' => $summary.($proof['has_concrete'] ? '' : ' ⚠ PROVA fraca: '.$proof['note']),
         ];
     }
 }

@@ -53,6 +53,25 @@ class ConversionStrategistTest extends TestCase
         $this->assertTrue($plan['offer_gaps'][0]['high_leverage']);
     }
 
+    public function test_plan_surfaces_proof_concreteness_the_number_one_lever(): void
+    {
+        $strategist = new ConversionStrategist;
+
+        $rich = $strategist->plan(new AiMarketingVslAsset([
+            'niche' => 'weight loss', 'awareness_level' => 'solution_aware', 'sophistication_level' => 4,
+            'big_idea' => 'lose the weight', 'claims' => ['Dr. Lee tracked 312 women; 80% kept it off'],
+        ]));
+        $this->assertTrue($rich['proof']['has_concrete']);
+        $this->assertStringNotContainsString('PROVA fraca', $rich['summary']);
+
+        $thin = $strategist->plan(new AiMarketingVslAsset([
+            'niche' => 'weight loss', 'awareness_level' => 'solution_aware', 'sophistication_level' => 4,
+            'big_idea' => 'lose the weight',
+        ]));
+        $this->assertFalse($thin['proof']['has_concrete']);
+        $this->assertStringContainsString('PROVA fraca', $thin['summary']);
+    }
+
     public function test_full_copy_overrides_asset_text_for_offer_audit(): void
     {
         $asset = new AiMarketingVslAsset(['niche' => 'relationship', 'awareness_level' => 'product_aware', 'sophistication_level' => 3]);

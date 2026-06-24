@@ -76,6 +76,8 @@ Régua atual (piso de maturidade): **85** / teto 100. — **VOLTA 2 COMPLETA** (
 
 - **Composer injeta prova concreta real (Eixo 7 ponta-a-ponta)** ✅ — `proof()` varre os claims/metrics/offer do asset e usa o PRÓPRIO `ProofSubstanceAuditor` como oráculo: injeta no proof slot o primeiro claim com âncora concreta (nunca fabrica, nunca vago); sem prova real → mantém o placeholder (gap honesto, não conta). Vale pra compose() e composeBridge(). Dogfooding pegou um falso-positivo REAL no auditor: a regex `demonstration` (`watch the`) casava o CTA padrão "Watch the free presentation" → marcaria demonstração em TODA página; apertada pra demo-de-prova real (before/after, on camera, watch it work). Regressões travadas (CTA não é prova; rico→prova concreta na página, magro→só slot). 375/375 verdes.
 
+- **ConversionStrategist sinaliza concretude da prova (alavanca #1)** ✅ — o cérebro ganhou `proof` no plano (via ProofSubstanceAuditor): concrete[]/vague[]/has_concrete + nota; summary recebe "⚠ PROVA fraca: …" quando não há âncora concreta. E passou a auditar TODA a munição do asset (claims + metrics.result_claims, não só big_idea/promise/offer) — o cérebro vê a prova real onde ela mora. Provado: asset com claim "Dr. Lee tracked 312 women; 80% kept it off" → has_concrete; asset magro → aviso. 376/376 verdes.
+
 ## Pontos pra próxima sessão (faculdade de ambição)
 - **Multi-persona injection por slot** — TL;DR pra mãe ocupada no topo, vs-Ozempic perto do CTA, prova específica embaixo, em vez de 1 fix em `ps`.
 - **LLM-driven persona refinement** — quando o operador plugar LLM, refinar `simulate()` por avatar real do produto (não só os 3 fixos hardcoded). Framework está pronto, contrato é o `PersonaSimulator`.
