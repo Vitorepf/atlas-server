@@ -21,6 +21,7 @@ class KeywordIntelligencePipeline
         private readonly NegativeKeywordForge $negativeForge = new NegativeKeywordForge,
         private readonly QualifiedKeywordDossier $dossier = new QualifiedKeywordDossier,
         private readonly KeywordClusterer $clusterer = new KeywordClusterer,
+        private readonly KeywordVolumeSignal $volumeSignal = new KeywordVolumeSignal,
     ) {}
 
     /**
@@ -54,6 +55,7 @@ class KeywordIntelligencePipeline
             'offer_fingerprint' => $fingerprint,
             'universe' => ['count' => $universe['count'], 'complete' => $universe['complete'], 'roots' => $universe['roots']],
             'clusters' => $this->clusterer->cluster((array) ($universe['keywords'] ?? [])), // L7 STAG ad groups
+            'volume_priority' => $this->volumeSignal->prioritize($quality['scored'], (array) ($opts['volume_map'] ?? [])), // L5 demanda×intenção
             'scored' => $quality['scored'],
             'launch_selection' => $launch,
             'negatives' => $negatives,
