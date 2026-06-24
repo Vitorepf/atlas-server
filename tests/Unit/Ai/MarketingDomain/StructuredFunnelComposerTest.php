@@ -104,6 +104,22 @@ class StructuredFunnelComposerTest extends TestCase
         $this->assertContains('perceived_likelihood', $gapKeys, 'an empty proof slot must NOT count as proof');
     }
 
+    public function test_ad_is_an_elite_hook_congruent_with_the_page_lead(): void
+    {
+        // The ad (top of funnel) must share the page lead's scene + enemy so ad→bridge→page is congruent
+        // (Eixo 6 message-match) and the scroll-stopper is grounded, not "Finance: grow your money".
+        $composer = new StructuredFunnelComposer;
+        $cong = new \App\Services\Ai\MarketingDomain\Content\FunnelCongruenceAuditor;
+        $funnel = $composer->compose($this->asset([
+            'niche' => 'finance', 'awareness_level' => 'problem_aware', 'core_promise' => 'grow your money',
+            'mechanism_name' => 'The Allocation Rule',
+        ]));
+        $this->assertStringContainsString('Wall Street', $funnel['ad']);          // real enemy, grounded
+        $this->assertStringContainsString('card gets declined', $funnel['ad']);   // concrete scene
+        $hops = collect($cong->audit($funnel)['hops'])->keyBy(fn ($h) => $h['from'].'>'.$h['to']);
+        $this->assertGreaterThanOrEqual(60, $hops['ad>bridge']['congruence'], 'ad must echo the bridge');
+    }
+
     public function test_checkout_stacks_a_grand_slam_offer_not_a_thin_line(): void
     {
         // Eixo 5: the checkout must STACK the offer (bonuses mapped to objections + value anchoring),

@@ -96,6 +96,20 @@ class BigIdeaLeadForge
         return ['leads' => $leads, 'best' => $best, 'best_archetype' => $bestArch];
     }
 
+    /**
+     * A SHORT scroll-stopper for the ad/bridge — shares the lead's scene + enemy vocabulary so the whole
+     * ad→bridge→page chain stays congruent (message-match, Eixo 6) and the top of funnel is elite too.
+     */
+    public function hook(AiMarketingVslAsset $asset): string
+    {
+        $wound = (new AggressiveConversionTacticsLibrary)->nicheWound((string) $asset->niche);
+        $family = (string) ($wound['family'] ?? 'generic');
+        $scene = self::SCENE[$family] ?? self::SCENE['generic'];
+        $enemy = $this->enemy($asset, $family);
+
+        return $this->tidy("If you are {$this->avatar($asset)} and {$scene}, the real reason is not what {$enemy} told you.");
+    }
+
     /** Open loop anchored on the named mechanism — closed only by the video; never reveals the how. */
     private function openLoop(AiMarketingVslAsset $asset): string
     {

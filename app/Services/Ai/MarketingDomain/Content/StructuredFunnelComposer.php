@@ -58,15 +58,20 @@ class StructuredFunnelComposer
         // The LEAD is the biggest conversion multiplier (1→25). Open with an elite, awareness-routed lead
         // forged from the asset's real wound/dream/enemy/promise — it grips and opens a curiosity loop
         // while HOLDING the mechanism (no premature reveal). Falls back to a curiosity hook if empty.
-        $pageHook = (new BigIdeaLeadForge)->forge($asset)['best']
+        $leadForge = new BigIdeaLeadForge;
+        $pageHook = $leadForge->forge($asset)['best']
             ?? "{$avatar} have you wondered why {$promise} stays out of reach{$heroLine}?";
+        // Short scroll-stopper that SHARES the lead's scene+enemy vocabulary → ad/bridge stay congruent
+        // with the page (message-match) and the top of funnel is elite too.
+        $hook = $leadForge->hook($asset);
 
-        // ── AD: callout + hero promise (carries hero number) + soft CTA (free CONTENT, not the product).
-        $ad = trim("{$avatar} {$promise}{$heroLine}. Watch the free presentation to see how — before it comes down.");
+        // ── AD: elite scroll-stopper (shares the page lead's scene+enemy → congruent) + hero promise
+        // (carries hero number) + soft CTA (free CONTENT, not the product).
+        $ad = trim("{$hook} {$promise}{$heroLine} — watch the free presentation before it comes down.");
 
-        // ── BRIDGE: echoes the ad's anchor words (congruent hop) + curiosity, NO reveal, soft forward CTA.
-        $bridge = trim("{$avatar} If you want {$promise}{$heroLine}, there is one thing almost nobody explains. "
-            ."Keep reading — it gets clearer in a moment, and then you will see exactly how.");
+        // ── BRIDGE: echoes the ad's scene+enemy (congruent hop) + curiosity, NO reveal, soft forward CTA.
+        $bridge = trim("{$hook} What they never explain is the one thing that changes {$promise}{$heroLine}. "
+            .'Keep reading — it gets clearer in a moment, and then you will see exactly how.');
 
         // ── PAGE: carries hero, builds before the reveal (mechanism named LATE), single CTA at the end.
         $page = trim(implode(' ', array_filter([
