@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\AutonomousEvolution\Aael\AtlasAaelExecutionPlanProver;
+
 /**
  * The bridge that turns the existing AAEL (Atlas Autonomous Evolution Loop)
  * governance — which observes + selects + gates opportunities but historically
@@ -24,7 +26,8 @@ final class AtlasAaelLoopExecutionBridge
     public const SCHEMA = 'atlas.evolution.aael_bridge.v1';
 
     public function __construct(
-        private readonly AtlasEvolutionLoopRunner $runner,
+        private readonly object $runner,
+        private readonly ?AtlasAaelExecutionPlanProver $prover = null,
     ) {}
 
     /**
@@ -36,15 +39,26 @@ final class AtlasAaelLoopExecutionBridge
     {
         $tasks = [];
         $deferred = [];
+        $proverRejected = [];
+        $prover = $this->prover ?? new AtlasAaelExecutionPlanProver;
 
         foreach ($opportunities as $opportunity) {
             $task = is_array($opportunity['task'] ?? null) ? $opportunity['task'] : null;
             $hasMetric = $task !== null
-                && is_array($task['acceptance'] ?? null)
-                && ($task['acceptance']['commands'] ?? []) !== [];
+                && is_array($task['acceptance'] ?? null);
 
             if ($hasMetric) {
-                $tasks[] = $task;
+                $verdict = $prover->prove($task);
+                if ((bool) $verdict['passed']) {
+                    $tasks[] = $task;
+                } else {
+                    $proverRejected[] = [
+                        'objective' => (string) ($task['objective'] ?? $opportunity['objective'] ?? ''),
+                        'opportunity_id' => $opportunity['opportunity_id'] ?? null,
+                        'reasons' => array_values((array) $verdict['reasons']),
+                        'schema_version' => $verdict['schema_version'],
+                    ];
+                }
             } else {
                 $deferred[] = [
                     'objective' => (string) ($opportunity['objective'] ?? ''),
@@ -54,7 +68,19 @@ final class AtlasAaelLoopExecutionBridge
             }
         }
 
-        $loopRun = $this->runner->run($tasks, $options);
+        $loopRun = $tasks === []
+            ? [
+                'schema_version' => AtlasEvolutionLoopRunner::SCHEMA,
+                'propose_only' => (bool) ($options['propose_only'] ?? true),
+                'merged_to_main' => false,
+                'tasks_processed' => 0,
+                'proposals_certified_for_review' => 0,
+                'stop_reason' => 'no_proven_tasks',
+                'elapsed_seconds' => 0.0,
+                'proposals' => [],
+                'explorations' => [],
+            ]
+            : $this->runner->run($tasks, $options);
 
         return [
             'schema_version' => self::SCHEMA,
@@ -62,6 +88,7 @@ final class AtlasAaelLoopExecutionBridge
             'executed_tasks' => count($tasks),
             'deferred_count' => count($deferred),
             'deferred' => $deferred,
+            'prover_rejected' => $proverRejected,
             // the loop NEVER merges — proposals are certified-for-review.
             'merged_to_main' => false,
             'loop_run' => $loopRun,
