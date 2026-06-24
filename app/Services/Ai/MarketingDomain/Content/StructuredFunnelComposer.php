@@ -36,9 +36,12 @@ class StructuredFunnelComposer
         $heroLine = $hero !== '' ? " — {$hero}" : '';
         $price = $this->price($asset);                     // e.g. "$97" or ""
         $guarantee = $this->guarantee($asset);
+        // Default = MAXIMUM aggression (operator: sem freio). The market's raw wound/dream is woven in
+        // niche-flavored, so the scaffold ships aggressive by construction (not generic).
+        $wound = (new \App\Services\Ai\MarketingDomain\Knowledge\AggressiveConversionTacticsLibrary)->nicheWound((string) $asset->niche);
 
         // ── AD: callout + hero promise (carries hero number) + soft CTA (free CONTENT, not the product).
-        $ad = trim("{$avatar} {$promise}{$heroLine}. Watch the free presentation to see how.");
+        $ad = trim("{$avatar} {$promise}{$heroLine}. Watch the free presentation to see how — before it comes down.");
 
         // ── BRIDGE: echoes the ad's anchor words (congruent hop) + curiosity, NO reveal, soft forward CTA.
         $bridge = trim("{$avatar} If you want {$promise}{$heroLine}, there is one thing almost nobody explains. "
@@ -48,20 +51,22 @@ class StructuredFunnelComposer
         $page = trim(implode(' ', array_filter([
             "{$avatar} have you wondered why {$promise} stays out of reach{$heroLine}?",   // hook (opening)
             'Most advice has it backwards, and it is not your fault.',                     // build
+            "Every day you wait is another day {$wound['pain']}.",                         // fear (niche wound)
             'For a long time the real cause stayed hidden in plain sight.',                // build
             'It gets clearer once you see what is actually happening.',                    // forward pull
             'But first, understand what everyone else got wrong about this.',              // forward pull (mid)
             "Here is how {$mechanism} finally makes {$promise}{$heroLine} work.",          // REVEAL (late)
+            "Imagine {$wound['dream']} — 30 days from now.",                               // future pacing (niche dream)
             '[PROOF SLOT: o caso/depoimento/estudo mais forte da oferta]',                  // proof slot
-            'Watch the free presentation now to see the full method.',                     // single CTA (end)
+            'Watch the free presentation now — spots are limited.',                         // single CTA (end) + scarcity
         ])));
 
         // ── CHECKOUT: the offer + price + single purchase CTA. No "free" on the core product → no bait.
         $checkout = trim(implode(' ', array_filter([
             "Get the complete {$mechanism} system for {$promise}{$heroLine}.",
-            $price !== '' ? "Today: {$price}." : '',
+            $price !== '' ? "Today only: {$price}." : '',
             $guarantee !== '' ? $guarantee : '',
-            'Order now to get instant access.',
+            'Order now to get instant access — before this closes.',
         ])));
 
         return ['ad' => $ad, 'bridge' => $bridge, 'page' => $page, 'checkout' => $checkout];
