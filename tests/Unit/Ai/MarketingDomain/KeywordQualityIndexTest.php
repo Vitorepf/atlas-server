@@ -98,4 +98,26 @@ class KeywordQualityIndexTest extends TestCase
             $this->assertLessThanOrEqual(60, $s['score'], 'unprofitable economics should pull scores down');
         }
     }
+
+    public function test_each_scored_keyword_carries_intent_rationale(): void
+    {
+        // cycle 2: every qualified keyword explains WHY (tier/polarity/confidence/action) — the operator
+        // sees the intent, not just a number.
+        $r = (new KeywordQualityIndex)->scoreEngineResult($this->engineResult(), $this->asset(), ['payout' => 120, 'cvr' => 0.012]);
+        foreach ($r['scored'] as $s) {
+            $this->assertArrayHasKey('intent', $s);
+            foreach (['tier', 'journey', 'pain', 'polarity', 'confidence', 'action', 'intent_score'] as $k) {
+                $this->assertArrayHasKey($k, $s['intent']);
+            }
+        }
+    }
+
+    public function test_owned_root_intent_is_most_aware(): void
+    {
+        $r = (new KeywordQualityIndex)->scoreEngineResult($this->engineResult(), $this->asset(), ['payout' => 120, 'cvr' => 0.012]);
+        $byKw = collect($r['scored'])->keyBy('keyword');
+        // the coined mechanism keyword keeps the most-aware override (intent_score 100) and reads T4.
+        $this->assertSame(100, $byKw['triple hormone drops protocol']['intent']['intent_score']);
+        $this->assertSame('T4', $byKw['triple hormone drops protocol']['intent']['tier']);
+    }
 }

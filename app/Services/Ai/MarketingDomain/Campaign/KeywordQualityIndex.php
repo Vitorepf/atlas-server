@@ -62,6 +62,7 @@ class KeywordQualityIndex
     {
         $lexicon = $this->assetLexicon($asset);
         $product = (string) ($engineResult['artifacts']['product_name'] ?? '');
+        $offerCtx = $this->offerContext($asset, $product);
         $scored = [];
         $killed = [];
 
@@ -79,7 +80,7 @@ class KeywordQualityIndex
 
                     continue;
                 }
-                $scored[] = $this->score($kw, $family, $roots, $match, $centroid, $lexicon, $econ);
+                $scored[] = $this->score($kw, $family, $roots, $match, $centroid, $lexicon, $econ, $offerCtx);
             }
         }
 
@@ -109,7 +110,7 @@ class KeywordQualityIndex
      * @param  array<string,mixed>  $econ
      * @return array<string,mixed>
      */
-    public function score(string $kw, string $family, array $roots, string $match, array $centroid, array $lexicon, array $econ = []): array
+    public function score(string $kw, string $family, array $roots, string $match, array $centroid, array $lexicon, array $econ = [], array $offerCtx = []): array
     {
         $kl = mb_strtolower(trim($kw));
         $toks = $this->tokens($kl);
@@ -118,8 +119,12 @@ class KeywordQualityIndex
         $base = self::FAMILY_BASE[$family] ?? self::FAMILY_BASE['generic'];
         $provenance = $base / 100;
 
-        // 2) intent_class_score (.20)
-        $intent = $this->intentClass($kl, $provenance);
+        // 2) intent — compositional ladder, OFFER-AWARE (the offer's mechanism/brand lexicon feeds T4
+        //    detection). Owned-root keywords (post-VSL-exposure, most-aware) keep the 100 override; the
+        //    full rationale (tier/journey/pain/polarity/confidence/action) rides along on the output. (.20)
+        $intentResult = $this->intent->classify($kl, $offerCtx);
+        $intent = $provenance >= 0.78 ? 100 : $intentResult['intent_score'];
+        $intentResult['intent_score'] = $intent;
 
         // 3) predicted_quality_score_proxy (.22)
         $lp = $this->recall($toks, $lexicon);
@@ -158,6 +163,7 @@ class KeywordQualityIndex
             'score' => $score,
             'band' => $this->band($score),
             'match_type' => $match,
+            'intent' => $intentResult, // WHY this keyword qualifies: tier/journey/pain/polarity/confidence/action
             'components' => [
                 'owned_root_provenance' => round($provenance, 2),
                 'intent_class' => $intent,
@@ -233,18 +239,21 @@ class KeywordQualityIndex
     }
 
     /**
-     * Intent class 0-100. Owned-root keywords (post-VSL-exposure, most-aware) keep the provenance
-     * override of 100; everything else is graded by the compositional, multilingual (PT+EN)
-     * IntentLadderClassifier (journey × pain × specificity + negative-polarity), replacing the
-     * single-axis EN-only token-spotter.
+     * Per-offer lexicons for the IntentLadderClassifier: the coined mechanism/trick (owned roots that
+     * prove VSL exposure) feed T4 detection; the product name feeds branded detection. Makes intent
+     * grading OFFER-AWARE instead of relying only on the generic coined-mechanism heuristic.
+     *
+     * @return array{mechanism_lexicon:array<int,string>,brand_lexicon:array<int,string>}
      */
-    private function intentClass(string $kl, float $provenance): int
+    private function offerContext(AiMarketingVslAsset $asset, string $product): array
     {
-        if ($provenance >= 0.78) {
-            return 100; // owned root — post-VSL-exposure, most-aware
-        }
+        $mech = array_values(array_filter(
+            array_map(fn ($s) => mb_strtolower(trim((string) $s)), [$asset->mechanism_name, $asset->trick]),
+            fn ($s) => $s !== '',
+        ));
+        $brand = $product === '' ? [] : [mb_strtolower(trim($product))];
 
-        return $this->intent->intentScore($kl);
+        return ['mechanism_lexicon' => $mech, 'brand_lexicon' => $brand];
     }
 
     private function specificity(string $kl, array $toks): float
