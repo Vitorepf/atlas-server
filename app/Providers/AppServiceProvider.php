@@ -53,6 +53,11 @@ use App\Services\Ai\AutonomousEvolution\Merge\AtlasLoopAutoMergeReverseAuditor;
 use App\Services\Ai\AutonomousEvolution\Merge\AtlasLoopAutoMergeService as AtlasLoopMergeService;
 use App\Services\Ai\AutonomousEvolution\Merge\AtlasLoopAutoMergeStalenessRefuser;
 use App\Services\Ai\AutonomousEvolution\Recovery\AtlasLoopReceiptReplayer;
+use App\Services\Ai\AutonomousEvolution\Sentinels\AtlasLoopReplenisherDocGapOracleCoverageSentinel;
+use App\Services\Ai\AutonomousEvolution\Sentinels\AtlasLoopReplenisherSiblingRoleCoherenceSentinel;
+use App\Services\Ai\AutonomousEvolution\Sentinels\AtlasLoopServedQueueInspectorSweepSentinel;
+use App\Services\Ai\AutonomousEvolution\Sentinels\AtlasLoopServingQueueDiskConformanceSentinel;
+use App\Services\Ai\AutonomousEvolution\Sentinels\AtlasLoopWave19SentinelWiringCanary;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopSemanticImplementationCertifier;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopTaskDecompositionAmplifier;
 use App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract;
@@ -1151,6 +1156,26 @@ class AppServiceProvider extends ServiceProvider
                 outcomes: $app->make(VoxActionOutcomeService::class),
             );
         });
+
+        $this->registerLoopSentinels();
+    }
+
+    /**
+     * WAVE-19 SENTINEL WIRING — fail-CLOSED, byte-identical when OFF. When the flag
+     * `atlas.loop.sentinels.wave19_enabled` is false (default) NOTHING is bound, so the pétreo floor is
+     * preserved exactly. When ON, the four wave-19 sentinels + the wiring canary are bound as singletons so
+     * the cron / keepalive / any caller can resolve them from the container.
+     */
+    private function registerLoopSentinels(): void
+    {
+        if (! (bool) config('atlas.loop.sentinels.wave19_enabled', false)) {
+            return; // OFF ⇒ zero bindings, byte-identical no-op
+        }
+        $this->app->singleton(AtlasLoopReplenisherSiblingRoleCoherenceSentinel::class);
+        $this->app->singleton(AtlasLoopServedQueueInspectorSweepSentinel::class);
+        $this->app->singleton(AtlasLoopServingQueueDiskConformanceSentinel::class);
+        $this->app->singleton(AtlasLoopReplenisherDocGapOracleCoverageSentinel::class);
+        $this->app->singleton(AtlasLoopWave19SentinelWiringCanary::class);
     }
 
     /**
