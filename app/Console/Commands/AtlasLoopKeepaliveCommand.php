@@ -145,17 +145,17 @@ class AtlasLoopKeepaliveCommand extends Command
                                 continue;
                             }
                         }
-                        $this->killSupervisor($id);
-                        if ($this->fleetCapBlocksRespawn($id, 'code_drift_recycle', $out)) {
+                        $termination = $this->terminateSupervisorBeforeRespawn($id, 'code_drift_recycle', $out);
+                        if ($termination === null) {
                             continue;
                         }
-                        $this->respawn($id);
                         $out['respawned'][] = [
                             'campaign_id' => $id,
                             'reason' => 'code_drift_recycled',
                             'boot_epoch' => $bootEpoch,
                             'latest_pipeline_commit_epoch' => $latestPipelineCommit,
                             'stale_seconds' => $latestPipelineCommit !== null && $bootEpoch !== null ? $latestPipelineCommit - $bootEpoch : null,
+                            'kill_escalated' => (bool) $termination['escalated'],
                         ];
 
                         continue;
@@ -172,12 +172,11 @@ class AtlasLoopKeepaliveCommand extends Command
             // hours unattended, defeating the 24/7 goal.)
             $frozenMinutes = max($staleMinutes + 5, (int) config('atlas.loop.keepalive_frozen_kill_minutes', 15));
             if ($authorized && $alive && $heartbeat > 0 && $heartbeat < (time() - $frozenMinutes * 60)) {
-                $this->killSupervisor($id);
-                if ($this->fleetCapBlocksRespawn($id, 'frozen_kill', $out)) {
+                $termination = $this->terminateSupervisorBeforeRespawn($id, 'frozen_kill', $out);
+                if ($termination === null) {
                     continue;
                 }
-                $this->respawn($id);
-                $out['respawned'][] = ['campaign_id' => $id, 'reason' => 'frozen_alive_killed_and_respawned', 'heartbeat_age_minutes' => (int) floor((time() - $heartbeat) / 60)];
+                $out['respawned'][] = ['campaign_id' => $id, 'reason' => 'frozen_alive_killed_and_respawned', 'heartbeat_age_minutes' => (int) floor((time() - $heartbeat) / 60), 'kill_escalated' => (bool) $termination['escalated']];
 
                 continue;
             }
@@ -330,6 +329,37 @@ class AtlasLoopKeepaliveCommand extends Command
     }
 
     /**
+     * @param  array<string,mixed>  $out
+     * @return array<string,mixed>|null
+     */
+    protected function terminateSupervisorBeforeRespawn(string $campaignId, string $lane, array &$out, int $deadlineSeconds = 10): ?array
+    {
+        $this->killSupervisor($campaignId);
+
+        $confirmation = $this->confirmSupervisorTerminated($campaignId, $deadlineSeconds);
+        if (! (bool) $confirmation['confirmed']) {
+            $out['kill_failed'][] = [
+                'campaign_id' => $campaignId,
+                'lane' => $lane,
+                'pids' => $confirmation['pids'],
+                'reason' => $confirmation['reason'],
+                'still_alive' => $confirmation['still_alive'],
+                'escalated' => $confirmation['escalated'],
+            ];
+
+            return null;
+        }
+
+        if ($this->fleetCapBlocksRespawn($campaignId, $lane, $out)) {
+            return null;
+        }
+
+        $this->respawn($campaignId);
+
+        return $confirmation;
+    }
+
+    /**
      * PIDs of the REAL php supervisor(s) for this campaign — the SINGLE filtered source used by
      * both the boot-time read and the kill. `pgrep -f` matches anything whose command line mentions
      * the campaign id, which includes shell watchers and the pgrep/ps helpers themselves; this keeps
@@ -360,6 +390,72 @@ class AtlasLoopKeepaliveCommand extends Command
         }
 
         return $pids;
+    }
+
+    /**
+     * Confirm a SIGTERM'd supervisor is truly gone before a replacement is detached.
+     *
+     * @return array{
+     *     confirmed: bool,
+     *     still_alive: bool,
+     *     escalated: bool,
+     *     pids: list<string>,
+     *     escalated_pids: list<string>,
+     *     reason: string
+     * }
+     */
+    public function confirmSupervisorTerminated(string $campaignId, int $deadlineSeconds = 10): array
+    {
+        $first = $this->waitForSupervisorExit($campaignId, max(0, $deadlineSeconds));
+        if ($first['pids'] === []) {
+            return [
+                'confirmed' => true,
+                'still_alive' => false,
+                'escalated' => false,
+                'pids' => [],
+                'escalated_pids' => [],
+                'reason' => 'supervisor_terminated_after_sigterm',
+            ];
+        }
+
+        $escalatedPids = $first['pids'];
+        foreach ($escalatedPids as $pid) {
+            $this->sendSupervisorSignal($pid, 'KILL');
+        }
+
+        $afterKill = $this->waitForSupervisorExit($campaignId, 3);
+        $stillAlive = $afterKill['pids'] !== [];
+
+        return [
+            'confirmed' => ! $stillAlive,
+            'still_alive' => $stillAlive,
+            'escalated' => true,
+            'pids' => $afterKill['pids'],
+            'escalated_pids' => $escalatedPids,
+            'reason' => $stillAlive ? 'supervisor_still_alive_after_sigkill' : 'supervisor_terminated_after_sigkill',
+        ];
+    }
+
+    /**
+     * @return array{pids: list<string>}
+     */
+    protected function waitForSupervisorExit(string $campaignId, int $deadlineSeconds): array
+    {
+        $attempts = max(0, (int) ceil($deadlineSeconds * 4));
+        $lastPids = [];
+
+        for ($attempt = 0; $attempt <= $attempts; $attempt++) {
+            $lastPids = $this->supervisorPids($campaignId);
+            if ($lastPids === []) {
+                return ['pids' => []];
+            }
+
+            if ($attempt < $attempts) {
+                $this->sleepBeforeSupervisorConfirmPoll();
+            }
+        }
+
+        return ['pids' => $lastPids];
     }
 
     /**
@@ -431,8 +527,18 @@ class AtlasLoopKeepaliveCommand extends Command
     protected function killSupervisor(string $campaignId): void
     {
         foreach ($this->supervisorPids($campaignId) as $pid) {
-            (new Process(['kill', '-TERM', $pid], null, null, null, 10.0))->run();
+            $this->sendSupervisorSignal($pid, 'TERM');
         }
+    }
+
+    protected function sendSupervisorSignal(string $pid, string $signal): void
+    {
+        (new Process(['kill', '-'.$signal, $pid], null, null, null, 10.0))->run();
+    }
+
+    protected function sleepBeforeSupervisorConfirmPoll(): void
+    {
+        usleep(250_000);
     }
 
     protected function respawn(string $campaignId): void
