@@ -30,6 +30,7 @@ class CampaignBlueprintService
         private readonly NegativeListMiner $negativeMiner = new NegativeListMiner,
         private readonly QualifiedKeywordPatternEngine $qualifiedEngine = new QualifiedKeywordPatternEngine,
         private readonly KeywordQualityIndex $qualityIndex = new KeywordQualityIndex,
+        private readonly NegativeKeywordForge $negativeForge = new NegativeKeywordForge,
     ) {}
 
     /**
@@ -134,8 +135,19 @@ class CampaignBlueprintService
             'note' => 'Fonte recomendada: re-finders pos-exposicao (raiz propria x modificador). Nome do produto NUNCA bidado. Pontuado/eliminado pelo Quality Index.',
         ];
 
+        // Layered negative set (junk/informational/price/polarity) with morphological variants, protecting
+        // the owned roots from the anti-campeã gate — the "remover o desqualificado" infrastructure.
+        $ownedRoots = [];
+        foreach ((array) ($qualifiedRaw['tiers'] ?? []) as $t) {
+            foreach ((array) ($t['roots'] ?? []) as $root) {
+                $ownedRoots[] = (string) $root;
+            }
+        }
+        $forged = $this->negativeForge->forge(['protect' => $ownedRoots]);
+
         $negatives = array_values(array_unique(array_merge(
             $this->standardNegatives(),
+            $forged['flat'],
             (array) ($mined['combined'] ?? []),
             (array) ($qualifiedRaw['negatives'] ?? []),
             array_map(static fn (array $k): string => (string) ($k['keyword'] ?? ''), $quality['killed']),

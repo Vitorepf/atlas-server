@@ -60,7 +60,10 @@ Relatório §6 ("conta morta = CPA infinito") em código: por keyword, flaga **r
 
 > **Deliverable por keyword agora carrega:** score+band+family · `intent` (tier/jornada/dor/polaridade/confidence/action) · `investment` (breakeven/rule-of-three/EPC, prior-vs-proven) · `mind_state` (awareness/driver/page_angle/heat) · `account_risk` (morte-de-conta como sinal). O "entende perfeitamente o que está fazendo" virou auditável ponta-a-ponta.
 
-## Próximos alvos (ciclo 6+, por alavancagem)
+## Ciclo 6 ✅ — `NegativeKeywordForge` (remover o desqualificado, camada 3 → ✅)
+Relatório §4 em código: 4 camadas de negativas (junk/informacional-T0/preço-freebie/polaridade) **com expansão morfológica** (negativa não pega plural — enumera as formas) + **gate anti-campeã** (nunca negativa um token dentro de uma raiz própria). **Wirado no `CampaignBlueprintService`** (negatives merge agora inclui `forged['flat']`, protegendo os owned-roots do engine). De quebra **resolve a colisão `recipe`** estruturalmente (se "...trick recipe" é raiz própria, "recipe" não é negativado). **553/553 verdes** (3 testes). O lado "remover" (que sob budget-cap rende mais que atrair) ficou armado no build-time.
+
+## Próximos alvos (ciclo 7+, por alavancagem)
 - **(A)** `SearchTermWasteMiner` ligado no `CampaignBlueprintService` + gate anti-campeã (camada 3 do OS ⬜ desarmada — o miner existe e não é chamado): fecha o lado "remover o desqualificado" (que sob budget-cap rende MAIS que atrair).
 - **(B)** CLI/dossier que expõe o deliverable ≥5-keywords-com-intent+investment pro operador (hoje vive no `scoreEngineResult`; falta a janela humana).
 - **(C)** SIMULADOR (alavanca central do prompt): aprofundar o `PersonaSimulator` no elo keyword→mente→página. Maior salto de longo prazo.
