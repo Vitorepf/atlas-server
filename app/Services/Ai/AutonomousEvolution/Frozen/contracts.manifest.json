@@ -1,0 +1,17 @@
+{
+    "App\\Services\\Ai\\AutonomousEvolution\\AtlasEvolutionFrozenJudge": {
+        "assertions_sha256": "0a4f90901b780e999609257c5479916374ae5bb3b8952ac48a600fafd330249e",
+        "registered_at": "2026-06-24T05:00:00+00:00",
+        "test_path": "tests/Unit/Ai/AutonomousEvolution/AtlasEvolutionFrozenJudgeTest.php"
+    },
+    "App\\Services\\Ai\\AutonomousEvolution\\AtlasLoopAttemptLedger": {
+        "assertions_sha256": "0c5133232106c24ad878ee525349e021371d103ec27cdddd3c0a9226d43cfb13",
+        "registered_at": "2026-06-24T05:00:00+00:00",
+        "test_path": "tests/Unit/Ai/AutonomousEvolution/AtlasLoopAttemptLedgerTest.php"
+    },
+    "App\\Services\\Ai\\AutonomousEvolution\\AtlasLoopAutoMergeService": {
+        "assertions_sha256": "369486ce0c4528283f3170ab7a597dc93d4af545e63f17fed534f0b6f93d6b36",
+        "registered_at": "2026-06-24T05:00:00+00:00",
+        "test_path": "tests/Feature/Loop/AtlasLoopAutoMergeServiceTest.php"
+    }
+}
