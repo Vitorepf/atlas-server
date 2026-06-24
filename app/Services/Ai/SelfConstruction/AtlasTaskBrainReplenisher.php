@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\AutonomousEvolution\AtlasLoopCortexRoleTokenSemanticDisambiguator;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModelBuilder;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionQuery;
@@ -39,6 +40,8 @@ final class AtlasTaskBrainReplenisher
 
     /** @var list<array<string,true>>|null memoized token-sets of every class file under the repo's app/ tree */
     private ?array $repoClassTokenSets = null;
+
+    private ?AtlasLoopCortexRoleTokenSemanticDisambiguator $roleDisambiguator = null;
 
     public function __construct(
         private readonly AgentControlPlaneTaskQueueOrchestrator $orchestrator,
@@ -322,6 +325,16 @@ final class AtlasTaskBrainReplenisher
                 if ($callers === []) {
                     continue;
                 }
+                // SEMANTIC DISAMBIGUATION: a shared role token alone is NOT a sibling (TransferGate ≠ ResourceGate).
+                // Require >=2 of {same namespace, overlapping caller subsystem root, shared docblock token}; a
+                // role-token-only false twin is rejected here, so the orphan falls through to the same-directory
+                // fallback or defers — it is never wired to the wrong site.
+                if (! $this->roleDisambiguator()->accepts(
+                    ['fqcn' => $orphanFqcn, 'subsystem_root' => $this->dirOf($orphanRel)],
+                    ['fqcn' => $cf, 'subsystem_root' => $this->dirOf($cr), 'caller_subsystem_roots' => array_map(fn (string $c): string => $this->dirOf($c), $callers)],
+                )) {
+                    continue;
+                }
                 $score = ($this->namespaceOf($cf) === $ns ? 1000 : 0) + count($callers);
                 if ($score > $bestScore) {
                     $bestScore = $score;
@@ -358,6 +371,11 @@ final class AtlasTaskBrainReplenisher
         }
 
         return ['sibling' => $bestSibling, 'sites' => array_slice(array_values(array_unique($bestSites)), 0, 3)];
+    }
+
+    private function roleDisambiguator(): AtlasLoopCortexRoleTokenSemanticDisambiguator
+    {
+        return $this->roleDisambiguator ??= new AtlasLoopCortexRoleTokenSemanticDisambiguator;
     }
 
     /** The role suffix of a class name — its last CamelCase token, lowercased (Gate, Bridge, Ledger, Service…). */
