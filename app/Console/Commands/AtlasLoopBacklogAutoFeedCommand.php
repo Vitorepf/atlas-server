@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopBacklogAutoFeederService;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use Illuminate\Console\Command;
 
 /**
@@ -25,6 +26,18 @@ final class AtlasLoopBacklogAutoFeedCommand extends Command
 
     public function handle(AtlasLoopBacklogAutoFeederService $feeder): int
     {
+        // §0 MASTER SWITCH — fail-closed gate at the very top, before any signal query / manifest write. OFF ⇒
+        // zero respawn vector (master-OFF must mean the backlog never auto-refills). Clean SUCCESS no-op so a
+        // scheduler/watchdog invocation never escalates. Mirrors AtlasLoopCampaignCommand's §0 gate.
+        if (! AtlasLoopMasterSwitch::enabled()) {
+            $this->line((string) json_encode(
+                ['status' => 'master_switch_off', 'message' => 'master_switch_off:backlog-feed:skipped'],
+                JSON_UNESCAPED_SLASHES,
+            ));
+
+            return self::SUCCESS;
+        }
+
         $result = $feeder->feed(
             trim((string) $this->option('campaign')) ?: null,
             array_filter([

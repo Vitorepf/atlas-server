@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\AtlasLoopCampaign;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\Process\Process;
@@ -28,6 +29,18 @@ final class AtlasLoopReapOrphansCommand extends Command
 
     public function handle(): int
     {
+        // §0 MASTER SWITCH — fail-closed gate at the very top, before any AtlasLoopCampaign query/update. OFF ⇒
+        // no reaping, no DB writes; clean SUCCESS no-op so master-OFF truly means zero loop activity of any
+        // kind. Mirrors AtlasLoopCampaignCommand's §0 gate.
+        if (! AtlasLoopMasterSwitch::enabled()) {
+            $this->line((string) json_encode(
+                ['status' => 'master_switch_off', 'message' => 'master_switch_off:reap-orphans:skipped'],
+                JSON_UNESCAPED_SLASHES,
+            ));
+
+            return self::SUCCESS;
+        }
+
         $graceMinutes = max(1, (int) $this->option('grace-minutes'));
         $cutoff = time() - $graceMinutes * 60;
         $reaped = [];

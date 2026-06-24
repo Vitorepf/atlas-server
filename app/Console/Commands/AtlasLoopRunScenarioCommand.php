@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousEvolution\AtlasEvolutionScenarioExplorer;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Parallel\ScenarioWaveDispatcher;
 use Illuminate\Console\Command;
 
@@ -32,6 +33,20 @@ final class AtlasLoopRunScenarioCommand extends Command
 
     public function handle(AtlasEvolutionScenarioExplorer $explorer): int
     {
+        // §0 MASTER SWITCH — fail-closed gate at the VERY TOP, before posix_setsid / spec-decode / grind. A
+        // keepalive race can fork this per-scenario subprocess the instant the operator runs `atlas:loop:off`;
+        // the child inherits the .env and would keep burning provider tokens until it finishes. OFF ⇒ clean
+        // no-op exit (SUCCESS so the parent supervisor doesn't escalate) and we touch NO task/lease — the
+        // supervisor reclaims the scenario on its next sweep. Mirrors AtlasLoopCampaignCommand's §0 gate.
+        if (! AtlasLoopMasterSwitch::enabled()) {
+            $this->line((string) json_encode(
+                ['status' => 'master_switch_off', 'message' => 'master_switch_off:run-scenario:skipped'],
+                JSON_UNESCAPED_SLASHES,
+            ));
+
+            return self::SUCCESS;
+        }
+
         if (function_exists('posix_setsid')) {
             @posix_setsid(); // own process group so a kill reaps the whole provider subtree
         }
