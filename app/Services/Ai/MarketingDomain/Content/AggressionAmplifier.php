@@ -228,6 +228,7 @@ class AggressionAmplifier
         $mech = $this->mechanism($asset);
         $enemy = $this->enemy($asset);
         $num = $this->number($asset);
+        $auth = $this->authority($asset);
         $gain = $num !== '' ? $num : 'the result';
 
         // Niche-flavored pain/dream so the aggression hits the market's real wound, not generic.
@@ -250,6 +251,8 @@ class AggressionAmplifier
                 'heading' => 'What this is really worth', 'body' => 'Stack up what '.$mech.' would normally cost — then look at what you pay today. It is not close.']],
             'conspiracy_enemy' => ['slot' => 'body_sections', 'mode' => 'prepend_section', 'value' => [
                 'heading' => 'Why you were never told this', 'body' => $enemy.' has every reason to keep this quiet — there is too much on the line for them.']],
+            'authority_borrowing' => ['slot' => 'body_sections', 'mode' => 'prepend_section', 'value' => [
+                'heading' => 'Why this holds up', 'body' => 'This is the same '.$mech.' that '.$auth.' points to — not another internet fad.']],
             'identity_threat' => ['slot' => 'ps', 'mode' => 'set', 'value' => 'P.S. The people who act on this are a certain kind of person. The rest keep scrolling.'],
             'future_pacing_vivid' => ['slot' => 'body_sections', 'mode' => 'prepend_section', 'value' => [
                 'heading' => 'Picture 30 days from now', 'body' => 'Imagine '.$dream.' — '.($num !== '' ? $num.' ' : '').'just 30 days from now. That is what is on the table.']],
