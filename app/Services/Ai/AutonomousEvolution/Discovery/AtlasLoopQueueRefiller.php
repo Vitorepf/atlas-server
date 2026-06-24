@@ -14,6 +14,9 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopOriginationDeliveryBridge;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopSelfImprovementGroundingBridge;
 use App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerSupplyLaneCoordinator;
 use App\Services\Ai\AutonomousEvolution\Constitution\Frozen\AtlasLoopFrozenMutationOperators;
+use App\Services\Ai\AutonomousEvolution\Discovery\Supply\CrossLeverageSupplyLane;
+use App\Services\Ai\AutonomousEvolution\Discovery\Supply\FeatureFrontierSupplyLane;
+use App\Services\Ai\AutonomousEvolution\Discovery\Supply\PatternTransferSupplyLane;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopDeliveryPipeline;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
 use App\Services\Ai\Cognitive\Failure\SuiteRedTestHandleHarvester;
@@ -514,6 +517,9 @@ final class AtlasLoopQueueRefiller
         // exists). Flag OFF => returns 0 before any model build (byte-identical). Wrapped fail-open.
         $docGapMinted = $this->tryDocGapSupply($campaign, $provider, $repoRoot, $want);
         $enqueued += $docGapMinted;
+        $enqueued += $this->tryCrossLeverageSupply($campaign, $provider, $repoRoot, $want);
+        $enqueued += $this->tryFeatureFrontierSupply($campaign, $provider, $repoRoot, $want);
+        $enqueued += $this->tryPatternTransferSupply($campaign, $provider, $repoRoot, $want);
 
         // OBRA CANDIDATE PRODUCER (slice-1, default-OFF, fail-open): after discovery+enqueue,
         // scan the SAME claimed targets for high-leverage multi-file HUB clusters and park them
@@ -652,6 +658,267 @@ final class AtlasLoopQueueRefiller
     private function mintDocGapTask(AtlasLoopCampaign $campaign, array $spec, string $repoRoot): bool
     {
         return $this->supplyLaneCoordinator()->mintDocGapTask($campaign, $spec, $repoRoot);
+    }
+
+    private function tryCrossLeverageSupply(AtlasLoopCampaign $campaign, string $provider, string $repoRoot, int $want): int
+    {
+        if (! (bool) config('atlas.loop.cross_leverage_supply_enabled', false)) {
+            return 0;
+        }
+
+        try {
+            $cap = max(1, min(max(1, $want), (int) config('atlas.loop.cross_leverage_supply_max_per_refill', 2)));
+            $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard;
+            $query = $this->comprehensionQuery($repoRoot, ['docs_roots' => []]);
+            $lane = new CrossLeverageSupplyLane;
+
+            $minted = 0;
+            foreach ($this->effectiveDiscoveryRoots($campaign) as $root) {
+                if ($minted >= $cap) {
+                    break;
+                }
+                $root = trim(str_replace('\\', '/', (string) $root), '/');
+                if ($root === '' || ! is_dir($repoRoot.'/'.$root)) {
+                    continue;
+                }
+                $model = $query->model($root);
+                $this->touchHeartbeat($campaign);
+                foreach ($lane->mint($model, $repoRoot) as $spec) {
+                    if ($minted >= $cap) {
+                        break;
+                    }
+                    $anchor = $this->supplySpecConflictPath($spec);
+                    if ($anchor === '' || $guard->isForbiddenSelfTarget($anchor)) {
+                        continue;
+                    }
+                    if ($this->fileHasInflightTask((string) $campaign->id, $anchor)) {
+                        continue;
+                    }
+                    if ($this->mintCrossLeverageTask($campaign, $spec, $repoRoot)) {
+                        $minted++;
+                    }
+                    $this->touchHeartbeat($campaign);
+                }
+            }
+
+            return $minted;
+        } catch (Throwable) {
+            return 0;
+        }
+    }
+
+    private function tryFeatureFrontierSupply(AtlasLoopCampaign $campaign, string $provider, string $repoRoot, int $want): int
+    {
+        if (! (bool) config('atlas.loop.feature_frontier_supply_enabled', false)) {
+            return 0;
+        }
+
+        try {
+            $cap = max(1, min(max(1, $want), (int) config('atlas.loop.feature_frontier_supply_max_per_refill', 1)));
+            $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard;
+            $query = $this->comprehensionQuery($repoRoot, ['docs_roots' => []]);
+            $lane = new FeatureFrontierSupplyLane;
+
+            $minted = 0;
+            foreach ($this->effectiveDiscoveryRoots($campaign) as $root) {
+                if ($minted >= $cap) {
+                    break;
+                }
+                $root = trim(str_replace('\\', '/', (string) $root), '/');
+                if ($root === '' || ! is_dir($repoRoot.'/'.$root)) {
+                    continue;
+                }
+                $model = $query->model($root);
+                $this->touchHeartbeat($campaign);
+                foreach ($lane->mint($model, $repoRoot) as $spec) {
+                    if ($minted >= $cap) {
+                        break;
+                    }
+                    $anchor = $this->supplySpecConflictPath($spec);
+                    if ($anchor === '' || $guard->isForbiddenSelfTarget($anchor)) {
+                        continue;
+                    }
+                    if ($this->fileHasInflightTask((string) $campaign->id, $anchor)) {
+                        continue;
+                    }
+                    if ($this->mintFeatureFrontierTask($campaign, $spec, $repoRoot)) {
+                        $minted++;
+                    }
+                    $this->touchHeartbeat($campaign);
+                }
+            }
+
+            return $minted;
+        } catch (Throwable) {
+            return 0;
+        }
+    }
+
+    private function tryPatternTransferSupply(AtlasLoopCampaign $campaign, string $provider, string $repoRoot, int $want): int
+    {
+        if (! (bool) config('atlas.loop.pattern_transfer_supply_enabled', false)) {
+            return 0;
+        }
+
+        try {
+            $cap = max(1, min(max(1, $want), (int) config('atlas.loop.pattern_transfer_supply_max_per_refill', 2)));
+            $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard;
+            $query = $this->comprehensionQuery($repoRoot, ['docs_roots' => []]);
+            $lane = new PatternTransferSupplyLane;
+
+            $minted = 0;
+            foreach ($this->effectiveDiscoveryRoots($campaign) as $root) {
+                if ($minted >= $cap) {
+                    break;
+                }
+                $root = trim(str_replace('\\', '/', (string) $root), '/');
+                if ($root === '' || ! is_dir($repoRoot.'/'.$root)) {
+                    continue;
+                }
+                $model = $query->model($root);
+                $this->touchHeartbeat($campaign);
+                foreach ($lane->mint($model, $repoRoot) as $spec) {
+                    if ($minted >= $cap) {
+                        break;
+                    }
+                    $anchor = $this->supplySpecConflictPath($spec);
+                    if ($anchor === '' || $guard->isForbiddenSelfTarget($anchor)) {
+                        continue;
+                    }
+                    if ($this->fileHasInflightTask((string) $campaign->id, $anchor)) {
+                        continue;
+                    }
+                    if ($this->mintPatternTransferTask($campaign, $spec, $repoRoot)) {
+                        $minted++;
+                    }
+                    $this->touchHeartbeat($campaign);
+                }
+            }
+
+            return $minted;
+        } catch (Throwable) {
+            return 0;
+        }
+    }
+
+    private function mintCrossLeverageTask(AtlasLoopCampaign $campaign, array $spec, string $repoRoot): bool
+    {
+        return $this->mintOriginatedSupplyTask($campaign, $spec, $repoRoot, 'cross_leverage', 'cross_leverage_supply_directive');
+    }
+
+    private function mintFeatureFrontierTask(AtlasLoopCampaign $campaign, array $spec, string $repoRoot): bool
+    {
+        return $this->mintOriginatedSupplyTask($campaign, $spec, $repoRoot, 'feature_frontier', 'feature_frontier_supply_directive');
+    }
+
+    private function mintPatternTransferTask(AtlasLoopCampaign $campaign, array $spec, string $repoRoot): bool
+    {
+        return $this->mintOriginatedSupplyTask($campaign, $spec, $repoRoot, 'pattern_transfer', 'pattern_transfer_supply_directive');
+    }
+
+    /**
+     * @param  array<string,mixed>  $spec
+     */
+    private function mintOriginatedSupplyTask(AtlasLoopCampaign $campaign, array $spec, string $repoRoot, string $source, string $queuedReason): bool
+    {
+        $anchor = $this->supplySpecTargetPath($spec);
+        if ($anchor === '') {
+            return false;
+        }
+
+        $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard;
+        if ($guard->isForbiddenSelfTarget($anchor) || $this->fileHasInflightTask((string) $campaign->id, $anchor)) {
+            return false;
+        }
+
+        $payload = is_array($spec['payload'] ?? null) ? $spec['payload'] : [];
+        $contentHash = hash('sha256', (string) @file_get_contents($repoRoot.'/'.$anchor));
+        $target = $this->repository->upsert(
+            (string) $campaign->id,
+            $anchor,
+            $contentHash,
+            [
+                'score' => 0.5,
+                'self_contained' => 0.0,
+                'improvement' => 1.0,
+                'novelty' => 0.7,
+                'signals' => [$source.'_supply' => true, 'objective_kind' => (string) ($payload['objective_kind'] ?? '')],
+            ],
+            ['origin' => AtlasLoopTarget::ORIGIN_DISCOVERY],
+        );
+        $priorStatus = (string) $target->status;
+        $target->forceFill([
+            'status' => AtlasLoopTarget::STATUS_CLAIMED,
+            'claimed_by' => $source.'_supply',
+            'claimed_at' => now(),
+            'lease_expires_at' => now()->addSeconds(600),
+        ])->save();
+
+        $payload['_target_id'] = (string) $target->id;
+        $payload['allowed_files'] = array_values(array_unique(array_filter(array_merge(
+            [$anchor],
+            array_values(array_filter((array) ($spec['members'] ?? []), 'is_string')),
+        ))));
+        $dp = $this->decidedPriority($campaign, $target, [$source.'_supply' => true], $repoRoot, AtlasLoopWorkShapeRouter::SHAPE_EDGE_FIX);
+        if ($dp['receipt'] !== []) {
+            $payload['_decision'] = $dp['receipt'];
+        }
+
+        $enq = $this->store->enqueueTask(
+            (string) $campaign->id,
+            (string) ($spec['objective'] ?? ''),
+            $payload,
+            $source,
+            $anchor,
+            $dp['priority'],
+            false,
+            (string) ($spec['acceptance_hash'] ?? ''),
+        );
+        $this->stampLastObjective($target, (string) ($spec['objective'] ?? ''));
+
+        $ok = $this->completeTargetEnqueue($target, $enq, $queuedReason) === 'enqueued';
+        if (! $ok) {
+            $target->forceFill([
+                'status' => $priorStatus,
+                'claimed_by' => null,
+                'claimed_at' => null,
+                'lease_expires_at' => null,
+            ])->save();
+        }
+
+        return $ok;
+    }
+
+    /**
+     * @param  array<string,mixed>  $spec
+     */
+    private function supplySpecConflictPath(array $spec): string
+    {
+        $members = array_values(array_filter((array) ($spec['members'] ?? []), 'is_string'));
+        $first = (string) ($members[0] ?? '');
+
+        return $first !== '' ? $first : $this->supplySpecTargetPath($spec);
+    }
+
+    /**
+     * @param  array<string,mixed>  $spec
+     */
+    private function supplySpecTargetPath(array $spec): string
+    {
+        $payload = is_array($spec['payload'] ?? null) ? $spec['payload'] : [];
+        $expectedPath = ltrim(trim((string) ($payload['expected_path'] ?? '')), '/');
+        if ($expectedPath !== '') {
+            return $expectedPath;
+        }
+
+        $capability = trim((string) ($payload['capability'] ?? ''));
+        if ($capability !== '' && preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $capability) === 1) {
+            return 'app/Services/Ai/AutonomousEvolution/'.$capability.'.php';
+        }
+
+        $members = array_values(array_filter((array) ($spec['members'] ?? []), 'is_string'));
+
+        return ltrim((string) ($members[0] ?? ''), '/');
     }
 
     private function supplyLaneCoordinator(): AtlasLoopRefillerSupplyLaneCoordinator
