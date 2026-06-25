@@ -32,6 +32,7 @@ class KeywordOsRunner
         private readonly KeywordValueLeverSignal $valueLever = new KeywordValueLeverSignal,
         private readonly RegimeCrossNegativeForge $crossNegatives = new RegimeCrossNegativeForge,
         private readonly KeywordParetoConcentrator $pareto = new KeywordParetoConcentrator,
+        private readonly KeywordCampaignBlueprint $blueprint = new KeywordCampaignBlueprint,
     ) {}
 
     /**
@@ -83,7 +84,10 @@ class KeywordOsRunner
         $result['sophistication'] = $this->sophistication->assess((string) $asset->niche);
         // ENFORCEMENT da isolação dos regimes: negativos cruzados (anti-canibalização, lei scaling-2026)
         if (isset($result['regimes']) && is_array($result['regimes'])) {
-            $result['regimes']['cross_negatives'] = $this->crossNegatives->forge($result['regimes']);
+            $crossNeg = $this->crossNegatives->forge($result['regimes']);
+            $result['regimes']['cross_negatives'] = $crossNeg;
+            // INTELIGÊNCIA→AÇÃO: o blueprint deployável (3 campanhas isoladas + ad groups + match + bid + negativos)
+            $result['campaign_blueprint'] = $this->blueprint->build($result['regimes'], $crossNeg);
         }
         if (isset($result['revenue_ranking']['ranked']) && is_array($result['revenue_ranking']['ranked'])) {
             $result['revenue_ranking']['ranked'] = array_map(function ($row) {

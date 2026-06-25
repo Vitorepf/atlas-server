@@ -74,6 +74,7 @@ class AtlasAiMarketingKeywordOsCommand extends Command
                 'basis' => $r['basis'] ?? null,
             ], array_slice((array) ($run['revenue_ranking']['ranked'] ?? []), 0, 15)),
             'vital_few' => $run['revenue_ranking']['vital_few']['concentration'] ?? null,
+            'blueprint' => $run['campaign_blueprint']['summary'] ?? null,
             'sophistication' => $run['sophistication']['strategy'] ?? null,
             'sophistication_why' => $run['sophistication']['why'] ?? null,
             'budget_portfolio' => $budget > 0 ? [
@@ -116,6 +117,12 @@ class AtlasAiMarketingKeywordOsCommand extends Command
             $this->newLine();
             $this->info('🎯 VITAL FEW (Marshall 80/20 — onde mora o dinheiro, foco obsessivo, corte a cauda):');
             $this->line('  '.$payload['vital_few']);
+        }
+
+        if ($payload['blueprint'] !== null) {
+            $this->newLine();
+            $this->info('🏗️  BLUEPRINT DEPLOYÁVEL (intel→ação — 3 urnas isoladas, sobe no Google Ads):');
+            $this->line('  '.$payload['blueprint']);
         }
 
         if ($payload['sophistication'] !== null) {
