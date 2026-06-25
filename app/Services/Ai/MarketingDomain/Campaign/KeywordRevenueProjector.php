@@ -16,11 +16,15 @@ namespace App\Services\Ai\MarketingDomain\Campaign;
  */
 class KeywordRevenueProjector
 {
-    /** volume-prior morfológico (buscas/mês aproximadas) quando não há dado real: o trade-off volume×CVR. */
+    /**
+     * Volume-prior morfológico (cliques/termo) quando não há dado real — ATERRADO na MEDIANA real do Blackink
+     * (não em chute): harvest≈425, seed≈573, probe≈120. As frases de sintoma long-tail têm volume INDIVIDUAL
+     * baixo (não alto, como eu havia chutado); o volume de busca não cresce com a generalidade do termo.
+     */
     private const VOLUME_PRIOR = [
-        'harvest' => 400,   // coined/posse/celebridade: alta intenção, POUCA busca (re-finder)
-        'seed' => 4000,     // recall/recipe/trick: muita busca (a isca de topo), CVR baixa
-        'probe' => 2500,    // sintoma frio: busca média-alta, CVR no chão
+        'harvest' => 425,   // coined/posse/celebridade: re-finder, volume baixo
+        'seed' => 573,      // recall/recipe/trick
+        'probe' => 120,     // sintoma frio long-tail: volume INDIVIDUAL baixo (corrigido pelo dado real)
     ];
 
     /** CPC-prior por regime: a ARBITRAGEM está no clique barato — coined/mistype = leilão sem concorrente. */
