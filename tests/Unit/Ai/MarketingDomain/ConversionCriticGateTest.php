@@ -129,4 +129,46 @@ class ConversionCriticGateTest extends TestCase
 
         $this->assertSame(json_encode($a, JSON_UNESCAPED_UNICODE), json_encode($b, JSON_UNESCAPED_UNICODE));
     }
+
+    /**
+     * proof_adjacency is a HARD floor DISTINCT from proof_substance: a page can carry concrete proof
+     * SOMEWHERE (proof_substance passes) yet leave a bold claim standing alone (no proof in its window) —
+     * that orphan claim blocks. English copy (the real campaign language; isClaim is English-keyed).
+     */
+    public function test_orphan_claim_blocks_and_is_distinct_from_proof_substance(): void
+    {
+        $copy = implode(' ', [
+            'If you are a woman over forty and the scale will not move, this may be why.',
+            'You will lose 34 pounds in 21 days, the easiest path you have tried.',   // bold claim
+            'It is the shift so many have quietly been waiting for.',                 // next: no proof → orphan
+            'Most mornings still feel ordinary, and that is exactly the point.',
+            'Separately, Dr. Anya Sharma tracked 412 women in a clinical review.',    // concrete proof, NOT adjacent
+            'Watch the free presentation to see how it works.',                       // one watch CTA
+        ]);
+
+        $v = (new ConversionCriticGate)->evaluate($copy, '', 'decent');
+
+        $this->assertSame('block', $v['verdict']);
+        $this->assertFalse($v['structural_pass']);
+        $this->assertContains('proof_adjacency', array_column($v['reasons'], 'floor'));
+        // the page HAS concrete proof somewhere, so proof_substance does NOT fire — proves the distinction
+        $this->assertNotContains('proof_substance', array_column($v['reasons'], 'floor'));
+    }
+
+    public function test_claim_with_adjacent_proof_does_not_trigger_adjacency(): void
+    {
+        $copy = implode(' ', [
+            'If you are a woman over forty and the scale will not move, this may be why.',
+            'You will lose 34 pounds in 21 days, the easiest path you have tried.',           // claim
+            'In a clinical review, Dr. Anya Sharma tracked 412 women who did exactly that.',  // adjacent external proof → backed
+            'Most mornings still feel ordinary, and that is exactly the point.',
+            'Thousands have quietly followed the same steps since.',
+            'Watch the free presentation to see how it works.',
+        ]);
+
+        $v = (new ConversionCriticGate)->evaluate($copy, '', 'decent');
+
+        $this->assertTrue($v['structural_pass'], 'prova adjacente não deveria deixar flaw estrutural: '.json_encode($v['reasons'], JSON_UNESCAPED_UNICODE));
+        $this->assertNotContains('proof_adjacency', array_column($v['reasons'], 'floor'));
+    }
 }

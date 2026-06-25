@@ -35,6 +35,7 @@ class ConversionCriticGate
         private readonly WatchThroughLeakDetector $watch = new WatchThroughLeakDetector,
         private readonly DecisionClarityAuditor $decision = new DecisionClarityAuditor,
         private readonly ProofSubstanceAuditor $proof = new ProofSubstanceAuditor,
+        private readonly ProofAdjacencyAuditor $adjacency = new ProofAdjacencyAuditor,
         private readonly ValueEquationAuditor $value = new ValueEquationAuditor,
         private readonly AwarenessRouter $awareness = new AwarenessRouter,
         private readonly ConversionAuditor $auditor = new ConversionAuditor,
@@ -69,6 +70,17 @@ class ConversionCriticGate
         if (($this->proof->audit($copy)['has_concrete'] ?? false) !== true) {
             $structural[] = ['floor' => 'proof_substance', 'kind' => 'structural',
                 'detail' => 'Zero prova concreta na página (nenhum número, nome real, ratio ou demonstração) — só claim vago. Ancore com prova concreta.'];
+        }
+
+        // Claim↔proof ADJACENCY (Bencivenga/Ogilvy): distinct from proof_substance — a page can have proof
+        // SOMEWHERE yet leave a bold CLAIM standing alone (the belief dies on the skepticism nobody rebuts
+        // beside it). Binary structural fact (a claim sentence with no EXTERNAL anchor in its window), not
+        // a density score — token-stuffing proof elsewhere cannot satisfy it.
+        $adj = $this->adjacency->audit($copy);
+        if (($adj['has_orphan_claim'] ?? false) === true) {
+            $orphans = $this->arr($adj['orphan_claims'] ?? []);
+            $structural[] = ['floor' => 'proof_adjacency', 'kind' => 'structural',
+                'detail' => 'Claim forte sem prova externa AO LADO: "'.mb_substr((string) ($orphans[0] ?? ''), 0, 90).'" — encaixe número/autoridade/ratio/demo JUNTO de cada promessa, senão a venda morre na descrença.'];
         }
 
         // ---- PRIOR / MARKER-DENSITY SIGNALS (warn only — never block) -------------------------

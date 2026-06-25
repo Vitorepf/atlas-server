@@ -46,4 +46,26 @@ class ProofAdjacencyAuditorTest extends TestCase
         $r = (new ProofAdjacencyAuditor)->audit('You could double your money this year. Portfolio manager Ray Chen did it with 1,400 students, audited.');
         $this->assertFalse($r['has_orphan_claim']);
     }
+
+    /**
+     * Case-C regression (locks the over-block fix that conditions the proof_adjacency HARD floor): a bare
+     * future-pacing / dream lead carries no result signal, so it is NOT a provable claim and must never be
+     * orphan-flagged — otherwise a legitimate cold-traffic lead would force a bad re-roll.
+     */
+    public function test_future_pacing_lead_is_not_an_orphan_claim(): void
+    {
+        $r = (new ProofAdjacencyAuditor)->audit(
+            'You will finally understand why nothing worked before. You will see the real reason in this short presentation.'
+        );
+        $this->assertFalse($r['has_orphan_claim']);
+        $this->assertSame([], $r['orphan_claims']);
+    }
+
+    public function test_result_tied_future_promise_is_still_a_claim(): void
+    {
+        // the tightening released ONLY bare future-pacing — a future promise carrying a real result is
+        // still a provable claim that needs proof beside it.
+        $r = (new ProofAdjacencyAuditor)->audit('You will lose 34 pounds. No special diet needed.');
+        $this->assertTrue($r['has_orphan_claim']);
+    }
 }

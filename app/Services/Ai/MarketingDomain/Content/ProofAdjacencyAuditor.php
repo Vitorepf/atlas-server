@@ -60,23 +60,31 @@ class ProofAdjacencyAuditor
         ];
     }
 
-    /** A sentence asserts a bold benefit/result: a promise framing, a result+number, or an absolute/superlative. */
+    /** A sentence asserts a bold benefit/result: a result-bearing promise framing, a result+number, or an absolute/superlative. */
     private function isClaim(string $s): bool
     {
         $t = mb_strtolower($s);
 
-        // Promise framing aimed at the reader's future. NOT "imagine/finally" — those are future-pacing /
-        // dream lines, not provable claims, and flagging them as orphan would be a false positive.
-        if (preg_match('/\b(you (?:will|can|could|\x27ll)|you are going to|guaranteed to)\b/u', $t)) {
+        // A result/transformation verb tied to a number (e.g. "lose 34 lbs in 6 weeks").
+        $resultNumber = (bool) preg_match('/\b(?:lose|lost|drop|dropped|melt|burn|make|earn|made|pull|gain|cut|lower|double|triple|add)\b[^.?!]*?\d/u', $t);
+        // Absolute / superlative promise.
+        $superlative = (bool) preg_match('/\b(the only|the #?1|number one|fastest|easiest|the secret to|never again|once and for all|melts? away|skyrocket|wipe out)\b/u', $t);
+        // Any concrete result SIGNAL: a result verb, a number, or a weight/percent unit.
+        $resultSignal = $superlative
+            || (bool) preg_match('/\b(?:lose|lost|drop|dropped|melt|burn|make|earn|made|pull|gain|cut|lower|double|triple|add)\b/u', $t)
+            || (bool) preg_match('/\d|\blbs?\b|\bpounds?\b|%/u', $t);
+
+        // Promise framing aimed at the reader's future is a provable CLAIM only when it carries a concrete
+        // result signal (a result verb / number / unit) or a superlative. A bare future verb ("you will
+        // finally understand why nothing worked") is future-pacing / dream copy, NOT a provable assertion —
+        // orphan-flagging it would falsely block legitimate cold-traffic leads.
+        if ($resultSignal && preg_match('/\b(you (?:will|can|could|\x27ll)|you are going to|guaranteed to)\b/u', $t)) {
             return true;
         }
-        // A result/transformation verb tied to a number.
-        if (preg_match('/\b(?:lose|lost|drop|dropped|melt|burn|make|earn|made|pull|gain|cut|lower|double|triple|add)\b[^.?!]*?\d/u', $t)) {
+        if ($resultNumber) {
             return true;
         }
-        // Absolute / superlative promise. (A bare timeframe like "in 21 days" is NOT a claim — it is a
-        // process/future-pacing line; the result+number branch above already catches result-tied claims.)
-        if (preg_match('/\b(the only|the #?1|number one|fastest|easiest|the secret to|never again|once and for all|melts? away|skyrocket|wipe out)\b/u', $t)) {
+        if ($superlative) {
             return true;
         }
 
