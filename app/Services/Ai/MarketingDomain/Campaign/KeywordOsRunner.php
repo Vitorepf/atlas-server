@@ -118,7 +118,10 @@ class KeywordOsRunner
     {
         $out = [];
 
-        $nicheWords = array_values(array_filter(preg_split('/\s+/', mb_strtolower(trim((string) $asset->niche))) ?: []));
+        // domínio LIMPO do nicho: o campo costuma vir como descrição verbosa ("emagrecimento feminino 40+ com
+        // obesidade persistente") — usar cru gera lixo no celebrity/descriptor ("dr oz emagrecimento feminino
+        // 40+ ... drops"). Tira número/símbolo/stopword/demográfico e capa nas 2 palavras de CATEGORIA.
+        $nicheWords = $this->nicheDomainWords($asset);
 
         foreach ($this->coinedRoots($asset) as $root) {
             $tokens = preg_split('/\s+/', $root) ?: [];
@@ -141,16 +144,38 @@ class KeywordOsRunner
             }
         }
 
-        // #3 celebrity-lane (autoridade × domínio-do-nicho × substantivo-de-posse)
+        // #3 celebrity-lane (autoridade × domínio-LIMPO-do-nicho × substantivo-de-posse)
         $celebs = (array) (($asset->persuasion_devices['authority'] ?? []));
         if ($celebs !== []) {
-            $domain = mb_strtolower(trim((string) $asset->niche));
+            $domain = implode(' ', $nicheWords); // domínio limpo, não a niche-frase verbosa
             foreach ($this->celebrityForge->forge($celebs, $domain !== '' ? [$domain] : []) as $row) {
                 $out[] = $row['keyword'];
             }
         }
 
         return array_values(array_unique($out));
+    }
+
+    /**
+     * Domínio LIMPO do nicho pra geração (celebrity/descriptor): tira número/símbolo (40+), stopword (com/de) e
+     * ruído demográfico (feminino/masculino/mulheres), e capa nas 2 primeiras palavras de CATEGORIA — senão a
+     * descrição verbosa do nicho vira keyword-lixo.
+     *
+     * @return array<int,string>
+     */
+    private function nicheDomainWords(AiMarketingVslAsset $asset): array
+    {
+        $stop = ['com', 'de', 'da', 'do', 'e', 'para', 'sem', 'que', 'em', 'a', 'o', 'as', 'os',
+            'persistente', 'persistentes', 'crônica', 'cronica', 'severa', 'severo', 'intensa', 'avançada', 'avancada',
+            'feminino', 'feminina', 'masculino', 'masculina', 'mulher', 'mulheres', 'homens', 'homem', 'anos',
+            'of', 'for', 'with', 'and', 'the', 'in', 'women', 'woman', 'men', 'male', 'female', 'persistent', 'chronic'];
+
+        $words = array_values(array_filter(
+            preg_split('/\s+/', mb_strtolower(trim((string) $asset->niche))) ?: [],
+            fn ($w) => $w !== '' && ! preg_match('/[0-9+]/', $w) && ! in_array($w, $stop, true) && mb_strlen($w) >= 4,
+        ));
+
+        return array_slice($words, 0, 2);
     }
 
     /** @return array<int,string> owned-roots coined (mechanism/trick/slogans), normalizados. */
