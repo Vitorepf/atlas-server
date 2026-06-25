@@ -20,6 +20,7 @@ use App\Console\Commands\AtlasTaskMaestroRetryCommand;
 use App\Console\Commands\AtlasLoopSchemaMigrateRunCommand;
 use App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight\AtlasAaelInFlightReceiptLedger;
 use App\Services\Ai\AutonomousEvolution\LiveCycle\Nesting\AtlasLoopSubCycleReceiptLedger;
+use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityReshaper;
 use App\Services\Ai\AutonomousEvolution\Quaternity\IntentResolver\AtlasLoopIntentAmbiguityClarifierProposer;
 use App\Services\Ai\AutonomousEvolution\Quaternity\IntentResolver\AtlasLoopIntentAmbiguityFollowUpScheduler;
 use App\Services\Ai\AutonomousEvolution\Quaternity\IntentResolver\AtlasLoopIntentAmbiguityResolutionLedger;
@@ -1407,6 +1408,15 @@ class AppServiceProvider extends ServiceProvider
 
     private function registerLoopIntentResolverWiring(): void
     {
+        $this->app->singleton(AtlasMaestroPriorityReshaper::class, function () {
+            $configured = config('atlas.maestro.priority.sequence_path');
+            $path = is_string($configured) && $configured !== ''
+                ? $configured
+                : storage_path('app/atlas/maestro/dynamic-priority');
+
+            return new AtlasMaestroPriorityReshaper($path);
+        });
+
         $this->app->singleton(AtlasLoopSubCycleReceiptLedger::class, function () {
             $configured = config('atlas.loop.nesting.receipt_ledger_path');
             $path = is_string($configured) && $configured !== ''
