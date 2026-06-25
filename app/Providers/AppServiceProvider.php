@@ -16,6 +16,7 @@ use App\Console\Commands\AtlasLoopRollingWindowCli;
 use App\Console\Commands\AtlasLoopSchemaFuzzCommand;
 use App\Console\Commands\AtlasLoopFormalInvariantProofCli;
 use App\Console\Commands\AtlasLoopIntentResolveCommand;
+use App\Console\Commands\AtlasTaskMaestroRetryCommand;
 use App\Console\Commands\AtlasLoopSchemaMigrateRunCommand;
 use App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight\AtlasAaelInFlightReceiptLedger;
 use App\Services\Ai\AutonomousEvolution\Quaternity\IntentResolver\AtlasLoopIntentAmbiguityClarifierProposer;
@@ -1464,6 +1465,7 @@ class AppServiceProvider extends ServiceProvider
                 AtlasLoopSchemaFuzzCommand::class,
                 AtlasLoopSchemaMigrateRunCommand::class,
                 AtlasLoopIntentResolveCommand::class,
+                AtlasTaskMaestroRetryCommand::class,
             ]);
 
             // Per-app (not global-static) registration so the dormant gate can be flipped per test
