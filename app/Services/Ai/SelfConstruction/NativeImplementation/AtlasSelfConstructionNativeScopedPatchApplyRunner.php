@@ -12,6 +12,7 @@ namespace App\Services\Ai\SelfConstruction\NativeImplementation;
  * Refuses when:
  *   - preflight.decision != 'allow'
  *   - any output path resolves outside the project root
+ *   - any output path contains '..' path-traversal segments
  *   - any output path is not in allowed_files
  *   - the on-disk file's hash differs from the expected preimage hash (drift)
  *
