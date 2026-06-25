@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\AgentValidationGateResultRepository;
 use App\Services\Ai\SelfConstruction\Maestro\Projection\AtlasMaestroWorkloadConsumptionRateReporter;
 use App\Services\Ai\SelfConstruction\Maestro\Projection\AtlasMaestroWorkloadProjectionFactEmitter;
 use Carbon\CarbonImmutable;
@@ -50,6 +51,7 @@ final class AtlasTaskMaestroProjectionCommand extends Command
     {
         $payload = $this->consumptionReporter()->report($this->registrySnapshot(), $now, $this->windowSeconds());
         $this->appendHistory($payload);
+        $this->recordValidationGateResult('rate', $payload);
 
         return $this->emitPayload($payload, self::SUCCESS);
     }
@@ -63,8 +65,34 @@ final class AtlasTaskMaestroProjectionCommand extends Command
             $now
         );
         $this->appendHistory($payload);
+        $this->recordValidationGateResult('empty', $payload);
 
         return $this->emitPayload($payload, self::SUCCESS);
+    }
+
+    /**
+     * Persist the emitted projection as a validation gate result so downstream FACT consumers
+     * can query the history via AgentValidationGateResultRepository::all()/failed()/digest().
+     * Wires the previously-orphaned AgentValidationGateResultRepository into the live flow.
+     *
+     * @param  array<string,mixed>  $payload
+     */
+    private function recordValidationGateResult(string $verb, array $payload): void
+    {
+        $repo = $this->validationGateRepository();
+        $overall = (string) ($payload['status'] ?? 'ok');
+        $repo->store([
+            'verb' => $verb,
+            'overall_status' => $overall === '' ? 'ok' : $overall,
+            'projection_schema' => (string) ($payload['schema'] ?? ''),
+            'projection' => $payload,
+        ]);
+    }
+
+    private function validationGateRepository(): AgentValidationGateResultRepository
+    {
+        /** @var AgentValidationGateResultRepository */
+        return app(AgentValidationGateResultRepository::class);
     }
 
     private function handleHistory(): int
