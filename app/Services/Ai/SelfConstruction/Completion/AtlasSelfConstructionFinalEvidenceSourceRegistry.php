@@ -30,6 +30,8 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistry
     public const GROUP_DOCS = 'docs';
     public const GROUP_TASK_FABRIC_FINAL_COVERAGE = 'task_fabric_final_coverage';
 
+    public const GROUP_UNATTENDED_RUNTIME = 'unattended_runtime';
+
     /**
      * @return array<string,mixed>
      */
@@ -193,6 +195,36 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistry
                     'withheld_count',
                     'duplicate_count',
                     'replenisher_hash',
+                ],
+            ],
+            [
+                'id' => 'unattended_runtime_supervisor',
+                'label' => 'Unattended Runtime Supervisor Tick',
+                'group' => self::GROUP_UNATTENDED_RUNTIME,
+                'blocking' => true,
+                'refreshable' => true,
+                'evidence_kinds' => ['unattended_runtime_supervisor_receipt'],
+                'required_fields' => [
+                    'snapshot_hash',
+                    'classifier_hash',
+                    'plan_hash',
+                    'supervisor_cycle_hash',
+                    'dry_run',
+                    'applied_actions',
+                    'blocked_actions',
+                ],
+                'unsafe_classifications' => [
+                    'unsafe_stop',
+                    'heartbeat_stale',
+                    'merge_blocked',
+                    'verification_blocked',
+                    'worker_unavailable',
+                ],
+                'safe_classifications' => [
+                    'healthy',
+                    'queue_dry',
+                    'waiting_on_dependencies',
+                    'replenisher_blocked',
                 ],
             ],
         ];

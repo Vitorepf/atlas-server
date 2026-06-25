@@ -27,6 +27,7 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistryTest extends TestCas
             'knowledge_sync',
             'task_graph_coverage_dossier',
             'task_graph_autonomous_replenisher',
+            'unattended_runtime_supervisor',
         ];
         foreach ($expected as $id) {
             $this->assertContains($id, $ids, "missing required source: {$id}");
@@ -112,6 +113,7 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistryTest extends TestCas
                 'knowledge_sync' => ['status' => 'pass'],
                 'task_graph_coverage_dossier' => ['status' => 'pass'],
                 'task_graph_autonomous_replenisher' => ['status' => 'pass'],
+                'unattended_runtime_supervisor' => ['status' => 'pass'],
             ],
             'final_runtime_owner' => 'atlas_native',
             'steady_state_runtime_owner' => 'atlas_server',
@@ -208,5 +210,145 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistryTest extends TestCas
         $this->assertContains('task_graph_coverage_dossier', $verdict['blocking_source_ids']);
         $this->assertArrayHasKey('task_fabric_final_coverage', $verdict['source_groups']);
         $this->assertContains('task_graph_coverage_dossier', $verdict['source_groups']['task_fabric_final_coverage']);
+    }
+
+    /**
+     * Helper that mirrors how an upstream verifier interprets an unattended-supervisor receipt
+     * against the registry. Returns one of: missing | stale | blocked | unapplied | pass.
+     *
+     * @param  array<string,mixed>|null  $receipt
+     */
+    private function evaluateUnattended(?array $receipt): string
+    {
+        $verdict = (new AtlasSelfConstructionFinalEvidenceSourceRegistry)->describe();
+        $source = null;
+        foreach ($verdict['required_sources'] as $s) {
+            if ($s['id'] === 'unattended_runtime_supervisor') {
+                $source = $s;
+                break;
+            }
+        }
+        $this->assertNotNull($source);
+        if ($receipt === null) {
+            return 'missing';
+        }
+        foreach ((array) $source['required_fields'] as $field) {
+            if (! array_key_exists($field, $receipt)) {
+                return 'stale';
+            }
+        }
+        $classification = (string) ($receipt['classification'] ?? '');
+        if (in_array($classification, (array) $source['unsafe_classifications'], true)) {
+            return 'blocked';
+        }
+        $planned = (array) ($receipt['planned_actions'] ?? []);
+        $applied = (array) ($receipt['applied_actions'] ?? []);
+        $dryRun = (bool) ($receipt['dry_run'] ?? true);
+        if ($planned !== [] && $dryRun) {
+            return 'unapplied';
+        }
+        if ($planned !== [] && count($applied) < count($planned)) {
+            return 'unapplied';
+        }
+        if (in_array($classification, (array) $source['safe_classifications'], true)) {
+            return 'pass';
+        }
+
+        return 'blocked';
+    }
+
+    public function test_unattended_runtime_supervisor_source_is_present_with_required_fields(): void
+    {
+        $verdict = (new AtlasSelfConstructionFinalEvidenceSourceRegistry)->describe();
+        $row = null;
+        foreach ($verdict['required_sources'] as $s) {
+            if ($s['id'] === 'unattended_runtime_supervisor') {
+                $row = $s;
+                break;
+            }
+        }
+        $this->assertNotNull($row, 'unattended_runtime_supervisor must be in the registry');
+        $this->assertTrue($row['blocking']);
+        foreach (['snapshot_hash', 'classifier_hash', 'plan_hash', 'supervisor_cycle_hash', 'dry_run', 'applied_actions', 'blocked_actions'] as $field) {
+            $this->assertContains($field, $row['required_fields'], "missing required field: {$field}");
+        }
+        $this->assertContains('unattended_runtime_supervisor', $verdict['blocking_source_ids']);
+    }
+
+    public function test_unattended_supervisor_missing_keeps_completion_not_ready(): void
+    {
+        $this->assertSame('missing', $this->evaluateUnattended(null));
+    }
+
+    public function test_unattended_supervisor_stale_or_unsafe_blocks_completion(): void
+    {
+        $stale = ['classification' => 'healthy', 'snapshot_hash' => 'h'];
+        $this->assertSame('stale', $this->evaluateUnattended($stale));
+
+        $unsafe = $this->fullSupervisorReceipt(['classification' => 'unsafe_stop']);
+        $this->assertSame('blocked', $this->evaluateUnattended($unsafe));
+    }
+
+    public function test_unattended_supervisor_unapplied_safe_actions_blocks_completion(): void
+    {
+        $receipt = $this->fullSupervisorReceipt([
+            'classification' => 'queue_dry',
+            'dry_run' => true,
+            'planned_actions' => [['action' => 'run_replenisher_dry_run']],
+            'applied_actions' => [],
+        ]);
+
+        $this->assertSame('unapplied', $this->evaluateUnattended($receipt));
+    }
+
+    public function test_unattended_supervisor_green_receipt_passes(): void
+    {
+        $healthy = $this->fullSupervisorReceipt(['classification' => 'healthy']);
+        $this->assertSame('pass', $this->evaluateUnattended($healthy));
+
+        $appliedThroughCallbacks = $this->fullSupervisorReceipt([
+            'classification' => 'queue_dry',
+            'dry_run' => false,
+            'planned_actions' => [['action' => 'run_replenisher_dry_run']],
+            'applied_actions' => [['action' => 'run_replenisher_dry_run', 'applied' => true]],
+        ]);
+        $this->assertSame('pass', $this->evaluateUnattended($appliedThroughCallbacks));
+    }
+
+    public function test_unattended_supervisor_source_introduces_no_non_atlas_actor(): void
+    {
+        $verdict = (new AtlasSelfConstructionFinalEvidenceSourceRegistry)->describe();
+        $row = null;
+        foreach ($verdict['required_sources'] as $s) {
+            if ($s['id'] === 'unattended_runtime_supervisor') {
+                $row = $s;
+                break;
+            }
+        }
+        $json = strtolower((string) json_encode($row));
+        $this->assertStringNotContainsString('claude_code', $json);
+        $this->assertStringNotContainsString('codex', $json);
+        $this->assertStringNotContainsString('operator_required', $json);
+        $this->assertStringNotContainsString('external_assistant', $json);
+        $this->assertStringNotContainsString('external_provider', $json);
+    }
+
+    /**
+     * @param  array<string,mixed>  $override
+     * @return array<string,mixed>
+     */
+    private function fullSupervisorReceipt(array $override = []): array
+    {
+        return array_replace([
+            'classification' => 'healthy',
+            'snapshot_hash' => 'snap_hash',
+            'classifier_hash' => 'classifier_hash',
+            'plan_hash' => 'plan_hash',
+            'supervisor_cycle_hash' => 'cycle_hash',
+            'dry_run' => false,
+            'planned_actions' => [],
+            'applied_actions' => [],
+            'blocked_actions' => [],
+        ], $override);
     }
 }
