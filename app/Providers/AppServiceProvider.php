@@ -395,6 +395,23 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(\App\Services\Ai\AutonomousEvolution\LiveCycle\Nesting\AtlasLoopSubCycleSpawner::class);
         // LOOP-CYCLE-NEST W1160 P2 — child-outcome FACT merger (refuses scalar score/grade/rank/rating/quality_score).
         $this->app->singleton(\App\Services\Ai\AutonomousEvolution\LiveCycle\Nesting\AtlasLoopSubCycleResultMerger::class);
+        // W1260 P4 — Cortex MultiLang language registry, seeded with php/typescript/yaml.
+        $this->app->singleton(
+            \App\Services\Ai\AutonomousEvolution\Discovery\Cortex\MultiLang\AtlasCortexLanguageRegistry::class,
+            function () {
+                $registry = new \App\Services\Ai\AutonomousEvolution\Discovery\Cortex\MultiLang\AtlasCortexLanguageRegistry();
+                $registry->register('php', [
+                    'parser_class' => 'native_reflection',
+                    'extractor_class' => \App\Services\Ai\AutonomousEvolution\Discovery\Cortex\ApiDiff\AtlasCortexApiSurfaceExtractor::class,
+                    'extensions' => ['php'],
+                    'namespace_roots' => ['App\\'],
+                ]);
+                (new \App\Services\Ai\AutonomousEvolution\Discovery\Cortex\MultiLang\AtlasCortexTypeScriptParserFacts([base_path('app'), base_path('tests'), base_path('docs'), base_path('config')]))->registerInto($registry);
+                \App\Services\Ai\AutonomousEvolution\Discovery\Cortex\MultiLang\AtlasCortexYamlConfigFactExtractor::registerInto($registry);
+
+                return $registry;
+            },
+        );
         // W1240 — Loop cycle model-check CLI service (extract|deadlock|history orchestrator).
         $this->app->singleton(
             \App\Services\Ai\AutonomousEvolution\ModelCheck\AtlasLoopCycleModelCheckCli::class,
