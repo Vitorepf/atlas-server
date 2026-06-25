@@ -14,7 +14,9 @@ use App\Console\Commands\AtlasLoopFrozenContractCommand;
 use App\Console\Commands\AtlasLoopCortexIntentCommand;
 use App\Console\Commands\AtlasLoopRollingWindowCli;
 use App\Console\Commands\AtlasLoopSchemaFuzzCommand;
+use App\Console\Commands\AtlasLoopFormalInvariantProofCli;
 use App\Console\Commands\AtlasLoopSchemaMigrateRunCommand;
+use Illuminate\Support\Facades\Artisan;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use App\Services\Ai\AgentGovernance\FleetDriver;
 use App\Services\Ai\AgentGovernance\SystemFleetDriver;
@@ -1365,6 +1367,10 @@ class AppServiceProvider extends ServiceProvider
                 AtlasLoopSchemaFuzzCommand::class,
                 AtlasLoopSchemaMigrateRunCommand::class,
             ]);
+
+            if ((bool) config('atlas.loop.formal_proofs_cli_enabled', false)) {
+                $this->commands([AtlasLoopFormalInvariantProofCli::class]);
+            }
         }
 
         // AP-819 Obra B — overlay da Harness Surface: reaplica overrides de
