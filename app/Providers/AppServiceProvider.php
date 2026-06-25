@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Console\Commands\AtlasLoopAuditCommand;
 use App\Console\Commands\AtlasLoopLiveCycleCommand;
 use App\Console\Commands\AtlasLoopMigrateCommand;
 use App\Console\Commands\AtlasLoopFrozenContractCommand;
@@ -280,6 +281,21 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(SkillBundleStore::class);
         $this->app->singleton(AtlasLoopReceiptReplayer::class);
+
+        // Audit trail surface: Composer + Exporter + IntegrityVerifier + Replayer as singletons.
+        $this->app->singleton(\App\Services\Ai\AutonomousEvolution\AuditTrail\AtlasLoopAuditTrailComposer::class);
+        $this->app->singleton(\App\Services\Ai\AutonomousEvolution\AuditTrail\AtlasLoopAuditTrailExporter::class);
+        $this->app->singleton(\App\Services\Ai\AutonomousEvolution\AuditTrail\AtlasLoopAuditTrailIntegrityVerifier::class);
+        $this->app->singleton(
+            \App\Services\Ai\AutonomousEvolution\AuditTrail\AtlasLoopAuditTrailReplayer::class,
+            static function ($app): \App\Services\Ai\AutonomousEvolution\AuditTrail\AtlasLoopAuditTrailReplayer {
+                $composer = $app->make(\App\Services\Ai\AutonomousEvolution\AuditTrail\AtlasLoopAuditTrailComposer::class);
+
+                return new \App\Services\Ai\AutonomousEvolution\AuditTrail\AtlasLoopAuditTrailReplayer(
+                    static fn (\App\Services\Ai\AutonomousEvolution\AuditTrail\TimelineWindow $window) => $composer->compose($window),
+                );
+            },
+        );
         // §W40-S6 substrate-receipt ledger — single shared append-only journal across supervisor + keepalive.
         $this->app->singleton(\App\Services\Ai\AutonomousEvolution\AtlasLoopSubstrateReceiptLedger::class);
         // Trinity anti-decoupling contract emitter — single canonical source enforcing recursive coupling.
@@ -1304,6 +1320,7 @@ class AppServiceProvider extends ServiceProvider
 
         if ($this->app->runningInConsole()) {
             $this->commands([
+                AtlasLoopAuditCommand::class,
                 AtlasLoopFrozenContractCommand::class,
                 AtlasLoopCortexIntentCommand::class,
                 AtlasLoopLiveCycleCommand::class,
