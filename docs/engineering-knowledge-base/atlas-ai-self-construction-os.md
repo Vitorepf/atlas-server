@@ -196,6 +196,12 @@ next_actions:
 ---
 # Atlas AI Self-Construction OS
 
+> **New AI session?** Start with the
+> [AI continuation index](self-construction/ai-continuation-index.md) before
+> reading deeper architecture. It carries the canonical reading order
+> (architecture -> contract -> gates -> roadmap -> task-serving -> commands)
+> so a fresh worker can pick up Self-Construction work without chat history.
+
 > **Canonical parent:** `Atlas Autonomous Engineering Government`
 > (`docs/engineering-knowledge-base/atlas-autonomous-engineering-government.md`).
 > This document defines the Atlas-building-Atlas operating system inside that
