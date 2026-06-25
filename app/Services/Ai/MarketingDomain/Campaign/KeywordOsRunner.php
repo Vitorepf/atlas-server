@@ -31,6 +31,7 @@ class KeywordOsRunner
         private readonly MarketSophisticationSignal $sophistication = new MarketSophisticationSignal,
         private readonly KeywordValueLeverSignal $valueLever = new KeywordValueLeverSignal,
         private readonly RegimeCrossNegativeForge $crossNegatives = new RegimeCrossNegativeForge,
+        private readonly KeywordParetoConcentrator $pareto = new KeywordParetoConcentrator,
     ) {}
 
     /**
@@ -92,6 +93,9 @@ class KeywordOsRunner
 
                 return $row;
             }, $result['revenue_ranking']['ranked']);
+
+            // 80/20 (Marshall): os VITAL FEW que capturam 80% da receita — foco obsessivo, corte a cauda
+            $result['revenue_ranking']['vital_few'] = $this->pareto->concentrate($result['revenue_ranking']['ranked']);
         }
 
         return $result;
