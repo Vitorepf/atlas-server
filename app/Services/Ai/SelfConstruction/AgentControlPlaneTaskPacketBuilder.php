@@ -23,6 +23,31 @@ final class AgentControlPlaneTaskPacketBuilder
 
     public const MODE = 'read_only_agent_control_plane_task_packet_builder';
 
+    /**
+     * Canonical Atlas-native ownership contract baked into every task packet.
+     * Single source of truth — `build()` reads from here so future packets
+     * never re-declare a parallel literal.
+     *
+     * @return array<string,mixed>
+     */
+    public static function defaultSimplicityContract(): array
+    {
+        return [
+            'default_execution_topology' => 'shared_local_main_with_allowed_files',
+            'default_worktree_or_sandbox' => false,
+            'human_or_external_provider_dependency_allowed' => false,
+            'operator_dependency_allowed' => false,
+            'human_dependency_allowed' => false,
+            'external_provider_dependency_allowed' => false,
+            'final_runtime_owner' => 'atlas_native',
+            'steady_state_runtime_owner' => 'atlas_server',
+            'steady_state_requires_operator' => false,
+            'steady_state_requires_human' => false,
+            'steady_state_requires_external_provider' => false,
+            'external_worker_role' => 'bootstrap_or_replaceable_muscle_only',
+        ];
+    }
+
     public const FORBIDDEN_AXES = [
         'app/Services/Ai/SelfImprovement/',
         'app/Services/Ai/Programming/',
@@ -203,20 +228,7 @@ final class AgentControlPlaneTaskPacketBuilder
                 'isolation' => 'shared_local_main_with_scope_lock',
                 'auto_apply' => false,
             ], $workspacePolicy),
-            'simplicity_contract' => [
-                'default_execution_topology' => 'shared_local_main_with_allowed_files',
-                'default_worktree_or_sandbox' => false,
-                'human_or_external_provider_dependency_allowed' => false,
-                'operator_dependency_allowed' => false,
-                'human_dependency_allowed' => false,
-                'external_provider_dependency_allowed' => false,
-                'final_runtime_owner' => 'atlas_native',
-                'steady_state_runtime_owner' => 'atlas_server',
-                'steady_state_requires_operator' => false,
-                'steady_state_requires_human' => false,
-                'steady_state_requires_external_provider' => false,
-                'external_worker_role' => 'bootstrap_or_replaceable_muscle_only',
-            ],
+            'simplicity_contract' => self::defaultSimplicityContract(),
             'lease_requirements' => $leaseRequirements,
             'claim_requirements' => $claimRequirements,
             'rollback_requirements' => $rollbackRequirements,
