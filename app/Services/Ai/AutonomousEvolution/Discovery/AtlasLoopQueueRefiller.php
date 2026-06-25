@@ -36,7 +36,7 @@ use Throwable;
  * generator output is not genuinely RED is routed through loop-back (quarantined as
  * un-grindable), never enqueued — so the queue stays honest.
  */
-final class AtlasLoopQueueRefiller
+final class AtlasLoopQueueRefiller implements \App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerPort
 {
     private const EXTRACT_CLASS_OBJECTIVE_KIND = 'refactor_extract_class';
 

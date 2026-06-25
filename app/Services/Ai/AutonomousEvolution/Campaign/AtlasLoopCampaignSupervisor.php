@@ -25,7 +25,7 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopTerritoryLadder;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopTransientDbException;
 use Illuminate\Support\Str;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBackService;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopQueueRefiller;
+use App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerPort;
 use App\Services\Ai\AutonomousEvolution\Parallel\LoopWorkerCountPlanner;
 use App\Services\Ai\AutonomousEvolution\Parallel\LoopWorkerPool;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopDeliveryPipeline;
@@ -85,7 +85,7 @@ final class AtlasLoopCampaignSupervisor
     public function __construct(
         private readonly AtlasLoopStore $store,
         private readonly AtlasLoopTaskGrinder $grinder,
-        private readonly AtlasLoopQueueRefiller $refiller,
+        private readonly AtlasLoopRefillerPort $refiller,
         private readonly AtlasLoopBackService $loopBack,
         private readonly AtlasLoopResourceGate $resourceGate,
         private readonly AtlasLoopDbResilience $db,

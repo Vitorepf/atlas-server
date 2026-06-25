@@ -244,6 +244,22 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // Refiller port (Consolidation) → Discovery refiller concrete. Breaks root↔Discovery cycle by
+        // letting root-adjacent consumers (e.g. AtlasLoopCampaignSupervisor) type-hint the port and
+        // resolve the live Discovery refiller through the container. The Collaborators wrapper is also
+        // bound so the port-driven path can resolve the root collaborators in one place.
+        $this->app->bind(
+            \App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerPort::class,
+            \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopQueueRefiller::class,
+        );
+        $this->app->singleton(
+            \App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerRootCollaborators::class,
+            fn ($app): \App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerRootCollaborators => new \App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerRootCollaborators(
+                $app->make(\App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore::class),
+                $app->make(\App\Services\Ai\AutonomousEvolution\AtlasLoopBackService::class),
+            ),
+        );
+
         // Maestro worker-fleet probe — needs a callable lease-source. Default to an empty iterable so any
         // consumer (CLI / FairnessAuditor) can boot even when the lease envelope has nothing to report yet.
         $this->app->singleton(\App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerFleetProbe::class, static function (): \App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerFleetProbe {
