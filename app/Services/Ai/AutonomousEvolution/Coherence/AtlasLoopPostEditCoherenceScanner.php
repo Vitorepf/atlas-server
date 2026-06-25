@@ -6,6 +6,13 @@ namespace App\Services\Ai\AutonomousEvolution\Coherence;
 
 use Symfony\Component\Process\Process;
 
+/**
+ * FACT-only post-edit coherence scanner: enumerates dangling references and broken contracts
+ * across recently-edited files. Never scores, ranks, judges quality, or recommends fixes — only
+ * surfaces concrete (file, line, reason, target_symbol) tuples for downstream ledger/CLI use.
+ *
+ * Deterministic & provider-free; output is byte-stable across runs over the same git ref.
+ */
 final class AtlasLoopPostEditCoherenceScanner
 {
     /**
