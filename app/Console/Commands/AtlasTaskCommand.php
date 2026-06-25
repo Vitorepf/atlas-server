@@ -10,6 +10,7 @@ use App\Services\Ai\SelfConstruction\Maestro\Adaptive\AtlasMaestroGiveBackPatter
 use App\Services\Ai\SelfConstruction\Maestro\Adaptive\AtlasMaestroPacketReshaper;
 use App\Services\Ai\SelfConstruction\Maestro\Adaptive\AtlasMaestroWorkerAffinityRouter;
 use App\Services\Ai\SelfConstruction\Maestro\Adaptive\AtlasMaestroWorkerBehaviorLedger;
+use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskSimplicityContractAuditor;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -37,7 +38,8 @@ class AtlasTaskCommand extends Command
         {--task-class= : task class id (maestro:route)}
         {--worker=* : eligible worker client id (maestro:route)}
         {--tier= : declared tier (maestro:tiering register-worker)}
-        {--limit=10 : tail size (maestro:tiering history)}
+        {--limit=10 : tail size (maestro:tiering history / contract actions)}
+        {--apply : Mutate queue records (contract:backfill — defaults to dry-run when absent)}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'The Atlas task-serving contract: PULL the next task (next) or hand back a result (report). Platform-free, client_id opaque.';
@@ -60,6 +62,8 @@ class AtlasTaskCommand extends Command
                 'maestro:reshape' => $this->maestroReshape(),
                 'maestro:route' => $this->maestroRoute(),
                 'maestro:tiering' => $this->maestroTiering(),
+                'contract:audit' => $this->contractAudit(),
+                'contract:backfill' => $this->contractBackfill(),
                 default => ['schema' => 'atlas.task_serving.error.v1', 'status' => 'unknown_action', 'action' => $action],
             };
         } catch (Throwable $e) {
@@ -189,6 +193,129 @@ class AtlasTaskCommand extends Command
             'limit' => (int) $this->option('limit'),
             'packet_lookup' => $packetLookup,
         ]);
+    }
+
+    /**
+     * Read-only simplicity-contract audit over the queue (single packet via --packet, or batch via --limit).
+     *
+     * @return array<string,mixed>
+     */
+    private function contractAudit(): array
+    {
+        $records = $this->loadContractRecords();
+        if (isset($records['__usage__'])) {
+            return $records['__usage__'];
+        }
+
+        $verdict = (new AtlasTaskSimplicityContractAuditor)->audit($records);
+
+        return [
+            'schema' => AtlasTaskSimplicityContractAuditor::SCHEMA,
+            'status' => 'ok',
+            'mode' => 'audit',
+            'inspected_count' => (int) $verdict['inspected_count'],
+            'conforming_count' => (int) $verdict['conforming_count'],
+            'missing_count' => (int) $verdict['missing_count'],
+            'drift_count' => (int) $verdict['drift_count'],
+            'skipped_count' => (int) $verdict['skipped_count'],
+            'findings' => array_slice((array) $verdict['findings'], 0, 200),
+            'proof_summary' => (array) $verdict['proof_summary'],
+        ];
+    }
+
+    /**
+     * Backfill drifted/missing simplicity_contract fields. DRY-RUN by default; --apply mutates the queue.
+     *
+     * @return array<string,mixed>
+     */
+    private function contractBackfill(): array
+    {
+        $records = $this->loadContractRecords();
+        if (isset($records['__usage__'])) {
+            return $records['__usage__'];
+        }
+
+        $verdict = (new AtlasTaskSimplicityContractAuditor)->audit($records);
+        $apply = (bool) $this->option('apply');
+
+        $candidates = array_values(array_filter(
+            (array) $verdict['findings'],
+            static fn (array $f): bool => in_array((string) ($f['status'] ?? ''), [AtlasTaskSimplicityContractAuditor::STATUS_DRIFTED, AtlasTaskSimplicityContractAuditor::STATUS_MISSING], true),
+        ));
+
+        $mutations = [];
+        if ($apply) {
+            foreach ($candidates as $candidate) {
+                $taskPacketId = (string) ($candidate['task_packet_id'] ?? '');
+                if ($taskPacketId === '') {
+                    continue;
+                }
+                try {
+                    $result = AtlasTaskServingStack::queueRepo()->backfillSimplicityContract($taskPacketId);
+                } catch (Throwable $e) {
+                    $result = ['status' => 'error', 'error' => $e->getMessage()];
+                }
+                $mutations[] = [
+                    'task_packet_id' => $taskPacketId,
+                    'pre_status' => (string) $candidate['status'],
+                    'drift_fields' => array_values((array) ($candidate['drift_fields'] ?? [])),
+                    'backfill_status' => (string) ($result['event'] ?? $result['status'] ?? 'unknown'),
+                ];
+            }
+        }
+
+        return [
+            'schema' => AtlasTaskSimplicityContractAuditor::SCHEMA,
+            'status' => 'ok',
+            'mode' => $apply ? 'apply' : 'dry_run',
+            'dry_run' => ! $apply,
+            'candidate_count' => count($candidates),
+            'inspected_count' => (int) $verdict['inspected_count'],
+            'mutated_count' => count($mutations),
+            'candidates' => array_slice($candidates, 0, 200),
+            'mutations' => $mutations,
+        ];
+    }
+
+    /**
+     * Resolve the queue records to audit: --packet (single) or --limit (batch). Returns a list, or a
+     * `{__usage__ => envelope}` array on usage error so the caller short-circuits.
+     *
+     * @return list<array<string,mixed>>|array{__usage__: array<string,mixed>}
+     */
+    private function loadContractRecords(): array
+    {
+        $packetId = trim((string) ($this->option('packet') ?? ''));
+        try {
+            $repo = AtlasTaskServingStack::queueRepo();
+        } catch (Throwable $e) {
+            return ['__usage__' => ['schema' => AtlasTaskSimplicityContractAuditor::SCHEMA, 'status' => 'usage_error', 'reason' => 'queue_repo_unavailable', 'error' => $e->getMessage()]];
+        }
+
+        if ($packetId !== '') {
+            try {
+                $record = $repo->get($packetId);
+            } catch (Throwable $e) {
+                return ['__usage__' => ['schema' => AtlasTaskSimplicityContractAuditor::SCHEMA, 'status' => 'usage_error', 'reason' => 'packet_lookup_failed', 'packet_id' => $packetId, 'error' => $e->getMessage()]];
+            }
+            if (! is_array($record)) {
+                return ['__usage__' => ['schema' => AtlasTaskSimplicityContractAuditor::SCHEMA, 'status' => 'usage_error', 'reason' => 'unknown_packet', 'packet_id' => $packetId]];
+            }
+
+            return [$record];
+        }
+
+        $limit = (int) $this->option('limit');
+        if ($limit <= 0) {
+            $limit = 10;
+        }
+        try {
+            $records = $repo->list(['limit' => $limit]);
+        } catch (Throwable $e) {
+            return ['__usage__' => ['schema' => AtlasTaskSimplicityContractAuditor::SCHEMA, 'status' => 'usage_error', 'reason' => 'queue_list_failed', 'error' => $e->getMessage()]];
+        }
+
+        return array_values($records);
     }
 
     /** @return array<string, mixed> the decoded --evidence JSON (or stdin when '-'); [] on absent/invalid. */
