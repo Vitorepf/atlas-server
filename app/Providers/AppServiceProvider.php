@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Console\Commands\AtlasLoopAuditCommand;
 use App\Console\Commands\AtlasLoopFactAnchorCommand;
 use App\Console\Commands\AtlasLoopLiveCycleCommand;
+use App\Console\Commands\AtlasLoopSelfIntrospectionCommand;
 use App\Console\Commands\AtlasLoopMigrateCommand;
 use App\Console\Commands\AtlasLoopFrozenContractCommand;
 use App\Console\Commands\AtlasLoopCortexIntentCommand;
@@ -1326,6 +1327,7 @@ class AppServiceProvider extends ServiceProvider
                 AtlasLoopFrozenContractCommand::class,
                 AtlasLoopCortexIntentCommand::class,
                 AtlasLoopLiveCycleCommand::class,
+                AtlasLoopSelfIntrospectionCommand::class,
                 AtlasLoopMigrateCommand::class,
                 AtlasLoopRollingWindowCli::class,
                 AtlasLoopSchemaFuzzCommand::class,
