@@ -29,11 +29,69 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistryTest extends TestCas
             'task_graph_autonomous_replenisher',
             'unattended_runtime_supervisor',
             'scope_expansion_governor',
+            'native_worker_runtime',
         ];
         foreach ($expected as $id) {
             $this->assertContains($id, $ids, "missing required source: {$id}");
         }
         $this->assertSame(count($expected), count($ids));
+    }
+
+    public function test_native_worker_runtime_source_present_with_runtime_proof_and_no_external_dependency(): void
+    {
+        $verdict = (new AtlasSelfConstructionFinalEvidenceSourceRegistry)->describe();
+        $row = null;
+        foreach ($verdict['required_sources'] as $s) {
+            if ($s['id'] === 'native_worker_runtime') {
+                $row = $s;
+                break;
+            }
+        }
+        $this->assertNotNull($row);
+        $this->assertTrue($row['blocking']);
+        $this->assertSame('atlas.native_worker.pool_supervisor.v1', $row['schema_version']);
+        foreach (['claim', 'envelope', 'materialization', 'command_gates', 'evidence_write', 'report_outcome_mapping', 'one_dry_run_cycle', 'one_apply_mode_cycle'] as $proof) {
+            $this->assertContains($proof, $row['required_runtime_proof']);
+        }
+        foreach (['operator', 'human', 'claude_code', 'codex', 'cursor', 'external_provider'] as $forbidden) {
+            $this->assertContains($forbidden, $row['requires_no_dependency_on']);
+        }
+    }
+
+    public function test_completion_cannot_ignore_missing_native_worker_runtime_proof(): void
+    {
+        $verifier = new \App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionAtlasNativeEvidenceVerifier();
+        $verdict = $verifier->verify([
+            'sources' => [
+                'task_serving_contract_sentinel' => ['status' => 'pass'],
+                'code_index_readiness_bridge' => ['status' => 'pass'],
+                'multi_project_governance_dossier' => ['status' => 'pass'],
+                'native_worker_readiness' => ['status' => 'pass'],
+                'verification_court' => ['status' => 'pass'],
+                'merge_governor' => ['status' => 'pass'],
+                'rollback' => ['status' => 'pass'],
+                'receipts' => ['status' => 'pass'],
+                'learning_transfer' => ['status' => 'pass'],
+                'docs_health' => ['status' => 'pass'],
+                'knowledge_sync' => ['status' => 'pass'],
+                'task_graph_coverage_dossier' => ['status' => 'pass'],
+                'task_graph_autonomous_replenisher' => ['status' => 'pass'],
+                'unattended_runtime_supervisor' => ['status' => 'pass'],
+                'scope_expansion_governor' => ['status' => 'pass'],
+                // native_worker_runtime intentionally absent
+            ],
+            'final_runtime_owner' => 'atlas_native',
+            'steady_state_runtime_owner' => 'atlas_server',
+            'autonomy_dependencies' => [
+                'depends_on_operator' => false,
+                'depends_on_claude_code' => false,
+                'depends_on_codex' => false,
+                'depends_on_external_provider_network' => false,
+            ],
+        ]);
+
+        $this->assertFalse($verdict['passed']);
+        $this->assertContains('source_missing:native_worker_runtime', $verdict['blockers']);
     }
 
     public function test_scope_expansion_governor_is_required_with_correct_schema_and_fields(): void
@@ -175,6 +233,7 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistryTest extends TestCas
                 'task_graph_autonomous_replenisher' => ['status' => 'pass'],
                 'unattended_runtime_supervisor' => ['status' => 'pass'],
                 'scope_expansion_governor' => ['status' => 'pass'],
+                'native_worker_runtime' => ['status' => 'pass'],
             ],
             'final_runtime_owner' => 'atlas_native',
             'steady_state_runtime_owner' => 'atlas_server',
