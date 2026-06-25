@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\Maestro\PacketEvolution\AtlasMaestroPacketSchemaVersioning;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 
@@ -19,7 +20,7 @@ use Illuminate\Support\Str;
  */
 final class AgentControlPlaneTaskPacketBuilder
 {
-    public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_task_packet.v1';
+    public const SCHEMA_VERSION = AtlasMaestroPacketSchemaVersioning::CANONICAL_V1;
 
     public const MODE = 'read_only_agent_control_plane_task_packet_builder';
 
