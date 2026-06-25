@@ -244,6 +244,20 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // Maestro worker-fleet probe — needs a callable lease-source. Default to an empty iterable so any
+        // consumer (CLI / FairnessAuditor) can boot even when the lease envelope has nothing to report yet.
+        $this->app->singleton(\App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerFleetProbe::class, static function (): \App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerFleetProbe {
+            return new \App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerFleetProbe(static fn (): iterable => []);
+        });
+
+        // Maestro tiering surface — registry + mismatch ledger live under storage/atlas/maestro/.
+        $this->app->singleton(\App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroWorkerTierRegistry::class, static function (): \App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroWorkerTierRegistry {
+            return new \App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroWorkerTierRegistry(storage_path('atlas/maestro/worker-tier-registry.json'));
+        });
+        $this->app->singleton(\App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroTierMismatchLedger::class, static function (): \App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroTierMismatchLedger {
+            return new \App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroTierMismatchLedger(storage_path('atlas/maestro/tier-mismatch-ledger.jsonl'));
+        });
+
         $this->app->singleton(SkillBundleStore::class);
         $this->app->singleton(AtlasLoopReceiptReplayer::class);
         // §W40-S6 substrate-receipt ledger — single shared append-only journal across supervisor + keepalive.
