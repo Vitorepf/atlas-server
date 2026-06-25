@@ -41,7 +41,7 @@ final class AtlasSelfConstructionNativeReplenisherCommand extends Command
             'draft' => $this->draft($facts),
             'preflight' => $this->preflight($facts),
             'top-up' => $this->topUp($facts),
-            'run' => $this->run($facts),
+            'run' => $this->runPipeline($facts),
             default => ['status' => 'unknown_action', 'action' => $action],
         };
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
@@ -104,7 +104,7 @@ final class AtlasSelfConstructionNativeReplenisherCommand extends Command
      * @param  array<string,mixed>|null  $facts
      * @return array<string,mixed>
      */
-    private function run(?array $facts): array
+    private function runPipeline(?array $facts): array
     {
         if (! is_array($facts) || ! isset($facts['frontiers'])) {
             return ['status' => 'usage_error', 'reason' => '--facts JSON with frontiers[] required'];
