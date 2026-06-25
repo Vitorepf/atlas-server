@@ -20,6 +20,7 @@ use Throwable;
  *   - IDEMPOTENT — calling resume twice with no checkpoint progress between MUST emit zero new FACTs on
  *     the second call (last_emit_phase tracker), returning the same plan.
  *   - Emits exactly one FACT envelope (cycle.resume.planned) per first-resume — caller persists.
+ *   - A new checkpoint() AFTER an emit RESETS last_emit_phase so the next resume() emits again.
  */
 final class AtlasLoopLiveCycleResumeManager
 {
