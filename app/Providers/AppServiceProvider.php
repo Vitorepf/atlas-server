@@ -247,6 +247,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(AtlasLoopReceiptReplayer::class);
         // §W40-S6 substrate-receipt ledger — single shared append-only journal across supervisor + keepalive.
         $this->app->singleton(\App\Services\Ai\AutonomousEvolution\AtlasLoopSubstrateReceiptLedger::class);
+        // Trinity anti-decoupling contract emitter — single canonical source enforcing recursive coupling.
+        $this->app->singleton(\App\Services\Ai\AutonomousEvolution\Trinity\AntiDecoupling\AtlasLoopTrinityContractEmitter::class);
         // Cortex Council — single registry shared by lens packets + the triangulator, pre-populated with the 5
         // built-in lenses (callgraph, dataflow, githistory, testcoverage, docintent). Triangulator + CLI are
         // gated upstream by config('atlas.cortex.council.enabled') — see AtlasLoopCortexCouncilCommand.
