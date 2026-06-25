@@ -28,11 +28,71 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistryTest extends TestCas
             'task_graph_coverage_dossier',
             'task_graph_autonomous_replenisher',
             'unattended_runtime_supervisor',
+            'scope_expansion_governor',
         ];
         foreach ($expected as $id) {
             $this->assertContains($id, $ids, "missing required source: {$id}");
         }
         $this->assertSame(count($expected), count($ids));
+    }
+
+    public function test_scope_expansion_governor_is_required_with_correct_schema_and_fields(): void
+    {
+        $verdict = (new AtlasSelfConstructionFinalEvidenceSourceRegistry)->describe();
+        $row = null;
+        foreach ($verdict['required_sources'] as $s) {
+            if ($s['id'] === 'scope_expansion_governor') {
+                $row = $s;
+                break;
+            }
+        }
+        $this->assertNotNull($row, 'scope_expansion_governor must be in the required sources list');
+        $this->assertTrue($row['blocking']);
+        $this->assertTrue($row['refreshable']);
+        $this->assertSame('atlas.self_construction.scope_expansion_governor_cycle.v1', $row['schema_version']);
+        $this->assertContains('scope_expansion_governor', $verdict['blocking_source_ids']);
+        foreach (['admitted_count', 'withheld_count', 'applied_actions', 'blocked_actions', 'withheld_actions', 'governor_cycle_hash'] as $field) {
+            $this->assertContains($field, $row['required_fields'], "missing required field: {$field}");
+        }
+        foreach (['operator', 'human', 'external_provider'] as $forbidden) {
+            $this->assertContains($forbidden, $row['requires_no_dependency_on']);
+        }
+        $this->assertSame('multi_project_governance_dossier', $row['links_to_when_external_project_lane']);
+    }
+
+    public function test_final_completion_cannot_ignore_missing_scope_expansion_governor_proof(): void
+    {
+        $verifier = new \App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionAtlasNativeEvidenceVerifier();
+        $verdict = $verifier->verify([
+            'sources' => [
+                'task_serving_contract_sentinel' => ['status' => 'pass'],
+                'code_index_readiness_bridge' => ['status' => 'pass'],
+                'multi_project_governance_dossier' => ['status' => 'pass'],
+                'native_worker_readiness' => ['status' => 'pass'],
+                'verification_court' => ['status' => 'pass'],
+                'merge_governor' => ['status' => 'pass'],
+                'rollback' => ['status' => 'pass'],
+                'receipts' => ['status' => 'pass'],
+                'learning_transfer' => ['status' => 'pass'],
+                'docs_health' => ['status' => 'pass'],
+                'knowledge_sync' => ['status' => 'pass'],
+                'task_graph_coverage_dossier' => ['status' => 'pass'],
+                'task_graph_autonomous_replenisher' => ['status' => 'pass'],
+                'unattended_runtime_supervisor' => ['status' => 'pass'],
+                // scope_expansion_governor intentionally absent.
+            ],
+            'final_runtime_owner' => 'atlas_native',
+            'steady_state_runtime_owner' => 'atlas_server',
+            'autonomy_dependencies' => [
+                'depends_on_operator' => false,
+                'depends_on_claude_code' => false,
+                'depends_on_codex' => false,
+                'depends_on_external_provider_network' => false,
+            ],
+        ]);
+
+        $this->assertFalse($verdict['passed']);
+        $this->assertContains('source_missing:scope_expansion_governor', $verdict['blockers']);
     }
 
     public function test_task_graph_autonomous_replenisher_is_required_with_correct_fields(): void
@@ -114,6 +174,7 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistryTest extends TestCas
                 'task_graph_coverage_dossier' => ['status' => 'pass'],
                 'task_graph_autonomous_replenisher' => ['status' => 'pass'],
                 'unattended_runtime_supervisor' => ['status' => 'pass'],
+                'scope_expansion_governor' => ['status' => 'pass'],
             ],
             'final_runtime_owner' => 'atlas_native',
             'steady_state_runtime_owner' => 'atlas_server',
