@@ -174,9 +174,17 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
                 $evidenceWriter->append([
                     'task_packet_id' => $taskPacketId,
                     'lease_id' => $leaseId,
-                    'verification' => $verification,
-                    'command_result' => $commandResult,
-                    'materialization' => $materialization,
+                    'envelope_hash' => (string) ($envelope['envelope_hash'] ?? $adapterHash),
+                    'runtime_owner' => AtlasNativeWorkerExecutionEnvelopeBuilder::RUNTIME_OWNER,
+                    'files_changed' => is_array($materialization['files'] ?? null)
+                        ? array_values(array_map(static fn ($f): string => (string) ($f['path'] ?? ''), (array) $materialization['files']))
+                        : [],
+                    'commands_run' => is_array($commandResult['commands'] ?? null)
+                        ? (array) $commandResult['commands']
+                        : [],
+                    'tests_or_gates_result' => [
+                        'passed' => (bool) ($verification['passed'] ?? false),
+                    ],
                 ]);
                 $appliedSteps[] = 'write_evidence';
             } catch (\Throwable $e) {
