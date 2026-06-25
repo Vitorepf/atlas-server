@@ -37,6 +37,7 @@ class ConversionCriticGate
         private readonly ProofSubstanceAuditor $proof = new ProofSubstanceAuditor,
         private readonly ProofAdjacencyAuditor $adjacency = new ProofAdjacencyAuditor,
         private readonly BridgeSpoilerDetector $spoiler = new BridgeSpoilerDetector,
+        private readonly FunnelContinuityAuditor $continuity = new FunnelContinuityAuditor,
         private readonly ValueEquationAuditor $value = new ValueEquationAuditor,
         private readonly AwarenessRouter $awareness = new AwarenessRouter,
         private readonly ConversionAuditor $auditor = new ConversionAuditor,
@@ -50,9 +51,11 @@ class ConversionCriticGate
      * @param  array<int,array{term:string,category:string,severity:string,is_regex?:bool}>  $spoilerCatalog
      *         terms the bridge must NOT name (the caller pre-filters to the categories it enforces — e.g.
      *         product_name + named_ingredient — so physical_form stays a legitimate message-match angle)
+     * @param  array<string,string>  $stages  ordered funnel stages (label=>copy, stage[0]=top-of-funnel ad)
+     *         for the cross-stage continuity check; inert unless >=2 non-empty stages are supplied
      * @return array{verdict:'block'|'warn'|'ok',structural_pass:bool,threshold:string,reasons:array<int,array{floor:string,kind:string,detail:string}>}
      */
-    public function evaluate(string $copy, string $awarenessLevel = '', string $threshold = 'decent', array $spoilerCatalog = []): array
+    public function evaluate(string $copy, string $awarenessLevel = '', string $threshold = 'decent', array $spoilerCatalog = [], array $stages = []): array
     {
         $threshold = array_key_exists($threshold, self::PRIOR_FLOORS) ? $threshold : 'decent';
         $structural = [];
@@ -100,6 +103,18 @@ class ConversionCriticGate
                 ))), 0, 4));
                 $structural[] = ['floor' => 'bridge_spoiler', 'kind' => 'structural',
                     'detail' => 'A bridge VAZA o que a VSL segura pro reveal ('.$terms.') — nomear o produto/ingrediente cedo mata a curiosidade que faz apertar o play. Tease o mecanismo SEM nomear.'];
+            }
+        }
+
+        // Cross-stage continuity (the funnel's scent trail): a quantified RESULT-claim in the top stage
+        // (the ad) that vanishes downstream, or a core "free" promise contradicted by a core price, breaks
+        // the promise that earned the click. FunnelContinuityAuditor is conservative-by-construction (it
+        // under-fires, never false-fires — legit free-trial/value-anchor/order-bump funnels are excluded).
+        // Inert unless the caller supplies >=2 real stages (every single-string caller stays byte-identical).
+        if (count(array_filter($stages, static fn ($t): bool => is_string($t) && trim($t) !== '')) >= 2) {
+            foreach ($this->arr($this->continuity->audit($stages)['breaks'] ?? []) as $b) {
+                $structural[] = ['floor' => 'funnel_continuity', 'kind' => 'structural',
+                    'detail' => is_array($b) ? (string) ($b['detail'] ?? 'Quebra de continuidade no funil — a promessa/preço do topo não sobrevive na página.') : 'Quebra de continuidade no funil.'];
             }
         }
 

@@ -212,4 +212,47 @@ class ConversionCriticGateTest extends TestCase
         $this->assertNotContains('bridge_spoiler', array_column($v['reasons'], 'floor'));
         $this->assertTrue($v['structural_pass'], 'a palavra-de-forma "drops" não deveria bloquear: '.json_encode($v['reasons'], JSON_UNESCAPED_UNICODE));
     }
+
+    /** Cross-stage: a quantified ad promise ("34 lbs") that the bridge abandons is a continuity break (block). */
+    public function test_dropped_ad_promise_blocks_on_continuity(): void
+    {
+        $bridge = implode(' ', [
+            'If you are a woman over forty and the scale will not move, this short report explains what may be going on.',
+            'In a clinical review, Dr. Anya Sharma tracked 412 women and documented steady changes over several weeks.',
+            'Most mornings still feel ordinary, and that is exactly the point.',
+            'There is more to the story than a single daily habit.',
+            'Watch the free presentation to see how it works.',
+        ]);
+        $stages = ['ad' => 'Lose 34 lbs in 6 weeks. The at-home method.', 'bridge' => $bridge];
+
+        $v = (new ConversionCriticGate)->evaluate($bridge, '', 'decent', [], $stages);
+
+        $this->assertSame('block', $v['verdict']);
+        $this->assertContains('funnel_continuity', array_column($v['reasons'], 'floor'));
+    }
+
+    public function test_carried_ad_promise_does_not_break_continuity(): void
+    {
+        $bridge = implode(' ', [
+            'If you are a woman over forty and the scale will not move, this short report explains what may be going on.',
+            'In a clinical review, Dr. Anya Sharma tracked 412 women who lost up to 34 pounds over several weeks.',
+            'Most mornings still feel ordinary, and that is exactly the point.',
+            'There is more to the story than a single daily habit.',
+            'Watch the free presentation to see how it works.',
+        ]);
+        $stages = ['ad' => 'Lose 34 lbs with a simple at-home method.', 'bridge' => $bridge];
+
+        $v = (new ConversionCriticGate)->evaluate($bridge, '', 'decent', [], $stages);
+
+        $this->assertNotContains('funnel_continuity', array_column($v['reasons'], 'floor'));
+        $this->assertTrue($v['structural_pass'], 'promessa carregada não deveria bloquear: '.json_encode($v['reasons'], JSON_UNESCAPED_UNICODE));
+    }
+
+    public function test_continuity_floor_is_inert_without_stages(): void
+    {
+        // backward-compatible: no $stages arg => the cross-stage branch never arms (every legacy caller stays identical).
+        $v = (new ConversionCriticGate)->evaluate($this->strongCopy(), '', 'decent');
+
+        $this->assertNotContains('funnel_continuity', array_column($v['reasons'], 'floor'));
+    }
 }

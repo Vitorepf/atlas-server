@@ -134,6 +134,14 @@ class BridgePageComposerService
             'assets_dir' => $opts['assets_dir'] ?? null,
             'base_url' => $opts['assets_base_url'] ?? null,
         ]);
+        // The REAL forged ad copy is stage[0] for the cross-stage continuity floor: any quantified promise
+        // the ad makes ("34 Lbs") must survive on the bridge, or the click loses its scent. Forged once,
+        // reused in the grounding below (no double-forge).
+        $forgedAds = $this->ads->forge($asset, ['lang' => $langShort]);
+        $adStageCopy = trim(implode(' ', array_merge(
+            is_array($forgedAds['headlines'] ?? null) ? $forgedAds['headlines'] : [],
+            is_array($forgedAds['descriptions'] ?? null) ? $forgedAds['descriptions'] : [],
+        )));
 
         $maxAttempts = (int) ($opts['max_attempts'] ?? 4);
         $bridge = null;
@@ -166,7 +174,7 @@ class BridgePageComposerService
             $criticVerdict = null;
             if ($criticEnabled) {
                 $candidate = $this->applyOverrides($bridge, $eliteHeadlines, $forgedProof, $forgedTransformations, $forgedLead, $asset);
-                $criticVerdict = $this->critic->evaluate($this->persuasionCopy($candidate), (string) $asset->awareness_level, $criticThreshold, $spoilerCatalog);
+                $criticVerdict = $this->critic->evaluate($this->persuasionCopy($candidate), (string) $asset->awareness_level, $criticThreshold, $spoilerCatalog, ['ad' => $adStageCopy, 'bridge' => $this->persuasionCopy($candidate)]);
                 $criticBlock = ($criticVerdict['structural_pass'] ?? true) !== true;
             }
 
@@ -201,7 +209,7 @@ class BridgePageComposerService
         // Final Conversion Critic verdict on the SHIPPED bridge — surfaced in validation so a structural
         // block at max_attempts is never silently swallowed (the operator/caller sees the refusal).
         $criticFinal = $criticEnabled
-            ? $this->critic->evaluate($this->persuasionCopy($bridge), (string) $asset->awareness_level, $criticThreshold, $spoilerCatalog)
+            ? $this->critic->evaluate($this->persuasionCopy($bridge), (string) $asset->awareness_level, $criticThreshold, $spoilerCatalog, ['ad' => $adStageCopy, 'bridge' => $this->persuasionCopy($bridge)])
             : ['verdict' => 'ok', 'structural_pass' => true, 'threshold' => 'off', 'reasons' => []];
 
         // --- deterministic validation -------------------------------------------------------
@@ -236,7 +244,7 @@ class BridgePageComposerService
                 'niche' => $asset->niche,
                 'vsl_keywords_used' => array_slice($vslKeywords, 0, 14),
                 'elite_headlines' => array_slice($eliteHeadlines, 0, 7),
-                'rsa_ads' => $this->withAdUptime($this->ads->forge($asset, ['lang' => $langShort])),
+                'rsa_ads' => $this->withAdUptime($forgedAds),
                 'search_network' => $this->search->plan($asset, ['pattern' => $pattern]),
                 'email_sequence' => $this->emails->forge($asset, ['lang' => str_starts_with(strtolower($language), 'port') ? 'pt' : 'en']),
                 'conversion_audit' => $this->conversionAuditor->audit($this->persuasionCopy($bridge)),
