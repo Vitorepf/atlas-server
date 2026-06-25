@@ -322,6 +322,16 @@ class BridgePageComposerService
             $bridge['lead_paragraph'] = $forgedLead;
         }
 
+        // Mechanism-tease safety net: the bridge's #1 pull-line had no forge. If the model's tease is
+        // missing, too thin, or leaks a reveal, drop in the deterministic spoiler-safe tease (provider-
+        // independent). A rich, non-revealing model tease survives untouched. (Stateless leaf forge,
+        // instantiated locally so the override carries no injected dependency.)
+        $teaseForge = new MechanismTeaseForge;
+        $llmTease = (string) ($bridge['mechanism_tease'] ?? '');
+        if (str_word_count($llmTease) < 12 || $teaseForge->reveals($llmTease)) {
+            $bridge['mechanism_tease'] = $teaseForge->forge($asset);
+        }
+
         return $bridge;
     }
 

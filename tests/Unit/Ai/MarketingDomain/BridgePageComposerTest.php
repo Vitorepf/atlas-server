@@ -133,6 +133,28 @@ class BridgePageComposerTest extends TestCase
         $this->assertIsArray($out['proof_block']);             // proof_block always normalized to an array
     }
 
+    public function test_apply_overrides_fills_a_thin_mechanism_tease(): void
+    {
+        $asset = new AiMarketingVslAsset(['target_geo' => 'US', 'language' => 'en']);
+        $bridge = ['headline' => 'x', 'meta' => [], 'lead_paragraph' => 'x', 'mechanism_tease' => 'too short'];
+
+        $out = $this->call('applyOverrides', [$bridge, [], ['testimonials' => []], [], '', $asset]);
+
+        $this->assertGreaterThan(12, str_word_count($out['mechanism_tease'])); // the model's thin tease got the forged safety net
+        $this->assertStringContainsStringIgnoringCase('presentation', $out['mechanism_tease']);
+    }
+
+    public function test_apply_overrides_keeps_a_rich_non_revealing_tease(): void
+    {
+        $asset = new AiMarketingVslAsset(['target_geo' => 'US', 'language' => 'en']);
+        $rich = 'A small daily routine quietly targets the trigger almost every plan ignores after forty, and the presentation above lays out the simple steps to follow at home.';
+        $bridge = ['headline' => 'x', 'meta' => [], 'lead_paragraph' => 'x', 'mechanism_tease' => $rich];
+
+        $out = $this->call('applyOverrides', [$bridge, [], ['testimonials' => []], [], '', $asset]);
+
+        $this->assertSame($rich, $out['mechanism_tease']); // rich, non-revealing tease survives untouched
+    }
+
     /**
      * The Conversion Critic feeds the regeneration loop: a STRUCTURAL flaw is turned into a corrective
      * instruction for the next attempt; a PRIOR (marker-density) reason never is — priors cannot re-roll.
