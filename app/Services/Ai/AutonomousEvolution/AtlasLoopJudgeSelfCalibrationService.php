@@ -21,6 +21,19 @@ final class AtlasLoopJudgeSelfCalibrationService
 {
     public const SCHEMA_VERSION = 'atlas.loop.judge_self_calibration.v1';
 
+    /**
+     * Deterministic confidence-margin threshold the AtlasLoopJudgeEffortEscalator consults to decide
+     * whether a verdict warrants a high-effort re-judge. A verdict whose margin (decisive_confidence
+     * minus opposing_confidence) is BELOW this value is escalatable. Static by design — the escalator
+     * MUST NOT read config/atlas.php for this knob.
+     */
+    public const ESCALATION_THRESHOLD = 0.2;
+
+    public function threshold(): float
+    {
+        return self::ESCALATION_THRESHOLD;
+    }
+
     public function __construct(
         private readonly AtlasLoopIntentVerifierFactory $verifierFactory,
         private readonly AtlasLoopHarnessGuard $harnessGuard,
