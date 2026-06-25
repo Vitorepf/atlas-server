@@ -1368,8 +1368,13 @@ class AppServiceProvider extends ServiceProvider
                 AtlasLoopSchemaMigrateRunCommand::class,
             ]);
 
+            // Per-app (not global-static) registration so the dormant gate can be flipped per test
+            // without leaking through Artisan::starting()'s process-global bootstrappers array.
+            // Conditional registration. AtlasLoopFormalInvariantProofCli itself is abstract
+            // (so Laravel's path-based auto-discovery skips it); only when the operator config
+            // flag is true do we register the concrete runner subclass.
             if ((bool) config('atlas.loop.formal_proofs_cli_enabled', false)) {
-                $this->commands([AtlasLoopFormalInvariantProofCli::class]);
+                $this->commands([AtlasLoopFormalInvariantProofCli::RUNNER_CLASS]);
             }
         }
 
