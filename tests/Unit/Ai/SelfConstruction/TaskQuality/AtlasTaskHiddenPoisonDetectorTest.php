@@ -1,0 +1,108 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Ai\SelfConstruction\TaskQuality;
+
+use App\Services\Ai\SelfConstruction\TaskQuality\AtlasTaskHiddenPoisonDetector;
+use Tests\TestCase;
+
+final class AtlasTaskHiddenPoisonDetectorTest extends TestCase
+{
+    public function test_clean_packet_finds_no_patterns(): void
+    {
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Build a service that does X with bounded evidence.',
+            'acceptance_criteria' => ['unit test passes'],
+            'required_evidence_kinds' => ['phpunit'],
+            'allowed_files' => ['app/Foo.php', 'tests/FooTest.php'],
+            'forbidden_files' => [],
+            'quality_facts' => [],
+        ]);
+
+        $this->assertTrue($verdict['clean']);
+        $this->assertSame([], $verdict['found_patterns']);
+    }
+
+    public function test_scope_repair_leftover_target_in_objective_is_flagged(): void
+    {
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Build the service and also update config/atlas.php with the new config key.',
+            'allowed_files' => ['app/Foo.php'],
+            'quality_facts' => ['removed_targets' => ['config/atlas.php']],
+        ]);
+
+        $found = array_column($verdict['found_patterns'], 'pattern_id');
+        $this->assertContains(AtlasTaskHiddenPoisonDetector::PATTERN_REMOVED_TARGET, $found);
+    }
+
+    public function test_contradictory_acceptance_is_flagged(): void
+    {
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Do the thing.',
+            'quality_facts' => [
+                'contradiction_pairs' => [['a' => 'must_have_X', 'b' => 'must_not_have_X']],
+            ],
+        ]);
+
+        $found = array_column($verdict['found_patterns'], 'pattern_id');
+        $this->assertContains(AtlasTaskHiddenPoisonDetector::PATTERN_CONTRADICTORY_ACCEPTANCE, $found);
+    }
+
+    public function test_unavailable_dependency_is_flagged(): void
+    {
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Do it.',
+            'required_evidence_kinds' => ['phpunit', 'extractor_x'],
+            'quality_facts' => ['unavailable_deps' => ['extractor_x']],
+        ]);
+
+        $found = array_column($verdict['found_patterns'], 'pattern_id');
+        $this->assertContains(AtlasTaskHiddenPoisonDetector::PATTERN_UNAVAILABLE_DEPENDENCY, $found);
+    }
+
+    public function test_duplicate_canonical_symbol_hint_is_flagged(): void
+    {
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Refactor things.',
+            'allowed_files' => ['app/A/Foo.php', 'app/B/Foo.php'],
+        ]);
+
+        $found = array_column($verdict['found_patterns'], 'pattern_id');
+        $this->assertContains(AtlasTaskHiddenPoisonDetector::PATTERN_DUPLICATE_CANONICAL_SYMBOL, $found);
+    }
+
+    public function test_ambiguous_objective_with_TBD_is_flagged(): void
+    {
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Implement TBD per the spec.',
+        ]);
+
+        $found = array_column($verdict['found_patterns'], 'pattern_id');
+        $this->assertContains(AtlasTaskHiddenPoisonDetector::PATTERN_AMBIGUOUS_INSTRUCTION, $found);
+    }
+
+    public function test_permanent_autonomy_dependency_wording_is_flagged(): void
+    {
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Run the pipeline; operator approval is required before merge.',
+        ]);
+
+        $found = array_column($verdict['found_patterns'], 'pattern_id');
+        $this->assertContains(AtlasTaskHiddenPoisonDetector::PATTERN_PERMANENT_AUTONOMY_DEP, $found);
+    }
+
+    public function test_detection_does_not_mutate_input_packet(): void
+    {
+        $packet = [
+            'objective' => 'Build a service.',
+            'allowed_files' => ['app/A/Foo.php', 'app/B/Foo.php'],
+            'quality_facts' => ['unavailable_deps' => ['extractor_x']],
+        ];
+        $before = json_encode($packet);
+
+        (new AtlasTaskHiddenPoisonDetector)->detect($packet);
+
+        $this->assertSame($before, json_encode($packet), 'detector MUST NOT mutate the packet (queue invariant)');
+    }
+}
