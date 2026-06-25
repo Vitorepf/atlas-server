@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousEvolution\Anomaly\AtlasLoopAnomalyBaselineReporter;
 use App\Services\Ai\AutonomousEvolution\Anomaly\AtlasLoopAnomalyDeviationDetector;
+use App\Services\Ai\AutonomousEvolution\Anomaly\AtlasLoopAnomalyDigestEmitter;
 use App\Services\Ai\AutonomousEvolution\Anomaly\AtlasLoopAnomalyReceiptLedger;
 use Illuminate\Console\Command;
 use Throwable;
@@ -22,9 +23,9 @@ final class AtlasLoopAnomalyCommand extends Command
 {
     /** @var string */
     protected $signature = 'atlas:loop:anomaly
-        {action : baseline|inspect|history}
+        {action : baseline|inspect|history|digest}
         {--facts=}
-        {--signal=}
+        {--signal=*}
         {--since=}
         {--until=}
         {--json}';
@@ -40,6 +41,7 @@ final class AtlasLoopAnomalyCommand extends Command
             'baseline' => $this->baseline(),
             'inspect' => $this->inspect(),
             'history' => $this->history(),
+            'digest' => $this->digest(),
             default => $this->emit(['error' => 'unknown_action:'.$action], self::FAILURE),
         };
     }
@@ -87,7 +89,8 @@ final class AtlasLoopAnomalyCommand extends Command
     private function history(): int
     {
         $ledger = $this->getLaravel()->make(AtlasLoopAnomalyReceiptLedger::class);
-        $signal = (string) $this->option('signal');
+        $signals = $this->signalsOption();
+        $signal = $signals[0] ?? '';
         if ($signal === '') {
             return $this->emit(['error' => 'signal_required'], self::FAILURE);
         }
@@ -96,6 +99,63 @@ final class AtlasLoopAnomalyCommand extends Command
         $rows = $ledger->history($signal, $since !== '' ? $since : null, $until !== '' ? $until : null);
 
         return $this->emit(['signal' => $signal, 'rows' => $rows]);
+    }
+
+    /**
+     * `digest` runs the AtlasLoopAnomalyDigestEmitter over an operator-supplied signal list
+     * (`--signal=foo --signal=bar`) and emits the FACT-only `{schema_version, section, entries}`
+     * envelope. With `--json` the byte-stable canonical encoding is printed verbatim; without it,
+     * the same envelope flows through the CLI's adjective stripper.
+     */
+    private function digest(): int
+    {
+        $signals = $this->signalsOption();
+        if ($signals === []) {
+            return $this->emit(['error' => 'signal_required'], self::FAILURE);
+        }
+        $ledger = $this->getLaravel()->make(AtlasLoopAnomalyReceiptLedger::class);
+        $emitter = new AtlasLoopAnomalyDigestEmitter($ledger, $signals);
+
+        $window = [];
+        $since = (string) ($this->option('since') ?? '');
+        $until = (string) ($this->option('until') ?? '');
+        if ($since !== '') {
+            $window['from'] = $since;
+        }
+        if ($until !== '') {
+            $window['to'] = $until;
+        }
+
+        if ((bool) $this->option('json')) {
+            // emitJson is the documented byte-stable path; bypass the adjective scrubber.
+            $this->line($emitter->emitJson($window));
+
+            return self::SUCCESS;
+        }
+
+        return $this->emit($emitter->emit($window));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function signalsOption(): array
+    {
+        $raw = $this->option('signal');
+        if (is_array($raw)) {
+            $out = [];
+            foreach ($raw as $s) {
+                $s = trim((string) $s);
+                if ($s !== '') {
+                    $out[] = $s;
+                }
+            }
+
+            return $out;
+        }
+        $single = trim((string) $raw);
+
+        return $single === '' ? [] : [$single];
     }
 
     /**
