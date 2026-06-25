@@ -393,6 +393,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(\App\Services\Ai\AutonomousEvolution\LiveCycle\Nesting\AtlasLoopSubCycleSpawner::class);
         // LOOP-CYCLE-NEST W1160 P2 — child-outcome FACT merger (refuses scalar score/grade/rank/rating/quality_score).
         $this->app->singleton(\App\Services\Ai\AutonomousEvolution\LiveCycle\Nesting\AtlasLoopSubCycleResultMerger::class);
+        // W1210 P2 — Loop permission-gradient enforcer (single chokepoint above the pétreo sandbox floor).
+        $this->app->singleton(\App\Services\Ai\AutonomousEvolution\Permissions\AtlasLoopPermissionLevelEnforcer::class);
         // W1190 — AAEL rollback CLI operator port (snapshotter+executor+ledger wired by default).
         // Force-load the command file so the in-file port interface + default impl are visible to PSR-4.
         \class_exists(\App\Console\Commands\AtlasAaelExecutionRollbackCommand::class);
