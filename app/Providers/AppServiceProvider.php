@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Console\Commands\AtlasLoopAuditCommand;
+use App\Console\Commands\AtlasLoopFactAnchorCommand;
 use App\Console\Commands\AtlasLoopLiveCycleCommand;
 use App\Console\Commands\AtlasLoopMigrateCommand;
 use App\Console\Commands\AtlasLoopFrozenContractCommand;
@@ -1321,6 +1322,7 @@ class AppServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 AtlasLoopAuditCommand::class,
+                AtlasLoopFactAnchorCommand::class,
                 AtlasLoopFrozenContractCommand::class,
                 AtlasLoopCortexIntentCommand::class,
                 AtlasLoopLiveCycleCommand::class,
