@@ -35,6 +35,17 @@ class KeywordKnowledgeCoreTest extends TestCase
         $this->assertGreaterThanOrEqual(15, count($ids));
     }
 
+    public function test_fathers_of_persuasion_are_crystallized(): void
+    {
+        // a missão exige destilar as OBRAS dos pais — cada um deve estar citável com fonte
+        foreach (['schwartz-awareness', 'schwartz-sophistication', 'hormozi-value-equation', 'halbert-starving-crowd', 'hopkins-scientific-advertising'] as $id) {
+            $law = $this->k->cite($id);
+            $this->assertNotNull($law, "lei do pai '{$id}' ausente");
+            $this->assertSame('master_principle', $law['kind']);
+            $this->assertNotEmpty($law['source']);
+        }
+    }
+
     public function test_query_by_layer_and_topic(): void
     {
         $l4 = array_column($this->k->byLayer('L4'), 'id');
