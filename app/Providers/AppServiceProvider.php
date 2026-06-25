@@ -266,6 +266,28 @@ class AppServiceProvider extends ServiceProvider
             ),
         );
 
+        // Refiller supply-lane registry — ordered, named map of supply lanes (decompose → dedup →
+        // orphan_wiring → doc_gap). Order MUST match the canonical Refiller lane sequence so behavior
+        // remains byte-identical after the indirection. Future lanes register without editing the Refiller.
+        $this->app->singleton(
+            \App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerRegistry::class,
+            function ($app): \App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerRegistry {
+                $registry = new \App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerRegistry();
+                try {
+                    $coordinator = $app->make(\App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerSupplyLaneCoordinator::class);
+                    $registry->register(new \App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerDecomposeSupplyLane($coordinator));
+                    $registry->register(new \App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerDedupSupplyLane($coordinator));
+                    $registry->register(new \App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerOrphanWiringSupplyLane($coordinator));
+                    $registry->register(new \App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerDocGapSupplyLane($coordinator));
+                } catch (\Throwable) {
+                    // Coordinator's many closure deps may not all be resolvable at boot in some test
+                    // contexts — fail open with an empty registry rather than aborting boot.
+                }
+
+                return $registry;
+            },
+        );
+
         // Maestro worker-fleet probe — needs a callable lease-source. Default to an empty iterable so any
         // consumer (CLI / FairnessAuditor) can boot even when the lease envelope has nothing to report yet.
         $this->app->singleton(\App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerFleetProbe::class, static function (): \App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerFleetProbe {
