@@ -61,6 +61,11 @@ O cético diz: "teu 40,5× usou volume real, que vaza a resposta." Teste DURO �
 - **REGIME (coined-vs-recall-vs-sintoma — PURA morfologia, zero vazamento, zero viés de volume):** separa CVR real **23×** (harvest 30% / seed 1,55% / probe 1,28%). **AQUI mora a inteligência estrutural** da teoria-mãe, não no score composto.
 - Por isso o `KeywordRevenueProjector` usa o CVR-prior por REGIME (sinal 23×), não o score diluído (2×). O 40,5× do ranking de lucro = regime-CVR (23× estrutural) × volume real (grounding p/ termo conhecido). Honesto: pra termo INÉDITO (oferta nova) o OS apoia no regime (23×) + prior de volume; a precisão fina vem quando o dado real chega (Hopkins/DORMANT-até-live).
 
+### 🌍 VALIDAÇÃO CROSS-NICHO (passo 5 do mandato — o Blackink tem múltiplos nichos)
+Segmentei a venda real por nicho e medi coined-vs-genérico DENTRO de cada um (prova de niche-independence):
+- **weight-loss:** coined 26,2% vs genérico 1,1% = **23×** · **cérebro:** coined 36,1% vs genérico 1,8% = **20×** · **unha/fungo:** coined 34,3% vs genérico 28,2% = **1,2×**.
+- **Dois achados provados juntos, sem inflar:** (1) a tese coined>>genérico GENERALIZA forte cross-nicho em mercados jaded (weight-loss 23× E cérebro 20× — nichos diferentes, mesma física da teoria-mãe); (2) o nail-fungus (lift só 1,2×) CONFIRMA Schwartz — é menos saturado, então benefício genérico ainda converte (28%). A morfologia coined é niche-independente NA saturação; a MAGNITUDE do efeito é modulada pela sofisticação do mercado. Por isso o `MarketSophisticationSignal` é load-bearing, não cosmético: em nicho não-jaded o OS NÃO deve descartar o genérico.
+
 ## 💰 SISTEMA RECEITA→LUCRO→PORTFÓLIO (modo 24/7 — o NORTE do operador: "saber EXATAMENTE as keywords de máxima receita")
 Receita ≠ CVR (gelatin trick 1,95% CVR × 9171 cliques = 179 vendas). Construído + provado:
 - **`KeywordRevenueProjector`** — RECEITA=volume×CVR×payout-líq, LUCRO=−volume×CPC; CVR-real/volume-real do Blackink dominam o prior; CPC-prior por regime (arbitragem do clique barato: coined 0.35 vs sintoma 1.60); flag `profitable` (breakeven — nunca recomenda money-loser). **Validado held-out: lift 42× (receita) / 31× (lucro) vs venda real; flag profitable PERFEITO (0 vendas reais nos losers).** Volume-prior aterrado na mediana real (425/573/120).
