@@ -24,6 +24,7 @@ class KeywordIntelligencePipeline
         private readonly KeywordVolumeSignal $volumeSignal = new KeywordVolumeSignal,
         private readonly KeywordRegimeClassifier $regimes = new KeywordRegimeClassifier,
         private readonly KeywordRevenueProjector $revenue = new KeywordRevenueProjector,
+        private readonly KeywordBudgetAllocator $allocator = new KeywordBudgetAllocator,
     ) {}
 
     /**
@@ -63,6 +64,8 @@ class KeywordIntelligencePipeline
         $launch = $this->dossier->select($quality['scored'], 5, ['compliance_mode' => (bool) ($opts['compliance_mode'] ?? false)]);
 
         $fingerprint = $this->fingerprint($asset, $econ);
+        $revenueRanking = $this->revenue->rank($quality['scored'], $econ, (array) ($opts['volume_map'] ?? []), (array) ($opts['cvr_map'] ?? []));
+        $budget = (float) ($opts['budget'] ?? 0);
 
         return [
             'offer_fingerprint' => $fingerprint,
@@ -71,7 +74,8 @@ class KeywordIntelligencePipeline
             'clusters' => $this->clusterer->cluster((array) ($universe['keywords'] ?? [])), // L7 STAG ad groups
             'volume_priority' => $this->volumeSignal->prioritize($quality['scored'], (array) ($opts['volume_map'] ?? [])), // L5 demanda×intenção
             'regimes' => $this->regimes->partition($quality['scored']), // #6: colheita/semeadura/sonda isolados (alavanca de escala)
-            'revenue_ranking' => $this->revenue->rank($quality['scored'], $econ, (array) ($opts['volume_map'] ?? []), (array) ($opts['cvr_map'] ?? [])), // NORTE: ordena por LUCRO esperado (volume×CVR-real×payout − custo)
+            'revenue_ranking' => $revenueRanking, // NORTE: ordena por LUCRO esperado (volume×CVR-real×payout − custo)
+            'budget_portfolio' => $budget > 0 ? $this->allocator->allocate($revenueRanking['ranked'], $budget) : null, // como gastar R$budget pra MÁXIMO lucro
             'scored' => $quality['scored'],
             'launch_selection' => $launch,
             'negatives' => $negatives,
