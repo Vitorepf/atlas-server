@@ -12,6 +12,9 @@ namespace App\Services\Ai\SelfConstruction\LearningTransfer;
  * Pure: no I/O outside the injected ledger. Deterministic: same input → byte-identical JSON.
  * Default-organs: missing collaborators are constructed lazily so the orchestrator can be
  * used standalone in tests or wired with custom organs in production.
+ *
+ * OBSERVE mode is the default; template_after is the INTENDED result of applying the plan
+ * with the supplied template snapshot — no real file/template is mutated.
  */
 final class AtlasSelfConstructionLearningTransferAdmissionOrchestrator
 {
