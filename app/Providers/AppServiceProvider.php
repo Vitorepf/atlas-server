@@ -309,6 +309,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(SkillBundleStore::class);
         $this->app->singleton(AtlasLoopReceiptReplayer::class);
 
+        // Task-class discovery registry — singleton, no constructor args required.
+        $this->app->singleton(\App\Services\Ai\AutonomousEvolution\TaskClassDiscovery\AtlasLoopTaskClassRegistry::class);
+
         // Audit trail surface: Composer + Exporter + IntegrityVerifier + Replayer as singletons.
         $this->app->singleton(\App\Services\Ai\AutonomousEvolution\AuditTrail\AtlasLoopAuditTrailComposer::class);
         $this->app->singleton(\App\Services\Ai\AutonomousEvolution\AuditTrail\AtlasLoopAuditTrailExporter::class);
