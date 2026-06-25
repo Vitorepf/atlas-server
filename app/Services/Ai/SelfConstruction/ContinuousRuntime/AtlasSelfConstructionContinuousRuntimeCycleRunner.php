@@ -46,7 +46,11 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunner
     /**
      * @return array<string,mixed>
      */
-    public function run(string $cycleId): array
+    /**
+     * @param  array<string,mixed>  $scopeExpansion {facts?:array, options?:array{apply?:bool,action_callbacks?:array}}
+     *                              When `facts` is empty the runner skips scope expansion entirely (back-compat).
+     */
+    public function run(string $cycleId, array $scopeExpansion = []): array
     {
         $health = (array) $this->healthInspector->inspect();
 
@@ -104,6 +108,8 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunner
             'merge' => $merge,
         ]);
 
+        $scopeExpansionResult = $this->runScopeExpansion($scopeExpansion);
+
         return [
             'schema_version' => self::SCHEMA,
             'cycle_id' => $cycleId,
@@ -114,6 +120,71 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunner
             'verification' => $verification,
             'merge' => $merge,
             'learning' => $learning,
+            'scope_expansion' => $scopeExpansionResult,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $scopeExpansion
+     * @return array<string,mixed>
+     */
+    private function runScopeExpansion(array $scopeExpansion): array
+    {
+        $facts = is_array($scopeExpansion['facts'] ?? null) ? $scopeExpansion['facts'] : [];
+        if ($facts === []) {
+            return [
+                'status' => 'skipped',
+                'reason' => 'no_scope_expansion_facts_supplied',
+            ];
+        }
+
+        $options = is_array($scopeExpansion['options'] ?? null) ? $scopeExpansion['options'] : [];
+        $governor = new \App\Services\Ai\SelfConstruction\ScopeExpansion\AtlasSelfConstructionScopeExpansionGovernorCycle();
+        $verdict = $governor->run($facts, $options);
+
+        $blockerActions = array_values((array) ($verdict['blocked_actions'] ?? []));
+        $withheldActions = array_values((array) ($verdict['withheld_actions'] ?? []));
+        $admitted = (int) ($verdict['admitted_count'] ?? 0);
+        $withheld = (int) ($verdict['withheld_count'] ?? 0);
+
+        $requiresExternal = false;
+        foreach ($withheldActions as $action) {
+            if (! is_array($action)) {
+                continue;
+            }
+            $reason = (string) ($action['reason'] ?? '');
+            if (str_starts_with($reason, 'forbidden_action_kind:')) {
+                $requiresExternal = true;
+                break;
+            }
+        }
+        foreach ((array) ($verdict['ranked_candidates']['rejected_candidates'] ?? []) as $rej) {
+            foreach ((array) ($rej['reasons'] ?? []) as $r) {
+                if (in_array((string) $r, ['operator_dependency', 'human_dependency', 'external_provider_dependency'], true)) {
+                    $requiresExternal = true;
+                    break 2;
+                }
+            }
+        }
+
+        $status = 'ok';
+        $blockers = [];
+        if ($requiresExternal) {
+            $status = 'hold';
+            $blockers[] = 'scope_expansion_requires_non_atlas_actor';
+        } elseif ($admitted === 0 && ($withheld > 0 || $blockerActions !== [])) {
+            $status = 'hold';
+            $blockers[] = 'scope_expansion_held_by_governor';
+        }
+
+        return [
+            'status' => $status,
+            'admitted_count' => $admitted,
+            'withheld_count' => $withheld,
+            'blockers' => $blockers,
+            'governor_cycle_hash' => (string) ($verdict['governor_cycle_hash'] ?? ''),
+            'dry_run' => (bool) ($verdict['dry_run'] ?? true),
+            'governor_verdict' => $verdict,
         ];
     }
 

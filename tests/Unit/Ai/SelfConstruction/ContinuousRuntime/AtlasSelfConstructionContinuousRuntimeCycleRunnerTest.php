@@ -178,6 +178,83 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunnerTest extends TestCa
         $this->assertSame(['phpunit_red'], $verdict['verification']['reasons']);
     }
 
+    private function happyRunner(): AtlasSelfConstructionContinuousRuntimeCycleRunner
+    {
+        return new AtlasSelfConstructionContinuousRuntimeCycleRunner(
+            $this->inspector([
+                'safety_stop' => false,
+                'queue_health' => ['malformed_count' => 0, 'claimable_depth' => 5],
+                'claimable_packet' => ['task_packet_id' => 'pkt-1', 'lease_id' => 'lease-1'],
+            ]),
+            $this->replenisher(['action' => 'wait']),
+            $this->workerIntegration(['accepted' => true, 'request' => [], 'blockers' => []]),
+            $this->verifier(['verified' => true]),
+            $this->mergeDecider(['decision' => 'merge_approved']),
+            $this->learner(['learning' => []]),
+        );
+    }
+
+    public function test_no_scope_expansion_when_no_facts_supplied_is_skipped(): void
+    {
+        $verdict = $this->happyRunner()->run('cyc-noexp');
+
+        $this->assertSame('skipped', $verdict['scope_expansion']['status']);
+        $this->assertSame('no_scope_expansion_facts_supplied', $verdict['scope_expansion']['reason']);
+    }
+
+    public function test_dry_run_governor_facts_are_recorded_with_hash(): void
+    {
+        $verdict = $this->happyRunner()->run('cyc-dry', [
+            'facts' => [
+                'candidates' => [[
+                    'scope_id' => 'scope-z',
+                    'evidence_refs' => ['doc:source.md'],
+                    'atlas_native_owner' => true,
+                    'requires_operator' => false,
+                    'requires_human' => false,
+                    'requires_external_provider' => false,
+                    'proven_leverage_tier' => 3,
+                    'autonomy_readiness_tier' => 2,
+                    'risk' => 1,
+                ]],
+                'risk_budget' => ['max_risk' => 10],
+                'readiness_facts' => [
+                    'scope-z' => [
+                        'current_scope_green' => false,
+                    ],
+                ],
+                'lane_facts' => [],
+            ],
+        ]);
+
+        $this->assertSame('ok', $verdict['scope_expansion']['status']);
+        $this->assertTrue($verdict['scope_expansion']['dry_run']);
+        $this->assertNotEmpty($verdict['scope_expansion']['governor_cycle_hash']);
+    }
+
+    public function test_governor_holds_when_candidate_requires_operator(): void
+    {
+        $verdict = $this->happyRunner()->run('cyc-op', [
+            'facts' => [
+                'candidates' => [[
+                    'scope_id' => 'op-scope',
+                    'evidence_refs' => ['doc:source.md'],
+                    'atlas_native_owner' => true,
+                    'requires_operator' => true,
+                    'requires_human' => false,
+                    'requires_external_provider' => false,
+                    'proven_leverage_tier' => 2,
+                    'autonomy_readiness_tier' => 2,
+                    'risk' => 2,
+                ]],
+                'risk_budget' => ['max_risk' => 10],
+            ],
+        ]);
+
+        $this->assertSame('hold', $verdict['scope_expansion']['status']);
+        $this->assertContains('scope_expansion_requires_non_atlas_actor', $verdict['scope_expansion']['blockers']);
+    }
+
     public function test_safety_stop_short_circuits_before_replenisher_or_worker(): void
     {
         $runner = new AtlasSelfConstructionContinuousRuntimeCycleRunner(
