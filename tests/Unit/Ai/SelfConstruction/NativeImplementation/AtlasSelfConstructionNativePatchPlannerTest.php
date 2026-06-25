@@ -1,0 +1,93 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Ai\SelfConstruction\NativeImplementation;
+
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionNativePatchPlanner;
+use PHPUnit\Framework\TestCase;
+use RuntimeException;
+
+/**
+ * Proves AtlasSelfConstructionNativePatchPlanner: pure-service task yields a plan with template_id
+ * 'pure_service' and a determined plan_id; CLI wrapper task picks 'cli_wrapper' with Command import;
+ * scope_file outside allowed_files throws; task_shape with no matching template throws;
+ * provider_reasoning_required=true throws.
+ */
+final class AtlasSelfConstructionNativePatchPlannerTest extends TestCase
+{
+    private function purePacket(): array
+    {
+        return [
+            'allowed_files' => ['app/Demo/Foo.php', 'tests/Unit/Demo/FooTest.php'],
+            'scope_files' => ['app/Demo/Foo.php'],
+            'task_shape' => ['kind' => 'service', 'side_effects' => 'none'],
+            'context' => ['namespace' => 'App\\Demo', 'class_name' => 'Foo', 'method_name' => 'bar'],
+            'test_files' => ['tests/Unit/Demo/FooTest.php'],
+        ];
+    }
+
+    public function test_pure_service_packet_yields_plan_with_pure_service_template(): void
+    {
+        $r = (new AtlasSelfConstructionNativePatchPlanner)->plan($this->purePacket());
+        $this->assertContains('pure_service', $r['template_ids']);
+        $this->assertSame(64, strlen($r['plan_id']));
+    }
+
+    public function test_cli_wrapper_packet_picks_cli_wrapper_template_with_command_import(): void
+    {
+        $r = (new AtlasSelfConstructionNativePatchPlanner)->plan([
+            'allowed_files' => ['app/Console/Commands/DemoCli.php'],
+            'scope_files' => ['app/Console/Commands/DemoCli.php'],
+            'task_shape' => ['kind' => 'cli_wrapper'],
+            'context' => ['namespace' => 'App\\Console\\Commands', 'class_name' => 'DemoCli', 'signature' => 'demo', 'description' => 'd'],
+        ]);
+        $this->assertContains('cli_wrapper', $r['template_ids']);
+        $this->assertContains('Illuminate\\Console\\Command', $r['required_imports']);
+    }
+
+    public function test_scope_file_outside_allowed_files_throws(): void
+    {
+        $p = $this->purePacket();
+        $p['scope_files'] = ['/etc/passwd'];
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/scope_file_outside_allowed/');
+        (new AtlasSelfConstructionNativePatchPlanner)->plan($p);
+    }
+
+    public function test_no_matching_template_throws(): void
+    {
+        $p = $this->purePacket();
+        $p['task_shape'] = ['kind' => 'unknown_witchcraft'];
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/no_matching_template_for_task_shape/');
+        (new AtlasSelfConstructionNativePatchPlanner)->plan($p);
+    }
+
+    public function test_provider_reasoning_required_throws(): void
+    {
+        $p = $this->purePacket();
+        $p['provider_reasoning_required'] = true;
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/provider_reasoning_required/');
+        (new AtlasSelfConstructionNativePatchPlanner)->plan($p);
+    }
+
+    public function test_plan_id_is_byte_identical_for_same_input(): void
+    {
+        $pp = new AtlasSelfConstructionNativePatchPlanner;
+        $a = $pp->plan($this->purePacket());
+        $b = $pp->plan($this->purePacket());
+        $this->assertSame($a['plan_id'], $b['plan_id']);
+    }
+
+    public function test_empty_allowed_files_throws(): void
+    {
+        $p = $this->purePacket();
+        $p['allowed_files'] = [];
+        $p['scope_files'] = [];
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/allowed_files empty/');
+        (new AtlasSelfConstructionNativePatchPlanner)->plan($p);
+    }
+}
