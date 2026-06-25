@@ -55,12 +55,12 @@ final class AtlasMaestroAllowedFilesIntentChecker
     private function citedTargets(string $objective): array
     {
         $targets = [];
-        if (preg_match_all('/\b(?:[A-Z][A-Za-z0-9_]*\\\\)*Atlas[A-Za-z0-9_]*(?:::[A-Za-z_][A-Za-z0-9_]*)?\b/', $objective, $matches) === 1) {
+        if (preg_match_all('/\b(?:[A-Z][A-Za-z0-9_]*\\\\)*Atlas[A-Za-z0-9_]*(?:::[A-Za-z_][A-Za-z0-9_]*)?\b/', $objective, $matches) > 0) {
             foreach ($matches[0] as $symbol) {
                 $targets[$symbol] = true;
             }
         }
-        if (preg_match_all('#\b(?:app|tests|config)/[A-Za-z0-9_./-]+\.(?:php|md)\b#', $objective, $matches) === 1) {
+        if (preg_match_all('#\b(?:app|tests|config)/[A-Za-z0-9_./-]+\.(?:php|md)\b#', $objective, $matches) > 0) {
             foreach ($matches[0] as $path) {
                 $targets[ltrim($path, '/')] = true;
             }
