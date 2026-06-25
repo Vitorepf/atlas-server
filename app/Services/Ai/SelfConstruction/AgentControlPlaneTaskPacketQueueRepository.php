@@ -455,6 +455,119 @@ final class AgentControlPlaneTaskPacketQueueRepository
     }
 
     /**
+     * Safe backfill: reset task_packet.simplicity_contract to the canonical default for a single
+     * record. Preserves task id, allowed_files, acceptance criteria, evidence, metadata.wave, tags,
+     * receipts and history. Runs under the existing lock, never changes status, recomputes the
+     * builder-compatible task_packet_hash on the new packet, mirrors the hash into the record and
+     * the registry entry, and appends a `task_packet_simplicity_contract_backfilled` history event.
+     *
+     * Idempotent: when the on-disk contract already conforms to the default, returns
+     * `event: simplicity_contract_already_conforming` with no write. Blocks claimed,
+     * completed_dry_run and cancelled records (frozen / terminal — never mutate in place).
+     *
+     * @return array<string, mixed>
+     */
+    public function backfillSimplicityContract(string $taskPacketId): array
+    {
+        return $this->withLock(function () use ($taskPacketId): array {
+            $record = $this->readTaskFile($taskPacketId);
+            if ($record === null) {
+                return $this->envelopeError('task_packet_not_found', $taskPacketId);
+            }
+
+            $status = (string) ($record['status'] ?? '');
+            if (in_array($status, ['claimed', 'completed_dry_run', 'cancelled'], true)) {
+                return $this->envelopeError('task_packet_status_blocks_backfill', $taskPacketId, [
+                    'actual_status' => $status,
+                ]);
+            }
+
+            $packet = (array) ($record['task_packet'] ?? []);
+            $default = AgentControlPlaneTaskPacketBuilder::defaultSimplicityContract();
+            $current = is_array($packet['simplicity_contract'] ?? null) ? $packet['simplicity_contract'] : [];
+
+            if ($this->contractMatchesDefault($current, $default)) {
+                return $this->envelopeOk('simplicity_contract_already_conforming', $record, [
+                    'idempotent' => true,
+                ]);
+            }
+
+            $previousPacketHash = (string) ($record['task_packet_hash'] ?? '');
+            $packet['simplicity_contract'] = $default;
+            $newPacketHash = $this->stableHash($this->normalizePacketForHash($packet));
+            $packet['task_packet_hash'] = $newPacketHash;
+
+            $now = CarbonImmutable::now()->toIso8601String();
+            $record['task_packet'] = $packet;
+            $record['task_packet_hash'] = $newPacketHash;
+            $record['updated_at'] = $now;
+            $record['history'][] = [
+                'event' => 'task_packet_simplicity_contract_backfilled',
+                'at' => $now,
+                'previous_task_packet_hash' => $previousPacketHash,
+                'task_packet_hash' => $newPacketHash,
+                'transition_policy_hash' => $this->transitionPolicyHash(),
+            ];
+
+            $this->writeTaskFile($taskPacketId, $record);
+            $this->updateRegistryEntry($taskPacketId, $record, $newPacketHash);
+
+            return $this->envelopeOk('simplicity_contract_backfilled', $record, [
+                'previous_task_packet_hash' => $previousPacketHash,
+                'task_packet_hash' => $newPacketHash,
+            ]);
+        });
+    }
+
+    /**
+     * @param  array<string, mixed>  $current
+     * @param  array<string, mixed>  $default
+     */
+    private function contractMatchesDefault(array $current, array $default): bool
+    {
+        foreach ($default as $key => $expected) {
+            if (! array_key_exists($key, $current) || $current[$key] !== $expected) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Mirror of AgentControlPlaneTaskPacketBuilder::normalizeForHash: strip volatile/identity fields
+     * then deep-ksort so the resulting JSON is bit-identical to what the builder hashes.
+     *
+     * @param  array<string, mixed>  $packet
+     * @return array<string, mixed>
+     */
+    private function normalizePacketForHash(array $packet): array
+    {
+        unset($packet['task_packet_id'], $packet['generated_at'], $packet['task_packet_hash'], $packet['human_summary']);
+
+        return $this->recursivelyKsort($packet);
+    }
+
+    /**
+     * @param  array<mixed, mixed>  $value
+     * @return array<mixed, mixed>
+     */
+    private function recursivelyKsort(array $value): array
+    {
+        $isAssoc = $value !== [] && array_keys($value) !== range(0, count($value) - 1);
+        foreach ($value as $key => $entry) {
+            if (is_array($entry)) {
+                $value[$key] = $this->recursivelyKsort($entry);
+            }
+        }
+        if ($isAssoc) {
+            ksort($value);
+        }
+
+        return $value;
+    }
+
+    /**
      * @param  array<string, mixed>  $filters
      * @return array<string, mixed>
      */
@@ -788,7 +901,7 @@ final class AgentControlPlaneTaskPacketQueueRepository
     /**
      * @param  array<string, mixed>  $record
      */
-    private function updateRegistryEntry(string $taskPacketId, array $record): void
+    private function updateRegistryEntry(string $taskPacketId, array $record, ?string $packetHashOverride = null): void
     {
         $registry = $this->loadRegistry();
         $entries = (array) ($registry['entries'] ?? []);
@@ -797,6 +910,9 @@ final class AgentControlPlaneTaskPacketQueueRepository
             if ((string) ($entry['task_packet_id'] ?? '') === $taskPacketId) {
                 $entries[$i]['status'] = (string) ($record['status'] ?? '');
                 $entries[$i]['updated_at'] = (string) ($record['updated_at'] ?? '');
+                if ($packetHashOverride !== null) {
+                    $entries[$i]['task_packet_hash'] = $packetHashOverride;
+                }
                 $found = true;
                 break;
             }
