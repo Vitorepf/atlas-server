@@ -25,7 +25,7 @@ use Throwable;
  */
 class AtlasTaskCommand extends Command
 {
-    protected $signature = 'atlas:task {action : next|report}
+    protected $signature = 'atlas:task {action : next|report} {verb?}
         {--client= : Opaque client id (any AI/harness)}
         {--task= : task_packet_id (report)}
         {--lease= : lease_id (report)}
@@ -33,9 +33,11 @@ class AtlasTaskCommand extends Command
         {--commit : SHARED-MAIN resolve — commit the task allowed_files as your own commit (report success)}
         {--evidence= : JSON evidence, or - to read STDIN (report)}
         {--tag=* : optional queue tag filter (next)}
-        {--packet= : task_packet_id (maestro:reshape dry-run target)}
+        {--packet= : task_packet_id (maestro:reshape / maestro:tiering)}
         {--task-class= : task class id (maestro:route)}
         {--worker=* : eligible worker client id (maestro:route)}
+        {--tier= : declared tier (maestro:tiering register-worker)}
+        {--limit=10 : tail size (maestro:tiering history)}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'The Atlas task-serving contract: PULL the next task (next) or hand back a result (report). Platform-free, client_id opaque.';
@@ -57,6 +59,7 @@ class AtlasTaskCommand extends Command
                 'maestro:behaviors' => $this->maestroBehaviors(),
                 'maestro:reshape' => $this->maestroReshape(),
                 'maestro:route' => $this->maestroRoute(),
+                'maestro:tiering' => $this->maestroTiering(),
                 default => ['schema' => 'atlas.task_serving.error.v1', 'status' => 'unknown_action', 'action' => $action],
             };
         } catch (Throwable $e) {
@@ -144,6 +147,48 @@ class AtlasTaskCommand extends Command
         $verdict = (new AtlasMaestroWorkerAffinityRouter)->route($taskClass, $workers);
 
         return ['schema' => 'atlas.task_serving.maestro_route.v1', 'status' => 'ok', 'task_class' => $taskClass, 'verdict' => $verdict];
+    }
+
+    /**
+     * Maestro tiering — advisory routing surface (classify / register-worker / policy / history).
+     * Delegates ALL logic to {@see \App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroTieringCli}.
+     *
+     * @return array<string,mixed>
+     */
+    private function maestroTiering(): array
+    {
+        $cli = app(\App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroTieringCli::class);
+        $packetLookup = static function (string $packetId): ?array {
+            // Test-friendly override: container-bound callable wins.
+            if (app()->bound('atlas.maestro.tiering.packet_lookup')) {
+                $override = app('atlas.maestro.tiering.packet_lookup');
+                if (is_callable($override)) {
+                    $hit = $override($packetId);
+
+                    return is_array($hit) ? $hit : null;
+                }
+            }
+            try {
+                $service = app(AtlasTaskServingService::class);
+                if (method_exists($service, 'lookupPacket')) {
+                    $hit = $service->lookupPacket($packetId);
+
+                    return is_array($hit) ? $hit : null;
+                }
+            } catch (Throwable) {
+            }
+
+            return null;
+        };
+
+        return $cli->dispatch([
+            'verb' => (string) ($this->argument('verb') ?? ''),
+            'client_id' => (string) ($this->option('client') ?? ''),
+            'packet' => (string) ($this->option('packet') ?? ''),
+            'tier' => (string) ($this->option('tier') ?? ''),
+            'limit' => (int) $this->option('limit'),
+            'packet_lookup' => $packetLookup,
+        ]);
     }
 
     /** @return array<string, mixed> the decoded --evidence JSON (or stdin when '-'); [] on absent/invalid. */
