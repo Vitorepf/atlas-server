@@ -271,8 +271,19 @@ class AppServiceProvider extends ServiceProvider
 
                 public function comprehend(string $repoRoot, array $config): array
                 {
-                    $scopeRoot = (string) ($config['scope_root'] ?? $repoRoot);
+                    // The per-repo cortex.yaml ships `scope_roots` (plural, list). The legacy callers pass
+                    // `scope_root` (singular). Accept either; first entry wins. Empty ⇒ scope == repo root.
+                    $scopeRoot = (string) ($config['scope_root'] ?? '');
+                    if ($scopeRoot === '' && isset($config['scope_roots']) && is_array($config['scope_roots']) && $config['scope_roots'] !== []) {
+                        $scopeRoot = (string) $config['scope_roots'][0];
+                    }
+                    if ($scopeRoot === '') {
+                        $scopeRoot = $repoRoot;
+                    }
                     $opts = is_array($config['opts'] ?? null) ? $config['opts'] : [];
+                    if (isset($config['doc_roots']) && is_array($config['doc_roots']) && $config['doc_roots'] !== []) {
+                        $opts['docs_roots'] ??= $config['doc_roots'];
+                    }
 
                     return $this->builder->build($repoRoot, $scopeRoot, $opts)->toArray();
                 }
