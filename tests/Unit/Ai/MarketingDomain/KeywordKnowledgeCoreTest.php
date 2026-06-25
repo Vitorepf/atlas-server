@@ -39,10 +39,10 @@ class KeywordKnowledgeCoreTest extends TestCase
     {
         // a missão exige destilar as OBRAS dos pais — cada um deve estar citável com fonte
         foreach (['schwartz-awareness', 'schwartz-sophistication', 'hormozi-value-equation', 'halbert-starving-crowd', 'hopkins-scientific-advertising'] as $id) {
-            $law = $this->k->cite($id);
+            $law = $this->k->cite($id); // cite() projeta id/statement/source/verified/core_version pro receipt
             $this->assertNotNull($law, "lei do pai '{$id}' ausente");
-            $this->assertSame('master_principle', $law['kind']);
-            $this->assertNotEmpty($law['source']);
+            $this->assertNotEmpty($law['source'], "fonte ausente em {$id}");
+            $this->assertNotEmpty($law['statement']);
         }
     }
 
