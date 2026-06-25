@@ -6,6 +6,14 @@ namespace App\Services\Ai\SelfConstruction\Maestro\ProviderNegotiation;
 
 use RuntimeException;
 
+/**
+ * Pure FACT-only bid proposer over a TaskEnvelope + list of ProviderProfiles. Never calls a
+ * provider; the bid_hash is deterministic so the Loop can replay byte-identical.
+ *
+ * Anti-Goodhart: capability_score is computed strictly from the cardinal intersection of required
+ * vs declared capabilities — provider self-declared 'strength' fields are ignored. Unknown
+ * provider references raise InvalidProviderException to close the silent first-come fallback.
+ */
 final class AtlasMaestroProviderBidProposer
 {
     /**
