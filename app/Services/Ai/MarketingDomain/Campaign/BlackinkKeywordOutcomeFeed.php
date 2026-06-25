@@ -53,20 +53,34 @@ class BlackinkKeywordOutcomeFeed
     public function pullByNiche(int $minClicks = 5): array
     {
         $db = DB::connection(self::CONNECTION);
-        $rows = $db->table('tracking_sessions as ts')
+        // clicks por (campanha, termo)
+        $clickRows = $db->table('tracking_sessions as ts')
             ->join('campaigns as c', 'c.id_campaign', '=', 'ts.campaign_id')
             ->whereNotNull('ts.utm_term')->where('ts.utm_term', '<>', '')
-            ->select('c.name as cname', 'ts.utm_term', DB::raw('count(*) as clicks'), DB::raw('sum((ts.is_converted)::int) as conv'))
+            ->select('c.name as cname', 'ts.utm_term', DB::raw('count(*) as clicks'))
             ->groupBy('c.name', 'ts.utm_term')->get();
+        // conversões da tabela AUTORITATIVA `conversions` (status=completed) — MESMA definição do readOutcomes/
+        // harvester, NUNCA o boolean is_converted (stale, =0 mesmo p/ venda real) que corrompia a calibração.
+        $convRows = $db->table('conversions as cv')
+            ->join('tracking_sessions as ts', 'ts.id_tracking_session', '=', 'cv.tracking_session_id')
+            ->join('campaigns as c', 'c.id_campaign', '=', 'ts.campaign_id')
+            ->where('cv.status', 'completed')->whereNotNull('ts.utm_term')->where('ts.utm_term', '<>', '')
+            ->select('c.name as cname', 'ts.utm_term', DB::raw('count(*) as conv'))
+            ->groupBy('c.name', 'ts.utm_term')->get();
+        $convMap = [];
+        foreach ($convRows as $cr) {
+            $convMap[$cr->cname.'|'.$cr->utm_term] = (int) $cr->conv;
+        }
 
         $byNiche = [];
-        foreach ($rows as $r) {
+        foreach ($clickRows as $r) {
             $clicks = (int) $r->clicks;
             if ($clicks < $minClicks) {
                 continue;
             }
             $byNiche[$this->inferNiche((string) $r->cname)][] = [
-                'term' => (string) $r->utm_term, 'clicks' => $clicks, 'conversions' => (int) $r->conv,
+                'term' => (string) $r->utm_term, 'clicks' => $clicks,
+                'conversions' => $convMap[$r->cname.'|'.$r->utm_term] ?? 0,
             ];
         }
 
