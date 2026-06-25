@@ -65,4 +65,13 @@ class KeywordRevenueProjectorTest extends TestCase
         $this->assertSame('morphology_volume', $r['basis']);
         $this->assertGreaterThan(0, $r['volume']);
     }
+
+    public function test_real_cvr_dominates_the_score_prior(): void
+    {
+        // termo conhecido com CVR REAL alta → projeção usa a real, não o mapa cru do score (quase exata)
+        $semCvr = $this->p->project(['keyword' => 'gelatin trick', 'score' => 50, 'suffix_regime' => 'information', 'family' => 'mechanism_trick'], ['payout' => 100, 'refund' => 0, 'cpc' => 0], ['gelatin trick' => 10000]);
+        $comCvr = $this->p->project(['keyword' => 'gelatin trick', 'score' => 50, 'suffix_regime' => 'information', 'family' => 'mechanism_trick'], ['payout' => 100, 'refund' => 0, 'cpc' => 0], ['gelatin trick' => 10000], ['gelatin trick' => 0.08]);
+        $this->assertSame(0.08, $comCvr['cvr_prior'], 'a CVR real (8%) domina o prior do score');
+        $this->assertGreaterThan($semCvr['expected_revenue'], $comCvr['expected_revenue']);
+    }
 }

@@ -38,9 +38,10 @@ class KeywordRevenueProjector
      * @param  array<string,mixed>  $row  linha de KeywordQualityIndex::score()
      * @param  array<string,mixed>  $econ  payout, refund, cpc
      * @param  array<string,int|float>  $volumePrior  termo→cliques/mês REAIS (Blackink), domina o morfológico
+     * @param  array<string,float>  $cvrPrior  termo→CVR REAL (fração); domina o prior do score quando há
      * @return array{keyword:string,expected_sales:float,expected_revenue:float,cvr_prior:float,volume:int,net_payout:float,basis:string}
      */
-    public function project(array $row, array $econ = [], array $volumePrior = []): array
+    public function project(array $row, array $econ = [], array $volumePrior = [], array $cvrPrior = []): array
     {
         $kw = mb_strtolower(trim((string) ($row['keyword'] ?? '')));
         $payout = (float) ($econ['payout'] ?? 100.0);
@@ -48,7 +49,8 @@ class KeywordRevenueProjector
         $netPayout = max(0.0, $payout * (1 - $refund));
 
         $regime = $this->regimes->classify($row)['regime'];
-        $cvr = $this->scoreToCvr((int) ($row['score'] ?? 0));
+        // CVR: a REAL do termo (Blackink) domina o prior do score — projeção quase exata pra termo conhecido
+        $cvr = isset($cvrPrior[$kw]) ? max(0.0, (float) $cvrPrior[$kw]) : $this->scoreToCvr((int) ($row['score'] ?? 0));
         $real = $volumePrior[$kw] ?? null;
         $volume = $real !== null ? (int) $real : (self::VOLUME_PRIOR[$regime] ?? self::VOLUME_PRIOR['probe']);
         // CPC: dado real domina; senão o prior por regime — a ARBITRAGEM está no clique barato (coined/mistype)
@@ -78,9 +80,9 @@ class KeywordRevenueProjector
      * @param  array<int,array<string,mixed>>  $scored
      * @return array{ranked:array<int,array<string,mixed>>,total_expected_revenue:float}
      */
-    public function rank(array $scored, array $econ = [], array $volumePrior = []): array
+    public function rank(array $scored, array $econ = [], array $volumePrior = [], array $cvrPrior = []): array
     {
-        $proj = array_map(fn ($r) => $this->project($r, $econ, $volumePrior), $scored);
+        $proj = array_map(fn ($r) => $this->project($r, $econ, $volumePrior, $cvrPrior), $scored);
         // ordena por LUCRO esperado (o norte: máxima receita LÍQUIDA, premia a arbitragem do clique barato)
         usort($proj, fn ($a, $b) => ($b['expected_profit'] <=> $a['expected_profit']) ?: strcmp($a['keyword'], $b['keyword']));
 
