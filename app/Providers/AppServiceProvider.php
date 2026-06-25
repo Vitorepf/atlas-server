@@ -31,6 +31,7 @@ use App\Services\Ai\AutonomousEvolution\AtlasEvolutionScenarioExplorer;
 use App\Services\Ai\AutonomousEvolution\AtlasEvolutionTaskGenerator;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopAdversarialVerifierPool;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopNetDiffCertReceiptLedger;
+use App\Services\Ai\AutonomousEvolution\Quaternity\IntentIngest\AtlasLoopOperatorIntentSchemaRegistry;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Council\AtlasCortexCallGraphLens;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Council\AtlasCortexLensRegistry;
 use App\Services\Ai\AutonomousEvolution\Receipts\AtlasLoopCycleReceiptLedger;
@@ -298,6 +299,8 @@ class AppServiceProvider extends ServiceProvider
         });
         // Net-diff cert ledger — single shared instance so verify/history see the same JSONL spool.
         $this->app->singleton(AtlasLoopNetDiffCertReceiptLedger::class);
+        // Operator-intent schema registry — singleton so Extractor/Ledger/CLI all read the same schema.
+        $this->app->singleton(AtlasLoopOperatorIntentSchemaRegistry::class);
         // Cycle-receipt chain — singletons so the CLI + any callers share one ledger/signer pair.
         $this->app->singleton(AtlasLoopCycleReceiptSigner::class);
         $this->app->singleton(AtlasLoopCycleReceiptLedger::class);
