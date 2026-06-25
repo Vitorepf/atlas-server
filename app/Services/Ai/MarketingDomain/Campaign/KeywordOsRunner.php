@@ -33,6 +33,7 @@ class KeywordOsRunner
         private readonly RegimeCrossNegativeForge $crossNegatives = new RegimeCrossNegativeForge,
         private readonly KeywordParetoConcentrator $pareto = new KeywordParetoConcentrator,
         private readonly KeywordCampaignBlueprint $blueprint = new KeywordCampaignBlueprint,
+        private readonly KeywordOsIntegrityAuditor $integrity = new KeywordOsIntegrityAuditor,
     ) {}
 
     /**
@@ -101,6 +102,9 @@ class KeywordOsRunner
             // 80/20 (Marshall): os VITAL FEW que capturam 80% da receita — foco obsessivo, corte a cauda
             $result['revenue_ranking']['vital_few'] = $this->pareto->concentrate($result['revenue_ranking']['ranked']);
         }
+
+        // AUTO-AUDITORIA: prova os invariantes (sem-buraco / sem-contradição) do dossiê INTEIRO a cada run
+        $result['integrity'] = $this->integrity->audit($result);
 
         return $result;
     }
