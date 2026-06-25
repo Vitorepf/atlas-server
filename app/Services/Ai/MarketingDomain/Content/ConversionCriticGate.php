@@ -36,6 +36,7 @@ class ConversionCriticGate
         private readonly DecisionClarityAuditor $decision = new DecisionClarityAuditor,
         private readonly ProofSubstanceAuditor $proof = new ProofSubstanceAuditor,
         private readonly ProofAdjacencyAuditor $adjacency = new ProofAdjacencyAuditor,
+        private readonly BridgeSpoilerDetector $spoiler = new BridgeSpoilerDetector,
         private readonly ValueEquationAuditor $value = new ValueEquationAuditor,
         private readonly AwarenessRouter $awareness = new AwarenessRouter,
         private readonly ConversionAuditor $auditor = new ConversionAuditor,
@@ -46,9 +47,12 @@ class ConversionCriticGate
      * @param  string  $copy  the FINAL flattened bridge copy (same text the telemetry audits — no drift)
      * @param  string  $awarenessLevel  the asset's target awareness (warn tier; '' to skip)
      * @param  string  $threshold  'strong' | 'decent' | 'off'
+     * @param  array<int,array{term:string,category:string,severity:string,is_regex?:bool}>  $spoilerCatalog
+     *         terms the bridge must NOT name (the caller pre-filters to the categories it enforces — e.g.
+     *         product_name + named_ingredient — so physical_form stays a legitimate message-match angle)
      * @return array{verdict:'block'|'warn'|'ok',structural_pass:bool,threshold:string,reasons:array<int,array{floor:string,kind:string,detail:string}>}
      */
-    public function evaluate(string $copy, string $awarenessLevel = '', string $threshold = 'decent'): array
+    public function evaluate(string $copy, string $awarenessLevel = '', string $threshold = 'decent', array $spoilerCatalog = []): array
     {
         $threshold = array_key_exists($threshold, self::PRIOR_FLOORS) ? $threshold : 'decent';
         $structural = [];
@@ -81,6 +85,22 @@ class ConversionCriticGate
             $orphans = $this->arr($adj['orphan_claims'] ?? []);
             $structural[] = ['floor' => 'proof_adjacency', 'kind' => 'structural',
                 'detail' => 'Claim forte sem prova externa AO LADO: "'.mb_substr((string) ($orphans[0] ?? ''), 0, 90).'" — encaixe número/autoridade/ratio/demo JUNTO de cada promessa, senão a venda morre na descrença.'];
+        }
+
+        // Bridge spoiler (the bridge's #1 job is to hand the lead to the VSL still curious): naming what
+        // the VSL withholds for its reveal — the product name or a named ingredient — kills the reason to
+        // press play. Binary structural fact (the term is on the page or not). The CALLER pre-filters the
+        // catalog to the spoiler categories it enforces (product_name/named_ingredient), so the offer's
+        // own physical form (e.g. "drops") stays a legitimate message-match angle, never a false block.
+        if ($spoilerCatalog !== []) {
+            $leaks = $this->arr($this->spoiler->inspect($copy, $spoilerCatalog)['leaks'] ?? []);
+            if ($leaks !== []) {
+                $terms = implode(', ', array_slice(array_values(array_filter(array_map(
+                    static fn ($l): string => is_array($l) ? (string) ($l['term'] ?? '') : '', $leaks,
+                ))), 0, 4));
+                $structural[] = ['floor' => 'bridge_spoiler', 'kind' => 'structural',
+                    'detail' => 'A bridge VAZA o que a VSL segura pro reveal ('.$terms.') — nomear o produto/ingrediente cedo mata a curiosidade que faz apertar o play. Tease o mecanismo SEM nomear.'];
+            }
         }
 
         // ---- PRIOR / MARKER-DENSITY SIGNALS (warn only — never block) -------------------------

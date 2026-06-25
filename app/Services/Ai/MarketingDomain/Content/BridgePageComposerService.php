@@ -59,6 +59,7 @@ class BridgePageComposerService
         private readonly ConversionAuditor $conversionAuditor = new ConversionAuditor,
         private readonly AggressionAmplifier $amplifier = new AggressionAmplifier,
         private readonly ConversionCriticGate $critic = new ConversionCriticGate,
+        private readonly BridgeSpoilerDetector $spoiler = new BridgeSpoilerDetector,
     ) {}
 
     /**
@@ -115,6 +116,16 @@ class BridgePageComposerService
         $langShort = str_starts_with(strtolower($language), 'port') ? 'pt' : 'en';
         $criticEnabled = (bool) ($opts['critic_enabled'] ?? config('atlas.marketing.critic_enabled', true));
         $criticThreshold = (string) ($opts['critic_threshold'] ?? config('atlas.marketing.critic_threshold', 'decent'));
+        // Spoiler catalog filtered to the UNAMBIGUOUS spoiler categories: the bridge must never name the
+        // product or a specific ingredient (that belongs to the VSL's reveal). physical_form ("drops") is
+        // deliberately EXCLUDED — it is the keyword/message-match angle — and price/scarcity/guarantee are
+        // already enforced by BridgePagePolicyGuard's offer-leak rule.
+        $spoilerCatalog = $criticEnabled
+            ? array_values(array_filter(
+                $this->spoiler->catalogFromAsset($asset),
+                static fn ($e): bool => is_array($e) && in_array($e['category'] ?? '', ['product_name', 'named_ingredient'], true),
+            ))
+            : [];
         $forgedProof = $this->proof->forge($asset, ['lang' => $langShort]);
         $forgedLead = $this->leadForge->forge($asset, ['lang' => $langShort]);
         $forgedTransformations = $this->transformations->source($asset, [
@@ -154,7 +165,7 @@ class BridgePageComposerService
             $criticVerdict = null;
             if ($criticEnabled) {
                 $candidate = $this->applyOverrides($bridge, $eliteHeadlines, $forgedProof, $forgedTransformations, $forgedLead, $asset);
-                $criticVerdict = $this->critic->evaluate($this->persuasionCopy($candidate), (string) $asset->awareness_level, $criticThreshold);
+                $criticVerdict = $this->critic->evaluate($this->persuasionCopy($candidate), (string) $asset->awareness_level, $criticThreshold, $spoilerCatalog);
                 $criticBlock = ($criticVerdict['structural_pass'] ?? true) !== true;
             }
 
@@ -189,7 +200,7 @@ class BridgePageComposerService
         // Final Conversion Critic verdict on the SHIPPED bridge — surfaced in validation so a structural
         // block at max_attempts is never silently swallowed (the operator/caller sees the refusal).
         $criticFinal = $criticEnabled
-            ? $this->critic->evaluate($this->persuasionCopy($bridge), (string) $asset->awareness_level, $criticThreshold)
+            ? $this->critic->evaluate($this->persuasionCopy($bridge), (string) $asset->awareness_level, $criticThreshold, $spoilerCatalog)
             : ['verdict' => 'ok', 'structural_pass' => true, 'threshold' => 'off', 'reasons' => []];
 
         // --- deterministic validation -------------------------------------------------------

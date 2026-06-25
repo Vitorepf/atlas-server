@@ -171,4 +171,45 @@ class ConversionCriticGateTest extends TestCase
         $this->assertTrue($v['structural_pass'], 'prova adjacente não deveria deixar flaw estrutural: '.json_encode($v['reasons'], JSON_UNESCAPED_UNICODE));
         $this->assertNotContains('proof_adjacency', array_column($v['reasons'], 'floor'));
     }
+
+    /** Naming the product (what the VSL withholds for its reveal) on the bridge is a structural spoiler block. */
+    public function test_named_product_spoiler_blocks(): void
+    {
+        $copy = implode(' ', [
+            'If you are a woman over forty and the scale will not move, this may be why.',
+            'A simple at-home ritual has women talking, and Lipo Bliss is the name they keep repeating.', // spoiler
+            'In a clinical review, Dr. Anya Sharma tracked 412 women who noticed steady changes.',
+            'Most mornings still feel ordinary, and that is exactly the point.',
+            'There is more to the story than a single habit.',
+            'Watch the free presentation to see how it works.',
+        ]);
+        $catalog = [['term' => 'Lipo Bliss', 'category' => 'product_name', 'severity' => 'critical']];
+
+        $v = (new ConversionCriticGate)->evaluate($copy, '', 'decent', $catalog);
+
+        $this->assertSame('block', $v['verdict']);
+        $this->assertContains('bridge_spoiler', array_column($v['reasons'], 'floor'));
+    }
+
+    /**
+     * The offer's physical FORM ("drops") is the message-match angle, not a spoiler — the composer passes
+     * only product_name/named_ingredient terms, so a clean bridge that says "drops" is NOT blocked.
+     */
+    public function test_form_word_angle_is_not_a_spoiler(): void
+    {
+        $copy = implode(' ', [
+            'If you are a woman over forty and the scale will not move, this may be why.',
+            'A simple at-home ritual with a few daily drops has quietly been spreading.', // says "drops" (angle), no product name
+            'In a clinical review, Dr. Anya Sharma tracked 412 women who noticed steady changes.',
+            'Most mornings still feel ordinary, and that is exactly the point.',
+            'There is more to the story than a single habit.',
+            'Watch the free presentation to see how it works.',
+        ]);
+        $catalog = [['term' => 'Lipo Bliss', 'category' => 'product_name', 'severity' => 'critical']];
+
+        $v = (new ConversionCriticGate)->evaluate($copy, '', 'decent', $catalog);
+
+        $this->assertNotContains('bridge_spoiler', array_column($v['reasons'], 'floor'));
+        $this->assertTrue($v['structural_pass'], 'a palavra-de-forma "drops" não deveria bloquear: '.json_encode($v['reasons'], JSON_UNESCAPED_UNICODE));
+    }
 }
