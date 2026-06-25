@@ -123,7 +123,12 @@ final class AtlasLoopCycleReentryCommand extends Command
         }
 
         $writer = app(AtlasLoopCycleCheckpointWriter::class);
-        $facts = ['commit_sha_base' => $baseSha];
+        $facts = [
+            'commit_sha_base' => $baseSha,
+            'merged_sha' => null,
+            'emitted_receipt_ids' => [],
+            'held_task_claim_ids' => [],
+        ];
         try {
             $verdict = $writer->recordPhase($cycle, $phase, $facts);
         } catch (\Throwable $e) {
