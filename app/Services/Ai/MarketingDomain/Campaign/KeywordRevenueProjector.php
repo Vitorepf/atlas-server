@@ -23,6 +23,13 @@ class KeywordRevenueProjector
         'probe' => 2500,    // sintoma frio: busca média-alta, CVR no chão
     ];
 
+    /** CPC-prior por regime: a ARBITRAGEM está no clique barato — coined/mistype = leilão sem concorrente. */
+    private const CPC_PRIOR = [
+        'harvest' => 0.35,  // coined/marca/mistype: QS de marca alto, ninguém disputa → CPC mínimo
+        'seed' => 0.80,     // recall/recipe: concorrência média
+        'probe' => 1.60,    // sintoma genérico: todo afiliado/marca bida → CPC caro
+    ];
+
     public function __construct(
         private readonly KeywordRegimeClassifier $regimes = new KeywordRegimeClassifier,
     ) {}
@@ -38,23 +45,29 @@ class KeywordRevenueProjector
         $kw = mb_strtolower(trim((string) ($row['keyword'] ?? '')));
         $payout = (float) ($econ['payout'] ?? 100.0);
         $refund = (float) ($econ['refund'] ?? 0.10);
-        $cpc = (float) ($econ['cpc'] ?? 1.0);
         $netPayout = max(0.0, $payout * (1 - $refund));
 
+        $regime = $this->regimes->classify($row)['regime'];
         $cvr = $this->scoreToCvr((int) ($row['score'] ?? 0));
         $real = $volumePrior[$kw] ?? null;
-        $volume = $real !== null ? (int) $real : $this->morphologyVolume($row);
+        $volume = $real !== null ? (int) $real : (self::VOLUME_PRIOR[$regime] ?? self::VOLUME_PRIOR['probe']);
+        // CPC: dado real domina; senão o prior por regime — a ARBITRAGEM está no clique barato (coined/mistype)
+        $cpc = isset($econ['cpc']) ? (float) $econ['cpc'] : (self::CPC_PRIOR[$regime] ?? self::CPC_PRIOR['probe']);
 
         $expectedSales = $volume * $cvr;
-        $expectedRevenue = $expectedSales * $netPayout - $volume * $cpc;
+        $expectedRevenue = $expectedSales * $netPayout;           // receita BRUTA
+        $expectedProfit = $expectedRevenue - $volume * $cpc;       // LUCRO (líquido do custo de clique)
 
         return [
             'keyword' => $kw,
             'expected_sales' => round($expectedSales, 1),
             'expected_revenue' => round($expectedRevenue, 2),
+            'expected_profit' => round($expectedProfit, 2),
             'cvr_prior' => round($cvr, 4),
             'volume' => $volume,
+            'cpc' => round($cpc, 2),
             'net_payout' => round($netPayout, 2),
+            'regime' => $regime,
             'basis' => $real !== null ? 'real_volume(blackink)' : 'morphology_volume',
         ];
     }
@@ -68,10 +81,12 @@ class KeywordRevenueProjector
     public function rank(array $scored, array $econ = [], array $volumePrior = []): array
     {
         $proj = array_map(fn ($r) => $this->project($r, $econ, $volumePrior), $scored);
-        usort($proj, fn ($a, $b) => ($b['expected_revenue'] <=> $a['expected_revenue']) ?: strcmp($a['keyword'], $b['keyword']));
+        // ordena por LUCRO esperado (o norte: máxima receita LÍQUIDA, premia a arbitragem do clique barato)
+        usort($proj, fn ($a, $b) => ($b['expected_profit'] <=> $a['expected_profit']) ?: strcmp($a['keyword'], $b['keyword']));
 
         return [
             'ranked' => $proj,
+            'total_expected_profit' => round(array_sum(array_column($proj, 'expected_profit')), 2),
             'total_expected_revenue' => round(array_sum(array_column($proj, 'expected_revenue')), 2),
         ];
     }
@@ -82,13 +97,5 @@ class KeywordRevenueProjector
         $s = max(0, min(100, $score));
 
         return round(0.005 + ($s / 100) * 0.05, 5); // 0.5% (score 0) → 5.5% (score 100), monotônico
-    }
-
-    /** @param array<string,mixed> $row */
-    private function morphologyVolume(array $row): int
-    {
-        $regime = $this->regimes->classify($row)['regime'];
-
-        return self::VOLUME_PRIOR[$regime] ?? self::VOLUME_PRIOR['probe'];
     }
 }

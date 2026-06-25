@@ -47,6 +47,18 @@ class KeywordRevenueProjectorTest extends TestCase
         $this->assertGreaterThan($pen['expected_revenue'], $trick['expected_revenue'], 'volume alto vence CVR alta em receita');
     }
 
+    public function test_arbitrage_coined_has_cheaper_clicks_and_higher_margin(): void
+    {
+        // a arbitragem está no clique barato: coined/posse (leilão sem concorrente) vs sintoma (todo mundo bida)
+        $coined = $this->p->project(['keyword' => 'orivelle pen', 'score' => 80, 'suffix_regime' => 'possession', 'family' => 'discovered_real']);
+        $symptom = $this->p->project(['keyword' => 'ed treatment', 'score' => 80, 'suffix_regime' => 'neutral', 'family' => '']);
+
+        $this->assertLessThan($symptom['cpc'], $coined['cpc'], 'coined = CPC mínimo (leilão sem concorrente)');
+        $this->assertSame('harvest', $coined['regime']);
+        $this->assertSame('probe', $symptom['regime']);
+        $this->assertArrayHasKey('expected_profit', $coined);
+    }
+
     public function test_falls_back_to_morphology_volume_when_no_real_data(): void
     {
         $r = $this->p->project(['keyword' => 'unseen term', 'score' => 70, 'suffix_regime' => 'neutral', 'family' => '']);
