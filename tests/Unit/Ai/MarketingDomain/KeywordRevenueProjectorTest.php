@@ -99,4 +99,22 @@ class KeywordRevenueProjectorTest extends TestCase
         $this->assertSame(0.08, $comCvr['cvr_prior'], 'a CVR real (8%) domina o prior do score');
         $this->assertGreaterThan($semCvr['expected_revenue'], $comCvr['expected_revenue']);
     }
+
+    public function test_adversarial_edge_cases_never_break_determinism(): void
+    {
+        // payout negativo (oferta que paga menos que o refund) → net_payout clampado em 0, NUNCA lucrativo
+        $neg = $this->p->project(['keyword' => 'x', 'score' => 90, 'suffix_regime' => 'possession', 'family' => 'discovered_real'], ['payout' => -50, 'refund' => 0.1], ['x' => 1000]);
+        $this->assertGreaterThanOrEqual(0.0, $neg['net_payout'], 'net_payout nunca negativo');
+        $this->assertFalse($neg['profitable']);
+
+        // refund > 100% → net_payout clampado em 0, não lucrativo
+        $ref = $this->p->project(['keyword' => 'z', 'score' => 90, 'suffix_regime' => 'possession', 'family' => 'discovered_real'], ['payout' => 120, 'refund' => 1.5], ['z' => 1000]);
+        $this->assertSame(0.0, $ref['net_payout']);
+        $this->assertFalse($ref['profitable']);
+
+        // volume 0 → zero vendas, lucro finito (sem NaN/divisão por zero)
+        $zero = $this->p->project(['keyword' => 'y', 'score' => 50, 'suffix_regime' => 'neutral', 'family' => ''], ['payout' => 120], ['y' => 0]);
+        $this->assertSame(0.0, $zero['expected_sales']);
+        $this->assertFalse(is_nan((float) $zero['expected_profit']));
+    }
 }
