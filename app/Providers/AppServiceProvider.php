@@ -20,6 +20,7 @@ use App\Console\Commands\AtlasTaskMaestroRetryCommand;
 use App\Console\Commands\AtlasLoopSchemaMigrateRunCommand;
 use App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight\AtlasAaelInFlightReceiptLedger;
 use App\Services\Ai\AutonomousEvolution\LiveCycle\Nesting\AtlasLoopSubCycleReceiptLedger;
+use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityFactSnapshotter;
 use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityReshaper;
 use App\Services\Ai\AutonomousEvolution\Quaternity\IntentResolver\AtlasLoopIntentAmbiguityClarifierProposer;
 use App\Services\Ai\AutonomousEvolution\Quaternity\IntentResolver\AtlasLoopIntentAmbiguityFollowUpScheduler;
@@ -1415,6 +1416,21 @@ class AppServiceProvider extends ServiceProvider
                 : storage_path('app/atlas/maestro/dynamic-priority');
 
             return new AtlasMaestroPriorityReshaper($path);
+        });
+
+        $this->app->singleton(AtlasMaestroPriorityFactSnapshotter::class, function () {
+            $emptySource = static fn (): array => [];
+            $snapshotsPath = (string) config(
+                'atlas.maestro.priority.snapshots_path',
+                storage_path('app/atlas/maestro/dynamic-priority/snapshots.jsonl'),
+            );
+
+            return new AtlasMaestroPriorityFactSnapshotter(
+                pendingPacketsSource: $emptySource,
+                leaseHistorySource: $emptySource,
+                currentInFlightSource: $emptySource,
+                snapshotsPath: $snapshotsPath,
+            );
         });
 
         $this->app->singleton(AtlasLoopSubCycleReceiptLedger::class, function () {
