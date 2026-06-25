@@ -480,6 +480,15 @@ Schedule::command('atlas:task:repair-blocked --json')
     // §0 MASTER SWITCH — OFF ⇒ never reopen, never retire, never write the queue.
     ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled());
 
+// govA-servable-heartbeat — every 5 minutes read servability and auto-fire the 3 recovery
+// commands (reap-leases → sweep-malformed → repair-blocked) when the queue is jammed
+// (servable_now=0 while claimable_depth>0). §0 MASTER SWITCH gate; withoutOverlapping(5) so
+// a slow tick never doubles up.
+Schedule::command('atlas:task:servable-heartbeat --json')
+    ->everyFiveMinutes()
+    ->withoutOverlapping(5)
+    ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled());
+
 // govA-cortex-cadence — daily Cortex scope-comprehension snapshot rebuild. Outcome-triggered
 // invalidation (give_back/failed) lives in AtlasTaskServingService::report; this schedule keeps
 // the snapshot fresh on a guaranteed cadence. §0 MASTER SWITCH gate (OFF ⇒ byte-identical
