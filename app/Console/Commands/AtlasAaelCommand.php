@@ -4,12 +4,13 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousEvolution\AtlasAaelLoopExecutionBridge;
 use App\Services\Ai\AutonomousEvolution\AtlasAutonomousEvolutionLoopService;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopArmedCoverageReporter;
 use Illuminate\Console\Command;
 
 class AtlasAaelCommand extends Command
 {
     protected $signature = 'atlas:aael
-        {action=control-plane : cycle|control-plane|bridge-execute}
+        {action=control-plane : cycle|control-plane|bridge-execute|armed-coverage}
         {--objective= : Evolution objective}
         {--workspace= : Workspace root}
         {--domain=programming : Domain}
@@ -24,13 +25,17 @@ class AtlasAaelCommand extends Command
 
     protected $description = 'Operate AAEL, the Atlas Autonomous Evolution Loop.';
 
-    public function handle(AtlasAutonomousEvolutionLoopService $runtime, AtlasAaelLoopExecutionBridge $bridge): int
-    {
+    public function handle(
+        AtlasAutonomousEvolutionLoopService $runtime,
+        AtlasAaelLoopExecutionBridge $bridge,
+        AtlasLoopArmedCoverageReporter $armedCoverage,
+    ): int {
         $action = (string) $this->argument('action');
         $payload = match ($action) {
             'cycle' => $runtime->runCycle($this->baseInput()),
             'control-plane' => $runtime->controlPlane((int) $this->option('hours')),
             'bridge-execute' => $this->bridgeExecute($runtime, $bridge),
+            'armed-coverage' => $this->armedCoverage($armedCoverage),
             default => ['schema_version' => 'atlas.aael.command_error.v1', 'status' => 'blocked', 'reason' => 'unknown_action', 'action' => $action],
         };
 
@@ -61,6 +66,21 @@ class AtlasAaelCommand extends Command
                 'scenarios_per_task' => (int) $this->option('scenarios-per-task'),
                 'propose_only' => true,
             ]),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function armedCoverage(AtlasLoopArmedCoverageReporter $reporter): array
+    {
+        $report = $reporter->report();
+
+        return [
+            'schema_version' => AtlasLoopArmedCoverageReporter::SCHEMA,
+            'status' => 'ok',
+            'primitives_count' => count($report),
+            'coverage' => $report,
         ];
     }
 
