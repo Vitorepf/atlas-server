@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionAtlasNativeDossierExporter;
 use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionAtlasNativeEvidenceVerifier;
 use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionAtlasNativeFinalizationGate;
+use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionFinalEvidenceSourceRegistry;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -57,7 +58,11 @@ final class AtlasSelfConstructionAtlasNativeCompletionCommand extends Command
         $evidenceFacts = is_array($facts['evidence_facts'] ?? null) ? $facts['evidence_facts'] : $facts;
         $verdict = $this->app()->make(AtlasSelfConstructionAtlasNativeEvidenceVerifier::class)->verify($evidenceFacts);
 
-        return ['status' => 'ok', 'verify' => $verdict];
+        return [
+            'status' => 'ok',
+            'verify' => $verdict,
+            'source_coverage' => $this->verifierSourceCoverage($verdict),
+        ];
     }
 
     /** @param array<string,mixed> $facts @return array<string,mixed> */
@@ -65,7 +70,12 @@ final class AtlasSelfConstructionAtlasNativeCompletionCommand extends Command
     {
         $verdict = $this->app()->make(AtlasSelfConstructionAtlasNativeFinalizationGate::class)->finalize($facts);
 
-        return ['status' => 'ok', 'gate' => $verdict];
+        return [
+            'status' => 'ok',
+            'final_state' => (string) ($verdict['final_state'] ?? 'unknown'),
+            'gate' => $verdict,
+            'source_coverage' => is_array($verdict['source_coverage'] ?? null) ? $verdict['source_coverage'] : [],
+        ];
     }
 
     /** @param array<string,mixed> $facts @return array<string,mixed> */
@@ -76,8 +86,37 @@ final class AtlasSelfConstructionAtlasNativeCompletionCommand extends Command
             $facts['finalization'] = $this->app()->make(AtlasSelfConstructionAtlasNativeFinalizationGate::class)->finalize($facts);
         }
         $verdict = $this->app()->make(AtlasSelfConstructionAtlasNativeDossierExporter::class)->export($facts);
+        $sections = is_array($verdict['evidence_sections'] ?? null) ? $verdict['evidence_sections'] : [];
 
-        return ['status' => 'ok', 'dossier' => $verdict];
+        return [
+            'status' => 'ok',
+            'final_state' => (string) ($verdict['final_state'] ?? 'unknown'),
+            'dossier' => $verdict,
+            'evidence_source_coverage' => is_array($sections['evidence_source_coverage'] ?? null) ? $sections['evidence_source_coverage'] : [],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $verdict
+     * @return array<string,mixed>
+     */
+    private function verifierSourceCoverage(array $verdict): array
+    {
+        $registry = $this->app()->make(AtlasSelfConstructionFinalEvidenceSourceRegistry::class);
+        $mandatory = [];
+        foreach ((array) ($registry->describe()['required_sources'] ?? []) as $source) {
+            if (is_array($source) && (bool) ($source['blocking'] ?? false)) {
+                $mandatory[] = (string) $source['id'];
+            }
+        }
+        sort($mandatory, SORT_STRING);
+
+        $blockers = is_array($verdict['source_blockers'] ?? null) ? $verdict['source_blockers'] : [];
+
+        return [
+            'mandatory_source_ids' => $mandatory,
+            'source_blockers' => $blockers,
+        ];
     }
 
     /**

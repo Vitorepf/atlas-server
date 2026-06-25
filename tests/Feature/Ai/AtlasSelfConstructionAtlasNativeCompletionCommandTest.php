@@ -148,6 +148,56 @@ final class AtlasSelfConstructionAtlasNativeCompletionCommandTest extends TestCa
         $this->assertSame(json_encode($decoded, JSON_UNESCAPED_SLASHES), json_encode($decoded, JSON_UNESCAPED_SLASHES));
     }
 
+    public function test_verify_source_coverage_ready_includes_mandatory_source_ids(): void
+    {
+        $this->writeJson(['evidence_facts' => $this->readyEvidenceFacts()]);
+        Artisan::call('atlas:self-construction:atlas-native-completion', ['action' => 'verify', '--facts' => $this->factsPath, '--json' => true]);
+        $p = json_decode(trim(Artisan::output()), true);
+
+        $this->assertArrayHasKey('source_coverage', $p);
+        $this->assertNotEmpty($p['source_coverage']['mandatory_source_ids']);
+        $this->assertSame([], $p['source_coverage']['source_blockers']);
+    }
+
+    public function test_gate_hold_due_to_missing_code_index_bridge(): void
+    {
+        $evidence = $this->readyEvidenceFacts();
+        unset($evidence['sources']['code_index_readiness_bridge']); // refreshable
+
+        $this->writeJson([
+            'evidence_facts' => $evidence,
+            'dependency_facts' => [
+                'final_runtime_owner' => 'atlas_native',
+                'paths' => [['id' => 'p1', 'kind' => 'ordinary', 'steady_state_required' => ['atlas_native']]],
+            ],
+            'autonomy_verdict' => ['level' => 'atlas_native_bounded'],
+            'ledger' => [],
+        ]);
+        Artisan::call('atlas:self-construction:atlas-native-completion', ['action' => 'gate', '--facts' => $this->factsPath, '--json' => true]);
+        $p = json_decode(trim(Artisan::output()), true);
+
+        $this->assertSame('hold', $p['final_state']);
+        $this->assertContains('code_index_readiness_bridge', $p['source_coverage']['hold_sources']);
+    }
+
+    public function test_dossier_blocked_due_to_unsafe_queue_contract_sentinel_failure(): void
+    {
+        $this->writeJson([
+            'evidence_facts' => $this->readyEvidenceFacts(['task_serving_contract_sentinel' => ['status' => 'fail']]),
+            'dependency_facts' => [
+                'final_runtime_owner' => 'atlas_native',
+                'paths' => [['id' => 'p1', 'kind' => 'ordinary', 'steady_state_required' => ['atlas_native']]],
+            ],
+            'autonomy_verdict' => ['level' => 'atlas_native_bounded'],
+            'ledger' => [],
+        ]);
+        Artisan::call('atlas:self-construction:atlas-native-completion', ['action' => 'dossier', '--facts' => $this->factsPath, '--json' => true]);
+        $p = json_decode(trim(Artisan::output()), true);
+
+        $this->assertSame('blocked', $p['final_state']);
+        $this->assertContains('task_serving_contract_sentinel', $p['evidence_source_coverage']['blocked_source_ids']);
+    }
+
     public function test_command_source_is_read_only(): void
     {
         $src = (string) file_get_contents(base_path('app/Console/Commands/AtlasSelfConstructionAtlasNativeCompletionCommand.php'));
