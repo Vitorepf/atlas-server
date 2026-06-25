@@ -207,14 +207,26 @@ final class AtlasLoopScopeComprehensionQuery implements ScopeComprehensionQuery
     // --- runtime facts (SAFE defaults here; the runtime-facts step wires the real sources) -------------------
 
     /**
-     * Does the unit have a test? Honestly DEFERRED: neither free signal (gate-block / merge-clean) attests
-     * test ABSENCE, so there is no zero-cost "untested" oracle. It degrades to the safe "no evidence of
-     * absence" (true) — untested->tested stays inert until a costed test-presence oracle is wired (mirrors the
-     * architecture's treatment of real line-coverage as a future costed sub-slice). Never a fabricated fact.
+     * Does the unit have a test? Sourced from a runtime facts source that opts-in to
+     * {@see ScopeRuntimeFactsWithTestPresence}, which delegates to the costed
+     * {@see AtlasLoopTestPresenceOracle} (reads from {@see \App\Models\AtlasLoopTestCoverageEdge}).
+     *
+     * Safe degradation: when no runtime-facts source is wired, when the source doesn't implement
+     * the optional extension, or when no comprehension model is available, this returns true (the
+     * prior hardcoded default), so `untested->tested` stays inert and no spurious transition fires
+     * on infra failure or backward-compatible callers.
      */
     private function hasTest(string $fqcn, ?AtlasLoopScopeComprehensionModel $model): bool
     {
-        return true;
+        if ($this->runtimeFacts === null || $model === null) {
+            return true;
+        }
+        if (! $this->runtimeFacts instanceof ScopeRuntimeFactsWithTestPresence) {
+            return true; // backward-compatible runtime sources keep the prior safe default
+        }
+        $rel = $this->relPathFor($model, $fqcn);
+
+        return $rel === null ? true : $this->runtimeFacts->hasTest($rel);
     }
 
     /** Did the unit's gate stay clean (no mutation-adequacy block)? Sourced from {@see ScopeRuntimeFacts}. */

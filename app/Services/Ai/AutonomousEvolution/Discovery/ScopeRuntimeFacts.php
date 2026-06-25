@@ -24,3 +24,21 @@ interface ScopeRuntimeFacts
     /** Was this file's most recent merge to main clean (canary green)? (false = no clean merge recorded.) */
     public function lastMergeClean(string $relPath): bool;
 }
+
+/**
+ * OPTIONAL extension fact: observed test presence sourced from the persistent coverage-edge ledger
+ * (see {@see \App\Models\AtlasLoopTestCoverageEdge}) via {@see AtlasLoopTestPresenceOracle}.
+ *
+ * Kept OUT of {@see ScopeRuntimeFacts} so legacy implementations stay byte-identical. Callers use
+ * `instanceof ScopeRuntimeFactsWithTestPresence` to detect availability and degrade safely to
+ * `true` when this trait is not present.
+ */
+interface ScopeRuntimeFactsWithTestPresence
+{
+    /**
+     * Does this file have observed test coverage? Safe degradation: when the database is
+     * unavailable or the coverage-edges table is missing, this MUST return true (no spurious
+     * `untested->tested` transition fires on infra failure).
+     */
+    public function hasTest(string $relPath): bool;
+}

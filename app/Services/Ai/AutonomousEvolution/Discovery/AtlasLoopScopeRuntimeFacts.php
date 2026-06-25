@@ -20,7 +20,7 @@ use Throwable;
  * Both loads are LAZY + memoized (one query each) and GUARDED exactly like the trend service: a DB-less or
  * degraded caller gets an empty map (=> every fact is the safe "no evidence" default), never an exception.
  */
-final class AtlasLoopScopeRuntimeFacts implements ScopeRuntimeFacts
+final class AtlasLoopScopeRuntimeFacts implements ScopeRuntimeFacts, ScopeRuntimeFactsWithTestPresence
 {
     /** @var array<string,bool>|null set of gate-blocked rel paths (lazy) */
     private ?array $gateBlocked = null;
@@ -32,6 +32,7 @@ final class AtlasLoopScopeRuntimeFacts implements ScopeRuntimeFacts
         private readonly ?AtlasLoopCoverageGapDetector $detector = null,
         private readonly int $recentTaskLimit = 500,
         private readonly int $mergedProposalLimit = 5000,
+        private readonly ?AtlasLoopTestPresenceOracle $testPresence = null,
     ) {
     }
 
@@ -47,6 +48,20 @@ final class AtlasLoopScopeRuntimeFacts implements ScopeRuntimeFacts
         $this->mergeClean ??= $this->loadMergeClean();
 
         return $this->mergeClean[$this->norm($relPath)] ?? false;
+    }
+
+    /**
+     * Does this file have observed test coverage? Sourced from {@see AtlasLoopTestPresenceOracle},
+     * lazy-loaded and memoized within a request (same pattern as {@see lastMergeClean}). Safe
+     * degradation when no oracle is wired ⇒ true (no spurious untested->tested transition).
+     */
+    public function hasTest(string $relPath): bool
+    {
+        if ($this->testPresence === null) {
+            return true; // safe default — backward compatible when no oracle is wired
+        }
+
+        return $this->testPresence->hasTest($relPath);
     }
 
     /**
