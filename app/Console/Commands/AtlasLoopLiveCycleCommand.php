@@ -45,7 +45,7 @@ final class AtlasLoopLiveCycleCommand extends Command
             'resume' => $this->doResume($masterOn),
             'status' => $this->doStatus($masterOn),
             'audit' => $this->doAudit(),
-            default => $this->failJson('unknown_action:'.$action),
+            default => $this->failWith('unknown_action:'.$action),
         };
     }
 

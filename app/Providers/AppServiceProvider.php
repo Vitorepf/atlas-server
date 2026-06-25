@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Console\Commands\AtlasLoopLiveCycleCommand;
 use App\Console\Commands\AtlasLoopMigrateCommand;
 use App\Console\Commands\AtlasLoopFrozenContractCommand;
 use App\Console\Commands\AtlasLoopCortexIntentCommand;
@@ -1305,6 +1306,7 @@ class AppServiceProvider extends ServiceProvider
             $this->commands([
                 AtlasLoopFrozenContractCommand::class,
                 AtlasLoopCortexIntentCommand::class,
+                AtlasLoopLiveCycleCommand::class,
                 AtlasLoopMigrateCommand::class,
                 AtlasLoopRollingWindowCli::class,
                 AtlasLoopSchemaFuzzCommand::class,
