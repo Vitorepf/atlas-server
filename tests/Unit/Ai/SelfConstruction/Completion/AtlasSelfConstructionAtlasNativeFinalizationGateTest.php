@@ -79,6 +79,81 @@ class AtlasSelfConstructionAtlasNativeFinalizationGateTest extends TestCase
         self::assertContains('refresh_evidence_facts', $verdict['next_atlas_actions']);
     }
 
+    public function test_ready_output_includes_source_coverage_with_no_misses(): void
+    {
+        $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($this->readyFacts());
+
+        self::assertArrayHasKey('source_coverage', $verdict);
+        self::assertGreaterThan(0, $verdict['source_coverage']['required_count']);
+        self::assertSame($verdict['source_coverage']['required_count'], $verdict['source_coverage']['observed_count']);
+        self::assertSame([], $verdict['source_coverage']['missing_sources']);
+        self::assertSame([], $verdict['source_coverage']['hold_sources']);
+        self::assertSame([], $verdict['source_coverage']['blocked_sources']);
+    }
+
+    public function test_hold_when_refreshable_source_is_missing_via_coverage(): void
+    {
+        $facts = $this->readyFacts();
+        unset($facts['evidence_facts']['docs_health']); // refreshable source
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($facts);
+
+        self::assertSame(AtlasSelfConstructionAtlasNativeFinalizationGate::FINAL_HOLD, $verdict['final_state']);
+        self::assertContains('docs_health', $verdict['source_coverage']['missing_sources']);
+        self::assertContains('docs_health', $verdict['source_coverage']['hold_sources']);
+        self::assertSame([], $verdict['source_coverage']['blocked_sources']);
+    }
+
+    public function test_blocked_when_unsafe_source_fails_via_coverage(): void
+    {
+        $facts = $this->readyFacts();
+        // Provide an explicit failing source (unsafe — non-refreshable).
+        $facts['evidence_facts']['sources'] = [
+            'task_serving_contract_sentinel' => ['status' => 'pass'],
+            'code_index_readiness_bridge' => ['status' => 'pass'],
+            'multi_project_governance_dossier' => ['status' => 'pass'],
+            'native_worker_readiness' => ['status' => 'pass'],
+            'verification_court' => ['status' => 'fail'],
+            'merge_governor' => ['status' => 'pass'],
+            'rollback' => ['status' => 'pass'],
+            'receipts' => ['status' => 'pass'],
+            'learning_transfer' => ['status' => 'pass'],
+            'docs_health' => ['status' => 'pass'],
+            'kb_sync' => ['status' => 'pass'],
+        ];
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($facts);
+
+        self::assertSame(AtlasSelfConstructionAtlasNativeFinalizationGate::FINAL_BLOCKED, $verdict['final_state']);
+        self::assertContains('verification_court', $verdict['source_coverage']['blocked_sources']);
+    }
+
+    public function test_blocked_due_autonomy_violation_still_reports_source_coverage(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['autonomy_verdict']['level'] = 'assisted';
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($facts);
+
+        self::assertSame(AtlasSelfConstructionAtlasNativeFinalizationGate::FINAL_BLOCKED, $verdict['final_state']);
+        self::assertContains('autonomy_level_below_floor:assisted', $verdict['blockers']);
+        self::assertArrayHasKey('source_coverage', $verdict);
+        self::assertSame([], $verdict['source_coverage']['blocked_sources']);
+    }
+
+    public function test_previous_finalization_blockers_are_preserved_alongside_source_coverage(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['ledger']['unsafe_release'] = true;
+        unset($facts['evidence_facts']['docs_health']);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($facts);
+
+        self::assertSame(AtlasSelfConstructionAtlasNativeFinalizationGate::FINAL_BLOCKED, $verdict['final_state']);
+        self::assertContains('ledger_blocker:unsafe_release', $verdict['blockers']);
+        self::assertContains('docs_health', $verdict['source_coverage']['hold_sources']);
+    }
+
     /**
      * @return array<string,mixed>
      */
