@@ -26,7 +26,7 @@ use Throwable;
  */
 class AtlasTaskCommand extends Command
 {
-    protected $signature = 'atlas:task {action : next|report} {verb?}
+    protected $signature = 'atlas:task {action : next|report|task-graph:replenish} {verb?}
         {--client= : Opaque client id (any AI/harness)}
         {--task= : task_packet_id (report)}
         {--lease= : lease_id (report)}
@@ -64,6 +64,7 @@ class AtlasTaskCommand extends Command
                 'maestro:tiering' => $this->maestroTiering(),
                 'contract:audit' => $this->contractAudit(),
                 'contract:backfill' => $this->contractBackfill(),
+                'task-graph:replenish' => $this->taskGraphReplenish(),
                 default => ['schema' => 'atlas.task_serving.error.v1', 'status' => 'unknown_action', 'action' => $action],
             };
         } catch (Throwable $e) {
@@ -316,6 +317,75 @@ class AtlasTaskCommand extends Command
         }
 
         return array_values($records);
+    }
+
+    /**
+     * task-graph:replenish — DRY-RUN by default; --apply turns enqueue writes on.
+     *
+     * Inputs are resolved from the container so feature tests can bind a fake
+     * `atlas.task_graph.replenisher.inputs` provider (a callable returning
+     * `[coverage_facts, planner_drafts, queue_facts, max_applied]`). When not
+     * bound, the action emits an empty plan envelope — safe default that never
+     * touches the queue. Apply path uses the container-bound enqueue callback
+     * (or falls back to AtlasTaskServingStack::queueRepo()->enqueue).
+     *
+     * @return array<string,mixed>
+     */
+    private function taskGraphReplenish(): array
+    {
+        $apply = (bool) $this->option('apply');
+
+        $inputs = ['coverage_facts' => [], 'planner_drafts' => [], 'queue_facts' => [], 'max_applied' => \App\Services\Ai\SelfConstruction\TaskGraph\AtlasSelfConstructionTaskGraphAutonomousReplenisher::DEFAULT_MAX_APPLIED];
+        if (app()->bound('atlas.task_graph.replenisher.inputs')) {
+            $provider = app('atlas.task_graph.replenisher.inputs');
+            if (is_callable($provider)) {
+                $resolved = $provider();
+                if (is_array($resolved)) {
+                    $inputs = array_replace($inputs, $resolved);
+                }
+            }
+        }
+
+        $callback = null;
+        if ($apply) {
+            if (app()->bound('atlas.task_graph.replenisher.enqueue_callback')) {
+                $override = app('atlas.task_graph.replenisher.enqueue_callback');
+                if (is_callable($override)) {
+                    $callback = $override;
+                }
+            }
+            if ($callback === null) {
+                $callback = static function (array $input): array {
+                    $packet = is_array($input['task_packet'] ?? null) ? $input['task_packet'] : [];
+
+                    return AtlasTaskServingStack::queueRepo()->enqueue($packet);
+                };
+            }
+        }
+
+        $replenisher = new \App\Services\Ai\SelfConstruction\TaskGraph\AtlasSelfConstructionTaskGraphAutonomousReplenisher;
+        $verdict = $replenisher->run(
+            (array) $inputs['coverage_facts'],
+            array_values((array) $inputs['planner_drafts']),
+            (array) $inputs['queue_facts'],
+            ['apply' => $apply, 'max_applied' => (int) $inputs['max_applied'], 'enqueue_callback' => $callback],
+        );
+
+        $plan = (array) ($verdict['plan'] ?? []);
+
+        return [
+            'schema' => \App\Services\Ai\SelfConstruction\TaskGraph\AtlasSelfConstructionTaskGraphAutonomousReplenisher::SCHEMA,
+            'status' => 'ok',
+            'mode' => $apply ? 'apply' : 'dry_run',
+            'dry_run' => (bool) ($verdict['dry_run'] ?? true),
+            'planned_count' => (int) ($plan['enqueue_input_count'] ?? 0),
+            'applied_count' => (int) ($verdict['applied_count'] ?? 0),
+            'withheld_count' => (int) ($verdict['withheld_count'] ?? 0),
+            'duplicate_count' => (int) ($verdict['duplicate_count'] ?? 0),
+            'max_applied' => (int) ($verdict['max_applied'] ?? 0),
+            'replenisher_hash' => (string) ($verdict['replenisher_hash'] ?? ''),
+            'enqueue_results' => array_values((array) ($verdict['enqueue_results'] ?? [])),
+        ];
     }
 
     /** @return array<string, mixed> the decoded --evidence JSON (or stdin when '-'); [] on absent/invalid. */
