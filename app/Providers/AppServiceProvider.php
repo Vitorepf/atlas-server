@@ -15,8 +15,12 @@ use App\Console\Commands\AtlasLoopCortexIntentCommand;
 use App\Console\Commands\AtlasLoopRollingWindowCli;
 use App\Console\Commands\AtlasLoopSchemaFuzzCommand;
 use App\Console\Commands\AtlasLoopFormalInvariantProofCli;
+use App\Console\Commands\AtlasLoopIntentResolveCommand;
 use App\Console\Commands\AtlasLoopSchemaMigrateRunCommand;
 use App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight\AtlasAaelInFlightReceiptLedger;
+use App\Services\Ai\AutonomousEvolution\Quaternity\IntentResolver\AtlasLoopIntentAmbiguityClarifierProposer;
+use App\Services\Ai\AutonomousEvolution\Quaternity\IntentResolver\AtlasLoopIntentAmbiguityFollowUpScheduler;
+use App\Services\Ai\AutonomousEvolution\Quaternity\IntentResolver\AtlasLoopIntentAmbiguityResolutionLedger;
 use Illuminate\Support\Facades\Artisan;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use App\Services\Ai\AgentGovernance\FleetDriver;
@@ -1303,6 +1307,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->registerLoopSentinels();
+        $this->registerLoopIntentResolverWiring();
         $this->registerCortexCouncilLenses();
     }
 
@@ -1344,6 +1349,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(AtlasLoopReplenisherDocGapOracleCoverageSentinel::class);
         $this->app->singleton(AtlasLoopWave19SentinelWiringCanary::class);
 
+    }
+
+    private function registerLoopIntentResolverWiring(): void
+    {
         $this->app->singleton(AtlasAaelInFlightReceiptLedger::class, function () {
             $configured = config('atlas.aael.inflight.ledger_path');
             $path = is_string($configured) && $configured !== ''
@@ -1351,6 +1360,84 @@ class AppServiceProvider extends ServiceProvider
                 : storage_path('app/atlas/aael/inflight/receipts.jsonl');
 
             return new AtlasAaelInFlightReceiptLedger($path);
+        });
+
+        // Intent ambiguity resolver loop wiring. Data source (intents) is a callable bound under
+        // INTENTS_SOURCE_BINDING; tests / future producers override it. Default = no intents.
+        if (! $this->app->bound(AtlasLoopIntentResolveCommand::INTENTS_SOURCE_BINDING)) {
+            $this->app->instance(
+                AtlasLoopIntentResolveCommand::INTENTS_SOURCE_BINDING,
+                static fn (): array => [],
+            );
+        }
+
+        $this->app->singleton(AtlasLoopIntentAmbiguityClarifierProposer::class);
+
+        $this->app->singleton(AtlasLoopIntentAmbiguityResolutionLedger::class, function ($app) {
+            $intentsSource = $app->make(AtlasLoopIntentResolveCommand::INTENTS_SOURCE_BINDING);
+            $proposer = $app->make(AtlasLoopIntentAmbiguityClarifierProposer::class);
+            $path = (string) config(
+                'atlas.loop.intent_resolver.ledger_path',
+                storage_path('app/atlas/loop/intent-resolver/ledger.jsonl'),
+            );
+
+            $openSetPredicate = static function (string $questionHash) use ($intentsSource): bool {
+                foreach ((array) $intentsSource() as $intent) {
+                    foreach ((array) ($intent['ambiguities'] ?? []) as $a) {
+                        if ((string) ($a['question_hash'] ?? '') === $questionHash) {
+                            return true;
+                        }
+                    }
+                }
+
+                return false;
+            };
+
+            $candidatesProvider = static function (string $questionHash) use ($intentsSource, $proposer): array {
+                foreach ((array) $intentsSource() as $intent) {
+                    foreach ((array) ($intent['ambiguities'] ?? []) as $a) {
+                        if ((string) ($a['question_hash'] ?? '') === $questionHash) {
+                            $packets = $proposer->propose($intent, [[
+                                'ambiguity_finding_id' => (string) ($a['ambiguity_finding_id'] ?? ''),
+                                'dimension' => (string) ($a['dimension'] ?? ''),
+                                'source_span' => (string) ($a['source_span'] ?? ''),
+                            ]], []);
+                            $packet = reset($packets);
+
+                            return is_array($packet) ? (array) ($packet['candidates'] ?? []) : [];
+                        }
+                    }
+                }
+
+                return [];
+            };
+
+            return new AtlasLoopIntentAmbiguityResolutionLedger($path, $openSetPredicate, $candidatesProvider);
+        });
+
+        $this->app->singleton(AtlasLoopIntentAmbiguityFollowUpScheduler::class, function ($app) {
+            $intentsSource = $app->make(AtlasLoopIntentResolveCommand::INTENTS_SOURCE_BINDING);
+            $ledgerPath = (string) config(
+                'atlas.loop.intent_resolver.ledger_path',
+                storage_path('app/atlas/loop/intent-resolver/ledger.jsonl'),
+            );
+
+            $resolvedHashesSource = static function () use ($ledgerPath): array {
+                if (! is_file($ledgerPath)) {
+                    return [];
+                }
+                $out = [];
+                foreach ((array) file($ledgerPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+                    $row = json_decode((string) $line, true);
+                    if (is_array($row) && isset($row['question_hash'])) {
+                        $out[] = (string) $row['question_hash'];
+                    }
+                }
+
+                return $out;
+            };
+
+            return new AtlasLoopIntentAmbiguityFollowUpScheduler($intentsSource, $resolvedHashesSource);
         });
     }
 
@@ -1376,6 +1463,7 @@ class AppServiceProvider extends ServiceProvider
                 AtlasLoopRollingWindowCli::class,
                 AtlasLoopSchemaFuzzCommand::class,
                 AtlasLoopSchemaMigrateRunCommand::class,
+                AtlasLoopIntentResolveCommand::class,
             ]);
 
             // Per-app (not global-static) registration so the dormant gate can be flipped per test
