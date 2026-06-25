@@ -14,7 +14,7 @@ namespace App\Services\Ai\SelfConstruction\Maestro\ProviderLearning;
  * Reconciliation: replaying the same receipts in the same order yields a byte-identical on-disk
  * file. Lookup is sorted by (requested_at ASC, receipt_id ASC).
  *
- * MUST NOT depend on MarketingDomain / Aaeos / Forge.
+ * Provider-free: no external/non-Atlas package dependencies.
  */
 final class AtlasMaestroProviderRecommendationReceiptLedger
 {
