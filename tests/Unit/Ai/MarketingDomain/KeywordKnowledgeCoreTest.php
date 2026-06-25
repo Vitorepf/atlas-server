@@ -77,6 +77,15 @@ class KeywordKnowledgeCoreTest extends TestCase
         $this->assertStringContainsString('Data Manager API', $law['statement']);
     }
 
+    public function test_has_the_value_based_bidding_law_web_verified_2026(): void
+    {
+        $law = $this->k->cite('value-based-bidding-2026');
+        $this->assertNotNull($law, 'VBB/tROAS-default 2026 é mecânica canônica do L0 (o norte: receita por keyword)');
+        $this->assertStringContainsString('support.google.com', $law['source']);
+        $this->assertStringContainsString('VALOR', $law['statement']);
+        $this->assertContains('value-based-bidding-2026', array_column($this->k->byTopic('bidding'), 'id'));
+    }
+
     public function test_has_the_ai_max_keywordless_law_web_verified_2025(): void
     {
         $law = $this->k->cite('ai-max-keywordless-2025');
