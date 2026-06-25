@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionAtlasNativeDossierExporter;
 use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionAtlasNativeEvidenceVerifier;
 use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionAtlasNativeFinalizationGate;
+use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionAtlasNativeReadinessPolicy;
 use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionFinalEvidenceSourceRegistry;
 use Illuminate\Console\Command;
 use Throwable;
@@ -23,7 +24,7 @@ use Throwable;
 final class AtlasSelfConstructionAtlasNativeCompletionCommand extends Command
 {
     /** @var string */
-    protected $signature = 'atlas:self-construction:atlas-native-completion {action : verify|gate|dossier} {--facts=} {--json}';
+    protected $signature = 'atlas:self-construction:atlas-native-completion {action : verify|gate|dossier|readiness} {--facts=} {--json}';
 
     /** @var string */
     protected $description = 'Atlas-native completion CLI: verify | gate | dossier.';
@@ -45,6 +46,7 @@ final class AtlasSelfConstructionAtlasNativeCompletionCommand extends Command
             'verify' => $this->verify($facts),
             'gate' => $this->gate($facts),
             'dossier' => $this->dossier($facts),
+            'readiness' => $this->readiness($facts),
             default => ['status' => 'unknown_action', 'action' => $action],
         };
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
@@ -75,6 +77,24 @@ final class AtlasSelfConstructionAtlasNativeCompletionCommand extends Command
             'final_state' => (string) ($verdict['final_state'] ?? 'unknown'),
             'gate' => $verdict,
             'source_coverage' => is_array($verdict['source_coverage'] ?? null) ? $verdict['source_coverage'] : [],
+        ];
+    }
+
+    /**
+     * Wires AtlasSelfConstructionAtlasNativeReadinessPolicy into the CLI: evaluate whether the
+     * supplied capability facts qualify Atlas Self-Construction as ATLAS_NATIVE-ready. Pure read.
+     *
+     * @param  array<string,mixed>  $facts
+     * @return array<string,mixed>
+     */
+    private function readiness(array $facts): array
+    {
+        $verdict = $this->app()->make(AtlasSelfConstructionAtlasNativeReadinessPolicy::class)->evaluate($facts);
+
+        return [
+            'status' => 'ok',
+            'final_state' => (string) ($verdict['outcome'] ?? 'unknown'),
+            'readiness' => $verdict,
         ];
     }
 
