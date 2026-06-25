@@ -63,6 +63,14 @@ class AtlasAiMarketingKeywordOsCommand extends Command
             ], array_slice($recommended, 0, 15)),
             'live_feeds' => $liveError === null && ! $this->option('no-live'),
             'live_error' => $liveError,
+            'total_expected_profit' => $run['revenue_ranking']['total_expected_profit'] ?? 0,
+            'top_by_revenue' => array_map(fn ($r) => [
+                'keyword' => $r['keyword'] ?? null,
+                'expected_profit' => $r['expected_profit'] ?? 0,
+                'volume' => $r['volume'] ?? 0,
+                'cvr' => $r['cvr_prior'] ?? 0,
+                'basis' => $r['basis'] ?? null,
+            ], array_slice((array) ($run['revenue_ranking']['ranked'] ?? []), 0, 15)),
         ];
 
         if ($this->option('json')) {
@@ -78,6 +86,13 @@ class AtlasAiMarketingKeywordOsCommand extends Command
         $this->line("universo={$payload['universe']}  descoberta_real={$payload['discovered_real']}  negativas={$payload['negatives']}  run={$payload['run_hash']}");
         foreach ($payload['recommended'] as $r) {
             $this->line(sprintf('  %-40s score=%-3s %s  venda-real×%s', $r['keyword'], $r['score'], $r['intent'], $r['outcome_weight']));
+        }
+
+        $this->newLine();
+        $this->info('💰 TOP KEYWORDS POR LUCRO PROJETADO (o norte — receita = volume × CVR × payout − custo):');
+        $this->line('  lucro total projetado: R$'.number_format((float) $payload['total_expected_profit'], 0));
+        foreach ($payload['top_by_revenue'] as $r) {
+            $this->line(sprintf('  %-40s lucro=R$%-9s vol=%-6s cvr=%s%% [%s]', $r['keyword'], number_format((float) $r['expected_profit'], 0), $r['volume'], round((float) $r['cvr'] * 100, 1), $r['basis']));
         }
 
         return self::SUCCESS;
