@@ -393,6 +393,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(\App\Services\Ai\AutonomousEvolution\LiveCycle\Nesting\AtlasLoopSubCycleSpawner::class);
         // LOOP-CYCLE-NEST W1160 P2 — child-outcome FACT merger (refuses scalar score/grade/rank/rating/quality_score).
         $this->app->singleton(\App\Services\Ai\AutonomousEvolution\LiveCycle\Nesting\AtlasLoopSubCycleResultMerger::class);
+        // W1170 — FACT confidence-bounds validator (default OFF, decoratable via interface).
+        $this->app->singleton(
+            \App\Services\Ai\AutonomousEvolution\FactConfidence\AtlasLoopFactConfidenceBoundsValidatorInterface::class,
+            \App\Services\Ai\AutonomousEvolution\FactConfidence\AtlasLoopFactConfidenceBoundsValidator::class,
+        );
         // Operator-intent schema registry — singleton so Extractor/Ledger/CLI all read the same schema.
         $this->app->singleton(AtlasLoopOperatorIntentSchemaRegistry::class);
         // Cycle-receipt chain — singletons so the CLI + any callers share one ledger/signer pair.
