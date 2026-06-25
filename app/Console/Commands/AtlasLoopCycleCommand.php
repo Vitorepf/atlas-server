@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\LiveCycle\AtlasLoopFullCycleConductor;
 use Illuminate\Console\Command;
 
@@ -150,6 +151,6 @@ final class AtlasLoopCycleCommand extends Command
 
     private function masterSwitchOn(): bool
     {
-        return (bool) (env('ATLAS_LOOP_MASTER_ENABLED') ?? false);
+        return AtlasLoopMasterSwitch::enabled();
     }
 }
