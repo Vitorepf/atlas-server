@@ -395,8 +395,31 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(\App\Services\Ai\AutonomousEvolution\LiveCycle\Nesting\AtlasLoopSubCycleResultMerger::class);
         // W1170 — FACT confidence-bounds validator (default OFF, decoratable via interface).
         $this->app->singleton(
-            \App\Services\Ai\AutonomousEvolution\FactConfidence\AtlasLoopFactConfidenceBoundsValidatorInterface::class,
             \App\Services\Ai\AutonomousEvolution\FactConfidence\AtlasLoopFactConfidenceBoundsValidator::class,
+        );
+        $this->app->singleton(
+            \App\Services\Ai\AutonomousEvolution\FactConfidence\AtlasLoopFactConfidenceBoundsReceiptLedger::class,
+            function ($app) {
+                $configured = config('atlas.loop.fact_confidence.ledger_path');
+                $path = is_string($configured) && $configured !== ''
+                    ? $configured
+                    : storage_path('app/atlas/loop/fact-confidence-receipts.jsonl');
+                $enabled = (bool) config('atlas.loop.fact_confidence.ledger_enabled', false);
+
+                return new \App\Services\Ai\AutonomousEvolution\FactConfidence\AtlasLoopFactConfidenceBoundsReceiptLedger($path, $enabled);
+            },
+        );
+        $this->app->singleton(
+            \App\Services\Ai\AutonomousEvolution\FactConfidence\AtlasLoopFactConfidenceBoundsValidatorInterface::class,
+            function ($app) {
+                $base = $app->make(\App\Services\Ai\AutonomousEvolution\FactConfidence\AtlasLoopFactConfidenceBoundsValidator::class);
+                if (! (bool) config('atlas.loop.fact_confidence.ledger_enabled', false)) {
+                    return $base; // byte-identical OFF: identity wrapper, no decorator
+                }
+                $ledger = $app->make(\App\Services\Ai\AutonomousEvolution\FactConfidence\AtlasLoopFactConfidenceBoundsReceiptLedger::class);
+
+                return new \App\Services\Ai\AutonomousEvolution\FactConfidence\AtlasLoopFactConfidenceBoundsValidatorLedgerDecorator($base, $ledger);
+            },
         );
         // Operator-intent schema registry — singleton so Extractor/Ledger/CLI all read the same schema.
         $this->app->singleton(AtlasLoopOperatorIntentSchemaRegistry::class);
