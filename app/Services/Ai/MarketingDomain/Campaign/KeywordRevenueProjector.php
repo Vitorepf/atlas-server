@@ -69,6 +69,7 @@ class KeywordRevenueProjector
             'expected_sales' => round($expectedSales, 1),
             'expected_revenue' => round($expectedRevenue, 2),
             'expected_profit' => round($expectedProfit, 2),
+            'profitable' => $expectedProfit > 0, // SEGURANÇA: CVR < breakeven (cpc/payout-líq) → PERDE dinheiro
             'cvr_prior' => round($cvr, 4),
             'volume' => $volume,
             'cpc' => round($cpc, 2),

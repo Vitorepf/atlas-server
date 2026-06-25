@@ -47,6 +47,18 @@ class KeywordRevenueProjectorTest extends TestCase
         $this->assertGreaterThan($pen['expected_revenue'], $trick['expected_revenue'], 'volume alto vence CVR alta em receita');
     }
 
+    public function test_safety_flags_money_losers_below_breakeven(): void
+    {
+        // CVR < breakeven (cpc/payout-líq) = PERDE dinheiro → profitable=false. payout-líq=108, probe cpc=1.60
+        // → breakeven 1.48%. score 15 → cvr 1.25% < 1.48% → loser.
+        $loser = $this->p->project(['keyword' => 'ed treatment', 'score' => 15, 'suffix_regime' => 'neutral', 'family' => ''], ['payout' => 120, 'refund' => 0.1]);
+        $this->assertFalse($loser['profitable'], 'sub-breakeven NUNCA é lucrativo');
+        $this->assertLessThan(0, $loser['expected_profit']);
+
+        $winner = $this->p->project(['keyword' => 'orivelle pen', 'score' => 90, 'suffix_regime' => 'possession', 'family' => 'discovered_real'], ['payout' => 120, 'refund' => 0.1]);
+        $this->assertTrue($winner['profitable']);
+    }
+
     public function test_arbitrage_coined_has_cheaper_clicks_and_higher_margin(): void
     {
         // a arbitragem está no clique barato: coined/posse (leilão sem concorrente) vs sintoma (todo mundo bida)
