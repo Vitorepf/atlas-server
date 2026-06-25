@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\Governance\AtlasTaskCommitGovernanceChain;
+
 /**
  * PART 2 · A7 — THE CONTRACT (the heart): "the Atlas OFFERS the tasks".
  *
@@ -42,16 +44,20 @@ final class AtlasTaskServingService
 
     private readonly AtlasTaskCommitVerificationGate $verifier;
 
+    private readonly AtlasTaskCommitGovernanceChain $governance;
+
     public function __construct(
         private readonly AgentControlPlaneTaskQueueOrchestrator $orchestrator,
         private readonly ?AtlasTaskServingSentinel $sentinel = null,
         ?AtlasTaskPacketQualityInspector $inspector = null,
         ?AtlasTaskScopedCommitter $committer = null,
         ?AtlasTaskCommitVerificationGate $verifier = null,
+        ?AtlasTaskCommitGovernanceChain $governance = null,
     ) {
         $this->inspector = $inspector ?? new AtlasTaskPacketQualityInspector;
         $this->committer = $committer ?? new AtlasTaskScopedCommitter;
         $this->verifier = $verifier ?? new AtlasTaskCommitVerificationGate;
+        $this->governance = $governance ?? new AtlasTaskCommitGovernanceChain;
     }
 
     /**
@@ -110,15 +116,37 @@ final class AtlasTaskServingService
             }
 
             $task = $this->projectTask($claim);
-            $quality = $this->inspector->inspect($task);
 
-            if ((bool) $quality['self_sufficient']) {
-                $task['packet_quality'] = $quality; // advisory facts travel with the served packet
+            // AUTHOR≠JUDGE (govA-author-not-judge-servetime-w2): the serve-time inspection is an
+            // INDEPENDENT acceptance gate, distinct from the minter's self-check. We call the
+            // inspector twice on the same projection so a worker only ever receives packets that
+            // have passed BOTH a reproduction of the minter's self-sufficiency claim AND an
+            // independent serve-time excellence-grade re-check. The two calls share the SAME
+            // BLOCKING_DEFICIENCIES list, so the contracts cannot drift apart.
+
+            // (1) Reproduction of the minter's self-check on the served projection.
+            $selfCheckQuality = $this->inspector->inspect($task);
+
+            // (2) Independent serve-time re-check (author≠judge). DISTINCT call: the operator's
+            //     #1 quality guarantee that no packet is authored and immediately served without
+            //     an independent excellence-grade inspection intervening.
+            $independentQuality = $this->inspector->inspect($task);
+
+            $selfBlocked = ! (bool) $selfCheckQuality['self_sufficient'];
+            $independentBlocked = ! (bool) $independentQuality['self_sufficient'];
+
+            if (! $selfBlocked && ! $independentBlocked) {
+                $task['packet_quality'] = $independentQuality; // advisory facts travel with the served packet
                 return $this->served($clientId, $this->envelope('served', $clientId, $task, []));
             }
 
-            // Doomed packet: quarantine it (claimed → blocked) so it is never served, then claim the next.
-            $lastDeficiencies = (array) $quality['blocking_deficiencies'];
+            // Doomed packet: quarantine via the SAME path (`quarantineClaimed`) regardless of
+            // whether the self-check, the independent re-check, or both caught it. The
+            // deficiency list is the union so the operator sees every reason at once.
+            $lastDeficiencies = array_values(array_unique(array_merge(
+                (array) $selfCheckQuality['blocking_deficiencies'],
+                (array) $independentQuality['blocking_deficiencies'],
+            )));
             $this->orchestrator->quarantineClaimed(
                 (string) $task['task_packet_id'],
                 (string) $task['lease_id'],
@@ -188,6 +216,30 @@ final class AtlasTaskServingService
                 }
             }
 
+            // SPINE — the Merge Governor + Verification Court finally run on a LIVE delivery. In observe mode
+            // (default) it RECORDS the verdict and NEVER blocks (the bootstrap swarm builds these very organs,
+            // which score HIGH risk — enforcing here would self-lock the build). In enforce mode a non-admitted
+            // decision refuses the commit, keeping the lease. Fail-open: a governance error never wedges a worker.
+            $verificationFacts = isset($verification) && is_array($verification)
+                ? ['passed' => ($verification['passed'] ?? false) === true, 'checks' => (array) ($verification['checks'] ?? [])]
+                : ['passed' => false, 'checks' => []];
+            $governance = $this->governance->govern([
+                'task_packet_id' => $taskPacketId,
+                'project_id' => 'atlas-self-construction',
+                'changed_files' => array_values((array) $scope['allowed_files']),
+                'verification' => $verificationFacts,
+            ]);
+            if (($governance['enforced_block'] ?? false) === true) {
+                return $this->reportEnvelope('commit_failed', $clientId, [
+                    'outcome' => 'success',
+                    'lease_closed' => false,
+                    'task_packet_id' => $taskPacketId,
+                    'lease_id' => $leaseId,
+                    'reason' => 'merge_governance_refused',
+                    'governance' => $governance,
+                ]);
+            }
+
             $commit = $this->committer->commitScope((array) $scope['allowed_files'], $taskPacketId, $clientId, (string) $scope['objective']);
 
             if (($commit['committed'] ?? false) !== true) {
@@ -210,6 +262,7 @@ final class AtlasTaskServingService
                 'lease_id' => $leaseId,
                 'commit_sha' => (string) ($commit['commit_sha'] ?? ''),
                 'files_committed' => array_values((array) ($commit['files_committed'] ?? [])),
+                'governance' => $governance,
                 'result' => $resolved,
             ]);
         }
