@@ -30,6 +30,7 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistryTest extends TestCas
             'unattended_runtime_supervisor',
             'scope_expansion_governor',
             'native_worker_runtime',
+            'runtime_daemon',
         ];
         foreach ($expected as $id) {
             $this->assertContains($id, $ids, "missing required source: {$id}");
@@ -234,6 +235,7 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistryTest extends TestCas
                 'unattended_runtime_supervisor' => ['status' => 'pass'],
                 'scope_expansion_governor' => ['status' => 'pass'],
                 'native_worker_runtime' => ['status' => 'pass'],
+                'runtime_daemon' => ['status' => 'pass'],
             ],
             'final_runtime_owner' => 'atlas_native',
             'steady_state_runtime_owner' => 'atlas_server',
@@ -247,6 +249,65 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistryTest extends TestCas
 
         $this->assertTrue($verifierVerdict['passed']);
         $this->assertSame([], $verifierVerdict['blockers']);
+    }
+
+    public function test_runtime_daemon_source_present_with_schemas_and_runtime_proof(): void
+    {
+        $verdict = (new AtlasSelfConstructionFinalEvidenceSourceRegistry)->describe();
+        $row = null;
+        foreach ($verdict['required_sources'] as $s) {
+            if ($s['id'] === 'runtime_daemon') {
+                $row = $s;
+                break;
+            }
+        }
+        $this->assertNotNull($row);
+        $this->assertTrue($row['blocking']);
+        $this->assertContains('atlas.self_construction.runtime_daemon_cycle.v1', $row['schema_versions']);
+        $this->assertContains('atlas.self_construction.runtime_scheduler_manifest.v1', $row['schema_versions']);
+        foreach (['daemon_dry_run_tick', 'daemon_apply_mode_tick_through_injected_callbacks', 'heartbeat_and_state_handling', 'scheduler_manifest_present', 'safety_stop_blocks_apply'] as $p) {
+            $this->assertContains($p, $row['required_runtime_proof']);
+        }
+        foreach (['operator', 'human', 'claude_code', 'codex', 'cursor', 'external_provider', 'git', 'network', 'unrestricted_shell'] as $forbidden) {
+            $this->assertContains($forbidden, $row['requires_no_dependency_on']);
+        }
+    }
+
+    public function test_final_completion_cannot_ignore_missing_runtime_daemon_proof(): void
+    {
+        $verifier = new \App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionAtlasNativeEvidenceVerifier();
+        $verdict = $verifier->verify([
+            'sources' => [
+                'task_serving_contract_sentinel' => ['status' => 'pass'],
+                'code_index_readiness_bridge' => ['status' => 'pass'],
+                'multi_project_governance_dossier' => ['status' => 'pass'],
+                'native_worker_readiness' => ['status' => 'pass'],
+                'verification_court' => ['status' => 'pass'],
+                'merge_governor' => ['status' => 'pass'],
+                'rollback' => ['status' => 'pass'],
+                'receipts' => ['status' => 'pass'],
+                'learning_transfer' => ['status' => 'pass'],
+                'docs_health' => ['status' => 'pass'],
+                'knowledge_sync' => ['status' => 'pass'],
+                'task_graph_coverage_dossier' => ['status' => 'pass'],
+                'task_graph_autonomous_replenisher' => ['status' => 'pass'],
+                'unattended_runtime_supervisor' => ['status' => 'pass'],
+                'scope_expansion_governor' => ['status' => 'pass'],
+                'native_worker_runtime' => ['status' => 'pass'],
+                // runtime_daemon intentionally absent
+            ],
+            'final_runtime_owner' => 'atlas_native',
+            'steady_state_runtime_owner' => 'atlas_server',
+            'autonomy_dependencies' => [
+                'depends_on_operator' => false,
+                'depends_on_claude_code' => false,
+                'depends_on_codex' => false,
+                'depends_on_external_provider_network' => false,
+            ],
+        ]);
+
+        $this->assertFalse($verdict['passed']);
+        $this->assertContains('source_missing:runtime_daemon', $verdict['blockers']);
     }
 
     public function test_no_human_or_external_provider_dependency_was_introduced(): void
