@@ -1,0 +1,94 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Ai\SelfConstruction\ControlPlane;
+
+use App\Services\Ai\SelfConstruction\ControlPlane\AtlasSelfConstructionScopeRiskBudgetGate;
+use PHPUnit\Framework\TestCase;
+
+/**
+ * Proves AtlasSelfConstructionScopeRiskBudgetGate: safe Atlas-lane request ⇒ allowed=true with
+ * normalized_scope; scope outside lane roots ⇒ scope_outside_lane:<path>; forbidden organ touched ⇒
+ * forbidden_organ_touched:<organ>; high-risk without rollback_ready ⇒
+ * high_risk_requires_rollback_ready; zero budget ⇒ empty_task_budget AND empty_cost_budget.
+ */
+final class AtlasSelfConstructionScopeRiskBudgetGateTest extends TestCase
+{
+    private function safeFacts(): array
+    {
+        return [
+            'requested_scope' => ['app/Demo/Foo.php'],
+            'risk_class' => 'medium',
+            'task_budget' => 10,
+            'cost_budget_units' => 100,
+            'project_lane' => ['project_id' => 'atlas', 'allowed_scope_roots' => ['app/']],
+            'forbidden_organs' => ['Constitution', 'MasterSwitch'],
+            'touched_organs' => ['Demo'],
+            'rollback_ready' => true,
+        ];
+    }
+
+    public function test_safe_atlas_lane_yields_allowed_true_with_normalized_scope(): void
+    {
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($this->safeFacts());
+        $this->assertTrue($r['allowed']);
+        $this->assertSame(['app/Demo/Foo.php'], $r['normalized_scope']);
+        $this->assertSame(10, $r['max_tasks']);
+        $this->assertSame(100, $r['max_cost_units']);
+    }
+
+    public function test_scope_outside_lane_yields_named_blocker(): void
+    {
+        $f = $this->safeFacts();
+        $f['requested_scope'] = ['/etc/passwd'];
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+        $this->assertFalse($r['allowed']);
+        $this->assertContains('scope_outside_lane:/etc/passwd', $r['blockers']);
+    }
+
+    public function test_forbidden_organ_touched_yields_blocker(): void
+    {
+        $f = $this->safeFacts();
+        $f['touched_organs'] = ['Constitution', 'Demo'];
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+        $this->assertFalse($r['allowed']);
+        $this->assertContains('forbidden_organ_touched:Constitution', $r['blockers']);
+    }
+
+    public function test_high_risk_without_rollback_ready_is_blocked(): void
+    {
+        $f = $this->safeFacts();
+        $f['risk_class'] = 'high';
+        $f['rollback_ready'] = false;
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+        $this->assertFalse($r['allowed']);
+        $this->assertContains('high_risk_requires_rollback_ready', $r['blockers']);
+    }
+
+    public function test_zero_budget_yields_both_budget_blockers(): void
+    {
+        $f = $this->safeFacts();
+        $f['task_budget'] = 0;
+        $f['cost_budget_units'] = 0;
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+        $this->assertContains('empty_task_budget', $r['blockers']);
+        $this->assertContains('empty_cost_budget', $r['blockers']);
+    }
+
+    public function test_invalid_risk_class_is_blocked(): void
+    {
+        $f = $this->safeFacts();
+        $f['risk_class'] = 'apocalypse';
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+        $this->assertContains('invalid_risk_class:apocalypse', $r['blockers']);
+    }
+
+    public function test_missing_project_lane_scope_roots_is_blocked(): void
+    {
+        $f = $this->safeFacts();
+        $f['project_lane'] = ['project_id' => 'atlas'];
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+        $this->assertContains('missing_project_lane_scope_roots', $r['blockers']);
+    }
+}
