@@ -23,6 +23,7 @@ class KeywordIntelligencePipeline
         private readonly KeywordClusterer $clusterer = new KeywordClusterer,
         private readonly KeywordVolumeSignal $volumeSignal = new KeywordVolumeSignal,
         private readonly KeywordRegimeClassifier $regimes = new KeywordRegimeClassifier,
+        private readonly KeywordRevenueProjector $revenue = new KeywordRevenueProjector,
     ) {}
 
     /**
@@ -70,6 +71,7 @@ class KeywordIntelligencePipeline
             'clusters' => $this->clusterer->cluster((array) ($universe['keywords'] ?? [])), // L7 STAG ad groups
             'volume_priority' => $this->volumeSignal->prioritize($quality['scored'], (array) ($opts['volume_map'] ?? [])), // L5 demanda×intenção
             'regimes' => $this->regimes->partition($quality['scored']), // #6: colheita/semeadura/sonda isolados (alavanca de escala)
+            'revenue_ranking' => $this->revenue->rank($quality['scored'], $econ, (array) ($opts['volume_map'] ?? [])), // NORTE: ordena por RECEITA esperada (volume×CVR×payout), não só CVR
             'scored' => $quality['scored'],
             'launch_selection' => $launch,
             'negatives' => $negatives,
