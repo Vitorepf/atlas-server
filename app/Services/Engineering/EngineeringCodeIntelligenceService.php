@@ -220,7 +220,9 @@ class EngineeringCodeIntelligenceService
         $startedAt = microtime(true);
         $phaseTimings = [];
         $this->ensureIndexMemoryBudget();
-        $this->ensureTables();
+        if (! $this->tablesExist()) {
+            return $this->tablesMissingPayload('atlas.code_intelligence.audit.v1');
+        }
 
         $workspace = $this->workspace($options['workspace'] ?? base_path());
         $this->workspaceId = app(CodeGraphWorkspaceIdentity::class)->resolve($workspace);
@@ -293,6 +295,9 @@ class EngineeringCodeIntelligenceService
     public function readiness(array $options = []): array
     {
         $startedAt = microtime(true);
+        if (! $this->tablesExist()) {
+            return $this->tablesMissingPayload('atlas.code_intelligence.readiness.v1');
+        }
         $workspace = $this->workspace($options['workspace'] ?? base_path());
         $audit = $this->audit($options);
         $stabilityRechecked = false;
@@ -4176,6 +4181,41 @@ class EngineeringCodeIntelligenceService
             'atlas_engineering_code_symbols',
             'atlas_engineering_doc_links',
         ]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function missingTables(): array
+    {
+        $expected = [
+            'atlas_engineering_code_modules',
+            'atlas_engineering_code_symbols',
+            'atlas_engineering_doc_links',
+        ];
+        $missing = [];
+        foreach ($expected as $table) {
+            if (! DatabaseTableAvailability::all([$table])) {
+                $missing[] = $table;
+            }
+        }
+
+        return $missing;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function tablesMissingPayload(string $schemaVersion): array
+    {
+        return [
+            'schema_version' => $schemaVersion,
+            'status' => 'blocked',
+            'blocker' => 'code_intelligence_tables_missing',
+            'missing_tables' => $this->missingTables(),
+            'repair_hint' => 'Run: php artisan migrate --path=database/migrations to create code intelligence tables.',
+            'generated_at' => now()->toJSON(),
+        ];
     }
 
     private function workspace(mixed $workspace): string
