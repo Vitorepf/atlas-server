@@ -61,6 +61,9 @@ As alavancas de MAIOR valor restantes estão TODAS travadas por **dado de venda 
 
 **Leitura honesta:** o socket estrutural provável-sem-dado da bridge+ad está bem colhido (6 floors + ad-uptime). O próximo salto GRANDE de verdade exige (a) dado de venda real destravando a calibração, ou (b) capacidade multi-file/cross-stage maior que 1 ciclo. Continuar a empilhar micro-floors estruturais = retorno marginal decrescente (anti-Goodhart: parar antes de virar proxy-farm de detectores). O loop deve agora ou aguardar dado real, ou o operador liberar uma obra multi-file maior.
 
+### Ciclo 7 — verificação do estágio KEYWORD (provar-vs-construir; platô CONFIRMADO)
+Hipótese: faltava compliance de keyword (regra #1 = bidar marca/produto perde filiação + drogas restritas que reprovam). **Verifiquei o código real ANTES de construir** e a hipótese caiu: já existe E está consumido. `KeywordAccountRiskSignal` (auto-rotulado "Detection is **structural**, not a quality-scorer" — detecta brand-bidding com aviso de clawback/ban + termo de droga restrita EMBUTIDO numa keyword sobrevivente) é injetado no `KeywordQualityIndex`, que `CampaignBlueprintService` consome no caminho de build; `QualifiedKeywordPatternEngine` proíbe token de droga nu; `KeywordQualityIndex::eliminate()` mata `bare_drug`. ⇒ não construir duplicata. **Platô VERIFICADO nos 3 estágios** (bridge/ad/keyword todos com enforcement estrutural consumido). A fronteira provável-sem-dado-vivo está colhida; o motor espera combustível real (conversão) ou um escopo novo do operador. Parar de empilhar é a decisão anti-Goodhart correta — não fabricar ciclos pra "parecer 24h".
+
 ## Log detalhado
 
 ### Ciclo 0 — Compreensão + seleção (em andamento)
