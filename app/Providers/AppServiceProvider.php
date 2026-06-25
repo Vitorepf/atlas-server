@@ -16,6 +16,7 @@ use App\Console\Commands\AtlasLoopRollingWindowCli;
 use App\Console\Commands\AtlasLoopSchemaFuzzCommand;
 use App\Console\Commands\AtlasLoopFormalInvariantProofCli;
 use App\Console\Commands\AtlasLoopSchemaMigrateRunCommand;
+use App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight\AtlasAaelInFlightReceiptLedger;
 use Illuminate\Support\Facades\Artisan;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use App\Services\Ai\AgentGovernance\FleetDriver;
@@ -1342,6 +1343,15 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(AtlasLoopServingQueueDiskConformanceSentinel::class);
         $this->app->singleton(AtlasLoopReplenisherDocGapOracleCoverageSentinel::class);
         $this->app->singleton(AtlasLoopWave19SentinelWiringCanary::class);
+
+        $this->app->singleton(AtlasAaelInFlightReceiptLedger::class, function () {
+            $configured = config('atlas.aael.inflight.ledger_path');
+            $path = is_string($configured) && $configured !== ''
+                ? $configured
+                : storage_path('app/atlas/aael/inflight/receipts.jsonl');
+
+            return new AtlasAaelInFlightReceiptLedger($path);
+        });
     }
 
     /**
