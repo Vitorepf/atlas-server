@@ -598,15 +598,6 @@ final class AtlasSelfConstructionFinalCompletionHumanGateService
     /** @param array<string, mixed> $value */
     private function ksortRecursive(array $value): array
     {
-        foreach ($value as $key => $entry) {
-            if (is_array($entry)) {
-                $value[$key] = $this->ksortRecursive($entry);
-            }
-        }
-        if ($value !== [] && array_keys($value) !== range(0, count($value) - 1)) {
-            ksort($value);
-        }
-
-        return $value;
+        return ReadinessHash::ksortRecursive($value);
     }
 }
