@@ -48,14 +48,24 @@ final class AtlasLoopTrinityDashboardCommand extends Command
         }
 
         $snapshot = $this->loadSnapshot();
-        if ($snapshot === null) {
-            $this->line(self::NO_DATA_MARKER);
-
-            return self::SUCCESS;
-        }
-        $this->line($this->renderFrame($snapshot));
+        $this->line($this->render($snapshot ?? []));
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Public pure renderer reused by handle() and the overview composer. An empty snapshot returns the
+     * NO_DATA_MARKER (the same byte sequence handle() would have emitted for a null snapshot).
+     *
+     * @param  array<string,mixed>  $snapshot
+     */
+    public function render(array $snapshot): string
+    {
+        if ($snapshot === []) {
+            return self::NO_DATA_MARKER;
+        }
+
+        return $this->renderFrame($snapshot);
     }
 
     /**

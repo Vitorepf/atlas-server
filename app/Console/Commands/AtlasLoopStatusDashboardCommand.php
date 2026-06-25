@@ -40,9 +40,20 @@ final class AtlasLoopStatusDashboardCommand extends Command
         }
 
         $snapshot = $this->loadSnapshot();
-        $this->line($this->renderFrame($snapshot));
+        $this->line($this->render($snapshot));
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Public, pure renderer reused by handle() and by the composing overview command. Same underlying
+     * format as renderFrame() — handle() and the overview share this single code path.
+     *
+     * @param  array<string,mixed>  $snapshot
+     */
+    public function render(array $snapshot): string
+    {
+        return $this->renderFrame($snapshot);
     }
 
     /**

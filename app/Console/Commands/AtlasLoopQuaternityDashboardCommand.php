@@ -47,9 +47,19 @@ final class AtlasLoopQuaternityDashboardCommand extends Command
         }
 
         $snapshot = $this->loadSnapshot();
-        $this->line($this->renderFrame($snapshot));
+        $this->line($this->render($snapshot));
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Public pure renderer reused by handle() and the overview composer.
+     *
+     * @param  array<string,mixed>  $snapshot
+     */
+    public function render(array $snapshot): string
+    {
+        return $this->renderFrame($snapshot);
     }
 
     /**

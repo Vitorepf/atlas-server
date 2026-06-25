@@ -51,13 +51,30 @@ final class AtlasLoopReceiptsDashboardCommand extends Command
         }
 
         $tail = $this->clampedTail();
-        $attempts = $this->readRows(self::ATTEMPT_READER_KEY, $tail);
-        $impacts = $this->readRows(self::IMPACT_READER_KEY, $tail);
-        $outcomes = $this->readRows(self::OUTCOME_READER_KEY, $tail);
+        $snapshot = [
+            'attempts' => $this->readRows(self::ATTEMPT_READER_KEY, $tail),
+            'impacts' => $this->readRows(self::IMPACT_READER_KEY, $tail),
+            'outcomes' => $this->readRows(self::OUTCOME_READER_KEY, $tail),
+        ];
 
-        $this->line($this->renderFrame($attempts, $impacts, $outcomes));
+        $this->line($this->render($snapshot));
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Public pure renderer reused by handle() and the overview composer. Accepts a single composite
+     * snapshot {attempts, impacts, outcomes} and delegates to renderFrame.
+     *
+     * @param  array{attempts?:list<array<string,mixed>>, impacts?:list<array<string,mixed>>, outcomes?:list<array<string,mixed>>}  $snapshot
+     */
+    public function render(array $snapshot): string
+    {
+        return $this->renderFrame(
+            (array) ($snapshot['attempts'] ?? []),
+            (array) ($snapshot['impacts'] ?? []),
+            (array) ($snapshot['outcomes'] ?? []),
+        );
     }
 
     private function clampedTail(): int
