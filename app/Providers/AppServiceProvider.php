@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Console\Commands\AtlasLoopAnomalyCommand;
 use App\Console\Commands\AtlasLoopAuditCommand;
+use App\Console\Commands\AtlasLoopCortexMemoryIntegrationCommand;
 use App\Console\Commands\AtlasLoopFactAnchorCommand;
 use App\Console\Commands\AtlasLoopLiveCycleCommand;
 use App\Console\Commands\AtlasLoopSelfIntrospectionCommand;
@@ -1348,6 +1349,7 @@ class AppServiceProvider extends ServiceProvider
             $this->commands([
                 AtlasLoopAnomalyCommand::class,
                 AtlasLoopAuditCommand::class,
+                AtlasLoopCortexMemoryIntegrationCommand::class,
                 AtlasLoopFactAnchorCommand::class,
                 AtlasLoopFrozenContractCommand::class,
                 AtlasLoopCortexIntentCommand::class,
