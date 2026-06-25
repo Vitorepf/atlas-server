@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\AutonomousEvolution\FrozenContracts\AtlasLoopFrozenContractAutoSentinelGenerator;
 use App\Services\Ai\AutonomousEvolution\FrozenContracts\AtlasLoopFrozenContractCoverageReporter;
 use App\Services\Ai\AutonomousEvolution\FrozenContracts\AtlasLoopFrozenContractFactExtractor;
 use App\Services\Ai\AutonomousEvolution\FrozenContracts\AtlasLoopFrozenContractRetirementGate;
+use App\Services\Ai\AutonomousEvolution\FrozenContracts\AtlasLoopFrozenContractSentinelClobberException;
 use Illuminate\Console\Command;
 
 /**
@@ -25,9 +27,11 @@ final class AtlasLoopFrozenContractsCommand extends Command
 
     public const EXIT_USAGE = 2;
 
-    protected $signature = 'atlas:loop:frozen:contracts {action : inspect|coverage|retire} {--class= : FQCN for inspect/retire} {--receipt= : operator receipt token for retire} {--json}';
+    public const EXIT_CLOBBER_REFUSED = 3;
 
-    protected $description = 'Operator surface for frozen contracts: inspect | coverage | retire.';
+    protected $signature = 'atlas:loop:frozen:contracts {action : inspect|coverage|retire|generate-sentinel} {--class= : FQCN for inspect/retire/generate-sentinel} {--receipt= : operator receipt token for retire/generate-sentinel} {--target= : target sentinel path for generate-sentinel} {--json}';
+
+    protected $description = 'Operator surface for frozen contracts: inspect | coverage | retire | generate-sentinel.';
 
     public function handle(
         AtlasLoopFrozenContractFactExtractor $extractor,
@@ -40,8 +44,40 @@ final class AtlasLoopFrozenContractsCommand extends Command
             'inspect' => $this->inspect($extractor),
             'coverage' => $this->coverage($coverage),
             'retire' => $this->retire($gate),
+            'generate-sentinel' => $this->generateSentinel($extractor),
             default => $this->usage('unknown action: '.$action),
         };
+    }
+
+    private function generateSentinel(AtlasLoopFrozenContractFactExtractor $extractor): int
+    {
+        $class = trim((string) $this->option('class'));
+        $target = trim((string) $this->option('target'));
+        if ($class === '' || $target === '') {
+            return $this->usage('--class=<FQCN> and --target=<path> are required for generate-sentinel');
+        }
+        $facts = $extractor->extract($class);
+        $generator = app()->bound(AtlasLoopFrozenContractAutoSentinelGenerator::class)
+            ? app(AtlasLoopFrozenContractAutoSentinelGenerator::class)
+            : new AtlasLoopFrozenContractAutoSentinelGenerator();
+        $receipt = (string) $this->option('receipt');
+        try {
+            $result = $generator->generate($facts, $target, $receipt !== '' ? $receipt : null);
+        } catch (AtlasLoopFrozenContractSentinelClobberException $e) {
+            $this->emit(
+                ['ok' => false, 'reason' => 'sentinel_clobber_refused', 'message' => $e->getMessage(), 'target' => $target],
+                'sentinel_clobber_refused target='.$target,
+            );
+
+            return self::EXIT_CLOBBER_REFUSED;
+        }
+
+        $this->emit(
+            ['ok' => true, 'class_name' => $result['class_name'], 'target' => $target, 'bytes' => strlen($result['code'])],
+            'generated class='.$result['class_name'].' target='.$target,
+        );
+
+        return self::EXIT_OK;
     }
 
     private function inspect(AtlasLoopFrozenContractFactExtractor $extractor): int
