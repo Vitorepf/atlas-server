@@ -51,7 +51,32 @@ final class AtlasLoopProjectionWorker
         // P5 lensed-critique seam — nullable LAST arg (back-compat: legacy callers autowire null ⇒ a default
         // critic, byte-identical). Injectable so a test can count the per-lens passes without a real provider.
         private readonly ?AtlasLoopModelProjectionCritic $critic = null,
+        // ACDE memory wiring — nullable, flag-gated, fail-open. The recall is consulted AFTER the pétreo
+        // forbidden short-circuit (never invoked when the target is parked), and any throw inside the recall
+        // is caught so the deterministic projection path stays the source of truth.
+        private readonly ?AtlasLoopProjectionMemoryRecall $memoryRecall = null,
     ) {}
+
+    /**
+     * Consult the memory recall when wired AND the target is non-forbidden. Returns the list of matching
+     * memory items (kind/scope/text/source_ref) or an empty list. Failure modes (recall throws, empty
+     * target, flag off) all collapse to []. NEVER weakens the caller's deterministic obligation set.
+     *
+     * @return list<array{kind:string, scope:string, text:string, source_ref:string}>
+     */
+    public function recallMemoryHits(string $relTarget, string $bindingAxis): array
+    {
+        if ($this->memoryRecall === null) {
+            return [];
+        }
+        try {
+            $hits = $this->memoryRecall->forTarget($relTarget, $bindingAxis);
+        } catch (Throwable) {
+            return [];
+        }
+
+        return is_array($hits) ? array_values($hits) : [];
+    }
 
     /**
      * Run the projection for a single CLAIMED pipeline row (its decoded shape from
