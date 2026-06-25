@@ -70,6 +70,7 @@ class KeywordOsRunner
             'mined_negatives' => array_values((array) ($feeds['mined_negatives'] ?? [])),
             'volume_map' => (array) ($feeds['volume_map'] ?? []),  // NORTE: cliques reais → projeção de receita
             'cvr_map' => (array) ($feeds['cvr_map'] ?? []),        // NORTE: CVR real → projeção quase exata
+            'budget' => (float) ($feeds['budget'] ?? 0),           // budget → portfólio de máximo lucro
         ]);
     }
 
@@ -134,7 +135,7 @@ class KeywordOsRunner
      *
      * @return array<string,mixed>
      */
-    public function run(AiMarketingVslAsset $asset, array $econ = [], int $minClicks = 5): array
+    public function run(AiMarketingVslAsset $asset, array $econ = [], int $minClicks = 5, float $budget = 0): array
     {
         $harvest = $this->harvester->harvest($minClicks)['terms'];
         $volumeMap = [];
@@ -153,6 +154,7 @@ class KeywordOsRunner
             'mined_negatives' => array_column($this->negativeMiner->harvest()['negatives'], 'ngram'),
             'volume_map' => $volumeMap,
             'cvr_map' => $cvrMap,
+            'budget' => $budget,
         ]);
     }
 }
