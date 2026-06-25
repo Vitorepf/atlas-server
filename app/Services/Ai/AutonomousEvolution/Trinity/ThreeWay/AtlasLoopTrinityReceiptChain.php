@@ -11,20 +11,9 @@ use RuntimeException;
  * that the merger emitted for the cycle. Co-located with the receipt chain because only this allowed_file owns
  * the contract — it is the typed input to {@see AtlasLoopTrinityReceiptChain::append()}.
  */
-final class TrinityCycleResult
-{
-    /**
-     * @param  list<array<string,mixed>>  $factStream  canonical TrinityFact stream for the cycle (merger output)
-     */
-    public function __construct(
-        public readonly string $cycleId,
-        public readonly string $loopReceiptId,
-        public readonly string $cortexReceiptId,
-        public readonly string $maestroReceiptId,
-        public readonly array $factStream,
-    ) {
-    }
-}
+// TrinityCycleResult is declared in its own PSR-4 file (TrinityCycleResult.php) to avoid the duplicate-class
+// collision with AtlasLoopTrinityCycleConductor.php which also referenced the same name. Both callers
+// continue to use the canonical class.
 
 /**
  * Thrown when {@see AtlasLoopTrinityReceiptChain::append()} is asked to record a cycleId that already has an

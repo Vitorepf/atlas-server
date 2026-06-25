@@ -282,15 +282,6 @@ final class AtlasLoopTrinityCycleConductor
     }
 }
 
-final readonly class TrinityCycleResult
-{
-    public function __construct(
-        public string $cycleId,
-        public string $loopReceiptId,
-        public string $cortexReceiptId,
-        public string $maestroReceiptId,
-        public int $newFactCount,
-        public bool $fuelGenerated,
-    ) {
-    }
-}
+// TrinityCycleResult lives in its own PSR-4 file (TrinityCycleResult.php). Previously co-located here AND
+// in AtlasLoopTrinityReceiptChain.php — the duplicate-class collision crashed any code that autoloaded both
+// files. The canonical class now supports both call-sites via additive default-valued fields.
