@@ -15,6 +15,15 @@ return [
         'give_back_reclaim_cooldown_seconds' => (int) env('ATLAS_TASK_SERVING_GIVE_BACK_RECLAIM_COOLDOWN_SECONDS', 600),
     ],
 
+    // Provider routing defaults (Checkpoint-B prep). The EXECUTION runtime is HERMES-NATIVE — a runtime sentinel,
+    // NEVER a pinned model name (MiniMax is merely the model Hermes happens to use today, swappable). The
+    // BRAIN/frontier-design default is Codex (the frontier connectable via a subscription account). Both are
+    // env-swappable; NO model is hardcoded in code. See memory loop-checkpoint-A-vs-B-honest-split / loop-hermes-native-no-model-pin.
+    'provider_defaults' => [
+        'execution_runtime' => env('ATLAS_EXECUTION_RUNTIME', 'hermes_cli_default'),
+        'brain_default' => env('ATLAS_BRAIN_PROVIDER', 'codex_cli'),
+    ],
+
     'storage_path' => env('ATLAS_STORAGE_PATH', '/var/atlas/storage'),
     'max_upload_bytes' => (int) env('ATLAS_MAX_UPLOAD_BYTES', 100 * 1024 * 1024),
 
@@ -51,6 +60,14 @@ return [
         // extractor keeps the head (hook/lead/mechanism) and tail (offer/price/CTA) intact and marks
         // the omitted middle, so a long VSL never silently loses its pitch. ~80k chars ≈ 20k tokens.
         'extraction_max_transcript_chars' => (int) env('ATLAS_MARKETING_EXTRACTION_MAX_TRANSCRIPT_CHARS', 80000),
+
+        // ConversionCriticGate (generator+verifier): the bridge composer re-rolls / surfaces a refusal
+        // when the FINAL post-override copy fails a STRUCTURAL-TRUTH floor (reveal/CTA leak in the
+        // opening, choice-overload/no-CTA, zero concrete proof). Provider-free. Off = byte-identical to
+        // the pre-critic baseline (dark-ship safe). Threshold tunes the WARN-only prior tier
+        // (strong=70 / decent=55 / off=structural-only); structural floors block regardless.
+        'critic_enabled' => (bool) env('ATLAS_MARKETING_CRITIC_ENABLED', true),
+        'critic_threshold' => env('ATLAS_MARKETING_CRITIC_THRESHOLD', 'decent'),
 
         // Where the engine stores per-offer creative assets (producer before/after, generated images).
         'assets_root' => env('ATLAS_MARKETING_ASSETS_ROOT', storage_path('app/marketing/assets')),

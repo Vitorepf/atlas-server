@@ -114,4 +114,42 @@ class BridgePageComposerTest extends TestCase
         $top = $this->call('topKeywords', [$pattern, 2]);
         $this->assertSame(['high', 'mid'], $top);
     }
+
+    /**
+     * The forged-override application (extracted so the in-loop Conversion Critic judges the SAME bytes
+     * that ship) swaps a 0-strength generated headline/lead for the forged elite ones.
+     */
+    public function test_apply_overrides_swaps_weak_headline_and_lead_for_forged_elite(): void
+    {
+        $asset = new AiMarketingVslAsset([]);
+        $bridge = ['headline' => 'algo genérico aqui', 'meta' => [], 'lead_paragraph' => 'curto'];
+        $elite = ['Karen Perdeu 34 lbs Com As Gotas — Sem Injeção'];
+        $longLead = str_repeat('Se você é uma mulher e já tentou de tudo contra o ozempic, olhe no espelho. ', 6);
+
+        $out = $this->call('applyOverrides', [$bridge, $elite, ['testimonials' => []], [], $longLead, $asset]);
+
+        $this->assertSame($elite[0], $out['headline']);        // "34 lbs" + "sem injeção" beats a 0-strength line
+        $this->assertSame($longLead, $out['lead_paragraph']);  // you/ozempic/mirror/length beats "curto"
+        $this->assertIsArray($out['proof_block']);             // proof_block always normalized to an array
+    }
+
+    /**
+     * The Conversion Critic feeds the regeneration loop: a STRUCTURAL flaw is turned into a corrective
+     * instruction for the next attempt; a PRIOR (marker-density) reason never is — priors cannot re-roll.
+     */
+    public function test_correction_note_appends_structural_flaw_only(): void
+    {
+        $critic = ['verdict' => 'block', 'reasons' => [
+            ['floor' => 'watch_through_leak', 'kind' => 'structural', 'detail' => 'vaza o reveal no topo'],
+            ['floor' => 'overall_score', 'kind' => 'prior', 'detail' => 'score abaixo do piso'],
+        ]];
+
+        $note = $this->call('correctionNote', [null, null, null, null, $critic]);
+        $this->assertStringContainsString('FALHA ESTRUTURAL DE CONVERSÃO', $note);
+        $this->assertStringContainsString('vaza o reveal no topo', $note);
+        $this->assertStringNotContainsString('score abaixo do piso', $note); // a prior never drives a re-roll
+
+        $priorOnly = $this->call('correctionNote', [null, null, null, null, ['reasons' => [['kind' => 'prior', 'detail' => 'x']]]]);
+        $this->assertStringNotContainsString('FALHA ESTRUTURAL', $priorOnly);
+    }
 }

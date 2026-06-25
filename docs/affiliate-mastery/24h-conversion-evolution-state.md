@@ -20,7 +20,13 @@ depender do provider fraco.
 | Ciclo | Alavanca | Projeção/Crítica | Implementação | Prova (testes/commit) | Próximo |
 |---|---|---|---|---|---|
 | 0 | Compreensão + seleção da alavanca #1 | ✅ workflow 13-agentes | — | seleção: Conversion Critic | C1 |
-| 1 | Conversion Critic (gate provider-free) — Slice 1: `ConversionCriticGate` | ✅ adversarial (todos candidatos proxyRisk; SearchNetworkDecider tinha wiring FALSO) | ✅ classe + 7 unit tests | 7/7 verde; commit ⬇ | Slice 2: wiring no `compose()` |
+| 1 | Conversion Critic (gate provider-free) — gate + wiring no `compose()` | ✅ adversarial (todos candidatos proxyRisk; SearchNetworkDecider tinha wiring FALSO) | ✅ S1 `ConversionCriticGate` + S2 wiring/flag/re-roll | S1 7/7 + suíte 657/657 verde; commits `4b2e5028d` + ⬇ | C2: SearchNetworkDecider (com enriquecimento da partition) OU dissecação→sinais |
+
+### Ciclo 1 — Conversion Critic (DONE, 2 slices)
+**Decisão (julgamento, não carimbo):** o painel adversarial deu nota baixa a TODOS (proxyRisk) e achou wiring FALSO no SearchNetworkDecider (a `partition()` descarta os inputs de psicologia antes do `build()`). Aceitei o Conversion Critic — ganho honesto, provider-free, sem pré-condição, testável hoje. **Divergi do spec** em 2 floors: `awareness`+`value_equation` são cobertura-de-marcador (AwarenessRouter::detect default=problem_aware → falso-positivo) → rebaixei a **warn-only**; hard-block só nos 3 que o código prova estruturais (`watch_through_leak`, `decision_clarity`, `proof_substance`=zero prova concreta).
+- **S1** `ConversionCriticGate` (provider-free; compõe 5 auditores órfãos num veredito block|warn|ok; structural hard-block, priors warn-only). 7/7 unit, incl. anti-falso-positivo (bridge forte não bloqueia) + priors-só-avisam + `off` ainda bloqueia estrutural + determinismo. Commit `4b2e5028d`.
+- **S2** wiring no `compose()`: `applyOverrides()` extraído (réplica byte-idêntica); critic julga o candidato **pós-override** DENTRO do loop → re-roll no bloqueio estrutural (correctionNote diz qual floor quebrou); veredito final em `validation.conversion_critic` (surface, nunca engole); flag `atlas.marketing.critic_enabled` (default ON; OFF=byte-idêntico). Suíte 657/657.
+- **Honestidade de cobertura:** os componentes novos têm teste real (gate 7/7; `applyOverrides`+`correctionNote` via reflection); o re-roll end-to-end via `compose()` real precisa de DB+provider-fake (harness não existe) → follow-up deliberado, NÃO fingido como provado.
 
 ## Log detalhado
 

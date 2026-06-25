@@ -58,6 +58,7 @@ class BridgePageComposerService
         private readonly AwarenessRouter $awareness = new AwarenessRouter,
         private readonly ConversionAuditor $conversionAuditor = new ConversionAuditor,
         private readonly AggressionAmplifier $amplifier = new AggressionAmplifier,
+        private readonly ConversionCriticGate $critic = new ConversionCriticGate,
     ) {}
 
     /**
@@ -106,33 +107,71 @@ class BridgePageComposerService
         $user = $this->groundedUser($asset, $vslKeywords, $angle, $language, $profile, $blueprint)
             .$headlineBlock
             .$this->skills->recallPromptBlock($asset->niche, (string) ($profile['gender'] ?? ''));
+
+        // Forged overrides are bridge-INDEPENDENT (derived from the asset) — compute once so the in-loop
+        // Conversion Critic can judge the SAME post-override bytes that ship (no audit-ship drift), and
+        // the post-loop application reuses them. The Conversion Critic (generator+verifier) is provider-
+        // free; flag OFF makes the loop byte-identical to the pre-critic baseline.
+        $langShort = str_starts_with(strtolower($language), 'port') ? 'pt' : 'en';
+        $criticEnabled = (bool) ($opts['critic_enabled'] ?? config('atlas.marketing.critic_enabled', true));
+        $criticThreshold = (string) ($opts['critic_threshold'] ?? config('atlas.marketing.critic_threshold', 'decent'));
+        $forgedProof = $this->proof->forge($asset, ['lang' => $langShort]);
+        $forgedLead = $this->leadForge->forge($asset, ['lang' => $langShort]);
+        $forgedTransformations = $this->transformations->source($asset, [
+            'transformations' => $opts['transformations'] ?? null,
+            'assets_dir' => $opts['assets_dir'] ?? null,
+            'base_url' => $opts['assets_base_url'] ?? null,
+        ]);
+
         $maxAttempts = (int) ($opts['max_attempts'] ?? 4);
         $bridge = null;
         $relevance = null;
         $copy = null;
+        $policyLoop = null;
+        $criticVerdict = null;
         $best = null;
         $bestScore = -1;
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
-            $note = $attempt === 1 ? '' : "\n\n".$this->correctionNote($relevance, $copy, $bridge);
+            $note = $attempt === 1 ? '' : "\n\n".$this->correctionNote($relevance, $copy, $bridge, $policyLoop, $criticVerdict);
             $raw = $this->callModel($system, $user.$note, 'atlas.vsl.bridge.v1');
             $bridge = $this->normalize($raw, $asset, $angle, $language);
             // Anchor ONLY on the VSL (pattern is not an anchor) — a "gelatin" headline on a drops VSL is a crime.
             $relevance = $this->keywordGate->evaluate($bridge, $asset, null, $otherNicheKw);
             $copy = $this->copyGate->assess($bridge, $asset);
             $substantial = $this->isSubstantial($bridge);
+            // Funnel-handoff law, enforced in the loop: if the page closes the PRODUCT (offer/price/
+            // guarantee/checkout copy or a buy CTA) it is a phase error — re-generate telling the model
+            // to strip the offer, exactly like the keyword-crime loop.
+            $policyLoop = $this->policyGuard->evaluate($bridge);
+            $offerLeak = in_array('no_offer_on_bridge', array_column($policyLoop['blocks'], 'rule'), true);
+
+            // Conversion Critic (generator+verifier, provider-free): judge the FINAL post-override copy
+            // — the same bytes that ship — and re-roll if it breaks a STRUCTURAL-TRUTH floor (reveal/CTA
+            // leak in the opening, choice-overload/no-CTA, zero concrete proof). Flag OFF → no critic,
+            // no penalty, break condition reverts (byte-identical baseline). Marker-density priors never
+            // block (they only warn), so this cannot be gamed by token-stuffing.
+            $criticBlock = false;
+            $criticVerdict = null;
+            if ($criticEnabled) {
+                $candidate = $this->applyOverrides($bridge, $eliteHeadlines, $forgedProof, $forgedTransformations, $forgedLead, $asset);
+                $criticVerdict = $this->critic->evaluate($this->persuasionCopy($candidate), (string) $asset->awareness_level, $criticThreshold);
+                $criticBlock = ($criticVerdict['structural_pass'] ?? true) !== true;
+            }
 
             // rank attempts so we keep the best one even if none is perfect
             $score = ($substantial ? 40 : 0)
                 + ($relevance['verdict'] === 'ok' ? 25 : 0)
                 + ($copy['verdict'] === 'ok' ? 25 : ($copy['verdict'] === 'generic' ? 8 : 0))
-                + min(20, (int) ($copy['concrete_hooks_count'] ?? 0) * 3);
+                + min(20, (int) ($copy['concrete_hooks_count'] ?? 0) * 3)
+                - ($offerLeak ? 50 : 0)
+                - ($criticBlock ? 50 : 0);
             if ($score > $bestScore) {
                 $bestScore = $score;
                 $best = ['bridge' => $bridge, 'relevance' => $relevance, 'copy' => $copy];
             }
 
-            if ($substantial && $relevance['verdict'] === 'ok' && $copy['verdict'] === 'ok') {
-                break; // substantial + no keyword crime + concrete, non-meta copy
+            if ($substantial && $relevance['verdict'] === 'ok' && $copy['verdict'] === 'ok' && ! $offerLeak && ! $criticBlock) {
+                break; // substantial + no keyword crime + concrete copy + no product close + passes the structural critic
             }
         }
         // ship the best attempt we got
@@ -142,37 +181,16 @@ class BridgePageComposerService
             $copy = $best['copy'];
         }
 
-        // Headline override: a forged elite headline (real number + named authority + mechanism) beats
-        // a weak journalistic LLM headline. This guarantees the most conversion-critical line is mine.
-        if ($eliteHeadlines !== [] && $this->headlineStrength((string) $bridge['headline'], $asset) < $this->headlineStrength($eliteHeadlines[0], $asset)) {
-            $bridge['headline'] = $eliteHeadlines[0];
-            $bridge['meta']['slug'] = Str::slug(Str::limit($eliteHeadlines[0], 60, ''));
-        }
+        // Apply the forged overrides (headline/proof/transformations/lead) to the shipped bridge — the
+        // SAME deterministic application the in-loop critic already judged, so the verdict describes the
+        // exact bytes that ship (no audit-ship drift).
+        $bridge = $this->applyOverrides($bridge, $eliteHeadlines, $forgedProof, $forgedTransformations, $forgedLead, $asset);
 
-        // Proof override: real names + real believable numbers + an elite human testimonial voice beat
-        // the LLM's invented generic blurbs. Only when the forge actually has real social proof to use.
-        $forgedProof = $this->proof->forge($asset, ['lang' => str_starts_with(strtolower($language), 'port') ? 'pt' : 'en']);
-        if (count($forgedProof['testimonials']) >= 3) {
-            $bridge['proof_block'] = $forgedProof;
-        }
-        // Before/after: the engine sources the offer's real creative assets (producer resource center
-        // dropped into the assets dir, or a manifest/explicit opts) and fills the proof block itself.
-        $bridge['proof_block'] = is_array($bridge['proof_block'] ?? null) ? $bridge['proof_block'] : [];
-        $forgedTransformations = $this->transformations->source($asset, [
-            'transformations' => $opts['transformations'] ?? null,
-            'assets_dir' => $opts['assets_dir'] ?? null,
-            'base_url' => $opts['assets_base_url'] ?? null,
-        ]);
-        if ($forgedTransformations !== []) {
-            $bridge['proof_block']['transformations'] = $forgedTransformations;
-        }
-
-        // Lead override: a forged elite opening (avatar callout + concrete agitation + common enemy +
-        // mechanism plant + open loop) beats a journalistic LLM lead. The opening decides if they read on.
-        $forgedLead = $this->leadForge->forge($asset, ['lang' => str_starts_with(strtolower($language), 'port') ? 'pt' : 'en']);
-        if ($this->leadStrength((string) ($bridge['lead_paragraph'] ?? ''), $asset) < $this->leadStrength($forgedLead, $asset)) {
-            $bridge['lead_paragraph'] = $forgedLead;
-        }
+        // Final Conversion Critic verdict on the SHIPPED bridge — surfaced in validation so a structural
+        // block at max_attempts is never silently swallowed (the operator/caller sees the refusal).
+        $criticFinal = $criticEnabled
+            ? $this->critic->evaluate($this->persuasionCopy($bridge), (string) $asset->awareness_level, $criticThreshold)
+            : ['verdict' => 'ok', 'structural_pass' => true, 'threshold' => 'off', 'reasons' => []];
 
         // --- deterministic validation -------------------------------------------------------
         // Message-match + coverage are measured against THIS VSL's own keywords (what the offer truly
@@ -228,6 +246,7 @@ class BridgePageComposerService
                 'message_match' => $message,
                 'keyword_coverage' => $coverage,
                 'page_audit' => $audit,
+                'conversion_critic' => $criticFinal,
             ],
         ];
 
@@ -245,6 +264,45 @@ class BridgePageComposerService
         }
 
         return $result;
+    }
+
+    /**
+     * Apply the forged overrides to a bridge — extracted so the in-loop Conversion Critic judges the
+     * SAME post-override bytes the post-loop application ships (no audit-ship drift). Deterministic and
+     * byte-identical to the prior inline override block: headline → proof → before/after → lead.
+     *
+     * @param  array<string,mixed>  $bridge
+     * @param  array<int,string>  $eliteHeadlines
+     * @param  array<string,mixed>  $forgedProof
+     * @param  array<int,mixed>  $forgedTransformations
+     * @return array<string,mixed>
+     */
+    private function applyOverrides(array $bridge, array $eliteHeadlines, array $forgedProof, array $forgedTransformations, string $forgedLead, AiMarketingVslAsset $asset): array
+    {
+        // Headline override: a forged elite headline (real number + named authority + mechanism) beats a
+        // weak journalistic LLM headline — the most conversion-critical line is always mine.
+        if ($eliteHeadlines !== [] && $this->headlineStrength((string) $bridge['headline'], $asset) < $this->headlineStrength($eliteHeadlines[0], $asset)) {
+            $bridge['headline'] = $eliteHeadlines[0];
+            $bridge['meta'] = is_array($bridge['meta'] ?? null) ? $bridge['meta'] : [];
+            $bridge['meta']['slug'] = Str::slug(Str::limit($eliteHeadlines[0], 60, ''));
+        }
+
+        // Proof override: real names + believable numbers + elite testimonial voice beat invented blurbs.
+        if (count($forgedProof['testimonials'] ?? []) >= 3) {
+            $bridge['proof_block'] = $forgedProof;
+        }
+        // Before/after: real creative assets (producer resource center / manifest / opts) fill the proof.
+        $bridge['proof_block'] = is_array($bridge['proof_block'] ?? null) ? $bridge['proof_block'] : [];
+        if ($forgedTransformations !== []) {
+            $bridge['proof_block']['transformations'] = $forgedTransformations;
+        }
+
+        // Lead override: a forged elite opening beats a journalistic LLM lead — the opening decides reads.
+        if ($this->leadStrength((string) ($bridge['lead_paragraph'] ?? ''), $asset) < $this->leadStrength($forgedLead, $asset)) {
+            $bridge['lead_paragraph'] = $forgedLead;
+        }
+
+        return $bridge;
     }
 
     // ---- the intelligence (skills as a governed prompt) ------------------------------------
@@ -271,6 +329,9 @@ A copy GENÉRICA ("um lento metabolismo oculto", "três sinais") é lixo — pod
 
 == OBJETIVO ÚNICO (o KPI) ==
 Pegar uma mulher FRIA e DESQUALIFICADA (tráfego barato) e deixá-la FERVENDO, qualificada, implorando para apertar o play da VSL. A bridge NÃO vende o produto e NÃO atrapalha a VSL — ela AQUECE e QUALIFICA o lead. Cada seção abre uma lacuna de curiosidade emocional que SOMENTE a VSL fecha. Você revela o suficiente para fisgar e prometer a resposta "na apresentação acima" — nunca entrega a receita/mecanismo completo.
+
+== LEI DE HANDOFF DE FUNIL (REGRA DURA — não pode violar) ==
+Cada estágio do funil vende SÓ o PRÓXIMO passo: o anúncio vende o clique, a BRIDGE vende o WATCH da VSL, e só a VSL (no fim dela) vende o PRODUTO. A bridge NUNCA fecha o produto. PROIBIDO na bridge: preço/valor em dinheiro, "oferta", garantia / "risk-free" / reembolso / "money-back", bônus empilhado, frete grátis, desconto / cupom, "compre agora" / "order now" / checkout / carrinho, e escassez de COMPRA (contagem pra comprar). Esses são elementos de FECHAMENTO — só têm força DEPOIS que a VSL construiu crença + mecanismo + prova; revelados aqui, queimam a alavanca e disparam um "não" precoce que não reconverte. O mecanismo PRECEDE a oferta — então aqui você só TEASEia o mecanismo/"truque" como curiosidade, sem dar a receita e sem precificar nada. O único pedido da bridge é: aperte o play.
 
 == {$aggro} ==
 A agressividade mora no ÂNGULO, na curiosidade, na emoção crua, no callout do avatar, na escassez/urgência aquecida e no "inimigo comum". NÃO mora em claims médicos absolutos cravados na bridge. Use os DISPOSITIVOS da VSL (autoridade tipo Melania/FDA/governo, conspiração big pharma, prova social extrema) como GANCHO DE NOTÍCIA/CURIOSIDADE — relate-os como "o que está sendo dito / o que viralizou / o que ela revelou", empurrando pro vídeo, em vez de AFIRMAR como fato médico provado na sua voz. Isso mantém a intensidade E mantém a conta no ar (uptime = lucro).
@@ -388,8 +449,10 @@ TXT;
      * @param  array<string,mixed>|null  $relevance
      * @param  array<string,mixed>|null  $copy
      * @param  array<string,mixed>|null  $bridge
+     * @param  array<string,mixed>|null  $policy
+     * @param  array<string,mixed>|null  $critic
      */
-    private function correctionNote(?array $relevance, ?array $copy, ?array $bridge): string
+    private function correctionNote(?array $relevance, ?array $copy, ?array $bridge, ?array $policy = null, ?array $critic = null): string
     {
         $orphans = array_filter(array_map(
             static fn ($o): string => (string) ($o['keyword'] ?? ''),
@@ -397,10 +460,25 @@ TXT;
         ));
         $leaks = array_filter(is_array($relevance['meta_leaks'] ?? null) ? $relevance['meta_leaks'] : []);
         $metaLeaks = array_filter(is_array($copy['meta_leaks'] ?? null) ? $copy['meta_leaks'] : []);
+        $offerLeaks = is_array($policy['blocks'] ?? null)
+            ? array_values(array_filter($policy['blocks'], static fn ($b): bool => is_array($b) && ($b['rule'] ?? '') === 'no_offer_on_bridge'))
+            : [];
+        $criticFlaws = is_array($critic['reasons'] ?? null)
+            ? array_values(array_filter($critic['reasons'], static fn ($r): bool => is_array($r) && ($r['kind'] ?? '') === 'structural'))
+            : [];
 
         $parts = ['CORREÇÃO OBRIGATÓRIA na próxima versão:'];
         if ($bridge !== null && ! $this->isSubstantial($bridge)) {
             $parts[] = 'A versão anterior veio VAZIA ou curta demais. Gere a bridge COMPLETA: headline forte + 5 a 7 seções de copy real (2-4 parágrafos cada) + prova + objeções + CTAs. NÃO retorne campos vazios.';
+        }
+        if ($offerLeaks !== []) {
+            $parts[] = 'ERRO DE FASE (vendeu o PRODUTO na bridge): '.(string) ($offerLeaks[0]['why'] ?? '').
+                ' Remova QUALQUER preço, oferta, garantia/"money-back"/reembolso, bônus, frete grátis, desconto/cupom, escassez-de-compra e CTA de comprar/checkout. A bridge só vende o WATCH da VSL: todo CTA = assistir (#vsl), e o mecanismo entra só como teaser, sem receita e sem preço.';
+        }
+        if ($criticFlaws !== []) {
+            $details = implode(' | ', array_filter(array_map(static fn ($r): string => (string) ($r['detail'] ?? ''), array_slice($criticFlaws, 0, 3))));
+            $parts[] = 'FALHA ESTRUTURAL DE CONVERSÃO (corrija na próxima versão): '.$details.
+                ' Não vaze o reveal/mecanismo no topo (segure até depois de construir o desejo), tenha UMA ação dominante (assistir a VSL), e ancore com prova concreta (número/nome/ratio real).';
         }
         if ($orphans !== []) {
             $parts[] = 'ERRO CRÍTICO (crime de keyword): os termos [' .implode(', ', $orphans).
