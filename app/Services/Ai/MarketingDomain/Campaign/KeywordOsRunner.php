@@ -30,6 +30,7 @@ class KeywordOsRunner
         private readonly ReFinderFabricationPlanner $moatPlanner = new ReFinderFabricationPlanner,
         private readonly MarketSophisticationSignal $sophistication = new MarketSophisticationSignal,
         private readonly KeywordValueLeverSignal $valueLever = new KeywordValueLeverSignal,
+        private readonly RegimeCrossNegativeForge $crossNegatives = new RegimeCrossNegativeForge,
     ) {}
 
     /**
@@ -79,6 +80,10 @@ class KeywordOsRunner
         // sophistication (Schwartz) per-nicho → estratégia de keyword; value-lever (Hormozi) por keyword
         // do ranking de receita → com qual desejo o anúncio/página daquela keyword deve liderar.
         $result['sophistication'] = $this->sophistication->assess((string) $asset->niche);
+        // ENFORCEMENT da isolação dos regimes: negativos cruzados (anti-canibalização, lei scaling-2026)
+        if (isset($result['regimes']) && is_array($result['regimes'])) {
+            $result['regimes']['cross_negatives'] = $this->crossNegatives->forge($result['regimes']);
+        }
         if (isset($result['revenue_ranking']['ranked']) && is_array($result['revenue_ranking']['ranked'])) {
             $result['revenue_ranking']['ranked'] = array_map(function ($row) {
                 if (is_array($row)) {
