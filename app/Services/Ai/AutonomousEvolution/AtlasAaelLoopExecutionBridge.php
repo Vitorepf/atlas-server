@@ -6,7 +6,9 @@ namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\Aael\AtlasAaelExecutionPlanProver;
 use App\Services\Ai\AutonomousEvolution\Aael\AtlasAaelExecutionDriftAuditor;
+use App\Services\Ai\AutonomousEvolution\Aael\AtlasAaelExecutionReceiptLedger;
 use App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight\AtlasAaelInFlightStepValidator;
+use Throwable;
 
 /**
  * The bridge that turns the existing AAEL (Atlas Autonomous Evolution Loop)
@@ -32,6 +34,7 @@ final class AtlasAaelLoopExecutionBridge
         private readonly ?AtlasAaelExecutionPlanProver $prover = null,
         private readonly ?AtlasAaelExecutionDriftAuditor $driftAuditor = null,
         private readonly ?AtlasAaelInFlightStepValidator $inFlightStepValidator = null,
+        private readonly ?AtlasAaelExecutionReceiptLedger $receiptLedger = null,
     ) {}
 
     /**
@@ -133,7 +136,7 @@ final class AtlasAaelLoopExecutionBridge
             $previousWorldSnapshot = $this->extractWorldSnapshot($stepRun, $exploration);
         }
 
-        return [
+        $response = [
             'schema_version' => self::SCHEMA,
             'opportunities_total' => count($opportunities),
             'executed_tasks' => (int) ($loopRun['tasks_processed'] ?? 0),
@@ -154,6 +157,35 @@ final class AtlasAaelLoopExecutionBridge
             'merged_to_main' => false,
             'loop_run' => $loopRun,
         ];
+
+        $ledger = $this->receiptLedger;
+        if ($ledger === null) {
+            $response['ledger_status'] = 'skipped';
+            $response['execution_id'] = null;
+
+            return $response;
+        }
+        try {
+            $receipt = $ledger->record(
+                $opportunities,
+                ['rejected' => $proverRejected, 'rejected_count' => count($proverRejected)],
+                [
+                    'tasks_processed' => (int) ($loopRun['tasks_processed'] ?? 0),
+                    'proposals_certified_for_review' => (int) ($loopRun['proposals_certified_for_review'] ?? 0),
+                    'stop_reason' => (string) ($loopRun['stop_reason'] ?? ''),
+                    'deferred_count' => count($deferred),
+                ],
+                $driftAudit,
+            );
+            $response['ledger_status'] = $receipt['status'];
+            $response['execution_id'] = $receipt['execution_id'];
+        } catch (Throwable $e) {
+            $response['ledger_status'] = AtlasAaelExecutionReceiptLedger::STATUS_ERROR;
+            $response['execution_id'] = null;
+            $response['ledger_error'] = mb_substr($e->getMessage(), 0, 200);
+        }
+
+        return $response;
     }
 
     /**
