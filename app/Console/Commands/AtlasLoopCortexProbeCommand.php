@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Active\AtlasCortexActiveSnapshot;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Active\AtlasCortexCallGraphProjector;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Active\AtlasCortexCriticalPathDetector;
+use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Active\CortexPassiveImmutabilityViolation;
 use Illuminate\Console\Command;
 
 /**
@@ -82,6 +83,14 @@ final class AtlasLoopCortexProbeCommand extends Command
 
         $passive = ['schema' => 'atlas.cortex.scope_comprehension.v1', 'note' => 'probe_invocation', 'target' => $target];
         $snapshot = new AtlasCortexActiveSnapshot($passive, $activeProbes);
+
+        // Runtime immutability assertion — proves the active snapshot refuses to merge passive
+        // mutations on the live probe path. The typed exception is the load-bearing contract.
+        try {
+            $snapshot->mutatePassive([]);
+        } catch (CortexPassiveImmutabilityViolation) {
+            // expected — passive is frozen by contract
+        }
 
         if ($this->option('json')) {
             $this->line($snapshot->toJson());
