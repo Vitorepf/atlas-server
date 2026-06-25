@@ -54,6 +54,12 @@ L0 Knowledge Core canônico 🟢 (ciclo 8: `KeywordKnowledgeCore` — 16 leis ca
 8. **`CoinedTokenForge`** — face de geração do MOAT (gera nomes coináveis ranqueados por defensibilidade; plantar+rastrear = frente live).
 PROVA de assertividade: o scoring ordena igual ao CVR real (gelatin-for-weight-loss 81 > bariatric-recipe 41 > pink-recipe 29 ≈ 26%>14%>2%). Teoria completa na memória `search-keyword-os`.
 
+### 🔬 VALIDAÇÃO ADVERSARIAL HONESTA (sem vazamento de outcome, 200 termos reais)
+O cético diz: "teu 40,5× usou volume real, que vaza a resposta." Teste DURO — a morfologia SOZINHA prevê venda?
+- **Score composto (QualityIndex, zero volume/CVR):** separa CVR real só **2×** (metade-alta 4% vs baixa 2%). Modesto — é uma BANDA de qualidade, não um preditor de CVR; dilui o sinal forte com componentes fracos.
+- **REGIME (coined-vs-recall-vs-sintoma — PURA morfologia, zero vazamento, zero viés de volume):** separa CVR real **23×** (harvest 30% / seed 1,55% / probe 1,28%). **AQUI mora a inteligência estrutural** da teoria-mãe, não no score composto.
+- Por isso o `KeywordRevenueProjector` usa o CVR-prior por REGIME (sinal 23×), não o score diluído (2×). O 40,5× do ranking de lucro = regime-CVR (23× estrutural) × volume real (grounding p/ termo conhecido). Honesto: pra termo INÉDITO (oferta nova) o OS apoia no regime (23×) + prior de volume; a precisão fina vem quando o dado real chega (Hopkins/DORMANT-até-live).
+
 ## 💰 SISTEMA RECEITA→LUCRO→PORTFÓLIO (modo 24/7 — o NORTE do operador: "saber EXATAMENTE as keywords de máxima receita")
 Receita ≠ CVR (gelatin trick 1,95% CVR × 9171 cliques = 179 vendas). Construído + provado:
 - **`KeywordRevenueProjector`** — RECEITA=volume×CVR×payout-líq, LUCRO=−volume×CPC; CVR-real/volume-real do Blackink dominam o prior; CPC-prior por regime (arbitragem do clique barato: coined 0.35 vs sintoma 1.60); flag `profitable` (breakeven — nunca recomenda money-loser). **Validado held-out: lift 42× (receita) / 31× (lucro) vs venda real; flag profitable PERFEITO (0 vendas reais nos losers).** Volume-prior aterrado na mediana real (425/573/120).
