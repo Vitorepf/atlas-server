@@ -66,6 +66,31 @@ final class AtlasLoopFullCycleConductor
     ) {}
 
     /**
+     * Factory that wires the default close-phase runner (AtlasLoopClosePhaseRunner) into the
+     * conductor's runners map without any other change. This is the production seam that takes
+     * AtlasLoopClosePhaseRunner off the orphan list and onto the live cycle.
+     *
+     * @param  array{orient:AtlasLoopPhaseRunner, comprehend:AtlasLoopPhaseRunner, leverage:AtlasLoopPhaseRunner, architect:AtlasLoopPhaseRunner, decompose:AtlasLoopPhaseRunner, implement:AtlasLoopPhaseRunner, certify:AtlasLoopPhaseRunner}  $runnersWithoutClose
+     * @param  callable(array<string,mixed>):array<string,mixed>  $autoMergeDelegate
+     * @param  callable(array<string,mixed>):void  $receiptChainAppender
+     */
+    public static function withDefaultClosePhase(
+        array $runnersWithoutClose,
+        UnifiedReceiptChain $receiptChain,
+        callable $autoMergeDelegate,
+        callable $receiptChainAppender,
+        ?callable $masterSwitchOverride = null,
+    ): self {
+        $runnersWithoutClose['close'] = new AtlasLoopClosePhaseRunner(
+            $autoMergeDelegate,
+            $receiptChainAppender,
+            $masterSwitchOverride,
+        );
+
+        return new self($runnersWithoutClose, $receiptChain);
+    }
+
+    /**
      * Run the 8-phase cycle to completion or abort. Returns the cycle summary receipt.
      *
      * @param  array<string,mixed>  $scope  must carry `cycle_id`

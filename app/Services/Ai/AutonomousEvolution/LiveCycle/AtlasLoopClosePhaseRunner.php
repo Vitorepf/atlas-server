@@ -21,7 +21,7 @@ use Throwable;
  *   - Any auto-merge service refusal (preflight, conflict, reverse-audit rollback) flows through as
  *     status=aborted with the delegate's reason.
  */
-final class AtlasLoopClosePhaseRunner
+final class AtlasLoopClosePhaseRunner implements AtlasLoopPhaseRunner
 {
     public const STATUS_MERGED = 'merged';
 
