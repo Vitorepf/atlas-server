@@ -234,72 +234,12 @@ Atlas detects the right gap
 -> improves its future construction ability
 ```
 
-## Final Architecture Position
+## Final Architecture Position And Multi-Project Stewardship
 
-Self-Construction OS is the governed operating system for Atlas building Atlas.
-It is not a monolithic Loop. It is a separation-of-powers system:
+Detailed runtime contract (separation-of-powers split, final Atlas-native owner, multi-project lane stewardship) moved to [`self-construction/final-autonomy-runtime-contract.md`](self-construction/final-autonomy-runtime-contract.md). Constitutional rules live in [`self-construction/constitution.md`](self-construction/constitution.md) and the governing layer in [`atlas-autonomous-engineering-government.md`](atlas-autonomous-engineering-government.md).
 
-```text
-Atlas Autonomous Engineering Government
-  -> Atlas Self-Construction OS
-      -> Constitution / Kernel
-      -> Control Plane
-      -> Cortex / World Model
-      -> Goal & Value System
-      -> Strategy Council
-      -> Architecture Council
-      -> Task Fabric / Task Economy
-      -> Maestro Scheduler
-      -> Worker Swarm
-      -> Verification Court
-      -> Merge / Release Governor
-      -> Receipts / Evidence / Memory
-      -> Learning Transfer System
-      -> Autopoiesis Lab / Loop
-      -> Docs / Knowledge Sync
-```
+Compact summary: Self-Construction OS is a separation-of-powers system (Control Plane / Cortex / Strategy / Architecture / Task Fabric / Maestro / Worker Swarm / Verification Court / Merge Governor / Receipts / Learning Transfer / Autopoiesis Lab / Docs Sync). The final steady-state owner is Atlas-native — Claude Code, Codex, Cursor, Loop and any other external coding tool are bootstrap and surge aids only, never the permanent engine. Each managed project gets its own contract, mainline, Cortex model, task queue, Maestro lane, worker pool policy, Verification Court gates, Merge/Release Governor policy, receipts and docs sync, so one 24/7 lane for Atlas can run beside another 24/7 lane for a separate project with no cross-leakage.
 
-Responsibilities are deliberately split:
-
-- `Control Plane` decides scope, risk, budget, priority and mode.
-- `Cortex` supplies read-only understanding, not authority.
-- `Strategy Council` selects highest-leverage directions.
-- `Architecture Council` converts strategy into contracts and invariants.
-- `Task Fabric` creates executable packets with `allowed_files`, dependencies,
-  risk, gates, evidence and rollback.
-- `Maestro` schedules, routes, repairs queue health and learns worker affinity.
-- `Workers` execute packets and may include Loop, Claude Code, Codex, Cursor
-  and internal agents during bootstrap; the final target is Atlas-native
-  workers without operator/human/provider dependency. External workers are
-  training wheels and surge capacity, never the permanent engine.
-- `Verification Court` re-runs gates and treats worker output as an allegation
-  until independently verified.
-- `Merge / Release Governor` owns entry into main/release.
-- `Learning Transfer System` promotes proven lessons into future packets,
-  docs, memory and context packs.
-- `Autopoiesis Lab / Loop` proposes recursive self-improvement under gates.
-
-## Multi-Project Stewardship
-
-Self-Construction is Atlas-first, but the architecture must also run as a
-project stewardship system. A project instance gets its own:
-
-- objective and value contract;
-- repository/mainline boundary;
-- Cortex project model;
-- task queue and Maestro lane;
-- worker pool policy;
-- Verification Court gates;
-- Merge / Release Governor policy;
-- receipts, learning transfer and docs sync.
-
-This allows one 24/7 lane for Atlas and another 24/7 lane for a separate
-software project without mixing files, secrets, policies or releases.
-
-Each project starts with a bounded scope, proves value, then expands by
-evidence. The goal is exceptional engineering throughput and quality: clean
-code, tests, refactors that unlock capability, bug prevention, documentation,
-architecture hardening and compounding delivery speed.
 
 ## Hard Laws
 - No self-programming without SDD.
