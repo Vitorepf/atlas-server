@@ -9,7 +9,7 @@ use DateInterval;
 use DateTimeImmutable;
 use Symfony\Component\Process\Process;
 
-final class AtlasLoopGiveBackHonestyAuditor
+class AtlasLoopGiveBackHonestyAuditor
 {
     /** @var \Closure(array<int,string>, string, int): list<array{sha:string, committed_at:string}> */
     private \Closure $historyLookup;

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousEvolution\Feedback\AtlasLoopFeedbackReceiptLedger;
+use App\Services\Ai\AutonomousEvolution\Feedback\AtlasLoopGiveBackHonestyAuditor;
 use App\Services\Ai\AutonomousEvolution\Feedback\AtlasLoopGiveBackPatternMiner;
 use App\Services\Ai\AutonomousEvolution\Feedback\AtlasLoopGiveBackReader;
 use App\Services\Ai\AutonomousEvolution\Feedback\AtlasLoopGiveBackToReplenisherFeedback;
@@ -23,7 +24,7 @@ use Illuminate\Console\Command;
  */
 final class AtlasLoopFeedbackCli extends Command
 {
-    protected $signature = 'atlas:loop:feedback {action : inspect|apply|history} {--limit=20} {--force : apply even when the flag is OFF} {--json}';
+    protected $signature = 'atlas:loop:feedback {action : inspect|apply|history|audit} {--limit=20} {--window-hours=168} {--force : apply even when the flag is OFF} {--json}';
 
     protected $description = 'Operator surface for the give_back→replenisher self-feedback loop (inspect|apply|history).';
 
@@ -43,7 +44,8 @@ final class AtlasLoopFeedbackCli extends Command
             'inspect' => $this->inspect($limit),
             'apply' => $this->apply($limit),
             'history' => $this->history($limit),
-            default => $this->refuse('unknown action — use inspect|apply|history', ['action' => (string) $this->argument('action')], self::INVALID),
+            'audit' => $this->audit($limit),
+            default => $this->refuse('unknown action — use inspect|apply|history|audit', ['action' => (string) $this->argument('action')], self::INVALID),
         };
     }
 
@@ -98,6 +100,29 @@ final class AtlasLoopFeedbackCli extends Command
     private function miner(): AtlasLoopGiveBackPatternMiner
     {
         return new AtlasLoopGiveBackPatternMiner($this->reader);
+    }
+
+    /**
+     * `audit` runs the {@see AtlasLoopGiveBackHonestyAuditor} over recent give_back outcomes and
+     * emits the per-packet honesty FACTs (verdict ∈ honest|suspect|unverifiable + evidence pointer).
+     * Wired here so the auditor reaches a real production call path.
+     */
+    private function audit(int $limit): int
+    {
+        $windowHours = max(1, (int) $this->option('window-hours'));
+        $auditor = $this->getLaravel()->bound(AtlasLoopGiveBackHonestyAuditor::class)
+            ? $this->getLaravel()->make(AtlasLoopGiveBackHonestyAuditor::class)
+            : new AtlasLoopGiveBackHonestyAuditor($this->reader);
+
+        $rows = $auditor->audit($limit, $windowHours);
+        $this->emit([
+            'action' => 'audit',
+            'window_hours' => $windowHours,
+            'count' => count($rows),
+            'rows' => $rows,
+        ]);
+
+        return self::SUCCESS;
     }
 
     /**
