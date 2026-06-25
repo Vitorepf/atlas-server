@@ -49,7 +49,9 @@ class AtlasTaskMaestroPrefsCommandTest extends TestCase
         $payload = json_decode($r['output'], true);
         self::assertSame('atlas.maestro.personalization.v1', $payload['schema']);
         self::assertTrue($payload['verdict']['advisory']);
-        self::assertIsFloat($payload['verdict']['shape_match']);
+        self::assertIsNumeric($payload['verdict']['shape_match']);
+        self::assertGreaterThanOrEqual(0.0, (float) $payload['verdict']['shape_match']);
+        self::assertLessThanOrEqual(1.0, (float) $payload['verdict']['shape_match']);
     }
 
     public function test_register_mutates_in_process_registry(): void
