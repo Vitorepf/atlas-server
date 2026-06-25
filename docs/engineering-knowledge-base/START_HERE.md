@@ -32,6 +32,7 @@ capabilities:
   - programming_forge_flow
   - forge_operating_system
   - self_construction_os
+  - autonomous_engineering_government
   - qualitative_levels_roadmap
   - canonical_architecture_index
   - atlas_ai_master_architecture
@@ -83,6 +84,7 @@ decisions:
   - Toda IA nova deve ler Atlas Agentic Software Engineering Authority Map antes de reorganizar, limpar ou implementar docs de Atlas Dev, Forge, Atlas Code, Agentic Engineering, Rivals, Superiority ou TEOS.
   - Toda IA nova deve ler Atlas Agentic Engineering Documentation Inventory quando encontrar muitos docs parecidos, `part-*`, `session-handoff-*`, Rivals, provider dossiers, research ou docs com `OS` no nome dentro da area.
   - Toda IA nova deve ler Atlas Agentic Engineering OS antes de nomear a area, explicar Atlas como substituto de area tech, criar departamento de engenharia agentica ou reduzir o objetivo a programacao assistida por IA.
+  - Toda IA nova deve ler Atlas Autonomous Engineering Government antes de falar de Atlas 24/7, Loop como arquitetura final, Task Fabric, Maestro, Self-Construction, stewardship multi-projeto, verificacao independente ou merge autonomo.
   - Toda IA nova deve ler Atlas Domain Company Runtimes antes de criar dominio novo, empresa digital de dominio, departamento interno, workflow cross-domain, handoff, domain manifest ou maturity assessment.
   - Toda IA nova deve ler Atlas AI Domain Routing Governance antes de rotear prompt para dominio, criar flow/profile/capability ou propor dominio novo; ele contem matriz prompt->dominio e Domain Creation Gate.
   - Toda IA nova deve ler Atlas Domain Runtime Contract (Meta 2 design pack) antes de propor DomainRuntime, DomainManifest, Domain Registry, Capability Catalog, handoff cross-domain ou Maturity Assessment; este doc esta `planned` e nao gera codigo sozinho.
@@ -425,6 +427,7 @@ Para uma sessao nova responder "o que e Atlas?", "isso ja esta implementado?",
 1. `atlas-ai-content-intelligence-curation.md` quando envolver YouTube, RSS, scraping, source quality, blacklist ou promocao de conteudo
 1. `atlas-ai-research-self-improvement-runtime.md` quando envolver pesquisa longa, source quality, promocao para docs, planejamento automatico, implementacao baseada em pesquisa ou autoaprimoramento
 1. `atlas-ai-spec-operating-system.md` quando envolver SDD, spec compiler, one-shot implementation, task compiler, spec graph, drift detector ou execucao governada por Decision Receipt
+1. `atlas-autonomous-engineering-government.md` quando envolver Atlas 24/7, Loop, Task Fabric, Maestro, Self-Construction, stewardship multi-projeto, Verification Court, Merge Governor ou autonomia de engenharia continua
 1. `atlas-agentic-engineering-os.md` quando envolver o nome da area, substituicao operacional de uma area tech, empresa de engenharia por IA, departamentos de engenharia, ou a diferenca entre programacao assistida e Agentic Software Engineering
 1. `atlas-programming-governance-system.md` quando envolver programacao governada, placement, spec antes do codigo, task contracts, Code Intelligence, evidence, learning ou cartografia de programacao
 1. `atlas-autonomous-intelligence-operating-system.md` e `atlas-domain-company-runtimes.md` quando o pedido nao for programacao pura: pesquisa, financas, marketing, cyber, estrategia, desenvolvimento pessoal, automacao ou qualquer dominio fora de Software

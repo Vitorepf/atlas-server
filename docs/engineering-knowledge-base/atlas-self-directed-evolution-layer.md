@@ -35,6 +35,9 @@ capabilities:
   - sovereign_learning_capsule_preparation
 decisions:
   - Self-Directed Evolution Layer e camada de composicao, nao OS novo, nao AGOS e nao substitui Self-Construction OS.
+  - Na arquitetura final, esta camada vive dentro do Atlas Autonomous Engineering Government como radar/propositor de gaps e propostas; ela nao e autoridade de execucao, verificacao, merge ou promocao.
+  - Toda proposta gerada por esta camada que vire trabalho executavel entra no Task Fabric/Maestro do Self-Construction OS antes de qualquer worker tocar codigo.
+  - Para projetos externos sob stewardship 24/7, esta camada so pode propor evolucoes dentro da project lane admitida, com workspace, policy, evidence e memory boundary isolados.
   - Self-Directed Evolution v0.1 deve reutilizar `AtlasSelfConstructionSubsystemBuilderService` para gaps/proposals/approval de subsistemas; nao criar outro builder ou registry paralelo.
   - Canonical Gap Detector e read model unificado sobre fontes existentes (Subsystem Builder, Self-Improvement, AAEL, docs-health, ACRUI, Evidence e failures), nao autoridade nova de criacao.
   - Autopoietic Spec Proposal Runtime e adapter proposal-only para Spec OS/AP/docs; nao escreve doc canonico ativo sem Operator Curation Receipt.
@@ -52,6 +55,7 @@ maintenance:
   - Sincronize owner map quando qualquer owner canonico assumir parte desta camada.
   - Rodar docs-health + sync apos qualquer alteracao.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-autonomous-engineering-government.md
   - docs/ap/AP-707-self-directed-evolution-reuse-boundary-contract.md
   - docs/ap/AP-708-self-directed-evolution-gap-read-model-v01-contract.md
   - docs/ap/AP-709-self-directed-evolution-curation-inbox-spec-adapter-contract.md
@@ -189,6 +193,34 @@ next_actions:
 ---
 # Atlas Self-Directed Evolution Layer
 
+## Posicao Na Arquitetura Final
+
+`Atlas Self-Directed Evolution Layer` e um orgao de radar e proposta dentro do
+`Atlas Autonomous Engineering Government`.
+
+```text
+Atlas Autonomous Engineering Government
+-> Atlas Self-Construction OS
+   -> Cortex / World Model
+   -> Goal & Value System
+   -> Strategy + Architecture Councils
+   -> Self-Directed Evolution Layer
+      -> gap candidates
+      -> spec/doc/domain/department proposals
+      -> roadmap forecasts
+      -> architecture evolution proposals
+   -> Task Fabric / Maestro
+   -> Worker Swarm
+   -> Verification Court
+   -> Merge / Release Governor
+   -> Receipts / Learning / Docs Sync
+```
+
+O limite canonico e simples: esta camada detecta, simula, escreve proposta e
+recomenda. Ela nao executa, nao chama provider, nao altera projeto externo, nao
+faz merge e nao promove maturidade. Quando uma proposta vira trabalho real, o
+pacote sai daqui e entra no Task Fabric governado.
+
 ## Resumo
 
 Atlas Self-Directed Evolution Layer e a camada em que Atlas deixa de ser apenas executor de intents e passa a ser **propositor governado da propria evolucao**.
@@ -209,6 +241,11 @@ O operador continua soberano. A mudanca e de ergonomia e autonomia: o operador v
 
 Esta camada fica antes do World Action Engine. Ela aumenta autonomia interna sem habilitar side effects externos.
 
+No modo 24/7 final, ela tambem e uma entrada de alta alavancagem para o
+Government: encontra o que mais muda o patamar do Atlas ou de uma project lane,
+mas nao decide sozinha. Strategy Council prioriza, Architecture Council desenha,
+Task Fabric decompoe e Verification Court/Merge Governor julgam.
+
 Ela responde:
 
 - o que esta faltando no Atlas?
@@ -221,14 +258,19 @@ Ela responde:
 ## Onde Se Encaixa
 
 ```text
-AAEOS / Domain Runtimes / Holding
--> Self-Directed Evolution Layer
-   -> gap detection
-   -> proposal authoring
-   -> counterfactual roadmap
-   -> operator curation
--> Self-Construction / Domain Runtime / TEOS / Evidence owners executam
--> World Action Engine governado no futuro
+Atlas Autonomous Engineering Government
+-> Atlas Self-Construction OS
+   -> Self-Construction / Self-Improvement / AAEL / Evidence / TEOS / ASRE
+   -> Self-Directed Evolution Layer
+      -> gap detection
+      -> proposal authoring
+      -> counterfactual roadmap
+      -> operator curation
+   -> Operator Curation Inbox or Strategy Council decision
+   -> Task Fabric / Maestro
+   -> canonical owners and workers execute
+   -> Verification Court / Merge Governor
+   -> World Action Engine governado no futuro
 ```
 
 Ela nao substitui nenhum owner. Ela orquestra owners.

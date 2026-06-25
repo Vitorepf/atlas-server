@@ -65,6 +65,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-domain-runtime-contract.md
   - docs/engineering-knowledge-base/atlas-ai-multi-domain-implementation-sequence.md
   - docs/engineering-knowledge-base/atlas-autonomous-software-company-runtime.md
+  - docs/engineering-knowledge-base/atlas-autonomous-engineering-government.md
   - docs/engineering-knowledge-base/atlas-evidence-certification-runtime.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md
   - docs/engineering-knowledge-base/atlas-loop-pattern-registry.md
@@ -186,6 +187,7 @@ Layer 0.72 Programming Governance System: placement, spec before code, task cont
 Layer 0.74 Programming Forge Flow: canonical heavy programming taxonomy, flow, graphs, tools, repair and evidence
 Layer 0.75 Forge Operating System: AI software factory over governed programming
 Layer 0.8 Self-Construction OS / governed self-programming
+Layer 0.85 Autonomous Engineering Government: final 24/7 engineering government over Self-Construction, Loop/Autopoiesis, Task Fabric, Maestro, workers, Verification Court, Merge Governor, receipts, learning and multi-project stewardship
 Layer 0.9 Autonomous Intelligence OS: Atlas AI as multi-domain intelligence OS with Kernel comum + Domain Company Runtimes plugaveis (software is one domain among many)
 Layer 1   Kernel contracts: envelope, receipt, ledger, SDKs, tests, SLOs
 Layer 1.5 Runtime boundaries: Laravel, Python, Go, Swift
@@ -234,6 +236,7 @@ Layer -1 wins every conflict. Kernel wins executable contracts. Master Architect
 | Reality Outcome Gates / 15 outcome gates feeding Evidence, ASRE, Mission Control and Holding scorecards; not a local L7->L8 promotion authority | `atlas-reality-outcome-gates.md` |
 | Multi-Domain Implementation Sequence / build order, parallelism, anti-collision between Claudes/Codex | `atlas-ai-multi-domain-implementation-sequence.md` |
 | Autonomous Software Company Runtime / programming domain company | `atlas-autonomous-software-company-runtime.md` |
+| Atlas Autonomous Engineering Government / final 24/7 engineering government for Atlas self-construction and external project stewardship; Loop is Autopoiesis/Evolution Engine, not the full OS | `atlas-autonomous-engineering-government.md` |
 | Atlas Software Company Stewardship Stack / canonical umbrella for Night Shift, Product Mode, Atlas Continuous Stewardship Loop, Area Focus Loop, Area Stewardship, Portfolio, Executive and Self-Expanding layers; AP-738 adds Self-Expanding Software Company v0 proposal-only, AP-739 exposes upper review, AP-740/AP-748 bridge outcomes, AP-741 creates gated Domain Runtime Creation handoff packets, AP-742 exposes AP-740/AP-741 history in Product Mode/Cockpit, AP-743 creates Area Stewardship active handoff packets, AP-744 runs the first active operating slice, AP-745 wraps that slice in a scheduler-safe tick, AP-746 adds recurring scheduler admission, AP-756 materializes AP-726 branch sandboxes into isolated local git worktrees with operator receipt, AP-757 binds AP-749 owner consumption to that sandbox, AP-747 releases AP-726 handoffs to Dev/Forge queues, AP-749 gates owner consumption, AP-758 adapts ready consumption into AP-750-compatible owner results, AP-759 executes approved owner CLI commands inside AP-756 sandbox, AP-760 exposes AP-759 in Product Mode/Cockpit, AP-761 renders the end-to-end Product Mode pipeline in Atlas Desktop, AP-762 certifies the live cycle end-to-end in projection and optional sandbox execution, AP-763 audits the 29 practical requirements before 100% claims, AP-750 bridges owner runtime results back to Evidence/Morning Inbox/Portfolio, AP-751 feeds those results into Portfolio health/risk/rebalance, AP-752 turns accepted executive recommendations into owner allocation handoffs, AP-753 exposes those handoffs in Product Mode/Cockpit, AP-754 exposes Product Mode operational controls read-only and AP-755 makes those controls receipt-backed through AP-731 | `atlas-software-company-stewardship-stack.md` |
 | Autonomous Software Company Night Shift / sandboxed overnight loop; v1 runs on Atlas itself before v2 external companies such as BlackInk | `atlas-autonomous-software-company-night-shift.md` |
 | Autonomous Software Company Night Shift Product Mode / final product target with cockpit, repo onboarding, autonomy tiers, Atlas Continuous Stewardship Loop, budget and kill switch | `atlas-autonomous-software-company-night-shift-product-mode.md` |

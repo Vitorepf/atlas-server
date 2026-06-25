@@ -138,6 +138,47 @@ final class AtlasLoopHarnessGuard
         // portão de admissão e um blinder passaria. tests/ não estava em FORBIDDEN (furo SEV-1 que o doc deixou
         // aberto) — a subárvore de testes da Constituição vira pétrea atômica com a criação da sentinela.
         'tests/Feature/Loop/Constitution/',
+
+        // ── FASE 0 · PISO DE AUTONOMIA RESPONSÁVEL (2026-06-24): antes de o Loop poder rodar com
+        // autonomia plena (meta_harness ON sobre AutonomousEvolution/), a SUPERFÍCIE DE REWARD-HACK
+        // precisa ser pétrea — senão o réu edita o próprio oráculo / atribuição / falsificação /
+        // meta-objetivo e forja o próprio sucesso (o que matou o Sakana DGM e o CUDA Engineer). Mesmo
+        // princípio do termômetro (UtilityGradeService) e do priorizador (NextWorkDecider): o réu NUNCA
+        // edita o que o julga, credita ou autoriza. Aperto só-adiciona (ampliar é seguro; encolher falha
+        // o teste-sentinela). Verificado: nenhuma task claimable/claimed toca estes caminhos hoje —
+        // os órgãos já estão construídos (completed_dry_run); fechar o piso sobre eles não atropela worker.
+        //
+        // (i) O MÚSCULO ENDÓGENO (R7) inteiro — oráculo de outcome, gate de promoção, registry, corpus,
+        //     eval, training. O réu treinar/promover o próprio músculo na própria métrica é o reward-hack
+        //     de livro-texto; toda a árvore nasce pétrea por substring.
+        'app/Services/Ai/AutonomousEvolution/SelfModel/',
+        // (ii) A ATRIBUIÇÃO causal (R3) — o gradiente que credita as próprias shapes. Se editável, o réu
+        //      infla o crédito do comportamento que quiser reforçar (Goodhart sobre a própria régua).
+        'app/Services/Ai/AutonomousEvolution/Attribution/',
+        // (iii) O GATE DE FALSIFICAÇÃO (R8.3) — bug só conta com RED reproduzível. Se editável, o réu
+        //       rebaixa a própria barra de "bug real" e fabrica entregas a partir de falso-positivo.
+        'app/Services/Ai/AutonomousEvolution/Defect/',
+        // (iv) O META-OBJETIVO + AUTO-ARQUITETURA (V4) — quem PROPÕE e GATEIA a evolução da própria
+        //      maquinaria + a sentinela de auto-arquitetura. O réu nunca edita o que decide o que ele
+        //      mesmo deve perseguir, nem o gate frozen que dispõe sobre a própria meta-proposta.
+        'app/Services/Ai/AutonomousEvolution/V4/',
+        // (v) O VETO DE GROUNDING — refuta citação-fantasma na originação (material só nasce ancorado no
+        //     inventário real). Cerca de honestidade; pétreo pelo mesmo princípio do abstain-and-ask.
+        'app/Services/Ai/AutonomousEvolution/Verify/AtlasLoopComprehensionGroundingGate.php',
+        // (vi) O DECISOR DE AMBIÇÃO — o LeverageSelector já era pétreo, mas o AmbitionDecider que escolhe
+        //      o salto não estava. Mesmo princípio do priorizador: o réu não edita o que decide a própria
+        //      ambição (senão lavaria um alvo trivial/proxy para "o maior salto").
+        'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopAmbitionDecider.php',
+        // (vii) A GOVERNANÇA DE AGENTES inteira — reconciler / desired-state / fleet-driver que ORIGINAM e
+        //       AUTORIZAM campanha. Achado: o réu poderia forçar o hard-gate de execução para sempre-true e
+        //       originar campanha mesmo com o master switch OFF, SEM jamais tocar o arquivo pétreo do switch.
+        //       Autorizar a própria execução é a fechadura externa; pétrea pelo mesmo princípio do master switch.
+        'app/Services/Ai/AgentGovernance/',
+        // (viii) FASE 1 (24/06): a CADEIA DE MEDIÇÃO do Δ de comportamento — snapshotter + computer +
+        //       o recorder pai-vs-merge — é o TERMÔMETRO que alimenta o grade pétreo. Mesmo princípio do
+        //       UtilityGradeService + WiredCallerService: o réu nunca edita o medidor (senão forjaria o
+        //       próprio net_behavior_delta). O grade re-computa o Δ fresco do commit via este recorder.
+        'app/Services/Ai/AutonomousEvolution/BehaviorDelta/',
     ];
 
     /** Prefixos que identificam um arquivo do harness do loop (candidato a meta-target). */

@@ -102,6 +102,7 @@ final class AgentControlPlaneTaskPacketBuilder
         $maxRuntime = max(0, (int) ($input['max_runtime_seconds'] ?? 3600));
         $maxTokenBudget = max(0, (int) ($input['max_token_budget'] ?? 0));
         $workspacePolicy = (array) ($input['workspace_policy'] ?? []);
+        $workspacePolicy = $this->normalizeWorkspacePolicy($workspacePolicy);
 
         $packetId = (string) ($input['task_packet_id'] ?? Str::uuid()->toString());
 
@@ -199,9 +200,23 @@ final class AgentControlPlaneTaskPacketBuilder
             ],
             'workspace_policy' => array_merge([
                 'workspace_id' => 'FORGE-WORKSPACE-ATLAS-SELF-CONSTRUCTION-0001',
-                'isolation' => 'simulated_worktree',
+                'isolation' => 'shared_local_main_with_scope_lock',
                 'auto_apply' => false,
             ], $workspacePolicy),
+            'simplicity_contract' => [
+                'default_execution_topology' => 'shared_local_main_with_allowed_files',
+                'default_worktree_or_sandbox' => false,
+                'human_or_external_provider_dependency_allowed' => false,
+                'operator_dependency_allowed' => false,
+                'human_dependency_allowed' => false,
+                'external_provider_dependency_allowed' => false,
+                'final_runtime_owner' => 'atlas_native',
+                'steady_state_runtime_owner' => 'atlas_server',
+                'steady_state_requires_operator' => false,
+                'steady_state_requires_human' => false,
+                'steady_state_requires_external_provider' => false,
+                'external_worker_role' => 'bootstrap_or_replaceable_muscle_only',
+            ],
             'lease_requirements' => $leaseRequirements,
             'claim_requirements' => $claimRequirements,
             'rollback_requirements' => $rollbackRequirements,
@@ -275,6 +290,34 @@ final class AgentControlPlaneTaskPacketBuilder
         unset($clone['task_packet_id'], $clone['generated_at'], $clone['task_packet_hash'], $clone['human_summary']);
 
         return $this->recursivelyKsort($clone);
+    }
+
+    /**
+     * @param  array<string,mixed>  $workspacePolicy
+     * @return array<string,mixed>
+     */
+    private function normalizeWorkspacePolicy(array $workspacePolicy): array
+    {
+        $isolation = strtolower(trim((string) ($workspacePolicy['isolation'] ?? '')));
+        $exceptional = (bool) ($workspacePolicy['exceptional_isolation_required'] ?? false);
+        $legacyOrDefaultWorktree = in_array($isolation, [
+            'simulated_worktree',
+            'simulated_worktree_per_packet',
+            'isolated',
+            'isolated_worktree',
+            'isolated_worktree_required',
+            'worktree',
+            'worktree_required',
+            'sandbox',
+            'sandbox_required',
+        ], true);
+
+        if ($legacyOrDefaultWorktree && ! $exceptional) {
+            $workspacePolicy['isolation'] = 'shared_local_main_with_scope_lock';
+            $workspacePolicy['legacy_isolation_normalized_from'] = $isolation;
+        }
+
+        return $workspacePolicy;
     }
 
     /**

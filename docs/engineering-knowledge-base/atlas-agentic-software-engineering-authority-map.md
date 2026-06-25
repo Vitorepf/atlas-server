@@ -22,6 +22,7 @@ capabilities:
   - anti_duplicate_architecture_governance
 decisions:
   - Agentic Software Engineering e a categoria de mercado; Atlas Agentic Engineering OS e o sistema-mae canonico do Atlas nessa categoria.
+  - Atlas Autonomous Engineering Government e a autoridade final para autonomia de engenharia 24/7, acima de Loop, Task Fabric, Maestro, Company Runtime e stewardship multi-projeto.
   - Atlas Code e surface/cockpit/produto visual; nunca e runtime-mae, dominio, Forge ou Atlas Dev.
   - Atlas Dev e fast path governado para programacao eficiente; Atlas Forge e fabrica pesada; eles sao irmaos sob governanca, nao pai/filho.
   - Atlas Programming Governance System define a lei de programacao; Forge, Dev e Atlas Code consomem essa lei.
@@ -34,6 +35,7 @@ maintenance:
   - Atualize este doc sempre que um novo doc de Atlas Dev, Forge, Atlas Code, Agentic Engineering, Rivals, TEOS ou Programming Governance for criado.
   - Use este doc antes de limpar, arquivar, renomear ou promover documentos nessa area.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-autonomous-engineering-government.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-documentation-inventory.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-contracts.md

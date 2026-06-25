@@ -215,22 +215,42 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskPacketQueueRepositoryTes
     public function test_fresh_queue_lock_blocks_mutation_without_deleting_foreign_lock(): void
     {
         $disk = Storage::disk('local');
-        $disk->put(AgentControlPlaneTaskPacketQueueRepository::LOCK_PATH, json_encode([
-            'lock_token' => 'foreign-lock-token',
-            'acquired_at_unix' => time(),
-        ], JSON_THROW_ON_ERROR));
 
-        $repo = new AgentControlPlaneTaskPacketQueueRepository;
-        $result = $repo->enqueue($this->packet('lock-busy-test'));
+        // Materialize the lock file (and its directory) so a concurrent queue writer can be
+        // simulated: hold a REAL exclusive OS flock on it from a separate open handle. This is
+        // what genuinely contends with the repo's flock(LOCK_EX|LOCK_NB) — writing file *content*
+        // would not, because the production lock is an OS flock, not a token blob.
+        $disk->put(AgentControlPlaneTaskPacketQueueRepository::LOCK_PATH, '');
+        $lockFilePath = $disk->path(AgentControlPlaneTaskPacketQueueRepository::LOCK_PATH);
 
-        $this->assertSame('blocked', $result['status']);
-        $this->assertSame('queue_lock_busy', $result['reason']);
-        $this->assertTrue((bool) $result['queue_write_lock_required']);
-        $this->assertTrue((bool) $result['mutation_blocked_until_lock_acquired']);
-        $this->assertTrue((bool) $result['lock_owner_token_required_for_release']);
-        $this->assertTrue($disk->exists(AgentControlPlaneTaskPacketQueueRepository::LOCK_PATH));
-        $this->assertSame('foreign-lock-token', data_get(json_decode((string) $disk->get(AgentControlPlaneTaskPacketQueueRepository::LOCK_PATH), true), 'lock_token'));
-        $this->assertNull($repo->get('lock-busy-test'));
+        $foreignHandle = fopen($lockFilePath, 'c');
+        $this->assertNotFalse($foreignHandle);
+        $this->assertTrue(
+            flock($foreignHandle, LOCK_EX | LOCK_NB),
+            'foreign holder must own the exclusive lock for this test to exercise contention',
+        );
+
+        try {
+            // Short acquire timeout so the contended enqueue fails closed fast instead of polling 8s.
+            $repo = new AgentControlPlaneTaskPacketQueueRepository(null, 0.05);
+            $result = $repo->enqueue($this->packet('lock-busy-test'));
+
+            $this->assertSame('blocked', $result['status']);
+            $this->assertSame('queue_lock_busy', $result['reason']);
+            $this->assertSame(AgentControlPlaneTaskPacketQueueRepository::LOCK_PATH, $result['lock_path']);
+            $this->assertSame(0.05, $result['lock_acquire_timeout_seconds']);
+            $this->assertSame(AgentControlPlaneTaskPacketQueueRepository::LOCK_STALE_AFTER_SECONDS, $result['lock_stale_after_seconds']);
+            $this->assertTrue((bool) $result['queue_write_lock_required']);
+            $this->assertTrue((bool) $result['mutation_blocked_until_lock_acquired']);
+
+            // Fail-closed: the repo must never delete or clobber the foreign holder's lock file...
+            $this->assertTrue($disk->exists(AgentControlPlaneTaskPacketQueueRepository::LOCK_PATH));
+            // ...and the mutation must not have happened (the packet was never persisted).
+            $this->assertNull($repo->get('lock-busy-test'));
+        } finally {
+            flock($foreignHandle, LOCK_UN);
+            fclose($foreignHandle);
+        }
     }
 
     public function test_is_available_true(): void

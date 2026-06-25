@@ -36,6 +36,8 @@ capabilities:
   - months_scale_reliability
   - enterprise_delivery_block
 decisions:
+  - This long-horizon loop control plane is subordinate to Atlas Autonomous Engineering Government.
+  - 24h/7d/months-scale claims require Task Fabric, Maestro, Verification Court, Merge Governor, Learning Transfer and project-lane isolation when external projects are involved.
   - Este doc e a doc-mae de hardening operacional do loop longo; nao cria OS novo, scheduler novo, provider path novo ou loop paralelo.
   - AP-790 continua sendo o runner 24h; AP-805 e readiness; AP-806 e autonomia/envelope/backlog; AP-807 e firewall/auditor por ciclo; AP-808 e assurance/chaos; AP-809 e confiabilidade mensal; AP-810 e bloco enterprise de entrega por slices; AP-793 e isolamento de agente.
   - O loop so merece rodar 24h quando consegue bloquear antes de gastar provider, auditar depois de cada ciclo e parar honesto quando backlog acaba.
@@ -46,6 +48,7 @@ maintenance:
   - Atualizar antes de criar AP novo de hardening do loop.
   - Quando uma fase for implementada, registrar evidence e mover implementation_state para partial/implemented.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-autonomous-engineering-government.md
   - docs/engineering-knowledge-base/atlas-software-company-stewardship-stack.md
   - docs/engineering-knowledge-base/atlas-area-stewardship-layer.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-runtime-gap-matrix.md
@@ -131,7 +134,12 @@ next_actions:
   - Promover isolamento AP-793 L2 antes de claims de semanas/meses unattended.
 ---
 
-> ⚠️ **DEFINIÇÃO CANÔNICA DO LOOP — leia primeiro: `docs/loop-canonical-definition.md` + memórias `loop-*`.** Este doc descreve IMPLEMENTAÇÃO / ESTADO / HISTÓRICO; parte do framing aqui (refactor / ciclomática / landing-rate / best-of-N / proxy) é o **ALVO ERRADO**. O Loop = evolução autônoma **exponencial** de features REAIS do Atlas (entender escopo → projeção frontier + crítica cross-model → multi-agente → teste → wiring), **nunca faxina / proxy / one-shot**. Objetivo final: ser o ÚNICO que evolui o Atlas 24/7 sozinho.
+> ⚠️ **ARQUITETURA FINAL:** 24h/7d/months-scale autonomy is governed by
+> `docs/engineering-knowledge-base/atlas-autonomous-engineering-government.md`.
+> This doc hardens long-horizon Loop execution, but it is not the full final
+> architecture. Long runs must be admitted through Self-Construction Control
+> Plane, Task Fabric, Maestro, Verification Court, Merge Governor and Learning
+> Transfer.
 
 
 # Atlas Long-Horizon Loop Control Plane
@@ -164,6 +172,21 @@ um sistema operacional robusto. Ele nao promete ausencia de erro; ele promete:
 
 ## Onde Se Encaixa
 
+Final parent:
+
+```text
+Atlas Autonomous Engineering Government
+  -> Atlas Self-Construction OS
+      -> Control Plane
+      -> Task Fabric / Task Economy
+      -> Maestro Scheduler
+      -> Worker Swarm
+      -> Verification Court
+      -> Merge / Release Governor
+      -> Learning Transfer System
+      -> Autopoiesis Lab / Loop
+```
+
 | Camada | Documento | Papel |
 |---|---|---|
 | Runner longo | AP-790 | Executa por tempo/ciclos com lock, budget, kill switch e ledger. |
@@ -175,6 +198,12 @@ um sistema operacional robusto. Ele nao promete ausencia de erro; ele promete:
 | Bloco enterprise | AP-810 | Agrupa tudo em slices implementaveis, testaveis e certificaveis. |
 | Isolamento de agente | AP-793 | Define provider port, sandbox provider, session store e isolamento L1/L2. |
 | Doc-mae atual | Este doc | Ordena 10 ciclos, 24h, 7d e meses. |
+
+For external projects, every 24h run must have a project-stewardship lane:
+project objective, workspace boundary, project-specific gates, project merge
+policy, receipts and knowledge sync. A long-horizon Atlas run and a
+long-horizon external-project run may coexist only when their lanes, files,
+secrets, budgets and release governors are isolated.
 
 ## Contratos
 

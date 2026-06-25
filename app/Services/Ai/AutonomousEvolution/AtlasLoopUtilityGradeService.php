@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Models\AtlasLoopProposal;
+use App\Services\Ai\AutonomousEvolution\BehaviorDelta\AtlasLoopMergedDeliveryBehaviorDeltaRecorder;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWiredCallerService;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
@@ -41,11 +42,20 @@ final class AtlasLoopUtilityGradeService
         private readonly AtlasLoopWiredCallerService $wiredCallers,
         private readonly ?string $repoRoot = null,
         private readonly ?AtlasLoopSignalAnalyzer $signalAnalyzer = null,
+        private readonly ?AtlasLoopMergedDeliveryBehaviorDeltaRecorder $behaviorDeltaRecorder = null,
     ) {}
+
+    /** @var array<string,int|null> memo de net_behavior_delta por "commit\x1fscope" dentro de UM grade() */
+    private array $behaviorDeltaMemo = [];
 
     private function analyzer(): AtlasLoopSignalAnalyzer
     {
         return $this->signalAnalyzer ?? new AtlasLoopSignalAnalyzer();
+    }
+
+    private function behaviorDeltaRecorder(): AtlasLoopMergedDeliveryBehaviorDeltaRecorder
+    {
+        return $this->behaviorDeltaRecorder ?? new AtlasLoopMergedDeliveryBehaviorDeltaRecorder();
     }
 
     /**
@@ -56,6 +66,7 @@ final class AtlasLoopUtilityGradeService
         $window ??= (int) config('atlas.ai.loop.utility_grade_window', 50);
         $window = max(1, min(2000, $window));
         $hubThreshold = max(2, (int) config('atlas.ai.loop.utility_grade_hub_callers', 3));
+        $this->behaviorDeltaMemo = []; // fresh per grade() call
 
         $base = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -182,16 +193,25 @@ final class AtlasLoopUtilityGradeService
             //       is re-derived from the immutable commit by the same AST measure the certifier
             //       used to gate the merge; fail-closed (null => not credited).
             $baseSubstantive = $m['touched_lines'] > 15 && $m['canary_ran'] === true && $m['canary_passed'] === true;
+            $nonTrivialThisMerge = false;
             if ($baseSubstantive && ($m['is_refactor_objective'] ?? false)) {
                 if ($this->reMeasuredComplexityDrop((string) ($m['commit'] ?? ''), (string) $m['target']) === true) {
                     $nonTrivial++;
                     $reMeasuredRefactor++;
+                    $nonTrivialThisMerge = true;
                 }
             } elseif ($baseSubstantive && in_array($m['category'], ['bug', 'edge_case', 'perf'], true)) {
                 $nonTrivial++;
+                $nonTrivialThisMerge = true;
             }
-            // Compounding leverage: a wired HUB whose improvement protects many callers.
-            if ($callers >= $hubThreshold && ! $isGenerated) {
+            // Compounding leverage: a wired HUB whose improvement protects many callers — but a PROVEN
+            // no-op on a hub earns NOTHING. The pure static fan-in was blind: a comment/padding change
+            // to a many-caller file scored compounding. We now re-measure the REAL behavior Δ FRESH from
+            // the merge commit (parent-vs-commit, via the pétreo recorder — never a stored value) and
+            // DEMOTE a hub we positively prove changed no behavior surface (net==0) and earned no other
+            // substantive credit. Fail-closed to the prior credit when the Δ is unmeasurable (no git/
+            // parent): the gate only ever REMOVES credit from a demonstrated no-op, never adds any.
+            if ($callers >= $hubThreshold && ! $isGenerated && ! $this->hubMergeIsProvenNoOp($m, $nonTrivialThisMerge)) {
                 $hub++;
             }
             if ($m['canary_ran']) {
@@ -517,5 +537,49 @@ final class AtlasLoopUtilityGradeService
         }
 
         return 'unknown';
+    }
+
+    /**
+     * A hub merge is a PROVEN no-op when it earned no non-trivial credit AND the behavior-Δ recorder
+     * POSITIVELY measured zero structural surface change (no symbol/API/caller-edge delta) re-computed
+     * fresh from the real merge commit (parent-vs-commit — never a stored value). Returns false when the
+     * Δ is unmeasurable (no git/commit/parent) so the grade falls back to the prior credit: this gate
+     * can only ever REMOVE credit from a demonstrated no-op, never add any (monotonic-down, fail-closed).
+     * A behavior-preserving refactor is NOT demoted — it earns non-trivial credit via the AST drop, so
+     * $nonTrivialThisMerge short-circuits before the Δ is even consulted.
+     *
+     * @param  array<string,mixed>  $m
+     */
+    private function hubMergeIsProvenNoOp(array $m, bool $nonTrivialThisMerge): bool
+    {
+        if ($nonTrivialThisMerge) {
+            return false; // already proven substantive (AST drop or correctness category)
+        }
+        $net = $this->recordedNetBehaviorDelta((string) ($m['commit'] ?? ''), (string) $m['target']);
+
+        return $net !== null && $net === 0; // positively measured zero surface change => no-op
+    }
+
+    /**
+     * Net behavior-Δ of a merge re-computed FRESH from the immutable commit (scope = the target file's
+     * directory), memoised per (commit, scope) within one grade() call. Null when unmeasurable (bad sha,
+     * no scope, no git/parent) — the same fail-closed contract as {@see reMeasuredComplexityDrop}.
+     */
+    private function recordedNetBehaviorDelta(string $commit, string $target): ?int
+    {
+        if (preg_match('/^[0-9a-f]{7,40}$/i', $commit) !== 1) {
+            return null;
+        }
+        $scope = trim(str_replace('\\', '/', \dirname($target)), '/');
+        if ($scope === '' || $scope === '.') {
+            return null;
+        }
+        $key = $commit."\x1f".$scope;
+        if (array_key_exists($key, $this->behaviorDeltaMemo)) {
+            return $this->behaviorDeltaMemo[$key];
+        }
+        $rec = $this->behaviorDeltaRecorder()->record($this->repoRoot ?? base_path(), $commit, $scope);
+
+        return $this->behaviorDeltaMemo[$key] = (($rec['measured'] ?? false) === true) ? (int) $rec['net_behavior_delta'] : null;
     }
 }

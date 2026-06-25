@@ -201,7 +201,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskPacketBuilderTest extend
             'schema_version', 'mode', 'task_packet_id', 'generated_at', 'status',
             'objective', 'source', 'operator_id', 'parent_run_id', 'normalized_scope',
             'scope_hash', 'acceptance_criteria', 'acceptance_hash', 'evidence_requirements',
-            'risk_classification', 'workspace_policy', 'lease_requirements', 'claim_requirements',
+            'risk_classification', 'workspace_policy', 'simplicity_contract', 'lease_requirements', 'claim_requirements',
             'rollback_requirements', 'kill_switch_requirements', 'continuation_requirements',
             'cost_budget_requirements', 'continuation_context', 'blocking_reasons', 'warnings',
             'read_only', 'runtime_disabled', 'dispatch_allowed', 'provider_call_allowed',
@@ -224,8 +224,20 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskPacketBuilderTest extend
         $this->assertContains('app/Services/Ai/SelfImprovement/', AgentControlPlaneTaskPacketBuilder::FORBIDDEN_AXES);
         $this->assertContains('app/Services/Ai/Programming/', AgentControlPlaneTaskPacketBuilder::FORBIDDEN_AXES);
         $this->assertSame('FORGE-WORKSPACE-ATLAS-SELF-CONSTRUCTION-0001', $packet['workspace_policy']['workspace_id']);
-        $this->assertSame('simulated_worktree', $packet['workspace_policy']['isolation']);
+        $this->assertSame('shared_local_main_with_scope_lock', $packet['workspace_policy']['isolation']);
         $this->assertFalse($packet['workspace_policy']['auto_apply']);
+        $this->assertSame('shared_local_main_with_allowed_files', $packet['simplicity_contract']['default_execution_topology']);
+        $this->assertFalse($packet['simplicity_contract']['default_worktree_or_sandbox']);
+        $this->assertFalse($packet['simplicity_contract']['human_or_external_provider_dependency_allowed']);
+        $this->assertFalse($packet['simplicity_contract']['operator_dependency_allowed']);
+        $this->assertFalse($packet['simplicity_contract']['human_dependency_allowed']);
+        $this->assertFalse($packet['simplicity_contract']['external_provider_dependency_allowed']);
+        $this->assertSame('atlas_native', $packet['simplicity_contract']['final_runtime_owner']);
+        $this->assertSame('atlas_server', $packet['simplicity_contract']['steady_state_runtime_owner']);
+        $this->assertFalse($packet['simplicity_contract']['steady_state_requires_operator']);
+        $this->assertFalse($packet['simplicity_contract']['steady_state_requires_human']);
+        $this->assertFalse($packet['simplicity_contract']['steady_state_requires_external_provider']);
+        $this->assertSame('bootstrap_or_replaceable_muscle_only', $packet['simplicity_contract']['external_worker_role']);
     }
 
     public function test_continuation_context_keys_preserved(): void
@@ -234,6 +246,17 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskPacketBuilderTest extend
         $input['continuation_context'] = ['origin' => 'x', 'parent_hash' => 'abc'];
         $packet = (new AgentControlPlaneTaskPacketBuilder)->build($input);
         $this->assertSame(['origin', 'parent_hash'], $packet['continuation_requirements']['continuation_context_keys']);
+    }
+
+    public function test_legacy_worktree_policy_is_normalized_to_shared_main(): void
+    {
+        $input = $this->validInput();
+        $input['workspace_policy'] = ['isolation' => 'simulated_worktree'];
+
+        $packet = (new AgentControlPlaneTaskPacketBuilder)->build($input);
+
+        $this->assertSame('shared_local_main_with_scope_lock', $packet['workspace_policy']['isolation']);
+        $this->assertSame('simulated_worktree', $packet['workspace_policy']['legacy_isolation_normalized_from']);
     }
 
     /**

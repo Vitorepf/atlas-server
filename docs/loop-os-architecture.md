@@ -1,5 +1,13 @@
 # THE ATLAS LOOP AS A LIVING OS — Architecture & Build Spec (canonical)
 
+> **2026-06 architecture parent:** the final product architecture is now
+> `Atlas Autonomous Engineering Government`
+> (`docs/engineering-knowledge-base/atlas-autonomous-engineering-government.md`).
+> This document remains a detailed build spec for the Loop / Autopoiesis
+> mechanism and recursive-safety substrate. It does not make the Loop the full
+> government, final authority, Task Fabric, Maestro, Verification Court or Merge
+> Governor.
+
 > **Status:** CONVERGED at the architecture level after a 4-round adversarial projection (draft → 3 hardening rounds, each independently code-verified). This is the build spec for **v1 = the loop bootstrapped on its OWN scope** (`app/Services/Ai/AutonomousEvolution/`), the first rung of the territory ladder.
 >
 > **Canonical sources this consolidates** (kept as the audit trail; this doc supersedes them): `docs/loop-os-architecture.draft.md` (R1 projection), `docs/loop-os-architecture.r2-findings.md`, `docs/loop-os-architecture.r3-findings.md`. Loop definition is governed by [`docs/loop-canonical-definition.md`](loop-canonical-definition.md) + memories `loop-*` + `loop-os-architecture-decisions`.

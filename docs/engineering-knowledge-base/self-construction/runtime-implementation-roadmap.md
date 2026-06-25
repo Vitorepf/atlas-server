@@ -14,11 +14,15 @@ capabilities:
   - self_construction_runtime_implementation_roadmap
   - roadmap
 decisions:
+  - Runtime roadmap now targets Atlas Autonomous Engineering Government, with Self-Construction OS as its Atlas-building-Atlas operating system.
+  - Task Fabric, Maestro, Verification Court, Merge Governor and Learning Transfer are required before credible 24/7 autonomy claims.
+  - Multi-project stewardship must be isolated by project lane before external projects can run 24/7.
   - Runtime begins read-only and advisory before autonomous patching.
   - Each phase promotes one maturity slice with tests and evidence.
 maintenance:
   - Update when a phase is implemented or a new runtime slice is approved.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-autonomous-engineering-government.md
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
   - docs/ap/AP-691-atlas-self-construction-os-contract.md
 owner: atlas-ai
@@ -108,7 +112,14 @@ next_actions:
 ---
 # Atlas Self-Construction Runtime Implementation Roadmap
 
-Self-Construction runtime must be phased.
+Self-Construction runtime must be phased. The target is no longer a monolithic
+Loop. The target is `Atlas Autonomous Engineering Government` with
+Self-Construction OS as the Atlas-building-Atlas operating system.
+
+```text
+Observe -> Decide -> Architect -> Decompose -> Schedule -> Execute
+-> Verify -> Merge/Reject -> Learn -> Update Knowledge -> Reprioritize
+```
 
 ## Phase 1 - Documentation And Registry
 
@@ -124,6 +135,24 @@ Goal:
 
 ```text
 Any AI can understand the law of Atlas self-construction.
+```
+
+## Phase 1.5 - Government Architecture Lock
+
+Deliver:
+
+- canonical `Atlas Autonomous Engineering Government` doc;
+- explicit position of Loop as Autopoiesis / Evolution Engine;
+- authority boundaries for Cortex, Strategy, Architecture, Task Fabric,
+  Maestro, Workers, Verification Court, Merge Governor and Learning Transfer;
+- multi-project stewardship contract;
+- bridges from legacy Loop/AAEL/task-serving docs to the new parent.
+
+Goal:
+
+```text
+Any AI can understand that final 24/7 autonomy is a separation-of-powers OS,
+not the old Loop monolith.
 ```
 
 ## Phase 2 - Read-Only Gap Report
@@ -197,6 +226,59 @@ Goal:
 
 ```text
 Atlas can prepare safe work for agent execution.
+```
+
+## Phase 4.2 - Task Fabric And Maestro Contract
+
+Deliver:
+
+- packet schema for objective, owner scope, allowed/forbidden files,
+  dependencies, wave, risk class, expected gates, rollback and blocker policy;
+- structured give-back classes;
+- servable-vs-claimable health model;
+- worker affinity ledger;
+- dead-prereq repair/cancel/reorigin decision path;
+- token-waste metrics.
+
+Goal:
+
+```text
+Atlas can turn architecture into small, self-sufficient, schedulable work
+without giving workers authority over scope or final verification.
+```
+
+## Phase 4.4 - Verification Court Contract
+
+Deliver:
+
+- server-side re-run policy by task risk class;
+- anti-Goodhart checks before and after worker execution;
+- worker output treated as allegation until verified;
+- holdout, netdiff, regression, docs and scope gates;
+- false-green rejection receipts.
+
+Goal:
+
+```text
+Atlas can verify completed packets independently from the worker that authored
+them.
+```
+
+## Phase 4.6 - Merge / Release Governor Contract
+
+Deliver:
+
+- branch/worktree/lane policy by risk class;
+- main/release entry policy;
+- rollback command or inverse patch requirement;
+- canary and post-merge health sentinel;
+- human gate classes for autonomy/security/kernel/provider/memory/merge policy.
+
+Goal:
+
+```text
+Atlas can integrate verified work without trusting worker self-report or
+shared-main luck.
 ```
 
 ## Phase 4.5 - Traceability Guardrail
@@ -310,6 +392,24 @@ Goal:
 Atlas can improve its own implementation safely.
 ```
 
+## Phase 6.5 - Learning Transfer Runtime
+
+Deliver:
+
+- Learning Transfer Receipt for every reusable failure/success;
+- separation between completion receipts, evidence receipts and learning
+  receipts;
+- docs/memory/context-pack update path;
+- freshness gate before serving workers;
+- known failure modes carried into future packets.
+
+Goal:
+
+```text
+Atlas can stop repeating operational mistakes and make every resolved task
+improve future task quality.
+```
+
 ## Phase 7 - Strategic Self-Construction
 
 Deliver:
@@ -325,6 +425,62 @@ Goal:
 Atlas can choose and execute the highest-leverage next construction step.
 ```
 
+## Phase 8 - Atlas 24/7 Stewardship Lane
+
+Deliver:
+
+- one bounded Atlas scope, initially Loop / AutonomousEvolution;
+- project objective and value contract;
+- dedicated task economy and Maestro lane;
+- server-side Verification Court;
+- Merge Governor policy;
+- learning transfer and knowledge sync;
+- 24h supervisor, kill switch, backlog-depth gate and recovery ledger.
+
+Goal:
+
+```text
+Atlas can improve one Atlas scope 24/7 with low waste, real value, rollback and
+auditable learning.
+```
+
+## Phase 9 - External Project Stewardship
+
+Deliver:
+
+- project admission packet;
+- repository/workspace boundary;
+- project-specific Cortex model;
+- project task queue/lane;
+- project gates and merge/release policy;
+- cross-project memory boundary;
+- operator interface for starting, pausing and auditing project stewardship.
+
+Goal:
+
+```text
+Atlas can run the same high-leverage continuous engineering system on one
+external project without mixing authority with Atlas Self-Construction.
+```
+
+## Phase 10 - Multi-Project Engineering Company Runtime
+
+Deliver:
+
+- multiple simultaneous stewardship lanes;
+- global budget/risk governor;
+- worker allocation across projects;
+- shared pattern learning without secret or scope leakage;
+- portfolio view of value, risk, throughput and incidents;
+- per-project release governors and rollback.
+
+Goal:
+
+```text
+Atlas can act like a governed software engineering company: building and
+improving multiple products continuously with high quality and speed.
+```
+
 ## Phase Gate
 
 No phase may start until the previous phase has:
@@ -334,6 +490,16 @@ No phase may start until the previous phase has:
 - evidence;
 - architecture validation;
 - explicit residual risk.
+
+No 24/7 phase may start until it also has:
+
+- server-side verification;
+- rollback;
+- kill switch;
+- backlog depth proof;
+- structured give-back learning;
+- no stale Code Intelligence / knowledge sync blockers;
+- multi-project isolation if the scope is external.
 
 ## Resumo
 

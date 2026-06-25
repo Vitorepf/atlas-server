@@ -19,6 +19,9 @@ class LeadForge
         $who = $this->avatar($asset, $pt);
         $failed = $this->failedList($asset, $pt);
         $mech = $this->mechanism($asset);
+        // The p4 slot prepends an article ("o"/"the") before the quoted mechanism; strip a leading article
+        // from the name so "O Reset Hormonal" doesn't become 'o "O Reset Hormonal"' (double article).
+        $mechBare = (string) preg_replace('/^(?:o|a|os|as|the)\s+/iu', '', $mech);
         $enemy = ! empty(($asset->persuasion_devices ?? [])['conspiracy']);
 
         if ($pt) {

@@ -5,7 +5,7 @@ title: Atlas Agentic Engineering OS Department Contract
 status: active
 category: atlas-ai
 priority: 102
-summary: Schema canonico universal `atlas.aaeos.department.v1` que todo departamento do AAEOS deve preencher. Inclui contrato preenchido para os 9 departamentos atuais (Product, Architect, Research, Dev, Debug, Review, QA, Security, Forge, Delivery, Memory) e template formal para criar novos departamentos sem improvisacao.
+summary: Schema canonico universal `atlas.aaeos.department.v1` que todo departamento do AAEOS deve preencher. Inclui contrato preenchido para os 11 departamentos atuais (Product, Architect, Research, Dev, Debug, Review, QA, Security, Forge, Delivery, Memory) e template formal para criar novos departamentos sem improvisacao.
 tags:
   - atlas-ai
   - agentic-engineering
@@ -19,12 +19,15 @@ capabilities:
   - cross_department_handoff_consistency
 decisions:
   - Todo departamento do AAEOS preenche o schema atlas dot aaeos dot department dot v1 nesta doc; sem schema preenchido o departamento nao existe canonicamente.
+  - Na arquitetura final, departamentos do AAEOS sao capacidades/roles sob o Atlas Autonomous Engineering Government; eles nao substituem Strategy Council, Architecture Council, Task Fabric, Maestro, Verification Court ou Merge Governor.
+  - Departamento novo para projeto externo so pode nascer dentro de uma project lane admitida, com boundary, policy, gates e receipts isolados.
   - Adicionar departamento novo (ex.: Cyber, Data, Mobile) exige preencher o template formal antes de servico ou comando virar runtime.
   - Departamentos divergentes (servico ja existe, schema ainda nao) viram blocker rastreado em T2.3 maturity matrix.
 maintenance:
   - Atualize este doc antes de criar novo departamento, renomear escopo, mudar gates obrigatorios ou alterar policy de escalada.
   - Revisar consistencia com runbook (T1.1) sempre que campos forem adicionados.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-autonomous-engineering-government.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-contracts.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-runbook.md
@@ -109,6 +112,34 @@ next_actions:
 ---
 # Atlas Agentic Engineering OS Department Contract
 
+## Posicao Na Arquitetura Final
+
+Departamentos do AAEOS sao capacidades especializadas dentro do
+`Atlas Autonomous Engineering Government`.
+
+```text
+Atlas Autonomous Engineering Government
+-> Atlas Self-Construction OS
+   -> Strategy / Architecture / Task Fabric / Maestro
+   -> AAEOS departments
+      -> Product
+      -> Architect
+      -> Research
+      -> Dev
+      -> Debug
+      -> Review
+      -> QA
+      -> Security
+      -> Forge
+      -> Delivery
+      -> Memory
+   -> Verification Court / Merge Governor
+```
+
+O contrato deste doc define quando um departamento existe e como ele recebe
+roteamento. A autoridade final de prioridade, verificacao, merge e aprendizado
+continua no Government.
+
 ## Resumo
 
 Schema canonico universal `atlas.aaeos.department.v1` que todo departamento do AAEOS deve preencher para existir. Contem o schema formal, contratos preenchidos para 11 departamentos canonicos atuais e template para departamentos futuros.
@@ -120,9 +151,10 @@ A doc-mae define autoridade. Os contratos atuais (`atlas-agentic-engineering-os-
 ## Onde Se Encaixa
 
 ```text
-atlas-agentic-engineering-os
-  +-- atlas-agentic-engineering-os-contracts        (prosa)
-  +-- atlas-agentic-engineering-os-department-contract  (este doc, schema)
+atlas-autonomous-engineering-government
+  +-- atlas-agentic-engineering-os
+      +-- atlas-agentic-engineering-os-contracts        (prosa)
+      +-- atlas-agentic-engineering-os-department-contract  (este doc, schema)
 ```
 
 ## Contratos
@@ -475,6 +507,8 @@ flowchart LR
 - Nunca rotear intent para departamento que nao tenha schema preenchido aqui.
 - Se servico runtime existe sem schema correspondente, criar blocker em T2.3 e nao usar em producao.
 - Quando criar novo departamento, preencher template ANTES de criar servico PHP.
+- Nunca usar departamento como atalho para pular Task Fabric, Maestro,
+  Verification Court ou Merge Governor.
 - `escalation_to` cycles sao proibidos: se A escala para B, B nao pode escalar para A diretamente sem operator.
 - Departamento com `maturity_level=L0` so opera com operator co-pilot obrigatorio.
 

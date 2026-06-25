@@ -27,6 +27,8 @@ capabilities:
   - mission_control
   - execution_memory_learning_guard
 decisions:
+  - AWEOS plugs into Atlas Autonomous Engineering Government as mission/work execution, not as the final self-construction authority.
+  - AWEOS may execute project work only inside an admitted stewardship lane with Task Fabric, Verification Court and Merge / Release Governor policy.
   - O nome canonico/produto e Atlas Autonomous Work Execution OS.
   - O acronimo tecnico obrigatorio e AWEOS.
   - O nome interno de experiencia/superficie e Atlas Mission Control.
@@ -39,6 +41,7 @@ maintenance:
   - Atualizar quando APCR, AREG, AAWR, AEMOR, Dev, Forge ou Hyperflow mudarem contrato.
   - Nao criar outro executor autonomo paralelo sem compatibilidade AWEOS.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-autonomous-engineering-government.md
   - docs/engineering-knowledge-base/atlas-persistent-context-runtime.md
   - docs/engineering-knowledge-base/atlas-runtime-efficiency-governor.md
   - docs/engineering-knowledge-base/atlas-agentic-workcell-runtime.md
@@ -106,6 +109,11 @@ line_limit: 520
 ---
 # Atlas Autonomous Work Execution OS
 
+> **Parent architecture:** AWEOS is a mission/work execution organ inside
+> `Atlas Autonomous Engineering Government`. It coordinates execution, context,
+> workcells and certified outcomes; it does not replace Self-Construction
+> Control Plane, Task Fabric, Verification Court or Merge / Release Governor.
+
 ## Resumo
 
 AWEOS transforma um pedido humano em uma operacao completa:
@@ -126,15 +134,15 @@ em uma unidade auditavel de trabalho.
 ## Onde Se Encaixa
 
 ```text
-Atlas AI Surface
-  -> Hyperflow
-  -> AWEOS
+Atlas Autonomous Engineering Government
+  -> Control Plane
+  -> AWEOS / Mission Control
      -> APCR: contexto persistente e must-know ledger
      -> AREG: budget cognitivo, ferramentas, risco, camadas
      -> AAWR: workcell, papeis, task graph, verificacao
      -> Dev/Forge/Research/etc: runtime alvo
      -> AEMOR: outcome, aprendizado, replay, anti-false-learning
-     -> Control Plane: estado e decisao humana
+     -> Verification Court / Merge Governor when code or release is affected
 ```
 
 ## Contratos
@@ -178,6 +186,10 @@ Campos obrigatorios de uma execucao:
 ## Regras para IA
 
 - Nunca chame provider dentro do AWEOS.
+- Nunca use AWEOS para contornar Task Fabric, Self-Construction policy,
+  Verification Court ou Merge / Release Governor.
+- Para projeto externo, exija lane de stewardship com workspace, gates,
+  receipts e politica de merge/release proprios.
 - Nunca execute ferramenta externa diretamente pelo AWEOS.
 - Nunca declare completed sem certified outcome.
 - Nunca promova memoria sem AEMOR/Judgment Guard.

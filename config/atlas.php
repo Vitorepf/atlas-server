@@ -8,6 +8,11 @@ return [
     // probe pollution in the shared Agent Control Plane queue. Default 'local' keeps the legacy shared queue.
     'task_serving' => [
         'queue_disk' => env('ATLAS_TASK_SERVING_QUEUE_DISK', 'local'),
+        // RECLAIM-AFTER-GIVE-BACK cooldown (seconds): how long a task is withheld from the SAME worker that
+        // gave it back before that worker may retry it. Bounded anti-loop, NOT a permanent lockout — a
+        // permanent per-worker skip deadlocks the version-ladder for a single worker (every task it gave back,
+        // and everything depending on it, becomes forever unservable). 0 disables (immediate reclaim).
+        'give_back_reclaim_cooldown_seconds' => (int) env('ATLAS_TASK_SERVING_GIVE_BACK_RECLAIM_COOLDOWN_SECONDS', 600),
     ],
 
     'storage_path' => env('ATLAS_STORAGE_PATH', '/var/atlas/storage'),

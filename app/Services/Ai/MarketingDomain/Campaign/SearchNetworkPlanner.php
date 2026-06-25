@@ -27,7 +27,7 @@ class SearchNetworkPlanner
      */
     public function plan(AiMarketingVslAsset $asset, array $opts = []): array
     {
-        $pattern = $opts['pattern'] instanceof AiMarketingWinningPattern ? $opts['pattern'] : null;
+        $pattern = ($opts['pattern'] ?? null) instanceof AiMarketingWinningPattern ? $opts['pattern'] : null;
         $dailyConv = (int) ($opts['daily_conversions'] ?? 0);
         $clusters = $this->clusters($asset);
 

@@ -41,6 +41,7 @@ final class AtlasTaskBrainReplenisherTest extends TestCase
             $this->assertCount(2, $t['allowed_files']);
             $this->assertStringContainsString('tests/', implode(' ', $t['allowed_files']));
             $this->assertSame(['tests_or_gates_result'], $t['required_evidence']);
+            $this->assertSame('shared_local_main_with_scope_lock', $t['workspace_policy']['isolation']);
         }
     }
 

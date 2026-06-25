@@ -1018,6 +1018,17 @@ class AtlasAiSelfConstructionMotherCommand extends Command
     private const BOOLEAN_OPTIONS = [];
 
     /**
+     * Repeatable advisory parameters forwarded into the service \$options array as lists.
+     *
+     * Maps the CLI option name to the service option key.
+     *
+     * @var array<string, string>
+     */
+    private const ARRAY_OPTIONS = [
+        'queue-tag' => 'queue_tags',
+    ];
+
+    /**
      * Projection method => human advisory signals the non-JSON view must surface.
      *
      * @var array<string, list<string>>
@@ -1394,6 +1405,16 @@ class AtlasAiSelfConstructionMotherCommand extends Command
     }
 
     /**
+     * Repeatable advisory parameters, mapped from CLI option name to service key.
+     *
+     * @return array<string, string>
+     */
+    private function arrayOptions(): array
+    {
+        return self::ARRAY_OPTIONS;
+    }
+
+    /**
      * @return array<string, list<string>>
      */
     private function humanSignals(): array
@@ -1416,6 +1437,10 @@ class AtlasAiSelfConstructionMotherCommand extends Command
 
         foreach ($this->booleanOptions() as $value) {
             $options[] = new InputOption($value, null, InputOption::VALUE_NONE, 'Read-only advisory boolean parameter.');
+        }
+
+        foreach (array_keys($this->arrayOptions()) as $option) {
+            $options[] = new InputOption($option, null, InputOption::VALUE_OPTIONAL | InputOption::VALUE_IS_ARRAY, 'Read-only advisory repeatable parameter.');
         }
 
         foreach (array_keys($this->flagMethods()) as $flag) {
@@ -1461,6 +1486,20 @@ class AtlasAiSelfConstructionMotherCommand extends Command
         foreach ($this->booleanOptions() as $value) {
             if ((bool) $this->option($value)) {
                 $options[str_replace('-', '_', $value)] = true;
+            }
+        }
+
+        foreach ($this->arrayOptions() as $option => $serviceKey) {
+            $raw = $this->option($option);
+            if (! is_array($raw)) {
+                continue;
+            }
+            $values = array_values(array_filter(array_map(
+                static fn (mixed $item): string => trim((string) $item),
+                $raw,
+            ), static fn (string $item): bool => $item !== ''));
+            if ($values !== []) {
+                $options[$serviceKey] = $values;
             }
         }
 

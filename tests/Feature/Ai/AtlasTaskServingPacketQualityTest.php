@@ -46,8 +46,8 @@ final class AtlasTaskServingPacketQualityTest extends TestCase
     public function test_a_deficient_packet_is_quarantined_and_the_good_one_is_served(): void
     {
         $orch = $this->orchestrator();
-        // A packet the validator passes but a cold client cannot prove: NO acceptance, NO required evidence.
-        $orch->prepareAndEnqueue(['task_packet' => $this->input('deficient', acceptance: [], evidence: [])]);
+        // Legacy backlog: a packet the old enqueue path allowed but a cold client cannot prove.
+        $this->rawEnqueue($this->input('deficient', acceptance: [], evidence: []));
         $orch->prepareAndEnqueue(['task_packet' => $this->input('good')]);
         $serving = new AtlasTaskServingService($orch);
 
@@ -65,7 +65,7 @@ final class AtlasTaskServingPacketQualityTest extends TestCase
     public function test_when_only_deficient_packets_exist_next_is_honestly_empty(): void
     {
         $orch = $this->orchestrator();
-        $orch->prepareAndEnqueue(['task_packet' => $this->input('only-deficient', acceptance: [], evidence: [])]);
+        $this->rawEnqueue($this->input('only-deficient', acceptance: [], evidence: []));
         $serving = new AtlasTaskServingService($orch);
 
         $res = $serving->next('client-cold');
@@ -74,6 +74,16 @@ final class AtlasTaskServingPacketQualityTest extends TestCase
         $this->assertContains('missing_acceptance_criteria', $res['blocking_deficiencies']);
         $this->assertNull($res['task']);
         $this->assertSame('needs_brain_origination', $res['escalation']);
+    }
+
+    public function test_new_prepare_and_enqueue_rejects_deficient_packets_before_they_enter_the_queue(): void
+    {
+        $res = $this->orchestrator()->prepareAndEnqueue(['task_packet' => $this->input('new-deficient', acceptance: [], evidence: [])]);
+
+        $this->assertSame('prepare_blocked', $res['event']);
+        $this->assertSame('task_packet_not_self_sufficient', $res['reason']);
+        $this->assertContains('missing_acceptance_criteria', $res['packet_quality']['blocking_deficiencies']);
+        $this->assertNull((new AgentControlPlaneTaskPacketQueueRepository)->get('new-deficient'));
     }
 
     public function test_a_self_sufficient_packet_is_served_with_quality_facts(): void
@@ -100,6 +110,13 @@ final class AtlasTaskServingPacketQualityTest extends TestCase
             new AgentControlPlaneEvidenceLedgerDryRun,
             new AgentControlPlaneContinuationSummaryBuilder,
         );
+    }
+
+    /** @param array<string, mixed> $input */
+    private function rawEnqueue(array $input): void
+    {
+        $packet = (new AgentControlPlaneTaskPacketBuilder)->build($input);
+        (new AgentControlPlaneTaskPacketQueueRepository)->enqueue($packet);
     }
 
     /** @return array<string, mixed> */

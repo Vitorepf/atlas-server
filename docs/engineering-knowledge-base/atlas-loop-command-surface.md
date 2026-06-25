@@ -103,7 +103,7 @@ next_actions:
   - Keep this surface read-mostly and honest; run-control remains signal-only.
 ---
 
-> ⚠️ **DEFINIÇÃO CANÔNICA DO LOOP — leia primeiro: `docs/loop-canonical-definition.md` + memórias `loop-*`.** Este doc descreve IMPLEMENTAÇÃO / ESTADO / HISTÓRICO; parte do framing aqui (refactor / ciclomática / landing-rate / best-of-N / proxy) é o **ALVO ERRADO**. O Loop = evolução autônoma **exponencial** de features REAIS do Atlas (entender escopo → projeção frontier + crítica cross-model → multi-agente → teste → wiring), **nunca faxina / proxy / one-shot**. Objetivo final: ser o ÚNICO que evolui o Atlas 24/7 sozinho.
+> ⚠️ **DEFINIÇÃO CANÔNICA DO LOOP — leia primeiro: `docs/loop-canonical-definition.md` e `docs/engineering-knowledge-base/atlas-autonomous-engineering-government.md`.** Este doc descreve IMPLEMENTAÇÃO / ESTADO / HISTÓRICO; parte do framing aqui (refactor / ciclomática / landing-rate / best-of-N / proxy) é o **ALVO ERRADO**. Na arquitetura final, o Loop é o **Autopoiesis / Evolution Engine** dentro do `Atlas Autonomous Engineering Government`, não o OS inteiro. O alvo 24/7 é o Government evoluir Atlas e project lanes via Task Fabric, Maestro, Verification Court, Merge Governor, Receipts e Knowledge Sync.
 
 
 # Atlas Loop Command Surface

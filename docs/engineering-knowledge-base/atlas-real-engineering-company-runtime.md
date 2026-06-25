@@ -20,12 +20,16 @@ capabilities:
   - continuous_benchmark
 decisions:
   - Company Runtime nao substitui Real Execution Kernel; ele governa o kernel.
+  - Na arquitetura final, Company Runtime e um orgao executor/organizacional dentro do Atlas Autonomous Engineering Government; ele nao substitui Task Fabric, Maestro, Verification Court ou Merge Governor.
+  - Para Atlas 24/7 e project lanes externas, Company Runtime recebe packets governados e devolve evidence/release packs; promocao final pertence ao Merge / Release Governor.
   - Toda entrega precisa de papel senior_engineer, reviewer independente, QA e release manager.
   - Claim amplo de superioridade continua bloqueado sem bateria maior e review humano.
 maintenance:
   - Atualize este doc antes de alterar papeis, persistencia, comando ou certificacao.
   - Nao remover independent review ou QA gate para acelerar delivery.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-autonomous-engineering-government.md
+  - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
   - docs/engineering-knowledge-base/atlas-real-engineering-execution-kernel.md
   - docs/engineering-knowledge-base/atlas-autonomous-engineering-operating-system.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
@@ -106,6 +110,32 @@ line_limit: 520
 ---
 # Atlas Real Engineering Company Runtime
 
+## Posicao Na Arquitetura Final
+
+`Atlas Real Engineering Company Runtime` e a forma de organizar execucao real
+como uma pequena empresa de engenharia dentro do `Atlas Autonomous Engineering
+Government`.
+
+```text
+Atlas Autonomous Engineering Government
+-> Task Fabric / Maestro
+   -> governable work packet
+-> Real Engineering Company Runtime
+   -> roles
+   -> Real Engineering Execution Kernel
+   -> independent review
+   -> QA
+   -> release pack
+   -> benchmark
+-> Verification Court
+-> Merge / Release Governor
+-> Receipts / Learning Transfer
+```
+
+Ele entrega evidencia, release pack e julgamento interno. Ele nao e a corte
+final: no modo 24/7, worker, reviewer e QA sao entradas para a Verification
+Court e para o Merge / Release Governor.
+
 ## Resumo
 
 O Company Runtime governa o Real Engineering Execution Kernel como uma equipe
@@ -119,10 +149,17 @@ Ele e o patamar acima do executor. O Real Execution Kernel aplica patch e testa;
 o Company Runtime decide quem fez o que, se a entrega deve passar, se deve ir
 para Forge e quais evidencias sustentam o delivery.
 
+Na arquitetura final, isso vale tanto para o proprio Atlas quanto para projetos
+externos sob stewardship: cada project lane usa seu proprio pacote, branch,
+gates e receipts, e o Company Runtime nunca mistura evidencias entre lanes.
+
 ## Onde Se Encaixa
 
 ```text
-Goal
+Atlas Autonomous Engineering Government
+-> Strategy / Architecture decision
+-> Task Fabric packet
+-> Maestro schedule
 -> Engineering Company engagement
 -> company cycle
 -> internal roles
@@ -131,7 +168,9 @@ Goal
 -> QA gate
 -> release pack
 -> benchmark memory
--> company certification
+-> Verification Court
+-> Merge / Release Governor
+-> Learning Transfer / Docs Sync
 ```
 
 ## Contratos
@@ -177,6 +216,7 @@ refs e hash.
 
 - Nao entregar sem review independente passado.
 - Nao entregar sem QA passado.
+- Nao tratar Company Runtime certification como merge final em autonomia 24/7.
 - Nao chamar benchmark continuo de prova de superioridade ampla.
 - Promover para Forge quando o Real Execution Kernel indicar handoff.
 - Preservar evidence refs de cada papel.

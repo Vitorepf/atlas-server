@@ -7,7 +7,7 @@ graph_layer: system
 status: active
 category: autonomous-evolution
 priority: 100
-summary: Supervisor propose-only que usa busca sob verificadores frozen para evoluir codigo, docs e P4 pequeno do Atlas com gates deterministas, refutadores e revisao humana.
+summary: Supervisor propose-only que usa busca sob verificadores frozen para evoluir codigo, docs e P4 pequeno do Atlas com gates deterministas, refutadores e passagem para Verification Court / Merge Governor.
 tags:
   - atlas-ai
   - autonomous-evolution
@@ -21,13 +21,16 @@ capabilities:
   - intent_verifier_factory
   - independent_proposal_reverification
 decisions:
-  - O loop nunca mergeia; proposta certificada significa pronta para revisao humana.
+  - Unified Evolution Loop is now a Loop / Autopoiesis engine under Atlas Autonomous Engineering Government, not the final OS authority.
+  - Its proposals must flow through Task Fabric, Maestro, Verification Court and Merge / Release Governor before unattended 24/7 authority.
+  - O loop nunca mergeia; proposta certificada significa pronta para Verification Court / Merge Governor. Revisao humana e apenas bootstrap ou excecao de risco, nao dependencia final.
   - P4 pequeno so entra quando existir verificador frozen RED antes do provider e certificado semantico depois do candidato.
   - Intent Verifier Factory falha fechado quando a intencao nao tem atomo executavel estreito.
 maintenance:
   - Atualizar quando mudarem modos, gates, comandos do loop, materializacao P4 ou atomos do Intent Verifier Factory.
   - Rodar testes focados, PHPStan, sync da KB e Code Intelligence apos alteracoes de codigo/doc canonico.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-autonomous-engineering-government.md
   - app/Services/Ai/AutonomousEvolution/AtlasLoopIntentVerifierFactory.php
   - app/Services/Ai/AutonomousEvolution/AtlasLoopSemanticImplementationCertifier.php
   - app/Services/Ai/AutonomousEvolution/AtlasLoopTaskGrinder.php
@@ -57,7 +60,7 @@ repo_paths:
 allowed_changes:
   - Atualizar modos, gates, comandos, materializacao P4 e atomos do Intent Verifier Factory quando codigo/testes mudarem.
 forbidden_changes:
-  - Declarar merge automatico, P4 amplo autonomo ou intencao semantica generica sem verificador RED e revisao humana.
+  - Declarar merge automatico pelo Loop, P4 amplo autonomo ou intencao semantica generica sem verificador RED, Verification Court e Merge Governor.
   - Rebaixar gates propose-only, RED-preflight, revert-recheck ou refutadores obrigatorios.
 depends_on:
   - atlas-ai-knowledge-governance-system
@@ -84,11 +87,16 @@ risk_level: high
 next_actions:
   - Expandir Intent Verifier Factory para refactors multi-arquivo e DB-state com migrations controladas.
   - Adicionar refutadores externos reais por provider para P4 acima do fixture local.
-owner: operator
+owner: atlas-ai
 updated: 2026-06-09
 ---
 
-> ⚠️ **DEFINIÇÃO CANÔNICA DO LOOP — leia primeiro: `docs/loop-canonical-definition.md` + memórias `loop-*`.** Este doc descreve IMPLEMENTAÇÃO / ESTADO / HISTÓRICO; parte do framing aqui (refactor / ciclomática / landing-rate / best-of-N / proxy) é o **ALVO ERRADO**. O Loop = evolução autônoma **exponencial** de features REAIS do Atlas (entender escopo → projeção frontier + crítica cross-model → multi-agente → teste → wiring), **nunca faxina / proxy / one-shot**. Objetivo final: ser o ÚNICO que evolui o Atlas 24/7 sozinho.
+> ⚠️ **ARQUITETURA FINAL:** leia primeiro
+> `docs/engineering-knowledge-base/atlas-autonomous-engineering-government.md`
+> e `docs/loop-canonical-definition.md`. Este doc descreve um motor de
+> evolução/propostas. Na arquitetura final ele fica em `Autopoiesis Lab / Loop`;
+> ele não é o governo inteiro, não aprova a si mesmo e não substitui Task
+> Fabric, Maestro, Verification Court ou Merge / Release Governor.
 
 
 # Atlas Unified Evolution Loop
@@ -103,17 +111,21 @@ morto (P1/P3), varredura de documentação para completar módulos canônicos (P
 varredura de código-versus-documentação para achar implementação falsa (P3). Ele também
 emite sinais read-only de clones, hotspots de complexidade, gaps de cobertura, doc-drift
 e duplicação de docs como backlog de julgamento. O quarto ponto — implementações grandes
-(P4) — entra como backlog roteado para o humano/Forge, nunca executado às cegas. Nada é
-mergeado: o loop só propõe; um humano revisa. A fila também recebe uma camada read-only
-de inteligência (`AtlasLoopIntelligenceOverlay`) que calcula prioridade por impacto,
-aprende com feedback humano apenas como peso de fila, mostra matriz de providers e lista
-slots cross-domínio sem executar nada automaticamente.
+(P4) — entra como backlog roteado para Task Fabric / Forge lane / Verification Court,
+nunca executado às cegas pelo Loop. Nada é mergeado pelo Loop: ele só propõe. Quem
+aprova ou rejeita no destino final é a cadeia Atlas-native de Verification Court,
+Merge / Release Governor, rollback e autonomia por nível. Revisão humana pode existir
+no bootstrap ou em exceção de risco, mas não é a dependência final. A fila também
+recebe uma camada read-only de inteligência (`AtlasLoopIntelligenceOverlay`) que calcula
+prioridade por impacto, aprende com feedback de review apenas como peso de fila, mostra
+matriz de providers e lista slots cross-domínio sem executar nada automaticamente.
 
 Para P4 pequeno, o loop agora possui `Semantic Implementation Certification`: uma
 camada final que compõe o gate P4 determinístico (`evaluateImplementation`), o painel
 adversarial determinístico, refutadores externos/provider-safe quando configurados e um
 recibo JSON. A saída continua propose-only: certificado significa "pronto para revisão",
-nunca merge automático.
+isto é, pronto para a cadeia de Verification Court / Merge Governor, nunca merge
+automático pelo Loop.
 
 Para o mesmo P4 pequeno, o loop também possui `Intent Verifier Factory`: antes de
 chamar provider, o Atlas compila uma intenção estreita em teste frozen executável,
@@ -123,7 +135,7 @@ ambígua falha fechada; o compiler não inventa comportamento.
 
 A garantia de qualidade espelha o loop de trading: cada vencedor do juiz frozen ainda
 precisa passar por um holdout independente (`AtlasEngineeringHonestyGate`) que o
-candidato nunca otimizou, antes de virar proposta certificada-para-revisão.
+candidato nunca otimizou, antes de virar proposta certificada para a corte.
 
 ## Papel no Atlas
 
@@ -132,15 +144,30 @@ sem código morto, de forma autônoma e contínua, durante 24h+, sempre propondo
 aplicando. Os providers (hermes_cli por padrão, provider-agnóstico) são apenas o músculo
 que produz o candidato; o cérebro — descoberta, verificador frozen, gate de honestidade,
 governança propose-only — é do Atlas.
+Na arquitetura final, esse músculo também deve poder ser Atlas-native; provider externo
+é meio substituível, nunca requisito permanente.
 
 ## Onde Se Encaixa
+
+Na arquitetura final, o Unified Evolution Loop fica aqui:
+
+```text
+Atlas Autonomous Engineering Government
+  -> Atlas Self-Construction OS
+      -> Autopoiesis Lab / Loop
+      -> Task Fabric
+      -> Maestro
+      -> Verification Court
+      -> Merge / Release Governor
+```
 
 Consome o motor de busca existente (`AtlasEvolutionScenarioExplorer`,
 `AtlasEvolutionFrozenJudge`, `AtlasEvolutionLoopRunner`) — não o reescreve. Roda ao lado
 da campanha de código de teste-gerado (`atlas:loop:campaign`, modo P1/P4) e dobra o
 status dela no mesmo painel. O dispatcher `AtlasP3FindingDispatcher` é a ponte que liga
 os quatro pontos: uma varredura emite achados tipados que ou fecham aqui (auto-loop) ou
-são roteados para o arm certo (humano/Forge para implementação e julgamento).
+são roteados para o arm certo (Task Fabric, Forge lane, Verification Court e Merge /
+Release Governor para implementação e julgamento).
 
 O próximo avanço de desenho é o `LoopPatternRegistry`: ele entra antes da
 originação como seleção governada de estrutura de execução. Em vez de o loop
@@ -186,8 +213,9 @@ No estado atual isto é design/documentação, não runtime provado.
 - Inteligência de fila: `backlog.json.intelligence` e `report.json.intelligence`
   carregam `impact_score`, clusters por causa provável, resumo de feedback,
   `provider_matrix` advisory e `cross_domain_slots`.
-- Feedback humano: `atlas:loop:review-feedback` grava `review_feedback.jsonl`
-  append-only no run; esse sinal altera prioridade futura, nunca aplica proposta.
+- Feedback de review/bootstrap: `atlas:loop:review-feedback` grava
+  `review_feedback.jsonl` append-only no run; esse sinal altera prioridade
+  futura, nunca aplica proposta.
 - Liveness: `atlas:loop:unified:supervisor` combina `heartbeat.json`, idade de
   `report.json` e scan de processo PHP real. Um `report.status=running` sem worker
   PHP vira `stale_running`, nunca "saudável".
@@ -202,13 +230,14 @@ No estado atual isto é design/documentação, não runtime provado.
 2. Para cada achado não-visto: monta task métrica → `AtlasEvolutionLoopRunner` (N cenários,
    juiz frozen pega o melhor) → reconstrói o conteúdo proposto pelo diff → holdout no
    `AtlasEngineeringHonestyGate`.
-3. Certifica-para-revisão só se o gate aprovar; senão registra rejeição com a razão exata.
+3. Certifica para Verification Court / Merge Governor só se o gate aprovar;
+   senão registra rejeição com a razão exata.
 4. Persiste, atualiza o relatório, faz heartbeat. Repete por ciclos até o budget de tempo,
    o kill-switch (`storage/atlas/loop/unified/STOP`) ou a varredura drenar.
 5. Re-prova posterior: `atlas:loop:verify-proposals` cria worktree limpo por proposta,
    reconstrói o diff `target.php/target.md`, re-roda o verificador frozen, prova
    revert-to-RED e grava o veredito independente.
-6. Overlay de inteligência: calcula `impact_score`, incorpora feedback humano,
+6. Overlay de inteligência: calcula `impact_score`, incorpora feedback de review,
    expõe provider matrix e slots cross-domínio. A saída só reordena/explica a fila.
 7. Intent → verificador: quando uma task framework pede `intent_verifier_factory`
    ou não traz `acceptance.commands`, o grinder compila o pacote frozen a partir
@@ -234,8 +263,9 @@ No estado atual isto é design/documentação, não runtime provado.
   são julgamento → FLAG, nunca auto-editar.
 - Honestidade acima de verde-falso: rejeição do gate é o sistema funcionando, não falha.
 - Provider-agnóstico: nunca hardcode um provider; resolver de config/task.
-- Feedback humano só pesa prioridade; não promove, não aplica e não muda provider.
-- Slots cross-domínio são read-only até o operador executar o comando de verifier.
+- Feedback de review/bootstrap só pesa prioridade; não promove, não aplica e não muda provider.
+- Slots cross-domínio são read-only até um verifier Atlas-native autorizar a próxima
+  etapa; execução por operador é bootstrap, não o destino final.
 - Refutadores externos recebem somente um pacote JSON provider-safe via
   `ATLAS_SEMANTIC_REFUTER_PACKET`; qualquer refutação ou refutador obrigatório ausente
   bloqueia a certificação P4.
@@ -245,9 +275,10 @@ No estado atual isto é design/documentação, não runtime provado.
 - Pattern externo, skill externa ou agent workflow OS externo nunca decide por
   si. O Atlas só consome a forma depois de normalizar para contrato, quarentena,
   eval battery fresca e verificação independente.
-- Handoff humano nao pode ser prematuro: o Loop deve preparar artefato, prova,
-  riscos, alternativas e a escolha exata antes de pedir acesso, waiver,
-  land/delete ou decisao de produto.
+- Handoff para operador ou decisão externa não pode ser prematuro nem virar fluxo
+  normal: o Loop deve preparar artefato, prova, riscos, alternativas e a escolha
+  exata antes de pedir acesso, waiver, land/delete ou decisão de produto. No
+  estado final, decisões ordinárias seguem pela cadeia Atlas-native.
 
 ## Escopo de Implementacao
 
@@ -263,7 +294,8 @@ teste frozen para os padrões estreitos `method_return`, `command_output`,
 `http_response`, `event_dispatched`, `job_dispatched` e `db_state` e bloqueia o restante. `db_state` é
 hermético: exige `setup_sql`, roda no SQLite de teste materializado e só verifica
 contagem por filtros simples. Fora de escopo do auto-loop: implementações
-grandes e julgamento arquitetural amplo — roteados para humano/Forge.
+grandes e julgamento arquitetural amplo — roteados para Task Fabric, Forge lane,
+Verification Court e Merge / Release Governor.
 
 ## Dependencias
 
@@ -324,9 +356,12 @@ grandes e julgamento arquitetural amplo — roteados para humano/Forge.
 ## Riscos
 
 - Custo de provider em varreduras grandes (mitigado por `max_per_cycle` + propose-only).
-- Conteúdo de seções de doc pode ser raso (mitigado por revisão humana propose-only).
-- O gate de holdout é determinístico; ataques fora do conjunto de holdouts dependem da
-  revisão humana — por isso propose-only é inegociável.
+- Conteúdo de seções de doc pode ser raso (mitigado por Verification Court,
+  doc gates e review/bootstrap excepcional).
+- O gate de holdout é determinístico; ataques fora do conjunto de holdouts dependem
+  de novos refutadores, sentinel tests e revisão independente. Por isso
+  propose-only no Loop é inegociável, e a promoção final pertence ao governo
+  Atlas-native.
 
 ## Exemplos
 

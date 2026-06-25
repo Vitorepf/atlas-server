@@ -30,9 +30,11 @@ class AtlasTaskHealthCommand extends Command
         }
 
         $d = (array) $snapshot['queue_status_distribution'];
+        $sv = (array) ($snapshot['servability'] ?? []);
         $this->line('');
         $this->line('  <fg=cyan>TASK-SERVING COORDINATION HEALTH</>');
         $this->line('  claimable='.$snapshot['claimable_depth'].'  claimed='.$snapshot['claimed_records'].'  blocked='.$snapshot['quarantined_count'].'  released='.($d['released'] ?? 0).'  completed='.($d['completed_dry_run'] ?? 0));
+        $this->line('  servable_now='.($snapshot['servable_now'] ?? 0).'  waiting_on_deps='.($sv['waiting_on_inflight_deps'] ?? 0).'  blocked_by_dead_prereq='.($sv['blocked_by_dead_prereq'] ?? 0).'  probe_excluded='.($sv['certification_probe_excluded'] ?? 0));
         $this->line('  active_leases='.$snapshot['active_leases'].'  leases_match_claimed='.($snapshot['leases_match_claimed'] ? 'yes' : 'NO').'  recoverable='.$snapshot['recoverable']['total']);
         $this->line('  serve_success_rate='.$snapshot['serving']['serve_success_rate'].'  r2_breach='.($snapshot['serving']['r2_breach'] ? 'YES' : 'no'));
         $flags = array_keys(array_filter((array) $snapshot['health_flags']));

@@ -43,9 +43,9 @@ graph_id: atlas-loop-deerflow-harness-analysis
 graph_title: Atlas Loop DeerFlow Harness Analysis
 graph_world: atlas
 graph_layer: system
-graph_kind: source_material
+graph_kind: module
 graph_parent: atlas-loop-pattern-registry
-graph_status: source_material
+graph_status: active
 graph_source: repo
 human_name: Atlas Loop DeerFlow Harness Analysis
 canonical_name: Atlas Loop DeerFlow Harness Analysis

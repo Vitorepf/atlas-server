@@ -93,6 +93,50 @@ final class AtlasTaskServingGiveBackReclaimTest extends TestCase
         $this->assertSame('loop-1', $c['task']['task_packet_id']);
     }
 
+    public function test_same_worker_reclaims_its_own_give_back_after_the_cooldown_window(): void
+    {
+        // THE DEADLOCK FIX: the per-worker anti-loop skip is a BOUNDED cooldown, not a permanent lockout. A
+        // permanent skip meant a single worker that gave a task back could never reclaim it — and every task
+        // depending on it stayed dependency-gated forever (the live `codex-1` deadlock: 52 self-locked tasks,
+        // 35 of them prerequisites of 83 others). After the cooldown the SAME worker may retry.
+        config(['atlas.task_serving.give_back_reclaim_cooldown_seconds' => 120]);
+        $orch = $this->orchestrator();
+        $orch->prepareAndEnqueue(['task_packet' => $this->input('cooldown-1')]);
+        $serving = new AtlasTaskServingService($orch);
+
+        $a = $serving->next('solo-worker');
+        $this->assertSame('served', $a['status']);
+        $serving->report('solo-worker', $a['task']['task_packet_id'], $a['task']['lease_id'], ['outcome' => 'give_back']);
+
+        // WITHIN the cooldown the giver is still skipped (no instant self-respin — anti-loop preserved).
+        $during = $serving->next('solo-worker');
+        $this->assertSame('no_claimable_task', $during['status'], 'within the cooldown the giver cannot re-pull its own give-back');
+
+        // AFTER the cooldown elapses the SAME worker reclaims it — a single worker is never permanently locked out.
+        $this->travel(121)->seconds();
+        $after = $serving->next('solo-worker');
+        $this->assertSame('served', $after['status'], 'after the cooldown the giver may retry its own task');
+        $this->assertSame('cooldown-1', $after['task']['task_packet_id']);
+    }
+
+    public function test_give_back_reclaim_cooldown_zero_lets_the_same_worker_reclaim_immediately(): void
+    {
+        // The operator escape hatch (cooldown disabled) AND the legacy-record path: a give-back carrying no
+        // `last_give_back_at` is treated as already-elapsed. With cooldown=0 the giver reclaims at once.
+        config(['atlas.task_serving.give_back_reclaim_cooldown_seconds' => 0]);
+        $orch = $this->orchestrator();
+        $orch->prepareAndEnqueue(['task_packet' => $this->input('no-cooldown-1')]);
+        $serving = new AtlasTaskServingService($orch);
+
+        $a = $serving->next('solo-worker');
+        $this->assertSame('served', $a['status']);
+        $serving->report('solo-worker', $a['task']['task_packet_id'], $a['task']['lease_id'], ['outcome' => 'give_back']);
+
+        $b = $serving->next('solo-worker');
+        $this->assertSame('served', $b['status'], 'cooldown=0 ⇒ the giver reclaims immediately');
+        $this->assertSame('no-cooldown-1', $b['task']['task_packet_id']);
+    }
+
     public function test_a_task_given_back_too_many_times_is_quarantined(): void
     {
         $orch = $this->orchestrator();

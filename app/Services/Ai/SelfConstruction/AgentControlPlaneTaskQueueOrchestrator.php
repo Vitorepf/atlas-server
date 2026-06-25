@@ -57,6 +57,19 @@ final class AgentControlPlaneTaskQueueOrchestrator
             ]);
         }
 
+        $quality = (new AtlasTaskPacketQualityInspector)->inspect($packet);
+        if (! (bool) ($quality['self_sufficient'] ?? false)) {
+            return $this->envelope('prepare_blocked', [
+                'task_packet' => $packet,
+                'validation' => $validation,
+                'packet_quality' => $quality,
+                'queue_entry' => null,
+                'evidence_plan' => null,
+                'continuation_summary' => null,
+                'reason' => 'task_packet_not_self_sufficient',
+            ]);
+        }
+
         $enqueueResult = $this->queue->enqueue($packet, [
             'metadata' => [
                 'scope_lock_hash' => (string) $validation['scope_lock_hash'],
@@ -129,8 +142,9 @@ final class AgentControlPlaneTaskQueueOrchestrator
         usort($candidates, static function (array $a, array $b): int {
             return ((int) data_get($a, 'metadata.wave', 0)) <=> ((int) data_get($b, 'metadata.wave', 0));
         });
+        $depCache = []; // per-call {status, depends_on} memo so dependency+cycle resolution bounds file reads.
         foreach ($candidates as $candidate) {
-            if (! $this->candidateCanBeClaimedByWorker($candidate, $agentId)) {
+            if (! $this->candidateCanBeClaimedByWorker($candidate, $agentId, $depCache)) {
                 continue;
             }
 
@@ -202,8 +216,11 @@ final class AgentControlPlaneTaskQueueOrchestrator
         }
     }
 
-    /** @param array<string, mixed> $candidate */
-    private function candidateCanBeClaimedByWorker(array $candidate, string $agentId = ''): bool
+    /**
+     * @param  array<string, mixed>  $candidate
+     * @param  array<string, array{status:string, depends_on:list<string>}|null>  $cache  per-call node memo
+     */
+    private function candidateCanBeClaimedByWorker(array $candidate, string $agentId, array &$cache): bool
     {
         if ((bool) data_get($candidate, 'task_packet.continuation_context.worker_executable', true) === false) {
             return false;
@@ -211,42 +228,716 @@ final class AgentControlPlaneTaskQueueOrchestrator
         if ((bool) data_get($candidate, 'task_packet.continuation_context.operator_handoff_required', false)) {
             return false;
         }
-        // ANTI-LOOP: never re-serve a task to the SAME worker that just gave it back (else it pulls its own
-        // give-back instantly and spins forever). It stays available to OTHER workers.
-        $lastGiver = (string) data_get($candidate, 'metadata.last_give_back_by', '');
-        if ($lastGiver !== '' && $agentId !== '' && $lastGiver === $agentId) {
+        // QUEUE-POISONING GUARD: the serving surface must NEVER hand a certification/probe packet to a real
+        // worker. Disk isolation ({@see AtlasTaskServingStack}) is the first line; this is the belt-and-
+        // suspenders second line so a probe that leaks into the serving disk can still never be claimed.
+        if ($this->isCertificationProbe($candidate)) {
+            return false;
+        }
+        // ANTI-LOOP COOLDOWN: never RE-serve a task to the SAME worker that just gave it back WHILE the reclaim
+        // cooldown is still open (else it pulls its own give-back instantly and spins). The window is BOUNDED,
+        // not permanent: a permanent skip deadlocks the version-ladder for a single worker — every task it ever
+        // gave back, and everything depending on it, becomes forever unservable. After the window it may retry;
+        // the task always stays available to OTHER workers. See {@see workerInGiveBackCooldown}.
+        if ($this->workerInGiveBackCooldown($candidate, $agentId)) {
             return false;
         }
 
-        // ORDER: a task with unmet prerequisites is not yet servable. Every depends_on must be completed.
-        if ($this->dependenciesUnmet($candidate)) {
-            return false;
+        // ORDER: a task is servable only when its prerequisites are MET. Cancelled/absent/cyclic deps are
+        // fail-open (never a permanent indue block); a blocked (quarantined) prereq keeps the dependent gated
+        // but is operator-recoverable, not permanent. See {@see classifyDependencies}.
+        return $this->classifyDependencies($candidate, $cache) === 'met';
+    }
+
+    /** A dep in one of these states is SATISFIED: completed, or terminally GONE (cancelled ⇒ fail-open). */
+    private const DEPENDENCY_SATISFIED_STATES = ['completed_dry_run', 'cancelled'];
+
+    /** A dep here is unmet but DEAD (quarantined) — operator-recoverable, NOT the advancing ladder. */
+    private const DEPENDENCY_DEAD_STATES = ['blocked'];
+
+    /**
+     * Classify a candidate's depends_on into the gate/wait verdict — the single source of truth for ordering:
+     *   - 'met'      every prerequisite is satisfied ⇒ SERVABLE now.
+     *   - 'inflight' ≥1 unmet prerequisite is still moving (queued/claimable/claimed/lease_expired/released) ⇒
+     *                the version-ladder IS advancing; a worker should WAIT.
+     *   - 'blocked'  unmet prerequisites exist but ALL are DEAD (quarantined) ⇒ the ladder is NOT advancing;
+     *                this is escalation, never a "just wait" — so it can't masquerade as waiting_on_dependencies.
+     *
+     * Three fail-open rules guarantee depends_on can NEVER create a permanent indue block:
+     *   - an ABSENT dep (typo/pruned) is satisfied,
+     *   - a CANCELLED dep (terminally gone) is satisfied,
+     *   - a CYCLIC dep (a prerequisite that transitively depends back on this task) is satisfied — a cycle has
+     *     no valid topological order, so freezing the belt on it would be exactly the deadlock we must avoid.
+     *
+     * @param  array<string, mixed>  $candidate
+     * @param  array<string, array{status:string, depends_on:list<string>}|null>  $cache
+     */
+    private function classifyDependencies(array $candidate, array &$cache): string
+    {
+        $rootId = (string) ($candidate['task_packet_id'] ?? '');
+        $dependsOn = array_values(array_filter((array) data_get($candidate, 'metadata.depends_on', []), 'is_string'));
+        $sawInflight = false;
+        $sawDead = false;
+        foreach ($dependsOn as $depId) {
+            $node = $this->dependencyNode($depId, $cache);
+            if ($node === null) {
+                continue; // absent ⇒ fail-open (satisfied).
+            }
+            if (in_array($node['status'], self::DEPENDENCY_SATISFIED_STATES, true)) {
+                continue; // completed OR cancelled ⇒ satisfied.
+            }
+            if ($rootId !== '' && $this->dependencyReaches($depId, $rootId, $cache, [])) {
+                continue; // CYCLE ⇒ fail-open (break the deadlock).
+            }
+            if (in_array($node['status'], self::DEPENDENCY_DEAD_STATES, true)) {
+                $sawDead = true;
+            } else {
+                $sawInflight = true;
+            }
         }
 
-        return true;
+        if ($sawInflight) {
+            return 'inflight';
+        }
+
+        return $sawDead ? 'blocked' : 'met';
     }
 
     /**
-     * True when the candidate declares depends_on task(s) that are NOT yet completed — it must wait. A dep that
-     * is absent from the queue is treated as SATISFIED (fail-open), so a typo or a pruned dep never strands a
-     * task forever; ordering is enforced among co-enqueued tasks, which is the real version-ladder case.
+     * Lightweight, memoized {status, depends_on} for a queue node (null when absent). Bounds file reads to one
+     * per distinct node across a single claim/scan call.
      *
-     * @param  array<string, mixed>  $candidate
+     * @param  array<string, array{status:string, depends_on:list<string>}|null>  $cache
+     * @return array{status:string, depends_on:list<string>}|null
      */
-    private function dependenciesUnmet(array $candidate): bool
+    private function dependencyNode(string $id, array &$cache): ?array
     {
-        $dependsOn = array_values(array_filter((array) data_get($candidate, 'metadata.depends_on', []), 'is_string'));
-        foreach ($dependsOn as $depId) {
-            $dep = $this->queue->get($depId);
-            if ($dep === null) {
-                continue; // unknown dep → fail-open (never strand).
-            }
-            if ((string) ($dep['status'] ?? '') !== 'completed_dry_run') {
-                return true; // a real prerequisite is still open → not servable yet.
+        if (array_key_exists($id, $cache)) {
+            return $cache[$id];
+        }
+        $record = $this->queue->get($id);
+
+        return $cache[$id] = $record === null ? null : [
+            'status' => (string) ($record['status'] ?? ''),
+            'depends_on' => array_values(array_filter((array) data_get($record, 'metadata.depends_on', []), 'is_string')),
+        ];
+    }
+
+    /**
+     * True when following depends_on edges from $fromId ever reaches $targetId — i.e. $fromId is (transitively)
+     * a prerequisite of $targetId, so making $targetId depend on $fromId closes a cycle. The visited set makes
+     * this terminate on any graph.
+     *
+     * @param  array<string, array{status:string, depends_on:list<string>}|null>  $cache
+     * @param  array<string, bool>  $seen
+     */
+    private function dependencyReaches(string $fromId, string $targetId, array &$cache, array $seen): bool
+    {
+        if (isset($seen[$fromId])) {
+            return false;
+        }
+        $seen[$fromId] = true;
+        $node = $this->dependencyNode($fromId, $cache);
+        if ($node === null) {
+            return false;
+        }
+        foreach ($node['depends_on'] as $next) {
+            if ($next === $targetId || $this->dependencyReaches($next, $targetId, $cache, $seen)) {
+                return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * Tag PREFIXES the Agent Control Plane fleet/bootstrap certification machinery stamps on its probes (some
+     * probe tags — e.g. `terminal_bootstrap_partial_supply` — carry neither the word "probe" nor "certification",
+     * so a substring check alone would miss them). Real serving tasks are tagged `brain-originated` / `docs` /
+     * `tests` / `guardrail` / `runtime_gap` / `chain_integrity` etc., none of which match — so no false-positive.
+     */
+    private const PROBE_TAG_PREFIXES = ['terminal_fleet', 'terminal_worker', 'terminal_bootstrap', 'multi_agent_loop'];
+
+    /**
+     * A certification/probe packet must NEVER be served to a real worker. The authoritative marker is the queue
+     * TAG the certification/fleet machinery stamps (a substring `probe`/`certification`, or one of the fleet/
+     * bootstrap prefixes), plus the canonical `probe_*` id prefix. Disk isolation ({@see AtlasTaskServingStack})
+     * is the primary defense; this guard is the belt-and-suspenders for the shared-disk fallback.
+     *
+     * @param  array<string, mixed>  $candidate
+     */
+    private function isCertificationProbe(array $candidate): bool
+    {
+        $id = strtolower((string) ($candidate['task_packet_id'] ?? ''));
+        if ($id !== '' && (str_starts_with($id, 'probe_') || str_starts_with($id, 'probe-'))) {
+            return true;
+        }
+        foreach ((array) ($candidate['tags'] ?? []) as $tag) {
+            $tag = strtolower(trim((string) $tag));
+            if ($tag === '') {
+                continue;
+            }
+            if (str_contains($tag, 'probe') || str_contains($tag, 'certification')) {
+                return true;
+            }
+            foreach (self::PROBE_TAG_PREFIXES as $prefix) {
+                if (str_starts_with($tag, $prefix)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * SERVABILITY BREAKDOWN — the honest cross-cut the coordination-health panel embeds so health, the
+     * orchestrator, the service and the CLI all AGREE on how many claimable tasks can actually be pulled now.
+     * Reuses the SAME predicates the claim path uses (dependency classification, probe guard, executability),
+     * for a FRESH worker (the per-worker give-back cooldown is transient and excluded here). `servable_now` is
+     * the count a cold worker could claim this instant (the quality-gate quarantine still applies at claim).
+     *
+     * @return array<string, int>
+     */
+    public function servabilityBreakdown(): array
+    {
+        $cache = [];
+        $inspector = new AtlasTaskPacketQualityInspector;
+        $claimable = $this->queue->list(['status' => 'claimable']);
+        $servable = 0;
+        $waitingInflight = 0;
+        $blockedPrereq = 0;
+        $notExecutable = 0;
+        $probe = 0;
+        $malformed = 0;
+
+        foreach ($claimable as $candidate) {
+            if ($this->isCertificationProbe($candidate)) {
+                $probe++;
+
+                continue;
+            }
+            $executable = (bool) data_get($candidate, 'task_packet.continuation_context.worker_executable', true)
+                && ! (bool) data_get($candidate, 'task_packet.continuation_context.operator_handoff_required', false);
+            if (! $executable) {
+                $notExecutable++;
+
+                continue;
+            }
+            $depState = $this->classifyDependencies($candidate, $cache);
+            if ($depState === 'inflight') {
+                $waitingInflight++;
+
+                continue;
+            }
+            if ($depState !== 'met') {
+                $blockedPrereq++;
+
+                continue;
+            }
+            // deps met — the SAME quality gate the claim path applies decides servable vs quarantine-on-claim.
+            // This makes servable_now equal what a worker actually gets served (no over-count of doomed packets).
+            if ($inspector->isSelfSufficient((array) data_get($candidate, 'task_packet', []))) {
+                $servable++;
+            } else {
+                $malformed++;
+            }
+        }
+
+        return [
+            'claimable' => count($claimable),
+            'servable_now' => $servable,
+            'waiting_on_inflight_deps' => $waitingInflight,
+            'blocked_by_dead_prereq' => $blockedPrereq,
+            'malformed_quarantine_on_claim' => $malformed,
+            'not_executable' => $notExecutable,
+            'certification_probe_excluded' => $probe,
+        ];
+    }
+
+    /**
+     * Operator maintenance: quarantine claimable packets that the serving front door would reject as not
+     * self-sufficient. This keeps workers from spending even a `next` call cleaning old malformed backlog.
+     *
+     * @return array<string, mixed>
+     */
+    public function sweepMalformedClaimableTasks(int $limit = 0, bool $dryRun = false, string $actor = 'task_sweep'): array
+    {
+        $inspector = new AtlasTaskPacketQualityInspector;
+        $limit = max(0, $limit);
+        $inspected = 0;
+        $blocked = [];
+        $wouldBlock = [];
+
+        foreach ($this->queue->list(['status' => 'claimable']) as $candidate) {
+            if ($limit > 0 && count($blocked) + count($wouldBlock) >= $limit) {
+                break;
+            }
+            $inspected++;
+            $quality = $inspector->inspect((array) data_get($candidate, 'task_packet', []));
+            if ((bool) ($quality['self_sufficient'] ?? false)) {
+                continue;
+            }
+
+            $taskPacketId = (string) ($candidate['task_packet_id'] ?? '');
+            if ($taskPacketId === '') {
+                continue;
+            }
+
+            $item = [
+                'task_packet_id' => $taskPacketId,
+                'blocking_deficiencies' => array_values((array) ($quality['blocking_deficiencies'] ?? [])),
+            ];
+
+            if ($dryRun) {
+                $wouldBlock[] = $item;
+
+                continue;
+            }
+
+            $transition = $this->queue->updateStatus($taskPacketId, 'blocked', [
+                'reason' => 'packet_not_self_sufficient_sweep',
+                'agent_id' => $actor,
+                'blocking_deficiencies' => $item['blocking_deficiencies'],
+            ]);
+            if ((string) ($transition['status'] ?? '') === 'ok') {
+                $this->queue->appendReceipt($taskPacketId, [
+                    'receipt_kind' => 'packet_quarantined_not_self_sufficient_sweep',
+                    'agent_id' => $actor,
+                    'blocking_deficiencies' => $item['blocking_deficiencies'],
+                ]);
+                $blocked[] = $item;
+            }
+        }
+
+        return [
+            'schema' => 'atlas.task_serving.malformed_sweep.v1',
+            'dry_run' => $dryRun,
+            'inspected_claimable' => $inspected,
+            'blocked_count' => count($blocked),
+            'would_block_count' => count($wouldBlock),
+            'blocked' => $blocked,
+            'would_block' => $wouldBlock,
+        ];
+    }
+
+    /**
+     * Repair blocked packets whose only known issue is an uncommittable forbidden self-target in allowed_files.
+     * The repair keeps the SAME task_packet_id, removes forbidden paths from the write scope, marks them as
+     * forbidden_files, rebuilds the packet hash via the canonical builder, and reopens the task as claimable.
+     * Dependencies keep pointing at the same id, so the task ladder does not fork.
+     *
+     * @return array<string, mixed>
+     */
+    public function repairBlockedForbiddenSelfTargetTasks(int $limit = 0, bool $dryRun = false, string $actor = 'task_repair'): array
+    {
+        $guard = new \App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
+        $inspector = new AtlasTaskPacketQualityInspector($guard);
+        $limit = max(0, $limit);
+        $inspected = 0;
+        $repairable = [];
+        $repaired = [];
+        $retired = [];
+        $unrepairable = [];
+
+        foreach ($this->queue->list(['status' => 'blocked']) as $record) {
+            if ($limit > 0 && count($repairable) + count($repaired) + count($retired) + count($unrepairable) >= $limit) {
+                break;
+            }
+            $inspected++;
+            $taskPacketId = (string) ($record['task_packet_id'] ?? '');
+            $packet = (array) data_get($record, 'task_packet', []);
+            $allowed = $this->stringList((array) data_get($packet, 'normalized_scope.allowed_files', data_get($packet, 'allowed_files', [])));
+            $forbiddenAllowed = array_values(array_filter($allowed, fn (string $path): bool => $guard->isForbiddenSelfTarget($path)));
+            if ($taskPacketId === '' || $forbiddenAllowed === []) {
+                continue;
+            }
+
+            $input = $this->repairInputWithoutForbiddenTargets($packet, $forbiddenAllowed);
+            $rebuilt = $this->builder->build($input);
+            $quality = $inspector->inspect($rebuilt);
+            $item = [
+                'task_packet_id' => $taskPacketId,
+                'removed_allowed_files' => $forbiddenAllowed,
+                'remaining_allowed_files' => array_values((array) data_get($rebuilt, 'normalized_scope.allowed_files', [])),
+                'blocking_deficiencies' => array_values((array) ($quality['blocking_deficiencies'] ?? [])),
+            ];
+
+            if ((string) ($rebuilt['status'] ?? '') !== 'planned' || ! (bool) ($quality['self_sufficient'] ?? false)) {
+                if (! $dryRun && $item['remaining_allowed_files'] === []) {
+                    $retire = $this->queue->updateStatus($taskPacketId, 'cancelled', [
+                        'reason' => 'unrepairable_empty_allowed_files_after_forbidden_self_target_repair',
+                        'agent_id' => $actor,
+                        'removed_allowed_files' => $forbiddenAllowed,
+                        'blocking_deficiencies' => $item['blocking_deficiencies'],
+                    ]);
+                    if ((string) ($retire['status'] ?? '') === 'ok') {
+                        $this->queue->appendReceipt($taskPacketId, [
+                            'receipt_kind' => 'blocked_packet_retired_empty_scope_after_forbidden_self_target_repair',
+                            'agent_id' => $actor,
+                            'removed_allowed_files' => $forbiddenAllowed,
+                            'blocking_deficiencies' => $item['blocking_deficiencies'],
+                        ]);
+                        $retired[] = $item;
+
+                        continue;
+                    }
+
+                    $item['retire_status'] = (string) ($retire['status'] ?? 'unknown');
+                    $item['retire_reason'] = (string) ($retire['reason'] ?? '');
+                }
+
+                $unrepairable[] = $item;
+
+                continue;
+            }
+
+            if ($dryRun) {
+                $repairable[] = $item;
+
+                continue;
+            }
+
+            $replace = $this->queue->replaceBlockedTaskPacket($taskPacketId, $rebuilt, [
+                'reason' => 'forbidden_self_target_scope_repaired',
+                'agent_id' => $actor,
+                'removed_allowed_files' => $forbiddenAllowed,
+            ]);
+            if ((string) ($replace['status'] ?? '') === 'ok') {
+                $this->queue->appendReceipt($taskPacketId, [
+                    'receipt_kind' => 'blocked_packet_repaired_forbidden_self_target',
+                    'agent_id' => $actor,
+                    'removed_allowed_files' => $forbiddenAllowed,
+                ]);
+                $repaired[] = $item;
+            } else {
+                $item['repair_status'] = (string) ($replace['status'] ?? 'unknown');
+                $item['repair_reason'] = (string) ($replace['reason'] ?? '');
+                $unrepairable[] = $item;
+            }
+        }
+
+        return [
+            'schema' => 'atlas.task_serving.blocked_repair.v1',
+            'dry_run' => $dryRun,
+            'inspected_blocked' => $inspected,
+            'repairable_count' => count($repairable),
+            'repaired_count' => count($repaired),
+            'retired_count' => count($retired),
+            'unrepairable_count' => count($unrepairable),
+            'repairable' => $repairable,
+            'repaired' => $repaired,
+            'retired' => $retired,
+            'unrepairable' => $unrepairable,
+        ];
+    }
+
+    /**
+     * Repair the OTHER blocked class the forbidden-target repair cannot touch: a packet whose pétreo target was
+     * ALREADY moved out of allowed_files by a prior scope-repair, but whose acceptance STILL demands that target
+     * — so the inspector keeps it blocked on `scope_repair_removed_required_target_from_allowed_files` forever
+     * (this was the dominant jam cause: ~all blocked packets, each stranding dead-prereq dependents). It also
+     * reopens any blocked packet that simply re-inspects self-sufficient now (stale quarantine).
+     *
+     * Per blocked packet:
+     *   - re-inspect; if SELF-SUFFICIENT now ⇒ reopen unchanged (stale quarantine cleared).
+     *   - else if blocked ONLY by the scope-repair deficiency:
+     *       · if a BUILDABLE target remains (a non-test, non-pétreo allowed_file) ⇒ scrub the acceptance lines
+     *         that demand a pétreo/removed path (operator-wiring, not worker work), reopen. The worker builds the
+     *         class + test; the pétreo flag/judge wiring is the operator's separate step.
+     *       · else (allowed is only tests / only pétreo) ⇒ RETIRE (cancel). A cancelled prereq is fail-open, so
+     *         its dependents stop being `blocked_by_dead_prereq` and the ladder advances.
+     *   - else ⇒ leave blocked (unrepairable here; reported).
+     *
+     * Same task_packet_id throughout, so depends_on edges never fork.
+     *
+     * @return array<string, mixed>
+     */
+    public function repairScopeBlockedTasks(int $limit = 0, bool $dryRun = false, string $actor = 'task_repair'): array
+    {
+        $guard = new \App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
+        $inspector = new AtlasTaskPacketQualityInspector($guard);
+        $limit = max(0, $limit);
+        $inspected = 0;
+        $reopened = [];
+        $retired = [];
+        $unrepairable = [];
+        $plan = [];
+
+        foreach ($this->queue->list(['status' => 'blocked']) as $record) {
+            if ($limit > 0 && count($reopened) + count($retired) + count($unrepairable) + count($plan) >= $limit) {
+                break;
+            }
+            $taskPacketId = (string) ($record['task_packet_id'] ?? '');
+            if ($taskPacketId === '') {
+                continue;
+            }
+            $packet = (array) data_get($record, 'task_packet', []);
+            $quality = $inspector->inspect($packet);
+            $blocking = array_values((array) ($quality['blocking_deficiencies'] ?? []));
+            $inspected++;
+
+            $selfSufficient = (bool) ($quality['self_sufficient'] ?? false);
+            $isScopeRepairDoomed = in_array('scope_repair_removed_required_target_from_allowed_files', $blocking, true);
+            if ($this->isRepeatedGiveBackQuarantine($record)) {
+                $unrepairable[] = [
+                    'task_packet_id' => $taskPacketId,
+                    'blocking_deficiencies' => array_values(array_unique(array_merge($blocking, ['repeated_give_back_8']))),
+                    'reason' => 'repeated_give_back_quarantine_requires_respec',
+                ];
+
+                continue;
+            }
+
+            if (! $selfSufficient && (! $isScopeRepairDoomed || count($blocking) > 1)) {
+                // Not our class, or compounded with another deficiency we must not silently paper over.
+                $unrepairable[] = ['task_packet_id' => $taskPacketId, 'blocking_deficiencies' => $blocking];
+
+                continue;
+            }
+
+            $allowed = $this->stringList((array) data_get($packet, 'normalized_scope.allowed_files', data_get($packet, 'allowed_files', [])));
+            $buildable = array_values(array_filter(
+                $allowed,
+                fn (string $p): bool => ! $this->isTestPath($p) && ! $guard->isForbiddenSelfTarget($p),
+            ));
+            $removedTargets = array_values((array) data_get($quality, 'facts.scope_repair_removed_required_targets', []));
+
+            // RETIRE: nothing a worker can build (only tests / only pétreo) and not self-sufficient.
+            if (! $selfSufficient && $buildable === []) {
+                $item = ['task_packet_id' => $taskPacketId, 'action' => 'retire', 'reason' => 'no_buildable_non_petreo_target', 'removed_targets' => $removedTargets];
+                if ($dryRun) {
+                    $plan[] = $item;
+
+                    continue;
+                }
+                $t = $this->queue->updateStatus($taskPacketId, 'cancelled', [
+                    'reason' => 'operator_only_task_no_buildable_target_after_scope_repair',
+                    'agent_id' => $actor,
+                    'removed_targets' => $removedTargets,
+                ]);
+                if ((string) ($t['status'] ?? '') === 'ok') {
+                    $this->queue->appendReceipt($taskPacketId, [
+                        'receipt_kind' => 'blocked_packet_retired_operator_only_after_scope_repair',
+                        'agent_id' => $actor,
+                        'removed_targets' => $removedTargets,
+                    ]);
+                    $retired[] = $item;
+                } else {
+                    $unrepairable[] = ['task_packet_id' => $taskPacketId, 'retire_status' => (string) ($t['status'] ?? 'unknown')];
+                }
+
+                continue;
+            }
+
+            // REOPEN: self-sufficient-now (scrub nothing) or scope-repair-doomed-but-buildable (scrub the
+            // pétreo demand from acceptance so the worker contract is exactly the buildable work).
+            $scrub = $selfSufficient ? [] : $this->petreoPathsToScrub($packet, $removedTargets, $guard);
+            $input = $this->repairInputKeepingScope($packet, $scrub);
+            $rebuilt = $this->builder->build($input);
+            $requality = $inspector->inspect($rebuilt);
+            $item = [
+                'task_packet_id' => $taskPacketId,
+                'action' => $selfSufficient ? 'reopen_clean' : 'reopen_scrubbed',
+                'scrubbed_paths' => $scrub,
+                'remaining_allowed_files' => array_values((array) data_get($rebuilt, 'normalized_scope.allowed_files', [])),
+            ];
+
+            if ((string) ($rebuilt['status'] ?? '') !== 'planned' || ! (bool) ($requality['self_sufficient'] ?? false)) {
+                $item['still_blocking'] = array_values((array) ($requality['blocking_deficiencies'] ?? []));
+                $unrepairable[] = $item;
+
+                continue;
+            }
+            if ($dryRun) {
+                $plan[] = $item;
+
+                continue;
+            }
+            $replace = $this->queue->replaceBlockedTaskPacket($taskPacketId, $rebuilt, [
+                'reason' => $selfSufficient ? 'stale_quarantine_reopened' : 'scope_repair_acceptance_reconciled',
+                'agent_id' => $actor,
+                'scrubbed_paths' => $scrub,
+            ]);
+            if ((string) ($replace['status'] ?? '') === 'ok') {
+                $this->queue->appendReceipt($taskPacketId, [
+                    'receipt_kind' => $selfSufficient ? 'blocked_packet_reopened_stale_quarantine' : 'blocked_packet_reopened_scope_repair_reconciled',
+                    'agent_id' => $actor,
+                    'scrubbed_paths' => $scrub,
+                ]);
+                $reopened[] = $item;
+            } else {
+                $item['repair_status'] = (string) ($replace['status'] ?? 'unknown');
+                $unrepairable[] = $item;
+            }
+        }
+
+        return [
+            'schema' => 'atlas.task_serving.scope_blocked_repair.v1',
+            'dry_run' => $dryRun,
+            'inspected_blocked' => $inspected,
+            'reopened_count' => count($reopened),
+            'retired_count' => count($retired),
+            'unrepairable_count' => count($unrepairable),
+            'planned_count' => count($plan),
+            'reopened' => $reopened,
+            'retired' => $retired,
+            'unrepairable' => $unrepairable,
+            'plan' => $plan,
+        ];
+    }
+
+    /**
+     * A repeated give-back quarantine is not "stale" just because today's structural inspector passes. It means
+     * several workers already found the packet non-executable or contradictory in practice; reopening it blindly
+     * recreates the poison loop and burns tokens again. Respec or retire it explicitly instead.
+     *
+     * @param  array<string,mixed>  $record
+     */
+    private function isRepeatedGiveBackQuarantine(array $record): bool
+    {
+        $giveBackCount = (int) data_get($record, 'metadata.give_back_count', data_get($record, 'give_back_count', 0));
+        $deficiencies = array_map('strval', (array) data_get($record, 'metadata.blocking_deficiencies', []));
+        $reason = (string) data_get($record, 'metadata.reason', '');
+
+        return $giveBackCount >= 7
+            && ($reason === 'packet_not_self_sufficient' || in_array('repeated_give_back_8', $deficiencies, true));
+    }
+
+    private function isTestPath(string $path): bool
+    {
+        $p = ltrim(str_replace('\\', '/', trim($path)), '/');
+
+        return str_contains($p, '/tests/') || str_starts_with($p, 'tests/') || str_ends_with($p, 'Test.php');
+    }
+
+    /**
+     * The pétreo/removed paths a reopened packet must stop demanding in its acceptance (worker can't commit them;
+     * the operator wires them). Union of the inspector's removed-required-targets and any pétreo allowed/forbidden
+     * path on the packet — matched in acceptance text by full path or basename.
+     *
+     * @param  array<string, mixed>  $packet
+     * @param  list<string>  $removedTargets
+     * @return list<string>
+     */
+    private function petreoPathsToScrub(array $packet, array $removedTargets, \App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard $guard): array
+    {
+        $forbidden = $this->stringList((array) data_get($packet, 'normalized_scope.forbidden_files', data_get($packet, 'forbidden_files', [])));
+        $petreoForbidden = array_values(array_filter($forbidden, fn (string $p): bool => $guard->isForbiddenSelfTarget($p)));
+
+        return array_values(array_unique(array_merge($removedTargets, $petreoForbidden)));
+    }
+
+    /**
+     * Builder input from a blocked packet KEEPING its scope (allowed/forbidden), optionally dropping any
+     * acceptance criterion that references one of $scrubPaths (full path or basename) — the operator-wiring
+     * demand the worker cannot satisfy. If scrubbing empties acceptance, a minimal buildable criterion is
+     * synthesised so the reopened packet stays self-sufficient.
+     *
+     * @param  array<string, mixed>  $packet
+     * @param  list<string>  $scrubPaths
+     * @return array<string, mixed>
+     */
+    private function repairInputKeepingScope(array $packet, array $scrubPaths): array
+    {
+        $acceptance = $this->stringList((array) data_get($packet, 'acceptance_criteria', []));
+        if ($scrubPaths !== []) {
+            $needles = [];
+            foreach ($scrubPaths as $p) {
+                $p = trim((string) $p);
+                if ($p === '') {
+                    continue;
+                }
+                $needles[] = $p;
+                $needles[] = basename($p);
+            }
+            $acceptance = array_values(array_filter($acceptance, function (string $line) use ($needles): bool {
+                foreach ($needles as $n) {
+                    if ($n !== '' && str_contains($line, $n)) {
+                        return false; // drop a criterion that demands a pétreo/removed path
+                    }
+                }
+
+                return true;
+            }));
+        }
+        if ($acceptance === []) {
+            $acceptance = ['Implement the listed allowed_files with their public API and a passing unit test; do not edit any forbidden_files (the operator wires those separately).'];
+        }
+
+        $objective = trim((string) data_get($packet, 'objective', ''));
+        if ($scrubPaths !== []) {
+            $objective .= ' Scope reconciliation: the pétreo path(s) ['.implode(', ', $scrubPaths).'] are operator-wired, not worker scope. Implement only the buildable allowed_files + tests; do not edit the pétreo path(s).';
+        }
+
+        return [
+            'task_packet_id' => (string) data_get($packet, 'task_packet_id', ''),
+            'objective' => $objective,
+            'source' => (string) data_get($packet, 'source', 'operator_intake'),
+            'operator_id' => (string) data_get($packet, 'operator_id', 'operator-unknown'),
+            'parent_run_id' => (string) data_get($packet, 'parent_run_id', ''),
+            'allowed_files' => $this->stringList((array) data_get($packet, 'normalized_scope.allowed_files', data_get($packet, 'allowed_files', []))),
+            'scope_in' => $this->stringList((array) data_get($packet, 'normalized_scope.scope_in', data_get($packet, 'scope_in', []))),
+            'scope_out' => $this->stringList((array) data_get($packet, 'normalized_scope.scope_out', data_get($packet, 'scope_out', []))),
+            'forbidden_files' => $this->stringList((array) data_get($packet, 'normalized_scope.forbidden_files', data_get($packet, 'forbidden_files', []))),
+            'acceptance_criteria' => $acceptance,
+            'required_evidence' => $this->stringList((array) data_get($packet, 'evidence_requirements.required', data_get($packet, 'required_evidence', []))),
+            'risk_level' => (string) data_get($packet, 'risk_classification.risk_level', data_get($packet, 'risk_level', 'low')),
+            'max_runtime_seconds' => (int) data_get($packet, 'cost_budget_requirements.max_runtime_seconds', data_get($packet, 'max_runtime_seconds', 3600)),
+            'max_token_budget' => (int) data_get($packet, 'cost_budget_requirements.max_token_budget', data_get($packet, 'max_token_budget', 0)),
+            'workspace_policy' => (array) data_get($packet, 'workspace_policy', []),
+            'continuation_context' => (array) data_get($packet, 'continuation_context', []),
+            'lease_ttl_seconds' => (int) data_get($packet, 'lease_requirements.lease_ttl_seconds', 1800),
+            'rollback_strategy' => (string) data_get($packet, 'rollback_requirements.rollback_strategy', 'plan_only'),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $packet
+     * @param  list<string>  $forbiddenAllowed
+     * @return array<string, mixed>
+     */
+    private function repairInputWithoutForbiddenTargets(array $packet, array $forbiddenAllowed): array
+    {
+        $blocked = array_fill_keys($forbiddenAllowed, true);
+        $allowed = array_values(array_filter(
+            $this->stringList((array) data_get($packet, 'normalized_scope.allowed_files', data_get($packet, 'allowed_files', []))),
+            static fn (string $path): bool => ! isset($blocked[$path]),
+        ));
+        $scopeIn = array_values(array_filter(
+            $this->stringList((array) data_get($packet, 'normalized_scope.scope_in', data_get($packet, 'scope_in', []))),
+            static fn (string $path): bool => ! isset($blocked[$path]),
+        ));
+        $forbidden = array_values(array_unique(array_merge(
+            $this->stringList((array) data_get($packet, 'normalized_scope.forbidden_files', data_get($packet, 'forbidden_files', []))),
+            $forbiddenAllowed,
+        )));
+        sort($forbidden);
+
+        $objective = trim((string) data_get($packet, 'objective', ''));
+        $removed = implode(', ', $forbiddenAllowed);
+        $repairNote = " Scope repair: {$removed} was removed from allowed_files because Atlas cannot safely commit forbidden self-targets. Implement only the remaining allowed_files and do not edit the removed path(s).";
+
+        return [
+            'task_packet_id' => (string) data_get($packet, 'task_packet_id', ''),
+            'objective' => $objective.$repairNote,
+            'source' => (string) data_get($packet, 'source', 'operator_intake'),
+            'operator_id' => (string) data_get($packet, 'operator_id', 'operator-unknown'),
+            'parent_run_id' => (string) data_get($packet, 'parent_run_id', ''),
+            'allowed_files' => $allowed,
+            'scope_in' => array_values(array_unique(array_merge($scopeIn, $allowed))),
+            'scope_out' => $this->stringList((array) data_get($packet, 'normalized_scope.scope_out', data_get($packet, 'scope_out', []))),
+            'forbidden_files' => $forbidden,
+            'acceptance_criteria' => $this->stringList((array) data_get($packet, 'acceptance_criteria', [])),
+            'required_evidence' => $this->stringList((array) data_get($packet, 'evidence_requirements.required', data_get($packet, 'required_evidence', []))),
+            'risk_level' => (string) data_get($packet, 'risk_classification.risk_level', data_get($packet, 'risk_level', 'low')),
+            'max_runtime_seconds' => (int) data_get($packet, 'cost_budget_requirements.max_runtime_seconds', data_get($packet, 'max_runtime_seconds', 3600)),
+            'max_token_budget' => (int) data_get($packet, 'cost_budget_requirements.max_token_budget', data_get($packet, 'max_token_budget', 0)),
+            'workspace_policy' => (array) data_get($packet, 'workspace_policy', []),
+            'continuation_context' => (array) data_get($packet, 'continuation_context', []),
+            'lease_ttl_seconds' => (int) data_get($packet, 'lease_requirements.lease_ttl_seconds', 1800),
+            'rollback_strategy' => (string) data_get($packet, 'rollback_requirements.rollback_strategy', 'plan_only'),
+        ];
     }
 
     /**
@@ -255,16 +946,69 @@ final class AgentControlPlaneTaskQueueOrchestrator
      */
     public function hasDependencyGatedClaimableTasks(string $agentId = ''): bool
     {
+        $cache = [];
         foreach ($this->queue->list(['status' => 'claimable']) as $candidate) {
-            if ((string) data_get($candidate, 'metadata.last_give_back_by', '') === $agentId && $agentId !== '') {
+            // A task in this worker's give-back cooldown, or a probe, is NOT "the ladder advancing" — skip it
+            // (same predicates the claim path uses) so neither can be misread as waiting-on-dependencies.
+            if ($this->workerInGiveBackCooldown($candidate, $agentId) || $this->isCertificationProbe($candidate)) {
                 continue;
             }
-            if ($this->dependenciesUnmet($candidate)) {
+            // ONLY an in-flight prerequisite counts as the ladder advancing. A task gated solely by a DEAD
+            // (quarantined) prereq is NOT a transient wait — it must fall through to an honest empty/escalation,
+            // never tell the worker to keep waiting on something that will never complete on its own.
+            if ($this->classifyDependencies($candidate, $cache) === 'inflight') {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * RECLAIM-AFTER-GIVE-BACK predicate. Is this candidate still inside the bounded no-re-serve window for the
+     * worker that last gave it back? TRUE ⇒ skip it for THAT worker (prevents instant self-respin). FALSE ⇒
+     * reclaimable by anyone, including the original giver. The window has ELAPSED (⇒ reclaimable) when:
+     *   - the worker is not the last giver (never their cooldown),
+     *   - the configured cooldown is ≤ 0 (operator disabled it),
+     *   - the record carries no `last_give_back_at` (a give-back recorded BEFORE this field existed — the live
+     *     backlog — so it self-heals into reclaimable rather than staying permanently locked), or
+     *   - now is past `last_give_back_at + cooldown`.
+     *
+     * @param  array<string, mixed>  $candidate
+     */
+    private function workerInGiveBackCooldown(array $candidate, string $agentId): bool
+    {
+        if ($agentId === '') {
+            return false;
+        }
+        $lastGiver = (string) data_get($candidate, 'metadata.last_give_back_by', '');
+        if ($lastGiver === '' || $lastGiver !== $agentId) {
+            return false;
+        }
+        $cooldownSeconds = $this->giveBackReclaimCooldownSeconds();
+        if ($cooldownSeconds <= 0) {
+            return false; // cooldown disabled ⇒ immediate reclaim by the giver.
+        }
+        $lastAt = trim((string) data_get($candidate, 'metadata.last_give_back_at', ''));
+        if ($lastAt === '') {
+            return false; // legacy give-back (no timestamp) ⇒ window already elapsed ⇒ reclaimable.
+        }
+        try {
+            $expiresAt = CarbonImmutable::parse($lastAt)->addSeconds($cooldownSeconds);
+        } catch (Throwable) {
+            return false; // unparseable timestamp ⇒ never strand the task.
+        }
+
+        return CarbonImmutable::now()->lessThan($expiresAt);
+    }
+
+    /** The reclaim-after-give-back cooldown in seconds (config-overridable, non-negative; default constant). */
+    private function giveBackReclaimCooldownSeconds(): int
+    {
+        $configured = config('atlas.task_serving.give_back_reclaim_cooldown_seconds', self::DEFAULT_GIVE_BACK_RECLAIM_COOLDOWN_SECONDS);
+        $seconds = is_numeric($configured) ? (int) $configured : self::DEFAULT_GIVE_BACK_RECLAIM_COOLDOWN_SECONDS;
+
+        return $seconds >= 0 ? $seconds : self::DEFAULT_GIVE_BACK_RECLAIM_COOLDOWN_SECONDS;
     }
 
     /**
@@ -301,8 +1045,16 @@ final class AgentControlPlaneTaskQueueOrchestrator
     }
 
     /** A task given back this many times is DOOMED (no worker can do it as scoped) — quarantine it. The
-     *  per-worker re-serve is already prevented by the last-giver skip; this caps cross-worker bouncing. */
+     *  per-worker re-serve is already prevented by the give-back cooldown; this caps cross-worker bouncing. */
     public const MAX_GIVE_BACKS = 8;
+
+    /**
+     * RECLAIM-AFTER-GIVE-BACK cooldown default (seconds). The per-worker anti-loop skip
+     * ({@see workerInGiveBackCooldown}) lasts only this long; afterwards the SAME worker may retry the task it
+     * gave back. A permanent skip would deadlock the version-ladder for a single worker. Overridable via
+     * config('atlas.task_serving.give_back_reclaim_cooldown_seconds'); 0 disables the cooldown entirely.
+     */
+    public const DEFAULT_GIVE_BACK_RECLAIM_COOLDOWN_SECONDS = 600;
 
     /**
      * ANTI-LOOP give-back: release the task so ANOTHER worker can try, recording the giver (so it is never
@@ -333,6 +1085,9 @@ final class AgentControlPlaneTaskQueueOrchestrator
                 'release_reason' => $reason,
                 'give_back_count' => $count,
                 'last_give_back_by' => $agentId,
+                // Stamp WHEN the give-back happened so the reclaim cooldown is time-bounded, not permanent.
+                // Without this anchor the giver could never reclaim and the version-ladder would deadlock.
+                'last_give_back_at' => CarbonImmutable::now()->toIso8601String(),
             ]);
             $this->queue->appendReceipt($taskPacketId, [
                 'receipt_kind' => 'task_given_back',

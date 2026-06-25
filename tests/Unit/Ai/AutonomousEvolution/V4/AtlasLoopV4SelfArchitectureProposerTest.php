@@ -10,7 +10,10 @@ use PHPUnit\Framework\TestCase;
 
 final class AtlasLoopV4SelfArchitectureProposerTest extends TestCase
 {
-    private const SAFE_TARGET = 'app/Services/Ai/AutonomousEvolution/V4/AtlasLoopV4MetaObjectiveOriginator.php';
+    // FASE 0 (24/06): V4/ inteiro virou pétreo (o réu não edita o próprio meta-objetivo/auto-arquitetura).
+    // Um alvo de auto-arquitetura LEGÍTIMO é harness NÃO-juiz evoluível — ex.: o QueueRefiller. O proposer
+    // recusar um alvo V4 agora é o comportamento CORRETO (coberto por test_refuses_real_forbidden_self_target).
+    private const SAFE_TARGET = 'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopQueueRefiller.php';
 
     public function test_fail_closed_without_architect(): void
     {

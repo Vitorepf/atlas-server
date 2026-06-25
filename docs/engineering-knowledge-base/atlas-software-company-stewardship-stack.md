@@ -35,6 +35,8 @@ capabilities:
 decisions:
   - Atlas Software Company Stewardship Stack e o nome canonico da area inteira.
   - A stack vive dentro do Atlas Autonomous Software Company Runtime.
+  - Na arquitetura final, a stack e uma especializacao do Atlas Autonomous Engineering Government para stewardship continuo de software; ela nao e o governo inteiro.
+  - Cada repo/projeto sob cuidado 24/7 deve rodar como project lane isolada com workspace boundary, policy, Task Fabric, Maestro, gates, receipts e knowledge sync proprios.
   - A stack nao e OS novo, runtime paralelo, domain runtime novo ou substituta do AAEOS.
   - Night Shift e o modo agendado/janela/batch; nao e o nome canonico do modo 24h.
   - Atlas Continuous Stewardship Loop e o nome canonico do modo 24h/always-on governado.
@@ -76,12 +78,14 @@ decisions:
   - AP-798 e a camada de composicao e julgamento dos outputs de lane (AP-793 Phase 4, lane judge): recebe lane_plan, lane_results, validation_result, diff_summary e evidence_refs e emite um veredito deterministico `atlas.agent_execution.integration_judgement.v1` com status accepted_for_merge_governor/rejected/repair_required/operator_review_required/blocked_missing_evidence; e rules engine puro, nunca chama provider nem LLM, e ao aceitar so encaminha para o merge governor AP-769, nunca faz merge.
   - AP-799 e o planner da lane repair_agent (AP-793): quando validacao/gate falha, monta uma failure capsule provider-safe, classifica a falha (retryable validation, scope violation, missing dependency, provider timeout, rate limit, security blocker) e so entao decide se um repair bounded e permitido, em quais arquivos, em qual branch e com quanto budget; emite `atlas.agent_execution.repair_lane_input.v1` para o AP-797 repair_agent, nunca chama provider, nunca faz merge e nunca quarantena permanente uma falha transiente.
   - `atlas-long-horizon-loop-control-plane.md` e a doc-mae de hardening operacional do loop longo: ordena AP-790/AP-805/AP-806/AP-807/AP-808/AP-809/AP-810/AP-793 para 10 ciclos, 24h, 7d e meses com preflight, auditor pos-ciclo, assurance/chaos, supervisor, backlog depth, quality score, replay/recovery, plataforma de confiabilidade mensal, bloco enterprise por slices e isolamento, sem criar loop paralelo.
+  - Para o Atlas se construir, a stack opera como lane interna do Government; para projetos externos, opera como lane externa admitida, nunca misturando memoria, workspace, receipts ou merge policy entre projetos.
   - Merge, deploy, secrets e destructive changes continuam proibidos sem operador.
 maintenance:
   - Atualize este doc antes de criar qualquer doc novo sobre Night Shift, Product Mode, Continuous Stewardship Loop, Area Focus, Stewardship, Portfolio ou Executive dentro da software company.
   - Mantenha este doc como o primeiro ponto de leitura para IAs.
   - Nao duplique esta stack com nomes como AGOS, Autonomous Company Genesis OS, Stewardship OS ou Night Shift OS.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-autonomous-engineering-government.md
   - docs/ap/AP-715-software-company-stewardship-stack-contract.md
   - docs/engineering-knowledge-base/atlas-autonomous-software-company-runtime.md
   - docs/engineering-knowledge-base/atlas-autonomous-software-company-night-shift.md
@@ -278,6 +282,30 @@ next_actions:
 ---
 # Atlas Software Company Stewardship Stack
 
+## Posicao Na Arquitetura Final
+
+`Atlas Software Company Stewardship Stack` e a especializacao do
+`Atlas Autonomous Engineering Government` para cuidar de software como uma
+companhia autonoma de engenharia.
+
+```text
+Atlas Autonomous Engineering Government
+-> Atlas Self-Construction OS
+   -> Atlas internal stewardship lane
+      -> Software Company Stewardship Stack
+   -> External project stewardship lane(s)
+      -> Software Company Stewardship Stack
+-> Task Fabric / Maestro / Worker Swarm
+-> Verification Court / Merge Release Governor
+-> Receipts / Learning Transfer / Docs Knowledge Sync
+```
+
+Isso permite dois usos simultaneos sem misturar autoridade:
+
+- `Atlas lane`: o Government melhora o proprio Atlas 24/7.
+- `Project lane`: o Government cuida de outro repo/produto 24/7, com fronteira,
+  memoria, fila, policy, gates e release policy isolados.
+
 ## Resumo
 
 Atlas Software Company Stewardship Stack e o nome canonico da pilha inteira que faz o Atlas cuidar, melhorar, governar e evoluir software autonomamente sob review humano.
@@ -305,20 +333,29 @@ Self-Expanding Software Company = teto desta stack: propor novas areas/capacidad
 
 Este doc e o guarda-chuva de descoberta. Qualquer IA que veja Night Shift, Product Mode, Area Focus Loop, Area Stewardship, Portfolio Stewardship, Autonomous Executive ou Self-Expanding Software Company deve carregar este doc primeiro. Ele nao substitui o Atlas Autonomous Software Company Runtime. Ele organiza a stack de stewardship que vive dentro dele.
 
+Na arquitetura final, ele tambem define como uma lane de stewardship de software
+se encaixa no Government: Continuous Stewardship mantem o cuidado sempre ligado,
+Area/Portfolio/Executive priorizam, Task Fabric transforma em packets, workers
+executam, Verification Court prova e Merge Governor decide promocao.
+
 ## Onde Se Encaixa
 
 ```text
-Atlas Agentic Engineering OS
--> Atlas Autonomous Software Company Runtime
-   -> Atlas Software Company Stewardship Stack
-      -> Night Shift
-      -> Night Shift Product Mode
-      -> Atlas Continuous Stewardship Loop
-      -> Area Focus Loop
-      -> Area Stewardship Layer
-      -> Portfolio Stewardship Layer
-      -> Autonomous Executive Layer
-      -> Self-Expanding Software Company
+Atlas Autonomous Engineering Government
+-> Atlas Self-Construction OS
+   -> Atlas Autonomous Software Company Runtime
+      -> Atlas Software Company Stewardship Stack
+         -> Night Shift
+         -> Night Shift Product Mode
+         -> Atlas Continuous Stewardship Loop
+         -> Area Focus Loop
+         -> Area Stewardship Layer
+         -> Portfolio Stewardship Layer
+         -> Autonomous Executive Layer
+         -> Self-Expanding Software Company
+   -> Task Fabric / Maestro
+   -> Worker Swarm
+   -> Verification Court / Merge Governor
 ```
 
 ## Contratos

@@ -437,6 +437,11 @@ final class AtlasTaskBrainReplenisher
             'scope_in' => $allowed,
             'acceptance_criteria' => $accept,
             'required_evidence' => ['tests_or_gates_result'],
+            'workspace_policy' => [
+                'workspace_id' => 'FORGE-WORKSPACE-ATLAS-SELF-CONSTRUCTION-0001',
+                'isolation' => 'shared_local_main_with_scope_lock',
+                'auto_apply' => false,
+            ],
             'tags' => ['brain-originated'],
         ];
     }

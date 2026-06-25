@@ -18,14 +18,17 @@ capabilities:
   - autonomy_budget
   - evolution_audit_court
 decisions:
+  - AAEL now plugs into Atlas Autonomous Engineering Government as an evolution portfolio governor, not the final government itself.
+  - AAEL may recommend and sandbox opportunities, but Task Fabric, Maestro, Verification Court and Merge Governor own execution and promotion boundaries.
   - AAEL is a portfolio governor, not a free self-programming runtime.
   - AAEL must reuse Self-Improvement, Self-Construction, ASEIF, AWEOS, AVER and AEMOR instead of creating parallel runtimes.
   - AAEL experiments must carry an AAEQ assisted-execution bridge with AEDPDS, AUCRI/ACMF, AREG and AEMOR feedback before promotion can be considered ready.
-  - AAEL may plan and sandbox evolution work autonomously, but high-risk or irreversible promotion requires human approval.
+  - AAEL may plan and sandbox evolution work autonomously, but high-risk or irreversible promotion requires Atlas-native Verification Court, Merge Governor, rollback and autonomy-level authorization. Human approval is bootstrap or exception handling, not the final dependency.
   - AAEL must not run benchmarks, call providers directly or mutate production without certified evidence.
 maintenance:
   - Update when AAEL persistence, promotion policy, control plane or runtime wiring changes.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-autonomous-engineering-government.md
   - app/Services/Ai/AutonomousEvolution/AtlasAutonomousEvolutionLoopService.php
   - app/Services/Ai/AutonomousEvolution/AtlasAutonomousEvolutionCertificationService.php
   - app/Console/Commands/AtlasAaelCommand.php
@@ -59,7 +62,7 @@ allowed_changes:
 forbidden_changes:
   - Do not turn AAEL into unsupervised self-programming.
   - Do not bypass Self-Construction for Atlas-building-Atlas work.
-  - Do not promote high-risk changes without human approval and certified evidence.
+  - Do not promote high-risk changes without Atlas-native verification, merge governance, rollback and certified evidence.
 depends_on:
   - atlas-ai-self-construction-os
   - atlas-intelligence-factory-os
@@ -92,7 +95,12 @@ next_actions:
   - Review high-risk promotion policy whenever Self-Construction or Forge governance changes.
 ---
 
-> ⚠️ **DEFINIÇÃO CANÔNICA DO LOOP — leia primeiro: `docs/loop-canonical-definition.md` + memórias `loop-*`.** Este doc descreve IMPLEMENTAÇÃO / ESTADO / HISTÓRICO; parte do framing aqui (refactor / ciclomática / landing-rate / best-of-N / proxy) é o **ALVO ERRADO**. O Loop = evolução autônoma **exponencial** de features REAIS do Atlas (entender escopo → projeção frontier + crítica cross-model → multi-agente → teste → wiring), **nunca faxina / proxy / one-shot**. Objetivo final: ser o ÚNICO que evolui o Atlas 24/7 sozinho.
+> ⚠️ **ARQUITETURA FINAL:** leia primeiro
+> `docs/engineering-knowledge-base/atlas-autonomous-engineering-government.md`
+> e `docs/loop-canonical-definition.md`. Este doc governa AAEL como portfolio
+> governor de evolução. AAEL não é o OS final, não substitui Task Fabric,
+> Maestro, Verification Court, Merge Governor ou Self-Construction Control
+> Plane, e não concede auto-programação livre.
 
 # Atlas Autonomous Evolution Loop
 
@@ -102,25 +110,43 @@ AAEL is the Atlas Autonomous Evolution Loop. Its final product form is the
 Autonomous Evolution Portfolio OS: a governed runtime that observes Atlas,
 selects high-ROI evolution opportunities, creates sandboxed experiments,
 delegates execution to existing Atlas runtimes, audits outcomes and decides
-whether promotion is safe, blocked or requires human review.
+whether promotion is safe, blocked or requires a stricter Atlas-native
+governance path.
 
 ## Papel no Atlas
 
-AAEL exists to reduce human load in Atlas evolution without allowing uncontrolled
-self-programming. It converts "Atlas should improve itself" into a portfolio
-discipline:
+AAEL exists to remove routine human dependency from Atlas evolution without
+allowing uncontrolled self-programming. It converts "Atlas should improve
+itself" into a portfolio discipline:
 
 ```text
 observe -> score -> select -> simulate -> sandbox -> verify -> promote/reject
 -> learn -> repeat
 ```
 
-The human role becomes strategic approval for high-risk or irreversible changes,
-not constant prompt writing and context carrying.
+The final human role is visibility, explicit product intent and emergency
+override. High-risk or irreversible changes must be governed by Atlas-native
+autonomy levels, Verification Court, Merge / Release Governor and rollback; a
+human approval can exist during bootstrap, but it is not the destination.
 
 ## Onde Se Encaixa
 
-AAEL sits above the construction and execution stack:
+AAEL sits inside the Government as an evolution portfolio governor:
+
+```text
+Atlas Autonomous Engineering Government
+  -> Control Plane
+  -> AAEL portfolio opportunity selection
+  -> Strategy / Architecture
+  -> Task Fabric
+  -> Maestro
+  -> Workers
+  -> Verification Court
+  -> Merge / Release Governor
+  -> Learning Transfer
+```
+
+It also composes the older construction and execution stack:
 
 ```text
 Self-Improvement detects gaps
@@ -159,7 +185,7 @@ Schemas:
 
 ## Fluxo
 
-1. AAEL observes runtime signals or receives an operator objective.
+1. AAEL observes runtime signals or receives a Control Plane or operator objective.
 2. It creates opportunity records with ROI, risk and strategic alignment.
 3. It applies the Evolution Portfolio Manager.
 4. It enforces Strategic Alignment Gate.
@@ -177,7 +203,8 @@ Schemas:
 
 - Reuse existing Self-Construction, ASEIF, AWEOS, AVER and AEMOR.
 - Never create a parallel self-construction runtime.
-- Never promote high-risk work without human approval.
+- Never promote high-risk work without Atlas-native autonomy authorization,
+  independent verification, merge governance and rollback evidence.
 - Never claim benchmark or external superiority.
 - Never mutate production directly from AAEL.
 - Always preserve rollback, evidence and promotion decision records.
@@ -221,8 +248,7 @@ AAEL depends on:
 - AWEOS for autonomous execution planning;
 - AVER for verified execution evidence;
 - AEMOR for outcome memory and anti-false-learning;
-- Control Plane for observability;
-- Human/operator approval for high-risk promotion.
+- Control Plane for observability and autonomy policy.
 
 ## Evidencias
 
@@ -254,7 +280,8 @@ providers, run benchmarks or persist additional outcome feedback.
 - Drift from Atlas vision: mitigated by Anti-Drift Doctrine Gate.
 - Unsafe autonomy: mitigated by Autonomy Budget and promotion trust levels.
 - False learning: mitigated by AEMOR-required learning policy.
-- Human overload: mitigated by operator queue only for high-risk or weak-evidence work.
+- Bootstrap overload: mitigated by keeping human/operator queues exceptional and
+  moving ordinary review into Atlas-native gates.
 - Dormant code proliferation: mitigated by dormant capability activation before build.
 
 ## Exemplos
@@ -269,7 +296,7 @@ opportunity -> auto_safe_sandbox -> AAEQ/AEDPDS/AREG/AEMOR bridge
 Router/provider topology change:
 
 ```text
-opportunity -> forge_sandbox_operator_review -> signature_required
+opportunity -> forge_sandbox_governor_review -> signature_or_autonomy_level_required
 ```
 
 Parallel runtime proposal:
@@ -282,6 +309,6 @@ opportunity -> anti_drift_doctrine_gate blocked -> no experiment
 
 - Wire AAEL into the broader Atlas Control Plane read model.
 - Feed AAEL with real Self-Improvement and AEMOR signals.
-- Add mobile operational notifications for operator queue items.
+- Add mobile operational notifications for exceptional oversight items.
 - Add Forge Obra creation for multi-day high-impact selected opportunities.
 - Add richer ASRE strategic scoring when business reality data is present.

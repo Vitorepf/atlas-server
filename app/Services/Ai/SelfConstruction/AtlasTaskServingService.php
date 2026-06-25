@@ -40,14 +40,18 @@ final class AtlasTaskServingService
 
     private readonly AtlasTaskScopedCommitter $committer;
 
+    private readonly AtlasTaskCommitVerificationGate $verifier;
+
     public function __construct(
         private readonly AgentControlPlaneTaskQueueOrchestrator $orchestrator,
         private readonly ?AtlasTaskServingSentinel $sentinel = null,
         ?AtlasTaskPacketQualityInspector $inspector = null,
         ?AtlasTaskScopedCommitter $committer = null,
+        ?AtlasTaskCommitVerificationGate $verifier = null,
     ) {
         $this->inspector = $inspector ?? new AtlasTaskPacketQualityInspector;
         $this->committer = $committer ?? new AtlasTaskScopedCommitter;
+        $this->verifier = $verifier ?? new AtlasTaskCommitVerificationGate;
     }
 
     /**
@@ -164,6 +168,26 @@ final class AtlasTaskServingService
         // dry-run path stays intact.
         if ($outcome === 'success' && (bool) ($payload['commit'] ?? false)) {
             $scope = $this->orchestrator->taskScope($taskPacketId);
+
+            // FASE 2 — PROVE it works before it lands. The server re-runs real checks on the worker's in-tree
+            // changes; a delivery that fails definitively (and provably by THIS task) is REFUSED, keeping the
+            // lease so the worker fixes and re-reports — broken code never reaches shared main, so the next
+            // worker is never handed a wedged tree. Fail-open by design (never blocks a good worker over infra
+            // or another worker's WIP).
+            if ($this->verifier->enabled()) {
+                $verification = $this->verifier->verify((array) $scope['allowed_files'], $taskPacketId);
+                if (($verification['blocked'] ?? false) === true) {
+                    return $this->reportEnvelope('commit_failed', $clientId, [
+                        'outcome' => 'success',
+                        'lease_closed' => false,
+                        'task_packet_id' => $taskPacketId,
+                        'lease_id' => $leaseId,
+                        'reason' => 'server_verification_failed',
+                        'verification' => $verification,
+                    ]);
+                }
+            }
+
             $commit = $this->committer->commitScope((array) $scope['allowed_files'], $taskPacketId, $clientId, (string) $scope['objective']);
 
             if (($commit['committed'] ?? false) !== true) {

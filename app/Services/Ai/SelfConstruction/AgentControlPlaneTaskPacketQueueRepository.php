@@ -390,6 +390,71 @@ final class AgentControlPlaneTaskPacketQueueRepository
     }
 
     /**
+     * Replace a blocked packet with a rebuilt, self-sufficient packet while preserving its task id and history.
+     * This is the safe repair path for task-serving backlog: dependencies keep pointing at the same id, but the
+     * worker receives a fresh committable scope.
+     *
+     * @param  array<string, mixed>  $taskPacket
+     * @param  array<string, mixed>  $metadata
+     * @return array<string, mixed>
+     */
+    public function replaceBlockedTaskPacket(string $taskPacketId, array $taskPacket, array $metadata = []): array
+    {
+        return $this->withLock(function () use ($taskPacketId, $taskPacket, $metadata): array {
+            $record = $this->readTaskFile($taskPacketId);
+            if ($record === null) {
+                return $this->envelopeError('task_packet_not_found', $taskPacketId);
+            }
+            $current = (string) ($record['status'] ?? '');
+            if ($current !== 'blocked') {
+                return $this->envelopeError('task_packet_not_blocked', $taskPacketId, [
+                    'actual_status' => $current,
+                ]);
+            }
+            if ((string) ($taskPacket['task_packet_id'] ?? '') !== $taskPacketId) {
+                return $this->envelopeError('task_packet_id_mismatch', $taskPacketId, [
+                    'incoming_task_packet_id' => (string) ($taskPacket['task_packet_id'] ?? ''),
+                ]);
+            }
+            if ((string) ($taskPacket['status'] ?? '') !== 'planned' || (string) ($taskPacket['task_packet_hash'] ?? '') === '') {
+                return $this->envelopeError('replacement_packet_not_planned', $taskPacketId, [
+                    'incoming_status' => (string) ($taskPacket['status'] ?? ''),
+                ]);
+            }
+
+            $now = CarbonImmutable::now()->toIso8601String();
+            $previousHash = (string) ($record['task_packet_hash'] ?? '');
+            $newHash = (string) $taskPacket['task_packet_hash'];
+            $record['task_packet'] = $taskPacket;
+            $record['task_packet_hash'] = $newHash;
+            $record['status'] = 'claimable';
+            $record['updated_at'] = $now;
+            $record['metadata'] = array_merge((array) ($record['metadata'] ?? []), $metadata, [
+                'previous_task_packet_hash' => $previousHash,
+                'repair_task_packet_hash' => $newHash,
+            ]);
+            $record['history'][] = [
+                'event' => 'task_packet_repaired_and_reopened',
+                'at' => $now,
+                'from' => 'blocked',
+                'to' => 'claimable',
+                'metadata' => $metadata,
+                'previous_task_packet_hash' => $previousHash,
+                'task_packet_hash' => $newHash,
+                'transition_policy_hash' => $this->transitionPolicyHash(),
+            ];
+
+            $this->writeTaskFile($taskPacketId, $record);
+            $this->updateRegistryEntry($taskPacketId, $record);
+
+            return $this->envelopeOk('task_packet_repaired_and_reopened', $record, [
+                'previous_task_packet_hash' => $previousHash,
+                'task_packet_hash' => $newHash,
+            ]);
+        });
+    }
+
+    /**
      * @param  array<string, mixed>  $filters
      * @return array<string, mixed>
      */
@@ -785,16 +850,96 @@ final class AgentControlPlaneTaskPacketQueueRepository
      * @param  array<string, mixed>  $registry
      * @return array<string, mixed>
      */
+    /**
+     * Bound the registry WITHOUT ever losing live work. The old FIFO `array_slice(-$cap)` evicted the OLDEST
+     * entries regardless of status — so once the queue passed the cap, claimable tasks silently fell out of the
+     * index and became invisible to list()/next()/health (confirmed live: 576 task files, 201 indexed → 323
+     * claimable tasks lost). The cap exists to bound TERMINAL history, not to drop servable work. So: keep ALL
+     * non-terminal entries (queued/claimable/claimed/lease_expired/released/blocked) always; evict only the
+     * oldest TERMINAL (completed_dry_run/cancelled) entries to fit the cap. If live work alone exceeds the cap,
+     * the registry grows past it (correctness over a fixed size) — never a lost claimable task.
+     */
     private function capRegistry(array $registry, int $cap): array
     {
         $entries = array_values((array) ($registry['entries'] ?? []));
         if ($cap > 0 && count($entries) > $cap) {
-            $entries = array_slice($entries, -$cap);
+            $terminal = ['completed_dry_run', 'cancelled'];
+            $live = [];
+            $done = [];
+            foreach ($entries as $entry) {
+                if (in_array((string) ($entry['status'] ?? ''), $terminal, true)) {
+                    $done[] = $entry;
+                } else {
+                    $live[] = $entry;
+                }
+            }
+            $roomForTerminal = max(0, $cap - count($live));
+            $done = $roomForTerminal > 0 ? array_slice($done, -$roomForTerminal) : [];
+            $entries = array_merge($live, $done);
         }
         $registry['entries'] = $entries;
         unset($registry['corrupt']);
 
         return $registry;
+    }
+
+    /**
+     * REPAIR — rebuild the registry index from the task files on disk (the source of truth). Recovers any task
+     * whose index entry was evicted by the old FIFO cap (silently invisible to serving). Atomic under the queue
+     * lock, so a concurrent claim/enqueue can never race the rebuild. Idempotent.
+     *
+     * @return array<string, mixed>
+     */
+    public function rebuildRegistryFromDisk(): array
+    {
+        return $this->withLock(function (): array {
+            $disk = $this->disk();
+            $before = count((array) ($this->loadRegistry()['entries'] ?? []));
+
+            $entries = [];
+            $statusCounts = [];
+            foreach ($disk->files(self::STORAGE_PREFIX) as $path) {
+                $base = basename($path);
+                if (! str_starts_with($base, 'task_') || ! str_ends_with($base, '.json')) {
+                    continue; // skip registry.json / .lock / .health
+                }
+                try {
+                    $record = json_decode((string) $disk->get($path), true, flags: JSON_THROW_ON_ERROR);
+                } catch (Throwable) {
+                    continue; // a corrupt task file never blocks the rebuild
+                }
+                if (! is_array($record) || (string) ($record['task_packet_id'] ?? '') === '') {
+                    continue;
+                }
+                $status = (string) ($record['status'] ?? '');
+                $statusCounts[$status] = ($statusCounts[$status] ?? 0) + 1;
+                $entries[] = [
+                    'task_packet_id' => (string) $record['task_packet_id'],
+                    'task_packet_hash' => (string) ($record['task_packet_hash'] ?? ''),
+                    'enqueued_at' => (string) ($record['enqueued_at'] ?? ''),
+                    'updated_at' => (string) ($record['updated_at'] ?? ''),
+                    'status' => $status,
+                    'priority' => (int) ($record['priority'] ?? 0),
+                    'tags' => array_values(array_map('strval', (array) ($record['tags'] ?? []))),
+                ];
+            }
+
+            $registry = $this->capRegistry(['entries' => $entries], self::DEFAULT_REGISTRY_CAP);
+            $registry['rebuilt_at'] = CarbonImmutable::now()->toIso8601String();
+            $this->saveRegistry($registry);
+            ksort($statusCounts);
+
+            return [
+                'schema_version' => self::SCHEMA_VERSION,
+                'status' => 'ok',
+                'event' => 'registry_rebuilt_from_disk',
+                'entries_before' => $before,
+                'task_files_scanned' => count($entries),
+                'entries_after' => count((array) $registry['entries']),
+                'recovered' => max(0, count((array) $registry['entries']) - $before),
+                'status_counts' => $statusCounts,
+            ];
+        });
     }
 
     /**

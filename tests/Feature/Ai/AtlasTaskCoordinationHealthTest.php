@@ -72,8 +72,8 @@ final class AtlasTaskCoordinationHealthTest extends TestCase
     public function test_snapshot_flags_a_quarantined_packet_and_a_dry_queue(): void
     {
         $orch = $this->orchestrator();
-        // The ONLY packet is deficient (no acceptance/evidence): serving quarantines it ⇒ queue goes dry.
-        $orch->prepareAndEnqueue(['task_packet' => $this->input('doomed', acceptance: [], evidence: [])]);
+        // Legacy backlog: the ONLY packet is deficient, so serving quarantines it and the queue goes dry.
+        $this->rawEnqueue($this->input('doomed', acceptance: [], evidence: []));
         $serving = new AtlasTaskServingService($orch);
 
         $res = $serving->next('client-1');
@@ -103,6 +103,133 @@ final class AtlasTaskCoordinationHealthTest extends TestCase
         $this->assertStringContainsString('"claimable_depth": 1', $out);
     }
 
+    public function test_malformed_sweep_quarantines_doomed_claimable_packets_before_workers_pull(): void
+    {
+        $orch = $this->orchestrator();
+        $this->rawEnqueue($this->input('sweep-doomed', acceptance: [], evidence: []));
+        $orch->prepareAndEnqueue(['task_packet' => $this->input('sweep-good')]);
+
+        $dry = $orch->sweepMalformedClaimableTasks(dryRun: true, actor: 'test-sweep');
+        $this->assertSame(1, $dry['would_block_count']);
+        $this->assertSame('claimable', (string) ((new AgentControlPlaneTaskPacketQueueRepository)->get('sweep-doomed')['status'] ?? ''));
+
+        $sweep = $orch->sweepMalformedClaimableTasks(actor: 'test-sweep');
+        $this->assertSame(1, $sweep['blocked_count']);
+        $this->assertContains('missing_acceptance_criteria', $sweep['blocked'][0]['blocking_deficiencies']);
+
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $this->assertSame('blocked', (string) ($queue->get('sweep-doomed')['status'] ?? ''));
+        $this->assertSame('claimable', (string) ($queue->get('sweep-good')['status'] ?? ''));
+
+        $snap = (new AtlasTaskCoordinationHealthService($queue, new AgentControlPlaneClaimLeaseRepository))->snapshot();
+        $this->assertSame(1, $snap['claimable_depth']);
+        $this->assertSame(1, $snap['servable_now']);
+        $this->assertSame(1, $snap['quarantined_count']);
+
+        $served = (new AtlasTaskServingService($orch))->next('client-1');
+        $this->assertSame('served', $served['status']);
+        $this->assertSame('sweep-good', $served['task']['task_packet_id']);
+    }
+
+    public function test_malformed_sweep_cli_front_door_prints_json(): void
+    {
+        $this->rawEnqueue($this->input('cli-sweep-doomed', acceptance: [], evidence: []));
+
+        $exit = \Illuminate\Support\Facades\Artisan::call('atlas:task:sweep-malformed', ['--json' => true]);
+        $this->assertSame(0, $exit);
+        $out = \Illuminate\Support\Facades\Artisan::output();
+
+        $this->assertStringContainsString('"schema": "atlas.task_serving.malformed_sweep.v1"', $out);
+        $this->assertStringContainsString('"blocked_count": 1', $out);
+        $this->assertSame('blocked', (string) ((new AgentControlPlaneTaskPacketQueueRepository)->get('cli-sweep-doomed')['status'] ?? ''));
+    }
+
+    public function test_malformed_sweep_quarantines_scope_repair_test_only_poison_packets(): void
+    {
+        $target = 'app/Services/Ai/AutonomousEvolution/Memory/AtlasLoopGroundedProjectionRoles.php';
+        $this->rawEnqueue([
+            'task_packet_id' => 'scope-repair-test-only-poison',
+            'objective' => 'Implement AtlasLoopGroundedProjectionRoles memory-grounded role seeds. Scope repair: '.$target.' was removed from allowed_files because Atlas cannot safely commit forbidden self-targets. Implement only the remaining allowed_files and do not edit the removed path(s).',
+            'operator_id' => 'tester',
+            'allowed_files' => ['tests/Unit/Ai/AutonomousEvolution/Memory/AtlasLoopGroundedProjectionRolesTest.php'],
+            'scope_in' => ['tests/Unit/Ai/AutonomousEvolution/Memory/AtlasLoopGroundedProjectionRolesTest.php'],
+            'forbidden_files' => [$target],
+            'acceptance_criteria' => ['AtlasLoopGroundedProjectionRoles exposes deterministic role seeds'],
+            'required_evidence' => ['tests_or_gates_result'],
+        ]);
+
+        $dry = $this->orchestrator()->sweepMalformedClaimableTasks(dryRun: true, actor: 'test-sweep');
+        $this->assertSame(1, $dry['would_block_count']);
+        $this->assertContains('scope_repair_removed_required_target_from_allowed_files', $dry['would_block'][0]['blocking_deficiencies']);
+
+        $sweep = $this->orchestrator()->sweepMalformedClaimableTasks(actor: 'test-sweep');
+        $this->assertSame(1, $sweep['blocked_count']);
+        $this->assertSame('blocked', (string) ((new AgentControlPlaneTaskPacketQueueRepository)->get('scope-repair-test-only-poison')['status'] ?? ''));
+    }
+
+    public function test_repair_blocked_forbidden_self_target_reopens_same_task_id_with_safe_scope(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $this->rawEnqueue($this->forbiddenInput('repair-forbidden'));
+        $queue->updateStatus('repair-forbidden', 'blocked', [
+            'reason' => 'packet_not_self_sufficient_sweep',
+            'blocking_deficiencies' => ['forbidden_self_target_in_allowed_files'],
+        ]);
+
+        $repair = $this->orchestrator()->repairBlockedForbiddenSelfTargetTasks(actor: 'test-repair');
+        $this->assertSame(1, $repair['repaired_count']);
+        $this->assertSame(0, $repair['retired_count']);
+
+        $record = $queue->get('repair-forbidden');
+        $this->assertSame('claimable', (string) ($record['status'] ?? ''));
+        $this->assertSame('repair-forbidden', (string) data_get($record, 'task_packet.task_packet_id'));
+        $this->assertNotContains('config/atlas.php', (array) data_get($record, 'task_packet.normalized_scope.allowed_files', []));
+        $this->assertContains('config/atlas.php', (array) data_get($record, 'task_packet.normalized_scope.forbidden_files', []));
+
+        $served = (new AtlasTaskServingService($this->orchestrator()))->next('client-1');
+        $this->assertSame('served', $served['status']);
+        $this->assertSame('repair-forbidden', $served['task']['task_packet_id']);
+    }
+
+    public function test_repair_blocked_cli_front_door_prints_json(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $this->rawEnqueue($this->forbiddenInput('cli-repair-forbidden'));
+        $queue->updateStatus('cli-repair-forbidden', 'blocked', [
+            'reason' => 'packet_not_self_sufficient_sweep',
+            'blocking_deficiencies' => ['forbidden_self_target_in_allowed_files'],
+        ]);
+
+        $exit = \Illuminate\Support\Facades\Artisan::call('atlas:task:repair-blocked', ['--json' => true]);
+        $this->assertSame(0, $exit);
+        $out = \Illuminate\Support\Facades\Artisan::output();
+
+        $this->assertStringContainsString('"schema": "atlas.task_serving.blocked_repair.v1"', $out);
+        $this->assertStringContainsString('"repaired_count": 1', $out);
+        $this->assertStringContainsString('"retired_count": 0', $out);
+        $this->assertSame('claimable', (string) ($queue->get('cli-repair-forbidden')['status'] ?? ''));
+    }
+
+    public function test_repair_blocked_forbidden_self_target_retires_empty_scope_packets(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $this->rawEnqueue($this->forbiddenOnlyInput('repair-empty-scope'));
+        $queue->updateStatus('repair-empty-scope', 'blocked', [
+            'reason' => 'packet_not_self_sufficient_sweep',
+            'blocking_deficiencies' => ['forbidden_self_target_in_allowed_files'],
+        ]);
+
+        $repair = $this->orchestrator()->repairBlockedForbiddenSelfTargetTasks(actor: 'test-repair');
+        $this->assertSame(0, $repair['repaired_count']);
+        $this->assertSame(1, $repair['retired_count']);
+        $this->assertSame(0, $repair['unrepairable_count']);
+
+        $record = $queue->get('repair-empty-scope');
+        $this->assertSame('cancelled', (string) ($record['status'] ?? ''));
+        $this->assertSame('unrepairable_empty_allowed_files_after_forbidden_self_target_repair', (string) data_get($record, 'metadata.reason'));
+        $this->assertSame('blocked_packet_retired_empty_scope_after_forbidden_self_target_repair', (string) data_get($record, 'receipts.0.receipt_kind'));
+    }
+
     private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator
     {
         return new AgentControlPlaneTaskQueueOrchestrator(
@@ -113,6 +240,13 @@ final class AtlasTaskCoordinationHealthTest extends TestCase
             new AgentControlPlaneEvidenceLedgerDryRun,
             new AgentControlPlaneContinuationSummaryBuilder,
         );
+    }
+
+    /** @param array<string, mixed> $input */
+    private function rawEnqueue(array $input): void
+    {
+        $packet = (new AgentControlPlaneTaskPacketBuilder)->build($input);
+        (new AgentControlPlaneTaskPacketQueueRepository)->enqueue($packet);
     }
 
     /** @return array<string, mixed> */
@@ -126,6 +260,34 @@ final class AtlasTaskCoordinationHealthTest extends TestCase
             'scope_in' => ['app/Services/Ai/SelfConstruction/'.$id.'.php'],
             'acceptance_criteria' => $acceptance ?? ['ok'],
             'required_evidence' => $evidence ?? ['task_packet_created'],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function forbiddenInput(string $id): array
+    {
+        return [
+            'task_packet_id' => $id,
+            'objective' => 'repair forbidden scope '.$id,
+            'operator_id' => 'tester',
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/'.$id.'.php', 'config/atlas.php'],
+            'scope_in' => ['app/Services/Ai/SelfConstruction/'.$id.'.php', 'config/atlas.php'],
+            'acceptance_criteria' => ['ok'],
+            'required_evidence' => ['task_packet_created'],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function forbiddenOnlyInput(string $id): array
+    {
+        return [
+            'task_packet_id' => $id,
+            'objective' => 'repair empty forbidden scope '.$id,
+            'operator_id' => 'tester',
+            'allowed_files' => ['config/atlas.php'],
+            'scope_in' => ['config/atlas.php'],
+            'acceptance_criteria' => ['ok'],
+            'required_evidence' => ['task_packet_created'],
         ];
     }
 }

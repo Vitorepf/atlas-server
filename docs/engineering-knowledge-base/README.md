@@ -32,6 +32,7 @@ capabilities:
   - programming_governance_system
   - forge_operating_system
   - self_construction_os
+  - autonomous_engineering_government
   - paperclip_control_plane_benchmark
   - qualitative_levels_roadmap
   - canonical_architecture_index
@@ -106,6 +107,7 @@ decisions:
   - Atlas AI Spec Operating System define SDD como capacidade interna: intencao simples vira spec operacional, plano, tasks, Decision Receipt, execucao governada, evidencia, drift detection, learning proposal, data model, agentes internos, MCP governado e context packages versionados.
   - Atlas Autonomous Intelligence Operating System define Atlas AI como sistema operacional de inteligencia autonoma multi-dominio: Kernel comum, Mission Mode, Objective Intelligence, Domain Company Runtimes, Tool Economy, Evidence Ledger, Control Plane, certificacao e aprendizado continuo.
   - Atlas Agentic Engineering OS define o nome e a camada-mae da organizacao de engenharia agentica do Atlas: um gestor humano expressa intencao ambigua e o Atlas conduz produto, arquitetura, spec, codigo, infra, QA, seguranca, release, incidentes, documentacao, evidencia e aprendizado.
+  - Atlas Autonomous Engineering Government define a arquitetura final 24/7: Self-Construction OS, Loop como Autopoiesis/Evolution Engine, Task Fabric, Maestro, Worker Swarm, Verification Court, Merge/Release Governor, receipts, learning transfer e stewardship multi-projeto.
   - Atlas Domain Company Runtimes define como cada dominio vira uma empresa digital plugavel, com manifest, departamentos, workflows, policies, gates, artifacts, metrics e certification sem criar Kernel paralelo.
   - Atlas AI Domain Routing Governance define a matriz prompt->dominio, flow vs dominio novo, Domain Creation Gate e regras anti-confusao para IAs rotearem fluxos sem criar bagunca.
   - Atlas Local Agent Memory Ingestion define como pastas locais de Codex, Claude Code e outros agentes podem virar source material governado, com discovery read-only, secret scan, quarentena cognitiva, classificacao, evidence, review humano e promocao seletiva.
