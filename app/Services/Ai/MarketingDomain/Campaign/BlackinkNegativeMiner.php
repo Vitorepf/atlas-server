@@ -70,17 +70,27 @@ class BlackinkNegativeMiner
         return ['negatives' => $negatives, 'protected_count' => count($protected), 'losers' => count($losers)];
     }
 
-    /** Harvest READ-ONLY: minera negativos dos losers reais do Blackink. */
+    /**
+     * Harvest READ-ONLY: minera negativos dos losers reais do Blackink. A conversão vem da tabela AUTORITATIVA
+     * `conversions` (status='completed'), MESMA definição do BlackinkSearchTermHarvester — NUNCA o boolean
+     * `is_converted` de tracking_sessions, que está stale (=0 mesmo pra sessões com venda completada) e fazia a
+     * trava pétrea negativar termos que VENDERAM (ex.: 'oz pink' matava 'dr oz pink gelatin' 3 vendas).
+     */
     public function harvest(int $minWastedClicks = 50): array
     {
         $db = DB::connection(self::CONNECTION);
-        $sessions = $db->table('tracking_sessions')
+        $clicks = $db->table('tracking_sessions')
             ->whereNotNull('utm_term')->where('utm_term', '<>', '')
-            ->select('utm_term', DB::raw('count(*) as clicks'), DB::raw('sum((is_converted)::int) as conv'))
+            ->select('utm_term', DB::raw('count(*) as clicks'))
             ->groupBy('utm_term')->get();
+        $conversions = $db->table('conversions as cv')
+            ->join('tracking_sessions as ts', 'ts.id_tracking_session', '=', 'cv.tracking_session_id')
+            ->where('cv.status', 'completed')->whereNotNull('ts.utm_term')->where('ts.utm_term', '<>', '')
+            ->select('ts.utm_term', DB::raw('count(*) as c'))
+            ->groupBy('ts.utm_term')->get()->keyBy('utm_term');
         $rows = [];
-        foreach ($sessions as $s) {
-            $rows[] = ['term' => (string) $s->utm_term, 'clicks' => (int) $s->clicks, 'conversions' => (int) $s->conv];
+        foreach ($clicks as $s) {
+            $rows[] = ['term' => (string) $s->utm_term, 'clicks' => (int) $s->clicks, 'conversions' => (int) ($conversions[$s->utm_term]->c ?? 0)];
         }
 
         return $this->mine($rows, $minWastedClicks);

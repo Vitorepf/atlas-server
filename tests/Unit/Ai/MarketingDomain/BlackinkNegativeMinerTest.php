@@ -45,6 +45,20 @@ class BlackinkNegativeMinerTest extends TestCase
         $this->assertGreaterThan(0, $r['protected_count']);
     }
 
+    public function test_bigram_of_a_multiword_winner_is_protected(): void
+    {
+        // regressão do bug real (achado na validação): 'trick recipe' é bigrama de "gelatin trick recipe"
+        // (vendeu 4×) E aparece em losers; a trava TEM que protegê-lo mesmo sendo termo de 3 palavras.
+        $rows = [
+            ['term' => 'gelatin trick recipe', 'clicks' => 700, 'conversions' => 4], // WINNER 3 palavras
+            ['term' => 'free trick recipe', 'clicks' => 400, 'conversions' => 0],
+            ['term' => 'easy trick recipe', 'clicks' => 300, 'conversions' => 0],
+        ];
+        $ngrams = array_column($this->m->mine($rows)['negatives'], 'ngram');
+        $this->assertNotContains('trick recipe', $ngrams, "bigrama de winner de 3 palavras → JAMAIS negativo");
+        $this->assertNotContains('recipe', $ngrams);
+    }
+
     public function test_single_occurrence_is_not_negative(): void
     {
         $r = $this->m->mine($this->rows());
