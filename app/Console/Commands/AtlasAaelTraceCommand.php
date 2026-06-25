@@ -212,6 +212,11 @@ final class AtlasAaelTraceCommand extends Command
 
     private function traceRoot(): string
     {
+        $override = function_exists('config') ? config('atlas.aael.trace.root') : null;
+        if (is_string($override) && $override !== '') {
+            return $override;
+        }
+
         return (string) storage_path('atlas/aael/traces');
     }
 
