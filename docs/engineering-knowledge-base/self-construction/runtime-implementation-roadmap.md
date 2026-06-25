@@ -151,23 +151,16 @@ Phase goals at a glance:
 
 ## Phase Gate
 
-No phase may start until the previous phase has:
+The canonical gate reference lives in
+[runtime-final-autonomy-gates.md](runtime-final-autonomy-gates.md). Each gate
+declares its own ready / hold / blocked evidence classes; no scalar scoring.
 
-- tests;
-- docs;
-- evidence;
-- architecture validation;
-- explicit residual risk.
-
-No 24/7 phase may start until it also has:
-
-- server-side verification;
-- rollback;
-- kill switch;
-- backlog depth proof;
-- structured give-back learning;
-- no stale Code Intelligence / knowledge sync blockers;
-- multi-project isolation if the scope is external.
+Summary: every phase needs tests, docs, evidence, architecture validation and
+explicit residual risk; every 24/7 phase additionally needs server-side
+verification, rollback, kill switch, backlog depth, structured give-back
+learning, no stale Code Intelligence or knowledge sync blockers and
+multi-project isolation when the scope is external. See the gate reference for
+machine-verifiable evidence requirements per gate.
 
 ## Resumo
 
