@@ -28,6 +28,8 @@ class KeywordOsRunner
         private readonly DescriptorMatrixForge $descriptorForge = new DescriptorMatrixForge,
         private readonly CoinedTokenForge $tokenForge = new CoinedTokenForge,
         private readonly ReFinderFabricationPlanner $moatPlanner = new ReFinderFabricationPlanner,
+        private readonly MarketSophisticationSignal $sophistication = new MarketSophisticationSignal,
+        private readonly KeywordValueLeverSignal $valueLever = new KeywordValueLeverSignal,
     ) {}
 
     /**
@@ -64,7 +66,7 @@ class KeywordOsRunner
             $this->generated($asset), // mistypes + celebrity-lane (puro ataque, gerado do ativo)
         )));
 
-        return $this->pipeline->run($asset, $econ, [
+        $result = $this->pipeline->run($asset, $econ, [
             'outcome_calibration' => (array) ($feeds['calibration'] ?? []),
             'discovered_terms' => $discovered,
             'mined_negatives' => array_values((array) ($feeds['mined_negatives'] ?? [])),
@@ -72,6 +74,22 @@ class KeywordOsRunner
             'cvr_map' => (array) ($feeds['cvr_map'] ?? []),        // NORTE: CVR real → projeção quase exata
             'budget' => (float) ($feeds['budget'] ?? 0),           // budget → portfólio de máximo lucro
         ]);
+
+        // WIRING: a psicologia dos pais entra LIVE na decisão, não fica órfã.
+        // sophistication (Schwartz) per-nicho → estratégia de keyword; value-lever (Hormozi) por keyword
+        // do ranking de receita → com qual desejo o anúncio/página daquela keyword deve liderar.
+        $result['sophistication'] = $this->sophistication->assess((string) $asset->niche);
+        if (isset($result['revenue_ranking']['ranked']) && is_array($result['revenue_ranking']['ranked'])) {
+            $result['revenue_ranking']['ranked'] = array_map(function ($row) {
+                if (is_array($row)) {
+                    $row['value_lever'] = $this->valueLever->assess((string) ($row['keyword'] ?? ''))['dominant'];
+                }
+
+                return $row;
+            }, $result['revenue_ranking']['ranked']);
+        }
+
+        return $result;
     }
 
     /**
