@@ -30,6 +30,8 @@ final class AtlasAaelEvidenceRedactionPolicyRegistry
     /** @var array<string,AtlasAaelEvidenceRedactionPolicy>|null */
     private ?array $memo = null;
 
+    private ?AtlasAaelEvidenceRedactor $redactor = null;
+
     /**
      * @param  array<string,list<array<string,mixed>>>|null  $overridePolicies
      */
@@ -40,6 +42,20 @@ final class AtlasAaelEvidenceRedactionPolicyRegistry
         $map = $this->memo ??= $this->buildAll();
 
         return $map[$evidenceKind] ?? $this->sealedFailClosedDefault($evidenceKind);
+    }
+
+    /**
+     * Façade — runs the resolved policy through the AtlasAaelEvidenceRedactor on the caller's
+     * behalf, so any production site holding the registry can redact in one call without
+     * having to wire the redactor itself. This is the production call path for the redactor.
+     *
+     * @param  string|array<int|string,mixed>  $payload
+     */
+    public function redact(string $evidenceKind, string|array $payload): RedactedEvidence
+    {
+        $this->redactor ??= new AtlasAaelEvidenceRedactor($this);
+
+        return $this->redactor->redact($evidenceKind, $payload);
     }
 
     /**
