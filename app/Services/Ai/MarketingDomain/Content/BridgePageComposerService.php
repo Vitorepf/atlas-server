@@ -60,6 +60,7 @@ class BridgePageComposerService
         private readonly AggressionAmplifier $amplifier = new AggressionAmplifier,
         private readonly ConversionCriticGate $critic = new ConversionCriticGate,
         private readonly BridgeSpoilerDetector $spoiler = new BridgeSpoilerDetector,
+        private readonly AdUptimeSignal $adUptime = new AdUptimeSignal,
     ) {}
 
     /**
@@ -235,7 +236,7 @@ class BridgePageComposerService
                 'niche' => $asset->niche,
                 'vsl_keywords_used' => array_slice($vslKeywords, 0, 14),
                 'elite_headlines' => array_slice($eliteHeadlines, 0, 7),
-                'rsa_ads' => $this->ads->forge($asset, ['lang' => str_starts_with(strtolower($language), 'port') ? 'pt' : 'en']),
+                'rsa_ads' => $this->withAdUptime($this->ads->forge($asset, ['lang' => $langShort])),
                 'search_network' => $this->search->plan($asset, ['pattern' => $pattern]),
                 'email_sequence' => $this->emails->forge($asset, ['lang' => str_starts_with(strtolower($language), 'port') ? 'pt' : 'en']),
                 'conversion_audit' => $this->conversionAuditor->audit($this->persuasionCopy($bridge)),
@@ -314,6 +315,24 @@ class BridgePageComposerService
         }
 
         return $bridge;
+    }
+
+    /**
+     * Attach the ad-stage uptime signal to the forged RSA assets — surfaces which headlines/descriptions
+     * carry a known Google disapproval risk (restricted drug terms, bandwagon clickbait) so the operator
+     * sees the liability. Informational (the aggressive forge stays); compliance is the operator's call.
+     *
+     * @param  array<string,mixed>  $rsa
+     * @return array<string,mixed>
+     */
+    private function withAdUptime(array $rsa): array
+    {
+        $rsa['uptime'] = $this->adUptime->assess(
+            is_array($rsa['headlines'] ?? null) ? $rsa['headlines'] : [],
+            is_array($rsa['descriptions'] ?? null) ? $rsa['descriptions'] : [],
+        );
+
+        return $rsa;
     }
 
     // ---- the intelligence (skills as a governed prompt) ------------------------------------
