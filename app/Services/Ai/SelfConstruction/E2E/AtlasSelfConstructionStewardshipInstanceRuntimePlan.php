@@ -106,4 +106,27 @@ final class AtlasSelfConstructionStewardshipInstanceRuntimePlan
             ],
         ];
     }
+
+    /**
+     * compose() + an attached E2E cycle scenario built by AtlasSelfConstructionEndToEndCycleScenarioBuilder.
+     * The scenario reads the lane + coverage organ facts and surfaces the canonical 13-step cycle, so an
+     * admitted stewardship instance ships with its E2E delivery plan in one envelope.
+     *
+     * @param  array<string,mixed>  $lane
+     * @param  array<string,mixed>  $coverage
+     * @param  array<string,array<string,mixed>>  $organFacts  per-organ facts (cortex, goal_value, ...)
+     * @return array<string,mixed>
+     */
+    public function composeWithE2eScenario(
+        array $lane,
+        array $coverage,
+        array $organFacts = [],
+        ?AtlasSelfConstructionEndToEndCycleScenarioBuilder $scenarioBuilder = null,
+    ): array {
+        $plan = $this->compose($lane, $coverage);
+        $builder = $scenarioBuilder ?? new AtlasSelfConstructionEndToEndCycleScenarioBuilder();
+        $plan['e2e_cycle_scenario'] = $builder->build($organFacts);
+
+        return $plan;
+    }
 }
