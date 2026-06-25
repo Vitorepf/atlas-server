@@ -390,6 +390,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(AtlasLoopNetDiffCertReceiptLedger::class);
         // LOOP-CYCLE-NEST W1160 P1 — sub-cycle spawner (bounded nested cycles for ARCHITECT etc.).
         $this->app->singleton(\App\Services\Ai\AutonomousEvolution\LiveCycle\Nesting\AtlasLoopSubCycleSpawner::class);
+        // LOOP-CYCLE-NEST W1160 P2 — child-outcome FACT merger (refuses scalar score/grade/rank/rating/quality_score).
+        $this->app->singleton(\App\Services\Ai\AutonomousEvolution\LiveCycle\Nesting\AtlasLoopSubCycleResultMerger::class);
         // Operator-intent schema registry — singleton so Extractor/Ledger/CLI all read the same schema.
         $this->app->singleton(AtlasLoopOperatorIntentSchemaRegistry::class);
         // Cycle-receipt chain — singletons so the CLI + any callers share one ledger/signer pair.
