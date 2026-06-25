@@ -7,48 +7,35 @@ namespace App\Services\Ai\SelfConstruction\Completion;
 /**
  * Atlas-native completion evidence verifier.
  *
- * Pure, deterministic, facts-only. Accepts an injected facts array and returns an envelope
- * proving Atlas-native closure of the Self-Construction OS. NO scalar scoring is emitted.
+ * Pure, deterministic, facts-only. Consumes {@see AtlasSelfConstructionFinalEvidenceSourceRegistry}
+ * to enumerate the BLOCKING sources final completion must inspect.
  *
- * Required proof sections (each must be present AND truthy in facts):
- *   - final_runtime_owner_atlas_native
- *   - steady_state_runtime_owner_atlas_server_or_native
- *   - autonomy_dependencies_all_false
- *   - serving_queue_health
- *   - native_worker_readiness
- *   - verification_court_readiness
- *   - merge_governor_readiness
- *   - rollback_readiness
- *   - learning_transfer_readiness
- *   - docs_health
- *   - kb_sync
- *   - code_index_readiness
- *   - multi_project_lane_readiness
+ * For each registry source, inspects `facts['sources'][source_id]` (status: pass|fail|missing|stale|
+ * contradictory). Reports per-source-id blockers categorised by kind. Refuses with `hold` for
+ * REFRESHABLE missing/stale sources (re-derivable locally) and with `blocked` for unsafe source
+ * failures or autonomy contract violations.
+ *
+ * Status values:
+ *   - atlas_native_ready   — every blocking source has passing facts AND ownership contract holds
+ *   - atlas_native_hold    — only refreshable issues remain (missing or stale on refreshable sources)
+ *   - atlas_native_blocked — unsafe source failures (fail/contradictory or missing/stale on
+ *                             non-refreshable sources) or autonomy contract violations
+ *
+ * NO scalar scoring is emitted.
  */
 final class AtlasSelfConstructionAtlasNativeEvidenceVerifier
 {
     public const SCHEMA = 'atlas.self_construction.atlas_native_evidence_verifier.v1';
 
     public const STATUS_READY = 'atlas_native_ready';
-
+    public const STATUS_HOLD = 'atlas_native_hold';
     public const STATUS_BLOCKED = 'atlas_native_blocked';
 
-    /** @var list<string> */
-    private const REQUIRED_SECTIONS = [
-        'final_runtime_owner_atlas_native',
-        'steady_state_runtime_owner_atlas_server_or_native',
-        'autonomy_dependencies_all_false',
-        'serving_queue_health',
-        'native_worker_readiness',
-        'verification_court_readiness',
-        'merge_governor_readiness',
-        'rollback_readiness',
-        'learning_transfer_readiness',
-        'docs_health',
-        'kb_sync',
-        'code_index_readiness',
-        'multi_project_lane_readiness',
-    ];
+    public const SOURCE_STATUS_PASS = 'pass';
+    public const SOURCE_STATUS_FAIL = 'fail';
+    public const SOURCE_STATUS_MISSING = 'missing';
+    public const SOURCE_STATUS_STALE = 'stale';
+    public const SOURCE_STATUS_CONTRADICTORY = 'contradictory';
 
     /** @var list<string> */
     private const AUTONOMY_DEPENDENCY_FLAGS = [
@@ -58,83 +45,166 @@ final class AtlasSelfConstructionAtlasNativeEvidenceVerifier
         'depends_on_external_provider_network',
     ];
 
+    private readonly AtlasSelfConstructionFinalEvidenceSourceRegistry $registry;
+
+    public function __construct(?AtlasSelfConstructionFinalEvidenceSourceRegistry $registry = null)
+    {
+        $this->registry = $registry ?? new AtlasSelfConstructionFinalEvidenceSourceRegistry();
+    }
+
     /**
      * @param  array<string,mixed>  $facts
      * @return array<string,mixed>
      */
     public function verify(array $facts): array
     {
-        $blockers = [];
-        $observed = [];
+        $contractBlockers = $this->autonomyContractBlockers($facts);
+        $sourceFacts = is_array($facts['sources'] ?? null) ? $facts['sources'] : $this->legacyFactsToSources($facts);
 
-        // 1. final_runtime_owner = atlas_native.
+        $sourceBlockers = [];
+        $sourcesObserved = [];
+        $unsafeBlocker = false;
+        $refreshableHold = false;
+
+        $registry = $this->registry->describe();
+        foreach ($registry['required_sources'] as $source) {
+            if (! (bool) $source['blocking']) {
+                continue;
+            }
+            $sourceId = (string) $source['id'];
+            $refreshable = (bool) $source['refreshable'];
+            $sourceRow = is_array($sourceFacts[$sourceId] ?? null) ? $sourceFacts[$sourceId] : null;
+            $status = $sourceRow !== null ? (string) ($sourceRow['status'] ?? '') : self::SOURCE_STATUS_MISSING;
+            $sourcesObserved[$sourceId] = $status;
+
+            if ($status === self::SOURCE_STATUS_PASS) {
+                continue;
+            }
+
+            $kind = match ($status) {
+                self::SOURCE_STATUS_MISSING => 'source_missing',
+                self::SOURCE_STATUS_STALE => 'source_stale',
+                self::SOURCE_STATUS_FAIL => 'source_failed',
+                self::SOURCE_STATUS_CONTRADICTORY => 'source_contradictory',
+                default => 'source_unknown_status',
+            };
+            $sourceBlockers[] = [
+                'source_id' => $sourceId,
+                'kind' => $kind,
+                'status' => $status,
+                'refreshable' => $refreshable,
+                'note' => isset($sourceRow['note']) ? (string) $sourceRow['note'] : '',
+            ];
+
+            $safeMiss = $refreshable && in_array($status, [self::SOURCE_STATUS_MISSING, self::SOURCE_STATUS_STALE], true);
+            if ($safeMiss) {
+                $refreshableHold = true;
+            } else {
+                $unsafeBlocker = true;
+            }
+        }
+
+        $passed = $contractBlockers === [] && $sourceBlockers === [];
+        $status = self::STATUS_READY;
+        if (! $passed) {
+            if ($unsafeBlocker || $contractBlockers !== []) {
+                $status = self::STATUS_BLOCKED;
+            } elseif ($refreshableHold) {
+                $status = self::STATUS_HOLD;
+            } else {
+                $status = self::STATUS_BLOCKED;
+            }
+        }
+
+        // Stable order for byte-deterministic output.
+        usort($sourceBlockers, static fn (array $a, array $b): int => strcmp((string) $a['source_id'], (string) $b['source_id']));
+        ksort($sourcesObserved);
+        sort($contractBlockers, SORT_STRING);
+
+        $flatBlockers = $contractBlockers;
+        foreach ($sourceBlockers as $b) {
+            $flatBlockers[] = $b['kind'].':'.$b['source_id'];
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'schema_version' => self::SCHEMA,
+            'status' => $status,
+            'passed' => $passed,
+            'blockers' => $flatBlockers,
+            'autonomy_contract_blockers' => $contractBlockers,
+            'source_blockers' => $sourceBlockers,
+            'sources_observed' => $sourcesObserved,
+            'registry_schema_version' => (string) $registry['schema_version'],
+        ];
+    }
+
+    /**
+     * Legacy bridge — when callers pass the old shape (no `sources` key, only flat readiness
+     * booleans), derive a sources map so existing call sites keep working. `pass` when the legacy
+     * boolean is true; `missing` when the key is absent; `fail` when the boolean is explicitly false.
+     *
+     * @param  array<string,mixed>  $facts
+     * @return array<string,array<string,mixed>>
+     */
+    private function legacyFactsToSources(array $facts): array
+    {
+        $map = [
+            'task_serving_contract_sentinel' => 'serving_queue_health',
+            'code_index_readiness_bridge' => 'code_index_readiness',
+            'multi_project_governance_dossier' => 'multi_project_lane_readiness',
+            'native_worker_readiness' => 'native_worker_readiness',
+            'verification_court' => 'verification_court_readiness',
+            'merge_governor' => 'merge_governor_readiness',
+            'rollback' => 'rollback_readiness',
+            'receipts' => 'serving_queue_health',
+            'learning_transfer' => 'learning_transfer_readiness',
+            'docs_health' => 'docs_health',
+            'knowledge_sync' => 'kb_sync',
+        ];
+        $sources = [];
+        foreach ($map as $sourceId => $factKey) {
+            if (! array_key_exists($factKey, $facts)) {
+                $sources[$sourceId] = ['status' => self::SOURCE_STATUS_MISSING];
+
+                continue;
+            }
+            $sources[$sourceId] = ['status' => (bool) $facts[$factKey] ? self::SOURCE_STATUS_PASS : self::SOURCE_STATUS_FAIL];
+        }
+
+        return $sources;
+    }
+
+    /**
+     * @param  array<string,mixed>  $facts
+     * @return list<string>
+     */
+    private function autonomyContractBlockers(array $facts): array
+    {
+        $blockers = [];
+
         $finalOwner = (string) ($facts['final_runtime_owner'] ?? '');
-        $observed['final_runtime_owner_atlas_native'] = $finalOwner === 'atlas_native';
         if ($finalOwner !== 'atlas_native') {
             $blockers[] = 'final_runtime_owner_not_atlas_native:'.$finalOwner;
         }
 
-        // 2. steady_state_runtime_owner ∈ {atlas_server, atlas_native}.
         $steady = (string) ($facts['steady_state_runtime_owner'] ?? '');
-        $observed['steady_state_runtime_owner_atlas_server_or_native'] = in_array($steady, ['atlas_server', 'atlas_native'], true);
-        if (! $observed['steady_state_runtime_owner_atlas_server_or_native']) {
+        if (! in_array($steady, ['atlas_server', 'atlas_native'], true)) {
             $blockers[] = 'steady_state_runtime_owner_not_native_or_server:'.$steady;
         }
 
-        // 3. autonomy dependency flags — ALL must be present AND false.
         $deps = is_array($facts['autonomy_dependencies'] ?? null) ? $facts['autonomy_dependencies'] : [];
-        $allDepsFalse = true;
         foreach (self::AUTONOMY_DEPENDENCY_FLAGS as $flag) {
             if (! array_key_exists($flag, $deps)) {
-                $allDepsFalse = false;
                 $blockers[] = 'autonomy_dependency_missing:'.$flag;
 
                 continue;
             }
             if ((bool) $deps[$flag] !== false) {
-                $allDepsFalse = false;
                 $blockers[] = 'autonomy_dependency_true:'.$flag;
             }
         }
-        $observed['autonomy_dependencies_all_false'] = $allDepsFalse;
 
-        // 4-13. Remaining facts-only readiness toggles.
-        $remaining = [
-            'serving_queue_health' => 'serving_queue_unhealthy',
-            'native_worker_readiness' => 'native_worker_not_ready',
-            'verification_court_readiness' => 'verification_court_not_ready',
-            'merge_governor_readiness' => 'merge_governor_not_ready',
-            'rollback_readiness' => 'rollback_not_ready',
-            'learning_transfer_readiness' => 'learning_transfer_not_ready',
-            'docs_health' => 'docs_unhealthy',
-            'kb_sync' => 'kb_not_synced',
-            'code_index_readiness' => 'code_index_not_ready',
-            'multi_project_lane_readiness' => 'multi_project_lane_not_ready',
-        ];
-        foreach ($remaining as $section => $blocker) {
-            $ready = (bool) ($facts[$section] ?? false);
-            $observed[$section] = $ready;
-            if (! $ready) {
-                $blockers[] = $blocker;
-            }
-        }
-
-        $passed = $blockers === [];
-
-        return [
-            'schema' => self::SCHEMA,
-            'schema_version' => self::SCHEMA,
-            'status' => $passed ? self::STATUS_READY : self::STATUS_BLOCKED,
-            'passed' => $passed,
-            'blockers' => $blockers,
-            'required_sections' => self::REQUIRED_SECTIONS,
-            'observed_sections' => $observed,
-            'proof_summary' => sprintf(
-                'sections_required=%d sections_observed_ready=%d blockers=%d',
-                count(self::REQUIRED_SECTIONS),
-                count(array_filter($observed, static fn (bool $v): bool => $v)),
-                count($blockers),
-            ),
-        ];
+        return $blockers;
     }
 }

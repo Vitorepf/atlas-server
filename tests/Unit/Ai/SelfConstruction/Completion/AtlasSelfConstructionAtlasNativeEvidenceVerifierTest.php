@@ -7,102 +7,12 @@ namespace Tests\Unit\Ai\SelfConstruction\Completion;
 use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionAtlasNativeEvidenceVerifier;
 use Tests\TestCase;
 
-class AtlasSelfConstructionAtlasNativeEvidenceVerifierTest extends TestCase
+final class AtlasSelfConstructionAtlasNativeEvidenceVerifierTest extends TestCase
 {
-    public function test_fully_ready_facts_pass_with_no_blockers(): void
+    /** @return array<string,mixed> */
+    private function readyFacts(array $overrides = []): array
     {
-        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($this->readyFacts());
-
-        self::assertTrue($verdict['passed']);
-        self::assertSame(AtlasSelfConstructionAtlasNativeEvidenceVerifier::STATUS_READY, $verdict['status']);
-        self::assertSame([], $verdict['blockers']);
-        self::assertArrayNotHasKey('score', $verdict);
-        foreach ($verdict['observed_sections'] as $section => $ok) {
-            self::assertTrue($ok, "section {$section} must be ready in the all-green fixture");
-        }
-    }
-
-    public function test_missing_proof_section_blocks_with_named_blocker(): void
-    {
-        $facts = $this->readyFacts();
-        unset($facts['merge_governor_readiness']);
-
-        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
-
-        self::assertFalse($verdict['passed']);
-        self::assertSame(AtlasSelfConstructionAtlasNativeEvidenceVerifier::STATUS_BLOCKED, $verdict['status']);
-        self::assertContains('merge_governor_not_ready', $verdict['blockers']);
-        self::assertFalse($verdict['observed_sections']['merge_governor_readiness']);
-    }
-
-    public function test_one_true_autonomy_dependency_blocks(): void
-    {
-        $facts = $this->readyFacts();
-        $facts['autonomy_dependencies']['depends_on_claude_code'] = true;
-
-        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
-
-        self::assertFalse($verdict['passed']);
-        self::assertContains('autonomy_dependency_true:depends_on_claude_code', $verdict['blockers']);
-        self::assertFalse($verdict['observed_sections']['autonomy_dependencies_all_false']);
-    }
-
-    public function test_unhealthy_queue_blocks(): void
-    {
-        $facts = $this->readyFacts();
-        $facts['serving_queue_health'] = false;
-
-        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
-
-        self::assertFalse($verdict['passed']);
-        self::assertContains('serving_queue_unhealthy', $verdict['blockers']);
-    }
-
-    public function test_missing_multi_project_lane_blocks(): void
-    {
-        $facts = $this->readyFacts();
-        $facts['multi_project_lane_readiness'] = false;
-
-        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
-
-        self::assertFalse($verdict['passed']);
-        self::assertContains('multi_project_lane_not_ready', $verdict['blockers']);
-    }
-
-    public function test_wrong_final_runtime_owner_blocks(): void
-    {
-        $facts = $this->readyFacts();
-        $facts['final_runtime_owner'] = 'external_assistant';
-
-        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
-
-        self::assertFalse($verdict['passed']);
-        self::assertContains('final_runtime_owner_not_atlas_native:external_assistant', $verdict['blockers']);
-    }
-
-    public function test_steady_state_runtime_owner_accepts_atlas_server_and_atlas_native(): void
-    {
-        $verifier = new AtlasSelfConstructionAtlasNativeEvidenceVerifier();
-
-        $a = $this->readyFacts();
-        $a['steady_state_runtime_owner'] = 'atlas_server';
-        self::assertTrue($verifier->verify($a)['passed']);
-
-        $b = $this->readyFacts();
-        $b['steady_state_runtime_owner'] = 'atlas_native';
-        self::assertTrue($verifier->verify($b)['passed']);
-
-        $c = $this->readyFacts();
-        $c['steady_state_runtime_owner'] = 'operator';
-        self::assertFalse($verifier->verify($c)['passed']);
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function readyFacts(): array
-    {
-        return [
+        return array_replace_recursive([
             'final_runtime_owner' => 'atlas_native',
             'steady_state_runtime_owner' => 'atlas_server',
             'autonomy_dependencies' => [
@@ -111,16 +21,100 @@ class AtlasSelfConstructionAtlasNativeEvidenceVerifierTest extends TestCase
                 'depends_on_codex' => false,
                 'depends_on_external_provider_network' => false,
             ],
-            'serving_queue_health' => true,
-            'native_worker_readiness' => true,
-            'verification_court_readiness' => true,
-            'merge_governor_readiness' => true,
-            'rollback_readiness' => true,
-            'learning_transfer_readiness' => true,
-            'docs_health' => true,
-            'kb_sync' => true,
-            'code_index_readiness' => true,
-            'multi_project_lane_readiness' => true,
-        ];
+            'sources' => [
+                'task_serving_contract_sentinel' => ['status' => 'pass'],
+                'code_index_readiness_bridge' => ['status' => 'pass'],
+                'multi_project_governance_dossier' => ['status' => 'pass'],
+                'native_worker_readiness' => ['status' => 'pass'],
+                'verification_court' => ['status' => 'pass'],
+                'merge_governor' => ['status' => 'pass'],
+                'rollback' => ['status' => 'pass'],
+                'receipts' => ['status' => 'pass'],
+                'learning_transfer' => ['status' => 'pass'],
+                'docs_health' => ['status' => 'pass'],
+                'knowledge_sync' => ['status' => 'pass'],
+            ],
+        ], $overrides);
+    }
+
+    public function test_ready_when_all_sources_pass(): void
+    {
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($this->readyFacts());
+
+        $this->assertTrue($verdict['passed']);
+        $this->assertSame(AtlasSelfConstructionAtlasNativeEvidenceVerifier::STATUS_READY, $verdict['status']);
+        $this->assertSame([], $verdict['source_blockers']);
+        $this->assertSame([], $verdict['autonomy_contract_blockers']);
+    }
+
+    public function test_hold_when_code_index_readiness_bridge_missing_refreshable(): void
+    {
+        $facts = $this->readyFacts();
+        unset($facts['sources']['code_index_readiness_bridge']);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
+
+        $this->assertSame(AtlasSelfConstructionAtlasNativeEvidenceVerifier::STATUS_HOLD, $verdict['status']);
+        $sourceIds = array_column($verdict['source_blockers'], 'source_id');
+        $this->assertContains('code_index_readiness_bridge', $sourceIds);
+        $row = array_values(array_filter($verdict['source_blockers'], fn (array $r): bool => $r['source_id'] === 'code_index_readiness_bridge'))[0];
+        $this->assertSame('source_missing', $row['kind']);
+        $this->assertTrue($row['refreshable']);
+    }
+
+    public function test_hold_when_docs_health_is_stale_refreshable(): void
+    {
+        $facts = $this->readyFacts(['sources' => ['docs_health' => ['status' => 'stale']]]);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
+
+        $this->assertSame(AtlasSelfConstructionAtlasNativeEvidenceVerifier::STATUS_HOLD, $verdict['status']);
+        $sourceIds = array_column($verdict['source_blockers'], 'source_id');
+        $this->assertContains('docs_health', $sourceIds);
+    }
+
+    public function test_blocked_when_task_serving_contract_sentinel_fails_unsafe(): void
+    {
+        $facts = $this->readyFacts(['sources' => ['task_serving_contract_sentinel' => ['status' => 'fail', 'note' => 'simplicity_contract_violation']]]);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
+
+        $this->assertSame(AtlasSelfConstructionAtlasNativeEvidenceVerifier::STATUS_BLOCKED, $verdict['status']);
+        $row = array_values(array_filter($verdict['source_blockers'], fn (array $r): bool => $r['source_id'] === 'task_serving_contract_sentinel'))[0];
+        $this->assertSame('source_failed', $row['kind']);
+        $this->assertFalse($row['refreshable']);
+    }
+
+    public function test_blocked_when_multi_project_governance_dossier_contradictory_leak(): void
+    {
+        $facts = $this->readyFacts(['sources' => ['multi_project_governance_dossier' => ['status' => 'contradictory', 'note' => 'cross_project_leak']]]);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
+
+        $this->assertSame(AtlasSelfConstructionAtlasNativeEvidenceVerifier::STATUS_BLOCKED, $verdict['status']);
+        $row = array_values(array_filter($verdict['source_blockers'], fn (array $r): bool => $r['source_id'] === 'multi_project_governance_dossier'))[0];
+        $this->assertSame('source_contradictory', $row['kind']);
+    }
+
+    public function test_blocked_when_merge_governor_fails_unsafe(): void
+    {
+        $facts = $this->readyFacts(['sources' => ['merge_governor' => ['status' => 'fail']]]);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
+
+        $this->assertSame(AtlasSelfConstructionAtlasNativeEvidenceVerifier::STATUS_BLOCKED, $verdict['status']);
+        $row = array_values(array_filter($verdict['source_blockers'], fn (array $r): bool => $r['source_id'] === 'merge_governor'))[0];
+        $this->assertSame('source_failed', $row['kind']);
+    }
+
+    public function test_blocked_when_autonomy_contract_violated(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['autonomy_dependencies']['depends_on_claude_code'] = true;
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
+
+        $this->assertSame(AtlasSelfConstructionAtlasNativeEvidenceVerifier::STATUS_BLOCKED, $verdict['status']);
+        $this->assertContains('autonomy_dependency_true:depends_on_claude_code', $verdict['autonomy_contract_blockers']);
     }
 }
