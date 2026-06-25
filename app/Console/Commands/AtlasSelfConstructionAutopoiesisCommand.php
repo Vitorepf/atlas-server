@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\Autopoiesis\AtlasSelfConstructionAutopoiesisExperimentDesigner;
+use App\Services\Ai\SelfConstruction\Autopoiesis\AtlasSelfConstructionAutopoiesisGuardrailGate;
 use App\Services\Ai\SelfConstruction\Autopoiesis\AtlasSelfConstructionAutopoiesisOutcomeInterpreter;
 use App\Services\Ai\SelfConstruction\OperatorInterface\AtlasSelfConstructionOperatorDependencyRegressionGate;
 use Illuminate\Console\Command;
@@ -25,7 +26,7 @@ use Throwable;
 final class AtlasSelfConstructionAutopoiesisCommand extends Command
 {
     /** @var string */
-    protected $signature = 'atlas:self-construction:autopoiesis {action : hypothesize|design|gate|interpret} {--facts=} {--json}';
+    protected $signature = 'atlas:self-construction:autopoiesis {action : hypothesize|design|gate|interpret|guardrail} {--facts=} {--json}';
 
     /** @var string */
     protected $description = 'Read-only Autopoiesis surface: hypothesize / design / gate / interpret.';
@@ -49,6 +50,7 @@ final class AtlasSelfConstructionAutopoiesisCommand extends Command
             'design' => $this->design($facts),
             'gate' => $this->gate($facts),
             'interpret' => $this->interpret($facts),
+            'guardrail' => $this->guardrail($facts),
             default => ['status' => 'unknown_action', 'action' => $action],
         };
         $payload['governed_organ'] = self::GOVERNED_ORGAN_STATEMENT;
@@ -118,6 +120,24 @@ final class AtlasSelfConstructionAutopoiesisCommand extends Command
         $r = $this->app()->make(AtlasSelfConstructionAutopoiesisOutcomeInterpreter::class)->interpret($facts);
 
         return ['status' => 'ok', 'outcome' => $r];
+    }
+
+    /**
+     * `guardrail` runs the Autopoiesis guardrail gate over a candidate experiment payload and
+     * emits the pure verdict envelope {schema_version, accepted, action, blockers, allowed_class}.
+     * Wired here so AtlasSelfConstructionAutopoiesisGuardrailGate reaches a real production call path.
+     *
+     * @param  array<string,mixed>|null  $facts
+     * @return array<string,mixed>
+     */
+    private function guardrail(?array $facts): array
+    {
+        if (! is_array($facts)) {
+            return ['status' => 'usage_error', 'reason' => '--facts JSON file required'];
+        }
+        $verdict = $this->app()->make(AtlasSelfConstructionAutopoiesisGuardrailGate::class)->evaluate($facts);
+
+        return ['status' => 'ok', 'guardrail' => $verdict];
     }
 
     /**
