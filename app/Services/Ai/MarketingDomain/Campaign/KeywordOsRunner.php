@@ -68,6 +68,8 @@ class KeywordOsRunner
             'outcome_calibration' => (array) ($feeds['calibration'] ?? []),
             'discovered_terms' => $discovered,
             'mined_negatives' => array_values((array) ($feeds['mined_negatives'] ?? [])),
+            'volume_map' => (array) ($feeds['volume_map'] ?? []),  // NORTE: cliques reais → projeção de receita
+            'cvr_map' => (array) ($feeds['cvr_map'] ?? []),        // NORTE: CVR real → projeção quase exata
         ]);
     }
 
@@ -134,10 +136,23 @@ class KeywordOsRunner
      */
     public function run(AiMarketingVslAsset $asset, array $econ = [], int $minClicks = 5): array
     {
+        $harvest = $this->harvester->harvest($minClicks)['terms'];
+        $volumeMap = [];
+        $cvrMap = [];
+        foreach ($harvest as $t) {
+            $term = (string) $t['term'];
+            $volumeMap[$term] = (int) $t['clicks'];
+            if ((int) $t['clicks'] > 0) {
+                $cvrMap[$term] = $t['conversions'] / $t['clicks']; // CVR REAL → projeção de receita quase exata
+            }
+        }
+
         return $this->assemble($asset, $econ, [
             'calibration' => $this->outcomeFeed->pullByNiche($minClicks),
-            'discovered_terms' => array_column($this->harvester->harvest($minClicks)['terms'], 'term'),
+            'discovered_terms' => array_column($harvest, 'term'),
             'mined_negatives' => array_column($this->negativeMiner->harvest()['negatives'], 'ngram'),
+            'volume_map' => $volumeMap,
+            'cvr_map' => $cvrMap,
         ]);
     }
 }
