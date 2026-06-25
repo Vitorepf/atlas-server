@@ -6,6 +6,7 @@ use App\Console\Commands\AtlasLoopAuditCommand;
 use App\Console\Commands\AtlasLoopFactAnchorCommand;
 use App\Console\Commands\AtlasLoopLiveCycleCommand;
 use App\Console\Commands\AtlasLoopSelfIntrospectionCommand;
+use App\Console\Commands\AtlasTaskMaestroCostCommand;
 use App\Console\Commands\AtlasLoopMigrateCommand;
 use App\Console\Commands\AtlasLoopFrozenContractCommand;
 use App\Console\Commands\AtlasLoopCortexIntentCommand;
@@ -1328,6 +1329,7 @@ class AppServiceProvider extends ServiceProvider
                 AtlasLoopCortexIntentCommand::class,
                 AtlasLoopLiveCycleCommand::class,
                 AtlasLoopSelfIntrospectionCommand::class,
+                AtlasTaskMaestroCostCommand::class,
                 AtlasLoopMigrateCommand::class,
                 AtlasLoopRollingWindowCli::class,
                 AtlasLoopSchemaFuzzCommand::class,
