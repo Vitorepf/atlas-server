@@ -43,6 +43,18 @@ class KeywordRegimeClassifierTest extends TestCase
         $this->assertSame('probe', $this->c->classify($this->row('memory loss', 'neutral'))['regime']);
     }
 
+    public function test_own_coined_name_bare_is_harvest_not_seed(): void
+    {
+        // BUG corrigido (achado na validação cross-nicho): o nome coined PRÓPRIO nu (recall puro, ~30% CVR)
+        // caía em seed por ter suffix=neutral. Provenance: só promove o root do PRÓPRIO ativo.
+        $roots = ['gelatin trick', 'pink gelatin'];
+        $this->assertSame('harvest', $this->c->classify($this->row('gelatin trick', 'neutral', 'discovered_real'), $roots)['regime'], 'mecanismo próprio nu → colheita');
+        $this->assertSame('harvest', $this->c->classify($this->row('gelatin trick pen', 'neutral', 'discovered_real'), $roots)['regime'], 'root como cabeça → colheita');
+        $this->assertSame('seed', $this->c->classify($this->row('orivelle', 'neutral', 'discovered_real'), $roots)['regime'], 'marca ESTRANGEIRA não é promovida');
+        // sem owned-roots (legado) o coined-neutro segue conservador → seed
+        $this->assertSame('seed', $this->c->classify($this->row('gelatin trick', 'neutral', 'discovered_real'))['regime']);
+    }
+
     public function test_partition_isolates_the_three_regimes(): void
     {
         $p = $this->c->partition([

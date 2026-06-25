@@ -25,7 +25,7 @@ class KeywordRegimeClassifier
      * @param  array<string,mixed>  $row  uma linha de KeywordQualityIndex::score() (usa family/suffix_regime/keyword)
      * @return array{regime:string,isolation:string,why:string}
      */
-    public function classify(array $row): array
+    public function classify(array $row, array $ownedRoots = []): array
     {
         $kw = mb_strtolower(trim((string) ($row['keyword'] ?? '')));
         $suffix = (string) ($row['suffix_regime'] ?? 'neutral');
@@ -42,6 +42,13 @@ class KeywordRegimeClassifier
         // SEED: coined mas com sufixo de INFORMAÇÃO (recall/recipe/trick) → prospecting, tCPA frouxo
         if ($suffix === 'information') {
             return ['regime' => 'seed', 'isolation' => 'B_recall_seed', 'why' => 'coined + sufixo de informação (recall/recipe/trick) — semeadura, tCPA frouxo, isolado de A'];
+        }
+
+        // HARVEST: o NOME COINED PRÓPRIO do ativo, nu (sem sufixo de info) — recall PURO da marca, o re-finder
+        // de máxima intenção (digitou só o nome que lembrou do anúncio). Provenance-based: só promove o root do
+        // PRÓPRIO ativo (marca estrangeira no feed fica seed). Corrige o bug "orivelle→seed" (28% CVR sub-bidado).
+        if ($coined && $this->matchesOwnedRoot($kw, $ownedRoots)) {
+            return ['regime' => 'harvest', 'isolation' => 'A_refinder_harvest', 'why' => 'nome coined PRÓPRIO nu — recall puro da marca, re-finder máximo, COLHEITA (tCPA agressivo)'];
         }
 
         // HARVEST: coined possession/owned/celebridade → colheita, tCPA agressivo
@@ -61,11 +68,11 @@ class KeywordRegimeClassifier
      * @param  array<int,array<string,mixed>>  $scored
      * @return array{harvest:array<int,array<string,mixed>>,seed:array<int,array<string,mixed>>,probe:array<int,array<string,mixed>>,summary:string}
      */
-    public function partition(array $scored): array
+    public function partition(array $scored, array $ownedRoots = []): array
     {
         $buckets = ['harvest' => [], 'seed' => [], 'probe' => []];
         foreach ($scored as $row) {
-            $c = $this->classify($row);
+            $c = $this->classify($row, $ownedRoots);
             $buckets[$c['regime']][] = ['keyword' => $row['keyword'] ?? '', 'score' => $row['score'] ?? null, 'isolation' => $c['isolation'], 'why' => $c['why']];
         }
 
@@ -78,6 +85,22 @@ class KeywordRegimeClassifier
                 count($buckets['harvest']), count($buckets['seed']), count($buckets['probe']),
             ),
         ];
+    }
+
+    /** o termo É um coined-root próprio nu (root inteiro, ou root como cabeça: "orivelle" / "orivelle pen"). */
+    private function matchesOwnedRoot(string $kw, array $ownedRoots): bool
+    {
+        foreach ($ownedRoots as $r) {
+            $r = mb_strtolower(trim((string) $r));
+            if ($r === '' || mb_strlen($r) < 4) {
+                continue;
+            }
+            if ($kw === $r || str_starts_with($kw, $r.' ')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function lastWord(string $k): string

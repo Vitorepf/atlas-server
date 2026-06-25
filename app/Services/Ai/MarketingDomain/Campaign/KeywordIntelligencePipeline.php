@@ -73,7 +73,7 @@ class KeywordIntelligencePipeline
             'discovered_count' => $discovered === null ? 0 : count($discovered['keywords']), // L2: termos reais novos mesclados
             'clusters' => $this->clusterer->cluster((array) ($universe['keywords'] ?? [])), // L7 STAG ad groups
             'volume_priority' => $this->volumeSignal->prioritize($quality['scored'], (array) ($opts['volume_map'] ?? [])), // L5 demanda×intenção
-            'regimes' => $this->regimes->partition($quality['scored']), // #6: colheita/semeadura/sonda isolados (alavanca de escala)
+            'regimes' => $this->regimes->partition($quality['scored'], $this->ownedRoots($asset)), // #6: colheita/semeadura/sonda isolados (alavanca de escala); owned-roots → nome próprio nu = harvest
             'revenue_ranking' => $revenueRanking, // NORTE: ordena por LUCRO esperado (volume×CVR-real×payout − custo)
             'budget_portfolio' => $budget > 0 ? $this->allocator->allocate($revenueRanking['ranked'], $budget) : null, // como gastar R$budget pra MÁXIMO lucro
             'scored' => $quality['scored'],
