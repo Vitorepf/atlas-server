@@ -84,6 +84,48 @@ final class AtlasLoopAntiGoodhartUnifiedRefusal
 
         return new AtlasLoopAntiGoodhartRefusalVerdict($kept);
     }
+
+    /**
+     * High-level entry point: runs the 3-voter {@see AtlasLoopRefusalCriticPanel} over $taskContext and
+     * merges every panel vote into the unified verdict's reasons[] (NO vote is silently dropped). Direct
+     * service-detected signals can be appended via $extraFacts.
+     *
+     * @param  array<string,mixed>  $taskContext
+     * @param  list<array<string,mixed>>  $extraFacts  optional direct service-detected refusal facts
+     */
+    public static function evaluate(array $taskContext, array $extraFacts = []): AtlasLoopAntiGoodhartRefusalVerdict
+    {
+        $panel = app(AtlasLoopRefusalCriticPanel::class)->deliberate($taskContext);
+
+        $candidate = [];
+        foreach (($panel['votes'] ?? []) as $vote) {
+            $source = self::SOURCE_PROXY;
+            if (in_array($vote['pattern_id'] ?? '', ['characterization-test-farm', 'self-edit-in-own-judge'], true)) {
+                $source = self::SOURCE_FARM;
+            }
+            $severity = match ($vote['severity'] ?? '') {
+                AtlasLoopRefusalCriticPanel::SEVERITY_BLOCK => self::SEVERITY_CRITICAL,
+                AtlasLoopRefusalCriticPanel::SEVERITY_REFUSE => self::SEVERITY_HIGH,
+                default => self::SEVERITY_LOW, // allow-votes still recorded as evidence; severity LOW
+            };
+            $candidate[] = [
+                'source' => $source,
+                'pattern_id' => (string) $vote['pattern_id'],
+                'fact' => array_merge(
+                    is_array($vote['fact'] ?? null) ? $vote['fact'] : [],
+                    ['voter_fqn' => (string) $vote['voter_fqn'], 'panel_refuse' => (bool) $vote['refuse']],
+                ),
+                'severity' => $severity,
+                'evidence_refs' => [],
+            ];
+        }
+
+        foreach ($extraFacts as $extra) {
+            $candidate[] = is_array($extra) ? $extra : [];
+        }
+
+        return self::verdict($candidate);
+    }
 }
 
 /**

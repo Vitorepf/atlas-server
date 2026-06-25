@@ -266,6 +266,9 @@ class AppServiceProvider extends ServiceProvider
             return new \App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerFleetProbe(static fn (): iterable => []);
         });
 
+        // Anti-Goodhart refusal panel — 3-voter adversarial panel consumed by AtlasLoopAntiGoodhartUnifiedRefusal::evaluate().
+        $this->app->singleton(\App\Services\Ai\AutonomousEvolution\AtlasLoopRefusalCriticPanel::class);
+
         // Maestro tiering surface — registry + mismatch ledger live under storage/atlas/maestro/.
         $this->app->singleton(\App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroWorkerTierRegistry::class, static function (): \App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroWorkerTierRegistry {
             return new \App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroWorkerTierRegistry(storage_path('atlas/maestro/worker-tier-registry.json'));
