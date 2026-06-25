@@ -58,7 +58,36 @@ final class AtlasTaskPacketQualityInspector
         // Worktree/sandbox isolation can exist only as an explicit exceptional-risk tool, never as the default
         // serving contract for ordinary packets.
         'default_worktree_or_sandbox_policy',
+        // Excellence gate (govA): an autonomously-authored packet must be COMPLETE + UNAMBIGUOUS
+        // before any worker can pull it.
+        'vague_objective',
+        'acceptance_not_runnable',
+        'content_truncated',
     ];
+
+    /**
+     * Concrete reference tokens that prove an objective points at something real. The check is
+     * intentionally conservative — any one of these signals presence of a concrete anchor.
+     */
+    private const CONCRETE_REFERENCE_TOKENS = [
+        '\\', // FQCN separator
+        'Atlas', // class-prefix used everywhere in the codebase
+        '.php', // file extension
+        'php artisan', // CLI invocation
+    ];
+
+    /**
+     * Runnable signals that make an acceptance criterion provable by a cold worker.
+     */
+    private const RUNNABLE_ACCEPTANCE_TOKENS = [
+        'test',
+        'artisan',
+        'php ',
+        'runs ',
+        'executes ',
+    ];
+
+    private const TRUNCATION_MARKERS = ["\u{2026}", '...'];
 
     public function __construct(
         private readonly ?AtlasLoopHarnessGuard $guard = null,
@@ -134,6 +163,18 @@ final class AtlasTaskPacketQualityInspector
         }
         if ($defaultIsolationViolations !== []) {
             $deficiencies[] = 'default_worktree_or_sandbox_policy';
+        }
+
+        // EXCELLENCE gate: only run when the basic structure is present (objective + acceptance),
+        // so we never double-count missing fields as "vague" or "not runnable".
+        if ($objective !== '' && $this->objectiveIsVague($objective)) {
+            $deficiencies[] = 'vague_objective';
+        }
+        if ($acceptance !== [] && ! $this->acceptanceHasRunnableSignal($acceptance)) {
+            $deficiencies[] = 'acceptance_not_runnable';
+        }
+        if ($objective !== '' && $this->objectiveEndsWithTruncationMarker($objective)) {
+            $deficiencies[] = 'content_truncated';
         }
 
         $blocking = array_values(array_intersect($deficiencies, self::BLOCKING_DEFICIENCIES));
@@ -364,6 +405,49 @@ final class AtlasTaskPacketQualityInspector
     }
 
     /** Convenience: just the boolean. */
+    private function objectiveIsVague(string $objective): bool
+    {
+        if (mb_strlen($objective) < 40) {
+            return true;
+        }
+        foreach (self::CONCRETE_REFERENCE_TOKENS as $token) {
+            if (str_contains($objective, $token)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  list<string>  $acceptance
+     */
+    private function acceptanceHasRunnableSignal(array $acceptance): bool
+    {
+        foreach ($acceptance as $criterion) {
+            $haystack = strtolower($criterion);
+            foreach (self::RUNNABLE_ACCEPTANCE_TOKENS as $token) {
+                if (str_contains($haystack, strtolower($token))) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function objectiveEndsWithTruncationMarker(string $objective): bool
+    {
+        $trimmed = rtrim($objective);
+        foreach (self::TRUNCATION_MARKERS as $marker) {
+            if ($marker !== '' && str_ends_with($trimmed, $marker)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function isSelfSufficient(array $packet): bool
     {
         return (bool) $this->inspect($packet)['self_sufficient'];

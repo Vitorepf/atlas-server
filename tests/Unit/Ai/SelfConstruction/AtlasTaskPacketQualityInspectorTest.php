@@ -16,10 +16,10 @@ final class AtlasTaskPacketQualityInspectorTest extends TestCase
     private function packet(array $overrides = []): array
     {
         return array_merge([
-            'objective' => 'wire X into Y',
+            'objective' => 'wire AtlasFooService into the php artisan boot kernel so the test passes',
             'allowed_files' => ['app/Services/Ai/SelfConstruction/Foo.php', 'tests/Unit/Ai/SelfConstruction/FooTest.php'],
             'scope_in' => ['app/Services/Ai/SelfConstruction/Foo.php', 'tests/Unit/Ai/SelfConstruction/FooTest.php'],
-            'acceptance_criteria' => ['the test passes'],
+            'acceptance_criteria' => ['php artisan test passes'],
             'required_evidence' => ['tests_or_gates_result'],
         ], $overrides);
     }
@@ -108,7 +108,7 @@ final class AtlasTaskPacketQualityInspectorTest extends TestCase
         $r = (new AtlasTaskPacketQualityInspector)->inspect($this->packet([
             'allowed_files' => ['app/Services/Ai/SelfConstruction/Foo.php'],
             'scope_in' => ['app/Services/Ai/SelfConstruction/Foo.php'],
-            'acceptance_criteria' => ['the change is in place'],
+            'acceptance_criteria' => ['the change is in place and php artisan stays green'],
             'required_evidence' => ['tests_or_gates_result'],
         ]));
 
@@ -241,9 +241,9 @@ final class AtlasTaskPacketQualityInspectorTest extends TestCase
     {
         // The served projection nests scope under normalized_scope — the inspector must read both shapes.
         $r = (new AtlasTaskPacketQualityInspector)->inspect([
-            'objective' => 'x',
+            'objective' => 'verify normalized_scope is read by the AtlasTaskPacketQualityInspector under php artisan',
             'normalized_scope' => ['allowed_files' => ['app/A/B.php'], 'scope_in' => ['app/A/B.php']],
-            'acceptance_criteria' => ['done'],
+            'acceptance_criteria' => ['php artisan test passes'],
             'required_evidence' => ['ev'],
         ]);
 
@@ -267,7 +267,7 @@ final class AtlasTaskPacketQualityInspectorTest extends TestCase
     {
         $r = (new AtlasTaskPacketQualityInspector)->inspect($this->packet([
             'objective' => 'Document that Claude Code and Codex are bootstrap only; the final Atlas runtime must not depend on external providers or operator approval.',
-            'acceptance_criteria' => ['Atlas native execution is the owner and does not require a human handoff.'],
+            'acceptance_criteria' => ['php artisan test passes and Atlas native execution is the owner with no human handoff.'],
         ]));
 
         $this->assertTrue($r['self_sufficient']);
@@ -334,7 +334,7 @@ final class AtlasTaskPacketQualityInspectorTest extends TestCase
     public function test_shared_main_policy_is_self_sufficient(): void
     {
         $r = (new AtlasTaskPacketQualityInspector)->inspect($this->packet([
-            'objective' => 'Use shared local main with exact allowed_files; no worktree or sandbox by default.',
+            'objective' => 'Use shared local main with exact allowed_files for the Atlas serving stack; no worktree by default.',
             'workspace_policy' => ['isolation' => 'shared_local_main_with_scope_lock'],
         ]));
 
@@ -345,11 +345,91 @@ final class AtlasTaskPacketQualityInspectorTest extends TestCase
     public function test_legacy_simulated_worktree_metadata_alone_does_not_quarantine_old_packets(): void
     {
         $r = (new AtlasTaskPacketQualityInspector)->inspect($this->packet([
-            'objective' => 'Implement a scoped serving task on the shared main flow.',
+            'objective' => 'Implement a scoped Atlas serving task on the shared main flow with php artisan kernel.',
             'workspace_policy' => ['isolation' => 'simulated_worktree'],
         ]));
 
         $this->assertTrue($r['self_sufficient']);
         $this->assertNotContains('default_worktree_or_sandbox_policy', $r['blocking_deficiencies']);
+    }
+
+    // ── Excellence-gate additions (govA-inspector-excellence-gate-w1) ──────────────────────────
+
+    public function test_short_objective_without_concrete_reference_is_flagged_vague(): void
+    {
+        $r = (new AtlasTaskPacketQualityInspector)->inspect($this->packet([
+            'objective' => 'improve the code',
+        ]));
+
+        $this->assertFalse($r['self_sufficient']);
+        $this->assertContains('vague_objective', $r['blocking_deficiencies']);
+    }
+
+    public function test_long_objective_without_concrete_reference_is_still_flagged_vague(): void
+    {
+        $r = (new AtlasTaskPacketQualityInspector)->inspect($this->packet([
+            'objective' => 'do many vague things over and over until somebody notices the change',
+        ]));
+
+        $this->assertFalse($r['self_sufficient']);
+        $this->assertContains('vague_objective', $r['blocking_deficiencies']);
+    }
+
+    public function test_objective_with_concrete_reference_token_is_not_flagged_vague(): void
+    {
+        $r = (new AtlasTaskPacketQualityInspector)->inspect($this->packet([
+            'objective' => 'wire AtlasFooService into the bootstrap so php artisan stays green',
+        ]));
+
+        $this->assertNotContains('vague_objective', $r['blocking_deficiencies']);
+    }
+
+    public function test_no_runnable_acceptance_signal_is_flagged_not_runnable(): void
+    {
+        $r = (new AtlasTaskPacketQualityInspector)->inspect($this->packet([
+            'acceptance_criteria' => ['the code looks good', 'an operator agrees'],
+        ]));
+
+        $this->assertFalse($r['self_sufficient']);
+        $this->assertContains('acceptance_not_runnable', $r['blocking_deficiencies']);
+    }
+
+    public function test_at_least_one_runnable_acceptance_signal_passes_not_runnable_check(): void
+    {
+        $r = (new AtlasTaskPacketQualityInspector)->inspect($this->packet([
+            'acceptance_criteria' => ['the code looks good', 'php artisan test passes'],
+        ]));
+
+        $this->assertNotContains('acceptance_not_runnable', $r['blocking_deficiencies']);
+    }
+
+    public function test_objective_ending_with_ellipsis_marker_is_flagged_truncated(): void
+    {
+        $r = (new AtlasTaskPacketQualityInspector)->inspect($this->packet([
+            'objective' => 'wire AtlasFooService into the bootstrap of php artisan boot ...',
+        ]));
+
+        $this->assertFalse($r['self_sufficient']);
+        $this->assertContains('content_truncated', $r['blocking_deficiencies']);
+    }
+
+    public function test_objective_ending_with_horizontal_ellipsis_char_is_flagged_truncated(): void
+    {
+        $r = (new AtlasTaskPacketQualityInspector)->inspect($this->packet([
+            'objective' => "wire AtlasFooService into the bootstrap of php artisan boot \u{2026}",
+        ]));
+
+        $this->assertFalse($r['self_sufficient']);
+        $this->assertContains('content_truncated', $r['blocking_deficiencies']);
+    }
+
+    public function test_complete_packet_satisfies_all_three_new_gates(): void
+    {
+        $r = (new AtlasTaskPacketQualityInspector)->inspect($this->packet());
+
+        $this->assertTrue($r['self_sufficient']);
+        $this->assertNotContains('vague_objective', $r['deficiencies']);
+        $this->assertNotContains('acceptance_not_runnable', $r['deficiencies']);
+        $this->assertNotContains('content_truncated', $r['deficiencies']);
     }
 }
