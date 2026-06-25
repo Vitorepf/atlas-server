@@ -463,3 +463,19 @@ Schedule::command('atlas:acp:reap-leases --json')
     ->withoutOverlapping()
     ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled()
         && (bool) config('atlas.loop.acp_reaper_enabled', true));
+
+// govA — task-serving queue SELF-MAINTENANCE on a schedule. Replaces the manual sweep/repair the
+// operator did by hand. BOTH entries follow the same idiom as 'atlas:loop:automerge' above:
+// withoutOverlapping (a long run never doubles up) + §0 MASTER SWITCH gate (OFF ⇒ byte-identical
+// no-op, the loop never repairs itself behind the operator's back).
+Schedule::command('atlas:task:sweep-malformed --json')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping()
+    // §0 MASTER SWITCH — OFF ⇒ never quarantine, never write the queue.
+    ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled());
+
+Schedule::command('atlas:task:repair-blocked --json')
+    ->hourly()
+    ->withoutOverlapping()
+    // §0 MASTER SWITCH — OFF ⇒ never reopen, never retire, never write the queue.
+    ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled());
