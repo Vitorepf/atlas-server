@@ -13,6 +13,9 @@ namespace App\Services\Ai\MarketingDomain\Campaign;
  */
 class KeywordCampaignBlueprint
 {
+    /** raiz precisa de ≥ isto pra virar ad group próprio; senão consolida no long-tail (anti-starvation de sinal). */
+    private const MIN_ADGROUP_SIZE = 3;
+
     /** plano econômico por regime (da dissecação): bid/match/budget conforme o abismo de cliques-por-venda. */
     private const REGIME_PLAN = [
         'harvest' => ['bid' => 'tCPA agressivo (Maximize Conversions)', 'match' => ['exact', 'phrase'], 'budget' => 'alto', 'why' => 'colheita ~3 cliques/venda, ~30% CVR — bid agressivo, captura tudo'],
@@ -38,15 +41,25 @@ class KeywordCampaignBlueprint
             }
             $plan = self::REGIME_PLAN[$regime];
 
-            // STAG: ad groups single-theme agrupados pela RAIZ (1ª palavra) — cada keyword num só grupo
+            // STAG single-theme por RAIZ, MAS com consolidação anti-starvation: raiz com ≥MIN keywords vira ad
+            // group próprio (tema com sinal pro Smart Bidding); a CAUDA (raízes de 1-2 kw) consolida num único
+            // "<regime>_long_tail" — senão viram 200+ grupos de 1 keyword que NUNCA atingem o limiar de conversão.
             $groups = [];
             foreach ($kws as $k) {
                 $root = strtok($k, ' ') ?: $k;
                 $groups[$root][] = ['keyword' => $k, 'match' => $plan['match']];
             }
             $adGroups = [];
+            $tail = [];
             foreach ($groups as $root => $members) {
-                $adGroups[] = ['ad_group' => $root, 'keywords' => $members];
+                if (count($members) >= self::MIN_ADGROUP_SIZE) {
+                    $adGroups[] = ['ad_group' => (string) $root, 'keywords' => $members];
+                } else {
+                    $tail = array_merge($tail, $members);
+                }
+            }
+            if ($tail !== []) {
+                $adGroups[] = ['ad_group' => $regime.'_long_tail', 'consolidated' => true, 'keywords' => $tail];
             }
 
             $campaigns[] = [

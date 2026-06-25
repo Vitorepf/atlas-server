@@ -21,7 +21,8 @@ class KeywordCampaignBlueprintTest extends TestCase
     public function test_builds_isolated_regime_campaigns_with_negatives_and_bids(): void
     {
         $partition = [
-            'harvest' => [['keyword' => 'orivelle pen'], ['keyword' => 'orivelle nail']],
+            // raiz "orivelle" tem 3 kw → ad group próprio; "ziverdo" tem 1 → consolida no long-tail
+            'harvest' => [['keyword' => 'orivelle pen'], ['keyword' => 'orivelle nail'], ['keyword' => 'orivelle drops'], ['keyword' => 'ziverdo kit']],
             'seed' => [['keyword' => 'gelatin trick']],
             'probe' => [['keyword' => 'weight loss treatment']],
         ];
@@ -38,10 +39,11 @@ class KeywordCampaignBlueprintTest extends TestCase
         $harvest = collect($r['campaigns'])->firstWhere('regime', 'harvest');
         $this->assertSame('ATLAS_harvest', $harvest['campaign']);
         $this->assertStringContainsString('agressivo', $harvest['bid_strategy']);
-        // STAG: as 2 keywords "orivelle …" caem no mesmo ad group (raiz "orivelle")
-        $this->assertCount(1, $harvest['ad_groups']);
-        $this->assertSame('orivelle', $harvest['ad_groups'][0]['ad_group']);
-        $this->assertCount(2, $harvest['ad_groups'][0]['keywords']);
+        // STAG + consolidação: "orivelle" (3 kw) = ad group próprio; "ziverdo" (1 kw) = long-tail consolidado
+        $byName = collect($harvest['ad_groups'])->keyBy('ad_group');
+        $this->assertCount(3, $byName['orivelle']['keywords'], 'raiz com ≥3 = tema próprio');
+        $this->assertTrue($byName['harvest_long_tail']['consolidated'] ?? false, 'a cauda consolida num só ad group');
+        $this->assertCount(1, $byName['harvest_long_tail']['keywords']);
         // a campanha harvest carrega o negativo cruzado do seed
         $this->assertSame('gelatin trick', $harvest['negatives'][0]['term']);
 
