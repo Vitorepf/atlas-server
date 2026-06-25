@@ -48,15 +48,12 @@ class KeywordRegimeClassifierTest extends TestCase
         // BUG corrigido (achado na validação cross-nicho): o nome coined PRÓPRIO nu (recall puro, ~30% CVR)
         // caía em seed por ter suffix=neutral. Provenance: só promove o root do PRÓPRIO ativo.
         $roots = ['gelatin trick', 'pink gelatin'];
-        $this->assertSame('harvest', $this->c->classify($this->row('gelatin trick', 'neutral', 'discovered_real'), $roots)['regime'], 'mecanismo próprio nu → colheita');
+        $this->assertSame('harvest', $this->c->classify($this->row('gelatin trick', 'neutral', 'discovered_real'), $roots)['regime'], 'mecanismo próprio nu → colheita (owned-root)');
         $this->assertSame('harvest', $this->c->classify($this->row('gelatin trick pen', 'neutral', 'discovered_real'), $roots)['regime'], 'root como cabeça → colheita');
-        // marca ESTRANGEIRA (discovered_real, sem owned-root, neutra): não é coined-por-morfologia → probe
-        // (budget capado/sensor — termo de outro produto não merece tCPA de venda deste ativo)
-        $this->assertSame('probe', $this->c->classify($this->row('orivelle', 'neutral', 'discovered_real'), $roots)['regime'], 'marca estrangeira → sensor capado, não colheita');
-        // sem owned-roots, discovered_real neutro não é mais coined automático → probe (morfologia decide)
-        $this->assertSame('probe', $this->c->classify($this->row('gelatin trick', 'neutral', 'discovered_real'))['regime']);
-        // GANHO: sintoma frio COLHIDO (discovered_real) vai pra probe (sensor capado), não polui o seed
-        $this->assertSame('probe', $this->c->classify($this->row('what causes ear ringing', 'neutral', 'discovered_real'), $roots)['regime'], 'sintoma colhido → probe, não seed');
+        // marca estrangeira/coined neutro (discovered_real=coined, sem owned-root): seed conservador — NUNCA
+        // probe, pois held-out provou que jogar coined em probe mis-bucketa (orivelle 28% CVR caía pra 1.28%)
+        $this->assertSame('seed', $this->c->classify($this->row('orivelle', 'neutral', 'discovered_real'), $roots)['regime'], 'coined estrangeiro → seed conservador, não probe');
+        $this->assertSame('seed', $this->c->classify($this->row('gelatin trick', 'neutral', 'discovered_real'))['regime'], 'coined neutro sem owned-root → seed');
     }
 
     public function test_partition_isolates_the_three_regimes(): void
