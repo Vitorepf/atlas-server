@@ -99,6 +99,26 @@ final class AtlasLoopObraAutoMergeService
             return array_merge($base, ['status' => 'not_certified', 'reason' => 'obra_not_genuinely_certified:'.(string) ($certVerdict['reason'] ?? '?')]);
         }
 
+        // 2b. ANTI-FARM FLOOR (flag-gated, default OFF). When enabled, the floor runs BEFORE
+        //     NetDirection/BroaderGate so a no-bite / wired-without-production-caller obra is rejected
+        //     at the cheapest possible point. Missing acceptance_contract = fail-closed (the obra has
+        //     no contract to evaluate; we refuse rather than fabricate one).
+        if ((bool) config('atlas.loop.obra_auto_merge_anti_farm_floor_enabled', false)) {
+            $contract = is_array($obra['acceptance_contract'] ?? null)
+                ? $obra['acceptance_contract']
+                : (is_array($obra['quality']['_acceptance_contract'] ?? null) ? $obra['quality']['_acceptance_contract'] : null);
+            if ($contract === null) {
+                return array_merge($base, ['status' => 'anti_farm_floor_red', 'reason' => 'obra_acceptance_contract_unavailable']);
+            }
+            $floor = app(AtlasLoopAntiFarmFloor::class)->eligibleToMerge($contract);
+            if (! ($floor['eligible'] ?? false)) {
+                return array_merge($base, [
+                    'status' => 'anti_farm_floor_red',
+                    'reason' => 'anti_farm_floor_blocked:'.implode(',', (array) ($floor['reasons'] ?? [])),
+                ]);
+            }
+        }
+
         // 3. NET-DIRECTION THROTTLE — the measured-breakage dial governs this crossing too.
         $net = app(AtlasLoopNetDirectionGuard::class)->verdict();
         if ((bool) ($net['throttled'] ?? false)) {
