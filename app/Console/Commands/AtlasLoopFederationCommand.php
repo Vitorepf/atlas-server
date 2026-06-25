@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\AutonomousEvolution\Federation\AtlasLoopAttributionInheritanceChannel;
 use App\Services\Ai\AutonomousEvolution\Federation\AtlasLoopFederationConsensusObserver;
 use App\Services\Ai\AutonomousEvolution\Federation\AtlasLoopFederationFactSyncProtocol;
 use App\Services\Ai\AutonomousEvolution\Federation\AtlasLoopFederationIsolationGuard;
@@ -25,7 +26,7 @@ final class AtlasLoopFederationCommand extends Command
 
     public const EXIT_USAGE = 2;
 
-    protected $signature = 'atlas:loop:federation {action : peer-register|peer-forget|sync|consensus|status}
+    protected $signature = 'atlas:loop:federation {action : peer-register|peer-forget|sync|consensus|status|inheritance}
         {--peer-id= : peer id (register/forget/sync)}
         {--scope= : peer scope (register)}
         {--endpoint= : peer endpoint URI (register)}
@@ -33,6 +34,7 @@ final class AtlasLoopFederationCommand extends Command
         {--fact= : JSON path/literal for the FACT to publish (sync)}
         {--malformed-envelope= : JSON path/literal for an envelope to send through the guard (sync)}
         {--reports= : JSON path/literal of peer reports (consensus)}
+        {--per-cycle-priors= : JSON path/literal of per-cycle attribution priors (inheritance)}
         {--json : machine-readable JSON output}';
 
     protected $description = 'Federation operator CLI: peer-register|peer-forget|sync|consensus|status.';
@@ -47,6 +49,7 @@ final class AtlasLoopFederationCommand extends Command
             'sync' => $this->sync(),
             'consensus' => $this->consensus(),
             'status' => $this->status(),
+            'inheritance' => $this->inheritance(),
             default => $this->failWith('unknown_action:'.$action),
         };
     }
@@ -187,6 +190,35 @@ final class AtlasLoopFederationCommand extends Command
         return app()->bound(AtlasLoopFederationConsensusObserver::class)
             ? app(AtlasLoopFederationConsensusObserver::class)
             : new AtlasLoopFederationConsensusObserver();
+    }
+
+    /**
+     * `inheritance` merges per-cycle attribution priors into a deterministic global prior via
+     * AtlasLoopAttributionInheritanceChannel::mergePriors(). Wired here so the channel is no
+     * longer an orphan.
+     */
+    private function inheritance(): int
+    {
+        $channel = $this->inheritanceChannel();
+        $perCyclePriors = $this->loadJsonOption('per-cycle-priors');
+        if (! is_array($perCyclePriors)) {
+            $perCyclePriors = [];
+        }
+        try {
+            $result = $channel->mergePriors(array_values($perCyclePriors));
+        } catch (\Throwable $e) {
+            return $this->failWith('inheritance_failed:'.$e->getMessage());
+        }
+        $this->emit($result);
+
+        return self::EXIT_OK;
+    }
+
+    private function inheritanceChannel(): AtlasLoopAttributionInheritanceChannel
+    {
+        return app()->bound(AtlasLoopAttributionInheritanceChannel::class)
+            ? app(AtlasLoopAttributionInheritanceChannel::class)
+            : new AtlasLoopAttributionInheritanceChannel();
     }
 
     /**
