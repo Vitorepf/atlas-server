@@ -15,6 +15,48 @@ final class AtlasLoopRepoWideConsumersProvider
     ) {}
 
     /**
+     * Production seam — federates per-scope comprehension facts through the previously-orphan
+     * AtlasLoopRepoWideComprehensionModel and feeds the resulting repo-wide model into the
+     * consumers provider. This is the canonical call path for the comprehension model.
+     *
+     * @param  list<array<string,mixed>>  $perScopeModels
+     */
+    public static function fromPerScopeModels(
+        array $perScopeModels,
+        AtlasLoopRepoWideCallerResolver $resolver,
+        ?AtlasLoopRepoWideComprehensionModel $comprehension = null,
+    ): self {
+        $model = ($comprehension ?? new AtlasLoopRepoWideComprehensionModel())->build($perScopeModels);
+
+        // The comprehension model federates the structural facts; the consumers provider also
+        // needs the raw file_contents and fqcn-by-path maps from each scope to do the actual
+        // caller resolution at lookup time. Merge them in.
+        $contents = [];
+        $fqcnByPath = [];
+        foreach ($perScopeModels as $scope) {
+            if (! is_array($scope)) {
+                continue;
+            }
+            foreach (['file_contents_by_path', 'fileContentsByPath'] as $key) {
+                foreach ((array) ($scope[$key] ?? []) as $p => $c) {
+                    if (is_string($c)) {
+                        $contents[(string) $p] = $c;
+                    }
+                }
+            }
+            foreach (['fqcn_by_path', 'fqcns_by_path'] as $key) {
+                foreach ((array) ($scope[$key] ?? []) as $p => $fqcn) {
+                    $fqcnByPath[(string) $p] = (string) $fqcn;
+                }
+            }
+        }
+        $model['file_contents_by_path'] = $contents;
+        $model['fqcn_by_path'] = $fqcnByPath;
+
+        return new self($model, $resolver);
+    }
+
+    /**
      * @return list<string>
      */
     public function consumersOf(string $fqcn): array
