@@ -82,6 +82,61 @@ class AtlasSelfConstructionAtlasNativeDossierExporterTest extends TestCase
         self::assertNotSame($a['dossier_id'], $b['dossier_id']);
     }
 
+    public function test_ready_dossier_emits_evidence_source_coverage_section(): void
+    {
+        $dossier = (new AtlasSelfConstructionAtlasNativeDossierExporter)->export($this->readyFacts());
+
+        $coverage = $dossier['evidence_sections']['evidence_source_coverage'];
+        self::assertNotEmpty($coverage['mandatory_source_ids']);
+        self::assertSame([], $coverage['missing_source_ids']);
+        self::assertSame([], $coverage['hold_source_ids']);
+        self::assertSame([], $coverage['blocked_source_ids']);
+        self::assertStringContainsString('missing=0 hold=0 blocked=0', $coverage['proof_summary']);
+        self::assertSame('observed', $dossier['evidence_sections']['task_serving_contract_sentinel']);
+        self::assertSame('observed', $dossier['evidence_sections']['code_index_readiness_bridge']);
+        self::assertSame('observed', $dossier['evidence_sections']['multi_project_governance_dossier']);
+    }
+
+    public function test_hold_dossier_reports_hold_sources_in_coverage_without_upgrade(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['finalization']['final_state'] = 'hold';
+        $facts['finalization']['source_coverage']['missing_sources'] = ['docs_health'];
+        $facts['finalization']['source_coverage']['hold_sources'] = ['docs_health'];
+        $facts['finalization']['source_coverage']['observed_count'] = 10;
+
+        $dossier = (new AtlasSelfConstructionAtlasNativeDossierExporter)->export($facts);
+
+        self::assertSame('hold', $dossier['final_state']);
+        self::assertContains('docs_health', $dossier['evidence_sections']['evidence_source_coverage']['hold_source_ids']);
+        self::assertSame('observed', $dossier['evidence_sections']['task_serving_contract_sentinel']);
+    }
+
+    public function test_blocked_dossier_reports_blocked_sources_and_does_not_upgrade(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['finalization']['final_state'] = 'blocked';
+        $facts['finalization']['blockers'] = ['source_failed:task_serving_contract_sentinel'];
+        $facts['finalization']['source_coverage']['blocked_sources'] = ['task_serving_contract_sentinel'];
+        $facts['finalization']['source_coverage']['observed_count'] = 10;
+
+        $dossier = (new AtlasSelfConstructionAtlasNativeDossierExporter)->export($facts);
+
+        self::assertSame('blocked', $dossier['final_state']);
+        self::assertContains('task_serving_contract_sentinel', $dossier['evidence_sections']['evidence_source_coverage']['blocked_source_ids']);
+        self::assertSame('blocked', $dossier['evidence_sections']['task_serving_contract_sentinel']);
+        self::assertNotSame('ready', $dossier['final_state']);
+    }
+
+    public function test_dossier_id_is_deterministic_after_source_coverage_inclusion(): void
+    {
+        $exporter = new AtlasSelfConstructionAtlasNativeDossierExporter();
+        $a = $exporter->export($this->readyFacts());
+        $b = $exporter->export($this->readyFacts());
+
+        self::assertSame($a['dossier_id'], $b['dossier_id']);
+    }
+
     /**
      * @return array<string,mixed>
      */
@@ -96,6 +151,13 @@ class AtlasSelfConstructionAtlasNativeDossierExporterTest extends TestCase
                     'dependency_gate' => ['passed' => true, 'status' => 'passed'],
                     'autonomy_level' => 'atlas_native_24_7',
                     'ledger' => [],
+                ],
+                'source_coverage' => [
+                    'required_count' => 11,
+                    'observed_count' => 11,
+                    'missing_sources' => [],
+                    'hold_sources' => [],
+                    'blocked_sources' => [],
                 ],
                 'next_atlas_actions' => [],
             ],

@@ -38,7 +38,15 @@ final class AtlasSelfConstructionAtlasNativeDossierExporter
         'docs_knowledge_sync',
         'code_index',
         'multi_project_lanes',
+        'task_serving_contract_sentinel',
+        'code_index_readiness_bridge',
+        'multi_project_governance_dossier',
+        'evidence_source_coverage',
     ];
+
+    public function __construct(private readonly ?AtlasSelfConstructionFinalEvidenceSourceRegistry $registry = null)
+    {
+    }
 
     /**
      * @param  array<string,mixed>  $facts
@@ -79,6 +87,10 @@ final class AtlasSelfConstructionAtlasNativeDossierExporter
             ],
             'code_index' => (bool) ($evidence['code_index_readiness'] ?? false),
             'multi_project_lanes' => (bool) ($evidence['multi_project_lane_readiness'] ?? false),
+            'task_serving_contract_sentinel' => $this->sourceFlag($finalization, 'task_serving_contract_sentinel'),
+            'code_index_readiness_bridge' => $this->sourceFlag($finalization, 'code_index_readiness_bridge'),
+            'multi_project_governance_dossier' => $this->sourceFlag($finalization, 'multi_project_governance_dossier'),
+            'evidence_source_coverage' => $this->evidenceSourceCoverage($finalization),
         ];
 
         $dossierId = $this->dossierId($finalState, $blockers, $sections);
@@ -126,6 +138,68 @@ final class AtlasSelfConstructionAtlasNativeDossierExporter
      * @param  list<string>  $blockers
      * @param  array<string,mixed>  $sections
      */
+    private function sourceFlag(array $finalization, string $sourceId): string
+    {
+        $coverage = is_array($finalization['source_coverage'] ?? null) ? $finalization['source_coverage'] : [];
+        if (in_array($sourceId, (array) ($coverage['blocked_sources'] ?? []), true)) {
+            return 'blocked';
+        }
+        if (in_array($sourceId, (array) ($coverage['hold_sources'] ?? []), true)) {
+            return 'hold';
+        }
+        if (in_array($sourceId, (array) ($coverage['missing_sources'] ?? []), true)) {
+            return 'missing';
+        }
+
+        return 'observed';
+    }
+
+    /**
+     * @param  array<string,mixed>  $finalization
+     * @return array<string,mixed>
+     */
+    private function evidenceSourceCoverage(array $finalization): array
+    {
+        $coverage = is_array($finalization['source_coverage'] ?? null) ? $finalization['source_coverage'] : [];
+
+        $registry = $this->registry ?? new AtlasSelfConstructionFinalEvidenceSourceRegistry;
+        $registryDescription = $registry->describe();
+        $mandatorySourceIds = [];
+        foreach ((array) ($registryDescription['required_sources'] ?? []) as $source) {
+            if (! is_array($source)) {
+                continue;
+            }
+            if ((bool) ($source['blocking'] ?? false)) {
+                $mandatorySourceIds[] = (string) ($source['id'] ?? '');
+            }
+        }
+        sort($mandatorySourceIds, SORT_STRING);
+
+        $required = (int) ($coverage['required_count'] ?? 0);
+        $observedCount = (int) ($coverage['observed_count'] ?? 0);
+        $missing = array_values((array) ($coverage['missing_sources'] ?? []));
+        $hold = array_values((array) ($coverage['hold_sources'] ?? []));
+        $blocked = array_values((array) ($coverage['blocked_sources'] ?? []));
+
+        $observedSourceIds = array_values(array_diff($mandatorySourceIds, $missing));
+
+        return [
+            'mandatory_source_ids' => $mandatorySourceIds,
+            'observed_source_ids' => $observedSourceIds,
+            'missing_source_ids' => $missing,
+            'hold_source_ids' => $hold,
+            'blocked_source_ids' => $blocked,
+            'proof_summary' => sprintf(
+                'required=%d observed=%d missing=%d hold=%d blocked=%d',
+                $required,
+                $observedCount,
+                count($missing),
+                count($hold),
+                count($blocked),
+            ),
+        ];
+    }
+
     private function dossierId(string $finalState, array $blockers, array $sections): string
     {
         $canonical = json_encode([
