@@ -19,6 +19,9 @@ use App\Console\Commands\AtlasLoopIntentResolveCommand;
 use App\Console\Commands\AtlasTaskMaestroRetryCommand;
 use App\Console\Commands\AtlasLoopSchemaMigrateRunCommand;
 use App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight\AtlasAaelInFlightReceiptLedger;
+use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Temporal\AtlasCortexOrphanAgeReporter;
+use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Temporal\AtlasCortexSymbolAgeReporter;
+use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Temporal\AtlasCortexTemporalAxisQueryService;
 use App\Services\Ai\AutonomousEvolution\LiveCycle\Nesting\AtlasLoopSubCycleReceiptLedger;
 use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityFactSnapshotter;
 use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityReshaper;
@@ -1434,6 +1437,13 @@ class AppServiceProvider extends ServiceProvider
 
             return new AtlasMaestroPriorityReshaper($path);
         });
+
+        $this->app->singleton(AtlasCortexSymbolAgeReporter::class);
+        $this->app->singleton(AtlasCortexOrphanAgeReporter::class);
+        $this->app->singleton(AtlasCortexTemporalAxisQueryService::class, fn ($app) => new AtlasCortexTemporalAxisQueryService(
+            symbolReporter: $app->make(AtlasCortexSymbolAgeReporter::class),
+            orphanReporter: $app->make(AtlasCortexOrphanAgeReporter::class),
+        ));
 
         $this->app->singleton(AtlasMaestroPriorityFactSnapshotter::class, function () {
             $emptySource = static fn (): array => [];
