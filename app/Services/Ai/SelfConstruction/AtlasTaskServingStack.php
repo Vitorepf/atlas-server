@@ -33,6 +33,42 @@ final class AtlasTaskServingStack
         return $disk;
     }
 
+    /**
+     * FAIL-LOUD guard: refuses to run when the serving queue disk is missing/empty or resolves
+     * to the shared 'local' default (which silently mixes serving with certification spam — the
+     * exact bug that made seeded packets invisible to workers). Throws RuntimeException with a
+     * clear message naming the misconfigured disk; never narrows nor reformats the cause.
+     */
+    public static function assertServingDiskConfigured(): void
+    {
+        $health = self::servingDiskHealth();
+        if (($health['ok'] ?? false) !== true) {
+            throw new \RuntimeException(
+                'atlas_task_serving_disk_misconfigured: '.(string) ($health['reason'] ?? 'unknown')
+                .' (resolved="'.(string) ($health['disk'] ?? '').'"); set ATLAS_TASK_SERVING_QUEUE_DISK to a dedicated disk name.'
+            );
+        }
+    }
+
+    /**
+     * NON-throwing mirror of assertServingDiskConfigured() for health surfaces.
+     *
+     * @return array{ok:bool,disk:string,reason:string}
+     */
+    public static function servingDiskHealth(): array
+    {
+        $raw = config('atlas.task_serving.queue_disk');
+        $disk = is_string($raw) ? trim($raw) : '';
+        if ($disk === '') {
+            return ['ok' => false, 'disk' => '', 'reason' => 'serving_disk_unset'];
+        }
+        if ($disk === 'local') {
+            return ['ok' => false, 'disk' => $disk, 'reason' => 'serving_disk_default_local_forbidden'];
+        }
+
+        return ['ok' => true, 'disk' => $disk, 'reason' => 'dedicated_disk_configured'];
+    }
+
     public static function orchestrator(): AgentControlPlaneTaskQueueOrchestrator
     {
         $disk = self::disk();
