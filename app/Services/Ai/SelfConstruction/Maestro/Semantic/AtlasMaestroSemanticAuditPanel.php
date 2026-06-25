@@ -39,7 +39,7 @@ final class AtlasMaestroSemanticAuditPanel
     private function acceptanceCriteriaCitesRealSymbol(array $packet): bool
     {
         $text = implode("\n", array_map('strval', (array) ($packet['acceptance_criteria'] ?? [])));
-        if (preg_match_all('/\b(?:[A-Z][A-Za-z0-9_]*\\\\)*Atlas[A-Za-z0-9_]*(?:::[A-Za-z_][A-Za-z0-9_]*)?\b/', $text, $matches) !== 1) {
+        if (preg_match_all('/\b(?:[A-Z][A-Za-z0-9_]*\\\\)*Atlas[A-Za-z0-9_]*(?:::[A-Za-z_][A-Za-z0-9_]*)?\b/', $text, $matches) < 1) {
             return false;
         }
 
