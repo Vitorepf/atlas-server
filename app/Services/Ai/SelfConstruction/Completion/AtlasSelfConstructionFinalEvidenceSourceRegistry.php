@@ -28,6 +28,7 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistry
     public const GROUP_RECOVERY = 'recovery';
     public const GROUP_LEARNING = 'learning';
     public const GROUP_DOCS = 'docs';
+    public const GROUP_TASK_FABRIC_FINAL_COVERAGE = 'task_fabric_final_coverage';
 
     /**
      * @return array<string,mixed>
@@ -169,6 +170,14 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistry
                 'blocking' => true,
                 'refreshable' => true,
                 'evidence_kinds' => ['knowledge_sync_report'],
+            ],
+            [
+                'id' => 'task_graph_coverage_dossier',
+                'label' => 'Task Graph Coverage Dossier',
+                'group' => self::GROUP_TASK_FABRIC_FINAL_COVERAGE,
+                'blocking' => true,
+                'refreshable' => true,
+                'evidence_kinds' => ['task_graph_coverage_dossier'],
             ],
         ];
     }

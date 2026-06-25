@@ -25,6 +25,7 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistryTest extends TestCas
             'learning_transfer',
             'docs_health',
             'knowledge_sync',
+            'task_graph_coverage_dossier',
         ];
         foreach ($expected as $id) {
             $this->assertContains($id, $ids, "missing required source: {$id}");
@@ -78,5 +79,23 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistryTest extends TestCas
         $verdict = (new AtlasSelfConstructionFinalEvidenceSourceRegistry)->describe();
         $ids = array_column($verdict['required_sources'], 'id');
         $this->assertSame(count($ids), count(array_unique($ids)));
+    }
+
+    public function test_task_graph_coverage_dossier_is_blocking_and_grouped_correctly(): void
+    {
+        $verdict = (new AtlasSelfConstructionFinalEvidenceSourceRegistry)->describe();
+        $row = null;
+        foreach ($verdict['required_sources'] as $s) {
+            if ($s['id'] === 'task_graph_coverage_dossier') {
+                $row = $s;
+                break;
+            }
+        }
+        $this->assertNotNull($row, 'task_graph_coverage_dossier must be in the required sources list');
+        $this->assertTrue($row['blocking']);
+        $this->assertSame('task_fabric_final_coverage', $row['group']);
+        $this->assertContains('task_graph_coverage_dossier', $verdict['blocking_source_ids']);
+        $this->assertArrayHasKey('task_fabric_final_coverage', $verdict['source_groups']);
+        $this->assertContains('task_graph_coverage_dossier', $verdict['source_groups']['task_fabric_final_coverage']);
     }
 }
