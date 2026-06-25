@@ -326,6 +326,62 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistry
                     'replenisher_blocked',
                 ],
             ],
+            [
+                'id' => 'runtime_soak',
+                'label' => 'Virtual Runtime Daemon Endurance Soak',
+                'group' => self::GROUP_TASK_FABRIC_FINAL_COVERAGE,
+                'blocking' => true,
+                'refreshable' => true,
+                'evidence_kinds' => [
+                    'runtime_soak_runner_report',
+                    'runtime_regression_auditor_verdict',
+                ],
+                'schema_versions' => [
+                    'atlas.self_construction.runtime_soak_runner.v1',
+                    'atlas.self_construction.runtime_regression_auditor.v1',
+                ],
+                'required_cases' => [
+                    'green_cycle',
+                    'empty_queue_replenish',
+                    'give_back_repair',
+                    'failed_gate_hold',
+                    'stale_heartbeat_recovery',
+                    'pause_resume',
+                    'safety_stop',
+                    'scope_expansion',
+                ],
+                'required_fields' => [
+                    'soak_runner_schema',
+                    'auditor_schema',
+                    'covered_cases',
+                    'recovery_cases_covered',
+                    'tick_count',
+                    'dependency_violations',
+                    'auditor_verdict',
+                ],
+                'requires_no_dependency_on' => [
+                    'operator',
+                    'human',
+                    'external_provider',
+                    'claude_code',
+                    'codex',
+                    'cursor',
+                    'git',
+                    'network',
+                    'unrestricted_shell',
+                ],
+                'rejects_when' => [
+                    'soak_report_missing',
+                    'fake_green_soak',
+                    'zero_tick_soak',
+                    'missing_recovery_evidence',
+                    'dependency_regression_present',
+                ],
+                'serialized_after' => [
+                    'task_graph_autonomous_replenisher',
+                    'scope_expansion_governor',
+                ],
+            ],
         ];
     }
 }

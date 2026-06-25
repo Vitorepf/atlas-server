@@ -31,6 +31,7 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistryTest extends TestCas
             'scope_expansion_governor',
             'native_worker_runtime',
             'runtime_daemon',
+            'runtime_soak',
         ];
         foreach ($expected as $id) {
             $this->assertContains($id, $ids, "missing required source: {$id}");
@@ -531,5 +532,45 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistryTest extends TestCas
             'applied_actions' => [],
             'blocked_actions' => [],
         ], $override);
+    }
+
+    public function test_runtime_soak_source_is_registered_with_required_schemas_and_cases(): void
+    {
+        $verdict = (new AtlasSelfConstructionFinalEvidenceSourceRegistry)->describe();
+        $row = null;
+        foreach ($verdict['required_sources'] as $s) {
+            if ($s['id'] === 'runtime_soak') {
+                $row = $s;
+                break;
+            }
+        }
+        $this->assertNotNull($row, 'runtime_soak source must be in the registry');
+        $this->assertTrue($row['blocking']);
+        $this->assertContains('atlas.self_construction.runtime_soak_runner.v1', $row['schema_versions']);
+        $this->assertContains('atlas.self_construction.runtime_regression_auditor.v1', $row['schema_versions']);
+        foreach (['green_cycle', 'empty_queue_replenish', 'give_back_repair', 'failed_gate_hold', 'stale_heartbeat_recovery', 'pause_resume', 'safety_stop', 'scope_expansion'] as $case) {
+            $this->assertContains($case, $row['required_cases'], "runtime_soak must require case: {$case}");
+        }
+        foreach (['operator', 'human', 'external_provider', 'claude_code', 'codex', 'cursor', 'git', 'network', 'unrestricted_shell'] as $forbidden) {
+            $this->assertContains($forbidden, $row['requires_no_dependency_on'], "runtime_soak must forbid dependency on: {$forbidden}");
+        }
+        foreach (['soak_report_missing', 'fake_green_soak', 'zero_tick_soak', 'missing_recovery_evidence', 'dependency_regression_present'] as $reject) {
+            $this->assertContains($reject, $row['rejects_when'], "runtime_soak must reject when: {$reject}");
+        }
+    }
+
+    public function test_runtime_soak_is_serialized_after_runtime_daemon_and_replenisher(): void
+    {
+        $verdict = (new AtlasSelfConstructionFinalEvidenceSourceRegistry)->describe();
+        $row = null;
+        foreach ($verdict['required_sources'] as $s) {
+            if ($s['id'] === 'runtime_soak') {
+                $row = $s;
+                break;
+            }
+        }
+        $this->assertNotNull($row);
+        $this->assertContains('task_graph_autonomous_replenisher', $row['serialized_after']);
+        $this->assertContains('scope_expansion_governor', $row['serialized_after']);
     }
 }
