@@ -269,4 +269,17 @@ final class AtlasAutonomousEvolutionCertificationService
 
         return File::exists($full) && str_contains((string) File::get($full), $token);
     }
+
+    /**
+     * Delegate proxy / farm / paraphrase / constitution refusal facts to the unified anti-Goodhart service.
+     * This is the ONLY proxy/farm/paraphrase/constitution refusal path the certifier exposes — by routing
+     * through {@see AtlasLoopAntiGoodhartUnifiedRefusal::verdict()}, the certifier inherits the fact-only
+     * contract (no numeric score, structured FACT shape) without changing any other certification behavior.
+     *
+     * @param  list<array{source:string, pattern_id:string, fact:array<string,mixed>, severity?:string, evidence_refs?:list<string>}>  $candidateFacts
+     */
+    public function antiGoodhartRefusal(array $candidateFacts): AtlasLoopAntiGoodhartRefusalVerdict
+    {
+        return AtlasLoopAntiGoodhartUnifiedRefusal::verdict($candidateFacts);
+    }
 }
