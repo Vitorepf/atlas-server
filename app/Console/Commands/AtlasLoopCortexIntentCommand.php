@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\AtlasCortexDecisionHistoryReader;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\AtlasCortexIntentSnapshot;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\AtlasCortexIntentStaleness;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\TriangulatedIntentFact;
@@ -11,7 +12,7 @@ use Illuminate\Console\Command;
 
 final class AtlasLoopCortexIntentCommand extends Command
 {
-    protected $signature = 'atlas:loop:cortex:intent {action : inspect|refresh|diff} {--fqcn=} {--json}';
+    protected $signature = 'atlas:loop:cortex:intent {action : inspect|refresh|diff|history} {--fqcn=} {--file=} {--json}';
 
     protected $description = 'Inspect, refresh, or diff the intent-aware Cortex snapshot.';
 
@@ -23,8 +24,35 @@ final class AtlasLoopCortexIntentCommand extends Command
             'inspect' => $this->inspect(),
             'refresh' => $this->refresh(),
             'diff' => $this->diff(),
+            'history' => $this->history(),
             default => $this->usageError($action),
         };
+    }
+
+    /**
+     * Wires AtlasCortexDecisionHistoryReader into the operator-facing intent CLI so
+     * `atlas:loop:cortex:intent history --file=path/to/Foo.php` produces a deterministic
+     * DecisionHistoryFact for the file (commit_count + decisions list) — the same shape the
+     * Cortex compounding consumer reads downstream.
+     */
+    private function history(): int
+    {
+        $filePath = trim((string) $this->option('file'));
+        if ($filePath === '') {
+            $this->line('usage_error: history requires --file=<path>');
+
+            return self::FAILURE;
+        }
+        $reader = app(AtlasCortexDecisionHistoryReader::class);
+        $fact = $reader->read($filePath);
+        $this->emit([
+            'fqcn' => $fact->fqcn,
+            'file_path' => $fact->filePath,
+            'commit_count' => $fact->commitCount,
+            'decisions' => $fact->decisions,
+        ]);
+
+        return self::SUCCESS;
     }
 
     private function inspect(): int
