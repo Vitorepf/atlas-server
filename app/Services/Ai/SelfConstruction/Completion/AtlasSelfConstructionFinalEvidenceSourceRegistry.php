@@ -179,6 +179,22 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistry
                 'refreshable' => true,
                 'evidence_kinds' => ['task_graph_coverage_dossier'],
             ],
+            [
+                'id' => 'task_graph_autonomous_replenisher',
+                'label' => 'Task Graph Autonomous Replenisher Receipt',
+                'group' => self::GROUP_TASK_FABRIC_FINAL_COVERAGE,
+                'blocking' => true,
+                'refreshable' => true,
+                'evidence_kinds' => ['task_graph_autonomous_replenisher_receipt'],
+                'required_fields' => [
+                    'plan_hash',
+                    'dry_run',
+                    'applied_count',
+                    'withheld_count',
+                    'duplicate_count',
+                    'replenisher_hash',
+                ],
+            ],
         ];
     }
 }
