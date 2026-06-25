@@ -19,7 +19,10 @@ class KeywordRegimeClassifier
     /** sufixos de sintoma frio (sem coined → sensor, não venda). */
     private const SYMPTOM_SUFFIX = ['treatment', 'remedy', 'symptoms', 'relief', 'cure', 'help'];
 
-    private const COINED_FAMILIES = ['mechanism_trick', 'slogan', 'celebrity', 'power_phrase', 'discovered_real', 'objection_verification'];
+    // 'discovered_real' (= termo COLHIDO) NÃO entra aqui: ser colhido não diz nada sobre ser coined — forçava
+    // coined=true em sintoma frio genérico, diluindo a colheita (17%→deve ser 30%) e esvaziando o probe.
+    // A coinedness de um termo colhido é decidida pela MORFOLOGIA (sufixo de posse) ou pelo owned-root.
+    private const COINED_FAMILIES = ['mechanism_trick', 'slogan', 'celebrity', 'power_phrase', 'objection_verification'];
 
     /**
      * @param  array<string,mixed>  $row  uma linha de KeywordQualityIndex::score() (usa family/suffix_regime/keyword)
@@ -32,7 +35,10 @@ class KeywordRegimeClassifier
         $family = (string) ($row['family'] ?? '');
         $last = $this->lastWord($kw);
 
-        $coined = $suffix === 'owned' || $suffix === 'possession' || in_array($family, self::COINED_FAMILIES, true);
+        // coined = posse morfológica OU família coined OU casa o owned-root PRÓPRIO do ativo (provenance)
+        $coined = $suffix === 'owned' || $suffix === 'possession'
+            || in_array($family, self::COINED_FAMILIES, true)
+            || $this->matchesOwnedRoot($kw, $ownedRoots);
 
         // PROBE: sintoma/treatment frio sem raiz coined → sensor de demanda, campanha capada/separada
         if (! $coined && (in_array($last, self::SYMPTOM_SUFFIX, true) || $suffix === 'neutral')) {

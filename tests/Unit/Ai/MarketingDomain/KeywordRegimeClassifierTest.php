@@ -50,9 +50,13 @@ class KeywordRegimeClassifierTest extends TestCase
         $roots = ['gelatin trick', 'pink gelatin'];
         $this->assertSame('harvest', $this->c->classify($this->row('gelatin trick', 'neutral', 'discovered_real'), $roots)['regime'], 'mecanismo próprio nu → colheita');
         $this->assertSame('harvest', $this->c->classify($this->row('gelatin trick pen', 'neutral', 'discovered_real'), $roots)['regime'], 'root como cabeça → colheita');
-        $this->assertSame('seed', $this->c->classify($this->row('orivelle', 'neutral', 'discovered_real'), $roots)['regime'], 'marca ESTRANGEIRA não é promovida');
-        // sem owned-roots (legado) o coined-neutro segue conservador → seed
-        $this->assertSame('seed', $this->c->classify($this->row('gelatin trick', 'neutral', 'discovered_real'))['regime']);
+        // marca ESTRANGEIRA (discovered_real, sem owned-root, neutra): não é coined-por-morfologia → probe
+        // (budget capado/sensor — termo de outro produto não merece tCPA de venda deste ativo)
+        $this->assertSame('probe', $this->c->classify($this->row('orivelle', 'neutral', 'discovered_real'), $roots)['regime'], 'marca estrangeira → sensor capado, não colheita');
+        // sem owned-roots, discovered_real neutro não é mais coined automático → probe (morfologia decide)
+        $this->assertSame('probe', $this->c->classify($this->row('gelatin trick', 'neutral', 'discovered_real'))['regime']);
+        // GANHO: sintoma frio COLHIDO (discovered_real) vai pra probe (sensor capado), não polui o seed
+        $this->assertSame('probe', $this->c->classify($this->row('what causes ear ringing', 'neutral', 'discovered_real'), $roots)['regime'], 'sintoma colhido → probe, não seed');
     }
 
     public function test_partition_isolates_the_three_regimes(): void
