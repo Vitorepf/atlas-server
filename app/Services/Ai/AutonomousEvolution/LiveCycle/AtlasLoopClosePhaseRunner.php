@@ -21,6 +21,10 @@ use Throwable;
  *   - Any auto-merge service refusal (preflight, conflict, reverse-audit rollback) flows through as
  *     status=aborted with the delegate's reason.
  */
+// The AtlasLoopPhaseRunner interface lives inside AtlasLoopFullCycleConductor.php (sibling file).
+// Force-load that file so a PSR-4 autoloader can find the interface before we type-hint against it.
+\class_exists(AtlasLoopFullCycleConductor::class);
+
 final class AtlasLoopClosePhaseRunner implements AtlasLoopPhaseRunner
 {
     public const STATUS_MERGED = 'merged';
