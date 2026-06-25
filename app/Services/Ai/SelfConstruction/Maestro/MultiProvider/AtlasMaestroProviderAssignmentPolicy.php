@@ -15,9 +15,14 @@ final class AtlasMaestroProviderAssignmentPolicy
 
     public function __construct(private readonly object $registry = new AtlasMaestroProviderClassRegistry)
     {
+        $execRuntime = config('atlas.provider_defaults.execution_runtime');
+        if (! is_string($execRuntime) || trim($execRuntime) === '') {
+            throw new DomainException('atlas_provider_defaults_execution_runtime_missing');
+        }
+
         $this->assignments = [
             AtlasMaestroPacketClassifier::GRIND => [
-                'primary' => 'minimax-m3',
+                'primary' => $execRuntime,
                 'fallback' => ['glm-5-2'],
             ],
             AtlasMaestroPacketClassifier::ARCHITECTURE => [
@@ -29,7 +34,7 @@ final class AtlasMaestroProviderAssignmentPolicy
                 'fallback' => ['claude-opus'],
             ],
             AtlasMaestroPacketClassifier::DOC => [
-                'primary' => 'minimax-m3',
+                'primary' => $execRuntime,
                 'fallback' => ['glm-5-2'],
             ],
         ];

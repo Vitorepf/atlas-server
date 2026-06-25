@@ -6,10 +6,18 @@ namespace Tests\Unit\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopAttemptLedger;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderRollbackPolicy;
-use PHPUnit\Framework\TestCase;
+use DomainException;
+use Tests\TestCase;
 
 final class AtlasLoopProviderRollbackPolicyTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config()->set('atlas.provider_defaults.execution_runtime', 'minimax_m3');
+        config()->set('atlas.provider_defaults.brain_default', 'codex');
+    }
+
     public function test_same_signal_vectors_produce_the_same_decision(): void
     {
         $policy = new AtlasLoopProviderRollbackPolicy;
@@ -55,7 +63,7 @@ final class AtlasLoopProviderRollbackPolicyTest extends TestCase
         }
     }
 
-    public function test_architect_phase_dissent_is_the_only_hard_provider_escalation_path(): void
+    public function test_architect_phase_dissent_uses_hard_provider_from_brain_default_config(): void
     {
         $policy = new AtlasLoopProviderRollbackPolicy;
 
@@ -69,6 +77,53 @@ final class AtlasLoopProviderRollbackPolicyTest extends TestCase
         $this->assertSame(AtlasLoopProviderRollbackPolicy::ESCALATE_TO_HARD_PROVIDER, $receipt['decision']);
         $this->assertSame('codex', $receipt['routing_intent']['provider']);
         $this->assertSame('gpt-5.5', $receipt['routing_intent']['model']);
+    }
+
+    public function test_hard_provider_follows_brain_default_config_value(): void
+    {
+        config()->set('atlas.provider_defaults.brain_default', 'codex-pro');
+        $policy = new AtlasLoopProviderRollbackPolicy;
+
+        $receipt = $policy->decide([
+            'phase' => 'architect',
+            'triangulator_verdict' => 'dissent',
+            'current_provider' => 'minimax_m3',
+            'last_stable_provider' => 'minimax_m3',
+        ]);
+
+        $this->assertSame('codex-pro', $receipt['routing_intent']['provider']);
+    }
+
+    public function test_default_implementation_provider_follows_execution_runtime_config(): void
+    {
+        config()->set('atlas.provider_defaults.execution_runtime', 'glm-runtime');
+        $policy = new AtlasLoopProviderRollbackPolicy;
+
+        // No current_provider in signals → fallback to default implementation provider.
+        $receipt = $policy->decide([
+            'circuit_state' => 'closed',
+            'triangulator_verdict' => 'agree',
+            'phase' => 'implementation',
+        ]);
+
+        $this->assertSame(AtlasLoopProviderRollbackPolicy::KEEP_CURRENT_PROVIDER, $receipt['decision']);
+        $this->assertSame('glm-runtime', $receipt['routing_intent']['provider']);
+    }
+
+    public function test_missing_execution_runtime_config_fails_closed(): void
+    {
+        config()->set('atlas.provider_defaults.execution_runtime', null);
+        $this->expectException(DomainException::class);
+        $this->expectExceptionMessage('atlas_provider_defaults_execution_runtime_missing');
+        new AtlasLoopProviderRollbackPolicy;
+    }
+
+    public function test_missing_brain_default_config_fails_closed(): void
+    {
+        config()->set('atlas.provider_defaults.brain_default', null);
+        $this->expectException(DomainException::class);
+        $this->expectExceptionMessage('atlas_provider_defaults_brain_default_missing');
+        new AtlasLoopProviderRollbackPolicy;
     }
 
     public function test_circuit_breaker_trip_records_immutable_receipt_in_attempt_ledger(): void

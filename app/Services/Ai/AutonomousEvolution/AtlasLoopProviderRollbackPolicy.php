@@ -6,6 +6,7 @@ namespace App\Services\Ai\AutonomousEvolution;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use DomainException;
 
 /**
  * Provider rollback policy for the loop routing layer.
@@ -23,16 +24,16 @@ final class AtlasLoopProviderRollbackPolicy
 
     public const ESCALATE_TO_HARD_PROVIDER = 'escalate_to_hard_provider';
 
-    public const DEFAULT_IMPLEMENTATION_PROVIDER = 'minimax_m3';
-
     public const DEFAULT_IMPLEMENTATION_MODEL = 'MiniMax-M3';
-
-    public const HARD_PROVIDER = 'codex';
 
     public const HARD_MODEL = 'gpt-5.5';
 
     /** @var null|callable():string */
     private $clock;
+
+    private readonly string $defaultImplementationProvider;
+
+    private readonly string $hardProvider;
 
     /**
      * @param  null|callable():string  $clock
@@ -40,6 +41,17 @@ final class AtlasLoopProviderRollbackPolicy
     public function __construct(?callable $clock = null)
     {
         $this->clock = $clock;
+
+        $execRuntime = config('atlas.provider_defaults.execution_runtime');
+        if (! is_string($execRuntime) || trim($execRuntime) === '') {
+            throw new DomainException('atlas_provider_defaults_execution_runtime_missing');
+        }
+        $brainDefault = config('atlas.provider_defaults.brain_default');
+        if (! is_string($brainDefault) || trim($brainDefault) === '') {
+            throw new DomainException('atlas_provider_defaults_brain_default_missing');
+        }
+        $this->defaultImplementationProvider = $execRuntime;
+        $this->hardProvider = $brainDefault;
     }
 
     /**
@@ -205,11 +217,11 @@ final class AtlasLoopProviderRollbackPolicy
      */
     private function routingIntent(string $decision, array $signals): array
     {
-        $lastStableProvider = $this->provider($signals['last_stable_provider'] ?? null, self::DEFAULT_IMPLEMENTATION_PROVIDER);
+        $lastStableProvider = $this->provider($signals['last_stable_provider'] ?? null, $this->defaultImplementationProvider);
 
         if ($decision === self::ESCALATE_TO_HARD_PROVIDER) {
             return [
-                'provider' => self::HARD_PROVIDER,
+                'provider' => $this->hardProvider,
                 'model' => self::HARD_MODEL,
                 'tier' => 'hard',
                 'last_stable_provider' => $lastStableProvider,
@@ -226,7 +238,7 @@ final class AtlasLoopProviderRollbackPolicy
         }
 
         return [
-            'provider' => $this->provider($signals['current_provider'] ?? null, self::DEFAULT_IMPLEMENTATION_PROVIDER),
+            'provider' => $this->provider($signals['current_provider'] ?? null, $this->defaultImplementationProvider),
             'model' => $this->model($signals['current_model'] ?? null),
             'tier' => 'current',
             'last_stable_provider' => $lastStableProvider,
