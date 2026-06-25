@@ -108,8 +108,17 @@ final class AtlasCodeIntelligenceAutomaticGateService
         ],
     ];
 
+    /**
+     * Repair migration that recreates Code Intelligence read-model tables when the migration ledger
+     * is stamped but the physical schema is missing the tables.
+     */
+    public const SCHEMA_DRIFT_REPAIR_MIGRATION = 'database/migrations/2026_06_25_000100_repair_missing_atlas_engineering_code_intelligence_tables.php';
+
+    public const SCHEMA_DRIFT_REPAIR_COMMAND = 'php artisan migrate --path=database/migrations/2026_06_25_000100_repair_missing_atlas_engineering_code_intelligence_tables.php';
+
     public function __construct(
         private readonly EngineeringCodeIntelligenceService $codeIntelligence,
+        private readonly ?CodeIntelligenceSchemaDriftAuditor $schemaDriftAuditor = null,
     ) {}
 
     /**
@@ -141,8 +150,9 @@ final class AtlasCodeIntelligenceAutomaticGateService
             $readiness = $this->safeReadiness($workspace, $runContextType, $runContextId);
         }
 
+        $schemaDrift = $this->safeSchemaDrift();
         $consumerMatrix = $this->consumerMatrix();
-        $blockers = $this->blockers($summary, $readiness, $strictFreshness, $maxAgeMinutes, $consumerMatrix);
+        $blockers = $this->blockers($summary, $readiness, $strictFreshness, $maxAgeMinutes, $consumerMatrix, $schemaDrift);
 
         if ($autoRefresh && $this->shouldRefresh($summary, $readiness, $blockers)) {
             $refresh = $this->refresh($workspace, $runContextType, $runContextId);
@@ -150,8 +160,9 @@ final class AtlasCodeIntelligenceAutomaticGateService
             $readiness = $strictFreshness
                 ? $this->safeReadiness($workspace, $runContextType, $runContextId)
                 : $readiness;
+            $schemaDrift = $this->safeSchemaDrift();
             $consumerMatrix = $this->consumerMatrix();
-            $blockers = $this->blockers($summary, $readiness, $strictFreshness, $maxAgeMinutes, $consumerMatrix);
+            $blockers = $this->blockers($summary, $readiness, $strictFreshness, $maxAgeMinutes, $consumerMatrix, $schemaDrift);
         }
 
         $warnings = $this->warnings($summary, $readiness, $refresh, $this->docLinksRequiredForWorkspace($workspace));
@@ -175,6 +186,8 @@ final class AtlasCodeIntelligenceAutomaticGateService
             'readiness' => $this->readinessPayload($readiness),
             'refresh' => $refresh,
             'consumers' => $consumerMatrix,
+            'schema_drift' => $schemaDrift,
+            'repair_guidance' => $this->repairGuidance($schemaDrift, $blockers),
             'blockers' => $blockers,
             'warnings' => $warnings,
             'metrics' => [
@@ -294,12 +307,23 @@ final class AtlasCodeIntelligenceAutomaticGateService
      * @param  array<string,mixed>|null  $readiness
      * @return list<string>
      */
-    private function blockers(array $summary, ?array $readiness, bool $strictFreshness, int $maxAgeMinutes, array $consumerMatrix): array
+    private function blockers(array $summary, ?array $readiness, bool $strictFreshness, int $maxAgeMinutes, array $consumerMatrix, ?array $schemaDrift = null): array
     {
         $blockers = [];
 
+        $driftStatus = $schemaDrift !== null ? (string) ($schemaDrift['status'] ?? '') : '';
+        $driftType = $schemaDrift !== null ? (string) ($schemaDrift['drift_type'] ?? '') : '';
+        $migrationLedgerStampedButTablesMissing = $driftStatus === 'schema_drift'
+            && in_array($driftType, ['stamped_but_tables_missing', 'stamped_but_tables_partial'], true);
+
         if (! (bool) ($summary['table_exists'] ?? false)) {
-            $blockers[] = 'code_intelligence_tables_missing';
+            $blockers[] = $migrationLedgerStampedButTablesMissing
+                ? 'code_intelligence_schema_drift_migration_stamped_tables_missing'
+                : 'code_intelligence_tables_missing';
+        }
+
+        if ($schemaDrift !== null && $driftStatus === 'schema_drift' && $driftType === 'stamped_but_columns_missing') {
+            $blockers[] = 'code_intelligence_schema_drift_columns_missing';
         }
 
         if (($summary['status'] ?? null) !== 'ready') {
@@ -528,5 +552,70 @@ final class AtlasCodeIntelligenceAutomaticGateService
     private function elapsedMs(float $startedAt): int
     {
         return max(0, (int) round((microtime(true) - $startedAt) * 1000));
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function safeSchemaDrift(): ?array
+    {
+        if ($this->schemaDriftAuditor === null) {
+            return null;
+        }
+        try {
+            return $this->schemaDriftAuditor->audit();
+        } catch (Throwable $e) {
+            return [
+                'schema_version' => CodeIntelligenceSchemaDriftAuditor::SCHEMA_VERSION,
+                'status' => 'unavailable',
+                'drift_type' => 'auditor_exception',
+                'exception_message' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $schemaDrift
+     * @param  list<string>  $blockers
+     * @return array<string,mixed>
+     */
+    private function repairGuidance(?array $schemaDrift, array $blockers): array
+    {
+        $migrationStampedTablesMissing = in_array(
+            'code_intelligence_schema_drift_migration_stamped_tables_missing',
+            $blockers,
+            true,
+        );
+        $columnsMissing = in_array('code_intelligence_schema_drift_columns_missing', $blockers, true);
+
+        $actions = [];
+        if ($migrationStampedTablesMissing || $columnsMissing) {
+            $actions[] = [
+                'action' => 'run_schema_drift_repair_migration',
+                'migration_path' => self::SCHEMA_DRIFT_REPAIR_MIGRATION,
+                'command' => self::SCHEMA_DRIFT_REPAIR_COMMAND,
+                'reason' => $migrationStampedTablesMissing
+                    ? 'migration_ledger_marks_migration_ran_but_tables_are_missing'
+                    : 'migration_ledger_marks_migration_ran_but_required_columns_are_missing',
+            ];
+        } elseif (in_array('code_intelligence_tables_missing', $blockers, true)) {
+            $actions[] = [
+                'action' => 'run_migrations',
+                'command' => 'php artisan migrate',
+                'reason' => 'required_code_intelligence_tables_have_never_been_created',
+            ];
+        } else {
+            $actions[] = [
+                'action' => 'refresh_code_intelligence_index',
+                'command' => 'php artisan atlas:engineering:knowledge index-code --prune --summary-only --json',
+                'reason' => 'index_is_empty_or_stale_but_schema_is_healthy',
+            ];
+        }
+
+        return [
+            'schema_drift_status' => $schemaDrift !== null ? (string) ($schemaDrift['status'] ?? 'unknown') : 'unavailable',
+            'schema_drift_type' => $schemaDrift !== null ? (string) ($schemaDrift['drift_type'] ?? 'none') : 'none',
+            'recommended_actions' => $actions,
+        ];
     }
 }
