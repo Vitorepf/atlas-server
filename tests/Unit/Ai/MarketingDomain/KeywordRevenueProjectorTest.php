@@ -19,32 +19,45 @@ class KeywordRevenueProjectorTest extends TestCase
         $this->p = new KeywordRevenueProjector;
     }
 
-    public function test_revenue_is_volume_times_cvr_times_payout(): void
+    public function test_revenue_is_volume_times_regime_cvr_times_payout(): void
     {
+        // gelatin trick = mechanism_trick + sufixo info → regime seed → CVR-prior real 1.55%
         $r = $this->p->project(
             ['keyword' => 'gelatin trick', 'score' => 50, 'suffix_regime' => 'information', 'family' => 'mechanism_trick'],
             ['payout' => 100, 'refund' => 0.0, 'cpc' => 0.0],
             ['gelatin trick' => 10000],
         );
-        // cvr(score 50)=3% → 10000 × 0.03 = 300 vendas × 100 = 30000
-        $this->assertSame(300.0, $r['expected_sales']);
-        $this->assertSame(30000.0, $r['expected_revenue']);
+        // CVR seed 0.0155 → 10000 × 0.0155 = 155 vendas × 100 = 15500
+        $this->assertSame('seed', $r['regime']);
+        $this->assertSame(155.0, $r['expected_sales']);
+        $this->assertSame(15500.0, $r['expected_revenue']);
         $this->assertSame('real_volume(blackink)', $r['basis']);
     }
 
-    public function test_high_volume_mid_cvr_can_beat_low_volume_high_cvr(): void
+    public function test_high_cvr_coined_beats_higher_volume_recall_when_cvr_gap_dominates(): void
     {
+        // realidade: orivelle anti fungal pen 37% × 933 = 343 vendas REAIS > gelatin trick 1.95% × 9171 = 179.
+        // o gap de CVR (harvest 30% vs seed 1.55% = 19×) supera o gap de volume (10×) → coined vence.
         $econ = ['payout' => 100, 'refund' => 0.0, 'cpc' => 0.0];
         $vol = ['gelatin trick' => 9171, 'orivelle anti fungal pen' => 933];
         $rank = $this->p->rank([
+            ['keyword' => 'gelatin trick', 'score' => 55, 'suffix_regime' => 'information', 'family' => 'mechanism_trick'],
             ['keyword' => 'orivelle anti fungal pen', 'score' => 95, 'suffix_regime' => 'possession', 'family' => 'discovered_real'],
+        ], $econ, $vol)['ranked'];
+        $this->assertSame('orivelle anti fungal pen', $rank[0]['keyword'], 'o coined de 30% CVR vence o recall de 1.55% (bate a venda real)');
+    }
+
+    public function test_high_volume_wins_when_volume_gap_dominates(): void
+    {
+        // mas o volume VENCE quando o gap é grande o bastante: seed gigante vs harvest minúsculo
+        $econ = ['payout' => 100, 'refund' => 0.0, 'cpc' => 0.0];
+        $vol = ['gelatin trick' => 80000, 'tiny coined' => 100];
+        $rank = $this->p->rank([
+            ['keyword' => 'tiny coined', 'score' => 95, 'suffix_regime' => 'possession', 'family' => 'discovered_real'],
             ['keyword' => 'gelatin trick', 'score' => 55, 'suffix_regime' => 'information', 'family' => 'mechanism_trick'],
         ], $econ, $vol)['ranked'];
-
-        // mesmo com CVR muito menor, o volume 10× faz o trick competir/ganhar em RECEITA
-        $trick = collect($rank)->firstWhere('keyword', 'gelatin trick');
-        $pen = collect($rank)->firstWhere('keyword', 'orivelle anti fungal pen');
-        $this->assertGreaterThan($pen['expected_revenue'], $trick['expected_revenue'], 'volume alto vence CVR alta em receita');
+        // gelatin 80000×0.0155=1240 vendas vs tiny 100×0.30=30 → volume vence
+        $this->assertSame('gelatin trick', $rank[0]['keyword'], 'volume gigante vence quando o gap de volume supera o de CVR');
     }
 
     public function test_safety_flags_money_losers_below_breakeven(): void

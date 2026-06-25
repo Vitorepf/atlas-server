@@ -34,6 +34,17 @@ class KeywordRevenueProjector
         'probe' => 1.60,    // sintoma genérico: todo afiliado/marca bida → CPC caro
     ];
 
+    /**
+     * CVR-prior por regime — ATERRADO na CVR REAL do Blackink (não no mapa cru do score, que tetava em 5,5% e
+     * sub-projetava os coined 5×). Coined/re-finder converte ~30%; recall/sintoma ~1,3-1,5%. É a verdade que
+     * separa o dinheiro: a improbabilidade-de-geração do token (teoria-mãe) vira CVR de 30% medida.
+     */
+    private const CVR_PRIOR = [
+        'harvest' => 0.30,    // coined/posse/celebridade/mistype: re-finder, CVR real ~30%
+        'seed' => 0.0155,     // recall/recipe/trick
+        'probe' => 0.0128,    // sintoma frio
+    ];
+
     public function __construct(
         private readonly KeywordRegimeClassifier $regimes = new KeywordRegimeClassifier,
     ) {}
@@ -53,8 +64,9 @@ class KeywordRevenueProjector
         $netPayout = max(0.0, $payout * (1 - $refund));
 
         $regime = $this->regimes->classify($row)['regime'];
-        // CVR: a REAL do termo (Blackink) domina o prior do score — projeção quase exata pra termo conhecido
-        $cvr = isset($cvrPrior[$kw]) ? max(0.0, (float) $cvrPrior[$kw]) : $this->scoreToCvr((int) ($row['score'] ?? 0));
+        // CVR: a REAL do termo (Blackink) domina; senão o prior por REGIME aterrado no real (coined ~30%,
+        // recall/sintoma ~1,3%) — não o mapa cru do score que sub-projetava os coined 5×
+        $cvr = isset($cvrPrior[$kw]) ? max(0.0, (float) $cvrPrior[$kw]) : (self::CVR_PRIOR[$regime] ?? self::CVR_PRIOR['probe']);
         $real = $volumePrior[$kw] ?? null;
         $volume = $real !== null ? (int) $real : (self::VOLUME_PRIOR[$regime] ?? self::VOLUME_PRIOR['probe']);
         // CPC: dado real domina; senão o prior por regime — a ARBITRAGEM está no clique barato (coined/mistype)
@@ -98,11 +110,4 @@ class KeywordRevenueProjector
         ];
     }
 
-    /** score (CVR-ordering prior 0-100) → estimativa de CVR. Calibrado no corpus real (score-alto≈4%, baixo≈2%). */
-    private function scoreToCvr(int $score): float
-    {
-        $s = max(0, min(100, $score));
-
-        return round(0.005 + ($s / 100) * 0.05, 5); // 0.5% (score 0) → 5.5% (score 100), monotônico
-    }
 }
