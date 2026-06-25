@@ -14,6 +14,7 @@ use App\Console\Commands\AtlasLoopFrozenContractCommand;
 use App\Console\Commands\AtlasLoopCortexIntentCommand;
 use App\Console\Commands\AtlasLoopRollingWindowCli;
 use App\Console\Commands\AtlasLoopSchemaFuzzCommand;
+use App\Console\Commands\AtlasLoopSchemaMigrateRunCommand;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use App\Services\Ai\AgentGovernance\FleetDriver;
 use App\Services\Ai\AgentGovernance\SystemFleetDriver;
@@ -1362,6 +1363,7 @@ class AppServiceProvider extends ServiceProvider
                 AtlasLoopMigrateCommand::class,
                 AtlasLoopRollingWindowCli::class,
                 AtlasLoopSchemaFuzzCommand::class,
+                AtlasLoopSchemaMigrateRunCommand::class,
             ]);
         }
 
