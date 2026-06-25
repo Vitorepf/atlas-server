@@ -55,7 +55,14 @@ final class AtlasMaestroPacketSchemaVersioning
                 'successor' => null,
             ],
         ];
-        $this->versions = array_merge($seed, $extraVersions);
+        $byId = [];
+        foreach (array_merge($seed, $extraVersions) as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $byId[(string) ($row['id'] ?? '')] = $row;
+        }
+        $this->versions = array_values($byId);
         $this->currentResolver = $currentResolver ?? static function (): ?string {
             if (function_exists('config')) {
                 $value = config('atlas.maestro.packet_schema.current');

@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\Maestro\PacketEvolution\AtlasMaestroPacketSchemaDeprecationGate;
 use App\Services\Ai\SelfConstruction\Maestro\PacketEvolution\AtlasMaestroPacketSchemaVersioning;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
@@ -266,6 +267,8 @@ final class AgentControlPlaneTaskPacketBuilder
         ];
 
         $packet['task_packet_hash'] = $this->stableHash($this->normalizeForHash($packet));
+
+        AtlasMaestroPacketSchemaDeprecationGate::assertServeable($packet);
 
         return $packet;
     }
