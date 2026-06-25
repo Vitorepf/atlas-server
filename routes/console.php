@@ -479,3 +479,14 @@ Schedule::command('atlas:task:repair-blocked --json')
     ->withoutOverlapping()
     // §0 MASTER SWITCH — OFF ⇒ never reopen, never retire, never write the queue.
     ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled());
+
+// govA-cortex-cadence — daily Cortex scope-comprehension snapshot rebuild. Outcome-triggered
+// invalidation (give_back/failed) lives in AtlasTaskServingService::report; this schedule keeps
+// the snapshot fresh on a guaranteed cadence. §0 MASTER SWITCH gate (OFF ⇒ byte-identical
+// no-op) + withoutOverlapping (a slow build never doubles up) + appendOutputTo so build
+// failures hit storage/logs/cortex-comprehension-build.log instead of dying silent.
+Schedule::command('atlas:loop:cortex:cadence --json')
+    ->dailyAt('03:00')
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/cortex-comprehension-build.log'))
+    ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled());

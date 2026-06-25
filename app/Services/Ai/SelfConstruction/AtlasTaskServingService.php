@@ -287,6 +287,18 @@ final class AtlasTaskServingService
         $result = $this->orchestrator->reportGiveBack($taskPacketId, $leaseId, $clientId, 'client_reported_'.$outcome);
         $event = (string) ($result['event'] ?? '');
 
+        // govA-cortex-cadence — outcome-triggered invalidation: a give_back/failure means the
+        // worker's mental model of the scope diverged from reality. Drop the comprehension
+        // snapshot so the next authoring round rebuilds against fresh inventory. Fail-open.
+        try {
+            $cadence = app()->bound(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopComprehensionCadenceService::class)
+                ? app(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopComprehensionCadenceService::class)
+                : new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopComprehensionCadenceService();
+            $cadence->invalidate('task_outcome_'.$outcome.':'.$taskPacketId);
+        } catch (\Throwable) {
+            // never let a comprehension hiccup wedge a give_back report
+        }
+
         return $this->reportEnvelope('reported', $clientId, [
             'outcome' => $outcome,
             'lease_released' => in_array($event, ['given_back', 'give_back_quarantined'], true),
