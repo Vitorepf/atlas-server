@@ -382,6 +382,60 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistry
                     'scope_expansion_governor',
                 ],
             ],
+            [
+                'id' => 'multi_project_runtime_instances',
+                'label' => 'Multi-Project Runtime Instance Registry + Scheduler + Cross-Project Soak',
+                'group' => self::GROUP_NATIVE_RUNTIME,
+                'blocking' => true,
+                'refreshable' => true,
+                'evidence_kinds' => [
+                    'project_lane_runtime_instance_registry_receipt',
+                    'project_lane_runtime_instance_scheduler_plan',
+                    'project_lane_runtime_instance_cycle_runner_receipt',
+                    'project_lane_runtime_instance_soak_report',
+                ],
+                'schema_versions' => [
+                    'atlas.project_lane.runtime_instance_registry.v1',
+                    'atlas.project_lane.runtime_instance_scheduler.v1',
+                    'atlas.project_lane.runtime_instance_cycle_runner.v1',
+                    'atlas.project_lane.runtime_instance_soak.v1',
+                ],
+                'required_runtime_proof' => [
+                    'lane_runtime_instance_registry_built',
+                    'lane_scheduler_plan_emitted',
+                    'lane_cycle_runner_dry_run_and_apply',
+                    'cross_project_soak_isolation_proven',
+                ],
+                'required_fields' => [
+                    'instances',
+                    'scheduler_hash',
+                    'runner_hash',
+                    'multi_project_soak_hash',
+                    'leak_attempts',
+                    'isolated_failures',
+                    'dependency_violations',
+                ],
+                'rejects_when' => [
+                    'multi_project_runtime_proof_missing',
+                    'namespace_isolation_violated',
+                    'cross_lane_leakage_detected',
+                    'ordinary_progress_requires_non_atlas_actor',
+                ],
+                'requires_no_dependency_on' => [
+                    'operator',
+                    'human',
+                    'external_provider',
+                    'claude_code',
+                    'codex',
+                    'cursor',
+                    'git',
+                    'network',
+                    'unrestricted_shell',
+                ],
+                'serialized_after' => [
+                    'runtime_soak',
+                ],
+            ],
         ];
     }
 }

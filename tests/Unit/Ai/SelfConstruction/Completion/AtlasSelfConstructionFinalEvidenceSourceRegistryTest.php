@@ -32,6 +32,7 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistryTest extends TestCas
             'native_worker_runtime',
             'runtime_daemon',
             'runtime_soak',
+            'multi_project_runtime_instances',
         ];
         foreach ($expected as $id) {
             $this->assertContains($id, $ids, "missing required source: {$id}");
@@ -237,6 +238,8 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistryTest extends TestCas
                 'scope_expansion_governor' => ['status' => 'pass'],
                 'native_worker_runtime' => ['status' => 'pass'],
                 'runtime_daemon' => ['status' => 'pass'],
+                'runtime_soak' => ['status' => 'pass'],
+                'multi_project_runtime_instances' => ['status' => 'pass'],
             ],
             'final_runtime_owner' => 'atlas_native',
             'steady_state_runtime_owner' => 'atlas_server',
@@ -250,6 +253,69 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistryTest extends TestCas
 
         $this->assertTrue($verifierVerdict['passed']);
         $this->assertSame([], $verifierVerdict['blockers']);
+    }
+
+    public function test_multi_project_runtime_instances_source_present_with_correct_schemas(): void
+    {
+        $verdict = (new AtlasSelfConstructionFinalEvidenceSourceRegistry)->describe();
+        $row = null;
+        foreach ($verdict['required_sources'] as $s) {
+            if ($s['id'] === 'multi_project_runtime_instances') {
+                $row = $s;
+                break;
+            }
+        }
+        $this->assertNotNull($row);
+        $this->assertTrue($row['blocking']);
+        foreach (['atlas.project_lane.runtime_instance_registry.v1', 'atlas.project_lane.runtime_instance_scheduler.v1', 'atlas.project_lane.runtime_instance_cycle_runner.v1', 'atlas.project_lane.runtime_instance_soak.v1'] as $schema) {
+            $this->assertContains($schema, $row['schema_versions']);
+        }
+        foreach (['lane_runtime_instance_registry_built', 'lane_scheduler_plan_emitted', 'lane_cycle_runner_dry_run_and_apply', 'cross_project_soak_isolation_proven'] as $p) {
+            $this->assertContains($p, $row['required_runtime_proof']);
+        }
+        foreach (['operator', 'human', 'claude_code', 'codex', 'cursor', 'external_provider', 'git', 'network', 'unrestricted_shell'] as $forbidden) {
+            $this->assertContains($forbidden, $row['requires_no_dependency_on']);
+        }
+        $this->assertContains('runtime_soak', $row['serialized_after']);
+    }
+
+    public function test_final_completion_cannot_ignore_missing_multi_project_runtime_proof(): void
+    {
+        $verifier = new \App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionAtlasNativeEvidenceVerifier();
+        $verdict = $verifier->verify([
+            'sources' => [
+                'task_serving_contract_sentinel' => ['status' => 'pass'],
+                'code_index_readiness_bridge' => ['status' => 'pass'],
+                'multi_project_governance_dossier' => ['status' => 'pass'],
+                'native_worker_readiness' => ['status' => 'pass'],
+                'verification_court' => ['status' => 'pass'],
+                'merge_governor' => ['status' => 'pass'],
+                'rollback' => ['status' => 'pass'],
+                'receipts' => ['status' => 'pass'],
+                'learning_transfer' => ['status' => 'pass'],
+                'docs_health' => ['status' => 'pass'],
+                'knowledge_sync' => ['status' => 'pass'],
+                'task_graph_coverage_dossier' => ['status' => 'pass'],
+                'task_graph_autonomous_replenisher' => ['status' => 'pass'],
+                'unattended_runtime_supervisor' => ['status' => 'pass'],
+                'scope_expansion_governor' => ['status' => 'pass'],
+                'native_worker_runtime' => ['status' => 'pass'],
+                'runtime_daemon' => ['status' => 'pass'],
+                'runtime_soak' => ['status' => 'pass'],
+                // multi_project_runtime_instances intentionally absent.
+            ],
+            'final_runtime_owner' => 'atlas_native',
+            'steady_state_runtime_owner' => 'atlas_server',
+            'autonomy_dependencies' => [
+                'depends_on_operator' => false,
+                'depends_on_claude_code' => false,
+                'depends_on_codex' => false,
+                'depends_on_external_provider_network' => false,
+            ],
+        ]);
+
+        $this->assertFalse($verdict['passed']);
+        $this->assertContains('source_missing:multi_project_runtime_instances', $verdict['blockers']);
     }
 
     public function test_runtime_daemon_source_present_with_schemas_and_runtime_proof(): void
