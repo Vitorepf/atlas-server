@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\SelfConstruction\ControlPlane\AtlasSelfConstructionAutonomyModePolicy;
 use App\Services\Ai\SelfConstruction\ControlPlane\AtlasSelfConstructionNextActionSelector;
 use App\Services\Ai\SelfConstruction\ControlPlane\AtlasSelfConstructionOrganReadinessComposer;
 use Illuminate\Console\Command;
@@ -26,13 +27,14 @@ final class AtlasSelfConstructionControlPlaneCommand extends Command
 
     public const EXIT_USAGE = 2;
 
-    protected $signature = 'atlas:self-construction:control-plane {action : inspect|mode|scope|next} {--facts= : path to a JSON facts payload} {--json}';
+    protected $signature = 'atlas:self-construction:control-plane {action : inspect|mode|scope|next|policy} {--facts= : path to a JSON facts payload} {--json}';
 
     protected $description = 'Read-only Control-Plane CLI: inspect | mode | scope | next.';
 
     public function handle(
         AtlasSelfConstructionOrganReadinessComposer $organReadiness,
         AtlasSelfConstructionNextActionSelector $selector,
+        AtlasSelfConstructionAutonomyModePolicy $autonomyPolicy,
     ): int {
         $action = (string) $this->argument('action');
 
@@ -41,8 +43,25 @@ final class AtlasSelfConstructionControlPlaneCommand extends Command
             'mode' => $this->modeAction(),
             'scope' => $this->scopeAction(),
             'next' => $this->nextAction($organReadiness, $selector),
+            'policy' => $this->policyAction($autonomyPolicy),
             default => $this->usage('unknown action: '.$action),
         };
+    }
+
+    /**
+     * `policy` consults the AtlasSelfConstructionAutonomyModePolicy on the supplied facts payload
+     * and emits its FACT-only verdict envelope (schema/mode/blockers/reasons/readiness_summary).
+     * Wires the policy into the operator-visible CLI so it is no longer an orphan.
+     */
+    private function policyAction(AtlasSelfConstructionAutonomyModePolicy $policy): int
+    {
+        $facts = $this->loadFacts();
+        if ($facts === null) {
+            return self::EXIT_USAGE;
+        }
+        $this->emit($policy->decide($facts));
+
+        return self::EXIT_OK;
     }
 
     private function inspectAction(): int
