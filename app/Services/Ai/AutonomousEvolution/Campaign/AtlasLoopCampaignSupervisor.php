@@ -1833,26 +1833,7 @@ final class AtlasLoopCampaignSupervisor
      */
     private function changedPipelineFiles(string $bootHead, string $currentHead, string $workspace): array
     {
-        if ($workspace === '' || ! is_dir($workspace)) {
-            return [];
-        }
-        if ($this->changedFilesResolver !== null) {
-            $changed = ($this->changedFilesResolver)($bootHead, $currentHead, $workspace);
-        } else {
-            $lines = [];
-            $exitCode = 1;
-            @exec(
-                'git -C '.escapeshellarg($workspace).' diff --name-only '
-                .escapeshellarg($bootHead).' '.escapeshellarg($currentHead).' 2>/dev/null',
-                $lines,
-                $exitCode,
-            );
-            $changed = $exitCode === 0 ? $lines : [];
-        }
-
-        // Single source of truth (shared with the out-of-process keepalive backstop) so the
-        // in-process and watchdog drift definitions can never diverge.
-        return AtlasLoopPipelineDrift::pipelineFiles($changed);
+        return AtlasLoopGitHeadInspector::changedPipelineFiles($this->changedFilesResolver, $bootHead, $currentHead, $workspace);
     }
 
     /**
@@ -1868,29 +1849,12 @@ final class AtlasLoopCampaignSupervisor
 
     private function currentGitHead(string $workspace): ?string
     {
-        if ($this->gitHeadResolver !== null) {
-            return $this->normalizeGitHead((string) ($this->gitHeadResolver)($workspace));
-        }
-
-        if ($workspace === '' || ! is_dir($workspace)) {
-            return null;
-        }
-
-        $lines = [];
-        $exitCode = 1;
-        @exec('git -C '.escapeshellarg($workspace).' rev-parse HEAD 2>/dev/null', $lines, $exitCode);
-        if ($exitCode !== 0) {
-            return null;
-        }
-
-        return $this->normalizeGitHead(implode("\n", $lines));
+        return AtlasLoopGitHeadInspector::currentGitHead($this->gitHeadResolver, $workspace);
     }
 
     private function normalizeGitHead(string $head): ?string
     {
-        $head = trim($head);
-
-        return preg_match('/\A[0-9a-f]{40}\z/i', $head) === 1 ? strtolower($head) : null;
+        return AtlasLoopGitHeadInspector::normalizeGitHead($head);
     }
 
     private function responsiveSleep(string $campaignId, int $seconds): void
