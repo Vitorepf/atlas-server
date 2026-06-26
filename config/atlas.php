@@ -24,6 +24,39 @@ return [
         'brain_default' => env('ATLAS_BRAIN_PROVIDER', 'codex_cli'),
     ],
 
+    // EXTERNAL BRAIN — the 3 thin commands that seed evolution work into the serving queue. The master switch
+    // is INDEPENDENT of the loop/serving switches (author≠judge: the brain writes only to docs/ + the serving
+    // queue, never app/, never commit/merge). Default OFF / fail-closed; flip via the operator-only switch.
+    'brain' => [
+        'master_enabled' => env('ATLAS_BRAIN_MASTER_ENABLED', false),
+        'journal_root' => 'docs/loop-evolution-journal',
+        'done_set_root' => storage_path('app/atlas/brain/done-set'),
+
+        // The scope the brain evolves when none is named. The brain has ONE defined scope today: the whole
+        // autonomous block (brain + loop engine + muscle). Add cortex/maestro/… here as DATA — no code change.
+        'default_scope' => env('ATLAS_BRAIN_DEFAULT_SCOPE', 'autonomous'),
+        'scopes' => [
+            'autonomous' => [
+                'label' => 'The Atlas autonomous block — brain + loop engine + muscle.',
+                // Both halves of the autonomous block. AutonomousEvolution is harness-gated (the engine the
+                // brain runs on); SelfConstruction is the muscle. meta_harness ON lets the brain evolve the
+                // engine half too — the pétreo FORBIDDEN_SELF_TARGETS floor still protects judge/gates/switch.
+                'roots' => [
+                    'app/Services/Ai/AutonomousEvolution',
+                    'app/Services/Ai/SelfConstruction',
+                ],
+                'docs_roots' => [
+                    'docs/loop-canonical-definition.md',
+                    'docs/atlas-brain-harness-build-spec.md',
+                ],
+                // RECURSIVE-TOTAL (operator decision): the brain MAY evolve its own engine. Honesty is held by
+                // the pétreo floor — the brain can never touch the judge, the gates, the switches, its own
+                // stop-probe/classifier/dedup/perception, nor config/atlas.php (all in FORBIDDEN_SELF_TARGETS).
+                'meta_harness' => (bool) env('ATLAS_BRAIN_AUTONOMOUS_META_HARNESS', true),
+            ],
+        ],
+    ],
+
     'storage_path' => env('ATLAS_STORAGE_PATH', '/var/atlas/storage'),
     'max_upload_bytes' => (int) env('ATLAS_MAX_UPLOAD_BYTES', 100 * 1024 * 1024),
 

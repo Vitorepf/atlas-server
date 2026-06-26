@@ -156,6 +156,32 @@ final class AtlasTaskServingContractTest extends TestCase
         $this->assertStringContainsString('"client_id": "cli-client"', $out);
     }
 
+    public function test_next_self_heals_a_collapsed_index_when_claimable_files_exist_on_disk(): void
+    {
+        // REGRESSION (2026-06-26): a god-class split (split-acp-queue-repo-3) moved the registry-index path, so
+        // the index was born EMPTY while 1000+ task files sat claimable on disk — `next` falsely reported an
+        // empty queue and the operator paused the workers thinking the work was done. The DISK is the source of
+        // truth: `next` must rebuild-from-disk and serve, never falsely report empty while claimable files exist.
+        $this->orchestrator()->prepareAndEnqueue(['task_packet' => $this->input('heal-1')]);
+
+        // Simulate the collapse: overwrite the registry index with an EMPTY entries set while the task FILE on
+        // disk stays claimable (exactly the bug's end-state).
+        $registryPath = \App\Services\Ai\SelfConstruction\TaskQueue\TaskQueueRegistryIndexStore::REGISTRY_PATH;
+        Storage::disk('local')->put($registryPath, (string) json_encode(['entries' => []]));
+
+        // With the collapsed index, a raw service `next` is blind — this proves the failure mode is real.
+        $blind = (new AtlasTaskServingService($this->orchestrator()))->next('pre-heal');
+        $this->assertSame('no_claimable_task', $blind['status'], 'a collapsed index hides the real claimable task');
+
+        // The command front-door SELF-HEALS: rebuild from disk, then serve the real task.
+        $exit = Artisan::call('atlas:task', ['action' => 'next', '--client' => 'heal-client', '--json' => true]);
+        $out = Artisan::output();
+        $this->assertSame(0, $exit, 'next exits cleanly after self-heal');
+        $this->assertStringContainsString('"status": "served"', $out, 'next rebuilds the index from disk and serves');
+        $this->assertStringContainsString('heal-1', $out, 'the real claimable task is served, not a false empty');
+        $this->assertStringContainsString('"reindexed_from_disk": true', $out, 'the disk self-heal fired');
+    }
+
     // --- helpers ---------------------------------------------------------------------------------------------
 
     private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator

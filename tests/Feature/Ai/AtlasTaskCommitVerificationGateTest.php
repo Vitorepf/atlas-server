@@ -25,6 +25,20 @@ final class AtlasTaskCommitVerificationGateTest extends TestCase
         parent::tearDown();
     }
 
+    /** A temp repo with the given relative files materialised (so file-existence checks have real files). */
+    private function repoWith(array $relFiles): string
+    {
+        $repo = rtrim(sys_get_temp_dir(), '/').'/atlas-verify-r-'.bin2hex(random_bytes(5));
+        $this->dirs[] = $repo;
+        foreach ($relFiles as $rel) {
+            $abs = $repo.'/'.ltrim($rel, '/');
+            File::ensureDirectoryExists(dirname($abs));
+            File::put($abs, "<?php\n// fixture\n");
+        }
+
+        return $repo;
+    }
+
     /** A fake runner classifying by command verb, returning canned {ran,ok,out}. */
     private function runner(array $map): callable
     {
@@ -98,16 +112,14 @@ final class AtlasTaskCommitVerificationGateTest extends TestCase
 
     public function test_red_task_test_blocks(): void
     {
-        $gate = new AtlasTaskCommitVerificationGate('/repo', $this->runner([
+        $files = ['app/Services/Ai/SelfConstruction/Foo.php', 'tests/Unit/Ai/SelfConstruction/FooTest.php'];
+        $gate = new AtlasTaskCommitVerificationGate($this->repoWith($files), $this->runner([
             'lint' => ['ran' => true, 'ok' => true, 'out' => ''],
             'boot' => ['ran' => true, 'ok' => true, 'out' => ''],
             'test' => ['ran' => true, 'ok' => false, 'out' => "FAILURES!\nTests: 3, Assertions: 5, Failures: 1."],
         ]));
 
-        $out = $gate->verify([
-            'app/Services/Ai/SelfConstruction/Foo.php',
-            'tests/Unit/Ai/SelfConstruction/FooTest.php',
-        ], 't5');
+        $out = $gate->verify($files, 't5');
 
         $this->assertTrue($out['blocked']);
         $this->assertSame('task_tests_failed', $out['reason']);
@@ -120,16 +132,14 @@ final class AtlasTaskCommitVerificationGateTest extends TestCase
      */
     public function test_runner_error_without_real_failure_marker_fails_open(): void
     {
-        $gate = new AtlasTaskCommitVerificationGate('/repo', $this->runner([
+        $files = ['app/Services/Ai/SelfConstruction/Foo.php', 'tests/Unit/Ai/SelfConstruction/FooTest.php'];
+        $gate = new AtlasTaskCommitVerificationGate($this->repoWith($files), $this->runner([
             'lint' => ['ran' => true, 'ok' => true, 'out' => ''],
             'boot' => ['ran' => true, 'ok' => true, 'out' => ''],
             'test' => ['ran' => true, 'ok' => false, 'out' => 'Unknown option "--without-tty". Most similar options are --no-output'],
         ]));
 
-        $out = $gate->verify([
-            'app/Services/Ai/SelfConstruction/Foo.php',
-            'tests/Unit/Ai/SelfConstruction/FooTest.php',
-        ], 't5b');
+        $out = $gate->verify($files, 't5b');
 
         $this->assertTrue($out['passed'], 'a runner/option error must NEVER block a worker — fail open');
         $this->assertFalse($out['blocked']);
@@ -165,6 +175,44 @@ final class AtlasTaskCommitVerificationGateTest extends TestCase
     public function test_enabled_by_default(): void
     {
         $this->assertTrue((new AtlasTaskCommitVerificationGate)->enabled());
+    }
+
+    /**
+     * THE CORNER-CUT this closes: a task whose scope declares a test, but the worker committed only the class
+     * and never authored the test. The class is present, the declared test is NOT on disk ⇒ block. (Without
+     * this, the test-run step finds nothing to run and the delivery passes untested.)
+     */
+    public function test_declared_test_not_authored_blocks(): void
+    {
+        // Only the class exists; the declared test file was never created.
+        $repo = $this->repoWith(['app/Services/Ai/SelfConstruction/Foo.php']);
+        $gate = new AtlasTaskCommitVerificationGate($repo, $this->runner([
+            'lint' => ['ran' => true, 'ok' => true, 'out' => ''],
+            'boot' => ['ran' => true, 'ok' => true, 'out' => ''],
+        ]));
+
+        $out = $gate->verify([
+            'app/Services/Ai/SelfConstruction/Foo.php',
+            'tests/Unit/Ai/SelfConstruction/FooTest.php', // declared in scope, but not on disk
+        ], 'cut');
+
+        $this->assertTrue($out['blocked'], 'a class delivered without its declared test is refused');
+        $this->assertSame('required_test_missing', $out['reason']);
+    }
+
+    public function test_declared_test_present_passes(): void
+    {
+        $files = ['app/Services/Ai/SelfConstruction/Foo.php', 'tests/Unit/Ai/SelfConstruction/FooTest.php'];
+        $gate = new AtlasTaskCommitVerificationGate($this->repoWith($files), $this->runner([
+            'lint' => ['ran' => true, 'ok' => true, 'out' => ''],
+            'boot' => ['ran' => true, 'ok' => true, 'out' => ''],
+            'test' => ['ran' => true, 'ok' => true, 'out' => 'OK (3 tests)'],
+        ]));
+
+        $out = $gate->verify($files, 'ok');
+
+        $this->assertTrue($out['passed']);
+        $this->assertSame('present', $out['checks']['required_test']);
     }
 
     /**

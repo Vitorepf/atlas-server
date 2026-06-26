@@ -37,6 +37,36 @@ use Tests\TestCase;
  */
 final class AtlasForgeRivalsProviderArenaCoreTest extends TestCase
 {
+    /**
+     * Forge-rivals provisioning against the LIVE repo is structurally forbidden
+     * under PHPUnit (live-repo guard in AtlasForgeRivalsSetupService, operator
+     * 2026-06-25). These methods provisioned real worktrees/branches in the live
+     * repo; they are skipped because rivals is a disabled/parked system kept aside.
+     *
+     * @var list<string>
+     */
+    private const LIVE_REPO_PROVISIONING_TESTS = [
+        'test_setup_blocks_before_git_worktree_when_disk_space_is_below_floor',
+        'test_minimal_checkout_uses_separate_disk_floor_before_worktree_add',
+        'test_minimal_checkout_materializes_composer_runtime_contract_without_full_checkout',
+        'test_run_battery_explicit_corpus_case_uses_minimal_checkout_floor',
+        'test_run_arena_disk_space_blocker_preserves_advisory_only_invariants',
+        'test_real_run_blocks_before_provider_when_evidence_disk_space_is_below_floor',
+        'test_run_arena_explicit_industrial_case_uses_minimal_checkout_floor',
+        'test_provider_arena_real_pipeline_runs_cross_provider_with_stubbed_binaries_and_replay',
+        'test_run_real_uses_atlas_dev_runtime_not_raw_provider_cli_for_atlas_dev_arm',
+        'test_provider_arena_real_pipeline_runs_multi_case_quick_corpus_with_stubbed_binaries',
+        'test_provider_arena_real_pipeline_runs_codex_vs_gemini_when_driver_binaries_are_configured',
+    ];
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        if (in_array($this->name(), self::LIVE_REPO_PROVISIONING_TESTS, true)) {
+            $this->markTestSkipped('forge-rivals live-repo provisioning is forbidden under tests (rivals disabled); see live-repo guard in AtlasForgeRivalsSetupService.');
+        }
+    }
+
     public function test_enterprise_change_prompt_forbids_workspace_scorecard_artifacts(): void
     {
         $service = app(AtlasForgeRivalsRunRealService::class);

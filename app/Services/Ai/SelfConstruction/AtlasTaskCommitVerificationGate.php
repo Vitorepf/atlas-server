@@ -71,6 +71,18 @@ final class AtlasTaskCommitVerificationGate
         }
         $checks['syntax'] = $phpFiles === [] ? 'skip' : 'pass';
 
+        // 1b) REQUIRED TEST PRESENT — when the task's own scope declares a test file, the worker MUST have
+        // authored it. This closes the corner-cut where a worker commits the class and skips the test (the
+        // test-run step below would simply find nothing to run and pass). Definitive + attributable (the path
+        // is in THIS task's allowed_files) + zero false-block risk (the file exists or it does not). A test that
+        // already existed from a prior commit still satisfies this — it is on disk.
+        foreach ($testFiles as $rel) {
+            if (! is_file($repo.'/'.ltrim($rel, '/'))) {
+                return $this->blocked('required_test_missing', 'test_present', $rel.': declared in allowed_files but was not created', $checks + ['required_test' => 'missing']);
+            }
+        }
+        $checks['required_test'] = $testFiles === [] ? 'skip' : 'present';
+
         // 2) BOOT SMOKE — catches a fatal that breaks the framework boot (eager class-not-found, etc.).
         $boot = ($this->runner)([PHP_BINARY, 'artisan', 'about', '--only=environment'], $repo, 120.0);
         if ($boot['ran'] && ! $boot['ok']) {

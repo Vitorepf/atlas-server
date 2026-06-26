@@ -44,6 +44,33 @@ class BridgePagePolicyGuard
     ];
 
     /**
+     * Offer/close-stage COPY that must NEVER appear on the bridge (the funnel-handoff law). The bridge
+     * sells the VSL WATCH; the product is closed ONLY at the end of the VSL, after belief+mechanism+proof.
+     * Price, money-back guarantee, bonus stacking, free shipping, discount, buy/checkout CTA and
+     * buy-scarcity are CLOSE-stage elements — surfaced here they burn the lever and break the funnel.
+     * (Distinct from AFFILIATE_LINK_MARKERS, which only catch the LINK; these catch the offer being SOLD.)
+     * Kept to specific multi-word/price phrases so a legit watch-CTA ("assistir à apresentação gratuita")
+     * or a common-enemy mention ("a indústria de $2 bilhões") never false-positives.
+     */
+    private const OFFER_CLOSE_MARKERS = [
+        // money-back / refund guarantee (offer-stage; the health "cura garantida" is handled separately)
+        'money-back', 'money back', 'satisfação garantida', 'satisfaction guaranteed',
+        'dias de garantia', 'day money-back', 'day money back', 'risk-free', 'risk free',
+        'risco zero', 'reembolso', 'refund', 'devolução do dinheiro', 'garantia incondicional',
+        // buy / checkout CTAs (selling the PRODUCT, not the next click)
+        'order now', 'buy now', 'order today', 'comprar agora', 'compre agora', 'compre já',
+        'add to cart', 'adicionar ao carrinho', 'finalizar compra', 'finalize sua compra',
+        'place your order', 'claim your bottle', 'secure your order', 'get yours now',
+        'garanta seu frasco', 'garanta seu kit', 'garanta o seu frasco',
+        // stacked value / shipping bonus (offer-stage)
+        'free shipping', 'frete grátis', 'free bonus', 'bônus grátis', 'free bottle', 'frasco grátis',
+        'buy 3 get', 'compre 3 leve', 'leve 3 pague',
+        // price-scarcity / discount used as a BUY trigger
+        'today only $', 'lowest price', 'menor preço', '% off', '% de desconto', 'discount code',
+        'cupom de desconto', 'special price', 'only $', 'apenas r$',
+    ];
+
+    /**
      * @param  array<string,mixed>  $bridge  the structured bridge produced by BridgePageComposerService
      * @return array<string,mixed>
      */
@@ -90,6 +117,31 @@ class BridgePagePolicyGuard
                 'rule' => 'no_raw_affiliate_link',
                 'why' => 'Link de afiliado/checkout cru na bridge ('.implode(', ', $found).'). Ad → bridge → VSL; nunca ad → checkout. HopLink cru no destino = reprovação/suspensão.',
                 'uptime' => 'fatal',
+            ];
+        }
+
+        // --- HARD: the product is NEVER closed on the bridge (funnel-handoff law) -------------
+        // The bridge sells the VSL WATCH, not the product. Offer/price/guarantee/checkout copy — or a
+        // buy CTA — is a PHASE ERROR: the offer only converts AFTER the VSL builds belief+mechanism+proof.
+        // Closing here breaks the funnel and kills conversion. (no_raw_affiliate_link catches the LINK;
+        // this catches the offer being SOLD in the copy/CTA even with no link.)
+        $offerHaystack = strtolower(implode(' ', [
+            $bodyText,
+            (string) ($bridge['headline'] ?? ''),
+            (string) ($bridge['subheadline'] ?? ''),
+            (string) ($bridge['kicker'] ?? ''),
+            (string) ($bridge['ps'] ?? ''),
+            (string) (json_encode($cta['raw'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: ''),
+        ]));
+        $offerHits = array_values(array_filter(self::OFFER_CLOSE_MARKERS, static fn (string $m): bool => str_contains($offerHaystack, $m)));
+        $buyGoal = in_array('buy', $cta['goals'], true);
+        if ($offerHits !== [] || $buyGoal) {
+            $reasons = $buyGoal ? ['CTA de compra/checkout'] : [];
+            $reasons = array_merge($reasons, array_slice($offerHits, 0, 4));
+            $blocks[] = [
+                'rule' => 'no_offer_on_bridge',
+                'why' => 'Oferta/preço/garantia fechando o PRODUTO na bridge ('.implode(', ', $reasons).'). ERRO DE FASE: a bridge vende o WATCH da VSL, não o produto — preço, garantia, bônus, frete, desconto, escassez-de-compra e checkout vivem SÓ no fechamento da VSL, depois do mecanismo+prova. Fechar aqui queima a alavanca, quebra o funil e mata a conversão. Todo CTA = assistir a VSL.',
+                'uptime' => 'conversion',
             ];
         }
 
@@ -217,17 +269,23 @@ class BridgePagePolicyGuard
             'count' => count($ctas),
             'distinct_goals' => count($distinct) ?: ($ctas === [] ? 0 : 1),
             'points_to_video' => $pointsToVideo,
+            'goals' => $distinct,
             'raw' => is_array($ctas) ? $ctas : [],
         ];
     }
 
     private function normalizeGoal(string $blob): string
     {
+        // A buy/checkout CTA is a BUY even if it also says "watch" — buy wins. This closes the loophole
+        // where "Comprar agora — assista ao vídeo" was misread as a watch CTA, hiding a product close on
+        // the bridge (the funnel-handoff phase error).
+        if (str_contains($blob, 'checkout') || str_contains($blob, 'comprar') || str_contains($blob, 'compre')
+            || str_contains($blob, 'buy') || str_contains($blob, 'order') || str_contains($blob, 'cart')
+            || str_contains($blob, 'carrinho') || str_contains($blob, 'finalizar compra')) {
+            return 'buy';
+        }
         if ($this->mentionsVideo($blob)) {
             return 'watch_video';
-        }
-        if (str_contains($blob, 'checkout') || str_contains($blob, 'comprar') || str_contains($blob, 'buy') || str_contains($blob, 'order') || str_contains($blob, 'cart')) {
-            return 'buy';
         }
         if (str_contains($blob, 'quiz') || str_contains($blob, 'lead') || str_contains($blob, 'email') || str_contains($blob, 'cadastr')) {
             return 'optin';

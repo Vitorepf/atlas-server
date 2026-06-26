@@ -59,6 +59,8 @@ final class AtlasSelfConstructionMotherCommandSurface
             'atlas-self-construction-os-completion-audit-implementation-packet' => 'atlasSelfConstructionOsCompletionAuditImplementationPacket',
             'atlas-self-construction-os-completion-audit-status' => 'atlasSelfConstructionOsCompletionAuditStatus',
             'atlas-self-construction-os-completion-evidence-status' => 'atlasSelfConstructionOsCompletionEvidenceStatus',
+            'atlas-self-construction-completion-evidence-submission-preflight-status' => 'atlasSelfConstructionCompletionEvidenceSubmissionPreflightStatus',
+            'atlas-self-construction-completion-evidence-hash-composer-status' => 'atlasSelfConstructionCompletionEvidenceHashComposerStatus',
             'atlas-self-construction-os-completion-operator-action-packet-contract' => 'atlasSelfConstructionOsCompletionOperatorActionPacketContract',
             'atlas-self-construction-os-completion-operator-action-packet-preflight' => 'atlasSelfConstructionOsCompletionOperatorActionPacketPreflight',
             'atlas-self-construction-os-completion-operator-action-packet-implementation-packet' => 'atlasSelfConstructionOsCompletionOperatorActionPacketImplementationPacket',
@@ -85,6 +87,7 @@ final class AtlasSelfConstructionMotherCommandSurface
             'atlas-self-construction-real-provider-smoke-runbook-implementation-packet' => 'atlasSelfConstructionRealProviderSmokeRunbookImplementationPacket',
             'atlas-self-construction-real-provider-smoke-runbook-status' => 'atlasSelfConstructionRealProviderSmokeRunbookStatus',
             'atlas-self-construction-real-provider-smoke-endgame-status' => 'atlasSelfConstructionRealProviderSmokeEndgameStatus',
+            'atlas-self-construction-real-provider-smoke-offline-harness-status' => 'atlasSelfConstructionRealProviderSmokeOfflineHarnessStatus',
             'atlas-self-construction-completion-finalization-gate-status' => 'atlasSelfConstructionCompletionFinalizationGateStatus',
             'atlas-self-construction-os-handoff-contract' => 'atlasSelfConstructionOsHandoffContract',
             'atlas-self-construction-os-handoff-preflight' => 'atlasSelfConstructionOsHandoffPreflight',
@@ -120,6 +123,9 @@ final class AtlasSelfConstructionMotherCommandSurface
             'agent-control-plane-multi-agent-loop-certification-preflight' => 'agentControlPlaneMultiAgentLoopCertificationPreflight',
             'agent-control-plane-multi-agent-loop-certification-implementation-packet' => 'agentControlPlaneMultiAgentLoopCertificationImplementationPacket',
             'agent-control-plane-multi-agent-loop-certification-status' => 'agentControlPlaneMultiAgentLoopCertificationStatus',
+            'agent-control-plane-macro-sprint-promotion-gate-status' => 'agentControlPlaneMacroSprintPromotionGateStatus',
+            'agent-control-plane-certification-mutation-guard-status' => 'agentControlPlaneCertificationMutationGuardStatus',
+            'agent-control-plane-chain-integrity-certification-status' => 'agentControlPlaneChainIntegrityCertificationStatus',
             'agent-control-plane-terminal-loop-operational-proof-status' => 'agentControlPlaneTerminalLoopOperationalProofStatus',
         ];
     }

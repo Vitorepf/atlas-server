@@ -23,6 +23,18 @@ use Tests\TestCase;
  */
 final class AtlasForgeRivalsRunBatteryLocalFakeReleaseIntegrationTest extends TestCase
 {
+    /**
+     * Every method here provisions a full rivals battery against the LIVE repo,
+     * which is structurally forbidden under PHPUnit by the live-repo guard in
+     * AtlasForgeRivalsSetupService (operator 2026-06-25). The whole class is
+     * skipped: rivals is a disabled/parked system kept aside.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->markTestSkipped('forge-rivals live-repo provisioning is forbidden under tests (rivals disabled); see live-repo guard in AtlasForgeRivalsSetupService.');
+    }
+
     public function test_local_fake_release_40_cases_finishes_comparable_with_clean_workspace(): void
     {
         $dispatcher = app(AtlasForgeRivalsActionDispatcher::class);

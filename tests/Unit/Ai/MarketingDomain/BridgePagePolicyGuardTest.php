@@ -88,6 +88,37 @@ class BridgePagePolicyGuardTest extends TestCase
         $this->assertContains('single_goal', array_column($verdict['blocks'], 'rule'));
     }
 
+    public function test_offer_close_copy_on_bridge_is_blocked(): void
+    {
+        // Funnel-handoff law: the product is closed ONLY at the end of the VSL. Offer/price/guarantee
+        // copy on the bridge is a phase error — even when every CTA correctly routes to the video.
+        $bridge = $this->goodBridge();
+        $bridge['ps'] = 'Garanta seu frasco com frete grátis hoje — money-back guarantee de 60 dias.';
+
+        $verdict = (new BridgePagePolicyGuard)->evaluate($bridge);
+
+        $this->assertSame('block', $verdict['verdict']);
+        $this->assertFalse($verdict['safe_to_publish']);
+        $this->assertContains('no_offer_on_bridge', array_column($verdict['blocks'], 'rule'));
+        // the CTAs still point to the video — this block is about the offer being SOLD, not the link.
+        $this->assertTrue($verdict['metrics']['cta_points_to_video']);
+    }
+
+    public function test_disguised_buy_cta_is_caught_as_a_buy_goal(): void
+    {
+        // The loophole: a CTA that says both "comprar" and "assista ao vídeo" used to normalize to a
+        // watch goal, hiding a product close. Now buy wins → the offer-on-bridge block fires.
+        $bridge = $this->goodBridge();
+        $bridge['cta_blocks'] = [
+            ['label' => 'Comprar agora — assista ao vídeo', 'target' => '#vsl'],
+        ];
+
+        $verdict = (new BridgePagePolicyGuard)->evaluate($bridge);
+
+        $this->assertFalse($verdict['safe_to_publish']);
+        $this->assertContains('no_offer_on_bridge', array_column($verdict['blocks'], 'rule'));
+    }
+
     public function test_absolute_claim_without_hedge_only_warns(): void
     {
         $bridge = $this->goodBridge();

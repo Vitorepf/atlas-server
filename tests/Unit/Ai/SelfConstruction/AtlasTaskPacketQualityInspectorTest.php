@@ -361,8 +361,9 @@ final class AtlasTaskPacketQualityInspectorTest extends TestCase
             'objective' => 'improve the code',
         ]));
 
-        $this->assertFalse($r['self_sufficient']);
-        $this->assertContains('vague_objective', $r['blocking_deficiencies']);
+        // vague_objective is ADVISORY (Option C): surfaced as a deficiency, never blocking.
+        $this->assertContains('vague_objective', $r['deficiencies']);
+        $this->assertNotContains('vague_objective', $r['blocking_deficiencies']);
     }
 
     public function test_long_objective_without_concrete_reference_is_still_flagged_vague(): void
@@ -371,8 +372,9 @@ final class AtlasTaskPacketQualityInspectorTest extends TestCase
             'objective' => 'do many vague things over and over until somebody notices the change',
         ]));
 
-        $this->assertFalse($r['self_sufficient']);
-        $this->assertContains('vague_objective', $r['blocking_deficiencies']);
+        // vague_objective is ADVISORY (Option C): surfaced as a deficiency, never blocking.
+        $this->assertContains('vague_objective', $r['deficiencies']);
+        $this->assertNotContains('vague_objective', $r['blocking_deficiencies']);
     }
 
     public function test_objective_with_concrete_reference_token_is_not_flagged_vague(): void
@@ -390,8 +392,9 @@ final class AtlasTaskPacketQualityInspectorTest extends TestCase
             'acceptance_criteria' => ['the code looks good', 'an operator agrees'],
         ]));
 
-        $this->assertFalse($r['self_sufficient']);
-        $this->assertContains('acceptance_not_runnable', $r['blocking_deficiencies']);
+        // acceptance_not_runnable is ADVISORY (Option C): surfaced as a deficiency, never blocking.
+        $this->assertContains('acceptance_not_runnable', $r['deficiencies']);
+        $this->assertNotContains('acceptance_not_runnable', $r['blocking_deficiencies']);
     }
 
     public function test_at_least_one_runnable_acceptance_signal_passes_not_runnable_check(): void

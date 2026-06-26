@@ -25,6 +25,26 @@ use Tests\TestCase;
  */
 final class AtlasForgeRivalsRunBatteryTest extends TestCase
 {
+    /**
+     * Methods that provision rivals worktrees against the LIVE repo — forbidden
+     * under PHPUnit by the live-repo guard in AtlasForgeRivalsSetupService
+     * (operator 2026-06-25). Skipped: rivals is a disabled/parked system.
+     *
+     * @var list<string>
+     */
+    private const LIVE_REPO_PROVISIONING_TESTS = [
+        'test_run_battery_local_fake_reaches_comparable_tie_with_real_evidence',
+        'test_run_real_enforces_provider_idle_timeout_without_masking_it_as_heartbeat',
+    ];
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        if (in_array($this->name(), self::LIVE_REPO_PROVISIONING_TESTS, true)) {
+            $this->markTestSkipped('forge-rivals live-repo provisioning is forbidden under tests (rivals disabled); see live-repo guard in AtlasForgeRivalsSetupService.');
+        }
+    }
+
     public function test_run_battery_requires_all_three_confirmations_in_fair_mode(): void
     {
         $dispatcher = app(AtlasForgeRivalsActionDispatcher::class);

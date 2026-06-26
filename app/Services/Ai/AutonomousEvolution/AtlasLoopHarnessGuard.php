@@ -45,6 +45,25 @@ final class AtlasLoopHarnessGuard
         // back on, nor weaken the fail-closed gate). The flag is operator-only. Same principle as the judge:
         // the réu never edits the gate that decides whether it is allowed to run at all. Aperto só-adiciona.
         'app/Services/Ai/AutonomousEvolution/AtlasLoopMasterSwitch.php',
+        // EXTERNAL BRAIN core — the brain seeds work into the serving queue but can NEVER edit its OWN gate:
+        // its master switch, the 3 thin commands, the seed quality gate, and the cycle-progress verdict. Same
+        // principle as the loop master switch: the réu never edits the lock that decides whether/what it runs.
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainMasterSwitch.php',
+        'app/Console/Commands/AtlasBrainNextCommand.php',
+        'app/Console/Commands/AtlasBrainSeedCommand.php',
+        'app/Console/Commands/AtlasBrainWorkerPromptCommand.php',
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainSeedQualityGate.php',
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainCycleProgressVerdict.php',
+        // RECURSIVE-TOTAL FLOOR — meta_harness is ON for the autonomous scope, so the brain CAN target its own
+        // engine. These organs decide whether/what/how-long the brain runs and what it SEES; the réu can never
+        // weaken its own STOP (dry-probe), anti-proxy (classifier), dedup memory (done-set), scope reach
+        // (scope-registry) nor its perception (comprehension builder/model). Pétreo, ignores every flag.
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainScopeDryProbe.php',
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainEvolutionLevelClassifier.php',
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainDoneSetLedger.php',
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainScopeRegistry.php',
+        'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
+        'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',
         // A cadeia de CERTIFICAÇÃO fora de AutonomousEvolution/ (achado 12/06: o soak
         // certificou proposta editando o PRÓPRIO painel-juiz — réu editando o juiz).

@@ -254,11 +254,11 @@ final class AtlasTaskCoordinationHealthTest extends TestCase
     {
         return [
             'task_packet_id' => $id,
-            'objective' => 'health test '.$id,
+            'objective' => 'Coordination-health fixture '.$id.': implement app/Services/Ai/SelfConstruction/'.$id.'.php deterministically and prove it.',
             'operator_id' => 'tester',
             'allowed_files' => ['app/Services/Ai/SelfConstruction/'.$id.'.php'],
             'scope_in' => ['app/Services/Ai/SelfConstruction/'.$id.'.php'],
-            'acceptance_criteria' => $acceptance ?? ['ok'],
+            'acceptance_criteria' => $acceptance ?? ['php artisan test asserts '.$id.' behaves correctly'],
             'required_evidence' => $evidence ?? ['task_packet_created'],
         ];
     }
@@ -268,11 +268,11 @@ final class AtlasTaskCoordinationHealthTest extends TestCase
     {
         return [
             'task_packet_id' => $id,
-            'objective' => 'repair forbidden scope '.$id,
+            'objective' => 'Forbidden-scope repair fixture '.$id.': implement app/Services/Ai/SelfConstruction/'.$id.'.php deterministically and prove it.',
             'operator_id' => 'tester',
             'allowed_files' => ['app/Services/Ai/SelfConstruction/'.$id.'.php', 'config/atlas.php'],
             'scope_in' => ['app/Services/Ai/SelfConstruction/'.$id.'.php', 'config/atlas.php'],
-            'acceptance_criteria' => ['ok'],
+            'acceptance_criteria' => ['php artisan test asserts '.$id.' behaves correctly'],
             'required_evidence' => ['task_packet_created'],
         ];
     }

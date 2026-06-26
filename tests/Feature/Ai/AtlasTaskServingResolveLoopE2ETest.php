@@ -14,6 +14,7 @@ use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketBuilder;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
 use App\Services\Ai\SelfConstruction\AtlasTaskBrainReplenisher;
+use App\Services\Ai\SelfConstruction\AtlasTaskCommitVerificationGate;
 use App\Services\Ai\SelfConstruction\AtlasTaskScopedCommitter;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
 use Illuminate\Support\Facades\Storage;
@@ -64,7 +65,16 @@ final class AtlasTaskServingResolveLoopE2ETest extends TestCase
         $enqueued = (new AtlasTaskBrainReplenisher($orch))->replenishFromModel($this->model(), 'app/Demo', targetMin: 50, maxPerRun: 50);
         $this->assertSame(3, $enqueued['enqueued_count'], 'the brain filled the queue with 3 resolvable doc-gap tasks');
 
-        $serving = new AtlasTaskServingService($orch, null, null, new AtlasTaskScopedCommitter(null, $this->repo));
+        // Verifier + committer MUST share the same repo (the throwaway one), or the server-side verification
+        // checks the wrong tree. The full chain — Fase-2 verify → governance (observe) → scoped commit — is
+        // proven here against ONE repo.
+        $serving = new AtlasTaskServingService(
+            $orch,
+            null,
+            null,
+            new AtlasTaskScopedCommitter(null, $this->repo),
+            new AtlasTaskCommitVerificationGate($this->repo),
+        );
 
         $resolved = [];
         $iterations = 0;

@@ -58,10 +58,11 @@ final class AtlasTaskPacketQualityInspector
         // Worktree/sandbox isolation can exist only as an explicit exceptional-risk tool, never as the default
         // serving contract for ordinary packets.
         'default_worktree_or_sandbox_policy',
-        // Excellence gate (govA): an autonomously-authored packet must be COMPLETE + UNAMBIGUOUS
-        // before any worker can pull it.
-        'vague_objective',
-        'acceptance_not_runnable',
+        // Excellence gate: a TRUNCATED objective is a definitive structural defect (blocks). vague_objective and
+        // acceptance_not_runnable are QUALITY signals — surfaced in deficiencies but ADVISORY (not blocking) here,
+        // because inspect() is UNIVERSAL (runs on internal/minimal/test packets too) and must not starve the
+        // auto-replenisher or false-block valid minimal packets. Excellence is enforced at the AUTHORING/serve
+        // boundary (where a cold worker actually receives a packet), not by hard-blocking every internal packet.
         'content_truncated',
     ];
 
@@ -123,6 +124,7 @@ final class AtlasTaskPacketQualityInspector
         $permanentExternalDependencies = $this->permanentHumanOrExternalProviderDependencies($policyText);
         $contractAutonomyViolations = $this->simplicityContractAutonomyViolations($packet);
         $defaultIsolationViolations = $this->defaultWorktreeOrSandboxViolations($packet, $policyText);
+        $blindOrphanWiringProxy = $objective !== '' && $this->objectiveIsBlindOrphanWiringProxy($objective);
 
         $deficiencies = [];
         if ($objective === '') {
@@ -176,6 +178,12 @@ final class AtlasTaskPacketQualityInspector
         if ($objective !== '' && $this->objectiveEndsWithTruncationMarker($objective)) {
             $deficiencies[] = 'content_truncated';
         }
+        // ANTI-PROXY (Checkpoint A author≠judge milestone): the alignment dimension the structural judge
+        // lacked. ADVISORY for now (surfaces the signal without changing admission), so the judge can SEE a
+        // proxy packet it previously waved through. Promotion to BLOCKING is a measured follow-up.
+        if ($blindOrphanWiringProxy) {
+            $deficiencies[] = 'blind_orphan_wiring_proxy';
+        }
 
         $blocking = array_values(array_intersect($deficiencies, self::BLOCKING_DEFICIENCIES));
 
@@ -198,8 +206,50 @@ final class AtlasTaskPacketQualityInspector
                 'permanent_human_or_external_provider_dependencies' => $permanentExternalDependencies,
                 'simplicity_contract_autonomy_violations' => $contractAutonomyViolations,
                 'default_worktree_or_sandbox_violations' => $defaultIsolationViolations,
+                'blind_orphan_wiring_proxy' => $blindOrphanWiringProxy,
             ],
         ];
+    }
+
+    /**
+     * ANTI-PROXY detector (Checkpoint A author≠judge milestone). Flags a packet whose ONLY justification
+     * for wiring a capability is that the capability is itself unused/orphaned — "built-but-unused" +
+     * "zero production callers" / "confirmed orphan" + a wire action — WITHOUT offering the disposition
+     * alternative (delete / decide). Wiring dead code into the live flow purely because it is unused is the
+     * canonical proxy pattern that flooded the queue on 2026-06-25: it ADDS legacy complexity instead of
+     * serving a real need. A genuine wiring task justifies itself by a NEED; a genuine cleanup task offers
+     * DELETE; a wire-or-delete decision task offers DECIDE. Any disposition token spares the packet.
+     * Deterministic + conservative (precise conjunction → near-zero false positives).
+     */
+    private function objectiveIsBlindOrphanWiringProxy(string $objective): bool
+    {
+        $o = mb_strtolower($objective);
+
+        $orphanJustification = str_contains($o, 'built-but-unused')
+            || str_contains($o, 'built but unused')
+            || str_contains($o, 'zero production callers')
+            || str_contains($o, 'confirmed orphan');
+        if (! $orphanJustification) {
+            return false;
+        }
+
+        $wireAction = str_contains($o, 'into the live flow')
+            || str_contains($o, 'wire ')
+            || str_contains($o, 'integrate ');
+        if (! $wireAction) {
+            return false;
+        }
+
+        // A disposition-choice escape — the packet asks to DELETE or DECIDE rather than blindly wire, so it
+        // is aligned (eliminate legacy / judge), not proxy.
+        $offersDisposition = str_contains($o, 'delete')
+            || str_contains($o, 'remove the')
+            || str_contains($o, 'wire-or-delete')
+            || str_contains($o, 'wire or delete')
+            || str_contains($o, 'decide whether')
+            || str_contains($o, 'disposition');
+
+        return ! $offersDisposition;
     }
 
     /**

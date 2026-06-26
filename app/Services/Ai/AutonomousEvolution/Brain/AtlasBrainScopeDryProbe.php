@@ -22,7 +22,8 @@ final class AtlasBrainScopeDryProbe
 
     /**
      * @param  list<array<string,mixed>>  $recentCycles  each cycle from {@see AtlasLoopOriginationPipeline::produce()}
-     *         or equivalent — a cycle is a "refusal" when produced=false or action='abstain'.
+     *                                                   or equivalent — a cycle is a "refusal" when produced=false OR action='abstain' (a produced=true
+     *                                                   abstain — park-and-ask — is still a non-origination, so it counts).
      * @param  AtlasLoopScopeComprehensionModel  $model  the current scope comprehension model.
      * @param  int  $m  minimum consecutive refusals required (default 3).
      * @return array{state:string, consecutive_refusals:int, new_grounded_gaps:list<string>}
@@ -60,7 +61,11 @@ final class AtlasBrainScopeDryProbe
             }
             $produced = ($cycle['produced'] ?? null);
             $action = (string) ($cycle['action'] ?? '');
-            $isRefusal = ($produced === false) || ($produced === null && $action === 'abstain');
+            // A cycle is a refusal when nothing was produced OR the action was abstain — REGARDLESS of `produced`.
+            // AtlasLoopOriginationPipeline::produce() emits park-and-ask as {produced:true, action:'abstain'}; a
+            // produced=true abstain is still a non-origination, so it MUST count toward dry. (Only a produced
+            // non-abstain cycle breaks the streak.)
+            $isRefusal = ($produced === false) || ($action === 'abstain');
             if (! $isRefusal) {
                 break;
             }

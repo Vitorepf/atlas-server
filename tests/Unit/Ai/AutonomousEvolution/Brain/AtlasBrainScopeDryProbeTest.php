@@ -30,6 +30,40 @@ final class AtlasBrainScopeDryProbeTest extends TestCase
         self::assertSame([], $result['new_grounded_gaps']);
     }
 
+    public function test_produced_true_abstain_counts_as_refusal_regression(): void
+    {
+        // REGRESSION (abstain->dry bug): AtlasLoopOriginationPipeline::produce() emits park-and-ask as
+        // {produced:true, action:'abstain'}. A produced=true abstain is still a NON-origination, so 3 of them
+        // with zero grounded gaps MUST register 'dry' — the old predicate only counted produced=false/null.
+        $probe = new AtlasBrainScopeDryProbe;
+        $model = $this->modelWith(orphans: [], docGaps: []);
+
+        $result = $probe->probe([
+            ['produced' => true, 'action' => 'abstain', 'reason' => 'design_not_converged'],
+            ['produced' => true, 'action' => 'abstain', 'reason' => 'park_and_ask'],
+            ['produced' => true, 'action' => 'abstain', 'reason' => 'no_grounded_candidate'],
+        ], $model, 3);
+
+        self::assertSame('dry', $result['state']);
+        self::assertSame(3, $result['consecutive_refusals']);
+    }
+
+    public function test_produced_true_proceed_breaks_the_streak(): void
+    {
+        // The counterpart guard: a produced=true NON-abstain cycle is a real origination — it must NOT count.
+        $probe = new AtlasBrainScopeDryProbe;
+        $model = $this->modelWith(orphans: [], docGaps: []);
+
+        $result = $probe->probe([
+            ['produced' => true, 'action' => 'abstain'],
+            ['produced' => true, 'action' => 'abstain'],
+            ['produced' => true, 'action' => 'proceed'],
+        ], $model, 3);
+
+        self::assertSame('unknown_blocked', $result['state']);
+        self::assertSame(0, $result['consecutive_refusals']);
+    }
+
     public function test_returns_unknown_blocked_when_refusals_less_than_m(): void
     {
         $probe = new AtlasBrainScopeDryProbe;

@@ -36,6 +36,10 @@ class FunnelSequenceLibrary implements PatternLibrary
                 'trigger' => 'Cada etapa do funil pega a awareness ANTERIOR e leva pra próxima — não pula nível.',
                 'lever' => 'Ad pega problem-aware → bridge eleva pra solution-aware → VSL fecha em product-aware.',
                 'markers' => ['next step', 'próxima etapa', 'now that you understand', 'agora que você entendeu', 'in the video below', 'no vídeo abaixo', 'this is why']],
+            ['key' => 'stage_sells_next_step', 'name' => 'Cada estágio vende o próximo passo', 'category' => 'match', 'weight' => 5,
+                'trigger' => 'Cada estágio vende SÓ o próximo passo: anúncio→clique, bridge→watch da VSL, VSL→produto no fechamento. Mostrar oferta/preço/garantia/checkout no anúncio ou na bridge é ERRO DE FASE — a oferta só converte depois da crença+mecanismo+prova; revelada cedo, queima a alavanca, quebra o funil e mata a conversão.',
+                'lever' => 'Anúncio vende o CLIQUE; bridge vende o VÍDEO (KPI = watch-start, NUNCA compra) e tease o mecanismo sem entregar a receita; a oferta (preço/garantia/escassez/checkout) aparece SÓ no fim da VSL. O mecanismo PRECEDE a oferta.',
+                'markers' => ['watch the free', 'assista à apresentação', 'apresentação gratuita', 'free presentation', 'press play', 'aperte o play', 'no vídeo abaixo', 'continue assistindo', 'sells the next step', 'vende o próximo passo', 'phase error', 'erro de fase']],
 
             // ── Micro-commitment ladder ────────────────────────────────────────────────────────
             ['key' => 'micro_commit', 'name' => 'Micro-compromisso', 'category' => 'ladder', 'weight' => 4,

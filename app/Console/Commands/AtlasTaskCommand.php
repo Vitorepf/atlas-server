@@ -51,7 +51,7 @@ class AtlasTaskCommand extends Command
 
         try {
             $result = match ($action) {
-                'next' => $serving->next($client, ['tags' => array_values((array) $this->option('tag'))]),
+                'next' => $this->nextWithDiskSelfHeal($serving, $client, ['tags' => array_values((array) $this->option('tag'))]),
                 'report' => $serving->report(
                     $client,
                     (string) ($this->option('task') ?? ''),
@@ -76,6 +76,42 @@ class AtlasTaskCommand extends Command
         $ok = in_array((string) ($result['status'] ?? ''), ['served', 'no_claimable_task', 'no_self_sufficient_task', 'reported', 'resolved', 'disabled', 'ok', 'adaptive_disabled'], true);
 
         return $ok ? self::SUCCESS : self::FAILURE;
+    }
+
+    /**
+     * THE CONTRACT's self-heal: `next` must NEVER report an empty queue while claimable task files exist on
+     * disk. The registry INDEX can drift from disk truth — a god-class split once pointed the index at an empty
+     * path; concurrent writers can truncate it; the old FIFO cap could evict entries. The DISK is the source of
+     * truth, so on a `no_claimable_task` we rebuild the registry from disk ONCE and retry. If the queue is
+     * genuinely empty the rebuild reports zero claimable and the honest `no_claimable_task` stands. Fail-open:
+     * any rebuild error returns the original honest envelope. Runs ONLY on the (rare) empty path — the served
+     * path and the orchestrator core are untouched.
+     *
+     * @param  array<string,mixed>  $opts
+     * @return array<string,mixed>
+     */
+    private function nextWithDiskSelfHeal(AtlasTaskServingService $serving, string $client, array $opts): array
+    {
+        $result = $serving->next($client, $opts);
+        if ((string) ($result['status'] ?? '') !== 'no_claimable_task') {
+            return $result;
+        }
+        try {
+            $rebuilt = AtlasTaskServingStack::queueRepo()->rebuildRegistryFromDisk();
+            $claimableOnDisk = (int) ($rebuilt['status_counts']['claimable'] ?? 0);
+            if ($claimableOnDisk > 0) {
+                $retry = $serving->next($client, $opts);
+                if (is_array($retry)) {
+                    $retry['self_heal'] = ['reindexed_from_disk' => true, 'claimable_on_disk' => $claimableOnDisk];
+
+                    return $retry;
+                }
+            }
+        } catch (Throwable) {
+            // fail-open: index couldn't be rebuilt — return the original honest no_claimable_task envelope.
+        }
+
+        return $result;
     }
 
     /**

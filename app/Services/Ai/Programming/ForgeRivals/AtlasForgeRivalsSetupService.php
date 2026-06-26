@@ -46,6 +46,23 @@ final class AtlasForgeRivalsSetupService
         $minimalCheckout = $checkoutStrategy === 'minimal_no_checkout';
         $blockers = [];
 
+        // GUARANTEE (operator, 2026-06-25): forge-rivals must NEVER create real
+        // `git worktree add` branches/worktrees in the LIVE atlas-server repo
+        // while the PHPUnit suite runs. A stray full-suite run once polluted the
+        // repo with dozens of `forge-rivals/*` branches + sibling worktrees. This
+        // fail-closed guard makes that impossible: under the `testing` environment,
+        // provisioning against the live repo root is refused and creates NOTHING.
+        // Isolated tests that pass an explicit temp `repo_root` are unaffected;
+        // operator-run production (non-testing) is unaffected.
+        $liveRepoBlocker = $this->liveRepoWorktreeForbiddenUnderTests($repoRoot);
+        if ($liveRepoBlocker !== null) {
+            return $this->withAdvisoryInvariants([
+                'status' => 'blocked',
+                'blockers' => [$liveRepoBlocker],
+                'next_command' => 'tests must pass an isolated --repo-root=<temp git repo>; the live repo is never used for rivals worktrees under PHPUnit',
+            ]);
+        }
+
         if (! is_dir($repoRoot.'/.git')) {
             return $this->withAdvisoryInvariants([
                 'status' => 'blocked',
@@ -186,6 +203,36 @@ final class AtlasForgeRivalsSetupService
             'worktrees' => $worktrees,
             'next_command' => 'php artisan atlas:forge:rivals preflight --mode=local_fake --atlas-model=claude_sonnet --rival=claude_sonnet --preset=smoke --json',
         ]);
+    }
+
+    /**
+     * Fail-closed guard: under the PHPUnit `testing` environment, refuse to
+     * provision rivals worktrees against the LIVE atlas-server repo. Returns a
+     * blocker code when forbidden, or null when provisioning may proceed
+     * (production, or an isolated temp `repo_root` in tests).
+     */
+    private function liveRepoWorktreeForbiddenUnderTests(string $repoRoot): ?string
+    {
+        if (! function_exists('app') || ! function_exists('base_path')) {
+            return null;
+        }
+        try {
+            $isTesting = app()->environment('testing');
+        } catch (\Throwable) {
+            return null;
+        }
+        if (! $isTesting) {
+            return null;
+        }
+
+        $live = realpath(base_path());
+        $live = $live !== false ? $live : rtrim(base_path(), '/');
+        $candidate = realpath($repoRoot);
+        $candidate = $candidate !== false ? $candidate : rtrim($repoRoot, '/');
+
+        return $candidate === $live
+            ? 'forge_rivals_worktree_in_live_repo_forbidden_under_tests'
+            : null;
     }
 
     /**

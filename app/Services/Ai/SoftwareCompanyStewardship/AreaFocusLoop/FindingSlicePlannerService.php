@@ -41,6 +41,8 @@ final class FindingSlicePlannerService
 {
     private ?FindingSliceBuilder $sliceBuilderInstance = null;
 
+    private ?FindingSemanticStepGrouper $semanticStepGrouperInstance = null;
+
     public const PLAN_SCHEMA = 'atlas.stewardship.finding_slice_plan.v1';
 
     public const SLICE_SCHEMA = 'atlas.stewardship.executable_slice.v1';
@@ -404,360 +406,61 @@ final class FindingSlicePlannerService
      */
     private function semanticStepGroups(array $normalized, array $sourceFiles, array $testFiles): array
     {
-        $primary = $sourceFiles[0] ?? '';
-        if ($primary === '') {
-            return [];
-        }
-        $cap = $this->capabilityPhrase((string) ($normalized['title'] ?? ''));
-        $title = (string) ($normalized['title'] ?? 'the finding');
-        $test = $this->matchingTest($primary, $testFiles);
-        $implementationFiles = $test !== '' ? [$primary, $test] : [$primary];
-        if ($this->isCanonicalAaeosRuntimeGap($normalized)) {
-            return $this->runtimeSemanticStepGroups($title, $primary, $cap, $implementationFiles);
-        }
-
-        $contractFiles = $this->semanticContractFiles($primary, $cap);
-        if ($contractFiles === []) {
-            $contractFiles = $implementationFiles;
-        }
-
-        $steps = [
-            [
-                'order' => 1,
-                'kind' => 'contract',
-                'shape' => self::SHAPE_SERVICE_AND_TEST,
-                'objective' => sprintf(
-                    'STEP 1 of 3 of the "%s" roadmap — do NOT implement the whole feature. Create or update ONLY the minimal PSR-4 data contract for "%s" in %s. Do NOT define the contract class inside %s. Then wire exactly one default/entry method in %s that consumes or returns that contract. Add focused tests for the contract default and the runtime wiring. This step is invalid if the diff only changes *Contract.php or reflection-only tests; changed_files must include %s and a focused runtime test. No real transformation logic yet.',
-                    $title,
-                    $cap,
-                    $contractFiles[0] ?? $primary,
-                    $primary,
-                    $primary,
-                    $primary,
-                ),
-            ],
-            [
-                'order' => 2,
-                'kind' => 'skeleton',
-                'depends_on' => 1,
-                'shape' => self::SHAPE_SERVICE_AND_TEST,
-                'objective' => sprintf(
-                    'STEP 2 of 3 of the "%s" roadmap — depends on step 1, do NOT implement the full behavior. In %s add ONLY one entry method for "%s" that validates its input and returns the empty/default contract from step 1, plus a unit test asserting the empty-input path returns the default. No real transformation logic yet.',
-                    $title, $primary, $cap,
-                ),
-            ],
-            [
-                'order' => 3,
-                'kind' => 'first_behavior',
-                'depends_on' => 2,
-                'shape' => self::SHAPE_SERVICE_AND_TEST,
-                'objective' => sprintf(
-                    'STEP 3 of 3 of the "%s" roadmap — depends on step 2, implement ONLY the first rule. In %s make the entry method handle the single simplest "%s" case so one concrete well-defined input produces one concrete output, plus a unit test for exactly that case. Leave every remaining rule for future steps.',
-                    $title, $primary, $cap,
-                ),
-            ],
-        ];
-
-        $groups = [];
-        foreach ($steps as $step) {
-            $files = (int) $step['order'] === 1
-                ? AreaFocusStringListNormalizer::uniqueMergedStringValues($contractFiles, $implementationFiles)
-                : $implementationFiles;
-
-            $groups[] = [
-                'files' => $files,
-                'docs' => false,
-                'step' => $step,
-            ];
-        }
-
-        return $groups;
+        return $this->semanticStepGrouper()->semanticStepGroups($normalized, $sourceFiles, $testFiles);
     }
 
-    /**
-     * Canonical AAEOS backlog items are already anchored to an implementation
-     * service and its focused test. Their bounded packets must harden that
-     * runtime surface directly; a newly invented *Contract.php file is too easy
-     * for providers to satisfy as inert scaffold and too weak for factory_max.
-     *
-     * @param  array<string,mixed>  $normalized
-     */
-    private function isCanonicalAaeosRuntimeGap(array $normalized): bool
-    {
-        $identity = strtolower(implode(' ', array_filter([
-            (string) ($normalized['finding_id'] ?? ''),
-            (string) ($normalized['spec_candidate_id'] ?? ''),
-            (string) ($normalized['origin_type'] ?? ''),
-        ])));
-
-        return str_contains($identity, 'canonical_aaeos_')
-            || str_contains($identity, 'runtime_gap');
-    }
-
-    /**
-     * @param  list<string>  $implementationFiles
-     * @return list<array{files:list<string>,docs:bool,step:array<string,mixed>}>
-     */
     private function runtimeSemanticStepGroups(string $title, string $primary, string $capability, array $implementationFiles): array
     {
-        $steps = [
-            [
-                'order' => 1,
-                'kind' => 'runtime_signal',
-                'shape' => self::SHAPE_SERVICE_AND_TEST,
-                'target_method' => $this->runtimeTargetMethod('runtime_signal', $capability),
-                'target_symbol' => $this->runtimeTargetMethod('runtime_signal', $capability),
-                'surgical_anchor' => $this->runtimeSurgicalAnchor($primary, 'runtime_signal', $capability),
-                'mutation_anchor' => $this->runtimeSurgicalAnchor($primary, 'runtime_signal', $capability),
-                'objective' => sprintf(
-                    'STEP 1 of 3 of the "%s" roadmap — update ONLY %s and its focused test to add the smallest runtime signal method %s() for "%s". Do not create new PHP files, *Contract.php files, scaffold-only classes or reflection-only tests. This step is invalid unless changed_files include %s and the focused runtime test.',
-                    $title,
-                    $primary,
-                    $this->runtimeTargetMethod('runtime_signal', $capability),
-                    $capability,
-                    $primary,
-                ),
-            ],
-            [
-                'order' => 2,
-                'kind' => 'runtime_wiring',
-                'depends_on' => 1,
-                'shape' => self::SHAPE_SERVICE_AND_TEST,
-                'target_method' => $this->runtimeTargetMethod('runtime_wiring', $capability),
-                'target_symbol' => $this->runtimeTargetMethod('runtime_wiring', $capability),
-                'surgical_anchor' => $this->runtimeSurgicalAnchor($primary, 'runtime_wiring', $capability),
-                'mutation_anchor' => $this->runtimeSurgicalAnchor($primary, 'runtime_wiring', $capability),
-                'objective' => sprintf(
-                    'STEP 2 of 3 of the "%s" roadmap — wire the smallest consumer method %s() for "%s" inside %s and prove it with the same focused test. Do not create new PHP files, *Contract.php files or standalone scaffold; leave broader behavior for a later packet.',
-                    $title,
-                    $this->runtimeTargetMethod('runtime_wiring', $capability),
-                    $capability,
-                    $primary,
-                ),
-            ],
-            [
-                'order' => 3,
-                'kind' => 'first_behavior',
-                'depends_on' => 2,
-                'shape' => self::SHAPE_SERVICE_AND_TEST,
-                'target_method' => $this->runtimeTargetMethod('first_behavior', $capability),
-                'target_symbol' => $this->runtimeTargetMethod('first_behavior', $capability),
-                'surgical_anchor' => $this->runtimeSurgicalAnchor($primary, 'first_behavior', $capability),
-                'mutation_anchor' => $this->runtimeSurgicalAnchor($primary, 'first_behavior', $capability),
-                'objective' => sprintf(
-                    'STEP 3 of 3 of the "%s" roadmap — implement one concrete "%s" behavior in method %s() in %s and assert exactly that case in the focused test. Do not create new PHP files, *Contract.php files or docs-only progress.',
-                    $title,
-                    $capability,
-                    $this->runtimeTargetMethod('first_behavior', $capability),
-                    $primary,
-                ),
-            ],
-        ];
-
-        return array_map(static fn (array $step): array => [
-            'files' => $implementationFiles,
-            'docs' => false,
-            'step' => $step,
-        ], $steps);
+        return $this->semanticStepGrouper()->runtimeSemanticStepGroups($title, $primary, $capability, $implementationFiles);
     }
 
     private function runtimeTargetMethod(string $stepKind, string $capability): string
     {
-        $words = preg_split('/[^A-Za-z0-9]+/', $capability) ?: [];
-        $words = array_values(array_filter($words, static fn (string $word): bool => $word !== ''));
-        if ($words === []) {
-            $words = ['runtime', 'capability'];
-        }
-
-        $base = lcfirst(implode('', array_map(
-            static fn (string $word): string => ucfirst(strtolower($word)),
-            $words,
-        )));
-
-        $suffix = match ($stepKind) {
-            'runtime_signal' => 'Signal',
-            'runtime_wiring' => 'Wiring',
-            'first_behavior' => 'Behavior',
-            default => 'RuntimeStep',
-        };
-
-        return $base.$suffix;
+        return $this->semanticStepGrouper()->runtimeTargetMethod($stepKind, $capability);
     }
 
     private function runtimeSurgicalAnchor(string $primary, string $stepKind, string $capability): string
     {
-        return sprintf(
-            'file:%s; target_method:%s; semantic_step:%s; capability:%s; constraint:modify_existing_runtime_surface_and_focused_test_only',
-            $primary,
-            $this->runtimeTargetMethod($stepKind, $capability),
-            $stepKind,
-            $capability,
-        );
+        return $this->semanticStepGrouper()->runtimeSurgicalAnchor($primary, $stepKind, $capability);
     }
 
-    /**
-     * Strategic contract steps must authorize the PSR-4 file that will contain the
-     * value object. Without this, providers are cornered into putting a new class
-     * inside the service under test, which focused tests may miss but the workcell
-     * judge correctly rejects.
-     *
-     * @return list<string>
-     */
     private function semanticContractFiles(string $primary, string $capability): array
     {
-        if (! str_starts_with($primary, 'app/') || ! str_ends_with($primary, '.php')) {
-            return [];
-        }
-
-        $class = $this->semanticContractClassName($capability);
-        if ($class === '') {
-            return [];
-        }
-
-        $source = rtrim(dirname($primary), '.').'/'.$class.'.php';
-        $test = $this->expectedTestPath($class.'Test.php', [$source]);
-
-        return array_values(array_filter(array_unique([$source, $test]), fn (string $file): bool => ! $this->isBroadPath($file) && ! $this->isForbidden($file)));
+        return $this->semanticStepGrouper()->semanticContractFiles($primary, $capability);
     }
 
     private function semanticContractClassName(string $capability): string
     {
-        $normalized = trim((string) preg_replace('/[^A-Za-z0-9]+/', ' ', str_replace(['-', '_'], ' ', $capability)));
-        if ($normalized === '') {
-            return '';
-        }
-
-        $words = array_values(array_filter(explode(' ', $normalized), static fn (string $word): bool => $word !== ''));
-        if ($words === []) {
-            return '';
-        }
-
-        $last = count($words) - 1;
-        $lowerLast = strtolower($words[$last]);
-        if (str_ends_with($lowerLast, 'ies') && strlen($lowerLast) > 3) {
-            $words[$last] = substr($words[$last], 0, -3).'y';
-        } elseif (str_ends_with($lowerLast, 's') && ! str_ends_with($lowerLast, 'ss') && strlen($lowerLast) > 3) {
-            $words[$last] = substr($words[$last], 0, -1);
-        }
-
-        $class = implode('', array_map(
-            static fn (string $word): string => ucfirst(strtolower($word)),
-            $words,
-        ));
-
-        if (! preg_match('/(Contract|Slice|Packet|Plan|Spec|Schema)$/', $class)) {
-            $class .= 'Contract';
-        }
-
-        return $class;
+        return $this->semanticStepGrouper()->semanticContractClassName($capability);
     }
 
-    /**
-     * Extract the human capability noun phrase from a finding title by dropping a
-     * leading action verb and any trailing prepositional clause. e.g.
-     * "Introduce Reality Compiler slices for intent-to-system execution" ->
-     * "Reality Compiler slices".
-     */
     private function capabilityPhrase(string $title): string
     {
-        $t = trim($title);
-        $t = (string) preg_replace('/^(introduce|implement|add|wire|materialize|build|create|establish|make|enable|close|strengthen|route|unify|expose|give|generate|run|dispatch|measure|evaluate|let|require|consolidate|attach|surface|harden)\s+/i', '', $t);
-        $parts = preg_split('/\s+(for|into|in|of|to|across|before|after|on|with|so|that|when|as)\s+/i', $t, 2);
-        $t = trim($parts[0] ?? $t);
-
-        return $t !== '' ? $t : 'this capability';
+        return $this->semanticStepGrouper()->capabilityPhrase($title);
     }
 
-    /**
-     * Group target files into bounded per-target slices. A broad finding with
-     * several concrete source files is decomposed into one slice per source
-     * file (each paired with its matching test); a narrow finding yields one
-     * slice. Test-only findings yield one slice per test.
-     *
-     * @param  list<string>  $sourceFiles
-     * @param  list<string>  $testFiles
-     * @return list<array{files:list<string>,docs:bool}>
-     */
     private function targetGroups(array $sourceFiles, array $testFiles): array
     {
-        $remainingTests = $testFiles;
-        $groups = [];
-        $runtimeSources = [];
-        $supportSources = [];
-
-        foreach ($sourceFiles as $source) {
-            if ($this->isContractLikeSupportFile($source)) {
-                $supportSources[] = $source;
-
-                continue;
-            }
-
-            $runtimeSources[] = $source;
-        }
-
-        if ($runtimeSources === []) {
-            $runtimeSources = $sourceFiles;
-            $supportSources = [];
-        }
-
-        foreach ($runtimeSources as $source) {
-            $match = $this->matchingTest($source, $remainingTests);
-            $files = [$source];
-            if ($match !== '') {
-                $files[] = $match;
-                $remainingTests = array_values(array_filter($remainingTests, static fn (string $t): bool => $t !== $match));
-            }
-            $groups[] = ['files' => array_values(array_slice(array_unique($files), 0, self::MAX_FILES_PER_SLICE)), 'docs' => false];
-        }
-
-        if ($groups !== [] && $supportSources !== []) {
-            $supportFiles = [];
-            foreach ($supportSources as $source) {
-                $supportFiles[] = $source;
-                $match = $this->matchingTest($source, $remainingTests);
-                if ($match !== '') {
-                    $supportFiles[] = $match;
-                    $remainingTests = array_values(array_filter($remainingTests, static fn (string $t): bool => $t !== $match));
-                }
-            }
-
-            $merged = AreaFocusStringListNormalizer::uniqueMergedStringValues($groups[0]['files'], $supportFiles);
-            if (count($merged) <= self::MAX_FILES_PER_SLICE) {
-                $groups[0]['files'] = $merged;
-            }
-        }
-
-        // Test-only finding (missing_test where affected_files are the tests).
-        if ($sourceFiles === []) {
-            foreach ($remainingTests as $test) {
-                $groups[] = ['files' => [$test], 'docs' => false];
-            }
-        } elseif ($remainingTests !== []) {
-            // Unmatched tests attach to the first source slice (kept bounded).
-            $first = $groups[0]['files'];
-            $groups[0]['files'] = array_values(array_slice(array_unique(array_merge($first, $remainingTests)), 0, self::MAX_FILES_PER_SLICE));
-        }
-
-        return array_values(array_slice($groups, 0, self::MAX_SLICES));
+        return $this->semanticStepGrouper()->targetGroups($sourceFiles, $testFiles);
     }
 
-    private function isContractLikeSupportFile(string $file): bool
-    {
-        if (! $this->isSourceFile($file)) {
-            return false;
-        }
-
-        return (bool) preg_match('/(Contract|Slice|Packet|Plan|Spec|Schema)\.php$/', basename($file));
-    }
-
-    /**
-     * @param  list<string>  $docFiles
-     * @return array{files:list<string>,docs:bool}
-     */
     private function docsTargetGroup(array $docFiles): array
     {
-        return ['files' => array_values(array_slice($docFiles, 0, self::MAX_FILES_PER_SLICE)), 'docs' => true];
+        return $this->semanticStepGrouper()->docsTargetGroup($docFiles);
     }
+
+    private function semanticStepGrouper(): FindingSemanticStepGrouper
+    {
+        return $this->semanticStepGrouperInstance ??= new FindingSemanticStepGrouper(
+            fn (array $normalized): bool => $this->isCanonicalAaeosRuntimeGap($normalized),
+            fn (string $source, array $testFiles): string => $this->matchingTest($source, $testFiles),
+            fn (string $basename, array $affectedFiles): string => $this->expectedTestPath($basename, $affectedFiles),
+            fn (string $path): bool => $this->isForbidden($path),
+            fn (string $file): bool => $this->isBroadPath($file),
+            fn (string $file): bool => $this->isContractLikeSupportFile($file),
+        );
+    }
+
 
     /**
      * Turn target groups into validated executable slices. Each group that
