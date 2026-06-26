@@ -21,6 +21,8 @@ use Throwable;
 class AiTelemetryPerformanceReportService
 {
     private ?AiTelemetryReportBodyRenderer $reportBodyRendererInstance = null;
+
+    private ?AiTelemetryReportMetricMath $reportMetricMathInstance = null;
     public function __construct(
         private readonly AiTelemetryScorecardService $scorecards,
         private readonly AiTelemetryHealthService $health,
@@ -870,6 +872,98 @@ class AiTelemetryPerformanceReportService
             fn (mixed $value): string => $this->formatSigned($value),
             fn (mixed $value): string => $this->formatPercent($value),
         );
+    }
+
+    private function reportMetricMath(): AiTelemetryReportMetricMath
+    {
+        return $this->reportMetricMathInstance ??= new AiTelemetryReportMetricMath;
+    }
+
+    /**
+     * @param  array<int,string>  $statuses
+     */
+    private function strongestStatus(array $statuses): string
+    {
+        return $this->reportMetricMath()->strongestStatus($statuses);
+    }
+
+    private function statusRank(string $status): int
+    {
+        return $this->reportMetricMath()->statusRank($status);
+    }
+
+    private function priorityScore(string $status): int
+    {
+        return $this->reportMetricMath()->priorityScore($status);
+    }
+
+    /**
+     * @param  array<string,mixed>  $analysis
+     */
+    private function confidence(array $analysis): float
+    {
+        return $this->reportMetricMath()->confidence($analysis);
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $reports
+     */
+    private function multiConfidence(array $reports): float
+    {
+        return $this->reportMetricMath()->multiConfidence($reports);
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $reports
+     */
+    private function averageHealthScore(array $reports): ?int
+    {
+        return $this->reportMetricMath()->averageHealthScore($reports);
+    }
+
+    /**
+     * @return array{current:mixed,previous:mixed,delta_abs:?float,delta_pct:?float}
+     */
+    private function delta(mixed $current, mixed $previous): array
+    {
+        return $this->reportMetricMath()->delta($current, $previous);
+    }
+
+    /**
+     * @param  array<string,mixed>  $comparison
+     */
+    private function deltaValue(array $comparison, string $field): float
+    {
+        return $this->reportMetricMath()->deltaValue($comparison, $field);
+    }
+
+    /**
+     * @param  array<string,mixed>  $comparison
+     */
+    private function deltaPct(array $comparison, string $field): float
+    {
+        return $this->reportMetricMath()->deltaPct($comparison, $field);
+    }
+
+    private function number(mixed $value): ?float
+    {
+        return $this->reportMetricMath()->number($value);
+    }
+
+    /**
+     * @param  Collection<int,mixed>  $values
+     */
+    private function percentile(Collection $values, float $percentile): ?float
+    {
+        return $this->reportMetricMath()->percentile($values, $percentile);
+    }
+
+    /**
+     * @param  Collection<int,mixed>  $values
+     */
+    private function avgCollection(Collection $values): ?float
+    {
+        return $this->reportMetricMath()->avgCollection($values);
     }
 
 
