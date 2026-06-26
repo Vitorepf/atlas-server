@@ -19,6 +19,7 @@ use App\Services\Ai\Obra\ObraNodeDelivery;
 use App\Services\Ai\Obra\ProviderObraNodeDelivery;
 use App\Services\Ai\AutonomousEvolution\Support\AtlasLoopObraGitWorktreeProbe;
 use App\Services\Ai\AutonomousEvolution\Support\AtlasLoopObraPlanningPromptComposer;
+use App\Services\Ai\AutonomousEvolution\Support\AtlasLoopObraPlanningProviderInvoker;
 use App\Services\Ai\RealExecution\AtlasLiveCodeDeliveryService;
 use App\Services\Ai\RealExecution\GovernedBranchMaterializationService;
 use Illuminate\Support\Facades\File;
@@ -1072,6 +1073,22 @@ class AtlasLoopObraExecutionAdapter
     }
 
     /**
+     * Cohesive planning-provider invoker — the only places the adapter resolves the provider key (loop
+     * default hermes_cli, operator override via atlas.ai.default_provider) and shells out to a real
+     * read-only planning provider (the spec/DAG seams). Extracted to
+     * {@see AtlasLoopObraPlanningProviderInvoker}; we keep these two methods as thin delegators so every
+     * existing call site (the spec/DAG provider seams + the planningProviderKey call inside the
+     * obraPlanningProviderRaw delegator) stays byte-identical and the public signature of the adapter does
+     * not move. Lazy-instantiated per call, threading the adapter's nullable-default `providers` field so
+     * the existing test-double injection path (constructor seam) and the production app() fallback both
+     * continue to work without forcing the adapter's constructor signature to move.
+     */
+    private function planningProviderInvoker(): AtlasLoopObraPlanningProviderInvoker
+    {
+        return new AtlasLoopObraPlanningProviderInvoker($this->providers);
+    }
+
+    /**
      * ACDE Leap 1 — the ACTUAL provider invocation (the ONLY place a provider runs in the planner path).
      * Mirrors {@see AtlasLiveCodeDeliveryService}: resolve the configured
      * provider via {@see AiProviderManager}->get(), run an EPHEMERAL read-only job, return the raw output
@@ -1081,35 +1098,13 @@ class AtlasLoopObraExecutionAdapter
      */
     protected function obraPlanningProviderRaw(string $mode, string $prompt): string
     {
-        $manager = $this->providers ?? app(AiProviderManager::class);
-        $providerKey = $this->planningProviderKey();
-        $provider = $manager->get($providerKey);
-        if (! $provider instanceof AiProvider) {
-            return '';
-        }
-
-        $job = new AiJob;
-        $job->kind = 'obra_planning';
-        $job->provider = $providerKey;
-        $job->prompt = $prompt;
-        $job->input_text = $prompt;
-        $job->metadata = ['permission_mode' => 'read', 'obra_planning_mode' => $mode];
-        $job->timeout_seconds = max(60, min(3600, (int) config('atlas.ai.timeout_seconds', 600)));
-
-        $result = $provider->run($job, $prompt);
-        if (! (bool) ($result->ok ?? false)) {
-            return '';
-        }
-
-        return (string) ($result->output ?? '');
+        return $this->planningProviderInvoker()->obraPlanningProviderRaw($mode, $prompt);
     }
 
     /** The provider the planner runs through — the loop default (hermes_cli -> MiniMax). */
     private function planningProviderKey(): string
     {
-        $configured = config('atlas.ai.default_provider', 'hermes_cli');
-
-        return is_string($configured) && trim($configured) !== '' ? trim($configured) : 'hermes_cli';
+        return $this->planningProviderInvoker()->planningProviderKey();
     }
 
     /**
