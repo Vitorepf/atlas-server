@@ -97,7 +97,10 @@ final class AtlasLoopCampaignSupervisor
         private readonly ?AtlasLoopDeliveryPipeline $pipeline = null,
         private readonly ?\App\Services\Ai\AutonomousEvolution\AtlasLoopProjectionWorker $projectionWorker = null,
         private readonly ?\App\Services\Ai\AutonomousEvolution\AtlasLoopSubstrateReceiptLedger $substrateLedger = null,
-    ) {}
+        private ?AtlasLoopCampaignCostGovernor $costGovernor = null,
+    ) {
+        $this->costGovernor ??= app(AtlasLoopCampaignCostGovernor::class);
+    }
 
     /**
      * Flag-gated substrate-sovereignty FACT emission. Default OFF ⇒ byte-identical no-op.
@@ -1165,58 +1168,7 @@ final class AtlasLoopCampaignSupervisor
      */
     private function costGovernorDecision(AtlasLoopCampaign $campaign, ?int $scenarios): array
     {
-        $baseScenarios = max(1, (int) ($scenarios ?? config('atlas.loop.scenarios_per_task', 3)));
-        $cfg = (array) config('atlas.loop.cost_governor', []);
-        $enabled = (bool) ($cfg['enabled'] ?? false);
-        $minScenarios = max(1, (int) ($cfg['min_scenarios_per_task'] ?? 1));
-        $maxCents = max(0, (int) $campaign->max_usd_cents);
-        $spendCents = max(0, (int) $campaign->spend_usd_cents);
-
-        $base = [
-            'schema_version' => 'atlas.loop.cost_governor_decision.v1',
-            'enabled' => $enabled,
-            'status' => $enabled ? 'monitoring' : 'disabled',
-            'action' => 'none',
-            'spend_usd_cents' => $spendCents,
-            'max_usd_cents' => $maxCents,
-            'spend_pct' => $maxCents > 0 ? round(($spendCents / $maxCents) * 100, 2) : null,
-            'base_scenarios_per_task' => $baseScenarios,
-            'effective_scenarios_per_task' => $baseScenarios,
-            'min_scenarios_per_task' => $minScenarios,
-        ];
-
-        if (! $enabled) {
-            return $base;
-        }
-        if ($maxCents <= 0) {
-            return array_replace($base, [
-                'status' => 'no_cost_cap_configured',
-                'reason' => 'campaign_max_usd_cents_zero',
-            ]);
-        }
-
-        $throttlePct = max(0.0, min(100.0, (float) ($cfg['throttle_at_pct'] ?? 80.0)));
-        $spendPct = (float) $base['spend_pct'];
-        if ($spendPct >= 100.0) {
-            return array_replace($base, [
-                'status' => 'over_cap',
-                'action' => 'pause_on_cost_cap',
-                'effective_scenarios_per_task' => $minScenarios,
-                'reason' => 'budget_stop_reason_cost_cap_will_apply',
-            ]);
-        }
-        if ($spendPct >= $throttlePct && $baseScenarios > $minScenarios) {
-            return array_replace($base, [
-                'status' => 'throttled',
-                'action' => 'reduce_scenarios_per_task',
-                'effective_scenarios_per_task' => $minScenarios,
-                'threshold_pct' => $throttlePct,
-            ]);
-        }
-
-        return array_replace($base, [
-            'threshold_pct' => $throttlePct,
-        ]);
+        return $this->costGovernor->costGovernorDecision($campaign, $scenarios);
     }
 
     /**
@@ -1224,14 +1176,7 @@ final class AtlasLoopCampaignSupervisor
      */
     private function spendCentsFromResult(array $result): int
     {
-        if (is_numeric($result['cost_cents'] ?? null) && (int) $result['cost_cents'] > 0) {
-            return (int) $result['cost_cents'];
-        }
-        if (is_numeric($result['cost_estimate_usd'] ?? null) && (float) $result['cost_estimate_usd'] > 0.0) {
-            return max(1, (int) ceil((float) $result['cost_estimate_usd'] * 100));
-        }
-
-        return 0;
+        return $this->costGovernor->spendCentsFromResult($result);
     }
 
     /**
@@ -1239,13 +1184,7 @@ final class AtlasLoopCampaignSupervisor
      */
     private function spendCentsFromWorkerSummaries(array $settled): int
     {
-        $spend = 0;
-        foreach ($settled as $summary) {
-            $result = is_array($summary['result'] ?? null) ? $summary['result'] : [];
-            $spend += $this->spendCentsFromResult($result);
-        }
-
-        return $spend;
+        return $this->costGovernor->spendCentsFromWorkerSummaries($settled);
     }
 
     /**
@@ -1285,10 +1224,7 @@ final class AtlasLoopCampaignSupervisor
      */
     private function recordBreaker(string $campaignId, array $outcome): void
     {
-        if (! (bool) config('atlas.loop.provider_circuit_breaker_enabled', false)) {
-            return;
-        }
-        (new AtlasLoopProviderCircuitBreaker)->record($campaignId, $outcome);
+        $this->costGovernor->recordBreaker($campaignId, $outcome);
     }
 
     /**
@@ -1401,12 +1337,7 @@ final class AtlasLoopCampaignSupervisor
     /** §4 Should the loop pause NOW because the provider has been down for >= threshold consecutive grinds? */
     private function breakerWantsPause(AtlasLoopCampaign $campaign): bool
     {
-        if (! (bool) config('atlas.loop.provider_circuit_breaker_enabled', false)) {
-            return false;
-        }
-        $threshold = max(1, (int) config('atlas.loop.provider_circuit_breaker_threshold', 5));
-
-        return (new AtlasLoopProviderCircuitBreaker)->isOpen((string) $campaign->id, $threshold);
+        return $this->costGovernor->breakerWantsPause($campaign);
     }
 
     private function reflectParallelSettledTargets(AtlasLoopCampaign $campaign, array $settled): void
