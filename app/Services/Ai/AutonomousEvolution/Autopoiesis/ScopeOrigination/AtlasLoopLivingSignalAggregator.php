@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Autopoiesis\ScopeOrigination;
 
+
+use App\Services\Ai\SelfConstruction\Support\RecursivelyCanonicalizesArrays;
 use Carbon\CarbonInterval;
 use DateTimeImmutable;
 use DateTimeInterface;
 
 final class AtlasLoopLivingSignalAggregator
 {
+    use RecursivelyCanonicalizesArrays;
+
     public function __construct(
         private readonly object|array|null $operatorIntent = null,
         private readonly object|array|null $cortexMeaning = null,
@@ -155,27 +159,6 @@ final class AtlasLoopLivingSignalAggregator
      * @param  array<string, mixed>|list<mixed>  $value
      * @return array<string, mixed>|list<mixed>
      */
-    private function canonicalize(array $value): array
-    {
-        if (array_is_list($value)) {
-            foreach ($value as $index => $item) {
-                if (is_array($item)) {
-                    $value[$index] = $this->canonicalize($item);
-                }
-            }
-
-            return $value;
-        }
-
-        ksort($value);
-        foreach ($value as $key => $item) {
-            if (is_array($item)) {
-                $value[$key] = $this->canonicalize($item);
-            }
-        }
-
-        return $value;
-    }
 
     private function now(): DateTimeImmutable
     {

@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Discovery;
 
+
+use App\Services\Ai\SelfConstruction\Support\RecursivelyCanonicalizesArrays;
 final class AtlasLoopComprehensionGraphSerializer
 {
+    use RecursivelyCanonicalizesArrays;
+
     /**
      * @param  array<string,mixed>  $snapshot
      */
@@ -55,25 +59,4 @@ final class AtlasLoopComprehensionGraphSerializer
      * @param  array<int|string,mixed>  $value
      * @return array<int|string,mixed>
      */
-    private function canonicalize(array $value): array
-    {
-        if (array_is_list($value)) {
-            foreach ($value as $index => $item) {
-                if (is_array($item)) {
-                    $value[$index] = $this->canonicalize($item);
-                }
-            }
-
-            return $value;
-        }
-
-        ksort($value);
-        foreach ($value as $key => $item) {
-            if (is_array($item)) {
-                $value[$key] = $this->canonicalize($item);
-            }
-        }
-
-        return $value;
-    }
 }

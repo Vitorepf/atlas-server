@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Autopoiesis\SelfExtension;
 
+
+use App\Services\Ai\SelfConstruction\Support\RecursivelyCanonicalizesArrays;
 use RuntimeException;
 
 final class ScopeOverlapsLoopCoreException extends RuntimeException
@@ -12,6 +14,8 @@ final class ScopeOverlapsLoopCoreException extends RuntimeException
 
 final class AtlasLoopAutopoieticBootstrapper
 {
+    use RecursivelyCanonicalizesArrays;
+
     /** @var array<string, true> */
     private array $emitted = [];
 
@@ -136,27 +140,6 @@ final class AtlasLoopAutopoieticBootstrapper
      * @param  array<string,mixed>|list<mixed>  $value
      * @return array<string,mixed>|list<mixed>
      */
-    private function canonicalize(array $value): array
-    {
-        if (array_is_list($value)) {
-            foreach ($value as $index => $item) {
-                if (is_array($item)) {
-                    $value[$index] = $this->canonicalize($item);
-                }
-            }
-
-            return $value;
-        }
-
-        ksort($value);
-        foreach ($value as $key => $item) {
-            if (is_array($item)) {
-                $value[$key] = $this->canonicalize($item);
-            }
-        }
-
-        return $value;
-    }
 
     /**
      * @param  list<string>  $roots

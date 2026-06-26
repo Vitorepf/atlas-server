@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\UnifiedReceipts;
 
+
+use App\Services\Ai\SelfConstruction\Support\RecursivelyCanonicalizesArrays;
 use RuntimeException;
 
 final class AtlasLoopUnifiedReceiptChain
 {
+    use RecursivelyCanonicalizesArrays;
+
     private const GENESIS_PREV_HASH = '0000000000000000000000000000000000000000000000000000000000000000';
 
     public function __construct(
@@ -201,27 +205,6 @@ final class AtlasLoopUnifiedReceiptChain
      * @param  array<string,mixed>|list<mixed>  $value
      * @return array<string,mixed>|list<mixed>
      */
-    private function canonicalize(array $value): array
-    {
-        if (array_is_list($value)) {
-            foreach ($value as $index => $item) {
-                if (is_array($item)) {
-                    $value[$index] = $this->canonicalize($item);
-                }
-            }
-
-            return $value;
-        }
-
-        ksort($value);
-        foreach ($value as $key => $item) {
-            if (is_array($item)) {
-                $value[$key] = $this->canonicalize($item);
-            }
-        }
-
-        return $value;
-    }
 
     /**
      * @param  array<string,mixed>|list<mixed>  $payload

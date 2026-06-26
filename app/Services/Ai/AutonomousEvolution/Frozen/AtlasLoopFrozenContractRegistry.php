@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Frozen;
 
+
+use App\Services\Ai\SelfConstruction\Support\RecursivelyCanonicalizesArrays;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use RuntimeException;
 
 final class AtlasLoopFrozenContractRegistry
 {
+    use RecursivelyCanonicalizesArrays;
+
     /** @var array<string, array{assertions_sha256:string,registered_at:string,test_path:string}>|null */
     private ?array $contracts = null;
 
@@ -142,25 +146,4 @@ final class AtlasLoopFrozenContractRegistry
      * @param  array<string, mixed>|list<mixed>  $value
      * @return array<string, mixed>|list<mixed>
      */
-    private function canonicalize(array $value): array
-    {
-        if (array_is_list($value)) {
-            foreach ($value as $index => $item) {
-                if (is_array($item)) {
-                    $value[$index] = $this->canonicalize($item);
-                }
-            }
-
-            return $value;
-        }
-
-        ksort($value);
-        foreach ($value as $key => $item) {
-            if (is_array($item)) {
-                $value[$key] = $this->canonicalize($item);
-            }
-        }
-
-        return $value;
-    }
 }
