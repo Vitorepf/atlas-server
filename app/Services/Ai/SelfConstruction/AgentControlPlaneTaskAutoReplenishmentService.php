@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\Replenishment\AgentControlPlaneReplenishmentStableHasher;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 
@@ -24,7 +25,22 @@ final class AgentControlPlaneTaskAutoReplenishmentService
     public function __construct(
         private readonly AgentControlPlaneTaskQueueOrchestrator $orchestrator,
         private readonly AgentControlPlaneTaskPacketQueueRepository $queue,
+        // ITEM8 — optional constructor-injected hasher (defaulted to null so the existing 2-arg
+        // call signature is preserved byte-for-byte). When null, the service lazy-instantiates a
+        // fresh hasher on first use. This is the thread-safe default-to-fresh-instance pattern the
+        // task requires.
+        private readonly ?AgentControlPlaneReplenishmentStableHasher $stableHasher = null,
     ) {}
+
+    /**
+     * ITEM8 — lazy hasher accessor: returns the constructor-injected hasher, or instantiates a
+     * fresh one on first use when none was supplied. Keeps the byte-identical call-site contract
+     * at lines 153, 160, 321, 591 (and any private callers) untouched.
+     */
+    private function stableHasher(): AgentControlPlaneReplenishmentStableHasher
+    {
+        return $this->stableHasher ?? new AgentControlPlaneReplenishmentStableHasher;
+    }
 
     /**
      * @param  array<string, mixed>  $context
@@ -1113,10 +1129,7 @@ final class AgentControlPlaneTaskAutoReplenishmentService
      */
     private function normalizeForHash(array $payload): array
     {
-        $clone = $payload;
-        unset($clone['generated_at'], $clone['auto_replenishment_hash']);
-
-        return $this->recursivelyKsort($clone);
+        return $this->stableHasher()->normalizeForHash($payload);
     }
 
     /**
@@ -1125,17 +1138,7 @@ final class AgentControlPlaneTaskAutoReplenishmentService
      */
     private function recursivelyKsort(array $value): array
     {
-        $isAssoc = $value !== [] && array_keys($value) !== range(0, count($value) - 1);
-        foreach ($value as $key => $entry) {
-            if (is_array($entry)) {
-                $value[$key] = $this->recursivelyKsort($entry);
-            }
-        }
-        if ($isAssoc) {
-            ksort($value);
-        }
-
-        return $value;
+        return $this->stableHasher()->recursivelyKsort($value);
     }
 
     /**
@@ -1143,8 +1146,6 @@ final class AgentControlPlaneTaskAutoReplenishmentService
      */
     private function stableHash(array $payload): string
     {
-        $payload = $this->recursivelyKsort($payload);
-
-        return hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        return $this->stableHasher()->stableHash($payload);
     }
 }
