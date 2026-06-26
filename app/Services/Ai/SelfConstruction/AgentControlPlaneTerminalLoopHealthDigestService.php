@@ -1349,7 +1349,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
      */
     private function recordQueueTags(array $item): array
     {
-        return array_values(array_map('strval', (array) ($item['queue_tags'] ?? [])));
+        return ControlPlane\TerminalLoopHealthDigestQueueReader::recordQueueTags($item);
     }
 
     /**
@@ -1357,7 +1357,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
      */
     private function countQueueRecords(AgentControlPlaneTaskPacketQueueRepository $queue, string $status, array $queueTags): int
     {
-        return count($this->listQueueRecords($queue, $status, $queueTags));
+        return ControlPlane\TerminalLoopHealthDigestQueueReader::countQueueRecords($queue, $status, $queueTags);
     }
 
     /**
@@ -1366,15 +1366,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
      */
     private function listQueueRecords(AgentControlPlaneTaskPacketQueueRepository $queue, string $status, array $queueTags): array
     {
-        if ($queueTags === []) {
-            return $queue->list(['status' => $status]);
-        }
-
-        return $queue->list([
-            'status' => $status,
-            'tag' => $queueTags[0],
-            'tags' => $queueTags,
-        ]);
+        return ControlPlane\TerminalLoopHealthDigestQueueReader::listQueueRecords($queue, $status, $queueTags);
     }
 
     /**
@@ -1461,21 +1453,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
      */
     private function classificationCount(array $classifications, string $classification, array $queueTags): int
     {
-        return count(array_filter(
-            $classifications,
-            function (array $item) use ($classification, $queueTags): bool {
-                if ((string) ($item['classification'] ?? '') !== $classification) {
-                    return false;
-                }
-                if ($queueTags === []) {
-                    return true;
-                }
-
-                $tags = (array) data_get($item, 'queue_tags', []);
-
-                return array_diff($queueTags, array_map('strval', $tags)) === [];
-            },
-        ));
+        return ControlPlane\TerminalLoopHealthDigestQueueReader::classificationCount($classifications, $classification, $queueTags);
     }
 
     /**
