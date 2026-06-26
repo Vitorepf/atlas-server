@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\Leasing\AgentControlPlaneLeaseEnvelopeFactory;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
@@ -926,23 +927,28 @@ final class AgentControlPlaneClaimLeaseRepository
     }
 
     /**
+     * ITEM8 — cohesive stateless envelope / receipt / encode factory the claim-lease repository
+     * uses to build its success envelope, error envelope, lock-contention envelope, receipt, and
+     * canonical JSON output. Extracted into {@see AgentControlPlaneLeaseEnvelopeFactory}; we keep
+     * the five private methods (`buildReceipt`, `envelopeOk`, `envelopeError`,
+     * `lockContentionEnvelope`, `encode`) as thin private delegators so every existing call site
+     * (`claim`, `renew`, `release`, `expireLeases`, `reclaimExpiredLeases`, `withLock`'s
+     * contention + open-failed paths) stays byte-identical and the public signature of the
+     * repository does not move. Lazy-instantiated per call so production callers pay no
+     * construction cost beyond the first use.
+     */
+    private function envelopeFactory(): AgentControlPlaneLeaseEnvelopeFactory
+    {
+        return new AgentControlPlaneLeaseEnvelopeFactory;
+    }
+
+    /**
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
     private function buildReceipt(string $kind, array $data): array
     {
-        $receipt = array_merge([
-            'receipt_kind' => $kind,
-            'recorded_at' => CarbonImmutable::now()->toIso8601String(),
-            'runtime_execution_allowed' => false,
-            'ledger_write_allowed' => false,
-        ], $data);
-        $receipt['receipt_hash'] = hash('sha256', (string) json_encode(
-            ['kind' => $kind, 'data' => $data],
-            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-        ));
-
-        return $receipt;
+        return $this->envelopeFactory()->buildReceipt($kind, $data);
     }
 
     /**
@@ -1026,79 +1032,47 @@ final class AgentControlPlaneClaimLeaseRepository
     /**
      * The FAIL-CLOSED result when the exclusive lock cannot be acquired: a blocked, NON-mutating envelope the
      * callers surface honestly (no lease written, nothing dispatched). The critical callback never runs.
-     *
-     * @return array<string, mixed>
-     */
-    private function lockContentionEnvelope(string $reason): array
-    {
-        return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'status' => 'blocked',
-            'event' => 'blocked',
-            'reason' => $reason,
-            'runtime_execution_allowed' => false,
-            'dispatch_allowed' => false,
-            'ledger_write_allowed' => false,
-        ];
-    }
+     /**
+      * @return array<string, mixed>
+      */
+     private function lockContentionEnvelope(string $reason): array
+     {
+         return $this->envelopeFactory()->lockContentionEnvelope($reason);
+     }
 
-    private function leasePath(string $leaseId): string
-    {
-        $safe = preg_replace('/[^A-Za-z0-9_\-]/', '_', $leaseId) ?? $leaseId;
+     private function leasePath(string $leaseId): string
+     {
+         $safe = preg_replace('/[^A-Za-z0-9_\-]/', '_', $leaseId) ?? $leaseId;
 
-        return self::STORAGE_PREFIX.'/'.$safe.'.json';
-    }
+         return self::STORAGE_PREFIX.'/'.$safe.'.json';
+     }
 
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return (string) json_encode(
-            $payload,
-            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT,
-        );
-    }
+     /**
+      * @param  array<string, mixed>  $payload
+      */
+     private function encode(array $payload): string
+     {
+         return $this->envelopeFactory()->encode($payload);
+     }
 
-    /**
-     * @param  array<string, mixed>  $lease
-     * @param  array<string, mixed>  $extra
-     * @return array<string, mixed>
-     */
-    private function envelopeOk(string $event, array $lease, array $extra = []): array
-    {
-        return array_merge([
-            'schema_version' => self::SCHEMA_VERSION,
-            'status' => 'ok',
-            'event' => $event,
-            'lease_id' => (string) ($lease['lease_id'] ?? ''),
-            'task_packet_id' => (string) ($lease['task_packet_id'] ?? ''),
-            'lease_status' => (string) ($lease['lease_status'] ?? ''),
-            'lease' => $lease,
-            'runtime_execution_allowed' => false,
-            'dispatch_allowed' => false,
-            'ledger_write_allowed' => false,
-        ], $extra);
-    }
+     /**
+      * @param  array<string, mixed>  $lease
+      * @param  array<string, mixed>  $extra
+      * @return array<string, mixed>
+      */
+     private function envelopeOk(string $event, array $lease, array $extra = []): array
+     {
+         return $this->envelopeFactory()->envelopeOk($event, $lease, $extra);
+     }
 
-    /**
-     * @param  array<string, mixed>  $extra
-     * @return array<string, mixed>
-     */
-    private function envelopeError(string $reason, string $taskPacketId, string $agentId, array $extra = []): array
-    {
-        return array_merge([
-            'schema_version' => self::SCHEMA_VERSION,
-            'status' => 'blocked',
-            'event' => 'blocked',
-            'reason' => $reason,
-            'task_packet_id' => $taskPacketId,
-            'agent_id' => $agentId,
-            'runtime_execution_allowed' => false,
-            'dispatch_allowed' => false,
-            'ledger_write_allowed' => false,
-        ], $extra);
-    }
+     /**
+      * @param  array<string, mixed>  $extra
+      * @return array<string, mixed>
+      */
+     private function envelopeError(string $reason, string $taskPacketId, string $agentId, array $extra = []): array
+     {
+         return $this->envelopeFactory()->envelopeError($reason, $taskPacketId, $agentId, $extra);
+     }
 
     private function disk(): Filesystem
     {
