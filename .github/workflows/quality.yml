@@ -103,7 +103,7 @@ jobs:
       - run: php artisan migrate --force
       - run: php artisan test --coverage --min=80
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v7
         with:
           files: ./coverage.xml
           fail_ci_if_error: false
