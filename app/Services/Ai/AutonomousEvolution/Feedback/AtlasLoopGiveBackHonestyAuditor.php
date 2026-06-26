@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution\Feedback;
 
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use DateInterval;
 use DateTimeImmutable;
 use Symfony\Component\Process\Process;
@@ -100,7 +101,7 @@ class AtlasLoopGiveBackHonestyAuditor
      */
     private function allowedFiles(string $packetId): array
     {
-        $queue = $this->queue ?? new AgentControlPlaneTaskPacketQueueRepository;
+        $queue = $this->queue ?? new AgentControlPlaneTaskPacketQueueRepository(AtlasTaskServingStack::disk());
         $record = $queue->get($packetId);
         if (! is_array($record) || (bool) ($record['corrupt'] ?? false)) {
             return [];

@@ -6,6 +6,7 @@ namespace Tests\Unit\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\Feedback\AtlasLoopGiveBackHonestyAuditor;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -101,6 +102,39 @@ final class AtlasLoopGiveBackHonestyAuditorTest extends TestCase
         $this->assertSame('unverifiable', $result[0]['verdict']);
         $this->assertSame('other', $result[0]['reason_category']);
         $this->assertSame('no_evidence', $result[0]['evidence_pointer']);
+    }
+
+    public function test_serving_disk_allowed_files_are_found_without_injected_queue(): void
+    {
+        config()->set('atlas.task_serving.queue_disk', 'atlas-testing-disk');
+        Storage::fake('local');
+        Storage::fake(AtlasTaskServingStack::disk());
+
+        AtlasTaskServingStack::queueRepo()->enqueue($this->packet('serving-1', ['app/Loop/Served.php']));
+
+        $auditor = new AtlasLoopGiveBackHonestyAuditor(
+            new class
+            {
+                public function recentOutcomes(int $limit = 200): array
+                {
+                    return [[
+                        'packet_id' => 'serving-1',
+                        'packet_class' => 'loop',
+                        'outcome' => 'give_back',
+                        'reason' => 'wrong_path',
+                        'worker' => 'worker-d',
+                        'recorded_at' => '2026-06-24T01:00:00+00:00',
+                    ]];
+                }
+            },
+            null,
+            static fn (array $allowedFiles, string $recordedAt, int $windowHours): array => []
+        );
+
+        $result = $auditor->audit();
+
+        $this->assertSame('serving-1', $result[0]['packet_id']);
+        $this->assertSame('honest', $result[0]['verdict']);
     }
 
     private function readerFixture(): object
