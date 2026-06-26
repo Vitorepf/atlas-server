@@ -1283,20 +1283,7 @@ final class AgentControlPlaneChainIntegrityAuditService
      */
     private function capabilityGaps(array $deepChain, array $sliceReports): array
     {
-        $gaps = [];
-        foreach ($sliceReports as $index => $report) {
-            $checks = (array) ($report['checks'] ?? []);
-            foreach (['capability_contract_registered', 'capability_preflight_registered', 'capability_implementation_packet_registered', 'capability_invoker_service_registered', 'capability_status_projection_registered'] as $key) {
-                if (($checks[$key] ?? false) !== true) {
-                    $gaps[] = [
-                        'slice_key' => $deepChain[$index]['slice_key'] ?? '',
-                        'capability_check' => $key,
-                    ];
-                }
-            }
-        }
-
-        return $gaps;
+        return ChainIntegrity\AgentControlPlaneGapCollector::capabilityGaps($deepChain, $sliceReports);
     }
 
     /**
@@ -1305,21 +1292,7 @@ final class AgentControlPlaneChainIntegrityAuditService
      */
     private function collectInvokerGaps(array $sliceReports): array
     {
-        $gaps = [];
-        foreach ($sliceReports as $report) {
-            $checks = (array) ($report['checks'] ?? []);
-            if (($checks['invoker_class_exists'] ?? false) !== true || ($checks['invoker_prepare_method_exists'] ?? false) !== true) {
-                $gaps[] = [
-                    'slice_key' => (string) ($report['slice_key'] ?? ''),
-                    'invoker_class' => (string) ($report['invoker_class'] ?? ''),
-                    'prepare_method' => (string) ($report['prepare_method'] ?? ''),
-                    'invoker_class_exists' => (bool) ($checks['invoker_class_exists'] ?? false),
-                    'invoker_prepare_method_exists' => (bool) ($checks['invoker_prepare_method_exists'] ?? false),
-                ];
-            }
-        }
-
-        return $gaps;
+        return ChainIntegrity\AgentControlPlaneGapCollector::collectInvokerGaps($sliceReports);
     }
 
     /**
