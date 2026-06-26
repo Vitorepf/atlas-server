@@ -2,12 +2,16 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+
+use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 /**
  * Reconciles normalized cost events against expected task/run pairs without
  * importing, persisting, or querying any external billing system.
  */
 final class AgentControlPlaneCostImportReconciliationDryRun
 {
+    use KsortsArraysByReference;
+
     /**
      * @param  list<array<string, mixed>>  $normalizedEvents
      * @param  list<array<string, mixed>>  $expectedRefs
@@ -56,20 +60,7 @@ final class AgentControlPlaneCostImportReconciliationDryRun
     {
         unset($payload['reconciliation_dry_run_hash']);
 
-        return hash('sha256', (string) json_encode($this->ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        return hash('sha256', (string) json_encode($this->ksortRecursiveByReference($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
-    private function ksortRecursive(array $value): array
-    {
-        foreach ($value as $key => $entry) {
-            if (is_array($entry)) {
-                $value[$key] = $this->ksortRecursive($entry);
-            }
-        }
-        if ($value !== [] && array_keys($value) !== range(0, count($value) - 1)) {
-            ksort($value);
-        }
-
-        return $value;
-    }
 }

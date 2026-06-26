@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Active\Depth;
 
+
+use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 use RuntimeException;
 
 /**
@@ -20,6 +22,8 @@ use RuntimeException;
  */
 final class AtlasCortexCounterfactualHypothesisLedger
 {
+    use KsortsArraysByReference;
+
     public const FORBIDDEN_KEYS = ['score', 'grade', 'rating', 'quality'];
 
     private static ?string $rootOverride = null;
@@ -112,7 +116,7 @@ final class AtlasCortexCounterfactualHypothesisLedger
             'snapshot_sha' => $row['snapshot_sha'] ?? '',
             'steps_json' => $row['steps_json'] ?? [],
         ];
-        $this->ksortRecursive($canonical);
+        $this->ksortRecursiveByReference($canonical);
 
         return hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
@@ -181,13 +185,4 @@ final class AtlasCortexCounterfactualHypothesisLedger
     /**
      * @param  array<string,mixed>  $arr
      */
-    private function ksortRecursive(array &$arr): void
-    {
-        ksort($arr);
-        foreach ($arr as &$v) {
-            if (is_array($v)) {
-                $this->ksortRecursive($v);
-            }
-        }
-    }
 }

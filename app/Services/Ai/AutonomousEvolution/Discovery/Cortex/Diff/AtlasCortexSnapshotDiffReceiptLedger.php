@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Diff;
 
+
+use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 /**
  * Append-only auditable record of every diff computed by AtlasCortexSnapshotDiffEngine.
  *
@@ -23,6 +25,8 @@ namespace App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Diff;
  */
 final class AtlasCortexSnapshotDiffReceiptLedger
 {
+    use KsortsArraysByReference;
+
     public const SCHEMA = 'atlas.cortex.snapshot_diff_receipt.v1';
 
     private static ?string $rootOverride = null;
@@ -86,7 +90,7 @@ final class AtlasCortexSnapshotDiffReceiptLedger
     {
         $structural = $diff;
         unset($structural['prose']);
-        $this->ksortRecursive($structural);
+        $this->ksortRecursiveByReference($structural);
 
         return hash('sha256', (string) json_encode($structural, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
@@ -176,13 +180,4 @@ final class AtlasCortexSnapshotDiffReceiptLedger
     /**
      * @param  array<string,mixed>  $arr
      */
-    private function ksortRecursive(array &$arr): void
-    {
-        ksort($arr);
-        foreach ($arr as &$v) {
-            if (is_array($v)) {
-                $this->ksortRecursive($v);
-            }
-        }
-    }
 }

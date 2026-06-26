@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+
+use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 
@@ -14,6 +16,8 @@ use Illuminate\Support\Str;
  */
 final class AgentControlPlaneTerminalLoopOperationalProofService
 {
+    use KsortsArraysByReference;
+
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_terminal_loop_operational_proof.v1';
 
     public const MODE = 'local_agent_control_plane_terminal_loop_operational_proof';
@@ -991,8 +995,4 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
     }
 
     /** @param array<string, mixed> $value */
-    private function ksortRecursive(array $value): array
-    {
-        return TerminalLoopProof\TerminalLoopProofCanonicalizer::ksortRecursive($value);
-    }
 }

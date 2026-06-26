@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\LiveCycle\Nesting;
 
+
+use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 /**
  * Folds a completed child sub-cycle's outcome back into the parent phase as FACTs only.
  * Atlas-floor I-17/I-18: brain-as-facts — REFUSE any scalar score/grade/rank/rating/quality_score.
@@ -11,6 +13,8 @@ namespace App\Services\Ai\AutonomousEvolution\LiveCycle\Nesting;
  */
 final class AtlasLoopSubCycleResultMerger
 {
+    use KsortsArraysByReference;
+
     public const FORBIDDEN_SCALAR_KEYS = [
         'score',
         'grade',
@@ -78,7 +82,7 @@ final class AtlasLoopSubCycleResultMerger
      */
     private function digest(array $payload): string
     {
-        $this->ksortRecursive($payload);
+        $this->ksortRecursiveByReference($payload);
 
         return 'sha256:'.hash('sha256', (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
@@ -86,15 +90,6 @@ final class AtlasLoopSubCycleResultMerger
     /**
      * @param  array<string,mixed>  $arr
      */
-    private function ksortRecursive(array &$arr): void
-    {
-        ksort($arr, SORT_STRING);
-        foreach ($arr as &$v) {
-            if (is_array($v)) {
-                $this->ksortRecursive($v);
-            }
-        }
-    }
 
     private function resolveClock(): string
     {

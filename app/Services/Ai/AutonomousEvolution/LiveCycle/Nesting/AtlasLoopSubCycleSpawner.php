@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\LiveCycle\Nesting;
 
+
+use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 /**
  * Spawns bounded child sub-cycles for a parent phase (e.g. ARCHITECT requests a research
  * mini-cycle). Pure service: no I/O on construct, all persistence is left to downstream
@@ -11,6 +13,8 @@ namespace App\Services\Ai\AutonomousEvolution\LiveCycle\Nesting;
  */
 final class AtlasLoopSubCycleSpawner
 {
+    use KsortsArraysByReference;
+
     public const DEFAULT_MAX_DEPTH = 2;
 
     /**
@@ -86,20 +90,11 @@ final class AtlasLoopSubCycleSpawner
      */
     private function scopeDigest(array $scope): string
     {
-        $this->ksortRecursive($scope);
+        $this->ksortRecursiveByReference($scope);
 
         return 'sha256:'.hash('sha256', (string) json_encode($scope, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
-    private function ksortRecursive(array &$arr): void
-    {
-        ksort($arr, SORT_STRING);
-        foreach ($arr as &$v) {
-            if (is_array($v)) {
-                $this->ksortRecursive($v);
-            }
-        }
-    }
 
     private function resolveMaxDepth(): int
     {

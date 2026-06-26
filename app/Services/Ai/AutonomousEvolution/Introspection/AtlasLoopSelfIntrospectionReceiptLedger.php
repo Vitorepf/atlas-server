@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Introspection;
 
+
+use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 use Carbon\Carbon;
 use RuntimeException;
 
@@ -24,6 +26,8 @@ use RuntimeException;
  */
 final class AtlasLoopSelfIntrospectionReceiptLedger
 {
+    use KsortsArraysByReference;
+
     public const APPEND_ONLY_VIOLATION = 'APPEND_ONLY_VIOLATION';
 
     private static ?string $rootOverride = null;
@@ -187,7 +191,7 @@ final class AtlasLoopSelfIntrospectionReceiptLedger
     private function canonicalJson(array $data): string
     {
         $copy = $data;
-        $this->ksortRecursive($copy);
+        $this->ksortRecursiveByReference($copy);
 
         return (string) json_encode($copy, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
@@ -195,15 +199,6 @@ final class AtlasLoopSelfIntrospectionReceiptLedger
     /**
      * @param  array<string,mixed>  $arr
      */
-    private function ksortRecursive(array &$arr): void
-    {
-        ksort($arr);
-        foreach ($arr as &$v) {
-            if (is_array($v)) {
-                $this->ksortRecursive($v);
-            }
-        }
-    }
 
     private function nowUtc(): string
     {

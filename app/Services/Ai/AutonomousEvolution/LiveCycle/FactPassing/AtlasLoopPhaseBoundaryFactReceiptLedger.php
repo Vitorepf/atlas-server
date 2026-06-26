@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\LiveCycle\FactPassing;
 
+
+use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 /**
  * Append-only JSONL ledger of every phase-boundary fact passing event. Records validation outcome
  * and a deterministic fact_hash so two records of the same payload yield identical hashes.
@@ -13,6 +15,8 @@ namespace App\Services\Ai\AutonomousEvolution\LiveCycle\FactPassing;
  */
 final class AtlasLoopPhaseBoundaryFactReceiptLedger
 {
+    use KsortsArraysByReference;
+
     public function __construct(
         private readonly AtlasLoopPhaseBoundaryFactValidator $validator,
         private readonly ?string $ledgerPathOverride = null,
@@ -107,7 +111,7 @@ final class AtlasLoopPhaseBoundaryFactReceiptLedger
     public function factHash(array $fact): string
     {
         $canonical = $fact;
-        $this->ksortRecursive($canonical);
+        $this->ksortRecursiveByReference($canonical);
 
         return hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
@@ -115,13 +119,4 @@ final class AtlasLoopPhaseBoundaryFactReceiptLedger
     /**
      * @param  array<string,mixed>  $arr
      */
-    private function ksortRecursive(array &$arr): void
-    {
-        ksort($arr);
-        foreach ($arr as &$v) {
-            if (is_array($v)) {
-                $this->ksortRecursive($v);
-            }
-        }
-    }
 }
