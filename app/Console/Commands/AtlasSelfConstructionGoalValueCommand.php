@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\GoalValue\AtlasGoalValueAntiProxyGate;
 use App\Services\Ai\SelfConstruction\GoalValue\AtlasGoalValueDecisionPolicy;
+use App\Services\Ai\SelfConstruction\GoalValue\AtlasGoalValueOutcomeEvidenceEvaluator;
 use App\Services\Ai\SelfConstruction\GoalValue\AtlasGoalValueRealLeverageContract;
 use Illuminate\Console\Command;
 use Throwable;
@@ -26,14 +27,15 @@ final class AtlasSelfConstructionGoalValueCommand extends Command
 
     public const EXIT_USAGE = 2;
 
-    protected $signature = 'atlas:self-construction:goal-value {action : contract|anti-proxy|evidence|decide} {--facts= : path to a JSON facts payload} {--json}';
+    protected $signature = 'atlas:self-construction:goal-value {action : contract|anti-proxy|evidence|decide|outcome-evidence} {--facts= : path to a JSON facts payload} {--json}';
 
-    protected $description = 'Read-only goal-value CLI: contract | anti-proxy | evidence | decide.';
+    protected $description = 'Read-only goal-value CLI: contract | anti-proxy | evidence | decide | outcome-evidence.';
 
     public function handle(
         AtlasGoalValueRealLeverageContract $contract,
         AtlasGoalValueAntiProxyGate $gate,
         AtlasGoalValueDecisionPolicy $policy,
+        AtlasGoalValueOutcomeEvidenceEvaluator $evaluator,
     ): int {
         $action = (string) $this->argument('action');
         $facts = $this->loadFacts();
@@ -50,6 +52,7 @@ final class AtlasSelfConstructionGoalValueCommand extends Command
                 (array) ($facts['anti_proxy_verdict'] ?? []),
                 (array) ($facts['verification'] ?? []),
             ),
+            'outcome-evidence' => $evaluator->evaluate($facts),
             default => null,
         };
         if ($payload === null) {

@@ -113,4 +113,48 @@ final class AtlasSelfConstructionGoalValueCommandTest extends TestCase
         [$exit] = $this->runCmd(['action' => 'BOGUS', '--facts' => $path]);
         $this->assertSame(AtlasSelfConstructionGoalValueCommand::EXIT_USAGE, $exit);
     }
+
+    public function test_outcome_evidence_evaluates_facts_via_value_evaluator(): void
+    {
+        // Wire the outcome-evidence verb to the AtlasGoalValueOutcomeEvidenceEvaluator.
+        // The evaluator returns a value_facts envelope; the CLI must emit it as-is.
+        $path = $this->fixture([
+            'receipts' => [
+                ['kind' => 'new_capability', 'ref' => 'cap-1', 'ok' => true],
+            ],
+            'gates' => [
+                ['kind' => 'regression_test', 'ref' => 'gate-1', 'passing' => true],
+            ],
+            'verification' => [
+                'ref' => 'ver-1',
+                'server_side_green' => true,
+            ],
+            'learning' => [
+                ['kind' => 'autonomy_lift', 'ref' => 'learn-1'],
+            ],
+        ]);
+        [$exit, $output] = $this->runCmd(['action' => 'outcome-evidence', '--facts' => $path, '--json' => true]);
+        $payload = json_decode(trim($output), true);
+        $this->assertSame(AtlasSelfConstructionGoalValueCommand::EXIT_OK, $exit);
+        $this->assertSame('atlas.goalvalue.outcome_evidence.v1', $payload['schema']);
+        $this->assertArrayHasKey('value_facts', $payload);
+        $this->assertCount(5, $payload['value_facts']);
+        // Sorted alphabetically by `class`; first is 'autonomy_lift'.
+        $this->assertSame('autonomy_lift', $payload['value_facts'][0]['class']);
+        // The new_capability receipt was found → capability_lift is confirmed.
+        $byClass = [];
+        foreach ($payload['value_facts'] as $fact) {
+            $byClass[$fact['class']] = $fact;
+        }
+        $this->assertSame('confirmed', $byClass['capability_lift']['status']);
+        $this->assertContains('cap-1', $byClass['capability_lift']['evidence_refs']);
+    }
+
+    public function test_outcome_evidence_fails_closed_on_missing_facts(): void
+    {
+        // No --facts file ⇒ fail-closed (exit=2) just like the other verbs.
+        [$exit] = $this->runCmd(['action' => 'outcome-evidence', '--facts' => '/nonexistent.json']);
+        $this->assertSame(AtlasSelfConstructionGoalValueCommand::EXIT_USAGE, $exit);
+    }
+
 }
