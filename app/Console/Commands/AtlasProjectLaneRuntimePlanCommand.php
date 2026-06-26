@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\MultiProject\AtlasProjectLaneAdmissionPolicy;
 use App\Services\Ai\SelfConstruction\MultiProject\AtlasProjectLaneContextFreshnessGate;
+use App\Services\Ai\SelfConstruction\MultiProject\AtlasProjectLaneIsolationSentinel;
 use App\Services\Ai\SelfConstruction\MultiProject\AtlasProjectLaneKnowledgeSyncPolicy;
 use App\Services\Ai\SelfConstruction\MultiProject\AtlasProjectLaneQueueNamespacePolicy;
 use App\Services\Ai\SelfConstruction\MultiProject\AtlasProjectLaneReleaseGovernor;
@@ -88,6 +89,12 @@ final class AtlasProjectLaneRuntimePlanCommand extends Command
             'lane_manifest' => ['project_id' => (string) ($manifest['project_id'] ?? ''), 'allowed_scope_roots' => (array) ($manifest['allowed_scope_roots'] ?? [])],
             'touched_paths' => is_array($manifest['touched_paths'] ?? null) ? $manifest['touched_paths'] : [],
         ]);
+        $isolationSentinel = $this->app()->make(AtlasProjectLaneIsolationSentinel::class)->evaluate([
+            'project_id' => (string) ($manifest['project_id'] ?? ''),
+            'namespace_facts' => is_array($namespace) ? $namespace : null,
+            'receipt_facts' => is_array($manifest['receipt_facts'] ?? null) ? $manifest['receipt_facts'] : null,
+            'leak_detector_verdict' => is_array($manifest['leak_detector_verdict'] ?? null) ? $manifest['leak_detector_verdict'] : null,
+        ]);
 
         return [
             'status' => 'ok',
@@ -96,6 +103,7 @@ final class AtlasProjectLaneRuntimePlanCommand extends Command
             'context_freshness' => $freshness,
             'verification_policy' => $verification,
             'knowledge_sync_plan' => $knowledgeSync,
+            'isolation_sentinel' => $isolationSentinel,
         ];
     }
 

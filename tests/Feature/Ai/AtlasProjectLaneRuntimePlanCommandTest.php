@@ -80,6 +80,15 @@ final class AtlasProjectLaneRuntimePlanCommandTest extends TestCase
         $this->assertSame('ok', $p['status']);
         $this->assertTrue($p['admission']['admitted']);
         $this->assertSame('demo', $p['namespace']['project_id'] ?? null);
+
+        // The plan now wires the AtlasProjectLaneIsolationSentinel against the
+        // namespace facts. With only namespace_facts present (no receipt_facts
+        // or leak_detector_verdict yet) the sentinel returns status=hold and
+        // passed=false (fail-open). The block MUST carry the same project_id.
+        $this->assertArrayHasKey('isolation_sentinel', $p);
+        $this->assertSame('demo', $p['isolation_sentinel']['project_id']);
+        $this->assertSame('hold', $p['isolation_sentinel']['status']);
+        $this->assertFalse($p['isolation_sentinel']['passed']);
     }
 
     public function test_plan_with_malformed_manifest_yields_admission_admitted_false(): void
