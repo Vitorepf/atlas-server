@@ -1496,27 +1496,27 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
 
     private function terminalLoopOperationalProofCommand(): string
     {
-        return 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --json';
+        return OperatorEvidence\TerminalLoopOperationalProofCommandFactory::terminalLoopOperationalProofCommand();
     }
 
     private function terminalLoopOperationalProofBindingPersistCommand(): string
     {
-        return 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-operational-proof-status --persist-terminal-loop-operational-proof-binding --json';
+        return OperatorEvidence\TerminalLoopOperationalProofCommandFactory::terminalLoopOperationalProofBindingPersistCommand();
     }
 
     private function completionAuditWithTerminalLoopOperationalProofCommand(): string
     {
-        return 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@/path/to/terminal-loop-operational-proof-binding.json --json';
+        return OperatorEvidence\TerminalLoopOperationalProofCommandFactory::completionAuditWithTerminalLoopOperationalProofCommand();
     }
 
     private function completionAuditWithCanonicalTerminalLoopOperationalProofCommand(): string
     {
-        return 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --agent-control-plane-terminal-loop-operational-proof-json=@'.$this->terminalLoopOperationalProofBindingArtifactPath().' --json';
+        return OperatorEvidence\TerminalLoopOperationalProofCommandFactory::completionAuditWithCanonicalTerminalLoopOperationalProofCommand();
     }
 
     private function terminalLoopOperationalProofBindingArtifactPath(): string
     {
-        return 'storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json';
+        return OperatorEvidence\TerminalLoopOperationalProofCommandFactory::terminalLoopOperationalProofBindingArtifactPath();
     }
 
     /**
