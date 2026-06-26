@@ -215,17 +215,7 @@ final class AgentControlPlaneScopeLockPlanner
      */
     private function recursivelyKsort(array $value): array
     {
-        $isAssoc = $value !== [] && array_keys($value) !== range(0, count($value) - 1);
-        foreach ($value as $key => $entry) {
-            if (is_array($entry)) {
-                $value[$key] = $this->recursivelyKsort($entry);
-            }
-        }
-        if ($isAssoc) {
-            ksort($value);
-        }
-
-        return $value;
+        return ReadinessHash::ksortRecursive($value);
     }
 
     /**
