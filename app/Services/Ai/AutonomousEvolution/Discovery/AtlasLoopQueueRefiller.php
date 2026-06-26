@@ -831,36 +831,16 @@ final class AtlasLoopQueueRefiller implements \App\Services\Ai\AutonomousEvoluti
         return $ok;
     }
 
-    /**
-     * @param  array<string,mixed>  $spec
-     */
+    /** @param array<string,mixed> $spec */
     private function supplySpecConflictPath(array $spec): string
     {
-        $members = array_values(array_filter((array) ($spec['members'] ?? []), 'is_string'));
-        $first = (string) ($members[0] ?? '');
-
-        return $first !== '' ? $first : $this->supplySpecTargetPath($spec);
+        return Supply\AtlasLoopRefillerSupplySpecPathResolver::conflictPath($spec);
     }
 
-    /**
-     * @param  array<string,mixed>  $spec
-     */
+    /** @param array<string,mixed> $spec */
     private function supplySpecTargetPath(array $spec): string
     {
-        $payload = is_array($spec['payload'] ?? null) ? $spec['payload'] : [];
-        $expectedPath = ltrim(trim((string) ($payload['expected_path'] ?? '')), '/');
-        if ($expectedPath !== '') {
-            return $expectedPath;
-        }
-
-        $capability = trim((string) ($payload['capability'] ?? ''));
-        if ($capability !== '' && preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $capability) === 1) {
-            return 'app/Services/Ai/AutonomousEvolution/'.$capability.'.php';
-        }
-
-        $members = array_values(array_filter((array) ($spec['members'] ?? []), 'is_string'));
-
-        return ltrim((string) ($members[0] ?? ''), '/');
+        return Supply\AtlasLoopRefillerSupplySpecPathResolver::targetPath($spec);
     }
 
     private function supplyLaneCoordinator(): AtlasLoopRefillerSupplyLaneCoordinator
