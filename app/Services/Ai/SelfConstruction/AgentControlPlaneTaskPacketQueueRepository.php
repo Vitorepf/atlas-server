@@ -881,18 +881,7 @@ final class AgentControlPlaneTaskPacketQueueRepository
      */
     private function registerInRegistry(array $record): void
     {
-        $registry = $this->loadRegistry();
-        $registry['entries'][] = [
-            'task_packet_id' => (string) ($record['task_packet_id'] ?? ''),
-            'task_packet_hash' => (string) ($record['task_packet_hash'] ?? ''),
-            'enqueued_at' => (string) ($record['enqueued_at'] ?? ''),
-            'updated_at' => (string) ($record['updated_at'] ?? ''),
-            'status' => (string) ($record['status'] ?? ''),
-            'priority' => (int) ($record['priority'] ?? 0),
-            'tags' => (array) ($record['tags'] ?? []),
-        ];
-        $registry = $this->capRegistry($registry, self::DEFAULT_REGISTRY_CAP);
-        $this->saveRegistry($registry);
+        $this->registryIndexStore()->registerInRegistry($record);
     }
 
     /**
@@ -900,33 +889,7 @@ final class AgentControlPlaneTaskPacketQueueRepository
      */
     private function updateRegistryEntry(string $taskPacketId, array $record, ?string $packetHashOverride = null): void
     {
-        $registry = $this->loadRegistry();
-        $entries = (array) ($registry['entries'] ?? []);
-        $found = false;
-        foreach ($entries as $i => $entry) {
-            if ((string) ($entry['task_packet_id'] ?? '') === $taskPacketId) {
-                $entries[$i]['status'] = (string) ($record['status'] ?? '');
-                $entries[$i]['updated_at'] = (string) ($record['updated_at'] ?? '');
-                if ($packetHashOverride !== null) {
-                    $entries[$i]['task_packet_hash'] = $packetHashOverride;
-                }
-                $found = true;
-                break;
-            }
-        }
-        if (! $found) {
-            $entries[] = [
-                'task_packet_id' => $taskPacketId,
-                'task_packet_hash' => (string) ($record['task_packet_hash'] ?? ''),
-                'enqueued_at' => (string) ($record['enqueued_at'] ?? ''),
-                'updated_at' => (string) ($record['updated_at'] ?? ''),
-                'status' => (string) ($record['status'] ?? ''),
-                'priority' => (int) ($record['priority'] ?? 0),
-                'tags' => (array) ($record['tags'] ?? []),
-            ];
-        }
-        $registry['entries'] = $entries;
-        $this->saveRegistry($registry);
+        $this->registryIndexStore()->updateRegistryEntry($taskPacketId, $record, $packetHashOverride);
     }
 
     /**
@@ -934,21 +897,7 @@ final class AgentControlPlaneTaskPacketQueueRepository
      */
     private function loadRegistry(): array
     {
-        $disk = $this->disk();
-        if (! $disk->exists(self::REGISTRY_PATH)) {
-            return ['entries' => []];
-        }
-        $raw = (string) $disk->get(self::REGISTRY_PATH);
-        try {
-            $decoded = json_decode($raw, true, flags: JSON_THROW_ON_ERROR);
-        } catch (Throwable) {
-            return ['entries' => [], 'corrupt' => true];
-        }
-        if (! is_array($decoded) || ! isset($decoded['entries']) || ! is_array($decoded['entries'])) {
-            return ['entries' => [], 'corrupt' => true];
-        }
-
-        return $decoded;
+        return $this->registryIndexStore()->loadRegistry();
     }
 
     /**
@@ -956,44 +905,24 @@ final class AgentControlPlaneTaskPacketQueueRepository
      */
     private function saveRegistry(array $registry): void
     {
-        $this->disk()->put(self::REGISTRY_PATH, $this->encode($registry));
+        $this->registryIndexStore()->saveRegistry($registry);
     }
 
     /**
      * @param  array<string, mixed>  $registry
      * @return array<string, mixed>
      */
-    /**
-     * Bound the registry WITHOUT ever losing live work. The old FIFO `array_slice(-$cap)` evicted the OLDEST
-     * entries regardless of status — so once the queue passed the cap, claimable tasks silently fell out of the
-     * index and became invisible to list()/next()/health (confirmed live: 576 task files, 201 indexed → 323
-     * claimable tasks lost). The cap exists to bound TERMINAL history, not to drop servable work. So: keep ALL
-     * non-terminal entries (queued/claimable/claimed/lease_expired/released/blocked) always; evict only the
-     * oldest TERMINAL (completed_dry_run/cancelled) entries to fit the cap. If live work alone exceeds the cap,
-     * the registry grows past it (correctness over a fixed size) — never a lost claimable task.
-     */
     private function capRegistry(array $registry, int $cap): array
     {
-        $entries = array_values((array) ($registry['entries'] ?? []));
-        if ($cap > 0 && count($entries) > $cap) {
-            $terminal = ['completed_dry_run', 'cancelled'];
-            $live = [];
-            $done = [];
-            foreach ($entries as $entry) {
-                if (in_array((string) ($entry['status'] ?? ''), $terminal, true)) {
-                    $done[] = $entry;
-                } else {
-                    $live[] = $entry;
-                }
-            }
-            $roomForTerminal = max(0, $cap - count($live));
-            $done = $roomForTerminal > 0 ? array_slice($done, -$roomForTerminal) : [];
-            $entries = array_merge($live, $done);
-        }
-        $registry['entries'] = $entries;
-        unset($registry['corrupt']);
+        return $this->registryIndexStore()->capRegistry($registry, $cap);
+    }
 
-        return $registry;
+    private function registryIndexStore(): TaskQueue\TaskQueueRegistryIndexStore
+    {
+        return $this->registryIndexStore ??= new TaskQueue\TaskQueueRegistryIndexStore(
+            $this->disk(),
+            $this->canonicalizer(),
+        );
     }
 
     /**
