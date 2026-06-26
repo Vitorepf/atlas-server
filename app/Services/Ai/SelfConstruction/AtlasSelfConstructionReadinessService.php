@@ -82703,14 +82703,7 @@ final class AtlasSelfConstructionReadinessService
 
     private function buildTaskQueueOrchestrator(): AgentControlPlaneTaskQueueOrchestrator
     {
-        return new AgentControlPlaneTaskQueueOrchestrator(
-            new AgentControlPlaneTaskPacketBuilder,
-            new AgentControlPlaneScopeLockRuntimeValidator,
-            new AgentControlPlaneTaskPacketQueueRepository,
-            new AgentControlPlaneClaimLeaseRepository,
-            new AgentControlPlaneEvidenceLedgerDryRun,
-            new AgentControlPlaneContinuationSummaryBuilder,
-        );
+        return Readiness\ReadinessAgentControlPlaneOrchestratorFactory::buildTaskQueueOrchestrator();
     }
 
     /**
@@ -82810,19 +82803,7 @@ final class AtlasSelfConstructionReadinessService
 
     private function buildTaskAutoReplenishmentService(): AgentControlPlaneTaskAutoReplenishmentService
     {
-        $queue = new AgentControlPlaneTaskPacketQueueRepository;
-
-        return new AgentControlPlaneTaskAutoReplenishmentService(
-            new AgentControlPlaneTaskQueueOrchestrator(
-                new AgentControlPlaneTaskPacketBuilder,
-                new AgentControlPlaneScopeLockRuntimeValidator,
-                $queue,
-                new AgentControlPlaneClaimLeaseRepository,
-                new AgentControlPlaneEvidenceLedgerDryRun,
-                new AgentControlPlaneContinuationSummaryBuilder,
-            ),
-            $queue,
-        );
+        return Readiness\ReadinessAgentControlPlaneOrchestratorFactory::buildTaskAutoReplenishmentService();
     }
 
     /**
