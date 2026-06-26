@@ -125,4 +125,172 @@ final class AtlasSelfConstructionAutonomousRuntimeCommandTest extends TestCase
         $this->assertNotSame(0, $exit);
         $this->assertSame('unknown_action', $p['status']);
     }
+
+    public function test_heartbeat_ledger_dry_run_without_ledger(): void
+    {
+        $factsFile = $this->writeFactsFile([
+            'heartbeat' => $this->validHeartbeat(),
+        ]);
+
+        Artisan::call('atlas:self-construction:runtime', [
+            'action' => 'heartbeat-ledger',
+            '--facts' => $factsFile,
+            '--json' => true,
+        ]);
+        $payload = json_decode(trim(Artisan::output()), true);
+
+        $this->assertSame('dry_run', $payload['status']);
+        $this->assertArrayHasKey('heartbeat', $payload);
+    }
+
+    public function test_heartbeat_ledger_appends_via_validated_organ_when_payload_valid(): void
+    {
+        $ledgerPath = sys_get_temp_dir().'/autonomous-runtime-ledger-'.uniqid('', true).'.jsonl';
+        try {
+            $factsFile = $this->writeFactsFile([
+                'heartbeat' => $this->validHeartbeat(),
+            ]);
+
+            $exit = Artisan::call('atlas:self-construction:runtime', [
+                'action' => 'heartbeat-ledger',
+                '--facts' => $factsFile,
+                '--ledger' => $ledgerPath,
+                '--json' => true,
+            ]);
+            $payload = json_decode(trim(Artisan::output()), true);
+
+            $this->assertSame(0, $exit);
+            $this->assertSame('ok', $payload['status']);
+            $this->assertTrue($payload['appended']);
+            $this->assertSame($ledgerPath, $payload['wrote']);
+            $this->assertFileExists($ledgerPath);
+
+            $row = json_decode(trim((string) file_get_contents($ledgerPath)), true);
+            $this->assertSame('atlas.autonomous_runtime.heartbeat.v1', $row['schema_version']);
+            $this->assertSame('cycle-7', $row['cycle_id']);
+            $this->assertSame('running', $row['state']);
+            $this->assertSame('proceed', $row['decision']);
+            $this->assertSame('safe', $row['safety_verdict']);
+            $this->assertSame('plan-hash-xyz', $row['plan_hash']);
+            $this->assertSame(['ref-a', 'ref-b'], $row['evidence_refs']);
+            $this->assertIsInt($row['ts_unix']);
+        } finally {
+            @unlink($ledgerPath);
+        }
+    }
+
+    public function test_heartbeat_ledger_blocked_when_required_fields_missing(): void
+    {
+        $ledgerPath = sys_get_temp_dir().'/autonomous-runtime-ledger-'.uniqid('', true).'.jsonl';
+        try {
+            // Missing ts_unix, plan_hash, evidence_refs.
+            $factsFile = $this->writeFactsFile([
+                'heartbeat' => [
+                    'cycle_id' => 'cycle-7',
+                    'state' => 'running',
+                    'decision' => 'proceed',
+                    'safety_verdict' => 'safe',
+                ],
+            ]);
+
+            Artisan::call('atlas:self-construction:runtime', [
+                'action' => 'heartbeat-ledger',
+                '--facts' => $factsFile,
+                '--ledger' => $ledgerPath,
+                '--json' => true,
+            ]);
+            $payload = json_decode(trim(Artisan::output()), true);
+
+            $this->assertSame('heartbeat_invalid', $payload['status']);
+            $this->assertNotEmpty($payload['blockers']);
+            // The file must NEVER be touched on a blocked verdict.
+            $this->assertFileDoesNotExist($ledgerPath);
+        } finally {
+            @unlink($ledgerPath);
+        }
+    }
+
+    public function test_heartbeat_ledger_blocked_when_evidence_refs_not_list(): void
+    {
+        $ledgerPath = sys_get_temp_dir().'/autonomous-runtime-ledger-'.uniqid('', true).'.jsonl';
+        try {
+            $factsFile = $this->writeFactsFile([
+                'heartbeat' => array_merge($this->validHeartbeat(), ['evidence_refs' => 'not-a-list']),
+            ]);
+
+            Artisan::call('atlas:self-construction:runtime', [
+                'action' => 'heartbeat-ledger',
+                '--facts' => $factsFile,
+                '--ledger' => $ledgerPath,
+                '--json' => true,
+            ]);
+            $payload = json_decode(trim(Artisan::output()), true);
+
+            $this->assertSame('heartbeat_invalid', $payload['status']);
+            $this->assertContains('evidence_refs_not_list', $payload['blockers']);
+        } finally {
+            @unlink($ledgerPath);
+        }
+    }
+
+    public function test_inspect_verb_lists_heartbeat_ledger_in_supported_verbs(): void
+    {
+        $exit = Artisan::call('atlas:self-construction:runtime', [
+            'action' => 'inspect',
+            '--json' => true,
+        ]);
+        $payload = json_decode(trim(Artisan::output()), true);
+
+        $this->assertSame(0, $exit);
+        $this->assertContains('heartbeat-ledger', $payload['verbs']);
+    }
+
+    public function test_heartbeat_ledger_without_facts_returns_usage_error(): void
+    {
+        $ledgerPath = sys_get_temp_dir().'/autonomous-runtime-ledger-'.uniqid('', true).'.jsonl';
+        $empty = tempnam(sys_get_temp_dir(), 'autonomous-runtime-empty-');
+
+        try {
+            Artisan::call('atlas:self-construction:runtime', [
+                'action' => 'heartbeat-ledger',
+                '--facts' => $empty,
+                '--ledger' => $ledgerPath,
+                '--json' => true,
+            ]);
+            $payload = json_decode(trim(Artisan::output()), true);
+
+            $this->assertSame('usage_error', $payload['status']);
+        } finally {
+            @unlink($empty);
+            @unlink($ledgerPath);
+        }
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function validHeartbeat(): array
+    {
+        return [
+            'cycle_id' => 'cycle-7',
+            'state' => 'running',
+            'decision' => 'proceed',
+            'safety_verdict' => 'safe',
+            'plan_hash' => 'plan-hash-xyz',
+            'evidence_refs' => ['ref-a', 'ref-b'],
+            'ts_unix' => time(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $facts
+     */
+    private function writeFactsFile(array $facts): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'autonomous-runtime-facts-');
+        file_put_contents($path, (string) json_encode($facts, JSON_UNESCAPED_SLASHES));
+
+        return $path;
+    }
+
 }

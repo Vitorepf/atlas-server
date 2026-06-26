@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\SelfConstruction\AutonomousRuntime\AtlasAutonomousRuntimeHeartbeatLedger;
 use App\Services\Ai\SelfConstruction\AutonomousRuntime\AtlasAutonomousRuntimeOrganPipelineComposer;
 use App\Services\Ai\SelfConstruction\AutonomousRuntime\AtlasAutonomousRuntimeSafetyStopGate;
 use Illuminate\Console\Command;
@@ -23,7 +24,7 @@ use Throwable;
 final class AtlasSelfConstructionAutonomousRuntimeCommand extends Command
 {
     /** @var string */
-    protected $signature = 'atlas:self-construction:runtime {action : inspect|cycle|safety|heartbeat|plan} {--facts=} {--ledger=} {--json}';
+    protected $signature = 'atlas:self-construction:runtime {action : inspect|cycle|safety|heartbeat|heartbeat-ledger|plan} {--facts=} {--ledger=} {--json}';
 
     /** @var string */
     protected $description = 'Atlas-native autonomous runtime CLI (read-only / operator-visible).';
@@ -37,6 +38,7 @@ final class AtlasSelfConstructionAutonomousRuntimeCommand extends Command
             'safety' => $this->safety(),
             'plan' => $this->plan(),
             'heartbeat' => $this->heartbeat(),
+            'heartbeat-ledger' => $this->heartbeatLedger(),
             default => ['status' => 'unknown_action', 'action' => $action],
         };
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
@@ -51,7 +53,7 @@ final class AtlasSelfConstructionAutonomousRuntimeCommand extends Command
     {
         return [
             'status' => 'ok',
-            'verbs' => ['inspect', 'cycle', 'safety', 'heartbeat', 'plan'],
+            'verbs' => ['inspect', 'cycle', 'safety', 'heartbeat', 'heartbeat-ledger', 'plan'],
             'services' => [
                 AtlasAutonomousRuntimeOrganPipelineComposer::SCHEMA,
                 AtlasAutonomousRuntimeSafetyStopGate::SCHEMA,
@@ -149,6 +151,46 @@ final class AtlasSelfConstructionAutonomousRuntimeCommand extends Command
         }
 
         return ['status' => 'ok', 'wrote' => $ledgerPath, 'heartbeat' => $hb];
+    }
+
+    /**
+     * Validated heartbeat → ledger append. Unlike `heartbeat` (which hand-rolls
+     * fopen/flock and validates nothing), this verb routes the append through
+     * {@see AtlasAutonomousRuntimeHeartbeatLedger::append()}, which validates the
+     * required fields (cycle_id, state, decision, safety_verdict, plan_hash,
+     * evidence_refs, ts_unix) fail-closed and never touches the file on blockers.
+     *
+     * @return array<string,mixed>
+     */
+    private function heartbeatLedger(): array
+    {
+        $facts = $this->readJson('facts');
+        if (! is_array($facts) || ! isset($facts['heartbeat']) || ! is_array($facts['heartbeat'])) {
+            return ['status' => 'usage_error', 'reason' => '--facts JSON with heartbeat object required'];
+        }
+
+        $ledgerPath = (string) ($this->option('ledger') ?? '');
+        if ($ledgerPath === '') {
+            return ['status' => 'dry_run', 'heartbeat' => $facts['heartbeat']];
+        }
+
+        $verdict = $this->app()->make(AtlasAutonomousRuntimeHeartbeatLedger::class, ['path' => $ledgerPath])
+            ->append($facts['heartbeat']);
+
+        if (! ($verdict['appended'] ?? false)) {
+            return [
+                'status' => 'heartbeat_invalid',
+                'blockers' => $verdict['blockers'] ?? [],
+                'heartbeat' => $facts['heartbeat'],
+            ];
+        }
+
+        return [
+            'status' => 'ok',
+            'wrote' => $ledgerPath,
+            'appended' => true,
+            'heartbeat' => $facts['heartbeat'],
+        ];
     }
 
     /**
