@@ -33,6 +33,10 @@ final class AgentControlPlaneChainIntegrityAuditService
         $this->corridorAnalyzerInstance = $corridorAnalyzer ?? new AgentControlPlaneChainIntegrityCorridorAnalyzer;
     }
 
+    private ?AgentControlPlaneChainIntegritySurfaceAuditor $surfaceAuditorInstance = null;
+
+    private ?AgentControlPlaneChainIntegrityChainBuilder $chainBuilderInstance = null;
+
     /**
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
@@ -339,7 +343,7 @@ final class AgentControlPlaneChainIntegrityAuditService
      */
     private function canonicalDeepChain(): array
     {
-        return ChainIntegrity\AgentControlPlaneDeepChainCatalog::canonicalDeepChain();
+        return $this->chainBuilder()->canonicalDeepChain();
     }
 
     /**
@@ -347,21 +351,17 @@ final class AgentControlPlaneChainIntegrityAuditService
      */
     private function deepChainEntry(string $sliceKey, string $methodPrefix, string $invokerClass, string $prepareMethod, string $docBullet): array
     {
-        return ChainIntegrity\AgentControlPlaneDeepChainCatalog::deepChainEntry($sliceKey, $methodPrefix, $invokerClass, $prepareMethod, $docBullet);
+        return $this->chainBuilder()->deepChainEntry($sliceKey, $methodPrefix, $invokerClass, $prepareMethod, $docBullet);
     }
 
     private function stripDispatchPrefix(string $sliceKey): string
     {
-        return ChainIntegrity\AgentControlPlaneDeepChainCatalog::stripDispatchPrefix($sliceKey);
+        return $this->chainBuilder()->stripDispatchPrefix($sliceKey);
     }
 
     private function cliBaseForSlice(string $sliceKey): string
     {
-        if ($sliceKey === '') {
-            return '';
-        }
-
-        return 'agent-'.str_replace('_', '-', $sliceKey);
+        return $this->chainBuilder()->cliBaseForSlice($sliceKey);
     }
 
     /**
@@ -692,46 +692,7 @@ final class AgentControlPlaneChainIntegrityAuditService
      */
     private function buildShallowChain(array $currentCapability): array
     {
-        $suffixes = ['_contract', '_preflight', '_implementation_packet', '_invoker_service', '_status_projection'];
-        $candidates = [];
-        foreach ($currentCapability as $capability) {
-            if (! is_string($capability)) {
-                continue;
-            }
-            if (! str_starts_with($capability, 'automatic_dispatch_scheduler_one_shot_tick_')) {
-                continue;
-            }
-            foreach ($suffixes as $suffix) {
-                if (str_ends_with($capability, $suffix)) {
-                    $candidate = substr($capability, 0, -strlen($suffix));
-                    if ($candidate !== '') {
-                        $candidates[$candidate] = true;
-                    }
-                    break;
-                }
-            }
-        }
-
-        // A slice family is only canonical when *every* one of its five
-        // quintet members is registered in the capability list. This avoids
-        // false positives when a slice key legitimately ends in `_contract`
-        // (e.g. `post_start_receipt_contract`) and would otherwise be split
-        // into a shorter family without the full quintet.
-        $shallow = [];
-        foreach (array_keys($candidates) as $candidate) {
-            $allFive = true;
-            foreach ($suffixes as $suffix) {
-                if (! in_array($candidate.$suffix, $currentCapability, true)) {
-                    $allFive = false;
-                    break;
-                }
-            }
-            if ($allFive) {
-                $shallow[] = $candidate;
-            }
-        }
-
-        return array_values(array_unique($shallow));
+        return $this->chainBuilder()->buildShallowChain($currentCapability);
     }
 
     /**
@@ -1029,6 +990,11 @@ final class AgentControlPlaneChainIntegrityAuditService
     private function surfaceAuditor(): AgentControlPlaneChainIntegritySurfaceAuditor
     {
         return $this->surfaceAuditorInstance ??= new AgentControlPlaneChainIntegritySurfaceAuditor($this);
+    }
+
+    private function chainBuilder(): AgentControlPlaneChainIntegrityChainBuilder
+    {
+        return $this->chainBuilderInstance ??= new AgentControlPlaneChainIntegrityChainBuilder;
     }
 
     /**
