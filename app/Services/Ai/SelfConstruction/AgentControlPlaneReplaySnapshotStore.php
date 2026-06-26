@@ -7,6 +7,7 @@ use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Throwable;
+use App\Services\Ai\SelfConstruction\Support\EncodesPayloadAsPrettyJson;
 
 /**
  * Persists deterministic chain replay snapshots locally so the Agent Control
@@ -18,6 +19,7 @@ use Throwable;
  */
 final class AgentControlPlaneReplaySnapshotStore
 {
+    use EncodesPayloadAsPrettyJson;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_replay_snapshot.v1';
 
     public const MODE = 'read_only_agent_control_plane_replay_snapshot_store';
@@ -277,16 +279,6 @@ final class AgentControlPlaneReplaySnapshotStore
         return 'snap_'.(string) Str::ulid();
     }
 
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return (string) json_encode(
-            $payload,
-            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT,
-        );
-    }
 
     private function disk(): Filesystem
     {

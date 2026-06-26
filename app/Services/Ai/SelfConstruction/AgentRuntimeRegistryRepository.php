@@ -7,6 +7,7 @@ use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Throwable;
+use App\Services\Ai\SelfConstruction\Support\EncodesPayloadAsPrettyJson;
 
 /**
  * Persistent local registry of Agent Control Plane runtime agents.
@@ -23,6 +24,7 @@ use Throwable;
  */
 final class AgentRuntimeRegistryRepository
 {
+    use EncodesPayloadAsPrettyJson;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_runtime_registry.v1';
 
     public const MODE = 'persistent_local_agent_runtime_registry';
@@ -763,16 +765,6 @@ final class AgentRuntimeRegistryRepository
         ], $extra);
     }
 
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return (string) json_encode(
-            $payload,
-            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT,
-        );
-    }
 
     /**
      * @param  array<mixed, mixed>  $payload

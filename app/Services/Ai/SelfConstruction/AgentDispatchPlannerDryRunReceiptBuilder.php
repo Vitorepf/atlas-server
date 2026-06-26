@@ -7,6 +7,7 @@ use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Throwable;
+use App\Services\Ai\SelfConstruction\Support\EncodesPayloadAsPrettyJson;
 
 /**
  * Build and persist local dry-run dispatch receipts.
@@ -22,6 +23,7 @@ use Throwable;
  */
 final class AgentDispatchPlannerDryRunReceiptBuilder
 {
+    use EncodesPayloadAsPrettyJson;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_dispatch_planner_dry_run_receipt.v1';
 
     public const MODE = 'persistent_local_agent_dispatch_planner_dry_run_receipt';
@@ -341,16 +343,6 @@ final class AgentDispatchPlannerDryRunReceiptBuilder
         ], $extra);
     }
 
-    /**
-     * @param  array<int|string, mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return (string) json_encode(
-            $payload,
-            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT,
-        );
-    }
 
     /**
      * @param  array<mixed, mixed>  $payload

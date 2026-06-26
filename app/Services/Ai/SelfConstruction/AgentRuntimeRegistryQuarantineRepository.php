@@ -7,6 +7,7 @@ use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Throwable;
+use App\Services\Ai\SelfConstruction\Support\EncodesPayloadAsPrettyJson;
 
 /**
  * Persistent local quarantine ledger for Agent Control Plane agents.
@@ -21,6 +22,7 @@ use Throwable;
  */
 final class AgentRuntimeRegistryQuarantineRepository
 {
+    use EncodesPayloadAsPrettyJson;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_runtime_registry_quarantine.v1';
 
     public const MODE = 'persistent_local_agent_runtime_registry_quarantine';
@@ -450,16 +452,6 @@ final class AgentRuntimeRegistryQuarantineRepository
         ], $extra);
     }
 
-    /**
-     * @param  array<int|string, mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return (string) json_encode(
-            $payload,
-            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT,
-        );
-    }
 
     /**
      * @param  array<mixed, mixed>  $payload
