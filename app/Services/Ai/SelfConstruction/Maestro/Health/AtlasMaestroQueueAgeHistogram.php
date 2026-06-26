@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\Maestro\Health;
 
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use Closure;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -75,7 +76,7 @@ final class AtlasMaestroQueueAgeHistogram
 
     private function queueRepo(): object
     {
-        return $this->queue ?? new AgentControlPlaneTaskPacketQueueRepository;
+        return $this->queue ?? new AgentControlPlaneTaskPacketQueueRepository(AtlasTaskServingStack::disk());
     }
 
     /**

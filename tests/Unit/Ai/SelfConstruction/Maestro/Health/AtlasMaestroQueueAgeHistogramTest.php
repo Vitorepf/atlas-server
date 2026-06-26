@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction\Maestro\Health;
 
+use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use App\Services\Ai\SelfConstruction\Maestro\Health\AtlasMaestroQueueAgeHistogram;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -120,6 +121,29 @@ final class AtlasMaestroQueueAgeHistogramTest extends TestCase
         $this->assertSame(0, $histogram['oldest_seconds']);
         $this->assertSame(0, $histogram['p50_seconds']);
         $this->assertSame(0, $histogram['p95_seconds']);
+    }
+
+    public function test_serving_disk_claimable_packets_are_binned_without_injected_queue(): void
+    {
+        config()->set('atlas.task_serving.queue_disk', 'atlas-queue-age-test-disk');
+        \Illuminate\Support\Facades\Storage::fake('local');
+        \Illuminate\Support\Facades\Storage::fake(AtlasTaskServingStack::disk());
+
+        AtlasTaskServingStack::queueRepo()->enqueue([
+            'task_packet_id' => 'serving-queue-age-packet',
+            'task_packet_hash' => hash('sha256', 'serving-queue-age-packet'),
+            'objective' => 'queue age test',
+            'operator_id' => 'tester',
+            'status' => 'claimable',
+            'allowed_files' => ['app/Loop/Queued.php'],
+            'scope_in' => ['app/Loop/Queued.php'],
+            'acceptance_criteria' => ['ok'],
+            'required_evidence' => ['task_packet_created'],
+        ]);
+
+        $histogram = (new AtlasMaestroQueueAgeHistogram())->histogram();
+
+        $this->assertGreaterThanOrEqual(1, $histogram['total_claimable']);
     }
 
     /**
