@@ -3,6 +3,7 @@
 namespace App\Services\Ai\SelfConstruction;
 
 use App\Services\Ai\SelfConstruction\Leasing\AgentControlPlaneLeaseEnvelopeFactory;
+use App\Services\Ai\SelfConstruction\Leasing\AgentControlPlaneLeasePathCanonicalizer;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
@@ -694,25 +695,29 @@ final class AgentControlPlaneClaimLeaseRepository
     }
 
     /**
+     * ITEM8 — cohesive stateless path / set / filter / list canonicalization the claim-lease
+     * repository uses to normalize scope-lock path sets, list strings, match prune filters, and
+     * derive per-lease storage paths. Extracted into {@see AgentControlPlaneLeasePathCanonicalizer};
+     * we keep the four private methods (`normalizeSet`, `stringList`, `leaseEntryMatchesPruneFilters`,
+     * `leasePath`) as thin private delegators so every existing call site (`claim`'s
+     * scope-lock-normalization, `prune`'s filter matching, the lease-path-on-disk reads/writes,
+     * and the lease-id list normalizations) stays byte-identical and the public signature of the
+     * repository does not move. Lazy-instantiated per call so production callers pay no construction
+     * cost beyond the first use.
+     */
+    private function pathCanonicalizer(): AgentControlPlaneLeasePathCanonicalizer
+    {
+        return new AgentControlPlaneLeasePathCanonicalizer;
+    }
+
+    /**
      * @param  list<string>  $set
      * @return list<string>
      */
     private function normalizeSet(array $set): array
     {
-        $out = [];
-        foreach ($set as $path) {
-            $value = trim((string) $path);
-            if ($value === '') {
-                continue;
-            }
-            $out[] = str_replace('\\', '/', $value);
-        }
-        $out = array_values(array_unique($out));
-        sort($out);
-
-        return $out;
+        return $this->pathCanonicalizer()->normalizeSet($set);
     }
-
     /**
      * @return array<string, mixed>|null
      */
@@ -1042,9 +1047,7 @@ final class AgentControlPlaneClaimLeaseRepository
 
      private function leasePath(string $leaseId): string
      {
-         $safe = preg_replace('/[^A-Za-z0-9_\-]/', '_', $leaseId) ?? $leaseId;
-
-         return self::STORAGE_PREFIX.'/'.$safe.'.json';
+         return $this->pathCanonicalizer()->leasePath($leaseId);
      }
 
      /**
@@ -1087,23 +1090,7 @@ final class AgentControlPlaneClaimLeaseRepository
      */
     private function leaseEntryMatchesPruneFilters(array $entry, array $taskPrefixes, array $agentPrefixes, array $leasePrefixes): bool
     {
-        foreach ($taskPrefixes as $prefix) {
-            if ($prefix !== '' && str_starts_with((string) ($entry['task_packet_id'] ?? ''), $prefix)) {
-                return true;
-            }
-        }
-        foreach ($agentPrefixes as $prefix) {
-            if ($prefix !== '' && str_starts_with((string) ($entry['agent_id'] ?? ''), $prefix)) {
-                return true;
-            }
-        }
-        foreach ($leasePrefixes as $prefix) {
-            if ($prefix !== '' && str_starts_with((string) ($entry['lease_id'] ?? ''), $prefix)) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->pathCanonicalizer()->leaseEntryMatchesPruneFilters($entry, $taskPrefixes, $agentPrefixes, $leasePrefixes);
     }
 
     /**
@@ -1112,9 +1099,6 @@ final class AgentControlPlaneClaimLeaseRepository
      */
     private function stringList(array $values): array
     {
-        return array_values(array_filter(array_map(
-            static fn (mixed $value): string => trim((string) $value),
-            $values,
-        ), static fn (string $value): bool => $value !== ''));
+        return $this->pathCanonicalizer()->stringList($values);
     }
 }
