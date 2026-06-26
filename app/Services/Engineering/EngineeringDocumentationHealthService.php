@@ -8,6 +8,8 @@ use SplFileInfo;
 
 class EngineeringDocumentationHealthService
 {
+    private ?EngineeringDocumentationWarningCollector $warningCollectorInstance = null;
+
     private const CANONICAL_MODULE_SCHEMA = 'atlas_canonical_module_doc.v1';
 
     /**
@@ -1050,258 +1052,81 @@ class EngineeringDocumentationHealthService
      */
     private function collectWarnings(array $docs): array
     {
-        return array_values(array_merge(
-            $this->statusValueWarnings($docs),
-            $this->futurePlannedClarityWarnings($docs),
-            $this->deprecatedSuccessorWarnings($docs),
-            $this->schemaCitationWarnings($docs),
-            $this->ambiguousNamingWarnings($docs),
-        ));
+        return $this->warningCollector()->collectWarnings($docs);
     }
 
     /**
-     * Rule W1 — canonical_module status must be one of the five admitted
-     * values (planned/future/building/active/deprecated). Non-canonical
-     * values (draft/scaffold/proposed/canon/split_required) are warnings
-     * because the cleanup plan (atlas-documentation-status-cleanup-plan.md)
-     * sequences their flip — blocking now would explode the repo.
-     *
      * @param  array<int,array<string,mixed>>  $docs
      * @return array<int,array<string,string>>
      */
     private function statusValueWarnings(array $docs): array
     {
-        $warnings = [];
-        foreach ($docs as $doc) {
-            $path = (string) $doc['path'];
-            if ($this->shouldSkipPath($path)) {
-                continue;
-            }
-            $frontmatter = (array) $doc['frontmatter'];
-            if (($frontmatter['doc_schema'] ?? null) !== self::CANONICAL_MODULE_SCHEMA) {
-                continue;
-            }
-            $status = (string) $doc['status'];
-            if ($status === '' || $status === 'missing') {
-                continue;
-            }
-            if (in_array($status, self::CANONICAL_MODULE_ALLOWED_STATUS, true)) {
-                continue;
-            }
-            if (in_array($status, self::STATUS_VALUE_TOLERATED_LEGACY, true)) {
-                continue;
-            }
-            $warnings[] = [
-                'rule' => 'status_value_non_canonical',
-                'path' => $path,
-                'message' => "{$path}: status [{$status}] is not in canonical set [planned|future|building|active|deprecated]; see atlas-documentation-status-cleanup-plan.md",
-            ];
-        }
-
-        return $warnings;
+        return $this->warningCollector()->statusValueWarnings($docs);
     }
 
     /**
-     * Rule W2 — docs in status [future] or [planned] should make their
-     * non-runtime nature obvious so downstream readers don't mistake
-     * vision for current runtime. Tolerated when one of: (a)
-     * implementation_state frontmatter is declared; (b) summary/body
-     * contains an explicit non-runtime marker (e.g., "nao construido",
-     * "tese", "future", "planned", "not implemented", "blocker").
-     *
      * @param  array<int,array<string,mixed>>  $docs
      * @return array<int,array<string,string>>
      */
     private function futurePlannedClarityWarnings(array $docs): array
     {
-        $warnings = [];
-        foreach ($docs as $doc) {
-            $path = (string) $doc['path'];
-            if ($this->shouldSkipPath($path)) {
-                continue;
-            }
-            $frontmatter = (array) $doc['frontmatter'];
-            if (($frontmatter['doc_schema'] ?? null) !== self::CANONICAL_MODULE_SCHEMA) {
-                continue;
-            }
-            $status = (string) $doc['status'];
-            if (! in_array($status, ['future', 'planned'], true)) {
-                continue;
-            }
-            if (array_key_exists('implementation_state', $frontmatter)
-                && trim((string) $frontmatter['implementation_state']) !== '') {
-                continue;
-            }
-            if (array_key_exists('blocker', $frontmatter)
-                && trim((string) $frontmatter['blocker']) !== '') {
-                continue;
-            }
-            $summary = strtolower((string) ($frontmatter['summary'] ?? ''));
-            $body = strtolower((string) ($doc['body'] ?? ''));
-            $haystack = $summary."\n".$body;
-            if ($this->mentionsNonRuntimeMarker($haystack)) {
-                continue;
-            }
-            $warnings[] = [
-                'rule' => 'future_planned_not_runtime_unclear',
-                'path' => $path,
-                'message' => "{$path}: status [{$status}] doc has no implementation_state/blocker and summary/body does not declare it is not current runtime",
-            ];
-        }
-
-        return $warnings;
+        return $this->warningCollector()->futurePlannedClarityWarnings($docs);
     }
 
     /**
-     * Rule W3 — docs marked deprecated (the canonical schema's mapping
-     * for superseded/historical) must point at the sucessor so reviewers
-     * can follow the chain. Tolerated when: (a) superseded_by frontmatter
-     * field is non-empty; (b) summary contains "supersed"|"substitu"|
-     * "replaced"|"sucesso".
-     *
      * @param  array<int,array<string,mixed>>  $docs
      * @return array<int,array<string,string>>
      */
     private function deprecatedSuccessorWarnings(array $docs): array
     {
-        $warnings = [];
-        foreach ($docs as $doc) {
-            $path = (string) $doc['path'];
-            if ($this->shouldSkipPath($path)) {
-                continue;
-            }
-            if ((string) $doc['status'] !== 'deprecated') {
-                continue;
-            }
-            $frontmatter = (array) $doc['frontmatter'];
-            $supersededBy = $frontmatter['superseded_by'] ?? null;
-            if ($supersededBy !== null && $supersededBy !== '' && $supersededBy !== []) {
-                continue;
-            }
-            $summary = strtolower((string) ($frontmatter['summary'] ?? ''));
-            if (preg_match('/(supersed|substitu|replaced by|sucesso|sucessora|sucessor)/i', $summary) === 1) {
-                continue;
-            }
-            $warnings[] = [
-                'rule' => 'deprecated_without_successor',
-                'path' => $path,
-                'message' => "{$path}: deprecated doc has no superseded_by field and summary does not name a sucessor",
-            ];
-        }
-
-        return $warnings;
+        return $this->warningCollector()->deprecatedSuccessorWarnings($docs);
     }
 
     /**
-     * Rule W4 — docs that cite a canonical schema (atlas.<...>.vN) in
-     * their body imply that schema exists and is implemented. Warn when:
-     * (a) status is active/building but evidence or repo_paths is empty;
-     * (b) status is something other than active/building/planned/future
-     *     and there is no implementation_state/blocker declaration —
-     *     i.e., the doc claims a schema is implemented without proof and
-     *     without being explicitly marked as in-progress.
-     *
      * @param  array<int,array<string,mixed>>  $docs
      * @return array<int,array<string,string>>
      */
     private function schemaCitationWarnings(array $docs): array
     {
-        $warnings = [];
-        $schemaPattern = '/\\batlas\\.[a-z0-9_]+(?:\\.[a-z0-9_]+)*\\.v\\d+\\b/i';
-        foreach ($docs as $doc) {
-            $path = (string) $doc['path'];
-            if ($this->shouldSkipPath($path)) {
-                continue;
-            }
-            $frontmatter = (array) $doc['frontmatter'];
-            if (($frontmatter['doc_schema'] ?? null) !== self::CANONICAL_MODULE_SCHEMA) {
-                continue;
-            }
-            $body = (string) ($doc['body'] ?? '');
-            if (preg_match($schemaPattern, $body) !== 1) {
-                continue;
-            }
-            $status = (string) $doc['status'];
-            $evidence = (array) ($frontmatter['evidence'] ?? []);
-            $repoPaths = (array) ($frontmatter['repo_paths'] ?? []);
-            $implementationState = trim((string) ($frontmatter['implementation_state'] ?? ''));
-            $blocker = trim((string) ($frontmatter['blocker'] ?? ''));
-
-            if (in_array($status, ['active', 'building'], true)) {
-                if ($evidence === [] || $repoPaths === []) {
-                    $warnings[] = [
-                        'rule' => 'schema_cited_without_evidence',
-                        'path' => $path,
-                        'message' => "{$path}: body cites canonical schema (atlas.*.vN) and status [{$status}] but evidence or repo_paths is empty",
-                    ];
-                }
-
-                continue;
-            }
-            if (in_array($status, ['planned', 'future'], true)) {
-                continue;
-            }
-            if ($implementationState !== '' || $blocker !== '') {
-                continue;
-            }
-            $warnings[] = [
-                'rule' => 'schema_cited_without_runtime_declaration',
-                'path' => $path,
-                'message' => "{$path}: body cites canonical schema (atlas.*.vN) but status [{$status}] is outside [active|building|planned|future] and has no implementation_state/blocker field",
-            ];
-        }
-
-        return $warnings;
+        return $this->warningCollector()->schemaCitationWarnings($docs);
     }
 
     /**
-     * Rule W5/W6 — docs that mention Atlas Dev/Forge/Code ambiguous
-     * cluster terms (Atlas Forge, Atlas Code Forge, Obra Command Center,
-     * Dual Core, ForgeRivals, etc.) must either link to the canonical
-     * glossary doc (related_paths/depends_on/flows_to/body link) or be
-     * the glossary doc itself. Two or more cluster terms in the title
-     * always warn unless the glossary is referenced.
-     *
      * @param  array<int,array<string,mixed>>  $docs
      * @return array<int,array<string,string>>
      */
     private function ambiguousNamingWarnings(array $docs): array
     {
-        $warnings = [];
-        foreach ($docs as $doc) {
-            $path = (string) $doc['path'];
-            if ($this->shouldSkipPath($path)) {
-                continue;
-            }
-            if ($path === self::CANONICAL_GLOSSARY_PATH) {
-                continue;
-            }
-            $frontmatter = (array) $doc['frontmatter'];
-            if (($frontmatter['doc_schema'] ?? null) !== self::CANONICAL_MODULE_SCHEMA) {
-                continue;
-            }
-            $title = (string) ($frontmatter['title'] ?? '');
-            $body = (string) ($doc['body'] ?? '');
-            $matches = $this->ambiguousTermsFound($title.' '.$body);
-            if ($matches === []) {
-                continue;
-            }
-            if ($this->referencesGlossary($frontmatter, $body)) {
-                continue;
-            }
-            $count = count($matches);
-            $rule = $count >= 2 || $this->ambiguousTermsFound($title) !== []
-                ? 'ambiguous_naming_in_title'
-                : 'missing_glossary_reference';
-            $sample = implode(', ', array_slice($matches, 0, 3));
-            $warnings[] = [
-                'rule' => $rule,
-                'path' => $path,
-                'message' => "{$path}: mentions ambiguous cluster terms [{$sample}] without referencing {$this->relativeGlossaryPath()}",
-            ];
-        }
+        return $this->warningCollector()->ambiguousNamingWarnings($docs);
+    }
 
-        return $warnings;
+    public function mentionsNonRuntimeMarker(string $haystack): bool
+    {
+        return $this->warningCollector()->mentionsNonRuntimeMarker($haystack);
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public function ambiguousTermsFound(string $haystack): array
+    {
+        return $this->warningCollector()->ambiguousTermsFound($haystack);
+    }
+
+    private function warningCollector(): EngineeringDocumentationWarningCollector
+    {
+        return $this->warningCollectorInstance ??= new EngineeringDocumentationWarningCollector(
+            self::AMBIGUOUS_NAMING_TERMS,
+            self::CANONICAL_GLOSSARY_ID,
+            self::CANONICAL_GLOSSARY_PATH,
+            self::CANONICAL_MODULE_ALLOWED_STATUS,
+            self::CANONICAL_MODULE_SCHEMA,
+            self::NON_CANONICAL_ARTIFACT_PATH_MARKERS,
+            self::STATUS_VALUE_TOLERATED_LEGACY,
+            fn (string $path): bool => $this->shouldSkipPath($path),
+            fn (array $frontmatter, string $body): bool => $this->referencesGlossary($frontmatter, $body),
+            fn (): string => $this->relativeGlossaryPath(),
+        );
     }
 
     /**
@@ -1330,50 +1155,6 @@ class EngineeringDocumentationHealthService
         }
 
         return false;
-    }
-
-    private function mentionsNonRuntimeMarker(string $haystack): bool
-    {
-        $markers = [
-            'nao construido',
-            'não construido',
-            'nao construída',
-            'não construída',
-            'not implemented',
-            'not yet implemented',
-            'visao futura',
-            'visão futura',
-            'tese estrategica',
-            'tese estratégica',
-            'future state',
-            'future vision',
-            'planned but not',
-            'not current runtime',
-            'no codigo equivalente',
-            'no código equivalente',
-        ];
-        foreach ($markers as $marker) {
-            if (str_contains($haystack, $marker)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function ambiguousTermsFound(string $haystack): array
-    {
-        $found = [];
-        foreach (self::AMBIGUOUS_NAMING_TERMS as $term) {
-            if (stripos($haystack, $term) !== false) {
-                $found[] = $term;
-            }
-        }
-
-        return $found;
     }
 
     /**
