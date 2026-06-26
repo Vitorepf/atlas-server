@@ -2320,25 +2320,18 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
 
     private function storageAppPath(string $path): string
     {
-        $path = trim($path, '/');
-
-        return $path === '' ? '' : 'storage/app/'.$path;
+        return FinalOperatorClosureCorridor\ClosureCorridorCanonicalHasher::storageAppPath($path);
     }
 
     private function privateStorageAppPath(string $path): string
     {
-        $path = trim($path, '/');
-
-        return $path === '' ? '' : 'storage/app/private/'.$path;
+        return FinalOperatorClosureCorridor\ClosureCorridorCanonicalHasher::privateStorageAppPath($path);
     }
 
     /** @param array<string, mixed> $payload */
     private function stableHash(array $payload): string
     {
-        $payload = $this->stripVolatileKeys($payload);
-        unset($payload['generated_at'], $payload['closure_corridor_hash'], $payload['operator_submission_envelopes_hash']);
-
-        return hash('sha256', (string) json_encode($this->ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        return FinalOperatorClosureCorridor\ClosureCorridorCanonicalHasher::stableHash($payload);
     }
 
     /**
@@ -2347,40 +2340,12 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
      */
     private function stripVolatileKeys(array $payload): array
     {
-        foreach ([
-            'generated_at',
-            'audited_at',
-            'verified_at',
-            'certified_at',
-            'persisted_at',
-            'assessed_at',
-            'closure_corridor_hash',
-            'operator_submission_envelopes_hash',
-        ] as $key) {
-            unset($payload[$key]);
-        }
-
-        foreach ($payload as $key => $value) {
-            if (is_array($value)) {
-                $payload[$key] = $this->stripVolatileKeys($value);
-            }
-        }
-
-        return $payload;
+        return FinalOperatorClosureCorridor\ClosureCorridorCanonicalHasher::stripVolatileKeys($payload);
     }
 
     /** @param array<string, mixed> $value */
     private function ksortRecursive(array $value): array
     {
-        foreach ($value as $key => $entry) {
-            if (is_array($entry)) {
-                $value[$key] = $this->ksortRecursive($entry);
-            }
-        }
-        if ($value !== [] && array_keys($value) !== range(0, count($value) - 1)) {
-            ksort($value);
-        }
-
-        return $value;
+        return FinalOperatorClosureCorridor\ClosureCorridorCanonicalHasher::ksortRecursive($value);
     }
 }
