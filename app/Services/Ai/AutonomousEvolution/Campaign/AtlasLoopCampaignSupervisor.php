@@ -15,7 +15,6 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopObraBridgeService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopFleetGovernor;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderCircuitBreaker;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderEffortPolicy;
-use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderHealthProbe;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderSwapPolicy;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopResourceGate;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopTaxa2DialOverlayService;
@@ -82,6 +81,9 @@ final class AtlasLoopCampaignSupervisor
     /** §W40 provider reasoning-effort policy (test-injectable; defaults to a fresh instance per use). */
     private ?AtlasLoopProviderEffortPolicy $effortPolicy = null;
 
+    /** §W40 extracted provider health/effort/swap collaborator (reads the CURRENT policy instances via closures). */
+    private ?AtlasLoopCampaignProviderHealthRecorder $providerHealthRecorder = null;
+
     public function __construct(
         private readonly AtlasLoopStore $store,
         private readonly AtlasLoopTaskGrinder $grinder,
@@ -98,8 +100,16 @@ final class AtlasLoopCampaignSupervisor
         private readonly ?\App\Services\Ai\AutonomousEvolution\AtlasLoopProjectionWorker $projectionWorker = null,
         private readonly ?\App\Services\Ai\AutonomousEvolution\AtlasLoopSubstrateReceiptLedger $substrateLedger = null,
         private ?AtlasLoopCampaignCostGovernor $costGovernor = null,
+        ?AtlasLoopCampaignProviderHealthRecorder $providerHealthRecorder = null,
     ) {
         $this->costGovernor ??= app(AtlasLoopCampaignCostGovernor::class);
+        // The collaborator reads the supervisor's CURRENT policy instances + ledger so test overrides still apply.
+        // The injected param is honoured for DI/test seam, but the closure binding is always (re)wired here.
+        $this->providerHealthRecorder = new AtlasLoopCampaignProviderHealthRecorder(
+            effortPolicyResolver: fn (): ?AtlasLoopProviderEffortPolicy => $this->effortPolicy,
+            swapPolicyResolver: fn (): ?AtlasLoopProviderSwapPolicy => $this->swapPolicy,
+            ledgerAppender: function (string $campaignId, array $record): void { $this->appendLedger($campaignId, $record); },
+        );
     }
 
     /**
@@ -1238,22 +1248,7 @@ final class AtlasLoopCampaignSupervisor
      */
     private function recordProviderHealth(string $campaignId, ?AtlasLoopTask $task, array $result, string $grindId): void
     {
-        if (! (bool) config('atlas.loop.provider_health_probe_enabled', false)) {
-            return;
-        }
-        try {
-            $payload = is_array($task?->payload) ? $task->payload : [];
-            $providerKey = trim((string) ($result['provider'] ?? $payload['provider'] ?? ''));
-            $model = isset($result['model']) ? (string) $result['model'] : (isset($payload['model']) ? (string) $payload['model'] : null);
-            (new AtlasLoopProviderHealthProbe)->record($providerKey === '' ? 'unknown' : $providerKey, $model, [
-                'ok' => AtlasLoopProviderCircuitBreaker::outcomeIsProviderHealthy($result),
-                'latency_ms' => max(0, (int) ($result['elapsed_seconds'] ?? 0)) * 1000,
-                'cost_cents' => array_key_exists('cost_cents', $result) && is_numeric($result['cost_cents']) ? (int) $result['cost_cents'] : null,
-                'grind_id' => $grindId,
-            ]);
-        } catch (Throwable) {
-            // fail-safe: the provider-health probe never breaks a grind
-        }
+        $this->providerHealthRecorder->recordProviderHealth($campaignId, $task, $result, $grindId);
     }
 
     /**
@@ -1264,31 +1259,7 @@ final class AtlasLoopCampaignSupervisor
      */
     private function applyProviderEffort(AtlasLoopTask $task): void
     {
-        try {
-            $policy = $this->effortPolicy ?? new AtlasLoopProviderEffortPolicy;
-            $payload = is_array($task->payload) ? $task->payload : [];
-            $enabled = (bool) config('atlas.loop.provider_effort_policy_enabled', false);
-            $decision = $enabled
-                ? $policy->resolve([
-                    'objective_kind' => (string) ($payload['objective_kind'] ?? ''),
-                    'target_kind' => (string) ($payload['target_kind'] ?? ''),
-                    'attempt_index' => (int) ($task->attempts ?? 0),
-                    'prior_failures' => (int) ($payload['prior_failures'] ?? 0),
-                    'routed_provider_tier' => (string) ($payload['provider_tier'] ?? $payload['routed_provider_tier'] ?? 'unknown'),
-                ])
-                : [
-                    'schema' => AtlasLoopProviderEffortPolicy::SCHEMA,
-                    'effort' => $policy->defaultEffort(),
-                    'reason' => 'configured_default',
-                    'routed_provider_tier' => (string) ($payload['provider_tier'] ?? $payload['routed_provider_tier'] ?? 'unknown'),
-                ];
-
-            $payload['reasoning_effort'] = $decision['effort'];
-            $payload['provider_effort_policy'] = $decision + ['enabled' => $enabled];
-            $task->payload = $payload;
-        } catch (Throwable) {
-            // fail-safe: effort policy must never block the grind.
-        }
+        $this->providerHealthRecorder->applyProviderEffort($task);
     }
 
     /**
@@ -1300,38 +1271,7 @@ final class AtlasLoopCampaignSupervisor
      */
     private function applyProviderSwap(AtlasLoopCampaign $campaign, AtlasLoopTask $task): void
     {
-        if (! (bool) config('atlas.loop.provider_swap_policy_enabled', false)) {
-            return;
-        }
-        try {
-            $primary = trim((string) ($campaign->provider ?? ''));
-            if ($primary === '') {
-                $primary = (string) config('atlas.loop.default_provider', (string) config('atlas.ai.default_provider', ''));
-            }
-            $chain = array_values(array_map('strval', (array) config('atlas.loop.provider_fallback_chain', [])));
-
-            $policy = $this->swapPolicy ?? new AtlasLoopProviderSwapPolicy;
-            $decision = $policy->decide((string) $campaign->id, $primary, $chain);
-            $effective = $policy->activeProvider((string) $campaign->id, $primary);
-
-            if ($effective !== '') {
-                $payload = is_array($task->payload) ? $task->payload : [];
-                $payload['provider'] = $effective;
-                $task->payload = $payload;
-            }
-
-            $this->appendLedger((string) $campaign->id, [
-                'event' => 'provider_swap',
-                'action' => $decision['action'],
-                'from_provider' => $decision['from_provider'],
-                'to_provider' => $decision['to_provider'],
-                'effective_provider' => $effective,
-                'reason' => $decision['reason'],
-                'consecutive_rounds' => $decision['consecutive_rounds'],
-            ]);
-        } catch (Throwable) {
-            // fail-safe: provider-swap selection never breaks a grind
-        }
+        $this->providerHealthRecorder->applyProviderSwap($campaign, $task);
     }
 
     /** §4 Should the loop pause NOW because the provider has been down for >= threshold consecutive grinds? */
