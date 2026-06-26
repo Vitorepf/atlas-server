@@ -90,6 +90,56 @@ final class AtlasLoopCortexIntentCommandTest extends TestCase
         $this->assertFileDoesNotExist($this->snapshotPath);
     }
 
+    public function test_extract_emits_real_docblock_purpose_from_file(): void
+    {
+        $tempFile = tempnam(sys_get_temp_dir(), 'atlas_extract_').'.php';
+        $purposeText = 'Extracted purpose for testing extract verb wiring.';
+        file_put_contents($tempFile, <<<PHP
+<?php
+namespace AtlasExtractTest;
+
+/**
+ * Atlas extract fixture.
+ *
+ * @purpose {$purposeText}
+ * @design Inline design note for the extract test.
+ */
+final class ExtractFixture
+{
+    public function ping(): string
+    {
+        return 'pong';
+    }
+}
+PHP);
+
+        try {
+            $exit = Artisan::call('atlas:loop:cortex:intent', [
+                'action' => 'extract',
+                '--file' => $tempFile,
+                '--json' => true,
+            ]);
+
+            $this->assertSame(0, $exit);
+            $decoded = json_decode(Artisan::output(), true);
+            $this->assertIsArray($decoded);
+            $this->assertSame($purposeText, $decoded['docblock_purpose']);
+            $this->assertSame('high', $decoded['confidence']);
+            $this->assertStringContainsString('ExtractFixture', $decoded['fqcn']);
+            $this->assertSame($tempFile, $decoded['source_file']);
+        } finally {
+            @unlink($tempFile);
+        }
+    }
+
+    public function test_extract_without_file_returns_usage_error(): void
+    {
+        $exit = Artisan::call('atlas:loop:cortex:intent', ['action' => 'extract']);
+
+        $this->assertNotSame(0, $exit);
+        $this->assertStringContainsString('extract requires --file', Artisan::output());
+    }
+
     /**
      * @param  array<string,array<string,mixed>>  $items
      */

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\AtlasCortexDecisionHistoryReader;
+use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\AtlasCortexIntentExtractor;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\AtlasCortexIntentSnapshot;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\AtlasCortexIntentStaleness;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\TriangulatedIntentFact;
@@ -12,9 +13,9 @@ use Illuminate\Console\Command;
 
 final class AtlasLoopCortexIntentCommand extends Command
 {
-    protected $signature = 'atlas:loop:cortex:intent {action : inspect|refresh|diff|history} {--fqcn=} {--file=} {--json}';
+    protected $signature = 'atlas:loop:cortex:intent {action : inspect|refresh|diff|history|extract} {--fqcn=} {--file=} {--json}';
 
-    protected $description = 'Inspect, refresh, or diff the intent-aware Cortex snapshot.';
+    protected $description = 'Inspect, refresh, diff, extract, or history the intent-aware Cortex snapshot.';
 
     public function handle(): int
     {
@@ -25,6 +26,7 @@ final class AtlasLoopCortexIntentCommand extends Command
             'refresh' => $this->refresh(),
             'diff' => $this->diff(),
             'history' => $this->history(),
+            'extract' => $this->extract(),
             default => $this->usageError($action),
         };
     }
@@ -50,6 +52,36 @@ final class AtlasLoopCortexIntentCommand extends Command
             'file_path' => $fact->filePath,
             'commit_count' => $fact->commitCount,
             'decisions' => $fact->decisions,
+        ]);
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Wires AtlasCortexIntentExtractor into the operator-facing intent CLI so
+     * `atlas:loop:cortex:intent extract --file=path/to/Foo.php` emits the REAL
+     * IntentExtractionFact (docblock_purpose/design, doc_path/excerpt, confidence)
+     * for the file — the same shape the snapshot builder reads downstream.
+     */
+    private function extract(): int
+    {
+        $filePath = trim((string) $this->option('file'));
+        if ($filePath === '') {
+            $this->line('usage_error: extract requires --file=<path>');
+
+            return self::FAILURE;
+        }
+
+        $fact = app(AtlasCortexIntentExtractor::class)->extract($filePath);
+
+        $this->emit([
+            'fqcn' => $fact->fqcn,
+            'docblock_purpose' => $fact->docblockPurpose,
+            'docblock_design' => $fact->docblockDesign,
+            'doc_path' => $fact->docPath,
+            'doc_excerpt' => $fact->docExcerpt,
+            'confidence' => $fact->confidence,
+            'source_file' => $filePath,
         ]);
 
         return self::SUCCESS;
@@ -117,7 +149,7 @@ final class AtlasLoopCortexIntentCommand extends Command
 
     private function usageError(string $action): int
     {
-        $this->line("usage_error: invalid action [{$action}], expected inspect|refresh|diff");
+        $this->line("usage_error: invalid action [{$action}], expected inspect|refresh|diff|history|extract");
 
         return 2;
     }
