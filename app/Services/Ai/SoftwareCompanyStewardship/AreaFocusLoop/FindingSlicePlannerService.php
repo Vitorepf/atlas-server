@@ -39,6 +39,8 @@ use App\Services\Ai\Mission\MissionCanonicalHash;
  */
 final class FindingSlicePlannerService
 {
+    private ?FindingSliceBuilder $sliceBuilderInstance = null;
+
     public const PLAN_SCHEMA = 'atlas.stewardship.finding_slice_plan.v1';
 
     public const SLICE_SCHEMA = 'atlas.stewardship.executable_slice.v1';
@@ -183,6 +185,102 @@ final class FindingSlicePlannerService
         $decision = $this->decompose($normalized, $scopeProfile, $context);
 
         return $this->finalizePlan($normalized, $scopeProfile, $mode, $decision, $sourceReceipts);
+    }
+
+    /**
+     * The file pool prefers a caller-supplied allowed-file set (so AP-786 and
+     * the planner agree on scope); otherwise it derives from the finding.
+     *
+     * @param  array<string,mixed>  $finding
+     * @param  array<string,mixed>  $context
+     * @return list<string>
+     */
+    private function filePool(array $finding, array $context): array
+    {
+        $contextAllowed = AreaFocusStringListNormalizer::trimmedStrings($context['allowed_files'] ?? []);
+        if ($contextAllowed !== []) {
+            return $this->cleanFiles($contextAllowed);
+        }
+
+        $affectedFiles = AreaFocusStringListNormalizer::trimmedStrings($finding['affected_files'] ?? []);
+        $files = array_merge(
+            $affectedFiles,
+            AreaFocusStringListNormalizer::trimmedStrings($finding['affected_docs'] ?? []),
+            AreaFocusStringListNormalizer::trimmedStrings(data_get($finding, 'spec_seed.tests_required', [])),
+        );
+
+        foreach (AreaFocusStringListNormalizer::trimmedStrings($finding['evidence_refs'] ?? []) as $ref) {
+            if (str_starts_with($ref, 'expected_test:')) {
+                $basename = trim(substr($ref, strlen('expected_test:')));
+                $testPath = $this->expectedTestPath($basename, $affectedFiles);
+                if ($testPath !== '') {
+                    $files[] = $testPath;
+                }
+            }
+            if (str_starts_with($ref, 'impl:')) {
+                $files[] = trim(substr($ref, strlen('impl:')));
+            }
+        }
+
+        return $this->cleanFiles($files);
+    }
+
+    /**
+     * @param  list<string>  $files
+     * @return list<string>
+     */
+    private function cleanFiles(array $files): array
+    {
+        $clean = [];
+        foreach ($files as $file) {
+            $normalized = AreaFocusPathNormalizer::repoRelativeNoWhitespace($file);
+            if ($normalized === '' || $this->isForbidden($normalized) || $this->isBroadPath($normalized)) {
+                continue;
+            }
+            $clean[] = $normalized;
+        }
+        sort($clean);
+
+        return AreaFocusStringListNormalizer::uniqueStringValues($clean);
+    }
+
+    /**
+     * @param  array<string,mixed>  $finding
+     * @param  array<string,mixed>  $context
+     * @return array<string,mixed>
+     */
+    private function normalizeFinding(array $finding, array $context): array
+    {
+        $title = trim((string) ($finding['title'] ?? ''));
+        $detail = trim((string) ($finding['detail'] ?? ''));
+        $why = trim((string) ($finding['why_it_matters'] ?? ''));
+        $nextAction = trim((string) ($finding['proposed_next_action'] ?? ''));
+
+        $pool = $this->filePool($finding, $context);
+        $sourceFiles = array_values(array_filter($pool, fn (string $f): bool => $this->isSourceFile($f)));
+        $testFiles = array_values(array_filter($pool, fn (string $f): bool => $this->isTestFile($f)));
+        $docFiles = array_values(array_filter($pool, fn (string $f): bool => $this->isDocFile($f)));
+
+        return [
+            'finding_id' => trim((string) ($finding['finding_id'] ?? '')),
+            'finding_hash' => trim((string) ($finding['finding_hash'] ?? '')),
+            'title' => $title,
+            'detail' => $detail,
+            'why_it_matters' => $why,
+            'proposed_next_action' => $nextAction,
+            'kind' => strtolower(trim((string) ($finding['kind'] ?? ''))),
+            'origin_type' => strtolower(trim((string) ($finding['origin_type'] ?? ''))),
+            'severity' => strtolower(trim((string) ($finding['severity'] ?? 'medium'))),
+            'owner_candidate' => strtolower(trim((string) ($finding['owner_candidate'] ?? data_get($finding, 'spec_seed.route_hint_owner', '')))),
+            'factory_value_score' => $this->intOrNull($finding['priority_score'] ?? null),
+            'evidence_refs' => AreaFocusStringListNormalizer::trimmedStrings($finding['evidence_refs'] ?? []),
+            'tests_required' => AreaFocusStringListNormalizer::trimmedStrings(data_get($finding, 'spec_seed.tests_required', [])),
+            'spec_candidate_id' => trim((string) data_get($finding, 'spec_seed.candidate_id', '')),
+            'objective_text' => trim(implode(' ', array_filter([$title, $detail, $why, $nextAction]))),
+            'source_files' => $sourceFiles,
+            'test_files' => $testFiles,
+            'doc_files' => $docFiles,
+        ];
     }
 
     /**
@@ -673,290 +771,79 @@ final class FindingSlicePlannerService
      */
     private function buildSlices(array $groups, array $normalized, array $context, bool $docsOnlyFinding): array
     {
-        $slices = [];
-        $blockers = [];
-        $sequence = 0;
-
-        foreach ($groups as $group) {
-            $sequence++;
-            $built = $this->buildSlice($group, $normalized, $context, $sequence, $docsOnlyFinding);
-            if ($built['ok']) {
-                $slices[] = $built['slice'];
-
-                continue;
-            }
-            foreach ($built['blockers'] as $blocker) {
-                $blockers[] = $blocker;
-            }
-        }
-
-        if ($slices === []) {
-            return $this->blocked($blockers !== [] ? $blockers : [self::BLOCKER_ALLOWED_FILES_TOO_BROAD]);
-        }
-
-        // Re-sequence kept slices so sequence numbers stay dense and ordered.
-        foreach ($slices as $index => $slice) {
-            $slices[$index]['sequence'] = $index + 1;
-            $slices[$index]['slice_id'] = $this->sliceId($normalized['finding_hash'], $index + 1, $slice['allowed_files']);
-        }
-
-        return ['status' => self::STATUS_SLICED, 'blockers' => [], 'slices' => $slices];
+        return $this->sliceBuilder()->buildSlices($groups, $normalized, $context, $docsOnlyFinding);
     }
 
-    /**
-     * @param  array{files:list<string>,docs:bool}  $group
-     * @param  array<string,mixed>  $normalized
-     * @param  array<string,mixed>  $context
-     * @return array{ok:bool,slice:array<string,mixed>,blockers:list<string>}
-     */
     private function buildSlice(array $group, array $normalized, array $context, int $sequence, bool $docsOnlyFinding): array
     {
-        $allowedFiles = $this->boundedAllowedFiles($group['files']);
-        if ($allowedFiles === []) {
-            return ['ok' => false, 'slice' => [], 'blockers' => [self::BLOCKER_ALLOWED_FILES_TOO_BROAD]];
-        }
-
-        // AP-806 semantic step: when present, the step carries its own narrowed
-        // objective + shape so the slice is a small ordered sub-task, not the
-        // whole finding restated.
-        $step = is_array($group['step'] ?? null) ? $group['step'] : null;
-        $isDocs = $group['docs'];
-        $sliceTests = $this->sliceValidationTests($allowedFiles, $normalized);
-        $validationCommands = $this->validationCommands($sliceTests, $isDocs, $context);
-        if (! $this->hasFocusedValidation($validationCommands, $isDocs)) {
-            return ['ok' => false, 'slice' => [], 'blockers' => [self::BLOCKER_VALIDATION_COMMAND_MISSING]];
-        }
-
-        $owner = $this->resolveOwner($normalized['owner_candidate'], $isDocs);
-        if ($owner === '') {
-            return ['ok' => false, 'slice' => [], 'blockers' => [self::BLOCKER_PROVIDER_FIT_UNKNOWN]];
-        }
-        if (! $this->ownerRuntimeReady($owner, $context)) {
-            return ['ok' => false, 'slice' => [], 'blockers' => [self::BLOCKER_OWNER_RUNTIME_NOT_READY]];
-        }
-
-        $providerFit = $this->providerFit($owner);
-        if ($providerFit === null) {
-            return ['ok' => false, 'slice' => [], 'blockers' => [self::BLOCKER_PROVIDER_FIT_UNKNOWN]];
-        }
-
-        $evidenceObligations = $this->evidenceObligations($normalized, $allowedFiles, $sliceTests, $isDocs);
-        if ($evidenceObligations === []) {
-            return ['ok' => false, 'slice' => [], 'blockers' => [self::BLOCKER_EVIDENCE_OBLIGATIONS_MISSING]];
-        }
-
-        $shape = $step !== null ? (string) $step['shape'] : $this->expectedDiffShape($allowedFiles, $isDocs);
-        $riskLevel = $this->riskLevel($normalized['severity']);
-        $mergePolicy = $this->mergePolicy($owner, $shape, $riskLevel);
-
-        $slice = [
-            'schema_version' => self::SLICE_SCHEMA,
-            'slice_id' => $this->sliceId($normalized['finding_hash'], $sequence, $allowedFiles),
-            'sequence' => $sequence,
-            'owner' => $owner,
-            'risk_level' => $riskLevel,
-            'objective' => $step !== null ? (string) $step['objective'] : $this->sliceObjective($normalized, $allowedFiles, $isDocs),
-            'decomposition' => $step !== null ? 'semantic_step:'.(string) $step['kind'] : 'file_group',
-            'depends_on_sequence' => $step['depends_on'] ?? null,
-            'target_symbol' => $step !== null ? trim((string) ($step['target_symbol'] ?? '')) : '',
-            'target_method' => $step !== null ? trim((string) ($step['target_method'] ?? '')) : '',
-            'method_anchor' => $step !== null ? trim((string) ($step['target_method'] ?? '')) : '',
-            'surgical_anchor' => $step !== null ? trim((string) ($step['surgical_anchor'] ?? '')) : '',
-            'mutation_anchor' => $step !== null ? trim((string) ($step['mutation_anchor'] ?? '')) : '',
-            'allowed_files' => $allowedFiles,
-            'forbidden_files' => self::FORBIDDEN_FILES,
-            'expected_diff_shape' => $shape,
-            'validation_commands' => $validationCommands,
-            'evidence_obligations' => $evidenceObligations,
-            'provider_fit' => $providerFit,
-            'max_runtime_seconds' => self::DEFAULT_MAX_RUNTIME_SECONDS,
-            'retry_policy' => [
-                'max_retries' => 1,
-                'transient_blockers' => ['provider_timeout', 'owner_runtime_routing_not_executable'],
-                'permanent_blockers' => ['provider_scope_violation', 'validation_failed'],
-            ],
-            'merge_policy' => $mergePolicy,
-            'success_condition' => $this->successCondition($sliceTests, $shape, $allowedFiles),
-        ];
-
-        return ['ok' => true, 'slice' => $slice, 'blockers' => []];
+        return $this->sliceBuilder()->buildSlice($group, $normalized, $context, $sequence, $docsOnlyFinding);
     }
 
-    // ---------- normalization ----------
-
-    /**
-     * @param  array<string,mixed>  $finding
-     * @param  array<string,mixed>  $context
-     * @return array<string,mixed>
-     */
-    private function normalizeFinding(array $finding, array $context): array
+    private function sliceObjective(array $normalized, array $allowedFiles, bool $isDocs): string
     {
-        $title = trim((string) ($finding['title'] ?? ''));
-        $detail = trim((string) ($finding['detail'] ?? ''));
-        $why = trim((string) ($finding['why_it_matters'] ?? ''));
-        $nextAction = trim((string) ($finding['proposed_next_action'] ?? ''));
-
-        $pool = $this->filePool($finding, $context);
-        $sourceFiles = array_values(array_filter($pool, fn (string $f): bool => $this->isSourceFile($f)));
-        $testFiles = array_values(array_filter($pool, fn (string $f): bool => $this->isTestFile($f)));
-        $docFiles = array_values(array_filter($pool, fn (string $f): bool => $this->isDocFile($f)));
-
-        return [
-            'finding_id' => trim((string) ($finding['finding_id'] ?? '')),
-            'finding_hash' => trim((string) ($finding['finding_hash'] ?? '')),
-            'title' => $title,
-            'detail' => $detail,
-            'why_it_matters' => $why,
-            'proposed_next_action' => $nextAction,
-            'kind' => strtolower(trim((string) ($finding['kind'] ?? ''))),
-            'origin_type' => strtolower(trim((string) ($finding['origin_type'] ?? ''))),
-            'severity' => strtolower(trim((string) ($finding['severity'] ?? 'medium'))),
-            'owner_candidate' => strtolower(trim((string) ($finding['owner_candidate'] ?? data_get($finding, 'spec_seed.route_hint_owner', '')))),
-            'factory_value_score' => $this->intOrNull($finding['priority_score'] ?? null),
-            'evidence_refs' => AreaFocusStringListNormalizer::trimmedStrings($finding['evidence_refs'] ?? []),
-            'tests_required' => AreaFocusStringListNormalizer::trimmedStrings(data_get($finding, 'spec_seed.tests_required', [])),
-            'spec_candidate_id' => trim((string) data_get($finding, 'spec_seed.candidate_id', '')),
-            'objective_text' => trim(implode(' ', array_filter([$title, $detail, $why, $nextAction]))),
-            'source_files' => $sourceFiles,
-            'test_files' => $testFiles,
-            'doc_files' => $docFiles,
-        ];
+        return $this->sliceBuilder()->sliceObjective($normalized, $allowedFiles, $isDocs);
     }
 
-    /**
-     * The file pool prefers a caller-supplied allowed-file set (so AP-786 and
-     * the planner agree on scope); otherwise it derives from the finding.
-     *
-     * @param  array<string,mixed>  $finding
-     * @param  array<string,mixed>  $context
-     * @return list<string>
-     */
-    private function filePool(array $finding, array $context): array
+    private function successCondition(array $tests, string $shape, array $allowedFiles): string
     {
-        $contextAllowed = AreaFocusStringListNormalizer::trimmedStrings($context['allowed_files'] ?? []);
-        if ($contextAllowed !== []) {
-            return $this->cleanFiles($contextAllowed);
-        }
-
-        $affectedFiles = AreaFocusStringListNormalizer::trimmedStrings($finding['affected_files'] ?? []);
-        $files = array_merge(
-            $affectedFiles,
-            AreaFocusStringListNormalizer::trimmedStrings($finding['affected_docs'] ?? []),
-            AreaFocusStringListNormalizer::trimmedStrings(data_get($finding, 'spec_seed.tests_required', [])),
-        );
-
-        foreach (AreaFocusStringListNormalizer::trimmedStrings($finding['evidence_refs'] ?? []) as $ref) {
-            if (str_starts_with($ref, 'expected_test:')) {
-                $basename = trim(substr($ref, strlen('expected_test:')));
-                $testPath = $this->expectedTestPath($basename, $affectedFiles);
-                if ($testPath !== '') {
-                    $files[] = $testPath;
-                }
-            }
-            if (str_starts_with($ref, 'impl:')) {
-                $files[] = trim(substr($ref, strlen('impl:')));
-            }
-        }
-
-        return $this->cleanFiles($files);
+        return $this->sliceBuilder()->successCondition($tests, $shape, $allowedFiles);
     }
 
-    /**
-     * @param  list<string>  $files
-     * @return list<string>
-     */
-    private function cleanFiles(array $files): array
+    private function evidenceObligations(array $normalized, array $allowedFiles, array $tests, bool $isDocs): array
     {
-        $clean = [];
-        foreach ($files as $file) {
-            $normalized = AreaFocusPathNormalizer::repoRelativeNoWhitespace($file);
-            if ($normalized === '' || $this->isForbidden($normalized) || $this->isBroadPath($normalized)) {
-                continue;
-            }
-            $clean[] = $normalized;
-        }
-        sort($clean);
-
-        return AreaFocusStringListNormalizer::uniqueStringValues($clean);
+        return $this->sliceBuilder()->evidenceObligations($normalized, $allowedFiles, $tests, $isDocs);
     }
 
-    // ---------- slice helpers ----------
+    private function expectedDiffShape(array $allowedFiles, bool $isDocs): string
+    {
+        return $this->sliceBuilder()->expectedDiffShape($allowedFiles, $isDocs);
+    }
 
-    /**
-     * @param  list<string>  $files
-     * @return list<string>
-     */
     private function boundedAllowedFiles(array $files): array
     {
-        $bounded = [];
-        foreach ($files as $file) {
-            if ($this->isBroadPath($file) || $this->isForbidden($file)) {
-                continue;
-            }
-            $bounded[] = $file;
-        }
-        $bounded = AreaFocusStringListNormalizer::uniqueStringValues($bounded);
-        if (count($bounded) > self::MAX_FILES_PER_SLICE) {
-            return [];
-        }
-
-        return $bounded;
+        return $this->sliceBuilder()->boundedAllowedFiles($files);
     }
 
-    /**
-     * @param  list<string>  $allowedFiles
-     * @param  array<string,mixed>  $normalized
-     * @return list<string>
-     */
     private function sliceValidationTests(array $allowedFiles, array $normalized): array
     {
-        $tests = [];
-        foreach ($allowedFiles as $file) {
-            if ($this->isTestFile($file)) {
-                $tests[] = $file;
-            }
-        }
-        foreach ($normalized['tests_required'] as $test) {
-            $candidate = AreaFocusPathNormalizer::repoRelativeNoWhitespace($test);
-            if ($this->isTestFile($candidate)) {
-                $tests[] = $candidate;
-            }
-        }
-        // Derive a test for each source file in scope when none is explicit.
-        if ($tests === []) {
-            foreach ($allowedFiles as $file) {
-                if ($this->isSourceFile($file)) {
-                    $derived = $this->expectedTestPath($this->testBasenameFor($file), [$file]);
-                    if ($derived !== '' && in_array($derived, $allowedFiles, true)) {
-                        $tests[] = $derived;
-                    }
-                }
-            }
-        }
-
-        return AreaFocusStringListNormalizer::uniqueStringValues($tests);
+        return $this->sliceBuilder()->sliceValidationTests($allowedFiles, $normalized);
     }
 
-    /**
-     * @param  list<string>  $tests
-     * @param  array<string,mixed>  $context
-     * @return list<string>
-     */
     private function validationCommands(array $tests, bool $isDocs, array $context): array
     {
-        $commands = [];
-        foreach (AreaFocusStringListNormalizer::trimmedStrings($context['validation_commands'] ?? []) as $command) {
-            $commands[] = $this->worktreeSafeValidationCommand($command);
-        }
-        foreach ($tests as $test) {
-            $commands[] = $this->phpunitValidationCommand($test);
-        }
-        if ($isDocs) {
-            $commands[] = 'php artisan atlas:engineering:knowledge docs-health --json';
-        }
-        $commands[] = 'git diff --check';
+        return $this->sliceBuilder()->validationCommands($tests, $isDocs, $context);
+    }
 
-        return array_values(array_slice(array_unique($commands), 0, 5));
+    private function worktreeSafeValidationCommand(string $command): string
+    {
+        return $this->sliceBuilder()->worktreeSafeValidationCommand($command);
+    }
+
+    private function phpunitValidationCommand(string $test): string
+    {
+        return $this->sliceBuilder()->phpunitValidationCommand($test);
+    }
+
+    private function sliceBuilder(): FindingSliceBuilder
+    {
+        return $this->sliceBuilderInstance ??= new FindingSliceBuilder(
+            self::FORBIDDEN_FILES,
+            fn (array $commands, bool $isDocs): bool => $this->hasFocusedValidation($commands, $isDocs),
+            fn (string $severity): string => $this->riskLevel($severity),
+            fn (string $owner, string $shape, string $riskLevel): string => $this->mergePolicy($owner, $shape, $riskLevel),
+            fn (string $ownerCandidate, bool $isDocs): string => $this->resolveOwner($ownerCandidate, $isDocs),
+            fn (string $owner, array $context): bool => $this->ownerRuntimeReady($owner, $context),
+            fn (string $owner): ?array => $this->providerFit($owner),
+            fn (string $findingHash, int $sequence, array $allowedFiles): string => $this->sliceId($findingHash, $sequence, $allowedFiles),
+            fn (array $blockers): array => $this->blocked($blockers),
+            fn (string $file): bool => $this->isSourceFile($file),
+            fn (string $file): bool => $this->isTestFile($file),
+            fn (string $file): bool => $this->isDocFile($file),
+            fn (string $file): bool => $this->isBroadPath($file),
+            fn (string $path): bool => $this->isForbidden($path),
+            fn (string $source): string => $this->testBasenameFor($source),
+            fn (string $basename, array $affectedFiles): string => $this->expectedTestPath($basename, $affectedFiles),
+        );
     }
 
     /**
@@ -982,22 +869,6 @@ final class FindingSlicePlannerService
         return false;
     }
 
-    private function worktreeSafeValidationCommand(string $command): string
-    {
-        $command = trim($command);
-        if (preg_match('/^php\s+artisan\s+test(?:\s+(.*))?$/', $command, $matches) === 1) {
-            $args = trim((string) ($matches[1] ?? ''));
-
-            return './vendor/bin/phpunit --configuration=phpunit.xml'.($args !== '' ? ' '.$args : '');
-        }
-
-        return $command;
-    }
-
-    private function phpunitValidationCommand(string $test): string
-    {
-        return './vendor/bin/phpunit --configuration=phpunit.xml '.$test;
-    }
 
     private function resolveOwner(string $ownerCandidate, bool $isDocs): string
     {
@@ -1061,75 +932,7 @@ final class FindingSlicePlannerService
         };
     }
 
-    /**
-     * @param  array<string,mixed>  $normalized
-     * @param  list<string>  $allowedFiles
-     * @param  list<string>  $tests
-     * @return list<string>
-     */
-    private function evidenceObligations(array $normalized, array $allowedFiles, array $tests, bool $isDocs): array
-    {
-        // Completion cannot be certified without a stable finding identity that
-        // ties the slice result back to the source finding.
-        if ($normalized['finding_id'] === '' && $normalized['finding_hash'] === '') {
-            return [];
-        }
 
-        $obligations = [];
-        if ($normalized['finding_id'] !== '') {
-            $obligations[] = 'finding_id:'.$normalized['finding_id'];
-        } else {
-            $obligations[] = 'finding_hash:'.$normalized['finding_hash'];
-        }
-        if ($normalized['spec_candidate_id'] !== '') {
-            $obligations[] = 'spec_seed:'.$normalized['spec_candidate_id'];
-        }
-        foreach ($tests as $test) {
-            $obligations[] = 'test_pass:'.$test;
-        }
-        if ($isDocs) {
-            $obligations[] = 'docs_health_pass';
-        }
-        $obligations[] = 'git_diff_within_allowed_files';
-        $obligations[] = 'inbox_item_emitted_before_merge';
-        $obligations[] = 'decision_receipt_recorded';
-
-        return AreaFocusStringListNormalizer::uniqueStringValues($obligations);
-    }
-
-    /**
-     * @param  list<string>  $allowedFiles
-     */
-    private function expectedDiffShape(array $allowedFiles, bool $isDocs): string
-    {
-        $hasSource = false;
-        $hasTest = false;
-        $hasDoc = false;
-        foreach ($allowedFiles as $file) {
-            if ($this->isTestFile($file)) {
-                $hasTest = true;
-            } elseif ($this->isDocFile($file)) {
-                $hasDoc = true;
-            } elseif ($this->isSourceFile($file)) {
-                $hasSource = true;
-            }
-        }
-
-        if ($isDocs || ($hasDoc && ! $hasSource && ! $hasTest)) {
-            return self::SHAPE_DOCS_ONLY;
-        }
-        if ($hasDoc && $hasTest && ! $hasSource) {
-            return self::SHAPE_DOCS_AND_TEST;
-        }
-        if ($hasSource && $hasTest) {
-            return self::SHAPE_SERVICE_AND_TEST;
-        }
-        if ($hasTest && ! $hasSource) {
-            return self::SHAPE_TEST_ONLY;
-        }
-
-        return self::SHAPE_SERVICE_ONLY;
-    }
 
     private function riskLevel(string $severity): string
     {
@@ -1153,40 +956,7 @@ final class FindingSlicePlannerService
         return self::MERGE_REVIEW_REQUIRED;
     }
 
-    /**
-     * @param  array<string,mixed>  $normalized
-     * @param  list<string>  $allowedFiles
-     */
-    private function sliceObjective(array $normalized, array $allowedFiles, bool $isDocs): string
-    {
-        $target = $allowedFiles[0] ?? 'the selected scope';
-        $title = $normalized['title'] !== '' ? $normalized['title'] : 'the selected finding';
-        if ($isDocs) {
-            return sprintf('Correct canonical docs for "%s", scoped to %s, to unblock runtime/certification.', $title, $target);
-        }
 
-        return sprintf(
-            'Implement the bounded runtime/test slice of "%s" by changing %s and its focused test within allowed_files. Do not create contract-only, scaffold-only, docs-only or reflection-only progress; the diff must either change runtime behavior or add a focused runtime assertion that proves this factory improvement.',
-            $title,
-            $target,
-        );
-    }
-
-    /**
-     * @param  list<string>  $tests
-     * @param  list<string>  $allowedFiles
-     */
-    private function successCondition(array $tests, string $shape, array $allowedFiles): string
-    {
-        if ($tests !== []) {
-            return sprintf('Diff stays within allowed_files (%d) and `./vendor/bin/phpunit --configuration=phpunit.xml %s` passes.', count($allowedFiles), $tests[0]);
-        }
-        if ($shape === self::SHAPE_DOCS_ONLY) {
-            return sprintf('Diff stays within allowed_files (%d) and docs-health passes.', count($allowedFiles));
-        }
-
-        return sprintf('Diff stays within allowed_files (%d) and focused validation passes.', count($allowedFiles));
-    }
 
     // ---------- predicates ----------
 
