@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\Storage;
 
 final class AtlasSelfConstructionReadinessService
 {
+    private ?\App\Services\Ai\SelfConstruction\ReadinessProjectionHumanCompletionReceiptSection $humanCompletionReceiptSection = null;
+
     private ?\App\Services\Ai\SelfConstruction\ReadinessProjectionRealProviderSmokeSection $realProviderSmokeSection = null;
 
     private ?\App\Services\Ai\SelfConstruction\ReadinessProjectionRuntimePromotionSection $runtimePromotionSection = null;
@@ -43183,84 +43185,36 @@ public function releasePacket(array $options = []): array
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
-    public function atlasSelfConstructionHumanCompletionReceiptDraftContract(array $options = []): array
+        public function atlasSelfConstructionHumanCompletionReceiptDraftContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_human_completion_receipt_draft', 'Atlas Self-Construction Human Completion Receipt Draft', AtlasSelfConstructionHumanCompletionReceiptDraftService::SCHEMA_VERSION, AtlasSelfConstructionHumanCompletionReceiptDraftService::class, 'contract');
+        return $this->humanCompletionReceiptSection()->atlasSelfConstructionHumanCompletionReceiptDraftContract($options);
     }
 
     /**
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
-    public function atlasSelfConstructionHumanCompletionReceiptDraftPreflight(array $options = []): array
+        public function atlasSelfConstructionHumanCompletionReceiptDraftPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_human_completion_receipt_draft', 'Atlas Self-Construction Human Completion Receipt Draft', AtlasSelfConstructionHumanCompletionReceiptDraftService::SCHEMA_VERSION, AtlasSelfConstructionHumanCompletionReceiptDraftService::class, 'preflight');
+        return $this->humanCompletionReceiptSection()->atlasSelfConstructionHumanCompletionReceiptDraftPreflight($options);
     }
 
     /**
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
-    public function atlasSelfConstructionHumanCompletionReceiptDraftImplementationPacket(array $options = []): array
+        public function atlasSelfConstructionHumanCompletionReceiptDraftImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_human_completion_receipt_draft', 'Atlas Self-Construction Human Completion Receipt Draft', AtlasSelfConstructionHumanCompletionReceiptDraftService::SCHEMA_VERSION, AtlasSelfConstructionHumanCompletionReceiptDraftService::class, 'implementation_packet');
+        return $this->humanCompletionReceiptSection()->atlasSelfConstructionHumanCompletionReceiptDraftImplementationPacket($options);
     }
 
     /**
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
-    public function atlasSelfConstructionHumanCompletionReceiptDraftStatus(array $options = []): array
+        public function atlasSelfConstructionHumanCompletionReceiptDraftStatus(array $options = []): array
     {
-        $completionEvidence = $this->atlasSelfConstructionOsCompletionEvidenceStatus($options);
-        $completionAudit = (new AtlasSelfConstructionOsCompletionAuditService($this))->audit($options);
-        $currentRequiredOperatorArtifact = (string) data_get($completionEvidence, 'current_required_operator_artifact', '');
-        $nextRequiredCommand = (string) data_get($completionEvidence, 'next_required_command', '');
-        $nextRequiredPersistCommand = (string) data_get($completionEvidence, 'next_required_persist_command', '');
-        $result = (new AtlasSelfConstructionHumanCompletionReceiptDraftService)->build($completionAudit, $completionEvidence, [
-            'signed_by' => (string) ($options['signed_by'] ?? ''),
-            'reason' => (string) ($options['reason'] ?? ''),
-            'persist_completion_evidence' => (bool) ($options['persist_completion_evidence'] ?? false),
-        ]);
-
-        return $this->wrapCertificationWorkbenchStatus(
-            keyPrefix: 'atlas_self_construction_human_completion_receipt_draft',
-            label: 'Atlas Self-Construction Human Completion Receipt Draft',
-            payload: $result,
-            statusKey: 'status',
-            extraStatusFields: [
-                'draft_hash' => (string) data_get($result, 'draft_hash'),
-                'receipt_hash' => (string) data_get($result, 'receipt_hash'),
-                'current_required_operator_artifact' => $currentRequiredOperatorArtifact,
-                'next_required_command' => $nextRequiredCommand,
-                'next_required_persist_command' => $nextRequiredPersistCommand,
-                'runtime_gap_matrix_hash' => (string) data_get($completionEvidence, 'runtime_gap_matrix.runtime_gap_matrix_hash', ''),
-                'expected_runtime_gap_matrix_hash_for_promotion_receipt' => (string) data_get($completionEvidence, 'runtime_gap_matrix.expected_runtime_gap_matrix_hash_for_promotion_receipt', ''),
-                'runtime_promotion_basis_hash' => (string) data_get($completionEvidence, 'runtime_gap_matrix.runtime_promotion_basis_hash', ''),
-                'runtime_promotion_closure_basis_hash' => (string) data_get($completionEvidence, 'runtime_gap_matrix.runtime_promotion_closure_basis_hash', ''),
-                'missing_operator_input_count' => count((array) data_get($result, 'missing_operator_inputs', [])),
-                'missing_operator_inputs' => (array) data_get($result, 'missing_operator_inputs', []),
-                'missing_evidence_hash_count' => count((array) data_get($result, 'missing_evidence_hashes', [])),
-                'missing_evidence_hashes' => (array) data_get($result, 'missing_evidence_hashes', []),
-                'failed_prerequisite_count' => count((array) data_get($result, 'failed_prerequisites', [])),
-                'failed_prerequisites' => (array) data_get($result, 'failed_prerequisites', []),
-                'verification_status' => (string) data_get($result, 'verification.status'),
-                'persistence_requested' => (bool) data_get($result, 'persistence_requested', false),
-                'persisted' => (bool) data_get($result, 'persisted', false),
-                'execution_allowed' => false,
-                'dispatch_allowed' => false,
-                'ledger_write_allowed' => false,
-                'runtime_write_allowed' => false,
-                'provider_call_allowed' => false,
-                'token_spend_allowed' => false,
-                'adapter_execution_allowed' => false,
-                'completion_allowed' => false,
-                'completion_claim_allowed' => false,
-                'self_programming_allowed' => false,
-                'terminal_loop_operational_proof_required_before_completion_claim' => true,
-                'completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only' => true,
-            ],
-        );
+        return $this->humanCompletionReceiptSection()->atlasSelfConstructionHumanCompletionReceiptDraftStatus($options);
     }
 
     /**
@@ -44054,100 +44008,72 @@ public function releasePacket(array $options = []): array
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
-    public function atlasSelfConstructionHumanCompletionReceiptDossierContract(array $options = []): array
+        public function atlasSelfConstructionHumanCompletionReceiptDossierContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_human_completion_receipt_dossier', 'Atlas Self-Construction Human Completion Receipt Dossier', AtlasSelfConstructionHumanCompletionReceiptDossierService::SCHEMA_VERSION, AtlasSelfConstructionHumanCompletionReceiptDossierService::class, 'contract');
+        return $this->humanCompletionReceiptSection()->atlasSelfConstructionHumanCompletionReceiptDossierContract($options);
     }
 
     /**
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
-    public function atlasSelfConstructionHumanCompletionReceiptDossierPreflight(array $options = []): array
+        public function atlasSelfConstructionHumanCompletionReceiptDossierPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_human_completion_receipt_dossier', 'Atlas Self-Construction Human Completion Receipt Dossier', AtlasSelfConstructionHumanCompletionReceiptDossierService::SCHEMA_VERSION, AtlasSelfConstructionHumanCompletionReceiptDossierService::class, 'preflight');
+        return $this->humanCompletionReceiptSection()->atlasSelfConstructionHumanCompletionReceiptDossierPreflight($options);
     }
 
     /**
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
-    public function atlasSelfConstructionHumanCompletionReceiptDossierImplementationPacket(array $options = []): array
+        public function atlasSelfConstructionHumanCompletionReceiptDossierImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_human_completion_receipt_dossier', 'Atlas Self-Construction Human Completion Receipt Dossier', AtlasSelfConstructionHumanCompletionReceiptDossierService::SCHEMA_VERSION, AtlasSelfConstructionHumanCompletionReceiptDossierService::class, 'implementation_packet');
+        return $this->humanCompletionReceiptSection()->atlasSelfConstructionHumanCompletionReceiptDossierImplementationPacket($options);
     }
 
     /**
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
-    public function atlasSelfConstructionHumanCompletionReceiptDossierStatus(array $options = []): array
+        public function atlasSelfConstructionHumanCompletionReceiptDossierStatus(array $options = []): array
     {
-        $result = (new AtlasSelfConstructionHumanCompletionReceiptDossierService($this))->build($options);
-
-        return $this->wrapCertificationWorkbenchStatus(
-            keyPrefix: 'atlas_self_construction_human_completion_receipt_dossier',
-            label: 'Atlas Self-Construction Human Completion Receipt Dossier',
-            payload: $result,
-            statusKey: 'status',
-            extraStatusFields: [
-                'dossier_hash' => (string) data_get($result, 'dossier_hash'),
-                'completion_audit_status' => (string) data_get($result, 'completion_audit_snapshot.status'),
-                'failed_count' => (int) data_get($result, 'completion_audit_snapshot.failed_count', 0),
-                'stale_snapshot_detected' => (bool) data_get($result, 'release_dossier_snapshot.stale_snapshot_detected', false),
-                'receipt_verification_status' => (string) data_get($result, 'receipt_verification.status'),
-            ],
-        );
+        return $this->humanCompletionReceiptSection()->atlasSelfConstructionHumanCompletionReceiptDossierStatus($options);
     }
 
     /**
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
-    public function atlasSelfConstructionHumanCompletionReceiptClosureExecutionPackContract(array $options = []): array
+        public function atlasSelfConstructionHumanCompletionReceiptClosureExecutionPackContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_human_completion_receipt_closure_execution_pack', 'Atlas Self-Construction Human Completion Receipt Closure Execution Pack', AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService::SCHEMA_VERSION, AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService::class, 'contract');
+        return $this->humanCompletionReceiptSection()->atlasSelfConstructionHumanCompletionReceiptClosureExecutionPackContract($options);
     }
 
     /**
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
-    public function atlasSelfConstructionHumanCompletionReceiptClosureExecutionPackPreflight(array $options = []): array
+        public function atlasSelfConstructionHumanCompletionReceiptClosureExecutionPackPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_human_completion_receipt_closure_execution_pack', 'Atlas Self-Construction Human Completion Receipt Closure Execution Pack', AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService::SCHEMA_VERSION, AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService::class, 'preflight');
+        return $this->humanCompletionReceiptSection()->atlasSelfConstructionHumanCompletionReceiptClosureExecutionPackPreflight($options);
     }
 
     /**
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
-    public function atlasSelfConstructionHumanCompletionReceiptClosureExecutionPackImplementationPacket(array $options = []): array
+        public function atlasSelfConstructionHumanCompletionReceiptClosureExecutionPackImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_human_completion_receipt_closure_execution_pack', 'Atlas Self-Construction Human Completion Receipt Closure Execution Pack', AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService::SCHEMA_VERSION, AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService::class, 'implementation_packet');
+        return $this->humanCompletionReceiptSection()->atlasSelfConstructionHumanCompletionReceiptClosureExecutionPackImplementationPacket($options);
     }
 
     /**
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
-    public function atlasSelfConstructionHumanCompletionReceiptClosureExecutionPackStatus(array $options = []): array
+        public function atlasSelfConstructionHumanCompletionReceiptClosureExecutionPackStatus(array $options = []): array
     {
-        $result = (new AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService($this))->build($options);
-
-        return $this->wrapCertificationWorkbenchStatus(
-            keyPrefix: 'atlas_self_construction_human_completion_receipt_closure_execution_pack',
-            label: 'Atlas Self-Construction Human Completion Receipt Closure Execution Pack',
-            payload: $result,
-            statusKey: 'status',
-            extraStatusFields: [
-                'closure_pack_hash' => (string) data_get($result, 'closure_pack_hash'),
-                'receipt_source' => (string) data_get($result, 'receipt_under_review.source'),
-                'verification_status' => (string) data_get($result, 'verification_result.status'),
-                'persistence_can_persist' => (bool) data_get($result, 'persistence_preflight.can_persist', false),
-                'operator_submission_envelope_status' => (string) data_get($result, 'operator_submission_envelope.status'),
-            ],
-        );
+        return $this->humanCompletionReceiptSection()->atlasSelfConstructionHumanCompletionReceiptClosureExecutionPackStatus($options);
     }
 
     /**
@@ -44298,62 +44224,36 @@ public function releasePacket(array $options = []): array
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
-    public function atlasSelfConstructionHumanCompletionReceiptRunbookContract(array $options = []): array
+        public function atlasSelfConstructionHumanCompletionReceiptRunbookContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_human_completion_receipt_runbook', 'Atlas Self-Construction Human Completion Receipt Runbook', AtlasSelfConstructionHumanCompletionReceiptRunbookService::SCHEMA_VERSION, AtlasSelfConstructionHumanCompletionReceiptRunbookService::class, 'contract');
+        return $this->humanCompletionReceiptSection()->atlasSelfConstructionHumanCompletionReceiptRunbookContract($options);
     }
 
     /**
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
-    public function atlasSelfConstructionHumanCompletionReceiptRunbookPreflight(array $options = []): array
+        public function atlasSelfConstructionHumanCompletionReceiptRunbookPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_human_completion_receipt_runbook', 'Atlas Self-Construction Human Completion Receipt Runbook', AtlasSelfConstructionHumanCompletionReceiptRunbookService::SCHEMA_VERSION, AtlasSelfConstructionHumanCompletionReceiptRunbookService::class, 'preflight');
+        return $this->humanCompletionReceiptSection()->atlasSelfConstructionHumanCompletionReceiptRunbookPreflight($options);
     }
 
     /**
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
-    public function atlasSelfConstructionHumanCompletionReceiptRunbookImplementationPacket(array $options = []): array
+        public function atlasSelfConstructionHumanCompletionReceiptRunbookImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_human_completion_receipt_runbook', 'Atlas Self-Construction Human Completion Receipt Runbook', AtlasSelfConstructionHumanCompletionReceiptRunbookService::SCHEMA_VERSION, AtlasSelfConstructionHumanCompletionReceiptRunbookService::class, 'implementation_packet');
+        return $this->humanCompletionReceiptSection()->atlasSelfConstructionHumanCompletionReceiptRunbookImplementationPacket($options);
     }
 
     /**
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
-    public function atlasSelfConstructionHumanCompletionReceiptRunbookStatus(array $options = []): array
+        public function atlasSelfConstructionHumanCompletionReceiptRunbookStatus(array $options = []): array
     {
-        $evidence = $this->atlasSelfConstructionOsCompletionEvidenceStatus($options);
-        $result = (array) data_get($evidence, 'operator_action_packet.human_completion_receipt_runbook', []);
-        $completionClaimAuthorityAliases = $this->completionClaimAuthorityAliases(
-            failedCriteria: (array) data_get($evidence, 'completion_audit_failed_criteria', []),
-            currentRequiredOperatorArtifact: (string) data_get($evidence, 'current_required_operator_artifact', 'human_completion_receipt'),
-        );
-
-        return $this->wrapCertificationWorkbenchStatus(
-            keyPrefix: 'atlas_self_construction_human_completion_receipt_runbook',
-            label: 'Atlas Self-Construction Human Completion Receipt Runbook',
-            payload: $result,
-            statusKey: 'status',
-            extraStatusFields: [
-                'runbook_hash' => (string) data_get($result, 'runbook_hash'),
-                'required_evidence_field_count' => count((array) data_get($result, 'required_evidence_fields', [])),
-                'required_acknowledgement_count' => count((array) data_get($result, 'required_acknowledgements', [])),
-                'persist_completion_receipt_command' => (string) data_get($result, 'commands.persist_completion_receipt', ''),
-                'verify_completion_evidence_command' => (string) data_get($result, 'commands.verify_completion_evidence', ''),
-                'refresh_terminal_loop_operational_proof_command' => (string) data_get($result, 'commands.refresh_terminal_loop_operational_proof', ''),
-                'run_completion_audit_diagnostic_command' => (string) data_get($result, 'commands.run_completion_audit_diagnostic', ''),
-                'terminal_loop_operational_proof_canonical_binding_path' => (string) data_get($result, 'commands.terminal_loop_operational_proof_canonical_binding_path'),
-                'run_completion_audit_with_canonical_terminal_loop_operational_proof' => (string) data_get($result, 'commands.run_completion_audit_with_canonical_terminal_loop_operational_proof'),
-                ...$completionClaimAuthorityAliases,
-                'completion_claim_allowed' => false,
-                'self_programming_allowed' => false,
-            ],
-        );
+        return $this->humanCompletionReceiptSection()->atlasSelfConstructionHumanCompletionReceiptRunbookStatus($options);
     }
 
     /**
@@ -44720,97 +44620,36 @@ public function releasePacket(array $options = []): array
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
-    public function atlasSelfConstructionHumanCompletionReceiptEndgameVerifierContract(array $options = []): array
+        public function atlasSelfConstructionHumanCompletionReceiptEndgameVerifierContract(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_human_completion_receipt_endgame_verifier', 'Atlas Self-Construction Human Completion Receipt Endgame Verifier', AtlasSelfConstructionHumanCompletionReceiptEndgameVerifierService::SCHEMA_VERSION, AtlasSelfConstructionHumanCompletionReceiptEndgameVerifierService::class, 'contract');
+        return $this->humanCompletionReceiptSection()->atlasSelfConstructionHumanCompletionReceiptEndgameVerifierContract($options);
     }
 
     /**
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
-    public function atlasSelfConstructionHumanCompletionReceiptEndgameVerifierPreflight(array $options = []): array
+        public function atlasSelfConstructionHumanCompletionReceiptEndgameVerifierPreflight(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_human_completion_receipt_endgame_verifier', 'Atlas Self-Construction Human Completion Receipt Endgame Verifier', AtlasSelfConstructionHumanCompletionReceiptEndgameVerifierService::SCHEMA_VERSION, AtlasSelfConstructionHumanCompletionReceiptEndgameVerifierService::class, 'preflight');
+        return $this->humanCompletionReceiptSection()->atlasSelfConstructionHumanCompletionReceiptEndgameVerifierPreflight($options);
     }
 
     /**
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
-    public function atlasSelfConstructionHumanCompletionReceiptEndgameVerifierImplementationPacket(array $options = []): array
+        public function atlasSelfConstructionHumanCompletionReceiptEndgameVerifierImplementationPacket(array $options = []): array
     {
-        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_human_completion_receipt_endgame_verifier', 'Atlas Self-Construction Human Completion Receipt Endgame Verifier', AtlasSelfConstructionHumanCompletionReceiptEndgameVerifierService::SCHEMA_VERSION, AtlasSelfConstructionHumanCompletionReceiptEndgameVerifierService::class, 'implementation_packet');
+        return $this->humanCompletionReceiptSection()->atlasSelfConstructionHumanCompletionReceiptEndgameVerifierImplementationPacket($options);
     }
 
     /**
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
-    public function atlasSelfConstructionHumanCompletionReceiptEndgameVerifierStatus(array $options = []): array
+        public function atlasSelfConstructionHumanCompletionReceiptEndgameVerifierStatus(array $options = []): array
     {
-        $liveStatusProjection = $options === [];
-        $receipt = (array) ($options['completion_receipt'] ?? $this->decodeJsonOption($options['completion_receipt_json'] ?? null));
-        $context = (array) ($options['human_completion_receipt_context'] ?? []);
-        $result = (new AtlasSelfConstructionHumanCompletionReceiptEndgameVerifierService)->verify($receipt, $context);
-        $runtimeGapMatrix = (array) data_get($options, 'runtime_gap_matrix', []);
-        if ($runtimeGapMatrix === []) {
-            $runtimeGapMatrix = (new AtlasSelfConstructionRuntimeGapMatrixService($this))->matrix();
-        }
-        $completionAudit = (new AtlasSelfConstructionOsCompletionAuditService($this))->audit();
-        $failedCriteria = (array) data_get($completionAudit, 'failed_criteria', []);
-        $currentRequiredOperatorArtifact = match (true) {
-            in_array('runtime_gap_matrix_all_runtime_y', $failedCriteria, true) => 'runtime_promotion_receipt',
-            in_array('end_to_end_real_provider_smoke_green', $failedCriteria, true) => 'real_provider_smoke',
-            in_array('human_signed_os_complete_receipt_present', $failedCriteria, true) => 'human_completion_receipt',
-            default => 'none',
-        };
-        $nextRequiredCommand = match ($currentRequiredOperatorArtifact) {
-            'runtime_promotion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-runtime-promotion-receipt-draft-status --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json',
-            'real_provider_smoke' => 'php artisan atlas:ai:self-construction --atlas-self-construction-real-provider-smoke-draft-status --json',
-            'human_completion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-human-completion-receipt-draft-status --signed-by="<operator>" --reason="<operator reason with at least 32 chars>" --json',
-            default => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
-        };
-        $nextRequiredPersistCommand = match ($currentRequiredOperatorArtifact) {
-            'runtime_promotion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --runtime-promotion-receipt-json=@/path/to/runtime-promotion.json --persist-runtime-promotion-receipt --json',
-            'real_provider_smoke' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --real-provider-smoke-json=@/path/to/real-provider-smoke.json --persist-completion-evidence --json',
-            'human_completion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@/path/to/completion-receipt.json --persist-completion-evidence --json',
-            default => '',
-        };
-        if ($liveStatusProjection) {
-            $completionEvidence = $this->atlasSelfConstructionOsCompletionEvidenceStatus($options);
-            $currentRequiredOperatorArtifact = (string) data_get($completionEvidence, 'current_required_operator_artifact', $currentRequiredOperatorArtifact);
-            $nextRequiredCommand = (string) data_get($completionEvidence, 'next_required_command', $nextRequiredCommand);
-            $nextRequiredPersistCommand = (string) data_get($completionEvidence, 'next_required_persist_command', $nextRequiredPersistCommand);
-        }
-
-        return $this->wrapCertificationWorkbenchStatus(
-            keyPrefix: 'atlas_self_construction_human_completion_receipt_endgame_verifier',
-            label: 'Atlas Self-Construction Human Completion Receipt Endgame Verifier',
-            payload: $result,
-            statusKey: 'status',
-            extraStatusFields: [
-                'current_required_operator_artifact' => $currentRequiredOperatorArtifact,
-                'next_required_command' => $nextRequiredCommand,
-                'next_required_persist_command' => $nextRequiredPersistCommand,
-                'runtime_gap_matrix_hash' => (string) data_get($runtimeGapMatrix, 'runtime_gap_matrix_hash', ''),
-                'expected_runtime_gap_matrix_hash_for_promotion_receipt' => (string) data_get($runtimeGapMatrix, 'expected_runtime_gap_matrix_hash_for_promotion_receipt', ''),
-                'runtime_promotion_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_basis_hash', ''),
-                'runtime_promotion_closure_basis_hash' => (string) data_get($runtimeGapMatrix, 'runtime_promotion_closure_basis_hash', ''),
-                'execution_allowed' => false,
-                'dispatch_allowed' => false,
-                'ledger_write_allowed' => false,
-                'runtime_write_allowed' => false,
-                'provider_call_allowed' => false,
-                'token_spend_allowed' => false,
-                'adapter_execution_allowed' => false,
-                'completion_allowed' => false,
-                'completion_claim_allowed' => false,
-                'self_programming_allowed' => false,
-                'terminal_loop_operational_proof_required_before_completion_claim' => true,
-                'completion_audit_without_terminal_loop_operational_proof_is_diagnostic_only' => true,
-            ],
-        );
+        return $this->humanCompletionReceiptSection()->atlasSelfConstructionHumanCompletionReceiptEndgameVerifierStatus($options);
     }
 
     /**
@@ -52863,6 +52702,14 @@ public function releasePacket(array $options = []): array
     private function realProviderSmokeSection(): \App\Services\Ai\SelfConstruction\ReadinessProjectionRealProviderSmokeSection
     {
         return $this->realProviderSmokeSection ??= new \App\Services\Ai\SelfConstruction\ReadinessProjectionRealProviderSmokeSection(
+            fn (array $payload): string => $this->stableHash($payload),
+        );
+    }
+
+
+    private function humanCompletionReceiptSection(): \App\Services\Ai\SelfConstruction\ReadinessProjectionHumanCompletionReceiptSection
+    {
+        return $this->humanCompletionReceiptSection ??= new \App\Services\Ai\SelfConstruction\ReadinessProjectionHumanCompletionReceiptSection(
             fn (array $payload): string => $this->stableHash($payload),
         );
     }
