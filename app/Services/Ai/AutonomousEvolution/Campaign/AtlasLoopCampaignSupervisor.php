@@ -1168,7 +1168,7 @@ final class AtlasLoopCampaignSupervisor
      */
     private function costGovernorDecision(AtlasLoopCampaign $campaign, ?int $scenarios): array
     {
-        return $this->costGovernor->costGovernorDecision($campaign, $scenarios);
+        return AtlasLoopCampaignCostMath::costGovernorDecision($this->costGovernor, $campaign, $scenarios);
     }
 
     /**
@@ -1176,7 +1176,7 @@ final class AtlasLoopCampaignSupervisor
      */
     private function spendCentsFromResult(array $result): int
     {
-        return $this->costGovernor->spendCentsFromResult($result);
+        return AtlasLoopCampaignCostMath::spendCentsFromResult($this->costGovernor, $result);
     }
 
     /**
@@ -1184,7 +1184,7 @@ final class AtlasLoopCampaignSupervisor
      */
     private function spendCentsFromWorkerSummaries(array $settled): int
     {
-        return $this->costGovernor->spendCentsFromWorkerSummaries($settled);
+        return AtlasLoopCampaignCostMath::spendCentsFromWorkerSummaries($this->costGovernor, $settled);
     }
 
     /**
@@ -1863,9 +1863,7 @@ final class AtlasLoopCampaignSupervisor
      */
     private function grindTimeout(?int $budgetLeft, int $taskCap): int
     {
-        $taskCap = max(60, $taskCap);
-
-        return $budgetLeft === null ? $taskCap : max(5, min($budgetLeft, $taskCap));
+        return AtlasLoopCampaignCostMath::grindTimeout($budgetLeft, $taskCap);
     }
 
     private function currentGitHead(string $workspace): ?string
