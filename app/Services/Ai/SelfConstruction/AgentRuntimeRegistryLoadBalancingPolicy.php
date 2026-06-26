@@ -10,6 +10,7 @@ namespace App\Services\Ai\SelfConstruction;
  */
 final class AgentRuntimeRegistryLoadBalancingPolicy
 {
+    use HashesPayloadCanonically;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_runtime_registry_load_balancing_policy.v1';
 
     public const MODE = 'read_only_agent_runtime_registry_load_balancing_policy';
@@ -197,11 +198,4 @@ final class AgentRuntimeRegistryLoadBalancingPolicy
         return $normalized;
     }
 
-    /**
-     * @param  array<mixed, mixed>  $payload
-     */
-    private function stableHash(array $payload): string
-    {
-        return hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-    }
 }

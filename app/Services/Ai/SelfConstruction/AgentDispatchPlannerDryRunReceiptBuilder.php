@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Throwable;
 use App\Services\Ai\SelfConstruction\Support\EncodesPayloadAsPrettyJson;
+use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
 
 /**
  * Build and persist local dry-run dispatch receipts.
@@ -23,6 +24,7 @@ use App\Services\Ai\SelfConstruction\Support\EncodesPayloadAsPrettyJson;
  */
 final class AgentDispatchPlannerDryRunReceiptBuilder
 {
+    use HashesPayloadCanonically;
     use EncodesPayloadAsPrettyJson;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_dispatch_planner_dry_run_receipt.v1';
 
@@ -344,13 +346,6 @@ final class AgentDispatchPlannerDryRunReceiptBuilder
     }
 
 
-    /**
-     * @param  array<mixed, mixed>  $payload
-     */
-    private function stableHash(array $payload): string
-    {
-        return hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-    }
 
     private function disk(): Filesystem
     {

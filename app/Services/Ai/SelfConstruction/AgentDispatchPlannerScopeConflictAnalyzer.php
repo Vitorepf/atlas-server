@@ -12,6 +12,7 @@ namespace App\Services\Ai\SelfConstruction;
  */
 final class AgentDispatchPlannerScopeConflictAnalyzer
 {
+    use HashesPayloadCanonically;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_dispatch_planner_scope_conflict.v1';
 
     public const MODE = 'read_only_agent_dispatch_planner_scope_conflict';
@@ -178,11 +179,4 @@ final class AgentDispatchPlannerScopeConflictAnalyzer
         return array_values($keys);
     }
 
-    /**
-     * @param  array<mixed, mixed>  $payload
-     */
-    private function stableHash(array $payload): string
-    {
-        return hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-    }
 }

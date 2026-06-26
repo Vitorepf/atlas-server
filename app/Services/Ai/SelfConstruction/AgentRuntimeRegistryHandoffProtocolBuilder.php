@@ -4,6 +4,7 @@ namespace App\Services\Ai\SelfConstruction;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
+use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
 
 /**
  * Build a handoff protocol plan between two Agent Control Plane agents.
@@ -15,6 +16,7 @@ use Illuminate\Support\Str;
  */
 final class AgentRuntimeRegistryHandoffProtocolBuilder
 {
+    use HashesPayloadCanonically;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_runtime_registry_handoff_protocol.v1';
 
     public const MODE = 'read_only_agent_runtime_registry_handoff_protocol';
@@ -184,11 +186,4 @@ final class AgentRuntimeRegistryHandoffProtocolBuilder
         return array_values($keys);
     }
 
-    /**
-     * @param  array<mixed, mixed>  $payload
-     */
-    private function stableHash(array $payload): string
-    {
-        return hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-    }
 }

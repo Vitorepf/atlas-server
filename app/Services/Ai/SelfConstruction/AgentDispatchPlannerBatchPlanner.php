@@ -4,6 +4,7 @@ namespace App\Services\Ai\SelfConstruction;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
+use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
 
 /**
  * Compose the Dispatch Planner sub-services into a single batch plan
@@ -16,6 +17,7 @@ use Illuminate\Support\Str;
  */
 final class AgentDispatchPlannerBatchPlanner
 {
+    use HashesPayloadCanonically;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_dispatch_planner_batch_plan.v1';
 
     public const MODE = 'read_only_agent_dispatch_planner_batch_plan';
@@ -272,13 +274,6 @@ final class AgentDispatchPlannerBatchPlanner
         ];
     }
 
-    /**
-     * @param  array<mixed, mixed>  $payload
-     */
-    private function stableHash(array $payload): string
-    {
-        return hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-    }
 
     private function scalarString(mixed $value): string
     {
