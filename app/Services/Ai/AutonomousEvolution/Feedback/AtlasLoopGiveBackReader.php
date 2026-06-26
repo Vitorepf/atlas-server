@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution\Feedback;
 
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 
 final class AtlasLoopGiveBackReader
 {
@@ -76,7 +77,7 @@ final class AtlasLoopGiveBackReader
      */
     private function scan(): array
     {
-        $queue = $this->queue ?? new AgentControlPlaneTaskPacketQueueRepository;
+        $queue = $this->queue ?? new AgentControlPlaneTaskPacketQueueRepository(AtlasTaskServingStack::disk());
         $registry = $queue->registry();
         $entries = is_array($registry['entries'] ?? null) ? $registry['entries'] : [];
 
