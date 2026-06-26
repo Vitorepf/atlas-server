@@ -56,6 +56,8 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
 
     private ?OperatorEvidenceDraftHashFinalizationSummarizer $draftHashFinalizationSummarizerInstance = null;
 
+    private ?OperatorEvidenceSubmissionCommandSurfaceCollector $commandSurfaceCollectorInstance = null;
+
     /**
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
@@ -348,7 +350,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
      */
     private function operatorCommandSurfaceIntegrity(array $payload): array
     {
-        return OperatorEvidence\OperatorCommandSurfaceIntegrityAnalyzer::integrity($payload);
+        return $this->commandSurfaceCollector()->operatorCommandSurfaceIntegrity($payload);
     }
 
     /**
@@ -357,7 +359,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
      */
     private function collectOperatorCommands(array $value, string $path = 'payload'): array
     {
-        return OperatorEvidence\OperatorCommandSurfaceIntegrityAnalyzer::collectOperatorCommands($value, $path);
+        return $this->commandSurfaceCollector()->collectOperatorCommands($value, $path);
     }
 
     /**
@@ -365,7 +367,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
      */
     private function extractCommandOptions(string $command): array
     {
-        return OperatorEvidence\OperatorCommandSurfaceIntegrityAnalyzer::extractCommandOptions($command);
+        return $this->commandSurfaceCollector()->extractCommandOptions($command);
     }
 
     /**
@@ -373,7 +375,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
      */
     private function selfConstructionCommandOptions(): array
     {
-        return OperatorEvidence\OperatorCommandSurfaceIntegrityAnalyzer::selfConstructionCommandOptions();
+        return $this->commandSurfaceCollector()->selfConstructionCommandOptions();
     }
 
     /**
@@ -381,7 +383,12 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
      */
     private function legacySelfConstructionCommandAliases(): array
     {
-        return OperatorEvidence\OperatorCommandSurfaceIntegrityAnalyzer::legacySelfConstructionCommandAliases();
+        return $this->commandSurfaceCollector()->legacySelfConstructionCommandAliases();
+    }
+
+    private function commandSurfaceCollector(): OperatorEvidenceSubmissionCommandSurfaceCollector
+    {
+        return $this->commandSurfaceCollectorInstance ??= new OperatorEvidenceSubmissionCommandSurfaceCollector;
     }
 
     /**
