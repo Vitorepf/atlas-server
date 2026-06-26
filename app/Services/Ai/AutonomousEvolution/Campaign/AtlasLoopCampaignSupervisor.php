@@ -1744,36 +1744,13 @@ final class AtlasLoopCampaignSupervisor
      */
     private function territoryClimbDecision(array $current, array $rungs, string $campaignId): array
     {
-        $current = $this->normalizeRoots($current);
-        $rungs = $this->normalizeRoots($rungs);
-
-        // GRADUAL-RELEASE DEFAULT: with no operator-defined rung, the ladder is a logged no-op.
-        if ($rungs === []) {
-            return ['widen' => false, 'reason' => 'no_rung_defined', 'next_roots' => null, 'violations' => []];
-        }
-
-        $nextRoots = array_values(array_unique(array_merge($current, $rungs)));
-
-        $ladder = $this->territoryLadder ?? new AtlasLoopTerritoryLadder;
-        $verdict = $ladder->canPromote([
-            'name' => 'campaign:'.$campaignId,
-            'discovery_roots' => $nextRoots,
-            // The REAL frozen-safety-file list (pétreo): every widened root MUST have one under it.
-            'frozen_safety_files' => AtlasLoopHarnessGuard::FORBIDDEN_SELF_TARGETS,
-            'robustness_cases' => 1,
-            'certified_leaps' => $this->certifiedLeapsFor($campaignId),
-            'red_main_in_window' => 0,
-            'compounding_trend_up' => true,
-        ]);
-
-        $promotable = (bool) ($verdict['promotable'] ?? false);
-
-        return [
-            'widen' => $promotable,
-            'reason' => $promotable ? 'promotable' : 'blocked',
-            'next_roots' => $promotable ? $nextRoots : null,
-            'violations' => array_values((array) ($verdict['violations'] ?? [])),
-        ];
+        return AtlasLoopTerritoryClimbDecider::territoryClimbDecision(
+            $current,
+            $rungs,
+            $campaignId,
+            $this->territoryLadder,
+            AtlasLoopTerritoryClimbDecider::certifiedLeapsFor($campaignId),
+        );
     }
 
     /**
@@ -1784,16 +1761,7 @@ final class AtlasLoopCampaignSupervisor
      */
     private function certifiedLeapsFor(string $campaignId): int
     {
-        // A single-row read; wrap in try/catch (a DB blip yields 0 — conservatively short of K, so the
-        // promotion rule simply does not fire) rather than the resilience guard, so the decision is
-        // testable in isolation without the full ctor wiring.
-        try {
-            $campaign = AtlasLoopCampaign::query()->find($campaignId);
-
-            return $campaign instanceof AtlasLoopCampaign ? max(0, (int) $campaign->proposals_count) : 0;
-        } catch (Throwable) {
-            return 0;
-        }
+        return AtlasLoopTerritoryClimbDecider::certifiedLeapsFor($campaignId);
     }
 
     /**
@@ -1802,18 +1770,7 @@ final class AtlasLoopCampaignSupervisor
      */
     private function normalizeRoots(array $roots): array
     {
-        $out = [];
-        foreach ($roots as $root) {
-            if (! is_string($root)) {
-                continue;
-            }
-            $root = trim(str_replace('\\', '/', $root));
-            if ($root !== '') {
-                $out[$root] = true;
-            }
-        }
-
-        return array_keys($out);
+        return AtlasLoopTerritoryClimbDecider::normalizeRoots($roots);
     }
 
     private function now(): int
