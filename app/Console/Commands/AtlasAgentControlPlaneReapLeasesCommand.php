@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskLeaseRecoveryService;
+use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -25,8 +26,15 @@ class AtlasAgentControlPlaneReapLeasesCommand extends Command
 
     protected $description = 'Reap expired Agent Control Plane leases and return their stranded tasks to claimable (R2 dead-agent recovery).';
 
-    public function handle(AgentControlPlaneTaskLeaseRecoveryService $recovery): int
+    public function handle(): int
     {
+        // Recovery must run on the operator SERVING disk; container auto-resolution would
+        // hand back a default-disk instance and the every-minute reaper would silently
+        // never recover real stranded leases.
+        $recovery = new AgentControlPlaneTaskLeaseRecoveryService(
+            AtlasTaskServingStack::queueRepo(),
+            AtlasTaskServingStack::leaseRepo(),
+        );
         try {
             $expired = $recovery->recoverExpiredLeases(['actor' => 'scheduled_reaper']);
             $orphaned = $recovery->recoverOrphanedClaims(['actor' => 'scheduled_reaper']);
