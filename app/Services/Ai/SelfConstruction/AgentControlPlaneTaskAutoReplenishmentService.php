@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\Replenishment\AgentControlPlaneCompletionAuditReader;
 use App\Services\Ai\SelfConstruction\Replenishment\AgentControlPlaneReplenishmentStableHasher;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
@@ -30,6 +31,8 @@ final class AgentControlPlaneTaskAutoReplenishmentService
         // fresh hasher on first use. This is the thread-safe default-to-fresh-instance pattern the
         // task requires.
         private readonly ?AgentControlPlaneReplenishmentStableHasher $stableHasher = null,
+        // ITEM8 — optional constructor-injected completion-audit reader (same default-to-fresh pattern).
+        private readonly ?AgentControlPlaneCompletionAuditReader $completionAuditReader = null,
     ) {}
 
     /**
@@ -40,6 +43,15 @@ final class AgentControlPlaneTaskAutoReplenishmentService
     private function stableHasher(): AgentControlPlaneReplenishmentStableHasher
     {
         return $this->stableHasher ?? new AgentControlPlaneReplenishmentStableHasher;
+    }
+
+    /**
+     * ITEM8 — lazy completion-audit reader accessor: same default-to-fresh pattern. Keeps the
+     * byte-identical call-site contract at lines 386, 398, 417, 422, 423, 512, 524, 656 untouched.
+     */
+    private function completionAuditReader(): AgentControlPlaneCompletionAuditReader
+    {
+        return $this->completionAuditReader ?? new AgentControlPlaneCompletionAuditReader;
     }
 
     /**
@@ -679,20 +691,7 @@ final class AgentControlPlaneTaskAutoReplenishmentService
      */
     private function completionAuditPayload(array $completionAudit): array
     {
-        foreach ([
-            'agent_control_plane_atlas_self_construction_os_completion_audit',
-            'agent_control_plane_atlas_self_construction_os_completion_audit_status',
-            'current_completion_audit',
-            'completion_audit',
-            'operator_handoff_packet.completion_audit',
-        ] as $path) {
-            $candidate = data_get($completionAudit, $path);
-            if (is_array($candidate) && $candidate !== []) {
-                return (array) $candidate;
-            }
-        }
-
-        return $completionAudit;
+        return $this->completionAuditReader()->completionAuditPayload($completionAudit);
     }
 
     /**
@@ -701,31 +700,7 @@ final class AgentControlPlaneTaskAutoReplenishmentService
      */
     private function completionAuditFailedCriteria(array $completionAudit): array
     {
-        $criteria = array_values(array_filter(array_map('strval', (array) data_get($completionAudit, 'failed_criteria', []))));
-
-        foreach ((array) data_get($completionAudit, 'failed_criteria_detailed', []) as $entry) {
-            $id = (string) data_get($entry, 'id', '');
-            if ($id !== '') {
-                $criteria[] = $id;
-            }
-        }
-
-        foreach ([
-            'current_blocks_completion_criteria',
-            'operator_handoff_packet.current_blocks_completion_criteria',
-            'blocker_classification.human_blockers',
-            'blocker_classification.real_provider_blockers',
-            'blocker_classification.technical_blockers',
-        ] as $path) {
-            foreach ((array) data_get($completionAudit, $path, []) as $id) {
-                $id = (string) $id;
-                if ($id !== '') {
-                    $criteria[] = $id;
-                }
-            }
-        }
-
-        return array_values(array_unique($criteria));
+        return $this->completionAuditReader()->completionAuditFailedCriteria($completionAudit);
     }
 
     /**
@@ -734,58 +709,22 @@ final class AgentControlPlaneTaskAutoReplenishmentService
      */
     private function completionAuditFailedCriterionDetails(array $completionAudit): array
     {
-        $details = [];
-        foreach ((array) data_get($completionAudit, 'failed_criteria_detailed', []) as $entry) {
-            $id = (string) data_get($entry, 'id', '');
-            if ($id !== '') {
-                $details[$id] = (array) $entry;
-            }
-        }
-
-        foreach ((array) data_get($completionAudit, 'blockers', []) as $entry) {
-            $id = (string) data_get($entry, 'id', '');
-            if ($id !== '' && ! isset($details[$id])) {
-                $details[$id] = (array) $entry;
-            }
-        }
-
-        foreach ((array) data_get($completionAudit, 'operator_handoff_packet.blockers', []) as $entry) {
-            $id = (string) data_get($entry, 'id', '');
-            if ($id !== '' && ! isset($details[$id])) {
-                $details[$id] = (array) $entry;
-            }
-        }
-
-        return $details;
+        return $this->completionAuditReader()->completionAuditFailedCriterionDetails($completionAudit);
     }
 
     private function completionAuditCriterionRequiresOperator(string $criterion): bool
     {
-        return in_array($criterion, [
-            'runtime_gap_matrix_all_runtime_y',
-            'human_signed_os_complete_receipt_present',
-            'end_to_end_real_provider_smoke_green',
-        ], true);
+        return $this->completionAuditReader()->completionAuditCriterionRequiresOperator($criterion);
     }
 
     private function completionAuditOperatorHandoffReason(string $criterion): string
     {
-        return match ($criterion) {
-            'runtime_gap_matrix_all_runtime_y' => 'requires_operator_signed_runtime_promotion_receipt_before_runtime_gap_can_close',
-            'human_signed_os_complete_receipt_present' => 'requires_human_signed_os_completion_receipt_after_runtime_and_real_provider_smoke_are_green',
-            'end_to_end_real_provider_smoke_green' => 'requires_operator_run_real_provider_smoke_outside_atlas_and_persist_evidence',
-            default => '',
-        };
+        return $this->completionAuditReader()->completionAuditOperatorHandoffReason($criterion);
     }
 
     private function operatorHandoffNextAction(string $criterion): string
     {
-        return match ($criterion) {
-            'runtime_gap_matrix_all_runtime_y' => 'run_runtime_promotion_endgame_and_persist_operator_signed_runtime_promotion_receipt',
-            'human_signed_os_complete_receipt_present' => 'persist_human_completion_receipt_only_after_runtime_promotion_and_real_provider_smoke_are_green',
-            'end_to_end_real_provider_smoke_green' => 'run_real_provider_smoke_outside_atlas_then_persist_smoke_certification_evidence',
-            default => 'operator_review_required_before_replenishing_worker_claimable_task',
-        };
+        return $this->completionAuditReader()->operatorHandoffNextAction($criterion);
     }
 
     /**
