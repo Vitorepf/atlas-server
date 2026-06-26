@@ -4,6 +4,7 @@ namespace App\Services\Ai\SelfConstruction;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
+use App\Services\Ai\SelfConstruction\Support\RecursivelyKsortsArrays;
 
 /**
  * Deterministic replay of the Agent Control Plane chain integrity certification.
@@ -19,6 +20,7 @@ use Illuminate\Support\Str;
  */
 final class AgentControlPlaneDeterministicChainReplayService
 {
+    use RecursivelyKsortsArrays;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_deterministic_chain_replay.v1';
 
     public const MODE = 'read_only_agent_control_plane_deterministic_chain_replay';
@@ -450,26 +452,6 @@ final class AgentControlPlaneDeterministicChainReplayService
         return $this->recursivelyKsort($clone);
     }
 
-    /**
-     * @param  array<mixed, mixed>  $value
-     * @return array<mixed, mixed>
-     */
-    private function recursivelyKsort(array $value): array
-    {
-        // Detect "associative" arrays vs lists. Lists preserve order;
-        // associative arrays are key-sorted to stabilise JSON output.
-        $isAssoc = array_keys($value) !== range(0, count($value) - 1);
-        foreach ($value as $key => $entry) {
-            if (is_array($entry)) {
-                $value[$key] = $this->recursivelyKsort($entry);
-            }
-        }
-        if ($isAssoc) {
-            ksort($value);
-        }
-
-        return $value;
-    }
 
     /**
      * @return array<string, mixed>

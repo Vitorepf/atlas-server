@@ -4,6 +4,7 @@ namespace App\Services\Ai\SelfConstruction;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
+use App\Services\Ai\SelfConstruction\Support\RecursivelyKsortsArrays;
 
 /**
  * Plans whether multiple task packets can run in parallel, computing the
@@ -18,6 +19,7 @@ use Illuminate\Support\Str;
  */
 final class AgentControlPlaneMultiAgentParallelismPlanner
 {
+    use RecursivelyKsortsArrays;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_multi_agent_parallelism_plan.v1';
 
     public const MODE = 'read_only_agent_control_plane_multi_agent_parallelism_plan';
@@ -256,14 +258,6 @@ final class AgentControlPlaneMultiAgentParallelismPlanner
         return $this->recursivelyKsort($clone);
     }
 
-    /**
-     * @param  array<mixed, mixed>  $value
-     * @return array<mixed, mixed>
-     */
-    private function recursivelyKsort(array $value): array
-    {
-        return ReadinessHash::ksortRecursive($value);
-    }
 
     /**
      * @param  array<mixed, mixed>  $payload
