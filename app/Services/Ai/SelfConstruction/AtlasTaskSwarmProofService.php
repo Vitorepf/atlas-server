@@ -29,6 +29,7 @@ namespace App\Services\Ai\SelfConstruction;
  */
 final class AtlasTaskSwarmProofService
 {
+    use NormalizesToStringList;
     public const SCHEMA = 'atlas.task_serving.swarm_proof.v1';
 
     /** Envelope statuses that are HONEST for a `next` call (empty/all-doomed queue is honest; an error is not). */
@@ -239,15 +240,4 @@ final class AtlasTaskSwarmProofService
         return $out;
     }
 
-    /**
-     * @param  array<int|string, mixed>  $values
-     * @return list<string>
-     */
-    private function stringList(array $values): array
-    {
-        return array_values(array_filter(array_map(
-            static fn (mixed $v): string => trim((string) $v),
-            $values,
-        ), static fn (string $v): bool => $v !== ''));
-    }
 }

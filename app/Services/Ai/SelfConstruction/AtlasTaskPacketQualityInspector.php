@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
+use App\Services\Ai\SelfConstruction\Support\NormalizesToStringList;
 
 /**
  * PART 2 · axis 8 — the task-packet SELF-SUFFICIENCY inspector (the "packet-quality scorer" the operator's
@@ -27,6 +28,7 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
  */
 final class AtlasTaskPacketQualityInspector
 {
+    use NormalizesToStringList;
     public const SCHEMA = 'atlas.task_serving.packet_quality.v1';
 
     public const BLOCKING_DEFICIENCIES = [
@@ -680,15 +682,4 @@ final class AtlasTaskPacketQualityInspector
         return $uncovered;
     }
 
-    /**
-     * @param  array<int|string, mixed>  $values
-     * @return list<string>
-     */
-    private function stringList(array $values): array
-    {
-        return array_values(array_filter(array_map(
-            static fn (mixed $v): string => trim((string) $v),
-            $values,
-        ), static fn (string $v): bool => $v !== ''));
-    }
 }
