@@ -2,10 +2,25 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+
+use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 use Carbon\CarbonImmutable;
 
 final class AtlasSelfConstructionHumanCompletionReceiptRunbookService
 {
+    use KsortsArraysByReference;
+
+
+    /**
+     * @param  array<string,mixed>  $value
+     * @return array<string,mixed>
+     */
+    private function ksortRecursive(array $value): array
+    {
+        $this->ksortRecursiveByReference($value);
+
+        return $value;
+    }
     public const SCHEMA_VERSION = 'atlas.self_construction.human_completion_receipt_runbook.v1';
 
     public const MODE = 'read_only_human_completion_receipt_runbook';
@@ -125,17 +140,4 @@ final class AtlasSelfConstructionHumanCompletionReceiptRunbookService
     }
 
     /** @param array<string, mixed> $value */
-    private function ksortRecursive(array $value): array
-    {
-        foreach ($value as $key => $entry) {
-            if (is_array($entry)) {
-                $value[$key] = $this->ksortRecursive($entry);
-            }
-        }
-        if ($value !== [] && array_keys($value) !== range(0, count($value) - 1)) {
-            ksort($value);
-        }
-
-        return $value;
-    }
 }
