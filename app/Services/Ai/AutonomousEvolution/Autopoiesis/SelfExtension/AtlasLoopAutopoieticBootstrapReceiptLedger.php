@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Autopoiesis\SelfExtension;
 
+
+use App\Services\Ai\SelfConstruction\Support\CanonicalizesNestedValues;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
@@ -34,11 +36,13 @@ final class LedgerSequenceViolation extends RuntimeException
  */
 final class AtlasLoopAutopoieticBootstrapReceiptLedger
 {
+    use CanonicalizesNestedValues;
     public const GENESIS_HASH = '0000000000000000000000000000000000000000000000000000000000000000';
 
     private const RELATIVE_PATH = 'atlas/autopoiesis/bootstrap-receipts.jsonl';
 
     public function __construct(private readonly ?string $path = null) {}
+
 
     public function path(): string
     {
@@ -205,19 +209,4 @@ final class AtlasLoopAutopoieticBootstrapReceiptLedger
         );
     }
 
-    private function canonicalize(mixed $value): mixed
-    {
-        if (! is_array($value)) {
-            return $value;
-        }
-        if (array_is_list($value)) {
-            return array_map(fn (mixed $v): mixed => $this->canonicalize($v), $value);
-        }
-        ksort($value);
-        foreach ($value as $key => $child) {
-            $value[$key] = $this->canonicalize($child);
-        }
-
-        return $value;
-    }
 }

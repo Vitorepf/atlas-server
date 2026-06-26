@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+
+use App\Services\Ai\SelfConstruction\Support\CanonicalizesNestedValues;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use Carbon\CarbonImmutable;
 use Closure;
@@ -23,6 +25,8 @@ use Throwable;
  */
 final class AtlasLoopNetDiffCertReceiptLedger
 {
+    use CanonicalizesNestedValues;
+
     public const SCHEMA_VERSION = 'atlas.loop.netdiff_cert_receipt.v1';
 
     private const RELATIVE_PATH = 'atlas/loop/netdiff-cert-receipts.jsonl';
@@ -145,19 +149,4 @@ final class AtlasLoopNetDiffCertReceiptLedger
         return CarbonImmutable::now('UTC');
     }
 
-    private function canonicalize(mixed $value): mixed
-    {
-        if (! is_array($value)) {
-            return $value;
-        }
-        if (array_is_list($value)) {
-            return array_map(fn (mixed $v): mixed => $this->canonicalize($v), $value);
-        }
-        ksort($value);
-        foreach ($value as $key => $child) {
-            $value[$key] = $this->canonicalize($child);
-        }
-
-        return $value;
-    }
 }

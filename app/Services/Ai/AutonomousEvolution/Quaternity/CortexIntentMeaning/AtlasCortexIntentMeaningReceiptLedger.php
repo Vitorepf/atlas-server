@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Quaternity\CortexIntentMeaning;
 
+
+use App\Services\Ai\SelfConstruction\Support\CanonicalizesNestedValues;
 use Carbon\CarbonImmutable;
 use Closure;
 use Throwable;
@@ -20,6 +22,8 @@ use Throwable;
  */
 final class AtlasCortexIntentMeaningReceiptLedger
 {
+    use CanonicalizesNestedValues;
+
     private const RELATIVE_PATH = 'atlas/loop/cortex-intent-meaning-receipts.jsonl';
 
     private ?Closure $clock = null;
@@ -133,19 +137,4 @@ final class AtlasCortexIntentMeaningReceiptLedger
         );
     }
 
-    private function canonicalize(mixed $value): mixed
-    {
-        if (! is_array($value)) {
-            return $value;
-        }
-        if (array_is_list($value)) {
-            return array_map(fn (mixed $v): mixed => $this->canonicalize($v), $value);
-        }
-        ksort($value);
-        foreach ($value as $key => $child) {
-            $value[$key] = $this->canonicalize($child);
-        }
-
-        return $value;
-    }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Quaternity\LoopIntentDrift;
 
+
+use App\Services\Ai\SelfConstruction\Support\CanonicalizesNestedValues;
 use Closure;
 use Throwable;
 
@@ -19,6 +21,8 @@ use Throwable;
  */
 final class AtlasLoopIntentDriftReceiptLedger
 {
+    use CanonicalizesNestedValues;
+
     private const DEFAULT_RELATIVE_PATH = 'atlas/loop/quaternity/intent-drift.jsonl';
 
     private ?Closure $clock = null;
@@ -201,19 +205,4 @@ final class AtlasLoopIntentDriftReceiptLedger
         return (string) json_encode($this->canonicalize($value), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
-    private function canonicalize(mixed $value): mixed
-    {
-        if (! is_array($value)) {
-            return $value;
-        }
-        if (array_is_list($value)) {
-            return array_map(fn (mixed $v): mixed => $this->canonicalize($v), $value);
-        }
-        ksort($value);
-        foreach ($value as $key => $child) {
-            $value[$key] = $this->canonicalize($child);
-        }
-
-        return $value;
-    }
 }

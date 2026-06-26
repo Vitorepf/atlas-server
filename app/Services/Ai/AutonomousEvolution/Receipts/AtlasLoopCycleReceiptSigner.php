@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Receipts;
 
+
+use App\Services\Ai\SelfConstruction\Support\CanonicalizesNestedValues;
 use Carbon\CarbonImmutable;
 use Closure;
 
@@ -19,6 +21,8 @@ use Closure;
  */
 final class AtlasLoopCycleReceiptSigner
 {
+    use CanonicalizesNestedValues;
+
     public const BODY_SCHEMA = 'atlas.loop.cycle_receipt.body.v1';
 
     public const SIGNED_SCHEMA = 'atlas.loop.cycle_receipt.signed.v1';
@@ -88,21 +92,6 @@ final class AtlasLoopCycleReceiptSigner
         return (string) json_encode($this->canonicalize($body), self::CANONICAL_FLAGS);
     }
 
-    private function canonicalize(mixed $value): mixed
-    {
-        if (! is_array($value)) {
-            return $value;
-        }
-        if (array_is_list($value)) {
-            return array_map(fn (mixed $v): mixed => $this->canonicalize($v), $value);
-        }
-        ksort($value);
-        foreach ($value as $key => $child) {
-            $value[$key] = $this->canonicalize($child);
-        }
-
-        return $value;
-    }
 
     private function now(): CarbonImmutable
     {

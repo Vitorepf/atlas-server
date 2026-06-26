@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Active;
 
+
+use App\Services\Ai\SelfConstruction\Support\CanonicalizesNestedValues;
 use LogicException;
 
 /** Raised when a caller tries to overwrite or collapse the passive payload — passive is frozen by contract. */
@@ -25,6 +27,7 @@ final class CortexPassiveImmutabilityViolation extends LogicException
  */
 final class AtlasCortexActiveSnapshot
 {
+    use CanonicalizesNestedValues;
     public const SCHEMA = 'atlas.cortex.active.snapshot.v1';
 
     /** Sentinel reasons aggregated into active.unknown_regions. */
@@ -43,7 +46,8 @@ final class AtlasCortexActiveSnapshot
 
     /**
      * @param  array<string,mixed>  $passiveModel
-     * @param  array{hypothetical_changes?:list<array<string,mixed>>, counterfactuals?:list<array<string,mixed>>, call_graph_projections?:list<array<string,mixed>>, critical_paths?:list<array<string,mixed>>}  $activeProbes
+     * @param  array{
+     * hypothetical_changes?:list<array<string,mixed>>, counterfactuals?:list<array<string,mixed>>, call_graph_projections?:list<array<string,mixed>>, critical_paths?:list<array<string,mixed>>}  $activeProbes
      */
     public function __construct(array $passiveModel, array $activeProbes)
     {
@@ -148,19 +152,4 @@ final class AtlasCortexActiveSnapshot
     /**
      * Recursively sort associative arrays (lists preserve order) so JSON serialization is byte-stable.
      */
-    private function canonicalize(mixed $value): mixed
-    {
-        if (! is_array($value)) {
-            return $value;
-        }
-        if (array_is_list($value)) {
-            return array_map(fn (mixed $v): mixed => $this->canonicalize($v), $value);
-        }
-        ksort($value);
-        foreach ($value as $key => $child) {
-            $value[$key] = $this->canonicalize($child);
-        }
-
-        return $value;
-    }
 }
