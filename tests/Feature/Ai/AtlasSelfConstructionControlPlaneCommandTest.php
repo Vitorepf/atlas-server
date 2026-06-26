@@ -124,9 +124,99 @@ final class AtlasSelfConstructionControlPlaneCommandTest extends TestCase
         [$exitMode] = $this->runCmd(['action' => 'mode']);
         [$exitScope] = $this->runCmd(['action' => 'scope']);
         [$exitNext] = $this->runCmd(['action' => 'next']);
+        [$exitScopeGate] = $this->runCmd(['action' => 'scope-gate']);
 
         $this->assertSame(AtlasSelfConstructionControlPlaneCommand::EXIT_USAGE, $exitMode);
         $this->assertSame(AtlasSelfConstructionControlPlaneCommand::EXIT_USAGE, $exitScope);
         $this->assertSame(AtlasSelfConstructionControlPlaneCommand::EXIT_USAGE, $exitNext);
+        $this->assertSame(AtlasSelfConstructionControlPlaneCommand::EXIT_USAGE, $exitScopeGate);
+    }
+
+    public function test_scope_gate_allows_when_requested_scope_within_lane_roots_and_budgets_present(): void
+    {
+        $path = $this->fixture([
+            'requested_scope' => ['/Users/vitorepf/develop/Atlas/atlas-server/app/Demo/Foo.php'],
+            'risk_class' => 'medium',
+            'task_budget' => 5,
+            'cost_budget_units' => 100,
+            'project_lane' => [
+                'project_id' => 'demo',
+                'allowed_scope_roots' => ['/Users/vitorepf/develop/Atlas/atlas-server/app'],
+            ],
+            'forbidden_organs' => ['restricted_organ'],
+            'touched_organs' => ['normal_organ'],
+            'rollback_ready' => true,
+        ]);
+        [$exit, $out] = $this->runCmd(['action' => 'scope-gate', '--facts' => $path, '--json' => true]);
+        $this->assertSame(AtlasSelfConstructionControlPlaneCommand::EXIT_OK, $exit);
+
+        $decoded = json_decode(trim($out), true);
+        $this->assertSame(
+            'atlas.controlplane.scope_risk_budget_gate.v1',
+            $decoded['scope_risk_budget_gate']['schema']
+        );
+        $this->assertTrue($decoded['scope_risk_budget_gate']['allowed']);
+        $this->assertSame([], $decoded['scope_risk_budget_gate']['blockers']);
+    }
+
+    public function test_scope_gate_blocks_when_requested_scope_outside_lane_roots(): void
+    {
+        $path = $this->fixture([
+            'requested_scope' => ['/tmp/completely-outside-the-lane.php'],
+            'risk_class' => 'low',
+            'task_budget' => 1,
+            'cost_budget_units' => 10,
+            'project_lane' => [
+                'project_id' => 'demo',
+                'allowed_scope_roots' => ['/Users/vitorepf/develop/Atlas/atlas-server/app'],
+            ],
+            'forbidden_organs' => [],
+            'touched_organs' => [],
+        ]);
+        [$exit, $out] = $this->runCmd(['action' => 'scope-gate', '--facts' => $path, '--json' => true]);
+        $this->assertSame(AtlasSelfConstructionControlPlaneCommand::EXIT_OK, $exit);
+
+        $decoded = json_decode(trim($out), true);
+        $this->assertFalse($decoded['scope_risk_budget_gate']['allowed']);
+        $this->assertNotEmpty($decoded['scope_risk_budget_gate']['blockers']);
+        $blockers = (array) $decoded['scope_risk_budget_gate']['blockers'];
+        $hit = false;
+        foreach ($blockers as $b) {
+            if (is_string($b) && str_starts_with($b, 'scope_outside_lane:')) {
+                $hit = true;
+                break;
+            }
+        }
+        $this->assertTrue($hit, 'expected a scope_outside_lane:* blocker; got: '.json_encode($blockers));
+    }
+
+    public function test_scope_gate_blocks_when_touched_organ_is_forbidden(): void
+    {
+        $path = $this->fixture([
+            'requested_scope' => ['/Users/vitorepf/develop/Atlas/atlas-server/app/Demo/Foo.php'],
+            'risk_class' => 'low',
+            'task_budget' => 1,
+            'cost_budget_units' => 10,
+            'project_lane' => [
+                'project_id' => 'demo',
+                'allowed_scope_roots' => ['/Users/vitorepf/develop/Atlas/atlas-server/app'],
+            ],
+            'forbidden_organs' => ['restricted_organ'],
+            'touched_organs' => ['restricted_organ'],
+        ]);
+        [$exit, $out] = $this->runCmd(['action' => 'scope-gate', '--facts' => $path, '--json' => true]);
+        $this->assertSame(AtlasSelfConstructionControlPlaneCommand::EXIT_OK, $exit);
+
+        $decoded = json_decode(trim($out), true);
+        $this->assertFalse($decoded['scope_risk_budget_gate']['allowed']);
+        $blockers = (array) $decoded['scope_risk_budget_gate']['blockers'];
+        $hit = false;
+        foreach ($blockers as $b) {
+            if (is_string($b) && str_starts_with($b, 'forbidden_organ_touched:')) {
+                $hit = true;
+                break;
+            }
+        }
+        $this->assertTrue($hit, 'expected a forbidden_organ_touched:* blocker; got: '.json_encode($blockers));
     }
 }

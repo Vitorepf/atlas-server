@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SelfConstruction\ControlPlane\AtlasSelfConstructionAutonomyModePolicy;
 use App\Services\Ai\SelfConstruction\ControlPlane\AtlasSelfConstructionNextActionSelector;
 use App\Services\Ai\SelfConstruction\ControlPlane\AtlasSelfConstructionOrganReadinessComposer;
+use App\Services\Ai\SelfConstruction\ControlPlane\AtlasSelfConstructionScopeRiskBudgetGate;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -16,8 +17,13 @@ use Throwable;
  *   inspect       describe required services + non-execution guarantees.
  *   mode          read facts.autonomy_mode and emit a policy verdict.
  *   scope         read facts.scope_gate and emit the scope risk-budget verdict.
+ *   scope-gate    run the deterministic AtlasSelfConstructionScopeRiskBudgetGate organ
+ *                 over raw facts (requested_scope/risk_class/task_budget/cost_budget_units/
+ *                 project_lane/forbidden_organs/touched_organs/rollback_ready) and emit
+ *                 its {allowed,blockers,normalized_scope,max_tasks,max_cost_units,risk_floor}
+ *                 envelope. The pure organ has no other production call path.
  *   next          compose organ-readiness + mode + scope + work_queue facts and print the next
- *                  action WITHOUT executing it.
+ *                 action WITHOUT executing it.
  *
  * NEVER enqueues, dispatches, executes, merges, or writes ledgers.
  */
@@ -27,14 +33,15 @@ final class AtlasSelfConstructionControlPlaneCommand extends Command
 
     public const EXIT_USAGE = 2;
 
-    protected $signature = 'atlas:self-construction:control-plane {action : inspect|mode|scope|next|policy} {--facts= : path to a JSON facts payload} {--json}';
+    protected $signature = 'atlas:self-construction:control-plane {action : inspect|mode|scope|scope-gate|next|policy} {--facts= : path to a JSON facts payload} {--json}';
 
-    protected $description = 'Read-only Control-Plane CLI: inspect | mode | scope | next.';
+    protected $description = 'Read-only Control-Plane CLI: inspect | mode | scope | scope-gate | next.';
 
     public function handle(
         AtlasSelfConstructionOrganReadinessComposer $organReadiness,
         AtlasSelfConstructionNextActionSelector $selector,
         AtlasSelfConstructionAutonomyModePolicy $autonomyPolicy,
+        AtlasSelfConstructionScopeRiskBudgetGate $scopeRiskBudgetGate,
     ): int {
         $action = (string) $this->argument('action');
 
@@ -42,6 +49,7 @@ final class AtlasSelfConstructionControlPlaneCommand extends Command
             'inspect' => $this->inspectAction(),
             'mode' => $this->modeAction(),
             'scope' => $this->scopeAction(),
+            'scope-gate' => $this->scopeGateAction($scopeRiskBudgetGate),
             'next' => $this->nextAction($organReadiness, $selector),
             'policy' => $this->policyAction($autonomyPolicy),
             default => $this->usage('unknown action: '.$action),
@@ -112,6 +120,35 @@ final class AtlasSelfConstructionControlPlaneCommand extends Command
             'scope_gate_allowed' => (bool) ($scope['allowed'] ?? false),
             'reasons' => array_values((array) ($scope['reasons'] ?? [])),
         ]);
+
+        return self::EXIT_OK;
+    }
+
+    /**
+     * Runs the deterministic scope+risk+budget gate organ over the raw facts. Pure read-only:
+     * no I/O, no side effects, deterministic output envelope. Wired here so the
+     * AtlasSelfConstructionScopeRiskBudgetGate reaches a real production call path.
+     */
+    private function scopeGateAction(AtlasSelfConstructionScopeRiskBudgetGate $gate): int
+    {
+        $facts = $this->loadFacts();
+        if ($facts === null) {
+            return self::EXIT_USAGE;
+        }
+
+        $payload = [
+            'requested_scope' => is_array($facts['requested_scope'] ?? null) ? $facts['requested_scope'] : [],
+            'risk_class' => (string) ($facts['risk_class'] ?? 'low'),
+            'task_budget' => (int) ($facts['task_budget'] ?? 0),
+            'cost_budget_units' => (int) ($facts['cost_budget_units'] ?? 0),
+            'project_lane' => is_array($facts['project_lane'] ?? null) ? $facts['project_lane'] : [],
+            'forbidden_organs' => array_values((array) ($facts['forbidden_organs'] ?? [])),
+            'touched_organs' => array_values((array) ($facts['touched_organs'] ?? [])),
+            'rollback_ready' => (bool) ($facts['rollback_ready'] ?? false),
+        ];
+
+        $verdict = $gate->evaluate($payload);
+        $this->emit(['scope_risk_budget_gate' => $verdict]);
 
         return self::EXIT_OK;
     }
