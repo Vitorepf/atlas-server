@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
+use App\Services\Ai\SelfConstruction\E2E\AtlasSelfConstructionSelfHealingQueueRepairPlan;
 use Illuminate\Console\Command;
 
 /**
@@ -34,7 +35,12 @@ class AtlasTaskRepairBlockedCommand extends Command
         $forbidden = $orchestrator->repairBlockedForbiddenSelfTargetTasks(limit: $limit, dryRun: $dryRun, actor: $actor);
         $scope = $orchestrator->repairScopeBlockedTasks(limit: $limit, dryRun: $dryRun, actor: $actor);
 
-        $result = ['dry_run' => $dryRun, 'forbidden_self_target_repair' => $forbidden, 'scope_repair' => $scope];
+        // Self-heal quarantine: repeated-give-back packets that repairScopeBlockedTasks bails as UNREPAIRABLE
+        // (reason 'repeated_give_back_quarantine_requires_respec') stay blocked forever. The self-healing organ
+        // plans a 'cancel_until_respec' action for them — we execute it (blocked→cancelled), destravando dependents.
+        $selfHeal = $this->selfHealQuarantine($scope['unrepairable'] ?? [], $dryRun, $limit, $actor);
+
+        $result = ['dry_run' => $dryRun, 'forbidden_self_target_repair' => $forbidden, 'scope_repair' => $scope, 'self_heal' => $selfHeal];
 
         if ($this->option('json')) {
             $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
@@ -49,8 +55,86 @@ class AtlasTaskRepairBlockedCommand extends Command
         foreach (array_slice((array) ($dryRun ? $scope['plan'] : array_merge($scope['reopened'], $scope['retired'])), 0, 30) as $item) {
             $this->line('    - '.($item['action'] ?? '?').'  '.($item['task_packet_id'] ?? '?').'  scrub=['.implode(',', (array) ($item['scrubbed_paths'] ?? [])).']');
         }
+        $this->line('  [self-heal quarantine]  cancelled='.count($selfHeal['cancelled'] ?? []).'  planned='.count($selfHeal['plan'] ?? []));
+        foreach (array_slice($dryRun ? ($selfHeal['plan'] ?? []) : ($selfHeal['cancelled'] ?? []), 0, 30) as $item) {
+            $this->line('    - '.($item['action'] ?? '?').'  '.($item['packet_id'] ?? '?'));
+        }
         $this->line('');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Self-heal quarantine: wire the self-healing repair planner over unrepairable repeated-give-back
+     * packets. The planner returns a 'cancel_until_respec' action for bucket 'quarantine' — we execute it.
+     *
+     * @param  list<array<string,mixed>>  $unrepairable
+     * @return array{planned:list<array<string,mixed>>, cancelled:list<array<string,mixed>>, plan:list<array<string,mixed>>}
+     */
+    private function selfHealQuarantine(array $unrepairable, bool $dryRun, int $limit, string $actor): array
+    {
+        $inputs = [];
+        foreach ($unrepairable as $item) {
+            $reason = (string) ($item['reason'] ?? '');
+            if ($reason !== 'repeated_give_back_quarantine_requires_respec') {
+                continue;
+            }
+            $packetId = (string) ($item['task_packet_id'] ?? '');
+            if ($packetId === '') {
+                continue;
+            }
+
+            // Extract N from the blocking deficiency 'repeated_give_back_N'.
+            $deficiencies = (array) ($item['blocking_deficiencies'] ?? []);
+            $repeated = AtlasSelfConstructionSelfHealingQueueRepairPlan::QUARANTINE_THRESHOLD;
+            foreach ($deficiencies as $def) {
+                if (preg_match('/repeated_give_back_(\d+)/', (string) $def, $m)) {
+                    $repeated = max($repeated, (int) $m[1]);
+                }
+            }
+
+            $inputs[] = ['packet_id' => $packetId, 'repeated_returns' => $repeated];
+        }
+
+        if ($inputs === []) {
+            return ['planned' => [], 'cancelled' => [], 'plan' => []];
+        }
+
+        $plan = (new AtlasSelfConstructionSelfHealingQueueRepairPlan)->plan($inputs);
+
+        $planned = [];
+        $cancelled = [];
+        $queue = AtlasTaskServingStack::queueRepo();
+        $applied = 0;
+        foreach ($plan['actions'] ?? [] as $action) {
+            if (($action['bucket'] ?? '') !== AtlasSelfConstructionSelfHealingQueueRepairPlan::BUCKET_QUARANTINE) {
+                continue;
+            }
+            $packetId = (string) ($action['packet_id'] ?? '');
+            if ($packetId === '') {
+                continue;
+            }
+
+            if ($dryRun) {
+                $planned[] = $action;
+
+                continue;
+            }
+
+            $t = $queue->updateStatus($packetId, 'cancelled', [
+                'reason' => 'self_heal_quarantine_cancel_until_respec',
+                'agent_id' => $actor,
+            ]);
+            if ((string) ($t['status'] ?? '') === 'ok') {
+                $cancelled[] = $action;
+                $applied++;
+            }
+
+            if ($limit > 0 && $applied >= $limit) {
+                break;
+            }
+        }
+
+        return ['planned' => $planned, 'cancelled' => $cancelled, 'plan' => $plan['actions'] ?? []];
     }
 }
