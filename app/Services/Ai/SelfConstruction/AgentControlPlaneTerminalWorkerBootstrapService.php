@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\TerminalWorkerBootstrap\AgentControlPlaneTerminalWorkerCommandFormatter;
 use Carbon\CarbonImmutable;
 
 /**
@@ -713,10 +714,7 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
 
     private function recommendedQueueTag(string $actor): string
     {
-        $slug = strtolower((string) preg_replace('/[^A-Za-z0-9_.:-]+/', '-', trim($actor)));
-        $slug = trim($slug, '-._:');
-
-        return 'terminal-loop-'.($slug === '' ? 'codex' : $slug);
+        return $this->commandFormatter()->recommendedQueueTag($actor);
     }
 
     /**
@@ -1070,34 +1068,30 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
     }
 
     /**
+     * ITEM8 — cohesive stateless command / string-formatting the terminal-worker bootstrap service
+     * uses to render CLI arguments, escape values, recommend queue tags, and normalize string lists.
+     * Extracted into {@see AgentControlPlaneTerminalWorkerCommandFormatter}; we keep the five private
+     * methods (`bootstrapCommand`, `commandValue`, `queueTagArgs`, `recommendedQueueTag`, `stringList`)
+     * as thin private delegators so every existing call site stays byte-identical and the public
+     * signature of the service does not move. Lazy-instantiated per call so production callers pay no
+     * construction cost beyond the first use.
+     */
+    private function commandFormatter(): AgentControlPlaneTerminalWorkerCommandFormatter
+    {
+        return new AgentControlPlaneTerminalWorkerCommandFormatter;
+    }
+
+    /**
      * @param  list<string>  $queueTags
      */
     private function bootstrapCommand(string $actor, int $targetMin, int $maxNew, array $queueTags): string
     {
-        $parts = [
-            'php artisan atlas:ai:self-construction',
-            '--agent-control-plane-terminal-worker-bootstrap-status',
-            '--actor='.$this->commandValue($actor),
-            '--target-min-claimable-tasks='.$targetMin,
-            '--max-new-tasks='.$maxNew,
-        ];
-
-        foreach ($queueTags as $tag) {
-            $parts[] = '--queue-tag='.$this->commandValue($tag);
-        }
-
-        $parts[] = '--json';
-
-        return implode(' ', $parts);
+        return $this->commandFormatter()->bootstrapCommand($actor, $targetMin, $maxNew, $queueTags);
     }
 
     private function commandValue(string $value): string
     {
-        if (preg_match('/^[A-Za-z0-9_.:@\\/-]+$/', $value) === 1) {
-            return $value;
-        }
-
-        return escapeshellarg($value);
+        return $this->commandFormatter()->commandValue($value);
     }
 
     /**
@@ -1105,14 +1099,7 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
      */
     private function queueTagArgs(array $queueTags): string
     {
-        if ($queueTags === []) {
-            return '';
-        }
-
-        return ' '.implode(' ', array_map(
-            fn (string $tag): string => '--queue-tag='.$this->commandValue($tag),
-            $queueTags,
-        ));
+        return $this->commandFormatter()->queueTagArgs($queueTags);
     }
 
     /**
@@ -1121,9 +1108,6 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
      */
     private function stringList(array $values): array
     {
-        return array_values(array_filter(array_map(
-            static fn (mixed $value): string => trim((string) $value),
-            $values,
-        ), static fn (string $value): bool => $value !== ''));
+        return $this->commandFormatter()->stringList($values);
     }
 }
