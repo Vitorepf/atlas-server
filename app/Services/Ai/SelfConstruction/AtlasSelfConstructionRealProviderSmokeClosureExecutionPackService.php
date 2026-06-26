@@ -2,10 +2,25 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+
+use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 use Carbon\CarbonImmutable;
 
 final class AtlasSelfConstructionRealProviderSmokeClosureExecutionPackService
 {
+    use KsortsArraysByReference;
+
+
+    /**
+     * @param  array<string,mixed>  $value
+     * @return array<string,mixed>
+     */
+    private function ksortRecursive(array $value): array
+    {
+        $this->ksortRecursiveByReference($value);
+
+        return $value;
+    }
     public const SCHEMA_VERSION = 'atlas.self_construction.real_provider_smoke_closure_execution_pack.v1';
 
     public const MODE = 'read_only_real_provider_smoke_closure_execution_pack';
@@ -380,17 +395,4 @@ final class AtlasSelfConstructionRealProviderSmokeClosureExecutionPackService
     }
 
     /** @param array<string, mixed> $value */
-    private function ksortRecursive(array $value): array
-    {
-        foreach ($value as $key => $entry) {
-            if (is_array($entry)) {
-                $value[$key] = $this->ksortRecursive($entry);
-            }
-        }
-        if ($value !== [] && array_keys($value) !== range(0, count($value) - 1)) {
-            ksort($value);
-        }
-
-        return $value;
-    }
 }
