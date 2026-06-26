@@ -6,6 +6,7 @@ use App\Services\Ai\SelfConstruction\Maestro\PacketEvolution\AtlasMaestroPacketS
 use App\Services\Ai\SelfConstruction\Maestro\PacketEvolution\AtlasMaestroPacketSchemaVersioning;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
+use App\Services\Ai\SelfConstruction\Support\HashesKsortedPayloadCanonically;
 
 /**
  * Builds a deterministic, dry-run task packet for a single agent inside the
@@ -21,6 +22,7 @@ use Illuminate\Support\Str;
  */
 final class AgentControlPlaneTaskPacketBuilder
 {
+    use HashesKsortedPayloadCanonically;
     public const SCHEMA_VERSION = AtlasMaestroPacketSchemaVersioning::CANONICAL_V1;
 
     public const MODE = 'read_only_agent_control_plane_task_packet_builder';
@@ -355,13 +357,4 @@ final class AgentControlPlaneTaskPacketBuilder
         return $value;
     }
 
-    /**
-     * @param  array<mixed, mixed>  $payload
-     */
-    private function stableHash(array $payload): string
-    {
-        $payload = $this->recursivelyKsort($payload);
-
-        return hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-    }
 }

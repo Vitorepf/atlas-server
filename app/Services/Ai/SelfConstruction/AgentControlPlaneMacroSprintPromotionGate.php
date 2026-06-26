@@ -4,6 +4,7 @@ namespace App\Services\Ai\SelfConstruction;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
+use App\Services\Ai\SelfConstruction\Support\HashesKsortedPayloadCanonically;
 
 /**
  * Evaluates whether an Agent Control Plane macro-sprint can be considered
@@ -14,6 +15,7 @@ use Illuminate\Support\Str;
  */
 final class AgentControlPlaneMacroSprintPromotionGate
 {
+    use HashesKsortedPayloadCanonically;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_macro_sprint_promotion_gate.v1';
 
     public const MODE = 'read_only_agent_control_plane_macro_sprint_promotion_gate';
@@ -296,13 +298,4 @@ final class AgentControlPlaneMacroSprintPromotionGate
         return $value;
     }
 
-    /**
-     * @param  array<mixed, mixed>  $payload
-     */
-    private function stableHash(array $payload): string
-    {
-        $payload = $this->recursivelyKsort($payload);
-
-        return hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-    }
 }

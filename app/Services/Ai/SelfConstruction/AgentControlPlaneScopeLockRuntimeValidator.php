@@ -3,6 +3,7 @@
 namespace App\Services\Ai\SelfConstruction;
 
 use Carbon\CarbonImmutable;
+use App\Services\Ai\SelfConstruction\Support\HashesKsortedPayloadCanonically;
 
 /**
  * Validates an Agent Control Plane task packet before its scope lock is
@@ -16,6 +17,7 @@ use Carbon\CarbonImmutable;
  */
 final class AgentControlPlaneScopeLockRuntimeValidator
 {
+    use HashesKsortedPayloadCanonically;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_scope_lock_runtime_validation.v1';
 
     public const MODE = 'persistent_local_agent_control_plane_scope_lock_runtime_validator';
@@ -256,13 +258,4 @@ final class AgentControlPlaneScopeLockRuntimeValidator
         return $value;
     }
 
-    /**
-     * @param  array<mixed, mixed>  $payload
-     */
-    private function stableHash(array $payload): string
-    {
-        $payload = $this->recursivelyKsort($payload);
-
-        return hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-    }
 }
