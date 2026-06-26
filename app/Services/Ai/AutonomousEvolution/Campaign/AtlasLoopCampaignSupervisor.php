@@ -1835,104 +1835,66 @@ final class AtlasLoopCampaignSupervisor
 
     private function storageDir(string $campaignId): string
     {
-        $root = $this->storageRoot ?? storage_path('atlas-loop/campaign');
-
-        return rtrim($root, '/').'/'.$campaignId;
+        return AtlasLoopCampaignFileStore::storageDir($campaignId, $this->storageRoot);
     }
 
     private function ensureStorage(string $campaignId): void
     {
-        $dir = $this->storageDir($campaignId);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0o755, true);
-        }
+        AtlasLoopCampaignFileStore::ensureStorage($campaignId, $this->storageRoot);
     }
 
     private function ledgerPath(string $campaignId): string
     {
-        return $this->storageDir($campaignId).'/ledger.jsonl';
+        return AtlasLoopCampaignFileStore::ledgerPath($campaignId, $this->storageRoot);
     }
 
     public function killSwitchPath(string $campaignId): string
     {
-        return $this->storageDir($campaignId).'/KILL';
+        return AtlasLoopCampaignFileStore::killSwitchPath($campaignId, $this->storageRoot);
     }
 
     public function pausePath(string $campaignId): string
     {
-        return $this->storageDir($campaignId).'/PAUSE';
+        return AtlasLoopCampaignFileStore::pausePath($campaignId, $this->storageRoot);
     }
 
     private function killFileExists(string $campaignId): bool
     {
-        return is_file($this->killSwitchPath($campaignId));
+        return AtlasLoopCampaignFileStore::killFileExists($campaignId, $this->storageRoot);
     }
 
     private function pauseFileExists(string $campaignId): bool
     {
-        return is_file($this->pausePath($campaignId));
+        return AtlasLoopCampaignFileStore::pauseFileExists($campaignId, $this->storageRoot);
     }
 
     private function writeHeartbeat(string $campaignId): void
     {
-        @file_put_contents($this->storageDir($campaignId).'/heartbeat', (string) $this->now());
+        AtlasLoopCampaignFileStore::writeHeartbeat($campaignId, $this->now(), $this->storageRoot);
     }
 
     private function appendLedger(string $campaignId, array $record): void
     {
-        $line = json_encode($record, JSON_UNESCAPED_SLASHES);
-        AppendOnlyJsonlStore::appendEncodedLineSilently(
-            $this->ledgerPath($campaignId),
-            $line === false ? '' : $line,
-            FILE_APPEND,
-            0o755,
-        );
+        AtlasLoopCampaignFileStore::appendLedger($campaignId, $record, $this->storageRoot);
     }
 
     private function acquireLock(string $campaignId, int $leaseSeconds): bool
     {
-        $existing = $this->readLock($campaignId);
-        if ($existing !== null) {
-            $alive = isset($existing['pid']) && ! $this->lockProcessIsDead((int) $existing['pid']);
-            $fresh = (int) ($existing['expires_at'] ?? 0) > $this->now();
-            if ($alive && $fresh) {
-                return false; // genuinely held by a live supervisor
-            }
-        }
-        @file_put_contents($this->storageDir($campaignId).'/lock.json', json_encode([
-            'pid' => function_exists('getmypid') ? getmypid() : 0,
-            'token' => $campaignId,
-            'expires_at' => $this->now() + max(60, $leaseSeconds),
-        ], JSON_UNESCAPED_SLASHES));
-
-        return true;
+        return AtlasLoopCampaignFileStore::acquireLock($campaignId, $leaseSeconds, $this->storageRoot, $this->now());
     }
 
     private function releaseLock(string $campaignId): void
     {
-        @unlink($this->storageDir($campaignId).'/lock.json');
+        AtlasLoopCampaignFileStore::releaseLock($campaignId, $this->storageRoot);
     }
 
     private function readLock(string $campaignId): ?array
     {
-        $path = $this->storageDir($campaignId).'/lock.json';
-        if (! is_file($path)) {
-            return null;
-        }
-        $data = json_decode((string) @file_get_contents($path), true);
-
-        return is_array($data) ? $data : null;
+        return AtlasLoopCampaignFileStore::readLock($campaignId, $this->storageRoot);
     }
 
     private function lockProcessIsDead(int $pid): bool
     {
-        if ($pid <= 0) {
-            return true;
-        }
-        if (! function_exists('posix_kill')) {
-            return false; // cannot tell -> assume alive (conservative: do not steal the lock)
-        }
-
-        return ! @posix_kill($pid, 0);
+        return AtlasLoopCampaignFileStore::lockProcessIsDead($pid);
     }
 }
