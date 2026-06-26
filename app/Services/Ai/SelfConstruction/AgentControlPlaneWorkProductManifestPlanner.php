@@ -4,6 +4,7 @@ namespace App\Services\Ai\SelfConstruction;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
+use App\Services\Ai\SelfConstruction\Support\RecursivelyKsortsArrays;
 
 /**
  * Plans the work-product manifest a runtime pilot WOULD collect, including
@@ -17,6 +18,7 @@ use Illuminate\Support\Str;
  */
 final class AgentControlPlaneWorkProductManifestPlanner
 {
+    use RecursivelyKsortsArrays;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_work_product_manifest_plan.v1';
 
     public const MODE = 'read_only_agent_control_plane_work_product_manifest_plan';
@@ -168,14 +170,6 @@ final class AgentControlPlaneWorkProductManifestPlanner
         return $this->recursivelyKsort($clone);
     }
 
-    /**
-     * @param  array<mixed, mixed>  $value
-     * @return array<mixed, mixed>
-     */
-    private function recursivelyKsort(array $value): array
-    {
-        return ReadinessHash::ksortRecursive($value);
-    }
 
     /**
      * @param  array<mixed, mixed>  $payload
