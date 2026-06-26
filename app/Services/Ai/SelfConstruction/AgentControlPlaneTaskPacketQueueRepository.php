@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\TaskQueue\TaskPacketCanonicalizer;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
@@ -520,18 +521,26 @@ final class AgentControlPlaneTaskPacketQueueRepository
     }
 
     /**
+     * ITEM8 — cohesive stateless canonicalization helper the repository uses to hash task packets
+     * bit-identically and normalize string lists. Six private methods (`recursivelyKsort`,
+     * `normalizePacketForHash`, `contractMatchesDefault`, `stableHash`, `encode`, `stringList`) are
+     * extracted into {@see TaskPacketCanonicalizer}; we keep them as thin private delegators so every
+     * existing call site (`backfillSimplicityContract`, `appendReceipt`, `list`, `envelopeOk`) stays
+     * byte-identical and the public signature of the repository does not move. Lazy-instantiated per
+     * call so production callers pay no construction cost beyond the first use.
+     */
+    private function canonicalizer(): TaskPacketCanonicalizer
+    {
+        return new TaskPacketCanonicalizer;
+    }
+
+    /**
      * @param  array<string, mixed>  $current
      * @param  array<string, mixed>  $default
      */
     private function contractMatchesDefault(array $current, array $default): bool
     {
-        foreach ($default as $key => $expected) {
-            if (! array_key_exists($key, $current) || $current[$key] !== $expected) {
-                return false;
-            }
-        }
-
-        return true;
+        return $this->canonicalizer()->contractMatchesDefault($current, $default);
     }
 
     /**
@@ -543,9 +552,7 @@ final class AgentControlPlaneTaskPacketQueueRepository
      */
     private function normalizePacketForHash(array $packet): array
     {
-        unset($packet['task_packet_id'], $packet['generated_at'], $packet['task_packet_hash'], $packet['human_summary']);
-
-        return $this->recursivelyKsort($packet);
+        return $this->canonicalizer()->normalizePacketForHash($packet);
     }
 
     /**
@@ -554,17 +561,7 @@ final class AgentControlPlaneTaskPacketQueueRepository
      */
     private function recursivelyKsort(array $value): array
     {
-        $isAssoc = $value !== [] && array_keys($value) !== range(0, count($value) - 1);
-        foreach ($value as $key => $entry) {
-            if (is_array($entry)) {
-                $value[$key] = $this->recursivelyKsort($entry);
-            }
-        }
-        if ($isAssoc) {
-            ksort($value);
-        }
-
-        return $value;
+        return $this->canonicalizer()->recursivelyKsort($value);
     }
 
     /**
@@ -1170,10 +1167,7 @@ final class AgentControlPlaneTaskPacketQueueRepository
      */
     private function encode(array $payload): string
     {
-        return (string) json_encode(
-            $payload,
-            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT,
-        );
+        return $this->canonicalizer()->encode($payload);
     }
 
     /**
@@ -1181,7 +1175,7 @@ final class AgentControlPlaneTaskPacketQueueRepository
      */
     private function stableHash(array $payload): string
     {
-        return hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        return $this->canonicalizer()->stableHash($payload);
     }
 
     private function disk(): Filesystem
@@ -1195,9 +1189,6 @@ final class AgentControlPlaneTaskPacketQueueRepository
      */
     private function stringList(array $values): array
     {
-        return array_values(array_filter(array_map(
-            static fn (mixed $value): string => trim((string) $value),
-            $values,
-        ), static fn (string $value): bool => $value !== ''));
+        return $this->canonicalizer()->stringList($values);
     }
 }
