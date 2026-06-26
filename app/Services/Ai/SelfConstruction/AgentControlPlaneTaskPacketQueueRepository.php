@@ -8,6 +8,7 @@ use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Throwable;
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 
 /**
  * Persistent local queue of Agent Control Plane task packets.
@@ -24,6 +25,7 @@ use Throwable;
  */
 final class AgentControlPlaneTaskPacketQueueRepository
 {
+    use RecursivelyKsortsArrays;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_task_packet_queue.v1';
 
     public const MODE = 'persistent_local_agent_control_plane_task_packet_queue';
@@ -555,14 +557,6 @@ final class AgentControlPlaneTaskPacketQueueRepository
         return $this->canonicalizer()->normalizePacketForHash($packet);
     }
 
-    /**
-     * @param  array<mixed, mixed>  $value
-     * @return array<mixed, mixed>
-     */
-    private function recursivelyKsort(array $value): array
-    {
-        return $this->canonicalizer()->recursivelyKsort($value);
-    }
 
     /**
      * @param  array<string, mixed>  $filters

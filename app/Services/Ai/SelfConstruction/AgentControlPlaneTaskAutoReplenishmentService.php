@@ -6,6 +6,7 @@ use App\Services\Ai\SelfConstruction\Replenishment\AgentControlPlaneCompletionAu
 use App\Services\Ai\SelfConstruction\Replenishment\AgentControlPlaneReplenishmentStableHasher;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 
 /**
  * Replenishes the persistent Agent Control Plane task queue from governed
@@ -19,6 +20,7 @@ use Illuminate\Support\Str;
  */
 final class AgentControlPlaneTaskAutoReplenishmentService
 {
+    use RecursivelyKsortsArrays;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_task_auto_replenishment.v1';
 
     public const MODE = 'persistent_local_agent_control_plane_task_auto_replenishment';
@@ -1071,14 +1073,6 @@ final class AgentControlPlaneTaskAutoReplenishmentService
         return $this->stableHasher()->normalizeForHash($payload);
     }
 
-    /**
-     * @param  array<mixed, mixed>  $value
-     * @return array<mixed, mixed>
-     */
-    private function recursivelyKsort(array $value): array
-    {
-        return $this->stableHasher()->recursivelyKsort($value);
-    }
 
     /**
      * @param  array<mixed, mixed>  $payload

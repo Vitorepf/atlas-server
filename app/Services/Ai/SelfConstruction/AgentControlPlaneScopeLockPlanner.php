@@ -4,6 +4,7 @@ namespace App\Services\Ai\SelfConstruction;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 
 /**
  * Plans a future scope lock for a task packet. Computes read/write sets,
@@ -18,6 +19,7 @@ use Illuminate\Support\Str;
  */
 final class AgentControlPlaneScopeLockPlanner
 {
+    use RecursivelyKsortsArrays;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_scope_lock_plan.v1';
 
     public const MODE = 'read_only_agent_control_plane_scope_lock_plan';
@@ -209,14 +211,6 @@ final class AgentControlPlaneScopeLockPlanner
         return $this->recursivelyKsort($clone);
     }
 
-    /**
-     * @param  array<mixed, mixed>  $value
-     * @return array<mixed, mixed>
-     */
-    private function recursivelyKsort(array $value): array
-    {
-        return ReadinessHash::ksortRecursive($value);
-    }
 
     /**
      * @param  array<mixed, mixed>  $payload
