@@ -17,6 +17,7 @@ use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopPlanReadinessGate;
 use App\Services\Ai\Obra\AtlasObraExecutor;
 use App\Services\Ai\Obra\ObraNodeDelivery;
 use App\Services\Ai\Obra\ProviderObraNodeDelivery;
+use App\Services\Ai\AutonomousEvolution\Support\AtlasLoopObraGitWorktreeProbe;
 use App\Services\Ai\RealExecution\AtlasLiveCodeDeliveryService;
 use App\Services\Ai\RealExecution\GovernedBranchMaterializationService;
 use Illuminate\Support\Facades\File;
@@ -581,22 +582,33 @@ class AtlasLoopObraExecutionAdapter
         }
     }
 
+    /**
+     * Cohesive stateless git probe — the only places the adapter shells out to `git -C <repo>` for the
+     * replay-worktree lanes (aggregate-drop, net-diff full cert, node-interface contract, changed-symbol
+     * census). Extracted to {@see AtlasLoopObraGitWorktreeProbe}; we keep these three private methods as
+     * thin delegators so every existing call site (4 separate gates) stays byte-identical and the public
+     * signature of the adapter does not move. Lazy-instantiated per call so the field stays nullable-default
+     * (Laravel does not autowire a nullable-default param) and production callers pay no construction cost
+     * beyond the first use.
+     *
+     * @param  list<string>  $argv
+     * @return list<string>
+     */
+    private function gitProbe(): AtlasLoopObraGitWorktreeProbe
+    {
+        return new AtlasLoopObraGitWorktreeProbe;
+    }
+
     /** @param  list<string>  $argv */
     private function git(string $repoRoot, array $argv): bool
     {
-        $p = new Process(array_merge(['git', '-C', $repoRoot], $argv), null, null, null, 60.0);
-        $p->run();
-
-        return $p->isSuccessful();
+        return $this->gitProbe()->git($repoRoot, $argv);
     }
 
     /** @param  list<string>  $argv */
     private function gitOutput(string $repoRoot, array $argv): ?string
     {
-        $p = new Process(array_merge(['git', '-C', $repoRoot], $argv), null, null, null, 60.0);
-        $p->run();
-
-        return $p->isSuccessful() ? $p->getOutput() : null;
+        return $this->gitProbe()->gitOutput($repoRoot, $argv);
     }
 
     /**
@@ -605,12 +617,7 @@ class AtlasLoopObraExecutionAdapter
      */
     private function gitLines(string $repoRoot, array $argv): array
     {
-        $out = $this->gitOutput($repoRoot, $argv);
-        if ($out === null) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map('trim', preg_split('/\R/', $out) ?: []), static fn (string $l): bool => $l !== ''));
+        return $this->gitProbe()->gitLines($repoRoot, $argv);
     }
 
     /**
