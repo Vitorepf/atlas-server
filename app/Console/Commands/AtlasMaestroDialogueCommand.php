@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use App\Services\Ai\SelfConstruction\Quaternity\DialogueToPackets\AtlasMaestroDialogueDrivenPacketLedger;
 use App\Services\Ai\SelfConstruction\Quaternity\DialogueToPackets\AtlasMaestroIntentToPacketShapeProposer;
 use App\Services\Ai\SelfConstruction\Quaternity\DialogueToPackets\AtlasMaestroPacketShapeOperatorReviewGate;
@@ -170,16 +171,35 @@ final class AtlasMaestroDialogueCommand extends Command
         }
 
         $reason = (string) $this->option('reason');
+        $shapeHash = hash('sha256', $shapeId);
+
+        // Ledger state machine: Proposed → Reviewed → Approved → Enqueued.
+        $ledger->append([
+            'event_type' => DialogueLedgerEvent::TYPE_REVIEWED,
+            'shape_hash' => $shapeHash,
+            'payload' => ['gate' => 'inline-review'],
+        ]);
+
+        $ledger->append([
+            'event_type' => DialogueLedgerEvent::TYPE_APPROVED,
+            'shape_hash' => $shapeHash,
+            'operator_signature' => $signature !== '' ? $signature : 'auto',
+            'payload' => ['reason' => $reason ?: 'cli'],
+        ]);
+
         $approved = $reviewGate->approve($shapeId, $signature !== '' ? $signature : 'auto', 'approve:'.($reason ?: 'cli'));
 
         $bundle = $reviewGate->present($shapeId);
-        $packet = $bundle->proposal->toArray();
+        $packet = is_array($bundle->proposal) ? $bundle->proposal : $bundle->proposal->toArray();
         $packet['task_packet_hash'] = $approved->proposalHash;
-        $queueEnvelope = $queue->enqueue($packet);
+        // Write to the OPERATOR SERVING disk (the disk `atlas:task next` reads). The injected
+        // $queue resolves through the container at the default disk; an approved packet landing
+        // there is invisible to the worker.
+        $queueEnvelope = AtlasTaskServingStack::queueRepo()->enqueue($packet);
 
         $ledger->append([
             'event_type' => DialogueLedgerEvent::TYPE_ENQUEUED,
-            'shape_hash' => hash('sha256', $shapeId),
+            'shape_hash' => $shapeHash,
             'payload' => ['approved_hash' => $approved->approvalHash, 'queue_envelope' => $queueEnvelope],
         ]);
 
