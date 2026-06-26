@@ -103971,8 +103971,6 @@ final class AtlasSelfConstructionReadinessService
      */
     private function placeholderFieldsFromCommand(string $command): array
     {
-        preg_match_all('/<[^>]+>/', $command, $matches);
-
-        return array_values(array_unique(array_map('strval', $matches[0] ?? [])));
+        return Readiness\ReadinessCommandPlaceholderExtractor::fieldsFromCommand($command);
     }
 }
