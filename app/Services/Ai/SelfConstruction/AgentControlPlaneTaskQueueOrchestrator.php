@@ -274,80 +274,50 @@ final class AgentControlPlaneTaskQueueOrchestrator
      */
     private function classifyDependencies(array $candidate, array &$cache): string
     {
-        $rootId = (string) ($candidate['task_packet_id'] ?? '');
-        $dependsOn = array_values(array_filter((array) data_get($candidate, 'metadata.depends_on', []), 'is_string'));
-        $sawInflight = false;
-        $sawDead = false;
-        foreach ($dependsOn as $depId) {
-            $node = $this->dependencyNode($depId, $cache);
-            if ($node === null) {
-                continue; // absent ⇒ fail-open (satisfied).
-            }
-            if (in_array($node['status'], self::DEPENDENCY_SATISFIED_STATES, true)) {
-                continue; // completed OR cancelled ⇒ satisfied.
-            }
-            if ($rootId !== '' && $this->dependencyReaches($depId, $rootId, $cache, [])) {
-                continue; // CYCLE ⇒ fail-open (break the deadlock).
-            }
-            if (in_array($node['status'], self::DEPENDENCY_DEAD_STATES, true)) {
-                $sawDead = true;
-            } else {
-                $sawInflight = true;
-            }
-        }
-
-        if ($sawInflight) {
-            return 'inflight';
-        }
-
-        return $sawDead ? 'blocked' : 'met';
+        return TaskQueue\AgentControlPlaneTaskDependencyClassifier::classifyDependencies(
+            $this->nodeLoaderClosure(),
+            $candidate,
+            $cache,
+        );
     }
 
     /**
-     * Lightweight, memoized {status, depends_on} for a queue node (null when absent). Bounds file reads to one
-     * per distinct node across a single claim/scan call.
-     *
      * @param  array<string, array{status:string, depends_on:list<string>}|null>  $cache
      * @return array{status:string, depends_on:list<string>}|null
      */
     private function dependencyNode(string $id, array &$cache): ?array
     {
-        if (array_key_exists($id, $cache)) {
-            return $cache[$id];
-        }
-        $record = $this->queue->get($id);
-
-        return $cache[$id] = $record === null ? null : [
-            'status' => (string) ($record['status'] ?? ''),
-            'depends_on' => array_values(array_filter((array) data_get($record, 'metadata.depends_on', []), 'is_string')),
-        ];
+        return TaskQueue\AgentControlPlaneTaskDependencyClassifier::dependencyNode(
+            $this->nodeLoaderClosure(),
+            $id,
+            $cache,
+        );
     }
 
     /**
-     * True when following depends_on edges from $fromId ever reaches $targetId — i.e. $fromId is (transitively)
-     * a prerequisite of $targetId, so making $targetId depend on $fromId closes a cycle. The visited set makes
-     * this terminate on any graph.
-     *
      * @param  array<string, array{status:string, depends_on:list<string>}|null>  $cache
      * @param  array<string, bool>  $seen
      */
     private function dependencyReaches(string $fromId, string $targetId, array &$cache, array $seen): bool
     {
-        if (isset($seen[$fromId])) {
-            return false;
-        }
-        $seen[$fromId] = true;
-        $node = $this->dependencyNode($fromId, $cache);
-        if ($node === null) {
-            return false;
-        }
-        foreach ($node['depends_on'] as $next) {
-            if ($next === $targetId || $this->dependencyReaches($next, $targetId, $cache, $seen)) {
-                return true;
-            }
-        }
+        return TaskQueue\AgentControlPlaneTaskDependencyClassifier::dependencyReaches(
+            $this->nodeLoaderClosure(),
+            $fromId,
+            $targetId,
+            $cache,
+            $seen,
+        );
+    }
 
-        return false;
+    /**
+     * Closure used by the dependency-classifier delegates to load queue nodes
+     * without coupling the new collaborator to the queue repository class.
+     */
+    private function nodeLoaderClosure(): \Closure
+    {
+        $queue = $this->queue;
+
+        return static fn (string $id): ?array => $queue->get($id);
     }
 
     /**
