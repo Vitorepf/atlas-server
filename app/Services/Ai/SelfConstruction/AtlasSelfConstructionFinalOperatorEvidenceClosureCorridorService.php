@@ -20,6 +20,8 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
 
     public const MODE = 'read_only_final_operator_evidence_closure_corridor';
 
+    private ?FinalOperatorClosureCommandSurfaceCollector $commandSurfaceCollectorInstance = null;
+
     public function __construct(
         private readonly AtlasSelfConstructionReadinessService $readiness,
     ) {}
@@ -1030,7 +1032,7 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
      */
     private function operatorCommandSurfaceIntegrity(array $surface): array
     {
-        return FinalOperatorClosureCorridor\OperatorCommandSurfaceIntegrityInspector::integrity($surface);
+        return $this->commandSurfaceCollector()->operatorCommandSurfaceIntegrity($surface);
     }
 
     /**
@@ -1039,7 +1041,7 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
      */
     private function uniqueCommandsByText(array $commands): array
     {
-        return FinalOperatorClosureCorridor\OperatorCommandSurfaceIntegrityInspector::uniqueCommandsByText($commands);
+        return $this->commandSurfaceCollector()->uniqueCommandsByText($commands);
     }
 
     /**
@@ -1048,7 +1050,7 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
      */
     private function collectOperatorCommands(array $value, string $path = 'payload'): array
     {
-        return FinalOperatorClosureCorridor\OperatorCommandSurfaceIntegrityInspector::collectOperatorCommands($value, $path);
+        return $this->commandSurfaceCollector()->collectOperatorCommands($value, $path);
     }
 
     /**
@@ -1056,7 +1058,7 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
      */
     private function extractCommandOptions(string $command): array
     {
-        return FinalOperatorClosureCorridor\OperatorCommandSurfaceIntegrityInspector::extractCommandOptions($command);
+        return $this->commandSurfaceCollector()->extractCommandOptions($command);
     }
 
     /**
@@ -1064,7 +1066,7 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
      */
     private function selfConstructionCommandOptions(): array
     {
-        return FinalOperatorClosureCorridor\OperatorCommandSurfaceIntegrityInspector::selfConstructionCommandOptions();
+        return $this->commandSurfaceCollector()->selfConstructionCommandOptions();
     }
 
     /**
@@ -1072,7 +1074,12 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
      */
     private function legacySelfConstructionCommandAliases(): array
     {
-        return FinalOperatorClosureCorridor\OperatorCommandSurfaceIntegrityInspector::legacySelfConstructionCommandAliases();
+        return $this->commandSurfaceCollector()->legacySelfConstructionCommandAliases();
+    }
+
+    private function commandSurfaceCollector(): FinalOperatorClosureCommandSurfaceCollector
+    {
+        return $this->commandSurfaceCollectorInstance ??= new FinalOperatorClosureCommandSurfaceCollector;
     }
 
     /**
