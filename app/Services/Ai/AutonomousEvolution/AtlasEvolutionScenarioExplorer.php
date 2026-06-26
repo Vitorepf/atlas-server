@@ -68,6 +68,8 @@ final class AtlasEvolutionScenarioExplorer
      */
     private const ANTI_OVERFIT = 'Implement the GENERAL logic that satisfies the objective for ALL valid inputs. Do NOT special-case the acceptance test inputs, return literal constants, or branch on argument count to make a specific case pass — such a diff will be rejected by the certification gates.';
 
+    private ?AtlasEvolutionScenarioDiffMetricsCalculator $diffMetrics = null;
+
     public function __construct(
         private readonly LoopExecutionDriver $driver,
         private readonly AtlasEvolutionFrozenJudge $judge,
@@ -953,25 +955,7 @@ final class AtlasEvolutionScenarioExplorer
      */
     private function diffSize(string $workspace): array
     {
-        $stat = new Process(['git', 'diff', '--numstat', '--no-ext-diff'], $workspace, null, null, 30.0);
-        $stat->run();
-        $unstaged = $this->numstatSize($stat);
-
-        // STAGED edits too — `git add` removes a file from the unstaged numstat, so a provider that
-        // stages its work would otherwise register as a zero-diff (a real win silently dropped).
-        $cachedStat = new Process(['git', 'diff', '--cached', '--numstat', '--no-ext-diff'], $workspace, null, null, 30.0);
-        $cachedStat->run();
-        $staged = $this->numstatSize($cachedStat);
-
-        // include untracked additions in the file and line count
-        $others = new Process(['git', 'ls-files', '--others', '--exclude-standard'], $workspace, null, null, 30.0);
-        $others->run();
-        $untracked = $this->untrackedSize($workspace, $others);
-
-        return [
-            'files' => $unstaged['files'] + $staged['files'] + $untracked['files'],
-            'lines' => $unstaged['lines'] + $staged['lines'] + $untracked['lines'],
-        ];
+        return $this->diffMetrics()->diffSize($workspace);
     }
 
     /**
@@ -979,16 +963,7 @@ final class AtlasEvolutionScenarioExplorer
      */
     private function numstatSize(Process $stat): array
     {
-        $files = 0;
-        $lines = 0;
-        foreach (preg_split('/\R/', trim((string) $stat->getOutput())) ?: [] as $row) {
-            if (preg_match('/^(\d+|-)\s+(\d+|-)\s+/', $row, $m) === 1) {
-                $files++;
-                $lines += (is_numeric($m[1]) ? (int) $m[1] : 0) + (is_numeric($m[2]) ? (int) $m[2] : 0);
-            }
-        }
-
-        return ['files' => $files, 'lines' => $lines];
+        return $this->diffMetrics()->numstatSize($stat);
     }
 
     /**
@@ -996,19 +971,12 @@ final class AtlasEvolutionScenarioExplorer
      */
     private function untrackedSize(string $workspace, Process $others): array
     {
-        $files = 0;
-        $lines = 0;
-        foreach (preg_split('/\R/', trim((string) $others->getOutput())) ?: [] as $row) {
-            if (trim($row) !== '') {
-                $files++;
-                $contents = (string) file_get_contents($workspace.'/'.trim($row));
-                if ($contents !== '') {
-                    $lines += substr_count($contents, "\n") + (str_ends_with($contents, "\n") ? 0 : 1);
-                }
-            }
-        }
+        return $this->diffMetrics()->untrackedSize($workspace, $others);
+    }
 
-        return ['files' => $files, 'lines' => $lines];
+    private function diffMetrics(): AtlasEvolutionScenarioDiffMetricsCalculator
+    {
+        return $this->diffMetrics ??= new AtlasEvolutionScenarioDiffMetricsCalculator();
     }
 
     /**
@@ -1042,11 +1010,7 @@ final class AtlasEvolutionScenarioExplorer
      */
     private function isSmallerDiff(array $a, array $b): bool
     {
-        if ($a['files'] !== $b['files']) {
-            return $a['files'] < $b['files'];
-        }
-
-        return $a['lines'] < $b['lines'];
+        return $this->diffMetrics()->isSmallerDiff($a, $b);
     }
 
     /**
