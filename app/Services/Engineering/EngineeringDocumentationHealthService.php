@@ -10,6 +10,8 @@ class EngineeringDocumentationHealthService
 {
     private ?EngineeringDocumentationWarningCollector $warningCollectorInstance = null;
 
+    private ?EngineeringDocumentationViolationRules $violationRulesInstance = null;
+
     private const CANONICAL_MODULE_SCHEMA = 'atlas_canonical_module_doc.v1';
 
     /**
@@ -693,26 +695,7 @@ class EngineeringDocumentationHealthService
      */
     private function requiredDocsReport(array $docs): array
     {
-        $byPath = collect($docs)->keyBy('path');
-        $items = [];
-        $missing = [];
-
-        foreach (self::REQUIRED_DOCS as $path => $limit) {
-            $doc = $byPath->get($path);
-            $exists = is_array($doc);
-            if (! $exists) {
-                $missing[] = "{$path}: required documentation bootstrap file is missing";
-            }
-
-            $items[] = [
-                'path' => $path,
-                'exists' => $exists,
-                'line_count' => $exists ? (int) $doc['line_count'] : null,
-                'limit' => $limit,
-            ];
-        }
-
-        return ['items' => $items, 'missing' => $missing];
+        return $this->violationRules()->requiredDocsReport($docs);
     }
 
     /**
@@ -721,30 +704,7 @@ class EngineeringDocumentationHealthService
      */
     private function frontmatterViolations(array $docs): array
     {
-        $violations = [];
-
-        foreach ($docs as $doc) {
-            $path = (string) $doc['path'];
-            $status = (string) $doc['status'];
-            if (str_contains($path, '/archive/')
-                || $this->isNonCanonicalArtifactPath($path)
-                || in_array($status, ['archived', 'source_material'], true)) {
-                continue;
-            }
-
-            $frontmatter = (array) $doc['frontmatter'];
-            foreach (self::REQUIRED_FRONTMATTER as $field) {
-                if (! array_key_exists($field, $frontmatter) || $frontmatter[$field] === [] || $frontmatter[$field] === '') {
-                    $violations[] = "{$path}: missing required frontmatter field [{$field}]";
-                }
-            }
-
-            foreach ((array) $doc['frontmatter_errors'] as $error) {
-                $violations[] = "{$path}: frontmatter parse error [{$error}]";
-            }
-        }
-
-        return $violations;
+        return $this->violationRules()->frontmatterViolations($docs);
     }
 
     /**
@@ -753,41 +713,7 @@ class EngineeringDocumentationHealthService
      */
     private function humanGoldDocumentationViolations(array $docs): array
     {
-        $violations = [];
-
-        foreach ($docs as $doc) {
-            $path = (string) $doc['path'];
-            $frontmatter = (array) $doc['frontmatter'];
-            $graphId = (string) ($frontmatter['graph_id'] ?? '');
-            if (! in_array($graphId, self::HUMAN_GOLD_GRAPH_IDS, true)) {
-                continue;
-            }
-
-            foreach (self::HUMAN_GOLD_FRONTMATTER as $field) {
-                if (! array_key_exists($field, $frontmatter) || trim((string) $frontmatter[$field]) === '') {
-                    $violations[] = "{$path}: human gold doc missing field [{$field}]";
-                }
-            }
-
-            foreach (['depends_on', 'flows_to', 'unlocks', 'governs'] as $field) {
-                $value = $frontmatter[$field] ?? null;
-                if (! is_array($value) || $this->nonEmptyListStrings($value) === []) {
-                    $violations[] = "{$path}: human gold doc relation [{$field}] must be a non-empty list";
-                }
-            }
-
-            $summaryFields = [
-                'summary' => (string) ($frontmatter['summary'] ?? ''),
-                'human_summary' => (string) ($frontmatter['human_summary'] ?? ''),
-            ];
-            foreach ($summaryFields as $field => $value) {
-                if ($this->looksLikeInternalPrompt($value)) {
-                    $violations[] = "{$path}: human gold doc field [{$field}] looks like internal prompt/task text";
-                }
-            }
-        }
-
-        return $violations;
+        return $this->violationRules()->humanGoldDocumentationViolations($docs);
     }
 
     /**
@@ -796,35 +722,12 @@ class EngineeringDocumentationHealthService
      */
     private function nonEmptyListStrings(array $items): array
     {
-        return array_values(array_filter(array_map(
-            fn (mixed $item): string => trim((string) $item),
-            $items
-        ), fn (string $item): bool => $item !== ''));
+        return $this->violationRules()->nonEmptyListStrings($items);
     }
 
     private function looksLikeInternalPrompt(string $value): bool
     {
-        $value = strtolower($value);
-        foreach ([
-            'prompt completo',
-            'prompt para',
-            'me manda',
-            'voce pediu',
-            'você pediu',
-            'manda o claude',
-            'manda o codex',
-            'manda o gemini',
-            'goal enorme',
-            'type something',
-            'chat about this',
-            'skip interview',
-        ] as $marker) {
-            if (str_contains($value, $marker)) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->violationRules()->looksLikeInternalPrompt($value);
     }
 
     /**
@@ -833,22 +736,7 @@ class EngineeringDocumentationHealthService
      */
     private function canonicalModuleCoverageViolations(array $docs): array
     {
-        $violations = [];
-
-        foreach ($docs as $doc) {
-            $path = (string) $doc['path'];
-            $status = (string) $doc['status'];
-            if (str_contains($path, '/archive/') || str_contains($path, '/templates/') || $this->isNonCanonicalArtifactPath($path) || in_array($status, ['archived', 'source_material'], true)) {
-                continue;
-            }
-
-            $frontmatter = (array) $doc['frontmatter'];
-            if (($frontmatter['doc_schema'] ?? null) !== self::CANONICAL_MODULE_SCHEMA) {
-                $violations[] = "{$path}: official non-archive docs must declare doc_schema [".self::CANONICAL_MODULE_SCHEMA.']';
-            }
-        }
-
-        return $violations;
+        return $this->violationRules()->canonicalModuleCoverageViolations($docs);
     }
 
     /**
@@ -857,108 +745,7 @@ class EngineeringDocumentationHealthService
      */
     private function canonicalModuleViolations(array $docs): array
     {
-        $violations = [];
-        $graphIds = [];
-
-        foreach ($docs as $doc) {
-            $path = (string) $doc['path'];
-            $frontmatter = (array) $doc['frontmatter'];
-            if (($frontmatter['doc_schema'] ?? null) !== self::CANONICAL_MODULE_SCHEMA) {
-                continue;
-            }
-            if (str_contains($path, '/templates/') || $this->isNonCanonicalArtifactPath($path)) {
-                continue;
-            }
-
-            foreach (self::CANONICAL_MODULE_REQUIRED_FRONTMATTER as $field) {
-                if (! array_key_exists($field, $frontmatter) || $frontmatter[$field] === [] || $frontmatter[$field] === '') {
-                    $violations[] = "{$path}: missing canonical module field [{$field}]";
-                }
-            }
-
-            if (array_key_exists('macro_layer', $frontmatter) && ! is_bool($frontmatter['macro_layer'])) {
-                $violations[] = "{$path}: canonical module field [macro_layer] must be boolean";
-            }
-
-            if ($this->requiresMacroNaming($frontmatter)) {
-                foreach (self::CANONICAL_MACRO_NAMING_FRONTMATTER as $field) {
-                    if (! array_key_exists($field, $frontmatter) || trim((string) $frontmatter[$field]) === '') {
-                        $violations[] = "{$path}: macro structural layer missing required naming field [{$field}]";
-                    }
-                }
-            }
-
-            $graphId = trim((string) ($frontmatter['graph_id'] ?? ''));
-            if ($graphId !== '') {
-                if (isset($graphIds[$graphId])) {
-                    $violations[] = "{$path}: duplicate graph_id [{$graphId}] already used by {$graphIds[$graphId]}";
-                }
-                $graphIds[$graphId] = $path;
-                if (! preg_match('/^[a-z0-9][a-z0-9-]*$/', $graphId)) {
-                    $violations[] = "{$path}: graph_id [{$graphId}] must be a stable lowercase ASCII slug";
-                }
-            }
-
-            $graphStatus = (string) ($frontmatter['graph_status'] ?? '');
-            if ($graphStatus !== '' && ! in_array($graphStatus, self::CANONICAL_MODULE_ALLOWED_STATUS, true)) {
-                $violations[] = "{$path}: graph_status [{$graphStatus}] is not allowed";
-            }
-
-            $graphLayer = (string) ($frontmatter['graph_layer'] ?? '');
-            if ($graphLayer !== '' && ! in_array($graphLayer, self::CANONICAL_MODULE_ALLOWED_LAYERS, true)) {
-                $violations[] = "{$path}: graph_layer [{$graphLayer}] is not allowed";
-            }
-
-            $graphKind = (string) ($frontmatter['graph_kind'] ?? '');
-            if ($graphKind !== '' && ! in_array($graphKind, self::CANONICAL_MODULE_ALLOWED_KINDS, true)) {
-                $violations[] = "{$path}: graph_kind [{$graphKind}] is not allowed";
-            }
-
-            $graphSource = (string) ($frontmatter['graph_source'] ?? '');
-            if ($graphSource !== '' && $graphSource !== 'repo') {
-                $violations[] = "{$path}: graph_source must be [repo] for canonical engineering docs";
-            }
-
-            $riskLevel = (string) ($frontmatter['risk_level'] ?? '');
-            if ($riskLevel !== '' && ! in_array($riskLevel, self::CANONICAL_MODULE_ALLOWED_RISK, true)) {
-                $violations[] = "{$path}: risk_level [{$riskLevel}] is not allowed";
-            }
-
-            foreach (['repo_paths', 'allowed_changes', 'forbidden_changes', 'evidence', 'required_tests', 'next_actions'] as $field) {
-                if (array_key_exists($field, $frontmatter) && ! is_array($frontmatter[$field])) {
-                    $violations[] = "{$path}: canonical module field [{$field}] must be a list";
-                }
-            }
-
-            foreach (self::CANONICAL_MODULE_OPTIONAL_LIST_FRONTMATTER as $field) {
-                if (array_key_exists($field, $frontmatter) && ! is_array($frontmatter[$field])) {
-                    $violations[] = "{$path}: optional canonical module field [{$field}] must be a list";
-                }
-            }
-
-            if (array_key_exists('requires_evidence', $frontmatter) && ! is_bool($frontmatter['requires_evidence'])) {
-                $violations[] = "{$path}: canonical module field [requires_evidence] must be boolean";
-            }
-
-            foreach ((array) ($frontmatter['repo_paths'] ?? []) as $repoPath) {
-                $repoPath = trim((string) $repoPath);
-                if ($repoPath === '' || str_starts_with($repoPath, 'external:') || str_starts_with($repoPath, 'future:')) {
-                    continue;
-                }
-                if (! file_exists(base_path($repoPath))) {
-                    $violations[] = "{$path}: repo_paths entry [{$repoPath}] does not exist";
-                }
-            }
-
-            $body = (string) ($doc['body'] ?? '');
-            foreach (self::CANONICAL_MODULE_REQUIRED_SECTIONS as $section) {
-                if (! preg_match('/^##\s+'.preg_quote($section, '/').'\s*$/mi', $body)) {
-                    $violations[] = "{$path}: missing canonical module section [{$section}]";
-                }
-            }
-        }
-
-        return $violations;
+        return $this->violationRules()->canonicalModuleViolations($docs);
     }
 
     /**
@@ -966,52 +753,16 @@ class EngineeringDocumentationHealthService
      */
     private function requiresMacroNaming(array $frontmatter): bool
     {
-        if (($frontmatter['macro_layer'] ?? false) === true) {
-            return true;
-        }
-
-        foreach (self::CANONICAL_MACRO_NAMING_FRONTMATTER as $field) {
-            if (array_key_exists($field, $frontmatter)) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->violationRules()->requiresMacroNaming($frontmatter);
     }
 
     /**
-     * The Agentic Engineering authority chain is a hard gate because the user
-     * explicitly wants no future AI to confuse the hierarchy. This rule does
-     * not classify every historical doc; it protects the living entrypoints and
-     * the docs most likely to be mistaken for competing systems.
-     *
      * @param  array<int,array<string,mixed>>  $docs
      * @return array<int,string>
      */
     private function agenticEngineeringAuthorityViolations(array $docs): array
     {
-        $violations = [];
-        $byPath = collect($docs)->keyBy('path');
-
-        foreach (self::AGENTIC_ENGINEERING_AUTHORITY_LINKS as $path => $rule) {
-            $doc = $byPath->get($path);
-            if (! is_array($doc)) {
-                $violations[] = "{$path}: missing Agentic Engineering authority-chain doc [{$rule['reason']}]";
-                continue;
-            }
-
-            $frontmatter = (array) ($doc['frontmatter'] ?? []);
-            $body = (string) ($doc['body'] ?? '');
-            foreach ($rule['requires'] as $requiredPath) {
-                if ($this->referencesDoc($frontmatter, $body, $requiredPath)) {
-                    continue;
-                }
-
-                $violations[] = "{$path}: Agentic Engineering authority chain must reference [{$requiredPath}] ({$rule['reason']})";
-            }
-        }
-
-        return $violations;
+        return $this->violationRules()->agenticEngineeringAuthorityViolations($docs);
     }
 
     /**
@@ -1019,24 +770,32 @@ class EngineeringDocumentationHealthService
      */
     private function referencesDoc(array $frontmatter, string $body, string $requiredPath): bool
     {
-        $requiredId = match ($requiredPath) {
-            self::AGENTIC_ENGINEERING_AUTHORITY_MAP_PATH => self::AGENTIC_ENGINEERING_AUTHORITY_MAP_ID,
-            self::AGENTIC_ENGINEERING_INVENTORY_PATH => self::AGENTIC_ENGINEERING_INVENTORY_ID,
-            default => preg_replace('/\.md$/', '', basename($requiredPath)) ?: $requiredPath,
-        };
-        foreach (['related_paths', 'depends_on', 'flows_to', 'governs', 'related_to', 'influenced_by', 'evidence'] as $field) {
-            foreach ((array) ($frontmatter[$field] ?? []) as $value) {
-                $value = (string) $value;
-                if ($value === $requiredPath || $value === $requiredId) {
-                    return true;
-                }
-                if (str_contains($value, basename($requiredPath))) {
-                    return true;
-                }
-            }
-        }
+        return $this->violationRules()->referencesDoc($frontmatter, $body, $requiredPath);
+    }
 
-        return str_contains($body, basename($requiredPath)) || str_contains($body, $requiredPath);
+    private function violationRules(): EngineeringDocumentationViolationRules
+    {
+        return $this->violationRulesInstance ??= new EngineeringDocumentationViolationRules(
+            self::REQUIRED_DOCS,
+            self::REQUIRED_FRONTMATTER,
+            self::HUMAN_GOLD_FRONTMATTER,
+            self::HUMAN_GOLD_GRAPH_IDS,
+            self::CANONICAL_MODULE_SCHEMA,
+            self::CANONICAL_MODULE_REQUIRED_FRONTMATTER,
+            self::CANONICAL_MACRO_NAMING_FRONTMATTER,
+            self::CANONICAL_MODULE_ALLOWED_STATUS,
+            self::CANONICAL_MODULE_ALLOWED_LAYERS,
+            self::CANONICAL_MODULE_ALLOWED_KINDS,
+            self::CANONICAL_MODULE_ALLOWED_RISK,
+            self::CANONICAL_MODULE_OPTIONAL_LIST_FRONTMATTER,
+            self::CANONICAL_MODULE_REQUIRED_SECTIONS,
+            self::AGENTIC_ENGINEERING_AUTHORITY_LINKS,
+            self::AGENTIC_ENGINEERING_AUTHORITY_MAP_PATH,
+            self::AGENTIC_ENGINEERING_AUTHORITY_MAP_ID,
+            self::AGENTIC_ENGINEERING_INVENTORY_PATH,
+            self::AGENTIC_ENGINEERING_INVENTORY_ID,
+            fn (string $path): bool => $this->isNonCanonicalArtifactPath($path),
+        );
     }
 
     /**
