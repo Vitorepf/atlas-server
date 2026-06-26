@@ -6,6 +6,7 @@ namespace App\Services\Ai\AutonomousEvolution\Sentinels;
 
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
 use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
+use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 
 /**
  * REGRESSION SENTINEL — closes the gap where 18 broken packets (all sharing
@@ -34,7 +35,7 @@ final class AtlasLoopServedQueueInspectorSweepSentinel
      */
     public function sweep(): array
     {
-        $queue = $this->queue ?? new AgentControlPlaneTaskPacketQueueRepository;
+        $queue = $this->queue ?? new AgentControlPlaneTaskPacketQueueRepository(AtlasTaskServingStack::disk());
         $inspector = $this->inspector ?? new AtlasTaskPacketQualityInspector;
 
         $scanned = 0;

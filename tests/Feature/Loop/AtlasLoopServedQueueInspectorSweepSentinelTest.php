@@ -5,24 +5,30 @@ declare(strict_types=1);
 namespace Tests\Feature\Loop;
 
 use App\Services\Ai\AutonomousEvolution\Sentinels\AtlasLoopServedQueueInspectorSweepSentinel;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
- * Proves the live-queue quality sweep sentinel against a real (faked-disk) serving queue: it flags a packet
- * that demands test evidence without a tests/ path in allowed_files (today's 18-packet bug), and returns clean
- * once that packet is removed — no false positives on a healthy queue. Reads through the repository, no mock.
+ * Proves the live-queue quality sweep sentinel reads from the OPERATOR SERVING
+ * disk (the same disk a worker serves from), NOT the shared 'local' default disk
+ * (which is flooded with certification probes and would hide real offenders).
+ *
+ * Regression: sweep() used to fall back to `new AgentControlPlaneTaskPacketQueueRepository`
+ * (no disk arg => DEFAULT_DISK='local'), so AppServiceProvider's plain singleton binding
+ * resolved the sentinel against the wrong queue — the certification-spam local disk — and
+ * the sweep would never see broken packets actually claimable on atlas_serving.
  */
 final class AtlasLoopServedQueueInspectorSweepSentinelTest extends TestCase
 {
-    private AgentControlPlaneTaskPacketQueueRepository $repo;
+    private const SERVING_DISK = 'atlas_serving_sweep_sentinel_test';
 
     protected function setUp(): void
     {
         parent::setUp();
+        config()->set('atlas.task_serving.queue_disk', self::SERVING_DISK);
+        Storage::fake(self::SERVING_DISK);
         Storage::fake('local');
-        $this->repo = new AgentControlPlaneTaskPacketQueueRepository;
     }
 
     /** @return array<string,mixed> */
@@ -53,36 +59,43 @@ final class AtlasLoopServedQueueInspectorSweepSentinelTest extends TestCase
         ];
     }
 
-    private function sentinel(): AtlasLoopServedQueueInspectorSweepSentinel
+    public function test_flags_offending_packet_on_the_serving_disk(): void
     {
-        return new AtlasLoopServedQueueInspectorSweepSentinel($this->repo);
-    }
+        $queue = AtlasTaskServingStack::queueRepo();
 
-    public function test_flags_the_offending_packet_on_the_live_queue(): void
-    {
-        $this->assertSame('ok', $this->repo->enqueue($this->validPacket())['status']);
-        $this->assertSame('ok', $this->repo->enqueue($this->offendingPacket())['status']);
+        $this->assertSame('ok', $queue->enqueue($this->validPacket())['status']);
+        $this->assertSame('ok', $queue->enqueue($this->offendingPacket())['status']);
 
-        $result = $this->sentinel()->sweep();
+        // Construct the sentinel with NO injected queue — this is how the AppServiceProvider
+        // singleton resolves it. The fix makes its fallback target the serving disk; the bug
+        // made it read 'local' and report clean.
+        $result = (new AtlasLoopServedQueueInspectorSweepSentinel())->sweep();
 
-        $this->assertFalse($result['clean'], 'a broken packet on the queue ⇒ not clean');
+        $this->assertFalse($result['clean'], 'a broken packet on the serving queue => not clean');
         $this->assertCount(1, $result['offenders']);
         $this->assertSame('sweep-offender', $result['offenders'][0]['id']);
         $this->assertContains('test_evidence_without_test_in_allowed_files', $result['offenders'][0]['blocking_deficiencies']);
     }
 
-    public function test_returns_clean_after_the_offender_is_removed(): void
+    public function test_returns_clean_on_a_healthy_serving_queue(): void
     {
-        $this->repo->enqueue($this->validPacket());
-        $this->repo->enqueue($this->offendingPacket());
+        $queue = AtlasTaskServingStack::queueRepo();
 
-        // Purge the offender from the claimable set.
-        $this->assertSame('ok', $this->repo->updateStatus('sweep-offender', 'cancelled')['status']);
+        $this->assertSame('ok', $queue->enqueue($this->validPacket())['status']);
 
-        $result = $this->sentinel()->sweep();
+        $result = (new AtlasLoopServedQueueInspectorSweepSentinel())->sweep();
 
-        $this->assertTrue($result['clean'], 'no false positive on a healthy queue');
+        $this->assertTrue($result['clean'], 'no false positive on a healthy serving queue');
         $this->assertSame([], $result['offenders']);
-        $this->assertSame(1, $result['scanned'], 'only the valid packet remains claimable');
+        $this->assertSame(1, $result['scanned']);
+    }
+
+    public function test_returns_clean_when_serving_disk_has_no_claimable_packets(): void
+    {
+        $result = (new AtlasLoopServedQueueInspectorSweepSentinel())->sweep();
+
+        $this->assertTrue($result['clean']);
+        $this->assertSame(0, $result['scanned']);
+        $this->assertSame([], $result['offenders']);
     }
 }
