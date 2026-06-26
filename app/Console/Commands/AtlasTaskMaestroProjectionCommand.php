@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
 use App\Services\Ai\SelfConstruction\AgentValidationGateResultRepository;
+use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use App\Services\Ai\SelfConstruction\Maestro\Projection\AtlasMaestroWorkloadConsumptionRateReporter;
 use App\Services\Ai\SelfConstruction\Maestro\Projection\AtlasMaestroWorkloadProjectionFactEmitter;
 use Carbon\CarbonImmutable;
@@ -186,8 +187,8 @@ final class AtlasTaskMaestroProjectionCommand extends Command
 
     private function queueRepository(): AgentControlPlaneTaskPacketQueueRepository
     {
-        /** @var AgentControlPlaneTaskPacketQueueRepository */
-        return app(AgentControlPlaneTaskPacketQueueRepository::class);
+        // Read off the operator SERVING disk, not the certification-spam container default.
+        return AtlasTaskServingStack::queueRepo();
     }
 
     private function consumptionReporter(): AtlasMaestroWorkloadConsumptionRateReporter

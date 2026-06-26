@@ -5,21 +5,29 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use App\Services\Ai\SelfConstruction\Maestro\Projection\AtlasMaestroWorkloadConsumptionRateReporter;
 use App\Services\Ai\SelfConstruction\Maestro\Projection\AtlasMaestroWorkloadProjectionFactEmitter;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
 use Tests\TestCase;
 
 final class AtlasTaskMaestroProjectionCommandTest extends TestCase
 {
+    private const TEST_DISK = 'atlas_maestro_projection_test';
+
     private string $envFile = '';
 
     protected function setUp(): void
     {
         parent::setUp();
+        // Project must read the OPERATOR SERVING disk, not the container default. Pin a dedicated
+        // test disk so the seed and the read go through the same channel the production reaper does.
+        config()->set('atlas.task_serving.queue_disk', self::TEST_DISK);
+        Storage::fake(self::TEST_DISK);
+        Storage::fake('local');
         $this->envFile = sys_get_temp_dir().'/atlas-maestro-projection-'.bin2hex(random_bytes(5)).'.env';
         file_put_contents($this->envFile, "ATLAS_LOOP_MASTER_ENABLED=true\n");
         AtlasLoopMasterSwitch::$envPathOverride = $this->envFile;
@@ -102,7 +110,7 @@ final class AtlasTaskMaestroProjectionCommandTest extends TestCase
 
     private function seedPacket(string $taskPacketId, string $status): void
     {
-        $repo = app(AgentControlPlaneTaskPacketQueueRepository::class);
+        $repo = AtlasTaskServingStack::queueRepo();
         $repo->enqueue([
             'task_packet_id' => $taskPacketId,
             'task_packet_hash' => hash('sha256', $taskPacketId.'-'.$status),
