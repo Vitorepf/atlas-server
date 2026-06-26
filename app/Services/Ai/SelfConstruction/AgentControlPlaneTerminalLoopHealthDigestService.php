@@ -1322,20 +1322,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
      */
     private function commands(string $actor, int $targetMinClaimable, int $maxNewTasks, array $queueTags): array
     {
-        $actor = $this->safeCommandToken($actor, 'operator');
-        $tagArgs = $this->queueTagArgs($queueTags);
-
-        return [
-            'preview_bootstrap' => 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-worker-bootstrap-status --terminal-worker-bootstrap-preview --actor='.$actor.' --target-min-claimable-tasks='.$targetMinClaimable.' --max-new-tasks='.$maxNewTasks.$tagArgs.' --json',
-            'execute_bootstrap' => 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-worker-bootstrap-status --actor='.$actor.' --target-min-claimable-tasks='.$targetMinClaimable.' --max-new-tasks='.$maxNewTasks.$tagArgs.' --json',
-            'replenish_tasks' => 'php artisan atlas:ai:self-construction --agent-control-plane-task-auto-replenishment-status --actor='.$actor.' --target-min-claimable-tasks='.$targetMinClaimable.' --max-new-tasks='.$maxNewTasks.$tagArgs.' --json',
-            'inspect_or_recover_leases' => 'php artisan atlas:ai:self-construction --agent-control-plane-task-lease-recovery-status --actor='.$actor.' --reason=terminal_loop_health_digest'.$tagArgs.' --json',
-            'inspect_queue' => 'php artisan atlas:ai:self-construction --agent-control-plane-task-packet-queue-status --json',
-            'inspect_leases' => 'php artisan atlas:ai:self-construction --agent-control-plane-claim-lease-runtime-status --json',
-            'terminal_loop_health_digest' => 'php artisan atlas:ai:self-construction --agent-control-plane-terminal-loop-health-digest-status --actor='.$actor.' --target-min-claimable-tasks='.$targetMinClaimable.' --max-new-tasks='.$maxNewTasks.$tagArgs.' --json',
-            'worker_task_eligibility_certification' => 'php artisan atlas:ai:self-construction --agent-control-plane-worker-task-eligibility-certification-status --actor='.$actor.' --target-min-claimable-tasks='.$targetMinClaimable.$tagArgs.' --json',
-            'multi_agent_certification' => 'php artisan atlas:ai:self-construction --agent-control-plane-multi-agent-loop-certification-status --agent-count=6 --cycles=2 --target-min-claimable-tasks=6 --json',
-        ];
+        return $this->commandComposer()->commands($actor, $targetMinClaimable, $maxNewTasks, $queueTags);
     }
 
     /**
@@ -1343,14 +1330,17 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
      */
     private function queueTagArgs(array $queueTags): string
     {
-        if ($queueTags === []) {
-            return '';
-        }
+        return $this->commandComposer()->queueTagArgs($queueTags);
+    }
 
-        return ' '.implode(' ', array_map(
-            fn (string $tag): string => '--queue-tag='.$this->safeCommandToken($tag, 'queue'),
-            $queueTags,
-        ));
+    private function safeCommandToken(string $value, string $default): string
+    {
+        return $this->commandComposer()->safeCommandToken($value, $default);
+    }
+
+    private function commandComposer(): \App\Services\Ai\SelfConstruction\ControlPlane\TerminalLoopHealthDigestCommandComposer
+    {
+        return $this->commandComposer ??= new \App\Services\Ai\SelfConstruction\ControlPlane\TerminalLoopHealthDigestCommandComposer;
     }
 
     /**
@@ -1360,14 +1350,6 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
     private function recordQueueTags(array $item): array
     {
         return array_values(array_map('strval', (array) ($item['queue_tags'] ?? [])));
-    }
-
-    private function safeCommandToken(string $value, string $default): string
-    {
-        $safe = preg_replace('/[^A-Za-z0-9_.:@\/-]/', '-', trim($value)) ?: '';
-        $safe = trim($safe, '-');
-
-        return $safe === '' ? $default : $safe;
     }
 
     /**
