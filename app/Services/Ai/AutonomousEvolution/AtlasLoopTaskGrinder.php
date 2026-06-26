@@ -952,95 +952,32 @@ final class AtlasLoopTaskGrinder
     }
 
     /**
-     * ACDE Tier-1 #5: does this (post-gate) runner result carry a certified winner? Mirrors the
-     * persister's has_winner rule (proposals !== []), so the conductor escalates iff persist would
-     * otherwise record no winner.
-     *
-     * @param  array<string,mixed>  $result
-     */
-    private function resultHasCertifiedWinner(array $result): bool
-    {
-        return is_array($result['proposals'] ?? null) && $result['proposals'] !== [];
-    }
-
-    /**
-     * ACDE Tier-1 #5: a STABLE reason string for the conductor's attempt ledger — 'certified' on a
-     * winner, else the first non-empty rejection across explorations (kept stable so a recurring
-     * identical failure trips the ledger's thrashing jump), else 'no_winner'.
-     *
-     * @param  array<string,mixed>  $result
-     */
-    private function tierReason(array $result): string
-    {
-        if ($this->resultHasCertifiedWinner($result)) {
-            return 'certified';
-        }
-        foreach ((array) ($result['explorations'] ?? []) as $exploration) {
-            foreach ((array) (is_array($exploration) ? ($exploration['rejected_reasons'] ?? []) : []) as $reason) {
-                $reason = trim((string) $reason);
-                if ($reason !== '') {
-                    return $reason;
-                }
-            }
-        }
-        // ACDE Tier-1 #1: the frozen judge passed (or emitted no rejected_reasons) but the SEMANTIC
-        // implementation cert still rejected every proposal — surface the cert's OWN reason
-        // (mutation-inadequate / consumer-gate / refuter-survived / gate_error) so the conductor's
-        // attempt-ledger escalates on a SPECIFIC, STABLE signal instead of the opaque 'no_winner' (which
-        // looks identical every round and never trips the thrashing jump). Escalation-gated so the ledger
-        // reason string is byte-identical when conductor escalation is OFF; the cert reasons are ADVISORY
-        // (they feed the ladder's forward guidance only — never a gate).
-        if ((bool) config('atlas.loop.conductor_escalation_enabled', false)) {
-            foreach ($this->certificationRejectionReasons($result) as $reason) {
-                if ($reason !== '') {
-                    return $reason;
-                }
-            }
+         * @param  array<string,mixed>  $result
+         */
+        private function resultHasCertifiedWinner(array $result): bool
+        {
+            return Grinder\AtlasLoopGrinderTierReasonResolver::resultHasCertifiedWinner($result);
         }
 
-        return 'no_winner';
-    }
-
-    /**
-     * ACDE Tier-1 #1: harvest the rejection reasons the SEMANTIC implementation certifier recorded for
-     * the no-winner round, from the certification summary built by gateImplementationProposals /
-     * gateCharacterizationTestProposals ($result['semantic_implementation_certification']['reports'][]).
-     * Each non-certified report contributes a stable 'cert:<level>: <first-reason>' line so a RECURRING
-     * identical cert failure produces an identical string (tripping the ledger's thrash-jump). Pure +
-     * deterministic; ADVISORY — it never gates, only enriches the conductor's forward guidance.
-     *
-     * @param  array<string,mixed>  $result
-     * @return list<string>
-     */
-    private function certificationRejectionReasons(array $result): array
-    {
-        $cert = $result['semantic_implementation_certification'] ?? null;
-        $reports = is_array($cert) && is_array($cert['reports'] ?? null) ? $cert['reports'] : [];
-        $out = [];
-        foreach ($reports as $report) {
-            if (! is_array($report) || (bool) ($report['certified'] ?? false)) {
-                continue; // a certified proposal contributes no rejection reason
-            }
-            $level = trim((string) ($report['level'] ?? ''));
-            $first = '';
-            foreach ((array) ($report['reasons'] ?? []) as $reason) {
-                $first = trim((string) $reason);
-                if ($first !== '') {
-                    break;
-                }
-            }
-            $line = $first !== '' && $level !== '' ? $level.': '.$first : ($first !== '' ? $first : $level);
-            $line = trim($line);
-            if ($line !== '') {
-                $out[] = 'cert:'.$line;
-            }
+        /**
+         * @param  array<string,mixed>  $result
+         */
+        private function tierReason(array $result): string
+        {
+            return Grinder\AtlasLoopGrinderTierReasonResolver::tierReason($result);
         }
 
-        return $out;
-    }
+        /**
+         * @param  array<string,mixed>  $result
+         * @return list<string>
+         */
+        private function certificationRejectionReasons(array $result): array
+        {
+            return Grinder\AtlasLoopGrinderTierReasonResolver::certificationRejectionReasons($result);
+        }
 
-    /**
-     * ACDE Tier-1 #5: escalate a no-winner round through the autonomous conductor — the flow-level
+        /**
+         * @param  array<string,mixed>  $result
      * substitute for model intelligence. The conductor walks the escalation ladder
      * (best_of_n -> repair_from_refutation -> decompose -> escalate_provider), feeding its attempt-ledger
      * guidance forward into each re-run's objective and thrash-jumping on recurring failure, stopping on
