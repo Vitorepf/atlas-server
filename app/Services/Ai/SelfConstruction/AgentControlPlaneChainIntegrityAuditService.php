@@ -605,37 +605,7 @@ final class AgentControlPlaneChainIntegrityAuditService
      */
     private function documentationAudit(array $deepChain): array
     {
-        $path = base_path('docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md');
-        $exists = is_file($path);
-        $contents = $exists ? (string) @file_get_contents($path) : '';
-        $bulletsFound = [];
-        $duplicateBullets = [];
-        if ($exists) {
-            foreach ($deepChain as $slice) {
-                $bullet = $slice['doc_bullet'];
-                if ($bullet === '') {
-                    continue;
-                }
-                // Match the canonical bullet anchor: a list item that begins with
-                // "- expose and implement automatic dispatch scheduler one-shot tick Codex real invoker <slice phrase>"
-                // so that we ignore in-passing "routes next to <slice>" mentions inside other bullets.
-                $pattern = '/^\\s*-\\s+expose\\s+(?:and\\s+implement\\s+)?automatic\\s+dispatch\\s+scheduler\\s+one-shot\\s+tick\\s+Codex\\s+real\\s+invoker\\s+'
-                    .preg_quote($bullet, '/').'\\b/m';
-                $count = preg_match_all($pattern, $contents) ?: 0;
-                $bulletsFound[$slice['slice_key']] = $count;
-                if ($count >= 2) {
-                    $duplicateBullets[] = $slice['slice_key'];
-                }
-            }
-        }
-
-        return [
-            'contract_doc_present' => $exists,
-            'contract_doc_path' => 'docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md',
-            'contract_doc_byte_size' => $exists ? strlen($contents) : 0,
-            'slice_bullets_found' => $bulletsFound,
-            'duplicate_slice_bullets' => $duplicateBullets,
-        ];
+        return $this->surfaceAuditor()->documentationAudit($deepChain);
     }
 
     /**
@@ -644,60 +614,7 @@ final class AgentControlPlaneChainIntegrityAuditService
      */
     private function cliSurface(array $deepChain): array
     {
-        $expectedOptions = [
-            'agent-control-plane',
-            'agent-control-plane-chain-integrity-certification',
-            'agent-control-plane-chain-integrity-certification-status',
-            'agent-control-plane-chain-integrity-certification-preflight',
-            'agent-control-plane-chain-integrity-certification-implementation-packet',
-        ];
-        foreach ($deepChain as $slice) {
-            $sliceKey = (string) $slice['slice_key'];
-            $cliBase = $this->cliBaseForSlice($sliceKey);
-            if ($cliBase === '') {
-                continue;
-            }
-            // For slice families whose base already ends in `_contract`, the CLI
-            // contract option uses the base CLI key (no extra `-contract` suffix)
-            // — the rest of the quintet keeps the suffix convention.
-            $expectedOptions[] = str_ends_with($sliceKey, '_contract') ? $cliBase : ($cliBase.'-contract');
-            $expectedOptions[] = $cliBase.'-preflight';
-            $expectedOptions[] = $cliBase.'-implementation-packet';
-            $expectedOptions[] = $cliBase.'-status';
-        }
-        $expectedOptions = array_values(array_unique($expectedOptions));
-
-        $present = [];
-        $missing = [];
-        try {
-            $kernel = app(ConsoleKernelContract::class);
-            $registry = $kernel->all();
-            $command = $registry['atlas:ai:self-construction'] ?? null;
-            if ($command === null) {
-                throw new \RuntimeException('atlas:ai:self-construction command is not registered.');
-            }
-            $definition = $command->getDefinition();
-            foreach ($expectedOptions as $optionName) {
-                if ($definition->hasOption($optionName)) {
-                    $present[] = $optionName;
-                } else {
-                    $missing[] = $optionName;
-                }
-            }
-            $aligned = $missing === [];
-        } catch (\Throwable $error) {
-            $missing = $expectedOptions;
-            $present = [];
-            $aligned = false;
-        }
-
-        return [
-            'command_name' => 'atlas:ai:self-construction',
-            'expected_options' => $expectedOptions,
-            'present_options' => $present,
-            'missing_options' => $missing,
-            'handlers_aligned' => $aligned,
-        ];
+        return $this->surfaceAuditor()->cliSurface($deepChain);
     }
 
     /**
@@ -705,19 +622,7 @@ final class AgentControlPlaneChainIntegrityAuditService
      */
     private function allQuartetMethodsPresent(array $sliceReports): bool
     {
-        foreach ($sliceReports as $report) {
-            $checks = (array) ($report['checks'] ?? []);
-            if (
-                ($checks['contract_method_exists'] ?? false) !== true
-                || ($checks['preflight_method_exists'] ?? false) !== true
-                || ($checks['implementation_packet_method_exists'] ?? false) !== true
-                || ($checks['status_method_exists'] ?? false) !== true
-            ) {
-                return false;
-            }
-        }
-
-        return true;
+        return $this->surfaceAuditor()->allQuartetMethodsPresent($sliceReports);
     }
 
     /**
@@ -726,23 +631,7 @@ final class AgentControlPlaneChainIntegrityAuditService
      */
     private function invokerSurface(array $deepChain): array
     {
-        $missing = [];
-        foreach ($deepChain as $slice) {
-            $invokerClass = $slice['invoker_class'];
-            if ($invokerClass === '' || ! class_exists($invokerClass)) {
-                $missing[] = $slice['slice_key'];
-
-                continue;
-            }
-            if ($slice['prepare_method'] === '' || ! method_exists($invokerClass, $slice['prepare_method'])) {
-                $missing[] = $slice['slice_key'];
-            }
-        }
-
-        return [
-            'deep_checked' => count($deepChain),
-            'missing' => $missing,
-        ];
+        return $this->surfaceAuditor()->invokerSurface($deepChain);
     }
 
     /**
@@ -750,14 +639,7 @@ final class AgentControlPlaneChainIntegrityAuditService
      */
     private function testSurface(): array
     {
-        $dedicatedTestPath = base_path('tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneChainIntegrityAuditTest.php');
-        $commandTestPath = base_path('tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php');
-
-        return [
-            'dedicated_test_path' => 'tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneChainIntegrityAuditTest.php',
-            'dedicated_test_present' => is_file($dedicatedTestPath),
-            'command_test_present' => is_file($commandTestPath),
-        ];
+        return $this->surfaceAuditor()->testSurface();
     }
 
     /**
@@ -765,7 +647,7 @@ final class AgentControlPlaneChainIntegrityAuditService
      */
     private function countDuplicates(array $values): int
     {
-        return count($values) - count(array_unique($values));
+        return $this->surfaceAuditor()->countDuplicates($values);
     }
 
     /**
@@ -1142,6 +1024,11 @@ final class AgentControlPlaneChainIntegrityAuditService
     private function corridorAnalyzer(): AgentControlPlaneChainIntegrityCorridorAnalyzer
     {
         return $this->corridorAnalyzerInstance ??= new AgentControlPlaneChainIntegrityCorridorAnalyzer;
+    }
+
+    private function surfaceAuditor(): AgentControlPlaneChainIntegritySurfaceAuditor
+    {
+        return $this->surfaceAuditorInstance ??= new AgentControlPlaneChainIntegritySurfaceAuditor($this);
     }
 
     /**
