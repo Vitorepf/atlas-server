@@ -2055,10 +2055,22 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
         return FinalOperatorClosureCorridor\ClosureCorridorCanonicalHasher::privateStorageAppPath($path);
     }
 
+    /**
+     * ITEM8 — lazy accessor for {@see FinalOperatorClosureCorridorHashSupport}. The new
+     * collaborator holds the three extracted canonicalization/hashing helpers verbatim; the
+     * god-class keeps its private methods as thin delegators so every emitted *_hash value
+     * stays byte-identical. Lazy-instantiated per call so production callers pay no construction
+     * cost beyond the first use.
+     */
+    private function hashSupport(): FinalOperatorClosureCorridorHashSupport
+    {
+        return new FinalOperatorClosureCorridorHashSupport;
+    }
+
     /** @param array<string, mixed> $payload */
     private function stableHash(array $payload): string
     {
-        return FinalOperatorClosureCorridor\ClosureCorridorCanonicalHasher::stableHash($payload);
+        return $this->hashSupport()->stableHash($payload);
     }
 
     /**
@@ -2067,12 +2079,12 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
      */
     private function stripVolatileKeys(array $payload): array
     {
-        return FinalOperatorClosureCorridor\ClosureCorridorCanonicalHasher::stripVolatileKeys($payload);
+        return $this->hashSupport()->stripVolatileKeys($payload);
     }
 
     /** @param array<string, mixed> $value */
     private function ksortRecursive(array $value): array
     {
-        return FinalOperatorClosureCorridor\ClosureCorridorCanonicalHasher::ksortRecursive($value);
+        return $this->hashSupport()->ksortRecursive($value);
     }
 }
