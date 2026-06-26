@@ -4,6 +4,7 @@ namespace App\Services\Ai\SelfConstruction;
 
 use App\Services\Ai\SelfConstruction\TerminalWorkerBootstrap\AgentControlPlaneTerminalLoopGuidanceBuilder;
 use App\Services\Ai\SelfConstruction\TerminalWorkerBootstrap\AgentControlPlaneTerminalWorkerCommandFormatter;
+use App\Services\Ai\SelfConstruction\TerminalWorkerBootstrap\AgentControlPlaneWorkerEligibilityGuard;
 use Carbon\CarbonImmutable;
 
 /**
@@ -738,80 +739,7 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
      */
     private function workerEligibilityGuard(array $queueTags): array
     {
-        $records = $this->claimableRecords($queueTags);
-        $violations = [];
-        $ineligibleTaskIds = [];
-
-        foreach ($records as $record) {
-            $taskPacketId = (string) ($record['task_packet_id'] ?? '');
-            $recordViolationCountBefore = count($violations);
-            $reference = (string) data_get($record, 'task_packet.continuation_context.auto_replenishment_reference', '');
-            if ((bool) data_get($record, 'task_packet.continuation_context.worker_executable', true) === false) {
-                $violations[] = ['code' => 'claimable_task_not_worker_executable', 'task_packet_id' => $taskPacketId];
-            }
-            if ((bool) data_get($record, 'task_packet.continuation_context.operator_handoff_required', false)) {
-                $violations[] = ['code' => 'claimable_task_requires_operator_handoff', 'task_packet_id' => $taskPacketId];
-            }
-            if (in_array($reference, self::OPERATOR_ONLY_COMPLETION_CRITERIA, true)) {
-                $violations[] = [
-                    'code' => 'claimable_task_references_operator_only_completion_blocker',
-                    'task_packet_id' => $taskPacketId,
-                    'reference' => $reference,
-                ];
-            }
-            foreach ([
-                'dispatch_allowed',
-                'provider_call_allowed',
-                'token_spend_allowed',
-                'self_programming_allowed',
-                'ledger_write_allowed',
-                'runtime_execution_allowed',
-                'completion_real_allowed',
-            ] as $flag) {
-                if ((bool) data_get($record, $flag, false)) {
-                    $violations[] = [
-                        'code' => 'claimable_task_runtime_flag_true',
-                        'task_packet_id' => $taskPacketId,
-                        'flag' => $flag,
-                    ];
-                }
-            }
-            if (count($violations) > $recordViolationCountBefore && $taskPacketId !== '') {
-                $ineligibleTaskIds[$taskPacketId] = true;
-            }
-        }
-        $eligibleClaimableCount = count(array_values(array_filter(
-            $records,
-            static fn (array $record): bool => ! isset($ineligibleTaskIds[(string) ($record['task_packet_id'] ?? '')]),
-        )));
-        $status = $eligibleClaimableCount > 0
-            ? ($violations === [] ? 'available' : 'available_with_non_worker_candidates')
-            : ($violations === [] ? 'available' : 'blocked');
-
-        $guard = [
-            'schema_version' => 'atlas.self_construction.agent_control_plane_terminal_worker_bootstrap_worker_task_eligibility_guard.v1',
-            'status' => $status,
-            'queue_tags' => $queueTags,
-            'checked_claimable_task_count' => count($records),
-            'eligible_claimable_task_count' => $eligibleClaimableCount,
-            'blocked_reasons' => array_values(array_unique(array_map(
-                static fn (array $violation): string => (string) ($violation['code'] ?? ''),
-                $violations,
-            ))),
-            'violations' => $violations,
-            'violation_count' => count($violations),
-            'can_claim_after_guard' => $eligibleClaimableCount > 0,
-            'non_execution_guarantees' => [
-                'worker_task_eligibility_guard_does_not_claim_tasks',
-                'worker_task_eligibility_guard_does_not_create_or_renew_leases',
-                'worker_task_eligibility_guard_does_not_call_provider',
-                'worker_task_eligibility_guard_does_not_spend_tokens',
-                'worker_task_eligibility_guard_does_not_dispatch_work',
-            ],
-        ];
-        $guard['worker_task_eligibility_guard_hash'] = $this->stableHash($guard);
-
-        return $guard;
+        return $this->workerEligibilityGuardService()->workerEligibilityGuard($queueTags);
     }
 
     /**
@@ -843,6 +771,20 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
     private function loopGuidanceBuilder(): AgentControlPlaneTerminalLoopGuidanceBuilder
     {
         return new AgentControlPlaneTerminalLoopGuidanceBuilder;
+    }
+
+    /**
+     * ITEM8 — cohesive worker-eligibility validation the bootstrap service uses to assert every
+     * claimable record satisfies the "one-terminal-runs-one-packet-at-a-time" contract. Extracted into
+     * {@see AgentControlPlaneWorkerEligibilityGuard}; we keep the single private method
+     * (`workerEligibilityGuard`) as a thin delegator so every existing call site (inside `bootstrap()`'s
+     * pipeline) stays byte-identical and the public signature of the service does not move.
+     * Lazy-instantiated per call with the queue repository threaded through, so production callers pay
+     * no construction cost beyond the first use.
+     */
+    private function workerEligibilityGuardService(): AgentControlPlaneWorkerEligibilityGuard
+    {
+        return new AgentControlPlaneWorkerEligibilityGuard($this->queue);
     }
 
     /**
