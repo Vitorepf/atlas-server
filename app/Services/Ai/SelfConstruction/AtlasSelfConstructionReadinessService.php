@@ -75688,22 +75688,7 @@ final class AtlasSelfConstructionReadinessService
      */
     private function terminalLoopOperationalProofPayloadFromJson(mixed $proof): array
     {
-        if (! is_array($proof)) {
-            return [];
-        }
-
-        foreach ([
-            'proof_payload',
-            'completion_audit_binding_packet.proof_payload',
-            'agent_control_plane_terminal_loop_operational_proof.completion_audit_binding_packet.proof_payload',
-        ] as $path) {
-            $payload = data_get($proof, $path);
-            if (is_array($payload)) {
-                return (array) $payload;
-            }
-        }
-
-        return (array) $proof;
+        return Readiness\ReadinessTerminalLoopProofResolver::payloadFromJson($proof);
     }
 
     /**
@@ -75712,31 +75697,10 @@ final class AtlasSelfConstructionReadinessService
      */
     private function withTerminalLoopOperationalProofPayload(array $options): array
     {
-        if (isset($options['agent_control_plane_terminal_loop_operational_proof'])) {
-            return $options;
-        }
-
-        if (isset($options['agent_control_plane_terminal_loop_operational_proof_json'])) {
-            $proof = $this->decodeJsonOption($options['agent_control_plane_terminal_loop_operational_proof_json']);
-            $options['agent_control_plane_terminal_loop_operational_proof'] = $this->terminalLoopOperationalProofPayloadFromJson($proof);
-
-            return $options;
-        }
-
-        $canonicalPath = self::CANONICAL_OPERATOR_SUBMISSION_PATHS['terminal_loop_operational_proof_binding'];
-        if (! Storage::disk('local')->exists($canonicalPath)) {
-            return $options;
-        }
-
-        $proof = $this->decodeJsonOption('@storage/app/private/'.$canonicalPath);
-        $payload = $this->terminalLoopOperationalProofPayloadFromJson($proof);
-        if ($payload !== []) {
-            $options['agent_control_plane_terminal_loop_operational_proof'] = $payload;
-            $options['agent_control_plane_terminal_loop_operational_proof_source'] = 'canonical_operator_submission';
-            $options['agent_control_plane_terminal_loop_operational_proof_canonical_path'] = 'storage/app/private/'.$canonicalPath;
-        }
-
-        return $options;
+        return Readiness\ReadinessTerminalLoopProofResolver::withPayload(
+            $options,
+            self::CANONICAL_OPERATOR_SUBMISSION_PATHS['terminal_loop_operational_proof_binding'],
+        );
     }
 
     /**
