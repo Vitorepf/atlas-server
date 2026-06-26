@@ -23,13 +23,12 @@ final class AtlasLoopIntentVerifierFactory
 {
     public const SCHEMA = 'atlas.loop.intent_verifier_factory.v1';
 
-    private ?AtlasLoopFrozenTestContentBuilder $frozenTestContentBuilder = null;
+    private ?AtlasLoopFrozenTestSourceRenderer $frozenTestSourceRenderer = null;
 
     public function __construct(
         private readonly AtlasLoopFrameworkMaterializer $frameworkMaterializer,
-        // FROZEN-TEST CODEGEN collaborator (cl2 split). Nullable + lazily self-resolved in
-        // frozenTestContentBuilder() so every existing positional construction stays valid;
-        // behavior is byte-identical to the previous in-factory implementation.
+        // Legacy optional collaborator kept ONLY to preserve the public constructor signature.
+        // The active source-emitter is AtlasLoopFrozenTestSourceRenderer, lazily self-resolved.
         private readonly ?AtlasLoopFrozenTestContentBuilder $frozenTestContentBuilderCollaborator = null,
     ) {}
 
@@ -748,7 +747,7 @@ final class AtlasLoopIntentVerifierFactory
 
     private function normalizeCountOperator(string $operator): string
     {
-        return $this->frozenTestContentBuilder()->normalizeCountOperator($operator);
+        return in_array($operator, ['=', '>=', '<=', '>', '<'], true) ? $operator : '>=';
     }
 
     private function isSafeSqlIdentifier(string $identifier): bool
@@ -914,74 +913,14 @@ final class AtlasLoopIntentVerifierFactory
      */
     private function frozenTestContent(string $testPath, string $target, string $class, array $atoms): string
     {
-        return $this->frozenTestContentBuilder()->frozenTestContent($testPath, $target, $class, $atoms);
+        return $this->frozenTestSourceRenderer()->frozenTestContent($testPath, $target, $class, $atoms);
     }
 
-    /**
-     * @param  array<string,mixed>  $atom
-     * @return list<string>
-     */
-    private function commandOutputAssertionLines(int $index, string $prefix, array $atom): array
+    private function frozenTestSourceRenderer(): AtlasLoopFrozenTestSourceRenderer
     {
-        return $this->frozenTestContentBuilder()->commandOutputAssertionLines($index, $prefix, $atom);
-    }
-
-    /**
-     * @param  array<string,mixed>  $atom
-     * @return list<string>
-     */
-    private function eventDispatchedAssertionLines(int $index, array $atom): array
-    {
-        return $this->frozenTestContentBuilder()->eventDispatchedAssertionLines($index, $atom);
-    }
-
-    /**
-     * @param  array<string,mixed>  $atom
-     * @return list<string>
-     */
-    private function jobDispatchedAssertionLines(int $index, array $atom): array
-    {
-        return $this->frozenTestContentBuilder()->jobDispatchedAssertionLines($index, $atom);
-    }
-
-    /**
-     * @param  array<string,mixed>  $atom
-     * @return list<string>
-     */
-    private function dbStateAssertionLines(int $index, array $atom): array
-    {
-        return $this->frozenTestContentBuilder()->dbStateAssertionLines($index, $atom);
-    }
-
-    /**
-     * @param  array<string,mixed>  $trigger
-     * @return list<string>
-     */
-    private function eventTriggerLines(int $index, array $trigger): array
-    {
-        return $this->frozenTestContentBuilder()->eventTriggerLines($index, $trigger);
-    }
-
-    /**
-     * @param  array<string,mixed>  $atom
-     * @return list<string>
-     */
-    private function httpResponseAssertionLines(int $index, array $atom): array
-    {
-        return $this->frozenTestContentBuilder()->httpResponseAssertionLines($index, $atom);
-    }
-
-    private function relativePrefix(string $dir): string
-    {
-        return $this->frozenTestContentBuilder()->relativePrefix($dir);
-    }
-
-    private function frozenTestContentBuilder(): AtlasLoopFrozenTestContentBuilder
-    {
-        return $this->frozenTestContentBuilder ??= $this->frozenTestContentBuilderCollaborator
-            ?? (app()->bound(AtlasLoopFrozenTestContentBuilder::class)
-                ? app(AtlasLoopFrozenTestContentBuilder::class)
-                : new AtlasLoopFrozenTestContentBuilder());
+        return $this->frozenTestSourceRenderer ??= (app()->bound(AtlasLoopFrozenTestSourceRenderer::class)
+            ? app(AtlasLoopFrozenTestSourceRenderer::class)
+            : new AtlasLoopFrozenTestSourceRenderer());
     }
 
 
