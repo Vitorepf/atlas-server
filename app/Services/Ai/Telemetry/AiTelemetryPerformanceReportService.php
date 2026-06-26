@@ -20,6 +20,7 @@ use Throwable;
 
 class AiTelemetryPerformanceReportService
 {
+    private ?AiTelemetryReportBodyRenderer $reportBodyRendererInstance = null;
     public function __construct(
         private readonly AiTelemetryScorecardService $scorecards,
         private readonly AiTelemetryHealthService $health,
@@ -810,14 +811,7 @@ class AiTelemetryPerformanceReportService
 
     private function dailySummaryText(array $current, array $comparison): string
     {
-        $summary = (array) ($current['summary'] ?? []);
-        $status = (string) data_get($current, 'health.status', 'unknown');
-        $quality = $this->formatNumber($summary['quality_avg'] ?? null);
-        $efficiency = $this->formatNumber($summary['efficiency_avg'] ?? null);
-        $traces = (int) ($summary['traces'] ?? 0);
-        $qualityDelta = $this->formatSigned($comparison['quality_avg']['delta_abs'] ?? null);
-
-        return "Status {$status}; {$traces} traces; qualidade {$quality} ({$qualityDelta}); eficiencia {$efficiency}; custo ".$this->formatCostSummary($summary).'.';
+        return $this->reportBodyRenderer()->dailySummaryText($current, $comparison);
     }
 
     /**
@@ -825,40 +819,12 @@ class AiTelemetryPerformanceReportService
      */
     private function multiSummaryText(array $reports): string
     {
-        $parts = collect($reports)
-            ->map(function (array $report): string {
-                $summary = (array) ($report['summary'] ?? []);
-
-                return "{$report['days']}d: {$report['status']}, {$summary['traces']} traces, qualidade ".$this->formatNumber($summary['quality_avg'] ?? null).', eficiencia '.$this->formatNumber($summary['efficiency_avg'] ?? null);
-            })
-            ->implode(' | ');
-
-        return 'Estrutura de desempenho Atlas: '.$parts.'.';
+        return $this->reportBodyRenderer()->multiSummaryText($reports);
     }
 
     private function dailyBody(CarbonImmutable $date, string $timezone, array $current, array $previous, array $comparison, array $actions): string
     {
-        $summary = (array) ($current['summary'] ?? []);
-        $risks = collect($current['risks'] ?? [])->take(6)->map(fn (array $risk): string => "- {$risk['severity']} {$risk['key']}: {$risk['summary']}")->implode("\n");
-        $actionsText = collect($actions)->map(fn (string $action): string => '- '.$action)->implode("\n");
-
-        return implode("\n\n", array_filter([
-            'Relatorio diario de performance do Atlas - '.$date->format('d/m/Y').' ('.$timezone.').',
-            'Resumo executivo: '.$this->dailySummaryText($current, $comparison),
-            implode("\n", [
-                'Metricas centrais:',
-                '- Traces: '.(int) ($summary['traces'] ?? 0),
-                '- Qualidade media: '.$this->formatNumber($summary['quality_avg'] ?? null).' | delta dia anterior: '.$this->formatSigned($comparison['quality_avg']['delta_abs'] ?? null),
-                '- Eficiencia media: '.$this->formatNumber($summary['efficiency_avg'] ?? null).' | delta dia anterior: '.$this->formatSigned($comparison['efficiency_avg']['delta_abs'] ?? null),
-                '- First-pass: '.$this->formatPercent($summary['first_pass_success_rate'] ?? null).' | remedicao: '.$this->formatPercent($summary['needed_remediation_rate'] ?? null),
-                '- P95 app visivel: '.$this->formatMs($summary['app_visible_p95_ms'] ?? null).' | P95 provider: '.$this->formatMs($summary['provider_latency_p95_ms'] ?? null),
-                '- Custo: '.$this->formatCostSummary($summary).' | custo desconhecido: '.$this->formatPercent($summary['unknown_cost_rate'] ?? null),
-            ]),
-            $risks !== '' ? "Falhas e riscos detectados:\n".$risks : 'Falhas e riscos detectados: nenhum risco forte nesta janela.',
-            "Acoes recomendadas:\n".($actionsText !== '' ? $actionsText : '- Manter rollup horario e revisar novamente no proximo relatorio.'),
-            'Cobertura de dados: '.json_encode($current['data_quality']['coverage_rates'] ?? [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
-            'Janela anterior comparada: '.($previous['window']['start'] ?? '-').' ate '.($previous['window']['end'] ?? '-').'.',
-        ]));
+        return $this->reportBodyRenderer()->dailyBody($date, $timezone, $current, $previous, $comparison, $actions);
     }
 
     /**
@@ -867,129 +833,12 @@ class AiTelemetryPerformanceReportService
      */
     private function multiBody(CarbonImmutable $date, string $timezone, array $reports, array $actions): string
     {
-        $windows = collect($reports)
-            ->map(function (array $report): string {
-                $summary = (array) ($report['summary'] ?? []);
-                $delta = (array) data_get($report, 'comparison_to_previous_same_window.deltas.quality_avg', []);
-
-                return implode("\n", [
-                    "{$report['label']} ({$report['status']}):",
-                    '- Traces: '.(int) ($summary['traces'] ?? 0),
-                    '- Qualidade: '.$this->formatNumber($summary['quality_avg'] ?? null).' | delta janela anterior: '.$this->formatSigned($delta['delta_abs'] ?? null),
-                    '- Eficiencia: '.$this->formatNumber($summary['efficiency_avg'] ?? null),
-                    '- First-pass: '.$this->formatPercent($summary['first_pass_success_rate'] ?? null).' | remedicao: '.$this->formatPercent($summary['needed_remediation_rate'] ?? null),
-                    '- P95 app: '.$this->formatMs($summary['app_visible_p95_ms'] ?? null).' | custo: '.$this->formatCostSummary($summary),
-                ]);
-            })
-            ->implode("\n\n");
-
-        $actionsText = collect($actions)->map(fn (string $action): string => '- '.$action)->implode("\n");
-
-        return implode("\n\n", [
-            'Relatorio estrutural de performance do Atlas ate '.$date->format('d/m/Y').' ('.$timezone.').',
-            'Resumo executivo: '.$this->multiSummaryText($reports),
-            $windows,
-            "Melhorias, pioras e proximas acoes:\n".($actionsText !== '' ? $actionsText : '- Nenhuma acao nova com confianca suficiente.'),
-            'Este relatorio compara cada janela com a janela imediatamente anterior de mesmo tamanho e usa trace_created_at como base auditavel.',
-        ]);
+        return $this->reportBodyRenderer()->multiBody($date, $timezone, $reports, $actions);
     }
 
-    /**
-     * @return array<int,array<string,mixed>>
-     */
-    private function metricRefs(array $summary): array
+    public function threadBody(array $report): string
     {
-        return collect($summary)
-            ->only(['traces', 'quality_avg', 'efficiency_avg', 'first_pass_success_rate', 'needed_remediation_rate', 'cost_usd_estimate', 'unknown_cost_rate', 'app_visible_p95_ms'])
-            ->map(fn (mixed $value, string $name): array => ['name' => $name, 'value' => $value])
-            ->values()
-            ->all();
-    }
-
-    /**
-     * @param  array<int,array<string,mixed>>  $reports
-     * @return array<int,array<string,mixed>>
-     */
-    private function multiMetricRefs(array $reports): array
-    {
-        return collect($reports)
-            ->flatMap(fn (array $report): array => collect($this->metricRefs($report['summary'] ?? []))
-                ->map(fn (array $metric): array => array_merge($metric, ['window_days' => $report['days']]))
-                ->all())
-            ->values()
-            ->all();
-    }
-
-    /**
-     * @return array<int,array<string,mixed>>
-     */
-    private function traceRefs(array $report): array
-    {
-        $sets = $report['notable_traces'] ?? [];
-        if ($sets === [] && isset($report['windows']) && is_array($report['windows'])) {
-            foreach ($report['windows'] as $window) {
-                foreach ((array) ($window['notable_traces'] ?? []) as $group) {
-                    if (is_array($group)) {
-                        $sets[] = $group;
-                    }
-                }
-            }
-        }
-
-        return collect($sets)
-            ->flatten(1)
-            ->filter(fn (mixed $trace): bool => is_array($trace) && is_string($trace['trace_id'] ?? null))
-            ->unique('trace_id')
-            ->take(20)
-            ->map(fn (array $trace): array => ['id' => $trace['trace_id'], 'type' => 'ai_trace', 'reason' => $trace['reason'] ?? 'performance_report'])
-            ->values()
-            ->all();
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function compactReportPayload(array $report): array
-    {
-        $enginePayload = is_array($report['engine'] ?? null) ? $report['engine'] : null;
-        if ((int) ($report['schema_version'] ?? 1) >= 2 && $enginePayload !== null && is_string($enginePayload['decision'] ?? null)) {
-            return array_merge($enginePayload, [
-                'report_type' => $report['report_type'] ?? null,
-                'report_date' => $report['report_date'] ?? null,
-                'timezone' => $report['timezone'] ?? null,
-                'status' => $report['status'] ?? null,
-                'health_score' => $report['health_score'] ?? null,
-                'tools' => $report['tools'] ?? data_get($report, 'windows.0.tools'),
-                'validation' => array_merge((array) ($enginePayload['validation'] ?? []), [
-                    'dedupe_key' => $report['dedupe_key'] ?? null,
-                    'schema_version' => $report['schema_version'] ?? 2,
-                ]),
-            ]);
-        }
-
-        return [
-            'report_type' => $report['report_type'] ?? null,
-            'report_date' => $report['report_date'] ?? null,
-            'timezone' => $report['timezone'] ?? null,
-            'status' => $report['status'] ?? null,
-            'health_score' => $report['health_score'] ?? null,
-            'summary' => $report['summary'] ?? null,
-            'decision' => $report['executive_summary'] ?? $report['summary_text'] ?? null,
-            'highlights' => $this->highlights($report),
-            'next_actions' => $report['actions'] ?? [],
-            'risks' => collect($report['risks'] ?? data_get($report, 'windows.0.risks', []))->take(6)->values()->all(),
-            // Tools digest in compact mobile payload — Fix 7c F5. Mobile renderer
-            // (mobile-inbox-item.tsx) already lists payload.report.* keys; adding
-            // 'tools' here surfaces the digest without changing renderer code, since
-            // unknown keys are gracefully ignored.
-            'tools' => $report['tools'] ?? data_get($report, 'windows.0.tools'),
-            'validation' => [
-                'basis' => data_get($report, 'window.basis', 'trace_created_at'),
-                'dedupe_key' => $report['dedupe_key'] ?? null,
-                'schema_version' => $report['schema_version'] ?? 1,
-            ],
-            'full_text' => $report['body'] ?? null,
-        ];
+        return $this->reportBodyRenderer()->threadBody($report);
     }
 
     /**
@@ -997,312 +846,32 @@ class AiTelemetryPerformanceReportService
      */
     private function highlights(array $report): array
     {
-        if (($report['report_type'] ?? null) === 'atlas_ai_multi_window_performance') {
-            return collect($report['windows'] ?? [])
-                ->map(fn (array $window): string => "{$window['days']}d {$window['status']}: {$window['summary']['traces']} traces, Q ".$this->formatNumber($window['summary']['quality_avg'] ?? null).', E '.$this->formatNumber($window['summary']['efficiency_avg'] ?? null))
-                ->values()
-                ->all();
-        }
-
-        $summary = (array) ($report['summary'] ?? []);
-
-        return [
-            'Traces: '.(int) ($summary['traces'] ?? 0),
-            'Qualidade: '.$this->formatNumber($summary['quality_avg'] ?? null),
-            'Eficiencia: '.$this->formatNumber($summary['efficiency_avg'] ?? null),
-            'Custo: '.$this->formatCostSummary($summary),
-        ];
-    }
-
-    private function threadBody(array $report): string
-    {
-        return implode("\n\n", [
-            'Use esta conversa para decidir como melhorar o Atlas com base no relatorio operacional.',
-            'Resumo: '.(string) ($report['summary_text'] ?? $report['executive_summary'] ?? ''),
-            'Relatorio completo:',
-            (string) ($report['body'] ?? ''),
-        ]);
-    }
-
-    /**
-     * @return array<int,int>
-     */
-    private function normalizeWindows(array $windows): array
-    {
-        $normalized = collect($windows)
-            ->map(fn (mixed $value): int => (int) $value)
-            ->filter(fn (int $value): bool => $value > 0 && $value <= 365)
-            ->unique()
-            ->sort()
-            ->values()
-            ->all();
-
-        return $normalized === [] ? [3, 7, 15, 30] : $normalized;
-    }
-
-    private function timezone(?string $timezone): string
-    {
-        $timezone = $timezone ?: (string) config('atlas.ai_metrics.performance_report_timezone', config('app.timezone', 'UTC'));
-
-        return $timezone !== '' ? $timezone : 'UTC';
-    }
-
-    private function reportDate(CarbonInterface|string|null $reportDate, string $timezone): CarbonImmutable
-    {
-        if ($reportDate instanceof CarbonInterface) {
-            return CarbonImmutable::parse($reportDate->copy()->timezone($timezone)->toDateString(), $timezone)->startOfDay();
-        }
-
-        if (is_string($reportDate) && trim($reportDate) !== '') {
-            return CarbonImmutable::parse(trim($reportDate), $timezone)->startOfDay();
-        }
-
-        return CarbonImmutable::now($timezone)->subDay()->startOfDay();
-    }
-
-    private function statusFromHealth(string $healthStatus, int $traces): string
-    {
-        if ($traces === 0) {
-            return 'watch';
-        }
-
-        return in_array($healthStatus, ['healthy', 'watch', 'warning', 'critical'], true) ? $healthStatus : 'unknown';
-    }
-
-    /**
-     * @param  array<int,string>  $statuses
-     */
-    private function strongestStatus(array $statuses): string
-    {
-        return collect($statuses)
-            ->sortByDesc(fn (string $status): int => $this->statusRank($status))
-            ->first() ?: 'unknown';
-    }
-
-    private function statusRank(string $status): int
-    {
-        return match ($status) {
-            'critical' => 4,
-            'warning' => 3,
-            'watch' => 2,
-            'healthy' => 1,
-            default => 0,
-        };
-    }
-
-    private function severity(string $status): string
-    {
-        return match ($status) {
-            'critical' => 'critical',
-            'warning' => 'warning',
-            default => 'info',
-        };
-    }
-
-    private function priorityScore(string $status): int
-    {
-        return match ($status) {
-            'critical' => 92,
-            'warning' => 82,
-            'watch' => 68,
-            default => 60,
-        };
-    }
-
-    private function confidence(array $analysis): float
-    {
-        $traces = (int) data_get($analysis, 'summary.traces', 0);
-        if ($traces === 0) {
-            return 0.45;
-        }
-
-        if ((bool) data_get($analysis, 'data_quality.sample_size_warning', false)) {
-            return 0.62;
-        }
-
-        return 0.82;
-    }
-
-    /**
-     * @param  array<int,array<string,mixed>>  $reports
-     */
-    private function multiConfidence(array $reports): float
-    {
-        $traces = collect($reports)->sum(fn (array $report): int => (int) data_get($report, 'summary.traces', 0));
-
-        return $traces === 0 ? 0.45 : 0.78;
-    }
-
-    /**
-     * @param  array<int,array<string,mixed>>  $reports
-     */
-    private function averageHealthScore(array $reports): ?int
-    {
-        $scores = collect($reports)->pluck('health_score')->filter(fn (mixed $value): bool => is_numeric($value))->values();
-
-        return $scores->isEmpty() ? null : (int) round($scores->avg());
-    }
-
-    private function delta(mixed $current, mixed $previous): array
-    {
-        if (! is_numeric($current) || ! is_numeric($previous)) {
-            return ['current' => $current, 'previous' => $previous, 'delta_abs' => null, 'delta_pct' => null];
-        }
-
-        $current = (float) $current;
-        $previous = (float) $previous;
-
-        return [
-            'current' => $current,
-            'previous' => $previous,
-            'delta_abs' => round($current - $previous, 4),
-            'delta_pct' => $previous == 0.0 ? null : round(($current - $previous) / abs($previous), 4),
-        ];
-    }
-
-    private function deltaValue(array $comparison, string $field): float
-    {
-        return is_numeric(data_get($comparison, "{$field}.delta_abs")) ? (float) data_get($comparison, "{$field}.delta_abs") : 0.0;
-    }
-
-    private function deltaPct(array $comparison, string $field): float
-    {
-        return is_numeric(data_get($comparison, "{$field}.delta_pct")) ? (float) data_get($comparison, "{$field}.delta_pct") : 0.0;
-    }
-
-    private function number(mixed $value): ?float
-    {
-        return is_numeric($value) ? round((float) $value, 4) : null;
-    }
-
-    private function percentile(Collection $values, float $percentile): ?float
-    {
-        $numbers = $values
-            ->filter(fn (mixed $value): bool => is_numeric($value))
-            ->map(fn (mixed $value): float => (float) $value)
-            ->sort()
-            ->values();
-
-        if ($numbers->isEmpty()) {
-            return null;
-        }
-
-        $index = ($numbers->count() - 1) * $percentile;
-        $lower = (int) floor($index);
-        $upper = (int) ceil($index);
-        if ($lower === $upper) {
-            return round((float) $numbers[$lower], 2);
-        }
-
-        $weight = $index - $lower;
-
-        return round(((float) $numbers[$lower] * (1 - $weight)) + ((float) $numbers[$upper] * $weight), 2);
-    }
-
-    private function avgCollection(Collection $values): ?float
-    {
-        $numbers = $values->filter(fn (mixed $value): bool => is_numeric($value));
-
-        return $numbers->isEmpty() ? null : round((float) $numbers->avg(), 2);
-    }
-
-    /**
-     * @param  Collection<int,AiTraceMetricSummary>  $summaries
-     */
-    private function usefulContextRefRate(Collection $summaries): ?float
-    {
-        $total = (int) $summaries->sum(fn (AiTraceMetricSummary $summary): int => (int) ($summary->context_refs_count ?? 0));
-        if ($total <= 0) {
-            return null;
-        }
-
-        $useful = (int) $summaries->sum(fn (AiTraceMetricSummary $summary): int => (int) ($summary->useful_context_refs_count ?? 0));
-
-        return round($useful / $total, 4);
-    }
-
-    /**
-     * @param  Collection<int,AiTraceMetricSummary>  $summaries
-     * @return array<int,array<string,mixed>>
-     */
-    private function rankedTraces(Collection $summaries, string $field): array
-    {
-        return $summaries
-            ->filter(fn (AiTraceMetricSummary $summary): bool => is_numeric($summary->{$field}))
-            ->sortByDesc($field)
-            ->take(10)
-            ->values()
-            ->map(fn (AiTraceMetricSummary $summary): array => array_merge($this->traceRef($summary), [
-                'reason' => $field,
-                'value' => $summary->{$field},
-            ]))
-            ->all();
+        return $this->reportBodyRenderer()->highlights($report);
     }
 
     /**
      * @return array<string,mixed>
      */
-    private function traceRef(AiTraceMetricSummary $summary): array
+    private function compactReportPayload(array $report): array
     {
-        return [
-            'trace_id' => $summary->trace_id,
-            'thread_id' => $summary->thread_id,
-            'surface' => $summary->surface,
-            'provider' => $summary->provider,
-            'model' => $summary->model,
-            'task_type' => $summary->task_type,
-            'status' => $summary->status,
-            'quality' => $summary->final_quality_score,
-            'efficiency' => $summary->final_efficiency_score,
-            'latency_ms' => $summary->total_latency_ms,
-            'cost_microusd' => $summary->cost_microusd,
-            'created_at' => $summary->trace?->created_at?->toJSON(),
-        ];
+        return $this->reportBodyRenderer()->compactReportPayload($report);
     }
 
-    /**
-     * @return array<string,mixed>
-     */
-    private function providerSnapshot(AiProviderHealthSnapshot $snapshot): array
+    public function formatMs(mixed $value): string
     {
-        return [
-            'provider' => $snapshot->provider,
-            'status' => $snapshot->status,
-            'checked_at' => $snapshot->checked_at?->toJSON(),
-            'total_jobs_24h' => $snapshot->total_jobs_24h,
-            'failed_jobs_24h' => $snapshot->failed_jobs_24h,
-            'p50_latency_ms' => $snapshot->p50_latency_ms,
-            'operational_pain_score' => $snapshot->operational_pain_score,
-            'message' => $snapshot->message,
-        ];
+        return $this->reportBodyRenderer()->formatMs($value);
     }
 
-    private function formatNumber(mixed $value): string
+    private function reportBodyRenderer(): AiTelemetryReportBodyRenderer
     {
-        return is_numeric($value) ? number_format((float) $value, 1, ',', '.') : 'sem dado';
+        return $this->reportBodyRendererInstance ??= new AiTelemetryReportBodyRenderer(
+            fn (mixed $value): string => $this->formatCostSummary($value),
+            fn (mixed $value): string => $this->formatNumber($value),
+            fn (mixed $value): string => $this->formatSigned($value),
+            fn (mixed $value): string => $this->formatPercent($value),
+        );
     }
 
-    private function formatSigned(mixed $value): string
-    {
-        if (! is_numeric($value)) {
-            return 'sem baseline';
-        }
-
-        $value = (float) $value;
-        $sign = $value > 0 ? '+' : '';
-
-        return $sign.number_format($value, 1, ',', '.');
-    }
-
-    private function formatPercent(mixed $value): string
-    {
-        return is_numeric($value) ? number_format((float) $value * 100, 1, ',', '.').'%' : 'sem dado';
-    }
-
-    private function formatMs(mixed $value): string
-    {
-        return is_numeric($value) ? number_format((float) $value, 0, ',', '.').'ms' : 'sem dado';
-    }
 
     private function formatUsd(float $value): string
     {
