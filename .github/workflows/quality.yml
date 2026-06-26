@@ -16,7 +16,7 @@ jobs:
     name: PHPStan + Pint + unused deps
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
@@ -33,7 +33,7 @@ jobs:
     name: strict_types declaration check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: |
           MISSING=$(find app tests config routes -name '*.php' -type f | while read f; do
             head -1 "$f" | grep -q 'declare(strict_types=1);' || echo "$f"
@@ -49,7 +49,7 @@ jobs:
     name: Cyclomatic complexity
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
@@ -92,7 +92,7 @@ jobs:
       DB_PASSWORD: atlas
       ATLAS_TOKEN: testing-atlas-token-with-enough-length
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
@@ -137,7 +137,7 @@ jobs:
       ATLAS_TOKEN: testing-atlas-token-with-enough-length
       PREVENT_LAZY_LOADING: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
@@ -174,7 +174,7 @@ jobs:
       DB_PASSWORD: atlas
       ATLAS_TOKEN: testing-atlas-token-with-enough-length
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
