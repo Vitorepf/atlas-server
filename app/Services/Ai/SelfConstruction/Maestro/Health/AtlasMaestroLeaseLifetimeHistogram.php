@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\Maestro\Health;
 
 use App\Services\Ai\SelfConstruction\AgentControlPlaneClaimLeaseRepository;
+use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use Closure;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -80,7 +81,7 @@ final class AtlasMaestroLeaseLifetimeHistogram
 
     private function leaseRepo(): object
     {
-        return $this->leases ?? new AgentControlPlaneClaimLeaseRepository;
+        return $this->leases ?? new AgentControlPlaneClaimLeaseRepository(AtlasTaskServingStack::disk());
     }
 
     /**

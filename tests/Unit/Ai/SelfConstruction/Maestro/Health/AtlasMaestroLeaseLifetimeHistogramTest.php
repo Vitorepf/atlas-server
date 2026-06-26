@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction\Maestro\Health;
 
+use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use App\Services\Ai\SelfConstruction\Maestro\Health\AtlasMaestroLeaseLifetimeHistogram;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -113,6 +114,24 @@ final class AtlasMaestroLeaseLifetimeHistogramTest extends TestCase
         $this->assertSame(0, $histogram['p50_seconds']);
         $this->assertSame(0, $histogram['p95_seconds']);
         $this->assertSame(0, $histogram['suspected_stuck_count']);
+    }
+
+    public function test_serving_disk_leases_are_binned_without_injected_repo(): void
+    {
+        config()->set('atlas.task_serving.queue_disk', 'atlas-histogram-test-disk');
+        \Illuminate\Support\Facades\Storage::fake('local');
+        \Illuminate\Support\Facades\Storage::fake(AtlasTaskServingStack::disk());
+
+        AtlasTaskServingStack::leaseRepo()->claim(
+            'serving-histogram-packet',
+            'hermes-2',
+            ['write_set' => ['app/Loop/Leased.php'], 'read_set' => [], 'scope_lock_plan_hash' => 'test-hash'],
+            ['ttl_seconds' => 3600],
+        );
+
+        $histogram = (new AtlasMaestroLeaseLifetimeHistogram())->histogram();
+
+        $this->assertGreaterThanOrEqual(1, $histogram['total_active']);
     }
 
     /**
