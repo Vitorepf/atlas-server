@@ -3,6 +3,7 @@
 namespace App\Services\Ai\SelfConstruction;
 
 use Carbon\CarbonImmutable;
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 
 /**
  * Builds a read-only plan for recording the replay snapshot that promotion and
@@ -12,6 +13,7 @@ use Carbon\CarbonImmutable;
  */
 final class AgentControlPlaneBaselineCaptureReadinessService
 {
+    use RecursivelyKsortsArrays;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_baseline_capture_readiness.v1';
 
     public const MODE = 'read_only_agent_control_plane_baseline_capture_readiness';
@@ -182,22 +184,4 @@ final class AgentControlPlaneBaselineCaptureReadinessService
         return hash('sha256', (string) json_encode($this->recursivelyKsort($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
-    /**
-     * @param  array<mixed, mixed>  $value
-     * @return array<mixed, mixed>
-     */
-    private function recursivelyKsort(array $value): array
-    {
-        $isAssoc = $value !== [] && array_keys($value) !== range(0, count($value) - 1);
-        foreach ($value as $key => $entry) {
-            if (is_array($entry)) {
-                $value[$key] = $this->recursivelyKsort($entry);
-            }
-        }
-        if ($isAssoc) {
-            ksort($value);
-        }
-
-        return $value;
-    }
 }

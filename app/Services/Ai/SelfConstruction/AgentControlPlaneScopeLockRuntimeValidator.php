@@ -4,6 +4,7 @@ namespace App\Services\Ai\SelfConstruction;
 
 use Carbon\CarbonImmutable;
 use App\Services\Ai\SelfConstruction\Support\HashesKsortedPayloadCanonically;
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 
 /**
  * Validates an Agent Control Plane task packet before its scope lock is
@@ -17,6 +18,7 @@ use App\Services\Ai\SelfConstruction\Support\HashesKsortedPayloadCanonically;
  */
 final class AgentControlPlaneScopeLockRuntimeValidator
 {
+    use RecursivelyKsortsArrays;
     use HashesKsortedPayloadCanonically;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_scope_lock_runtime_validation.v1';
 
@@ -239,23 +241,5 @@ final class AgentControlPlaneScopeLockRuntimeValidator
         return $this->recursivelyKsort($clone);
     }
 
-    /**
-     * @param  array<mixed, mixed>  $value
-     * @return array<mixed, mixed>
-     */
-    private function recursivelyKsort(array $value): array
-    {
-        $isAssoc = $value !== [] && array_keys($value) !== range(0, count($value) - 1);
-        foreach ($value as $key => $entry) {
-            if (is_array($entry)) {
-                $value[$key] = $this->recursivelyKsort($entry);
-            }
-        }
-        if ($isAssoc) {
-            ksort($value);
-        }
-
-        return $value;
-    }
 
 }
