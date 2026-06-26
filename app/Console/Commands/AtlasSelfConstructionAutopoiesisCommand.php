@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\Autopoiesis\AtlasSelfConstructionAutopoiesisExperimentDesigner;
 use App\Services\Ai\SelfConstruction\Autopoiesis\AtlasSelfConstructionAutopoiesisGuardrailGate;
+use App\Services\Ai\SelfConstruction\Autopoiesis\AtlasSelfConstructionAutopoiesisHypothesisGenerator;
 use App\Services\Ai\SelfConstruction\Autopoiesis\AtlasSelfConstructionAutopoiesisOutcomeInterpreter;
 use App\Services\Ai\SelfConstruction\OperatorInterface\AtlasSelfConstructionOperatorDependencyRegressionGate;
 use Illuminate\Console\Command;
@@ -16,6 +17,9 @@ use Throwable;
  *
  * Verbs:
  *   hypothesize — echo a parsed hypothesis payload (shape-validate; no proposal generation).
+ *   generate    — run the deterministic hypothesis GENERATOR organ over a facts payload
+ *                 (failures/give_backs/gaps/repeated_friction/seed_signals); emit
+ *                 {schema_version, hypotheses, rejected}. Empty/proxy-only seeds return rejected.
  *   design      — invoke the experiment designer over a hypothesis JSON.
  *   gate        — invoke the operator-dependency-regression gate over the supplied plan.
  *   interpret   — invoke the outcome interpreter over experiment FACTS.
@@ -26,10 +30,10 @@ use Throwable;
 final class AtlasSelfConstructionAutopoiesisCommand extends Command
 {
     /** @var string */
-    protected $signature = 'atlas:self-construction:autopoiesis {action : hypothesize|design|gate|interpret|guardrail} {--facts=} {--json}';
+    protected $signature = 'atlas:self-construction:autopoiesis {action : hypothesize|generate|design|gate|interpret|guardrail} {--facts=} {--json}';
 
     /** @var string */
-    protected $description = 'Read-only Autopoiesis surface: hypothesize / design / gate / interpret.';
+    protected $description = 'Read-only Autopoiesis surface: hypothesize / generate / design / gate / interpret.';
 
     public const GOVERNED_ORGAN_STATEMENT = [
         'role' => 'governed_organ',
@@ -47,6 +51,7 @@ final class AtlasSelfConstructionAutopoiesisCommand extends Command
 
         $payload = match ($action) {
             'hypothesize' => $this->hypothesize($facts),
+            'generate' => $this->generate($facts),
             'design' => $this->design($facts),
             'gate' => $this->gate($facts),
             'interpret' => $this->interpret($facts),
@@ -74,6 +79,26 @@ final class AtlasSelfConstructionAutopoiesisCommand extends Command
             'claim' => (string) $facts['claim'],
             'scope_paths' => is_array($facts['scope_paths'] ?? null) ? array_values(array_map('strval', $facts['scope_paths'])) : [],
         ]];
+    }
+
+    /**
+     * `generate` runs the deterministic hypothesis GENERATOR organ over a facts payload
+     * and emits its {schema_version, hypotheses, rejected} envelope. proxy_only_seed
+     * facts return a rejected entry; empty facts return an empty hypotheses list.
+     *
+     * @param  array<string,mixed>|null  $facts
+     * @return array<string,mixed>
+     */
+    private function generate(?array $facts): array
+    {
+        if (! is_array($facts)) {
+            return ['status' => 'usage_error', 'reason' => '--facts JSON file required'];
+        }
+
+        return [
+            'status' => 'ok',
+            'hypothesis_envelope' => $this->app()->make(AtlasSelfConstructionAutopoiesisHypothesisGenerator::class)->generate($facts),
+        ];
     }
 
     /**

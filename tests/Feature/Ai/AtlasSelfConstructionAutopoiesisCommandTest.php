@@ -108,4 +108,51 @@ final class AtlasSelfConstructionAutopoiesisCommandTest extends TestCase
         $this->assertNotSame(0, $exit);
         $this->assertSame('unknown_action', $p['status']);
     }
+
+    public function test_generate_returns_hypothesis_envelope_for_real_failure_facts(): void
+    {
+        $this->writeJson([
+            'failures' => [
+                ['organ' => 'autopoiesis', 'class' => 'flaky_evidence', 'evidence_refs' => ['evh-1', 'evh-2']],
+            ],
+        ]);
+
+        Artisan::call('atlas:self-construction:autopoiesis', ['action' => 'generate', '--facts' => $this->factsPath, '--json' => true]);
+        $p = json_decode(trim(Artisan::output()), true);
+
+        $this->assertSame('ok', $p['status']);
+        $this->assertSame(
+            'atlas.autopoiesis.hypothesis.v1',
+            $p['hypothesis_envelope']['schema_version']
+        );
+        $this->assertNotEmpty($p['hypothesis_envelope']['hypotheses']);
+        $first = $p['hypothesis_envelope']['hypotheses'][0];
+        $this->assertSame('autopoiesis', $first['target_organ']);
+        $this->assertNotEmpty($first['class']);
+        $this->assertSame(AtlasSelfConstructionAutopoiesisCommand::GOVERNED_ORGAN_STATEMENT['role'], $p['governed_organ']['role']);
+    }
+
+    public function test_generate_returns_rejected_when_only_proxy_only_seed_signals(): void
+    {
+        $this->writeJson([
+            'seed_signals' => ['novelty', 'task_count', 'line_churn', 'green_self_report'],
+        ]);
+
+        Artisan::call('atlas:self-construction:autopoiesis', ['action' => 'generate', '--facts' => $this->factsPath, '--json' => true]);
+        $p = json_decode(trim(Artisan::output()), true);
+
+        $this->assertSame('ok', $p['status']);
+        $this->assertSame([], $p['hypothesis_envelope']['hypotheses']);
+        $this->assertNotEmpty($p['hypothesis_envelope']['rejected']);
+        $this->assertStringContainsString('proxy_only_seed', $p['hypothesis_envelope']['rejected'][0]['reason']);
+    }
+
+    public function test_generate_yields_usage_error_when_facts_missing(): void
+    {
+        $exit = Artisan::call('atlas:self-construction:autopoiesis', ['action' => 'generate', '--json' => true]);
+        $p = json_decode(trim(Artisan::output()), true);
+
+        $this->assertNotSame(0, $exit);
+        $this->assertSame('usage_error', $p['status']);
+    }
 }
