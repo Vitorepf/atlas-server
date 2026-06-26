@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\NativeWorker;
 
+
+use App\Services\Ai\SelfConstruction\Support\UsesUtcClock;
 use RuntimeException;
 
 /**
@@ -21,6 +23,8 @@ use RuntimeException;
  */
 final class AtlasNativeWorkerEvidenceWriter
 {
+    use UsesUtcClock;
+
     public const SCHEMA = 'atlas.native_worker.evidence.v1';
 
     public const STATUS_OK = 'ok';
@@ -165,13 +169,4 @@ final class AtlasNativeWorkerEvidenceWriter
         }
     }
 
-    private function now(): string
-    {
-        $clock = $this->clock;
-        if (is_callable($clock)) {
-            return (string) $clock();
-        }
-
-        return gmdate(DATE_ATOM);
-    }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Merge;
 
+
+use App\Services\Ai\SelfConstruction\Support\UsesUtcClock;
 /**
  * WAVE-14 · AUTO-MERGE RECEIPT LEDGER — the append-only Evidence Ledger of every auto-merge attempt (allowed,
  * refused, merged, rolled_back, revert_failed) with the exact commit-SHA chain plus the three gate verdicts
@@ -18,6 +20,8 @@ namespace App\Services\Ai\AutonomousEvolution\Merge;
  */
 final class AtlasLoopAutoMergeReceiptLedger
 {
+    use UsesUtcClock;
+
     public const SCHEMA = 'atlas.loop.automerge_receipt.v1';
 
     /** Required keys on every emitted receipt — guarded by {@see assertSchema()} before write. */
@@ -187,15 +191,6 @@ final class AtlasLoopAutoMergeReceiptLedger
             : sys_get_temp_dir().'/atlas-loop-automerge.jsonl';
     }
 
-    private function now(): string
-    {
-        $clock = $this->clock;
-        if (is_callable($clock)) {
-            return (string) $clock();
-        }
-
-        return gmdate(DATE_ATOM);
-    }
 
     private static function canonicalize(mixed $value): mixed
     {

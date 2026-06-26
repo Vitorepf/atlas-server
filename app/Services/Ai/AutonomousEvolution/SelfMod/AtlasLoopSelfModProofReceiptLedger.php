@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\SelfMod;
 
+
+use App\Services\Ai\SelfConstruction\Support\UsesUtcClock;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
@@ -21,6 +23,8 @@ use Throwable;
  */
 final class AtlasLoopSelfModProofReceiptLedger
 {
+    use UsesUtcClock;
+
     public const PROOF_APPROVED = 'APPROVED';
 
     public const PROOF_REJECTED = 'REJECTED';
@@ -223,13 +227,4 @@ final class AtlasLoopSelfModProofReceiptLedger
         return sys_get_temp_dir().'/atlas-selfmod-receipts.jsonl';
     }
 
-    private function now(): string
-    {
-        $clock = $this->clock;
-        if (is_callable($clock)) {
-            return (string) $clock();
-        }
-
-        return gmdate(DATE_ATOM);
-    }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\Maestro\Tiering;
 
+
+use App\Services\Ai\SelfConstruction\Support\UsesUtcClock;
 use RuntimeException;
 
 /**
@@ -15,6 +17,8 @@ use RuntimeException;
  */
 final class AtlasMaestroTierMismatchLedger
 {
+    use UsesUtcClock;
+
     public const SCHEMA = 'atlas.maestro.tier_mismatch.v1';
 
     /** @var null|callable():string */
@@ -102,13 +106,4 @@ final class AtlasMaestroTierMismatchLedger
         }
     }
 
-    private function now(): string
-    {
-        $clock = $this->clock;
-        if (is_callable($clock)) {
-            return (string) $clock();
-        }
-
-        return gmdate(DATE_ATOM);
-    }
 }
