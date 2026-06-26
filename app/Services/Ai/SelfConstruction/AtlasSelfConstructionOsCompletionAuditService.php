@@ -1331,22 +1331,11 @@ final class AtlasSelfConstructionOsCompletionAuditService
 
     private function stableHash(array $payload): string
     {
-        unset($payload['audited_at'], $payload['completion_audit_hash']);
-
-        return hash('sha256', (string) json_encode($this->ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        return Completion\AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash($payload);
     }
 
     private function ksortRecursive(array $value): array
     {
-        foreach ($value as $key => $entry) {
-            if (is_array($entry)) {
-                $value[$key] = $this->ksortRecursive($entry);
-            }
-        }
-        if ($value !== [] && array_keys($value) !== range(0, count($value) - 1)) {
-            ksort($value);
-        }
-
-        return $value;
+        return Completion\AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::ksortRecursive($value);
     }
 }
