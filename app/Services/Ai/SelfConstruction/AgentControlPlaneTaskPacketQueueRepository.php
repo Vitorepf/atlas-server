@@ -1086,11 +1086,7 @@ final class AgentControlPlaneTaskPacketQueueRepository
 
     private function statusTransitionAllowed(string $previous, string $next): bool
     {
-        if ($previous === $next) {
-            return true;
-        }
-
-        return in_array($next, self::ALLOWED_STATUS_TRANSITIONS[$previous] ?? [], true);
+        return TaskQueue\TaskStatusTransitionPolicy::statusTransitionAllowed($previous, $next);
     }
 
     /**
@@ -1099,29 +1095,12 @@ final class AgentControlPlaneTaskPacketQueueRepository
      */
     private function validateTransitionMetadata(string $next, array $metadata): array
     {
-        if ($next !== 'claimed') {
-            return [];
-        }
-
-        $missing = [];
-        foreach (['lease_id', 'agent_id'] as $field) {
-            if ((string) ($metadata[$field] ?? '') === '') {
-                $missing[] = $field;
-            }
-        }
-
-        return $missing === []
-            ? []
-            : [
-                'missing_metadata' => $missing,
-                'claim_transition_requires_lease_id' => true,
-                'claim_transition_requires_agent_id' => true,
-            ];
+        return TaskQueue\TaskStatusTransitionPolicy::validateTransitionMetadata($next, $metadata);
     }
 
     private function transitionPolicyHash(): string
     {
-        return $this->stableHash(self::ALLOWED_STATUS_TRANSITIONS);
+        return TaskQueue\TaskStatusTransitionPolicy::transitionPolicyHash();
     }
 
     /**
