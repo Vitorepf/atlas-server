@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModelBuilder;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Similarity\AtlasCortexSymbolSimilarityClusterReporter;
+use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Similarity\AtlasCortexSymbolSimilarityFactExtractor;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Similarity\AtlasCortexSymbolSimilarityPairFact;
 use Illuminate\Console\Command;
 
@@ -200,21 +202,41 @@ final class AtlasLoopCortexSimilarCommand extends Command
      */
     private function loadPairFacts(): ?array
     {
-        if (! $this->getLaravel()->bound(self::PAIR_FACTS_SOURCE_BINDING)) {
-            return null;
-        }
-        $source = $this->getLaravel()->make(self::PAIR_FACTS_SOURCE_BINDING);
-        if (! is_callable($source)) {
-            return null;
-        }
-        $out = [];
-        foreach ((array) $source() as $fact) {
-            if ($fact instanceof AtlasCortexSymbolSimilarityPairFact) {
-                $out[] = $fact;
+        // Explicit binding takes precedence (no behaviour change for the bound path).
+        if ($this->getLaravel()->bound(self::PAIR_FACTS_SOURCE_BINDING)) {
+            $source = $this->getLaravel()->make(self::PAIR_FACTS_SOURCE_BINDING);
+            if (! is_callable($source)) {
+                return null;
             }
+            $out = [];
+            foreach ((array) $source() as $fact) {
+                if ($fact instanceof AtlasCortexSymbolSimilarityPairFact) {
+                    $out[] = $fact;
+                }
+            }
+
+            return $out;
         }
 
-        return $out;
+        // Fallback path: build a real comprehension snapshot from the Discovery scope
+        // (same base_path()+scope pattern as AtlasLoopComprehensionCommand) and ask
+        // the FactExtractor organ to produce the pair-fact list directly. Returns
+        // null only when the snapshot cannot be built (organ is read-only by contract).
+        try {
+            $model = (new AtlasLoopScopeComprehensionModelBuilder)->build(
+                base_path(),
+                'app/Services/Ai/AutonomousEvolution/Discovery',
+                ['docs_roots' => []]
+            );
+            $facts = app(AtlasCortexSymbolSimilarityFactExtractor::class)->extract($model);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return is_array($facts) ? array_values(array_filter(
+            $facts,
+            static fn (mixed $f): bool => $f instanceof AtlasCortexSymbolSimilarityPairFact,
+        )) : null;
     }
 
     private function historyDir(): string

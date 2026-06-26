@@ -145,4 +145,74 @@ final class AtlasLoopCortexSimilarCommandTest extends TestCase
         $combined = Artisan::output();
         $this->assertStringContainsString('no_FACT', $combined);
     }
+
+    public function test_pair_falls_back_to_fact_extractor_when_no_binding(): void
+    {
+        // No PAIR_FACTS_SOURCE_BINDING registered → fallback must produce real pair FACTS
+        // via AtlasCortexSymbolSimilarityFactExtractor against the Discovery scope.
+        $exit = Artisan::call('atlas:loop:cortex:similar', [
+            'action' => 'pair',
+            'fqcnA' => 'App\\Services\\Ai\\AutonomousEvolution\\Discovery\\AtlasLoopScopeComprehensionModel',
+            'fqcnB' => 'App\\Services\\Ai\\AutonomousEvolution\\Discovery\\Cortex\\Similarity\\AtlasCortexSymbolSimilarityFactExtractor',
+            '--json' => true,
+        ]);
+
+        $combined = Artisan::output();
+        $this->assertNotSame(
+            'cortex_read_model_unavailable',
+            str_contains($combined, 'cortex_read_model_unavailable') ? 'cortex_read_model_unavailable' : 'ok',
+            'fallback must NOT abstain with no_FACT/cortex_read_model_unavailable'
+        );
+        $this->assertSame(0, $exit, 'fallback pair must exit zero');
+        $payload = json_decode(trim($combined), true);
+        $this->assertIsArray($payload);
+        $this->assertArrayHasKey('token_overlap_ratio', $payload);
+        $this->assertArrayHasKey('ast_shape_overlap_ratio', $payload);
+        $this->assertArrayHasKey('method_name_overlap_ratio', $payload);
+    }
+
+    public function test_cluster_falls_back_to_fact_extractor_when_no_binding(): void
+    {
+        // No PAIR_FACTS_SOURCE_BINDING → cluster must still return clusters (or empty)
+        // built from the FactExtractor fallback (never no_FACT/cortex_read_model_unavailable).
+        $exit = Artisan::call('atlas:loop:cortex:similar', [
+            'action' => 'cluster',
+            '--token' => '0.1',
+            '--ast' => '0.1',
+            '--method' => '0.1',
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $combined = Artisan::output();
+        $this->assertStringNotContainsString('cortex_read_model_unavailable', $combined);
+        $this->assertStringNotContainsString('"error":"no_FACT"', $combined);
+        $payload = json_decode(trim($combined), true);
+        $this->assertIsArray($payload);
+        $this->assertArrayHasKey('clusters', $payload);
+        $this->assertSame('cluster', $payload['action']);
+    }
+
+    public function test_explicit_pair_facts_source_binding_takes_precedence_over_fallback(): void
+    {
+        // When the binding is present, it MUST win — even if the fallback would
+        // also produce a valid pair (we bind a tiny synthetic pair list that the
+        // fallback cannot reproduce).
+        $bound = $this->pair('App\\BoundOnlyA', 'App\\BoundOnlyB', 0.5, 0.5, 0.5);
+        $this->bindFacts([$bound]);
+
+        $exit = Artisan::call('atlas:loop:cortex:similar', [
+            'action' => 'pair',
+            'fqcnA' => 'App\\BoundOnlyA',
+            'fqcnB' => 'App\\BoundOnlyB',
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(trim(Artisan::output()), true);
+        $this->assertIsArray($payload);
+        $this->assertSame(0.5, $payload['token_overlap_ratio']);
+        $this->assertSame(0.5, $payload['ast_shape_overlap_ratio']);
+        $this->assertSame(0.5, $payload['method_name_overlap_ratio']);
+    }
 }
