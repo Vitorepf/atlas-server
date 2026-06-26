@@ -1371,54 +1371,66 @@ final class AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService
      * @param  array<string, mixed>  $options
      * @param  array<string, mixed>  $completionAudit
      * @param  array<string, mixed>  $completionEvidence
-     * @param  array<string, mixed>  $runtimeReceipt
-     * @param  array<string, mixed>  $realProviderSmoke
-     * @param  array<string, mixed>  $completionReceipt
-     * @return array<string, mixed>
-     */
-    private function operatorSubmissionEnvelopes(
-        array $options,
-        array $completionAudit,
-        array $completionEvidence,
-        array $runtimeReceipt,
-        array $realProviderSmoke,
-        array $completionReceipt,
-        bool $runtimeReceiptReady,
-        bool $realProviderSmokeReady,
-        bool $realProviderSmokePersistedBeforeHumanReceiptCommand,
-        bool $humanReceiptReady,
-    ): array {
-        return FinalOperatorClosureCorridor\OperatorSubmissionEnvelopeBuilder::operatorSubmissionEnvelopes(
-            $options, $completionAudit, $completionEvidence, $runtimeReceipt, $realProviderSmoke, $completionReceipt,
-            $runtimeReceiptReady, $realProviderSmokeReady, $realProviderSmokePersistedBeforeHumanReceiptCommand, $humanReceiptReady,
-        );
-    }
+     /**
+      * @param  array<string, mixed>  $realProviderSmoke
+      * @param  array<string, mixed>  $completionReceipt
+      * @return array<string, mixed>
+      */
+     private function operatorSubmissionEnvelopes(
+         array $options,
+         array $completionAudit,
+         array $completionEvidence,
+         array $runtimeReceipt,
+         array $realProviderSmoke,
+         array $completionReceipt,
+         bool $runtimeReceiptReady,
+         bool $realProviderSmokeReady,
+         bool $realProviderSmokePersistedBeforeHumanReceiptCommand,
+         bool $humanReceiptReady,
+     ): array {
+         return $this->submissionEnvelopeBuilder()->operatorSubmissionEnvelopes(
+             $options, $completionAudit, $completionEvidence, $runtimeReceipt, $realProviderSmoke, $completionReceipt,
+             $runtimeReceiptReady, $realProviderSmokeReady, $realProviderSmokePersistedBeforeHumanReceiptCommand, $humanReceiptReady,
+         );
+     }
 
-    /**
-     * @param  array<string, mixed>  $payload
-     * @param  array<string, string>  $currentEvidenceContext
-     * @return array<string, mixed>
-     */
-    private function operatorEnvelopeSummary(
-        string $schemaVersion,
-        string $artifact,
-        string $status,
-        array $payload,
-        string $hashField,
-        string $persistCommand,
-        string $detailedEndgameCommand,
-        array $currentEvidenceContext = [],
-    ): array {
-        return FinalOperatorClosureCorridor\OperatorSubmissionEnvelopeBuilder::operatorEnvelopeSummary(
-            $schemaVersion, $artifact, $status, $payload, $hashField, $persistCommand, $detailedEndgameCommand, $currentEvidenceContext,
-        );
-    }
+     /**
+      * @param  array<string, mixed>  $payload
+      * @param  array<string, string>  $currentEvidenceContext
+      * @return array<string, mixed>
+      */
+     private function operatorEnvelopeSummary(
+         string $schemaVersion,
+         string $artifact,
+         string $status,
+         array $payload,
+         string $hashField,
+         string $persistCommand,
+         string $detailedEndgameCommand,
+         array $currentEvidenceContext = [],
+     ): array {
+         return $this->submissionEnvelopeBuilder()->operatorEnvelopeSummary(
+             $schemaVersion, $artifact, $status, $payload, $hashField, $persistCommand, $detailedEndgameCommand, $currentEvidenceContext,
+         );
+     }
 
-    /** @param array<string, string> $statuses */
-    private function nextRequiredEnvelope(array $statuses): string
-    {
-        return FinalOperatorClosureCorridor\OperatorSubmissionEnvelopeBuilder::nextRequiredEnvelope($statuses);
-    }
+     /** @param array<string, string> $statuses */
+     private function nextRequiredEnvelope(array $statuses): string
+     {
+         return $this->submissionEnvelopeBuilder()->nextRequiredEnvelope($statuses);
+     }
+
+     /**
+      * ITEM8 — lazy accessor for {@see FinalOperatorEvidenceSubmissionEnvelopeBuilder}. The new
+      * collaborator holds the three extracted operator-submission-envelope helpers verbatim; the
+      * god-class keeps its private methods as thin delegators so the existing call sites (inside
+      * `build()` and `orderedOperatorPath`) stay byte-identical. Lazy-instantiated per call so
+      * production callers pay no construction cost beyond the first use.
+      */
+     private function submissionEnvelopeBuilder(): FinalOperatorEvidenceSubmissionEnvelopeBuilder
+     {
+         return new FinalOperatorEvidenceSubmissionEnvelopeBuilder;
+     }
 
     /**
      * @param  array<string, mixed>  $blockerExplainer
