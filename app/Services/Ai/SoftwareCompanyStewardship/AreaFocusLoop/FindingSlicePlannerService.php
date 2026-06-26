@@ -461,6 +461,36 @@ final class FindingSlicePlannerService
         );
     }
 
+    /**
+     * Canonical AAEOS backlog items are already anchored to an implementation
+     * service and its focused test. Their bounded packets must harden that
+     * runtime surface directly; a newly invented *Contract.php file is too easy
+     * for providers to satisfy as inert scaffold and too weak for factory_max.
+     *
+     * @param  array<string,mixed>  $normalized
+     */
+    private function isCanonicalAaeosRuntimeGap(array $normalized): bool
+    {
+        $identity = strtolower(implode(' ', array_filter([
+            (string) ($normalized['finding_id'] ?? ''),
+            (string) ($normalized['spec_candidate_id'] ?? ''),
+            (string) ($normalized['origin_type'] ?? ''),
+        ])));
+
+        return str_contains($identity, 'canonical_aaeos_')
+            || str_contains($identity, 'runtime_gap');
+    }
+
+
+    private function isContractLikeSupportFile(string $file): bool
+    {
+        if (! $this->isSourceFile($file)) {
+            return false;
+        }
+
+        return (bool) preg_match('/(Contract|Slice|Packet|Plan|Spec|Schema)\.php$/', basename($file));
+    }
+
 
     /**
      * Turn target groups into validated executable slices. Each group that
