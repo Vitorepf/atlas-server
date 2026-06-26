@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+
+use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
@@ -18,6 +20,19 @@ use Throwable;
  */
 final class AgentRuntimeEvidenceJournalRepository
 {
+    use KsortsArraysByReference;
+
+
+    /**
+     * @param  array<string,mixed>  $value
+     * @return array<string,mixed>
+     */
+    private function ksortRecursive(array $value): array
+    {
+        $this->ksortRecursiveByReference($value);
+
+        return $value;
+    }
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_runtime_evidence_journal.v1';
 
     public const MODE = 'persistent_local_agent_runtime_evidence_journal';
@@ -363,18 +378,4 @@ final class AgentRuntimeEvidenceJournalRepository
     }
 
     /** @param mixed $value */
-    private function ksortRecursive($value): mixed
-    {
-        if (! is_array($value)) {
-            return $value;
-        }
-        foreach ($value as $key => $entry) {
-            $value[$key] = $this->ksortRecursive($entry);
-        }
-        if ($value !== [] && array_keys($value) !== range(0, count($value) - 1)) {
-            ksort($value);
-        }
-
-        return $value;
-    }
 }
