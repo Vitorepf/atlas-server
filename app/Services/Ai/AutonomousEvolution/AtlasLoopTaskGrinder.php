@@ -1227,41 +1227,16 @@ final class AtlasLoopTaskGrinder
      */
     private function semanticAllowedFiles(array $payload, array $explorerTask): array
     {
-        $files = [];
-        foreach ([$payload['allowed_files'] ?? [], $explorerTask['allowed_files'] ?? []] as $source) {
-            foreach (AiStringListNormalizer::trimmedStrings($source) as $file) {
-                $files[] = $file;
-            }
-        }
-
-        return AiStringListNormalizer::uniqueStrings($files);
+        return Grinder\AtlasLoopGrinderComprehensionCitationDeriver::semanticAllowedFiles($payload, $explorerTask);
     }
 
     /**
-     * COMPREHENSION GROUNDING GATE inputs — the concrete symbols the proposal's stated objective rests on.
-     * Each declared file (the allowed/affected source files for THIS task) becomes a cited symbol via its
-     * class-name shape: basename minus the `.php` extension. The gate resolves each against the repo (autoload
-     * OR file scan OR code index); a basename that resolves nowhere is the tell of a hallucinated objective.
-     * Empty => the gate fails OPEN (grounded=true), so a task without declared files is never refuted.
-     *
      * @param  array<string,mixed>  $payload
      * @param  array<string,mixed>  $explorerTask
      * @return list<string>
      */
     private function comprehensionCitations(array $payload, array $explorerTask): array
     {
-        $citations = [];
-        foreach ($this->semanticAllowedFiles($payload, $explorerTask) as $file) {
-            $base = basename(trim($file));
-            if (str_ends_with($base, '.php')) {
-                $base = substr($base, 0, -4);
-            }
-            $base = trim($base);
-            if ($base !== '') {
-                $citations[] = $base;
-            }
-        }
-
-        return AiStringListNormalizer::uniqueStrings($citations);
+        return Grinder\AtlasLoopGrinderComprehensionCitationDeriver::comprehensionCitations($payload, $explorerTask);
     }
 }
