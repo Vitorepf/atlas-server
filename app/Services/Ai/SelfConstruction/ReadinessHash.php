@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services\Ai\SelfConstruction;
 
 final class ReadinessHash
@@ -15,8 +17,8 @@ final class ReadinessHash
     }
 
     /**
-     * @param  array<string, mixed>  $value
-     * @return array<string, mixed>
+     * @param  array<string,mixed>  $value
+     * @return array<string,mixed>
      */
     public static function ksortRecursive(array $value): array
     {
