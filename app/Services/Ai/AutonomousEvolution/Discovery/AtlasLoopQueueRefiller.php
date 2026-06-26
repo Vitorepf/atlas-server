@@ -998,29 +998,19 @@ final class AtlasLoopQueueRefiller implements \App\Services\Ai\AutonomousEvoluti
 
     private function firstString(array $values): string
     {
-        foreach ($values as $value) {
-            if (is_string($value) && trim($value) !== '') {
-                return trim($value);
-            }
-        }
-
-        return '';
+        return Supply\AtlasLoopRefillerPayloadNormalizer::firstString($values);
     }
 
-    /**
-     * @return list<array<string,mixed>>
-     */
+    /** @return list<array<string,mixed>> */
     private function arrayList(mixed $values): array
     {
-        return array_values(array_filter((array) $values, 'is_array'));
+        return Supply\AtlasLoopRefillerPayloadNormalizer::arrayList($values);
     }
 
-    /**
-     * @return list<string>
-     */
+    /** @return list<string> */
     private function stringList(mixed $values): array
     {
-        return array_values(array_filter(array_map(static fn (mixed $v): string => trim((string) $v), (array) $values), static fn (string $v): bool => $v !== ''));
+        return Supply\AtlasLoopRefillerPayloadNormalizer::stringList($values);
     }
 
     /**
@@ -1750,24 +1740,10 @@ final class AtlasLoopQueueRefiller implements \App\Services\Ai\AutonomousEvoluti
         return $this->extractClassBackoffCache[$campaignId] = $backoff;
     }
 
-    /**
-     * @return array<string,mixed>
-     */
+    /** @return array<string,mixed> */
     private function jsonObject(mixed $value): array
     {
-        if (is_array($value)) {
-            return $value;
-        }
-        if ($value instanceof \stdClass) {
-            return (array) $value;
-        }
-        if (! is_string($value) || trim($value) === '') {
-            return [];
-        }
-
-        $decoded = json_decode($value, true);
-
-        return is_array($decoded) ? $decoded : [];
+        return Supply\AtlasLoopRefillerPayloadNormalizer::jsonObject($value);
     }
 
     /**
