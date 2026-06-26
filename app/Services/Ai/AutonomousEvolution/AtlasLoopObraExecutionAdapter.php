@@ -18,6 +18,7 @@ use App\Services\Ai\Obra\AtlasObraExecutor;
 use App\Services\Ai\Obra\ObraNodeDelivery;
 use App\Services\Ai\Obra\ProviderObraNodeDelivery;
 use App\Services\Ai\AutonomousEvolution\Support\AtlasLoopObraGitWorktreeProbe;
+use App\Services\Ai\AutonomousEvolution\Support\AtlasLoopObraPlanningPromptComposer;
 use App\Services\Ai\RealExecution\AtlasLiveCodeDeliveryService;
 use App\Services\Ai\RealExecution\GovernedBranchMaterializationService;
 use Illuminate\Support\Facades\File;
@@ -1111,17 +1112,24 @@ class AtlasLoopObraExecutionAdapter
         return is_string($configured) && trim($configured) !== '' ? trim($configured) : 'hermes_cli';
     }
 
+    /**
+     * Cohesive stateless prompt composer — the only places the adapter turns the goal + prior-gaps into a
+     * deterministic JSON-only prompt (specPrompt / dagPrompt) and parses the provider's response back into
+     * an object (decodeJsonObject). Extracted to {@see AtlasLoopObraPlanningPromptComposer}; we keep these
+     * three private methods as thin delegators so every existing call site (the spec/DAG provider seams +
+     * the decodeJsonObject used to parse the provider's response) stays byte-identical and the public
+     * signature of the adapter does not move. Lazy-instantiated per call so production callers pay no
+     * construction cost beyond the first use.
+     */
+    private function planningPromptComposer(): AtlasLoopObraPlanningPromptComposer
+    {
+        return new AtlasLoopObraPlanningPromptComposer;
+    }
+
     /** @param  list<string>  $priorGaps */
     private function specPrompt(string $goal, array $priorGaps): string
     {
-        $fix = $priorGaps === [] ? '' : "\n\nThe previous spec had these gaps; FIX them: ".implode(', ', array_slice($priorGaps, 0, 8));
-
-        return 'Produce ONLY a single deterministic JSON object (no prose, no markdown fence) for this engineering goal.'
-            ."\nGoal: ".$goal
-            ."\nShape: {\"summary\": string, \"acceptance_criteria\": [{\"id\": string, \"description\": string (>=15 chars), \"required\": bool}], "
-            .'"suggested_files": [string], "decomposition_hint": string}'
-            ."\nAt least one acceptance criterion must be required. suggested_files lists any NEW files the change introduces."
-            .$fix;
+        return $this->planningPromptComposer()->specPrompt($goal, $priorGaps);
     }
 
     /**
@@ -1130,42 +1138,15 @@ class AtlasLoopObraExecutionAdapter
      */
     private function dagPrompt(string $goal, array $context, array $priorGaps): string
     {
-        $hint = trim((string) ($context['decomposition_hint'] ?? ''));
-        $newFiles = implode(', ', array_filter((array) ($context['suggested_files'] ?? []), 'is_string'));
-        $fix = $priorGaps === [] ? '' : "\n\nThe previous DAG had these gaps; FIX them: ".implode(', ', array_slice($priorGaps, 0, 8));
-
-        return 'Produce ONLY a single deterministic JSON object (no prose, no markdown fence) decomposing this goal into a node DAG.'
-            ."\nGoal: ".$goal
-            .($hint !== '' ? "\nDecomposition hint: ".$hint : '')
-            .($newFiles !== '' ? "\nNew files to create: ".$newFiles : '')
-            ."\nShape: {\"plan_id\": string, \"nodes\": [{\"id\": string, \"target_area\": string (a file path), \"request\": string (concrete, references its file)}]}"
-            ."\nDo NOT include create-class nodes for the new files — Atlas emits those. List only the EXISTING files to edit/redirect."
-            .$fix;
+        return $this->planningPromptComposer()->dagPrompt($goal, $context, $priorGaps);
     }
 
     /**
-     * Decode a provider response into a JSON object. Tolerant of a leading/trailing prose wrap or a single
-     * ```json fence (extract the outermost {...}); returns null on anything non-object.
-     *
      * @return array<string,mixed>|null
      */
     private function decodeJsonObject(string $raw): ?array
     {
-        $raw = trim($raw);
-        if ($raw === '') {
-            return null;
-        }
-        $decoded = json_decode($raw, true);
-        if (! is_array($decoded)) {
-            $start = strpos($raw, '{');
-            $end = strrpos($raw, '}');
-            if ($start === false || $end === false || $end <= $start) {
-                return null;
-            }
-            $decoded = json_decode(substr($raw, $start, $end - $start + 1), true);
-        }
-
-        return is_array($decoded) ? $decoded : null;
+        return $this->planningPromptComposer()->decodeJsonObject($raw);
     }
 
     /** The whole-obra integrated check = the synthesizer's frozen sibling-test command (behaviour gate). */
