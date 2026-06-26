@@ -1,0 +1,44 @@
+name: Bug report
+description: Report something that is broken or behaving wrong
+labels: ["bug", "triage"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the bug. Include the expected vs actual behaviour.
+      placeholder: "Expected X, got Y. Steps to reproduce: 1. ... 2. ..."
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / trace
+      description: Relevant log lines, stack trace, or evidence ledger id. Redact secrets.
+      render: shell
+    validations:
+      required: false
+  - type: input
+    id: atlas-version
+    attributes:
+      label: Atlas version
+      placeholder: "2.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: env
+    attributes:
+      label: Environment
+      options:
+        - local (docker-compose)
+        - CI (GitHub Actions)
+        - production
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Smallest set of steps that triggers the bug.
+    validations:
+      required: false

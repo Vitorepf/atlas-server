@@ -1,0 +1,35 @@
+{
+  "name": "Atlas Server",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/var/www/html",
+  "shutdownAction": "stopCompose",
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "bmewburn.vscode-intelephense",
+        "calebporzio.better-phpunit",
+        "christian-kohler.path-intellisense",
+        "dbaeumer.vscode-eslint",
+        "eamodio.gitlens",
+        "esbenp.prettier-vscode",
+        "junstyle.php-cs-fixer",
+        "laravel.vscode-laravel",
+        "mehedi61.style-php",
+        "redhat.vscode-yaml"
+      ],
+      "settings": {
+        "php.validate.executablePath": "/usr/local/bin/php",
+        "php.intelephense.environment.phpVersion": "8.4.0",
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+  "forwardPorts": [3737, 5433, 6379, 7880],
+  "postCreateCommand": "composer install && cp .env.example .env && php artisan key:generate && php artisan migrate --force",
+  "remoteUser": "www-data"
+}

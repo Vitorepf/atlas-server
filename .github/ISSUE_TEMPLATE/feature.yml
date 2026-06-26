@@ -1,0 +1,38 @@
+name: Feature request
+description: Propose a new capability or improvement
+labels: ["feature", "triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is currently impossible or painful?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should exist instead? Be concrete.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
+  - type: dropdown
+    id: domain
+    attributes:
+      label: Affected domain
+      options:
+        - Atlas AI Gateway / Open Brain
+        - Self-Construction OS (Loop)
+        - Marketing Domain
+        - Forge Rivals
+        - Voice / Kernel
+        - Infrastructure / CI
+        - Other
+    validations:
+      required: true

@@ -1,0 +1,30 @@
+# Gitleaks configuration for Atlas Server
+# Scans commits, PRs, and staged files for high-confidence secret patterns.
+
+[extend]
+useDefault = true
+
+[allowlist]
+paths = [
+    "vendor",
+    "node_modules",
+    "storage/logs",
+    "storage/framework",
+    "storage/atlas-dev",
+    "storage/atlas",
+    "\.env\.example",
+]
+
+[rules]
+# Atlas-specific token format (operator-managed, but catches accidental commits)
+[[rules]]
+id = "atlas-token"
+description = "Atlas operator token"
+regex = '''ATLAS_TOKEN\s*=\s*[^\s]+'''
+tags = ["atlas", "token"]
+
+[allowlist]
+regexes = [
+    "ATLAS_TOKEN=replace-with-a-long-random-token",
+    "ATLAS_TOKEN=testing-atlas-token-with-enough-length",
+]

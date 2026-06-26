@@ -50,4 +50,20 @@ return [
         'sessions_page_info_path' => env('RIZE_SESSIONS_PAGE_INFO_PATH', 'timeEntries.pageInfo'),
     ],
 
+    'sentry' => [
+        'dsn' => env('SENTRY_LARAVEL_DSN'),
+        'enabled' => env('SENTRY_LARAVEL_DSN') !== null && env('SENTRY_LARAVEL_DSN') !== '',
+        'release' => env('SENTRY_RELEASE', env('APP_VERSION', 'unknown')),
+        'environment' => env('APP_ENV', 'production'),
+        'traces_sample_rate' => (float) env('SENTRY_TRACES_SAMPLE_RATE', 0.1),
+        'profiles_sample_rate' => (float) env('SENTRY_PROFILES_SAMPLE_RATE', 0.01),
+    ],
+
+    'opentelemetry' => [
+        'enabled' => filter_var(env('OTEL_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
+        'endpoint' => env('OTEL_EXPORTER_OTLP_ENDPOINT'),
+        'service_name' => env('OTEL_SERVICE_NAME', env('APP_NAME', 'Atlas')),
+        'service_version' => env('OTEL_SERVICE_VERSION', env('APP_VERSION', 'unknown')),
+    ],
+
 ];

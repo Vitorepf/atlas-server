@@ -52,3 +52,11 @@ Thumbs.db
 
 # Atlas loop quality-gate scratch
 /storage/phpstan
+
+# Scribe generated docs
+/public/docs
+
+# Devcontainer build artifacts
+/.devcontainer/.vscode
+/.devcontainer/.pnpm-store
+/.devcontainer/.cache

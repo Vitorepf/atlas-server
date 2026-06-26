@@ -1,4 +1,40 @@
 services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: atlas-app
+    restart: unless-stopped
+    command: sh -c "composer install && php artisan config:clear && php artisan migrate --force && php -S 0.0.0.0:3737 -t public public/index.php"
+    ports:
+      - "3737:3737"
+    volumes:
+      - .:/var/www/html
+      - /var/www/html/vendor
+      - /var/www/html/bootstrap/cache
+    working_dir: /var/www/html
+    environment:
+      APP_NAME: Atlas
+      APP_ENV: local
+      APP_KEY: ${APP_KEY}
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:3737
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_DATABASE: atlas
+      DB_USERNAME: atlas
+      DB_PASSWORD: atlas_local_2026
+      SESSION_DRIVER: array
+      CACHE_STORE: file
+      QUEUE_CONNECTION: database
+      FILESYSTEM_DISK: atlas
+      ATLAS_TOKEN: ${ATLAS_TOKEN}
+      ATLAS_STORAGE_PATH: /var/atlas/storage
+    depends_on:
+      db:
+        condition: service_healthy
+
   db:
     image: pgvector/pgvector:pg16
     container_name: atlas-db

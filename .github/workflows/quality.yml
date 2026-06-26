@@ -1,0 +1,185 @@
+name: Quality gates
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  static-analysis:
+    name: PHPStan + Pint + unused deps
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring
+          tools: composer
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: composer validate --strict
+      - run: vendor/bin/pint --test
+      - run: vendor/bin/phpstan analyse --no-progress
+      - run: composer require --dev --no-interaction composer-unused/composer-unused
+      - run: vendor/bin/composer-unused
+
+  strict-types:
+    name: strict_types declaration check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          MISSING=$(find app tests config routes -name '*.php' -type f | while read f; do
+            head -1 "$f" | grep -q 'declare(strict_types=1);' || echo "$f"
+          done)
+          if [ -n "$MISSING" ]; then
+            echo "Missing declare(strict_types=1); in:"
+            echo "$MISSING"
+            exit 1
+          fi
+          echo "All PHP files have strict_types declaration."
+
+  cyclomatic-complexity:
+    name: Cyclomatic complexity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: phploc
+      - run: |
+          phploc app --no-interaction --json | python3 - <<'PY'
+          import json, sys
+          data = json.load(sys.stdin)
+          avg = data.get("averageCyclomaticComplexityPerClass", 0)
+          print(f"Average cyclomatic complexity per class: {avg}")
+          if avg > 15:
+              print("Average complexity exceeds threshold of 15")
+              sys.exit(1)
+          PY
+
+  test-coverage:
+    name: PHPUnit coverage
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: atlas
+          POSTGRES_USER: atlas
+          POSTGRES_PASSWORD: atlas
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U atlas -d atlas"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      APP_ENV: testing
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: atlas
+      DB_USERNAME: atlas
+      DB_PASSWORD: atlas
+      ATLAS_TOKEN: testing-atlas-token-with-enough-length
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo_pgsql, pgsql, pcov
+          coverage: pcov
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: cp .env.example .env && php artisan key:generate --force
+      - run: php artisan migrate --force
+      - run: php artisan test --coverage --min=80
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  n-plus-one:
+    name: N+1 query detection
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: atlas
+          POSTGRES_USER: atlas
+          POSTGRES_PASSWORD: atlas
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U atlas -d atlas"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      APP_ENV: testing
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: atlas
+      DB_USERNAME: atlas
+      DB_PASSWORD: atlas
+      ATLAS_TOKEN: testing-atlas-token-with-enough-length
+      PREVENT_LAZY_LOADING: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo_pgsql, pgsql
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: cp .env.example .env && php artisan key:generate --force
+      - run: php artisan migrate --force
+      - run: php artisan test --filter=NPlusOne
+
+  flaky-test-detection:
+    name: Flaky test detection
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: atlas
+          POSTGRES_USER: atlas
+          POSTGRES_PASSWORD: atlas
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U atlas -d atlas"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      APP_ENV: testing
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: atlas
+      DB_USERNAME: atlas
+      DB_PASSWORD: atlas
+      ATLAS_TOKEN: testing-atlas-token-with-enough-length
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo_pgsql, pgsql
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: cp .env.example .env && php artisan key:generate --force
+      - run: php artisan migrate --force
+      - run: php artisan test --order-by=random --repeat=3

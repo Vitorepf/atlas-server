@@ -13,8 +13,10 @@
     },
     "require-dev": {
         "brianium/paratest": "^7.20",
+        "composer-unused/composer-unused": "^0.8",
         "fakerphp/faker": "^1.23",
         "infection/infection": "^0.33.2",
+        "knuckleswtf/scribe": "^5.0",
         "larastan/larastan": "^3.10",
         "laravel/pail": "^1.2.5",
         "laravel/pint": "^1.27",

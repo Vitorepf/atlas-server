@@ -1,0 +1,48 @@
+# Atlas Server GitHub labels
+# Used by the labels.yml workflow to keep the repository label set in sync.
+
+- name: bug
+  color: d73a4a
+  description: Something is broken
+- name: feature
+  color: 0e8a16
+  description: New capability or improvement
+- name: refactor
+  color: c2e0c6
+  description: Behavior-preserving restructure
+- name: test
+  color: 7057ff
+  description: Test-only change
+- name: docs
+  color: 0075ca
+  description: Documentation or projection update
+- name: chore
+  color: cfd3d7
+  description: Build, CI, deps or tooling
+- name: security
+  color: b60205
+  description: Vulnerability or hardening
+- name: observability
+  color: 5319e7
+  description: Logging, tracing, metrics, alerting
+- name: loop
+  color: ff7619
+  description: Atlas Self-Construction OS / autonomous loop
+- name: aobg
+  color: 1d76db
+  description: Atlas Open Brain Gateway / MCP / context
+- name: triage
+  color: f9d0c4
+  description: Needs initial review and routing
+- name: blocked
+  color: 000000
+  description: Blocked by external dependency or decision
+- name: high-risk
+  color: ff0000
+  description: High blast radius — requires careful review
+- name: needs-tests
+  color: fef2c0
+  description: Missing or inadequate test coverage
+- name: agent-readiness
+  color: 84b6eb
+  description: Improving Factory Agent Readiness scorecard

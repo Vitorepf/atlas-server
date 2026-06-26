@@ -1,0 +1,38 @@
+# Semgrep static analysis configuration for Atlas Server
+# Runs on PRs and pushes to main. Rules focus on PHP/Laravel security and correctness.
+
+version: 2
+
+includes:
+  - app
+  - config
+  - routes
+  - tests
+  - database
+  - resources
+  - scripts
+
+excludes:
+  - vendor
+  - node_modules
+  - storage
+  - bootstrap/cache
+  - public
+
+rules:
+  # PHP rule packs (auto-fetched when running with semgrep-action)
+  - owasp-top-ten
+  - php-lang
+  - php-laravel
+  - php-stdlib
+  - security-audit
+  - command-injection
+  - sql-injection
+  - xss
+  - ssrf
+  - path-traversal
+
+# Output format for CI
+output:
+  format: sarif
+  destination: semgrep-results.sarif

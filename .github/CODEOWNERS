@@ -1,0 +1,24 @@
+# Atlas Server CODEOWNERS
+# Review is automatically requested from the right people when a matching path changes.
+
+# Default owner for the whole repository
+*                       @vitorepf
+
+# Atlas AI Self-Construction OS (autonomous loop, agent control plane)
+/app/Services/Ai/SelfConstruction/   @vitorepf
+/app/Console/Commands/AtlasTask*     @vitorepf
+
+# Atlas AI Gateway + Open Brain (context pack, memory, AOBG)
+/app/Services/Ai/OpenBrain/          @vitorepf
+/app/Services/Ai/Gateway/            @vitorepf
+
+# Marketing domain (affiliate, bridge page, funnel)
+/app/Services/Ai/MarketingDomain/    @vitorepf
+
+# Provider projections (AGENTS.md / CLAUDE.md) — operator-owned
+/AGENTS.md                           @vitorepf
+/CLAUDE.md                           @vitorepf
+
+# CI / release pipeline
+/.github/                            @vitorepf
+/Dockerfile                          @vitorepf

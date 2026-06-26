@@ -1,0 +1,36 @@
+{
+  "categories": [
+    {
+      "title": "## 🚀 Features",
+      "labels": ["feature"]
+    },
+    {
+      "title": "## 🐛 Bug Fixes",
+      "labels": ["bug"]
+    },
+    {
+      "title": "## 🔒 Security",
+      "labels": ["security"]
+    },
+    {
+      "title": "## ♻️ Refactor",
+      "labels": ["refactor"]
+    },
+    {
+      "title": "## 🧪 Tests",
+      "labels": ["test"]
+    },
+    {
+      "title": "## 📚 Documentation",
+      "labels": ["docs"]
+    },
+    {
+      "title": "## ⚙️ Build / CI / Deps",
+      "labels": ["chore"]
+    }
+  ],
+  "template": {
+    "render": "{{cat}}\n\n{{uncategorized}}"
+  },
+  "pr_template": "- {{TITLE}} (#{{NUMBER}})"
+}

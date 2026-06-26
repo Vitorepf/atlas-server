@@ -54,9 +54,9 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
-          extensions: mbstring, pdo_pgsql, pgsql
-          coverage: none
+          php-version: '8.4'
+          extensions: mbstring, pdo_pgsql, pgsql, pcov
+          coverage: pcov
 
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
@@ -73,8 +73,8 @@ jobs:
       - name: Migrate product database
         run: php artisan migrate --force
 
-      - name: Run tests
-        run: php artisan test
+      - name: Run tests with coverage
+        run: php artisan test --coverage --min=80
 
       - name: Check whitespace in diff
         run: git diff --check
@@ -84,3 +84,12 @@ jobs:
 
       - name: Release gate preflight
         run: ./bin/atlas release --version=v2.0.0 --preflight --no-final --skip-dogfood --allow-dirty
+
+      - name: Build performance tracking
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-performance
+          path: |
+            storage/logs/*.log
+            coverage.xml
