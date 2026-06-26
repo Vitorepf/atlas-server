@@ -1676,6 +1676,7 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
             'ttl_seconds' => 600,
         ]);
         $completion = [];
+        $evidenceHash = '';
         if ((string) ($claim['event'] ?? '') === 'claimed') {
             $completionEvidence = [
                 'packet_id' => (string) ($claim['task_packet_id'] ?? ''),
