@@ -16,6 +16,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintEntropy;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintToPathTranslator;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintTransitionMatrix;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainNextPathSuggester;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathCatalog;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathStarvationDetector;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainProvenanceLedger;
@@ -232,6 +233,12 @@ final class AtlasBrainStateCommand extends Command
                 ];
             })(),
         ];
+
+        // NEXT-PATH SUGGESTION — L130 over starvation + rollup already in payload.
+        $payload['suggested_next_path'] = app(AtlasBrainNextPathSuggester::class)->suggest(
+            (array) ($payload['path_starvation']['starved'] ?? []),
+            (array) $payload['cascade_outcomes']['path_rollup'],
+        );
 
         // HEALTH SCORE — 0..100 composite over the perception suite. Computed AFTER the payload is built
         // so the weights derive from the same values surfaced upstream (no double-compute drift).
