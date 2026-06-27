@@ -34,7 +34,7 @@ use Illuminate\Console\Command;
 final class AtlasBrainStateCommand extends Command
 {
     /** @var string */
-    protected $signature = 'atlas:brain:state {--scope= : scope slug (default: configured default_scope)} {--tail=50 : how many done-set rows to summarize} {--all : also emit a per-scope cohort summary for every configured scope} {--json}';
+    protected $signature = 'atlas:brain:state {--scope= : scope slug (default: configured default_scope)} {--tail=50 : how many done-set rows to summarize} {--all : also emit a per-scope cohort summary for every configured scope} {--json} {--raw : single-line JSON (no pretty-print) for log scraping}';
 
     /** @var string */
     protected $description = 'READ-ONLY brain state snapshot: master switch, scope, done-set tail, reflection tail (no origination).';
@@ -142,7 +142,11 @@ final class AtlasBrainStateCommand extends Command
             $payload['cohorts'] = $cohorts;
         }
 
-        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
+        if (! $this->option('raw')) {
+            $flags |= JSON_PRETTY_PRINT;
+        }
+        $this->line((string) json_encode($payload, $flags));
 
         return self::SUCCESS;
     }
