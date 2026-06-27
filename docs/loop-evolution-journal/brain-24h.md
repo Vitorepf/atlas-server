@@ -522,3 +522,12 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 8 batch tests / 42 assertions green; pint green
 - next: paths still at 5
+
+## L200 — contrarian requirement (adversarial-critique @6) — S200 MILESTONE
+- path: adversarial-critique (now 6 organs)
+- organ: AtlasBrainContrarianRequirement — fails unanimous votes; demands at least one dissent
+- coverage matrix: adversarial-critique=6; comprehension=6; 5 others at 5
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 5 tests / 8 assertions green; pint green
+- placar 7h (S200): 37 organs across 7 paths, schema reg 36, all paths >=5, two at 6
+- next: rotate to one of the 5 paths still at 5
