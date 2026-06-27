@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Pattern;
 
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCausalEffectGate;
+
 /**
  * LOOP-PATTERN-REGISTRY · Slice 1 — the deterministic Selector: given a loop objective descriptor, it
  * picks the single BEST selectable pattern to structure the work — or REFUSES.
@@ -44,11 +46,19 @@ final class AtlasLoopPatternSelector
     public const NEGLIGIBLE_IMPACT_EPSILON = 0.02;
 
     /**
+     * The causal effect gate is OPTIONAL evidence (read-only over the pattern-learning ledger). When absent
+     * OR when atlas.brain.causal_selector_enabled is OFF, the selector is exactly the pure, byte-identical
+     * function it always was. When ON, a pattern whose causal effect's CI excludes zero earns an additive
+     * leverage bonus — author≠judge intact (the gate only reads the ledger; the selector never writes).
+     */
+    public function __construct(private readonly ?AtlasBrainCausalEffectGate $causal = null) {}
+
+    /**
      * Choose the best selectable pattern for a loop objective, or refuse.
      *
      * @param  array<string,mixed>  $objective  descriptor with keys: objective_kind (string), expected_impact
-     *                                           (float 0..1), evidence (float 0..1), risk (float 0..1),
-     *                                           cost (float 0..1), cosmetic (bool), touches_loop (bool).
+     *                                          (float 0..1), evidence (float 0..1), risk (float 0..1),
+     *                                          cost (float 0..1), cosmetic (bool), touches_loop (bool).
      * @return array{
      *     pattern: ?AtlasLoopPatternSpec,
      *     score: float,
@@ -106,7 +116,7 @@ final class AtlasLoopPatternSelector
             fn (AtlasLoopPatternSpec $s): array => [
                 'spec' => $s,
                 'id' => $s->id,
-                'score' => $this->score($s, $expectedImpact, $evidence, $risk, $cost),
+                'score' => round($this->score($s, $expectedImpact, $evidence, $risk, $cost) + $this->causalBonus($s), 6),
             ],
             $candidates
         );
@@ -159,6 +169,26 @@ final class AtlasLoopPatternSelector
             - (0.4 * $cost);
 
         return round($score, 6);
+    }
+
+    /**
+     * Additive causal leverage bonus for a candidate. 0.0 (byte-identical) when the gate is absent or the
+     * flag is OFF, OR when the path is not causally proven (insufficient_n / CI includes zero / effect not
+     * positive) — so a lucky/weak/unproven delta NEVER lifts a pattern (no fabricated compounding). Only a
+     * path whose effect CI excludes zero on the positive side earns the bonus; invariance across ≥2
+     * objective classes (IRM) earns more. Additive (not multiplicative) so it can't flip a negative score.
+     */
+    private function causalBonus(AtlasLoopPatternSpec $spec): float
+    {
+        if ($this->causal === null || ! (bool) config('atlas.brain.causal_selector_enabled', false)) {
+            return 0.0;
+        }
+
+        if (($this->causal->effect($spec->id)['admit_compounding'] ?? false) !== true) {
+            return 0.0; // neutral: not causally proven ⇒ ranks strictly below an identical proven path
+        }
+
+        return $this->causal->isInvariantPositive($spec->id) ? 0.45 : 0.30;
     }
 
     /**
