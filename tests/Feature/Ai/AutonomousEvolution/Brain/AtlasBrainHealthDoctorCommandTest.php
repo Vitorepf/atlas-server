@@ -67,6 +67,26 @@ final class AtlasBrainHealthDoctorCommandTest extends TestCase
         }
     }
 
+    public function test_skewed_brief_histogram_emits_info_finding(): void
+    {
+        file_put_contents($this->envPath, "APP_ENV=testing\n".AtlasBrainMasterSwitch::KEY."=true\n");
+        config()->set('atlas.brain.scope_signal_digest_enabled', true);
+        config()->set('atlas.brain.reflection_enabled', true);
+
+        $stream = sys_get_temp_dir().'/atlas-brain-doctor-reflection-'.bin2hex(random_bytes(4)).'.ndjson';
+        config()->set('atlas.brain.reflection_root', $stream);
+        $rows = '';
+        for ($i = 0; $i < 6; $i++) {
+            $rows .= json_encode(['schema' => 'x', 'scope' => 'loop', 'cycle_id' => "c{$i}", 'result_kind' => 'note', 'reflection' => 'leverage_brief: use_drafted_candidate — '.$i, 'signals' => [], 'recorded_at' => 0]).PHP_EOL;
+        }
+        file_put_contents($stream, $rows);
+
+        Artisan::call('atlas:brain:health-doctor', ['--json' => true]);
+        $payload = json_decode(trim(Artisan::output()), true);
+
+        self::assertContains('brief_histogram_skewed', array_column($payload['findings'], 'code'));
+    }
+
     public function test_doctor_command_is_a_petreo_forbidden_self_target(): void
     {
         $verdict = app(AtlasLoopHarnessGuard::class)->admit('app/Console/Commands/AtlasBrainHealthDoctorCommand.php', true);

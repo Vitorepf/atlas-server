@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainBriefHistogram;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainFrontierSourceRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
@@ -125,6 +126,17 @@ final class AtlasBrainHealthDoctorCommand extends Command
             $ratio = (int) round(($served * 100) / $decisive);
             if ($ratio < 50) {
                 $findings[] = ['severity' => 'warn', 'code' => 'served_ratio_low', 'advice' => "served_ratio={$ratio}% over {$decisive} decisive cycles — brain is losing more than winning; consider switching scope or originating against the failing path"];
+            }
+        }
+
+        // INFO: brief histogram skew. When ≥5 prior briefs land and a single action_hint dominates >70%, the
+        // brain has collapsed onto a single rule of the 7-rule cascade — perspective-diversity nudge.
+        if ($reflectionEnabled) {
+            $priors = app(AtlasBrainReflectionStream::class)->forScope($scope);
+            $hist = app(AtlasBrainBriefHistogram::class)->histogram($priors);
+            if ($hist['total'] >= 5 && $hist['by_hint'] !== [] && $hist['by_hint'][0]['pct'] > 70) {
+                $top = $hist['by_hint'][0];
+                $findings[] = ['severity' => 'info', 'code' => 'brief_histogram_skewed', 'advice' => "action_hint '{$top['hint']}' dominates {$top['pct']}% of {$hist['total']} recent briefs — cascade has collapsed onto one rule; rotate path or originate against a fresh signal"];
             }
         }
 
