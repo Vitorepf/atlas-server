@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainFrontierSourceRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
@@ -103,6 +104,28 @@ final class AtlasBrainHealthDoctorCommand extends Command
         $missingCanonical = array_values(array_diff($canonical, $present));
         if ($missingCanonical !== []) {
             $findings[] = ['severity' => 'warn', 'code' => 'portfolio_canonical_paths_missing', 'advice' => 'missing canonical path ids: '.implode(', ', $missingCanonical).' — these paths are part of the portfolio rotation and the brain cannot recommend them'];
+        }
+
+        // WARN: served_ratio < 50% over ≥10 decisive cycles. The brain is losing more than winning over a
+        // significant window (under 10 is too noisy to act on).
+        $ledger = new AtlasBrainDoneSetLedger($scope, (string) config('atlas.brain.done_set_root'));
+        $rows = $ledger->recentCycles(50);
+        $served = 0;
+        $refused = 0;
+        foreach ($rows as $row) {
+            $status = trim((string) ($row['status'] ?? ''));
+            if ($status === 'served' || $status === 'seeded') {
+                $served++;
+            } elseif (in_array($status, ['refused', 'abstain', 'already_done', 'prepare_blocked', 'forbidden_target'], true)) {
+                $refused++;
+            }
+        }
+        $decisive = $served + $refused;
+        if ($decisive >= 10) {
+            $ratio = (int) round(($served * 100) / $decisive);
+            if ($ratio < 50) {
+                $findings[] = ['severity' => 'warn', 'code' => 'served_ratio_low', 'advice' => "served_ratio={$ratio}% over {$decisive} decisive cycles — brain is losing more than winning; consider switching scope or originating against the failing path"];
+            }
         }
 
         // 'healthy' = no critical/warn (info findings are tolerated; they're suggestions, not problems).
