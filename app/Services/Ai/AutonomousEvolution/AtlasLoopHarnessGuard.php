@@ -138,6 +138,9 @@ final class AtlasLoopHarnessGuard
         // The COHORT SCOPE COMPARATOR — ranks scopes by composite health. Editable ⇒ the réu would
         // reorder rows to keep its current scope on top regardless of evidence.
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainCohortScopeComparator.php',
+        // The HEALTH SCORE — 0..100 composite. Editable ⇒ the réu would re-tune weights so its current
+        // state always scores high (the lying-mirror trap).
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainHealthScore.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',
