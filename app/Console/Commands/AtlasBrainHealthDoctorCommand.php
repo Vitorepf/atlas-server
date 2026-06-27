@@ -83,8 +83,11 @@ final class AtlasBrainHealthDoctorCommand extends Command
         }
 
         // INFO: frontier source has no curated candidates for this scope (the frontier-harvest path has no fuel).
-        if (app(AtlasBrainFrontierSourceRegistry::class)->count($scope) === 0) {
+        $frontierCount = app(AtlasBrainFrontierSourceRegistry::class)->count($scope);
+        if ($frontierCount === 0) {
             $findings[] = ['severity' => 'info', 'code' => 'frontier_empty', 'advice' => "scope '{$scope}' has 0 curated frontier candidates — append entries via the registry to give the frontier-harvest path material"];
+        } elseif ($frontierCount < 3) {
+            $findings[] = ['severity' => 'info', 'code' => 'frontier_shallow', 'advice' => "scope '{$scope}' has only {$frontierCount} curated frontier candidate(s) — harvest more before the frontier-harvest path drains"];
         }
 
         // WARN: portfolio path count diverges from the canonical 7. Indicates config drift / abridgment.

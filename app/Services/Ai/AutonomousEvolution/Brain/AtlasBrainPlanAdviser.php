@@ -43,6 +43,7 @@ final class AtlasBrainPlanAdviser
         'cohort_scope_stale' => 'comprehension-deepening',
         'path_concentration' => 'pattern-design',
         'path_starvation' => 'frontier-harvest',
+        'frontier_shallow' => 'frontier-harvest',
     ];
 
     /** explicit per-info-code priority (higher = surfaced first). unlisted codes get 0. */
