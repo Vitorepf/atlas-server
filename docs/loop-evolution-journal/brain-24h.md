@@ -62,4 +62,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 73cbd1ff1 — **L30 seed-gate battery +1**: `blind_orphan_wiring_proxy` (3ª promoção advisory→blocking que faltava). Seed gate continua ZERO holes — todas as 3 promoções agora vigiadas. 3 auditor tests verdes.
 - 74f2e6f30 — **L31 compounding.worst_refusal_streak**: simétrico a success_streak — max consecutive refusal run em todo o tail-window. Brain compara "histórico do pior" vs "atual" pra calibrar escalada. 8 compounding tests verdes.
 - 9df5df688 — **L32 metric +worst_refusal_streak**: nova métrica declarada (minimize) no MetricSnapshot. Causal selector + brief têm acesso à magnitude do bad spell além do count atual. 161 brain tests verdes.
+- e63b0f680 — **L33 rotate_path cites streak**: brief rotate_path rationale agora inclui `worst_refusal_streak`. Brain vê trigger + magnitude histórica em 1 linha. 178 brain tests verdes.
 
