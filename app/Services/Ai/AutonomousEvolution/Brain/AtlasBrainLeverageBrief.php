@@ -69,6 +69,19 @@ final class AtlasBrainLeverageBrief
      */
     public function brief(array $signals, array $priorBriefs = []): array
     {
+        $base = $this->computeHint($signals, $priorBriefs);
+        $base['previous_action_hint'] = $this->previousActionHintOf($priorBriefs);
+
+        return $base;
+    }
+
+    /**
+     * @param  array<string,mixed>  $signals
+     * @param  list<array{kind?:string, reflection?:string}>  $priorBriefs
+     * @return array{schema:string, action_hint:string, evidence:list<string>, rationale:string}
+     */
+    private function computeHint(array $signals, array $priorBriefs): array
+    {
         // RULE -1 — GATE REGRESSION (foundational): if the runtime adversarial auditors found ANY hole, the
         // gate that protects the muscle is broken. Every other recommendation is moot until the wall is
         // restored. Trumps perseveration (which is about strategy) because this is about structural safety.
@@ -224,6 +237,28 @@ final class AtlasBrainLeverageBrief
         }
 
         return count(array_unique($hints)) === 1 ? $hints[0] : null;
+    }
+
+    /**
+     * Extract the immediate prior action_hint from the time series (the newest entry only). Returns null
+     * when no prior briefs exist or the newest entry isn't a leverage_brief reflection.
+     *
+     * @param  list<array{kind?:string, reflection?:string}>  $priorBriefs
+     */
+    private function previousActionHintOf(array $priorBriefs): ?string
+    {
+        if ($priorBriefs === []) {
+            return null;
+        }
+        $text = (string) ($priorBriefs[0]['reflection'] ?? '');
+        if (! str_starts_with($text, 'leverage_brief: ')) {
+            return null;
+        }
+        $rest = substr($text, strlen('leverage_brief: '));
+        $cut = strpos($rest, ' — ');
+        $hint = trim($cut === false ? $rest : substr($rest, 0, $cut));
+
+        return $hint === '' ? null : $hint;
     }
 
     /**

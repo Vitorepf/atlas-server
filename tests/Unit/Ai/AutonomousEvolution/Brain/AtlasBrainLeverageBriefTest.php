@@ -173,6 +173,23 @@ final class AtlasBrainLeverageBriefTest extends TestCase
         self::assertLessThanOrEqual(3, count($brief['evidence']));
     }
 
+    public function test_brief_includes_previous_action_hint_from_prior_briefs(): void
+    {
+        $brief = (new AtlasBrainLeverageBrief)->brief(
+            ['metrics' => [['id' => 'recent_refusal_count', 'value' => 0]]],
+            [['kind' => 'note', 'reflection' => 'leverage_brief: harvest_frontier — last cycle']],
+        );
+
+        self::assertSame('harvest_frontier', $brief['previous_action_hint']);
+    }
+
+    public function test_brief_previous_action_hint_null_when_no_priors(): void
+    {
+        $brief = (new AtlasBrainLeverageBrief)->brief(['metrics' => [['id' => 'recent_refusal_count', 'value' => 0]]]);
+
+        self::assertNull($brief['previous_action_hint']);
+    }
+
     public function test_brief_organ_is_a_petreo_forbidden_self_target(): void
     {
         $verdict = app(AtlasLoopHarnessGuard::class)->admit(
