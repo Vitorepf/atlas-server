@@ -47,6 +47,7 @@ final class AtlasBrainCoverageMatrix
         'pattern-design' => [
             AtlasBrainPathOscillationDetector::class,
             AtlasBrainSchemaContractRegistry::class,
+            AtlasBrainHintBurstDetector::class,
         ],
         'frontier-harvest' => [
             AtlasBrainFrontierMethodCatalog::class,
