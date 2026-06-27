@@ -91,4 +91,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 62c8617ef — **L59 doctor --all (cohorts)**: paridade com state --all. Payload ganha cohorts[] com {slug, frontier_empty, reflection_empty} pra cada scope. 3 doctor tests verdes.
 - 57fd23fd0 — **L60 audit.gate_health_status**: top-level `airtight` | `regression` + `gate_health_total_holes`. CI grep-friendly. 2 audit tests verdes.
 - 16b03fa42 — **L61 atlas:brain:catalog**: command read-only dumpa portfolio paths (id/intent/kind/executor/lens) com --intent + --kind filters. Pétreo. 3 catalog command tests verdes.
+- 57fa8c34e — **L62 brain:catalog --check**: exit code 0/1 sobre integridade do portfólio (count==7, canonical present, executors set). Cron/CI: `catalog --check || alert`. 4 catalog command tests verdes.
 
