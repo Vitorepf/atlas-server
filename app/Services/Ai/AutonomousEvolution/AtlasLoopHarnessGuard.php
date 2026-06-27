@@ -86,6 +86,10 @@ final class AtlasLoopHarnessGuard
         // réu could shape its OWN apparent success streak to fake a compounding lift. Pétreo for the same
         // reason as the cert chain (réu never edits the organ that decides whether its delivery counts).
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainCompoundingDigest.php',
+        // The METRIC SNAPSHOT — the DECLARATION of which measurable facts the brain should be optimizing.
+        // Editable ⇒ the réu would drop "recent_refusal_count" the moment it became inconvenient (the
+        // Goodhart-on-the-meta-objective trap the V4 pétreo block was created to prevent).
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainMetricSnapshot.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',

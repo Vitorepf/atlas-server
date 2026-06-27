@@ -12,6 +12,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvolutionDocAuthor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvolutionLevelClassifier;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainFrontierSourceRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMetricSnapshot;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPortfolioRouter;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeDryProbe;
@@ -245,6 +246,10 @@ final class AtlasBrainNextCommand extends Command
                 'signal_class' => $route['signal_class'],
                 'frontier_candidates' => $frontier,
                 'compounding' => $hasCompounding ? $compounding : null,
+                // METRICS-OPTIMIZATION: declared measurable facts the brain should be optimizing (counts
+                // + tail-streak — never a learned scalar). Always present when scope_signals fires — the
+                // metric list is a contract, even values of 0 are signal ("nothing to push here").
+                'metrics' => app(AtlasBrainMetricSnapshot::class)->snapshot($model, $ledger)['metrics'],
             ],
         ];
     }
