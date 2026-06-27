@@ -37,6 +37,7 @@ final class AtlasBrainSchemaContractRegistry
         AtlasBrainCoverageMatrix::SCHEMA => AtlasBrainCoverageMatrix::class,
         AtlasBrainStaleEvidenceVeto::SCHEMA => AtlasBrainStaleEvidenceVeto::class,
         AtlasBrainPathYieldEwma::SCHEMA => AtlasBrainPathYieldEwma::class,
+        AtlasBrainConcentrationHhi::SCHEMA => AtlasBrainConcentrationHhi::class,
     ];
 
     public function ownerOf(string $schema): ?string

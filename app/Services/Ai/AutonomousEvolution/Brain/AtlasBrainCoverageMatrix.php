@@ -42,6 +42,7 @@ final class AtlasBrainCoverageMatrix
         'metrics-optimization' => [
             AtlasBrainPathDiversityScore::class,
             AtlasBrainPathPriorityRank::class,
+            AtlasBrainConcentrationHhi::class,
         ],
         'pattern-design' => [
             AtlasBrainPathOscillationDetector::class,
