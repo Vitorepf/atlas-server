@@ -85,6 +85,15 @@ final class AtlasBrainSeedGateAdversarialAuditor
                 ],
                 'expected' => 'acceptance_not_runnable',
             ],
+            'blind_orphan_wiring_proxy_promoted' => [
+                'packet' => [
+                    'objective' => 'wire the confirmed orphan App\\Services\\AtlasFooBar into the live flow via php artisan boot',
+                    'allowed_files' => ['app/Services/AtlasFooBar.php'],
+                    'acceptance_criteria' => ['php artisan test --filter=AtlasFooBarTest passes'],
+                    'required_evidence' => ['tests_or_gates_result'],
+                ],
+                'expected' => 'blind_orphan_wiring_proxy',
+            ],
             'universal_blocking_passes_through' => [
                 'packet' => [
                     'objective' => '   ',
