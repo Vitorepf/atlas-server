@@ -472,3 +472,11 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 6 tests / 31 assertions green (every declared dep class exists)
 - next: paths still at 4: frontier, adversarial, compounding, simulation, pattern
+
+## L194 — path priority rationale (frontier-harvest)
+- path: frontier-harvest (now 5 organs)
+- organ: AtlasBrainPathPriorityRationale — ranked rows → human-readable lines
+- coverage: frontier-harvest=5; comprehension=5; metrics=5; pattern/adversarial/compounding/simulation=4
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 4 tests / 6 assertions green; pint green
+- next: bring remaining 4 paths to 5
