@@ -140,4 +140,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 753367166 — **L108 summary one-liner termina com next=<code>**: top recommended action visível na cron line. 'next=none' quando saudável. 2 summary tests verdes.
 - 9a8c28f3f — **L109 brain:plan single-purpose command (pétreo)**: wrapper one-shot do recommended_action. "O que fazer agora" sem grep nos findings. 2 plan tests verdes; 240+ brain tests total.
 - adfadb469 — **L110 plan adviser ganha recommended_path mapping**: cada finding code mapeia para portfolio path (gate_regression→adversarial-critique, frontier_empty→frontier-harvest, etc). Doctor diz O QUÊ, adviser diz POR ONDE rotacionar. 5 adviser tests verdes.
+- c1f00ce7b — **L111 summary ganha path=<portfolio-path>**: cron one-liner inclui o path recomendado pelo adviser. Operator vê WHAT broke + WHERE rotacionar num só read. 2 summary tests verdes.
 
